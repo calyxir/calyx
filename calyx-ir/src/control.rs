@@ -451,6 +451,11 @@ impl Control {
 }
 
 impl StaticControl {
+    /// Convience constructor for empty.
+    pub fn empty() -> Self {
+        StaticControl::Empty(Empty::default())
+    }
+
     /// Returns the value of an attribute if present
     pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
     where

@@ -168,6 +168,26 @@ impl StaticParTiming {
         live: &LiveRangeAnalysis,
     ) -> Option<(u64, u64, u64)> {
         match sc {
+            ir::StaticControl::Empty(_) => cur_state,
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch, fbranch, ..
+            }) => match cur_state {
+                Some((parent_par, thread_id, cur_clock)) => {
+                    let latency = sc.get_latency();
+                    // we already know parent par + latency of the if stmt, so don't
+                    // care about return type: we just want to add enables to the timing map
+                    self.build_time_map_static(tbranch, cur_state, live);
+                    self.build_time_map_static(fbranch, cur_state, live);
+                    Some((parent_par, thread_id, cur_clock + latency))
+                }
+                None => {
+                    // should still look thru the branches in case there are static pars
+                    // inside the branches
+                    self.build_time_map_static(tbranch, cur_state, live);
+                    self.build_time_map_static(fbranch, cur_state, live);
+                    None
+                }
+            },
             ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
                 match cur_state {
                     Some((par_id, thread_id, cur_clock)) => {

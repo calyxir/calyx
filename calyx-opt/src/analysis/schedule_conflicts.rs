@@ -117,6 +117,13 @@ fn build_conflict_graph_static(
             // set of enables.
             all_nodes.append(&mut par_nodes.into_iter().flatten().collect());
         }
+        ir::StaticControl::If(ir::StaticIf {
+            tbranch, fbranch, ..
+        }) => {
+            build_conflict_graph_static(tbranch, confs, all_nodes);
+            build_conflict_graph_static(fbranch, confs, all_nodes);
+        }
+        ir::StaticControl::Empty(_) => (),
     }
 }
 /// Construct a conflict graph by traversing the Control program.

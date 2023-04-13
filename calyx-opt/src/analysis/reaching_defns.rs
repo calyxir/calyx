@@ -292,6 +292,7 @@ fn build_reaching_def_static(
     counter: &mut u64,
 ) -> (DefSet, KilledSet) {
     match sc {
+        ir::StaticControl::Empty(_) => (reach, killed),
         ir::StaticControl::Enable(sen) => {
             // (Note Caleb/Pai): This is similar to case for enable group right now
             // We could eventually try to merge it, but we should do it after we have
@@ -327,10 +328,18 @@ fn build_reaching_def_static(
             (cur_reach, killed)
         }
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
-            let (round_1_def, mut round_1_killed) = build_reaching_def_static(
-                body,
+            let (post_cond_def, post_cond_killed) = build_reaching_def_static(
+                &ir::StaticControl::empty(),
                 reach.clone(),
                 killed,
+                rd,
+                counter,
+            );
+
+            let (round_1_def, mut round_1_killed) = build_reaching_def_static(
+                body,
+                post_cond_def,
+                post_cond_killed,
                 rd,
                 counter,
             );
@@ -389,6 +398,32 @@ fn build_reaching_def_static(
                 })
                 .fold(DefSet::default(), |acc, element| &acc | &element);
             (par_exit_defs, &global_killed | &killed)
+        }
+        ir::StaticControl::If(ir::StaticIf {
+            tbranch, fbranch, ..
+        }) => {
+            let (post_cond_def, post_cond_killed) = build_reaching_def_static(
+                &ir::StaticControl::empty(),
+                reach,
+                killed,
+                rd,
+                counter,
+            );
+            let (t_case_def, t_case_killed) = build_reaching_def_static(
+                tbranch,
+                post_cond_def.clone(),
+                post_cond_killed.clone(),
+                rd,
+                counter,
+            );
+            let (f_case_def, f_case_killed) = build_reaching_def_static(
+                fbranch,
+                post_cond_def,
+                post_cond_killed,
+                rd,
+                counter,
+            );
+            (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
         }
     }
 }

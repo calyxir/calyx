@@ -14,6 +14,7 @@ impl ControlId {
         two_if_ids: bool,
     ) -> u64 {
         match scon {
+            ir::StaticControl::Empty(_) => cur_state,
             ir::StaticControl::Enable(ir::StaticEnable {
                 attributes, ..
             }) => {
@@ -44,6 +45,35 @@ impl ControlId {
                     cur_state = new_state;
                 });
                 cur_state
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch,
+                fbranch,
+                attributes,
+                ..
+            }) => {
+                if two_if_ids {
+                    attributes.insert(BEGIN_ID, cur_state);
+                    cur_state += 1;
+                    cur_state = Self::compute_unique_ids_static(
+                        tbranch, cur_state, two_if_ids,
+                    );
+                    cur_state = Self::compute_unique_ids_static(
+                        fbranch, cur_state, two_if_ids,
+                    );
+                    attributes.insert(END_ID, cur_state);
+                    cur_state + 1
+                } else {
+                    attributes.insert(NODE_ID, cur_state);
+                    cur_state += 1;
+                    cur_state = Self::compute_unique_ids_static(
+                        tbranch, cur_state, two_if_ids,
+                    );
+                    cur_state = Self::compute_unique_ids_static(
+                        fbranch, cur_state, two_if_ids,
+                    );
+                    cur_state + 1
+                }
             }
         }
     }

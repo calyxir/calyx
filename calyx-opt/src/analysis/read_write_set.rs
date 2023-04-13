@@ -125,6 +125,7 @@ impl ReadWriteSet {
         scon: &ir::StaticControl,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
         match scon {
+            ir::StaticControl::Empty(_) => (vec![], vec![]),
             ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => (
                 Self::port_read_set(group.borrow().assignments.iter())
                     .collect(),
@@ -143,6 +144,25 @@ impl ReadWriteSet {
                     reads.append(&mut read);
                     writes.append(&mut write);
                 }
+                (reads, writes)
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                port,
+                tbranch,
+                fbranch,
+                ..
+            }) => {
+                let (mut reads, mut writes) = (vec![], vec![]);
+                let (mut treads, mut twrites) =
+                    Self::control_port_read_write_set_static(tbranch);
+                let (mut freads, mut fwrites) =
+                    Self::control_port_read_write_set_static(fbranch);
+                reads.append(&mut treads);
+                reads.append(&mut freads);
+                reads.push(Rc::clone(port));
+                writes.append(&mut twrites);
+                writes.append(&mut fwrites);
+
                 (reads, writes)
             }
         }

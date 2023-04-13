@@ -94,6 +94,10 @@ impl Prop {
         self.or(gen);
     }
 
+    fn insert(&mut self, (cell_type, cell_name): (ir::CellType, ir::Id)) {
+        self.map.entry(cell_type).or_default().insert(cell_name);
+    }
+
     /// Defines the data_flow transfer function. `(alive - kill) + gen`.
     /// However, this is for when gen and kill are sets, and self is a map.
     fn transfer_set(&mut self, gen: TypeNameSet, kill: TypeNameSet) {
@@ -369,6 +373,7 @@ impl LiveRangeAnalysis {
         sc: &ir::StaticControl,
     ) {
         match sc {
+            ir::StaticControl::Empty(_) => (),
             ir::StaticControl::Enable(_) => {
                 let id = ControlId::get_guaranteed_id_static(sc);
                 let live_set = self.live.get(&id).unwrap().map.clone();
@@ -425,6 +430,55 @@ impl LiveRangeAnalysis {
                         stmt,
                     );
                     new_parents.remove(&child_id);
+                }
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                port,
+                tbranch,
+                fbranch,
+                ..
+            }) => {
+                self.get_live_control_data_static(
+                    live_once_map,
+                    par_thread_map,
+                    live_cell_map,
+                    parents,
+                    tbranch,
+                );
+                self.get_live_control_data_static(
+                    live_once_map,
+                    par_thread_map,
+                    live_cell_map,
+                    parents,
+                    fbranch,
+                );
+                let id = ControlId::get_guaranteed_id_static(sc);
+                // Examining the cell read from in the if guard
+                if let Some((cell_type, cell_name)) =
+                    LiveRangeAnalysis::port_to_cell_name(
+                        port,
+                        &self.state_share,
+                    )
+                {
+                    // add guard cell as live within whichever direct children of
+                    // par blocks they're located within
+                    if !parents.is_empty() {
+                        live_once_map
+                            .entry(cell_type.clone())
+                            .or_default()
+                            .entry(cell_name)
+                            .or_default()
+                            .extend(parents);
+                    }
+                    // mark cell as live in the control id of the if statement.
+                    // What this really means, though, is that the cell is live
+                    // at the comb group/port guard of the if statement
+                    live_cell_map
+                        .entry(cell_type.clone())
+                        .or_default()
+                        .entry(cell_name)
+                        .or_default()
+                        .insert(id);
                 }
             }
         }
@@ -870,6 +924,7 @@ impl LiveRangeAnalysis {
         mut kills: Prop,
     ) -> (Prop, Prop, Prop) {
         match sc {
+            ir::StaticControl::Empty(_) => (alive, gens, kills),
             ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
                 // (Note Caleb/Pai): This is similar to case for enable group right now
                 // We could eventually try to merge it, but we should do it after we have
@@ -957,6 +1012,40 @@ impl LiveRangeAnalysis {
                 // of the outputs of the child node
                 alive.transfer(gens.clone(), kills.clone());
                 (alive, gens, kills)
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch,
+                fbranch,
+                port,
+                ..
+            }) => {
+                // compute each branch
+                let (mut t_alive, mut t_gens, mut t_kills) = self
+                    .build_live_ranges_static(
+                        tbranch,
+                        alive.clone(),
+                        gens.clone(),
+                        kills.clone(),
+                    );
+                let (f_alive, f_gens, f_kills) =
+                    self.build_live_ranges_static(fbranch, alive, gens, kills);
+
+                // take union
+                t_alive.or(f_alive);
+                t_gens.or(f_gens);
+                // kills must take intersection to be conservative
+                t_kills.intersect(f_kills);
+
+                // add if guard cell to the alive/gens sets
+                if let Some(cell_info) = LiveRangeAnalysis::port_to_cell_name(
+                    port,
+                    &self.state_share,
+                ) {
+                    t_alive.insert(cell_info.clone());
+                    t_gens.insert(cell_info);
+                }
+
+                (t_alive, t_gens, t_kills)
             }
         }
     }
@@ -1109,6 +1198,7 @@ impl LiveRangeAnalysis {
                 // take union
                 t_alive.or(f_alive);
                 t_gens.or(f_gens);
+                // kills must be intersection to be conservative
                 t_kills.intersect(f_kills);
 
                 let id = ControlId::get_guaranteed_id(c);
