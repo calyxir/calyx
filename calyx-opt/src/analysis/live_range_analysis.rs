@@ -386,30 +386,30 @@ impl LiveRangeAnalysis {
     }
 
     fn add_cell_to_control_data(
-        &self,
         id: u64,
-        (cell_type, cell_name): (ir::CellType, ir::Id),
+        (cell_type, cell_name): &(ir::CellType, ir::Id),
         live_once_map: &mut LiveMapByType,
         live_cell_map: &mut LiveMapByType,
         parents: &HashSet<u64>,
     ) {
-        // add cells as live within whichever direct children of
+        // add cell as live within whichever direct children of
         // par blocks they're located within
         if !parents.is_empty() {
             live_once_map
                 .entry(cell_type.clone())
                 .or_default()
-                .entry(cell_name)
+                .entry(*cell_name)
                 .or_default()
                 .extend(parents);
         }
-        // mark cell as live in the control id of the if statement.
-        // What this really means, though, is that the cell is live
-        // at the comb group/port guard of the if statement
+        // mark cell as live in the control id
+        // If id corresponds to an if/while guard,
+        // what is really means, is that the cell is live
+        // at the comb group/port guard of the if/while statement
         live_cell_map
             .entry(cell_type.clone())
             .or_default()
-            .entry(cell_name)
+            .entry(*cell_name)
             .or_default()
             .insert(id);
     }
@@ -496,31 +496,17 @@ impl LiveRangeAnalysis {
                 );
                 let id = ControlId::get_guaranteed_id_static(sc);
                 // Examining the cell read from in the if guard
-                if let Some((cell_type, cell_name)) =
-                    LiveRangeAnalysis::port_to_cell_name(
-                        port,
-                        &self.state_share,
+                if let Some(cell_info) = LiveRangeAnalysis::port_to_cell_name(
+                    port,
+                    &self.state_share,
+                ) {
+                    Self::add_cell_to_control_data(
+                        id,
+                        &cell_info,
+                        live_once_map,
+                        live_cell_map,
+                        parents,
                     )
-                {
-                    // add guard cell as live within whichever direct children of
-                    // par blocks they're located within
-                    if !parents.is_empty() {
-                        live_once_map
-                            .entry(cell_type.clone())
-                            .or_default()
-                            .entry(cell_name)
-                            .or_default()
-                            .extend(parents);
-                    }
-                    // mark cell as live in the control id of the if statement.
-                    // What this really means, though, is that the cell is live
-                    // at the comb group/port guard of the if statement
-                    live_cell_map
-                        .entry(cell_type)
-                        .or_default()
-                        .entry(cell_name)
-                        .or_default()
-                        .insert(id);
                 }
             }
         }
@@ -599,26 +585,14 @@ impl LiveRangeAnalysis {
                 let id = ControlId::get_guaranteed_id(c);
                 // Examining all the cells used at the comb group of the if stmt
                 if let Some(comb_group_uses) = self.cgroup_uses_map.get(&id) {
-                    for (cell_type, cell_name) in comb_group_uses {
-                        // add cells as live within whichever direct children of
-                        // par blocks they're located within
-                        if !parents.is_empty() {
-                            live_once_map
-                                .entry(cell_type.clone())
-                                .or_default()
-                                .entry(*cell_name)
-                                .or_default()
-                                .extend(parents);
-                        }
-                        // mark cell as live in the control id of the if statement.
-                        // What this really means, though, is that the cell is live
-                        // at the comb group/port guard of the if statement
-                        live_cell_map
-                            .entry(cell_type.clone())
-                            .or_default()
-                            .entry(*cell_name)
-                            .or_default()
-                            .insert(id);
+                    for cell_info in comb_group_uses {
+                        Self::add_cell_to_control_data(
+                            id,
+                            cell_info,
+                            live_once_map,
+                            live_cell_map,
+                            parents,
+                        )
                     }
                 }
             }
@@ -950,6 +924,54 @@ impl LiveRangeAnalysis {
         invoke_uses
     }
 
+    // Updates Live Range Analysis
+    // id should correspond to the id of an enable, and assigns should correspond
+    // to the assignments in that enable
+    // reads and writes should be the reads/writes of the assigns
+    // alive, gens, kills are the alive, gens, and kills coming into the enable
+    // returns the alive, gens, and kills leaving the enable
+    // It also updates self.live at id to be the cells live at live
+    // It also updates self.invokes_enables_map
+    fn update_group_liveness<T>(
+        &mut self,
+        assigns: &[ir::Assignment<T>],
+        id: u64,
+        reads: HashSet<(ir::CellType, ir::Id)>,
+        writes: HashSet<(ir::CellType, ir::Id)>,
+        mut alive: Prop,
+        mut gens: Prop,
+        mut kills: Prop,
+    ) -> (Prop, Prop, Prop) {
+        let uses_share =
+            LiveRangeAnalysis::find_uses_assigns(assigns, &self.share);
+        self.invokes_enables_map
+            .entry(id)
+            .or_default()
+            .extend(uses_share);
+        // compute transfer function
+        alive.transfer_set(reads.clone(), writes.clone());
+        let alive_out = alive.clone();
+
+        // set the live set of this node to be the things live on the
+        // output of this node plus the things written to in this group
+        self.live.insert(id, {
+            alive.or_set(writes.clone());
+            alive
+        });
+        (
+            alive_out,
+            {
+                gens.sub_set(writes.clone());
+                gens.or_set(reads);
+                gens
+            },
+            {
+                kills.or_set(writes);
+                kills
+            },
+        )
+    }
+
     fn build_live_ranges_static(
         &mut self,
         sc: &ir::StaticControl,
@@ -960,41 +982,16 @@ impl LiveRangeAnalysis {
         match sc {
             ir::StaticControl::Empty(_) => (alive, gens, kills),
             ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
-                // (Note Caleb/Pai): This is similar to case for enable group right now
-                // We could eventually try to merge it, but we should do it after we have
-                // hammered down the details of the rest of the static IR assignments
-                let uses_share = LiveRangeAnalysis::find_uses_assigns(
-                    &group.borrow().assignments,
-                    &self.share,
-                );
-                self.invokes_enables_map
-                    .entry(ControlId::get_guaranteed_id_static(sc))
-                    .or_default()
-                    .extend(uses_share);
                 // XXX(sam) no reason to compute this every time
                 let (reads, writes) = self.find_gen_kill_static_group(group);
-
-                // compute transfer function
-                alive.transfer_set(reads.clone(), writes.clone());
-                let alive_out = alive.clone();
-
-                // set the live set of this node to be the things live on the
-                // output of this node plus the things written to in this group
-                self.live.insert(ControlId::get_guaranteed_id_static(sc), {
-                    alive.or_set(writes.clone());
-                    alive
-                });
-                (
-                    alive_out,
-                    {
-                        gens.sub_set(writes.clone());
-                        gens.or_set(reads);
-                        gens
-                    },
-                    {
-                        kills.or_set(writes);
-                        kills
-                    },
+                self.update_group_liveness(
+                    &group.borrow().assignments,
+                    ControlId::get_guaranteed_id_static(sc),
+                    reads,
+                    writes,
+                    alive,
+                    gens,
+                    kills,
                 )
             }
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
@@ -1133,38 +1130,17 @@ impl LiveRangeAnalysis {
                 )
             }
             ir::Control::Enable(ir::Enable { group, .. }) => {
-                let uses_share = LiveRangeAnalysis::find_uses_assigns(
-                    &group.borrow().assignments,
-                    &self.share,
-                );
-                self.invokes_enables_map
-                    .entry(ControlId::get_guaranteed_id(c))
-                    .or_default()
-                    .extend(uses_share);
                 // XXX(sam) no reason to compute this every time
                 let (reads, writes) = self.find_gen_kill_group(group);
 
-                // compute transfer function
-                alive.transfer_set(reads.clone(), writes.clone());
-                let alive_out = alive.clone();
-
-                // set the live set of this node to be the things live on the
-                // output of this node plus the things written to in this group
-                self.live.insert(ControlId::get_guaranteed_id(c), {
-                    alive.or_set(writes.clone());
-                    alive
-                });
-                (
-                    alive_out,
-                    {
-                        gens.sub_set(writes.clone());
-                        gens.or_set(reads);
-                        gens
-                    },
-                    {
-                        kills.or_set(writes);
-                        kills
-                    },
+                self.update_group_liveness(
+                    &group.borrow().assignments,
+                    ControlId::get_guaranteed_id(c),
+                    reads,
+                    writes,
+                    alive,
+                    gens,
+                    kills,
                 )
             }
             ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => {
