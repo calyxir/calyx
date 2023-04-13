@@ -510,9 +510,6 @@ impl Visitable for Control {
             Control::Enable(ctrl) => {
                 visitor.enable(ctrl, component, sigs, comps)?
             }
-            Control::StaticEnable(ctrl) => {
-                visitor.static_enable(ctrl, component, sigs, comps)?
-            }
             Control::Static(sctrl) => {
                 sctrl.visit(visitor, component, sigs, comps)?
             }

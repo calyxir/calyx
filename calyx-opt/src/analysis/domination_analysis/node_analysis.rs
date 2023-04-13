@@ -141,15 +141,6 @@ impl NodeReads {
                         }
                     }
                 }
-                ir::Control::StaticEnable(ir::StaticEnable {
-                    group, ..
-                }) => {
-                    add_assignment_reads(
-                        &mut reads,
-                        state_shareable,
-                        &group.borrow().assignments,
-                    );
-                }
                 ir::Control::Enable(ir::Enable { group, .. }) => {
                     add_assignment_reads(
                         &mut reads,
@@ -264,13 +255,6 @@ impl NodeSearch {
                     unreachable!(
                         "no empty/seqs/pars/static should be in domination map"
                     )
-                }
-                ir::Control::StaticEnable(ir::StaticEnable {
-                    group, ..
-                }) => {
-                    if self.go_is_written(&group.borrow().assignments) {
-                        return true;
-                    }
                 }
                 ir::Control::Enable(ir::Enable { group, .. }) => {
                     if self.go_is_written(&group.borrow().assignments) {

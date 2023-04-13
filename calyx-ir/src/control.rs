@@ -263,8 +263,6 @@ pub enum Control {
     Enable(Enable),
     /// Control statement that does nothing.
     Empty(Empty),
-    /// Runs the control for a static group.
-    StaticEnable(StaticEnable),
     /// Static Control
     Static(StaticControl),
 }
@@ -302,8 +300,7 @@ impl GetAttributes for Control {
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
-            | Self::Empty(Empty { attributes })
-            | Self::StaticEnable(StaticEnable { attributes, .. }) => attributes,
+            | Self::Empty(Empty { attributes }) => attributes,
             Self::Static(s) => s.get_mut_attributes(),
         }
     }
@@ -316,8 +313,7 @@ impl GetAttributes for Control {
             | Self::While(While { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
-            | Self::Empty(Empty { attributes })
-            | Self::StaticEnable(StaticEnable { attributes, .. }) => attributes,
+            | Self::Empty(Empty { attributes }) => attributes,
             Self::Static(s) => s.get_attributes(),
         }
     }
@@ -385,10 +381,10 @@ impl Control {
 
     /// Convience constructor for static enable.
     pub fn static_enable(group: RRC<StaticGroup>) -> Self {
-        Control::StaticEnable(StaticEnable {
+        Control::Static(StaticControl::Enable(StaticEnable {
             group,
             attributes: Attributes::default(),
-        })
+        }))
     }
 
     /// Convience constructor for invoke.
@@ -626,9 +622,6 @@ impl Cloner {
             Control::While(wh) => Control::While(Cloner::while_(wh)),
             Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
             Control::Enable(en) => Control::Enable(Cloner::enable(en)),
-            Control::StaticEnable(en) => {
-                Control::StaticEnable(Cloner::static_enable(en))
-            }
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),
             Control::Static(s) => Control::Static(Cloner::static_(s)),
         }

@@ -602,40 +602,6 @@ fn build_reaching_def(
 
             (cur_reach, killed)
         }
-        ir::Control::StaticEnable(en) => {
-            // (Note Caleb/Pai): This is similar to case for enable group right now
-            // We could eventually try to merge it, but we should do it after we have
-            // hammered down the details of the rest of the static IR assignments
-            let asgns = &en.group.borrow().assignments;
-            let writes = ReadWriteSet::must_write_set(asgns.iter());
-            // for each write:
-            // Killing all other reaching defns for that var
-            // generating a new defn (Id, GROUP)
-            let write_set = writes
-                .filter(|x| match &x.borrow().prototype {
-                    ir::CellType::Primitive { name, .. } => name == "std_reg",
-                    _ => false,
-                })
-                .map(|x| x.borrow().name())
-                .collect::<BTreeSet<_>>();
-
-            let read_set = ReadWriteSet::register_reads(
-                en.group.borrow().assignments.iter(),
-            )
-            .map(|x| x.borrow().name())
-            .collect::<BTreeSet<_>>();
-            // only kill a def if the value is not read.
-            let (mut cur_reach, killed) =
-                reach.kill_from_writeread(&write_set, &read_set);
-            cur_reach.extend(write_set, en.group.borrow().name());
-
-            rd.reach.insert(
-                GroupOrInvoke::Group(en.group.borrow().name()),
-                cur_reach.clone(),
-            );
-
-            (cur_reach, killed)
-        }
         ir::Control::Empty(_) => (reach, killed),
         ir::Control::Static(sc) => {
             build_reaching_def_static(sc, reach, killed, rd, counter)

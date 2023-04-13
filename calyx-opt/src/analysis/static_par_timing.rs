@@ -329,7 +329,7 @@ impl StaticParTiming {
                 cur_state
             }
             ir::Control::Empty(_) => cur_state,
-            ir::Control::StaticEnable(_) | ir::Control::Enable(_) => {
+            ir::Control::Enable(_) => {
                 match cur_state {
                     Some((par_id, thread_id, cur_clock)) => {
                         let enable_id = ControlId::get_guaranteed_id(c);

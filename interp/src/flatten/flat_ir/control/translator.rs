@@ -436,9 +436,6 @@ impl FlattenTree for cir::Control {
                 group_map.groups[&e.group.as_raw()],
             )),
             cir::Control::Empty(_) => ControlNode::Empty(Empty),
-            cir::Control::StaticEnable(_) => {
-                todo!("The interpreter does not support static groups yet")
-            }
             cir::Control::Static(_) => {
                 todo!("The interpreter does not support static control yet")
             }

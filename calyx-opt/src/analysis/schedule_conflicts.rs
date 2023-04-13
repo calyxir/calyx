@@ -142,10 +142,6 @@ fn build_conflict_graph(
             confs.add_node(group.borrow().name());
             all_nodes.push(group.borrow().name());
         }
-        ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => {
-            confs.add_node(group.borrow().name());
-            all_nodes.push(group.borrow().name());
-        }
         ir::Control::Seq(ir::Seq { stmts, .. }) => stmts
             .iter()
             .for_each(|c| build_conflict_graph(c, confs, all_nodes)),

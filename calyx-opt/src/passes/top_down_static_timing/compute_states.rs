@@ -50,9 +50,6 @@ impl ComputeStates {
                 let time = en.attributes["static"];
                 self.cur_st += time;
             }
-            ir::Control::StaticEnable(_) => {
-                panic!("StaticEnable behavior on tdst TBD")
-            }
             ir::Control::Static(_) => {
                 panic!("Static behavior on tdst TBD")
             }
@@ -122,9 +119,6 @@ impl ComputeStates {
             ir::Control::Enable(en) => {
                 let st = en.attributes[ID] + en.attributes["static"] - 1;
                 exits.push((st, ir::Guard::True));
-            }
-            ir::Control::StaticEnable(_) => {
-                panic!("StaticEnable behavior on tdst TBD")
             }
             ir::Control::Static(_) => {
                 panic!("Static behavior on tdst TBD")

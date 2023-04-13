@@ -628,9 +628,7 @@ impl LiveRangeAnalysis {
                     }
                 }
             }
-            ir::Control::Enable(_)
-            | ir::Control::Invoke(_)
-            | ir::Control::StaticEnable(_) => {
+            ir::Control::Enable(_) | ir::Control::Invoke(_) => {
                 let id = ControlId::get_guaranteed_id(c);
                 self.update_live_control_data(
                     id,
@@ -1143,44 +1141,6 @@ impl LiveRangeAnalysis {
                     alive,
                     gens,
                     kills,
-                )
-            }
-            ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => {
-                // (Note Caleb/Pai): This is similar to case for enable group right now
-                // We could eventually try to merge it, but we should do it after we have
-                // hammered down the details of the rest of the static IR assignments
-                let uses_share = LiveRangeAnalysis::find_uses_assigns(
-                    &group.borrow().assignments,
-                    &self.share,
-                );
-                self.invokes_enables_map
-                    .entry(ControlId::get_guaranteed_id(c))
-                    .or_default()
-                    .extend(uses_share);
-                // XXX(sam) no reason to compute this every time
-                let (reads, writes) = self.find_gen_kill_static_group(group);
-
-                // compute transfer function
-                alive.transfer_set(reads.clone(), writes.clone());
-                let alive_out = alive.clone();
-
-                // set the live set of this node to be the things live on the
-                // output of this node plus the things written to in this group
-                self.live.insert(ControlId::get_guaranteed_id(c), {
-                    alive.or_set(writes.clone());
-                    alive
-                });
-                (
-                    alive_out,
-                    {
-                        gens.sub_set(writes.clone());
-                        gens.or_set(reads);
-                        gens
-                    },
-                    {
-                        kills.or_set(writes);
-                        kills
-                    },
                 )
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => stmts.iter().rev().fold(

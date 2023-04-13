@@ -70,7 +70,6 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
             }));
         },
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
         ir::Control::Par(_) => unreachable!(),
         ir::Control::Static(_) => unreachable!(" static control should have been compiled away. Run the static compilation passes before this pass")
     }
@@ -200,7 +199,6 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         }
         ir::Control::Empty(_) => cur_state,
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
         ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
     }
 }
@@ -452,7 +450,6 @@ impl Schedule<'_, '_> {
         ir::Control::Par(_) => unreachable!(),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
-        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
         ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
     }
     }

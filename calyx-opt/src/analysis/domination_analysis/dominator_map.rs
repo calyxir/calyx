@@ -215,7 +215,6 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
         ir::Control::Empty(_) => (),
         ir::Control::Invoke(_)
         | ir::Control::Enable(_)
-        | ir::Control::StaticEnable(_)
         | ir::Control::While(_) => {
             hs.insert(ControlId::get_guaranteed_attribute(c, NODE_ID));
         }
@@ -295,9 +294,7 @@ impl DominatorMap {
     fn build_exit_map(&mut self, c: &ir::Control) {
         match c {
             ir::Control::Empty(_) => (),
-            ir::Control::Invoke(_)
-            | ir::Control::Enable(_)
-            | ir::Control::StaticEnable(_) => {
+            ir::Control::Invoke(_) | ir::Control::Enable(_) => {
                 let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
                 self.exits_map.insert(id, HashSet::from([id]));
             }
@@ -445,8 +442,7 @@ impl DominatorMap {
                         )
                     }
                     ir::Control::Invoke(_)
-                    | ir::Control::Enable(_)
-                    | ir::Control::StaticEnable(_) => {
+                    | ir::Control::Enable(_) => {
                         self.update_node(pred, cur_id);
                     }
                     ir::Control::Seq(ir::Seq { stmts, .. }) => {
@@ -591,7 +587,6 @@ impl DominatorMap {
         match c {
             ir::Control::Empty(_)
             | ir::Control::Invoke(_)
-            | ir::Control::StaticEnable(_)
             | ir::Control::Enable(_) => GenericControl::None,
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
