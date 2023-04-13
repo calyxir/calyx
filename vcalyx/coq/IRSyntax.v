@@ -68,7 +68,7 @@ Record prim :=
       prim_attribute: attributes;
       prim_ports: ports;
       (* for inlined primitives *)
-      prim_body: option ident
+      prim_body: option string
     }.
     
 (** Externs. *)
