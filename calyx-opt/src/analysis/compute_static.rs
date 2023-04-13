@@ -49,9 +49,7 @@ impl WithStatic for ir::Control {
             ir::Control::Invoke(inv) => inv.update_static(extra),
             ir::Control::Enable(en) => en.update_static(&()),
             ir::Control::Empty(_) => Some(0),
-            ir::Control::Static(_) => {
-                panic!("don't handle static in compute_static")
-            }
+            ir::Control::Static(sc) => Some(sc.get_latency()),
         }
     }
 }
