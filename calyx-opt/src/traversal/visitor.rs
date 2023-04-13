@@ -340,6 +340,28 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed before visiting the children of a [ir::StaticIf] node.
+    fn start_static_if(
+        &mut self,
+        _s: &mut ir::StaticIf,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed after visiting the children of a [ir::StaticIf] node.
+    fn finish_static_if(
+        &mut self,
+        _s: &mut ir::StaticIf,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed before visiting the children of a [ir::StaticRepeat] node.
     fn start_static_repeat(
         &mut self,
@@ -514,6 +536,9 @@ impl Visitable for StaticControl {
         components: &[ir::Component],
     ) -> VisResult {
         let res = match self {
+            StaticControl::Empty(ctrl) => {
+                visitor.empty(ctrl, component, signatures, components)?
+            }
             StaticControl::Enable(ctrl) => visitor
                 .static_enable(ctrl, component, signatures, components)?,
             StaticControl::Repeat(ctrl) => visitor
@@ -547,6 +572,24 @@ impl Visitable for StaticControl {
                 .and_then(|| {
                     visitor.finish_static_par(
                         ctrl, component, signatures, components,
+                    )
+                })?,
+            StaticControl::If(sctrl) => visitor
+                .start_static_if(sctrl, component, signatures, components)?
+                .and_then(|| {
+                    sctrl
+                        .tbranch
+                        .visit(visitor, component, signatures, components)
+                })?
+                .and_then(|| {
+                    sctrl
+                        .fbranch
+                        .visit(visitor, component, signatures, components)
+                })?
+                .pop()
+                .and_then(|| {
+                    visitor.finish_static_if(
+                        sctrl, component, signatures, components,
                     )
                 })?,
         };
