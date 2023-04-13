@@ -11,6 +11,10 @@ type TypeNameSet = HashSet<(ir::CellType, ir::Id)>;
 type CellsByType = HashMap<ir::CellType, HashSet<ir::Id>>;
 // maps cell type to maps that map cell name to control statement
 type LiveMapByType = HashMap<ir::CellType, HashMap<ir::Id, HashSet<u64>>>;
+type ReadWriteInfo = (
+    HashSet<(ir::CellType, ir::Id)>,
+    HashSet<(ir::CellType, ir::Id)>,
+);
 
 /// Returns [ir::Cell] which are read from in the assignments.
 /// **Ignores** reads from group holes, and reads from done signals, when it
@@ -936,8 +940,7 @@ impl LiveRangeAnalysis {
         &mut self,
         assigns: &[ir::Assignment<T>],
         id: u64,
-        reads: HashSet<(ir::CellType, ir::Id)>,
-        writes: HashSet<(ir::CellType, ir::Id)>,
+        read_write_info: ReadWriteInfo,
         mut alive: Prop,
         mut gens: Prop,
         mut kills: Prop,
@@ -948,6 +951,7 @@ impl LiveRangeAnalysis {
             .entry(id)
             .or_default()
             .extend(uses_share);
+        let (reads, writes) = read_write_info;
         // compute transfer function
         alive.transfer_set(reads.clone(), writes.clone());
         let alive_out = alive.clone();
@@ -987,8 +991,7 @@ impl LiveRangeAnalysis {
                 self.update_group_liveness(
                     &group.borrow().assignments,
                     ControlId::get_guaranteed_id_static(sc),
-                    reads,
-                    writes,
+                    (reads, writes),
                     alive,
                     gens,
                     kills,
@@ -1136,8 +1139,7 @@ impl LiveRangeAnalysis {
                 self.update_group_liveness(
                     &group.borrow().assignments,
                     ControlId::get_guaranteed_id(c),
-                    reads,
-                    writes,
+                    (reads, writes),
                     alive,
                     gens,
                     kills,
