@@ -363,7 +363,7 @@ impl DominatorMap {
             GenericControl::Dynamic(_) => {
                 unreachable!("should never get dynamic from get_static_control")
             }
-            GenericControl::None => return,
+            GenericControl::None => (),
             GenericControl::Static(sc) => match sc {
                 ir::StaticControl::Empty(_) => (),
                 ir::StaticControl::Enable(_) => {
@@ -436,7 +436,7 @@ impl DominatorMap {
         pred: &HashSet<u64>,
     ) {
         match Self::get_control(cur_id, main_c) {
-            GenericControl::None => return,
+            GenericControl::None => (),
             GenericControl::Dynamic(c) => {
                 match c {
                     ir::Control::Empty(_) => {

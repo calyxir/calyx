@@ -120,8 +120,6 @@ impl<'a> Rewriter<'a> {
     pub fn rewrite_static_control(
         &self,
         sc: &mut ir::StaticControl,
-        group_map: &RewriteMap<ir::Group>,
-        comb_group_map: &RewriteMap<ir::CombGroup>,
         static_group_map: &RewriteMap<ir::StaticGroup>,
     ) {
         match sc {
@@ -132,41 +130,21 @@ impl<'a> Rewriter<'a> {
                     sen.group = Rc::clone(new_group);
                 }
             }
-            ir::StaticControl::Repeat(rep) => self.rewrite_static_control(
-                &mut rep.body,
-                group_map,
-                comb_group_map,
-                static_group_map,
-            ),
-            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
-            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
-                stmts.iter_mut().for_each(|c| {
-                    self.rewrite_static_control(
-                        c,
-                        group_map,
-                        comb_group_map,
-                        static_group_map,
-                    )
-                })
+            ir::StaticControl::Repeat(rep) => {
+                self.rewrite_static_control(&mut rep.body, static_group_map)
             }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => stmts
+                .iter_mut()
+                .for_each(|c| self.rewrite_static_control(c, static_group_map)),
             ir::StaticControl::If(sif) => {
                 // Rewrite port use
                 if let Some(new_port) = self.get(&sif.port) {
                     sif.port = new_port;
                 }
                 // rewrite branches
-                self.rewrite_static_control(
-                    &mut sif.tbranch,
-                    group_map,
-                    comb_group_map,
-                    static_group_map,
-                );
-                self.rewrite_static_control(
-                    &mut sif.fbranch,
-                    group_map,
-                    comb_group_map,
-                    static_group_map,
-                );
+                self.rewrite_static_control(&mut sif.tbranch, static_group_map);
+                self.rewrite_static_control(&mut sif.fbranch, static_group_map);
             }
         }
     }
@@ -254,12 +232,9 @@ impl<'a> Rewriter<'a> {
             ir::Control::Invoke(inv) => {
                 self.rewrite_invoke(inv, comb_group_map)
             }
-            ir::Control::Static(s) => self.rewrite_static_control(
-                s,
-                group_map,
-                comb_group_map,
-                static_group_map,
-            ),
+            ir::Control::Static(s) => {
+                self.rewrite_static_control(s, static_group_map)
+            }
         }
     }
 }

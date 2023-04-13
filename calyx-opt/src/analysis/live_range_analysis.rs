@@ -474,7 +474,7 @@ impl LiveRangeAnalysis {
                     // What this really means, though, is that the cell is live
                     // at the comb group/port guard of the if statement
                     live_cell_map
-                        .entry(cell_type.clone())
+                        .entry(cell_type)
                         .or_default()
                         .entry(cell_name)
                         .or_default()
