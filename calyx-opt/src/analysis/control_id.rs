@@ -182,7 +182,7 @@ impl ControlId {
     // that c has attribute s.
     pub fn get_guaranteed_attribute(c: &ir::Control, s: &str) -> u64 {
         c.get_attribute(s).unwrap_or_else(||unreachable!(
-          "called get_guaranteed_attribute, meaning we had to be sure it had the id"
+          "called get_guaranteed_attribute, meaning we had to be sure it had the attribute"
       ))
     }
 
@@ -193,7 +193,7 @@ impl ControlId {
         s: &str,
     ) -> u64 {
         sc.get_attribute(s).unwrap_or_else(||unreachable!(
-          "called get_guaranteed_attribute_static, meaning we had to be sure it had the id"
+          "called get_guaranteed_attribute_static, meaning we had to be sure it had the attribute"
       ))
     }
 

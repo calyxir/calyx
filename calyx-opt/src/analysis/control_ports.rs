@@ -50,6 +50,9 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
 }
 
 impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
+    // currently does nothing since there are no invokes nor comb groups in
+    // static control. However, we might want to add them, so we are keeping this
+    /// (currenlty pointless) function here
     fn construct_static(scon: &ir::StaticControl) {
         match scon {
             ir::StaticControl::Empty(_) | ir::StaticControl::Enable(_) => (),

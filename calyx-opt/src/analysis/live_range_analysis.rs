@@ -315,7 +315,6 @@ pub struct LiveRangeAnalysis {
     /// Set of shareable components (as type names)
     share: ShareSet,
     /// maps invokes/enable ids to the shareable cell types/names used in them
-    /// maps invokes/enable ids to the shareable cell types/names used in them
     invokes_enables_map: HashMap<u64, TypeNameSet>,
     /// maps comb groups of if/while statements to the cell types/
     /// names used in them

@@ -480,6 +480,14 @@ impl StaticControl {
 }
 
 #[derive(Debug)]
+/// Either holds a reference to a StaticControl, reference to a Control, or None
+/// Helpful when we want to be able get get any specific control statement within a
+/// control program. For example, suppose we assign an id to each enable (static or dynamic)
+/// in the control program. A function that takes in an id and returns the appropriate
+/// enable would have to return a GenericControl.
+/// Has the weird affect that GenericControl::Dynamic(Control::Static(_)) can be
+/// a bit redundant with GenericControl::Static(_) but the latter gives us more precise access
+/// to every enum in the static control, instead of just the big wrapper.
 pub enum GenericControl<'a> {
     Static(&'a StaticControl),
     Dynamic(&'a Control),

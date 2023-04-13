@@ -543,8 +543,8 @@ impl DominatorMap {
                 for stmt in stmts {
                     match Self::get_static_control(id, stmt) {
                         GenericControl::None => (),
-                        GenericControl::Dynamic(c) => {
-                            return GenericControl::Dynamic(c)
+                        GenericControl::Dynamic(_) => {
+                            unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                         }
                         GenericControl::Static(sc) => {
                             return GenericControl::Static(sc)
@@ -557,8 +557,8 @@ impl DominatorMap {
                 tbranch, fbranch, ..
             }) => {
                 match Self::get_static_control(id, tbranch) {
-                    GenericControl::Dynamic(c) => {
-                        return GenericControl::Dynamic(c)
+                    GenericControl::Dynamic(_) => {
+                        unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                     }
                     GenericControl::Static(sc) => {
                         return GenericControl::Static(sc)
@@ -566,8 +566,8 @@ impl DominatorMap {
                     GenericControl::None => (),
                 }
                 match Self::get_static_control(id, fbranch) {
-                    GenericControl::Dynamic(c) => {
-                        return GenericControl::Dynamic(c)
+                    GenericControl::Dynamic(_) => {
+                        unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                     }
                     GenericControl::Static(sc) => {
                         return GenericControl::Static(sc)
@@ -643,8 +643,6 @@ impl DominatorMap {
     // statement in main_control, then it gives an unreachable! error.
     // Returns two vectors: controls, static_controls
     // (the dynamic and static nodes)
-    // Returns two vectors: controls, static_controls
-    // (the dynamic and static nodes)
     pub fn get_control_nodes<'a>(
         nodes: &HashSet<u64>,
         main_control: &'a ir::Control,
@@ -656,14 +654,14 @@ impl DominatorMap {
                 GenericControl::Static(sc) => static_controls.push(sc),
                 GenericControl::Dynamic(c) => controls.push(c),
                 GenericControl::None => {
-                    unreachable!("No control statemetn for ID {}", node)
+                    unreachable!("No control statement for ID {}", node)
                 }
             }
             match Self::get_control(*node, main_control) {
                 GenericControl::Static(sc) => static_controls.push(sc),
                 GenericControl::Dynamic(c) => controls.push(c),
                 GenericControl::None => {
-                    unreachable!("No control statemetn for ID {}", node)
+                    unreachable!("No control statement for ID {}", node)
                 }
             }
         }

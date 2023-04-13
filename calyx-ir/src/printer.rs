@@ -359,16 +359,22 @@ impl Printer {
                 attributes,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "{};", group.borrow().name().id)
+                writeln!(
+                    f,
+                    "<{}>{};",
+                    group.borrow().latency,
+                    group.borrow().name().id
+                )
             }
             ir::StaticControl::Repeat(ir::StaticRepeat {
                 num_repeats,
                 attributes,
                 body,
+                latency,
                 ..
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static repeat {} ", num_repeats)?;
+                writeln!(f, "static<{}> repeat {} ", latency, num_repeats)?;
                 writeln!(f, "{{")?;
                 Self::write_static_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
