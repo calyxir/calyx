@@ -37,7 +37,7 @@ fn remove_ids_static(sc: &mut ir::StaticControl) {
     atts.remove(END_ID);
     atts.remove(NODE_ID);
     match sc {
-        ir::StaticControl::Enable(_) => (),
+        ir::StaticControl::Empty(_) | ir::StaticControl::Enable(_) => (),
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
             remove_ids_static(body)
         }
@@ -46,6 +46,12 @@ fn remove_ids_static(sc: &mut ir::StaticControl) {
             for stmt in stmts {
                 remove_ids_static(stmt);
             }
+        }
+        ir::StaticControl::If(ir::StaticIf {
+            tbranch, fbranch, ..
+        }) => {
+            remove_ids_static(tbranch);
+            remove_ids_static(fbranch);
         }
     }
 }
