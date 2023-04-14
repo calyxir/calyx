@@ -17,6 +17,9 @@ impl ControlId {
             ir::StaticControl::Empty(_) => cur_state,
             ir::StaticControl::Enable(ir::StaticEnable {
                 attributes, ..
+            })
+            | ir::StaticControl::Invoke(ir::StaticInvoke {
+                attributes, ..
             }) => {
                 attributes.insert(NODE_ID, cur_state);
                 cur_state + 1
