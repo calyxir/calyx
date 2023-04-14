@@ -808,6 +808,25 @@ impl CalyxParser {
         ))
     }
 
+    fn latency_annotation(input: Node) -> ParseResult<u64> {
+        Ok(match_nodes!(
+            input.into_children();
+            [bitwidth(value)] => value,
+        ))
+    }
+
+    fn static_seq(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_word(_), latency_annotation(latency), stmt(stmt)..] => ast::Control::StaticSeq {
+                stmts: stmt.collect(),
+                attributes: attrs.add_span(span),
+                latency: Some(latency),
+            }
+        ))
+    }
+
     fn par(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(

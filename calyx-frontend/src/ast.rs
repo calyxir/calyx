@@ -341,6 +341,16 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
     },
+    /// Represents sequential composition of static control statements.
+    StaticSeq {
+        /// List of `Control` statements to run in sequence.
+        /// If not all of these stmts are static, we will error out
+        stmts: Vec<Control>,
+        /// Attributes
+        attributes: Attributes,
+        /// Latency for the seq
+        latency: Option<u64>,
+    },
 }
 
 impl Control {

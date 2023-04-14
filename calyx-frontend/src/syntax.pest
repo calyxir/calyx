@@ -283,10 +283,10 @@ seq = {
       ~ "}"
 }
 
-latency_annotation = "<" ~ bitwidth ~ ">"
+latency_annotation =  { "<" ~ bitwidth ~ ">" }
 
 static_seq = {
-      at_attributes ~ static_word ~ "seq" ~ latency_annotation? ~ "{"
+      at_attributes ~ static_word ~ "seq" ~ latency_annotation ~ "{"
       ~ stmt*
       ~ "}"
 }
