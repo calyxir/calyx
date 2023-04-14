@@ -439,6 +439,17 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed at a [ir::StaticInvoke] node.
+    fn static_invoke(
+        &mut self,
+        _s: &mut ir::StaticInvoke,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed at an [ir::Empty] node.
     fn empty(
         &mut self,
@@ -589,6 +600,9 @@ impl Visitable for StaticControl {
                         sctrl, component, signatures, components,
                     )
                 })?,
+            StaticControl::Invoke(sin) => {
+                visitor.static_invoke(sin, component, signatures, components)?
+            }
         };
         Ok(res.apply_static_change(self))
     }
