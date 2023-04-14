@@ -294,7 +294,7 @@ fn build_reaching_def_static(
     match sc {
         ir::StaticControl::Empty(_) => (reach, killed),
         ir::StaticControl::Enable(sen) => {
-            // (Note Caleb/Pai): This is similar to case for enable group right now
+            // TODO(calebmkim) TODO(paili0628): This is similar to case for enable group right now
             // We could eventually try to merge it, but we should do it after we have
             // hammered down the details of the rest of the static IR assignments
             let asgns = &sen.group.borrow().assignments;

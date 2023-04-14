@@ -20,7 +20,7 @@ impl GetAttributes for Seq {
     }
 }
 
-/// Data for the `seq` control statement.
+/// Data for the `static seq` control statement.
 #[derive(Debug)]
 pub struct StaticSeq {
     /// List of `StaticControl` statements to run in sequence.
@@ -56,7 +56,7 @@ impl GetAttributes for Par {
     }
 }
 
-// Data for the `par` control statement.
+// Data for the `static par` control statement.
 #[derive(Debug)]
 pub struct StaticPar {
     /// List of `StaticControl` statements to run in parallel.
@@ -103,13 +103,15 @@ impl GetAttributes for If {
     }
 }
 
-/// Data for the `if` control statement.
+/// Data for the `static if` control statement.
 #[derive(Debug)]
 pub struct StaticIf {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
 
     /// latency field
+    /// currrently, if two if branches take different amounts of time,
+    /// the latency to the length of the longer branch
     pub latency: u64,
 
     /// Control for the true branch.
@@ -153,7 +155,7 @@ impl GetAttributes for While {
     }
 }
 
-/// Data for the `StaticRepeat` control statement.
+/// Data for the `StaticRepeat` control statement. Essentially a static while loop.
 #[derive(Debug)]
 pub struct StaticRepeat {
     /// Attributes
@@ -288,6 +290,18 @@ impl From<Invoke> for Control {
 impl From<Enable> for Control {
     fn from(en: Enable) -> Self {
         Control::Enable(en)
+    }
+}
+
+impl<'a> From<&'a Control> for GenericControl<'a> {
+    fn from(c: &'a Control) -> Self {
+        GenericControl::Dynamic(c)
+    }
+}
+
+impl<'a> From<&'a StaticControl> for GenericControl<'a> {
+    fn from(sc: &'a StaticControl) -> Self {
+        GenericControl::Static(sc)
     }
 }
 

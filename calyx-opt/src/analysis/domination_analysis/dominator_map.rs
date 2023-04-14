@@ -525,7 +525,7 @@ impl DominatorMap {
             return GenericControl::None;
         }
         if matches_key_static(sc, id) {
-            return GenericControl::Static(sc);
+            return GenericControl::from(sc);
         };
         match sc {
             ir::StaticControl::Empty(_) | ir::StaticControl::Enable(_) => {
@@ -543,7 +543,7 @@ impl DominatorMap {
                             unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                         }
                         GenericControl::Static(sc) => {
-                            return GenericControl::Static(sc)
+                            return GenericControl::from(sc)
                         }
                     }
                 }
@@ -557,7 +557,7 @@ impl DominatorMap {
                         unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                     }
                     GenericControl::Static(sc) => {
-                        return GenericControl::Static(sc)
+                        return GenericControl::from(sc)
                     }
                     GenericControl::None => (),
                 }
@@ -566,7 +566,7 @@ impl DominatorMap {
                         unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                     }
                     GenericControl::Static(sc) => {
-                        return GenericControl::Static(sc)
+                        return GenericControl::from(sc)
                     }
                     GenericControl::None => (),
                 };
@@ -582,7 +582,7 @@ impl DominatorMap {
             return GenericControl::None;
         }
         if matches_key(c, id) {
-            return GenericControl::Dynamic(c);
+            return GenericControl::from(c);
         }
         match c {
             ir::Control::Empty(_)
@@ -594,10 +594,10 @@ impl DominatorMap {
                     match Self::get_control(id, stmt) {
                         GenericControl::None => (),
                         GenericControl::Dynamic(c) => {
-                            return GenericControl::Dynamic(c)
+                            return GenericControl::from(c)
                         }
                         GenericControl::Static(sc) => {
-                            return GenericControl::Static(sc)
+                            return GenericControl::from(sc)
                         }
                     }
                 }
@@ -608,19 +608,19 @@ impl DominatorMap {
             }) => {
                 match Self::get_control(id, tbranch) {
                     GenericControl::Dynamic(c) => {
-                        return GenericControl::Dynamic(c)
+                        return GenericControl::from(c)
                     }
                     GenericControl::Static(sc) => {
-                        return GenericControl::Static(sc)
+                        return GenericControl::from(sc)
                     }
                     GenericControl::None => (),
                 }
                 match Self::get_control(id, fbranch) {
                     GenericControl::Dynamic(c) => {
-                        return GenericControl::Dynamic(c)
+                        return GenericControl::from(c)
                     }
                     GenericControl::Static(sc) => {
-                        return GenericControl::Static(sc)
+                        return GenericControl::from(sc)
                     }
                     GenericControl::None => (),
                 };

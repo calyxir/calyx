@@ -758,7 +758,7 @@ impl LiveRangeAnalysis {
         }
     }
 
-    // (Note Caleb/Pai): This is similar to find_static_group right now
+    // TODO(calebmkim) TODO(paili0628): This is similar to find_static_group right now
     // We could eventually try to merge it, but we should do it after we have
     // hammered down the details of the rest of the static IR assignments
     fn find_gen_kill_static_group(

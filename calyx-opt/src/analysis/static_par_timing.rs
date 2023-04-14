@@ -155,6 +155,8 @@ impl StaticParTiming {
     }
 
     // Recursively updates self.time_map
+    // This is a helper function for fn `build_time_map`.
+    // Read comment for that function to see what this function is doing
     fn build_time_map_static(
         &mut self,
         sc: &ir::StaticControl,
@@ -309,6 +311,13 @@ impl StaticParTiming {
     }
 
     // Recursively updates self.time_map
+    // Takes in Control block c, cur_state = Option(parent_par_id, thread_id, cur_clock)
+    // parent_par_id is the id of the parent par
+    // thread_id is the id of the part thread
+    // cur_clock is the current clock cycle relative to the start of the parent
+    // returns Option(parent_par_id, thread_id, cur_clock)
+    // self.time_map currently maps par ids -> (maps of thread ids -> (maps of cells -> intervals for which
+    // cells are live))
     fn build_time_map(
         &mut self,
         c: &ir::Control,

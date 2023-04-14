@@ -152,18 +152,15 @@ impl ReadWriteSet {
                 fbranch,
                 ..
             }) => {
-                let (mut reads, mut writes) = (vec![], vec![]);
                 let (mut treads, mut twrites) =
                     Self::control_port_read_write_set_static(tbranch);
                 let (mut freads, mut fwrites) =
                     Self::control_port_read_write_set_static(fbranch);
-                reads.append(&mut treads);
-                reads.append(&mut freads);
-                reads.push(Rc::clone(port));
-                writes.append(&mut twrites);
-                writes.append(&mut fwrites);
+                treads.append(&mut freads);
+                treads.push(Rc::clone(port));
+                twrites.append(&mut fwrites);
 
-                (reads, writes)
+                (treads, twrites)
             }
         }
     }
@@ -217,26 +214,23 @@ impl ReadWriteSet {
                 fbranch,
                 ..
             }) => {
-                let (mut reads, mut writes) = (vec![], vec![]);
                 let (mut treads, mut twrites) =
                     Self::control_port_read_write_set(tbranch);
                 let (mut freads, mut fwrites) =
                     Self::control_port_read_write_set(fbranch);
-                reads.append(&mut treads);
-                reads.append(&mut freads);
-                reads.push(Rc::clone(port));
-                writes.append(&mut twrites);
-                writes.append(&mut fwrites);
+                treads.append(&mut freads);
+                treads.push(Rc::clone(port));
+                twrites.append(&mut fwrites);
 
                 if let Some(cg) = cond {
-                    reads.extend(Self::port_read_set(
+                    treads.extend(Self::port_read_set(
                         cg.borrow().assignments.iter(),
                     ));
-                    writes.extend(Self::port_write_set(
+                    twrites.extend(Self::port_write_set(
                         cg.borrow().assignments.iter(),
                     ));
                 }
-                (reads, writes)
+                (treads, twrites)
             }
             ir::Control::While(ir::While {
                 port, cond, body, ..
