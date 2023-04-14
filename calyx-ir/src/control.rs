@@ -255,8 +255,6 @@ pub struct StaticInvoke {
     pub outputs: PortMap,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
-    /// Optional combinational group that is active when the invoke is active.
-    pub comb_group: Option<RRC<CombGroup>>,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
     pub ref_cells: CellMap,
 }
@@ -371,7 +369,7 @@ impl GetAttributes for StaticControl {
             Self::Seq(StaticSeq { attributes, .. }) => attributes,
             Self::If(StaticIf { attributes, .. }) => attributes,
             Self::Empty(Empty { attributes, .. }) => attributes,
-            Self::Invoke(StaticInvoke {attributes, .. }) => attributes,
+            Self::Invoke(StaticInvoke { attributes, .. }) => attributes,
         }
     }
     fn get_attributes(&self) -> &Attributes {
@@ -382,7 +380,7 @@ impl GetAttributes for StaticControl {
             Self::Seq(StaticSeq { attributes, .. }) => attributes,
             Self::If(StaticIf { attributes, .. }) => attributes,
             Self::Empty(Empty { attributes, .. }) => attributes,
-            Self::Invoke(StaticInvoke {attributes, .. }) => attributes,
+            Self::Invoke(StaticInvoke { attributes, .. }) => attributes,
         }
     }
 }
@@ -515,7 +513,7 @@ impl StaticControl {
             | StaticControl::Par(StaticPar { latency, .. })
             | StaticControl::Repeat(StaticRepeat { latency, .. })
             | StaticControl::If(StaticIf { latency, .. })
-            | StaticControl::Invoke(StaticInvoke { latency, ..  }) => *latency,
+            | StaticControl::Invoke(StaticInvoke { latency, .. }) => *latency,
             &StaticControl::Empty(_) => 0,
         }
     }
@@ -642,14 +640,14 @@ impl Cloner {
     }
 
     pub fn static_invoke(i: &StaticInvoke) -> StaticInvoke {
-        StaticInvoke { comp: Rc::clone(&i.comp), 
-            latency: i.latency, 
-            inputs: i.inputs.clone(), 
-            outputs: i.outputs.clone(), 
-            attributes: i.attributes.clone(), 
-            comb_group: i.comb_group.clone(), 
+        StaticInvoke {
+            comp: Rc::clone(&i.comp),
+            latency: i.latency,
+            inputs: i.inputs.clone(),
+            outputs: i.outputs.clone(),
+            attributes: i.attributes.clone(),
             ref_cells: i.ref_cells.clone(),
-         }
+        }
     }
 
     pub fn static_(s: &StaticControl) -> StaticControl {
@@ -668,7 +666,9 @@ impl Cloner {
             }
             StaticControl::If(sif) => StaticControl::If(Cloner::static_if(sif)),
             StaticControl::Empty(e) => StaticControl::Empty(Self::empty(e)),
-            StaticControl::Invoke(si) => StaticControl::Invoke(Self::static_invoke(si)),
+            StaticControl::Invoke(si) => {
+                StaticControl::Invoke(Self::static_invoke(si))
+            }
         }
     }
 

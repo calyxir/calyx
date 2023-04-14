@@ -3,6 +3,7 @@
 //! to the Component.
 use itertools::Itertools;
 
+use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
 use std::io;
 use std::path::Path;
@@ -434,6 +435,67 @@ impl Printer {
                     Self::write_static_control(fbranch, indent_level + 2, f)?;
                     writeln!(f, "{}}}", " ".repeat(indent_level))
                 }
+            }
+            ir::StaticControl::Invoke(StaticInvoke {
+                comp,
+                latency,
+                inputs,
+                outputs,
+                attributes,
+                ref_cells,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                write!(
+                    f,
+                    "static invoke<{}> {}",
+                    latency,
+                    comp.borrow().name()
+                )?;
+                if !ref_cells.is_empty() {
+                    write!(f, "[")?;
+                    for (i, (outcell, incell)) in ref_cells.iter().enumerate() {
+                        write!(
+                            f,
+                            "{}{} = {}",
+                            if i == 0 { "" } else { "," },
+                            outcell,
+                            incell.borrow().name()
+                        )?
+                    }
+                    write!(f, "]")?;
+                }
+                write!(f, "(")?;
+                for (i, (arg, port)) in inputs.iter().enumerate() {
+                    write!(
+                        f,
+                        "{}\n{}{} = {}",
+                        if i == 0 { "" } else { "," },
+                        " ".repeat(indent_level + 2),
+                        arg,
+                        Self::port_to_str(&port.borrow())
+                    )?;
+                }
+                if inputs.is_empty() {
+                    write!(f, ")(")?;
+                } else {
+                    write!(f, "\n{})(", " ".repeat(indent_level))?;
+                }
+                for (i, (arg, port)) in outputs.iter().enumerate() {
+                    write!(
+                        f,
+                        "{}\n{}{} = {}",
+                        if i == 0 { "" } else { "," },
+                        " ".repeat(indent_level + 2),
+                        arg,
+                        Self::port_to_str(&port.borrow())
+                    )?;
+                }
+                if outputs.is_empty() {
+                    write!(f, ")")?;
+                } else {
+                    write!(f, "\n{})", " ".repeat(indent_level))?;
+                }
+                writeln!(f, ";")
             }
         }
     }

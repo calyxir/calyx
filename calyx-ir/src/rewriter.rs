@@ -1,3 +1,4 @@
+use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -115,6 +116,25 @@ impl<'a> Rewriter<'a> {
             });
     }
 
+    /// Rewrite a `static invoke` node using a [RewriteMap<ir::Cell>] and a [RewriteMap<ir::CombGroup>]
+    pub fn rewrite_static_invoke(&self, inv: &mut StaticInvoke) {
+        // Rewrite the name of the cell
+        let name = inv.comp.borrow().name();
+        if let Some(new_cell) = &self.get_cell_rewrite(&name) {
+            inv.comp = Rc::clone(new_cell);
+        }
+
+        // Rewrite the parameters
+        inv.inputs
+            .iter_mut()
+            .chain(inv.outputs.iter_mut())
+            .for_each(|(_, port)| {
+                if let Some(new_port) = self.get(&*port) {
+                    *port = new_port;
+                }
+            });
+    }
+
     /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
     /// rewrite maps.
     pub fn rewrite_static_control(
@@ -145,6 +165,9 @@ impl<'a> Rewriter<'a> {
                 // rewrite branches
                 self.rewrite_static_control(&mut sif.tbranch, static_group_map);
                 self.rewrite_static_control(&mut sif.fbranch, static_group_map);
+            }
+            ir::StaticControl::Invoke(sin) => {
+                self.rewrite_static_invoke(sin);
             }
         }
     }
