@@ -283,6 +283,14 @@ seq = {
       ~ "}"
 }
 
+latency_annotation = "<" ~ bitwidth ~ ">"
+
+static_seq = {
+      at_attributes ~ static_word ~ "seq" ~ latency_annotation? ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
 par = {
       at_attributes ~ "par" ~ "{"
       ~ stmt*
@@ -315,6 +323,7 @@ stmt = {
     | enable
     | invoke
     | seq
+    | static_seq
     | par
     | if_stmt
     | while_stmt
