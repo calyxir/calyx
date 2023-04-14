@@ -28,7 +28,7 @@ pub use common::{RRC, WRC};
 pub use component::{Component, IdList};
 pub use context::{BackendConf, Context, LibrarySignatures};
 pub use control::{
-    Cloner, Control, Empty, Enable, GenericControl, If, Invoke, Par, Seq,
+    Cloner, Control, Empty, Enable, GenericControl, If, Invoke, StaticInvoke, Par, Seq,
     StaticControl, StaticEnable, StaticIf, StaticPar, StaticRepeat, StaticSeq,
     While,
 };

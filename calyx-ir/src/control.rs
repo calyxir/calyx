@@ -195,6 +195,24 @@ impl GetAttributes for Enable {
     }
 }
 
+/// Data for the `enable` control for a static group.
+#[derive(Debug)]
+pub struct StaticEnable {
+    /// List of components to run.
+    pub group: RRC<StaticGroup>,
+    /// Attributes attached to this control statement.
+    pub attributes: Attributes,
+}
+impl GetAttributes for StaticEnable {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
 type PortMap = Vec<(Id, RRC<Port>)>;
 type CellMap = Vec<(Id, RRC<Cell>)>;
 
@@ -250,23 +268,6 @@ impl GetAttributes for StaticInvoke {
     }
 }
 
-/// Data for the `enable` control for a static group.
-#[derive(Debug)]
-pub struct StaticEnable {
-    /// List of components to run.
-    pub group: RRC<StaticGroup>,
-    /// Attributes attached to this control statement.
-    pub attributes: Attributes,
-}
-impl GetAttributes for StaticEnable {
-    fn get_attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn get_mut_attributes(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-}
 
 /// Data for the `empty` control statement.
 #[derive(Debug, Default)]
