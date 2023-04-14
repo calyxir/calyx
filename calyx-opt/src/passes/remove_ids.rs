@@ -37,7 +37,9 @@ fn remove_ids_static(sc: &mut ir::StaticControl) {
     atts.remove(END_ID);
     atts.remove(NODE_ID);
     match sc {
-        ir::StaticControl::Empty(_) | ir::StaticControl::Enable(_) => (),
+        ir::StaticControl::Empty(_)
+        | ir::StaticControl::Enable(_)
+        | ir::StaticControl::Invoke(_) => (),
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
             remove_ids_static(body)
         }

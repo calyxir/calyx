@@ -268,7 +268,6 @@ impl GetAttributes for StaticInvoke {
     }
 }
 
-
 /// Data for the `empty` control statement.
 #[derive(Debug, Default)]
 pub struct Empty {
