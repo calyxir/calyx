@@ -50,24 +50,72 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
 }
 
 impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
+    // handles the invoke pattern match in construct_static: meant to handle
+    // inputs, outputs =  inputs,outputs of the invoke that we're analzing
+    // comp = comp of invoke
+    // comb group = comb group of invoke, if it exists
+    // either dynamic or static invokes
+    // updates self.cg_to_port to account for comb_group of the invoke
+    // updates self.invoke_map to account for the invoke
+    fn handle_invoke(
+        &mut self,
+        inputs: &Vec<(ir::Id, ir::RRC<ir::Port>)>,
+        outputs: &Vec<(ir::Id, ir::RRC<ir::Port>)>,
+        comp: &ir::RRC<ir::Cell>,
+        comb_group: &Option<ir::RRC<ir::CombGroup>>,
+    ) {
+        if let Some(c) = comb_group {
+            let cells =
+                super::ReadWriteSet::uses(c.borrow().assignments.iter())
+                    .map(|cell| cell.borrow().name())
+                    .collect::<HashSet<_>>();
+            // Only add ports that come from cells used in this comb group.
+            let ports =
+                inputs
+                    .iter()
+                    .map(|(_, port)| Rc::clone(port))
+                    .filter(|port| {
+                        cells.contains(&port.borrow().get_parent_name())
+                    });
+            self.cg_to_port
+                .entry(c.borrow().name())
+                .or_default()
+                .extend(ports);
+        }
+        if INVOKE_MAP {
+            let name = comp.borrow().name();
+            let bindings =
+                inputs.iter().chain(outputs.iter()).cloned().collect_vec();
+            self.invoke_map.entry(name).or_default().push(bindings);
+        }
+    }
+
     // currently does nothing since there are no invokes nor comb groups in
     // static control. However, we might want to add them, so we are keeping this
     /// (currenlty pointless) function here
-    fn construct_static(scon: &ir::StaticControl) {
+    fn construct_static(&mut self, scon: &ir::StaticControl) {
         match scon {
             ir::StaticControl::Empty(_) | ir::StaticControl::Enable(_) => (),
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
-                Self::construct_static(body)
+                self.construct_static(body)
             }
             ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
             | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
-                stmts.iter().for_each(Self::construct_static);
+                stmts.iter().for_each(|stmt| self.construct_static(stmt));
             }
             ir::StaticControl::If(ir::StaticIf {
                 tbranch, fbranch, ..
             }) => {
-                Self::construct_static(tbranch);
-                Self::construct_static(fbranch);
+                self.construct_static(tbranch);
+                self.construct_static(fbranch);
+            }
+            ir::StaticControl::Invoke(ir::StaticInvoke {
+                comp,
+                inputs,
+                outputs,
+                ..
+            }) => {
+                self.handle_invoke(inputs, outputs, comp, &None);
             }
         }
     }
@@ -82,33 +130,7 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                 outputs,
                 ..
             }) => {
-                if let Some(c) = comb_group {
-                    let cells = super::ReadWriteSet::uses(
-                        c.borrow().assignments.iter(),
-                    )
-                    .map(|cell| cell.borrow().name())
-                    .collect::<HashSet<_>>();
-                    // Only add ports that come from cells used in this comb group.
-                    let ports = inputs
-                        .iter()
-                        .map(|(_, port)| Rc::clone(port))
-                        .filter(|port| {
-                            cells.contains(&port.borrow().get_parent_name())
-                        });
-                    self.cg_to_port
-                        .entry(c.borrow().name())
-                        .or_default()
-                        .extend(ports);
-                }
-                if INVOKE_MAP {
-                    let name = comp.borrow().name();
-                    let bindings = inputs
-                        .iter()
-                        .chain(outputs.iter())
-                        .cloned()
-                        .collect_vec();
-                    self.invoke_map.entry(name).or_default().push(bindings);
-                }
+                self.handle_invoke(inputs, outputs, comp, comb_group);
             }
             ir::Control::If(ir::If {
                 cond,
@@ -145,7 +167,7 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
             ir::Control::Static(sc) =>
             // don't need self, because no comb groups in static controls
             {
-                Self::construct_static(sc)
+                self.construct_static(sc)
             }
         }
     }
