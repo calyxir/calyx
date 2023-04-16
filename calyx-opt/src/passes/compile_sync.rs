@@ -82,16 +82,6 @@ fn count_barriers(
             }
             Ok(())
         }
-        ir::Control::StaticEnable(e) => {
-            if s.get_attributes().get("sync").is_some() {
-                return Err(Error::malformed_control(
-                    "Enable or Invoke controls cannot be marked with @sync"
-                        .to_string(),
-                )
-                .with_pos(&e.attributes));
-            }
-            Ok(())
-        }
         ir::Control::Invoke(i) => {
             if s.get_attributes().get("sync").is_some() {
                 return Err(Error::malformed_control(
@@ -103,6 +93,7 @@ fn count_barriers(
             Ok(())
         }
         ir::Control::Par(_) => Ok(()),
+        ir::Control::Static(_) => Ok(()),
     }
 }
 

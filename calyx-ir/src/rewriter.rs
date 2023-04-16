@@ -1,3 +1,4 @@
+use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -115,6 +116,62 @@ impl<'a> Rewriter<'a> {
             });
     }
 
+    /// Rewrite a `static invoke` node using a [RewriteMap<ir::Cell>] and a [RewriteMap<ir::CombGroup>]
+    pub fn rewrite_static_invoke(&self, inv: &mut StaticInvoke) {
+        // Rewrite the name of the cell
+        let name = inv.comp.borrow().name();
+        if let Some(new_cell) = &self.get_cell_rewrite(&name) {
+            inv.comp = Rc::clone(new_cell);
+        }
+
+        // Rewrite the parameters
+        inv.inputs
+            .iter_mut()
+            .chain(inv.outputs.iter_mut())
+            .for_each(|(_, port)| {
+                if let Some(new_port) = self.get(&*port) {
+                    *port = new_port;
+                }
+            });
+    }
+
+    /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
+    /// rewrite maps.
+    pub fn rewrite_static_control(
+        &self,
+        sc: &mut ir::StaticControl,
+        static_group_map: &RewriteMap<ir::StaticGroup>,
+    ) {
+        match sc {
+            ir::StaticControl::Empty(_) => (),
+            ir::StaticControl::Enable(sen) => {
+                let g = &sen.group.borrow().name();
+                if let Some(new_group) = static_group_map.get(g) {
+                    sen.group = Rc::clone(new_group);
+                }
+            }
+            ir::StaticControl::Repeat(rep) => {
+                self.rewrite_static_control(&mut rep.body, static_group_map)
+            }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => stmts
+                .iter_mut()
+                .for_each(|c| self.rewrite_static_control(c, static_group_map)),
+            ir::StaticControl::If(sif) => {
+                // Rewrite port use
+                if let Some(new_port) = self.get(&sif.port) {
+                    sif.port = new_port;
+                }
+                // rewrite branches
+                self.rewrite_static_control(&mut sif.tbranch, static_group_map);
+                self.rewrite_static_control(&mut sif.fbranch, static_group_map);
+            }
+            ir::StaticControl::Invoke(sin) => {
+                self.rewrite_static_invoke(sin);
+            }
+        }
+    }
+
     /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
     /// rewrite maps.
     pub fn rewrite_control(
@@ -129,12 +186,6 @@ impl<'a> Rewriter<'a> {
             ir::Control::Enable(en) => {
                 let g = &en.group.borrow().name();
                 if let Some(new_group) = group_map.get(g) {
-                    en.group = Rc::clone(new_group);
-                }
-            }
-            ir::Control::StaticEnable(en) => {
-                let g = &en.group.borrow().name();
-                if let Some(new_group) = static_group_map.get(g) {
                     en.group = Rc::clone(new_group);
                 }
             }
@@ -197,6 +248,9 @@ impl<'a> Rewriter<'a> {
             }
             ir::Control::Invoke(inv) => {
                 self.rewrite_invoke(inv, comb_group_map)
+            }
+            ir::Control::Static(s) => {
+                self.rewrite_static_control(s, static_group_map)
             }
         }
     }
