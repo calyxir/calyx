@@ -322,8 +322,8 @@ impl MlirBackend {
             ir::Control::Enable(ir::Enable { group, .. }) => {
                 write!(f, "calyx.enable @{}", group.borrow().name().id)
             }
-            ir::Control::StaticEnable(_) => {
-                panic!("StaticEnable not yet supported")
+            ir::Control::Static(_) => {
+                todo!("static control not currently supported for MLIR")
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for MLIR backend")

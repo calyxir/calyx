@@ -34,6 +34,29 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
     }
 }
 
+// Inputs are a control statement c and a u64 id. If control is an if statment, then
+// the id should refer to either the begin or end id of stmt c. Returns true if id refers
+// to the begin id and false if it refers to the end id. If it is not an if statement
+// return true.
+fn not_end_id_static(c: &ir::StaticControl, id: u64) -> bool {
+    match c {
+        ir::StaticControl::If(if_control) => {
+            if let Some(&begin) = if_control.attributes.get(BEGIN_ID) {
+                if begin == id {
+                    return true;
+                }
+            }
+            if let Some(&end) = if_control.attributes.get(END_ID) {
+                if end == id {
+                    return false;
+                }
+            }
+            unreachable!("id should match either beginning or ending id")
+        }
+        _ => true,
+    }
+}
+
 //if the assignment reads only dones, return true. This is used so that we
 //can ignore reads of "done" cells.
 fn reads_only_dones<T>(assignment: &ir::Assignment<T>) -> bool {
@@ -90,15 +113,15 @@ impl NodeReads {
         state_shareable: &ShareSet,
     ) -> HashSet<ir::Id> {
         let mut reads: HashSet<ir::Id> = HashSet::new();
-        if let Some(c) =
-            DominatorMap::get_control(*node, &comp.control.borrow())
-        {
-            match c {
+        match DominatorMap::get_control(*node, &comp.control.borrow()) {
+            None => (),
+            Some(ir::GenericControl::Dynamic(c)) => match c {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
-                | ir::Control::Par(_) => {
+                | ir::Control::Par(_)
+                | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars should be in domination map"
+                        "no empty/seqs/pars/static should be in domination map"
                     )
                 }
                 ir::Control::If(ir::If { port, cond, .. })
@@ -117,15 +140,6 @@ impl NodeReads {
                             );
                         }
                     }
-                }
-                ir::Control::StaticEnable(ir::StaticEnable {
-                    group, ..
-                }) => {
-                    add_assignment_reads(
-                        &mut reads,
-                        state_shareable,
-                        &group.borrow().assignments,
-                    );
                 }
                 ir::Control::Enable(ir::Enable { group, .. }) => {
                     add_assignment_reads(
@@ -161,7 +175,52 @@ impl NodeReads {
                         );
                     }
                 }
-            }
+            },
+            Some(ir::GenericControl::Static(sc)) => match sc {
+                ir::StaticControl::Invoke(ir::StaticInvoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    ..
+                }) => {
+                    for (_, port) in inputs.iter() {
+                        add_parent_if_shareable(
+                            &mut reads,
+                            state_shareable,
+                            port,
+                        );
+                    }
+                    if !outputs.is_empty()
+                        && state_shareable.is_shareable_component(comp)
+                    {
+                        reads.insert(comp.borrow().name());
+                    }
+                }
+                ir::StaticControl::Enable(ir::StaticEnable {
+                    group, ..
+                }) => {
+                    add_assignment_reads(
+                        &mut reads,
+                        state_shareable,
+                        &group.borrow().assignments,
+                    );
+                }
+                ir::StaticControl::If(ir::StaticIf { port, .. }) => {
+                    if not_end_id_static(sc, *node) {
+                        add_parent_if_shareable(
+                            &mut reads,
+                            state_shareable,
+                            port,
+                        );
+                    }
+                }
+                ir::StaticControl::Empty(_)
+                | ir::StaticControl::Par(_)
+                | ir::StaticControl::Seq(_)
+                | ir::StaticControl::Repeat(_) => unreachable!(
+                    "static emptys/repeats/seqs/pars shouldn't be in domination map"
+                ),
+            },
         }
         reads
     }
@@ -196,6 +255,24 @@ impl NodeSearch {
         })
     }
 
+    // returns true if outputs or comp indicates that cell named self.name was
+    // written to, false otherwise
+    fn is_written_invoke(
+        &self,
+        outputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        comp: &ir::RRC<ir::Cell>,
+    ) -> bool {
+        for (_, port) in outputs.iter() {
+            if port.borrow().get_parent_name() == self.name {
+                return true;
+            }
+        }
+        if comp.borrow().name() == self.name {
+            return true;
+        }
+        false
+    }
+
     //Returns true if any of the control statements in dominators write to a cell
     //with self's name.
     pub fn is_written_guaranteed(
@@ -204,23 +281,17 @@ impl NodeSearch {
         comp: &mut ir::Component,
     ) -> bool {
         let main_control = comp.control.borrow();
-        let dominator_controls =
+        let (dominator_controls, dominator_static_controls) =
             DominatorMap::get_control_nodes(dominators, &main_control);
         for c in dominator_controls {
             match c {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
-                | ir::Control::Par(_) => {
+                | ir::Control::Par(_)
+                | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars should be in domination map"
+                        "no empty/seqs/pars/static should be in domination map"
                     )
-                }
-                ir::Control::StaticEnable(ir::StaticEnable {
-                    group, ..
-                }) => {
-                    if self.go_is_written(&group.borrow().assignments) {
-                        return true;
-                    }
                 }
                 ir::Control::Enable(ir::Enable { group, .. }) => {
                     if self.go_is_written(&group.borrow().assignments) {
@@ -231,15 +302,39 @@ impl NodeSearch {
                 //combinational group.
                 ir::Control::While(_) | ir::Control::If(_) => (),
                 ir::Control::Invoke(ir::Invoke { comp, outputs, .. }) => {
-                    for (_, port) in outputs.iter() {
-                        if port.borrow().get_parent_name() == self.name {
-                            return true;
-                        }
-                    }
-                    if comp.borrow().name() == self.name {
+                    if self.is_written_invoke(outputs, comp) {
                         return true;
                     }
                 }
+            }
+        }
+        for sc in dominator_static_controls {
+            match sc {
+                ir::StaticControl::Empty(_)
+                | ir::StaticControl::Seq(_)
+                | ir::StaticControl::Par(_)
+                | ir::StaticControl::Repeat(_) => unreachable!(
+                    "no static repeats/seqs/pars should be in domination map"
+                ),
+                ir::StaticControl::Invoke(ir::StaticInvoke {
+                    comp,
+                    outputs,
+                    ..
+                }) => {
+                    if self.is_written_invoke(outputs, comp) {
+                        return true;
+                    }
+                }
+                ir::StaticControl::Enable(ir::StaticEnable {
+                    group, ..
+                }) => {
+                    if self.go_is_written(&group.borrow().assignments) {
+                        return true;
+                    }
+                }
+                // "if nodes" (which are really just the guard) do not write to components
+                // therefore, we should return false
+                ir::StaticControl::If(_) => (),
             }
         }
         false

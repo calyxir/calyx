@@ -82,6 +82,54 @@ fn all_conflicting(
     }
 }
 
+fn build_conflict_graph_static(
+    sc: &ir::StaticControl,
+    confs: &mut ScheduleConflicts,
+    all_nodes: &mut Vec<ir::Id>,
+) {
+    match sc {
+        ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+            confs.add_node(group.borrow().name());
+            all_nodes.push(group.borrow().name());
+        }
+        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+            build_conflict_graph_static(body, confs, all_nodes);
+        }
+        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
+            .iter()
+            .for_each(|c| build_conflict_graph_static(c, confs, all_nodes)),
+        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+            let par_nodes = stmts
+                .iter()
+                .map(|c| {
+                    // Visit this child and add conflict edges.
+                    // Collect the enables in this into a new vector.
+                    let mut nodes = Vec::new();
+                    build_conflict_graph_static(c, confs, &mut nodes);
+                    nodes
+                })
+                .collect::<Vec<_>>();
+
+            // Add conflict edges between all children.
+            all_conflicting(&par_nodes, confs);
+
+            // Add the enables from visiting the children to the current
+            // set of enables.
+            all_nodes.append(&mut par_nodes.into_iter().flatten().collect());
+        }
+        ir::StaticControl::If(ir::StaticIf {
+            tbranch, fbranch, ..
+        }) => {
+            build_conflict_graph_static(tbranch, confs, all_nodes);
+            build_conflict_graph_static(fbranch, confs, all_nodes);
+        }
+        ir::StaticControl::Invoke(ir::StaticInvoke { comp, .. }) => {
+            confs.add_node(comp.borrow().name());
+            all_nodes.push(comp.borrow().name());
+        }
+        ir::StaticControl::Empty(_) => (),
+    }
+}
 /// Construct a conflict graph by traversing the Control program.
 fn build_conflict_graph(
     c: &ir::Control,
@@ -95,10 +143,6 @@ fn build_conflict_graph(
             all_nodes.push(comp.borrow().name());
         }
         ir::Control::Enable(ir::Enable { group, .. }) => {
-            confs.add_node(group.borrow().name());
-            all_nodes.push(group.borrow().name());
-        }
-        ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => {
             confs.add_node(group.borrow().name());
             all_nodes.push(group.borrow().name());
         }
@@ -147,6 +191,9 @@ fn build_conflict_graph(
             // Add the enables from visiting the children to the current
             // set of enables.
             all_nodes.append(&mut par_nodes.into_iter().flatten().collect());
+        }
+        ir::Control::Static(sc) => {
+            build_conflict_graph_static(sc, confs, all_nodes)
         }
     }
 }

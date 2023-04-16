@@ -211,4 +211,25 @@ impl Visitor for RegisterUnsharing {
 
         Ok(Action::Continue)
     }
+
+    fn static_invoke(
+        &mut self,
+        invoke: &mut ir::StaticInvoke,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        let book = &self.bookkeeper;
+
+        if let Some(name) = book.analysis.meta.fetch_label_static(invoke) {
+            // only do rewrites if there is actually rewriting to do
+            if let Some(rename_vec) = book.invoke_map.get(name) {
+                let empty_map = HashMap::new();
+                let rewriter = ir::Rewriter::new(rename_vec, &empty_map);
+                rewriter.rewrite_static_invoke(invoke);
+            }
+        }
+
+        Ok(Action::Continue)
+    }
 }

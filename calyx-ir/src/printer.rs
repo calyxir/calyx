@@ -3,6 +3,7 @@
 //! to the Component.
 use itertools::Itertools;
 
+use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
 use std::io;
 use std::path::Path;
@@ -346,6 +347,159 @@ impl Printer {
         write!(f, "{}}}", " ".repeat(indent_level))
     }
 
+    /// Format and write a static control program
+    pub fn write_static_control<F: io::Write>(
+        scontrol: &ir::StaticControl,
+        indent_level: usize,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(f, "{}", " ".repeat(indent_level))?;
+        match scontrol {
+            ir::StaticControl::Enable(ir::StaticEnable {
+                group,
+                attributes,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(
+                    f,
+                    "<{}>{};",
+                    group.borrow().latency,
+                    group.borrow().name().id
+                )
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat {
+                num_repeats,
+                attributes,
+                body,
+                latency,
+                ..
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "static<{}> repeat {} ", latency, num_repeats)?;
+                writeln!(f, "{{")?;
+                Self::write_static_control(body, indent_level + 2, f)?;
+                writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::StaticControl::Seq(ir::StaticSeq {
+                stmts,
+                attributes,
+                latency,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "static<{}> seq {{", latency)?;
+                for stmt in stmts {
+                    Self::write_static_control(stmt, indent_level + 2, f)?;
+                }
+                writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::StaticControl::Par(ir::StaticPar {
+                stmts,
+                attributes,
+                latency,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                writeln!(f, "static<{}> par {{", latency)?;
+                for stmt in stmts {
+                    Self::write_static_control(stmt, indent_level + 2, f)?;
+                }
+                writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::StaticControl::Empty(ir::Empty { attributes }) => {
+                if !attributes.is_empty() {
+                    writeln!(f, "{};", Self::format_at_attributes(attributes))
+                } else {
+                    writeln!(f)
+                }
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                port,
+                latency,
+                tbranch,
+                fbranch,
+                attributes,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                write!(
+                    f,
+                    "static<{}> if {} ",
+                    latency,
+                    Self::port_to_str(&port.borrow()),
+                )?;
+                writeln!(f, "{{")?;
+                Self::write_static_control(tbranch, indent_level + 2, f)?;
+                write!(f, "{}}}", " ".repeat(indent_level))?;
+                if let ir::StaticControl::Empty(_) = **fbranch {
+                    writeln!(f)
+                } else {
+                    writeln!(f, " else {{")?;
+                    Self::write_static_control(fbranch, indent_level + 2, f)?;
+                    writeln!(f, "{}}}", " ".repeat(indent_level))
+                }
+            }
+            ir::StaticControl::Invoke(StaticInvoke {
+                comp,
+                latency,
+                inputs,
+                outputs,
+                attributes,
+                ref_cells,
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                write!(
+                    f,
+                    "static invoke<{}> {}",
+                    latency,
+                    comp.borrow().name()
+                )?;
+                if !ref_cells.is_empty() {
+                    write!(f, "[")?;
+                    for (i, (outcell, incell)) in ref_cells.iter().enumerate() {
+                        write!(
+                            f,
+                            "{}{} = {}",
+                            if i == 0 { "" } else { "," },
+                            outcell,
+                            incell.borrow().name()
+                        )?
+                    }
+                    write!(f, "]")?;
+                }
+                write!(f, "(")?;
+                for (i, (arg, port)) in inputs.iter().enumerate() {
+                    write!(
+                        f,
+                        "{}\n{}{} = {}",
+                        if i == 0 { "" } else { "," },
+                        " ".repeat(indent_level + 2),
+                        arg,
+                        Self::port_to_str(&port.borrow())
+                    )?;
+                }
+                if inputs.is_empty() {
+                    write!(f, ")(")?;
+                } else {
+                    write!(f, "\n{})(", " ".repeat(indent_level))?;
+                }
+                for (i, (arg, port)) in outputs.iter().enumerate() {
+                    write!(
+                        f,
+                        "{}\n{}{} = {}",
+                        if i == 0 { "" } else { "," },
+                        " ".repeat(indent_level + 2),
+                        arg,
+                        Self::port_to_str(&port.borrow())
+                    )?;
+                }
+                if outputs.is_empty() {
+                    write!(f, ")")?;
+                } else {
+                    write!(f, "\n{})", " ".repeat(indent_level))?;
+                }
+                writeln!(f, ";")
+            }
+        }
+    }
+
     /// Format and write a control program
     pub fn write_control<F: io::Write>(
         control: &ir::Control,
@@ -355,13 +509,6 @@ impl Printer {
         write!(f, "{}", " ".repeat(indent_level))?;
         match control {
             ir::Control::Enable(ir::Enable { group, attributes }) => {
-                write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "{};", group.borrow().name().id)
-            }
-            ir::Control::StaticEnable(ir::StaticEnable {
-                group,
-                attributes,
-            }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "{};", group.borrow().name().id)
             }
@@ -487,6 +634,9 @@ impl Printer {
                 } else {
                     writeln!(f)
                 }
+            }
+            ir::Control::Static(sc) => {
+                Self::write_static_control(sc, indent_level, f)
             }
         }
     }

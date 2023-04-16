@@ -349,9 +349,6 @@ impl Schedule<'_, '_> {
             ir::Control::Enable(e) => {
                 self.enable_calculate_states(e, preds)
             }
-            ir::Control::StaticEnable(e) => {
-                self.static_enable_calculate_states(e, preds)
-            }
             ir::Control::Seq(s) => {
                 self.seq_calculate_states(s, preds)
             }
@@ -363,6 +360,11 @@ impl Schedule<'_, '_> {
             }
             ir::Control::Par(par) => {
                 self.par_calculate_states(par, preds)
+            }
+            ir::Control::Static(_) => {
+                unimplemented!(
+                "TDST doesn't support `static` statements (Eventually we want to rewrite static compilation as to render TDST obselete)"
+                )
             }
             ir::Control::Invoke(_) => unreachable!(
                 "`invoke` statements should have been compiled away. Run `{}` before this pass.",
@@ -380,67 +382,6 @@ impl Schedule<'_, '_> {
     fn enable_calculate_states(
         &mut self,
         con: &ir::Enable,
-        preds: Vec<PredEdge>,
-    ) -> CalyxResult<Vec<PredEdge>> {
-        let time_option = con.attributes.get("static");
-        let Some(&time) = time_option else {
-            return Err(Error::pass_assumption(
-        TopDownStaticTiming::name(),
-            "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
-            ).with_pos(&con.attributes));
-        };
-
-        let cur_st = con.attributes[ID];
-
-        // Enable the group during the transition. Note that this is similar to
-        // what tdcc does the early transitions flag. However, unlike tdcc, we
-        // know that transitions do not use groups' done signals.
-        preds.clone().into_iter().for_each(|(st, g)| {
-            let group = &con.group;
-            structure!(self.builder;
-                let signal_on = constant(1, 1);
-            );
-            let assigns = build_assignments!(self.builder;
-                group["go"] = g ? signal_on["out"];
-            );
-            // We only enable this in the state when the transition starts
-            self.add_enables(st, st + 1, assigns);
-        });
-
-        // Transition from all predecessors to the start state
-        self.add_transitions(preds.into_iter().map(|(st, g)| (st, cur_st, g)));
-
-        // Activate the group during the latency. Subtract one because the group
-        // is also active during the transition when not in the start state.
-        let last_st = cur_st + time - 1;
-        // Add additional transitions if the group's latency is not 1
-        if time != 1 {
-            let group = &con.group;
-            structure!(self.builder;
-                let signal_on = constant(1, 1);
-            );
-            let assigns = build_assignments!(self.builder;
-                group["go"] = ? signal_on["out"];
-            );
-            self.add_enables(cur_st, last_st, assigns);
-
-            // Add any necessary internal transitions. In the case time is 1 and there
-            // is a single transition, it is taken care of by the parent.
-            self.add_transitions(
-                (cur_st..last_st).map(|s| (s, s + 1, ir::Guard::True)),
-            );
-        }
-
-        Ok(vec![(last_st, ir::Guard::True)])
-    }
-
-    /// Generate transitions from all predecessors to the enable and keep it
-    /// active for its specified static time.
-    /// The start state of the enable is computed by taking the max of all
-    /// predecessors states.
-    fn static_enable_calculate_states(
-        &mut self,
-        con: &ir::StaticEnable,
         preds: Vec<PredEdge>,
     ) -> CalyxResult<Vec<PredEdge>> {
         let time_option = con.attributes.get("static");
@@ -879,7 +820,7 @@ impl TopDownStaticTiming {
                 }
                 ir::Control::Enable(_)
                 | ir::Control::Invoke(_)
-                | ir::Control::StaticEnable(_)
+                | ir::Control::Static(_)
                 | ir::Control::Empty(_) => {}
             }
         }

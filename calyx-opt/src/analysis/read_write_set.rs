@@ -121,6 +121,60 @@ impl ReadWriteSet {
 
 impl ReadWriteSet {
     /// Returns the ports that are read by the given control program.
+    pub fn control_port_read_write_set_static(
+        scon: &ir::StaticControl,
+    ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
+        match scon {
+            ir::StaticControl::Empty(_) => (vec![], vec![]),
+            ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => (
+                Self::port_read_set(group.borrow().assignments.iter())
+                    .collect(),
+                Self::port_write_set(group.borrow().assignments.iter())
+                    .collect(),
+            ),
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                Self::control_port_read_write_set_static(body)
+            }
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
+            | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                let (mut reads, mut writes) = (vec![], vec![]);
+                for stmt in stmts {
+                    let (mut read, mut write) =
+                        Self::control_port_read_write_set_static(stmt);
+                    reads.append(&mut read);
+                    writes.append(&mut write);
+                }
+                (reads, writes)
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                port,
+                tbranch,
+                fbranch,
+                ..
+            }) => {
+                let (mut treads, mut twrites) =
+                    Self::control_port_read_write_set_static(tbranch);
+                let (mut freads, mut fwrites) =
+                    Self::control_port_read_write_set_static(fbranch);
+                treads.append(&mut freads);
+                treads.push(Rc::clone(port));
+                twrites.append(&mut fwrites);
+
+                (treads, twrites)
+            }
+            ir::StaticControl::Invoke(ir::StaticInvoke {
+                inputs,
+                outputs,
+                ..
+            }) => {
+                let inps = inputs.iter().map(|(_, p)| p).cloned();
+                let outs = outputs.iter().map(|(_, p)| p).cloned();
+                (inps.collect(), outs.collect())
+            }
+        }
+    }
+
+    /// Returns the ports that are read by the given control program.
     pub fn control_port_read_write_set(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
@@ -132,18 +186,14 @@ impl ReadWriteSet {
                 Self::port_write_set(group.borrow().assignments.iter())
                     .collect(),
             ),
-            ir::Control::StaticEnable(ir::StaticEnable { group, .. }) => (
-                // Will have to change when we implement static assignments
-                Self::port_read_set(group.borrow().assignments.iter())
-                    .collect(),
-                Self::port_write_set(group.borrow().assignments.iter())
-                    .collect(),
-            ),
             ir::Control::Invoke(ir::Invoke {
-                inputs, comb_group, ..
+                inputs,
+                outputs,
+                comb_group,
+                ..
             }) => {
                 let inps = inputs.iter().map(|(_, p)| p).cloned();
-                let outs = inputs.iter().map(|(_, p)| p).cloned();
+                let outs = outputs.iter().map(|(_, p)| p).cloned();
                 match comb_group {
                     Some(cgr) => {
                         let cg = cgr.borrow();
@@ -158,7 +208,6 @@ impl ReadWriteSet {
                     None => (inps.collect(), outs.collect()),
                 }
             }
-
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 let (mut reads, mut writes) = (vec![], vec![]);
@@ -177,26 +226,23 @@ impl ReadWriteSet {
                 fbranch,
                 ..
             }) => {
-                let (mut reads, mut writes) = (vec![], vec![]);
                 let (mut treads, mut twrites) =
                     Self::control_port_read_write_set(tbranch);
                 let (mut freads, mut fwrites) =
                     Self::control_port_read_write_set(fbranch);
-                reads.append(&mut treads);
-                reads.append(&mut freads);
-                reads.push(Rc::clone(port));
-                writes.append(&mut twrites);
-                writes.append(&mut fwrites);
+                treads.append(&mut freads);
+                treads.push(Rc::clone(port));
+                twrites.append(&mut fwrites);
 
                 if let Some(cg) = cond {
-                    reads.extend(Self::port_read_set(
+                    treads.extend(Self::port_read_set(
                         cg.borrow().assignments.iter(),
                     ));
-                    writes.extend(Self::port_write_set(
+                    twrites.extend(Self::port_write_set(
                         cg.borrow().assignments.iter(),
                     ));
                 }
-                (reads, writes)
+                (treads, twrites)
             }
             ir::Control::While(ir::While {
                 port, cond, body, ..
@@ -214,6 +260,9 @@ impl ReadWriteSet {
                     ));
                 }
                 (reads, writes)
+            }
+            ir::Control::Static(sc) => {
+                Self::control_port_read_write_set_static(sc)
             }
         }
     }
