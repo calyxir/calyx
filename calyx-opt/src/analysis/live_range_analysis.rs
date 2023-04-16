@@ -853,6 +853,7 @@ impl LiveRangeAnalysis {
                 Self::port_to_cell_name(src, shareable_components)
             })
             .collect();
+
         let comp_is_written = !inputs.is_empty()
             && shareable_components.is_shareable_component(comp);
         if comp_is_written {
@@ -968,7 +969,7 @@ impl LiveRangeAnalysis {
             outputs,
             comb_group_info,
             comp,
-            &self.share,
+            &self.state_share,
         );
 
         alive.transfer_set(reads.clone(), writes.clone());
