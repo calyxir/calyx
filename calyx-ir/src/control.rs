@@ -536,7 +536,6 @@ impl StaticControl {
 pub enum GenericControl<'a> {
     Static(&'a StaticControl),
     Dynamic(&'a Control),
-    None,
 }
 
 /// Implement cloning operations on control statements.

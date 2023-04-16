@@ -357,11 +357,11 @@ impl DominatorMap {
         pred: &HashSet<u64>,
     ) {
         match Self::get_static_control(cur_id, main_sc) {
-            GenericControl::Dynamic(_) => {
+            Some(GenericControl::Dynamic(_)) => {
                 unreachable!("should never get dynamic from get_static_control")
             }
-            GenericControl::None => (),
-            GenericControl::Static(sc) => match sc {
+            None => (),
+            Some(GenericControl::Static(sc)) => match sc {
                 ir::StaticControl::Empty(_) => (),
                 ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
                     self.update_node(pred, cur_id);
@@ -433,8 +433,8 @@ impl DominatorMap {
         pred: &HashSet<u64>,
     ) {
         match Self::get_control(cur_id, main_c) {
-            GenericControl::None => (),
-            GenericControl::Dynamic(c) => {
+            None => (),
+            Some(GenericControl::Dynamic(c)) => {
                 match c {
                     ir::Control::Empty(_) => {
                         unreachable!(
@@ -510,7 +510,7 @@ impl DominatorMap {
                     ir::Control::Static(_) => panic!("when matching c in GenericControl::Dynamic(c), c shouldn't be Static Control")
                 };
             }
-            GenericControl::Static(sc) => {
+            Some(GenericControl::Static(sc)) => {
                 let static_id = get_id_static::<true>(sc);
                 self.update_map_static(sc, static_id, pred);
             }
@@ -520,17 +520,17 @@ impl DominatorMap {
     pub fn get_static_control(
         id: u64,
         sc: &ir::StaticControl,
-    ) -> GenericControl {
+    ) -> Option<GenericControl> {
         if matches!(sc, ir::StaticControl::Empty(_)) {
-            return GenericControl::None;
+            return None;
         }
         if matches_key_static(sc, id) {
-            return GenericControl::from(sc);
+            return Some(GenericControl::from(sc));
         };
         match sc {
             ir::StaticControl::Empty(_)
             | ir::StaticControl::Enable(_)
-            | ir::StaticControl::Invoke(_) => GenericControl::None,
+            | ir::StaticControl::Invoke(_) => None,
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 Self::get_static_control(id, body)
             }
@@ -538,93 +538,93 @@ impl DominatorMap {
             | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
                 for stmt in stmts {
                     match Self::get_static_control(id, stmt) {
-                        GenericControl::None => (),
-                        GenericControl::Dynamic(_) => {
+                        None => (),
+                        Some(GenericControl::Dynamic(_)) => {
                             unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                         }
-                        GenericControl::Static(sc) => {
-                            return GenericControl::from(sc)
+                        Some(GenericControl::Static(sc)) => {
+                            return Some(GenericControl::from(sc))
                         }
                     }
                 }
-                GenericControl::None
+                None
             }
             ir::StaticControl::If(ir::StaticIf {
                 tbranch, fbranch, ..
             }) => {
                 match Self::get_static_control(id, tbranch) {
-                    GenericControl::Dynamic(_) => {
+                    Some(GenericControl::Dynamic(_)) => {
                         unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                     }
-                    GenericControl::Static(sc) => {
-                        return GenericControl::from(sc)
+                    Some(GenericControl::Static(sc)) => {
+                        return Some(GenericControl::from(sc))
                     }
-                    GenericControl::None => (),
+                    None => (),
                 }
                 match Self::get_static_control(id, fbranch) {
-                    GenericControl::Dynamic(_) => {
+                    Some(GenericControl::Dynamic(_)) => {
                         unreachable!("Got a GenericControl::Dynamic when we called get_static_control")
                     }
-                    GenericControl::Static(sc) => {
-                        return GenericControl::from(sc)
+                    Some(GenericControl::Static(sc)) => {
+                        return Some(GenericControl::from(sc))
                     }
-                    GenericControl::None => (),
+                    None => (),
                 };
-                GenericControl::None
+                None
             }
         }
     }
 
     /// Given a control c and an id, finds the control statement within c that
     /// has id, if it exists. If it doesn't, return None.
-    pub fn get_control(id: u64, c: &ir::Control) -> GenericControl {
+    pub fn get_control(id: u64, c: &ir::Control) -> Option<GenericControl> {
         if matches!(c, ir::Control::Empty(_)) {
-            return GenericControl::None;
+            return None;
         }
         if matches_key(c, id) {
-            return GenericControl::from(c);
+            return Some(GenericControl::from(c));
         }
         match c {
             ir::Control::Empty(_)
             | ir::Control::Invoke(_)
-            | ir::Control::Enable(_) => GenericControl::None,
+            | ir::Control::Enable(_) => None,
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 for stmt in stmts {
                     match Self::get_control(id, stmt) {
-                        GenericControl::None => (),
-                        GenericControl::Dynamic(c) => {
-                            return GenericControl::from(c)
+                        None => (),
+                        Some(GenericControl::Dynamic(c)) => {
+                            return Some(GenericControl::from(c))
                         }
-                        GenericControl::Static(sc) => {
-                            return GenericControl::from(sc)
+                        Some(GenericControl::Static(sc)) => {
+                            return Some(GenericControl::from(sc))
                         }
                     }
                 }
-                GenericControl::None
+                None
             }
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
             }) => {
                 match Self::get_control(id, tbranch) {
-                    GenericControl::Dynamic(c) => {
-                        return GenericControl::from(c)
+                    Some(GenericControl::Dynamic(c)) => {
+                        return Some(GenericControl::from(c))
                     }
-                    GenericControl::Static(sc) => {
-                        return GenericControl::from(sc)
+                    Some(GenericControl::Static(sc)) => {
+                        return Some(GenericControl::from(sc))
                     }
-                    GenericControl::None => (),
+                    None => (),
                 }
                 match Self::get_control(id, fbranch) {
-                    GenericControl::Dynamic(c) => {
-                        return GenericControl::from(c)
+                    Some(GenericControl::Dynamic(c)) => {
+                        return Some(GenericControl::from(c))
                     }
-                    GenericControl::Static(sc) => {
-                        return GenericControl::from(sc)
+                    Some(GenericControl::Static(sc)) => {
+                        return Some(GenericControl::from(sc))
                     }
-                    GenericControl::None => (),
+                    None => (),
                 };
-                GenericControl::None
+                None
             }
             ir::Control::While(ir::While { body, .. }) => {
                 Self::get_control(id, body)
@@ -646,16 +646,9 @@ impl DominatorMap {
         let mut static_controls: Vec<&ir::StaticControl> = Vec::new();
         for node in nodes {
             match Self::get_control(*node, main_control) {
-                GenericControl::Static(sc) => static_controls.push(sc),
-                GenericControl::Dynamic(c) => controls.push(c),
-                GenericControl::None => {
-                    unreachable!("No control statement for ID {}", node)
-                }
-            }
-            match Self::get_control(*node, main_control) {
-                GenericControl::Static(sc) => static_controls.push(sc),
-                GenericControl::Dynamic(c) => controls.push(c),
-                GenericControl::None => {
+                Some(GenericControl::Static(sc)) => static_controls.push(sc),
+                Some(GenericControl::Dynamic(c)) => controls.push(c),
+                None => {
                     unreachable!("No control statement for ID {}", node)
                 }
             }

@@ -114,8 +114,8 @@ impl NodeReads {
     ) -> HashSet<ir::Id> {
         let mut reads: HashSet<ir::Id> = HashSet::new();
         match DominatorMap::get_control(*node, &comp.control.borrow()) {
-            ir::GenericControl::None => (),
-            ir::GenericControl::Dynamic(c) => match c {
+            None => (),
+            Some(ir::GenericControl::Dynamic(c)) => match c {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
@@ -176,7 +176,7 @@ impl NodeReads {
                     }
                 }
             },
-            ir::GenericControl::Static(sc) => match sc {
+            Some(ir::GenericControl::Static(sc)) => match sc {
                 ir::StaticControl::Invoke(ir::StaticInvoke {
                     comp,
                     inputs,
