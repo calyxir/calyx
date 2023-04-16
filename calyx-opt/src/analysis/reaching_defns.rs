@@ -58,6 +58,7 @@ impl Into<ir::Id> for GroupOrInvoke {
 #[derive(Debug, Default)]
 pub struct MetadataMap {
     map: HashMap<*const ir::Invoke, ir::Id>,
+    static_map: HashMap<*const ir::StaticInvoke, ir::Id>,
 }
 
 impl MetadataMap {
@@ -65,8 +66,24 @@ impl MetadataMap {
         self.map.insert(invoke as *const ir::Invoke, label);
     }
 
+    fn attach_label_static(
+        &mut self,
+        invoke: &ir::StaticInvoke,
+        label: ir::Id,
+    ) {
+        self.static_map
+            .insert(invoke as *const ir::StaticInvoke, label);
+    }
+
     pub fn fetch_label(&self, invoke: &ir::Invoke) -> Option<&ir::Id> {
         self.map.get(&(invoke as *const ir::Invoke))
+    }
+
+    pub fn fetch_label_static(
+        &self,
+        invoke: &ir::StaticInvoke,
+    ) -> Option<&ir::Id> {
+        self.static_map.get(&(invoke as *const ir::StaticInvoke))
     }
 }
 /// A datastructure used to represent a set of definitions/uses. These are
@@ -424,6 +441,41 @@ fn build_reaching_def_static(
                 counter,
             );
             (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
+        }
+        ir::StaticControl::Invoke(invoke) => {
+            *counter += 1;
+
+            let iterator = invoke
+                .inputs
+                .iter()
+                .chain(invoke.outputs.iter())
+                .filter_map(|(_, port)| {
+                    if let ir::PortParent::Cell(wc) = &port.borrow().parent {
+                        let rc = wc.upgrade();
+                        let parent = rc.borrow();
+                        if parent
+                            .type_name()
+                            .unwrap_or_else(|| ir::Id::from(""))
+                            == "std_reg"
+                        {
+                            let name = format!("{}{}", INVOKE_PREFIX, counter);
+                            rd.meta.attach_label_static(
+                                invoke,
+                                ir::Id::from(name.clone()),
+                            );
+                            return Some((
+                                parent.name(),
+                                GroupOrInvoke::Invoke(ir::Id::from(name)),
+                            ));
+                        }
+                    }
+                    None
+                });
+
+            let mut new_reach = reach;
+            new_reach.set.extend(iterator);
+
+            (new_reach, killed)
         }
     }
 }

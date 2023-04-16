@@ -162,6 +162,15 @@ impl ReadWriteSet {
 
                 (treads, twrites)
             }
+            ir::StaticControl::Invoke(ir::StaticInvoke {
+                inputs,
+                outputs,
+                ..
+            }) => {
+                let inps = inputs.iter().map(|(_, p)| p).cloned();
+                let outs = outputs.iter().map(|(_, p)| p).cloned();
+                (inps.collect(), outs.collect())
+            }
         }
     }
 
@@ -178,10 +187,13 @@ impl ReadWriteSet {
                     .collect(),
             ),
             ir::Control::Invoke(ir::Invoke {
-                inputs, comb_group, ..
+                inputs,
+                outputs,
+                comb_group,
+                ..
             }) => {
                 let inps = inputs.iter().map(|(_, p)| p).cloned();
-                let outs = inputs.iter().map(|(_, p)| p).cloned();
+                let outs = outputs.iter().map(|(_, p)| p).cloned();
                 match comb_group {
                     Some(cgr) => {
                         let cg = cgr.borrow();

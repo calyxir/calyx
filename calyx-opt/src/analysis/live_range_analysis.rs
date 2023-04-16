@@ -15,6 +15,10 @@ type ReadWriteInfo = (
     HashSet<(ir::CellType, ir::Id)>,
     HashSet<(ir::CellType, ir::Id)>,
 );
+type InvokeInfo<'a> = (
+    &'a [(ir::Id, ir::RRC<ir::Port>)],
+    &'a [(ir::Id, ir::RRC<ir::Port>)],
+);
 
 /// Returns [ir::Cell] which are read from in the assignments.
 /// **Ignores** reads from group holes, and reads from done signals, when it
@@ -835,8 +839,8 @@ impl LiveRangeAnalysis {
 
     // gets the gens/kills (aka reads/writes) of the invoke given inputs, outputs, and comb group.
     fn gen_kill_invoke(
-        inputs: &Vec<(ir::Id, ir::RRC<ir::Port>)>,
-        outputs: &Vec<(ir::Id, ir::RRC<ir::Port>)>,
+        inputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        outputs: &[(ir::Id, ir::RRC<ir::Port>)],
         comb_group_info: &Option<ir::RRC<ir::CombGroup>>,
         comp: &ir::RRC<ir::Cell>,
         shareable_components: &ShareSet,
@@ -903,8 +907,8 @@ impl LiveRangeAnalysis {
     // Should include any cell that is either read from or written to at all
     // in the invoke statement (including the comb group)
     fn uses_invoke(
-        inputs: &Vec<(ir::Id, ir::RRC<ir::Port>)>,
-        outputs: &Vec<(ir::Id, ir::RRC<ir::Port>)>,
+        inputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        outputs: &[(ir::Id, ir::RRC<ir::Port>)],
         comb_group_info: &Option<ir::RRC<ir::CombGroup>>,
         shareable_components: &ShareSet,
     ) -> TypeNameSet {
@@ -940,10 +944,7 @@ impl LiveRangeAnalysis {
     // also updates self.invokes_enables_map using the input information
     fn update_invoke_liveness(
         &mut self,
-        invoke_info: (
-            &Vec<(ir::Id, ir::RRC<ir::Port>)>,
-            &Vec<(ir::Id, ir::RRC<ir::Port>)>,
-        ),
+        invoke_info: InvokeInfo,
         comb_group_info: &Option<ir::RRC<ir::CombGroup>>,
         comp: &ir::RRC<ir::Cell>,
         id: u64,

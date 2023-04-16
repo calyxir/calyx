@@ -123,6 +123,10 @@ fn build_conflict_graph_static(
             build_conflict_graph_static(tbranch, confs, all_nodes);
             build_conflict_graph_static(fbranch, confs, all_nodes);
         }
+        ir::StaticControl::Invoke(ir::StaticInvoke { comp, .. }) => {
+            confs.add_node(comp.borrow().name());
+            all_nodes.push(comp.borrow().name());
+        }
         ir::StaticControl::Empty(_) => (),
     }
 }

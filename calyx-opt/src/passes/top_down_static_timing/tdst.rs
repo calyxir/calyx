@@ -363,7 +363,7 @@ impl Schedule<'_, '_> {
             }
             ir::Control::Static(_) => {
                 unimplemented!(
-                "we don't know what to do with `static` statements yet."
+                "TDST doesn't support `static` statements (Eventually we want to rewrite static compilation as to render TDST obselete)"
                 )
             }
             ir::Control::Invoke(_) => unreachable!(

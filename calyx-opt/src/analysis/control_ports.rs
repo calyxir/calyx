@@ -59,8 +59,8 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
     // updates self.invoke_map to account for the invoke
     fn handle_invoke(
         &mut self,
-        inputs: &Vec<(ir::Id, ir::RRC<ir::Port>)>,
-        outputs: &Vec<(ir::Id, ir::RRC<ir::Port>)>,
+        inputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        outputs: &[(ir::Id, ir::RRC<ir::Port>)],
         comp: &ir::RRC<ir::Cell>,
         comb_group: &Option<ir::RRC<ir::CombGroup>>,
     ) {

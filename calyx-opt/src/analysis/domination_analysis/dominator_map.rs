@@ -182,7 +182,7 @@ fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
     let mut hs = HashSet::new();
     match sc {
         ir::StaticControl::Empty(_) => (),
-        ir::StaticControl::Enable(_) => {
+        ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
             hs.insert(ControlId::get_guaranteed_attribute_static(sc, NODE_ID));
         }
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
@@ -253,7 +253,7 @@ impl DominatorMap {
 
     fn build_exit_map_static(&mut self, sc: &ir::StaticControl) {
         match sc {
-            ir::StaticControl::Enable(_) => {
+            ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
                 let id =
                     ControlId::get_guaranteed_attribute_static(sc, NODE_ID);
                 self.exits_map.insert(id, HashSet::from([id]));
@@ -363,7 +363,7 @@ impl DominatorMap {
             GenericControl::None => (),
             GenericControl::Static(sc) => match sc {
                 ir::StaticControl::Empty(_) => (),
-                ir::StaticControl::Enable(_) => {
+                ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
                     self.update_node(pred, cur_id);
                 }
                 ir::StaticControl::Repeat(ir::StaticRepeat {
@@ -528,9 +528,9 @@ impl DominatorMap {
             return GenericControl::from(sc);
         };
         match sc {
-            ir::StaticControl::Empty(_) | ir::StaticControl::Enable(_) => {
-                GenericControl::None
-            }
+            ir::StaticControl::Empty(_)
+            | ir::StaticControl::Enable(_)
+            | ir::StaticControl::Invoke(_) => GenericControl::None,
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 Self::get_static_control(id, body)
             }

@@ -177,6 +177,25 @@ impl NodeReads {
                 }
             },
             ir::GenericControl::Static(sc) => match sc {
+                ir::StaticControl::Invoke(ir::StaticInvoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    ..
+                }) => {
+                    for (_, port) in inputs.iter() {
+                        add_parent_if_shareable(
+                            &mut reads,
+                            state_shareable,
+                            port,
+                        );
+                    }
+                    if !outputs.is_empty()
+                        && state_shareable.is_shareable_component(comp)
+                    {
+                        reads.insert(comp.borrow().name());
+                    }
+                }
                 ir::StaticControl::Enable(ir::StaticEnable {
                     group, ..
                 }) => {
@@ -236,6 +255,24 @@ impl NodeSearch {
         })
     }
 
+    // returns true if outputs or comp indicates that cell named self.name was
+    // written to, false otherwise
+    fn is_written_invoke(
+        &self,
+        outputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        comp: &ir::RRC<ir::Cell>,
+    ) -> bool {
+        for (_, port) in outputs.iter() {
+            if port.borrow().get_parent_name() == self.name {
+                return true;
+            }
+        }
+        if comp.borrow().name() == self.name {
+            return true;
+        }
+        false
+    }
+
     //Returns true if any of the control statements in dominators write to a cell
     //with self's name.
     pub fn is_written_guaranteed(
@@ -265,12 +302,7 @@ impl NodeSearch {
                 //combinational group.
                 ir::Control::While(_) | ir::Control::If(_) => (),
                 ir::Control::Invoke(ir::Invoke { comp, outputs, .. }) => {
-                    for (_, port) in outputs.iter() {
-                        if port.borrow().get_parent_name() == self.name {
-                            return true;
-                        }
-                    }
-                    if comp.borrow().name() == self.name {
+                    if self.is_written_invoke(outputs, comp) {
                         return true;
                     }
                 }
@@ -284,6 +316,15 @@ impl NodeSearch {
                 | ir::StaticControl::Repeat(_) => unreachable!(
                     "no static repeats/seqs/pars should be in domination map"
                 ),
+                ir::StaticControl::Invoke(ir::StaticInvoke {
+                    comp,
+                    outputs,
+                    ..
+                }) => {
+                    if self.is_written_invoke(outputs, comp) {
+                        return true;
+                    }
+                }
                 ir::StaticControl::Enable(ir::StaticEnable {
                     group, ..
                 }) => {

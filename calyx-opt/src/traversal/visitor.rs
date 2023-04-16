@@ -3,9 +3,10 @@
 //! [`ir::Context`] to compile every [`ir::Component`] using the pass.
 use super::action::{Action, VisResult};
 use super::{CompTraversal, Order};
-use calyx_ir::{self as ir, Component, Context, Control, LibrarySignatures};
+use calyx_ir::{
+    self as ir, Component, Context, Control, LibrarySignatures, StaticControl,
+};
 use calyx_utils::CalyxResult;
-use ir::StaticControl;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::rc::Rc;

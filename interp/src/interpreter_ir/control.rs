@@ -81,7 +81,7 @@ impl From<CalyxControl> for Control {
             CalyxControl::Invoke(invoke) => Control::Invoke(Rc::new(invoke)),
             CalyxControl::Enable(enable) => Control::Enable(Rc::new(enable)),
             CalyxControl::Static(_) => {
-                panic!("interpreter does not yet support static")
+                todo!("interpreter does not yet support static")
             }
             CalyxControl::Empty(empty) => Control::Empty(Rc::new(empty)),
         }

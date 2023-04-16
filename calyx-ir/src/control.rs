@@ -3,6 +3,8 @@ use std::rc::Rc;
 
 use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 
+type StaticLatency = u64;
+
 /// Data for the `seq` control statement.
 #[derive(Debug)]
 pub struct Seq {
@@ -28,7 +30,7 @@ pub struct StaticSeq {
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
     /// Latency, in cycles
-    pub latency: u64,
+    pub latency: StaticLatency,
 }
 impl GetAttributes for StaticSeq {
     fn get_attributes(&self) -> &Attributes {
@@ -64,7 +66,7 @@ pub struct StaticPar {
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
     /// Latency, in cycles
-    pub latency: u64,
+    pub latency: StaticLatency,
 }
 impl GetAttributes for StaticPar {
     fn get_attributes(&self) -> &Attributes {
@@ -112,7 +114,7 @@ pub struct StaticIf {
     /// latency field
     /// currrently, if two if branches take different amounts of time,
     /// the latency to the length of the longer branch
-    pub latency: u64,
+    pub latency: StaticLatency,
 
     /// Control for the true branch.
     pub tbranch: Box<StaticControl>,
@@ -165,7 +167,7 @@ pub struct StaticRepeat {
     /// Number of times to repeat the body
     pub num_repeats: u64,
     /// latency = num_repeats * (body latency)
-    pub latency: u64,
+    pub latency: StaticLatency,
 }
 impl GetAttributes for StaticRepeat {
     fn get_attributes(&self) -> &Attributes {
@@ -248,7 +250,7 @@ pub struct StaticInvoke {
     /// Cell that is being invoked.
     pub comp: RRC<Cell>,
     /// StaticLatency
-    pub latency: u64,
+    pub latency: StaticLatency,
     /// Mapping from name of input ports in `comp` to the port connected to it.
     pub inputs: PortMap,
     /// Mapping from name of output ports in `comp` to the port connected to it.
@@ -322,7 +324,10 @@ impl From<Enable> for Control {
 
 impl<'a> From<&'a Control> for GenericControl<'a> {
     fn from(c: &'a Control) -> Self {
-        GenericControl::Dynamic(c)
+        match c {
+            Control::Static(sc) => GenericControl::Static(sc),
+            _ => GenericControl::Dynamic(c),
+        }
     }
 }
 
@@ -504,7 +509,7 @@ impl StaticControl {
     }
 
     /// Returns the value of an attribute if present
-    pub fn get_latency(&self) -> u64 {
+    pub fn get_latency(&self) -> StaticLatency {
         match self {
             StaticControl::Enable(StaticEnable { group, .. }) => {
                 group.borrow().get_latency()
@@ -583,7 +588,7 @@ impl Cloner {
     pub fn repeat(rep: &StaticRepeat) -> StaticRepeat {
         StaticRepeat {
             attributes: rep.attributes.clone(),
-            body: Box::new(Self::static_(&rep.body)),
+            body: Box::new(Self::static_control(&rep.body)),
             num_repeats: rep.num_repeats,
             latency: rep.latency,
         }
@@ -603,8 +608,8 @@ impl Cloner {
         StaticIf {
             port: Rc::clone(&sif.port),
             latency: sif.latency,
-            tbranch: Box::new(Self::static_(&sif.tbranch)),
-            fbranch: Box::new(Self::static_(&sif.fbranch)),
+            tbranch: Box::new(Self::static_control(&sif.tbranch)),
+            fbranch: Box::new(Self::static_control(&sif.fbranch)),
             attributes: sif.attributes.clone(),
         }
     }
@@ -618,7 +623,7 @@ impl Cloner {
 
     pub fn static_par(par: &StaticPar) -> StaticPar {
         StaticPar {
-            stmts: par.stmts.iter().map(Self::static_).collect(),
+            stmts: par.stmts.iter().map(Self::static_control).collect(),
             attributes: par.attributes.clone(),
             latency: par.latency,
         }
@@ -633,7 +638,7 @@ impl Cloner {
 
     pub fn static_seq(seq: &StaticSeq) -> StaticSeq {
         StaticSeq {
-            stmts: seq.stmts.iter().map(Self::static_).collect(),
+            stmts: seq.stmts.iter().map(Self::static_control).collect(),
             attributes: seq.attributes.clone(),
             latency: seq.latency,
         }
@@ -650,7 +655,7 @@ impl Cloner {
         }
     }
 
-    pub fn static_(s: &StaticControl) -> StaticControl {
+    pub fn static_control(s: &StaticControl) -> StaticControl {
         match s {
             StaticControl::Enable(sen) => {
                 StaticControl::Enable(Cloner::static_enable(sen))
@@ -681,7 +686,7 @@ impl Cloner {
             Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
             Control::Enable(en) => Control::Enable(Cloner::enable(en)),
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),
-            Control::Static(s) => Control::Static(Cloner::static_(s)),
+            Control::Static(s) => Control::Static(Cloner::static_control(s)),
         }
     }
 }
