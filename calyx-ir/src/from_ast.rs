@@ -632,7 +632,9 @@ fn build_static_control(
             *emp.get_mut_attributes() = attributes;
             emp
         }
-        ast::Control::Invoke { .. } => todo!(""),
+        ast::Control::Invoke { .. } => {
+            todo!("implement frontend parsing for invoke")
+        }
     };
     Ok(sc)
 }
@@ -741,15 +743,8 @@ fn build_control(
             attributes,
             latency,
         } => {
-            let mut s = StaticControl::seq(
-                stmts
-                    .into_iter()
-                    .map(|c| build_static_control(c, builder))
-                    .collect::<CalyxResult<Vec<_>>>()?,
-                latency,
-            );
-            *s.get_mut_attributes() = attributes;
-            Control::Static(s)
+            let s = build_static_seq(stmts, attributes, latency, builder);
+            Control::Static(s?)
         }
         ast::Control::Par { stmts, attributes } => {
             let mut p = Control::par(

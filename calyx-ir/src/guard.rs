@@ -79,6 +79,10 @@ impl StaticTiming {
     pub fn get_interval(&self) -> (u64, u64) {
         self.interval
     }
+
+    pub fn set_interval(&mut self, new_interval: (u64, u64)) {
+        self.interval = new_interval;
+    }
 }
 
 impl<T> Hash for Guard<T>
