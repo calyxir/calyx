@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import threading
 from typing import Dict, Union, Optional, List
 from . import py_ast as ast
@@ -64,13 +66,13 @@ class ComponentBuilder:
         return ControlBuilder(self.component.controls)
 
     @control.setter
-    def control(self, builder: Union[ast.Control, "ControlBuilder"]):
+    def control(self, builder: Union[ast.Control, ControlBuilder]):
         if isinstance(builder, ControlBuilder):
             self.component.controls = builder.stmt
         else:
             self.component.controls = builder
 
-    def get_cell(self, name: str) -> "CellBuilder":
+    def get_cell(self, name: str) -> CellBuilder:
         out = self.index.get(name)
         if out and isinstance(out, CellBuilder):
             return out
@@ -80,7 +82,7 @@ class ComponentBuilder:
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
 
-    def get_group(self, name: str) -> "GroupBuilder":
+    def get_group(self, name: str) -> GroupBuilder:
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -89,14 +91,14 @@ class ComponentBuilder:
                 f"Group `{name}' not found in component {self.component.name}"
             )
 
-    def group(self, name: str) -> "GroupBuilder":
+    def group(self, name: str) -> GroupBuilder:
         group = ast.Group(ast.CompVar(name), connections=[])
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
         self.index[name] = builder
         return builder
 
-    def comb_group(self, name: str) -> "GroupBuilder":
+    def comb_group(self, name: str) -> GroupBuilder:
         group = ast.CombGroup(ast.CompVar(name), connections=[])
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
@@ -106,7 +108,7 @@ class ComponentBuilder:
     def cell(
         self,
         name: str,
-        comp: Union[ast.CompInst, "ComponentBuilder"],
+        comp: Union[ast.CompInst, ComponentBuilder],
         is_external=False,
         is_ref=False,
     ) -> "CellBuilder":
@@ -123,6 +125,10 @@ class ComponentBuilder:
 
     def reg(self, name: str, size: int):
         return self.cell(name, ast.Stdlib.register(size))
+
+    def const(self, name: str, width: int, value: int):
+        """Utility wrapper for generating StdConstant cells"""
+        return self.cell(name, ast.Stdlib.constant(width, value))
 
     def mem_d1(
         self,
