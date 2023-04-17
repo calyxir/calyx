@@ -349,7 +349,7 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
         /// Latency for the seq
-        latency: Option<u64>,
+        latency: u64,
     },
 }
 

@@ -822,7 +822,7 @@ impl CalyxParser {
             [at_attributes(attrs), static_word(_), latency_annotation(latency), stmt(stmt)..] => ast::Control::StaticSeq {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
-                latency: Some(latency),
+                latency,
             }
         ))
     }

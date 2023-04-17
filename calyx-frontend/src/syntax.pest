@@ -297,6 +297,12 @@ par = {
       ~ "}"
 }
 
+static_par = {
+      at_attributes ~ static_word ~ "par" ~ latency_annotation ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
 // Error reporting rule: these statements should be inside a `stmt`.
 stmts_without_block = {
   "{" ~ stmt* ~ "}"

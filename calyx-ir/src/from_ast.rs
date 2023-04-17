@@ -1,7 +1,7 @@
 use super::{
     Assignment, Attributes, BackendConf, Builder, Canonical, CellType,
     Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
-    LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC,
+    LibrarySignatures, Port, PortDef, StaticControl, RESERVED_NAMES, RRC,
 };
 use crate::{Nothing, PortComp, StaticTiming};
 use calyx_frontend::{ast, Workspace};
@@ -567,13 +567,82 @@ fn build_static_guard(
 }
 
 ///////////////// Control Construction /////////////////////////
+fn build_static_seq(
+    stmts: Vec<ast::Control>,
+    attributes: Attributes,
+    latency: u64,
+    builder: &mut Builder,
+) -> CalyxResult<StaticControl> {
+    let mut s = StaticControl::seq(
+        stmts
+            .into_iter()
+            .map(|c| build_static_control(c, builder))
+            .collect::<CalyxResult<Vec<_>>>()?,
+        latency,
+    );
+    *s.get_mut_attributes() = attributes;
+    Ok(s)
+}
+
+// checks whether `control` is static
+fn build_static_control(
+    control: ast::Control,
+    builder: &mut Builder,
+) -> CalyxResult<StaticControl> {
+    let sc = match control {
+        ast::Control::Enable {
+            comp: component,
+            attributes,
+        } => match builder.component.find_group(component) {
+            Some(_) => {
+                // dynamic group called in build_static_control
+                return Err(Error::malformed_control(format!(
+                    "found dynamic group static context"
+                )));
+            }
+            None => {
+                let mut en = StaticControl::enable(Rc::clone(
+                    &builder
+                        .component
+                        .find_static_group(component)
+                        .ok_or_else(|| {
+                            Error::undefined(component, "group".to_string())
+                                .with_pos(&attributes)
+                        })?,
+                ));
+                *en.get_mut_attributes() = attributes;
+                en
+            }
+        },
+        ast::Control::StaticSeq {
+            stmts,
+            attributes,
+            latency,
+        } => return build_static_seq(stmts, attributes, latency, builder),
+        ast::Control::Par { .. }
+        | ast::Control::If { .. }
+        | ast::Control::While { .. }
+        | ast::Control::Seq { .. } => {
+            return Err(Error::malformed_control(format!(
+                "dynamic control in static context"
+            )));
+        }
+        ast::Control::Empty { attributes } => {
+            let mut emp = StaticControl::empty();
+            *emp.get_mut_attributes() = attributes;
+            emp
+        }
+        ast::Control::Invoke { .. } => todo!(""),
+    };
+    Ok(sc)
+}
 
 /// Transform ast::Control to ir::Control.
 fn build_control(
     control: ast::Control,
     builder: &mut Builder,
 ) -> CalyxResult<Control> {
-    Ok(match control {
+    let c = match control {
         ast::Control::Enable {
             comp: component,
             attributes,
@@ -584,7 +653,7 @@ fn build_control(
                 en
             }
             None => {
-                let mut en = Control::static_enable(Rc::clone(
+                let mut en = Control::Static(StaticControl::enable(Rc::clone(
                     &builder
                         .component
                         .find_static_group(component)
@@ -592,7 +661,7 @@ fn build_control(
                             Error::undefined(component, "group".to_string())
                                 .with_pos(&attributes)
                         })?,
-                ));
+                )));
                 *en.get_mut_attributes() = attributes;
                 en
             }
@@ -667,6 +736,21 @@ fn build_control(
             *s.get_mut_attributes() = attributes;
             s
         }
+        ast::Control::StaticSeq {
+            stmts,
+            attributes,
+            latency,
+        } => {
+            let mut s = StaticControl::seq(
+                stmts
+                    .into_iter()
+                    .map(|c| build_static_control(c, builder))
+                    .collect::<CalyxResult<Vec<_>>>()?,
+                latency,
+            );
+            *s.get_mut_attributes() = attributes;
+            Control::Static(s)
+        }
         ast::Control::Par { stmts, attributes } => {
             let mut p = Control::par(
                 stmts
@@ -740,5 +824,6 @@ fn build_control(
             *emp.get_mut_attributes() = attributes;
             emp
         }
-    })
+    };
+    Ok(c)
 }

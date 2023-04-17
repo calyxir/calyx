@@ -427,14 +427,6 @@ impl Control {
         })
     }
 
-    /// Convience constructor for static enable.
-    pub fn static_enable(group: RRC<StaticGroup>) -> Self {
-        Control::Static(StaticControl::Enable(StaticEnable {
-            group,
-            attributes: Attributes::default(),
-        }))
-    }
-
     /// Convience constructor for invoke.
     pub fn invoke(comp: RRC<Cell>, inputs: PortMap, outputs: PortMap) -> Self {
         Control::Invoke(Invoke {
@@ -498,6 +490,23 @@ impl StaticControl {
     /// Convience constructor for empty.
     pub fn empty() -> Self {
         StaticControl::Empty(Empty::default())
+    }
+
+    /// Convience constructor for static enable.
+    pub fn enable(group: RRC<StaticGroup>) -> Self {
+        StaticControl::Enable(StaticEnable {
+            group,
+            attributes: Attributes::default(),
+        })
+    }
+
+    /// Convience constructor for static enable.
+    pub fn seq(stmts: Vec<StaticControl>, latency: u64) -> Self {
+        StaticControl::Seq(StaticSeq {
+            stmts,
+            attributes: Attributes::default(),
+            latency,
+        })
     }
 
     /// Returns the value of an attribute if present
