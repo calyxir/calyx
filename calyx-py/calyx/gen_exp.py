@@ -205,7 +205,7 @@ def generate_cells(
         comp.cell(f"pow{i}", CompInst("fp_pow", []))
 
 
-def divide_and_conquer_sums(degree: int) -> List[Structure]:
+def divide_and_conquer_sums(comp: ComponentBuilder, degree: int):
     """Returns a list of groups for the sums.
     This is done by dividing the groups into
     log2(N) different rounds, where N is the `degree`.
@@ -220,7 +220,6 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
 
       group add_degree_zero { ... }  #    sum1 + 1
     """
-    groups = []
     sum_count = degree
     round = 1
     while sum_count > 1:
@@ -233,59 +232,48 @@ def divide_and_conquer_sums(degree: int) -> List[Structure]:
             )
         ]
         for i, (lhs, rhs) in enumerate(register_indices):
-            group_name = CompVar(f"sum_round{round}_{i + 1}")
-
-            # The first round will accrue its operands
-            # from the previously calculated products.
             register_name = "product" if round == 1 else "sum"
 
-            reg_lhs = CompVar(f"{register_name}{lhs}")
-            reg_rhs = CompVar(f"{register_name}{rhs}")
-            sum = CompVar(f"sum{i + 1}")
+            # TODO (griffin): double check that the cells are being created
+            # somewhere
+            sum = comp.get_cell(f"sum{i + 1}")
+            # The first round will accrue its operands
+            # from the previously calculated products.
 
-            # In the first round and first group, we add the 1st degree, the
-            # value `x` itself.
-            lhs = (
-                CompPort(CompVar("frac_x"), "out")
-                if round == 1 and i == 0
-                else CompPort(reg_lhs, "out")
-            )
-            connections = [
-                Connect(CompPort(CompVar(f"add{i + 1}"), "left"), lhs),
-                Connect(
-                    CompPort(CompVar(f"add{i + 1}"), "right"), CompPort(reg_rhs, "out")
-                ),
-                Connect(CompPort(sum, "write_en"), ConstantPort(1, 1)),
-                Connect(CompPort(sum, "in"), CompPort(CompVar(f"add{i + 1}"), "out")),
-                Connect(HolePort(group_name, "done"), CompPort(sum, "done")),
-            ]
-            groups.append(Group(group_name, connections, 1))
+            reg_lhs = comp.get_cell(f"{register_name}{lhs}")
+            reg_rhs = comp.get_cell(f"{register_name}{rhs}")
+            adder = comp.get_cell(f"add{i + 1}")
+            frac_x = comp.get_cell("frac_x")
+
+            with comp.group(f"sum_round{round}_{i + 1}", static_delay=1) as grp:
+                # In the first round and first group, we add the 1st degree, the
+                # value `x` itself.
+                if round == 1 and i == 0:
+                    adder.left = frac_x.out
+                else:
+                    adder.left = reg_lhs.out
+                adder.right = reg_rhs.out
+
+                sum.write_en = 1
+                sum.in_ = adder.out
+                grp.done = sum.done
+
         sum_count >>= 1
         round = round + 1
 
     # Sums the 0th degree value, 1, and the final
     # sum of the divide-and-conquer.
-    group_name = CompVar("add_degree_zero")
-    adder = CompVar("add1")
-    reg = CompVar("sum1")
 
-    groups.append(
-        Group(
-            id=group_name,
-            connections=[
-                Connect(CompPort(adder, "left"), CompPort(reg, "out")),
-                Connect(
-                    CompPort(adder, "right"),
-                    CompPort(CompVar("one"), "out"),
-                ),
-                Connect(CompPort(reg, "write_en"), ConstantPort(1, 1)),
-                Connect(CompPort(reg, "in"), CompPort(adder, "out")),
-                Connect(HolePort(group_name, "done"), CompPort(reg, "done")),
-            ],
-            static_delay=1,
-        )
-    )
-    return groups
+    adder = comp.get_cell("add1")
+    reg = comp.get_cell("sum1")
+    one = comp.get_cell("one")
+
+    with comp.group("add_degree_zero", static_delay=1) as grp:
+        adder.left = reg.out
+        adder.right = one.out
+        reg.write_en = 1
+        reg.in_ = adder.out
+        grp.done = reg.done
 
 
 def consume_pow(i: int) -> Group:

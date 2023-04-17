@@ -91,7 +91,7 @@ class ComponentBuilder:
                 f"Group `{name}' not found in component {self.component.name}"
             )
 
-    def group(self, name: str) -> GroupBuilder:
+    def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         group = ast.Group(ast.CompVar(name), connections=[])
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
