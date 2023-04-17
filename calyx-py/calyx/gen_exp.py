@@ -33,7 +33,7 @@ from math import factorial, log2
 from fud.stages.verilator import numeric_types
 from calyx.gen_ln import generate_ln
 
-from calyx.builder import Builder
+from calyx.builder import Builder, ComponentBuilder
 
 
 def generate_fp_pow_component(
@@ -109,123 +109,97 @@ def generate_fp_pow_component(
 
 
 def generate_cells(
-    degree: int, width: int, int_width: int, is_signed: bool
-) -> List[Cell]:
+    comp: ComponentBuilder, degree: int, width: int, int_width: int, is_signed: bool
+):
     frac_width = width - int_width
-    init_cells = [
-        Cell(CompVar("exponent_value"), Stdlib.register(width)),
-        Cell(CompVar("int_x"), Stdlib.register(width)),
-        Cell(CompVar("frac_x"), Stdlib.register(width)),
-        Cell(CompVar("m"), Stdlib.register(width)),
-        Cell(CompVar("and0"), Stdlib.op("and", width, signed=False)),
-        Cell(CompVar("and1"), Stdlib.op("and", width, signed=False)),
-        Cell(CompVar("rsh"), Stdlib.op("rsh", width, signed=False)),
-    ] + (
-        [Cell(CompVar("lt"), Stdlib.op("lt", width, signed=is_signed))]
-        if is_signed
-        else []
-    )
 
-    pow_registers = [
-        Cell(CompVar(f"p{i}"), Stdlib.register(width)) for i in range(2, degree + 1)
-    ]
-    product_registers = [
-        Cell(CompVar(f"product{i}"), Stdlib.register(width))
-        for i in range(2, degree + 1)
-    ]
-    sum_registers = [
-        Cell(CompVar(f"sum{i}"), Stdlib.register(width))
-        for i in range(1, (degree // 2) + 1)
-    ]
-    adds = [
-        Cell(
-            CompVar(f"add{i}"),
+    # Init Cells
+    comp.reg("exponent_value", width)
+    comp.reg("int_x", width)
+    comp.reg("frac_x", width)
+    comp.reg("m", width)
+    comp.cell("and0", Stdlib.op("and", width, signed=False))
+    comp.cell("and1", Stdlib.op("and", width, signed=False))
+    comp.cell("rsh", Stdlib.op("rsh", width, signed=False))
+    if is_signed:
+        comp.cell("lt", Stdlib.op("lt", width, signed=is_signed))
+
+    # pow and product registers
+    for i in range(2, degree + 1):
+        comp.reg(f"p{i}", width)
+
+    for i in range(2, degree + 1):
+        comp.reg(f"product{i}", width)
+
+    # sum registers and adders
+    for i in range(1, (degree // 2) + 1):
+        comp.reg(f"sum{i}", width)
+
+    for i in range(1, (degree // 2) + 1):
+        comp.cell(
+            f"add{i}",
             Stdlib.fixed_point_op(
                 "add", width, int_width, frac_width, signed=is_signed
             ),
         )
-        for i in range(1, (degree // 2) + 1)
-    ]
-    pipes = [
-        Cell(
-            CompVar(f"mult_pipe{i}"),
+
+    # mult pipes
+    for i in range(1, degree + 1):
+        comp.cell(
+            f"mult_pipe{i}",
             Stdlib.fixed_point_op(
                 "mult_pipe", width, int_width, frac_width, signed=is_signed
             ),
         )
-        for i in range(1, degree + 1)
-    ]
+
     # One extra `fp_pow` instance to compute e^{int_value}.
-    pows = [
-        Cell(CompVar(f"pow{i}"), CompInst("fp_pow", [])) for i in range(1, degree + 1)
-    ]
-    reciprocal_factorials = []
+    for i in range(1, degree + 1):
+        comp.cell(f"pow{i}", CompInst("fp_pow", []))
+
     for i in range(2, degree + 1):
         fixed_point_value = float_to_fixed_point(1.0 / factorial(i), frac_width)
         value = numeric_types.FixedPoint(
             str(fixed_point_value), width, int_width, is_signed=is_signed
         ).unsigned_integer()
-        reciprocal_factorials.append(
-            Cell(CompVar(f"reciprocal_factorial{i}"), Stdlib.constant(width, value))
-        )
+        comp.const(f"reciprocal_factorial{i}", width, value)
+
+    for i in range(2, degree + 1):
+        comp.const(f"c{i}", width, i)
+
     # Constant values for the exponent to the fixed point `pow` function.
-    constants = [
-        Cell(CompVar(f"c{i}"), Stdlib.constant(width, i)) for i in range(2, degree + 1)
-    ] + [
-        Cell(
-            CompVar("one"),
-            Stdlib.constant(
-                width,
-                numeric_types.FixedPoint(
-                    "1.0", width, int_width, is_signed=is_signed
-                ).unsigned_integer(),
-            ),
-        ),
-        Cell(
-            CompVar("e"),
-            Stdlib.constant(
-                width,
-                numeric_types.FixedPoint(
-                    str(float_to_fixed_point(2.7182818284, frac_width)),
-                    width,
-                    int_width,
-                    is_signed=is_signed,
-                ).unsigned_integer(),
-            ),
-        ),
-    ]
+    comp.const(
+        "one",
+        width,
+        numeric_types.FixedPoint(
+            "1.0", width, int_width, is_signed=is_signed
+        ).unsigned_integer(),
+    )
+    comp.const(
+        "e",
+        width,
+        numeric_types.FixedPoint(
+            str(float_to_fixed_point(2.7182818284, frac_width)),
+            width,
+            int_width,
+            is_signed=is_signed,
+        ).unsigned_integer(),
+    )
+
     if is_signed:
-        constants.append(
-            Cell(
-                CompVar("negative_one"),
-                Stdlib.constant(
-                    width,
-                    numeric_types.FixedPoint(
-                        "-1.0", width, int_width, is_signed=is_signed
-                    ).unsigned_integer(),
-                ),
-            ),
-        )
-        pipes.append(
-            Cell(
-                CompVar("div_pipe"),
-                Stdlib.fixed_point_op(
-                    "div_pipe", width, int_width, frac_width, signed=is_signed
-                ),
-            )
+        comp.const(
+            "negative_one",
+            width,
+            numeric_types.FixedPoint(
+                "-1.0", width, int_width, is_signed=is_signed
+            ).unsigned_integer(),
         )
 
-    return (
-        init_cells
-        + constants
-        + product_registers
-        + pow_registers
-        + sum_registers
-        + adds
-        + pipes
-        + reciprocal_factorials
-        + pows
-    )
+        comp.cell(
+            "div_pipe",
+            Stdlib.fixed_point_op(
+                "div_pipe", width, int_width, frac_width, signed=is_signed
+            ),
+        )
 
 
 def divide_and_conquer_sums(degree: int) -> List[Structure]:
