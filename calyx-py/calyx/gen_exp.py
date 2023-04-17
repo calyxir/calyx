@@ -124,45 +124,7 @@ def generate_cells(
     if is_signed:
         comp.cell("lt", Stdlib.op("lt", width, signed=is_signed))
 
-    # pow and product registers
-    for i in range(2, degree + 1):
-        comp.reg(f"p{i}", width)
-
-    for i in range(2, degree + 1):
-        comp.reg(f"product{i}", width)
-
-    # sum registers and adders
-    for i in range(1, (degree // 2) + 1):
-        comp.reg(f"sum{i}", width)
-
-    for i in range(1, (degree // 2) + 1):
-        comp.cell(
-            f"add{i}",
-            Stdlib.fixed_point_op(
-                "add", width, int_width, frac_width, signed=is_signed
-            ),
-        )
-
-    # mult pipes
-    for i in range(1, degree + 1):
-        comp.cell(
-            f"mult_pipe{i}",
-            Stdlib.fixed_point_op(
-                "mult_pipe", width, int_width, frac_width, signed=is_signed
-            ),
-        )
-
-    # One extra `fp_pow` instance to compute e^{int_value}.
-    for i in range(1, degree + 1):
-        comp.cell(f"pow{i}", CompInst("fp_pow", []))
-
-    for i in range(2, degree + 1):
-        fixed_point_value = float_to_fixed_point(1.0 / factorial(i), frac_width)
-        value = numeric_types.FixedPoint(
-            str(fixed_point_value), width, int_width, is_signed=is_signed
-        ).unsigned_integer()
-        comp.const(f"reciprocal_factorial{i}", width, value)
-
+    # constants
     for i in range(2, degree + 1):
         comp.const(f"c{i}", width, i)
 
@@ -194,12 +156,53 @@ def generate_cells(
             ).unsigned_integer(),
         )
 
+    # product and pow registers
+    for i in range(2, degree + 1):
+        comp.reg(f"product{i}", width)
+
+    for i in range(2, degree + 1):
+        comp.reg(f"p{i}", width)
+
+    # sum registers and adders
+    for i in range(1, (degree // 2) + 1):
+        comp.reg(f"sum{i}", width)
+
+    for i in range(1, (degree // 2) + 1):
+        comp.cell(
+            f"add{i}",
+            Stdlib.fixed_point_op(
+                "add", width, int_width, frac_width, signed=is_signed
+            ),
+        )
+
+    # mult pipes
+    for i in range(1, degree + 1):
+        comp.cell(
+            f"mult_pipe{i}",
+            Stdlib.fixed_point_op(
+                "mult_pipe", width, int_width, frac_width, signed=is_signed
+            ),
+        )
+
+    if is_signed:
         comp.cell(
             "div_pipe",
             Stdlib.fixed_point_op(
                 "div_pipe", width, int_width, frac_width, signed=is_signed
             ),
         )
+
+    # reciprocal factorials
+    for i in range(2, degree + 1):
+        fixed_point_value = float_to_fixed_point(1.0 / factorial(i), frac_width)
+        value = numeric_types.FixedPoint(
+            str(fixed_point_value), width, int_width, is_signed=is_signed
+        ).unsigned_integer()
+        comp.const(f"reciprocal_factorial{i}", width, value)
+
+    # One extra `fp_pow` instance to compute e^{int_value}.
+    for i in range(1, degree + 1):
+        comp.cell(f"pow{i}", CompInst("fp_pow", []))
 
 
 def divide_and_conquer_sums(degree: int) -> List[Structure]:
