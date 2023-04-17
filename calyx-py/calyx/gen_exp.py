@@ -1,4 +1,5 @@
 from typing import List
+
 from calyx.py_ast import (
     Connect,
     CompVar,
@@ -32,116 +33,79 @@ from math import factorial, log2
 from fud.stages.verilator import numeric_types
 from calyx.gen_ln import generate_ln
 
+from calyx.builder import Builder
 
-def generate_fp_pow_component(width: int, int_width: int, is_signed: bool) -> Component:
+
+def generate_fp_pow_component(
+    width: int, int_width: int, is_signed: bool, builder: Builder
+) -> Component:
     """Generates a fixed point `pow` component, which
     computes the value x**y, where y must be an integer.
     """
     frac_width = width - int_width
 
-    pow = CompVar("pow")
-    count = CompVar("count")
-    mul = CompVar("mul")
-    lt = CompVar("lt")
-    incr = CompVar("incr")
+    # Component sigs
+    comp = builder.component(name="fp_pow")
+    comp.input("base", width)
+    comp.input("integer_exp", width)
+    comp.output("out", width)
 
-    cells = [
-        Cell(pow, Stdlib.register(width)),
-        Cell(count, Stdlib.register(width)),
-        Cell(
-            mul,
-            Stdlib.fixed_point_op(
-                "mult_pipe", width, int_width, frac_width, signed=is_signed
-            ),
-        ),
-        Cell(lt, Stdlib.op("lt", width, signed=is_signed)),
-        Cell(incr, Stdlib.op("add", width, signed=is_signed)),
-    ]
-    wires = [
-        Group(
-            id=CompVar("init"),
-            connections=[
-                Connect(
-                    CompPort(pow, "in"),
-                    ConstantPort(
-                        width,
-                        numeric_types.FixedPoint(
-                            "1.0", width, int_width, is_signed=is_signed
-                        ).unsigned_integer(),
-                    ),
-                ),
-                Connect(CompPort(pow, "write_en"), ConstantPort(1, 1)),
-                Connect(CompPort(count, "in"), ConstantPort(width, 0)),
-                Connect(CompPort(count, "write_en"), ConstantPort(1, 1)),
-                Connect(
-                    HolePort(CompVar("init"), "done"),
-                    ConstantPort(1, 1),
-                    And(
-                        Atom(CompPort(pow, "done")),
-                        Atom(CompPort(count, "done")),
-                    ),
-                ),
-            ],
-        ),
-        Group(
-            id=CompVar("execute_mul"),
-            connections=[
-                Connect(CompPort(mul, "left"), ThisPort(CompVar("base"))),
-                Connect(CompPort(mul, "right"), CompPort(pow, "out")),
-                Connect(
-                    CompPort(mul, "go"),
-                    ConstantPort(1, 1),
-                    Not(Atom(CompPort(mul, "done"))),
-                ),
-                Connect(CompPort(pow, "write_en"), CompPort(mul, "done")),
-                Connect(CompPort(pow, "in"), CompPort(mul, "out")),
-                Connect(
-                    HolePort(CompVar("execute_mul"), "done"),
-                    CompPort(pow, "done"),
-                ),
-            ],
-        ),
-        Group(
-            id=CompVar("incr_count"),
-            connections=[
-                Connect(CompPort(incr, "left"), ConstantPort(width, 1)),
-                Connect(CompPort(incr, "right"), CompPort(count, "out")),
-                Connect(CompPort(count, "in"), CompPort(incr, "out")),
-                Connect(CompPort(count, "write_en"), ConstantPort(1, 1)),
-                Connect(
-                    HolePort(CompVar("incr_count"), "done"),
-                    CompPort(count, "done"),
-                ),
-            ],
-        ),
-        CombGroup(
-            id=CompVar("cond"),
-            connections=[
-                Connect(CompPort(lt, "left"), CompPort(count, "out")),
-                Connect(CompPort(lt, "right"), ThisPort(CompVar("integer_exp"))),
-            ],
-        ),
-        Connect(ThisPort(CompVar("out")), CompPort(CompVar("pow"), "out")),
-    ]
-    return Component(
-        "fp_pow",
-        inputs=[
-            PortDef(CompVar("base"), width),
-            PortDef(CompVar("integer_exp"), width),
-        ],
-        outputs=[PortDef(CompVar("out"), width)],
-        structs=cells + wires,
-        controls=SeqComp(
-            [
-                Enable("init"),
-                While(
-                    CompPort(lt, "out"),
-                    CompVar("cond"),
-                    ParComp([Enable("execute_mul"), Enable("incr_count")]),
-                ),
-            ]
+    # cells
+    pow = comp.reg("pow", width)
+    count = comp.reg("count", width)
+    mul = comp.cell(
+        "mul",
+        Stdlib.fixed_point_op(
+            "mult_pipe", width, int_width, frac_width, signed=is_signed
         ),
     )
+    lt = comp.cell("lt", Stdlib.op("lt", width, signed=is_signed))
+    incr = comp.cell("incr", Stdlib.op("add", width, signed=is_signed))
+
+    # groups
+    with comp.group("init") as init:
+        pow.in_ = numeric_types.FixedPoint(
+            "1.0", width, int_width, is_signed=is_signed
+        ).unsigned_integer()
+        pow.write_en = 1
+        count.in_ = 0
+        count.write_en = 1
+        init.done = (pow.done & count.done) @ 1
+
+    with comp.group("execute_mul") as execute_mul:
+        mul.left = comp.this().base
+        mul.right = pow.out
+        mul.go = (~mul.done) @ 1
+        pow.write_en = mul.done
+        pow.in_ = mul.out
+        execute_mul.done = pow.done
+
+    with comp.group("incr_count") as incr_count:
+        incr.left = 1
+        incr.right = count.out
+        count.in_ = incr.out
+        count.write_en = 1
+        incr_count.done = count.done
+
+    with comp.comb_group("cond"):
+        lt.left = count.out
+        lt.right = comp.this().integer_exp
+
+    with comp.continuous:
+        comp.this().out = pow.out
+
+    comp.control += [
+        SeqComp(
+            init,
+            While(
+                CompPort(lt, "out"),
+                CompVar("cond"),
+                ParComp([Enable("execute_mul"), Enable("incr_count")]),
+            ),
+        ),
+    ]
+
+    return comp.component
 
 
 def generate_cells(
