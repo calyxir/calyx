@@ -469,6 +469,11 @@ impl Control {
         })
     }
 
+    /// Convience constructor for if
+    pub fn static_control(sc: StaticControl) -> Self {
+        Control::Static(sc)
+    }
+
     /// Returns the value of an attribute if present
     pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
     where
@@ -504,6 +509,31 @@ impl StaticControl {
     pub fn seq(stmts: Vec<StaticControl>, latency: u64) -> Self {
         StaticControl::Seq(StaticSeq {
             stmts,
+            attributes: Attributes::default(),
+            latency,
+        })
+    }
+
+    /// Convience constructor for static enable.
+    pub fn par(stmts: Vec<StaticControl>, latency: u64) -> Self {
+        StaticControl::Par(StaticPar {
+            stmts,
+            attributes: Attributes::default(),
+            latency,
+        })
+    }
+
+    /// Convience constructor for static if
+    pub fn if_(
+        port: RRC<Port>,
+        tbranch: Box<StaticControl>,
+        fbranch: Box<StaticControl>,
+        latency: u64,
+    ) -> Self {
+        StaticControl::If(StaticIf {
+            port,
+            tbranch,
+            fbranch,
             attributes: Attributes::default(),
             latency,
         })

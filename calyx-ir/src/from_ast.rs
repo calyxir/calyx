@@ -567,6 +567,8 @@ fn build_static_guard(
 }
 
 ///////////////// Control Construction /////////////////////////
+
+// builds static_seq based on stmts, attributes, and latency
 fn build_static_seq(
     stmts: Vec<ast::Control>,
     attributes: Attributes,
@@ -582,6 +584,44 @@ fn build_static_seq(
     );
     *s.get_mut_attributes() = attributes;
     Ok(s)
+}
+
+fn build_static_par(
+    stmts: Vec<ast::Control>,
+    attributes: Attributes,
+    latency: u64,
+    builder: &mut Builder,
+) -> CalyxResult<StaticControl> {
+    let mut p = StaticControl::par(
+        stmts
+            .into_iter()
+            .map(|c| build_static_control(c, builder))
+            .collect::<CalyxResult<Vec<_>>>()?,
+        latency,
+    );
+    *p.get_mut_attributes() = attributes;
+    Ok(p)
+}
+
+fn build_static_if(
+    port: ast::Port,
+    tbranch: Box<ast::Control>,
+    fbranch: Box<ast::Control>,
+    attributes: Attributes,
+    latency: u64,
+    builder: &mut Builder,
+) -> CalyxResult<StaticControl> {
+    let mut con = StaticControl::if_(
+        ensure_direction(
+            get_port_ref(port, builder.component)?,
+            Direction::Output,
+        )?,
+        Box::new(build_static_control(*tbranch, builder)?),
+        Box::new(build_static_control(*fbranch, builder)?),
+        latency,
+    );
+    *con.get_mut_attributes() = attributes;
+    Ok(con)
 }
 
 // checks whether `control` is static
@@ -619,6 +659,22 @@ fn build_static_control(
             attributes,
             latency,
         } => return build_static_seq(stmts, attributes, latency, builder),
+        ast::Control::StaticPar {
+            stmts,
+            attributes,
+            latency,
+        } => return build_static_par(stmts, attributes, latency, builder),
+        ast::Control::StaticIf {
+            port,
+            tbranch,
+            fbranch,
+            attributes,
+            latency,
+        } => {
+            return build_static_if(
+                port, tbranch, fbranch, attributes, latency, builder,
+            )
+        }
         ast::Control::Par { .. }
         | ast::Control::If { .. }
         | ast::Control::While { .. }
@@ -744,6 +800,26 @@ fn build_control(
             latency,
         } => {
             let s = build_static_seq(stmts, attributes, latency, builder);
+            Control::Static(s?)
+        }
+        ast::Control::StaticPar {
+            stmts,
+            attributes,
+            latency,
+        } => {
+            let s = build_static_par(stmts, attributes, latency, builder);
+            Control::Static(s?)
+        }
+        ast::Control::StaticIf {
+            port,
+            tbranch,
+            fbranch,
+            attributes,
+            latency,
+        } => {
+            let s = build_static_if(
+                port, tbranch, fbranch, attributes, latency, builder,
+            );
             Control::Static(s?)
         }
         ast::Control::Par { stmts, attributes } => {

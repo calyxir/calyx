@@ -228,9 +228,6 @@ static_wire = {
 attribute = {
       string_lit ~ "=" ~ bitwidth
 }
-latency_annotation = {
-  "<" ~ bitwidth ~ ">"
-}
 attributes = {
       "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
 }
@@ -286,12 +283,6 @@ seq = {
       ~ "}"
 }
 
-static_seq = {
-      at_attributes ~  static_word ~ "seq" ~ latency_annotation ~ "{"
-      ~ stmt*
-      ~ "}"
-}
-
 par = {
       at_attributes ~ "par" ~ "{"
       ~ stmt*
@@ -324,7 +315,6 @@ stmt = {
     | enable
     | invoke
     | seq
-    | static_seq
     | par
     | if_stmt
     | while_stmt

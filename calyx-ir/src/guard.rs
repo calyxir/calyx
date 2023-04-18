@@ -56,7 +56,7 @@ impl<T> Default for Guard<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct StaticTiming {
     interval: (u64, u64),
 }
@@ -366,6 +366,15 @@ impl<T> Guard<T> {
                 // Info shouldn't count as port
                 {}
         }
+    }
+}
+
+impl<T> Guard<T>
+where
+    T: Eq,
+{
+    pub fn add_interval(&mut self, interval: T) {
+        self.update(|g| g.and(Guard::Info(interval)));
     }
 }
 

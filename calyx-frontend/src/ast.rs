@@ -344,11 +344,38 @@ pub enum Control {
     /// Represents sequential composition of static control statements.
     StaticSeq {
         /// List of `Control` statements to run in sequence.
-        /// If not all of these stmts are static, we will error out
+        /// If not all of these stmts are static, we should error out
         stmts: Vec<Control>,
         /// Attributes
         attributes: Attributes,
         /// Latency for the seq
+        latency: u64,
+    },
+    /// Represents sequential composition of static control statements.
+    StaticPar {
+        /// List of `Control` statements to run in sequence.
+        /// If not all of these stmts are static, we should error out
+        stmts: Vec<Control>,
+        /// Attributes
+        attributes: Attributes,
+        /// Latency for the seq
+        latency: u64,
+    },
+    /// Standard imperative if statement
+    StaticIf {
+        /// Port that connects the conditional check.
+        port: Port,
+
+        /// Control for the true branch.
+        tbranch: Box<Control>,
+
+        /// Control for the true branch.
+        fbranch: Box<Control>,
+
+        /// Attributes
+        attributes: Attributes,
+
+        /// Latency
         latency: u64,
     },
 }

@@ -228,9 +228,6 @@ static_wire = {
 attribute = {
       string_lit ~ "=" ~ bitwidth
 }
-latency_annotation = {
-  "<" ~ bitwidth ~ ">"
-}
 attributes = {
       "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
 }
@@ -242,6 +239,9 @@ name_with_attribute = {
 attr_val = {
   "(" ~ bitwidth ~ ")"
 }
+// latency_annotation = {
+//   "<" ~ bitwidth ~ ">"
+// }
 at_attribute = {
       "@" ~ identifier ~ attr_val?
 }
@@ -280,14 +280,14 @@ invoke_ref_arg = {identifier ~ "=" ~ identifier}
 invoke_ref_args = {("[" ~ (invoke_ref_arg ~ ("," ~ invoke_ref_arg)*)? ~ "]")?}
 invoke = { at_attributes ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
 
-seq = {
-      at_attributes ~ "seq" ~ "{"
+static_seq = {
+      at_attributes ~ "static_seq" ~ "{"
       ~ stmt*
       ~ "}"
 }
 
-static_seq = {
-      at_attributes ~  static_word ~ "seq" ~ latency_annotation ~ "{"
+seq = {
+      at_attributes ~ "seq" ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -297,6 +297,12 @@ par = {
       ~ stmt*
       ~ "}"
 }
+
+// static_par = {
+//       at_attributes ~ static_word ~ "par" ~ latency_annotation ~ "{"
+//       ~ stmt*
+//       ~ "}"
+// }
 
 // Error reporting rule: these statements should be inside a `stmt`.
 stmts_without_block = {
@@ -311,9 +317,14 @@ block = {
 port_with = {
   port ~ ("with" ~ identifier)?
 }
+
 if_stmt = {
       at_attributes ~ "if" ~ port_with ~ block ~ ("else" ~ (if_stmt | block))?
 }
+
+// static_if_stmt = {
+//       at_attributes ~ static_word ~ "if"  ~ latency_annotation ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
+// }
 
 while_stmt = {
       at_attributes ~ "while" ~ port_with ~ block
@@ -326,7 +337,9 @@ stmt = {
     | seq
     | static_seq
     | par
+//    | static_par
     | if_stmt
+ //   | static_if_stmt 
     | while_stmt
 }
 

@@ -319,6 +319,28 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed after visiting the children of a [ir::While] node.
+    fn start_static_control(
+        &mut self,
+        _s: &mut ir::StaticControl,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed after visiting the children of a [ir::While] node.
+    fn finish_static_control(
+        &mut self,
+        _s: &mut ir::StaticControl,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed at an [ir::Enable] node.
     fn enable(
         &mut self,
@@ -522,9 +544,13 @@ impl Visitable for Control {
             Control::Enable(ctrl) => {
                 visitor.enable(ctrl, component, sigs, comps)?
             }
-            Control::Static(sctrl) => {
-                sctrl.visit(visitor, component, sigs, comps)?
-            }
+            Control::Static(sctrl) => visitor
+                .start_static_control(sctrl, component, sigs, comps)?
+                .and_then(|| sctrl.visit(visitor, component, sigs, comps))?
+                .pop()
+                .and_then(|| {
+                    visitor.finish_static_control(sctrl, component, sigs, comps)
+                })?,
             Control::Empty(ctrl) => {
                 visitor.empty(ctrl, component, sigs, comps)?
             }

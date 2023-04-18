@@ -351,12 +351,12 @@ impl CalyxParser {
         ))
     }
 
-    fn latency_annotation(input: Node) -> ParseResult<u64> {
-        Ok(match_nodes!(
-            input.into_children();
-            [bitwidth(value)] => value,
-        ))
-    }
+    // fn latency_annotation(input: Node) -> ParseResult<u64> {
+    //     Ok(match_nodes!(
+    //         input.into_children();
+    //         [bitwidth(value)] => value,
+    //     ))
+    // }
 
     fn at_attribute(input: Node) -> ParseResult<(Id, u64)> {
         Ok(match_nodes!(
@@ -804,6 +804,17 @@ impl CalyxParser {
         ))
     }
 
+    // fn static_seq(input: Node) -> ParseResult<ast::Control> {
+    //     let span = Self::get_span(&input);
+    //     Ok(match_nodes!(
+    //         input.into_children();
+    //         [at_attributes(attrs), stmt(stmt)..] => ast::Control::Seq {
+    //             stmts: stmt.collect(),
+    //             attributes: attrs.add_span(span),
+    //         }
+    //     ))
+    // }
+
     fn seq(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
@@ -812,18 +823,6 @@ impl CalyxParser {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
             }
-        ))
-    }
-
-    fn static_seq(input: Node) -> ParseResult<ast::Control> {
-        let span = Self::get_span(&input);
-        Ok(match_nodes!(
-            input.into_children();
-            [at_attributes(attrs), static_word(_), latency_annotation(latency) ,stmt(stmt)..] => ast::Control::StaticSeq {
-                stmts: stmt.collect(),
-                attributes: attrs.add_span(span),
-                latency,
-            },
         ))
     }
 
@@ -837,6 +836,18 @@ impl CalyxParser {
             }
         ))
     }
+
+    // fn static_par(input: Node) -> ParseResult<ast::Control> {
+    //     let span = Self::get_span(&input);
+    //     Ok(match_nodes!(
+    //         input.into_children();
+    //         [at_attributes(attrs), static_word(_), latency_annotation(latency), stmt(stmt)..] => ast::Control::StaticPar {
+    //             stmts: stmt.collect(),
+    //             attributes: attrs.add_span(span),
+    //             latency,
+    //         }
+    //     ))
+    // }
 
     fn port_with(input: Node) -> ParseResult<(ast::Port, Option<Id>)> {
         Ok(match_nodes!(
@@ -877,6 +888,36 @@ impl CalyxParser {
         ))
     }
 
+    // fn static_if_stmt(input: Node) -> ParseResult<ast::Control> {
+    //     let span = Self::get_span(&input);
+    //     Ok(match_nodes!(
+    //         input.into_children();
+    //         [at_attributes(attrs), latency_annotation(latency), port(port), block(stmt)] => ast::Control::StaticIf {
+    //             port,
+    //             tbranch: Box::new(stmt),
+    //             fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
+    //             attributes: attrs.add_span(span),
+    //             latency,
+    //         },
+    //         [at_attributes(attrs), latency_annotation(latency), port(port), block(tbranch), block(fbranch)] =>
+    //             ast::Control::StaticIf {
+    //                 port,
+    //                 tbranch: Box::new(tbranch),
+    //                 fbranch: Box::new(fbranch),
+    //                 attributes: attrs.add_span(span),
+    //                 latency,
+    //             },
+    //         [at_attributes(attrs), latency_annotation(latency), port(port), block(tbranch), if_stmt(fbranch)] =>
+    //             ast::Control::StaticIf {
+    //                 port,
+    //                 tbranch: Box::new(tbranch),
+    //                 fbranch: Box::new(fbranch),
+    //                 attributes: attrs.add_span(span),
+    //                 latency,
+    //             },
+    //     ))
+    // }
+
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
@@ -897,7 +938,6 @@ impl CalyxParser {
             [empty(data)] => data,
             [invoke(data)] => data,
             [seq(data)] => data,
-            [static_seq(data)] => data,
             [par(data)] => data,
             [if_stmt(data)] => data,
             [while_stmt(data)] => data,

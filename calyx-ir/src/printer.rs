@@ -360,12 +360,7 @@ impl Printer {
                 attributes,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(
-                    f,
-                    "<{}>{};",
-                    group.borrow().latency,
-                    group.borrow().name().id
-                )
+                writeln!(f, "{};", group.borrow().name().id)
             }
             ir::StaticControl::Repeat(ir::StaticRepeat {
                 num_repeats,
@@ -506,7 +501,10 @@ impl Printer {
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {
-        write!(f, "{}", " ".repeat(indent_level))?;
+        // write_static_control will indent already so we don't want to indent twice
+        if !matches!(control, ir::Control::Static(_)) {
+            write!(f, "{}", " ".repeat(indent_level))?;
+        }
         match control {
             ir::Control::Enable(ir::Enable { group, attributes }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
