@@ -33,7 +33,7 @@ from math import factorial, log2
 from fud.stages.verilator import numeric_types
 from calyx.gen_ln import generate_ln
 
-from calyx.builder import Builder, ComponentBuilder
+from calyx.builder import Builder, ComponentBuilder, while_, if_
 
 
 def generate_fp_pow_component(
@@ -87,23 +87,14 @@ def generate_fp_pow_component(
         count.write_en = 1
         incr_count.done = count.done
 
-    with comp.comb_group("cond"):
+    with comp.comb_group("cond") as cond:
         lt.left = count.out
         lt.right = comp.this().integer_exp
 
     with comp.continuous:
         comp.this().out = pow.out
 
-    comp.control += [
-        SeqComp(
-            init,
-            While(
-                CompPort(lt, "out"),
-                CompVar("cond"),
-                ParComp([Enable("execute_mul"), Enable("incr_count")]),
-            ),
-        ),
-    ]
+    comp.control += [init, while_(lt.out, cond, {execute_mul, incr_count})]
 
     return comp.component
 
