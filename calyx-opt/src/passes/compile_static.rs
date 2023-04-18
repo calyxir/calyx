@@ -4,10 +4,18 @@ use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
 use ir::{build_assignments, Nothing, StaticTiming};
 use itertools::Itertools;
+use std::collections::HashMap;
 
 #[derive(Default)]
 /// Compiles Static Islands
-pub struct CompileStatic;
+pub struct CompileStatic {
+    /// maps static group names to their (early resetting) dynamic equivalent
+    static_to_dynamic: HashMap<ir::Id, ir::Id>,
+    /// maps (early resetting) dynamic group names to their (done-signal-using) wrapper
+    dynamic_to_wrapper: HashMap<ir::Id, ir::Id>,
+    // maps (early resetting) dynamic groups to their fsms
+    dynamic_to_fsm: HashMap<ir::Id, ir::Id>,
+}
 
 impl Named for CompileStatic {
     fn name() -> &'static str {

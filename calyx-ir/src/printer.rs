@@ -416,7 +416,7 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
                     f,
-                    "static<{}> if {} ",
+                    "static if<{}> {} ",
                     latency,
                     Self::port_to_str(&port.borrow()),
                 )?;

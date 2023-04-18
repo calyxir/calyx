@@ -838,6 +838,18 @@ impl CalyxParser {
         ))
     }
 
+    fn static_par(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_word(_), latency_annotation(latency) ,stmt(stmt)..] => ast::Control::StaticPar {
+                stmts: stmt.collect(),
+                attributes: attrs.add_span(span),
+                latency,
+            },
+        ))
+    }
+
     fn port_with(input: Node) -> ParseResult<(ast::Port, Option<Id>)> {
         Ok(match_nodes!(
             input.into_children();
@@ -877,6 +889,36 @@ impl CalyxParser {
         ))
     }
 
+    fn static_if_stmt(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(stmt)] => ast::Control::StaticIf {
+                port,
+                tbranch: Box::new(stmt),
+                fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
+                attributes: attrs.add_span(span),
+                latency,
+            },
+            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(tbranch), block(fbranch)] =>
+                ast::Control::StaticIf {
+                    port,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs.add_span(span),
+                    latency,
+                },
+            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(tbranch), if_stmt(fbranch)] =>
+                ast::Control::StaticIf {
+                    port,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs.add_span(span),
+                    latency,
+                },
+        ))
+    }
+
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
@@ -899,7 +941,9 @@ impl CalyxParser {
             [seq(data)] => data,
             [static_seq(data)] => data,
             [par(data)] => data,
+            [static_par(data)] => data,
             [if_stmt(data)] => data,
+            [static_if_stmt(data)] => data,
             [while_stmt(data)] => data,
         ))
     }

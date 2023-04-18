@@ -298,6 +298,12 @@ par = {
       ~ "}"
 }
 
+static_par = {
+      at_attributes ~  static_word ~ "par" ~ latency_annotation ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
 // Error reporting rule: these statements should be inside a `stmt`.
 stmts_without_block = {
   "{" ~ stmt* ~ "}"
@@ -315,6 +321,10 @@ if_stmt = {
       at_attributes ~ "if" ~ port_with ~ block ~ ("else" ~ (if_stmt | block))?
 }
 
+static_if_stmt = {
+      at_attributes ~ static_word ~ "if" ~  latency_annotation ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
+}
+
 while_stmt = {
       at_attributes ~ "while" ~ port_with ~ block
 }
@@ -326,7 +336,9 @@ stmt = {
     | seq
     | static_seq
     | par
+    | static_par 
     | if_stmt
+    | static_if_stmt
     | while_stmt
 }
 
