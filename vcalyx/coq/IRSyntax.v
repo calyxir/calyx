@@ -42,8 +42,9 @@ Inductive direction :=
 | InOut.
 
 Inductive port_parent :=
-| PCell
-| PGroup. 
+| PCell (name: ident)
+| PGroup (name: ident)
+| PStaticGroup (name: ident). 
 
 (** Ports. *)
 Record port :=
@@ -81,7 +82,7 @@ Record extern :=
 (** Cell prototype references. *)
 Inductive proto :=
 | ProtoPrim (name: ident)
-            (param_binding: list (N * ident))
+            (param_binding: list (ident * N))
             (is_comb: bool)
 | ProtoComp (name: ident)
 (* For use when referencing a defined component within itself  *)
@@ -143,7 +144,7 @@ Inductive guard_expr :=
 (* From AST wires *)
 Record assignment := 
   Assign {
-    dst: cell * ident;
+    dst: port;
     src: port; 
     assign_guard: guard_expr;
     attrs: attributes;
@@ -155,26 +156,26 @@ Definition assignments :=
 (** Control statements. Each constructor has its own attribute [attribute]. *)
 Inductive control :=
 | CSeq (stmts: list control)
-      (attrs: attributes)
+       (attrs: attributes)
 | CPar (stmts: list control)
-      (attrs: attributes)
+       (attrs: attributes)
 | CIf (cond_port: port_ref)
-     (cond: option ident)
-     (tru: control)
-     (fls: control)
-     (attrs: attributes)
+      (cond: option ident)
+      (tru: control)
+      (fls: control)
+      (attrs: attributes)
 | CWhile (cond_port: port_ref)
-        (cond: option ident)
-        (body: control)
-        (attrs: attributes)
-| CEnable (comp: ident)
-         (atrs: attributes)
-| CInvoke (comp: ident)
-         (inputs: list (ident * port))
-         (outputs: list (ident * port))
+         (cond: option ident)
+         (body: control)
          (attrs: attributes)
-         (comb_group: option ident)
-         (ref_cells: list (ident * ident))
+| CEnable (comp: ident)
+          (atrs: attributes)
+| CInvoke (comp: ident)
+          (inputs: list (ident * port))
+          (outputs: list (ident * port))
+          (attrs: attributes)
+          (comb_group: option ident)
+          (ref_cells: list (ident * ident))
 | CEmpty (attrs: attributes).
 
 (** Groups. *)
