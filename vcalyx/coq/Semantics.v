@@ -1,8 +1,10 @@
 From stdpp Require Import
+     base
      numbers
      fin_maps
      strings
      option.
+Require Import Coq.Classes.EquivDec.
 Require Import VCalyx.IRSyntax.
 
 Inductive value := 
@@ -12,36 +14,55 @@ Inductive value :=
 | V (val: N)
 (* Bottom: no assignment to this port has occurred *)
 | X.
+Scheme Equality for value.
+Global Instance value_EqDec : EqDec value eq :=
+  value_eq_dec.
 
-(* Maybe we will eventually want the internal states of cells to be
-   more complicated than this but for registers this will do just
-   fine. *)
-Definition state : Type := value.
+(* Testing out the eqdec instance *)
+Eval compute in (Z == Z).
+Eval compute in (Z ==b V 12).
+
+Definition state : Type. (* TODO *)
+Admitted.
 
 Section Semantics.
-  Context (imap: Type -> Type) `{FinMap ident imap}.
+  Context (ident_map: Type -> Type)
+          `{FinMap ident ident_map}.
   (* TODO put the computations in here *)
   (* map from cell names to port names to values *)
-  Definition val_map : Type := imap value.
-  Definition cell_map : Type := imap val_map.
-  Definition st : Type := imap state.
-  Definition cell_env : Type := imap cell.
+  Definition val_map : Type := ident_map value.
+  Definition cell_map : Type := ident_map val_map.
+  Definition state_map : Type := ident_map state.
 
-  (* Poking an object (whether it is a prim or a cell) asks it to
-     recompute its inputs, but does not step the clock or reset
-     the values of ports. *)
-  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (ports: imap value) : imap value :=
-    (* no op *)
-    ports.
+  Definition cell_env : Type := ident_map cell.
+  Definition prim_map : Type := ident_map (val_map -> option val_map).
 
-  Definition poke_cell (c: cell) (ρ: st) (σ: cell_map) : option cell_map :=
+  Definition five := 5.
+  Definition my_emp: ident_map value :=
+    empty.
+
+  Open Scope stdpp_scope.
+  Definition calyx_prims : prim_map :=
+    list_to_map 
+      [("std_reg",
+         fun inputs =>
+           wen ← (inputs !! "std_reg.write_en");
+           if wen ==b (V 1%N)
+           then v ← inputs !! "std_reg.in";
+                Some (<["std_reg.done" := wen]>(<["std_reg.out" := v]>inputs))
+           else None)]. 
+  
+(* TODO put the computations in here *)
+  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (inputs: val_map) : option val_map := 
+    fn ← calyx_prims !! prim;
+    fn inputs.
+  
+  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : option cell_map :=
     match c.(cell_proto) with
     | ProtoPrim prim param_binding _ =>
-      (* "The function alter f k m should update the value at key k
-         using the function f, which is called with the original
-         value." docs:
-         https://plv.mpi-sws.org/coqdoc/stdpp/stdpp.base.html *)
-      mret (alter (poke_prim prim param_binding) c.(cell_name) σ)
+        old ← σ !! c.(cell_name);
+        new ← poke_prim prim param_binding old;
+        Some (<[c.(cell_name) := new]>σ)
     | _ => None (* unimplemented *)
     end.
 
@@ -61,7 +82,7 @@ Section Semantics.
   
   Definition interp_assign
              (ce: cell_env)
-             (ρ: st)
+             (ρ: state_map)
              (op: assignment)
              (σ: cell_map) 
               : option cell_map :=
@@ -81,9 +102,9 @@ Section Semantics.
   (* The interpreter *)
   Definition interp
              (program: program)
-             (σ: env)
-             (ρ: st)
-    : option env :=
+             (σ: cell_map)
+             (ρ: state_map)
+    : option cell_map :=
     let (ce, assigns) := program in 
     foldr (fun op res => res ≫= interp_assign ce ρ op)
           (Some σ)
