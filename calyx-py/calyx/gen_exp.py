@@ -17,7 +17,6 @@ from calyx.py_ast import (
     PortDef,
     SeqComp,
     Enable,
-    While,
     ParComp,
     Structure,
     CompInst,
@@ -33,11 +32,11 @@ from math import factorial, log2
 from fud.stages.verilator import numeric_types
 from calyx.gen_ln import generate_ln
 
-from calyx.builder import Builder, ComponentBuilder, while_, if_
+from calyx.builder import Builder, ComponentBuilder, while_, if_, invoke
 
 
 def generate_fp_pow_component(
-    width: int, int_width: int, is_signed: bool, builder: Builder
+    builder: Builder, width: int, int_width: int, is_signed: bool
 ) -> Component:
     """Generates a fixed point `pow` component, which
     computes the value x**y, where y must be an integer.
@@ -267,291 +266,180 @@ def divide_and_conquer_sums(comp: ComponentBuilder, degree: int):
         grp.done = reg.done
 
 
-def consume_pow(i: int) -> Group:
+def consume_pow(comp: ComponentBuilder, i: int):
     """Write the output of pow{i} to register p{i}."""
-    reg = CompVar(f"p{i}")
-    group_name = CompVar(f"consume_pow{i}")
-    connections = [
-        Connect(CompPort(reg, "write_en"), ConstantPort(1, 1)),
-        Connect(CompPort(reg, "in"), CompPort(CompVar(f"pow{i}"), "out")),
-        Connect(
-            HolePort(group_name, "done"),
-            ConstantPort(1, 1),
-            CompPort(reg, "done"),
-        ),
-    ]
-    return Group(group_name, connections, 1)
+    reg = comp.get_cell(f"p{i}")
+    pow = comp.get_cell(f"pow{i}")
+    with comp.group(f"consume_pow{i}", static_delay=1) as grp:
+        reg.write_en = 1
+        reg.in_ = pow.out
+        grp.done = reg.done @ 1
 
 
-def multiply_by_reciprocal_factorial(i: int) -> Group:
+def multiply_by_reciprocal_factorial(comp: ComponentBuilder, i: int):
     """Multiply register p{i} with the reciprocal factorial."""
-    group_name = CompVar(f"mult_by_reciprocal_factorial{i}")
-    mult_pipe = CompVar(f"mult_pipe{i}")
-    reg = CompVar(f"p{i}")
-    product = CompVar(f"product{i}")
-    reciprocal = CompVar(f"reciprocal_factorial{i}")
-    connections = [
-        Connect(CompPort(mult_pipe, "left"), CompPort(reg, "out")),
-        Connect(CompPort(mult_pipe, "right"), CompPort(reciprocal, "out")),
-        Connect(
-            CompPort(mult_pipe, "go"),
-            ConstantPort(1, 1),
-            Not(Atom(CompPort(mult_pipe, "done"))),
-        ),
-        Connect(CompPort(product, "write_en"), CompPort(mult_pipe, "done")),
-        Connect(CompPort(product, "in"), CompPort(mult_pipe, "out")),
-        Connect(HolePort(group_name, "done"), CompPort(product, "done")),
-    ]
-    return Group(group_name, connections)
+    mult_pipe = comp.get_cell(f"mult_pipe{i}")
+    reg = comp.get_cell(f"p{i}")
+    product = comp.get_cell(f"product{i}")
+    reciprocal = comp.get_cell(f"reciprocal_factorial{i}")
+    with comp.group(f"mult_by_reciprocal_factorial{i}") as grp:
+        mult_pipe.left = reg.out
+        mult_pipe.right = reciprocal.out
+        mult_pipe.go = (~mult_pipe.done) @ 1
+        product.write_en = mult_pipe.done
+        product.in_ = mult_pipe.out
+        grp.done = product.done
 
 
-def final_multiply(register_id: CompVar) -> List[Group]:
+def final_multiply(comp: ComponentBuilder, register_id: CompVar):
     # Multiply e^{fractional_value} * e^{integer_value},
     # and write it to register `m`.
-    group_name = CompVar("final_multiply")
-    mult_pipe = CompVar("mult_pipe1")
-    reg = CompVar("m")
-    return [
-        Group(
-            id=group_name,
-            connections=[
-                Connect(
-                    CompPort(mult_pipe, "left"),
-                    CompPort(CompVar("pow1"), "out"),
-                ),
-                Connect(
-                    CompPort(mult_pipe, "right"),
-                    CompPort(CompVar("sum1"), "out"),
-                ),
-                Connect(
-                    CompPort(mult_pipe, "go"),
-                    ConstantPort(1, 1),
-                    Not(Atom(CompPort(mult_pipe, "done"))),
-                ),
-                Connect(CompPort(reg, "write_en"), CompPort(mult_pipe, "done")),
-                Connect(CompPort(reg, "in"), CompPort(mult_pipe, "out")),
-                Connect(HolePort(group_name, "done"), CompPort(reg, "done")),
-            ],
-        )
-    ]
+
+    # TODO (griffin): register_id is not used anywhere, I've matched the
+    # original code in this translation but this should be fixed. Probably
+    # removed given that the value is always supposed to be "m".
+
+    mult_pipe = comp.get_cell("mult_pipe1")
+    reg = comp.get_cell("m")
+    sum = comp.get_cell("sum1")
+    pow = comp.get_cell("pow1")
+
+    with comp.group("final_multiply") as grp:
+        mult_pipe.left = pow.out
+        mult_pipe.right = sum.out
+        mult_pipe.go = (~mult_pipe.done) @ 1
+        reg.write_en = mult_pipe.done
+        reg.in_ = mult_pipe.out
+        grp.done = reg.done
 
 
 def generate_groups(
-    degree: int, width: int, int_width: int, is_signed: bool
-) -> List[Structure]:
+    comp: ComponentBuilder, degree: int, width: int, int_width: int, is_signed: bool
+):
     frac_width = width - int_width
 
-    input = CompVar("exponent_value")
-
-    init_exp = Group(
-        id=CompVar("init"),
-        connections=[
-            Connect(CompPort(input, "write_en"), ConstantPort(1, 1)),
-            Connect(CompPort(input, "in"), ThisPort(CompVar("x"))),
-            Connect(HolePort(CompVar("init"), "done"), CompPort(input, "done")),
-        ],
-        static_delay=1,
-    )
-
-    if is_signed:
-        mult_pipe = CompVar("mult_pipe1")
-        negate = Group(
-            id=CompVar("negate"),
-            connections=[
-                Connect(CompPort(mult_pipe, "left"), CompPort(input, "out")),
-                Connect(
-                    CompPort(mult_pipe, "right"),
-                    CompPort(CompVar("negative_one"), "out"),
-                ),
-                Connect(
-                    CompPort(mult_pipe, "go"),
-                    ConstantPort(1, 1),
-                    Not(Atom(CompPort(mult_pipe, "done"))),
-                ),
-                Connect(CompPort(input, "write_en"), CompPort(mult_pipe, "done")),
-                Connect(CompPort(input, "in"), CompPort(mult_pipe, "out")),
-                Connect(HolePort(CompVar("negate"), "done"), CompPort(input, "done")),
-            ],
-        )
+    input = comp.get_cell("exponent_value")
+    with comp.group("init", static_delay=1) as init:
+        input.write_en = 1
+        input.in_ = comp.this().x
+        init.done = input.done
 
     # Initialization: split up the value `x` into its integer and fractional
     # values.
-    split_bits = Group(
-        id=CompVar("split_bits"),
-        connections=[
-            Connect(
-                CompPort(CompVar("and0"), "left"),
-                CompPort(CompVar("exponent_value"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("and0"), "right"),
-                ConstantPort(width, 2**width - 2**frac_width),
-            ),
-            Connect(
-                CompPort(CompVar("rsh"), "left"),
-                CompPort(CompVar("and0"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("rsh"), "right"),
-                ConstantPort(width, frac_width),
-            ),
-            Connect(
-                CompPort(CompVar("and1"), "left"),
-                CompPort(CompVar("exponent_value"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("and1"), "right"),
-                ConstantPort(width, (2**frac_width) - 1),
-            ),
-            Connect(
-                CompPort(CompVar("int_x"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                CompPort(CompVar("frac_x"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                CompPort(CompVar("int_x"), "in"),
-                CompPort(CompVar("rsh"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("frac_x"), "in"),
-                CompPort(CompVar("and1"), "out"),
-            ),
-            Connect(
-                HolePort(CompVar("split_bits"), "done"),
-                ConstantPort(1, 1),
-                And(
-                    Atom(CompPort(CompVar("int_x"), "done")),
-                    Atom(CompPort(CompVar("frac_x"), "done")),
-                ),
-            ),
-        ],
-    )
+    and0 = comp.get_cell("and0")
+    rsh = comp.get_cell("rsh")
+    and1 = comp.get_cell("and1")
+    int_x = comp.get_cell("int_x")
+    frac_x = comp.get_cell("frac_x")
+    with comp.group("split_bits") as split_bits:
+        and0.left = input.out
+        and0.right = 2**width - 2**frac_width
+        rsh.left = and0.out
+        rsh.right = frac_width
+        and1.left = input.out
+        and1.right = (2**frac_width) - 1
+        int_x.write_en = 1
+        frac_x.write_en = 1
+        int_x.in_ = rsh.out
+        frac_x.in_ = and1.out
+        split_bits.done = (int_x.done & frac_x.done) @ 1
 
     if is_signed:
+        mult_pipe = comp.get_cell("mult_pipe1")
+        with comp.group("negate") as negate:
+            mult_pipe.left = input.out
+            mult_pipe.right = comp.get_cell("negative_one").out
+            mult_pipe.go = ~mult_pipe.done @ 1
+            input.write_en = mult_pipe.done
+            input.in_ = mult_pipe.out
+            negate.done = input.done
+
+        lt = comp.get_cell("lt")
+        with comp.comb_group(name="is_negative"):
+            lt.left = comp.this().x
+            lt.right = 0
+
         # Take the reciprocal, since the initial value was -x.
-        div_pipe = CompVar("div_pipe")
-        input = CompVar("m")
-        reciprocal = Group(
-            id=CompVar("reciprocal"),
-            connections=[
-                Connect(CompPort(div_pipe, "left"), CompPort(CompVar("one"), "out")),
-                Connect(CompPort(div_pipe, "right"), CompPort(input, "out")),
-                Connect(
-                    CompPort(div_pipe, "go"),
-                    ConstantPort(1, 1),
-                    Not(Atom(CompPort(div_pipe, "done"))),
-                ),
-                Connect(CompPort(input, "write_en"), CompPort(div_pipe, "done")),
-                Connect(CompPort(input, "in"), CompPort(div_pipe, "out_quotient")),
-                Connect(
-                    HolePort(CompVar("reciprocal"), "done"), CompPort(input, "done")
-                ),
-            ],
-        )
-        is_negative = CombGroup(
-            id=CompVar("is_negative"),
-            connections=[
-                Connect(CompPort(CompVar("lt"), "left"), ThisPort(CompVar("x"))),
-                Connect(CompPort(CompVar("lt"), "right"), ConstantPort(width, 0)),
-            ],
-        )
+        div_pipe = comp.get_cell("div_pipe")
+        input = comp.get_cell("m")
+        with comp.group(name="reciprocal") as reciprocal:
+            div_pipe.left = 1
+            div_pipe.right = input.out
+            div_pipe.go = ~div_pipe.done @ 1
+            input.write_en = div_pipe.done
+            input.in_ = div_pipe.out_quotient
+            reciprocal.done = input.done
+
+    for j in range(2, degree + 1):
+        consume_pow(comp, j)
+
+    for k in range(2, degree + 1):
+        multiply_by_reciprocal_factorial(comp, k)
+
+    divide_and_conquer_sums(comp, degree)
+    final_multiply(comp, CompVar("m"))
 
     # Connect final value to the `out` signal of the component.
-    output_register = CompVar("m")
-    out = [Connect(ThisPort(CompVar("out")), CompPort(output_register, "out"))]
-    return (
-        ([init_exp, split_bits])
-        + ([negate, is_negative, reciprocal] if is_signed else [])
-        + [consume_pow(j) for j in range(2, degree + 1)]
-        + [multiply_by_reciprocal_factorial(k) for k in range(2, degree + 1)]
-        + divide_and_conquer_sums(degree)
-        + final_multiply(output_register)
-        + out
+    output_register = comp.get_cell("m")
+    with comp.continuous:
+        comp.this().out = output_register.out
+
+
+def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
+    pow_invokes = {
+        invoke(
+            comp.get_cell("pow1"),
+            in_base=comp.get_cell("e").out,
+            in_integer_exp=comp.get_cell("int_x").out,
+        )
+    }.union(
+        (
+            invoke(
+                comp.get_cell(f"pow{i}"),
+                in_base=comp.get_cell("frac_x").out,
+                in_integer_exp=comp.get_cell(f"c{i}").out,
+            )
+            for i in range(2, degree + 1)
+        )
     )
 
-
-def generate_control(degree: int, is_signed: bool) -> Control:
-    pow_invokes = [
-        ParComp(
-            (
-                [
-                    Invoke(
-                        CompVar("pow1"),
-                        [
-                            ("base", CompPort(CompVar("e"), "out")),
-                            ("integer_exp", CompPort(CompVar("int_x"), "out")),
-                        ],
-                        [],
-                    )
-                ]
-            )
-            + [
-                Invoke(
-                    CompVar(f"pow{i}"),
-                    [
-                        ("base", CompPort(CompVar("frac_x"), "out")),
-                        ("integer_exp", CompPort(CompVar(f"c{i}"), "out")),
-                    ],
-                    [],
-                )
-                for i in range(2, degree + 1)
-            ]
-        )
-    ]
-    consume_pow = [ParComp([Enable(f"consume_pow{i}") for i in range(2, degree + 1)])]
-    mult_by_reciprocal = [
-        ParComp(
-            [Enable(f"mult_by_reciprocal_factorial{i}") for i in range(2, degree + 1)]
-        )
-    ]
+    consume_pow = {comp.get_group(f"consume_pow{i}") for i in range(2, degree + 1)}
+    mult_by_reciprocal = {
+        comp.get_group(f"mult_by_reciprocal_factorial{i}") for i in range(2, degree + 1)
+    }
 
     divide_and_conquer = []
     Enable_count = degree >> 1
     for r in range(1, int(log2(degree) + 1)):
         divide_and_conquer.append(
-            ParComp([Enable(f"sum_round{r}_{i}") for i in range(1, Enable_count + 1)])
+            {comp.get_group(f"sum_round{r}_{i}") for i in range(1, Enable_count + 1)}
         )
         Enable_count >>= 1
 
-    final_calculation = [Enable("add_degree_zero"), Enable("final_multiply")]
-    ending_sequence = final_calculation + (
-        [
-            If(
-                CompPort(CompVar("lt"), "out"),
-                CompVar("is_negative"),
-                Enable("reciprocal"),
-            )
-        ]
+    lt = comp.get_cell("lt")
+    init = comp.get_group("init")
+    split_bits = comp.get_group("split_bits")
+
+    comp.control += [
+        init,
+        if_(lt.out, comp.get_group("is_negative"), comp.get_group("negate"))
         if is_signed
-        else []
-    )
-    return SeqComp(
-        [Enable("init")]
-        + (
-            [
-                If(
-                    CompPort(CompVar("lt"), "out"),
-                    CompVar("is_negative"),
-                    Enable("negate"),
-                )
-            ]
-            if is_signed
-            else []
-        )
-        + ([Enable("split_bits")])
-        + pow_invokes
-        + consume_pow
-        + mult_by_reciprocal
-        + divide_and_conquer
-        + ending_sequence
-    )
+        else [],
+        split_bits,
+        pow_invokes,
+        consume_pow,
+        mult_by_reciprocal,
+        divide_and_conquer,
+        comp.get_group("add_degree_zero"),
+        comp.get_group("final_multiply"),
+        if_(lt.out, comp.get_group("is_negative"), comp.get_group("reciprocal"))
+        if is_signed
+        else [],
+    ]
 
 
 def generate_exp_taylor_series_approximation(
-    degree: int, width: int, int_width: int, is_signed: bool
+    builder: Builder, degree: int, width: int, int_width: int, is_signed: bool
 ) -> List[Component]:
     """Generates Calyx components to produce the Taylor series
     approximation of e^x to the provided degree. Given this is
@@ -572,16 +460,17 @@ def generate_exp_taylor_series_approximation(
     assert (
         degree > 0 and log2(degree).is_integer()
     ), f"The degree: {degree} should be a power of 2."
+
+    comp = builder.component("exp")
+    comp.input("x", width)
+    comp.out("out", width)
+    generate_cells(comp, degree, width, int_width, is_signed)
+    generate_groups(comp, degree, width, int_width, is_signed)
+    generate_control(comp, degree, is_signed)
+
     return [
-        Component(
-            "exp",
-            inputs=[PortDef(CompVar("x"), width)],
-            outputs=[PortDef(CompVar("out"), width)],
-            structs=generate_cells(degree, width, int_width, is_signed)
-            + generate_groups(degree, width, int_width, is_signed),
-            controls=generate_control(degree, is_signed),
-        ),
-        generate_fp_pow_component(width, int_width, is_signed),
+        comp.component,
+        generate_fp_pow_component(builder, width, int_width, is_signed),
     ]
 
 
