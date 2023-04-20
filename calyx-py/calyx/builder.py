@@ -189,7 +189,7 @@ def as_control(obj):
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body):
     """Build a `while` control statement."""
     if cond:
         assert isinstance(
@@ -201,7 +201,7 @@ def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     return ast.While(port.expr, cg, as_control(body))
 
 
-def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body):
     """Build an `if` control statement."""
     if cond:
         assert isinstance(
@@ -275,11 +275,11 @@ class ExprBuilder:
     def __init__(self, expr: ast.GuardExpr):
         self.expr = expr
 
-    def __and__(self, other: "ExprBuilder"):
+    def __and__(self, other: ExprBuilder):
         """Construct an "and" logical expression with &."""
         return ExprBuilder(ast.And(self.expr, other.expr))
 
-    def __or__(self, other: "ExprBuilder"):
+    def __or__(self, other: ExprBuilder):
         """Construct an "or" logical expression with |."""
         return ExprBuilder(ast.Or(self.expr, other.expr))
 
@@ -287,7 +287,7 @@ class ExprBuilder:
         """Construct a "not" logical expression with ~."""
         return ExprBuilder(ast.Not(self.expr))
 
-    def __matmul__(self, rhs: "ExprBuilder"):
+    def __matmul__(self, rhs: ExprBuilder):
         """Construct a conditional expression with @.
 
         This produces a `CondExprBuilder`, which wraps a value
@@ -298,11 +298,11 @@ class ExprBuilder:
         """
         return CondExprBuilder(self, rhs)
 
-    def __eq__(self, other: "ExprBuilder"):
+    def __eq__(self, other: ExprBuilder):
         """Construct an equality comparison with ==."""
         return ExprBuilder(ast.Eq(self.expr, other.expr))
 
-    def __ne__(self, other: "ExprBuilder"):
+    def __ne__(self, other: ExprBuilder):
         """Construct an inequality comparison with ==."""
         return ExprBuilder(ast.Neq(self.expr, other.expr))
 
