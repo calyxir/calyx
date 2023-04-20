@@ -36,9 +36,12 @@ class Builder:
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
-    def __init__(self, prog: Builder, name: str, cells: List[ast.Cell] = []):
+    def __init__(
+        self, prog: Builder, name: str, cells: Optional[List[ast.Cell]] = None
+    ):
         """Contructs a new component in the current program. If `cells` is
         provided, the component will be initialized with those cells."""
+        cells = cells if cells else list()
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
@@ -58,7 +61,7 @@ class ComponentBuilder:
     def output(self, name: str, size: int):
         self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
 
-    def this(self) -> "ThisBuilder":
+    def this(self) -> ThisBuilder:
         return ThisBuilder()
 
     @property
