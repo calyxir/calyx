@@ -32,7 +32,15 @@ from math import factorial, log2
 from fud.stages.verilator import numeric_types
 from calyx.gen_ln import generate_ln
 
-from calyx.builder import Builder, ComponentBuilder, while_, if_, invoke
+from calyx.builder import (
+    Builder,
+    ComponentBuilder,
+    while_,
+    if_,
+    invoke,
+    CellBuilder,
+    ExprBuilder,
+)
 
 
 def generate_fp_pow_component(
@@ -474,100 +482,75 @@ def generate_exp_taylor_series_approximation(
     ]
 
 
-def gen_reciprocal(name, base_cell, div_pipe, const_one):
+def gen_reciprocal(
+    comp: ComponentBuilder,
+    name: str,
+    base_cell: CellBuilder,
+    div_pipe: CellBuilder,
+    const_one: CellBuilder,
+):
     """
     Generates a group that takes in a base cell and sets its new value to its reciprocal
     """
-    return Group(
-        id=CompVar(name),
-        connections=[
-            Connect(
-                CompPort(div_pipe.id, "left"),
-                CompPort(const_one.id, "out"),
-            ),
-            Connect(
-                CompPort(div_pipe.id, "right"),
-                CompPort(base_cell.id, "out"),
-            ),
-            Connect(
-                CompPort(div_pipe.id, "go"),
-                ConstantPort(1, 1),
-                Not(Atom(CompPort(div_pipe.id, "done"))),
-            ),
-            Connect(
-                CompPort(base_cell.id, "write_en"),
-                CompPort(div_pipe.id, "done"),
-            ),
-            Connect(
-                CompPort(base_cell.id, "in"),
-                CompPort(div_pipe.id, "out_quotient"),
-            ),
-            Connect(
-                HolePort(CompVar(name), "done"),
-                CompPort(base_cell.id, "done"),
-            ),
-        ],
-    )
+    with comp.group(name) as group:
+        div_pipe.left = const_one.out
+        div_pipe.right = base_cell.out
+        div_pipe.go = ~div_pipe.done @ 1
+        base_cell.write_en = div_pipe.done
+        base_cell.in_ = div_pipe.out_quotient
+        group.done = base_cell.done
 
 
-def gen_reverse_sign(name, base_cell, mult_pipe, const_neg_one):
+def gen_reverse_sign(
+    comp: ComponentBuilder,
+    name: str,
+    base_cell: CellBuilder,
+    mult_pipe: CellBuilder,
+    const_neg_one: CellBuilder,
+):
     """
     Generates a group that takes in a base cell and multiplies it by negative one
     """
-    return Group(
-        id=CompVar(name),
-        connections=[
-            Connect(
-                CompPort(mult_pipe.id, "left"),
-                CompPort(base_cell.id, "out"),
-            ),
-            Connect(
-                CompPort(mult_pipe.id, "right"),
-                CompPort(const_neg_one.id, "out"),
-            ),
-            Connect(
-                CompPort(mult_pipe.id, "go"),
-                ConstantPort(1, 1),
-                Not(Atom(CompPort(mult_pipe.id, "done"))),
-            ),
-            Connect(
-                CompPort(base_cell.id, "write_en"),
-                CompPort(mult_pipe.id, "done"),
-            ),
-            Connect(
-                CompPort(base_cell.id, "in"),
-                CompPort(mult_pipe.id, "out"),
-            ),
-            Connect(
-                HolePort(CompVar(name), "done"),
-                CompPort(base_cell.id, "done"),
-            ),
-        ],
-    )
+    with comp.group(name) as group:
+        mult_pipe.left = base_cell.out
+        mult_pipe.right = const_neg_one.out
+        mult_pipe.go = ~mult_pipe.done @ 1
+        base_cell.write_en = mult_pipe.done
+        base_cell.in_ = mult_pipe.out
+        group.done = base_cell.done
 
 
-def gen_comb_lt(name, lhs, lt, const_cell):
+def gen_comb_lt(
+    comp: ComponentBuilder,
+    name: str,
+    lhs: ExprBuilder,
+    lt: CellBuilder,
+    const_cell: CellBuilder,
+):
     """
     Generates lhs < const_cell
     """
-    return CombGroup(
-        id=CompVar(name),
-        connections=[
-            Connect(CompPort(lt.id, "left"), lhs),
-            Connect(CompPort(lt.id, "right"), CompPort(const_cell.id, "out")),
-        ],
-    )
+    with comp.comb_group(name):
+        lt.left = lhs
+        lt.right = const_cell.out
 
 
-def gen_constant_cell(name, value, width, int_width, is_signed) -> Cell:
-    return Cell(
-        CompVar(name),
-        Stdlib.constant(
-            width,
-            numeric_types.FixedPoint(
-                value, width, int_width, is_signed=is_signed
-            ).unsigned_integer(),
-        ),
+# This appears to be unused. Brilliant.
+# TODO (griffin): Double check that this is unused and, if so, remove it.
+def gen_constant_cell(
+    comp: ComponentBuilder,
+    name: str,
+    value: str,
+    width: int,
+    int_width: int,
+    is_signed: bool,
+) -> CellBuilder:
+    return comp.const(
+        name,
+        width,
+        numeric_types.FixedPoint(
+            value, width, int_width, is_signed=is_signed
+        ).unsigned_integer(),
     )
 
 

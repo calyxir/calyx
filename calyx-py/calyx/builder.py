@@ -373,7 +373,7 @@ class CellBuilder(CellLikeBuilder):
     def __init__(self, cell: ast.Cell):
         self._cell = cell
 
-    def port(self, name: str):
+    def port(self, name: str) -> ExprBuilder:
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
