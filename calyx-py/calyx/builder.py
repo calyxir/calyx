@@ -114,7 +114,7 @@ class ComponentBuilder:
         comp: Union[ast.CompInst, ComponentBuilder],
         is_external=False,
         is_ref=False,
-    ) -> "CellBuilder":
+    ) -> CellBuilder:
         # If we get a (non-primitive) component builder, instantiate it
         # with no parameters.
         if isinstance(comp, ComponentBuilder):
@@ -129,7 +129,7 @@ class ComponentBuilder:
     def reg(self, name: str, size: int):
         return self.cell(name, ast.Stdlib.register(size))
 
-    def const(self, name: str, width: int, value: int):
+    def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Utility wrapper for generating StdConstant cells"""
         return self.cell(name, ast.Stdlib.constant(width, value))
 
