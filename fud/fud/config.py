@@ -24,6 +24,7 @@ WIZARD_DATA = {
 
 DEFAULT_CONFIGURATION = {
     "global": {},
+    "externals": {},
     "stages": {
         "futil": {
             "exec": "./target/debug/futil",
@@ -51,7 +52,7 @@ DEFAULT_CONFIGURATION = {
         },
         "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
         "vcd_json": {"file_extensions": [".json"]},
-        "jq": {"exec": "jq"},
+        "jq": {"exec": "jq", "flags": None},
         "dat": {"file_extensions": [".dat"]},
         "relay": {"file_extensions": [".relay"], "flags": None},
         "systolic": {"file_extensions": [".systolic"], "flags": None},
@@ -311,7 +312,9 @@ class Configuration:
                 # Only delete the stage if it's marked as an external
                 del self[["externals", args.name]]
             else:
-                log.error(f"No external script named `{args.name}'.")
+                log.warn(
+                    f"Ignoring delete command, no external script named `{args.name}'."
+                )
 
     def discover_implied_states(self, filename) -> str:
         """
@@ -321,7 +324,7 @@ class Configuration:
         """
         suffix = Path(filename).suffix
         stages = []
-        for (name, stage) in self["stages"].items():
+        for name, stage in self["stages"].items():
             if "file_extensions" not in stage:
                 continue
             if any([ext == suffix for ext in stage["file_extensions"]]):

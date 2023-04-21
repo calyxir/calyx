@@ -17,7 +17,7 @@ use crate::{
     utils::AsRaw,
     values::Value,
 };
-use calyx::ir::{self, RRC};
+use calyx_ir::{self as ir, RRC};
 use serde::Serialize;
 
 use super::names::GroupQIN;

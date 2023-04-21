@@ -1,5 +1,5 @@
 use crate::values::Value;
-use calyx::ir::{self, Assignment, Binding, Id, Port, RRC};
+use calyx_ir::{self as ir, Assignment, Binding, Id, Port, RRC};
 use serde::Deserialize;
 use std::cell::Ref;
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 pub use crate::debugger::PrintCode;
 /// A wrapper to enable hashing of assignments by their destination port.
-pub(super) struct PortAssignment<'a>(*const Port, &'a Assignment);
+pub(super) struct PortAssignment<'a>(*const Port, &'a Assignment<ir::Nothing>);
 
 impl<'a> Hash for PortAssignment<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -29,7 +29,7 @@ impl<'a> Eq for PortAssignment<'a> {}
 
 impl<'a> PortAssignment<'a> {
     /// Construct a new PortAssignment.
-    pub fn new(a_ref: &'a Assignment) -> Self {
+    pub fn new(a_ref: &'a Assignment<ir::Nothing>) -> Self {
         Self(a_ref.dst.as_raw(), a_ref)
     }
 
@@ -39,7 +39,7 @@ impl<'a> PortAssignment<'a> {
     }
 
     /// Get the associated assignment.
-    pub fn get_assignment(&self) -> &Assignment {
+    pub fn get_assignment(&self) -> &Assignment<ir::Nothing> {
         self.1
     }
 }
@@ -133,7 +133,9 @@ impl<T> AsRaw<T> for &RRC<T> {
     }
 }
 
-pub fn assignment_to_string(assignment: &ir::Assignment) -> String {
+pub fn assignment_to_string(
+    assignment: &ir::Assignment<ir::Nothing>,
+) -> String {
     let mut str = vec![];
     ir::Printer::write_assignment(assignment, 0, &mut str)
         .expect("Write Failed");

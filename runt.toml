@@ -142,6 +142,46 @@ fud exec --to jq \
 """
 timeout = 120
 
+# Variants of the above but for `--nested` (non-ANF Verilog emission) mode.
+[[tests]]
+name = "correctness dynamic nested"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/sync/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s verilog.data {}.data \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags ' -d tdst --nested' \
+         -s verilog.cycle_limit 500 \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
+[[tests]]
+name = "correctness static timing nested"
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags ' --nested' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
 # Tests to ensure that static compilation maintains its guarantees
 # See: https://github.com/cucapra/calyx/discussions/1331
 [[tests]]
@@ -155,6 +195,25 @@ fud exec --to jq \
          --through dat \
          -s futil.exec './target/debug/futil' \
          -s futil.flags ' -x tdst:force -p all -d group2invoke' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         {} -q
+"""
+timeout = 120
+
+# Tests to ensure that static compilation maintains its guarantees
+# See: https://github.com/cucapra/calyx/discussions/1331 & https://github.com/cucapra/calyx/issues/1344
+[[tests]]
+name = "correctness static control"
+paths = [
+  "tests/correctness/static-control/*.futil"
+]
+cmd = """
+fud exec --to jq \
+         --through verilog \
+         --through dat \
+         -s futil.exec './target/debug/futil' \
+         -s futil.flags '-p all -d tdst -d group2invoke' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q

@@ -18,8 +18,8 @@ use crate::{
     },
     values::Value,
 };
-use calyx::ir::{self, Assignment, Guard, RRC};
-use calyx::utils::WithPos;
+use calyx_ir::{self as ir, Assignment, Guard, RRC};
+use calyx_utils::WithPos;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -100,7 +100,7 @@ pub enum EnableHolder {
     Enable(Rc<iir::Enable>),
     Group(RRC<ir::Group>),
     CombGroup(RRC<ir::CombGroup>),
-    Vec(Rc<Vec<ir::Assignment>>),
+    Vec(Rc<Vec<ir::Assignment<ir::Nothing>>>),
 }
 
 impl EnableHolder {
@@ -154,8 +154,8 @@ impl From<&RRC<ir::CombGroup>> for EnableHolder {
     }
 }
 
-impl From<Vec<ir::Assignment>> for EnableHolder {
-    fn from(v: Vec<ir::Assignment>) -> Self {
+impl From<Vec<ir::Assignment<ir::Nothing>>> for EnableHolder {
+    fn from(v: Vec<ir::Assignment<ir::Nothing>>) -> Self {
         Self::Vec(Rc::new(v))
     }
 }
@@ -1010,7 +1010,7 @@ impl InvokeInterpreter {
         continuous_assignments: iir::ContinuousAssignments,
         qin: ComponentQualifiedInstanceName,
     ) -> Self {
-        let mut assignment_vec: Vec<Assignment> = vec![];
+        let mut assignment_vec: Vec<Assignment<ir::Nothing>> = vec![];
         let comp_cell = invoke.comp.borrow();
 
         if !invoke.ref_cells.is_empty() {
@@ -1245,7 +1245,7 @@ impl StructuralInterpreter {
         let done_port = comp_sig.get_with_attr("done");
         let done_raw = done_port.as_raw();
         let continuous = Rc::clone(&comp.continuous_assignments);
-        let assigns: Vec<ir::Assignment> = vec![];
+        let assigns: Vec<ir::Assignment<ir::Nothing>> = vec![];
 
         let interp = AssignmentInterpreter::new(
             env,

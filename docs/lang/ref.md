@@ -59,9 +59,20 @@ Calyx standard library:
 The primitive defines one parameter called `WIDTH`, which describes the sizes for
 the `in` and the `out` ports.
 
+### Inlined Primitives
+
+*Inlined primitives* do not have a corresponding Verilog file, and are defined within Calyx. The Calyx backend then converts these definitions into Verilog.
+
+For example, the `std_unsyn_mult` primitive is inlined:
+```
+{{#include ../../primitives/unsynthesizable.futil:std_unsyn_mult_def}}
+```
+
+This can be useful when a frontend needs to generate both Calyx and Verilog code at the same time. The backend ensures that the generated Verilog module has the correct signature.
+
 ## Calyx Components
 
-`component`s are the primary encapsulation unit of a Calyx program.
+Components are the primary encapsulation unit of a Calyx program.
 They look like this:
 
 ```
@@ -76,6 +87,26 @@ Like [`primitive` definitions][prim], `component` signatures consist of a name, 
 Unlike `primitive`s, `component` definitions do not have parameters; ports must have a concrete (integer) width.
 A component encapsulates the control and the hardware structure that implements
 a hardware module.
+
+> **Well-formedness**: The `control` program of a component must take at least one cycle to finish executing.
+
+### Combinational Components
+
+Using the `comb` keyword before a component definition marks it as a purely combinational component:
+```
+comb component add(left: 32, right: 32) -> (out: 32) {
+  cells {
+    a = std_add(32);
+  }
+  wires {
+    a.left = left;
+    a.right = right;
+    out = a.out;
+  }
+}
+```
+
+A combinational component does not have a `control` section, can only use other `comb` components or primitives, and performs its computation combinationally.
 
 ### Ports
 

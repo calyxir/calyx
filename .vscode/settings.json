@@ -15,8 +15,8 @@
         "--line-length=88"
     ],
     "python.analysis.inlayHints.functionReturnTypes": true,
-    "jupyter.enableCellCodeLens": true,
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.inlayHints.variableTypes": true,
-    "python.linting.flake8Enabled": true
+    "python.linting.flake8Enabled": true,
+    "jupyter.interactiveWindow.codeLens.enable": true
 }

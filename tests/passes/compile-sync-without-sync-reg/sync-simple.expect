@@ -37,6 +37,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group clear {
       bar.in = 1'd0;
       bar.write_en = 1'd1;
+      clear[done] = bar.done;
     }
     group barrier0 {
       bar0.in = 1'd1;
@@ -46,6 +47,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     group clear0 {
       bar0.in = 1'd0;
       bar0.write_en = 1'd1;
+      clear0[done] = bar0.done;
     }
     s.in = bar.out & bar0.out ? 1'd1;
     s.write_en = 1'd1;

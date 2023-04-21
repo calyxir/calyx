@@ -1,6 +1,6 @@
 use crate::values::Value;
-use calyx::ir;
-use calyx::ir::RRC;
+use calyx_ir as ir;
+use calyx_ir::RRC;
 use std::cell::Ref;
 use std::collections::HashSet;
 use std::ops::Deref;
@@ -29,7 +29,7 @@ pub fn get_dest_cells<'a, I>(
     done_sig: Option<RRC<ir::Port>>,
 ) -> Vec<RRC<ir::Cell>>
 where
-    I: Iterator<Item = &'a ir::Assignment>,
+    I: Iterator<Item = &'a ir::Assignment<ir::Nothing>>,
 {
     let mut assign_set: HashSet<*const ir::Cell> = HashSet::new();
     let mut output_vec = vec![];
@@ -62,6 +62,9 @@ where
                 }
             }
             ir::PortParent::Group(_) => None,
+            ir::PortParent::StaticGroup(_) => {
+                panic!("Static Groups not yet implemented for interpreter")
+            }
         }
     });
     output_vec.extend(iterator);

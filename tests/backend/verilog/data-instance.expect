@@ -567,19 +567,29 @@ std_add # (
     .out(data_add_multi_out),
     .right(data_add_multi_right)
 );
-assign add_left =
- g ? 2'd2 : 2'd0;
-assign con_add_left =
- g ? 2'd2 : 2'd0;
-assign data_add_left = 2'd2;
+wire _guard0 = 1;
+wire _guard1 = g;
+wire _guard2 = g;
+wire _guard3 = ~_guard2;
+wire _guard4 = g;
+wire _guard5 = g;
+wire _guard6 = g;
 assign data_add_multi_left =
- g ? 2'd2 :
- ~g ? 2'd3 : 'x;
-assign done = 1'd1;
+  _guard1 ? 2'd2 :
+  _guard3 ? 2'd3 :
+  'x;
 always_comb begin
-    if(~$onehot0({~g, g})) begin
-        $fatal(2, "Multiple assignment to port `data_add_multi.left'.");
-    end
+  if(~$onehot0({_guard3, _guard1})) begin
+    $fatal(2, "Multiple assignment to port `data_add_multi.left'.");
 end
+end
+assign done = 1'd1;
+assign con_add_left =
+  _guard4 ? 2'd2 :
+  2'd0;
+assign data_add_left = 2'd2;
+assign add_left =
+  _guard6 ? 2'd2 :
+  2'd0;
 // COMPONENT END: main
 endmodule

@@ -5,7 +5,7 @@ use crate::primitives::{combinational as comb, stateful as stfl, Primitive};
 #[allow(unused)]
 use crate::values::Value;
 #[allow(unused)]
-use calyx::ir;
+use calyx_ir as ir;
 
 #[test]
 fn mult_flickering_go() {

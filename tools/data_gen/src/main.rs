@@ -1,5 +1,7 @@
 use argh::FromArgs;
-use calyx::{errors::CalyxResult, frontend, ir};
+use calyx_frontend as frontend;
+use calyx_ir as ir;
+use calyx_utils::CalyxResult;
 use rand::Rng;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;

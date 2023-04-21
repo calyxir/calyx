@@ -1,12 +1,10 @@
-use calyx::errors::Error;
-use calyx::ir::GetAttributes;
-
-use crate::ir::{self, RRC};
+use super::traits::Backend;
+use calyx_frontend::GetAttributes;
+use calyx_ir::{self as ir, RRC};
+use calyx_utils::Error;
 use std::collections::HashMap;
 use std::io;
 use std::rc::Rc;
-
-use super::traits::Backend;
 
 #[derive(Default)]
 pub struct MlirBackend;
@@ -16,14 +14,14 @@ impl Backend for MlirBackend {
         "mlir"
     }
 
-    fn validate(_prog: &ir::Context) -> calyx::errors::CalyxResult<()> {
+    fn validate(_prog: &ir::Context) -> calyx_utils::CalyxResult<()> {
         Ok(())
     }
 
     fn emit(
         ctx: &ir::Context,
-        file: &mut calyx::utils::OutputFile,
-    ) -> calyx::errors::CalyxResult<()> {
+        file: &mut calyx_utils::OutputFile,
+    ) -> calyx_utils::CalyxResult<()> {
         let res = {
             let f = &mut file.get_write();
             writeln!(f, "calyx.program \"{}\" {{\n", ctx.entrypoint)?;
@@ -44,8 +42,8 @@ impl Backend for MlirBackend {
 
     fn link_externs(
         _prog: &ir::Context,
-        _write: &mut calyx::utils::OutputFile,
-    ) -> calyx::errors::CalyxResult<()> {
+        _write: &mut calyx_utils::OutputFile,
+    ) -> calyx_utils::CalyxResult<()> {
         Ok(())
     }
 }
@@ -109,7 +107,7 @@ impl MlirBackend {
 
         // Add the wires
         writeln!(f, "  calyx.wires {{")?;
-        for group in comp.groups.iter() {
+        for group in comp.get_groups().iter() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
         }
@@ -242,7 +240,7 @@ impl MlirBackend {
 
     /// Format and write an assignment.
     pub fn write_assignment<F: io::Write>(
-        assign: &ir::Assignment,
+        assign: &ir::Assignment<ir::Nothing>,
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {
@@ -323,6 +321,9 @@ impl MlirBackend {
         match control {
             ir::Control::Enable(ir::Enable { group, .. }) => {
                 write!(f, "calyx.enable @{}", group.borrow().name().id)
+            }
+            ir::Control::Static(_) => {
+                todo!("static control not currently supported for MLIR")
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for MLIR backend")
@@ -406,6 +407,7 @@ impl MlirBackend {
                 }
             }
             ir::PortParent::Group(_) => unimplemented!(),
+            ir::PortParent::StaticGroup(_) => unimplemented!(),
         }
     }
 }

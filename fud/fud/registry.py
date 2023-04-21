@@ -72,7 +72,7 @@ class Registry:
             stage_path = []
             # Cost of the Path
             path_cost = None
-            for (src, dst) in path:
+            for src, dst in path:
                 if src in through_check:
                     through_check.remove(src)
                 stage = self.graph.get_edge_data(src, dst)["stage"]
@@ -116,7 +116,7 @@ class Registry:
                 continue
             # Add the starting src
             path_str = path[0][0]
-            for (_, dst) in path:
+            for _, dst in path:
                 path_str += f" → {dst}"
                 cost = self.config.get(("stages", dst, "priority"))
                 if cost is not None:
@@ -128,14 +128,14 @@ class Registry:
         stages = {}
         transforms = []
 
-        for (src, dst, attr) in sorted(self.graph.edges(data=True)):
+        for src, dst, attr in sorted(self.graph.edges(data=True)):
             transforms.append((src, dst, attr["stage"].name, attr["stage"].description))
             if src not in stages:
                 stages[src] = []
             stages[src].append(dst)
 
         all_stages = ""
-        for (src, dsts) in stages.items():
+        for src, dsts in stages.items():
             d = ", ".join(dsts)
             all_stages += f"\n{src} → {d}"
 

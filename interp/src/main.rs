@@ -1,4 +1,8 @@
-use calyx::{frontend, ir, pass_manager::PassManager, utils::OutputFile};
+use argh::FromArgs;
+use calyx_frontend as frontend;
+use calyx_ir as ir;
+use calyx_opt::pass_manager::PassManager;
+use calyx_utils::OutputFile;
 use interp::{
     configuration,
     debugger::{source::SourceMap, Debugger},
@@ -7,8 +11,6 @@ use interp::{
     interpreter::ComponentInterpreter,
     interpreter_ir as iir,
 };
-
-use argh::FromArgs;
 use rustyline::error::ReadlineError;
 use slog::warn;
 use std::{
@@ -77,6 +79,7 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
 enum Command {
     Interpret(CommandInterpret),
     Debug(CommandDebug),
+    Flat(FlatInterp),
 }
 
 #[derive(FromArgs)]
@@ -88,6 +91,11 @@ struct CommandInterpret {}
 #[argh(subcommand, name = "debug")]
 /// Interpret the given program with the interactive debugger
 struct CommandDebug {}
+
+#[derive(FromArgs)]
+#[argh(subcommand, name = "flat")]
+/// tests the flattened interpreter
+struct FlatInterp {}
 
 #[inline]
 fn print_res(
@@ -144,6 +152,16 @@ fn main() -> InterpreterResult<()> {
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[])?;
     }
 
+    let command = opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}));
+
+    // up here temporarily
+    if let Command::Flat(_) = &command {
+        // this is stupid but will work for testing purposes. This should be
+        // fixed later
+        interp::flatten::flat_main(&ctx);
+        todo!("The flat interpreter cannot yet interpret programs")
+    }
+
     let entry_point = ctx.entrypoint;
 
     let metadata = ctx.metadata;
@@ -168,8 +186,8 @@ fn main() -> InterpreterResult<()> {
         &mut mems,
         &config,
     )?;
-    let res = match opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}))
-    {
+
+    let res = match &command {
         Command::Interpret(_) => {
             ComponentInterpreter::interpret_program(env, main_component)
         }
@@ -182,6 +200,9 @@ fn main() -> InterpreterResult<()> {
             };
             let mut cidb = Debugger::new(&components, main_component, map);
             cidb.main_loop(env)
+        }
+        Command::Flat(_) => {
+            todo!("The flat interpreter cannot yet interpret programs")
         }
     };
 

@@ -24,7 +24,6 @@ _DEBUGGER_TARGET = "debugger"
 
 
 class InterpreterStage(Stage):
-
     name = "interpreter"
     eval_type = EvalType.INTERPRETER
 
@@ -88,7 +87,6 @@ class InterpreterStage(Stage):
         return self.eval_type == EvalType.DATA_CONVERTER
 
     def _define_steps(self, input_data, builder, config):
-
         script = config["stages", self.name, "exec"]
         data_path = config["stages", "verilog", "data"]
 
@@ -239,7 +237,6 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
         shape[k]["width"] = width
 
         def convert(x):
-
             if not is_fp:
                 return Bitnum(x, **shape[k]).base_64_encode()
 

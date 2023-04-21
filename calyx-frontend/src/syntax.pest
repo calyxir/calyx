@@ -1,0 +1,332 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT = _{ ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE) | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+// Semicolon
+semi = { ";" }
+
+ident_syms = _{ "_" | "-" | "'" }
+
+// Identifiers may begin with `_` or an ASCII character.
+identifier = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT)* }
+
+bitwidth = @{ ASCII_DIGIT+ }
+
+// Conservatively parse all symbols to provide better errors.
+binary =  @{ ASCII_HEX_DIGIT+ }
+decimal = @{ ASCII_HEX_DIGIT+ }
+octal =   @{ ASCII_HEX_DIGIT+ }
+hex =     @{ ASCII_HEX_DIGIT+ }
+
+// `$` creates a compound rule which ignores whitespace while allowing for
+// inner rules (`@` makes inner rules silent).
+// See: https://pest.rs/book/print.html#atomic
+num_lit = ${
+      bitwidth
+      ~ "'"
+      ~ ( "d" ~ decimal
+        | "b" ~ binary
+        | "x" ~ hex
+        | "o" ~ octal )
+}
+
+char = { !"\"" ~ ANY }
+string_lit = ${ "\"" ~ char* ~ "\"" }
+
+// Error reporting rule: Expected a number with bitwidth in this position.
+bad_num = @{ ASCII_DIGIT ~ ('a'..'z' | 'A'..'Z' | '0'..'9' | "'")* }
+
+// ====== toplevel ======
+
+comb = { "comb" }
+
+reference = { "ref" }
+
+static_word = { "static" }
+
+file = {
+      SOI
+      ~ imports
+      ~ externs_and_comps
+      ~ metadata?
+      ~ EOI
+}
+
+extern_or_component = {
+  component | ext | prim_inline
+}
+
+externs_and_comps = { extern_or_component* }
+
+component = {
+      comb? ~ "component" ~ name_with_attribute ~ signature
+      ~ "{"
+      ~ cells
+      ~ connections
+      ~ control?
+      ~ "}"
+}
+
+// ========= Imports ===============
+
+import = _{
+      "import" ~ string_lit ~ ";"
+}
+
+imports = { import* }
+
+
+// ====== Component signature ======
+
+signature = {
+      "(" ~ inputs? ~ ")" ~ "->" ~ "(" ~ outputs? ~ ")"
+}
+
+io_port = {
+     at_attributes? ~ identifier ~ ":" ~ (bitwidth | identifier)
+}
+
+inputs = {
+      io_port ~ ("," ~ io_port)*
+}
+
+outputs = {
+      io_port ~ ("," ~ io_port)*
+}
+
+// ========= Exernal primitive definitions ===============
+
+params = {
+      "[" ~ (identifier ~ ("," ~ identifier)*)? ~ "]"
+}
+
+sig_with_params = {
+  params? ~ signature
+}
+primitive = {
+     comb? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ ";"
+}
+
+block_char = { !"}" ~ ANY }
+
+block_string = ${ "{" ~ block_char* ~ "}" }
+
+prim_inline = {
+      comb? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"
+}
+
+ext = {
+  "extern" ~ string_lit ~ "{" ~ primitive* ~ "}"
+}
+
+// ====== cells ======
+
+args = {
+      "(" ~ (bitwidth ~ ("," ~ bitwidth)*)? ~ ")"
+}
+
+cell_without_semi = {
+      at_attributes ~ reference? ~ identifier ~ "=" ~ identifier ~ args
+}
+
+cell = {
+  cell_without_semi ~ semi?
+}
+
+cells = {
+      "cells"
+      ~ "{" ~ cell* ~ "}"
+}
+
+// ====== wires ======
+
+hole = {
+      identifier ~ "[" ~ identifier ~ "]"
+}
+
+port = {
+      (identifier ~ "." ~ identifier)
+    | identifier
+}
+
+LHS = { hole | port }
+expr = {
+  LHS
+  | num_lit
+  | bad_num // throws an error
+}
+
+guard_eq = { "==" }
+guard_neq = { "!=" }
+guard_leq = { "<=" }
+guard_geq = { ">=" }
+guard_lt = { "<" }
+guard_gt = { ">" }
+cmp_expr = {
+    expr ~ guard_eq ~ expr
+  | expr ~ guard_neq ~ expr
+  | expr ~ guard_geq ~ expr
+  | expr ~ guard_leq ~ expr
+  | expr ~ guard_gt ~ expr
+  | expr ~ guard_lt ~ expr
+}
+
+guard_or = { "|" }
+guard_and = { "&" }
+guard_not = { "!" }
+operator = _{
+     guard_or | guard_and
+}
+
+guard_expr = {
+      term ~ (operator ~ term)*
+}
+
+term = {
+      guard_not ~ expr
+    | guard_not ~ "(" ~ cmp_expr ~ ")"
+    | guard_not ~ "(" ~ guard_expr ~ ")"
+    | "(" ~ guard_expr ~ ")"
+    | cmp_expr
+    | expr
+}
+
+switch_stmt = {
+      guard_expr ~ "?" ~ expr
+}
+
+wire = {
+      at_attributes ~ LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
+}
+
+static_timing_expr = { "%" ~  bitwidth | "%[" ~ bitwidth ~ ":" ~ bitwidth  ~ "]"}
+
+static_term = {
+      guard_not ~ expr
+    | guard_not ~ "(" ~ cmp_expr ~ ")"
+    | guard_not ~ "(" ~ static_guard_expr ~ ")"
+    | "(" ~ static_guard_expr ~ ")"
+    | cmp_expr
+    | expr
+    | static_timing_expr 
+}
+
+static_guard_expr = {
+      static_term ~ (operator ~ static_term)*
+}
+
+static_switch_stmt = {
+      static_guard_expr ~ "?" ~ expr
+}
+
+static_wire = {
+      at_attributes ~ LHS ~ "=" ~ (static_switch_stmt | expr) ~ ";"
+}
+
+// =========== Attribute parsing ===============
+
+// <"static" = 1> style annotation
+attribute = {
+      string_lit ~ "=" ~ bitwidth
+}
+attributes = {
+      "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
+}
+name_with_attribute = {
+  identifier ~ attributes?
+}
+
+// @static(1) style annotation
+attr_val = {
+  "(" ~ bitwidth ~ ")"
+}
+at_attribute = {
+      "@" ~ identifier ~ attr_val?
+}
+at_attributes = {
+      at_attribute*
+}
+
+group = {
+     comb? ~ "group" ~ name_with_attribute ~ "{"
+      ~ wire*
+      ~ "}"
+}
+
+static_group = {
+      static_word ~ "group" ~ name_with_attribute ~ "<" ~ bitwidth ~  ">" ~ "{"
+      ~ static_wire*
+      ~ "}"
+}
+
+connections = {
+      "wires"
+      ~ "{"
+      ~ (wire | group | static_group )*
+      ~ "}"
+}
+
+// ====== control ======
+
+empty = { at_attributes ~ ";" }
+
+enable = { at_attributes ~ identifier ~ ";" }
+
+invoke_arg = { identifier ~ "=" ~ (port | num_lit) }
+invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
+invoke_ref_arg = {identifier ~ "=" ~ identifier}
+invoke_ref_args = {("[" ~ (invoke_ref_arg ~ ("," ~ invoke_ref_arg)*)? ~ "]")?}
+invoke = { at_attributes ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
+
+seq = {
+      at_attributes ~ "seq" ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
+par = {
+      at_attributes ~ "par" ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
+// Error reporting rule: these statements should be inside a `stmt`.
+stmts_without_block = {
+  "{" ~ stmt* ~ "}"
+}
+
+block = {
+      "{" ~ stmt ~ "}"
+      | stmts_without_block
+}
+
+port_with = {
+  port ~ ("with" ~ identifier)?
+}
+if_stmt = {
+      at_attributes ~ "if" ~ port_with ~ block ~ ("else" ~ (if_stmt | block))?
+}
+
+while_stmt = {
+      at_attributes ~ "while" ~ port_with ~ block
+}
+
+stmt = {
+      empty
+    | enable
+    | invoke
+    | seq
+    | par
+    | if_stmt
+    | while_stmt
+}
+
+control = {
+      "control" ~ (("{" ~ "}") | block)
+}
+
+// metadata
+
+any_char = { ANY }
+metadata_char = ${ !"}#" ~ any_char }
+
+metadata = ${ ^"metadata" ~ WHITESPACE* ~ "#{" ~ metadata_char* ~ "}#"}
