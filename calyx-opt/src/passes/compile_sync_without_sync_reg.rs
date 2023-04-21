@@ -1,17 +1,17 @@
-use calyx_ir::{self as ir, RRC, GetAttributes};
-use calyx_utils::{CalyxResult, Error};
 use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_ir::{self as ir, GetAttributes, RRC};
 use calyx_ir::{build_assignments, guard, structure};
+use calyx_utils::{CalyxResult, Error};
 use std::collections::HashMap;
 
 #[derive(Default)]
 /// Compiles @sync without use of std_sync_reg
 /// Upon encountering @sync, it first instantiates a std_reg(1) for each thread(`bar`)
 /// and a std_reg(1) for each barrier (`s`)
-/// It then continuously assigns the value of (`s.in`) to 1'd1 guarded by the 
-/// expression that all values of `bar` for threads under the barrier are 
+/// It then continuously assigns the value of (`s.in`) to 1'd1 guarded by the
+/// expression that all values of `bar` for threads under the barrier are
 /// set to 1'd1
-/// Then it replaces the @sync control operator with 
+/// Then it replaces the @sync control operator with
 /// seq {
 ///     barrier;
 ///     clear;
@@ -19,9 +19,9 @@ use std::collections::HashMap;
 /// `barrier` simply sets the value of `bar` to 1'd1 and then waits
 /// for `s.out` to be up
 /// `clear` resets the value of `bar` to 1'd0 for reuse of barrier
-/// Using this method, each thread only incurs 3 cycles of latency overhead for 
+/// Using this method, each thread only incurs 3 cycles of latency overhead for
 /// the barrier, and we theoretically won't have a limit for number of threads
-/// under one barrier 
+/// under one barrier
 pub struct CompileSyncWithoutSyncReg;
 
 impl Named for CompileSyncWithoutSyncReg {
@@ -35,7 +35,7 @@ impl Named for CompileSyncWithoutSyncReg {
     }
 }
 
-// Data structure storing the shared `s` register and the guard accumulator 
+// Data structure storing the shared `s` register and the guard accumulator
 // for guarding `s.in`
 type BarrierMap = HashMap<u64, (RRC<ir::Cell>, Box<ir::Guard<ir::Nothing>>)>;
 
@@ -57,7 +57,7 @@ impl Gettable for BarrierMap {
     }
 }
 
-// instantiates the hardware and the two groups: `bar` and `clear` for each 
+// instantiates the hardware and the two groups: `bar` and `clear` for each
 // barrier
 fn build_barrier_group(
     builder: &mut ir::Builder,
@@ -124,7 +124,7 @@ fn produce_err(con: &ir::Control) -> CalyxResult<()> {
     }
 }
 
-// recursively looks for the `@sync` control operator and then replaces them with 
+// recursively looks for the `@sync` control operator and then replaces them with
 // the corresponding `seq` block
 fn insert_barrier(
     builder: &mut ir::Builder,
@@ -191,7 +191,7 @@ impl Visitor for CompileSyncWithoutSyncReg {
             )?;
         }
 
-        // add continuous assignments for value of `s` 
+        // add continuous assignments for value of `s`
         for (_, (reg, g_box)) in barrier_reg {
             structure!( builder;
                 let constant = constant(1,1);
