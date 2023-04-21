@@ -32,6 +32,7 @@ mod remove_comb_groups;
 mod remove_ids;
 mod reset_insertion;
 // mod simplify_guards;
+mod dynamic_to_static;
 mod static_par_conv;
 mod synthesis_papercut;
 mod top_down_compile_control;

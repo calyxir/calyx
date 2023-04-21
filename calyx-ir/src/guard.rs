@@ -108,6 +108,39 @@ where
     }
 }
 
+impl<Nothing> Guard<Nothing> {
+    /// Turns a normal guard into a static guard
+    pub fn into_static_guard(&self) -> Guard<StaticTiming> {
+        match self {
+            Guard::Or(left, right) => {
+                let l = left.into_static_guard();
+                let r = right.into_static_guard();
+                Guard::Or(Box::new(l), Box::new(r))
+            }
+            Guard::And(left, right) => {
+                let l = left.into_static_guard();
+                let r = right.into_static_guard();
+                Guard::And(Box::new(l), Box::new(r))
+            }
+            Guard::Not(c) => {
+                let inside = c.into_static_guard();
+                Guard::Not(Box::new(inside))
+            }
+            Guard::True => Guard::True,
+            Guard::CompOp(pc, left, right) => {
+                Guard::CompOp(pc.clone(), Rc::clone(left), Rc::clone(right))
+            }
+            Guard::Port(p) => Guard::Port(Rc::clone(p)),
+            Guard::Info(_) => {
+                unreachable!(
+                    "Compilation error: Guards should not be of the
+                info variant type"
+                )
+            }
+        }
+    }
+}
+
 impl<T> Guard<T> {
     /// Returns true if this is a `Guard::True`.
     pub fn is_true(&self) -> bool {

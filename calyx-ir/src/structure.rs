@@ -458,6 +458,18 @@ impl<T> Assignment<T> {
     }
 }
 
+impl<Nothing> Assignment<Nothing> {
+    /// Turns a normal assignment into a static assignment
+    pub fn into_static(&self) -> Assignment<StaticTiming> {
+        Assignment {
+            dst: Rc::clone(&self.dst),
+            src: Rc::clone(&self.src),
+            guard: Box::new(self.guard.into_static_guard()),
+            attributes: self.attributes.clone(),
+        }
+    }
+}
+
 impl<StaticTiming> Assignment<StaticTiming> {
     /// Apply function `f` to each port contained within the assignment and
     /// replace the port with the generated value if not None.
