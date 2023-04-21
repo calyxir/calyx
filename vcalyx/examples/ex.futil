@@ -15,12 +15,19 @@ component main() -> () {
 
       reg1.write_en = 1'd1;
       reg1.in = 32'd1;
+      // poke reg0, reg1: no changes from initialization, so we can tick
+      // tick 1: reg0.out = 32'd2, reg1.out = 32'd1
+      // bonk 1: inputs to reg0 and reg1 invalidated
 
+      // poke reg0.out for value
       adder.left = reg0.out;
+      // poke reg1.out for value
       adder.right = reg1.out;
 
       result.write_en = 1'd1;
+      // poke adder.out for value
       result.in = adder.out; 
+      // tick 2? result.out = 32'd3, result.done = true
       incr[done] = result.done;
     }
   }
