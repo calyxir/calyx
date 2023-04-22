@@ -72,9 +72,9 @@ fn build_barrier_group(
         let constant = constant(1, 1);
     );
 
-    let g = barrier_reg.get_guard(barrier_idx);
-    g.update(|g| g.and(guard!(bar["out"])));
-    drop(g);
+    barrier_reg
+        .get_guard(barrier_idx)
+        .update(|g| g.and(guard!(bar["out"])));
 
     let s = barrier_reg.get_reg(barrier_idx);
 
