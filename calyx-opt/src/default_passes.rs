@@ -2,6 +2,13 @@
 use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, CompileStatic, CompileSync,
+    ComponentInliner, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
+    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
+    InferShare, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, RemoveIds,
+    ResetInsertion, StaticParConv, SynthesisPapercut, TopDownCompileControl,
+    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
+    CompileEmpty, CompileInvoke, CompileRef, CompileStatic, CompileSync,
     CompileSyncWithoutSyncReg, ComponentInliner, DeadAssignmentRemoval,
     DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
     GroupToSeq, HoleInliner, InferShare, InferStaticTiming, LowerGuards,
