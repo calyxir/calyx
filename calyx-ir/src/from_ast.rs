@@ -624,6 +624,20 @@ fn build_static_if(
     Ok(con)
 }
 
+fn build_static_repeat(
+    num_repeats: u64,
+    body: Box<ast::Control>,
+    builder: &mut Builder,
+    attributes: Attributes,
+) -> CalyxResult<StaticControl> {
+    let body = build_static_control(*body, builder)?;
+    let total_latency = body.get_latency() * num_repeats;
+    let mut scon =
+        StaticControl::repeat(num_repeats, total_latency, Box::new(body));
+    *scon.get_mut_attributes() = attributes;
+    Ok(scon)
+}
+
 // checks whether `control` is static
 fn build_static_control(
     control: ast::Control,
@@ -674,6 +688,13 @@ fn build_static_control(
             return build_static_if(
                 port, tbranch, fbranch, attributes, latency, builder,
             )
+        }
+        ast::Control::StaticRepeat {
+            attributes,
+            num_repeats,
+            body,
+        } => {
+            return build_static_repeat(num_repeats, body, builder, attributes)
         }
         ast::Control::Par { .. }
         | ast::Control::If { .. }
@@ -820,6 +841,14 @@ fn build_control(
             let s = build_static_if(
                 port, tbranch, fbranch, attributes, latency, builder,
             );
+            Control::Static(s?)
+        }
+        ast::Control::StaticRepeat {
+            attributes,
+            num_repeats,
+            body,
+        } => {
+            let s = build_static_repeat(num_repeats, body, builder, attributes);
             Control::Static(s?)
         }
         ast::Control::Par { stmts, attributes } => {

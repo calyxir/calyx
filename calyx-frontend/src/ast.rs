@@ -361,7 +361,7 @@ pub enum Control {
         /// Latency for the seq
         latency: u64,
     },
-    /// Standard imperative if statement
+    /// Static if statement.
     StaticIf {
         /// Port that connects the conditional check.
         port: Port,
@@ -375,8 +375,19 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
 
-        /// Latency
+        /// Latency should be the longer of the two branches
         latency: u64,
+    },
+    /// Standard imperative if statement
+    StaticRepeat {
+        /// Control for the true branch.
+        num_repeats: u64,
+
+        /// Control for the true branch.
+        body: Box<Control>,
+
+        /// Attributes
+        attributes: Attributes,
     },
 }
 

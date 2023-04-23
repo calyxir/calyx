@@ -1,4 +1,4 @@
-// -p well-formed -p static-inline -p remove-ids
+// -p well-formed -p static-inline -p remove-ids -p dead-group-removal
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
@@ -41,8 +41,8 @@ component main() -> () {
 
   control {
     static par<4> {
-      static if<2> lt.out { A; } else { C; }
-      static seq<4> {A3; D; }
+      static if <2> lt.out { A; } else { C; }
+      static seq <4> { A3; D; }
     }
     
   }

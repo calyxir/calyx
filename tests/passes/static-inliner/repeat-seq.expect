@@ -7,7 +7,20 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     d = std_reg(2);
   }
   wires {
-    static group static_seq<4><"NODE_ID"=0> {
+    group dyn_A {
+      a.write_en = 1'd1;
+      a.in = 2'd2;
+      dyn_A[done] = a.done;
+    }
+    group dyn_B {
+      b.write_en = 1'd1;
+      b.in = 2'd2;
+      dyn_B[done] = b.done;
+    }
+    static group static_repeat<12><"NODE_ID"=2> {
+      static_seq[go] = 1'd1;
+    }
+    static group static_seq<4><"NODE_ID"=3> {
       a.in = %[0:2] ? 2'd0;
       a.write_en = %0 & %[0:2] ? 1'd1;
       b.in = %[0:2] ? 2'd1;
@@ -20,6 +33,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
 
   control {
-    static_seq;
+    seq {
+      dyn_A;
+      static_repeat;
+      dyn_B;
+    }
   }
 }

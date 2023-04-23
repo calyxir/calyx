@@ -329,6 +329,10 @@ while_stmt = {
       at_attributes ~ "while" ~ port_with ~ block
 }
 
+repeat_stmt = {
+      at_attributes ~ static_word ~ "repeat" ~ bitwidth ~ block
+}
+
 stmt = {
       empty
     | enable
@@ -340,6 +344,7 @@ stmt = {
     | if_stmt
     | static_if_stmt
     | while_stmt
+    | repeat_stmt
 }
 
 control = {

@@ -117,8 +117,11 @@ impl StaticInliner {
                         "static group latency doesn't match static stmt latency"
                     );
                     // get the assignments from g_assigns
+                    // currently we clone, since we might need these assignments elsewhere
+                    // *BUT* there are only specific cases where we clone: speciifcally,
+                    // if g was actually defined in the design at the beginning of the pass
                     let mut g_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
-                        g.borrow_mut().assignments.drain(..).collect();
+                        g.borrow_mut().assignments.clone();
                     // add cur_offset to each static guard in g_assigns
                     StaticInliner::update_assignment_timing(
                         &mut g_assigns,
@@ -155,8 +158,9 @@ impl StaticInliner {
                         "static group latency doesn't match static stmt latency"
                     );
                     // get the assignments from g_assigns
+                    // see note on the StaticControl::Seq(..) case abt why we need to clone
                     let mut g_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
-                        g.borrow_mut().assignments.drain(..).collect();
+                        g.borrow_mut().assignments.clone();
                     // offset = 0 (all start at beginning of par),
                     // but still should add %[0:par_latency?] to beginning of group
                     StaticInliner::update_assignment_timing(
@@ -192,7 +196,7 @@ impl StaticInliner {
                 if_group_assigns.extend(cond_assigns.to_vec());
                 let tbranch_latency = tbranch.get_latency();
                 let fbranch_latency = fbranch.get_latency();
-                // turn tbranch into group and drain assigns into tgroup_assigns
+                // turn tbranch into group and put assigns into tgroup_assigns
                 let tgroup =
                     StaticInliner::inline_static_control(tbranch, builder);
                 assert_eq!(
@@ -201,17 +205,23 @@ impl StaticInliner {
                     "tru branch and tru branch group latency do not match"
                 );
                 let mut tgroup_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
-                    tgroup.borrow_mut().assignments.drain(..).collect();
-                // turn fgroup into group and drain assigns into fgroup_assigns
-                let fgroup =
-                    StaticInliner::inline_static_control(fbranch, builder);
-                assert_eq!(
-                    fbranch_latency,
-                    fgroup.borrow().get_latency(),
-                    "tru branch and tru branch group latency do not match"
-                );
+                    tgroup.borrow_mut().assignments.clone();
+                // turn fgroup into group and put assigns into fgroup_assigns
                 let mut fgroup_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
-                    fgroup.borrow_mut().assignments.drain(..).collect();
+                    match **fbranch {
+                        ir::StaticControl::Empty(_) => vec![],
+                        _ => {
+                            let fgroup = StaticInliner::inline_static_control(
+                                fbranch, builder,
+                            );
+                            assert_eq!(fbranch_latency, fgroup.borrow().get_latency(), "tru branch and tru branch group latency do not match");
+                            let fgroup_assigns: Vec<
+                                ir::Assignment<ir::StaticTiming>,
+                            > = fgroup.borrow_mut().assignments.clone();
+                            fgroup_assigns
+                        }
+                    };
+
                 // update trgoup_assigns to have guard %[0:tbranch_latency] in front of
                 // each assignment, and do the same (except w/ fbranch_latency) for fbranch
                 StaticInliner::update_assignment_timing(
@@ -246,7 +256,36 @@ impl StaticInliner {
                 if_group.borrow_mut().attributes = attributes.clone();
                 if_group
             }
-            _ => todo!(""),
+            ir::StaticControl::Repeat(ir::StaticRepeat {
+                latency,
+                num_repeats,
+                body,
+                attributes,
+            }) => {
+                let repeat_group =
+                    builder.add_static_group("static_repeat", *latency);
+                let body_group =
+                    StaticInliner::inline_static_control(body, builder);
+                assert_eq!(*latency, (num_repeats * body_group.borrow().get_latency()), "latency of static repeat is not equal to num_repeats * latency of body");
+                // the assignments in the repeat group should simply trigger the
+                // body group
+                // static group static_repeat <num_repeats * body_latency> {body[go] = 1'd1;}
+                structure!( builder;
+                    let signal_on = constant(1,1);
+                );
+                let trigger_body = build_assignments!(builder;
+                    body_group["go"] = ? signal_on["out"];
+                );
+                repeat_group.borrow_mut().assignments = trigger_body.to_vec();
+                repeat_group.borrow_mut().attributes = attributes.clone();
+                repeat_group
+            }
+            ir::StaticControl::Empty(_) => unreachable!(
+                "should not call inline_static_control on empty stmt"
+            ),
+            ir::StaticControl::Invoke(_) => {
+                todo!("implement static inlining for invokes")
+            }
         }
     }
 
@@ -298,7 +337,7 @@ impl Visitor for StaticInliner {
         Ok(Action::Continue)
     }
 
-    /// Executed after visiting the children of a [ir::While] node.
+    /// Executed after visiting the children of a [ir::Static] node.
     fn start_static_control(
         &mut self,
         s: &mut ir::StaticControl,
@@ -315,15 +354,15 @@ impl Visitor for StaticInliner {
         }
     }
 
-    fn finish(
-        &mut self,
-        comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        // remove empty static groups
-        comp.get_static_groups_mut()
-            .retain(|sg| !sg.borrow().assignments.is_empty());
-        Ok(Action::Continue)
-    }
+    // fn finish(
+    //     &mut self,
+    //     comp: &mut ir::Component,
+    //     _sigs: &LibrarySignatures,
+    //     _comps: &[ir::Component],
+    // ) -> VisResult {
+    //     // remove empty static groups
+    //     comp.get_static_groups_mut()
+    //         .retain(|sg| !sg.borrow().assignments.is_empty());
+    //     Ok(Action::Continue)
+    // }
 }

@@ -96,7 +96,12 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [CompileStatic, TopDownStaticTiming, TopDownCompileControl]
+            [
+                StaticInliner,
+                CompileStatic,
+                TopDownStaticTiming,
+                TopDownCompileControl
+            ]
         );
         register_alias!(
             pm,

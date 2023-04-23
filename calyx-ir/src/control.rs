@@ -215,6 +215,16 @@ impl GetAttributes for StaticEnable {
     }
 }
 
+impl StaticEnable {
+    /// Returns the value of an attribute if present
+    pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
+    where
+        S: Into<Id>,
+    {
+        self.get_attributes().get(attr).cloned()
+    }
+}
+
 type PortMap = Vec<(Id, RRC<Port>)>;
 type CellMap = Vec<(Id, RRC<Cell>)>;
 
@@ -536,6 +546,20 @@ impl StaticControl {
             fbranch,
             attributes: Attributes::default(),
             latency,
+        })
+    }
+
+    /// Convience constructor for static if
+    pub fn repeat(
+        num_repeats: u64,
+        latency: u64,
+        body: Box<StaticControl>,
+    ) -> Self {
+        StaticControl::Repeat(StaticRepeat {
+            body,
+            num_repeats,
+            latency,
+            attributes: Attributes::default(),
         })
     }
 
