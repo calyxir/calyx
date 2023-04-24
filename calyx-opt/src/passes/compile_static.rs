@@ -291,10 +291,9 @@ impl Visitor for CompileStatic {
         // groups don't have done holes.
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
-                match self.group_rewrite.get(&port.borrow().canonical()) {
-                    None => None,
-                    Some(port_ref) => Some(Rc::clone(port_ref)),
-                }
+                self.group_rewrite
+                    .get(&port.borrow().canonical())
+                    .map(Rc::clone)
             })
         });
 
@@ -311,8 +310,8 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // assume that there are only static enables left. 
-        // if there are any other type of static control, then error out. 
+        // assume that there are only static enables left.
+        // if there are any other type of static control, then error out.
         match sc {
             ir::StaticControl::Enable(s) => {
                 let sgroup = s.group.borrow_mut();
@@ -326,13 +325,12 @@ impl Visitor for CompileStatic {
                     });
                 // check if we've already built the wrapper group for early_reset_group 
                 // if so, we can just use that, otherwise, we must build the wrapper group 
-                let group_choice = 
-                    match self.wrapper_map.get(&early_reset_name){
+                let group_choice = match self.wrapper_map.get(early_reset_name){
                         None => {
                             // create the builder/cells that we need to create wrapper group 
                             let mut builder = ir::Builder::new(comp, sigs);
-                            let fsm_name = self.fsm_map.get(&early_reset_name).unwrap();
-                            let wrapper = Self::build_wrapper_group(fsm_name, &early_reset_name, & mut builder);
+                            let fsm_name = self.fsm_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
+                            let wrapper = Self::build_wrapper_group(fsm_name, early_reset_name, & mut builder);
                             self.wrapper_map.insert(*early_reset_name, wrapper.borrow().name());
                             wrapper
                         }

@@ -605,8 +605,8 @@ fn build_static_par(
 
 fn build_static_if(
     port: ast::Port,
-    tbranch: Box<ast::Control>,
-    fbranch: Box<ast::Control>,
+    tbranch: ast::Control,
+    fbranch: ast::Control,
     attributes: Attributes,
     latency: u64,
     builder: &mut Builder,
@@ -616,8 +616,8 @@ fn build_static_if(
             get_port_ref(port, builder.component)?,
             Direction::Output,
         )?,
-        Box::new(build_static_control(*tbranch, builder)?),
-        Box::new(build_static_control(*fbranch, builder)?),
+        Box::new(build_static_control(tbranch, builder)?),
+        Box::new(build_static_control(fbranch, builder)?),
         latency,
     );
     *con.get_mut_attributes() = attributes;
@@ -626,11 +626,11 @@ fn build_static_if(
 
 fn build_static_repeat(
     num_repeats: u64,
-    body: Box<ast::Control>,
+    body: ast::Control,
     builder: &mut Builder,
     attributes: Attributes,
 ) -> CalyxResult<StaticControl> {
-    let body = build_static_control(*body, builder)?;
+    let body = build_static_control(body, builder)?;
     let total_latency = body.get_latency() * num_repeats;
     let mut scon =
         StaticControl::repeat(num_repeats, total_latency, Box::new(body));
@@ -650,9 +650,9 @@ fn build_static_control(
         } => match builder.component.find_group(component) {
             Some(_) => {
                 // dynamic group called in build_static_control
-                return Err(Error::malformed_control(format!(
-                    "found dynamic group static context"
-                )));
+                return Err(Error::malformed_control(
+                    "found dynamic group in static context".to_string(),
+                ));
             }
             None => {
                 let mut en = StaticControl::enable(Rc::clone(
@@ -686,7 +686,7 @@ fn build_static_control(
             latency,
         } => {
             return build_static_if(
-                port, tbranch, fbranch, attributes, latency, builder,
+                port, *tbranch, *fbranch, attributes, latency, builder,
             )
         }
         ast::Control::StaticRepeat {
@@ -694,15 +694,15 @@ fn build_static_control(
             num_repeats,
             body,
         } => {
-            return build_static_repeat(num_repeats, body, builder, attributes)
+            return build_static_repeat(num_repeats, *body, builder, attributes)
         }
         ast::Control::Par { .. }
         | ast::Control::If { .. }
         | ast::Control::While { .. }
         | ast::Control::Seq { .. } => {
-            return Err(Error::malformed_control(format!(
-                "dynamic control in static context"
-            )));
+            return Err(Error::malformed_control(
+                "found dynamic control in static context".to_string(),
+            ));
         }
         ast::Control::Empty { attributes } => {
             let mut emp = StaticControl::empty();
@@ -839,7 +839,7 @@ fn build_control(
             latency,
         } => {
             let s = build_static_if(
-                port, tbranch, fbranch, attributes, latency, builder,
+                port, *tbranch, *fbranch, attributes, latency, builder,
             );
             Control::Static(s?)
         }
@@ -848,7 +848,8 @@ fn build_control(
             num_repeats,
             body,
         } => {
-            let s = build_static_repeat(num_repeats, body, builder, attributes);
+            let s =
+                build_static_repeat(num_repeats, *body, builder, attributes);
             Control::Static(s?)
         }
         ast::Control::Par { stmts, attributes } => {

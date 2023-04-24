@@ -109,7 +109,7 @@ impl StaticInliner {
     ) -> ir::RRC<ir::StaticGroup> {
         match sc {
             ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
-                Rc::clone(&group)
+                Rc::clone(group)
             }
             ir::StaticControl::Seq(ir::StaticSeq {
                 stmts,
