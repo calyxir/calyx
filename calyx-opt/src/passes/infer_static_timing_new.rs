@@ -490,29 +490,26 @@ impl Visitor for InferStaticTimingNew {
             latency_result = None;
         }
 
-        match latency_result {
-            Some(res) => {
-                let mut builder = Builder::new(comp, sigs);
-                builder
-                    .component
-                    .get_groups_mut()
-                    .remove(s.group.borrow().name());
-                let sg = builder.add_static_group(s.group.borrow().name(), res);
-                for assignment in s.group.borrow().assignments.iter() {
-                    if !(assignment.dst.borrow().is_hole()
-                        && assignment.dst.borrow().name == "done")
-                    {
-                        let static_s = assignment.into_static();
-                        sg.borrow_mut().assignments.push(static_s);
-                    }
+        if let Some(res) = latency_result {
+            let mut builder = Builder::new(comp, sigs);
+            builder
+                .component
+                .get_groups_mut()
+                .remove(s.group.borrow().name());
+            let sg = builder.add_static_group(s.group.borrow().name(), res);
+            for assignment in s.group.borrow().assignments.iter() {
+                if !(assignment.dst.borrow().is_hole()
+                    && assignment.dst.borrow().name == "done")
+                {
+                    let static_s = assignment.into_static();
+                    sg.borrow_mut().assignments.push(static_s);
                 }
-                let s_enable = ir::StaticControl::Enable(StaticEnable {
-                    group: Rc::clone(&sg),
-                    attributes: s.attributes.clone(),
-                });
-                return Ok(Action::change(ir::Control::Static(s_enable)));
             }
-            None => (),
+            let s_enable = ir::StaticControl::Enable(StaticEnable {
+                group: Rc::clone(&sg),
+                attributes: s.attributes.clone(),
+            });
+            return Ok(Action::change(ir::Control::Static(s_enable)));
         }
         Ok(Action::Continue)
     }
