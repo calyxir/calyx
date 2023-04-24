@@ -1,10 +1,11 @@
 // -p well-formed -p compile-static -p dead-group-removal -p remove-ids 
 
-// in addition to turning A and run_A_thrice into stattic groups, the 
-// pass should also rewrite the assignment A[go] to assign to early_reset_A[go]
-// and create a wrapper group for run_A_thrice *only* 
+// in addition to turning A and run_A_thrice into dynamic groups using fsms, the 
+// pass should also rewrite the assignment A[go] to early_reset_A[go]
+// and create a wrapper group for run_A_thrice (no wrapper necessary for A)
 
 import "primitives/core.futil";
+import "primitives/pipelined.futil";
 
 component main() -> () {
   cells {
@@ -14,6 +15,8 @@ component main() -> () {
   }
 
   wires {
+    // dynamic groups simply here to demonstrate compiling static "islands"
+    // within dynamic control 
     group dyn_B {
       b.write_en = 1'd1; 
       b.in = 2'd1; 

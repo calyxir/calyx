@@ -3,6 +3,8 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 
+// you can see how static-inliner currently adds unnecessary guards 
+
 component main() -> () {
   cells {
     a = std_reg(2);

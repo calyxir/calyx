@@ -266,6 +266,8 @@ pub struct StaticWire {
 }
 
 /// Control AST nodes.
+/// Since enables and static enables are indistinguishable to the AST, there
+/// is single Control Enum for both Static and Dynamic Control
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum Control {

@@ -28,14 +28,16 @@ impl StaticInliner {
     // inlined static seq group
     // adds offset to each timing guard in `assigns`
     // e.g., %[2,3] with offset = 2 -> %[4,5]
-    // all guards also must get a guard = guard & %[offset, offset+latency] since that
-    // is when the group will be active in the control
+    // all guards also must update so that guard -> guard & %[offset, offset+latency] since that
+    // is when the group will be active in the control, i.e., dst = guard ? src
+    // becomes dst =  guard & %[offset, offset+latency] ? src
     fn update_assignment_timing(
         assigns: &mut Vec<ir::Assignment<ir::StaticTiming>>,
         offset: u64,
         latency: u64,
     ) {
         for assign in assigns {
+            // adding the offset to each timing interval
             assign.for_each_interval(|timing_interval| {
                 let (beg, end) = timing_interval.get_interval();
                 Some(ir::Guard::Info(ir::StaticTiming::new((
@@ -43,6 +45,7 @@ impl StaticInliner {
                     end + offset,
                 ))))
             });
+            // adding the interval %[offset, offset + latency]
             assign.guard.add_interval(ir::StaticTiming::new((
                 offset,
                 offset + latency,
@@ -50,9 +53,16 @@ impl StaticInliner {
         }
     }
 
+    // Makes assignments such that if branches can start executing on the first
+    // possible cycle.
+    // essentially, on the first cycle, we write port's value into a `cond` = a register.
+    // this is because the tru/false branch might alter port's value when it executes
+    // cond_wire reads from port on the first cycle, and then cond for the other cycles.
+    // this means that all of the tru branch assigns can get the cond_wire ? in front of them,
+    // and all false branch assigns can get !cond_wire ? in front of them
     // makes the following assignments:
-    // cond.in = port; cond.write_en = %0 ? 1'd1; cond_wire.in = %0 ? port
-    // cond_wire.in = %[1:latency] ? cond.out
+    // read more here: https://github.com/cucapra/calyx/issues/1344 (specifically
+    // the section "Conditionl")
     fn make_cond_assigns(
         cond: &ir::RRC<ir::Cell>,
         cond_wire: &ir::RRC<ir::Cell>,
@@ -83,6 +93,8 @@ impl StaticInliner {
         cond_assigns.push(cond_gets_port);
         cond_assigns.push(cond_wire_gets_port);
         let asgns = build_assignments!(builder;
+            // cond.write_en = %0 ? 1'd1 (since we also have cond.in = %0 ? port)
+            // cond_wire.in = %[1:latency] ? cond.out (since we also have cond_wire.in = %0 ? port)
             cond["write_en"] = cycle_0_guard ? signal_on["out"];
             cond_wire["in"] = other_cycles_guard ? cond["out"];
         );
@@ -90,6 +102,7 @@ impl StaticInliner {
         cond_assigns
     }
 
+    // inlines the static control `sc` and returns an equivalent single static group
     fn inline_static_control(
         sc: &ir::StaticControl,
         builder: &mut ir::Builder,
@@ -111,18 +124,22 @@ impl StaticInliner {
                 let mut cur_offset = 0;
                 for stmt in stmts {
                     let stmt_latency = stmt.get_latency();
+                    // first recursively call each stmt in seq, and turn each stmt
+                    // into static group g.
                     let g = StaticInliner::inline_static_control(stmt, builder);
                     assert!(
                         g.borrow().get_latency() == stmt_latency,
                         "static group latency doesn't match static stmt latency"
                     );
-                    // get the assignments from g_assigns
+                    // get the assignments from g
                     // currently we clone, since we might need these assignments elsewhere
-                    // *BUT* there are only specific cases where we clone: speciifcally,
-                    // if g was actually defined in the design at the beginning of the pass
+                    // We could probably do some sort of analysis to see when we need to
+                    // clone vs. can drain
                     let mut g_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
                         g.borrow_mut().assignments.clone();
                     // add cur_offset to each static guard in g_assigns
+                    // and add %[offset, offset + latency] to each assignment in
+                    // g_assigns
                     StaticInliner::update_assignment_timing(
                         &mut g_assigns,
                         cur_offset,
@@ -130,6 +147,8 @@ impl StaticInliner {
                     );
                     // add g_assigns to seq_group_assigns
                     seq_group_assigns.extend(g_assigns.into_iter());
+                    // updates cur_offset so that next stmt gets its static timign
+                    // offset appropriately
                     cur_offset += stmt_latency;
                 }
                 assert!(
@@ -152,23 +171,24 @@ impl StaticInliner {
                 > = vec![];
                 for stmt in stmts {
                     let stmt_latency = stmt.get_latency();
+                    // recursively turn each stmt in the par block into a group g
                     let g = StaticInliner::inline_static_control(stmt, builder);
                     assert!(
                         g.borrow().get_latency() == stmt_latency,
                         "static group latency doesn't match static stmt latency"
                     );
-                    // get the assignments from g_assigns
+                    // get the assignments from g
                     // see note on the StaticControl::Seq(..) case abt why we need to clone
                     let mut g_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
                         g.borrow_mut().assignments.clone();
                     // offset = 0 (all start at beginning of par),
-                    // but still should add %[0:par_latency?] to beginning of group
+                    // but still should add %[0:stmt_latency] to beginning of group
                     StaticInliner::update_assignment_timing(
                         &mut g_assigns,
                         0,
                         stmt_latency,
                     );
-                    // add g_assigns to seq_group_assigns
+                    // add g_assigns to par_group_assigns
                     par_group_assigns.extend(g_assigns.into_iter());
                 }
                 par_group.borrow_mut().assignments = par_group_assigns;
@@ -190,6 +210,9 @@ impl StaticInliner {
                     let cond = prim std_reg(port.borrow().width);
                     let cond_wire = prim std_wire(port.borrow().width);
                 );
+                // build_cond_assigns makes assigns such that
+                // cond_wire.in can guard all of the tru branch assigns,
+                // and !cond_wire.in can guard all fo the false branch assigns x
                 let cond_assigns = StaticInliner::make_cond_assigns(
                     &cond, &cond_wire, port, *latency, builder,
                 );
@@ -206,7 +229,7 @@ impl StaticInliner {
                 );
                 let mut tgroup_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
                     tgroup.borrow_mut().assignments.clone();
-                // turn fgroup into group and put assigns into fgroup_assigns
+                // turn fgroup (if it exists) into group and put assigns into fgroup_assigns
                 let mut fgroup_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
                     match **fbranch {
                         ir::StaticControl::Empty(_) => vec![],
@@ -223,7 +246,7 @@ impl StaticInliner {
                     };
 
                 // update trgoup_assigns to have guard %[0:tbranch_latency] in front of
-                // each assignment, and do the same (except w/ fbranch_latency) for fbranch
+                // each assignment, and %[0:fbranch_latency] for fgroup_assigns
                 StaticInliner::update_assignment_timing(
                     &mut tgroup_assigns,
                     0,
@@ -264,11 +287,12 @@ impl StaticInliner {
             }) => {
                 let repeat_group =
                     builder.add_static_group("static_repeat", *latency);
+                // turn body into a group body_group by recursively calling inline_static_control
                 let body_group =
                     StaticInliner::inline_static_control(body, builder);
                 assert_eq!(*latency, (num_repeats * body_group.borrow().get_latency()), "latency of static repeat is not equal to num_repeats * latency of body");
                 // the assignments in the repeat group should simply trigger the
-                // body group
+                // body group. So the static group will literally look like:
                 // static group static_repeat <num_repeats * body_latency> {body[go] = 1'd1;}
                 structure!( builder;
                     let signal_on = constant(1,1);
@@ -289,6 +313,11 @@ impl StaticInliner {
         }
     }
 
+    // searches thru `con` for "static islands"
+    // when it finds a "static island", then creates a corresponding
+    // static group by calling `inline_static_control`
+    // thne adds entry (id of "static island" control, equivalent static group)
+    // to self.map
     fn build_static_map(
         &mut self,
         con: &ir::Control,
@@ -333,6 +362,7 @@ impl Visitor for StaticInliner {
         ControlId::compute_unique_ids(&mut comp.control.borrow_mut(), 0, false);
         let control_ref = Rc::clone(&comp.control);
         let mut builder = ir::Builder::new(comp, sigs);
+        // builds static map, which maps static islands to equivalent singular inlined static groups
         self.build_static_map(&control_ref.borrow(), &mut builder);
         Ok(Action::Continue)
     }
@@ -345,24 +375,14 @@ impl Visitor for StaticInliner {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // visits each static control, and replaces it with its inlined static
+        // group we made in self.map
         let id = ControlId::get_guaranteed_id_static(s);
         match self.map.remove(&id) {
-            None => unreachable!("self.map has no entry for id {}", id),
+            None => unreachable!("self.map has no entry for id. This pass should have assigned an id for each one {}", id),
             Some(sgroup) => Ok(Action::Change(Box::new(
                 ir::Control::static_control(ir::StaticControl::enable(sgroup)),
             ))),
         }
     }
-
-    // fn finish(
-    //     &mut self,
-    //     comp: &mut ir::Component,
-    //     _sigs: &LibrarySignatures,
-    //     _comps: &[ir::Component],
-    // ) -> VisResult {
-    //     // remove empty static groups
-    //     comp.get_static_groups_mut()
-    //         .retain(|sg| !sg.borrow().assignments.is_empty());
-    //     Ok(Action::Continue)
-    // }
 }
