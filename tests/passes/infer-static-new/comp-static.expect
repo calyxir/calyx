@@ -1,0 +1,32 @@
+component mem_0_comp(@go @static en0: 1, @go(2) @static(2) en1: 1, @clk clk: 1, @reset reset: 1) -> (@done done0: 1, @done(2) done1: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {
+    @static(0) ;
+  }
+}
+component main(@go @static(3) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    inst_1 = mem_0_comp();
+  }
+  wires {
+    group one<"static"=1> {
+      inst_1.en0 = 1'd1;
+      one[done] = inst_1.done0;
+    }
+    group two<"static"=2> {
+      inst_1.en1 = 1'd1;
+      two[done] = inst_1.done1;
+    }
+  }
+
+  control {
+    @static(3) seq {
+      @static one;
+      @static(2) two;
+    }
+  }
+}
