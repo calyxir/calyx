@@ -17,7 +17,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       b.in = 2'd2;
       dyn_B[done] = b.done;
     }
-    static group static_repeat<12><"NODE_ID"=2> {
+    static group static_repeat<12> {
       static_seq[go] = 1'd1;
     }
     static group static_seq<4><"NODE_ID"=3> {

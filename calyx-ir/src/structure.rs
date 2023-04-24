@@ -554,6 +554,13 @@ impl Group {
     pub fn get_attributes(&self) -> Option<&Attributes> {
         Some(&self.attributes)
     }
+
+    pub fn remove_attribute<I>(&mut self, attr: I)
+    where
+        I: Into<Id>,
+    {
+        self.attributes.remove(attr);
+    }
 }
 
 /// A Group of assignments that perform a logical action.
@@ -624,6 +631,13 @@ impl StaticGroup {
     #[inline]
     pub fn get_attributes(&self) -> Option<&Attributes> {
         Some(&self.attributes)
+    }
+
+    pub fn remove_attribute<I>(&mut self, attr: I)
+    where
+        I: Into<Id>,
+    {
+        self.attributes.remove(attr);
     }
 }
 
