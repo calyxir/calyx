@@ -21,7 +21,8 @@ class Builder:
         self.imported = set()
         self.import_("primitives/core.futil")
 
-    def component(self, name: str, cells=[]):
+    def component(self, name: str, cells=None):
+        cells = cells or []
         comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
         return comp_builder
@@ -213,7 +214,7 @@ def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body):
     return ast.If(port.expr, cg, as_control(body))
 
 
-def invoke(cell: "CellBuilder", **kwargs):
+def invoke(cell: CellBuilder, **kwargs):
     """Build an `invoke` control statement.
 
     The keyword arguments should have the form `in_*` and `out_*`, where
