@@ -6,6 +6,8 @@ from calyx.py_ast import (
     Component,
     CompInst,
     Program,
+    ConstantPort,
+    ParComp,
 )
 from calyx.utils import float_to_fixed_point
 from math import factorial, log2
@@ -20,7 +22,7 @@ from calyx.builder import (
     invoke,
     CellBuilder,
     ExprBuilder,
-    ControlBuilder,
+    as_control,
 )
 
 
@@ -63,13 +65,13 @@ def generate_fp_pow_component(
     with comp.group("execute_mul") as execute_mul:
         mul.left = comp.this().base
         mul.right = pow.out
-        mul.go = (~mul.done) @ 1
+        mul.go = (~mul.done) @ ConstantPort(1, 1)
         pow.write_en = mul.done
         pow.in_ = mul.out
         execute_mul.done = pow.done
 
     with comp.group("incr_count") as incr_count:
-        incr.left = 1
+        incr.left = ConstantPort(width, 1)
         incr.right = count.out
         count.in_ = incr.out
         count.write_en = 1
@@ -82,7 +84,12 @@ def generate_fp_pow_component(
     with comp.continuous:
         comp.this().out = pow.out
 
-    comp.control += [init, while_(lt.out, cond, {execute_mul, incr_count})]
+    comp.control += [
+        init,
+        while_(
+            lt.out, cond, ParComp([as_control(execute_mul), as_control(incr_count)])
+        ),
+    ]
 
     return comp.component
 
@@ -219,7 +226,8 @@ def divide_and_conquer_sums(comp: ComponentBuilder, degree: int):
             # The first round will accrue its operands
             # from the previously calculated products.
 
-            reg_lhs = comp.get_cell(f"{register_name}{lhs}")
+            if not (round == 1 and i == 0):
+                reg_lhs = comp.get_cell(f"{register_name}{lhs}")
             reg_rhs = comp.get_cell(f"{register_name}{rhs}")
             adder = comp.get_cell(f"add{i + 1}")
             frac_x = comp.get_cell("frac_x")
@@ -274,7 +282,7 @@ def multiply_by_reciprocal_factorial(comp: ComponentBuilder, i: int):
     with comp.group(f"mult_by_reciprocal_factorial{i}") as grp:
         mult_pipe.left = reg.out
         mult_pipe.right = reciprocal.out
-        mult_pipe.go = (~mult_pipe.done) @ 1
+        mult_pipe.go = (~mult_pipe.done) @ ConstantPort(1, 1)
         product.write_en = mult_pipe.done
         product.in_ = mult_pipe.out
         grp.done = product.done
@@ -296,7 +304,7 @@ def final_multiply(comp: ComponentBuilder, register_id: CompVar):
     with comp.group("final_multiply") as grp:
         mult_pipe.left = pow.out
         mult_pipe.right = sum.out
-        mult_pipe.go = (~mult_pipe.done) @ 1
+        mult_pipe.go = (~mult_pipe.done) @ ConstantPort(1, 1)
         reg.write_en = mult_pipe.done
         reg.in_ = mult_pipe.out
         grp.done = reg.done
@@ -320,13 +328,14 @@ def generate_groups(
     and1 = comp.get_cell("and1")
     int_x = comp.get_cell("int_x")
     frac_x = comp.get_cell("frac_x")
+    one = comp.get_cell("one")
     with comp.group("split_bits") as split_bits:
         and0.left = input.out
-        and0.right = 2**width - 2**frac_width
+        and0.right = ConstantPort(width, 2**width - 2**frac_width)
         rsh.left = and0.out
-        rsh.right = frac_width
+        rsh.right = ConstantPort(width, frac_width)
         and1.left = input.out
-        and1.right = (2**frac_width) - 1
+        and1.right = ConstantPort(width, (2**frac_width) - 1)
         int_x.write_en = 1
         frac_x.write_en = 1
         int_x.in_ = rsh.out
@@ -338,7 +347,7 @@ def generate_groups(
         with comp.group("negate") as negate:
             mult_pipe.left = input.out
             mult_pipe.right = comp.get_cell("negative_one").out
-            mult_pipe.go = ~mult_pipe.done @ 1
+            mult_pipe.go = ~mult_pipe.done @ ConstantPort(1, 1)
             input.write_en = mult_pipe.done
             input.in_ = mult_pipe.out
             negate.done = input.done
@@ -346,15 +355,15 @@ def generate_groups(
         lt = comp.get_cell("lt")
         with comp.comb_group(name="is_negative"):
             lt.left = comp.this().x
-            lt.right = 0
+            lt.right = ConstantPort(width, 0)
 
         # Take the reciprocal, since the initial value was -x.
         div_pipe = comp.get_cell("div_pipe")
         input = comp.get_cell("m")
         with comp.group(name="reciprocal") as reciprocal:
-            div_pipe.left = 1
+            div_pipe.left = one.out
             div_pipe.right = input.out
-            div_pipe.go = ~div_pipe.done @ 1
+            div_pipe.go = ~div_pipe.done @ ConstantPort(1, 1)
             input.write_en = div_pipe.done
             input.in_ = div_pipe.out_quotient
             reciprocal.done = input.done
@@ -375,13 +384,14 @@ def generate_groups(
 
 
 def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
-    pow_invokes = {
+    pow_invokes = [
         invoke(
             comp.get_cell("pow1"),
             in_base=comp.get_cell("e").out,
             in_integer_exp=comp.get_cell("int_x").out,
         )
-    }.union(
+    ]
+    pow_invokes.extend(
         (
             invoke(
                 comp.get_cell(f"pow{i}"),
@@ -391,39 +401,59 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
             for i in range(2, degree + 1)
         )
     )
+    pow_invokes = ParComp(pow_invokes)
 
-    consume_pow = {comp.get_group(f"consume_pow{i}") for i in range(2, degree + 1)}
-    mult_by_reciprocal = {
-        comp.get_group(f"mult_by_reciprocal_factorial{i}") for i in range(2, degree + 1)
-    }
+    # TODO (griffin): This is simply wretched and should really be fixed.
+    # Problem is instability in Python set ordering causing issues in expected
+    # print files
+    consume_pow = ParComp(
+        [as_control(comp.get_group(f"consume_pow{i}")) for i in range(2, degree + 1)]
+    )
+    mult_by_reciprocal = ParComp(
+        [
+            as_control(comp.get_group(f"mult_by_reciprocal_factorial{i}"))
+            for i in range(2, degree + 1)
+        ]
+    )
 
     divide_and_conquer = []
     Enable_count = degree >> 1
     for r in range(1, int(log2(degree) + 1)):
         divide_and_conquer.append(
-            {comp.get_group(f"sum_round{r}_{i}") for i in range(1, Enable_count + 1)}
+            ParComp(
+                [
+                    as_control(comp.get_group(f"sum_round{r}_{i}"))
+                    for i in range(1, Enable_count + 1)
+                ]
+            )
         )
         Enable_count >>= 1
-
-    lt = comp.get_cell("lt")
+    if is_signed:
+        lt = comp.get_cell("lt")
     init = comp.get_group("init")
     split_bits = comp.get_group("split_bits")
 
+    # TODO (griffin): This is a hack to avoid inserting empty seqs. Maybe worth
+    # moving into the add method of ControlBuilder?
     comp.control += [
-        init,
-        if_(lt.out, comp.get_group("is_negative"), comp.get_group("negate"))
-        if is_signed
-        else [],
-        split_bits,
-        pow_invokes,
-        consume_pow,
-        mult_by_reciprocal,
-        divide_and_conquer,
-        comp.get_group("add_degree_zero"),
-        comp.get_group("final_multiply"),
-        if_(lt.out, comp.get_group("is_negative"), comp.get_group("reciprocal"))
-        if is_signed
-        else [],
+        x
+        for x in (
+            init,
+            if_(lt.out, comp.get_group("is_negative"), comp.get_group("negate"))
+            if is_signed
+            else [],
+            split_bits,
+            pow_invokes,
+            consume_pow,
+            mult_by_reciprocal,
+            *divide_and_conquer,
+            comp.get_group("add_degree_zero"),
+            comp.get_group("final_multiply"),
+            if_(lt.out, comp.get_group("is_negative"), comp.get_group("reciprocal"))
+            if is_signed
+            else [],
+        )
+        if x != []
     ]
 
 
@@ -476,7 +506,7 @@ def gen_reciprocal(
     with comp.group(name) as group:
         div_pipe.left = const_one.out
         div_pipe.right = base_cell.out
-        div_pipe.go = ~div_pipe.done @ 1
+        div_pipe.go = ~div_pipe.done @ ConstantPort(1, 1)
         base_cell.write_en = div_pipe.done
         base_cell.in_ = div_pipe.out_quotient
         group.done = base_cell.done
@@ -495,7 +525,7 @@ def gen_reverse_sign(
     with comp.group(name) as group:
         mult_pipe.left = base_cell.out
         mult_pipe.right = const_neg_one.out
-        mult_pipe.go = ~mult_pipe.done @ 1
+        mult_pipe.go = ~mult_pipe.done @ ConstantPort(1, 1)
         base_cell.write_en = mult_pipe.done
         base_cell.in_ = mult_pipe.out
         group.done = base_cell.done
@@ -585,12 +615,10 @@ def generate_fp_pow_full(
     if is_signed:
         const_neg_one = comp.const(
             "neg_one",
-            Stdlib.constant(
-                width,
-                numeric_types.FixedPoint(
-                    "-1.0", width, int_width, is_signed=is_signed
-                ).unsigned_integer(),
-            ),
+            width,
+            numeric_types.FixedPoint(
+                "-1.0", width, int_width, is_signed=is_signed
+            ).unsigned_integer(),
         )
         gen_reverse_sign(comp, "rev_base_sign", new_base_reg, mult, const_neg_one),
         gen_reverse_sign(comp, "rev_res_sign", res, mult, const_neg_one),
@@ -603,7 +631,7 @@ def generate_fp_pow_full(
     with comp.group("set_new_exp") as set_new_exp:
         mult.left = ln.out
         mult.right = comp.this().exp_value
-        mult.go = ~mult.done @ 1
+        mult.go = ~mult.done @ ConstantPort(1, 1)
         new_exp_val.write_en = mult.done
         new_exp_val.in_ = mult.out
         set_new_exp.done = new_exp_val.done
@@ -659,11 +687,11 @@ def generate_fp_pow_full(
             cond=comp.get_group("base_lt_zero"),
             body=comp.get_group("rev_res_sign"),
         )
-        pre_process = ControlBuilder([base_rev, store_old_reg_val, base_reciprocal])
-        post_process = ControlBuilder([res_rev, res_reciprocal])
+        pre_process = [base_rev, store_old_reg_val, base_reciprocal]
+        post_process = [res_rev, res_reciprocal]
     else:
-        pre_process = ControlBuilder([store_old_reg_val, base_reciprocal])
-        post_process = ControlBuilder([res_reciprocal])
+        pre_process = [store_old_reg_val, base_reciprocal]
+        post_process = [res_reciprocal]
 
     comp.control += [
         write_to_base_reg,
@@ -675,14 +703,13 @@ def generate_fp_pow_full(
         post_process,
     ]
 
-    return (
-        generate_exp_taylor_series_approximation(
-            builder, degree, width, int_width, is_signed
-        )
-        # TODO (griffin): Fix this call once the gen_ln file is rewritten.
-        + generate_ln(width, int_width, is_signed)
-        + [comp.component]
+    exp = generate_exp_taylor_series_approximation(
+        builder, degree, width, int_width, is_signed
     )
+    # TODO (griffin): Fix this call once the gen_ln file is rewritten.
+    ln = generate_ln(width, int_width, is_signed)
+    builder.program.components += ln
+    return exp + generate_ln(width, int_width, is_signed) + [comp.component]
 
 
 def build_base_not_e(degree, width, int_width, is_signed) -> Program:

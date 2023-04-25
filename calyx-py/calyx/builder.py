@@ -96,7 +96,7 @@ class ComponentBuilder:
             )
 
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
-        group = ast.Group(ast.CompVar(name), connections=[])
+        group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
         self.index[name] = builder
@@ -190,7 +190,7 @@ def as_control(obj):
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body):
+def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
     """Build a `while` control statement."""
     if cond:
         assert isinstance(
@@ -202,7 +202,7 @@ def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body):
     return ast.While(port.expr, cg, as_control(body))
 
 
-def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body):
+def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.If:
     """Build an `if` control statement."""
     if cond:
         assert isinstance(
@@ -214,7 +214,7 @@ def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body):
     return ast.If(port.expr, cg, as_control(body))
 
 
-def invoke(cell: CellBuilder, **kwargs):
+def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     """Build an `invoke` control statement.
 
     The keyword arguments should have the form `in_*` and `out_*`, where
