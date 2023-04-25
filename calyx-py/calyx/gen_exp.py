@@ -1,31 +1,11 @@
 from typing import List
 
 from calyx.py_ast import (
-    Connect,
     CompVar,
-    Cell,
-    Group,
-    ConstantPort,
-    CompPort,
     Stdlib,
     Component,
-    ThisPort,
-    And,
-    HolePort,
-    Atom,
-    Not,
-    PortDef,
-    SeqComp,
-    Enable,
-    ParComp,
-    Structure,
     CompInst,
-    Invoke,
     Program,
-    Control,
-    If,
-    Import,
-    CombGroup,
 )
 from calyx.utils import float_to_fixed_point
 from math import factorial, log2
@@ -40,6 +20,7 @@ from calyx.builder import (
     invoke,
     CellBuilder,
     ExprBuilder,
+    ControlBuilder,
 )
 
 
@@ -471,7 +452,7 @@ def generate_exp_taylor_series_approximation(
 
     comp = builder.component("exp")
     comp.input("x", width)
-    comp.out("out", width)
+    comp.output("out", width)
     generate_cells(comp, degree, width, int_width, is_signed)
     generate_groups(comp, degree, width, int_width, is_signed)
     generate_control(comp, degree, is_signed)
@@ -555,7 +536,7 @@ def gen_constant_cell(
 
 
 def generate_fp_pow_full(
-    degree: int, width: int, int_width: int, is_signed: bool
+    builder: Builder, degree: int, width: int, int_width: int, is_signed: bool
 ) -> List[Component]:
     """
     Generates a component that can calculate b^x, for any fixed point b and x.
@@ -565,73 +546,45 @@ def generate_fp_pow_full(
     ln(b) by x. Then we raise that result to the e (using the taylor series approximation)
     and get our result.
     """
-    lt = Cell(CompVar("lt"), Stdlib.op("lt", width, is_signed))
-    div = Cell(
-        CompVar("div_pipe"),
+    comp = builder.component("fp_pow_full")
+    comp.input("base", width)
+    comp.input("exp_value", width)
+    comp.output("out", width)
+    lt = comp.cell("lt", Stdlib.op("lt", width, is_signed))
+    div = comp.cell(
+        "div",
         Stdlib.fixed_point_op(
             "div_pipe", width, int_width, width - int_width, is_signed
         ),
     )
-    const_one = Cell(
-        CompVar("one"),
-        Stdlib.constant(
-            width,
-            numeric_types.FixedPoint(
-                "1.0", width, int_width, is_signed=is_signed
-            ).unsigned_integer(),
-        ),
+    const_one = comp.const(
+        "one",
+        width,
+        numeric_types.FixedPoint(
+            "1.0", width, int_width, is_signed=is_signed
+        ).unsigned_integer(),
     )
-    const_zero = Cell(
-        CompVar("zero"),
-        Stdlib.constant(
-            width,
-            numeric_types.FixedPoint(
-                "0.0", width, int_width, is_signed=is_signed
-            ).unsigned_integer(),
-        ),
+    const_zero = comp.const(
+        "zero",
+        width,
+        numeric_types.FixedPoint(
+            "0.0", width, int_width, is_signed=is_signed
+        ).unsigned_integer(),
     )
-    mult = Cell(
-        CompVar("mult"),
+    mult = comp.cell(
+        "mult",
         Stdlib.fixed_point_op(
             "mult_pipe", width, int_width, width - int_width, is_signed
         ),
     )
-    new_base_reg = Cell(CompVar("new_base"), Stdlib.register(width))
-    stored_base_reg = Cell(CompVar("stored_base"), Stdlib.register(width))
-    res = Cell(CompVar("res"), Stdlib.register(width))
-    base_reciprocal = If(
-        port=CompPort(lt.id, "out"),
-        cond=CompVar("base_lt_one"),
-        true_branch=Enable("set_base_reciprocal"),
-    )
-    base_rev = If(
-        port=CompPort(lt.id, "out"),
-        cond=CompVar("base_lt_zero"),
-        true_branch=Enable("rev_base_sign"),
-    )
-    res_rev = If(
-        port=CompPort(lt.id, "out"),
-        cond=CompVar("base_lt_zero"),
-        true_branch=Enable("rev_res_sign"),
-    )
-    res_reciprocal = If(
-        port=CompPort(lt.id, "out"),
-        cond=CompVar("base_lt_one"),
-        true_branch=Enable("set_res_reciprocal"),
-    )
 
-    pre_process = (
-        SeqComp([base_rev, Enable("store_old_reg_val"), base_reciprocal])
-        if is_signed
-        else SeqComp([Enable("store_old_reg_val"), base_reciprocal])
-    )
-    post_process = (
-        SeqComp([res_rev, res_reciprocal]) if is_signed else SeqComp([res_reciprocal])
-    )
+    new_base_reg = comp.reg("new_base", width)
+    stored_base_reg = comp.reg("stored_base", width)
+    res = comp.reg("res", width)
 
     if is_signed:
-        const_neg_one = Cell(
-            CompVar("neg_one"),
+        const_neg_one = comp.const(
+            "neg_one",
             Stdlib.constant(
                 width,
                 numeric_types.FixedPoint(
@@ -639,150 +592,96 @@ def generate_fp_pow_full(
                 ).unsigned_integer(),
             ),
         )
-        rev_structs = [
-            gen_reverse_sign("rev_base_sign", new_base_reg, mult, const_neg_one),
-            gen_reverse_sign("rev_res_sign", res, mult, const_neg_one),
-            gen_comb_lt("base_lt_zero", ThisPort(CompVar("base")), lt, const_zero),
-            const_neg_one,
-        ]
+        gen_reverse_sign(comp, "rev_base_sign", new_base_reg, mult, const_neg_one),
+        gen_reverse_sign(comp, "rev_res_sign", res, mult, const_neg_one),
+        gen_comb_lt(comp, "base_lt_zero", comp.this().base, lt, const_zero),
+
+    new_exp_val = comp.reg("new_exp_val", width)
+    e = comp.cell("e", CompInst("exp", []))
+    ln = comp.cell("l", CompInst("ln", []))
+
+    with comp.group("set_new_exp") as set_new_exp:
+        mult.left = ln.out
+        mult.right = comp.this().exp_value
+        mult.go = ~mult.done @ 1
+        new_exp_val.write_en = mult.done
+        new_exp_val.in_ = mult.out
+        set_new_exp.done = new_exp_val.done
+
+    with comp.continuous:
+        comp.this().out = res.out
+
+    with comp.group("write_to_base_reg") as write_to_base_reg:
+        new_base_reg.write_en = 1
+        new_base_reg.in_ = comp.this().base
+        write_to_base_reg.done = new_base_reg.done
+
+    with comp.group("store_old_reg_val") as store_old_reg_val:
+        stored_base_reg.write_en = 1
+        stored_base_reg.in_ = new_base_reg.out
+        store_old_reg_val.done = stored_base_reg.done
+
+    with comp.group("write_e_to_res") as write_e_to_res:
+        res.write_en = 1
+        res.in_ = e.out
+        write_e_to_res.done = res.done
+
+    gen_reciprocal(comp, "set_base_reciprocal", new_base_reg, div, const_one)
+    gen_reciprocal(comp, "set_res_reciprocal", res, div, const_one),
+    gen_comb_lt(
+        comp,
+        "base_lt_one",
+        stored_base_reg.out,
+        lt,
+        const_one,
+    )
+
+    base_reciprocal = if_(
+        port=lt.out,
+        cond=comp.get_group("base_lt_one"),
+        body=comp.get_group("set_base_reciprocal"),
+    )
+
+    res_reciprocal = if_(
+        port=lt.out,
+        cond=comp.get_group("base_lt_one"),
+        body=comp.get_group("set_res_reciprocal"),
+    )
+
+    if is_signed:
+        base_rev = if_(
+            lt.out,
+            comp.get_group("base_lt_zero"),
+            comp.get_group("rev_base_sign"),
+        )
+        res_rev = if_(
+            port=lt.out,
+            cond=comp.get_group("base_lt_zero"),
+            body=comp.get_group("rev_res_sign"),
+        )
+        pre_process = ControlBuilder([base_rev, store_old_reg_val, base_reciprocal])
+        post_process = ControlBuilder([res_rev, res_reciprocal])
+    else:
+        pre_process = ControlBuilder([store_old_reg_val, base_reciprocal])
+        post_process = ControlBuilder([res_reciprocal])
+
+    comp.control += [
+        write_to_base_reg,
+        pre_process,
+        invoke(ln, in_x=new_base_reg.out),
+        set_new_exp,
+        invoke(e, in_x=new_exp_val.out),
+        write_e_to_res,
+        post_process,
+    ]
 
     return (
-        generate_exp_taylor_series_approximation(degree, width, int_width, is_signed)
+        generate_exp_taylor_series_approximation(
+            builder, degree, width, int_width, is_signed
+        )
+        # TODO (griffin): Fix this call once the gen_ln file is rewritten.
         + generate_ln(width, int_width, is_signed)
-        + [
-            Component(
-                "fp_pow_full",
-                inputs=[
-                    PortDef(CompVar("base"), width),
-                    PortDef(CompVar("exp_value"), width),
-                ],
-                outputs=[PortDef(CompVar("out"), width)],
-                structs=(rev_structs if is_signed else [])
-                + [
-                    const_one,
-                    mult,
-                    new_base_reg,
-                    stored_base_reg,
-                    res,
-                    lt,
-                    div,
-                    const_zero,
-                    Cell(CompVar("new_exp_val"), Stdlib.register(width)),
-                    Cell(CompVar("e"), CompInst("exp", [])),
-                    Cell(CompVar("l"), CompInst("ln", [])),
-                    Group(
-                        id=CompVar("set_new_exp"),
-                        connections=[
-                            Connect(
-                                CompPort(CompVar("mult"), "left"),
-                                CompPort(CompVar("l"), "out"),
-                            ),
-                            Connect(
-                                CompPort(CompVar("mult"), "right"),
-                                ThisPort(CompVar("exp_value")),
-                            ),
-                            Connect(
-                                CompPort(CompVar("mult"), "go"),
-                                ConstantPort(1, 1),
-                                Not(Atom(CompPort(CompVar("mult"), "done"))),
-                            ),
-                            Connect(
-                                CompPort(CompVar("new_exp_val"), "write_en"),
-                                CompPort(CompVar("mult"), "done"),
-                            ),
-                            Connect(
-                                CompPort(CompVar("new_exp_val"), "in"),
-                                CompPort(CompVar("mult"), "out"),
-                            ),
-                            Connect(
-                                HolePort(CompVar("set_new_exp"), "done"),
-                                CompPort(CompVar("new_exp_val"), "done"),
-                            ),
-                        ],
-                    ),
-                    Connect(ThisPort(CompVar("out")), CompPort(CompVar("res"), "out")),
-                    Group(
-                        id=CompVar("write_to_base_reg"),
-                        connections=[
-                            Connect(
-                                CompPort(new_base_reg.id, "write_en"),
-                                ConstantPort(1, 1),
-                            ),
-                            Connect(
-                                CompPort(new_base_reg.id, "in"),
-                                ThisPort(CompVar("base")),
-                            ),
-                            Connect(
-                                HolePort(CompVar("write_to_base_reg"), "done"),
-                                CompPort(new_base_reg.id, "done"),
-                            ),
-                        ],
-                    ),
-                    Group(
-                        id=CompVar("store_old_reg_val"),
-                        connections=[
-                            Connect(
-                                CompPort(stored_base_reg.id, "write_en"),
-                                ConstantPort(1, 1),
-                            ),
-                            Connect(
-                                CompPort(stored_base_reg.id, "in"),
-                                CompPort(new_base_reg.id, "out"),
-                            ),
-                            Connect(
-                                HolePort(CompVar("store_old_reg_val"), "done"),
-                                CompPort(stored_base_reg.id, "done"),
-                            ),
-                        ],
-                    ),
-                    Group(
-                        id=CompVar("write_e_to_res"),
-                        connections=[
-                            Connect(
-                                CompPort(res.id, "write_en"),
-                                ConstantPort(1, 1),
-                            ),
-                            Connect(
-                                CompPort(res.id, "in"), CompPort(CompVar("e"), "out")
-                            ),
-                            Connect(
-                                HolePort(CompVar("write_e_to_res"), "done"),
-                                CompPort(res.id, "done"),
-                            ),
-                        ],
-                    ),
-                    gen_reciprocal("set_base_reciprocal", new_base_reg, div, const_one),
-                    gen_reciprocal("set_res_reciprocal", res, div, const_one),
-                    gen_comb_lt(
-                        "base_lt_one",
-                        CompPort(stored_base_reg.id, "out"),
-                        lt,
-                        const_one,
-                    ),
-                ],
-                controls=SeqComp(
-                    [
-                        Enable("write_to_base_reg"),
-                        pre_process,
-                        Invoke(
-                            id=CompVar("l"),
-                            in_connects=[("x", CompPort(new_base_reg.id, "out"))],
-                            out_connects=[],
-                        ),
-                        Enable("set_new_exp"),
-                        Invoke(
-                            id=CompVar("e"),
-                            in_connects=[
-                                ("x", CompPort(CompVar("new_exp_val"), "out"))
-                            ],
-                            out_connects=[],
-                        ),
-                        Enable("write_e_to_res"),
-                        post_process,
-                    ]
-                ),
-            )
-        ]
+        + [comp.component]
     )
 
 
@@ -793,111 +692,48 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     we already have an `exp` component that works for base `e`, it is better
     to just use that if we want to calculate the base being e).
     """
-    program = Program(
-        imports=[
-            Import("primitives/core.futil"),
-            Import("primitives/binary_operators.futil"),
-        ],
-        components=generate_fp_pow_full(degree, width, int_width, is_signed),
-    )
+    builder = Builder()
+    builder.import_("primitives/core.futil")
+    builder.import_("primitives/binary_operators.futil")
+
+    generate_fp_pow_full(builder, degree, width, int_width, is_signed)
+
     # main component for testing purposes
-    program_main = Component(
-        "main",
-        inputs=[],
-        outputs=[],
-        structs=[
-            Cell(CompVar("base_reg"), Stdlib.register(width)),
-            Cell(CompVar("exp_reg"), Stdlib.register(width)),
-            Cell(CompVar("x"), Stdlib.mem_d1(width, 1, 1), is_external=True),
-            Cell(CompVar("b"), Stdlib.mem_d1(width, 1, 1), is_external=True),
-            Cell(
-                CompVar("ret"),
-                Stdlib.mem_d1(width, 1, 1),
-                is_external=True,
-            ),
-            Cell(CompVar("f"), CompInst("fp_pow_full", [])),
-            Group(
-                id=CompVar("read_base"),
-                connections=[
-                    Connect(
-                        CompPort(CompVar("b"), "addr0"),
-                        ConstantPort(1, 0),
-                    ),
-                    Connect(
-                        CompPort(CompVar("base_reg"), "in"),
-                        CompPort(CompVar("b"), "read_data"),
-                    ),
-                    Connect(
-                        CompPort(CompVar("base_reg"), "write_en"),
-                        ConstantPort(1, 1),
-                    ),
-                    Connect(
-                        HolePort(CompVar("read_base"), "done"),
-                        CompPort(CompVar("base_reg"), "done"),
-                    ),
-                ],
-            ),
-            Group(
-                id=CompVar("read_exp"),
-                connections=[
-                    Connect(
-                        CompPort(CompVar("x"), "addr0"),
-                        ConstantPort(1, 0),
-                    ),
-                    Connect(
-                        CompPort(CompVar("exp_reg"), "in"),
-                        CompPort(CompVar("x"), "read_data"),
-                    ),
-                    Connect(
-                        CompPort(CompVar("exp_reg"), "write_en"),
-                        ConstantPort(1, 1),
-                    ),
-                    Connect(
-                        HolePort(CompVar("read_exp"), "done"),
-                        CompPort(CompVar("exp_reg"), "done"),
-                    ),
-                ],
-            ),
-            Group(
-                id=CompVar("write_to_memory"),
-                connections=[
-                    Connect(
-                        CompPort(CompVar("ret"), "addr0"),
-                        ConstantPort(1, 0),
-                    ),
-                    Connect(
-                        CompPort(CompVar("ret"), "write_en"),
-                        ConstantPort(1, 1),
-                    ),
-                    Connect(
-                        CompPort(CompVar("ret"), "write_data"),
-                        CompPort(CompVar("f"), "out"),
-                    ),
-                    Connect(
-                        HolePort(CompVar("write_to_memory"), "done"),
-                        CompPort(CompVar("ret"), "done"),
-                    ),
-                ],
-            ),
-        ],
-        controls=SeqComp(
-            [
-                Enable("read_base"),
-                Enable("read_exp"),
-                Invoke(
-                    id=CompVar("f"),
-                    in_connects=[
-                        ("base", CompPort(CompVar("base_reg"), "out")),
-                        ("exp_value", CompPort(CompVar("exp_reg"), "out")),
-                    ],
-                    out_connects=[],
-                ),
-                Enable("write_to_memory"),
-            ]
-        ),
-    )
-    program.components.append(program_main)
-    return program
+
+    main = builder.component("main")
+    base_reg = main.reg("base_reg", width)
+    exp_reg = main.reg("exp_reg", width)
+    x = main.mem_d1("x", width, 1, 1, is_external=True)
+    b = main.mem_d1("b", width, 1, 1, is_external=True)
+    ret = main.mem_d1("ret", width, 1, 1, is_external=True)
+    f = main.cell("f", CompInst("fp_pow_full", []))
+
+    with main.group("read_base") as read_base:
+        b.addr0 = 0
+        base_reg.in_ = b.read_data
+        base_reg.write_en = 1
+        read_base.done = base_reg.done
+
+    with main.group("read_exp") as read_exp:
+        x.addr0 = 0
+        exp_reg.in_ = x.read_data
+        exp_reg.write_en = 1
+        read_exp.done = exp_reg.done
+
+    with main.group("write_to_memory") as write_to_memory:
+        ret.addr0 = 0
+        ret.write_en = 1
+        ret.write_data = f.out
+        write_to_memory.done = ret.done
+
+    main.control += [
+        read_base,
+        read_exp,
+        invoke(f, in_base=base_reg.out, in_exp_value=exp_reg.out),
+        write_to_memory,
+    ]
+
+    return builder.program
 
 
 def build_base_is_e(degree, width, int_width, is_signed) -> Program:
@@ -905,87 +741,41 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
     Builds a program that uses reads from an external memory file to test
     the exp component. Exp can calculate any power as long as the base is e.
     """
-    program = Program(
-        imports=[
-            Import("primitives/core.futil"),
-            Import("primitives/binary_operators.futil"),
-        ],
-        components=generate_exp_taylor_series_approximation(
-            degree, width, int_width, is_signed
-        ),
+    builder = Builder()
+    builder.import_("primitives/core.futil")
+    builder.import_("primitives/binary_operators.futil")
+
+    generate_exp_taylor_series_approximation(
+        builder, degree, width, int_width, is_signed
     )
+
     # Append a `main` component for testing purposes.
-    program.components.append(
-        Component(
-            "main",
-            inputs=[],
-            outputs=[],
-            structs=[
-                Cell(CompVar("t"), Stdlib.register(width)),
-                Cell(CompVar("x"), Stdlib.mem_d1(width, 1, 1), is_external=True),
-                Cell(
-                    CompVar("ret"),
-                    Stdlib.mem_d1(width, 1, 1),
-                    is_external=True,
-                ),
-                Cell(CompVar("e"), CompInst("exp", [])),
-                Group(
-                    id=CompVar("init"),
-                    connections=[
-                        Connect(
-                            CompPort(CompVar("x"), "addr0"),
-                            ConstantPort(1, 0),
-                        ),
-                        Connect(
-                            CompPort(CompVar("t"), "in"),
-                            CompPort(CompVar("x"), "read_data"),
-                        ),
-                        Connect(
-                            CompPort(CompVar("t"), "write_en"),
-                            ConstantPort(1, 1),
-                        ),
-                        Connect(
-                            HolePort(CompVar("init"), "done"),
-                            CompPort(CompVar("t"), "done"),
-                        ),
-                    ],
-                ),
-                Group(
-                    id=CompVar("write_to_memory"),
-                    connections=[
-                        Connect(
-                            CompPort(CompVar("ret"), "addr0"),
-                            ConstantPort(1, 0),
-                        ),
-                        Connect(
-                            CompPort(CompVar("ret"), "write_en"),
-                            ConstantPort(1, 1),
-                        ),
-                        Connect(
-                            CompPort(CompVar("ret"), "write_data"),
-                            CompPort(CompVar("e"), "out"),
-                        ),
-                        Connect(
-                            HolePort(CompVar("write_to_memory"), "done"),
-                            CompPort(CompVar("ret"), "done"),
-                        ),
-                    ],
-                ),
-            ],
-            controls=SeqComp(
-                [
-                    Enable("init"),
-                    Invoke(
-                        id=CompVar("e"),
-                        in_connects=[("x", CompPort(CompVar("t"), "out"))],
-                        out_connects=[],
-                    ),
-                    Enable("write_to_memory"),
-                ]
-            ),
-        )
-    )
-    return program
+    main = builder.component("main")
+
+    t = main.reg("t", width)
+    x = main.mem_d1("x", width, 1, 1, is_external=True)
+    ret = main.mem_d1("ret", width, 1, 1, is_external=True)
+    e = main.cell("e", CompInst("exp", []))
+
+    with main.group("init") as init:
+        x.addr0 = 0
+        t.in_ = x.read_data
+        t.write_en = 1
+        init.done = t.done
+
+    with main.group("write_to_memory") as write_to_memory:
+        ret.addr0 = 0
+        ret.write_en = 1
+        ret.write_data = e.out
+        write_to_memory.done = ret.done
+
+    main.control += [
+        init,
+        invoke(e, in_x=t.out),
+        write_to_memory,
+    ]
+
+    return builder.program
 
 
 if __name__ == "__main__":
