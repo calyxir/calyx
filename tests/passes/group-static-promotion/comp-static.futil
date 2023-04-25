@@ -1,4 +1,4 @@
-// -p well-formed -p infer-static-timing
+// -p well-formed -p group-static-promotion
 component mem_0_comp(@go @static(1) en0: 1, @go(2) @static(2) en1: 1) -> (@done done0: 1, @done(2) done1: 1) {
   cells {}
   wires {}

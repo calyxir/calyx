@@ -102,14 +102,14 @@ impl From<&ir::Cell> for GoDone {
 /// annotation in a group that differs from an inferred value, this
 /// pass will throw an error. If a group's `done` signal relies on signals
 /// that are not only `done` signals, this pass will ignore that group.
-pub struct InferStaticTimingNew {
+pub struct GroupStaticPromotion {
     /// component name -> vec<(go signal, done signal, latency)>
     latency_data: HashMap<ir::Id, GoDone>,
 }
 
 // Override constructor to build latency_data information from the primitives
 // library.
-impl ConstructVisitor for InferStaticTimingNew {
+impl ConstructVisitor for GroupStaticPromotion {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let mut latency_data = HashMap::new();
         let mut comp_latency = HashMap::new();
@@ -138,7 +138,7 @@ impl ConstructVisitor for InferStaticTimingNew {
             }
             latency_data.insert(prim.name, GoDone::new(go_ports));
         }
-        Ok(InferStaticTimingNew { latency_data })
+        Ok(GroupStaticPromotion { latency_data })
     }
 
     // This pass shared information between components
@@ -147,9 +147,9 @@ impl ConstructVisitor for InferStaticTimingNew {
     }
 }
 
-impl Named for InferStaticTimingNew {
+impl Named for GroupStaticPromotion {
     fn name() -> &'static str {
-        "infer-static-timing-new"
+        "group-static-promotion"
     }
 
     fn description() -> &'static str {
@@ -158,7 +158,7 @@ impl Named for InferStaticTimingNew {
     }
 }
 
-impl InferStaticTimingNew {
+impl GroupStaticPromotion {
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
     ///   - `src` is an "out" port of a constant, and `dst` is a "go" port
     ///   - `src` is a "done" port, and `dst` is a "go" port
@@ -387,7 +387,7 @@ impl InferStaticTimingNew {
     }
 }
 
-impl Visitor for InferStaticTimingNew {
+impl Visitor for GroupStaticPromotion {
     // Require post order traversal of components to ensure `invoke` nodes
     // get timing information for components.
     fn iteration_order() -> Order {
@@ -467,8 +467,18 @@ impl Visitor for InferStaticTimingNew {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let mut builder = Builder::new(comp, sigs);
         let latency_result: Option<u64>;
         if let Some(latency) = self.infer_latency(&s.group.borrow()) {
+            if let Some(sg) =
+                builder.component.find_static_group(s.group.borrow().name())
+            {
+                let s_enable = ir::StaticControl::Enable(StaticEnable {
+                    group: Rc::clone(&sg),
+                    attributes: s.attributes.clone(),
+                });
+                return Ok(Action::change(ir::Control::Static(s_enable)));
+            }
             let grp = s.group.borrow();
             if let Some(curr_lat) = grp.attributes.get("static") {
                 // Inferred latency is not the same as the provided latency annotation.
@@ -491,7 +501,6 @@ impl Visitor for InferStaticTimingNew {
         }
 
         if let Some(res) = latency_result {
-            let mut builder = Builder::new(comp, sigs);
             builder
                 .component
                 .get_groups_mut()

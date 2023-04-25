@@ -1,4 +1,4 @@
-// -p well-formed -p infer-static-timing-new
+// -p well-formed -p group-static-promotion
 import "primitives/core.futil";
 
 /**
