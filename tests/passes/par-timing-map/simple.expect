@@ -50,25 +50,21 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       d.in = 32'd2;
       C[done] = d.done;
     }
-    group D {
+    static group D<2> {
       d.write_en = 1'd1;
       d.in = 32'd2;
-      D[done] = d.done;
     }
-    group E {
+    static group E<1> {
       d.write_en = 1'd1;
       d.in = 32'd2;
-      E[done] = d.done;
     }
-    group F {
+    static group F<1> {
       f.write_en = 1'd1;
       f.in = 32'd2;
-      F[done] = f.done;
     }
-    group G {
+    static group G<2> {
       f.write_en = 1'd1;
       f.in = 32'd2;
-      G[done] = f.done;
     }
   }
 
@@ -81,14 +77,14 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     } else {
       @NODE_ID(4) seq {
         @NODE_ID(5) C;
-        @static(3) @NODE_ID(6) par {
-          @static(3) @NODE_ID(7) seq {
-            @static(2) @NODE_ID(8) D;
-            @static @NODE_ID(9) E;
+        @NODE_ID(6) static par <3> {
+          @NODE_ID(7) static seq <3> {
+            @NODE_ID(8) D;
+            @NODE_ID(9) E;
           }
-          @static(3) @NODE_ID(10) seq {
-            @static @NODE_ID(11) F;
-            @static(2) @NODE_ID(12) G;
+          @NODE_ID(10) static seq <3> {
+            @NODE_ID(11) F;
+            @NODE_ID(12) G;
           }
         }
       }
@@ -104,39 +100,35 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     d = std_reg(32);
   }
   wires {
-    group A {
+    static group A<2> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      A[done] = a.done;
     }
-    group B {
+    static group B<3> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      B[done] = a.done;
     }
-    group C {
+    static group C<3> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      C[done] = a.done;
     }
-    group D {
+    static group D<4> {
       d.write_en = 1'd1;
       d.in = 32'd2;
-      D[done] = d.done;
     }
   }
 
   control {
-    @static(8) @NODE_ID(0) par {
-      @static(8) @NODE_ID seq {
-        @static(3) @NODE_ID(2) if lt.out {
-          @static(2) @NODE_ID(3) A;
+    @NODE_ID(0) static par <6> {
+      @NODE_ID static seq <6> {
+        @NODE_ID(2) static if <3> lt.out {
+          @NODE_ID(3) A;
         } else {
-          @static(3) @NODE_ID(4) B;
+          @NODE_ID(4) B;
         }
-        @static(3) @NODE_ID(6) C;
+        @NODE_ID(6) C;
       }
-      @static(4) @NODE_ID(7) D;
+      @NODE_ID(7) D;
     }
   }
 }

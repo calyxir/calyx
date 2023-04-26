@@ -28,67 +28,63 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     g = std_reg(32);
   }
   wires {
-    group A {
+    static group A<3> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      A[done] = a.done;
     }
-    group B {
+    static group B<3> {
       b.write_en = 1'd1;
       b.in = 32'd2;
-      B[done] = b.done;
     }
-    group C {
+    static group C<4> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      C[done] = a.done;
     }
-    group D {
+    static group D<4> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      D[done] = a.done;
     }
-    group E {
+    static group E<4> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      E[done] = a.done;
     }
-    group F {
+    static group F<4> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      F[done] = a.done;
     }
-    group G {
+    static group G<4> {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      G[done] = a.done;
     }
   }
 
   control {
     @NODE_ID(0) seq {
-      @static(74) @NODE_ID par {
-        @bound(2) @NODE_ID(2) while lt.out {
-          @NODE_ID(3) seq {
-            @bound(3) @NODE_ID(4) while lt.out {
-              @static(11) @NODE_ID(5) seq {
-                @static(3) @NODE_ID(6) par {
-                  @static(3) @NODE_ID(7) A;
-                  @static(3) @NODE_ID(8) B;
+      @NODE_ID static par <74> {
+        @NODE_ID(2) static repeat 2 
+{
+          @NODE_ID(3) static seq <37> {
+            @NODE_ID(4) static repeat 3 
+{
+              @NODE_ID(5) static seq <11> {
+                @NODE_ID(6) static par <3> {
+                  @NODE_ID(7) A;
+                  @NODE_ID(8) B;
                 }
-                @bound(2) @NODE_ID(9) while lt.out {
-                  @static(4) @NODE_ID(10) C;
+                @NODE_ID(9) static repeat 2 
+{
+                  @NODE_ID(10) C;
                 }
               }
             }
-            @static(4) @NODE_ID(11) D;
+            @NODE_ID(11) D;
           }
         }
       }
-      @static(12) @NODE_ID(12) seq {
-        @static(4) @NODE_ID(13) E;
-        @static(4) @NODE_ID(14) F;
-        @static(4) @NODE_ID(15) G;
+      @NODE_ID(12) static seq <12> {
+        @NODE_ID(13) E;
+        @NODE_ID(14) F;
+        @NODE_ID(15) G;
       }
     }
   }

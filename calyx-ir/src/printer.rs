@@ -366,11 +366,10 @@ impl Printer {
                 num_repeats,
                 attributes,
                 body,
-                latency,
                 ..
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> repeat {} ", latency, num_repeats)?;
+                writeln!(f, "static repeat {} ", num_repeats)?;
                 writeln!(f, "{{")?;
                 Self::write_static_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
@@ -381,7 +380,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> seq {{", latency)?;
+                writeln!(f, "static seq <{}> {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -393,7 +392,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> par {{", latency)?;
+                writeln!(f, "static par <{}> {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -416,7 +415,7 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
                     f,
-                    "static if<{}> {} ",
+                    "static if <{}> {} ",
                     latency,
                     Self::port_to_str(&port.borrow()),
                 )?;
