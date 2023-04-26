@@ -562,3 +562,14 @@ def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     assert TLS.groups, "assignment outside `with group`"
     group_builder: GroupBuilder = TLS.groups[-1]
     group_builder.asgn(lhs, rhs)
+
+
+"""A one bit low signal"""
+LO = const(1, 0)
+"""A one bit high signal"""
+HI = const(1, 1)
+
+
+def par(*args: Union[GroupBuilder, ast.Control, ast.Group, ast.Invoke]) -> ast.ParComp:
+    """Build a parallel composition of control expressions."""
+    return ast.ParComp([as_control(x) for x in args])

@@ -6,8 +6,6 @@ from calyx.py_ast import (
     Component,
     CompInst,
     Program,
-    ConstantPort,
-    ParComp,
 )
 from calyx.utils import float_to_fixed_point
 from math import factorial, log2
@@ -22,7 +20,9 @@ from calyx.builder import (
     invoke,
     CellBuilder,
     ExprBuilder,
-    as_control,
+    const,
+    HI,
+    par,
 )
 
 
@@ -65,13 +65,13 @@ def generate_fp_pow_component(
     with comp.group("execute_mul") as execute_mul:
         mul.left = comp.this().base
         mul.right = pow.out
-        mul.go = (~mul.done) @ ConstantPort(1, 1)
+        mul.go = (~mul.done) @ HI
         pow.write_en = mul.done
         pow.in_ = mul.out
         execute_mul.done = pow.done
 
     with comp.group("incr_count") as incr_count:
-        incr.left = ConstantPort(width, 1)
+        incr.left = const(width, 1)
         incr.right = count.out
         count.in_ = incr.out
         count.write_en = 1
@@ -86,9 +86,7 @@ def generate_fp_pow_component(
 
     comp.control += [
         init,
-        while_(
-            lt.out, cond, ParComp([as_control(execute_mul), as_control(incr_count)])
-        ),
+        while_(lt.out, cond, par(execute_mul, incr_count)),
     ]
 
     return comp.component
@@ -282,7 +280,7 @@ def multiply_by_reciprocal_factorial(comp: ComponentBuilder, i: int):
     with comp.group(f"mult_by_reciprocal_factorial{i}") as grp:
         mult_pipe.left = reg.out
         mult_pipe.right = reciprocal.out
-        mult_pipe.go = (~mult_pipe.done) @ ConstantPort(1, 1)
+        mult_pipe.go = (~mult_pipe.done) @ HI
         product.write_en = mult_pipe.done
         product.in_ = mult_pipe.out
         grp.done = product.done
@@ -304,7 +302,7 @@ def final_multiply(comp: ComponentBuilder, register_id: CompVar):
     with comp.group("final_multiply") as grp:
         mult_pipe.left = pow.out
         mult_pipe.right = sum.out
-        mult_pipe.go = (~mult_pipe.done) @ ConstantPort(1, 1)
+        mult_pipe.go = (~mult_pipe.done) @ HI
         reg.write_en = mult_pipe.done
         reg.in_ = mult_pipe.out
         grp.done = reg.done
@@ -331,11 +329,11 @@ def generate_groups(
     one = comp.get_cell("one")
     with comp.group("split_bits") as split_bits:
         and0.left = input.out
-        and0.right = ConstantPort(width, 2**width - 2**frac_width)
+        and0.right = const(width, 2**width - 2**frac_width)
         rsh.left = and0.out
-        rsh.right = ConstantPort(width, frac_width)
+        rsh.right = const(width, frac_width)
         and1.left = input.out
-        and1.right = ConstantPort(width, (2**frac_width) - 1)
+        and1.right = const(width, (2**frac_width) - 1)
         int_x.write_en = 1
         frac_x.write_en = 1
         int_x.in_ = rsh.out
@@ -347,7 +345,7 @@ def generate_groups(
         with comp.group("negate") as negate:
             mult_pipe.left = input.out
             mult_pipe.right = comp.get_cell("negative_one").out
-            mult_pipe.go = ~mult_pipe.done @ ConstantPort(1, 1)
+            mult_pipe.go = ~mult_pipe.done @ HI
             input.write_en = mult_pipe.done
             input.in_ = mult_pipe.out
             negate.done = input.done
@@ -355,7 +353,7 @@ def generate_groups(
         lt = comp.get_cell("lt")
         with comp.comb_group(name="is_negative"):
             lt.left = comp.this().x
-            lt.right = ConstantPort(width, 0)
+            lt.right = const(width, 0)
 
         # Take the reciprocal, since the initial value was -x.
         div_pipe = comp.get_cell("div_pipe")
@@ -363,7 +361,7 @@ def generate_groups(
         with comp.group(name="reciprocal") as reciprocal:
             div_pipe.left = one.out
             div_pipe.right = input.out
-            div_pipe.go = ~div_pipe.done @ ConstantPort(1, 1)
+            div_pipe.go = ~div_pipe.done @ HI
             input.write_en = div_pipe.done
             input.in_ = div_pipe.out_quotient
             reciprocal.done = input.done
@@ -384,47 +382,44 @@ def generate_groups(
 
 
 def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
-    pow_invokes = [
+    pow_invokes = par(
         invoke(
             comp.get_cell("pow1"),
             in_base=comp.get_cell("e").out,
             in_integer_exp=comp.get_cell("int_x").out,
-        )
-    ]
-    pow_invokes.extend(
-        (
+        ),
+        *(
             invoke(
                 comp.get_cell(f"pow{i}"),
                 in_base=comp.get_cell("frac_x").out,
                 in_integer_exp=comp.get_cell(f"c{i}").out,
             )
             for i in range(2, degree + 1)
-        )
+        ),
     )
-    pow_invokes = ParComp(pow_invokes)
 
     # TODO (griffin): This is simply wretched and should really be fixed.
     # Problem is instability in Python set ordering causing issues in expected
     # print files
-    consume_pow = ParComp(
-        [as_control(comp.get_group(f"consume_pow{i}")) for i in range(2, degree + 1)]
+    consume_pow = par(
+        *(comp.get_group(f"consume_pow{i}") for i in range(2, degree + 1))
     )
-    mult_by_reciprocal = ParComp(
-        [
-            as_control(comp.get_group(f"mult_by_reciprocal_factorial{i}"))
+    mult_by_reciprocal = par(
+        *(
+            comp.get_group(f"mult_by_reciprocal_factorial{i}")
             for i in range(2, degree + 1)
-        ]
+        )
     )
 
     divide_and_conquer = []
     Enable_count = degree >> 1
     for r in range(1, int(log2(degree) + 1)):
         divide_and_conquer.append(
-            ParComp(
-                [
-                    as_control(comp.get_group(f"sum_round{r}_{i}"))
+            par(
+                *(
+                    comp.get_group(f"sum_round{r}_{i}")
                     for i in range(1, Enable_count + 1)
-                ]
+                )
             )
         )
         Enable_count >>= 1
@@ -506,7 +501,7 @@ def gen_reciprocal(
     with comp.group(name) as group:
         div_pipe.left = const_one.out
         div_pipe.right = base_cell.out
-        div_pipe.go = ~div_pipe.done @ ConstantPort(1, 1)
+        div_pipe.go = ~div_pipe.done @ HI
         base_cell.write_en = div_pipe.done
         base_cell.in_ = div_pipe.out_quotient
         group.done = base_cell.done
@@ -525,7 +520,7 @@ def gen_reverse_sign(
     with comp.group(name) as group:
         mult_pipe.left = base_cell.out
         mult_pipe.right = const_neg_one.out
-        mult_pipe.go = ~mult_pipe.done @ ConstantPort(1, 1)
+        mult_pipe.go = ~mult_pipe.done @ HI
         base_cell.write_en = mult_pipe.done
         base_cell.in_ = mult_pipe.out
         group.done = base_cell.done
@@ -631,7 +626,7 @@ def generate_fp_pow_full(
     with comp.group("set_new_exp") as set_new_exp:
         mult.left = ln.out
         mult.right = comp.this().exp_value
-        mult.go = ~mult.done @ ConstantPort(1, 1)
+        mult.go = ~mult.done @ HI
         new_exp_val.write_en = mult.done
         new_exp_val.in_ = mult.out
         set_new_exp.done = new_exp_val.done
