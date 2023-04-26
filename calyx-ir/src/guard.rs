@@ -82,7 +82,7 @@ impl StaticTiming {
         self.interval
     }
 
-    /// overrwrites the current `interval` to be `new_interval`
+    /// overwrites the current `interval` to be `new_interval`
     pub fn set_interval(&mut self, new_interval: (u64, u64)) {
         self.interval = new_interval;
     }
