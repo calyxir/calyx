@@ -221,7 +221,7 @@ impl StaticEnable {
     where
         S: Into<Id>,
     {
-        self.get_attributes().get(attr).cloned()
+        self.get_attributes().get(attr).copied()
     }
 }
 
@@ -329,6 +329,27 @@ impl From<Invoke> for Control {
 impl From<Enable> for Control {
     fn from(en: Enable) -> Self {
         Control::Enable(en)
+    }
+}
+
+impl From<StaticControl> for Control {
+    fn from(sc: StaticControl) -> Self {
+        Control::Static(sc)
+    }
+}
+
+impl From<StaticEnable> for StaticControl {
+    fn from(se: StaticEnable) -> Self {
+        StaticControl::Enable(se)
+    }
+}
+
+impl From<RRC<StaticGroup>> for StaticControl {
+    fn from(sgroup: RRC<StaticGroup>) -> Self {
+        StaticControl::Enable(StaticEnable {
+            group: sgroup,
+            attributes: Attributes::default(),
+        })
     }
 }
 
@@ -479,17 +500,12 @@ impl Control {
         })
     }
 
-    /// Convience constructor for a static control
-    pub fn static_control(sc: StaticControl) -> Self {
-        Control::Static(sc)
-    }
-
     /// Returns the value of an attribute if present
     pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
     where
         S: Into<Id>,
     {
-        self.get_attributes().get(attr).cloned()
+        self.get_attributes().get(attr).copied()
     }
 
     /// Returns true if the node has a specific attribute
@@ -505,14 +521,6 @@ impl StaticControl {
     /// Convience constructor for empty.
     pub fn empty() -> Self {
         StaticControl::Empty(Empty::default())
-    }
-
-    /// Convience constructor for static enable.
-    pub fn enable(group: RRC<StaticGroup>) -> Self {
-        StaticControl::Enable(StaticEnable {
-            group,
-            attributes: Attributes::default(),
-        })
     }
 
     /// Convience constructor for static enable.
@@ -534,7 +542,7 @@ impl StaticControl {
     }
 
     /// Convience constructor for static if
-    pub fn if_(
+    pub fn static_if(
         port: RRC<Port>,
         tbranch: Box<StaticControl>,
         fbranch: Box<StaticControl>,
@@ -568,7 +576,7 @@ impl StaticControl {
     where
         S: Into<Id>,
     {
-        self.get_attributes().get(attr).cloned()
+        self.get_attributes().get(attr).copied()
     }
 
     /// Returns the value of an attribute if present

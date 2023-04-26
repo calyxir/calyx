@@ -336,8 +336,8 @@ impl Visitor for StaticInliner {
         let mut builder = ir::Builder::new(comp, sigs);
         let replacement_group =
             StaticInliner::inline_static_control(s, &mut builder);
-        Ok(Action::Change(Box::new(ir::Control::static_control(
-            ir::StaticControl::enable(replacement_group),
+        Ok(Action::Change(Box::new(ir::Control::from(
+            ir::StaticControl::from(replacement_group),
         ))))
     }
 }

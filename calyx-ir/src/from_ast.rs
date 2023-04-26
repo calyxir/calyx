@@ -632,7 +632,7 @@ fn build_static_if(
     let inferred_latency =
         std::cmp::max(ir_tbranch.get_latency(), ir_fbranch.get_latency());
     assert_latencies_eq(latency, inferred_latency);
-    let mut con = StaticControl::if_(
+    let mut con = StaticControl::static_if(
         ensure_direction(
             get_port_ref(port, builder.component)?,
             Direction::Output,
@@ -675,7 +675,7 @@ fn build_static_control(
                     "found dynamic group in static context".to_string(),
                 ));
             };
-            let mut en = StaticControl::enable(Rc::clone(
+            let mut en = StaticControl::from(Rc::clone(
                 &builder.component.find_static_group(component).ok_or_else(
                     || {
                         Error::undefined(component, "group".to_string())
@@ -750,7 +750,7 @@ fn build_control(
                 en
             }
             None => {
-                let mut en = Control::Static(StaticControl::enable(Rc::clone(
+                let mut en = Control::Static(StaticControl::from(Rc::clone(
                     &builder
                         .component
                         .find_static_group(component)
