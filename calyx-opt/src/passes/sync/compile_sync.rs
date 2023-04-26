@@ -47,7 +47,7 @@ impl Named for CompileSync {
 }
 
 /// put into the count set the barrier indices appearing in the thread
-pub(super) fn count_barriers(
+fn count_barriers(
     s: &ir::Control,
     count: &mut HashSet<u64>,
 ) -> CalyxResult<()> {

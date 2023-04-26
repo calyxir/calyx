@@ -30,29 +30,24 @@ impl Named for CompileSyncWithoutSyncReg {
     }
 
     fn description() -> &'static str {
-        "Implement barriers for statements marked with @sync attribute without
-      std_sync_ref"
+        "Implement barriers for statements marked with @sync attribute without std_sync_reg"
     }
 }
 
 // Data structure storing the shared `s` register and the guard accumulator
 // for guarding `s.in`
-type BarrierMap = HashMap<u64, (RRC<ir::Cell>, Box<ir::Guard<ir::Nothing>>)>;
+#[derive(Default)]
+struct BarrierMap(HashMap<u64, (RRC<ir::Cell>, Box<ir::Guard<ir::Nothing>>)>);
 
-trait Gettable {
-    fn get_reg(&mut self, idx: &u64) -> &mut RRC<ir::Cell>;
 
-    fn get_guard(&mut self, idx: &u64) -> &mut Box<ir::Guard<ir::Nothing>>;
-}
-
-impl Gettable for BarrierMap {
+impl BarrierMap {
     fn get_reg(&mut self, idx: &u64) -> &mut RRC<ir::Cell> {
         let (cell, _) = self.get_mut(idx).unwrap();
         cell
     }
 
     fn get_guard(&mut self, idx: &u64) -> &mut Box<ir::Guard<ir::Nothing>> {
-        let (_, gd) = self.get_mut(idx).unwrap();
+        let (_, gd) = self.map.get_mut(idx).unwrap();
         gd
     }
 }
