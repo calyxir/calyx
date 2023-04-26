@@ -350,7 +350,7 @@ pub enum Control {
         stmts: Vec<Control>,
         /// Attributes
         attributes: Attributes,
-        /// Latency for the seq
+        /// Optional latency for the seq
         latency: Option<u64>,
     },
     /// Represents sequential composition of static control statements.
@@ -360,7 +360,7 @@ pub enum Control {
         stmts: Vec<Control>,
         /// Attributes
         attributes: Attributes,
-        /// Latency for the seq
+        /// Optional latency for the par
         latency: Option<u64>,
     },
     /// Static if statement.
@@ -377,7 +377,7 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
 
-        /// Latency should be the longer of the two branches
+        /// Optional latency; should be the longer of the two branches
         latency: Option<u64>,
     },
     /// Standard imperative if statement

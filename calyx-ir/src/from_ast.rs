@@ -321,6 +321,11 @@ fn add_static_group(
     group: ast::StaticGroup,
     builder: &mut Builder,
 ) -> CalyxResult<()> {
+    if group.latency == 0 {
+        return Err(Error::malformed_structure(
+            "static group with 0 latency".to_string(),
+        ));
+    }
     let ir_group = builder.add_static_group(group.name, group.latency);
     let assigns = build_static_assignments(group.wires, builder)?;
 
