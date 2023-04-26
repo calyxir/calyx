@@ -38,7 +38,7 @@ component main() -> () {
             if lt_cond.out {
                 add_five_reg; 
             }
-            static seq <16> {
+            static seq {
                 static repeat 15 {
                     add_five_reg; 
                 }

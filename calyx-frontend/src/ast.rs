@@ -351,7 +351,7 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
         /// Latency for the seq
-        latency: u64,
+        latency: Option<u64>,
     },
     /// Represents sequential composition of static control statements.
     StaticPar {
@@ -361,7 +361,7 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
         /// Latency for the seq
-        latency: u64,
+        latency: Option<u64>,
     },
     /// Static if statement.
     StaticIf {
@@ -378,7 +378,7 @@ pub enum Control {
         attributes: Attributes,
 
         /// Latency should be the longer of the two branches
-        latency: u64,
+        latency: Option<u64>,
     },
     /// Standard imperative if statement
     StaticRepeat {

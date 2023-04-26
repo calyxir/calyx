@@ -16,7 +16,7 @@ component main() -> () {
         }
     }
     control {
-        static seq <3> {
+        static seq {
             one;
             one;
             one;

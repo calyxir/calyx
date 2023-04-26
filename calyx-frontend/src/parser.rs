@@ -822,7 +822,12 @@ impl CalyxParser {
             [at_attributes(attrs), static_word(_), latency_annotation(latency) ,stmt(stmt)..] => ast::Control::StaticSeq {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
-                latency,
+                latency: Some(latency),
+            },
+            [at_attributes(attrs), static_word(_) ,stmt(stmt)..] => ast::Control::StaticSeq {
+                stmts: stmt.collect(),
+                attributes: attrs.add_span(span),
+                latency: None,
             },
         ))
     }
@@ -845,7 +850,12 @@ impl CalyxParser {
             [at_attributes(attrs), static_word(_), latency_annotation(latency) ,stmt(stmt)..] => ast::Control::StaticPar {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
-                latency,
+                latency: Some(latency),
+            },
+            [at_attributes(attrs), static_word(_), stmt(stmt)..] => ast::Control::StaticPar {
+                stmts: stmt.collect(),
+                attributes: attrs.add_span(span),
+                latency: None,
             },
         ))
     }
@@ -898,7 +908,14 @@ impl CalyxParser {
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
                 attributes: attrs.add_span(span),
-                latency,
+                latency: Some(latency),
+            },
+            [at_attributes(attrs), static_word(_), port(port), block(stmt)] => ast::Control::StaticIf {
+                port,
+                tbranch: Box::new(stmt),
+                fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
+                attributes: attrs.add_span(span),
+                latency: None,
             },
             [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(tbranch), block(fbranch)] =>
                 ast::Control::StaticIf {
@@ -906,7 +923,15 @@ impl CalyxParser {
                     tbranch: Box::new(tbranch),
                     fbranch: Box::new(fbranch),
                     attributes: attrs.add_span(span),
-                    latency,
+                    latency: Some(latency),
+                },
+            [at_attributes(attrs), static_word(_), port(port), block(tbranch), block(fbranch)] =>
+                ast::Control::StaticIf {
+                    port,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs.add_span(span),
+                    latency: None,
                 },
             [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(tbranch), if_stmt(fbranch)] =>
                 ast::Control::StaticIf {
@@ -914,7 +939,15 @@ impl CalyxParser {
                     tbranch: Box::new(tbranch),
                     fbranch: Box::new(fbranch),
                     attributes: attrs.add_span(span),
-                    latency,
+                    latency: Some(latency),
+                },
+            [at_attributes(attrs), static_word(_), port(port), block(tbranch), if_stmt(fbranch)] =>
+                ast::Control::StaticIf {
+                    port,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs.add_span(span),
+                    latency: None,
                 },
         ))
     }

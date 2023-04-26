@@ -11,7 +11,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     static group static_repeat<6> {
       static_repeat0[go] = 1'd1;
     }
-    static group static_repeat0<3><"NODE_ID"=2> {
+    static group static_repeat0<3> {
       A[go] = 1'd1;
     }
   }

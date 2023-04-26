@@ -21,7 +21,7 @@ component main() -> () {
         cond.addr0 = 1'd0;
     }
     control {
-        static if <4> cond.read_data {
+        static if cond.read_data {
             four;
         } else {
             one;

@@ -45,7 +45,7 @@ component main() -> () {
     }
   }
   control {
-    static seq <12> {
+    static seq {
       let1;
       let2;
       let3;

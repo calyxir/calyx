@@ -287,7 +287,7 @@ seq = {
 }
 
 static_seq = {
-      at_attributes ~  static_word ~ "seq" ~ latency_annotation ~ "{"
+      at_attributes ~  static_word ~ "seq" ~ latency_annotation? ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -299,7 +299,7 @@ par = {
 }
 
 static_par = {
-      at_attributes ~  static_word ~ "par" ~ latency_annotation ~ "{"
+      at_attributes ~  static_word ~ "par" ~ latency_annotation? ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -322,7 +322,7 @@ if_stmt = {
 }
 
 static_if_stmt = {
-      at_attributes ~ static_word ~ "if" ~  latency_annotation ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
+      at_attributes ~ static_word ~ "if" ~  latency_annotation? ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
 }
 
 while_stmt = {

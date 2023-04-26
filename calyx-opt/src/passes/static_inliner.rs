@@ -1,17 +1,12 @@
-use crate::analysis::ControlId;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::structure;
 use calyx_ir::LibrarySignatures;
 use ir::build_assignments;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Default)]
-pub struct StaticInliner {
-    /// maps ids of static control stmts to groups
-    map: HashMap<u64, ir::RRC<ir::StaticGroup>>,
-}
+pub struct StaticInliner;
 
 impl Named for StaticInliner {
     fn name() -> &'static str {
@@ -312,77 +307,22 @@ impl StaticInliner {
             }
         }
     }
-
-    // searches thru `con` for "static islands"
-    // when it finds a "static island", then creates a corresponding
-    // static group by calling `inline_static_control`
-    // thne adds entry (id of "static island" control, equivalent static group)
-    // to self.map
-    fn build_static_map(
-        &mut self,
-        con: &ir::Control,
-        builder: &mut ir::Builder,
-    ) {
-        match con {
-            ir::Control::Enable(_)
-            | ir::Control::Empty(_)
-            | ir::Control::Invoke(_) => (),
-            ir::Control::Seq(ir::Seq { stmts, .. })
-            | ir::Control::Par(ir::Par { stmts, .. }) => {
-                for stmt in stmts {
-                    self.build_static_map(stmt, builder);
-                }
-            }
-            ir::Control::If(ir::If {
-                tbranch, fbranch, ..
-            }) => {
-                self.build_static_map(tbranch, builder);
-                self.build_static_map(fbranch, builder);
-            }
-            ir::Control::While(ir::While { body, .. }) => {
-                self.build_static_map(body, builder);
-            }
-            ir::Control::Static(sc) => {
-                let id = ControlId::get_guaranteed_id_static(sc);
-                let sgroup = Self::inline_static_control(sc, builder);
-                self.map.insert(id, sgroup);
-            }
-        }
-    }
 }
 
 impl Visitor for StaticInliner {
-    fn start(
-        &mut self,
-        comp: &mut ir::Component,
-        sigs: &LibrarySignatures,
-        _comps: &[ir::Component],
-    ) -> VisResult {
-        // assign unique ids so we can use them in our map
-        ControlId::compute_unique_ids(&mut comp.control.borrow_mut(), 0, false);
-        let control_ref = Rc::clone(&comp.control);
-        let mut builder = ir::Builder::new(comp, sigs);
-        // builds static map, which maps static islands to equivalent singular inlined static groups
-        self.build_static_map(&control_ref.borrow(), &mut builder);
-        Ok(Action::Continue)
-    }
-
     /// Executed after visiting the children of a [ir::Static] node.
     fn start_static_control(
         &mut self,
         s: &mut ir::StaticControl,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // visits each static control, and replaces it with its inlined static
-        // group we made in self.map
-        let id = ControlId::get_guaranteed_id_static(s);
-        match self.map.remove(&id) {
-            None => unreachable!("self.map has no entry for id. This pass should have assigned an id for each one {}", id),
-            Some(sgroup) => Ok(Action::Change(Box::new(
-                ir::Control::static_control(ir::StaticControl::enable(sgroup)),
-            ))),
-        }
+        let mut builder = ir::Builder::new(comp, sigs);
+        let replacement_group =
+            StaticInliner::inline_static_control(s, &mut builder);
+        Ok(Action::Change(Box::new(ir::Control::static_control(
+            ir::StaticControl::enable(replacement_group),
+        ))))
     }
 }

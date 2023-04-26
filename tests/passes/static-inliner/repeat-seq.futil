@@ -44,7 +44,7 @@ component main() -> () {
     seq {
       dyn_A; 
       static repeat 3 {
-        static seq<4> { A; C; D;}
+        static seq { A; C; D;}
       }
       dyn_B;
     }

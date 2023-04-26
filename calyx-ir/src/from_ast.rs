@@ -568,20 +568,31 @@ fn build_static_guard(
 
 ///////////////// Control Construction /////////////////////////
 
+fn assert_latencies_eq(given_latency: Option<u64>, inferred_latency: u64) {
+    match given_latency {
+        Some(v) => assert_eq!(
+            v, inferred_latency,
+            "inferred latency: {inferred_latency}, given latency: {v}"
+        ),
+        None => (),
+    }
+}
+
 // builds static_seq based on stmts, attributes, and latency
 fn build_static_seq(
     stmts: Vec<ast::Control>,
     attributes: Attributes,
-    latency: u64,
+    latency: Option<u64>,
     builder: &mut Builder,
 ) -> CalyxResult<StaticControl> {
-    let mut s = StaticControl::seq(
-        stmts
-            .into_iter()
-            .map(|c| build_static_control(c, builder))
-            .collect::<CalyxResult<Vec<_>>>()?,
-        latency,
-    );
+    let ir_stmts = stmts
+        .into_iter()
+        .map(|c| build_static_control(c, builder))
+        .collect::<CalyxResult<Vec<_>>>()?;
+    let inferred_latency =
+        ir_stmts.iter().fold(0, |acc, s| acc + (s.get_latency()));
+    assert_latencies_eq(latency, inferred_latency);
+    let mut s = StaticControl::seq(ir_stmts, inferred_latency);
     *s.get_mut_attributes() = attributes;
     Ok(s)
 }
@@ -589,16 +600,22 @@ fn build_static_seq(
 fn build_static_par(
     stmts: Vec<ast::Control>,
     attributes: Attributes,
-    latency: u64,
+    latency: Option<u64>,
     builder: &mut Builder,
 ) -> CalyxResult<StaticControl> {
-    let mut p = StaticControl::par(
-        stmts
-            .into_iter()
-            .map(|c| build_static_control(c, builder))
-            .collect::<CalyxResult<Vec<_>>>()?,
-        latency,
-    );
+    let ir_stmts = stmts
+        .into_iter()
+        .map(|c| build_static_control(c, builder))
+        .collect::<CalyxResult<Vec<_>>>()?;
+    let inferred_latency = match ir_stmts.iter().max_by_key(|s| s.get_latency())
+    {
+        Some(s) => s.get_latency(),
+        None => {
+            return Err(Error::malformed_control("empty par block".to_string()))
+        }
+    };
+    assert_latencies_eq(latency, inferred_latency);
+    let mut p = StaticControl::par(ir_stmts, inferred_latency);
     *p.get_mut_attributes() = attributes;
     Ok(p)
 }
@@ -608,17 +625,22 @@ fn build_static_if(
     tbranch: ast::Control,
     fbranch: ast::Control,
     attributes: Attributes,
-    latency: u64,
+    latency: Option<u64>,
     builder: &mut Builder,
 ) -> CalyxResult<StaticControl> {
+    let ir_tbranch = build_static_control(tbranch, builder)?;
+    let ir_fbranch = build_static_control(fbranch, builder)?;
+    let inferred_latency =
+        std::cmp::max(ir_tbranch.get_latency(), ir_fbranch.get_latency());
+    assert_latencies_eq(latency, inferred_latency);
     let mut con = StaticControl::if_(
         ensure_direction(
             get_port_ref(port, builder.component)?,
             Direction::Output,
         )?,
-        Box::new(build_static_control(tbranch, builder)?),
-        Box::new(build_static_control(fbranch, builder)?),
-        latency,
+        Box::new(ir_tbranch),
+        Box::new(ir_fbranch),
+        inferred_latency,
     );
     *con.get_mut_attributes() = attributes;
     Ok(con)

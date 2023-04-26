@@ -42,9 +42,9 @@ component main() -> () {
   }
 
   control {
-    static par<4> {
-      static if <2> lt.out { A; } else { C; }
-      static seq <4> { A3; D; }
+    static par {
+      static if lt.out { A; } else { C; }
+      static seq { A3; D; }
     }
     
   }

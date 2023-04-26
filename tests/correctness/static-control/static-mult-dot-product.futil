@@ -60,13 +60,13 @@ component main() -> () {
         }
     }
     control {
-        static seq <15> {
+        static seq {
             init;
             static repeat 14 {
-                static par <1> {
+                static par {
                     incr;
-                    static if <1> lt_10.out { start_mult; }
-                    static if <1> ge_4.out { do_write; }
+                    static if lt_10.out { start_mult; }
+                    static if ge_4.out { do_write; }
                 }
             }
         }
