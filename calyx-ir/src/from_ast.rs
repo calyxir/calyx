@@ -569,13 +569,12 @@ fn build_static_guard(
 ///////////////// Control Construction /////////////////////////
 
 fn assert_latencies_eq(given_latency: Option<u64>, inferred_latency: u64) {
-    match given_latency {
-        Some(v) => assert_eq!(
+    if let Some(v) = given_latency {
+        assert_eq!(
             v, inferred_latency,
             "inferred latency: {inferred_latency}, given latency: {v}"
-        ),
-        None => (),
-    }
+        )
+    };
 }
 
 // builds static_seq based on stmts, attributes, and latency
