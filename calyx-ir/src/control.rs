@@ -479,7 +479,7 @@ impl Control {
         })
     }
 
-    /// Convience constructor for if
+    /// Convience constructor for a static control
     pub fn static_control(sc: StaticControl) -> Self {
         Control::Static(sc)
     }

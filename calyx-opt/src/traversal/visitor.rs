@@ -319,7 +319,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Executed after visiting the children of a [ir::While] node.
+    /// Executed before visiting the contents of an [ir::StaticControl] node.
     fn start_static_control(
         &mut self,
         _s: &mut ir::StaticControl,
@@ -330,7 +330,7 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
-    /// Executed after visiting the children of a [ir::While] node.
+    /// Executed after visiting the conetnts of an [ir::StaticControl] node.
     fn finish_static_control(
         &mut self,
         _s: &mut ir::StaticControl,

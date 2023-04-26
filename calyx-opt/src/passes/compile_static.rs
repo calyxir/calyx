@@ -15,8 +15,8 @@ pub struct CompileStatic {
     reset_early_map: HashMap<ir::Id, ir::Id>,
     /// maps group that has an FSM that resets early to its dynamic "wrapper" group name.
     wrapper_map: HashMap<ir::Id, ir::Id>,
-    /// maps reset_early_group names to the fsm that they use
-    fsm_map: HashMap<ir::Id, ir::Id>,
+    /// maps reset_early_group names to (fsm name, fsm_width)
+    fsm_info_map: HashMap<ir::Id, (ir::Id, u64)>,
     /// rewrites `static_group[go]` to `dynamic_group[go]`
     group_rewrite: ir::rewriter::PortRewriteMap,
 }
@@ -158,7 +158,8 @@ impl CompileStatic {
         assigns.extend(fsm_incr_assigns.to_vec());
         // maps the "early reset" group name to the "fsm name" that it borrows.
         // this is helpful when we build the "wrapper group"
-        self.fsm_map.insert(g.borrow().name(), fsm.borrow().name());
+        self.fsm_info_map
+            .insert(g.borrow().name(), (fsm.borrow().name(), fsm_size));
         // adding the assignments to the new dynamic group and creating a
         // new (dynamic) enable
         g.borrow_mut().assignments = assigns;
@@ -168,6 +169,7 @@ impl CompileStatic {
 
     fn build_wrapper_group(
         fsm_name: &ir::Id,
+        fsm_width: u64,
         group_name: &ir::Id,
         builder: &mut ir::Builder,
     ) -> ir::RRC<ir::Group> {
@@ -177,27 +179,18 @@ impl CompileStatic {
             .get_groups()
             .find(*group_name)
             .unwrap_or_else(|| {
-                panic!(
+                unreachable!(
                     "called build_wrapper_group with {}, which is not a group",
                     group_name
                 )
             });
         let early_reset_fsm =
             builder.component.find_cell(*fsm_name).unwrap_or_else(|| {
-                panic!(
+                unreachable!(
                     "called build_wrapper_group with {}, which is not an fsm",
                     fsm_name
                 )
             });
-        // not sure if there is a better way of getting the fsm width...
-        let fsm_width = early_reset_fsm
-            .borrow()
-            .ports()
-            .iter()
-            .find(|port| port.borrow().name == "in")
-            .unwrap_or_else(|| panic!("called {} in build_wrapper_group as an fsm; should have `in` port", early_reset_fsm.borrow().name()))
-            .borrow()
-            .width;
 
         structure!( builder;
             let signal_reg = prim std_reg(1);
@@ -281,7 +274,7 @@ impl Visitor for CompileStatic {
             self.group_rewrite.insert(
                 ir::Canonical(sgroup_name, ir::Id::from("go")),
                 g.borrow().find("go").unwrap_or_else(|| {
-                    panic!("group {} has no go port", g.borrow().name())
+                    unreachable!("group {} has no go port", g.borrow().name())
                 }),
             );
         }
@@ -312,40 +305,45 @@ impl Visitor for CompileStatic {
     ) -> VisResult {
         // assume that there are only static enables left.
         // if there are any other type of static control, then error out.
-        match sc {
-            ir::StaticControl::Enable(s) => {
-                let sgroup = s.group.borrow_mut();
-                let sgroup_name = sgroup.name();
+        let ir::StaticControl::Enable(s) = sc else {
+            unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+        };
 
-                // get the "early reset group". It should exist, since we made an 
-                // early_reset group for every static group in the component 
-                let early_reset_name =
-                    self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
-                        panic!("group {} not in self.reset_early_map", sgroup_name)
-                    });
-                // check if we've already built the wrapper group for early_reset_group 
-                // if so, we can just use that, otherwise, we must build the wrapper group 
-                let group_choice = match self.wrapper_map.get(early_reset_name){
-                        None => {
-                            // create the builder/cells that we need to create wrapper group 
-                            let mut builder = ir::Builder::new(comp, sigs);
-                            let fsm_name = self.fsm_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
-                            let wrapper = Self::build_wrapper_group(fsm_name, early_reset_name, & mut builder);
-                            self.wrapper_map.insert(*early_reset_name, wrapper.borrow().name());
-                            wrapper
-                        }
-                        Some(name) => {
-                            comp.find_group(*name).unwrap()
-                        }
-                    };
-
-                let mut e = ir::Control::enable(group_choice);
-                let attrs = std::mem::take(&mut s.attributes);
-                *e.get_mut_attributes() = attrs;
-                Ok(Action::Change(Box::new(e)))
+        let sgroup = s.group.borrow_mut();
+        let sgroup_name = sgroup.name();
+        // get the "early reset group". It should exist, since we made an
+        // early_reset group for every static group in the component
+        let early_reset_name =
+            self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
+                unreachable!(
+                    "group {} not in self.reset_early_map",
+                    sgroup_name
+                )
+            });
+        // check if we've already built the wrapper group for early_reset_group
+        // if so, we can just use that, otherwise, we must build the wrapper group
+        let group_choice = match self.wrapper_map.get(early_reset_name) {
+            None => {
+                // create the builder/cells that we need to create wrapper group
+                let mut builder = ir::Builder::new(comp, sigs);
+                let (fsm_name, fsm_width )= self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
+                let wrapper = Self::build_wrapper_group(
+                    fsm_name,
+                    *fsm_width,
+                    early_reset_name,
+                    &mut builder,
+                );
+                self.wrapper_map
+                    .insert(*early_reset_name, wrapper.borrow().name());
+                wrapper
             }
-            _ => unreachable!("Non-Enable Static Control should have been compiled away. Run static-inliner to do this"),
-        }
+            Some(name) => comp.find_group(*name).unwrap(),
+        };
+
+        let mut e = ir::Control::enable(group_choice);
+        let attrs = std::mem::take(&mut s.attributes);
+        *e.get_mut_attributes() = attrs;
+        Ok(Action::Change(Box::new(e)))
     }
 
     fn finish(

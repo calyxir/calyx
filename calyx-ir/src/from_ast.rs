@@ -668,27 +668,24 @@ fn build_static_control(
         ast::Control::Enable {
             comp: component,
             attributes,
-        } => match builder.component.find_group(component) {
-            Some(_) => {
+        } => {
+            if builder.component.find_group(component).is_some() {
                 // dynamic group called in build_static_control
                 return Err(Error::malformed_control(
                     "found dynamic group in static context".to_string(),
                 ));
-            }
-            None => {
-                let mut en = StaticControl::enable(Rc::clone(
-                    &builder
-                        .component
-                        .find_static_group(component)
-                        .ok_or_else(|| {
-                            Error::undefined(component, "group".to_string())
-                                .with_pos(&attributes)
-                        })?,
-                ));
-                *en.get_mut_attributes() = attributes;
-                en
-            }
-        },
+            };
+            let mut en = StaticControl::enable(Rc::clone(
+                &builder.component.find_static_group(component).ok_or_else(
+                    || {
+                        Error::undefined(component, "group".to_string())
+                            .with_pos(&attributes)
+                    },
+                )?,
+            ));
+            *en.get_mut_attributes() = attributes;
+            en
+        }
         ast::Control::StaticSeq {
             stmts,
             attributes,
