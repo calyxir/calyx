@@ -1,4 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
+use calyx_ir::Guard;
+use calyx_ir::Nothing;
 use calyx_ir::{self as ir, GetAttributes, RRC};
 use calyx_ir::{build_assignments, guard, structure};
 use calyx_utils::{CalyxResult, Error};
@@ -7,7 +9,7 @@ use std::collections::HashMap;
 #[derive(Default)]
 /// Compiles @sync without use of std_sync_reg
 /// Upon encountering @sync, it first instantiates a std_reg(1) for each thread(`bar`)
-/// and a std_reg(1) for each barrier (`s`)
+/// and a std_wire(1) for each barrier (`s`)
 /// It then continuously assigns the value of (`s.in`) to 1'd1 guarded by the
 /// expression that all values of `bar` for threads under the barrier are
 /// set to 1'd1
@@ -39,16 +41,36 @@ impl Named for CompileSyncWithoutSyncReg {
 #[derive(Default)]
 struct BarrierMap(HashMap<u64, (RRC<ir::Cell>, Box<ir::Guard<ir::Nothing>>)>);
 
-
 impl BarrierMap {
+    fn get_mut(
+        &mut self,
+        idx: &u64,
+    ) -> Option<&mut (RRC<calyx_ir::Cell>, Box<Guard<Nothing>>)> {
+        self.0.get_mut(idx)
+    }
+
+    fn new() -> Self {
+        BarrierMap(HashMap::new())
+    }
+
     fn get_reg(&mut self, idx: &u64) -> &mut RRC<ir::Cell> {
         let (cell, _) = self.get_mut(idx).unwrap();
         cell
     }
 
     fn get_guard(&mut self, idx: &u64) -> &mut Box<ir::Guard<ir::Nothing>> {
-        let (_, gd) = self.map.get_mut(idx).unwrap();
+        let (_, gd) = self.get_mut(idx).unwrap();
         gd
+    }
+
+    fn insert_shared_wire(&mut self, builder: &mut ir::Builder, idx: &u64) {
+        if self.0.get(idx).is_none() {
+            structure!(builder;
+                let s = prim std_wire(1);
+            );
+            let gd = ir::Guard::True;
+            self.0.insert(*idx, (s, Box::new(gd)));
+        }
     }
 }
 
@@ -129,15 +151,9 @@ fn insert_barrier(
 ) -> CalyxResult<()> {
     match con {
         ir::Control::Empty(_) => {
-            if let Some(&n) = con.get_attributes().get("sync") {
-                if barrier_reg.get(&n).is_none() {
-                    structure!(builder;
-                        let s = prim std_reg(1);
-                    );
-                    let gd = ir::Guard::True;
-                    barrier_reg.insert(n, (s, Box::new(gd)));
-                }
-                let con_ref = barrier_con.entry(n).or_insert_with(|| {
+            if let Some(n) = con.get_attributes().get("sync") {
+                barrier_reg.insert_shared_wire(builder, n);
+                let con_ref = barrier_con.entry(*n).or_insert_with(|| {
                     build_barrier_group(builder, &n, barrier_reg)
                 });
                 std::mem::swap(con, &mut ir::Cloner::control(con_ref));
@@ -175,7 +191,7 @@ impl Visitor for CompileSyncWithoutSyncReg {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut barrier_reg: BarrierMap = HashMap::new();
+        let mut barrier_reg: BarrierMap = BarrierMap::new();
         for stmt in s.stmts.iter_mut() {
             let mut barrier_con: HashMap<u64, ir::Control> = HashMap::new();
             insert_barrier(
@@ -187,14 +203,13 @@ impl Visitor for CompileSyncWithoutSyncReg {
         }
 
         // add continuous assignments for value of `s`
-        for (_, (reg, g_box)) in barrier_reg {
+        for (_, (wire, g_box)) in barrier_reg.0 {
             structure!( builder;
                 let constant = constant(1,1);
             );
             let g = *g_box;
             let cont_assigns = build_assignments!(builder;
-                reg["in"] = g ? constant["out"];
-                reg["write_en"] = ? constant["out"];
+                wire["in"] = g ? constant["out"];
             );
             builder
                 .component
