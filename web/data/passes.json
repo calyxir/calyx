@@ -46,7 +46,7 @@
             "description": "compile-empty"
         },
         {
-            "name": "remove-comb-groups",
+            "name": "simplify-with-control",
             "title": "Remove combinational groups",
             "description": "tdcc"
         },

@@ -25,20 +25,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 
   control {
     seq {
-      seq {
-        do_adds0;
-        invoke m(
-          left = comb_reg.out,
-          right = comb_reg0.out
-        )();
-      }
-      seq {
-        do_adds0;
-        invoke m(
-          left = r.out,
-          right = comb_reg0.out
-        )();
-      }
+      invoke m(
+        left = a0.out,
+        right = a1.out
+      )() with do_adds;
+      invoke m(
+        left = r.out,
+        right = a1.out
+      )() with do_adds;
     }
   }
 }

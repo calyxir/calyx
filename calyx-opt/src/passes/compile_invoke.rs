@@ -91,6 +91,15 @@ impl Visitor for CompileInvoke {
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
 
+        // Add assignments from the attached combinational group
+        if let Some(cgr) = &s.comb_group {
+            let cg = &*cgr.borrow();
+            invoke_group
+                .borrow_mut()
+                .assignments
+                .extend(cg.assignments.iter().cloned())
+        }
+
         // Copy "static" annotation from the `invoke` statement if present
         if let Some(time) = s.attributes.get("static") {
             invoke_group.borrow_mut().attributes.insert("static", *time);
