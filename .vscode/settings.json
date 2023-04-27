@@ -20,7 +20,6 @@
     "python.linting.flake8Enabled": true,
     "jupyter.interactiveWindow.codeLens.enable": true,
     "rust-analyzer.linkedProjects": [
-        "./calyx-opt/Cargo.toml",
         "./calyx-opt/Cargo.toml"
     ]
 }

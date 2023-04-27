@@ -1,4 +1,4 @@
-// -p remove-comb-groups
+// -p simplify-with-control
 import "primitives/core.futil";
 component main(in: 32) -> () {
   cells {

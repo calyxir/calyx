@@ -314,12 +314,12 @@ impl Visitor for WellFormed {
                         if static_timing.get_interval().0
                             >= static_timing.get_interval().1
                         {
-                            return Err(Error::malformed_structure(format!(
+                            Err(Error::malformed_structure(format!(
                                 "Static Timing Guard has improper interval: `%[{},{}]`",
                                 static_timing.get_interval().0,
                                 static_timing.get_interval().1
                             ))
-                            .with_pos(&assign.attributes));
+                            .with_pos(&assign.attributes))
                         } else {
                             Ok(())
                         }

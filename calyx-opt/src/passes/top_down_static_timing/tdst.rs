@@ -513,7 +513,7 @@ impl Schedule<'_, '_> {
                     TopDownStaticTiming::name(),
                      format!(
                         "if-with construct should have been compiled away. Run `{}` before this pass.",
-                        passes::RemoveCombGroups::name()))
+                        passes::SimplifyWithControl::name()))
             .with_pos(&con.attributes));
         }
 
@@ -618,7 +618,7 @@ impl Schedule<'_, '_> {
             TopDownStaticTiming::name(),
             format!(
                 "while-with construct should have been compiled away. Run `{}` before this pass.",
-                passes::RemoveCombGroups::name())
+                passes::SimplifyWithControl::name())
             ).with_pos(&wh.attributes));
         }
 

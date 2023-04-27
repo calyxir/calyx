@@ -228,6 +228,9 @@ static_wire = {
 attribute = {
       string_lit ~ "=" ~ bitwidth
 }
+latency_annotation = {
+  "<" ~ bitwidth ~ ">"
+}
 attributes = {
       "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
 }
@@ -283,8 +286,20 @@ seq = {
       ~ "}"
 }
 
+static_seq = {
+      at_attributes ~  static_word ~ "seq" ~ latency_annotation? ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
 par = {
       at_attributes ~ "par" ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
+static_par = {
+      at_attributes ~  static_word ~ "par" ~ latency_annotation? ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -306,8 +321,16 @@ if_stmt = {
       at_attributes ~ "if" ~ port_with ~ block ~ ("else" ~ (if_stmt | block))?
 }
 
+static_if_stmt = {
+      at_attributes ~ static_word ~ "if" ~  latency_annotation? ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
+}
+
 while_stmt = {
       at_attributes ~ "while" ~ port_with ~ block
+}
+
+repeat_stmt = {
+      at_attributes ~ static_word ~ "repeat" ~ bitwidth ~ block
 }
 
 stmt = {
@@ -315,9 +338,13 @@ stmt = {
     | enable
     | invoke
     | seq
+    | static_seq
     | par
+    | static_par 
     | if_stmt
+    | static_if_stmt
     | while_stmt
+    | repeat_stmt
 }
 
 control = {
