@@ -1,16 +1,13 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main(@go @static(6) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go @static(5) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     const0 = std_const(32, 4);
     const1 = std_const(32, 5);
     add = std_add(32);
     mult = std_mult_pipe(32);
     reg0 = std_reg(32);
-    @generated comb_reg = std_reg(32);
-    @generated fsm = std_reg(3);
-    @generated comb_invoke0_go = std_wire(1);
-    @generated comb_invoke0_done = std_wire(1);
+    @generated fsm = std_reg(2);
     @generated invoke0_go = std_wire(1);
     @generated invoke0_done = std_wire(1);
     @generated invoke1_go = std_wire(1);
@@ -21,40 +18,33 @@ component main(@go @static(6) go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
     @generated tdcc_done = std_wire(1);
   }
   wires {
-    comb_invoke0_done.in = comb_reg.done ? 1'd1;
     mult.clk = clk;
     mult.left = invoke1_go.out ? const0.out;
     mult.go = invoke1_go.out ? 1'd1;
     mult.reset = reset;
     mult.right = invoke1_go.out ? const1.out;
     done = tdcc_done.out ? 1'd1;
-    fsm.write_en = fsm.out == 3'd4 | fsm.out == 3'd0 & comb_invoke0_done.out & tdcc_go.out | fsm.out == 3'd1 & invoke0_done.out & tdcc_go.out | fsm.out == 3'd2 & invoke1_done.out & tdcc_go.out | fsm.out == 3'd3 & invoke2_done.out & tdcc_go.out ? 1'd1;
+    fsm.write_en = fsm.out == 2'd3 | fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out | fsm.out == 2'd1 & invoke1_done.out & tdcc_go.out | fsm.out == 2'd2 & invoke2_done.out & tdcc_go.out ? 1'd1;
     fsm.clk = clk;
     fsm.reset = reset;
-    fsm.in = fsm.out == 3'd1 & invoke0_done.out & tdcc_go.out ? 3'd2;
-    fsm.in = fsm.out == 3'd3 & invoke2_done.out & tdcc_go.out ? 3'd4;
-    fsm.in = fsm.out == 3'd4 ? 3'd0;
-    fsm.in = fsm.out == 3'd0 & comb_invoke0_done.out & tdcc_go.out ? 3'd1;
-    fsm.in = fsm.out == 3'd2 & invoke1_done.out & tdcc_go.out ? 3'd3;
+    fsm.in = fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out ? 2'd1;
+    fsm.in = fsm.out == 2'd3 ? 2'd0;
+    fsm.in = fsm.out == 2'd2 & invoke2_done.out & tdcc_go.out ? 2'd3;
+    fsm.in = fsm.out == 2'd1 & invoke1_done.out & tdcc_go.out ? 2'd2;
     reg0.write_en = invoke0_go.out | invoke2_go.out ? 1'd1;
     reg0.clk = clk;
     reg0.reset = reset;
     reg0.in = invoke2_go.out ? mult.out;
-    reg0.in = invoke0_go.out ? comb_reg.out;
-    invoke2_go.in = !invoke2_done.out & fsm.out == 3'd3 & tdcc_go.out ? 1'd1;
-    comb_reg.write_en = comb_invoke0_go.out ? 1'd1;
-    comb_reg.clk = clk;
-    comb_reg.reset = reset;
-    comb_reg.in = comb_invoke0_go.out ? add.out;
-    invoke0_go.in = !invoke0_done.out & fsm.out == 3'd1 & tdcc_go.out ? 1'd1;
+    reg0.in = invoke0_go.out ? add.out;
+    invoke2_go.in = !invoke2_done.out & fsm.out == 2'd2 & tdcc_go.out ? 1'd1;
+    invoke0_go.in = !invoke0_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
     tdcc_go.in = go;
-    comb_invoke0_go.in = !comb_invoke0_done.out & fsm.out == 3'd0 & tdcc_go.out ? 1'd1;
     invoke0_done.in = reg0.done;
-    invoke1_go.in = !invoke1_done.out & fsm.out == 3'd2 & tdcc_go.out ? 1'd1;
+    invoke1_go.in = !invoke1_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
     invoke2_done.in = reg0.done;
-    add.left = comb_invoke0_go.out ? const0.out;
-    add.right = comb_invoke0_go.out ? const1.out;
-    tdcc_done.in = fsm.out == 3'd4 ? 1'd1;
+    add.left = invoke0_go.out ? const0.out;
+    add.right = invoke0_go.out ? const1.out;
+    tdcc_done.in = fsm.out == 2'd3 ? 1'd1;
     invoke1_done.in = mult.done;
   }
 
