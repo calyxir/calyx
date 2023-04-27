@@ -161,6 +161,7 @@ impl PassManager {
         ctx: &mut ir::Context,
         incl: &[String],
         excl: &[String],
+        dump_ir: bool,
     ) -> CalyxResult<()> {
         let (passes, excl_set) = self.create_plan(incl, excl)?;
 
@@ -175,6 +176,13 @@ impl PassManager {
                 if !excl_set.contains(&name) {
                     let start = Instant::now();
                     pass(ctx)?;
+                    if dump_ir {
+                        ir::Printer::write_context(
+                            ctx,
+                            true,
+                            &mut std::io::stdout(),
+                        )?;
+                    }
                     let elapsed = start.elapsed();
                     // Warn if pass takes more than 3 seconds.
                     if elapsed.as_secs() > 5 {

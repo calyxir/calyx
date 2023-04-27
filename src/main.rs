@@ -44,7 +44,7 @@ fn main() -> CalyxResult<()> {
     ctx.extra_opts = opts.extra_opts.drain(..).collect();
 
     // Run all passes specified by the command line
-    pm.execute_plan(&mut ctx, &opts.pass, &opts.disable_pass)?;
+    pm.execute_plan(&mut ctx, &opts.pass, &opts.disable_pass, opts.dump_ir)?;
 
     // Print out the Calyx program after transformation.
     if opts.backend == BackendOpt::Calyx {

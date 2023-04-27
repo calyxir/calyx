@@ -69,6 +69,10 @@ pub struct Opts {
     /// enable verbose printing
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
+
+    #[argh(switch, long = "dump-ir")]
+    /// print out the IR after every pass
+    pub dump_ir: bool,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {
