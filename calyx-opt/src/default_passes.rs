@@ -9,13 +9,7 @@ use crate::passes::{
     SimplifyWithControl, StaticInliner, StaticParConv, SynthesisPapercut,
     TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
     WireInliner,
-    CompileSyncWithoutSyncReg, ComponentInliner, DeadAssignmentRemoval,
-    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, HoleInliner, InferShare, InferStaticTiming, LowerGuards,
-    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
-    RemoveCombGroups, RemoveIds, ResetInsertion, StaticParConv,
-    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner,
+    CompileSyncWithoutSyncReg
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
