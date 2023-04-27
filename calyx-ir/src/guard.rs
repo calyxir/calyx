@@ -51,12 +51,6 @@ pub enum Guard<T> {
     Info(T),
 }
 
-impl<T> Default for Guard<T> {
-    fn default() -> Self {
-        Guard::True
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct StaticTiming {
     interval: (u64, u64),
