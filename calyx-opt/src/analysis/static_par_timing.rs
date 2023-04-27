@@ -14,7 +14,9 @@ type ThreadTimingMap = HashMap<u64, CellTimingMap>;
 #[derive(Default)]
 pub struct StaticParTiming {
     /// Map from par block ids to cell_timing_maps
-    cell_map: HashMap<u64, ThreadTimingMap>,
+    pub cell_map: HashMap<u64, ThreadTimingMap>,
+    /// enable_liveness_maps
+    pub enable_timing_map: HashMap<u64, HashMap<u64, (u64, u64)>>,
     /// name of component
     component_name: ir::Id,
 }
@@ -198,6 +200,20 @@ impl StaticParTiming {
                 }
             }
         }
+        let enable_mappings = self.enable_timing_map.entry(par_id).or_default();
+        // maps enable ids -> clock cycles that they're live in
+        match enable_mappings.get(&id) {
+            Some(_) =>
+            // we already have an earlier execution of the group, so we don't care about a later execution
+            {
+                ()
+            }
+            None => {
+                enable_mappings
+                    .insert(id, (cur_clock, cur_clock + latency - 1));
+            }
+        }
+
         (par_id, thread_id, cur_clock + latency)
     }
 
@@ -346,11 +362,11 @@ impl StaticParTiming {
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
             }) => {
-                self.build_time_map(&tbranch, live);
-                self.build_time_map(&fbranch, live);
+                self.build_time_map(tbranch, live);
+                self.build_time_map(fbranch, live);
             }
             ir::Control::While(ir::While { body, .. }) => {
-                self.build_time_map(&body, live);
+                self.build_time_map(body, live);
             }
             ir::Control::Static(sc) => {
                 self.build_time_map_static(sc, None, live);
