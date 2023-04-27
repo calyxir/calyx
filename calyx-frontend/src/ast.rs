@@ -353,7 +353,7 @@ pub enum Control {
         /// Optional latency for the seq
         latency: Option<NonZeroU64>,
     },
-    /// Represents sequential composition of static control statements.
+    /// Represents parallel composition of static control statements.
     StaticPar {
         /// List of `Control` statements to run in sequence.
         /// If not all of these stmts are static, we should error out
@@ -380,7 +380,7 @@ pub enum Control {
         /// Optional latency; should be the longer of the two branches
         latency: Option<NonZeroU64>,
     },
-    /// Standard imperative if statement
+    /// Static Repeat (essentially a bounded while loop w/o a condition)
     StaticRepeat {
         /// Control for the true branch.
         num_repeats: u64,
