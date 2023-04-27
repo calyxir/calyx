@@ -154,7 +154,7 @@ fn insert_barrier(
             if let Some(n) = con.get_attributes().get("sync") {
                 barrier_reg.insert_shared_wire(builder, n);
                 let con_ref = barrier_con.entry(*n).or_insert_with(|| {
-                    build_barrier_group(builder, &n, barrier_reg)
+                    build_barrier_group(builder, n, barrier_reg)
                 });
                 std::mem::swap(con, &mut ir::Cloner::control(con_ref));
             }
