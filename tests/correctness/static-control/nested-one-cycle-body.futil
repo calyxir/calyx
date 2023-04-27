@@ -16,8 +16,10 @@ component main() -> () {
         }
     }
     control {
-        static repeat 10 {
-            one;
+        static repeat 5 {
+            static repeat 10 {
+                one;
+            }
         }
     }
 }
