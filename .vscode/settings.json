@@ -18,5 +18,8 @@
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.inlayHints.variableTypes": true,
     "python.linting.flake8Enabled": true,
-    "jupyter.interactiveWindow.codeLens.enable": true
+    "jupyter.interactiveWindow.codeLens.enable": true,
+    "rust-analyzer.linkedProjects": [
+        "./calyx-opt/Cargo.toml"
+    ]
 }
