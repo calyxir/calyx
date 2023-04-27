@@ -29,7 +29,7 @@ fn cell_share_bench(c: &mut Criterion) {
 
                         let mut rep = ir::from_ast::ast_to_ir(ws).unwrap();
 
-                        passes::RemoveCombGroups::do_pass_default(&mut rep)
+                        passes::SimplifyWithControl::do_pass_default(&mut rep)
                             .unwrap();
                         rep
                     },

@@ -32,7 +32,7 @@ pub enum PortComp {
 }
 
 /// An assignment guard which has pointers to the various ports from which it reads.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Guard<T> {
     /// Represents `c1 || c2`.
     Or(Box<Guard<T>>, Box<Guard<T>>),
@@ -40,6 +40,7 @@ pub enum Guard<T> {
     And(Box<Guard<T>>, Box<Guard<T>>),
     /// Represents `!c1`
     Not(Box<Guard<T>>),
+    #[default]
     /// The constant true
     True,
     /// Comparison operator.

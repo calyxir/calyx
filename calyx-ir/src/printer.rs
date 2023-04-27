@@ -60,18 +60,6 @@ impl Printer {
             .join(", ")
     }
 
-    /// Formats and writes extern statements.
-    pub fn write_extern<F: io::Write>(
-        (path, prims): (&Path, &[ir::Primitive]),
-        f: &mut F,
-    ) -> io::Result<()> {
-        writeln!(f, "extern \"{}\" {{", path.to_string_lossy())?;
-        for prim in prims {
-            Self::write_primitive(prim, 2, f)?;
-        }
-        writeln!(f, "}}")
-    }
-
     fn format_port_def<W: std::fmt::Display>(
         port_defs: &[&ir::PortDef<W>],
     ) -> String {
@@ -87,6 +75,53 @@ impl Printer {
             })
             .collect_vec()
             .join(", ")
+    }
+
+    /// Prints out the program context.
+    /// `skip_primitives` controls whether the primitives are printed out.
+    pub fn write_context<F: io::Write>(
+        ctx: &ir::Context,
+        skip_primitives: bool,
+        f: &mut F,
+    ) -> io::Result<()> {
+        if !skip_primitives {
+            for (path, prims) in ctx.lib.all_prims() {
+                match path {
+                    Some(p) => {
+                        ir::Printer::write_externs(
+                            (&p, prims.into_iter().map(|(_, v)| v)),
+                            f,
+                        )?;
+                    }
+                    None => {
+                        for (_, prim) in prims {
+                            ir::Printer::write_primitive(prim, 2, f)?;
+                        }
+                    }
+                }
+            }
+        }
+        for comp in &ctx.components {
+            ir::Printer::write_component(comp, f)?;
+            writeln!(f)?
+        }
+        write!(f, "{}", ir::Printer::format_metadata(&ctx.metadata))
+    }
+
+    /// Formats and writes extern statements.
+    pub fn write_externs<'a, F, I>(
+        (path, prims): (&Path, I),
+        f: &mut F,
+    ) -> io::Result<()>
+    where
+        F: io::Write,
+        I: Iterator<Item = &'a ir::Primitive>,
+    {
+        writeln!(f, "extern \"{}\" {{", path.to_string_lossy())?;
+        for prim in prims {
+            Self::write_primitive(prim, 2, f)?;
+        }
+        writeln!(f, "}}")
     }
 
     pub fn write_primitive<F: io::Write>(

@@ -5,8 +5,8 @@ use crate::passes::{
     ComponentInliner, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
     Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
     InferShare, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, RemoveIds,
-    ResetInsertion, StaticInliner, StaticParConv, SynthesisPapercut,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    SimplifyWithControl, StaticParConv, SynthesisPapercut,
     TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
     WireInliner,
 };
@@ -43,7 +43,7 @@ impl PassManager {
         pm.register_pass::<StaticInliner>()?;
         pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;
-        pm.register_pass::<RemoveCombGroups>()?;
+        pm.register_pass::<SimplifyWithControl>()?;
         pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
         pm.register_pass::<CompileRef>()?;
@@ -84,7 +84,7 @@ impl PassManager {
                 ComponentInliner,
                 CombProp,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
-                RemoveCombGroups, // Must run before infer-static-timing
+                SimplifyWithControl, // Must run before infer-static-timing
                 InferStaticTiming,
                 CompileInvoke,    // creates dead comb groups
                 StaticParConv, // Must be before collapse-control and merge-static-par
@@ -135,7 +135,7 @@ impl PassManager {
                 "validate",
                 CompileSync,
                 CompileRef,
-                RemoveCombGroups,
+                SimplifyWithControl,
                 CompileInvoke,
                 "compile",
                 "lower"
