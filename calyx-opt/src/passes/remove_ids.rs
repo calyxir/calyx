@@ -37,9 +37,10 @@ fn remove_ids_static(sc: &mut ir::StaticControl) {
     atts.remove(END_ID);
     atts.remove(NODE_ID);
     match sc {
-        ir::StaticControl::Empty(_)
-        | ir::StaticControl::Enable(_)
-        | ir::StaticControl::Invoke(_) => (),
+        ir::StaticControl::Empty(_) | ir::StaticControl::Invoke(_) => (),
+        ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+            group.borrow_mut().remove_attribute(NODE_ID)
+        }
         ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
             remove_ids_static(body)
         }
@@ -64,9 +65,10 @@ fn remove_ids(c: &mut ir::Control) {
     atts.remove(END_ID);
     atts.remove(NODE_ID);
     match c {
-        ir::Control::Empty(_)
-        | ir::Control::Invoke(_)
-        | ir::Control::Enable(_) => (),
+        ir::Control::Empty(_) | ir::Control::Invoke(_) => (),
+        ir::Control::Enable(ir::Enable { group, .. }) => {
+            group.borrow_mut().remove_attribute(NODE_ID)
+        }
         ir::Control::While(ir::While { body, .. }) => {
             remove_ids(body);
         }

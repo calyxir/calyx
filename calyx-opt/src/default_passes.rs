@@ -6,7 +6,7 @@ use crate::passes::{
     Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
     InferShare, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
     Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
-    SimplifyWithControl, StaticParConv, SynthesisPapercut,
+    SimplifyWithControl, StaticInliner, StaticParConv, SynthesisPapercut,
     TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
     WireInliner,
 };
@@ -40,6 +40,7 @@ impl PassManager {
         pm.register_pass::<StaticParConv>()?;
 
         // Compilation passes
+        pm.register_pass::<StaticInliner>()?;
         pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<SimplifyWithControl>()?;
@@ -95,7 +96,12 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [CompileStatic, TopDownStaticTiming, TopDownCompileControl]
+            [
+                StaticInliner,
+                CompileStatic,
+                TopDownStaticTiming,
+                TopDownCompileControl
+            ]
         );
         register_alias!(
             pm,

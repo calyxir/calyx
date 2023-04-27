@@ -395,22 +395,16 @@ impl Printer {
                 attributes,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(
-                    f,
-                    "<{}>{};",
-                    group.borrow().latency,
-                    group.borrow().name().id
-                )
+                writeln!(f, "{};", group.borrow().name().id)
             }
             ir::StaticControl::Repeat(ir::StaticRepeat {
                 num_repeats,
                 attributes,
                 body,
-                latency,
                 ..
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> repeat {} ", latency, num_repeats)?;
+                writeln!(f, "static repeat {} ", num_repeats)?;
                 writeln!(f, "{{")?;
                 Self::write_static_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
@@ -421,7 +415,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> seq {{", latency)?;
+                writeln!(f, "static seq <{}> {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -433,7 +427,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> par {{", latency)?;
+                writeln!(f, "static par <{}> {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -456,7 +450,7 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
                     f,
-                    "static<{}> if {} ",
+                    "static if <{}> {} ",
                     latency,
                     Self::port_to_str(&port.borrow()),
                 )?;
@@ -541,7 +535,10 @@ impl Printer {
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {
-        write!(f, "{}", " ".repeat(indent_level))?;
+        // write_static_control will indent already so we don't want to indent twice
+        if !matches!(control, ir::Control::Static(_)) {
+            write!(f, "{}", " ".repeat(indent_level))?;
+        }
         match control {
             ir::Control::Enable(ir::Enable { group, attributes }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;

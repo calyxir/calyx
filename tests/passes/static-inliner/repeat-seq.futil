@@ -1,0 +1,53 @@
+// -p well-formed -p static-inline -p remove-ids -p dead-group-removal
+
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    d = std_reg(2);
+  }
+
+  wires {
+    group dyn_A {
+      a.write_en = 1'd1; 
+      a.in = 2'd2; 
+      dyn_A[done] = a.done; 
+    }
+    group dyn_B {
+      b.write_en = 1'd1; 
+      b.in = 2'd2; 
+      dyn_B[done] = b.done; 
+    }
+    static group A<2>{
+      a.in = 2'd0;
+      a.write_en = %0 ? 1'd1;
+      b.in = 2'd1;
+      b.write_en = %1 ? 1'd1;
+    }
+
+    static group C<1>{
+      c.in = 2'd2;
+      c.write_en = %0 ? 1'd1;
+    }
+
+    static group D<1>{
+      d.in = 2'd2;
+      d.write_en = %0 ? 1'd1;
+    }
+
+  }
+
+  control {
+    seq {
+      dyn_A; 
+      static repeat 3 {
+        static seq { A; C; D;}
+      }
+      dyn_B;
+    }
+    
+  }
+}

@@ -1,0 +1,26 @@
+// -p well-formed -p static-inline -p remove-ids -p dead-group-removal
+
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    a = std_reg(2);
+  }
+  wires {
+    static group A<1>{
+      a.in = 2'd0;
+      a.write_en = %0 ? 1'd1;
+    }
+  }
+
+  control {
+    seq {
+      static repeat 2 {
+        static repeat 3 {
+          A;
+        }
+      }
+    }
+    
+  }
+}

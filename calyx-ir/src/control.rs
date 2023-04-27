@@ -215,6 +215,16 @@ impl GetAttributes for StaticEnable {
     }
 }
 
+impl StaticEnable {
+    /// Returns the value of an attribute if present
+    pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
+    where
+        S: Into<Id>,
+    {
+        self.get_attributes().get(attr).copied()
+    }
+}
+
 type PortMap = Vec<(Id, RRC<Port>)>;
 type CellMap = Vec<(Id, RRC<Cell>)>;
 
@@ -319,6 +329,27 @@ impl From<Invoke> for Control {
 impl From<Enable> for Control {
     fn from(en: Enable) -> Self {
         Control::Enable(en)
+    }
+}
+
+impl From<StaticControl> for Control {
+    fn from(sc: StaticControl) -> Self {
+        Control::Static(sc)
+    }
+}
+
+impl From<StaticEnable> for StaticControl {
+    fn from(se: StaticEnable) -> Self {
+        StaticControl::Enable(se)
+    }
+}
+
+impl From<RRC<StaticGroup>> for StaticControl {
+    fn from(sgroup: RRC<StaticGroup>) -> Self {
+        StaticControl::Enable(StaticEnable {
+            group: sgroup,
+            attributes: Attributes::default(),
+        })
     }
 }
 
@@ -427,14 +458,6 @@ impl Control {
         })
     }
 
-    /// Convience constructor for static enable.
-    pub fn static_enable(group: RRC<StaticGroup>) -> Self {
-        Control::Static(StaticControl::Enable(StaticEnable {
-            group,
-            attributes: Attributes::default(),
-        }))
-    }
-
     /// Convience constructor for invoke.
     pub fn invoke(comp: RRC<Cell>, inputs: PortMap, outputs: PortMap) -> Self {
         Control::Invoke(Invoke {
@@ -482,7 +505,7 @@ impl Control {
     where
         S: Into<Id>,
     {
-        self.get_attributes().get(attr).cloned()
+        self.get_attributes().get(attr).copied()
     }
 
     /// Returns true if the node has a specific attribute
@@ -500,12 +523,60 @@ impl StaticControl {
         StaticControl::Empty(Empty::default())
     }
 
+    /// Convience constructor for static enable.
+    pub fn seq(stmts: Vec<StaticControl>, latency: u64) -> Self {
+        StaticControl::Seq(StaticSeq {
+            stmts,
+            attributes: Attributes::default(),
+            latency,
+        })
+    }
+
+    /// Convience constructor for static enable.
+    pub fn par(stmts: Vec<StaticControl>, latency: u64) -> Self {
+        StaticControl::Par(StaticPar {
+            stmts,
+            attributes: Attributes::default(),
+            latency,
+        })
+    }
+
+    /// Convience constructor for static if
+    pub fn static_if(
+        port: RRC<Port>,
+        tbranch: Box<StaticControl>,
+        fbranch: Box<StaticControl>,
+        latency: u64,
+    ) -> Self {
+        StaticControl::If(StaticIf {
+            port,
+            tbranch,
+            fbranch,
+            attributes: Attributes::default(),
+            latency,
+        })
+    }
+
+    /// Convience constructor for static if
+    pub fn repeat(
+        num_repeats: u64,
+        latency: u64,
+        body: Box<StaticControl>,
+    ) -> Self {
+        StaticControl::Repeat(StaticRepeat {
+            body,
+            num_repeats,
+            latency,
+            attributes: Attributes::default(),
+        })
+    }
+
     /// Returns the value of an attribute if present
     pub fn get_attribute<S>(&self, attr: S) -> Option<u64>
     where
         S: Into<Id>,
     {
-        self.get_attributes().get(attr).cloned()
+        self.get_attributes().get(attr).copied()
     }
 
     /// Returns the value of an attribute if present
