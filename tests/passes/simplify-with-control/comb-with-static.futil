@@ -1,6 +1,6 @@
-// -p remove-comb-groups
+// -p simplify-with-control
 import "primitives/core.futil";
-component main<"static"=1>(in: 32) -> () {
+component main(@go @static go: 1, in: 32) -> (@done done: 1) {
   cells {
     e0 = std_eq(32);
     r = std_reg(32);

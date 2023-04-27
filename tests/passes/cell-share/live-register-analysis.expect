@@ -86,6 +86,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       comb_reg.write_en = 1'd1;
       cond10[done] = comb_reg.done ? 1'd1;
     }
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = 6'd31;
+    }
+    comb group cond1 {
+      le0.left = i0.out;
+      le0.right = 6'd31;
+    }
   }
 
   control {
