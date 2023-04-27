@@ -351,11 +351,16 @@ impl CalyxParser {
         ))
     }
 
-    fn latency_annotation(input: Node) -> ParseResult<u64> {
-        Ok(match_nodes!(
-            input.into_children();
+    fn latency_annotation(input: Node) -> ParseResult<std::num::NonZeroU64> {
+        let num = match_nodes!(
+            input.clone().into_children();
             [bitwidth(value)] => value,
-        ))
+        );
+        if num == 0 {
+            Err(input.error("latency annotation of 0"))
+        } else {
+            Ok(std::num::NonZeroU64::new(num).unwrap())
+        }
     }
 
     fn at_attribute(input: Node) -> ParseResult<(Id, u64)> {
