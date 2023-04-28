@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import threading
 from typing import Dict, Union, Optional, List
 from . import py_ast as ast
@@ -19,7 +21,8 @@ class Builder:
         self.imported = set()
         self.import_("primitives/core.futil")
 
-    def component(self, name: str, cells=[]):
+    def component(self, name: str, cells=None):
+        cells = cells or []
         comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
         return comp_builder
@@ -34,9 +37,12 @@ class Builder:
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
-    def __init__(self, prog: Builder, name: str, cells: List[ast.Cell] = []):
+    def __init__(
+        self, prog: Builder, name: str, cells: Optional[List[ast.Cell]] = None
+    ):
         """Contructs a new component in the current program. If `cells` is
         provided, the component will be initialized with those cells."""
+        cells = cells if cells else list()
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
@@ -56,7 +62,7 @@ class ComponentBuilder:
     def output(self, name: str, size: int):
         self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
 
-    def this(self) -> "ThisBuilder":
+    def this(self) -> ThisBuilder:
         return ThisBuilder()
 
     @property
@@ -64,13 +70,13 @@ class ComponentBuilder:
         return ControlBuilder(self.component.controls)
 
     @control.setter
-    def control(self, builder: Union[ast.Control, "ControlBuilder"]):
+    def control(self, builder: Union[ast.Control, ControlBuilder]):
         if isinstance(builder, ControlBuilder):
             self.component.controls = builder.stmt
         else:
             self.component.controls = builder
 
-    def get_cell(self, name: str) -> "CellBuilder":
+    def get_cell(self, name: str) -> CellBuilder:
         out = self.index.get(name)
         if out and isinstance(out, CellBuilder):
             return out
@@ -80,7 +86,7 @@ class ComponentBuilder:
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
 
-    def get_group(self, name: str) -> "GroupBuilder":
+    def get_group(self, name: str) -> GroupBuilder:
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -89,14 +95,14 @@ class ComponentBuilder:
                 f"Group `{name}' not found in component {self.component.name}"
             )
 
-    def group(self, name: str) -> "GroupBuilder":
-        group = ast.Group(ast.CompVar(name), connections=[])
+    def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
+        group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
         self.index[name] = builder
         return builder
 
-    def comb_group(self, name: str) -> "GroupBuilder":
+    def comb_group(self, name: str) -> GroupBuilder:
         group = ast.CombGroup(ast.CompVar(name), connections=[])
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
@@ -106,10 +112,10 @@ class ComponentBuilder:
     def cell(
         self,
         name: str,
-        comp: Union[ast.CompInst, "ComponentBuilder"],
+        comp: Union[ast.CompInst, ComponentBuilder],
         is_external=False,
         is_ref=False,
-    ) -> "CellBuilder":
+    ) -> CellBuilder:
         # If we get a (non-primitive) component builder, instantiate it
         # with no parameters.
         if isinstance(comp, ComponentBuilder):
@@ -123,6 +129,10 @@ class ComponentBuilder:
 
     def reg(self, name: str, size: int):
         return self.cell(name, ast.Stdlib.register(size))
+
+    def const(self, name: str, width: int, value: int) -> CellBuilder:
+        """Utility wrapper for generating StdConstant cells"""
+        return self.cell(name, ast.Stdlib.constant(width, value))
 
     def mem_d1(
         self,
@@ -180,7 +190,7 @@ def as_control(obj):
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
     """Build a `while` control statement."""
     if cond:
         assert isinstance(
@@ -192,7 +202,7 @@ def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     return ast.While(port.expr, cg, as_control(body))
 
 
-def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.If:
     """Build an `if` control statement."""
     if cond:
         assert isinstance(
@@ -204,7 +214,7 @@ def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     return ast.If(port.expr, cg, as_control(body))
 
 
-def invoke(cell: "CellBuilder", **kwargs):
+def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     """Build an `invoke` control statement.
 
     The keyword arguments should have the form `in_*` and `out_*`, where
@@ -266,11 +276,11 @@ class ExprBuilder:
     def __init__(self, expr: ast.GuardExpr):
         self.expr = expr
 
-    def __and__(self, other: "ExprBuilder"):
+    def __and__(self, other: ExprBuilder):
         """Construct an "and" logical expression with &."""
         return ExprBuilder(ast.And(self.expr, other.expr))
 
-    def __or__(self, other: "ExprBuilder"):
+    def __or__(self, other: ExprBuilder):
         """Construct an "or" logical expression with |."""
         return ExprBuilder(ast.Or(self.expr, other.expr))
 
@@ -278,7 +288,7 @@ class ExprBuilder:
         """Construct a "not" logical expression with ~."""
         return ExprBuilder(ast.Not(self.expr))
 
-    def __matmul__(self, rhs: "ExprBuilder"):
+    def __matmul__(self, rhs: ExprBuilder):
         """Construct a conditional expression with @.
 
         This produces a `CondExprBuilder`, which wraps a value
@@ -289,11 +299,11 @@ class ExprBuilder:
         """
         return CondExprBuilder(self, rhs)
 
-    def __eq__(self, other: "ExprBuilder"):
+    def __eq__(self, other: ExprBuilder):
         """Construct an equality comparison with ==."""
         return ExprBuilder(ast.Eq(self.expr, other.expr))
 
-    def __ne__(self, other: "ExprBuilder"):
+    def __ne__(self, other: ExprBuilder):
         """Construct an inequality comparison with ==."""
         return ExprBuilder(ast.Neq(self.expr, other.expr))
 
@@ -364,7 +374,7 @@ class CellBuilder(CellLikeBuilder):
     def __init__(self, cell: ast.Cell):
         self._cell = cell
 
-    def port(self, name: str):
+    def port(self, name: str) -> ExprBuilder:
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
@@ -552,3 +562,14 @@ def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     assert TLS.groups, "assignment outside `with group`"
     group_builder: GroupBuilder = TLS.groups[-1]
     group_builder.asgn(lhs, rhs)
+
+
+"""A one bit low signal"""
+LO = const(1, 0)
+"""A one bit high signal"""
+HI = const(1, 1)
+
+
+def par(*args: Union[GroupBuilder, ast.Control, ast.Group, ast.Invoke]) -> ast.ParComp:
+    """Build a parallel composition of control expressions."""
+    return ast.ParComp([as_control(x) for x in args])
