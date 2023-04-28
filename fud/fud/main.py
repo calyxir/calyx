@@ -392,7 +392,7 @@ def config_run(parser):
 
     # Alternatively, provide a TOML file with stage options
     parser.add_argument(
-        "--config",
+        "--stage-config",
         help="Path to a TOML file with stage configuration options",
         dest="config_file",
     )
