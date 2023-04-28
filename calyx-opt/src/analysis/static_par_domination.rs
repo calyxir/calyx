@@ -31,11 +31,11 @@ impl Debug for StaticParDomination {
         writeln!(f, " ============")?;
         let node_must_map = self.node_timing_map.clone();
         let node_may_map = self.node_maybe_timing_map.clone();
-        // get all par ids and iterate thru them
+        // get all par ids and iterate thru them. Sort for deterministic ordering
         let must_par_ids: HashSet<&u64> = node_must_map.keys().collect();
         let may_par_ids: HashSet<&u64> = node_may_map.keys().collect();
         let mut par_ids: Vec<_> = must_par_ids.union(&may_par_ids).collect();
-        par_ids.sort_by(|k1, k2| k1.cmp(k2));
+        par_ids.sort();
         for par_id in par_ids.into_iter() {
             write!(f, "========")?;
             write!(f, "Par Node ID: {:?}", par_id)?;
@@ -44,10 +44,10 @@ impl Debug for StaticParDomination {
             write!(f, "MUST EXECUTE")?;
             writeln!(f, "====")?;
             // print the "must executes" for the given par id
-            match node_must_map.get(&par_id) {
+            match node_must_map.get(par_id) {
                 None => (),
                 Some(map) => {
-                    let mut vec1: Vec<_> = map.into_iter().collect();
+                    let mut vec1: Vec<_> = map.iter().collect();
                     // sort vec1 to get deterministic ordering
                     vec1.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
                     for (enable_id, interval) in vec1 {
@@ -61,10 +61,10 @@ impl Debug for StaticParDomination {
             write!(f, "MAY EXECUTE")?;
             writeln!(f, "====")?;
             // print the "may executes" for the given par id
-            match node_may_map.get(&par_id) {
+            match node_may_map.get(par_id) {
                 None => (),
                 Some(map) => {
-                    let mut vec1: Vec<_> = map.into_iter().collect();
+                    let mut vec1: Vec<_> = map.iter().collect();
                     // sort vec1 to get deterministic ordering
                     vec1.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
                     for (enable_id, interval) in vec1 {
@@ -143,7 +143,7 @@ impl StaticParDomination {
     // Also returns the "state = (par_id, cur_clock)" after the invoke/enable has occured
     // assumes that there is a cur_state = (par_id, cur_clock)
     // also, id is the id of the node, and latency is the latency of the node
-    fn update_guaranteed_enable(
+    fn update_node(
         &mut self,
         id: u64,
         latency: u64,
@@ -161,10 +161,8 @@ impl StaticParDomination {
         // maps enable ids -> clock cycles that they're live in
         match enable_mappings.get(&id) {
             Some(_) =>
-            // we already have recorded an earlier execution of the node, so we don't care about a later execution
-            {
-                ()
-            }
+                // we already have recorded an earlier execution of the node, so we don't care about a later execution
+                {}
             None => {
                 enable_mappings.insert(id, (cur_clock, cur_clock + latency));
             }
@@ -189,18 +187,17 @@ impl StaticParDomination {
         match sc {
             ir::StaticControl::Empty(_) => cur_state,
             ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
-                match cur_state {
-                    Some(cur_state_unwrapped) => {
-                        let enable_id = ControlId::get_guaranteed_id_static(sc);
-                        let latency = group.borrow().get_latency();
-                        Some(self.update_guaranteed_enable(
-                            enable_id,
-                            latency,
-                            cur_state_unwrapped,
-                            guaranteed_execution,
-                        ))
-                    }
-                    None => cur_state,
+                if let Some(cur_state_unwrapped) = cur_state {
+                    let enable_id = ControlId::get_guaranteed_id_static(sc);
+                    let latency = group.borrow().get_latency();
+                    Some(self.update_node(
+                        enable_id,
+                        latency,
+                        cur_state_unwrapped,
+                        guaranteed_execution,
+                    ))
+                } else {
+                    cur_state
                 }
             }
             ir::StaticControl::If(ir::StaticIf {
@@ -214,16 +211,13 @@ impl StaticParDomination {
                 self.build_time_map_static(fbranch, cur_state, false);
                 let if_id =
                     ControlId::get_guaranteed_attribute_static(sc, BEGIN_ID);
-                match cur_state {
-                    Some(cur_state_unwrapped) => {
-                        self.update_guaranteed_enable(
-                            if_id,
-                            1,
-                            cur_state_unwrapped,
-                            guaranteed_execution,
-                        );
-                    }
-                    None => (),
+                if let Some(cur_state_unwrapped) = cur_state {
+                    self.update_node(
+                        if_id,
+                        1,
+                        cur_state_unwrapped,
+                        guaranteed_execution,
+                    );
                 }
 
                 cur_state.map(|(parent_par, cur_clock)| {
@@ -241,12 +235,9 @@ impl StaticParDomination {
                     cur_state,
                     guaranteed_execution,
                 );
-                match cur_state {
-                    Some((par_id, cur_clock_cycle)) => {
-                        Some((par_id, cur_clock_cycle + sc.get_latency()))
-                    }
-                    None => None,
-                }
+                cur_state.map(|(par_id, cur_clock_cycle)| {
+                    (par_id, cur_clock_cycle + sc.get_latency())
+                })
             }
             ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
                 // this works whether or not cur_state is None or Some
