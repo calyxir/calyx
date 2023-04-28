@@ -229,7 +229,7 @@ impl StaticParDomination {
             }
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 // we only need to look thru the body once either way, since we only
-                // care about the *first* execution of an enable
+                // care about the *first* execution of a node
                 self.build_time_map_static(
                     body,
                     cur_state,

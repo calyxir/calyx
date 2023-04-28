@@ -87,7 +87,7 @@ const END_ID: &str = "END_ID";
 /// see how it will dominate the end node.
 #[derive(Default)]
 pub struct DominatorMap {
-    /// Map from enable ids to the ids of enables that dominate it
+    /// Map from node (either invokes, enables, or if/while ports) ids to the ids of nodes that dominate it
     pub map: HashMap<u64, HashSet<u64>>,
     /// Maps ids of control stmts, to the "last" nodes in them. By "last" is meant
     /// the final node that will be executed in them. For invokes and enables, it
@@ -354,12 +354,15 @@ impl DominatorMap {
         self.update_static_dominators();
     }
 
+    // updates static dominators based on self.static_par_domination
+    // this can more aggresively add dominators to the map by
+    // using the timing guarantees of static par
     fn update_static_dominators(&mut self) {
         let new_static_domminators =
             self.static_par_domination.get_static_dominators();
-        for (enable_id, enable_dominators) in new_static_domminators {
-            let cur_dominators = self.map.entry(enable_id).or_default();
-            cur_dominators.extend(enable_dominators);
+        for (node_id, node_dominators) in new_static_domminators {
+            let cur_dominators = self.map.entry(node_id).or_default();
+            cur_dominators.extend(node_dominators);
         }
     }
 
