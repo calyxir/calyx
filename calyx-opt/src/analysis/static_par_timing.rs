@@ -15,8 +15,6 @@ type ThreadTimingMap = HashMap<u64, CellTimingMap>;
 pub struct StaticParTiming {
     /// Map from par block ids to cell_timing_maps
     pub cell_map: HashMap<u64, ThreadTimingMap>,
-    /// enable_liveness_maps
-    pub enable_timing_map: HashMap<u64, HashMap<u64, (u64, u64)>>,
     /// name of component
     component_name: ir::Id,
 }
@@ -133,14 +131,14 @@ impl StaticParTiming {
                     // a in the iteration
                     match a1.cmp(b1) {
                         std::cmp::Ordering::Less => {
-                            if a2 >= b1 {
+                            if a2 > b1 {
                                 return true;
                             } else {
                                 cur_a = a_iter.next();
                             }
                         }
                         std::cmp::Ordering::Greater => {
-                            if b2 >= a1 {
+                            if b2 > a1 {
                                 return true;
                             } else {
                                 cur_b = b_iter.next();
@@ -188,32 +186,15 @@ impl StaticParTiming {
                 // that contains a while loop, and that while loop
                 // contains another par block.
                 match interval_vec.last() {
-                    None => {
-                        interval_vec.push((cur_clock, cur_clock + latency - 1))
-                    }
+                    None => interval_vec.push((cur_clock, cur_clock + latency)),
                     Some(interval) => {
-                        if *interval != (cur_clock, cur_clock + latency - 1) {
-                            interval_vec
-                                .push((cur_clock, cur_clock + latency - 1))
+                        if *interval != (cur_clock, cur_clock + latency) {
+                            interval_vec.push((cur_clock, cur_clock + latency))
                         }
                     }
                 }
             }
         }
-        let enable_mappings = self.enable_timing_map.entry(par_id).or_default();
-        // maps enable ids -> clock cycles that they're live in
-        match enable_mappings.get(&id) {
-            Some(_) =>
-            // we already have an earlier execution of the group, so we don't care about a later execution
-            {
-                ()
-            }
-            None => {
-                enable_mappings
-                    .insert(id, (cur_clock, cur_clock + latency - 1));
-            }
-        }
-
         (par_id, thread_id, cur_clock + latency)
     }
 
@@ -238,12 +219,11 @@ impl StaticParTiming {
                 tbranch, fbranch, ..
             }) => match cur_state {
                 Some((parent_par, thread_id, cur_clock)) => {
-                    let latency = sc.get_latency();
                     // we already know parent par + latency of the if stmt, so don't
                     // care about return type: we just want to add enables to the timing map
                     self.build_time_map_static(tbranch, cur_state, live);
                     self.build_time_map_static(fbranch, cur_state, live);
-                    Some((parent_par, thread_id, cur_clock + latency))
+                    Some((parent_par, thread_id, cur_clock + sc.get_latency()))
                 }
                 None => {
                     // should still look thru the branches in case there are static pars
@@ -308,7 +288,7 @@ impl StaticParTiming {
                         Some((
                             ControlId::get_guaranteed_id_static(sc),
                             ControlId::get_guaranteed_id_static(stmt),
-                            1,
+                            0,
                         )),
                         live,
                     );
@@ -320,17 +300,13 @@ impl StaticParTiming {
                 // Might be overkill, but trying to keep the analysis general.
                 match cur_state {
                     Some((cur_parent_par, cur_thread, cur_clock)) => {
-                        let mut max_latency = 0;
                         for stmt in stmts {
                             self.build_time_map_static(stmt, cur_state, live);
-                            let cur_latency = stmt.get_latency();
-                            max_latency =
-                                std::cmp::max(max_latency, cur_latency)
                         }
                         Some((
                             cur_parent_par,
                             cur_thread,
-                            cur_clock + max_latency,
+                            cur_clock + sc.get_latency(),
                         ))
                     }
                     None => None,

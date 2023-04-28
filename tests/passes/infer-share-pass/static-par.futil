@@ -1,0 +1,47 @@
+// -p infer-share
+
+//
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+
+component example(in: 32) -> (out: 32) {
+  cells {
+    a = std_reg(32);
+    b = std_reg(32);
+    adder = std_add(32);
+  }
+  wires {
+    static group A <1>{
+      a.in = 32'd2; 
+      a.write_en = 1'd1; 
+    }
+    static group B <1>{
+      b.write_en = 1'd1; 
+      b.in = 32'd7; 
+    }
+    static group read_A <1> {
+      adder.left = a.out; 
+      adder.right = 32'd2; 
+      a.in = adder.out; 
+      a.write_en = 1'd1; 
+    }
+    out = a.out;
+  }
+  control {
+    static par {
+      A; 
+      static seq {B; read_A; }
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+  }
+  wires {
+  }
+  control {
+  }
+}

@@ -369,7 +369,7 @@ impl Printer {
                 ..
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static repeat {} ", num_repeats)?;
+                write!(f, "static repeat {} ", num_repeats)?;
                 writeln!(f, "{{")?;
                 Self::write_static_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))

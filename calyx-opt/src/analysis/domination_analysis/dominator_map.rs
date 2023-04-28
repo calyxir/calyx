@@ -95,6 +95,10 @@ pub struct DominatorMap {
     /// and for if statements it will be the "if" nods. For pars in seqs, you
     /// have to look inside the children to see what their "last" nodes are.
     pub exits_map: HashMap<u64, HashSet<u64>>,
+    /// an analysis to help domination across static pars
+    /// static pars give us more precise timing guarantees and therefore allow
+    /// us to more aggresively assign dominators
+    pub static_par_domination: crate::analysis::StaticParDomination,
     pub component_name: ir::Id,
 }
 
@@ -125,7 +129,16 @@ impl Debug for DominatorMap {
 
 #[inline]
 fn get_id_static<const BEGIN: bool>(c: &ir::StaticControl) -> u64 {
-    let v = c.get_attribute(NODE_ID);
+    let v = match c {
+        ir::StaticControl::If(_) => {
+            if BEGIN {
+                c.get_attribute(BEGIN_ID)
+            } else {
+                c.get_attribute(END_ID)
+            }
+        }
+        _ => c.get_attribute(NODE_ID),
+    };
     v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
     ))
@@ -244,10 +257,14 @@ impl DominatorMap {
         let mut map = DominatorMap {
             map: HashMap::new(),
             exits_map: HashMap::new(),
+            static_par_domination: crate::analysis::StaticParDomination::new(
+                control,
+                component_name,
+            ),
             component_name,
         };
         map.build_exit_map(control);
-        map.build_map(control, component_name);
+        map.build_map(control);
         map
     }
 
@@ -327,38 +344,22 @@ impl DominatorMap {
 
     // Builds the domination map by running update_map() until the map
     // stops changing.
-    fn build_map(&mut self, main_c: &mut ir::Control, component_name: ir::Id) {
+    fn build_map(&mut self, main_c: &mut ir::Control) {
         let mut og_map = self.map.clone();
         self.update_map(main_c, 0, &HashSet::new());
         while og_map != self.map {
             og_map = self.map.clone();
             self.update_map(main_c, 0, &HashSet::new());
         }
-        let static_par_domination =
-            crate::analysis::StaticParDomination::new(main_c, component_name);
-        self.update_static_mapping(static_par_domination);
+        self.update_static_dominators();
     }
 
-    fn update_static_mapping(
-        &mut self,
-        static_par_domination: crate::analysis::StaticParDomination,
-    ) {
-        let enable_mapping = static_par_domination.enable_timing_map;
-        for (_, enable_interval_mapping) in enable_mapping {
-            // Very simple/naive algorithm, simply iterates thru enable_interval_vec twice, checking
-            // each possible interval for domination
-            for (enable_id1, (_, end1)) in enable_interval_mapping.clone() {
-                for (enable_id2, (beg2, _)) in enable_interval_mapping.clone() {
-                    // check if 1 dominates 2
-                    // if so, add 1 to 2's entry
-                    if end1 < beg2 {
-                        self.map
-                            .entry(enable_id2)
-                            .or_default()
-                            .insert(enable_id1);
-                    }
-                }
-            }
+    fn update_static_dominators(&mut self) {
+        let new_static_domminators =
+            self.static_par_domination.get_static_dominators();
+        for (enable_id, enable_dominators) in new_static_domminators {
+            let cur_dominators = self.map.entry(enable_id).or_default();
+            cur_dominators.extend(enable_dominators);
         }
     }
 
