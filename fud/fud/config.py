@@ -129,6 +129,17 @@ class DynamicDict:
                 data = data[k]
         data[lastkey] = val
 
+    def _merge_helper(self, store, cur_key=()):
+        for k, v in store.items():
+            if isinstance(v, dict):
+                self._merge_helper(v, cur_key + (k,))
+            else:
+                self[cur_key + (k,)] = v
+
+    def merge_dict(self, store):
+        """Recursively Merge a dictionary into the current dictionary"""
+        self._merge_helper(store)
+
     def __delitem__(self, keys):
         if isinstance(keys, str):
             keys = (keys,)
@@ -379,14 +390,17 @@ class Configuration:
 
         return path
 
+    def get(self, keys):
+        return self.config.get(keys)
+
+    def update_all(self, dict):
+        self.config.merge_dict(dict)
+
     def __getitem__(self, keys):
         try:
             return self.config[keys]
         except KeyError:
             raise errors.UnsetConfiguration(keys)
-
-    def get(self, keys):
-        return self.config.get(keys)
 
     def __setitem__(self, keys, val):
         self.config[keys] = val
