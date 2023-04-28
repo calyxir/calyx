@@ -32,7 +32,7 @@ pub enum PortComp {
 }
 
 /// An assignment guard which has pointers to the various ports from which it reads.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Guard<T> {
     /// Represents `c1 || c2`.
     Or(Box<Guard<T>>, Box<Guard<T>>),
@@ -40,6 +40,7 @@ pub enum Guard<T> {
     And(Box<Guard<T>>, Box<Guard<T>>),
     /// Represents `!c1`
     Not(Box<Guard<T>>),
+    #[default]
     /// The constant true
     True,
     /// Comparison operator.
@@ -50,13 +51,7 @@ pub enum Guard<T> {
     Info(T),
 }
 
-impl<T> Default for Guard<T> {
-    fn default() -> Self {
-        Guard::True
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct StaticTiming {
     interval: (u64, u64),
 }
@@ -72,12 +67,19 @@ impl ToString for StaticTiming {
 }
 
 impl StaticTiming {
+    /// creates a new `StaticTiming` struct
     pub fn new(interval: (u64, u64)) -> Self {
         StaticTiming { interval }
     }
 
+    /// returns the (u64, u64) interval for `struct`
     pub fn get_interval(&self) -> (u64, u64) {
         self.interval
+    }
+
+    /// overwrites the current `interval` to be `new_interval`
+    pub fn set_interval(&mut self, new_interval: (u64, u64)) {
+        self.interval = new_interval;
     }
 }
 
@@ -363,12 +365,13 @@ impl<T> Guard<T> {
                 {}
         }
     }
-}
 
-impl<StaticTiming> Guard<StaticTiming> {
+    /// runs f(interval) on each interval in `guard`.
+    /// if `f(interval)` = Some(result)` replaces interval with result.
+    /// if `f(interval)` = None` does nothing.
     pub fn for_each_interval<F>(&mut self, f: &mut F)
     where
-        F: FnMut(&mut StaticTiming) -> Option<Guard<StaticTiming>>,
+        F: FnMut(&mut T) -> Option<Guard<T>>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
@@ -387,9 +390,12 @@ impl<StaticTiming> Guard<StaticTiming> {
         }
     }
 
+    /// runs f(interval) on each interval in `guard`.
+    /// f should return Result<(), Error>, meaning that it essentially does
+    /// nothing if the `f` returns OK(()), but returns an appropraite error otherwise
     pub fn check_for_each_interval<F>(&self, f: &mut F) -> Result<(), Error>
     where
-        F: Fn(&StaticTiming) -> Result<(), Error>,
+        F: Fn(&T) -> Result<(), Error>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
@@ -404,6 +410,16 @@ impl<StaticTiming> Guard<StaticTiming> {
             Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => Ok(()),
             Guard::Info(timing_interval) => f(timing_interval),
         }
+    }
+}
+
+impl<T> Guard<T>
+where
+    T: Eq,
+{
+    /// updates self -> self & interval
+    pub fn add_interval(&mut self, interval: T) {
+        self.update(|g| g.and(Guard::Info(interval)));
     }
 }
 

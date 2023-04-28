@@ -206,4 +206,88 @@ impl ControlId {
     pub fn get_guaranteed_id_static(sc: &ir::StaticControl) -> u64 {
         Self::get_guaranteed_attribute_static(sc, NODE_ID)
     }
+
+    // takes in a static control scon, and adds unique id to each static enable.
+    // Returns cur_state, i.e., what the next enable should be labeled as
+    pub fn add_static_enable_ids_static(
+        scon: &mut ir::StaticControl,
+        mut cur_state: u64,
+    ) -> u64 {
+        match scon {
+            ir::StaticControl::Enable(se) => {
+                se.attributes.insert(NODE_ID, cur_state);
+                cur_state + 1
+            }
+            ir::StaticControl::Invoke(_) | ir::StaticControl::Empty(_) => {
+                cur_state
+            }
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. })
+            | ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+                for stmt in stmts {
+                    let new_state =
+                        Self::add_static_enable_ids_static(stmt, cur_state);
+                    cur_state = new_state
+                }
+                cur_state
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch, fbranch, ..
+            }) => {
+                let mut new_state =
+                    Self::add_static_enable_ids_static(tbranch, cur_state);
+                cur_state = new_state;
+                new_state =
+                    Self::add_static_enable_ids_static(fbranch, cur_state);
+                new_state
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                Self::add_static_enable_ids_static(body, cur_state)
+            }
+        }
+    }
+
+    // takes in ir::Control `con`, and adds unique id to every static enable within it.
+    // returns u64 `cur_state` that says what the next staticenable should be labeled as.
+    pub fn add_static_enable_ids(
+        con: &mut ir::Control,
+        mut cur_state: u64,
+    ) -> u64 {
+        match con {
+            ir::Control::Enable(_)
+            | ir::Control::Invoke(_)
+            | ir::Control::Empty(_) => cur_state,
+            ir::Control::Par(ir::Par { stmts, .. })
+            | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+                for stmt in stmts {
+                    let new_state =
+                        Self::add_static_enable_ids(stmt, cur_state);
+                    cur_state = new_state
+                }
+                cur_state
+            }
+            ir::Control::If(ir::If {
+                tbranch, fbranch, ..
+            }) => {
+                let mut new_state =
+                    Self::add_static_enable_ids(tbranch, cur_state);
+                cur_state = new_state;
+                new_state = Self::add_static_enable_ids(fbranch, cur_state);
+                new_state
+            }
+            ir::Control::While(ir::While { body, .. }) => {
+                Self::add_static_enable_ids(body, cur_state)
+            }
+            ir::Control::Static(s) => {
+                Self::add_static_enable_ids_static(s, cur_state)
+            }
+        }
+    }
+
+    // Gets NODE_ID from StaticEnable se, panics otherwise. Should be used when you know
+    // that se has attributes NODE_ID.
+    pub fn get_guaranteed_enable_id(se: &ir::StaticEnable) -> u64 {
+        se.get_attribute(NODE_ID).unwrap_or_else(||unreachable!(
+          "called get_guaranteed_enable_id, meaning we had to be sure it had a NODE_ID attribute"
+      ))
+    }
 }

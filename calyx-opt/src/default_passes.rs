@@ -5,9 +5,10 @@ use crate::passes::{
     ComponentInliner, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
     Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
     InferShare, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveCombGroups, RemoveIds,
-    ResetInsertion, StaticParConv, SynthesisPapercut, TopDownCompileControl,
-    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
+    Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    SimplifyWithControl, StaticInliner, StaticParConv, SynthesisPapercut,
+    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
+    WireInliner,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -39,9 +40,10 @@ impl PassManager {
         pm.register_pass::<StaticParConv>()?;
 
         // Compilation passes
+        pm.register_pass::<StaticInliner>()?;
         pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;
-        pm.register_pass::<RemoveCombGroups>()?;
+        pm.register_pass::<SimplifyWithControl>()?;
         pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
         pm.register_pass::<CompileRef>()?;
@@ -82,7 +84,7 @@ impl PassManager {
                 ComponentInliner,
                 CombProp,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
-                RemoveCombGroups, // Must run before infer-static-timing
+                SimplifyWithControl, // Must run before infer-static-timing
                 InferStaticTiming,
                 CompileInvoke,    // creates dead comb groups
                 StaticParConv, // Must be before collapse-control and merge-static-par
@@ -94,7 +96,12 @@ impl PassManager {
         register_alias!(
             pm,
             "compile",
-            [CompileStatic, TopDownStaticTiming, TopDownCompileControl]
+            [
+                StaticInliner,
+                CompileStatic,
+                TopDownStaticTiming,
+                TopDownCompileControl
+            ]
         );
         register_alias!(
             pm,
@@ -128,7 +135,7 @@ impl PassManager {
                 "validate",
                 CompileSync,
                 CompileRef,
-                RemoveCombGroups,
+                SimplifyWithControl,
                 CompileInvoke,
                 "compile",
                 "lower"
