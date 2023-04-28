@@ -311,7 +311,15 @@ def main():
         if args.config_file is not None:
             # Parse the TOML file
             override = toml.load(args.config_file)
-            cfg.update_all(override)
+            for key, value in override.items():
+                if key != "stages":
+                    log.warn(
+                        f"Ignoring key `{key}' in config file."
+                        + " Only 'stages' is allowed as a top-level key."
+                    )
+            # Hide all unused keys
+            override = override["stages"]
+            cfg.update_all({"stages": override})
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
