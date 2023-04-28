@@ -3,7 +3,7 @@ use super::parser;
 use crate::{Attributes, PortDef, Primitive};
 use atty::Stream;
 use calyx_utils::{CalyxResult, Error, GPosIdx, Id};
-use std::path::PathBuf;
+use std::{num::NonZeroU64, path::PathBuf};
 
 /// Corresponds to an individual Calyx file.
 #[derive(Debug)]
@@ -351,9 +351,9 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
         /// Optional latency for the seq
-        latency: Option<u64>,
+        latency: Option<NonZeroU64>,
     },
-    /// Represents sequential composition of static control statements.
+    /// Represents parallel composition of static control statements.
     StaticPar {
         /// List of `Control` statements to run in sequence.
         /// If not all of these stmts are static, we should error out
@@ -361,7 +361,7 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
         /// Optional latency for the par
-        latency: Option<u64>,
+        latency: Option<NonZeroU64>,
     },
     /// Static if statement.
     StaticIf {
@@ -378,9 +378,9 @@ pub enum Control {
         attributes: Attributes,
 
         /// Optional latency; should be the longer of the two branches
-        latency: Option<u64>,
+        latency: Option<NonZeroU64>,
     },
-    /// Standard imperative if statement
+    /// Static Repeat (essentially a bounded while loop w/o a condition)
     StaticRepeat {
         /// Control for the true branch.
         num_repeats: u64,

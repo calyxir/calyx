@@ -8,6 +8,7 @@ use calyx_frontend::{ast, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroU64;
 use std::rc::Rc;
 
 /// Context to store the signature information for all defined primitives and
@@ -573,10 +574,14 @@ fn build_static_guard(
 
 ///////////////// Control Construction /////////////////////////
 
-fn assert_latencies_eq(given_latency: Option<u64>, inferred_latency: u64) {
+fn assert_latencies_eq(
+    given_latency: Option<NonZeroU64>,
+    inferred_latency: u64,
+) {
     if let Some(v) = given_latency {
         assert_eq!(
-            v, inferred_latency,
+            v.get(),
+            inferred_latency,
             "inferred latency: {inferred_latency}, given latency: {v}"
         )
     };
@@ -586,7 +591,7 @@ fn assert_latencies_eq(given_latency: Option<u64>, inferred_latency: u64) {
 fn build_static_seq(
     stmts: Vec<ast::Control>,
     attributes: Attributes,
-    latency: Option<u64>,
+    latency: Option<NonZeroU64>,
     builder: &mut Builder,
 ) -> CalyxResult<StaticControl> {
     let ir_stmts = stmts
@@ -604,7 +609,7 @@ fn build_static_seq(
 fn build_static_par(
     stmts: Vec<ast::Control>,
     attributes: Attributes,
-    latency: Option<u64>,
+    latency: Option<NonZeroU64>,
     builder: &mut Builder,
 ) -> CalyxResult<StaticControl> {
     let ir_stmts = stmts
@@ -629,7 +634,7 @@ fn build_static_if(
     tbranch: ast::Control,
     fbranch: ast::Control,
     attributes: Attributes,
-    latency: Option<u64>,
+    latency: Option<NonZeroU64>,
     builder: &mut Builder,
 ) -> CalyxResult<StaticControl> {
     let ir_tbranch = build_static_control(tbranch, builder)?;
