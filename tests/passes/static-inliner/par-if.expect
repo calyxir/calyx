@@ -14,20 +14,20 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   wires {
     static group static_par<4> {
       cond.in = %[0:2] ? lt.out;
-      cond_wire.in = %0 & %[0:2] ? lt.out;
-      cond.write_en = %0 & %[0:2] ? 1'd1;
-      cond_wire.in = %1 & %[0:2] ? cond.out;
-      a.in = %[0:2] & cond_wire.out & %[0:2] ? 2'd0;
-      a.write_en = %0 & %[0:2] & cond_wire.out & %[0:2] ? 1'd1;
-      b.in = %[0:2] & cond_wire.out & %[0:2] ? 2'd1;
-      b.write_en = %1 & %[0:2] & cond_wire.out & %[0:2] ? 1'd1;
-      c.in = %0 & !cond_wire.out & %[0:2] ? 2'd2;
-      c.write_en = %0 & !cond_wire.out & %[0:2] ? 1'd1;
-      mult.left = %[0:3] & %[0:4] ? 2'd1;
-      mult.right = %[0:3] & %[0:4] ? 2'd3;
-      mult.go = %[0:3] & %[0:4] ? 1'd1;
-      c.in = %3 & %[0:4] ? 2'd2;
-      c.write_en = %3 & %[0:4] ? 1'd1;
+      cond_wire.in = %0 ? lt.out;
+      cond.write_en = %0 ? 1'd1;
+      cond_wire.in = %1 ? cond.out;
+      a.in = cond_wire.out & %[0:2] ? 2'd0;
+      a.write_en = cond_wire.out & %0 ? 1'd1;
+      b.in = cond_wire.out & %[0:2] ? 2'd1;
+      b.write_en = cond_wire.out & %1 ? 1'd1;
+      c.in = !cond_wire.out & %0 ? 2'd2;
+      c.write_en = !cond_wire.out & %0 ? 1'd1;
+      mult.left = %[0:3] ? 2'd1;
+      mult.right = %[0:3] ? 2'd3;
+      mult.go = %[0:3] ? 1'd1;
+      c.in = %3 ? 2'd2;
+      c.write_en = %3 ? 1'd1;
     }
   }
 

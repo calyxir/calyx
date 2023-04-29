@@ -465,7 +465,7 @@ impl<StaticTiming> Assignment<StaticTiming> {
     where
         F: FnMut(&mut StaticTiming) -> Option<Guard<StaticTiming>>,
     {
-        self.guard.for_each_interval(&mut |interval| f(interval))
+        self.guard.for_each_info(&mut |interval| f(interval))
     }
 }
 

@@ -33,7 +33,7 @@ pub use control::{
     StaticRepeat, StaticSeq, While,
 };
 pub use flat_guard::{FlatGuard, GuardPool, GuardRef};
-pub use guard::{Guard, Nothing, PortComp, StaticTiming};
+pub use guard::{Guard, Interval, Nothing, PortComp, StaticTiming};
 pub use printer::Printer;
 pub use reserved_names::RESERVED_NAMES;
 pub use rewriter::Rewriter;

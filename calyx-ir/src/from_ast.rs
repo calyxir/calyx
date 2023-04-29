@@ -3,10 +3,11 @@ use super::{
     Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
     LibrarySignatures, Port, PortDef, StaticControl, RESERVED_NAMES, RRC,
 };
-use crate::{Nothing, PortComp, StaticTiming};
+use crate::{guard::Interval, Nothing, PortComp, StaticTiming};
 use calyx_frontend::{ast, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
 use std::cell::RefCell;
+
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU64;
 use std::rc::Rc;

@@ -5,7 +5,7 @@ use calyx_ir::{
 };
 use calyx_utils::{CalyxResult, Error, WithPos};
 use ir::Nothing;
-use ir::StaticTiming;
+use ir::{Interval, StaticTiming};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
@@ -309,7 +309,7 @@ impl Visitor for WellFormed {
             let group = gr.borrow();
             // Check that for each interval %[beg, end], end > beg.
             for assign in &group.assignments {
-                assign.guard.check_for_each_interval(
+                assign.guard.check_for_each_info(
                     &mut |static_timing: &StaticTiming| {
                         if static_timing.get_interval().0
                             >= static_timing.get_interval().1
