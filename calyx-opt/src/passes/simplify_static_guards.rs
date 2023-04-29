@@ -3,13 +3,13 @@ use calyx_ir as ir;
 use calyx_ir::Interval;
 
 #[derive(Default)]
-/// Simplifies Static Guards 
-/// In particular if g = g1 & g2 & ...gn, then it takes all of the g_i's that 
-/// are "static timing intervals", e.g., %[2:3], and combines them into one 
-/// timing interval. 
-/// For example: (port.out | !port1.out) & (port2.out == port3.out) & %[2:8] & %[5:10] ? 
-/// becomes (port.out | !port1.out) & (port2.out == port3.out) & %[5:8] ? 
-/// by "combining: %[2:8] & %[5:10]
+/// Simplifies Static Guards
+/// In particular if g = g1 & g2 & ...gn, then it takes all of the g_i's that
+/// are "static timing intervals", e.g., %[2:3], and combines them into one
+/// timing interval.
+/// For example: (port.out | !port1.out) & (port2.out == port3.out) & %[2:8] & %[5:10] ?
+/// becomes (port.out | !port1.out) & (port2.out == port3.out) & %[5:8] ?
+/// by "combining" %[2:8] & %[5:10]
 pub struct SimplifyStaticGuards;
 
 impl Named for SimplifyStaticGuards {
@@ -23,12 +23,12 @@ impl Named for SimplifyStaticGuards {
 }
 
 impl SimplifyStaticGuards {
-    /// takes in g, and separates the "anded intervals" from the rest of the guard. 
+    /// takes in g, and separates the "anded intervals" from the rest of the guard.
     /// In other words, if we can rewrite g as g1 & g2 & .... gn, then
-    /// we take all of the g_i's that are static timing intervals (e.g., %[2:3]) 
-    /// and return a vec of (u64, u64)s. We also take the Some(rest of guard) (i.e.,
-    /// the parts that aren't "anded" intervals) if they exist 
-    /// e.g.: 
+    /// we take all of the g_i's that are static timing intervals (e.g., %[2:3])
+    /// and return a vec of (u64, u64)s. We also return the Some(rest of guard) (i.e.,
+    /// the parts that aren't "anded" intervals) if they exist
+    /// e.g.:
     /// port.out & port1.out & %[3:5] & %[4:6] -> Some(port.out & port1.out), vec[(3,5), (4,6)]
     /// %[3:5] & %[4:6] -> None, vec[(3,5), (4,6)]
     pub fn separate_anded_intervals(
@@ -47,11 +47,11 @@ impl SimplifyStaticGuards {
                 let (rest_g2, intervals_g2) =
                     Self::separate_anded_intervals(*g2);
                 let remaining_guard = match (rest_g1, rest_g2) {
-                    // both g1 and g2 are entirely made up of static timing guards 
+                    // both g1 and g2 are entirely made up of static timing guards
                     (None, None) => None,
-                    // one of g1 or g2 is made up entirely of static timing guards 
+                    // one of g1 or g2 is made up entirely of static timing guards
                     (None, Some(g)) | (Some(g), None) => Some(g),
-                    // both g1 and g2 have non-static timing guards 
+                    // both g1 and g2 have non-static timing guards
                     (Some(g1_unwrapped), Some(g2_unwrapped)) => {
                         Some(ir::Guard::And(
                             Box::new(g1_unwrapped),
@@ -59,23 +59,23 @@ impl SimplifyStaticGuards {
                         ))
                     }
                 };
-                // should extend g1 intervals to include g2 intervals 
+                // should extend g1 intervals to include g2 intervals
                 intervals_g1.extend(intervals_g2);
                 (remaining_guard, intervals_g1)
             }
             ir::Guard::Info(static_timing_info) => {
-                // no "rest of guard" for static intervals 
+                // no "rest of guard" for static intervals
                 (None, vec![static_timing_info.get_interval()])
             }
         }
     }
 
-    /// Takes in a guard and returns the simplified guard 
-    /// In particular if g = g1 & g2 & ...gn, then it takes all of the g_i's that 
-    /// are "static timing intervals", e.g., %[2:3], and combines them into one 
-    /// timing interval. 
-    /// For example: (port.out | !port1.out) & (port2.out == port3.out) & %[2:8] & %[5:10] ? 
-    /// becomes (port.out | !port1.out) & (port2.out == port3.out) & %[5:8] ? 
+    /// Takes in a guard and returns the simplified guard
+    /// In particular if g = g1 & g2 & ...gn, then it takes all of the g_i's that
+    /// are "static timing intervals", e.g., %[2:3], and combines them into one
+    /// timing interval.
+    /// For example: (port.out | !port1.out) & (port2.out == port3.out) & %[2:8] & %[5:10] ?
+    /// becomes (port.out | !port1.out) & (port2.out == port3.out) & %[5:8] ?
     /// by "combining: %[2:8] & %[5:10]
     fn simplify_guard(
         guard: ir::Guard<ir::StaticTiming>,
@@ -86,12 +86,12 @@ impl SimplifyStaticGuards {
         // first simplify the vec of `anded_intervals` into a single interval
         let replacing_interval = {
             if anded_intervals.is_empty() {
-                // if there were no static timing guards (i.e., no %[2:3]), then 
+                // if there were no static timing guards (i.e., no %[2:3]), then
                 // there is no "replacing intervals"
                 None
             } else {
-                // the replacing intervals should just be the latest beginning interval 
-                // combined with the earliest ending interval, since we know that all of 
+                // the replacing intervals should just be the latest beginning interval
+                // combined with the earliest ending interval, since we know that all of
                 // the intervals are connected by &.
                 let (mut max_beg, mut min_end) = anded_intervals.pop().unwrap();
                 for (cur_beg, cur_end) in anded_intervals {
@@ -99,20 +99,22 @@ impl SimplifyStaticGuards {
                     min_end = std::cmp::min(cur_end, min_end);
                 }
                 if max_beg >= min_end {
-                    // if the vec was something like %[2:3] | %[4:5], then this is always false 
+                    // if the vec was something like %[2:3] | %[4:5], then this is always false
                     // if max_beg >= min_end, then guard is always false
                     return ir::Guard::Not(Box::new(ir::Guard::True));
                 } else {
-                    // otherwise return the single interval as the "new" interval 
-                    Some(ir::Guard::Info(ir::StaticTiming::new((max_beg, min_end))))
+                    // otherwise return the single interval as the "new" interval
+                    Some(ir::Guard::Info(ir::StaticTiming::new((
+                        max_beg, min_end,
+                    ))))
                 }
             }
         };
 
-        // now based on `rest_guard` and `replacing_interval` we create the final guard  
+        // now based on `rest_guard` and `replacing_interval` we create the final guard
         match (rest_guard, replacing_interval) {
             (None, None) => unreachable!("rest_guard and replacing_interval are empty, meaning guard would have been empty, which is impossible"), 
-            (None, Some(g)) | (Some(g), None) => g, 
+            (None, Some(g)) | (Some(g), None) => g,
             (Some(rg), Some(ig)) => ir::Guard::And(Box::new(rg), Box::new(ig))
         }
     }

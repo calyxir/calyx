@@ -425,7 +425,6 @@ where
 {
     /// updates self -> self & interval
     pub fn add_interval(&mut self, timing_interval: T) {
-        // check if self & interval = self (i.e., interval is redundant)
         self.update(|g| g.and(Guard::Info(timing_interval)));
     }
 }
