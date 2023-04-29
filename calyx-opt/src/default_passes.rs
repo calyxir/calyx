@@ -6,8 +6,8 @@ use crate::passes::{
     DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
     GroupToSeq, HoleInliner, InferShare, InferStaticTiming, LowerGuards,
     MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
-    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl, StaticInliner,
-    StaticParConv, SynthesisPapercut, TopDownCompileControl,
+    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
+    StaticInliner, StaticParConv, SynthesisPapercut, TopDownCompileControl,
     TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::traversal::Named;
