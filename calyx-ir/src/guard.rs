@@ -421,79 +421,12 @@ impl<T> Guard<T> {
 
 impl<T> Guard<T>
 where
-    T: Interval + Eq,
+    T: Eq,
 {
     /// updates self -> self & interval
     pub fn add_interval(&mut self, timing_interval: T) {
         // check if self & interval = self (i.e., interval is redundant)
-        if !self.interval_redundant(timing_interval.get_interval()) {
-            self.update(|g| g.and(Guard::Info(timing_interval)));
-        }
-    }
-
-    pub fn pop_anded_intervals(&mut self) -> Vec<(u64, u64)> {
-        match self {
-            Guard::Not(_)
-            | Guard::Or(_, _)
-            | Guard::True
-            | Guard::CompOp(_, _, _)
-            | Guard::Port(_) =>
-            // technically it might include a smaller guard, but that doesn't matter
-            // since we're already messed up by the not/or
-            {
-                vec![]
-            }
-            Guard::And(g1, g2) => {
-                // if either g1 or g2 is redundant with the interval, then the
-                // entire expression is redundant with the interval
-                let mut v1 = g1.pop_anded_intervals();
-                let v2 = g2.pop_anded_intervals();
-                v1.extend(v2);
-                v1
-            }
-            Guard::Info(static_timing_info) => {
-                let interval = static_timing_info.get_interval();
-                self.update(|_| Guard::True);
-                vec![interval]
-            }
-        }
-    }
-    // takes in self and a (u64, u64) interval, and returns whether interval is redundant or not
-    // (i.e., if self & interval == self) and therefore it is unnecessary to add `interval`.
-    // This is conservative (i.e., will not necesarily detect every instance of redundance)
-    // The intuition behind the function is the following:
-    // if self = g1 & g2 & .... g_interval.... & g_n
-    // and g_interval is fully "covered" by interval, then
-    // self & interval = self (i.e., & interval is redundant).
-    // The key is that the g_interval can't be nested inside a `|` or `!`.
-    // However, g1, g2, etc. can include `|` and `!` in them.
-    fn interval_redundant(&self, interval: (u64, u64)) -> bool {
-        match self {
-            Guard::Not(_)
-            | Guard::Or(_, _)
-            | Guard::True
-            | Guard::CompOp(_, _, _)
-            | Guard::Port(_) =>
-            // technically it might include a smaller guard, but that doesn't matter
-            // since we're already messed up by the not/or
-            {
-                false
-            }
-            Guard::And(g1, g2) => {
-                // if either g1 or g2 is redundant with the interval, then the
-                // entire expression is redundant with the interval
-                g1.interval_redundant(interval)
-                    || g2.interval_redundant(interval)
-            }
-            Guard::Info(static_timing_info) => {
-                let (cur_beg, cur_end) = static_timing_info.get_interval();
-                if (cur_beg >= interval.0) & (cur_end <= interval.1) {
-                    true
-                } else {
-                    false
-                }
-            }
-        }
+        self.update(|g| g.and(Guard::Info(timing_interval)));
     }
 }
 
