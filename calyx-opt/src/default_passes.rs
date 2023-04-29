@@ -2,13 +2,13 @@
 use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, CompileStatic, CompileSync,
-    ComponentInliner, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
-    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
-    InferShare, InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar,
-    Papercut, ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
-    SimplifyStaticGuards, SimplifyWithControl, StaticInliner, StaticParConv,
-    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner,
+    CompileSyncWithoutSyncReg, ComponentInliner, DeadAssignmentRemoval,
+    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
+    GroupToSeq, HoleInliner, InferShare, InferStaticTiming, LowerGuards,
+    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
+    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl, StaticInliner,
+    StaticParConv, SynthesisPapercut, TopDownCompileControl,
+    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -49,6 +49,7 @@ impl PassManager {
         pm.register_pass::<TopDownCompileControl>()?;
         pm.register_pass::<CompileRef>()?;
         pm.register_pass::<CompileSync>()?;
+        pm.register_pass::<CompileSyncWithoutSyncReg>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -76,7 +77,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
-                CompileSync,
+                CompileSyncWithoutSyncReg,
                 GroupToSeq,
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
