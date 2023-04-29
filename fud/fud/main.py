@@ -48,7 +48,7 @@ def register_stages(registry):
     registry.register(
         futil.FutilStage(
             "verilog",
-            "-b verilog",
+            "-b verilog --disable-init",
             "Compile Calyx to Verilog instrumented for simulation",
         )
     )
