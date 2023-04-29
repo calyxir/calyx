@@ -22,9 +22,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
     static group static_seq<4> {
       a.in = %[0:2] ? 2'd0;
-      a.write_en = %0 & %[0:2] ? 1'd1;
+      a.write_en = %0 ? 1'd1;
       b.in = %[0:2] ? 2'd1;
-      b.write_en = %1 & %[0:2] ? 1'd1;
+      b.write_en = %1 ? 1'd1;
       c.in = %2 ? 2'd2;
       c.write_en = %2 ? 1'd1;
       d.in = %3 ? 2'd2;
