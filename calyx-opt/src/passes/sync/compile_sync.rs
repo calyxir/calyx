@@ -46,6 +46,7 @@ impl Named for CompileSync {
     }
 }
 
+/// put into the count set the barrier indices appearing in the thread
 fn count_barriers(
     s: &ir::Control,
     count: &mut HashSet<u64>,
