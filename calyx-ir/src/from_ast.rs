@@ -3,7 +3,7 @@ use super::{
     Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
     LibrarySignatures, Port, PortDef, StaticControl, RESERVED_NAMES, RRC,
 };
-use crate::{guard::Interval, Nothing, PortComp, StaticTiming};
+use crate::{Nothing, PortComp, StaticTiming};
 use calyx_frontend::{ast, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
 use std::cell::RefCell;

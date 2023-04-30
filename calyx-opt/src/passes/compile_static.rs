@@ -1,7 +1,7 @@
 use super::math_utilities::get_bit_width_from;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use calyx_ir::{guard, structure, GetAttributes, Interval};
+use calyx_ir::{guard, structure, GetAttributes};
 use ir::{build_assignments, Nothing, StaticTiming};
 use itertools::Itertools;
 use std::collections::HashMap;

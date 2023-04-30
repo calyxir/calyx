@@ -5,7 +5,7 @@ use calyx_ir::{
 };
 use calyx_utils::{CalyxResult, Error, WithPos};
 use ir::Nothing;
-use ir::{Interval, StaticTiming};
+use ir::StaticTiming;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;

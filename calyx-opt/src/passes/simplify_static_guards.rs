@@ -1,6 +1,5 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use calyx_ir::Interval;
 
 #[derive(Default)]
 /// Simplifies Static Guards

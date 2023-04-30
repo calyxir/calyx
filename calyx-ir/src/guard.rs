@@ -51,12 +51,6 @@ pub enum Guard<T> {
     Info(T),
 }
 
-pub trait Interval {
-    fn new(interval: (u64, u64)) -> Self;
-    fn get_interval(&self) -> (u64, u64);
-    fn set_interval(&mut self, interval: (u64, u64));
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct StaticTiming {
     interval: (u64, u64),
@@ -72,19 +66,19 @@ impl ToString for StaticTiming {
     }
 }
 
-impl Interval for StaticTiming {
+impl StaticTiming {
     /// creates a new `StaticTiming` struct
-    fn new(interval: (u64, u64)) -> Self {
+    pub fn new(interval: (u64, u64)) -> Self {
         StaticTiming { interval }
     }
 
     /// returns the (u64, u64) interval for `struct`
-    fn get_interval(&self) -> (u64, u64) {
+    pub fn get_interval(&self) -> (u64, u64) {
         self.interval
     }
 
     /// overwrites the current `interval` to be `new_interval`
-    fn set_interval(&mut self, new_interval: (u64, u64)) {
+    pub fn set_interval(&mut self, new_interval: (u64, u64)) {
         self.interval = new_interval;
     }
 }
@@ -419,12 +413,9 @@ impl<T> Guard<T> {
     }
 }
 
-impl<T> Guard<T>
-where
-    T: Eq,
-{
+impl Guard<StaticTiming> {
     /// updates self -> self & interval
-    pub fn add_interval(&mut self, timing_interval: T) {
+    pub fn add_interval(&mut self, timing_interval: StaticTiming) {
         self.update(|g| g.and(Guard::Info(timing_interval)));
     }
 }
