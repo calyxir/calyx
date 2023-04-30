@@ -120,7 +120,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             cur_state + 1
         }
         ir::Control::Seq(ir::Seq { stmts, attributes }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::Attribute::NewFSM);
             // if new_fsm is true, then insert attribute at the seq, and then
             // start over counting states from 0
             let mut cur = if new_fsm{
@@ -143,7 +143,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         ir::Control::If(ir::If {
             tbranch, fbranch, attributes, ..
         }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::Attribute::NewFSM);
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm {
@@ -173,7 +173,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             }
         }
         ir::Control::While(ir::While { body, attributes, .. }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::Attribute::NewFSM);
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm{
@@ -839,7 +839,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has new_fsm attribute
-        if !s.attributes.has("new_fsm") {
+        if !s.attributes.has(ir::Attribute::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -864,7 +864,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has new_fsm attribute
-        if !i.attributes.has("new_fsm") {
+        if !i.attributes.has(ir::Attribute::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -890,7 +890,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has attribute
-        if !w.attributes.has("new_fsm") {
+        if !w.attributes.has(ir::Attribute::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);

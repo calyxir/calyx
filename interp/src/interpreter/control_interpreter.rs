@@ -24,7 +24,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 /// The key to lookup for the position tags
-const POS_TAG: &str = "pos";
+const POS_TAG: ir::Attribute = ir::Attribute::Pos;
 
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
@@ -785,7 +785,7 @@ impl WhileInterpreter {
         let bound =
             ctrl_while
                 .attributes
-                .get("bound")
+                .get(ir::Attribute::Bound)
                 .map(|target| BoundValidator {
                     target: *target,
                     current: 0,
@@ -1046,12 +1046,12 @@ impl InvokeInterpreter {
             assignment_vec.extend(w_ref.assignments.iter().cloned());
         }
 
-        let go_port = comp_cell.get_with_attr("go");
+        let go_port = comp_cell.get_with_attr(ir::Attribute::Go);
         // insert one into the go_port
         // should probably replace with an actual assignment from a constant one
         env.insert(go_port, Value::bit_high());
 
-        let comp_done_port = comp_cell.get_with_attr("done");
+        let comp_done_port = comp_cell.get_with_attr(ir::Attribute::Done);
         let interp = AssignmentInterpreter::new(
             env,
             comp_done_port.into(),
@@ -1082,7 +1082,8 @@ impl Interpreter for InvokeInterpreter {
         let mut env = self.assign_interp.reset()?;
 
         // set go low
-        let go_port = self.invoke.comp.borrow().get_with_attr("go");
+        let go_port =
+            self.invoke.comp.borrow().get_with_attr(ir::Attribute::Go);
         // insert one into the go_port
         // should probably replace with an actual assignment from a constant one
         env.insert(go_port, Value::bit_low());
@@ -1242,7 +1243,7 @@ impl StructuralInterpreter {
         env: InterpreterState,
     ) -> Self {
         let comp_sig = comp.signature.borrow();
-        let done_port = comp_sig.get_with_attr("done");
+        let done_port = comp_sig.get_with_attr(ir::Attribute::Done);
         let done_raw = done_port.as_raw();
         let continuous = Rc::clone(&comp.continuous_assignments);
         let assigns: Vec<ir::Assignment<ir::Nothing>> = vec![];

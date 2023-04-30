@@ -362,7 +362,7 @@ impl Visitor for ComponentInliner {
                 if self.always_inline {
                     cell.is_component()
                 } else {
-                    cell.get_attribute("inline").is_some()
+                    cell.get_attribute(ir::Attribute::Inline).is_some()
                 }
             });
         comp.cells.append(cells.into_iter());
@@ -553,7 +553,7 @@ impl Visitor for ComponentInliner {
         let cell = s.comp.borrow();
         if let Some(con) = self.control_map.get_mut(&cell.name()) {
             if self.new_fsms {
-                con.get_mut_attributes().insert("new_fsm", 1);
+                con.get_mut_attributes().insert(ir::Attribute::NewFSM, 1);
             }
             Ok(Action::change(ir::Cloner::control(con)))
         } else {

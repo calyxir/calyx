@@ -11,12 +11,12 @@ use crate::interpreter_ir as iir;
 
 #[inline]
 pub fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
-    group.get(ir::Attribute::Done)
+    group.get("done")
 }
 
 #[inline]
 pub fn get_go_port(group: &ir::Group) -> RRC<ir::Port> {
-    group.get(ir::Attribute::Go)
+    group.get("go")
 }
 
 #[inline]

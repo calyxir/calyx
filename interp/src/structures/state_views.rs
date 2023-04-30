@@ -276,11 +276,11 @@ impl<'a> StateView<'a> {
 
                                 (
                                     port.borrow().name,
-                                    if port
-                                        .borrow()
-                                        .attributes
-                                        .has("interp_signed")
-                                    {
+                                    if port.borrow().attributes.has(
+                                        ir::Attribute::Unknown(
+                                            "interp_signed".into(),
+                                        ),
+                                    ) {
                                         value.as_i64().into()
                                     } else {
                                         value.as_u64().into()
@@ -303,7 +303,8 @@ impl<'a> StateView<'a> {
                     .iter()
                     .filter_map(|cell_ref| {
                         let cell = cell_ref.borrow();
-                        if cell.get_attribute("external").is_some() {
+                        if cell.get_attribute(ir::Attribute::External).is_some()
+                        {
                             if let Some(prim) = cell_prim_map
                                 .get(&(&cell as &ir::Cell as ConstCell))
                             {
