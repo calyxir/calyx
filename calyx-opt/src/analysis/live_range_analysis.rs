@@ -65,7 +65,7 @@ pub fn meaningful_port_read_set<'a, T: 'a>(
     assigns
         .flat_map(ReadWriteSet::port_reads)
         .filter(move |port| {
-            if port.borrow().attributes.has("done") {
+            if port.borrow().attributes.has(ir::Attribute::Done) {
                 let done_parent = Rc::clone(&port.borrow().cell_parent());
                 go_writes
                     .iter()

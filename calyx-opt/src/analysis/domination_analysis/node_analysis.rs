@@ -65,7 +65,8 @@ fn reads_only_dones<T>(assignment: &ir::Assignment<T>) -> bool {
 
 // Returns true if port is a "done" port or is a constant
 fn done_or_const(port: &ir::RRC<ir::Port>) -> bool {
-    port.borrow().attributes.has("done") || port.borrow().is_constant(1, 1)
+    port.borrow().attributes.has(ir::Attribute::Done)
+        || port.borrow().is_constant(1, 1)
 }
 
 //Adds the ids of any state_shareable cells that are read from in assignments,

@@ -107,7 +107,7 @@ impl ComponentInterpreter {
 
         let done_port = outputs
             .iter()
-            .find(|x| x.borrow().attributes.has("done"))
+            .find(|x| x.borrow().attributes.has(ir::Attribute::Done))
             .unwrap()
             .clone();
 

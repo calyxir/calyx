@@ -134,7 +134,7 @@ fn if_name_stable_or_done<T>(
         .filter(|port_ref| port_ref.borrow().get_parent_name() == name)
         .all(|port_ref| {
             let atts = &port_ref.borrow().attributes;
-            atts.has("stable") || atts.has("done")
+            atts.has("stable") || atts.has(ir::Attribute::Done)
         })
 }
 
@@ -351,7 +351,7 @@ where
                     ir::PortParent::Cell(dst_cell),
                 ) => {
                     // a.go = b.done case
-                    if src.attributes.has("done")
+                    if src.attributes.has(ir::Attribute::Done)
                         && dst.attributes.has("go")
                         && comp_or_non_comb(&src_cell.upgrade())
                         && comp_or_non_comb(&dst_cell.upgrade())
@@ -365,7 +365,7 @@ where
                 (ir::PortParent::Cell(src_cell), ir::PortParent::Group(_)) => {
                     // group[done] = c.done case
                     if dst.name == "done"
-                        && src.attributes.has("done")
+                        && src.attributes.has(ir::Attribute::Done)
                         && comp_or_non_comb(&src_cell.upgrade())
                     {
                         last = Some(src_cell.upgrade().borrow().name())
@@ -386,7 +386,8 @@ where
         let dst = asmt.dst.borrow();
         match (&src.parent, &dst.parent) {
             (ir::PortParent::Cell(_), ir::PortParent::Cell(_)) => {
-                src.attributes.has("done") && dst.attributes.has("go")
+                src.attributes.has(ir::Attribute::Done)
+                    && dst.attributes.has("go")
             }
             _ => false,
         }
