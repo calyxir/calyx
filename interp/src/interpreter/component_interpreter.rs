@@ -101,7 +101,7 @@ impl ComponentInterpreter {
 
         let go_port = inputs
             .iter()
-            .find(|x| x.borrow().attributes.has("go"))
+            .find(|x| x.borrow().attributes.has(ir::Attribute::Go))
             .unwrap()
             .clone();
 

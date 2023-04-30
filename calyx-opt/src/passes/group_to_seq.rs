@@ -352,7 +352,7 @@ where
                 ) => {
                     // a.go = b.done case
                     if src.attributes.has(ir::Attribute::Done)
-                        && dst.attributes.has("go")
+                        && dst.attributes.has(ir::Attribute::Go)
                         && comp_or_non_comb(&src_cell.upgrade())
                         && comp_or_non_comb(&dst_cell.upgrade())
                     {
@@ -387,7 +387,7 @@ where
         match (&src.parent, &dst.parent) {
             (ir::PortParent::Cell(_), ir::PortParent::Cell(_)) => {
                 src.attributes.has(ir::Attribute::Done)
-                    && dst.attributes.has("go")
+                    && dst.attributes.has(ir::Attribute::Go)
             }
             _ => false,
         }
@@ -398,7 +398,7 @@ where
     pub fn is_specific_go(asmt: &ir::Assignment<T>, cell: &ir::Id) -> bool {
         let dst = asmt.dst.borrow();
         // checks cell.go =
-        dst.get_parent_name() == cell  && dst.attributes.has("go")
+        dst.get_parent_name() == cell  && dst.attributes.has(ir::Attribute::Go)
         // checks !cell.done ?
         && asmt.guard.is_not_done(cell)
         // checks 1'd1

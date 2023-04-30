@@ -244,7 +244,7 @@ impl NodeSearch {
     fn go_is_written<T>(&self, assignments: &[ir::Assignment<T>]) -> bool {
         assignments.iter().any(|assign: &ir::Assignment<T>| {
             let dst_ref = assign.dst.borrow();
-            if dst_ref.attributes.has("go")
+            if dst_ref.attributes.has(ir::Attribute::Go)
                 && assign.guard.is_true()
                 && assign.src.borrow().is_constant(1, 1)
             {

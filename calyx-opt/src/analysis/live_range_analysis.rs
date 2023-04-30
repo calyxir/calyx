@@ -50,13 +50,13 @@ pub fn meaningful_port_read_set<'a, T: 'a>(
             }
 
             // checking cell.go = !cell.done! 1'd1
-            asgn.dst.borrow().attributes.has("go")
+            asgn.dst.borrow().attributes.has(ir::Attribute::Go)
                 && asgn.guard.is_not_done(
                     &asgn.dst.borrow().cell_parent().borrow().name(),
                 )
                 && asgn.src.borrow().is_constant(1, 1)
         }))
-        .filter(|port| port.borrow().attributes.has("go"))
+        .filter(|port| port.borrow().attributes.has(ir::Attribute::Go))
         .map(|port| Rc::clone(&port.borrow().cell_parent()))
         .collect();
 
