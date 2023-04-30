@@ -50,7 +50,7 @@ impl VariableDetection {
 
         // check to see if `cell.done` is written into `g[done]`
         let activation = graph
-            .writes_to(&group.get("done").borrow())
+            .writes_to(&group.get(ir::Attribute::Done).borrow())
             // Handle g[done] = g ? 1'd1
             .filter(|src| !src.borrow().is_constant(1, 1))
             .map(|src| src.borrow().get_parent_name() == cell.name())

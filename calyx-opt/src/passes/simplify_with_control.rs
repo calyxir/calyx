@@ -162,7 +162,7 @@ impl Visitor for SimplifyWithControl {
                     .map(|reg| guard!(reg["done"]))
                     .fold(ir::Guard::True, ir::Guard::and);
                 let done_assign = builder.build_assignment(
-                    group.get("done"),
+                    group.get(ir::Attribute::Done),
                     signal_on.borrow().get("out"),
                     done_guard,
                 );

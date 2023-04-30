@@ -111,7 +111,7 @@ impl Visitor for MergeStaticPar {
                 let cst = builder.add_constant(1, 1);
 
                 let done_asmt = builder.build_assignment(
-                    grp.borrow().get("done"),
+                    grp.borrow().get(ir::Attribute::Done),
                     cst.borrow().get("out"),
                     fin_grd,
                 );

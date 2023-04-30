@@ -429,7 +429,7 @@ impl GroupOutline<Nothing> {
         let group = builder.add_group(prefix);
         let mut group_asmts = self.assignments;
         let done_asmt = builder.build_assignment(
-            group.borrow().get("done"),
+            group.borrow().get(ir::Attribute::Done),
             self.done_src,
             self.done_guard,
         );
@@ -451,7 +451,7 @@ impl GroupOutline<Nothing> {
 //         let group = builder.add_static_group(prefix, 0);
 //         let mut group_asmts = self.assignments;
 //         let done_asmt = builder.build_assignment(
-//             group.borrow().get("done"),
+//             group.borrow().get(ir::Attribute::Done),
 //             self.done_src,
 //             self.done_guard,
 //         );

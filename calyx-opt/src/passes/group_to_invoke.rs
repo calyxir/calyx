@@ -188,7 +188,7 @@ impl Visitor for GroupToInvoke {
                 &mut builder,
                 g.borrow().name(),
                 &g.borrow().assignments,
-                &g.borrow().get("done"),
+                &g.borrow().get(ir::Attribute::Done),
             )
         }
         // Not transforming static groups rn
@@ -197,7 +197,7 @@ impl Visitor for GroupToInvoke {
                 &mut builder,
                 g.borrow().name(),
                 &g.borrow().assignments,
-                &g.borrow().get("done"),
+                &g.borrow().get(ir::Attribute::Done),
             )
         }*/
 

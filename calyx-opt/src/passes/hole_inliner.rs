@@ -128,7 +128,7 @@ impl Visitor for HoleInliner {
             ),
             builder.build_assignment(
                 this_comp.borrow().get_with_attr("done"),
-                top_level.borrow().get("done"),
+                top_level.borrow().get(ir::Attribute::Done),
                 ir::Guard::True,
             ),
         ];

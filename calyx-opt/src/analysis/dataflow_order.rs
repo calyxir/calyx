@@ -40,7 +40,10 @@ fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
             }
             ir::Direction::Output => outputs.push((
                 port.name,
-                attrs.get("stable").or_else(|| attrs.get("done")).is_some(),
+                attrs
+                    .get("stable")
+                    .or_else(|| attrs.get(ir::Attribute::Done))
+                    .is_some(),
             )),
             ir::Direction::Inout => {
                 unreachable!("Primitive ports should not be inout")

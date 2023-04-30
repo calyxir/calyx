@@ -70,7 +70,7 @@ impl Visitor for CompileInvoke {
             ir::Guard::True,
         );
         let done_assign = builder.build_assignment(
-            invoke_group.borrow().get("done"),
+            invoke_group.borrow().get(ir::Attribute::Done),
             done_ports.pop().unwrap(),
             ir::Guard::True,
         );
