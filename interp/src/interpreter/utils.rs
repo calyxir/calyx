@@ -16,7 +16,7 @@ pub fn get_done_port(group: &ir::Group) -> RRC<ir::Port> {
 
 #[inline]
 pub fn get_go_port(group: &ir::Group) -> RRC<ir::Port> {
-    group.get("go")
+    group.get(ir::Attribute::Go)
 }
 
 #[inline]

@@ -655,7 +655,7 @@ impl Schedule<'_, '_> {
         // Index incrementing logic
         let incr_group = self.incr_group(&idx);
         let incr_activate = self.builder.build_assignment(
-            incr_group.borrow().get("go"),
+            incr_group.borrow().get(ir::Attribute::Go),
             on.borrow().get("out"),
             enter_guard,
         );
@@ -679,7 +679,7 @@ impl Schedule<'_, '_> {
         let exit = guard!(idx["out"]).eq(guard!(total["out"]));
         let reset_group = self.reset_group(&idx);
         let reset_activate = self.builder.build_assignment(
-            reset_group.borrow().get("go"),
+            reset_group.borrow().get(ir::Attribute::Go),
             on.borrow().get("out"),
             exit.clone(),
         );

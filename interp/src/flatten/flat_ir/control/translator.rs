@@ -74,7 +74,7 @@ fn translate_group(
     Group::new(
         id,
         range,
-        *map[&group.get("go").as_raw()].unwrap_local(),
+        *map[&group.get(ir::Attribute::Go).as_raw()].unwrap_local(),
         *map[&group.get(ir::Attribute::Done).as_raw()].unwrap_local(),
     )
 }
