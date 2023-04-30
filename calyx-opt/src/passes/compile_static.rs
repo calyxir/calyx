@@ -346,6 +346,19 @@ impl Visitor for CompileStatic {
         Ok(Action::Change(Box::new(e)))
     }
 
+    fn finish_while(
+            &mut self,
+            s: &mut ir::While,
+            _comp: &mut ir::Component,
+            _sigs: &ir::LibrarySignatures,
+            _comps: &[ir::Component],
+        ) -> VisResult {
+            if (matches!(*(s.body), ir::Control::Static(_))) && s.cond.is_none() {
+
+            }
+            Ok(Action::Continue)
+    }
+
     fn finish(
         &mut self,
         comp: &mut ir::Component,
