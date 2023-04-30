@@ -1,9 +1,9 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, GetAttributes, LibrarySignatures};
 
-const NODE_ID: &str = "NODE_ID";
-const BEGIN_ID: &str = "BEGIN_ID";
-const END_ID: &str = "END_ID";
+const NODE_ID: ir::Attribute = ir::Attribute::NODE_ID;
+const BEGIN_ID: ir::Attribute = ir::Attribute::BEGIN_ID;
+const END_ID: ir::Attribute = ir::Attribute::END_ID;
 
 #[derive(Default)]
 /// Removes NODE_ID, BEGIN_ID, and END_ID from each control statement

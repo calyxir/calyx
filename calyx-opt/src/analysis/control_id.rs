@@ -1,8 +1,8 @@
 use calyx_ir as ir;
 
-const NODE_ID: &str = "NODE_ID";
-const BEGIN_ID: &str = "BEGIN_ID";
-const END_ID: &str = "END_ID";
+const NODE_ID: ir::Attribute = ir::Attribute::NODE_ID;
+const BEGIN_ID: ir::Attribute = ir::Attribute::BEGIN_ID;
+const END_ID: ir::Attribute = ir::Attribute::END_ID;
 
 /// Adding "NODE_ID", "BEGIN_ID", and "END_ID" attribute to control statement
 pub struct ControlId;
@@ -180,7 +180,7 @@ impl ControlId {
 
     // Gets attribute s from c, panics otherwise. Should be used when you know
     // that c has attribute s.
-    pub fn get_guaranteed_attribute(c: &ir::Control, s: &str) -> u64 {
+    pub fn get_guaranteed_attribute(c: &ir::Control, s: ir::Attribute) -> u64 {
         c.get_attribute(s).unwrap_or_else(||unreachable!(
           "called get_guaranteed_attribute, meaning we had to be sure it had the attribute"
       ))
@@ -190,7 +190,7 @@ impl ControlId {
     // that c has attribute s.
     pub fn get_guaranteed_attribute_static(
         sc: &ir::StaticControl,
-        s: &str,
+        s: ir::Attribute,
     ) -> u64 {
         sc.get_attribute(s).unwrap_or_else(||unreachable!(
           "called get_guaranteed_attribute_static, meaning we had to be sure it had the attribute"

@@ -23,7 +23,8 @@ where
     /// **Ensures**: All sub-programs of the type will also be updated.
     fn update_static(&mut self, extra: &Self::Info) -> Option<u64> {
         if let Some(time) = self.compute_static(extra) {
-            self.get_mut_attributes().insert("static", time);
+            self.get_mut_attributes()
+                .insert(ir::Attribute::Static, time);
             Some(time)
         } else {
             None
@@ -139,7 +140,7 @@ impl WithStatic for ir::While {
             log::debug!("Cannot compute latency for while-with");
             return None;
         }
-        let bound = self.attributes.get("bound")?;
+        let bound = self.attributes.get(ir::Attribute::Bound)?;
         Some(bound * b_time)
     }
 }

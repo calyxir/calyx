@@ -37,7 +37,7 @@ impl VariableDetection {
         // if guard is empty, because if it isn't this would show up as
         // a write
         let graph = GraphAnalysis::from(&*group);
-        let go_port = cell.find_with_attr("go")?;
+        let go_port = cell.find_with_attr(ir::Attribute::Go)?;
         let activation = graph
             .writes_to(&go_port.borrow())
             .map(|src| src.borrow().is_constant(1, 1))
@@ -50,7 +50,7 @@ impl VariableDetection {
 
         // check to see if `cell.done` is written into `g[done]`
         let activation = graph
-            .writes_to(&group.get(ir::Attribute::Done).borrow())
+            .writes_to(&group.get("done").borrow())
             // Handle g[done] = g ? 1'd1
             .filter(|src| !src.borrow().is_constant(1, 1))
             .map(|src| src.borrow().get_parent_name() == cell.name())
