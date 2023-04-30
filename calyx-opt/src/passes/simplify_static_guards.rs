@@ -32,19 +32,20 @@ impl SimplifyStaticGuards {
     /// %[3:5] & %[4:6] -> None, vec[(3,5), (4,6)]
     pub fn separate_anded_intervals(
         g: ir::Guard<ir::StaticTiming>,
-    ) -> (Option<ir::Guard<ir::StaticTiming>>, Vec<(u64, u64)>) {
+        cur_anded_intervals: &mut Vec<(u64, u64)>,
+    ) -> Option<ir::Guard<ir::StaticTiming>> {
         match g {
             ir::Guard::Not(_)
             | ir::Guard::Or(_, _)
             | ir::Guard::True
             | ir::Guard::CompOp(_, _, _)
-            | ir::Guard::Port(_) => (Some(g), vec![]),
+            | ir::Guard::Port(_) => Some(g),
             ir::Guard::And(g1, g2) => {
                 // recursively call separate_anded_intervals on g1 and g2
-                let (rest_g1, mut intervals_g1) =
-                    Self::separate_anded_intervals(*g1);
-                let (rest_g2, intervals_g2) =
-                    Self::separate_anded_intervals(*g2);
+                let rest_g1 =
+                    Self::separate_anded_intervals(*g1, cur_anded_intervals);
+                let rest_g2 =
+                    Self::separate_anded_intervals(*g2, cur_anded_intervals);
                 let remaining_guard = match (rest_g1, rest_g2) {
                     // both g1 and g2 are entirely made up of static timing guards
                     (None, None) => None,
@@ -59,12 +60,12 @@ impl SimplifyStaticGuards {
                     }
                 };
                 // should extend g1 intervals to include g2 intervals
-                intervals_g1.extend(intervals_g2);
-                (remaining_guard, intervals_g1)
+                remaining_guard
             }
             ir::Guard::Info(static_timing_info) => {
                 // no "rest of guard" for static intervals
-                (None, vec![static_timing_info.get_interval()])
+                cur_anded_intervals.push(static_timing_info.get_interval());
+                None
             }
         }
     }
@@ -80,8 +81,9 @@ impl SimplifyStaticGuards {
         guard: ir::Guard<ir::StaticTiming>,
     ) -> ir::Guard<ir::StaticTiming> {
         // get the rest of the guard and the "anded intervals"
-        let (rest_guard, mut anded_intervals) =
-            Self::separate_anded_intervals(guard);
+        let mut anded_intervals = Vec::new();
+        let rest_guard =
+            Self::separate_anded_intervals(guard, &mut anded_intervals);
         // first simplify the vec of `anded_intervals` into a single interval
         let replacing_interval = {
             if anded_intervals.is_empty() {
@@ -98,7 +100,7 @@ impl SimplifyStaticGuards {
                     min_end = std::cmp::min(cur_end, min_end);
                 }
                 if max_beg >= min_end {
-                    // if the vec was something like %[2:3] | %[4:5], then this is always false
+                    // if the vec was something like %[2:3] & %[4:5], then this is always false
                     // if max_beg >= min_end, then guard is always false
                     return ir::Guard::Not(Box::new(ir::Guard::True));
                 } else {
