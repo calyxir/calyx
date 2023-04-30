@@ -5,7 +5,7 @@ use super::ast::{
     self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
 };
 use super::Attributes;
-use crate::{Direction, PortDef, Primitive, Width};
+use crate::{Attribute, Direction, PortDef, Primitive, Width};
 use calyx_utils::{self, CalyxResult, Id};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
@@ -313,11 +313,11 @@ impl CalyxParser {
     }
 
     // ================ Attributes =====================
-    fn attribute(input: Node) -> ParseResult<(Id, u64)> {
-        Ok(match_nodes!(
-            input.into_children();
-            [string_lit(key), bitwidth(num)] => (Id::from(key), num)
-        ))
+    fn attribute(input: Node) -> ParseResult<(Attribute, u64)> {
+        match_nodes!(
+            input.clone().into_children();
+            [string_lit(key), bitwidth(num)] => Attribute::try_from(key).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
+        )
     }
     fn attributes(input: Node) -> ParseResult<Attributes> {
         match_nodes!(
@@ -363,12 +363,12 @@ impl CalyxParser {
         }
     }
 
-    fn at_attribute(input: Node) -> ParseResult<(Id, u64)> {
-        Ok(match_nodes!(
-            input.into_children();
-            [identifier(key), attr_val(num)] => (key, num),
-            [identifier(key)] => (key, 1)
-        ))
+    fn at_attribute(input: Node) -> ParseResult<(Attribute, u64)> {
+        match_nodes!(
+            input.clone().into_children();
+            [identifier(key), attr_val(num)] => Attribute::try_from(key.to_string()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num)),
+            [identifier(key)] => Attribute::try_from(key.to_string()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1)),
+        )
     }
 
     fn at_attributes(input: Node) -> ParseResult<Attributes> {

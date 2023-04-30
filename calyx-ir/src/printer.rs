@@ -1,10 +1,9 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
-use itertools::Itertools;
-
 use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
+use itertools::Itertools;
 use std::io;
 use std::path::Path;
 use std::rc::Rc;
@@ -19,9 +18,9 @@ impl Printer {
         let mut buf = String::new();
         for (name, val) in attrs {
             if *val == 1 {
-                buf.push_str(&format!("@{name} "));
+                buf.push_str(&format!("@{} ", name.to_string()));
             } else {
-                buf.push_str(&format!("@{name}({val}) "));
+                buf.push_str(&format!("@{}({val}) ", name.to_string()));
             }
         }
         buf
@@ -37,7 +36,7 @@ impl Printer {
                 "<{}>",
                 attrs
                     .into_iter()
-                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
+                    .map(|(k, v)| { format!("\"{}\"={}", k.to_string(), v) })
                     .collect::<Vec<_>>()
                     .join(", ")
             )

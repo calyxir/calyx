@@ -538,10 +538,7 @@ impl Group {
         Some(&self.attributes)
     }
 
-    pub fn remove_attribute<I>(&mut self, attr: I)
-    where
-        I: Into<Id>,
-    {
+    pub fn remove_attribute(&mut self, attr: Attribute) {
         self.attributes.remove(attr);
     }
 }
@@ -616,10 +613,7 @@ impl StaticGroup {
         Some(&self.attributes)
     }
 
-    pub fn remove_attribute<I>(&mut self, attr: I)
-    where
-        I: Into<Id>,
-    {
+    pub fn remove_attribute(&mut self, attr: Attribute) {
         self.attributes.remove(attr);
     }
 }

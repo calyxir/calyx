@@ -1,5 +1,5 @@
 use super::Attribute;
-use calyx_utils::{CalyxResult, GPosIdx, Id, WithPos};
+use calyx_utils::{CalyxResult, GPosIdx, WithPos};
 use linked_hash_map::LinkedHashMap;
 use std::{
     convert::TryFrom,
@@ -10,22 +10,22 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct Attributes {
     /// Mapping from the name of the attribute to its value.
-    pub(super) attrs: LinkedHashMap<Id, u64>,
+    pub(super) attrs: LinkedHashMap<Attribute, u64>,
     /// Source location information for the item
     span: GPosIdx,
 }
 
 impl IntoIterator for Attributes {
-    type Item = (Id, u64);
-    type IntoIter = linked_hash_map::IntoIter<Id, u64>;
+    type Item = (Attribute, u64);
+    type IntoIter = linked_hash_map::IntoIter<Attribute, u64>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.attrs.into_iter()
     }
 }
 impl<'a> IntoIterator for &'a Attributes {
-    type Item = (&'a Id, &'a u64);
-    type IntoIter = linked_hash_map::Iter<'a, Id, u64>;
+    type Item = (&'a Attribute, &'a u64);
+    type IntoIter = linked_hash_map::Iter<'a, Attribute, u64>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.attrs.iter()
@@ -42,15 +42,16 @@ impl Default for Attributes {
     }
 }
 
-impl TryFrom<Vec<(Id, u64)>> for Attributes {
+impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
     type Error = calyx_utils::Error;
 
-    fn try_from(v: Vec<(Id, u64)>) -> CalyxResult<Self> {
+    fn try_from(v: Vec<(Attribute, u64)>) -> CalyxResult<Self> {
         let mut attrs = LinkedHashMap::with_capacity(v.len());
         for (k, v) in v {
             if attrs.contains_key(&k) {
                 return Err(Self::Error::malformed_structure(format!(
-                    "Multiple entries for attribute: {k}"
+                    "Multiple entries for attribute: {}",
+                    k.to_string()
                 )));
             }
             attrs.insert(k, v);
@@ -80,17 +81,17 @@ pub trait GetAttributes {
 impl Attributes {
     /// Add a new attribute
     pub fn insert(&mut self, key: Attribute, val: u64) {
-        self.attrs.insert(key.into(), val);
+        self.attrs.insert(key, val);
     }
 
     /// Get the value associated with an attribute key
     pub fn get(&self, key: Attribute) -> Option<&u64> {
-        self.attrs.get(&key.into())
+        self.attrs.get(&key)
     }
 
     /// Check if an attribute key has been set
     pub fn has(&self, key: Attribute) -> bool {
-        self.attrs.contains_key(&key.into())
+        self.attrs.contains_key(&key)
     }
 
     /// Returns true if there are no attributes
@@ -99,11 +100,8 @@ impl Attributes {
     }
 
     /// Remove attribute with the name `key`
-    pub fn remove<S>(&mut self, key: S) -> Option<u64>
-    where
-        S: Into<Id>,
-    {
-        self.attrs.remove(&key.into())
+    pub fn remove(&mut self, key: Attribute) -> Option<u64> {
+        self.attrs.remove(&key)
     }
 
     /// Set the span information
@@ -125,8 +123,7 @@ impl Index<Attribute> for Attributes {
 
 impl IndexMut<Attribute> for Attributes {
     fn index_mut(&mut self, index: Attribute) -> &mut Self::Output {
-        let key = index.into();
-        self.attrs.insert(key, 0);
-        self.attrs.get_mut(&key).unwrap()
+        self.attrs.insert(index, 0);
+        self.attrs.get_mut(&index).unwrap()
     }
 }

@@ -3,7 +3,7 @@ use calyx_utils::{CalyxResult, Error, Id};
 /// Attributes that have been deprecated.
 pub const DEPRECATED_ATTRIBUTES: &[&str] = &[];
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 #[allow(non_camel_case_types)]
 /// Defines the known attributes that can be attached to IR nodes.
 pub enum Attribute {
