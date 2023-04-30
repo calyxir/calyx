@@ -1,3 +1,5 @@
+use crate::Attribute;
+
 use super::Attributes;
 use calyx_utils::{CalyxResult, Error, GetName, Id};
 use linked_hash_map::LinkedHashMap;
@@ -67,17 +69,13 @@ impl Primitive {
     }
 
     /// Return all ports that have the attribute `attr`.
-    pub fn find_all_with_attr<S>(
+    pub fn find_all_with_attr(
         &self,
-        attr: S,
-    ) -> impl Iterator<Item = &PortDef<Width>>
-    where
-        S: Into<Id>,
-    {
-        let key = attr.into();
+        attr: Attribute,
+    ) -> impl Iterator<Item = &PortDef<Width>> {
         self.signature
             .iter()
-            .filter(move |&g| g.attributes.has(key))
+            .filter(move |&g| g.attributes.has(attr))
     }
 }
 

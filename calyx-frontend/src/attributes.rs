@@ -1,3 +1,4 @@
+use super::Attribute;
 use calyx_utils::{CalyxResult, GPosIdx, Id, WithPos};
 use linked_hash_map::LinkedHashMap;
 use std::{
@@ -78,26 +79,17 @@ pub trait GetAttributes {
 
 impl Attributes {
     /// Add a new attribute
-    pub fn insert<S>(&mut self, key: S, val: u64)
-    where
-        S: Into<Id>,
-    {
+    pub fn insert(&mut self, key: Attribute, val: u64) {
         self.attrs.insert(key.into(), val);
     }
 
     /// Get the value associated with an attribute key
-    pub fn get<S>(&self, key: S) -> Option<&u64>
-    where
-        S: Into<Id>,
-    {
+    pub fn get(&self, key: Attribute) -> Option<&u64> {
         self.attrs.get(&key.into())
     }
 
     /// Check if an attribute key has been set
-    pub fn has<S>(&self, key: S) -> bool
-    where
-        S: Into<Id>,
-    {
+    pub fn has(&self, key: Attribute) -> bool {
         self.attrs.contains_key(&key.into())
     }
 
@@ -121,24 +113,18 @@ impl Attributes {
     }
 }
 
-impl<S> Index<S> for Attributes
-where
-    S: Into<Id>,
-{
+impl Index<Attribute> for Attributes {
     type Output = u64;
 
-    fn index(&self, key: S) -> &u64 {
-        let idx = key.into();
-        self.get(idx)
-            .unwrap_or_else(|| panic!("No key `{}` in attribute map", idx))
+    fn index(&self, key: Attribute) -> &u64 {
+        self.get(key).unwrap_or_else(|| {
+            panic!("No key `{}` in attribute map", key.to_string())
+        })
     }
 }
 
-impl<S> IndexMut<S> for Attributes
-where
-    S: Into<Id>,
-{
-    fn index_mut(&mut self, index: S) -> &mut Self::Output {
+impl IndexMut<Attribute> for Attributes {
+    fn index_mut(&mut self, index: Attribute) -> &mut Self::Output {
         let key = index.into();
         self.attrs.insert(key, 0);
         self.attrs.get_mut(&key).unwrap()
