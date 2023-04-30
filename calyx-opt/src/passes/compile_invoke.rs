@@ -48,7 +48,8 @@ impl Visitor for CompileInvoke {
         let name = cell.name();
 
         // Get the go port
-        let mut go_ports = cell.find_all_with_attr("go").collect_vec();
+        let mut go_ports =
+            cell.find_all_with_attr(ir::Attribute::Go).collect_vec();
         if go_ports.len() > 1 {
             return Err(Error::malformed_control(format!("Invoked component `{name}` defines multiple @go signals. Cannot compile the invoke")));
         } else if go_ports.is_empty() {
@@ -56,7 +57,8 @@ impl Visitor for CompileInvoke {
         }
 
         // Get the done ports
-        let mut done_ports = cell.find_all_with_attr("done").collect_vec();
+        let mut done_ports =
+            cell.find_all_with_attr(ir::Attribute::Done).collect_vec();
         if done_ports.len() > 1 {
             return Err(Error::malformed_control(format!("Invoked component `{name}` defines multiple @done signals. Cannot compile the invoke")));
         } else if done_ports.is_empty() {
@@ -70,7 +72,7 @@ impl Visitor for CompileInvoke {
             ir::Guard::True,
         );
         let done_assign = builder.build_assignment(
-            invoke_group.borrow().get(ir::Attribute::Done),
+            invoke_group.borrow().get("done"),
             done_ports.pop().unwrap(),
             ir::Guard::True,
         );
@@ -102,7 +104,10 @@ impl Visitor for CompileInvoke {
 
         // Copy "static" annotation from the `invoke` statement if present
         if let Some(time) = s.attributes.get(ir::Attribute::Static) {
-            invoke_group.borrow_mut().attributes.insert("static", *time);
+            invoke_group
+                .borrow_mut()
+                .attributes
+                .insert(ir::Attribute::Static, *time);
         }
 
         let mut en = ir::Enable {
@@ -110,7 +115,7 @@ impl Visitor for CompileInvoke {
             attributes: Attributes::default(),
         };
         if let Some(time) = s.attributes.get(ir::Attribute::Static) {
-            en.attributes.insert("static", *time);
+            en.attributes.insert(ir::Attribute::Static, *time);
         }
 
         Ok(Action::change(ir::Control::Enable(en)))

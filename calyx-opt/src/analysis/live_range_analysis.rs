@@ -1365,7 +1365,7 @@ impl LiveRangeAnalysis {
 
                 // we can only inlcude the kills if we know the while loop executes
                 // at least once
-                if let Some(val) = c.get_attribute("bound") {
+                if let Some(val) = c.get_attribute(ir::Attribute::Bound) {
                     if val > 0 {
                         return (alive, gens, kills);
                     }

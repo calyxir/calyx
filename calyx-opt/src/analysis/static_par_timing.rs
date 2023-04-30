@@ -368,8 +368,10 @@ impl StaticParTiming {
                     Some(cur_state_unwrapped) => {
                         let enable_id = ControlId::get_guaranteed_id(c);
                         // add enable to self.map
-                        let latency =
-                            ControlId::get_guaranteed_attribute(c, "static");
+                        let latency = ControlId::get_guaranteed_attribute(
+                            c,
+                            ir::Attribute::Static,
+                        );
                         Some(self.update_invoke_enable(
                             enable_id,
                             latency,
@@ -392,10 +394,14 @@ impl StaticParTiming {
                 tbranch, fbranch, ..
             }) => match cur_state {
                 Some((parent_par, thread_id, cur_clock)) => {
-                    let tbranch_latency =
-                        ControlId::get_guaranteed_attribute(tbranch, "static");
-                    let fbranch_latency =
-                        ControlId::get_guaranteed_attribute(fbranch, "static");
+                    let tbranch_latency = ControlId::get_guaranteed_attribute(
+                        tbranch,
+                        ir::Attribute::Static,
+                    );
+                    let fbranch_latency = ControlId::get_guaranteed_attribute(
+                        fbranch,
+                        ir::Attribute::Static,
+                    );
                     let max_latency =
                         std::cmp::max(tbranch_latency, fbranch_latency);
                     // we already know parent par + latency of the if stmt, so don't
@@ -414,7 +420,10 @@ impl StaticParTiming {
             },
             ir::Control::While(ir::While { body, .. }) => {
                 if cur_state.is_some() {
-                    let bound = ControlId::get_guaranteed_attribute(c, "bound");
+                    let bound = ControlId::get_guaranteed_attribute(
+                        c,
+                        ir::Attribute::Bound,
+                    );
                     // essentially just unrolling the loop
                     let mut new_state = cur_state;
                     for _ in 0..bound {
@@ -453,7 +462,8 @@ impl StaticParTiming {
                                 self.build_time_map(stmt, cur_state, live);
                                 let cur_latency =
                                     ControlId::get_guaranteed_attribute(
-                                        stmt, "static",
+                                        stmt,
+                                        ir::Attribute::Static,
                                     );
                                 max_latency =
                                     std::cmp::max(max_latency, cur_latency)

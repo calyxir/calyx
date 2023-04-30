@@ -343,7 +343,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         // Done condition for group
         let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
         let done_assign = self.builder.build_assignment(
-            group.borrow().get(ir::Attribute::Done),
+            group.borrow().get("done"),
             signal_on.borrow().get("out"),
             last_guard.clone(),
         );
@@ -985,7 +985,7 @@ impl Visitor for TopDownCompileControl {
 
         // Done conditional for this group.
         let done = builder.build_assignment(
-            par_group.borrow().get(ir::Attribute::Done),
+            par_group.borrow().get("done"),
             signal_on.borrow().get("out"),
             done_guard,
         );

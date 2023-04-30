@@ -103,7 +103,9 @@ impl Visitor for DeadCellRemoval {
         self.all_reads.extend(
             comp.cells
                 .iter()
-                .filter(|c| c.borrow().attributes.get("external").is_some())
+                .filter(|c| {
+                    c.borrow().attributes.get(ir::Attribute::External).is_some()
+                })
                 .map(|c| c.borrow().name()),
         );
         // Add component signature

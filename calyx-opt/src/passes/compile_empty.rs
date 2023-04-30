@@ -49,7 +49,10 @@ impl Visitor for CompileEmpty {
 
                 // Build the new group
                 let empty_group = builder.add_group("_empty");
-                empty_group.borrow_mut().attributes.insert("static", 1);
+                empty_group
+                    .borrow_mut()
+                    .attributes
+                    .insert(ir::Attribute::Static, 1);
 
                 // Add this signal empty_group[done] = 1'd1;
                 structure!(builder;

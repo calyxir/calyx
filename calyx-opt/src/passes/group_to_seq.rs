@@ -134,7 +134,7 @@ fn if_name_stable_or_done<T>(
         .filter(|port_ref| port_ref.borrow().get_parent_name() == name)
         .all(|port_ref| {
             let atts = &port_ref.borrow().attributes;
-            atts.has("stable") || atts.has(ir::Attribute::Done)
+            atts.has(ir::Attribute::Stable) || atts.has(ir::Attribute::Done)
         })
 }
 
@@ -430,7 +430,7 @@ impl GroupOutline<Nothing> {
         let group = builder.add_group(prefix);
         let mut group_asmts = self.assignments;
         let done_asmt = builder.build_assignment(
-            group.borrow().get(ir::Attribute::Done),
+            group.borrow().get("done"),
             self.done_src,
             self.done_guard,
         );

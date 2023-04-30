@@ -162,14 +162,14 @@ impl Visitor for SimplifyWithControl {
                     .map(|reg| guard!(reg["done"]))
                     .fold(ir::Guard::True, ir::Guard::and);
                 let done_assign = builder.build_assignment(
-                    group.get(ir::Attribute::Done),
+                    group.get("done"),
                     signal_on.borrow().get("out"),
                     done_guard,
                 );
                 group.assignments.push(done_assign);
 
                 // Add a "static" attribute
-                group.attributes.insert("static", 1);
+                group.attributes.insert(ir::Attribute::Static, 1);
                 drop(group);
 
                 Ok(group_ref)

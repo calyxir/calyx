@@ -62,8 +62,8 @@ fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
     let mut counter = 0;
 
     while let (Some(c1), Some(c2)) = (long_val, short_val) {
-        let x1 = c1.get_attribute("static")?;
-        let x2 = c2.get_attribute("static")?;
+        let x1 = c1.get_attribute(ir::Attribute::Static)?;
+        let x2 = c2.get_attribute(ir::Attribute::Static)?;
         if x2 <= x1 {
             short_val = short_iter.next();
             index_counter.push(counter);
@@ -81,7 +81,7 @@ fn is_compatible(longer: &ir::Seq, shorter: &ir::Seq) -> Option<Vec<usize>> {
 // Returns a default Attribute with "static" set to v
 fn attribute_with_static(v: u64) -> ir::Attributes {
     let mut atts = ir::Attributes::default();
-    atts.insert("static", v);
+    atts.insert(ir::Attribute::Static, v);
     atts
 }
 
@@ -91,7 +91,7 @@ fn attribute_with_static(v: u64) -> ir::Attributes {
 fn get_static_sum(seq: &ir::Seq) -> Option<u64> {
     let mut count = 0;
     for stmt in &seq.stmts {
-        count += stmt.get_attribute("static")?;
+        count += stmt.get_attribute(ir::Attribute::Static)?;
     }
     Some(count)
 }
@@ -193,7 +193,9 @@ impl Visitor for StaticParConv {
                 .map(|stmts| {
                     stmts
                         .iter()
-                        .map(|stmt| stmt.get_attribute("static").unwrap())
+                        .map(|stmt| {
+                            stmt.get_attribute(ir::Attribute::Static).unwrap()
+                        })
                         .max()
                 })
                 .collect::<Option<Vec<u64>>>()

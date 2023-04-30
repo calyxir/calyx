@@ -31,7 +31,7 @@ fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
     // @stable or is an interface port in which case it does not depend on any inputs.
     for port in &prim.signature {
         let attrs = &port.attributes;
-        if attrs.get("read_together").is_some() {
+        if attrs.get(ir::Attribute::ReadTogether).is_some() {
             continue;
         }
         match port.direction {
@@ -41,7 +41,7 @@ fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
             ir::Direction::Output => outputs.push((
                 port.name,
                 attrs
-                    .get("stable")
+                    .get(ir::Attribute::Stable)
                     .or_else(|| attrs.get(ir::Attribute::Done))
                     .is_some(),
             )),

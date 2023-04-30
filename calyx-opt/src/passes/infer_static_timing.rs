@@ -48,16 +48,16 @@ impl GoDone {
 impl From<&ir::Primitive> for GoDone {
     fn from(prim: &ir::Primitive) -> Self {
         let done_ports: HashMap<_, _> = prim
-            .find_all_with_attr("done")
-            .map(|pd| (pd.attributes["done"], pd.name))
+            .find_all_with_attr(ir::Attribute::Done)
+            .map(|pd| (pd.attributes[ir::Attribute::Done], pd.name))
             .collect();
 
         let go_ports = prim
-            .find_all_with_attr("go")
+            .find_all_with_attr(ir::Attribute::Go)
             .filter_map(|pd| {
                 pd.attributes.get(ir::Attribute::Static).and_then(|st| {
                     done_ports
-                        .get(&pd.attributes["go"])
+                        .get(&pd.attributes[ir::Attribute::Go])
                         .map(|done_port| (pd.name, *done_port, *st))
                 })
             })
@@ -69,20 +69,20 @@ impl From<&ir::Primitive> for GoDone {
 impl From<&ir::Cell> for GoDone {
     fn from(cell: &ir::Cell) -> Self {
         let done_ports: HashMap<_, _> = cell
-            .find_all_with_attr("done")
+            .find_all_with_attr(ir::Attribute::Done)
             .map(|pr| {
                 let port = pr.borrow();
-                (port.attributes["done"], port.name)
+                (port.attributes[ir::Attribute::Done], port.name)
             })
             .collect();
 
         let go_ports = cell
-            .find_all_with_attr("go")
+            .find_all_with_attr(ir::Attribute::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
                 port.attributes.get(ir::Attribute::Static).and_then(|st| {
                     done_ports
-                        .get(&port.attributes["go"])
+                        .get(&port.attributes[ir::Attribute::Go])
                         .map(|done_port| (port.name, *done_port, *st))
                 })
             })
@@ -114,16 +114,16 @@ impl ConstructVisitor for InferStaticTiming {
         // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
-                .find_all_with_attr("done")
-                .map(|pd| (pd.attributes["done"], pd.name))
+                .find_all_with_attr(ir::Attribute::Done)
+                .map(|pd| (pd.attributes[ir::Attribute::Done], pd.name))
                 .collect();
 
             let go_ports = prim
-                .find_all_with_attr("go")
+                .find_all_with_attr(ir::Attribute::Go)
                 .filter_map(|pd| {
                     pd.attributes.get(ir::Attribute::Static).and_then(|st| {
                         done_ports
-                            .get(&pd.attributes["go"])
+                            .get(&pd.attributes[ir::Attribute::Go])
                             .map(|done_port| (pd.name, *done_port, *st))
                     })
                 })
@@ -427,7 +427,10 @@ impl Visitor for InferStaticTiming {
 
             match latency_result {
                 Some(res) => {
-                    group.borrow_mut().attributes.insert("static", res);
+                    group
+                        .borrow_mut()
+                        .attributes
+                        .insert(ir::Attribute::Static, res);
                 }
                 None => continue,
             }
@@ -450,7 +453,7 @@ impl Visitor for InferStaticTiming {
             let mut go_ports = comp
                 .signature
                 .borrow()
-                .find_all_with_attr("go")
+                .find_all_with_attr(ir::Attribute::Go)
                 .collect_vec();
 
             // Add the latency information for the component if the control program
@@ -477,7 +480,10 @@ impl Visitor for InferStaticTiming {
                             .with_pos(&go_port.borrow().attributes));
                     }
                 } else {
-                    go_port.borrow_mut().attributes.insert("static", time);
+                    go_port
+                        .borrow_mut()
+                        .attributes
+                        .insert(ir::Attribute::Static, time);
                 }
                 log::info!(
                     "Component `{}` has static time {}",

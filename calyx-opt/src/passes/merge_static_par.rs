@@ -111,28 +111,30 @@ impl Visitor for MergeStaticPar {
                 let cst = builder.add_constant(1, 1);
 
                 let done_asmt = builder.build_assignment(
-                    grp.borrow().get(ir::Attribute::Done),
+                    grp.borrow().get("done"),
                     cst.borrow().get("out"),
                     fin_grd,
                 );
 
                 grp.borrow_mut().assignments.push(done_asmt);
 
-                grp.borrow_mut().attributes.insert("static", key);
+                grp.borrow_mut()
+                    .attributes
+                    .insert(ir::Attribute::Static, key);
                 comp.get_groups_mut().add(Rc::clone(&grp));
 
                 let mut enable: ir::Enable = Enable {
                     group: Rc::clone(&grp),
                     attributes: Attributes::default(),
                 };
-                enable.attributes.insert("static", key);
+                enable.attributes.insert(ir::Attribute::Static, key);
                 s.stmts.push(ir::Control::Enable(enable));
             } else {
                 let mut enable: ir::Enable = Enable {
                     group: Rc::clone(&value[0]),
                     attributes: Attributes::default(),
                 };
-                enable.attributes.insert("static", key);
+                enable.attributes.insert(ir::Attribute::Static, key);
                 s.stmts.push(ir::Control::Enable(enable));
             }
         }
