@@ -6,6 +6,7 @@ use crate::Nothing;
 use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
 };
+use calyx_frontend::Attribute;
 use calyx_utils::GetName;
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
@@ -261,29 +262,21 @@ impl Cell {
     }
 
     /// Get a reference to the first port that has the attribute `attr`.
-    pub fn find_with_attr<S>(&self, attr: S) -> Option<RRC<Port>>
-    where
-        S: Into<Id>,
-    {
-        let key = attr.into();
+    pub fn find_with_attr(&self, attr: Attribute) -> Option<RRC<Port>> {
         self.ports
             .iter()
-            .find(|&g| g.borrow().attributes.has(key))
+            .find(|&g| g.borrow().attributes.has(attr))
             .map(Rc::clone)
     }
 
     /// Return all ports that have the attribute `attr`.
-    pub fn find_all_with_attr<S>(
+    pub fn find_all_with_attr(
         &self,
-        attr: S,
-    ) -> impl Iterator<Item = RRC<Port>> + '_
-    where
-        S: Into<Id>,
-    {
-        let key = attr.into();
+        attr: Attribute,
+    ) -> impl Iterator<Item = RRC<Port>> + '_ {
         self.ports
             .iter()
-            .filter(move |&p| p.borrow().attributes.has(key))
+            .filter(move |&p| p.borrow().attributes.has(attr))
             .map(Rc::clone)
     }
 
@@ -332,15 +325,12 @@ impl Cell {
 
     /// Get a reference to the first port with the attribute `attr` and throw an error if none
     /// exist.
-    pub fn get_with_attr<S>(&self, attr: S) -> RRC<Port>
-    where
-        S: Into<Id>,
-    {
-        let key = attr.into();
-        self.find_with_attr(key).unwrap_or_else(|| {
+    pub fn get_with_attr(&self, attr: Attribute) -> RRC<Port> {
+        self.find_with_attr(attr).unwrap_or_else(|| {
             panic!(
                 "Port with attribute `{}' not found on cell `{}'",
-                key, self.name,
+                attr.to_string(),
+                self.name,
             )
         })
     }
@@ -373,20 +363,13 @@ impl Cell {
     }
 
     /// Return the value associated with this attribute key.
-    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
-    where
-        S: Into<Id>,
-    {
-        let key = attr.into();
-        self.attributes.get(key)
+    pub fn get_attribute(&self, attr: Attribute) -> Option<&u64> {
+        self.attributes.get(attr)
     }
 
     /// Add a new attribute to the group.
-    pub fn add_attribute<S>(&mut self, attr: S, value: u64)
-    where
-        S: Into<String>,
-    {
-        self.attributes.insert(attr.into(), value);
+    pub fn add_attribute(&mut self, attr: Attribute, value: u64) {
+        self.attributes.insert(attr, value);
     }
 
     /// Grants immutable access to the name of this cell.
