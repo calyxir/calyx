@@ -1,7 +1,14 @@
 [package]
 name = "calyx-ir"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+description.workspace = true
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
 
 [dependencies]
 log.workspace = true
@@ -11,5 +18,5 @@ itertools.workspace = true
 linked-hash-map.workspace = true
 smallvec.workspace = true
 
-calyx-utils = { path = "../calyx-utils" }
-calyx-frontend = { path = "../calyx-frontend" }
+calyx-utils = { path = "../calyx-utils", version = "0.1.0" }
+calyx-frontend = { path = "../calyx-frontend", version = "0.1.0" }
