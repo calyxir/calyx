@@ -220,7 +220,7 @@ impl GetAttributes for StaticEnable {
 impl StaticEnable {
     /// Returns the value of an attribute if present
     pub fn get_attribute(&self, attr: Attribute) -> Option<u64> {
-        self.get_attributes().get(attr).copied()
+        self.get_attributes().get(attr)
     }
 }
 
@@ -501,7 +501,7 @@ impl Control {
 
     /// Returns the value of an attribute if present
     pub fn get_attribute(&self, attr: Attribute) -> Option<u64> {
-        self.get_attributes().get(attr).copied()
+        self.get_attributes().get(attr)
     }
 
     /// Returns true if the node has a specific attribute
@@ -566,7 +566,7 @@ impl StaticControl {
 
     /// Returns the value of an attribute if present
     pub fn get_attribute(&self, attr: Attribute) -> Option<u64> {
-        self.get_attributes().get(attr).copied()
+        self.get_attributes().get(attr)
     }
 
     /// Returns the value of an attribute if present

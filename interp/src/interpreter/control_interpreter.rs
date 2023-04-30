@@ -125,7 +125,7 @@ impl EnableHolder {
             EnableHolder::Vec(_)
             | EnableHolder::CombGroup(_)
             | EnableHolder::Group(_) => None,
-            EnableHolder::Enable(e) => e.attributes.get(POS_TAG).cloned(),
+            EnableHolder::Enable(e) => e.attributes.get(POS_TAG),
         }
     }
 }
@@ -782,14 +782,10 @@ impl WhileInterpreter {
         env: InterpreterState,
         info: ComponentInfo,
     ) -> Self {
-        let bound =
-            ctrl_while
-                .attributes
-                .get(ir::Attribute::Bound)
-                .map(|target| BoundValidator {
-                    target: *target,
-                    current: 0,
-                });
+        let bound = ctrl_while
+            .attributes
+            .get(ir::Attribute::Bound)
+            .map(|target| BoundValidator { target, current: 0 });
 
         let mut out = Self {
             info,
@@ -1117,7 +1113,7 @@ impl Interpreter for InvokeInterpreter {
             format!("invoke {}", self.invoke.comp.borrow().name()).into(),
         );
 
-        let pos_tag = self.invoke.attributes.get(POS_TAG).cloned();
+        let pos_tag = self.invoke.attributes.get(POS_TAG);
 
         vec![ActiveTreeNode::new(name.with_tag(pos_tag))]
     }

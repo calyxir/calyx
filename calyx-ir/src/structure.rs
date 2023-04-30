@@ -363,7 +363,7 @@ impl Cell {
     }
 
     /// Return the value associated with this attribute key.
-    pub fn get_attribute(&self, attr: Attribute) -> Option<&u64> {
+    pub fn get_attribute(&self, attr: Attribute) -> Option<u64> {
         self.attributes.get(attr)
     }
 

@@ -49,7 +49,7 @@ impl From<&ir::Primitive> for GoDone {
     fn from(prim: &ir::Primitive) -> Self {
         let done_ports: HashMap<_, _> = prim
             .find_all_with_attr(ir::Attribute::Done)
-            .map(|pd| (pd.attributes[ir::Attribute::Done], pd.name))
+            .map(|pd| (pd.attributes.get(ir::Attribute::Done), pd.name))
             .collect();
 
         let go_ports = prim
@@ -57,8 +57,8 @@ impl From<&ir::Primitive> for GoDone {
             .filter_map(|pd| {
                 pd.attributes.get(ir::Attribute::Static).and_then(|st| {
                     done_ports
-                        .get(&pd.attributes[ir::Attribute::Go])
-                        .map(|done_port| (pd.name, *done_port, *st))
+                        .get(&pd.attributes.get(ir::Attribute::Go))
+                        .map(|done_port| (pd.name, *done_port, st))
                 })
             })
             .collect_vec();
@@ -72,7 +72,7 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr(ir::Attribute::Done)
             .map(|pr| {
                 let port = pr.borrow();
-                (port.attributes[ir::Attribute::Done], port.name)
+                (port.attributes.get(ir::Attribute::Done), port.name)
             })
             .collect();
 
@@ -82,8 +82,8 @@ impl From<&ir::Cell> for GoDone {
                 let port = pr.borrow();
                 port.attributes.get(ir::Attribute::Static).and_then(|st| {
                     done_ports
-                        .get(&port.attributes[ir::Attribute::Go])
-                        .map(|done_port| (port.name, *done_port, *st))
+                        .get(&port.attributes.get(ir::Attribute::Go))
+                        .map(|done_port| (port.name, *done_port, st))
                 })
             })
             .collect_vec();
@@ -115,7 +115,7 @@ impl ConstructVisitor for InferStaticTiming {
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
                 .find_all_with_attr(ir::Attribute::Done)
-                .map(|pd| (pd.attributes[ir::Attribute::Done], pd.name))
+                .map(|pd| (pd.attributes.get(ir::Attribute::Done), pd.name))
                 .collect();
 
             let go_ports = prim
@@ -123,8 +123,8 @@ impl ConstructVisitor for InferStaticTiming {
                 .filter_map(|pd| {
                     pd.attributes.get(ir::Attribute::Static).and_then(|st| {
                         done_ports
-                            .get(&pd.attributes[ir::Attribute::Go])
-                            .map(|done_port| (pd.name, *done_port, *st))
+                            .get(&pd.attributes.get(ir::Attribute::Go))
+                            .map(|done_port| (pd.name, *done_port, st))
                     })
                 })
                 .collect_vec();
@@ -407,7 +407,7 @@ impl Visitor for InferStaticTiming {
                     grp.attributes.get(ir::Attribute::Static)
                 {
                     // Inferred latency is not the same as the provided latency annotation.
-                    if *curr_lat != latency {
+                    if curr_lat != latency {
                         let msg1 = format!("Annotated latency: {}", curr_lat);
                         let msg2 = format!("Inferred latency: {}", latency);
                         let msg = format!(
@@ -460,11 +460,8 @@ impl Visitor for InferStaticTiming {
             // is completely static and there is exactly one go port.
             if go_ports.len() == 1 {
                 let go_port = go_ports.pop().unwrap();
-                let mb_time = go_port
-                    .borrow()
-                    .attributes
-                    .get(ir::Attribute::Static)
-                    .cloned();
+                let mb_time =
+                    go_port.borrow().attributes.get(ir::Attribute::Static);
 
                 if let Some(go_time) = mb_time {
                     if go_time != time {

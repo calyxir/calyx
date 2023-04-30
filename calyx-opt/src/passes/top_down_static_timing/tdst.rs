@@ -385,14 +385,14 @@ impl Schedule<'_, '_> {
         preds: Vec<PredEdge>,
     ) -> CalyxResult<Vec<PredEdge>> {
         let time_option = con.attributes.get(ir::Attribute::Static);
-        let Some(&time) = time_option else {
+        let Some(time) = time_option else {
             return Err(Error::pass_assumption(
         TopDownStaticTiming::name(),
             "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
             ).with_pos(&con.attributes));
         };
 
-        let cur_st = con.attributes[ID];
+        let cur_st = con.attributes.get(ID).unwrap();
 
         // Enable the group during the transition. Note that this is similar to
         // what tdcc does the early transitions flag. However, unlike tdcc, we
@@ -469,7 +469,9 @@ impl Schedule<'_, '_> {
             }
         }
         Ok(vec![(
-            con.attributes[ID] + con.attributes[ir::Attribute::Static] - 1,
+            con.attributes.get(ID).unwrap()
+                + con.attributes.get(ir::Attribute::Static).unwrap()
+                - 1,
             ir::Guard::True,
         )])
     }
@@ -623,7 +625,7 @@ impl Schedule<'_, '_> {
         }
 
         // Construct the index and incrementing logic.
-        let bound = wh.attributes[ir::Attribute::Bound];
+        let bound = wh.attributes.get(ir::Attribute::Bound).unwrap();
         // Loop bound should not be less than 1.
         if bound < 1 {
             return Err(Error::malformed_structure(
@@ -661,8 +663,8 @@ impl Schedule<'_, '_> {
         );
         // Even though the assignments are active during [cur_state, body_nxt), we expect only `bound*body` number of
         // states will actually be traversed internally.
-        let cur_state = wh.attributes[START];
-        let body_nxt = wh.attributes[END];
+        let cur_state = wh.attributes.get(START).unwrap();
+        let body_nxt = wh.attributes.get(END).unwrap();
         self.add_enables(
             cur_state,
             body_nxt,
@@ -799,7 +801,7 @@ impl TopDownStaticTiming {
         if let Some(time) = con.get_attribute(ir::Attribute::Static) {
             let group = Schedule::compile(con, builder, dump_fsm)?;
             let mut en = ir::Control::enable(group);
-            en.get_mut_attributes()[ir::Attribute::Static] = time;
+            en.get_mut_attributes().insert(ir::Attribute::Static, time);
             *con = en;
         } else {
             match con {
@@ -887,7 +889,7 @@ impl Visitor for TopDownStaticTiming {
                     let group =
                         Schedule::compile(con, &mut builder, self.dump_fsm)?;
                     let mut en = ir::Control::enable(group);
-                    en.get_mut_attributes()[ir::Attribute::Static] = time;
+                    en.get_mut_attributes().insert(ir::Attribute::Static, time);
                     *con = en;
                 }
             }

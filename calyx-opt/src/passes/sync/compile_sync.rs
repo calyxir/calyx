@@ -53,7 +53,7 @@ fn count_barriers(
 ) -> CalyxResult<()> {
     match s {
         ir::Control::Empty(_) => {
-            if let Some(&n) = s.get_attributes().get(ir::Attribute::Sync) {
+            if let Some(n) = s.get_attributes().get(ir::Attribute::Sync) {
                 count.insert(n);
             }
             Ok(())
@@ -107,7 +107,8 @@ impl CompileSync {
     ) {
         match s {
             ir::Control::Empty(_) => {
-                if let Some(n) = s.get_attributes().get(ir::Attribute::Sync) {
+                if let Some(ref n) = s.get_attributes().get(ir::Attribute::Sync)
+                {
                     if self.barriers.get(n).is_none() {
                         self.add_shared_structure(builder, n);
                     }

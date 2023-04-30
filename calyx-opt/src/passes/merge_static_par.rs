@@ -72,11 +72,11 @@ impl Visitor for MergeStaticPar {
                 if let Some(static_time) =
                     group.borrow().attributes.get(ir::Attribute::Static)
                 {
-                    if !static_group.contains_key(static_time) {
-                        static_group.insert(*static_time, Vec::new());
+                    if !static_group.contains_key(&static_time) {
+                        static_group.insert(static_time, Vec::new());
                     }
                     static_group
-                        .get_mut(static_time)
+                        .get_mut(&static_time)
                         .unwrap()
                         .push(Rc::clone(group));
                 }

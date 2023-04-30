@@ -1,16 +1,17 @@
+use crate::InlineAttributes;
+
 use super::Attribute;
 use calyx_utils::{CalyxResult, GPosIdx, WithPos};
 use linked_hash_map::LinkedHashMap;
-use std::{
-    convert::TryFrom,
-    ops::{Index, IndexMut},
-};
+use std::convert::TryFrom;
 
 /// Attributes associated with a specific IR structure.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Attributes {
     /// Mapping from the name of the attribute to its value.
-    pub(super) attrs: LinkedHashMap<Attribute, u64>,
+    pub(super) attrs: Box<LinkedHashMap<Attribute, u64>>,
+    /// Inlined attributes
+    inl: InlineAttributes,
     /// Source location information for the item
     span: GPosIdx,
 }
@@ -32,23 +33,13 @@ impl<'a> IntoIterator for &'a Attributes {
     }
 }
 
-impl Default for Attributes {
-    fn default() -> Self {
-        Attributes {
-            // Does not allocate any space.
-            attrs: LinkedHashMap::with_capacity(0),
-            span: GPosIdx::UNKNOWN,
-        }
-    }
-}
-
 impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
     type Error = calyx_utils::Error;
 
     fn try_from(v: Vec<(Attribute, u64)>) -> CalyxResult<Self> {
-        let mut attrs = LinkedHashMap::with_capacity(v.len());
+        let mut attrs = Attributes::default();
         for (k, v) in v {
-            if attrs.contains_key(&k) {
+            if attrs.has(k) {
                 return Err(Self::Error::malformed_structure(format!(
                     "Multiple entries for attribute: {}",
                     k.to_string()
@@ -56,10 +47,7 @@ impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
             }
             attrs.insert(k, v);
         }
-        Ok(Attributes {
-            attrs,
-            span: GPosIdx::UNKNOWN,
-        })
+        Ok(attrs)
     }
 }
 
@@ -81,49 +69,49 @@ pub trait GetAttributes {
 impl Attributes {
     /// Add a new attribute
     pub fn insert(&mut self, key: Attribute, val: u64) {
+        if key.is_inline() {
+            assert!(
+                val == 1,
+                "{} is a unit attribute and cannot have a value",
+                key.to_string(),
+            );
+            return self.inl.insert(key);
+        }
         self.attrs.insert(key, val);
     }
 
     /// Get the value associated with an attribute key
-    pub fn get(&self, key: Attribute) -> Option<&u64> {
-        self.attrs.get(&key)
+    pub fn get(&self, key: Attribute) -> Option<u64> {
+        if key.is_inline() && self.inl.has(key) {
+            return Some(1);
+        }
+        self.attrs.get(&key).cloned()
     }
 
     /// Check if an attribute key has been set
     pub fn has(&self, key: Attribute) -> bool {
+        if key.is_inline() {
+            return self.inl.has(key);
+        }
         self.attrs.contains_key(&key)
     }
 
     /// Returns true if there are no attributes
     pub fn is_empty(&self) -> bool {
-        self.attrs.is_empty()
+        self.inl.is_empty() && self.attrs.is_empty()
     }
 
     /// Remove attribute with the name `key`
-    pub fn remove(&mut self, key: Attribute) -> Option<u64> {
-        self.attrs.remove(&key)
+    pub fn remove(&mut self, key: Attribute) {
+        if key.is_inline() {
+            return self.inl.remove(key);
+        }
+        self.attrs.remove(&key);
     }
 
     /// Set the span information
     pub fn add_span(mut self, span: GPosIdx) -> Self {
         self.span = span;
         self
-    }
-}
-
-impl Index<Attribute> for Attributes {
-    type Output = u64;
-
-    fn index(&self, key: Attribute) -> &u64 {
-        self.get(key).unwrap_or_else(|| {
-            panic!("No key `{}` in attribute map", key.to_string())
-        })
-    }
-}
-
-impl IndexMut<Attribute> for Attributes {
-    fn index_mut(&mut self, index: Attribute) -> &mut Self::Output {
-        self.attrs.insert(index, 0);
-        self.attrs.get_mut(&index).unwrap()
     }
 }

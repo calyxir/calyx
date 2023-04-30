@@ -151,7 +151,7 @@ fn insert_barrier(
 ) -> CalyxResult<()> {
     match con {
         ir::Control::Empty(_) => {
-            if let Some(n) = con.get_attributes().get(ir::Attribute::Sync) {
+            if let Some(ref n) = con.get_attributes().get(ir::Attribute::Sync) {
                 barrier_reg.insert_shared_wire(builder, n);
                 let con_ref = barrier_con.entry(*n).or_insert_with(|| {
                     build_barrier_group(builder, n, barrier_reg)

@@ -18,12 +18,15 @@ impl Normalize {
             "Attempting to normalize non-static program"
         );
         let balance = builder.add_group("balance");
-        balance.borrow_mut().attributes[ir::Attribute::Static] = 1;
+        balance
+            .borrow_mut()
+            .attributes
+            .insert(ir::Attribute::Static, 1);
         let mut balance = ir::Enable {
             group: balance,
             attributes: ir::Attributes::default(),
         };
-        balance.attributes[ir::Attribute::Static] = 1;
+        balance.attributes.insert(ir::Attribute::Static, 1);
         let norm = Normalize { balance };
         norm.recur(con);
     }
@@ -100,16 +103,17 @@ impl Normalize {
     fn denest_loop(wh: &mut ir::While) {
         let mut body =
             std::mem::replace(&mut wh.body, Box::new(ir::Control::empty()));
-        let mut bound = wh.attributes[ir::Attribute::Bound];
+        let mut bound = wh.attributes.get(ir::Attribute::Bound).unwrap();
         let mut body_time = body.get_attribute(ir::Attribute::Static).unwrap();
 
         while let ir::Control::While(inner) = *body {
-            bound *= inner.attributes[ir::Attribute::Bound];
+            bound *= inner.attributes.get(ir::Attribute::Bound).unwrap();
             body = inner.body;
             body_time = body.get_attribute(ir::Attribute::Static).unwrap();
         }
         wh.body = body;
-        wh.attributes[ir::Attribute::Bound] = bound;
-        wh.attributes[ir::Attribute::Static] = body_time * bound;
+        wh.attributes.insert(ir::Attribute::Bound, bound);
+        wh.attributes
+            .insert(ir::Attribute::Static, body_time * bound);
     }
 }

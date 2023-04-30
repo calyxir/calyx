@@ -358,7 +358,7 @@ impl Visitor for WellFormed {
         if group
             .attributes
             .get(ir::Attribute::Static)
-            .map(|v| *v == 0)
+            .map(|v| v == 0)
             .unwrap_or(false)
         {
             return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
@@ -406,7 +406,7 @@ impl Visitor for WellFormed {
         if group
             .attributes
             .get(ir::Attribute::Static)
-            .map(|v| *v == 0)
+            .map(|v| v == 0)
             .unwrap_or(false)
         {
             return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));

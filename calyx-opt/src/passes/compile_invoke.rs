@@ -107,7 +107,7 @@ impl Visitor for CompileInvoke {
             invoke_group
                 .borrow_mut()
                 .attributes
-                .insert(ir::Attribute::Static, *time);
+                .insert(ir::Attribute::Static, time);
         }
 
         let mut en = ir::Enable {
@@ -115,7 +115,7 @@ impl Visitor for CompileInvoke {
             attributes: Attributes::default(),
         };
         if let Some(time) = s.attributes.get(ir::Attribute::Static) {
-            en.attributes.insert(ir::Attribute::Static, *time);
+            en.attributes.insert(ir::Attribute::Static, time);
         }
 
         Ok(Action::change(ir::Control::Enable(en)))

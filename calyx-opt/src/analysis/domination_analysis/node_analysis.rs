@@ -18,12 +18,12 @@ const END_ID: ir::Attribute = ir::Attribute::END_ID;
 fn not_end_id(c: &ir::Control, id: u64) -> bool {
     match c {
         ir::Control::If(if_control) => {
-            if let Some(&begin) = if_control.attributes.get(BEGIN_ID) {
+            if let Some(begin) = if_control.attributes.get(BEGIN_ID) {
                 if begin == id {
                     return true;
                 }
             }
-            if let Some(&end) = if_control.attributes.get(END_ID) {
+            if let Some(end) = if_control.attributes.get(END_ID) {
                 if end == id {
                     return false;
                 }
@@ -41,12 +41,12 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
 fn not_end_id_static(c: &ir::StaticControl, id: u64) -> bool {
     match c {
         ir::StaticControl::If(if_control) => {
-            if let Some(&begin) = if_control.attributes.get(BEGIN_ID) {
+            if let Some(begin) = if_control.attributes.get(BEGIN_ID) {
                 if begin == id {
                     return true;
                 }
             }
-            if let Some(&end) = if_control.attributes.get(END_ID) {
+            if let Some(end) = if_control.attributes.get(END_ID) {
                 if end == id {
                     return false;
                 }

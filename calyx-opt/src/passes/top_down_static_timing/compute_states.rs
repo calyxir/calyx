@@ -46,8 +46,8 @@ impl ComputeStates {
         match con {
             ir::Control::Enable(en) => {
                 debug_assert!(en.attributes.get(ID).is_none());
-                en.attributes[ID] = self.cur_st;
-                let time = en.attributes[ir::Attribute::Static];
+                en.attributes.insert(ID, self.cur_st);
+                let time = en.attributes.get(ir::Attribute::Static).unwrap();
                 self.cur_st += time;
             }
             ir::Control::Static(_) => {
@@ -66,17 +66,17 @@ impl ComputeStates {
             }
             ir::Control::While(wh) => self.compute_while(wh, builder),
             ir::Control::Par(par) => {
-                par.attributes[ID] = self.cur_st;
+                par.attributes.insert(ID, self.cur_st);
                 // All statements should only contain enables and get the same
                 // start state as the `par` block.
                 for stmt in &mut par.stmts {
                     if let ir::Control::Enable(en) = stmt {
-                        en.attributes[ID] = self.cur_st;
+                        en.attributes.insert(ID, self.cur_st);
                     } else {
                         unreachable!("Par should only contain enables")
                     }
                 }
-                let time = par.attributes[ir::Attribute::Static];
+                let time = par.attributes.get(ir::Attribute::Static).unwrap();
                 self.cur_st += time;
             }
             ir::Control::Invoke(_) => unreachable!(
@@ -90,8 +90,8 @@ impl ComputeStates {
 
     fn compute_while(&mut self, wh: &mut ir::While, builder: &mut ir::Builder) {
         // Compute START, END, and LOOP index attributes
-        wh.attributes[START] = self.cur_st;
-        let body_time = wh.attributes[ir::Attribute::Static];
+        wh.attributes.insert(START, self.cur_st);
+        let body_time = wh.attributes.get(ir::Attribute::Static).unwrap();
         // Instantiate the indexing variable for this while loop
         let size = get_bit_width_from(body_time + 1);
         structure!(builder;
@@ -100,10 +100,10 @@ impl ComputeStates {
         self.indices.push(idx);
         let idx_pos = self.indices.len() - 1;
         // Add attribute to track the loop counter
-        wh.attributes[LOOP] = idx_pos as u64;
+        wh.attributes.insert(LOOP, idx_pos as u64);
         self.recur(&mut wh.body, builder);
         // Mark the end state of the body
-        wh.attributes[END] = self.cur_st;
+        wh.attributes.insert(END, self.cur_st);
     }
 
     /// Computes the outgoing edges from the control programs.
@@ -117,8 +117,8 @@ impl ComputeStates {
     ) {
         match con {
             ir::Control::Enable(en) => {
-                let st = en.attributes[ID]
-                    + en.attributes[ir::Attribute::Static]
+                let st = en.attributes.get(ID).unwrap()
+                    + en.attributes.get(ir::Attribute::Static).unwrap()
                     - 1;
                 exits.push((st, ir::Guard::True));
             }
@@ -126,8 +126,8 @@ impl ComputeStates {
                 panic!("Static behavior on tdst TBD")
             }
             ir::Control::Par(par) => {
-                let st = par.attributes[ID]
-                    + par.attributes[ir::Attribute::Static]
+                let st = par.attributes.get(ID).unwrap()
+                    + par.attributes.get(ir::Attribute::Static).unwrap()
                     - 1;
                 exits.push((st, ir::Guard::True))
             }
@@ -175,12 +175,12 @@ impl ComputeStates {
         wh: &ir::While,
         builder: &mut ir::Builder,
     ) -> (RRC<ir::Cell>, RRC<ir::Cell>) {
-        let max_count = wh.attributes[ir::Attribute::Static];
+        let max_count = wh.attributes.get(ir::Attribute::Static).unwrap();
         let size = get_bit_width_from(max_count + 1);
         structure!(builder;
             let max = constant(max_count, size);
         );
-        let idx_pos = wh.attributes[LOOP] as usize;
+        let idx_pos = wh.attributes.get(LOOP).unwrap() as usize;
         let idx = Rc::clone(&self.indices[idx_pos]);
         (idx, max)
     }

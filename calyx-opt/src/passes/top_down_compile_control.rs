@@ -46,7 +46,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
         ir::Control::Empty(_) => {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(NODE_ID).unwrap();
-            exits.push((*cur_state, guard!(group["done"])))
+            exits.push((cur_state, guard!(group["done"])))
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             if let Some(stmt) = stmts.last() { control_exits(stmt, exits) }
@@ -393,7 +393,7 @@ impl Schedule<'_, '_> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-            let cur_state = *attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
+            let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
             // This happens when the first control statement is an enable not
@@ -851,7 +851,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
         let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -877,7 +877,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
         let node_id = i.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -903,7 +903,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
         let node_id = w.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -994,7 +994,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(par_group);
         let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }

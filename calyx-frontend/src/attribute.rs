@@ -6,27 +6,22 @@ pub const DEPRECATED_ATTRIBUTES: &[&str] = &[];
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 #[allow(non_camel_case_types)]
 /// Defines the known attributes that can be attached to IR nodes.
+/// All caps names represent attributes that are internal to the compiler and
+/// cannot be parsed back.
 pub enum Attribute {
+    // ============ 1-bit attributes ============
     /// This is the top-level component
     TopLevel,
     /// Cell should be externalized
     External,
     /// The component doesn't have a standard interface
     NoInterface,
-    // Interface attributes
-    Go,
-    Done,
+    /// Reset signal for the component
     Reset,
+    /// Clk for the signal
     Clk,
-    /// Latency information
-    Static,
     /// Is the port connected to a state element
     Stable,
-    /// The bound of a while loop
-    Bound,
-    // Interface properties
-    ReadTogether,
-    WriteTogether,
     /// This is a data path component
     Data,
     /// Is this component shareable
@@ -41,9 +36,24 @@ pub enum Attribute {
     NewFSM,
     /// Inline this subcomponent
     Inline,
+    /// This assignment is dead
+    DEAD,
+
+    // ============ numeric attributes ============
+    // Interface ports
+    Go,
+    Done,
+    // Interface properties
+    ReadTogether,
+    WriteTogether,
+    /// The bound of a while loop
+    Bound,
+    /// Latency information
+    Static,
     /// Source location position for this node
     Pos,
 
+    // ============ Internal attributes ============
     // Internal attributes. Not for public use and the frontend cannot parse them.
     NODE_ID,
     BEGIN_ID,
@@ -52,12 +62,96 @@ pub enum Attribute {
     LOOP,
     START,
     END,
-    /// This assignment is dead
-    DEAD,
 
     /// Unknown attribute. Should not appear in the Calyx codebase.
     /// Useful for other frontends using Calyx
     Unknown(Id),
+}
+
+impl Attribute {
+    #[inline]
+    /// Generates index for 1-bit attributes
+    const fn inline_idx(&self) -> Option<u16> {
+        match self {
+            Attribute::TopLevel => Some(0),
+            Attribute::External => Some(1),
+            Attribute::NoInterface => Some(2),
+            Attribute::Reset => Some(3),
+            Attribute::Clk => Some(4),
+            Attribute::Stable => Some(5),
+            Attribute::Data => Some(6),
+            Attribute::Share => Some(7),
+            Attribute::StateShare => Some(8),
+            Attribute::Sync => Some(9),
+            Attribute::Generated => Some(10),
+            Attribute::NewFSM => Some(11),
+            Attribute::Inline => Some(12),
+            Attribute::DEAD => Some(13),
+            _ => None,
+        }
+    }
+
+    /// Check if the attribute is inlinable
+    pub const fn is_inline(&self) -> bool {
+        matches!(
+            self,
+            Attribute::TopLevel
+                | Attribute::External
+                | Attribute::NoInterface
+                | Attribute::Reset
+                | Attribute::Clk
+                | Attribute::Stable
+                | Attribute::Data
+                | Attribute::Share
+                | Attribute::StateShare
+                | Attribute::Sync
+                | Attribute::Generated
+                | Attribute::NewFSM
+                | Attribute::Inline
+                | Attribute::DEAD
+        )
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+/// Inline storage for attributes that are guaranteed to be 1-bit
+pub(super) struct InlineAttributes {
+    /// 1-bit attributes are stored in a single u16
+    attrs: u16,
+}
+
+impl InlineAttributes {
+    /// Is the attribute set empty?
+    pub const fn is_empty(&self) -> bool {
+        self.attrs == 0
+    }
+
+    /// Adds an attribute to the set
+    pub fn insert(&mut self, attr: Attribute) {
+        if let Some(idx) = attr.inline_idx() {
+            self.attrs |= 1 << idx;
+        } else {
+            unreachable!("Cannot add non-inline attribute to inline set")
+        }
+    }
+
+    /// Checks if the set contains an attribute
+    pub fn has(&self, attr: Attribute) -> bool {
+        if let Some(idx) = attr.inline_idx() {
+            self.attrs & (1 << idx) != 0
+        } else {
+            unreachable!("Cannot check for non-inline attribute in inline set")
+        }
+    }
+
+    /// Remove attribute from the set if present
+    pub fn remove(&mut self, attr: Attribute) {
+        if let Some(idx) = attr.inline_idx() {
+            self.attrs &= !(1 << idx);
+        } else {
+            unreachable!("Cannot remove non-inline attribute from inline set")
+        }
+    }
 }
 
 impl From<Attribute> for Id {

@@ -12,6 +12,8 @@ mod attributes;
 mod common;
 mod workspace;
 
+use attribute::InlineAttributes;
+
 pub use ast::NamespaceDef;
 pub use attribute::{Attribute, DEPRECATED_ATTRIBUTES};
 pub use attributes::{Attributes, GetAttributes};
