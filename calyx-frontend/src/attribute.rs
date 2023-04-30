@@ -1,7 +1,7 @@
 use calyx_utils::{CalyxResult, Error};
 
 /// Attributes that have been deprecated.
-pub const DEPRECATED: &[&str] = &[];
+pub const DEPRECATED_ATTRIBUTES: &[&str] = &[];
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 /// Defines the known attributes that can be attached to IR nodes.
@@ -29,7 +29,7 @@ impl TryFrom<String> for Attribute {
     type Error = Error;
 
     fn try_from(s: String) -> CalyxResult<Self> {
-        if DEPRECATED.contains(&s.as_str()) {
+        if DEPRECATED_ATTRIBUTES.contains(&s.as_str()) {
             return Err(Error::malformed_structure(format!(
                 "Attribute {s} is deprecated"
             )));

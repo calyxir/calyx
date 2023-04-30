@@ -7,7 +7,6 @@
 //! 2. The IR attempts to represent similar concepts in a homogeneous manner.
 
 // Modules defining internal structures.
-mod attribute;
 mod builder;
 mod common;
 mod component;
@@ -23,7 +22,6 @@ mod structure;
 pub mod rewriter;
 
 // Re-export types at the module level.
-pub use attribute::{Attribute, DEPRECATED};
 pub use builder::Builder;
 pub use calyx_utils::{GetName, Id};
 pub use common::{RRC, WRC};
@@ -46,7 +44,8 @@ pub use structure::{
 
 // Re-export types from the frontend.
 pub use calyx_frontend::{
-    Attributes, Direction, GetAttributes, PortDef, Primitive, Width,
+    Attribute, Attributes, Direction, GetAttributes, PortDef, Primitive, Width,
+    DEPRECATED_ATTRIBUTES,
 };
 
 /// Module to transform AST programs into IR.

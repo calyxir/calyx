@@ -5,12 +5,15 @@
 //! in the `ir` module.
 
 pub mod ast;
+pub mod parser;
+
+mod attribute;
 mod attributes;
 mod common;
-pub mod parser;
 mod workspace;
 
 pub use ast::NamespaceDef;
+pub use attribute::{Attribute, DEPRECATED_ATTRIBUTES};
 pub use attributes::{Attributes, GetAttributes};
 pub use common::{Direction, PortDef, Primitive, Width};
 pub use workspace::Workspace;
