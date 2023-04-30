@@ -1,6 +1,6 @@
 [package]
 name = "calyx-utils"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 description.workspace = true
 authors.workspace = true
@@ -9,6 +9,7 @@ keywords.workspace = true
 repository.workspace = true
 homepage.workspace = true
 categories.workspace = true
+readme.workspace = true
 
 [features]
 default = []
