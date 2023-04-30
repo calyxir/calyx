@@ -64,7 +64,7 @@ impl From<Attribute> for Id {
     fn from(attr: Attribute) -> Id {
         match attr {
             Attribute::TopLevel => "toplevel".into(),
-            Attribute::NoInterface => "no_interface".into(),
+            Attribute::NoInterface => "nointerface".into(),
             Attribute::Go => "go".into(),
             Attribute::Done => "done".into(),
             Attribute::Reset => "reset".into(),
