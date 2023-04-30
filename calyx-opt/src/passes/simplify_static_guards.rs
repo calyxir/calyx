@@ -46,7 +46,7 @@ impl SimplifyStaticGuards {
                     Self::separate_anded_intervals(*g1, cur_anded_intervals);
                 let rest_g2 =
                     Self::separate_anded_intervals(*g2, cur_anded_intervals);
-                let remaining_guard = match (rest_g1, rest_g2) {
+                match (rest_g1, rest_g2) {
                     // both g1 and g2 are entirely made up of static timing guards
                     (None, None) => None,
                     // one of g1 or g2 is made up entirely of static timing guards
@@ -58,9 +58,7 @@ impl SimplifyStaticGuards {
                             Box::new(g2_unwrapped),
                         ))
                     }
-                };
-                // should extend g1 intervals to include g2 intervals
-                remaining_guard
+                }
             }
             ir::Guard::Info(static_timing_info) => {
                 // no "rest of guard" for static intervals
