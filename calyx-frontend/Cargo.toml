@@ -1,7 +1,15 @@
 [package]
 name = "calyx-frontend"
-version = "0.1.0"
-edition = "2021"
+version = "0.1.1"
+edition.workspace = true
+description.workspace = true
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+readme.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,4 +23,4 @@ pest.workspace = true
 pest_derive.workspace = true
 pest_consume.workspace = true
 
-calyx-utils = { path = "../calyx-utils" }
+calyx-utils = { path = "../calyx-utils", version = "0.1.1" }
