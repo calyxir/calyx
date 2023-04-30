@@ -873,7 +873,7 @@ impl Visitor for TopDownStaticTiming {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if !con.attributes.has("static") {
+        if !con.attributes.has(ir::Attribute::Static) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
