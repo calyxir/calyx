@@ -428,7 +428,7 @@ impl StaticParTiming {
                 }
             }
             ir::Control::Par(ir::Par { stmts, attributes }) => {
-                if attributes.get("static").is_some() {
+                if attributes.get(ir::Attribute::Static).is_some() {
                     // Analyze the Current Par
                     for stmt in stmts {
                         self.build_time_map(

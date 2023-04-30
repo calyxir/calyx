@@ -55,7 +55,7 @@ impl From<&ir::Primitive> for GoDone {
         let go_ports = prim
             .find_all_with_attr("go")
             .filter_map(|pd| {
-                pd.attributes.get("static").and_then(|st| {
+                pd.attributes.get(ir::Attribute::Static).and_then(|st| {
                     done_ports
                         .get(&pd.attributes["go"])
                         .map(|done_port| (pd.name, *done_port, *st))
@@ -80,7 +80,7 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr("go")
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get("static").and_then(|st| {
+                port.attributes.get(ir::Attribute::Static).and_then(|st| {
                     done_ports
                         .get(&port.attributes["go"])
                         .map(|done_port| (port.name, *done_port, *st))
@@ -121,7 +121,7 @@ impl ConstructVisitor for InferStaticTiming {
             let go_ports = prim
                 .find_all_with_attr("go")
                 .filter_map(|pd| {
-                    pd.attributes.get("static").and_then(|st| {
+                    pd.attributes.get(ir::Attribute::Static).and_then(|st| {
                         done_ports
                             .get(&pd.attributes["go"])
                             .map(|done_port| (pd.name, *done_port, *st))
@@ -288,7 +288,7 @@ impl InferStaticTiming {
                     }
                 }
 
-                ir::PortParent::StaticGroup(_) => // done ports of static groups should clearly NOT have static latencies  
+                ir::PortParent::StaticGroup(_) => // done ports of static groups should clearly NOT have static latencies
                 panic!("Have not decided how to handle static groups in infer-static-timing"),
             }
         }
@@ -403,7 +403,9 @@ impl Visitor for InferStaticTiming {
         for group in comp.get_groups().iter() {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
                 let grp = group.borrow();
-                if let Some(curr_lat) = grp.attributes.get("static") {
+                if let Some(curr_lat) =
+                    grp.attributes.get(ir::Attribute::Static)
+                {
                     // Inferred latency is not the same as the provided latency annotation.
                     if *curr_lat != latency {
                         let msg1 = format!("Annotated latency: {}", curr_lat);
@@ -455,8 +457,11 @@ impl Visitor for InferStaticTiming {
             // is completely static and there is exactly one go port.
             if go_ports.len() == 1 {
                 let go_port = go_ports.pop().unwrap();
-                let mb_time =
-                    go_port.borrow().attributes.get("static").cloned();
+                let mb_time = go_port
+                    .borrow()
+                    .attributes
+                    .get(ir::Attribute::Static)
+                    .cloned();
 
                 if let Some(go_time) = mb_time {
                     if go_time != time {

@@ -357,7 +357,7 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get("static")
+            .get(ir::Attribute::Static)
             .map(|v| *v == 0)
             .unwrap_or(false)
         {
@@ -405,7 +405,7 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get("static")
+            .get(ir::Attribute::Static)
             .map(|v| *v == 0)
             .unwrap_or(false)
         {

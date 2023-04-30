@@ -69,19 +69,28 @@ impl WithStatic for ir::Enable {
         // Attempt to get the latency from the attribute on the enable first, or
         // failing that, from the group.
         self.attributes
-            .get("static")
+            .get(ir::Attribute::Static)
             .cloned()
-            .or_else(|| self.group.borrow().attributes.get("static").cloned())
+            .or_else(|| {
+                self.group
+                    .borrow()
+                    .attributes
+                    .get(ir::Attribute::Static)
+                    .cloned()
+            })
     }
 }
 
 impl WithStatic for ir::Invoke {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.attributes.get("static").cloned().or_else(|| {
-            let comp = self.comp.borrow().type_name()?;
-            extra.get(&comp).cloned()
-        })
+        self.attributes
+            .get(ir::Attribute::Static)
+            .cloned()
+            .or_else(|| {
+                let comp = self.comp.borrow().type_name()?;
+                extra.get(&comp).cloned()
+            })
     }
 }
 

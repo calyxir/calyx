@@ -384,7 +384,7 @@ impl Schedule<'_, '_> {
         con: &ir::Enable,
         preds: Vec<PredEdge>,
     ) -> CalyxResult<Vec<PredEdge>> {
-        let time_option = con.attributes.get("static");
+        let time_option = con.attributes.get(ir::Attribute::Static);
         let Some(&time) = time_option else {
             return Err(Error::pass_assumption(
         TopDownStaticTiming::name(),
