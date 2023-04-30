@@ -7,7 +7,7 @@
 //! 2. The IR attempts to represent similar concepts in a homogeneous manner.
 
 // Modules defining internal structures.
-mod attributes;
+mod attribute;
 mod builder;
 mod common;
 mod component;
@@ -23,7 +23,7 @@ mod structure;
 pub mod rewriter;
 
 // Re-export types at the module level.
-pub use attributes::{Attribute, DEPRECATED};
+pub use attribute::{Attribute, DEPRECATED};
 pub use builder::Builder;
 pub use calyx_utils::{GetName, Id};
 pub use common::{RRC, WRC};
