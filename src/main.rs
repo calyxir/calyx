@@ -8,11 +8,6 @@ use cmdline::{BackendOpt, CompileMode, Opts};
 use itertools::Itertools;
 
 fn main() -> CalyxResult<()> {
-    eprintln!(
-        "Size of attributes: {}",
-        std::mem::size_of::<ir::Attributes>()
-    );
-
     // parse the command line arguments into Opts struct
     let mut opts = Opts::get_opts()?;
 
