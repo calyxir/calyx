@@ -5,32 +5,20 @@ use calyx_utils::{CalyxResult, GPosIdx, WithPos};
 use linked_hash_map::LinkedHashMap;
 use std::convert::TryFrom;
 
-/// Attributes associated with a specific IR structure.
-#[derive(Default, Debug, Clone)]
-pub struct Attributes {
-    /// Mapping from the name of the attribute to its value.
-    pub(super) attrs: Box<LinkedHashMap<Attribute, u64>>,
-    /// Inlined attributes
-    inl: InlineAttributes,
-    /// Source location information for the item
+#[derive(Debug, Clone, Default)]
+/// Attribute information stored on the Heap
+struct HeapAttrInfo {
+    attrs: LinkedHashMap<Attribute, u64>,
     span: GPosIdx,
 }
 
-impl IntoIterator for Attributes {
-    type Item = (Attribute, u64);
-    type IntoIter = linked_hash_map::IntoIter<Attribute, u64>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.attrs.into_iter()
-    }
-}
-impl<'a> IntoIterator for &'a Attributes {
-    type Item = (&'a Attribute, &'a u64);
-    type IntoIter = linked_hash_map::Iter<'a, Attribute, u64>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.attrs.iter()
-    }
+/// Attributes associated with a specific IR structure.
+#[derive(Default, Debug, Clone)]
+pub struct Attributes {
+    /// Inlined attributes
+    inl: InlineAttributes,
+    /// Attributes stored on the heap
+    hinfo: Box<HeapAttrInfo>,
 }
 
 impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
@@ -53,7 +41,7 @@ impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
 
 impl WithPos for Attributes {
     fn copy_span(&self) -> GPosIdx {
-        self.span
+        self.hinfo.span
     }
 }
 
@@ -77,7 +65,7 @@ impl Attributes {
             );
             return self.inl.insert(key);
         }
-        self.attrs.insert(key, val);
+        self.hinfo.attrs.insert(key, val);
     }
 
     /// Get the value associated with an attribute key
@@ -85,7 +73,7 @@ impl Attributes {
         if key.is_inline() && self.inl.has(key) {
             return Some(1);
         }
-        self.attrs.get(&key).cloned()
+        self.hinfo.attrs.get(&key).cloned()
     }
 
     /// Check if an attribute key has been set
@@ -93,12 +81,12 @@ impl Attributes {
         if key.is_inline() {
             return self.inl.has(key);
         }
-        self.attrs.contains_key(&key)
+        self.hinfo.attrs.contains_key(&key)
     }
 
     /// Returns true if there are no attributes
     pub fn is_empty(&self) -> bool {
-        self.inl.is_empty() && self.attrs.is_empty()
+        self.inl.is_empty() && self.hinfo.attrs.is_empty()
     }
 
     /// Remove attribute with the name `key`
@@ -106,12 +94,29 @@ impl Attributes {
         if key.is_inline() {
             return self.inl.remove(key);
         }
-        self.attrs.remove(&key);
+        self.hinfo.attrs.remove(&key);
     }
 
     /// Set the span information
     pub fn add_span(mut self, span: GPosIdx) -> Self {
-        self.span = span;
+        self.hinfo.span = span;
         self
+    }
+
+    pub fn to_string_with<F>(&self, sep: &'static str, fmt: F) -> String
+    where
+        F: Fn(String, u64) -> String,
+    {
+        if self.is_empty() {
+            return String::default();
+        }
+
+        self.hinfo
+            .attrs
+            .iter()
+            .map(|(k, v)| fmt(k.to_string(), *v))
+            .chain(self.inl.iter().map(|k| fmt(k.to_string(), 1)))
+            .collect::<Vec<_>>()
+            .join(sep)
     }
 }
