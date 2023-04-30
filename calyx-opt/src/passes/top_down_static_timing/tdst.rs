@@ -469,7 +469,7 @@ impl Schedule<'_, '_> {
             }
         }
         Ok(vec![(
-            con.attributes[ID] + con.attributes["static"] - 1,
+            con.attributes[ID] + con.attributes[ir::Attribute::Static] - 1,
             ir::Guard::True,
         )])
     }
@@ -623,7 +623,7 @@ impl Schedule<'_, '_> {
         }
 
         // Construct the index and incrementing logic.
-        let bound = wh.attributes["bound"];
+        let bound = wh.attributes[ir::Attribute::Bound];
         // Loop bound should not be less than 1.
         if bound < 1 {
             return Err(Error::malformed_structure(
@@ -655,7 +655,7 @@ impl Schedule<'_, '_> {
         // Index incrementing logic
         let incr_group = self.incr_group(&idx);
         let incr_activate = self.builder.build_assignment(
-            incr_group.borrow().get(ir::Attribute::Go),
+            incr_group.borrow().get("go"),
             on.borrow().get("out"),
             enter_guard,
         );
@@ -679,7 +679,7 @@ impl Schedule<'_, '_> {
         let exit = guard!(idx["out"]).eq(guard!(total["out"]));
         let reset_group = self.reset_group(&idx);
         let reset_activate = self.builder.build_assignment(
-            reset_group.borrow().get(ir::Attribute::Go),
+            reset_group.borrow().get("go"),
             on.borrow().get("out"),
             exit.clone(),
         );
@@ -704,7 +704,7 @@ impl Schedule<'_, '_> {
         dump_fsm: bool,
     ) -> CalyxResult<RRC<ir::Group>> {
         debug_assert!(
-            con.get_attribute("static").is_some(),
+            con.get_attribute(ir::Attribute::Static).is_some(),
             "Attempted to compile non-static program"
         );
         // Normalize the program
@@ -796,10 +796,10 @@ impl TopDownStaticTiming {
         if matches!(con, ir::Control::Enable(_) | ir::Control::Empty(_)) {
             return Ok(());
         }
-        if let Some(time) = con.get_attribute("static") {
+        if let Some(time) = con.get_attribute(ir::Attribute::Static) {
             let group = Schedule::compile(con, builder, dump_fsm)?;
             let mut en = ir::Control::enable(group);
-            en.get_mut_attributes()["static"] = time;
+            en.get_mut_attributes()[ir::Attribute::Static] = time;
             *con = en;
         } else {
             match con {
@@ -835,7 +835,7 @@ impl Visitor for TopDownStaticTiming {
             comp.cells.iter().any(|c| c.borrow().is_component());
         if has_subcomponents {
             Some("Subcomponents with static timing not supported".to_string())
-        } else if !comp.control.borrow().has_attribute("static") {
+        } else if !comp.control.borrow().has_attribute(ir::Attribute::Static) {
             Some(
                 "Mixed static-dynamic control programs are not supported"
                     .to_string(),
@@ -858,7 +858,7 @@ impl Visitor for TopDownStaticTiming {
             return Ok(Action::Stop);
         }
 
-        if !con.has_attribute("static") {
+        if !con.has_attribute(ir::Attribute::Static) {
             unreachable!("Entire program must be static");
         }
 
@@ -882,11 +882,12 @@ impl Visitor for TopDownStaticTiming {
             match stmt {
                 ir::Control::Enable(_) => {}
                 con => {
-                    let time = con.get_attribute("static").unwrap();
+                    let time =
+                        con.get_attribute(ir::Attribute::Static).unwrap();
                     let group =
                         Schedule::compile(con, &mut builder, self.dump_fsm)?;
                     let mut en = ir::Control::enable(group);
-                    en.get_mut_attributes()["static"] = time;
+                    en.get_mut_attributes()[ir::Attribute::Static] = time;
                     *con = en;
                 }
             }

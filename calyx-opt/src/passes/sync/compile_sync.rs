@@ -53,7 +53,7 @@ fn count_barriers(
 ) -> CalyxResult<()> {
     match s {
         ir::Control::Empty(_) => {
-            if let Some(&n) = s.get_attributes().get("sync") {
+            if let Some(&n) = s.get_attributes().get(ir::Attribute::Sync) {
                 count.insert(n);
             }
             Ok(())
@@ -74,7 +74,7 @@ fn count_barriers(
             Ok(())
         }
         ir::Control::Enable(e) => {
-            if s.get_attributes().get("sync").is_some() {
+            if s.get_attributes().get(ir::Attribute::Sync).is_some() {
                 return Err(Error::malformed_control(
                     "Enable or Invoke controls cannot be marked with @sync"
                         .to_string(),
@@ -84,7 +84,7 @@ fn count_barriers(
             Ok(())
         }
         ir::Control::Invoke(i) => {
-            if s.get_attributes().get("sync").is_some() {
+            if s.get_attributes().get(ir::Attribute::Sync).is_some() {
                 return Err(Error::malformed_control(
                     "Enable or Invoke controls cannot be marked with @sync"
                         .to_string(),
@@ -107,7 +107,7 @@ impl CompileSync {
     ) {
         match s {
             ir::Control::Empty(_) => {
-                if let Some(n) = s.get_attributes().get("sync") {
+                if let Some(n) = s.get_attributes().get(ir::Attribute::Sync) {
                     if self.barriers.get(n).is_none() {
                         self.add_shared_structure(builder, n);
                     }

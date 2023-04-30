@@ -118,7 +118,7 @@ fn build_barrier_group(
 fn produce_err(con: &ir::Control) -> CalyxResult<()> {
     match con {
         ir::Control::Enable(e) => {
-            if con.get_attributes().get("sync").is_some() {
+            if con.get_attributes().get(ir::Attribute::Sync).is_some() {
                 return Err(Error::malformed_control(
                     "Enable or Invoke controls cannot be marked with @sync"
                         .to_string(),
@@ -128,7 +128,7 @@ fn produce_err(con: &ir::Control) -> CalyxResult<()> {
             Ok(())
         }
         ir::Control::Invoke(i) => {
-            if con.get_attributes().get("sync").is_some() {
+            if con.get_attributes().get(ir::Attribute::Sync).is_some() {
                 return Err(Error::malformed_control(
                     "Enable or Invoke controls cannot be marked with @sync"
                         .to_string(),
@@ -151,7 +151,7 @@ fn insert_barrier(
 ) -> CalyxResult<()> {
     match con {
         ir::Control::Empty(_) => {
-            if let Some(n) = con.get_attributes().get("sync") {
+            if let Some(n) = con.get_attributes().get(ir::Attribute::Sync) {
                 barrier_reg.insert_shared_wire(builder, n);
                 let con_ref = barrier_con.entry(*n).or_insert_with(|| {
                     build_barrier_group(builder, n, barrier_reg)

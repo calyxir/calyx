@@ -47,7 +47,7 @@ impl ComputeStates {
             ir::Control::Enable(en) => {
                 debug_assert!(en.attributes.get(ID).is_none());
                 en.attributes[ID] = self.cur_st;
-                let time = en.attributes["static"];
+                let time = en.attributes[ir::Attribute::Static];
                 self.cur_st += time;
             }
             ir::Control::Static(_) => {
@@ -76,7 +76,7 @@ impl ComputeStates {
                         unreachable!("Par should only contain enables")
                     }
                 }
-                let time = par.attributes["static"];
+                let time = par.attributes[ir::Attribute::Static];
                 self.cur_st += time;
             }
             ir::Control::Invoke(_) => unreachable!(
@@ -91,7 +91,7 @@ impl ComputeStates {
     fn compute_while(&mut self, wh: &mut ir::While, builder: &mut ir::Builder) {
         // Compute START, END, and LOOP index attributes
         wh.attributes[START] = self.cur_st;
-        let body_time = wh.attributes["static"];
+        let body_time = wh.attributes[ir::Attribute::Static];
         // Instantiate the indexing variable for this while loop
         let size = get_bit_width_from(body_time + 1);
         structure!(builder;
@@ -117,14 +117,18 @@ impl ComputeStates {
     ) {
         match con {
             ir::Control::Enable(en) => {
-                let st = en.attributes[ID] + en.attributes["static"] - 1;
+                let st = en.attributes[ID]
+                    + en.attributes[ir::Attribute::Static]
+                    - 1;
                 exits.push((st, ir::Guard::True));
             }
             ir::Control::Static(_) => {
                 panic!("Static behavior on tdst TBD")
             }
             ir::Control::Par(par) => {
-                let st = par.attributes[ID] + par.attributes["static"] - 1;
+                let st = par.attributes[ID]
+                    + par.attributes[ir::Attribute::Static]
+                    - 1;
                 exits.push((st, ir::Guard::True))
             }
             ir::Control::Seq(s) => {
@@ -171,7 +175,7 @@ impl ComputeStates {
         wh: &ir::While,
         builder: &mut ir::Builder,
     ) -> (RRC<ir::Cell>, RRC<ir::Cell>) {
-        let max_count = wh.attributes["static"];
+        let max_count = wh.attributes[ir::Attribute::Static];
         let size = get_bit_width_from(max_count + 1);
         structure!(builder;
             let max = constant(max_count, size);
