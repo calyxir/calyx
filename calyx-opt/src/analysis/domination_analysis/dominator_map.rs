@@ -1,5 +1,8 @@
 use crate::analysis::{
-    domination_analysis::node_analysis::{NodeReads, NodeSearch},
+    domination_analysis::{
+        node_analysis::{NodeReads, NodeSearch},
+        static_par_domination::StaticParDomination,
+    },
     ControlId, ShareSet,
 };
 use calyx_ir as ir;
@@ -98,7 +101,7 @@ pub struct DominatorMap {
     /// an analysis to help domination across static pars
     /// static pars give us more precise timing guarantees and therefore allow
     /// us to more aggresively assign dominators
-    pub static_par_domination: crate::analysis::StaticParDomination,
+    pub static_par_domination: StaticParDomination,
     pub component_name: ir::Id,
 }
 
@@ -257,7 +260,7 @@ impl DominatorMap {
         let mut map = DominatorMap {
             map: HashMap::new(),
             exits_map: HashMap::new(),
-            static_par_domination: crate::analysis::StaticParDomination::new(
+            static_par_domination: StaticParDomination::new(
                 control,
                 component_name,
             ),

@@ -309,7 +309,7 @@ impl Visitor for WellFormed {
             let group = gr.borrow();
             // Check that for each interval %[beg, end], end > beg.
             for assign in &group.assignments {
-                assign.guard.check_for_each_info(
+                assign.guard.check_for_each_interval(
                     &mut |static_timing: &StaticTiming| {
                         if static_timing.get_interval().0
                             >= static_timing.get_interval().1

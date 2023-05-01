@@ -17,7 +17,6 @@ pub mod reaching_defns;
 mod read_write_set;
 mod schedule_conflicts;
 mod share_set;
-mod static_par_domination;
 mod static_par_timing;
 mod variable_detection;
 
@@ -34,6 +33,5 @@ pub use port_interface::PortInterface;
 pub use read_write_set::ReadWriteSet;
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
-pub use static_par_domination::StaticParDomination;
 pub use static_par_timing::StaticParTiming;
 pub use variable_detection::VariableDetection;
