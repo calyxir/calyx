@@ -2,7 +2,7 @@ use super::math_utilities::get_bit_width_from;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
-use ir::{build_assignments, Nothing, StaticTiming};
+use ir::{build_assignments, Nothing, StaticTiming, RRC};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::Not;
@@ -239,6 +239,81 @@ impl CompileStatic {
             early_reset_group.borrow().attributes.clone();
         g
     }
+
+    fn get_reset_group_name(&self, sc: &mut ir::StaticControl) -> &ir::Id {
+        // assume that there are only static enables left.
+        // if there are any other type of static control, then error out.
+        let ir::StaticControl::Enable(s) = sc else {
+            unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+        };
+
+        let sgroup = s.group.borrow_mut();
+        let sgroup_name = sgroup.name();
+        // get the "early reset group". It should exist, since we made an
+        // early_reset group for every static group in the component
+        let early_reset_name =
+            self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
+                unreachable!(
+                    "group {} not in self.reset_early_map",
+                    sgroup_name
+                )
+            });
+
+        early_reset_name
+    }
+
+    fn build_wrapper_group_while(
+        &self,
+        fsm_name: &ir::Id,
+        fsm_width: u64,
+        group_name: &ir::Id,
+        port: RRC<ir::Port>,
+        builder: &mut ir::Builder,
+    ) -> RRC<ir::Group> {
+        let reset_early_group = builder
+            .component
+            .find_group(*group_name)
+            .unwrap_or_else(|| {
+                unreachable!(
+                    "called build_wrapper_group with {}, which is not a group",
+                    group_name
+                )
+            });
+        let early_reset_fsm =
+            builder.component.find_cell(*fsm_name).unwrap_or_else(|| {
+                unreachable!(
+                    "called build_wrapper_group with {}, which is not an fsm",
+                    fsm_name
+                )
+            });
+
+        let wrapper_group =
+            builder.add_group(format!("while_wrapper_{}", group_name));
+
+        structure!(
+            builder;
+            let one = constant(1, 1);
+            let time_0 = constant(0, fsm_width);
+        );
+
+        let port_parent = port.borrow().cell_parent();
+        let port_name = port.borrow().name;
+        let done_guard = (!guard!(port_parent[port_name]))
+            & guard!(early_reset_fsm["out"]).eq(guard!(time_0["out"]));
+
+        let assignments = build_assignments!(
+            builder;
+            reset_early_group["go"] = ? one["out"];
+            // cond_reg["in"] = time_guard_0 ? port_parent[port_name];
+            // cond_reg["write_en"] = time_guard_0 ? one["out"];
+            // cond_wire["in"] = time_guard_0 ? port_parent[port_name];
+            // cond_wire["in"] = not_0 ? cond_reg["out"];
+            wrapper_group["done"] = done_guard ? one["out"];
+        );
+
+        wrapper_group.borrow_mut().assignments.extend(assignments);
+        wrapper_group
+    }
 }
 
 impl Visitor for CompileStatic {
@@ -346,17 +421,36 @@ impl Visitor for CompileStatic {
         Ok(Action::Change(Box::new(e)))
     }
 
-    fn finish_while(
-            &mut self,
-            s: &mut ir::While,
-            _comp: &mut ir::Component,
-            _sigs: &ir::LibrarySignatures,
-            _comps: &[ir::Component],
-        ) -> VisResult {
-            if (matches!(*(s.body), ir::Control::Static(_))) && s.cond.is_none() {
+    fn start_while(
+        &mut self,
+        s: &mut ir::While,
+        comp: &mut ir::Component,
+        sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if s.cond.is_none() {
+            match &mut *(s.body) {
+                ir::Control::Static(sc) => {
+                    let mut builder = ir::Builder::new(comp, sigs);
+                    let reset_group_name = self.get_reset_group_name(sc);
 
+                    // get fsm for reset_group
+                    let (fsm, fsm_width) = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
+                    let wrapper_group = self.build_wrapper_group_while(
+                        fsm,
+                        *fsm_width,
+                        reset_group_name,
+                        Rc::clone(&s.port),
+                        &mut builder,
+                    );
+                    let c = ir::Control::enable(wrapper_group);
+                    return Ok(Action::change(c));
+                }
+                _ => (),
             }
-            Ok(Action::Continue)
+        }
+
+        Ok(Action::Continue)
     }
 
     fn finish(

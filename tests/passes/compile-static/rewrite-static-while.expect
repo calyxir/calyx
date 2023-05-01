@@ -1,0 +1,36 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    p = std_reg(3);
+    incr = std_add(3);
+    l = std_lt(3);
+    @generated fsm = std_reg(1);
+    @generated ud = undef(1);
+    @generated adder = std_add(1);
+  }
+  wires {
+    group early_reset_A {
+      incr.left = p.out;
+      incr.right = 3'd1;
+      p.in = incr.out;
+      p.write_en = fsm.out == 1'd0 ? 1'd1;
+      adder.left = fsm.out;
+      adder.right = 1'd1;
+      fsm.write_en = 1'd1;
+      fsm.in = fsm.out != 1'd0 ? adder.out;
+      fsm.in = fsm.out == 1'd0 ? 1'd0;
+      early_reset_A[done] = ud.out;
+    }
+    group while_wrapper_early_reset_A {
+      early_reset_A[go] = 1'd1;
+      while_wrapper_early_reset_A[done] = !l.out & fsm.out == 1'd0 ? 1'd1;
+    }
+    l.left = p.out;
+    l.right = 3'd6;
+  }
+
+  control {
+    while_wrapper_early_reset_A;
+  }
+}
