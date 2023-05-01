@@ -428,6 +428,41 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // if while body is static, then we want to make sure that the while
+        // body does not take the extra cycle incurred by the done condition 
+        // So we replace the while loop with `enable` of a wrapper group
+        // that sets the go signal of the static group in the while loop body high
+        // (all static control should be compiled into static groups by 
+        // `static_inliner` now). The done signal of the wrapper group should be
+        // the condition that the fsm of the while body is %0 and the port signal
+        // is 1'd0.
+        // For example, we replace 
+        // wires {
+        // static group A<1> {
+        //     ...
+        //   }
+        //    ...
+        // }
+  
+        // control {
+        //   while l.out {
+        //     A;
+        //   }
+        // }
+        // with 
+        // wires {
+        //  group early_reset_A {
+        //     ...    
+        //        }
+        //
+        // group while_wrapper_early_reset_A {
+        //       early_reset_A[go] = 1'd1;
+        //       while_wrapper_early_reset_A[done] = !l.out & fsm.out == 1'd0 ? 1'd1;
+        //     }  
+        //   }
+        //   control {
+        //     while_wrapper_early_reset_A;
+        //   }
         if s.cond.is_none() {
             match &mut *(s.body) {
                 ir::Control::Static(sc) => {
