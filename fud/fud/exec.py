@@ -4,12 +4,46 @@ import logging as log
 import shutil
 import sys
 from pathlib import Path
+from dataclasses import dataclass
 
 from halo import Halo  # type: ignore
 
 from . import errors, utils, executor
 from .config import Configuration
 from .stages import Source, SourceType, ComputationGraph, Stage
+
+
+@dataclass
+class RunConf:
+    """Configuration required to run a fud execution"""
+
+    # Run configuration
+    source: str
+    dest: str
+    through: List[str]
+    # Input/output configuration
+    input_file: Optional[str]
+    output_file: Optional[str]
+    # Other configuration
+    dry_run: bool
+    quiet: bool
+    csv: bool
+    profiled_stages: Optional[List[str]]
+
+    @classmethod
+    def from_args(cls, args):
+        """Build a RunConf from the passed from command line arguments"""
+        return cls(
+            args.source,
+            args.dest,
+            args.through,
+            args.input_file,
+            args.output_file,
+            args.dry_run,
+            args.quiet,
+            args.csv,
+            args.profiled_stages,
+        )
 
 
 def report_profiling(durations: Dict[str, float], is_csv: bool):
@@ -38,7 +72,14 @@ def chain_stages(
     return builder
 
 
-def run_fud(args, config: Configuration):
+def run_fud_from_args(args, config: Configuration):
+    """
+    Execute fud using command line arguments
+    """
+    return run_fud(RunConf.from_args(args), config)
+
+
+def run_fud(args: RunConf, config: Configuration):
     """
     Execute all the stages implied by the passed `args`
     """
