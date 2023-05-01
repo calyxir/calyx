@@ -114,23 +114,23 @@ impl StaticParDomination {
             // for each "must" execute nodes, it can either dominate:
             // one of the "may" execute nodes, or dominate another "must" execute node
             // "may" execute nodes cannot dominate anybody
-            for (node_id1, (_, end1)) in node_interval_mapping.clone() {
+            for (node_id1, (_, end1)) in node_interval_mapping {
                 // check if node_id1 dominates any of the "may" execute nodes
                 for (may_enable, (may_beg, _)) in may_execute_enables {
-                    if end1 <= *may_beg {
+                    if end1 <= may_beg {
                         static_dom_map
                             .entry(*may_enable)
                             .or_default()
-                            .insert(node_id1);
+                            .insert(*node_id1);
                     }
                 }
                 // check if node_id1 dominates any of the other "must" execute nodes
-                for (enable_id2, (beg2, _)) in node_interval_mapping.clone() {
+                for (enable_id2, (beg2, _)) in node_interval_mapping {
                     if end1 <= beg2 {
                         static_dom_map
-                            .entry(enable_id2)
+                            .entry(*enable_id2)
                             .or_default()
-                            .insert(node_id1);
+                            .insert(*node_id1);
                     }
                 }
             }
@@ -158,14 +158,9 @@ impl StaticParDomination {
         } else {
             self.node_maybe_timing_map.entry(par_id).or_default()
         };
-        // maps enable ids -> clock cycles that they're live in
-        match enable_mappings.get(&id) {
-            Some(_) =>
-                // we already have recorded an earlier execution of the node, so we don't care about a later execution
-                {}
-            None => {
-                enable_mappings.insert(id, (cur_clock, cur_clock + latency));
-            }
+        // we already have recorded an earlier execution of the node, so we don't care about a later execution
+        if enable_mappings.get(&id).is_none() {
+            enable_mappings.insert(id, (cur_clock, cur_clock + latency));
         }
         (par_id, cur_clock + latency)
     }

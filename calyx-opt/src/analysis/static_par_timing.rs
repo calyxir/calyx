@@ -14,7 +14,7 @@ type ThreadTimingMap = HashMap<u64, CellTimingMap>;
 #[derive(Default)]
 pub struct StaticParTiming {
     /// Map from par block ids to cell_timing_maps
-    pub cell_map: HashMap<u64, ThreadTimingMap>,
+    cell_map: HashMap<u64, ThreadTimingMap>,
     /// name of component
     component_name: ir::Id,
 }
