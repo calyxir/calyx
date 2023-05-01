@@ -48,7 +48,7 @@ def register_stages(registry):
     registry.register(
         futil.FutilStage(
             "verilog",
-            "-b verilog",
+            "-b verilog --disable-init",
             "Compile Calyx to Verilog instrumented for simulation",
         )
     )
@@ -297,18 +297,20 @@ def main():
         cfg = Configuration()
 
         # Only allow either config_file or dynamic configurations
-        if args.stage_dynamic_config and args.config_file:
+        if ("stage_dynamic_config" in args and args.stage_dynamic_config) and (
+            "config_file" in args and args.config_file
+        ):
             run_parser.error(
                 "Please provide either a configuration file or"
                 + " dynamic configurations",
             )
 
         # update the stages config with arguments provided via cmdline
-        if args.stage_dynamic_config is not None:
+        if "stage_dynamic_config" in args and args.stage_dynamic_config is not None:
             for key, value in args.stage_dynamic_config:
                 cfg[["stages"] + key.split(".")] = value
 
-        if args.config_file is not None:
+        if "config_file" in args and args.config_file is not None:
             # Parse the TOML file
             override = toml.load(args.config_file)
             for key, value in override.items():
