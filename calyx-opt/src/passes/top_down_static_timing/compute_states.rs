@@ -4,10 +4,11 @@ use ir::Nothing;
 use std::rc::Rc;
 
 /// Name of the attributes added by this pass.
-pub const ID: ir::Attribute = ir::Attribute::ST_ID;
-pub const LOOP: ir::Attribute = ir::Attribute::LOOP;
-pub const START: ir::Attribute = ir::Attribute::START;
-pub const END: ir::Attribute = ir::Attribute::END;
+pub const ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::ST_ID);
+pub const LOOP: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::LOOP);
+pub const START: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::START);
+pub const END: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END);
 
 /// Computes the states associated with control nodes in a static program.
 /// Each enable statement gets a number corresponding to the FSM state when it

@@ -134,7 +134,7 @@ fn if_name_stable_or_done<T>(
         .filter(|port_ref| port_ref.borrow().get_parent_name() == name)
         .all(|port_ref| {
             let atts = &port_ref.borrow().attributes;
-            atts.has(ir::Attribute::Stable) || atts.has(ir::NumAttr::Done)
+            atts.has(ir::BoolAttr::Stable) || atts.has(ir::NumAttr::Done)
         })
 }
 

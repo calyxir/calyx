@@ -100,7 +100,7 @@ fn external_memories_cells(
         .iter()
         // find external memories
         .filter(|cell_ref| {
-            cell_ref.borrow().attributes.has(ir::Attribute::External)
+            cell_ref.borrow().attributes.has(ir::BoolAttr::External)
         })
         .cloned()
         .collect()

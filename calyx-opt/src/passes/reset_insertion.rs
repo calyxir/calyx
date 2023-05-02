@@ -27,7 +27,7 @@ impl Visitor for ResetInsertion {
 
         for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();
-            if cell.get_attribute(ir::Attribute::External).is_some() {
+            if cell.get_attribute(ir::BoolAttr::External).is_some() {
                 // External cells should not have their state reset,
                 // since we assume they may be initialized.
                 continue;

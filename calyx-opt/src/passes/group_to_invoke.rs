@@ -260,7 +260,7 @@ impl GroupToInvoke {
             ir::CellType::ThisComponent => return,
             _ => {}
         }
-        if cell.is_reference() || cell.attributes.has(ir::Attribute::External) {
+        if cell.is_reference() || cell.attributes.has(ir::BoolAttr::External) {
             return;
         }
 

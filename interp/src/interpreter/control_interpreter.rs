@@ -24,7 +24,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 /// The key to lookup for the position tags
-const POS_TAG: ir::Attribute = ir::Attribute::Pos;
+const POS_TAG: ir::Attribute = ir::Attribute::Num(ir::NumAttr::Pos);
 
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {

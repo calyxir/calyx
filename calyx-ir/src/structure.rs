@@ -335,7 +335,7 @@ impl Cell {
     /// exist.
     pub fn get_with_attr<A>(&self, attr: A) -> RRC<Port>
     where
-        A: Into<Attribute>,
+        A: Into<Attribute> + std::fmt::Display + Copy,
     {
         self.find_with_attr(attr).unwrap_or_else(|| {
             panic!(

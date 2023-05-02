@@ -171,7 +171,7 @@ impl CombProp {
             // If elimination is disabled, mark the assignments with the @dead attribute.
             for assign in &mut comp.continuous_assignments {
                 if rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst)) {
-                    assign.attributes.insert(ir::Attribute::DEAD, 1)
+                    assign.attributes.insert(ir::InternalAttr::DEAD, 1)
                 }
             }
         } else {

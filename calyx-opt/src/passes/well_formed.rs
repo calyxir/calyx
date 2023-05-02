@@ -101,7 +101,7 @@ impl ConstructVisitor for WellFormed {
                 .filter_map(|cr| {
                     let cell = cr.borrow();
                     // Make sure @external cells are not defined in non-entrypoint components
-                    if cell.attributes.has(ir::Attribute::External)
+                    if cell.attributes.has(ir::BoolAttr::External)
                         && comp.name != ctx.entrypoint
                     {
                         Some(Err(Error::malformed_structure("Cell cannot be marked `@external` in non-entrypoint component").with_pos(&cell.attributes)))

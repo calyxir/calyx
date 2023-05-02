@@ -72,7 +72,7 @@ fn gen_count_map(
                         *name,
                         (**param_binding).clone(),
                         cell_ref
-                            .get_attribute(ir::Attribute::External)
+                            .get_attribute(ir::BoolAttr::External)
                             .is_some(),
                     ))
                     .or_insert(0) += 1;

@@ -132,7 +132,7 @@ impl Backend for XilinxXmlBackend {
             .filter(|cell_ref| {
                 cell_ref
                     .borrow()
-                    .get_attribute(ir::Attribute::External)
+                    .get_attribute(ir::BoolAttr::External)
                     .is_some()
             })
             .enumerate()

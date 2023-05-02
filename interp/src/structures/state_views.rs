@@ -303,7 +303,7 @@ impl<'a> StateView<'a> {
                     .iter()
                     .filter_map(|cell_ref| {
                         let cell = cell_ref.borrow();
-                        if cell.get_attribute(ir::Attribute::External).is_some()
+                        if cell.get_attribute(ir::BoolAttr::External).is_some()
                         {
                             if let Some(prim) = cell_prim_map
                                 .get(&(&cell as &ir::Cell as ConstCell))

@@ -54,6 +54,11 @@ impl From<BoolAttr> for Attribute {
         Attribute::Bool(attr)
     }
 }
+impl std::fmt::Display for BoolAttr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
+    }
+}
 
 #[derive(AsRefStr, EnumString, Clone, Copy, Hash, PartialEq, Eq, Debug)]
 /// Attributes that can take numeric values
@@ -85,6 +90,11 @@ pub enum NumAttr {
 impl From<NumAttr> for Attribute {
     fn from(attr: NumAttr) -> Self {
         Attribute::Num(attr)
+    }
+}
+impl std::fmt::Display for NumAttr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }
 
