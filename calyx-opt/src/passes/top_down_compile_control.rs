@@ -12,7 +12,8 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::rc::Rc;
 
-const NODE_ID: &str = "NODE_ID";
+const NODE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
 
 /// Computes the exit edges of a given [ir::Control] program.
 ///
@@ -46,7 +47,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
         ir::Control::Empty(_) => {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(NODE_ID).unwrap();
-            exits.push((*cur_state, guard!(group["done"])))
+            exits.push((cur_state, guard!(group["done"])))
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             if let Some(stmt) = stmts.last() { control_exits(stmt, exits) }
@@ -120,7 +121,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             cur_state + 1
         }
         ir::Control::Seq(ir::Seq { stmts, attributes }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then insert attribute at the seq, and then
             // start over counting states from 0
             let mut cur = if new_fsm{
@@ -143,7 +144,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         ir::Control::If(ir::If {
             tbranch, fbranch, attributes, ..
         }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm {
@@ -173,7 +174,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             }
         }
         ir::Control::While(ir::While { body, attributes, .. }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm{
@@ -393,7 +394,7 @@ impl Schedule<'_, '_> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-            let cur_state = *attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
+            let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
             // This happens when the first control statement is an enable not
@@ -839,7 +840,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has new_fsm attribute
-        if !s.attributes.has("new_fsm") {
+        if !s.attributes.has(ir::BoolAttr::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -851,7 +852,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
         let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -864,7 +865,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has new_fsm attribute
-        if !i.attributes.has("new_fsm") {
+        if !i.attributes.has(ir::BoolAttr::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -877,7 +878,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
         let node_id = i.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -890,7 +891,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has attribute
-        if !w.attributes.has("new_fsm") {
+        if !w.attributes.has(ir::BoolAttr::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -903,7 +904,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
         let node_id = w.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -994,7 +995,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(par_group);
         let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }

@@ -116,7 +116,7 @@ impl Visitor for InferShare {
                 }
             }
         }
-        comp.attributes.insert("state_share", 1);
+        comp.attributes.insert(ir::BoolAttr::StateShare, 1);
         self.state_shareable.add(comp.name);
         Ok(Action::Stop)
     }

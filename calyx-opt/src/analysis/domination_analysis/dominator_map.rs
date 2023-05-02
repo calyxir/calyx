@@ -7,9 +7,11 @@ use ir::GenericControl;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-const NODE_ID: &str = "NODE_ID";
-const BEGIN_ID: &str = "BEGIN_ID";
-const END_ID: &str = "END_ID";
+const NODE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
+const BEGIN_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::BEGIN_ID);
+const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 
 /// Builds a Domination Map for the control program. It maps nodes to sets of
 /// nodes. Here is what is included as a "node" in the domination map:

@@ -6,6 +6,7 @@ use crate::Nothing;
 use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
 };
+use calyx_frontend::Attribute;
 use calyx_utils::GetName;
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
@@ -261,29 +262,29 @@ impl Cell {
     }
 
     /// Get a reference to the first port that has the attribute `attr`.
-    pub fn find_with_attr<S>(&self, attr: S) -> Option<RRC<Port>>
+    pub fn find_with_attr<A>(&self, attr: A) -> Option<RRC<Port>>
     where
-        S: Into<Id>,
+        A: Into<Attribute>,
     {
-        let key = attr.into();
+        let attr = attr.into();
         self.ports
             .iter()
-            .find(|&g| g.borrow().attributes.has(key))
+            .find(|&g| g.borrow().attributes.has(attr))
             .map(Rc::clone)
     }
 
     /// Return all ports that have the attribute `attr`.
-    pub fn find_all_with_attr<S>(
+    pub fn find_all_with_attr<A>(
         &self,
-        attr: S,
+        attr: A,
     ) -> impl Iterator<Item = RRC<Port>> + '_
     where
-        S: Into<Id>,
+        A: Into<Attribute>,
     {
-        let key = attr.into();
+        let attr = attr.into();
         self.ports
             .iter()
-            .filter(move |&p| p.borrow().attributes.has(key))
+            .filter(move |&p| p.borrow().attributes.has(attr))
             .map(Rc::clone)
     }
 
@@ -332,15 +333,14 @@ impl Cell {
 
     /// Get a reference to the first port with the attribute `attr` and throw an error if none
     /// exist.
-    pub fn get_with_attr<S>(&self, attr: S) -> RRC<Port>
+    pub fn get_with_attr<A>(&self, attr: A) -> RRC<Port>
     where
-        S: Into<Id>,
+        A: Into<Attribute> + std::fmt::Display + Copy,
     {
-        let key = attr.into();
-        self.find_with_attr(key).unwrap_or_else(|| {
+        self.find_with_attr(attr).unwrap_or_else(|| {
             panic!(
-                "Port with attribute `{}' not found on cell `{}'",
-                key, self.name,
+                "Port with attribute `{attr}' not found on cell `{}'",
+                self.name,
             )
         })
     }
@@ -373,19 +373,12 @@ impl Cell {
     }
 
     /// Return the value associated with this attribute key.
-    pub fn get_attribute<S>(&self, attr: S) -> Option<&u64>
-    where
-        S: Into<Id>,
-    {
-        let key = attr.into();
-        self.attributes.get(key)
+    pub fn get_attribute<A: Into<Attribute>>(&self, attr: A) -> Option<u64> {
+        self.attributes.get(attr.into())
     }
 
     /// Add a new attribute to the group.
-    pub fn add_attribute<S>(&mut self, attr: S, value: u64)
-    where
-        S: Into<String>,
-    {
+    pub fn add_attribute<A: Into<Attribute>>(&mut self, attr: A, value: u64) {
         self.attributes.insert(attr.into(), value);
     }
 
@@ -555,10 +548,7 @@ impl Group {
         Some(&self.attributes)
     }
 
-    pub fn remove_attribute<I>(&mut self, attr: I)
-    where
-        I: Into<Id>,
-    {
+    pub fn remove_attribute(&mut self, attr: Attribute) {
         self.attributes.remove(attr);
     }
 }
@@ -633,10 +623,7 @@ impl StaticGroup {
         Some(&self.attributes)
     }
 
-    pub fn remove_attribute<I>(&mut self, attr: I)
-    where
-        I: Into<Id>,
-    {
+    pub fn remove_attribute(&mut self, attr: Attribute) {
         self.attributes.remove(attr);
     }
 }

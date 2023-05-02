@@ -1,10 +1,9 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
-use itertools::Itertools;
-
 use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
+use itertools::Itertools;
 use std::io;
 use std::path::Path;
 use std::rc::Rc;
@@ -16,13 +15,15 @@ impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
     fn format_at_attributes(attrs: &ir::Attributes) -> String {
-        let mut buf = String::new();
-        for (name, val) in attrs {
-            if *val == 1 {
-                buf.push_str(&format!("@{name} "));
+        let mut buf = attrs.to_string_with(" ", |name, val| {
+            if val == 1 {
+                format!("@{}", name)
             } else {
-                buf.push_str(&format!("@{name}({val}) "));
+                format!("@{}({val})", name)
             }
+        });
+        if !attrs.is_empty() {
+            buf.push(' ');
         }
         buf
     }
@@ -35,11 +36,9 @@ impl Printer {
         } else {
             format!(
                 "<{}>",
-                attrs
-                    .into_iter()
-                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                attrs.to_string_with(", ", |name, val| {
+                    format!("\"{}\"={}", name, val)
+                })
             )
         }
     }
