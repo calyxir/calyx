@@ -1,6 +1,7 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
 use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
+use calyx_frontend::BoolAttr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -222,7 +223,7 @@ impl<'a> Builder<'a> {
             ports,
         );
         if self.generated {
-            cell.borrow_mut().add_attribute("generated", 1);
+            cell.borrow_mut().add_attribute(BoolAttr::Generated, 1);
         }
         self.component.cells.add(Rc::clone(&cell));
         cell
@@ -248,7 +249,7 @@ impl<'a> Builder<'a> {
             sig,
         );
         if self.generated {
-            cell.borrow_mut().add_attribute("generated", 1);
+            cell.borrow_mut().add_attribute(BoolAttr::Generated, 1);
         }
         self.component.cells.add(Rc::clone(&cell));
         cell

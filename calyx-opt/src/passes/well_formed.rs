@@ -70,7 +70,7 @@ impl ConstructVisitor for WellFormed {
             RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
         for prim in ctx.lib.signatures() {
-            if prim.attributes.has("static") {
+            if prim.attributes.has(ir::NumAttr::Static) {
                 return Err(Error::malformed_structure(format!("Primitive `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", prim.name)));
             }
         }
@@ -78,7 +78,7 @@ impl ConstructVisitor for WellFormed {
         let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
             // Defining @static on the component is meaningless
-            if comp.attributes.has("static") {
+            if comp.attributes.has(ir::NumAttr::Static) {
                 return Err(Error::malformed_structure(format!("Component `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", comp.name)));
             }
 
@@ -101,7 +101,7 @@ impl ConstructVisitor for WellFormed {
                 .filter_map(|cr| {
                     let cell = cr.borrow();
                     // Make sure @external cells are not defined in non-entrypoint components
-                    if cell.attributes.has("external")
+                    if cell.attributes.has(ir::BoolAttr::External)
                         && comp.name != ctx.entrypoint
                     {
                         Some(Err(Error::malformed_structure("Cell cannot be marked `@external` in non-entrypoint component").with_pos(&cell.attributes)))
@@ -357,8 +357,8 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get("static")
-            .map(|v| *v == 0)
+            .get(ir::NumAttr::Static)
+            .map(|v| v == 0)
             .unwrap_or(false)
         {
             return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
@@ -405,8 +405,8 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get("static")
-            .map(|v| *v == 0)
+            .get(ir::NumAttr::Static)
+            .map(|v| v == 0)
             .unwrap_or(false)
         {
             return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
