@@ -1,6 +1,5 @@
-use crate::InlineAttributes;
-
 use super::Attribute;
+use crate::InlineAttributes;
 use calyx_utils::{CalyxResult, GPosIdx, WithPos};
 use linked_hash_map::LinkedHashMap;
 use std::convert::TryFrom;
@@ -30,7 +29,7 @@ impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
             if attrs.has(k) {
                 return Err(Self::Error::malformed_structure(format!(
                     "Multiple entries for attribute: {}",
-                    k.to_string()
+                    k
                 )));
             }
             attrs.insert(k, v);
@@ -57,31 +56,41 @@ pub trait GetAttributes {
 impl Attributes {
     /// Add a new attribute
     pub fn insert(&mut self, key: Attribute, val: u64) {
-        if key.is_inline() {
-            assert!(
-                val == 1,
-                "{} is a unit attribute and cannot have a value",
-                key.to_string(),
-            );
-            return self.inl.insert(key);
+        match key {
+            Attribute::Bool(b) => {
+                assert!(
+                    val == 1,
+                    "{} is a boolean attribute and can only have a value of 1",
+                    b.as_ref(),
+                );
+                self.inl.insert(b);
+            }
+            attr => {
+                self.hinfo.attrs.insert(attr, val);
+            }
         }
-        self.hinfo.attrs.insert(key, val);
     }
 
     /// Get the value associated with an attribute key
     pub fn get(&self, key: Attribute) -> Option<u64> {
-        if key.is_inline() && self.inl.has(key) {
-            return Some(1);
+        match key {
+            Attribute::Bool(b) => {
+                if self.inl.has(b) {
+                    Some(1)
+                } else {
+                    None
+                }
+            }
+            attr => self.hinfo.attrs.get(&attr).cloned(),
         }
-        self.hinfo.attrs.get(&key).cloned()
     }
 
     /// Check if an attribute key has been set
     pub fn has(&self, key: Attribute) -> bool {
-        if key.is_inline() {
-            return self.inl.has(key);
+        match key {
+            Attribute::Bool(b) => self.inl.has(b),
+            attr => self.hinfo.attrs.contains_key(&attr),
         }
-        self.hinfo.attrs.contains_key(&key)
     }
 
     /// Returns true if there are no attributes
@@ -91,10 +100,14 @@ impl Attributes {
 
     /// Remove attribute with the name `key`
     pub fn remove(&mut self, key: Attribute) {
-        if key.is_inline() {
-            return self.inl.remove(key);
+        match key {
+            Attribute::Bool(b) => {
+                self.inl.remove(b);
+            }
+            attr => {
+                self.hinfo.attrs.remove(&attr);
+            }
         }
-        self.hinfo.attrs.remove(&key);
     }
 
     /// Set the span information
@@ -115,7 +128,7 @@ impl Attributes {
             .attrs
             .iter()
             .map(|(k, v)| fmt(k.to_string(), *v))
-            .chain(self.inl.iter().map(|k| fmt(k.to_string(), 1)))
+            .chain(self.inl.iter().map(|k| fmt(k.as_ref().to_string(), 1)))
             .collect::<Vec<_>>()
             .join(sep)
     }

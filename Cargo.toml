@@ -83,9 +83,6 @@ calyx-ir = { path = "calyx-ir" }
 calyx-opt = { path = "calyx-opt" }
 calyx-frontend = { path = "calyx-frontend" }
 
-[profile.release.package.interp]
-incremental = true
-
 [[bench]]
 name = "component-sharing"
 harness = false

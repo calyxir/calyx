@@ -14,6 +14,7 @@ use std::convert::TryInto;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
+use std::str::FromStr;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
 type ComponentDef = ast::ComponentDef;
@@ -316,7 +317,7 @@ impl CalyxParser {
     fn attribute(input: Node) -> ParseResult<(Attribute, u64)> {
         match_nodes!(
             input.clone().into_children();
-            [string_lit(key), bitwidth(num)] => Attribute::try_from(key).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
+            [string_lit(key), bitwidth(num)] => Attribute::from_str(&key).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
         )
     }
     fn attributes(input: Node) -> ParseResult<Attributes> {
@@ -366,8 +367,8 @@ impl CalyxParser {
     fn at_attribute(input: Node) -> ParseResult<(Attribute, u64)> {
         match_nodes!(
             input.clone().into_children();
-            [identifier(key), attr_val(num)] => Attribute::try_from(key.to_string()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num)),
-            [identifier(key)] => Attribute::try_from(key.to_string()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1)),
+            [identifier(key), attr_val(num)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num)),
+            [identifier(key)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1)),
         )
     }
 
