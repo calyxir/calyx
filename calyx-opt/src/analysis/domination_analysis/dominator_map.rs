@@ -1,5 +1,8 @@
 use crate::analysis::{
-    domination_analysis::node_analysis::{NodeReads, NodeSearch},
+    domination_analysis::{
+        node_analysis::{NodeReads, NodeSearch},
+        static_par_domination::StaticParDomination,
+    },
     ControlId, ShareSet,
 };
 use calyx_ir as ir;
@@ -89,7 +92,7 @@ const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 /// see how it will dominate the end node.
 #[derive(Default)]
 pub struct DominatorMap {
-    /// Map from group names to the name of groups that dominate it
+    /// Map from node (either invokes, enables, or if/while ports) ids to the ids of nodes that dominate it
     pub map: HashMap<u64, HashSet<u64>>,
     /// Maps ids of control stmts, to the "last" nodes in them. By "last" is meant
     /// the final node that will be executed in them. For invokes and enables, it
@@ -97,6 +100,10 @@ pub struct DominatorMap {
     /// and for if statements it will be the "if" nods. For pars in seqs, you
     /// have to look inside the children to see what their "last" nodes are.
     pub exits_map: HashMap<u64, HashSet<u64>>,
+    /// an analysis to help domination across static pars
+    /// static pars give us more precise timing guarantees and therefore allow
+    /// us to more aggresively assign dominators
+    pub static_par_domination: StaticParDomination,
     pub component_name: ir::Id,
 }
 
@@ -127,7 +134,16 @@ impl Debug for DominatorMap {
 
 #[inline]
 fn get_id_static<const BEGIN: bool>(c: &ir::StaticControl) -> u64 {
-    let v = c.get_attribute(NODE_ID);
+    let v = match c {
+        ir::StaticControl::If(_) => {
+            if BEGIN {
+                c.get_attribute(BEGIN_ID)
+            } else {
+                c.get_attribute(END_ID)
+            }
+        }
+        _ => c.get_attribute(NODE_ID),
+    };
     v.unwrap_or_else(|| unreachable!(
             "get_id() shouldn't be called on control stmts that don't have id numbering"
     ))
@@ -246,6 +262,10 @@ impl DominatorMap {
         let mut map = DominatorMap {
             map: HashMap::new(),
             exits_map: HashMap::new(),
+            static_par_domination: StaticParDomination::new(
+                control,
+                component_name,
+            ),
             component_name,
         };
         map.build_exit_map(control);
@@ -329,12 +349,25 @@ impl DominatorMap {
 
     // Builds the domination map by running update_map() until the map
     // stops changing.
-    fn build_map(&mut self, main_c: &ir::Control) {
+    fn build_map(&mut self, main_c: &mut ir::Control) {
         let mut og_map = self.map.clone();
         self.update_map(main_c, 0, &HashSet::new());
         while og_map != self.map {
             og_map = self.map.clone();
             self.update_map(main_c, 0, &HashSet::new());
+        }
+        self.update_static_dominators();
+    }
+
+    // updates static dominators based on self.static_par_domination
+    // this can more aggresively add dominators to the map by
+    // using the timing guarantees of static par
+    fn update_static_dominators(&mut self) {
+        let new_static_domminators =
+            self.static_par_domination.get_static_dominators();
+        for (node_id, node_dominators) in new_static_domminators {
+            let cur_dominators = self.map.entry(node_id).or_default();
+            cur_dominators.extend(node_dominators);
         }
     }
 
