@@ -123,11 +123,11 @@ impl Visitor for HoleInliner {
         let mut asgns = vec![
             builder.build_assignment(
                 top_level.borrow().get("go"),
-                this_comp.borrow().get_with_attr(ir::Attribute::Go),
+                this_comp.borrow().get_with_attr(ir::NumAttr::Go),
                 ir::Guard::True,
             ),
             builder.build_assignment(
-                this_comp.borrow().get_with_attr(ir::Attribute::Done),
+                this_comp.borrow().get_with_attr(ir::NumAttr::Done),
                 top_level.borrow().get("done"),
                 ir::Guard::True,
             ),

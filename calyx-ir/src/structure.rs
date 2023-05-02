@@ -333,7 +333,10 @@ impl Cell {
 
     /// Get a reference to the first port with the attribute `attr` and throw an error if none
     /// exist.
-    pub fn get_with_attr(&self, attr: Attribute) -> RRC<Port> {
+    pub fn get_with_attr<A>(&self, attr: A) -> RRC<Port>
+    where
+        A: Into<Attribute>,
+    {
         self.find_with_attr(attr).unwrap_or_else(|| {
             panic!(
                 "Port with attribute `{attr}' not found on cell `{}'",

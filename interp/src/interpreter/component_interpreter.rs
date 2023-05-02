@@ -101,13 +101,13 @@ impl ComponentInterpreter {
 
         let go_port = inputs
             .iter()
-            .find(|x| x.borrow().attributes.has(ir::Attribute::Go))
+            .find(|x| x.borrow().attributes.has(ir::NumAttr::Go))
             .unwrap()
             .clone();
 
         let done_port = outputs
             .iter()
-            .find(|x| x.borrow().attributes.has(ir::Attribute::Done))
+            .find(|x| x.borrow().attributes.has(ir::NumAttr::Done))
             .unwrap()
             .clone();
 

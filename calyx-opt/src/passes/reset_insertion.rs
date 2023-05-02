@@ -32,7 +32,7 @@ impl Visitor for ResetInsertion {
                 // since we assume they may be initialized.
                 continue;
             }
-            if let Some(port) = cell.find_with_attr(ir::Attribute::Reset) {
+            if let Some(port) = cell.find_with_attr(ir::BoolAttr::Reset) {
                 builder.component.continuous_assignments.push(
                     builder.build_assignment(
                         port,
@@ -40,7 +40,7 @@ impl Visitor for ResetInsertion {
                             .component
                             .signature
                             .borrow()
-                            .get_with_attr(ir::Attribute::Reset),
+                            .get_with_attr(ir::BoolAttr::Reset),
                         ir::Guard::True,
                     ),
                 )

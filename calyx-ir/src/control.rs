@@ -500,12 +500,18 @@ impl Control {
     }
 
     /// Returns the value of an attribute if present
-    pub fn get_attribute(&self, attr: Attribute) -> Option<u64> {
+    pub fn get_attribute<A>(&self, attr: A) -> Option<u64>
+    where
+        A: Into<Attribute>,
+    {
         self.get_attributes().get(attr)
     }
 
     /// Returns true if the node has a specific attribute
-    pub fn has_attribute(&self, attr: Attribute) -> bool {
+    pub fn has_attribute<A>(&self, attr: A) -> bool
+    where
+        A: Into<Attribute>,
+    {
         self.get_attributes().has(attr)
     }
 }

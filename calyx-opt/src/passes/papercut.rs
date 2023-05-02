@@ -87,7 +87,7 @@ impl Visitor for Papercut {
                 for p in comp
                     .signature
                     .borrow()
-                    .find_all_with_attr(ir::Attribute::Done)
+                    .find_all_with_attr(ir::NumAttr::Done)
                 {
                     let done_use =
                         comp.continuous_assignments.iter().find(|assign_ref| {

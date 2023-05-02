@@ -48,16 +48,16 @@ impl GoDone {
 impl From<&ir::Primitive> for GoDone {
     fn from(prim: &ir::Primitive) -> Self {
         let done_ports: HashMap<_, _> = prim
-            .find_all_with_attr(ir::Attribute::Done)
-            .map(|pd| (pd.attributes.get(ir::Attribute::Done), pd.name))
+            .find_all_with_attr(ir::NumAttr::Done)
+            .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name))
             .collect();
 
         let go_ports = prim
-            .find_all_with_attr(ir::Attribute::Go)
+            .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
                 pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
-                        .get(&pd.attributes.get(ir::Attribute::Go))
+                        .get(&pd.attributes.get(ir::NumAttr::Go))
                         .map(|done_port| (pd.name, *done_port, st))
                 })
             })
@@ -69,20 +69,20 @@ impl From<&ir::Primitive> for GoDone {
 impl From<&ir::Cell> for GoDone {
     fn from(cell: &ir::Cell) -> Self {
         let done_ports: HashMap<_, _> = cell
-            .find_all_with_attr(ir::Attribute::Done)
+            .find_all_with_attr(ir::NumAttr::Done)
             .map(|pr| {
                 let port = pr.borrow();
-                (port.attributes.get(ir::Attribute::Done), port.name)
+                (port.attributes.get(ir::NumAttr::Done), port.name)
             })
             .collect();
 
         let go_ports = cell
-            .find_all_with_attr(ir::Attribute::Go)
+            .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
                 port.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
-                        .get(&port.attributes.get(ir::Attribute::Go))
+                        .get(&port.attributes.get(ir::NumAttr::Go))
                         .map(|done_port| (port.name, *done_port, st))
                 })
             })
@@ -114,16 +114,16 @@ impl ConstructVisitor for InferStaticTiming {
         // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
-                .find_all_with_attr(ir::Attribute::Done)
-                .map(|pd| (pd.attributes.get(ir::Attribute::Done), pd.name))
+                .find_all_with_attr(ir::NumAttr::Done)
+                .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name))
                 .collect();
 
             let go_ports = prim
-                .find_all_with_attr(ir::Attribute::Go)
+                .find_all_with_attr(ir::NumAttr::Go)
                 .filter_map(|pd| {
                     pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                         done_ports
-                            .get(&pd.attributes.get(ir::Attribute::Go))
+                            .get(&pd.attributes.get(ir::NumAttr::Go))
                             .map(|done_port| (pd.name, *done_port, st))
                     })
                 })
@@ -452,7 +452,7 @@ impl Visitor for InferStaticTiming {
             let mut go_ports = comp
                 .signature
                 .borrow()
-                .find_all_with_attr(ir::Attribute::Go)
+                .find_all_with_attr(ir::NumAttr::Go)
                 .collect_vec();
 
             // Add the latency information for the component if the control program
