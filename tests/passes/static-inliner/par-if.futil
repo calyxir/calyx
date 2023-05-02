@@ -1,4 +1,4 @@
-// -p well-formed -p static-inline -p remove-ids -p dead-group-removal
+// -p well-formed -p static-inline -p simplify-static-guards -p remove-ids -p dead-group-removal
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";

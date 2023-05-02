@@ -366,20 +366,20 @@ impl<T> Guard<T> {
         }
     }
 
-    /// runs f(interval) on each interval in `guard`.
-    /// if `f(interval)` = Some(result)` replaces interval with result.
-    /// if `f(interval)` = None` does nothing.
-    pub fn for_each_interval<F>(&mut self, f: &mut F)
+    /// runs f(info) on each Guard::Info in `guard`.
+    /// if `f(info)` = Some(result)` replaces interval with result.
+    /// if `f(info)` = None` does nothing.
+    pub fn for_each_info<F>(&mut self, f: &mut F)
     where
         F: FnMut(&mut T) -> Option<Guard<T>>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
-                l.for_each_interval(f);
-                r.for_each_interval(f);
+                l.for_each_info(f);
+                r.for_each_info(f);
             }
             Guard::Not(inner) => {
-                inner.for_each_interval(f);
+                inner.for_each_info(f);
             }
             Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => {}
             Guard::Info(timing_interval) => {
@@ -390,36 +390,33 @@ impl<T> Guard<T> {
         }
     }
 
-    /// runs f(interval) on each interval in `guard`.
+    /// runs f(info) on each info in `guard`.
     /// f should return Result<(), Error>, meaning that it essentially does
     /// nothing if the `f` returns OK(()), but returns an appropraite error otherwise
-    pub fn check_for_each_interval<F>(&self, f: &mut F) -> Result<(), Error>
+    pub fn check_for_each_info<F>(&self, f: &mut F) -> Result<(), Error>
     where
         F: Fn(&T) -> Result<(), Error>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
-                let l_result = l.check_for_each_interval(f);
+                let l_result = l.check_for_each_info(f);
                 if l_result.is_err() {
                     l_result
                 } else {
-                    r.check_for_each_interval(f)
+                    r.check_for_each_info(f)
                 }
             }
-            Guard::Not(inner) => inner.check_for_each_interval(f),
+            Guard::Not(inner) => inner.check_for_each_info(f),
             Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => Ok(()),
             Guard::Info(timing_interval) => f(timing_interval),
         }
     }
 }
 
-impl<T> Guard<T>
-where
-    T: Eq,
-{
+impl Guard<StaticTiming> {
     /// updates self -> self & interval
-    pub fn add_interval(&mut self, interval: T) {
-        self.update(|g| g.and(Guard::Info(interval)));
+    pub fn add_interval(&mut self, timing_interval: StaticTiming) {
+        self.update(|g| g.and(Guard::Info(timing_interval)));
     }
 }
 

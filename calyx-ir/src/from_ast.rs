@@ -7,6 +7,7 @@ use crate::{Nothing, PortComp, StaticTiming};
 use calyx_frontend::{ast, Attribute, BoolAttr, NumAttr, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
 use std::cell::RefCell;
+
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU64;
 use std::rc::Rc;
