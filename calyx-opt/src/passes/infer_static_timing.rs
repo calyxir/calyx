@@ -403,6 +403,10 @@ impl Visitor for InferStaticTiming {
             || matches!(&*comp.control.borrow(), ir::Control::Empty(_))
         {
             log::info!("Skipping component `{}' because it has no groups or control program", comp.name);
+            // Add latency information for the component if present.
+            let sig = &*comp.signature.borrow();
+            let ports: GoDone = sig.into();
+            self.latency_data.insert(comp.name, ports);
             return Ok(Action::Stop);
         }
 
@@ -479,14 +483,12 @@ impl Visitor for InferStaticTiming {
                     time
                 );
             }
-
-            // Add all go-done latencies to the context
-            let sig = &*comp.signature.borrow();
-            let ports: GoDone = sig.into();
-
-            self.latency_data.insert(comp.name, ports);
         }
 
+        // Add all go-done latencies for the component to the context
+        let sig = &*comp.signature.borrow();
+        let ports: GoDone = sig.into();
+        self.latency_data.insert(comp.name, ports);
         Ok(Action::Stop)
     }
 }
