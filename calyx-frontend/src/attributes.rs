@@ -55,8 +55,11 @@ pub trait GetAttributes {
 
 impl Attributes {
     /// Add a new attribute
-    pub fn insert(&mut self, key: Attribute, val: u64) {
-        match key {
+    pub fn insert<A>(&mut self, key: A, val: u64)
+    where
+        A: Into<Attribute>,
+    {
+        match key.into() {
             Attribute::Bool(b) => {
                 assert!(
                     val == 1,
@@ -72,8 +75,11 @@ impl Attributes {
     }
 
     /// Get the value associated with an attribute key
-    pub fn get(&self, key: Attribute) -> Option<u64> {
-        match key {
+    pub fn get<A>(&self, key: A) -> Option<u64>
+    where
+        A: Into<Attribute>,
+    {
+        match key.into() {
             Attribute::Bool(b) => {
                 if self.inl.has(b) {
                     Some(1)
@@ -86,8 +92,11 @@ impl Attributes {
     }
 
     /// Check if an attribute key has been set
-    pub fn has(&self, key: Attribute) -> bool {
-        match key {
+    pub fn has<A>(&self, key: A) -> bool
+    where
+        A: Into<Attribute>,
+    {
+        match key.into() {
             Attribute::Bool(b) => self.inl.has(b),
             attr => self.hinfo.attrs.contains_key(&attr),
         }
@@ -99,8 +108,11 @@ impl Attributes {
     }
 
     /// Remove attribute with the name `key`
-    pub fn remove(&mut self, key: Attribute) {
-        match key {
+    pub fn remove<A>(&mut self, key: A)
+    where
+        A: Into<Attribute>,
+    {
+        match key.into() {
             Attribute::Bool(b) => {
                 self.inl.remove(b);
             }

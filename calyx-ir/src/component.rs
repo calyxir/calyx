@@ -4,7 +4,7 @@ use super::{
 };
 use crate::guard::StaticTiming;
 use crate::Nothing;
-use calyx_frontend::Attribute;
+use calyx_frontend::NumAttr;
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -166,10 +166,10 @@ impl Component {
     /// A static component is a component that has at least one static go-done path.
     pub fn is_static(&self) -> bool {
         let sig = self.signature.borrow();
-        let mut go_ports = sig.find_all_with_attr(Attribute::Go);
+        let mut go_ports = sig.find_all_with_attr(NumAttr::Go);
         go_ports.any(|p| {
             let port = p.borrow();
-            port.attributes.has(Attribute::Static)
+            port.attributes.has(NumAttr::Static)
         })
     }
 

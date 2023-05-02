@@ -23,8 +23,7 @@ where
     /// **Ensures**: All sub-programs of the type will also be updated.
     fn update_static(&mut self, extra: &Self::Info) -> Option<u64> {
         if let Some(time) = self.compute_static(extra) {
-            self.get_mut_attributes()
-                .insert(ir::Attribute::Static, time);
+            self.get_mut_attributes().insert(ir::NumAttr::Static, time);
             Some(time)
         } else {
             None
