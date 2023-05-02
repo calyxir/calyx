@@ -169,7 +169,7 @@ impl Visitor for SimplifyWithControl {
                 group.assignments.push(done_assign);
 
                 // Add a "static" attribute
-                group.attributes.insert(ir::Attribute::Static, 1);
+                group.attributes.insert(ir::NumAttr::Static, 1);
                 drop(group);
 
                 Ok(group_ref)

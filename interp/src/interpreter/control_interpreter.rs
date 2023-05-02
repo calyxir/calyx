@@ -784,7 +784,7 @@ impl WhileInterpreter {
     ) -> Self {
         let bound = ctrl_while
             .attributes
-            .get(ir::Attribute::Bound)
+            .get(ir::NumAttr::Bound)
             .map(|target| BoundValidator { target, current: 0 });
 
         let mut out = Self {

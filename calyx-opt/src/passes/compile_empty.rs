@@ -52,7 +52,7 @@ impl Visitor for CompileEmpty {
                 empty_group
                     .borrow_mut()
                     .attributes
-                    .insert(ir::Attribute::Static, 1);
+                    .insert(ir::NumAttr::Static, 1);
 
                 // Add this signal empty_group[done] = 1'd1;
                 structure!(builder;

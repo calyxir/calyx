@@ -55,7 +55,7 @@ impl From<&ir::Primitive> for GoDone {
         let go_ports = prim
             .find_all_with_attr(ir::Attribute::Go)
             .filter_map(|pd| {
-                pd.attributes.get(ir::Attribute::Static).and_then(|st| {
+                pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
                         .get(&pd.attributes.get(ir::Attribute::Go))
                         .map(|done_port| (pd.name, *done_port, st))
@@ -80,7 +80,7 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr(ir::Attribute::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get(ir::Attribute::Static).and_then(|st| {
+                port.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
                         .get(&port.attributes.get(ir::Attribute::Go))
                         .map(|done_port| (port.name, *done_port, st))
@@ -121,7 +121,7 @@ impl ConstructVisitor for InferStaticTiming {
             let go_ports = prim
                 .find_all_with_attr(ir::Attribute::Go)
                 .filter_map(|pd| {
-                    pd.attributes.get(ir::Attribute::Static).and_then(|st| {
+                    pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                         done_ports
                             .get(&pd.attributes.get(ir::Attribute::Go))
                             .map(|done_port| (pd.name, *done_port, st))
@@ -403,8 +403,7 @@ impl Visitor for InferStaticTiming {
         for group in comp.get_groups().iter() {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
                 let grp = group.borrow();
-                if let Some(curr_lat) =
-                    grp.attributes.get(ir::Attribute::Static)
+                if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static)
                 {
                     // Inferred latency is not the same as the provided latency annotation.
                     if curr_lat != latency {
@@ -430,7 +429,7 @@ impl Visitor for InferStaticTiming {
                     group
                         .borrow_mut()
                         .attributes
-                        .insert(ir::Attribute::Static, res);
+                        .insert(ir::NumAttr::Static, res);
                 }
                 None => continue,
             }
@@ -461,7 +460,7 @@ impl Visitor for InferStaticTiming {
             if go_ports.len() == 1 {
                 let go_port = go_ports.pop().unwrap();
                 let mb_time =
-                    go_port.borrow().attributes.get(ir::Attribute::Static);
+                    go_port.borrow().attributes.get(ir::NumAttr::Static);
 
                 if let Some(go_time) = mb_time {
                     if go_time != time {
@@ -480,7 +479,7 @@ impl Visitor for InferStaticTiming {
                     go_port
                         .borrow_mut()
                         .attributes
-                        .insert(ir::Attribute::Static, time);
+                        .insert(ir::NumAttr::Static, time);
                 }
                 log::info!(
                     "Component `{}` has static time {}",

@@ -70,7 +70,7 @@ impl ConstructVisitor for WellFormed {
             RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
         for prim in ctx.lib.signatures() {
-            if prim.attributes.has(ir::Attribute::Static) {
+            if prim.attributes.has(ir::NumAttr::Static) {
                 return Err(Error::malformed_structure(format!("Primitive `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", prim.name)));
             }
         }
@@ -78,7 +78,7 @@ impl ConstructVisitor for WellFormed {
         let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
             // Defining @static on the component is meaningless
-            if comp.attributes.has(ir::Attribute::Static) {
+            if comp.attributes.has(ir::NumAttr::Static) {
                 return Err(Error::malformed_structure(format!("Component `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", comp.name)));
             }
 
@@ -357,7 +357,7 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get(ir::Attribute::Static)
+            .get(ir::NumAttr::Static)
             .map(|v| v == 0)
             .unwrap_or(false)
         {
@@ -405,7 +405,7 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get(ir::Attribute::Static)
+            .get(ir::NumAttr::Static)
             .map(|v| v == 0)
             .unwrap_or(false)
         {

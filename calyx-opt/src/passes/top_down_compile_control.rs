@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::rc::Rc;
 
-const NODE_ID: ir::Attribute = ir::Attribute::NODE_ID;
+const NODE_ID: ir::Attribute = ir::Internal::NODE_ID;
 
 /// Computes the exit edges of a given [ir::Control] program.
 ///

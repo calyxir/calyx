@@ -2,8 +2,11 @@ use crate::analysis::{DominatorMap, ReadWriteSet, ShareSet};
 use calyx_ir as ir;
 use std::collections::HashSet;
 
-const BEGIN_ID: ir::Attribute = ir::Attribute::BEGIN_ID;
-const END_ID: ir::Attribute = ir::Attribute::END_ID;
+const NODE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
+const BEGIN_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::BEGIN_ID);
+const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 
 // This file contains analysis that reasons about reads and writes to given "nodes"
 // of control statements. In other words, it reasons about control statements,

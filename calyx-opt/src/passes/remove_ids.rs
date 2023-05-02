@@ -1,7 +1,7 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, GetAttributes, LibrarySignatures};
 
-const NODE_ID: ir::Attribute = ir::Attribute::NODE_ID;
+const NODE_ID: ir::Attribute = ir::Internal::NODE_ID;
 const BEGIN_ID: ir::Attribute = ir::Attribute::BEGIN_ID;
 const END_ID: ir::Attribute = ir::Attribute::END_ID;
 

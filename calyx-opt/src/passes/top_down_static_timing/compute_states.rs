@@ -47,7 +47,7 @@ impl ComputeStates {
             ir::Control::Enable(en) => {
                 debug_assert!(en.attributes.get(ID).is_none());
                 en.attributes.insert(ID, self.cur_st);
-                let time = en.attributes.get(ir::Attribute::Static).unwrap();
+                let time = en.attributes.get(ir::NumAttr::Static).unwrap();
                 self.cur_st += time;
             }
             ir::Control::Static(_) => {
@@ -76,7 +76,7 @@ impl ComputeStates {
                         unreachable!("Par should only contain enables")
                     }
                 }
-                let time = par.attributes.get(ir::Attribute::Static).unwrap();
+                let time = par.attributes.get(ir::NumAttr::Static).unwrap();
                 self.cur_st += time;
             }
             ir::Control::Invoke(_) => unreachable!(
@@ -91,7 +91,7 @@ impl ComputeStates {
     fn compute_while(&mut self, wh: &mut ir::While, builder: &mut ir::Builder) {
         // Compute START, END, and LOOP index attributes
         wh.attributes.insert(START, self.cur_st);
-        let body_time = wh.attributes.get(ir::Attribute::Static).unwrap();
+        let body_time = wh.attributes.get(ir::NumAttr::Static).unwrap();
         // Instantiate the indexing variable for this while loop
         let size = get_bit_width_from(body_time + 1);
         structure!(builder;
@@ -118,7 +118,7 @@ impl ComputeStates {
         match con {
             ir::Control::Enable(en) => {
                 let st = en.attributes.get(ID).unwrap()
-                    + en.attributes.get(ir::Attribute::Static).unwrap()
+                    + en.attributes.get(ir::NumAttr::Static).unwrap()
                     - 1;
                 exits.push((st, ir::Guard::True));
             }
@@ -127,7 +127,7 @@ impl ComputeStates {
             }
             ir::Control::Par(par) => {
                 let st = par.attributes.get(ID).unwrap()
-                    + par.attributes.get(ir::Attribute::Static).unwrap()
+                    + par.attributes.get(ir::NumAttr::Static).unwrap()
                     - 1;
                 exits.push((st, ir::Guard::True))
             }
@@ -175,7 +175,7 @@ impl ComputeStates {
         wh: &ir::While,
         builder: &mut ir::Builder,
     ) -> (RRC<ir::Cell>, RRC<ir::Cell>) {
-        let max_count = wh.attributes.get(ir::Attribute::Static).unwrap();
+        let max_count = wh.attributes.get(ir::NumAttr::Static).unwrap();
         let size = get_bit_width_from(max_count + 1);
         structure!(builder;
             let max = constant(max_count, size);

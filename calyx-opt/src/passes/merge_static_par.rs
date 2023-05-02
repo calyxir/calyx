@@ -56,7 +56,7 @@ impl Visitor for MergeStaticPar {
             mem::take(&mut s.stmts).into_iter().partition(|stmt| {
                 if let ir::Control::Enable(en) = stmt {
                     matches!(
-                        en.group.borrow().attributes.get(ir::Attribute::Static),
+                        en.group.borrow().attributes.get(ir::NumAttr::Static),
                         Some(_)
                     )
                 } else {
@@ -70,7 +70,7 @@ impl Visitor for MergeStaticPar {
             if let ir::Control::Enable(data) = stmt {
                 let group = &data.group;
                 if let Some(static_time) =
-                    group.borrow().attributes.get(ir::Attribute::Static)
+                    group.borrow().attributes.get(ir::NumAttr::Static)
                 {
                     if !static_group.contains_key(&static_time) {
                         static_group.insert(static_time, Vec::new());
@@ -118,23 +118,21 @@ impl Visitor for MergeStaticPar {
 
                 grp.borrow_mut().assignments.push(done_asmt);
 
-                grp.borrow_mut()
-                    .attributes
-                    .insert(ir::Attribute::Static, key);
+                grp.borrow_mut().attributes.insert(ir::NumAttr::Static, key);
                 comp.get_groups_mut().add(Rc::clone(&grp));
 
                 let mut enable: ir::Enable = Enable {
                     group: Rc::clone(&grp),
                     attributes: Attributes::default(),
                 };
-                enable.attributes.insert(ir::Attribute::Static, key);
+                enable.attributes.insert(ir::NumAttr::Static, key);
                 s.stmts.push(ir::Control::Enable(enable));
             } else {
                 let mut enable: ir::Enable = Enable {
                     group: Rc::clone(&value[0]),
                     attributes: Attributes::default(),
                 };
-                enable.attributes.insert(ir::Attribute::Static, key);
+                enable.attributes.insert(ir::NumAttr::Static, key);
                 s.stmts.push(ir::Control::Enable(enable));
             }
         }

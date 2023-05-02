@@ -14,19 +14,19 @@ impl Normalize {
     /// **Requires**: The control program has a static attribute.
     pub fn apply(con: &mut ir::Control, builder: &mut ir::Builder) {
         debug_assert!(
-            con.get_attribute(ir::Attribute::Static).is_some(),
+            con.get_attribute(ir::NumAttr::Static).is_some(),
             "Attempting to normalize non-static program"
         );
         let balance = builder.add_group("balance");
         balance
             .borrow_mut()
             .attributes
-            .insert(ir::Attribute::Static, 1);
+            .insert(ir::NumAttr::Static, 1);
         let mut balance = ir::Enable {
             group: balance,
             attributes: ir::Attributes::default(),
         };
-        balance.attributes.insert(ir::Attribute::Static, 1);
+        balance.attributes.insert(ir::NumAttr::Static, 1);
         let norm = Normalize { balance };
         norm.recur(con);
     }
@@ -42,10 +42,8 @@ impl Normalize {
             }) => {
                 self.recur(tbranch);
                 self.recur(fbranch);
-                let ttime =
-                    tbranch.get_attribute(ir::Attribute::Static).unwrap();
-                let ftime =
-                    fbranch.get_attribute(ir::Attribute::Static).unwrap();
+                let ttime = tbranch.get_attribute(ir::NumAttr::Static).unwrap();
+                let ftime = fbranch.get_attribute(ir::NumAttr::Static).unwrap();
                 let max_time = cmp::max(ttime, ftime);
                 self.extend_control(tbranch, max_time, &self.balance);
                 self.extend_control(fbranch, max_time, &self.balance);
@@ -69,7 +67,7 @@ impl Normalize {
         time: u64,
         balance: &ir::Enable,
     ) {
-        let cur_time = con.get_attribute(ir::Attribute::Static).unwrap();
+        let cur_time = con.get_attribute(ir::NumAttr::Static).unwrap();
 
         if cur_time < time {
             let bal = ir::Control::Enable(ir::Cloner::enable(balance));
@@ -80,7 +78,7 @@ impl Normalize {
             } else {
                 ir::Control::seq(iter::once(inner).chain(extra).collect())
             };
-            seq.get_mut_attributes().insert(ir::Attribute::Static, time);
+            seq.get_mut_attributes().insert(ir::NumAttr::Static, time);
             *con = Box::new(seq);
         }
     }
@@ -103,17 +101,16 @@ impl Normalize {
     fn denest_loop(wh: &mut ir::While) {
         let mut body =
             std::mem::replace(&mut wh.body, Box::new(ir::Control::empty()));
-        let mut bound = wh.attributes.get(ir::Attribute::Bound).unwrap();
-        let mut body_time = body.get_attribute(ir::Attribute::Static).unwrap();
+        let mut bound = wh.attributes.get(ir::NumAttr::Bound).unwrap();
+        let mut body_time = body.get_attribute(ir::NumAttr::Static).unwrap();
 
         while let ir::Control::While(inner) = *body {
-            bound *= inner.attributes.get(ir::Attribute::Bound).unwrap();
+            bound *= inner.attributes.get(ir::NumAttr::Bound).unwrap();
             body = inner.body;
-            body_time = body.get_attribute(ir::Attribute::Static).unwrap();
+            body_time = body.get_attribute(ir::NumAttr::Static).unwrap();
         }
         wh.body = body;
-        wh.attributes.insert(ir::Attribute::Bound, bound);
-        wh.attributes
-            .insert(ir::Attribute::Static, body_time * bound);
+        wh.attributes.insert(ir::NumAttr::Bound, bound);
+        wh.attributes.insert(ir::NumAttr::Static, body_time * bound);
     }
 }

@@ -384,7 +384,7 @@ impl Schedule<'_, '_> {
         con: &ir::Enable,
         preds: Vec<PredEdge>,
     ) -> CalyxResult<Vec<PredEdge>> {
-        let time_option = con.attributes.get(ir::Attribute::Static);
+        let time_option = con.attributes.get(ir::NumAttr::Static);
         let Some(time) = time_option else {
             return Err(Error::pass_assumption(
         TopDownStaticTiming::name(),
@@ -470,7 +470,7 @@ impl Schedule<'_, '_> {
         }
         Ok(vec![(
             con.attributes.get(ID).unwrap()
-                + con.attributes.get(ir::Attribute::Static).unwrap()
+                + con.attributes.get(ir::NumAttr::Static).unwrap()
                 - 1,
             ir::Guard::True,
         )])
@@ -625,7 +625,7 @@ impl Schedule<'_, '_> {
         }
 
         // Construct the index and incrementing logic.
-        let bound = wh.attributes.get(ir::Attribute::Bound).unwrap();
+        let bound = wh.attributes.get(ir::NumAttr::Bound).unwrap();
         // Loop bound should not be less than 1.
         if bound < 1 {
             return Err(Error::malformed_structure(
@@ -706,7 +706,7 @@ impl Schedule<'_, '_> {
         dump_fsm: bool,
     ) -> CalyxResult<RRC<ir::Group>> {
         debug_assert!(
-            con.get_attribute(ir::Attribute::Static).is_some(),
+            con.get_attribute(ir::NumAttr::Static).is_some(),
             "Attempted to compile non-static program"
         );
         // Normalize the program
@@ -798,10 +798,10 @@ impl TopDownStaticTiming {
         if matches!(con, ir::Control::Enable(_) | ir::Control::Empty(_)) {
             return Ok(());
         }
-        if let Some(time) = con.get_attribute(ir::Attribute::Static) {
+        if let Some(time) = con.get_attribute(ir::NumAttr::Static) {
             let group = Schedule::compile(con, builder, dump_fsm)?;
             let mut en = ir::Control::enable(group);
-            en.get_mut_attributes().insert(ir::Attribute::Static, time);
+            en.get_mut_attributes().insert(ir::NumAttr::Static, time);
             *con = en;
         } else {
             match con {
@@ -837,7 +837,7 @@ impl Visitor for TopDownStaticTiming {
             comp.cells.iter().any(|c| c.borrow().is_component());
         if has_subcomponents {
             Some("Subcomponents with static timing not supported".to_string())
-        } else if !comp.control.borrow().has_attribute(ir::Attribute::Static) {
+        } else if !comp.control.borrow().has_attribute(ir::NumAttr::Static) {
             Some(
                 "Mixed static-dynamic control programs are not supported"
                     .to_string(),
@@ -860,7 +860,7 @@ impl Visitor for TopDownStaticTiming {
             return Ok(Action::Stop);
         }
 
-        if !con.has_attribute(ir::Attribute::Static) {
+        if !con.has_attribute(ir::NumAttr::Static) {
             unreachable!("Entire program must be static");
         }
 
@@ -875,7 +875,7 @@ impl Visitor for TopDownStaticTiming {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if !con.attributes.has(ir::Attribute::Static) {
+        if !con.attributes.has(ir::NumAttr::Static) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -884,12 +884,11 @@ impl Visitor for TopDownStaticTiming {
             match stmt {
                 ir::Control::Enable(_) => {}
                 con => {
-                    let time =
-                        con.get_attribute(ir::Attribute::Static).unwrap();
+                    let time = con.get_attribute(ir::NumAttr::Static).unwrap();
                     let group =
                         Schedule::compile(con, &mut builder, self.dump_fsm)?;
                     let mut en = ir::Control::enable(group);
-                    en.get_mut_attributes().insert(ir::Attribute::Static, time);
+                    en.get_mut_attributes().insert(ir::NumAttr::Static, time);
                     *con = en;
                 }
             }

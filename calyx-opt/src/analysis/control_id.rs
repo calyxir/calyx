@@ -1,8 +1,10 @@
 use calyx_ir as ir;
 
-const NODE_ID: ir::Attribute = ir::Attribute::NODE_ID;
-const BEGIN_ID: ir::Attribute = ir::Attribute::BEGIN_ID;
-const END_ID: ir::Attribute = ir::Attribute::END_ID;
+const NODE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
+const BEGIN_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::BEGIN_ID);
+const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 
 /// Adding "NODE_ID", "BEGIN_ID", and "END_ID" attribute to control statement
 pub struct ControlId;
@@ -180,19 +182,25 @@ impl ControlId {
 
     // Gets attribute s from c, panics otherwise. Should be used when you know
     // that c has attribute s.
-    pub fn get_guaranteed_attribute(c: &ir::Control, s: ir::Attribute) -> u64 {
-        c.get_attribute(s).unwrap_or_else(||unreachable!(
+    pub fn get_guaranteed_attribute<A>(c: &ir::Control, attr: A) -> u64
+    where
+        A: Into<ir::Attribute>,
+    {
+        c.get_attribute(attr.into()).unwrap_or_else(||unreachable!(
           "called get_guaranteed_attribute, meaning we had to be sure it had the attribute"
       ))
     }
 
     // Gets attribute s from c, panics otherwise. Should be used when you know
     // that c has attribute s.
-    pub fn get_guaranteed_attribute_static(
+    pub fn get_guaranteed_attribute_static<A>(
         sc: &ir::StaticControl,
-        s: ir::Attribute,
-    ) -> u64 {
-        sc.get_attribute(s).unwrap_or_else(||unreachable!(
+        attr: A,
+    ) -> u64
+    where
+        A: Into<ir::Attribute>,
+    {
+        sc.get_attribute(attr.into()).unwrap_or_else(||unreachable!(
           "called get_guaranteed_attribute_static, meaning we had to be sure it had the attribute"
       ))
     }
