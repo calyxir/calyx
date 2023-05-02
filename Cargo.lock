@@ -148,7 +148,7 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "calyx"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "argh",
  "atty",
@@ -168,7 +168,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-frontend"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "atty",
  "calyx-utils",
@@ -185,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-ir"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "calyx-frontend",
  "calyx-utils",
@@ -216,7 +216,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-utils"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "atty",
  "itertools 0.10.5",
