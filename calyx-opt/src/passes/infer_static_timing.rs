@@ -48,17 +48,17 @@ impl GoDone {
 impl From<&ir::Primitive> for GoDone {
     fn from(prim: &ir::Primitive) -> Self {
         let done_ports: HashMap<_, _> = prim
-            .find_all_with_attr(ir::Attribute::Done)
-            .map(|pd| (pd.attributes[ir::Attribute::Done], pd.name))
+            .find_all_with_attr(ir::NumAttr::Done)
+            .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name))
             .collect();
 
         let go_ports = prim
-            .find_all_with_attr(ir::Attribute::Go)
+            .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
-                pd.attributes.get(ir::Attribute::Static).and_then(|st| {
+                pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
-                        .get(&pd.attributes[ir::Attribute::Go])
-                        .map(|done_port| (pd.name, *done_port, *st))
+                        .get(&pd.attributes.get(ir::NumAttr::Go))
+                        .map(|done_port| (pd.name, *done_port, st))
                 })
             })
             .collect_vec();
@@ -69,21 +69,21 @@ impl From<&ir::Primitive> for GoDone {
 impl From<&ir::Cell> for GoDone {
     fn from(cell: &ir::Cell) -> Self {
         let done_ports: HashMap<_, _> = cell
-            .find_all_with_attr(ir::Attribute::Done)
+            .find_all_with_attr(ir::NumAttr::Done)
             .map(|pr| {
                 let port = pr.borrow();
-                (port.attributes[ir::Attribute::Done], port.name)
+                (port.attributes.get(ir::NumAttr::Done), port.name)
             })
             .collect();
 
         let go_ports = cell
-            .find_all_with_attr(ir::Attribute::Go)
+            .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get(ir::Attribute::Static).and_then(|st| {
+                port.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
-                        .get(&port.attributes[ir::Attribute::Go])
-                        .map(|done_port| (port.name, *done_port, *st))
+                        .get(&port.attributes.get(ir::NumAttr::Go))
+                        .map(|done_port| (port.name, *done_port, st))
                 })
             })
             .collect_vec();
@@ -114,17 +114,17 @@ impl ConstructVisitor for InferStaticTiming {
         // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
-                .find_all_with_attr(ir::Attribute::Done)
-                .map(|pd| (pd.attributes[ir::Attribute::Done], pd.name))
+                .find_all_with_attr(ir::NumAttr::Done)
+                .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name))
                 .collect();
 
             let go_ports = prim
-                .find_all_with_attr(ir::Attribute::Go)
+                .find_all_with_attr(ir::NumAttr::Go)
                 .filter_map(|pd| {
-                    pd.attributes.get(ir::Attribute::Static).and_then(|st| {
+                    pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                         done_ports
-                            .get(&pd.attributes[ir::Attribute::Go])
-                            .map(|done_port| (pd.name, *done_port, *st))
+                            .get(&pd.attributes.get(ir::NumAttr::Go))
+                            .map(|done_port| (pd.name, *done_port, st))
                     })
                 })
                 .collect_vec();
@@ -403,11 +403,10 @@ impl Visitor for InferStaticTiming {
         for group in comp.get_groups().iter() {
             if let Some(latency) = self.infer_latency(&group.borrow()) {
                 let grp = group.borrow();
-                if let Some(curr_lat) =
-                    grp.attributes.get(ir::Attribute::Static)
+                if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static)
                 {
                     // Inferred latency is not the same as the provided latency annotation.
-                    if *curr_lat != latency {
+                    if curr_lat != latency {
                         let msg1 = format!("Annotated latency: {}", curr_lat);
                         let msg2 = format!("Inferred latency: {}", latency);
                         let msg = format!(
@@ -430,7 +429,7 @@ impl Visitor for InferStaticTiming {
                     group
                         .borrow_mut()
                         .attributes
-                        .insert(ir::Attribute::Static, res);
+                        .insert(ir::NumAttr::Static, res);
                 }
                 None => continue,
             }
@@ -453,18 +452,15 @@ impl Visitor for InferStaticTiming {
             let mut go_ports = comp
                 .signature
                 .borrow()
-                .find_all_with_attr(ir::Attribute::Go)
+                .find_all_with_attr(ir::NumAttr::Go)
                 .collect_vec();
 
             // Add the latency information for the component if the control program
             // is completely static and there is exactly one go port.
             if go_ports.len() == 1 {
                 let go_port = go_ports.pop().unwrap();
-                let mb_time = go_port
-                    .borrow()
-                    .attributes
-                    .get(ir::Attribute::Static)
-                    .cloned();
+                let mb_time =
+                    go_port.borrow().attributes.get(ir::NumAttr::Static);
 
                 if let Some(go_time) = mb_time {
                     if go_time != time {
@@ -483,7 +479,7 @@ impl Visitor for InferStaticTiming {
                     go_port
                         .borrow_mut()
                         .attributes
-                        .insert(ir::Attribute::Static, time);
+                        .insert(ir::NumAttr::Static, time);
                 }
                 log::info!(
                     "Component `{}` has static time {}",

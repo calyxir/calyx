@@ -26,12 +26,10 @@ impl PortInterface {
         let mut write_together = HashMap::new();
         for prim in primitives {
             let writes: Vec<HashSet<ir::Id>> = prim
-                .find_all_with_attr(ir::Attribute::WriteTogether)
+                .find_all_with_attr(ir::NumAttr::WriteTogether)
                 .map(|pd| {
                     (
-                        pd.attributes
-                            .get(ir::Attribute::WriteTogether)
-                            .unwrap(),
+                        pd.attributes.get(ir::NumAttr::WriteTogether).unwrap(),
                         pd.name,
                     )
                 })
@@ -56,8 +54,8 @@ impl PortInterface {
         prim: &ir::Primitive,
     ) -> CalyxResult<Vec<ReadTogether>> {
         prim
-                .find_all_with_attr(ir::Attribute::ReadTogether)
-                .map(|pd| (pd.attributes.get(ir::Attribute::ReadTogether).unwrap(), pd))
+                .find_all_with_attr(ir::NumAttr::ReadTogether)
+                .map(|pd| (pd.attributes.get(ir::NumAttr::ReadTogether).unwrap(), pd))
                 .into_group_map()
                 .into_values()
                 .map(|ports| {

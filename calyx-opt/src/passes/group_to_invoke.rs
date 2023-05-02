@@ -34,7 +34,7 @@ impl ConstructVisitor for GroupToInvoke {
         let blacklist = ctx
             .lib
             .signatures()
-            .filter(|p| p.find_all_with_attr(ir::Attribute::Go).count() > 1)
+            .filter(|p| p.find_all_with_attr(ir::NumAttr::Go).count() > 1)
             .map(|p| p.name)
             .collect();
 
@@ -105,7 +105,7 @@ fn construct_invoke(
         // inputs. we can ignore the cell.go assignment, since that is not
         // going to be part of the `invoke`.
         else if parent_is_cell(&assign.dst.borrow())
-            && assign.dst != comp.borrow().get_with_attr(ir::Attribute::Go)
+            && assign.dst != comp.borrow().get_with_attr(ir::NumAttr::Go)
         {
             let name = assign.dst.borrow().name;
             if assign.guard.is_true() {
@@ -197,7 +197,7 @@ impl Visitor for GroupToInvoke {
                 &mut builder,
                 g.borrow().name(),
                 &g.borrow().assignments,
-                &g.borrow().get(ir::Attribute::Done),
+                &g.borrow().get(ir::NumAttr::Done),
             )
         }*/
 
@@ -260,20 +260,20 @@ impl GroupToInvoke {
             ir::CellType::ThisComponent => return,
             _ => {}
         }
-        if cell.is_reference() || cell.attributes.has(ir::Attribute::External) {
+        if cell.is_reference() || cell.attributes.has(ir::BoolAttr::External) {
             return;
         }
 
         // Component must define a @go/@done interface
-        let maybe_go_port = cell.find_with_attr(ir::Attribute::Go);
-        let maybe_done_port = cell.find_with_attr(ir::Attribute::Done);
+        let maybe_go_port = cell.find_with_attr(ir::NumAttr::Go);
+        let maybe_done_port = cell.find_with_attr(ir::NumAttr::Done);
         if maybe_go_port.is_none() || maybe_done_port.is_none() {
             return;
         }
 
         // Component must have a single @go/@done pair
-        let go_ports = cell.find_all_with_attr(ir::Attribute::Go).count();
-        let done_ports = cell.find_all_with_attr(ir::Attribute::Done).count();
+        let go_ports = cell.find_all_with_attr(ir::NumAttr::Go).count();
+        let done_ports = cell.find_all_with_attr(ir::NumAttr::Done).count();
         if go_ports > 1 || done_ports > 1 {
             return;
         }

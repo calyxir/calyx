@@ -1,5 +1,4 @@
-use super::{Port, RRC};
-use calyx_frontend::Attribute;
+use super::{NumAttr, Port, RRC};
 use calyx_utils::Error;
 use std::fmt::Debug;
 use std::mem;
@@ -125,7 +124,7 @@ impl<T> Guard<T> {
     pub fn is_not_done(&self, cell_name: &crate::Id) -> bool {
         if let Guard::Not(g) = self {
             if let Guard::Port(port) = &(**g) {
-                return port.borrow().attributes.has(Attribute::Done)
+                return port.borrow().attributes.has(NumAttr::Done)
                     && port.borrow().get_parent_name() == cell_name;
             }
         }

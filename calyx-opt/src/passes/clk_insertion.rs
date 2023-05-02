@@ -27,7 +27,7 @@ impl Visitor for ClkInsertion {
 
         for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();
-            if let Some(port) = cell.find_with_attr(ir::Attribute::Clk) {
+            if let Some(port) = cell.find_with_attr(ir::BoolAttr::Clk) {
                 builder.component.continuous_assignments.push(
                     builder.build_assignment(
                         port,
@@ -35,7 +35,7 @@ impl Visitor for ClkInsertion {
                             .component
                             .signature
                             .borrow()
-                            .get_with_attr(ir::Attribute::Clk),
+                            .get_with_attr(ir::BoolAttr::Clk),
                         ir::Guard::True,
                     ),
                 )

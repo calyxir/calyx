@@ -2,8 +2,9 @@ use crate::analysis::{DominatorMap, ReadWriteSet, ShareSet};
 use calyx_ir as ir;
 use std::collections::HashSet;
 
-const BEGIN_ID: ir::Attribute = ir::Attribute::BEGIN_ID;
-const END_ID: ir::Attribute = ir::Attribute::END_ID;
+const BEGIN_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::BEGIN_ID);
+const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 
 // This file contains analysis that reasons about reads and writes to given "nodes"
 // of control statements. In other words, it reasons about control statements,
@@ -18,12 +19,12 @@ const END_ID: ir::Attribute = ir::Attribute::END_ID;
 fn not_end_id(c: &ir::Control, id: u64) -> bool {
     match c {
         ir::Control::If(if_control) => {
-            if let Some(&begin) = if_control.attributes.get(BEGIN_ID) {
+            if let Some(begin) = if_control.attributes.get(BEGIN_ID) {
                 if begin == id {
                     return true;
                 }
             }
-            if let Some(&end) = if_control.attributes.get(END_ID) {
+            if let Some(end) = if_control.attributes.get(END_ID) {
                 if end == id {
                     return false;
                 }
@@ -41,12 +42,12 @@ fn not_end_id(c: &ir::Control, id: u64) -> bool {
 fn not_end_id_static(c: &ir::StaticControl, id: u64) -> bool {
     match c {
         ir::StaticControl::If(if_control) => {
-            if let Some(&begin) = if_control.attributes.get(BEGIN_ID) {
+            if let Some(begin) = if_control.attributes.get(BEGIN_ID) {
                 if begin == id {
                     return true;
                 }
             }
-            if let Some(&end) = if_control.attributes.get(END_ID) {
+            if let Some(end) = if_control.attributes.get(END_ID) {
                 if end == id {
                     return false;
                 }
@@ -65,7 +66,7 @@ fn reads_only_dones<T>(assignment: &ir::Assignment<T>) -> bool {
 
 // Returns true if port is a "done" port or is a constant
 fn done_or_const(port: &ir::RRC<ir::Port>) -> bool {
-    port.borrow().attributes.has(ir::Attribute::Done)
+    port.borrow().attributes.has(ir::NumAttr::Done)
         || port.borrow().is_constant(1, 1)
 }
 
@@ -244,7 +245,7 @@ impl NodeSearch {
     fn go_is_written<T>(&self, assignments: &[ir::Assignment<T>]) -> bool {
         assignments.iter().any(|assign: &ir::Assignment<T>| {
             let dst_ref = assign.dst.borrow();
-            if dst_ref.attributes.has(ir::Attribute::Go)
+            if dst_ref.attributes.has(ir::NumAttr::Go)
                 && assign.guard.is_true()
                 && assign.src.borrow().is_constant(1, 1)
             {

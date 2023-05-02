@@ -1,71 +1,46 @@
 use super::Attribute;
+use crate::InlineAttributes;
 use calyx_utils::{CalyxResult, GPosIdx, WithPos};
 use linked_hash_map::LinkedHashMap;
-use std::{
-    convert::TryFrom,
-    ops::{Index, IndexMut},
-};
+use std::convert::TryFrom;
 
-/// Attributes associated with a specific IR structure.
-#[derive(Debug, Clone)]
-pub struct Attributes {
-    /// Mapping from the name of the attribute to its value.
-    pub(super) attrs: LinkedHashMap<Attribute, u64>,
-    /// Source location information for the item
+#[derive(Debug, Clone, Default)]
+/// Attribute information stored on the Heap
+struct HeapAttrInfo {
+    attrs: LinkedHashMap<Attribute, u64>,
     span: GPosIdx,
 }
 
-impl IntoIterator for Attributes {
-    type Item = (Attribute, u64);
-    type IntoIter = linked_hash_map::IntoIter<Attribute, u64>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.attrs.into_iter()
-    }
-}
-impl<'a> IntoIterator for &'a Attributes {
-    type Item = (&'a Attribute, &'a u64);
-    type IntoIter = linked_hash_map::Iter<'a, Attribute, u64>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.attrs.iter()
-    }
-}
-
-impl Default for Attributes {
-    fn default() -> Self {
-        Attributes {
-            // Does not allocate any space.
-            attrs: LinkedHashMap::with_capacity(0),
-            span: GPosIdx::UNKNOWN,
-        }
-    }
+/// Attributes associated with a specific IR structure.
+#[derive(Default, Debug, Clone)]
+pub struct Attributes {
+    /// Inlined attributes
+    inl: InlineAttributes,
+    /// Attributes stored on the heap
+    hinfo: Box<HeapAttrInfo>,
 }
 
 impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
     type Error = calyx_utils::Error;
 
     fn try_from(v: Vec<(Attribute, u64)>) -> CalyxResult<Self> {
-        let mut attrs = LinkedHashMap::with_capacity(v.len());
+        let mut attrs = Attributes::default();
         for (k, v) in v {
-            if attrs.contains_key(&k) {
+            if attrs.has(k) {
                 return Err(Self::Error::malformed_structure(format!(
                     "Multiple entries for attribute: {}",
-                    k.to_string()
+                    k
                 )));
             }
             attrs.insert(k, v);
         }
-        Ok(Attributes {
-            attrs,
-            span: GPosIdx::UNKNOWN,
-        })
+        Ok(attrs)
     }
 }
 
 impl WithPos for Attributes {
     fn copy_span(&self) -> GPosIdx {
-        self.span
+        self.hinfo.span
     }
 }
 
@@ -80,50 +55,93 @@ pub trait GetAttributes {
 
 impl Attributes {
     /// Add a new attribute
-    pub fn insert(&mut self, key: Attribute, val: u64) {
-        self.attrs.insert(key, val);
+    pub fn insert<A>(&mut self, key: A, val: u64)
+    where
+        A: Into<Attribute>,
+    {
+        match key.into() {
+            Attribute::Bool(b) => {
+                assert!(
+                    val == 1,
+                    "{} is a boolean attribute and can only have a value of 1",
+                    b.as_ref(),
+                );
+                self.inl.insert(b);
+            }
+            attr => {
+                self.hinfo.attrs.insert(attr, val);
+            }
+        }
     }
 
     /// Get the value associated with an attribute key
-    pub fn get(&self, key: Attribute) -> Option<&u64> {
-        self.attrs.get(&key)
+    pub fn get<A>(&self, key: A) -> Option<u64>
+    where
+        A: Into<Attribute>,
+    {
+        match key.into() {
+            Attribute::Bool(b) => {
+                if self.inl.has(b) {
+                    Some(1)
+                } else {
+                    None
+                }
+            }
+            attr => self.hinfo.attrs.get(&attr).cloned(),
+        }
     }
 
     /// Check if an attribute key has been set
-    pub fn has(&self, key: Attribute) -> bool {
-        self.attrs.contains_key(&key)
+    pub fn has<A>(&self, key: A) -> bool
+    where
+        A: Into<Attribute>,
+    {
+        match key.into() {
+            Attribute::Bool(b) => self.inl.has(b),
+            attr => self.hinfo.attrs.contains_key(&attr),
+        }
     }
 
     /// Returns true if there are no attributes
     pub fn is_empty(&self) -> bool {
-        self.attrs.is_empty()
+        self.inl.is_empty() && self.hinfo.attrs.is_empty()
     }
 
     /// Remove attribute with the name `key`
-    pub fn remove(&mut self, key: Attribute) -> Option<u64> {
-        self.attrs.remove(&key)
+    pub fn remove<A>(&mut self, key: A)
+    where
+        A: Into<Attribute>,
+    {
+        match key.into() {
+            Attribute::Bool(b) => {
+                self.inl.remove(b);
+            }
+            attr => {
+                self.hinfo.attrs.remove(&attr);
+            }
+        }
     }
 
     /// Set the span information
     pub fn add_span(mut self, span: GPosIdx) -> Self {
-        self.span = span;
+        self.hinfo.span = span;
         self
     }
-}
 
-impl Index<Attribute> for Attributes {
-    type Output = u64;
+    pub fn to_string_with<F>(&self, sep: &'static str, fmt: F) -> String
+    where
+        F: Fn(String, u64) -> String,
+    {
+        if self.is_empty() {
+            return String::default();
+        }
 
-    fn index(&self, key: Attribute) -> &u64 {
-        self.get(key).unwrap_or_else(|| {
-            panic!("No key `{}` in attribute map", key.to_string())
-        })
-    }
-}
-
-impl IndexMut<Attribute> for Attributes {
-    fn index_mut(&mut self, index: Attribute) -> &mut Self::Output {
-        self.attrs.insert(index, 0);
-        self.attrs.get_mut(&index).unwrap()
+        self.hinfo
+            .attrs
+            .iter()
+            .map(|(k, v)| fmt(k.to_string(), *v))
+            .chain(self.inl.iter().map(|k| fmt(k.as_ref().to_string(), 1)))
+            .collect::<Vec<_>>()
+            .join(sep)
     }
 }

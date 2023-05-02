@@ -23,11 +23,11 @@ impl Visitor for UnrollBounded {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(bound) = s.attributes.get(ir::Attribute::Bound) {
+        if let Some(bound) = s.attributes.get(ir::NumAttr::Bound) {
             let body =
                 *std::mem::replace(&mut s.body, Box::new(ir::Control::empty()));
             let nb = ir::Control::seq(
-                (0..*bound).map(|_| ir::Cloner::control(&body)).collect(),
+                (0..bound).map(|_| ir::Cloner::control(&body)).collect(),
             );
             Ok(Action::change(nb))
         } else {

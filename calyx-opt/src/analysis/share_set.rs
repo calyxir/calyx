@@ -25,9 +25,9 @@ impl ShareSet {
     ///is_state_share is true, and "share" types otherwise.
     pub fn from_context<const IS_STATE_SHARE: bool>(ctx: &ir::Context) -> Self {
         let keyword = if IS_STATE_SHARE {
-            ir::Attribute::StateShare
+            ir::BoolAttr::StateShare
         } else {
-            ir::Attribute::Share
+            ir::BoolAttr::Share
         };
         let mut shareable = HashSet::new();
         for prim in ctx.lib.signatures() {

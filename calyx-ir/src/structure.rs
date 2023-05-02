@@ -262,7 +262,11 @@ impl Cell {
     }
 
     /// Get a reference to the first port that has the attribute `attr`.
-    pub fn find_with_attr(&self, attr: Attribute) -> Option<RRC<Port>> {
+    pub fn find_with_attr<A>(&self, attr: A) -> Option<RRC<Port>>
+    where
+        A: Into<Attribute>,
+    {
+        let attr = attr.into();
         self.ports
             .iter()
             .find(|&g| g.borrow().attributes.has(attr))
@@ -270,10 +274,14 @@ impl Cell {
     }
 
     /// Return all ports that have the attribute `attr`.
-    pub fn find_all_with_attr(
+    pub fn find_all_with_attr<A>(
         &self,
-        attr: Attribute,
-    ) -> impl Iterator<Item = RRC<Port>> + '_ {
+        attr: A,
+    ) -> impl Iterator<Item = RRC<Port>> + '_
+    where
+        A: Into<Attribute>,
+    {
+        let attr = attr.into();
         self.ports
             .iter()
             .filter(move |&p| p.borrow().attributes.has(attr))
@@ -325,11 +333,13 @@ impl Cell {
 
     /// Get a reference to the first port with the attribute `attr` and throw an error if none
     /// exist.
-    pub fn get_with_attr(&self, attr: Attribute) -> RRC<Port> {
+    pub fn get_with_attr<A>(&self, attr: A) -> RRC<Port>
+    where
+        A: Into<Attribute> + std::fmt::Display + Copy,
+    {
         self.find_with_attr(attr).unwrap_or_else(|| {
             panic!(
-                "Port with attribute `{}' not found on cell `{}'",
-                attr.to_string(),
+                "Port with attribute `{attr}' not found on cell `{}'",
                 self.name,
             )
         })
@@ -363,13 +373,13 @@ impl Cell {
     }
 
     /// Return the value associated with this attribute key.
-    pub fn get_attribute(&self, attr: Attribute) -> Option<&u64> {
-        self.attributes.get(attr)
+    pub fn get_attribute<A: Into<Attribute>>(&self, attr: A) -> Option<u64> {
+        self.attributes.get(attr.into())
     }
 
     /// Add a new attribute to the group.
-    pub fn add_attribute(&mut self, attr: Attribute, value: u64) {
-        self.attributes.insert(attr, value);
+    pub fn add_attribute<A: Into<Attribute>>(&mut self, attr: A, value: u64) {
+        self.attributes.insert(attr.into(), value);
     }
 
     /// Grants immutable access to the name of this cell.

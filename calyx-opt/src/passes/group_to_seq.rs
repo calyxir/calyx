@@ -134,7 +134,7 @@ fn if_name_stable_or_done<T>(
         .filter(|port_ref| port_ref.borrow().get_parent_name() == name)
         .all(|port_ref| {
             let atts = &port_ref.borrow().attributes;
-            atts.has(ir::Attribute::Stable) || atts.has(ir::Attribute::Done)
+            atts.has(ir::BoolAttr::Stable) || atts.has(ir::NumAttr::Done)
         })
 }
 
@@ -351,8 +351,8 @@ where
                     ir::PortParent::Cell(dst_cell),
                 ) => {
                     // a.go = b.done case
-                    if src.attributes.has(ir::Attribute::Done)
-                        && dst.attributes.has(ir::Attribute::Go)
+                    if src.attributes.has(ir::NumAttr::Done)
+                        && dst.attributes.has(ir::NumAttr::Go)
                         && comp_or_non_comb(&src_cell.upgrade())
                         && comp_or_non_comb(&dst_cell.upgrade())
                     {
@@ -365,7 +365,7 @@ where
                 (ir::PortParent::Cell(src_cell), ir::PortParent::Group(_)) => {
                     // group[done] = c.done case
                     if dst.name == "done"
-                        && src.attributes.has(ir::Attribute::Done)
+                        && src.attributes.has(ir::NumAttr::Done)
                         && comp_or_non_comb(&src_cell.upgrade())
                     {
                         last = Some(src_cell.upgrade().borrow().name())
@@ -386,8 +386,8 @@ where
         let dst = asmt.dst.borrow();
         match (&src.parent, &dst.parent) {
             (ir::PortParent::Cell(_), ir::PortParent::Cell(_)) => {
-                src.attributes.has(ir::Attribute::Done)
-                    && dst.attributes.has(ir::Attribute::Go)
+                src.attributes.has(ir::NumAttr::Done)
+                    && dst.attributes.has(ir::NumAttr::Go)
             }
             _ => false,
         }
@@ -398,7 +398,7 @@ where
     pub fn is_specific_go(asmt: &ir::Assignment<T>, cell: &ir::Id) -> bool {
         let dst = asmt.dst.borrow();
         // checks cell.go =
-        dst.get_parent_name() == cell  && dst.attributes.has(ir::Attribute::Go)
+        dst.get_parent_name() == cell  && dst.attributes.has(ir::NumAttr::Go)
         // checks !cell.done ?
         && asmt.guard.is_not_done(cell)
         // checks 1'd1
@@ -452,7 +452,7 @@ impl GroupOutline<Nothing> {
 //         let group = builder.add_static_group(prefix, 0);
 //         let mut group_asmts = self.assignments;
 //         let done_asmt = builder.build_assignment(
-//             group.borrow().get(ir::Attribute::Done),
+//             group.borrow().get(ir::NumAttr::Done),
 //             self.done_src,
 //             self.done_guard,
 //         );

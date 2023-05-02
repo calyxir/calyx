@@ -104,7 +104,7 @@ impl Visitor for DeadCellRemoval {
             comp.cells
                 .iter()
                 .filter(|c| {
-                    c.borrow().attributes.get(ir::Attribute::External).is_some()
+                    c.borrow().attributes.get(ir::BoolAttr::External).is_some()
                 })
                 .map(|c| c.borrow().name()),
         );

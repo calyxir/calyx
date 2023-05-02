@@ -81,13 +81,13 @@ impl Visitor for Papercut {
     ) -> VisResult {
         // If the component isn't marked "nointerface", it should have an invokable
         // interface.
-        if !comp.attributes.has(ir::Attribute::NoInterface) && !comp.is_comb {
+        if !comp.attributes.has(ir::BoolAttr::NoInterface) && !comp.is_comb {
             // If the control program is empty, check that the `done` signal has been assigned to.
             if let ir::Control::Empty(..) = *comp.control.borrow() {
                 for p in comp
                     .signature
                     .borrow()
-                    .find_all_with_attr(ir::Attribute::Done)
+                    .find_all_with_attr(ir::NumAttr::Done)
                 {
                     let done_use =
                         comp.continuous_assignments.iter().find(|assign_ref| {

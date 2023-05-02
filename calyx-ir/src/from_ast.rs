@@ -4,7 +4,7 @@ use super::{
     LibrarySignatures, Port, PortDef, StaticControl, RESERVED_NAMES, RRC,
 };
 use crate::{Nothing, PortComp, StaticTiming};
-use calyx_frontend::{ast, Attribute, Workspace};
+use calyx_frontend::{ast, Attribute, BoolAttr, NumAttr, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -61,10 +61,10 @@ fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
 
 /// Definition of special interface ports.
 const INTERFACE_PORTS: [(Attribute, u64, Direction); 4] = [
-    (Attribute::Go, 1, Direction::Input),
-    (Attribute::Clk, 1, Direction::Input),
-    (Attribute::Reset, 1, Direction::Input),
-    (Attribute::Done, 1, Direction::Output),
+    (Attribute::Num(NumAttr::Go), 1, Direction::Input),
+    (Attribute::Bool(BoolAttr::Clk), 1, Direction::Input),
+    (Attribute::Bool(BoolAttr::Reset), 1, Direction::Input),
+    (Attribute::Num(NumAttr::Done), 1, Direction::Output),
 ];
 
 /// Extend the signature with magical ports.
@@ -77,7 +77,7 @@ fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
         if !sig.iter().any(|pd| pd.attributes.has(*attr)) {
             let mut attributes = Attributes::default();
             attributes.insert(*attr, 1);
-            let name = Id::from(*attr).to_string();
+            let name = Id::from(attr.to_string());
             sig.push(PortDef {
                 name: namegen.gen_name(name.to_string()),
                 width: *width,
@@ -126,7 +126,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
         let sig = &mut comp.signature;
         check_signature(&*sig)?;
         // extend the signature if the component does not have the @nointerface attribute.
-        if !comp.attributes.has(Attribute::NoInterface) && !comp.is_comb {
+        if !comp.attributes.has(BoolAttr::NoInterface) && !comp.is_comb {
             extend_signature(sig);
         }
         sig_ctx.comp_sigs.insert(comp.name, sig.clone());
@@ -141,7 +141,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
     // Find the entrypoint for the program.
     let entrypoint = comps
         .iter()
-        .find(|c| c.attributes.has(Attribute::TopLevel))
+        .find(|c| c.attributes.has(BoolAttr::TopLevel))
         .or_else(|| comps.iter().find(|c| c.name == "main"))
         .map(|c| c.name)
         .ok_or_else(|| Error::misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;

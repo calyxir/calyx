@@ -51,7 +51,7 @@ impl Visitor for SynthesisPapercut {
                 if let Some(ref parent) = cell.type_name() {
                     if self.memories.contains(parent) {
                         let has_external =
-                            cell.get_attribute(ir::Attribute::External);
+                            cell.get_attribute(ir::BoolAttr::External);
                         if has_external.is_none() {
                             return Some(cell.name());
                         }

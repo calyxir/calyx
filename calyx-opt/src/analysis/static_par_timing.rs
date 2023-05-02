@@ -370,7 +370,7 @@ impl StaticParTiming {
                         // add enable to self.map
                         let latency = ControlId::get_guaranteed_attribute(
                             c,
-                            ir::Attribute::Static,
+                            ir::NumAttr::Static,
                         );
                         Some(self.update_invoke_enable(
                             enable_id,
@@ -396,11 +396,11 @@ impl StaticParTiming {
                 Some((parent_par, thread_id, cur_clock)) => {
                     let tbranch_latency = ControlId::get_guaranteed_attribute(
                         tbranch,
-                        ir::Attribute::Static,
+                        ir::NumAttr::Static,
                     );
                     let fbranch_latency = ControlId::get_guaranteed_attribute(
                         fbranch,
-                        ir::Attribute::Static,
+                        ir::NumAttr::Static,
                     );
                     let max_latency =
                         std::cmp::max(tbranch_latency, fbranch_latency);
@@ -422,7 +422,7 @@ impl StaticParTiming {
                 if cur_state.is_some() {
                     let bound = ControlId::get_guaranteed_attribute(
                         c,
-                        ir::Attribute::Bound,
+                        ir::NumAttr::Bound,
                     );
                     // essentially just unrolling the loop
                     let mut new_state = cur_state;
@@ -437,7 +437,7 @@ impl StaticParTiming {
                 }
             }
             ir::Control::Par(ir::Par { stmts, attributes }) => {
-                if attributes.get(ir::Attribute::Static).is_some() {
+                if attributes.get(ir::NumAttr::Static).is_some() {
                     // Analyze the Current Par
                     for stmt in stmts {
                         self.build_time_map(
@@ -463,7 +463,7 @@ impl StaticParTiming {
                                 let cur_latency =
                                     ControlId::get_guaranteed_attribute(
                                         stmt,
-                                        ir::Attribute::Static,
+                                        ir::NumAttr::Static,
                                     );
                                 max_latency =
                                     std::cmp::max(max_latency, cur_latency)

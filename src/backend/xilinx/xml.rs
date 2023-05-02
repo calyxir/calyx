@@ -130,10 +130,10 @@ impl Backend for XilinxXmlBackend {
             .cells
             .iter()
             .filter(|cell_ref| {
-                matches!(
-                    cell_ref.borrow().get_attribute(ir::Attribute::External),
-                    Some(&1)
-                )
+                cell_ref
+                    .borrow()
+                    .get_attribute(ir::BoolAttr::External)
+                    .is_some()
             })
             .enumerate()
             .map(|(i, cell_ref)| {

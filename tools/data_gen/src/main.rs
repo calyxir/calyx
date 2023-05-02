@@ -178,7 +178,7 @@ fn gen_comp_float(sizes_vec: &[usize], width: u64) -> serde_json::Value {
 //Returns Some(CellData)) if cell is a std_mem cell, None otherwise
 fn get_data(cell: &ir::RRC<ir::Cell>) -> Option<CellData> {
     let final_cell = cell.borrow();
-    if !final_cell.attributes.has(ir::Attribute::External) {
+    if !final_cell.attributes.has(ir::BoolAttr::External) {
         return None;
     }
     match final_cell.prototype {
