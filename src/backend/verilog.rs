@@ -513,13 +513,13 @@ fn emit_guard_disjoint_check(
 /// 2. The port's cell parent is marked with `@data`
 fn is_data_port(pr: &RRC<ir::Port>) -> bool {
     let port = pr.borrow();
-    if !port.attributes.has("data") {
+    if !port.attributes.has(ir::BoolAttr::Data) {
         return false;
     }
     if let ir::PortParent::Cell(cwr) = &port.parent {
         let cr = cwr.upgrade();
         let cell = cr.borrow();
-        if cell.attributes.has("data") {
+        if cell.attributes.has(ir::BoolAttr::Data) {
             return true;
         }
     }
@@ -798,7 +798,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         .cells
         .iter()
         .filter_map(|cell| {
-            let is_external = cell.borrow().get_attribute("external").is_some();
+            let is_external = cell.borrow().get_attribute(ir::BoolAttr::External).is_some();
             if is_external
                 && cell
                     .borrow()

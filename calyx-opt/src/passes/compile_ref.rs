@@ -120,8 +120,12 @@ impl Visitor for CompileRef {
         let comp_name = s.comp.borrow().type_name().unwrap();
         for (in_cell, cell) in s.ref_cells.drain(..) {
             for port in cell.borrow().ports.iter() {
-                if port.borrow().attributes.get("clk").is_none()
-                    && port.borrow().attributes.get("reset").is_none()
+                if port.borrow().attributes.get(ir::BoolAttr::Clk).is_none()
+                    && port
+                        .borrow()
+                        .attributes
+                        .get(ir::BoolAttr::Reset)
+                        .is_none()
                 {
                     let canon = Canonical(in_cell, port.borrow().name);
                     let port_name =

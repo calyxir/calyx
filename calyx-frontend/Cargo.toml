@@ -24,3 +24,5 @@ pest_derive.workspace = true
 pest_consume.workspace = true
 
 calyx-utils = { path = "../calyx-utils", version = "0.1.1" }
+strum_macros = "0.24.3"
+strum = "0.24.1"
