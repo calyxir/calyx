@@ -1,0 +1,43 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+
+component main () -> () {
+  cells {
+    p = std_reg(5);
+    w = std_wire(5);
+    incr = std_add(5);
+    l = std_lt(5);
+    @external mem = std_mem_d1(5, 1, 1);
+  }
+
+  wires {
+    static group A<1> {
+      incr.left = p.out;
+      incr.right = 5'd1;
+      p.in = incr.out;
+      p.write_en = %0 ? 1'd1;
+      w.in = %0 ? incr.out;
+    } 
+
+    static group B<1> {
+      incr.left = p.out;
+      incr.right = mem.read_data;
+      mem.write_data = incr.out;
+      mem.write_en = %0 ? 1'd1;
+      mem.addr0 = 1'd0;
+      w.in = p.out;
+    }
+
+    l.left = w.out;
+    l.right = 5'd6;
+
+  }
+
+  control {
+    while l.out {
+      static seq {
+        A; B;
+      }
+    } 
+  }
+}
