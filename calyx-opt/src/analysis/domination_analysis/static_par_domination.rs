@@ -4,9 +4,11 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
 };
-const BEGIN_ID: &str = "BEGIN_ID";
-
+const BEGIN_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::BEGIN_ID);
 #[derive(Default)]
+/// Computes Dominators Across Static Pars.
+/// Assumes each control stmt has already been given the appropraite IDs.
 pub struct StaticParDomination {
     /// (nodes for static control can only be enables or if stmts... we don't suppport invokes yet)
     /// maps par ids -> (map of node ids -> (first interval for which node is live, relative to parent par))
@@ -86,10 +88,6 @@ impl StaticParDomination {
             component_name: comp_name,
             ..Default::default()
         };
-        // compute_unique_ids is deterministic
-        // so if we're calling it after we've called live range analysis (and the
-        // control program hasn't changed, then this is unnecessary)
-        ControlId::compute_unique_ids(control, 0, true);
 
         timing_map.build_time_map(control);
 

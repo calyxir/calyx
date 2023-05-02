@@ -12,6 +12,8 @@ type CellTimingMap = HashMap<ir::Id, Vec<(u64, u64)>>;
 type ThreadTimingMap = HashMap<u64, CellTimingMap>;
 
 #[derive(Default)]
+/// Calculate live ranges across static par blocks.
+/// Assumes control ids have already been given; it does not add its own
 pub struct StaticParTiming {
     /// Map from par block ids to cell_timing_maps
     cell_map: HashMap<u64, ThreadTimingMap>,
@@ -72,10 +74,6 @@ impl StaticParTiming {
             component_name: comp_name,
             ..Default::default()
         };
-        // compute_unique_ids is deterministic
-        // so if we're calling it after we've called live range analysis (and the
-        // control program hasn't changed, then this is unnecessary)
-        ControlId::compute_unique_ids(control, 0, false);
 
         time_map.build_time_map(control, live);
 
