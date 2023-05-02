@@ -402,6 +402,7 @@ impl Visitor for InferStaticTiming {
         if comp.get_groups().is_empty()
             || matches!(&*comp.control.borrow(), ir::Control::Empty(_))
         {
+            log::info!("Skipping component `{}' because it has no groups or control program", comp.name);
             return Ok(Action::Stop);
         }
 
@@ -424,6 +425,7 @@ impl Visitor for InferStaticTiming {
                         .with_pos(&grp.attributes));
                 }
             } else {
+                drop(grp);
                 group.borrow_mut().attributes.insert("static", latency);
             }
         }
