@@ -397,41 +397,43 @@ impl Visitor for InferStaticTiming {
         _lib: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Compute latencies for all groups.
-        let mut latency_result: Option<u64>;
+        // If there are no groups in this component or if the control program is
+        // empty, we're done.
+        if comp.get_groups().is_empty()
+            || matches!(&*comp.control.borrow(), ir::Control::Empty(_))
+        {
+            log::info!("Skipping component `{}' because it has no groups or control program", comp.name);
+            // Add latency information for the component if present.
+            let sig = &*comp.signature.borrow();
+            let ports: GoDone = sig.into();
+            self.latency_data.insert(comp.name, ports);
+            return Ok(Action::Stop);
+        }
+
         // don't need to do all this work for static groups
         for group in comp.get_groups().iter() {
-            if let Some(latency) = self.infer_latency(&group.borrow()) {
-                let grp = group.borrow();
-                if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static)
-                {
-                    // Inferred latency is not the same as the provided latency annotation.
-                    if curr_lat != latency {
-                        let msg1 = format!("Annotated latency: {}", curr_lat);
-                        let msg2 = format!("Inferred latency: {}", latency);
-                        let msg = format!(
+            let Some(latency) = self.infer_latency(&group.borrow()) else { continue };
+            let grp = group.borrow();
+            if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static) {
+                // Inferred latency is not the same as the provided latency annotation.
+                if curr_lat != latency {
+                    let msg1 = format!("Annotated latency: {}", curr_lat);
+                    let msg2 = format!("Inferred latency: {}", latency);
+                    let msg = format!(
                             "Invalid \"static\" latency annotation for group {}.\n{}\n{}",
                             grp.name(),
                             msg1,
                             msg2
                         );
-                        return Err(Error::malformed_structure(msg)
-                            .with_pos(&grp.attributes));
-                    }
+                    return Err(Error::malformed_structure(msg)
+                        .with_pos(&grp.attributes));
                 }
-                latency_result = Some(latency);
             } else {
-                latency_result = None;
-            }
-
-            match latency_result {
-                Some(res) => {
-                    group
-                        .borrow_mut()
-                        .attributes
-                        .insert(ir::NumAttr::Static, res);
-                }
-                None => continue,
+                drop(grp);
+                group
+                    .borrow_mut()
+                    .attributes
+                    .insert(ir::NumAttr::Static, latency);
             }
         }
 
@@ -467,7 +469,7 @@ impl Visitor for InferStaticTiming {
                         let msg1 = format!("Annotated latency: {}", go_time);
                         let msg2 = format!("Inferred latency: {}", time);
                         let msg = format!(
-                        "Impossible \"static\" latency annotation for component {}.\n{}\n{}",
+                        "Invalid \"static\" latency annotation for component {}.\n{}\n{}",
                         comp.name,
                         msg1,
                         msg2
@@ -487,14 +489,12 @@ impl Visitor for InferStaticTiming {
                     time
                 );
             }
-
-            // Add all go-done latencies to the context
-            let sig = &*comp.signature.borrow();
-            let ports: GoDone = sig.into();
-
-            self.latency_data.insert(comp.name, ports);
         }
 
+        // Add all go-done latencies for the component to the context
+        let sig = &*comp.signature.borrow();
+        let ports: GoDone = sig.into();
+        self.latency_data.insert(comp.name, ports);
         Ok(Action::Stop)
     }
 }
