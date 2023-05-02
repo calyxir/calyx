@@ -23,7 +23,7 @@ where
     /// **Ensures**: All sub-programs of the type will also be updated.
     fn update_static(&mut self, extra: &Self::Info) -> Option<u64> {
         if let Some(time) = self.compute_static(extra) {
-            self.get_mut_attributes().insert("static", time);
+            self.get_mut_attributes().insert(ir::NumAttr::Static, time);
             Some(time)
         } else {
             None
@@ -69,16 +69,15 @@ impl WithStatic for ir::Enable {
         // Attempt to get the latency from the attribute on the enable first, or
         // failing that, from the group.
         self.attributes
-            .get("static")
-            .cloned()
-            .or_else(|| self.group.borrow().attributes.get("static").cloned())
+            .get(ir::NumAttr::Static)
+            .or_else(|| self.group.borrow().attributes.get(ir::NumAttr::Static))
     }
 }
 
 impl WithStatic for ir::Invoke {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.attributes.get("static").cloned().or_else(|| {
+        self.attributes.get(ir::NumAttr::Static).or_else(|| {
             let comp = self.comp.borrow().type_name()?;
             extra.get(&comp).cloned()
         })
@@ -130,7 +129,7 @@ impl WithStatic for ir::While {
             log::debug!("Cannot compute latency for while-with");
             return None;
         }
-        let bound = self.attributes.get("bound")?;
+        let bound = self.attributes.get(ir::NumAttr::Bound)?;
         Some(bound * b_time)
     }
 }
