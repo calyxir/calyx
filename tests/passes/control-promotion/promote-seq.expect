@@ -1,0 +1,31 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    a = std_add(32);
+    sum = std_mem_d1(32, 1, 1);
+  }
+  wires {
+    static group incr_r<1> {
+      a.left = 32'd1;
+      a.right = r.out;
+      r.in = a.out;
+      r.write_en = 1'd1;
+    }
+    static group accm<1> {
+      a.left = sum.read_data;
+      a.right = r.out;
+      sum.write_data = a.out;
+      sum.write_en = 1'd1;
+      sum.addr0 = 1'd0;
+    }
+  }
+
+  control {
+    static seq <2> {
+      incr_r;
+      accm;
+    }
+  }
+}

@@ -1,0 +1,34 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    r3 = std_reg(32);
+  }
+  wires {
+    group write_r3 {
+      r3.in = 32'd1;
+      r3.write_en = 1'd1;
+      write_r3[done] = r3.done;
+    }
+    static group write_r1<1> {
+      r1.in = 32'd1;
+      r1.write_en = 1'd1;
+    }
+    static group write_r2<1> {
+      r2.in = 32'd1;
+      r2.write_en = 1'd1;
+    }
+  }
+
+  control {
+    par {
+      static par <1> {
+        write_r1;
+        write_r2;
+      }
+      write_r3;
+    }
+  }
+}
