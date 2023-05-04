@@ -3,7 +3,7 @@ from calyx.py_ast import *
 from dahlia_utils import *
 from calyx.gen_exp import generate_exp_taylor_series_approximation, generate_fp_pow_full
 from calyx.utils import float_to_fixed_point
-
+from calyx.builder import Builder
 ### Dahlia Implementations for Relay Call Nodes ###
 
 # Context: While implementing a Relay frontend for
@@ -858,6 +858,7 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
         width = int(type[type.find("<") + 1: sep])
         int_width = int(type[sep + 1: type.find(">")])
         exp_components = generate_fp_pow_full(
+            builder=Builder(),
             degree=8,
             width=width,
             int_width=int_width,
@@ -872,6 +873,7 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
         width = int(type[type.find("<") + 1: sep])
         int_width = int(type[sep + 1: type.find(">")])
         exp_components = generate_exp_taylor_series_approximation(
+            builder=Builder(),
             degree=8,
             width=width,
             int_width=int_width,

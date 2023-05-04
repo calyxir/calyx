@@ -48,7 +48,8 @@ impl Visitor for CompileInvoke {
         let name = cell.name();
 
         // Get the go port
-        let mut go_ports = cell.find_all_with_attr("go").collect_vec();
+        let mut go_ports =
+            cell.find_all_with_attr(ir::NumAttr::Go).collect_vec();
         if go_ports.len() > 1 {
             return Err(Error::malformed_control(format!("Invoked component `{name}` defines multiple @go signals. Cannot compile the invoke")));
         } else if go_ports.is_empty() {
@@ -56,7 +57,8 @@ impl Visitor for CompileInvoke {
         }
 
         // Get the done ports
-        let mut done_ports = cell.find_all_with_attr("done").collect_vec();
+        let mut done_ports =
+            cell.find_all_with_attr(ir::NumAttr::Done).collect_vec();
         if done_ports.len() > 1 {
             return Err(Error::malformed_control(format!("Invoked component `{name}` defines multiple @done signals. Cannot compile the invoke")));
         } else if done_ports.is_empty() {
@@ -91,17 +93,29 @@ impl Visitor for CompileInvoke {
             .collect();
         invoke_group.borrow_mut().assignments = assigns;
 
+        // Add assignments from the attached combinational group
+        if let Some(cgr) = &s.comb_group {
+            let cg = &*cgr.borrow();
+            invoke_group
+                .borrow_mut()
+                .assignments
+                .extend(cg.assignments.iter().cloned())
+        }
+
         // Copy "static" annotation from the `invoke` statement if present
-        if let Some(time) = s.attributes.get("static") {
-            invoke_group.borrow_mut().attributes.insert("static", *time);
+        if let Some(time) = s.attributes.get(ir::NumAttr::Static) {
+            invoke_group
+                .borrow_mut()
+                .attributes
+                .insert(ir::NumAttr::Static, time);
         }
 
         let mut en = ir::Enable {
             group: invoke_group,
             attributes: Attributes::default(),
         };
-        if let Some(time) = s.attributes.get("static") {
-            en.attributes.insert("static", *time);
+        if let Some(time) = s.attributes.get(ir::NumAttr::Static) {
+            en.attributes.insert(ir::NumAttr::Static, time);
         }
 
         Ok(Action::change(ir::Control::Enable(en)))

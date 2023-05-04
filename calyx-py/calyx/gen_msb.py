@@ -17,287 +17,7 @@ from calyx.py_ast import (
     Control,
     CombGroup,
 )
-
-
-def generate_cells(width: int) -> List[Cell]:
-    """
-    Generates cells for the msb component.
-    """
-    return [
-        Cell(CompVar("rsh"), Stdlib.op("rsh", width, signed=False)),
-        Cell(CompVar("counter"), Stdlib.register(width)),
-        Cell(CompVar("cur_val"), Stdlib.register(width)),
-        Cell(CompVar("add"), Stdlib.op("add", width, signed=False)),
-        Cell(CompVar("sub"), Stdlib.op("sub", width, signed=False)),
-        Cell(CompVar("neq"), Stdlib.op("neq", width, signed=False)),
-        Cell(CompVar("lsh"), Stdlib.op("lsh", width, signed=False)),
-        Cell(CompVar("count_ans"), Stdlib.register(width)),
-        Cell(CompVar("val_ans"), Stdlib.register(width)),
-        Cell(CompVar("val_build"), Stdlib.register(width)),
-    ]
-
-
-def generate_groups(width, int_width) -> List[Group]:
-    """
-    Generates groups for the msb component
-    """
-    wr_cur_val = Group(
-        id=CompVar("wr_cur_val"),
-        connections=[
-            Connect(
-                CompPort(CompVar("rsh"), "left"),
-                ThisPort(CompVar("in")),
-            ),
-            Connect(
-                CompPort(CompVar("rsh"), "right"),
-                ConstantPort(width, int_width),
-            ),
-            Connect(
-                CompPort(CompVar("cur_val"), "in"),
-                CompPort(CompVar("rsh"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("cur_val"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                HolePort(CompVar("wr_cur_val"), "done"),
-                CompPort(CompVar("cur_val"), "done"),
-            ),
-        ],
-    )
-
-    wr_val_build = Group(
-        id=CompVar("wr_val_build"),
-        connections=[
-            Connect(
-                CompPort(CompVar("val_build"), "in"),
-                ConstantPort(32, 1),
-            ),
-            Connect(
-                CompPort(CompVar("val_build"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                HolePort(CompVar("wr_val_build"), "done"),
-                CompPort(CompVar("val_build"), "done"),
-            ),
-        ],
-    )
-
-    cur_val_cond = CombGroup(
-        id=CompVar("cur_val_cond"),
-        connections=[
-            Connect(CompPort(CompVar("neq"), "left"), ConstantPort(width, 0)),
-            Connect(
-                CompPort(CompVar("neq"), "right"), CompPort(CompVar("cur_val"), "out")
-            ),
-        ],
-    )
-
-    count_cond = CombGroup(
-        id=CompVar("count_cond"),
-        connections=[
-            Connect(CompPort(CompVar("neq"), "left"), ConstantPort(width, 0)),
-            Connect(
-                CompPort(CompVar("neq"), "right"), CompPort(CompVar("counter"), "out")
-            ),
-        ],
-    )
-
-    incr_count = Group(
-        id=CompVar("incr_count"),
-        connections=[
-            Connect(
-                CompPort(CompVar("add"), "left"),
-                CompPort(CompVar("counter"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("add"), "right"),
-                ConstantPort(width, 1),
-            ),
-            Connect(
-                CompPort(CompVar("counter"), "in"),
-                CompPort(CompVar("add"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("counter"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                HolePort(CompVar("incr_count"), "done"),
-                CompPort(CompVar("counter"), "done"),
-            ),
-        ],
-    )
-
-    shift_cur_val = Group(
-        id=CompVar("shift_cur_val"),
-        connections=[
-            Connect(
-                CompPort(CompVar("rsh"), "left"),
-                CompPort(CompVar("cur_val"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("rsh"), "right"),
-                ConstantPort(width, 1),
-            ),
-            Connect(
-                CompPort(CompVar("cur_val"), "in"),
-                CompPort(CompVar("rsh"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("cur_val"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                HolePort(CompVar("shift_cur_val"), "done"),
-                CompPort(CompVar("cur_val"), "done"),
-            ),
-        ],
-    )
-
-    shift_val_build = Group(
-        id=CompVar("shift_val_build"),
-        connections=[
-            Connect(
-                CompPort(CompVar("lsh"), "left"),
-                CompPort(CompVar("val_build"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("lsh"), "right"),
-                ConstantPort(width, 1),
-            ),
-            Connect(
-                CompPort(CompVar("val_build"), "in"),
-                CompPort(CompVar("lsh"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("val_build"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                HolePort(CompVar("shift_val_build"), "done"),
-                CompPort(CompVar("val_build"), "done"),
-            ),
-        ],
-    )
-
-    decr_count = Group(
-        id=CompVar("decr_count"),
-        connections=[
-            Connect(
-                CompPort(CompVar("sub"), "left"),
-                CompPort(CompVar("counter"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("sub"), "right"),
-                ConstantPort(width, 1),
-            ),
-            Connect(
-                CompPort(CompVar("counter"), "in"),
-                CompPort(CompVar("sub"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("counter"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                HolePort(CompVar("decr_count"), "done"),
-                CompPort(CompVar("counter"), "done"),
-            ),
-        ],
-    )
-
-    wr_count = Group(
-        id=CompVar("wr_count"),
-        connections=[
-            Connect(
-                CompPort(CompVar("lsh"), "left"),
-                CompPort(CompVar("counter"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("lsh"), "right"),
-                ConstantPort(width, width - int_width),
-            ),
-            Connect(
-                CompPort(CompVar("count_ans"), "in"),
-                CompPort(CompVar("lsh"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("count_ans"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                HolePort(CompVar("wr_count"), "done"),
-                CompPort(CompVar("count_ans"), "done"),
-            ),
-        ],
-    )
-
-    wr_val = Group(
-        id=CompVar("wr_val"),
-        connections=[
-            Connect(
-                CompPort(CompVar("lsh"), "left"),
-                CompPort(CompVar("val_build"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("lsh"), "right"),
-                ConstantPort(width, width - int_width),
-            ),
-            Connect(
-                CompPort(CompVar("val_ans"), "in"),
-                CompPort(CompVar("lsh"), "out"),
-            ),
-            Connect(
-                CompPort(CompVar("val_ans"), "write_en"),
-                ConstantPort(1, 1),
-            ),
-            Connect(
-                HolePort(CompVar("wr_val"), "done"),
-                CompPort(CompVar("val_ans"), "done"),
-            ),
-        ],
-    )
-
-    return [
-        wr_cur_val,
-        wr_val_build,
-        cur_val_cond,
-        count_cond,
-        incr_count,
-        shift_cur_val,
-        shift_val_build,
-        decr_count,
-        wr_count,
-        wr_val,
-    ]
-
-
-def generate_control() -> Control:
-    """
-    Generates control for the msb component.
-    """
-    return SeqComp(
-        [
-            Enable("wr_cur_val"),
-            While(
-                CompPort(CompVar("neq"), "out"),
-                CompVar("cur_val_cond"),
-                SeqComp([Enable("incr_count"), Enable("shift_cur_val")]),
-            ),
-            Enable("decr_count"),
-            Enable("wr_count"),
-            Enable("wr_val_build"),
-            While(
-                CompPort(CompVar("neq"), "out"),
-                CompVar("count_cond"),
-                SeqComp([Enable("decr_count"), Enable("shift_val_build")]),
-            ),
-            Enable("wr_val"),
-        ]
-    )
+from calyx.builder import Builder, ComponentBuilder, const, HI, while_
 
 
 def gen_msb_calc(width: int, int_width: int) -> List[Component]:
@@ -311,24 +31,105 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
     1 bit to the right at each iteration until it equals 0.
     Important note: this component doesn't work when the input is 0.
     """
-    return [
-        Component(
-            "msb_calc",
-            inputs=[PortDef(CompVar("in"), width)],
-            outputs=[
-                PortDef(CompVar("count"), width),
-                PortDef(CompVar("value"), width),
-            ],
-            structs=generate_cells(width)
-            + generate_groups(width, int_width)
-            + [
-                Connect(
-                    ThisPort(CompVar("count")), CompPort(CompVar("count_ans"), "out")
-                ),
-                Connect(
-                    ThisPort(CompVar("value")), CompPort(CompVar("val_ans"), "out")
-                ),
-            ],
-            controls=generate_control(),
-        )
+    builder = Builder()
+    comp = builder.component("msb_calc")
+    comp.input("in", width)
+    comp.output("count", width)
+    comp.output("value", width)
+
+    rsh = comp.cell("rsh", Stdlib.op("rsh", width, signed=False))
+    counter = comp.reg("counter", width)
+    cur_val = comp.reg("cur_val", width)
+    add = comp.cell("add", Stdlib.op("add", width, signed=False))
+    sub = comp.cell("sub", Stdlib.op("sub", width, signed=False))
+    neq = comp.cell("neq", Stdlib.op("neq", width, signed=False))
+    lsh = comp.cell("lsh", Stdlib.op("lsh", width, signed=False))
+    count_ans = comp.reg("count_ans", width)
+    val_ans = comp.reg("val_ans", width)
+    val_build = comp.reg("val_build", width)
+
+    with comp.group("wr_cur_val") as wr_cur_val:
+        rsh.left = comp.this().in_
+        rsh.right = const(width, int_width)
+        cur_val.in_ = rsh.out
+        cur_val.write_en = HI
+        wr_cur_val.done = cur_val.done
+
+    with comp.group("wr_val_build") as wr_val_build:
+        val_build.in_ = const(32, 1)
+        val_build.write_en = HI
+        wr_val_build.done = val_build.done
+
+    with comp.comb_group("cur_val_cond") as cur_val_cond:
+        neq.left = const(width, 0)
+        neq.right = cur_val.out
+
+    with comp.comb_group("count_cond") as count_cond:
+        neq.left = const(width, 0)
+        neq.right = counter.out
+
+    with comp.group("incr_count") as incr_count:
+        add.left = counter.out
+        add.right = const(width, 1)
+        counter.in_ = add.out
+        counter.write_en = HI
+        incr_count.done = counter.done
+
+    with comp.group("shift_cur_val") as shift_cur_val:
+        rsh.left = cur_val.out
+        rsh.right = const(width, 1)
+        cur_val.in_ = rsh.out
+        cur_val.write_en = HI
+        shift_cur_val.done = cur_val.done
+
+    with comp.group("shift_val_build") as shift_val_build:
+        lsh.left = val_build.out
+        lsh.right = const(width, 1)
+        val_build.in_ = lsh.out
+        val_build.write_en = HI
+        shift_val_build.done = val_build.done
+
+    with comp.group("decr_count") as decr_count:
+        sub.left = counter.out
+        sub.right = const(width, 1)
+        counter.in_ = sub.out
+        counter.write_en = HI
+        decr_count.done = counter.done
+
+    with comp.group("wr_count") as wr_count:
+        lsh.left = counter.out
+        lsh.right = const(width, width - int_width)
+        count_ans.in_ = lsh.out
+        count_ans.write_en = HI
+        wr_count.done = count_ans.done
+
+    with comp.group("wr_val") as wr_val:
+        lsh.left = val_build.out
+        lsh.right = const(width, width - int_width)
+        val_ans.in_ = lsh.out
+        val_ans.write_en = HI
+        wr_val.done = val_ans.done
+
+    with comp.continuous:
+        comp.this().count = count_ans.out
+        comp.this().value = val_ans.out
+
+    comp.control += [
+        wr_cur_val,
+        while_(
+            neq.out,
+            cur_val_cond,
+            [incr_count, shift_cur_val],
+        ),
+        decr_count,
+        wr_count,
+        wr_val_build,
+        while_(
+            neq.out,
+            count_cond,
+            [decr_count, shift_val_build],
+        ),
+        wr_val,
     ]
+
+    return [comp.component]

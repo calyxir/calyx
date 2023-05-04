@@ -1,13 +1,15 @@
 use super::{
     Assignment, Attributes, BackendConf, Builder, Canonical, CellType,
     Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
-    LibrarySignatures, Port, PortDef, RESERVED_NAMES, RRC,
+    LibrarySignatures, Port, PortDef, StaticControl, RESERVED_NAMES, RRC,
 };
 use crate::{Nothing, PortComp, StaticTiming};
-use calyx_frontend::{ast, Workspace};
+use calyx_frontend::{ast, Attribute, BoolAttr, NumAttr, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
 use std::cell::RefCell;
+
 use std::collections::{HashMap, HashSet};
+use std::num::NonZeroU64;
 use std::rc::Rc;
 
 /// Context to store the signature information for all defined primitives and
@@ -59,24 +61,24 @@ fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
 }
 
 /// Definition of special interface ports.
-const INTERFACE_PORTS: [(&str, u64, Direction); 4] = [
-    ("go", 1, Direction::Input),
-    ("clk", 1, Direction::Input),
-    ("reset", 1, Direction::Input),
-    ("done", 1, Direction::Output),
+const INTERFACE_PORTS: [(Attribute, u64, Direction); 4] = [
+    (Attribute::Num(NumAttr::Go), 1, Direction::Input),
+    (Attribute::Bool(BoolAttr::Clk), 1, Direction::Input),
+    (Attribute::Bool(BoolAttr::Reset), 1, Direction::Input),
+    (Attribute::Num(NumAttr::Done), 1, Direction::Output),
 ];
 
 /// Extend the signature with magical ports.
 fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
     let port_names: HashSet<_> = sig.iter().map(|pd| pd.name).collect();
     let mut namegen = NameGenerator::with_prev_defined_names(port_names);
-    for (name, width, direction) in INTERFACE_PORTS.iter() {
+    for (attr, width, direction) in INTERFACE_PORTS.iter() {
         // Check if there is already another interface port defined for the
         // component
-        let attr = Id::from(*name);
-        if !sig.iter().any(|pd| pd.attributes.has(attr)) {
+        if !sig.iter().any(|pd| pd.attributes.has(*attr)) {
             let mut attributes = Attributes::default();
-            attributes.insert(attr, 1);
+            attributes.insert(*attr, 1);
+            let name = Id::from(attr.to_string());
             sig.push(PortDef {
                 name: namegen.gen_name(name.to_string()),
                 width: *width,
@@ -125,7 +127,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
         let sig = &mut comp.signature;
         check_signature(&*sig)?;
         // extend the signature if the component does not have the @nointerface attribute.
-        if !comp.attributes.has("nointerface") && !comp.is_comb {
+        if !comp.attributes.has(BoolAttr::NoInterface) && !comp.is_comb {
             extend_signature(sig);
         }
         sig_ctx.comp_sigs.insert(comp.name, sig.clone());
@@ -140,7 +142,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
     // Find the entrypoint for the program.
     let entrypoint = comps
         .iter()
-        .find(|c| c.attributes.get("toplevel").is_some())
+        .find(|c| c.attributes.has(BoolAttr::TopLevel))
         .or_else(|| comps.iter().find(|c| c.name == "main"))
         .map(|c| c.name)
         .ok_or_else(|| Error::misc("No entry point for the program. Program needs to be either mark a component with the \"toplevel\" attribute or define a component named `main`".to_string()))?;
@@ -321,6 +323,11 @@ fn add_static_group(
     group: ast::StaticGroup,
     builder: &mut Builder,
 ) -> CalyxResult<()> {
+    if group.latency == 0 {
+        return Err(Error::malformed_structure(
+            "static group with 0 latency".to_string(),
+        ));
+    }
     let ir_group = builder.add_static_group(group.name, group.latency);
     let assigns = build_static_assignments(group.wires, builder)?;
 
@@ -568,12 +575,182 @@ fn build_static_guard(
 
 ///////////////// Control Construction /////////////////////////
 
+fn assert_latencies_eq(
+    given_latency: Option<NonZeroU64>,
+    inferred_latency: u64,
+) {
+    if let Some(v) = given_latency {
+        assert_eq!(
+            v.get(),
+            inferred_latency,
+            "inferred latency: {inferred_latency}, given latency: {v}"
+        )
+    };
+}
+
+// builds static_seq based on stmts, attributes, and latency
+fn build_static_seq(
+    stmts: Vec<ast::Control>,
+    attributes: Attributes,
+    latency: Option<NonZeroU64>,
+    builder: &mut Builder,
+) -> CalyxResult<StaticControl> {
+    let ir_stmts = stmts
+        .into_iter()
+        .map(|c| build_static_control(c, builder))
+        .collect::<CalyxResult<Vec<_>>>()?;
+    let inferred_latency =
+        ir_stmts.iter().fold(0, |acc, s| acc + (s.get_latency()));
+    assert_latencies_eq(latency, inferred_latency);
+    let mut s = StaticControl::seq(ir_stmts, inferred_latency);
+    *s.get_mut_attributes() = attributes;
+    Ok(s)
+}
+
+fn build_static_par(
+    stmts: Vec<ast::Control>,
+    attributes: Attributes,
+    latency: Option<NonZeroU64>,
+    builder: &mut Builder,
+) -> CalyxResult<StaticControl> {
+    let ir_stmts = stmts
+        .into_iter()
+        .map(|c| build_static_control(c, builder))
+        .collect::<CalyxResult<Vec<_>>>()?;
+    let inferred_latency = match ir_stmts.iter().max_by_key(|s| s.get_latency())
+    {
+        Some(s) => s.get_latency(),
+        None => {
+            return Err(Error::malformed_control("empty par block".to_string()))
+        }
+    };
+    assert_latencies_eq(latency, inferred_latency);
+    let mut p = StaticControl::par(ir_stmts, inferred_latency);
+    *p.get_mut_attributes() = attributes;
+    Ok(p)
+}
+
+fn build_static_if(
+    port: ast::Port,
+    tbranch: ast::Control,
+    fbranch: ast::Control,
+    attributes: Attributes,
+    latency: Option<NonZeroU64>,
+    builder: &mut Builder,
+) -> CalyxResult<StaticControl> {
+    let ir_tbranch = build_static_control(tbranch, builder)?;
+    let ir_fbranch = build_static_control(fbranch, builder)?;
+    let inferred_latency =
+        std::cmp::max(ir_tbranch.get_latency(), ir_fbranch.get_latency());
+    assert_latencies_eq(latency, inferred_latency);
+    let mut con = StaticControl::static_if(
+        ensure_direction(
+            get_port_ref(port, builder.component)?,
+            Direction::Output,
+        )?,
+        Box::new(ir_tbranch),
+        Box::new(ir_fbranch),
+        inferred_latency,
+    );
+    *con.get_mut_attributes() = attributes;
+    Ok(con)
+}
+
+fn build_static_repeat(
+    num_repeats: u64,
+    body: ast::Control,
+    builder: &mut Builder,
+    attributes: Attributes,
+) -> CalyxResult<StaticControl> {
+    let body = build_static_control(body, builder)?;
+    let total_latency = body.get_latency() * num_repeats;
+    let mut scon =
+        StaticControl::repeat(num_repeats, total_latency, Box::new(body));
+    *scon.get_mut_attributes() = attributes;
+    Ok(scon)
+}
+
+// checks whether `control` is static
+fn build_static_control(
+    control: ast::Control,
+    builder: &mut Builder,
+) -> CalyxResult<StaticControl> {
+    let sc = match control {
+        ast::Control::Enable {
+            comp: component,
+            attributes,
+        } => {
+            if builder.component.find_group(component).is_some() {
+                // dynamic group called in build_static_control
+                return Err(Error::malformed_control(
+                    "found dynamic group in static context".to_string(),
+                ));
+            };
+            let mut en = StaticControl::from(Rc::clone(
+                &builder.component.find_static_group(component).ok_or_else(
+                    || {
+                        Error::undefined(component, "group".to_string())
+                            .with_pos(&attributes)
+                    },
+                )?,
+            ));
+            *en.get_mut_attributes() = attributes;
+            en
+        }
+        ast::Control::StaticSeq {
+            stmts,
+            attributes,
+            latency,
+        } => return build_static_seq(stmts, attributes, latency, builder),
+        ast::Control::StaticPar {
+            stmts,
+            attributes,
+            latency,
+        } => return build_static_par(stmts, attributes, latency, builder),
+        ast::Control::StaticIf {
+            port,
+            tbranch,
+            fbranch,
+            attributes,
+            latency,
+        } => {
+            return build_static_if(
+                port, *tbranch, *fbranch, attributes, latency, builder,
+            )
+        }
+        ast::Control::StaticRepeat {
+            attributes,
+            num_repeats,
+            body,
+        } => {
+            return build_static_repeat(num_repeats, *body, builder, attributes)
+        }
+        ast::Control::Par { .. }
+        | ast::Control::If { .. }
+        | ast::Control::While { .. }
+        | ast::Control::Seq { .. } => {
+            return Err(Error::malformed_control(
+                "found dynamic control in static context".to_string(),
+            ));
+        }
+        ast::Control::Empty { attributes } => {
+            let mut emp = StaticControl::empty();
+            *emp.get_mut_attributes() = attributes;
+            emp
+        }
+        ast::Control::Invoke { .. } => {
+            todo!("implement frontend parsing for invoke")
+        }
+    };
+    Ok(sc)
+}
+
 /// Transform ast::Control to ir::Control.
 fn build_control(
     control: ast::Control,
     builder: &mut Builder,
 ) -> CalyxResult<Control> {
-    Ok(match control {
+    let c = match control {
         ast::Control::Enable {
             comp: component,
             attributes,
@@ -584,7 +761,7 @@ fn build_control(
                 en
             }
             None => {
-                let mut en = Control::static_enable(Rc::clone(
+                let mut en = Control::Static(StaticControl::from(Rc::clone(
                     &builder
                         .component
                         .find_static_group(component)
@@ -592,7 +769,7 @@ fn build_control(
                             Error::undefined(component, "group".to_string())
                                 .with_pos(&attributes)
                         })?,
-                ));
+                )));
                 *en.get_mut_attributes() = attributes;
                 en
             }
@@ -667,6 +844,43 @@ fn build_control(
             *s.get_mut_attributes() = attributes;
             s
         }
+        ast::Control::StaticSeq {
+            stmts,
+            attributes,
+            latency,
+        } => {
+            let s = build_static_seq(stmts, attributes, latency, builder);
+            Control::Static(s?)
+        }
+        ast::Control::StaticPar {
+            stmts,
+            attributes,
+            latency,
+        } => {
+            let s = build_static_par(stmts, attributes, latency, builder);
+            Control::Static(s?)
+        }
+        ast::Control::StaticIf {
+            port,
+            tbranch,
+            fbranch,
+            attributes,
+            latency,
+        } => {
+            let s = build_static_if(
+                port, *tbranch, *fbranch, attributes, latency, builder,
+            );
+            Control::Static(s?)
+        }
+        ast::Control::StaticRepeat {
+            attributes,
+            num_repeats,
+            body,
+        } => {
+            let s =
+                build_static_repeat(num_repeats, *body, builder, attributes);
+            Control::Static(s?)
+        }
         ast::Control::Par { stmts, attributes } => {
             let mut p = Control::par(
                 stmts
@@ -740,5 +954,6 @@ fn build_control(
             *emp.get_mut_attributes() = attributes;
             emp
         }
-    })
+    };
+    Ok(c)
 }

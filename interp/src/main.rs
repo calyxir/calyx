@@ -149,7 +149,7 @@ fn main() -> InterpreterResult<()> {
     let pm = PassManager::default_passes()?;
 
     if !opts.skip_verification {
-        pm.execute_plan(&mut ctx, &["validate".to_string()], &[])?;
+        pm.execute_plan(&mut ctx, &["validate".to_string()], &[], false)?;
     }
 
     let command = opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}));

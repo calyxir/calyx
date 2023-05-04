@@ -46,13 +46,14 @@ impl Named for CompileSync {
     }
 }
 
+/// put into the count set the barrier indices appearing in the thread
 fn count_barriers(
     s: &ir::Control,
     count: &mut HashSet<u64>,
 ) -> CalyxResult<()> {
     match s {
         ir::Control::Empty(_) => {
-            if let Some(&n) = s.get_attributes().get("sync") {
+            if let Some(n) = s.get_attributes().get(ir::NumAttr::Sync) {
                 count.insert(n);
             }
             Ok(())
@@ -73,7 +74,7 @@ fn count_barriers(
             Ok(())
         }
         ir::Control::Enable(e) => {
-            if s.get_attributes().get("sync").is_some() {
+            if s.get_attributes().get(ir::NumAttr::Sync).is_some() {
                 return Err(Error::malformed_control(
                     "Enable or Invoke controls cannot be marked with @sync"
                         .to_string(),
@@ -83,7 +84,7 @@ fn count_barriers(
             Ok(())
         }
         ir::Control::Invoke(i) => {
-            if s.get_attributes().get("sync").is_some() {
+            if s.get_attributes().get(ir::NumAttr::Sync).is_some() {
                 return Err(Error::malformed_control(
                     "Enable or Invoke controls cannot be marked with @sync"
                         .to_string(),
@@ -106,7 +107,7 @@ impl CompileSync {
     ) {
         match s {
             ir::Control::Empty(_) => {
-                if let Some(n) = s.get_attributes().get("sync") {
+                if let Some(ref n) = s.get_attributes().get(ir::NumAttr::Sync) {
                     if self.barriers.get(n).is_none() {
                         self.add_shared_structure(builder, n);
                     }

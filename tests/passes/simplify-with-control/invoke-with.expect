@@ -21,24 +21,24 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       comb_reg0.write_en = 1'd1;
       do_adds0[done] = comb_reg.done & comb_reg0.done ? 1'd1;
     }
+    comb group do_adds {
+      a0.left = 32'd1;
+      a0.right = 32'd2;
+      a1.left = 32'd3;
+      a1.right = 32'd4;
+    }
   }
 
   control {
     seq {
-      seq {
-        do_adds0;
-        invoke m(
-          left = comb_reg.out,
-          right = comb_reg0.out
-        )();
-      }
-      seq {
-        do_adds0;
-        invoke m(
-          left = r.out,
-          right = comb_reg0.out
-        )();
-      }
+      invoke m(
+        left = a0.out,
+        right = a1.out
+      )() with do_adds;
+      invoke m(
+        left = r.out,
+        right = a1.out
+      )() with do_adds;
     }
   }
 }

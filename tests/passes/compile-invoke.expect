@@ -4,27 +4,42 @@ component exponent(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) ->
     pow = std_reg(32);
   }
   wires {
+    group write_pow {
+      write_pow[done] = pow.done;
+    }
     out = pow.out;
   }
 
-  control {}
+  control {
+    write_pow;
+  }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(32);
-    const3 = std_const(4, 3);
     exp0 = exponent();
+    w = std_wire(32);
   }
   wires {
-    group invoke0<"static"=0> {
+    group invoke0<"static"=4> {
       exp0.base = r.out;
-      exp0.exp = const3.out;
+      exp0.exp = 4'd3;
       exp0.go = 1'd1;
       invoke0[done] = exp0.done;
+    }
+    group invoke1<"static"=4> {
+      exp0.base = w.out;
+      exp0.exp = 4'd3;
+      exp0.go = 1'd1;
+      invoke1[done] = exp0.done;
+      w.in = 32'd10;
     }
   }
 
   control {
-    @static(0) invoke0;
+    seq {
+      @static(4) invoke0;
+      @static(4) invoke1;
+    }
   }
 }

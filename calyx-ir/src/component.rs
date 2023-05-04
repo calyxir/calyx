@@ -4,6 +4,7 @@ use super::{
 };
 use crate::guard::StaticTiming;
 use crate::Nothing;
+use calyx_frontend::NumAttr;
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
@@ -161,6 +162,18 @@ impl Component {
         self.namegen.gen_name(prefix)
     }
 
+    /// Check whether this is a static component.
+    /// A static component is a component that has at least one static go-done path.
+    pub fn is_static(&self) -> bool {
+        let sig = self.signature.borrow();
+        let mut go_ports = sig.find_all_with_attr(NumAttr::Go);
+        go_ports.any(|p| {
+            let port = p.borrow();
+            port.attributes.has(NumAttr::Static)
+        })
+    }
+
+    /// Apply function to all assignments within static groups.
     pub fn for_each_static_assignment<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut Assignment<StaticTiming>),
@@ -175,7 +188,7 @@ impl Component {
         }
     }
 
-    /// Apply function on all assignments contained within the component.
+    /// Apply function on all non-static assignments contained within the component.
     pub fn for_each_assignment<F>(&mut self, mut f: F)
     where
         F: FnMut(&mut Assignment<Nothing>),
@@ -201,7 +214,7 @@ impl Component {
         self.continuous_assignments.iter_mut().for_each(f);
     }
 
-    /// Iterate over all assignments contained within the component.
+    /// Iterate over all non-static assignments contained within the component.
     pub fn iter_assignments<F>(&self, mut f: F)
     where
         F: FnMut(&Assignment<Nothing>),
@@ -218,6 +231,8 @@ impl Component {
         }
         self.continuous_assignments.iter().for_each(f);
     }
+
+    /// Iterate over all static assignments contained within the component
     pub fn iter_static_assignments<F>(&self, mut f: F)
     where
         F: FnMut(&Assignment<StaticTiming>),

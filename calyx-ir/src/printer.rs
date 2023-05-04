@@ -1,10 +1,9 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
-use itertools::Itertools;
-
 use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
+use itertools::Itertools;
 use std::io;
 use std::path::Path;
 use std::rc::Rc;
@@ -16,13 +15,15 @@ impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
     fn format_at_attributes(attrs: &ir::Attributes) -> String {
-        let mut buf = String::new();
-        for (name, val) in attrs {
-            if *val == 1 {
-                buf.push_str(&format!("@{name} "));
+        let mut buf = attrs.to_string_with(" ", |name, val| {
+            if val == 1 {
+                format!("@{}", name)
             } else {
-                buf.push_str(&format!("@{name}({val}) "));
+                format!("@{}({val})", name)
             }
+        });
+        if !attrs.is_empty() {
+            buf.push(' ');
         }
         buf
     }
@@ -35,11 +36,9 @@ impl Printer {
         } else {
             format!(
                 "<{}>",
-                attrs
-                    .into_iter()
-                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                attrs.to_string_with(", ", |name, val| {
+                    format!("\"{}\"={}", name, val)
+                })
             )
         }
     }
@@ -60,18 +59,6 @@ impl Printer {
             .join(", ")
     }
 
-    /// Formats and writes extern statements.
-    pub fn write_extern<F: io::Write>(
-        (path, prims): (&Path, &[ir::Primitive]),
-        f: &mut F,
-    ) -> io::Result<()> {
-        writeln!(f, "extern \"{}\" {{", path.to_string_lossy())?;
-        for prim in prims {
-            Self::write_primitive(prim, 2, f)?;
-        }
-        writeln!(f, "}}")
-    }
-
     fn format_port_def<W: std::fmt::Display>(
         port_defs: &[&ir::PortDef<W>],
     ) -> String {
@@ -87,6 +74,53 @@ impl Printer {
             })
             .collect_vec()
             .join(", ")
+    }
+
+    /// Prints out the program context.
+    /// `skip_primitives` controls whether the primitives are printed out.
+    pub fn write_context<F: io::Write>(
+        ctx: &ir::Context,
+        skip_primitives: bool,
+        f: &mut F,
+    ) -> io::Result<()> {
+        if !skip_primitives {
+            for (path, prims) in ctx.lib.all_prims() {
+                match path {
+                    Some(p) => {
+                        ir::Printer::write_externs(
+                            (&p, prims.into_iter().map(|(_, v)| v)),
+                            f,
+                        )?;
+                    }
+                    None => {
+                        for (_, prim) in prims {
+                            ir::Printer::write_primitive(prim, 2, f)?;
+                        }
+                    }
+                }
+            }
+        }
+        for comp in &ctx.components {
+            ir::Printer::write_component(comp, f)?;
+            writeln!(f)?
+        }
+        write!(f, "{}", ir::Printer::format_metadata(&ctx.metadata))
+    }
+
+    /// Formats and writes extern statements.
+    pub fn write_externs<'a, F, I>(
+        (path, prims): (&Path, I),
+        f: &mut F,
+    ) -> io::Result<()>
+    where
+        F: io::Write,
+        I: Iterator<Item = &'a ir::Primitive>,
+    {
+        writeln!(f, "extern \"{}\" {{", path.to_string_lossy())?;
+        for prim in prims {
+            Self::write_primitive(prim, 2, f)?;
+        }
+        writeln!(f, "}}")
     }
 
     pub fn write_primitive<F: io::Write>(
@@ -360,22 +394,16 @@ impl Printer {
                 attributes,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(
-                    f,
-                    "<{}>{};",
-                    group.borrow().latency,
-                    group.borrow().name().id
-                )
+                writeln!(f, "{};", group.borrow().name().id)
             }
             ir::StaticControl::Repeat(ir::StaticRepeat {
                 num_repeats,
                 attributes,
                 body,
-                latency,
                 ..
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> repeat {} ", latency, num_repeats)?;
+                write!(f, "static repeat {} ", num_repeats)?;
                 writeln!(f, "{{")?;
                 Self::write_static_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
@@ -386,7 +414,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> seq {{", latency)?;
+                writeln!(f, "static seq <{}> {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -398,7 +426,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static<{}> par {{", latency)?;
+                writeln!(f, "static par <{}> {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -421,7 +449,7 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
                     f,
-                    "static<{}> if {} ",
+                    "static if <{}> {} ",
                     latency,
                     Self::port_to_str(&port.borrow()),
                 )?;
@@ -506,7 +534,10 @@ impl Printer {
         indent_level: usize,
         f: &mut F,
     ) -> io::Result<()> {
-        write!(f, "{}", " ".repeat(indent_level))?;
+        // write_static_control will indent already so we don't want to indent twice
+        if !matches!(control, ir::Control::Static(_)) {
+            write!(f, "{}", " ".repeat(indent_level))?;
+        }
         match control {
             ir::Control::Enable(ir::Enable { group, attributes }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;

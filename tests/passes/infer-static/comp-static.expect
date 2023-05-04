@@ -4,9 +4,7 @@ component mem_0_comp(@go @static en0: 1, @go(2) @static(2) en1: 1, @clk clk: 1, 
   wires {
   }
 
-  control {
-    @static(0) ;
-  }
+  control {}
 }
 component main(@go @static(3) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {

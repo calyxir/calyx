@@ -11,6 +11,17 @@ members = [
 ]
 exclude = ["site"]
 
+[workspace.package]
+authors = ["The Calyx Team"]
+license-file = "LICENSE"
+keywords = ["ir", "compiler"]
+repository = "https://github.com/cucapra/calyx"
+readme = "README.md"
+description = "Compiler Infrastructure for Hardware Accelerator Generation"
+categories = ["compilers"]
+homepage = "https://calyxir.org"
+edition = "2021"
+
 [workspace.dependencies]
 itertools = "0.10"
 atty = "0.2.14"
@@ -34,16 +45,17 @@ features = ["matrix_graph"]
 
 [package]
 name = "calyx"
-version = "0.1.2"
-authors = ["The Calyx Team"]
-edition = "2021"
+version = "0.1.3"
 build = false
-license-file = "LICENSE"
-keywords = ["ir", "compiler"]
-repository = "https://github.com/cucapra/calyx"
-readme = "README.md"
-description = "Compiler Infrastructure for Hardware Accelerator Generation"
-categories = ["compilers"]
+edition.workspace = true
+description.workspace = true
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+readme.workspace = true
 
 [[bin]]
 name = "futil"
@@ -58,10 +70,10 @@ argh.workspace = true
 csv = "1.1"
 vast = "0.3.1"
 
-calyx-utils = { path = "calyx-utils" }
-calyx-ir = { path = "calyx-ir" }
-calyx-frontend = { path = "calyx-frontend" }
-calyx-opt = { path = "calyx-opt" }
+calyx-utils = { path = "calyx-utils", version = "0.1.1" }
+calyx-ir = { path = "calyx-ir", version = "0.1.1" }
+calyx-frontend = { path = "calyx-frontend", version = "0.1.1" }
+calyx-opt = { path = "calyx-opt", version = "0.1.1" }
 
 [dependencies.quick-xml]
 version = "0.28"
@@ -82,9 +94,6 @@ criterion = { version = "0.3", features = ["html_reports"] }
 calyx-ir = { path = "calyx-ir" }
 calyx-opt = { path = "calyx-opt" }
 calyx-frontend = { path = "calyx-frontend" }
-
-[profile.release.package.interp]
-incremental = true
 
 [[bench]]
 name = "component-sharing"
