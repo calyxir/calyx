@@ -301,6 +301,8 @@ fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
         .collect();
 }
 
+// handles `build_reaching_defns` for the enable/static_enables case.
+// asgns are the assignments in the group (either static or dynamic)
 fn handle_reaching_def_enables<T>(
     asgns: &[ir::Assignment<T>],
     reach: DefSet,
