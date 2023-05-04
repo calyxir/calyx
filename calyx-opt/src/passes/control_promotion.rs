@@ -90,8 +90,8 @@ impl Visitor for ControlPromotion {
             }
         }
         if !static_seq.is_empty() {
-          // if `static_seq` is non-empty after finishing looping, then 
-          // once again dump all control statements into a `StaticSeq`
+            // if `static_seq` is non-empty after finishing looping, then
+            // once again dump all control statements into a `StaticSeq`
             let st_s = ir::StaticSeq {
                 stmts: static_seq,
                 attributes: Attributes::default(),
@@ -119,7 +119,7 @@ impl Visitor for ControlPromotion {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-      // first separate the statements into static and dynamic statements
+        // first separate the statements into static and dynamic statements
         let (s_stmt, d_stmt): (Vec<ir::Control>, Vec<ir::Control>) =
             std::mem::take(&mut s.stmts)
                 .into_iter()
@@ -127,8 +127,8 @@ impl Visitor for ControlPromotion {
         let mut latency = 0;
         let mut static_new: Vec<ir::StaticControl> = Vec::new();
         for stmt in s_stmt.into_iter() {
-          // compute the latency of the `static par` control 
-          // and extract the `StaticControl` from the control statement
+            // compute the latency of the `static par` control
+            // and extract the `StaticControl` from the control statement
             let sc = match stmt {
                 ir::Control::Static(sc) => sc,
                 _ => unreachable!(
