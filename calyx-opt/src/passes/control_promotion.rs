@@ -78,7 +78,7 @@ impl Visitor for ControlPromotion {
                     let st_s = ir::StaticSeq {
                         stmts: new_vec,
                         attributes: Attributes::default(),
-                        latency: latency,
+                        latency,
                     };
                     stmt_new.push(ir::Control::Static(ir::StaticControl::Seq(
                         st_s,
@@ -95,7 +95,7 @@ impl Visitor for ControlPromotion {
             let st_s = ir::StaticSeq {
                 stmts: static_seq,
                 attributes: Attributes::default(),
-                latency: latency,
+                latency,
             };
             let static_island =
                 ir::Control::Static(ir::StaticControl::Seq(st_s));
@@ -146,11 +146,11 @@ impl Visitor for ControlPromotion {
         };
         let static_c = ir::Control::Static(ir::StaticControl::Par(static_p));
         if d_stmt.is_empty() {
-            return Ok(Action::change(static_c));
+            Ok(Action::change(static_c))
         } else {
             stmt_new.push(static_c);
             stmt_new.extend(d_stmt);
-            return Ok(Action::change(ir::Control::par(stmt_new)));
+            Ok(Action::change(ir::Control::par(stmt_new)))
         }
     }
 }
