@@ -94,6 +94,7 @@ impl PassManager {
                 StaticParConv, // Must be before collapse-control and merge-static-par
                 MergeStaticPar, // creates dead groups potentially
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
+                ControlPromotion,
                 CollapseControl,
             ]
         );
