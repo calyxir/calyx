@@ -369,8 +369,7 @@ impl Visitor for WellFormed {
 
         let group = s.group.borrow();
 
-        // obvious_conflicts doesn't work w/ continuous assignments since they
-        // are of a different type than static group's assignments
+        // check for obvious conflicts within static groups and continuous/comb group assigns
         obvious_conflicts(
             comp.continuous_assignments
                 .iter()
