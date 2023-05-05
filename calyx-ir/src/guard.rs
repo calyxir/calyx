@@ -130,9 +130,9 @@ impl From<&Guard<Nothing>> for Guard<StaticTiming> {
             }
             Guard::True => Guard::True,
             Guard::CompOp(pc, left, right) => {
-                Guard::CompOp(pc.clone(), Rc::clone(&left), Rc::clone(&right))
+                Guard::CompOp(pc.clone(), Rc::clone(left), Rc::clone(right))
             }
-            Guard::Port(p) => Guard::Port(Rc::clone(&p)),
+            Guard::Port(p) => Guard::Port(Rc::clone(p)),
             Guard::Info(_) => {
                 unreachable!(
                     "Compilation error: Guards should not be of the
