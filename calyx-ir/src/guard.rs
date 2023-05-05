@@ -136,7 +136,8 @@ impl From<&Guard<Nothing>> for Guard<StaticTiming> {
             Guard::Info(_) => {
                 unreachable!(
                     "{:?}: Guard<Nothing> should not be of the
-                info variant type", g
+                info variant type",
+                    g
                 )
             }
         }
