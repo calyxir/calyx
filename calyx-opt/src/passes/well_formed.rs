@@ -144,31 +144,42 @@ impl Named for WellFormed {
 
 /// Returns an error if the assignments are obviously conflicting. This happens when two
 /// assignments assign to the same port unconditionally.
-fn obvious_conflicts<'a, I, T: 'a + Clone + ToString + Eq>(
-    assigns: I,
-) -> CalyxResult<()>
+/// Because there are two types of assignments, we take in `assigns1` and `assigns2`.
+/// Regardless, we check for conflicts across (assigns1.chained(assigns2)).
+fn obvious_conflicts<'a, I1, I2>(assigns1: I1, assigns2: I2) -> CalyxResult<()>
 where
-    I: Iterator<Item = &'a ir::Assignment<T>>,
+    I1: Iterator<Item = &'a ir::Assignment<Nothing>>,
+    I2: Iterator<Item = &'a ir::Assignment<StaticTiming>>,
 {
-    let dst_grps = assigns
-        .filter(|a| a.guard.is_true())
-        .map(|a| (a.dst.borrow().canonical(), a))
+    let dsts1 = assigns1.filter(|a| a.guard.is_true()).map(|a| {
+        (
+            a.dst.borrow().canonical(),
+            a.attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.show())
+                .unwrap_or_else(|| ir::Printer::assignment_to_str(a)),
+        )
+    });
+    let dsts2 = assigns2.filter(|a| a.guard.is_true()).map(|a| {
+        (
+            a.dst.borrow().canonical(),
+            a.attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.show())
+                .unwrap_or_else(|| ir::Printer::assignment_to_str(a)),
+        )
+    });
+    let dsts = dsts1.chain(dsts2);
+    let dst_grps = dsts
         .sorted_by(|(dst1, _), (dst2, _)| ir::Canonical::cmp(dst1, dst2))
         .group_by(|(dst, _)| dst.clone());
 
     for (_, group) in &dst_grps {
         let assigns = group.map(|(_, a)| a).collect_vec();
         if assigns.len() > 1 {
-            let msg = assigns
-                .into_iter()
-                .map(|a| {
-                    a.attributes
-                        .copy_span()
-                        .into_option()
-                        .map(|s| s.show())
-                        .unwrap_or_else(|| ir::Printer::assignment_to_str(a))
-                })
-                .join("");
+            let msg = assigns.into_iter().join("");
             return Err(Error::malformed_structure(format!(
                 "Obviously conflicting assignments found:\n{}",
                 msg
@@ -329,7 +340,10 @@ impl Visitor for WellFormed {
         }
 
         // Check for obvious conflicting assignments in the continuous assignments
-        obvious_conflicts(comp.continuous_assignments.iter())?;
+        obvious_conflicts(
+            comp.continuous_assignments.iter(),
+            std::iter::empty::<&ir::Assignment<StaticTiming>>(),
+        )?;
         // Check for obvious conflicting assignments between the continuous assignments and the groups
         for cgr in comp.comb_groups.iter() {
             obvious_conflicts(
@@ -337,6 +351,7 @@ impl Visitor for WellFormed {
                     .assignments
                     .iter()
                     .chain(comp.continuous_assignments.iter()),
+                std::iter::empty::<&ir::Assignment<StaticTiming>>(),
             )?;
         }
 
@@ -346,7 +361,7 @@ impl Visitor for WellFormed {
     fn static_enable(
         &mut self,
         s: &mut ir::StaticEnable,
-        _comp: &mut Component,
+        comp: &mut Component,
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
@@ -354,32 +369,21 @@ impl Visitor for WellFormed {
 
         let group = s.group.borrow();
 
-        // A group with "static"=0 annotation
-        if group
-            .attributes
-            .get(ir::NumAttr::Static)
-            .map(|v| v == 0)
-            .unwrap_or(false)
-        {
-            return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
-        }
-
-        // // Check if the group has obviously conflicting assignments with the continuous assignments and the active combinational groups
-        // obvious_conflicts(
-        //     group
-        //         .assignments
-        //         .iter()
-        //         .chain(comp.continuous_assignments.iter())
-        //         .chain(self.active_comb.iter()),
-        // )
-        // .map_err(|err| {
-        //     let msg = s
-        //         .attributes
-        //         .copy_span()
-        //         .into_option()
-        //         .map(|s| s.format("Assigments activated by group enable"));
-        //     err.with_post_msg(msg)
-        // })?;
+        // check for obvious conflicts within static groups and continuous/comb group assigns
+        obvious_conflicts(
+            comp.continuous_assignments
+                .iter()
+                .chain(self.active_comb.iter()),
+            group.assignments.iter(),
+        )
+        .map_err(|err| {
+            let msg = s
+                .attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.format("Assigments activated by group enable"));
+            err.with_post_msg(msg)
+        })?;
 
         Ok(Action::Continue)
     }
@@ -419,6 +423,7 @@ impl Visitor for WellFormed {
                 .iter()
                 .chain(comp.continuous_assignments.iter())
                 .chain(self.active_comb.iter()),
+            std::iter::empty::<&ir::Assignment<StaticTiming>>(),
         )
         .map_err(|err| {
             let msg = s
@@ -504,14 +509,17 @@ impl Visitor for WellFormed {
             let cg = cgr.borrow();
             let assigns = &cg.assignments;
             // Check if the combinational group conflicts with the active combinational groups
-            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
-                .map_err(|err| {
-                    let msg = s.attributes.copy_span().format(format!(
-                        "Assignments from `{}' are actived here",
-                        cg.name()
-                    ));
-                    err.with_post_msg(Some(msg))
-                })?;
+            obvious_conflicts(
+                assigns.iter().chain(self.active_comb.iter()),
+                std::iter::empty::<&ir::Assignment<StaticTiming>>(),
+            )
+            .map_err(|err| {
+                let msg = s.attributes.copy_span().format(format!(
+                    "Assignments from `{}' are actived here",
+                    cg.name()
+                ));
+                err.with_post_msg(Some(msg))
+            })?;
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
         }
@@ -545,14 +553,17 @@ impl Visitor for WellFormed {
             let cg = cgr.borrow();
             let assigns = &cg.assignments;
             // Check if the combinational group conflicts with the active combinational groups
-            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
-                .map_err(|err| {
-                    let msg = s.attributes.copy_span().format(format!(
-                        "Assignments from `{}' are actived here",
-                        cg.name()
-                    ));
-                    err.with_post_msg(Some(msg))
-                })?;
+            obvious_conflicts(
+                assigns.iter().chain(self.active_comb.iter()),
+                std::iter::empty::<&ir::Assignment<StaticTiming>>(),
+            )
+            .map_err(|err| {
+                let msg = s.attributes.copy_span().format(format!(
+                    "Assignments from `{}' are actived here",
+                    cg.name()
+                ));
+                err.with_post_msg(Some(msg))
+            })?;
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
         }
