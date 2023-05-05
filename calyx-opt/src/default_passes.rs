@@ -3,12 +3,13 @@ use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, CompileStatic, CompileSync,
     CompileSyncWithoutSyncReg, ComponentInliner, DeadAssignmentRemoval,
-    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion, GroupToInvoke,
-    GroupToSeq, HoleInliner, InferShare, InferStaticTiming, LowerGuards,
-    MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
-    RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
-    StaticInliner, StaticParConv, SynthesisPapercut, TopDownCompileControl,
-    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner, GroupStaticPromotion,
+    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion,
+    GroupStaticPromotion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
+    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
+    ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    SimplifyStaticGuards, SimplifyWithControl, StaticInliner, StaticParConv,
+    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
+    UnrollBounded, WellFormed, WireInliner,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};

@@ -453,7 +453,7 @@ impl<T> Assignment<T> {
 
 impl From<&Assignment<Nothing>> for Assignment<StaticTiming> {
     /// Turns a normal assignment into a static assignment
-     fn from (assgn: &Assignment<Nothing>) -> Assignment<StaticTiming> {
+    fn from(assgn: &Assignment<Nothing>) -> Assignment<StaticTiming> {
         Assignment {
             dst: Rc::clone(&assgn.dst),
             src: Rc::clone(&assgn.src),

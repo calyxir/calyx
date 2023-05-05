@@ -2,12 +2,12 @@ use crate::analysis::{GraphAnalysis, ReadWriteSet, WithStatic};
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
-use std::rc::Rc;
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::{CalyxResult, Error};
-use ir::{Assignment};
+use ir::Assignment;
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Struct to store information about the go-done interfaces defined by a primitive.
 #[derive(Default, Debug)]

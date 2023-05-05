@@ -112,7 +112,7 @@ where
 
 impl From<&Guard<Nothing>> for Guard<StaticTiming> {
     /// Turns a normal guard into a static guard
-     fn from(g: &Guard<Nothing>) -> Self {
+    fn from(g: &Guard<Nothing>) -> Self {
         match g {
             Guard::Or(left, right) => {
                 let l = Self::from(&**left);
