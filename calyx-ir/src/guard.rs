@@ -135,8 +135,8 @@ impl From<&Guard<Nothing>> for Guard<StaticTiming> {
             Guard::Port(p) => Guard::Port(Rc::clone(p)),
             Guard::Info(_) => {
                 unreachable!(
-                    "Compilation error: Guards should not be of the
-                info variant type"
+                    "{:?}: Guard<Nothing> should not be of the
+                info variant type", g
                 )
             }
         }
