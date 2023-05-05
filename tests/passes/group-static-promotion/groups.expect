@@ -26,9 +26,9 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
 
   control {
     seq {
-            @static <1>one_cycle0;
-            @static(2) <2>two_cycles0;
-            @static <1>mem_wrt_to_done0;
+      @static one_cycle0;
+      @static(2) two_cycles0;
+      @static mem_wrt_to_done0;
       mult_wrts_to_done;
     }
   }

@@ -2,12 +2,12 @@ use crate::analysis::{GraphAnalysis, ReadWriteSet, WithStatic};
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
+use std::rc::Rc;
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::{CalyxResult, Error};
-use ir::{Builder, StaticEnable};
+use ir::{Assignment};
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::rc::Rc;
 
 /// Struct to store information about the go-done interfaces defined by a primitive.
 #[derive(Default, Debug)]
@@ -50,17 +50,17 @@ impl GoDone {
 impl From<&ir::Primitive> for GoDone {
     fn from(prim: &ir::Primitive) -> Self {
         let done_ports: HashMap<_, _> = prim
-            .find_all_with_attr("done")
-            .map(|pd| (pd.attributes["done"], pd.name))
+            .find_all_with_attr(ir::NumAttr::Done)
+            .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name))
             .collect();
 
         let go_ports = prim
-            .find_all_with_attr("go")
+            .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
-                pd.attributes.get("static").and_then(|st| {
+                pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
-                        .get(&pd.attributes["go"])
-                        .map(|done_port| (pd.name, *done_port, *st))
+                        .get(&pd.attributes.get(ir::NumAttr::Go))
+                        .map(|done_port| (pd.name, *done_port, st))
                 })
             })
             .collect_vec();
@@ -71,21 +71,21 @@ impl From<&ir::Primitive> for GoDone {
 impl From<&ir::Cell> for GoDone {
     fn from(cell: &ir::Cell) -> Self {
         let done_ports: HashMap<_, _> = cell
-            .find_all_with_attr("done")
+            .find_all_with_attr(ir::NumAttr::Done)
             .map(|pr| {
                 let port = pr.borrow();
-                (port.attributes["done"], port.name)
+                (port.attributes.get(ir::NumAttr::Done), port.name)
             })
             .collect();
 
         let go_ports = cell
-            .find_all_with_attr("go")
+            .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get("static").and_then(|st| {
+                port.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
-                        .get(&port.attributes["go"])
-                        .map(|done_port| (port.name, *done_port, *st))
+                        .get(&port.attributes.get(ir::NumAttr::Go))
+                        .map(|done_port| (port.name, *done_port, st))
                 })
             })
             .collect_vec();
@@ -116,17 +116,17 @@ impl ConstructVisitor for GroupStaticPromotion {
         // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
-                .find_all_with_attr("done")
-                .map(|pd| (pd.attributes["done"], pd.name))
+                .find_all_with_attr(ir::NumAttr::Done)
+                .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name))
                 .collect();
 
             let go_ports = prim
-                .find_all_with_attr("go")
+                .find_all_with_attr(ir::NumAttr::Go)
                 .filter_map(|pd| {
-                    pd.attributes.get("static").and_then(|st| {
+                    pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                         done_ports
-                            .get(&pd.attributes["go"])
-                            .map(|done_port| (pd.name, *done_port, *st))
+                            .get(&pd.attributes.get(ir::NumAttr::Go))
+                            .map(|done_port| (pd.name, *done_port, st))
                     })
                 })
                 .collect_vec();
@@ -153,8 +153,7 @@ impl Named for GroupStaticPromotion {
     }
 
     fn description() -> &'static str {
-        "infers and annotates static timing for groups and turns them
-        into static groups when possible"
+        "promote groups whose latency can be inferred to static groups"
     }
 }
 
@@ -291,7 +290,7 @@ impl GroupStaticPromotion {
                     }
                 }
 
-                ir::PortParent::StaticGroup(_) => // done ports of static groups should clearly NOT have static latencies  
+                ir::PortParent::StaticGroup(_) => // done ports of static groups should clearly NOT have static latencies
                 panic!("Have not decided how to handle static groups in infer-static-timing"),
             }
         }
@@ -417,7 +416,7 @@ impl Visitor for GroupStaticPromotion {
             let mut go_ports = comp
                 .signature
                 .borrow()
-                .find_all_with_attr("go")
+                .find_all_with_attr(ir::NumAttr::Go)
                 .collect_vec();
 
             // Add the latency information for the component if the control program
@@ -425,14 +424,14 @@ impl Visitor for GroupStaticPromotion {
             if go_ports.len() == 1 {
                 let go_port = go_ports.pop().unwrap();
                 let mb_time =
-                    go_port.borrow().attributes.get("static").cloned();
+                    go_port.borrow().attributes.get(ir::NumAttr::Static);
 
                 if let Some(go_time) = mb_time {
                     if go_time != time {
                         let msg1 = format!("Annotated latency: {}", go_time);
                         let msg2 = format!("Inferred latency: {}", time);
                         let msg = format!(
-                        "Impossible \"static\" latency annotation for component {}.\n{}\n{}",
+                        "Invalid \"static\" latency annotation for component {}.\n{}\n{}",
                         comp.name,
                         msg1,
                         msg2
@@ -441,7 +440,10 @@ impl Visitor for GroupStaticPromotion {
                             .with_pos(&go_port.borrow().attributes));
                     }
                 } else {
-                    go_port.borrow_mut().attributes.insert("static", time);
+                    go_port
+                        .borrow_mut()
+                        .attributes
+                        .insert(ir::NumAttr::Static, time);
                 }
                 log::info!(
                     "Component `{}` has static time {}",
@@ -449,14 +451,12 @@ impl Visitor for GroupStaticPromotion {
                     time
                 );
             }
-
-            // Add all go-done latencies to the context
-            let sig = &*comp.signature.borrow();
-            let ports: GoDone = sig.into();
-
-            self.latency_data.insert(comp.name, ports);
         }
 
+        // Add all go-done latencies for the component to the context
+        let sig = &*comp.signature.borrow();
+        let ports: GoDone = sig.into();
+        self.latency_data.insert(comp.name, ports);
         Ok(Action::Stop)
     }
 
@@ -467,22 +467,22 @@ impl Visitor for GroupStaticPromotion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut builder = Builder::new(comp, sigs);
+        let mut builder = ir::Builder::new(comp, sigs);
         let latency_result: Option<u64>;
         if let Some(latency) = self.infer_latency(&s.group.borrow()) {
             if let Some(sg) =
                 builder.component.find_static_group(s.group.borrow().name())
             {
-                let s_enable = ir::StaticControl::Enable(StaticEnable {
+                let s_enable = ir::StaticControl::Enable(ir::StaticEnable {
                     group: Rc::clone(&sg),
                     attributes: s.attributes.clone(),
                 });
                 return Ok(Action::change(ir::Control::Static(s_enable)));
             }
             let grp = s.group.borrow();
-            if let Some(curr_lat) = grp.attributes.get("static") {
+            if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static) {
                 // Inferred latency is not the same as the provided latency annotation.
-                if *curr_lat != latency {
+                if curr_lat != latency {
                     let msg1 = format!("Annotated latency: {}", curr_lat);
                     let msg2 = format!("Inferred latency: {}", latency);
                     let msg = format!(
@@ -510,11 +510,11 @@ impl Visitor for GroupStaticPromotion {
                 if !(assignment.dst.borrow().is_hole()
                     && assignment.dst.borrow().name == "done")
                 {
-                    let static_s = assignment.into_static();
+                    let static_s = Assignment::from(assignment);
                     sg.borrow_mut().assignments.push(static_s);
                 }
             }
-            let s_enable = ir::StaticControl::Enable(StaticEnable {
+            let s_enable = ir::StaticControl::Enable(ir::StaticEnable {
                 group: Rc::clone(&sg),
                 attributes: s.attributes.clone(),
             });

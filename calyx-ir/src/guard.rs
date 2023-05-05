@@ -110,29 +110,29 @@ where
     }
 }
 
-impl<Nothing> Guard<Nothing> {
+impl From<&Guard<Nothing>> for Guard<StaticTiming> {
     /// Turns a normal guard into a static guard
-    pub fn into_static_guard(&self) -> Guard<StaticTiming> {
-        match self {
+     fn from(g: &Guard<Nothing>) -> Self {
+        match g {
             Guard::Or(left, right) => {
-                let l = left.into_static_guard();
-                let r = right.into_static_guard();
+                let l = Self::from(&**left);
+                let r = Self::from(&**right);
                 Guard::Or(Box::new(l), Box::new(r))
             }
             Guard::And(left, right) => {
-                let l = left.into_static_guard();
-                let r = right.into_static_guard();
+                let l = Self::from(&**left);
+                let r = Self::from(&**right);
                 Guard::And(Box::new(l), Box::new(r))
             }
             Guard::Not(c) => {
-                let inside = c.into_static_guard();
+                let inside = Self::from(&**c);
                 Guard::Not(Box::new(inside))
             }
             Guard::True => Guard::True,
             Guard::CompOp(pc, left, right) => {
-                Guard::CompOp(pc.clone(), Rc::clone(left), Rc::clone(right))
+                Guard::CompOp(pc.clone(), Rc::clone(&left), Rc::clone(&right))
             }
-            Guard::Port(p) => Guard::Port(Rc::clone(p)),
+            Guard::Port(p) => Guard::Port(Rc::clone(&p)),
             Guard::Info(_) => {
                 unreachable!(
                     "Compilation error: Guards should not be of the

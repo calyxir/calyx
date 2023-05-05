@@ -8,7 +8,7 @@ use crate::passes::{
     MergeAssign, MergeStaticPar, Papercut, ParToSeq, RegisterUnsharing,
     RemoveIds, ResetInsertion, SimplifyStaticGuards, SimplifyWithControl,
     StaticInliner, StaticParConv, SynthesisPapercut, TopDownCompileControl,
-    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
+    TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner, GroupStaticPromotion,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -88,7 +88,7 @@ impl PassManager {
                 CombProp,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before infer-static-timing
-                InferStaticTiming,
+                GroupStaticPromotion,
                 CompileInvoke,    // creates dead comb groups
                 StaticParConv, // Must be before collapse-control and merge-static-par
                 MergeStaticPar, // creates dead groups potentially

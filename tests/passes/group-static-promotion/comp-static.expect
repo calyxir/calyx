@@ -13,20 +13,18 @@ component main(@go @static(3) go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
     inst_1 = mem_0_comp();
   }
   wires {
-    group one<"static"=1> {
+    static group one0<1> {
       inst_1.en0 = 1'd1;
-      one[done] = inst_1.done0;
     }
-    group two<"static"=2> {
+    static group two0<2> {
       inst_1.en1 = 1'd1;
-      two[done] = inst_1.done1;
     }
   }
 
   control {
     @static(3) seq {
-      @static one;
-      @static(2) two;
+      @static one0;
+      @static(2) two0;
     }
   }
 }

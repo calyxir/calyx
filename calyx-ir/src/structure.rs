@@ -451,14 +451,14 @@ impl<T> Assignment<T> {
     }
 }
 
-impl<Nothing> Assignment<Nothing> {
+impl From<&Assignment<Nothing>> for Assignment<StaticTiming> {
     /// Turns a normal assignment into a static assignment
-    pub fn into_static(&self) -> Assignment<StaticTiming> {
+     fn from (assgn: &Assignment<Nothing>) -> Assignment<StaticTiming> {
         Assignment {
-            dst: Rc::clone(&self.dst),
-            src: Rc::clone(&self.src),
-            guard: Box::new(self.guard.into_static_guard()),
-            attributes: self.attributes.clone(),
+            dst: Rc::clone(&assgn.dst),
+            src: Rc::clone(&assgn.src),
+            guard: Box::new(Guard::from(&*assgn.guard)),
+            attributes: assgn.attributes.clone(),
         }
     }
 }

@@ -22,9 +22,9 @@ component main(@go @static(3) go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
 
   control {
     @static(3) seq {
-            @static <1>A0;
-            @static <1>B0;
-            @static <1>C0;
+      @static A0;
+      @static B0;
+      @static C0;
     }
   }
 }

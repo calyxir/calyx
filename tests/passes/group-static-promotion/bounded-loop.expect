@@ -26,8 +26,8 @@ component main(@go @static(10) go: 1, @clk clk: 1, @reset reset: 1) -> (@done do
   control {
     @bound(5) @static(10) while lt.out {
       @static(2) seq {
-                @static <1>incr_i0;
-                @static <1>incr_j0;
+        @static incr_i0;
+        @static incr_j0;
       }
     }
   }
