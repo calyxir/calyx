@@ -1,3 +1,7 @@
-input foo: int[4]
-output baz: int[4]
-baz := map 2 (a <- foo) { a + 5 }
+input foo_b0: int[2]
+output baz_b0: int[2]
+input foo_b1: int[2]
+output baz_b1: int[2]
+
+baz_b0 := map 2 (a <- foo_b0) { a + 5 }
+baz_b1 := map 2 (a <- foo_b1) { a + 5 }
