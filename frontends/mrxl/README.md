@@ -2,11 +2,16 @@ MrXL
 ====
 
 MrXL is a frontend that performs `map` and `reduce` operations on arrays.
+For example, this is a dot product implementation:
 
-Install the `mrxl` command line tool using [flit][]:
+```
+input avec: int[1024]
+input bvec: int[1024]
+output dot: int
+prodvec := map 16 (a <- avec, b <- bvec) { a * b }
+dot := reduce 4 (a, b <- prodvec) 0 { a + b }
+```
 
-    flit install --symlink
+Here, the numbers that come right after `map` and `reduce` (16 and 4 respectively) are "parallelism factors" that guide the generation of hardware.
 
-The full documentation can be found [here](https://docs.calyxir.org/frontends/mrxl.html).
-
-[flit]: https://flit.pypa.io/en/stable/
+Further documentation, featuring instructions for installation, interpretation, and compilation to Calyx, can be found [here](https://docs.calyxir.org/frontends/mrxl.html).
