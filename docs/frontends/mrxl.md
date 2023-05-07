@@ -1,6 +1,6 @@
 # MrXL
 
-> The MrXL frontend is a toy frontend developed for the [frontend tutorial][fronttut]. As such, it is less rigorously tested and might have bugs.
+> The MrXL frontend is a toy frontend developed for the [frontend tutorial][fronttut].
 
 MrXL is an example DSL for demonstrating Calyx. MrXL programs consist of `map` and `reduce` operations on arrays. For example, this is a dot product implementation:
 
@@ -10,7 +10,7 @@ MrXL is an example DSL for demonstrating Calyx. MrXL programs consist of `map` a
     prodvec := map 16 (a <- avec, b <- bvec) { a * b }
     dot := reduce 4 (a, b <- prodvec) 0 { a + b }
 
-The numbers that come right after `map` and `reduce` are parallelism factors that guide the generation of hardware.
+The numbers that come right after `map` and `reduce` (16 and 4 respectively) are "parallelism factors" that guide the generation of hardware.
 
 
 Install
@@ -36,20 +36,22 @@ found.
 Interpreter
 -----------
 
-To run the interpreter, do this:
+To run the interpreter, run:
 
     mrxl <program> --data <indata> --interpret
 
-where `<program>` is a MrXL source code file and `<indata>` is a JSON file containing values for all the variables declared as `input` in the program. The interpreter dumps the `output` variables as JSON to stdout.
+where `<program>` is a MrXL source code file and `<indata>` is a JSON file containing values for all the variables declared as `input`s in the program. The interpreter dumps the `output` variables as JSON to stdout.
 
-You can try this, for example:
+You could try, for example:
 
-    mrxl test/dot.mrxl --data test/dot.json --interpret
+    mrxl test/dot.mrxl --data test/dot.mrxl.data --interpret
+
+We also provide `add.mrxl` and `sum.mrxl`, along with sample `<indata>` files, under `test/`. Try playing with the inputs and the operations!
 
 Compiling to Calyx
 ------------------
 
-To run the compiler, leave off the `--interpret` and `--data` flags:
+To run the compiler, and see the Calyx code your MrXL program generates, just leave off the `--data` and `--interpret` flags. For instance:
 
     mrxl test/dot.mrxl
 
