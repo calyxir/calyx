@@ -19,7 +19,7 @@ def _dict_zip(d):
     keys---each associated with one "slice" of the lists.
     """
     for i in range(len(next(iter(d.values())))):
-        yield {k: v[i] for k, v in d.items()}
+        yield {k: v["data"][i] for k, v in d.items()}
 
 
 def interp_expr(expr, env: ScalarEnv) -> Scalar:
