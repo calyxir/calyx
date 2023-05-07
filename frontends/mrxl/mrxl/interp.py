@@ -69,7 +69,7 @@ def interp_reduce(op: ast.Reduce, env: Env) -> Scalar:
         raise InterpError("reduce requires a binary bind")
 
     try:
-        red_data = env[bind.src]
+        red_data = env[bind.src]["data"]
     except KeyError:
         raise InterpError(f"source `{bind.src}` for reduce not found")
     if not isinstance(red_data, list):
