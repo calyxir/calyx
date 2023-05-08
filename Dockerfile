@@ -85,5 +85,9 @@ RUN FLIT_ROOT_INSTALL=1 flit install --symlink
 
 WORKDIR /home/calyx
 
+# Install MrXL
+WORKDIR /home/calyx/frontends/mrxl
+RUN FLIT_ROOT_INSTALL=1 flit install --symlink
+
 # Used to make runt cocotb tests happy
 ENV LANG=C.UTF-8
