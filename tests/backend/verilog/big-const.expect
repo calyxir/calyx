@@ -8,6 +8,17 @@
  */
 `default_nettype none
 
+/// Module that continuously outputs 'x. Useful for testing when a particular
+/// signal should not show up in the output.
+module undef #(
+    parameter WIDTH = 32
+) (
+    output wire [WIDTH-1:0] out
+);
+    assign out = 'x;
+endmodule
+
+
 module std_const #(
     parameter WIDTH = 32,
     parameter VALUE = 0
