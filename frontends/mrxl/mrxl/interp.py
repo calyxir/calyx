@@ -52,7 +52,7 @@ def interp_map(op: ast.Map, env: Env) -> Array:
         if len(bind.dest) != 1:
             raise InterpError("map binds are unary")
         try:
-            map_data[bind.dest[0]] = env[bind.src]["data"]
+            map_data[bind.dest[0]] = env[bind.src]
         except KeyError:
             raise InterpError(f"source `{bind.src}` for map not found")
 
@@ -73,11 +73,7 @@ def interp_reduce(op: ast.Reduce, env: Env) -> Scalar:
     except KeyError:
         raise InterpError(f"source `{bind.src}` for reduce not found")
     if not isinstance(red_data, list):
-        try:
-            # Giving it a chance to recover gracefully.
-            red_data = env[bind.src]["data"]
-        except KeyError:
-            raise InterpError("reduce data must be an array")
+        raise InterpError("reduce data must be an array")
 
     init = interp_expr(op.init, {})
 
@@ -102,7 +98,7 @@ def interp(prog: ast.Prog, data: Env) -> Env:
     for decl in prog.decls:
         if decl.input:
             try:
-                env[decl.name] = data[decl.name]
+                env[decl.name] = data[decl.name]["data"]
             except KeyError:
                 raise InterpError(f"input data for `{decl.name}` not found")
 
