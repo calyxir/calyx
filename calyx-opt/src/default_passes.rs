@@ -110,7 +110,12 @@ impl PassManager {
         register_alias!(
             pm,
             "post-opt",
-            [DeadGroupRemoval, CombProp, DeadCellRemoval]
+            [
+                DeadGroupRemoval,
+                CombProp,
+                DeadAssignmentRemoval,
+                DeadCellRemoval
+            ]
         );
         register_alias!(
             pm,

@@ -110,7 +110,8 @@ impl Visitor for DeadAssignmentRemoval {
             if dst.parent_is_comb() {
                 return used_combs.contains(&dst.get_parent_name());
             }
-            true
+            // Make sure that the assignment's guard it not false
+            !assign.guard.is_false()
         });
         Ok(Action::Continue)
     }
