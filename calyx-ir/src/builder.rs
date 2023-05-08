@@ -161,6 +161,13 @@ impl<'a> Builder<'a> {
     /// pair, building and adding it to the component if needed..
     /// If the constant does not exist, it is added to the Context.
     pub fn add_constant(&mut self, val: u64, width: u64) -> RRC<ir::Cell> {
+        // Ensure that the value can fit within the width
+        assert!(
+            val < (1 << width),
+            "Constant value {} cannot fit in {} bits",
+            val,
+            width
+        );
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
