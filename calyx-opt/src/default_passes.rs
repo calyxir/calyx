@@ -100,6 +100,7 @@ impl PassManager {
             "compile",
             [
                 StaticInliner,
+                MergeAssign, // Static inliner generates lots of assigns
                 SimplifyStaticGuards,
                 CompileStatic,
                 TopDownStaticTiming,
