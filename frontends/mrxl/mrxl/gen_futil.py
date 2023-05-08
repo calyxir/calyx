@@ -277,7 +277,7 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         if mem in out and par != out[mem]:
             raise Exception(
                 f"Previous use of `{mem}` had banking factor {out[mem]}"
-                " but current use has banking factor {par}"
+                f" but current use has banking factor {par}"
             )
         out[mem] = par
 
