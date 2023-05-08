@@ -1,6 +1,3 @@
-use ir::Nothing;
-use itertools::Itertools;
-
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir};
 use std::collections::{HashMap, HashSet};
@@ -107,21 +104,15 @@ impl Visitor for DeadAssignmentRemoval {
             used_combs.insert(used);
         }
 
-        let used_assigns: Vec<ir::Assignment<Nothing>> = s
-            .group
-            .borrow_mut()
-            .assignments
-            .drain(..)
-            .filter(|assign| {
-                let dst = assign.dst.borrow();
-                // if dst is a combinational component, must be used
-                if dst.parent_is_comb() {
-                    return used_combs.contains(&dst.get_parent_name());
-                }
-                true
-            })
-            .collect_vec();
-        s.group.borrow_mut().assignments = used_assigns;
+        s.group.borrow_mut().assignments.retain(|assign| {
+            let dst = assign.dst.borrow();
+            // if dst is a combinational component, must be used
+            if dst.parent_is_comb() {
+                return used_combs.contains(&dst.get_parent_name());
+            }
+            // Make sure that the assignment's guard it not false
+            !assign.guard.is_false()
+        });
         Ok(Action::Continue)
     }
 }

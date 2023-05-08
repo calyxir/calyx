@@ -1,14 +1,4 @@
 
-/// Module that continuously outputs 'x. Useful for testing when a particular
-/// signal should not show up in the output.
-module undef #(
-    parameter WIDTH = 32
-) (
-    output wire [WIDTH-1:0] out
-);
-    assign out = 'x;
-endmodule
-
 /// This is mostly used for testing the static guarantees currently.
 /// A realistic implementation would probably take four cycles.
 module pipelined_mult (

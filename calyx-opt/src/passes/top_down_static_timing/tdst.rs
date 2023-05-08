@@ -220,7 +220,7 @@ impl Schedule<'_, '_> {
         let builder = self.builder;
         let (unconditional, conditional) =
             Self::calculate_runs(self.transitions.into_iter());
-        let fsm_size = get_bit_width_from(last + 1);
+        let fsm_size = get_bit_width_from(last) + 1;
 
         structure!(builder;
            let st_fsm = prim std_reg(fsm_size);

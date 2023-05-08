@@ -111,11 +111,21 @@ where
 }
 
 impl<T> Guard<T> {
-    /// Returns true if this is a `Guard::True`.
+    /// Returns true definitely `Guard::True`.
+    /// Returning false does not mean that the guard is not true.
     pub fn is_true(&self) -> bool {
         match self {
             Guard::True => true,
             Guard::Port(p) => p.borrow().is_constant(1, 1),
+            _ => false,
+        }
+    }
+
+    /// Checks if the guard is always false.
+    /// Returning false does not mean that the guard is not false.
+    pub fn is_false(&self) -> bool {
+        match self {
+            Guard::Not(g) => g.is_true(),
             _ => false,
         }
     }

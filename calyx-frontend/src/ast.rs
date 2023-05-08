@@ -399,4 +399,20 @@ impl Control {
             attributes: Attributes::default(),
         }
     }
+
+    pub fn get_attributes(&self) -> &Attributes {
+        match self {
+            Control::Seq { attributes, .. } => attributes,
+            Control::Par { attributes, .. } => attributes,
+            Control::If { attributes, .. } => attributes,
+            Control::While { attributes, .. } => attributes,
+            Control::Enable { attributes, .. } => attributes,
+            Control::Invoke { attributes, .. } => attributes,
+            Control::Empty { attributes, .. } => attributes,
+            Control::StaticSeq { attributes, .. } => attributes,
+            Control::StaticPar { attributes, .. } => attributes,
+            Control::StaticIf { attributes, .. } => attributes,
+            Control::StaticRepeat { attributes, .. } => attributes,
+        }
+    }
 }

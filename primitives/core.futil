@@ -1,4 +1,7 @@
 extern "core.sv" {
+  /// Undefined
+  primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH);
+
   /// Primitives
   comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH);
   comb primitive std_wire<"share"=1>[WIDTH](in: WIDTH) -> (out: WIDTH);
