@@ -12,7 +12,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated cond_wire = std_wire(1);
   }
   wires {
-    static group static_par<4> {
+    static<4> group static_par {
       cond.in = %[0:2] ? lt.out;
       cond_wire.in = %0 ? lt.out;
       cond.write_en = %0 ? 1'd1;

@@ -15,19 +15,19 @@ component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (
     lt = std_lt(4);
   }
   wires {
-    static group A<4> {
+    static<4> group A {
     }
-    static group B<1> {
+    static<1> group B {
     }
-    static group C<2> {
+    static<2> group C {
     }
   }
 
   control {
-    @NODE_ID(0) static par <5> {
-      @NODE_ID static seq <5> {
+    @NODE_ID(0) static<5> par {
+      @NODE_ID static<5> seq  {
         @NODE_ID(2) A;
-        @BEGIN_ID(3) @END_ID(5) static if <1> lt.out {
+        @BEGIN_ID(3) @END_ID(5) static<1> if  lt.out {
           @NODE_ID(4) B;
         }
       }

@@ -28,31 +28,31 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     g = std_reg(32);
   }
   wires {
-    static group A<3> {
+    static<3> group A {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group B<3> {
+    static<3> group B {
       b.write_en = 1'd1;
       b.in = 32'd2;
     }
-    static group C<4> {
+    static<4> group C {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group D<4> {
+    static<4> group D {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group E<4> {
+    static<4> group E {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group F<4> {
+    static<4> group F {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group G<4> {
+    static<4> group G {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
@@ -60,12 +60,12 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 
   control {
     @NODE_ID(0) seq {
-      @NODE_ID static par <74> {
+      @NODE_ID static<74> par {
         @NODE_ID(2) static repeat 2 {
-          @NODE_ID(3) static seq <37> {
+          @NODE_ID(3) static<37> seq  {
             @NODE_ID(4) static repeat 3 {
-              @NODE_ID(5) static seq <11> {
-                @NODE_ID(6) static par <3> {
+              @NODE_ID(5) static<11> seq  {
+                @NODE_ID(6) static<3> par {
                   @NODE_ID(7) A;
                   @NODE_ID(8) B;
                 }
@@ -78,7 +78,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           }
         }
       }
-      @NODE_ID(12) static seq <12> {
+      @NODE_ID(12) static<12> seq  {
         @NODE_ID(13) E;
         @NODE_ID(14) F;
         @NODE_ID(15) G;

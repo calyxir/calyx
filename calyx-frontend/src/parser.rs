@@ -702,7 +702,7 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [static_word(_), name_with_attribute((name, attrs)), bitwidth(latency), static_wire(wire)..] => ast::StaticGroup {
+            [static_word(_), latency_annotation(latency), name_with_attribute((name, attrs)), static_wire(wire)..] => ast::StaticGroup {
                 name,
                 attributes: attrs.add_span(span),
                 wires: wire.collect(),

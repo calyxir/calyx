@@ -7,23 +7,23 @@ component example() -> () {
   wires {
     group A{
     }
-    static group B <4>{
+    static<4> group B {
     }
-    static group C <4>{
+    static<4> group C {
     }
-    static group D <2>{
+    static<2> group D {
     }
-    static group E <3>{
+    static<3> group E {
     }
-    static group F <2>{
+    static<2> group F {
     }
-    static group G <2>{
+    static<2> group G {
     }
-    static group X <4>{
+    static<4> group X {
     }
-    static group Y <2>{
+    static<2> group Y {
     }
-    static group Z <2>{
+    static<2> group Z {
     }
     group H {
     }

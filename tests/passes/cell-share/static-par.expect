@@ -10,27 +10,27 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     sl = std_slice(16, 4);
   }
   wires {
-    static group wr_a<1> {
+    static<1> group wr_a {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group wr_b<1> {
+    static<1> group wr_b {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group wr_x<1> {
+    static<1> group wr_x {
       x.write_en = 1'd1;
       x.in = 4'd2;
     }
-    static group wr_c<1> {
+    static<1> group wr_c {
       c.write_en = 1'd1;
       c.in = 16'd4;
     }
-    static group wr_d<1> {
+    static<1> group wr_d {
       d.write_en = 1'd1;
       d.in = 16'd4;
     }
-    static group read_c<1> {
+    static<1> group read_c {
       sl.in = c.out;
       x.write_en = 1'd1;
       x.in = sl.out;
@@ -39,24 +39,24 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 
   control {
     seq {
-      static par <2> {
-        static if <1> lt.out {
+      static<2> par {
+        static<1> if  lt.out {
           wr_a;
         } else {
           wr_b;
         }
-        static seq <2> {
+        static<2> seq  {
           wr_x;
           wr_b;
         }
       }
-      static par <3> {
-        static seq <3> {
+      static<3> par {
+        static<3> seq  {
           wr_c;
           wr_x;
           read_c;
         }
-        static seq <3> {
+        static<3> seq  {
           wr_x;
           wr_d;
           wr_x;
