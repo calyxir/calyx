@@ -236,7 +236,7 @@ pub struct StaticGroup {
     pub name: Id,
     pub wires: Vec<StaticWire>,
     pub attributes: Attributes,
-    pub latency: u64,
+    pub latency: NonZeroU64,
 }
 
 /// Data for the `->` structure statement.

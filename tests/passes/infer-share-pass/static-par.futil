@@ -13,15 +13,15 @@ component example(in: 32) -> (out: 32) {
     adder = std_add(32);
   }
   wires {
-    static group A <1>{
+    static<1> group A {
       a.in = 32'd2; 
       a.write_en = 1'd1; 
     }
-    static group B <1>{
+    static<1> group B {
       b.write_en = 1'd1; 
       b.in = 32'd7; 
     }
-    static group read_A <1> {
+    static<1> group read_A {
       adder.left = a.out; 
       adder.right = 32'd2; 
       a.in = adder.out; 

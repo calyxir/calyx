@@ -5,11 +5,11 @@ component example() -> () {
     lt = std_lt(4); 
   }
   wires {
-    static group A<4>{
+    static<4> group A{
     }
-    static group B<1>{
+    static<1> group B{
     }
-    static group C<2>{
+    static<2> group C {
     }
   }
   control {
