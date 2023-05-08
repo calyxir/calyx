@@ -60,9 +60,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     tdcc_go.in = go;
     A0.clk = clk;
     A0.addr0 = msp_go.out ? i0.out;
+    A0.reset = reset;
     Sum0.write_en = upd2_go.out ? 1'd1;
     Sum0.clk = clk;
     Sum0.addr0 = upd2_go.out ? i0.out;
+    Sum0.reset = reset;
     Sum0.write_data = upd2_go.out ? add0.out;
     cond00_go.in = !cond00_done.out & fsm.out == 3'd1 & tdcc_go.out | !cond00_done.out & fsm.out == 3'd5 & tdcc_go.out ? 1'd1;
     invoke0_done.in = i0.done;
@@ -71,6 +73,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     le0.right = cond00_go.out ? const1.out;
     B0.clk = clk;
     B0.addr0 = msp_go.out ? i0.out;
+    B0.reset = reset;
     B_read0_0.write_en = msp_go.out ? 1'd1;
     B_read0_0.clk = clk;
     B_read0_0.reset = reset;
