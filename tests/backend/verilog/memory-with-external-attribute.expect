@@ -591,6 +591,7 @@ std_mem_d1 # (
 );
 wire _guard0 = 1;
 assign m1_clk = clk;
+assign m1_reset = reset;
 assign done = m1_done;
 assign m0_clk = clk;
 assign m0_reset = reset;
