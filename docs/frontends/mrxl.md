@@ -1,8 +1,8 @@
 # MrXL
 
-> MrXL is a toy frontend developed for the [frontend tutorial][fronttut].
-
-MrXL is an example DSL for demonstrating Calyx. MrXL programs consist of `map` and `reduce` operations on arrays. For example, here is a dot product implementation:
+MrXL is an example DSL developed for the [frontend tutorial][fronttut].
+MrXL programs consist of `map` and `reduce` operations on arrays. 
+For example, here is a dot product implementation:
 
     input avec: int[1024]
     input bvec: int[1024]
@@ -49,7 +49,7 @@ You could try, for example:
 
     mrxl test/dot.mrxl --data test/dot.mrxl.data --interpret
 
-This is just a baby version of the dot produce implementation we showed above.
+This is just a baby version of the dot produce implementation we showed at the very top.
 We also provide `add.mrxl` and `sum.mrxl`, along with sample `<indata>` files, under `test/`. Try playing with the inputs and the operations!
 
 
