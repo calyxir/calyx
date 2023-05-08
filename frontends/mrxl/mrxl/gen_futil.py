@@ -283,10 +283,9 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
 
     for stmt in stmts:
         par_f = stmt.op.par
-        if isinstance(stmt.op, ast.Reduce):
+        if isinstance(stmt.op, ast.Reduce) and par_f != 1:
             # Reduction does not support parallelism
-            if par_f != 1:
-                raise Exception("Reduction does not support parallelism")
+            raise Exception("Reduction does not support parallelism")
         add_par(stmt.dest, par_f)
         for b in stmt.op.bind:
             add_par(b.src, par_f)
