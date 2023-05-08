@@ -1,5 +1,5 @@
 input avec: int[4]
 input bvec: int[4]
-output dot: int[4]
-prodvec := map 1 (a <- avec, b <- bvec) { a * b }
-dot := reduce 1 (a, b <- prodvec) 0 { a + b }
+output dot: int
+prodvec := map 2 (a <- avec, b <- bvec) { a * b }
+dot := reduce 2 (a, b <- prodvec) 0 { a + b }
