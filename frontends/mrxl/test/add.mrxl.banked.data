@@ -1,0 +1,68 @@
+{
+	"in_a_b0": {
+		"data": [
+			1,
+			2
+		],
+		"format": {
+			"numeric_type": "bitnum",
+			"is_signed": false,
+			"width": 32
+		}
+	},
+	"in_a_b1": {
+		"data": [
+			3,
+			4
+		],
+		"format": {
+			"numeric_type": "bitnum",
+			"is_signed": false,
+			"width": 32
+		}
+	},
+	"in_b_b0": {
+		"data": [
+			5,
+			6
+		],
+		"format": {
+			"numeric_type": "bitnum",
+			"is_signed": false,
+			"width": 32
+		}
+	},
+	"in_b_b1": {
+		"data": [
+			7,
+			8
+		],
+		"format": {
+			"numeric_type": "bitnum",
+			"is_signed": false,
+			"width": 32
+		}
+	},
+	"out_b0": {
+		"data": [
+			0,
+			0
+		],
+		"format": {
+			"numeric_type": "bitnum",
+			"is_signed": false,
+			"width": 32
+		}
+	},
+	"out_b1": {
+		"data": [
+			0,
+			0
+		],
+		"format": {
+			"numeric_type": "bitnum",
+			"is_signed": false,
+			"width": 32
+		}
+	}
+}

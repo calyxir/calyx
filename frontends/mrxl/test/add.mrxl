@@ -2,4 +2,4 @@ input in_a: int[4]
 input in_b: int[4]
 output out: int[4]
 
-out := map 4 (a <- in_a, b <- in_b) { a + b }
+out := map 2 (a <- in_a, b <- in_b) { a + b }
