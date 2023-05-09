@@ -11,27 +11,27 @@ component main() -> () {
     sl = std_slice(16, 4);
   }
   wires {
-    static group wr_a <1> {
+    static<1> group wr_a {
       a.write_en = 1'd1; 
       a.in = 32'd2; 
     }
-    static group wr_b <1> {
+    static<1> group wr_b {
       b.write_en = 1'd1; 
       b.in = 32'd2; 
     }
-    static group wr_x <1> {
+    static<1> group wr_x {
       x.write_en = 1'd1; 
       x.in = 4'd2; 
     }
-    static group wr_c <1> {
+    static<1> group wr_c {
       c.write_en = 1'd1; 
       c.in = 16'd4; 
     }
-    static group wr_d <1> {
+    static<1> group wr_d {
       d.write_en = 1'd1;
       d.in = 16'd4; 
     }
-    static group read_c <1>{
+    static<1> group read_c {
       sl.in = c.out; 
       x.write_en = 1'd1; 
       x.in = sl.out; 

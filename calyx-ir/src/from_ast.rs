@@ -323,12 +323,12 @@ fn add_static_group(
     group: ast::StaticGroup,
     builder: &mut Builder,
 ) -> CalyxResult<()> {
-    if group.latency == 0 {
+    if group.latency.get() == 0 {
         return Err(Error::malformed_structure(
             "static group with 0 latency".to_string(),
         ));
     }
-    let ir_group = builder.add_static_group(group.name, group.latency);
+    let ir_group = builder.add_static_group(group.name, group.latency.get());
     let assigns = build_static_assignments(group.wires, builder)?;
 
     ir_group.borrow_mut().attributes = group.attributes;
@@ -677,19 +677,20 @@ fn build_static_control(
 ) -> CalyxResult<StaticControl> {
     let sc = match control {
         ast::Control::Enable {
-            comp: component,
+            comp: group,
             attributes,
         } => {
-            if builder.component.find_group(component).is_some() {
+            if builder.component.find_group(group).is_some() {
                 // dynamic group called in build_static_control
                 return Err(Error::malformed_control(
                     "found dynamic group in static context".to_string(),
-                ));
+                )
+                .with_pos(&attributes));
             };
             let mut en = StaticControl::from(Rc::clone(
-                &builder.component.find_static_group(component).ok_or_else(
+                &builder.component.find_static_group(group).ok_or_else(
                     || {
-                        Error::undefined(component, "group".to_string())
+                        Error::undefined(group, "group".to_string())
                             .with_pos(&attributes)
                     },
                 )?,
@@ -731,7 +732,8 @@ fn build_static_control(
         | ast::Control::Seq { .. } => {
             return Err(Error::malformed_control(
                 "found dynamic control in static context".to_string(),
-            ));
+            )
+            .with_pos(control.get_attributes()));
         }
         ast::Control::Empty { attributes } => {
             let mut emp = StaticControl::empty();

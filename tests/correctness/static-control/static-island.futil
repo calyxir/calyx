@@ -18,13 +18,13 @@ component main() -> () {
            lt_cond.write_en = 1'd1; 
            check_mem_cond[done] = lt_cond.done; 
         }
-        static group add_five_reg<1> {
+        static<1> group add_five_reg {
             add.left = r.out;
             add.right = 32'd5;
             r.in = add.out;
             r.write_en = 1'd1; 
         }
-        static group write_mem <1> {
+        static<1> group write_mem  {
             m.addr0 = 1'd0;
             add.left = m.read_data;
             add.right = r.out;

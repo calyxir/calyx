@@ -17,14 +17,14 @@ component main() -> () {
         ge_4 = std_reg(1);
     }
     wires {
-        static group init<1>{
+        static<1> group init{
             lt_10.in = 1'd1;
             lt_10.write_en = 1'd1;
             ge_4.in = 1'd0;
             ge_4.write_en = 1'd1;
         }
 
-        static group incr<1> {
+        static<1> group incr {
             add.left = idx.out;
             add.right = 4'd1;
             idx.in = add.out;
@@ -44,14 +44,14 @@ component main() -> () {
         }
 
         // The multiplier registers its inputs after a cycle.
-        static group start_mult<1> {
+        static<1> group start_mult {
             left.addr0 = idx.out;
             right.addr0 = idx.out;
             mul.left = left.read_data;
             mul.right = right.read_data;
         }
 
-        static group do_write<1> {
+        static<1> group do_write {
             sub.left = idx.out;
             sub.right = 4'd4;
             out.addr0 = sub.out;

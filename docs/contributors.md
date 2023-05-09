@@ -29,4 +29,4 @@ Here is a list of all the people who have worked on Calyx:
 - [Jan-Paul Ramos](https://jpramos.me)
 - Jiaxuan (Crystal) Hu
 
-If you're missing from this list, please [add yourself](https://github.com/cucapra/futil/edit/master/docs/contributors.md)!
+If you're missing from this list, please [add yourself](https://github.com/cucapra/calyx/edit/master/docs/contributors.md)!

@@ -29,14 +29,14 @@ component main() -> () {
       dyn_C[done] = c.done; 
     }
 
-    static group A<2>{
+    static<2> group A{
       a.in = 2'd0;
       a.write_en = %0 ? 1'd1;
       b.in = 2'd1;
       b.write_en = %1 ? 1'd1;
     }
 
-    static group run_A_thrice <6>{
+    static<6> group run_A_thrice{
       A[go] = 1'd1; 
     }
   }

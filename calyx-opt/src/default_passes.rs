@@ -100,6 +100,7 @@ impl PassManager {
             "compile",
             [
                 StaticInliner,
+                MergeAssign, // Static inliner generates lots of assigns
                 SimplifyStaticGuards,
                 CompileStatic,
                 TopDownStaticTiming,
@@ -109,7 +110,12 @@ impl PassManager {
         register_alias!(
             pm,
             "post-opt",
-            [DeadGroupRemoval, CombProp, DeadCellRemoval]
+            [
+                DeadGroupRemoval,
+                CombProp,
+                DeadAssignmentRemoval,
+                DeadCellRemoval
+            ]
         );
         register_alias!(
             pm,

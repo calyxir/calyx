@@ -4,6 +4,6 @@ build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
 module = "calyx"
-author = "FuTIL Authors"
+author = "The Calyx Authors"
 requires-python = ">=3.4"
 home-page = "https://github.com/cucapra/calyx"

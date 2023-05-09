@@ -22,7 +22,7 @@
                 "-b",
                 "${input:backend}",
             ],
-            "program": "${workspaceFolder}/target/debug/futil",
+            "program": "${workspaceFolder}/target/debug/calyx",
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
             "sourceLanguages": [

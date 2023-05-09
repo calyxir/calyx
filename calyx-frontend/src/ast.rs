@@ -19,6 +19,8 @@ pub struct NamespaceDef {
 }
 
 impl NamespaceDef {
+    /// Construct a namespace from a file or the input stream.
+    /// If no file is provided, the input stream must be a TTY.
     pub fn construct(file: &Option<PathBuf>) -> CalyxResult<Self> {
         match file {
             Some(file) => parser::CalyxParser::parse_file(file),
@@ -32,6 +34,11 @@ impl NamespaceDef {
                 }
             }
         }
+    }
+
+    /// Construct a namespace from a definition using a string.
+    pub fn construct_from_str(inp: &str) -> CalyxResult<Self> {
+        parser::CalyxParser::parse(inp.as_bytes())
     }
 }
 
@@ -236,7 +243,7 @@ pub struct StaticGroup {
     pub name: Id,
     pub wires: Vec<StaticWire>,
     pub attributes: Attributes,
-    pub latency: u64,
+    pub latency: NonZeroU64,
 }
 
 /// Data for the `->` structure statement.
@@ -397,6 +404,22 @@ impl Control {
     pub fn empty() -> Control {
         Control::Empty {
             attributes: Attributes::default(),
+        }
+    }
+
+    pub fn get_attributes(&self) -> &Attributes {
+        match self {
+            Control::Seq { attributes, .. } => attributes,
+            Control::Par { attributes, .. } => attributes,
+            Control::If { attributes, .. } => attributes,
+            Control::While { attributes, .. } => attributes,
+            Control::Enable { attributes, .. } => attributes,
+            Control::Invoke { attributes, .. } => attributes,
+            Control::Empty { attributes, .. } => attributes,
+            Control::StaticSeq { attributes, .. } => attributes,
+            Control::StaticPar { attributes, .. } => attributes,
+            Control::StaticIf { attributes, .. } => attributes,
+            Control::StaticRepeat { attributes, .. } => attributes,
         }
     }
 }

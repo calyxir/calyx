@@ -16,25 +16,25 @@ component main() -> () {
   }
 
   wires {
-    static group A<2>{
+    static<2> group A {
       a.in = 2'd0;
       a.write_en = %0 ? 1'd1;
       b.in = 2'd1;
       b.write_en = %1 ? 1'd1;
     }
 
-    static group A3<3>{
+    static<3> group A3 {
       mult.left = 2'd1; 
       mult.right = 2'd3;
       mult.go = 1'd1; 
     }
 
-    static group C<1>{
+    static<1> group C {
       c.in = 2'd2;
       c.write_en = %0 ? 1'd1;
     }
 
-    static group D<1>{
+    static<1> group D{
       c.in = 2'd2;
       c.write_en = %0 ? 1'd1;
     }

@@ -9,7 +9,7 @@ component main() -> () {
       r1 = std_reg(1);
     }
     wires {
-        static group one <1> {
+        static<1> group one {
             add.left = m.read_data;
             add.right = 32'd1;
             m.write_data = add.out;

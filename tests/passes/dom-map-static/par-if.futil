@@ -5,29 +5,29 @@ component example() -> () {
     lt = std_lt(4); 
   }
   wires {
-    static group A <4> {
+    static<4> group A {
     }
-    static group B <1> {
+    static<1> group B {
     }
-    static group C <3> {
+    static<3> group C {
     }
-    static group D <2> {
+    static<2> group D {
     }
-    static group E <3> {
+    static<3> group E {
     }
-    static group F <2> {
+    static<2> group F {
     }
-    static group G <4> {
+    static<4> group G {
     }
-    static group H <3> {
+    static<3> group H {
     }
-    static group J <3> {
+    static<3> group J {
     }
-    static group X <1> {
+    static<1> group X {
     }
-    static group Y <2> {
+    static<2> group Y {
     }
-    static group Z <5> {
+    static<5> group Z {
     }
     comb group less_than {
       lt.left = 4'd3;

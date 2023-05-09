@@ -9,7 +9,7 @@ incomplete yet daunting list of CLI tools used by Calyx is:
 - Waveform viewers to see the results of simulation
 
 `fud` aims to provide a simple interface for using these toolchains and executing them in a pipeline.
-The source for fud is [here](https://github.com/cucapra/futil/tree/master/fud).
+The source for fud is [here](https://github.com/cucapra/calyx/tree/master/fud).
 
 
 ## Installation
@@ -64,7 +64,7 @@ fud config stages.futil.exec
 Keys can be updated using `fud config key value`.
 For example, the following command updates the path to the Calyx compiler.
 ```bash
-fud config stages.futil.exec ./target/debug/futil
+fud config stages.futil.exec ./target/debug/calyx
 ```
 
 ## Adding Backends
