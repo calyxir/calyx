@@ -57,7 +57,12 @@ impl Visitor for DataPathInfer {
                 if !port.is_hole() {
                     con_cells.insert(port.get_parent_name());
                 }
-            })
+            });
+            // If this assignment writes to the done condition of a group, then the source
+            // cannot be marked as @data
+            if asgn.dst.borrow().is_hole() {
+                con_cells.insert(asgn.src.borrow().get_parent_name());
+            }
         });
         comp.for_each_static_assignment(|asgn| {
             asgn.guard.all_ports().into_iter().for_each(|p| {
