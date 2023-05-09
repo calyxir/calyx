@@ -26,7 +26,7 @@ extern "core.sv" {
   /// Memories
   primitive std_mem_d1[WIDTH, SIZE, IDX_SIZE](
     @read_together(1) addr0: IDX_SIZE,
-    @write_together(1) write_data: WIDTHdocker buildx build --platform linux/arm64/v8,linux/amd64,
+    @write_together(1) write_data: WIDTH,
     @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1,
     @reset reset: 1
