@@ -1,10 +1,6 @@
+import "compile.futil";
 extern "core.sv" {
-  /// Undefined
-  primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH);
-
   /// Primitives
-  comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH);
-  comb primitive std_wire<"share"=1>[WIDTH](in: WIDTH) -> (out: WIDTH);
   comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
   comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](in: IN_WIDTH) -> (out: OUT_WIDTH);
   comb primitive std_cat<"share"=1>[LEFT_WIDTH, RIGHT_WIDTH, OUT_WIDTH](left: LEFT_WIDTH, right: RIGHT_WIDTH) -> (out: OUT_WIDTH);
@@ -16,7 +12,6 @@ extern "core.sv" {
   comb primitive std_xor<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH);
 
   /// Numerical Operators
-  comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_sub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_gt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
   comb primitive std_lt<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: 1);
@@ -29,21 +24,9 @@ extern "core.sv" {
   comb primitive std_mux<"share"=1>[WIDTH](cond: 1, tru: WIDTH, fal: WIDTH) -> (out: WIDTH);
 
   /// Memories
-  // ANCHOR: std_reg_def
-  primitive std_reg<"state_share"=1>[WIDTH](
-    @write_together(1) in: WIDTH,
-    @write_together(1) @static(1) @go write_en: 1,
-    @clk clk: 1,
-    @reset reset: 1
-  ) -> (
-    @stable out: WIDTH,
-    @done done: 1
-  );
-  // ANCHOR_END: std_reg_def
-
   primitive std_mem_d1[WIDTH, SIZE, IDX_SIZE](
     @read_together(1) addr0: IDX_SIZE,
-    @write_together(1) write_data: WIDTH,
+    @write_together(1) write_data: WIDTHdocker buildx build --platform linux/arm64/v8,linux/amd64,
     @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1,
     @reset reset: 1
