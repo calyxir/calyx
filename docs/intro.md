@@ -23,7 +23,7 @@ cargo build
 You can invoke the compiler in one of two ways:
 ```
 cargo run -- --help # Rebuilds the compiler if the sources changed
-./target/debug/futil --help # Default debug build of the compiler
+./target/debug/calyx --help # Default debug build of the compiler
 ```
 
 ## Running Core Tests

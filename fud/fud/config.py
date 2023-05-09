@@ -27,7 +27,7 @@ DEFAULT_CONFIGURATION = {
     "externals": {},
     "stages": {
         "futil": {
-            "exec": "./target/debug/futil",
+            "exec": "./target/debug/calyx",
             "file_extensions": [".futil"],
             "flags": None,
         },
