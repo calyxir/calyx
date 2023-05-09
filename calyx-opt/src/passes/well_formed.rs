@@ -331,7 +331,7 @@ impl Visitor for WellFormed {
                                 static_timing.to_string()
                             ))
                             .with_pos(&assign.attributes))
-                        } 
+                        }
                         else if static_timing.get_interval().1 > group_latency {
                             Err(Error::malformed_structure(format!(
                                 "Static Timing Guard has interval `{}`, which is out of bounds since its static group has latency {}",
