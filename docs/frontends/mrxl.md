@@ -67,7 +67,7 @@ In order to run the compiler through `fud`, pass the `--from mrxl` flag:
 To simulate the Verilog generated from the mrxl compiler, set the `-s
 verilog.data`:
 
-    fud e --from mrxl <mrxl file> --to interpreter-out -s verilog.data <data file>
+    fud e --from mrxl <mrxl file> --to dat --through verilog -s verilog.data <data file>
 
 
 [flit]: https://flit.readthedocs.io/en/latest/index.html
