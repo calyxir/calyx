@@ -12,7 +12,7 @@ use std::{collections::HashSet, rc::Rc};
 /// * If it is used in the guard of an assignment
 /// * If it is used as the done condition of a group
 /// * If it is used as the conditional port for if or while
-/// * If it is used as the input to a @go port such as write_en
+/// * If it is used as the input to a non-@data port
 /// * If it is used as an input for another @control instance
 ///
 /// Because the last constraint is recursive, we use an iterative algorithm to
@@ -52,6 +52,25 @@ impl DataPathInfer {
                 self.control_cells.insert(src.get_parent_name());
             }
         }
+    }
+
+    fn handle_assign<T: Clone>(&mut self, assign: &ir::Assignment<T>) {
+        // If the destination port is not marked as `@data` or is a hole,
+        // The source is required to be non-`@data` as well.
+        let dst = assign.dst.borrow();
+        if dst.is_hole() || !dst.attributes.has(ir::BoolAttr::Data) {
+            let src = assign.src.borrow();
+            if !src.is_hole() {
+                self.control_cells.insert(src.get_parent_name());
+            }
+        }
+        // Every cell used in a guard cannot be marked as `@data`
+        assign.guard.all_ports().into_iter().for_each(|p| {
+            let port = p.borrow();
+            if !port.is_hole() {
+                self.control_cells.insert(port.get_parent_name());
+            }
+        });
     }
 }
 
@@ -95,29 +114,9 @@ impl Visitor for DataPathInfer {
             }
         }));
 
-        // If this is used in guards, then it cannot be marked as @data
-        comp.for_each_assignment(|asgn| {
-            asgn.guard.all_ports().into_iter().for_each(|p| {
-                let port = p.borrow();
-                if !port.is_hole() {
-                    self.control_cells.insert(port.get_parent_name());
-                }
-            });
-            // If this assignment writes to the done condition of a group, then the source
-            // cannot be marked as @data
-            if asgn.dst.borrow().is_hole() {
-                self.control_cells
-                    .insert(asgn.src.borrow().get_parent_name());
-            }
-        });
-        comp.for_each_static_assignment(|asgn| {
-            asgn.guard.all_ports().into_iter().for_each(|p| {
-                let port = p.borrow();
-                if !port.is_hole() {
-                    self.control_cells.insert(port.get_parent_name());
-                }
-            })
-        });
+        // Handle all assignment in the component
+        comp.for_each_assignment(|assign| self.handle_assign(assign));
+        comp.for_each_static_assignment(|assign| self.handle_assign(assign));
 
         // Mark all control cells
         for c in comp.cells.iter() {
