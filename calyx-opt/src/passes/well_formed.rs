@@ -318,6 +318,7 @@ impl Visitor for WellFormed {
         // checking that the static timing intervals are well formed.
         for gr in comp.get_static_groups().iter() {
             let group = gr.borrow();
+            let group_latency = group.get_latency();
             // Check that for each interval %[beg, end], end > beg.
             for assign in &group.assignments {
                 assign.guard.check_for_each_info(
@@ -326,12 +327,20 @@ impl Visitor for WellFormed {
                             >= static_timing.get_interval().1
                         {
                             Err(Error::malformed_structure(format!(
-                                "Static Timing Guard has improper interval: `%[{},{}]`",
-                                static_timing.get_interval().0,
-                                static_timing.get_interval().1
+                                "Static Timing Guard has improper interval: `{}`",
+                                static_timing.to_string()
                             ))
                             .with_pos(&assign.attributes))
-                        } else {
+                        } 
+                        else if static_timing.get_interval().1 > group_latency {
+                            Err(Error::malformed_structure(format!(
+                                "Static Timing Guard has interval `{}`, which is out of bounds since its static group has latency {}",
+                                static_timing.to_string(),
+                                group_latency
+                            ))
+                            .with_pos(&assign.attributes))
+                        }
+                        else {
                             Ok(())
                         }
                     },
