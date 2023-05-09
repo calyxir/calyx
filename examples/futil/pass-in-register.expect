@@ -2,8 +2,8 @@ import "primitives/core.futil";
 import "primitives/unsynthesizable.futil";
 component times_10_and_add_1<"state_share"=1>(reg_done: 1, reg_out: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (reg_in: 32, reg_write_en: 1, @done done: 1) {
   cells {
-    add = std_add(32);
-    mult = std_unsyn_mult(32);
+    @control add = std_add(32);
+    @control mult = std_unsyn_mult(32);
     @generated do_add_and_mul_go = std_wire(1);
     @generated do_add_and_mul_done = std_wire(1);
   }
@@ -23,8 +23,8 @@ component times_10_and_add_1<"state_share"=1>(reg_done: 1, reg_out: 32, @go go: 
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    op = times_10_and_add_1();
-    r = std_reg(32);
+    @control op = times_10_and_add_1();
+    @data r = std_reg(32);
     @generated fsm = std_reg(2);
     @generated apply_op_go = std_wire(1);
     @generated apply_op_done = std_wire(1);
