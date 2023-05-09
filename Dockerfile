@@ -66,7 +66,7 @@ RUN cargo build --all
 
 # Install fud
 WORKDIR /home/calyx/fud
-RUN FLIT_ROOT_INSTALL=1 flit install --symlink
+RUN FLIT_ROOT_INSTALL=1 flit install --symlink --deps production
 RUN mkdir -p /root/.config
 ENV PATH=$PATH:/root/.local/bin
 ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
