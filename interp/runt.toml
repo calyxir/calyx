@@ -39,7 +39,7 @@ timeout = 3
 name = "par to seq"
 paths = ["tests/control/par_reg.futil", "tests/control/par_mem.futil"]
 cmd = """
-../target/debug/futil {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories --sort-keys
 """
 timeout = 3
 
@@ -77,7 +77,7 @@ paths = [
   #    "tests/control/iteration/*.futil"
 ]
 cmd = """
-../target/debug/futil {} -d pre-opt -d post-opt -p simplify-with-control -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../ | ../target/debug/interp | jq .memories --sort-keys
 """
 expect_dir = "tests/lowered/"
 timeout = 3
@@ -86,7 +86,7 @@ timeout = 3
 name = "fully structural static"
 paths = ["tests/control/static*.futil"]
 cmd = """
-../target/debug/futil {} -d pre-opt -d post-opt  -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -d pre-opt -d post-opt  -l ../ | ../target/debug/interp | jq .memories --sort-keys
 """
 expect_dir = "tests/lowered/"
 timeout = 3

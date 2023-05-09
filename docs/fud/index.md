@@ -64,7 +64,7 @@ fud config stages.futil.exec
 Keys can be updated using `fud config key value`.
 For example, the following command updates the path to the Calyx compiler.
 ```bash
-fud config stages.futil.exec ./target/debug/futil
+fud config stages.futil.exec ./target/debug/calyx
 ```
 
 ## Adding Backends
