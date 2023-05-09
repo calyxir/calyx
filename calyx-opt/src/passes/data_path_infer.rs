@@ -24,7 +24,7 @@ pub struct DataPathInfer {
 
 impl Named for DataPathInfer {
     fn name() -> &'static str {
-        "data-path-infer"
+        "infer-data-path"
     }
 
     fn description() -> &'static str {
@@ -33,6 +33,27 @@ impl Named for DataPathInfer {
 }
 
 impl DataPathInfer {
+    #[inline]
+    /// Mark the cell associated with the port as a part of the control path.
+    fn mark_port_control(&mut self, port: &ir::Port) {
+        if Self::always_safe_src(port) || port.is_hole() {
+            log::info!("`{}': safe port", port.canonical());
+            return;
+        }
+        log::info!("`{}': control port", port.canonical());
+        self.control_cells.insert(port.get_parent_name());
+    }
+
+    #[inline]
+    /// Source ports that do not make a cell a control cell.
+    /// * A @stable port's value is not combinationally affected by the inputs.
+    /// * A @done port cannot be combinationally connected to any inputs and must implicitly be stable.
+    fn always_safe_src(port: &ir::Port) -> bool {
+        port.attributes.has(ir::BoolAttr::Stable)
+            || port.attributes.has(ir::NumAttr::Done)
+    }
+
+    /// Handle the port and the combinational group of `if` and `while` statements.
     fn port_and_cg(
         &mut self,
         port: RRC<ir::Port>,
@@ -40,48 +61,43 @@ impl DataPathInfer {
     ) {
         let cond_port = port.borrow();
         assert!(!cond_port.is_hole());
-        self.control_cells.insert(cond_port.get_parent_name());
+        self.mark_port_control(&cond_port);
 
         // All ports used in the combinational group cannot be data ports
         // since they are used to compute the condition.
         if let Some(cgr) = mb_cg {
             let cg = cgr.borrow();
             for assign in &cg.assignments {
-                let src = assign.src.borrow();
-                assert!(!src.is_hole());
-                self.control_cells.insert(src.get_parent_name());
+                self.mark_port_control(&assign.src.borrow());
             }
         }
     }
 
+    /// Handle the assignments during the initial pass:
     fn handle_assign<T: Clone>(&mut self, assign: &ir::Assignment<T>) {
         // If the destination port is not marked as `@data` or is a hole,
         // The source is required to be non-`@data` as well.
         let dst = assign.dst.borrow();
         if dst.is_hole() || !dst.attributes.has(ir::BoolAttr::Data) {
             let src = assign.src.borrow();
-            if !src.is_hole() {
-                self.control_cells.insert(src.get_parent_name());
-            }
+            self.mark_port_control(&src);
         }
         // Every cell used in a guard cannot be marked as `@data`
         assign.guard.all_ports().into_iter().for_each(|p| {
             let port = p.borrow();
-            if !port.is_hole() {
-                self.control_cells.insert(port.get_parent_name());
-            }
+            self.mark_port_control(&port);
         });
     }
 
-    fn mark_control<T: Clone>(&mut self, assign: &ir::Assignment<T>) {
+    fn iterate_assign<T: Clone>(&mut self, assign: &ir::Assignment<T>) {
         // If the destination is a control port, then the cell used in the
         // source must also be a control port.
         let dst = assign.dst.borrow();
         let src = assign.src.borrow();
-        if !dst.is_hole() && !src.is_hole() {
+        if !dst.is_hole() {
             let dst_cell = dst.get_parent_name();
             if self.control_cells.contains(&dst_cell) {
-                self.control_cells.insert(src.get_parent_name());
+                self.mark_port_control(&src);
             }
         }
     }
@@ -138,8 +154,10 @@ impl Visitor for DataPathInfer {
         while old_len != self.control_cells.len() {
             old_len = self.control_cells.len();
 
-            comp.for_each_assignment(|assign| self.mark_control(assign));
-            comp.for_each_static_assignment(|assign| self.mark_control(assign));
+            comp.for_each_assignment(|assign| self.iterate_assign(assign));
+            comp.for_each_static_assignment(|assign| {
+                self.iterate_assign(assign)
+            });
 
             // Log a warning if we are taking too long
             iter_count += 1;
@@ -150,11 +168,13 @@ impl Visitor for DataPathInfer {
             }
         }
 
-        // Mark all control cells
+        // Mark all cells with attributes
         for c in comp.cells.iter() {
             let mut cell = c.borrow_mut();
             if self.control_cells.contains(&cell.name()) {
                 cell.attributes.insert(ir::BoolAttr::Control, 1);
+            } else {
+                cell.attributes.insert(ir::BoolAttr::Data, 1);
             }
         }
 
