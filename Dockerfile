@@ -77,7 +77,8 @@ RUN fud config --create global.futil_directory /home/calyx && \
     fud config stages.futil.exec '/home/calyx/target/debug/calyx' && \
     fud config stages.interpreter.exec '/home/calyx/target/debug/interp' && \
     fud register ntt -p '/home/calyx/frontends/ntt-pipeline/fud/ntt.py' && \
-    fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py'
+    fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
+    fud c --delete stages.verilog.top_module
 
 # Install calyx-py
 WORKDIR /home/calyx/calyx-py
