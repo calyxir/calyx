@@ -9,7 +9,7 @@ incomplete yet daunting list of CLI tools used by Calyx is:
 - Waveform viewers to see the results of simulation
 
 `fud` aims to provide a simple interface for using these toolchains and executing them in a pipeline.
-The source for fud is [here](https://github.com/cucapra/futil/tree/master/fud).
+The source for fud is [here](https://github.com/cucapra/calyx/tree/master/fud).
 
 
 ## Installation

@@ -249,8 +249,8 @@ Hopefully this should be enough to get you started with writing your own MrXL co
 - Implement complex function body expressions. We only support binary operations with two operands, like `a + 5`.
 - Add a new `filter` operation to MrXL.
 
-[astcode]: https://github.com/cucapra/futil/blob/mrxl/mrxl/mrxl/ast.py
-[mrxldocs]: https://github.com/cucapra/futil/tree/master/frontends/mrxl
+[astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
+[mrxldocs]: https://github.com/cucapra/calyx/tree/master/frontends/mrxl
 [fud]: ../fud/index.md
 [fud-data]: ../lang/data-format.md
 [json]: https://www.json.org/json-en.html

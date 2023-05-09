@@ -4,8 +4,8 @@ build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
 module = "mrxl"
-author = "The FuTIL Authors"
-home-page = "https://github.com/cucapra/futil/tree/frontends/mrxl"
+author = "The Calyx Authors"
+home-page = "https://docs.calyxir.org/frontends/mrxl.html"
 classifiers = ["License :: OSI Approved :: MIT License"]
 description-file = "README.md"
 requires-python = ">=3.4"
