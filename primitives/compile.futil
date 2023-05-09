@@ -14,7 +14,7 @@ comb primitive std_wire<"share"=1>[WIDTH](in: WIDTH) -> (out: WIDTH) {
 };
 
 /// Add two numbers.
-comb primitive std_add<"share"=1>[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
+comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
   assign out = left + right;
 };
 
