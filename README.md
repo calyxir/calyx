@@ -18,7 +18,7 @@ for more information. Calyx's design is based on [our paper][paper].
 ### Quick
 If you want to try out the compiler, install it using `cargo`:
 ```
-cargo install futil
+cargo install calyx
 ```
 
 This will install the `futil` binary which includes the calyx frontend,
