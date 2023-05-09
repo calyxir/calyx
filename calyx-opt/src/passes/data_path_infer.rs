@@ -8,7 +8,7 @@ use std::{collections::HashSet, rc::Rc};
 /// A cell marked with `@data` can have `'x` assignments to its `@data` ports
 /// which enables downstream optimizations.
 ///
-/// A cell cannot be marked `@data` iff:
+/// A cell cannot be marked `@data` if:
 /// * If it is used in the guard of an assignment
 /// * If it is used as the done condition of a group
 /// * If it is used as the conditional port for if or while
@@ -72,6 +72,19 @@ impl DataPathInfer {
             }
         });
     }
+
+    fn mark_control<T: Clone>(&mut self, assign: &ir::Assignment<T>) {
+        // If the destination is a control port, then the cell used in the
+        // source must also be a control port.
+        let dst = assign.dst.borrow();
+        let src = assign.src.borrow();
+        if !dst.is_hole() && !src.is_hole() {
+            let dst_cell = dst.get_parent_name();
+            if self.control_cells.contains(&dst_cell) {
+                self.control_cells.insert(src.get_parent_name());
+            }
+        }
+    }
 }
 
 impl Visitor for DataPathInfer {
@@ -117,6 +130,25 @@ impl Visitor for DataPathInfer {
         // Handle all assignment in the component
         comp.for_each_assignment(|assign| self.handle_assign(assign));
         comp.for_each_static_assignment(|assign| self.handle_assign(assign));
+
+        // Iterate: For all assignments, if the destination if a control port, mark the source cell as control
+        // Start with zero so we do at least one iteration
+        let mut old_len = 0;
+        let mut iter_count = 0;
+        while old_len != self.control_cells.len() {
+            old_len = self.control_cells.len();
+
+            comp.for_each_assignment(|assign| self.mark_control(assign));
+            comp.for_each_static_assignment(|assign| self.mark_control(assign));
+
+            // Log a warning if we are taking too long
+            iter_count += 1;
+            if iter_count > 5 {
+                log::warn!(
+                    "Data path infer did not converge after 5 iterations"
+                );
+            }
+        }
 
         // Mark all control cells
         for c in comp.cells.iter() {
