@@ -53,7 +53,7 @@ RUN sbt "; getHeaders; assembly"
 
 # Clone the Calyx repository
 WORKDIR /home
-RUN git clone https://github.com/cucapra/calyx.git calyx
+RUN git clone --branch v0.2.0 https://github.com/cucapra/calyx.git calyx
 
 # Install rust tools
 WORKDIR /home
