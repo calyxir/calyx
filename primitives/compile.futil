@@ -9,7 +9,7 @@ comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH) {
 };
 
 /// Combinational wire to forward values
-comb primitive std_wire<"share"=1>[WIDTH](in: WIDTH) -> (out: WIDTH) {
+comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
     assign out = in;
 };
 
@@ -20,7 +20,7 @@ comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) 
 
 /// Standard register with a one-cycle latency.
 primitive std_reg<"state_share"=1>[WIDTH](
-  @write_together(1) in: WIDTH,
+  @write_together(1) @data in: WIDTH,
   @write_together(1) @static(1) @go write_en: 1,
   @clk clk: 1,
   @reset reset: 1

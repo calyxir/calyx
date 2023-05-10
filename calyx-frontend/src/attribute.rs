@@ -1,13 +1,22 @@
-use std::str::FromStr;
-
 use calyx_utils::{CalyxResult, Error, Id};
-use strum_macros::{AsRefStr, EnumString, FromRepr};
+use std::str::FromStr;
+use strum::EnumCount;
+use strum_macros::{AsRefStr, EnumCount, EnumString, FromRepr};
 
 /// Attributes that have been deprecated.
 pub const DEPRECATED_ATTRIBUTES: &[&str] = &[];
 
 #[derive(
-    FromRepr, AsRefStr, EnumString, Clone, Copy, Hash, PartialEq, Eq, Debug,
+    EnumCount,
+    FromRepr,
+    AsRefStr,
+    EnumString,
+    Clone,
+    Copy,
+    Hash,
+    PartialEq,
+    Eq,
+    Debug,
 )]
 #[repr(u8)]
 /// Attributes that are only allowed to take boolean values.
@@ -31,8 +40,11 @@ pub enum BoolAttr {
     /// Is the port connected to a state element
     Stable,
     #[strum(serialize = "data")]
-    /// This is a data path component
+    /// This is a data path instance
     Data,
+    #[strum(serialize = "control")]
+    /// This is a control path instance
+    Control,
     #[strum(serialize = "share")]
     /// Is this component shareable
     Share,
@@ -187,7 +199,7 @@ impl InlineAttributes {
 
     /// Returns an iterator over the attributes in the set
     pub(super) fn iter(&self) -> impl Iterator<Item = BoolAttr> + '_ {
-        (0..14).filter_map(|idx| {
+        (0..(BoolAttr::COUNT as u8)).filter_map(|idx| {
             if self.attrs & (1 << idx) != 0 {
                 Some(BoolAttr::from_repr(idx).unwrap())
             } else {
