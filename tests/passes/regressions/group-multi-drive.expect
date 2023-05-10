@@ -1,8 +1,8 @@
 import "primitives/core.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    r = std_reg(32);
-    add = std_add(32);
+    @data r = std_reg(32);
+    @data add = std_add(32);
     @generated fsm = std_reg(2);
     @generated do_update_go = std_wire(1);
     @generated do_update_done = std_wire(1);

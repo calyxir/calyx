@@ -1,18 +1,18 @@
 import "primitives/core.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    @external A0 = std_mem_d1(32, 8, 4);
-    A_read0_0 = std_reg(32);
-    @external B0 = std_mem_d1(32, 8, 4);
-    B_read0_0 = std_reg(32);
-    @external Sum0 = std_mem_d1(32, 8, 4);
-    add0 = std_add(32);
-    add1 = std_add(4);
-    const0 = std_const(4, 0);
-    const1 = std_const(4, 7);
-    const2 = std_const(4, 1);
-    i0 = std_reg(4);
-    le0 = std_le(4);
+    @external @data A0 = std_mem_d1(32, 8, 4);
+    @data A_read0_0 = std_reg(32);
+    @external @data B0 = std_mem_d1(32, 8, 4);
+    @data B_read0_0 = std_reg(32);
+    @external @data Sum0 = std_mem_d1(32, 8, 4);
+    @data add0 = std_add(32);
+    @data add1 = std_add(4);
+    @data const0 = std_const(4, 0);
+    @control const1 = std_const(4, 7);
+    @data const2 = std_const(4, 1);
+    @data i0 = std_reg(4);
+    @control le0 = std_le(4);
     @generated comb_reg = std_reg(1);
     @generated fsm = std_reg(3);
     @generated upd2_go = std_wire(1);

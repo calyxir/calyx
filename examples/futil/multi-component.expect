@@ -1,7 +1,7 @@
 import "primitives/core.futil";
 component identity<"state_share"=1>(in: 32, @go @static go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
-    r = std_reg(32);
+    @data r = std_reg(32);
     @generated invoke0_go = std_wire(1);
     @generated invoke0_done = std_wire(1);
   }
@@ -20,8 +20,8 @@ component identity<"state_share"=1>(in: 32, @go @static go: 1, @clk clk: 1, @res
 }
 component main(@go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    id = identity();
-    current_value = std_reg(32);
+    @data id = identity();
+    @data current_value = std_reg(32);
     @generated fsm = std_reg(2);
     @generated invoke0_go = std_wire(1);
     @generated invoke0_done = std_wire(1);
