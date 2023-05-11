@@ -12,7 +12,7 @@ use std::{
 
 /// String representing the basic compilation primitives that need to be present
 /// to support compilation.
-const COMPILE_LIB: &str = include_str!("../../primitives/compile.futil");
+const COMPILE_LIB: &str = include_str!("../resources/compile.futil");
 
 /// A Workspace represents all Calyx files transitively discovered while trying to compile a
 /// top-level file.

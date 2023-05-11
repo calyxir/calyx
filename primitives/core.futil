@@ -27,7 +27,7 @@ extern "core.sv" {
   /// Memories
   primitive std_mem_d1[WIDTH, SIZE, IDX_SIZE](
     @read_together(1) addr0: IDX_SIZE,
-    @write_together(1) write_data: WIDTH,
+    @write_together(1) @data write_data: WIDTH,
     @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1,
     @reset reset: 1
@@ -39,7 +39,7 @@ extern "core.sv" {
   primitive std_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
     @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
     @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
-    @write_together(1) write_data: WIDTH,
+    @write_together(1) @data write_data: WIDTH,
     @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1,
     @reset reset: 1
@@ -60,7 +60,7 @@ extern "core.sv" {
     @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
     @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
     @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
-    @write_together(1) write_data: WIDTH,
+    @write_together(1) @data write_data: WIDTH,
     @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1,
     @reset reset: 1
@@ -84,7 +84,7 @@ extern "core.sv" {
     @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
     @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
     @read_together(1) @write_together(2) addr3: D3_IDX_SIZE,
-    @write_together(1) write_data: WIDTH,
+    @write_together(1) @data write_data: WIDTH,
     @write_together(1) @static(1) @go write_en: 1,
     @clk clk: 1
   ) -> (

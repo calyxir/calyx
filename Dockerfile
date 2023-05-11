@@ -51,18 +51,15 @@ RUN git clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
 RUN sbt "; getHeaders; assembly"
 
-# Clone the Calyx repository
+# Clone the Calyx repository using a specific tag
 WORKDIR /home
 RUN git clone https://github.com/cucapra/calyx.git calyx
-
-# Install rust tools
-WORKDIR /home
-RUN cargo install vcdump
-RUN cargo install runt --version $(grep ^ver calyx/runt.toml | awk '{print $3}' | tr -d '"')
-
-# Build the compiler.
+# Build the compiler
 WORKDIR /home/calyx
-RUN cargo build --all
+RUN git checkout -b v0.2.0 && \
+    cargo build --all && \
+    cargo install vcdump && \
+    cargo install runt --version $(grep ^ver runt.toml | awk '{print $3}' | tr -d '"')
 
 # Install fud
 WORKDIR /home/calyx/fud
@@ -79,7 +76,7 @@ RUN fud config --create global.futil_directory /home/calyx && \
     fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py' && \
     fud register ntt -p '/home/calyx/frontends/ntt-pipeline/fud/ntt.py' && \
     fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
-    fud c --delete stages.verilog.top_module
+    fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'
 
 # Install calyx-py
 WORKDIR /home/calyx/calyx-py

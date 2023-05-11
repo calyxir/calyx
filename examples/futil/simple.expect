@@ -2,11 +2,11 @@ import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main(@go @static(5) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    const0 = std_const(32, 4);
-    const1 = std_const(32, 5);
-    add = std_add(32);
-    mult = std_mult_pipe(32);
-    reg0 = std_reg(32);
+    @data const0 = std_const(32, 4);
+    @data const1 = std_const(32, 5);
+    @data add = std_add(32);
+    @data mult = std_mult_pipe(32);
+    @data reg0 = std_reg(32);
     @generated fsm = std_reg(2);
     @generated invoke0_go = std_wire(1);
     @generated invoke0_done = std_wire(1);

@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/passes/well-formed/guard-out-of-bounds.futil
+10 |      r1.write_en = %2 ? 1'd1; 
+   |      ^^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: Static Timing Guard has interval `%2`, which is out of bounds since its static group has latency 2
