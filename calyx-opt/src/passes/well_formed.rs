@@ -534,7 +534,7 @@ impl Visitor for WellFormed {
                     "If statement has no comb group and its condition port {} is unstable",
                     s.port.borrow().canonical()
                 ));
-            Err(calyx_utils::Error::malformed_control(msg))?
+            return Err(calyx_utils::Error::malformed_control(msg));
         }
         Ok(Action::Continue)
     }
@@ -601,7 +601,7 @@ impl Visitor for WellFormed {
                     "While loop has no comb group and its condition port {} is unstable",
                     s.port.borrow().canonical()
                 ));
-            Err(calyx_utils::Error::malformed_control(msg))?
+            return Err(calyx_utils::Error::malformed_control(msg));
         }
         Ok(Action::Continue)
     }
