@@ -73,7 +73,6 @@ RUN fud config --create global.futil_directory /home/calyx && \
     fud config stages.dahlia.exec '/home/dahlia/fuse' && \
     fud config stages.futil.exec '/home/calyx/target/debug/calyx' && \
     fud config stages.interpreter.exec '/home/calyx/target/debug/interp' && \
-    fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py' && \
     fud register ntt -p '/home/calyx/frontends/ntt-pipeline/fud/ntt.py' && \
     fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
     fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'
