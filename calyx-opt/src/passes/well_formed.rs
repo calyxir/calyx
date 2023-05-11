@@ -541,6 +541,23 @@ impl Visitor for WellFormed {
         Ok(Action::Continue)
     }
 
+    fn start_static_if(
+        &mut self,
+        s: &mut ir::StaticIf,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
+            let msg = s.attributes.copy_span().format(format!(
+                    "Static If statement has no comb group and its condition port {} is unstable",
+                    s.port.borrow().canonical()
+                ));
+            Err(calyx_utils::Error::malformed_control(msg))?
+        }
+        Ok(Action::Continue)
+    }
+
     fn finish_if(
         &mut self,
         s: &mut ir::If,
