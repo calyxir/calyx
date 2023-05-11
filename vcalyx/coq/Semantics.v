@@ -66,6 +66,13 @@ Section Semantics.
     | _ => None (* unimplemented *)
     end.
 
+  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option cell_map :=
+    map_fold (fun _ cell σ_opt =>
+                σ ← σ_opt;
+                poke_cell cell ρ σ)
+             (Some σ)
+             ce.
+
   Definition read_port (p: port) (σ: cell_map) : option value :=
     match p.(parent) with
     | PCell cell =>
@@ -89,7 +96,7 @@ Section Semantics.
     match op.(src).(parent) with
     | PCell cell =>
       c ← ce !! cell;
-      σ' ← poke_cell c ρ σ;
+      σ' ← poke_all_cells ce ρ σ;
       v ← read_port op.(src) σ';
       write_port op.(dst) v σ'
     | _ =>
