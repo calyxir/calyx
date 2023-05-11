@@ -1,17 +1,17 @@
 [build-system]
-requires = ["flit_core >=2,<4"]
+requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
-[tool.flit.metadata]
-module = "mrxl"
-author = "The Calyx Authors"
-home-page = "https://docs.calyxir.org/frontends/mrxl.html"
+[project]
+name = "mrxl"
+authors = [{name = "The Calyx Authors"}]
 classifiers = ["License :: OSI Approved :: MIT License"]
-description-file = "README.md"
+dynamic = ["version", "description"]
+readme = "README.md"
 requires-python = ">=3.4"
-requires = [
-         "lark-parser",
+dependencies = [
+    "lark-parser",
 ]
 
-[tool.flit.scripts]
+[project.scripts]
 mrxl = "mrxl.main:main"
