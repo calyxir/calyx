@@ -142,6 +142,7 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
   cells {
     write_en_reg = std_reg(1);
     search_en_reg = std_reg(1);
+    ce40_reg = std_reg(1);
     p0 = std_reg(32);
     p1 = std_reg(32);
     p2 = std_reg(32);
@@ -360,6 +361,11 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
       search_en_reg.write_en = 1'd1; 
       search_en_reg.in = search_en; 
       write_search_en_reg[done] = search_en_reg.done; 
+    }
+    group write_ce40_reg {
+      ce40_reg.write_en = 1'd1; 
+      ce40_reg.in = ce40.mlX;
+      write_ce40_reg[done] = ce40_reg.done; 
     }
     comb group is_length_zero {
       z_eq.left = 6'd0;
@@ -957,8 +963,9 @@ component TCAM_IPv4(write_en: 1, search_en: 1, in: 32, prefix_len: 6, write_inde
             invoke ce31(lenA=ce22.lenX, lenB=ce23.lenX, addrA=ce22.addrX, addrB=ce23.addrX, mlA=ce22.mlX, mlB=ce23.mlX)();
           }
           invoke ce40(lenA=ce30.lenX, lenB=ce31.lenX, addrA=ce30.addrX, addrB=ce31.addrX, mlA=ce30.mlX, mlB=ce31.mlX)();
+          write_ce40_reg;
           // If the final comparator has a valid value then save it.
-          if ce40.mlX { save_index; } else { default_to_zero_length_index; }
+          if ce40_reg.out { save_index; } else { default_to_zero_length_index; }
         }
       }
     }
