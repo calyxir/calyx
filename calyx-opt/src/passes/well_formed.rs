@@ -11,6 +11,22 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
+    for comp in comps {
+        if comp.name == id {
+            if comp.latency.is_some() {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
+    unreachable!(
+        "called assert_comp_static with comp name {}, which was not found as a component",
+        id
+    )
+}
+
 #[derive(Default)]
 struct ActiveAssignments {
     // Set of currently active assignments
@@ -274,6 +290,12 @@ impl Visitor for WellFormed {
                 }
             }
         }
+        if comp.latency.is_some() {
+            // static components should have only static control
+            if !matches!(&*comp.control.borrow(), ir::Control::Static(_)) {
+                return Err(Error::malformed_structure(format!("Component `{}` has a static latency but has non-static control program", comp.name)));
+            }
+        }
 
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
@@ -284,6 +306,13 @@ impl Visitor for WellFormed {
             // Find an assignment writing to this group's done condition.
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
+                if is_comp_static(comps, &dst.get_parent_name()) {
+                    return Err(Error::malformed_structure(format!(
+                        "Static Component `{}` written to in non-static group",
+                        dst.get_parent_name()
+                    ))
+                    .with_pos(&assign.attributes));
+                }
                 if dst.is_hole() && dst.name == "done" {
                     // Group has multiple done conditions
                     if has_done {
@@ -449,7 +478,7 @@ impl Visitor for WellFormed {
         s: &mut ir::Invoke,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-        _comps: &[ir::Component],
+        comps: &[ir::Component],
     ) -> VisResult {
         if let Some(c) = &s.comb_group {
             self.used_comb_groups.insert(c.borrow().name());
@@ -476,6 +505,78 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
+            if is_comp_static(comps, id) {
+                return Err(Error::malformed_structure(format!(
+                    "Dynamically Invoked static component `{}`",
+                    id
+                ))
+                .with_pos(&s.attributes));
+            }
+            let cellmap = &self.ref_cell_types[id];
+            let mut mentioned_cells = HashSet::new();
+            for (outcell, incell) in s.ref_cells.iter() {
+                if let Some(t) = cellmap.get(outcell) {
+                    let proto = incell.borrow().prototype.clone();
+                    same_type(t, &proto)
+                        .map_err(|err| err.with_pos(&s.attributes))?;
+                    mentioned_cells.insert(outcell);
+                } else {
+                    return Err(Error::malformed_control(format!(
+                        "{} does not have ref cell named {}",
+                        id, outcell
+                    )));
+                }
+            }
+            for id in cellmap.keys() {
+                if mentioned_cells.get(id).is_none() {
+                    return Err(Error::malformed_control(format!(
+                        "unmentioned ref cell: {}",
+                        id
+                    ))
+                    .with_pos(&s.attributes));
+                }
+            }
+        }
+
+        Ok(Action::Continue)
+    }
+
+    fn static_invoke(
+        &mut self,
+        s: &mut ir::StaticInvoke,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
+        comps: &[ir::Component],
+    ) -> VisResult {
+        // Only refers to ports defined in the invoked instance.
+        let cell = s.comp.borrow();
+        let ports: HashSet<_> =
+            cell.ports.iter().map(|p| p.borrow().name).collect();
+
+        s.inputs
+            .iter()
+            .chain(s.outputs.iter())
+            .try_for_each(|(port, _)| {
+                if !ports.contains(port) {
+                    Err(Error::malformed_structure(format!(
+                        "`{}` does not have port named `{}`",
+                        cell.name(),
+                        port
+                    ))
+                    .with_pos(&s.attributes))
+                } else {
+                    Ok(())
+                }
+            })?;
+
+        if let CellType::Component { name: id } = &cell.prototype {
+            if !is_comp_static(comps, id) {
+                return Err(Error::malformed_structure(format!(
+                    "Statically Invoked dynamic component `{}`",
+                    id
+                ))
+                .with_pos(&s.attributes));
+            }
             let cellmap = &self.ref_cell_types[id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {

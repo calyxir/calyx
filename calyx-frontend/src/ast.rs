@@ -63,10 +63,17 @@ pub struct ComponentDef {
     pub attributes: Attributes,
     /// True iff this is a combinational component
     pub is_comb: bool,
+    /// (Optional) latency of component, if it is static
+    pub latency: Option<NonZeroU64>,
 }
 
 impl ComponentDef {
-    pub fn new<S>(name: S, is_comb: bool, signature: Vec<PortDef<u64>>) -> Self
+    pub fn new<S>(
+        name: S,
+        is_comb: bool,
+        latency: Option<NonZeroU64>,
+        signature: Vec<PortDef<u64>>,
+    ) -> Self
     where
         S: Into<Id>,
     {
@@ -80,6 +87,7 @@ impl ComponentDef {
             control: Control::empty(),
             attributes: Attributes::default(),
             is_comb,
+            latency,
         }
     }
 }

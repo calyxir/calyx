@@ -43,6 +43,8 @@ reference = { "ref" }
 
 static_word = { "static" }
 
+static_annotation = { static_word ~ latency_annotation } 
+
 file = {
       SOI
       ~ imports
@@ -58,7 +60,7 @@ extern_or_component = {
 externs_and_comps = { extern_or_component* }
 
 component = {
-      comb? ~ "component" ~ name_with_attribute ~ signature
+      (comb | static_annotation)? ~ "component" ~ name_with_attribute ~ signature
       ~ "{"
       ~ cells
       ~ connections

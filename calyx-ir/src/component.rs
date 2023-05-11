@@ -41,6 +41,8 @@ pub struct Component {
     pub attributes: Attributes,
     /// True iff component is combinational
     pub is_comb: bool,
+    /// (Optional) latency of component, if it is static
+    pub latency: Option<u64>,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
@@ -54,7 +56,12 @@ pub struct Component {
 ///   name.
 impl Component {
     /// Construct a new Component with the given `name` and signature fields.
-    pub fn new<S>(name: S, ports: Vec<PortDef<u64>>, is_comb: bool) -> Self
+    pub fn new<S>(
+        name: S,
+        ports: Vec<PortDef<u64>>,
+        is_comb: bool,
+        latency: Option<std::num::NonZeroU64>,
+    ) -> Self
     where
         S: Into<Id>,
     {
@@ -85,6 +92,9 @@ impl Component {
             namegen: NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
             is_comb,
+            // converting from NonZeroU64 to u64. May want to keep permanently as NonZeroU64
+            // in the future, but rn it's probably easier to keep as u64
+            latency: latency.map(|x| x.into()),
         }
     }
 

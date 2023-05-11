@@ -228,6 +228,13 @@ impl CalyxParser {
             .map_err(|_| input.error("Expected valid bitwidth"))
     }
 
+    fn static_annotation(input: Node) -> ParseResult<std::num::NonZeroU64> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_word(_), latency_annotation(latency)] => latency
+        ))
+    }
+
     fn bad_num(input: Node) -> ParseResult<u64> {
         Err(input.error("Expected number with bitwidth (like 32'd10)."))
     }
@@ -1029,71 +1036,108 @@ impl CalyxParser {
     fn component(input: Node) -> ParseResult<ComponentDef> {
         let span = Self::get_span(&input);
         match_nodes!(
-        input.clone().into_children();
-        [
-            comb(_),
-            name_with_attribute((name, attributes)),
-            signature(sig),
-            cells(cells),
-            connections(connections)
-        ] => {
-            let (continuous_assignments, groups, static_groups) = connections;
-            let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                if let Width::Const { value } = width {
-                    Ok(PortDef {
-                        name,
-                        width: value,
-                        direction,
-                        attributes
-                    })
-                } else {
-                    Err(input.error("Components cannot use parameters"))
-                }
-            }).collect::<Result<_, _>>()?;
-            Ok(ComponentDef {
-                name,
-                signature: sig,
-                cells,
-                groups,
-                static_groups,
-                continuous_assignments,
-                control: Control::empty(),
-                attributes: attributes.add_span(span),
-                is_comb: true,
-            })
-        },
-        [
-            name_with_attribute((name, attributes)),
-            signature(sig),
-            cells(cells),
-            connections(connections),
-            control(control)
-        ] => {
-            let (continuous_assignments, groups, static_groups) = connections;
-            let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                if let Width::Const { value } = width {
-                    Ok(PortDef {
-                        name,
-                        width: value,
-                        direction,
-                        attributes
-                    })
-                } else {
-                    Err(input.error("Components cannot use parameters"))
-                }
-            }).collect::<Result<_, _>>()?;
-            Ok(ComponentDef {
-                name,
-                signature: sig,
-                cells,
-                groups,
-                static_groups,
-                continuous_assignments,
-                control,
-                attributes: attributes.add_span(span),
-                is_comb: false,
-            })
-        })
+            input.clone().into_children();
+            [
+                comb(_),
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections)
+            ] => {
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control: Control::empty(),
+                    attributes: attributes.add_span(span),
+                    is_comb: true,
+                    latency: None,
+                })
+            },
+            [
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections),
+                control(control)
+            ] => {
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control,
+                    attributes: attributes.add_span(span),
+                    is_comb: false,
+                    latency: None,
+                })
+            },
+            [
+                static_annotation(latency),
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections),
+                control(control)
+            ] => {
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control,
+                    attributes: attributes.add_span(span),
+                    is_comb: false,
+                    latency: Some(latency),
+                })
+            }
+        )
     }
 
     fn imports(input: Node) -> ParseResult<Vec<String>> {
