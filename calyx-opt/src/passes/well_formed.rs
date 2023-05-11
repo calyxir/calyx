@@ -529,14 +529,12 @@ impl Visitor for WellFormed {
             })?;
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
-        } else {
-            if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
-                let msg = s.attributes.copy_span().format(format!(
+        } else if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
+            let msg = s.attributes.copy_span().format(format!(
                     "If statement has no comb group and its condition port {} is unstable",
                     s.port.borrow().canonical()
                 ));
-                Err(calyx_utils::Error::malformed_control(msg))?
-            }
+            Err(calyx_utils::Error::malformed_control(msg))?
         }
         Ok(Action::Continue)
     }
@@ -550,9 +548,9 @@ impl Visitor for WellFormed {
     ) -> VisResult {
         if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
             let msg = s.attributes.copy_span().format(format!(
-                    "Static If statement has no comb group and its condition port {} is unstable",
-                    s.port.borrow().canonical()
-                ));
+                "Static If statement's condition port {} is unstable",
+                s.port.borrow().canonical()
+            ));
             Err(calyx_utils::Error::malformed_control(msg))?
         }
         Ok(Action::Continue)
@@ -598,14 +596,12 @@ impl Visitor for WellFormed {
             })?;
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
-        } else {
-            if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
-                let msg = s.attributes.copy_span().format(format!(
+        } else if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
+            let msg = s.attributes.copy_span().format(format!(
                     "While loop has no comb group and its condition port {} is unstable",
                     s.port.borrow().canonical()
                 ));
-                Err(calyx_utils::Error::malformed_control(msg))?
-            }
+            Err(calyx_utils::Error::malformed_control(msg))?
         }
         Ok(Action::Continue)
     }
