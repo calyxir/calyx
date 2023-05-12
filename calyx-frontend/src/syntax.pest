@@ -45,7 +45,7 @@ static_word = { "static" }
 
 static_annotation = { static_word ~ latency_annotation} 
 
-optional_static_annotation = { static_word ~ latency_annotation? } 
+static_optional_latency = { static_word ~ latency_annotation? } 
 
 file = {
       SOI
@@ -283,7 +283,7 @@ invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
 invoke_ref_arg = {identifier ~ "=" ~ identifier}
 invoke_ref_args = {("[" ~ (invoke_ref_arg ~ ("," ~ invoke_ref_arg)*)? ~ "]")?}
 invoke = { at_attributes ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
-static_invoke = { at_attributes ~ optional_static_annotation ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
+static_invoke = { at_attributes ~ static_optional_latency ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
 
 seq = {
       at_attributes ~ "seq" ~ "{"
@@ -292,7 +292,7 @@ seq = {
 }
 
 static_seq = {
-      at_attributes ~  static_word ~ latency_annotation? ~ "seq"  ~ "{"
+      at_attributes ~  static_optional_latency ~ "seq"  ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -304,7 +304,7 @@ par = {
 }
 
 static_par = {
-      at_attributes ~  static_word ~ latency_annotation? ~ "par"  ~ "{"
+      at_attributes ~ static_optional_latency ~ "par"  ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -327,7 +327,7 @@ if_stmt = {
 }
 
 static_if_stmt = {
-      at_attributes ~ static_word ~  latency_annotation? ~ "if"  ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
+      at_attributes ~ static_optional_latency ~ "if"  ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
 }
 
 while_stmt = {

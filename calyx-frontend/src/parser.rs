@@ -235,7 +235,7 @@ impl CalyxParser {
         ))
     }
 
-    fn optional_static_annotation(
+    fn static_optional_latency(
         input: Node,
     ) -> ParseResult<Option<std::num::NonZeroU64>> {
         Ok(match_nodes!(
@@ -820,14 +820,14 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), optional_static_annotation(optional_latency), identifier(comp), invoke_ref_args(cells),invoke_args(inputs), invoke_args(outputs)] =>
+            [at_attributes(attrs), static_optional_latency(latency), identifier(comp), invoke_ref_args(cells),invoke_args(inputs), invoke_args(outputs)] =>
                 ast::Control::StaticInvoke {
                     comp,
                     inputs,
                     outputs,
                     attributes: attrs.add_span(span),
                     ref_cells: cells,
-                    latency: optional_latency,
+                    latency,
                 },
         ))
     }
@@ -868,16 +868,11 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), static_word(_), latency_annotation(latency) ,stmt(stmt)..] => ast::Control::StaticSeq {
+            [at_attributes(attrs), static_optional_latency(latency) ,stmt(stmt)..] => ast::Control::StaticSeq {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
-                latency: Some(latency),
-            },
-            [at_attributes(attrs), static_word(_) ,stmt(stmt)..] => ast::Control::StaticSeq {
-                stmts: stmt.collect(),
-                attributes: attrs.add_span(span),
-                latency: None,
-            },
+                latency,
+            }
         ))
     }
 
@@ -896,16 +891,11 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), static_word(_), latency_annotation(latency) ,stmt(stmt)..] => ast::Control::StaticPar {
+            [at_attributes(attrs), static_optional_latency(latency) ,stmt(stmt)..] => ast::Control::StaticPar {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
-                latency: Some(latency),
-            },
-            [at_attributes(attrs), static_word(_), stmt(stmt)..] => ast::Control::StaticPar {
-                stmts: stmt.collect(),
-                attributes: attrs.add_span(span),
-                latency: None,
-            },
+                latency,
+            }
         ))
     }
 
@@ -952,52 +942,29 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(stmt)] => ast::Control::StaticIf {
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(stmt)] => ast::Control::StaticIf {
                 port,
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
                 attributes: attrs.add_span(span),
-                latency: Some(latency),
+                latency,
             },
-            [at_attributes(attrs), static_word(_), port(port), block(stmt)] => ast::Control::StaticIf {
-                port,
-                tbranch: Box::new(stmt),
-                fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
-                attributes: attrs.add_span(span),
-                latency: None,
-            },
-            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(tbranch), block(fbranch)] =>
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(tbranch), block(fbranch)] =>
                 ast::Control::StaticIf {
                     port,
                     tbranch: Box::new(tbranch),
                     fbranch: Box::new(fbranch),
                     attributes: attrs.add_span(span),
-                    latency: Some(latency),
+                    latency,
                 },
-            [at_attributes(attrs), static_word(_), port(port), block(tbranch), block(fbranch)] =>
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(tbranch), static_if_stmt(fbranch)] =>
                 ast::Control::StaticIf {
                     port,
                     tbranch: Box::new(tbranch),
                     fbranch: Box::new(fbranch),
                     attributes: attrs.add_span(span),
-                    latency: None,
-                },
-            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(tbranch), if_stmt(fbranch)] =>
-                ast::Control::StaticIf {
-                    port,
-                    tbranch: Box::new(tbranch),
-                    fbranch: Box::new(fbranch),
-                    attributes: attrs.add_span(span),
-                    latency: Some(latency),
-                },
-            [at_attributes(attrs), static_word(_), port(port), block(tbranch), if_stmt(fbranch)] =>
-                ast::Control::StaticIf {
-                    port,
-                    tbranch: Box::new(tbranch),
-                    fbranch: Box::new(fbranch),
-                    attributes: attrs.add_span(span),
-                    latency: None,
-                },
+                    latency,
+                }
         ))
     }
 
