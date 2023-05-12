@@ -5,6 +5,7 @@ component main(is_valid: 1) -> () {
     is_even = std_reg(1);
     is_not_zero = std_reg(1);
     r = std_reg(32);
+    r1 = std_reg(1);
   }
   wires {
     group one {
@@ -19,7 +20,7 @@ component main(is_valid: 1) -> () {
     }
   }
   control {
-    while is_valid {
+    while r1.out {
       if is_even.out {
         one;
       } else {

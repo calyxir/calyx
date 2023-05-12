@@ -3,7 +3,7 @@ component main(@go @static(10) go: 1, @clk clk: 1, @reset reset: 1) -> (@done do
   cells {
     @external i = std_mem_d1(32, 1, 1);
     @external j = std_mem_d1(32, 1, 1);
-    lt = std_lt(32);
+    r = std_reg(1);
     add = std_add(32);
   }
   wires {
@@ -26,7 +26,7 @@ component main(@go @static(10) go: 1, @clk clk: 1, @reset reset: 1) -> (@done do
   }
 
   control {
-    @bound(5) @static(10) while lt.out {
+    @bound(5) @static(10) while r.out {
       @static(2) seq {
         @static incr_i;
         @static incr_j;

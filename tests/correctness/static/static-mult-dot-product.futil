@@ -11,6 +11,7 @@ component main() -> () {
         add = std_add(4);
         sub = std_sub(4);
         ud = undef(1);
+        meaningless_reg = std_reg(1);
 
         lt = std_lt(4);
         lt_10 = std_reg(1);
@@ -79,7 +80,7 @@ component main() -> () {
         par { start_mult; incr; }
         par { start_mult; incr; }
         par { start_mult; incr; }
-        @bound(6) while ud.out {
+        @bound(6) while meaningless_reg.out {
             par {
                 incr;
                 start_mult;

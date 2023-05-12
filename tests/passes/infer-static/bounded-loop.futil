@@ -6,7 +6,7 @@ component main() -> () {
   cells {
     @external(1) i = std_mem_d1(32, 1, 1);
     @external(1) j = std_mem_d1(32, 1, 1);
-    lt = std_lt(32);
+    r = std_reg(1);
     add = std_add(32);
   }
 
@@ -35,7 +35,7 @@ component main() -> () {
   }
 
   control {
-    @bound(5) while lt.out {
+    @bound(5) while r.out {
       seq { incr_i; incr_j; }
     }
   }
