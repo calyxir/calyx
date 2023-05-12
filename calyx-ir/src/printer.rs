@@ -132,9 +132,8 @@ impl Printer {
         if prim.is_comb {
             write!(f, "comb ")?;
         }
-        match prim.latency {
-            Some(latency_val) => write!(f, "static<{}> ", latency_val)?,
-            None => (),
+        if let Some(latency_val) = prim.latency {
+            write!(f, "static<{}> ", latency_val)?;
         }
         write!(
             f,
