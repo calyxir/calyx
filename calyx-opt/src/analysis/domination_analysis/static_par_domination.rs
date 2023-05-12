@@ -23,7 +23,7 @@ impl Debug for StaticParDomination {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
-            "This maps ids of par blocks to \"node timing maps\", which map node ids to the first interval (i,j) that the node (i.e., enable/static/if conditional) is active for, \n relative to the start of the given par block"
+            "This maps ids of par blocks to \"node timing maps\", which map node ids to the first interval (i,j) that the node (i.e., enable/invoke/if conditional) is active for, \n relative to the start of the given par block"
         )?;
         write!(
             f,

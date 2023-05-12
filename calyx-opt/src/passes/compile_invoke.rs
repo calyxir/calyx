@@ -5,6 +5,8 @@ use calyx_utils::{CalyxResult, Error};
 use itertools::Itertools;
 use std::rc::Rc;
 
+// given `cell_ref` returns the `go` port of the cell (if it only has one `go` port),
+// or an error otherwise
 fn get_go_port(cell_ref: ir::RRC<ir::Cell>) -> CalyxResult<ir::RRC<ir::Port>> {
     let cell = cell_ref.borrow();
 
@@ -21,6 +23,8 @@ fn get_go_port(cell_ref: ir::RRC<ir::Cell>) -> CalyxResult<ir::RRC<ir::Port>> {
     Ok(go_ports.pop().unwrap())
 }
 
+// given inputs and outputs (of the invoke), and the `enable_assignments` (e.g., invoked_component.go = 1'd1)
+// and a cell, builds the assignments for the corresponding group
 fn build_assignments<T>(
     inputs: &mut Vec<(ir::Id, ir::RRC<ir::Port>)>,
     outputs: &mut Vec<(ir::Id, ir::RRC<ir::Port>)>,

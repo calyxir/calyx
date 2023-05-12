@@ -50,15 +50,7 @@ extern "<ROOT>/calyx/primitives/core.sv" {
     end else done <= 1'd0;
   end
  };
-component pow(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
-  control {}
-}
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component max(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
   }
   wires {
@@ -74,7 +66,15 @@ component min(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 
   control {}
 }
-component max(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
+}
+component pow(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
   }
   wires {

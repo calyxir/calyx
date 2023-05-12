@@ -371,7 +371,7 @@ pub enum Control {
         attributes: Attributes,
         /// External cells that may execute with this invoke.
         ref_cells: Vec<(Id, Id)>,
-        /// (optional) latency
+        /// (optional) latency. Latency can be inferred if not given.
         latency: Option<NonZeroU64>,
     },
     /// Control statement that does nothing.

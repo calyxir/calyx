@@ -75,6 +75,9 @@ impl Named for CompileRef {
 }
 
 impl CompileRef {
+    // given `ref_cells` of an invoke, reuturns `(inputs, outputs)` where
+    // inputs are the corresponding inputs to the `invoke` and
+    // outputs are the corresponding outputs to the `invoke`
     fn ref_cells_to_ports(
         &mut self,
         comp_name: ir::Id,

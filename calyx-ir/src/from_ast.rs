@@ -18,6 +18,13 @@ use std::rc::Rc;
 
 type InvokePortMap = Vec<(Id, Atom)>;
 
+// given `comps`, a vec of `ast::ComponentDef`, builds a topological ordering Vec<NodeIndex>.
+// In other words, if component 1 has index i1 in `comps` and
+// component 2 has index i2 in `comps`, if component 1 instantiates component 2, then
+// i2 will appear before i1 in the topological ordering returned by
+// this function.
+// Very similar to the `PostOrder` used by `Visitor` but here we are
+// dealing with `ast::ComponentDef`s rather than `ir::Component`s.
 fn get_post_order(comps: &Vec<ast::ComponentDef>) -> Vec<NodeIndex> {
     let mut graph: DiGraph<usize, ()> = DiGraph::new();
 
@@ -49,6 +56,11 @@ fn get_post_order(comps: &Vec<ast::ComponentDef>) -> Vec<NodeIndex> {
         .expect("There is a cycle in definition of component cells")
 }
 
+// helper function `ast_to_ir`. Helps us iterate `ComponentDef` in topological
+// order.
+// When we remove a component at index `removed_value` from the Vec of `ComponentDef`
+// we need to adjust the rest of the `values` that are greater than `removed_value` to
+// decrease by 1, since they are now one spot earlier in the Vec of `ComponentDef`s.
 fn update_sorted_indices(values: &mut [usize], removed_value: usize) {
     for val in values {
         if *val > removed_value {
@@ -180,8 +192,10 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
 
     let all_prims = sig_ctx.lib.all_prims();
 
-    // maps primitives/components to latencies (if they have one)
-    // starts with only primitives. Updates each time we call `build_component`.
+    // maps primitives/components to optional latencies
+    // starts with only primitives. Updates each time we call `build_component` to
+    // include the component's (possibly inferred) latency (or None if the component
+    // is not static)
     let mut comp_latency_map: HashMap<Id, Option<u64>> = all_prims
         .iter()
         .flat_map(|(_, prims)| {
@@ -189,20 +203,24 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
         })
         .collect();
 
-    // must iterate thru ast_comps in topological order to support `static_invoke` latency inference
+    // must iterate thru `ComponentDef`s in topological order to support `static_invoke` latency inference
     let mut topo_order: Vec<_> = get_post_order(&workspace.components)
         .into_iter()
         .map(|x| x.index())
         .collect();
     // reversing so we can use topo_order.pop()
     topo_order.reverse();
+    // `ast_comps` should be a topological ordering of `ComponentDefs`
     let mut ast_comps: Vec<ComponentDef> = Vec::new();
     while !topo_order.is_empty() {
+        // getting the earliest topological component (pop works since we called reverse()).
         let removed_idx = topo_order.pop().unwrap();
         ast_comps.push(workspace.components.remove(removed_idx));
+        // must update topo_order since we removed a component at `removed_idx` from workspace.components
         update_sorted_indices(&mut topo_order, removed_idx);
     }
 
+    // building components from `ast::ComponentDef`s to `ir::Component`
     let comps: Vec<Component> = ast_comps
         .into_iter()
         .map(|comp| build_component(comp, &mut comp_latency_map, &mut sig_ctx))
@@ -300,6 +318,8 @@ fn build_component(
         comp.name,
         comp.signature,
         comp.is_comb,
+        // we may change latency from None to Some(inferred latency)
+        // after we iterate thru the control of the Component
         comp.latency.map(|x| x.into()),
     );
 
@@ -337,14 +357,15 @@ fn build_component(
         match &*control.borrow() {
             Control::Static(sc) => {
                 assert_latencies_eq(comp.latency, sc.get_latency());
-                // add latency inferred latency to comp_latency_map
+                // add inferred latency to comp_latency_map
                 comp_latency_map.insert(comp.name, Some(sc.get_latency()));
                 // must update the latency of the ir_component to be the inferred latency
+                // (we needed to wait until we iterated thru the Control to get this information)
                 builder.component.latency = Some(sc.get_latency());
             }
             _ => {
                 return Err(Error::malformed_structure(format!(
-                    "component {} has non-static control",
+                    "static component {} has non-static control",
                     comp.name
                 )))
             }
@@ -760,6 +781,7 @@ fn build_static_if(
     Ok(con)
 }
 
+// builds a static invoke from the given information
 fn build_static_invoke(
     builder: &mut Builder,
     component: Id,
@@ -779,8 +801,7 @@ fn build_static_invoke(
         .borrow()
         .type_name()
         .unwrap_or_else(|| unreachable!("invoked component without a name"));
-    // get cells latency from comp_latency_map
-    // this relies on the static<> annotation given to all static components
+    // infers the latency of the invoke using comp_latency_map
     let comp_latency = match comp_latency_map
         .get(&comp_name)
         .unwrap_or_else(|| unreachable!("component {} not found", comp_name))
@@ -1038,6 +1059,25 @@ fn build_control(
                         .with_pos(&attributes)
                 })?,
             );
+
+            let comp_name = cell.borrow().type_name().unwrap_or_else(|| {
+                unreachable!("invoked component without a name")
+            });
+
+            // Not sure if it should be ane error to dynamically invoke static
+            // component
+            // match comp_latency_map.get(&comp_name).unwrap_or_else(|| {
+            //     unreachable!("component {} not found", comp_name)
+            // }) {
+            //     Some(_) => {
+            //         return Err(Error::malformed_control(format!(
+            //             "static component {} is dynamically invoked",
+            //             comp_name
+            //         ))
+            //         .with_pos(&attributes))
+            //     }
+            //     None => (),
+            // };
 
             let inputs = inputs
                 .into_iter()

@@ -11,6 +11,9 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+// given a port and a vec of components `comps`,
+// returns true if the port's parent is a static component
+// otherwise returns false
 fn port_is_static_comp(comps: &[ir::Component], port: &ir::Port) -> bool {
     let parent_cell = match &port.parent {
         ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(),
@@ -27,6 +30,8 @@ fn port_is_static_comp(comps: &[ir::Component], port: &ir::Port) -> bool {
     is_comp_static(comps, &id)
 }
 
+// given the name of a component `id`, returns true if
+// `id is a static component, false otherwise
 fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
     for comp in comps {
         if comp.name == id {
@@ -39,6 +44,7 @@ fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
     )
 }
 
+// gets latency of component `id` given vec of componenets `comps`
 fn get_comp_latency(comps: &[ir::Component], id: &ir::Id) -> Option<u64> {
     for comp in comps {
         if comp.name == id {
@@ -314,12 +320,6 @@ impl Visitor for WellFormed {
                 }
             }
         }
-        if comp.latency.is_some() {
-            // static components should have only static control
-            if !matches!(&*comp.control.borrow(), ir::Control::Static(_)) {
-                return Err(Error::malformed_structure(format!("Component `{}` has a static latency but has non-static control program", comp.name)));
-            }
-        }
 
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
@@ -540,13 +540,6 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            if is_comp_static(comps, id) {
-                return Err(Error::malformed_structure(format!(
-                    "Dynamically Invoked static component `{}`",
-                    id
-                ))
-                .with_pos(&s.attributes));
-            }
             let cellmap = &self.ref_cell_types[id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {
@@ -624,7 +617,6 @@ impl Visitor for WellFormed {
                     .with_pos(&s.attributes));
                 }
             }
-
             let cellmap = &self.ref_cell_types[id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {
