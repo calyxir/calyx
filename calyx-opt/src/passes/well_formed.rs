@@ -13,12 +13,16 @@ use std::collections::HashSet;
 
 fn port_is_static_comp(comps: &[ir::Component], port: &ir::Port) -> bool {
     let parent_cell = match &port.parent {
-        ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(), 
-        ir::PortParent::Group(_) | ir::PortParent::StaticGroup(_) => return false, 
+        ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(),
+        ir::PortParent::Group(_) | ir::PortParent::StaticGroup(_) => {
+            return false
+        }
     };
     let id = match parent_cell.borrow().prototype {
-        ir::CellType::Component { name } => name, 
-        ir::CellType::Primitive { .. } | ir::CellType::ThisComponent | ir::CellType::Constant { .. } => return false, 
+        ir::CellType::Component { name } => name,
+        ir::CellType::Primitive { .. }
+        | ir::CellType::ThisComponent
+        | ir::CellType::Constant { .. } => return false,
     };
     is_comp_static(comps, &id)
 }
@@ -26,7 +30,7 @@ fn port_is_static_comp(comps: &[ir::Component], port: &ir::Port) -> bool {
 fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
     for comp in comps {
         if comp.name == id {
-            return comp.latency.is_some()
+            return comp.latency.is_some();
         }
     }
     unreachable!(
@@ -364,8 +368,8 @@ impl Visitor for WellFormed {
         }
 
         // Don't need to check done condition for static groups. Instead, just
-        // checking that the static timing intervals are well formed, and 
-        // that don't write to static components 
+        // checking that the static timing intervals are well formed, and
+        // that don't write to static components
         for gr in comp.get_static_groups().iter() {
             let group = gr.borrow();
             let group_latency = group.get_latency();
@@ -606,7 +610,7 @@ impl Visitor for WellFormed {
                     if l != s.latency {
                         return Err(Error::malformed_control(format!(
                             "Static Invoke latency {} doesn't match component's latency of`{}`",
-                            s.latency, 
+                            s.latency,
                             l
                         ))
                         .with_pos(&s.attributes));
