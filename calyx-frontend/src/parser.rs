@@ -495,7 +495,7 @@ impl CalyxParser {
                 params: p,
                 signature: s,
                 attributes: attrs.add_span(span),
-                is_comb: true,
+                is_comb: false,
                 latency: Some(latency.into()),
                 body: None,
             },

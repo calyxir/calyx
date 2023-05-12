@@ -1,6 +1,6 @@
 extern "pipelined.sv" {
     // A latency-sensitive multiplier that takes 4 cycles to compute its result.
-    primitive pipelined_mult<"latency"=4>(
+    static<4> primitive pipelined_mult (
         @clk clk: 1,
         @reset reset: 1,
         left: 32,

@@ -132,6 +132,10 @@ impl Printer {
         if prim.is_comb {
             write!(f, "comb ")?;
         }
+        match prim.latency {
+            Some(latency_val) => write!(f, "static<{}> ", latency_val)?,
+            None => (),
+        }
         write!(
             f,
             "primitive {}{}",
@@ -181,7 +185,13 @@ impl Printer {
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
 
-        let pre = if comp.is_comb { "comb " } else { "" };
+        let pre = if comp.is_comb {
+            "comb ".to_string()
+        } else if comp.latency.is_some() {
+            format!("static<{}> ", comp.latency.unwrap())
+        } else {
+            "".to_string()
+        };
 
         writeln!(
             f,
