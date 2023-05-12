@@ -62,7 +62,7 @@ extern_or_component = {
 externs_and_comps = { extern_or_component* }
 
 component = {
-      (comb | static_annotation)? ~ "component" ~ name_with_attribute ~ signature
+      (comb | static_optional_latency)? ~ "component" ~ name_with_attribute ~ signature
       ~ "{"
       ~ cells
       ~ connections

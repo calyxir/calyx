@@ -1,5 +1,13 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
+}
 component example<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     a = std_reg(32);
@@ -33,12 +41,4 @@ component example<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset:
       }
     }
   }
-}
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
-  control {}
 }

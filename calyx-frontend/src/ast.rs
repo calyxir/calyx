@@ -63,7 +63,11 @@ pub struct ComponentDef {
     pub attributes: Attributes,
     /// True iff this is a combinational component
     pub is_comb: bool,
+    /// True iff this is a static component
+    pub is_static: bool,
     /// (Optional) latency of component, if it is static
+    /// NOTE: latency can still be None even if is_static is true. That
+    /// just means the compiler will infer the latency
     pub latency: Option<NonZeroU64>,
 }
 
@@ -71,6 +75,7 @@ impl ComponentDef {
     pub fn new<S>(
         name: S,
         is_comb: bool,
+        is_static: bool,
         latency: Option<NonZeroU64>,
         signature: Vec<PortDef<u64>>,
     ) -> Self
@@ -87,6 +92,7 @@ impl ComponentDef {
             control: Control::empty(),
             attributes: Attributes::default(),
             is_comb,
+            is_static,
             latency,
         }
     }

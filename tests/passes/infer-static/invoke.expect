@@ -1,27 +1,4 @@
 import "primitives/core.futil";
-component main(@go @static(3) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-    r = std_reg(32);
-    exp0 = exponent();
-  }
-  wires {
-    group upd0<"static"=1> {
-      r.in = 32'd1;
-      r.write_en = 1'd1;
-      upd0[done] = r.done;
-    }
-  }
-
-  control {
-    @static(3) seq {
-      @static upd0;
-      @static(2) invoke exp0(
-        base = r.out,
-        exp = r.out
-      )();
-    }
-  }
-}
 component exponent(base: 32, exp: 4, @go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r1 = std_reg(32);
@@ -44,6 +21,29 @@ component exponent(base: 32, exp: 4, @go @static(2) go: 1, @clk clk: 1, @reset r
     @static(2) seq {
       @static upd1;
       @static upd2;
+    }
+  }
+}
+component main(@go @static(3) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    exp0 = exponent();
+  }
+  wires {
+    group upd0<"static"=1> {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      upd0[done] = r.done;
+    }
+  }
+
+  control {
+    @static(3) seq {
+      @static upd0;
+      @static(2) invoke exp0(
+        base = r.out,
+        exp = r.out
+      )();
     }
   }
 }

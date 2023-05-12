@@ -2,7 +2,7 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 
-static<2> component add_one() -> () {
+static component add_one() -> () {
   cells {
     add = std_add(32);
     r = std_reg(32);

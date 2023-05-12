@@ -1,4 +1,12 @@
 import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
+}
 component uses_ref<"state_share"=1>(i: 3, j: 3, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     ref mem = std_mem_d2(32, 5, 5, 3, 3);
@@ -26,12 +34,4 @@ component uses_ref<"state_share"=1>(i: 3, j: 3, @go go: 1, @clk clk: 1, @reset r
       write_mem;
     }
   }
-}
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
-  control {}
 }

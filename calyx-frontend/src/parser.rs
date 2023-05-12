@@ -1071,6 +1071,7 @@ impl CalyxParser {
                     control: Control::empty(),
                     attributes: attributes.add_span(span),
                     is_comb: true,
+                    is_static: false,
                     latency: None,
                 })
             },
@@ -1104,11 +1105,12 @@ impl CalyxParser {
                     control,
                     attributes: attributes.add_span(span),
                     is_comb: false,
+                    is_static: false,
                     latency: None,
                 })
             },
             [
-                static_annotation(latency),
+                static_optional_latency(latency),
                 name_with_attribute((name, attributes)),
                 signature(sig),
                 cells(cells),
@@ -1138,7 +1140,8 @@ impl CalyxParser {
                     control,
                     attributes: attributes.add_span(span),
                     is_comb: false,
-                    latency: Some(latency),
+                    is_static: true,
+                    latency,
                 })
             }
         )

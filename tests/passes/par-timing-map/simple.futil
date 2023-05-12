@@ -1,5 +1,46 @@
 // -p cell-share -x cell-share:print_par_timing
 import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(32);
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+    d = std_reg(32);
+  }
+  wires {
+    static<2> group A {
+      a.write_en = 1'd1; 
+      a.in = 32'd2; 
+    }
+    static<3> group B {
+      b.write_en = 1'd1; 
+      b.in = 32'd2; 
+    }
+    static<3> group C {
+      c.write_en = 1'd1; 
+      c.in = 32'd2; 
+    }
+    static<4> group D {
+      d.write_en = 1'd1; 
+      d.in = 32'd2; 
+    }
+  }
+  control {
+    static par {
+      static seq {
+        static if lt.out {
+          A;
+        }
+        else{
+          B; 
+        }
+        C; 
+      }
+      D; 
+    }
+  }
+}
 component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     lt = std_lt(32);
@@ -57,48 +98,6 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           static seq { F; G; }
         } 
       }
-    }
-  }
-}
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-    lt = std_lt(32);
-    a = std_reg(32);
-    b = std_reg(32);
-    c = std_reg(32);
-    d = std_reg(32);
-  }
-  wires {
-    static<2> group A {
-      a.write_en = 1'd1; 
-      a.in = 32'd2; 
-    }
-    static<3> group B {
-      b.write_en = 1'd1; 
-      b.in = 32'd2; 
-    }
-    static<3> group C {
-      c.write_en = 1'd1; 
-      c.in = 32'd2; 
-    }
-    static<4> group D {
-      d.write_en = 1'd1; 
-      d.in = 32'd2; 
-    }
-  }
-
-  control {
-    static par {
-      static seq {
-        static if lt.out {
-          A;
-        }
-        else{
-          B; 
-        }
-        C; 
-      }
-      D; 
     }
   }
 }

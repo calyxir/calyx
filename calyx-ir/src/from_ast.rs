@@ -5,8 +5,11 @@ use super::{
     RESERVED_NAMES, RRC,
 };
 use crate::{Nothing, PortComp, StaticTiming};
+use calyx_frontend::ast::ComponentDef;
 use calyx_frontend::{ast, ast::Atom, Attribute, BoolAttr, NumAttr, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
+use petgraph::algo;
+use petgraph::graph::{DiGraph, NodeIndex};
 use std::cell::RefCell;
 
 use std::collections::{HashMap, HashSet};
@@ -14,6 +17,45 @@ use std::num::NonZeroU64;
 use std::rc::Rc;
 
 type InvokePortMap = Vec<(Id, Atom)>;
+
+fn get_post_order(comps: &Vec<ast::ComponentDef>) -> Vec<NodeIndex> {
+    let mut graph: DiGraph<usize, ()> = DiGraph::new();
+
+    let comp_names: HashSet<_> = comps.iter().map(|comp| comp.name).collect();
+
+    // Reverse mapping from index to comps.
+    let rev_map: HashMap<Id, NodeIndex> = comps
+        .iter()
+        .enumerate()
+        .map(|(idx, c)| (c.name, graph.add_node(idx)))
+        .collect::<HashMap<_, _>>();
+
+    // Construct a graph.
+    for comp in comps {
+        for cell in comp.cells.iter() {
+            let cell_type_name = cell.prototype.name;
+            if comp_names.contains(&cell_type_name) {
+                graph.add_edge(
+                    rev_map[&cell_type_name],
+                    rev_map[&comp.name],
+                    (),
+                );
+            }
+        }
+    }
+
+    // Build a topologically sorted ordering of the graph.
+    algo::toposort(&graph, None)
+        .expect("There is a cycle in definition of component cells")
+}
+
+fn update_sorted_indices(values: &mut [usize], removed_value: usize) {
+    for val in values {
+        if *val > removed_value {
+            *val -= 1;
+        }
+    }
+}
 
 /// Context to store the signature information for all defined primitives and
 /// components.
@@ -138,21 +180,32 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
 
     let all_prims = sig_ctx.lib.all_prims();
 
-    let prim_latency_map = all_prims.iter().flat_map(|(_, prims)| {
-        prims.iter().map(|(id, prim)| (*id, prim.latency))
-    });
-
-    let comp_latency_map: HashMap<Id, Option<u64>> = workspace
-        .components
+    // maps primitives/components to latencies (if they have one)
+    // starts with only primitives. Updates each time we call `build_component`.
+    let mut comp_latency_map: HashMap<Id, Option<u64>> = all_prims
         .iter()
-        .map(|comp| (comp.name, comp.latency.map(|x| x.into())))
-        .chain(prim_latency_map)
+        .flat_map(|(_, prims)| {
+            prims.iter().map(|(id, prim)| (*id, prim.latency))
+        })
         .collect();
 
-    let comps: Vec<Component> = workspace
-        .components
+    // must iterate thru ast_comps in topological order to support `static_invoke` latency inference
+    let mut topo_order: Vec<_> = get_post_order(&workspace.components)
         .into_iter()
-        .map(|comp| build_component(comp, &comp_latency_map, &mut sig_ctx))
+        .map(|x| x.index())
+        .collect();
+    // reversing so we can use topo_order.pop()
+    topo_order.reverse();
+    let mut ast_comps: Vec<ComponentDef> = Vec::new();
+    while !topo_order.is_empty() {
+        let removed_idx = topo_order.pop().unwrap();
+        ast_comps.push(workspace.components.remove(removed_idx));
+        update_sorted_indices(&mut topo_order, removed_idx);
+    }
+
+    let comps: Vec<Component> = ast_comps
+        .into_iter()
+        .map(|comp| build_component(comp, &mut comp_latency_map, &mut sig_ctx))
         .collect::<Result<_, _>>()?;
 
     // Find the entrypoint for the program.
@@ -237,7 +290,7 @@ fn validate_component(
 /// Build an `ir::component::Component` using an `frontend::ast::ComponentDef`.
 fn build_component(
     comp: ast::ComponentDef,
-    comp_latency_map: &HashMap<Id, Option<u64>>,
+    comp_latency_map: &mut HashMap<Id, Option<u64>>,
     sig_ctx: &mut SigCtx,
 ) -> CalyxResult<Component> {
     // Validate the component before building it.
@@ -280,10 +333,14 @@ fn build_component(
 
     // need to update the latency (if component is static) to be the inferred latency
     // of the control
-    if comp.latency.is_some() {
+    if comp.is_static {
         match &*control.borrow() {
             Control::Static(sc) => {
                 assert_latencies_eq(comp.latency, sc.get_latency());
+                // add latency inferred latency to comp_latency_map
+                comp_latency_map.insert(comp.name, Some(sc.get_latency()));
+                // must update the latency of the ir_component to be the inferred latency
+                builder.component.latency = Some(sc.get_latency());
             }
             _ => {
                 return Err(Error::malformed_structure(format!(
@@ -292,7 +349,10 @@ fn build_component(
                 )))
             }
         }
-    };
+    } else {
+        comp_latency_map.insert(comp.name, None);
+    }
+
     builder.component.control = control;
 
     ir_component.attributes = comp.attributes;
@@ -635,7 +695,7 @@ fn build_static_seq(
     attributes: Attributes,
     latency: Option<NonZeroU64>,
     builder: &mut Builder,
-    comp_latency_map: &HashMap<Id, Option<u64>>,
+    comp_latency_map: &mut HashMap<Id, Option<u64>>,
 ) -> CalyxResult<StaticControl> {
     let ir_stmts = stmts
         .into_iter()
@@ -654,7 +714,7 @@ fn build_static_par(
     attributes: Attributes,
     latency: Option<NonZeroU64>,
     builder: &mut Builder,
-    comp_latency_map: &HashMap<Id, Option<u64>>,
+    comp_latency_map: &mut HashMap<Id, Option<u64>>,
 ) -> CalyxResult<StaticControl> {
     let ir_stmts = stmts
         .into_iter()
@@ -680,7 +740,7 @@ fn build_static_if(
     attributes: Attributes,
     latency: Option<NonZeroU64>,
     builder: &mut Builder,
-    comp_latency_map: &HashMap<Id, Option<u64>>,
+    comp_latency_map: &mut HashMap<Id, Option<u64>>,
 ) -> CalyxResult<StaticControl> {
     let ir_tbranch = build_static_control(tbranch, comp_latency_map, builder)?;
     let ir_fbranch = build_static_control(fbranch, comp_latency_map, builder)?;
@@ -707,7 +767,7 @@ fn build_static_invoke(
     attributes: Attributes,
     ref_cells: Vec<(Id, Id)>,
     given_latency: Option<std::num::NonZeroU64>,
-    comp_latency_map: &HashMap<Id, Option<u64>>,
+    comp_latency_map: &mut HashMap<Id, Option<u64>>,
 ) -> CalyxResult<StaticControl> {
     let cell = Rc::clone(&builder.component.find_cell(component).ok_or_else(
         || {
@@ -781,7 +841,7 @@ fn build_static_repeat(
     body: ast::Control,
     builder: &mut Builder,
     attributes: Attributes,
-    comp_latency_map: &HashMap<Id, Option<u64>>,
+    comp_latency_map: &mut HashMap<Id, Option<u64>>,
 ) -> CalyxResult<StaticControl> {
     let body = build_static_control(body, comp_latency_map, builder)?;
     let total_latency = body.get_latency() * num_repeats;
@@ -794,7 +854,7 @@ fn build_static_repeat(
 // checks whether `control` is static
 fn build_static_control(
     control: ast::Control,
-    comp_latency_map: &HashMap<Id, Option<u64>>,
+    comp_latency_map: &mut HashMap<Id, Option<u64>>,
     builder: &mut Builder,
 ) -> CalyxResult<StaticControl> {
     let sc = match control {
@@ -918,7 +978,7 @@ fn build_static_control(
 /// Transform ast::Control to ir::Control.
 fn build_control(
     control: ast::Control,
-    comp_latency_map: &HashMap<Id, Option<u64>>,
+    comp_latency_map: &mut HashMap<Id, Option<u64>>,
     builder: &mut Builder,
 ) -> CalyxResult<Control> {
     let c = match control {
