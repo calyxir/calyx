@@ -23,7 +23,7 @@ impl Debug for StaticParDomination {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,
-            "This maps ids of par blocks to \"node timing maps\", which map node ids to the first interval (i,j) that the node (i.e., enable or if conditional) is active for, \n relative to the start of the given par block"
+            "This maps ids of par blocks to \"node timing maps\", which map node ids to the first interval (i,j) that the node (i.e., enable/static/if conditional) is active for, \n relative to the start of the given par block"
         )?;
         write!(
             f,
@@ -193,6 +193,20 @@ impl StaticParDomination {
                     cur_state
                 }
             }
+            ir::StaticControl::Invoke(inv) => {
+                if let Some(cur_state_unwrapped) = cur_state {
+                    let invoke_id = ControlId::get_guaranteed_id_static(sc);
+                    let latency = inv.latency;
+                    Some(self.update_node(
+                        invoke_id,
+                        latency,
+                        cur_state_unwrapped,
+                        guaranteed_execution,
+                    ))
+                } else {
+                    cur_state
+                }
+            }
             ir::StaticControl::If(ir::StaticIf {
                 tbranch, fbranch, ..
             }) => {
@@ -216,9 +230,6 @@ impl StaticParDomination {
                 cur_state.map(|(parent_par, cur_clock)| {
                     (parent_par, cur_clock + sc.get_latency())
                 })
-            }
-            ir::StaticControl::Invoke(_) => {
-                todo!("static invokes currently undefined")
             }
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 // we only need to look thru the body once either way, since we only

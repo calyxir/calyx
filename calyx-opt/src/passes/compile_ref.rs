@@ -9,6 +9,7 @@ use calyx_utils::CalyxResult;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+
 /// 1. Remove all the cells marked with the 'ref' keyword
 /// 2. Inline all the ports of the ref cells to the component signature
 /// 3. Remove all the ref cell mappings from the invoke statement
@@ -71,6 +72,47 @@ impl Named for CompileRef {
     }
 }
 
+impl CompileRef {
+    fn ref_cells_to_ports(
+        &mut self,
+        comp_name: ir::Id,
+        ref_cells: &mut Vec<(ir::Id, ir::RRC<ir::Cell>)>,
+    ) -> (
+        Vec<(ir::Id, ir::RRC<ir::Port>)>,
+        Vec<(ir::Id, ir::RRC<ir::Port>)>,
+    ) {
+        let mut inputs = Vec::new();
+        let mut outputs = Vec::new();
+        for (in_cell, cell) in ref_cells.drain(..) {
+            for port in cell.borrow().ports.iter() {
+                if port.borrow().attributes.get(ir::BoolAttr::Clk).is_none()
+                    && port
+                        .borrow()
+                        .attributes
+                        .get(ir::BoolAttr::Reset)
+                        .is_none()
+                {
+                    let canon = Canonical(in_cell, port.borrow().name);
+                    let port_name =
+                        self.port_names[&comp_name][&canon].borrow().name;
+                    match port.borrow().direction {
+                        ir::Direction::Input => {
+                            outputs.push((port_name, Rc::clone(port)));
+                        }
+                        ir::Direction::Output => {
+                            inputs.push((port_name, Rc::clone(port)));
+                        }
+                        _ => {
+                            unreachable!("Internal Error: This state should not be reachable.");
+                        }
+                    }
+                }
+            }
+        }
+        (inputs, outputs)
+    }
+}
+
 impl Visitor for CompileRef {
     fn iteration_order() -> Order {
         Order::Post
@@ -118,32 +160,24 @@ impl Visitor for CompileRef {
         _comps: &[ir::Component],
     ) -> VisResult {
         let comp_name = s.comp.borrow().type_name().unwrap();
-        for (in_cell, cell) in s.ref_cells.drain(..) {
-            for port in cell.borrow().ports.iter() {
-                if port.borrow().attributes.get(ir::BoolAttr::Clk).is_none()
-                    && port
-                        .borrow()
-                        .attributes
-                        .get(ir::BoolAttr::Reset)
-                        .is_none()
-                {
-                    let canon = Canonical(in_cell, port.borrow().name);
-                    let port_name =
-                        self.port_names[&comp_name][&canon].borrow().name;
-                    match port.borrow().direction {
-                        ir::Direction::Input => {
-                            s.outputs.push((port_name, Rc::clone(port)));
-                        }
-                        ir::Direction::Output => {
-                            s.inputs.push((port_name, Rc::clone(port)));
-                        }
-                        _ => {
-                            unreachable!("Internal Error: This state should not be reachable.");
-                        }
-                    }
-                }
-            }
-        }
+        let (mut inputs, mut outputs) =
+            self.ref_cells_to_ports(comp_name, &mut s.ref_cells);
+        s.inputs.append(&mut inputs);
+        s.outputs.append(&mut outputs);
+        Ok(Action::Continue)
+    }
+    fn static_invoke(
+        &mut self,
+        s: &mut ir::StaticInvoke,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        let comp_name = s.comp.borrow().type_name().unwrap();
+        let (mut inputs, mut outputs) =
+            self.ref_cells_to_ports(comp_name, &mut s.ref_cells);
+        s.inputs.append(&mut inputs);
+        s.outputs.append(&mut outputs);
         Ok(Action::Continue)
     }
 }

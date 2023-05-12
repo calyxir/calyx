@@ -27,6 +27,18 @@ fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
     )
 }
 
+fn get_comp_latency(comps: &[ir::Component], id: &ir::Id) -> Option<u64> {
+    for comp in comps {
+        if comp.name == id {
+            return comp.latency;
+        }
+    }
+    unreachable!(
+        "called assert_comp_static with comp name {}, which was not found as a component",
+        id
+    )
+}
+
 #[derive(Default)]
 struct ActiveAssignments {
     // Set of currently active assignments
@@ -344,7 +356,8 @@ impl Visitor for WellFormed {
         }
 
         // Don't need to check done condition for static groups. Instead, just
-        // checking that the static timing intervals are well formed.
+        // checking that the static timing intervals are well formed, and 
+        // that don't write to static components 
         for gr in comp.get_static_groups().iter() {
             let group = gr.borrow();
             let group_latency = group.get_latency();
@@ -382,6 +395,16 @@ impl Visitor for WellFormed {
         )?;
         // Check for obvious conflicting assignments between the continuous assignments and the groups
         for cgr in comp.comb_groups.iter() {
+            for assign in &cgr.borrow().assignments {
+                let dst = assign.dst.borrow();
+                if is_comp_static(comps, &dst.get_parent_name()) {
+                    return Err(Error::malformed_structure(format!(
+                        "Static Component `{}` written to in non-static group",
+                        dst.get_parent_name()
+                    ))
+                    .with_pos(&assign.attributes));
+                }
+            }
             obvious_conflicts(
                 cgr.borrow()
                     .assignments
@@ -570,13 +593,26 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            if !is_comp_static(comps, id) {
-                return Err(Error::malformed_structure(format!(
-                    "Statically Invoked dynamic component `{}`",
-                    id
-                ))
-                .with_pos(&s.attributes));
+            match get_comp_latency(comps, &id) {
+                Some(l) => {
+                    if l != s.latency {
+                        return Err(Error::malformed_control(format!(
+                            "Static Invoke latency {} doesn't match component's latency of`{}`",
+                            s.latency, 
+                            l
+                        ))
+                        .with_pos(&s.attributes));
+                    }
+                }
+                None => {
+                    return Err(Error::malformed_control(format!(
+                        "Statically Invoked dynamic component `{}`",
+                        id
+                    ))
+                    .with_pos(&s.attributes));
+                }
             }
+
             let cellmap = &self.ref_cell_types[id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {
