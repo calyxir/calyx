@@ -156,7 +156,7 @@ impl Visitor for CompileInvoke {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, ctx);
 
-        let invoke_group = builder.add_static_group("invoke", s.latency);
+        let invoke_group = builder.add_static_group("static_invoke", s.latency);
 
         if !s.ref_cells.is_empty() {
             return Err(Error::malformed_structure(format!(
@@ -198,8 +198,8 @@ impl Visitor for CompileInvoke {
             attributes: Attributes::default(),
         };
 
-        Ok(Action::change(ir::Control::Static(
-            ir::StaticControl::Enable(en),
-        )))
+        Ok(Action::StaticChange(Box::new(ir::StaticControl::Enable(
+            en,
+        ))))
     }
 }

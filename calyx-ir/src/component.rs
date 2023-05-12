@@ -60,7 +60,7 @@ impl Component {
         name: S,
         ports: Vec<PortDef<u64>>,
         is_comb: bool,
-        latency: Option<std::num::NonZeroU64>,
+        latency: Option<u64>,
     ) -> Self
     where
         S: Into<Id>,
@@ -94,7 +94,7 @@ impl Component {
             is_comb,
             // converting from NonZeroU64 to u64. May want to keep permanently as NonZeroU64
             // in the future, but rn it's probably easier to keep as u64
-            latency: latency.map(|x| x.into()),
+            latency,
         }
     }
 

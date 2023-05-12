@@ -11,6 +11,18 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+fn port_is_static_comp(comps: &[ir::Component], port: &ir::Port) -> bool {
+    let parent_cell = match &port.parent {
+        ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(), 
+        ir::PortParent::Group(_) | ir::PortParent::StaticGroup(_) => return false, 
+    };
+    let id = match parent_cell.borrow().prototype {
+        ir::CellType::Component { name } => name, 
+        ir::CellType::Primitive { .. } | ir::CellType::ThisComponent | ir::CellType::Constant { .. } => return false, 
+    };
+    is_comp_static(comps, &id)
+}
+
 fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
     for comp in comps {
         if comp.name == id {
@@ -22,7 +34,7 @@ fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
         }
     }
     unreachable!(
-        "called assert_comp_static with comp name {}, which was not found as a component",
+        "called is_comp_static with comp name {}, which was not found as a component",
         id
     )
 }
@@ -318,9 +330,9 @@ impl Visitor for WellFormed {
             // Find an assignment writing to this group's done condition.
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
-                if is_comp_static(comps, &dst.get_parent_name()) {
+                if port_is_static_comp(comps, &dst) {
                     return Err(Error::malformed_structure(format!(
-                        "Static Component `{}` written to in non-static group",
+                        "Static cell `{}` written to in non-static group",
                         dst.get_parent_name()
                     ))
                     .with_pos(&assign.attributes));
@@ -397,9 +409,9 @@ impl Visitor for WellFormed {
         for cgr in comp.comb_groups.iter() {
             for assign in &cgr.borrow().assignments {
                 let dst = assign.dst.borrow();
-                if is_comp_static(comps, &dst.get_parent_name()) {
+                if port_is_static_comp(comps, &dst) {
                     return Err(Error::malformed_structure(format!(
-                        "Static Component `{}` written to in non-static group",
+                        "Static cell `{}` written to in non-static group",
                         dst.get_parent_name()
                     ))
                     .with_pos(&assign.attributes));

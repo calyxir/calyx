@@ -353,6 +353,21 @@ pub enum Control {
         /// External cells that may execute with this invoke.
         ref_cells: Vec<(Id, Id)>,
     },
+    /// Invoke component with input/output assignments.
+    StaticInvoke {
+        /// Name of the component to be invoked.
+        comp: Id,
+        /// Input assignments
+        inputs: Vec<(Id, Atom)>,
+        /// Output assignments
+        outputs: Vec<(Id, Atom)>,
+        /// Attributes
+        attributes: Attributes,
+        /// External cells that may execute with this invoke.
+        ref_cells: Vec<(Id, Id)>,
+        /// (optional) latency
+        latency: Option<NonZeroU64>,
+    },
     /// Control statement that does nothing.
     Empty {
         /// Attributes
@@ -428,6 +443,7 @@ impl Control {
             Control::StaticPar { attributes, .. } => attributes,
             Control::StaticIf { attributes, .. } => attributes,
             Control::StaticRepeat { attributes, .. } => attributes,
+            Control::StaticInvoke { attributes, .. } => attributes,
         }
     }
 }

@@ -1,0 +1,50 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+
+static<11> component add_10(in: 32) -> (out: 32) {
+    cells {
+      result_reg = std_reg(32);
+      add = std_add(32);
+    }
+    wires {
+      static<1> group init_reg {
+        result_reg.write_en = 1'd1; 
+        result_reg.in = in; 
+      }
+      static<1> group one {
+        add.left = result_reg.out;
+        add.right = 32'd1;
+        result_reg.in = add.out;
+        result_reg.write_en = 1'd1; 
+      }
+      out = result_reg.out; 
+    }
+    control {
+      static seq {
+        init_reg;
+        static repeat 10 {
+          one;
+        }
+      }
+    }
+}
+
+component main() -> () {
+    cells {
+      @external m = std_mem_d1(32,1,1); 
+      my_comp = add_10(); 
+    }
+    wires {
+      static<1> group write_result {
+        m.write_data = my_comp.out;
+        m.addr0 = 1'd0; 
+        m.write_en = 1'd1; 
+      }
+    }
+    control {
+      static seq {
+        static invoke my_comp(in=32'd7)();
+        write_result; 
+      }
+    }
+}

@@ -231,7 +231,17 @@ impl CalyxParser {
     fn static_annotation(input: Node) -> ParseResult<std::num::NonZeroU64> {
         Ok(match_nodes!(
             input.into_children();
-            [static_word(_), latency_annotation(latency)] => latency
+            [static_word(_), latency_annotation(latency)] => latency,
+        ))
+    }
+
+    fn optional_static_annotation(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_word(_), latency_annotation(latency)] => Some(latency),
+            [static_word(_)] => None,
         ))
     }
 
@@ -792,7 +802,22 @@ impl CalyxParser {
                     comb_group: Some(group),
                     ref_cells: cells
                 },
+        ))
+    }
 
+    fn static_invoke(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), optional_static_annotation(optional_latency), identifier(comp), invoke_ref_args(cells),invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::StaticInvoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    attributes: attrs.add_span(span),
+                    ref_cells: cells,
+                    latency: optional_latency,
+                },
         ))
     }
 
@@ -996,6 +1021,7 @@ impl CalyxParser {
             [enable(data)] => data,
             [empty(data)] => data,
             [invoke(data)] => data,
+            [static_invoke(data)] => data,
             [seq(data)] => data,
             [static_seq(data)] => data,
             [par(data)] => data,
