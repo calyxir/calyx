@@ -478,6 +478,7 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: false,
+                latency: None,
                 body: None,
             },
             [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
@@ -486,6 +487,16 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: true,
+                latency: None,
+                body: None,
+            },
+            [static_annotation(latency), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs.add_span(span),
+                is_comb: true,
+                latency: Some(latency.into()),
                 body: None,
             },
         ))
@@ -1191,6 +1202,7 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: false,
+                latency: None,
                 body: Some(b),
             }},
             [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
@@ -1199,6 +1211,16 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: true,
+                latency: None,
+                body: Some(b),
+            },
+            [static_annotation(latency), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
+                name,
+                params: p,
+                signature: s,
+                attributes: attrs.add_span(span),
+                is_comb: false,
+                latency: Some(latency.into()),
                 body: Some(b),
             },
         ))

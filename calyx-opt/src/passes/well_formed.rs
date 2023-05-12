@@ -26,11 +26,7 @@ fn port_is_static_comp(comps: &[ir::Component], port: &ir::Port) -> bool {
 fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
     for comp in comps {
         if comp.name == id {
-            if comp.latency.is_some() {
-                return true;
-            } else {
-                return false;
-            }
+            return comp.latency.is_some()
         }
     }
     unreachable!(
@@ -605,7 +601,7 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            match get_comp_latency(comps, &id) {
+            match get_comp_latency(comps, id) {
                 Some(l) => {
                     if l != s.latency {
                         return Err(Error::malformed_control(format!(

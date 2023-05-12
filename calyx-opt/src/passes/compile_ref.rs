@@ -10,6 +10,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+type PortMap = Vec<(ir::Id, ir::RRC<ir::Port>)>;
+
 /// 1. Remove all the cells marked with the 'ref' keyword
 /// 2. Inline all the ports of the ref cells to the component signature
 /// 3. Remove all the ref cell mappings from the invoke statement
@@ -77,10 +79,7 @@ impl CompileRef {
         &mut self,
         comp_name: ir::Id,
         ref_cells: &mut Vec<(ir::Id, ir::RRC<ir::Cell>)>,
-    ) -> (
-        Vec<(ir::Id, ir::RRC<ir::Port>)>,
-        Vec<(ir::Id, ir::RRC<ir::Port>)>,
-    ) {
+    ) -> (PortMap, PortMap) {
         let mut inputs = Vec::new();
         let mut outputs = Vec::new();
         for (in_cell, cell) in ref_cells.drain(..) {

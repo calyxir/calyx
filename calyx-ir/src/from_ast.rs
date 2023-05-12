@@ -13,6 +13,8 @@ use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU64;
 use std::rc::Rc;
 
+type InvokePortMap = Vec<(Id, Atom)>;
+
 /// Context to store the signature information for all defined primitives and
 /// components.
 #[derive(Default)]
@@ -134,10 +136,17 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
         sig_ctx.comp_sigs.insert(comp.name, sig.clone());
     }
 
+    let all_prims = sig_ctx.lib.all_prims();
+
+    let prim_latency_map = all_prims.iter().flat_map(|(_, prims)| {
+        prims.iter().map(|(id, prim)| (*id, prim.latency))
+    });
+
     let comp_latency_map: HashMap<Id, Option<u64>> = workspace
         .components
         .iter()
         .map(|comp| (comp.name, comp.latency.map(|x| x.into())))
+        .chain(prim_latency_map)
         .collect();
 
     let comps: Vec<Component> = workspace
@@ -265,7 +274,7 @@ fn build_component(
     // Build the Control ast using ast::Control.
     let control = Rc::new(RefCell::new(build_control(
         comp.control,
-        &comp_latency_map,
+        comp_latency_map,
         &mut builder,
     )?));
 
@@ -694,8 +703,7 @@ fn build_static_if(
 fn build_static_invoke(
     builder: &mut Builder,
     component: Id,
-    inputs: Vec<(Id, Atom)>,
-    outputs: Vec<(Id, Atom)>,
+    (inputs, outputs): (InvokePortMap, InvokePortMap),
     attributes: Attributes,
     ref_cells: Vec<(Id, Id)>,
     given_latency: Option<std::num::NonZeroU64>,
@@ -726,7 +734,7 @@ fn build_static_invoke(
             .with_pos(&attributes))
         }
     };
-    assert_latencies_eq(given_latency.map(|x| x.into()), *comp_latency);
+    assert_latencies_eq(given_latency, *comp_latency);
 
     let inputs = inputs
         .into_iter()
@@ -823,8 +831,7 @@ fn build_static_control(
             return build_static_invoke(
                 builder,
                 comp,
-                inputs,
-                outputs,
+                (inputs, outputs),
                 attributes,
                 ref_cells,
                 latency,
@@ -949,8 +956,7 @@ fn build_control(
             let i = build_static_invoke(
                 builder,
                 comp,
-                inputs,
-                outputs,
+                (inputs, outputs),
                 attributes,
                 ref_cells,
                 latency,
@@ -1022,7 +1028,7 @@ fn build_control(
             let mut s = Control::seq(
                 stmts
                     .into_iter()
-                    .map(|c| build_control(c, &comp_latency_map, builder))
+                    .map(|c| build_control(c, comp_latency_map, builder))
                     .collect::<CalyxResult<Vec<_>>>()?,
             );
             *s.get_mut_attributes() = attributes;
