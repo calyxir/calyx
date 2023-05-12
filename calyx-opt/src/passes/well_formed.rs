@@ -14,25 +14,24 @@ use std::collections::HashSet;
 // given a port and a vec of components `comps`,
 // returns true if the port's parent is a static component
 // otherwise returns false
-fn port_is_static_comp(comps: &[ir::Component], port: &ir::Port) -> bool {
+fn port_is_static(comps: &[ir::Component], port: &ir::Port) -> bool {
+    // if port parent is hole then obviously not static
     let parent_cell = match &port.parent {
         ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(),
         ir::PortParent::Group(_) | ir::PortParent::StaticGroup(_) => {
             return false
         }
     };
+    // if celltype is this component/constant, then obviously not static
+    // if primitive, then we can quickly check whether it is static
+    // if component, then we have to go throuch `comps` to see whether its static
     let id = match parent_cell.borrow().prototype {
         ir::CellType::Component { name } => name,
-        ir::CellType::Primitive { .. }
-        | ir::CellType::ThisComponent
-        | ir::CellType::Constant { .. } => return false,
+        ir::CellType::Primitive { latency, .. } => return latency.is_some(),
+        ir::CellType::ThisComponent | ir::CellType::Constant { .. } => {
+            return false
+        }
     };
-    is_comp_static(comps, &id)
-}
-
-// given the name of a component `id`, returns true if
-// `id is a static component, false otherwise
-fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
     for comp in comps {
         if comp.name == id {
             return comp.latency.is_some();
@@ -41,20 +40,7 @@ fn is_comp_static(comps: &[ir::Component], id: &ir::Id) -> bool {
     unreachable!(
         "called is_comp_static with comp name {}, which was not found as a component",
         id
-    )
-}
-
-// gets latency of component `id` given vec of componenets `comps`
-fn get_comp_latency(comps: &[ir::Component], id: &ir::Id) -> Option<u64> {
-    for comp in comps {
-        if comp.name == id {
-            return comp.latency;
-        }
-    }
-    unreachable!(
-        "called assert_comp_static with comp name {}, which was not found as a component",
-        id
-    )
+    );
 }
 
 #[derive(Default)]
@@ -320,6 +306,14 @@ impl Visitor for WellFormed {
                 }
             }
         }
+        // in ast_to_ir, we should have already checked that static components have static_control_body
+        if comp.latency.is_some() {
+            assert!(
+                matches!(&*comp.control.borrow(), &ir::Control::Static(_)),
+                "static component {} does not have static control. This should have been checked in ast_to_ir",
+                comp.name
+            );
+        }
 
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
@@ -330,7 +324,7 @@ impl Visitor for WellFormed {
             // Find an assignment writing to this group's done condition.
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
-                if port_is_static_comp(comps, &dst) {
+                if port_is_static(comps, &dst) {
                     return Err(Error::malformed_structure(format!(
                         "Static cell `{}` written to in non-static group",
                         dst.get_parent_name()
@@ -409,7 +403,7 @@ impl Visitor for WellFormed {
         for cgr in comp.comb_groups.iter() {
             for assign in &cgr.borrow().assignments {
                 let dst = assign.dst.borrow();
-                if port_is_static_comp(comps, &dst) {
+                if port_is_static(comps, &dst) {
                     return Err(Error::malformed_structure(format!(
                         "Static cell `{}` written to in non-static group",
                         dst.get_parent_name()
@@ -513,7 +507,7 @@ impl Visitor for WellFormed {
         s: &mut ir::Invoke,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-        comps: &[ir::Component],
+        _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(c) = &s.comb_group {
             self.used_comb_groups.insert(c.borrow().name());
@@ -574,7 +568,7 @@ impl Visitor for WellFormed {
         s: &mut ir::StaticInvoke,
         _comp: &mut Component,
         _ctx: &LibrarySignatures,
-        comps: &[ir::Component],
+        _comps: &[ir::Component],
     ) -> VisResult {
         // Only refers to ports defined in the invoked instance.
         let cell = s.comp.borrow();
@@ -598,25 +592,6 @@ impl Visitor for WellFormed {
             })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
-            match get_comp_latency(comps, id) {
-                Some(l) => {
-                    if l != s.latency {
-                        return Err(Error::malformed_control(format!(
-                            "Static Invoke latency {} doesn't match component's latency of`{}`",
-                            s.latency,
-                            l
-                        ))
-                        .with_pos(&s.attributes));
-                    }
-                }
-                None => {
-                    return Err(Error::malformed_control(format!(
-                        "Statically Invoked dynamic component `{}`",
-                        id
-                    ))
-                    .with_pos(&s.attributes));
-                }
-            }
             let cellmap = &self.ref_cell_types[id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {

@@ -1064,20 +1064,19 @@ fn build_control(
                 unreachable!("invoked component without a name")
             });
 
-            // Not sure if it should be ane error to dynamically invoke static
-            // component
-            // match comp_latency_map.get(&comp_name).unwrap_or_else(|| {
-            //     unreachable!("component {} not found", comp_name)
-            // }) {
-            //     Some(_) => {
-            //         return Err(Error::malformed_control(format!(
-            //             "static component {} is dynamically invoked",
-            //             comp_name
-            //         ))
-            //         .with_pos(&attributes))
-            //     }
-            //     None => (),
-            // };
+            // Error to dynamically invoke static component
+            match comp_latency_map.get(&comp_name).unwrap_or_else(|| {
+                unreachable!("component {} not found", comp_name)
+            }) {
+                Some(_) => {
+                    return Err(Error::malformed_control(format!(
+                        "static component {} is dynamically invoked",
+                        comp_name
+                    ))
+                    .with_pos(&attributes))
+                }
+                None => (),
+            };
 
             let inputs = inputs
                 .into_iter()
