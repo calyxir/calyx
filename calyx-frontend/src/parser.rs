@@ -494,24 +494,15 @@ impl CalyxParser {
                 latency: None,
                 body: None,
             },
-            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
+            [comb_or_static(cs_res), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs.add_span(span),
-                is_comb: true,
-                latency: None,
+                is_comb: cs_res.is_none(),
+                latency: cs_res,
                 body: None,
-            },
-            [static_annotation(latency), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
-                name,
-                params: p,
-                signature: s,
-                attributes: attrs.add_span(span),
-                is_comb: false,
-                latency: Some(latency.into()),
-                body: None,
-            },
+            }
         ))
     }
 
@@ -1061,7 +1052,7 @@ impl CalyxParser {
                 cells(cells),
                 connections(connections)
             ] => {
-                if !cs_res.is_none() {
+                if cs_res.is_some() {
                     Err(input.error("Static Component must have defined control"))?;
                 }
                 let (continuous_assignments, groups, static_groups) = connections;
@@ -1188,24 +1179,15 @@ impl CalyxParser {
                 latency: None,
                 body: Some(b),
             }},
-            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
+            [comb_or_static(cs_res), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs.add_span(span),
-                is_comb: true,
-                latency: None,
+                is_comb: cs_res.is_none(),
+                latency: cs_res,
                 body: Some(b),
-            },
-            [static_annotation(latency), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
-                name,
-                params: p,
-                signature: s,
-                attributes: attrs.add_span(span),
-                is_comb: false,
-                latency: Some(latency.into()),
-                body: Some(b),
-            },
+            }
         ))
     }
 

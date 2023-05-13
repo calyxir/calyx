@@ -109,7 +109,7 @@ sig_with_params = {
   params? ~ signature
 }
 primitive = {
-     (comb | static_annotation)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ ";"
+     (comb_or_static)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ ";"
 }
 
 block_char = { !"}" ~ ANY }
@@ -117,7 +117,7 @@ block_char = { !"}" ~ ANY }
 block_string = ${ "{" ~ block_char* ~ "}" }
 
 prim_inline = {
-      (comb | static_annotation)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"
+      (comb_or_static)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"
 }
 
 ext = {

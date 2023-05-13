@@ -1,6 +1,6 @@
 calyx.program "main" {
 
-calyx.component @B(%in: i1, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i1, %done: i1 {done=1}) {
+calyx.component @A(%in: i8, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i8, %flag: i1, %done: i1 {done=1}) {
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
     calyx.assign %done = %_1_1.out ? %_1_1.out : i1
@@ -8,7 +8,7 @@ calyx.component @B(%in: i1, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=
 
   calyx.control {}
 }
-calyx.component @A(%in: i8, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i8, %flag: i1, %done: i1 {done=1}) {
+calyx.component @B(%in: i1, %go: i1 {go=1}, %clk: i1 {clk=1}, %reset: i1 {reset=1}) -> (%out: i1, %done: i1 {done=1}) {
   %_1_1.out = hw.constant 1 : i1
   calyx.wires {
     calyx.assign %done = %_1_1.out ? %_1_1.out : i1

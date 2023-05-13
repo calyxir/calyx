@@ -1,5 +1,5 @@
 use super::{
-    Assignment, Attributes, BackendConf, Builder, Canonical, CellType,
+    Assignment, Attributes, BackendConf, Builder, Canonical, Cell, CellType,
     Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
     LibrarySignatures, Port, PortDef, StaticControl, StaticInvoke,
     RESERVED_NAMES, RRC,
@@ -26,53 +26,62 @@ struct SigCtx {
     lib: LibrarySignatures,
 }
 
-// assumes comp_name is the name of a valid primitive/component
+// assumes cell has a name (i.e., not a constant/ThisComponent)
 // uses sig_ctx to check the latency of comp_name (if not static, then None)
 fn get_comp_latency(
     sig_ctx: &SigCtx,
-    comp_name: &Id,
+    cell: RRC<Cell>,
     attrs: &Attributes,
 ) -> CalyxResult<Option<NonZeroU64>> {
-    if let Some(prim) = sig_ctx.lib.find_primitive(*comp_name) {
+    let comp_name = cell
+        .borrow()
+        .type_name()
+        .unwrap_or_else(|| unreachable!("invoked component without a name"));
+    if let Some(prim) = sig_ctx.lib.find_primitive(comp_name) {
         Ok(prim.latency)
-    } else if let Some((_, latency)) = sig_ctx.comp_sigs.get(comp_name) {
+    } else if let Some((_, latency)) = sig_ctx.comp_sigs.get(&comp_name) {
         Ok(*latency)
     } else {
         return Err(Error::undefined(
-            *comp_name,
+            comp_name,
             "primitive or component".to_string(),
         )
         .with_pos(attrs));
     }
 }
 
-// assumes comp_name is the name of a valid primitive/component
-// Uses sig_ctx to check whether port_name is a valid port on comp_name.
+// assumes cell has a name (i.e., not a constant/ThisComponent)
+// Uses sig_ctx to check whether port_name is a valid port on cell.
 fn check_valid_port(
-    comp_name: &Id,
+    cell: RRC<Cell>,
     port_name: &Id,
     attrs: &Attributes,
     sig_ctx: &SigCtx,
 ) -> CalyxResult<()> {
+    let cell_name = cell.borrow().name();
+    let comp_name = cell
+        .borrow()
+        .type_name()
+        .unwrap_or_else(|| unreachable!("invoked component without a name"));
     let sig_ports: HashSet<_> =
-        if let Some(prim) = sig_ctx.lib.find_primitive(*comp_name) {
+        if let Some(prim) = sig_ctx.lib.find_primitive(comp_name) {
             prim.signature
                 .iter()
                 .map(|port_def| port_def.name)
                 .collect()
-        } else if let Some((comp_sigs, _)) = sig_ctx.comp_sigs.get(comp_name) {
+        } else if let Some((comp_sigs, _)) = sig_ctx.comp_sigs.get(&comp_name) {
             comp_sigs.iter().map(|port_def| port_def.name).collect()
         } else {
             return Err(Error::undefined(
-                *comp_name,
+                comp_name,
                 "primitive or component".to_string(),
             )
             .with_pos(attrs));
         };
     if !sig_ports.contains(port_name) {
         return Err(Error::malformed_structure(format!(
-            "`{}` does not have port named `{}`",
-            comp_name, port_name
+            "cell `{}` (which is an instance of {}) does not have port named `{}`",
+            cell_name, comp_name, port_name
         ))
         .with_pos(attrs));
     };
@@ -749,15 +758,15 @@ fn build_static_invoke(
         .borrow()
         .type_name()
         .unwrap_or_else(|| unreachable!("invoked component without a name"));
-    let latency = get_comp_latency(sig_ctx, &comp_name, &attributes)?;
-    let unwrapped_latency = if latency.is_none() {
+    let latency = get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?;
+    let unwrapped_latency = if let Some(v) = latency {
+        v
+    } else {
         return Err(Error::malformed_control(format!(
             "non-static component {} is statically invoked",
             comp_name
         ))
         .with_pos(&attributes));
-    } else {
-        latency.unwrap()
     };
     assert_latencies_eq(given_latency, unwrapped_latency.into());
 
@@ -765,7 +774,7 @@ fn build_static_invoke(
         .into_iter()
         .map(|(id, port)| {
             // checking that comp_name.id exists on comp's signature
-            check_valid_port(&comp_name, &id, &attributes, sig_ctx)?;
+            check_valid_port(Rc::clone(&cell), &id, &attributes, sig_ctx)?;
             atom_to_port(port, builder)
                 .and_then(|pr| ensure_direction(pr, Direction::Output))
                 .map(|p| (id, p))
@@ -775,7 +784,7 @@ fn build_static_invoke(
         .into_iter()
         .map(|(id, port)| {
             // checking that comp_name.id exists on comp's signature
-            check_valid_port(&comp_name, &id, &attributes, sig_ctx)?;
+            check_valid_port(Rc::clone(&cell), &id, &attributes, sig_ctx)?;
             atom_to_port(port, builder)
                 .and_then(|pr| ensure_direction(pr, Direction::Input))
                 .map(|p| (id, p))
@@ -997,7 +1006,9 @@ fn build_control(
             });
 
             // Error to dynamically invoke static component
-            if get_comp_latency(sig_ctx, &comp_name, &attributes)?.is_some() {
+            if get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?
+                .is_some()
+            {
                 return Err(Error::malformed_control(format!(
                     "static component {} is dynamically invoked",
                     comp_name
@@ -1009,7 +1020,12 @@ fn build_control(
                 .into_iter()
                 .map(|(id, port)| {
                     // check that comp_name.id is a valid port based on comp_name's signature
-                    check_valid_port(&comp_name, &id, &attributes, sig_ctx)?;
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
                     atom_to_port(port, builder)
                         .and_then(|pr| ensure_direction(pr, Direction::Output))
                         .map(|p| (id, p))
@@ -1019,7 +1035,12 @@ fn build_control(
                 .into_iter()
                 .map(|(id, port)| {
                     // check that comp_name.id is a valid port based on comp_name's signature
-                    check_valid_port(&comp_name, &id, &attributes, sig_ctx)?;
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
                     atom_to_port(port, builder)
                         .and_then(|pr| ensure_direction(pr, Direction::Input))
                         .map(|p| (id, p))
