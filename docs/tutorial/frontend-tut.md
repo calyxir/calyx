@@ -3,27 +3,27 @@
 In this tutorial, we're going to build a compiler for a small language called MrXL.
 
 ## MrXL Overview
-MrXL provides constructs to create arrays, and perform `map` and `reduce` operations on those arrays. Here's an example of a dot product implementation in MrXL:
+MrXL provides constructs to create arrays, and perform `map` and `reduce` operations on those arrays. Here's an example of "sum of squares", implemented in MrXL:
 
 ```
-{{#include ../../frontends/mrxl/test/dot.mrxl}}
+{{#include ../../frontends/mrxl/test/sos.mrxl}}
 ```
 
 We define the interface of program by specifying `input` and `output` arrays.
 Input arrays have their values populated by an external harness while the output arrays must be computed using the program.
 
 A `map` expression iterates over multiple arrays of the same element and produces a new vector using the function provided in the body.
-In the above example, the `map` expression multiplies the values of `avec` and `bvec`.
-`map 1` states that the operation has a *parallelism factor* of 1 which means that the loop iterations are performed sequentially.
+In the above example, the `map` expression squares each value of `avec`, producing `squares`.
+The number `2` after `map` states that the operation has a *parallelism factor* of 2; we will disccuss this shortly.
 
 `reduce` expressions walk over memories and accumulate a result into a register.
-In the above code snippet, we add together all the elements of `prodvec` and place them in a register named `dot`.
-Since the `reduce` parallelism factor is also 1, the reduction is performed sequentially.
+In the above code snippet, we add together all the elements of `squares` and place them in a register named `sos`.
+Note that the `reduce` parallelism factor is 1: the reduction is performed sequentially.
 
 
 ## Run a MrXL Program
 
-Once we have [installed the mrxl command line tool][mrxldocs], we can run MrXL programs using [`fud`][fud].
+Once we have [installed the mrxl command line tool][mrxldocs-install], we can run MrXL programs using [`fud`][fud].
 
 To provide MrXL program with input values, we use fud's [JSON][json]-based [data format][fud-data].
 Let's try to run this program, which has a parallelism factor of two:
@@ -250,7 +250,7 @@ Hopefully this should be enough to get you started with writing your own MrXL co
 - Add a new `filter` operation to MrXL.
 
 [astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
-[mrxldocs]: https://github.com/cucapra/calyx/tree/master/frontends/mrxl
+[mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
 [fud]: ../fud/index.md
 [fud-data]: ../lang/data-format.md
 [json]: https://www.json.org/json-en.html
