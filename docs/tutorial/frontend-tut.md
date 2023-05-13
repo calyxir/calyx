@@ -12,22 +12,19 @@ In this tutorial, we're going to learn all about this by building a compiler for
 Meet MrXL.
 
 ## MrXL Overview
-MrXL provides constructs to create arrays, and perform `map` and `reduce` operations on those arrays. Here's an example of "sum of squares", implemented in MrXL:
+
+MrXL lets you define arrays (TK: "and registers") and then perform `map`s and `reduce`s.
+Here's MrXL in all its glory:
 
 ```
 {{#include ../../frontends/mrxl/test/sos.mrxl}}
 ```
 
-We define the interface of program by specifying `input` and `output` arrays.
-Input arrays have their values populated by an external harness while the output arrays must be computed using the program.
-
-A `map` expression iterates over multiple arrays of the same element and produces a new vector using the function provided in the body.
-In the above example, the `map` expression squares each value of `avec`, producing `squares`.
-The number `2` after `map` states that the operation has a *parallelism factor* of 2; we will disccuss this shortly.
-
-`reduce` expressions walk over memories and accumulate a result into a register.
-In the above code snippet, we add together all the elements of `squares` and place them in a register named `sos`.
-Note that the `reduce` parallelism factor is 1: the reduction is performed sequentially.
+The program is short enough for us to pick apart line by line:
+1. We specify an array, `avec`, which will have four integers. The `input` keyword means that an external harness will populate those four integers.
+2. We specify another array, `sos`, which will also have four integers. (TK: this will change to `output sos: int` after https://github.com/cucapra/calyx/issues/1459 lands, so the copy will become lighter: "We specify `sos`, a register.") The `output` keyword means that we will populate `sos` in our program.
+3. The `map` operation gets the values of `avec` and squares each. We stash the result in a new array, `squares`. The number `2` denotes a *parallelism factor* of 2; we will disccuss this shortly.
+4. The `reduce` operation walks over `squares` and accumulates the result into an array. (TK: "a register"). Here the parallelism factor is `1`: this reduction is performed sequentially.
 
 
 ## Run a MrXL Program
