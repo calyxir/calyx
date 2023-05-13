@@ -49,12 +49,11 @@ component main() -> () {
         }
 
         // The multiplier registers its inputs after a cycle.
-        group start_mult<"static"=1> {
+        static<1> group start_mult<"static"=1> {
             left.addr0 = idx.out;
             right.addr0 = idx.out;
             mul.left = left.read_data;
             mul.right = right.read_data;
-            start_mult[done] = ud.out;
         }
 
         group do_write<"static"=1> {

@@ -181,6 +181,8 @@ pub enum CellType {
         param_binding: Box<Binding>,
         /// True iff this is a combinational primitive
         is_comb: bool,
+        /// (Optional) latency of the primitive
+        latency: Option<std::num::NonZeroU64>,
     },
     /// Cell constructed using a Calyx component
     Component {

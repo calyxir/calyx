@@ -11,6 +11,31 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+// given a port and a vec of components `comps`,
+// returns true if the port's parent is a static primitive
+// otherwise returns false
+fn port_is_static_prim(port: &ir::Port) -> bool {
+    // if port parent is hole then obviously not static
+    let parent_cell = match &port.parent {
+        ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(),
+        ir::PortParent::Group(_) | ir::PortParent::StaticGroup(_) => {
+            return false
+        }
+    };
+    // if celltype is this component/constant, then obviously not static
+    // if primitive, then we can quickly check whether it is static
+    // if component, then we have to go throuch `comps` to see whether its static
+    // for some reason, need to store result in variable, otherwise it gives a
+    // lifetime error
+    let res = match parent_cell.borrow().prototype {
+        ir::CellType::Primitive { latency, .. } => latency.is_some(),
+        ir::CellType::Component { .. }
+        | ir::CellType::ThisComponent
+        | ir::CellType::Constant { .. } => false,
+    };
+    res
+}
+
 #[derive(Default)]
 struct ActiveAssignments {
     // Set of currently active assignments
@@ -274,6 +299,14 @@ impl Visitor for WellFormed {
                 }
             }
         }
+        // in ast_to_ir, we should have already checked that static components have static_control_body
+        if comp.latency.is_some() {
+            assert!(
+                matches!(&*comp.control.borrow(), &ir::Control::Static(_)),
+                "static component {} does not have static control. This should have been checked in ast_to_ir",
+                comp.name
+            );
+        }
 
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
@@ -284,6 +317,13 @@ impl Visitor for WellFormed {
             // Find an assignment writing to this group's done condition.
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
+                if port_is_static_prim(&dst) {
+                    return Err(Error::malformed_structure(format!(
+                        "Static cell `{}` written to in non-static group",
+                        dst.get_parent_name()
+                    ))
+                    .with_pos(&assign.attributes));
+                }
                 if dst.is_hole() && dst.name == "done" {
                     // Group has multiple done conditions
                     if has_done {
@@ -315,7 +355,8 @@ impl Visitor for WellFormed {
         }
 
         // Don't need to check done condition for static groups. Instead, just
-        // checking that the static timing intervals are well formed.
+        // checking that the static timing intervals are well formed, and
+        // that don't write to static components
         for gr in comp.get_static_groups().iter() {
             let group = gr.borrow();
             let group_latency = group.get_latency();
@@ -353,6 +394,16 @@ impl Visitor for WellFormed {
         )?;
         // Check for obvious conflicting assignments between the continuous assignments and the groups
         for cgr in comp.comb_groups.iter() {
+            for assign in &cgr.borrow().assignments {
+                let dst = assign.dst.borrow();
+                if port_is_static_prim(&dst) {
+                    return Err(Error::malformed_structure(format!(
+                        "Static cell `{}` written to in non-static group",
+                        dst.get_parent_name()
+                    ))
+                    .with_pos(&assign.attributes));
+                }
+            }
             obvious_conflicts(
                 cgr.borrow()
                     .assignments
@@ -456,24 +507,46 @@ impl Visitor for WellFormed {
         }
         // Only refers to ports defined in the invoked instance.
         let cell = s.comp.borrow();
-        let ports: HashSet<_> =
-            cell.ports.iter().map(|p| p.borrow().name).collect();
 
-        s.inputs
-            .iter()
-            .chain(s.outputs.iter())
-            .try_for_each(|(port, _)| {
-                if !ports.contains(port) {
-                    Err(Error::malformed_structure(format!(
-                        "`{}` does not have port named `{}`",
-                        cell.name(),
-                        port
-                    ))
-                    .with_pos(&s.attributes))
+        if let CellType::Component { name: id } = &cell.prototype {
+            let cellmap = &self.ref_cell_types[id];
+            let mut mentioned_cells = HashSet::new();
+            for (outcell, incell) in s.ref_cells.iter() {
+                if let Some(t) = cellmap.get(outcell) {
+                    let proto = incell.borrow().prototype.clone();
+                    same_type(t, &proto)
+                        .map_err(|err| err.with_pos(&s.attributes))?;
+                    mentioned_cells.insert(outcell);
                 } else {
-                    Ok(())
+                    return Err(Error::malformed_control(format!(
+                        "{} does not have ref cell named {}",
+                        id, outcell
+                    )));
                 }
-            })?;
+            }
+            for id in cellmap.keys() {
+                if mentioned_cells.get(id).is_none() {
+                    return Err(Error::malformed_control(format!(
+                        "unmentioned ref cell: {}",
+                        id
+                    ))
+                    .with_pos(&s.attributes));
+                }
+            }
+        }
+
+        Ok(Action::Continue)
+    }
+
+    fn static_invoke(
+        &mut self,
+        s: &mut ir::StaticInvoke,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        // Only refers to ports defined in the invoked instance.
+        let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
             let cellmap = &self.ref_cell_types[id];

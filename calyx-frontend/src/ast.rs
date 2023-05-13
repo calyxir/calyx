@@ -63,10 +63,17 @@ pub struct ComponentDef {
     pub attributes: Attributes,
     /// True iff this is a combinational component
     pub is_comb: bool,
+    /// (Optional) latency of component, if it is static
+    pub latency: Option<NonZeroU64>,
 }
 
 impl ComponentDef {
-    pub fn new<S>(name: S, is_comb: bool, signature: Vec<PortDef<u64>>) -> Self
+    pub fn new<S>(
+        name: S,
+        is_comb: bool,
+        latency: Option<NonZeroU64>,
+        signature: Vec<PortDef<u64>>,
+    ) -> Self
     where
         S: Into<Id>,
     {
@@ -80,6 +87,7 @@ impl ComponentDef {
             control: Control::empty(),
             attributes: Attributes::default(),
             is_comb,
+            latency,
         }
     }
 }
@@ -345,6 +353,21 @@ pub enum Control {
         /// External cells that may execute with this invoke.
         ref_cells: Vec<(Id, Id)>,
     },
+    /// Invoke component with input/output assignments.
+    StaticInvoke {
+        /// Name of the component to be invoked.
+        comp: Id,
+        /// Input assignments
+        inputs: Vec<(Id, Atom)>,
+        /// Output assignments
+        outputs: Vec<(Id, Atom)>,
+        /// Attributes
+        attributes: Attributes,
+        /// External cells that may execute with this invoke.
+        ref_cells: Vec<(Id, Id)>,
+        /// (optional) latency. Latency can be inferred if not given.
+        latency: Option<NonZeroU64>,
+    },
     /// Control statement that does nothing.
     Empty {
         /// Attributes
@@ -420,6 +443,7 @@ impl Control {
             Control::StaticPar { attributes, .. } => attributes,
             Control::StaticIf { attributes, .. } => attributes,
             Control::StaticRepeat { attributes, .. } => attributes,
+            Control::StaticInvoke { attributes, .. } => attributes,
         }
     }
 }

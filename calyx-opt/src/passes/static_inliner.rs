@@ -317,7 +317,8 @@ impl StaticInliner {
             ir::StaticControl::Empty(_) => unreachable!(
                 "should not call inline_static_control on empty stmt"
             ),
-            ir::StaticControl::Invoke(_) => {
+            ir::StaticControl::Invoke(inv) => {
+                dbg!(inv.comp.borrow().name());
                 todo!("implement static inlining for invokes")
             }
         }

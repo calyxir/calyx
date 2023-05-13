@@ -226,6 +226,7 @@ impl<'a> Builder<'a> {
                 name: prim_id,
                 param_binding: Box::new(param_binding),
                 is_comb: prim.is_comb,
+                latency: prim.latency,
             },
             ports,
         );
