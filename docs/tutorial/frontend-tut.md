@@ -14,7 +14,10 @@ Meet MrXL.
 ## MrXL Overview
 
 MrXL lets you define arrays (TK: "and registers") and then perform `map`s and `reduce`s.
-Here's MrXL in all its glory:
+
+### A tiny example
+
+Here's a MrXL program in all its glory:
 
 ```
 {{#include ../../frontends/mrxl/test/sos.mrxl}}
@@ -25,6 +28,34 @@ The program is short enough for us to pick apart line by line:
 2. We specify another array, `sos`, which will also have four integers. (TK: this will change to `output sos: int` after https://github.com/cucapra/calyx/issues/1459 lands, so the copy will become lighter: "We specify `sos`, a register.") The `output` keyword means that we will populate `sos` in our program.
 3. The `map` operation gets the values of `avec` and squares each. We stash the result in a new array, `squares`. The number `2` denotes a *parallelism factor* of 2; we will disccuss this shortly.
 4. The `reduce` operation walks over `squares` and accumulates the result into an array. (TK: "a register"). Here the parallelism factor is `1`: this reduction is performed sequentially.
+
+
+### Running our example
+
+Let's run this program.
+
+To begin, [install the MrXL command line tool][mrxldocs-install].
+
+Now change directories to `calyx/frontends/mrxl` and run
+```
+mrxl test/sos.mrxl --data test/sos.mrxl.data --interpret
+```
+
+Why `42`? Because we populated `avec` with
+```
+{{#include ../../frontends/mrxl/test/sos.mrxl.data}}
+```
+(TK: the file is gruesome right now, but once https://github.com/cucapra/calyx/issues/1450#issuecomment-1546757549 lands it'll look much nicer, to the point that it'll flow okay.)
+
+and $0^2 + 1^2 + 4^2 + 5^2 = 42$.
+
+Still not impressed?
+Consider the Calyx code that we _didn't write_:
+
+```
+{{#include ../../frontends/mrxl/test/sos.calyx}}
+```
+(TK: the above was generated using banking factor 1 everywhere, since that is what we can compile right now. Change once https://github.com/cucapra/calyx/issues/1472 lands and we can compile `... map 2... reduce 1...` as is my hope.)
 
 
 ## Run a MrXL Program
