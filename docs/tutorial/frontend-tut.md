@@ -1,6 +1,15 @@
 # Building a Frontend for Calyx
 
-In this tutorial, we're going to build a compiler for a small language called MrXL.
+In the [Calyx tutorial][calyx-tut] you wrote Calyx by hand.
+That is (probably) a good way to build character, but it's no way to live.
+In practice, you want a frontend that *compiles* to Calyx.
+
+This allows you to:
+1. Generate, automatically, some of the kludge that Calyx requires.
+2. Support features that Calyx does not.
+
+In this tutorial, we're going to learn all about this by building a compiler for a toy language.
+Meet MrXL.
 
 ## MrXL Overview
 MrXL provides constructs to create arrays, and perform `map` and `reduce` operations on those arrays. Here's an example of "sum of squares", implemented in MrXL:
@@ -50,7 +59,7 @@ fud exec frontends/mrxl/test/add.mrxl \
 
 This guide will walk you through the steps to build a Python program that compiles MrXL programs to Calyx code.
 The guide assumes some basic familiarity with Calyx.
-Take a look at [Calyx tutorial][calyx-tut] if you need a refresher.
+Take a look at the [Calyx tutorial][calyx-tut] if you need a refresher.
 
 To simplify things, we'll make a few assumptions about MrXL programs:
 - Every array in a MrXL program has the same length.
