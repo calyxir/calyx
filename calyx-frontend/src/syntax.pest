@@ -47,7 +47,9 @@ static_annotation = { static_word ~ latency_annotation}
 
 static_optional_latency = { static_word ~ latency_annotation? } 
 
-comb_or_static = {comb | static_annotation | (comb~static_annotation) | (static_annotation~comb) }
+both_comb_static = { (comb ~ static_annotation) | (static_annotation ~ comb) } 
+
+comb_or_static = {both_comb_static | comb | static_annotation}
 
 file = {
       SOI

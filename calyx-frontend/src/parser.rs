@@ -245,16 +245,20 @@ impl CalyxParser {
         ))
     }
 
+    fn both_comb_static(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        Err(input.error("Cannot have both comb and static annotations"))
+    }
+
     fn comb_or_static(
         input: Node,
     ) -> ParseResult<Option<std::num::NonZeroU64>> {
         match_nodes!(
             input.clone().into_children();
+            [both_comb_static(_)] => unreachable!("both_comb_static did not error"),
             [comb(_)] => Ok(None),
             [static_annotation(latency)] => Ok(Some(latency)),
-            [comb(_), static_annotation(_)] => Err(input.error("Cannot have both a comb and static annotation")),
-            [static_annotation(_), comb(_)] => Err(input.error("Cannot have both a comb and static annotation")),
-
         )
     }
 
