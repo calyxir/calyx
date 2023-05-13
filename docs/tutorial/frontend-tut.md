@@ -1,5 +1,7 @@
 # Building a Frontend for Calyx
 
+> This tutorial assumes that you have already worked through the [Calyx tutorial][calyx-tut]. You won't get very much out of it by itself!
+
 In the [Calyx tutorial][calyx-tut] you wrote Calyx by hand.
 That is (probably) a good way to build character, but it's no way to live.
 In practice, you want a frontend that *compiles* to Calyx.
@@ -61,7 +63,7 @@ Consider the Calyx code that we _didn't write_:
 ## Run a MrXL Program
 
 To provide MrXL program with input values, we use fud's [JSON][json]-based [data format][fud-data].
-Recall that the invocation of `map` in our running exmaple has a parallelism factor of two.
+Recall that the invocation of `map` in our running example has a parallelism factor of two.
 
 ```
 {{#include ../../frontends/mrxl/test/sos.mrxl}}
@@ -86,8 +88,6 @@ fud exec frontends/mrxl/test/sos.mrxl \
 ## Compiling MrXL to Calyx
 
 This guide will walk you through the steps to build a Python program that compiles MrXL programs to Calyx code.
-The guide assumes some basic familiarity with Calyx.
-Take a look at the [Calyx tutorial][calyx-tut] if you need a refresher.
 
 To simplify things, we'll make a few assumptions about MrXL programs:
 - Every array in a MrXL program has the same length.
@@ -124,7 +124,7 @@ A program is a sequence of array declarations followed by computation statements
 
 ### Generate Calyx Code
 
-The skeleton of a Calyx program has three sections, and looks like this:
+As you know, the skeleton of a Calyx program has three sections:
 
 ```
 component main() -> {
