@@ -300,7 +300,7 @@ fn build_component(
         comp.is_comb,
         // we may change latency from None to Some(inferred latency)
         // after we iterate thru the control of the Component
-        comp.latency.map(|x| x.into()),
+        comp.latency,
     );
 
     let mut builder =
