@@ -60,27 +60,27 @@ Consider the Calyx code that we _didn't write_:
 
 ## Run a MrXL Program
 
-Once we have [installed the mrxl command line tool][mrxldocs-install], we can run MrXL programs using [`fud`][fud].
-
 To provide MrXL program with input values, we use fud's [JSON][json]-based [data format][fud-data].
-Let's try to run this program, which has a parallelism factor of two:
+Recall that the invocation of `map` in our running exmaple has a parallelism factor of two.
 
 ```
-{{#include ../../frontends/mrxl/test/add.mrxl}}
+{{#include ../../frontends/mrxl/test/sos.mrxl}}
 ```
-In order to take advantage of the parallelism in the program, the MrXL compiler automatically partitions the input memory `foo` into two different *physical banks*: `foo_b0` and `foo_b1`.
-Therefore, we split up our logical `foo` input of `[1, 2, 3, 4]` into `[1,2]` and `[3,4]`:
+
+In order to take advantage of the parallelism in the program, the MrXL compiler automatically partitions the input memory `avec` into two different *physical banks*: `avec_b0` and `avec_b1`.
+Therefore, we split up our logical `avec` input of `[0, 1, 4, 5]` into `[0, 1]` and `[4, 5]`:
 ```json
-{{#include ../../frontends/mrxl/test/add.mrxl.data:2:23}}
+{{#include ../../frontends/mrxl/test/add.mrxl.banked.data}}
 ```
-Our complete data file similarly splits up the input for `baz`.
+(TK: this is incorrect at present: it was generated using parallelism factor of `1` for the map, so it only makes one bank, `avec_b0`. It'll become better after https://github.com/cucapra/calyx/issues/1472 lands. It'll also benefit from https://github.com/cucapra/calyx/issues/1450#issuecomment-1546757549)
+
 
 Run the program with the complete data by typing:
 
 ```
-fud exec frontends/mrxl/test/add.mrxl \
+fud exec frontends/mrxl/test/sos.mrxl \
     --from mrxl \
-    --to vcd -s verilog.data frontends/mrxl/test/add.mrxl.data
+    --to vcd -s verilog.data frontends/mrxl/test/sos.mrxl.banked.data
 ```
 
 ## Compiling MrXL to Calyx
@@ -114,7 +114,7 @@ A program is a sequence of array declarations followed by computation statements
 {{#include ../../frontends/mrxl/mrxl/ast.py:decl}}
 ```
 
-`Stmt` nodes represent statements such as `dot := reduce 4 (a, b <- prodvec) 0 { a + b }`, and contain more nested nodes representing their function header and body, and type of operation.
+`Stmt` nodes represent statements such as `sos := reduce 1 (acc, i <- squares) 0 { acc + i }`, and contain more nested nodes representing their function header and body, and type of operation.
 
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:stmt}}
@@ -258,20 +258,16 @@ Then, it sequentially executes the computation for the body and increments the l
 MrXL allows you to parallelize your `map` and `reduce` operations. Let's revisit the `map` example from earlier:
 
 ```
-input foo: int[4]
-output baz: int[4]
-baz := map 4 (a <- foo) { a + 5 }
+{{#include ../../frontends/mrxl/test/sos.mrxl}}
 ```
 
-The number 4 specifies that four copies of the loop bodies should be executed in parallel.
+The number `2` specifies that two copies of the loop bodies should be executed in parallel.
 Our implementation already creates [memory banks](#decl-nodes) to allow for parallel accesses.
 At a high-level, we can change the compilation for the `map` operation to produce `n` copies of the hardware we generate above and generate a control program that looks like this:
 ```
 par {
   while le_b0.out with cond_b0 { seq { eval_body_b0; incr_idx_b0; } }
   while le_b1.out with cond_b1 { seq { eval_body_b1; incr_idx_b1; } }
-  while le_b2.out with cond_b2 { seq { eval_body_b2; incr_idx_b2; } }
-  while le_b3.out with cond_b3 { seq { eval_body_b3; incr_idx_b3; } }
 }
 ```
 
