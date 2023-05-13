@@ -12,9 +12,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 // given a port and a vec of components `comps`,
-// returns true if the port's parent is a static component
+// returns true if the port's parent is a static primitive
 // otherwise returns false
-fn port_is_static(comps: &[ir::Component], port: &ir::Port) -> bool {
+fn port_is_static_prim(port: &ir::Port) -> bool {
     // if port parent is hole then obviously not static
     let parent_cell = match &port.parent {
         ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(),
@@ -25,22 +25,15 @@ fn port_is_static(comps: &[ir::Component], port: &ir::Port) -> bool {
     // if celltype is this component/constant, then obviously not static
     // if primitive, then we can quickly check whether it is static
     // if component, then we have to go throuch `comps` to see whether its static
-    let id = match parent_cell.borrow().prototype {
-        ir::CellType::Component { name } => name,
-        ir::CellType::Primitive { latency, .. } => return latency.is_some(),
-        ir::CellType::ThisComponent | ir::CellType::Constant { .. } => {
-            return false
-        }
+    // for some reason, need to store result in variable, otherwise it gives a
+    // lifetime error
+    let res = match parent_cell.borrow().prototype {
+        ir::CellType::Primitive { latency, .. } => latency.is_some(),
+        ir::CellType::Component { .. }
+        | ir::CellType::ThisComponent
+        | ir::CellType::Constant { .. } => false,
     };
-    for comp in comps {
-        if comp.name == id {
-            return comp.latency.is_some();
-        }
-    }
-    unreachable!(
-        "called is_comp_static with comp name {}, which was not found as a component",
-        id
-    );
+    res
 }
 
 #[derive(Default)]
@@ -324,7 +317,7 @@ impl Visitor for WellFormed {
             // Find an assignment writing to this group's done condition.
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
-                if port_is_static(comps, &dst) {
+                if port_is_static_prim(&dst) {
                     return Err(Error::malformed_structure(format!(
                         "Static cell `{}` written to in non-static group",
                         dst.get_parent_name()
@@ -403,7 +396,7 @@ impl Visitor for WellFormed {
         for cgr in comp.comb_groups.iter() {
             for assign in &cgr.borrow().assignments {
                 let dst = assign.dst.borrow();
-                if port_is_static(comps, &dst) {
+                if port_is_static_prim(&dst) {
                     return Err(Error::malformed_structure(format!(
                         "Static cell `{}` written to in non-static group",
                         dst.get_parent_name()
