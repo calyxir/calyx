@@ -11,6 +11,7 @@ use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::iter::Extend;
+use std::num::NonZeroU64;
 use std::rc::Rc;
 
 /// The default name of the signature cell in a component.
@@ -42,7 +43,7 @@ pub struct Component {
     /// True iff component is combinational
     pub is_comb: bool,
     /// (Optional) latency of component, if it is static
-    pub latency: Option<u64>,
+    pub latency: Option<NonZeroU64>,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
@@ -60,7 +61,7 @@ impl Component {
         name: S,
         ports: Vec<PortDef<u64>>,
         is_comb: bool,
-        latency: Option<u64>,
+        latency: Option<NonZeroU64>,
     ) -> Self
     where
         S: Into<Id>,
