@@ -1,13 +1,5 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
-  control {}
-}
 component share<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r = std_reg(32);
@@ -28,58 +20,26 @@ component share<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1
     @NODE_ID(0) A;
   }
 }
-component non_share2(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component share1<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     s = share();
     r = std_reg(32);
   }
   wires {
-    out = s.out;
+    group readS {
+      r.write_en = 1'd1;
+      r.in = s.out;
+      readS[done] = r.done;
+    }
+    out = r.out;
   }
 
   control {
     @NODE_ID(0) seq {
       @NODE_ID invoke s(
         in = 32'd10
-      )(
-        out = r.in
-      );
-    }
-  }
-}
-component non_share(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
-  cells {
-    s = share();
-    r = std_reg(32);
-  }
-  wires {
-    out = s.out;
-  }
-
-  control {
-    @NODE_ID(0) seq {
-      @NODE_ID invoke s(
-        in = r.out
       )();
-    }
-  }
-}
-component share3<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
-  cells {
-    s = share();
-    r = std_reg(32);
-    q = std_reg(32);
-    add = std_add(32);
-  }
-  wires {
-    out = s.out;
-  }
-
-  control {
-    @NODE_ID(0) seq {
-      @NODE_ID invoke s(
-        in = in
-      )();
+      @NODE_ID(2) readS;
     }
   }
 }
@@ -115,26 +75,66 @@ component share2<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 
     }
   }
 }
-component share1<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component share3<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    s = share();
+    r = std_reg(32);
+    q = std_reg(32);
+    add = std_add(32);
+  }
+  wires {
+    out = s.out;
+  }
+
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID invoke s(
+        in = in
+      )();
+    }
+  }
+}
+component non_share(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     s = share();
     r = std_reg(32);
   }
   wires {
-    group readS {
-      r.write_en = 1'd1;
-      r.in = s.out;
-      readS[done] = r.done;
+    out = s.out;
+  }
+
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID invoke s(
+        in = r.out
+      )();
     }
-    out = r.out;
+  }
+}
+component non_share2(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    s = share();
+    r = std_reg(32);
+  }
+  wires {
+    out = s.out;
   }
 
   control {
     @NODE_ID(0) seq {
       @NODE_ID invoke s(
         in = 32'd10
-      )();
-      @NODE_ID(2) readS;
+      )(
+        out = r.in
+      );
     }
   }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
 }

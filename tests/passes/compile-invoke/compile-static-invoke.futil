@@ -1,7 +1,7 @@
 // -p validate -p compile-invoke -p dead-group-removal
 import "primitives/core.futil";
 
-static component exponent(base: 32, exp: 4) -> (out: 32) {
+static<4> component exponent(base: 32, exp: 4) -> (out: 32) {
   cells { pow = std_reg(32); }
   wires {
     static<4> group write_pow {

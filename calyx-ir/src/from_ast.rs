@@ -19,13 +19,15 @@ type InvokePortMap = Vec<(Id, Atom)>;
 /// components.
 #[derive(Default)]
 struct SigCtx {
-    /// Mapping from component names to signatures
+    /// Mapping from component names to (signature, Option<static_latency>)
     comp_sigs: HashMap<Id, (Vec<PortDef<u64>>, Option<NonZeroU64>)>,
 
     /// Mapping from library functions to signatures
     lib: LibrarySignatures,
 }
 
+// assumes comp_name is the name of a valid primitive/component
+// uses sig_ctx to check the latency of comp_name (if not static, then None)
 fn get_comp_latency(
     sig_ctx: &SigCtx,
     comp_name: &Id,
@@ -44,6 +46,8 @@ fn get_comp_latency(
     }
 }
 
+// assumes comp_name is the name of a valid primitive/component
+// Uses sig_ctx to check whether port_name is a valid port on comp_name.
 fn check_valid_port(
     comp_name: &Id,
     port_name: &Id,

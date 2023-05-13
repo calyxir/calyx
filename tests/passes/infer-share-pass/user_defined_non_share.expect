@@ -1,13 +1,5 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
-  control {}
-}
 component no_share(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r = std_reg(32);
@@ -36,4 +28,12 @@ component uses_no_share(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out
   control {
     A;
   }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
 }

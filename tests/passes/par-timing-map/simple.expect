@@ -1,17 +1,5 @@
 This maps ids of par blocks to " cell timing maps ", which map cells to intervals (i,j), that signify the clock cycles the group is active for, 
  relative to the start of the given par block
-============ Map for Component "comp" ============
-========Par Node ID: 6 ========
-====Child/Thread ID: 7 ====
-Id { id: "e" } -- [(2, 3)]
-Id { id: "d" } -- [(0, 2)]
-====Child/Thread ID: 10 ====
-Id { id: "f" } -- [(0, 1)]
-Id { id: "g" } -- [(1, 3)]
-
-
-This maps ids of par blocks to " cell timing maps ", which map cells to intervals (i,j), that signify the clock cycles the group is active for, 
- relative to the start of the given par block
 ============ Map for Component "main" ============
 ========Par Node ID: 0 ========
 ====Child/Thread ID: 1 ====
@@ -22,7 +10,60 @@ Id { id: "c" } -- [(3, 6)]
 Id { id: "d" } -- [(0, 4)]
 
 
+This maps ids of par blocks to " cell timing maps ", which map cells to intervals (i,j), that signify the clock cycles the group is active for, 
+ relative to the start of the given par block
+============ Map for Component "comp" ============
+========Par Node ID: 6 ========
+====Child/Thread ID: 7 ====
+Id { id: "e" } -- [(2, 3)]
+Id { id: "d" } -- [(0, 2)]
+====Child/Thread ID: 10 ====
+Id { id: "f" } -- [(0, 1)]
+Id { id: "g" } -- [(1, 3)]
+
+
 import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(32);
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+    d = std_reg(32);
+  }
+  wires {
+    static<2> group A {
+      a.write_en = 1'd1;
+      a.in = 32'd2;
+    }
+    static<3> group B {
+      a.write_en = 1'd1;
+      a.in = 32'd2;
+    }
+    static<3> group C {
+      a.write_en = 1'd1;
+      a.in = 32'd2;
+    }
+    static<4> group D {
+      d.write_en = 1'd1;
+      d.in = 32'd2;
+    }
+  }
+
+  control {
+    @NODE_ID(0) static<6> par {
+      @NODE_ID static<6> seq  {
+        @NODE_ID(2) static<3> if  lt.out {
+          @NODE_ID(3) A;
+        } else {
+          @NODE_ID(4) B;
+        }
+        @NODE_ID(6) C;
+      }
+      @NODE_ID(7) D;
+    }
+  }
+}
 component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     lt = std_lt(32);
@@ -88,47 +129,6 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
           }
         }
       }
-    }
-  }
-}
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-    lt = std_lt(32);
-    a = std_reg(32);
-    b = std_reg(32);
-    c = std_reg(32);
-    d = std_reg(32);
-  }
-  wires {
-    static<2> group A {
-      a.write_en = 1'd1;
-      a.in = 32'd2;
-    }
-    static<3> group B {
-      a.write_en = 1'd1;
-      a.in = 32'd2;
-    }
-    static<3> group C {
-      a.write_en = 1'd1;
-      a.in = 32'd2;
-    }
-    static<4> group D {
-      d.write_en = 1'd1;
-      d.in = 32'd2;
-    }
-  }
-
-  control {
-    @NODE_ID(0) static<6> par {
-      @NODE_ID static<6> seq  {
-        @NODE_ID(2) static<3> if  lt.out {
-          @NODE_ID(3) A;
-        } else {
-          @NODE_ID(4) B;
-        }
-        @NODE_ID(6) C;
-      }
-      @NODE_ID(7) D;
     }
   }
 }

@@ -507,24 +507,6 @@ impl Visitor for WellFormed {
         }
         // Only refers to ports defined in the invoked instance.
         let cell = s.comp.borrow();
-        let ports: HashSet<_> =
-            cell.ports.iter().map(|p| p.borrow().name).collect();
-
-        s.inputs
-            .iter()
-            .chain(s.outputs.iter())
-            .try_for_each(|(port, _)| {
-                if !ports.contains(port) {
-                    Err(Error::malformed_structure(format!(
-                        "`{}` does not have port named `{}`",
-                        cell.name(),
-                        port
-                    ))
-                    .with_pos(&s.attributes))
-                } else {
-                    Ok(())
-                }
-            })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
             let cellmap = &self.ref_cell_types[id];
@@ -565,24 +547,6 @@ impl Visitor for WellFormed {
     ) -> VisResult {
         // Only refers to ports defined in the invoked instance.
         let cell = s.comp.borrow();
-        let ports: HashSet<_> =
-            cell.ports.iter().map(|p| p.borrow().name).collect();
-
-        s.inputs
-            .iter()
-            .chain(s.outputs.iter())
-            .try_for_each(|(port, _)| {
-                if !ports.contains(port) {
-                    Err(Error::malformed_structure(format!(
-                        "`{}` does not have port named `{}`",
-                        cell.name(),
-                        port
-                    ))
-                    .with_pos(&s.attributes))
-                } else {
-                    Ok(())
-                }
-            })?;
 
         if let CellType::Component { name: id } = &cell.prototype {
             let cellmap = &self.ref_cell_types[id];

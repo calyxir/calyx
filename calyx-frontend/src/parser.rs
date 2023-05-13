@@ -245,6 +245,19 @@ impl CalyxParser {
         ))
     }
 
+    fn comb_or_static(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        match_nodes!(
+            input.clone().into_children();
+            [comb(_)] => Ok(None),
+            [static_annotation(latency)] => Ok(Some(latency)),
+            [comb(_), static_annotation(_)] => Err(input.error("Cannot have both a comb and static annotation")),
+            [static_annotation(_), comb(_)] => Err(input.error("Cannot have both a comb and static annotation")),
+
+        )
+    }
+
     fn bad_num(input: Node) -> ParseResult<u64> {
         Err(input.error("Expected number with bitwidth (like 32'd10)."))
     }
@@ -730,7 +743,7 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [static_word(_), latency_annotation(latency), name_with_attribute((name, attrs)), static_wire(wire)..] => ast::StaticGroup {
+            [static_annotation(latency), name_with_attribute((name, attrs)), static_wire(wire)..] => ast::StaticGroup {
                 name,
                 attributes: attrs.add_span(span),
                 wires: wire.collect(),
@@ -1042,12 +1055,15 @@ impl CalyxParser {
         match_nodes!(
             input.clone().into_children();
             [
-                comb(_),
+                comb_or_static(cs_res),
                 name_with_attribute((name, attributes)),
                 signature(sig),
                 cells(cells),
                 connections(connections)
             ] => {
+                if !cs_res.is_none() {
+                    Err(input.error("Static Component must have defined control"))?;
+                }
                 let (continuous_assignments, groups, static_groups) = connections;
                 let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
                     if let Width::Const { value } = width {
@@ -1071,7 +1087,6 @@ impl CalyxParser {
                     control: Control::empty(),
                     attributes: attributes.add_span(span),
                     is_comb: true,
-                    is_static: false,
                     latency: None,
                 })
             },
@@ -1105,17 +1120,16 @@ impl CalyxParser {
                     control,
                     attributes: attributes.add_span(span),
                     is_comb: false,
-                    is_static: false,
                     latency: None,
                 })
             },
             [
-                static_optional_latency(latency),
+                comb_or_static(cs_res),
                 name_with_attribute((name, attributes)),
                 signature(sig),
                 cells(cells),
                 connections(connections),
-                control(control)
+                control(control),
             ] => {
                 let (continuous_assignments, groups, static_groups) = connections;
                 let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
@@ -1139,11 +1153,10 @@ impl CalyxParser {
                     continuous_assignments,
                     control,
                     attributes: attributes.add_span(span),
-                    is_comb: false,
-                    is_static: true,
-                    latency,
+                    is_comb: cs_res.is_none(),
+                    latency: cs_res,
                 })
-            }
+            },
         )
     }
 
