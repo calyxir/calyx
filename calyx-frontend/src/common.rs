@@ -31,7 +31,7 @@ pub struct Primitive {
     /// True iff this is a combinational primitive
     pub is_comb: bool,
     /// (Optional) latency; for static primitives
-    pub latency: Option<u64>,
+    pub latency: Option<std::num::NonZeroU64>,
     /// body of the string, if it is an inlined primitive
     pub body: Option<String>,
 }
