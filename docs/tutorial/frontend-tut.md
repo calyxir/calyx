@@ -13,7 +13,7 @@ Meet MrXL.
 
 ## MrXL Overview
 
-MrXL lets you define arrays (TK: "and registers") and then perform `map`s and `reduce`s.
+MrXL lets you define arrays (TK, after https://github.com/cucapra/calyx/issues/1459 lands: "and registers") and then perform `map`s and `reduce`s.
 
 ### A tiny example
 
@@ -42,7 +42,7 @@ mrxl test/sos.mrxl --data test/sos.mrxl.data --interpret
 ```
 
 Why `42`? Because we populated `avec` with
-```
+```json
 {{#include ../../frontends/mrxl/test/sos.mrxl.data}}
 ```
 (TK: the file is gruesome right now, but once https://github.com/cucapra/calyx/issues/1450#issuecomment-1546757549 lands it'll look much nicer, to the point that it'll flow okay.)
