@@ -4,7 +4,7 @@
 
 In the [Calyx tutorial][calyx-tut] you wrote Calyx by hand.
 That is (probably) a good way to build character, but it's no way to live.
-In practice, you want a frontend that *compiles* to Calyx.
+In practice, you want a *frontend* that *compiles* to Calyx.
 
 This allows you to:
 1. Generate, automatically, some of the kludge that Calyx requires.
@@ -60,30 +60,53 @@ Consider the Calyx code that we _didn't write_:
 (TK: the above was generated using banking factor 1 everywhere, since that is what we can compile right now. Change once https://github.com/cucapra/calyx/issues/1472 lands and we can compile `... map 2... reduce 1...` as is my hope.)
 
 
-## Run a MrXL Program
+## What Just Happened
 
-To provide MrXL program with input values, we use fud's [JSON][json]-based [data format][fud-data].
+We mentioned two reasons to build your own frontend: the reduction of kludge, and the addition of new features.
+Let's go over how MrXL showcases these benefits.
+
+### MrXL-native data
+
+(TK: basically a summary of what it took to close https://github.com/cucapra/calyx/issues/1450. 5-7 mins for Susan?)
+
+You may have noticed that the data files that we pass to MrXL programs are lighter-weight than those we pass to Calyx programs.
+They are lighter in two ways.
+
+#### A simpler data format
+
+MrXL supports only a few kinds of data, meaning that interesting pieces of Calyx-native data turn into "just boilerplate" in MrXL-native data.
+We can lighten MrXL-native data files and write a [`fud`][fud] pass to tack this information on, thus creating legal Calyx-native data files.
+
+#### Memory banking
+
 Recall that the invocation of `map` in our running example has a parallelism factor of two.
+Ignore the invocation of `reduce` for now.
 
 ```
 {{#include ../../frontends/mrxl/test/sos.mrxl}}
 ```
 
-In order to take advantage of the parallelism in the program, the MrXL compiler automatically partitions the input memory `avec` into two different *physical banks*: `avec_b0` and `avec_b1`.
-Therefore, we split up our logical `avec` input of `[0, 1, 4, 5]` into `[0, 1]` and `[4, 5]`:
+In order to take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is, in fact, split into two *banks*, named `avec_b0` and `avec_b1`.
+We will discuss this further presently, but for now it suffices to convince oneself that this is needed.
+
+Let us return to our running example, `sos.mrxl`.
+While we supplied `avec` with its values in the vein of
+
+```json
+{{#include ../../frontends/mrxl/test/sos.mrxl.data}}
+```
+
+under the hood, the *compiled version* of `sos.mrxl` came to expect something like:
+
 ```json
 {{#include ../../frontends/mrxl/test/add.mrxl.banked.data}}
 ```
 (TK: this is incorrect at present: it was generated using parallelism factor of `1` for the map, so it only makes one bank, `avec_b0`. It'll become better after https://github.com/cucapra/calyx/issues/1472 lands. It'll also benefit from https://github.com/cucapra/calyx/issues/1450#issuecomment-1546757549)
 
+Though far from trivial, this memory banking is also doable using `fud`:
+all the necessary information is in the MrXL source program.
 
-Run the program with the complete data by typing:
 
-```
-fud exec frontends/mrxl/test/sos.mrxl \
-    --from mrxl \
-    --to vcd -s verilog.data frontends/mrxl/test/sos.mrxl.banked.data
-```
 
 ## Compiling MrXL to Calyx
 
