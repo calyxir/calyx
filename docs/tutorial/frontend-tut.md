@@ -8,16 +8,16 @@ In practice, you want a *frontend* that *compiles* to Calyx.
 
 This allows you to:
 1. Generate, automatically, some of the kludge that Calyx requires.
-2. Support features that Calyx does not.
+2. Support domain-specific commands that Calyx does not.
 
 In this tutorial, we're going to learn all about this by building a compiler for a toy language.
 Meet MrXL.
 
-## MrXL Overview
+# MrXL Overview
 
 MrXL lets you define arrays (TK, after https://github.com/cucapra/calyx/issues/1459 lands: "and registers") and then perform `map`s and `reduce`s.
 
-### A tiny example
+## A tiny example
 
 Here's a MrXL program in all its glory:
 
@@ -32,7 +32,7 @@ The program is short enough for us to pick apart line by line:
 4. The `reduce` operation walks over `squares` and accumulates the result into an array. (TK: "a register"). Here the parallelism factor is `1`: this reduction is performed sequentially.
 
 
-### Running our example
+## Running our example
 
 Let's run this program.
 
@@ -60,24 +60,24 @@ Consider the Calyx code that we _didn't write_:
 (TK: the above was generated using banking factor 1 everywhere, since that is what we can compile right now. Change once https://github.com/cucapra/calyx/issues/1472 lands and we can compile `... map 2... reduce 1...` as is my hope.)
 
 
-## What Just Happened
+# Breaking it Down
 
-We mentioned two reasons to build your own frontend: the reduction of kludge, and the addition of new features.
+We mentioned two reasons to build your own frontend: the reduction of kludge, and the addition of domain-specific commands.
 Let's go over how MrXL showcases these benefits.
 
-### MrXL-native data
+## Lighter data files
 
 (TK: basically a summary of what it took to close https://github.com/cucapra/calyx/issues/1450. 5-7 mins for Susan?)
 
 You may have noticed that the data files that we pass to MrXL programs are lighter-weight than those we pass to Calyx programs.
 They are lighter in two ways.
 
-#### A simpler data format
+### A simpler data format
 
 MrXL supports only a few kinds of data, meaning that interesting pieces of Calyx-native data turn into "just boilerplate" in MrXL-native data.
 We can lighten MrXL-native data files and write a [`fud`][fud] pass to tack this information on, thus creating legal Calyx-native data files.
 
-#### Memory banking
+### Memory banking
 
 Recall that the invocation of `map` in our running example has a parallelism factor of two.
 Ignore the invocation of `reduce` for now.
@@ -107,45 +107,46 @@ Though far from trivial, this memory banking is also doable using `fud`:
 all the necessary information is in the MrXL source program.
 
 
+## Compiling MrXL into Calyx
 
-## Compiling MrXL to Calyx
+Our frontends can support new commands that are relevant to the domain of interest, so long as those commands can themselves be compiled into Calyx.
+We will now study [the MrXL-to-Calyx compiler][impl], written in Python.
 
-This guide will walk you through the steps to build a Python program that compiles MrXL programs to Calyx code.
+We have placed a few simplifying restrictions on MrXL programs:
+1. Every array in a MrXL program has the same length.
+2. Every integer in our generated hardware is 32 bits long.
+3. The bodies of `map` and `reduce` operations must be `+` or `*` operations involving array elements or integer constants.
 
-To simplify things, we'll make a few assumptions about MrXL programs:
-- Every array in a MrXL program has the same length.
-- Every integer in our generated hardware will be 32 bits.
-- Every `map` and `reduce` body will be either a multiplication or addition of either an array element or an integer.
+These can be lifted or relaxed via commensurate changes to the compiler.
 
-The following sections will outline these two high level tasks:
-1. Parse MrXL into a representation we can process with Python
-1. Generate Calyx code
+The compilation process breaks into two steps:
+1. Parsing MrXL into a representation we can process in Python.
+1. Generating Calyx code.
 
-> You can find our [complete implementation][impl] in the Calyx repository.
+### Parsing MrXL into an AST
 
-### Parse MrXL into an AST
-
-To start, we'll parse this MrXL program into a Python AST representation. We chose to represent [AST][astcode] nodes with Python `dataclass`.
+To start, we'll parse the MrXL program into a Python AST representation. We chose to represent [AST][astcode] nodes with Python `dataclass`.
 A program is a sequence of array declarations followed by computation statements:
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:prog}}
 ```
 
-`Decl` nodes correspond to array declarations like `input avec: int[1024]`, and carry data about whether they're an `input` or `output` array, their name, and their type:
+`Decl` nodes correspond to array declarations such as `input avec: int[4]`, and carry data about whether the array is an `input` or `output` array, its name, and its type:
 
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:decl}}
 ```
 
-`Stmt` nodes represent statements such as `sos := reduce 1 (acc, i <- squares) 0 { acc + i }`, and contain more nested nodes representing their function header and body, and type of operation.
+`Stmt` nodes represent statements such as `sos := reduce 1 (acc, i <- squares) 0 { acc + i }`, and contain more nested nodes representing the function-header and -body, and the type of operation.
 
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:stmt}}
 ```
 
-[The complete AST][mrxl-ast] defines the remaining AST nodes required to represent a MrXL program.
+We elide further details, but point you to the [AST][mrxl-ast], which defines all the nodes we need to represent a MrXL program.
 
-### Generate Calyx Code
+
+### Generating Calyx Code
 
 As you know, the skeleton of a Calyx program has three sections:
 
@@ -164,7 +165,7 @@ Finally, the [control section][lf-control] *schedules* the execution of groups u
 
 We perform syntax-directed compilation by walking over nodes in the above AST and generating `cells`, `wires`, and `control` operations.
 
-#### Calyx Embedded DSL
+#### Calyx-Embedded DSL
 
 To make it easy to generate the hardware, we'll use Calyx's [`builder` module][builder-ex] in Python:
 ```python
@@ -276,9 +277,10 @@ Once we have generated the hardware needed for our computation, we can schedule 
 We generate a while loop that checks that the index is less than the array size.
 Then, it sequentially executes the computation for the body and increments the loop index.
 
-### Add Parallelization
+### Adding Parallelization
 
-MrXL allows you to parallelize your `map` and `reduce` operations. Let's revisit the `map` example from earlier:
+MrXL allows us to parallelize your `map` and `reduce` operations.
+Let's revisit the `map` example from earlier:
 
 ```
 {{#include ../../frontends/mrxl/test/sos.mrxl}}
@@ -297,13 +299,15 @@ par {
 The [`par` operator][lf-par] executes all the loops in parallel.
 The [full implementation][impl] shows the necessary code to accomplish this which simply creates an outer loop to generate distinct hardware for each copy of the loop.
 
-## Conclusion
+# Further Steps
 
-Hopefully this should be enough to get you started with writing your own MrXL compiler. Some more follow-up tasks you could try if you're interested:
-- Read the code for compiling `reduce` statements and extend to support parallel reductions using [reduction trees][reduc-trees].
-- Implement code generation that allows memories that differ from one another in size.
-- Implement complex function body expressions. We only support binary operations with two operands, like `a + 5`.
-- Add a new `filter` operation to MrXL.
+Congratulations, you know as much as we do about MrXL!
+The small size of the language makes it a nice sandbox for you to play in.
+Some fun things you could try:
+1. We don't yet implement reduction in parallel. Extend the compiler to allow this.
+2. We require that all arrays be the same size. Lift this restriction.
+3. Permit complex expressions in the bodies of `map` and `reduce`.
+4. Support a new `filter` operation in MrXL.
 
 [astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
