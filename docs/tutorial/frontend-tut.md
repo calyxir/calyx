@@ -301,7 +301,7 @@ The [full implementation][impl] shows the necessary code to accomplish this whic
 
 # Further Steps
 
-Congratulations, you know as much as we do about MrXL!
+Congratulations, you know as much about MrXL as we do!
 The small size of the language makes it a nice sandbox for you to play in.
 Some fun things you could try:
 1. We don't yet implement reduction in parallel. Extend the compiler to allow this.
