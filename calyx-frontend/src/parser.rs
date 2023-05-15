@@ -228,6 +228,40 @@ impl CalyxParser {
             .map_err(|_| input.error("Expected valid bitwidth"))
     }
 
+    fn static_annotation(input: Node) -> ParseResult<std::num::NonZeroU64> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_word(_), latency_annotation(latency)] => latency,
+        ))
+    }
+
+    fn static_optional_latency(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_word(_), latency_annotation(latency)] => Some(latency),
+            [static_word(_)] => None,
+        ))
+    }
+
+    fn both_comb_static(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        Err(input.error("Cannot have both comb and static annotations"))
+    }
+
+    fn comb_or_static(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        match_nodes!(
+            input.clone().into_children();
+            [both_comb_static(_)] => unreachable!("both_comb_static did not error"),
+            [comb(_)] => Ok(None),
+            [static_annotation(latency)] => Ok(Some(latency)),
+        )
+    }
+
     fn bad_num(input: Node) -> ParseResult<u64> {
         Err(input.error("Expected number with bitwidth (like 32'd10)."))
     }
@@ -461,16 +495,18 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: false,
+                latency: None,
                 body: None,
             },
-            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
+            [comb_or_static(cs_res), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs.add_span(span),
-                is_comb: true,
+                is_comb: cs_res.is_none(),
+                latency: cs_res,
                 body: None,
-            },
+            }
         ))
     }
 
@@ -702,7 +738,7 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [static_word(_), latency_annotation(latency), name_with_attribute((name, attrs)), static_wire(wire)..] => ast::StaticGroup {
+            [static_annotation(latency), name_with_attribute((name, attrs)), static_wire(wire)..] => ast::StaticGroup {
                 name,
                 attributes: attrs.add_span(span),
                 wires: wire.collect(),
@@ -785,7 +821,22 @@ impl CalyxParser {
                     comb_group: Some(group),
                     ref_cells: cells
                 },
+        ))
+    }
 
+    fn static_invoke(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_optional_latency(latency), identifier(comp), invoke_ref_args(cells),invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::StaticInvoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    attributes: attrs.add_span(span),
+                    ref_cells: cells,
+                    latency,
+                },
         ))
     }
 
@@ -825,16 +876,11 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), static_word(_), latency_annotation(latency) ,stmt(stmt)..] => ast::Control::StaticSeq {
+            [at_attributes(attrs), static_optional_latency(latency) ,stmt(stmt)..] => ast::Control::StaticSeq {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
-                latency: Some(latency),
-            },
-            [at_attributes(attrs), static_word(_) ,stmt(stmt)..] => ast::Control::StaticSeq {
-                stmts: stmt.collect(),
-                attributes: attrs.add_span(span),
-                latency: None,
-            },
+                latency,
+            }
         ))
     }
 
@@ -853,16 +899,11 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), static_word(_), latency_annotation(latency) ,stmt(stmt)..] => ast::Control::StaticPar {
+            [at_attributes(attrs), static_optional_latency(latency) ,stmt(stmt)..] => ast::Control::StaticPar {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
-                latency: Some(latency),
-            },
-            [at_attributes(attrs), static_word(_), stmt(stmt)..] => ast::Control::StaticPar {
-                stmts: stmt.collect(),
-                attributes: attrs.add_span(span),
-                latency: None,
-            },
+                latency,
+            }
         ))
     }
 
@@ -909,52 +950,29 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
-            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(stmt)] => ast::Control::StaticIf {
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(stmt)] => ast::Control::StaticIf {
                 port,
                 tbranch: Box::new(stmt),
                 fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
                 attributes: attrs.add_span(span),
-                latency: Some(latency),
+                latency,
             },
-            [at_attributes(attrs), static_word(_), port(port), block(stmt)] => ast::Control::StaticIf {
-                port,
-                tbranch: Box::new(stmt),
-                fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
-                attributes: attrs.add_span(span),
-                latency: None,
-            },
-            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(tbranch), block(fbranch)] =>
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(tbranch), block(fbranch)] =>
                 ast::Control::StaticIf {
                     port,
                     tbranch: Box::new(tbranch),
                     fbranch: Box::new(fbranch),
                     attributes: attrs.add_span(span),
-                    latency: Some(latency),
+                    latency,
                 },
-            [at_attributes(attrs), static_word(_), port(port), block(tbranch), block(fbranch)] =>
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(tbranch), static_if_stmt(fbranch)] =>
                 ast::Control::StaticIf {
                     port,
                     tbranch: Box::new(tbranch),
                     fbranch: Box::new(fbranch),
                     attributes: attrs.add_span(span),
-                    latency: None,
-                },
-            [at_attributes(attrs), static_word(_), latency_annotation(latency), port(port), block(tbranch), if_stmt(fbranch)] =>
-                ast::Control::StaticIf {
-                    port,
-                    tbranch: Box::new(tbranch),
-                    fbranch: Box::new(fbranch),
-                    attributes: attrs.add_span(span),
-                    latency: Some(latency),
-                },
-            [at_attributes(attrs), static_word(_), port(port), block(tbranch), if_stmt(fbranch)] =>
-                ast::Control::StaticIf {
-                    port,
-                    tbranch: Box::new(tbranch),
-                    fbranch: Box::new(fbranch),
-                    attributes: attrs.add_span(span),
-                    latency: None,
-                },
+                    latency,
+                }
         ))
     }
 
@@ -989,6 +1007,7 @@ impl CalyxParser {
             [enable(data)] => data,
             [empty(data)] => data,
             [invoke(data)] => data,
+            [static_invoke(data)] => data,
             [seq(data)] => data,
             [static_seq(data)] => data,
             [par(data)] => data,
@@ -1029,71 +1048,111 @@ impl CalyxParser {
     fn component(input: Node) -> ParseResult<ComponentDef> {
         let span = Self::get_span(&input);
         match_nodes!(
-        input.clone().into_children();
-        [
-            comb(_),
-            name_with_attribute((name, attributes)),
-            signature(sig),
-            cells(cells),
-            connections(connections)
-        ] => {
-            let (continuous_assignments, groups, static_groups) = connections;
-            let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                if let Width::Const { value } = width {
-                    Ok(PortDef {
-                        name,
-                        width: value,
-                        direction,
-                        attributes
-                    })
-                } else {
-                    Err(input.error("Components cannot use parameters"))
+            input.clone().into_children();
+            [
+                comb_or_static(cs_res),
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections)
+            ] => {
+                if cs_res.is_some() {
+                    Err(input.error("Static Component must have defined control"))?;
                 }
-            }).collect::<Result<_, _>>()?;
-            Ok(ComponentDef {
-                name,
-                signature: sig,
-                cells,
-                groups,
-                static_groups,
-                continuous_assignments,
-                control: Control::empty(),
-                attributes: attributes.add_span(span),
-                is_comb: true,
-            })
-        },
-        [
-            name_with_attribute((name, attributes)),
-            signature(sig),
-            cells(cells),
-            connections(connections),
-            control(control)
-        ] => {
-            let (continuous_assignments, groups, static_groups) = connections;
-            let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                if let Width::Const { value } = width {
-                    Ok(PortDef {
-                        name,
-                        width: value,
-                        direction,
-                        attributes
-                    })
-                } else {
-                    Err(input.error("Components cannot use parameters"))
-                }
-            }).collect::<Result<_, _>>()?;
-            Ok(ComponentDef {
-                name,
-                signature: sig,
-                cells,
-                groups,
-                static_groups,
-                continuous_assignments,
-                control,
-                attributes: attributes.add_span(span),
-                is_comb: false,
-            })
-        })
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control: Control::empty(),
+                    attributes: attributes.add_span(span),
+                    is_comb: true,
+                    latency: None,
+                })
+            },
+            [
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections),
+                control(control)
+            ] => {
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control,
+                    attributes: attributes.add_span(span),
+                    is_comb: false,
+                    latency: None,
+                })
+            },
+            [
+                comb_or_static(cs_res),
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections),
+                control(control),
+            ] => {
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control,
+                    attributes: attributes.add_span(span),
+                    is_comb: cs_res.is_none(),
+                    latency: cs_res,
+                })
+            },
+        )
     }
 
     fn imports(input: Node) -> ParseResult<Vec<String>> {
@@ -1121,16 +1180,18 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: false,
+                latency: None,
                 body: Some(b),
             }},
-            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
+            [comb_or_static(cs_res), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs.add_span(span),
-                is_comb: true,
+                is_comb: cs_res.is_none(),
+                latency: cs_res,
                 body: Some(b),
-            },
+            }
         ))
     }
 

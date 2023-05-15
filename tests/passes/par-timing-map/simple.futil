@@ -60,6 +60,7 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
 }
+
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     lt = std_lt(32);
@@ -86,7 +87,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       d.in = 32'd2; 
     }
   }
-
   control {
     static par {
       static seq {

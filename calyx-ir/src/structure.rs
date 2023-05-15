@@ -97,6 +97,32 @@ impl Port {
     pub fn canonical(&self) -> Canonical {
         Canonical(self.get_parent_name(), self.name)
     }
+
+    /// Returns the value of an attribute if present
+    pub fn get_attribute<A>(&self, attr: A) -> Option<u64>
+    where
+        A: Into<Attribute>,
+    {
+        self.get_attributes().get(attr)
+    }
+
+    /// Returns true if the node has a specific attribute
+    pub fn has_attribute<A>(&self, attr: A) -> bool
+    where
+        A: Into<Attribute>,
+    {
+        self.get_attributes().has(attr)
+    }
+}
+
+impl GetAttributes for Port {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 impl PartialEq for Port {
@@ -155,6 +181,8 @@ pub enum CellType {
         param_binding: Box<Binding>,
         /// True iff this is a combinational primitive
         is_comb: bool,
+        /// (Optional) latency of the primitive
+        latency: Option<std::num::NonZeroU64>,
     },
     /// Cell constructed using a Calyx component
     Component {

@@ -81,6 +81,10 @@ RUN fud config --create global.futil_directory /home/calyx && \
 WORKDIR /home/calyx/calyx-py
 RUN FLIT_ROOT_INSTALL=1 flit install --symlink
 
+# Install MrXL
+WORKDIR /home/calyx/frontends/mrxl
+RUN FLIT_ROOT_INSTALL=1 flit install --symlink
+
 WORKDIR /home/calyx
 
 # Used to make runt cocotb tests happy

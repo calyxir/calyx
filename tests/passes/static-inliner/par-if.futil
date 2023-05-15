@@ -12,7 +12,7 @@ component main() -> () {
     b = std_reg(2);
     c = std_reg(2);
     d = std_reg(2);
-    lt = std_lt(32);
+    r1 = std_reg(1);
   }
 
   wires {
@@ -43,7 +43,7 @@ component main() -> () {
 
   control {
     static par {
-      static if lt.out { A; } else { C; }
+      static if r1.out { A; } else { C; }
       static seq { A3; D; }
     }
     

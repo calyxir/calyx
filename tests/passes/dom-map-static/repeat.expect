@@ -1,4 +1,4 @@
-This maps ids of par blocks to "node timing maps", which map node ids to the first interval (i,j) that the node (i.e., enable or if conditional) is active for, 
+This maps ids of par blocks to "node timing maps", which map node ids to the first interval (i,j) that the node (i.e., enable/invoke/if conditional) is active for, 
  relative to the start of the given par block
 ============ Map for Component "example" ============
 ========Par Node ID: 0========

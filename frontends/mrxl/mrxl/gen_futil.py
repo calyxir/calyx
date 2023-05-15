@@ -280,16 +280,15 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         if mem in out and par != out[mem]:
             raise Exception(
                 f"Previous use of `{mem}` had banking factor {out[mem]}"
-                " but current use has banking factor {par}"
+                f" but current use has banking factor {par}"
             )
         out[mem] = par
 
     for stmt in stmts:
         par_f = stmt.op.par
-        if isinstance(stmt.op, ast.Reduce):
+        if isinstance(stmt.op, ast.Reduce) and par_f != 1:
             # Reduction does not support parallelism
-            if par_f != 1:
-                raise Exception("Reduction does not support parallelism")
+            raise Exception("Reduction does not support parallelism")
         add_par(stmt.dest, par_f)
         for b in stmt.op.bind:
             add_par(b.src, par_f)
