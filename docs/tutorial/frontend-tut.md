@@ -118,8 +118,9 @@ We will now study [the MrXL-to-Calyx compiler][impl], written in Python.
 We have placed a few simplifying restrictions on MrXL programs:
 1. Every array in a MrXL program has the same length.
 2. Every integer in our generated hardware is 32 bits long.
-3. The bodies of `map` and `reduce` operations must be `+` or `*` operations involving array elements or integers.
+3. The bodies of `map` and `reduce` operations must be binary `+` or `*` operations involving array elements or integers.
 4. If repeated `map`/`reduce` operations are performed on the same memory, each of those operations must have the same parallelism factor.
+5. All `reduce` operations must be formed sequentially, i.e., with parallelism factor `1`.
 
 These restrictions can be lifted or relaxed via commensurate changes to the compiler.
 
@@ -283,7 +284,7 @@ Then, it sequentially executes the computation for the body and increments the l
 
 ### Adding Parallelization
 
-MrXL allows us to parallelize your `map` and `reduce` operations.
+MrXL allows us to parallelize our `map` operations.
 Let's revisit the parallel `map` from earlier:
 
 ```
@@ -308,11 +309,11 @@ The [full implementation][impl] shows the necessary code to accomplish this whic
 Congratulations, you know as much about MrXL as we do!
 The small size of the language makes it a nice sandbox for you to play in.
 Some fun things you could try:
-1. We don't yet implement reduction in parallel. Extend the compiler to allow this.
+1. We don't yet support parallel `reduce` operations. Extend the compiler to allow this.
 2. We require that all arrays be the same size. Lift this restriction.
 3. Permit complex expressions in the bodies of `map` and `reduce`.
-4. Support a new `filter` operation in MrXL.
-5. We require that repeated computations on the same array have the same banking factor. Lift this restriction.
+4. We require that repeated computations on the same array have the same banking factor. Lift this restriction.
+5. Support a new `filter` operation in MrXL.
 
 [astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
