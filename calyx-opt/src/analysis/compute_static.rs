@@ -133,3 +133,78 @@ impl WithStatic for ir::While {
         Some(bound * b_time)
     }
 }
+
+pub trait IntoStatic {
+    type StaticCon;
+    fn into_static(&mut self) -> Option<Self::StaticCon>;
+}
+
+impl IntoStatic for ir::Seq {
+    type StaticCon = ir::StaticSeq;
+    fn into_static(&mut self) -> Option<Self::StaticCon> {
+        let mut static_stmts: Vec<ir::StaticControl> = Vec::new();
+        let mut latency = 0;
+        for stmt in self.stmts.iter() {
+            if !matches!(stmt, ir::Control::Static(_)) {
+                log::debug!("control under seq is not static");
+                return None;
+            }
+        }
+
+        for stmt in self.stmts.drain(..) {
+            let ir::Control::Static(sc) = stmt else {unreachable!("We have already checked that all control statements are static")};
+            latency += sc.get_latency();
+            static_stmts.push(sc);
+        }
+        Some(ir::StaticSeq {
+            stmts: static_stmts,
+            attributes: self.attributes.clone(),
+            latency     
+        })
+    }
+}
+
+impl IntoStatic for ir::Par {
+    type StaticCon = ir::StaticPar;
+    fn into_static(&mut self) -> Option<Self::StaticCon> {
+        let mut static_stmts: Vec<ir::StaticControl> = Vec::new();
+        let mut latency = 0;
+        for stmt in self.stmts.iter() {
+            if !matches!(stmt, ir::Control::Static(_)) {
+                log::debug!("control under par is not static");
+                return None;
+            }
+        }
+
+        for stmt in self.stmts.drain(..) {
+            let ir::Control::Static(sc) = stmt else {unreachable!("We have already checked that all control statements are static")};
+            latency = std::cmp::max(sc.get_latency(), sc.get_latency());
+            static_stmts.push(sc);
+        }
+        Some(ir::StaticPar {
+            stmts: static_stmts,
+            attributes: self.attributes.clone(),
+            latency     
+        })
+    }
+}
+
+impl IntoStatic for ir::If {
+    type StaticCon = ir::StaticIf;
+    fn into_static(&mut self) -> Option<Self::StaticCon> {
+        let mut latency = 0;
+        if let ir::Control::Static(sc) = *self.tbranch {
+            latency = sc.get_latency();
+            if let ir::Control::Static(_) = *self.fbranch {
+                
+            }
+            else {
+                log::debug!("fbranch of `if` control is not static");
+            }
+        }
+        else {
+            log::debug!("tbranch of `if` control is not static");
+        }
+        None
+    }
+}
