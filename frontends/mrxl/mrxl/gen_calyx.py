@@ -78,12 +78,12 @@ def gen_reduce_impl(
 
     # Perform the computation
     assert (
-        len(stmt.bind) == 1
+        len(stmt.binds) == 1
     ), "Reduce statements with multiple bind clauses are not supported"
 
     # Split up the accumulator and the array element
-    bind = stmt.bind[0]
-    [acc, ele] = bind.dest
+    bind = stmt.binds[0]
+    [acc, ele] = bind.dst
     name2arr = {acc: f"{dest}_b0", ele: f"{bind.src}_b0"}
 
     def expr_to_port(expr: ast.BaseExpr):
@@ -177,7 +177,7 @@ def gen_map_impl(
             raise NotImplementedError()
 
         # Mapping from binding to arrays
-        name2arr = {bind.dest[0]: f"{bind.src}_b{bank}" for bind in stmt.bind}
+        name2arr = {bind.dst[0]: f"{bind.src}_b{bank}" for bind in stmt.binds}
 
         def expr_to_port(expr: ast.BaseExpr):
             if isinstance(expr, ast.LitExpr):
@@ -193,14 +193,14 @@ def gen_map_impl(
             operation = comp.add(f"add_{suffix}", 32)
 
         assert (
-            len(stmt.bind) <= 2
+            len(stmt.binds) <= 2
         ), "Map statements with more than 2 arguments not supported"
         # ANCHOR: map_inputs
         with comp.group(f"eval_body_{suffix}") as evl:
             # Index each array
-            for bind in stmt.bind:
+            for bind in stmt.binds:
                 # Map bindings have exactly one dest
-                mem = comp.get_cell(f"{name2arr[bind.dest[0]]}")
+                mem = comp.get_cell(f"{name2arr[bind.dst[0]]}")
                 mem.addr0 = idx.out
             # ANCHOR_END: map_inputs
             # ANCHOR: map_op
@@ -269,14 +269,14 @@ def gen_stmt_impl(
     if isinstance(stmt.operation, ast.Map):
         return gen_map_impl(
             comp,
-            stmt.dest,
+            stmt.dst,
             stmt.operation,
             arr_size,
-            name2par[stmt.dest],
+            name2par[stmt.dst],
             statement_idx,
         )
     else:
-        return gen_reduce_impl(comp, stmt.dest, stmt.operation, arr_size, statement_idx)
+        return gen_reduce_impl(comp, stmt.dst, stmt.operation, arr_size, statement_idx)
 
 
 def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
@@ -298,8 +298,8 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         if isinstance(stmt.operation, ast.Reduce) and par_f != 1:
             # Reduction does not support parallelism
             raise NotImplementedError("Reduction does not support parallelism")
-        add_par(stmt.dest, par_f)
-        for bind in stmt.operation.bind:
+        add_par(stmt.dst, par_f)
+        for bind in stmt.operation.binds:
             add_par(bind.src, par_f)
 
     return out
@@ -353,16 +353,16 @@ def emit(prog: ast.Prog):
 
     # Collect implicit memory and register declarations.
     for stmt in prog.stmts:
-        if stmt.dest not in used_names:
+        if stmt.dst not in used_names:
             if isinstance(stmt.operation, ast.Map):
-                name = stmt.dest
+                name = stmt.dst
                 par = par_factor[name]
                 for i in range(par):
                     main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32)
             else:
                 raise NotImplementedError("Generating register declarations")
                 #  cells.append(emit_reg_decl(stmt.dest, 32))
-            used_names.append(stmt.dest)
+            used_names.append(stmt.dst)
 
     control: List[Control] = []
     # Generate Calyx for each statement

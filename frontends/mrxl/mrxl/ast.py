@@ -46,7 +46,7 @@ class BinExpr:
 @dataclass
 class Bind:
     """A binding from a source to a (list of) destination(s)."""
-    dest: List[str]
+    dst: List[str]
     src: str
 
 
@@ -54,7 +54,7 @@ class Bind:
 class Map:
     """A map operation."""
     par: int
-    bind: List[Bind]
+    binds: List[Bind]
     body: BinExpr
 
 
@@ -62,7 +62,7 @@ class Map:
 class Reduce:
     """A reduce operation."""
     par: int
-    bind: List[Bind]
+    binds: List[Bind]
     init: LitExpr
     body: BinExpr
 
@@ -71,19 +71,19 @@ class Reduce:
 @dataclass
 class Stmt:
     """A statement in the program."""
-    dest: str
+    dst: str
     operation: Union[Map, Reduce]
 # ANCHOR_END: stmt
 
-    def __init__(self, dest: str, operation: Union[Map, Reduce]):
-        self.dest = dest
+    def __init__(self, dst: str, operation: Union[Map, Reduce]):
+        self.dst = dst
         if isinstance(operation, Map):
             # Ensure that bindings for Map contain only one destination
-            for bind in operation.bind:
-                assert len(bind.dest) == 1, "Map bindings must have one destination"
+            for bind in operation.binds:
+                assert len(bind.dst) == 1, "Map bindings must have one destination"
         elif isinstance(operation, Reduce):
-            for bind in operation.bind:
-                assert len(bind.dest) == 2, "Reduce bindings must have two destinations"
+            for bind in operation.binds:
+                assert len(bind.dst) == 2, "Reduce bindings must have two destinations"
         self.operation = operation
 
 

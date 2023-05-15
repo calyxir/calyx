@@ -46,11 +46,11 @@ def interp_expr(expr, env: ScalarEnv) -> Scalar:
 def interp_map(operation: ast.Map, env: Env) -> Array:
     """Run a `map` operation and return the resultant array."""
     map_data = {}
-    for bind in operation.bind:
-        if len(bind.dest) != 1:
+    for bind in operation.binds:
+        if len(bind.dst) != 1:
             raise InterpError("`map` binds must be unary")
         try:
-            map_data[bind.dest[0]] = env[bind.src]
+            map_data[bind.dst[0]] = env[bind.src]
         except KeyError as exc:
             raise InterpError(f"Source `{bind.src}` for `map` not found") from exc
     # Compute the map.
@@ -59,10 +59,10 @@ def interp_map(operation: ast.Map, env: Env) -> Array:
 
 def interp_reduce(operation: ast.Reduce, env: Env) -> Scalar:
     """Run a `reduce` operation and return the resultant scalar."""
-    if len(operation.bind) != 1:
+    if len(operation.binds) != 1:
         raise InterpError("`reduce` needs only one bind")
-    bind = operation.bind[0]
-    if len(bind.dest) != 2:
+    bind = operation.binds[0]
+    if len(bind.dst) != 2:
         raise InterpError("`reduce` requires a binary bind")
 
     try:
@@ -78,7 +78,7 @@ def interp_reduce(operation: ast.Reduce, env: Env) -> Scalar:
     return reduce(
         lambda x, y: interp_expr(
             operation.body,
-            {bind.dest[0]: x, bind.dest[1]: y},
+            {bind.dst[0]: x, bind.dst[1]: y},
         ),
         red_data,
         init,
@@ -104,9 +104,9 @@ def interp(prog: ast.Prog, data: Env) -> Env:
     # Run the program.
     for stmt in prog.stmts:
         if isinstance(stmt.operation, ast.Map):
-            env[stmt.dest] = interp_map(stmt.operation, env)
+            env[stmt.dst] = interp_map(stmt.operation, env)
         elif isinstance(stmt.operation, ast.Reduce):
-            env[stmt.dest] = interp_reduce(stmt.operation, env)
+            env[stmt.dst] = interp_reduce(stmt.operation, env)
         else:
             raise InterpError(f"Unknown operation {type(stmt.operation)}")
 
