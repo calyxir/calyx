@@ -81,7 +81,9 @@ def gen_reduce_impl(
     # Split up the accumulator and the array element
     bind = stmt.bind[0]
     [acc, x] = bind.dest
-    name2arr = {acc: f"{dest}_b0", x: f"{bind.src}_b0"}
+    # The source of a `reduce` must be a singly-banked array (thus the `b0`)
+    # The destination of a `reduce` must be a register
+    name2arr = {acc: f"{dest}", x: f"{bind.src}_b0"}
 
     def expr_to_port(expr: ast.BaseExpr):
         if isinstance(expr, ast.LitExpr):
@@ -100,15 +102,14 @@ def gen_reduce_impl(
     else:
         op = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as ev:
-        out = comp.get_cell(f"{dest}_b0")  # The accumulator is a register
+        out = comp.get_cell(f"{dest}")  # The accumulator is a register
 
-        # The source must be a singly-banked array
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out
         op.left = expr_to_port(body.lhs)
         op.right = expr_to_port(body.rhs)
         out.write_data = op.out
-        out.addr0 = 0
+        out.addr0 = cb.const(32, 0)  # Just the number 0 with width 32
         # Multipliers are sequential so we need to manipulate go/done signals
         if body.op == "mul":
             op.go = 1
@@ -168,7 +169,7 @@ def gen_map_impl(
         body = stmt.body
         if isinstance(body, ast.LitExpr):  # Body is a constant
             raise NotImplementedError()
-        elif isinstance(body, ast.VarExpr):  # Body is a variable
+        if isinstance(body, ast.VarExpr):  # Body is a variable
             raise NotImplementedError()
 
         # Mapping from binding to arrays
