@@ -2,12 +2,12 @@ use super::math_utilities::get_bit_width_from;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
+use calyx_utils::Error;
 use ir::{build_assignments, Nothing, StaticTiming, RRC};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::Not;
 use std::rc::Rc;
-use calyx_utils::Error;
 
 #[derive(Default)]
 /// Compiles Static Islands
@@ -264,11 +264,11 @@ impl CompileStatic {
     }
 
     /// compile `while` whose body is `static` control such that at the end of each
-    /// iteration, the checking of condition does not incur an extra cycle of 
-    /// latency. 
-    /// We do this by wrapping the early reset group of the body with 
+    /// iteration, the checking of condition does not incur an extra cycle of
+    /// latency.
+    /// We do this by wrapping the early reset group of the body with
     /// another wrapper group, which sets the go signal of the early reset group
-    /// high, and is done when at the 0th cycle of each iteration, the condtion 
+    /// high, and is done when at the 0th cycle of each iteration, the condtion
     /// port is done.
     /// Note: this only works if the port for the while condition is `@stable`.
     fn build_wrapper_group_while(
@@ -314,7 +314,7 @@ impl CompileStatic {
             builder;
             // reset_early_group[go] = 1'd1;
             // wrapper_group[done] = !port ? 1'd1;
-            reset_early_group["go"] = ? one["out"]; 
+            reset_early_group["go"] = ? one["out"];
             wrapper_group["done"] = done_guard ? one["out"];
         );
 
@@ -428,45 +428,45 @@ impl Visitor for CompileStatic {
         Ok(Action::Change(Box::new(e)))
     }
 
-/// if while body is static, then we want to make sure that the while
-/// body does not take the extra cycle incurred by the done condition
-/// So we replace the while loop with `enable` of a wrapper group
-/// that sets the go signal of the static group in the while loop body high
-/// (all static control should be compiled into static groups by
-/// `static_inliner` now). The done signal of the wrapper group should be
-/// the condition that the fsm of the while body is %0 and the port signal
-/// is 1'd0.
-/// For example, we replace
-/// ```
-/// wires {
-/// static group A<1> {
-///     ...
-///   }
-///    ...
-/// }
+    /// if while body is static, then we want to make sure that the while
+    /// body does not take the extra cycle incurred by the done condition
+    /// So we replace the while loop with `enable` of a wrapper group
+    /// that sets the go signal of the static group in the while loop body high
+    /// (all static control should be compiled into static groups by
+    /// `static_inliner` now). The done signal of the wrapper group should be
+    /// the condition that the fsm of the while body is %0 and the port signal
+    /// is 1'd0.
+    /// For example, we replace
+    /// ```
+    /// wires {
+    /// static group A<1> {
+    ///     ...
+    ///   }
+    ///    ...
+    /// }
 
-/// control {
-///   while l.out {
-///     A;
-///   }
-/// }
-/// ```
-/// with
-/// ```
-/// wires {
-///  group early_reset_A {
-///     ...
-///        }
-///
-/// group while_wrapper_early_reset_A {
-///       early_reset_A[go] = 1'd1;
-///       while_wrapper_early_reset_A[done] = !l.out & fsm.out == 1'd0 ? 1'd1;
-///     }
-///   }
-///   control {
-///     while_wrapper_early_reset_A;
-///   }
-/// ```
+    /// control {
+    ///   while l.out {
+    ///     A;
+    ///   }
+    /// }
+    /// ```
+    /// with
+    /// ```
+    /// wires {
+    ///  group early_reset_A {
+    ///     ...
+    ///        }
+    ///
+    /// group while_wrapper_early_reset_A {
+    ///       early_reset_A[go] = 1'd1;
+    ///       while_wrapper_early_reset_A[done] = !l.out & fsm.out == 1'd0 ? 1'd1;
+    ///     }
+    ///   }
+    ///   control {
+    ///     while_wrapper_early_reset_A;
+    ///   }
+    /// ```
     fn start_while(
         &mut self,
         s: &mut ir::While,
