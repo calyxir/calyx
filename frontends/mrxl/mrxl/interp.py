@@ -98,7 +98,7 @@ def interp(prog: ast.Prog, data: Env) -> Env:
     for decl in prog.decls:
         if decl.input:
             try:
-                env[decl.name] = data[decl.name]["data"]
+                env[decl.name] = data[decl.name]
             except KeyError:
                 raise InterpError(f"input data for `{decl.name}` not found")
 

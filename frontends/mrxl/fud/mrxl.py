@@ -33,7 +33,7 @@ class MrXLStage(Stage):
         Specify defaults that should be added to fud's configuration file when
         this stage is registered.
         """
-        return {"exec": "mrxl"}
+        return {"exec": "mrxl", "data": None}
 
     def _define_steps(self, input, builder, config):
         """
@@ -87,7 +87,7 @@ class MrXLDataStage(Stage):
         Specify defaults that should be added to fud's configuration file when
         this stage is registered.
         """
-        return {"exec": "mrxl"}
+        return {"exec": "mrxl-data"}
 
     def _define_steps(self, input, builder, config):
         """
@@ -119,8 +119,6 @@ class MrXLDataStage(Stage):
         # a computation graph that is executed later on.
         if data_path is None:
             raise ValueError("mrxl.data must be provided")
-        # print("data path before convert: ", config["stages", "verilog", "data"])
-        # print("data_path: ", data_path)
         return convert_mrxl_data_to_calyx_data(
             Source(Path(data_path), SourceType.Path),
             input
