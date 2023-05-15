@@ -11,76 +11,73 @@ ScalarEnv = Dict[str, Scalar]
 
 
 class InterpError(Exception):
-    """Interpretation failed unrecoverably."""
+    """Interpretation failed; recovery was impossible."""
 
 
-def _dict_zip(d):
+def _dict_zip(dicts):
     """Given a dict of lists, generate a sequence of dicts with the same
     keys---each associated with one "vertical slice" of the lists.
     """
-    for i in range(len(next(iter(d.values())))):
-        yield {k: v[i] for k, v in d.items()}
+    for i in range(len(next(iter(dicts.values())))):
+        yield {k: v[i] for k, v in dicts.items()}
 
 
 def interp_expr(expr, env: ScalarEnv) -> Scalar:
-    """Interpret a MrXL expression to a scalar value."""
+    """Resolve a MrXL expression to a scalar value, and return it."""
     if isinstance(expr, ast.LitExpr):
         return expr.value
-    elif isinstance(expr, ast.VarExpr):
+    if isinstance(expr, ast.VarExpr):
         return env[expr.name]
-    elif isinstance(expr, ast.BinExpr):
+    if isinstance(expr, ast.BinExpr):
         lhs = interp_expr(expr.lhs, env)
         rhs = interp_expr(expr.rhs, env)
         if expr.operation == "add":
             return lhs + rhs
-        elif expr.operation == "mul":
+        if expr.operation == "mul":
             return lhs * rhs
-        elif expr.operation == "sub":
+        if expr.operation == "sub":
             return lhs - rhs
-        elif expr.operation == "div":
+        if expr.operation == "div":
             return lhs / rhs
-        else:
-            raise InterpError(f"unhandled binary operator: {expr.operation}")
-    else:
-        raise InterpError(f"unhandled expression: {type(expr)}")
+        raise InterpError(f"Unhandled binary operator: {expr.operation}")
+    raise InterpError(f"Unhandled expression: {type(expr)}")
 
 
-def interp_map(op: ast.Map, env: Env) -> Array:
-    """Run a map operation and produce a result array."""
+def interp_map(operation: ast.Map, env: Env) -> Array:
+    """Run a `map` operation and return the resultant array."""
     map_data = {}
-    for bind in op.bind:
+    for bind in operation.bind:
         if len(bind.dest) != 1:
-            raise InterpError("map binds are unary")
+            raise InterpError("`map` binds must be unary")
         try:
             map_data[bind.dest[0]] = env[bind.src]
-        except KeyError:
-            raise InterpError(f"source `{bind.src}` for map not found")
-
+        except KeyError as exc:
+            raise InterpError(f"Source `{bind.src}` for `map` not found") from exc
     # Compute the map.
-    return [interp_expr(op.body, env) for env in _dict_zip(map_data)]
+    return [interp_expr(operation.body, env) for env in _dict_zip(map_data)]
 
 
-def interp_reduce(op: ast.Reduce, env: Env) -> Scalar:
-    """Run a map operation and produce a result scalar."""
-    if len(op.bind) != 1:
-        raise InterpError("reduce needs only one bind")
-    bind = op.bind[0]
+def interp_reduce(operation: ast.Reduce, env: Env) -> Scalar:
+    """Run a `reduce` operation and return the resultant scalar."""
+    if len(operation.bind) != 1:
+        raise InterpError("`reduce` needs only one bind")
+    bind = operation.bind[0]
     if len(bind.dest) != 2:
-        raise InterpError("reduce requires a binary bind")
+        raise InterpError("`reduce` requires a binary bind")
 
     try:
         red_data = env[bind.src]
-    except KeyError:
-        raise InterpError(f"source `{bind.src}` for reduce not found")
+    except KeyError as exc:
+        raise InterpError(f"Source `{bind.src}` for `reduce` not found") from exc
     if not isinstance(red_data, list):
-        raise InterpError("reduce data must be an array")
+        raise InterpError("The data passed to `reduce` must be in an array")
 
-    init = interp_expr(op.init, {})
+    init = interp_expr(operation.init, {})
 
     # Compute the reduce.
     return reduce(
         lambda x, y: interp_expr(
-            op.body,
+            operation.body,
             {bind.dest[0]: x, bind.dest[1]: y},
         ),
         red_data,
@@ -98,9 +95,11 @@ def interp(prog: ast.Prog, data: Env) -> Env:
     for decl in prog.decls:
         if decl.input:
             try:
-                env[decl.name] = data[decl.name]["data"]
-            except KeyError:
-                raise InterpError(f"input data for `{decl.name}` not found")
+                env[decl.name] = data[decl.name]["data"]  # type: ignore
+                # The annoying `# type: ignore` is fine; that ["data"]
+                # is on its way out anyway.
+            except KeyError as exc:
+                raise InterpError(f"Input data for `{decl.name}` not found") from exc
 
     # Run the program.
     for stmt in prog.stmts:
@@ -109,7 +108,7 @@ def interp(prog: ast.Prog, data: Env) -> Env:
         elif isinstance(stmt.operation, ast.Reduce):
             env[stmt.dest] = interp_reduce(stmt.operation, env)
         else:
-            raise InterpError(f"unknown op {type(stmt.operation)}")
+            raise InterpError(f"Unknown operation {type(stmt.operation)}")
 
     # Emit the output values.
     out = {}
@@ -117,6 +116,6 @@ def interp(prog: ast.Prog, data: Env) -> Env:
         if not decl.input:
             try:
                 out[decl.name] = env[decl.name]
-            except KeyError:
-                raise InterpError(f"output value `{decl.name}` not found")
+            except KeyError as exc:
+                raise InterpError(f"Output value `{decl.name}` not found") from exc
     return out
