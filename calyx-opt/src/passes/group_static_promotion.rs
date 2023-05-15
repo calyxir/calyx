@@ -393,63 +393,6 @@ impl Visitor for GroupStaticPromotion {
         Order::Post
     }
 
-    fn start(
-            &mut self,
-            comp: &mut ir::Component,
-            sigs: &LibrarySignatures,
-            _comps: &[ir::Component],
-        ) -> VisResult {
-            let mut builder = ir::Builder::new(comp, sigs);
-            let latency_result: Option<u64>;
-            if let Some(latency) = self.infer_latency(&s.group.borrow()) {
-                if let Some(sg) =
-                    builder.component.find_static_group(s.group.borrow().name())
-                {
-                    let s_enable = ir::StaticControl::Enable(ir::StaticEnable {
-                        group: Rc::clone(&sg),
-                        attributes: s.attributes.clone(),
-                    });
-                    return Ok(Action::change(ir::Control::Static(s_enable)));
-                }
-                let grp = s.group.borrow();
-                if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static) {
-                    // Inferred latency is not the same as the provided latency annotation.
-                    if curr_lat != latency {
-                        let msg1 = format!("Annotated latency: {}", curr_lat);
-                        let msg2 = format!("Inferred latency: {}", latency);
-                        let msg = format!(
-                                "Invalid \"static\" latency annotation for group {}.\n{}\n{}",
-                                grp.name(),
-                                msg1,
-                                msg2
-                            );
-                        return Err(Error::malformed_structure(msg)
-                            .with_pos(&grp.attributes));
-                    }
-                }
-                latency_result = Some(latency);
-            } else {
-                latency_result = None;
-            }
-    
-            if let Some(res) = latency_result {
-                builder
-                    .component
-                    .get_groups_mut()
-                    .remove(s.group.borrow().name());
-                let sg = builder.add_static_group(s.group.borrow().name(), res);
-                for assignment in s.group.borrow().assignments.iter() {
-                    if !(assignment.dst.borrow().is_hole()
-                        && assignment.dst.borrow().name == "done")
-                    {
-                        let static_s = Assignment::from(assignment);
-                        sg.borrow_mut().assignments.push(static_s);
-                    }
-                }
-            }
-        Ok(Action::Continue)
-    }
-
     fn finish(
         &mut self,
         comp: &mut ir::Component,
