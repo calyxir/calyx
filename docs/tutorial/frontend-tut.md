@@ -291,7 +291,7 @@ Let's revisit the parallel `map` from earlier:
 {{#include ../../frontends/mrxl/test/squares.mrxl}}
 ```
 
-The banking factor `2` specifies that two copies of the loop bodies should be executed in parallel.
+The parallelism factor `2` specifies that two copies of the loop bodies should be executed in parallel.
 Our implementation already creates [memory banks](#decl-nodes) to allow for parallel accesses.
 At a high-level, we can change the compilation for the `map` operation to produce `n` copies of the hardware we generate above and generate a control program that looks like this:
 ```
@@ -312,7 +312,7 @@ Some fun things you could try:
 1. We don't yet support parallel `reduce` operations. Extend the compiler to allow this.
 2. We require that all arrays be the same size. Lift this restriction.
 3. Permit complex expressions in the bodies of `map` and `reduce`.
-4. We require that repeated computations on the same array have the same banking factor. Lift this restriction.
+4. We require that repeated computations on the same array have the same parallelism factor. Lift this restriction.
 5. Support a new `filter` operation in MrXL.
 
 [astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
