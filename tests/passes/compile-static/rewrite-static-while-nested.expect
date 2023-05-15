@@ -18,7 +18,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated ud1 = undef(1);
     @generated adder1 = std_add(2);
     @generated signal_reg = std_reg(1);
-    @generated signal_reg0 = std_reg(1);
   }
   wires {
     group B {
@@ -71,11 +70,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       signal_reg.in = fsm0.out == 1'd0 & !signal_reg.out ? 1'd1;
       wrapper_early_reset_A2[done] = fsm0.out == 1'd0 & signal_reg.out ? 1'd1;
     }
-    group wrapper_early_reset_static_seq {
+    group while_wrapper_early_reset_static_seq {
       early_reset_static_seq[go] = 1'd1;
-      signal_reg0.write_en = fsm1.out == 2'd0 & !signal_reg0.out ? 1'd1;
-      signal_reg0.in = fsm1.out == 2'd0 & !signal_reg0.out ? 1'd1;
-      wrapper_early_reset_static_seq[done] = fsm1.out == 2'd0 & signal_reg0.out ? 1'd1;
+      while_wrapper_early_reset_static_seq[done] = !r_cond.out & fsm1.out == 2'd0 ? 1'd1;
     }
     comb group comp {
       l2.left = r.out;
@@ -83,8 +80,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
     signal_reg.write_en = fsm0.out == 1'd0 & signal_reg.out ? 1'd1;
     signal_reg.in = fsm0.out == 1'd0 & signal_reg.out ? 1'd0;
-    signal_reg0.write_en = fsm1.out == 2'd0 & signal_reg0.out ? 1'd1;
-    signal_reg0.in = fsm1.out == 2'd0 & signal_reg0.out ? 1'd0;
   }
 
   control {
@@ -92,9 +87,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       seq {
         B;
         wrapper_early_reset_A2;
-        while r_cond.out {
-          wrapper_early_reset_static_seq;
-        }
+        while_wrapper_early_reset_static_seq;
         C;
       }
     }
