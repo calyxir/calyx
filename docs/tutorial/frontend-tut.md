@@ -284,10 +284,10 @@ Then, it sequentially executes the computation for the body and increments the l
 ### Adding Parallelization
 
 MrXL allows us to parallelize your `map` and `reduce` operations.
-Let's revisit the `map` example from earlier:
+Let's revisit the parallel `map` from earlier:
 
 ```
-{{#include ../../frontends/mrxl/test/sos.mrxl}}
+{{#include ../../frontends/mrxl/test/squares.mrxl}}
 ```
 
 The banking factor `2` specifies that two copies of the loop bodies should be executed in parallel.
