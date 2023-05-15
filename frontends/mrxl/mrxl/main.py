@@ -11,7 +11,7 @@ def main():
         "Interpret a MrXL program, or compile it to Calyx."
     )
     parser.add_argument(
-        "--i",
+        "-i",
         "--interpret",
         action="store_true",
         help="Interpret the input MrXL program (leave this off to compile)",
@@ -44,7 +44,7 @@ def main():
 
     ast = parse(txt)
 
-    if args.i:
+    if args.interpret:
         try:
             print(interp(ast, data))
         except InterpError as exc:
