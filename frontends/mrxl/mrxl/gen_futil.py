@@ -1,3 +1,6 @@
+import json
+import sys
+
 from typing import Dict, List, Tuple
 from . import ast
 from calyx.py_ast import (
@@ -292,6 +295,26 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
             add_par(b.src, par_f)
 
     return out
+
+
+def emit_data(prog: ast.Prog, data):
+    """
+    Return a string containing futil input for `prog`, inferred from `data`
+    """
+    par_factors = compute_par_factors(prog.stmts)
+    calyx_data = dict()
+    for var, val in data.items():
+        format = val["format"]
+        val = val["data"]
+        banking_factor = par_factors[var]
+        bank_size = len(val)/banking_factor
+        for i in range(banking_factor):
+            bank = f'{var}_b{i}'
+            calyx_data[bank] = {
+                "data": val[i * bank_size: i * (bank_size + 1)],
+                "format": format
+            }
+    json.dump(calyx_data, sys.stdout, indent=2, sort_keys=True)
 
 
 def emit(prog: ast.Prog):

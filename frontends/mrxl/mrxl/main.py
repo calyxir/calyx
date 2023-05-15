@@ -2,7 +2,7 @@ import sys
 import json
 import argparse
 from .parse import parse
-from .gen_futil import emit
+from .gen_futil import emit, emit_data
 from .interp import interp, InterpError
 
 
@@ -21,6 +21,11 @@ def main():
         metavar="<datafile>",
         type=str,
         help="Input data, required to interpret",
+    )
+    parser.add_argument(
+        "--convert",
+        action="store_true",
+        help="Convert <datafile> to calyx input (instead of compiling)",
     )
     parser.add_argument(
         "filename",
@@ -45,6 +50,10 @@ def main():
         except InterpError as exc:
             print(str(exc), file=sys.stderr)
             sys.exit(1)
+    elif args.convert:
+        if not args.data:
+            raise ValueError("--convert was passed but --data not given")
+        emit_data(ast, data)
     else:
         emit(ast)
 
