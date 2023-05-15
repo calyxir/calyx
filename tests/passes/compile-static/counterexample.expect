@@ -1,6 +1,0 @@
----CODE---
-1
----STDERR---
-Error: Malformed Control: tests/passes/compile-static/counterexample.futil
-38 |    while l.out {
-   |    ^^^^^^^^^^^^^ While loop has no comb group and its condition port l.out is unstable
