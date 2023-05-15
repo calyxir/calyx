@@ -52,6 +52,15 @@ def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> s
     return group_name
 
 
+def expr_to_port(expr: ast.BaseExpr, name2arr):
+    """Maps an expression to its corresponding Calyx port."""
+    if isinstance(expr, ast.LitExpr):
+        return cb.const(32, expr.value)
+    if isinstance(expr, ast.VarExpr):
+        return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
+    raise NotImplementedError("Only literals and variables supported")
+
+
 def gen_reduce_impl(
     comp: cb.ComponentBuilder, dest: str, stmt: ast.Reduce, arr_size: int, s_idx: int
 ):
@@ -86,13 +95,6 @@ def gen_reduce_impl(
     [acc, x] = bind.dest
     name2arr = {acc: f"{dest}_b0", x: f"{bind.src}_b0"}
 
-    def expr_to_port(expr: ast.BaseExpr):
-        if isinstance(expr, ast.LitExpr):
-            return cb.const(32, expr.value)
-        elif isinstance(expr, ast.VarExpr):
-            bind = name2arr[expr.name]
-            return CompPort(CompVar(f"{bind}"), "read_data")
-
     body = stmt.body
 
     if not isinstance(body, ast.BinExpr):
@@ -108,8 +110,8 @@ def gen_reduce_impl(
         # The source must be a singly-banked array
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out
-        op.left = expr_to_port(body.lhs)
-        op.right = expr_to_port(body.rhs)
+        op.left = expr_to_port(body.lhs, name2arr)
+        op.right = expr_to_port(body.rhs, name2arr)
         out.write_data = op.out
         out.addr0 = 0
         # Multipliers are sequential so we need to manipulate go/done signals
@@ -177,12 +179,6 @@ def gen_map_impl(
         # Mapping from binding to arrays
         name2arr = {bind.dest[0]: f"{bind.src}_b{bank}" for bind in stmt.bind}
 
-        def expr_to_port(expr: ast.BaseExpr):
-            if isinstance(expr, ast.LitExpr):
-                return cb.const(32, expr.value)
-            elif isinstance(expr, ast.VarExpr):
-                return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
-
         if body.op == "mul":
             op = comp.cell(f"mul_{suffix}", Stdlib.op("mult_pipe", 32, signed=False))
         else:
@@ -201,8 +197,8 @@ def gen_map_impl(
             # ANCHOR_END: map_inputs
             # ANCHOR: map_op
             # Provide inputs to the op
-            op.left = expr_to_port(body.lhs)
-            op.right = expr_to_port(body.rhs)
+            op.left = expr_to_port(body.lhs, name2arr)
+            op.right = expr_to_port(body.rhs, name2arr)
             # ANCHOR_END: map_op
             # ANCHOR: map_write
             out_mem = comp.get_cell(f"{dest}_b{bank}")
@@ -279,8 +275,9 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         # make sure it's the same as the one we're inferring now.
         if mem in out and par != out[mem]:
             raise Exception(
-                f"Previous use of `{mem}` had banking factor {out[mem]}"
-                f" but current use has banking factor {par}"
+                f"Previous uses of `{mem}` have caused it to have "
+                f"banking factor {out[mem]} "
+                f"but the current use requires banking factor {par}"
             )
         out[mem] = par
 
@@ -288,7 +285,7 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         par_f = stmt.op.par
         if isinstance(stmt.op, ast.Reduce) and par_f != 1:
             # Reduction does not support parallelism
-            raise Exception("Reduction does not support parallelism")
+            raise NotImplementedError("Reduction does not support parallelism")
         add_par(stmt.dest, par_f)
         for b in stmt.op.bind:
             add_par(b.src, par_f)
