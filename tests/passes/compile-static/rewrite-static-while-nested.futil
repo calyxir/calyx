@@ -1,0 +1,59 @@
+// -p well-formed -p compile-static -p dead-group-removal -p remove-ids 
+
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+
+component main () -> () {
+  cells {
+    @external p = std_mem_d1(3,1,1);
+    incr = std_add(3);
+    l = std_lt(3);
+    r = std_reg(3);
+    l2 = std_lt(3);
+  }
+
+  wires {
+    static group A<1> {
+      incr.left = p.read_data;
+      incr.right = 3'd1;
+      p.write_data = incr.out;
+      p.write_en = %0 ? 1'd1;
+      p.addr0 = 1'd0;
+    }
+    
+    group B {
+      p.write_data = 3'd0;
+      p.write_en = 1'd1;
+      p.addr0 = 1'd0;
+      B[done] = p.done;
+    }
+
+    group C {
+      r.in = incr.out;
+      incr.left = r.out;
+      incr.right = 3'd1;
+      r.write_en = 1'd1;
+      C[done] = r.done;
+    }
+     
+    comb group comp {
+      l2.left = r.out;
+      l2.right = 3'd3;
+    }
+
+    l.left = p.read_data;
+    l.right = 3'd6;
+  }
+
+  control {
+    while l2.out with comp {
+      seq {
+        B;
+        while l.out {
+          A;
+        }
+        C;
+      }  
+    }
+  }
+}

@@ -1,0 +1,62 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external p = std_mem_d1(3, 1, 1);
+    incr = std_add(3);
+    l = std_lt(3);
+    r = std_reg(3);
+    l2 = std_lt(3);
+    @generated fsm = std_reg(1);
+    @generated ud = undef(1);
+    @generated adder = std_add(1);
+  }
+  wires {
+    group B {
+      p.write_data = 3'd0;
+      p.write_en = 1'd1;
+      p.addr0 = 1'd0;
+      B[done] = p.done;
+    }
+    group C {
+      r.in = incr.out;
+      incr.left = r.out;
+      incr.right = 3'd1;
+      r.write_en = 1'd1;
+      C[done] = r.done;
+    }
+    group early_reset_A {
+      incr.left = p.read_data;
+      incr.right = 3'd1;
+      p.write_data = incr.out;
+      p.write_en = fsm.out == 1'd0 ? 1'd1;
+      p.addr0 = 1'd0;
+      adder.left = fsm.out;
+      adder.right = 1'd1;
+      fsm.write_en = 1'd1;
+      fsm.in = fsm.out != 1'd0 ? adder.out;
+      fsm.in = fsm.out == 1'd0 ? 1'd0;
+      early_reset_A[done] = ud.out;
+    }
+    group while_wrapper_early_reset_A {
+      early_reset_A[go] = 1'd1;
+      while_wrapper_early_reset_A[done] = !l.out & fsm.out == 1'd0 ? 1'd1;
+    }
+    comb group comp {
+      l2.left = r.out;
+      l2.right = 3'd3;
+    }
+    l.left = p.read_data;
+    l.right = 3'd6;
+  }
+
+  control {
+    while l2.out with comp {
+      seq {
+        B;
+        while_wrapper_early_reset_A;
+        C;
+      }
+    }
+  }
+}
