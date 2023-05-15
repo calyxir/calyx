@@ -296,10 +296,27 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
     return out
 
 
+def get_output_data(decls: List[ast.Decl]):
+    """
+    Return a dictionary mapping the variable name of each output variable to its size
+    """
+    output_data = dict()
+    for decl in decls:
+        if not decl.input:
+            size = decl.type.size
+            if size is None:
+                raise ValueError("Vectors cannot have size 'None'")
+            output_data[decl.name] = size
+    return output_data
+
 def emit_data(prog: ast.Prog, data):
     """
     Return a string containing futil input for `prog`, inferred from `data`
     """
+    output_vars = get_output_data(prog.decls) # Dict[name -> len]
+    for var, size in output_vars.items():
+        print("var, size: ", var, ", ", size)
+        data[var] = [0]*size
     par_factors = compute_par_factors(prog.stmts)
     calyx_data = dict()
     for var, val in data.items():
