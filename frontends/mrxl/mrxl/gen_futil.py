@@ -303,18 +303,13 @@ def emit_data(prog: ast.Prog, data):
     par_factors = compute_par_factors(prog.stmts)
     calyx_data = dict()
     for var, val in data.items():
-        val = val["data"]
         banking_factor = par_factors[var]
         bank_size = len(val) // banking_factor
         for i in range(banking_factor):
-            bank = f'{var}_b{i}'
+            bank = f"{var}_b{i}"
             calyx_data[bank] = {
-                "data": val[(i * bank_size): ((i + 1) * bank_size)],
-                "format": {
-                    "numeric_type": "bitnum",
-                    "is_signed": False,
-                    "width": 32
-                }
+                "data": val[(i * bank_size) : ((i + 1) * bank_size)],
+                "format": {"numeric_type": "bitnum", "is_signed": False, "width": 32},
             }
     json.dump(calyx_data, sys.stdout, indent=4, sort_keys=True)
 
