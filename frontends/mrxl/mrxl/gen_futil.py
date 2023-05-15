@@ -106,7 +106,9 @@ def gen_reduce_impl(
             out = comp.get_cell(f"{dest}")  # The accumulator is a register
         except Exception as exc:
             raise TypeError(
-                "The accumulator of a `reduce` is expected to be a register."
+                "The accumulator of a `reduce` operation is expected to be a "
+                "register. Consider checking the declaration of variable "
+                f"`{dest}`."
             ) from exc
 
         inp = comp.get_cell(f"{bind.src}_b0")
