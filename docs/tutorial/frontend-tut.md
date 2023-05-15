@@ -15,7 +15,7 @@ Meet MrXL.
 
 # MrXL Overview
 
-MrXL lets you define arrays (TK, after https://github.com/cucapra/calyx/issues/1459 lands: "and registers") and then perform `map`s and `reduce`s.
+MrXL lets you define arrays (TK, after https://github.com/cucapra/calyx/issues/1459 lands: "and registers") and then perform `map` and `reduce` operations.
 
 ## A tiny example
 
@@ -26,7 +26,7 @@ Here's a MrXL program in all its glory:
 ```
 
 The program is short enough for us to pick apart line by line:
-1. We specify an array, `avec`, which will have four integers. The `input` keyword means that an external harness will populate those four integers.
+1. We specify an array, `avec`, which will have four integers. The `input` keyword means that an external harness will populate the array.
 2. We specify another array, `sos`, which will also have four integers. (TK: this will change to `output sos: int` after https://github.com/cucapra/calyx/issues/1459 lands, so the copy will become lighter: "We specify `sos`, a register.") The `output` keyword means that we will populate `sos` in our program.
 3. The `map` operation gets the values of `avec` and raises each to the second power. We stash the result in a new array, `squares`. The number `1` denotes a *parallelism factor* of 1, meaning that the operation is performed sequentially. We will improve this shortly.
 4. The `reduce` operation walks over `squares` and accumulates the result into an array. (TK: "a register"). The parallelism factor is again `1`.
@@ -37,6 +37,9 @@ The program is short enough for us to pick apart line by line:
 Let's run this program.
 
 To begin, [install the MrXL command line tool][mrxldocs-install].
+(TK: I'd kinda like to inline those instructions here, so that there is less jumping around between files.
+I want folks to just install and get back here so we can interpret together, but there's a risk that folks will just begin to follow the other guide and go all the way to Verilog there.
+Also, the MrXL tutorial has a different running example...)
 
 Now change directories to `calyx/frontends/mrxl` and run
 ```
@@ -57,7 +60,6 @@ Consider the Calyx code that we _didn't need to write_:
 ```
 {{#include ../../frontends/mrxl/test/sos.calyx}}
 ```
-
 
 # Breaking it Down
 
@@ -116,10 +118,10 @@ We will now study [the MrXL-to-Calyx compiler][impl], written in Python.
 We have placed a few simplifying restrictions on MrXL programs:
 1. Every array in a MrXL program has the same length.
 2. Every integer in our generated hardware is 32 bits long.
-3. The bodies of `map` and `reduce` operations must be `+` or `*` operations involving array elements or integer constants.
+3. The bodies of `map` and `reduce` operations must be `+` or `*` operations involving array elements or integers.
 4. If repeated `map`/`reduce` operations are performed on the same memory, each of those operations must have the same parallelism factor.
 
-These can be lifted or relaxed via commensurate changes to the compiler.
+These restrictions can be lifted or relaxed via commensurate changes to the compiler.
 
 The compilation process breaks into two steps:
 1. Parsing MrXL into a representation we can process in Python.
@@ -288,7 +290,7 @@ Let's revisit the `map` example from earlier:
 {{#include ../../frontends/mrxl/test/sos.mrxl}}
 ```
 
-The number `2` specifies that two copies of the loop bodies should be executed in parallel.
+The banking factor `2` specifies that two copies of the loop bodies should be executed in parallel.
 Our implementation already creates [memory banks](#decl-nodes) to allow for parallel accesses.
 At a high-level, we can change the compilation for the `map` operation to produce `n` copies of the hardware we generate above and generate a control program that looks like this:
 ```
