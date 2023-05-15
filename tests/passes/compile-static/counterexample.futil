@@ -13,7 +13,7 @@ component main () -> () {
   }
 
   wires {
-    static group A<1> {
+    static<1> group A {
       incr.left = p.out;
       incr.right = 5'd1;
       p.in = incr.out;
@@ -21,7 +21,7 @@ component main () -> () {
       w.in = %0 ? incr.out;
     } 
 
-    static group B<1> {
+    static<1> group B {
       incr.left = p.out;
       incr.right = mem.read_data;
       mem.write_data = incr.out;

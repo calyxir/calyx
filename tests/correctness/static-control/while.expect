@@ -1,8 +1,15 @@
-{
-  "cycles": 6,
-  "memories": {
-    "p": [
-      6
-    ]
-  }
-}
+---CODE---
+255
+---STDERR---
+[fud] WARNING: Unknown option `verilog.top_module' for stage `verilog'
+[fud] WARNING: Unknown option `verilog.priority' for stage `verilog'
+[fud] ERROR: `./target/debug/calyx -l /Users/paili/Desktop/capra/calyx-symbolic/calyx -b verilog --disable-init -p all -d tdst -d group2invoke' failed:
+=====STDERR=====
+Error: <stdin>
+28 |    static<1> group B {
+   |    ^^^^^^^^^^^^^^^^^^^ [Papercut] Required signal not driven inside the group.
+When read the port `p.read_data', the ports [p.addr0] must be written to.
+The primitive type `std_mem_d1' requires this invariant.
+
+=====STDOUT=====
+

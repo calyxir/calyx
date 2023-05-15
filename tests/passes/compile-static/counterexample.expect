@@ -1,50 +1,6 @@
-import "primitives/core.futil";
-import "primitives/pipelined.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-    p = std_reg(5);
-    w = std_wire(5);
-    incr = std_add(5);
-    l = std_lt(5);
-    @external mem = std_mem_d1(5, 1, 1);
-    @generated fsm = std_reg(1);
-    @generated ud = undef(1);
-    @generated adder = std_add(1);
-    @generated fsm0 = std_reg(1);
-    @generated ud0 = undef(1);
-    @generated adder0 = std_add(1);
-    @generated fsm1 = std_reg(2);
-    @generated ud1 = undef(1);
-    @generated adder1 = std_add(2);
-  }
-  wires {
-    group early_reset_static_seq {
-      incr.left = fsm1.out == 2'd0 ? p.out;
-      incr.right = fsm1.out == 2'd0 ? 5'd1;
-      p.in = fsm1.out == 2'd0 ? incr.out;
-      p.write_en = fsm1.out == 2'd0 ? 1'd1;
-      w.in = fsm1.out == 2'd0 ? incr.out;
-      incr.left = fsm1.out == 2'd1 ? p.out;
-      incr.right = fsm1.out == 2'd1 ? mem.read_data;
-      mem.write_data = fsm1.out == 2'd1 ? incr.out;
-      mem.write_en = fsm1.out == 2'd1 ? 1'd1;
-      mem.addr0 = fsm1.out == 2'd1 ? 1'd0;
-      adder1.left = fsm1.out;
-      adder1.right = 2'd1;
-      fsm1.write_en = 1'd1;
-      fsm1.in = fsm1.out != 2'd1 ? adder1.out;
-      fsm1.in = fsm1.out == 2'd1 ? 2'd0;
-      early_reset_static_seq[done] = ud1.out;
-    }
-    group while_wrapper_early_reset_static_seq {
-      early_reset_static_seq[go] = 1'd1;
-      while_wrapper_early_reset_static_seq[done] = !l.out & fsm1.out == 2'd0 ? 1'd1;
-    }
-    l.left = w.out;
-    l.right = 5'd6;
-  }
-
-  control {
-    while_wrapper_early_reset_static_seq;
-  }
-}
+---CODE---
+1
+---STDERR---
+Error: Malformed Control: tests/passes/compile-static/counterexample.futil
+38 |    while l.out {
+   |    ^^^^^^^^^^^^^ While loop has no comb group and its condition port l.out is unstable

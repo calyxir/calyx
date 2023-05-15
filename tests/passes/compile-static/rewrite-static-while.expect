@@ -5,32 +5,72 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     p = std_reg(3);
     incr = std_add(3);
     l = std_lt(3);
+    r = std_reg(1);
     @generated fsm = std_reg(1);
     @generated ud = undef(1);
     @generated adder = std_add(1);
+    @generated fsm0 = std_reg(1);
+    @generated ud0 = undef(1);
+    @generated adder0 = std_add(1);
+    @generated fsm1 = std_reg(2);
+    @generated ud1 = undef(1);
+    @generated adder1 = std_add(2);
+    @generated signal_reg = std_reg(1);
+    @generated signal_reg0 = std_reg(1);
   }
   wires {
-    group early_reset_A {
-      incr.left = p.out;
-      incr.right = 3'd1;
-      p.in = incr.out;
-      p.write_en = fsm.out == 1'd0 ? 1'd1;
-      adder.left = fsm.out;
-      adder.right = 1'd1;
-      fsm.write_en = 1'd1;
-      fsm.in = fsm.out != 1'd0 ? adder.out;
-      fsm.in = fsm.out == 1'd0 ? 1'd0;
-      early_reset_A[done] = ud.out;
+    group early_reset_B {
+      l.left = p.out;
+      l.right = 3'd6;
+      r.in = l.out;
+      r.write_en = 1'd1;
+      adder0.left = fsm0.out;
+      adder0.right = 1'd1;
+      fsm0.write_en = 1'd1;
+      fsm0.in = fsm0.out != 1'd0 ? adder0.out;
+      fsm0.in = fsm0.out == 1'd0 ? 1'd0;
+      early_reset_B[done] = ud0.out;
     }
-    group while_wrapper_early_reset_A {
-      early_reset_A[go] = 1'd1;
-      while_wrapper_early_reset_A[done] = !l.out & fsm.out == 1'd0 ? 1'd1;
+    group early_reset_static_seq {
+      incr.left = fsm1.out == 2'd0 ? p.out;
+      incr.right = fsm1.out == 2'd0 ? 3'd1;
+      p.in = fsm1.out == 2'd0 ? incr.out;
+      p.write_en = fsm1.out == 2'd0 ? 1'd1;
+      l.left = fsm1.out == 2'd1 ? p.out;
+      l.right = fsm1.out == 2'd1 ? 3'd6;
+      r.in = fsm1.out == 2'd1 ? l.out;
+      r.write_en = fsm1.out == 2'd1 ? 1'd1;
+      adder1.left = fsm1.out;
+      adder1.right = 2'd1;
+      fsm1.write_en = 1'd1;
+      fsm1.in = fsm1.out != 2'd1 ? adder1.out;
+      fsm1.in = fsm1.out == 2'd1 ? 2'd0;
+      early_reset_static_seq[done] = ud1.out;
     }
-    l.left = p.out;
-    l.right = 3'd6;
+    group wrapper_early_reset_B {
+      early_reset_B[go] = 1'd1;
+      signal_reg.write_en = fsm0.out == 1'd0 & !signal_reg.out ? 1'd1;
+      signal_reg.in = fsm0.out == 1'd0 & !signal_reg.out ? 1'd1;
+      wrapper_early_reset_B[done] = fsm0.out == 1'd0 & signal_reg.out ? 1'd1;
+    }
+    group wrapper_early_reset_static_seq {
+      early_reset_static_seq[go] = 1'd1;
+      signal_reg0.write_en = fsm1.out == 2'd0 & !signal_reg0.out ? 1'd1;
+      signal_reg0.in = fsm1.out == 2'd0 & !signal_reg0.out ? 1'd1;
+      wrapper_early_reset_static_seq[done] = fsm1.out == 2'd0 & signal_reg0.out ? 1'd1;
+    }
+    signal_reg.write_en = fsm0.out == 1'd0 & signal_reg.out ? 1'd1;
+    signal_reg.in = fsm0.out == 1'd0 & signal_reg.out ? 1'd0;
+    signal_reg0.write_en = fsm1.out == 2'd0 & signal_reg0.out ? 1'd1;
+    signal_reg0.in = fsm1.out == 2'd0 & signal_reg0.out ? 1'd0;
   }
 
   control {
-    while_wrapper_early_reset_A;
+    seq {
+      wrapper_early_reset_B;
+      while r.out {
+        wrapper_early_reset_static_seq;
+      }
+    }
   }
 }

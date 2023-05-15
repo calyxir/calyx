@@ -1,4 +1,4 @@
-// -p well-formed -p compile-static -p dead-group-removal -p remove-ids 
+// -p well-formed -p static-inline -p compile-static -p dead-group-removal -p remove-ids 
 
 import "primitives/core.futil";
 import "primitives/pipelined.futil";
@@ -10,15 +10,23 @@ component main () -> () {
     l = std_lt(3);
     r = std_reg(3);
     l2 = std_lt(3);
+    r_cond = std_reg(1);
   }
 
   wires {
-    static group A<1> {
+    static<1> group A {
       incr.left = p.read_data;
       incr.right = 3'd1;
       p.write_data = incr.out;
       p.write_en = %0 ? 1'd1;
       p.addr0 = 1'd0;
+    }
+
+    static<1> group A2 {
+      l.left = p.read_data;
+      l.right = 3'd6;
+      r_cond.in = l.out;
+      r_cond.write_en = 1'd1;
     }
     
     group B {
@@ -40,17 +48,14 @@ component main () -> () {
       l2.left = r.out;
       l2.right = 3'd3;
     }
-
-    l.left = p.read_data;
-    l.right = 3'd6;
   }
 
   control {
     while l2.out with comp {
       seq {
-        B;
-        while l.out {
-          A;
+        B; A2;
+        while r_cond.out {
+          static seq {A; A2;}
         }
         C;
       }  
