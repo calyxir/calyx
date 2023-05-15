@@ -1,10 +1,10 @@
 {
-	"avec_b0": {
+	"avec": {
 		"data": [
+			0,
 			1,
-			2,
-			3,
-			4
+			4,
+			5
 		],
 		"format": {
 			"numeric_type": "bitnum",
@@ -12,7 +12,7 @@
 			"width": 32
 		}
 	},
-	"sos_b0": {
+	"squares": {
 		"data": [
 			0,
 			0,

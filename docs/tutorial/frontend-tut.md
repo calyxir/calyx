@@ -7,8 +7,8 @@ That is (probably) a good way to build character, but it's no way to live.
 In practice, you want a *frontend* that *compiles* to Calyx.
 
 This allows you to:
-1. Generate, automatically, some of the kludge that Calyx requires.
-2. Support domain-specific commands that Calyx does not.
+1. Support domain-specific commands that Calyx does not.
+2. Automatically generate some of the kludge that Calyx requires.
 
 In this tutorial, we're going to learn all about this by building a compiler for a toy language.
 Meet MrXL.
@@ -28,8 +28,8 @@ Here's a MrXL program in all its glory:
 The program is short enough for us to pick apart line by line:
 1. We specify an array, `avec`, which will have four integers. The `input` keyword means that an external harness will populate those four integers.
 2. We specify another array, `sos`, which will also have four integers. (TK: this will change to `output sos: int` after https://github.com/cucapra/calyx/issues/1459 lands, so the copy will become lighter: "We specify `sos`, a register.") The `output` keyword means that we will populate `sos` in our program.
-3. The `map` operation gets the values of `avec` and squares each. We stash the result in a new array, `squares`. The number `2` denotes a *parallelism factor* of 2; we will disccuss this shortly.
-4. The `reduce` operation walks over `squares` and accumulates the result into an array. (TK: "a register"). Here the parallelism factor is `1`: this reduction is performed sequentially.
+3. The `map` operation gets the values of `avec` and raises each to the second power. We stash the result in a new array, `squares`. The number `1` denotes a *parallelism factor* of 1, meaning that the operation is performed sequentially. We will improve this shortly.
+4. The `reduce` operation walks over `squares` and accumulates the result into an array. (TK: "a register"). The parallelism factor is again `1`.
 
 
 ## Running our example
@@ -52,12 +52,11 @@ Why `42`? Because we populated `avec` with
 and $0^2 + 1^2 + 4^2 + 5^2 = 42$.
 
 Still not impressed?
-Consider the Calyx code that we _didn't write_:
+Consider the Calyx code that we _didn't need to write_:
 
 ```
 {{#include ../../frontends/mrxl/test/sos.calyx}}
 ```
-(TK: the above was generated using banking factor 1 everywhere, since that is what we can compile right now. Change once https://github.com/cucapra/calyx/issues/1472 lands and we can compile `... map 2... reduce 1...` as is my hope.)
 
 
 # Breaking it Down
@@ -79,32 +78,34 @@ We can lighten MrXL-native data files and write a [`fud`][fud] pass to tack this
 
 ### Memory banking
 
-Recall that the invocation of `map` in our running example has a parallelism factor of two.
-Ignore the invocation of `reduce` for now.
+Consider a small variation on our running example.
+The noteworthy change is the parallelism factor of the `map` operation.
 
 ```
-{{#include ../../frontends/mrxl/test/sos.mrxl}}
+{{#include ../../frontends/mrxl/test/squares.mrxl}}
 ```
 
-In order to take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is, in fact, split into two *banks*, named `avec_b0` and `avec_b1`.
-We will discuss this further presently, but for now it suffices to convince oneself that this is needed.
+Run this with
+```
+mrxl test/squares.mrxl --data test/squares.mrxl.data --interpret
+```
 
-Let us return to our running example, `sos.mrxl`.
-While we supplied `avec` with its values in the vein of
+To take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is, in fact, split into two *banks*, named `avec_b0` and `avec_b1`.
+We will discuss this further shortly, but for now it suffices to convince oneself that this is needed.
+
+While we supplied `avec`'s values as a straightforward array:
 
 ```json
-{{#include ../../frontends/mrxl/test/sos.mrxl.data}}
+{{#include ../../frontends/mrxl/test/squares.mrxl.data}}
 ```
 
-under the hood, the *compiled version* of `sos.mrxl` came to expect something like:
+under the hood, the *compiled version* of `squares.mrxl` came to expect something like:
 
 ```json
-{{#include ../../frontends/mrxl/test/add.mrxl.banked.data}}
+{{#include ../../frontends/mrxl/test/squares.mrxl.banked.data}}
 ```
-(TK: this is incorrect at present: it was generated using parallelism factor of `1` for the map, so it only makes one bank, `avec_b0`. It'll become better after https://github.com/cucapra/calyx/issues/1472 lands. It'll also benefit from https://github.com/cucapra/calyx/issues/1450#issuecomment-1546757549)
 
-Though far from trivial, this memory banking is also doable using `fud`:
-all the necessary information is in the MrXL source program.
+Though nontrivial, this memory banking can also be handled automatically using `fud`; all the necessary information is in the MrXL source program.
 
 
 ## Compiling MrXL into Calyx
@@ -116,6 +117,7 @@ We have placed a few simplifying restrictions on MrXL programs:
 1. Every array in a MrXL program has the same length.
 2. Every integer in our generated hardware is 32 bits long.
 3. The bodies of `map` and `reduce` operations must be `+` or `*` operations involving array elements or integer constants.
+4. If repeated `map`/`reduce` operations are performed on the same memory, each of those operations must have the same parallelism factor.
 
 These can be lifted or relaxed via commensurate changes to the compiler.
 
@@ -308,6 +310,7 @@ Some fun things you could try:
 2. We require that all arrays be the same size. Lift this restriction.
 3. Permit complex expressions in the bodies of `map` and `reduce`.
 4. Support a new `filter` operation in MrXL.
+5. We require that repeated computations on the same array have the same banking factor. Lift this restriction.
 
 [astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
