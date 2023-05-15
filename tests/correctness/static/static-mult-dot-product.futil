@@ -11,6 +11,7 @@ component main() -> () {
         add = std_add(4);
         sub = std_sub(4);
         ud = undef(1);
+        meaningless_reg = std_reg(1);
 
         lt = std_lt(4);
         lt_10 = std_reg(1);
@@ -48,12 +49,11 @@ component main() -> () {
         }
 
         // The multiplier registers its inputs after a cycle.
-        group start_mult<"static"=1> {
+        static<1> group start_mult<"static"=1> {
             left.addr0 = idx.out;
             right.addr0 = idx.out;
             mul.left = left.read_data;
             mul.right = right.read_data;
-            start_mult[done] = ud.out;
         }
 
         group do_write<"static"=1> {
@@ -80,7 +80,7 @@ component main() -> () {
         par { start_mult; incr; }
         par { start_mult; incr; }
         par { start_mult; incr; }
-        @bound(6) while ud.out {
+        @bound(6) while meaningless_reg.out {
             par {
                 incr;
                 start_mult;

@@ -6,6 +6,7 @@ component main() -> () {
       @external m = std_mem_d1(32, 1, 1);
       add = std_add(32);
       r = std_reg(1);
+      read_cond_reg = std_reg(1);
     }
     wires {
         group one {
@@ -19,10 +20,17 @@ component main() -> () {
         group four<"static"=4> {
             four[done] = r.out;
         }
-        cond.addr0 = 1'd0;
+        group read_cond {
+            cond.addr0 = 1'd0;
+            read_cond_reg.write_en = 1'd1; 
+            read_cond_reg.in = cond.read_data;
+            read_cond[done] = read_cond_reg.done; 
+        }
+       
     }
     control {
-        if cond.read_data {
+        read_cond; 
+        if read_cond_reg.out {
             four;
         } else {
             one;

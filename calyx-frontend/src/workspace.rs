@@ -10,6 +10,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// String representing the basic compilation primitives that need to be present
+/// to support compilation.
+const COMPILE_LIB: &str = include_str!("../resources/compile.futil");
+
 /// A Workspace represents all Calyx files transitively discovered while trying to compile a
 /// top-level file.
 ///
@@ -98,13 +102,41 @@ impl Workspace {
         )))
     }
 
+    /// Construct a new workspace using the `compile.futil` library which
+    /// contains the core primitives needed for compilation.
+    pub fn from_compile_lib() -> CalyxResult<Self> {
+        let mut ns = NamespaceDef::construct_from_str(COMPILE_LIB)?;
+        // No imports allowed
+        assert!(
+            ns.imports.is_empty(),
+            "core library should not contain any imports"
+        );
+        // No metadata allowed
+        assert!(
+            ns.metadata.is_none(),
+            "core library should not contain any metadata"
+        );
+        // Only inline externs are allowed
+        assert!(
+            ns.externs.len() == 1 && ns.externs[0].0.is_none(),
+            "core library should only contain inline externs"
+        );
+        let (_, externs) = ns.externs.pop().unwrap();
+        let ws = Workspace {
+            components: ns.components,
+            externs: LinkedHashMap::from_iter(Some((None, externs))),
+            ..Default::default()
+        };
+        Ok(ws)
+    }
+
     /// Construct a new workspace from an input stream representing a Calyx
     /// program.
     pub fn construct(
         file: &Option<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        Self::construct_with_all_deps(file, lib_path, false)
+        Self::construct_with_all_deps::<false>(file, lib_path)
     }
 
     /// Construct the Workspace using the given [NamespaceDef] and ignore all
@@ -113,7 +145,7 @@ impl Workspace {
         file: &Option<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        Self::construct_with_all_deps(file, lib_path, true)
+        Self::construct_with_all_deps::<true>(file, lib_path)
     }
 
     fn get_parent(p: &Path) -> PathBuf {
@@ -132,11 +164,10 @@ impl Workspace {
 
     /// Construct the Workspace by transitively parsing all `import`ed Calyx
     /// files.
-    fn construct_with_all_deps(
+    /// If SHALLOW is true, then parse imported cmoponents as declarations
+    fn construct_with_all_deps<const SHALLOW: bool>(
         file: &Option<PathBuf>,
         lib_path: &Path,
-        // Parse imported components as declarations
-        shallow: bool,
     ) -> CalyxResult<Self> {
         // Construct initial namespace.
         let namespace = NamespaceDef::construct(file)?;
@@ -231,7 +262,7 @@ impl Workspace {
             let ns = parser::CalyxParser::parse_file(&p)?;
             let parent = Self::get_parent(&p);
 
-            let mut deps = merge_into_ws(ns, &parent, shallow)?;
+            let mut deps = merge_into_ws(ns, &parent, SHALLOW)?;
             dependencies.append(&mut deps);
 
             already_imported.insert(p);

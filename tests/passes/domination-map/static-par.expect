@@ -1,0 +1,88 @@
+The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes 
+that are attached to each non-empty control statement when the domination map is built. 
+To see which ID's refer to which control statement, look at the Calyx Program, which should 
+be printed along with the map when it is printed.
+Domination Map for component "example"  {
+Node: 1 -- Dominators: [1]
+Node: 4 -- Dominators: [1, 4]
+Node: 5 -- Dominators: [1, 4, 5, 8, 11]
+Node: 6 -- Dominators: [1, 4, 5, 6, 8, 9, 10, 11]
+Node: 8 -- Dominators: [1, 8]
+Node: 9 -- Dominators: [1, 8, 9, 11]
+Node: 10 -- Dominators: [1, 4, 8, 9, 10, 11]
+Node: 11 -- Dominators: [1, 11]
+Node: 14 -- Dominators: [1, 11, 14]
+Node: 15 -- Dominators: [1, 4, 8, 11, 14, 15, 16]
+Node: 16 -- Dominators: [1, 11, 16]
+Node: 17 -- Dominators: [1, 11, 17]
+Node: 18 -- Dominators: [1, 4, 5, 6, 8, 9, 10, 11, 17, 18]
+}
+import "primitives/core.futil";
+component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    group A {
+    }
+    group H {
+    }
+    static<4> group B {
+    }
+    static<4> group C {
+    }
+    static<2> group D {
+    }
+    static<3> group E {
+    }
+    static<2> group F {
+    }
+    static<2> group G {
+    }
+    static<4> group X {
+    }
+    static<2> group Y {
+    }
+    static<2> group Z {
+    }
+  }
+
+  control {
+    @NODE_ID(0) seq {
+      @NODE_ID A;
+      @NODE_ID(2) static<10> par {
+        @NODE_ID(3) static<10> seq  {
+          @NODE_ID(4) B;
+          @NODE_ID(5) C;
+          @NODE_ID(6) D;
+        }
+        @NODE_ID(7) static<7> seq  {
+          @NODE_ID(8) E;
+          @NODE_ID(9) F;
+          @NODE_ID(10) G;
+        }
+        @BEGIN_ID(11) @END_ID(17) static<6> if  lt.out {
+          @NODE_ID(12) static<6> par {
+            @NODE_ID(13) static<6> seq  {
+              @NODE_ID(14) X;
+              @NODE_ID(15) Y;
+            }
+            @NODE_ID(16) Z;
+          }
+        }
+      }
+      @NODE_ID(18) H;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = example();
+  }
+  wires {
+  }
+
+  control {
+    invoke e()();
+  }
+}

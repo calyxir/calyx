@@ -45,8 +45,9 @@ features = ["matrix_graph"]
 
 [package]
 name = "calyx"
-version = "0.1.3"
+version = "0.2.0"
 build = false
+default-run = "calyx"
 edition.workspace = true
 description.workspace = true
 authors.workspace = true
@@ -58,8 +59,12 @@ categories.workspace = true
 readme.workspace = true
 
 [[bin]]
-name = "futil"
+name = "calyx"
 path = "src/main.rs"
+
+[[bin]]
+name = "futil"
+path = "src/futil.rs"
 
 [dependencies]
 atty.workspace = true
@@ -70,10 +75,10 @@ argh.workspace = true
 csv = "1.1"
 vast = "0.3.1"
 
-calyx-utils = { path = "calyx-utils", version = "0.1.1" }
-calyx-ir = { path = "calyx-ir", version = "0.1.1" }
-calyx-frontend = { path = "calyx-frontend", version = "0.1.1" }
-calyx-opt = { path = "calyx-opt", version = "0.1.1" }
+calyx-utils = { path = "calyx-utils", version = "0.2.0" }
+calyx-ir = { path = "calyx-ir", version = "0.2.0" }
+calyx-frontend = { path = "calyx-frontend", version = "0.2.0" }
+calyx-opt = { path = "calyx-opt", version = "0.2.0" }
 
 [dependencies.quick-xml]
 version = "0.28"
@@ -94,9 +99,6 @@ criterion = { version = "0.3", features = ["html_reports"] }
 calyx-ir = { path = "calyx-ir" }
 calyx-opt = { path = "calyx-opt" }
 calyx-frontend = { path = "calyx-frontend" }
-
-[profile.release.package.interp]
-incremental = true
 
 [[bench]]
 name = "component-sharing"

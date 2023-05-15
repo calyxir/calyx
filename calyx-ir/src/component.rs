@@ -4,12 +4,14 @@ use super::{
 };
 use crate::guard::StaticTiming;
 use crate::Nothing;
+use calyx_frontend::NumAttr;
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::iter::Extend;
+use std::num::NonZeroU64;
 use std::rc::Rc;
 
 /// The default name of the signature cell in a component.
@@ -40,6 +42,8 @@ pub struct Component {
     pub attributes: Attributes,
     /// True iff component is combinational
     pub is_comb: bool,
+    /// (Optional) latency of component, if it is static
+    pub latency: Option<NonZeroU64>,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
@@ -53,7 +57,12 @@ pub struct Component {
 ///   name.
 impl Component {
     /// Construct a new Component with the given `name` and signature fields.
-    pub fn new<S>(name: S, ports: Vec<PortDef<u64>>, is_comb: bool) -> Self
+    pub fn new<S>(
+        name: S,
+        ports: Vec<PortDef<u64>>,
+        is_comb: bool,
+        latency: Option<NonZeroU64>,
+    ) -> Self
     where
         S: Into<Id>,
     {
@@ -84,6 +93,9 @@ impl Component {
             namegen: NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
             is_comb,
+            // converting from NonZeroU64 to u64. May want to keep permanently as NonZeroU64
+            // in the future, but rn it's probably easier to keep as u64
+            latency,
         }
     }
 
@@ -165,10 +177,10 @@ impl Component {
     /// A static component is a component that has at least one static go-done path.
     pub fn is_static(&self) -> bool {
         let sig = self.signature.borrow();
-        let mut go_ports = sig.find_all_with_attr("go");
+        let mut go_ports = sig.find_all_with_attr(NumAttr::Go);
         go_ports.any(|p| {
             let port = p.borrow();
-            port.attributes.has("static")
+            port.attributes.has(NumAttr::Static)
         })
     }
 

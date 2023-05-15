@@ -27,7 +27,7 @@ DEFAULT_CONFIGURATION = {
     "externals": {},
     "stages": {
         "futil": {
-            "exec": "./target/debug/futil",
+            "exec": "./target/debug/calyx",
             "file_extensions": [".futil"],
             "flags": None,
         },
@@ -147,8 +147,12 @@ class DynamicDict:
         data = self.data
         lastkey = keys[-1]
         for k in keys[:-1]:  # when assigning drill down to *second* last key
-            data = data[k]
-        del data[lastkey]
+            if k in data:
+                data = data[k]
+        if lastkey in data:
+            del data[lastkey]
+        else:
+            log.warn(f"`{'.'.join(keys)}' not found. Ignoring delete command.")
 
     def __contains__(self, keys):
         data = self.data

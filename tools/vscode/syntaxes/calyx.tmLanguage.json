@@ -57,11 +57,11 @@
 			"patterns": [
 				{
 					"name": "keyword.control.calyx",
-					"match": "\\b(seq|par|if|while|else|with|group|invoke)\\b"
+					"match": "\\b(seq|par|if|while|else|with|group|invoke|repeat)\\b"
 				},
 				{
 					"name": "keyword.operator",
-					"match": "\\b(ref|comb)\\b"
+					"match": "\\b(ref|comb|static)\\b"
 				}
 			]
 		},

@@ -12,64 +12,59 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     g = std_reg(32);
   }
   wires {
-    group A{
+    static<3> group A {
       a.write_en = 1'd1; 
       a.in = 32'd2; 
-      A[done] = a.done;
     }
-    group B{
+    static<3> group B {
       b.write_en = 1'd1; 
       b.in = 32'd2; 
-      B[done] = b.done;
     }
-    group C{
+    static<4> group C {
       c.write_en = 1'd1; 
-      c.in = 32'd2; 
-      C[done] = c.done;  
+      c.in = 32'd2;  
     }
-    group D{
+    static<4> group D {
       d.write_en = 1'd1; 
       d.in = 32'd2; 
-      D[done] = d.done;
     }
-    group E{
+    static<4> group E {
       e.write_en = 1'd1; 
       e.in = 32'd2; 
-      E[done] = e.done;
     }
-    group F{
+    static<4> group F {
       f.write_en = 1'd1; 
       f.in = 32'd2; 
-      F[done] = f.done;
     }
-    group G{
+    static<4> group G {
       g.write_en = 1'd1; 
       g.in = 32'd2; 
-      G[done] = g.done;
     }
   }
 
   control {
-    @static(74) par {
-      @bound(2) while lt.out {
-        @bound(3) while lt.out {
-          @static(11) seq {
-            @static(3) par {
-              @static(3) A;
-              @static(3) B;
+    static par {
+      static repeat 2 {
+       static seq {
+        static repeat 3 {
+          static seq {
+            static par {
+              A;
+              B;
             }
-            @bound(2) while lt.out {
-              @static(4) C;
+            static repeat 2 {
+              C;
             }
           }
         }
-        @static(4) D; 
+        D;
+       }
       }
     }
-    @static(12) seq {
-      @static(4) E; 
-      @static(4) F;
-      @static(4) G;
+    static seq {
+      E; 
+      F;
+      G;
     }
   }
 }

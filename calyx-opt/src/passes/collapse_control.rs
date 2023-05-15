@@ -61,7 +61,7 @@ impl Visitor for CollapseControl {
         }
         let mut seqs: Vec<ir::Control> = vec![];
         for con in s.stmts.drain(..) {
-            if con.has_attribute("new_fsm") {
+            if con.has_attribute(ir::BoolAttr::NewFSM) {
                 // if con has attribute new_fsm, then we do *not* want to collapse
                 seqs.push(con)
             } else {

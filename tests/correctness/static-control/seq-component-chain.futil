@@ -16,7 +16,7 @@ component main() -> () {
     mult_pipe0 = std_mult_pipe(32);
   }
   wires {
-    static group let1<4>{
+    static<4> group let1 {
       mult_pipe0.left = 32'd10;
       mult_pipe0.right = 32'd20;
       mult_pipe0.go = %[0:3] ? 1'd1;
@@ -25,7 +25,7 @@ component main() -> () {
       x.addr0 = 1'd0;
       x.write_en = %3 ? 1'd1;
     }
-    static group let2<4> {
+    static<4> group let2 {
       mult_pipe0.left = 32'd30;
       mult_pipe0.right = 32'd40;
       mult_pipe0.go = %[0:3] ? 1'd1;
@@ -34,7 +34,7 @@ component main() -> () {
       y.addr0 = 1'd0;
       y.write_en = %3 ? 1'd1;
     }
-    static group let3<4> {
+    static<4> group let3 {
       mult_pipe0.left = 32'd50;
       mult_pipe0.right = 32'd60;
       mult_pipe0.go = %[0:3] ? 1'd1;
