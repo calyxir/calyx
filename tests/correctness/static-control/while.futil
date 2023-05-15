@@ -30,6 +30,7 @@ component main () -> () {
       l.right = 3'd6;
       r.in = l.out;
       r.write_en = 1'd1;
+      p.addr0 = 1'd0;
     }
   }
 

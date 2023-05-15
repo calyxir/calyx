@@ -39,6 +39,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       l.right = 3'd6;
       r_cond.in = l.out;
       r_cond.write_en = 1'd1;
+      p.addr0 = 1'd0;
       adder0.left = fsm0.out;
       adder0.right = 1'd1;
       fsm0.write_en = 1'd1;
@@ -56,6 +57,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       l.right = fsm1.out == 2'd1 ? 3'd6;
       r_cond.in = fsm1.out == 2'd1 ? l.out;
       r_cond.write_en = fsm1.out == 2'd1 ? 1'd1;
+      p.addr0 = fsm1.out == 2'd1 ? 1'd0;
       adder1.left = fsm1.out;
       adder1.right = 2'd1;
       fsm1.write_en = 1'd1;

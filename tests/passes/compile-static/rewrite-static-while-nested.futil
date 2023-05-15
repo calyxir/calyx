@@ -27,6 +27,7 @@ component main () -> () {
       l.right = 3'd6;
       r_cond.in = l.out;
       r_cond.write_en = 1'd1;
+      p.addr0 = 1'd0;
     }
     
     group B {
