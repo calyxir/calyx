@@ -27,19 +27,19 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       c.in = 32'd2; 
       C[done] = c.done;  
     }
-    static group D <2> {
+    static<2> group D {
       d.write_en = 1'd1; 
       d.in = 32'd2; 
     }
-    static group E <1>{
+    static<1> group E {
       e.write_en = 1'd1; 
       e.in = 32'd2; 
     }
-    static group F<1> {
+    static<1> group F {
       f.write_en = 1'd1; 
       f.in = 32'd2; 
     }
-    static group G <2> {
+    static<2> group G  {
       g.write_en = 1'd1; 
       g.in = 32'd2; 
     }
@@ -60,6 +60,7 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
 }
+
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     lt = std_lt(32);
@@ -69,24 +70,23 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     d = std_reg(32);
   }
   wires {
-    static group A <2> {
+    static<2> group A {
       a.write_en = 1'd1; 
       a.in = 32'd2; 
     }
-    static group B <3> {
+    static<3> group B {
       b.write_en = 1'd1; 
       b.in = 32'd2; 
     }
-    static group C <3> {
+    static<3> group C {
       c.write_en = 1'd1; 
       c.in = 32'd2; 
     }
-    static group D <4>{
+    static<4> group D {
       d.write_en = 1'd1; 
       d.in = 32'd2; 
     }
   }
-
   control {
     static par {
       static seq {

@@ -16,7 +16,7 @@ class InterpError(Exception):
 
 def _dict_zip(d):
     """Given a dict of lists, generate a sequence of dicts with the same
-    keys---each associated with one "slice" of the lists.
+    keys---each associated with one "vertical slice" of the lists.
     """
     for i in range(len(next(iter(d.values())))):
         yield {k: v[i] for k, v in d.items()}
@@ -98,7 +98,7 @@ def interp(prog: ast.Prog, data: Env) -> Env:
     for decl in prog.decls:
         if decl.input:
             try:
-                env[decl.name] = data[decl.name]
+                env[decl.name] = data[decl.name]["data"]
             except KeyError:
                 raise InterpError(f"input data for `{decl.name}` not found")
 

@@ -50,19 +50,19 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       d.in = 32'd2;
       C[done] = d.done;
     }
-    static group D<2> {
+    static<2> group D {
       d.write_en = 1'd1;
       d.in = 32'd2;
     }
-    static group E<1> {
+    static<1> group E {
       d.write_en = 1'd1;
       d.in = 32'd2;
     }
-    static group F<1> {
+    static<1> group F {
       f.write_en = 1'd1;
       f.in = 32'd2;
     }
-    static group G<2> {
+    static<2> group G {
       f.write_en = 1'd1;
       f.in = 32'd2;
     }
@@ -77,12 +77,12 @@ component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     } else {
       @NODE_ID(4) seq {
         @NODE_ID(5) C;
-        @NODE_ID(6) static par <3> {
-          @NODE_ID(7) static seq <3> {
+        @NODE_ID(6) static<3> par {
+          @NODE_ID(7) static<3> seq  {
             @NODE_ID(8) D;
             @NODE_ID(9) E;
           }
-          @NODE_ID(10) static seq <3> {
+          @NODE_ID(10) static<3> seq  {
             @NODE_ID(11) F;
             @NODE_ID(12) G;
           }
@@ -100,28 +100,28 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     d = std_reg(32);
   }
   wires {
-    static group A<2> {
+    static<2> group A {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group B<3> {
+    static<3> group B {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group C<3> {
+    static<3> group C {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group D<4> {
+    static<4> group D {
       d.write_en = 1'd1;
       d.in = 32'd2;
     }
   }
 
   control {
-    @NODE_ID(0) static par <6> {
-      @NODE_ID static seq <6> {
-        @NODE_ID(2) static if <3> lt.out {
+    @NODE_ID(0) static<6> par {
+      @NODE_ID static<6> seq  {
+        @NODE_ID(2) static<3> if  lt.out {
           @NODE_ID(3) A;
         } else {
           @NODE_ID(4) B;

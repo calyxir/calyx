@@ -2,20 +2,20 @@ import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    @external A0 = std_mem_d1(32, 8, 4);
-    A_read0_0 = std_reg(32);
-    @external B0 = std_mem_d1(32, 8, 4);
-    B_read0_0 = std_reg(32);
-    add0 = std_add(32);
-    add1 = std_add(4);
-    const0 = std_const(4, 0);
-    const1 = std_const(4, 7);
-    const2 = std_const(1, 0);
-    const3 = std_const(4, 1);
-    i0 = std_reg(4);
-    le0 = std_le(4);
-    mult_pipe0 = std_mult_pipe(32);
-    @external v0 = std_mem_d1(32, 1, 1);
+    @external @data A0 = std_mem_d1(32, 8, 4);
+    @data A_read0_0 = std_reg(32);
+    @external @data B0 = std_mem_d1(32, 8, 4);
+    @data B_read0_0 = std_reg(32);
+    @data add0 = std_add(32);
+    @data add1 = std_add(4);
+    @data const0 = std_const(4, 0);
+    @control const1 = std_const(4, 7);
+    @control const2 = std_const(1, 0);
+    @data const3 = std_const(4, 1);
+    @data i0 = std_reg(4);
+    @control le0 = std_le(4);
+    @data mult_pipe0 = std_mult_pipe(32);
+    @external @data v0 = std_mem_d1(32, 1, 1);
     @generated comb_reg = std_reg(1);
     @generated fsm = std_reg(4);
     @generated upd2_go = std_wire(1);
@@ -67,6 +67,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     v0.write_en = upd2_go.out ? 1'd1;
     v0.clk = clk;
     v0.addr0 = upd2_go.out ? const2.out;
+    v0.reset = reset;
     v0.write_data = upd2_go.out ? add0.out;
     comb_reg.write_en = cond00_go.out ? 1'd1;
     comb_reg.clk = clk;
@@ -78,6 +79,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     tdcc_go.in = go;
     A0.clk = clk;
     A0.addr0 = msp_go.out ? i0.out;
+    A0.reset = reset;
     cond00_go.in = !cond00_done.out & fsm.out == 4'd1 & tdcc_go.out | !cond00_done.out & fsm.out == 4'd8 & tdcc_go.out ? 1'd1;
     invoke3_done.in = B_read0_0.done;
     mult_pipe0.clk = clk;
@@ -92,6 +94,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     invoke2_done.in = A_read0_0.done;
     B0.clk = clk;
     B0.addr0 = msp_go.out ? i0.out;
+    B0.reset = reset;
     B_read0_0.write_en = invoke3_go.out | msp_go.out ? 1'd1;
     B_read0_0.clk = clk;
     B_read0_0.reset = reset;

@@ -27,43 +27,43 @@ component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (
     }
     group H {
     }
-    static group B<4> {
+    static<4> group B {
     }
-    static group C<4> {
+    static<4> group C {
     }
-    static group D<2> {
+    static<2> group D {
     }
-    static group E<3> {
+    static<3> group E {
     }
-    static group F<2> {
+    static<2> group F {
     }
-    static group G<2> {
+    static<2> group G {
     }
-    static group X<4> {
+    static<4> group X {
     }
-    static group Y<2> {
+    static<2> group Y {
     }
-    static group Z<2> {
+    static<2> group Z {
     }
   }
 
   control {
     @NODE_ID(0) seq {
       @NODE_ID A;
-      @NODE_ID(2) static par <10> {
-        @NODE_ID(3) static seq <10> {
+      @NODE_ID(2) static<10> par {
+        @NODE_ID(3) static<10> seq  {
           @NODE_ID(4) B;
           @NODE_ID(5) C;
           @NODE_ID(6) D;
         }
-        @NODE_ID(7) static seq <7> {
+        @NODE_ID(7) static<7> seq  {
           @NODE_ID(8) E;
           @NODE_ID(9) F;
           @NODE_ID(10) G;
         }
-        @BEGIN_ID(11) @END_ID(17) static if <6> lt.out {
-          @NODE_ID(12) static par <6> {
-            @NODE_ID(13) static seq <6> {
+        @BEGIN_ID(11) @END_ID(17) static<6> if  lt.out {
+          @NODE_ID(12) static<6> par {
+            @NODE_ID(13) static<6> seq  {
               @NODE_ID(14) X;
               @NODE_ID(15) Y;
             }

@@ -132,6 +132,9 @@ impl Printer {
         if prim.is_comb {
             write!(f, "comb ")?;
         }
+        if let Some(latency_val) = prim.latency {
+            write!(f, "static<{}> ", latency_val)?;
+        }
         write!(
             f,
             "primitive {}{}",
@@ -181,7 +184,13 @@ impl Printer {
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
 
-        let pre = if comp.is_comb { "comb " } else { "" };
+        let pre = if comp.is_comb {
+            "comb ".to_string()
+        } else if comp.latency.is_some() {
+            format!("static<{}> ", comp.latency.unwrap())
+        } else {
+            "".to_string()
+        };
 
         writeln!(
             f,
@@ -365,9 +374,9 @@ impl Printer {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(
             f,
-            "static group {}<{}>",
+            "static<{}> group {}",
+            group.get_latency(),
             group.name().id,
-            group.get_latency()
         )?;
         if !group.attributes.is_empty() {
             write!(f, "{}", Self::format_attributes(&group.attributes))?;
@@ -414,7 +423,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static seq <{}> {{", latency)?;
+                writeln!(f, "static<{}> seq  {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -426,7 +435,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static par <{}> {{", latency)?;
+                writeln!(f, "static<{}> par {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -449,7 +458,7 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
                     f,
-                    "static if <{}> {} ",
+                    "static<{}> if  {} ",
                     latency,
                     Self::port_to_str(&port.borrow()),
                 )?;
@@ -475,7 +484,7 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
                     f,
-                    "static invoke<{}> {}",
+                    "static<{}> invoke {}",
                     latency,
                     comp.borrow().name()
                 )?;

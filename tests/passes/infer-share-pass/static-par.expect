@@ -7,15 +7,15 @@ component example<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset:
     adder = std_add(32);
   }
   wires {
-    static group A<1> {
+    static<1> group A {
       a.in = 32'd2;
       a.write_en = 1'd1;
     }
-    static group B<1> {
+    static<1> group B {
       b.write_en = 1'd1;
       b.in = 32'd7;
     }
-    static group read_A<1> {
+    static<1> group read_A {
       adder.left = a.out;
       adder.right = 32'd2;
       a.in = adder.out;
@@ -25,9 +25,9 @@ component example<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset:
   }
 
   control {
-    @NODE_ID(0) static par <2> {
+    @NODE_ID(0) static<2> par {
       @NODE_ID A;
-      @NODE_ID(2) static seq <2> {
+      @NODE_ID(2) static<2> seq  {
         @NODE_ID(3) B;
         @NODE_ID(4) read_A;
       }

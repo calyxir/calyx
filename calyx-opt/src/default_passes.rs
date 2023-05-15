@@ -2,14 +2,15 @@
 use crate::passes::{
     Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileEmpty, CompileInvoke, CompileRef, CompileStatic, CompileSync,
-    CompileSyncWithoutSyncReg, ComponentInliner, DeadAssignmentRemoval,
-    DeadCellRemoval, DeadGroupRemoval, Externalize, GoInsertion,
-    GroupStaticPromotion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
-    LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
-    RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticInliner, StaticParConv, SynthesisPapercut,
-    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
-    WireInliner,
+    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
+    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, Externalize,
+    GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
+    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
+    ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    SimplifyStaticGuards, SimplifyWithControl, StaticInliner, StaticParConv,
+    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
+    UnrollBounded, WellFormed, WireInliner,
+    
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -40,6 +41,7 @@ impl PassManager {
         pm.register_pass::<MergeStaticPar>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<StaticParConv>()?;
+        pm.register_pass::<DataPathInfer>()?;
 
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
@@ -78,6 +80,7 @@ impl PassManager {
             pm,
             "pre-opt",
             [
+                DataPathInfer,
                 CompileSyncWithoutSyncReg,
                 GroupToSeq,
                 DeadAssignmentRemoval,
@@ -101,6 +104,7 @@ impl PassManager {
             "compile",
             [
                 StaticInliner,
+                MergeAssign, // Static inliner generates lots of assigns
                 SimplifyStaticGuards,
                 CompileStatic,
                 TopDownStaticTiming,
@@ -110,7 +114,12 @@ impl PassManager {
         register_alias!(
             pm,
             "post-opt",
-            [DeadGroupRemoval, CombProp, DeadCellRemoval]
+            [
+                DeadGroupRemoval,
+                CombProp,
+                DeadAssignmentRemoval,
+                DeadCellRemoval
+            ]
         );
         register_alias!(
             pm,

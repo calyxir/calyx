@@ -7,7 +7,7 @@ component main() -> () {
     a = std_reg(2);
   }
   wires {
-    static group A<1>{
+    static<1> group A {
       a.in = 2'd0;
       a.write_en = %0 ? 1'd1;
     }

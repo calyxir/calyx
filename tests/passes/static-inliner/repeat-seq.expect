@@ -17,10 +17,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       b.in = 2'd2;
       dyn_B[done] = b.done;
     }
-    static group static_repeat<12> {
+    static<12> group static_repeat {
       static_seq[go] = 1'd1;
     }
-    static group static_seq<4> {
+    static<4> group static_seq {
       a.in = %[0:2] ? 2'd0;
       a.write_en = %0 ? 1'd1;
       b.in = %[0:2] ? 2'd1;

@@ -1,6 +1,5 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
-use ir::Nothing;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 
@@ -32,13 +31,13 @@ impl Named for MergeAssign {
     }
 }
 
-fn merge_assigns(
-    assigns: Vec<ir::Assignment<Nothing>>,
-) -> Vec<ir::Assignment<Nothing>> {
+fn merge_assigns<T: Eq>(
+    assigns: Vec<ir::Assignment<T>>,
+) -> Vec<ir::Assignment<T>> {
     // Map from (dst, src) -> Assignment
     let mut map: LinkedHashMap<
         (ir::Canonical, ir::Canonical),
-        ir::Assignment<Nothing>,
+        ir::Assignment<T>,
     > = LinkedHashMap::new();
 
     for assign in assigns {
@@ -65,10 +64,6 @@ impl Visitor for MergeAssign {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        assert!(
-            comp.static_groups.is_empty(),
-            "static groups should have been compiled away"
-        );
         for group in comp.get_groups().iter() {
             let assigns = group.borrow_mut().assignments.drain(..).collect();
             let merged = merge_assigns(assigns);
@@ -79,6 +74,11 @@ impl Visitor for MergeAssign {
                 comb_group.borrow_mut().assignments.drain(..).collect();
             let merged = merge_assigns(assigns);
             comb_group.borrow_mut().assignments = merged;
+        }
+        for st_group in comp.static_groups.iter() {
+            let assigns = st_group.borrow_mut().assignments.drain(..).collect();
+            let merged = merge_assigns(assigns);
+            st_group.borrow_mut().assignments = merged;
         }
 
         let cassigns = comp.continuous_assignments.drain(..).collect();

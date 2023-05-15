@@ -1,4 +1,4 @@
-This maps ids of par blocks to "node timing maps", which map node ids to the first interval (i,j) that the node (i.e., enable or if conditional) is active for, 
+This maps ids of par blocks to "node timing maps", which map node ids to the first interval (i,j) that the node (i.e., enable/invoke/if conditional) is active for, 
  relative to the start of the given par block
 ============ Map for Component "example" ============
 ========Par Node ID: 0========
@@ -32,29 +32,29 @@ component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (
     lt = std_lt(4);
   }
   wires {
-    static group A<4> {
+    static<4> group A {
     }
-    static group B<1> {
+    static<1> group B {
     }
-    static group C<3> {
+    static<3> group C {
     }
-    static group D<2> {
+    static<2> group D {
     }
-    static group E<3> {
+    static<3> group E {
     }
-    static group F<2> {
+    static<2> group F {
     }
-    static group G<4> {
+    static<4> group G {
     }
-    static group H<3> {
+    static<3> group H {
     }
-    static group J<3> {
+    static<3> group J {
     }
-    static group X<1> {
+    static<1> group X {
     }
-    static group Y<2> {
+    static<2> group Y {
     }
-    static group Z<5> {
+    static<5> group Z {
     }
     comb group less_than {
       lt.left = 4'd3;
@@ -63,17 +63,17 @@ component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (
   }
 
   control {
-    @NODE_ID(0) static par <15> {
-      @NODE_ID static seq <15> {
+    @NODE_ID(0) static<15> par {
+      @NODE_ID static<15> seq  {
         @NODE_ID(2) A;
         @NODE_ID(3) B;
-        @BEGIN_ID(4) @END_ID(13) static if <7> lt.out {
-          @NODE_ID(5) static par <7> {
-            @NODE_ID(6) static seq <7> {
+        @BEGIN_ID(4) @END_ID(13) static<7> if  lt.out {
+          @NODE_ID(5) static<7> par {
+            @NODE_ID(6) static<7> seq  {
               @NODE_ID(7) G;
               @NODE_ID(8) H;
             }
-            @NODE_ID(9) static seq <3> {
+            @NODE_ID(9) static<3> seq  {
               @NODE_ID(10) X;
               @NODE_ID(11) Y;
             }
@@ -83,7 +83,7 @@ component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (
         }
         @NODE_ID(14) J;
       }
-      @NODE_ID(15) static seq <10> {
+      @NODE_ID(15) static<10> seq  {
         @NODE_ID(16) C;
         @NODE_ID(17) D;
         @NODE_ID(18) E;

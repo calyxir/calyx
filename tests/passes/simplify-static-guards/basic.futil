@@ -12,7 +12,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     gt = std_lt(32);
   }
   wires {
-    static group my_group<10> {
+    static<10> group my_group {
       a.write_en = (%[2:3] | lt.out) & %[1:5] ? 1'd1; // don't simplify 
       b.write_en = %[2:3] & (lt.out | gt.out) & %[1:5] ? 1'd1;  // %[1:5] is redundant 
       c.write_en = %[2:5] & (%[5:7] | lt.out) & %[3:7] & %[4:10] ? 1'd1;  // %[5:7] shouldn't change, but can simplify rest to %[4:5]

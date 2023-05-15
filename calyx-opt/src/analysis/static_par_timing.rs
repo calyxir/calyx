@@ -246,9 +246,19 @@ impl StaticParTiming {
                     None => cur_state,
                 }
             }
-            ir::StaticControl::Invoke(_) => {
-                todo!("static invokes currently undefined")
-            }
+            ir::StaticControl::Invoke(inv) => match cur_state {
+                Some(cur_state_unwrapped) => {
+                    let invoke_id = ControlId::get_guaranteed_id_static(sc);
+                    let latency = inv.latency;
+                    Some(self.update_invoke_enable(
+                        invoke_id,
+                        latency,
+                        live,
+                        cur_state_unwrapped,
+                    ))
+                }
+                None => cur_state,
+            },
             ir::StaticControl::Repeat(ir::StaticRepeat {
                 body,
                 num_repeats,

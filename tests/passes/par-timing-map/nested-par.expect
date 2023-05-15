@@ -41,63 +41,63 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     j = std_reg(32);
   }
   wires {
-    static group A<4> {
+    static<4> group A {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group B<4> {
+    static<4> group B {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group C<4> {
+    static<4> group C {
       a.write_en = 1'd1;
       a.in = 32'd2;
     }
-    static group D<1> {
+    static<1> group D {
       d.write_en = 1'd1;
       d.in = 32'd2;
     }
-    static group E<4> {
+    static<4> group E {
       d.write_en = 1'd1;
       d.in = 32'd2;
     }
-    static group F<4> {
+    static<4> group F {
       d.write_en = 1'd1;
       d.in = 32'd2;
     }
-    static group G<2> {
+    static<2> group G {
       g.write_en = 1'd1;
       g.in = 32'd2;
     }
-    static group H<2> {
+    static<2> group H {
       g.write_en = 1'd1;
       g.in = 32'd2;
     }
-    static group I<1> {
+    static<1> group I {
       i.write_en = 1'd1;
       i.in = 32'd2;
     }
-    static group J<1> {
+    static<1> group J {
       i.write_en = 1'd1;
       i.in = 32'd2;
     }
   }
 
   control {
-    @NODE_ID(0) static par <12> {
-      @NODE_ID static seq <12> {
+    @NODE_ID(0) static<12> par {
+      @NODE_ID static<12> seq  {
         @NODE_ID(2) A;
         @NODE_ID(3) B;
         @NODE_ID(4) C;
       }
-      @NODE_ID(5) static seq <10> {
+      @NODE_ID(5) static<10> seq  {
         @NODE_ID(6) D;
-        @NODE_ID(7) static par <8> {
-          @NODE_ID(8) static seq <8> {
+        @NODE_ID(7) static<8> par {
+          @NODE_ID(8) static<8> seq  {
             @NODE_ID(9) E;
             @NODE_ID(10) F;
           }
-          @NODE_ID(11) static seq <4> {
+          @NODE_ID(11) static<4> seq  {
             @NODE_ID(12) G;
             @NODE_ID(13) H;
           }
@@ -105,7 +105,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         @NODE_ID(14) D;
       }
       @NODE_ID(15) static repeat 4 {
-        @NODE_ID(16) static seq <2> {
+        @NODE_ID(16) static<2> seq  {
           @NODE_ID(17) I;
           @NODE_ID(18) J;
         }

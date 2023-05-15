@@ -10,7 +10,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     gt = std_lt(32);
   }
   wires {
-    static group my_group<10> {
+    static<10> group my_group {
       a.write_en = (%2 | lt.out) & %[1:5] ? 1'd1;
       b.write_en = (lt.out | gt.out) & %2 ? 1'd1;
       c.write_en = (%[5:7] | lt.out) & %4 ? 1'd1;
