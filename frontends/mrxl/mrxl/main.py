@@ -2,7 +2,7 @@ import sys
 import json
 import argparse
 from .parse import parse
-from .gen_futil import emit
+from .gen_calyx import emit
 from .interp import interp, InterpError
 
 
