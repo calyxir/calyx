@@ -102,7 +102,12 @@ def gen_reduce_impl(
     else:
         op = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as ev:
-        out = comp.get_cell(f"{dest}")  # The accumulator is a register
+        try:
+            out = comp.get_cell(f"{dest}")  # The accumulator is a register
+        except Exception as exc:
+            raise TypeError(
+                "The accumulator of a `reduce` is expected to be a register."
+            ) from exc
 
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out
