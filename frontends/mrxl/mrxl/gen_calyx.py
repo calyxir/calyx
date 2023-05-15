@@ -95,8 +95,8 @@ def gen_reduce_impl(
     if not isinstance(body, ast.BinExpr):
         raise NotImplementedError("Reduce body must be a binary expression")
 
-    if body.op == "mul":
-        op = comp.cell(f"mul_{s_idx}", Stdlib.op("mult_pipe", 32, signed=False))
+    if body.operation == "mul":
+        op = comp.cell(f"mul_{s_idx}", Stdlib.operation("mult_pipe", 32, signed=False))
     else:
         op = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as ev:
@@ -110,7 +110,7 @@ def gen_reduce_impl(
         out.write_data = op.out
         out.addr0 = 0
         # Multipliers are sequential so we need to manipulate go/done signals
-        if body.op == "mul":
+        if body.operation == "mul":
             op.go = 1
             out.write_en = op.done
         else:
@@ -180,8 +180,10 @@ def gen_map_impl(
             elif isinstance(expr, ast.VarExpr):
                 return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
 
-        if body.op == "mul":
-            op = comp.cell(f"mul_{suffix}", Stdlib.op("mult_pipe", 32, signed=False))
+        if body.operation == "mul":
+            op = comp.cell(
+                f"mul_{suffix}", Stdlib.operation("mult_pipe", 32, signed=False)
+            )
         else:
             op = comp.add(f"add_{suffix}", 32)
 
@@ -206,7 +208,7 @@ def gen_map_impl(
             out_mem.addr0 = idx.out
             out_mem.write_data = op.out
             # Multipliers are sequential so we need to manipulate go/done signals
-            if body.op == "mul":
+            if body.operation == "mul":
                 op.go = 1
                 out_mem.write_en = op.done
             else:
@@ -259,12 +261,17 @@ def gen_stmt_impl(
 
     name2par maps memory names to banking factors.
     """
-    if isinstance(stmt.op, ast.Map):
+    if isinstance(stmt.operation, ast.Map):
         return gen_map_impl(
-            comp, stmt.dest, stmt.op, arr_size, name2par[stmt.dest], statement_idx
+            comp,
+            stmt.dest,
+            stmt.operation,
+            arr_size,
+            name2par[stmt.dest],
+            statement_idx,
         )
     else:
-        return gen_reduce_impl(comp, stmt.dest, stmt.op, arr_size, statement_idx)
+        return gen_reduce_impl(comp, stmt.dest, stmt.operation, arr_size, statement_idx)
 
 
 def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
@@ -282,12 +289,12 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         out[mem] = par
 
     for stmt in stmts:
-        par_f = stmt.op.par
-        if isinstance(stmt.op, ast.Reduce) and par_f != 1:
+        par_f = stmt.operation.par
+        if isinstance(stmt.operation, ast.Reduce) and par_f != 1:
             # Reduction does not support parallelism
             raise Exception("Reduction does not support parallelism")
         add_par(stmt.dest, par_f)
-        for b in stmt.op.bind:
+        for b in stmt.operation.bind:
             add_par(b.src, par_f)
 
     return out
@@ -340,7 +347,7 @@ def emit(prog: ast.Prog):
     # Collect implicit memory and register declarations.
     for stmt in prog.stmts:
         if stmt.dest not in used_names:
-            if isinstance(stmt.op, ast.Map):
+            if isinstance(stmt.operation, ast.Map):
                 name = stmt.dest
                 par = par_factor[name]
                 for i in range(par):

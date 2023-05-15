@@ -31,16 +31,16 @@ def interp_expr(expr, env: ScalarEnv) -> Scalar:
     elif isinstance(expr, ast.BinExpr):
         lhs = interp_expr(expr.lhs, env)
         rhs = interp_expr(expr.rhs, env)
-        if expr.op == "add":
+        if expr.operation == "add":
             return lhs + rhs
-        elif expr.op == "mul":
+        elif expr.operation == "mul":
             return lhs * rhs
-        elif expr.op == "sub":
+        elif expr.operation == "sub":
             return lhs - rhs
-        elif expr.op == "div":
+        elif expr.operation == "div":
             return lhs / rhs
         else:
-            raise InterpError(f"unhandled binary operator: {expr.op}")
+            raise InterpError(f"unhandled binary operator: {expr.operation}")
     else:
         raise InterpError(f"unhandled expression: {type(expr)}")
 
@@ -104,12 +104,12 @@ def interp(prog: ast.Prog, data: Env) -> Env:
 
     # Run the program.
     for stmt in prog.stmts:
-        if isinstance(stmt.op, ast.Map):
-            env[stmt.dest] = interp_map(stmt.op, env)
-        elif isinstance(stmt.op, ast.Reduce):
-            env[stmt.dest] = interp_reduce(stmt.op, env)
+        if isinstance(stmt.operation, ast.Map):
+            env[stmt.dest] = interp_map(stmt.operation, env)
+        elif isinstance(stmt.operation, ast.Reduce):
+            env[stmt.dest] = interp_reduce(stmt.operation, env)
         else:
-            raise InterpError(f"unknown op {type(stmt.op)}")
+            raise InterpError(f"unknown op {type(stmt.operation)}")
 
     # Emit the output values.
     out = {}
