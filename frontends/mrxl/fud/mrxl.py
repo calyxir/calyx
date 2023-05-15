@@ -2,9 +2,6 @@ from fud.stages import Stage, SourceType, Source
 from fud.utils import shell
 from pathlib import Path
 
-# Local static variables
-_DATA_FILE = "data.json"
-
 
 class MrXLStage(Stage):
     """
