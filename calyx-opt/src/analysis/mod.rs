@@ -20,8 +20,8 @@ mod share_set;
 mod static_par_timing;
 mod variable_detection;
 
-pub use compute_static::WithStatic;
 pub use compute_static::IntoStatic;
+pub use compute_static::WithStatic;
 pub use control_id::ControlId;
 pub use control_order::ControlOrder;
 pub use control_ports::ControlPorts;

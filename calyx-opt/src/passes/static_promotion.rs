@@ -1,11 +1,11 @@
-use crate::analysis::{GraphAnalysis, ReadWriteSet, IntoStatic};
+use crate::analysis::{GraphAnalysis, IntoStatic, ReadWriteSet};
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::{CalyxResult, Error};
-use ir::{Assignment};
-use itertools::{Itertools};
+use ir::Assignment;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::rc::Rc;
@@ -103,14 +103,14 @@ impl From<&ir::Cell> for GoDone {
 /// annotation in a group that differs from an inferred value, this
 /// pass will throw an error. If a group's `done` signal relies on signals
 /// that are not only `done` signals, this pass will ignore that group.
-pub struct GroupStaticPromotion {
+pub struct StaticPromotion {
     /// component name -> vec<(go signal, done signal, latency)>
     latency_data: HashMap<ir::Id, GoDone>,
 }
 
 // Override constructor to build latency_data information from the primitives
 // library.
-impl ConstructVisitor for GroupStaticPromotion {
+impl ConstructVisitor for StaticPromotion {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let mut latency_data = HashMap::new();
         let mut comp_latency = HashMap::new();
@@ -139,7 +139,7 @@ impl ConstructVisitor for GroupStaticPromotion {
             }
             latency_data.insert(prim.name, GoDone::new(go_ports));
         }
-        Ok(GroupStaticPromotion { latency_data })
+        Ok(StaticPromotion { latency_data })
     }
 
     // This pass shared information between components
@@ -148,17 +148,17 @@ impl ConstructVisitor for GroupStaticPromotion {
     }
 }
 
-impl Named for GroupStaticPromotion {
+impl Named for StaticPromotion {
     fn name() -> &'static str {
-        "group-static-promotion"
+        "static-promotion"
     }
 
     fn description() -> &'static str {
-        "promote groups whose latency can be inferred to static groups"
+        "promote groups and controls whose latency can be inferred to static groups and controls"
     }
 }
 
-impl GroupStaticPromotion {
+impl StaticPromotion {
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
     ///   - `src` is an "out" port of a constant, and `dst` is a "go" port
     ///   - `src` is a "done" port, and `dst` is a "go" port
@@ -387,7 +387,7 @@ impl GroupStaticPromotion {
     }
 }
 
-impl Visitor for GroupStaticPromotion {
+impl Visitor for StaticPromotion {
     // Require post order traversal of components to ensure `invoke` nodes
     // get timing information for components.
     fn iteration_order() -> Order {
@@ -474,67 +474,75 @@ impl Visitor for GroupStaticPromotion {
     }
 
     fn invoke(
-            &mut self,
-            s: &mut ir::Invoke,
-            _comp: &mut ir::Component,
-            _sigs: &LibrarySignatures,
-            comps: &[ir::Component],
-        ) -> VisResult {
-            if let ir::CellType::Component { name } = s.comp.borrow().prototype {
-                for c in comps {
-                    if c.name == name {
-                        if c.is_static() {
-                            let s_inv = ir::StaticInvoke {
-                                comp: Rc::clone(&s.comp),
-                                inputs: s.inputs.clone(),
-                                outputs: s.outputs.clone(),
-                                latency: c.latency.unwrap().get(), 
-                                attributes: s.attributes.clone(),  
-                                ref_cells: s.ref_cells.clone(),
-                            };
-                            return Ok(Action::change(ir::Control::Static(ir::StaticControl::Invoke(s_inv))));
-                        }
+        &mut self,
+        s: &mut ir::Invoke,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        comps: &[ir::Component],
+    ) -> VisResult {
+        if let ir::CellType::Component { name } = s.comp.borrow().prototype {
+            for c in comps {
+                if c.name == name {
+                    if c.is_static() {
+                        let s_inv = ir::StaticInvoke {
+                            comp: Rc::clone(&s.comp),
+                            inputs: s.inputs.clone(),
+                            outputs: s.outputs.clone(),
+                            latency: c.latency.unwrap().get(),
+                            attributes: s.attributes.clone(),
+                            ref_cells: s.ref_cells.clone(),
+                        };
+                        return Ok(Action::change(ir::Control::Static(
+                            ir::StaticControl::Invoke(s_inv),
+                        )));
                     }
                 }
             }
+        }
         Ok(Action::Continue)
     }
 
     fn finish_seq(
-            &mut self,
-            s: &mut ir::Seq,
-            _comp: &mut ir::Component,
-            _sigs: &LibrarySignatures,
-            _comps: &[ir::Component],
-        ) -> VisResult {
+        &mut self,
+        s: &mut ir::Seq,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
         if let Some(sseq) = s.into_static() {
-            return Ok(Action::change(ir::Control::Static(ir::StaticControl::Seq(sseq))));
+            return Ok(Action::change(ir::Control::Static(
+                ir::StaticControl::Seq(sseq),
+            )));
         }
         Ok(Action::Continue)
     }
 
     fn finish_par(
-            &mut self,
-            s: &mut ir::Par,
-            _comp: &mut ir::Component,
-            _sigs: &LibrarySignatures,
-            _comps: &[ir::Component],
-        ) -> VisResult {
+        &mut self,
+        s: &mut ir::Par,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
         if let Some(spar) = s.into_static() {
-            return Ok(Action::change(ir::Control::Static(ir::StaticControl::Par(spar))));
+            return Ok(Action::change(ir::Control::Static(
+                ir::StaticControl::Par(spar),
+            )));
         }
         Ok(Action::Continue)
     }
 
     fn finish_if(
-            &mut self,
-            s: &mut ir::If,
-            _comp: &mut ir::Component,
-            _sigs: &LibrarySignatures,
-            _comps: &[ir::Component],
-        ) -> VisResult {
+        &mut self,
+        s: &mut ir::If,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
         if let Some(sif) = s.into_static() {
-            return Ok(Action::change(ir::Control::Static(ir::StaticControl::If(sif))));
+            return Ok(Action::change(ir::Control::Static(
+                ir::StaticControl::If(sif),
+            )));
         }
         Ok(Action::Continue)
     }

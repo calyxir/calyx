@@ -5,12 +5,11 @@ use crate::passes::{
     CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, Externalize,
     GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
-    LowerGuards, MergeAssign, MergeStaticPar, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
-    SimplifyStaticGuards, SimplifyWithControl, StaticInliner, StaticParConv,
+    LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
+    RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
+    SimplifyWithControl, StaticInliner, StaticParConv, StaticPromotion,
     SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner, GroupStaticPromotion,
-    
+    UnrollBounded, WellFormed, WireInliner,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -37,7 +36,7 @@ impl PassManager {
         pm.register_pass::<GroupToSeq>()?;
         pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
-        pm.register_pass::<GroupStaticPromotion>()?;
+        pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<MergeStaticPar>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<StaticParConv>()?;
@@ -91,7 +90,7 @@ impl PassManager {
                 CombProp,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before infer-static-timing
-                GroupStaticPromotion,
+                StaticPromotion,
                 CompileInvoke,    // creates dead comb groups
                 StaticParConv, // Must be before collapse-control and merge-static-par
                 MergeStaticPar, // creates dead groups potentially

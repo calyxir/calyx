@@ -1,6 +1,6 @@
 use calyx_ir::{self as ir, GetAttributes};
-use std::rc::Rc;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Trait to propagate and extra "static" attributes through [ir::Control].
 /// Calling the update function ensures that the current program, as well as all
@@ -160,7 +160,7 @@ impl IntoStatic for ir::Seq {
         Some(ir::StaticSeq {
             stmts: static_stmts,
             attributes: self.attributes.clone(),
-            latency     
+            latency,
         })
     }
 }
@@ -185,7 +185,7 @@ impl IntoStatic for ir::Par {
         Some(ir::StaticPar {
             stmts: static_stmts,
             attributes: self.attributes.clone(),
-            latency     
+            latency,
         })
     }
 }
@@ -203,20 +203,19 @@ impl IntoStatic for ir::If {
                 let ir::Control::Static(sc_f) = fb else {
                     unreachable!("we have already checker fbranch to be static")
                 };
-                let latency = std::cmp::max(sc_t.get_latency(), sc_f.get_latency());
-                return Some(ir::StaticIf{
+                let latency =
+                    std::cmp::max(sc_t.get_latency(), sc_f.get_latency());
+                return Some(ir::StaticIf {
                     tbranch: Box::new(sc_t),
                     fbranch: Box::new(sc_f),
                     attributes: self.attributes.clone(),
                     port: Rc::clone(&self.port),
-                    latency
+                    latency,
                 });
-            }
-            else {
+            } else {
                 log::debug!("fbranch of `if` control is not static");
             }
-        }
-        else {
+        } else {
             log::debug!("tbranch of `if` control is not static");
         }
         None
