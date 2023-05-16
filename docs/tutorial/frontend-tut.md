@@ -54,7 +54,7 @@ and $0^2 + 1^2 + 4^2 + 5^2 = 42$.
 
 ## Compiling our example into Calyx
 
-Above, we have merely _interpreted_ MrXL code in software, using a simple, pre-written interpreter implemented in Python.
+Above, we merely _interpreted_ MrXL code in software using a simple, pre-written interpreter implemented in Python.
 Our goal in this tutorial is to build a compiler from MrXL to hardware by translating it to the Calyx IL.
 The Calyx code we want to generate from this example looks more like:
 ```
@@ -87,13 +87,14 @@ The compilation process breaks into two steps:
 
 ## Parsing MrXL into an AST
 
-To start, we'll parse the MrXL program into a Python AST representation. We chose to represent [AST][astcode] nodes with Python `dataclass`es.
-A program is a sequence of array declarations followed by computation statements:
+To start, we'll parse the MrXL program into a Python AST representation. We choose to represent [AST][astcode] nodes with Python `dataclass`es.
+A program is a sequence of array/register declarations followed by computation statements:
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:prog}}
 ```
 
-`Decl` nodes correspond to array declarations such as `input avec: int[4]`, and carry data about whether the array is an `input` or `output` array, its name, and its type:
+`Decl` nodes correspond to array declarations such as `input avec: int[4]`.
+They carry information about whether the array is an `input` or `output`, the array's name, and the type of the array's elements:
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:decl}}
 ```
@@ -120,15 +121,15 @@ component main() -> {
 
 The [cells section][lf-cells] instantiates hardware units like adders, memories and registers.
 The [wires section][lf-wires] contains [groups][lf-groups] that connect
-together hardware instances to perform some logical task such as incrementing a specific register.
+hardware instances to perform some logical task (e.g, incrementing a register).
 Finally, the [control section][lf-control] *schedules* the execution of groups using control operators such as `seq`, `par`, and `while`.
 
-We perform syntax-directed compilation by walking over nodes in the above AST and generating `cells`, `wires`, and `control` operations.
+We perform syntax-directed compilation by walking over the nodes of the AST and generating `cells`, `wires`, and `control` operations.
 
 
 ### Calyx-Embedded DSL
 
-To make it easy to generate the hardware, we'll use Calyx's [`builder` module][builder-ex] in Python:
+To make it easy to generate hardware, we'll use Calyx's [`builder` module][builder-ex] written in Python:
 ```python
 import calyx.builder as cb
 
@@ -148,15 +149,15 @@ import "primitives/core.futil"; // Import standard library
 component main() -> () {
   cells {
     // A memory with 4 32-bit elements. Indexed using a 6-bit value.
-    foo = std_mem_d1(32, 4, 6);
+    avec = std_mem_d1(32, 4, 6);
     // A register that contains a 32-bit value
-    r = std_reg(32);
+    sos = std_reg(32);
   }
   ...
 }
 ```
 
-For each `Decl` node, we need to determine if we're instantiating a memory or a register, and then translate that to a corresponding Calyx declaration and place that inside the `cells` section of our generated program.
+For each `Decl` node, we need to determine if we're instantiating a memory or a register, translate the node into a corresponding Calyx declaration, and place the declaration inside the `cells` section of our generated program.
 
 If a memory is used in a parallel `map` or `reduce`, we might need to create different physical banks for it.
 We define a function to walk over the AST and compute the parallelism factor for each memory:
@@ -174,14 +175,14 @@ By setting `is_external=True`, we're indicating that a memory declaration is a p
 
 ## Compiling `map` operations
 
-For every map or reduce node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation.
+For every `map` or `reduce` node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation.
 For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array.
 We can use Calyx's [while loops][lf-while] to iterate over an input array, perform the map's computation, and store the final value.
 At a high level, we want to generate the following pieces of hardware:
 1. A register to store the current value of the loop index.
 2. A comparator to check of the loop index is less than the array size.
 3. An adder to increment the value of the index.
-4. Hardware needed to implement the loop body computation.
+4. Whatever hardware is needed to implement the loop body computation.
 
 
 ### Loop condition
@@ -194,13 +195,14 @@ We define a [combinational group][lf-comb-group] to perform the comparison `idx 
 
 ### Index increment
 
-The loop index increment is implemented using a [group][lf-group] and an adder (`adder`):
+The loop index increment is implemented using a [group][lf-group] and an `adder`:
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:incr_group}}
 ```
 
 We provide the index's previous value and the constant `1` to the adder, and write the adder's output into the register.
-Because we're performing a stateful update of the register, we must wait for the register to state that it has committed the write by setting the group's `done` condition to the register's `done` signal.
+Because we're performing a stateful update of the register, we must wait for the register to state that it has committed the write.
+We do this by setting the group's `done` condition to track the register's `done` signal.
 
 
 ### Body computation
@@ -217,11 +219,11 @@ This code instantiates an adder or a multiplier depending on the computation nee
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_op}}
 ```
 
-And writes the value from the operation into the output memory:
+and writes the value from the operation into the output memory:
 ```py
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_write}}
 ```
-This final operation is complex because we must account for whether we're using an adder or a multiplier.
+This final operation is complicated because we must account for whether we're using an adder or a multiplier.
 Adders are *combinational*–they produce their output immediately–while multipliers are *sequential* and require multiple cycles to produce its output.
 
 When using a mutliplier, we need to explicitly set its `go` signal to one and only write the output from the multiplier into the memory when its `done` signal is asserted.
