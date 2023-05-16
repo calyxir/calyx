@@ -2,15 +2,11 @@
 
 > This tutorial assumes that you have already worked through the [Calyx tutorial][calyx-tut]. You won't get very much out of it by itself!
 
-In the [Calyx tutorial][calyx-tut] you wrote Calyx by hand.
-That is (probably) a good way to build character, but it's no way to live.
-In practice, you want a *frontend* that *compiles* to Calyx.
+In the [Calyx tutorial][calyx-tut] you wrote Calyx code by hand.
+This is (probably) a good way to build character, but it's no way to live.
+Indeed, Calyx was _designed_ to be a compiler IR, and not a human-facing language.
 
-This allows you to:
-1. Support domain-specific commands that Calyx does not.
-2. Automatically generate some of the kludge that Calyx requires.
-
-In this tutorial, we're going to learn all about this by building a compiler for a toy language.
+In this tutorial, we're going to learn all about this by building a DSL-to-Calyx compiler for a toy language that we wish to accelerate.
 Meet MrXL.
 
 # MrXL Overview
@@ -19,13 +15,12 @@ MrXL lets you define arrays and registers and then perform `map` and `reduce` op
 
 ## A tiny example
 
-Here's a MrXL program in all its glory:
-
+Here's a MrXL program that squares and then sums an input array:
 ```
 {{#include ../../frontends/mrxl/test/sos.mrxl}}
 ```
 
-The program is short enough for us to pick apart line by line:
+This short program shows off all of MrXL's features, so let's pick it apart line by line:
 1. We specify an array, `avec`, which will have four integers. The `input` keyword means that an external harness will populate the array.
 2. We specify `sos`, a register. The `output` keyword means that we will populate `sos` in our program.
 3. The `map` operation gets the values of `avec` and raises each to the second power. We stash the result in a new array, `squares`. The number `1` denotes a *parallelism factor* of 1, meaning that the operation is performed sequentially. We will improve this shortly.
@@ -42,12 +37,12 @@ I want folks to just install and get back here so we can interpret together, but
 Also, the MrXL tutorial has a different running example.
 Thoughts on the inline?)
 
-Now change directories to `calyx/frontends/mrxl` and run
+Now change directories to `calyx/frontends/mrxl` and run:
 ```
 mrxl test/sos.mrxl --data test/sos.mrxl.data --interpret
 ```
 
-Why `42`? Because we populated `avec` with
+Why `42`? Because we populated `avec` with:
 ```json
 {{#include ../../frontends/mrxl/test/sos.mrxl.data}}
 ```
@@ -79,14 +74,13 @@ We can lighten MrXL-native data files and write a [`fud`][fud] pass to tack this
 
 ### Memory banking
 
-Consider a small variation on our running example.
-The noteworthy change is the parallelism factor of the `map` operation.
-
+Consider a small variation on our running example:
 ```
 {{#include ../../frontends/mrxl/test/squares.mrxl}}
 ```
 
-Run this with
+The noteworthy change is the parallelism factor of the `map` operation.
+Run this with:
 ```
 mrxl test/squares.mrxl --data test/squares.mrxl.data --interpret
 ```
@@ -141,8 +135,8 @@ A program is a sequence of array declarations followed by computation statements
 {{#include ../../frontends/mrxl/mrxl/ast.py:decl}}
 ```
 
-`Stmt` nodes represent statements such as `sos := reduce 1 (acc, i <- squares) 0 { acc + i }`, and contain more nested nodes representing the function-header and -body, and the type of operation.
-
+`Stmt` nodes represent statements such as `sos := reduce 1 (acc, i <- squares) 0 { acc + i }`.
+They contain further nested nodes representing the function-header and -body, and the type of operation:
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:stmt}}
 ```
@@ -228,8 +222,7 @@ At a high level, we want to generate the following pieces of hardware:
 
 #### Loop Condition
 
-We define a [combinational group][lf-comb-group] to perform the comparison `idx < arr_size` that uses an `lt` cell.
-
+We define a [combinational group][lf-comb-group] to perform the comparison `idx < arr_size` that uses an `lt` cell:
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:cond_group}}
 ```
@@ -237,13 +230,13 @@ We define a [combinational group][lf-comb-group] to perform the comparison `idx 
 
 #### Index Increment
 
+The loop index increment is implemented using a [group][lf-group] and an adder (`adder`):
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:incr_group}}
 ```
 
-The loop index increment is implemented using a [group][lf-group] and an adder (`adder`).
-We provide the index's previous value and the constant 1 to the adder and write the adder's output into the register.
-Because we're performing a stateful update of the register, we must wait for the register to state that it's committed the write by setting the group's done condition to the register's `done` signal.
+We provide the index's previous value and the constant `1` to the adder, and write the adder's output into the register.
+Because we're performing a stateful update of the register, we must wait for the register to state that it has committed the write by setting the group's `done` condition to the register's `done` signal.
 
 #### Body Computation
 
@@ -273,7 +266,6 @@ Finally, the group's computation is done when the memory write is committed.
 #### Generating Control
 
 Once we have generated the hardware needed for our computation, we can schedule its computation using [control operators][lf-control]:
-
 ```py
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_loop}}
 ```
@@ -285,7 +277,6 @@ Then, it sequentially executes the computation for the body and increments the l
 
 MrXL allows us to parallelize our `map` operations.
 Let's revisit the parallel `map` from earlier:
-
 ```
 {{#include ../../frontends/mrxl/test/squares.mrxl}}
 ```
