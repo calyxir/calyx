@@ -3,4 +3,4 @@
 ---STDERR---
 Error: tests/passes/simplify-with-control/comb-with-static.futil
 3 |static<1> component main(@go go: 1, in: 32) -> (@done done: 1) {
-  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Pass `simplify-with-control` assumption violated: Component main has both a top-level "static" annotations and combinational groups which is not supported
+  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Pass `simplify-with-control` assumption violated: Component main has both a top-level <static> annotations and combinational groups which is not supported
