@@ -1,8 +1,0 @@
-component main(@go @static go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
-  control {}
-}
