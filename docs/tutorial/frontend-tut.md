@@ -57,7 +57,7 @@ Still not impressed?
 Consider the Calyx code that we _didn't need to write_:
 
 ```
-{{#include ../../frontends/mrxl/test/sos.calyx}}
+{{#include ./sos.calyx}}
 ```
 
 # Breaking it Down
@@ -103,7 +103,7 @@ While we supplied `avec`'s values as a straightforward array:
 under the hood, the *compiled version* of `squares.mrxl` came to expect something like:
 
 ```json
-{{#include ../../frontends/mrxl/test/squares.mrxl.banked.data}}
+{{#include ./squares.mrxl.banked.data}}
 ```
 
 Though nontrivial, this memory banking can also be handled automatically using `fud`; all the necessary information is in the MrXL source program.
@@ -321,8 +321,8 @@ Or, for something completely different:
 
 5. Add support for a new `filter` operation in MrXL.
 
-A big gap in MrXL at present is that all `reduce` operations must be performed sequentially. 
-This restriction can also be lifted, but hold that thought for a moment! 
+A big gap in MrXL at present is that all `reduce` operations must be performed sequentially.
+This restriction can also be lifted, but hold that thought for a moment!
 We'd like to tell you a little about reduction trees.
 
 [astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
