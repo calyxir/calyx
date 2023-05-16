@@ -1,4 +1,5 @@
 use calyx_ir::{self as ir, GetAttributes};
+use std::rc::Rc;
 use std::collections::HashMap;
 
 /// Trait to propagate and extra "static" attributes through [ir::Control].
@@ -192,11 +193,24 @@ impl IntoStatic for ir::Par {
 impl IntoStatic for ir::If {
     type StaticCon = ir::StaticIf;
     fn into_static(&mut self) -> Option<Self::StaticCon> {
-        let mut latency = 0;
-        if let ir::Control::Static(sc) = *self.tbranch {
-            latency = sc.get_latency();
+        if let ir::Control::Static(_) = *self.tbranch {
             if let ir::Control::Static(_) = *self.fbranch {
-                
+                let tb = ir::Cloner::control(&self.tbranch);
+                let fb = ir::Cloner::control(&self.fbranch);
+                let ir::Control::Static(sc_t) = tb else {
+                    unreachable!("we have already checked tbranch to be static")
+                };
+                let ir::Control::Static(sc_f) = fb else {
+                    unreachable!("we have already checker fbranch to be static")
+                };
+                let latency = std::cmp::max(sc_t.get_latency(), sc_f.get_latency());
+                return Some(ir::StaticIf{
+                    tbranch: Box::new(sc_t),
+                    fbranch: Box::new(sc_f),
+                    attributes: self.attributes.clone(),
+                    port: Rc::clone(&self.port),
+                    latency
+                });
             }
             else {
                 log::debug!("fbranch of `if` control is not static");

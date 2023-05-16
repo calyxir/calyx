@@ -1,12 +1,13 @@
-use crate::analysis::{GraphAnalysis, ReadWriteSet, WithStatic};
+use crate::analysis::{GraphAnalysis, ReadWriteSet, IntoStatic};
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::{CalyxResult, Error};
-use ir::Assignment;
-use itertools::Itertools;
+use ir::{Assignment};
+use itertools::{Itertools};
 use std::collections::HashMap;
+use std::num::NonZeroU64;
 use std::rc::Rc;
 
 /// Struct to store information about the go-done interfaces defined by a primitive.
@@ -399,65 +400,14 @@ impl Visitor for GroupStaticPromotion {
         _lib: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Compute the latency of the control-program.
-        let comp_lat: HashMap<ir::Id, u64> = self
-            .latency_data
-            .iter()
-            .filter_map(|(comp, go_done)| {
-                if go_done.ports.len() == 1 {
-                    Some((*comp, go_done.ports[0].2))
-                } else {
-                    None
+        if comp.control.borrow().is_static() {
+            if let Some(lat) = comp.control.borrow().get_latency() {
+                if lat > 0 {
+                    comp.latency = Some(NonZeroU64::new(lat).unwrap());
                 }
-            })
-            .collect();
-
-        if let Some(time) = comp.control.borrow_mut().update_static(&comp_lat) {
-            let mut go_ports = comp
-                .signature
-                .borrow()
-                .find_all_with_attr(ir::NumAttr::Go)
-                .collect_vec();
-
-            // Add the latency information for the component if the control program
-            // is completely static and there is exactly one go port.
-            if go_ports.len() == 1 {
-                let go_port = go_ports.pop().unwrap();
-                let mb_time =
-                    go_port.borrow().attributes.get(ir::NumAttr::Static);
-
-                if let Some(go_time) = mb_time {
-                    if go_time != time {
-                        let msg1 = format!("Annotated latency: {}", go_time);
-                        let msg2 = format!("Inferred latency: {}", time);
-                        let msg = format!(
-                        "Invalid \"static\" latency annotation for component {}.\n{}\n{}",
-                        comp.name,
-                        msg1,
-                        msg2
-                    );
-                        return Err(Error::malformed_structure(msg)
-                            .with_pos(&go_port.borrow().attributes));
-                    }
-                } else {
-                    go_port
-                        .borrow_mut()
-                        .attributes
-                        .insert(ir::NumAttr::Static, time);
-                }
-                log::info!(
-                    "Component `{}` has static time {}",
-                    comp.name,
-                    time
-                );
             }
         }
-
-        // Add all go-done latencies for the component to the context
-        let sig = &*comp.signature.borrow();
-        let ports: GoDone = sig.into();
-        self.latency_data.insert(comp.name, ports);
-        Ok(Action::Stop)
+        Ok(Action::Continue)
     }
 
     fn enable(
@@ -519,6 +469,72 @@ impl Visitor for GroupStaticPromotion {
                 attributes: s.attributes.clone(),
             });
             return Ok(Action::change(ir::Control::Static(s_enable)));
+        }
+        Ok(Action::Continue)
+    }
+
+    fn invoke(
+            &mut self,
+            s: &mut ir::Invoke,
+            _comp: &mut ir::Component,
+            _sigs: &LibrarySignatures,
+            comps: &[ir::Component],
+        ) -> VisResult {
+            if let ir::CellType::Component { name } = s.comp.borrow().prototype {
+                for c in comps {
+                    if c.name == name {
+                        if c.is_static() {
+                            let s_inv = ir::StaticInvoke {
+                                comp: Rc::clone(&s.comp),
+                                inputs: s.inputs.clone(),
+                                outputs: s.outputs.clone(),
+                                latency: c.latency.unwrap().get(), 
+                                attributes: s.attributes.clone(),  
+                                ref_cells: s.ref_cells.clone(),
+                            };
+                            return Ok(Action::change(ir::Control::Static(ir::StaticControl::Invoke(s_inv))));
+                        }
+                    }
+                }
+            }
+        Ok(Action::Continue)
+    }
+
+    fn finish_seq(
+            &mut self,
+            s: &mut ir::Seq,
+            _comp: &mut ir::Component,
+            _sigs: &LibrarySignatures,
+            _comps: &[ir::Component],
+        ) -> VisResult {
+        if let Some(sseq) = s.into_static() {
+            return Ok(Action::change(ir::Control::Static(ir::StaticControl::Seq(sseq))));
+        }
+        Ok(Action::Continue)
+    }
+
+    fn finish_par(
+            &mut self,
+            s: &mut ir::Par,
+            _comp: &mut ir::Component,
+            _sigs: &LibrarySignatures,
+            _comps: &[ir::Component],
+        ) -> VisResult {
+        if let Some(spar) = s.into_static() {
+            return Ok(Action::change(ir::Control::Static(ir::StaticControl::Par(spar))));
+        }
+        Ok(Action::Continue)
+    }
+
+    fn finish_if(
+            &mut self,
+            s: &mut ir::If,
+            _comp: &mut ir::Component,
+            _sigs: &LibrarySignatures,
+            _comps: &[ir::Component],
+        ) -> VisResult {
+        if let Some(sif) = s.into_static() {
+            return Ok(Action::change(ir::Control::Static(ir::StaticControl::If(sif))));
         }
         Ok(Action::Continue)
     }

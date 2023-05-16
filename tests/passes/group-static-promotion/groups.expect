@@ -10,14 +10,14 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
       r0.write_en = 1'd1;
       mult_wrts_to_done[done] = r0.done ? 1'd1;
     }
-    static group one_cycle0<1> {
+    static<1> group one_cycle0 {
       r0.write_en = 1'd1;
     }
-    static group two_cycles0<2> {
+    static<2> group two_cycles0 {
       r0.write_en = 1'd1;
       r1.write_en = r0.done;
     }
-    static group mem_wrt_to_done0<1> {
+    static<1> group mem_wrt_to_done0 {
       m0.addr0 = 1'd0;
       m0.write_data = 32'd5;
       m0.write_en = 1'd1;
@@ -26,9 +26,9 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
 
   control {
     seq {
-      @static one_cycle0;
-      @static(2) two_cycles0;
-      @static mem_wrt_to_done0;
+      one_cycle0;
+      two_cycles0;
+      mem_wrt_to_done0;
       mult_wrts_to_done;
     }
   }

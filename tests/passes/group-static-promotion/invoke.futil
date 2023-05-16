@@ -25,7 +25,7 @@ component main() -> () {
   }
 }
 
-component exponent(base: 32, exp: 4) -> (out: 32) {
+component exponent(base: 32, exp: 32) -> (out: 32) {
   cells {
     r1 = std_reg(32);
     r2 = std_reg(32);

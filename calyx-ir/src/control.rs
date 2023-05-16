@@ -319,6 +319,19 @@ pub enum StaticControl {
     Invoke(StaticInvoke),
 }
 
+impl Control {
+    pub fn is_static(&self) -> bool {
+        return matches!(self, Control::Static(_))
+    }
+
+    pub fn get_latency(&self) -> Option<StaticLatency> {
+        match self {
+            Control::Static(sc) => { Some(sc.get_latency()) }
+            _ => None
+        }
+    }
+}
+
 impl From<Invoke> for Control {
     fn from(inv: Invoke) -> Self {
         Control::Invoke(inv)
