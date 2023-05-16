@@ -205,12 +205,12 @@ impl IntoStatic for ir::If {
                     unreachable!("we have already checker fbranch to be static")
                 };
         let latency = std::cmp::max(sc_t.get_latency(), sc_f.get_latency());
-        return Some(ir::StaticIf {
+        Some(ir::StaticIf {
             tbranch: Box::new(sc_t),
             fbranch: Box::new(sc_f),
             attributes: ir::Attributes::default(),
             port: Rc::clone(&self.port),
             latency,
-        });
+        })
     }
 }
