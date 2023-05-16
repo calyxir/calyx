@@ -460,7 +460,7 @@ impl Visitor for StaticPromotion {
                 if !(assignment.dst.borrow().is_hole()
                     && assignment.dst.borrow().name == "done")
                 {
-                    let static_s = Assignment::from(assignment);
+                    let static_s = Assignment::from(assignment.clone());
                     sg.borrow_mut().assignments.push(static_s);
                 }
             }
