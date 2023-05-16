@@ -15,7 +15,7 @@ Meet MrXL.
 
 # MrXL Overview
 
-MrXL lets you define arrays (TK, after https://github.com/cucapra/calyx/issues/1459 lands: "and registers") and then perform `map` and `reduce` operations.
+MrXL lets you define arrays and registers and then perform `map` and `reduce` operations.
 
 ## A tiny example
 
@@ -27,9 +27,9 @@ Here's a MrXL program in all its glory:
 
 The program is short enough for us to pick apart line by line:
 1. We specify an array, `avec`, which will have four integers. The `input` keyword means that an external harness will populate the array.
-2. We specify another array, `sos`, which will also have four integers. (TK: this will change to `output sos: int` after https://github.com/cucapra/calyx/issues/1459 lands, so the copy will become lighter: "We specify `sos`, a register.") The `output` keyword means that we will populate `sos` in our program.
+2. We specify `sos`, a register. The `output` keyword means that we will populate `sos` in our program.
 3. The `map` operation gets the values of `avec` and raises each to the second power. We stash the result in a new array, `squares`. The number `1` denotes a *parallelism factor* of 1, meaning that the operation is performed sequentially. We will improve this shortly.
-4. The `reduce` operation walks over `squares` and accumulates the result into an array. (TK: "a register"). The parallelism factor is again `1`.
+4. The `reduce` operation walks over `squares` and accumulates the result into a register. The parallelism factor is again `1`.
 
 
 ## Running our example
@@ -39,7 +39,8 @@ Let's run this program.
 To begin, [install the MrXL command line tool][mrxldocs-install].
 (TK: I'd kinda like to inline those instructions here, so that there is less jumping around between files.
 I want folks to just install and get back here so we can interpret together, but there's a risk that folks will just begin to follow the other guide and go all the way to Verilog there.
-Also, the MrXL tutorial has a different running example...)
+Also, the MrXL tutorial has a different running example.
+Thoughts on the inline?)
 
 Now change directories to `calyx/frontends/mrxl` and run
 ```
@@ -50,8 +51,6 @@ Why `42`? Because we populated `avec` with
 ```json
 {{#include ../../frontends/mrxl/test/sos.mrxl.data}}
 ```
-(TK: the file is gruesome right now, but once https://github.com/cucapra/calyx/issues/1450#issuecomment-1546757549 lands it'll look much nicer, to the point that it'll flow okay.)
-
 and $0^2 + 1^2 + 4^2 + 5^2 = 42$.
 
 Still not impressed?
@@ -68,7 +67,7 @@ Let's go over how MrXL showcases these benefits.
 
 ## Lighter data files
 
-(TK: basically a summary of what it took to close https://github.com/cucapra/calyx/issues/1450. 5-7 mins for Susan?)
+(This is basically a summary of what it took to close https://github.com/cucapra/calyx/issues/1450. 5-7 mins for Susan to give a mini-lecture?)
 
 You may have noticed that the data files that we pass to MrXL programs are lighter-weight than those we pass to Calyx programs.
 They are lighter in two ways.
@@ -92,7 +91,7 @@ Run this with
 mrxl test/squares.mrxl --data test/squares.mrxl.data --interpret
 ```
 
-To take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is, in fact, split into two *banks*, named `avec_b0` and `avec_b1`.
+To take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is, in fact, split into two *banks*, `avec_b0` and `avec_b1`.
 We will discuss this further shortly, but for now it suffices to convince oneself that this is needed.
 
 While we supplied `avec`'s values as a straightforward array:
@@ -118,7 +117,7 @@ We will now study [the MrXL-to-Calyx compiler][impl], written in Python.
 We have placed a few simplifying restrictions on MrXL programs:
 1. Every array in a MrXL program has the same length.
 2. Every integer in our generated hardware is 32 bits long.
-3. The bodies of `map` and `reduce` operations must be binary `+` or `*` operations involving array elements or integers.
+3. The bodies of `map` and `reduce` operations must be simple binary arithmetic operations (`+`,`-`,`*`,`/`) involving array elements or integers.
 4. If repeated `map`/`reduce` operations are performed on the same memory, each of those operations must have the same parallelism factor.
 5. All `reduce` operations must be formed sequentially, i.e., with parallelism factor `1`.
 
@@ -153,7 +152,7 @@ We elide further details, but point you to the [AST][mrxl-ast], which defines al
 
 ### Generating Calyx Code
 
-As you know, the skeleton of a Calyx program has three sections:
+[As you know][calyx-tut], the skeleton of a Calyx program has three sections:
 
 ```
 component main() -> {
@@ -308,12 +307,23 @@ The [full implementation][impl] shows the necessary code to accomplish this whic
 
 Congratulations, you know as much about MrXL as we do!
 The small size of the language makes it a nice sandbox for you to play in.
-Some fun things you could try:
-1. We don't yet support parallel `reduce` operations. Extend the compiler to allow this.
-2. We require that all arrays be the same size. Lift this restriction.
-3. Permit complex expressions in the bodies of `map` and `reduce`.
-4. We require that repeated computations on the same array have the same parallelism factor. Lift this restriction.
-5. Support a new `filter` operation in MrXL.
+We mentioned that the restrictions placed on the language can be lifted by beefing up the compiler, and here's your chance to give it a whirl!
+
+As a warmup, you could try lifting one of the following restrictions:
+> 1. Every array in a MrXL program has the same length.
+> 2. Every integer in our generated hardware is 32 bits long.
+> 3. The bodies of map and reduce operations must be simple binary arithmetic operations (`+`,`-`,`*`,`/`) involving array elements or integers.
+
+If you're looking for a more serious challenge, try:
+> 4. If repeated map/reduce operations are performed on the same memory, each of those operations must have the same parallelism factor.
+
+Or, for something completely different:
+
+5. Add support for a new `filter` operation in MrXL.
+
+A big gap in MrXL at present is that all `reduce` operations must be performed sequentially. 
+This restriction can also be lifted, but hold that thought for a moment! 
+We'd like to tell you a little about reduction trees.
 
 [astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
