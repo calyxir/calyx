@@ -74,7 +74,7 @@ We will now step back from our example and study [the MrXL-to-Calyx compiler][im
 We have placed a few simplifying restrictions on MrXL programs:
 1. Every array in a MrXL program has the same length.
 2. Every integer in our generated hardware is 32 bits long.
-3. The bodies of `map` and `reduce` operations must be simple binary arithmetic operations (`+`,`-`,`*`,`/`) involving array elements or integers.
+3. The bodies of map and reduce operations must be binary `+` or `*` operations involving array elements or integers.
 4. If repeated `map`/`reduce` operations are performed on the same memory, each of those operations must have the same parallelism factor.
 5. All `reduce` operations must be formed sequentially, i.e., with parallelism factor `1`.
 
@@ -87,7 +87,8 @@ The compilation process breaks into two steps:
 
 ## Parsing MrXL into an AST
 
-To start, we'll parse the MrXL program into a Python AST representation. We choose to represent [AST][astcode] nodes with Python `dataclass`es.
+To start, we'll parse the MrXL program into a Python AST representation.
+We choose to represent [AST][astcode] nodes with Python `dataclass`es.
 A program is a sequence of array/register declarations followed by computation statements:
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:prog}}
@@ -320,7 +321,7 @@ We mentioned that the restrictions placed on the language can be lifted by beefi
 As a warmup, you could try lifting one of the following restrictions:
 > 1. Every array in a MrXL program has the same length.
 > 2. Every integer in our generated hardware is 32 bits long.
-> 3. The bodies of map and reduce operations must be simple binary arithmetic operations (`+`,`-`,`*`,`/`) involving array elements or integers.
+> 3. The bodies of map and reduce operations must be binary `+` or `*` operations involving array elements or integers.
 
 If you're looking for a more serious challenge, try:
 > 4. If repeated map/reduce operations are performed on the same memory, each of those operations must have the same parallelism factor.
