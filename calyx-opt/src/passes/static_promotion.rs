@@ -113,7 +113,7 @@ pub struct StaticPromotion {
 impl ConstructVisitor for StaticPromotion {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let mut latency_data = HashMap::new();
-        let mut comp_latency = HashMap::new();
+        //let mut comp_latency = HashMap::new();
         // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
@@ -135,7 +135,7 @@ impl ConstructVisitor for StaticPromotion {
             // If this primitive has exactly one (go, done, static) pair, we
             // can infer the latency of its invokes.
             if go_ports.len() == 1 {
-                comp_latency.insert(prim.name, go_ports[0].2);
+                //comp_latency.insert(prim.name, go_ports[0].2);
             }
             latency_data.insert(prim.name, GoDone::new(go_ports));
         }
@@ -404,6 +404,20 @@ impl Visitor for StaticPromotion {
             if let Some(lat) = comp.control.borrow().get_latency() {
                 if lat > 0 {
                     comp.latency = Some(NonZeroU64::new(lat).unwrap());
+                    let comp_sig = comp.signature.borrow();
+                    let mut done_ports: Vec<_> = comp_sig
+                        .find_all_with_attr(ir::NumAttr::Done)
+                        .collect();
+                    let mut go_ports: Vec<_> =
+                        comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
+                    if done_ports.len() == 1 && go_ports.len() == 1 {
+                        let go_done = GoDone::new(vec![(
+                            go_ports.pop().unwrap().borrow().name,
+                            done_ports.pop().unwrap().borrow().name,
+                            lat,
+                        )]);
+                        self.latency_data.insert(comp.name, go_done);
+                    }
                 }
             }
         }
