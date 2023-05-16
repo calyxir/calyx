@@ -1,0 +1,60 @@
+//-p infer-share
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+// share is just some user defined component that should be shareable 
+component add_5_mult_3(in: 32) -> (out: 32) {
+  cells {
+    r = std_reg(32);
+    add_32 = std_add(32);
+    mult_pipe = std_mult_pipe(32);
+  }
+  wires {
+    group A {
+      add_32.left = in; 
+      add_32.right = 32'd5; 
+      r.in = add_32.out;
+      r.write_en = 1'd1;
+      A[done] = r.done;
+    }
+    group B {
+      mult_pipe.left = r.out; 
+      mult_pipe.right = 32'd3; 
+      mult_pipe.go = !mult_pipe.done ? 1'd1; 
+      r.write_en = mult_pipe.done;
+      r.in = mult_pipe.out; 
+      B[done] = r.done;
+    }
+    out = r.out;
+  }
+  control {
+    seq {
+      A; 
+      B; 
+    }
+  }
+}
+
+
+
+component main() -> () {
+  cells {
+    my_comp = add_5_mult_3();
+    @external mem = std_mem_d1(32,1,1);
+  }
+  wires {
+    group write_mem {
+      mem.addr0 = 1'd0; 
+      mem.write_en = 1'd1;
+      mem.write_data =  my_comp.out; 
+      write_mem[done] = mem.done; 
+    }
+  }
+  control {
+    seq {
+      invoke my_comp(in = 32'd1)(); 
+      write_mem; 
+    }
+  }
+}
