@@ -87,14 +87,14 @@ def gen_reduce_impl(
 
     # The source of a `reduce` must be a singly-banked array (thus the `b0`)
     # The destination of a `reduce` must be a register
-    name2arr = {acc: f"{dest}_b0", ele: f"{bind.src}_b0"}
+    name2arr = {acc: dest, ele: f"{bind.src}_b0"}
 
     def expr_to_port(expr: ast.BaseExpr):
         if isinstance(expr, ast.LitExpr):
             return cb.const(32, expr.value)
         if isinstance(expr, ast.VarExpr):
             bind = name2arr[expr.name]
-            return CompPort(CompVar(f"{bind}"), "read_data")
+            return CompPort(CompVar(bind), "read_data")
 
     body = stmt.body
 
@@ -109,7 +109,7 @@ def gen_reduce_impl(
         operation = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as evl:
         try:
-            out = comp.get_cell(f"{dest}")  # The accumulator is a register
+            out = comp.get_cell(dest)  # The accumulator is a register
         except Exception as exc:
             raise TypeError(
                 "The accumulator of a `reduce` operation is expected to be a "
@@ -194,7 +194,7 @@ def gen_map_impl(
             if isinstance(expr, ast.LitExpr):
                 return cb.const(32, expr.value)
             if isinstance(expr, ast.VarExpr):
-                return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
+                return CompPort(CompVar(name2arr[expr.name]), "read_data")
 
         if body.operation == "mul":
             operation = comp.cell(
