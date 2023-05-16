@@ -321,7 +321,7 @@ pub enum StaticControl {
 
 impl Control {
     pub fn is_static(&self) -> bool {
-        return matches!(self, Control::Static(_));
+        matches!(self, Control::Static(_))
     }
 
     pub fn get_latency(&self) -> Option<StaticLatency> {

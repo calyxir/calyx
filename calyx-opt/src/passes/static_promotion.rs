@@ -482,20 +482,18 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         if let ir::CellType::Component { name } = s.comp.borrow().prototype {
             for c in comps {
-                if c.name == name {
-                    if c.is_static() {
-                        let s_inv = ir::StaticInvoke {
-                            comp: Rc::clone(&s.comp),
-                            inputs: s.inputs.clone(),
-                            outputs: s.outputs.clone(),
-                            latency: c.latency.unwrap().get(),
-                            attributes: s.attributes.clone(),
-                            ref_cells: s.ref_cells.clone(),
-                        };
-                        return Ok(Action::change(ir::Control::Static(
-                            ir::StaticControl::Invoke(s_inv),
-                        )));
-                    }
+                if c.name == name && c.is_static() {
+                    let s_inv = ir::StaticInvoke {
+                        comp: Rc::clone(&s.comp),
+                        inputs: s.inputs.clone(),
+                        outputs: s.outputs.clone(),
+                        latency: c.latency.unwrap().get(),
+                        attributes: s.attributes.clone(),
+                        ref_cells: s.ref_cells.clone(),
+                    };
+                    return Ok(Action::change(ir::Control::Static(
+                        ir::StaticControl::Invoke(s_inv),
+                    )));
                 }
             }
         }
@@ -509,7 +507,7 @@ impl Visitor for StaticPromotion {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(sseq) = s.into_static() {
+        if let Some(sseq) = s.make_static() {
             return Ok(Action::change(ir::Control::Static(
                 ir::StaticControl::Seq(sseq),
             )));
@@ -524,7 +522,7 @@ impl Visitor for StaticPromotion {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(spar) = s.into_static() {
+        if let Some(spar) = s.make_static() {
             return Ok(Action::change(ir::Control::Static(
                 ir::StaticControl::Par(spar),
             )));
@@ -539,7 +537,7 @@ impl Visitor for StaticPromotion {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(sif) = s.into_static() {
+        if let Some(sif) = s.make_static() {
             return Ok(Action::change(ir::Control::Static(
                 ir::StaticControl::If(sif),
             )));

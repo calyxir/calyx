@@ -137,12 +137,12 @@ impl WithStatic for ir::While {
 
 pub trait IntoStatic {
     type StaticCon;
-    fn into_static(&mut self) -> Option<Self::StaticCon>;
+    fn make_static(&mut self) -> Option<Self::StaticCon>;
 }
 
 impl IntoStatic for ir::Seq {
     type StaticCon = ir::StaticSeq;
-    fn into_static(&mut self) -> Option<Self::StaticCon> {
+    fn make_static(&mut self) -> Option<Self::StaticCon> {
         let mut static_stmts: Vec<ir::StaticControl> = Vec::new();
         let mut latency = 0;
         for stmt in self.stmts.iter() {
@@ -167,7 +167,7 @@ impl IntoStatic for ir::Seq {
 
 impl IntoStatic for ir::Par {
     type StaticCon = ir::StaticPar;
-    fn into_static(&mut self) -> Option<Self::StaticCon> {
+    fn make_static(&mut self) -> Option<Self::StaticCon> {
         let mut static_stmts: Vec<ir::StaticControl> = Vec::new();
         let mut latency = 0;
         for stmt in self.stmts.iter() {
@@ -192,7 +192,7 @@ impl IntoStatic for ir::Par {
 
 impl IntoStatic for ir::If {
     type StaticCon = ir::StaticIf;
-    fn into_static(&mut self) -> Option<Self::StaticCon> {
+    fn make_static(&mut self) -> Option<Self::StaticCon> {
         if let ir::Control::Static(_) = *self.tbranch {
             if let ir::Control::Static(_) = *self.fbranch {
                 let tb = ir::Cloner::control(&self.tbranch);
