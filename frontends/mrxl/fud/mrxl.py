@@ -2,6 +2,7 @@ from fud.stages import Stage, SourceType, Source
 from fud.utils import shell
 from pathlib import Path
 
+from fud.errors import MissingDynamicConfiguration
 
 class MrXLStage(Stage):
     """
@@ -98,7 +99,7 @@ class MrXLDataStage(Stage):
         # Commands at the top-level are evaluated when the computation is being
         # staged
         cmd = config["stages", "mrxl", "exec"]
-        data_path = config["stages", "mrxl", "data"]
+        mrxl_prog = config.get(["stages", "mrxl", "prog"])
 
         # Computations within a step are delayed from being executed until
         # the full execution pipeline is generated.
@@ -117,11 +118,11 @@ class MrXLDataStage(Stage):
         # Define a schedule using the steps.
         # A schedule *looks* like an imperative program but actually represents
         # a computation graph that is executed later on.
-        if data_path is None:
-            raise ValueError("mrxl.data must be provided")
+        if mrxl_prog is None:
+            raise MissingDynamicConfiguration("mrxl.prog")
         return convert_mrxl_data_to_calyx_data(
-            Source(Path(data_path), SourceType.Path),
-            input
+            input,
+            Source(Path(mrxl_prog), SourceType.Path)
         )
 
 # Export the defined stages to fud
