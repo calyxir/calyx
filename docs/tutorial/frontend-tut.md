@@ -9,10 +9,12 @@ Indeed, Calyx was _designed_ to be a compiler IL, and not a human-facing languag
 In this tutorial, we're going to learn all about this by building a DSL-to-hardware compiler for a toy language that we wish to accelerate.
 We will compile the DSL to Calyx, and then let Calyx take us to hardware.
 
+
 # MrXL Overview
 
 Meet MrXL, our toy DSL.
 MrXL lets you define arrays and registers and then perform `map` and `reduce` operations.
+
 
 ## Example: sum of squares
 
@@ -49,69 +51,25 @@ Why `42`? Because we populated `avec` with:
 ```
 and $0^2 + 1^2 + 4^2 + 5^2 = 42$.
 
+
+## Compiling our example into Calyx
+
 Above, we have merely _interpreted_ MrXL code in software, using a simple, pre-written interpreter implemented in Python.
 Our goal in this tutorial is to build a compiler from MrXL to hardware by translating it to the Calyx IL.
-The Calyx code we want to generate from this example will look something like this:
+The Calyx code we want to generate from this example looks more like:
 ```
 {{#include ./sos.calyx}}
 ```
+
 Generate it for yourself! Run:
 ```
 mrxl test/sos.mrxl
 ```
 
-# Breaking it Down
+# Compiling MrXL into Calyx
 
-We mentioned two reasons to build your own frontend: the reduction of kludge, and the addition of domain-specific commands.
-Let's go over how MrXL showcases these benefits.
-
-## Lighter data files
-
-(This is basically a summary of what it took to close https://github.com/cucapra/calyx/issues/1450. 5-7 mins for Susan to give a mini-lecture?)
-
-You may have noticed that the data files that we pass to MrXL programs are lighter-weight than those we pass to Calyx programs.
-They are lighter in two ways.
-
-### A simpler data format
-
-MrXL supports only a few kinds of data, meaning that interesting pieces of Calyx-native data turn into "just boilerplate" in MrXL-native data.
-We can lighten MrXL-native data files and write a [`fud`][fud] pass to tack this information on, thus creating legal Calyx-native data files.
-
-### Memory banking
-
-Consider a small variation on our running example:
-```
-{{#include ../../frontends/mrxl/test/squares.mrxl}}
-```
-
-The noteworthy change is the parallelism factor of the `map` operation.
-Run this with:
-```
-mrxl test/squares.mrxl --data test/squares.mrxl.data --interpret
-```
-
-To take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is, in fact, split into two *banks*, `avec_b0` and `avec_b1`.
-We will discuss this further shortly, but for now it suffices to convince oneself that this is needed.
-
-While we supplied `avec`'s values as a straightforward array:
-
-```json
-{{#include ../../frontends/mrxl/test/squares.mrxl.data}}
-```
-
-under the hood, the *compiled version* of `squares.mrxl` came to expect something like:
-
-```json
-{{#include ./squares.mrxl.banked.data}}
-```
-
-Though nontrivial, this memory banking can also be handled automatically using `fud`; all the necessary information is in the MrXL source program.
-
-
-## Compiling MrXL into Calyx
-
-Our frontends can support new commands that are relevant to the domain of interest, so long as those commands can themselves be compiled into Calyx.
-We will now study [the MrXL-to-Calyx compiler][impl], written in Python.
+Any frontend can support new commands that are relevant to the domain of interest, so long as those commands can themselves be compiled into Calyx.
+We will now step back from our example and study [the MrXL-to-Calyx compiler][impl], written in Python.
 
 We have placed a few simplifying restrictions on MrXL programs:
 1. Every array in a MrXL program has the same length.
@@ -126,16 +84,16 @@ The compilation process breaks into two steps:
 1. Parsing MrXL into a representation we can process in Python.
 1. Generating Calyx code.
 
-### Parsing MrXL into an AST
 
-To start, we'll parse the MrXL program into a Python AST representation. We chose to represent [AST][astcode] nodes with Python `dataclass`.
+## Parsing MrXL into an AST
+
+To start, we'll parse the MrXL program into a Python AST representation. We chose to represent [AST][astcode] nodes with Python `dataclass`es.
 A program is a sequence of array declarations followed by computation statements:
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:prog}}
 ```
 
 `Decl` nodes correspond to array declarations such as `input avec: int[4]`, and carry data about whether the array is an `input` or `output` array, its name, and its type:
-
 ```python
 {{#include ../../frontends/mrxl/mrxl/ast.py:decl}}
 ```
@@ -149,10 +107,9 @@ They contain further nested nodes representing the function-header and -body, an
 We elide further details, but point you to the [AST][mrxl-ast], which defines all the nodes we need to represent a MrXL program.
 
 
-### Generating Calyx Code
+## Generating Calyx code
 
 [As you know][calyx-tut], the skeleton of a Calyx program has three sections:
-
 ```
 component main() -> {
   cells {}
@@ -168,7 +125,8 @@ Finally, the [control section][lf-control] *schedules* the execution of groups u
 
 We perform syntax-directed compilation by walking over nodes in the above AST and generating `cells`, `wires`, and `control` operations.
 
-#### Calyx-Embedded DSL
+
+### Calyx-Embedded DSL
 
 To make it easy to generate the hardware, we'll use Calyx's [`builder` module][builder-ex] in Python:
 ```python
@@ -178,12 +136,12 @@ prog = cb.Builder() # A Calyx program
 main = prog.component("main") # Create a component named "main"
 ```
 
-#### `Decl` nodes
+
+### `Decl` nodes
 
 `Decl` nodes instantiate new memories and registers.
 We need these to be instantiated in the `cells` section of our Calyx output.
 We use Calyx's `std_reg` and `std_mem_d1` primitives to represent registers and memories:
-
 ```C
 import "primitives/core.futil"; // Import standard library
 
@@ -214,7 +172,7 @@ The `main.mem_d1` call is a function defined by the Calyx builder module to inst
 By setting `is_external=True`, we're indicating that a memory declaration is a part of the program's input-output interface.
 
 
-### Compiling `Map` Operations
+## Compiling `map` operations
 
 For every map or reduce node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation.
 For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array.
@@ -225,7 +183,8 @@ At a high level, we want to generate the following pieces of hardware:
 3. An adder to increment the value of the index.
 4. Hardware needed to implement the loop body computation.
 
-#### Loop Condition
+
+### Loop condition
 
 We define a [combinational group][lf-comb-group] to perform the comparison `idx < arr_size` that uses an `lt` cell:
 ```python
@@ -233,7 +192,7 @@ We define a [combinational group][lf-comb-group] to perform the comparison `idx 
 ```
 
 
-#### Index Increment
+### Index increment
 
 The loop index increment is implemented using a [group][lf-group] and an adder (`adder`):
 ```python
@@ -243,7 +202,8 @@ The loop index increment is implemented using a [group][lf-group] and an adder (
 We provide the index's previous value and the constant `1` to the adder, and write the adder's output into the register.
 Because we're performing a stateful update of the register, we must wait for the register to state that it has committed the write by setting the group's `done` condition to the register's `done` signal.
 
-#### Body Computation
+
+### Body computation
 
 The final piece of the puzzle is the body's computation.
 The corresponding group indexes into the input memories:
@@ -268,7 +228,8 @@ When using a mutliplier, we need to explicitly set its `go` signal to one and on
 We do this by assigning the memory's `write_en` (write enable) signal to the multiplier's done signal.
 Finally, the group's computation is done when the memory write is committed.
 
-#### Generating Control
+
+### Generating control
 
 Once we have generated the hardware needed for our computation, we can schedule its computation using [control operators][lf-control]:
 ```py
@@ -278,17 +239,24 @@ Once we have generated the hardware needed for our computation, we can schedule 
 We generate a while loop that checks that the index is less than the array size.
 Then, it sequentially executes the computation for the body and increments the loop index.
 
-### Adding Parallelization
+
+## Adding parallelization
 
 MrXL allows us to parallelize our `map` operations.
-Let's revisit the parallel `map` from earlier:
+
+Consider a variation on our prior example:
 ```
 {{#include ../../frontends/mrxl/test/squares.mrxl}}
 ```
 
+The noteworthy change is the parallelism factor of the `map` operation.
 The parallelism factor `2` specifies that two copies of the loop bodies should be executed in parallel.
-Our implementation already creates [memory banks](#decl-nodes) to allow for parallel accesses.
-At a high-level, we can change the compilation for the `map` operation to produce `n` copies of the hardware we generate above and generate a control program that looks like this:
+Our implementation automatically generates code that takes advantage of [memory banking](#decl-nodes) in the supplied data.
+This allows for parallel accesses.
+It also creates an obligation on the data-supply side; we will show how to discharge this shortly.
+
+At a high-level, we can change the compilation of the `map` operation to produce `n` copies of the hardware we generated above.
+We can generate a control program that looks like:
 ```
 par {
   while le_b0.out with cond_b0 { seq { eval_body_b0; incr_idx_b0; } }
@@ -297,7 +265,49 @@ par {
 ```
 
 The [`par` operator][lf-par] executes all the loops in parallel.
-The [full implementation][impl] shows the necessary code to accomplish this which simply creates an outer loop to generate distinct hardware for each copy of the loop.
+The [complete implementation][impl] shows the necessary code to accomplish this which simply creates an outer loop to generate distinct hardware for each copy of the loop.
+
+
+# Supplying data to MrXL programs
+
+(This is basically a summary of what it took to close https://github.com/cucapra/calyx/issues/1450. 5-7 mins for Susan to give a mini-lecture?)
+
+You may have noticed that the data files that we pass to MrXL programs are lighter-weight than those we pass to Calyx programs.
+They are lighter in two ways.
+
+
+## Fewer kinds of data
+
+MrXL supports only a few kinds of data, meaning that interesting pieces of Calyx-native data turn into "just boilerplate" in MrXL-native data.
+We can lighten MrXL-native data files and write a [`fud`][fud] pass to tack this information on, thus creating legal Calyx-native data files.
+
+
+## Memory banking
+
+Let us look back at our example featuring a parallel `map`:
+```
+{{#include ../../frontends/mrxl/test/squares.mrxl}}
+```
+
+Run this with:
+```
+mrxl test/squares.mrxl --data test/squares.mrxl.data --interpret
+```
+
+To take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is split into two *banks*, `avec_b0` and `avec_b1`.
+
+That is, although we supplied `avec`'s values as a straightforward array:
+```json
+{{#include ../../frontends/mrxl/test/squares.mrxl.data}}
+```
+
+under the hood, the *compiled version* of `squares.mrxl` came to expect:
+```json
+{{#include ./squares.mrxl.banked.data}}
+```
+
+Though nontrivial, this memory banking can also be handled automatically using `fud`; all the necessary information is in the MrXL source program.
+
 
 # Further Steps
 
