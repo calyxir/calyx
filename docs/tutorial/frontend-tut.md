@@ -4,16 +4,17 @@
 
 In the [Calyx tutorial][calyx-tut] you wrote Calyx code by hand.
 This is (probably) a good way to build character, but it's no way to live.
-Indeed, Calyx was _designed_ to be a compiler IR, and not a human-facing language.
+Indeed, Calyx was _designed_ to be a compiler IL, and not a human-facing language.
 
-In this tutorial, we're going to learn all about this by building a DSL-to-Calyx compiler for a toy language that we wish to accelerate.
-Meet MrXL.
+In this tutorial, we're going to learn all about this by building a DSL-to-hardware compiler for a toy language that we wish to accelerate.
+We will compile the DSL to Calyx, and then let Calyx take us to hardware.
 
 # MrXL Overview
 
+Meet MrXL, our toy DSL.
 MrXL lets you define arrays and registers and then perform `map` and `reduce` operations.
 
-## A tiny example
+## Example: sum of squares
 
 Here's a MrXL program that squares and then sums an input array:
 ```
@@ -48,11 +49,15 @@ Why `42`? Because we populated `avec` with:
 ```
 and $0^2 + 1^2 + 4^2 + 5^2 = 42$.
 
-Still not impressed?
-Consider the Calyx code that we _didn't need to write_:
-
+Above, we have merely _interpreted_ MrXL code in software, using a simple, pre-written interpreter implemented in Python.
+Our goal in this tutorial is to build a compiler from MrXL to hardware by translating it to the Calyx IL.
+The Calyx code we want to generate from this example will look something like this:
 ```
 {{#include ./sos.calyx}}
+```
+Generate it for yourself! Run:
+```
+mrxl test/sos.mrxl
 ```
 
 # Breaking it Down
@@ -296,7 +301,7 @@ The [full implementation][impl] shows the necessary code to accomplish this whic
 
 # Further Steps
 
-Congratulations, you know as much about MrXL as we do!
+Congratulations, you know about as much about MrXL as we do!
 The small size of the language makes it a nice sandbox for you to play in.
 We mentioned that the restrictions placed on the language can be lifted by beefing up the compiler, and here's your chance to give it a whirl!
 
