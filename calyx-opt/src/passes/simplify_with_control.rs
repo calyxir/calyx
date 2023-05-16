@@ -255,7 +255,7 @@ impl Visitor for SimplifyWithControl {
     ) -> VisResult {
         if comp.is_static() {
             let msg =
-                format!("Component {} has both a top-level <static> annotations and combinational groups which is not supported", comp.name);
+                format!("Static Component {} has combinational groups which is not supported", comp.name);
             return Err(Error::pass_assumption(Self::name(), msg)
                 .with_pos(&comp.attributes));
         }

@@ -4,7 +4,6 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::{CalyxResult, Error};
-use ir::{Assignment, Attributes};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -402,22 +401,19 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         if comp.control.borrow().is_static() {
             if let Some(lat) = comp.control.borrow().get_latency() {
-                if lat > 0 {
-                    comp.latency = Some(NonZeroU64::new(lat).unwrap());
-                    let comp_sig = comp.signature.borrow();
-                    let mut done_ports: Vec<_> = comp_sig
-                        .find_all_with_attr(ir::NumAttr::Done)
-                        .collect();
-                    let mut go_ports: Vec<_> =
-                        comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
-                    if done_ports.len() == 1 && go_ports.len() == 1 {
-                        let go_done = GoDone::new(vec![(
-                            go_ports.pop().unwrap().borrow().name,
-                            done_ports.pop().unwrap().borrow().name,
-                            lat,
-                        )]);
-                        self.latency_data.insert(comp.name, go_done);
-                    }
+                comp.latency = Some(NonZeroU64::new(lat).unwrap());
+                let comp_sig = comp.signature.borrow();
+                let mut done_ports: Vec<_> =
+                    comp_sig.find_all_with_attr(ir::NumAttr::Done).collect();
+                let mut go_ports: Vec<_> =
+                    comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
+                if done_ports.len() == 1 && go_ports.len() == 1 {
+                    let go_done = GoDone::new(vec![(
+                        go_ports.pop().unwrap().borrow().name,
+                        done_ports.pop().unwrap().borrow().name,
+                        lat,
+                    )]);
+                    self.latency_data.insert(comp.name, go_done);
                 }
             }
         }
@@ -474,7 +470,7 @@ impl Visitor for StaticPromotion {
                 if !(assignment.dst.borrow().is_hole()
                     && assignment.dst.borrow().name == "done")
                 {
-                    let static_s = Assignment::from(assignment.clone());
+                    let static_s = ir::Assignment::from(assignment.clone());
                     sg.borrow_mut().assignments.push(static_s);
                 }
             }
@@ -502,7 +498,7 @@ impl Visitor for StaticPromotion {
                         comp: Rc::clone(&s.comp),
                         inputs: Vec::new(),
                         outputs: Vec::new(),
-                        attributes: Attributes::default(),
+                        attributes: ir::Attributes::default(),
                         comb_group: None,
                         ref_cells: Vec::new(),
                     };
@@ -512,7 +508,7 @@ impl Visitor for StaticPromotion {
                         inputs: actual_invoke.inputs,
                         outputs: actual_invoke.outputs,
                         latency: c.latency.unwrap().get(),
-                        attributes: Attributes::default(),
+                        attributes: ir::Attributes::default(),
                         ref_cells: actual_invoke.ref_cells,
                     };
                     return Ok(Action::change(ir::Control::Static(
