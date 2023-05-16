@@ -84,6 +84,9 @@ def gen_reduce_impl(
     # Split up the accumulator and the array element
     bind = stmt.binds[0]
     [acc, ele] = bind.dst
+
+    # The source of a `reduce` must be a singly-banked array (thus the `b0`)
+    # The destination of a `reduce` must be a register
     name2arr = {acc: f"{dest}_b0", ele: f"{bind.src}_b0"}
 
     def expr_to_port(expr: ast.BaseExpr):
@@ -105,15 +108,21 @@ def gen_reduce_impl(
     else:
         operation = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as evl:
-        out = comp.get_cell(f"{dest}_b0")  # The accumulator is a register
+        try:
+            out = comp.get_cell(f"{dest}")  # The accumulator is a register
+        except Exception as exc:
+            raise TypeError(
+                "The accumulator of a `reduce` operation is expected to be a "
+                "register. Consider checking the declaration of variable "
+                f"`{dest}`."
+            ) from exc
 
-        # The source must be a singly-banked array
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out
         operation.left = expr_to_port(body.lhs)
         operation.right = expr_to_port(body.rhs)
         out.write_data = operation.out
-        out.addr0 = 0
+        out.addr0 = cb.const(32, 0)  # Just the number 0 with width 32
         # Multipliers are sequential, so we need to manipulate go/done signals
         if body.operation == "mul":
             operation.go = 1
