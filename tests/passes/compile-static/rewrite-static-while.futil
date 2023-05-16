@@ -1,0 +1,41 @@
+// -p well-formed -p static-inline -p compile-static -p dead-group-removal -p remove-ids 
+
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+
+component main () -> () {
+  cells {
+    p = std_reg(3);
+    incr = std_add(3);
+    l = std_lt(3);
+    r = std_reg(1);
+  }
+
+  wires {
+    static<1> group A {
+      incr.left = p.out;
+      incr.right = 3'd1;
+      p.in = incr.out;
+      p.write_en = %0 ? 1'd1;
+    } 
+    static<1> group B {
+      l.left = p.out;
+      l.right = 3'd6;
+      r.in = l.out;
+      r.write_en = 1'd1;
+    }
+    
+  }
+
+  control {
+    seq {
+      B;
+      while r.out {
+        static seq {
+          A;
+          B;
+        }
+      }
+    }
+  }
+}
