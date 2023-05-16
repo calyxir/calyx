@@ -147,7 +147,7 @@ impl IntoStatic for ir::Seq {
         let mut latency = 0;
         for stmt in self.stmts.iter() {
             if !matches!(stmt, ir::Control::Static(_)) {
-                log::debug!("control under seq is not static");
+                log::debug!("Cannot build `static seq`. Control statement inside `seq` is not static");
                 return None;
             }
         }
@@ -172,7 +172,7 @@ impl IntoStatic for ir::Par {
         let mut latency = 0;
         for stmt in self.stmts.iter() {
             if !matches!(stmt, ir::Control::Static(_)) {
-                log::debug!("control under par is not static");
+                log::debug!("Cannot build `static seq`. Control statement inside `seq` is not static");
                 return None;
             }
         }
@@ -193,31 +193,24 @@ impl IntoStatic for ir::Par {
 impl IntoStatic for ir::If {
     type StaticCon = ir::StaticIf;
     fn make_static(&mut self) -> Option<Self::StaticCon> {
-        if let ir::Control::Static(_) = *self.tbranch {
-            if let ir::Control::Static(_) = *self.fbranch {
-                let tb = ir::Cloner::control(&self.tbranch);
-                let fb = ir::Cloner::control(&self.fbranch);
-                let ir::Control::Static(sc_t) = tb else {
+        if !(self.tbranch.is_static() && self.fbranch.is_static()) {
+            return None;
+        };
+        let tb = std::mem::replace(&mut *self.tbranch, ir::Control::empty());
+        let fb = std::mem::replace(&mut *self.fbranch, ir::Control::empty());
+        let ir::Control::Static(sc_t) = tb else {
                     unreachable!("we have already checked tbranch to be static")
                 };
-                let ir::Control::Static(sc_f) = fb else {
+        let ir::Control::Static(sc_f) = fb else {
                     unreachable!("we have already checker fbranch to be static")
                 };
-                let latency =
-                    std::cmp::max(sc_t.get_latency(), sc_f.get_latency());
-                return Some(ir::StaticIf {
-                    tbranch: Box::new(sc_t),
-                    fbranch: Box::new(sc_f),
-                    attributes: self.attributes.clone(),
-                    port: Rc::clone(&self.port),
-                    latency,
-                });
-            } else {
-                log::debug!("fbranch of `if` control is not static");
-            }
-        } else {
-            log::debug!("tbranch of `if` control is not static");
-        }
-        None
+        let latency = std::cmp::max(sc_t.get_latency(), sc_f.get_latency());
+        return Some(ir::StaticIf {
+            tbranch: Box::new(sc_t),
+            fbranch: Box::new(sc_f),
+            attributes: ir::Attributes::default(),
+            port: Rc::clone(&self.port),
+            latency,
+        });
     }
 }

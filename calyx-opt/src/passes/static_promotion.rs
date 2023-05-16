@@ -4,7 +4,7 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::{CalyxResult, Error};
-use ir::Assignment;
+use ir::{Assignment, Attributes};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -494,16 +494,26 @@ impl Visitor for StaticPromotion {
         _sigs: &LibrarySignatures,
         comps: &[ir::Component],
     ) -> VisResult {
-        if let ir::CellType::Component { name } = s.comp.borrow().prototype {
+        if s.comp.borrow().is_component() {
+            let name = s.comp.borrow().type_name().unwrap();
             for c in comps {
                 if c.name == name && c.is_static() {
-                    let s_inv = ir::StaticInvoke {
+                    let emp = ir::Invoke {
                         comp: Rc::clone(&s.comp),
-                        inputs: s.inputs.clone(),
-                        outputs: s.outputs.clone(),
+                        inputs: Vec::new(),
+                        outputs: Vec::new(),
+                        attributes: Attributes::default(),
+                        comb_group: None,
+                        ref_cells: Vec::new(),
+                    };
+                    let actual_invoke = std::mem::replace(s, emp);
+                    let s_inv = ir::StaticInvoke {
+                        comp: Rc::clone(&actual_invoke.comp),
+                        inputs: actual_invoke.inputs,
+                        outputs: actual_invoke.outputs,
                         latency: c.latency.unwrap().get(),
-                        attributes: s.attributes.clone(),
-                        ref_cells: s.ref_cells.clone(),
+                        attributes: Attributes::default(),
+                        ref_cells: actual_invoke.ref_cells,
                     };
                     return Ok(Action::change(ir::Control::Static(
                         ir::StaticControl::Invoke(s_inv),
