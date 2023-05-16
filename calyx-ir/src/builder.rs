@@ -32,7 +32,6 @@ impl<'a> Builder<'a> {
         component: &'a mut ir::Component,
         lib: &'a LibrarySignatures,
     ) -> Self {
-        std::env::set_var("RUST_BACKTRACE", "1");
         Self {
             component,
             lib,

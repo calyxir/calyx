@@ -1,8 +1,8 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileEmpty, CompileInvoke, CompileRef, CompileStatic, CompileSync,
-    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
+    AttributePromotion, Canonicalize, CellShare, ClkInsertion, CollapseControl,
+    CombProp, CompileEmpty, CompileInvoke, CompileRef, CompileStatic,
+    CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, Externalize,
     GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
     LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
@@ -37,6 +37,7 @@ impl PassManager {
         pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
         pm.register_pass::<StaticPromotion>()?;
+        pm.register_pass::<AttributePromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<MergeStaticPar>()?;
         pm.register_pass::<StaticParConv>()?;
@@ -91,6 +92,7 @@ impl PassManager {
                 CellShare, // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before infer-static-timing
                 CompileInvoke, // creates dead comb groups
+                AttributePromotion,
                 StaticPromotion,
                 StaticParConv, // Must be before collapse-control and merge-static-par
                 MergeStaticPar, // creates dead groups potentially

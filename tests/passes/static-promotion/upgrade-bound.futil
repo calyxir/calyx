@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d attr-promotion -d static-promotion -d post-opt -d group2invoke -d lower -b none
+// -p well-formed -p static-promotion
 
 import "primitives/core.futil";
 
@@ -7,9 +7,7 @@ component main() -> () {
     a = std_reg(2);
     b = std_reg(2);
     c = std_reg(2);
-    d = std_reg(2);
-    e = std_reg(2);
-    lt = std_lt(1);
+    cond_reg = std_reg(1);
   }
 
   wires {
@@ -30,25 +28,11 @@ component main() -> () {
       c.write_en = 1'b1;
       C[done] = c.done;
     }
-
-    group D {
-      d.in = 2'd2;
-      d.write_en = 1'b1;
-      D[done] = d.done;
-    }
-
-    group E {
-      e.in = 2'd2;
-      e.write_en = 1'b1;
-      E[done] = e.done;
-    }
   }
 
   control {
-    seq{
-      A;
-      @new_fsm seq {C; D; E;}
-      B;
-    } 
+    @bound(5) while cond_reg.out {
+      seq { A; B; C; }
+    }
   }
 }

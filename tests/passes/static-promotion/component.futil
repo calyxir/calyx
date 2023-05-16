@@ -10,19 +10,19 @@ component main() -> () {
   }
 
   wires {
-    group A<"static"=1> {
+    group A {
       a.in = 2'd0;
       a.write_en = 1'b1;
       A[done] = a.done;
     }
 
-    group B<"static"=1> {
+    group B {
       b.in = 2'd1;
       b.write_en = 1'b1;
       B[done] = b.done;
     }
 
-    group C<"static"=1> {
+    group C {
       c.in = 2'd2;
       c.write_en = 1'b1;
       C[done] = c.done;
