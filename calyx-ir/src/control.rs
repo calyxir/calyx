@@ -470,6 +470,14 @@ impl Control {
         })
     }
 
+    /// Convience constructor for enable.
+    pub fn static_enable(group: RRC<StaticGroup>) -> Self {
+        Control::Static(StaticControl::Enable(StaticEnable {
+            group,
+            attributes: Attributes::default(),
+        }))
+    }
+
     /// Convience constructor for invoke.
     pub fn invoke(comp: RRC<Cell>, inputs: PortMap, outputs: PortMap) -> Self {
         Control::Invoke(Invoke {
