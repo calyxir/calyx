@@ -179,7 +179,7 @@ impl IntoStatic for ir::Par {
 
         for stmt in self.stmts.drain(..) {
             let ir::Control::Static(sc) = stmt else {unreachable!("We have already checked that all control statements are static")};
-            latency = std::cmp::max(sc.get_latency(), sc.get_latency());
+            latency = std::cmp::max(latency, sc.get_latency());
             static_stmts.push(sc);
         }
         Some(ir::StaticPar {

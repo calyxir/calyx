@@ -42,6 +42,7 @@ fn make_guard_dyn(
     fsm_size: u64,
     builder: &mut ir::Builder,
 ) -> Box<ir::Guard<Nothing>> {
+    dbg!(fsm_size);
     match guard {
         ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
             make_guard_dyn(*l, fsm, fsm_size, builder),
@@ -59,6 +60,7 @@ fn make_guard_dyn(
         ir::Guard::True => Box::new(ir::Guard::True),
         ir::Guard::Info(static_timing) => {
             let (beg, end) = static_timing.get_interval();
+            dbg!((beg, end));
             if beg + 1 == end {
                 // if beg + 1 == end then we only need to check if fsm == beg
                 let interval_const = builder.add_constant(beg, fsm_size);
