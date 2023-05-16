@@ -1,0 +1,95 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external p = std_mem_d1(3, 1, 1);
+    incr = std_add(3);
+    l = std_lt(3);
+    r = std_reg(3);
+    l2 = std_lt(3);
+    r_cond = std_reg(1);
+    @generated fsm = std_reg(1);
+    @generated ud = undef(1);
+    @generated adder = std_add(1);
+    @generated fsm0 = std_reg(1);
+    @generated ud0 = undef(1);
+    @generated adder0 = std_add(1);
+    @generated fsm1 = std_reg(2);
+    @generated ud1 = undef(1);
+    @generated adder1 = std_add(2);
+    @generated signal_reg = std_reg(1);
+  }
+  wires {
+    group B {
+      p.write_data = 3'd0;
+      p.write_en = 1'd1;
+      p.addr0 = 1'd0;
+      B[done] = p.done;
+    }
+    group C {
+      r.in = incr.out;
+      incr.left = r.out;
+      incr.right = 3'd1;
+      r.write_en = 1'd1;
+      C[done] = r.done;
+    }
+    group early_reset_A2 {
+      l.left = p.read_data;
+      l.right = 3'd6;
+      r_cond.in = l.out;
+      r_cond.write_en = 1'd1;
+      p.addr0 = 1'd0;
+      adder0.left = fsm0.out;
+      adder0.right = 1'd1;
+      fsm0.write_en = 1'd1;
+      fsm0.in = fsm0.out != 1'd0 ? adder0.out;
+      fsm0.in = fsm0.out == 1'd0 ? 1'd0;
+      early_reset_A2[done] = ud0.out;
+    }
+    group early_reset_static_seq {
+      incr.left = fsm1.out == 2'd0 ? p.read_data;
+      incr.right = fsm1.out == 2'd0 ? 3'd1;
+      p.write_data = fsm1.out == 2'd0 ? incr.out;
+      p.write_en = fsm1.out == 2'd0 ? 1'd1;
+      p.addr0 = fsm1.out == 2'd0 ? 1'd0;
+      l.left = fsm1.out == 2'd1 ? p.read_data;
+      l.right = fsm1.out == 2'd1 ? 3'd6;
+      r_cond.in = fsm1.out == 2'd1 ? l.out;
+      r_cond.write_en = fsm1.out == 2'd1 ? 1'd1;
+      p.addr0 = fsm1.out == 2'd1 ? 1'd0;
+      adder1.left = fsm1.out;
+      adder1.right = 2'd1;
+      fsm1.write_en = 1'd1;
+      fsm1.in = fsm1.out != 2'd1 ? adder1.out;
+      fsm1.in = fsm1.out == 2'd1 ? 2'd0;
+      early_reset_static_seq[done] = ud1.out;
+    }
+    group wrapper_early_reset_A2 {
+      early_reset_A2[go] = 1'd1;
+      signal_reg.write_en = fsm0.out == 1'd0 & !signal_reg.out ? 1'd1;
+      signal_reg.in = fsm0.out == 1'd0 & !signal_reg.out ? 1'd1;
+      wrapper_early_reset_A2[done] = fsm0.out == 1'd0 & signal_reg.out ? 1'd1;
+    }
+    group while_wrapper_early_reset_static_seq {
+      early_reset_static_seq[go] = 1'd1;
+      while_wrapper_early_reset_static_seq[done] = !r_cond.out & fsm1.out == 2'd0 ? 1'd1;
+    }
+    comb group comp {
+      l2.left = r.out;
+      l2.right = 3'd3;
+    }
+    signal_reg.write_en = fsm0.out == 1'd0 & signal_reg.out ? 1'd1;
+    signal_reg.in = fsm0.out == 1'd0 & signal_reg.out ? 1'd0;
+  }
+
+  control {
+    while l2.out with comp {
+      seq {
+        B;
+        wrapper_early_reset_A2;
+        while_wrapper_early_reset_static_seq;
+        C;
+      }
+    }
+  }
+}
