@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d tdst -d post-opt -d group2invoke -d lower -b none
+// -x tdcc:dump-fsm -d tdst -d static-promotion -d static-promotion -d post-opt -d group2invoke -d lower -b none
 
 import "primitives/core.futil";
 

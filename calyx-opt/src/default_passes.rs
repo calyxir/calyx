@@ -37,9 +37,7 @@ impl PassManager {
         pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
         pm.register_pass::<StaticPromotion>()?;
-        pm.register_pass::<MergeStaticPar>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
-        pm.register_pass::<StaticParConv>()?;
         pm.register_pass::<DataPathInfer>()?;
 
         // Compilation passes
@@ -66,6 +64,8 @@ impl PassManager {
 
         // Disabled by default
         pm.register_pass::<UnrollBounded>()?;
+        pm.register_pass::<MergeStaticPar>()?;
+        pm.register_pass::<StaticParConv>()?;
         // pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GroupToInvoke>()?;
