@@ -185,7 +185,8 @@ timeout = 120
 [[tests]]
 name = "correctness static control"
 paths = [
-  "tests/correctness/static-control/*.futil"
+  "tests/correctness/static-control/*.futil",
+  "tests/correctness/group-static-promotion/*.futil"
 ]
 cmd = """
 fud exec --to jq \

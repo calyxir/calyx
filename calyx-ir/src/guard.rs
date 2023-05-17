@@ -110,6 +110,38 @@ where
     }
 }
 
+impl From<Guard<Nothing>> for Guard<StaticTiming> {
+    /// Turns a normal guard into a static guard
+    fn from(g: Guard<Nothing>) -> Self {
+        match g {
+            Guard::Or(left, right) => {
+                let l = Self::from(*left);
+                let r = Self::from(*right);
+                Guard::Or(Box::new(l), Box::new(r))
+            }
+            Guard::And(left, right) => {
+                let l = Self::from(*left);
+                let r = Self::from(*right);
+                Guard::And(Box::new(l), Box::new(r))
+            }
+            Guard::Not(c) => {
+                let inside = Self::from(*c);
+                Guard::Not(Box::new(inside))
+            }
+            Guard::True => Guard::True,
+            Guard::CompOp(pc, left, right) => Guard::CompOp(pc, left, right),
+            Guard::Port(p) => Guard::Port(p),
+            Guard::Info(_) => {
+                unreachable!(
+                    "{:?}: Guard<Nothing> should not be of the
+                info variant type",
+                    g
+                )
+            }
+        }
+    }
+}
+
 impl<T> Guard<T> {
     /// Returns true definitely `Guard::True`.
     /// Returning false does not mean that the guard is not true.

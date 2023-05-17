@@ -10,7 +10,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated comb_reg0 = std_reg(32);
   }
   wires {
-    group do_adds0<"static"=1> {
+    static<1> group do_adds0 {
       a0.left = 32'd1;
       a0.right = 32'd2;
       a1.left = 32'd3;
@@ -19,7 +19,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       comb_reg.write_en = 1'd1;
       comb_reg0.in = a1.out;
       comb_reg0.write_en = 1'd1;
-      do_adds0[done] = comb_reg.done & comb_reg0.done ? 1'd1;
     }
     comb group do_adds {
       a0.left = 32'd1;

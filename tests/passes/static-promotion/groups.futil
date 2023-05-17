@@ -1,4 +1,4 @@
-// -p well-formed -p infer-static-timing
+// -p well-formed -p static-promotion
 import "primitives/core.futil";
 
 component main(go: 1, clk: 1) -> (done: 1) {

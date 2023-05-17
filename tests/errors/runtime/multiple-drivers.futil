@@ -14,8 +14,17 @@ component main() -> () {
       r.write_en = 1'd1;
       two[done] = r.done;
     }
+    // need this group so that r is read from, so that it is 
+    // not removed in the `dead-cell-removal` pass, since we want the error 
+    // to occur.  
+    group read_r {
+      r.in = r.out; 
+      r.write_en = 1'd1; 
+      read_r[done] = r.done; 
+    }
   }
   control {
     par { one; two; }
+    read_r; 
   }
 }
