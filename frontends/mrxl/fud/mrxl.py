@@ -61,7 +61,7 @@ class MrXLStage(Stage):
 
 class MrXLDataStage(Stage):
     """
-    Stage that invokes the MrXL frontend.
+    Stage that invokes the MrXL data converter.
     """
 
     name = "mrxl-data"
