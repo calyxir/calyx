@@ -301,16 +301,17 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
     return out
 
 
-def get_output_data(decls: List[ast.Decl]):
+def get_output_data(decls: List[ast.Decl]) -> dict[str, int]:
     """
     Return a dictionary mapping the variable name of each output variable to its size
     """
-    output_data = dict()
+    output_data: dict[str, int] = {}
     for decl in decls:
         if not decl.input:
             size = decl.type.size
-            if size is None:
-                raise ValueError("Vectors cannot have size 'None'")
+            size = size if size else 1
+            # `size = None` is used to signify a register.
+            # For the present purpose, it needs to have size 1.
             output_data[decl.name] = size
     return output_data
 
@@ -319,7 +320,7 @@ def emit_data(prog: ast.Prog, data):
     """
     Return a string containing futil input for `prog`, inferred from `data`
     """
-    output_vars = get_output_data(prog.decls)  # Dict[name -> len]
+    output_vars = get_output_data(prog.decls)
     for var, size in output_vars.items():
         data[var] = [0] * size
     par_factors = compute_par_factors(prog.stmts)
