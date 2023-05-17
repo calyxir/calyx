@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fud.errors import MissingDynamicConfiguration
 
+
 class MrXLStage(Stage):
     """
     Stage that invokes the MrXL frontend.
@@ -34,7 +35,7 @@ class MrXLStage(Stage):
         Specify defaults that should be added to fud's configuration file when
         this stage is registered.
         """
-        return {"exec": "mrxl", "data": None}
+        return {"exec": "mrxl"}
 
     def _define_steps(self, input, builder, config):
         """
@@ -105,15 +106,12 @@ class MrXLDataStage(Stage):
         # the full execution pipeline is generated.
         @builder.step()
         def convert_mrxl_data_to_calyx_data(
-            data_path: SourceType.Path,
-            mrxl_prog: SourceType.Path
+            data_path: SourceType.Path, mrxl_prog: SourceType.Path
         ) -> SourceType.Stream:
             """
             Converts MrXL input into calyx input
             """
-            return shell(
-                f"{cmd} {str(mrxl_prog)} --data {data_path} --convert"
-            )
+            return shell(f"{cmd} {str(mrxl_prog)} --data {data_path} --convert")
 
         # Define a schedule using the steps.
         # A schedule *looks* like an imperative program but actually represents
@@ -121,9 +119,9 @@ class MrXLDataStage(Stage):
         if mrxl_prog is None:
             raise MissingDynamicConfiguration("mrxl.prog")
         return convert_mrxl_data_to_calyx_data(
-            input,
-            Source(Path(mrxl_prog), SourceType.Path)
+            input, Source(Path(mrxl_prog), SourceType.Path)
         )
+
 
 # Export the defined stages to fud
 __STAGES__ = [MrXLStage, MrXLDataStage]
