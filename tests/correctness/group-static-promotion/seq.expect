@@ -1,8 +1,8 @@
 {
   "cycles": 4,
   "memories": {
-    "m": [
-      4
+    "mem": [
+      2
     ]
   }
 }

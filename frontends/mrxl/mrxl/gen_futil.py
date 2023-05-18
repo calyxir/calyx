@@ -52,13 +52,19 @@ def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> s
     return group_name
 
 
-def expr_to_port(expr: ast.BaseExpr, name2arr):
-    """Maps an expression to its corresponding Calyx port."""
-    if isinstance(expr, ast.LitExpr):
-        return cb.const(32, expr.value)
-    if isinstance(expr, ast.VarExpr):
-        return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
-    raise NotImplementedError("Only literals and variables supported")
+def incr_init_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> str:
+    """
+    Creates a group that increments the index.
+    """
+    # ANCHOR: incr_init_group
+    group_name = f"init_idx_{suffix}"
+    with comp.group(group_name) as incr:
+        idx.in_ = 0
+        idx.write_en = 1
+        incr.done = idx.done
+    # ANCHOR_END: incr_init_group
+
+    return group_name
 
 
 def gen_reduce_impl(
@@ -71,15 +77,9 @@ def gen_reduce_impl(
     accumulates the values of the array into the accumulator.
     """
     idx = comp.reg(f"idx{s_idx}", 32)
-    # Initialize the accumulator to `init`.
-    init = f"init_{s_idx}"
-    init_val = stmt.init
-    assert isinstance(init_val, ast.LitExpr), "Reduce init must be a literal"
-    with comp.group(init) as group:
-        idx.in_ = init_val.value
-        idx.write_en = 1
-        group.done = idx.done
 
+    # Initialize the idx register
+    incr_init = incr_init_group(comp, idx, f"{s_idx}")
     # Increment the index register
     incr = incr_group(comp, idx, f"{s_idx}")
     # Check if we've reached the end of the loop
@@ -95,7 +95,33 @@ def gen_reduce_impl(
     [acc, x] = bind.dest
     # The source of a `reduce` must be a singly-banked array (thus the `b0`)
     # The destination of a `reduce` must be a register
-    name2arr = {acc: f"{dest}", x: f"{bind.src}_b0"}
+    name2arr = {acc: f"{dest}_reg", x: f"{bind.src}_b0"}
+    name2outwire = {acc: "out", x: "read_data"}
+
+    def expr_to_port(expr: ast.BaseExpr):
+        if isinstance(expr, ast.LitExpr):
+            return cb.const(32, expr.value)
+        elif isinstance(expr, ast.VarExpr):
+            bind = name2arr[expr.name]
+            return CompPort(CompVar(f"{bind}"), name2outwire[expr.name])
+
+    try:
+        out = comp.get_cell(f"{dest}_reg")  # The accumulator is a register
+    except Exception as exc:
+        raise TypeError(
+            "The accumulator of a `reduce` operation is expected to be a "
+            "register. Consider checking the declaration of variable "
+            f"`{dest}`."
+        ) from exc
+
+    # Initialize the accumulator to `init`.
+    init = f"init_{s_idx}"
+    init_val = stmt.init
+    assert isinstance(init_val, ast.LitExpr), "Reduce init must be a literal"
+    with comp.group(init) as group:
+        out.in_ = init_val.value
+        out.write_en = 1
+        group.done = out.done
 
     body = stmt.body
 
@@ -107,21 +133,11 @@ def gen_reduce_impl(
     else:
         op = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as ev:
-        try:
-            out = comp.get_cell(f"{dest}")  # The accumulator is a register
-        except Exception as exc:
-            raise TypeError(
-                "The accumulator of a `reduce` operation is expected to be a "
-                "register. Consider checking the declaration of variable "
-                f"`{dest}`."
-            ) from exc
-
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out
-        op.left = expr_to_port(body.lhs, name2arr)
-        op.right = expr_to_port(body.rhs, name2arr)
-        out.write_data = op.out
-        out.addr0 = cb.const(32, 0)  # Just the number 0 with width 32
+        op.left = expr_to_port(body.lhs)
+        op.right = expr_to_port(body.rhs)
+        out.in_ = op.out
         # Multipliers are sequential so we need to manipulate go/done signals
         if body.op == "mul":
             op.go = 1
@@ -132,7 +148,7 @@ def gen_reduce_impl(
 
     control = SeqComp(
         [
-            Enable(init),
+            ParComp([Enable(init), Enable(incr_init)]),
             While(
                 port=CompPort(CompVar(port), "out"),
                 cond=CompVar(cond),
@@ -187,6 +203,12 @@ def gen_map_impl(
         # Mapping from binding to arrays
         name2arr = {bind.dest[0]: f"{bind.src}_b{bank}" for bind in stmt.bind}
 
+        def expr_to_port(expr: ast.BaseExpr):
+            if isinstance(expr, ast.LitExpr):
+                return cb.const(32, expr.value)
+            elif isinstance(expr, ast.VarExpr):
+                return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
+
         if body.op == "mul":
             op = comp.cell(f"mul_{suffix}", Stdlib.op("mult_pipe", 32, signed=False))
         else:
@@ -205,8 +227,8 @@ def gen_map_impl(
             # ANCHOR_END: map_inputs
             # ANCHOR: map_op
             # Provide inputs to the op
-            op.left = expr_to_port(body.lhs, name2arr)
-            op.right = expr_to_port(body.rhs, name2arr)
+            op.left = expr_to_port(body.lhs)
+            op.right = expr_to_port(body.rhs)
             # ANCHOR_END: map_op
             # ANCHOR: map_write
             out_mem = comp.get_cell(f"{dest}_b{bank}")
@@ -291,17 +313,18 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
 
     for stmt in stmts:
         par_f = stmt.op.par
-        if isinstance(stmt.op, ast.Reduce) and par_f != 1:
+        if isinstance(stmt.op, ast.Map):
+            add_par(stmt.dest, par_f)  # The dest of a Map is a vector
+        elif par_f != 1:
             # Reduction does not support parallelism
             raise NotImplementedError("Reduction does not support parallelism")
-        add_par(stmt.dest, par_f)
         for b in stmt.op.bind:
             add_par(b.src, par_f)
 
     return out
 
 
-def get_output_data(decls: List[ast.Decl]) -> dict[str, int]:
+def get_output_data(decls: List[ast.Decl]) -> Dict[str, int]:
     """
     Return a dictionary mapping the variable name of each output variable to its size
     """
@@ -326,15 +349,40 @@ def emit_data(prog: ast.Prog, data):
     par_factors = compute_par_factors(prog.stmts)
     calyx_data = dict()
     for var, val in data.items():
-        banking_factor = par_factors[var]
-        bank_size = len(val) // banking_factor
-        for i in range(banking_factor):
-            bank = f"{var}_b{i}"
-            calyx_data[bank] = {
-                "data": val[(i * bank_size) : ((i + 1) * bank_size)],
+        banking_factor = par_factors.get(var)
+        if banking_factor:
+            bank_size = len(val) // banking_factor
+            for i in range(banking_factor):
+                bank = f"{var}_b{i}"
+                calyx_data[bank] = {
+                    "data": val[(i * bank_size) : ((i + 1) * bank_size)],
+                    "format": {"numeric_type": "bitnum", "is_signed": False, "width": 32},
+                }
+        else:
+            calyx_data[var] = {
+                "data": val,
                 "format": {"numeric_type": "bitnum", "is_signed": False, "width": 32},
             }
     json.dump(calyx_data, sys.stdout, indent=4, sort_keys=True)
+
+
+def reg_to_mem_group(
+        comp: cb.ComponentBuilder, var: str,
+        reg: cb.CellBuilder, mem: cb.CellBuilder
+) -> str:
+    """
+    Creates a group that increments the index.
+    """
+    # ANCHOR: incr_init_group
+    group_name = f"{var}_reg2arr"
+    with comp.group(group_name) as reg2arr:
+        mem.addr0 = 0
+        mem.write_data = reg.out
+        mem.write_en = 1
+        reg2arr.done = mem.done
+    # ANCHOR_END: incr_init_group
+
+    return group_name
 
 
 def emit(prog: ast.Prog):
@@ -358,6 +406,7 @@ def emit(prog: ast.Prog):
 
     # Collect memory and register declarations.
     used_names = []
+    reg_to_mem = []
     for decl in prog.decls:
         used_names.append(decl.name)
         if decl.type.size:  # A memory
@@ -376,7 +425,13 @@ def emit(prog: ast.Prog):
                 main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32, is_external=True)
             # ANCHOR_END: collect-decls
         else:  # A register
-            main.reg(decl.name, 32)
+            name = decl.name
+            mem = main.mem_d1(name, 32, 1, 32, is_external=True)
+            reg = main.reg(f"{name}_reg", 32)
+            if not decl.input:
+                reg_to_mem.append(
+                    Enable(reg_to_mem_group(main, name, reg, mem))
+                )
 
     if not arr_size:
         raise Exception("Failed to infer array size. Are there no array declarations?")
@@ -398,6 +453,9 @@ def emit(prog: ast.Prog):
     # Generate Calyx for each statement
     for i, stmt in enumerate(prog.stmts):
         control.append(gen_stmt_impl(main, stmt, arr_size, par_factor, i))
+
+    # For each output register, move the value of the register into the external array
+    control.append(ParComp(reg_to_mem))
 
     main.control = SeqComp(control)
     # Generate the Calyx program

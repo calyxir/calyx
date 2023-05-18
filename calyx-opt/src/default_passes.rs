@@ -1,13 +1,13 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileEmpty, CompileInvoke, CompileRef, CompileStatic, CompileSync,
-    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
+    AttributePromotion, Canonicalize, CellShare, ClkInsertion, CollapseControl,
+    CombProp, CompileEmpty, CompileInvoke, CompileRef, CompileStatic,
+    CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, Externalize,
     GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
-    InferStaticTiming, LowerGuards, MergeAssign, MergeStaticPar, Papercut,
-    ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
-    SimplifyStaticGuards, SimplifyWithControl, StaticInliner, StaticParConv,
+    LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
+    RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
+    SimplifyWithControl, StaticInliner, StaticParConv, StaticPromotion,
     SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
     UnrollBounded, WellFormed, WireInliner,
 };
@@ -36,9 +36,10 @@ impl PassManager {
         pm.register_pass::<GroupToSeq>()?;
         pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
-        pm.register_pass::<InferStaticTiming>()?;
-        pm.register_pass::<MergeStaticPar>()?;
+        pm.register_pass::<StaticPromotion>()?;
+        pm.register_pass::<AttributePromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
+        pm.register_pass::<MergeStaticPar>()?;
         pm.register_pass::<StaticParConv>()?;
         pm.register_pass::<DataPathInfer>()?;
 
@@ -90,10 +91,9 @@ impl PassManager {
                 CombProp,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before infer-static-timing
-                InferStaticTiming,
-                CompileInvoke,    // creates dead comb groups
-                StaticParConv, // Must be before collapse-control and merge-static-par
-                MergeStaticPar, // creates dead groups potentially
+                CompileInvoke, // creates dead comb groups
+                AttributePromotion,
+                StaticPromotion,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
             ]

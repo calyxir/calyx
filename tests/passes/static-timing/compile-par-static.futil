@@ -1,4 +1,4 @@
-// -p well-formed -p infer-static-timing -x tdst:dump-fsm -p tdst -b none
+// -p well-formed -x tdst:dump-fsm -p tdst -b none
 
 import "primitives/core.futil";
 
@@ -24,7 +24,7 @@ component main() -> () {
   }
 
   control {
-    par {
+    @static(3) par {
       C;
       A;
       B;

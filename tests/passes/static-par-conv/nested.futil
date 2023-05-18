@@ -1,4 +1,4 @@
-// -p infer-static-timing -p static-par-conv
+//  -p static-par-conv
 
 component main() -> () {
   cells {
