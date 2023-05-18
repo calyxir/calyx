@@ -49,7 +49,7 @@ Why `42`? Because we populated `avec` with:
 ```json
 {{#include ../../frontends/mrxl/test/sos.mrxl.data}}
 ```
-and $0^2 + 1^2 + 4^2 + 5^2 = 42$.
+and $$0^2 + 1^2 + 4^2 + 5^2 = 42$$.
 
 
 ## Compiling our example into Calyx
