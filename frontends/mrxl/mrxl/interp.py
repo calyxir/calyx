@@ -95,11 +95,9 @@ def interp(prog: ast.Prog, data: Env) -> Env:
     for decl in prog.decls:
         if decl.input:
             try:
-                env[decl.name] = data[decl.name]["data"]  # type: ignore
-                # The annoying `# type: ignore` is fine; that ["data"]
-                # is on its way out anyway.
+                env[decl.name] = data[decl.name]
             except KeyError as exc:
-                raise InterpError(f"Input data for `{decl.name}` not found") from exc
+                raise InterpError(f"input data for `{decl.name}` not found") from exc
 
     # Run the program.
     for stmt in prog.stmts:

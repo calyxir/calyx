@@ -1,6 +1,0 @@
-// -p infer-static-timing
-component main(@go @static(1) go: 1) -> (@done done: 1) {
-  cells {}
-  wires {}
-  control {}
-}

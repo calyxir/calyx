@@ -1,4 +1,4 @@
-// -p all -d infer-static-timing -d well-formed -d papercut -d cell-share -d group2invoke
+// -p all -d static-promotion -d well-formed -d papercut -d cell-share -d group2invoke
 import "primitives/core.futil";
 
 component main() -> () {
