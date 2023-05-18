@@ -320,7 +320,6 @@ def emit_data(prog: ast.Prog, data):
     """
     output_vars = get_output_data(prog.decls) # Dict[name -> len]
     for var, size in output_vars.items():
-        print("var, size: ", var, ", ", size)
         data[var] = [0]*size
     par_factors = compute_par_factors(prog.stmts)
     calyx_data = dict()
