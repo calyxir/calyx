@@ -1,0 +1,46 @@
+{
+    "avec_b0": {
+        "data": [
+            0,
+            1
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    },
+    "avec_b1": {
+        "data": [
+            4,
+            5
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    },
+    "squares_b0": {
+        "data": [
+            0,
+            0
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    },
+    "squares_b1": {
+        "data": [
+            0,
+            0
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    }
+}

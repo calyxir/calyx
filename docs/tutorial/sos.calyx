@@ -1,0 +1,103 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external avec_b0 = std_mem_d1(32, 4, 32);
+    @external sos = std_mem_d1(32, 1, 32);
+    sos_reg = std_reg(32);
+    squares_b0 = std_mem_d1(32, 4, 32);
+    idx_b0_0 = std_reg(32);
+    incr_b0_0 = std_add(32);
+    lt_b0_0 = std_lt(32);
+    mul_b0_0 = std_mult_pipe(32);
+    idx1 = std_reg(32);
+    incr_1 = std_add(32);
+    lt_1 = std_lt(32);
+    add_1 = std_add(32);
+  }
+  wires {
+    group sos_reg2mem {
+      sos.addr0 = 32'd0;
+      sos.write_data = sos_reg.out;
+      sos.write_en = 1'd1;
+      sos_reg2mem[done] = sos.done;
+    }
+    group incr_idx_b0_0 {
+      incr_b0_0.left = idx_b0_0.out;
+      incr_b0_0.right = 32'd1;
+      idx_b0_0.in = incr_b0_0.out;
+      idx_b0_0.write_en = 1'd1;
+      incr_idx_b0_0[done] = idx_b0_0.done;
+    }
+    comb group cond_b0_0 {
+      lt_b0_0.left = idx_b0_0.out;
+      lt_b0_0.right = 32'd4;
+    }
+    group eval_body_b0_0 {
+      avec_b0.addr0 = idx_b0_0.out;
+      mul_b0_0.left = avec_b0.read_data;
+      mul_b0_0.right = avec_b0.read_data;
+      squares_b0.addr0 = idx_b0_0.out;
+      squares_b0.write_data = mul_b0_0.out;
+      mul_b0_0.go = 1'd1;
+      squares_b0.write_en = mul_b0_0.done;
+      eval_body_b0_0[done] = squares_b0.done;
+    }
+    group init_idx_1 {
+      idx1.in = 32'd0;
+      idx1.write_en = 1'd1;
+      init_idx_1[done] = idx1.done;
+    }
+    group incr_idx_1 {
+      incr_1.left = idx1.out;
+      incr_1.right = 32'd1;
+      idx1.in = incr_1.out;
+      idx1.write_en = 1'd1;
+      incr_idx_1[done] = idx1.done;
+    }
+    comb group cond_1 {
+      lt_1.left = idx1.out;
+      lt_1.right = 32'd4;
+    }
+    group init_1 {
+      sos_reg.in = 32'd0;
+      sos_reg.write_en = 1'd1;
+      init_1[done] = sos_reg.done;
+    }
+    group reduce1 {
+      squares_b0.addr0 = idx1.out;
+      add_1.left = sos_reg.out;
+      add_1.right = squares_b0.read_data;
+      sos_reg.in = add_1.out;
+      sos_reg.write_en = 1'd1;
+      reduce1[done] = sos_reg.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        while lt_b0_0.out with cond_b0_0 {
+          seq {
+            eval_body_b0_0;
+            incr_idx_b0_0;
+          }
+        }
+      }
+      seq {
+        par {
+          init_1;
+          init_idx_1;
+        }
+        while lt_1.out with cond_1 {
+          seq {
+            reduce1;
+            incr_idx_1;
+          }
+        }
+      }
+      par {
+        sos_reg2mem;
+      }
+    }
+  }
+}
