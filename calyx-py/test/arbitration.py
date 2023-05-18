@@ -3,7 +3,7 @@ from calyx.py_ast import Stdlib, CompPort, CompVar, ParComp, Enable, If
 import calyx.builder as cb
 
 # AM:
-# Not a big deal, but it occurs to me that a nice goal for the builder library
+# It occurs to me that a nice goal for the builder library folks
 # could be to introduce enough functionality that we don't need to
 # import anything from calyx.py_ast.
 
@@ -33,8 +33,8 @@ def add_wrap(prog):
     - one output, `out`
 
     For now, assume 0 <= i < 2 and 0 <= j < 4.
-    if i = 0, then out = mem1[j]
-    if i = 1, then out = mem2[j]
+    if i == 0, then out = mem1[j]
+    if i == 1, then out = mem2[j]
     """
 
     wrap = prog.component("wrap")
@@ -48,12 +48,21 @@ def add_wrap(prog):
     add_i_eq_0(wrap)
     add_i_eq_1(wrap)
 
-    # AM: I'd like to generate these with the builder.
-    # I'm running into trouble with the `port` field, which must be a guard.
+    # AM: I'd like to generate these If statements with the builder:
+    #   _: If = cb.if_(
+    #     port=CompPort(CompVar("eq0"), "out"),
+    #     cond=wrap.get_group("i_eq_0"),
+    #     body=Enable("emit_from_mem1"),
+    #   )
+    # but I'm running into trouble with the `port` field, which must be
+    # an ExprBuilder. On digging it looks like that's an ast.GuardExpr,
+    # but I got stuck at that point.
+
     # I don't think this is a bug in the builder, but a feature:
     # the fact that I cannot do it using the builder interface
     # suggests that what I have below is actually buggy.
-    # Any help is much appreciated!
+    # I'd appreciate your help fixing the below, and then reimplementing
+    # using the builder interface.
     wrap.control = ParComp(
         [
             If(
@@ -68,7 +77,8 @@ def add_wrap(prog):
             ),
         ]
     )
-    # AM: For now I've punted on actually emitting a value from mem1/mem2.
+    # For now I've punted on actually emitting a value from mem1/mem2.
+    # Not necessarily looking for help re: that.
 
 
 def add_main(prog):
@@ -88,12 +98,13 @@ def add_main(prog):
 
     # The following is clearly a hilarious hack:
     _ = main.cell("together", CompVar("wrap()"))
-    # (I've just put the parentheses in the name of the component.)
+    # (I've just put parentheses in the name of the component.)
 
     # I think the following is what you actually want me to do:
     # _ = main.cell("together", prog.component("wrap"))
     # But _it adds a new, blank component called wrap_ to the program.
     # I'd like for it to locate the existing component `wrap`.
+    # Thoughts?
 
     # AM:
     # Maybe I'm missing something, but I think the builder library
