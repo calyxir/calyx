@@ -34,11 +34,13 @@ This short program shows off all of MrXL's features, so let's pick it apart line
 
 Let's run this program.
 
-To begin, [install the MrXL command line tool][mrxldocs-install].
-(TK: I'd kinda like to inline those instructions here, so that there is less jumping around between files.
-I want folks to just install and get back here so we can interpret together, but there's a risk that folks will just begin to follow the other guide and go all the way to Verilog there.
-Also, the MrXL tutorial has a different running example.
-Thoughts on the inline?)
+To begin, we will install the MrXL command line tool.
+1. Install the [calyx-py](../calyx-py.md) library.
+2. Install [flit][flit] (`pip install flit` or similar).
+3. Change your directory to `frontend/mrxl`.
+4. Run `flit install --symlink`.
+5. Run `fud register mrxl -p fud/mrxl.py`
+6. Run `fud check` and ensure that `fud` sees `mrxl`.
 
 Now change directories to `calyx/frontends/mrxl` and run:
 ```
@@ -375,3 +377,4 @@ We'd like to tell you a little about reduction trees.
 [impl]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_futil.py
 [reduc-trees]: http://www.cs.ucr.edu/~nael/217-f15/lectures/217-lec10.pdf
 [builder-ex]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/builder_example.py
+[flit]: https://flit.readthedocs.io/en/latest/index.html
