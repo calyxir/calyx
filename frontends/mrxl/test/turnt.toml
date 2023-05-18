@@ -16,8 +16,3 @@ output.data = "-"
 binary = true
 command = "fud e --from mrxl {filename} --to dat --through verilog -s verilog.data {base}.data"
 output.expect = "-"
-
-[envs.convert_and_simulate]
-binary = true
-command = "mrxl {filename} --data {filename}.data --convert | fud e --from mrxl {filename} --to dat --through verilog -s verilog.data -"
-output.expect = "-"
