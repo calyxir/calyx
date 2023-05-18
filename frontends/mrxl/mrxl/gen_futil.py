@@ -373,14 +373,14 @@ def reg_to_mem_group(
     """
     Creates a group that increments the index.
     """
-    # ANCHOR: incr_init_group
-    group_name = f"{var}_reg2arr"
-    with comp.group(group_name) as reg2arr:
+    # ANCHOR: reg2mem_group
+    group_name = f"{var}_reg2mem"
+    with comp.group(group_name) as reg2mem:
         mem.addr0 = 0
         mem.write_data = reg.out
         mem.write_en = 1
-        reg2arr.done = mem.done
-    # ANCHOR_END: incr_init_group
+        reg2mem.done = mem.done
+    # ANCHOR_END: reg2mem_group
 
     return group_name
 
