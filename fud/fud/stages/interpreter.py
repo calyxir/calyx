@@ -118,9 +118,9 @@ class InterpreterStage(Stage):
             """
             return TmpDir()
 
-        @builder.step(description="Dynamically retrieve the value of stages.mrxl.prog")
+        @builder.step(description="Dynamically retrieve the value of stages.verilog.data")
         def get_verilog_data() -> SourceType.Path:
-            data_path = config["stages", "verilog", "data"]
+            data_path = config.get(["stages", "verilog", "data"])
             path = Path(data_path) if data_path else None
             return Source(path, SourceType.Path)
 
