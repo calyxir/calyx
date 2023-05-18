@@ -49,6 +49,21 @@ def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> s
     return group_name
 
 
+def incr_init_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> str:
+    """
+    Creates a group that increments the index.
+    """
+    # ANCHOR: incr_init_group
+    group_name = f"init_idx_{suffix}"
+    with comp.group(group_name) as incr:
+        idx.in_ = 0
+        idx.write_en = 1
+        incr.done = idx.done
+    # ANCHOR_END: incr_init_group
+
+    return group_name
+
+
 def gen_reduce_impl(
     comp: cb.ComponentBuilder, dest: str, stmt: ast.Reduce, arr_size: int, s_idx: int
 ):
@@ -59,15 +74,9 @@ def gen_reduce_impl(
     accumulates the values of the array into the accumulator.
     """
     idx = comp.reg(f"idx{s_idx}", 32)
-    # Initialize the accumulator to `init`.
-    init = f"init_{s_idx}"
-    init_val = stmt.init
-    assert isinstance(init_val, ast.LitExpr), "Reduce init must be a literal"
-    with comp.group(init) as group:
-        idx.in_ = init_val.value
-        idx.write_en = 1
-        group.done = idx.done
 
+    # Initialize the idx register
+    incr_init = incr_init_group(comp, idx, f"{s_idx}")
     # Increment the index register
     incr = incr_group(comp, idx, f"{s_idx}")
     # Check if we've reached the end of the loop
@@ -83,7 +92,7 @@ def gen_reduce_impl(
     [acc, x] = bind.dest
     # The source of a `reduce` must be a singly-banked array (thus the `b0`)
     # The destination of a `reduce` must be a register
-    name2arr = {acc: f"{dest}", x: f"{bind.src}_b0"}
+    name2arr = {acc: f"{dest}_reg", x: f"{bind.src}_b0"}
     name2outwire = {acc: "out", x: "read_data"}
 
     def expr_to_port(expr: ast.BaseExpr):
@@ -92,6 +101,24 @@ def gen_reduce_impl(
         elif isinstance(expr, ast.VarExpr):
             bind = name2arr[expr.name]
             return CompPort(CompVar(f"{bind}"), name2outwire[expr.name])
+
+    try:
+        out = comp.get_cell(f"{dest}_reg")  # The accumulator is a register
+    except Exception as exc:
+        raise TypeError(
+            "The accumulator of a `reduce` operation is expected to be a "
+            "register. Consider checking the declaration of variable "
+            f"`{dest}`."
+        ) from exc
+
+    # Initialize the accumulator to `init`.
+    init = f"init_{s_idx}"
+    init_val = stmt.init
+    assert isinstance(init_val, ast.LitExpr), "Reduce init must be a literal"
+    with comp.group(init) as group:
+        out.in_ = init_val.value
+        out.write_en = 1
+        group.done = out.done
 
     body = stmt.body
 
@@ -103,15 +130,6 @@ def gen_reduce_impl(
     else:
         op = comp.add(f"add_{s_idx}", 32)
     with comp.group(f"reduce{s_idx}") as ev:
-        try:
-            out = comp.get_cell(f"{dest}")  # The accumulator is a register
-        except Exception as exc:
-            raise TypeError(
-                "The accumulator of a `reduce` operation is expected to be a "
-                "register. Consider checking the declaration of variable "
-                f"`{dest}`."
-            ) from exc
-
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out
         op.left = expr_to_port(body.lhs)
@@ -127,7 +145,7 @@ def gen_reduce_impl(
 
     control = SeqComp(
         [
-            Enable(init),
+            ParComp([Enable(init), Enable(incr_init)]),
             While(
                 port=CompPort(CompVar(port), "out"),
                 cond=CompVar(cond),
@@ -301,6 +319,25 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
     return out
 
 
+def reg_to_mem_group(
+        comp: cb.ComponentBuilder, var: str,
+        reg: cb.CellBuilder, mem: cb.CellBuilder
+) -> str:
+    """
+    Creates a group that increments the index.
+    """
+    # ANCHOR: incr_init_group
+    group_name = f"{var}_reg2arr"
+    with comp.group(group_name) as reg2arr:
+        mem.addr0 = 0
+        mem.write_data = reg.out
+        mem.write_en = 1
+        reg2arr.done = mem.done
+    # ANCHOR_END: incr_init_group
+
+    return group_name
+
+
 def emit(prog: ast.Prog):
     """
     Returns a string containing a Calyx program, compiled from `prog`, a MrXL
@@ -322,6 +359,7 @@ def emit(prog: ast.Prog):
 
     # Collect memory and register declarations.
     used_names = []
+    reg_to_mem = []
     for decl in prog.decls:
         used_names.append(decl.name)
         if decl.type.size:  # A memory
@@ -340,7 +378,13 @@ def emit(prog: ast.Prog):
                 main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32, is_external=True)
             # ANCHOR_END: collect-decls
         else:  # A register
-            main.reg(decl.name, 32)
+            name = decl.name
+            mem = main.mem_d1(name, 32, 1, 32, is_external=True)
+            reg = main.reg(f"{name}_reg", 32)
+            if not decl.input:
+                reg_to_mem.append(
+                    Enable(reg_to_mem_group(main, name, reg, mem))
+                )
 
     if not arr_size:
         raise Exception("Failed to infer array size. Are there no array declarations?")
@@ -362,6 +406,9 @@ def emit(prog: ast.Prog):
     # Generate Calyx for each statement
     for i, stmt in enumerate(prog.stmts):
         control.append(gen_stmt_impl(main, stmt, arr_size, par_factor, i))
+
+    # For each output register, move the value of the register into the external array
+    control.append(ParComp(reg_to_mem))
 
     main.control = SeqComp(control)
     # Generate the Calyx program
