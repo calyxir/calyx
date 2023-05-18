@@ -84,13 +84,14 @@ def gen_reduce_impl(
     # The source of a `reduce` must be a singly-banked array (thus the `b0`)
     # The destination of a `reduce` must be a register
     name2arr = {acc: f"{dest}", x: f"{bind.src}_b0"}
+    name2outwire = {acc: "out", x: "read_data"}
 
     def expr_to_port(expr: ast.BaseExpr):
         if isinstance(expr, ast.LitExpr):
             return cb.const(32, expr.value)
         elif isinstance(expr, ast.VarExpr):
             bind = name2arr[expr.name]
-            return CompPort(CompVar(f"{bind}"), "read_data")
+            return CompPort(CompVar(f"{bind}"), name2outwire[expr.name])
 
     body = stmt.body
 
@@ -115,8 +116,7 @@ def gen_reduce_impl(
         inp.addr0 = idx.out
         op.left = expr_to_port(body.lhs)
         op.right = expr_to_port(body.rhs)
-        out.write_data = op.out
-        out.addr0 = cb.const(32, 0)  # Just the number 0 with width 32
+        out.in_ = op.out
         # Multipliers are sequential so we need to manipulate go/done signals
         if body.op == "mul":
             op.go = 1
