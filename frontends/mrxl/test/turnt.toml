@@ -1,3 +1,8 @@
 [envs.interpret]
 binary = true
 command = "mrxl {filename} --data {filename}.data --interpret"
+
+[envs.gen_calyx]
+binary = true
+command = "mrxl {filename}"
+output.calyx = "-"
