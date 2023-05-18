@@ -1,0 +1,27 @@
+// -p attr-promotion
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+
+component main() -> () {
+  cells {
+    b = std_reg(2);
+  }
+
+  wires {
+    // dynamic groups simply here to demonstrate compiling static "islands"
+    // within dynamic control 
+    group B<"static"=1> {
+      b.write_en = 1'd1; 
+      b.in = 2'd1; 
+      B[done] = b.done; 
+    }
+
+  }
+
+  control {
+    seq {
+      B; 
+      B; 
+    }
+  }
+}

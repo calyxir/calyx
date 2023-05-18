@@ -228,12 +228,16 @@ component main () -> () {
                   fwd_idx_0;
                 }
               }
-              val_to_reg_0;
               if eq0.out with in_barrier {
                 seq {
                   sign_complete;
                   @sync(1);
+                  val_to_reg_0;
+                  @sync(2);
                 }
+              }
+              else {
+                val_to_reg_0;
               }
             }
           } else { seq {
@@ -251,12 +255,16 @@ component main () -> () {
                     fwd_idx_1;
                   }
                 }
-                val_to_reg_1;
                 if eq0.out with in_barrier {
                   seq {
                     sign_complete;
                     @sync(1);
+                    val_to_reg_1;
+                    @sync(2);
                   }
+                }
+                else {
+                  val_to_reg_1;
                 }
               }
             }
@@ -283,6 +291,7 @@ component main () -> () {
               add_to_out;
               signal_complete;
               @sync(1);
+              @sync(2);
             }
           }
           else {

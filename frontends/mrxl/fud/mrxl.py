@@ -9,6 +9,7 @@ from pathlib import Path
 _DATA_FILE = "data.json"
 
 
+
 class MrXLStage(Stage):
     """
     Stage that invokes the MrXL frontend.
@@ -39,7 +40,7 @@ class MrXLStage(Stage):
         Specify defaults that should be added to fud's configuration file when
         this stage is registered.
         """
-        return {"exec": "mrxl", "data": None}
+        return {"exec": "mrxl"}
 
     def _define_steps(self, input, builder, config):
         """
@@ -104,7 +105,7 @@ class MrXLStage(Stage):
 
 class MrXLDataStage(Stage):
     """
-    Stage that invokes the MrXL frontend.
+    Stage that invokes the MrXL data converter.
     """
 
     name = "mrxl-data"
@@ -152,8 +153,7 @@ class MrXLDataStage(Stage):
         
         @builder.step()
         def convert_mrxl_data_to_calyx_data(
-            data_path: SourceType.Path,
-            mrxl_prog: SourceType.Path
+            data_path: SourceType.Path, mrxl_prog: SourceType.Path
         ) -> SourceType.Stream:
             """
             Converts MrXL input into calyx input
@@ -174,6 +174,7 @@ class MrXLDataStage(Stage):
             input,
             mrxl_prog
         )
+
 
 # Export the defined stages to fud
 __STAGES__ = [MrXLStage, MrXLDataStage]

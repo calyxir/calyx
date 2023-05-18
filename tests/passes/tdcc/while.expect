@@ -1,15 +1,15 @@
 ======== main:tdcc =========
 0:
-  cond0[go] = !cond0[done] ? 1'd1;
+  wrapper_early_reset_cond0[go] = !wrapper_early_reset_cond0[done] ? 1'd1;
 1:
   do_add[go] = !do_add[done] ? 1'd1;
 2:
-  cond0[go] = !cond0[done] ? 1'd1;
+  wrapper_early_reset_cond0[go] = !wrapper_early_reset_cond0[done] ? 1'd1;
 3:
   <end>
 transitions:
-  (0, 1): cond0[done] & comb_reg.out
-  (0, 3): cond0[done] & !comb_reg.out
+  (0, 1): wrapper_early_reset_cond0[done] & comb_reg.out
+  (0, 3): wrapper_early_reset_cond0[done] & !comb_reg.out
   (1, 2): do_add[done]
-  (2, 1): cond0[done] & comb_reg.out
-  (2, 3): cond0[done] & !comb_reg.out
+  (2, 1): wrapper_early_reset_cond0[done] & comb_reg.out
+  (2, 3): wrapper_early_reset_cond0[done] & !comb_reg.out
