@@ -455,7 +455,8 @@ def emit(prog: ast.Prog):
         control.append(gen_stmt_impl(main, stmt, arr_size, par_factor, i))
 
     # For each output register, move the value of the register into the external array
-    control.append(ParComp(reg_to_mem))
+    if reg_to_mem:
+        control.append(ParComp(reg_to_mem))
 
     main.control = SeqComp(control)
     # Generate the Calyx program
