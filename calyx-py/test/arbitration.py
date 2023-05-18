@@ -2,6 +2,10 @@
 from calyx.py_ast import Stdlib, CompPort, CompVar, ParComp, Enable, If
 import calyx.builder as cb
 
+# Not a big deal, but it occurs to me that a nice goal for the builder
+# could be to introduce enough wrapping that we don't need to
+# import anything from calyx.py_ast.
+
 
 def add_i_eq_0(comp):
     """Adds wiring to check `i == 0`."""
@@ -20,7 +24,7 @@ def add_i_eq_1(comp):
 
 
 def add_wrap(prog):
-    """Inserts the wrap component into the program.
+    """Inserts the component `wrap` into the program.
 
     It has:
     - two inputs, `i` and `j`
@@ -48,6 +52,7 @@ def add_wrap(prog):
     # I don't think this is a bug in the builder, but a feature:
     # the fact that I cannot do it using the builder interface
     # suggests that what I have below is actually buggy.
+    # Any help is much appreciated!
     main.control = ParComp(
         [
             If(
@@ -62,6 +67,7 @@ def add_wrap(prog):
             ),
         ]
     )
+    # For now I've punted on actually emitting fom mem1/mem2.
 
 
 def build():
