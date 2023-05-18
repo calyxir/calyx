@@ -44,11 +44,14 @@ component main() -> () {
     A = std_mem_d1(32, 4, 32);
     B = std_mem_d1(32, 4, 32);
     together = wrap();
+    out = std_reg(32);
   }
   wires {
 
   }
   control {
     invoke together[mem1 = A, mem2 = B](i=32'd1, j=32'd3)();
+    // out.in = together.out.out
+    // or something like that
   }
 }
