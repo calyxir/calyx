@@ -196,7 +196,7 @@ We define a [combinational group][lf-comb-group] to perform the comparison `idx 
 
 ### Index increment
 
-The loop index increment is implemented using a [group][lf-group] and an `adder`:
+The loop index increment is implemented using a [group][lf-groups] and an `adder`:
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_futil.py:incr_group}}
 ```
