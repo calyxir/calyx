@@ -1,24 +1,22 @@
 # pylint: disable=import-error
+from calyx.py_ast import Stdlib, CompPort, CompVar, ParComp, Enable, If
 import calyx.builder as cb
-from calyx.py_ast import Stdlib, CompPort, CompVar
 
 
 def add_i_eq_0(comp):
     """Adds wiring to check `i == 0`."""
-    eq = comp.cell("eq0", Stdlib.op("eq", 32, signed=False))
-    with comp.group("if_guard_0") as guard0:
-        eq.left = CompPort(CompVar("i"), "out")
-        eq.right = cb.const(32, 0)
-        guard0.done = eq.out
+    eq_cell = comp.cell("eq0", Stdlib.op("eq", 32, signed=False))
+    with comp.comb_group("i_eq_0"):
+        eq_cell.left = CompVar("i").port("out")
+        eq_cell.right = cb.const(32, 0)
 
 
 def add_i_eq_1(comp):
     """Adds wiring to check `i == 1`."""
-    eq = comp.cell("eq1", Stdlib.op("eq", 32, signed=False))
-    with comp.group("if_guard_1") as guard1:
-        eq.left = CompPort(CompVar("i"), "out")
-        eq.right = cb.const(32, 1)
-        guard1.done = eq.out
+    eq_cell = comp.cell("eq1", Stdlib.op("eq", 32, signed=False))
+    with comp.comb_group("i_eq_1"):
+        eq_cell.left = CompPort(CompVar("i"), "out")
+        eq_cell.right = cb.const(32, 1)
 
 
 def add_wrap(prog):
@@ -44,6 +42,26 @@ def add_wrap(prog):
 
     add_i_eq_0(main)
     add_i_eq_1(main)
+
+    # Dream: I'd like to generate these with the builder.
+    # I'm running into trouble with the `port` field, which must be a guard.
+    # I don't think this is a bug in the builder, but a feature:
+    # the fact that I cannot do it using the builder interface
+    # suggests that what I have below is actually buggy.
+    main.control = ParComp(
+        [
+            If(
+                port=CompPort(CompVar("eq0"), "out"),
+                cond=CompVar("i_eq_0"),
+                true_branch=Enable("emit_from_mem1"),
+            ),
+            If(
+                port=CompPort(CompVar("eq1"), "out"),
+                cond=CompVar("i_eq_1"),
+                true_branch=Enable("emit_from_mem2"),
+            ),
+        ]
+    )
 
 
 def build():
