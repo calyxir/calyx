@@ -17,7 +17,7 @@ component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 
       r.in = 32'd1;
       write[done] = r.done;
     }
-    group find_index0<"static"=1> {
+    static<1> group find_index0 {
       e0.left = in;
       e0.right = 32'd1;
       e1.left = in;
@@ -34,7 +34,6 @@ component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 
       comb_reg1.write_en = 1'd1;
       comb_reg2.in = e3.out;
       comb_reg2.write_en = 1'd1;
-      find_index0[done] = comb_reg.done & comb_reg0.done & comb_reg1.done & comb_reg2.done ? 1'd1;
     }
     comb group find_index {
       e0.left = in;

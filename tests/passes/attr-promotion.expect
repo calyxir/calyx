@@ -1,0 +1,20 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    b = std_reg(2);
+  }
+  wires {
+    static<1> group B0 {
+      b.write_en = 1'd1;
+      b.in = 2'd1;
+    }
+  }
+
+  control {
+    seq {
+      B0;
+      B0;
+    }
+  }
+}
