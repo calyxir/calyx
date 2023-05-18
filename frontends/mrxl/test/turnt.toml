@@ -1,0 +1,3 @@
+[envs.interpret]
+binary = true
+command = "mrxl {filename} --data {filename}.data --interpret"
