@@ -1,0 +1,18 @@
+[envs.interpret]
+binary = true
+command = "mrxl {filename} --data {filename}.data --interpret"
+
+[envs.gen_calyx]
+binary = true
+command = "mrxl {filename}"
+output.calyx = "-"
+
+[envs.convert_data]
+binary = true
+command = "mrxl {filename} --data {filename}.data --convert"
+output.data = "-"
+
+[envs.simulate]
+binary = true
+command = "fud e --from mrxl {filename} --to dat --through verilog -s verilog.data {base}.data"
+output.expect = "-"
