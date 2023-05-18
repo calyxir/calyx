@@ -72,19 +72,17 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       i0.in = add0.out;
       upd7[done] = i0.done;
     }
-    group cond00<"static"=1> {
+    static<1> group cond00 {
       le0.left = i0.out;
       le0.right = 6'd31;
       comb_reg.in = le0.out;
       comb_reg.write_en = 1'd1;
-      cond00[done] = comb_reg.done ? 1'd1;
     }
-    group cond10<"static"=1> {
+    static<1> group cond10 {
       le0.left = i0.out;
       le0.right = 6'd31;
       comb_reg.in = le0.out;
       comb_reg.write_en = 1'd1;
-      cond10[done] = comb_reg.done ? 1'd1;
     }
     comb group cond0 {
       le0.left = i0.out;
