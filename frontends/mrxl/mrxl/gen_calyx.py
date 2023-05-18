@@ -107,8 +107,8 @@ def gen_reduce_impl(
         if isinstance(expr, ast.LitExpr):
             return cb.const(32, expr.value)
         if isinstance(expr, ast.VarExpr):
-            bind = name2arr[expr.name]
-            return CompPort(CompVar(f"{bind}"), name2outwire[expr.name])
+            return CompPort(CompVar(name2arr[expr.name]), name2outwire[expr.name])
+        raise CompileError(f"Unhandled expression: {type(expr)}")
 
     try:
         out = comp.get_cell(f"{dest}_reg")  # The accumulator is a register
@@ -209,12 +209,11 @@ def gen_map_impl(
         name2arr = {bind.dst[0]: f"{bind.src}_b{bank}" for bind in stmt.binds}
 
         def expr_to_port(expr: ast.BaseExpr):
-            # pylint: disable=cell-var-from-loop
-            # This has been fixed in another branch; will be merged soon.
             if isinstance(expr, ast.LitExpr):
                 return cb.const(32, expr.value)
             if isinstance(expr, ast.VarExpr):
                 return CompPort(CompVar(name2arr[expr.name]), "read_data")
+            raise CompileError(f"Unhandled expression: {type(expr)}")
 
         if body.operation == "mul":
             operation = comp.cell(
