@@ -36,16 +36,16 @@ def add_wrap(prog):
     if i = 1, then out = mem2[j]
     """
 
-    main = prog.component("wrap")
-    main.input("i", 32)
-    main.input("j", 32)
-    main.output("out", 32)
+    wrap = prog.component("wrap")
+    wrap.input("i", 32)
+    wrap.input("j", 32)
+    wrap.output("out", 32)
 
-    _ = main.mem_d1("mem1", 32, 4, 32, is_ref=True)
-    _ = main.mem_d1("mem2", 32, 4, 32, is_ref=True)
+    _ = wrap.mem_d1("mem1", 32, 4, 32, is_ref=True)
+    _ = wrap.mem_d1("mem2", 32, 4, 32, is_ref=True)
 
-    add_i_eq_0(main)
-    add_i_eq_1(main)
+    add_i_eq_0(wrap)
+    add_i_eq_1(wrap)
 
     # Dream: I'd like to generate these with the builder.
     # I'm running into trouble with the `port` field, which must be a guard.
@@ -53,7 +53,7 @@ def add_wrap(prog):
     # the fact that I cannot do it using the builder interface
     # suggests that what I have below is actually buggy.
     # Any help is much appreciated!
-    main.control = ParComp(
+    wrap.control = ParComp(
         [
             If(
                 port=CompPort(CompVar("eq0"), "out"),
@@ -73,6 +73,7 @@ def add_wrap(prog):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
+    main = prog.component("main")
     add_wrap(prog)
     return prog.program
 
