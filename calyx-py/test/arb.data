@@ -25,7 +25,17 @@
       "width": 32
     }
   },
-  "out": {
+  "out2": {
+    "data": [
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out3": {
     "data": [
       0
     ],
