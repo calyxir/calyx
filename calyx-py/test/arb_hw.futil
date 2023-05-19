@@ -43,7 +43,7 @@ component wrap(i: 32, j: 32) -> () {
   }
 
   control {
-    // Orchestra the above straightforwardly.
+    // Orchestrate the above straightforwardly.
     par {
       if eq0.out with i_eq_0 {
         emit_from_mem1;
