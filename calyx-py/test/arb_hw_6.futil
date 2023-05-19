@@ -129,18 +129,32 @@ component wrap3(i: 32, j: 32) -> () {
       }
       par {
         // Based on the value of `i`, we can dispatch to the correct
-        // "set" of two memories.
+        // "set" of two memories. Then, disambiguating between the two
+        // memories in a "set" is not hard: we can reuse the value of
+        // lt.out, which records whether `j < 4` or not.
         if eq0.out with i_eq_0 {
-          // We know the answer will come from either mem1 or mem2
-          emit_from_mem1; // or 2
+          // We know the answer will come from either mem1 or mem2.
+          if lt.out {
+            emit_from_mem1;
+          } else {
+            emit_from_mem2;
+          }
         }
         if eq1.out with i_eq_1 {
-          // We know the answer will come from either mem3 or mem4
-          emit_from_mem3; // or 4
+          // We know the answer will come from either mem3 or mem4.
+          if lt.out {
+            emit_from_mem3;
+          } else {
+            emit_from_mem4;
+          }
         }
         if eq1.out with i_eq_1 {
-          // We know the answer will come from either mem5 or mem6
-          emit_from_mem5; // or 6
+          // We know the answer will come from either mem5 or mem6.
+          if lt.out {
+            emit_from_mem5;
+          } else {
+            emit_from_mem6;
+          }
         }
       }
     }
