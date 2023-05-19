@@ -164,10 +164,16 @@ component wrap3(i: 32, j: 32) -> () {
 component main() -> () {
 
   cells {
-    // The three memories that will be driven by the `.data` file,
+    // The six memories that will be driven by the `.data` file,
     // and which we will pass by reference to component wrap.
     @external A = std_mem_d1(32, 4, 32);
     @external B = std_mem_d1(32, 4, 32);
+    @external C = std_mem_d1(32, 4, 32);
+    @external D = std_mem_d1(32, 4, 32);
+    @external E = std_mem_d1(32, 4, 32);
+    @external F = std_mem_d1(32, 4, 32);
+
+    // We will pass this to `wrap` for it to store the answer in.
     @external out = std_mem_d1(32, 1, 32);
 
     // Just some shorthand to query the arrays with.
@@ -177,7 +183,7 @@ component main() -> () {
     three = std_const(32, 3);
 
     // Preparing to `invoke` component wrap.
-    together = wrap();
+    together = wrap3();
 
   }
 
@@ -186,7 +192,7 @@ component main() -> () {
 
   control {
     seq {
-      invoke together[mem1=A, mem2=B, ans=out](i=zero.out, j=two.out)();
+      invoke together[mem1=A, mem2=B, mem3=C, mem4=D, mem5=E, mem6=F, ans=out](i=zero.out, j=two.out)();
     }
   }
 }
