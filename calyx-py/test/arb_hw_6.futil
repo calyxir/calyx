@@ -79,7 +79,7 @@ component wrap2(i: 32, j: 32) -> () {
       sub.right = 32'd8;
       j_mod_4.write_en = 1'b1;
       j_mod_4.in = sub.out;
-      j_less_4[done] = j_mod_4.done;
+      j_less_8[done] = j_mod_4.done;
     }
     // if j > 11, the user has failed the top-level spec anyway.
 
