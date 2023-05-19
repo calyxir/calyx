@@ -12,7 +12,8 @@ def add_i_eq_0(comp):
     """Adds wiring to check `i == 0`."""
     eq_cell = comp.cell("eq0", Stdlib.op("eq", 32, signed=False))
     with comp.comb_group("i_eq_0"):
-        eq_cell.left = CompVar("i").port("out")
+        eq_cell.left = CompPort(CompVar("i"), "out")
+        # AM: this is wrong. It renders "i.out" but I just want the port "i".
         eq_cell.right = cb.const(32, 0)
 
 
@@ -21,6 +22,7 @@ def add_i_eq_1(comp):
     eq_cell = comp.cell("eq1", Stdlib.op("eq", 32, signed=False))
     with comp.comb_group("i_eq_1"):
         eq_cell.left = CompPort(CompVar("i"), "out")
+        # AM: this is wrong. It renders "i.out" but I just want the port "i".
         eq_cell.right = cb.const(32, 1)
 
 
@@ -40,15 +42,15 @@ def add_wrap(prog):
     wrap = prog.component("wrap")
     wrap.input("i", 32)
     wrap.input("j", 32)
-    wrap.output("out", 32)
 
     _ = wrap.mem_d1("mem1", 32, 4, 32, is_ref=True)
     _ = wrap.mem_d1("mem2", 32, 4, 32, is_ref=True)
+    _ = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
 
     add_i_eq_0(wrap)
     add_i_eq_1(wrap)
 
-    # AM: I'd like to generate these If statements with the builder:
+    # AM: I'd like to generate these if statements with the builder:
     #   _: If = cb.if_(
     #     port=CompPort(CompVar("eq0"), "out"),
     #     cond=wrap.get_group("i_eq_0"),
@@ -57,12 +59,6 @@ def add_wrap(prog):
     # but I'm running into trouble with the `port` field, which must be
     # an ExprBuilder. On digging it looks like that's an ast.GuardExpr,
     # but I got stuck at that point.
-
-    # I don't think this is a bug in the builder, but a feature:
-    # the fact that I cannot do it using the builder interface
-    # suggests that what I have below is actually buggy.
-    # I'd appreciate your help fixing the below, and then reimplementing
-    # using the builder interface.
     wrap.control = ParComp(
         [
             If(
@@ -89,8 +85,9 @@ def add_main(prog):
     along with the inputs i = 1, j = 3.
     """
     main = prog.component("main")
-    _ = main.mem_d1("A", 32, 4, 32)
-    _ = main.mem_d1("B", 32, 4, 32)
+    _ = main.mem_d1("A", 32, 4, 32, is_external=True)
+    _ = main.mem_d1("B", 32, 4, 32, is_external=True)
+    _ = main.mem_d1("out", 32, 1, 32, is_external=True)
 
     # AM:
     # I'd like to add the following to the `cells` section:
@@ -108,7 +105,7 @@ def add_main(prog):
 
     # AM:
     # Maybe I'm missing something, but I think the builder library
-    # is only targetting a subset of the `invoke` functionality.
+    # is only targeting a subset of the `invoke` functionality.
     #   class Invoke(Control):
     #     id: CompVar
     #     in_connects: List[Tuple[str, Port]]
