@@ -1,9 +1,9 @@
 import "primitives/core.futil";
 component wrap(i: 32, j: 32) -> () {
   // i and j are ports, passed "by value" by the invoker.
-  
+
   cells {
-	    
+
     // The three items below are memories, passed "by reference" by the invoker.
     ref mem1 = std_mem_d1(32, 4, 32);
     ref mem2 = std_mem_d1(32, 4, 32);
@@ -14,7 +14,7 @@ component wrap(i: 32, j: 32) -> () {
     eq1 = std_eq(32);
 
   }
-  
+
   wires {
     comb group i_eq_0 {
       // Wiring to check if `i==0`.
@@ -41,7 +41,7 @@ component wrap(i: 32, j: 32) -> () {
       emit_from_mem2[done] = ans.done;
     }
   }
-  
+
   control {
     // Orchestra the above straightforwardly.
     par {
@@ -51,24 +51,18 @@ component wrap(i: 32, j: 32) -> () {
       if eq1.out with i_eq_1 {
         emit_from_mem2;
       }
-    } 
+    }
   }
 }
 
 component main() -> () {
-  
+
   cells {
-    // The three memories that will be driven by the `.data` file, 
+    // The three memories that will be driven by the `.data` file,
     // and which we will pass by reference to component wrap.
     @external A = std_mem_d1(32, 4, 32);
     @external B = std_mem_d1(32, 4, 32);
     @external out = std_mem_d1(32, 1, 32);
-    
-    // Just some shorthand to query the arrays with.
-    zero = std_const(32, 0);
-    one = std_const(32, 1);
-    two = std_const(32, 2);
-    three = std_const(32, 3);
 
     // Preparing to `invoke` component wrap.
     together = wrap();
@@ -80,7 +74,7 @@ component main() -> () {
 
   control {
     seq {
-      invoke together[mem1=A, mem2=B, ans=out](i=zero.out, j=two.out)();
+      invoke together[mem1=A, mem2=B, ans=out](i=32'd0, j=32'd2)();
     }
   }
 }
