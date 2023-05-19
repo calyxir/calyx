@@ -2,48 +2,32 @@
 from calyx.py_ast import Stdlib, CompPort, CompVar, ParComp, Enable, If
 import calyx.builder as cb
 
-# AM:
+# AM, quality of life:
 # It occurs to me that a nice goal for the builder library folks
 # could be to introduce enough functionality that we don't need to
 # import anything from calyx.py_ast.
 
 
-def add_i_eq_0(comp):
-    """Adds wiring to check `i == 0`."""
-    eq_cell = comp.cell("eq0", Stdlib.op("eq", 32, signed=False))
-    with comp.comb_group("i_eq_0"):
-        eq_cell.left = CompPort(CompVar("i"), "out")
-        # AM: this is wrong. It renders "i.out" but I just want the port "i".
-        # The same issue occurs four times, so I'm just flagging this one.
-        # Whenever the generated futil has {i or j}.out, I actually just want {i or j}.
-        eq_cell.right = cb.const(32, 0)
+def add_eq(comp, port_name, const, cellname, groupname):
+    """Adds wiring to check `port_name == const`,
+    where `port_name` is a port and `const` is an integer constant."""
+    eq_cell = comp.cell(cellname, Stdlib.op("eq", 32, signed=False))
+    with comp.comb_group(groupname):
+        eq_cell.left = CompPort(CompVar(port_name), "out")
+        # AM, point of failure:
+        # This is wrong. It renders "{port_name}.out" but I want "{port_name}".
+        # The same issue occurs repeatedly, so I'm just flagging this one.
+        # Whenever the generated futil has {i/j}.out, I actually just want {i/j}.
+        eq_cell.right = cb.const(32, const)
 
 
-def add_i_eq_1(comp):
-    """Adds wiring to check `i == 1`."""
-    eq_cell = comp.cell("eq1", Stdlib.op("eq", 32, signed=False))
-    with comp.comb_group("i_eq_1"):
-        eq_cell.left = CompPort(CompVar("i"), "out")
-        # AM: this is wrong. It renders "i.out" but I just want the port "i".
-        eq_cell.right = cb.const(32, 1)
-
-
-def add_emit_from_mem1(comp, mem, ans):
-    """Adds wiring that emits mem1[j]."""
-    with comp.group("emit_from_mem1") as emit_from_mem1:
-        mem.addr0 = CompPort(CompVar("j"), "out")
+def add_emit_from_mem(comp, mem, ans, suffix):
+    """Adds wiring that puts mem{suffix}[j] into ans."""
+    with comp.group(f"emit_from_mem{suffix}") as emit_from_mem:
+        mem.addr0 = CompPort(CompVar("j"), "out")  # AM: want j, not j.out
         ans.write_en = 1
         ans.write_data = mem.read_data
-        emit_from_mem1.done = ans.done
-
-
-def add_emit_from_mem2(comp, mem, ans):
-    """Adds wiring that emits mem1[j]."""
-    with comp.group("emit_from_mem2") as emit_from_mem1:
-        mem.addr0 = CompPort(CompVar("j"), "out")
-        ans.write_en = 1
-        ans.write_data = mem.read_data
-        emit_from_mem1.done = ans.done
+        emit_from_mem.done = ans.done
 
 
 def add_wrap(prog):
@@ -67,19 +51,21 @@ def add_wrap(prog):
     mem2 = wrap.mem_d1("mem2", 32, 4, 32, is_ref=True)
     ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
 
-    add_i_eq_0(wrap)
-    add_i_eq_1(wrap)
-    add_emit_from_mem1(wrap, mem1, ans)
-    add_emit_from_mem2(wrap, mem2, ans)
+    add_eq(wrap, "i", 0, "eq0", "i_eq_0")
+    add_eq(wrap, "i", 1, "eq1", "i_eq_1")
+    add_emit_from_mem(wrap, mem1, ans, "1")
+    add_emit_from_mem(wrap, mem2, ans, "2")
 
-    # AM: I'd like to generate these if statements with the builder:
+    # AM, quality of life:
+    # I'd like to generate these `if` statements with the builder.
+    # I tried:
     #   _: If = cb.if_(
     #     port=CompPort(CompVar("eq0"), "out"),
     #     cond=wrap.get_group("i_eq_0"),
     #     body=Enable("emit_from_mem1"),
     #   )
     # but I'm running into trouble with the `port` field, which must be
-    # an ExprBuilder. On digging it looks like that's an ast.GuardExpr,
+    # an ExprBuilder. On digging it looks like that's an GuardExpr in the AST,
     # but I got stuck at that point.
     wrap.control = ParComp(
         [
@@ -95,8 +81,6 @@ def add_wrap(prog):
             ),
         ]
     )
-    # For now I've punted on actually emitting a value from mem1/mem2.
-    # Not necessarily looking for help re: that.
 
 
 def add_main(prog):
@@ -111,7 +95,7 @@ def add_main(prog):
     _ = main.mem_d1("B", 32, 4, 32, is_external=True)
     _ = main.mem_d1("out", 32, 1, 32, is_external=True)
 
-    # AM:
+    # AM, point of failure (but a stupid hack has worked):
     # I'd like to add the following to the `cells` section:
     # together = wrap();
 
@@ -125,7 +109,7 @@ def add_main(prog):
     # I'd like for it to locate the existing component `wrap`.
     # Thoughts?
 
-    # AM:
+    # AM, point of failure:
     # Maybe I'm missing something, but I think the builder library
     # is only targeting a subset of the `invoke` functionality.
     #   class Invoke(Control):
