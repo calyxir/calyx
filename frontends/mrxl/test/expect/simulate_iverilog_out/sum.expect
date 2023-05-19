@@ -1,0 +1,28 @@
+{
+  "cycles": 102,
+  "memories": {
+    "avec_b0": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "out": [
+      136
+    ]
+  }
+}
+---STDERR---
+⠋ mrxl.mktmp⠙ mrxl.mktmp⠹ mrxl.mrxl-data.convert_mrxl_data_to_calyx_data⠸ mrxl.run_mrxl⠼ mrxl.run_mrxl⠴ icarus-verilog.compile_with_iverilog

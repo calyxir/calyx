@@ -1,0 +1,25 @@
+{
+    "avec_b0": {
+        "data": [
+            0,
+            1,
+            4,
+            5
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    },
+    "sos": {
+        "data": [
+            0
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    }
+}

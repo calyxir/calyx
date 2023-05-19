@@ -1,6 +1,5 @@
 {
-  "cycles": 102,
-  "memories": {
+  "main": {
     "avec_b0": [
       1,
       2,
@@ -24,3 +23,5 @@
     ]
   }
 }
+---STDERR---
+⠋ mrxl.mktmp⠙ mrxl.mktmp⠹ mrxl.mrxl-data.convert_mrxl_data_to_calyx_data⠸ mrxl.run_mrxl⠼ mrxl.run_mrxl⠴ interpreter.interpret

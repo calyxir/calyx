@@ -1,0 +1,15 @@
+{
+  "main": {
+    "avec_b0": [
+      0,
+      1,
+      4,
+      5
+    ],
+    "sos": [
+      42
+    ]
+  }
+}
+---STDERR---
+⠋ mrxl.mktmp⠙ mrxl.mktmp⠹ mrxl.mrxl-data.convert_mrxl_data_to_calyx_data⠸ transform⠼ mrxl.run_mrxl⠴ futil.run_futil

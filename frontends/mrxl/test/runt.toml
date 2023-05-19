@@ -1,0 +1,38 @@
+ver = "0.4.0"
+
+[[tests]]
+name = "interpret"
+paths = [ "./*.mrxl" ]
+cmd = "mrxl {} --data {}.data --interpret"
+expect_dir = "expect/interpret_out/"
+
+[[tests]]
+name = "gen_futil"
+paths = [ "./*.mrxl" ]
+cmd = "mrxl {}"
+expect_dir = "expect/futil_out/"
+
+[[tests]]
+name = "convert_data"
+paths = [ "./*.mrxl" ]
+cmd = "mrxl {} --data {}.data --convert"
+expect_dir = "expect/data_out/"
+
+[[tests]]
+name = "simulate_interp"
+paths = [ "./*.mrxl" ]
+cmd = "fud e --from mrxl {} --to interpreter-out -s mrxl.data {}.data"
+expect_dir = "expect/simulate_interp_out/"
+
+[[tests]]
+name = "simulate_iverilog"
+paths = [ "./*.mrxl" ]
+cmd = "fud e --from mrxl {} --to dat --through icarus-verilog -s mrxl.data {}.data"
+expect_dir = "expect/simulate_iverilog_out/"
+
+[[tests]]
+name = "simulate_verilog"
+paths = [ "./*.mrxl" ]
+cmd = "fud e --from mrxl {} --to dat --through verilog -s mrxl.data {}.data"
+expect_dir = "expect/simulate_verilog_out/"
+
