@@ -15,18 +15,43 @@ expect_dir = "expect/futil_out/"
 [[tests]]
 name = "simulate_interp"
 paths = [ "./*.mrxl" ]
-cmd = "fud e --from mrxl {} --to interpreter-out -s mrxl.data {}.data -q"
-expect_dir = "expect/simulate_interp_out/"
+cmd = """
+fud e --from mrxl {} \
+      --to jq \
+      --through interpreter-out \
+      -s mrxl.data {}.data \
+      -s jq.expr ".main" \
+      -s jq.flags "--sort-keys " \
+      -q
+"""
+expect_dir = "expect/simulate_out/"
 
 [[tests]]
 name = "simulate_iverilog"
 paths = [ "./*.mrxl" ]
-cmd = "fud e --from mrxl {} --to dat --through icarus-verilog -s mrxl.data {}.data -q"
-expect_dir = "expect/simulate_iverilog_out/"
+cmd = """
+fud e --from mrxl {} \
+      --to jq \
+      --through icarus-verilog \
+      --through dat \
+      -s mrxl.data {}.data \
+      -s jq.expr ".memories" \
+      -q
+"""
+expect_dir = "expect/simulate_out/"
 
 [[tests]]
 name = "simulate_verilog"
 paths = [ "./*.mrxl" ]
-cmd = "fud e --from mrxl {} --to dat --through verilog -s mrxl.data {}.data -q"
-expect_dir = "expect/simulate_verilog_out/"
+cmd = """
+fud e --from mrxl {} \
+      --to jq \
+      --through verilog \
+      --through dat \
+      -s mrxl.data {}.data \
+      -s jq.expr ".memories" \
+      -q
+"""
+expect_dir = "expect/simulate_out/"
+
 
