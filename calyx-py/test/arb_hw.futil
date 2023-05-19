@@ -42,14 +42,22 @@ component main() -> () {
     A = std_mem_d1(32, 4, 32);
     B = std_mem_d1(32, 4, 32);
     together = wrap();
-    out = std_reg(32);
+    @external out = std_reg(32);
   }
   wires {
-
+  //  group init_out {
+  //    out.write_en = 1'd1;
+  //    init_out[done] = out.done;
+  //  }
+  //  group done_out {
+  //    out.done = 1'd1;
+  //  }
   }
   control {
-    invoke together[mem1 = A, mem2 = B](i=32'd1, j=32'd3)();
-    // out.in = together.out.out
-    // or something like that
+    seq {
+    //  init_out;
+      invoke together[mem1 = A, mem2 = B](i=32'd1, j=32'd3)(out=out.in);
+    //  done_out;
+    }
   }
 }
