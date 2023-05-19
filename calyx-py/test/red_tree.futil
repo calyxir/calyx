@@ -11,16 +11,16 @@ component tree() -> () {
 
   cells {
     // The invoker will pass, by reference, the values of the four leaves.
-    ref leaf1 = std_mem_d1(32, 1, 32);
-    ref leaf2 = std_mem_d1(32, 1, 32);
-    ref leaf3 = std_mem_d1(32, 1, 32);
-    ref leaf4 = std_mem_d1(32, 1, 32);
+    ref leaf1 = std_reg(32);
+    ref leaf2 = std_reg(32);
+    ref leaf3 = std_reg(32);
+    ref leaf4 = std_reg(32);
 
     // An additional memory is passed "by reference" to hold the result.
     // Tellingly, we name this memory `root`.
-    ref root = std_mem_d1(32, 1, 32);
-    left_node = std_mem_d1(32, 1, 32);
-    right_node = std_mem_d1(32, 1, 32);
+    ref root = std_reg(32);
+    left_node = std_reg(32);
+    right_node = std_reg(32);
 
     add1 = std_add(32);
     add2 = std_add(32);
@@ -75,12 +75,14 @@ component main() -> () {
     @external D = std_mem_d1(32, 4, 32);
 
     // We will store the final answer here.
+    // I'm using a memory of size 1 and not a reg because
+    // IDK how to drive a reg in the data file.
     @external sum = std_mem_d1(32, 1, 32);
 
-    sum_col1 = std_mem_d1(32, 1, 32);
-    sum_col2 = std_mem_d1(32, 1, 32);
-    sum_col3 = std_mem_d1(32, 1, 32);
-    sum_col4 = std_mem_d1(32, 1, 32);
+    sum_col1 = std_reg(32);
+    sum_col2 = std_reg(32);
+    sum_col3 = std_reg(32);
+    sum_col4 = std_reg(32);
 
     // Preparing to invoke the `tree` component.
     tree1 = tree();
