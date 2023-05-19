@@ -29,26 +29,26 @@ component tree() -> () {
   wires {
     group add_l1_l2 {
       // Adds leaf1 and leaf2, then puts the result in left_node.
-      add1.left = leaf1.read_data;
-      add1.right = leaf2.read_data;
+      add1.left = leaf1.out;
+      add1.right = leaf2.out;
       left_node.write_en = 1'b1;
-      left_node.write_data = add1.out;
+      left_node.in = add1.out;
       add_l1_l2[done] = left_node.done;
     }
     group add_l3_l4 {
       // Adds leaf3 and leaf4, then puts the result in left_node.
-      add2.left = leaf3.read_data;
-      add2.right = leaf4.read_data;
+      add2.left = leaf3.out;
+      add2.right = leaf4.out;
       right_node.write_en = 1'b1;
-      right_node.write_data = add2.out;
+      right_node.in = add2.out;
       add_l3_l4[done] = right_node.done;
     }
     group add_left_right_node {
       // Adds left_node and right_node, then puts the result in root.
-      add1.left = left_node.read_data;
-      add1.right = right_node.read_data;
+      add1.left = left_node.out;
+      add1.right = right_node.out;
       root.write_en = 1'b1;
-      root.write_data = add1.out;
+      root.in = add1.out;
       add_left_right_node[done] = root.done;
     }
   }
@@ -57,10 +57,10 @@ component tree() -> () {
     // Orchestrate the above straightforwardly.
     seq {
       par {
-        add_l1_l2();
-        add_l3_l4();
+        add_l1_l2;
+        add_l3_l4;
       }
-      add_left_right_node();
+      add_left_right_node;
     }
   }
 }
