@@ -1,17 +1,35 @@
 import "primitives/core.futil";
-component wrap(i: 32, j: 32) -> () {
+component wrap3(i: 32, j: 32) -> () {
   // i and j are ports, passed "by value" by the invoker.
+
+  // The invoker wants to pass six memories of size 4 each, but then
+  // pretend that there are actually _three_ memories of size _8_ each.
+  // The invoker wants to index the memories while living in this fiction.
+  // Accordingly, we assume that
+  // 0 <= i < 3
+  // 0 <= j < 8
 
   cells {
 
-    // The three items below are memories, passed "by reference" by the invoker.
+    // The six memories below are passed "by reference" by the invoker.
     ref mem1 = std_mem_d1(32, 4, 32);
     ref mem2 = std_mem_d1(32, 4, 32);
+    ref mem3 = std_mem_d1(32, 4, 32);
+    ref mem4 = std_mem_d1(32, 4, 32);
+    ref mem5 = std_mem_d1(32, 4, 32);
+    ref mem6 = std_mem_d1(32, 4, 32);
+
+    // An additional memory is passed "by reference" hold the result.
     ref ans = std_mem_d1(32, 1, 32);
 
-    // Two eq-checking cells.
+    // We will shortly need j % 4, so we create a register to hold it.
+    j_mod_4 = std_reg(32);
+
     eq0 = std_eq(32);
     eq1 = std_eq(32);
+    eq2 = std_eq(32);
+    lt = std_lt(32);
+    sub = std_sub(32);
 
   }
 
@@ -26,30 +44,104 @@ component wrap(i: 32, j: 32) -> () {
       eq1.left = i;
       eq1.right = 32'd1;
     }
+    comb group i_eq_2 {
+      // Wiring to check if `i==2`.
+      eq2.left = i;
+      eq2.right = 32'd2;
+    }
+
+    // Wiring to compute `j_mod_4 === j % 4`.
+    // These will be orchestrated in the control section as follows:
+    // if
+    comb group j_lt_4 {
+      lt.left = j;
+      lt.right = 32'd4;
+      j_lt_4[done] = lt.done;
+    }
+    // then
+    comb group j_unchanged {
+      j_mod_4.write_en = 1'd1;
+      j_mod_4.in = j;
+      j_unchanged[done] = j_mod_4.done;
+    }
+    // else
+    comb group j_less_4 {
+      sub.left = j
+      sub.right = 32'd4;
+      j_mod_4.write_en = 1'd1;
+      j_mod_4.in = sub.out;
+      j_unchanged[done] = j_mod_4.done;
+    }
+    // if j > 7, the user has failed the top-level spec anyway.
+
     group emit_from_mem1 {
-      // Wiring to put `mem1[j]` into `ans`.
-      mem1.addr0 = j;
+      // Wiring to put `mem1[j_mod_4]` into `ans`.
+      mem1.addr0 = j_mod_4.out;
       ans.write_en = 1'd1;
       ans.write_data = mem1.read_data;
       emit_from_mem1[done] = ans.done;
     }
     group emit_from_mem2 {
-      // Wiring to put `mem2[j] into `ans`.
-      mem2.addr0 = j;
+      // Wiring to put `mem2[j_mod_4] into `ans`.
+      mem2.addr0 = j_mod_4.out;
       ans.write_en = 1'd1;
       ans.write_data = mem2.read_data;
       emit_from_mem2[done] = ans.done;
     }
+    group emit_from_mem3 {
+      // Wiring to put `mem3[j_mod_4] into `ans`.
+      mem3.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem3.read_data;
+      emit_from_mem3[done] = ans.done;
+    }
+    group emit_from_mem4 {
+      // Wiring to put `mem4[j_mod_4] into `ans`.
+      mem4.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem4.read_data;
+      emit_from_mem4[done] = ans.done;
+    }
+    group emit_from_mem5 {
+      // Wiring to put `mem5[j_mod_4] into `ans`.
+      mem5.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem5.read_data;
+      emit_from_mem5[done] = ans.done;
+    }
+    group emit_from_mem6 {
+      // Wiring to put `mem6[j_mod_4] into `ans`.
+      mem6.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem6.read_data;
+      emit_from_mem6[done] = ans.done;
+    }
+
   }
 
   control {
-    // Orchestra the above straightforwardly.
-    par {
-      if eq0.out with i_eq_0 {
-        emit_from_mem1;
+    // Orchestrate the above straightforwardly.
+    seq {
+      seq {
+        // We know we'll need this value, so we compute it first.
+        j_lt_4;
+        j_mod_4;
       }
-      if eq1.out with i_eq_1 {
-        emit_from_mem2;
+      par {
+        // Based on the value of `i`, we can dispatch to the correct
+        // "set" of two memories.
+        if eq0.out with i_eq_0 {
+          // We know the answer will come from either mem1 or mem2
+          emit_from_mem1; // or 2
+        }
+        if eq1.out with i_eq_1 {
+          // We know the answer will come from either mem3 or mem4
+          emit_from_mem3; // or 4
+        }
+        if eq1.out with i_eq_1 {
+          // We know the answer will come from either mem5 or mem6
+          emit_from_mem5; // or 6
+        }
       }
     }
   }
