@@ -14,6 +14,8 @@ def add_i_eq_0(comp):
     with comp.comb_group("i_eq_0"):
         eq_cell.left = CompPort(CompVar("i"), "out")
         # AM: this is wrong. It renders "i.out" but I just want the port "i".
+        # The same issue occurs four times, so I'm just flagging this one.
+        # Whenever the generated futil has {i or j}.out, I actually just want {i or j}.
         eq_cell.right = cb.const(32, 0)
 
 
@@ -24,6 +26,24 @@ def add_i_eq_1(comp):
         eq_cell.left = CompPort(CompVar("i"), "out")
         # AM: this is wrong. It renders "i.out" but I just want the port "i".
         eq_cell.right = cb.const(32, 1)
+
+
+def add_emit_from_mem1(comp, mem, ans):
+    """Adds wiring that emits mem1[j]."""
+    with comp.group("emit_from_mem1") as emit_from_mem1:
+        mem.addr0 = CompPort(CompVar("j"), "out")
+        ans.write_en = 1
+        ans.write_data = mem.read_data
+        emit_from_mem1.done = ans.done
+
+
+def add_emit_from_mem2(comp, mem, ans):
+    """Adds wiring that emits mem1[j]."""
+    with comp.group("emit_from_mem2") as emit_from_mem1:
+        mem.addr0 = CompPort(CompVar("j"), "out")
+        ans.write_en = 1
+        ans.write_data = mem.read_data
+        emit_from_mem1.done = ans.done
 
 
 def add_wrap(prog):
@@ -43,12 +63,14 @@ def add_wrap(prog):
     wrap.input("i", 32)
     wrap.input("j", 32)
 
-    _ = wrap.mem_d1("mem1", 32, 4, 32, is_ref=True)
-    _ = wrap.mem_d1("mem2", 32, 4, 32, is_ref=True)
-    _ = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
+    mem1 = wrap.mem_d1("mem1", 32, 4, 32, is_ref=True)
+    mem2 = wrap.mem_d1("mem2", 32, 4, 32, is_ref=True)
+    ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
 
     add_i_eq_0(wrap)
     add_i_eq_1(wrap)
+    add_emit_from_mem1(wrap, mem1, ans)
+    add_emit_from_mem2(wrap, mem2, ans)
 
     # AM: I'd like to generate these if statements with the builder:
     #   _: If = cb.if_(
