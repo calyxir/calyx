@@ -341,7 +341,7 @@ component main() -> () {
 
   cells {
     // The six memories that will be driven by the `.data` file,
-    // and which we will pass by reference to component wrap.
+    // and which we will pass by reference to the `wrap` components.
     @external A = std_mem_d1(32, 4, 32);
     @external B = std_mem_d1(32, 4, 32);
     @external C = std_mem_d1(32, 4, 32);
@@ -349,11 +349,15 @@ component main() -> () {
     @external E = std_mem_d1(32, 4, 32);
     @external F = std_mem_d1(32, 4, 32);
 
-    // We will pass this to `wrap` for it to store the answer in.
-    @external out = std_mem_d1(32, 1, 32);
+    // We will pass this to `wrap2` for it to store the answer in.
+    @external out2 = std_mem_d1(32, 1, 32);
 
-    // Preparing to `invoke` component wrap.
-    together = wrap3();
+    // We will pass this to `wrap3` for it to store the answer in.
+    @external out3 = std_mem_d1(32, 1, 32);
+
+    // Preparing to invoke the `wrap` components.
+    together2 = wrap2();
+    together3 = wrap3();
   }
 
   wires {
@@ -361,7 +365,8 @@ component main() -> () {
 
   control {
     seq {
-      invoke together[mem1=A, mem2=B, mem3=C, mem4=D, mem5=E, mem6=F, ans=out](i=32'd2, j=32'd7)();
+      invoke together2[mem1=A, mem2=B, mem3=C, mem4=D, mem5=E, mem6=F, ans=out2](i=32'd1, j=32'd11)();
+      invoke together3[mem1=A, mem2=B, mem3=C, mem4=D, mem5=E, mem6=F, ans=out3](i=32'd2, j=32'd7)();
     }
   }
 }
