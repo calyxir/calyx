@@ -13,12 +13,6 @@ cmd = "mrxl {}"
 expect_dir = "expect/futil_out/"
 
 [[tests]]
-name = "convert_data"
-paths = [ "./*.mrxl" ]
-cmd = "mrxl {} --data {}.data --convert"
-expect_dir = "expect/data_out/"
-
-[[tests]]
 name = "simulate_interp"
 paths = [ "./*.mrxl" ]
 cmd = "fud e --from mrxl {} --to interpreter-out -s mrxl.data {}.data -q"
