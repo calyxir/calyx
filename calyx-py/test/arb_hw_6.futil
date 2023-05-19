@@ -1,14 +1,14 @@
 import "primitives/core.futil";
 
-component wrap3(i: 32, j: 32) -> () {
+component wrap2(i: 32, j: 32) -> () {
   // i and j are ports, passed "by value" by the invoker.
 
   // The invoker wants to pass six memories of size 4 each, but then
-  // pretend that there are actually _three_ memories of size _8_ each.
+  // pretend that there are actually _two_ memories of size _12_ each.
   // The invoker wants to index the memories while living in this fiction.
   // Accordingly, we assume that
-  // 0 <= i < 3
-  // 0 <= j < 8
+  // 0 <= i < 2
+  // 0 <= j < 12
 
   cells {
 
@@ -29,7 +29,8 @@ component wrap3(i: 32, j: 32) -> () {
     eq0 = std_eq(32);
     eq1 = std_eq(32);
     eq2 = std_eq(32);
-    lt = std_lt(32);
+    lt1 = std_lt(32);
+    lt2 = std_lt(32);
     sub = std_sub(32);
 
   }
@@ -45,18 +46,13 @@ component wrap3(i: 32, j: 32) -> () {
       eq1.left = i;
       eq1.right = 32'd1;
     }
-    comb group i_eq_2 {
-      // Wiring to check if `i==2`.
-      eq2.left = i;
-      eq2.right = 32'd2;
-    }
 
     // Wiring to compute `j_mod_4 === j % 4`.
     // These will be orchestrated in the control section as follows:
     // if
     comb group j_lt_4 {
-      lt.left = j;
-      lt.right = 32'd4;
+      lt1.left = j;
+      lt1.right = 32'd4;
     }
     // then
     group j_unchanged {
@@ -64,7 +60,12 @@ component wrap3(i: 32, j: 32) -> () {
       j_mod_4.in = j;
       j_unchanged[done] = j_mod_4.done;
     }
-    // else
+    // else if
+    comb group j_lt_8 {
+      lt2.left = j;
+      lt2.right = 32'd8;
+    }
+    // then
     group j_less_4 {
       sub.left = j;
       sub.right = 32'd4;
@@ -72,7 +73,15 @@ component wrap3(i: 32, j: 32) -> () {
       j_mod_4.in = sub.out;
       j_less_4[done] = j_mod_4.done;
     }
-    // if j > 7, the user has failed the top-level spec anyway.
+    // else
+    group j_less_8 {
+      sub.left = j;
+      sub.right = 32'd8;
+      j_mod_4.write_en = 1'b1;
+      j_mod_4.in = sub.out;
+      j_less_4[done] = j_mod_4.done;
+    }
+    // if j > 11, the user has failed the top-level spec anyway.
 
     group emit_from_mem1 {
       // Wiring to put `mem1[j_mod_4]` into `ans`.
@@ -122,39 +131,43 @@ component wrap3(i: 32, j: 32) -> () {
   control {
     // Orchestrate the above straightforwardly.
     seq {
-      // We know we'll need this value, so we compute it first.
-      if lt.out with j_lt_4 {
+      // We know we'll need j_mod_4, so we compute it first.
+      if lt1.out with j_lt_4 {
           j_unchanged;
         } else {
-          j_less_4;
+          if lt2.out with j_lt_8 {
+            j_less_4;
+          } else {
+            j_less_8;
+          }
         }
       par {
         // Based on the value of `i`, we can dispatch to the correct
-        // "set" of two memories. Then, disambiguating between the two
+        // "set" of three memories. Then, disambiguating between the three
         // memories in a "set" is not hard: we can reuse the value of
-        // lt.out, which records whether `j < 4` or not.
+        // lt1.out and lt2.out, which together tell us where `j` lies.
         if eq0.out with i_eq_0 {
-          // We know the answer will come from either mem1 or mem2.
-          if lt.out with j_lt_4 {
+          // We know the answer will come from either mem1, mem2, or mem3.
+          if lt1.out with j_lt_4 {
             emit_from_mem1;
           } else {
-            emit_from_mem2;
+            if lt2.out with j_lt_8 {
+              emit_from_mem2;
+            } else {
+              emit_from_mem3;
+            }
           }
         }
         if eq1.out with i_eq_1 {
-          // We know the answer will come from either mem3 or mem4.
-          if lt.out with j_lt_4 {
-            emit_from_mem3;
-          } else {
+          // We know the answer will come from either mem4, mem5, or mem6.
+          if lt1.out with j_lt_4 {
             emit_from_mem4;
-          }
-        }
-        if eq2.out with i_eq_2 {
-          // We know the answer will come from either mem5 or mem6.
-          if lt.out with j_lt_4 {
-            emit_from_mem5;
           } else {
-            emit_from_mem6;
+            if lt2.out with j_lt_8 {
+              emit_from_mem5;
+            } else {
+              emit_from_mem6;
+            }
           }
         }
       }
@@ -284,7 +297,7 @@ component wrap3(i: 32, j: 32) -> () {
   control {
     // Orchestrate the above straightforwardly.
     seq {
-      // We know we'll need this value, so we compute it first.
+      // We know we'll need j_mod_4, so we compute it first.
       if lt.out with j_lt_4 {
           j_unchanged;
         } else {
