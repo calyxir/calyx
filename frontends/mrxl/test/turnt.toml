@@ -5,7 +5,7 @@ command = "mrxl {filename} --data {filename}.data --interpret"
 [envs.gen_calyx]
 binary = true
 command = "mrxl {filename}"
-output.calyx = "-"
+output.futil = "-"
 
 [envs.convert_data]
 binary = true
