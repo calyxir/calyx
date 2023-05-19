@@ -134,13 +134,13 @@ component wrap2(i: 32, j: 32) -> () {
       // We know we'll need j_mod_4, so we compute it first.
       if lt1.out with j_lt_4 {
           j_unchanged;
-        } else {
-          if lt2.out with j_lt_8 {
+      } else {
+        if lt2.out with j_lt_8 {
             j_less_4;
-          } else {
+        } else {
             j_less_8;
-          }
         }
+      }
       par {
         // Based on the value of `i`, we can dispatch to the correct
         // "set" of three memories. Then, disambiguating between the three
@@ -300,9 +300,9 @@ component wrap3(i: 32, j: 32) -> () {
       // We know we'll need j_mod_4, so we compute it first.
       if lt.out with j_lt_4 {
           j_unchanged;
-        } else {
+      } else {
           j_less_4;
-        }
+      }
       par {
         // Based on the value of `i`, we can dispatch to the correct
         // "set" of two memories. Then, disambiguating between the two
