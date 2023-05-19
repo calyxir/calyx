@@ -1,0 +1,100 @@
+import "primitives/core.futil";
+
+component tree() -> () {
+  // Creates a reduction tree with four leaves, and adds the leaves' inputs.
+  //
+  //            root
+  //           /   \
+  //   left_node    right_node
+  //   /       \   /         \
+  // leaf1  leaf2  leaf3  leaf4
+
+  cells {
+    // The invoker will pass, by reference, the values of the four leaves.
+    ref leaf1 = std_mem_d1(32, 1, 32);
+    ref leaf2 = std_mem_d1(32, 1, 32);
+    ref leaf3 = std_mem_d1(32, 1, 32);
+    ref leaf4 = std_mem_d1(32, 1, 32);
+
+    // An additional memory is passed "by reference" to hold the result.
+    // Tellingly, we name this memory `root`.
+    ref root = std_mem_d1(32, 1, 32);
+    left_node = std_mem_d1(32, 1, 32);
+    right_node = std_mem_d1(32, 1, 32);
+
+    add1 = std_add(32);
+    add2 = std_add(32);
+  }
+
+  wires {
+    group add_l1_l2 {
+      // Adds leaf1 and leaf2, then puts the result in left_node.
+      add1.left = leaf1.read_data;
+      add1.right = leaf2.read_data;
+      left_node.write_en = 1'b1;
+      left_node.write_data = add1.out;
+      add_l1_l2[done] = left_node.done;
+    }
+    group add_l3_l4 {
+      // Adds leaf3 and leaf4, then puts the result in left_node.
+      add2.left = leaf3.read_data;
+      add2.right = leaf4.read_data;
+      right_node.write_en = 1'b1;
+      right_node.write_data = add2.out;
+      add_l3_l4[done] = right_node.done;
+    }
+    group add_left_right_node {
+      // Adds left_node and right_node, then puts the result in root.
+      add1.left = left_node.read_data;
+      add1.right = right_node.read_data;
+      root.write_en = 1'b1;
+      root.write_data = add1.out;
+      add_left_right_node[done] = root.done;
+    }
+  }
+
+  control {
+    // Orchestrate the above straightforwardly.
+    seq {
+      par {
+        add_l1_l2();
+        add_l3_l4();
+      }
+      add_left_right_node();
+    }
+  }
+}
+
+component main() -> () {
+
+  cells {
+    // The four memories that will be driven by the `.data` file.
+    @external A = std_mem_d1(32, 4, 32);
+    @external B = std_mem_d1(32, 4, 32);
+    @external C = std_mem_d1(32, 4, 32);
+    @external D = std_mem_d1(32, 4, 32);
+
+    // We will store the final answer here.
+    @external sum = std_mem_d1(32, 1, 32);
+
+    sum_col1 = std_mem_d1(32, 1, 32);
+    sum_col2 = std_mem_d1(32, 1, 32);
+    sum_col3 = std_mem_d1(32, 1, 32);
+    sum_col4 = std_mem_d1(32, 1, 32);
+
+    // Preparing to invoke the `tree` component.
+    tree1 = tree();
+    tree2 = tree();
+    tree3 = tree();
+    tree4 = tree();
+  }
+
+  wires {
+  }
+
+  control {
+    par {
+      // todo
+    }
+  }
+}
