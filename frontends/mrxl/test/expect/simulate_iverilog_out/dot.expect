@@ -18,5 +18,3 @@
     ]
   }
 }
----STDERR---
-⠋ mrxl.mktmp⠙ mrxl.mktmp⠹ mrxl.mrxl-data.convert_mrxl_data_to_calyx_data⠸ mrxl.run_mrxl⠼ mrxl.run_mrxl⠴ transform
