@@ -1,24 +1,16 @@
 import "primitives/core.futil";
 
-component tree() -> () {
+component tree(leaf1: 32, leaf2: 32, leaf3: 32, leaf4: 32) -> (sum: 32) {
   // Creates a reduction tree with four leaves, and adds the leaves' inputs.
   //
-  //            root
+  //            sum
   //           /   \
   //   left_node    right_node
   //   /       \   /         \
   // leaf1  leaf2  leaf3  leaf4
 
   cells {
-    // The invoker will pass, by reference, the values of the four leaves.
-    ref leaf1 = std_reg(32);
-    ref leaf2 = std_reg(32);
-    ref leaf3 = std_reg(32);
-    ref leaf4 = std_reg(32);
-
-    // An additional memory is passed "by reference" to hold the result.
-    // Tellingly, we name this memory `root`.
-    ref root = std_reg(32);
+    root = std_reg(32);
     left_node = std_reg(32);
     right_node = std_reg(32);
 
@@ -29,16 +21,16 @@ component tree() -> () {
   wires {
     group add_l1_l2 {
       // Adds leaf1 and leaf2, then puts the result in left_node.
-      add1.left = leaf1.out;
-      add1.right = leaf2.out;
+      add1.left = leaf1;
+      add1.right = leaf2;
       left_node.write_en = 1'b1;
       left_node.in = add1.out;
       add_l1_l2[done] = left_node.done;
     }
     group add_l3_l4 {
       // Adds leaf3 and leaf4, then puts the result in left_node.
-      add2.left = leaf3.out;
-      add2.right = leaf4.out;
+      add2.left = leaf3;
+      add2.right = leaf4;
       right_node.write_en = 1'b1;
       right_node.in = add2.out;
       add_l3_l4[done] = right_node.done;
@@ -51,6 +43,8 @@ component tree() -> () {
       root.in = add1.out;
       add_left_right_node[done] = root.done;
     }
+    // Continuous assignment of answer to `sum`.
+    sum = root.out;
   }
 
   control {
@@ -76,7 +70,7 @@ component main() -> () {
 
     // We will store the final answer here.
     // I'm using a memory of size 1 and not a reg because
-    // IDK how to drive a reg in the data file.
+    // IDK how to drive a register in the data file.
     @external sum = std_mem_d1(32, 1, 32);
 
     sum_col1 = std_reg(32);
