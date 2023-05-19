@@ -2,7 +2,7 @@
 binary = true
 command = "mrxl {filename} --data {filename}.data --interpret"
 
-[envs.gen_calyx]
+[envs.gen_futil]
 binary = true
 command = "mrxl {filename}"
 output.futil = "-"
