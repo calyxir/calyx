@@ -1,8 +1,9 @@
 import "primitives/core.futil";
-component wrap(i: 32, j: 32) -> (out: 32) {
+component wrap(i: 32, j: 32) -> () {
   cells {
     ref mem1 = std_mem_d1(32, 4, 32);
     ref mem2 = std_mem_d1(32, 4, 32);
+    ref ans = std_reg(32);
     eq0 = std_eq(32);
     eq1 = std_eq(32);
   }
@@ -17,13 +18,15 @@ component wrap(i: 32, j: 32) -> (out: 32) {
     }
     group emit_from_mem1 {
       mem1.addr0 = j;
-      out = mem1.read_data;
-      emit_from_mem1[done] = mem1.done;
+      ans.write_en = 1'd1;
+      ans.in = mem1.read_data;
+      emit_from_mem1[done] = ans.done;
     }
     group emit_from_mem2 {
       mem2.addr0 = j;
-      out = mem2.read_data;
-      emit_from_mem2[done] = mem2.done;
+      ans.write_en = 1'd1;
+      ans.in = mem2.read_data;
+      emit_from_mem2[done] = ans.done;
     }
   }
   control {
@@ -39,25 +42,19 @@ component wrap(i: 32, j: 32) -> (out: 32) {
 }
 component main() -> () {
   cells {
-    A = std_mem_d1(32, 4, 32);
-    B = std_mem_d1(32, 4, 32);
-    together = wrap();
+    @external A = std_mem_d1(32, 4, 32);
+    @external B = std_mem_d1(32, 4, 32);
     @external out = std_reg(32);
+    one = std_const(32, 1);
+    three = std_const(32, 3);
+    together = wrap();
   }
   wires {
-  //  group init_out {
-  //    out.write_en = 1'd1;
-  //    init_out[done] = out.done;
-  //  }
-  //  group done_out {
-  //    out.done = 1'd1;
-  //  }
   }
   control {
     seq {
-    //  init_out;
-      invoke together[mem1 = A, mem2 = B](i=32'd1, j=32'd3)(out=out.in);
-    //  done_out;
+      invoke together[mem1=A, mem2=B, ans=out](i=one.out, j=three.out)();
     }
   }
 }
+
