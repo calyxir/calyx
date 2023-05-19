@@ -1,0 +1,64 @@
+{
+  "avec_b0": {
+    "data": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "avec_b1": {
+    "data": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "avec_b2": {
+    "data": [
+      8,
+      9,
+      10,
+      11
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "avec_b3": {
+    "data": [
+      12,
+      13,
+      14,
+      15
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "sum": {
+    "data": [
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  }
+}
