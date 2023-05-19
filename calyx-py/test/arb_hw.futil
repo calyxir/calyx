@@ -1,35 +1,49 @@
 import "primitives/core.futil";
 component wrap(i: 32, j: 32) -> () {
+  // i and j are ports, passed "by value" by the invoker.
+  
   cells {
+	    
+    // The three items below are memories, passed "by reference" by the invoker.
     ref mem1 = std_mem_d1(32, 4, 32);
     ref mem2 = std_mem_d1(32, 4, 32);
-    ref ans = std_reg(32);
+    ref ans = std_mem_d1(32, 1, 32);
+
+    // Two eq-checking cells.
     eq0 = std_eq(32);
     eq1 = std_eq(32);
+
   }
+  
   wires {
     comb group i_eq_0 {
+      // Wiring to check if `i==0`.
       eq0.left = i;
       eq0.right = 32'd0;
     }
     comb group i_eq_1 {
+      // Wiring to check if `i==1`.
       eq1.left = i;
       eq1.right = 32'd1;
     }
     group emit_from_mem1 {
+      // Wiring to put `mem1[j]` into `ans`.
       mem1.addr0 = j;
       ans.write_en = 1'd1;
-      ans.in = mem1.read_data;
+      ans.write_data = mem1.read_data;
       emit_from_mem1[done] = ans.done;
     }
     group emit_from_mem2 {
+      // Wiring to put `mem2[j] into `ans`.
       mem2.addr0 = j;
       ans.write_en = 1'd1;
-      ans.in = mem2.read_data;
+      ans.write_data = mem2.read_data;
       emit_from_mem2[done] = ans.done;
     }
   }
+  
   control {
+    // Orchestra the above straightforwardly.
     par {
       if eq0.out with i_eq_0 {
         emit_from_mem1;
@@ -40,20 +54,33 @@ component wrap(i: 32, j: 32) -> () {
     } 
   }
 }
+
 component main() -> () {
+  
   cells {
+    // The three memories that will be driven by the `.data` file, 
+    // and which we will pass by reference to component wrap.
     @external A = std_mem_d1(32, 4, 32);
     @external B = std_mem_d1(32, 4, 32);
-    @external out = std_reg(32);
+    @external out = std_mem_d1(32, 1, 32);
+    
+    // Just some shorthand to query the arrays with.
+    zero = std_const(32, 0);
     one = std_const(32, 1);
+    two = std_const(32, 2);
     three = std_const(32, 3);
+
+    // Preparing to `invoke` component wrap.
     together = wrap();
+
   }
+
   wires {
   }
+
   control {
     seq {
-      invoke together[mem1=A, mem2=B, ans=out](i=one.out, j=three.out)();
+      invoke together[mem1=A, mem2=B, ans=out](i=zero.out, j=two.out)();
     }
   }
 }
