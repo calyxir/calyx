@@ -47,7 +47,7 @@ component wrap2(i: 32, j: 32) -> () {
       eq1.right = 32'd1;
     }
 
-    // Wiring to compute `j_mod_4 === j % 4`.
+    // Wiring to compute `j_mod_4`, which is `j % 4`.
     // These will be orchestrated in the control section as follows:
     // if
     comb group j_lt_4 {
@@ -91,35 +91,35 @@ component wrap2(i: 32, j: 32) -> () {
       emit_from_mem1[done] = ans.done;
     }
     group emit_from_mem2 {
-      // Wiring to put `mem2[j_mod_4] into `ans`.
+      // Wiring to put `mem2[j_mod_4]` into `ans`.
       mem2.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem2.read_data;
       emit_from_mem2[done] = ans.done;
     }
     group emit_from_mem3 {
-      // Wiring to put `mem3[j_mod_4] into `ans`.
+      // Wiring to put `mem3[j_mod_4]` into `ans`.
       mem3.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem3.read_data;
       emit_from_mem3[done] = ans.done;
     }
     group emit_from_mem4 {
-      // Wiring to put `mem4[j_mod_4] into `ans`.
+      // Wiring to put `mem4[j_mod_4]` into `ans`.
       mem4.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem4.read_data;
       emit_from_mem4[done] = ans.done;
     }
     group emit_from_mem5 {
-      // Wiring to put `mem5[j_mod_4] into `ans`.
+      // Wiring to put `mem5[j_mod_4]` into `ans`.
       mem5.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem5.read_data;
       emit_from_mem5[done] = ans.done;
     }
     group emit_from_mem6 {
-      // Wiring to put `mem6[j_mod_4] into `ans`.
+      // Wiring to put `mem6[j_mod_4]` into `ans`.
       mem6.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem6.read_data;
@@ -257,35 +257,35 @@ component wrap3(i: 32, j: 32) -> () {
       emit_from_mem1[done] = ans.done;
     }
     group emit_from_mem2 {
-      // Wiring to put `mem2[j_mod_4] into `ans`.
+      // Wiring to put `mem2[j_mod_4]` into `ans`.
       mem2.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem2.read_data;
       emit_from_mem2[done] = ans.done;
     }
     group emit_from_mem3 {
-      // Wiring to put `mem3[j_mod_4] into `ans`.
+      // Wiring to put `mem3[j_mod_4]` into `ans`.
       mem3.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem3.read_data;
       emit_from_mem3[done] = ans.done;
     }
     group emit_from_mem4 {
-      // Wiring to put `mem4[j_mod_4] into `ans`.
+      // Wiring to put `mem4[j_mod_4]` into `ans`.
       mem4.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem4.read_data;
       emit_from_mem4[done] = ans.done;
     }
     group emit_from_mem5 {
-      // Wiring to put `mem5[j_mod_4] into `ans`.
+      // Wiring to put `mem5[j_mod_4]` into `ans`.
       mem5.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem5.read_data;
       emit_from_mem5[done] = ans.done;
     }
     group emit_from_mem6 {
-      // Wiring to put `mem6[j_mod_4] into `ans`.
+      // Wiring to put `mem6[j_mod_4]` into `ans`.
       mem6.addr0 = j_mod_4.out;
       ans.write_en = 1'b1;
       ans.write_data = mem6.read_data;
