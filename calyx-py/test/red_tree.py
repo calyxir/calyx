@@ -134,10 +134,9 @@ def add_main(prog):
     tree3 = main.cell("tree3", prog.component("tree"))
     tree4 = main.cell("tree4", prog.component("tree"))
 
-    use_tree_ports_calculated(main, "tree0_col0", A, 0, B, 0, C, 0, D, 0, tree0)
-    use_tree_ports_calculated(main, "tree1_col1", A, 1, B, 1, C, 1, D, 1, tree1)
-    use_tree_ports_calculated(main, "tree2_col2", A, 2, B, 2, C, 2, D, 2, tree2)
-    use_tree_ports_calculated(main, "tree3_col3", A, 3, B, 3, C, 3, D, 3, tree3)
+    for i, tree in enumerate([tree0, tree1, tree2, tree3]):
+        use_tree_ports_calculated(main, f"tree{i}_col{i}", A, i, B, i, C, i, D, i, tree)
+
     use_tree_ports_provided(
         main, "tree4_total", tree0.sum, tree1.sum, tree2.sum, tree3.sum, tree4
     )
