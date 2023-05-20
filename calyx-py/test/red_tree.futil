@@ -71,14 +71,14 @@ component main() -> () {
     // We will store the final answer here.
     // I'm using a memory of size 1 and not a reg because
     // IDK how to drive a register in the data file.
-    @external sum = std_mem_d1(32, 1, 1);
+    @external ans = std_mem_d1(32, 1, 1);
 
     sum_col1 = std_reg(32);
     sum_col2 = std_reg(32);
     sum_col3 = std_reg(32);
     sum_col4 = std_reg(32);
 
-    // Preparing to invoke the `tree` component.
+    // Preparing to call the `tree` component.
     tree0 = tree();
     tree1 = tree();
     tree2 = tree();
@@ -141,13 +141,13 @@ component main() -> () {
       tree4.leaf3 = tree2.sum;
       tree4.leaf4 = tree3.sum;
       tree4.go = 1'd1;
-      tree4_total[done] = tree3.done;
+      tree4_total[done] = tree4.done;
     }
-    group load_to_sum {
-      sum.addr0 = 1'b0;
-      sum.write_data = tree2.sum;
-      sum.write_en = 1'b1;
-      load_to_sum[done] = sum.done;
+    group load_to_ans_mem {
+      ans.addr0 = 1'b0;
+      ans.write_data = tree4.sum;
+      ans.write_en = 1'b1;
+      load_to_ans_mem[done] = ans.done;
     }
   }
 
@@ -158,7 +158,7 @@ component main() -> () {
       tree2_col2;
       tree3_col3;
       tree4_total;
-      load_to_sum;
+      load_to_ans_mem;
     }
   }
 }
