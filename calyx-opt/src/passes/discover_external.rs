@@ -4,7 +4,6 @@ use calyx_utils::CalyxResult;
 use ir::RRC;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use smallvec::smallvec;
 use std::collections::{HashMap, HashSet};
 
 /// A pass to detect cells that have been inlined into the top-level component
@@ -79,21 +78,12 @@ impl Visitor for DiscoverExternal {
             return Ok(Action::Stop);
         }
 
-        // Walk over the ports and detect ports that have the same prefixes.
-        // Build a map from prefix to ports
-        let names = comp
-            .signature
-            .borrow()
-            .ports()
-            .iter()
-            .map(|p| p.borrow().name)
-            .collect::<Vec<_>>();
-
         // Group ports by longest common prefix
         // NOTE(rachit): This is an awfully inefficient representation. We really
         // want a TrieMap here.
         let mut prefix_map: HashMap<String, HashSet<ir::Id>> = HashMap::new();
-        for name in names {
+        for port in comp.signature.borrow().ports() {
+            let name = port.borrow().name;
             let mut prefix = String::new();
             // Walk over the port name and add it to the prefix map
             for c in name.as_ref().chars() {
@@ -114,11 +104,11 @@ impl Visitor for DiscoverExternal {
         // For all cells in the library, build a set of port names.
         let mut prim_ports: HashMap<ir::Id, HashSet<ir::Id>> = HashMap::new();
         for prim in sigs.signatures() {
-            // Ignore clk and reset cells
             let hs = prim
                 .signature
                 .iter()
                 .filter(|p| {
+                    // Ignore clk and reset cells
                     !p.attributes.has(ir::BoolAttr::Clk)
                         && !p.attributes.has(ir::BoolAttr::Reset)
                 })
@@ -129,37 +119,34 @@ impl Visitor for DiscoverExternal {
 
         // For all prefixes, check if there is a primitive that matches the
         // prefix. If there is, then we have an external cell.
-        let mut matching_pre: Vec<(String, ir::Id)> = vec![];
+        let mut pre_to_prim: HashMap<String, ir::Id> = HashMap::new();
         for (prefix, ports) in prefix_map.iter() {
             for (&prim, prim_ports) in prim_ports.iter() {
                 if prim_ports == ports {
-                    matching_pre.push((prefix.clone(), prim));
+                    pre_to_prim.insert(prefix.clone(), prim);
                 }
             }
         }
 
-        // Remove all ports that have a matching prefix and collect them into a
-        // map from prefixes
+        // Collect all ports associated with a specific prefix
         let mut port_map: HashMap<String, Vec<RRC<ir::Port>>> = HashMap::new();
-        let mut new_ports = smallvec![];
-        'outer: for port in comp.signature.borrow_mut().ports.drain(..) {
+        'outer: for port in &comp.signature.borrow().ports {
             // If this matches a prefix, add it to the corresponding port map
-            for (pre, _) in &matching_pre {
+            for pre in pre_to_prim.keys() {
                 if port.borrow().name.as_ref().starts_with(pre) {
                     port_map.entry(pre.clone()).or_default().push(port.clone());
                     continue 'outer;
                 }
             }
-            new_ports.push(port);
         }
-        comp.signature.borrow_mut().ports = new_ports;
 
         // Add external cells for all matching prefixes
-        for (pre, prim) in matching_pre {
+        let mut pre_to_cells = HashMap::new();
+        for (pre, &prim) in &pre_to_prim {
             log::info!("Prefix {} matches primitive {}", pre, prim);
             // Attempt to infer the parameters for the external cell
             let prim_sig = sigs.get_primitive(prim);
-            let ports = port_map.remove(&pre).unwrap();
+            let ports = &port_map[pre];
             let mut params: LinkedHashMap<_, Option<u64>> = prim_sig
                 .params
                 .clone()
@@ -183,8 +170,20 @@ impl Visitor for DiscoverExternal {
                             panic!("No port found for {}", abs.name)
                         });
                     // Update the value of the parameter
-                    *params.get_mut(&value).unwrap() =
-                        Some(port.borrow().width);
+                    let v = params.get_mut(&value).unwrap();
+                    if let Some(v) = v {
+                        if *v != port.borrow().width {
+                            log::warn!(
+                                "Mismatched bitwidths for {} in {}, defaulting to {}",
+                                pre,
+                                prim,
+                                self.default
+                            );
+                            *v = self.default;
+                        }
+                    } else {
+                        *v = Some(port.borrow().width);
+                    }
                 }
             }
 
@@ -206,11 +205,52 @@ impl Visitor for DiscoverExternal {
                 .collect_vec();
 
             let mut builder = ir::Builder::new(comp, sigs);
-            let cell = builder.add_primitive(pre, prim, &param_values);
+            let cell = builder.add_primitive(pre.clone(), prim, &param_values);
             cell.borrow_mut()
                 .attributes
                 .insert(ir::BoolAttr::External, 1);
+            pre_to_cells.insert(pre.clone(), cell);
         }
+
+        // Rewrite the ports mentioned in the component signature and remove them
+        let mut rewrites: ir::rewriter::PortRewriteMap = HashMap::new();
+        for (pre, ports) in port_map {
+            // let prim = sigs.get_primitive(pre_to_prim[&pre]);
+            let cr = pre_to_cells[&pre].clone();
+            let cell = cr.borrow();
+            let cell_ports = cell.ports();
+            // Iterate over ports with the same names.
+            for pr in ports {
+                let port = pr.borrow();
+                let cp = cell_ports
+                    .iter()
+                    .find(|p| {
+                        port.name.as_ref().ends_with(p.borrow().name.as_ref())
+                    })
+                    .unwrap_or_else(|| {
+                        panic!("No port found for {}", port.name)
+                    });
+                rewrites.insert(port.canonical(), cp.clone());
+            }
+        }
+
+        comp.for_each_assignment(|assign| {
+            assign.for_each_port(|port| {
+                rewrites.get(&port.borrow().canonical()).cloned()
+            })
+        });
+        comp.for_each_static_assignment(|assign| {
+            assign.for_each_port(|port| {
+                rewrites.get(&port.borrow().canonical()).cloned()
+            })
+        });
+
+        // Remove all ports from the signature that match a prefix
+        comp.signature.borrow_mut().ports.retain(|p| {
+            !pre_to_prim
+                .keys()
+                .any(|pre| p.borrow().name.as_ref().starts_with(pre))
+        });
 
         // Purely structural pass
         Ok(Action::Stop)
