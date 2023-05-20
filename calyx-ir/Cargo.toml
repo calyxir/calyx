@@ -1,6 +1,6 @@
 [package]
 name = "calyx-ir"
-version = "0.2.0"
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 authors.workspace = true
@@ -19,5 +19,5 @@ itertools.workspace = true
 linked-hash-map.workspace = true
 smallvec.workspace = true
 
-calyx-utils = { path = "../calyx-utils", version = "0.2.0" }
-calyx-frontend = { path = "../calyx-frontend", version = "0.2.0" }
+calyx-utils.workspace = true
+calyx-frontend.workspace = true

@@ -2,7 +2,6 @@ import json
 import sys
 
 from typing import Dict, List, Tuple
-from . import ast
 from calyx.py_ast import (
     CompVar,
     Stdlib,
@@ -13,7 +12,12 @@ from calyx.py_ast import (
     ParComp,
     Control,
 )
+from . import ast
 import calyx.builder as cb
+
+
+class CompileError(Exception):
+    """Compilation failed; recovery was impossible."""
 
 
 def cond_group(
@@ -25,10 +29,10 @@ def cond_group(
     # ANCHOR: cond_group
     group_name = f"cond_{suffix}"
     cell = f"lt_{suffix}"
-    lt = comp.cell(cell, Stdlib.op("lt", 32, signed=False))
+    less_than = comp.cell(cell, Stdlib.op("lt", 32, signed=False))
     with comp.comb_group(group_name):
-        lt.left = idx.out
-        lt.right = cb.const(32, arr_size)
+        less_than.left = idx.out
+        less_than.right = cb.const(32, arr_size)
     # ANCHOR_END: cond_group
 
     return cell, group_name
@@ -72,9 +76,9 @@ def gen_reduce_impl(
 ):
     """
     Implements a `reduce` statement of the form:
-        baz := reduce 1 (acc, x <- foo) init { acc + x }
-    The implementation first initializes the accumulator to `init` and then directly
-    accumulates the values of the array into the accumulator.
+        out := reduce 1 (acc, a <- avec) init { acc + a }
+    The implementation first initializes the accumulator to `init` and then
+    directly accumulates the values of the array into the accumulator.
     """
     idx = comp.reg(f"idx{s_idx}", 32)
 
@@ -87,23 +91,24 @@ def gen_reduce_impl(
 
     # Perform the computation
     assert (
-        len(stmt.bind) == 1
-    ), "Reduce statements with multiple bind clauses not supported"
+        len(stmt.binds) == 1
+    ), "Reduce statements with multiple bind clauses are not supported"
 
     # Split up the accumulator and the array element
-    bind = stmt.bind[0]
-    [acc, x] = bind.dest
+    bind = stmt.binds[0]
+    [acc, ele] = bind.dst
+
     # The source of a `reduce` must be a singly-banked array (thus the `b0`)
     # The destination of a `reduce` must be a register
-    name2arr = {acc: f"{dest}_reg", x: f"{bind.src}_b0"}
-    name2outwire = {acc: "out", x: "read_data"}
+    name2arr = {acc: f"{dest}_reg", ele: f"{bind.src}_b0"}
+    name2outwire = {acc: "out", ele: "read_data"}
 
     def expr_to_port(expr: ast.BaseExpr):
         if isinstance(expr, ast.LitExpr):
             return cb.const(32, expr.value)
-        elif isinstance(expr, ast.VarExpr):
-            bind = name2arr[expr.name]
-            return CompPort(CompVar(f"{bind}"), name2outwire[expr.name])
+        if isinstance(expr, ast.VarExpr):
+            return CompPort(CompVar(name2arr[expr.name]), name2outwire[expr.name])
+        raise CompileError(f"Unhandled expression: {type(expr)}")
 
     try:
         out = comp.get_cell(f"{dest}_reg")  # The accumulator is a register
@@ -128,23 +133,23 @@ def gen_reduce_impl(
     if not isinstance(body, ast.BinExpr):
         raise NotImplementedError("Reduce body must be a binary expression")
 
-    if body.op == "mul":
-        op = comp.cell(f"mul_{s_idx}", Stdlib.op("mult_pipe", 32, signed=False))
+    if body.operation == "mul":
+        operation = comp.cell(f"mul_{s_idx}", Stdlib.op("mult_pipe", 32, signed=False))
     else:
-        op = comp.add(f"add_{s_idx}", 32)
-    with comp.group(f"reduce{s_idx}") as ev:
+        operation = comp.add(f"add_{s_idx}", 32)
+    with comp.group(f"reduce{s_idx}") as evl:
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out
-        op.left = expr_to_port(body.lhs)
-        op.right = expr_to_port(body.rhs)
-        out.in_ = op.out
+        operation.left = expr_to_port(body.lhs)
+        operation.right = expr_to_port(body.rhs)
+        out.in_ = operation.out
         # Multipliers are sequential so we need to manipulate go/done signals
-        if body.op == "mul":
-            op.go = 1
-            out.write_en = op.done
+        if body.operation == "mul":
+            operation.go = 1
+            out.write_en = operation.done
         else:
             out.write_en = 1
-        ev.done = out.done
+        evl.done = out.done
 
     control = SeqComp(
         [
@@ -170,17 +175,17 @@ def gen_map_impl(
 ):
     """
     Returns a dictionary containing Calyx cells, wires and
-    control needed to implement a map statement. (See gen_stmt_impl
-    for format of the dictionary.)
+    control needed to implement a `map` statement.
+    See gen_stmt_impl for format of the dictionary.
 
     Generates these groups:
-      - a group that implements the body of the map statement
-      - a group that increments an index to access the map input array
+      - a group that implements the body of the `map` statement
+      - a group that increments an index to access the `map` input array
       - a group that implements the loop condition, checking if the index
         has reached the end of the input array
     """
 
-    # Parallel loops representing the map body
+    # Parallel loops representing the `map` body
     map_loops = []
 
     arr_size = arr_size // bank_factor
@@ -201,46 +206,49 @@ def gen_map_impl(
             raise NotImplementedError()
 
         # Mapping from binding to arrays
-        name2arr = {bind.dest[0]: f"{bind.src}_b{bank}" for bind in stmt.bind}
+        name2arr = {bind.dst[0]: f"{bind.src}_b{bank}" for bind in stmt.binds}
 
         def expr_to_port(expr: ast.BaseExpr):
             if isinstance(expr, ast.LitExpr):
                 return cb.const(32, expr.value)
-            elif isinstance(expr, ast.VarExpr):
-                return CompPort(CompVar(f"{name2arr[expr.name]}"), "read_data")
+            if isinstance(expr, ast.VarExpr):
+                return CompPort(CompVar(name2arr[expr.name]), "read_data")
+            raise CompileError(f"Unhandled expression: {type(expr)}")
 
-        if body.op == "mul":
-            op = comp.cell(f"mul_{suffix}", Stdlib.op("mult_pipe", 32, signed=False))
+        if body.operation == "mul":
+            operation = comp.cell(
+                f"mul_{suffix}", Stdlib.op("mult_pipe", 32, signed=False)
+            )
         else:
-            op = comp.add(f"add_{suffix}", 32)
+            operation = comp.add(f"add_{suffix}", 32)
 
         assert (
-            len(stmt.bind) <= 2
+            len(stmt.binds) <= 2
         ), "Map statements with more than 2 arguments not supported"
         # ANCHOR: map_inputs
-        with comp.group(f"eval_body_{suffix}") as ev:
+        with comp.group(f"eval_body_{suffix}") as evl:
             # Index each array
-            for bind in stmt.bind:
+            for bind in stmt.binds:
                 # Map bindings have exactly one dest
-                mem = comp.get_cell(f"{name2arr[bind.dest[0]]}")
+                mem = comp.get_cell(f"{name2arr[bind.dst[0]]}")
                 mem.addr0 = idx.out
             # ANCHOR_END: map_inputs
             # ANCHOR: map_op
             # Provide inputs to the op
-            op.left = expr_to_port(body.lhs)
-            op.right = expr_to_port(body.rhs)
+            operation.left = expr_to_port(body.lhs)
+            operation.right = expr_to_port(body.rhs)
             # ANCHOR_END: map_op
             # ANCHOR: map_write
             out_mem = comp.get_cell(f"{dest}_b{bank}")
             out_mem.addr0 = idx.out
-            out_mem.write_data = op.out
+            out_mem.write_data = operation.out
             # Multipliers are sequential so we need to manipulate go/done signals
-            if body.op == "mul":
-                op.go = 1
-                out_mem.write_en = op.done
+            if body.operation == "mul":
+                operation.go = 1
+                out_mem.write_en = operation.done
             else:
                 out_mem.write_en = 1
-            ev.done = out_mem.done
+            evl.done = out_mem.done
             # ANCHOR_END: map_write
 
         # Control to execute the groups
@@ -288,12 +296,17 @@ def gen_stmt_impl(
 
     name2par maps memory names to banking factors.
     """
-    if isinstance(stmt.op, ast.Map):
+    if isinstance(stmt.operation, ast.Map):
         return gen_map_impl(
-            comp, stmt.dest, stmt.op, arr_size, name2par[stmt.dest], statement_idx
+            comp,
+            stmt.dst,
+            stmt.operation,
+            arr_size,
+            name2par[stmt.dst],
+            statement_idx,
         )
     else:
-        return gen_reduce_impl(comp, stmt.dest, stmt.op, arr_size, statement_idx)
+        return gen_reduce_impl(comp, stmt.dst, stmt.operation, arr_size, statement_idx)
 
 
 def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
@@ -304,7 +317,7 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         # If we've already inferred a banking factor for this memory,
         # make sure it's the same as the one we're inferring now.
         if mem in out and par != out[mem]:
-            raise Exception(
+            raise CompileError(
                 f"Previous uses of `{mem}` have caused it to have "
                 f"banking factor {out[mem]} "
                 f"but the current use requires banking factor {par}"
@@ -312,14 +325,13 @@ def compute_par_factors(stmts: List[ast.Stmt]) -> Dict[str, int]:
         out[mem] = par
 
     for stmt in stmts:
-        par_f = stmt.op.par
-        if isinstance(stmt.op, ast.Map):
-            add_par(stmt.dest, par_f)  # The dest of a Map is a vector
+        par_f = stmt.operation.par
+        if isinstance(stmt.operation, ast.Map):
+            add_par(stmt.dst, par_f)  # The destination of a `map` is a vector
         elif par_f != 1:
-            # Reduction does not support parallelism
             raise NotImplementedError("Reduction does not support parallelism")
-        for b in stmt.op.bind:
-            add_par(b.src, par_f)
+        for bind in stmt.operation.binds:
+            add_par(bind.src, par_f)
 
     return out
 
@@ -356,7 +368,11 @@ def emit_data(prog: ast.Prog, data):
                 bank = f"{var}_b{i}"
                 calyx_data[bank] = {
                     "data": val[(i * bank_size) : ((i + 1) * bank_size)],
-                    "format": {"numeric_type": "bitnum", "is_signed": False, "width": 32},
+                    "format": {
+                        "numeric_type": "bitnum",
+                        "is_signed": False,
+                        "width": 32,
+                    },
                 }
         else:
             calyx_data[var] = {
@@ -367,8 +383,7 @@ def emit_data(prog: ast.Prog, data):
 
 
 def reg_to_mem_group(
-        comp: cb.ComponentBuilder, var: str,
-        reg: cb.CellBuilder, mem: cb.CellBuilder
+    comp: cb.ComponentBuilder, var: str, reg: cb.CellBuilder, mem: cb.CellBuilder
 ) -> str:
     """
     Creates a group that increments the index.
@@ -414,7 +429,7 @@ def emit(prog: ast.Prog):
             if not arr_size:
                 arr_size = decl.type.size
             elif arr_size != decl.type.size:
-                raise Exception(
+                raise CompileError(
                     f"Memory `{decl.name}` has size {decl.type.size}"
                     f" but previous memory had size {arr_size}"
                 )
@@ -429,25 +444,25 @@ def emit(prog: ast.Prog):
             mem = main.mem_d1(name, 32, 1, 32, is_external=True)
             reg = main.reg(f"{name}_reg", 32)
             if not decl.input:
-                reg_to_mem.append(
-                    Enable(reg_to_mem_group(main, name, reg, mem))
-                )
+                reg_to_mem.append(Enable(reg_to_mem_group(main, name, reg, mem)))
 
     if not arr_size:
-        raise Exception("Failed to infer array size. Are there no array declarations?")
+        raise CompileError(
+            "Failed to infer array size. Are there no array declarations?"
+        )
 
     # Collect implicit memory and register declarations.
     for stmt in prog.stmts:
-        if stmt.dest not in used_names:
-            if isinstance(stmt.op, ast.Map):
-                name = stmt.dest
+        if stmt.dst not in used_names:
+            if isinstance(stmt.operation, ast.Map):
+                name = stmt.dst
                 par = par_factor[name]
                 for i in range(par):
                     main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32)
             else:
                 raise NotImplementedError("Generating register declarations")
                 #  cells.append(emit_reg_decl(stmt.dest, 32))
-            used_names.append(stmt.dest)
+            used_names.append(stmt.dst)
 
     control: List[Control] = []
     # Generate Calyx for each statement
