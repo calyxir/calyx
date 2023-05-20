@@ -59,10 +59,11 @@ def add_tree(prog):
     )
 
 
-def use_tree(comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree):
+def use_tree_ports_calculated(comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree):
     """Orchestrates the use of the component `tree`.
     Adds wiring for {group}, which puts into the tree's four leaves
     the values a[a_i], b[b_i], c[c_i], and d[d_i].
+    It then runs the tree.
     """
     with comp.group(group) as tree_use:
         a.addr0 = cb.const(32, a_i)
@@ -77,7 +78,15 @@ def use_tree(comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree):
         tree_use.done = tree.done
 
 
-def use_tree_port(comp, group, p1, p2, p3, p4, tree):
+def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree):
+    """Orchestrates the use of the component `tree`.
+    Adds wiring for {group}, which puts into the tree's four leaves
+    the values p1, p2, p3, and p4.
+    It then runs the tree.
+    """
+    # i.e., much like the above, but instead of calculating the
+    # ports, it takes them as arguments.
+
     with comp.group(group) as tree_use:
         tree.leaf1 = p1
         tree.leaf2 = p2
@@ -121,11 +130,11 @@ def add_main(prog):
     tree3 = main.cell("tree3", prog.component("tree"))
     tree4 = main.cell("tree4", prog.component("tree"))
 
-    use_tree(main, "tree0_col0", A, 0, B, 0, C, 0, D, 0, tree0)
-    use_tree(main, "tree1_col1", A, 1, B, 1, C, 1, D, 1, tree1)
-    use_tree(main, "tree2_col2", A, 2, B, 2, C, 2, D, 2, tree2)
-    use_tree(main, "tree3_col3", A, 3, B, 3, C, 3, D, 3, tree3)
-    use_tree_port(
+    use_tree_ports_calculated(main, "tree0_col0", A, 0, B, 0, C, 0, D, 0, tree0)
+    use_tree_ports_calculated(main, "tree1_col1", A, 1, B, 1, C, 1, D, 1, tree1)
+    use_tree_ports_calculated(main, "tree2_col2", A, 2, B, 2, C, 2, D, 2, tree2)
+    use_tree_ports_calculated(main, "tree3_col3", A, 3, B, 3, C, 3, D, 3, tree3)
+    use_tree_ports_provided(
         main, "tree4_total", tree0.sum, tree1.sum, tree2.sum, tree3.sum, tree4
     )
 
