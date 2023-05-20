@@ -37,10 +37,9 @@ qual: "input" -> input | "output" -> output
 """.strip()
 
 
-# Transform parse tree to AST.
-
-
 class ConstructAST(lark.Transformer):
+    """Transform the parse tree into an AST."""
+
     def decl(self, args):
         qual, name, typ = args
         return ast.Decl(qual.data == "input", str(name), typ)
@@ -50,8 +49,8 @@ class ConstructAST(lark.Transformer):
         return ast.Prog(decls.children, stmts.children)
 
     def stmt(self, args):
-        dest, op = args
-        return ast.Stmt(str(dest), op)
+        dest, operation = args
+        return ast.Stmt(str(dest), operation)
 
     def map(self, args):
         par, bind, block = args
@@ -62,8 +61,8 @@ class ConstructAST(lark.Transformer):
         return ast.Reduce(int(par), bind.children, init, block)
 
     def binexpr(self, args):
-        lhs, op, rhs = args
-        return ast.BinExpr(op.data, lhs, rhs)
+        lhs, operation, rhs = args
+        return ast.BinExpr(operation.data, lhs, rhs)
 
     def litexpr(self, args):
         (value,) = args
@@ -87,7 +86,8 @@ class ConstructAST(lark.Transformer):
 
 
 def parse(txt: str) -> ast.Prog:
+    """Parse a MrXL program and return the AST."""
     parser = lark.Lark(GRAMMAR)
     tree = parser.parse(txt)
-    ast = ConstructAST().transform(tree)
-    return ast
+    parsed_ast = ConstructAST().transform(tree)
+    return parsed_ast
