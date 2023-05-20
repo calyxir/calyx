@@ -15,7 +15,7 @@ def add_adder(
     into the adder {cell}. It then puts the output of {cell} into
     the memory cell {ans}.
     """
-    # AM, point of failure:
+    # AM, minor:
     # If passed a {cell} name that's already defined,
     # it creates a duplicate cell instead of locating and reusing the existing one.
     adder = comp.cell(cell, Stdlib.op("add", 32, signed=False))
@@ -96,6 +96,15 @@ def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree):
         tree_use.done = tree.done
 
 
+def load_to_ans(comp, group, mem, addr, port):
+    """Adds wiring for {group}, which puts the value of {port} into {mem}[0]."""
+    with comp.group(group) as load:
+        mem.addr0 = cb.const(1, addr)
+        mem.write_data = port
+        mem.write_en = 1
+        load.done = mem.done
+
+
 def add_main(prog):
     """Inserts the component `main` into the program.
     This will be used in concert with multiple copies of the component `tree`.
@@ -110,7 +119,7 @@ def add_main(prog):
     B = main.mem_d1("B", 32, 4, 32, is_external=True)
     C = main.mem_d1("C", 32, 4, 32, is_external=True)
     D = main.mem_d1("D", 32, 4, 32, is_external=True)
-    E = main.mem_d1("ans", 32, 1, 1, is_external=True)
+    ans = main.mem_d1("ans", 32, 1, 1, is_external=True)
 
     _ = main.reg("sum_col1", 32)
     _ = main.reg("sum_col2", 32)
@@ -136,6 +145,18 @@ def add_main(prog):
     use_tree_ports_calculated(main, "tree3_col3", A, 3, B, 3, C, 3, D, 3, tree3)
     use_tree_ports_provided(
         main, "tree4_total", tree0.sum, tree1.sum, tree2.sum, tree3.sum, tree4
+    )
+    load_to_ans(main, "load_to_ans_mem", ans, 0, tree4.sum)
+
+    main.control = SeqComp(
+        [
+            Enable("tree0_col0"),
+            Enable("tree1_col1"),
+            Enable("tree2_col2"),
+            Enable("tree3_col3"),
+            Enable("tree4_total"),
+            Enable("load_to_ans_mem"),
+        ]
     )
 
 
