@@ -73,11 +73,6 @@ component main() -> () {
     // IDK how to drive a register in the data file.
     @external ans = std_mem_d1(32, 1, 1);
 
-    sum_col1 = std_reg(32);
-    sum_col2 = std_reg(32);
-    sum_col3 = std_reg(32);
-    sum_col4 = std_reg(32);
-
     // Preparing to call the `tree` component.
     tree0 = tree();
     tree1 = tree();

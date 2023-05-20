@@ -121,11 +121,6 @@ def add_main(prog):
     D = main.mem_d1("D", 32, 4, 32, is_external=True)
     ans = main.mem_d1("ans", 32, 1, 1, is_external=True)
 
-    _ = main.reg("sum_col1", 32)
-    _ = main.reg("sum_col2", 32)
-    _ = main.reg("sum_col3", 32)
-    _ = main.reg("sum_col4", 32)
-
     # AM, point of failure:
     # I'd like to add the following to the `cells` section:
     # tree0 = tree();
