@@ -18,12 +18,21 @@ def add_adder(
     # AM, minor:
     # If passed a {cell} name that's already defined,
     # it creates a duplicate cell instead of locating and reusing the existing one.
+    # This is minor because it is probably compiled away.
     adder = comp.cell(cell, Stdlib.op("add", 32, signed=False))
     with comp.group(group) as adder_group:
         adder.left = CompPort(CompVar(port_l), "out")
         adder.right = CompPort(CompVar(port_r), "out")
         # AM, point of failure:
         # This is wrong. It renders "{port_l}.out" but I want "{port_l}".
+        # The names are misnomers, slash aspirational:
+        # I _want_ to pass ports, but am passing names and then accessing ports.
+        # In `add_tree_ports_provided` below, I do pass ports.
+        # That doesn't seem to be possible here:
+        # when invoking this method, I'd like to pass _input_ ports
+        # of a component.
+        # I don't know how to get a handle on those.
+        # Is there a way to look up a port by name?
         ans.write_en = 1
         ans.in_ = adder.out
         adder_group.done = ans.done
@@ -50,6 +59,10 @@ def add_tree(prog):
     add_adder(tree, "add_l1_l2", "leaf1", "leaf2", "add1", left)
     add_adder(tree, "add_l3_l4", "leaf3", "leaf4", "add2", right)
     add_adder(tree, "add_left_right_nodes", "left_node", "right_node", "add3", root)
+    # AM, point of failure:
+    # I need to add the continuous assignment:
+    # sum = root.out;
+    # But I don't know how to do that.
 
     tree.control = SeqComp(
         [
