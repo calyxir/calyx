@@ -1,14 +1,12 @@
 use crate::traversal::{Action, ConstructVisitor, Named, Visitor};
 use calyx_ir as ir;
+use calyx_utils::CalyxResult;
 use ir::RRC;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use smallvec::smallvec;
 use std::collections::{HashMap, HashSet};
 
-const DEFAULT: u64 = 32;
-
-#[derive(Default)]
 /// A pass to detect cells that have been inlined into the top-level component
 /// and turn them into real cells marked with [ir::BoolAttr::External].
 pub struct DiscoverExternal {
@@ -23,12 +21,49 @@ impl Named for DiscoverExternal {
     fn description() -> &'static str {
         "Detect cells that have been inlined into a component's interface and turn them into @external cells"
     }
+}
 
-    fn opts() -> &'static [(&'static str, &'static str)] {
-        &[(
-            "default",
-            "Default width for external cells. Defaults to 32 bits.",
-        )]
+impl ConstructVisitor for DiscoverExternal {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self>
+    where
+        Self: Sized,
+    {
+        // Manual parsing because our options are not flags
+        let n = Self::name();
+        let given_opts: HashSet<_> = ctx
+            .extra_opts
+            .iter()
+            .filter_map(|opt| {
+                let mut splits = opt.split(':');
+                if splits.next() == Some(n) {
+                    splits.next()
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Search for the "default=<n>" option
+        let mut default = None;
+        for opt in given_opts {
+            let mut splits = opt.split('=');
+            if splits.next() == Some("default") {
+                let Some(val) = splits.next().and_then(|v| v.parse().ok()) else {
+                    log::warn!("Failed to parse default value. Please specify using -x {}:default=<n>", n);
+                    continue;
+                };
+
+                default = Some(val);
+            }
+        }
+
+        Ok(Self {
+            default: default.unwrap_or(32),
+        })
+    }
+
+    fn clear_data(&mut self) {
+        /* All data is shared */
     }
 }
 
@@ -159,8 +194,13 @@ impl Visitor for DiscoverExternal {
                     if let Some(v) = v {
                         v
                     } else {
-                        log::warn!("Unable to infer parameter value for {} in {}, defaulting to {}", pre, prim, DEFAULT);
-                        DEFAULT
+                        log::warn!(
+                            "Unable to infer parameter value for {} in {}, defaulting to {}",
+                            pre,
+                            prim,
+                            self.default
+                        );
+                        self.default
                     }
                 })
                 .collect_vec();
