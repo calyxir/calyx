@@ -41,35 +41,41 @@ Interpreting MrXL
 
 To run the program through the MrXL interpreter, execute:
 
-    mrxl <prog.mrxl> --data <prog.mrxl.data> --interpret
+    mrxl <prog>.mrxl --data <prog>.mrxl.data --interpret
 
-where `<prog.mrxl>` is a file containing MrXL source code and `<prog.mrxl.data>` is a file containing values for all the variables declared as `input`s in the MrXL program. The interpreter dumps the `output` variables, in JSON, to stdout.
+where `<prog>.mrxl` is a file containing MrXL source code and `<prog>.mrxl.data` is a file containing values for all the variables declared as `input`s in the MrXL program. The interpreter dumps the `output` variables, in JSON, to stdout.
 
 You could try, for example:
 
     mrxl test/dot.mrxl --data test/dot.mrxl.data --interpret
 
 This is just a baby version of the dot-product implementation we showed at the very top; we have just shortened the input array so you can easily see it in full.
-We also provide `add.mrxl` and `sum.mrxl`, along with sample `<indata>` files, under `test/`. Try playing with the inputs and the operations!
+We also provide `add.mrxl` and `sum.mrxl`, along with sample `<prog>.mrxl.data` files, under `test/`. Try playing with the inputs and the operations!
 
 
 Compiling to Calyx
 ------------------
 
-To run the compiler and see the Calyx code your MrXL program generates, just leave off the `--data` and `--interpret` flags. For instance:
+To run the compiler and see the Calyx code your MrXL program generates, just drop the `--data` and `--interpret` flags. For instance:
 
     mrxl test/dot.mrxl
 
-In order to run the compiler through `fud`, pass the `--from mrxl` flag:
+In order to run the compiler through `fud`, pass the `--from mrxl` and `--to futil` flags:
 
-    fud e --from mrxl <prog.mrxl> --to futil
+    fud e --from mrxl <prog>.mrxl --to futil
 
-Of course, what we _really_ want to do is see what Verilog would make of this Calyx code.
-To simulate Verilog's output, we need to first take a step back and beef up the `mrxl.data` files with information that Verilog requires.
+And finally, the real prize.
+In order to compile MrXL to Calyx and then simulate the Calyx code in Verilog, run:
 
-Run:
+    fud e --from mrxl <prog>.mrxl --to dat --through verilog -s mrxl.data <prog>.mrxl.data
 
-    mrxl <prog.mrxl> --data <prog.mrxl.data> --convert
+An aside: MrXL permits a simplified data format, which is what we have been looking at in our `<prog>.mrxl.data` files.
+Files of this form need to be beefed up with additional information so that Verilog (and similar simulators) can work with them.
+We did this beefing up "on the fly" in the incantation above, but it is interesting to see the changes we made.
+
+See this with:
+
+    mrxl <prog>.mrxl --data <prog>.mrxl.data --convert
 
 The output dumped to stdout is exactly this beefed-up data.
 The changes it makes are:
@@ -77,14 +83,7 @@ The changes it makes are:
 2. It infers the `output` variables required by the program and adds data fields for them.
 3. It infers, for each memory, the parallelism factor requested by the program, and then divides the relevant data entries into _memory banks_.
 
-Save this new data file:
-
-    mrxl <prog.mrxl> --data <prog.mrxl.data> --convert > <prog.data>
-
-And now you can simulate Verilog with:
-
-    fud e --from mrxl <prog.mrxl> --to dat --through verilog -s verilog.data <prog.data>
-
 
 [flit]: https://flit.readthedocs.io/en/latest/index.html
 [fronttut]: ../tutorial/frontend-tut.md
+
