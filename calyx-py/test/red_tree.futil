@@ -71,7 +71,7 @@ component main() -> () {
     // We will store the final answer here.
     // I'm using a memory of size 1 and not a reg because
     // IDK how to drive a register in the data file.
-    @external sum = std_mem_d1(32, 1, 32);
+    @external sum = std_mem_d1(32, 1, 1);
 
     sum_col1 = std_reg(32);
     sum_col2 = std_reg(32);
@@ -88,14 +88,10 @@ component main() -> () {
 
   wires {
     group tree0_col0 {
-      A.read_en = 1'b1;
-      B.read_en = 1'b1;
-      C.read_en = 1'b1;
-      D.read_en = 1'b1;
-      A.addr0 = 0'b0;
-      B.addr0 = 0'b0;
-      C.addr0 = 0'b0;
-      D.addr0 = 0'b0;
+      A.addr0 = 32'd0;
+      B.addr0 = 32'd0;
+      C.addr0 = 32'd0;
+      D.addr0 = 32'd0;
       tree0.leaf1 = A.read_data;
       tree0.leaf2 = B.read_data;
       tree0.leaf3 = C.read_data;
@@ -104,14 +100,10 @@ component main() -> () {
       tree0_col0[done] = tree0.done;
     }
     group tree1_col1 {
-      A.read_en = 1'b1;
-      B.read_en = 1'b1;
-      C.read_en = 1'b1;
-      D.read_en = 1'b1;
-      A.addr0 = 1'b0;
-      B.addr0 = 1'b0;
-      C.addr0 = 1'b0;
-      D.addr0 = 1'b0;
+      A.addr0 = 32'd1;
+      B.addr0 = 32'd1;
+      C.addr0 = 32'd1;
+      D.addr0 = 32'd1;
       tree1.leaf1 = A.read_data;
       tree1.leaf2 = B.read_data;
       tree1.leaf3 = C.read_data;
@@ -120,14 +112,10 @@ component main() -> () {
       tree1_col1[done] = tree1.done;
     }
     group tree2_col2 {
-      A.read_en = 1'b1;
-      B.read_en = 1'b1;
-      C.read_en = 1'b1;
-      D.read_en = 1'b1;
-      A.addr0 = 2'b0;
-      B.addr0 = 2'b0;
-      C.addr0 = 2'b0;
-      D.addr0 = 2'b0;
+      A.addr0 = 32'd2;
+      B.addr0 = 32'd2;
+      C.addr0 = 32'd2;
+      D.addr0 = 32'd2;
       tree2.leaf1 = A.read_data;
       tree2.leaf2 = B.read_data;
       tree2.leaf3 = C.read_data;
@@ -136,14 +124,10 @@ component main() -> () {
       tree2_col2[done] = tree2.done;
     }
     group tree3_col3 {
-      A.read_en = 1'b1;
-      B.read_en = 1'b1;
-      C.read_en = 1'b1;
-      D.read_en = 1'b1;
-      A.addr0 = 3'b0;
-      B.addr0 = 3'b0;
-      C.addr0 = 3'b0;
-      D.addr0 = 3'b0;
+      A.addr0 = 32'd3;
+      B.addr0 = 32'd3;
+      C.addr0 = 32'd3;
+      D.addr0 = 32'd3;
       tree3.leaf1 = A.read_data;
       tree3.leaf2 = B.read_data;
       tree3.leaf3 = C.read_data;
@@ -152,17 +136,17 @@ component main() -> () {
       tree3_col3[done] = tree3.done;
     }
     group tree4_total {
-      tree4.leaf1 = tree0.out;
-      tree4.leaf2 = tree1.out;
-      tree4.leaf3 = tree2.out;
-      tree4.leaf4 = tree3.out;
+      tree4.leaf1 = tree0.sum;
+      tree4.leaf2 = tree1.sum;
+      tree4.leaf3 = tree2.sum;
+      tree4.leaf4 = tree3.sum;
       tree4.go = 1'd1;
       tree4_total[done] = tree3.done;
     }
     group load_to_sum {
+      sum.addr0 = 1'b0;
+      sum.write_data = tree2.sum;
       sum.write_en = 1'b1;
-      sum.addr0 = 0'b0;
-      sum.write_data = tree4.out;
       load_to_sum[done] = sum.done;
     }
   }
