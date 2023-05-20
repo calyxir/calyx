@@ -79,6 +79,7 @@ component main() -> () {
     sum_col4 = std_reg(32);
 
     // Preparing to invoke the `tree` component.
+    tree0 = tree();
     tree1 = tree();
     tree2 = tree();
     tree3 = tree();
@@ -86,11 +87,94 @@ component main() -> () {
   }
 
   wires {
+    group tree0_col0 {
+      A.read_en = 1'b1;
+      B.read_en = 1'b1;
+      C.read_en = 1'b1;
+      D.read_en = 1'b1;
+      A.addr0 = 0'b0;
+      B.addr0 = 0'b0;
+      C.addr0 = 0'b0;
+      D.addr0 = 0'b0;
+      tree0.leaf1 = A.read_data;
+      tree0.leaf2 = B.read_data;
+      tree0.leaf3 = C.read_data;
+      tree0.leaf4 = D.read_data;
+      tree0.go = 1'd1;
+      tree0_col0[done] = tree0.done;
+    }
+    group tree1_col1 {
+      A.read_en = 1'b1;
+      B.read_en = 1'b1;
+      C.read_en = 1'b1;
+      D.read_en = 1'b1;
+      A.addr0 = 1'b0;
+      B.addr0 = 1'b0;
+      C.addr0 = 1'b0;
+      D.addr0 = 1'b0;
+      tree1.leaf1 = A.read_data;
+      tree1.leaf2 = B.read_data;
+      tree1.leaf3 = C.read_data;
+      tree1.leaf4 = D.read_data;
+      tree1.go = 1'd1;
+      tree1_col1[done] = tree1.done;
+    }
+    group tree2_col2 {
+      A.read_en = 1'b1;
+      B.read_en = 1'b1;
+      C.read_en = 1'b1;
+      D.read_en = 1'b1;
+      A.addr0 = 2'b0;
+      B.addr0 = 2'b0;
+      C.addr0 = 2'b0;
+      D.addr0 = 2'b0;
+      tree2.leaf1 = A.read_data;
+      tree2.leaf2 = B.read_data;
+      tree2.leaf3 = C.read_data;
+      tree2.leaf4 = D.read_data;
+      tree2.go = 1'd1;
+      tree2_col2[done] = tree2.done;
+    }
+    group tree3_col3 {
+      A.read_en = 1'b1;
+      B.read_en = 1'b1;
+      C.read_en = 1'b1;
+      D.read_en = 1'b1;
+      A.addr0 = 3'b0;
+      B.addr0 = 3'b0;
+      C.addr0 = 3'b0;
+      D.addr0 = 3'b0;
+      tree3.leaf1 = A.read_data;
+      tree3.leaf2 = B.read_data;
+      tree3.leaf3 = C.read_data;
+      tree3.leaf4 = D.read_data;
+      tree3.go = 1'd1;
+      tree3_col3[done] = tree3.done;
+    }
+    group tree4_total {
+      tree4.leaf1 = tree0.out;
+      tree4.leaf2 = tree1.out;
+      tree4.leaf3 = tree2.out;
+      tree4.leaf4 = tree3.out;
+      tree4.go = 1'd1;
+      tree4_total[done] = tree3.done;
+    }
+    group load_to_sum {
+      sum.write_en = 1'b1;
+      sum.addr0 = 0'b0;
+      sum.write_data = tree4.out;
+      load_to_sum[done] = sum.done;
+    }
   }
 
   control {
-    par {
-      // todo
+    seq {
+      tree0_col0;
+      tree1_col1;
+      tree2_col2;
+      tree3_col3;
+      tree4_total;
+      load_to_sum;
     }
   }
 }
