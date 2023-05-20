@@ -59,6 +59,24 @@ def add_tree(prog):
     )
 
 
+def use_tree(comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree):
+    """Orchestrates the use of the component `tree`.
+    Adds wiring for {group}, which puts into the tree's four leaves
+    the values a[a_i], b[b_i], c[c_i], and d[d_i].
+    """
+    with comp.group(group) as tree_use:
+        a.addr0 = cb.const(32, a_i)
+        b.addr0 = cb.const(32, b_i)
+        c.addr0 = cb.const(32, c_i)
+        d.addr0 = cb.const(32, d_i)
+        tree.leaf1 = a.read_data
+        tree.leaf2 = b.read_data
+        tree.leaf3 = c.read_data
+        tree.leaf4 = d.read_data
+        tree.go = cb.const(1, 1)
+        tree_use.done = tree.done
+
+
 def add_main(prog):
     """Inserts the component `main` into the program.
     This will be used in concert with multiple copies of the component `tree`.
@@ -69,33 +87,34 @@ def add_main(prog):
     It puts the sum of elements of the four memory cells into `ans`.
     """
     main = prog.component("main")
-    _ = main.mem_d1("A", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("B", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("C", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("D", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("ans", 32, 1, 1, is_external=True)
+    A = main.mem_d1("A", 32, 4, 32, is_external=True)
+    B = main.mem_d1("B", 32, 4, 32, is_external=True)
+    C = main.mem_d1("C", 32, 4, 32, is_external=True)
+    D = main.mem_d1("D", 32, 4, 32, is_external=True)
+    E = main.mem_d1("ans", 32, 1, 1, is_external=True)
 
     _ = main.reg("sum_col1", 32)
     _ = main.reg("sum_col2", 32)
     _ = main.reg("sum_col3", 32)
     _ = main.reg("sum_col4", 32)
 
-    # AM, point of failure (but a stupid hack has worked):
+    # AM, point of failure:
     # I'd like to add the following to the `cells` section:
     # tree0 = tree();
-    # The following is clearly a hilarious hack:
-    _ = main.cell("tree0", CompVar("tree()"))
-    _ = main.cell("tree1", CompVar("tree()"))
-    _ = main.cell("tree2", CompVar("tree()"))
-    _ = main.cell("tree3", CompVar("tree()"))
-    _ = main.cell("tree4", CompVar("tree()"))
-    # (I've just put parentheses in the name of the component.)
-
-    # I think the following is what you actually want me to do:
-    # _ = main.cell("tree0", prog.component("tree"))
+    # I think the following is what you want me to do:
+    tree0 = main.cell("tree0", prog.component("tree"))
     # But _it adds a new, blank component called tree_ to the program.
     # I'd like for it to locate the existing component `tree`.
     # Thoughts?
+    tree1 = main.cell("tree1", prog.component("tree"))
+    tree2 = main.cell("tree2", prog.component("tree"))
+    tree3 = main.cell("tree3", prog.component("tree"))
+    tree4 = main.cell("tree4", prog.component("tree"))
+
+    use_tree(main, "tree0_col0", A, 0, B, 0, C, 0, D, 0, tree0)
+    use_tree(main, "tree1_col1", A, 1, B, 1, C, 1, D, 1, tree1)
+    use_tree(main, "tree2_col2", A, 2, B, 2, C, 2, D, 2, tree2)
+    use_tree(main, "tree3_col3", A, 3, B, 3, C, 3, D, 3, tree3)
 
 
 def build():
