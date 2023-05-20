@@ -77,6 +77,16 @@ def use_tree(comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree):
         tree_use.done = tree.done
 
 
+def use_tree_port(comp, group, p1, p2, p3, p4, tree):
+    with comp.group(group) as tree_use:
+        tree.leaf1 = p1
+        tree.leaf2 = p2
+        tree.leaf3 = p3
+        tree.leaf4 = p4
+        tree.go = cb.const(1, 1)
+        tree_use.done = tree.done
+
+
 def add_main(prog):
     """Inserts the component `main` into the program.
     This will be used in concert with multiple copies of the component `tree`.
@@ -115,6 +125,9 @@ def add_main(prog):
     use_tree(main, "tree1_col1", A, 1, B, 1, C, 1, D, 1, tree1)
     use_tree(main, "tree2_col2", A, 2, B, 2, C, 2, D, 2, tree2)
     use_tree(main, "tree3_col3", A, 3, B, 3, C, 3, D, 3, tree3)
+    use_tree_port(
+        main, "tree4_total", tree0.sum, tree1.sum, tree2.sum, tree3.sum, tree4
+    )
 
 
 def build():
