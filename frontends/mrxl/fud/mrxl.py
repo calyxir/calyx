@@ -4,10 +4,8 @@ from fud.errors import MissingDynamicConfiguration
 
 from pathlib import Path
 
-# A local constant used only within this file largely for organizational
-# purposes and to avoid magic strings
+# The temporary filename used for converting mrxl.data to verilog.data 
 _DATA_FILE = "data.json"
-
 
 
 class MrXLStage(Stage):
