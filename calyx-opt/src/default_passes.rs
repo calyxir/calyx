@@ -3,9 +3,9 @@ use crate::passes::{
     AttributePromotion, Canonicalize, CellShare, ClkInsertion, CollapseControl,
     CombProp, CompileEmpty, CompileInvoke, CompileRef, CompileStatic,
     CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
-    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, Externalize,
-    GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner, InferShare,
-    LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
+    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
+    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
+    InferShare, LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
     RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticInliner, StaticParConv, StaticPromotion,
     SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
@@ -66,6 +66,7 @@ impl PassManager {
         pm.register_pass::<Externalize>()?;
 
         // Disabled by default
+        pm.register_pass::<DiscoverExternal>()?;
         pm.register_pass::<UnrollBounded>()?;
         // pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<RegisterUnsharing>()?;
