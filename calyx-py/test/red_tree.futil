@@ -35,13 +35,13 @@ component tree(leaf1: 32, leaf2: 32, leaf3: 32, leaf4: 32) -> (sum: 32) {
       right_node.in = add2.out;
       add_l3_l4[done] = right_node.done;
     }
-    group add_left_right_node {
+    group add_left_right_nodes {
       // Adds left_node and right_node, then puts the result in root.
       add1.left = left_node.out;
       add1.right = right_node.out;
       root.write_en = 1'b1;
       root.in = add1.out;
-      add_left_right_node[done] = root.done;
+      add_left_right_nodes[done] = root.done;
     }
     // Continuous assignment of answer to `sum`.
     sum = root.out;
@@ -54,7 +54,7 @@ component tree(leaf1: 32, leaf2: 32, leaf3: 32, leaf4: 32) -> (sum: 32) {
         add_l1_l2;
         add_l3_l4;
       }
-      add_left_right_node;
+      add_left_right_nodes;
     }
   }
 }
@@ -162,3 +162,4 @@ component main() -> () {
     }
   }
 }
+
