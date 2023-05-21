@@ -112,7 +112,7 @@ paths = [
   "tests/correctness/sync/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s verilog.data {}.data \
@@ -131,7 +131,7 @@ paths = [
   "tests/correctness/ref-cells/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
@@ -149,7 +149,7 @@ paths = [
   "tests/correctness/*.futil",
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s verilog.data {}.data \
@@ -169,7 +169,7 @@ paths = [
   "tests/correctness/static/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
@@ -189,7 +189,7 @@ paths = [
   "tests/correctness/group-static-promotion/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
@@ -208,7 +208,7 @@ paths = [
   "tests/correctness/numeric-types/fixed-point/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through dat \
          --through verilog \
          -s verilog.data {}.data \
@@ -222,7 +222,7 @@ paths = [
   "tests/correctness/tcam/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
       --through verilog \
       --through dat \
       -s verilog.data {}.data \
@@ -315,7 +315,7 @@ fud e {} -s verilog.cycle_limit 500 \
          -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
-         --to dat -q
+         --from calyx --to dat -q
 """
 
 [[tests]]
@@ -326,7 +326,7 @@ fud e {} -s verilog.cycle_limit 500 \
          -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
-         --to dat -q
+         --from calyx --to dat -q
 """
 
 [[tests]]
