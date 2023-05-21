@@ -124,7 +124,6 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("verilog", BackendOpt::Verilog),
         ("xilinx", BackendOpt::Xilinx),
         ("xilinx-xml", BackendOpt::XilinxXml),
-        ("futil", BackendOpt::Calyx),
         ("calyx", BackendOpt::Calyx),
         ("mlir", BackendOpt::Mlir),
         ("resources", BackendOpt::Resources),

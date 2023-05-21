@@ -21,5 +21,8 @@
     "jupyter.interactiveWindow.codeLens.enable": true,
     "rust-analyzer.linkedProjects": [
         "./calyx-opt/Cargo.toml"
-    ]
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    }
 }

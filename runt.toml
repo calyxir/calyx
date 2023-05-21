@@ -64,8 +64,8 @@ flags=$(head -n 1 {} | cut -c 3-)
 name = "[frontend] dahlia"
 paths = [ "tests/frontend/dahlia/*.fuse" ]
 cmd = """
-fud e {} --to futil -q \
-          -s futil.exec './target/debug/calyx' \
+fud e {} --to calyx -q \
+          -s calyx.exec './target/debug/calyx' \
         | tail -n+2
 """
 
@@ -80,7 +80,7 @@ cmd = """
 name = "[frontend] NTT pipeline generation"
 paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
 cmd = """
-fud e --from ntt {} --to futil -q
+fud e --from ntt {} --to calyx -q
 """
 
 [[tests]]
@@ -116,8 +116,8 @@ fud exec --to jq \
          --through verilog \
          --through dat \
          -s verilog.data {}.data \
-         -s futil.exec './target/debug/calyx' \
-         -s futil.flags ' -d tdst' \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags ' -d tdst' \
          -s verilog.cycle_limit 500 \
          -s jq.expr ".memories" \
          {} -q
@@ -134,7 +134,7 @@ cmd = """
 fud exec --to jq \
          --through verilog \
          --through dat \
-         -s futil.exec './target/debug/calyx' \
+         -s calyx.exec './target/debug/calyx' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          -s jq.expr ".memories" \
@@ -153,8 +153,8 @@ fud exec --to jq \
          --through verilog \
          --through dat \
          -s verilog.data {}.data \
-         -s futil.exec './target/debug/calyx' \
-         -s futil.flags ' --nested' \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags ' --nested' \
          -s verilog.cycle_limit 500 \
          -s jq.expr ".memories" \
          {} -q
@@ -172,8 +172,8 @@ cmd = """
 fud exec --to jq \
          --through verilog \
          --through dat \
-         -s futil.exec './target/debug/calyx' \
-         -s futil.flags ' -x tdst:force -p all -d group2invoke' \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags ' -x tdst:force -p all -d group2invoke' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q
@@ -192,8 +192,8 @@ cmd = """
 fud exec --to jq \
          --through verilog \
          --through dat \
-         -s futil.exec './target/debug/calyx' \
-         -s futil.flags '-p all -d tdst -d group2invoke' \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags '-p all -d tdst -d group2invoke' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q
@@ -238,7 +238,7 @@ fud e --from systolic --to jq \
       --through verilog \
       --through vcd_json \
       -s verilog.data {}.data \
-      -s futil.exec './target/debug/calyx' \
+      -s calyx.exec './target/debug/calyx' \
       -s jq.file {}.jq \
       {} -q
 """
@@ -287,7 +287,7 @@ paths = [
   "tests/errors/runtime/*.futil"
 ]
 cmd = """
-fud exec -s futil.exec './target/debug/calyx' \
+fud exec -s calyx.exec './target/debug/calyx' \
          -s verilog.cycle_limit 500 \
          --through verilog \
          {} --to dat -q 2>&1 | \
@@ -301,7 +301,7 @@ name = "[examples] language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d tdst' \
+         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data examples/tutorial/data.json \
          --to dat -q
@@ -312,7 +312,7 @@ name = "[examples] sync primitives"
 paths = ["examples/sync/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d tdst' \
+         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q
@@ -323,7 +323,7 @@ name = "[examples] memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d tdst' \
+         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q

@@ -183,12 +183,12 @@ class IcarusBaseStage(Stage):
         return result
 
 
-class FutilToIcarus(futil.FutilStage):
+class FutilToIcarus(futil.CalyxStage):
     """
     Stage to transform Calyx into icarus-verilog simulatable Verilog
     """
 
-    # No name since FutilStage already defines names
+    # No name since CalyxStage already defines names
 
     @staticmethod
     def pre_install():
