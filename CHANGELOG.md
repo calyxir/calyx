@@ -2,6 +2,7 @@
 - Remove necessary indentation inlined verilog primitives
 - Add new `discover-external` pass to transform inlined cells into `@external` cells
 - Implementation of `static` primitives and components and finish work on static milestone paving way for deprecation of the `@static` attribute.
+- Get rid of generation of `initial` blocks and the `--disable-init` flag.
 
 ## 0.2.0
 - The core compilation primitives are included in the compiler distribution eliminating reliance on the primitives path.
