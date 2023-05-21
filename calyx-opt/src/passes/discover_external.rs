@@ -81,7 +81,8 @@ impl Visitor for DiscoverExternal {
         // Group ports by longest common prefix
         // NOTE(rachit): This is an awfully inefficient representation. We really
         // want a TrieMap here.
-        let mut prefix_map: HashMap<String, HashSet<ir::Id>> = HashMap::new();
+        let mut prefix_map: LinkedHashMap<String, HashSet<ir::Id>> =
+            LinkedHashMap::new();
         for port in comp.signature.borrow().ports() {
             let name = port.borrow().name;
             let mut prefix = String::new();
@@ -102,7 +103,8 @@ impl Visitor for DiscoverExternal {
         }
 
         // For all cells in the library, build a set of port names.
-        let mut prim_ports: HashMap<ir::Id, HashSet<ir::Id>> = HashMap::new();
+        let mut prim_ports: LinkedHashMap<ir::Id, HashSet<ir::Id>> =
+            LinkedHashMap::new();
         for prim in sigs.signatures() {
             let hs = prim
                 .signature
@@ -119,7 +121,8 @@ impl Visitor for DiscoverExternal {
 
         // For all prefixes, check if there is a primitive that matches the
         // prefix. If there is, then we have an external cell.
-        let mut pre_to_prim: HashMap<String, ir::Id> = HashMap::new();
+        let mut pre_to_prim: LinkedHashMap<String, ir::Id> =
+            LinkedHashMap::new();
         for (prefix, ports) in prefix_map.iter() {
             for (&prim, prim_ports) in prim_ports.iter() {
                 if prim_ports == ports {
@@ -129,7 +132,8 @@ impl Visitor for DiscoverExternal {
         }
 
         // Collect all ports associated with a specific prefix
-        let mut port_map: HashMap<String, Vec<RRC<ir::Port>>> = HashMap::new();
+        let mut port_map: LinkedHashMap<String, Vec<RRC<ir::Port>>> =
+            LinkedHashMap::new();
         'outer: for port in &comp.signature.borrow().ports {
             // If this matches a prefix, add it to the corresponding port map
             for pre in pre_to_prim.keys() {
@@ -141,7 +145,7 @@ impl Visitor for DiscoverExternal {
         }
 
         // Add external cells for all matching prefixes
-        let mut pre_to_cells = HashMap::new();
+        let mut pre_to_cells = LinkedHashMap::new();
         for (pre, &prim) in &pre_to_prim {
             log::info!("Prefix {} matches primitive {}", pre, prim);
             // Attempt to infer the parameters for the external cell
