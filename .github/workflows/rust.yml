@@ -19,6 +19,12 @@ jobs:
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
 
+    - name: Fixup fud configuration
+      run: |
+        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
+        fud c --create global.root /home/calyx
+        fud c stages.calyx.exec /home/calyx/target/debug/calyx
+
     - name: Update Dahlia
       working-directory: /home/dahlia
       run: |
@@ -64,6 +70,12 @@ jobs:
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
+
+    - name: Fixup fud configuration
+      run: |
+        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
+        fud c --create global.root /home/calyx
+        fud c stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia
@@ -122,6 +134,12 @@ jobs:
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
+
+    - name: Fixup fud configuration
+      run: |
+        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
+        fud c --create global.root /home/calyx
+        fud c stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia
