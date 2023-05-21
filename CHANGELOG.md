@@ -1,3 +1,8 @@
+## 0.3.0
+- `ir::Component` takes a `has_interface` argument and ensures that interface ports are present when it is true.
+- New `wrap-main` pass that generates a top-level `main` component if the top-level component is not named that.
+- Pretty printer prints code more tersely.
+
 ## 0.2.1
 - Remove necessary indentation inlined verilog primitives
 - Add new `discover-external` pass to transform inlined cells into `@external` cells
