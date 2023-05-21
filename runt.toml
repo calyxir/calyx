@@ -290,7 +290,8 @@ cmd = """
 fud exec -s calyx.exec './target/debug/calyx' \
          -s verilog.cycle_limit 500 \
          --through verilog \
-         {} --to dat -q 2>&1
+         {} --to dat -q 2>&1 | \
+         grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
 ##### Examples #####
