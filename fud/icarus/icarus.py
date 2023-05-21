@@ -197,7 +197,7 @@ class FutilToIcarus(futil.CalyxStage):
     def __init__(self):
         super().__init__(
             "icarus-verilog",
-            "-b verilog --disable-init --disable-verify",
+            "-b verilog --disable-verify",
             "Compile Calyx to Verilog instrumented for simulation",
         )
 

@@ -119,7 +119,7 @@ class XilinxStage(Stage):
         xilinx_stage = CalyxStage("xilinx-verilog", "-b xilinx", "")
         xml_futil = CalyxStage("xilinx-verilog", "-b xilinx-xml", "")
         kernel_futil = CalyxStage(
-            "xilinx-verilog", "-b verilog --synthesis -p external --disable-init", ""
+            "xilinx-verilog", "-b verilog --synthesis -p external", ""
         )
 
         if remote_exec.use_ssh:
