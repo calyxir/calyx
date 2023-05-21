@@ -36,7 +36,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       x.in = sl.out;
     }
   }
-
   control {
     seq {
       static<2> par {

@@ -27,7 +27,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       rd_x[done] = before.done;
     }
   }
-
   control {
     seq {
       wr_before;

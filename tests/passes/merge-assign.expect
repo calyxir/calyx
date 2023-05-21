@@ -9,6 +9,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add.left = r.out == 4'd5 | r.out == 4'd6 ? 32'd4;
     add.right = 32'd4;
   }
-
   control {}
 }

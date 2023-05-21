@@ -10,7 +10,6 @@ static<3> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done
       r.write_en = 1'd1;
     }
   }
-
   control {
     static<3> seq  {
       upd00;
@@ -36,7 +35,6 @@ static<2> component exponent(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset re
       r2.write_en = 1'd1;
     }
   }
-
   control {
     static<2> seq  {
       upd10;
