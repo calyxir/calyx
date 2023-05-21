@@ -168,4 +168,5 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [fud-verilator]: ./fud/index.md#verilator
 [icarus-install-source]: https://iverilog.fandom.com/wiki/Installation_Guide#Installation_From_Source
 [calyx-crate]: https://crates.io/crates/calyx
+[core-lib]: https://github.com/cucapra/calyx/blob/master/primitives/core.futil
 [calyx-docker]: https://github.com/cucapra/calyx/pkgs/container/calyx
