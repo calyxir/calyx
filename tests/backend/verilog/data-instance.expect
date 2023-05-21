@@ -539,16 +539,6 @@ logic [1:0] data_add_out;
 logic [1:0] data_add_multi_left;
 logic [1:0] data_add_multi_right;
 logic [1:0] data_add_multi_out;
-initial begin
-  add_left = 2'd0;;
-  add_right = 2'd0;;
-  con_add_left = 2'd0;;
-  con_add_right = 2'd0;;
-  data_add_left = 2'd0;;
-  data_add_right = 2'd0;;
-  data_add_multi_left = 2'd0;;
-  data_add_multi_right = 2'd0;;
-end
 std_add # (
     .WIDTH(2)
 ) add (

@@ -550,18 +550,6 @@ logic m1_clk;
 logic m1_reset;
 logic [31:0] m1_read_data;
 logic m1_done;
-initial begin
-  m0_addr0 = 4'd0;;
-  m0_write_data = 32'd0;;
-  m0_write_en = 1'd0;;
-  m0_clk = 1'd0;;
-  m0_reset = 1'd0;;
-  m1_addr0 = 4'd0;;
-  m1_write_data = 32'd0;;
-  m1_write_en = 1'd0;;
-  m1_clk = 1'd0;;
-  m1_reset = 1'd0;;
-end
 std_mem_d1 # (
     .IDX_SIZE(4),
     .SIZE(4),
