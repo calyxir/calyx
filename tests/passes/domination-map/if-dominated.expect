@@ -1,0 +1,48 @@
+The numbers in the domination map refer to the BEGIN_ID, END_ID, and NODE_ID attributes 
+that are attached to each non-empty control statement when the domination map is built. 
+To see which ID's refer to which control statement, look at the Calyx Program, which should 
+be printed along with the map when it is printed.
+Domination Map for component "example"  {
+Node: 2 -- Dominators: [2]
+Node: 3 -- Dominators: [2, 3, 6]
+Node: 4 -- Dominators: [2, 3, 4, 6]
+Node: 5 -- Dominators: [2, 3, 5]
+Node: 6 -- Dominators: [6]
+}
+import "primitives/core.futil";
+component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    static<4> group A {
+    }
+    static<1> group B {
+    }
+    static<2> group C {
+    }
+  }
+
+  control {
+    @NODE_ID(0) static<5> par {
+      @NODE_ID static<5> seq  {
+        @NODE_ID(2) A;
+        @BEGIN_ID(3) @END_ID(5) static<1> if  lt.out {
+          @NODE_ID(4) B;
+        }
+      }
+      @NODE_ID(6) C;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    e = example();
+  }
+  wires {
+  }
+
+  control {
+    invoke e()();
+  }
+}

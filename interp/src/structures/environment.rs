@@ -457,6 +457,7 @@ impl InterpreterState {
                     name,
                     param_binding,
                     is_comb: _,
+                    latency: _,
                 } => {
                     map.insert(
                         cl as ConstCell,

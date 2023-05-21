@@ -1,4 +1,4 @@
-use super::{Port, RRC};
+use super::{NumAttr, Port, RRC};
 use calyx_utils::Error;
 use std::fmt::Debug;
 use std::mem;
@@ -32,7 +32,7 @@ pub enum PortComp {
 }
 
 /// An assignment guard which has pointers to the various ports from which it reads.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Guard<T> {
     /// Represents `c1 || c2`.
     Or(Box<Guard<T>>, Box<Guard<T>>),
@@ -40,6 +40,7 @@ pub enum Guard<T> {
     And(Box<Guard<T>>, Box<Guard<T>>),
     /// Represents `!c1`
     Not(Box<Guard<T>>),
+    #[default]
     /// The constant true
     True,
     /// Comparison operator.
@@ -50,13 +51,7 @@ pub enum Guard<T> {
     Info(T),
 }
 
-impl<T> Default for Guard<T> {
-    fn default() -> Self {
-        Guard::True
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct StaticTiming {
     interval: (u64, u64),
 }
@@ -72,12 +67,19 @@ impl ToString for StaticTiming {
 }
 
 impl StaticTiming {
+    /// creates a new `StaticTiming` struct
     pub fn new(interval: (u64, u64)) -> Self {
         StaticTiming { interval }
     }
 
+    /// returns the (u64, u64) interval for `struct`
     pub fn get_interval(&self) -> (u64, u64) {
         self.interval
+    }
+
+    /// overwrites the current `interval` to be `new_interval`
+    pub fn set_interval(&mut self, new_interval: (u64, u64)) {
+        self.interval = new_interval;
     }
 }
 
@@ -108,8 +110,41 @@ where
     }
 }
 
+impl From<Guard<Nothing>> for Guard<StaticTiming> {
+    /// Turns a normal guard into a static guard
+    fn from(g: Guard<Nothing>) -> Self {
+        match g {
+            Guard::Or(left, right) => {
+                let l = Self::from(*left);
+                let r = Self::from(*right);
+                Guard::Or(Box::new(l), Box::new(r))
+            }
+            Guard::And(left, right) => {
+                let l = Self::from(*left);
+                let r = Self::from(*right);
+                Guard::And(Box::new(l), Box::new(r))
+            }
+            Guard::Not(c) => {
+                let inside = Self::from(*c);
+                Guard::Not(Box::new(inside))
+            }
+            Guard::True => Guard::True,
+            Guard::CompOp(pc, left, right) => Guard::CompOp(pc, left, right),
+            Guard::Port(p) => Guard::Port(p),
+            Guard::Info(_) => {
+                unreachable!(
+                    "{:?}: Guard<Nothing> should not be of the
+                info variant type",
+                    g
+                )
+            }
+        }
+    }
+}
+
 impl<T> Guard<T> {
-    /// Returns true if this is a `Guard::True`.
+    /// Returns true definitely `Guard::True`.
+    /// Returning false does not mean that the guard is not true.
     pub fn is_true(&self) -> bool {
         match self {
             Guard::True => true,
@@ -118,11 +153,20 @@ impl<T> Guard<T> {
         }
     }
 
+    /// Checks if the guard is always false.
+    /// Returning false does not mean that the guard is not false.
+    pub fn is_false(&self) -> bool {
+        match self {
+            Guard::Not(g) => g.is_true(),
+            _ => false,
+        }
+    }
+
     /// returns true if the self is !cell_name, false otherwise.
     pub fn is_not_done(&self, cell_name: &crate::Id) -> bool {
         if let Guard::Not(g) = self {
             if let Guard::Port(port) = &(**g) {
-                return port.borrow().attributes.has("done")
+                return port.borrow().attributes.has(NumAttr::Done)
                     && port.borrow().get_parent_name() == cell_name;
             }
         }
@@ -363,20 +407,21 @@ impl<T> Guard<T> {
                 {}
         }
     }
-}
 
-impl<StaticTiming> Guard<StaticTiming> {
-    pub fn for_each_interval<F>(&mut self, f: &mut F)
+    /// runs f(info) on each Guard::Info in `guard`.
+    /// if `f(info)` = Some(result)` replaces interval with result.
+    /// if `f(info)` = None` does nothing.
+    pub fn for_each_info<F>(&mut self, f: &mut F)
     where
-        F: FnMut(&mut StaticTiming) -> Option<Guard<StaticTiming>>,
+        F: FnMut(&mut T) -> Option<Guard<T>>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
-                l.for_each_interval(f);
-                r.for_each_interval(f);
+                l.for_each_info(f);
+                r.for_each_info(f);
             }
             Guard::Not(inner) => {
-                inner.for_each_interval(f);
+                inner.for_each_info(f);
             }
             Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => {}
             Guard::Info(timing_interval) => {
@@ -387,23 +432,33 @@ impl<StaticTiming> Guard<StaticTiming> {
         }
     }
 
-    pub fn check_for_each_interval<F>(&self, f: &mut F) -> Result<(), Error>
+    /// runs f(info) on each info in `guard`.
+    /// f should return Result<(), Error>, meaning that it essentially does
+    /// nothing if the `f` returns OK(()), but returns an appropraite error otherwise
+    pub fn check_for_each_info<F>(&self, f: &mut F) -> Result<(), Error>
     where
-        F: Fn(&StaticTiming) -> Result<(), Error>,
+        F: Fn(&T) -> Result<(), Error>,
     {
         match self {
             Guard::And(l, r) | Guard::Or(l, r) => {
-                let l_result = l.check_for_each_interval(f);
+                let l_result = l.check_for_each_info(f);
                 if l_result.is_err() {
                     l_result
                 } else {
-                    r.check_for_each_interval(f)
+                    r.check_for_each_info(f)
                 }
             }
-            Guard::Not(inner) => inner.check_for_each_interval(f),
+            Guard::Not(inner) => inner.check_for_each_info(f),
             Guard::True | Guard::Port(_) | Guard::CompOp(_, _, _) => Ok(()),
             Guard::Info(timing_interval) => f(timing_interval),
         }
+    }
+}
+
+impl Guard<StaticTiming> {
+    /// updates self -> self & interval
+    pub fn add_interval(&mut self, timing_interval: StaticTiming) {
+        self.update(|g| g.and(Guard::Info(timing_interval)));
     }
 }
 

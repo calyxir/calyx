@@ -2,8 +2,9 @@ use crate::analysis::{DominatorMap, ReadWriteSet, ShareSet};
 use calyx_ir as ir;
 use std::collections::HashSet;
 
-const BEGIN_ID: &str = "BEGIN_ID";
-const END_ID: &str = "END_ID";
+const BEGIN_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::BEGIN_ID);
+const END_ID: ir::Attribute = ir::Attribute::Internal(ir::InternalAttr::END_ID);
 
 // This file contains analysis that reasons about reads and writes to given "nodes"
 // of control statements. In other words, it reasons about control statements,
@@ -18,12 +19,35 @@ const END_ID: &str = "END_ID";
 fn not_end_id(c: &ir::Control, id: u64) -> bool {
     match c {
         ir::Control::If(if_control) => {
-            if let Some(&begin) = if_control.attributes.get(BEGIN_ID) {
+            if let Some(begin) = if_control.attributes.get(BEGIN_ID) {
                 if begin == id {
                     return true;
                 }
             }
-            if let Some(&end) = if_control.attributes.get(END_ID) {
+            if let Some(end) = if_control.attributes.get(END_ID) {
+                if end == id {
+                    return false;
+                }
+            }
+            unreachable!("id should match either beginning or ending id")
+        }
+        _ => true,
+    }
+}
+
+// Inputs are a control statement c and a u64 id. If control is an if statment, then
+// the id should refer to either the begin or end id of stmt c. Returns true if id refers
+// to the begin id and false if it refers to the end id. If it is not an if statement
+// return true.
+fn not_end_id_static(c: &ir::StaticControl, id: u64) -> bool {
+    match c {
+        ir::StaticControl::If(if_control) => {
+            if let Some(begin) = if_control.attributes.get(BEGIN_ID) {
+                if begin == id {
+                    return true;
+                }
+            }
+            if let Some(end) = if_control.attributes.get(END_ID) {
                 if end == id {
                     return false;
                 }
@@ -42,7 +66,8 @@ fn reads_only_dones<T>(assignment: &ir::Assignment<T>) -> bool {
 
 // Returns true if port is a "done" port or is a constant
 fn done_or_const(port: &ir::RRC<ir::Port>) -> bool {
-    port.borrow().attributes.has("done") || port.borrow().is_constant(1, 1)
+    port.borrow().attributes.has(ir::NumAttr::Done)
+        || port.borrow().is_constant(1, 1)
 }
 
 //Adds the ids of any state_shareable cells that are read from in assignments,
@@ -90,15 +115,15 @@ impl NodeReads {
         state_shareable: &ShareSet,
     ) -> HashSet<ir::Id> {
         let mut reads: HashSet<ir::Id> = HashSet::new();
-        if let Some(c) =
-            DominatorMap::get_control(*node, &comp.control.borrow())
-        {
-            match c {
+        match DominatorMap::get_control(*node, &comp.control.borrow()) {
+            None => (),
+            Some(ir::GenericControl::Dynamic(c)) => match c {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
-                | ir::Control::Par(_) => {
+                | ir::Control::Par(_)
+                | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars should be in domination map"
+                        "no empty/seqs/pars/static should be in domination map"
                     )
                 }
                 ir::Control::If(ir::If { port, cond, .. })
@@ -117,15 +142,6 @@ impl NodeReads {
                             );
                         }
                     }
-                }
-                ir::Control::StaticEnable(ir::StaticEnable {
-                    group, ..
-                }) => {
-                    add_assignment_reads(
-                        &mut reads,
-                        state_shareable,
-                        &group.borrow().assignments,
-                    );
                 }
                 ir::Control::Enable(ir::Enable { group, .. }) => {
                     add_assignment_reads(
@@ -161,7 +177,52 @@ impl NodeReads {
                         );
                     }
                 }
-            }
+            },
+            Some(ir::GenericControl::Static(sc)) => match sc {
+                ir::StaticControl::Invoke(ir::StaticInvoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    ..
+                }) => {
+                    for (_, port) in inputs.iter() {
+                        add_parent_if_shareable(
+                            &mut reads,
+                            state_shareable,
+                            port,
+                        );
+                    }
+                    if !outputs.is_empty()
+                        && state_shareable.is_shareable_component(comp)
+                    {
+                        reads.insert(comp.borrow().name());
+                    }
+                }
+                ir::StaticControl::Enable(ir::StaticEnable {
+                    group, ..
+                }) => {
+                    add_assignment_reads(
+                        &mut reads,
+                        state_shareable,
+                        &group.borrow().assignments,
+                    );
+                }
+                ir::StaticControl::If(ir::StaticIf { port, .. }) => {
+                    if not_end_id_static(sc, *node) {
+                        add_parent_if_shareable(
+                            &mut reads,
+                            state_shareable,
+                            port,
+                        );
+                    }
+                }
+                ir::StaticControl::Empty(_)
+                | ir::StaticControl::Par(_)
+                | ir::StaticControl::Seq(_)
+                | ir::StaticControl::Repeat(_) => unreachable!(
+                    "static emptys/repeats/seqs/pars shouldn't be in domination map"
+                ),
+            },
         }
         reads
     }
@@ -184,7 +245,7 @@ impl NodeSearch {
     fn go_is_written<T>(&self, assignments: &[ir::Assignment<T>]) -> bool {
         assignments.iter().any(|assign: &ir::Assignment<T>| {
             let dst_ref = assign.dst.borrow();
-            if dst_ref.attributes.has("go")
+            if dst_ref.attributes.has(ir::NumAttr::Go)
                 && assign.guard.is_true()
                 && assign.src.borrow().is_constant(1, 1)
             {
@@ -196,6 +257,24 @@ impl NodeSearch {
         })
     }
 
+    // returns true if outputs or comp indicates that cell named self.name was
+    // written to, false otherwise
+    fn is_written_invoke(
+        &self,
+        outputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        comp: &ir::RRC<ir::Cell>,
+    ) -> bool {
+        for (_, port) in outputs.iter() {
+            if port.borrow().get_parent_name() == self.name {
+                return true;
+            }
+        }
+        if comp.borrow().name() == self.name {
+            return true;
+        }
+        false
+    }
+
     //Returns true if any of the control statements in dominators write to a cell
     //with self's name.
     pub fn is_written_guaranteed(
@@ -204,23 +283,17 @@ impl NodeSearch {
         comp: &mut ir::Component,
     ) -> bool {
         let main_control = comp.control.borrow();
-        let dominator_controls =
+        let (dominator_controls, dominator_static_controls) =
             DominatorMap::get_control_nodes(dominators, &main_control);
         for c in dominator_controls {
             match c {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
-                | ir::Control::Par(_) => {
+                | ir::Control::Par(_)
+                | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars should be in domination map"
+                        "no empty/seqs/pars/static should be in domination map"
                     )
-                }
-                ir::Control::StaticEnable(ir::StaticEnable {
-                    group, ..
-                }) => {
-                    if self.go_is_written(&group.borrow().assignments) {
-                        return true;
-                    }
                 }
                 ir::Control::Enable(ir::Enable { group, .. }) => {
                     if self.go_is_written(&group.borrow().assignments) {
@@ -231,15 +304,39 @@ impl NodeSearch {
                 //combinational group.
                 ir::Control::While(_) | ir::Control::If(_) => (),
                 ir::Control::Invoke(ir::Invoke { comp, outputs, .. }) => {
-                    for (_, port) in outputs.iter() {
-                        if port.borrow().get_parent_name() == self.name {
-                            return true;
-                        }
-                    }
-                    if comp.borrow().name() == self.name {
+                    if self.is_written_invoke(outputs, comp) {
                         return true;
                     }
                 }
+            }
+        }
+        for sc in dominator_static_controls {
+            match sc {
+                ir::StaticControl::Empty(_)
+                | ir::StaticControl::Seq(_)
+                | ir::StaticControl::Par(_)
+                | ir::StaticControl::Repeat(_) => unreachable!(
+                    "no static repeats/seqs/pars should be in domination map"
+                ),
+                ir::StaticControl::Invoke(ir::StaticInvoke {
+                    comp,
+                    outputs,
+                    ..
+                }) => {
+                    if self.is_written_invoke(outputs, comp) {
+                        return true;
+                    }
+                }
+                ir::StaticControl::Enable(ir::StaticEnable {
+                    group, ..
+                }) => {
+                    if self.go_is_written(&group.borrow().assignments) {
+                        return true;
+                    }
+                }
+                // "if nodes" (which are really just the guard) do not write to components
+                // therefore, we should return false
+                ir::StaticControl::If(_) => (),
             }
         }
         false

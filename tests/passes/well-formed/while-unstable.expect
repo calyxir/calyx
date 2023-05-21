@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: Malformed Control: tests/passes/well-formed/while-unstable.futil
+19 |    while lt.out {
+   |    ^^^^^^^^^^^^^^ While loop has no comb group and its condition port lt.out is unstable

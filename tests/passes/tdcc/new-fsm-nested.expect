@@ -30,7 +30,7 @@ transitions:
 1:
   true[go] = !true[done] ? 1'd1;
 2:
-  cond0[go] = !cond0[done] ? 1'd1;
+  wrapper_early_reset_cond0[go] = !wrapper_early_reset_cond0[done] ? 1'd1;
 3:
   tdcc0[go] = !tdcc0[done] ? 1'd1;
 4:
@@ -41,7 +41,7 @@ transitions:
   (0, 1): r.out
   (0, 5): !r.out
   (1, 2): true[done]
-  (2, 3): cond0[done]
+  (2, 3): wrapper_early_reset_cond0[done]
   (3, 4): tdcc0[done]
   (4, 1): false[done] & r.out
   (4, 5): false[done] & !r.out

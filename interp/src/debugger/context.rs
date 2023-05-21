@@ -210,7 +210,7 @@ impl DebuggingContext {
         };
 
         if !group_exists {
-            println!("{} Error: the group {} does not exit", SPACING, target);
+            println!("{} Error: the group {} does not exist", SPACING, target);
             return;
         }
 

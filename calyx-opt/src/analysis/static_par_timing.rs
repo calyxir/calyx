@@ -12,6 +12,8 @@ type CellTimingMap = HashMap<ir::Id, Vec<(u64, u64)>>;
 type ThreadTimingMap = HashMap<u64, CellTimingMap>;
 
 #[derive(Default)]
+/// Calculate live ranges across static par blocks.
+/// Assumes control ids have already been given; it does not add its own
 pub struct StaticParTiming {
     /// Map from par block ids to cell_timing_maps
     cell_map: HashMap<u64, ThreadTimingMap>,
@@ -73,12 +75,7 @@ impl StaticParTiming {
             ..Default::default()
         };
 
-        // compute_unique_ids is deterministic
-        // so if we're calling it after we've called live range analysis (and the
-        // control program hasn't changed, then this is unnecessary)
-        ControlId::compute_unique_ids(control, 0, false);
-
-        time_map.build_time_map(control, None, live);
+        time_map.build_time_map(control, live);
 
         time_map
     }
@@ -132,14 +129,14 @@ impl StaticParTiming {
                     // a in the iteration
                     match a1.cmp(b1) {
                         std::cmp::Ordering::Less => {
-                            if a2 >= b1 {
+                            if a2 > b1 {
                                 return true;
                             } else {
                                 cur_a = a_iter.next();
                             }
                         }
                         std::cmp::Ordering::Greater => {
-                            if b2 >= a1 {
+                            if b2 > a1 {
                                 return true;
                             } else {
                                 cur_b = b_iter.next();
@@ -153,10 +150,58 @@ impl StaticParTiming {
             _ => false,
         }
     }
-    // Recursively updates self.time_map
-    fn build_time_map(
+
+    // updates self.cell_map, returns the state after the invoke/enable has occured
+    // assumes that there is a cur_state = (par_id, thread_id, cur_clock)
+    // also, id is the id of the invoke/enable, and latency is the latency of the
+    // invoke/enable
+    fn update_invoke_enable(
         &mut self,
-        c: &ir::Control,
+        id: u64,
+        latency: u64,
+        live: &LiveRangeAnalysis,
+        cur_state: (u64, u64, u64),
+    ) -> (u64, u64, u64) {
+        let (par_id, thread_id, cur_clock) = cur_state;
+        // live set is all cells live at this invoke/enable, organized by cell type
+        let live_set = live.get(&id).clone();
+        // go thru all live cells in this enable add them to appropriate entry in
+        // self.cell_map
+        for (_, live_cells) in live_set {
+            for cell in live_cells {
+                let interval_vec = self
+                    .cell_map
+                    .entry(par_id)
+                    .or_default()
+                    .entry(thread_id)
+                    .or_default()
+                    .entry(cell)
+                    .or_default();
+                // we need to check whether we've already added this
+                // to vec before or not. If we haven't,
+                // then we can push
+                // This can sometimes occur if there is a par block,
+                // that contains a while loop, and that while loop
+                // contains another par block.
+                match interval_vec.last() {
+                    None => interval_vec.push((cur_clock, cur_clock + latency)),
+                    Some(interval) => {
+                        if *interval != (cur_clock, cur_clock + latency) {
+                            interval_vec.push((cur_clock, cur_clock + latency))
+                        }
+                    }
+                }
+            }
+        }
+        (par_id, thread_id, cur_clock + latency)
+    }
+
+    // Recursively updates self.time_map
+    // This is a helper function for fn `build_time_map`.
+    // Read comment for that function to see what this function is doing
+    fn build_time_map_static(
+        &mut self,
+        sc: &ir::StaticControl,
         // cur_state = Some(parent_par_id, thread_id, cur_clock) if we're inside a static par, None otherwise.
         // parent_par_id = Node ID of the static par that we're analyzing
         // thread_id = Node ID of the thread that we're analyzing within the par
@@ -166,160 +211,149 @@ impl StaticParTiming {
         // LiveRangeAnalysis instance
         live: &LiveRangeAnalysis,
     ) -> Option<(u64, u64, u64)> {
-        match c {
-            ir::Control::Invoke(_) => {
-                if cur_state.is_some() {
-                    unreachable!("no static guarantees for invoke")
-                }
-                cur_state
-            }
-            ir::Control::Empty(_) => cur_state,
-            ir::Control::StaticEnable(_) | ir::Control::Enable(_) => {
-                match cur_state {
-                    Some((par_id, thread_id, cur_clock)) => {
-                        let enable_id = ControlId::get_guaranteed_id(c);
-                        // add enable to self.map
-                        let latency =
-                            ControlId::get_guaranteed_attribute(c, "static");
-                        // live set is all cells live at this enable, organized by cell type
-                        let live_set = live.get(&enable_id).clone();
-                        // go thru all live cells in this enable add them to appropriate entry in
-                        // self.cell_map
-                        for (_, live_cells) in live_set {
-                            for cell in live_cells {
-                                let interval_vec = self
-                                    .cell_map
-                                    .entry(par_id)
-                                    .or_default()
-                                    .entry(thread_id)
-                                    .or_default()
-                                    .entry(cell)
-                                    .or_default();
-                                // we need to check whether we've already added this
-                                // to vec before or not. If we haven't,
-                                // then we can push
-                                // This can sometimes occur if there is a par block,
-                                // that contains a while loop, and that while loop
-                                // contains another par block.
-                                match interval_vec.last() {
-                                    None => interval_vec.push((
-                                        cur_clock,
-                                        cur_clock + latency - 1,
-                                    )),
-                                    Some(interval) => {
-                                        if *interval
-                                            != (
-                                                cur_clock,
-                                                cur_clock + latency - 1,
-                                            )
-                                        {
-                                            interval_vec.push((
-                                                cur_clock,
-                                                cur_clock + latency - 1,
-                                            ))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Some((par_id, thread_id, cur_clock + latency))
-                    }
-                    None => cur_state,
-                }
-            }
-            ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                // this works whether or not cur_state is None or Some
-                let mut new_state = cur_state;
-                for stmt in stmts {
-                    new_state = self.build_time_map(stmt, new_state, live);
-                }
-                new_state
-            }
-            ir::Control::If(ir::If {
+        match sc {
+            ir::StaticControl::Empty(_) => cur_state,
+            ir::StaticControl::If(ir::StaticIf {
                 tbranch, fbranch, ..
             }) => match cur_state {
                 Some((parent_par, thread_id, cur_clock)) => {
-                    let tbranch_latency =
-                        ControlId::get_guaranteed_attribute(tbranch, "static");
-                    let fbranch_latency =
-                        ControlId::get_guaranteed_attribute(fbranch, "static");
-                    let max_latency =
-                        std::cmp::max(tbranch_latency, fbranch_latency);
                     // we already know parent par + latency of the if stmt, so don't
                     // care about return type: we just want to add enables to the timing map
-                    self.build_time_map(tbranch, cur_state, live);
-                    self.build_time_map(fbranch, cur_state, live);
-                    Some((parent_par, thread_id, cur_clock + max_latency))
+                    self.build_time_map_static(tbranch, cur_state, live);
+                    self.build_time_map_static(fbranch, cur_state, live);
+                    Some((parent_par, thread_id, cur_clock + sc.get_latency()))
                 }
                 None => {
                     // should still look thru the branches in case there are static pars
                     // inside the branches
-                    self.build_time_map(tbranch, cur_state, live);
-                    self.build_time_map(fbranch, cur_state, live);
+                    self.build_time_map_static(tbranch, cur_state, live);
+                    self.build_time_map_static(fbranch, cur_state, live);
                     None
                 }
             },
-            ir::Control::While(ir::While { body, .. }) => {
+            ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+                match cur_state {
+                    Some(cur_state_unwrapped) => {
+                        let enable_id = ControlId::get_guaranteed_id_static(sc);
+                        let latency = group.borrow().get_latency();
+                        Some(self.update_invoke_enable(
+                            enable_id,
+                            latency,
+                            live,
+                            cur_state_unwrapped,
+                        ))
+                    }
+                    None => cur_state,
+                }
+            }
+            ir::StaticControl::Invoke(inv) => match cur_state {
+                Some(cur_state_unwrapped) => {
+                    let invoke_id = ControlId::get_guaranteed_id_static(sc);
+                    let latency = inv.latency;
+                    Some(self.update_invoke_enable(
+                        invoke_id,
+                        latency,
+                        live,
+                        cur_state_unwrapped,
+                    ))
+                }
+                None => cur_state,
+            },
+            ir::StaticControl::Repeat(ir::StaticRepeat {
+                body,
+                num_repeats,
+                ..
+            }) => {
                 if cur_state.is_some() {
-                    let bound = ControlId::get_guaranteed_attribute(c, "bound");
                     // essentially just unrolling the loop
                     let mut new_state = cur_state;
-                    for _ in 0..bound {
-                        new_state = self.build_time_map(body, new_state, live)
+                    for _ in 0..*num_repeats {
+                        new_state =
+                            self.build_time_map_static(body, new_state, live)
                     }
                     new_state
                 } else {
                     // look thru while body for static pars
-                    self.build_time_map(body, cur_state, live);
+                    self.build_time_map_static(body, cur_state, live);
                     None
                 }
             }
-            ir::Control::Par(ir::Par { stmts, attributes }) => {
-                if attributes.get("static").is_some() {
-                    // Analyze the Current Par
-                    for stmt in stmts {
-                        self.build_time_map(
-                            stmt,
-                            Some((
-                                ControlId::get_guaranteed_id(c),
-                                ControlId::get_guaranteed_id(stmt),
-                                1,
-                            )),
-                            live,
-                        );
-                    }
-                    // If we have nested pars, want to get the clock cycles relative
-                    // to the start of both the current par and the nested par.
-                    // So we have the following code to possibly get the clock cycles
-                    // relative to the parent par.
-                    // Might be overkill, but trying to keep it general.
-                    match cur_state {
-                        Some((cur_parent_par, cur_thread, cur_clock)) => {
-                            let mut max_latency = 0;
-                            for stmt in stmts {
-                                self.build_time_map(stmt, cur_state, live);
-                                let cur_latency =
-                                    ControlId::get_guaranteed_attribute(
-                                        stmt, "static",
-                                    );
-                                max_latency =
-                                    std::cmp::max(max_latency, cur_latency)
-                            }
-                            Some((
-                                cur_parent_par,
-                                cur_thread,
-                                cur_clock + max_latency,
-                            ))
-                        }
-                        None => None,
-                    }
-                } else {
-                    // look thru par block for static pars
-                    for stmt in stmts {
-                        self.build_time_map(stmt, None, live);
-                    }
-                    None
+            ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
+                // this works whether or not cur_state is None or Some
+                let mut new_state = cur_state;
+                for stmt in stmts {
+                    new_state =
+                        self.build_time_map_static(stmt, new_state, live);
                 }
+                new_state
+            }
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+                // We know that all children must be static
+                // Analyze the Current Par
+                for stmt in stmts {
+                    self.build_time_map_static(
+                        stmt,
+                        Some((
+                            ControlId::get_guaranteed_id_static(sc),
+                            ControlId::get_guaranteed_id_static(stmt),
+                            0,
+                        )),
+                        live,
+                    );
+                }
+                // If we have nested pars, want to get the clock cycles relative
+                // to the start of both the current par and the nested par.
+                // So we have the following code to possibly get the clock cycles
+                // relative to the parent par.
+                // Might be overkill, but trying to keep the analysis general.
+                match cur_state {
+                    Some((cur_parent_par, cur_thread, cur_clock)) => {
+                        for stmt in stmts {
+                            self.build_time_map_static(stmt, cur_state, live);
+                        }
+                        Some((
+                            cur_parent_par,
+                            cur_thread,
+                            cur_clock + sc.get_latency(),
+                        ))
+                    }
+                    None => None,
+                }
+            }
+        }
+    }
+
+    // Recursively updates self.time_map
+    // Takes in Control block `c`, Live Range Analyss `live`
+    // self.time_map maps par ids -> (maps of thread ids -> (maps of cells -> intervals for which
+    // cells are live))
+    fn build_time_map(
+        &mut self,
+        c: &ir::Control,
+        // LiveRangeAnalysis instance
+        live: &LiveRangeAnalysis,
+    ) {
+        match c {
+            ir::Control::Invoke(_)
+            | ir::Control::Empty(_)
+            | ir::Control::Enable(_) => (),
+            ir::Control::Par(ir::Par { stmts, .. })
+            | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+                for stmt in stmts {
+                    self.build_time_map(stmt, live)
+                }
+            }
+            ir::Control::If(ir::If {
+                tbranch, fbranch, ..
+            }) => {
+                self.build_time_map(tbranch, live);
+                self.build_time_map(fbranch, live);
+            }
+            ir::Control::While(ir::While { body, .. }) => {
+                self.build_time_map(body, live);
+            }
+            ir::Control::Static(sc) => {
+                self.build_time_map_static(sc, None, live);
             }
         }
     }

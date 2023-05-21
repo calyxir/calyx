@@ -36,8 +36,8 @@ pub(super) fn dump_ports_to_signature(
             .filter(|pr| {
                 let p = pr.borrow();
                 if remove_signals {
-                    p.attributes.get("clk").is_none()
-                        && p.attributes.get("reset").is_none()
+                    p.attributes.get(ir::BoolAttr::Clk).is_none()
+                        && p.attributes.get(ir::BoolAttr::Reset).is_none()
                 } else {
                     true
                 }

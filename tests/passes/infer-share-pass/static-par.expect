@@ -1,0 +1,44 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component example<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    a = std_reg(32);
+    b = std_reg(32);
+    adder = std_add(32);
+  }
+  wires {
+    static<1> group A {
+      a.in = 32'd2;
+      a.write_en = 1'd1;
+    }
+    static<1> group B {
+      b.write_en = 1'd1;
+      b.in = 32'd7;
+    }
+    static<1> group read_A {
+      adder.left = a.out;
+      adder.right = 32'd2;
+      a.in = adder.out;
+      a.write_en = 1'd1;
+    }
+    out = a.out;
+  }
+
+  control {
+    @NODE_ID(0) static<2> par {
+      @NODE_ID A;
+      @NODE_ID(2) static<2> seq  {
+        @NODE_ID(3) B;
+        @NODE_ID(4) read_A;
+      }
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+  }
+  wires {
+  }
+
+  control {}
+}

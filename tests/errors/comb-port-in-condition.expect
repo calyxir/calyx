@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: Malformed Control: tests/errors/comb-port-in-condition.futil
+8 |    if le.out { seq {} }
+  |    ^^^^^^^^^^^^^^^^^^^^ If statement has no comb group and its condition port le.out is unstable

@@ -1,0 +1,6 @@
+---CODE---
+1
+---STDERR---
+Error: tests/passes/simplify-with-control/comb-with-static.futil
+3 |static<1> component main(@go go: 1, in: 32) -> (@done done: 1) {
+  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Pass `simplify-with-control` assumption violated: Static Component main has combinational groups which is not supported

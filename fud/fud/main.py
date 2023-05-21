@@ -48,7 +48,7 @@ def register_stages(registry):
     registry.register(
         futil.FutilStage(
             "verilog",
-            "-b verilog",
+            "-b verilog --disable-init",
             "Compile Calyx to Verilog instrumented for simulation",
         )
     )
@@ -296,10 +296,32 @@ def main():
     try:
         cfg = Configuration()
 
+        # Only allow either config_file or dynamic configurations
+        if ("stage_dynamic_config" in args and args.stage_dynamic_config) and (
+            "config_file" in args and args.config_file
+        ):
+            run_parser.error(
+                "Please provide either a configuration file or"
+                + " dynamic configurations",
+            )
+
         # update the stages config with arguments provided via cmdline
         if "stage_dynamic_config" in args and args.stage_dynamic_config is not None:
             for key, value in args.stage_dynamic_config:
                 cfg[["stages"] + key.split(".")] = value
+
+        if "config_file" in args and args.config_file is not None:
+            # Parse the TOML file
+            override = toml.load(args.config_file)
+            for key, value in override.items():
+                if key != "stages":
+                    log.warn(
+                        f"Ignoring key `{key}' in config file."
+                        + " Only 'stages' is allowed as a top-level key."
+                    )
+            # Hide all unused keys
+            override = override["stages"]
+            cfg.update_all({"stages": override})
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
@@ -367,6 +389,7 @@ def config_run(parser):
     parser.add_argument(
         "-o", dest="output_file", help="Name of the output file (default: STDOUT)"
     )
+    # Provide configuration for stage options
     parser.add_argument(
         "-s",
         "--stage-val",
@@ -376,6 +399,14 @@ def config_run(parser):
         dest="stage_dynamic_config",
         action="append",
     )
+
+    # Alternatively, provide a TOML file with stage options
+    parser.add_argument(
+        "--stage-config",
+        help="Path to a TOML file with stage configuration options",
+        dest="config_file",
+    )
+
     parser.add_argument(
         "-n",
         "--dry-run",

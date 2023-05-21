@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: Failed to parse `tests/errors/comb-static-comp.futil`:  --> 2:1
+  |
+2 | comb static<1> component custom_lt(left: 4, right: 4) -> (out: 1) {
+  | ^------------^
+  |
+  = Cannot have both comb and static annotations

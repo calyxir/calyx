@@ -8,6 +8,7 @@ component main(a: 4, b: 4, c: 1) -> () {
     w4 = std_wire(1);
     r = std_reg(4);
     lt = std_lt(4);
+    lt1 = std_lt(1);
   }
   wires {
     group g {
@@ -19,6 +20,11 @@ component main(a: 4, b: 4, c: 1) -> () {
       lt.left = w2.out;
       lt.right = r.out;
     }
+    comb group cond1 {
+      // w4 should be replaced by c 
+      lt1.left = w4.out; 
+      lt1.right = 1'd1; 
+    }
 
     w1.in = a;
     w2.in = b;
@@ -27,7 +33,7 @@ component main(a: 4, b: 4, c: 1) -> () {
   }
   control {
     if lt.out with cond {
-      if w4.out {
+      if lt1.out with cond1 {
         g;
       }
     }

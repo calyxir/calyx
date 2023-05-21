@@ -23,6 +23,33 @@ impl Named for DeadCellRemoval {
     }
 }
 
+impl DeadCellRemoval {
+    /// Retain the write if the destination is a hole or if the parent of the
+    /// destination is read from.
+    fn retain_write<T: Clone + Eq + ToString>(
+        &self,
+        wire_reads: &HashSet<ir::Id>,
+        asgn: &ir::Assignment<T>,
+    ) -> bool {
+        let dst = asgn.dst.borrow();
+        if dst.is_hole() {
+            true
+        } else {
+            let parent = &dst.get_parent_name();
+            let out =
+                self.all_reads.contains(parent) || wire_reads.contains(parent);
+            if !out {
+                log::debug!(
+                    "`{}' because `{}' is unused",
+                    ir::Printer::assignment_to_str(asgn),
+                    parent
+                )
+            }
+            out
+        }
+    }
+}
+
 impl Visitor for DeadCellRemoval {
     fn start_if(
         &mut self,
@@ -76,7 +103,9 @@ impl Visitor for DeadCellRemoval {
         self.all_reads.extend(
             comp.cells
                 .iter()
-                .filter(|c| c.borrow().attributes.get("external").is_some())
+                .filter(|c| {
+                    c.borrow().attributes.get(ir::BoolAttr::External).is_some()
+                })
                 .map(|c| c.borrow().name()),
         );
         // Add component signature
@@ -107,48 +136,23 @@ impl Visitor for DeadCellRemoval {
 
             // Remove writes to ports on unused cells.
             for gr in comp.get_groups().iter() {
-                gr.borrow_mut().assignments.retain(|asgn| {
-                    let dst = asgn.dst.borrow();
-                    if dst.is_hole() {
-                        true
-                    } else {
-                        let parent = &dst.get_parent_name();
-                        self.all_reads.contains(parent)
-                            || wire_reads.contains(parent)
-                    }
-                })
+                gr.borrow_mut()
+                    .assignments
+                    .retain(|asgn| self.retain_write(&wire_reads, asgn))
             }
             // Remove writes to ports on unused cells.
             for gr in comp.get_static_groups().iter() {
-                gr.borrow_mut().assignments.retain(|asgn| {
-                    let dst = asgn.dst.borrow();
-                    if dst.is_hole() {
-                        true
-                    } else {
-                        let parent = &dst.get_parent_name();
-                        self.all_reads.contains(parent)
-                            || wire_reads.contains(parent)
-                    }
-                })
+                gr.borrow_mut()
+                    .assignments
+                    .retain(|asgn| self.retain_write(&wire_reads, asgn))
             }
             for cgr in comp.comb_groups.iter() {
-                cgr.borrow_mut().assignments.retain(|asgn| {
-                    let dst = asgn.dst.borrow();
-                    let parent = &dst.get_parent_name();
-                    self.all_reads.contains(parent)
-                        || wire_reads.contains(parent)
-                })
+                cgr.borrow_mut()
+                    .assignments
+                    .retain(|asgn| self.retain_write(&wire_reads, asgn))
             }
-            comp.continuous_assignments.retain(|asgn| {
-                let dst = asgn.dst.borrow();
-                if dst.is_hole() {
-                    true
-                } else {
-                    let parent = &dst.get_parent_name();
-                    self.all_reads.contains(parent)
-                        || wire_reads.contains(parent)
-                }
-            });
+            comp.continuous_assignments
+                .retain(|asgn| self.retain_write(&wire_reads, asgn));
 
             // Remove unused cells
             let removed = comp.cells.retain(|c| {

@@ -55,11 +55,7 @@ impl MlirBackend {
         } else {
             format!(
                 " {{{}}}",
-                attrs
-                    .into_iter()
-                    .map(|(k, v)| { format!("{k}={v}") })
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                attrs.to_string_with(", ", |k, v| { format!("{k}={v}") })
             )
         }
     }
@@ -322,8 +318,8 @@ impl MlirBackend {
             ir::Control::Enable(ir::Enable { group, .. }) => {
                 write!(f, "calyx.enable @{}", group.borrow().name().id)
             }
-            ir::Control::StaticEnable(_) => {
-                panic!("StaticEnable not yet supported")
+            ir::Control::Static(_) => {
+                todo!("static control not currently supported for MLIR")
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for MLIR backend")

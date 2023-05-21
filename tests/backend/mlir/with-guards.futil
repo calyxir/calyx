@@ -20,6 +20,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
   cells {
     c0 = A();
     c1 = B();
+    c1_res = std_reg(1);
     r1 = std_reg(8);
     r2 = std_reg(1);
 
@@ -31,6 +32,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
     add = std_add(8);
   }
   wires {
+    group write_c1_res {
+      c1_res.write_en = 1'd1; 
+      c1_res.in = c1.out; 
+      write_c1_res[done] = c1_res.done; 
+    }
     group Group1 {
       s0.in = a0.out;
       m0.addr0 = 1'd0;
@@ -59,10 +65,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
         seq {
           Group1;
           Group1;
-          if c1.out {
+          write_c1_res;
+          if c1_res.out {
             Group2;
           }
-          if c1.out {
+          if c1_res.out {
             Group2;
           }
         }

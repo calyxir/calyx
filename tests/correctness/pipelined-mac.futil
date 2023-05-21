@@ -21,6 +21,7 @@ component pipelined_mac(
 
     stage2_valid = std_reg(1); // Stage 2 should run this execution
     out_valid = std_reg(1);    // Output is valid
+    data_valid_reg = std_reg(1); // Stores value of data_valid 
   }
   wires {
     group stage1<"static"=4> {
@@ -59,20 +60,26 @@ component pipelined_mac(
       out_valid.write_en = 1'd1;
       unset_out_valid[done] = out_valid.done;
     }
+    group write_data_valid {
+      data_valid_reg.write_en = 1'd1; 
+      data_valid_reg.in = data_valid; 
+      write_data_valid[done] = data_valid_reg.done;
+    }
 
     output_valid = out_valid.out;
     out = pipe2.out;
   }
   control {
     seq {
+      write_data_valid;
       // Execute all stages in parallel
       par {
-        if data_valid { stage1; }
+        if data_valid_reg.out { stage1; }
         if stage2_valid.out { stage2; }
       }
       // Configure valid signals for next invoke
       par {
-        if data_valid {
+        if data_valid_reg.out {
           set_stage2_valid;
         } else {
           unset_stage2_valid;

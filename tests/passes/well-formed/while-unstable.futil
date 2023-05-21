@@ -1,0 +1,23 @@
+//-p well-formed
+import "primitives/core.futil";
+
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r1 = std_reg(32);
+    lt = std_lt(32); 
+  }
+  wires {
+    static<2> group A {
+      r1.write_en = 1'd1; 
+      r1.in = 32'd2;
+    }
+    lt.left = r1.out; 
+    lt.right = 32'd4; 
+  }
+
+  control {
+    while lt.out {
+      A; 
+    }
+  }
+}

@@ -25,7 +25,7 @@ when the execution fails.
 The `calyx/src/default_passes.rs` file defines the compilation pipeline. Start by incrementally
 adding passes to this flag invocation:
 ```
--p validate -p remove-comb-groups -p <PASS 1> ... -p <PASS N> -p compile -p lower
+-p validate -p simplify-with-control -p <PASS 1> ... -p <PASS N> -p compile -p lower
 ```
 
 

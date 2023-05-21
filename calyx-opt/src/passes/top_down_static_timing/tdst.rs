@@ -220,7 +220,7 @@ impl Schedule<'_, '_> {
         let builder = self.builder;
         let (unconditional, conditional) =
             Self::calculate_runs(self.transitions.into_iter());
-        let fsm_size = get_bit_width_from(last + 1);
+        let fsm_size = get_bit_width_from(last) + 1;
 
         structure!(builder;
            let st_fsm = prim std_reg(fsm_size);
@@ -349,9 +349,6 @@ impl Schedule<'_, '_> {
             ir::Control::Enable(e) => {
                 self.enable_calculate_states(e, preds)
             }
-            ir::Control::StaticEnable(e) => {
-                self.static_enable_calculate_states(e, preds)
-            }
             ir::Control::Seq(s) => {
                 self.seq_calculate_states(s, preds)
             }
@@ -363,6 +360,11 @@ impl Schedule<'_, '_> {
             }
             ir::Control::Par(par) => {
                 self.par_calculate_states(par, preds)
+            }
+            ir::Control::Static(_) => {
+                unimplemented!(
+                "TDST doesn't support `static` statements (Eventually we want to rewrite static compilation as to render TDST obselete)"
+                )
             }
             ir::Control::Invoke(_) => unreachable!(
                 "`invoke` statements should have been compiled away. Run `{}` before this pass.",
@@ -382,76 +384,15 @@ impl Schedule<'_, '_> {
         con: &ir::Enable,
         preds: Vec<PredEdge>,
     ) -> CalyxResult<Vec<PredEdge>> {
-        let time_option = con.attributes.get("static");
-        let Some(&time) = time_option else {
+        let time_option = con.attributes.get(ir::NumAttr::Static);
+        let Some(time) = time_option else {
             return Err(Error::pass_assumption(
         TopDownStaticTiming::name(),
             "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
             ).with_pos(&con.attributes));
         };
 
-        let cur_st = con.attributes[ID];
-
-        // Enable the group during the transition. Note that this is similar to
-        // what tdcc does the early transitions flag. However, unlike tdcc, we
-        // know that transitions do not use groups' done signals.
-        preds.clone().into_iter().for_each(|(st, g)| {
-            let group = &con.group;
-            structure!(self.builder;
-                let signal_on = constant(1, 1);
-            );
-            let assigns = build_assignments!(self.builder;
-                group["go"] = g ? signal_on["out"];
-            );
-            // We only enable this in the state when the transition starts
-            self.add_enables(st, st + 1, assigns);
-        });
-
-        // Transition from all predecessors to the start state
-        self.add_transitions(preds.into_iter().map(|(st, g)| (st, cur_st, g)));
-
-        // Activate the group during the latency. Subtract one because the group
-        // is also active during the transition when not in the start state.
-        let last_st = cur_st + time - 1;
-        // Add additional transitions if the group's latency is not 1
-        if time != 1 {
-            let group = &con.group;
-            structure!(self.builder;
-                let signal_on = constant(1, 1);
-            );
-            let assigns = build_assignments!(self.builder;
-                group["go"] = ? signal_on["out"];
-            );
-            self.add_enables(cur_st, last_st, assigns);
-
-            // Add any necessary internal transitions. In the case time is 1 and there
-            // is a single transition, it is taken care of by the parent.
-            self.add_transitions(
-                (cur_st..last_st).map(|s| (s, s + 1, ir::Guard::True)),
-            );
-        }
-
-        Ok(vec![(last_st, ir::Guard::True)])
-    }
-
-    /// Generate transitions from all predecessors to the enable and keep it
-    /// active for its specified static time.
-    /// The start state of the enable is computed by taking the max of all
-    /// predecessors states.
-    fn static_enable_calculate_states(
-        &mut self,
-        con: &ir::StaticEnable,
-        preds: Vec<PredEdge>,
-    ) -> CalyxResult<Vec<PredEdge>> {
-        let time_option = con.attributes.get("static");
-        let Some(&time) = time_option else {
-            return Err(Error::pass_assumption(
-        TopDownStaticTiming::name(),
-            "enable is missing @static annotation. This happens when the enclosing control program has a @static annotation but the enable is missing one.".to_string(),
-            ).with_pos(&con.attributes));
-        };
-
-        let cur_st = con.attributes[ID];
+        let cur_st = con.attributes.get(ID).unwrap();
 
         // Enable the group during the transition. Note that this is similar to
         // what tdcc does the early transitions flag. However, unlike tdcc, we
@@ -528,7 +469,9 @@ impl Schedule<'_, '_> {
             }
         }
         Ok(vec![(
-            con.attributes[ID] + con.attributes["static"] - 1,
+            con.attributes.get(ID).unwrap()
+                + con.attributes.get(ir::NumAttr::Static).unwrap()
+                - 1,
             ir::Guard::True,
         )])
     }
@@ -572,7 +515,7 @@ impl Schedule<'_, '_> {
                     TopDownStaticTiming::name(),
                      format!(
                         "if-with construct should have been compiled away. Run `{}` before this pass.",
-                        passes::RemoveCombGroups::name()))
+                        passes::SimplifyWithControl::name()))
             .with_pos(&con.attributes));
         }
 
@@ -677,12 +620,12 @@ impl Schedule<'_, '_> {
             TopDownStaticTiming::name(),
             format!(
                 "while-with construct should have been compiled away. Run `{}` before this pass.",
-                passes::RemoveCombGroups::name())
+                passes::SimplifyWithControl::name())
             ).with_pos(&wh.attributes));
         }
 
         // Construct the index and incrementing logic.
-        let bound = wh.attributes["bound"];
+        let bound = wh.attributes.get(ir::NumAttr::Bound).unwrap();
         // Loop bound should not be less than 1.
         if bound < 1 {
             return Err(Error::malformed_structure(
@@ -720,8 +663,8 @@ impl Schedule<'_, '_> {
         );
         // Even though the assignments are active during [cur_state, body_nxt), we expect only `bound*body` number of
         // states will actually be traversed internally.
-        let cur_state = wh.attributes[START];
-        let body_nxt = wh.attributes[END];
+        let cur_state = wh.attributes.get(START).unwrap();
+        let body_nxt = wh.attributes.get(END).unwrap();
         self.add_enables(
             cur_state,
             body_nxt,
@@ -763,7 +706,7 @@ impl Schedule<'_, '_> {
         dump_fsm: bool,
     ) -> CalyxResult<RRC<ir::Group>> {
         debug_assert!(
-            con.get_attribute("static").is_some(),
+            con.get_attribute(ir::NumAttr::Static).is_some(),
             "Attempted to compile non-static program"
         );
         // Normalize the program
@@ -855,10 +798,10 @@ impl TopDownStaticTiming {
         if matches!(con, ir::Control::Enable(_) | ir::Control::Empty(_)) {
             return Ok(());
         }
-        if let Some(time) = con.get_attribute("static") {
+        if let Some(time) = con.get_attribute(ir::NumAttr::Static) {
             let group = Schedule::compile(con, builder, dump_fsm)?;
             let mut en = ir::Control::enable(group);
-            en.get_mut_attributes()["static"] = time;
+            en.get_mut_attributes().insert(ir::NumAttr::Static, time);
             *con = en;
         } else {
             match con {
@@ -879,7 +822,7 @@ impl TopDownStaticTiming {
                 }
                 ir::Control::Enable(_)
                 | ir::Control::Invoke(_)
-                | ir::Control::StaticEnable(_)
+                | ir::Control::Static(_)
                 | ir::Control::Empty(_) => {}
             }
         }
@@ -894,7 +837,7 @@ impl Visitor for TopDownStaticTiming {
             comp.cells.iter().any(|c| c.borrow().is_component());
         if has_subcomponents {
             Some("Subcomponents with static timing not supported".to_string())
-        } else if !comp.control.borrow().has_attribute("static") {
+        } else if !comp.control.borrow().has_attribute(ir::NumAttr::Static) {
             Some(
                 "Mixed static-dynamic control programs are not supported"
                     .to_string(),
@@ -917,7 +860,7 @@ impl Visitor for TopDownStaticTiming {
             return Ok(Action::Stop);
         }
 
-        if !con.has_attribute("static") {
+        if !con.has_attribute(ir::NumAttr::Static) {
             unreachable!("Entire program must be static");
         }
 
@@ -932,7 +875,7 @@ impl Visitor for TopDownStaticTiming {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if !con.attributes.has("static") {
+        if !con.attributes.has(ir::NumAttr::Static) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -941,11 +884,11 @@ impl Visitor for TopDownStaticTiming {
             match stmt {
                 ir::Control::Enable(_) => {}
                 con => {
-                    let time = con.get_attribute("static").unwrap();
+                    let time = con.get_attribute(ir::NumAttr::Static).unwrap();
                     let group =
                         Schedule::compile(con, &mut builder, self.dump_fsm)?;
                     let mut en = ir::Control::enable(group);
-                    en.get_mut_attributes()["static"] = time;
+                    en.get_mut_attributes().insert(ir::NumAttr::Static, time);
                     *con = en;
                 }
             }
