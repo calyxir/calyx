@@ -9,7 +9,7 @@ The first step is disabling optimization passes and running the bare bones compi
 
 To disable the passes, add the flag `-p no-opt` to compiler invocation:
 1. For the compiler: `futil <filename> -p no-opt`.
-2. For `fud`: `fud ... -s futil.flags " -p no-opt"`.
+2. For `fud`: `fud ... -s calyx.flags " -p no-opt"`.
 
 If the output is still incorrect then one of the core compilation passes is incorrect.
 Our best bet at this point is to reduce the test file such that the output from the

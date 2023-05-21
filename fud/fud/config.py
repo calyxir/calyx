@@ -13,7 +13,7 @@ from .utils import eprint
 from . import errors, external, registry
 
 # Key for the root folder
-ROOT = "futil_directory"
+ROOT = "root"
 
 # keys to prompt the user for
 WIZARD_DATA = {
@@ -26,7 +26,7 @@ DEFAULT_CONFIGURATION = {
     "global": {},
     "externals": {},
     "stages": {
-        "futil": {
+        "calyx": {
             "exec": "./target/debug/calyx",
             "file_extensions": [".futil"],
             "flags": None,
@@ -195,7 +195,7 @@ class Configuration:
         The configuration file is serialized as a TOML file and contains the
         following data fields:
 
-        1. global.futil_directory [required]. Location of the root folder of
+        1. global.root [required]. Location of the root folder of
            the Calyx repository.
         2. stages: A table containing information for each stage. For example,
            stage.verilog contains key-value pairs which encode the information

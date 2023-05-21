@@ -101,7 +101,7 @@ def dahlia_to_calyx(imports: List[str], definitions: List[str]) -> str:
     with NamedTemporaryFile() as tf0, NamedTemporaryFile() as tf1:
         tf0.write(bytes(dahlia_program, "UTF-8"))
         tf0.seek(0), tf1.seek(0)
-        command = f"""fud e --from dahlia {tf0.name} --to futil > {tf1.name} -q"""
+        command = f"""fud e --from dahlia {tf0.name} --to calyx > {tf1.name} -q"""
         subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).communicate()
 
         components_or_error = tf1.read().decode()

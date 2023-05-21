@@ -94,7 +94,7 @@ flit -f fud/pyproject.toml install -s --deps production
 ```
 Configure `fud`:
 ```
-fud config global.futil_directory <full path to Calyx repository>
+fud config global.root <full path to Calyx repository>
 ```
 Check the `fud` configuration:
 ```
