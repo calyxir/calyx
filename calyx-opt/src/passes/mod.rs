@@ -44,6 +44,7 @@ mod top_down_static_timing;
 mod unroll_bound;
 mod well_formed;
 mod wire_inliner;
+mod wrap_main;
 
 pub use attribute_promotion::AttributePromotion;
 pub use canonical::Canonicalize;
