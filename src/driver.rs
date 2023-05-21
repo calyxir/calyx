@@ -1,3 +1,4 @@
+//! Driver for the Calyx compiler.
 use crate::cmdline::{BackendOpt, CompileMode, Opts};
 use calyx_frontend as frontend;
 use calyx_ir as ir;
