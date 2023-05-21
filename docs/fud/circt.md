@@ -77,7 +77,7 @@ If you desperately need this, please [open an issue][issue], and we'll try to pr
 [cider]: ../interpreter.md
 [synth]: ../fud/xilinx.html#synthesis-only
 [axi-gen]: ../fud/axi-gen.html
-[`@external`]: ../lang/attributes.html?highlight=external#external
+[`@external`]: ../lang/attributes.html#external
 [issue]:https://github.com/cucapra/calyx/issues/new
 
 [circt]: https://circt.llvm.org/
