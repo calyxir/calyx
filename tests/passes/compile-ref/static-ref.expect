@@ -18,7 +18,6 @@ static<2> component add_one(@go go: 1, @clk clk: 1, @reset reset: 1, out_read_da
       out_write_en = 1'd1;
     }
   }
-
   control {
     static<2> seq  {
       add_1;
@@ -49,7 +48,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       reg_to_mem[done] = mem.done;
     }
   }
-
   control {
     seq {
       static<2> invoke adder(

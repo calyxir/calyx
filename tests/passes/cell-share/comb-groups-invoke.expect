@@ -19,7 +19,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       lt.right = 1'd1;
     }
   }
-
   control {
     seq {
       wr_r1;

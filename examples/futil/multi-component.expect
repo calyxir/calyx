@@ -35,7 +35,6 @@ static<1> component identity<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @r
     early_reset_invoke00_go.in = wrapper_early_reset_invoke00_go.out ? 1'd1;
     wrapper_early_reset_invoke00_go.in = go;
   }
-
   control {}
 }
 static<2> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
@@ -68,6 +67,5 @@ static<2> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done
     early_reset_static_seq_done.in = ud1.out;
     wrapper_early_reset_static_seq_go.in = go;
   }
-
   control {}
 }

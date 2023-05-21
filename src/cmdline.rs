@@ -1,3 +1,4 @@
+//! Command line parsing for the Calyx compiler.
 use crate::backend::traits::Backend;
 use crate::backend::{
     mlir::MlirBackend, resources::ResourcesBackend, verilog::VerilogBackend,
@@ -12,7 +13,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 #[derive(FromArgs)]
-/// The Calyx compiler
+/// Options passed to the Calyx compiler.
 pub struct Opts {
     /// input calyx program
     #[argh(positional, from_str_fn(read_path))]
