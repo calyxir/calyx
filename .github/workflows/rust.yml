@@ -23,7 +23,7 @@ jobs:
       run: |
         # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
         fud c --create global.root /home/calyx
-        fud c stages.calyx.exec /home/calyx/target/debug/calyx
+        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia
@@ -75,7 +75,7 @@ jobs:
       run: |
         # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
         fud c --create global.root /home/calyx
-        fud c stages.calyx.exec /home/calyx/target/debug/calyx
+        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia
@@ -139,7 +139,7 @@ jobs:
       run: |
         # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
         fud c --create global.root /home/calyx
-        fud c stages.calyx.exec /home/calyx/target/debug/calyx
+        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia
