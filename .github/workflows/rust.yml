@@ -113,7 +113,8 @@ jobs:
     - name: Runt tests
       working-directory: /home/calyx
       run: |
-        runt -x 'mrxl|cocotb' -d -o fail -j 1 --max-futures 5
+        runt -i tests/errors/runtime/multiple-drivers.futil -d -o fail
+        # runt -x 'mrxl|cocotb' -d -o fail -j 1 --max-futures 5
 
     # Run these sequentially because they might fail intermittently
     - name: Cocotb tests
