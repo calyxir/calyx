@@ -38,10 +38,6 @@ pub struct Opts {
     #[argh(switch)]
     pub disable_verify: bool,
 
-    /// do not initialize input ports
-    #[argh(switch)]
-    pub disable_init: bool,
-
     /// emit nested assignments (only relevant to the Verilog backend)
     #[argh(switch, long = "nested")]
     pub nested_assign: bool,

@@ -36,7 +36,6 @@ pub fn run_compiler() -> CalyxResult<()> {
     ctx.bc = ir::BackendConf {
         synthesis_mode: opts.enable_synthesis,
         enable_verification: !opts.disable_verify,
-        initialize_inputs: !opts.disable_init,
         flat_assign: !opts.nested_assign,
     };
     // Extra options for the passes
