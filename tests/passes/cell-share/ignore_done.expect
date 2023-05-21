@@ -23,7 +23,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       compound[done] = r1.done;
     }
   }
-
   control {
     seq {
       write_r;

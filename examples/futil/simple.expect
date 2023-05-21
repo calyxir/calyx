@@ -30,6 +30,5 @@ static<5> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done
     early_reset_static_seq_done.in = ud2.out;
     wrapper_early_reset_static_seq_go.in = go;
   }
-
   control {}
 }

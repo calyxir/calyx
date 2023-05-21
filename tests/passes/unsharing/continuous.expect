@@ -63,7 +63,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
     r.in = 1'd0 ? 32'd1;
   }
-
   control {
     seq {
       set_flag;

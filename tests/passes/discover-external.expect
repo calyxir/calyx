@@ -16,7 +16,6 @@ component mlir_funcSYCL_class_vector_addition<"toplevel"=1>(@clk clk: 1, @reset 
       incr[done] = ext_mem1_.done;
     }
   }
-
   control {
     incr;
   }

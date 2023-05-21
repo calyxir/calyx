@@ -20,7 +20,6 @@ static<15> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
       c.write_en = 1'd1;
     }
   }
-
   control {
     @bound(5) static repeat 5 {
       static<3> seq  {

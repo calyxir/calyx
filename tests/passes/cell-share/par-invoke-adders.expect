@@ -12,7 +12,6 @@ component dbg<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) 
     out1 = r.out;
     out2 = r.out;
   }
-
   control {
     A;
   }
@@ -24,9 +23,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add1 = std_add(32);
     add2 = std_add(32);
   }
-  wires {
-  }
-
+  wires {}
   control {
     seq {
       par {

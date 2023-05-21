@@ -1,9 +1,6 @@
 import "primitives/core.futil";
 component main<"nointerface"=1>() -> () {
-  cells {
-  }
-  wires {
-  }
-
+  cells {}
+  wires {}
   control {}
 }

@@ -13,7 +13,6 @@ component add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (
       do_add[done] = outpt.done;
     }
   }
-
   control {
     seq {
       do_add;
@@ -43,7 +42,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       wr_y[done] = x.done;
     }
   }
-
   control {
     seq {
       wr_x;

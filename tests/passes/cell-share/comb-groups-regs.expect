@@ -53,7 +53,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       lt.right = 32'd5;
     }
   }
-
   control {
     seq {
       wr_r0;
