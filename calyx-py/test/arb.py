@@ -1,5 +1,4 @@
 # pylint: disable=import-error
-from calyx.py_ast import CompInst
 import calyx.builder as cb
 
 
@@ -40,6 +39,8 @@ def add_wrap(prog):
     - two ref memories, `mem1` and `mem2`
     - one output, `out`
 
+    It also returns the component `wrap`.
+
     Assume 0 <= i < 2 and 0 <= j < 4.
     if i == 0, then out = mem1[j]
     if i == 1, then out = mem2[j]
@@ -62,9 +63,10 @@ def add_wrap(prog):
         cb.if_(eq0_cell.out, eq0_grp, emit_from_mem1),
         cb.if_(eq1_cell.out, eq1_grp, emit_from_mem2),
     )
+    return wrap
 
 
-def add_main(prog):
+def add_main(prog, wrap):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `wrap`.
 
@@ -78,7 +80,7 @@ def add_main(prog):
 
     # AM, quality of life:
     # Would be nice to have a way to do this in a more `builder` way.
-    together = main.cell("together", CompInst("wrap", []))
+    together = main.cell("together", wrap)
 
     # AM, point of failure:
     # Maybe I'm missing something, but I think the builder library
@@ -97,8 +99,8 @@ def add_main(prog):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    add_wrap(prog)
-    add_main(prog)
+    wrap = add_wrap(prog)
+    add_main(prog, wrap)
     return prog.program
 
 
