@@ -21,7 +21,7 @@ class Builder:
         self.imported = set()
         self.import_("primitives/core.futil")
 
-    def component(self, name: str, cells=None):
+    def component(self, name: str, cells=None) -> ComponentBuilder:
         cells = cells or []
         comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
@@ -66,7 +66,7 @@ class ComponentBuilder:
         return ThisBuilder()
 
     @property
-    def control(self):
+    def control(self) -> ControlBuilder:
         return ControlBuilder(self.component.controls)
 
     @control.setter
@@ -131,7 +131,7 @@ class ComponentBuilder:
         self.index[name] = builder
         return builder
 
-    def reg(self, name: str, size: int):
+    def reg(self, name: str, size: int) -> CellBuilder:
         return self.cell(name, ast.Stdlib.register(size))
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
@@ -146,12 +146,12 @@ class ComponentBuilder:
         idx_size: int,
         is_external=False,
         is_ref=False,
-    ):
+    ) -> CellBuilder:
         return self.cell(
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int):
+    def add(self, name: str, size: int) -> CellBuilder:
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("add", size, signed=False))
 
@@ -485,14 +485,14 @@ class GroupBuilder:
         TLS.groups.pop()
 
 
-def const(width: int, value: int):
+def const(width: int, value: int) -> ExprBuilder:
     """Build a sized integer constant expression.
 
     This is available as a shorthand in cases where automatic width
     inference fails. Otherwise, you can just use plain Python integer
     values.
     """
-    return ExprBuilder(ast.ConstantPort(width, value))
+    return ExprBuilder(ast.Atom(ast.ConstantPort(width, value)))
 
 
 def infer_width(expr):
