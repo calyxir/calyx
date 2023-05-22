@@ -11,7 +11,6 @@ component foo(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @don
     }
     out = f_reg.out;
   }
-
   control {
     foo_group;
   }
@@ -35,7 +34,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
     f_out.in = f_reg.out;
   }
-
   control {
     seq {
       invoke r(

@@ -28,7 +28,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       rd_y[done] = y.done;
     }
   }
-
   control {
     seq {
       par {

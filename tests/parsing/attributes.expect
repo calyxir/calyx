@@ -12,7 +12,6 @@ component main<"static"=1>(@foo(32) @go_port in: 32, go: 1, clk: 1, @go go0: 1, 
     comb group cond<"static"=0> {
     }
   }
-
   control {
     @bound(32) while le.out with cond {
       upd;

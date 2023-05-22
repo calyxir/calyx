@@ -64,11 +64,10 @@ Adding this attribute disables this behavior.
 ### `external`
 The `external` attribute has meaning when it is attached to a cell.
 It has two meanings:
-1. If the `externalize` pass is enabled, the cell is turned into an "external"
+1. If the `externalize` compiler alias is enabled, the cell is turned into an "external"
    cell by exposing all its ports through the current component and rewriting
-   assignments to the use the ports. See the documentation on
-   [externalize](https://docs.calyxir.org/source/calyx/passes/struct.Externalize.html "Externalize Pass") for more information.
-2. If the cell is a memory and has an `external` attribute on it, the verilog backend (`-b verilog`) generates code to read `<cell_name>.dat` to initialize the memory state and dumps out its final value after execution.
+   assignments to the use the ports. See the documentation on [externalize][] for more information.
+2. If the cell is a memory and has an `external` attribute on it, the Verilog backend (`-b verilog`) generates code to read `<cell_name>.dat` to initialize the memory state and dumps out its final value after execution.
 
 ### `static(n)`
 Can be attached to components, groups, and control statements. They indicate how
@@ -202,4 +201,5 @@ Since the value `'x` can be replaced with anything.
 
 
 [datapath-components]: https://github.com/cucapra/calyx/issues/1169
-[builder]: https://docs.calyxir.org/source/calyx/ir/struct.Builder.html
+[builder]: https://docs.rs/calyx-ir/latest/calyx_ir/struct.Builder.html
+[externalize]: https://docs.rs/calyx-opt/latest/calyx_opt/passes/struct.Externalize.html

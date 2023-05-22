@@ -31,7 +31,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       msp[done] = a.done & b.done & c.done ? 1'd1;
     }
   }
-
   control {
     par {
       @static msp;

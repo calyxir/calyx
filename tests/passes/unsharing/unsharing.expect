@@ -58,7 +58,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       set_flag[done] = flag.done;
     }
   }
-
   control {
     seq {
       set_flag;
