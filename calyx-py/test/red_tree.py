@@ -68,29 +68,29 @@ def add_tree(prog):
 
 
 def use_tree_ports_calculated(
-    comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree, ans_reg
+    comp, group, mem_a, mem_b, mem_c, mem_d, i, tree, ans_reg
 ):
     """Orchestrates the use of the component `tree`.
     Adds wiring for {group}, which puts into the tree's four leaves
-    the values a[a_i], b[b_i], c[c_i], and d[d_i].
+    the values a[i], b[i], c[i], and d[i].
     It then runs the tree, and when the tree is done, stores the answer in {ans_reg}.
     """
     with comp.group(group) as tree_use:
-        a.addr0 = cb.const(32, a_i)
-        b.addr0 = cb.const(32, b_i)
-        c.addr0 = cb.const(32, c_i)
-        d.addr0 = cb.const(32, d_i)
-        tree.leaf1 = a.read_data
-        tree.leaf2 = b.read_data
-        tree.leaf3 = c.read_data
-        tree.leaf4 = d.read_data
+        mem_a.addr0 = cb.const(32, i)
+        mem_b.addr0 = cb.const(32, i)
+        mem_c.addr0 = cb.const(32, i)
+        mem_d.addr0 = cb.const(32, i)
+        tree.leaf1 = mem_a.read_data
+        tree.leaf2 = mem_b.read_data
+        tree.leaf3 = mem_c.read_data
+        tree.leaf4 = mem_d.read_data
         tree.go = cb.HI
         ans_reg.write_en = tree.done @ 1
         ans_reg.in_ = tree.done @ tree.sum
         tree_use.done = ans_reg.done
 
 
-def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree, ans_mem):
+def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_mem):
     """Orchestrates the use of the component `tree`.
     Adds wiring for {group}, which puts into the tree's four leaves
     the values p1, p2, p3, and p4.
@@ -100,10 +100,10 @@ def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree, ans_mem):
     # ports, it takes them as arguments.
 
     with comp.group(group) as tree_use:
-        tree.leaf1 = p1
-        tree.leaf2 = p2
-        tree.leaf3 = p3
-        tree.leaf4 = p4
+        tree.leaf1 = port1
+        tree.leaf2 = port2
+        tree.leaf3 = port3
+        tree.leaf4 = port4
         tree.go = cb.HI
         ans_mem.addr0 = tree.done @ 0
         ans_mem.write_data = tree.done @ tree.sum
@@ -135,9 +135,7 @@ def add_main(prog):
     tree = main.cell("tree", CompInst("tree", []))
 
     for i, ans_reg in enumerate([sum_col0, sum_col1, sum_col2, sum_col3]):
-        use_tree_ports_calculated(
-            main, f"add_col{i}", A, i, B, i, C, i, D, i, tree, ans_reg
-        )
+        use_tree_ports_calculated(main, f"add_col{i}", A, B, C, D, i, tree, ans_reg)
 
     use_tree_ports_provided(
         main,
