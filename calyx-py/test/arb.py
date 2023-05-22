@@ -2,11 +2,6 @@
 from calyx.py_ast import Stdlib, CompPort, CompVar, ParComp, Enable, If
 import calyx.builder as cb
 
-# AM, quality of life:
-# It occurs to me that a nice goal for the builder library folks
-# could be to introduce enough functionality that we don't need to
-# import anything from calyx.py_ast.
-
 
 def add_eq(comp, port_name, const, cellname, groupname):
     """Adds wiring to check `port_name == const`,
@@ -18,6 +13,7 @@ def add_eq(comp, port_name, const, cellname, groupname):
         # This is wrong. It renders "{port_name}.out" but I want "{port_name}".
         # The same issue occurs repeatedly, so I'm just flagging this one.
         # Whenever the generated futil has {i/j}.out, I actually just want {i/j}.
+        # OK, see red_trees
         eq_cell.right = cb.const(32, const)
 
 
@@ -56,30 +52,17 @@ def add_wrap(prog):
     add_emit_from_mem(wrap, mem1, ans, "1")
     add_emit_from_mem(wrap, mem2, ans, "2")
 
-    # AM, quality of life:
-    # I'd like to generate these `if` statements with the builder.
-    # I tried:
-    #   _: If = cb.if_(
-    #     port=CompPort(CompVar("eq0"), "out"),
-    #     cond=wrap.get_group("i_eq_0"),
-    #     body=Enable("emit_from_mem1"),
-    #   )
-    # but I'm running into trouble with the `port` field, which must be
-    # an ExprBuilder. On digging it looks like that's an GuardExpr in the AST,
-    # but I got stuck at that point.
-    wrap.control = ParComp(
-        [
-            If(
-                port=CompPort(CompVar("eq0"), "out"),
-                cond=CompVar("i_eq_0"),
-                true_branch=Enable("emit_from_mem1"),
-            ),
-            If(
-                port=CompPort(CompVar("eq1"), "out"),
-                cond=CompVar("i_eq_1"),
-                true_branch=Enable("emit_from_mem2"),
-            ),
-        ]
+    wrap.control += cb.par(
+        cb.if_(
+            wrap.get_cell("eq0").out,
+            wrap.get_group("i_eq_0"),
+            wrap.get_group("emit_from_mem1"),
+        ),
+        cb.if_(
+            wrap.get_cell("eq1").out,
+            wrap.get_group("i_eq_1"),
+            wrap.get_group("emit_from_mem2"),
+        ),
     )
 
 
@@ -98,6 +81,7 @@ def add_main(prog):
     # AM, point of failure (but a stupid hack has worked):
     # I'd like to add the following to the `cells` section:
     # together = wrap();
+    # OK, see red-tree
 
     # The following is clearly a hilarious hack:
     _ = main.cell("together", CompVar("wrap()"))
@@ -120,8 +104,9 @@ def add_main(prog):
     #     comb_group: Optional[CompVar] = None
     #     attributes: List[Tuple[str, int]] = field(default_factory=list)
     # As I see it, only id, in_connects, and out_connects are supported.
-    kwargs = {"in_i": cb.const(32, 1), "in_j": cb.const(32, 3)}
-    main.control = cb.invoke(main.get_cell("together"), **kwargs)
+    main.control = cb.invoke(
+        main.get_cell("together"), in_i=cb.const(32, 1), in_j=cb.const(32, 3)
+    )
 
 
 def build():
