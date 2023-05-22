@@ -28,7 +28,7 @@ component tree(leaf1: 32, leaf2: 32, leaf3: 32, leaf4: 32) -> (sum: 32) {
       add_l1_l2[done] = left_node.done;
     }
     group add_l3_l4 {
-      // Adds leaf3 and leaf4, then puts the result in left_node.
+      // Adds leaf3 and leaf4, then puts the result in right_node.
       add2.left = leaf3;
       add2.right = leaf4;
       right_node.write_en = 1'b1;

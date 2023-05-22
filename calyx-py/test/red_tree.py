@@ -1,13 +1,13 @@
 # pylint: disable=import-error
-from calyx.py_ast import Stdlib, CompPort, CompVar, ParComp, SeqComp, Enable
+from calyx.py_ast import Stdlib, CompInst, ParComp, SeqComp, Enable
 import calyx.builder as cb
 
 
 def add_adder(
-    comp,
+    comp: cb.ComponentBuilder,
     group,
-    port_l,
-    port_r,
+    port_l_name,
+    port_r_name,
     cell,
     ans,
 ):
@@ -20,19 +20,11 @@ def add_adder(
     # it creates a duplicate cell instead of locating and reusing the existing one.
     # This is minor because it is probably compiled away.
     adder = comp.cell(cell, Stdlib.op("add", 32, signed=False))
+    # comp.get_cell("add1")
+    # OK
     with comp.group(group) as adder_group:
-        adder.left = CompPort(CompVar(port_l), "out")
-        adder.right = CompPort(CompVar(port_r), "out")
-        # AM, point of failure:
-        # This is wrong. It renders "{port_l}.out" but I want "{port_l}".
-        # The names are misnomers, slash aspirational:
-        # I _want_ to pass ports, but am passing names and then accessing ports.
-        # In `add_tree_ports_provided` below, I do pass ports.
-        # That doesn't seem to be possible here:
-        # when invoking this method, I'd like to pass _input_ ports
-        # of a component.
-        # I don't know how to get a handle on those.
-        # Is there a way to look up a port by name?
+        adder.left = comp.this()[port_l_name]
+        adder.right = comp.this()[port_r_name]
         ans.write_en = 1
         ans.in_ = adder.out
         adder_group.done = ans.done
@@ -47,7 +39,7 @@ def add_tree(prog):
     When done, it puts the sum of the four leaves into `sum`.
     """
 
-    tree = prog.component("tree")
+    tree: cb.ComponentBuilder = prog.component("tree")
     for i in range(1, 5):
         tree.input(f"leaf{i}", 32)
     tree.output("sum", 32)
@@ -58,11 +50,10 @@ def add_tree(prog):
 
     add_adder(tree, "add_l1_l2", "leaf1", "leaf2", "add1", left)
     add_adder(tree, "add_l3_l4", "leaf3", "leaf4", "add2", right)
-    add_adder(tree, "add_left_right_nodes", "left_node", "right_node", "add3", root)
-    # AM, point of failure:
-    # I need to add the continuous assignment:
-    # sum = root.out;
-    # But I don't know how to do that.
+    add_adder(tree, "add_left_right_nodes", "left_node", "right_node", "add1", root)
+
+    with tree.continuous:
+        tree.this().sum = root.out
 
     tree.control = SeqComp(
         [
@@ -89,13 +80,9 @@ def use_tree_ports_calculated(
         tree.leaf2 = b.read_data
         tree.leaf3 = c.read_data
         tree.leaf4 = d.read_data
-        tree.go = cb.const(1, 1)
-        # AM, point of failure: I need to add the following:
-        #   sum_col0.write_en = tree.done ? 1'b1;
-        #   sum_col0.in = tree.done ? tree.sum;
-        # But I don't know how to do that.
-        ans_reg.write_en = 1
-        ans_reg.in_ = tree.sum
+        tree.go = cb.HI
+        ans_reg.write_en = tree.done @ 1
+        ans_reg.in_ = tree.done @ tree.sum
         tree_use.done = ans_reg.done
 
 
@@ -113,13 +100,10 @@ def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree, ans_mem):
         tree.leaf2 = p2
         tree.leaf3 = p3
         tree.leaf4 = p4
-        tree.go = cb.const(1, 1)
-        # AM, point of failure:
-        # Just the like the point of failure above,
-        # I need the next three assignments to all be guarded by tree.done.
-        ans_mem.addr0 = cb.const(1, 0)
-        ans_mem.write_data = tree.sum
-        ans_mem.write_en = 1
+        tree.go = 1
+        ans_mem.addr0 = tree.done @ 0
+        ans_mem.write_data = tree.done @ tree.sum
+        ans_mem.write_en = tree.done @ 1
         tree_use.done = ans_mem.done
 
 
@@ -147,7 +131,7 @@ def add_main(prog):
     # I'd like to add the following to the `cells` section:
     # tree0 = tree();
     # I think the following is what you want me to do:
-    tree = main.cell("tree", prog.component("tree"))
+    tree = main.cell("tree", CompInst("tree", []))
     # But _it adds a new, blank component called tree_ to the program.
     # I'd like for it to locate the existing component `tree`.
     # Thoughts?
@@ -168,15 +152,13 @@ def add_main(prog):
         ans,
     )
 
-    main.control = SeqComp(
-        [
-            Enable("tree0_col0"),
-            Enable("tree1_col1"),
-            Enable("tree2_col2"),
-            Enable("tree3_col3"),
-            Enable("add_intermediates"),
-        ]
-    )
+    main.control += [
+        main.get_group("add_col0"),
+        main.get_group("add_col1"),
+        main.get_group("add_col2"),
+        main.get_group("add_col3"),
+        main.get_group("add_intermediates"),
+    ]
 
 
 def build():
