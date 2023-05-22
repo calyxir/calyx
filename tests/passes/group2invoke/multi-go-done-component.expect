@@ -10,7 +10,6 @@ component real_mem_comp(@go port0_read_en: 1, @go(2) port1_write_en: 1, @clk clk
     mem_0.write_en = port1_write_en;
     port1_write_done = mem_0.write_done;
   }
-
   control {}
 }
 component main<"toplevel"=1>(@clk clk: 1, @reset reset: 1, @go go: 1) -> (@done done: 1) {
@@ -25,7 +24,6 @@ component main<"toplevel"=1>(@clk clk: 1, @reset reset: 1, @go go: 1) -> (@done 
       bb0_8[done] = inst_0.port1_write_done;
     }
   }
-
   control {
     bb0_8;
   }

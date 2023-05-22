@@ -1,6 +1,5 @@
 # The Calyx Compiler
 
-The source code documentation for the compiler can be [found here][comp].
 The Calyx compiler has several command line options to control the execution of
 various passes and backends.
 
@@ -85,5 +84,3 @@ also expose components written in Calyx, usually defined using primitives
 exposed by the file.
 
 No Calyx program can work without the primitives defined in the [Core Library](libraries/core.md).
-
-[comp]: https://docs.calyxir.org/source/calyx/

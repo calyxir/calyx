@@ -7,6 +7,5 @@ component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @do
     done = 1'd1;
     out = in;
   }
-
   control {}
 }

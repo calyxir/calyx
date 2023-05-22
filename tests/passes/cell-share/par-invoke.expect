@@ -11,7 +11,6 @@ component dbg<"state_share"=1>(in: 32, prefix: 32, length: 5, @go go: 1, @clk cl
     }
     out = r.out;
   }
-
   control {
     A;
   }
@@ -21,9 +20,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     d1 = dbg();
     d2 = dbg();
   }
-  wires {
-  }
-
+  wires {}
   control {
     par {
       invoke d1(

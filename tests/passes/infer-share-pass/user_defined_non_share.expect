@@ -9,7 +9,6 @@ component no_share(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32,
   wires {
     out = r.out;
   }
-
   control {}
 }
 component uses_no_share(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
@@ -24,16 +23,12 @@ component uses_no_share(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out
     }
     out = c.out;
   }
-
   control {
     A;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
+  cells {}
+  wires {}
   control {}
 }
