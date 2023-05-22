@@ -20,12 +20,23 @@ class Builder:
         )
         self.imported = set()
         self.import_("primitives/core.futil")
+        self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None):
+    def component(self, name: str, cells=None) -> ComponentBuilder:
+        """Create a new component builder."""
         cells = cells or []
         comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
+        self._index[name] = comp_builder
         return comp_builder
+
+    def get_component(self, name: str) -> ComponentBuilder:
+        """Retrieve a component builder by name."""
+        comp_builder = self._index.get(name)
+        if comp_builder is None:
+            raise Exception(f"Component `{name}' not found in program.")
+        else:
+            return comp_builder
 
     def import_(self, filename: str):
         """Add an `import` statement to the program."""
@@ -66,7 +77,7 @@ class ComponentBuilder:
         return ThisBuilder()
 
     @property
-    def control(self):
+    def control(self) -> ControlBuilder:
         return ControlBuilder(self.component.controls)
 
     @control.setter
@@ -131,7 +142,25 @@ class ComponentBuilder:
         self.index[name] = builder
         return builder
 
-    def reg(self, name: str, size: int):
+    def sub_component(
+        self,
+        cell_name: str,
+        sub_comp_name: str | ComponentBuilder,
+        check_undeclared=True,
+    ) -> CellBuilder:
+        """Create a cell for a Calyx sub-component."""
+        if isinstance(sub_comp_name, str):
+            assert not check_undeclared or (
+                sub_comp_name in self.prog._index
+                or sub_comp_name in self.prog.program.components
+            ), f"Declaration of component '{sub_comp_name}' not found in program"
+
+        if isinstance(sub_comp_name, ComponentBuilder):
+            sub_comp_name = sub_comp_name.component.name
+
+        return self.cell(cell_name, ast.CompInst(sub_comp_name, []))
+
+    def reg(self, name: str, size: int) -> CellBuilder:
         return self.cell(name, ast.Stdlib.register(size))
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
@@ -146,12 +175,12 @@ class ComponentBuilder:
         idx_size: int,
         is_external=False,
         is_ref=False,
-    ):
+    ) -> CellBuilder:
         return self.cell(
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int):
+    def add(self, name: str, size: int) -> CellBuilder:
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("add", size, signed=False))
 
@@ -221,7 +250,7 @@ def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.If:
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     """Build an `invoke` control statement.
 
-    The keyword arguments should have the form `in_*` and `out_*`, where
+    The keyword arguments should have the form `in_*`, `out_*`, or `ref_*`, where
     `*` is the name of an input or output port on the invoked cell.
     """
     return ast.Invoke(
@@ -235,6 +264,11 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
             (k[4:], ExprBuilder.unwrap(v))
             for (k, v) in kwargs.items()
             if k.startswith("out_")
+        ],
+        [
+            (k[4:], ExprBuilder.unwrap(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("ref_")
         ],
     )
 
@@ -485,14 +519,14 @@ class GroupBuilder:
         TLS.groups.pop()
 
 
-def const(width: int, value: int):
+def const(width: int, value: int) -> ExprBuilder:
     """Build a sized integer constant expression.
 
     This is available as a shorthand in cases where automatic width
     inference fails. Otherwise, you can just use plain Python integer
     values.
     """
-    return ExprBuilder(ast.ConstantPort(width, value))
+    return ExprBuilder(ast.Atom(ast.ConstantPort(width, value)))
 
 
 def infer_width(expr):
@@ -574,6 +608,6 @@ LO = const(1, 0)
 HI = const(1, 1)
 
 
-def par(*args: Union[GroupBuilder, ast.Control, ast.Group, ast.Invoke]) -> ast.ParComp:
+def par(*args) -> ast.ParComp:
     """Build a parallel composition of control expressions."""
     return ast.ParComp([as_control(x) for x in args])
