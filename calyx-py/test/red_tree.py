@@ -1,5 +1,4 @@
 # pylint: disable=import-error
-from calyx.py_ast import CompInst
 import calyx.builder as cb
 
 
@@ -33,6 +32,7 @@ def add_tree(prog):
     - one output, `sum`
 
     When done, it puts the sum of the four leaves into `sum`.
+    Returns the component builder for tree.
     """
 
     tree: cb.ComponentBuilder = prog.component("tree")
@@ -64,6 +64,7 @@ def add_tree(prog):
         tree.this().sum = root.out
 
     tree.control += [cb.par(add_l1_l2, add_l3_l4), add_l_r_nodes]
+    return tree
 
 
 def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_mem):
@@ -111,7 +112,7 @@ def use_tree_ports_calculated(
         tree_use.done = ans_reg.done
 
 
-def add_main(prog):
+def add_main(prog, tree):
     """Inserts the component `main` into the program.
     This will be used in concert with multiple copies of the component `tree`.
     It requires:
@@ -131,8 +132,7 @@ def add_main(prog):
     sum_col2 = main.reg("sum_col2", 32)
     sum_col3 = main.reg("sum_col3", 32)
 
-    # AM, quality of life: would be nice to have a more `builder`-ey way to do this.
-    tree = main.cell("tree", CompInst("tree", []))
+    tree = main.cell("tree", tree)
 
     for i, ans_reg in enumerate([sum_col0, sum_col1, sum_col2, sum_col3]):
         use_tree_ports_calculated(main, f"add_col{i}", A, B, C, D, i, tree, ans_reg)
@@ -160,8 +160,8 @@ def add_main(prog):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    add_tree(prog)
-    add_main(prog)
+    tree = add_tree(prog)
+    add_main(prog, tree)
     return prog.program
 
 
