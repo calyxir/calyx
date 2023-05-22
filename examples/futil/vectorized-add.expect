@@ -25,7 +25,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated adder5 = std_add(3);
     @generated signal_reg = std_reg(1);
     @generated signal_reg0 = std_reg(1);
-    @generated fsm8 = std_reg(2);
+    @generated fsm7 = std_reg(2);
     @generated early_reset_cond00_go = std_wire(1);
     @generated early_reset_cond00_done = std_wire(1);
     @generated early_reset_invoke00_go = std_wire(1);
@@ -79,15 +79,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     comb_reg.clk = clk;
     comb_reg.reset = reset;
     comb_reg.in = early_reset_cond00_go.out | fsm5.out == 3'd3 & early_reset_static_seq_go.out ? le0.out;
-    fsm8.write_en = fsm8.out == 2'd3 | fsm8.out == 2'd0 & wrapper_early_reset_invoke00_done.out & tdcc_go.out | fsm8.out == 2'd1 & wrapper_early_reset_cond00_done.out & tdcc_go.out | fsm8.out == 2'd2 & while_wrapper_early_reset_static_seq_done.out & tdcc_go.out ? 1'd1;
-    fsm8.clk = clk;
-    fsm8.reset = reset;
-    fsm8.in = fsm8.out == 2'd0 & wrapper_early_reset_invoke00_done.out & tdcc_go.out ? 2'd1;
-    fsm8.in = fsm8.out == 2'd3 ? 2'd0;
-    fsm8.in = fsm8.out == 2'd2 & while_wrapper_early_reset_static_seq_done.out & tdcc_go.out ? 2'd3;
-    fsm8.in = fsm8.out == 2'd1 & wrapper_early_reset_cond00_done.out & tdcc_go.out ? 2'd2;
     early_reset_cond00_done.in = ud.out;
-    while_wrapper_early_reset_static_seq_go.in = !while_wrapper_early_reset_static_seq_done.out & fsm8.out == 2'd2 & tdcc_go.out ? 1'd1;
+    while_wrapper_early_reset_static_seq_go.in = !while_wrapper_early_reset_static_seq_done.out & fsm7.out == 2'd2 & tdcc_go.out ? 1'd1;
+    fsm7.write_en = fsm7.out == 2'd3 | fsm7.out == 2'd0 & wrapper_early_reset_invoke00_done.out & tdcc_go.out | fsm7.out == 2'd1 & wrapper_early_reset_cond00_done.out & tdcc_go.out | fsm7.out == 2'd2 & while_wrapper_early_reset_static_seq_done.out & tdcc_go.out ? 1'd1;
+    fsm7.clk = clk;
+    fsm7.reset = reset;
+    fsm7.in = fsm7.out == 2'd0 & wrapper_early_reset_invoke00_done.out & tdcc_go.out ? 2'd1;
+    fsm7.in = fsm7.out == 2'd3 ? 2'd0;
+    fsm7.in = fsm7.out == 2'd2 & while_wrapper_early_reset_static_seq_done.out & tdcc_go.out ? 2'd3;
+    fsm7.in = fsm7.out == 2'd1 & wrapper_early_reset_cond00_done.out & tdcc_go.out ? 2'd2;
     tdcc_go.in = go;
     A0.clk = clk;
     A0.addr0 = fsm5.out == 3'd0 & early_reset_static_seq_go.out ? i0.out;
@@ -118,17 +118,18 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     B_read0_0.clk = clk;
     B_read0_0.reset = reset;
     B_read0_0.in = fsm5.out == 3'd0 & early_reset_static_seq_go.out ? B0.read_data;
-    wrapper_early_reset_cond00_go.in = !wrapper_early_reset_cond00_done.out & fsm8.out == 2'd1 & tdcc_go.out ? 1'd1;
+    wrapper_early_reset_cond00_go.in = !wrapper_early_reset_cond00_done.out & fsm7.out == 2'd1 & tdcc_go.out ? 1'd1;
     wrapper_early_reset_cond00_done.in = fsm.out == 1'd0 & signal_reg0.out ? 1'd1;
     early_reset_invoke00_go.in = wrapper_early_reset_invoke00_go.out ? 1'd1;
     early_reset_static_seq_done.in = ud5.out;
-    wrapper_early_reset_invoke00_go.in = !wrapper_early_reset_invoke00_done.out & fsm8.out == 2'd0 & tdcc_go.out ? 1'd1;
-    tdcc_done.in = fsm8.out == 2'd3 ? 1'd1;
+    wrapper_early_reset_invoke00_go.in = !wrapper_early_reset_invoke00_done.out & fsm7.out == 2'd0 & tdcc_go.out ? 1'd1;
+    tdcc_done.in = fsm7.out == 2'd3 ? 1'd1;
     while_wrapper_early_reset_static_seq_done.in = !comb_reg.out & fsm5.out == 3'd0 ? 1'd1;
     A_read0_0.write_en = fsm5.out == 3'd0 & early_reset_static_seq_go.out ? 1'd1;
     A_read0_0.clk = clk;
     A_read0_0.reset = reset;
     A_read0_0.in = fsm5.out == 3'd0 & early_reset_static_seq_go.out ? A0.read_data;
   }
+
   control {}
 }
