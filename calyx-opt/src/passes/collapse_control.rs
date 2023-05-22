@@ -103,4 +103,76 @@ impl Visitor for CollapseControl {
         s.stmts = pars;
         Ok(Action::Continue)
     }
+
+    /// Collapse static par {static par {A; B;}} into static par {A; B; }
+    fn finish_static_par(
+        &mut self,
+        s: &mut ir::StaticPar,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if s.stmts.is_empty() {
+            return Ok(Action::static_change(ir::StaticControl::empty()));
+        }
+        if s.stmts.len() == 1 {
+            return Ok(Action::static_change(s.stmts.pop().unwrap()));
+        }
+        let mut pars: Vec<ir::StaticControl> = vec![];
+        for con in s.stmts.drain(..) {
+            match con {
+                ir::StaticControl::Par(mut data) => {
+                    pars.append(&mut data.stmts);
+                }
+                _ => pars.push(con),
+            }
+        }
+        s.stmts = pars;
+        Ok(Action::Continue)
+    }
+
+    ///Collase static seq {static seq {A; B; }} into static seq {A; B;}
+    fn finish_static_seq(
+        &mut self,
+        s: &mut ir::StaticSeq,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if s.stmts.is_empty() {
+            return Ok(Action::static_change(ir::StaticControl::empty()));
+        }
+        if s.stmts.len() == 1 {
+            return Ok(Action::static_change(s.stmts.pop().unwrap()));
+        }
+        let mut seqs: Vec<ir::StaticControl> = vec![];
+        for con in s.stmts.drain(..) {
+            match con {
+                ir::StaticControl::Seq(mut data) => {
+                    seqs.append(&mut data.stmts);
+                }
+                _ => seqs.push(con),
+            }
+        }
+        s.stmts = seqs;
+        Ok(Action::Continue)
+    }
+
+    fn finish_static_repeat(
+        &mut self,
+        s: &mut ir::StaticRepeat,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if s.num_repeats == 0 {
+            return Ok(Action::static_change(ir::StaticControl::empty()));
+        }
+        if s.num_repeats == 1 {
+            let body =
+                std::mem::replace(&mut *s.body, ir::StaticControl::empty());
+            return Ok(Action::static_change(body));
+        }
+        Ok(Action::Continue)
+    }
 }
