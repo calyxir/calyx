@@ -158,6 +158,18 @@ impl Visitor for CollapseControl {
         Ok(Action::Continue)
     }
 
+    /// Collapse 
+    /// ``` 
+    /// static repeat 0 { ** body ** }
+    /// ```
+    /// into empty control
+    /// and 
+    /// ```
+    /// static repeat 1 {** body **}
+    /// into 
+    /// ```
+    /// ** body **
+    /// ```
     fn finish_static_repeat(
         &mut self,
         s: &mut ir::StaticRepeat,
