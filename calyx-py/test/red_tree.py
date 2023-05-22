@@ -98,10 +98,7 @@ def use_tree_ports_calculated(
     # it must first calculate them.
 
     with comp.group(group) as tree_use:
-        mem_a.addr0 = cb.const(32, i)
-        mem_b.addr0 = cb.const(32, i)
-        mem_c.addr0 = cb.const(32, i)
-        mem_d.addr0 = cb.const(32, i)
+        mem_a.addr0 = mem_b.addr0 = mem_c.addr0 = mem_d.addr0 = i
         tree.leaf1 = mem_a.read_data
         tree.leaf2 = mem_b.read_data
         tree.leaf3 = mem_c.read_data
