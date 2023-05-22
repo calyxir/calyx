@@ -14,7 +14,7 @@ class NTTStage(Stage):
     def __init__(self):
         super().__init__(
             src_state="ntt",
-            target_state="futil",
+            target_state="calyx",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
             description="Compiles NTT configuration to Calyx.",

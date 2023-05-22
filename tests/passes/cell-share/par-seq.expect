@@ -36,7 +36,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       read_r2[done] = mult.done;
     }
   }
-
   control {
     seq {
       read_r2;

@@ -59,14 +59,14 @@ timeout = 3
 name = "invoke"
 paths = ["tests/control/invoke/*.futil"]
 cmd = """
-fud e {} --to interpreter-out -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories --sort-keys
+fud e {} --from calyx --to interpreter-out -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories --sort-keys
 """
 
 [[tests]]
 name = "invoke comp"
 paths = ["tests/control/invoke/*.futil"]
 cmd = """
-fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories --sort-keys
+fud e {} --from calyx --to interpreter-out -s calyx.flags "-p compile-invoke" -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories --sort-keys
 """
 
 [[tests]]
@@ -95,7 +95,7 @@ timeout = 3
 name = "correctness dynamic"
 paths = ["../tests/correctness/*.futil"]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through interpreter-out \
          -s verilog.data {}.data \
          -s interpreter.flags " --raw" \
@@ -112,7 +112,7 @@ paths = [
   "../tests/correctness/numeric-types/fixed-point/*.futil",
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through interpreter-out \
          -s interpreter.flags "--raw " \
          -s verilog.data {}.data \
@@ -125,7 +125,7 @@ fud exec --to jq \
 name = "[frontend] tcam testing"
 paths = ["../tests/correctness/tcam/*.futil"]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
       --through interpreter-out \
       -s interpreter.flags "--raw " \
       -s verilog.data {}.data \

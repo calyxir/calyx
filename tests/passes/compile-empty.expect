@@ -18,7 +18,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     comb group cond {
     }
   }
-
   control {
     if r.out with cond {
       do_incr;
