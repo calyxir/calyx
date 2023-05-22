@@ -32,6 +32,22 @@ use calyx_ir::{self as ir, LibrarySignatures};
 /// ```
 /// par { A; B C; }
 /// ```
+/// 
+/// 3. Collapses nested `static seq` in the same way as 1
+/// 4. Collapses nested `static par` in the same way as 2
+/// 5. Collapses `static repeat`:
+/// Collapse 
+/// ``` 
+/// static repeat 0 { ** body ** }
+/// ```
+/// into empty control
+/// and 
+/// ```
+/// static repeat 1 {** body **}
+/// into 
+/// ```
+/// ** body **
+/// ```
 pub struct CollapseControl {}
 
 impl Named for CollapseControl {
