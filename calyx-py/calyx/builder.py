@@ -574,6 +574,6 @@ LO = const(1, 0)
 HI = const(1, 1)
 
 
-def par(*args: Union[GroupBuilder, ast.Control, ast.Group, ast.Invoke]) -> ast.ParComp:
+def par(*args) -> ast.ParComp:
     """Build a parallel composition of control expressions."""
     return ast.ParComp([as_control(x) for x in args])
