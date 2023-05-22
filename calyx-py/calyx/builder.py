@@ -23,6 +23,7 @@ class Builder:
         self._index: Dict[str, ComponentBuilder] = {}
 
     def component(self, name: str, cells=None) -> ComponentBuilder:
+        """Create a new component builder."""
         cells = cells or []
         comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
@@ -30,6 +31,7 @@ class Builder:
         return comp_builder
 
     def get_component(self, name: str) -> ComponentBuilder:
+        """Retrieve a component builder by name."""
         comp_builder = self._index.get(name)
         if comp_builder is None:
             raise Exception(f"Component `{name}' not found in program.")
