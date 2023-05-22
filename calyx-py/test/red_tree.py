@@ -72,6 +72,7 @@ def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_m
     Adds wiring for {group}, which puts into the tree's four leaves
     the values p1, p2, p3, and p4.
     It then runs the tree, and stores the answer in the std_mem {ans_mem}.
+    Finally, it retuns the group.
     """
 
     with comp.group(group) as tree_use:
@@ -84,6 +85,7 @@ def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_m
         ans_mem.write_data = tree.done @ tree.sum
         ans_mem.write_en = tree.done @ 1
         tree_use.done = ans_mem.done
+    return tree_use
 
 
 def use_tree_ports_calculated(
@@ -93,6 +95,7 @@ def use_tree_ports_calculated(
     Adds wiring for {group}, which puts into the tree's four leaves
     the values a[i], b[i], c[i], and d[i].
     It then runs the tree, and when the tree is done, stores the answer in {ans_reg}.
+    Finally, it retuns the group.
     """
     # i.e., much like the above, but instead of getting the ports as arguments,
     # it must first calculate them.
@@ -107,6 +110,7 @@ def use_tree_ports_calculated(
         ans_reg.write_en = tree.done @ 1
         ans_reg.in_ = tree.done @ tree.sum
         tree_use.done = ans_reg.done
+    return tree_use
 
 
 def add_main(prog, tree):
@@ -131,27 +135,25 @@ def add_main(prog, tree):
 
     tree = main.cell("tree", tree)
 
-    for i, ans_reg in enumerate([sum_col0, sum_col1, sum_col2, sum_col3]):
+    adder_groups: list[cb.GroupBuilder] = [
         use_tree_ports_calculated(main, f"add_col{i}", A, B, C, D, i, tree, ans_reg)
+        for i, ans_reg in enumerate([sum_col0, sum_col1, sum_col2, sum_col3])
+    ]
 
-    use_tree_ports_provided(
-        main,
-        "add_intermediates",
-        sum_col0.out,
-        sum_col1.out,
-        sum_col2.out,
-        sum_col3.out,
-        tree,
-        ans,
+    adder_groups.append(
+        use_tree_ports_provided(
+            main,
+            "add_intermediates",
+            sum_col0.out,
+            sum_col1.out,
+            sum_col2.out,
+            sum_col3.out,
+            tree,
+            ans,
+        )
     )
 
-    main.control += [
-        main.get_group("add_col0"),
-        main.get_group("add_col1"),
-        main.get_group("add_col2"),
-        main.get_group("add_col3"),
-        main.get_group("add_intermediates"),
-    ]
+    main.control += adder_groups
 
 
 def build():
