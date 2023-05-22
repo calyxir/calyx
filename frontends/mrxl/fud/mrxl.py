@@ -19,7 +19,7 @@ class MrXLStage(Stage):
         """
         super().__init__(
             src_state="mrxl",
-            target_state="futil",
+            target_state="calyx",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
             description="Compiles MrXL to Calyx.",

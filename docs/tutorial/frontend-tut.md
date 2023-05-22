@@ -168,12 +168,12 @@ For each `Decl` node, we need to determine if we're instantiating a memory or a 
 If a memory is used in a parallel `map` or `reduce`, we might need to create different physical banks for it.
 We define a function to walk over the AST and compute the parallelism factor for each memory:
 ```python
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:compute_par_factors}}
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:compute_par_factors}}
 ```
 
 Using this information, we can instantiate registers and memories for our inputs and outputs:
 ```python
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:collect-decls}}
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:collect-decls}}
 ```
 The `main.mem_d1` call is a function defined by the Calyx builder module to instantiate memories for a component.
 By setting `is_external=True`, we're indicating that a memory declaration is a part of the program's input-output interface.
@@ -195,7 +195,7 @@ At a high level, we want to generate the following pieces of hardware:
 
 We define a [combinational group][lf-comb-group] to perform the comparison `idx < arr_size` that uses an `lt` cell:
 ```python
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:cond_group}}
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:cond_group}}
 ```
 
 
@@ -203,7 +203,7 @@ We define a [combinational group][lf-comb-group] to perform the comparison `idx 
 
 The loop index increment is implemented using a [group][lf-groups] and an `adder`:
 ```python
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:incr_group}}
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:incr_group}}
 ```
 
 We provide the index's previous value and the constant `1` to the adder, and write the adder's output into the register.
@@ -216,18 +216,18 @@ We do this by setting the group's `done` condition to track the register's `done
 The final piece of the puzzle is the body's computation.
 The corresponding group indexes into the input memories:
 ```python
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_inputs}}
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:map_inputs}}
 ```
 Because the builder module is an embedded DSL, we can simply use Python's `for` loop to generate all the required assignments for indexing.
 
 This code instantiates an adder or a multiplier depending on the computation needed using the `expr_to_port` helper function:
 ```python
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_op}}
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:map_op}}
 ```
 
 and writes the value from the operation into the output memory:
 ```py
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_write}}
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:map_write}}
 ```
 This final operation is complicated because we must account for whether we're using an adder or a multiplier.
 Adders are *combinational*–they produce their output immediately–while multipliers are *sequential* and require multiple cycles to produce its output.
@@ -241,7 +241,7 @@ Finally, the group's computation is done when the memory write is committed.
 
 Once we have generated the hardware needed for our computation, we can schedule its computation using [control operators][lf-control]:
 ```py
-{{#include ../../frontends/mrxl/mrxl/gen_futil.py:map_loop}}
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:map_loop}}
 ```
 
 We generate a while loop that checks that the index is less than the array size.
@@ -377,7 +377,7 @@ We'd like to tell you a little about reduction trees.
 [lf-while]: ../lang/ref.md#while
 [lf-comb-group]: ../lang/ref.md#comb-group-definitions
 [lf-par]: ../lang/ref.md#par
-[impl]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_futil.py
+[impl]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py
 [reduc-trees]: http://www.cs.ucr.edu/~nael/217-f15/lectures/217-lec10.pdf
 [builder-ex]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/builder_example.py
 [flit]: https://flit.readthedocs.io/en/latest/index.html

@@ -18,7 +18,6 @@ component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out1: 32, ou
       write_out2[done] = r1.done;
     }
   }
-
   control {
     seq {
       write_out2;

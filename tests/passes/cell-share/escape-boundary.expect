@@ -16,7 +16,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (x_out: 32, @done don
       let1[done] = y_0.done;
     }
   }
-
   control {
     par {
       let0;

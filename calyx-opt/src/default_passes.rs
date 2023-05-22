@@ -9,6 +9,13 @@ use crate::passes::{
     ResetInsertion, SimplifyStaticGuards, SimplifyWithControl, StaticInliner,
     StaticPromotion, SynthesisPapercut, TopDownCompileControl,
     TopDownStaticTiming, UnrollBounded, WellFormed, WireInliner,
+    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
+    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
+    InferShare, LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
+    RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
+    SimplifyWithControl, StaticInliner, StaticParConv, StaticPromotion,
+    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
+    UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -57,14 +64,15 @@ impl PassManager {
         pm.register_pass::<ClkInsertion>()?;
         pm.register_pass::<ResetInsertion>()?;
         pm.register_pass::<MergeAssign>()?;
+        pm.register_pass::<WrapMain>()?;
 
         // Enabled in the synthesis compilation flow
         pm.register_pass::<SynthesisPapercut>()?;
         pm.register_pass::<Externalize>()?;
 
         // Disabled by default
+        pm.register_pass::<DiscoverExternal>()?;
         pm.register_pass::<UnrollBounded>()?;
-        // pm.register_pass::<SimplifyGuards>()?;
         pm.register_pass::<RegisterUnsharing>()?;
         pm.register_pass::<GroupToInvoke>()?;
         pm.register_pass::<ParToSeq>()?;
@@ -126,6 +134,7 @@ impl PassManager {
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,
+                WrapMain
             ]
         );
 

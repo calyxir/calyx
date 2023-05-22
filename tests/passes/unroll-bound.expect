@@ -18,7 +18,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       lt.left = r.out;
     }
   }
-
   control {
     seq {
       seq {

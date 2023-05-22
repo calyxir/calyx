@@ -21,6 +21,7 @@ description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
+version = "0.2.1"
 
 [workspace.dependencies]
 itertools = "0.10"
@@ -35,6 +36,10 @@ pest = "2.0"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
+calyx-utils = { path = "calyx-utils", version = "0.2.1" }
+calyx-ir = { path = "calyx-ir", version = "0.2.1" }
+calyx-frontend = { path = "calyx-frontend", version = "0.2.1" }
+calyx-opt = { path = "calyx-opt", version = "0.2.1" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
@@ -45,9 +50,9 @@ features = ["matrix_graph"]
 
 [package]
 name = "calyx"
-version = "0.2.0"
 build = false
 default-run = "calyx"
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 authors.workspace = true
@@ -75,10 +80,10 @@ argh.workspace = true
 csv = "1.1"
 vast = "0.3.1"
 
-calyx-utils = { path = "calyx-utils", version = "0.2.0" }
-calyx-ir = { path = "calyx-ir", version = "0.2.0" }
-calyx-frontend = { path = "calyx-frontend", version = "0.2.0" }
-calyx-opt = { path = "calyx-opt", version = "0.2.0" }
+calyx-utils.workspace = true
+calyx-ir.workspace = true
+calyx-frontend.workspace = true
+calyx-opt.workspace = true
 
 [dependencies.quick-xml]
 version = "0.28"

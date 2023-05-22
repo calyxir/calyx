@@ -17,7 +17,6 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
       writeAB[done] = A.done & B.done ? 1'd1;
     }
   }
-
   control {
     seq {
       writeAB;

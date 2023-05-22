@@ -54,7 +54,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     signal_reg.write_en = fsm0.out == 3'd0 & signal_reg.out ? 1'd1;
     signal_reg.in = fsm0.out == 3'd0 & signal_reg.out ? 1'd0;
   }
-
   control {
     seq {
       dyn_B;

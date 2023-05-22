@@ -51,7 +51,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
     s.in = bar.out & bar0.out ? 1'd1;
   }
-
   control {
     par {
       seq {

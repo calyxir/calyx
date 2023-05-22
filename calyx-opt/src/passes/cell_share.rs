@@ -59,7 +59,7 @@ fn cell_type_to_string(cell_type: &ir::CellType) -> String {
 /// `cargo run x.futil -x cell-share:bounds=2,4,8`, then we would only share a
 /// given combinational component at most twice, a given register at most 4 times,
 /// and all other components at most 8 times. If you wanted to do something with
-/// fud then run `fud e ... -s futil.flags " -x cell-share:bounds=2,4,8"`. Finally
+/// fud then run `fud e ... -s calyx.flags " -x cell-share:bounds=2,4,8"`. Finally
 /// if you do not want to bound the sharing for a particular cell type,
 /// you can pass -1 as a bound. So for example if you passed
 /// `-x cell-share:bounds=2,-1,3` this means that you will always share registers.

@@ -10,6 +10,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       do_add[done] = 1'd1;
     }
   }
-
   control {}
 }
