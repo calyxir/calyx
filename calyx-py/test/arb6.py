@@ -11,7 +11,7 @@ def add_eq(comp: cb.ComponentBuilder, port, const, cell, group):
     """
     eq_cell = comp.eq(cell, 32)
     with comp.comb_group(group) as eq_group:
-        eq_cell.left = comp.this()[port]
+        eq_cell.left = port
         eq_cell.right = const
     return eq_cell, eq_group
 
@@ -25,22 +25,21 @@ def add_lt(comp: cb.ComponentBuilder, port, const, cell, group):
     """
     lt_cell = comp.lt(cell, 32)
     with comp.comb_group(group) as lt_group:
-        lt_cell.left = comp.this()[port]
+        lt_cell.left = port
         lt_cell.right = const
     return lt_cell, lt_group
 
 
-def add_sub(comp: cb.ComponentBuilder, port, const, cell, ans_reg, group):
+def add_sub(comp: cb.ComponentBuilder, port, const, sub_cell, ans_reg, group):
     """Adds wiring into component `comp` to compute `port - const`.
     1. Within component `comp`, creates a group called `group`.
-    2. Within `group`, creates a cell called `cell` that computes the difference.
+    2. Within `group`, assumes that there exists a cell called `cell` that computes the difference.
     3. Puts the values of `port` and `const` into `cell`.
     4. Then puts the answer of the computation into `ans_reg`
     4. Returns the sub-checking cell and the sub-checking group.
     """
-    sub_cell = comp.sub(cell, 32)
     with comp.group(group) as sub_group:
-        sub_cell.left = comp.this()[port]
+        sub_cell.left = port
         sub_cell.right = const
         ans_reg.write_en = 1
         ans_reg.in_ = sub_cell.out
@@ -56,11 +55,19 @@ def add_mem_load(comp: cb.ComponentBuilder, mem, j, ans, group):
     4. Returns the group that does this.
     """
     with comp.group(group) as load_grp:
-        mem.addr0 = comp.this()[j]
+        mem.addr0 = j
         ans.write_en = 1
         ans.write_data = mem.read_data
         load_grp.done = ans.done
     return load_grp
+
+
+def add_j_unchanged(comp: cb.ComponentBuilder, j, ans_reg, group):
+    with comp.group("j_unchanged") as group:
+        ans_reg.write_en = 1
+        ans_reg.in_ = j
+        group.done = ans_reg.done
+    return group
 
 
 def add_wrap2(prog):
@@ -82,33 +89,47 @@ def add_wrap2(prog):
     wrap.input("i", 32)
     wrap.input("j", 32)
 
+    # AM, quality of life:
+    # `input` has no return value, so I'm forced to immediately call `this()`
+    # to get the ports I just created.
+    i = wrap.this()["i"]
+    j = wrap.this()["j"]
+
     # Six memory cells, plus an answer cell.
-    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(6)]
+    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(1, 7)]
     ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j%4, so we'll store it in a cell.
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells to compute equality, lt, and difference
-    eq0 = add_eq(wrap, "i", 0, "eq0", "i_eq_0")
-    eq1 = add_eq(wrap, "i", 1, "eq1", "i_eq_1")
-    lt1 = add_lt(wrap, "j", 4, "lt1", "j_lt_4")
-    lt2 = add_lt(wrap, "j", 8, "lt2", "j_lt_8")
-    sub1 = add_sub(wrap, "j", cb.const(32, 4), "sub", j_mod_4, "j_less_4")
-    sub2 = add_sub(wrap, "j", cb.const(32, 8), "sub", j_mod_4, "j_less_8")
+    eq0 = add_eq(wrap, i, 0, "eq0", "i_eq_0")
+    eq1 = add_eq(wrap, i, 1, "eq1", "i_eq_1")
+    lt1 = add_lt(wrap, j, 4, "lt1", "j_lt_4")
+    unchanged = add_j_unchanged(wrap, j, j_mod_4, "j_unchanged")
+    lt2 = add_lt(wrap, j, 8, "lt2", "j_lt_8")
+
+    sub_cell = wrap.sub("sub", 32)
+    sub1 = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
+    sub2 = add_sub(wrap, j, cb.const(32, 8), sub_cell, j_mod_4, "j_less_8")
 
     emit_from_mems = [
-        add_mem_load(wrap, mems[k], "j", ans, f"load_from_mem{k}") for k in range(6)
+        add_mem_load(wrap, mems[k - 1], j_mod_4.out, ans, f"load_from_mem{k}")
+        for k in range(1, 7)
     ]
 
-    # wrap.control += cb.par(
-    #     cb.if_(eq0_cell.out, eq0_grp, emit_from_mem1),
-    #     cb.if_(eq1_cell.out, eq1_grp, emit_from_mem2),
-    # )]
+    wrap.control += [
+        cb.if_(lt1[0].out, lt1[1], unchanged),
+        cb.par(
+            cb.if_(eq0[0].out, eq0[1], emit_from_mems[0]),
+            cb.if_(eq1[0].out, eq1[1], emit_from_mems[1]),
+        ),
+    ]
+
     return wrap
 
 
-def add_main(prog, wrap):
+def add_main(prog, wrap2, wrap3):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `wrap`.
 
@@ -118,11 +139,18 @@ def add_main(prog, wrap):
     main: cb.ComponentBuilder = prog.component("main")
     _ = main.mem_d1("A", 32, 4, 32, is_external=True)
     _ = main.mem_d1("B", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("out", 32, 1, 32, is_external=True)
+    _ = main.mem_d1("C", 32, 4, 32, is_external=True)
+    _ = main.mem_d1("D", 32, 4, 32, is_external=True)
+    _ = main.mem_d1("E", 32, 4, 32, is_external=True)
+    _ = main.mem_d1("F", 32, 4, 32, is_external=True)
+
+    _ = main.mem_d1("out2", 32, 1, 32, is_external=True)
+    _ = main.mem_d1("out3", 32, 1, 32, is_external=True)
 
     # AM, quality of life:
     # Would be nice to have a way to do this in a more `builder` way.
-    together = main.cell("together", wrap)
+    together2 = main.cell("together2", wrap2)
+    together3 = main.cell("together3", wrap3)
 
     # AM, point of failure:
     # Maybe I'm missing something, but I think the builder library
@@ -135,14 +163,17 @@ def add_main(prog, wrap):
     #     comb_group: Optional[CompVar] = None
     #     attributes: List[Tuple[str, int]] = field(default_factory=list)
     # As I see it, only id, in_connects, and out_connects are supported.
-    main.control = cb.invoke(together, in_i=cb.const(32, 1), in_j=cb.const(32, 3))
+    main.control += [
+        cb.invoke(together2, in_i=cb.const(32, 1), in_j=cb.const(32, 11)),
+        cb.invoke(together3, in_i=cb.const(32, 2), in_j=cb.const(32, 7)),
+    ]
 
 
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
     wrap = add_wrap2(prog)
-    add_main(prog, wrap)
+    add_main(prog, wrap, wrap)
     return prog.program
 
 
