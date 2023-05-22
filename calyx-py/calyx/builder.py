@@ -250,7 +250,7 @@ def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.If:
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     """Build an `invoke` control statement.
 
-    The keyword arguments should have the form `in_*` and `out_*`, where
+    The keyword arguments should have the form `in_*`, `out_*`, or `ref_*`, where
     `*` is the name of an input or output port on the invoked cell.
     """
     return ast.Invoke(
@@ -264,6 +264,11 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
             (k[4:], ExprBuilder.unwrap(v))
             for (k, v) in kwargs.items()
             if k.startswith("out_")
+        ],
+        [
+            (k[4:], ExprBuilder.unwrap(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("ref_")
         ],
     )
 
