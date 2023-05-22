@@ -14,7 +14,6 @@ component add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (
     }
     out = outpt.out;
   }
-
   control {
     seq {
       do_add;
@@ -57,7 +56,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       five_y[done] = y.done;
     }
   }
-
   control {
     seq {
       par {

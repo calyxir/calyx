@@ -1,10 +1,12 @@
-# The calyx Library
+# Calyx Compiler as a Library
 
-The implementation of the compiler separates the frontend from the internal data structures.
-This allows developers to use the compiler as a library.
-The `calyx` library exports all the data structures used by the compiler and can be used to design new
-tools that make use of Calyx.
+The Calyx compiler is separated into [multiple crates][crates] that can be used independently.
+If you're interested in adding a new pass to the Calyx compiler or build a tool using it, your best bet is to [take a look at the example in the `calyx-opt`][opt-ex] library.
 
-See the [library documentation][source-doc] for an example of how to use the `calyx` library.
+The `calyx` implements the compiler driver and plumbs together all the other crates.
+You mostly likely want to include the `calyx-opt` crate if you're working passes or just the `calyx-ir` crate if you're working with the IR.
+You'll also need `calyx-frontend` and `calyx-utils` if you're parsing frontend code.
 
-[source-doc]: https://docs.calyxir.org/source/calyx/
+
+[crates]: https://docs.rs/releases/search?query=calyx
+[opt-ex]: https://docs.rs/calyx-opt/0.2.1/calyx_opt/

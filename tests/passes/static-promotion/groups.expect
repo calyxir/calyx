@@ -23,7 +23,6 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
       m0.write_en = 1'd1;
     }
   }
-
   control {
     seq {
       one_cycle0;

@@ -119,7 +119,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     eq0.left = barrier.peek;
     eq0.right = 32'd2;
   }
-
   control {
     seq {
       par {

@@ -90,7 +90,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       m5[done] = mult0.done;
     }
   }
-
   control {
     seq {
       let0;

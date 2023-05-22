@@ -139,7 +139,6 @@ impl Backend for VerilogBackend {
                 comp,
                 ctx.bc.synthesis_mode,
                 ctx.bc.enable_verification,
-                ctx.bc.initialize_inputs,
                 ctx.bc.flat_assign,
                 out,
             );
@@ -228,7 +227,6 @@ fn emit_component<F: io::Write>(
     comp: &ir::Component,
     synthesis_mode: bool,
     enable_verification: bool,
-    initialize_inputs: bool,
     flat_assign: bool,
     f: &mut F,
 ) -> io::Result<()> {
@@ -282,24 +280,6 @@ fn emit_component<F: io::Write>(
         let decl = v::Decl::new_logic(name, *width);
         writeln!(f, "{};", decl)
     })?;
-
-    // Generate initial assignments for all input ports in defined cells.
-    if initialize_inputs {
-        writeln!(f, "initial begin")?;
-        for (name, width, dir) in &cells {
-            if *dir == ir::Direction::Input {
-                // HACK: this is not the right way to reset
-                // registers. we should have real reset ports.
-                let value = String::from("0");
-                let assign = v::Sequential::new_blk_assign(
-                    v::Expr::new_ref(name),
-                    v::Expr::new_ulit_dec(*width as u32, &value),
-                );
-                writeln!(f, "  {};", assign)?;
-            }
-        }
-        writeln!(f, "end")?;
-    }
 
     // cell instances
     comp.cells

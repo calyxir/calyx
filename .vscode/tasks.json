@@ -17,7 +17,7 @@
             }
         },
         {
-            "label": "Install the FuTIL Driver",
+            "label": "Install fud",
             "command": "/home/vscode/.local/bin/flit",
             "args": [
                 "install",
@@ -28,7 +28,7 @@
             }
         },
         {
-            "label": "Install the FuTIL Python Library",
+            "label": "Install the Calyx Python Library",
             "command": "/home/vscode/.local/bin/flit",
             "args": [
                 "install",
@@ -43,8 +43,8 @@
             "command": "runt",
             "dependsOn": [
                 "Cargo Build",
-                "Install the FuTIL Driver",
-                "Install the FuTIL Python Library"
+                "Install fud",
+                "Install the Calyx Python Library"
             ]
         },
         {
@@ -57,8 +57,8 @@
             ],
             "dependsOn": [
                 "Cargo Build",
-                "Install the FuTIL Driver",
-                "Install the FuTIL Python Library"
+                "Install fud",
+                "Install the Calyx Python Library"
             ]
         },
         {
@@ -73,8 +73,8 @@
             ],
             "dependsOn": [
                 "Cargo Build",
-                "Install the FuTIL Driver",
-                "Install the FuTIL Python Library"
+                "Install fud",
+                "Install the Calyx Python Library"
             ]
         }
     ]
