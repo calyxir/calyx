@@ -339,7 +339,7 @@ def main():
                     "Please provide either an output file or a --to option"
                 )
 
-            exec.run_fud(args, cfg)
+            exec.run_fud_from_args(args, cfg)
         elif args.command == "info":
             print(cfg.registry)
         elif args.command == "config":
