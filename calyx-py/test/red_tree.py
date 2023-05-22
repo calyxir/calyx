@@ -73,8 +73,6 @@ def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_m
     the values p1, p2, p3, and p4.
     It then runs the tree, and stores the answer in the std_mem {ans_mem}.
     """
-    # i.e., much like the above, but instead of calculating the
-    # ports, it takes them as arguments.
 
     with comp.group(group) as tree_use:
         tree.leaf1 = port1
@@ -96,6 +94,9 @@ def use_tree_ports_calculated(
     the values a[i], b[i], c[i], and d[i].
     It then runs the tree, and when the tree is done, stores the answer in {ans_reg}.
     """
+    # i.e., much like the above, but instead of getting the ports as arguments,
+    # it must first calculate them.
+
     with comp.group(group) as tree_use:
         mem_a.addr0 = cb.const(32, i)
         mem_b.addr0 = cb.const(32, i)
