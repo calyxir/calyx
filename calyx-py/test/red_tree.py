@@ -72,11 +72,13 @@ def add_tree(prog):
     )
 
 
-def use_tree_ports_calculated(comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree):
+def use_tree_ports_calculated(
+    comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree, ans_reg
+):
     """Orchestrates the use of the component `tree`.
     Adds wiring for {group}, which puts into the tree's four leaves
     the values a[a_i], b[b_i], c[c_i], and d[d_i].
-    It then runs the tree.
+    It then runs the tree, and when the tree is done, stores the answer in {ans_reg}.
     """
     with comp.group(group) as tree_use:
         a.addr0 = cb.const(32, a_i)
@@ -88,14 +90,20 @@ def use_tree_ports_calculated(comp, group, a, a_i, b, b_i, c, c_i, d, d_i, tree)
         tree.leaf3 = c.read_data
         tree.leaf4 = d.read_data
         tree.go = cb.const(1, 1)
-        tree_use.done = tree.done
+        # AM, point of failure: I need to add the following:
+        #   sum_col0.write_en = tree.done ? 1'b1;
+        #   sum_col0.in = tree.done ? tree.sum;
+        # But I don't know how to do that.
+        ans_reg.write_en = 1
+        ans_reg.in_ = tree.sum
+        tree_use.done = ans_reg.done
 
 
-def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree):
+def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree, ans_mem):
     """Orchestrates the use of the component `tree`.
     Adds wiring for {group}, which puts into the tree's four leaves
     the values p1, p2, p3, and p4.
-    It then runs the tree.
+    It then runs the tree, and stores the answer in the std_mem {ans_mem}.
     """
     # i.e., much like the above, but instead of calculating the
     # ports, it takes them as arguments.
@@ -106,16 +114,13 @@ def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree):
         tree.leaf3 = p3
         tree.leaf4 = p4
         tree.go = cb.const(1, 1)
-        tree_use.done = tree.done
-
-
-def load_to_ans(comp, group, mem, addr, port):
-    """Adds wiring for {group}, which puts the value of {port} into {mem}[0]."""
-    with comp.group(group) as load:
-        mem.addr0 = cb.const(1, addr)
-        mem.write_data = port
-        mem.write_en = 1
-        load.done = mem.done
+        # AM, point of failure:
+        # Just the like the point of failure above,
+        # I need the next three assignments to all be guarded by tree.done.
+        ans_mem.addr0 = cb.const(1, 0)
+        ans_mem.write_data = tree.sum
+        ans_mem.write_en = 1
+        tree_use.done = ans_mem.done
 
 
 def add_main(prog):
@@ -133,27 +138,35 @@ def add_main(prog):
     C = main.mem_d1("C", 32, 4, 32, is_external=True)
     D = main.mem_d1("D", 32, 4, 32, is_external=True)
     ans = main.mem_d1("ans", 32, 1, 1, is_external=True)
+    sum_col0 = main.reg("sum_col0", 32)
+    sum_col1 = main.reg("sum_col1", 32)
+    sum_col2 = main.reg("sum_col2", 32)
+    sum_col3 = main.reg("sum_col3", 32)
 
     # AM, point of failure:
     # I'd like to add the following to the `cells` section:
     # tree0 = tree();
     # I think the following is what you want me to do:
-    tree0 = main.cell("tree0", prog.component("tree"))
+    tree = main.cell("tree", prog.component("tree"))
     # But _it adds a new, blank component called tree_ to the program.
     # I'd like for it to locate the existing component `tree`.
     # Thoughts?
-    tree1 = main.cell("tree1", prog.component("tree"))
-    tree2 = main.cell("tree2", prog.component("tree"))
-    tree3 = main.cell("tree3", prog.component("tree"))
-    tree4 = main.cell("tree4", prog.component("tree"))
 
-    for i, tree in enumerate([tree0, tree1, tree2, tree3]):
-        use_tree_ports_calculated(main, f"tree{i}_col{i}", A, i, B, i, C, i, D, i, tree)
+    for i, ans_reg in enumerate([sum_col0, sum_col1, sum_col2, sum_col3]):
+        use_tree_ports_calculated(
+            main, f"add_col{i}", A, i, B, i, C, i, D, i, tree, ans_reg
+        )
 
     use_tree_ports_provided(
-        main, "tree4_total", tree0.sum, tree1.sum, tree2.sum, tree3.sum, tree4
+        main,
+        "add_intermediates",
+        sum_col0.out,
+        sum_col1.out,
+        sum_col2.out,
+        sum_col3.out,
+        tree,
+        ans,
     )
-    load_to_ans(main, "load_to_ans_mem", ans, 0, tree4.sum)
 
     main.control = SeqComp(
         [
@@ -161,8 +174,7 @@ def add_main(prog):
             Enable("tree1_col1"),
             Enable("tree2_col2"),
             Enable("tree3_col3"),
-            Enable("tree4_total"),
-            Enable("load_to_ans_mem"),
+            Enable("add_intermediates"),
         ]
     )
 
