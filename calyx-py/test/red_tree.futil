@@ -142,10 +142,10 @@ component main() -> () {
       add_col3[done] = sum_col3.done;
     }
     group add_intermediates {
-      tree.leaf1 = tree.sum;
-      tree.leaf2 = tree.sum;
-      tree.leaf3 = tree.sum;
-      tree.leaf4 = tree.sum;
+      tree.leaf1 = sum_col0.out;
+      tree.leaf2 = sum_col1.out;
+      tree.leaf3 = sum_col2.out;
+      tree.leaf4 = sum_col3.out;
       tree.go = 1'd1;
       ans.addr0 = tree.done ? 1'b0;
       ans.write_data = tree.done ? tree.sum;
