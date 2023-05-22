@@ -26,19 +26,19 @@ component wrap(i: 32, j: 32) -> () {
       eq1.left = i;
       eq1.right = 32'd1;
     }
-    group emit_from_mem1 {
+    group load_from_mem1 {
       // Wiring to put `mem1[j]` into `ans`.
       mem1.addr0 = j;
       ans.write_en = 1'd1;
       ans.write_data = mem1.read_data;
-      emit_from_mem1[done] = ans.done;
+      load_from_mem1[done] = ans.done;
     }
-    group emit_from_mem2 {
+    group load_from_mem2 {
       // Wiring to put `mem2[j] into `ans`.
       mem2.addr0 = j;
       ans.write_en = 1'd1;
       ans.write_data = mem2.read_data;
-      emit_from_mem2[done] = ans.done;
+      load_from_mem2[done] = ans.done;
     }
   }
 
@@ -46,10 +46,10 @@ component wrap(i: 32, j: 32) -> () {
     // Orchestrate the above straightforwardly.
     par {
       if eq0.out with i_eq_0 {
-        emit_from_mem1;
+        load_from_mem1;
       }
       if eq1.out with i_eq_1 {
-        emit_from_mem2;
+        load_from_mem2;
       }
     }
   }

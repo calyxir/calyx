@@ -151,6 +151,9 @@ class ComponentBuilder:
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("add", size, signed=False))
 
+    def eq(self, name: str, size: int):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("eq", size, signed=False))
 
 def as_control(obj):
     """Convert a Python object into a control statement.
