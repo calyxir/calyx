@@ -1,5 +1,5 @@
 # pylint: disable=import-error
-from calyx.py_ast import Stdlib, CompPort, CompVar, ParComp, Enable, If
+from calyx.py_ast import Stdlib, CompInst
 import calyx.builder as cb
 
 
@@ -8,19 +8,14 @@ def add_eq(comp, port_name, const, cellname, groupname):
     where `port_name` is a port and `const` is an integer constant."""
     eq_cell = comp.cell(cellname, Stdlib.op("eq", 32, signed=False))
     with comp.comb_group(groupname):
-        eq_cell.left = CompPort(CompVar(port_name), "out")
-        # AM, point of failure:
-        # This is wrong. It renders "{port_name}.out" but I want "{port_name}".
-        # The same issue occurs repeatedly, so I'm just flagging this one.
-        # Whenever the generated futil has {i/j}.out, I actually just want {i/j}.
-        # OK, see red_trees
+        eq_cell.left = comp.this()[port_name]
         eq_cell.right = cb.const(32, const)
 
 
 def add_emit_from_mem(comp, mem, ans, suffix):
     """Adds wiring that puts mem{suffix}[j] into ans."""
     with comp.group(f"emit_from_mem{suffix}") as emit_from_mem:
-        mem.addr0 = CompPort(CompVar("j"), "out")  # AM: want j, not j.out
+        mem.addr0 = comp.this()["j"]
         ans.write_en = 1
         ans.write_data = mem.read_data
         emit_from_mem.done = ans.done
@@ -78,20 +73,7 @@ def add_main(prog):
     _ = main.mem_d1("B", 32, 4, 32, is_external=True)
     _ = main.mem_d1("out", 32, 1, 32, is_external=True)
 
-    # AM, point of failure (but a stupid hack has worked):
-    # I'd like to add the following to the `cells` section:
-    # together = wrap();
-    # OK, see red-tree
-
-    # The following is clearly a hilarious hack:
-    _ = main.cell("together", CompVar("wrap()"))
-    # (I've just put parentheses in the name of the component.)
-
-    # I think the following is what you actually want me to do:
-    # _ = main.cell("together", prog.component("wrap"))
-    # But _it adds a new, blank component called wrap_ to the program.
-    # I'd like for it to locate the existing component `wrap`.
-    # Thoughts?
+    _ = main.cell("together", CompInst("wrap", []))
 
     # AM, point of failure:
     # Maybe I'm missing something, but I think the builder library
