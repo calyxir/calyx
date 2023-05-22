@@ -139,13 +139,10 @@ component main() -> () {
       tree.leaf3 = tree.sum;
       tree.leaf4 = tree.sum;
       tree.go = 1'd1;
-      add_intermediates[done] = tree.done;
-    }
-    group load_to_ans_mem {
-      ans.addr0 = 1'b0;
-      ans.write_data = tree.sum;
-      ans.write_en = 1'b1;
-      load_to_ans_mem[done] = ans.done;
+      ans.addr0 = tree.done ? 1'b0;
+      ans.write_data = tree.done ? tree.sum;
+      ans.write_en = tree.done? 1'b1;
+      add_intermediates[done] = ans.done;
     }
   }
 
@@ -156,7 +153,6 @@ component main() -> () {
       add_col2;
       add_col3;
       add_intermediates;
-      load_to_ans_mem;
     }
   }
 }
