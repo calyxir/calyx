@@ -95,7 +95,8 @@ component main() -> () {
       tree.leaf3 = C.read_data;
       tree.leaf4 = D.read_data;
       tree.go = 1'd1;
-      add_col0[done] = tree.done;
+      sum_col0.in = tree.done ? tree.sum;
+      add_col0[done] = sum_col0.done;
     }
     group add_col1 {
       A.addr0 = 32'd1;
@@ -107,7 +108,8 @@ component main() -> () {
       tree.leaf3 = C.read_data;
       tree.leaf4 = D.read_data;
       tree.go = 1'd1;
-      add_col1[done] = tree.done;
+      sum_col1.in = tree.done ? tree.sum;
+      add_col1[done] = sum_col1.done;
     }
     group add_col2 {
       A.addr0 = 32'd2;
@@ -119,7 +121,8 @@ component main() -> () {
       tree.leaf3 = C.read_data;
       tree.leaf4 = D.read_data;
       tree.go = 1'd1;
-      add_col2[done] = tree.done;
+      sum_col2.in = tree.done ? tree.sum;
+      add_col2[done] = sum_col2.done;
     }
     group add_col3 {
       A.addr0 = 32'd3;
@@ -131,7 +134,8 @@ component main() -> () {
       tree.leaf3 = C.read_data;
       tree.leaf4 = D.read_data;
       tree.go = 1'd1;
-      add_col3[done] = tree.done;
+      sum_col3.in = tree.done ? tree.sum;
+      add_col3[done] = sum_col3.done;
     }
     group add_intermediates {
       tree.leaf1 = tree.sum;
