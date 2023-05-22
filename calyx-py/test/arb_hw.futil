@@ -73,9 +73,7 @@ component main() -> () {
   }
 
   control {
-    seq {
-      invoke together[mem1=A, mem2=B, ans=out](i=32'd0, j=32'd2)();
-    }
+    invoke together[mem1=A, mem2=B, ans=out](i=32'd0, j=32'd2)();
   }
 }
 
