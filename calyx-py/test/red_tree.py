@@ -1,5 +1,5 @@
 # pylint: disable=import-error
-from calyx.py_ast import CompInst, ParComp, SeqComp, Enable
+from calyx.py_ast import CompInst
 import calyx.builder as cb
 
 
@@ -15,6 +15,7 @@ def add_adder(
     Assumes the adder cell {adder} is in the component, and puts {port_l} and {port_r}
     into the adder.
     Then puts the output of {adder} into the memory register {ans}.
+    Returns the group.
     """
     with comp.group(group) as adder_group:
         adder.left = port_l
@@ -22,6 +23,7 @@ def add_adder(
         ans.write_en = 1
         ans.in_ = adder.out
         adder_group.done = ans.done
+    return adder_group
 
 
 def add_tree(prog):
@@ -52,19 +54,16 @@ def add_tree(prog):
     add1 = tree.add("add1", 32)
     add2 = tree.add("add2", 32)
 
-    add_adder(tree, add1, "add_l1_l2", leaf1, leaf2, left)
-    add_adder(tree, add2, "add_l3_l4", leaf3, leaf4, right)
-    add_adder(tree, add1, "add_left_right_nodes", left.out, right.out, root)
+    add_l1_l2 = add_adder(tree, add1, "add_l1_l2", leaf1, leaf2, left)
+    add_l3_l4 = add_adder(tree, add2, "add_l3_l4", leaf3, leaf4, right)
+    add_l_r_nodes = add_adder(
+        tree, add1, "add_left_right_nodes", left.out, right.out, root
+    )
 
     with tree.continuous:
         tree.this().sum = root.out
 
-    tree.control = SeqComp(
-        [
-            ParComp([Enable("add_l1_l2"), Enable("add_l3_l4")]),
-            Enable("add_left_right_nodes"),
-        ]
-    )
+    tree.control += [cb.par(add_l1_l2, add_l3_l4), add_l_r_nodes]
 
 
 def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_mem):
