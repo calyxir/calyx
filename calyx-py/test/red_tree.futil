@@ -20,26 +20,26 @@ component tree(leaf1: 32, leaf2: 32, leaf3: 32, leaf4: 32) -> (sum: 32) {
 
   wires {
     group add_l1_l2 {
-      // Adds leaf1 and leaf2, then puts the result in left_node.
+    // Adds leaf1 and leaf2, then puts the result in left_node.
       add1.left = leaf1;
       add1.right = leaf2;
-      left_node.write_en = 1'b1;
+      left_node.write_en = 1'd1;
       left_node.in = add1.out;
       add_l1_l2[done] = left_node.done;
     }
     group add_l3_l4 {
-      // Adds leaf3 and leaf4, then puts the result in right_node.
+    // Adds leaf3 and leaf4, then puts the result in right_node.
       add2.left = leaf3;
       add2.right = leaf4;
-      right_node.write_en = 1'b1;
+      right_node.write_en = 1'd1;
       right_node.in = add2.out;
       add_l3_l4[done] = right_node.done;
     }
     group add_left_right_nodes {
-      // Adds left_node and right_node, then puts the result in root.
+    // Adds left_node and right_node, then puts the result in root.
       add1.left = left_node.out;
       add1.right = right_node.out;
-      root.write_en = 1'b1;
+      root.write_en = 1'd1;
       root.in = add1.out;
       add_left_right_nodes[done] = root.done;
     }
@@ -95,7 +95,7 @@ component main() -> () {
       tree.leaf3 = C.read_data;
       tree.leaf4 = D.read_data;
       tree.go = 1'd1;
-      sum_col0.write_en = tree.done ? 1'b1;
+      sum_col0.write_en = tree.done ? 1'd1;
       sum_col0.in = tree.done ? tree.sum;
       add_col0[done] = sum_col0.done;
     }
@@ -109,7 +109,7 @@ component main() -> () {
       tree.leaf3 = C.read_data;
       tree.leaf4 = D.read_data;
       tree.go = 1'd1;
-      sum_col1.write_en = tree.done ? 1'b1;
+      sum_col1.write_en = tree.done ? 1'd1;
       sum_col1.in = tree.done ? tree.sum;
       add_col1[done] = sum_col1.done;
     }
@@ -123,7 +123,7 @@ component main() -> () {
       tree.leaf3 = C.read_data;
       tree.leaf4 = D.read_data;
       tree.go = 1'd1;
-      sum_col2.write_en = tree.done ? 1'b1;
+      sum_col2.write_en = tree.done ? 1'd1;
       sum_col2.in = tree.done ? tree.sum;
       add_col2[done] = sum_col2.done;
     }
@@ -137,7 +137,7 @@ component main() -> () {
       tree.leaf3 = C.read_data;
       tree.leaf4 = D.read_data;
       tree.go = 1'd1;
-      sum_col3.write_en = tree.done ? 1'b1;
+      sum_col3.write_en = tree.done ? 1'd1;
       sum_col3.in = tree.done ? tree.sum;
       add_col3[done] = sum_col3.done;
     }
@@ -147,9 +147,9 @@ component main() -> () {
       tree.leaf3 = sum_col2.out;
       tree.leaf4 = sum_col3.out;
       tree.go = 1'd1;
-      ans.addr0 = tree.done ? 1'b0;
+      ans.addr0 = tree.done ? 1'd0;
       ans.write_data = tree.done ? tree.sum;
-      ans.write_en = tree.done? 1'b1;
+      ans.write_en = tree.done ? 1'd1;
       add_intermediates[done] = ans.done;
     }
   }

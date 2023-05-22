@@ -1,30 +1,24 @@
 # pylint: disable=import-error
-from calyx.py_ast import Stdlib, CompInst, ParComp, SeqComp, Enable
+from calyx.py_ast import CompInst, ParComp, SeqComp, Enable
 import calyx.builder as cb
 
 
 def add_adder(
     comp: cb.ComponentBuilder,
+    adder: cb.CellBuilder,
     group,
-    port_l_name,
-    port_r_name,
-    cell,
+    port_l,
+    port_r,
     ans,
 ):
-    """Adds wiring for {group}, which puts {port_l} and {port_r}
-    into the adder {cell}. It then puts the output of {cell} into
-    the memory cell {ans}.
+    """To component {comp}, adds wiring for an adder-group called {group}.
+    Assumes the adder cell {adder} is in the component, and puts {port_l} and {port_r}
+    into the adder.
+    Then puts the output of {adder} into the memory register {ans}.
     """
-    # AM, minor:
-    # If passed a {cell} name that's already defined,
-    # it creates a duplicate cell instead of locating and reusing the existing one.
-    # This is minor because it is probably compiled away.
-    adder = comp.cell(cell, Stdlib.op("add", 32, signed=False))
-    # comp.get_cell("add1")
-    # OK
     with comp.group(group) as adder_group:
-        adder.left = comp.this()[port_l_name]
-        adder.right = comp.this()[port_r_name]
+        adder.left = port_l
+        adder.right = port_r
         ans.write_en = 1
         ans.in_ = adder.out
         adder_group.done = ans.done
@@ -42,15 +36,25 @@ def add_tree(prog):
     tree: cb.ComponentBuilder = prog.component("tree")
     for i in range(1, 5):
         tree.input(f"leaf{i}", 32)
+    # AM, quality of life:
+    # `input` has no return value, so I'm forced to immediately call `this()`
+    # to get the port I just created.
+    [leaf1, leaf2, leaf3, leaf4] = [
+        tree.this()[name] for name in ["leaf1", "leaf2", "leaf3", "leaf4"]
+    ]
+
     tree.output("sum", 32)
 
     root = tree.reg("root", 32)
     left = tree.reg("left_node", 32)
     right = tree.reg("right_node", 32)
 
-    add_adder(tree, "add_l1_l2", "leaf1", "leaf2", "add1", left)
-    add_adder(tree, "add_l3_l4", "leaf3", "leaf4", "add2", right)
-    add_adder(tree, "add_left_right_nodes", "left_node", "right_node", "add1", root)
+    add1 = tree.add("add1", 32)
+    add2 = tree.add("add2", 32)
+
+    add_adder(tree, add1, "add_l1_l2", leaf1, leaf2, left)
+    add_adder(tree, add2, "add_l3_l4", leaf3, leaf4, right)
+    add_adder(tree, add1, "add_left_right_nodes", left.out, right.out, root)
 
     with tree.continuous:
         tree.this().sum = root.out
@@ -100,7 +104,7 @@ def use_tree_ports_provided(comp, group, p1, p2, p3, p4, tree, ans_mem):
         tree.leaf2 = p2
         tree.leaf3 = p3
         tree.leaf4 = p4
-        tree.go = 1
+        tree.go = cb.HI
         ans_mem.addr0 = tree.done @ 0
         ans_mem.write_data = tree.done @ tree.sum
         ans_mem.write_en = tree.done @ 1
@@ -127,14 +131,8 @@ def add_main(prog):
     sum_col2 = main.reg("sum_col2", 32)
     sum_col3 = main.reg("sum_col3", 32)
 
-    # AM, point of failure:
-    # I'd like to add the following to the `cells` section:
-    # tree0 = tree();
-    # I think the following is what you want me to do:
+    # AM, quality of life: would be nice to have a more `builder`-ey way to do this.
     tree = main.cell("tree", CompInst("tree", []))
-    # But _it adds a new, blank component called tree_ to the program.
-    # I'd like for it to locate the existing component `tree`.
-    # Thoughts?
 
     for i, ans_reg in enumerate([sum_col0, sum_col1, sum_col2, sum_col3]):
         use_tree_ports_calculated(
