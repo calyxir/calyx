@@ -1,4 +1,4 @@
-// -p well-formed -p static-inline -p remove-ids -p dead-group-removal
+// -p well-formed -p static-inline -p simplify-static-guards -p remove-ids -p dead-group-removal
 
 import "primitives/core.futil";
 
@@ -7,7 +7,7 @@ component main() -> () {
     a = std_reg(2);
   }
   wires {
-    static group A<1>{
+    static<1> group A {
       a.in = 2'd0;
       a.write_en = %0 ? 1'd1;
     }

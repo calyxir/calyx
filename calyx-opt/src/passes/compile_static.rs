@@ -2,7 +2,8 @@ use super::math_utilities::get_bit_width_from;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
-use ir::{build_assignments, Nothing, StaticTiming};
+use calyx_utils::Error;
+use ir::{build_assignments, Nothing, StaticTiming, RRC};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::Not;
@@ -239,6 +240,87 @@ impl CompileStatic {
             early_reset_group.borrow().attributes.clone();
         g
     }
+
+    fn get_reset_group_name(&self, sc: &mut ir::StaticControl) -> &ir::Id {
+        // assume that there are only static enables left.
+        // if there are any other type of static control, then error out.
+        let ir::StaticControl::Enable(s) = sc else {
+            unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+        };
+
+        let sgroup = s.group.borrow_mut();
+        let sgroup_name = sgroup.name();
+        // get the "early reset group". It should exist, since we made an
+        // early_reset group for every static group in the component
+        let early_reset_name =
+            self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
+                unreachable!(
+                    "group {} not in self.reset_early_map",
+                    sgroup_name
+                )
+            });
+
+        early_reset_name
+    }
+
+    /// compile `while` whose body is `static` control such that at the end of each
+    /// iteration, the checking of condition does not incur an extra cycle of
+    /// latency.
+    /// We do this by wrapping the early reset group of the body with
+    /// another wrapper group, which sets the go signal of the early reset group
+    /// high, and is done when at the 0th cycle of each iteration, the condtion
+    /// port is done.
+    /// Note: this only works if the port for the while condition is `@stable`.
+    fn build_wrapper_group_while(
+        &self,
+        fsm_name: &ir::Id,
+        fsm_width: u64,
+        group_name: &ir::Id,
+        port: RRC<ir::Port>,
+        builder: &mut ir::Builder,
+    ) -> RRC<ir::Group> {
+        let reset_early_group = builder
+            .component
+            .find_group(*group_name)
+            .unwrap_or_else(|| {
+                unreachable!(
+                    "called build_wrapper_group with {}, which is not a group",
+                    group_name
+                )
+            });
+        let early_reset_fsm =
+            builder.component.find_cell(*fsm_name).unwrap_or_else(|| {
+                unreachable!(
+                    "called build_wrapper_group with {}, which is not an fsm",
+                    fsm_name
+                )
+            });
+
+        let wrapper_group =
+            builder.add_group(format!("while_wrapper_{}", group_name));
+
+        structure!(
+            builder;
+            let one = constant(1, 1);
+            let time_0 = constant(0, fsm_width);
+        );
+
+        let port_parent = port.borrow().cell_parent();
+        let port_name = port.borrow().name;
+        let done_guard = (!guard!(port_parent[port_name]))
+            & guard!(early_reset_fsm["out"]).eq(guard!(time_0["out"]));
+
+        let assignments = build_assignments!(
+            builder;
+            // reset_early_group[go] = 1'd1;
+            // wrapper_group[done] = !port ? 1'd1;
+            reset_early_group["go"] = ? one["out"];
+            wrapper_group["done"] = done_guard ? one["out"];
+        );
+
+        wrapper_group.borrow_mut().assignments.extend(assignments);
+        wrapper_group
+    }
 }
 
 impl Visitor for CompileStatic {
@@ -306,7 +388,7 @@ impl Visitor for CompileStatic {
         // assume that there are only static enables left.
         // if there are any other type of static control, then error out.
         let ir::StaticControl::Enable(s) = sc else {
-            unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+            return Err(Error::malformed_control(format!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name())));
         };
 
         let sgroup = s.group.borrow_mut();
@@ -316,7 +398,7 @@ impl Visitor for CompileStatic {
         let early_reset_name =
             self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
                 unreachable!(
-                    "group {} not in self.reset_early_map",
+                    "group {} early reset wrapper has not been created",
                     sgroup_name
                 )
             });
@@ -344,6 +426,74 @@ impl Visitor for CompileStatic {
         let attrs = std::mem::take(&mut s.attributes);
         *e.get_mut_attributes() = attrs;
         Ok(Action::Change(Box::new(e)))
+    }
+
+    /// if while body is static, then we want to make sure that the while
+    /// body does not take the extra cycle incurred by the done condition
+    /// So we replace the while loop with `enable` of a wrapper group
+    /// that sets the go signal of the static group in the while loop body high
+    /// (all static control should be compiled into static groups by
+    /// `static_inliner` now). The done signal of the wrapper group should be
+    /// the condition that the fsm of the while body is %0 and the port signal
+    /// is 1'd0.
+    /// For example, we replace
+    /// ```
+    /// wires {
+    /// static group A<1> {
+    ///     ...
+    ///   }
+    ///    ...
+    /// }
+
+    /// control {
+    ///   while l.out {
+    ///     A;
+    ///   }
+    /// }
+    /// ```
+    /// with
+    /// ```
+    /// wires {
+    ///  group early_reset_A {
+    ///     ...
+    ///        }
+    ///
+    /// group while_wrapper_early_reset_A {
+    ///       early_reset_A[go] = 1'd1;
+    ///       while_wrapper_early_reset_A[done] = !l.out & fsm.out == 1'd0 ? 1'd1;
+    ///     }
+    ///   }
+    ///   control {
+    ///     while_wrapper_early_reset_A;
+    ///   }
+    /// ```
+    fn start_while(
+        &mut self,
+        s: &mut ir::While,
+        comp: &mut ir::Component,
+        sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if s.cond.is_none() {
+            if let ir::Control::Static(sc) = &mut *(s.body) {
+                let mut builder = ir::Builder::new(comp, sigs);
+                let reset_group_name = self.get_reset_group_name(sc);
+
+                // get fsm for reset_group
+                let (fsm, fsm_width) = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
+                let wrapper_group = self.build_wrapper_group_while(
+                    fsm,
+                    *fsm_width,
+                    reset_group_name,
+                    Rc::clone(&s.port),
+                    &mut builder,
+                );
+                let c = ir::Control::enable(wrapper_group);
+                return Ok(Action::change(c));
+            }
+        }
+
+        Ok(Action::Continue)
     }
 
     fn finish(

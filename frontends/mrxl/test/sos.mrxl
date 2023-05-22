@@ -1,0 +1,4 @@
+input avec: int[4]
+output sos: int
+squares := map 1 (a <- avec) { a * a }
+sos := reduce 1 (acc, i <- squares) 0 { acc + i }

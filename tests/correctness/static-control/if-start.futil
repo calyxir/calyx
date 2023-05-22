@@ -6,25 +6,32 @@ component main() -> () {
       @external cond = std_mem_d1(1, 1, 1);
       @external m = std_mem_d1(32, 1, 1);
       add = std_add(32);
-      r = std_reg(1);
+      read_cond_reg = std_reg(1);
     }
     wires {
-        static group one <1>{
+        static<1> group read_cond {
+            cond.addr0 = 1'd0;
+            read_cond_reg.write_en = 1'd1; 
+            read_cond_reg.in = cond.read_data;
+        }
+        static<1> group one {
             add.left = m.read_data;
             add.right = 32'd1;
             m.write_data = add.out;
             m.addr0 = 1'd0;
             m.write_en = 1'd1;
         }
-        static group four <4> {
+        static<4> group four {
         }
-        cond.addr0 = 1'd0;
     }
     control {
-        static if cond.read_data {
-            four;
-        } else {
-            one;
+        static seq {
+            read_cond; 
+            static if read_cond_reg.out {
+                four;
+            } else {
+                one;
+            }
         }
     }
 }

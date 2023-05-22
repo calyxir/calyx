@@ -11,6 +11,31 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+// given a port and a vec of components `comps`,
+// returns true if the port's parent is a static primitive
+// otherwise returns false
+fn port_is_static_prim(port: &ir::Port) -> bool {
+    // if port parent is hole then obviously not static
+    let parent_cell = match &port.parent {
+        ir::PortParent::Cell(cell_wref) => cell_wref.upgrade(),
+        ir::PortParent::Group(_) | ir::PortParent::StaticGroup(_) => {
+            return false
+        }
+    };
+    // if celltype is this component/constant, then obviously not static
+    // if primitive, then we can quickly check whether it is static
+    // if component, then we have to go throuch `comps` to see whether its static
+    // for some reason, need to store result in variable, otherwise it gives a
+    // lifetime error
+    let res = match parent_cell.borrow().prototype {
+        ir::CellType::Primitive { latency, .. } => latency.is_some(),
+        ir::CellType::Component { .. }
+        | ir::CellType::ThisComponent
+        | ir::CellType::Constant { .. } => false,
+    };
+    res
+}
+
 #[derive(Default)]
 struct ActiveAssignments {
     // Set of currently active assignments
@@ -70,7 +95,7 @@ impl ConstructVisitor for WellFormed {
             RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
         for prim in ctx.lib.signatures() {
-            if prim.attributes.has("static") {
+            if prim.attributes.has(ir::NumAttr::Static) {
                 return Err(Error::malformed_structure(format!("Primitive `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", prim.name)));
             }
         }
@@ -78,7 +103,7 @@ impl ConstructVisitor for WellFormed {
         let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
             // Defining @static on the component is meaningless
-            if comp.attributes.has("static") {
+            if comp.attributes.has(ir::NumAttr::Static) {
                 return Err(Error::malformed_structure(format!("Component `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", comp.name)));
             }
 
@@ -101,7 +126,7 @@ impl ConstructVisitor for WellFormed {
                 .filter_map(|cr| {
                     let cell = cr.borrow();
                     // Make sure @external cells are not defined in non-entrypoint components
-                    if cell.attributes.has("external")
+                    if cell.attributes.has(ir::BoolAttr::External)
                         && comp.name != ctx.entrypoint
                     {
                         Some(Err(Error::malformed_structure("Cell cannot be marked `@external` in non-entrypoint component").with_pos(&cell.attributes)))
@@ -144,31 +169,42 @@ impl Named for WellFormed {
 
 /// Returns an error if the assignments are obviously conflicting. This happens when two
 /// assignments assign to the same port unconditionally.
-fn obvious_conflicts<'a, I, T: 'a + Clone + ToString + Eq>(
-    assigns: I,
-) -> CalyxResult<()>
+/// Because there are two types of assignments, we take in `assigns1` and `assigns2`.
+/// Regardless, we check for conflicts across (assigns1.chained(assigns2)).
+fn obvious_conflicts<'a, I1, I2>(assigns1: I1, assigns2: I2) -> CalyxResult<()>
 where
-    I: Iterator<Item = &'a ir::Assignment<T>>,
+    I1: Iterator<Item = &'a ir::Assignment<Nothing>>,
+    I2: Iterator<Item = &'a ir::Assignment<StaticTiming>>,
 {
-    let dst_grps = assigns
-        .filter(|a| a.guard.is_true())
-        .map(|a| (a.dst.borrow().canonical(), a))
+    let dsts1 = assigns1.filter(|a| a.guard.is_true()).map(|a| {
+        (
+            a.dst.borrow().canonical(),
+            a.attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.show())
+                .unwrap_or_else(|| ir::Printer::assignment_to_str(a)),
+        )
+    });
+    let dsts2 = assigns2.filter(|a| a.guard.is_true()).map(|a| {
+        (
+            a.dst.borrow().canonical(),
+            a.attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.show())
+                .unwrap_or_else(|| ir::Printer::assignment_to_str(a)),
+        )
+    });
+    let dsts = dsts1.chain(dsts2);
+    let dst_grps = dsts
         .sorted_by(|(dst1, _), (dst2, _)| ir::Canonical::cmp(dst1, dst2))
         .group_by(|(dst, _)| dst.clone());
 
     for (_, group) in &dst_grps {
         let assigns = group.map(|(_, a)| a).collect_vec();
         if assigns.len() > 1 {
-            let msg = assigns
-                .into_iter()
-                .map(|a| {
-                    a.attributes
-                        .copy_span()
-                        .into_option()
-                        .map(|s| s.show())
-                        .unwrap_or_else(|| ir::Printer::assignment_to_str(a))
-                })
-                .join("");
+            let msg = assigns.into_iter().join("");
             return Err(Error::malformed_structure(format!(
                 "Obviously conflicting assignments found:\n{}",
                 msg
@@ -263,6 +299,14 @@ impl Visitor for WellFormed {
                 }
             }
         }
+        // in ast_to_ir, we should have already checked that static components have static_control_body
+        if comp.latency.is_some() {
+            assert!(
+                matches!(&*comp.control.borrow(), &ir::Control::Static(_)),
+                "static component {} does not have static control. This should have been checked in ast_to_ir",
+                comp.name
+            );
+        }
 
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
@@ -273,6 +317,13 @@ impl Visitor for WellFormed {
             // Find an assignment writing to this group's done condition.
             for assign in &group.assignments {
                 let dst = assign.dst.borrow();
+                if port_is_static_prim(&dst) {
+                    return Err(Error::malformed_structure(format!(
+                        "Static cell `{}` written to in non-static group",
+                        dst.get_parent_name()
+                    ))
+                    .with_pos(&assign.attributes));
+                }
                 if dst.is_hole() && dst.name == "done" {
                     // Group has multiple done conditions
                     if has_done {
@@ -304,20 +355,28 @@ impl Visitor for WellFormed {
         }
 
         // Don't need to check done condition for static groups. Instead, just
-        // checking that the static timing intervals are well formed.
+        // checking that the static timing intervals are well formed, and
+        // that don't write to static components
         for gr in comp.get_static_groups().iter() {
             let group = gr.borrow();
+            let group_latency = group.get_latency();
             // Check that for each interval %[beg, end], end > beg.
             for assign in &group.assignments {
-                assign.guard.check_for_each_interval(
+                assign.guard.check_for_each_info(
                     &mut |static_timing: &StaticTiming| {
                         if static_timing.get_interval().0
                             >= static_timing.get_interval().1
                         {
                             Err(Error::malformed_structure(format!(
-                                "Static Timing Guard has improper interval: `%[{},{}]`",
-                                static_timing.get_interval().0,
-                                static_timing.get_interval().1
+                                "Static Timing Guard has improper interval: `{}`",
+                                static_timing.to_string()
+                            ))
+                            .with_pos(&assign.attributes))
+                        } else if static_timing.get_interval().1 > group_latency {
+                            Err(Error::malformed_structure(format!(
+                                "Static Timing Guard has interval `{}`, which is out of bounds since its static group has latency {}",
+                                static_timing.to_string(),
+                                group_latency
                             ))
                             .with_pos(&assign.attributes))
                         } else {
@@ -329,14 +388,28 @@ impl Visitor for WellFormed {
         }
 
         // Check for obvious conflicting assignments in the continuous assignments
-        obvious_conflicts(comp.continuous_assignments.iter())?;
+        obvious_conflicts(
+            comp.continuous_assignments.iter(),
+            std::iter::empty::<&ir::Assignment<StaticTiming>>(),
+        )?;
         // Check for obvious conflicting assignments between the continuous assignments and the groups
         for cgr in comp.comb_groups.iter() {
+            for assign in &cgr.borrow().assignments {
+                let dst = assign.dst.borrow();
+                if port_is_static_prim(&dst) {
+                    return Err(Error::malformed_structure(format!(
+                        "Static cell `{}` written to in non-static group",
+                        dst.get_parent_name()
+                    ))
+                    .with_pos(&assign.attributes));
+                }
+            }
             obvious_conflicts(
                 cgr.borrow()
                     .assignments
                     .iter()
                     .chain(comp.continuous_assignments.iter()),
+                std::iter::empty::<&ir::Assignment<StaticTiming>>(),
             )?;
         }
 
@@ -346,7 +419,7 @@ impl Visitor for WellFormed {
     fn static_enable(
         &mut self,
         s: &mut ir::StaticEnable,
-        _comp: &mut Component,
+        comp: &mut Component,
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
@@ -354,32 +427,21 @@ impl Visitor for WellFormed {
 
         let group = s.group.borrow();
 
-        // A group with "static"=0 annotation
-        if group
-            .attributes
-            .get("static")
-            .map(|v| *v == 0)
-            .unwrap_or(false)
-        {
-            return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
-        }
-
-        // // Check if the group has obviously conflicting assignments with the continuous assignments and the active combinational groups
-        // obvious_conflicts(
-        //     group
-        //         .assignments
-        //         .iter()
-        //         .chain(comp.continuous_assignments.iter())
-        //         .chain(self.active_comb.iter()),
-        // )
-        // .map_err(|err| {
-        //     let msg = s
-        //         .attributes
-        //         .copy_span()
-        //         .into_option()
-        //         .map(|s| s.format("Assigments activated by group enable"));
-        //     err.with_post_msg(msg)
-        // })?;
+        // check for obvious conflicts within static groups and continuous/comb group assigns
+        obvious_conflicts(
+            comp.continuous_assignments
+                .iter()
+                .chain(self.active_comb.iter()),
+            group.assignments.iter(),
+        )
+        .map_err(|err| {
+            let msg = s
+                .attributes
+                .copy_span()
+                .into_option()
+                .map(|s| s.format("Assigments activated by group enable"));
+            err.with_post_msg(msg)
+        })?;
 
         Ok(Action::Continue)
     }
@@ -405,8 +467,8 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get("static")
-            .map(|v| *v == 0)
+            .get(ir::NumAttr::Static)
+            .map(|v| v == 0)
             .unwrap_or(false)
         {
             return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
@@ -419,6 +481,7 @@ impl Visitor for WellFormed {
                 .iter()
                 .chain(comp.continuous_assignments.iter())
                 .chain(self.active_comb.iter()),
+            std::iter::empty::<&ir::Assignment<StaticTiming>>(),
         )
         .map_err(|err| {
             let msg = s
@@ -444,24 +507,46 @@ impl Visitor for WellFormed {
         }
         // Only refers to ports defined in the invoked instance.
         let cell = s.comp.borrow();
-        let ports: HashSet<_> =
-            cell.ports.iter().map(|p| p.borrow().name).collect();
 
-        s.inputs
-            .iter()
-            .chain(s.outputs.iter())
-            .try_for_each(|(port, _)| {
-                if !ports.contains(port) {
-                    Err(Error::malformed_structure(format!(
-                        "`{}` does not have port named `{}`",
-                        cell.name(),
-                        port
-                    ))
-                    .with_pos(&s.attributes))
+        if let CellType::Component { name: id } = &cell.prototype {
+            let cellmap = &self.ref_cell_types[id];
+            let mut mentioned_cells = HashSet::new();
+            for (outcell, incell) in s.ref_cells.iter() {
+                if let Some(t) = cellmap.get(outcell) {
+                    let proto = incell.borrow().prototype.clone();
+                    same_type(t, &proto)
+                        .map_err(|err| err.with_pos(&s.attributes))?;
+                    mentioned_cells.insert(outcell);
                 } else {
-                    Ok(())
+                    return Err(Error::malformed_control(format!(
+                        "{} does not have ref cell named {}",
+                        id, outcell
+                    )));
                 }
-            })?;
+            }
+            for id in cellmap.keys() {
+                if mentioned_cells.get(id).is_none() {
+                    return Err(Error::malformed_control(format!(
+                        "unmentioned ref cell: {}",
+                        id
+                    ))
+                    .with_pos(&s.attributes));
+                }
+            }
+        }
+
+        Ok(Action::Continue)
+    }
+
+    fn static_invoke(
+        &mut self,
+        s: &mut ir::StaticInvoke,
+        _comp: &mut Component,
+        _ctx: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        // Only refers to ports defined in the invoked instance.
+        let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
             let cellmap = &self.ref_cell_types[id];
@@ -504,16 +589,42 @@ impl Visitor for WellFormed {
             let cg = cgr.borrow();
             let assigns = &cg.assignments;
             // Check if the combinational group conflicts with the active combinational groups
-            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
-                .map_err(|err| {
-                    let msg = s.attributes.copy_span().format(format!(
-                        "Assignments from `{}' are actived here",
-                        cg.name()
-                    ));
-                    err.with_post_msg(Some(msg))
-                })?;
+            obvious_conflicts(
+                assigns.iter().chain(self.active_comb.iter()),
+                std::iter::empty::<&ir::Assignment<StaticTiming>>(),
+            )
+            .map_err(|err| {
+                let msg = s.attributes.copy_span().format(format!(
+                    "Assignments from `{}' are actived here",
+                    cg.name()
+                ));
+                err.with_post_msg(Some(msg))
+            })?;
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
+        } else if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
+            let msg = s.attributes.copy_span().format(format!(
+                    "If statement has no comb group and its condition port {} is unstable",
+                    s.port.borrow().canonical()
+                ));
+            return Err(calyx_utils::Error::malformed_control(msg));
+        }
+        Ok(Action::Continue)
+    }
+
+    fn start_static_if(
+        &mut self,
+        s: &mut ir::StaticIf,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
+            let msg = s.attributes.copy_span().format(format!(
+                "Static If statement's condition port {} is unstable",
+                s.port.borrow().canonical()
+            ));
+            Err(calyx_utils::Error::malformed_control(msg))?
         }
         Ok(Action::Continue)
     }
@@ -545,16 +656,25 @@ impl Visitor for WellFormed {
             let cg = cgr.borrow();
             let assigns = &cg.assignments;
             // Check if the combinational group conflicts with the active combinational groups
-            obvious_conflicts(assigns.iter().chain(self.active_comb.iter()))
-                .map_err(|err| {
-                    let msg = s.attributes.copy_span().format(format!(
-                        "Assignments from `{}' are actived here",
-                        cg.name()
-                    ));
-                    err.with_post_msg(Some(msg))
-                })?;
+            obvious_conflicts(
+                assigns.iter().chain(self.active_comb.iter()),
+                std::iter::empty::<&ir::Assignment<StaticTiming>>(),
+            )
+            .map_err(|err| {
+                let msg = s.attributes.copy_span().format(format!(
+                    "Assignments from `{}' are actived here",
+                    cg.name()
+                ));
+                err.with_post_msg(Some(msg))
+            })?;
             // Push the combinational group to the stack of active groups
             self.active_comb.push(assigns);
+        } else if !s.port.borrow().has_attribute(ir::BoolAttr::Stable) {
+            let msg = s.attributes.copy_span().format(format!(
+                    "While loop has no comb group and its condition port {} is unstable",
+                    s.port.borrow().canonical()
+                ));
+            return Err(calyx_utils::Error::malformed_control(msg));
         }
         Ok(Action::Continue)
     }

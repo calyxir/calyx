@@ -78,12 +78,13 @@ module seq_mem_d1 #(
   // Check for out of bounds access
   `ifdef VERILATOR
     always_comb begin
-      if (addr0 >= SIZE)
-        $error(
-          "std_mem_d1: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "SIZE: %0d", SIZE
-        );
+      if (read_en)
+        if (addr0 >= SIZE)
+          $error(
+            "std_mem_d1: Out of bounds access\n",
+            "addr0: %0d\n", addr0,
+            "SIZE: %0d", SIZE
+          );
     end
     always_comb begin
       if (read_en && write_en)
@@ -119,8 +120,8 @@ module seq_mem_d2 #(
   assign addr = addr0 * D1_SIZE + addr1;
 
   seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr), 
-    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en), 
+     (.clk(clk), .reset(reset), .addr0(addr),
+    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en),
     .write_done(write_done));
 endmodule
 
@@ -154,8 +155,8 @@ module seq_mem_d3 #(
   assign addr = addr0 * (D1_SIZE * D2_SIZE) + addr1 * (D2_SIZE) + addr2;
 
   seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE * D2_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE+D2_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr), 
-    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en), 
+     (.clk(clk), .reset(reset), .addr0(addr),
+    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en),
     .write_done(write_done));
 endmodule
 
@@ -192,7 +193,7 @@ module seq_mem_d4 #(
   assign addr = addr0 * (D1_SIZE * D2_SIZE * D3_SIZE) + addr1 * (D2_SIZE * D3_SIZE) + addr2 * (D3_SIZE) + addr3;
 
   seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE * D2_SIZE * D3_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE+D2_IDX_SIZE+D3_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr), 
-    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en), 
+     (.clk(clk), .reset(reset), .addr0(addr),
+    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en),
     .write_done(write_done));
 endmodule

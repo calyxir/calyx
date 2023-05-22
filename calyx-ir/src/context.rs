@@ -110,8 +110,6 @@ pub struct BackendConf {
     pub synthesis_mode: bool,
     /// Enables verification checks.
     pub enable_verification: bool,
-    /// Generate initial assignments for input ports
-    pub initialize_inputs: bool,
     /// Use flat (ANF) assignments for guards instead of deep expression trees.
     pub flat_assign: bool,
 }

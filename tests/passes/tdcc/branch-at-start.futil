@@ -1,10 +1,11 @@
-// -x tdcc:dump-fsm -d tdst -d post-opt -d lower -d group2invoke -b none
+// -x tdcc:dump-fsm -d static-promotion -d attr-promotion -d post-opt -d lower -d group2invoke -b none
 import "primitives/core.futil";
 component main(is_valid: 1) -> () {
   cells {
     is_even = std_reg(1);
     is_not_zero = std_reg(1);
     r = std_reg(32);
+    r1 = std_reg(1);
   }
   wires {
     group one {
@@ -19,7 +20,7 @@ component main(is_valid: 1) -> () {
     }
   }
   control {
-    while is_valid {
+    while r1.out {
       if is_even.out {
         one;
       } else {

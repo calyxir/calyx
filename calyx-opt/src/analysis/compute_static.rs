@@ -1,5 +1,6 @@
 use calyx_ir::{self as ir, GetAttributes};
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Trait to propagate and extra "static" attributes through [ir::Control].
 /// Calling the update function ensures that the current program, as well as all
@@ -23,7 +24,7 @@ where
     /// **Ensures**: All sub-programs of the type will also be updated.
     fn update_static(&mut self, extra: &Self::Info) -> Option<u64> {
         if let Some(time) = self.compute_static(extra) {
-            self.get_mut_attributes().insert("static", time);
+            self.get_mut_attributes().insert(ir::NumAttr::Static, time);
             Some(time)
         } else {
             None
@@ -69,16 +70,15 @@ impl WithStatic for ir::Enable {
         // Attempt to get the latency from the attribute on the enable first, or
         // failing that, from the group.
         self.attributes
-            .get("static")
-            .cloned()
-            .or_else(|| self.group.borrow().attributes.get("static").cloned())
+            .get(ir::NumAttr::Static)
+            .or_else(|| self.group.borrow().attributes.get(ir::NumAttr::Static))
     }
 }
 
 impl WithStatic for ir::Invoke {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.attributes.get("static").cloned().or_else(|| {
+        self.attributes.get(ir::NumAttr::Static).or_else(|| {
             let comp = self.comp.borrow().type_name()?;
             extra.get(&comp).cloned()
         })
@@ -130,7 +130,87 @@ impl WithStatic for ir::While {
             log::debug!("Cannot compute latency for while-with");
             return None;
         }
-        let bound = self.attributes.get("bound")?;
+        let bound = self.attributes.get(ir::NumAttr::Bound)?;
         Some(bound * b_time)
+    }
+}
+
+pub trait IntoStatic {
+    type StaticCon;
+    fn make_static(&mut self) -> Option<Self::StaticCon>;
+}
+
+impl IntoStatic for ir::Seq {
+    type StaticCon = ir::StaticSeq;
+    fn make_static(&mut self) -> Option<Self::StaticCon> {
+        let mut static_stmts: Vec<ir::StaticControl> = Vec::new();
+        let mut latency = 0;
+        for stmt in self.stmts.iter() {
+            if !matches!(stmt, ir::Control::Static(_)) {
+                log::debug!("Cannot build `static seq`. Control statement inside `seq` is not static");
+                return None;
+            }
+        }
+
+        for stmt in self.stmts.drain(..) {
+            let ir::Control::Static(sc) = stmt else {unreachable!("We have already checked that all control statements are static")};
+            latency += sc.get_latency();
+            static_stmts.push(sc);
+        }
+        Some(ir::StaticSeq {
+            stmts: static_stmts,
+            attributes: self.attributes.clone(),
+            latency,
+        })
+    }
+}
+
+impl IntoStatic for ir::Par {
+    type StaticCon = ir::StaticPar;
+    fn make_static(&mut self) -> Option<Self::StaticCon> {
+        let mut static_stmts: Vec<ir::StaticControl> = Vec::new();
+        let mut latency = 0;
+        for stmt in self.stmts.iter() {
+            if !matches!(stmt, ir::Control::Static(_)) {
+                log::debug!("Cannot build `static seq`. Control statement inside `seq` is not static");
+                return None;
+            }
+        }
+
+        for stmt in self.stmts.drain(..) {
+            let ir::Control::Static(sc) = stmt else {unreachable!("We have already checked that all control statements are static")};
+            latency = std::cmp::max(latency, sc.get_latency());
+            static_stmts.push(sc);
+        }
+        Some(ir::StaticPar {
+            stmts: static_stmts,
+            attributes: self.attributes.clone(),
+            latency,
+        })
+    }
+}
+
+impl IntoStatic for ir::If {
+    type StaticCon = ir::StaticIf;
+    fn make_static(&mut self) -> Option<Self::StaticCon> {
+        if !(self.tbranch.is_static() && self.fbranch.is_static()) {
+            return None;
+        };
+        let tb = std::mem::replace(&mut *self.tbranch, ir::Control::empty());
+        let fb = std::mem::replace(&mut *self.fbranch, ir::Control::empty());
+        let ir::Control::Static(sc_t) = tb else {
+                    unreachable!("we have already checked tbranch to be static")
+                };
+        let ir::Control::Static(sc_f) = fb else {
+                    unreachable!("we have already checker fbranch to be static")
+                };
+        let latency = std::cmp::max(sc_t.get_latency(), sc_f.get_latency());
+        Some(ir::StaticIf {
+            tbranch: Box::new(sc_t),
+            fbranch: Box::new(sc_f),
+            attributes: ir::Attributes::default(),
+            port: Rc::clone(&self.port),
+            latency,
+        })
     }
 }

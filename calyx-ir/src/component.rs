@@ -1,6 +1,7 @@
 use super::{
-    Assignment, Attributes, Builder, Cell, CellType, CombGroup, Control,
-    GetName, Group, Id, PortDef, StaticGroup, RRC,
+    Assignment, Attribute, Attributes, BoolAttr, Builder, Cell, CellType,
+    CombGroup, Control, Direction, GetName, Group, Id, NumAttr, PortDef,
+    StaticGroup, RRC,
 };
 use crate::guard::StaticTiming;
 use crate::Nothing;
@@ -10,11 +11,20 @@ use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::iter::Extend;
+use std::num::NonZeroU64;
 use std::rc::Rc;
 
 /// The default name of the signature cell in a component.
 /// In general, this should not be used by anything.
 const THIS_ID: &str = "_this";
+
+/// Interface ports that must be present on every component
+const INTERFACE_PORTS: [(Attribute, u64, Direction); 4] = [
+    (Attribute::Num(NumAttr::Go), 1, Direction::Input),
+    (Attribute::Bool(BoolAttr::Clk), 1, Direction::Input),
+    (Attribute::Bool(BoolAttr::Reset), 1, Direction::Input),
+    (Attribute::Num(NumAttr::Done), 1, Direction::Output),
+];
 
 /// In memory representation of a Component.
 #[derive(Debug)]
@@ -40,6 +50,8 @@ pub struct Component {
     pub attributes: Attributes,
     /// True iff component is combinational
     pub is_comb: bool,
+    /// (Optional) latency of component, if it is static
+    pub latency: Option<NonZeroU64>,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
@@ -52,11 +64,48 @@ pub struct Component {
 /// - find_<construct>: Returns a reference to the construct with the given
 ///   name.
 impl Component {
-    /// Construct a new Component with the given `name` and signature fields.
-    pub fn new<S>(name: S, ports: Vec<PortDef<u64>>, is_comb: bool) -> Self
+    /// Extend the signature with interface ports if they are missing.
+    pub(super) fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
+        let port_names: HashSet<_> = sig.iter().map(|pd| pd.name).collect();
+        let mut namegen = NameGenerator::with_prev_defined_names(port_names);
+        for (attr, width, direction) in INTERFACE_PORTS.iter() {
+            // Check if there is already another interface port defined for the
+            // component
+            if !sig.iter().any(|pd| pd.attributes.has(*attr)) {
+                let mut attributes = Attributes::default();
+                attributes.insert(*attr, 1);
+                let name = Id::from(attr.to_string());
+                sig.push(PortDef {
+                    name: namegen.gen_name(name.to_string()),
+                    width: *width,
+                    direction: direction.clone(),
+                    attributes,
+                });
+            }
+        }
+    }
+
+    /// Construct a new Component with the given `name` and ports.
+    ///
+    /// * If `has_interface` is true, then we do not add `@go` and `@done` ports.
+    ///   This will usually happen with the component is marked with [super::BoolAttr::Nointerface].
+    /// * If `is_comb` is set, then this is a combinational component and cannot use `group` or `control` constructs.
+    /// * If `latency` is set, then this is a static component with the given latency. A combinational component cannot have a latency.
+    pub fn new<S>(
+        name: S,
+        mut ports: Vec<PortDef<u64>>,
+        has_interface: bool,
+        is_comb: bool,
+        latency: Option<NonZeroU64>,
+    ) -> Self
     where
         S: Into<Id>,
     {
+        if has_interface {
+            // Add interface ports if missing
+            Self::extend_signature(&mut ports);
+        }
+
         let prev_names: HashSet<_> = ports.iter().map(|pd| pd.name).collect();
 
         let this_sig = Builder::cell_from_signature(
@@ -84,6 +133,9 @@ impl Component {
             namegen: NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
             is_comb,
+            // converting from NonZeroU64 to u64. May want to keep permanently as NonZeroU64
+            // in the future, but rn it's probably easier to keep as u64
+            latency,
         }
     }
 
@@ -162,14 +214,9 @@ impl Component {
     }
 
     /// Check whether this is a static component.
-    /// A static component is a component that has at least one static go-done path.
+    /// A static component is a component which has a latency field.
     pub fn is_static(&self) -> bool {
-        let sig = self.signature.borrow();
-        let mut go_ports = sig.find_all_with_attr("go");
-        go_ports.any(|p| {
-            let port = p.borrow();
-            port.attributes.has("static")
-        })
+        self.latency.is_some()
     }
 
     /// Apply function to all assignments within static groups.

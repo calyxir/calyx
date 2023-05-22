@@ -10,7 +10,7 @@ paths = [
 # gets the pass flags a comment on the first line of the test file
 cmd = """
 flags="$(head -n 1 {} | cut -c 3-) -m file"
-./target/debug/futil {} $flags
+./target/debug/calyx {} $flags
 """
 
 [[tests]]
@@ -18,7 +18,7 @@ name = "[core] parsing"
 # Round-tripping from the compiler should not change anything.
 paths = [ "./tests/parsing/*.expect" ]
 cmd = """
-./target/debug/futil {} -m file -p none
+./target/debug/calyx {} -m file -p none
 """
 
 [[tests]]
@@ -26,7 +26,7 @@ name = "[core] import"
 # Round-tripping from the compiler should not change anything.
 paths = [ "./tests/import/a.futil" ]
 cmd = """
-./target/debug/futil {} -p none \
+./target/debug/calyx {} -p none \
   | sed 's/extern \".*\\(calyx\\/.*\\)\"/extern \"<ROOT>\\/\\1\"/'
 """
 
@@ -40,14 +40,14 @@ paths = [
   "tests/errors/parser/*.futil"
 ]
 cmd = """
-./target/debug/futil {} -p well-formed -p papercut -p synthesis-papercut
+./target/debug/calyx {} -p well-formed -p papercut -p synthesis-papercut
 """
 
 [[tests]]
 name = "[core] futil examples"
 paths = ["examples/futil/*.futil"]
 cmd = """
-./target/debug/futil {} -m file -d tdst
+./target/debug/calyx {} -m file -d tdst
 """
 
 ##### Backend Tests #####
@@ -56,7 +56,7 @@ name = "[core] backends"
 paths = [ "tests/backend/**/*.futil" ]
 cmd = """
 flags=$(head -n 1 {} | cut -c 3-)
-./target/debug/futil {} $flags
+./target/debug/calyx {} $flags
 """
 
 ##### Frontend Tests #####
@@ -64,8 +64,8 @@ flags=$(head -n 1 {} | cut -c 3-)
 name = "[frontend] dahlia"
 paths = [ "tests/frontend/dahlia/*.fuse" ]
 cmd = """
-fud e {} --to futil -q \
-          -s futil.exec './target/debug/futil' \
+fud e {} --to calyx -q \
+          -s calyx.exec './target/debug/calyx' \
         | tail -n+2
 """
 
@@ -80,7 +80,7 @@ cmd = """
 name = "[frontend] NTT pipeline generation"
 paths = [ "tests/frontend/ntt-pipeline/*.txt" ]
 cmd = """
-fud e --from ntt {} --to futil -q
+fud e --from ntt {} --to calyx -q
 """
 
 [[tests]]
@@ -112,12 +112,12 @@ paths = [
   "tests/correctness/sync/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s verilog.data {}.data \
-         -s futil.exec './target/debug/futil' \
-         -s futil.flags ' -d tdst' \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags ' -d tdst' \
          -s verilog.cycle_limit 500 \
          -s jq.expr ".memories" \
          {} -q
@@ -131,10 +131,10 @@ paths = [
   "tests/correctness/ref-cells/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
-         -s futil.exec './target/debug/futil' \
+         -s calyx.exec './target/debug/calyx' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          -s jq.expr ".memories" \
@@ -144,39 +144,18 @@ timeout = 120
 
 # Variants of the above but for `--nested` (non-ANF Verilog emission) mode.
 [[tests]]
-name = "correctness dynamic nested"
+name = "correctness nested"
 paths = [
   "tests/correctness/*.futil",
-  "tests/correctness/ref-cells/*.futil",
-  "tests/correctness/sync/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s verilog.data {}.data \
-         -s futil.exec './target/debug/futil' \
-         -s futil.flags ' -d tdst --nested' \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags ' --nested' \
          -s verilog.cycle_limit 500 \
-         -s jq.expr ".memories" \
-         {} -q
-"""
-timeout = 120
-
-[[tests]]
-name = "correctness static timing nested"
-paths = [
-  "tests/correctness/*.futil",
-  "tests/correctness/ref-cells/*.futil"
-]
-cmd = """
-fud exec --to jq \
-         --through verilog \
-         --through dat \
-         -s futil.exec './target/debug/futil' \
-         -s futil.flags ' --nested' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
          -s jq.expr ".memories" \
          {} -q
 """
@@ -190,11 +169,11 @@ paths = [
   "tests/correctness/static/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
-         -s futil.exec './target/debug/futil' \
-         -s futil.flags ' -x tdst:force -p all -d group2invoke' \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags ' -x tdst:force -p all -d group2invoke' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q
@@ -206,14 +185,15 @@ timeout = 120
 [[tests]]
 name = "correctness static control"
 paths = [
-  "tests/correctness/static-control/*.futil"
+  "tests/correctness/static-control/*.futil",
+  "tests/correctness/group-static-promotion/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
-         -s futil.exec './target/debug/futil' \
-         -s futil.flags '-p all -d tdst -d group2invoke' \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags '-p all -d tdst -d group2invoke' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q
@@ -228,7 +208,7 @@ paths = [
   "tests/correctness/numeric-types/fixed-point/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through dat \
          --through verilog \
          -s verilog.data {}.data \
@@ -242,7 +222,7 @@ paths = [
   "tests/correctness/tcam/*.futil"
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
       --through verilog \
       --through dat \
       -s verilog.data {}.data \
@@ -258,7 +238,7 @@ fud e --from systolic --to jq \
       --through verilog \
       --through vcd_json \
       -s verilog.data {}.data \
-      -s futil.exec './target/debug/futil' \
+      -s calyx.exec './target/debug/calyx' \
       -s jq.file {}.jq \
       {} -q
 """
@@ -275,7 +255,7 @@ name = "exp correctness"
 paths = [ "tests/correctness/exp/*.txt" ]
 cmd = """
 python3 calyx-py/calyx/gen_exp.py {} |\
-fud e --from futil --to dat --through verilog -s verilog.data {}.data -q
+fud e --from calyx --to dat --through verilog -s verilog.data {}.data -q
 """
 
 [[tests]]
@@ -307,10 +287,10 @@ paths = [
   "tests/errors/runtime/*.futil"
 ]
 cmd = """
-fud exec -s futil.exec './target/debug/futil' \
+fud exec -s calyx.exec './target/debug/calyx' \
          -s verilog.cycle_limit 500 \
          --through verilog \
-         {} --to dat -q 2>&1 | \
+         {} --from calyx --to dat -q 2>&1 | \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
@@ -321,10 +301,10 @@ name = "[examples] language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d tdst' \
+         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data examples/tutorial/data.json \
-         --to dat -q
+         --from calyx --to dat -q
 """
 
 [[tests]]
@@ -332,10 +312,10 @@ name = "[examples] sync primitives"
 paths = ["examples/sync/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d tdst' \
+         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
-         --to dat -q
+         --from calyx --to dat -q
 """
 
 [[tests]]
@@ -343,10 +323,10 @@ name = "[examples] memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s futil.flags ' -d tdst' \
+         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
-         --to dat -q
+         --from calyx --to dat -q
 """
 
 [[tests]]
@@ -368,7 +348,7 @@ paths = [
   "tests/xilinx/compile/vectorized-add.futil",
 ]
 cmd = """
-target/debug/futil {} -b xilinx
+target/debug/calyx {} -b xilinx
 """
 
 
@@ -381,8 +361,8 @@ paths = [
 cmd = """
 mkdir -p {}/hdl && \
 dir_name=$(basename {}) && \
-fud e -q {}/${dir_name}.futil  --to synth-verilog -o {}/hdl/main.sv &&\
-  fud e -q {}/${dir_name}.futil --to axi-wrapper -o {}/hdl/toplevel.v
+fud e -q --from calyx {}/${dir_name}.futil --to synth-verilog -o {}/hdl/main.sv &&\
+  fud e -q --from calyx {}/${dir_name}.futil --to axi-wrapper -o {}/hdl/toplevel.v
 
 cd {}/../ && \
 make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\

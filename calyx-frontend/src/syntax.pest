@@ -43,6 +43,14 @@ reference = { "ref" }
 
 static_word = { "static" }
 
+static_annotation = { static_word ~ latency_annotation} 
+
+static_optional_latency = { static_word ~ latency_annotation? } 
+
+both_comb_static = { (comb ~ static_annotation) | (static_annotation ~ comb) } 
+
+comb_or_static = {both_comb_static | comb | static_annotation}
+
 file = {
       SOI
       ~ imports
@@ -58,7 +66,7 @@ extern_or_component = {
 externs_and_comps = { extern_or_component* }
 
 component = {
-      comb? ~ "component" ~ name_with_attribute ~ signature
+      (comb_or_static)? ~ "component" ~ name_with_attribute ~ signature
       ~ "{"
       ~ cells
       ~ connections
@@ -103,7 +111,7 @@ sig_with_params = {
   params? ~ signature
 }
 primitive = {
-     comb? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ ";"
+     (comb_or_static)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ ";"
 }
 
 block_char = { !"}" ~ ANY }
@@ -111,7 +119,7 @@ block_char = { !"}" ~ ANY }
 block_string = ${ "{" ~ block_char* ~ "}" }
 
 prim_inline = {
-      comb? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"
+      (comb_or_static)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"
 }
 
 ext = {
@@ -256,7 +264,7 @@ group = {
 }
 
 static_group = {
-      static_word ~ "group" ~ name_with_attribute ~ "<" ~ bitwidth ~  ">" ~ "{"
+      static_annotation ~ "group" ~ name_with_attribute ~ "{"
       ~ static_wire*
       ~ "}"
 }
@@ -279,6 +287,7 @@ invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
 invoke_ref_arg = {identifier ~ "=" ~ identifier}
 invoke_ref_args = {("[" ~ (invoke_ref_arg ~ ("," ~ invoke_ref_arg)*)? ~ "]")?}
 invoke = { at_attributes ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
+static_invoke = { at_attributes ~ static_optional_latency ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
 
 seq = {
       at_attributes ~ "seq" ~ "{"
@@ -287,7 +296,7 @@ seq = {
 }
 
 static_seq = {
-      at_attributes ~  static_word ~ "seq" ~ latency_annotation? ~ "{"
+      at_attributes ~  static_optional_latency ~ "seq"  ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -299,7 +308,7 @@ par = {
 }
 
 static_par = {
-      at_attributes ~  static_word ~ "par" ~ latency_annotation? ~ "{"
+      at_attributes ~ static_optional_latency ~ "par"  ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -322,7 +331,7 @@ if_stmt = {
 }
 
 static_if_stmt = {
-      at_attributes ~ static_word ~ "if" ~  latency_annotation? ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
+      at_attributes ~ static_optional_latency ~ "if"  ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
 }
 
 while_stmt = {
@@ -337,6 +346,7 @@ stmt = {
       empty
     | enable
     | invoke
+    | static_invoke
     | seq
     | static_seq
     | par

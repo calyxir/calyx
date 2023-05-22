@@ -39,7 +39,7 @@ timeout = 3
 name = "par to seq"
 paths = ["tests/control/par_reg.futil", "tests/control/par_mem.futil"]
 cmd = """
-../target/debug/futil {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories --sort-keys
 """
 timeout = 3
 
@@ -59,14 +59,14 @@ timeout = 3
 name = "invoke"
 paths = ["tests/control/invoke/*.futil"]
 cmd = """
-fud e {} --to interpreter-out -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories --sort-keys
+fud e {} --from calyx --to interpreter-out -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories --sort-keys
 """
 
 [[tests]]
 name = "invoke comp"
 paths = ["tests/control/invoke/*.futil"]
 cmd = """
-fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories --sort-keys
+fud e {} --from calyx --to interpreter-out -s calyx.flags "-p compile-invoke" -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories --sort-keys
 """
 
 [[tests]]
@@ -77,7 +77,7 @@ paths = [
   #    "tests/control/iteration/*.futil"
 ]
 cmd = """
-../target/debug/futil {} -d pre-opt -d post-opt -p simplify-with-control -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../ | ../target/debug/interp | jq .memories --sort-keys
 """
 expect_dir = "tests/lowered/"
 timeout = 3
@@ -86,7 +86,7 @@ timeout = 3
 name = "fully structural static"
 paths = ["tests/control/static*.futil"]
 cmd = """
-../target/debug/futil {} -d pre-opt -d post-opt  -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -d pre-opt -d post-opt  -l ../ | ../target/debug/interp | jq .memories --sort-keys
 """
 expect_dir = "tests/lowered/"
 timeout = 3
@@ -95,7 +95,7 @@ timeout = 3
 name = "correctness dynamic"
 paths = ["../tests/correctness/*.futil"]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through interpreter-out \
          -s verilog.data {}.data \
          -s interpreter.flags " --raw" \
@@ -112,7 +112,7 @@ paths = [
   "../tests/correctness/numeric-types/fixed-point/*.futil",
 ]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
          --through interpreter-out \
          -s interpreter.flags "--raw " \
          -s verilog.data {}.data \
@@ -125,7 +125,7 @@ fud exec --to jq \
 name = "[frontend] tcam testing"
 paths = ["../tests/correctness/tcam/*.futil"]
 cmd = """
-fud exec --to jq \
+fud exec --from calyx --to jq \
       --through interpreter-out \
       -s interpreter.flags "--raw " \
       -s verilog.data {}.data \

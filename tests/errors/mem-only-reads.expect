@@ -1,4 +1,4 @@
 ---CODE---
 1
 ---STDERR---
-Error: [Papercut] Only reads performed on memory `mem'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.
+Error: [Papercut] Only reads performed on memory `mem'. Synthesis tools will remove this memory. Add @external to cell to turn this into an interface memory.

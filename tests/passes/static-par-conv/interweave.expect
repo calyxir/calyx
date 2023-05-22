@@ -1,6 +1,5 @@
-component main(@go @static(9) go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {}
   wires {
     group A0<"static"=2> {
     }
@@ -25,7 +24,6 @@ component main(@go @static(9) go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
     group E1<"static"=2> {
     }
   }
-
   control {
     par {
       @static(9) seq {
@@ -45,7 +43,7 @@ component main(@go @static(9) go: 1, @clk clk: 1, @reset reset: 1) -> (@done don
           @static(4) A2;
         }
       }
-      @static(7) seq {
+      seq {
         @static(2) D0;
         @static(5) D1;
       }

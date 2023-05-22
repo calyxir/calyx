@@ -12,6 +12,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add1.left = r0.out;
     add0.left = r1.out;
   }
-
   control {}
 }

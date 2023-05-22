@@ -1,0 +1,23 @@
+import "primitives/core.futil";
+comb static<1> component custom_lt(left: 4, right: 4) -> (out: 1) {
+  cells {
+    lt = std_lt(4);
+  }
+  wires {
+    comb group g {
+      lt.left = left;
+      lt.right = right;
+      out = lt.out;
+    }
+  }
+}
+
+component main(@go go: 1, @clk clk: 1, @reset reset: 1, a: 4, b: 4, c: 1) -> (@done done: 1) {
+  cells {
+    lt = custom_lt();
+  }
+  wires {
+  }
+  control {
+  }
+}

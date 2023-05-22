@@ -1,6 +1,7 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
 use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
+use calyx_frontend::BoolAttr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -160,6 +161,13 @@ impl<'a> Builder<'a> {
     /// pair, building and adding it to the component if needed..
     /// If the constant does not exist, it is added to the Context.
     pub fn add_constant(&mut self, val: u64, width: u64) -> RRC<ir::Cell> {
+        // Ensure that the value can fit within the width
+        assert!(
+            val < (1 << width),
+            "Constant value {} cannot fit in {} bits",
+            val,
+            width
+        );
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
@@ -218,11 +226,12 @@ impl<'a> Builder<'a> {
                 name: prim_id,
                 param_binding: Box::new(param_binding),
                 is_comb: prim.is_comb,
+                latency: prim.latency,
             },
             ports,
         );
         if self.generated {
-            cell.borrow_mut().add_attribute("generated", 1);
+            cell.borrow_mut().add_attribute(BoolAttr::Generated, 1);
         }
         self.component.cells.add(Rc::clone(&cell));
         cell
@@ -248,7 +257,7 @@ impl<'a> Builder<'a> {
             sig,
         );
         if self.generated {
-            cell.borrow_mut().add_attribute("generated", 1);
+            cell.borrow_mut().add_attribute(BoolAttr::Generated, 1);
         }
         self.component.cells.add(Rc::clone(&cell));
         cell

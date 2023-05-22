@@ -12,7 +12,6 @@ component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       upd_m[done] = m.done;
     }
   }
-
   control {
     upd_m;
   }
@@ -23,9 +22,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     k1 = std_reg(32);
     k2 = std_reg(32);
   }
-  wires {
-  }
-
+  wires {}
   control {
     seq {
       invoke f[m = k1]()();

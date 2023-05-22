@@ -1,10 +1,9 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
-use itertools::Itertools;
-
 use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
+use itertools::Itertools;
 use std::io;
 use std::path::Path;
 use std::rc::Rc;
@@ -16,13 +15,15 @@ impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
     fn format_at_attributes(attrs: &ir::Attributes) -> String {
-        let mut buf = String::new();
-        for (name, val) in attrs {
-            if *val == 1 {
-                buf.push_str(&format!("@{name} "));
+        let mut buf = attrs.to_string_with(" ", |name, val| {
+            if val == 1 {
+                format!("@{}", name)
             } else {
-                buf.push_str(&format!("@{name}({val}) "));
+                format!("@{}({val})", name)
             }
+        });
+        if !attrs.is_empty() {
+            buf.push(' ');
         }
         buf
     }
@@ -35,11 +36,9 @@ impl Printer {
         } else {
             format!(
                 "<{}>",
-                attrs
-                    .into_iter()
-                    .map(|(k, v)| { format!("\"{}\"={}", k, v) })
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                attrs.to_string_with(", ", |name, val| {
+                    format!("\"{}\"={}", name, val)
+                })
             )
         }
     }
@@ -133,6 +132,9 @@ impl Printer {
         if prim.is_comb {
             write!(f, "comb ")?;
         }
+        if let Some(latency_val) = prim.latency {
+            write!(f, "static<{}> ", latency_val)?;
+        }
         write!(
             f,
             "primitive {}{}",
@@ -182,7 +184,13 @@ impl Printer {
                 matches!(p.borrow().direction, ir::Direction::Output)
             });
 
-        let pre = if comp.is_comb { "comb " } else { "" };
+        let pre = if comp.is_comb {
+            "comb ".to_string()
+        } else if comp.latency.is_some() {
+            format!("static<{}> ", comp.latency.unwrap())
+        } else {
+            "".to_string()
+        };
 
         writeln!(
             f,
@@ -195,14 +203,28 @@ impl Printer {
         )?;
 
         // Add the cells
-        writeln!(f, "  cells {{")?;
+        write!(f, "  cells {{")?;
+        if !comp.cells.is_empty() {
+            writeln!(f)?;
+        }
         for cell in comp.cells.iter() {
             Self::write_cell(&cell.borrow(), 4, f)?;
         }
-        writeln!(f, "  }}")?;
+        if !comp.cells.is_empty() {
+            writeln!(f, "  }}")?;
+        } else {
+            writeln!(f, "}}")?;
+        }
 
         // Add the wires
-        writeln!(f, "  wires {{")?;
+        let empty_wires = comp.groups.is_empty()
+            && comp.static_groups.is_empty()
+            && comp.comb_groups.is_empty()
+            && comp.continuous_assignments.is_empty();
+        write!(f, "  wires {{")?;
+        if !empty_wires {
+            writeln!(f)?;
+        }
         for group in comp.get_groups().iter() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
@@ -220,7 +242,11 @@ impl Printer {
             Self::write_assignment(assign, 4, f)?;
             writeln!(f)?;
         }
-        writeln!(f, "  }}")?;
+        if !empty_wires {
+            writeln!(f, "  }}")?;
+        } else {
+            writeln!(f, "}}")?;
+        }
 
         // Add the control program.
         // Since the syntax doesn't allow combinational components to have a control block, the attributes will always be empty
@@ -230,10 +256,10 @@ impl Printer {
                 ir::Control::Empty(ir::Empty { attributes })
                     if attributes.is_empty() =>
                 {
-                    writeln!(f, "\n  control {{}}")?;
+                    writeln!(f, "  control {{}}")?;
                 }
                 _ => {
-                    writeln!(f, "\n  control {{")?;
+                    writeln!(f, "  control {{")?;
                     Self::write_control(&comp.control.borrow(), 4, f)?;
                     writeln!(f, "  }}")?;
                 }
@@ -366,9 +392,9 @@ impl Printer {
         write!(f, "{}", " ".repeat(indent_level))?;
         write!(
             f,
-            "static group {}<{}>",
+            "static<{}> group {}",
+            group.get_latency(),
             group.name().id,
-            group.get_latency()
         )?;
         if !group.attributes.is_empty() {
             write!(f, "{}", Self::format_attributes(&group.attributes))?;
@@ -404,7 +430,7 @@ impl Printer {
                 ..
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static repeat {} ", num_repeats)?;
+                write!(f, "static repeat {} ", num_repeats)?;
                 writeln!(f, "{{")?;
                 Self::write_static_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
@@ -415,7 +441,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static seq <{}> {{", latency)?;
+                writeln!(f, "static<{}> seq  {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -427,7 +453,7 @@ impl Printer {
                 latency,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
-                writeln!(f, "static par <{}> {{", latency)?;
+                writeln!(f, "static<{}> par {{", latency)?;
                 for stmt in stmts {
                     Self::write_static_control(stmt, indent_level + 2, f)?;
                 }
@@ -450,7 +476,7 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
                     f,
-                    "static if <{}> {} ",
+                    "static<{}> if  {} ",
                     latency,
                     Self::port_to_str(&port.borrow()),
                 )?;
@@ -476,7 +502,7 @@ impl Printer {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
                     f,
-                    "static invoke<{}> {}",
+                    "static<{}> invoke {}",
                     latency,
                     comp.borrow().name()
                 )?;

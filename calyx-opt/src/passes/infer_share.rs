@@ -12,6 +12,7 @@ use calyx_utils::CalyxResult;
 /// by building a domination map. If so, component is state shareable.
 pub struct InferShare {
     print_dmap: bool,
+    print_static_analysis: bool,
     state_shareable: ShareSet,
     shareable: ShareSet,
     //name of main (so we can skip it)
@@ -28,7 +29,13 @@ impl Named for InferShare {
     }
 
     fn opts() -> &'static [(&'static str, &'static str)] {
-        &[("print-dmap", "Print the domination map")]
+        &[
+            ("print-dmap", "Print the domination map"),
+            (
+                "print-static-analysis",
+                "Prints the domination analysis for static dmaps",
+            ),
+        ]
     }
 }
 
@@ -44,6 +51,7 @@ impl ConstructVisitor for InferShare {
 
         Ok(InferShare {
             print_dmap: opts[0],
+            print_static_analysis: opts[1],
             state_shareable,
             shareable,
             main: ctx.entrypoint,
@@ -83,7 +91,7 @@ impl Visitor for InferShare {
                 || self.state_shareable.is_shareable_component(cell)
         };
 
-        // cannot contain any ref cells, or any cells of a "non-shareable" type
+        // cannot contain any external cells, or any cells of a "non-shareable" type
         // (i.e. not shareable, state_shareable, const or This component)
         if comp.cells.iter().any(|cell| {
             !type_is_shareable(cell) && !cell.borrow().is_reference()
@@ -98,6 +106,9 @@ impl Visitor for InferShare {
         // print the domination map if command line argument says so
         if self.print_dmap {
             println!("{dmap:?}");
+        }
+        if self.print_static_analysis {
+            println!("{:?}", dmap.static_par_domination);
         }
 
         for (node, dominators) in dmap.map.iter_mut() {
@@ -116,7 +127,7 @@ impl Visitor for InferShare {
                 }
             }
         }
-        comp.attributes.insert("state_share", 1);
+        comp.attributes.insert(ir::BoolAttr::StateShare, 1);
         self.state_shareable.add(comp.name);
         Ok(Action::Stop)
     }

@@ -1,4 +1,4 @@
-// -p well-formed -p static-inline -p remove-ids -p dead-group-removal
+// -p well-formed -p static-inline -p simplify-static-guards -p remove-ids -p dead-group-removal
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
@@ -12,29 +12,29 @@ component main() -> () {
     b = std_reg(2);
     c = std_reg(2);
     d = std_reg(2);
-    lt = std_lt(32);
+    r1 = std_reg(1);
   }
 
   wires {
-    static group A<2>{
+    static<2> group A {
       a.in = 2'd0;
       a.write_en = %0 ? 1'd1;
       b.in = 2'd1;
       b.write_en = %1 ? 1'd1;
     }
 
-    static group A3<3>{
+    static<3> group A3 {
       mult.left = 2'd1; 
       mult.right = 2'd3;
       mult.go = 1'd1; 
     }
 
-    static group C<1>{
+    static<1> group C {
       c.in = 2'd2;
       c.write_en = %0 ? 1'd1;
     }
 
-    static group D<1>{
+    static<1> group D{
       c.in = 2'd2;
       c.write_en = %0 ? 1'd1;
     }
@@ -43,7 +43,7 @@ component main() -> () {
 
   control {
     static par {
-      static if lt.out { A; } else { C; }
+      static if r1.out { A; } else { C; }
       static seq { A3; D; }
     }
     
