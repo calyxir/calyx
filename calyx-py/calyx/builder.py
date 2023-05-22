@@ -20,12 +20,21 @@ class Builder:
         )
         self.imported = set()
         self.import_("primitives/core.futil")
+        self._index: Dict[str, ComponentBuilder] = {}
 
     def component(self, name: str, cells=None) -> ComponentBuilder:
         cells = cells or []
         comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
+        self._index[name] = comp_builder
         return comp_builder
+
+    def get_component(self, name: str) -> ComponentBuilder:
+        comp_builder = self._index.get(name)
+        if comp_builder is None:
+            raise Exception(f"Component `{name}' not found in program.")
+        else:
+            return comp_builder
 
     def import_(self, filename: str):
         """Add an `import` statement to the program."""
