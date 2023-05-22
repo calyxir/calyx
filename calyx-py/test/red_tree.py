@@ -67,6 +67,27 @@ def add_tree(prog):
     )
 
 
+def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_mem):
+    """Orchestrates the use of the component `tree`.
+    Adds wiring for {group}, which puts into the tree's four leaves
+    the values p1, p2, p3, and p4.
+    It then runs the tree, and stores the answer in the std_mem {ans_mem}.
+    """
+    # i.e., much like the above, but instead of calculating the
+    # ports, it takes them as arguments.
+
+    with comp.group(group) as tree_use:
+        tree.leaf1 = port1
+        tree.leaf2 = port2
+        tree.leaf3 = port3
+        tree.leaf4 = port4
+        tree.go = cb.HI
+        ans_mem.addr0 = tree.done @ 0
+        ans_mem.write_data = tree.done @ tree.sum
+        ans_mem.write_en = tree.done @ 1
+        tree_use.done = ans_mem.done
+
+
 def use_tree_ports_calculated(
     comp, group, mem_a, mem_b, mem_c, mem_d, i, tree, ans_reg
 ):
@@ -88,27 +109,6 @@ def use_tree_ports_calculated(
         ans_reg.write_en = tree.done @ 1
         ans_reg.in_ = tree.done @ tree.sum
         tree_use.done = ans_reg.done
-
-
-def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_mem):
-    """Orchestrates the use of the component `tree`.
-    Adds wiring for {group}, which puts into the tree's four leaves
-    the values p1, p2, p3, and p4.
-    It then runs the tree, and stores the answer in the std_mem {ans_mem}.
-    """
-    # i.e., much like the above, but instead of calculating the
-    # ports, it takes them as arguments.
-
-    with comp.group(group) as tree_use:
-        tree.leaf1 = port1
-        tree.leaf2 = port2
-        tree.leaf3 = port3
-        tree.leaf4 = port4
-        tree.go = cb.HI
-        ans_mem.addr0 = tree.done @ 0
-        ans_mem.write_data = tree.done @ tree.sum
-        ans_mem.write_en = tree.done @ 1
-        tree_use.done = ans_mem.done
 
 
 def add_main(prog):
