@@ -45,6 +45,21 @@ class RunConf:
             args.profiled_stages,
         )
 
+    @classmethod
+    def from_dict(cls, dic):
+        """Build a RunConf from a python dictionary"""
+        return cls(
+            dic["source"],
+            dic["dest"],
+            dic.get("through", []),
+            dic.get("input_file", None),
+            dic.get("output_file", None),
+            dic.get("dry_run", False),
+            dic.get("quiet_run", False),
+            dic.get("csv", False),
+            dic.get("profiled_stages", None),
+        )
+
 
 def report_profiling(durations: Dict[str, float], is_csv: bool):
     """
@@ -79,9 +94,10 @@ def run_fud_from_args(args, config: Configuration):
     return run_fud(RunConf.from_args(args), config)
 
 
-def run_fud(args: RunConf, config: Configuration):
+def get_fud_output(args: RunConf, config: Configuration):
     """
-    Execute all the stages implied by the passed `args`
+    Execute all the stages implied by the passed `args`,
+    and get an output `Source` object
     """
     # check if input_file exists
     input_file = None
@@ -157,7 +173,17 @@ def run_fud(args: RunConf, config: Configuration):
         output.data = utils.profile_stages(durations, args.csv)
     else:
         output = staged.output
+    return output
 
+
+def run_fud(args: RunConf, config: Configuration):
+    """
+    Execute all the stages implied by the passed `args`,
+    and handles the output correctly, by either printing the output
+    or (if `args` specifies an output file) placing the output to the
+    specified file.
+    """
+    output = get_fud_output(args, config)
     # output the data or profiling information.
     if args.output_file is not None:
         if output.typ == SourceType.Directory:
