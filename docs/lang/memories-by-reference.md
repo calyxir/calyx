@@ -60,11 +60,53 @@ The Calyx compiler will correctly lower the `add_one` component and the `invoke`
 In fact, any cell can be passed by reference in a Calyx program.
 Read the next section if you're curious about how this process is implemented.
 
+### Multiple memories, multiple components
+
+To understand the power of `ref` cells, let us work through an example.
+We will study a relatively simple _arbitration logic_:
+the invoker has six memories of size 4 each, but needs to pretend, sometimes simulatenously, that:
+1. They are actually _two_ memories of size _12_ each.
+2. They are actually _three_ memories of size _8_ each.
+
+
+We will do up two components that are designed to receive memories by reference:
+
+```
+{{#include ../../calyx-py/test/arb6_no_comments.futil:wrap2}}
+    ...
+}
+wires { ... }
+control { ... }
+```
+and
+```
+{{#include ../../calyx-py/test/arb6_no_comments.futil:wrap3}}
+    ...
+}
+wires { ... }
+control { ... }
+```
+
+
+That is, they have the _same_ signature including `input` ports, `output` ports, and `ref` cells.
+We have elided the logic, but feel free to explore the [source code][arb6.futil].
+
+Now the invoker is able to wrap the _same_ memories two different ways, and then maintain two different fictional indexing systems at the same time.
+
+```
+{{#include ../../calyx-py/test/arb6_no_comments.futil:main}}
+```
+
+Observe: when "wrapped" into two chunks, \\( 0 \le i < 2 \\) and \\( 0 \le j < 12 \\); when wrapped into three chunks, \\( 0 \le i < 3 \\) and \\( 0 \le j < 8 \\).
+
+
 ## The Hard Way: Without `ref` Cells
 
 > Proceed with caution. We recommend using the `ref` syntax in almost all cases since it enables the compiler to perform more optimizations.
 
 If we wish not to use `ref` cells, we can leverage the usual `input` and `output` ports to establish a call-by-reference-esque relationship between the calling and called components.
+In fact, the Calyx compiler takes `ref` cells as descibed above and lowers them into code of the style described here.
+
 Let us walk through an example.
 
 ### Worked example: `mem_cpy`
@@ -142,3 +184,5 @@ Here is an example of a memory copy (referred to as `mem_cpy` in the C language)
 ```
 {{#include ../../tests/correctness/invoke-memory.futil}}
 ```
+
+[arb6.futil]: https://github.com/cucapra/calyx/blob/bf1653467522a7ed05a0ddd3072d570877579d35/calyx-py/test/arb_6_as_3_or_2.futil
