@@ -7,7 +7,8 @@ on: [push]
     #   - "main"
 
 env:
-  REGISTRY_IMAGE: cucapra/calyx
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
@@ -27,12 +28,12 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY_IMAGE }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Login to DockerHub
+      - name: Login to GHCR
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -45,7 +46,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
       - name: Export digest
         run: |
           mkdir -p /tmp/digests
@@ -75,7 +76,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY_IMAGE }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
