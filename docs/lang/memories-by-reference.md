@@ -64,6 +64,11 @@ Read the next section if you're curious about how this process is implemented.
 
 > Proceed with caution. We recommend using the `ref` syntax in almost all cases since it enables the compiler to perform more optimizations.
 
+If we wish not to use `ref` cells, we can leverage the usual `input` and `output` ports to establish a call-by-reference-esque relationship between the calling and called components.
+Let us walk through an example.
+
+### Worked example: `mem_cpy`
+
 In the C++ code above, we've constructed an "l-value reference" to the array,
 which essentially means we can both read and write from `x` in the function
 `add_one`.
@@ -125,13 +130,13 @@ fud e examples/futil/memory-by-reference/memory-by-reference.futil --to dat \
 -s verilog.data examples/futil/memory-by-reference/memory-by-reference.futil.data
 ```
 
-## Multi-dimensional Memories
+### Multi-dimensional Memories
 Not much changes for multi-dimensional arrays. The only additional step is adding
 the corresponding address ports. For example, a 2-dimensional memory will require address ports
 `addr0` and `addr1`. More generally, an `N`-dimensional memory will require address ports
 `addr0`, ..., `addr(N-1)`.
 
-## Multiple Memories
+### Multiple Memories
 Similarly, multiple memories will just require the ports to be passed for each of the given memories.
 Here is an example of a memory copy (referred to as `mem_cpy` in the C language), with 1-dimensional memories of size 5:
 ```
