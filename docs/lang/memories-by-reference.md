@@ -2,7 +2,7 @@
 
 One question that may arise when using Calyx as a backend is how to
 pass a memory "by reference" between components. In C++, this might look like:
-```
+```C++
 #include <array>
 #include <cstdint>
 
@@ -23,46 +23,46 @@ There are two steps to passing a memory by reference in Calyx:
 
 The language provides two ways of doing this.
 
-## The Easy Way
+## The Easy Way: `ref` Cells
 
-Calyx uses the `ref` keyword to describe cells that are passed in by-reference:
+Calyx uses the `ref` keyword to describe cells that are passed by reference:
 
 ```
 component add_one() -> () {
   cells {
-    ref mem = std_mem_d1(32, 4, 3); // A memory passed in by reference.
+    ref mem = std_mem_d1(32, 4, 3); // A memory passed by reference.
     ...
   }
   ...
 }
 ```
 
-This component define `mem` as a memory that is passed in by reference to the component.
-Inside the component we can use the cell like any other cell in the program.
+This component defines `mem` as a memory that is passed by reference to the component.
+Inside the component, we can use the cell as usual.
 
-Next, to pass the memory to the component, we can use the `invoke` syntax:
+Next, to pass the memory to the component, we use the `invoke` syntax:
 ```
 component add_one() -> () { ... }
 component main() -> () {
   cells {
-    A = std_mem_d1(32, 4, 3); // A memory passed in by reference.
+    A = std_mem_d1(32, 4, 3); // A memory passed by reference.
     one = add_one();
     ...
   }
   wires { ... }
   control {
-    invoke one[mem = A]()(); // pass A as the `mem` for this invocation
+    invoke one[mem = A]()(); // pass A as the `mem` for this invocation.
   }
 }
 ```
 
-The Calyx compiler will correctly lower the `add_one` component and the `invoke` call such that the memory is passed in by-reference.
-In fact, any cell can be passed in by-reference in a Calyx program.
+The Calyx compiler will correctly lower the `add_one` component and the `invoke` call such that the memory is passed by reference.
+In fact, any cell can be passed by reference in a Calyx program.
 Read the next section if you're curious about how this process is implemented.
 
-## The Hard Way
+## The Hard Way: Without `ref` Cells
 
-> We recommend using the `ref` syntax is almost all cases since it enables the compiler to perform more optimizations.
+> Proceed with caution. We recommend using the `ref` syntax in almost all cases since it enables the compiler to perform more optimizations.
 
 In the C++ code above, we've constructed an "l-value reference" to the array,
 which essentially means we can both read and write from `x` in the function
