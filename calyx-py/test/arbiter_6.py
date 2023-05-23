@@ -105,27 +105,55 @@ def add_wrap2(prog):
     # We will need j % 4, so we'll store it in a cell.
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
-    # Additional cells to compute equality, lt, and difference
-    eq0 = add_eq(wrap, i, 0, "eq0", "i_eq_0")
-    eq1 = add_eq(wrap, i, 1, "eq1", "i_eq_1")
-    lt1 = add_lt(wrap, j, 4, "lt1", "j_lt_4")
+    # Additional cells and groups to compute equality and lt
+    eq0cell, eq0grp = add_eq(wrap, i, 0, "eq0", "i_eq_0")
+    eq1cell, eq1grp = add_eq(wrap, i, 1, "eq1", "i_eq_1")
+    lt1cell, lt1grp = add_lt(wrap, j, 4, "lt1", "j_lt_4")
+    lt2cell, lt2grp = add_lt(wrap, j, 8, "lt2", "j_lt_8")
+
+    # Load `j` unchanged into `j_mod_4`.
     unchanged = add_reg_load(wrap, j, j_mod_4, "j_unchanged")
-    lt2 = add_lt(wrap, j, 8, "lt2", "j_lt_8")
 
+    # A subtraction cell and wiring to perform j-4 and j-8.
     sub_cell = wrap.sub("sub", 32)
-    sub1 = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
-    sub2 = add_sub(wrap, j, cb.const(32, 8), sub_cell, j_mod_4, "j_less_8")
+    sub1cell = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
+    sub2cell = add_sub(wrap, j, cb.const(32, 8), sub_cell, j_mod_4, "j_less_8")
 
-    emit_from_mems = [
+    load_from_mems = [
+        # Add wiring to load the value `j_mod_4` from all of the memory cells.
+        # We'll have to invoke the correct one of these groups later on.
         add_mem_load(wrap, mems[k - 1], j_mod_4.out, ans, f"load_from_mem{k}")
         for k in range(1, 7)
     ]
 
     wrap.control += [
-        cb.if_(lt1[0].out, lt1[1], unchanged),
+        cb.if_(
+            lt1cell.out,
+            lt1grp,
+            unchanged,
+            cb.if_(lt2cell.out, lt2grp, sub1cell, sub2cell),
+        ),
         cb.par(
-            cb.if_(eq0[0].out, eq0[1], emit_from_mems[0]),
-            cb.if_(eq1[0].out, eq1[1], emit_from_mems[1]),
+            cb.if_(
+                eq0cell.out,
+                eq0grp,
+                cb.if_(
+                    lt1cell.out,
+                    lt1grp,
+                    load_from_mems[0],
+                    cb.if_(lt2cell.out, lt2grp, load_from_mems[1], load_from_mems[2]),
+                ),
+            ),
+            cb.if_(
+                eq1cell.out,
+                eq1grp,
+                cb.if_(
+                    lt1cell.out,
+                    lt1grp,
+                    load_from_mems[3],
+                    cb.if_(lt2cell.out, lt2grp, load_from_mems[4], load_from_mems[5]),
+                ),
+            ),
         ),
     ]
 
@@ -158,15 +186,18 @@ def add_wrap3(prog):
     # We will need j % 4, so we'll store it in a cell.
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
-    # Additional cells to compute equality, lt, and difference
-    eq0 = add_eq(wrap, i, 0, "eq0", "i_eq_0")
-    eq1 = add_eq(wrap, i, 1, "eq1", "i_eq_1")
-    eq2 = add_eq(wrap, i, 2, "eq2", "i_eq_2")
-    lt1 = add_lt(wrap, j, 4, "lt", "j_lt_4")
+    # Additional cells to compute equality, and lt
+    eq0cell, eq0grp = add_eq(wrap, i, 0, "eq0", "i_eq_0")
+    eq1cell, eq1grp = add_eq(wrap, i, 1, "eq1", "i_eq_1")
+    eq2cell, eq2grp = add_eq(wrap, i, 2, "eq2", "i_eq_2")
+    ltcell, ltgrp = add_lt(wrap, j, 4, "lt", "j_lt_4")
+
+    # Load `j` unchanged into `j_mod_4`.
     unchanged = add_reg_load(wrap, j, j_mod_4, "j_unchanged")
 
+    # A subtraction cell and wiring to perform j-4.
     sub_cell = wrap.sub("sub", 32)
-    sub1 = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
+    subcell = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
 
     emit_from_mems = [
         add_mem_load(wrap, mems[k - 1], j_mod_4.out, ans, f"load_from_mem{k}")
@@ -174,10 +205,24 @@ def add_wrap3(prog):
     ]
 
     wrap.control += [
-        cb.if_(lt1[0].out, lt1[1], unchanged),
+        cb.if_(ltcell.out, ltgrp, unchanged, subcell),
         cb.par(
-            cb.if_(eq0[0].out, eq0[1], emit_from_mems[0]),
-            cb.if_(eq1[0].out, eq1[1], emit_from_mems[1]),
+            cb.if_(
+                eq0cell.out,
+                eq0grp,
+                cb.if_(ltcell.out, ltgrp, emit_from_mems[0], emit_from_mems[1]),
+            ),
+            cb.if_(
+                eq1cell.out,
+                eq1grp,
+                cb.if_(ltcell.out, ltgrp, emit_from_mems[2], emit_from_mems[2]),
+                emit_from_mems[3],
+            ),
+            cb.if_(
+                eq2cell.out,
+                eq2grp,
+                cb.if_(ltcell.out, ltgrp, emit_from_mems[4], emit_from_mems[5]),
+            ),
         ),
     ]
 
@@ -202,8 +247,6 @@ def add_main(prog, wrap2, wrap3):
     out2 = main.mem_d1("out2", 32, 1, 32, is_external=True)
     out3 = main.mem_d1("out3", 32, 1, 32, is_external=True)
 
-    # AM, quality of life:
-    # Would be nice to have a way to do this in a more `builder` way.
     together2 = main.cell("together2", wrap2)
     together3 = main.cell("together3", wrap3)
 
