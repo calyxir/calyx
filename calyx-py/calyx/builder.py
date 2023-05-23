@@ -190,21 +190,21 @@ class ComponentBuilder:
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int) -> CellBuilder:
+    def add(self, name: str, size: int, signed=False) -> CellBuilder:
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("add", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("add", size, signed))
 
-    def eq(self, name: str, size: int):
+    def sub(self, name: str, size: int, signed=False):
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("eq", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("sub", size, signed))
 
-    def lt(self, name: str, size: int):
+    def eq(self, name: str, size: int, signed=False):
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("lt", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("eq", size, signed))
 
-    def sub(self, name: str, size: int):
+    def lt(self, name: str, size: int, signed=False):
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("sub", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("lt", size, signed))
 
 
 def as_control(obj):
