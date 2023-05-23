@@ -198,13 +198,29 @@ class ComponentBuilder:
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("sub", size, signed))
 
-    def eq(self, name: str, size: int, signed=False):
+    def gt(self, name: str, size: int, signed=False):
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("eq", size, signed))
+        return self.cell(name, ast.Stdlib.op("gt", size, signed))
 
     def lt(self, name: str, size: int, signed=False):
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("lt", size, signed))
+
+    def eq(self, name: str, size: int, signed=False):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("eq", size, signed))
+
+    def neq(self, name: str, size: int, signed=False):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("neq", size, signed))
+
+    def ge(self, name: str, size: int, signed=False):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("ge", size, signed))
+
+    def le(self, name: str, size: int, signed=False):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("le", size, signed))
 
 
 def as_control(obj):
