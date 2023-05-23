@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Dict, Union, Optional, List
+from typing import Any, Dict, Union, Optional, List
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
@@ -247,8 +247,15 @@ def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
     return ast.While(port.expr, cg, as_control(body))
 
 
-def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.If:
+def if_(
+    port: ExprBuilder,
+    cond: Optional[GroupBuilder],
+    body,
+    else_body: Optional[Any] = None,
+) -> ast.If:
     """Build an `if` control statement."""
+    else_body = ast.Empty() if else_body is None else else_body
+
     if cond:
         assert isinstance(
             cond.group_like, ast.CombGroup
@@ -256,7 +263,7 @@ def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.If:
         cg = cond.group_like.id
     else:
         cg = None
-    return ast.If(port.expr, cg, as_control(body))
+    return ast.If(port.expr, cg, as_control(body), as_control(else_body))
 
 
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
