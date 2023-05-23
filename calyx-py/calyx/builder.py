@@ -261,7 +261,7 @@ def if_(
     port: ExprBuilder,
     cond: Optional[GroupBuilder],
     body,
-    else_body: Optional[Any] = None,
+    else_body=None,
 ) -> ast.If:
     """Build an `if` control statement."""
     else_body = ast.Empty() if else_body is None else else_body
