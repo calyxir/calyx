@@ -250,7 +250,8 @@ def add_main(prog, wrap2, wrap3):
     # Six memory cells, plus an two answer cells.
 
     [mem_a, mem_b, mem_c, mem_d, mem_e, mem_f] = [
-        main.mem_d1(name, 32, 4, 32, is_external=True) for name in ["A","B","C","D","E","F"]
+        main.mem_d1(name, 32, 4, 32, is_external=True)
+        for name in ["A", "B", "C", "D", "E", "F"]
     ]
     out2 = main.mem_d1("out2", 32, 1, 32, is_external=True)
     out3 = main.mem_d1("out3", 32, 1, 32, is_external=True)
