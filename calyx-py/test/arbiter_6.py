@@ -250,7 +250,7 @@ def add_main(prog, wrap2, wrap3):
     # Six memory cells, plus an two answer cells.
 
     [mem_a, mem_b, mem_c, mem_d, mem_e, mem_f] = [
-        main.mem_d1(f"mem{i}", 32, 4, 32, is_external=True) for i in range(6)
+        main.mem_d1(name, 32, 4, 32, is_external=True) for name in ["A","B","C","D","E","F"]
     ]
     out2 = main.mem_d1("out2", 32, 1, 32, is_external=True)
     out3 = main.mem_d1("out3", 32, 1, 32, is_external=True)
@@ -263,24 +263,24 @@ def add_main(prog, wrap2, wrap3):
             together2,
             in_i=cb.const(32, 1),
             in_j=cb.const(32, 11),
-            ref_mem1=mem_a,
-            ref_mem2=mem_b,
-            ref_mem3=mem_c,
-            ref_mem4=mem_d,
-            ref_mem5=mem_e,
-            ref_mem6=mem_f,
+            ref_mem0=mem_a,
+            ref_mem1=mem_b,
+            ref_mem2=mem_c,
+            ref_mem3=mem_d,
+            ref_mem4=mem_e,
+            ref_mem5=mem_f,
             ref_ans=out2,
         ),
         cb.invoke(
             together3,
             in_i=cb.const(32, 2),
             in_j=cb.const(32, 7),
-            ref_mem1=mem_a,
-            ref_mem2=mem_b,
-            ref_mem3=mem_c,
-            ref_mem4=mem_d,
-            ref_mem5=mem_e,
-            ref_mem6=mem_f,
+            ref_mem0=mem_a,
+            ref_mem1=mem_b,
+            ref_mem2=mem_c,
+            ref_mem3=mem_d,
+            ref_mem4=mem_e,
+            ref_mem5=mem_f,
             ref_ans=out3,
         ),
     ]
