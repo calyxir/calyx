@@ -116,8 +116,8 @@ def add_wrap2(prog):
 
     # A subtraction cell and wiring to perform j-4 and j-8.
     sub_cell = wrap.sub("sub", 32)
-    sub1cell = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
-    sub2cell = add_sub(wrap, j, cb.const(32, 8), sub_cell, j_mod_4, "j_less_8")
+    sub1cell = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_minus_4")
+    sub2cell = add_sub(wrap, j, cb.const(32, 8), sub_cell, j_mod_4, "j_minus_8")
 
     load_from_mems = [
         # Add wiring to load the value `j_mod_4` from all of the memory cells.
@@ -207,7 +207,7 @@ def add_wrap3(prog):
 
     # A subtraction cell and wiring to perform j-4.
     sub_cell = wrap.sub("sub", 32)
-    subcell = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
+    subcell = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_minus_4")
 
     emit_from_mems = [
         add_mem_load(wrap, mems[i], j_mod_4.out, ans, f"load_from_mem{i}")
