@@ -33,10 +33,10 @@ def add_lt(comp: cb.ComponentBuilder, port, const, cell, group):
 def add_sub(comp: cb.ComponentBuilder, port, const, sub_cell, ans_reg, group):
     """Adds wiring into component `comp` to compute `port - const`.
     1. Within component `comp`, creates a group called `group`.
-    2. Within `group`, assumes that there exists a cell called `cell` that computes the difference.
+    2. Within `group`, assumes there is a cell `cell` that computes the difference.
     3. Puts the values of `port` and `const` into `cell`.
     4. Then puts the answer of the computation into `ans_reg`
-    4. Returns the sub-checking cell and the sub-checking group.
+    4. Returns the sub-checking group.
     """
     with comp.group(group) as sub_group:
         sub_cell.left = port
@@ -44,7 +44,7 @@ def add_sub(comp: cb.ComponentBuilder, port, const, sub_cell, ans_reg, group):
         ans_reg.write_en = 1
         ans_reg.in_ = sub_cell.out
         sub_group.done = ans_reg.done
-    return sub_cell, sub_group
+    return sub_group
 
 
 def add_mem_load(comp: cb.ComponentBuilder, mem, j, ans, group):
@@ -62,27 +62,31 @@ def add_mem_load(comp: cb.ComponentBuilder, mem, j, ans, group):
     return load_grp
 
 
-def add_j_unchanged(comp: cb.ComponentBuilder, j, ans_reg, group):
-    with comp.group("j_unchanged") as group:
+def add_reg_load(comp: cb.ComponentBuilder, port, ans_reg, group):
+    """Creates a group called `group`.
+    In that, loads the value of `port` into `ans_reg`.
+    Returns the group."""
+    with comp.group(group) as grp:
         ans_reg.write_en = 1
-        ans_reg.in_ = j
-        group.done = ans_reg.done
-    return group
+        ans_reg.in_ = port
+        grp.done = ans_reg.done
+    return grp
 
 
 def add_wrap2(prog):
     """Inserts the component `wrap2` into the program.
 
     It has:
-    - two inputs, `i` and `j`. 0 <= i < 2 and 0 <= j < 12.
+    - two inputs, `i` and `j`.
     - six ref memories, `mem1` through `mem6`, of size 4 each.
     - one ref memory, `ans`.
 
-    The invoker wants to pretend that there are actually _two_ memories
-    of size _12_ each. The invoker wants to index the memories while
-    living in this fiction.
+    The invoker wants to pretend that there are actually
+    _two_ memories of size _12_ each.
+    The invoker wants to index the memories while living in this fiction.
 
     This component will return mem[i][j], but indexed according to the fiction.
+    Accordingly, 0 <= i < 2 and 0 <= j < 12.
     """
 
     wrap: cb.ComponentBuilder = prog.component("wrap2")
@@ -99,19 +103,78 @@ def add_wrap2(prog):
     mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(1, 7)]
     ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
 
-    # We will need j%4, so we'll store it in a cell.
+    # We will need j % 4, so we'll store it in a cell.
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells to compute equality, lt, and difference
     eq0 = add_eq(wrap, i, 0, "eq0", "i_eq_0")
     eq1 = add_eq(wrap, i, 1, "eq1", "i_eq_1")
     lt1 = add_lt(wrap, j, 4, "lt1", "j_lt_4")
-    unchanged = add_j_unchanged(wrap, j, j_mod_4, "j_unchanged")
+    unchanged = add_reg_load(wrap, j, j_mod_4, "j_unchanged")
     lt2 = add_lt(wrap, j, 8, "lt2", "j_lt_8")
 
     sub_cell = wrap.sub("sub", 32)
     sub1 = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
     sub2 = add_sub(wrap, j, cb.const(32, 8), sub_cell, j_mod_4, "j_less_8")
+
+    emit_from_mems = [
+        add_mem_load(wrap, mems[k - 1], j_mod_4.out, ans, f"load_from_mem{k}")
+        for k in range(1, 7)
+    ]
+
+    wrap.control += [
+        cb.if_(lt1[0].out, lt1[1], unchanged),
+        cb.par(
+            cb.if_(eq0[0].out, eq0[1], emit_from_mems[0]),
+            cb.if_(eq1[0].out, eq1[1], emit_from_mems[1]),
+        ),
+    ]
+
+    return wrap
+
+
+def add_wrap3(prog):
+    """Inserts the component `wrap2` into the program.
+
+    It has:
+    - two inputs, `i` and `j`.
+    - six ref memories, `mem1` through `mem6`, of size 4 each.
+    - one ref memory, `ans`.
+
+    The invoker wants to pretend that there are actually
+    _two_ memories of size _12_ each.
+    The invoker wants to index the memories while living in this fiction.
+
+    This component will return mem[i][j], but indexed according to the fiction.
+    Accordingly, 0 <= i < 2 and 0 <= j < 12.
+    """
+
+    wrap: cb.ComponentBuilder = prog.component("wrap3")
+    wrap.input("i", 32)
+    wrap.input("j", 32)
+
+    # AM, quality of life:
+    # `input` has no return value, so I'm forced to immediately call `this()`
+    # to get the ports I just created.
+    i = wrap.this()["i"]
+    j = wrap.this()["j"]
+
+    # Six memory cells, plus an answer cell.
+    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(1, 7)]
+    ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
+
+    # We will need j % 4, so we'll store it in a cell.
+    j_mod_4 = wrap.reg("j_mod_4", 32)
+
+    # Additional cells to compute equality, lt, and difference
+    eq0 = add_eq(wrap, i, 0, "eq0", "i_eq_0")
+    eq1 = add_eq(wrap, i, 1, "eq1", "i_eq_1")
+    eq2 = add_eq(wrap, i, 2, "eq2", "i_eq_2")
+    lt1 = add_lt(wrap, j, 4, "lt", "j_lt_4")
+    unchanged = add_reg_load(wrap, j, j_mod_4, "j_unchanged")
+
+    sub_cell = wrap.sub("sub", 32)
+    sub1 = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
 
     emit_from_mems = [
         add_mem_load(wrap, mems[k - 1], j_mod_4.out, ans, f"load_from_mem{k}")
@@ -137,15 +200,15 @@ def add_main(prog, wrap2, wrap3):
     along with the inputs i = 1, j = 3.
     """
     main: cb.ComponentBuilder = prog.component("main")
-    _ = main.mem_d1("A", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("B", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("C", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("D", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("E", 32, 4, 32, is_external=True)
-    _ = main.mem_d1("F", 32, 4, 32, is_external=True)
+    A = main.mem_d1("A", 32, 4, 32, is_external=True)
+    B = main.mem_d1("B", 32, 4, 32, is_external=True)
+    C = main.mem_d1("C", 32, 4, 32, is_external=True)
+    D = main.mem_d1("D", 32, 4, 32, is_external=True)
+    E = main.mem_d1("E", 32, 4, 32, is_external=True)
+    F = main.mem_d1("F", 32, 4, 32, is_external=True)
 
-    _ = main.mem_d1("out2", 32, 1, 32, is_external=True)
-    _ = main.mem_d1("out3", 32, 1, 32, is_external=True)
+    out2 = main.mem_d1("out2", 32, 1, 32, is_external=True)
+    out3 = main.mem_d1("out3", 32, 1, 32, is_external=True)
 
     # AM, quality of life:
     # Would be nice to have a way to do this in a more `builder` way.
@@ -172,8 +235,9 @@ def add_main(prog, wrap2, wrap3):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    wrap = add_wrap2(prog)
-    add_main(prog, wrap, wrap)
+    wrap2 = add_wrap2(prog)
+    wrap3 = add_wrap3(prog)
+    add_main(prog, wrap2, wrap3)
     return prog.program
 
 
