@@ -295,7 +295,7 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
             if k.startswith("out_")
         ],
         [
-            (k[4:], ExprBuilder.unwrap(v))
+            (k[4:], CellBuilder.unwrap_id(v))
             for (k, v) in kwargs.items()
             if k.startswith("ref_")
         ],
@@ -444,6 +444,13 @@ class CellBuilder(CellLikeBuilder):
     def port(self, name: str) -> ExprBuilder:
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
+
+    @classmethod
+    def unwrap_id(cls, obj):
+        if isinstance(obj, cls):
+            return obj._cell.id
+        else:
+            return obj
 
 
 class ThisBuilder(CellLikeBuilder):
