@@ -215,8 +215,7 @@ def add_wrap3(prog):
             cb.if_(
                 eq1cell.out,
                 eq1grp,
-                cb.if_(ltcell.out, ltgrp, emit_from_mems[2], emit_from_mems[2]),
-                emit_from_mems[3],
+                cb.if_(ltcell.out, ltgrp, emit_from_mems[2], emit_from_mems[3]),
             ),
             cb.if_(
                 eq2cell.out,
@@ -262,8 +261,30 @@ def add_main(prog, wrap2, wrap3):
     #     attributes: List[Tuple[str, int]] = field(default_factory=list)
     # As I see it, only id, in_connects, and out_connects are supported.
     main.control += [
-        cb.invoke(together2, in_i=cb.const(32, 1), in_j=cb.const(32, 11)),
-        cb.invoke(together3, in_i=cb.const(32, 2), in_j=cb.const(32, 7)),
+        cb.invoke(
+            together2,
+            in_i=cb.const(32, 1),
+            in_j=cb.const(32, 11),
+            ref_mem1=mem_a,
+            ref_mem2=mem_b,
+            ref_mem3=mem_c,
+            ref_mem4=mem_d,
+            ref_mem5=mem_e,
+            ref_mem6=mem_f,
+            ref_ans=out2,
+        ),
+        cb.invoke(
+            together3,
+            in_i=cb.const(32, 2),
+            in_j=cb.const(32, 7),
+            ref_mem1=mem_a,
+            ref_mem2=mem_b,
+            ref_mem3=mem_c,
+            ref_mem4=mem_d,
+            ref_mem5=mem_e,
+            ref_mem6=mem_f,
+            ref_ans=out3,
+        ),
     ]
 
 
