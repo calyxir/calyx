@@ -67,11 +67,21 @@ class ComponentBuilder:
             self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
 
-    def input(self, name: str, size: int):
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
+    def input(self, name: str, size: int) -> ExprBuilder:
+        """Declare an input port on the component.
 
-    def output(self, name: str, size: int):
+        Returns an expression builder for the port.
+        """
+        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
+        return self.this()[name]
+
+    def output(self, name: str, size: int) -> ExprBuilder:
+        """Declare an output port on the component.
+
+        Returns an expression builder for the port.
+        """
         self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
+        return self.this()[name]
 
     def this(self) -> ThisBuilder:
         return ThisBuilder()
