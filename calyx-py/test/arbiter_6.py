@@ -95,14 +95,8 @@ def add_wrap2(prog):
     """
 
     wrap: cb.ComponentBuilder = prog.component("wrap2")
-    wrap.input("i", 32)
-    wrap.input("j", 32)
-
-    # AM, quality of life:
-    # `input` has no return value, so I'm forced to immediately call `this()`
-    # to get the ports I just created.
-    i = wrap.this()["i"]
-    j = wrap.this()["j"]
+    i = wrap.input("i", 32)
+    j = wrap.input("j", 32)
 
     # Six memory cells, plus an answer cell.
     mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(1, 7)]
@@ -154,14 +148,8 @@ def add_wrap3(prog):
     """
 
     wrap: cb.ComponentBuilder = prog.component("wrap3")
-    wrap.input("i", 32)
-    wrap.input("j", 32)
-
-    # AM, quality of life:
-    # `input` has no return value, so I'm forced to immediately call `this()`
-    # to get the ports I just created.
-    i = wrap.this()["i"]
-    j = wrap.this()["j"]
+    i = wrap.input("i", 32)
+    j = wrap.input("j", 32)
 
     # Six memory cells, plus an answer cell.
     mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(1, 7)]
