@@ -102,7 +102,7 @@ component wrap3(i: 32, j: 32) -> () {
 ```
 
 That is, they have the same signature including `input` ports, `output` ports, and `ref` cells.
-We have elided the logic, but feel free to explore the [source code][arb6.futil].
+We have elided the logic, but feel free to explore the [source code][arbiter_6.futil].
 
 Now the invoker has six locally defined memories.
 By passing these memories to the components above, the invoker is able to wrap the same six memories two different ways, and then maintain two different fictional indexing systems at the same time.
@@ -224,4 +224,4 @@ Here is an example of a memory copy (referred to as `mem_cpy` in the C language)
 {{#include ../../tests/correctness/invoke-memory.futil}}
 ```
 
-[arb6.futil]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/arb_6_as_3_or_2.futil
+[arbiter_6.futil]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/arbiter_6.futil
