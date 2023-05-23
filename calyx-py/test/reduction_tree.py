@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+from typing import List
 import calyx.builder as cb
 
 
@@ -8,20 +9,20 @@ def add_adder(
     group,
     port_l,
     port_r,
-    ans,
+    ans_reg,
 ):
-    """To component {comp}, adds wiring for an adder-group called {group}.
-    Assumes the adder cell {adder} is in the component, and puts {port_l} and {port_r}
-    into the adder.
-    Then puts the output of {adder} into the memory register {ans}.
+    """To component {comp}, adds wiring for an group called {group}.
+    Assumes the adder cell {adder} is in the component.
+    In {group}, puts {port_l} and {port_r} into the {adder} cell.
+    Then puts the output of {adder} into the memory register {ans_reg}.
     Returns the group.
     """
     with comp.group(group) as adder_group:
         adder.left = port_l
         adder.right = port_r
-        ans.write_en = 1
-        ans.in_ = adder.out
-        adder_group.done = ans.done
+        ans_reg.write_en = 1
+        ans_reg.in_ = adder.out
+        adder_group.done = ans_reg.done
     return adder_group
 
 
@@ -32,27 +33,34 @@ def add_tree(prog):
     - one output, `sum`
 
     When done, it puts the sum of the four leaves into `sum`.
-    Returns the component builder for tree.
+    Returns a handle to the component `tree`.
     """
 
     tree: cb.ComponentBuilder = prog.component("tree")
+    # Add the four inputs ports, and stash handles to those inputs.
     [leaf1, leaf2, leaf3, leaf4] = [tree.input(f"leaf{i}", 32) for i in range(1, 5)]
 
+    # Add the output port.
     tree.output("sum", 32)
 
+    # Add three registers and two adders.
     root = tree.reg("root", 32)
     left = tree.reg("left_node", 32)
     right = tree.reg("right_node", 32)
-
     add1 = tree.add("add1", 32)
     add2 = tree.add("add2", 32)
 
+    # Into the component `tree`, add the wiring for three adder groups that will
+    # use the tree to perform their additions.
     add_l1_l2 = add_adder(tree, add1, "add_l1_l2", leaf1, leaf2, left)
     add_l3_l4 = add_adder(tree, add2, "add_l3_l4", leaf3, leaf4, right)
     add_l_r_nodes = add_adder(
         tree, add1, "add_left_right_nodes", left.out, right.out, root
     )
 
+    # Continuously output the value of the root register.
+    # It is the invoker's responsibility to ensure that the tree is done
+    # before reading this value.
     with tree.continuous:
         tree.this().sum = root.out
 
@@ -62,10 +70,11 @@ def add_tree(prog):
 
 def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_mem):
     """Orchestrates the use of the component `tree`.
-    Adds wiring for {group}, which puts into the tree's four leaves
-    the values p1, p2, p3, and p4.
-    It then runs the tree, and stores the answer in the std_mem {ans_mem}.
-    Finally, it retuns the group.
+    Adds wiring for a new group called {group}.
+    In {group}, assumes that `tree` exists and is set up as above.
+    Puts into the tree's four leaves the values p1, p2, p3, and p4.
+    Runs the tree, waits for the tree to be done, and stores the answer in {ans_mem}.
+    Finally, returns a handle to {group}.
     """
 
     with comp.group(group) as tree_use:
@@ -85,13 +94,15 @@ def use_tree_ports_calculated(
     comp, group, mem_a, mem_b, mem_c, mem_d, i, tree, ans_reg
 ):
     """Orchestrates the use of the component `tree`.
-    Adds wiring for {group}, which puts into the tree's four leaves
-    the values a[i], b[i], c[i], and d[i].
-    It then runs the tree, and when the tree is done, stores the answer in {ans_reg}.
-    Finally, it retuns the group.
+    Adds wiring for a new group called {group}.
+    In {group}, assumes that `tree` exists and is set up as above.
+    Puts into the tree's four leaves the values the values a[i], b[i], c[i], and d[i].
+    Runs the tree, waits for the tree to be done, and stores the answer in {ans_reg}.
+    Finally, returns a handle to {group}.
     """
     # i.e., much like the above, but instead of getting the ports as arguments,
     # it must first calculate them.
+    # It also stores the answer in a register, rather than a memory.
 
     with comp.group(group) as tree_use:
         mem_a.addr0 = mem_b.addr0 = mem_c.addr0 = mem_d.addr0 = i
@@ -108,7 +119,6 @@ def use_tree_ports_calculated(
 
 def add_main(prog, tree):
     """Inserts the component `main` into the program.
-    This will be used in concert with multiple copies of the component `tree`.
     It requires:
     - Memories `A`, `B`, `C`, `D`, of length 4 each, to be driven from the data file.
     - A memory `ans` to store the result, also driven from the data file.
@@ -116,11 +126,11 @@ def add_main(prog, tree):
     It puts the sum of elements of the four memory cells into `ans`.
     """
     main = prog.component("main")
-    A = main.mem_d1("A", 32, 4, 32, is_external=True)
-    B = main.mem_d1("B", 32, 4, 32, is_external=True)
-    C = main.mem_d1("C", 32, 4, 32, is_external=True)
-    D = main.mem_d1("D", 32, 4, 32, is_external=True)
-    ans = main.mem_d1("ans", 32, 1, 1, is_external=True)
+    mem_a = main.mem_d1("A", 32, 4, 32, is_external=True)
+    mem_b = main.mem_d1("B", 32, 4, 32, is_external=True)
+    mem_c = main.mem_d1("C", 32, 4, 32, is_external=True)
+    mem_d = main.mem_d1("D", 32, 4, 32, is_external=True)
+    mem_ans = main.mem_d1("ans", 32, 1, 1, is_external=True)
     sum_col0 = main.reg("sum_col0", 32)
     sum_col1 = main.reg("sum_col1", 32)
     sum_col2 = main.reg("sum_col2", 32)
@@ -128,12 +138,20 @@ def add_main(prog, tree):
 
     tree = main.cell("tree", tree)
 
-    adder_groups: list[cb.GroupBuilder] = [
-        use_tree_ports_calculated(main, f"add_col{i}", A, B, C, D, i, tree, ans_reg)
+    adder_groups: List[cb.GroupBuilder] = [
+        # Fill each of our answer registers will the sum of the corresponding column.
+        # The tree will be used four times, once for each column.
+        # Each time, we will receive a handle to the group that does the work.
+        # We stash these groups in `adder_groups`.
+        use_tree_ports_calculated(
+            main, f"add_col{i}", mem_a, mem_b, mem_c, mem_d, i, tree, ans_reg
+        )
         for i, ans_reg in enumerate([sum_col0, sum_col1, sum_col2, sum_col3])
     ]
 
     adder_groups.append(
+        # We also create and stash a further group:
+        # this one does the work of adding the four columns.
         use_tree_ports_provided(
             main,
             "add_intermediates",
@@ -142,10 +160,11 @@ def add_main(prog, tree):
             sum_col2.out,
             sum_col3.out,
             tree,
-            ans,
+            mem_ans,
         )
     )
 
+    # Control is straightforward: just run all the groups in `adder_groups` in sequence.
     main.control += adder_groups
 
 
