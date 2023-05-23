@@ -29,7 +29,7 @@ def add_adder(
 def add_tree(prog):
     """Inserts the component `tree` into the program.
     It has:
-    - four inputs, `leaf1`, `leaf2`, `leaf3`, and `leaf4`
+    - four inputs, `leaf0`, `leaf1`, `leaf2`, and `leaf3`
     - one output, `sum`
 
     When done, it puts the sum of the four leaves into `sum`.
@@ -38,7 +38,7 @@ def add_tree(prog):
 
     tree: cb.ComponentBuilder = prog.component("tree")
     # Add the four inputs ports, and stash handles to those inputs.
-    [leaf1, leaf2, leaf3, leaf4] = [tree.input(f"leaf{i}", 32) for i in range(1, 5)]
+    [leaf0, leaf1, leaf2, leaf3] = [tree.input(f"leaf{i}", 32) for i in range(4)]
 
     # Add the output port.
     tree.output("sum", 32)
@@ -52,8 +52,8 @@ def add_tree(prog):
 
     # Into the component `tree`, add the wiring for three adder groups that will
     # use the tree to perform their additions.
-    add_l1_l2 = add_adder(tree, add1, "add_l1_l2", leaf1, leaf2, left)
-    add_l3_l4 = add_adder(tree, add2, "add_l3_l4", leaf3, leaf4, right)
+    add_l0_l1 = add_adder(tree, add1, "add_l0_l1", leaf0, leaf1, left)
+    add_l2_l3 = add_adder(tree, add2, "add_l2_l3", leaf2, leaf3, right)
     add_l_r_nodes = add_adder(
         tree, add1, "add_left_right_nodes", left.out, right.out, root
     )
@@ -64,24 +64,24 @@ def add_tree(prog):
     with tree.continuous:
         tree.this().sum = root.out
 
-    tree.control += [cb.par(add_l1_l2, add_l3_l4), add_l_r_nodes]
+    tree.control += [cb.par(add_l0_l1, add_l2_l3), add_l_r_nodes]
     return tree
 
 
-def use_tree_ports_provided(comp, group, port1, port2, port3, port4, tree, ans_mem):
+def use_tree_ports_provided(comp, group, port0, port1, port2, port3, tree, ans_mem):
     """Orchestrates the use of the component `tree`.
     Adds wiring for a new group called {group}.
     In {group}, assumes that `tree` exists and is set up as above.
-    Puts into the tree's four leaves the values p1, p2, p3, and p4.
+    Puts into the tree's four leaves the values port0, port1, port2, and port3.
     Runs the tree, waits for the tree to be done, and stores the answer in {ans_mem}.
     Finally, returns a handle to {group}.
     """
 
     with comp.group(group) as tree_use:
+        tree.leaf0 = port0
         tree.leaf1 = port1
         tree.leaf2 = port2
         tree.leaf3 = port3
-        tree.leaf4 = port4
         tree.go = cb.HI
         ans_mem.addr0 = tree.done @ 0
         ans_mem.write_data = tree.done @ tree.sum
@@ -106,10 +106,10 @@ def use_tree_ports_calculated(
 
     with comp.group(group) as tree_use:
         mem_a.addr0 = mem_b.addr0 = mem_c.addr0 = mem_d.addr0 = i
-        tree.leaf1 = mem_a.read_data
-        tree.leaf2 = mem_b.read_data
-        tree.leaf3 = mem_c.read_data
-        tree.leaf4 = mem_d.read_data
+        tree.leaf0 = mem_a.read_data
+        tree.leaf1 = mem_b.read_data
+        tree.leaf2 = mem_c.read_data
+        tree.leaf3 = mem_d.read_data
         tree.go = cb.HI
         ans_reg.write_en = tree.done @ 1
         ans_reg.in_ = tree.done @ tree.sum

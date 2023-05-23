@@ -99,7 +99,7 @@ def add_wrap2(prog):
     j = wrap.input("j", 32)
 
     # Six memory cells, plus an answer cell.
-    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(1, 7)]
+    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(6)]
     ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j % 4, so we'll store it in a cell.
@@ -122,8 +122,8 @@ def add_wrap2(prog):
     load_from_mems = [
         # Add wiring to load the value `j_mod_4` from all of the memory cells.
         # We'll have to invoke the correct one of these groups later on.
-        add_mem_load(wrap, mems[k - 1], j_mod_4.out, ans, f"load_from_mem{k}")
-        for k in range(1, 7)
+        add_mem_load(wrap, mems[i], j_mod_4.out, ans, f"load_from_mem{i}")
+        for i in range(6)
     ]
 
     wrap.control += [
@@ -180,7 +180,7 @@ def add_wrap3(prog):
     j = wrap.input("j", 32)
 
     # Six memory cells, plus an answer cell.
-    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(1, 7)]
+    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(6)]
     ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j % 4, so we'll store it in a cell.
@@ -200,8 +200,8 @@ def add_wrap3(prog):
     subcell = add_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_less_4")
 
     emit_from_mems = [
-        add_mem_load(wrap, mems[k - 1], j_mod_4.out, ans, f"load_from_mem{k}")
-        for k in range(1, 7)
+        add_mem_load(wrap, mems[i], j_mod_4.out, ans, f"load_from_mem{i}")
+        for i in range(6)
     ]
 
     wrap.control += [
@@ -249,17 +249,6 @@ def add_main(prog, wrap2, wrap3):
     together2 = main.cell("together2", wrap2)
     together3 = main.cell("together3", wrap3)
 
-    # AM, point of failure:
-    # Maybe I'm missing something, but I think the builder library
-    # is only targeting a subset of the `invoke` functionality.
-    #   class Invoke(Control):
-    #     id: CompVar
-    #     in_connects: List[Tuple[str, Port]]
-    #     out_connects: List[Tuple[str, Port]]
-    #     ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
-    #     comb_group: Optional[CompVar] = None
-    #     attributes: List[Tuple[str, int]] = field(default_factory=list)
-    # As I see it, only id, in_connects, and out_connects are supported.
     main.control += [
         cb.invoke(
             together2,
