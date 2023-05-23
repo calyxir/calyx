@@ -36,7 +36,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       gt0.right = 32'd2;
     }
   }
-
   control {
     seq {
       let0;

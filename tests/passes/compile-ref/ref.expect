@@ -20,7 +20,6 @@ component add_one(@go go: 1, @clk clk: 1, @reset reset: 1, out_read_data: 32, ou
       reg_to_mem[done] = out_done;
     }
   }
-
   control {
     seq {
       add_1;
@@ -51,7 +50,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       reg_to_mem[done] = mem.done;
     }
   }
-
   control {
     seq {
       invoke adder(

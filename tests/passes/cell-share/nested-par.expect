@@ -50,7 +50,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       rd_x1[done] = before1.done;
     }
   }
-
   control {
     par {
       seq {

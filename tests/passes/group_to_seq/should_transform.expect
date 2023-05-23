@@ -50,7 +50,6 @@ component main<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1)
       write_a[done] = A.done;
     }
   }
-
   control {
     seq {
       seq {

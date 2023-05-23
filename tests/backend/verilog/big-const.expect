@@ -527,8 +527,6 @@ module main(
 );
 // COMPONENT START: main
 logic [35:0] c_out;
-initial begin
-end
 std_const # (
     .VALUE(36'd34359738368),
     .WIDTH(36)

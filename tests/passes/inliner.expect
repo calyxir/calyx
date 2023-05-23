@@ -13,6 +13,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.in = r1.done & go ? 1'd1;
     done = r2.done ? 1'd1;
   }
-
   control {}
 }

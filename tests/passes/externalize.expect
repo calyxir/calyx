@@ -18,6 +18,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1, A_read_data: 32, A_done:
       wr_B[done] = B.done;
     }
   }
-
   control {}
 }

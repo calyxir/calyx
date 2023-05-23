@@ -93,7 +93,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       le0.right = 6'd31;
     }
   }
-
   control {
     seq {
       let0;

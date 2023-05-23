@@ -10,7 +10,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       b.in = 2'd1;
     }
   }
-
   control {
     seq {
       B0;

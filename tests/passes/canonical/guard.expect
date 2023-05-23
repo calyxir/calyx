@@ -17,6 +17,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
     r.write_en = r.out ? 1'd1;
     r.in = r.out;
   }
-
   control {}
 }

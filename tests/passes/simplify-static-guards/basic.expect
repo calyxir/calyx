@@ -21,7 +21,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       d.in = 32'd4;
     }
   }
-
   control {
     my_group;
   }

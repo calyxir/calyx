@@ -33,7 +33,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1, a: 4, b: 4, c: 1) -> (@d
     w3.in = c;
     w4.in = w3.out;
   }
-
   control {
     if lt.out with cond {
       if w4.out {

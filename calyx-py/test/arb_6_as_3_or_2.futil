@@ -1,0 +1,373 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component wrap2(i: 32, j: 32) -> () {
+  // i and j are ports, passed "by value" by the invoker.
+
+  // The invoker wants to pass six memories of size 4 each, but then
+  // pretend that there are actually _two_ memories of size _12_ each.
+  // The invoker wants to index the memories while living in this fiction.
+  // Accordingly, we assume that
+  // 0 <= i < 2
+  // 0 <= j < 12
+
+  cells {
+
+    // The six memories below are passed "by reference" by the invoker.
+    ref mem1 = std_mem_d1(32, 4, 32);
+    ref mem2 = std_mem_d1(32, 4, 32);
+    ref mem3 = std_mem_d1(32, 4, 32);
+    ref mem4 = std_mem_d1(32, 4, 32);
+    ref mem5 = std_mem_d1(32, 4, 32);
+    ref mem6 = std_mem_d1(32, 4, 32);
+
+    // An additional memory is passed "by reference" hold the result.
+    ref ans = std_mem_d1(32, 1, 32);
+
+    // We will shortly need j % 4, so we create a register to hold it.
+    j_mod_4 = std_reg(32);
+
+    eq0 = std_eq(32);
+    eq1 = std_eq(32);
+    lt1 = std_lt(32);
+    lt2 = std_lt(32);
+    sub = std_sub(32);
+
+  }
+
+  wires {
+    comb group i_eq_0 {
+      // Wiring to check if `i==0`.
+      eq0.left = i;
+      eq0.right = 32'd0;
+    }
+    comb group i_eq_1 {
+      // Wiring to check if `i==1`.
+      eq1.left = i;
+      eq1.right = 32'd1;
+    }
+
+    // Wiring to compute `j_mod_4`, which is `j % 4`.
+    // These will be orchestrated in the control section as follows:
+    // if
+    comb group j_lt_4 {
+      lt1.left = j;
+      lt1.right = 32'd4;
+    }
+    // then
+    group j_unchanged {
+      j_mod_4.write_en = 1'd1;
+      j_mod_4.in = j;
+      j_unchanged[done] = j_mod_4.done;
+    }
+    // else if
+    comb group j_lt_8 {
+      lt2.left = j;
+      lt2.right = 32'd8;
+    }
+    // then
+    group j_less_4 {
+      sub.left = j;
+      sub.right = 32'd4;
+      j_mod_4.write_en = 1'd1;
+      j_mod_4.in = sub.out;
+      j_less_4[done] = j_mod_4.done;
+    }
+    // else
+    group j_less_8 {
+      sub.left = j;
+      sub.right = 32'd8;
+      j_mod_4.write_en = 1'd1;
+      j_mod_4.in = sub.out;
+      j_less_8[done] = j_mod_4.done;
+    }
+    // if j > 11, the user has failed the top-level spec anyway.
+
+    group load_from_mem1 {
+      // Wiring to put `mem1[j_mod_4]` into `ans`.
+      mem1.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem1.read_data;
+      load_from_mem1[done] = ans.done;
+    }
+    group load_from_mem2 {
+      // Wiring to put `mem2[j_mod_4]` into `ans`.
+      mem2.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem2.read_data;
+      load_from_mem2[done] = ans.done;
+    }
+    group load_from_mem3 {
+      // Wiring to put `mem3[j_mod_4]` into `ans`.
+      mem3.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem3.read_data;
+      load_from_mem3[done] = ans.done;
+    }
+    group load_from_mem4 {
+      // Wiring to put `mem4[j_mod_4]` into `ans`.
+      mem4.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem4.read_data;
+      load_from_mem4[done] = ans.done;
+    }
+    group load_from_mem5 {
+      // Wiring to put `mem5[j_mod_4]` into `ans`.
+      mem5.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem5.read_data;
+      load_from_mem5[done] = ans.done;
+    }
+    group load_from_mem6 {
+      // Wiring to put `mem6[j_mod_4]` into `ans`.
+      mem6.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem6.read_data;
+      load_from_mem6[done] = ans.done;
+    }
+
+  }
+
+  control {
+    // Orchestrate the above straightforwardly.
+    seq {
+      // We know we'll need j_mod_4, so we compute it first.
+      if lt1.out with j_lt_4 {
+        j_unchanged;
+      } else {
+        if lt2.out with j_lt_8 {
+            j_less_4;
+        } else {
+            j_less_8;
+        }
+      }
+      par {
+        // Based on the value of `i`, we can dispatch to the correct
+        // "set" of three memories. Then, disambiguating between the three
+        // memories in a "set" is not hard: we can reuse the value of
+        // lt1.out and lt2.out, which together tell us where `j` lies.
+        if eq0.out with i_eq_0 {
+          // We know the answer will come from either mem1, mem2, or mem3.
+          if lt1.out with j_lt_4 {
+            load_from_mem1;
+          } else {
+            if lt2.out with j_lt_8 {
+              load_from_mem2;
+            } else {
+              load_from_mem3;
+            }
+          }
+        }
+        if eq1.out with i_eq_1 {
+          // We know the answer will come from either mem4, mem5, or mem6.
+          if lt1.out with j_lt_4 {
+            load_from_mem4;
+          } else {
+            if lt2.out with j_lt_8 {
+              load_from_mem5;
+            } else {
+              load_from_mem6;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+component wrap3(i: 32, j: 32) -> () {
+  // i and j are ports, passed "by value" by the invoker.
+
+  // The invoker wants to pass six memories of size 4 each, but then
+  // pretend that there are actually _three_ memories of size _8_ each.
+  // The invoker wants to index the memories while living in this fiction.
+  // Accordingly, we assume that
+  // 0 <= i < 3
+  // 0 <= j < 8
+
+  cells {
+
+    // The six memories below are passed "by reference" by the invoker.
+    ref mem1 = std_mem_d1(32, 4, 32);
+    ref mem2 = std_mem_d1(32, 4, 32);
+    ref mem3 = std_mem_d1(32, 4, 32);
+    ref mem4 = std_mem_d1(32, 4, 32);
+    ref mem5 = std_mem_d1(32, 4, 32);
+    ref mem6 = std_mem_d1(32, 4, 32);
+
+    // An additional memory is passed "by reference" hold the result.
+    ref ans = std_mem_d1(32, 1, 32);
+
+    // We will shortly need j % 4, so we create a register to hold it.
+    j_mod_4 = std_reg(32);
+
+    eq0 = std_eq(32);
+    eq1 = std_eq(32);
+    eq2 = std_eq(32);
+    lt = std_lt(32);
+    sub = std_sub(32);
+
+  }
+
+  wires {
+    comb group i_eq_0 {
+      // Wiring to check if `i==0`.
+      eq0.left = i;
+      eq0.right = 32'd0;
+    }
+    comb group i_eq_1 {
+      // Wiring to check if `i==1`.
+      eq1.left = i;
+      eq1.right = 32'd1;
+    }
+    comb group i_eq_2 {
+      // Wiring to check if `i==2`.
+      eq2.left = i;
+      eq2.right = 32'd2;
+    }
+
+    // Wiring to compute `j_mod_4 === j % 4`.
+    // These will be orchestrated in the control section as follows:
+    // if
+    comb group j_lt_4 {
+      lt.left = j;
+      lt.right = 32'd4;
+    }
+    // then
+    group j_unchanged {
+      j_mod_4.write_en = 1'd1;
+      j_mod_4.in = j;
+      j_unchanged[done] = j_mod_4.done;
+    }
+    // else
+    group j_less_4 {
+      sub.left = j;
+      sub.right = 32'd4;
+      j_mod_4.write_en = 1'd1;
+      j_mod_4.in = sub.out;
+      j_less_4[done] = j_mod_4.done;
+    }
+    // if j > 7, the user has failed the top-level spec anyway.
+
+    group load_from_mem1 {
+      // Wiring to put `mem1[j_mod_4]` into `ans`.
+      mem1.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem1.read_data;
+      load_from_mem1[done] = ans.done;
+    }
+    group load_from_mem2 {
+      // Wiring to put `mem2[j_mod_4]` into `ans`.
+      mem2.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem2.read_data;
+      load_from_mem2[done] = ans.done;
+    }
+    group load_from_mem3 {
+      // Wiring to put `mem3[j_mod_4]` into `ans`.
+      mem3.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem3.read_data;
+      load_from_mem3[done] = ans.done;
+    }
+    group load_from_mem4 {
+      // Wiring to put `mem4[j_mod_4]` into `ans`.
+      mem4.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem4.read_data;
+      load_from_mem4[done] = ans.done;
+    }
+    group load_from_mem5 {
+      // Wiring to put `mem5[j_mod_4]` into `ans`.
+      mem5.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem5.read_data;
+      load_from_mem5[done] = ans.done;
+    }
+    group load_from_mem6 {
+      // Wiring to put `mem6[j_mod_4]` into `ans`.
+      mem6.addr0 = j_mod_4.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem6.read_data;
+      load_from_mem6[done] = ans.done;
+    }
+
+  }
+
+  control {
+    // Orchestrate the above straightforwardly.
+    seq {
+      // We know we'll need j_mod_4, so we compute it first.
+      if lt.out with j_lt_4 {
+        j_unchanged;
+      } else {
+          j_less_4;
+      }
+      par {
+        // Based on the value of `i`, we can dispatch to the correct
+        // "set" of two memories. Then, disambiguating between the two
+        // memories in a "set" is not hard: we can reuse the value of
+        // lt.out, which records whether `j < 4` or not.
+        if eq0.out with i_eq_0 {
+          // We know the answer will come from either mem1 or mem2.
+          if lt.out with j_lt_4 {
+            load_from_mem1;
+          } else {
+            load_from_mem2;
+          }
+        }
+        if eq1.out with i_eq_1 {
+          // We know the answer will come from either mem3 or mem4.
+          if lt.out with j_lt_4 {
+            load_from_mem3;
+          } else {
+            load_from_mem4;
+          }
+        }
+        if eq2.out with i_eq_2 {
+          // We know the answer will come from either mem5 or mem6.
+          if lt.out with j_lt_4 {
+            load_from_mem5;
+          } else {
+            load_from_mem6;
+          }
+        }
+      }
+    }
+  }
+}
+
+component main() -> () {
+
+  cells {
+    // The six memories that will be driven by the `.data` file,
+    // and which we will pass by reference to the `wrap` components.
+    @external A = std_mem_d1(32, 4, 32);
+    @external B = std_mem_d1(32, 4, 32);
+    @external C = std_mem_d1(32, 4, 32);
+    @external D = std_mem_d1(32, 4, 32);
+    @external E = std_mem_d1(32, 4, 32);
+    @external F = std_mem_d1(32, 4, 32);
+
+    // We will pass this to `wrap2` for it to store the answer in.
+    @external out2 = std_mem_d1(32, 1, 32);
+
+    // We will pass this to `wrap3` for it to store the answer in.
+    @external out3 = std_mem_d1(32, 1, 32);
+
+    // Preparing to invoke the `wrap` components.
+    together2 = wrap2();
+    together3 = wrap3();
+  }
+
+  wires {
+  }
+
+  control {
+    seq {
+      invoke together2[mem1=A, mem2=B, mem3=C, mem4=D, mem5=E, mem6=F, ans=out2](i=32'd1, j=32'd11)();
+      invoke together3[mem1=A, mem2=B, mem3=C, mem4=D, mem5=E, mem6=F, ans=out3](i=32'd2, j=32'd7)();
+    }
+  }
+}
+
