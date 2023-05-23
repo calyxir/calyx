@@ -141,7 +141,12 @@ def add_wrap2(prog):
                     lt1cell.out,
                     lt1grp,
                     load_from_mems[0],
-                    cb.if_(lt2cell.out, lt2grp, load_from_mems[1], load_from_mems[2]),
+                    cb.if_(
+                        lt2cell.out,
+                        lt2grp,
+                        load_from_mems[1],
+                        load_from_mems[2],
+                    ),
                 ),
             ),
             cb.if_(
@@ -151,7 +156,12 @@ def add_wrap2(prog):
                     lt1cell.out,
                     lt1grp,
                     load_from_mems[3],
-                    cb.if_(lt2cell.out, lt2grp, load_from_mems[4], load_from_mems[5]),
+                    cb.if_(
+                        lt2cell.out,
+                        lt2grp,
+                        load_from_mems[4],
+                        load_from_mems[5],
+                    ),
                 ),
             ),
         ),
@@ -236,13 +246,12 @@ def add_main(prog, wrap2, wrap3):
     along with the inputs i = 1, j = 3.
     """
     main: cb.ComponentBuilder = prog.component("main")
-    mem_a = main.mem_d1("A", 32, 4, 32, is_external=True)
-    mem_b = main.mem_d1("B", 32, 4, 32, is_external=True)
-    mem_c = main.mem_d1("C", 32, 4, 32, is_external=True)
-    mem_d = main.mem_d1("D", 32, 4, 32, is_external=True)
-    mem_e = main.mem_d1("E", 32, 4, 32, is_external=True)
-    mem_f = main.mem_d1("F", 32, 4, 32, is_external=True)
 
+    # Six memory cells, plus an two answer cells.
+
+    [mem_a, mem_b, mem_c, mem_d, mem_e, mem_f] = [
+        main.mem_d1(f"mem{i}", 32, 4, 32, is_external=True) for i in range(6)
+    ]
     out2 = main.mem_d1("out2", 32, 1, 32, is_external=True)
     out3 = main.mem_d1("out3", 32, 1, 32, is_external=True)
 

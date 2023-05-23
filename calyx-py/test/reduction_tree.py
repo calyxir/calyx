@@ -52,6 +52,7 @@ def add_tree(prog):
 
     # Into the component `tree`, add the wiring for three adder groups that will
     # use the tree to perform their additions.
+    # These need to be orchestrated in the control below.
     add_l0_l1 = add_adder(tree, add1, "add_l0_l1", leaf0, leaf1, left)
     add_l2_l3 = add_adder(tree, add2, "add_l2_l3", leaf2, leaf3, right)
     add_l_r_nodes = add_adder(
@@ -126,15 +127,15 @@ def add_main(prog, tree):
     It puts the sum of elements of the four memory cells into `ans`.
     """
     main = prog.component("main")
-    mem_a = main.mem_d1("A", 32, 4, 32, is_external=True)
-    mem_b = main.mem_d1("B", 32, 4, 32, is_external=True)
-    mem_c = main.mem_d1("C", 32, 4, 32, is_external=True)
-    mem_d = main.mem_d1("D", 32, 4, 32, is_external=True)
+    # Four memories, each of length 4.
+    [mem_a, mem_b, mem_c, mem_d] = [
+        main.mem_d1(name, 32, 4, 32, is_external=True) for name in ["A", "B", "C", "D"]
+    ]
     mem_ans = main.mem_d1("ans", 32, 1, 1, is_external=True)
-    sum_col0 = main.reg("sum_col0", 32)
-    sum_col1 = main.reg("sum_col1", 32)
-    sum_col2 = main.reg("sum_col2", 32)
-    sum_col3 = main.reg("sum_col3", 32)
+    # Four answer registers.
+    [sum_col0, sum_col1, sum_col2, sum_col3] = [
+        main.reg(f"sum_col{i}", 32) for i in range(4)
+    ]
 
     tree = main.cell("tree", tree)
 
