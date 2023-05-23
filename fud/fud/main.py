@@ -29,7 +29,7 @@ def register_stages(registry):
     # Dahlia
     registry.register(
         dahlia.DahliaStage(
-            "futil", "-b futil --lower -l error", "Compile Dahlia to Calyx"
+            "calyx", "-b calyx --lower -l error", "Compile Dahlia to Calyx"
         )
     )
     registry.register(
@@ -46,70 +46,70 @@ def register_stages(registry):
     registry.register(systolic.SystolicStage())
     # Calyx
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "verilog",
-            "-b verilog --disable-init",
+            "-b verilog",
             "Compile Calyx to Verilog instrumented for simulation",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "mlir",
             "-b mlir -p well-formed -p lower-guards",
             "Compile Calyx to MLIR",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "synth-verilog",
-            "-b verilog --synthesis -p external --disable-init --disable-verify",
+            "-b verilog --synthesis -p external --disable-verify",
             "Compile Calyx to synthesizable Verilog",
         )
     )
     registry.register(
-        futil.FutilStage(
-            "futil-lowered",
-            "-b futil",
+        futil.CalyxStage(
+            "calyx-lowered",
+            "-b calyx",
             "Compile Calyx to Calyx to remove all control and inline groups",
         )
     )
     registry.register(
-        futil.FutilStage(
-            "futil-noinline",
-            "-b futil -d hole-inliner",
+        futil.CalyxStage(
+            "calyx-noinline",
+            "-b calyx -d hole-inliner",
             "Compile Calyx to Calyx to remove all control and inline groups",
         )
     )
     registry.register(
-        futil.FutilStage(
-            "futil-externalize",
-            "-b futil -p externalize",
+        futil.CalyxStage(
+            "calyx-externalize",
+            "-b calyx -p externalize",
             "Compile Calyx to Calyx to externalize all external memory primitives",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "axi-wrapper",
             "-b xilinx",
             "Generate the AXI wrapper for Calyx",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "xilinx-xml",
             "-b xilinx-xml",
             "Generate the XML metadata for Xilinx",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "interpreter",
             "-p none",
             "Compile Calyx for interpretation with CIDR",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "resources",
             "-b resources",
             "Generate a CSV that estimates a Calyx program's resource usage",
@@ -339,7 +339,7 @@ def main():
                     "Please provide either an output file or a --to option"
                 )
 
-            exec.run_fud(args, cfg)
+            exec.run_fud_from_args(args, cfg)
         elif args.command == "info":
             print(cfg.registry)
         elif args.command == "config":

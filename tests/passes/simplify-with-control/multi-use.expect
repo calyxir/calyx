@@ -46,7 +46,6 @@ component main(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 
       e3.right = 32'd3;
     }
   }
-
   control {
     par {
       seq {

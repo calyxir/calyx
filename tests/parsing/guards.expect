@@ -64,6 +64,5 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
     r_2.in = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? add1.out;
     r_2.write_en = fsm.out == 2'd0 & cond_stored.out & fsm0.out >= 2'd1 & fsm0.out < 2'd3 & !(fsm0.out == 2'd1 & !cond_stored.out) & fsm1.out == 2'd1 & go ? 1'd1;
   }
-
   control {}
 }

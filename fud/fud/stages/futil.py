@@ -4,13 +4,13 @@ from fud import config as cfg
 from ..utils import shell, unwrap_or
 
 
-class FutilStage(Stage):
-    name = "futil"
+class CalyxStage(Stage):
+    name = "calyx"
 
     def __init__(self, destination, flags, desc):
         self.flags = flags
         super().__init__(
-            src_state="futil",
+            src_state="calyx",
             target_state=destination,
             input_type=SourceType.Stream,
             output_type=SourceType.Stream,

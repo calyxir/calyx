@@ -14,7 +14,6 @@ component add_5<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1
     }
     out = r.out;
   }
-
   control {
     add_group;
   }
@@ -37,7 +36,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       upd1[done] = add0.done;
     }
   }
-
   control {
     seq {
       upd0;

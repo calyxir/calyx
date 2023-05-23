@@ -62,7 +62,7 @@ To run the compiler and see the Calyx code your MrXL program generates, just lea
 
 In order to run the compiler through `fud`, pass the `--from mrxl` flag:
 
-    fud e --from mrxl <prog.mrxl> --to futil
+    fud e --from mrxl <prog.mrxl> --to calyx
 
 Of course, what we _really_ want to do is see what Verilog would make of this Calyx code.
 To simulate Verilog's output, we need to first take a step back and beef up the `mrxl.data` files with information that Verilog requires.

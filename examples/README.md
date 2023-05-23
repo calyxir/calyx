@@ -28,7 +28,7 @@ verilog.data examples/dahlia/dot-product.fuse.data
 
 To lower Dahlia to Calyx:
 ```
-fud e examples/dahlia/dot-product.fuse --to futil
+fud e examples/dahlia/dot-product.fuse --to calyx
 ```
 
 ### Calyx

@@ -13,7 +13,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       read_mem[done] = mem.read_done;
     }
   }
-
   control {
     seq {
       read_mem;

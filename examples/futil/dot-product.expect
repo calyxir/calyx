@@ -140,6 +140,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     A_read0_0.in = fsm8.out == 4'd0 & early_reset_static_seq_go.out ? A0.read_data;
     A_read0_0.in = fsm8.out == 4'd4 & early_reset_static_seq_go.out ? mult_pipe0.out;
   }
-
   control {}
 }

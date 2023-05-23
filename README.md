@@ -35,11 +35,11 @@ This repository contains the source code for the following:
 * [`calyx-opt`][]: Optimizations for the Calyx intermediate language.
 * [`calyx`][]: The Calyx compiler driver.
 
-You can also use the Calyx compiler as a library and implement your own optimizations. To do this, following the [source documentation][source-docs].
+You can also use the Calyx compiler as a library and implement your own optimizations. To do this, [checkout the example][opt-example] provided by the [`calyx-opt`][] crate.
 
 [site]: https://calyxir.org
 [docs]: https://docs.calyxir.org
-[source-docs]: https://docs.calyxir.org/source/calyx
+[source-docs]: https://docs.rs/releases/search?query=calyx
 [paper]: https://rachitnigam.com/files/pubs/calyx.pdf
 
 [`calyx-utils`]: https://crates.io/crates/calyx-utils
@@ -48,3 +48,4 @@ You can also use the Calyx compiler as a library and implement your own optimiza
 [`calyx-opt`]: https://crates.io/crates/calyx-opt
 [`calyx`]: https://crates.io/crates/calyx
 [circt]: https://docs.calyxir.org/fud/circt.html
+[opt-example]: https://docs.rs/calyx-opt/0.2.1/calyx_opt/

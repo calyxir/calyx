@@ -40,7 +40,6 @@ component noshare(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, 
     }
     out = a.out;
   }
-
   control {
     @NODE_ID(0) seq {
       @NODE_ID wrR;
@@ -100,7 +99,6 @@ component share<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1
     }
     out = a.out;
   }
-
   control {
     @NODE_ID(0) seq {
       @NODE_ID wrR;
@@ -119,10 +117,7 @@ component share<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
+  cells {}
+  wires {}
   control {}
 }

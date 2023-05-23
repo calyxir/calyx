@@ -2,8 +2,8 @@ import "primitives/core.futil";
 component mlir_funcSYCL_class_vector_addition<"toplevel"=1>(@clk clk: 1, @reset reset: 1, @go go: 1) -> (@done done: 1) {
   cells {
     add = std_add(32);
-    @external @generated ext_mem1_ = std_mem_d1(32, 16, 1);
     @external @generated ext_mem0_ = std_mem_d1(32, 16, 1);
+    @external @generated ext_mem1_ = std_mem_d1(32, 16, 1);
   }
   wires {
     group incr {
@@ -16,11 +16,10 @@ component mlir_funcSYCL_class_vector_addition<"toplevel"=1>(@clk clk: 1, @reset 
       incr[done] = ext_mem1_.done;
     }
   }
-
   control {
     incr;
   }
 }
 ---STDERR---
-[WARN  calyx_opt::passes::discover_external] Unable to infer parameter value for ext_mem1_ in std_mem_d1, defaulting to 16
 [WARN  calyx_opt::passes::discover_external] Unable to infer parameter value for ext_mem0_ in std_mem_d1, defaulting to 16
+[WARN  calyx_opt::passes::discover_external] Unable to infer parameter value for ext_mem1_ in std_mem_d1, defaulting to 16
