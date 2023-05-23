@@ -353,7 +353,7 @@ As a warmup, you could try lifting one of the following restrictions:
 > 3. The bodies of `map` and `reduce` operations must be binary `+` or `*` operations involving array elements or integers.
 
 If you're looking for a more serious challenge, try:
-> 4. If repeated `map`/`reduce` operations are performed on the same array, each of those operations must have the same parallelism factor.
+> 4. If repeated `map`/`reduce` operations are performed on the same array, each of those operations must have the same parallelism factor. You will very likely need to think about _arbitration logic_, so we provide a toy implementation using the `builder` [here][builder-arb].
 
 Or, for something completely different:
 
@@ -361,7 +361,7 @@ Or, for something completely different:
 
 A big gap in MrXL at present is that all `reduce` operations must be performed sequentially.
 This restriction can also be lifted, but hold that thought for a moment!
-We'd like to tell you a little about reduction trees.
+We'd like to tell you a little about reduction trees. Again, we provide a toy implementation using the `builder` [here][builder-red-tree].
 
 [astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
@@ -380,4 +380,6 @@ We'd like to tell you a little about reduction trees.
 [impl]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py
 [reduc-trees]: http://www.cs.ucr.edu/~nael/217-f15/lectures/217-lec10.pdf
 [builder-ex]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/builder_example.py
+[builder-arb]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/arbiter_6.py
+[builder-red-tree]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/reduction_tree.py
 [flit]: https://flit.readthedocs.io/en/latest/index.html

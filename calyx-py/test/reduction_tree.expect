@@ -1,99 +1,70 @@
 import "primitives/core.futil";
-
-component tree(leaf1: 32, leaf2: 32, leaf3: 32, leaf4: 32) -> (sum: 32) {
-  // Creates a reduction tree with four leaves, and adds the leaves' inputs.
-  //
-  //            sum
-  //           /   \
-  //   left_node    right_node
-  //   /       \   /         \
-  // leaf1  leaf2  leaf3  leaf4
-
+import "primitives/binary_operators.futil";
+component tree(leaf0: 32, leaf1: 32, leaf2: 32, leaf3: 32) -> (sum: 32) {
   cells {
     root = std_reg(32);
     left_node = std_reg(32);
     right_node = std_reg(32);
-
     add1 = std_add(32);
     add2 = std_add(32);
   }
-
   wires {
-    group add_l1_l2 {
-    // Adds leaf1 and leaf2, then puts the result in left_node.
-      add1.left = leaf1;
-      add1.right = leaf2;
+    group add_l0_l1 {
+      add1.left = leaf0;
+      add1.right = leaf1;
       left_node.write_en = 1'd1;
       left_node.in = add1.out;
-      add_l1_l2[done] = left_node.done;
+      add_l0_l1[done] = left_node.done;
     }
-    group add_l3_l4 {
-    // Adds leaf3 and leaf4, then puts the result in right_node.
-      add2.left = leaf3;
-      add2.right = leaf4;
+    group add_l2_l3 {
+      add2.left = leaf2;
+      add2.right = leaf3;
       right_node.write_en = 1'd1;
       right_node.in = add2.out;
-      add_l3_l4[done] = right_node.done;
+      add_l2_l3[done] = right_node.done;
     }
     group add_left_right_nodes {
-    // Adds left_node and right_node, then puts the result in root.
       add1.left = left_node.out;
       add1.right = right_node.out;
       root.write_en = 1'd1;
       root.in = add1.out;
       add_left_right_nodes[done] = root.done;
     }
-    // Continuous assignment of answer to `sum`.
     sum = root.out;
   }
-
   control {
-    // Orchestrate the above straightforwardly.
     seq {
       par {
-        add_l1_l2;
-        add_l3_l4;
+        add_l0_l1;
+        add_l2_l3;
       }
       add_left_right_nodes;
     }
   }
 }
-
 component main() -> () {
-
   cells {
-    // The four memories that will be driven by the `.data` file.
     @external A = std_mem_d1(32, 4, 32);
     @external B = std_mem_d1(32, 4, 32);
     @external C = std_mem_d1(32, 4, 32);
     @external D = std_mem_d1(32, 4, 32);
-
-    // We will store the final answer here.
-    // I'm using a memory of size 1 and not a reg because
-    // IDK how to drive a register in the data file.
     @external ans = std_mem_d1(32, 1, 1);
-
-    // We will store the intermediate answers here.
     sum_col0 = std_reg(32);
     sum_col1 = std_reg(32);
     sum_col2 = std_reg(32);
     sum_col3 = std_reg(32);
-
-
-    // Preparing to call the `tree` component.
     tree = tree();
   }
-
   wires {
     group add_col0 {
       A.addr0 = 32'd0;
       B.addr0 = 32'd0;
       C.addr0 = 32'd0;
       D.addr0 = 32'd0;
-      tree.leaf1 = A.read_data;
-      tree.leaf2 = B.read_data;
-      tree.leaf3 = C.read_data;
-      tree.leaf4 = D.read_data;
+      tree.leaf0 = A.read_data;
+      tree.leaf1 = B.read_data;
+      tree.leaf2 = C.read_data;
+      tree.leaf3 = D.read_data;
       tree.go = 1'd1;
       sum_col0.write_en = tree.done ? 1'd1;
       sum_col0.in = tree.done ? tree.sum;
@@ -104,10 +75,10 @@ component main() -> () {
       B.addr0 = 32'd1;
       C.addr0 = 32'd1;
       D.addr0 = 32'd1;
-      tree.leaf1 = A.read_data;
-      tree.leaf2 = B.read_data;
-      tree.leaf3 = C.read_data;
-      tree.leaf4 = D.read_data;
+      tree.leaf0 = A.read_data;
+      tree.leaf1 = B.read_data;
+      tree.leaf2 = C.read_data;
+      tree.leaf3 = D.read_data;
       tree.go = 1'd1;
       sum_col1.write_en = tree.done ? 1'd1;
       sum_col1.in = tree.done ? tree.sum;
@@ -118,10 +89,10 @@ component main() -> () {
       B.addr0 = 32'd2;
       C.addr0 = 32'd2;
       D.addr0 = 32'd2;
-      tree.leaf1 = A.read_data;
-      tree.leaf2 = B.read_data;
-      tree.leaf3 = C.read_data;
-      tree.leaf4 = D.read_data;
+      tree.leaf0 = A.read_data;
+      tree.leaf1 = B.read_data;
+      tree.leaf2 = C.read_data;
+      tree.leaf3 = D.read_data;
       tree.go = 1'd1;
       sum_col2.write_en = tree.done ? 1'd1;
       sum_col2.in = tree.done ? tree.sum;
@@ -132,20 +103,20 @@ component main() -> () {
       B.addr0 = 32'd3;
       C.addr0 = 32'd3;
       D.addr0 = 32'd3;
-      tree.leaf1 = A.read_data;
-      tree.leaf2 = B.read_data;
-      tree.leaf3 = C.read_data;
-      tree.leaf4 = D.read_data;
+      tree.leaf0 = A.read_data;
+      tree.leaf1 = B.read_data;
+      tree.leaf2 = C.read_data;
+      tree.leaf3 = D.read_data;
       tree.go = 1'd1;
       sum_col3.write_en = tree.done ? 1'd1;
       sum_col3.in = tree.done ? tree.sum;
       add_col3[done] = sum_col3.done;
     }
     group add_intermediates {
-      tree.leaf1 = sum_col0.out;
-      tree.leaf2 = sum_col1.out;
-      tree.leaf3 = sum_col2.out;
-      tree.leaf4 = sum_col3.out;
+      tree.leaf0 = sum_col0.out;
+      tree.leaf1 = sum_col1.out;
+      tree.leaf2 = sum_col2.out;
+      tree.leaf3 = sum_col3.out;
       tree.go = 1'd1;
       ans.addr0 = tree.done ? 1'd0;
       ans.write_data = tree.done ? tree.sum;
@@ -153,7 +124,6 @@ component main() -> () {
       add_intermediates[done] = ans.done;
     }
   }
-
   control {
     seq {
       add_col0;
@@ -164,4 +134,3 @@ component main() -> () {
     }
   }
 }
-
