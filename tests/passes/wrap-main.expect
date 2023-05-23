@@ -1,0 +1,10 @@
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {}
+  wires {}
+  control {}
+}
+component main<"toplevel"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {}
+  wires {}
+  control {}
+}

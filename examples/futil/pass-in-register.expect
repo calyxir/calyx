@@ -18,7 +18,6 @@ component times_10_and_add_1<"state_share"=1>(reg_done: 1, reg_out: 32, @go go: 
     add.right = do_add_and_mul_go.out ? mult.out;
     do_add_and_mul_go.in = go;
   }
-
   control {}
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
@@ -79,6 +78,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     wrapper_early_reset_invoke00_go.in = !wrapper_early_reset_invoke00_done.out & fsm0.out == 2'd0 & tdcc_go.out ? 1'd1;
     tdcc_done.in = fsm0.out == 2'd2 ? 1'd1;
   }
-
   control {}
 }

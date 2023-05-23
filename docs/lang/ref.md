@@ -436,7 +436,7 @@ They are automatically threaded to any primitive that defines `@clk` or
 
 ### `ref` cells
 
-Calyx components can specify that a cell needs to be passed in "by-reference":
+Calyx components can specify that a cell needs to be passed "by reference":
 
 ```
 // Component that performs mem[0] += 1;

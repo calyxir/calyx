@@ -82,7 +82,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       i.in = 32'd2;
     }
   }
-
   control {
     @NODE_ID(0) static<12> par {
       @NODE_ID static<12> seq  {

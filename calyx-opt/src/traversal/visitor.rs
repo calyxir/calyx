@@ -123,6 +123,18 @@ pub trait Visitor {
         None
     }
 
+    #[inline(always)]
+    /// Transform the [`ir::Context`] before visiting the components.
+    fn start_context(&mut self, _ctx: &mut ir::Context) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    #[inline(always)]
+    /// Transform the [`ir::Context`] after visiting the components.
+    fn finish_context(&mut self, _ctx: &mut ir::Context) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Define the iteration order in which components should be visited
     #[inline(always)]
     fn iteration_order() -> Order
@@ -164,9 +176,9 @@ pub trait Visitor {
         Ok(())
     }
 
-    /// Run the visitor on a given program [`ir::Context`](crate::Context).
-    /// The function mutably borrows the [`control`](crate::Component::control)
-    /// program in each component and traverses it.
+    /// Run the visitor on a given program [`ir::Context`].
+    /// The function mutably borrows the `control` program in each component and
+    /// traverses it.
     ///
     /// After visiting a component, it called [ConstructVisitor::clear_data] to
     /// reset the struct.
@@ -182,6 +194,8 @@ pub trait Visitor {
             return Ok(());
         }
 
+        self.start_context(context)?;
+
         let signatures = &context.lib;
         let comps = std::mem::take(&mut context.components);
 
@@ -193,6 +207,8 @@ pub trait Visitor {
             Ok(())
         })?;
         context.components = po.take();
+
+        self.finish_context(context)?;
 
         Ok(())
     }

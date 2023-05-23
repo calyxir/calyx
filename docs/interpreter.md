@@ -35,11 +35,11 @@ To provide input data, set the `verilog.data` variable, like so:
         tests/correctness/while.futil
 
 By default, fud will not transform the Calyx code before feeding it to the interpreter.
-To run passes before the interpreter, use the `futil.flags` variable in conjunction with the `-p` flag.
+To run passes before the interpreter, use the `calyx.flags` variable in conjunction with the `-p` flag.
 For example, to fully lower the Calyx program before interpreting it:
 
     fud e --to interpreter-out \
-        -s futil.flags '-p all' \
+        -s calyx.flags '-p all' \
         interp/tests/control/if.futil
 
 [fud]: fud/index.md

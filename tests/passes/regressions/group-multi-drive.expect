@@ -28,6 +28,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add.right = do_update_go.out ? r.out;
     tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
   }
-
   control {}
 }

@@ -39,7 +39,7 @@ compiler from its repository.
 
 Dahlia programs can be compiled to Calyx using:
 ```
-fud e --from dahlia <input file> --to futil
+fud e --from dahlia <input file> --to calyx
 ```
 
 The Dahlia backed for Calyx is neither *complete* nor *stable*. If you find

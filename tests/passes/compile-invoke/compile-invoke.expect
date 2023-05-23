@@ -9,7 +9,6 @@ component exponent(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) ->
     }
     out = pow.out;
   }
-
   control {
     write_pow;
   }
@@ -35,7 +34,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       w.in = 32'd10;
     }
   }
-
   control {
     seq {
       @static(4) invoke0;

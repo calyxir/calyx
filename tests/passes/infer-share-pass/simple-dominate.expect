@@ -15,7 +15,6 @@ component add_5<"state_share"=1>(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1
     }
     out = r.out;
   }
-
   control {
     @NODE_ID(0) A;
   }
@@ -35,16 +34,12 @@ component count(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @d
     }
     out = r.out;
   }
-
   control {
     @NODE_ID(0) A;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
+  cells {}
+  wires {}
   control {}
 }
