@@ -20,7 +20,7 @@ jobs:
         cp -r /root/.config/* $HOME/.config
 
     - name: Fixup fud configuration
-      run: |
+      run:
         # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
         fud c --create global.root /home/calyx
         fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
