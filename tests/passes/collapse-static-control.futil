@@ -1,0 +1,28 @@
+// -p collapse-control
+component main() -> () {
+  cells {}
+  wires {
+    static<1> group A {}
+    static<1> group B {}
+    static<1> group C {}
+    static<1> group D {}
+  }
+  control {
+    seq {
+      static seq {
+        static seq { A; B; }
+        static seq { C; D; }
+      }
+      static par {
+        static par { A; B; }
+        static par { C; D; }
+      }
+      static repeat 0 {
+        static seq {A; B; }
+      }
+      static repeat 1 {
+        static seq {A; B; }
+      }
+    }
+  }
+}

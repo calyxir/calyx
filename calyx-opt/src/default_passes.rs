@@ -5,11 +5,11 @@ use crate::passes::{
     CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
     Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
-    InferShare, LowerGuards, MergeAssign, MergeStaticPar, Papercut, ParToSeq,
+    InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
     RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticInliner, StaticParConv, StaticPromotion,
-    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
-    UnrollBounded, WellFormed, WireInliner, WrapMain,
+    SimplifyWithControl, StaticInliner, StaticPromotion, SynthesisPapercut,
+    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
+    WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -39,8 +39,6 @@ impl PassManager {
         pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<AttributePromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
-        pm.register_pass::<MergeStaticPar>()?;
-        pm.register_pass::<StaticParConv>()?;
         pm.register_pass::<DataPathInfer>()?;
 
         // Compilation passes
