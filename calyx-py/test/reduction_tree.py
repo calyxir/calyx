@@ -36,12 +36,7 @@ def add_tree(prog):
     """
 
     tree: cb.ComponentBuilder = prog.component("tree")
-    for i in range(1, 5):
-        tree.input(f"leaf{i}", 32)
-    # AM, quality of life:
-    # `input` has no return value, so I'm forced to immediately call `this()`
-    # to get handles to the ports I just created.
-    [leaf1, leaf2, leaf3, leaf4] = [tree.this()[f"leaf{i}"] for i in range(1, 5)]
+    [leaf1, leaf2, leaf3, leaf4] = [tree.input(f"leaf{i}", 32) for i in range(1, 5)]
 
     tree.output("sum", 32)
 
