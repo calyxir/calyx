@@ -1,5 +1,5 @@
 # Use the official rust image as a parent image.
-FROM rust:1.66
+FROM rust:1.69
 
 # Connect to the Calux repository.
 LABEL org.opencontainers.image.source https://github.com/cucapra/calyx
@@ -56,7 +56,7 @@ WORKDIR /home
 RUN git clone https://github.com/cucapra/calyx.git calyx
 # Build the compiler
 WORKDIR /home/calyx
-RUN git checkout -b v0.2.0 && \
+RUN git checkout -b v0.3.0 && \
     cargo build --all && \
     cargo install vcdump && \
     cargo install runt --version $(grep ^ver runt.toml | awk '{print $3}' | tr -d '"')
