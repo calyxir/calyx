@@ -12,7 +12,7 @@ jobs:
   interpreter:
     name: Test Interpreter
     runs-on: ubuntu-latest
-    container: ghcr.io/cucapra/calyx:latest
+    container: ghcr.io/cucapra/calyx:0.3.0
     steps:
     - name: Copy fud configuration
       run: |
@@ -64,7 +64,7 @@ jobs:
   compiler:
     name: Test Compiler
     runs-on: ubuntu-latest
-    container: ghcr.io/cucapra/calyx:latest
+    container: ghcr.io/cucapra/calyx:0.3.0
     steps:
     - name: Copy fud configuration
       run: |
@@ -128,7 +128,7 @@ jobs:
   evaluation:
     name: Polybench Integration
     runs-on: ubuntu-latest
-    container: ghcr.io/cucapra/calyx:latest
+    container: ghcr.io/cucapra/calyx:0.3.0
     steps:
     - name: Copy and clean up fud configuration
       run: |
