@@ -501,6 +501,12 @@ class GroupBuilder:
         self.group_like = group_like
         self.comp = comp
 
+    def as_enable(self) -> Optional[ast.Enable]:
+        if isinstance(self.group_like, ast.Group):
+            return ast.Enable(self.group_like.id.name)
+        else:
+            return None
+
     def asgn(
         self,
         lhs: ExprBuilder,
