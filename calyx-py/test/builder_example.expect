@@ -22,12 +22,14 @@ component main(in: 32) -> (out: 32) {
       sum.in = add.out;
       compute_sum[done] = sum.done;
     }
-    in = out;
+    out = sum.out;
   }
   control {
     seq {
-      update_operands;
-      compute_sum;
+      par {
+        update_operands;
+        compute_sum;
+      }
     }
   }
 }
