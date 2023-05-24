@@ -49,10 +49,10 @@ Then build the compiler:
 cargo build
 ```
 
-You can invoke the compiler in one of two ways:
+You can build and run the compiler with:
 ```
-cargo run -- --help # Rebuilds the compiler if the sources changed
-./target/debug/calyx --help # Default debug build of the compiler
+cargo build # Builds the compiler
+./target/debug/calyx --help # Executes the compiler binary
 ```
 
 ## Running Core Tests
@@ -94,7 +94,7 @@ flit -f fud/pyproject.toml install -s --deps production
 ```
 Configure `fud`:
 ```
-fud config global.root <full path to Calyx repository>
+fud config global.root --create <full path to Calyx repository>
 ```
 Check the `fud` configuration:
 ```

@@ -12,18 +12,12 @@ jobs:
   interpreter:
     name: Test Interpreter
     runs-on: ubuntu-latest
-    container: ghcr.io/cucapra/calyx:latest
+    container: ghcr.io/cucapra/calyx:0.3.0
     steps:
     - name: Copy fud configuration
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
-
-    - name: Fixup fud configuration
-      run: |
-        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
-        fud c --create global.root /home/calyx
-        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia
@@ -64,18 +58,12 @@ jobs:
   compiler:
     name: Test Compiler
     runs-on: ubuntu-latest
-    container: ghcr.io/cucapra/calyx:latest
+    container: ghcr.io/cucapra/calyx:0.3.0
     steps:
     - name: Copy fud configuration
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
-
-    - name: Fixup fud configuration
-      run: |
-        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
-        fud c --create global.root /home/calyx
-        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia
@@ -128,18 +116,12 @@ jobs:
   evaluation:
     name: Polybench Integration
     runs-on: ubuntu-latest
-    container: ghcr.io/cucapra/calyx:latest
+    container: ghcr.io/cucapra/calyx:0.3.0
     steps:
     - name: Copy and clean up fud configuration
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
-
-    - name: Fixup fud configuration
-      run: |
-        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
-        fud c --create global.root /home/calyx
-        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia

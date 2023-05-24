@@ -94,10 +94,25 @@ paths = ["tests/frontend/exp/*.txt"]
 cmd = "python3 calyx-py/calyx/gen_exp.py {}"
 
 [[tests]]
-name = "python library AST"
+name = "[calyx-py] builder"
 paths = ["calyx-py/test/*.py"]
 cmd = """
 python3 {}
+"""
+
+[[tests]]
+name = "[calyx-py] correctness"
+paths = ["calyx-py/test/correctness/*.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s jq.expr ".memories" \
+       -q
 """
 
 
