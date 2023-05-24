@@ -108,7 +108,7 @@ name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} |\
  fud e --from calyx --to dat \
-       --through icarus-verilog \
+       --through verilog \
        -s verilog.data "$dir/$name.data"  -q
 """
 
