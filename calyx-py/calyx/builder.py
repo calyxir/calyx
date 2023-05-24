@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Any, Dict, Union, Optional, List
+from typing import Dict, Union, Optional, List
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
@@ -84,10 +84,16 @@ class ComponentBuilder:
         return self.this()[name]
 
     def this(self) -> ThisBuilder:
+        """Get a handle to the component's `this` cell.
+
+        This is used to access the component's input/output ports with the
+        standard `this.port` syntax.
+        """
         return ThisBuilder()
 
     @property
     def control(self) -> ControlBuilder:
+        """Access the component's control program."""
         return ControlBuilder(self.component.controls)
 
     @control.setter
@@ -98,6 +104,7 @@ class ComponentBuilder:
             self.component.controls = builder
 
     def get_cell(self, name: str) -> CellBuilder:
+        """Retrieve a cell builder by name."""
         out = self.index.get(name)
         if out and isinstance(out, CellBuilder):
             return out
@@ -108,6 +115,7 @@ class ComponentBuilder:
             )
 
     def get_group(self, name: str) -> GroupBuilder:
+        """Retrieve a group builder by name."""
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -117,6 +125,7 @@ class ComponentBuilder:
             )
 
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
+        """Create a new group with the given name and (optional) static delay."""
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -126,6 +135,7 @@ class ComponentBuilder:
         return builder
 
     def comb_group(self, name: str) -> GroupBuilder:
+        """Create a new combinational group with the given name."""
         group = ast.CombGroup(ast.CompVar(name), connections=[])
         assert group not in self.component.wires, f"comb group '{name}' already exists"
 
@@ -141,6 +151,7 @@ class ComponentBuilder:
         is_external=False,
         is_ref=False,
     ) -> CellBuilder:
+        """Declare a cell in the component. Returns a cell builder."""
         # If we get a (non-primitive) component builder, instantiate it
         # with no parameters.
         if isinstance(comp, ComponentBuilder):
@@ -163,13 +174,17 @@ class ComponentBuilder:
         """Create a cell for a Calyx sub-component.
 
         This is primarily for when the instantiated component has not yet been
-        defined. When the component has been defined, use `cell` instead.
+        defined. When the component has been defined, use `cell` instead with
+        the `ComponentBuilder` object.
         """
         if isinstance(comp_name, str):
             assert not check_undeclared or (
                 comp_name in self.prog._index
                 or comp_name in self.prog.program.components
-            ), f"Declaration of component '{comp_name}' not found in program. If this is expected, set `check_undeclared=False`."
+            ), (
+                f"Declaration of component '{comp_name}' not found in program. If this "
+                "is expected, set `check_undeclared=False`."
+            )
 
         if isinstance(comp_name, ComponentBuilder):
             comp_name = comp_name.component.name
@@ -177,10 +192,11 @@ class ComponentBuilder:
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
     def reg(self, name: str, size: int) -> CellBuilder:
+        """Generate a StdReg cell."""
         return self.cell(name, ast.Stdlib.register(size))
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
-        """Utility wrapper for generating StdConstant cells"""
+        """Generate a StdConstant cell."""
         return self.cell(name, ast.Stdlib.constant(width, value))
 
     def mem_d1(
@@ -192,39 +208,48 @@ class ComponentBuilder:
         is_external=False,
         is_ref=False,
     ) -> CellBuilder:
+        """Generate a StdMemD1 cell."""
         return self.cell(
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
     def add(self, name: str, size: int, signed=False) -> CellBuilder:
+        """Generate a StdAdd cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("add", size, signed))
 
     def sub(self, name: str, size: int, signed=False):
+        """Generate a StdSub cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("sub", size, signed))
 
     def gt(self, name: str, size: int, signed=False):
+        """Generate a StdGt cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("gt", size, signed))
 
     def lt(self, name: str, size: int, signed=False):
+        """Generate a StdLt cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("lt", size, signed))
 
     def eq(self, name: str, size: int, signed=False):
+        """Generate a StdEq cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("eq", size, signed))
 
     def neq(self, name: str, size: int, signed=False):
+        """Generate a StdNeq cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("neq", size, signed))
 
     def ge(self, name: str, size: int, signed=False):
+        """Generate a StdGe cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("ge", size, signed))
 
     def le(self, name: str, size: int, signed=False):
+        """Generate a StdLe cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("le", size, signed))
 
@@ -305,7 +330,7 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     """Build an `invoke` control statement.
 
     The keyword arguments should have the form `in_*`, `out_*`, or `ref_*`, where
-    `*` is the name of an input or output port on the invoked cell.
+    `*` is the name of an input port, output port, or ref cell on the invoked cell.
     """
     return ast.Invoke(
         cell._cell.id,
@@ -676,5 +701,9 @@ HI = const(1, 1)
 
 
 def par(*args) -> ast.ParComp:
-    """Build a parallel composition of control expressions."""
+    """Build a parallel composition of control expressions.
+
+    Each argument will become its own parallel arm in the resulting composition.
+    So `par([a,b])` becomes `par {seq {a; b;}}` while `par(a, b)` becomes `par {a; b;}`.
+    """
     return ast.ParComp([as_control(x) for x in args])
