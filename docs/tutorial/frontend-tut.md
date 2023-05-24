@@ -33,7 +33,7 @@ This short program shows off all of MrXL's features, so let's pick it apart line
 
 ## Running our example
 
-First, install the [`calyx-py` library][calyx-py-lib] by typing the following command from the repository root:
+First, install the [`builder` library][calyx-py-lib] by typing the following command from the repository root:
 ```
 cd calyx-py && flit install -s && cd -
 ```
@@ -154,7 +154,7 @@ We perform syntax-directed compilation by walking over the nodes of the AST and 
 
 ### Calyx-Embedded DSL
 
-To make it easy to generate hardware, we'll use Calyx's [`builder` module][builder-ex] written in Python:
+To make it easy to generate hardware, we'll use Calyx's [`builder` module][calyx-py-lib] written in Python:
 ```python
 import calyx.builder as cb
 
@@ -417,7 +417,6 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [lf-par]: ../lang/ref.md#par
 [impl]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py
 [reduc-trees]: http://www.cs.ucr.edu/~nael/217-f15/lectures/217-lec10.pdf
-[builder-ex]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/builder_example.py
 [builder-arb]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/arbiter_6.py
 [builder-red-tree]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/reduction_tree.py
 [flit]: https://flit.readthedocs.io/en/latest/index.html
