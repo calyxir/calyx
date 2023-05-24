@@ -152,23 +152,27 @@ class ComponentBuilder:
         self.index[name] = builder
         return builder
 
-    def sub_component(
+    def comp_instance(
         self,
         cell_name: str,
-        sub_comp_name: str | ComponentBuilder,
+        comp_name: str | ComponentBuilder,
         check_undeclared=True,
     ) -> CellBuilder:
-        """Create a cell for a Calyx sub-component."""
-        if isinstance(sub_comp_name, str):
+        """Create a cell for a Calyx sub-component.
+
+        This is primarily for when the instantiated component has not yet been
+        defined. When the component has been defined, use `cell` instead.
+        """
+        if isinstance(comp_name, str):
             assert not check_undeclared or (
-                sub_comp_name in self.prog._index
-                or sub_comp_name in self.prog.program.components
-            ), f"Declaration of component '{sub_comp_name}' not found in program"
+                comp_name in self.prog._index
+                or comp_name in self.prog.program.components
+            ), f"Declaration of component '{comp_name}' not found in program. If this is expected, set `check_undeclared=False`."
 
-        if isinstance(sub_comp_name, ComponentBuilder):
-            sub_comp_name = sub_comp_name.component.name
+        if isinstance(comp_name, ComponentBuilder):
+            comp_name = comp_name.component.name
 
-        return self.cell(cell_name, ast.CompInst(sub_comp_name, []))
+        return self.cell(cell_name, ast.CompInst(comp_name, []))
 
     def reg(self, name: str, size: int) -> CellBuilder:
         return self.cell(name, ast.Stdlib.register(size))
