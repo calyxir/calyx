@@ -84,14 +84,13 @@ Lastly, we'll construct the control portion of this Calyx program. It's pretty s
 {{#include ../../calyx-py/test/builder_example.py:control}}
 ```
 
-You can also use the builder to generate parallel control blocks. One way to do this is simply to add a set with the parallel groups (say, `A`, `B`, and `C`) to the component's control block. Another way to do this is to use the `par` keyword. For instance, the above code with some parallel groups in it might look like
+You can also use the builder to generate parallel control blocks. To do this, use the `par` keyword. For instance, the above code with some parallel groups in it might look like
 
 ```python
     main.control += [
         update_operands,
         compute_sum,
-        # could also be par(A, B, C)
-        {A, B, C}
+        par(A, B, C)
     ]
 ```
 

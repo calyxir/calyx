@@ -100,7 +100,7 @@ We have placed a few simplifying restrictions on MrXL programs:
 2. Every integer in our generated hardware is 32 bits long.
 3. The bodies of `map` and `reduce` operations must be binary `+` or `*` operations involving array elements or integers.
 4. If repeated `map`/`reduce` operations are performed on the same array, each of those operations must have the same parallelism factor.
-5. All `reduce` operations must be formed sequentially, i.e., with parallelism factor `1`.
+5. All `reduce` operations must be performed sequentially, i.e., with parallelism factor `1`.
 
 These restrictions can be lifted or relaxed via commensurate changes to the compiler.
 
@@ -343,29 +343,41 @@ fud e --from mrxl --to dat \
 
 # Further Steps
 
-**TODO(rachit)**: Add more information for users to attempt one of these extensions (see [#1516](https://github.com/cucapra/calyx/issues/1516)).
-
 Congratulations, you know about as much about MrXL as we do!
 The small size of the language makes it a nice sandbox for you to play in.
 We mentioned that the restrictions placed on the language can be lifted by beefing up the compiler, and here's your chance to give it a whirl!
 
-As a warmup, you could try lifting one of the following restrictions:
-> 1. Every array in a MrXL program has the same length. (**Breadcrumb**: ???)
-> 2. We only support 32-bit integers and computations over them. (**Breadcrumb**: Fixed-point primitives)
-> 3. The bodies of `map` and `reduce` operations must be binary `+` or `*` operations involving array elements or integers. (**Breadcrumb**: Other binary operators)
+Here are some of those restrictions again, along with pointers about how to lift them.
 
-If you're looking for a more serious challenge, try:
-> 4. If repeated `map`/`reduce` operations are performed on the same array, each of those operations must have the same parallelism factor. You will very likely need to think about _arbitration logic_, so we provide a toy implementation using the `builder` [here][builder-arb].
+1.
+    > The bodies of `map` and `reduce` operations must be binary `+` or `*` operations involving array elements or integers.
 
-Or, for something completely different:
+    Say you wanted to add subtraction and division to the mix.
+    We have set you up for success: the MrXL parser already parses `-` and `/` into `sub` and `div` respectively.
+    Now, in `gen_calyx.py`, you need to check for "sub" and "div" as possible binary operations, and then invoke the appropriate cell-builders of the `builder` library. 
+    For reference, see how the `+` and `*` operations are handled at present.
+    For "fun", take a look at how Calyx implements [multiplication][binary-mult], and how that maps to the existing invocation to create a 32-bit multiplication cell using the `builder`!
 
-5. Add support for a new `filter` operation in MrXL.
+2.
+    > All `reduce` operations must be performed sequentially, i.e., with parallelism factor `1`.
 
-A big gap in MrXL at present is that all `reduce` operations must be performed sequentially.
-This restriction can also be lifted, but hold that thought for a moment!
-We'd like to tell you a little about reduction trees. Again, we provide a toy implementation using the `builder` [here][builder-red-tree].
+    This is a big gap!
+    One way to perform reductions in parallel is using _reduction trees_.
+    To get you started, we provide a toy implementation using the `builder` [here][builder-red-tree].
+    That example is rather brittle: it takes exactly 16 inputs, banked into four arrays, and adds their values together.
+    Try incorporating this brittle version into your MrXL-to-Calyx compiler at first, and you can later think about generalizing it to any (commutative) operation, memories of any length, and any parallelism factor.
 
-# Supplying data to MrXL programs
+3.
+    > If repeated `map`/`reduce` operations are performed on the same array, each of those operations must have the same parallelism factor.
+
+    The heart of the issue is figuring out how to bank the underlying array.
+    How do we bank it two different ways at the same time?
+    The answer is to bank the array a little finer than you think, and to then use _arbitration logic_ to provide two fictional banking setups at the same time.
+    We provide a toy implementation using the `builder` [here][builder-arb].
+    There, a 24-cell array has been split into _six_ banks, but then we allow the user to pretend, simulatneously, that it is split into _two_ banks or _three_ banks.
+
+
+# Aside: supplying data to MrXL programs
 
 You may have noticed that the data files that we pass to MrXL programs are lighter-weight than those we pass to Calyx programs.
 They are lighter in two ways.
@@ -428,3 +440,4 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [mem-verilog]: https://github.com/cucapra/calyx/blob/master/primitives/core.sv#L220
 [compute-par]: https://github.com/cucapra/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/frontends/mrxl/mrxl/gen_calyx.py#L312
 [par-undef]: ../lang/ref.md#par
+[binary-mult]: https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45
