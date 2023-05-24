@@ -40,3 +40,5 @@ __pycache__
 !.vscode/tasks.json
 
 tests/xilinx/cocotb/**/hdl
+
+.vscode/settings.json

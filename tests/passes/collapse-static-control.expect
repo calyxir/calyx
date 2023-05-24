@@ -1,0 +1,34 @@
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {}
+  wires {
+    static<1> group A {
+    }
+    static<1> group B {
+    }
+    static<1> group C {
+    }
+    static<1> group D {
+    }
+  }
+  control {
+    seq {
+      static<4> seq  {
+        A;
+        B;
+        C;
+        D;
+      }
+      static<1> par {
+        A;
+        B;
+        C;
+        D;
+      }
+      
+      static<2> seq  {
+        A;
+        B;
+      }
+    }
+  }
+}

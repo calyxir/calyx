@@ -1,3 +1,4 @@
 input avec: int[16]
 output out: int
-out := reduce 1 (a, b <- avec) 10 { a + b }
+
+out := reduce 1 (a, b <- avec) 0 { a + b }
