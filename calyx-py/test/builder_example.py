@@ -63,7 +63,10 @@ def add_main_component(prog):
     # ANCHOR_END: continuous
 
     # ANCHOR: control
-    main.control = ast.ParComp([update_operands.as_enable(), compute_sum.as_enable()])
+    main.control += [
+        update_operands,
+        compute_sum,
+    ]
     # ANCHOR_END: control
 
 
