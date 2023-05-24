@@ -23,7 +23,7 @@ fud e "$file" --to "$out_stage" \
   -s interpreter.data "$data" \
   -s verilog.data "$data" \
   -s verilog.cycle_limit 1000 \
-  -s futil.flags "$flag1" >> out1.json &
+  -s calyx.flags "$flag1" >> out1.json &
 EXEC1=$!
 
 echo "Running with flags: $flag2"
@@ -32,7 +32,7 @@ fud e "$file" --to "$out_stage" \
   -s interpreter.data "$data" \
   -s verilog.data "$data" \
   -s verilog.cycle_limit 1000 \
-  -s futil.flags "$flag2" >> out2.json &
+  -s calyx.flags "$flag2" >> out2.json &
 EXEC2=$!
 
 wait $EXEC1

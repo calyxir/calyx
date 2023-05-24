@@ -26,6 +26,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.write_en = write_r1_done.out & seq0_go.out ? 1'd1;
     seq0_done.in = write_r2_done.out;
   }
-
   control {}
 }

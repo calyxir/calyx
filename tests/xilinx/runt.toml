@@ -10,7 +10,7 @@ paths = [
   "*.futil"
 ]
 cmd = """
-fud exec -q -s futil.exec '../../target/debug/calyx' \
+fud exec -q -s calyx.exec '../../target/debug/calyx' \
     {} -o {}.xclbin --to xclbin &&
     rm {}.xclbin
 """
@@ -28,7 +28,7 @@ source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh > /dev/null ; \
 source /opt/xilinx/xrt/setup.sh > /dev/null ; \
 EMCONFIG_PATH=`pwd` \
 XCL_EMULATION_MODE=hw_emu \
-fud exec -q -s futil.exec ../../target/debug/calyx \
+fud exec -q -s calyx.exec ../../target/debug/calyx \
     {} --to fpga -s fpga.data {}.data | \
     grep -Ev "^INFO|^Data|RD ="'
 """

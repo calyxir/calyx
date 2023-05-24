@@ -203,14 +203,28 @@ impl Printer {
         )?;
 
         // Add the cells
-        writeln!(f, "  cells {{")?;
+        write!(f, "  cells {{")?;
+        if !comp.cells.is_empty() {
+            writeln!(f)?;
+        }
         for cell in comp.cells.iter() {
             Self::write_cell(&cell.borrow(), 4, f)?;
         }
-        writeln!(f, "  }}")?;
+        if !comp.cells.is_empty() {
+            writeln!(f, "  }}")?;
+        } else {
+            writeln!(f, "}}")?;
+        }
 
         // Add the wires
-        writeln!(f, "  wires {{")?;
+        let empty_wires = comp.groups.is_empty()
+            && comp.static_groups.is_empty()
+            && comp.comb_groups.is_empty()
+            && comp.continuous_assignments.is_empty();
+        write!(f, "  wires {{")?;
+        if !empty_wires {
+            writeln!(f)?;
+        }
         for group in comp.get_groups().iter() {
             Self::write_group(&group.borrow(), 4, f)?;
             writeln!(f)?;
@@ -228,7 +242,11 @@ impl Printer {
             Self::write_assignment(assign, 4, f)?;
             writeln!(f)?;
         }
-        writeln!(f, "  }}")?;
+        if !empty_wires {
+            writeln!(f, "  }}")?;
+        } else {
+            writeln!(f, "}}")?;
+        }
 
         // Add the control program.
         // Since the syntax doesn't allow combinational components to have a control block, the attributes will always be empty
@@ -238,10 +256,10 @@ impl Printer {
                 ir::Control::Empty(ir::Empty { attributes })
                     if attributes.is_empty() =>
                 {
-                    writeln!(f, "\n  control {{}}")?;
+                    writeln!(f, "  control {{}}")?;
                 }
                 _ => {
-                    writeln!(f, "\n  control {{")?;
+                    writeln!(f, "  control {{")?;
                     Self::write_control(&comp.control.borrow(), 4, f)?;
                     writeln!(f, "  }}")?;
                 }

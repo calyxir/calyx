@@ -19,7 +19,6 @@ component uses_ref<"state_share"=1>(i: 3, j: 3, @go go: 1, @clk clk: 1, @reset r
     }
     out = r.out;
   }
-
   control {
     seq {
       read_mem;
@@ -28,10 +27,7 @@ component uses_ref<"state_share"=1>(i: 3, j: 3, @go go: 1, @clk clk: 1, @reset r
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {
-  }
-  wires {
-  }
-
+  cells {}
+  wires {}
   control {}
 }

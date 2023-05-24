@@ -4,12 +4,61 @@ import logging as log
 import shutil
 import sys
 from pathlib import Path
+from dataclasses import dataclass
 
 from halo import Halo  # type: ignore
 
 from . import errors, utils, executor
 from .config import Configuration
 from .stages import Source, SourceType, ComputationGraph, Stage
+
+
+@dataclass
+class RunConf:
+    """Configuration required to run a fud execution"""
+
+    # Run configuration
+    source: str
+    dest: str
+    through: List[str]
+    # Input/output configuration
+    input_file: Optional[str]
+    output_file: Optional[str]
+    # Other configuration
+    dry_run: bool
+    quiet: bool
+    csv: bool
+    profiled_stages: Optional[List[str]]
+
+    @classmethod
+    def from_args(cls, args):
+        """Build a RunConf from the passed from command line arguments"""
+        return cls(
+            args.source,
+            args.dest,
+            args.through,
+            args.input_file,
+            args.output_file,
+            args.dry_run,
+            args.quiet,
+            args.csv,
+            args.profiled_stages,
+        )
+
+    @classmethod
+    def from_dict(cls, dic):
+        """Build a RunConf from a python dictionary"""
+        return cls(
+            dic["source"],
+            dic["dest"],
+            dic.get("through", []),
+            dic.get("input_file", None),
+            dic.get("output_file", None),
+            dic.get("dry_run", False),
+            dic.get("quiet_run", False),
+            dic.get("csv", False),
+            dic.get("profiled_stages", None),
+        )
 
 
 def report_profiling(durations: Dict[str, float], is_csv: bool):
@@ -38,9 +87,17 @@ def chain_stages(
     return builder
 
 
-def run_fud(args, config: Configuration):
+def run_fud_from_args(args, config: Configuration):
     """
-    Execute all the stages implied by the passed `args`
+    Execute fud using command line arguments
+    """
+    return run_fud(RunConf.from_args(args), config)
+
+
+def get_fud_output(args: RunConf, config: Configuration):
+    """
+    Execute all the stages implied by the passed `args`,
+    and get an output `Source` object
     """
     # check if input_file exists
     input_file = None
@@ -116,7 +173,17 @@ def run_fud(args, config: Configuration):
         output.data = utils.profile_stages(durations, args.csv)
     else:
         output = staged.output
+    return output
 
+
+def run_fud(args: RunConf, config: Configuration):
+    """
+    Execute all the stages implied by the passed `args`,
+    and handles the output correctly, by either printing the output
+    or (if `args` specifies an output file) placing the output to the
+    specified file.
+    """
+    output = get_fud_output(args, config)
     # output the data or profiling information.
     if args.output_file is not None:
         if output.typ == SourceType.Directory:

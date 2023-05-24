@@ -32,7 +32,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       lt2.left = add3.out;
     }
   }
-
   control {
     par {
       if lt1.out with cg1 {

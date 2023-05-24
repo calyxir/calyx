@@ -19,6 +19,12 @@ jobs:
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
 
+    - name: Fixup fud configuration
+      run: |
+        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
+        fud c --create global.root /home/calyx
+        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
+
     - name: Update Dahlia
       working-directory: /home/dahlia
       run: |
@@ -41,7 +47,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         # Run the remaining tests
-        runt interp -x 'relay|mrxl' -d -o fail
+        runt interp -x 'relay' -d -o fail
 
     - name: Source code tests
       uses: actions-rs/cargo@v1
@@ -64,6 +70,12 @@ jobs:
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
+
+    - name: Fixup fud configuration
+      run: |
+        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
+        fud c --create global.root /home/calyx
+        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia
@@ -101,7 +113,7 @@ jobs:
     - name: Runt tests
       working-directory: /home/calyx
       run: |
-        runt -x 'mrxl|cocotb' -d -o fail -j 1 --max-futures 5
+        runt -x 'cocotb' -d -o fail -j 1 --max-futures 5
 
     # Run these sequentially because they might fail intermittently
     - name: Cocotb tests
@@ -122,6 +134,12 @@ jobs:
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
+
+    - name: Fixup fud configuration
+      run: |
+        # Once https://github.com/cucapra/calyx/pull/1493 is merged, this can be removed.
+        fud c --create global.root /home/calyx
+        fud c --create stages.calyx.exec /home/calyx/target/debug/calyx
 
     - name: Update Dahlia
       working-directory: /home/dahlia

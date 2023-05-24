@@ -1,6 +1,6 @@
 [package]
 name = "calyx-frontend"
-version = "0.2.0"
+version.workspace = true
 edition.workspace = true
 description.workspace = true
 authors.workspace = true
@@ -23,6 +23,7 @@ pest.workspace = true
 pest_derive.workspace = true
 pest_consume.workspace = true
 
-calyx-utils = { path = "../calyx-utils", version = "0.2.0" }
+calyx-utils.workspace = true
+
 strum_macros = "0.24.3"
 strum = "0.24.1"

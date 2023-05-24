@@ -16,7 +16,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       wr_y[done] = y.done;
     }
   }
-
   control {
     par {
       wr_x;

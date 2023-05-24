@@ -22,7 +22,6 @@ component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (
     static<2> group C {
     }
   }
-
   control {
     @NODE_ID(0) static<5> par {
       @NODE_ID static<5> seq  {
@@ -39,9 +38,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     e = example();
   }
-  wires {
-  }
-
+  wires {}
   control {
     invoke e()();
   }

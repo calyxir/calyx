@@ -9,7 +9,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       false_guard[done] = r.done;
     }
   }
-
   control {
     false_guard;
   }

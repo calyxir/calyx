@@ -19,7 +19,6 @@ static<3> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done
       c.write_en = 1'd1;
     }
   }
-
   control {
     static<3> seq  {
       A0;

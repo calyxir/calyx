@@ -4,7 +4,6 @@ from calyx.py_ast import (
     CompVar,
     Stdlib,
     Component,
-    CompInst,
     Program,
 )
 from calyx.utils import float_to_fixed_point
@@ -186,7 +185,7 @@ def generate_cells(
 
     # One extra `fp_pow` instance to compute e^{int_value}.
     for i in range(1, degree + 1):
-        comp.cell(f"pow{i}", CompInst("fp_pow", []))
+        comp.sub_component(f"pow{i}", "fp_pow", check_undeclared=False)
 
 
 def divide_and_conquer_sums(comp: ComponentBuilder, degree: int):
@@ -620,8 +619,8 @@ def generate_fp_pow_full(
         gen_comb_lt(comp, "base_lt_zero", comp.this().base, lt, const_zero),
 
     new_exp_val = comp.reg("new_exp_val", width)
-    e = comp.cell("e", CompInst("exp", []))
-    ln = comp.cell("l", CompInst("ln", []))
+    e = comp.sub_component("e", "exp", check_undeclared=False)
+    ln = comp.sub_component("l", "ln", check_undeclared=False)
 
     with comp.group("set_new_exp") as set_new_exp:
         mult.left = ln.out
@@ -728,7 +727,7 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     x = main.mem_d1("x", width, 1, 1, is_external=True)
     b = main.mem_d1("b", width, 1, 1, is_external=True)
     ret = main.mem_d1("ret", width, 1, 1, is_external=True)
-    f = main.cell("f", CompInst("fp_pow_full", []))
+    f = main.sub_component("f", "fp_pow_full")
 
     with main.group("read_base") as read_base:
         b.addr0 = 0
@@ -777,7 +776,7 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
     t = main.reg("t", width)
     x = main.mem_d1("x", width, 1, 1, is_external=True)
     ret = main.mem_d1("ret", width, 1, 1, is_external=True)
-    e = main.cell("e", CompInst("exp", []))
+    e = main.sub_component("e", "exp")
 
     with main.group("init") as init:
         x.addr0 = 0

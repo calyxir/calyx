@@ -1,0 +1,7 @@
+// -p well-formed -p wrap-main -p well-formed
+
+component foo<"toplevel"=1>() -> () {
+    cells {}
+    wires {}
+    control {}
+}

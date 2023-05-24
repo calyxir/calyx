@@ -5,8 +5,8 @@ use super::{
     RESERVED_NAMES, RRC,
 };
 use crate::{Nothing, PortComp, StaticTiming};
-use calyx_frontend::{ast, ast::Atom, Attribute, BoolAttr, NumAttr, Workspace};
-use calyx_utils::{CalyxResult, Error, GPosIdx, NameGenerator, WithPos};
+use calyx_frontend::{ast, ast::Atom, BoolAttr, Workspace};
+use calyx_utils::{CalyxResult, Error, GPosIdx, WithPos};
 use std::cell::RefCell;
 
 use std::collections::{HashMap, HashSet};
@@ -125,35 +125,6 @@ fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
     Ok(())
 }
 
-/// Definition of special interface ports.
-const INTERFACE_PORTS: [(Attribute, u64, Direction); 4] = [
-    (Attribute::Num(NumAttr::Go), 1, Direction::Input),
-    (Attribute::Bool(BoolAttr::Clk), 1, Direction::Input),
-    (Attribute::Bool(BoolAttr::Reset), 1, Direction::Input),
-    (Attribute::Num(NumAttr::Done), 1, Direction::Output),
-];
-
-/// Extend the signature with magical ports.
-fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
-    let port_names: HashSet<_> = sig.iter().map(|pd| pd.name).collect();
-    let mut namegen = NameGenerator::with_prev_defined_names(port_names);
-    for (attr, width, direction) in INTERFACE_PORTS.iter() {
-        // Check if there is already another interface port defined for the
-        // component
-        if !sig.iter().any(|pd| pd.attributes.has(*attr)) {
-            let mut attributes = Attributes::default();
-            attributes.insert(*attr, 1);
-            let name = Id::from(attr.to_string());
-            sig.push(PortDef {
-                name: namegen.gen_name(name.to_string()),
-                width: *width,
-                direction: direction.clone(),
-                attributes,
-            });
-        }
-    }
-}
-
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
     let mut all_names: HashSet<&Id> = HashSet::with_capacity(
@@ -193,7 +164,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
         check_signature(&*sig)?;
         // extend the signature if the component does not have the @nointerface attribute.
         if !comp.attributes.has(BoolAttr::NoInterface) && !comp.is_comb {
-            extend_signature(sig);
+            Component::extend_signature(sig);
         }
         sig_ctx
             .comp_sigs
@@ -297,6 +268,7 @@ fn build_component(
     let mut ir_component = Component::new(
         comp.name,
         comp.signature,
+        !comp.attributes.has(BoolAttr::NoInterface) && !comp.is_comb,
         comp.is_comb,
         // we may change latency from None to Some(inferred latency)
         // after we iterate thru the control of the Component

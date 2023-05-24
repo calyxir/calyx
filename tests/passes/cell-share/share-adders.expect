@@ -21,7 +21,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       upd1[done] = x_0.done ? 1'd1;
     }
   }
-
   control {
     seq {
       upd0;
