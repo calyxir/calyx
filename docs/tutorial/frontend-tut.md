@@ -355,9 +355,9 @@ Here are some of those restrictions again, along with pointers about how to lift
     Say you wanted to add subtraction and division to the mix.
     We have set you up for success: the MrXL parser parses `-` and `/` into `sub` and `div` respectively.
     Now you need to check for those values as possible binary operations, and then invoke the appropriate cell-builder of the `builder` library.
-    For "fun", take a look at how Calyx implements [multiplication](https://github.com/cucapra/calyx/blob/488d1f27fb16d8fdd636f8e9fb46e2d852044661/primitives/binary_operators.sv#L27-L45), and think about how that gory implementation looks on the `builder`'s end!
+    For "fun", take a look at how Calyx implements [multiplication](https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45), and think about how that gory implementation looks on the `builder`'s end!
 
-3.
+2.
     > All `reduce` operations must be formed sequentially, i.e., with parallelism factor `1`.
 
     This is a big gap!
