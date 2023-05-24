@@ -71,6 +71,16 @@ Generate it for yourself! Run:
 mrxl test/sos.mrxl
 ```
 
+## Simulating our example with Verilog
+
+Finally, let us go the whole hog: we will compile our MrXL code into Calyx and then simulate the Calyx code in Verilog.
+
+Run:
+```
+fud e --from mrxl test/sos.mrxl --to dat --through verilog -s mrxl.data test/sos.mrxl.data
+```
+
+
 # Compiling MrXL into Calyx
 
 Any frontend can support new commands that are relevant to the domain of interest, so long as those commands can themselves be compiled into Calyx.

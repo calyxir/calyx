@@ -88,7 +88,8 @@ class InterpreterStage(Stage):
 
     def _define_steps(self, input_data, builder, config):
         script = config["stages", self.name, "exec"]
-        data_path = config["stages", "verilog", "data"]
+        data_path_exists: bool = (config["stages", "verilog", "data"] or
+                                  config.get(["stages", "mrxl", "data"]))
 
         cmd = [
             script,
@@ -96,8 +97,8 @@ class InterpreterStage(Stage):
             unwrap_or(config["stages", self.name, "flags"], ""),
             "-l",
             config["global", cfg.ROOT],
-            "--data" if data_path else "",
-            "{data_file}" if data_path else "",
+            "--data" if data_path_exists else "",
+            "{data_file}" if data_path_exists else "",
             "{target}",
         ]
 
@@ -117,9 +118,15 @@ class InterpreterStage(Stage):
             """
             return TmpDir()
 
+        @builder.step(description="Dynamically retrieve the value of stages.verilog.data")
+        def get_verilog_data() -> SourceType.Path:
+            data_path = config.get(["stages", "verilog", "data"])
+            path = Path(data_path) if data_path else None
+            return Source(path, SourceType.Path)
+
         @builder.step()
         def convert_json_to_interp_json(
-            tmpdir: SourceType.Directory, json_path: SourceType.Stream
+            tmpdir: SourceType.Directory, json_path: SourceType.Path
         ):
             """
             Creates a data file to initialze the interpreter memories
@@ -127,7 +134,7 @@ class InterpreterStage(Stage):
             round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
             convert_to_json(
                 tmpdir.name,
-                sjson.load(json_path, use_decimal=True),
+                sjson.load(open(json_path.data), use_decimal=True),
                 round_float_to_fixed,
             )
 
@@ -170,7 +177,7 @@ class InterpreterStage(Stage):
         @builder.step()
         def parse_output(
             output: SourceType.Stream,
-            json_path: SourceType.UnTyped,
+            json_path: SourceType.Path,
             tmpdir: SourceType.Directory,
         ) -> SourceType.Stream:
             """
@@ -178,7 +185,7 @@ class InterpreterStage(Stage):
             """
 
             out_path = Path(tmpdir.name) / "output.json"
-            output = parse_from_json(output, json_path)
+            output = parse_from_json(output, json_path.data)
 
             with out_path.open("w") as f:
                 sjson.dump(output, f, indent=2, sort_keys=True, use_decimal=True)
@@ -187,14 +194,15 @@ class InterpreterStage(Stage):
 
         # schedule
         tmpdir = mktmp()
+        data_path = get_verilog_data()
 
-        if data_path is not None:
+        if data_path_exists:
             convert_json_to_interp_json(
-                tmpdir, Source(Path(data_path), SourceType.Path)
+                tmpdir, data_path
             )
 
         if self._is_data_converter():
-            if data_path is not None:
+            if data_path_exists:
                 return output_data(tmpdir)
             else:
                 raise ValueError("verilog.data must be provided")
@@ -206,7 +214,7 @@ class InterpreterStage(Stage):
 
             if "--raw" in cmd:
                 return parse_output(
-                    result, Source(data_path, SourceType.UnTyped), tmpdir
+                    result, data_path, tmpdir
                 )
             else:
                 return result
@@ -261,7 +269,7 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
 
 def parse_from_json(output_data_str, original_data_file_path):
     if original_data_file_path is not None:
-        with Path(original_data_file_path).open("r") as f:
+        with original_data_file_path.open("r") as f:
             orig = sjson.load(f)
     else:
         orig = None

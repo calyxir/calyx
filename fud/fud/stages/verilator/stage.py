@@ -111,8 +111,6 @@ class VerilatorStage(Stage):
         ]
 
     def _define_steps(self, input_data, builder, config):
-        data_path = config.get(["stages", self.name, "data"])
-
         # Step 1: Make a new temporary directory
         @builder.step()
         def mktmp() -> SourceType.Directory:
@@ -121,29 +119,41 @@ class VerilatorStage(Stage):
             """
             return TmpDir()
 
-        # Step 2a: check if we need verilog.data to be passes
+        # Step 2a: Dynamically retrieve the value of stages.verilog.data
+        @builder.step(description="Dynamically retrieve the value of stages.verilog.data")
+        def get_verilog_data() -> SourceType.Path:
+            data_path = config.get(["stages", "verilog", "data"])
+            path = Path(data_path) if data_path else None
+            return Source(path, SourceType.Path)
+
+        # Step 2b: check if we need verilog.data to be passes
         @builder.step()
-        def check_verilog_for_mem_read(verilog_src: SourceType.String):
+        def check_verilog_for_mem_read(
+            verilog_src: SourceType.String, data_path: SourceType.Path
+        ):
             """
             Read input verilog to see if `verilog.data` needs to be set.
             """
-            if "readmemh" in verilog_src:
+            # If verilog.data exists, do nothing
+            if not data_path.data and "readmemh" in verilog_src:
                 raise errors.MissingDynamicConfiguration("verilog.data")
 
         # Step 2: Transform data from JSON to Dat.
         @builder.step()
-        def json_to_dat(tmp_dir: SourceType.Directory, json_path: SourceType.Stream):
+        def json_to_dat(tmp_dir: SourceType.Directory, json_path: SourceType.Path):
             """
             Converts a `json` data format into a series of `.dat` files inside the given
             temporary directory.
             """
             round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
-            convert2dat(
-                tmp_dir.name,
-                sjson.load(json_path, use_decimal=True),
-                "dat",
-                round_float_to_fixed,
-            )
+            # if verilog.data was not given, do nothing
+            if json_path.data:
+                convert2dat(
+                    tmp_dir.name,
+                    sjson.load(open(json_path.data), use_decimal=True),
+                    "dat",
+                    round_float_to_fixed,
+                )
 
         # Step 3: compile with verilator
         testbench_sv = str(
@@ -236,11 +246,12 @@ class VerilatorStage(Stage):
 
         # Schedule
         tmpdir = mktmp()
+        data_path = get_verilog_data()
+
         # if we need to, convert dynamically sourced json to dat
-        if data_path is None:
-            check_verilog_for_mem_read(input_data)
-        else:
-            json_to_dat(tmpdir, Source.path(data_path))
+        check_verilog_for_mem_read(input_data, data_path)
+        json_to_dat(tmpdir, data_path)
+
         compile_with_verilator(input_data, tmpdir)
         stdout = simulate(tmpdir)
         result = output_vcd(tmpdir) if self.vcd else output_json(stdout, tmpdir)
