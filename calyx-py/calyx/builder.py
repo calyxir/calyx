@@ -258,7 +258,10 @@ def as_control(obj):
     elif isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
     elif isinstance(obj, set):
-        return ast.ParComp([as_control(o) for o in obj])
+        raise TypeError(
+            "Python sets are not supported in control programs. For a parallel"
+            " composition use `Builder.par` instead."
+        )
     elif obj is None:
         return ast.Empty()
     else:
