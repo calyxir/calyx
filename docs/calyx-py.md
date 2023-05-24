@@ -1,8 +1,6 @@
 # Emitting Calyx from Python
 
-Our frontends are written in Python3 and make use of the `calyx` builder library to
-generate their code.
-
+The `calyx` builder library can be used to generate Calyx code in Python.
 ## Installation
 
 To install the library, run the following from the repository root (requires
@@ -14,15 +12,15 @@ cd calyx-py && flit install -s
 
 ## Using the `calyx` builder
 
-The `calyx` library provides a builder to generate Calyx code. Let's walk through the file `calyx-py/test/builder_example.py`. This Calyx program initializes two registers with the numbers 1 and 41, adds them together, and stores the result in a register.
+The `calyx` library provides a builder to generate Calyx code. Let's walk through the file [`builder_example.py`][example]. This Calyx program initializes two registers with the numbers 1 and 41, adds them together, and stores the result in a register.
 
-We use the `Builder` object to construct our Calyx program `prog`. We can define components with `prog.component`. Here's a defininition of a `main` component with a 32-bit input and output:
+The `add_main_component(prog)` method will, as the name suggests, add a main component to our program. We can define components for our Calyx program `prog` with `prog.component`. Here's a defininition of a `main` component with a 32-bit input `in` and output `out`:
 
 ```python
 {{#include ../calyx-py/test/builder_example.py:init}}
 ```
 
-Technically, we didn't need to assign `prog.component("main")` to a variable; the `main` component would have been added to `prog` regardless. However, it will often prove useful to store handles to components, registers, or other objects you'd like to use later.
+Technically, we didn't need to assign `prog.component("main")` to a variable; the component `main` would have been added to `prog` regardless. However, it will often prove useful to store handles to components, registers, or other objects you'd like to use later.
 
 We then instantiate our cells: three 32-bit registers and one 32-bit adder.
 
@@ -50,7 +48,7 @@ As mentioned in the comments above, the Calyx builder will try to infer the bitw
 {{#include ../calyx-py/test/builder_example.py:const}}
 ```
 
-Calyx groups use a latency-insensitive go/done interface. Writing a group's done condition with the builder is pretty similar to doing so in Calyx, except that the `?` used for guarded assignments is now `@` (due to conflicting usage of `?` in Python).
+Calyx groups use a [latency-insensitive go/done interface][godone]. When the `done` signal of a component is `1`, it signals that the component has finished executing. Oftentimes, computing this signal is conditional. We use [guarded assignements][guarded] to a group's done signal in order to express this. Writing a group's done condition with the builder is pretty similar to doing so in Calyx, except that the `?` used for guarded assignments is now `@` (due to conflicting usage of `?` in Python).
 
 ```python
 {{#include ../calyx-py/test/builder_example.py:done}}
@@ -68,7 +66,7 @@ Now, when we want to use the output port of our adder, we can do so easily:
 {{#include ../calyx-py/test/builder_example.py:bare_use}}
 ```
 
-In order to add continuous assignments to your program, use the construct `with {component}.continuous:`.
+In order to add [continuous assignments][cont] to your program, use the construct `with {component}.continuous:`.
 
 ```python
 {{#include ../calyx-py/test/builder_example.py:continuous}}
@@ -80,22 +78,24 @@ To access a component's ports while defining it, like we did above, we use the m
 {{#include ../calyx-py/test/builder_example.py:this}}
 ```
 
-Lastly, we'll construct the control portion of this Calyx program. It's pretty simple; we're sequencing two groups. Sequences of groups are just Python lists:
+Lastly, we'll construct the control portion of this Calyx program. It's pretty simple; we're running two groups in sequence. Sequences of groups are just Python lists:
 
 ```python
-{{#include ../calyx-py/test/builder_example.py:return}}
+{{#include ../calyx-py/test/builder_example.py:control}}
 ```
-You can also use the builder for generating parallel control blocks. Just encapuslate the parallel groups (say, `A`, `B`, and `C`) with the `par` keyword. For instance, the above code with some parallel groups in it might look like
+
+You can also use the builder to generate parallel control blocks. One way to do this is simply to add a set with the parallel groups (say, `A`, `B`, and `C`) to the component's control block. Another way to do this is to use the `par` keyword. For instance, the above code with some parallel groups in it might look like
 
 ```python
     main.control += [
         update_operands,
         compute_sum,
-        par(A, B)
+        # could also be par(A, B, C)
+        {A, B, C}
     ]
 ```
 
-After making our modifications to the `main` component, we'll return the program.
+After making our modifications to the `main` component, we'll build the program using the `build()` method. We use the `Builder` object to construct `prog`, and then return the generated program.
 
 ```python
 {{#include ../calyx-py/test/builder_example.py:return}}
@@ -107,14 +107,17 @@ Finally, we can emit the program we built.
 {{#include ../calyx-py/test/builder_example.py:emit}}
 ```
 
-In this program.`build()` serves both as a way to define the `main` component as well as organize the Calyx program we generated. Since this program was so simple, we didn't need to factor out our component definitions. For Calyx programs with multiple components or more complex operations, factoring definitions or procedures into their own functions is useful.
-
 That's about it for getting started with the `calyx-py` builder library! You can inspect the generated Calyx code yourself by running:
 
 ```python
 python calyx-py/test/builder_example.py
 ```
 
-Other examples using the builder can also be found in the `calyx-py/test/` directory.
+Other examples using the builder can also be found in the `calyx-py` [test directory][test]. All of our frontends were also written using this library, in case you'd like even more examples!
 
 [flit]: https://flit.readthedocs.io/en/latest/
+[example]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/builder_example.py
+[godone]: https://docs.calyxir.org/lang/ref.html#the-go-done-interface
+[guarded]: https://docs.calyxir.org/lang/ref.html#guarded-assignments
+[cont]: https://docs.calyxir.org/lang/ref.html?highlight=continuous#continuous-assignments
+[test]: https://github.com/cucapra/calyx/tree/master/calyx-py/test/

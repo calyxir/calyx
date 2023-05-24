@@ -2,9 +2,9 @@ from calyx.builder import Builder, const
 from calyx import py_ast as ast
 
 
-def build():
-    # ANCHOR: init
-    prog = Builder()
+# ANCHOR: init
+def add_main_component(prog):
+
     main = prog.component("main")
     main.input("in", 32)
     main.output("out", 32)
@@ -60,17 +60,18 @@ def build():
     # ANCHOR_END: this
     # ANCHOR: continuous
     with main.continuous:
-        this.in_ = this.out
+        this.out = sum.out
     # ANCHOR_END: continuous
 
     # ANCHOR: control
-    main.control += [
-        update_operands,
-        compute_sum,
-    ]
+    main.control += [{update_operands, compute_sum}]
     # ANCHOR_END: control
 
-    # ANCHOR: return
+
+# ANCHOR: return
+def build():
+    prog = Builder()
+    add_main_component(prog)
     return prog.program
     # ANCHOR_END: return
 
