@@ -356,7 +356,7 @@ Here are some of those restrictions again, along with pointers about how to lift
     We have set you up for success: the MrXL parser already parses `-` and `/` into `sub` and `div` respectively.
     Now, in `gen_calyx.py`, you need to check for "sub" and "div" as possible binary operations, and then invoke the appropriate cell-builders of the `builder` library. 
     For reference, see how the `+` and `*` operations are handled at present.
-    For "fun", take a look at how Calyx implements [multiplication](https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45), and how that maps to the existing invocation to create a 32-bit multiplication cell using the `builder`!
+    For "fun", take a look at how Calyx implements [multiplication][binary-mult], and how that maps to the existing invocation to create a 32-bit multiplication cell using the `builder`!
 
 2.
     > All `reduce` operations must be performed sequentially, i.e., with parallelism factor `1`.
@@ -440,3 +440,4 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [mem-verilog]: https://github.com/cucapra/calyx/blob/master/primitives/core.sv#L220
 [compute-par]: https://github.com/cucapra/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/frontends/mrxl/mrxl/gen_calyx.py#L312
 [par-undef]: ../lang/ref.md#par
+[binary-mult]: https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45
