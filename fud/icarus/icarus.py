@@ -65,11 +65,14 @@ class IcarusBaseStage(Stage):
 
         # Step 2b: check if we need verilog.data to be passes
         @builder.step()
-        def check_verilog_for_mem_read(verilog_src: SourceType.String):
+        def check_verilog_for_mem_read(
+            verilog_src: SourceType.String, data_path: SourceType.Path
+        ):
             """
             Read input verilog to see if `icarus-verilog.data` needs to be set.
             """
-            if "readmemh" in verilog_src:
+            # If verilog.data exists, do nothing
+            if not data_path.data and "readmemh" in verilog_src:
                 raise errors.MissingDynamicConfiguration("verilog.data")
 
         # Step 2: Transform data from JSON to Dat.
@@ -79,12 +82,14 @@ class IcarusBaseStage(Stage):
             Converts a `json` data format into a series of `.dat` files.
             """
             round_float_to_fixed = config["stages", self.name, "round_float_to_fixed"]
-            convert2dat(
-                tmp_dir.name,
-                sjson.load(open(json_path.data), use_decimal=True),
-                "dat",
-                round_float_to_fixed,
-            )
+            # if verilog.data was not given, do nothing
+            if json_path.data:
+                convert2dat(
+                    tmp_dir.name,
+                    sjson.load(open(json_path.data), use_decimal=True),
+                    "dat",
+                    round_float_to_fixed,
+                )
 
         # Step 3: compile with verilator
         cmd = " ".join(
@@ -174,16 +179,16 @@ class IcarusBaseStage(Stage):
         # Schedule
         tmpdir = mktmp()
         data_path = get_verilog_data()
-        data_path_exists: bool = (
-            config.get(["stages", "verilog", "data"]) or
-            config.get(["stages", "mrxl", "data"])
-        )
+        # data_path_exists: bool = (
+        #     config.get(["stages", "verilog", "data"]) or
+        #     config.get(["stages", "mrxl", "data"])
+        # )
 
         # if we need to, convert dynamically sourced json to dat
-        if not data_path_exists:
-            check_verilog_for_mem_read(input_data)
-        else:
-            json_to_dat(tmpdir, data_path)
+        check_verilog_for_mem_read(input_data, data_path)
+        # otherwise, convert 
+        json_to_dat(tmpdir, data_path)
+
         compile_with_iverilog(input_data, tmpdir)
         stdout = simulate(tmpdir)
         result = None
