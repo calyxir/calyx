@@ -37,7 +37,8 @@
 
 # Generating Calyx
 
-- [Emitting Calyx from Python](./calyx-py.md)
+- [Emitting Calyx from Python](./builder/calyx-py.md)
+- [`calyx-py` Builder Reference](./builder/ref.md)
 - [Frontend Tutorial](./tutorial/frontend-tut.md)
 - [Frontend Compilers](./frontends/index.md)
   - [Dahlia](./frontends/dahlia.md)
