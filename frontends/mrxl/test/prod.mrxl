@@ -1,0 +1,4 @@
+input avec: int[8]
+output out: int
+
+out := reduce 1 (a, b <- avec) 1 { a * b }
