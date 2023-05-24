@@ -215,12 +215,14 @@ def gen_map_impl(
                 return CompPort(CompVar(name2arr[expr.name]), "read_data")
             raise CompileError(f"Unhandled expression: {type(expr)}")
 
+        # ANCHOR: map_op
         if body.operation == "mul":
             operation = comp.cell(
                 f"mul_{suffix}", Stdlib.op("mult_pipe", 32, signed=False)
             )
         else:
             operation = comp.add(f"add_{suffix}", 32)
+        # ANCHOR_END: map_op
 
         assert (
             len(stmt.binds) <= 2
@@ -233,11 +235,9 @@ def gen_map_impl(
                 mem = comp.get_cell(f"{name2arr[bind.dst[0]]}")
                 mem.addr0 = idx.out
             # ANCHOR_END: map_inputs
-            # ANCHOR: map_op
             # Provide inputs to the op
             operation.left = expr_to_port(body.lhs)
             operation.right = expr_to_port(body.rhs)
-            # ANCHOR_END: map_op
             # ANCHOR: map_write
             out_mem = comp.get_cell(f"{dest}_b{bank}")
             out_mem.addr0 = idx.out
