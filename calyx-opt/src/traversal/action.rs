@@ -46,6 +46,10 @@ impl Action {
         Action::Change(Box::new(control))
     }
 
+    pub fn static_change(control: StaticControl) -> Self {
+        Action::StaticChange(Box::new(control))
+    }
+
     /// Applies the Change action if `self` is a Change action.
     /// Otherwise passes the action through unchanged
     pub(super) fn apply_change(self, con: &mut Control) -> Action {

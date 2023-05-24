@@ -72,29 +72,68 @@ the invoker has six memories of size 4 each, but needs to pretend, sometimes sim
 We will do up two components that are designed to receive memories by reference:
 
 ```
-{{#include ../../calyx-py/test/arb6_no_comments.futil:wrap2}}
-    ...
+component wrap2(i: 32, j: 32) -> () {
+  cells {
+    // Six memories that will be passed by reference.
+    ref mem1 = std_mem_d1(32, 4, 32);
+    // ...
+    ref mem6 = std_mem_d1(32, 4, 32);
+    // An answer cell, also passed by reference.
+    ref ans = std_mem_d1(32, 1, 32);
+  }
+  wires { ... }
+  control { ... }
 }
-wires { ... }
-control { ... }
 ```
 and
 ```
-{{#include ../../calyx-py/test/arb6_no_comments.futil:wrap3}}
-    ...
+component wrap3(i: 32, j: 32) -> () {
+  cells {
+    // Six memories that will be passed by reference.
+    ref mem1 = std_mem_d1(32, 4, 32);
+    // ...
+    ref mem6 = std_mem_d1(32, 4, 32);
+    // An answer cell, also passed by reference.
+    ref ans = std_mem_d1(32, 1, 32);
+  }
+  wires { ... }
+  control { ... }
 }
-wires { ... }
-control { ... }
 ```
 
+That is, they have the same signature including `input` ports, `output` ports, and `ref` cells.
+We have elided the logic, but feel free to explore the [source code][arbiter_6.futil].
 
-That is, they have the _same_ signature including `input` ports, `output` ports, and `ref` cells.
-We have elided the logic, but feel free to explore the [source code][arb6.futil].
-
-Now the invoker is able to wrap the _same_ memories two different ways, and then maintain two different fictional indexing systems at the same time.
+Now the invoker has six locally defined memories.
+By passing these memories to the components above, the invoker is able to wrap the same six memories two different ways, and then maintain two different fictional indexing systems at the same time.
 
 ```
-{{#include ../../calyx-py/test/arb6_no_comments.futil:main}}
+component main() -> () {
+  cells {
+    // Six memories that will pass by reference.
+    @external A = std_mem_d1(32, 4, 32);
+    //...
+    @external F = std_mem_d1(32, 4, 32);
+
+    // Two answer cells that we will also pass.
+    @external out2 = std_mem_d1(32, 1, 32);
+    @external out3 = std_mem_d1(32, 1, 32);
+
+    // Preparing to invoke the components above.
+    together2 = wrap2();
+    together3 = wrap3();
+  }
+
+  wires {
+  }
+
+  control {
+    seq {
+      invoke together2[mem1=A, mem2=B, mem3=C, mem4=D, mem5=E, mem6=F, ans=out2](i=32'd1, j=32'd11)();
+      invoke together3[mem1=A, mem2=B, mem3=C, mem4=D, mem5=E, mem6=F, ans=out3](i=32'd2, j=32'd7)();
+    }
+  }
+}
 ```
 
 Observe: when "wrapped" into two chunks, \\( 0 \le i < 2 \\) and \\( 0 \le j < 12 \\); when wrapped into three chunks, \\( 0 \le i < 3 \\) and \\( 0 \le j < 8 \\).
@@ -185,4 +224,4 @@ Here is an example of a memory copy (referred to as `mem_cpy` in the C language)
 {{#include ../../tests/correctness/invoke-memory.futil}}
 ```
 
-[arb6.futil]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/arb_6_as_3_or_2.futil
+[arbiter_6.futil]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/arbiter_6.futil

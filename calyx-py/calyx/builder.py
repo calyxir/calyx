@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Dict, Union, Optional, List
+from typing import Any, Dict, Union, Optional, List
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
@@ -67,11 +67,21 @@ class ComponentBuilder:
             self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
 
-    def input(self, name: str, size: int):
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
+    def input(self, name: str, size: int) -> ExprBuilder:
+        """Declare an input port on the component.
 
-    def output(self, name: str, size: int):
+        Returns an expression builder for the port.
+        """
+        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
+        return self.this()[name]
+
+    def output(self, name: str, size: int) -> ExprBuilder:
+        """Declare an output port on the component.
+
+        Returns an expression builder for the port.
+        """
         self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
+        return self.this()[name]
 
     def this(self) -> ThisBuilder:
         return ThisBuilder()
@@ -180,21 +190,37 @@ class ComponentBuilder:
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int) -> CellBuilder:
+    def add(self, name: str, size: int, signed=False) -> CellBuilder:
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("add", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("add", size, signed))
 
-    def eq(self, name: str, size: int):
+    def sub(self, name: str, size: int, signed=False):
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("eq", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("sub", size, signed))
 
-    def lt(self, name: str, size: int):
+    def gt(self, name: str, size: int, signed=False):
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("lt", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("gt", size, signed))
 
-    def sub(self, name: str, size: int):
+    def lt(self, name: str, size: int, signed=False):
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("sub", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("lt", size, signed))
+
+    def eq(self, name: str, size: int, signed=False):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("eq", size, signed))
+
+    def neq(self, name: str, size: int, signed=False):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("neq", size, signed))
+
+    def ge(self, name: str, size: int, signed=False):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("ge", size, signed))
+
+    def le(self, name: str, size: int, signed=False):
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("le", size, signed))
 
 
 def as_control(obj):
@@ -247,8 +273,15 @@ def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
     return ast.While(port.expr, cg, as_control(body))
 
 
-def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.If:
+def if_(
+    port: ExprBuilder,
+    cond: Optional[GroupBuilder],
+    body,
+    else_body=None,
+) -> ast.If:
     """Build an `if` control statement."""
+    else_body = ast.Empty() if else_body is None else else_body
+
     if cond:
         assert isinstance(
             cond.group_like, ast.CombGroup
@@ -256,7 +289,7 @@ def if_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.If:
         cg = cond.group_like.id
     else:
         cg = None
-    return ast.If(port.expr, cg, as_control(body))
+    return ast.If(port.expr, cg, as_control(body), as_control(else_body))
 
 
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
@@ -278,7 +311,7 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
             if k.startswith("out_")
         ],
         [
-            (k[4:], ExprBuilder.unwrap(v))
+            (k[4:], CellBuilder.unwrap_id(v))
             for (k, v) in kwargs.items()
             if k.startswith("ref_")
         ],
@@ -427,6 +460,13 @@ class CellBuilder(CellLikeBuilder):
     def port(self, name: str) -> ExprBuilder:
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
+
+    @classmethod
+    def unwrap_id(cls, obj):
+        if isinstance(obj, cls):
+            return obj._cell.id
+        else:
+            return obj
 
 
 class ThisBuilder(CellLikeBuilder):
