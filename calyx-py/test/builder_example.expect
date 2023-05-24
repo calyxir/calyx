@@ -25,7 +25,7 @@ component main(in: 32) -> (out: 32) {
     out = sum.out;
   }
   control {
-    par {
+    seq {
       update_operands;
       compute_sum;
     }
