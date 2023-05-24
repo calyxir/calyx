@@ -4,7 +4,6 @@ from calyx import py_ast as ast
 
 # ANCHOR: init
 def add_main_component(prog):
-
     main = prog.component("main")
     main.input("in", 32)
     main.output("out", 32)
@@ -64,7 +63,7 @@ def add_main_component(prog):
     # ANCHOR_END: continuous
 
     # ANCHOR: control
-    main.control += [{update_operands, compute_sum}]
+    main.control = ast.ParComp([update_operands.as_enable(), compute_sum.as_enable()])
     # ANCHOR_END: control
 
 
