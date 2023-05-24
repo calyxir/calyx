@@ -18,7 +18,7 @@ litexpr: INT
 varexpr: CNAME
 ?baseexpr: litexpr | varexpr
 binexpr: baseexpr binop baseexpr
-binop: "+" -> add | "*" -> mul
+binop: "+" -> add | "*" -> mul | "-" -> sub | "/" -> div
 
 bindlist: (bind ("," bind)*)?
 bind: varlist "<-" CNAME
