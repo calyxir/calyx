@@ -291,11 +291,11 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
         int_width,
         is_signed,
     )
-    pade_approx = comp.sub_component(
+    pade_approx = comp.comp_instance(
         "pade_approx", "ln_pade_approx", check_undeclared=False
     )
     res_reg = comp.reg("res_reg", width)
-    msb = comp.sub_component("msb", "msb_calc", check_undeclared=False)
+    msb = comp.comp_instance("msb", "msb_calc", check_undeclared=False)
     # these 3 appear unused, not sure why
     slice0 = comp.cell("slice0", Stdlib.slice(width, int_width))
     rsh = comp.cell("rsh", Stdlib.op("rsh", width, is_signed))
@@ -396,7 +396,7 @@ if __name__ == "__main__":
     x = main.reg("x", width)
     in_ = main.mem_d1("in", width, 1, 1, is_external=True)
     out = main.mem_d1("out", width, 1, 1, is_external=True)
-    ln = main.sub_component("l", "ln")
+    ln = main.comp_instance("l", "ln")
 
     with main.group("read_in_mem") as read_in_mem:
         in_.read_addr = 0
