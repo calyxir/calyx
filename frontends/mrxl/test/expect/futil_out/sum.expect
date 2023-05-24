@@ -1,0 +1,69 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external avec_b0 = std_mem_d1(32, 16, 32);
+    @external out = std_mem_d1(32, 1, 32);
+    out_reg = std_reg(32);
+    idx0 = std_reg(32);
+    incr_0 = std_add(32);
+    lt_0 = std_lt(32);
+    add_0 = std_add(32);
+  }
+  wires {
+    group out_reg2mem {
+      out.addr0 = 32'd0;
+      out.write_data = out_reg.out;
+      out.write_en = 1'd1;
+      out_reg2mem[done] = out.done;
+    }
+    group init_idx_0 {
+      idx0.in = 32'd0;
+      idx0.write_en = 1'd1;
+      init_idx_0[done] = idx0.done;
+    }
+    group incr_idx_0 {
+      incr_0.left = idx0.out;
+      incr_0.right = 32'd1;
+      idx0.in = incr_0.out;
+      idx0.write_en = 1'd1;
+      incr_idx_0[done] = idx0.done;
+    }
+    comb group cond_0 {
+      lt_0.left = idx0.out;
+      lt_0.right = 32'd16;
+    }
+    group init_0 {
+      out_reg.in = 32'd0;
+      out_reg.write_en = 1'd1;
+      init_0[done] = out_reg.done;
+    }
+    group reduce0 {
+      avec_b0.addr0 = idx0.out;
+      add_0.left = out_reg.out;
+      add_0.right = avec_b0.read_data;
+      out_reg.in = add_0.out;
+      out_reg.write_en = 1'd1;
+      reduce0[done] = out_reg.done;
+    }
+  }
+  control {
+    seq {
+      seq {
+        par {
+          init_0;
+          init_idx_0;
+        }
+        while lt_0.out with cond_0 {
+          seq {
+            reduce0;
+            incr_idx_0;
+          }
+        }
+      }
+      par {
+        out_reg2mem;
+      }
+    }
+  }
+}

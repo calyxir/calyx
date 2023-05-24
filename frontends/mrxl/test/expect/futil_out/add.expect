@@ -1,0 +1,82 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external in_a_b0 = std_mem_d1(32, 2, 32);
+    @external in_a_b1 = std_mem_d1(32, 2, 32);
+    @external in_b_b0 = std_mem_d1(32, 2, 32);
+    @external in_b_b1 = std_mem_d1(32, 2, 32);
+    @external out_b0 = std_mem_d1(32, 2, 32);
+    @external out_b1 = std_mem_d1(32, 2, 32);
+    idx_b0_0 = std_reg(32);
+    incr_b0_0 = std_add(32);
+    lt_b0_0 = std_lt(32);
+    add_b0_0 = std_add(32);
+    idx_b1_0 = std_reg(32);
+    incr_b1_0 = std_add(32);
+    lt_b1_0 = std_lt(32);
+    add_b1_0 = std_add(32);
+  }
+  wires {
+    group incr_idx_b0_0 {
+      incr_b0_0.left = idx_b0_0.out;
+      incr_b0_0.right = 32'd1;
+      idx_b0_0.in = incr_b0_0.out;
+      idx_b0_0.write_en = 1'd1;
+      incr_idx_b0_0[done] = idx_b0_0.done;
+    }
+    comb group cond_b0_0 {
+      lt_b0_0.left = idx_b0_0.out;
+      lt_b0_0.right = 32'd2;
+    }
+    group eval_body_b0_0 {
+      in_a_b0.addr0 = idx_b0_0.out;
+      in_b_b0.addr0 = idx_b0_0.out;
+      add_b0_0.left = in_a_b0.read_data;
+      add_b0_0.right = in_b_b0.read_data;
+      out_b0.addr0 = idx_b0_0.out;
+      out_b0.write_data = add_b0_0.out;
+      out_b0.write_en = 1'd1;
+      eval_body_b0_0[done] = out_b0.done;
+    }
+    group incr_idx_b1_0 {
+      incr_b1_0.left = idx_b1_0.out;
+      incr_b1_0.right = 32'd1;
+      idx_b1_0.in = incr_b1_0.out;
+      idx_b1_0.write_en = 1'd1;
+      incr_idx_b1_0[done] = idx_b1_0.done;
+    }
+    comb group cond_b1_0 {
+      lt_b1_0.left = idx_b1_0.out;
+      lt_b1_0.right = 32'd2;
+    }
+    group eval_body_b1_0 {
+      in_a_b1.addr0 = idx_b1_0.out;
+      in_b_b1.addr0 = idx_b1_0.out;
+      add_b1_0.left = in_a_b1.read_data;
+      add_b1_0.right = in_b_b1.read_data;
+      out_b1.addr0 = idx_b1_0.out;
+      out_b1.write_data = add_b1_0.out;
+      out_b1.write_en = 1'd1;
+      eval_body_b1_0[done] = out_b1.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        while lt_b0_0.out with cond_b0_0 {
+          seq {
+            eval_body_b0_0;
+            incr_idx_b0_0;
+          }
+        }
+        while lt_b1_0.out with cond_b1_0 {
+          seq {
+            eval_body_b1_0;
+            incr_idx_b1_0;
+          }
+        }
+      }
+    }
+  }
+}
