@@ -1,50 +1,3 @@
-from __future__ import annotations
-
-import threading
-from typing import Dict, Union, Optional, List
-from . import py_ast as ast
-
-# Thread-local storage to keep track of the current GroupBuilder we have
-# entered as a context manager. This is weird magic!
-TLS = threading.local()
-TLS.groups = []
-
-
-class Builder:
-    """The entry-point builder for top-level Calyx programs."""
-
-    def __init__(self):
-        self.program = ast.Program(
-            imports=[],
-            components=[],
-        )
-        self.imported = set()
-        self.import_("primitives/core.futil")
-        self._index: Dict[str, ComponentBuilder] = {}
-
-    def component(self, name: str, cells=None) -> ComponentBuilder:
-        """Create a new component builder."""
-        cells = cells or []
-        comp_builder = ComponentBuilder(self, name, cells)
-        self.program.components.append(comp_builder.component)
-        self._index[name] = comp_builder
-        return comp_builder
-
-    def get_component(self, name: str) -> ComponentBuilder:
-        """Retrieve a component builder by name."""
-        comp_builder = self._index.get(name)
-        if comp_builder is None:
-            raise Exception(f"Component `{name}' not found in program.")
-        else:
-            return comp_builder
-
-    def import_(self, filename: str):
-        """Add an `import` statement to the program."""
-        if filename not in self.imported:
-            self.imported.add(filename)
-            self.program.imports.append(ast.Import(filename))
-
-
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
@@ -66,30 +19,6 @@ class ComponentBuilder:
         for cell in cells:
             self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
-
-    def input(self, name: str, size: int) -> ExprBuilder:
-        """Declare an input port on the component.
-
-        Returns an expression builder for the port.
-        """
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
-
-    def output(self, name: str, size: int) -> ExprBuilder:
-        """Declare an output port on the component.
-
-        Returns an expression builder for the port.
-        """
-        self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
-
-    def this(self) -> ThisBuilder:
-        """Get a handle to the component's `this` cell.
-
-        This is used to access the component's input/output ports with the
-        standard `this.port` syntax.
-        """
-        return ThisBuilder()
 
     @property
     def control(self) -> ControlBuilder:
@@ -190,69 +119,6 @@ class ComponentBuilder:
             comp_name = comp_name.component.name
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
-
-    def reg(self, name: str, size: int) -> CellBuilder:
-        """Generate a StdReg cell."""
-        return self.cell(name, ast.Stdlib.register(size))
-
-    def const(self, name: str, width: int, value: int) -> CellBuilder:
-        """Generate a StdConstant cell."""
-        return self.cell(name, ast.Stdlib.constant(width, value))
-
-    def mem_d1(
-        self,
-        name: str,
-        bitwidth: int,
-        len: int,
-        idx_size: int,
-        is_external=False,
-        is_ref=False,
-    ) -> CellBuilder:
-        """Generate a StdMemD1 cell."""
-        return self.cell(
-            name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
-        )
-
-    def add(self, name: str, size: int, signed=False) -> CellBuilder:
-        """Generate a StdAdd cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("add", size, signed))
-
-    def sub(self, name: str, size: int, signed=False):
-        """Generate a StdSub cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("sub", size, signed))
-
-    def gt(self, name: str, size: int, signed=False):
-        """Generate a StdGt cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("gt", size, signed))
-
-    def lt(self, name: str, size: int, signed=False):
-        """Generate a StdLt cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("lt", size, signed))
-
-    def eq(self, name: str, size: int, signed=False):
-        """Generate a StdEq cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("eq", size, signed))
-
-    def neq(self, name: str, size: int, signed=False):
-        """Generate a StdNeq cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("neq", size, signed))
-
-    def ge(self, name: str, size: int, signed=False):
-        """Generate a StdGe cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("ge", size, signed))
-
-    def le(self, name: str, size: int, signed=False):
-        """Generate a StdLe cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("le", size, signed))
-
 
 def as_control(obj):
     """Convert a Python object into a control statement.
@@ -611,93 +477,11 @@ class GroupBuilder:
         TLS.groups.pop()
 
 
-def const(width: int, value: int) -> ExprBuilder:
-    """Build a sized integer constant expression.
-
-    This is available as a shorthand in cases where automatic width
-    inference fails. Otherwise, you can just use plain Python integer
-    values.
-    """
-    return ExprBuilder(ast.Atom(ast.ConstantPort(width, value)))
-
-
-def infer_width(expr):
-    """Try to guess the width of a port expression.
-
-    Return an int, or None if we don't have a guess.
-    """
-    assert TLS.groups, "int width inference only works inside `with group:`"
-    group_builder: GroupBuilder = TLS.groups[-1]
-
-    # Deal with `done` holes.
-    expr = ExprBuilder.unwrap(expr)
-    if isinstance(expr, ast.HolePort):
-        assert expr.name == "done", f"unknown hole {expr.name}"
-        return 1
-
-    # Otherwise, it's a `cell.port` lookup.
-    assert isinstance(expr, ast.Atom)
-    cell_name = expr.item.id.name
-    port_name = expr.item.name
-
-    # Look up the component for the referenced cell.
-    cell_builder = group_builder.comp.index[cell_name]
-    if isinstance(cell_builder, CellBuilder):
-        inst = cell_builder._cell.comp
-    else:
-        return None
-
-    # Extract widths from stdlib components we know.
-    prim = inst.id
-    if prim == "std_reg":
-        if port_name == "in":
-            return inst.args[0]
-        elif port_name == "write_en":
-            return 1
-    elif prim in ("std_add", "std_lt", "std_eq"):
-        if port_name == "left" or port_name == "right":
-            return inst.args[0]
-    elif prim == "std_mem_d1" or prim == "seq_mem_d1":
-        if port_name == "write_en":
-            return 1
-        elif port_name == "addr0":
-            return inst.args[2]
-        elif port_name == "in":
-            return inst.args[0]
-        if prim == "seq_mem_d1":
-            if port_name == "read_en":
-                return 1
-    elif prim in (
-        "std_mult_pipe",
-        "std_smult_pipe",
-        "std_mod_pipe",
-        "std_smod_pipe",
-        "std_div_pipe",
-        "std_sdiv_pipe",
-    ):
-        if port_name == "left" or port_name == "right":
-            return inst.args[0]
-        elif port_name == "go":
-            return 1
-    elif prim == "std_wire":
-        if port_name == "in":
-            return inst.args[0]
-
-    # Give up.
-    return None
-
-
 def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     """Add an assignment to the current group context."""
     assert TLS.groups, "assignment outside `with group`"
     group_builder: GroupBuilder = TLS.groups[-1]
     group_builder.asgn(lhs, rhs)
-
-
-"""A one bit low signal"""
-LO = const(1, 0)
-"""A one bit high signal"""
-HI = const(1, 1)
 
 
 def par(*args) -> ast.ParComp:
