@@ -12,7 +12,7 @@ use crate::{
             wires::{core::Group, guards::Guard},
         },
         structures::{
-            context::{InterpretationContext, SecondaryContext},
+            context::{Context, InterpretationContext, SecondaryContext},
             index_trait::IndexRange,
         },
         utils::{flatten_tree, FlattenTree, SingleHandle},
@@ -31,9 +31,7 @@ pub struct GroupMapper {
     groups: HashMap<*const cir::Group, GroupIdx>,
 }
 
-pub fn translate(
-    orig_ctx: &cir::Context,
-) -> (InterpretationContext, SecondaryContext) {
+pub fn translate(orig_ctx: &cir::Context) -> Context {
     let mut primary_ctx = InterpretationContext::new();
     let mut secondary_ctx = SecondaryContext::new();
     let mut component_id_map = ComponentMapper::new();
@@ -51,7 +49,7 @@ pub fn translate(
         );
     }
 
-    (primary_ctx, secondary_ctx)
+    (primary_ctx, secondary_ctx).into()
 }
 
 fn translate_group(

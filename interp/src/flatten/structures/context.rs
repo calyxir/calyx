@@ -17,6 +17,23 @@ use super::{
     indexed_map::{AuxillaryMap, IndexedMap},
 };
 
+/// The full immutable program context for the interpreter.
+#[derive(Debug)]
+pub struct Context {
+    /// Simulation relevant context
+    pub primary: InterpretationContext,
+    /// Setup/debugging relevant context
+    pub secondary: SecondaryContext,
+}
+
+impl From<(InterpretationContext, SecondaryContext)> for Context {
+    fn from(
+        (primary, secondary): (InterpretationContext, SecondaryContext),
+    ) -> Self {
+        Self { primary, secondary }
+    }
+}
+
 /// The immutable program context for the interpreter. Relevant at simulation
 /// time
 #[derive(Debug, Default)]
