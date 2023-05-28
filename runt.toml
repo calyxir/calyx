@@ -364,6 +364,14 @@ target/debug/calyx {} -b xilinx
 """
 
 [[tests]]
+name = "kernel.xml generation"
+paths = ["tests/xilinx/*.futil"]
+expect_dir = "tests/xilinx/gen-xml"
+cmd = """
+target/debug/calyx {} -b xilinx-xml
+"""
+
+[[tests]]
 name = "Cocotb correctness tests"
 paths = [
   "tests/xilinx/cocotb/dot-product/",
