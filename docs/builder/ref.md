@@ -9,31 +9,36 @@ Here's the general structure of a program that uses the builder to generate Caly
 import calyx.builder as cb
 
 
-# define my_subcomponent
-def add_my_subcomponent(prog):
-    # subcomponent definition here
+# define `second_comp`
+def add_second_comp(prog):
+    # `second_comp` definition here
 
 
-# define my_component
-def my_component(prog, my_subcomponent): 
+# method for defining `my_component` and adding it to a program
+def add_my_component(prog, second_comp): 
     # add the component to the program
     my_component = prog.component("my_component")
 
-    # add my_subcomponent as a cell of my_component
-    my_subcomponent = my_component.cell("my_subcomponent", my_subcomponent)
+    # Adding an instance of `second_comp` as a cell of `my_component`
+    my_second_comp = my_component.cell("my_second_comp", second_comp)
 
-    # define a my_component group
+    # adding a register cell (or other cells) to the component 
+    my_reg = comp.reg("my_reg", 32)
+
+    # define a `my_component` group
     with my_component.group("my_group") as my_group:
-      # group assignments here 
+      # assignments here 
+      my_reg.write_en = 1
 
-  my_component.control += [my_group]
+    # add the group to `my_component`'s control program
+    my_component.control += my_group
 
 
 # assemble the program
 def build():
     prog = cb.Builder()
-    my_subcomponent = add_my_subcomponent(prog)
-    add_main(prog, my_subcomponent)
+    my_second_comp = add_second_comp(prog)
+    add_my_component(prog, my_second_comp)
 
     # return the generated program
     return prog.program
@@ -48,26 +53,16 @@ if __name__ == "__main__":
 
 ### Defining Components
 
-You can define a component by calling the `Builder().component()` method.
+To define a component, call the `Builder().component()` method.
 
 ```python
 prog = cb.Builder()
 prog.component("my_component")
 ```
 
-Components can also be instantiated with a list of cells.
-
-```python
-
- adders = [adder_1, adder_2, adder_3, adder_4] = [
-        my_component.add(name, 32) for name in ["1", "2", "3", "4"]
-    ]
-my_component = prog.component("my_component", cells=adders)
-```
-
 ### Retrieving Components
 
-To reference a component you did not [store a handle][hndl], you can do so later with the `Builder().get_component()` method.
+To reference a component without an existing [handle][hndl] to it, use the `Builder().get_component()` method.
 
 ```python
 prog = cb.Builder()
@@ -76,32 +71,31 @@ prog.component("my_component")
 my_component = prog.get_component("my_component")
 ```
 
-### Defining component inputs and outputs
+### Defining Component Inputs and Outputs
 
-Components can be given input and output ports. All you have to do is specify the name of the port and its size.
+Components can be given input and output ports. Just specify the name of the port and its size.
 
 ```python
 my_component.input("my_input", 32)
 my_component.output("my_output", 32)
 ```
 
-You can access the input and output ports of a component within the definition of a component using the standard `this.port` syntax.
+To access the input and output ports of a component within the definition of a component, use the syntax `my_component.this().port`.
 
 ```python
 def add_my_component(prog):
     my_component = prog.component("my_component")
+    my_component.output("my_output", 32)
 
-    this = my_component.this()
-    with my_component.group("my_group")
-      # some other assignments
-        this.out = sum.out
+    with my_component.group("my_group"):
+        my_component.this().my_output = const(32, 1)
 ```
 
-### Component Cells
+Note that it's possible to [create a handle][hndl] to input and output ports.
 
 ### Multi-Component Designs
 
-Calyx supports [multi-component designs][multi]. The [top-level example](ref.md#top-level-program-structure) demonstrates how to construct multi-component designs using the library.
+Calyx supports [multi-component designs][multi]. The [top-level example][top] demonstrates how to construct multi-component designs using the library.
 
 #### Defining Common Calyx Cells
 
@@ -137,14 +131,21 @@ my_component.mem_d1("my_mem", 32, 4, 32)
 my_component.mem_d1("my_mem", 32, 4, 32, is_external=True)
 # A memory by reference
 my_component.mem_d1("my_mem", 32, 4, 32, is_ref=True)
-
-
-
 ```
 
 If you're curious, you can read more about [external memories][ext] or [memories by reference][ref].
 
 #### Retrieving Cells
+
+In order to reference a cell without a [handle][hndl], use the `Builder().get_cell()` method.
+
+```python
+# defining a register cell
+my_component.reg("my_reg", 32)
+
+# a few lines later 
+my_reg = prog.get_cell("my_reg")
+```
 
 ## Wires
 
@@ -152,13 +153,17 @@ If you're curious, you can read more about [external memories][ext] or [memories
 
 #### Defining Groups
 
-[Groups][grp] are defined using the `group()` method for a component.
+[Groups][grp] are defined using the `group()` method for a component.  It's also possible to define a [static delay][static] for a group using the optional `static_delay` argument.
 
 ```python
 my_component = prog.component("my_component")
 
-with my_component.group("my_group") as my_group:
-    # group assignments here
+with my_component.group("my_group"):
+    # assignments here
+
+# a group with a static delay
+with my_component.group("my_static_group", static_delay=1): 
+
 ```
 
 #### Defining Combinational Groups
@@ -169,12 +174,12 @@ with my_component.group("my_group") as my_group:
 my_component = prog.component("my_component")
 
 with my_component.comb_group("my_comb_group"):
-    # group assignments here
+    # assignments here
 ```
 
 #### Retrieving Groups
 
-If you didn't [store a handle](ref.md#creating-handles-to-components) to your group when you initialized it, you can do so later with the `Builder().get_group()` method.
+If a group doesn't have a [handle][hndl], it can be retrieved later with the `Builder().get_group()` method. It's possible to retrieve combinational groups as well as regular groups with this method.
 
 ```python
 prog = cb.Builder()
@@ -185,11 +190,17 @@ with my_component.group("my_group"):
 
 # a few lines later
 my_group = prog.get_group("my_group")
+
+with my_component.comb_group("my_comb_group"):
+    # comb group definition here
+
+my_comb_group = prog.get_group("my_comb_group")
+
 ```
 
-### Continuous Assignments
-
 ### Guarded Assignments
+
+### Continuous Assignments
 
 ## Control Operators and Programs
 
@@ -226,14 +237,18 @@ my_component.control += [if_(my_port, )]
 
 ### Creating Handles
 
-You can create handles to components, groups, and cells if you'd like to use them by name later on.
+Handles allow components, groups, cells, and input/output ports to be referenced after their definition.
 
 ```python
 # Creating a handle to a component
 my_component = prog.component("my_component")
 
-# using the handle
-my_component.input("my_in", 32)
+# using the component handle
+my_component.reg("my_reg", 32)
+
+# Creating a handle to an input/output port
+my_input = component.input("my_input", 32)
+my_output = component.output("my_output", 32)
 
 # Creating a handle to a group
 def add_my_component(prog):
@@ -242,29 +257,29 @@ def add_my_component(prog):
     with my_component.group("my_group") as my_group:
         # assignments
 
-    # using the handle
-    my_component.control += [my_group]
+    # using the group handle
+    my_component.control += my_group
 
 # Creating a handle to a cell
-my_subcomponent = my_component.cell("my_cell", my_subcomponent)
+my_second_comp = my_component.cell("my_cell", my_second_comp)
 ```
 
 ### Accessing Ports
 
-### External Memories and `.data` Files
+### External Memories and `.data` files
 
 ### Importing Calyx Libraries
 
-You can generate imports for Calyx libraries with the `Builder.import_()` method.
+To generate imports for Calyx libraries, use the `Builder.import_()` method.
 
 ```python
 prog = cb.Builder()
 prog.import_("primitives/binary_operators.futil")
 ```
 
-### Explictly stating widths with `const`
+### Explictly Stating Widths with `const`
 
-Usually, the builder library can automatically infer the width of a port. In cases where it can't, you can use the `const(width, value)` expression:
+Usually, the builder library can automatically infer the width of a port. In cases where it can't, use the `const(width, value)` expression:
 
 ```python
 my_cell.my_port = const(32, 1)
@@ -272,7 +287,7 @@ my_cell.my_port = const(32, 1)
 
 ### High and Low Signals
 
-You can use `calyx.builder.HI` or `calyx.builder.LO` as shorthand for one-bit high and low signals.
+The `calyx.builder.HI` or `calyx.builder.LO` are shorthand for one-bit high and low signals.
 
 ```python
 """A one-bit low signal"""
@@ -282,9 +297,11 @@ HI = const(1, 1)
 ```
 
 [comb]: ../lang/ref.md#comb-group-definitions
-[ext]: ../lang/data-format.md#external-memories
-[ref]: ../lang/memories-by-reference.md#passing-cells-by-reference
-[multi]: ../lang/multi-component.md
 [ctl]: ../lang/ref.md#the-control-operators
+[ext]: ../lang/data-format.md#external-memories
 [grp]: ../lang/ref.md#group-definitions
 [hndl]: ref.md#creating-handles-to-components
+[multi]: ../lang/multi-component.md
+[ref]: ../lang/memories-by-reference.md#passing-cells-by-reference
+[static]: ../lang/static.md#delay-by-n-cycles
+[top]: ref.md#top-level-program-structure
