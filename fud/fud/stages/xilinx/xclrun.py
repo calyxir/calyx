@@ -22,13 +22,41 @@ import argparse
 import pynq
 import numpy as np
 import simplejson as sjson
+import sys
 from typing import Mapping, Any, Dict
 from pathlib import Path
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
 from fud.errors import InvalidNumericType
 
 
-def run(xclbin_path: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
+def mem_to_buf(mem):
+    """Convert a fud-style JSON memory object to a PYNQ buffer."""
+    ndarray = np.array(mem["data"], dtype=_dtype(mem["format"]))
+    buffer = pynq.allocate(ndarray.shape, dtype=ndarray.dtype)
+    buffer[:] = ndarray[:]
+    return buffer
+
+
+def buf_to_mem(fmt, buf):
+    """Convert a PYNQ buffer to a fud-style JSON memory value."""
+    # converts int representation into fixed point
+    if fmt["numeric_type"] == "fixed_point":
+        width, int_width = parse_fp_widths(fmt)
+        frac_width = width - int_width
+
+        def convert_to_fp(value: float):
+            float_to_fixed(float(value), frac_width)
+
+        convert_to_fp(buf)
+        return list(buf)
+    elif fmt["numeric_type"] == "bitnum":
+        return list([int(e) for e in buf])
+
+    else:
+        raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
+
+
+def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
     """Takes in a json data output and runs pynq using the data provided
     returns a dictionary that can be converted into json
 
@@ -38,60 +66,41 @@ def run(xclbin_path: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
     Also assume that the data Mapping values type are valid json-type equivalents
     """
 
-    # pynq.Overlay expects a str
-    # Raises FileNotFoundError if xclbin file does not exist
-    ol = pynq.Overlay(str(xclbin_path.resolve(strict=True)))
+    # Load the PYNQ overlay from the .xclbin file, raising a FileNotFoundError
+    # if the file does not exist.
+    ol = pynq.Overlay(str(xclbin.resolve(strict=True)))
 
-    buffers = []
-    for mem in data.keys():
-        ndarray = np.array(data[mem]["data"], dtype=_dtype(mem, data))
-        shape = ndarray.shape
-        buffer = pynq.allocate(shape, dtype=ndarray.dtype)
-        buffer[:] = ndarray[:]
-        buffers.append(buffer)
-
+    # Send all the input data.
+    buffers = [mem_to_buf(mem) for mem in data.values()]
     for buffer in buffers:
         buffer.sync_to_device()
 
-    # Equivalent to setting kernel = ol.<Presumably 'Toplevel_1'>
-    kernel = getattr(ol, list(ol.ip_dict)[0])
+    # Run the kernel.
+    kernel = getattr(ol, list(ol.ip_dict)[0])  # Like ol.Toplevel_1
     # XXX(nathanielnrn) 2022-07-19: timeout is not currently used anywhere in
     # generated verilog code, passed in because kernel.xml is generated to
     # expect it as an argument
     timeout = 1000
     kernel.call(timeout, *buffers)
 
-    output = {"memories": {}}
-    # converts needed data from buffers and adds to json output
-    for i, mem in enumerate(data.keys()):
-        buffers[i].sync_from_device()
-        # converts int representation into fixed point
-        if data[mem]["format"]["numeric_type"] == "fixed_point":
-            width, int_width = parse_fp_widths(data[mem]["format"])
-            frac_width = width - int_width
+    # Collect the output data.
+    for buf in buffers:
+        buf.sync_from_device()
+    mems = {name: buf_to_mem(data[name]["format"], buf)
+            for name, buf in zip(data, buffers)}
 
-            def convert_to_fp(value: float):
-                float_to_fixed(float(value), frac_width)
-
-            convert_to_fp(buffers[i])
-            output["memories"][mem] = list((buffers[i]))
-        elif data[mem]["format"]["numeric_type"] == "bitnum":
-            output["memories"][mem] = list(map(lambda e: int(e), buffers[i]))
-
-        else:
-            raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
-
-    # PYNQ recommends deleting buffers and freeing overlay
+    # PYNQ recommends explicitly freeing its resources.
     del buffers
     ol.free()
-    return output
+
+    return {"memories": mems}
 
 
-def _dtype(mem: str, data: Mapping[str, Any]) -> np.dtype:
+def _dtype(fmt) -> np.dtype:
     # See https://numpy.org/doc/stable/reference/arrays.dtypes.html for typing
     # details
-    type_string = "i" if data[mem]["format"]["is_signed"] else "u"
-    byte_size = int(data[mem]["format"]["width"] / 8)
+    type_string = "i" if fmt["is_signed"] else "u"
+    byte_size = int(fmt["width"] / 8)
     type_string = type_string + str(byte_size)
     return np.dtype(type_string)
 
@@ -106,14 +115,14 @@ def xclrun():
     parser.add_argument('data', metavar='DATA',
                         help='the JSON input data file')
     args = parser.parse_args()
-    
+
     # Load the input JSON data file.
     with open(args.data) as f:
         in_data = sjson.load(f, use_decimal=True)
-    
+
     # Run the program.
     out_data = run(Path(args.bin), in_data)
-    
+
     # Dump the output JSON data.
     sjson.dump(out_data, sys.stdout)
 
