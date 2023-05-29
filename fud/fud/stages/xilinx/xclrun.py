@@ -124,7 +124,7 @@ def xclrun():
     out_data = run(Path(args.bin), in_data)
 
     # Dump the output JSON data.
-    sjson.dump(out_data, sys.stdout)
+    sjson.dump(out_data, sys.stdout, indent=2, use_decimal=True)
 
 
 if __name__ == "__main__":

@@ -1,13 +1,12 @@
 import logging as log
 import os
 import time
-
-import simplejson as sjson
-
+import sys
+import shlex
 
 from fud import errors
 from fud.stages import SourceType, Stage
-from fud.utils import FreshDir, TmpDir
+from fud.utils import FreshDir, TmpDir, shell
 from pathlib import Path
 
 
@@ -47,7 +46,7 @@ class HwExecutionStage(Stage):
                     "[Runtime]\n",
                     f"runtime_log={self.xrt_output_logname}\n",
                     "[Emulation]\n",
-                    "print_infos_in_console=false\n",
+                    "print_infos_in_console=true\n",
                 ]
                 if waveform:
                     xrt_ini_config.append("debug_mode=batch\n")
@@ -74,37 +73,39 @@ class HwExecutionStage(Stage):
                             "close_vcd\n",
                         ]
                     )
-            # NOTE(nathanielnrn): It seems like this must come after writing
-            # the xrt.ini file in order to work
-            os.environ["XRT_INI_PATH"] = f"{new_dir.name}/xrt.ini"
+
+        # Configuration for the xclrun command.
+        vitis_path = config["stages", self.name, "xilinx_location"]
+        xrt_path = config["stages", self.name, "xrt_location"]
+        emu_mode = config["stages", "xclbin", "mode"]
 
         @builder.step()
-        def import_libs():
-            """Import optional libraries"""
-            try:
-                from fud.stages.xilinx import fud_pynq_script
-
-                self.pynq_script = fud_pynq_script
-            except ImportError:
-                raise errors.RemoteLibsNotInstalled
-
-        @builder.step()
-        def run(xclbin: SourceType.Path) -> SourceType.String:
+        def run(xclbin: SourceType.Path) -> SourceType.Stream:
             """Run the xclbin with datafile"""
 
             if data_path is None:
                 raise errors.MissingDynamicConfiguration("fpga.data")
-            # Solves relative path messiness
-            orig_dir_path = Path(orig_dir)
-            abs_data_path = orig_dir_path.joinpath(Path(data_path)).resolve()
-            abs_xclbin_path = orig_dir_path.joinpath(xclbin).resolve()
 
-            data = sjson.load(open(abs_data_path), use_decimal=True)
+            # Resolve paths relative to original directory.
+            # XXX(samps): This should not be necessary if we don't change dirs.
+            data_abs = Path(orig_dir).joinpath(Path(data_path)).resolve()
+            xclbin_abs = Path(orig_dir).joinpath(xclbin).resolve()
+
+            # Build the xclrun command line.
+            shell_cmd = (
+                f"source {vitis_path}/settings64.sh ; "
+                f"source {xrt_path}/setup.sh ; "
+                f"{sys.executable} -m fud.stages.xilinx.xclrun {xclbin_abs} {data_abs}"
+            )
+            envs = {
+                "EMCONFIG_PATH": orig_dir,  # XXX(samps): Generate this with emconfigutil!
+                "XCL_EMULATION_MODE": emu_mode,  # hw_emu or hw
+                "XRT_INI_PATH": f"{new_dir.name}/xrt.ini",
+            }
+
+            # Invoke xclrun.
             start_time = time.time()
-            # Note that this is the call on v++. This uses global USER_ENV variables
-            # EMCONFIG_PATH=`pwd`
-            # XCL_EMULATION_MODE=hw_emu
-            kernel_output = self.pynq_script.run(abs_xclbin_path, data)
+            kernel_output = shell(["bash", "-c", shlex.quote(shell_cmd)], env=envs)
             end_time = time.time()
             log.debug(f"Emulation time: {end_time - start_time} sec")
 
@@ -123,7 +124,7 @@ class HwExecutionStage(Stage):
                     for line in f.readlines():
                         log.debug(line.strip())
 
-            return sjson.dumps(kernel_output, indent=2, use_decimal=True)
+            return kernel_output
 
         orig_dir = os.getcwd()
         # Create a temporary directory (used in configure()) with an xrt.ini
@@ -133,6 +134,5 @@ class HwExecutionStage(Stage):
         new_dir = FreshDir() if save_temps else TmpDir()
 
         configure()
-        import_libs()
         res = run(input)
         return res
