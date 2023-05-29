@@ -111,6 +111,14 @@ You can also set the Xilinx mode and target device:
 The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
 The device string above is for the [Alveo U50][u50] card, which we have at Cornell. The installed Xilinx card would typically be found under the directory `/opt/xilinx/platforms`, where one would be able to find a device name of interest.
 
+To run simulations (or on real FPGAs), you will also need to configure the `fpga` stage to point to your installations of [Vitis][] and [XRT][]:
+
+    [stages.fpga]
+    xilinx_location = "/scratch/opt/Xilinx/Vitis/2020.2"
+    xrt_location = "/scratch/opt/xilinx/xrt"
+
+Those are the paths on Cornell's havarti server.
+
 
 ### Compile
 
@@ -129,33 +137,11 @@ You can then find the results in a directory named `fud-out-N` for some number `
 ### Execute
 
 Now that you have an `xclbin`, the next step is to run it.
-Roughly speaking, the command you need is just a `fud` invocation that goes from the `xclbin` stage to the `fpga` stage:
+Here's a fud invocation that goes from the `xclbin` stage to the `fpga` stage:
 
     fud e foo.xclbin --from xclbin --to fpga -s fpga.data examples/dahlia/dot-product.fuse.data
 
-Contrary to the name, the `fpga` stage works for both emulation and on-FPGA execution---fud's `mode` config option for this stage chooses which to use.
-The `fpga.data` config option provides a normal fud-style JSON data input file for the run.
-
-Currently, you will need to have a bunch of environment variables set up to point to the Xilinx tools *before running this fud command*.
-For example, on our group's havarti server, you can do this:
-
-    source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh
-    source /opt/xilinx/xrt/setup.sh
-    export EMCONFIG_PATH=`pwd`
-
-To prepare for hardware emulation of an xclbin compiled appropriately, run:
-
-    export XCL_EMULATION_MODE=hw_emu
-
-If preparing for actual hardware execution, ensure the `XCL_EMULATION_MODE` environment variable is unset:
-
-    unset XCL_EMULATION_MODE
-
-These steps source the setup scripts for both [Vitis][] and [XRT][],
-and set a special `EMCONFIG_PATH` to your current directory so that fud can generate a [special JSON configuration file for Xilinx emulation][emconfig.json].
-You also need to tell PYNQ whether you want `hw_emu` (emulation) or the default on-device execution to occur by exporting or unsetting the `XCL_EMULATION_MODE` environment variable.
-Of course, it would be better if all this could come from fud's configuration itself instead of requiring you to set it up ahead of time;
-[issue #872](https://github.com/cucapra/calyx/issues/872) covers this work.
+fud will print out JSON memory contents in the same format as for other RTL simulators.
 
 #### Waveform Debugging
 
