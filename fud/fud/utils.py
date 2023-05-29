@@ -192,7 +192,8 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True, env=None,
         stderr = TemporaryFile()
         stdout = TemporaryFile()
 
-    # Set up environment variables, merging the current environment with any new settings.
+    # Set up environment variables, merging the current environment with
+    # any new settings.
     new_env = dict(os.environ)
     if env:
         new_env.update(env)
