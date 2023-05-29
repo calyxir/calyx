@@ -9,11 +9,21 @@ separate-process model is important so the user (or parent process) can set the
 *required* environment variables that the Xilinx toolchain needs to control its
 execution mode and to find its support files.
 
-This tool currently uses the `PYNQ`_ Python library, which is meant for high-level
-application interaction but is also a fairly stable wrapper around the
-underlying XRT libraries. In the future, we can consider replcaing PYNQ with
-directly using the `pyxrt`_ library, or abandoning Python altogether and using
-the native XRT library directly for simplicity.
+This tool currently uses the `PYNQ`_ Python library, which is meant for
+high-level application interaction but is also a fairly stable wrapper around
+the underlying XRT libraries. In the future, we can consider replcaing PYNQ
+with directly using the `pyxrt`_ library, or abandoning Python altogether and
+using the native XRT library directly for simplicity.
+
+A bunch of environment variables have to be set to use xclrun. A minimal
+invocation of xclrun looks something like this::
+
+    $ source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh
+    $ source /scratch/opt/xilinx/xrt/setup.sh
+    $ export EMCONFIG_PATH=`pwd`
+    $ XCL_EMULATION_MODE=hw_emu
+    $ XRT_INI_PATH=`pwd`/xrt.ini
+    $ python -m fud.xclrun something.xclbin data.json
 
 .. _PYNQ: https://github.com/xilinx/pynq
 .. _pyxrt: https://github.com/Xilinx/XRT/blob/master/src/python/pybind11/src/pyxrt.cpp
