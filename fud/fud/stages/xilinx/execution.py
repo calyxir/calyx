@@ -34,14 +34,16 @@ class HwExecutionStage(Stage):
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
 
+        # Make a temporary sandbox directory for the execution.
+        new_dir = FreshDir() if save_temps else TmpDir()
+        xrt_ini_path = os.path.join(new_dir.name, "xrt.ini")
+
         @builder.step()
         def configure():
             """Create config files based on fud arguments"""
 
-            os.chdir(new_dir.name)
-
             self.xrt_output_logname = "output.log"
-            with open("xrt.ini", "w") as f:
+            with open(xrt_ini_path, "w") as f:
                 xrt_ini_config = [
                     "[Runtime]\n",
                     f"runtime_log={self.xrt_output_logname}\n",
@@ -49,25 +51,23 @@ class HwExecutionStage(Stage):
                     "print_infos_in_console=true\n",
                 ]
                 if waveform:
+                    pre_sim_path = os.path.join(new_dir.name, "pre_sim.tcl")
+                    post_sim_path = os.path.join(new_dir.name, "post_sim.tcl")
                     xrt_ini_config.append("debug_mode=batch\n")
-                    xrt_ini_config.append(
-                        f"user_pre_sim_script={new_dir.name}/pre_sim.tcl\n"
-                    )
-                    xrt_ini_config.append(
-                        f"user_post_sim_script={new_dir.name}/post_sim.tcl\n"
-                    )
+                    xrt_ini_config.append(f"user_pre_sim_script={pre_sim_path}\n")
+                    xrt_ini_config.append(f"user_post_sim_script={post_sim_path}\n")
                 f.writelines(xrt_ini_config)
 
             # Extra Tcl scripts to produce a VCD waveform dump.
             if waveform:
-                with open("pre_sim.tcl", "w") as f:
+                with open(pre_sim_path, "w") as f:
                     f.writelines(
                         [
                             "open_vcd\n",
                             "log_vcd *\n",
                         ]
                     )
-                with open("post_sim.tcl", "w") as f:
+                with open(post_sim_path, "w") as f:
                     f.writelines(
                         [
                             "close_vcd\n",
@@ -86,26 +86,23 @@ class HwExecutionStage(Stage):
             if data_path is None:
                 raise errors.MissingDynamicConfiguration("fpga.data")
 
-            # Resolve paths relative to original directory.
-            # XXX(samps): This should not be necessary if we don't change dirs.
-            data_abs = Path(orig_dir).joinpath(Path(data_path)).resolve()
-            xclbin_abs = Path(orig_dir).joinpath(xclbin).resolve()
-
             # Build the xclrun command line.
+            data_abs = Path(data_path).resolve()
+            xclbin_abs = xclbin.resolve()
             shell_cmd = (
                 f"source {vitis_path}/settings64.sh ; "
                 f"source {xrt_path}/setup.sh ; "
                 f"{sys.executable} -m fud.stages.xilinx.xclrun {xclbin_abs} {data_abs}"
             )
             envs = {
-                "EMCONFIG_PATH": orig_dir,  # XXX(samps): Generate this with emconfigutil!
+                "EMCONFIG_PATH": new_dir.name,  # XXX(samps): Generate this with emconfigutil!
                 "XCL_EMULATION_MODE": emu_mode,  # hw_emu or hw
-                "XRT_INI_PATH": f"{new_dir.name}/xrt.ini",
+                "XRT_INI_PATH": xrt_ini_path,
             }
 
             # Invoke xclrun.
             start_time = time.time()
-            kernel_output = shell(["bash", "-c", shlex.quote(shell_cmd)], env=envs)
+            kernel_output = shell(["bash", "-c", shlex.quote(shell_cmd)], env=envs, cwd=new_dir.name)
             end_time = time.time()
             log.debug(f"Emulation time: {end_time - start_time} sec")
 
@@ -125,13 +122,6 @@ class HwExecutionStage(Stage):
                         log.debug(line.strip())
 
             return kernel_output
-
-        orig_dir = os.getcwd()
-        # Create a temporary directory (used in configure()) with an xrt.ini
-        # file that redirects the runtime log to a file so that we can control
-        # how it's printed. This is hacky, but it's the only way to do it.
-        # (The `xrt.ini`file we currently have in `fud/bitstream` is not used here.)
-        new_dir = FreshDir() if save_temps else TmpDir()
 
         configure()
         res = run(input)

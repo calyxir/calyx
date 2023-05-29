@@ -160,7 +160,7 @@ class Conversions:
         return data.encode("UTF-8")
 
 
-def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True, env=None):
+def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True, env=None, cwd=None):
     """Run `cmd` as a shell command.
 
     Return an output stream (or None if stdout is not captured). Raise
@@ -204,6 +204,7 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True, env=None)
         stdout=stdout,
         stderr=stderr,
         env=new_env,
+        cwd=cwd,
     )
     proc.wait()
     if stdout:
