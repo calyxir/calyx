@@ -114,6 +114,8 @@ def xclrun():
                         help='the .xclbin binary file to run')
     parser.add_argument('data', metavar='DATA',
                         help='the JSON input data file')
+    parser.add_argument('--out', '-o', metavar='FILE',
+                        help='write JSON results to a file instead of stdout')
     args = parser.parse_args()
 
     # Load the input JSON data file.
@@ -124,7 +126,8 @@ def xclrun():
     out_data = run(Path(args.bin), in_data)
 
     # Dump the output JSON data.
-    sjson.dump(out_data, sys.stdout, indent=2, use_decimal=True)
+    outfile = open(args.out, 'w') if args.out else sys.stdout
+    sjson.dump(out_data, outfile, indent=2, use_decimal=True)
 
 
 if __name__ == "__main__":

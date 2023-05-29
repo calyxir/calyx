@@ -80,7 +80,7 @@ class HwExecutionStage(Stage):
         emu_mode = config["stages", "xclbin", "mode"]
 
         @builder.step()
-        def run(xclbin: SourceType.Path) -> SourceType.Stream:
+        def run(xclbin: SourceType.Path) -> SourceType.String:
             """Run the xclbin with datafile"""
 
             if data_path is None:
@@ -89,10 +89,13 @@ class HwExecutionStage(Stage):
             # Build the xclrun command line.
             data_abs = Path(data_path).resolve()
             xclbin_abs = xclbin.resolve()
+            out_json = Path(new_dir.name).joinpath("out.json")
             shell_cmd = (
                 f"source {vitis_path}/settings64.sh ; "
                 f"source {xrt_path}/setup.sh ; "
-                f"{sys.executable} -m fud.stages.xilinx.xclrun {xclbin_abs} {data_abs}"
+                f"{sys.executable} -m fud.stages.xilinx.xclrun "
+                f"--out {out_json} "
+                f"{xclbin_abs} {data_abs}"
             )
             envs = {
                 "EMCONFIG_PATH": new_dir.name,  # XXX(samps): Generate this with emconfigutil!
@@ -102,7 +105,13 @@ class HwExecutionStage(Stage):
 
             # Invoke xclrun.
             start_time = time.time()
-            kernel_output = shell(["bash", "-c", shlex.quote(shell_cmd)], env=envs, cwd=new_dir.name)
+            shell(
+                ["bash", "-c", shlex.quote(shell_cmd)],
+                env=envs,
+                cwd=new_dir.name,
+                capture_stdout=False,
+                stdout_as_debug=True,
+            )
             end_time = time.time()
             log.debug(f"Emulation time: {end_time - start_time} sec")
 
@@ -121,7 +130,11 @@ class HwExecutionStage(Stage):
                     for line in f.readlines():
                         log.debug(line.strip())
 
-            return kernel_output
+            # It would be nice if we could return this as a file without
+            # reading it, but it's in a temporary directory that's about to be
+            # deleted.
+            with open(out_json) as f:
+                return f.read()
 
         configure()
         res = run(input)
