@@ -34,6 +34,11 @@ class HwExecutionStage(Stage):
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
 
+        # Configuration for the xclrun command.
+        vitis_path = config["stages", self.name, "xilinx_location"]
+        xrt_path = config["stages", self.name, "xrt_location"]
+        emu_mode = config["stages", "xclbin", "mode"]
+
         # Make a temporary sandbox directory for the execution.
         new_dir = FreshDir() if save_temps else TmpDir()
         xrt_ini_path = os.path.join(new_dir.name, "xrt.ini")
@@ -42,6 +47,7 @@ class HwExecutionStage(Stage):
         def configure():
             """Create config files based on fud arguments"""
 
+            # Create the main `xrt.ini` file that configures simulation.
             self.xrt_output_logname = "output.log"
             with open(xrt_ini_path, "w") as f:
                 xrt_ini_config = [
@@ -58,7 +64,8 @@ class HwExecutionStage(Stage):
                     xrt_ini_config.append(f"user_post_sim_script={post_sim_path}\n")
                 f.writelines(xrt_ini_config)
 
-            # Extra Tcl scripts to produce a VCD waveform dump.
+            # In waveform mode, add a couple of Tcl scripts that are necessary
+            # to dump a VCD.
             if waveform:
                 with open(pre_sim_path, "w") as f:
                     f.writelines(
@@ -74,10 +81,15 @@ class HwExecutionStage(Stage):
                         ]
                     )
 
-        # Configuration for the xclrun command.
-        vitis_path = config["stages", self.name, "xilinx_location"]
-        xrt_path = config["stages", self.name, "xrt_location"]
-        emu_mode = config["stages", "xclbin", "mode"]
+            # Create the `emconfig.json` file that the simulator loudly (but
+            # perhaps unnecessarily?) complains about if it's missing.
+            platform = config["stages", "xclbin", "device"]
+            utilpath = os.path.join(vitis_path, 'bin', 'emconfigutil')
+            shell(
+                f'{utilpath} --platform {platform} --od {new_dir.name}',
+                capture_stdout=False,
+                stdout_as_debug=True,
+            )
 
         @builder.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:
@@ -98,7 +110,7 @@ class HwExecutionStage(Stage):
                 f"{xclbin_abs} {data_abs}"
             )
             envs = {
-                "EMCONFIG_PATH": new_dir.name,  # XXX(samps): Generate this with emconfigutil!
+                "EMCONFIG_PATH": new_dir.name,
                 "XCL_EMULATION_MODE": emu_mode,  # hw_emu or hw
                 "XRT_INI_PATH": xrt_ini_path,
             }
