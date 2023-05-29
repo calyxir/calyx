@@ -209,7 +209,7 @@ We currently generate `kernel.xml` ourselves (with the `xilinx-xml` backend desc
 
 In the future, we could consider trying to route around using Vivado by generating the IP-XACT file ourselves, using a tool such as [DUH][].
 
-#### Our Workflow
+#### Our Completion Workflow
 
 The first step is to produce an `.xo` file.
 We also use [a static Tcl script, `gen_xo.tcl`,][gen_xo] which is a simplified version of [a script from Xilinx's Vitis tutorials][package_kernel].
@@ -226,6 +226,23 @@ This step uses the `v++` tool, with a command line that looks like this:
     v++ -g -t hw_emu --platform xilinx_u50_gen3x16_xdma_201920_3 --save-temps --profile.data all:all:all --profile.exec all:all:all -lo xclbin/kernel.xclbin xclbin/kernel.xo
 
 Fortunately, the `v++` tool doesn't need any Tcl to drive it; all the action happens on the command line.
+
+#### Execution via `xclrun`
+
+Now that we have an `.xclbin` file, we need a way to execute it (either in simulation or on a real FPGA).
+We have a tool called `xclrun` that just executes a given `.xclbin` bitstream, supplying it with data in a fud-style JSON format and formatting the results in the same way.
+In fact, it's possible to use it directly---it's invokable with `python -m fud.stages.xilinx.xclrun`.
+However, it's somewhat annoying to use directly because you have to carefully set up your environment first---this setup stage appears to be unavoidable when using the Xilinx runtime libraries.
+So an invocation of `xclrun` actually looks something like this:
+
+    EMCONFIG_PATH=`pwd` XCL_EMULATION_MODE=hw_emu XRT_INI_PATH=`pwd`/xrt.ini \
+        bash -c 'source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh ; source /scratch/opt/xilinx/xrt/setup.sh ; python3.9 -m fud.stages.xilinx.xclrun foo.xclbin examples/tutorial/data.json'
+
+This monster of a command first sets three environment variables that XRT and the simulation process will need, and then it `source`s the relevant setup scripts before finally launching `xclrun`.
+The two actual arguments to the tool are just the `.xclbin` executable itself and the JSON input data; the tool prints the output data to stdout by default.
+
+fud's `execute` stage is just a big wrapper around launching `xclrun`.
+It sets up the necessary input files and constructs a command line that looks much like the above example.
 
 [vivado]: https://www.xilinx.com/products/design-tools/vivado.html
 [vhls]: https://www.xilinx.com/products/design-tools/vivado/integration/esl-design.html
