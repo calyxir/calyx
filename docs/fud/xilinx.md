@@ -231,12 +231,12 @@ Fortunately, the `v++` tool doesn't need any Tcl to drive it; all the action hap
 
 Now that we have an `.xclbin` file, we need a way to execute it (either in simulation or on a real FPGA).
 We have a tool called `xclrun` that just executes a given `.xclbin` bitstream, supplying it with data in a fud-style JSON format and formatting the results in the same way.
-In fact, it's possible to use it directly---it's invokable with `python -m fud.stages.xilinx.xclrun`.
+In fact, it's possible to use it directly---it's invokable with `python -m fud.xclrun`.
 However, it's somewhat annoying to use directly because you have to carefully set up your environment first---this setup stage appears to be unavoidable when using the Xilinx runtime libraries.
 So an invocation of `xclrun` actually looks something like this:
 
     EMCONFIG_PATH=`pwd` XCL_EMULATION_MODE=hw_emu XRT_INI_PATH=`pwd`/xrt.ini \
-        bash -c 'source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh ; source /scratch/opt/xilinx/xrt/setup.sh ; python3.9 -m fud.stages.xilinx.xclrun foo.xclbin examples/tutorial/data.json'
+        bash -c 'source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh ; source /scratch/opt/xilinx/xrt/setup.sh ; python3.9 -m fud.xclrun foo.xclbin examples/tutorial/data.json'
 
 This monster of a command first sets three environment variables that XRT and the simulation process will need, and then it `source`s the relevant setup scripts before finally launching `xclrun`.
 The two actual arguments to the tool are just the `.xclbin` executable itself and the JSON input data; the tool prints the output data to stdout by default.

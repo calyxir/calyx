@@ -105,7 +105,7 @@ class HwExecutionStage(Stage):
             shell_cmd = (
                 f"source {vitis_path}/settings64.sh ; "
                 f"source {xrt_path}/setup.sh ; "
-                f"{sys.executable} -m fud.stages.xilinx.xclrun "
+                f"{sys.executable} -m fud.xclrun "
                 f"--out {out_json} "
                 f"{xclbin_abs} {data_abs}"
             )
