@@ -12,7 +12,9 @@ cd calyx-py && flit install -s
 
 ## Using the `calyx` builder
 
-The `calyx` library provides a builder to generate Calyx code. Let's walk through the file [`builder_example.py`][example]. This Calyx program initializes two registers with the numbers 1 and 41, adds them together, and stores the result in a register.
+The `calyx` library provides a builder to generate Calyx code. The [library reference][ref] documents most builder methods and constructs.
+
+We will also walk through the file [`builder_example.py`][example] to demonstrate how the builder library is used. This Calyx program initializes two registers with the numbers 1 and 41, adds them together, and stores the result in a register.
 
 The `add_main_component(prog)` method will, as the name suggests, add a main component to our program. We can define components for our Calyx program `prog` with `prog.component`. Here's a defininition of a `main` component with a 32-bit input `in` and output `out`:
 
@@ -114,9 +116,10 @@ python calyx-py/test/builder_example.py
 
 Other examples using the builder can also be found in the `calyx-py` [test directory][test]. All of our frontends were also written using this library, in case you'd like even more examples!
 
-[flit]: https://flit.readthedocs.io/en/latest/
+[cont]: ../lang/ref.md#continuous-assignments
 [example]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/builder_example.py
-[godone]: https://docs.calyxir.org/lang/ref.html#the-go-done-interface
-[guarded]: https://docs.calyxir.org/lang/ref.html#guarded-assignments
-[cont]: https://docs.calyxir.org/lang/ref.html?highlight=continuous#continuous-assignments
+[flit]: https://flit.readthedocs.io/en/latest/
+[godone]: ..lang/ref.md#the-go-done-interface
+[guarded]: ../lang/ref.md#guarded-assignments
+[ref]: ref.md
 [test]: https://github.com/cucapra/calyx/tree/master/calyx-py/test/
