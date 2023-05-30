@@ -265,7 +265,7 @@ my_component.control += [A, B, C]
 
 ### `par`
 
-For [parallel compositions][par] of control programs, use the `par()` method. Here's how to compose control programs `A` and `B` in parallel, and then sequence their composition with the control program `C`.
+For [parallel compositions][par] of control programs, use the `par()` function. Here's how to compose control programs `A` and `B` in parallel, and then sequence their composition with the control program `C`.
 
 ```python
 my_component.control += [par(A, B), C]
