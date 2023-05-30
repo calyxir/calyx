@@ -23,7 +23,7 @@ def add_my_component(prog, second_comp):
     my_second_comp = my_component.cell("my_second_comp", second_comp)
 
     # adding a register cell (or other cells) to the component 
-    my_reg = comp.reg("my_reg", 32)
+    my_reg = my_component.reg("my_reg", 32)
 
     # define a `my_component` group
     with my_component.group("my_group") as my_group:
@@ -168,6 +168,8 @@ with my_component.group("my_group"):
     my_reg.write_en = 1
 
     # a guarded assignment using @
+    # in Calyx, this line would be:
+    # my_reg.in = (add.left < add.right) ? add.out;
     my_reg.in = (add.left < add.right) @ add.out
 ```
 
@@ -175,13 +177,15 @@ with my_component.group("my_group"):
 
 #### Defining Groups
 
-[Groups][grp] are defined using the `group()` method for a component.  It's also possible to define a [static delay][static] for a group using the optional `static_delay` argument.
+[Groups][grp] are defined using the `group()` method for a component. To make a [handle][hndl] for a group, use the `as` syntax. Group handles are necessary in order to set done ports for groups.
+
+It's possible to define a [static delay][static] for a group using the optional `static_delay` argument.
 
 ```python
 my_component = prog.component("my_component")
 
-# a group definition
-with my_component.group("my_group"):
+# a group definition + handle for the group
+with my_component.group("my_group") as my_group:
     # assignments here
 
 # a group with a static delay
@@ -305,7 +309,7 @@ See the language reference for [`invoke`][invoke].
 
 ```python
 # invoke(cell, **kwargs)
-my_invoke = (my_cell, arg1=my_cell_arg1_reg.out1, arg2=my_cell_arg2_reg.out2)
+my_invoke = invoke(my_cell, in_arg1=my_cell_arg1_reg.out, in_arg2=my_cell_arg2_reg.out)
 ```
 
 ## Miscellaneous Tips + Tricks
