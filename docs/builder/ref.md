@@ -257,7 +257,7 @@ my_component.control += my_component.get_group("my_group")
 
 ### `seq`
 
-Control statements are [sequenced][seq] in the order that they appear in a component's control program, represented by a list. Let's say we want to sequence the control statements `A`, `B`, and `C`.
+Control statements are [sequenced][seq] in the order that they appear in a component's control program, represented by a Python list. Let's say we want to sequence the control statements `A`, `B`, and `C`.
 
 ```python
 my_component.control += [A, B, C]
