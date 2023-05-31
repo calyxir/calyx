@@ -19,13 +19,13 @@ RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbex
 # Install Verilator
 WORKDIR /home
 ## TODO(rachit): Don't hardcode the version here
-ADD https://github.com/verilator/verilator#v5.002 verilator
+RUN git clone --depth 1 --branch v5.002 https://github.com/verilator/verilator
 WORKDIR /home/verilator
 RUN autoconf && ./configure && make && make install
 
 # Install Icarus verilog
 WORKDIR /home
-ADD https://github.com/steveicarus/iverilog#v11_0 iverilog
+RUN git clone --depth 1 --branch v11_0 https://github.com/steveicarus/iverilog
 WORKDIR /home/iverilog
 RUN sh autoconf.sh && ./configure && make && make install
 
@@ -33,9 +33,10 @@ RUN sh autoconf.sh && ./configure && make && make install
 WORKDIR /home
 ## TODO(rachit): Do not hardcode here
 ## NOTE(rachit): Not ideal. We have to clone the entire history of the main branch instead of just a tag.
-ADD --keep-git-dir=true https://github.com/apache/tvm.git#v0.10.dev0 tvm
+RUN git clone --single-branch https://github.com/apache/tvm.git tvm
 WORKDIR /home/tvm
-RUN git submodule init && git submodule update
+RUN git checkout v0.10.dev0 && \
+    git submodule init && git submodule update
 RUN mkdir build
 WORKDIR /home/tvm/build
 RUN cp ../cmake/config.cmake . && \
@@ -46,7 +47,7 @@ RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/tvm-*.whl
 
 # Install Dahlia
 WORKDIR /home
-ADD https://github.com/cucapra/dahlia.git dahlia
+RUN git clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
 RUN sbt "; getHeaders; assembly"
 
