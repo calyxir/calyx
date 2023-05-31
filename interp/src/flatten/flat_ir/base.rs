@@ -96,16 +96,23 @@ impl From<PortDefinition> for PortDefinitionRef {
     }
 }
 
-// pub struct PortDefinitionInfo {
-//     name: Identifier,
-//     /// The parent cell of this port. If absent, means it is an interface port
-//     parent: Option<CellDefinition>,
-// }
+#[derive(Debug, Copy, Clone)]
+pub enum CellRef {
+    Local(LocalCellOffset),
+    Ref(LocalRefCellOffset),
+}
 
-// pub struct RefPortDefinitionInfo {
-//     name: Identifier,
-//     parent: RefCellDefinition,
-// }
+impl From<LocalRefCellOffset> for CellRef {
+    fn from(v: LocalRefCellOffset) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<LocalCellOffset> for CellRef {
+    fn from(v: LocalCellOffset) -> Self {
+        Self::Local(v)
+    }
+}
 
 impl_index!(pub AssignmentIdx);
 

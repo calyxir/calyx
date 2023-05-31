@@ -1,13 +1,16 @@
+use std::ops::Index;
+
 use calyx_ir::PortComp;
 
 use crate::flatten::flat_ir::{
     component::{AuxillaryComponentInfo, ComponentMap},
     identifier::IdMap,
     prelude::{
-        AssignmentIdx, CellDefinition, CellInfo, CombGroupMap, ComponentRef,
-        ControlMap, GuardIdx, Identifier, LocalPortOffset, LocalRefPortOffset,
-        PortDefinition, PortDefinitionRef, PortRef, RefCellDefinition,
-        RefCellInfo, RefPortDefinition,
+        Assignment, AssignmentIdx, CellDefinition, CellInfo, CellRef,
+        CombGroup, CombGroupIdx, CombGroupMap, ComponentRef, ControlIdx,
+        ControlMap, ControlNode, Group, GroupIdx, GuardIdx, Identifier,
+        LocalPortOffset, LocalRefPortOffset, PortDefinition, PortDefinitionRef,
+        PortRef, RefCellDefinition, RefCellInfo, RefPortDefinition,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
@@ -55,6 +58,46 @@ pub struct InterpretationContext {
     pub control: ControlMap,
 }
 
+impl Index<AssignmentIdx> for InterpretationContext {
+    type Output = Assignment;
+
+    fn index(&self, index: AssignmentIdx) -> &Self::Output {
+        &self.assignments[index]
+    }
+}
+
+impl Index<GroupIdx> for InterpretationContext {
+    type Output = Group;
+
+    fn index(&self, index: GroupIdx) -> &Self::Output {
+        &self.groups[index]
+    }
+}
+
+impl Index<CombGroupIdx> for InterpretationContext {
+    type Output = CombGroup;
+
+    fn index(&self, index: CombGroupIdx) -> &Self::Output {
+        &self.comb_groups[index]
+    }
+}
+
+impl Index<GuardIdx> for InterpretationContext {
+    type Output = Guard;
+
+    fn index(&self, index: GuardIdx) -> &Self::Output {
+        &self.guards[index]
+    }
+}
+
+impl Index<ControlIdx> for InterpretationContext {
+    type Output = ControlNode;
+
+    fn index(&self, index: ControlIdx) -> &Self::Output {
+        &self.control[index]
+    }
+}
+
 impl InterpretationContext {
     pub fn new() -> Self {
         Default::default()
@@ -77,6 +120,46 @@ pub struct SecondaryContext {
     pub ref_cell_defs: IndexedMap<RefCellDefinition, RefCellInfo>,
     /// auxillary information for components
     pub comp_aux_info: AuxillaryMap<ComponentRef, AuxillaryComponentInfo>,
+}
+
+impl Index<PortDefinition> for SecondaryContext {
+    type Output = Identifier;
+
+    fn index(&self, index: PortDefinition) -> &Self::Output {
+        &self.local_port_defs[index]
+    }
+}
+
+impl Index<RefPortDefinition> for SecondaryContext {
+    type Output = Identifier;
+
+    fn index(&self, index: RefPortDefinition) -> &Self::Output {
+        &self.ref_port_defs[index]
+    }
+}
+
+impl Index<CellDefinition> for SecondaryContext {
+    type Output = CellInfo;
+
+    fn index(&self, index: CellDefinition) -> &Self::Output {
+        &self.local_cell_defs[index]
+    }
+}
+
+impl Index<RefCellDefinition> for SecondaryContext {
+    type Output = RefCellInfo;
+
+    fn index(&self, index: RefCellDefinition) -> &Self::Output {
+        &self.ref_cell_defs[index]
+    }
+}
+
+impl Index<ComponentRef> for SecondaryContext {
+    type Output = AuxillaryComponentInfo;
+
+    fn index(&self, index: ComponentRef) -> &Self::Output {
+        &self.comp_aux_info[index]
+    }
 }
 
 impl SecondaryContext {
@@ -128,6 +211,12 @@ impl Default for SecondaryContext {
 
 // Printing and debugging implementations
 impl Context {
+    /// This is a wildly inefficient search, only used for debugging right now.
+    /// TODO Griffin: if relevant, replace with something more efficient.
+    fn find_parent_cell(&self, comp: ComponentRef, target: PortRef) -> CellRef {
+        todo!()
+    }
+
     #[inline]
     pub fn resolve_id(&self, id: Identifier) -> &String {
         self.secondary.string_table.lookup_string(&id).unwrap()
