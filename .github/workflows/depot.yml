@@ -19,4 +19,4 @@ jobs:
           project: zmf9xmg5nl
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: cucapra/calyx:latest
+          tags: ghcr.io/cucapra/calyx:latest
