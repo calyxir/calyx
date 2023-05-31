@@ -310,33 +310,41 @@ impl Context {
             }
         }
 
-        fn inner(ctx: &Context, guard: GuardIdx) -> String {
+        fn inner(ctx: &Context, comp: ComponentRef, guard: GuardIdx) -> String {
             match &ctx.primary.guards[guard] {
                 Guard::True => String::new(),
                 Guard::Or(l, r) => {
-                    let l = inner(ctx, *l);
-                    let r = inner(ctx, *r);
+                    let l = inner(ctx, comp, *l);
+                    let r = inner(ctx, comp, *r);
                     format!("({} | {})", l, r)
                 }
                 Guard::And(l, r) => {
-                    let l = inner(ctx, *l);
-                    let r = inner(ctx, *r);
+                    let l = inner(ctx, comp, *l);
+                    let r = inner(ctx, comp, *r);
                     format!("({} & {})", l, r)
                 }
                 Guard::Not(n) => {
-                    let n = inner(ctx, *n);
+                    let n = inner(ctx, comp, *n);
                     format!("(!{})", n)
                 }
                 Guard::Comp(op, l, r) => {
-                    todo!()
+                    let l = ctx.lookup_id_from_port(comp, *l);
+                    let r = ctx.lookup_id_from_port(comp, *r);
+                    format!(
+                        "{} {} {}",
+                        l.format_name(&ctx.secondary.string_table),
+                        op_to_str(op),
+                        r.format_name(&ctx.secondary.string_table)
+                    )
                 }
-                Guard::Port(_) => {
-                    todo!()
+                Guard::Port(p) => {
+                    let p = ctx.lookup_id_from_port(comp, *p);
+                    p.format_name(&ctx.secondary.string_table)
                 }
             }
         }
 
-        let out = inner(self, guard);
+        let out = inner(self, parent, guard);
 
         out
     }
