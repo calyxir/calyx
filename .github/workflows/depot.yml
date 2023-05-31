@@ -1,0 +1,22 @@
+name: Docker Images via Depot
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    steps:
+      - uses: depot/setup-action@v1
+      - uses: depot/build-push-action@v1
+        with:
+          project: zmf9xmg5nl
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: cucapra/calyx:latest
