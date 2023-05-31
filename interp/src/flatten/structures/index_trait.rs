@@ -146,7 +146,7 @@ where
     }
 
     pub fn contains(&self, candidate: I) -> bool {
-        self.start > candidate && self.end < candidate
+        self.start <= candidate && self.end > candidate
     }
 }
 
