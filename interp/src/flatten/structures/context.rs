@@ -4,13 +4,14 @@ use calyx_ir::PortComp;
 
 use crate::flatten::flat_ir::{
     component::{AuxillaryComponentInfo, ComponentMap},
-    identifier::IdMap,
+    identifier::{CanonicalIdentifier, IdMap},
     prelude::{
-        Assignment, AssignmentIdx, CellDefinition, CellInfo, CellRef,
+        Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CellRef,
         CombGroup, CombGroupIdx, CombGroupMap, ComponentRef, ControlIdx,
         ControlMap, ControlNode, Group, GroupIdx, GuardIdx, Identifier,
-        LocalPortOffset, LocalRefPortOffset, PortDefinition, PortDefinitionRef,
-        PortRef, RefCellDefinition, RefCellInfo, RefPortDefinition,
+        LocalPortOffset, LocalRefPortOffset, ParentIdx, PortDefinitionIdx,
+        PortDefinitionRef, PortRef, RefCellDefinitionIdx, RefCellInfo,
+        RefPortDefinitionIdx,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
@@ -111,45 +112,45 @@ pub struct SecondaryContext {
     /// table for mapping strings to identifiers
     pub string_table: IdMap,
     /// non-ref port definitions
-    pub local_port_defs: IndexedMap<PortDefinition, Identifier>,
+    pub local_port_defs: IndexedMap<PortDefinitionIdx, Identifier>,
     /// ref-cell ports
-    pub ref_port_defs: IndexedMap<RefPortDefinition, Identifier>,
+    pub ref_port_defs: IndexedMap<RefPortDefinitionIdx, Identifier>,
     /// non-ref-cell definitions
-    pub local_cell_defs: IndexedMap<CellDefinition, CellInfo>,
+    pub local_cell_defs: IndexedMap<CellDefinitionIdx, CellInfo>,
     /// ref-cell definitions
-    pub ref_cell_defs: IndexedMap<RefCellDefinition, RefCellInfo>,
+    pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
     /// auxillary information for components
     pub comp_aux_info: AuxillaryMap<ComponentRef, AuxillaryComponentInfo>,
 }
 
-impl Index<PortDefinition> for SecondaryContext {
+impl Index<PortDefinitionIdx> for SecondaryContext {
     type Output = Identifier;
 
-    fn index(&self, index: PortDefinition) -> &Self::Output {
+    fn index(&self, index: PortDefinitionIdx) -> &Self::Output {
         &self.local_port_defs[index]
     }
 }
 
-impl Index<RefPortDefinition> for SecondaryContext {
+impl Index<RefPortDefinitionIdx> for SecondaryContext {
     type Output = Identifier;
 
-    fn index(&self, index: RefPortDefinition) -> &Self::Output {
+    fn index(&self, index: RefPortDefinitionIdx) -> &Self::Output {
         &self.ref_port_defs[index]
     }
 }
 
-impl Index<CellDefinition> for SecondaryContext {
+impl Index<CellDefinitionIdx> for SecondaryContext {
     type Output = CellInfo;
 
-    fn index(&self, index: CellDefinition) -> &Self::Output {
+    fn index(&self, index: CellDefinitionIdx) -> &Self::Output {
         &self.local_cell_defs[index]
     }
 }
 
-impl Index<RefCellDefinition> for SecondaryContext {
+impl Index<RefCellDefinitionIdx> for SecondaryContext {
     type Output = RefCellInfo;
 
-    fn index(&self, index: RefCellDefinition) -> &Self::Output {
+    fn index(&self, index: RefCellDefinitionIdx) -> &Self::Output {
         &self.ref_cell_defs[index]
     }
 }
@@ -167,11 +168,11 @@ impl SecondaryContext {
         Default::default()
     }
 
-    pub fn push_local_port(&mut self, id: Identifier) -> PortDefinition {
+    pub fn push_local_port(&mut self, id: Identifier) -> PortDefinitionIdx {
         self.local_port_defs.push(id)
     }
 
-    pub fn push_ref_port(&mut self, id: Identifier) -> RefPortDefinition {
+    pub fn push_ref_port(&mut self, id: Identifier) -> RefPortDefinitionIdx {
         self.ref_port_defs.push(id)
     }
 
@@ -180,7 +181,7 @@ impl SecondaryContext {
         name: Identifier,
         ports: IndexRange<LocalPortOffset>,
         parent: ComponentRef,
-    ) -> CellDefinition {
+    ) -> CellDefinitionIdx {
         self.local_cell_defs
             .push(CellInfo::new(name, ports, parent))
     }
@@ -190,7 +191,7 @@ impl SecondaryContext {
         name: Identifier,
         ports: IndexRange<LocalRefPortOffset>,
         parent: ComponentRef,
-    ) -> RefCellDefinition {
+    ) -> RefCellDefinitionIdx {
         self.ref_cell_defs
             .push(RefCellInfo::new(name, ports, parent))
     }
@@ -213,8 +214,45 @@ impl Default for SecondaryContext {
 impl Context {
     /// This is a wildly inefficient search, only used for debugging right now.
     /// TODO Griffin: if relevant, replace with something more efficient.
-    fn find_parent_cell(&self, comp: ComponentRef, target: PortRef) -> CellRef {
-        todo!()
+    fn find_parent_cell(
+        &self,
+        comp: ComponentRef,
+        target: PortRef,
+    ) -> ParentIdx {
+        match target {
+            PortRef::Local(l) => {
+                if self.secondary[comp].signature.contains(l) {
+                    comp.into()
+                } else {
+                    //I would not recommend looking at this code
+                    let port = self.secondary[comp]
+                    .definitions
+                    .cells()
+                    .iter()
+                    .find(|c| self.secondary[*c]
+                        .ports().contains(l));
+
+                    if let Some(p) = port {
+                        p.into()
+                    } else {
+                         self.secondary[comp].definitions.groups().iter().find(|x| {
+                            let grp_info = &self.primary[*x];
+                            grp_info.done == l || grp_info.go == l
+                        }).unwrap_or_else(|| panic!("Port {:?} does not belong to any normal cell in the given component", l)).into()
+                    }
+
+
+                }
+            }
+            PortRef::Ref(r) => {
+                self.secondary[comp]
+                .definitions
+                .ref_cells()
+                .iter()
+                .find(|c| self.secondary[*c].ports().contains(r))
+                .expect("Port does not belong to any ref cell in the given component").into()
+            },
+        }
     }
 
     #[inline]
@@ -243,11 +281,16 @@ impl Context {
         &self,
         comp: ComponentRef,
         target: PortRef,
-    ) -> Identifier {
-        let def = self.lookup_port_definition(comp, target);
-        match def {
-            PortDefinitionRef::Local(l) => self.secondary.local_port_defs[l],
-            PortDefinitionRef::Ref(r) => self.secondary.ref_port_defs[r],
+    ) -> CanonicalIdentifier {
+        let port = self.lookup_port_definition(comp, target);
+        let parent = self.find_parent_cell(comp, target);
+
+        match (port, parent) {
+            (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => CanonicalIdentifier::interface_port( self.secondary[c].name, self.secondary[l]),
+            (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => CanonicalIdentifier::cell_port( self.secondary[c].name(), self.secondary[l]),
+            (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => CanonicalIdentifier::group_port( self.primary[g].name(), self.secondary[l]),
+            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.secondary[rc].name(), self.secondary[rp]),
+            _ => unreachable!("Inconsistent port definition and parent. This should never happen"),
         }
     }
 
@@ -315,9 +358,9 @@ impl Context {
 
         format!(
             "{} = {}{}",
-            self.resolve_id(dst),
+            dst.format_name(&self.secondary.string_table),
             guard,
-            self.resolve_id(src)
+            src.format_name(&self.secondary.string_table)
         )
     }
 }

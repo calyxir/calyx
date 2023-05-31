@@ -17,6 +17,4 @@ pub fn flat_main(ctx: &calyx_ir::Context) {
             }
         }
     }
-
-    // dbg!(i_ctx);
 }
