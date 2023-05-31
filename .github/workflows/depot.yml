@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -19,10 +21,20 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/cucapra/calyx
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+          flavor: latest=false
       - uses: depot/setup-action@v1
       - uses: depot/build-push-action@v1
         with:
           project: zmf9xmg5nl
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/cucapra/calyx:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
