@@ -1,14 +1,17 @@
+use calyx_ir::PortComp;
+
 use crate::flatten::flat_ir::{
     component::{AuxillaryComponentInfo, ComponentMap},
     identifier::IdMap,
     prelude::{
-        CellDefinition, CellInfo, CombGroupMap, ComponentRef, ControlMap,
-        Identifier, LocalPortOffset, LocalRefPortOffset, PortDefinition,
-        RefCellDefinition, RefCellInfo, RefPortDefinition,
+        AssignmentIdx, CellDefinition, CellInfo, CombGroupMap, ComponentRef,
+        ControlMap, GuardIdx, Identifier, LocalPortOffset, LocalRefPortOffset,
+        PortDefinition, PortDefinitionRef, PortRef, RefCellDefinition,
+        RefCellInfo, RefPortDefinition,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
-        guards::GuardMap,
+        guards::{Guard, GuardMap},
     },
 };
 
@@ -120,5 +123,112 @@ impl Default for SecondaryContext {
             ref_cell_defs: Default::default(),
             comp_aux_info: Default::default(),
         }
+    }
+}
+
+// Printing and debugging implementations
+impl Context {
+    #[inline]
+    pub fn resolve_id(&self, id: Identifier) -> &String {
+        self.secondary.string_table.lookup_string(&id).unwrap()
+    }
+
+    #[inline]
+    fn lookup_port_definition(
+        &self,
+        comp: ComponentRef,
+        target: PortRef,
+    ) -> PortDefinitionRef {
+        match target {
+            PortRef::Local(l) => {
+                self.secondary.comp_aux_info[comp].port_offset_map[l].into()
+            }
+            PortRef::Ref(r) => {
+                self.secondary.comp_aux_info[comp].ref_port_offset_map[r].into()
+            }
+        }
+    }
+
+    #[inline]
+    pub fn lookup_id_from_port(
+        &self,
+        comp: ComponentRef,
+        target: PortRef,
+    ) -> Identifier {
+        let def = self.lookup_port_definition(comp, target);
+        match def {
+            PortDefinitionRef::Local(l) => self.secondary.local_port_defs[l],
+            PortDefinitionRef::Ref(r) => self.secondary.ref_port_defs[r],
+        }
+    }
+
+    pub fn format_guard(
+        &self,
+        parent: ComponentRef,
+        guard: GuardIdx,
+    ) -> String {
+        fn op_to_str(op: &PortComp) -> String {
+            match op {
+                PortComp::Eq => String::from("=="),
+                PortComp::Neq => String::from("!="),
+                PortComp::Gt => String::from(">"),
+                PortComp::Lt => String::from("<"),
+                PortComp::Geq => String::from(">="),
+                PortComp::Leq => String::from("<="),
+            }
+        }
+
+        fn inner(ctx: &Context, guard: GuardIdx) -> String {
+            match &ctx.primary.guards[guard] {
+                Guard::True => String::new(),
+                Guard::Or(l, r) => {
+                    let l = inner(ctx, *l);
+                    let r = inner(ctx, *r);
+                    format!("({} | {})", l, r)
+                }
+                Guard::And(l, r) => {
+                    let l = inner(ctx, *l);
+                    let r = inner(ctx, *r);
+                    format!("({} & {})", l, r)
+                }
+                Guard::Not(n) => {
+                    let n = inner(ctx, *n);
+                    format!("(!{})", n)
+                }
+                Guard::Comp(op, l, r) => {
+                    todo!()
+                }
+                Guard::Port(_) => {
+                    todo!()
+                }
+            }
+        }
+
+        let out = inner(self, guard);
+
+        out
+    }
+
+    pub fn print_assignment(
+        &self,
+        parent_comp: ComponentRef,
+        target: AssignmentIdx,
+    ) -> String {
+        let assign = &self.primary.assignments[target];
+        let dst = self.lookup_id_from_port(parent_comp, assign.dst);
+        let src = self.lookup_id_from_port(parent_comp, assign.src);
+        let guard = self.format_guard(parent_comp, assign.guard);
+        let guard = if guard.is_empty() {
+            guard
+        } else {
+            format!("{} ? ", guard)
+        };
+
+        format!(
+            "{} = {}{}",
+            self.resolve_id(dst),
+            guard,
+            self.resolve_id(src)
+        )
     }
 }

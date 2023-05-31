@@ -10,6 +10,8 @@ pub struct DefinitionRanges {
     ports: IndexRange<PortDefinition>,
     ref_cells: IndexRange<RefCellDefinition>,
     ref_ports: IndexRange<RefPortDefinition>,
+    groups: IndexRange<GroupIdx>,
+    comb_groups: IndexRange<CombGroupIdx>,
 }
 
 impl DefinitionRanges {
@@ -28,6 +30,14 @@ impl DefinitionRanges {
     pub fn ref_ports(&self) -> &IndexRange<RefPortDefinition> {
         &self.ref_ports
     }
+
+    pub fn groups(&self) -> &IndexRange<GroupIdx> {
+        &self.groups
+    }
+
+    pub fn comb_groups(&self) -> &IndexRange<CombGroupIdx> {
+        &self.comb_groups
+    }
 }
 
 impl Default for DefinitionRanges {
@@ -37,6 +47,8 @@ impl Default for DefinitionRanges {
             ref_ports: IndexRange::empty_interval(),
             cells: IndexRange::empty_interval(),
             ref_cells: IndexRange::empty_interval(),
+            groups: IndexRange::empty_interval(),
+            comb_groups: IndexRange::empty_interval(),
         }
     }
 }
@@ -121,6 +133,18 @@ impl AuxillaryComponentInfo {
         end: RefCellDefinition,
     ) {
         self.definitions.ref_cells = IndexRange::new(start, end)
+    }
+
+    pub fn set_group_range(&mut self, start: GroupIdx, end: GroupIdx) {
+        self.definitions.groups = IndexRange::new(start, end)
+    }
+
+    pub fn set_comb_group_range(
+        &mut self,
+        start: CombGroupIdx,
+        end: CombGroupIdx,
+    ) {
+        self.definitions.comb_groups = IndexRange::new(start, end)
     }
 
     fn offset_sizes(&self, cell_ty: ContainmentType) -> IdxSkipSizes {

@@ -138,6 +138,8 @@ fn translate_component(
     // Translate the groups
     let mut group_map = HashMap::with_capacity(comp.groups.len());
 
+    let group_base = interp_ctx.groups.peek_next_idx();
+
     for group in comp.groups.iter() {
         let group_brw = group.borrow();
         let group_idx =
@@ -145,7 +147,10 @@ fn translate_component(
         let k = interp_ctx.groups.push(group_idx);
         group_map.insert(group.as_raw(), k);
     }
+    auxillary_component_info
+        .set_group_range(group_base, interp_ctx.groups.peek_next_idx());
 
+    let comb_group_base = interp_ctx.comb_groups.peek_next_idx();
     // Translate comb groups
     let mut comb_group_map = HashMap::with_capacity(comp.comb_groups.len());
 
@@ -160,6 +165,10 @@ fn translate_component(
         let k = interp_ctx.comb_groups.push(comb_grp_idx);
         comb_group_map.insert(comb_grp.as_raw(), k);
     }
+    auxillary_component_info.set_comb_group_range(
+        comb_group_base,
+        interp_ctx.comb_groups.peek_next_idx(),
+    );
 
     let group_mapper = GroupMapper {
         comb_groups: comb_group_map,

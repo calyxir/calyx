@@ -95,6 +95,15 @@ where
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (K, &D)> {
+        self.data.iter().enumerate().map(|(i, v)| (K::new(i), v))
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
+        // TODO (griffin): Make this an actual struct instead
+        self.data.iter().enumerate().map(|(i, _)| K::new(i))
+    }
 }
 
 impl<T, K, const N: usize> Default for IndexedMap<K, T, N>
