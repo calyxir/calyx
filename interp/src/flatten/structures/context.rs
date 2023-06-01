@@ -6,12 +6,11 @@ use crate::flatten::flat_ir::{
     component::{AuxillaryComponentInfo, ComponentMap},
     identifier::{CanonicalIdentifier, IdMap},
     prelude::{
-        Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CellRef,
-        CombGroup, CombGroupIdx, CombGroupMap, ComponentRef, ControlIdx,
-        ControlMap, ControlNode, Group, GroupIdx, GuardIdx, Identifier,
-        LocalPortOffset, LocalRefPortOffset, ParentIdx, PortDefinitionIdx,
-        PortDefinitionRef, PortRef, RefCellDefinitionIdx, RefCellInfo,
-        RefPortDefinitionIdx,
+        Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
+        CombGroupIdx, CombGroupMap, ComponentRef, ControlIdx, ControlMap,
+        ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalPortOffset,
+        LocalRefPortOffset, ParentIdx, PortDefinitionIdx, PortDefinitionRef,
+        PortRef, RefCellDefinitionIdx, RefCellInfo, RefPortDefinitionIdx,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
@@ -344,9 +343,7 @@ impl Context {
             }
         }
 
-        let out = inner(self, parent, guard);
-
-        out
+        inner(self, parent, guard)
     }
 
     pub fn print_assignment(
