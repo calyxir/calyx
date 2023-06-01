@@ -122,6 +122,14 @@ pub struct SecondaryContext {
     pub comp_aux_info: AuxillaryMap<ComponentRef, AuxillaryComponentInfo>,
 }
 
+impl Index<Identifier> for SecondaryContext {
+    type Output = String;
+
+    fn index(&self, index: Identifier) -> &Self::Output {
+        self.string_table.lookup_string(&index).unwrap()
+    }
+}
+
 impl Index<PortDefinitionIdx> for SecondaryContext {
     type Output = Identifier;
 
