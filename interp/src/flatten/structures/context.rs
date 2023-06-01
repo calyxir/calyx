@@ -1,10 +1,8 @@
 use std::ops::Index;
 
-use calyx_ir::PortComp;
-
 use crate::flatten::flat_ir::{
     component::{AuxillaryComponentInfo, ComponentMap},
-    identifier::{CanonicalIdentifier, IdMap},
+    identifier::IdMap,
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
         CombGroupIdx, CombGroupMap, ComponentRef, ControlIdx, ControlMap,
@@ -21,6 +19,7 @@ use crate::flatten::flat_ir::{
 use super::{
     index_trait::IndexRange,
     indexed_map::{AuxillaryMap, IndexedMap},
+    printer::Printer,
 };
 
 /// The full immutable program context for the interpreter.
@@ -217,11 +216,38 @@ impl Default for SecondaryContext {
     }
 }
 
-// Printing and debugging implementations
 impl Context {
+    #[inline]
+    pub fn resolve_id(&self, id: Identifier) -> &String {
+        self.secondary.string_table.lookup_string(&id).unwrap()
+    }
+
+    pub fn printer(&self) -> Printer {
+        Printer::new(self)
+    }
+}
+
+// Internal helper functions
+impl Context {
+    #[inline]
+    pub(crate) fn lookup_port_definition(
+        &self,
+        comp: ComponentRef,
+        target: PortRef,
+    ) -> PortDefinitionRef {
+        match target {
+            PortRef::Local(l) => {
+                self.secondary.comp_aux_info[comp].port_offset_map[l].into()
+            }
+            PortRef::Ref(r) => {
+                self.secondary.comp_aux_info[comp].ref_port_offset_map[r].into()
+            }
+        }
+    }
+
     /// This is a wildly inefficient search, only used for debugging right now.
     /// TODO Griffin: if relevant, replace with something more efficient.
-    fn find_parent_cell(
+    pub(crate) fn find_parent_cell(
         &self,
         comp: ComponentRef,
         target: PortRef,
@@ -260,120 +286,5 @@ impl Context {
                 .expect("Port does not belong to any ref cell in the given component").into()
             },
         }
-    }
-
-    #[inline]
-    pub fn resolve_id(&self, id: Identifier) -> &String {
-        self.secondary.string_table.lookup_string(&id).unwrap()
-    }
-
-    #[inline]
-    fn lookup_port_definition(
-        &self,
-        comp: ComponentRef,
-        target: PortRef,
-    ) -> PortDefinitionRef {
-        match target {
-            PortRef::Local(l) => {
-                self.secondary.comp_aux_info[comp].port_offset_map[l].into()
-            }
-            PortRef::Ref(r) => {
-                self.secondary.comp_aux_info[comp].ref_port_offset_map[r].into()
-            }
-        }
-    }
-
-    #[inline]
-    pub fn lookup_id_from_port(
-        &self,
-        comp: ComponentRef,
-        target: PortRef,
-    ) -> CanonicalIdentifier {
-        let port = self.lookup_port_definition(comp, target);
-        let parent = self.find_parent_cell(comp, target);
-
-        match (port, parent) {
-            (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => CanonicalIdentifier::interface_port( self.secondary[c].name, self.secondary[l]),
-            (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => CanonicalIdentifier::cell_port( self.secondary[c].name(), self.secondary[l]),
-            (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => CanonicalIdentifier::group_port( self.primary[g].name(), self.secondary[l]),
-            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.secondary[rc].name(), self.secondary[rp]),
-            _ => unreachable!("Inconsistent port definition and parent. This should never happen"),
-        }
-    }
-
-    pub fn format_guard(
-        &self,
-        parent: ComponentRef,
-        guard: GuardIdx,
-    ) -> String {
-        fn op_to_str(op: &PortComp) -> String {
-            match op {
-                PortComp::Eq => String::from("=="),
-                PortComp::Neq => String::from("!="),
-                PortComp::Gt => String::from(">"),
-                PortComp::Lt => String::from("<"),
-                PortComp::Geq => String::from(">="),
-                PortComp::Leq => String::from("<="),
-            }
-        }
-
-        fn inner(ctx: &Context, comp: ComponentRef, guard: GuardIdx) -> String {
-            match &ctx.primary.guards[guard] {
-                Guard::True => String::new(),
-                Guard::Or(l, r) => {
-                    let l = inner(ctx, comp, *l);
-                    let r = inner(ctx, comp, *r);
-                    format!("({} | {})", l, r)
-                }
-                Guard::And(l, r) => {
-                    let l = inner(ctx, comp, *l);
-                    let r = inner(ctx, comp, *r);
-                    format!("({} & {})", l, r)
-                }
-                Guard::Not(n) => {
-                    let n = inner(ctx, comp, *n);
-                    format!("(!{})", n)
-                }
-                Guard::Comp(op, l, r) => {
-                    let l = ctx.lookup_id_from_port(comp, *l);
-                    let r = ctx.lookup_id_from_port(comp, *r);
-                    format!(
-                        "{} {} {}",
-                        l.format_name(&ctx.secondary.string_table),
-                        op_to_str(op),
-                        r.format_name(&ctx.secondary.string_table)
-                    )
-                }
-                Guard::Port(p) => {
-                    let p = ctx.lookup_id_from_port(comp, *p);
-                    p.format_name(&ctx.secondary.string_table)
-                }
-            }
-        }
-
-        inner(self, parent, guard)
-    }
-
-    pub fn print_assignment(
-        &self,
-        parent_comp: ComponentRef,
-        target: AssignmentIdx,
-    ) -> String {
-        let assign = &self.primary.assignments[target];
-        let dst = self.lookup_id_from_port(parent_comp, assign.dst);
-        let src = self.lookup_id_from_port(parent_comp, assign.src);
-        let guard = self.format_guard(parent_comp, assign.guard);
-        let guard = if guard.is_empty() {
-            guard
-        } else {
-            format!("{} ? ", guard)
-        };
-
-        format!(
-            "{} = {}{}",
-            dst.format_name(&self.secondary.string_table),
-            guard,
-            src.format_name(&self.secondary.string_table)
-        )
     }
 }
