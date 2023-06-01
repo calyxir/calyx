@@ -8,26 +8,36 @@ use serde::Serialize;
 #[derive(Default)]
 pub struct XilinxXmlBackend;
 
-// TODO(rachit): Document the Xilinx manual used to define this overall XML
-// structure.
+/// The root element of the `kernel.xml` file that describes an `.xo` package for the
+/// Xilinx toolchain, as documented [in the Vitis user guide][ug].
+///
+/// [ug]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
 #[derive(Serialize)]
-#[serde(rename = "root", rename_all = "camelCase")]
+#[serde(rename = "root")]
 struct Root<'a> {
+    #[serde(rename = "@versionMajor")]
     version_major: u64,
+    #[serde(rename = "@versionMinor")]
     version_minor: u64,
     kernel: Kernel<'a>,
 }
 
 #[derive(Serialize)]
-#[serde(rename = "kernel", rename_all = "camelCase")]
+#[serde(rename = "kernel")]
 struct Kernel<'a> {
+    #[serde(rename = "@name")]
     name: &'a str,
+    #[serde(rename = "@language")]
     language: &'a str,
+    #[serde(rename = "@vlnv")]
     vlnv: &'a str,
-    attributes: &'a str,
+    #[serde(rename = "@preferredWorkGroupSizeMultiple")]
     preferred_work_group_size_multiple: u64,
+    #[serde(rename = "@workGroupSize")]
     work_group_size: u64,
+    #[serde(rename = "@interrupt")]
     interrupt: bool,
+    #[serde(rename = "@hwControlProtocol")]
     hw_control_protocol: &'a str,
     ports: Ports<'a>,
     args: Args<'a>,
@@ -44,13 +54,19 @@ impl<'a> From<Vec<Port<'a>>> for Ports<'a> {
 }
 
 #[derive(Serialize)]
-#[serde(rename = "port", rename_all = "camelCase")]
+#[serde(rename = "port")]
 struct Port<'a> {
+    #[serde(rename = "@name")]
     name: &'a str,
+    #[serde(rename = "@mode")]
     mode: &'a str,
+    #[serde(rename = "@range")]
     range: &'a str,
+    #[serde(rename = "@dataWidth")]
     data_width: u64,
+    #[serde(rename = "@portType")]
     port_type: &'a str,
+    #[serde(rename = "@base")]
     base: &'a str,
 }
 
@@ -65,17 +81,24 @@ impl<'a> From<Vec<Arg<'a>>> for Args<'a> {
 }
 
 #[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 struct Arg<'a> {
+    #[serde(rename = "@name")]
     name: &'a str,
+    #[serde(rename = "@addressQualifier")]
     address_qualifier: u64,
+    #[serde(rename = "@id")]
     id: u64,
+    #[serde(rename = "@port")]
     port: &'a str,
+    #[serde(rename = "@size")]
     size: &'a str,
+    #[serde(rename = "@offset")]
     offset: &'a str,
-    #[serde(rename = "type")]
+    #[serde(rename = "@type")]
     typ: &'a str,
+    #[serde(rename = "@hostOffset")]
     host_offset: &'a str,
+    #[serde(rename = "@hostSize")]
     host_size: &'a str,
 }
 
@@ -185,7 +208,6 @@ impl Backend for XilinxXmlBackend {
                 language: "ip_c",
                 // XXX(rachit): This hardcoding seems bad.
                 vlnv: "capra.cs.cornell.edu:kernel:Toplevel:1.0",
-                attributes: "",
                 preferred_work_group_size_multiple: 0,
                 work_group_size: 1,
                 interrupt: false,

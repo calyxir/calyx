@@ -1,3 +1,5 @@
+[![Built with Depot](https://depot.dev/badges/built-with-depot.svg)](https://depot.dev/?utm_source=capra)
+
 <h1>
 <p align="center">
 <img src="https://calyxir.org/img/logo-text.svg" width="300">

@@ -9,7 +9,10 @@ use std::collections::{HashMap, HashSet};
 /// A pass to detect cells that have been inlined into the top-level component
 /// and turn them into real cells marked with [ir::BoolAttr::External].
 pub struct DiscoverExternal {
+    /// The default value used for parameters that cannot be inferred.
     default: u64,
+    /// The suffix to be remove from the inferred names
+    suffix: Option<String>,
 }
 
 impl Named for DiscoverExternal {
@@ -42,22 +45,36 @@ impl ConstructVisitor for DiscoverExternal {
             })
             .collect();
 
-        // Search for the "default=<n>" option
         let mut default = None;
+        let mut suffix = None;
         for opt in given_opts {
             let mut splits = opt.split('=');
-            if splits.next() == Some("default") {
+            let spl = splits.next();
+            // Search for the "default=<n>" option
+            if spl == Some("default") {
                 let Some(val) = splits.next().and_then(|v| v.parse().ok()) else {
                     log::warn!("Failed to parse default value. Please specify using -x {}:default=<n>", n);
                     continue;
                 };
+                log::info!("Setting default value to {}", val);
 
                 default = Some(val);
+            }
+            // Search for "strip-suffix=<str>" option
+            else if spl == Some("strip-suffix") {
+                let Some(suff) = splits.next() else {
+                    log::warn!("Failed to parse suffix. Please specify using -x {}:strip-suffix=<str>", n);
+                    continue;
+                };
+                log::info!("Setting suffix to {}", suff);
+
+                suffix = Some(suff.to_string());
             }
         }
 
         Ok(Self {
             default: default.unwrap_or(32),
+            suffix,
         })
     }
 
@@ -209,7 +226,13 @@ impl Visitor for DiscoverExternal {
                 .collect_vec();
 
             let mut builder = ir::Builder::new(comp, sigs);
-            let cell = builder.add_primitive(pre.clone(), prim, &param_values);
+            // Remove the suffix from the cell name
+            let name = if let Some(suf) = &self.suffix {
+                pre.strip_suffix(suf).unwrap_or(pre)
+            } else {
+                pre
+            };
+            let cell = builder.add_primitive(name, prim, &param_values);
             cell.borrow_mut()
                 .attributes
                 .insert(ir::BoolAttr::External, 1);

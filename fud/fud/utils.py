@@ -163,7 +163,7 @@ class Conversions:
         return data.encode("UTF-8")
 
 
-def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
+def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True, env=None, cwd=None):
     """Run `cmd` as a shell command.
 
     Return an output stream (or None if stdout is not captured). Raise
@@ -195,13 +195,20 @@ def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True):
         stderr = TemporaryFile()
         stdout = TemporaryFile()
 
+    # Set up environment variables, merging the current environment with
+    # any new settings.
+    new_env = dict(os.environ)
+    if env:
+        new_env.update(env)
+
     proc = subprocess.Popen(
         cmd,
         shell=True,
         stdin=stdin,
         stdout=stdout,
         stderr=stderr,
-        env=os.environ,
+        env=new_env,
+        cwd=cwd,
     )
     proc.wait()
     if stdout:
