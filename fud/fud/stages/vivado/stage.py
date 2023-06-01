@@ -74,8 +74,8 @@ class VivadoBaseStage(Stage):
             """
             Make temporary directory to store Vivado synthesis files.
             """
-            if ["stages", self.name, "mktmp"] in config:
-                return TmpDir(config["stages", self.name, "mktmp"])
+            if ["stages", self.name, "tmpdir"] in config:
+                return TmpDir(config["stages", self.name, "tmpdir"])
             else:
                 return TmpDir()
 
