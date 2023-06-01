@@ -103,6 +103,7 @@ impl SimplifyStaticGuards {
                     // if max_beg >= min_end, then guard is always false
                     return ir::Guard::Not(Box::new(ir::Guard::True));
                 } else if max_beg == 0 && min_end == group_latency {
+                    // if guard will just be [0:group_latency] then it's not necessary
                     None
                 } else {
                     // otherwise return the single interval as the "new" interval
@@ -115,9 +116,9 @@ impl SimplifyStaticGuards {
 
         // now based on `rest_guard` and `replacing_interval` we create the final guard
         match (rest_guard, replacing_interval) {
-            (None, None) => unreachable!("rest_guard and replacing_interval are empty, meaning guard would have been empty, which is impossible"), 
+            (None, None) => ir::Guard::True,
             (None, Some(g)) | (Some(g), None) => g,
-            (Some(rg), Some(ig)) => ir::Guard::And(Box::new(rg), Box::new(ig))
+            (Some(rg), Some(ig)) => ir::Guard::And(Box::new(rg), Box::new(ig)),
         }
     }
 }
