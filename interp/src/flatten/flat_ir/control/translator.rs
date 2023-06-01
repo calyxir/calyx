@@ -5,6 +5,7 @@ use crate::{
     flatten::{
         flat_ir::{
             component::{AuxillaryComponentInfo, ComponentCore},
+            flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
                 Assignment, AssignmentIdx, CombGroup, CombGroupIdx,
                 ComponentRef, GroupIdx, GuardIdx, PortRef,
@@ -15,7 +16,6 @@ use crate::{
             context::{Context, InterpretationContext, SecondaryContext},
             index_trait::IndexRange,
         },
-        utils::{flatten_tree, FlattenTree, SingleHandle},
     },
     utils::AsRaw,
 };

@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 
-use super::structures::{index_trait::IndexRef, indexed_map::IndexedMap};
+use super::super::structures::{
+    index_trait::IndexRef, indexed_map::IndexedMap,
+};
 
 /// A handle bundling a queue of nodes to be processed and a vector of nodes that
 /// have already been processed. The vec itself is not owned by the handle.

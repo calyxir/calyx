@@ -2,6 +2,7 @@ pub mod attributes;
 pub mod base;
 pub mod component;
 pub mod control;
+pub mod flatten_trait;
 pub mod identifier;
 pub mod wires;
 
