@@ -88,45 +88,37 @@ impl<'a> Printer<'a> {
             }
         }
 
-        fn inner(
-            printer: &Printer,
-            comp: ComponentRef,
-            guard: GuardIdx,
-        ) -> String {
-            match &printer.ctx.primary.guards[guard] {
-                Guard::True => String::new(),
-                Guard::Or(l, r) => {
-                    let l = inner(printer, comp, *l);
-                    let r = inner(printer, comp, *r);
-                    format!("({} | {})", l, r)
-                }
-                Guard::And(l, r) => {
-                    let l = inner(printer, comp, *l);
-                    let r = inner(printer, comp, *r);
-                    format!("({} & {})", l, r)
-                }
-                Guard::Not(n) => {
-                    let n = inner(printer, comp, *n);
-                    format!("(!{})", n)
-                }
-                Guard::Comp(op, l, r) => {
-                    let l = printer.lookup_id_from_port(comp, *l);
-                    let r = printer.lookup_id_from_port(comp, *r);
-                    format!(
-                        "{} {} {}",
-                        l.format_name(&printer.ctx.secondary.string_table),
-                        op_to_str(op),
-                        r.format_name(&printer.ctx.secondary.string_table)
-                    )
-                }
-                Guard::Port(p) => {
-                    let p = printer.lookup_id_from_port(comp, *p);
-                    p.format_name(&printer.ctx.secondary.string_table)
-                }
+        match &self.ctx.primary.guards[guard] {
+            Guard::True => String::new(),
+            Guard::Or(l, r) => {
+                let l = self.format_guard(parent, *l);
+                let r = self.format_guard(parent, *r);
+                format!("({} | {})", l, r)
+            }
+            Guard::And(l, r) => {
+                let l = self.format_guard(parent, *l);
+                let r = self.format_guard(parent, *r);
+                format!("({} & {})", l, r)
+            }
+            Guard::Not(n) => {
+                let n = self.format_guard(parent, *n);
+                format!("(!{})", n)
+            }
+            Guard::Comp(op, l, r) => {
+                let l = self.lookup_id_from_port(parent, *l);
+                let r = self.lookup_id_from_port(parent, *r);
+                format!(
+                    "{} {} {}",
+                    l.format_name(&self.ctx.secondary.string_table),
+                    op_to_str(op),
+                    r.format_name(&self.ctx.secondary.string_table)
+                )
+            }
+            Guard::Port(p) => {
+                let p = self.lookup_id_from_port(parent, *p);
+                p.format_name(&self.ctx.secondary.string_table)
             }
         }
-
-        inner(self, parent, guard)
     }
 
     pub fn print_assignment(
