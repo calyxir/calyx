@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import threading
 from typing import Dict, Union, Optional, List
 from . import py_ast as ast
@@ -18,11 +20,23 @@ class Builder:
         )
         self.imported = set()
         self.import_("primitives/core.futil")
+        self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=[]):
+    def component(self, name: str, cells=None) -> ComponentBuilder:
+        """Create a new component builder."""
+        cells = cells or []
         comp_builder = ComponentBuilder(self, name, cells)
         self.program.components.append(comp_builder.component)
+        self._index[name] = comp_builder
         return comp_builder
+
+    def get_component(self, name: str) -> ComponentBuilder:
+        """Retrieve a component builder by name."""
+        comp_builder = self._index.get(name)
+        if comp_builder is None:
+            raise Exception(f"Component `{name}' not found in program.")
+        else:
+            return comp_builder
 
     def import_(self, filename: str):
         """Add an `import` statement to the program."""
@@ -34,9 +48,12 @@ class Builder:
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
-    def __init__(self, prog: Builder, name: str, cells: List[ast.Cell] = []):
+    def __init__(
+        self, prog: Builder, name: str, cells: Optional[List[ast.Cell]] = None
+    ):
         """Contructs a new component in the current program. If `cells` is
         provided, the component will be initialized with those cells."""
+        cells = cells if cells else list()
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
@@ -50,27 +67,44 @@ class ComponentBuilder:
             self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
 
-    def input(self, name: str, size: int):
+    def input(self, name: str, size: int) -> ExprBuilder:
+        """Declare an input port on the component.
+
+        Returns an expression builder for the port.
+        """
         self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
+        return self.this()[name]
 
-    def output(self, name: str, size: int):
+    def output(self, name: str, size: int) -> ExprBuilder:
+        """Declare an output port on the component.
+
+        Returns an expression builder for the port.
+        """
         self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
+        return self.this()[name]
 
-    def this(self) -> "ThisBuilder":
+    def this(self) -> ThisBuilder:
+        """Get a handle to the component's `this` cell.
+
+        This is used to access the component's input/output ports with the
+        standard `this.port` syntax.
+        """
         return ThisBuilder()
 
     @property
-    def control(self):
+    def control(self) -> ControlBuilder:
+        """Access the component's control program."""
         return ControlBuilder(self.component.controls)
 
     @control.setter
-    def control(self, builder: Union[ast.Control, "ControlBuilder"]):
+    def control(self, builder: Union[ast.Control, ControlBuilder]):
         if isinstance(builder, ControlBuilder):
             self.component.controls = builder.stmt
         else:
             self.component.controls = builder
 
-    def get_cell(self, name: str) -> "CellBuilder":
+    def get_cell(self, name: str) -> CellBuilder:
+        """Retrieve a cell builder by name."""
         out = self.index.get(name)
         if out and isinstance(out, CellBuilder):
             return out
@@ -80,7 +114,8 @@ class ComponentBuilder:
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
 
-    def get_group(self, name: str) -> "GroupBuilder":
+    def get_group(self, name: str) -> GroupBuilder:
+        """Retrieve a group builder by name."""
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -89,15 +124,21 @@ class ComponentBuilder:
                 f"Group `{name}' not found in component {self.component.name}"
             )
 
-    def group(self, name: str) -> "GroupBuilder":
-        group = ast.Group(ast.CompVar(name), connections=[])
+    def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
+        """Create a new group with the given name and (optional) static delay."""
+        group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
+        assert group not in self.component.wires, f"group '{name}' already exists"
+
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
         self.index[name] = builder
         return builder
 
-    def comb_group(self, name: str) -> "GroupBuilder":
+    def comb_group(self, name: str) -> GroupBuilder:
+        """Create a new combinational group with the given name."""
         group = ast.CombGroup(ast.CompVar(name), connections=[])
+        assert group not in self.component.wires, f"comb group '{name}' already exists"
+
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
         self.index[name] = builder
@@ -106,23 +147,57 @@ class ComponentBuilder:
     def cell(
         self,
         name: str,
-        comp: Union[ast.CompInst, "ComponentBuilder"],
+        comp: Union[ast.CompInst, ComponentBuilder],
         is_external=False,
         is_ref=False,
-    ) -> "CellBuilder":
+    ) -> CellBuilder:
+        """Declare a cell in the component. Returns a cell builder."""
         # If we get a (non-primitive) component builder, instantiate it
         # with no parameters.
         if isinstance(comp, ComponentBuilder):
             comp = ast.CompInst(comp.component.name, [])
 
         cell = ast.Cell(ast.CompVar(name), comp, is_external, is_ref)
+        assert cell not in self.component.cells, f"cell '{name}' already exists"
+
         self.component.cells.append(cell)
         builder = CellBuilder(cell)
         self.index[name] = builder
         return builder
 
-    def reg(self, name: str, size: int):
+    def comp_instance(
+        self,
+        cell_name: str,
+        comp_name: str | ComponentBuilder,
+        check_undeclared=True,
+    ) -> CellBuilder:
+        """Create a cell for a Calyx sub-component.
+
+        This is primarily for when the instantiated component has not yet been
+        defined. When the component has been defined, use `cell` instead with
+        the `ComponentBuilder` object.
+        """
+        if isinstance(comp_name, str):
+            assert not check_undeclared or (
+                comp_name in self.prog._index
+                or comp_name in self.prog.program.components
+            ), (
+                f"Declaration of component '{comp_name}' not found in program. If this "
+                "is expected, set `check_undeclared=False`."
+            )
+
+        if isinstance(comp_name, ComponentBuilder):
+            comp_name = comp_name.component.name
+
+        return self.cell(cell_name, ast.CompInst(comp_name, []))
+
+    def reg(self, name: str, size: int) -> CellBuilder:
+        """Generate a StdReg cell."""
         return self.cell(name, ast.Stdlib.register(size))
+
+    def const(self, name: str, width: int, value: int) -> CellBuilder:
+        """Generate a StdConstant cell."""
+        return self.cell(name, ast.Stdlib.constant(width, value))
 
     def mem_d1(
         self,
@@ -132,14 +207,51 @@ class ComponentBuilder:
         idx_size: int,
         is_external=False,
         is_ref=False,
-    ):
+    ) -> CellBuilder:
+        """Generate a StdMemD1 cell."""
         return self.cell(
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int):
+    def add(self, name: str, size: int, signed=False) -> CellBuilder:
+        """Generate a StdAdd cell."""
         self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("add", size, signed=False))
+        return self.cell(name, ast.Stdlib.op("add", size, signed))
+
+    def sub(self, name: str, size: int, signed=False):
+        """Generate a StdSub cell."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("sub", size, signed))
+
+    def gt(self, name: str, size: int, signed=False):
+        """Generate a StdGt cell."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("gt", size, signed))
+
+    def lt(self, name: str, size: int, signed=False):
+        """Generate a StdLt cell."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("lt", size, signed))
+
+    def eq(self, name: str, size: int, signed=False):
+        """Generate a StdEq cell."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("eq", size, signed))
+
+    def neq(self, name: str, size: int, signed=False):
+        """Generate a StdNeq cell."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("neq", size, signed))
+
+    def ge(self, name: str, size: int, signed=False):
+        """Generate a StdGe cell."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("ge", size, signed))
+
+    def le(self, name: str, size: int, signed=False):
+        """Generate a StdLe cell."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.op("le", size, signed))
 
 
 def as_control(obj):
@@ -173,14 +285,17 @@ def as_control(obj):
     elif isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
     elif isinstance(obj, set):
-        return ast.ParComp([as_control(o) for o in obj])
+        raise TypeError(
+            "Python sets are not supported in control programs. For a parallel"
+            " composition use `Builder.par` instead."
+        )
     elif obj is None:
         return ast.Empty()
     else:
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
     """Build a `while` control statement."""
     if cond:
         assert isinstance(
@@ -192,8 +307,15 @@ def while_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
     return ast.While(port.expr, cg, as_control(body))
 
 
-def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
+def if_(
+    port: ExprBuilder,
+    cond: Optional[GroupBuilder],
+    body,
+    else_body=None,
+) -> ast.If:
     """Build an `if` control statement."""
+    else_body = ast.Empty() if else_body is None else else_body
+
     if cond:
         assert isinstance(
             cond.group_like, ast.CombGroup
@@ -201,14 +323,14 @@ def if_(port: "ExprBuilder", cond: Optional["GroupBuilder"], body):
         cg = cond.group_like.id
     else:
         cg = None
-    return ast.If(port.expr, cg, as_control(body))
+    return ast.If(port.expr, cg, as_control(body), as_control(else_body))
 
 
-def invoke(cell: "CellBuilder", **kwargs):
+def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     """Build an `invoke` control statement.
 
-    The keyword arguments should have the form `in_*` and `out_*`, where
-    `*` is the name of an input or output port on the invoked cell.
+    The keyword arguments should have the form `in_*`, `out_*`, or `ref_*`, where
+    `*` is the name of an input port, output port, or ref cell on the invoked cell.
     """
     return ast.Invoke(
         cell._cell.id,
@@ -221,6 +343,11 @@ def invoke(cell: "CellBuilder", **kwargs):
             (k[4:], ExprBuilder.unwrap(v))
             for (k, v) in kwargs.items()
             if k.startswith("out_")
+        ],
+        [
+            (k[4:], CellBuilder.unwrap_id(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("ref_")
         ],
     )
 
@@ -266,11 +393,11 @@ class ExprBuilder:
     def __init__(self, expr: ast.GuardExpr):
         self.expr = expr
 
-    def __and__(self, other: "ExprBuilder"):
+    def __and__(self, other: ExprBuilder):
         """Construct an "and" logical expression with &."""
         return ExprBuilder(ast.And(self.expr, other.expr))
 
-    def __or__(self, other: "ExprBuilder"):
+    def __or__(self, other: ExprBuilder):
         """Construct an "or" logical expression with |."""
         return ExprBuilder(ast.Or(self.expr, other.expr))
 
@@ -278,7 +405,7 @@ class ExprBuilder:
         """Construct a "not" logical expression with ~."""
         return ExprBuilder(ast.Not(self.expr))
 
-    def __matmul__(self, rhs: "ExprBuilder"):
+    def __matmul__(self, rhs: ExprBuilder):
         """Construct a conditional expression with @.
 
         This produces a `CondExprBuilder`, which wraps a value
@@ -289,11 +416,11 @@ class ExprBuilder:
         """
         return CondExprBuilder(self, rhs)
 
-    def __eq__(self, other: "ExprBuilder"):
+    def __eq__(self, other: ExprBuilder):
         """Construct an equality comparison with ==."""
         return ExprBuilder(ast.Eq(self.expr, other.expr))
 
-    def __ne__(self, other: "ExprBuilder"):
+    def __ne__(self, other: ExprBuilder):
         """Construct an inequality comparison with ==."""
         return ExprBuilder(ast.Neq(self.expr, other.expr))
 
@@ -364,9 +491,16 @@ class CellBuilder(CellLikeBuilder):
     def __init__(self, cell: ast.Cell):
         self._cell = cell
 
-    def port(self, name: str):
+    def port(self, name: str) -> ExprBuilder:
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
+
+    @classmethod
+    def unwrap_id(cls, obj):
+        if isinstance(obj, cls):
+            return obj._cell.id
+        else:
+            return obj
 
 
 class ThisBuilder(CellLikeBuilder):
@@ -400,6 +534,12 @@ class GroupBuilder:
     ):
         self.group_like = group_like
         self.comp = comp
+
+    def as_enable(self) -> Optional[ast.Enable]:
+        if isinstance(self.group_like, ast.Group):
+            return ast.Enable(self.group_like.id.name)
+        else:
+            return None
 
     def asgn(
         self,
@@ -471,14 +611,14 @@ class GroupBuilder:
         TLS.groups.pop()
 
 
-def const(width: int, value: int):
+def const(width: int, value: int) -> ExprBuilder:
     """Build a sized integer constant expression.
 
     This is available as a shorthand in cases where automatic width
     inference fails. Otherwise, you can just use plain Python integer
     values.
     """
-    return ExprBuilder(ast.ConstantPort(width, value))
+    return ExprBuilder(ast.Atom(ast.ConstantPort(width, value)))
 
 
 def infer_width(expr):
@@ -552,3 +692,18 @@ def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     assert TLS.groups, "assignment outside `with group`"
     group_builder: GroupBuilder = TLS.groups[-1]
     group_builder.asgn(lhs, rhs)
+
+
+"""A one bit low signal"""
+LO = const(1, 0)
+"""A one bit high signal"""
+HI = const(1, 1)
+
+
+def par(*args) -> ast.ParComp:
+    """Build a parallel composition of control expressions.
+
+    Each argument will become its own parallel arm in the resulting composition.
+    So `par([a,b])` becomes `par {seq {a; b;}}` while `par(a, b)` becomes `par {a; b;}`.
+    """
+    return ast.ParComp([as_control(x) for x in args])

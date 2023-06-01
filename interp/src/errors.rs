@@ -161,8 +161,8 @@ impl InterpreterError {
     pub fn conflicting_assignments(
         port_id: Id,
         parent_id: Id,
-        a1: &Assignment,
-        a2: &Assignment,
+        a1: &Assignment<ir::Nothing>,
+        a2: &Assignment<ir::Nothing>,
     ) -> Self {
         Self::ConflictingAssignments {
             port_id,

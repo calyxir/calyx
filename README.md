@@ -1,3 +1,5 @@
+[![Built with Depot](https://depot.dev/badges/built-with-depot.svg)](https://depot.dev/?utm_source=capra)
+
 <h1>
 <p align="center">
 <img src="https://calyxir.org/img/logo-text.svg" width="300">
@@ -9,20 +11,18 @@
 
 Calyx is an intermediate language and infrastructure for building compilers that generate custom hardware accelerators.
 
-See the [Calyx website][site], [language documentation][docs] and the
-[documentation for the source code][source-docs]
-for more information. Calyx's design is based on [our paper][paper].
+See the [Calyx website][site], [language documentation][docs] and the [documentation for the source code][source-docs] for more information.
+Calyx's design is based on [our paper][paper].
 
 ## Installation
 
 ### Quick
 If you want to try out the compiler, install it using `cargo`:
 ```
-cargo install futil
+cargo install calyx
 ```
 
-This will install the `futil` binary which includes the calyx frontend,
-optimization passes, and several backends.
+This will install the `calyx` binary can optimize and compile Calyx programs to Verilog or [CIRCT][].
 
 ### Recommended
 
@@ -31,16 +31,23 @@ Follow the [getting started][docs] instructions.
 ## Organization
 
 This repository contains the source code for the following:
-1. [`calyx`][] (`calyx/`): The intermediate representation used for hardware
-   accelerator generation.
-2. [`futil`][] (`src/`): The compiler infrastructure for compiling Calyx programs.
-   If `calyx` is like LLVM, then `futil` is Clang.
-3. Calyx debugger (`interp/`): An interpreter and debugger for Calyx.
-4. `fud`, The Calyx driver: Utility tool that wraps various hardware toolchains.
+* [`calyx-utils`][]: Utilities for the Calyx compiler
+* [`calyx-frontend`][]: Parser and frontend AST for the Calyx language.
+* [`calyx-ir`][]: The Calyx intermediate language.
+* [`calyx-opt`][]: Optimizations for the Calyx intermediate language.
+* [`calyx`][]: The Calyx compiler driver.
+
+You can also use the Calyx compiler as a library and implement your own optimizations. To do this, [checkout the example][opt-example] provided by the [`calyx-opt`][] crate.
 
 [site]: https://calyxir.org
 [docs]: https://docs.calyxir.org
-[source-docs]: https://docs.calyxir.org/source/calyx
+[source-docs]: https://docs.rs/releases/search?query=calyx
 [paper]: https://rachitnigam.com/files/pubs/calyx.pdf
+
+[`calyx-utils`]: https://crates.io/crates/calyx-utils
+[`calyx-frontend`]: https://crates.io/crates/calyx-frontend
+[`calyx-ir`]: https://crates.io/crates/calyx-ir
+[`calyx-opt`]: https://crates.io/crates/calyx-opt
 [`calyx`]: https://crates.io/crates/calyx
-[`futil`]: https://crates.io/crates/futil
+[circt]: https://docs.calyxir.org/fud/circt.html
+[opt-example]: https://docs.rs/calyx-opt/0.2.1/calyx_opt/

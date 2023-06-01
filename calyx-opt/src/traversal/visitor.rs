@@ -3,7 +3,9 @@
 //! [`ir::Context`] to compile every [`ir::Component`] using the pass.
 use super::action::{Action, VisResult};
 use super::{CompTraversal, Order};
-use calyx_ir::{self as ir, Component, Context, Control, LibrarySignatures};
+use calyx_ir::{
+    self as ir, Component, Context, Control, LibrarySignatures, StaticControl,
+};
 use calyx_utils::CalyxResult;
 use itertools::Itertools;
 use std::collections::HashSet;
@@ -121,6 +123,18 @@ pub trait Visitor {
         None
     }
 
+    #[inline(always)]
+    /// Transform the [`ir::Context`] before visiting the components.
+    fn start_context(&mut self, _ctx: &mut ir::Context) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    #[inline(always)]
+    /// Transform the [`ir::Context`] after visiting the components.
+    fn finish_context(&mut self, _ctx: &mut ir::Context) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Define the iteration order in which components should be visited
     #[inline(always)]
     fn iteration_order() -> Order
@@ -162,9 +176,9 @@ pub trait Visitor {
         Ok(())
     }
 
-    /// Run the visitor on a given program [`ir::Context`](crate::Context).
-    /// The function mutably borrows the [`control`](crate::Component::control)
-    /// program in each component and traverses it.
+    /// Run the visitor on a given program [`ir::Context`].
+    /// The function mutably borrows the `control` program in each component and
+    /// traverses it.
     ///
     /// After visiting a component, it called [ConstructVisitor::clear_data] to
     /// reset the struct.
@@ -180,6 +194,8 @@ pub trait Visitor {
             return Ok(());
         }
 
+        self.start_context(context)?;
+
         let signatures = &context.lib;
         let comps = std::mem::take(&mut context.components);
 
@@ -191,6 +207,8 @@ pub trait Visitor {
             Ok(())
         })?;
         context.components = po.take();
+
+        self.finish_context(context)?;
 
         Ok(())
     }
@@ -317,6 +335,28 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed before visiting the contents of an [ir::StaticControl] node.
+    fn start_static_control(
+        &mut self,
+        _s: &mut ir::StaticControl,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed after visiting the conetnts of an [ir::StaticControl] node.
+    fn finish_static_control(
+        &mut self,
+        _s: &mut ir::StaticControl,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed at an [ir::Enable] node.
     fn enable(
         &mut self,
@@ -339,10 +379,109 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed before visiting the children of a [ir::StaticIf] node.
+    fn start_static_if(
+        &mut self,
+        _s: &mut ir::StaticIf,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed after visiting the children of a [ir::StaticIf] node.
+    fn finish_static_if(
+        &mut self,
+        _s: &mut ir::StaticIf,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed before visiting the children of a [ir::StaticRepeat] node.
+    fn start_static_repeat(
+        &mut self,
+        _s: &mut ir::StaticRepeat,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed after visiting the children of a [ir::StaticRepeat] node.
+    fn finish_static_repeat(
+        &mut self,
+        _s: &mut ir::StaticRepeat,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    // Executed before visiting the children of a [ir::StaticSeq] node.
+    fn start_static_seq(
+        &mut self,
+        _s: &mut ir::StaticSeq,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    // Executed after visiting the children of a [ir::StaticSeq] node.
+    fn finish_static_seq(
+        &mut self,
+        _s: &mut ir::StaticSeq,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    // Executed before visiting the children of a [ir::StaticPar] node.
+    fn start_static_par(
+        &mut self,
+        _s: &mut ir::StaticPar,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    // Executed after visiting the children of a [ir::StaticPar] node.
+    fn finish_static_par(
+        &mut self,
+        _s: &mut ir::StaticPar,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed at an [ir::Invoke] node.
     fn invoke(
         &mut self,
         _s: &mut ir::Invoke,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed at a [ir::StaticInvoke] node.
+    fn static_invoke(
+        &mut self,
+        _s: &mut ir::StaticInvoke,
         _comp: &mut Component,
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
@@ -421,9 +560,13 @@ impl Visitable for Control {
             Control::Enable(ctrl) => {
                 visitor.enable(ctrl, component, sigs, comps)?
             }
-            Control::StaticEnable(ctrl) => {
-                visitor.static_enable(ctrl, component, sigs, comps)?
-            }
+            Control::Static(sctrl) => visitor
+                .start_static_control(sctrl, component, sigs, comps)?
+                .and_then(|| sctrl.visit(visitor, component, sigs, comps))?
+                .pop()
+                .and_then(|| {
+                    visitor.finish_static_control(sctrl, component, sigs, comps)
+                })?,
             Control::Empty(ctrl) => {
                 visitor.empty(ctrl, component, sigs, comps)?
             }
@@ -432,6 +575,79 @@ impl Visitable for Control {
             }
         };
         Ok(res.apply_change(self))
+    }
+}
+
+impl Visitable for StaticControl {
+    fn visit(
+        &mut self,
+        visitor: &mut dyn Visitor,
+        component: &mut Component,
+        signatures: &LibrarySignatures,
+        components: &[ir::Component],
+    ) -> VisResult {
+        let res = match self {
+            StaticControl::Empty(ctrl) => {
+                visitor.empty(ctrl, component, signatures, components)?
+            }
+            StaticControl::Enable(ctrl) => visitor
+                .static_enable(ctrl, component, signatures, components)?,
+            StaticControl::Repeat(ctrl) => visitor
+                .start_static_repeat(ctrl, component, signatures, components)?
+                .and_then(|| {
+                    ctrl.body.visit(visitor, component, signatures, components)
+                })?
+                .pop()
+                .and_then(|| {
+                    visitor.finish_static_repeat(
+                        ctrl, component, signatures, components,
+                    )
+                })?,
+            StaticControl::Seq(ctrl) => visitor
+                .start_static_seq(ctrl, component, signatures, components)?
+                .and_then(|| {
+                    ctrl.stmts.visit(visitor, component, signatures, components)
+                })?
+                .pop()
+                .and_then(|| {
+                    visitor.finish_static_seq(
+                        ctrl, component, signatures, components,
+                    )
+                })?,
+            StaticControl::Par(ctrl) => visitor
+                .start_static_par(ctrl, component, signatures, components)?
+                .and_then(|| {
+                    ctrl.stmts.visit(visitor, component, signatures, components)
+                })?
+                .pop()
+                .and_then(|| {
+                    visitor.finish_static_par(
+                        ctrl, component, signatures, components,
+                    )
+                })?,
+            StaticControl::If(sctrl) => visitor
+                .start_static_if(sctrl, component, signatures, components)?
+                .and_then(|| {
+                    sctrl
+                        .tbranch
+                        .visit(visitor, component, signatures, components)
+                })?
+                .and_then(|| {
+                    sctrl
+                        .fbranch
+                        .visit(visitor, component, signatures, components)
+                })?
+                .pop()
+                .and_then(|| {
+                    visitor.finish_static_if(
+                        sctrl, component, signatures, components,
+                    )
+                })?,
+            StaticControl::Invoke(sin) => {
+                visitor.static_invoke(sin, component, signatures, components)?
+            }
+        };
+        Ok(res.apply_static_change(self))
     }
 }
 
@@ -447,7 +663,10 @@ impl<V: Visitable> Visitable for Vec<V> {
         for t in self {
             let res = t.visit(visitor, component, sigs, components)?;
             match res {
-                Action::Continue | Action::SkipChildren | Action::Change(_) => {
+                Action::Continue
+                | Action::SkipChildren
+                | Action::Change(_)
+                | Action::StaticChange(_) => {
                     continue;
                 }
                 Action::Stop => return Ok(Action::Stop),

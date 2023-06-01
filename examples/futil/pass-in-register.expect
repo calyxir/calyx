@@ -2,63 +2,81 @@ import "primitives/core.futil";
 import "primitives/unsynthesizable.futil";
 component times_10_and_add_1<"state_share"=1>(reg_done: 1, reg_out: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (reg_in: 32, reg_write_en: 1, @done done: 1) {
   cells {
-    add = std_add(32);
-    mult = std_unsyn_mult(32);
+    @control add = std_add(32);
+    @control mult = std_unsyn_mult(32);
     @generated do_add_and_mul_go = std_wire(1);
     @generated do_add_and_mul_done = std_wire(1);
   }
   wires {
-    add.right = do_add_and_mul_go.out ? mult.out;
-    add.left = do_add_and_mul_go.out ? 32'd1;
-    mult.right = do_add_and_mul_go.out ? reg_out;
     mult.left = do_add_and_mul_go.out ? 32'd10;
-    reg_in = do_add_and_mul_go.out ? add.out;
-    reg_write_en = do_add_and_mul_go.out ? 1'd1;
+    mult.right = do_add_and_mul_go.out ? reg_out;
     done = do_add_and_mul_done.out ? 1'd1;
-    do_add_and_mul_go.in = go;
+    reg_write_en = do_add_and_mul_go.out ? 1'd1;
+    reg_in = do_add_and_mul_go.out ? add.out;
     do_add_and_mul_done.in = reg_done;
+    add.left = do_add_and_mul_go.out ? 32'd1;
+    add.right = do_add_and_mul_go.out ? mult.out;
+    do_add_and_mul_go.in = go;
   }
-
   control {}
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    op = times_10_and_add_1();
-    r = std_reg(32);
-    @generated fsm = std_reg(2);
+    @control op = times_10_and_add_1();
+    @data r = std_reg(32);
+    @generated fsm = std_reg(1);
+    @generated ud = undef(1);
+    @generated adder = std_add(1);
+    @generated signal_reg = std_reg(1);
+    @generated fsm0 = std_reg(2);
     @generated apply_op_go = std_wire(1);
     @generated apply_op_done = std_wire(1);
-    @generated invoke0_go = std_wire(1);
-    @generated invoke0_done = std_wire(1);
+    @generated early_reset_invoke00_go = std_wire(1);
+    @generated early_reset_invoke00_done = std_wire(1);
+    @generated wrapper_early_reset_invoke00_go = std_wire(1);
+    @generated wrapper_early_reset_invoke00_done = std_wire(1);
     @generated tdcc_go = std_wire(1);
     @generated tdcc_done = std_wire(1);
   }
   wires {
-    op.reg_done = apply_op_go.out ? r.done;
-    op.reg_out = apply_op_go.out ? r.out;
-    op.go = apply_op_go.out ? 1'd1;
-    op.clk = clk;
-    op.reset = reset;
-    r.in = apply_op_go.out ? op.reg_in;
-    r.in = invoke0_go.out ? 32'd15;
-    r.write_en = apply_op_go.out ? op.reg_write_en;
-    r.write_en = invoke0_go.out ? 1'd1;
-    r.clk = clk;
-    r.reset = reset;
+    apply_op_go.in = !apply_op_done.out & fsm0.out == 2'd1 & tdcc_go.out ? 1'd1;
     done = tdcc_done.out ? 1'd1;
-    fsm.in = fsm.out == 2'd1 & apply_op_done.out & tdcc_go.out ? 2'd2;
-    fsm.in = fsm.out == 2'd2 ? 2'd0;
-    fsm.in = fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out ? 2'd1;
-    fsm.write_en = fsm.out == 2'd2 | fsm.out == 2'd0 & invoke0_done.out & tdcc_go.out | fsm.out == 2'd1 & apply_op_done.out & tdcc_go.out ? 1'd1;
+    fsm.write_en = early_reset_invoke00_go.out ? 1'd1;
     fsm.clk = clk;
     fsm.reset = reset;
-    apply_op_go.in = !apply_op_done.out & fsm.out == 2'd1 & tdcc_go.out ? 1'd1;
-    apply_op_done.in = op.done;
-    invoke0_go.in = !invoke0_done.out & fsm.out == 2'd0 & tdcc_go.out ? 1'd1;
-    invoke0_done.in = r.done;
+    fsm.in = fsm.out != 1'd0 & early_reset_invoke00_go.out ? adder.out;
+    fsm.in = fsm.out == 1'd0 & early_reset_invoke00_go.out ? 1'd0;
+    adder.left = early_reset_invoke00_go.out ? fsm.out;
+    adder.right = early_reset_invoke00_go.out ? 1'd1;
+    op.clk = clk;
+    op.reg_out = apply_op_go.out ? r.out;
+    op.go = apply_op_go.out ? 1'd1;
+    op.reset = reset;
+    op.reg_done = apply_op_go.out ? r.done;
+    r.write_en = apply_op_go.out ? op.reg_write_en;
+    r.write_en = early_reset_invoke00_go.out ? 1'd1;
+    r.clk = clk;
+    r.reset = reset;
+    r.in = apply_op_go.out ? op.reg_in;
+    r.in = early_reset_invoke00_go.out ? 32'd15;
     tdcc_go.in = go;
-    tdcc_done.in = fsm.out == 2'd2 ? 1'd1;
+    fsm0.write_en = fsm0.out == 2'd2 | fsm0.out == 2'd0 & wrapper_early_reset_invoke00_done.out & tdcc_go.out | fsm0.out == 2'd1 & apply_op_done.out & tdcc_go.out ? 1'd1;
+    fsm0.clk = clk;
+    fsm0.reset = reset;
+    fsm0.in = fsm0.out == 2'd0 & wrapper_early_reset_invoke00_done.out & tdcc_go.out ? 2'd1;
+    fsm0.in = fsm0.out == 2'd2 ? 2'd0;
+    fsm0.in = fsm0.out == 2'd1 & apply_op_done.out & tdcc_go.out ? 2'd2;
+    early_reset_invoke00_done.in = ud.out;
+    wrapper_early_reset_invoke00_done.in = fsm.out == 1'd0 & signal_reg.out ? 1'd1;
+    signal_reg.write_en = fsm.out == 1'd0 & signal_reg.out | fsm.out == 1'd0 & !signal_reg.out & wrapper_early_reset_invoke00_go.out ? 1'd1;
+    signal_reg.clk = clk;
+    signal_reg.reset = reset;
+    signal_reg.in = fsm.out == 1'd0 & !signal_reg.out & wrapper_early_reset_invoke00_go.out ? 1'd1;
+    signal_reg.in = fsm.out == 1'd0 & signal_reg.out ? 1'd0;
+    apply_op_done.in = op.done;
+    early_reset_invoke00_go.in = wrapper_early_reset_invoke00_go.out ? 1'd1;
+    wrapper_early_reset_invoke00_go.in = !wrapper_early_reset_invoke00_done.out & fsm0.out == 2'd0 & tdcc_go.out ? 1'd1;
+    tdcc_done.in = fsm0.out == 2'd2 ? 1'd1;
   }
-
   control {}
 }

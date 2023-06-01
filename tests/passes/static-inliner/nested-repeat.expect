@@ -1,0 +1,23 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+  }
+  wires {
+    static<1> group A {
+      a.in = 2'd0;
+      a.write_en = %0 ? 1'd1;
+    }
+    static<6> group static_repeat {
+      static_repeat0[go] = 1'd1;
+    }
+    static<3> group static_repeat0 {
+      A[go] = 1'd1;
+    }
+  }
+  control {
+    seq {
+      static_repeat;
+    }
+  }
+}

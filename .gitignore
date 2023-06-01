@@ -41,6 +41,8 @@ __pycache__
 
 tests/xilinx/cocotb/**/hdl
 
+.vscode/settings.json
+
 # Dune build directory
 _build
 # This opam file is generated from dune-project

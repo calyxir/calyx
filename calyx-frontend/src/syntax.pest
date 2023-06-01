@@ -41,6 +41,16 @@ comb = { "comb" }
 
 reference = { "ref" }
 
+static_word = { "static" }
+
+static_annotation = { static_word ~ latency_annotation} 
+
+static_optional_latency = { static_word ~ latency_annotation? } 
+
+both_comb_static = { (comb ~ static_annotation) | (static_annotation ~ comb) } 
+
+comb_or_static = {both_comb_static | comb | static_annotation}
+
 file = {
       SOI
       ~ imports
@@ -56,7 +66,7 @@ extern_or_component = {
 externs_and_comps = { extern_or_component* }
 
 component = {
-      comb? ~ "component" ~ name_with_attribute ~ signature
+      (comb_or_static)? ~ "component" ~ name_with_attribute ~ signature
       ~ "{"
       ~ cells
       ~ connections
@@ -101,7 +111,7 @@ sig_with_params = {
   params? ~ signature
 }
 primitive = {
-     comb? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ ";"
+     (comb_or_static)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ ";"
 }
 
 block_char = { !"}" ~ ANY }
@@ -109,7 +119,7 @@ block_char = { !"}" ~ ANY }
 block_string = ${ "{" ~ block_char* ~ "}" }
 
 prim_inline = {
-      comb? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"
+      (comb_or_static)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"
 }
 
 ext = {
@@ -196,11 +206,38 @@ wire = {
       at_attributes ~ LHS ~ "=" ~ (switch_stmt | expr) ~ ";"
 }
 
+static_timing_expr = { "%" ~  bitwidth | "%[" ~ bitwidth ~ ":" ~ bitwidth  ~ "]"}
+
+static_term = {
+      guard_not ~ expr
+    | guard_not ~ "(" ~ cmp_expr ~ ")"
+    | guard_not ~ "(" ~ static_guard_expr ~ ")"
+    | "(" ~ static_guard_expr ~ ")"
+    | cmp_expr
+    | expr
+    | static_timing_expr 
+}
+
+static_guard_expr = {
+      static_term ~ (operator ~ static_term)*
+}
+
+static_switch_stmt = {
+      static_guard_expr ~ "?" ~ expr
+}
+
+static_wire = {
+      at_attributes ~ LHS ~ "=" ~ (static_switch_stmt | expr) ~ ";"
+}
+
 // =========== Attribute parsing ===============
 
 // <"static" = 1> style annotation
 attribute = {
       string_lit ~ "=" ~ bitwidth
+}
+latency_annotation = {
+  "<" ~ bitwidth ~ ">"
 }
 attributes = {
       "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
@@ -226,10 +263,16 @@ group = {
       ~ "}"
 }
 
+static_group = {
+      static_annotation ~ "group" ~ name_with_attribute ~ "{"
+      ~ static_wire*
+      ~ "}"
+}
+
 connections = {
       "wires"
       ~ "{"
-      ~ (wire | group)*
+      ~ (wire | group | static_group )*
       ~ "}"
 }
 
@@ -244,6 +287,7 @@ invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
 invoke_ref_arg = {identifier ~ "=" ~ identifier}
 invoke_ref_args = {("[" ~ (invoke_ref_arg ~ ("," ~ invoke_ref_arg)*)? ~ "]")?}
 invoke = { at_attributes ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
+static_invoke = { at_attributes ~ static_optional_latency ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
 
 seq = {
       at_attributes ~ "seq" ~ "{"
@@ -251,8 +295,20 @@ seq = {
       ~ "}"
 }
 
+static_seq = {
+      at_attributes ~  static_optional_latency ~ "seq"  ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
 par = {
       at_attributes ~ "par" ~ "{"
+      ~ stmt*
+      ~ "}"
+}
+
+static_par = {
+      at_attributes ~ static_optional_latency ~ "par"  ~ "{"
       ~ stmt*
       ~ "}"
 }
@@ -274,18 +330,31 @@ if_stmt = {
       at_attributes ~ "if" ~ port_with ~ block ~ ("else" ~ (if_stmt | block))?
 }
 
+static_if_stmt = {
+      at_attributes ~ static_optional_latency ~ "if"  ~ port ~ block ~ ("else" ~ (static_if_stmt | block))?
+}
+
 while_stmt = {
       at_attributes ~ "while" ~ port_with ~ block
+}
+
+repeat_stmt = {
+      at_attributes ~ static_word ~ "repeat" ~ bitwidth ~ block
 }
 
 stmt = {
       empty
     | enable
     | invoke
+    | static_invoke
     | seq
+    | static_seq
     | par
+    | static_par 
     | if_stmt
+    | static_if_stmt
     | while_stmt
+    | repeat_stmt
 }
 
 control = {

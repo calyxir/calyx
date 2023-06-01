@@ -50,7 +50,8 @@ impl Visitor for SynthesisPapercut {
                 let cell = &cell.borrow();
                 if let Some(ref parent) = cell.type_name() {
                     if self.memories.contains(parent) {
-                        let has_external = cell.get_attribute("external");
+                        let has_external =
+                            cell.get_attribute(ir::BoolAttr::External);
                         if has_external.is_none() {
                             return Some(cell.name());
                         }
@@ -78,7 +79,7 @@ impl Visitor for SynthesisPapercut {
             if analysis.reads_from(&read_port.borrow()).next().is_none() {
                 return Err(Error::papercut(
                     format!(
-                        "Only writes performed on memory `{mem}'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.",
+                        "Only writes performed on memory `{mem}'. Synthesis tools will remove this memory. Add @external to cell to turn this into an interface memory.",
                     ),
                 ));
             }
@@ -86,7 +87,7 @@ impl Visitor for SynthesisPapercut {
             if analysis.writes_to(&write_port.borrow()).next().is_none() {
                 return Err(Error::papercut(
                     format!(
-                        "Only reads performed on memory `{mem}'. Synthesis tools will remove this memory. Add @external(1) to cell to turn this into an interface memory.",
+                        "Only reads performed on memory `{mem}'. Synthesis tools will remove this memory. Add @external to cell to turn this into an interface memory.",
                     ),
                 ));
             }

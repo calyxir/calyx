@@ -4,6 +4,7 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, rewriter, GetAttributes, LibrarySignatures, RRC};
 use calyx_utils::Error;
+use ir::Nothing;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -117,7 +118,7 @@ impl ComponentInliner {
     /// 2. Using the [PortMap] to a new [Port].
     /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
     fn rewrite_assigns(
-        assigns: &mut [ir::Assignment],
+        assigns: &mut [ir::Assignment<Nothing>],
         port_rewrite: &ir::Rewriter,
         new_group: Option<&RRC<ir::Group>>,
     ) {
@@ -141,7 +142,7 @@ impl ComponentInliner {
     /// 2. Using the [PortMap] to a new [Port].
     /// 3. Using `new_group` to rewrite use of a group hole if the port is a hole.
     fn rewrite_assigns_static(
-        assigns: &mut [ir::Assignment],
+        assigns: &mut [ir::Assignment<ir::StaticTiming>],
         port_rewrite: &ir::Rewriter,
         new_group: Option<&RRC<ir::StaticGroup>>,
     ) {
@@ -202,7 +203,8 @@ impl ComponentInliner {
         gr: &RRC<ir::StaticGroup>,
     ) -> (ir::Id, RRC<ir::StaticGroup>) {
         let group = gr.borrow();
-        let new_group = builder.add_static_group(group.name());
+        let new_group =
+            builder.add_static_group(group.name(), group.get_latency());
         new_group.borrow_mut().attributes = group.attributes.clone();
 
         // Rewrite assignments
@@ -360,7 +362,7 @@ impl Visitor for ComponentInliner {
                 if self.always_inline {
                     cell.is_component()
                 } else {
-                    cell.get_attribute("inline").is_some()
+                    cell.get_attribute(ir::BoolAttr::Inline).is_some()
                 }
             });
         comp.cells.append(cells.into_iter());
@@ -411,6 +413,20 @@ impl Visitor for ComponentInliner {
         // from the inlined instances and check if the `go` or `done` ports
         // on any of the instances was used for structural invokes.
         builder.component.for_each_assignment(|assign| {
+            assign.for_each_port(|pr| {
+                let port = &pr.borrow();
+                let np = interface_rewrites.get(&port.canonical());
+                if np.is_some() && (port.name == "go" || port.name == "done") {
+                    panic!(
+                        "Cannot inline instance. It is structurally structurally invoked: `{}`",
+                        port.cell_parent().borrow().name(),
+                    );
+                }
+                np.cloned()
+            });
+        });
+
+        builder.component.for_each_static_assignment(|assign| {
             assign.for_each_port(|pr| {
                 let port = &pr.borrow();
                 let np = interface_rewrites.get(&port.canonical());
@@ -537,7 +553,7 @@ impl Visitor for ComponentInliner {
         let cell = s.comp.borrow();
         if let Some(con) = self.control_map.get_mut(&cell.name()) {
             if self.new_fsms {
-                con.get_mut_attributes().insert("new_fsm", 1);
+                con.get_mut_attributes().insert(ir::BoolAttr::NewFSM, 1);
             }
             Ok(Action::change(ir::Cloner::control(con)))
         } else {

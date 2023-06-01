@@ -21,7 +21,7 @@ steps using the `--dry-run` option.
 # Dry run of compiling the Dahlia dot product file
 # to Calyx. As expected, this will *only* print
 # the stages that will be run.
-fud exec examples/dahlia/dot-product.fuse --to futil --dry-run
+fud exec examples/dahlia/dot-product.fuse --to calyx --dry-run
 ```
 
 **Simulating Calyx.**

@@ -9,7 +9,7 @@ incomplete yet daunting list of CLI tools used by Calyx is:
 - Waveform viewers to see the results of simulation
 
 `fud` aims to provide a simple interface for using these toolchains and executing them in a pipeline.
-The source for fud is [here](https://github.com/cucapra/futil/tree/master/fud).
+The source for fud is [here](https://github.com/cucapra/calyx/tree/master/fud).
 
 
 ## Installation
@@ -33,12 +33,12 @@ You can also install `fud` with
 
 ```bash
 flit build
-pip3 install dist/fud-0.1.0-py3-none-any.whl
+pip3 install dist/fud-0.3.0-py3-none-any.whl
 ```
 
 Finally, point `fud` to the root of the repository:
 ```
-fud config global.futil_directory <full path to Calyx repository>
+fud config global.root <full path to Calyx repository>
 ```
 
 ## Configuration
@@ -57,14 +57,14 @@ fud check
 To view the current value of a key, use `fud config key`. For example, the
 following shows the path to the Calyx compiler.
 ```bash
-fud config stages.futil.exec
+fud config stages.calyx.exec
 ```
 
 **Updating keys.**
 Keys can be updated using `fud config key value`.
 For example, the following command updates the path to the Calyx compiler.
 ```bash
-fud config stages.futil.exec ./target/debug/futil
+fud config stages.calyx.exec ./target/debug/calyx
 ```
 
 ## Adding Backends
@@ -244,7 +244,7 @@ simulate                        0.161
 
 Lastly, the `-csv` flag will provide the profiling information in CSV format.
 
-[frontends]: ./frontends/index.md
+[frontends]: ../frontends/index.md
 [calyx-py]: ./calyx-py.md
 [flit]: https://flit.readthedocs.io/en/latest/
 [verilator]: https://www.veripool.org/wiki/verilator

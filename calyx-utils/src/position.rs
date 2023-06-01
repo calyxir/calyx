@@ -131,6 +131,12 @@ impl GlobalPositionTable {
 /// A position index backed by a global [PositionTable]
 pub struct GPosIdx(pub PosIdx);
 
+impl Default for GPosIdx {
+    fn default() -> Self {
+        Self::UNKNOWN
+    }
+}
+
 impl GPosIdx {
     /// Symbol for the unknown position
     pub const UNKNOWN: GPosIdx = GPosIdx(PosIdx(0));

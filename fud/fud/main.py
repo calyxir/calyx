@@ -30,7 +30,7 @@ def register_stages(registry):
     # Dahlia
     registry.register(
         dahlia.DahliaStage(
-            "futil", "-b futil --lower -l error", "Compile Dahlia to Calyx"
+            "calyx", "-b calyx --lower -l error", "Compile Dahlia to Calyx"
         )
     )
     registry.register(
@@ -47,70 +47,70 @@ def register_stages(registry):
     registry.register(systolic.SystolicStage())
     # Calyx
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "verilog",
             "-b verilog",
             "Compile Calyx to Verilog instrumented for simulation",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "mlir",
             "-b mlir -p well-formed -p lower-guards",
             "Compile Calyx to MLIR",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "synth-verilog",
-            "-b verilog --synthesis -p external --disable-init --disable-verify",
+            "-b verilog --synthesis -p external --disable-verify",
             "Compile Calyx to synthesizable Verilog",
         )
     )
     registry.register(
-        futil.FutilStage(
-            "futil-lowered",
-            "-b futil",
+        futil.CalyxStage(
+            "calyx-lowered",
+            "-b calyx",
             "Compile Calyx to Calyx to remove all control and inline groups",
         )
     )
     registry.register(
-        futil.FutilStage(
-            "futil-noinline",
-            "-b futil -d hole-inliner",
+        futil.CalyxStage(
+            "calyx-noinline",
+            "-b calyx -d hole-inliner",
             "Compile Calyx to Calyx to remove all control and inline groups",
         )
     )
     registry.register(
-        futil.FutilStage(
-            "futil-externalize",
-            "-b futil -p externalize",
+        futil.CalyxStage(
+            "calyx-externalize",
+            "-b calyx -p externalize",
             "Compile Calyx to Calyx to externalize all external memory primitives",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "axi-wrapper",
             "-b xilinx",
             "Generate the AXI wrapper for Calyx",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "xilinx-xml",
             "-b xilinx-xml",
             "Generate the XML metadata for Xilinx",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "interpreter",
             "-p none",
             "Compile Calyx for interpretation with CIDR",
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "resources",
             "-b resources",
             "Generate a CSV that estimates a Calyx program's resource usage",
@@ -310,10 +310,32 @@ def main():
     try:
         cfg = Configuration()
 
+        # Only allow either config_file or dynamic configurations
+        if ("stage_dynamic_config" in args and args.stage_dynamic_config) and (
+            "config_file" in args and args.config_file
+        ):
+            run_parser.error(
+                "Please provide either a configuration file or"
+                + " dynamic configurations",
+            )
+
         # update the stages config with arguments provided via cmdline
         if "stage_dynamic_config" in args and args.stage_dynamic_config is not None:
             for key, value in args.stage_dynamic_config:
                 cfg[["stages"] + key.split(".")] = value
+
+        if "config_file" in args and args.config_file is not None:
+            # Parse the TOML file
+            override = toml.load(args.config_file)
+            for key, value in override.items():
+                if key != "stages":
+                    log.warn(
+                        f"Ignoring key `{key}' in config file."
+                        + " Only 'stages' is allowed as a top-level key."
+                    )
+            # Hide all unused keys
+            override = override["stages"]
+            cfg.update_all({"stages": override})
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
@@ -331,7 +353,7 @@ def main():
                     "Please provide either an output file or a --to option"
                 )
 
-            exec.run_fud(args, cfg)
+            exec.run_fud_from_args(args, cfg)
         elif args.command == "info":
             print(cfg.registry)
         elif args.command == "config":
@@ -381,6 +403,7 @@ def config_run(parser):
     parser.add_argument(
         "-o", dest="output_file", help="Name of the output file (default: STDOUT)"
     )
+    # Provide configuration for stage options
     parser.add_argument(
         "-s",
         "--stage-val",
@@ -390,6 +413,14 @@ def config_run(parser):
         dest="stage_dynamic_config",
         action="append",
     )
+
+    # Alternatively, provide a TOML file with stage options
+    parser.add_argument(
+        "--stage-config",
+        help="Path to a TOML file with stage configuration options",
+        dest="config_file",
+    )
+
     parser.add_argument(
         "-n",
         "--dry-run",

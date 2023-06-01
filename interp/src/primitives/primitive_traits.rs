@@ -29,7 +29,7 @@ pub trait Primitive: Named {
     /// Validate inputs to the component.
     fn validate(&self, inputs: &[(ir::Id, &Value)]);
 
-    /// Execute the component.ß
+    /// Execute the component.
     fn execute(
         &mut self,
         inputs: &[(ir::Id, &Value)],

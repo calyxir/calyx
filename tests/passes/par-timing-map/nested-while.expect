@@ -3,16 +3,16 @@ This maps ids of par blocks to " cell timing maps ", which map cells to interval
 ============ Map for Component "main" ============
 ========Par Node ID: 1 ========
 ====Child/Thread ID: 2 ====
-Id { id: "a" } -- [(1, 3), (12, 14), (23, 25), (38, 40), (49, 51), (60, 62)]
-Id { id: "b" } -- [(1, 3), (12, 14), (23, 25), (38, 40), (49, 51), (60, 62)]
-Id { id: "c" } -- [(4, 7), (8, 11), (15, 18), (19, 22), (26, 29), (30, 33), (41, 44), (45, 48), (52, 55), (56, 59), (63, 66), (67, 70)]
-Id { id: "d" } -- [(34, 37), (71, 74)]
+Id { id: "b" } -- [(0, 3), (11, 14), (22, 25), (37, 40), (48, 51), (59, 62)]
+Id { id: "a" } -- [(0, 3), (11, 14), (22, 25), (37, 40), (48, 51), (59, 62)]
+Id { id: "d" } -- [(33, 37), (70, 74)]
+Id { id: "c" } -- [(3, 7), (7, 11), (14, 18), (18, 22), (25, 29), (29, 33), (40, 44), (44, 48), (51, 55), (55, 59), (62, 66), (66, 70)]
 
 ========Par Node ID: 6 ========
 ====Child/Thread ID: 7 ====
-Id { id: "a" } -- [(1, 3)]
+Id { id: "a" } -- [(0, 3)]
 ====Child/Thread ID: 8 ====
-Id { id: "b" } -- [(1, 3)]
+Id { id: "b" } -- [(0, 3)]
 
 
 import "primitives/core.futil";
@@ -28,67 +28,59 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     g = std_reg(32);
   }
   wires {
-    group A {
+    static<3> group A {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      A[done] = a.done;
     }
-    group B {
+    static<3> group B {
       b.write_en = 1'd1;
       b.in = 32'd2;
-      B[done] = b.done;
     }
-    group C {
+    static<4> group C {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      C[done] = a.done;
     }
-    group D {
+    static<4> group D {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      D[done] = a.done;
     }
-    group E {
+    static<4> group E {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      E[done] = a.done;
     }
-    group F {
+    static<4> group F {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      F[done] = a.done;
     }
-    group G {
+    static<4> group G {
       a.write_en = 1'd1;
       a.in = 32'd2;
-      G[done] = a.done;
     }
   }
-
   control {
     @NODE_ID(0) seq {
-      @static(74) @NODE_ID par {
-        @bound(2) @NODE_ID(2) while lt.out {
-          @NODE_ID(3) seq {
-            @bound(3) @NODE_ID(4) while lt.out {
-              @static(11) @NODE_ID(5) seq {
-                @static(3) @NODE_ID(6) par {
-                  @static(3) @NODE_ID(7) A;
-                  @static(3) @NODE_ID(8) B;
+      @NODE_ID static<74> par {
+        @NODE_ID(2) static repeat 2 {
+          @NODE_ID(3) static<37> seq  {
+            @NODE_ID(4) static repeat 3 {
+              @NODE_ID(5) static<11> seq  {
+                @NODE_ID(6) static<3> par {
+                  @NODE_ID(7) A;
+                  @NODE_ID(8) B;
                 }
-                @bound(2) @NODE_ID(9) while lt.out {
-                  @static(4) @NODE_ID(10) C;
+                @NODE_ID(9) static repeat 2 {
+                  @NODE_ID(10) C;
                 }
               }
             }
-            @static(4) @NODE_ID(11) D;
+            @NODE_ID(11) D;
           }
         }
       }
-      @static(12) @NODE_ID(12) seq {
-        @static(4) @NODE_ID(13) E;
-        @static(4) @NODE_ID(14) F;
-        @static(4) @NODE_ID(15) G;
+      @NODE_ID(12) static<12> seq  {
+        @NODE_ID(13) E;
+        @NODE_ID(14) F;
+        @NODE_ID(15) G;
       }
     }
   }

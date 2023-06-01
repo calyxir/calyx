@@ -1,0 +1,31 @@
+import "primitives/core.futil";
+static<4> component exponent(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    pow = std_reg(32);
+  }
+  wires {
+    static<4> group write_pow {
+    }
+    out = pow.out;
+  }
+  control {
+    write_pow;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    exp0 = exponent();
+    w = std_wire(32);
+  }
+  wires {
+    static<4> group static_invoke {
+      exp0.base = r.out;
+      exp0.exp = 4'd3;
+      exp0.go = 1'd1;
+    }
+  }
+  control {
+    static_invoke;
+  }
+}

@@ -1,0 +1,3 @@
+input avec: int[4]
+output squares: int[4]
+squares := map 2 (a <- avec) { a * a }

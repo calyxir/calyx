@@ -13,9 +13,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       p.write_en = 1'd1;
       write_p[done] = p.done;
     }
+    p.in = w1.out;
     w3.in = w1.out;
   }
-
   control {
     write_p;
   }

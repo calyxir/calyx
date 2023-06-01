@@ -1,0 +1,30 @@
+// -p simplify-static-guards
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(32);
+    b = std_reg(32);
+    c = std_reg(32);
+    d = std_reg(32);
+    lt = std_lt(32);
+    gt = std_lt(32);
+  }
+  wires {
+    static<10> group my_group {
+      a.write_en = (%[2:3] | lt.out) & %[1:5] ? 1'd1; // don't simplify 
+      b.write_en = %[2:3] & (lt.out | gt.out) & %[1:5] ? 1'd1;  // %[1:5] is redundant 
+      c.write_en = %[2:5] & (%[5:7] | lt.out) & %[3:7] & %[4:10] ? 1'd1;  // %[5:7] shouldn't change, but can simplify rest to %[4:5]
+      d.write_en = %[2:5] & %[6:9] ? 1'd1; // assignment is false  
+      a.in = 32'd1; 
+      b.in = 32'd2; 
+      c.in = 32'd3; 
+      d.in = 32'd4; 
+    }
+  }
+
+  control {
+    my_group;
+  }
+}

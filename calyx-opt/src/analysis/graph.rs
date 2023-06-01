@@ -56,12 +56,15 @@ impl From<&ir::Component> for GraphAnalysis {
         component.iter_assignments(|asgn| {
             analysis.insert_assignment(asgn);
         });
+        component.iter_static_assignments(|asgn| {
+            analysis.insert_assignment(asgn);
+        });
         analysis
     }
 }
 
 impl GraphAnalysis {
-    fn insert_assignment(&mut self, asgn: &ir::Assignment) {
+    fn insert_assignment<T>(&mut self, asgn: &ir::Assignment<T>) {
         let GraphAnalysis { nodes, graph } = self;
         // insert nodes for src and dst ports
         let src_key = asgn.src.borrow().canonical();

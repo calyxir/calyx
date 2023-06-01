@@ -7,8 +7,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     add2 = std_add(32);
     flag = std_reg(1);
     other = std_reg(32);
-    @generated unshr_x = std_reg(32);
     @generated unshr_y = std_reg(32);
+    @generated unshr_x = std_reg(32);
   }
   wires {
     group zero {
@@ -63,7 +63,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
     r.in = 1'd0 ? 32'd1;
   }
-
   control {
     seq {
       set_flag;

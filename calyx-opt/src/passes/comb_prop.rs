@@ -4,8 +4,6 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-const VISIBLE: &str = "_comb_prop_output";
-
 /// A data structure to track rewrites of ports with added functionality to declare
 /// two wires to be "equal" when they are connected together.
 #[derive(Default, Clone)]
@@ -161,6 +159,29 @@ impl Named for CombProp {
     }
 }
 
+impl CombProp {
+    /// Mark assignments for removal
+    fn remove_rewritten(
+        &self,
+        rewritten: Vec<&RRC<ir::Port>>,
+        comp: &mut ir::Component,
+    ) {
+        // Remove writes to all the ports that show up in write position
+        if self.do_not_eliminate {
+            // If elimination is disabled, mark the assignments with the @dead attribute.
+            for assign in &mut comp.continuous_assignments {
+                if rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst)) {
+                    assign.attributes.insert(ir::InternalAttr::DEAD, 1)
+                }
+            }
+        } else {
+            comp.continuous_assignments.retain_mut(|assign| {
+                !rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst))
+            });
+        }
+    }
+}
+
 impl Visitor for CombProp {
     fn start(
         &mut self,
@@ -213,16 +234,6 @@ impl Visitor for CombProp {
                 let old_v =
                     rewrites.insert(Rc::clone(&port), Rc::clone(&assign.dst));
 
-                // If the destination port is externall visible, then we need to
-                // make sure that this assignment is not removed.
-                if let ir::PortParent::Cell(cell_wref) = &dst.parent {
-                    let cr = cell_wref.upgrade();
-                    let cell = cr.borrow();
-                    if cell.is_this() {
-                        assign.attributes.insert(VISIBLE, 1);
-                    }
-                }
-
                 // If the insertion process found an old key, we have something like:
                 // ```
                 // x.in = wire.out;
@@ -238,7 +249,15 @@ impl Visitor for CombProp {
 
         // Rewrite assignments
         let rewrites: ir::rewriter::PortRewriteMap = rewrites.into();
+        let rewritten = rewrites.values().collect_vec();
+        self.remove_rewritten(rewritten, comp);
+
         comp.for_each_assignment(|assign| {
+            assign.for_each_port(|port| {
+                rewrites.get(&port.borrow().canonical()).cloned()
+            })
+        });
+        comp.for_each_static_assignment(|assign| {
             assign.for_each_port(|port| {
                 rewrites.get(&port.borrow().canonical()).cloned()
             })
@@ -253,24 +272,6 @@ impl Visitor for CombProp {
             &HashMap::new(),
         );
 
-        // Remove writes to all the ports that show up in write position
-        let rewritten = rewrites.into_values().collect_vec();
-        if self.do_not_eliminate {
-            // If elimination is disabled, mark the assignments with the @dead attribute.
-            for assign in &mut comp.continuous_assignments {
-                if rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst))
-                    && !assign.attributes.has(VISIBLE)
-                {
-                    assign.attributes.insert("dead", 1)
-                }
-            }
-        } else {
-            comp.continuous_assignments.retain_mut(|assign| {
-                !rewritten.iter().any(|v| Rc::ptr_eq(v, &assign.dst))
-                    || assign.attributes.remove(VISIBLE).is_some()
-            });
-        }
-
-        Ok(Action::Continue)
+        Ok(Action::Stop)
     }
 }

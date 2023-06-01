@@ -5,13 +5,15 @@ use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, Printer, RRC};
 use calyx_ir::{build_assignments, guard, structure};
 use calyx_utils::CalyxResult;
 use calyx_utils::Error;
+use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
 use std::collections::HashMap;
 use std::io::Write;
 use std::rc::Rc;
 
-const NODE_ID: &str = "NODE_ID";
+const NODE_ID: ir::Attribute =
+    ir::Attribute::Internal(ir::InternalAttr::NODE_ID);
 
 /// Computes the exit edges of a given [ir::Control] program.
 ///
@@ -45,7 +47,7 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
         ir::Control::Empty(_) => {}
         ir::Control::Enable(ir::Enable { group, attributes }) => {
             let cur_state = attributes.get(NODE_ID).unwrap();
-            exits.push((*cur_state, guard!(group["done"])))
+            exits.push((cur_state, guard!(group["done"])))
         }
         ir::Control::Seq(ir::Seq { stmts, .. }) => {
             if let Some(stmt) = stmts.last() { control_exits(stmt, exits) }
@@ -69,8 +71,8 @@ fn control_exits(con: &ir::Control, exits: &mut Vec<PredEdge>) {
             }));
         },
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
         ir::Control::Par(_) => unreachable!(),
+        ir::Control::Static(_) => unreachable!(" static control should have been compiled away. Run the static compilation passes before this pass")
     }
 }
 
@@ -119,7 +121,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             cur_state + 1
         }
         ir::Control::Seq(ir::Seq { stmts, attributes }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then insert attribute at the seq, and then
             // start over counting states from 0
             let mut cur = if new_fsm{
@@ -142,7 +144,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         ir::Control::If(ir::If {
             tbranch, fbranch, attributes, ..
         }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm {
@@ -172,7 +174,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
             }
         }
         ir::Control::While(ir::While { body, attributes, .. }) => {
-            let new_fsm = attributes.has("new_fsm");
+            let new_fsm = attributes.has(ir::BoolAttr::NewFSM);
             // if new_fsm is true, then we want to add an attribute to this
             // control statement
             if new_fsm{
@@ -198,16 +200,16 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
         }
         ir::Control::Empty(_) => cur_state,
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
+        ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
     }
 }
 
 /// Represents the dyanmic execution schedule of a control program.
 struct Schedule<'b, 'a: 'b> {
     /// Assigments that should be enabled in a given state.
-    pub enables: HashMap<u64, Vec<ir::Assignment>>,
+    pub enables: HashMap<u64, Vec<ir::Assignment<Nothing>>>,
     /// Transition from one state to another when the guard is true.
-    pub transitions: Vec<(u64, u64, ir::Guard)>,
+    pub transitions: Vec<(u64, u64, ir::Guard<Nothing>)>,
     /// The component builder. The reference has a shorter lifetime than the builder itself
     /// to allow multiple schedules to use the same builder.
     pub builder: &'b mut ir::Builder<'a>,
@@ -365,7 +367,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
 /// Represents an edge from a predeccesor to the current control node.
 /// The `u64` represents the FSM state of the predeccesor and the guard needs
 /// to be true for the predeccesor to transition to the current state.
-type PredEdge = (u64, ir::Guard);
+type PredEdge = (u64, ir::Guard<Nothing>);
 
 impl Schedule<'_, '_> {
     /// Recursively build an dynamic finite state machine represented by a [Schedule].
@@ -392,7 +394,7 @@ impl Schedule<'_, '_> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-            let cur_state = *attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
+            let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
             // This happens when the first control statement is an enable not
@@ -449,7 +451,7 @@ impl Schedule<'_, '_> {
         ir::Control::Par(_) => unreachable!(),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
         ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
-        ir::Control::StaticEnable(_) => unreachable!("`static enable` statements should have been compiled away. Run `{}` before this pass.", passes::TopDownStaticTiming::name()),
+        ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
     }
     }
 
@@ -489,7 +491,7 @@ impl Schedule<'_, '_> {
         if if_stmt.cond.is_some() {
             return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), if_stmt.cond.as_ref().unwrap().borrow().name())));
         }
-        let port_guard: ir::Guard = Rc::clone(&if_stmt.port).into();
+        let port_guard: ir::Guard<Nothing> = Rc::clone(&if_stmt.port).into();
         // Previous states transitioning into true branch need the conditional
         // to be true.
         let tru_transitions = preds
@@ -541,7 +543,7 @@ impl Schedule<'_, '_> {
             return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), while_stmt.cond.as_ref().unwrap().borrow().name())));
         }
 
-        let port_guard: ir::Guard = Rc::clone(&while_stmt.port).into();
+        let port_guard: ir::Guard<Nothing> = Rc::clone(&while_stmt.port).into();
 
         // Step 1: Generate the backward edges by computing the exit nodes.
         let mut exits = vec![];
@@ -838,7 +840,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has new_fsm attribute
-        if !s.attributes.has("new_fsm") {
+        if !s.attributes.has(ir::BoolAttr::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -850,7 +852,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
         let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -863,7 +865,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has new_fsm attribute
-        if !i.attributes.has("new_fsm") {
+        if !i.attributes.has(ir::BoolAttr::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -876,7 +878,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
         let node_id = i.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -889,7 +891,7 @@ impl Visitor for TopDownCompileControl {
         _comps: &[ir::Component],
     ) -> VisResult {
         // only compile using new fsm if has attribute
-        if !w.attributes.has("new_fsm") {
+        if !w.attributes.has(ir::BoolAttr::NewFSM) {
             return Ok(Action::Continue);
         }
         let mut builder = ir::Builder::new(comp, sigs);
@@ -902,7 +904,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
         let node_id = w.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }
@@ -993,7 +995,7 @@ impl Visitor for TopDownCompileControl {
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(par_group);
         let node_id = s.attributes.get(NODE_ID).unwrap();
-        en.get_mut_attributes().insert(NODE_ID, *node_id);
+        en.get_mut_attributes().insert(NODE_ID, node_id);
 
         Ok(Action::change(en))
     }

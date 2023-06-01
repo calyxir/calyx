@@ -61,14 +61,14 @@ impl LibrarySignatures {
     }
 
     pub fn all_prims(
-        self,
-    ) -> Vec<(Option<PathBuf>, LinkedHashMap<Id, Primitive>)> {
-        let mut res: Vec<(Option<PathBuf>, LinkedHashMap<Id, Primitive>)> =
+        &self,
+    ) -> Vec<(Option<PathBuf>, &LinkedHashMap<Id, Primitive>)> {
+        let mut res: Vec<(Option<PathBuf>, &LinkedHashMap<Id, Primitive>)> =
             self.primitive_definitions
-                .into_iter()
-                .map(|(pb, map)| (Some(pb), map))
+                .iter()
+                .map(|(pb, map)| (Some(pb.clone()), map))
                 .collect();
-        res.push((None, self.prim_inlines));
+        res.push((None, &self.prim_inlines));
         res
     }
 
@@ -111,8 +111,6 @@ pub struct BackendConf {
     pub synthesis_mode: bool,
     /// Enables verification checks.
     pub enable_verification: bool,
-    /// Generate initial assignments for input ports
-    pub initialize_inputs: bool,
     /// Use flat (ANF) assignments for guards instead of deep expression trees.
     pub flat_assign: bool,
 }

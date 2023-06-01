@@ -24,7 +24,7 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 /// The key to lookup for the position tags
-const POS_TAG: &str = "pos";
+const POS_TAG: ir::Attribute = ir::Attribute::Num(ir::NumAttr::Pos);
 
 #[derive(Debug, Clone)]
 pub struct ComponentInfo {
@@ -100,7 +100,7 @@ pub enum EnableHolder {
     Enable(Rc<iir::Enable>),
     Group(RRC<ir::Group>),
     CombGroup(RRC<ir::CombGroup>),
-    Vec(Rc<Vec<ir::Assignment>>),
+    Vec(Rc<Vec<ir::Assignment<ir::Nothing>>>),
 }
 
 impl EnableHolder {
@@ -125,7 +125,7 @@ impl EnableHolder {
             EnableHolder::Vec(_)
             | EnableHolder::CombGroup(_)
             | EnableHolder::Group(_) => None,
-            EnableHolder::Enable(e) => e.attributes.get(POS_TAG).cloned(),
+            EnableHolder::Enable(e) => e.attributes.get(POS_TAG),
         }
     }
 }
@@ -154,8 +154,8 @@ impl From<&RRC<ir::CombGroup>> for EnableHolder {
     }
 }
 
-impl From<Vec<ir::Assignment>> for EnableHolder {
-    fn from(v: Vec<ir::Assignment>) -> Self {
+impl From<Vec<ir::Assignment<ir::Nothing>>> for EnableHolder {
+    fn from(v: Vec<ir::Assignment<ir::Nothing>>) -> Self {
         Self::Vec(Rc::new(v))
     }
 }
@@ -782,14 +782,10 @@ impl WhileInterpreter {
         env: InterpreterState,
         info: ComponentInfo,
     ) -> Self {
-        let bound =
-            ctrl_while
-                .attributes
-                .get("bound")
-                .map(|target| BoundValidator {
-                    target: *target,
-                    current: 0,
-                });
+        let bound = ctrl_while
+            .attributes
+            .get(ir::NumAttr::Bound)
+            .map(|target| BoundValidator { target, current: 0 });
 
         let mut out = Self {
             info,
@@ -1010,7 +1006,7 @@ impl InvokeInterpreter {
         continuous_assignments: iir::ContinuousAssignments,
         qin: ComponentQualifiedInstanceName,
     ) -> Self {
-        let mut assignment_vec: Vec<Assignment> = vec![];
+        let mut assignment_vec: Vec<Assignment<ir::Nothing>> = vec![];
         let comp_cell = invoke.comp.borrow();
 
         if !invoke.ref_cells.is_empty() {
@@ -1046,12 +1042,12 @@ impl InvokeInterpreter {
             assignment_vec.extend(w_ref.assignments.iter().cloned());
         }
 
-        let go_port = comp_cell.get_with_attr("go");
+        let go_port = comp_cell.get_with_attr(ir::NumAttr::Go);
         // insert one into the go_port
         // should probably replace with an actual assignment from a constant one
         env.insert(go_port, Value::bit_high());
 
-        let comp_done_port = comp_cell.get_with_attr("done");
+        let comp_done_port = comp_cell.get_with_attr(ir::NumAttr::Done);
         let interp = AssignmentInterpreter::new(
             env,
             comp_done_port.into(),
@@ -1082,7 +1078,7 @@ impl Interpreter for InvokeInterpreter {
         let mut env = self.assign_interp.reset()?;
 
         // set go low
-        let go_port = self.invoke.comp.borrow().get_with_attr("go");
+        let go_port = self.invoke.comp.borrow().get_with_attr(ir::NumAttr::Go);
         // insert one into the go_port
         // should probably replace with an actual assignment from a constant one
         env.insert(go_port, Value::bit_low());
@@ -1116,7 +1112,7 @@ impl Interpreter for InvokeInterpreter {
             format!("invoke {}", self.invoke.comp.borrow().name()).into(),
         );
 
-        let pos_tag = self.invoke.attributes.get(POS_TAG).cloned();
+        let pos_tag = self.invoke.attributes.get(POS_TAG);
 
         vec![ActiveTreeNode::new(name.with_tag(pos_tag))]
     }
@@ -1242,10 +1238,10 @@ impl StructuralInterpreter {
         env: InterpreterState,
     ) -> Self {
         let comp_sig = comp.signature.borrow();
-        let done_port = comp_sig.get_with_attr("done");
+        let done_port = comp_sig.get_with_attr(ir::NumAttr::Done);
         let done_raw = done_port.as_raw();
         let continuous = Rc::clone(&comp.continuous_assignments);
-        let assigns: Vec<ir::Assignment> = vec![];
+        let assigns: Vec<ir::Assignment<ir::Nothing>> = vec![];
 
         let interp = AssignmentInterpreter::new(
             env,

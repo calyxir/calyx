@@ -1,7 +1,7 @@
 use super::control::Control;
 use calyx_ir::Component as CalyxComponent;
 use calyx_ir::{
-    Assignment, Attributes, Cell, CombGroup, Group, Id, IdList, RRC,
+    Assignment, Attributes, Cell, CombGroup, Group, Id, IdList, Nothing, RRC,
 };
 use std::rc::Rc;
 
@@ -19,7 +19,7 @@ pub struct Component {
     pub comb_groups: IdList<CombGroup>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
-    pub continuous_assignments: Rc<Vec<Assignment>>,
+    pub continuous_assignments: Rc<Vec<Assignment<Nothing>>>,
     /// The control program for this component.
     pub control: Control,
     /// Attributes for this component

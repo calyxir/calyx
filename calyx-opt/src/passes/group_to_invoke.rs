@@ -3,6 +3,7 @@ use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir};
 use calyx_ir::{GetAttributes, RRC};
 use calyx_utils::CalyxResult;
+use ir::Nothing;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -33,7 +34,7 @@ impl ConstructVisitor for GroupToInvoke {
         let blacklist = ctx
             .lib
             .signatures()
-            .filter(|p| p.find_all_with_attr("go").count() > 1)
+            .filter(|p| p.find_all_with_attr(ir::NumAttr::Go).count() > 1)
             .map(|p| p.name)
             .collect();
 
@@ -60,7 +61,7 @@ impl Named for GroupToInvoke {
 
 /// Construct an [ir::Invoke] from an [ir::Group] that has been validated by this pass.
 fn construct_invoke(
-    assigns: &[ir::Assignment],
+    assigns: &[ir::Assignment<Nothing>],
     comp: RRC<ir::Cell>,
     builder: &mut ir::Builder,
 ) -> ir::Control {
@@ -104,7 +105,7 @@ fn construct_invoke(
         // inputs. we can ignore the cell.go assignment, since that is not
         // going to be part of the `invoke`.
         else if parent_is_cell(&assign.dst.borrow())
-            && assign.dst != comp.borrow().get_with_attr("go")
+            && assign.dst != comp.borrow().get_with_attr(ir::NumAttr::Go)
         {
             let name = assign.dst.borrow().name;
             if assign.guard.is_true() {
@@ -190,14 +191,15 @@ impl Visitor for GroupToInvoke {
                 &g.borrow().get("done"),
             )
         }
-        for g in &static_groups {
+        // Not transforming static groups rn
+        /*for g in &static_groups {
             self.analyze_group(
                 &mut builder,
                 g.borrow().name(),
                 &g.borrow().assignments,
-                &g.borrow().get("done"),
+                &g.borrow().get(ir::NumAttr::Done),
             )
-        }
+        }*/
 
         comp.get_groups_mut().append(groups.into_iter());
         comp.get_static_groups_mut()
@@ -231,7 +233,7 @@ impl GroupToInvoke {
         &mut self,
         builder: &mut ir::Builder,
         group_name: ir::Id,
-        assigns: &[ir::Assignment],
+        assigns: &[ir::Assignment<Nothing>],
         group_done_port: &ir::RRC<ir::Port>,
     ) {
         let mut writes = ReadWriteSet::write_set(assigns.iter())
@@ -258,20 +260,20 @@ impl GroupToInvoke {
             ir::CellType::ThisComponent => return,
             _ => {}
         }
-        if cell.is_reference() || cell.attributes.has("external") {
+        if cell.is_reference() || cell.attributes.has(ir::BoolAttr::External) {
             return;
         }
 
         // Component must define a @go/@done interface
-        let maybe_go_port = cell.find_with_attr("go");
-        let maybe_done_port = cell.find_with_attr("done");
+        let maybe_go_port = cell.find_with_attr(ir::NumAttr::Go);
+        let maybe_done_port = cell.find_with_attr(ir::NumAttr::Done);
         if maybe_go_port.is_none() || maybe_done_port.is_none() {
             return;
         }
 
         // Component must have a single @go/@done pair
-        let go_ports = cell.find_all_with_attr("go").count();
-        let done_ports = cell.find_all_with_attr("done").count();
+        let go_ports = cell.find_all_with_attr(ir::NumAttr::Go).count();
+        let done_ports = cell.find_all_with_attr(ir::NumAttr::Done).count();
         if go_ports > 1 || done_ports > 1 {
             return;
         }

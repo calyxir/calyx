@@ -1,3 +1,4 @@
+//! Command line parsing for the Calyx compiler.
 use crate::backend::traits::Backend;
 use crate::backend::{
     mlir::MlirBackend, resources::ResourcesBackend, sexp::SexpBackend,
@@ -13,7 +14,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 #[derive(FromArgs)]
-/// The Calyx compiler
+/// Options passed to the Calyx compiler.
 pub struct Opts {
     /// input calyx program
     #[argh(positional, from_str_fn(read_path))]
@@ -38,10 +39,6 @@ pub struct Opts {
     /// disable verification checks emitted by backends
     #[argh(switch)]
     pub disable_verify: bool,
-
-    /// do not initialize input ports
-    #[argh(switch)]
-    pub disable_init: bool,
 
     /// emit nested assignments (only relevant to the Verilog backend)
     #[argh(switch, long = "nested")]
@@ -70,6 +67,10 @@ pub struct Opts {
     /// enable verbose printing
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
     pub log_level: log::LevelFilter,
+
+    #[argh(switch, long = "dump-ir")]
+    /// print out the IR after every pass
+    pub dump_ir: bool,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {
@@ -121,7 +122,6 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("verilog", BackendOpt::Verilog),
         ("xilinx", BackendOpt::Xilinx),
         ("xilinx-xml", BackendOpt::XilinxXml),
-        ("futil", BackendOpt::Calyx),
         ("calyx", BackendOpt::Calyx),
         ("mlir", BackendOpt::Mlir),
         ("resources", BackendOpt::Resources),
@@ -203,22 +203,11 @@ impl Opts {
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {
-                for (path, prims) in context.lib.externs() {
-                    ir::Printer::write_extern(
-                        (
-                            &path,
-                            &prims.into_iter().map(|(_, v)| v).collect_vec(),
-                        ),
-                        &mut self.output.get_write(),
-                    )?;
-                }
-                for comp in &context.components {
-                    ir::Printer::write_component(
-                        comp,
-                        &mut self.output.get_write(),
-                    )?;
-                    writeln!(&mut self.output.get_write())?
-                }
+                ir::Printer::write_context(
+                    &context,
+                    false,
+                    &mut self.output.get_write(),
+                )?;
                 Ok(())
             }
             BackendOpt::None => Ok(()),

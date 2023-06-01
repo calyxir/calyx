@@ -37,7 +37,7 @@ impl VariableDetection {
         // if guard is empty, because if it isn't this would show up as
         // a write
         let graph = GraphAnalysis::from(&*group);
-        let go_port = cell.find_with_attr("go")?;
+        let go_port = cell.find_with_attr(ir::NumAttr::Go)?;
         let activation = graph
             .writes_to(&go_port.borrow())
             .map(|src| src.borrow().is_constant(1, 1))

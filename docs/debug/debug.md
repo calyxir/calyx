@@ -9,7 +9,7 @@ The first step is disabling optimization passes and running the bare bones compi
 
 To disable the passes, add the flag `-p no-opt` to compiler invocation:
 1. For the compiler: `futil <filename> -p no-opt`.
-2. For `fud`: `fud ... -s futil.flags " -p no-opt"`.
+2. For `fud`: `fud ... -s calyx.flags " -p no-opt"`.
 
 If the output is still incorrect then one of the core compilation passes is incorrect.
 Our best bet at this point is to reduce the test file such that the output from the
@@ -25,7 +25,7 @@ when the execution fails.
 The `calyx/src/default_passes.rs` file defines the compilation pipeline. Start by incrementally
 adding passes to this flag invocation:
 ```
--p validate -p remove-comb-groups -p <PASS 1> ... -p <PASS N> -p compile -p lower
+-p validate -p simplify-with-control -p <PASS 1> ... -p <PASS N> -p compile -p lower
 ```
 
 
@@ -171,4 +171,4 @@ the `fsm` register has the value 1 and check to see if the assignments in
 [gtkwave]: http://gtkwave.sourceforge.net/
 [wavetrace]: https://marketplace.visualstudio.com/items?itemName=wavetrace.wavetrace
 [flag-cmp]: https://github.com/cucapra/calyx/blob/master/tools/flag-compare.sh
-[dgr]: https://docs.calyxir.org/source/calyx/passes/struct.DeadGroupRemoval.html
+[dgr]: https://docs.rs/calyx-opt/latest/calyx_opt/passes/struct.DeadGroupRemoval.html

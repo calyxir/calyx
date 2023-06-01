@@ -7,7 +7,7 @@ from calyx.utils import block
 @dataclass
 class Emittable:
     def doc(self) -> str:
-        assert 0, f"`doc` not implemented for {type(self).__name__}"
+        assert False, f"`doc` not implemented for {type(self).__name__}"
 
     def emit(self):
         print(self.doc())
@@ -194,6 +194,7 @@ class Connect(Structure):
 class Group(Structure):
     id: CompVar
     connections: list[Connect]
+    # XXX: This is a static group now. Remove this and add a new StaticGroup class.
     static_delay: Optional[int] = None
 
     def doc(self) -> str:
@@ -358,6 +359,7 @@ class Invoke(Control):
 @dataclass
 class While(Control):
     port: Port
+    # XXX: This should probably be called the cond_group.
     cond: Optional[CompVar]
     body: Control
 
@@ -377,9 +379,10 @@ class Empty(Control):
 @dataclass
 class If(Control):
     port: Port
+    # XXX: This should probably be called the cond_group.
     cond: Optional[CompVar]
     true_branch: Control
-    false_branch: Control = Empty()
+    false_branch: Control = field(default_factory=Empty)
 
     def doc(self) -> str:
         cond = f"if {self.port.doc()}"
@@ -394,6 +397,9 @@ class If(Control):
 
 
 # Standard Library
+# XXX: This is a funky way to build the standard library. Maybe we can have a
+# better "theory of standard library" to figure out what the right way to do
+# this is.
 @dataclass
 class Stdlib:
     @staticmethod

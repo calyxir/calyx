@@ -61,6 +61,14 @@ impl Visitor for Canonicalize {
                 }
             }
         });
+        comp.for_each_static_assignment(|assign| {
+            if let Guard::Port(p) = &(*assign.guard) {
+                // 1'd1 ? r1.done
+                if p.borrow().is_constant(1, 1) {
+                    assign.guard = Guard::True.into()
+                }
+            }
+        });
 
         for gr in comp.get_groups().iter() {
             // Handles group[done] = a ? 1'd1 -> group[done] = a

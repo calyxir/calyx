@@ -6,6 +6,7 @@
 use crate::backend::traits::Backend;
 use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
+use ir::Nothing;
 use itertools::Itertools;
 use std::io;
 use std::{collections::HashMap, rc::Rc};
@@ -34,7 +35,7 @@ fn get_mem_str(mem_type: &str) -> &str {
 
 /// Checks to make sure that there are no holes being
 /// used in a guard.
-fn validate_guard(guard: &ir::Guard) -> bool {
+fn validate_guard(guard: &ir::Guard<Nothing>) -> bool {
     match guard {
         Guard::Or(left, right) | Guard::And(left, right) => {
             validate_guard(left) && validate_guard(right)
@@ -45,6 +46,7 @@ fn validate_guard(guard: &ir::Guard) -> bool {
         Guard::Not(inner) => validate_guard(inner),
         Guard::Port(port) => !port.borrow().is_hole(),
         Guard::True => true,
+        Guard::Info(_) => true,
     }
 }
 
@@ -137,7 +139,6 @@ impl Backend for VerilogBackend {
                 comp,
                 ctx.bc.synthesis_mode,
                 ctx.bc.enable_verification,
-                ctx.bc.initialize_inputs,
                 ctx.bc.flat_assign,
                 out,
             );
@@ -226,7 +227,6 @@ fn emit_component<F: io::Write>(
     comp: &ir::Component,
     synthesis_mode: bool,
     enable_verification: bool,
-    initialize_inputs: bool,
     flat_assign: bool,
     f: &mut F,
 ) -> io::Result<()> {
@@ -280,24 +280,6 @@ fn emit_component<F: io::Write>(
         let decl = v::Decl::new_logic(name, *width);
         writeln!(f, "{};", decl)
     })?;
-
-    // Generate initial assignments for all input ports in defined cells.
-    if initialize_inputs {
-        writeln!(f, "initial begin")?;
-        for (name, width, dir) in &cells {
-            if *dir == ir::Direction::Input {
-                // HACK: this is not the right way to reset
-                // registers. we should have real reset ports.
-                let value = String::from("0");
-                let assign = v::Sequential::new_blk_assign(
-                    v::Expr::new_ref(name),
-                    v::Expr::new_ulit_dec(*width as u32, &value),
-                );
-                writeln!(f, "  {};", assign)?;
-            }
-        }
-        writeln!(f, "end")?;
-    }
 
     // cell instances
     comp.cells
@@ -511,13 +493,13 @@ fn emit_guard_disjoint_check(
 /// 2. The port's cell parent is marked with `@data`
 fn is_data_port(pr: &RRC<ir::Port>) -> bool {
     let port = pr.borrow();
-    if !port.attributes.has("data") {
+    if !port.attributes.has(ir::BoolAttr::Data) {
         return false;
     }
     if let ir::PortParent::Cell(cwr) = &port.parent {
         let cr = cwr.upgrade();
         let cell = cr.borrow();
-        if cell.attributes.has("data") {
+        if cell.attributes.has(ir::BoolAttr::Data) {
             return true;
         }
     }
@@ -796,7 +778,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         .cells
         .iter()
         .filter_map(|cell| {
-            let is_external = cell.borrow().get_attribute("external").is_some();
+            let is_external = cell.borrow().get_attribute(ir::BoolAttr::External).is_some();
             if is_external
                 && cell
                     .borrow()

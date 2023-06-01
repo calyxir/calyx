@@ -10,14 +10,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {
     group zero {
-      r.in = 32'd0;
-      r.write_en = 1'd1;
-      zero[done] = r.done;
+      unshr_r0.in = 32'd0;
+      unshr_r0.write_en = 1'd1;
+      zero[done] = unshr_r0.done;
     }
     group one {
-      r.in = 32'd1;
-      r.write_en = 1'd1;
-      one[done] = r.done;
+      unshr_r0.in = 32'd1;
+      unshr_r0.write_en = 1'd1;
+      one[done] = unshr_r0.done;
     }
     group cond {
       flag.in = flag.out ? 1'd0;
@@ -27,20 +27,20 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
     group final {
       add2.left = 32'd154;
-      add2.right = r.out;
+      add2.right = unshr_r0.out;
       other.in = add2.out;
       other.write_en = 1'd1;
       final[done] = other.done;
     }
     group alt {
-      unshr_r.in = 32'd99;
-      unshr_r.write_en = 1'd1;
-      alt[done] = unshr_r.done;
+      r.in = 32'd99;
+      r.write_en = 1'd1;
+      alt[done] = r.done;
     }
     group five {
-      unshr_r0.in = 32'd5;
-      unshr_r0.write_en = 1'd1;
-      five[done] = unshr_r0.done;
+      unshr_r.in = 32'd5;
+      unshr_r.write_en = 1'd1;
+      five[done] = unshr_r.done;
     }
     group set_flag {
       flag.in = 1'd1;
@@ -48,7 +48,6 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       set_flag[done] = flag.done;
     }
   }
-
   control {
     seq {
       set_flag;

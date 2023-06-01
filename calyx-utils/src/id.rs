@@ -1,5 +1,5 @@
-use crate::GSym;
 use serde::{Deserialize, Serialize};
+pub type GSym = symbol_table::GlobalSymbol;
 
 /// Represents an identifier in a Calyx program
 // #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord, Serialize)]

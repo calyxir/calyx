@@ -1,6 +1,7 @@
 //! IR Builder. Provides convience methods to build various parts of the internal
 //! representation.
-use crate::{self as ir, LibrarySignatures, RRC, WRC};
+use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
+use calyx_frontend::BoolAttr;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -52,6 +53,13 @@ impl<'a> Builder<'a> {
         self
     }
 
+    pub fn add_continuous_assignments(
+        &mut self,
+        assigns: Vec<ir::Assignment<Nothing>>,
+    ) {
+        self.component.continuous_assignments.extend(assigns);
+    }
+
     /// Construct a new group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
@@ -90,7 +98,11 @@ impl<'a> Builder<'a> {
     /// Construct a new static group and add it to the Component.
     /// The group is guaranteed to start with `prefix`.
     /// Returns a reference to the group.
-    pub fn add_static_group<S>(&mut self, prefix: S) -> RRC<ir::StaticGroup>
+    pub fn add_static_group<S>(
+        &mut self,
+        prefix: S,
+        latency: u64,
+    ) -> RRC<ir::StaticGroup>
     where
         S: Into<ir::Id>,
     {
@@ -102,19 +114,20 @@ impl<'a> Builder<'a> {
         let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::StaticGroup::new(name)));
+        let group = Rc::new(RefCell::new(ir::StaticGroup::new(name, latency)));
 
         // Add default holes to the group.
-        for (name, width) in &[("go", 1), ("done", 1)] {
-            let hole = Rc::new(RefCell::new(ir::Port {
-                name: ir::Id::from(*name),
-                width: *width,
-                direction: ir::Direction::Inout,
-                parent: ir::PortParent::StaticGroup(WRC::from(&group)),
-                attributes: ir::Attributes::default(),
-            }));
-            group.borrow_mut().holes.push(hole);
-        }
+        // Static Groups don't need a done hole.
+        // May be beneficial to have a go hole, though (although maybe not)
+        let (name, width) = ("go", 1);
+        let hole = Rc::new(RefCell::new(ir::Port {
+            name: ir::Id::from(name),
+            width,
+            direction: ir::Direction::Inout,
+            parent: ir::PortParent::StaticGroup(WRC::from(&group)),
+            attributes: ir::Attributes::default(),
+        }));
+        group.borrow_mut().holes.push(hole);
 
         // Add the group to the component.
         self.component
@@ -148,6 +161,13 @@ impl<'a> Builder<'a> {
     /// pair, building and adding it to the component if needed..
     /// If the constant does not exist, it is added to the Context.
     pub fn add_constant(&mut self, val: u64, width: u64) -> RRC<ir::Cell> {
+        // Ensure that the value can fit within the width
+        assert!(
+            val < (1 << width),
+            "Constant value {} cannot fit in {} bits",
+            val,
+            width
+        );
         let name = ir::Cell::constant_name(val, width);
         // If this constant has already been instantiated, return the relevant
         // cell.
@@ -206,11 +226,12 @@ impl<'a> Builder<'a> {
                 name: prim_id,
                 param_binding: Box::new(param_binding),
                 is_comb: prim.is_comb,
+                latency: prim.latency,
             },
             ports,
         );
         if self.generated {
-            cell.borrow_mut().add_attribute("generated", 1);
+            cell.borrow_mut().add_attribute(BoolAttr::Generated, 1);
         }
         self.component.cells.add(Rc::clone(&cell));
         cell
@@ -236,19 +257,19 @@ impl<'a> Builder<'a> {
             sig,
         );
         if self.generated {
-            cell.borrow_mut().add_attribute("generated", 1);
+            cell.borrow_mut().add_attribute(BoolAttr::Generated, 1);
         }
         self.component.cells.add(Rc::clone(&cell));
         cell
     }
 
     /// Construct an assignment.
-    pub fn build_assignment(
+    pub fn build_assignment<T>(
         &self,
         dst: RRC<ir::Port>,
         src: RRC<ir::Port>,
-        guard: ir::Guard,
-    ) -> ir::Assignment {
+        guard: ir::Guard<T>,
+    ) -> ir::Assignment<T> {
         // Valid the ports if required.
         if self.validate {
             self.is_port_well_formed(&dst.borrow());

@@ -1,14 +1,18 @@
 use super::{
-    Assignment, Attributes, Builder, Cell, CellType, CombGroup, Control,
-    GetName, Group, Id, PortDef, StaticGroup, RRC,
+    Assignment, Attribute, Attributes, BoolAttr, Builder, Cell, CellType,
+    CombGroup, Control, Direction, GetName, Group, Id, NumAttr, PortDef,
+    StaticGroup, RRC,
 };
 use crate::structure::SerCellRef;
+use crate::guard::StaticTiming;
+use crate::Nothing;
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::iter::Extend;
+use std::num::NonZeroU64;
 use std::rc::Rc;
 
 use serde::{ser::SerializeSeq, Serialize, Serializer};
@@ -18,17 +22,13 @@ use serde_with::{serde_as, SerializeAs};
 /// In general, this should not be used by anything.
 const THIS_ID: &str = "_this";
 
-impl SerializeAs<RRC<Control>> for Control {
-    fn serialize_as<S>(
-        value: &RRC<Control>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        value.borrow().serialize(serializer)
-    }
-}
+/// Interface ports that must be present on every component
+const INTERFACE_PORTS: [(Attribute, u64, Direction); 4] = [
+    (Attribute::Num(NumAttr::Go), 1, Direction::Input),
+    (Attribute::Bool(BoolAttr::Clk), 1, Direction::Input),
+    (Attribute::Bool(BoolAttr::Reset), 1, Direction::Input),
+    (Attribute::Num(NumAttr::Done), 1, Direction::Output),
+];
 
 /// In memory representation of a Component.
 #[serde_as]
@@ -49,7 +49,7 @@ pub struct Component {
     pub comb_groups: IdList<CombGroup>,
     /// The set of "continuous assignments", i.e., assignments that are always
     /// active.
-    pub continuous_assignments: Vec<Assignment>,
+    pub continuous_assignments: Vec<Assignment<Nothing>>,
     /// The control program for this component.
     #[serde_as(as = "Control")]
     pub control: RRC<Control>,
@@ -57,6 +57,8 @@ pub struct Component {
     pub attributes: Attributes,
     /// True iff component is combinational
     pub is_comb: bool,
+    /// (Optional) latency of component, if it is static
+    pub latency: Option<NonZeroU64>,
 
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
@@ -70,11 +72,48 @@ pub struct Component {
 /// - find_<construct>: Returns a reference to the construct with the given
 ///   name.
 impl Component {
-    /// Construct a new Component with the given `name` and signature fields.
-    pub fn new<S>(name: S, ports: Vec<PortDef<u64>>, is_comb: bool) -> Self
+    /// Extend the signature with interface ports if they are missing.
+    pub(super) fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
+        let port_names: HashSet<_> = sig.iter().map(|pd| pd.name).collect();
+        let mut namegen = NameGenerator::with_prev_defined_names(port_names);
+        for (attr, width, direction) in INTERFACE_PORTS.iter() {
+            // Check if there is already another interface port defined for the
+            // component
+            if !sig.iter().any(|pd| pd.attributes.has(*attr)) {
+                let mut attributes = Attributes::default();
+                attributes.insert(*attr, 1);
+                let name = Id::from(attr.to_string());
+                sig.push(PortDef {
+                    name: namegen.gen_name(name.to_string()),
+                    width: *width,
+                    direction: direction.clone(),
+                    attributes,
+                });
+            }
+        }
+    }
+
+    /// Construct a new Component with the given `name` and ports.
+    ///
+    /// * If `has_interface` is true, then we do not add `@go` and `@done` ports.
+    ///   This will usually happen with the component is marked with [super::BoolAttr::Nointerface].
+    /// * If `is_comb` is set, then this is a combinational component and cannot use `group` or `control` constructs.
+    /// * If `latency` is set, then this is a static component with the given latency. A combinational component cannot have a latency.
+    pub fn new<S>(
+        name: S,
+        mut ports: Vec<PortDef<u64>>,
+        has_interface: bool,
+        is_comb: bool,
+        latency: Option<NonZeroU64>,
+    ) -> Self
     where
         S: Into<Id>,
     {
+        if has_interface {
+            // Add interface ports if missing
+            Self::extend_signature(&mut ports);
+        }
+
         let prev_names: HashSet<_> = ports.iter().map(|pd| pd.name).collect();
 
         let this_sig = Builder::cell_from_signature(
@@ -102,6 +141,9 @@ impl Component {
             namegen: NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
             is_comb,
+            // converting from NonZeroU64 to u64. May want to keep permanently as NonZeroU64
+            // in the future, but rn it's probably easier to keep as u64
+            latency,
         }
     }
 
@@ -179,14 +221,18 @@ impl Component {
         self.namegen.gen_name(prefix)
     }
 
-    /// Apply function on all assignments contained within the component.
-    pub fn for_each_assignment<F>(&mut self, mut f: F)
+    /// Check whether this is a static component.
+    /// A static component is a component which has a latency field.
+    pub fn is_static(&self) -> bool {
+        self.latency.is_some()
+    }
+
+    /// Apply function to all assignments within static groups.
+    pub fn for_each_static_assignment<F>(&mut self, mut f: F)
     where
-        F: FnMut(&mut Assignment),
+        F: FnMut(&mut Assignment<StaticTiming>),
     {
-        // Detach assignments from the group so that ports that use group
-        // `go` and `done` condition can access the parent group.
-        for group_ref in self.groups.iter() {
+        for group_ref in self.get_static_groups().iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();
             for assign in &mut assigns {
@@ -194,7 +240,16 @@ impl Component {
             }
             group_ref.borrow_mut().assignments = assigns;
         }
-        for group_ref in self.get_static_groups().iter() {
+    }
+
+    /// Apply function on all non-static assignments contained within the component.
+    pub fn for_each_assignment<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&mut Assignment<Nothing>),
+    {
+        // Detach assignments from the group so that ports that use group
+        // `go` and `done` condition can access the parent group.
+        for group_ref in self.groups.iter() {
             let mut assigns =
                 group_ref.borrow_mut().assignments.drain(..).collect_vec();
             for assign in &mut assigns {
@@ -213,17 +268,12 @@ impl Component {
         self.continuous_assignments.iter_mut().for_each(f);
     }
 
-    /// Iterate over all assignments contained within the component.
+    /// Iterate over all non-static assignments contained within the component.
     pub fn iter_assignments<F>(&self, mut f: F)
     where
-        F: FnMut(&Assignment),
+        F: FnMut(&Assignment<Nothing>),
     {
         for group_ref in self.groups.iter() {
-            for assign in &group_ref.borrow().assignments {
-                f(assign)
-            }
-        }
-        for group_ref in self.get_static_groups().iter() {
             for assign in &group_ref.borrow().assignments {
                 f(assign)
             }
@@ -235,6 +285,18 @@ impl Component {
         }
         self.continuous_assignments.iter().for_each(f);
     }
+
+    /// Iterate over all static assignments contained within the component
+    pub fn iter_static_assignments<F>(&self, mut f: F)
+    where
+        F: FnMut(&Assignment<StaticTiming>),
+    {
+        for group_ref in self.get_static_groups().iter() {
+            for assign in &group_ref.borrow().assignments {
+                f(assign)
+            }
+        }
+    }
 }
 
 /// A wrapper struct exposing an ordered collection of named entities within an
@@ -243,6 +305,17 @@ impl Component {
 /// so will introduce incorrect results for look-ups.
 #[derive(Debug)]
 pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
+
+/// Simple into-iter impl delegating to the [`Values`](linked_hash_map::Values).
+impl<'a, T: GetName> IntoIterator for &'a IdList<T> {
+    type Item = &'a RRC<T>;
+
+    type IntoIter = linked_hash_map::Values<'a, Id, RRC<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.values()
+    }
+}
 
 impl<T, F> From<F> for IdList<T>
 where

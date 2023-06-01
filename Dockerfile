@@ -1,5 +1,5 @@
 # Use the official rust image as a parent image.
-FROM rust:1.66
+FROM rust:1.69
 
 # Connect to the Calux repository.
 LABEL org.opencontainers.image.source https://github.com/cucapra/calyx
@@ -51,36 +51,37 @@ RUN git clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
 RUN sbt "; getHeaders; assembly"
 
-# Clone the Calyx repository
+# Add the Calyx source code from the build context
 WORKDIR /home
-RUN git clone https://github.com/cucapra/calyx.git calyx
-
-# Install rust tools
-WORKDIR /home
-RUN cargo install vcdump
-RUN cargo install runt --version $(grep ^ver calyx/runt.toml | awk '{print $3}' | tr -d '"')
-
-# Build the compiler.
+ADD . calyx
+# Build the compiler
 WORKDIR /home/calyx
-RUN cargo build --all
+RUN cargo build --all && \
+    cargo install vcdump && \
+    cargo install runt --version $(grep ^ver runt.toml | awk '{print $3}' | tr -d '"')
 
 # Install fud
 WORKDIR /home/calyx/fud
-RUN FLIT_ROOT_INSTALL=1 flit install --symlink
+RUN FLIT_ROOT_INSTALL=1 flit install --symlink --deps production
 RUN mkdir -p /root/.config
 ENV PATH=$PATH:/root/.local/bin
 ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
 
 # Setup fud
-RUN fud config --create global.futil_directory /home/calyx && \
+RUN fud config --create global.root /home/calyx && \
     fud config stages.dahlia.exec '/home/dahlia/fuse' && \
-    fud config stages.futil.exec '/home/calyx/target/debug/futil' && \
+    fud config stages.calyx.exec '/home/calyx/target/debug/calyx' && \
     fud config stages.interpreter.exec '/home/calyx/target/debug/interp' && \
     fud register ntt -p '/home/calyx/frontends/ntt-pipeline/fud/ntt.py' && \
-    fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py'
+    fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
+    fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'
 
 # Install calyx-py
 WORKDIR /home/calyx/calyx-py
+RUN FLIT_ROOT_INSTALL=1 flit install --symlink
+
+# Install MrXL
+WORKDIR /home/calyx/frontends/mrxl
 RUN FLIT_ROOT_INSTALL=1 flit install --symlink
 
 WORKDIR /home/calyx

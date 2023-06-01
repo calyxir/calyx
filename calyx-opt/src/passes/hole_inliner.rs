@@ -2,6 +2,7 @@ use crate::traversal::{Action, Named, VisResult, Visitor};
 use crate::{analysis::GraphAnalysis, passes::TopDownCompileControl};
 use calyx_ir::{self as ir, structure, LibrarySignatures, RRC};
 use calyx_utils::Error;
+use ir::Nothing;
 use std::{collections::HashMap, rc::Rc};
 
 #[derive(Default)]
@@ -23,7 +24,7 @@ impl Named for HoleInliner {
     }
 }
 
-type Store = HashMap<ir::Canonical, (RRC<ir::Port>, ir::Guard)>;
+type Store = HashMap<ir::Canonical, (RRC<ir::Port>, ir::Guard<ir::Nothing>)>;
 
 /// Finds the 'fixed_point' of a map from Hole names to guards under the
 /// inlining operation. The map contains entries like:
@@ -53,7 +54,7 @@ fn fixed_point(graph: &GraphAnalysis, map: &mut Store) {
     let mut worklist = Vec::new();
 
     // helper to check if a guard has holes
-    let has_holes = |guard: &ir::Guard| {
+    let has_holes = |guard: &ir::Guard<Nothing>| {
         guard
             .all_ports()
             .iter()
@@ -122,11 +123,11 @@ impl Visitor for HoleInliner {
         let mut asgns = vec![
             builder.build_assignment(
                 top_level.borrow().get("go"),
-                this_comp.borrow().get_with_attr("go"),
+                this_comp.borrow().get_with_attr(ir::NumAttr::Go),
                 ir::Guard::True,
             ),
             builder.build_assignment(
-                this_comp.borrow().get_with_attr("done"),
+                this_comp.borrow().get_with_attr(ir::NumAttr::Done),
                 top_level.borrow().get("done"),
                 ir::Guard::True,
             ),

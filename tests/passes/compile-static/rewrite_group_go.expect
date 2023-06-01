@@ -1,0 +1,64 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    @generated fsm = std_reg(2);
+    @generated ud = undef(1);
+    @generated adder = std_add(2);
+    @generated fsm0 = std_reg(3);
+    @generated ud0 = undef(1);
+    @generated adder0 = std_add(3);
+    @generated signal_reg = std_reg(1);
+  }
+  wires {
+    group dyn_B {
+      b.write_en = 1'd1;
+      b.in = 2'd1;
+      dyn_B[done] = b.done;
+    }
+    group dyn_C {
+      c.write_en = 1'd1;
+      c.in = 2'd1;
+      dyn_C[done] = c.done;
+    }
+    group early_reset_A {
+      a.in = 2'd0;
+      a.write_en = fsm.out == 2'd0 ? 1'd1;
+      b.in = 2'd1;
+      b.write_en = fsm.out == 2'd1 ? 1'd1;
+      adder.left = fsm.out;
+      adder.right = 2'd1;
+      fsm.write_en = 1'd1;
+      fsm.in = fsm.out != 2'd1 ? adder.out;
+      fsm.in = fsm.out == 2'd1 ? 2'd0;
+      early_reset_A[done] = ud.out;
+    }
+    group early_reset_run_A_thrice {
+      early_reset_A[go] = 1'd1;
+      adder0.left = fsm0.out;
+      adder0.right = 3'd1;
+      fsm0.write_en = 1'd1;
+      fsm0.in = fsm0.out != 3'd5 ? adder0.out;
+      fsm0.in = fsm0.out == 3'd5 ? 3'd0;
+      early_reset_run_A_thrice[done] = ud0.out;
+    }
+    group wrapper_early_reset_run_A_thrice {
+      early_reset_run_A_thrice[go] = 1'd1;
+      signal_reg.write_en = fsm0.out == 3'd0 & !signal_reg.out ? 1'd1;
+      signal_reg.in = fsm0.out == 3'd0 & !signal_reg.out ? 1'd1;
+      wrapper_early_reset_run_A_thrice[done] = fsm0.out == 3'd0 & signal_reg.out ? 1'd1;
+    }
+    signal_reg.write_en = fsm0.out == 3'd0 & signal_reg.out ? 1'd1;
+    signal_reg.in = fsm0.out == 3'd0 & signal_reg.out ? 1'd0;
+  }
+  control {
+    seq {
+      dyn_B;
+      dyn_C;
+      wrapper_early_reset_run_A_thrice;
+    }
+  }
+}

@@ -1,9 +1,11 @@
 #![allow(clippy::upper_case_acronyms)]
 
 //! Parser for Calyx programs.
-use super::ast::{self, BitNum, Control, GuardComp as GC, GuardExpr, NumType};
+use super::ast::{
+    self, BitNum, Control, GuardComp as GC, GuardExpr, NumType, StaticGuardExpr,
+};
 use super::Attributes;
-use crate::{Direction, PortDef, Primitive, Width};
+use crate::{Attribute, Direction, PortDef, Primitive, Width};
 use calyx_utils::{self, CalyxResult, Id};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
@@ -12,6 +14,7 @@ use std::convert::TryInto;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
+use std::str::FromStr;
 
 type ParseResult<T> = Result<T, Error<Rule>>;
 type ComponentDef = ast::ComponentDef;
@@ -154,6 +157,34 @@ impl CalyxParser {
             })
             .parse(pairs)
     }
+
+    #[allow(clippy::result_large_err)]
+    fn static_guard_expr_helper(
+        ud: UserData,
+        pairs: pest::iterators::Pairs<Rule>,
+    ) -> ParseResult<Box<StaticGuardExpr>> {
+        PRATT
+            .map_primary(|primary| match primary.as_rule() {
+                Rule::static_term => Self::static_term(
+                    Node::new_with_user_data(primary, ud.clone()),
+                )
+                .map(Box::new),
+                x => unreachable!(
+                    "Unexpected rule {:?} for static_guard_expr",
+                    x
+                ),
+            })
+            .map_infix(|lhs, op, rhs| {
+                Ok(match op.as_rule() {
+                    Rule::guard_or => Box::new(StaticGuardExpr::Or(lhs?, rhs?)),
+                    Rule::guard_and => {
+                        Box::new(StaticGuardExpr::And(lhs?, rhs?))
+                    }
+                    _ => unreachable!(),
+                })
+            })
+            .parse(pairs)
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -177,6 +208,10 @@ impl CalyxParser {
         Ok(())
     }
 
+    fn static_word(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+
     fn reference(_input: Node) -> ParseResult<()> {
         Ok(())
     }
@@ -191,6 +226,40 @@ impl CalyxParser {
             .as_str()
             .parse::<u64>()
             .map_err(|_| input.error("Expected valid bitwidth"))
+    }
+
+    fn static_annotation(input: Node) -> ParseResult<std::num::NonZeroU64> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_word(_), latency_annotation(latency)] => latency,
+        ))
+    }
+
+    fn static_optional_latency(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_word(_), latency_annotation(latency)] => Some(latency),
+            [static_word(_)] => None,
+        ))
+    }
+
+    fn both_comb_static(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        Err(input.error("Cannot have both comb and static annotations"))
+    }
+
+    fn comb_or_static(
+        input: Node,
+    ) -> ParseResult<Option<std::num::NonZeroU64>> {
+        match_nodes!(
+            input.clone().into_children();
+            [both_comb_static(_)] => unreachable!("both_comb_static did not error"),
+            [comb(_)] => Ok(None),
+            [static_annotation(latency)] => Ok(Some(latency)),
+        )
     }
 
     fn bad_num(input: Node) -> ParseResult<u64> {
@@ -279,11 +348,11 @@ impl CalyxParser {
     }
 
     // ================ Attributes =====================
-    fn attribute(input: Node) -> ParseResult<(Id, u64)> {
-        Ok(match_nodes!(
-            input.into_children();
-            [string_lit(key), bitwidth(num)] => (Id::from(key), num)
-        ))
+    fn attribute(input: Node) -> ParseResult<(Attribute, u64)> {
+        match_nodes!(
+            input.clone().into_children();
+            [string_lit(key), bitwidth(num)] => Attribute::from_str(&key).map(|attr| (attr, num)).map_err(|e| input.error(format!("{:?}", e)))
+        )
     }
     fn attributes(input: Node) -> ParseResult<Attributes> {
         match_nodes!(
@@ -317,12 +386,24 @@ impl CalyxParser {
         ))
     }
 
-    fn at_attribute(input: Node) -> ParseResult<(Id, u64)> {
-        Ok(match_nodes!(
-            input.into_children();
-            [identifier(key), attr_val(num)] => (key, num),
-            [identifier(key)] => (key, 1)
-        ))
+    fn latency_annotation(input: Node) -> ParseResult<std::num::NonZeroU64> {
+        let num = match_nodes!(
+            input.clone().into_children();
+            [bitwidth(value)] => value,
+        );
+        if num == 0 {
+            Err(input.error("latency annotation of 0"))
+        } else {
+            Ok(std::num::NonZeroU64::new(num).unwrap())
+        }
+    }
+
+    fn at_attribute(input: Node) -> ParseResult<(Attribute, u64)> {
+        match_nodes!(
+            input.clone().into_children();
+            [identifier(key), attr_val(num)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, num)),
+            [identifier(key)] => Attribute::from_str(key.as_ref()).map_err(|e| input.error(format!("{:?}", e))).map(|attr| (attr, 1)),
+        )
     }
 
     fn at_attributes(input: Node) -> ParseResult<Attributes> {
@@ -414,16 +495,18 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: false,
+                latency: None,
                 body: None,
             },
-            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
+            [comb_or_static(cs_res), name_with_attribute((name, attrs)), sig_with_params((p, s))] => Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs.add_span(span),
-                is_comb: true,
+                is_comb: cs_res.is_none(),
+                latency: cs_res,
                 body: None,
-            },
+            }
         ))
     }
 
@@ -509,15 +592,15 @@ impl CalyxParser {
         Ok(())
     }
 
-    fn cmp_expr(input: Node) -> ParseResult<ast::GuardExpr> {
+    fn cmp_expr(input: Node) -> ParseResult<ast::CompGuard> {
         Ok(match_nodes!(
             input.into_children();
-            [expr(l), guard_eq(_), expr(r)] => GuardExpr::CompOp(GC::Eq, l, r),
-            [expr(l), guard_neq(_), expr(r)] => GuardExpr::CompOp(GC::Neq, l, r),
-            [expr(l), guard_geq(_), expr(r)] => GuardExpr::CompOp(GC::Geq, l, r),
-            [expr(l), guard_leq(_), expr(r)] => GuardExpr::CompOp(GC::Leq, l, r),
-            [expr(l), guard_gt(_), expr(r)] =>  GuardExpr::CompOp(GC::Gt, l, r),
-            [expr(l), guard_lt(_), expr(r)] =>  GuardExpr::CompOp(GC::Lt, l, r),
+            [expr(l), guard_eq(_), expr(r)] => (GC::Eq, l, r),
+            [expr(l), guard_neq(_), expr(r)] => (GC::Neq, l, r),
+            [expr(l), guard_geq(_), expr(r)] => (GC::Geq, l, r),
+            [expr(l), guard_leq(_), expr(r)] => (GC::Leq, l, r),
+            [expr(l), guard_gt(_), expr(r)] =>  (GC::Gt, l, r),
+            [expr(l), guard_lt(_), expr(r)] =>  (GC::Lt, l, r),
         ))
     }
 
@@ -530,17 +613,22 @@ impl CalyxParser {
         Self::guard_expr_helper(ud, input.into_pair().into_inner())
     }
 
+    fn static_guard_expr(input: Node) -> ParseResult<Box<StaticGuardExpr>> {
+        let ud = input.user_data().clone();
+        Self::static_guard_expr_helper(ud, input.into_pair().into_inner())
+    }
+
     fn term(input: Node) -> ParseResult<ast::GuardExpr> {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard)] => *guard,
-            [cmp_expr(e)] => e,
+            [cmp_expr((gc, a1, a2))] => ast::GuardExpr::CompOp((gc, a1, a2)),
             [expr(e)] => ast::GuardExpr::Atom(e),
             [guard_not(_), expr(e)] => {
                 ast::GuardExpr::Not(Box::new(ast::GuardExpr::Atom(e)))
             },
-            [guard_not(_), cmp_expr(e)] => {
-                ast::GuardExpr::Not(Box::new(e))
+            [guard_not(_), cmp_expr((gc, a1, a2))] => {
+                ast::GuardExpr::Not(Box::new(ast::GuardExpr::CompOp((gc, a1, a2))))
             },
             [guard_not(_), guard_expr(e)] => {
                 ast::GuardExpr::Not(e)
@@ -550,10 +638,38 @@ impl CalyxParser {
         ))
     }
 
+    fn static_term(input: Node) -> ParseResult<ast::StaticGuardExpr> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_timing_expr(interval)] => ast::StaticGuardExpr::StaticInfo(interval),
+            [static_guard_expr(guard)] => *guard,
+            [cmp_expr((gc, a1, a2))] => ast::StaticGuardExpr::CompOp((gc, a1, a2)),
+            [expr(e)] => ast::StaticGuardExpr::Atom(e),
+            [guard_not(_), expr(e)] => {
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::Atom(e)))
+            },
+            [guard_not(_), cmp_expr((gc, a1, a2))] => {
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::CompOp((gc, a1, a2))))
+            },
+            [guard_not(_), static_guard_expr(e)] => {
+                ast::StaticGuardExpr::Not(e)
+            },
+            [guard_not(_), expr(e)] =>
+                ast::StaticGuardExpr::Not(Box::new(ast::StaticGuardExpr::Atom(e)))
+        ))
+    }
+
     fn switch_stmt(input: Node) -> ParseResult<ast::Guard> {
         Ok(match_nodes!(
             input.into_children();
             [guard_expr(guard), expr(expr)] => ast::Guard { guard: Some(*guard), expr },
+        ))
+    }
+
+    fn static_switch_stmt(input: Node) -> ParseResult<ast::StaticGuard> {
+        Ok(match_nodes!(
+            input.into_children();
+            [static_guard_expr(guard), expr(expr)] => ast::StaticGuard { guard: Some(*guard), expr },
         ))
     }
 
@@ -571,6 +687,31 @@ impl CalyxParser {
                 dest,
                 attributes: attrs.add_span(span),
             }
+        ))
+    }
+
+    fn static_wire(input: Node) -> ParseResult<ast::StaticWire> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), LHS(dest), expr(expr)] => ast::StaticWire {
+                src: ast::StaticGuard { guard: None, expr },
+                dest,
+                attributes: attrs.add_span(span),
+            },
+            [at_attributes(attrs), LHS(dest), static_switch_stmt(src)] => ast::StaticWire {
+                src,
+                dest,
+                attributes: attrs.add_span(span),
+            }
+        ))
+    }
+
+    fn static_timing_expr(input: Node) -> ParseResult<(u64, u64)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [bitwidth(single_num)] => (single_num, single_num+1),
+            [bitwidth(start_interval), bitwidth(end_interval)] => (start_interval, end_interval)
         ))
     }
 
@@ -593,19 +734,37 @@ impl CalyxParser {
         ))
     }
 
+    fn static_group(input: Node) -> ParseResult<ast::StaticGroup> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [static_annotation(latency), name_with_attribute((name, attrs)), static_wire(wire)..] => ast::StaticGroup {
+                name,
+                attributes: attrs.add_span(span),
+                wires: wire.collect(),
+                latency,
+            }
+        ))
+    }
+
     fn connections(
         input: Node,
-    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>)> {
+    ) -> ParseResult<(Vec<ast::Wire>, Vec<ast::Group>, Vec<ast::StaticGroup>)>
+    {
         let mut wires = Vec::new();
         let mut groups = Vec::new();
+        let mut static_groups = Vec::new();
         for node in input.into_children() {
             match node.as_rule() {
                 Rule::wire => wires.push(Self::wire(node)?),
                 Rule::group => groups.push(Self::group(node)?),
+                Rule::static_group => {
+                    static_groups.push(Self::static_group(node)?)
+                }
                 _ => unreachable!(),
             }
         }
-        Ok((wires, groups))
+        Ok((wires, groups, static_groups))
     }
 
     // ================ Control program =====================
@@ -662,7 +821,22 @@ impl CalyxParser {
                     comb_group: Some(group),
                     ref_cells: cells
                 },
+        ))
+    }
 
+    fn static_invoke(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_optional_latency(latency), identifier(comp), invoke_ref_args(cells),invoke_args(inputs), invoke_args(outputs)] =>
+                ast::Control::StaticInvoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    attributes: attrs.add_span(span),
+                    ref_cells: cells,
+                    latency,
+                },
         ))
     }
 
@@ -698,6 +872,18 @@ impl CalyxParser {
         ))
     }
 
+    fn static_seq(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_optional_latency(latency) ,stmt(stmt)..] => ast::Control::StaticSeq {
+                stmts: stmt.collect(),
+                attributes: attrs.add_span(span),
+                latency,
+            }
+        ))
+    }
+
     fn par(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
@@ -705,6 +891,18 @@ impl CalyxParser {
             [at_attributes(attrs), stmt(stmt)..] => ast::Control::Par {
                 stmts: stmt.collect(),
                 attributes: attrs.add_span(span),
+            }
+        ))
+    }
+
+    fn static_par(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_optional_latency(latency) ,stmt(stmt)..] => ast::Control::StaticPar {
+                stmts: stmt.collect(),
+                attributes: attrs.add_span(span),
+                latency,
             }
         ))
     }
@@ -748,6 +946,36 @@ impl CalyxParser {
         ))
     }
 
+    fn static_if_stmt(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(stmt)] => ast::Control::StaticIf {
+                port,
+                tbranch: Box::new(stmt),
+                fbranch: Box::new(ast::Control::Empty { attributes: Attributes::default() }),
+                attributes: attrs.add_span(span),
+                latency,
+            },
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(tbranch), block(fbranch)] =>
+                ast::Control::StaticIf {
+                    port,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs.add_span(span),
+                    latency,
+                },
+            [at_attributes(attrs), static_optional_latency(latency), port(port), block(tbranch), static_if_stmt(fbranch)] =>
+                ast::Control::StaticIf {
+                    port,
+                    tbranch: Box::new(tbranch),
+                    fbranch: Box::new(fbranch),
+                    attributes: attrs.add_span(span),
+                    latency,
+                }
+        ))
+    }
+
     fn while_stmt(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
@@ -761,16 +989,33 @@ impl CalyxParser {
         ))
     }
 
+    fn repeat_stmt(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), static_word(_), bitwidth(num_repeats) , block(stmt)] => ast::Control::StaticRepeat {
+                num_repeats,
+                body: Box::new(stmt),
+                attributes: attrs.add_span(span),
+            }
+        ))
+    }
+
     fn stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
             [enable(data)] => data,
             [empty(data)] => data,
             [invoke(data)] => data,
+            [static_invoke(data)] => data,
             [seq(data)] => data,
+            [static_seq(data)] => data,
             [par(data)] => data,
+            [static_par(data)] => data,
             [if_stmt(data)] => data,
+            [static_if_stmt(data)] => data,
             [while_stmt(data)] => data,
+            [repeat_stmt(data)] => data,
         ))
     }
 
@@ -803,69 +1048,111 @@ impl CalyxParser {
     fn component(input: Node) -> ParseResult<ComponentDef> {
         let span = Self::get_span(&input);
         match_nodes!(
-        input.clone().into_children();
-        [
-            comb(_),
-            name_with_attribute((name, attributes)),
-            signature(sig),
-            cells(cells),
-            connections(connections)
-        ] => {
-            let (continuous_assignments, groups) = connections;
-            let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                if let Width::Const { value } = width {
-                    Ok(PortDef {
-                        name,
-                        width: value,
-                        direction,
-                        attributes
-                    })
-                } else {
-                    Err(input.error("Components cannot use parameters"))
+            input.clone().into_children();
+            [
+                comb_or_static(cs_res),
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections)
+            ] => {
+                if cs_res.is_some() {
+                    Err(input.error("Static Component must have defined control"))?;
                 }
-            }).collect::<Result<_, _>>()?;
-            Ok(ComponentDef {
-                name,
-                signature: sig,
-                cells,
-                groups,
-                continuous_assignments,
-                control: Control::empty(),
-                attributes: attributes.add_span(span),
-                is_comb: true,
-            })
-        },
-        [
-            name_with_attribute((name, attributes)),
-            signature(sig),
-            cells(cells),
-            connections(connections),
-            control(control)
-        ] => {
-            let (continuous_assignments, groups) = connections;
-            let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                if let Width::Const { value } = width {
-                    Ok(PortDef {
-                        name,
-                        width: value,
-                        direction,
-                        attributes
-                    })
-                } else {
-                    Err(input.error("Components cannot use parameters"))
-                }
-            }).collect::<Result<_, _>>()?;
-            Ok(ComponentDef {
-                name,
-                signature: sig,
-                cells,
-                groups,
-                continuous_assignments,
-                control,
-                attributes: attributes.add_span(span),
-                is_comb: false,
-            })
-        })
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control: Control::empty(),
+                    attributes: attributes.add_span(span),
+                    is_comb: true,
+                    latency: None,
+                })
+            },
+            [
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections),
+                control(control)
+            ] => {
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control,
+                    attributes: attributes.add_span(span),
+                    is_comb: false,
+                    latency: None,
+                })
+            },
+            [
+                comb_or_static(cs_res),
+                name_with_attribute((name, attributes)),
+                signature(sig),
+                cells(cells),
+                connections(connections),
+                control(control),
+            ] => {
+                let (continuous_assignments, groups, static_groups) = connections;
+                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
+                    if let Width::Const { value } = width {
+                        Ok(PortDef {
+                            name,
+                            width: value,
+                            direction,
+                            attributes
+                        })
+                    } else {
+                        Err(input.error("Components cannot use parameters"))
+                    }
+                }).collect::<Result<_, _>>()?;
+                Ok(ComponentDef {
+                    name,
+                    signature: sig,
+                    cells,
+                    groups,
+                    static_groups,
+                    continuous_assignments,
+                    control,
+                    attributes: attributes.add_span(span),
+                    is_comb: cs_res.is_none(),
+                    latency: cs_res,
+                })
+            },
+        )
     }
 
     fn imports(input: Node) -> ParseResult<Vec<String>> {
@@ -893,16 +1180,18 @@ impl CalyxParser {
                 signature: s,
                 attributes: attrs.add_span(span),
                 is_comb: false,
+                latency: None,
                 body: Some(b),
             }},
-            [comb(_), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
+            [comb_or_static(cs_res), name_with_attribute((name, attrs)), sig_with_params((p, s)), block_string(b)] => Primitive {
                 name,
                 params: p,
                 signature: s,
                 attributes: attrs.add_span(span),
-                is_comb: true,
+                is_comb: cs_res.is_none(),
+                latency: cs_res,
                 body: Some(b),
-            },
+            }
         ))
     }
 

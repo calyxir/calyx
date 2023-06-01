@@ -1,4 +1,4 @@
-//-p validate -p group2seq
+//-p validate -p group2seq -p dead-assign-removal
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
@@ -6,6 +6,9 @@ component main<"state_share"=1>(in:32) -> () {
   cells {
     A = std_reg(32);
     B = std_reg(32);
+    x = std_reg(32);
+    b = std_reg(32);
+    add = std_add(32);
     mult_pipe0 = std_mult_pipe(32);
   }
   wires {
@@ -30,6 +33,15 @@ component main<"state_share"=1>(in:32) -> () {
       mult_pipe0.right = B.out; 
       write_bmult[done] = mult_pipe0.done;
     }
+    group chain_plus_adders {
+      add.left = 32'd2;
+      add.right = 32'd4;
+      x.write_en = b.done;
+      x.in = b.out;
+      b.in = add.out;
+      b.write_en = !b.done? 1'd1;
+      chain_plus_adders[done] = x.done;
+    }
   }
   control {
     seq{
@@ -38,6 +50,7 @@ component main<"state_share"=1>(in:32) -> () {
         write_a;
         write_bmult;
       }
+      chain_plus_adders;
     }
   }
 }

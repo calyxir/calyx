@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fud.stages import Source, SourceType, Stage
 from fud.stages.remote_context import RemoteExecution, LocalSandbox
-from fud.stages.futil import FutilStage
+from fud.stages.futil import CalyxStage
 from fud.utils import shell
 from fud import config as cfg
 
@@ -30,7 +30,7 @@ class XilinxStage(Stage):
 
     def __init__(self):
         super().__init__(
-            src_state="futil",
+            src_state="calyx",
             target_state="xclbin",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
@@ -116,10 +116,12 @@ class XilinxStage(Stage):
 
         # Schedule
         # External stages called by this stage
-        xilinx_stage = FutilStage("xilinx-verilog", "-b xilinx", "")
-        xml_futil = FutilStage("xilinx-verilog", "-b xilinx-xml", "")
-        kernel_futil = FutilStage(
-            "xilinx-verilog", "-b verilog --synthesis -p external --disable-init", ""
+        xilinx_stage = CalyxStage("xilinx-verilog", "-b xilinx", "")
+        xml_futil = CalyxStage("xilinx-verilog", "-b xilinx-xml", "")
+        kernel_futil = CalyxStage(
+            "xilinx-verilog",
+            "-b verilog --synthesis -p external --disable-verify",
+            "",
         )
 
         if remote_exec.use_ssh:

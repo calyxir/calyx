@@ -58,6 +58,7 @@ impl Into<ir::Id> for GroupOrInvoke {
 #[derive(Debug, Default)]
 pub struct MetadataMap {
     map: HashMap<*const ir::Invoke, ir::Id>,
+    static_map: HashMap<*const ir::StaticInvoke, ir::Id>,
 }
 
 impl MetadataMap {
@@ -65,8 +66,24 @@ impl MetadataMap {
         self.map.insert(invoke as *const ir::Invoke, label);
     }
 
+    fn attach_label_static(
+        &mut self,
+        invoke: &ir::StaticInvoke,
+        label: ir::Id,
+    ) {
+        self.static_map
+            .insert(invoke as *const ir::StaticInvoke, label);
+    }
+
     pub fn fetch_label(&self, invoke: &ir::Invoke) -> Option<&ir::Id> {
         self.map.get(&(invoke as *const ir::Invoke))
+    }
+
+    pub fn fetch_label_static(
+        &self,
+        invoke: &ir::StaticInvoke,
+    ) -> Option<&ir::Id> {
+        self.static_map.get(&(invoke as *const ir::StaticInvoke))
     }
 }
 /// A datastructure used to represent a set of definitions/uses. These are
@@ -195,12 +212,12 @@ impl ReachingDefinitionAnalysis {
     /// **NOTE:** Includes dummy "definitions" for continuous assignments and
     /// uses within groups and invoke statements. This is to ensure that all
     /// uses of a given register are rewriten with the appropriate name.
-    pub fn calculate_overlap<'a, I>(
+    pub fn calculate_overlap<'a, I, T: 'a>(
         &'a self,
         continuous_assignments: I,
     ) -> OverlapMap
     where
-        I: Iterator<Item = &'a ir::Assignment> + Clone + 'a,
+        I: Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
     {
         let continuous_regs: Vec<ir::Id> =
             ReadWriteSet::uses(continuous_assignments)
@@ -282,6 +299,191 @@ fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
         .into_iter()
         .filter(|x| !tmp_set.contains(x))
         .collect();
+}
+
+// handles `build_reaching_defns` for the enable/static_enables case.
+// asgns are the assignments in the group (either static or dynamic)
+fn handle_reaching_def_enables<T>(
+    asgns: &[ir::Assignment<T>],
+    reach: DefSet,
+    rd: &mut ReachingDefinitionAnalysis,
+    group_name: ir::Id,
+) -> (DefSet, KilledSet) {
+    let writes = ReadWriteSet::must_write_set(asgns.iter());
+    // for each write:
+    // Killing all other reaching defns for that var
+    // generating a new defn (Id, GROUP)
+    let write_set = writes
+        .filter(|x| match &x.borrow().prototype {
+            ir::CellType::Primitive { name, .. } => name == "std_reg",
+            _ => false,
+        })
+        .map(|x| x.borrow().name())
+        .collect::<BTreeSet<_>>();
+
+    let read_set = ReadWriteSet::register_reads(asgns.iter())
+        .map(|x| x.borrow().name())
+        .collect::<BTreeSet<_>>();
+    // only kill a def if the value is not read.
+    let (mut cur_reach, killed) =
+        reach.kill_from_writeread(&write_set, &read_set);
+    cur_reach.extend(write_set, group_name);
+
+    rd.reach
+        .insert(GroupOrInvoke::Group(group_name), cur_reach.clone());
+
+    (cur_reach, killed)
+}
+
+fn build_reaching_def_static(
+    sc: &ir::StaticControl,
+    reach: DefSet,
+    killed: KilledSet,
+    rd: &mut ReachingDefinitionAnalysis,
+    counter: &mut u64,
+) -> (DefSet, KilledSet) {
+    match sc {
+        ir::StaticControl::Empty(_) => (reach, killed),
+        ir::StaticControl::Enable(sen) => handle_reaching_def_enables(
+            &sen.group.borrow().assignments,
+            reach,
+            rd,
+            sen.group.borrow().name(),
+        ),
+        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+            let (post_cond_def, post_cond_killed) = build_reaching_def_static(
+                &ir::StaticControl::empty(),
+                reach.clone(),
+                killed,
+                rd,
+                counter,
+            );
+
+            let (round_1_def, mut round_1_killed) = build_reaching_def_static(
+                body,
+                post_cond_def,
+                post_cond_killed,
+                rd,
+                counter,
+            );
+
+            remove_entries_defined_by(&mut round_1_killed, &reach);
+
+            let (post_cond2_def, post_cond2_killed) = build_reaching_def(
+                &ir::Control::empty(),
+                &round_1_def | &reach,
+                round_1_killed,
+                rd,
+                counter,
+            );
+            // Run the analysis a second time to get the fixed point of the
+            // while loop using the defsets calculated during the first iteration
+            let (final_def, mut final_kill) = build_reaching_def_static(
+                body,
+                post_cond2_def.clone(),
+                post_cond2_killed,
+                rd,
+                counter,
+            );
+
+            remove_entries_defined_by(&mut final_kill, &post_cond2_def);
+
+            (&final_def | &post_cond2_def, final_kill)
+        }
+        ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
+            .iter()
+            .fold((reach, killed), |(acc, killed), inner_c| {
+                build_reaching_def_static(inner_c, acc, killed, rd, counter)
+            }),
+        ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => {
+            let (defs, par_killed): (Vec<DefSet>, Vec<KilledSet>) = stmts
+                .iter()
+                .map(|ctrl| {
+                    build_reaching_def_static(
+                        ctrl,
+                        reach.clone(),
+                        KilledSet::new(),
+                        rd,
+                        counter,
+                    )
+                })
+                .unzip();
+
+            let global_killed = par_killed
+                .iter()
+                .fold(KilledSet::new(), |acc, set| &acc | set);
+
+            let par_exit_defs = defs
+                .iter()
+                .zip(par_killed.iter())
+                .map(|(defs, kills)| {
+                    defs.kill_from_hashset(&(&global_killed - kills))
+                })
+                .fold(DefSet::default(), |acc, element| &acc | &element);
+            (par_exit_defs, &global_killed | &killed)
+        }
+        ir::StaticControl::If(ir::StaticIf {
+            tbranch, fbranch, ..
+        }) => {
+            let (post_cond_def, post_cond_killed) = build_reaching_def_static(
+                &ir::StaticControl::empty(),
+                reach,
+                killed,
+                rd,
+                counter,
+            );
+            let (t_case_def, t_case_killed) = build_reaching_def_static(
+                tbranch,
+                post_cond_def.clone(),
+                post_cond_killed.clone(),
+                rd,
+                counter,
+            );
+            let (f_case_def, f_case_killed) = build_reaching_def_static(
+                fbranch,
+                post_cond_def,
+                post_cond_killed,
+                rd,
+                counter,
+            );
+            (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
+        }
+        ir::StaticControl::Invoke(invoke) => {
+            *counter += 1;
+
+            let iterator = invoke
+                .inputs
+                .iter()
+                .chain(invoke.outputs.iter())
+                .filter_map(|(_, port)| {
+                    if let ir::PortParent::Cell(wc) = &port.borrow().parent {
+                        let rc = wc.upgrade();
+                        let parent = rc.borrow();
+                        if parent
+                            .type_name()
+                            .unwrap_or_else(|| ir::Id::from(""))
+                            == "std_reg"
+                        {
+                            let name = format!("{}{}", INVOKE_PREFIX, counter);
+                            rd.meta.attach_label_static(
+                                invoke,
+                                ir::Id::from(name.clone()),
+                            );
+                            return Some((
+                                parent.name(),
+                                GroupOrInvoke::Invoke(ir::Id::from(name)),
+                            ));
+                        }
+                    }
+                    None
+                });
+
+            let mut new_reach = reach;
+            new_reach.set.extend(iterator);
+
+            (new_reach, killed)
+        }
+    }
 }
 
 fn build_reaching_def(
@@ -427,71 +629,15 @@ fn build_reaching_def(
 
             (new_reach, killed)
         }
-        ir::Control::Enable(en) => {
-            let asgns = &en.group.borrow().assignments;
-            let writes = ReadWriteSet::must_write_set(asgns.iter());
-            // for each write:
-            // Killing all other reaching defns for that var
-            // generating a new defn (Id, GROUP)
-            let write_set = writes
-                .filter(|x| match &x.borrow().prototype {
-                    ir::CellType::Primitive { name, .. } => name == "std_reg",
-                    _ => false,
-                })
-                .map(|x| x.borrow().name())
-                .collect::<BTreeSet<_>>();
-
-            let read_set = ReadWriteSet::register_reads(
-                en.group.borrow().assignments.iter(),
-            )
-            .map(|x| x.borrow().name())
-            .collect::<BTreeSet<_>>();
-            // only kill a def if the value is not read.
-            let (mut cur_reach, killed) =
-                reach.kill_from_writeread(&write_set, &read_set);
-            cur_reach.extend(write_set, en.group.borrow().name());
-
-            rd.reach.insert(
-                GroupOrInvoke::Group(en.group.borrow().name()),
-                cur_reach.clone(),
-            );
-
-            (cur_reach, killed)
-        }
-        ir::Control::StaticEnable(en) => {
-            // (Note Caleb/Pai): This is similar to case for enable group right now
-            // We could eventually try to merge it, but we should do it after we have
-            // hammered down the details of the rest of the static IR assignments
-            let asgns = &en.group.borrow().assignments;
-            let writes = ReadWriteSet::must_write_set(asgns.iter());
-            // for each write:
-            // Killing all other reaching defns for that var
-            // generating a new defn (Id, GROUP)
-            let write_set = writes
-                .filter(|x| match &x.borrow().prototype {
-                    ir::CellType::Primitive { name, .. } => name == "std_reg",
-                    _ => false,
-                })
-                .map(|x| x.borrow().name())
-                .collect::<BTreeSet<_>>();
-
-            let read_set = ReadWriteSet::register_reads(
-                en.group.borrow().assignments.iter(),
-            )
-            .map(|x| x.borrow().name())
-            .collect::<BTreeSet<_>>();
-            // only kill a def if the value is not read.
-            let (mut cur_reach, killed) =
-                reach.kill_from_writeread(&write_set, &read_set);
-            cur_reach.extend(write_set, en.group.borrow().name());
-
-            rd.reach.insert(
-                GroupOrInvoke::Group(en.group.borrow().name()),
-                cur_reach.clone(),
-            );
-
-            (cur_reach, killed)
-        }
+        ir::Control::Enable(en) => handle_reaching_def_enables(
+            &en.group.borrow().assignments,
+            reach,
+            rd,
+            en.group.borrow().name(),
+        ),
         ir::Control::Empty(_) => (reach, killed),
+        ir::Control::Static(sc) => {
+            build_reaching_def_static(sc, reach, killed, rd, counter)
+        }
     }
 }

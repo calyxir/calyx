@@ -31,10 +31,14 @@ impl Named for MergeAssign {
     }
 }
 
-fn merge_assigns(assigns: Vec<ir::Assignment>) -> Vec<ir::Assignment> {
+fn merge_assigns<T: Eq>(
+    assigns: Vec<ir::Assignment<T>>,
+) -> Vec<ir::Assignment<T>> {
     // Map from (dst, src) -> Assignment
-    let mut map: LinkedHashMap<(ir::Canonical, ir::Canonical), ir::Assignment> =
-        LinkedHashMap::new();
+    let mut map: LinkedHashMap<
+        (ir::Canonical, ir::Canonical),
+        ir::Assignment<T>,
+    > = LinkedHashMap::new();
 
     for assign in assigns {
         let src_key = assign.src.borrow().canonical();
@@ -65,16 +69,16 @@ impl Visitor for MergeAssign {
             let merged = merge_assigns(assigns);
             group.borrow_mut().assignments = merged;
         }
-        for group in comp.get_static_groups().iter() {
-            let assigns = group.borrow_mut().assignments.drain(..).collect();
-            let merged = merge_assigns(assigns);
-            group.borrow_mut().assignments = merged;
-        }
         for comb_group in comp.comb_groups.iter() {
             let assigns =
                 comb_group.borrow_mut().assignments.drain(..).collect();
             let merged = merge_assigns(assigns);
             comb_group.borrow_mut().assignments = merged;
+        }
+        for st_group in comp.static_groups.iter() {
+            let assigns = st_group.borrow_mut().assignments.drain(..).collect();
+            let merged = merge_assigns(assigns);
+            st_group.borrow_mut().assignments = merged;
         }
 
         let cassigns = comp.continuous_assignments.drain(..).collect();

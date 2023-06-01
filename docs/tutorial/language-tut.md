@@ -142,7 +142,7 @@ But now we're controlling things with an execution schedule.
 
 If you're curious to see how the Calyx compiler lowers this program to a Verilog-like structural form of Calyx, you can do this:
 
-    fud exec language-tutorial-mem.futil --to futil-lowered
+    fud exec language-tutorial-mem.futil --to calyx-lowered
 
 Notably, you'll see `control {}` in the output, meaning that the compiler has eliminated all the control statements and replaced them with continuous assignments in `wires`.
 

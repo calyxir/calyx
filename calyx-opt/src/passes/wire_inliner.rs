@@ -1,7 +1,7 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use ir::RRC;
 use ir::{build_assignments, guard, structure, LibrarySignatures};
+use ir::{Nothing, RRC};
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
 
@@ -22,7 +22,7 @@ impl Named for WireInliner {
     }
 }
 
-fn rewrite_assign(map: &HoleMapping, assign: &mut ir::Assignment) {
+fn rewrite_assign(map: &HoleMapping, assign: &mut ir::Assignment<Nothing>) {
     let rewrite = |port: &RRC<ir::Port>| -> Option<RRC<ir::Cell>> {
         if let ir::PortParent::Group(g) = &port.borrow().parent {
             let (go, done) = &map[&g.upgrade().borrow().name()];

@@ -1,16 +1,16 @@
 // -p well-formed -b mlir
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component main<"state_share"=1>(@stable(32) in: 32, @static(10) @go go: 1, @clk clk: 1, @reset reset: 1) -> (@stable(0) out: 32, @done done: 1) {
+component main<"state_share"=1>(@foo(32) in: 32, @static(10) @go go: 1, @clk clk: 1, @reset reset: 1) -> (@static(0) out: 32, @done done: 1) {
   cells {
     @precious r = std_reg(32);
-    @external(32) le = std_le(32);
+    @bar(32) le = std_le(32);
   }
   wires {
     group upd<"stable"=1> {
       upd[done] = r.done;
     }
-    comb group cond<"stable"=0> {
+    comb group cond<"static"=0> {
     }
   }
   control {

@@ -65,7 +65,7 @@ impl Named for Externalize {
 
 fn has_external_attribute(cr: &RRC<ir::Cell>) -> bool {
     let cell = cr.borrow();
-    cell.get_attribute("external").is_some()
+    cell.get_attribute(ir::BoolAttr::External).is_some()
 }
 
 impl Visitor for Externalize {

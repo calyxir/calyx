@@ -15,7 +15,7 @@ class RelayStage(Stage):
     def __init__(self):
         super().__init__(
             src_state="relay",
-            target_state="futil",
+            target_state="calyx",
             input_type=SourceType.Path,
             output_type=SourceType.Stream,
             description="Generates the Calyx program from the TVM Relay IR.",

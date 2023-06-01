@@ -13,7 +13,7 @@ from .utils import eprint
 from . import errors, external, registry
 
 # Key for the root folder
-ROOT = "futil_directory"
+ROOT = "root"
 
 # keys to prompt the user for
 WIZARD_DATA = {
@@ -26,8 +26,8 @@ DEFAULT_CONFIGURATION = {
     "global": {},
     "externals": {},
     "stages": {
-        "futil": {
-            "exec": "./target/debug/futil",
+        "calyx": {
+            "exec": "./target/debug/calyx",
             "file_extensions": [".futil"],
             "flags": None,
         },
@@ -57,7 +57,7 @@ DEFAULT_CONFIGURATION = {
         },
         "vcd": {"exec": "vcdump", "file_extensions": [".vcd"]},
         "vcd_json": {"file_extensions": [".json"]},
-        "jq": {"exec": "jq"},
+        "jq": {"exec": "jq", "flags": None},
         "dat": {"file_extensions": [".dat"]},
         "relay": {"file_extensions": [".relay"], "flags": None},
         "systolic": {"file_extensions": [".systolic"], "flags": None},
@@ -134,6 +134,17 @@ class DynamicDict:
                 data = data[k]
         data[lastkey] = val
 
+    def _merge_helper(self, store, cur_key=()):
+        for k, v in store.items():
+            if isinstance(v, dict):
+                self._merge_helper(v, cur_key + (k,))
+            else:
+                self[cur_key + (k,)] = v
+
+    def merge_dict(self, store):
+        """Recursively Merge a dictionary into the current dictionary"""
+        self._merge_helper(store)
+
     def __delitem__(self, keys):
         if isinstance(keys, str):
             keys = (keys,)
@@ -141,8 +152,12 @@ class DynamicDict:
         data = self.data
         lastkey = keys[-1]
         for k in keys[:-1]:  # when assigning drill down to *second* last key
-            data = data[k]
-        del data[lastkey]
+            if k in data:
+                data = data[k]
+        if lastkey in data:
+            del data[lastkey]
+        else:
+            log.warn(f"`{'.'.join(keys)}' not found. Ignoring delete command.")
 
     def __contains__(self, keys):
         data = self.data
@@ -185,7 +200,7 @@ class Configuration:
         The configuration file is serialized as a TOML file and contains the
         following data fields:
 
-        1. global.futil_directory [required]. Location of the root folder of
+        1. global.root [required]. Location of the root folder of
            the Calyx repository.
         2. stages: A table containing information for each stage. For example,
            stage.verilog contains key-value pairs which encode the information
@@ -384,14 +399,17 @@ class Configuration:
 
         return path
 
+    def get(self, keys):
+        return self.config.get(keys)
+
+    def update_all(self, dict):
+        self.config.merge_dict(dict)
+
     def __getitem__(self, keys):
         try:
             return self.config[keys]
         except KeyError:
             raise errors.UnsetConfiguration(keys)
-
-    def get(self, keys):
-        return self.config.get(keys)
 
     def __setitem__(self, keys, val):
         self.config[keys] = val

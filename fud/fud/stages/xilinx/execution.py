@@ -1,13 +1,12 @@
 import logging as log
 import os
 import time
-
-import simplejson as sjson
-
+import sys
+import shlex
 
 from fud import errors
 from fud.stages import SourceType, Stage
-from fud.utils import FreshDir, TmpDir
+from fud.utils import FreshDir, TmpDir, shell
 from pathlib import Path
 
 
@@ -35,58 +34,62 @@ class HwExecutionStage(Stage):
                 f"delete it. Consider adding `-s {self.name}.save_temps true`."
             )
 
+        # Configuration for the xclrun command.
+        vitis_path = config["stages", self.name, "xilinx_location"]
+        xrt_path = config["stages", self.name, "xrt_location"]
+        emu_mode = config["stages", "xclbin", "mode"]
+
+        # Make a temporary sandbox directory for the execution.
+        new_dir = FreshDir() if save_temps else TmpDir()
+        xrt_ini_path = os.path.join(new_dir.name, "xrt.ini")
+
         @builder.step()
         def configure():
             """Create config files based on fud arguments"""
 
-            os.chdir(new_dir.name)
-
+            # Create the main `xrt.ini` file that configures simulation.
             self.xrt_output_logname = "output.log"
-            with open("xrt.ini", "w") as f:
+            with open(xrt_ini_path, "w") as f:
                 xrt_ini_config = [
                     "[Runtime]\n",
                     f"runtime_log={self.xrt_output_logname}\n",
                     "[Emulation]\n",
-                    "print_infos_in_console=false\n",
+                    "print_infos_in_console=true\n",
                 ]
                 if waveform:
+                    pre_sim_path = os.path.join(new_dir.name, "pre_sim.tcl")
+                    post_sim_path = os.path.join(new_dir.name, "post_sim.tcl")
                     xrt_ini_config.append("debug_mode=batch\n")
-                    xrt_ini_config.append(
-                        f"user_pre_sim_script={new_dir.name}/pre_sim.tcl\n"
-                    )
-                    xrt_ini_config.append(
-                        f"user_post_sim_script={new_dir.name}/post_sim.tcl\n"
-                    )
+                    xrt_ini_config.append(f"user_pre_sim_script={pre_sim_path}\n")
+                    xrt_ini_config.append(f"user_post_sim_script={post_sim_path}\n")
                 f.writelines(xrt_ini_config)
 
-            # Extra Tcl scripts to produce a VCD waveform dump.
+            # In waveform mode, add a couple of Tcl scripts that are necessary
+            # to dump a VCD.
             if waveform:
-                with open("pre_sim.tcl", "w") as f:
+                with open(pre_sim_path, "w") as f:
                     f.writelines(
                         [
                             "open_vcd\n",
                             "log_vcd *\n",
                         ]
                     )
-                with open("post_sim.tcl", "w") as f:
+                with open(post_sim_path, "w") as f:
                     f.writelines(
                         [
                             "close_vcd\n",
                         ]
                     )
-            # NOTE(nathanielnrn): It seems like this must come after writing
-            # the xrt.ini file in order to work
-            os.environ["XRT_INI_PATH"] = f"{new_dir.name}/xrt.ini"
 
-        @builder.step()
-        def import_libs():
-            """Import optional libraries"""
-            try:
-                from fud.stages.xilinx import fud_pynq_script
-
-                self.pynq_script = fud_pynq_script
-            except ImportError:
-                raise errors.RemoteLibsNotInstalled
+            # Create the `emconfig.json` file that the simulator loudly (but
+            # perhaps unnecessarily?) complains about if it's missing.
+            platform = config["stages", "xclbin", "device"]
+            utilpath = os.path.join(vitis_path, 'bin', 'emconfigutil')
+            shell(
+                f'{utilpath} --platform {platform} --od {new_dir.name}',
+                capture_stdout=False,
+                stdout_as_debug=True,
+            )
 
         @builder.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:
@@ -94,17 +97,33 @@ class HwExecutionStage(Stage):
 
             if data_path is None:
                 raise errors.MissingDynamicConfiguration("fpga.data")
-            # Solves relative path messiness
-            orig_dir_path = Path(orig_dir)
-            abs_data_path = orig_dir_path.joinpath(Path(data_path)).resolve()
-            abs_xclbin_path = orig_dir_path.joinpath(xclbin).resolve()
 
-            data = sjson.load(open(abs_data_path), use_decimal=True)
+            # Build the xclrun command line.
+            data_abs = Path(data_path).resolve()
+            xclbin_abs = xclbin.resolve()
+            out_json = Path(new_dir.name).joinpath("out.json")
+            shell_cmd = (
+                f"source {vitis_path}/settings64.sh ; "
+                f"source {xrt_path}/setup.sh ; "
+                f"{sys.executable} -m fud.xclrun "
+                f"--out {out_json} "
+                f"{xclbin_abs} {data_abs}"
+            )
+            envs = {
+                "EMCONFIG_PATH": new_dir.name,
+                "XCL_EMULATION_MODE": emu_mode,  # hw_emu or hw
+                "XRT_INI_PATH": xrt_ini_path,
+            }
+
+            # Invoke xclrun.
             start_time = time.time()
-            # Note that this is the call on v++. This uses global USER_ENV variables
-            # EMCONFIG_PATH=`pwd`
-            # XCL_EMULATION_MODE=hw_emu
-            kernel_output = self.pynq_script.run(abs_xclbin_path, data)
+            shell(
+                ["bash", "-c", shlex.quote(shell_cmd)],
+                env=envs,
+                cwd=new_dir.name,
+                capture_stdout=False,
+                stdout_as_debug=True,
+            )
             end_time = time.time()
             log.debug(f"Emulation time: {end_time - start_time} sec")
 
@@ -123,16 +142,12 @@ class HwExecutionStage(Stage):
                     for line in f.readlines():
                         log.debug(line.strip())
 
-            return sjson.dumps(kernel_output, indent=2, use_decimal=True)
-
-        orig_dir = os.getcwd()
-        # Create a temporary directory (used in configure()) with an xrt.ini
-        # file that redirects the runtime log to a file so that we can control
-        # how it's printed. This is hacky, but it's the only way to do it.
-        # (The `xrt.ini`file we currently have in `fud/bitstream` is not used here.)
-        new_dir = FreshDir() if save_temps else TmpDir()
+            # It would be nice if we could return this as a file without
+            # reading it, but it's in a temporary directory that's about to be
+            # deleted.
+            with open(out_json) as f:
+                return f.read()
 
         configure()
-        import_libs()
         res = run(input)
         return res
