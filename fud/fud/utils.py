@@ -78,8 +78,11 @@ class Directory:
 class TmpDir(Directory):
     """A temporary directory that is automatically deleted."""
 
-    def __init__(self):
-        self.tmpdir_obj = TemporaryDirectory()
+    def __init__(self, tmp_dir_name=None):
+        if tmp_dir_name is not None:
+            self.tmpdir_obj = TemporaryDirectory(dir=tmp_dir_name)
+        else:
+            self.tmpdir_obj = TemporaryDirectory()
         self.name = self.tmpdir_obj.name
 
     def remove(self):
