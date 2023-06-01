@@ -77,6 +77,7 @@ impl SimplifyStaticGuards {
     /// by "combining: %[2:8] & %[5:10]
     fn simplify_guard(
         guard: ir::Guard<ir::StaticTiming>,
+        group_latency: u64,
     ) -> ir::Guard<ir::StaticTiming> {
         // get the rest of the guard and the "anded intervals"
         let mut anded_intervals = Vec::new();
@@ -101,6 +102,8 @@ impl SimplifyStaticGuards {
                     // if the vec was something like %[2:3] & %[4:5], then this is always false
                     // if max_beg >= min_end, then guard is always false
                     return ir::Guard::Not(Box::new(ir::Guard::True));
+                } else if max_beg == 0 && min_end == group_latency {
+                    None
                 } else {
                     // otherwise return the single interval as the "new" interval
                     Some(ir::Guard::Info(ir::StaticTiming::new((
@@ -127,11 +130,16 @@ impl Visitor for SimplifyStaticGuards {
         _comps: &[ir::Component],
     ) -> VisResult {
         for group in comp.get_static_groups().iter() {
+            let group_latency = group.borrow().get_latency();
             group
                 .borrow_mut()
                 .assignments
                 .iter_mut()
-                .for_each(|assign| assign.guard.update(Self::simplify_guard));
+                .for_each(|assign| {
+                    assign.guard.update(|guard| {
+                        Self::simplify_guard(guard, group_latency)
+                    })
+                });
         }
 
         // we don't need to traverse control
