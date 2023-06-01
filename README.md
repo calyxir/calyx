@@ -2,7 +2,7 @@
 
 <h1>
 <p align="center">
-<img src="https://calyxir.org/img/logo-text.svg" width="300">
+<img src="https://calyxir.org/img/logo-text-magic.svg" width="300">
 </p>
 <p align="center">
 <a href="https://calyxir.org">A Compiler Infrastructure for Accelerator Generators</a>
