@@ -111,6 +111,14 @@ You can also set the Xilinx mode and target device:
 The options for `mode` are `hw_emu` (simulation) and `hw` (on-FPGA execution).
 The device string above is for the [Alveo U50][u50] card, which we have at Cornell. The installed Xilinx card would typically be found under the directory `/opt/xilinx/platforms`, where one would be able to find a device name of interest.
 
+To run simulations (or on real FPGAs), you will also need to configure the `fpga` stage to point to your installations of [Vitis][] and [XRT][]:
+
+    [stages.fpga]
+    xilinx_location = "/scratch/opt/Xilinx/Vitis/2020.2"
+    xrt_location = "/scratch/opt/xilinx/xrt"
+
+Those are the paths on Cornell's havarti server.
+
 
 ### Compile
 
@@ -129,33 +137,11 @@ You can then find the results in a directory named `fud-out-N` for some number `
 ### Execute
 
 Now that you have an `xclbin`, the next step is to run it.
-Roughly speaking, the command you need is just a `fud` invocation that goes from the `xclbin` stage to the `fpga` stage:
+Here's a fud invocation that goes from the `xclbin` stage to the `fpga` stage:
 
     fud e foo.xclbin --from xclbin --to fpga -s fpga.data examples/dahlia/dot-product.fuse.data
 
-Contrary to the name, the `fpga` stage works for both emulation and on-FPGA execution---fud's `mode` config option for this stage chooses which to use.
-The `fpga.data` config option provides a normal fud-style JSON data input file for the run.
-
-Currently, you will need to have a bunch of environment variables set up to point to the Xilinx tools *before running this fud command*.
-For example, on our group's havarti server, you can do this:
-
-    source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh
-    source /opt/xilinx/xrt/setup.sh
-    export EMCONFIG_PATH=`pwd`
-
-To prepare for hardware emulation of an xclbin compiled appropriately, run:
-
-    export XCL_EMULATION_MODE=hw_emu
-
-If preparing for actual hardware execution, ensure the `XCL_EMULATION_MODE` environment variable is unset:
-
-    unset XCL_EMULATION_MODE
-
-These steps source the setup scripts for both [Vitis][] and [XRT][],
-and set a special `EMCONFIG_PATH` to your current directory so that fud can generate a [special JSON configuration file for Xilinx emulation][emconfig.json].
-You also need to tell PYNQ whether you want `hw_emu` (emulation) or the default on-device execution to occur by exporting or unsetting the `XCL_EMULATION_MODE` environment variable.
-Of course, it would be better if all this could come from fud's configuration itself instead of requiring you to set it up ahead of time;
-[issue #872](https://github.com/cucapra/calyx/issues/872) covers this work.
+fud will print out JSON memory contents in the same format as for other RTL simulators.
 
 #### Waveform Debugging
 
@@ -223,7 +209,7 @@ We currently generate `kernel.xml` ourselves (with the `xilinx-xml` backend desc
 
 In the future, we could consider trying to route around using Vivado by generating the IP-XACT file ourselves, using a tool such as [DUH][].
 
-#### Our Workflow
+#### Our Completion Workflow
 
 The first step is to produce an `.xo` file.
 We also use [a static Tcl script, `gen_xo.tcl`,][gen_xo] which is a simplified version of [a script from Xilinx's Vitis tutorials][package_kernel].
@@ -240,6 +226,23 @@ This step uses the `v++` tool, with a command line that looks like this:
     v++ -g -t hw_emu --platform xilinx_u50_gen3x16_xdma_201920_3 --save-temps --profile.data all:all:all --profile.exec all:all:all -lo xclbin/kernel.xclbin xclbin/kernel.xo
 
 Fortunately, the `v++` tool doesn't need any Tcl to drive it; all the action happens on the command line.
+
+#### Execution via `xclrun`
+
+Now that we have an `.xclbin` file, we need a way to execute it (either in simulation or on a real FPGA).
+We have a tool called `xclrun` that just executes a given `.xclbin` bitstream, supplying it with data in a fud-style JSON format and formatting the results in the same way.
+In fact, it's possible to use it directly---it's invokable with `python -m fud.xclrun`.
+However, it's somewhat annoying to use directly because you have to carefully set up your environment first---this setup stage appears to be unavoidable when using the Xilinx runtime libraries.
+So an invocation of `xclrun` actually looks something like this:
+
+    EMCONFIG_PATH=`pwd` XCL_EMULATION_MODE=hw_emu XRT_INI_PATH=`pwd`/xrt.ini \
+        bash -c 'source /scratch/opt/Xilinx/Vitis/2020.2/settings64.sh ; source /scratch/opt/xilinx/xrt/setup.sh ; python3.9 -m fud.xclrun foo.xclbin examples/tutorial/data.json'
+
+This monster of a command first sets three environment variables that XRT and the simulation process will need, and then it `source`s the relevant setup scripts before finally launching `xclrun`.
+The two actual arguments to the tool are just the `.xclbin` executable itself and the JSON input data; the tool prints the output data to stdout by default.
+
+fud's `execute` stage is just a big wrapper around launching `xclrun`.
+It sets up the necessary input files and constructs a command line that looks much like the above example.
 
 [vivado]: https://www.xilinx.com/products/design-tools/vivado.html
 [vhls]: https://www.xilinx.com/products/design-tools/vivado/integration/esl-design.html
