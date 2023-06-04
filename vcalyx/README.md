@@ -6,11 +6,11 @@ Install flit:
 
     python3 -m pip install flit
 
-In the `vcalyx` directory, run:
+In the `fud` directory, run:
 
     flit install --symlink
 
-Register the external VCalyx stage:
+Register the external VCalyx stage (file path is from root of Calyx repository):
 
     fud register vcalyx -p fud/fud/stages/vcalyx.py
 

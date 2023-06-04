@@ -117,7 +117,7 @@ def register_stages(registry):
         )
     )
     registry.register(
-        futil.FutilStage(
+        futil.CalyxStage(
             "vcalyx",
             "-b sexp",
             # TODO put dataflow passes here
