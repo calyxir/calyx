@@ -74,7 +74,10 @@ class VivadoBaseStage(Stage):
             """
             Make temporary directory to store Vivado synthesis files.
             """
-            return TmpDir()
+            if ["stages", self.name, "tmpdir"] in config:
+                return TmpDir(config["stages", self.name, "tmpdir"])
+            else:
+                return TmpDir()
 
         @builder.step()
         def local_move_files(
