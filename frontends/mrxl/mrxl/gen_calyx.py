@@ -217,17 +217,9 @@ def gen_stmt_impl(
 
     name2par maps memory names to banking factors.
     """
-    if isinstance(stmt.operation, ast.Map) and use_my_map_impl:
-        return my_map_impl(
-            comp,
-            stmt.dst,
-            stmt.operation,
-            arr_size,
-            name2par[stmt.dst],
-            statement_idx,
-        )
-    elif isinstance(stmt.operation, ast.Map):
-        return map_impl.gen_map_impl(
+    if isinstance(stmt.operation, ast.Map):
+        gen_map_fn = my_map_impl if use_my_map_impl else map_impl.gen_map_impl
+        return gen_map_fn(
             comp,
             stmt.dst,
             stmt.operation,
