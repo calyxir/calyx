@@ -707,3 +707,15 @@ def par(*args) -> ast.ParComp:
     So `par([a,b])` becomes `par {seq {a; b;}}` while `par(a, b)` becomes `par {a; b;}`.
     """
     return ast.ParComp([as_control(x) for x in args])
+
+
+def seq(*args) -> ast.SeqComp:
+    """Build a sequential composition of control expressions.
+
+    Prefer use of python list syntax over this function. Use only when not directly
+    modifying the control program with the `+=` operator.
+    Each argument will become its own sequential arm in the resulting composition.
+    So `seq([a,b], c)` becomes `seq { seq {a; b;} c }` while `seq(a, b, c)` becomes `seq
+    {a; b; c;}`.
+    """
+    return ast.SeqComp([as_control(x) for x in args])
