@@ -78,14 +78,14 @@ mrxl frontends/mrxl/test/sos.mrxl
 
 ## Simulating our example with Verilog
 
-Finally, let us go the whole hog: we will compile our MrXL code into Calyx and then simulate the Calyx code in Verilog.
+Finally, let us go the whole hog: we compile our MrXL program to Calyx, which is then compiled to Verilog, and simulated by [Verilator][].
 
 Run:
 ```
-fud e --from mrxl frontends/mrxl/test/sos.mrxl --to dat --through verilog -s mrxl.data frontends/mrxl/test/sos.mrxl.data  
+fud e --from mrxl frontends/mrxl/test/sos.mrxl --to dat --through verilog -s mrxl.data frontends/mrxl/test/sos.mrxl.data
 ```
 
-The above command takes a MrXL program, `sos.mrxl`, and generates results with Verilator using the MrXL data `sos.mrxl.data`.
+The above command takes a MrXL program, `sos.mrxl`, and generates results with Verilator using the MrXL data file `sos.mrxl.data`.
 
 # Compiling MrXL into Calyx
 
@@ -371,7 +371,7 @@ Here are some of those restrictions again, along with pointers about how to lift
 
     Say you wanted to add subtraction and division to the mix.
     We have set you up for success: the MrXL parser already parses `-` and `/` into `sub` and `div` respectively.
-    Now, in `gen_calyx.py`, you need to check for "sub" and "div" as possible binary operations, and then invoke the appropriate cell-builders of the `builder` library. 
+    Now, in `gen_calyx.py`, you need to check for "sub" and "div" as possible binary operations, and then invoke the appropriate cell-builders of the `builder` library.
     For reference, see how the `+` and `*` operations are handled at present.
     For "fun", take a look at how Calyx implements [multiplication][binary-mult], and how that maps to the existing invocation to create a 32-bit multiplication cell using the `builder`!
 
@@ -458,3 +458,4 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [compute-par]: https://github.com/cucapra/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/frontends/mrxl/mrxl/gen_calyx.py#L312
 [par-undef]: ../lang/ref.md#par
 [binary-mult]: https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45
+[verilator]: https://www.veripool.org/wiki/verilator
