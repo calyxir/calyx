@@ -34,7 +34,26 @@ impl<'a> Printer<'a> {
                 1
             )
         );
-        for assign in self.ctx.primary.groups[group].assignments.iter() {
+        for assign in self.ctx.primary[group].assignments.iter() {
+            println!(
+                "{}",
+                text_utils::indent(self.print_assignment(parent, assign), 2)
+            );
+        }
+    }
+
+    pub fn print_comb_group(&self, group: CombGroupIdx, parent: ComponentRef) {
+        println!(
+            "{}",
+            text_utils::indent(
+                &format!(
+                    "Comb Group: {}",
+                    self.ctx.secondary[self.ctx.primary[group].name()]
+                ),
+                1
+            )
+        );
+        for assign in self.ctx.primary[group].assignments.iter() {
             println!(
                 "{}",
                 text_utils::indent(self.print_assignment(parent, assign), 2)
@@ -47,8 +66,12 @@ impl<'a> Printer<'a> {
             "Component: {}",
             self.ctx.resolve_id(self.ctx.secondary[idx].name)
         );
-        for x in self.ctx.secondary.comp_aux_info[idx].definitions.groups() {
+        for x in self.ctx.secondary[idx].definitions.groups() {
             self.print_group(x, idx)
+        }
+
+        for x in self.ctx.secondary[idx].definitions.comb_groups() {
+            self.print_comb_group(x, idx)
         }
         println!();
         println!("{}", text_utils::indent("Control:", 1));
@@ -203,7 +226,7 @@ impl<'a> Printer<'a> {
             }
             Guard::Not(n) => {
                 let n = self.format_guard(parent, *n);
-                format!("(!{})", n)
+                format!("!{}", n)
             }
             Guard::Comp(op, l, r) => {
                 let l = self.lookup_id_from_port(parent, *l);
