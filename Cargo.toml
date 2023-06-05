@@ -22,6 +22,7 @@ categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
 version = "0.3.0"
+rust-version = "1.66"
 
 [workspace.dependencies]
 itertools = "0.10"
@@ -62,6 +63,7 @@ repository.workspace = true
 homepage.workspace = true
 categories.workspace = true
 readme.workspace = true
+rust-version.workspace = true
 
 [[bin]]
 name = "calyx"

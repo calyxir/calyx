@@ -33,7 +33,7 @@ You can also install `fud` with
 
 ```bash
 flit build
-pip3 install dist/fud-0.1.0-py3-none-any.whl
+pip3 install dist/fud-0.3.0-py3-none-any.whl
 ```
 
 Finally, point `fud` to the root of the repository:
@@ -244,7 +244,7 @@ simulate                        0.161
 
 Lastly, the `-csv` flag will provide the profiling information in CSV format.
 
-[frontends]: ./frontends/index.md
+[frontends]: ../frontends/index.md
 [calyx-py]: ./calyx-py.md
 [flit]: https://flit.readthedocs.io/en/latest/
 [verilator]: https://www.veripool.org/wiki/verilator
