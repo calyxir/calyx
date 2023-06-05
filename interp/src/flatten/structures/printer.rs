@@ -77,6 +77,47 @@ impl<'a> Printer<'a> {
         }
     }
 
+    pub fn format_control(
+        &self,
+        parent: ComponentRef,
+        control: ControlIdx,
+        indent: usize,
+    ) -> String {
+        match &self.ctx.primary[control] {
+            ControlNode::Empty(_) => String::new(),
+            ControlNode::Enable(e) => text_utils::indent(
+                self.ctx.secondary[self.ctx.primary[e.group()].name()].clone()
+                    + ";",
+                indent,
+            ),
+
+            // TODO Griffin: refactor into shared function rather than copy-paste?
+            ControlNode::Seq(s) => {
+                let mut seq = text_utils::indent("seq {\n", indent);
+                for stmt in s.stms() {
+                    let child = self.format_control(parent, *stmt, indent + 1);
+                    seq += &child;
+                    seq += "\n";
+                }
+                seq += &text_utils::indent("}", indent);
+                seq
+            }
+            ControlNode::Par(p) => {
+                let mut par = text_utils::indent("par {\n", indent);
+                for stmt in p.stms() {
+                    let child = self.format_control(parent, *stmt, indent + 1);
+                    par += &child;
+                    par += "\n";
+                }
+                par += &text_utils::indent("}", indent);
+                par
+            }
+            ControlNode::If(_) => todo!(),
+            ControlNode::While(_) => todo!(),
+            ControlNode::Invoke(_) => todo!(),
+        }
+    }
+
     pub fn format_guard(
         &self,
         parent: ComponentRef,
