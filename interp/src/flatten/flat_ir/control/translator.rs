@@ -5,6 +5,7 @@ use crate::{
     flatten::{
         flat_ir::{
             component::{AuxillaryComponentInfo, ComponentCore},
+            flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
                 Assignment, AssignmentIdx, CombGroup, CombGroupIdx,
                 ComponentRef, GroupIdx, GuardIdx, PortRef,
@@ -12,10 +13,9 @@ use crate::{
             wires::{core::Group, guards::Guard},
         },
         structures::{
-            context::{InterpretationContext, SecondaryContext},
+            context::{Context, InterpretationContext, SecondaryContext},
             index_trait::IndexRange,
         },
-        utils::{flatten_tree, FlattenTree, SingleHandle},
     },
     utils::AsRaw,
 };
@@ -31,9 +31,7 @@ pub struct GroupMapper {
     groups: HashMap<*const cir::Group, GroupIdx>,
 }
 
-pub fn translate(
-    orig_ctx: &cir::Context,
-) -> (InterpretationContext, SecondaryContext) {
+pub fn translate(orig_ctx: &cir::Context) -> Context {
     let mut primary_ctx = InterpretationContext::new();
     let mut secondary_ctx = SecondaryContext::new();
     let mut component_id_map = ComponentMapper::new();
@@ -43,7 +41,9 @@ pub fn translate(
     // iteration over the components in a post-order so this is a hack instead
 
     for comp in CompTraversal::new(&orig_ctx.components).iter() {
-        translate_component(
+        // TODO Griffin: capture the entry-point component and store that
+        // somewhere in the context
+        let _ = translate_component(
             comp,
             &mut primary_ctx,
             &mut secondary_ctx,
@@ -51,9 +51,10 @@ pub fn translate(
         );
     }
 
-    (primary_ctx, secondary_ctx)
+    (primary_ctx, secondary_ctx).into()
 }
 
+#[must_use]
 fn translate_group(
     group: &cir::Group,
     interp_ctx: &mut InterpretationContext,
@@ -79,6 +80,7 @@ fn translate_group(
     )
 }
 
+#[must_use]
 fn translate_comb_group(
     comb_group: &cir::CombGroup,
     interp_ctx: &mut InterpretationContext,
@@ -99,6 +101,7 @@ fn translate_comb_group(
     CombGroup::new(identifier, range)
 }
 
+#[must_use]
 fn translate_assignment(
     assign: &cir::Assignment<cir::Nothing>,
     interp_ctx: &mut InterpretationContext,
@@ -110,7 +113,7 @@ fn translate_assignment(
         guard: translate_guard(&assign.guard, interp_ctx, map),
     }
 }
-
+#[must_use]
 fn translate_guard(
     guard: &cir::Guard<cir::Nothing>,
     interp_ctx: &mut InterpretationContext,
@@ -119,6 +122,7 @@ fn translate_guard(
     flatten_tree(guard, None, &mut interp_ctx.guards, map)
 }
 
+#[must_use]
 fn translate_component(
     comp: &cir::Component,
     interp_ctx: &mut InterpretationContext,
@@ -140,6 +144,8 @@ fn translate_component(
     // Translate the groups
     let mut group_map = HashMap::with_capacity(comp.groups.len());
 
+    let group_base = interp_ctx.groups.peek_next_idx();
+
     for group in comp.groups.iter() {
         let group_brw = group.borrow();
         let group_idx =
@@ -147,7 +153,10 @@ fn translate_component(
         let k = interp_ctx.groups.push(group_idx);
         group_map.insert(group.as_raw(), k);
     }
+    auxillary_component_info
+        .set_group_range(group_base, interp_ctx.groups.peek_next_idx());
 
+    let comb_group_base = interp_ctx.comb_groups.peek_next_idx();
     // Translate comb groups
     let mut comb_group_map = HashMap::with_capacity(comp.comb_groups.len());
 
@@ -162,6 +171,10 @@ fn translate_component(
         let k = interp_ctx.comb_groups.push(comb_grp_idx);
         comb_group_map.insert(comb_grp.as_raw(), k);
     }
+    auxillary_component_info.set_comb_group_range(
+        comb_group_base,
+        interp_ctx.comb_groups.peek_next_idx(),
+    );
 
     let group_mapper = GroupMapper {
         comb_groups: comb_group_map,
@@ -171,7 +184,8 @@ fn translate_component(
     // Continuous Assignments
     let cont_assignment_base = interp_ctx.assignments.peek_next_idx();
     for assign in &comp.continuous_assignments {
-        translate_assignment(assign, interp_ctx, &port_map);
+        let assign_new = translate_assignment(assign, interp_ctx, &port_map);
+        interp_ctx.assignments.push(assign_new);
     }
 
     let continuous_assignments = IndexRange::new(

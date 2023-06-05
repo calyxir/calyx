@@ -10,10 +10,10 @@ use super::prelude::Identifier;
 impl_index!(pub ComponentRef);
 
 // Definition indexes, used to address information
-impl_index!(pub CellDefinition);
-impl_index!(pub PortDefinition);
-impl_index!(pub RefCellDefinition);
-impl_index!(pub RefPortDefinition);
+impl_index!(pub CellDefinitionIdx);
+impl_index!(pub PortDefinitionIdx);
+impl_index!(pub RefCellDefinitionIdx);
+impl_index!(pub RefPortDefinitionIdx);
 
 // Global indices
 impl_index!(pub GlobalPortId);
@@ -25,13 +25,6 @@ impl_index!(pub LocalPortOffset);
 impl_index!(pub LocalRefPortOffset);
 impl_index!(pub LocalCellOffset);
 impl_index!(pub LocalRefCellOffset);
-
-// I forget why I thought I needed these, truly not sure if they are need at the
-// moment but easy to delete later
-pub struct RelativePortIdx(u32);
-pub struct RelativeRefPortIdx(u32);
-pub struct RelativeCellIdx(u32);
-pub struct RelativeRefCellIdx(u32);
 
 #[derive(Debug, Copy, Clone)]
 pub enum PortRef {
@@ -75,6 +68,41 @@ impl From<LocalRefPortOffset> for PortRef {
 
 impl From<LocalPortOffset> for PortRef {
     fn from(v: LocalPortOffset) -> Self {
+        Self::Local(v)
+    }
+}
+
+pub enum PortDefinitionRef {
+    Local(PortDefinitionIdx),
+    Ref(RefPortDefinitionIdx),
+}
+
+impl From<RefPortDefinitionIdx> for PortDefinitionRef {
+    fn from(v: RefPortDefinitionIdx) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<PortDefinitionIdx> for PortDefinitionRef {
+    fn from(v: PortDefinitionIdx) -> Self {
+        Self::Local(v)
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum CellRef {
+    Local(LocalCellOffset),
+    Ref(LocalRefCellOffset),
+}
+
+impl From<LocalRefCellOffset> for CellRef {
+    fn from(v: LocalRefCellOffset) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<LocalCellOffset> for CellRef {
+    fn from(v: LocalCellOffset) -> Self {
         Self::Local(v)
     }
 }
@@ -126,6 +154,37 @@ where
 
 pub type CellInfo = CellDefinitionInfo<LocalPortOffset>;
 pub type RefCellInfo = CellDefinitionInfo<LocalRefPortOffset>;
+
+pub enum ParentIdx {
+    Component(ComponentRef),
+    Cell(CellDefinitionIdx),
+    RefCell(RefCellDefinitionIdx),
+    Group(GroupIdx),
+}
+
+impl From<GroupIdx> for ParentIdx {
+    fn from(v: GroupIdx) -> Self {
+        Self::Group(v)
+    }
+}
+
+impl From<RefCellDefinitionIdx> for ParentIdx {
+    fn from(v: RefCellDefinitionIdx) -> Self {
+        Self::RefCell(v)
+    }
+}
+
+impl From<CellDefinitionIdx> for ParentIdx {
+    fn from(v: CellDefinitionIdx) -> Self {
+        Self::Cell(v)
+    }
+}
+
+impl From<ComponentRef> for ParentIdx {
+    fn from(v: ComponentRef) -> Self {
+        Self::Component(v)
+    }
+}
 
 // don't look at this. Seriously
 mod sealed {

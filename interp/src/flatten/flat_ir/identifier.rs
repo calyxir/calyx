@@ -13,6 +13,54 @@ impl Identifier {
     }
 }
 
+enum NameType {
+    Interface,
+    Group,
+    Cell,
+}
+
+pub struct CanonicalIdentifier {
+    parent: Identifier,
+    name: Identifier,
+    name_type: NameType,
+}
+
+impl CanonicalIdentifier {
+    pub fn interface_port(parent: Identifier, name: Identifier) -> Self {
+        Self {
+            parent,
+            name,
+            name_type: NameType::Interface,
+        }
+    }
+
+    pub fn group_port(parent: Identifier, name: Identifier) -> Self {
+        Self {
+            parent,
+            name,
+            name_type: NameType::Group,
+        }
+    }
+
+    pub fn cell_port(parent: Identifier, name: Identifier) -> Self {
+        Self {
+            parent,
+            name,
+            name_type: NameType::Cell,
+        }
+    }
+
+    pub fn format_name(&self, resolver: &IdMap) -> String {
+        let parent = resolver.lookup_string(&self.parent).unwrap();
+        let port = resolver.lookup_string(&self.name).unwrap();
+        match self.name_type {
+            NameType::Interface => port.to_string(),
+            NameType::Group => format!("{}[{}]", parent, port),
+            NameType::Cell => format!("{}.{}", parent, port),
+        }
+    }
+}
+
 /// A map used to store strings and assign them unique identifiers. This is
 /// designed to work both forward and backwards. The forward map is a hashmap
 /// while the backward map is a simple dense vector

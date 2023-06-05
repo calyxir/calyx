@@ -96,7 +96,7 @@ macro_rules! impl_index_nonzero {
 pub(crate) use {impl_index, impl_index_nonzero};
 
 /// A half open range of indices. The start is inclusive, the end is exclusive.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct IndexRange<I>
 where
     I: IndexRef + PartialOrd,
@@ -125,6 +125,7 @@ where
         Self { start, end }
     }
 
+    /// Iterate over all the keys contained in the range
     pub fn iter(&self) -> IndexRangeIterator<I> {
         IndexRangeIterator::new(self)
     }
@@ -145,7 +146,7 @@ where
     }
 
     pub fn contains(&self, candidate: I) -> bool {
-        self.start > candidate && self.end < candidate
+        self.start <= candidate && self.end > candidate
     }
 }
 
