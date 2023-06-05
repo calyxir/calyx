@@ -2,8 +2,7 @@ use std::fmt::Write;
 
 pub const INDENTATION: &str = "    ";
 
-/// Indents each line in the given string by the indentation count. This will
-/// remove the newline from the final line of the string if present.
+/// Indents each line in the given string by the indentation count.
 pub fn indent<S: AsRef<str>>(target: S, indent_count: usize) -> String {
     let mut out = String::new();
 
@@ -16,7 +15,14 @@ pub fn indent<S: AsRef<str>>(target: S, indent_count: usize) -> String {
             writeln!(out).unwrap();
         }
 
-        write!(out, "{}{}", INDENTATION.repeat(indent_count), line).unwrap();
+        if !line.is_empty() {
+            write!(out, "{}{}", INDENTATION.repeat(indent_count), line)
+                .unwrap();
+        }
+    }
+
+    if target.as_ref().ends_with('\n') {
+        writeln!(out).unwrap();
     }
 
     out

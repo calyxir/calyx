@@ -50,6 +50,11 @@ impl<'a> Printer<'a> {
         for x in self.ctx.secondary.comp_aux_info[idx].definitions.groups() {
             self.print_group(x, idx)
         }
+        println!();
+        println!("{}", text_utils::indent("Control:", 1));
+        if let Some(ctrl) = self.ctx.primary[idx].control {
+            println!("{}", self.format_control(idx, ctrl, 2));
+        }
     }
 
     pub fn print_program(&self) {
@@ -114,8 +119,10 @@ impl<'a> Printer<'a> {
             }
             ControlNode::If(i) => {
                 let cond = self.lookup_id_from_port(parent, i.cond_port());
-                let mut out =
-                    format!("if {} ", cond.format_name(self.string_table()));
+                let mut out = text_utils::indent(
+                    format!("if {} ", cond.format_name(self.string_table())),
+                    indent,
+                );
                 if let Some(grp) = i.cond_group() {
                     out += &format!(
                         "with {} ",
@@ -134,16 +141,18 @@ impl<'a> Printer<'a> {
                 out += &text_utils::indent("}", indent);
 
                 if !f_branch.is_empty() {
-                    out += &format!(" else {{\n{}", f_branch);
-                    out += &(text_utils::indent("}", indent) + "\n");
+                    out += &format!(" else {{\n{}\n", f_branch);
+                    out += &(text_utils::indent("}\n", indent));
                 }
 
                 out
             }
             ControlNode::While(w) => {
                 let cond = self.lookup_id_from_port(parent, w.cond_port());
-                let mut out =
-                    format!("while {} ", cond.format_name(self.string_table()));
+                let mut out = text_utils::indent(
+                    format!("while {} ", cond.format_name(self.string_table())),
+                    indent,
+                );
                 if let Some(grp) = w.cond_group() {
                     out += &format!(
                         "with {} ",
@@ -158,7 +167,9 @@ impl<'a> Printer<'a> {
 
                 out
             }
-            ControlNode::Invoke(_) => todo!(),
+            ControlNode::Invoke(_) => {
+                text_utils::indent("<<<<INVOKE PLACEHOLDER>>>>", indent)
+            }
         }
     }
 

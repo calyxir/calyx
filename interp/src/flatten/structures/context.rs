@@ -1,7 +1,7 @@
 use std::ops::Index;
 
 use crate::flatten::flat_ir::{
-    component::{AuxillaryComponentInfo, ComponentMap},
+    component::{AuxillaryComponentInfo, ComponentCore, ComponentMap},
     identifier::IdMap,
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
@@ -55,6 +55,14 @@ pub struct InterpretationContext {
     pub guards: GuardMap,
     /// Control trees
     pub control: ControlMap,
+}
+
+impl Index<ComponentRef> for InterpretationContext {
+    type Output = ComponentCore;
+
+    fn index(&self, index: ComponentRef) -> &Self::Output {
+        &self.components[index]
+    }
 }
 
 impl Index<AssignmentIdx> for InterpretationContext {
