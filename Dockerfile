@@ -51,13 +51,12 @@ RUN git clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
 RUN sbt "; getHeaders; assembly"
 
-# Clone the Calyx repository using a specific tag
+# Add the Calyx source code from the build context
 WORKDIR /home
-RUN git clone https://github.com/cucapra/calyx.git calyx
+ADD . calyx
 # Build the compiler
 WORKDIR /home/calyx
-RUN git checkout -b v0.3.0 && \
-    cargo build --all && \
+RUN cargo build --all && \
     cargo install vcdump && \
     cargo install runt --version $(grep ^ver runt.toml | awk '{print $3}' | tr -d '"')
 
