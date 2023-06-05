@@ -140,7 +140,24 @@ impl<'a> Printer<'a> {
 
                 out
             }
-            ControlNode::While(_) => todo!(),
+            ControlNode::While(w) => {
+                let cond = self.lookup_id_from_port(parent, w.cond_port());
+                let mut out =
+                    format!("while {} ", cond.format_name(self.string_table()));
+                if let Some(grp) = w.cond_group() {
+                    out += &format!(
+                        "with {} ",
+                        self.ctx.secondary[self.ctx.primary[grp].name()]
+                    );
+                }
+                out += "{\n";
+
+                let body = self.format_control(parent, w.body(), indent + 1);
+                out += &(body + "\n");
+                out += &text_utils::indent("}", indent);
+
+                out
+            }
             ControlNode::Invoke(_) => todo!(),
         }
     }
