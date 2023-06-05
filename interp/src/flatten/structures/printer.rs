@@ -73,6 +73,15 @@ impl<'a> Printer<'a> {
         for x in self.ctx.secondary[idx].definitions.comb_groups() {
             self.print_comb_group(x, idx)
         }
+        if !self.ctx.primary[idx].continuous_assignments.is_empty() {
+            println!("{}", text_utils::indent("Continuous Assignments:", 1));
+            for assign in self.ctx.primary[idx].continuous_assignments.iter() {
+                println!(
+                    "{}",
+                    text_utils::indent(self.print_assignment(idx, assign), 2)
+                );
+            }
+        }
         println!();
         println!("{}", text_utils::indent("Control:", 1));
         if let Some(ctrl) = self.ctx.primary[idx].control {

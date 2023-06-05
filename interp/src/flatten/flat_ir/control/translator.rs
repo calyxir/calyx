@@ -97,6 +97,7 @@ fn translate_comb_group(
     CombGroup::new(identifier, range)
 }
 
+#[must_use]
 fn translate_assignment(
     assign: &cir::Assignment<cir::Nothing>,
     interp_ctx: &mut InterpretationContext,
@@ -178,7 +179,8 @@ fn translate_component(
     // Continuous Assignments
     let cont_assignment_base = interp_ctx.assignments.peek_next_idx();
     for assign in &comp.continuous_assignments {
-        translate_assignment(assign, interp_ctx, &port_map);
+        let assign_new = translate_assignment(assign, interp_ctx, &port_map);
+        interp_ctx.assignments.push(assign_new);
     }
 
     let continuous_assignments = IndexRange::new(
