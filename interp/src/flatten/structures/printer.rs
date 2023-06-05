@@ -112,7 +112,34 @@ impl<'a> Printer<'a> {
                 par += &text_utils::indent("}", indent);
                 par
             }
-            ControlNode::If(_) => todo!(),
+            ControlNode::If(i) => {
+                let cond = self.lookup_id_from_port(parent, i.cond_port());
+                let mut out =
+                    format!("if {} ", cond.format_name(self.string_table()));
+                if let Some(grp) = i.cond_group() {
+                    out += &format!(
+                        "with {} ",
+                        self.ctx.secondary[self.ctx.primary[grp].name()]
+                    );
+                }
+                out += "{\n";
+
+                let t_branch =
+                    self.format_control(parent, i.tbranch(), indent + 1);
+                let f_branch =
+                    self.format_control(parent, i.fbranch(), indent + 1);
+
+                out += &t_branch;
+                out += "\n";
+                out += &text_utils::indent("}", indent);
+
+                if !f_branch.is_empty() {
+                    out += &format!(" else {{\n{}", f_branch);
+                    out += &(text_utils::indent("}", indent) + "\n");
+                }
+
+                out
+            }
             ControlNode::While(_) => todo!(),
             ControlNode::Invoke(_) => todo!(),
         }
