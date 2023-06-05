@@ -27,7 +27,7 @@ impl<'a> Printer<'a> {
         println!(
             "{}",
             text_utils::indent(
-                &format!(
+                format!(
                     "Group: {}",
                     self.ctx.secondary[self.ctx.primary[group].name()]
                 ),
@@ -46,7 +46,7 @@ impl<'a> Printer<'a> {
         println!(
             "{}",
             text_utils::indent(
-                &format!(
+                format!(
                     "Comb Group: {}",
                     self.ctx.secondary[self.ctx.primary[group].name()]
                 ),
