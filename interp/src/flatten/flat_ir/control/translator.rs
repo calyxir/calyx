@@ -41,7 +41,9 @@ pub fn translate(orig_ctx: &cir::Context) -> Context {
     // iteration over the components in a post-order so this is a hack instead
 
     for comp in CompTraversal::new(&orig_ctx.components).iter() {
-        translate_component(
+        // TODO Griffin: capture the entry-point component and store that
+        // somewhere in the context
+        let _ = translate_component(
             comp,
             &mut primary_ctx,
             &mut secondary_ctx,
@@ -52,6 +54,7 @@ pub fn translate(orig_ctx: &cir::Context) -> Context {
     (primary_ctx, secondary_ctx).into()
 }
 
+#[must_use]
 fn translate_group(
     group: &cir::Group,
     interp_ctx: &mut InterpretationContext,
@@ -77,6 +80,7 @@ fn translate_group(
     )
 }
 
+#[must_use]
 fn translate_comb_group(
     comb_group: &cir::CombGroup,
     interp_ctx: &mut InterpretationContext,
@@ -109,7 +113,7 @@ fn translate_assignment(
         guard: translate_guard(&assign.guard, interp_ctx, map),
     }
 }
-
+#[must_use]
 fn translate_guard(
     guard: &cir::Guard<cir::Nothing>,
     interp_ctx: &mut InterpretationContext,
@@ -118,6 +122,7 @@ fn translate_guard(
     flatten_tree(guard, None, &mut interp_ctx.guards, map)
 }
 
+#[must_use]
 fn translate_component(
     comp: &cir::Component,
     interp_ctx: &mut InterpretationContext,
