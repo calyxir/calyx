@@ -18,38 +18,43 @@ impl<'a> Printer<'a> {
         Self { ctx }
     }
 
+    #[inline]
     fn string_table(&self) -> &IdMap {
         &self.ctx.secondary.string_table
     }
 
-    pub fn print_program(&self) {
-        for (idx, _comp) in self.ctx.primary.components.iter() {
+    pub fn print_group(&self, group: GroupIdx, parent: ComponentRef) {
+        println!(
+            "{}",
+            text_utils::indent(
+                &format!(
+                    "Group: {}",
+                    self.ctx.secondary[self.ctx.primary[group].name()]
+                ),
+                1
+            )
+        );
+        for assign in self.ctx.primary.groups[group].assignments.iter() {
             println!(
-                "Component: {}",
-                self.ctx.resolve_id(self.ctx.secondary[idx].name)
+                "{}",
+                text_utils::indent(self.print_assignment(parent, assign), 2)
             );
-            for x in self.ctx.secondary.comp_aux_info[idx].definitions.groups()
-            {
-                println!(
-                    "{}",
-                    text_utils::indent(
-                        &format!(
-                            "Group: {}",
-                            self.ctx.secondary[self.ctx.primary[x].name()]
-                        ),
-                        1
-                    )
-                );
-                for assign in self.ctx.primary.groups[x].assignments.iter() {
-                    println!(
-                        "{}",
-                        text_utils::indent(
-                            self.print_assignment(idx, assign),
-                            2
-                        )
-                    );
-                }
-            }
+        }
+    }
+
+    pub fn print_component(&self, idx: ComponentRef) {
+        println!(
+            "Component: {}",
+            self.ctx.resolve_id(self.ctx.secondary[idx].name)
+        );
+        for x in self.ctx.secondary.comp_aux_info[idx].definitions.groups() {
+            self.print_group(x, idx)
+        }
+    }
+
+    pub fn print_program(&self) {
+        for idx in self.ctx.primary.components.keys() {
+            self.print_component(idx);
             println!()
         }
     }
