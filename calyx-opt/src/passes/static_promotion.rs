@@ -4,6 +4,7 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::{CalyxResult, Error};
+use ir::{GetAttributes, StaticControl};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -105,6 +106,7 @@ impl From<&ir::Cell> for GoDone {
 pub struct StaticPromotion {
     /// component name -> vec<(go signal, done signal, latency)>
     latency_data: HashMap<ir::Id, GoDone>,
+    static_group_name: HashMap<ir::Id, ir::Id>,
 }
 
 // Override constructor to build latency_data information from the primitives
@@ -138,7 +140,10 @@ impl ConstructVisitor for StaticPromotion {
             }
             latency_data.insert(prim.name, GoDone::new(go_ports));
         }
-        Ok(StaticPromotion { latency_data })
+        Ok(StaticPromotion {
+            latency_data,
+            static_group_name: HashMap::new(),
+        })
     }
 
     // This pass shared information between components
@@ -384,6 +389,109 @@ impl StaticPromotion {
         log::debug!("SUCCESS: Latency = {}", latency_sum);
         Some(latency_sum)
     }
+
+    fn construct_static_enable(&mut self, 
+        builder: &mut ir::Builder,
+        en: ir::Enable,
+   ) -> ir::StaticControl {
+        if let Some(s_name) = self
+                    .static_group_name
+                    .get(&en.group.borrow().name())
+                {
+                        ir::StaticControl::Enable(
+                            ir::StaticEnable {
+                                group: builder
+                                    .component
+                                    .find_static_group(*s_name)
+                                    .unwrap(),
+                                attributes: ir::Attributes::default(),
+                            },
+                        )
+                } else {
+                    let sg = builder.add_static_group(
+                        en.group.borrow().name(),
+                        en.get_attributes().get(ir::NumAttr::PromoteStatic).unwrap(),
+                    );
+                    self.static_group_name.insert(en.group.borrow().name(), sg.borrow().name());
+                    for assignment in
+                        en.group.borrow().assignments.iter()
+                    {
+                        if !(assignment.dst.borrow().is_hole()
+                            && assignment.dst.borrow().name
+                                == "done")
+                        {
+                            let static_s = ir::Assignment::from(
+                                assignment.clone(),
+                            );
+                            sg.borrow_mut()
+                                .assignments
+                                .push(static_s);
+                        }
+                    }
+                    ir::StaticControl::Enable(
+                        ir::StaticEnable {
+                            group: Rc::clone(&sg),
+                            attributes: ir::Attributes::default(),
+                        },
+                    )
+                }
+            }
+
+    fn construct_static_seq(
+        &mut self,
+        builder: &mut ir::Builder,
+        static_vec: &mut Vec<ir::Control>,
+    ) -> ir::Control {
+        let mut latency = 0;
+        let mut static_seq_st: Vec<ir::StaticControl> = Vec::new();
+        for s in std::mem::take(static_vec) {
+            match s {
+            ir::Control::Static(sc) => {
+                latency += sc.get_latency();
+                static_seq_st.push(sc);
+            }
+            ir::Control::Enable(en) => {
+                let sen = self.construct_static_enable(builder, en);
+                latency += sen.get_latency();
+                static_seq_st.push(sen);
+            }
+            _ => unreachable!("We do not insert non-static controls other than group enables with `promote_static` attribute")
+        }
+        }
+        ir::Control::Static(StaticControl::Seq(ir::StaticSeq {
+            stmts: static_seq_st,
+            attributes: ir::Attributes::default(),
+            latency,
+        }))
+    }
+
+    fn construct_static_par(
+        &mut self,
+        builder: &mut ir::Builder,
+        s_stmts: &mut Vec<ir::Control>,
+    ) -> ir::Control {
+        let mut latency = 0;
+        let mut static_par_st: Vec<ir::StaticControl> = Vec::new();
+        for s in std::mem::take(s_stmts) {
+            match s {
+                ir::Control::Static(sc) => {
+                    latency = std::cmp::max(latency, sc.get_latency());
+                    static_par_st.push(sc);
+                }
+                ir::Control::Enable(en) => {
+                    let sen = self.construct_static_enable(builder, en);
+                    latency = std::cmp::max(latency, sen.get_latency());
+                    static_par_st.push(sen);
+                }
+                _ => unreachable!("We do not insert non-static controls other than group enables with `promote_static` attribute")
+            }
+        }
+        ir::Control::Static(StaticControl::Par(ir::StaticPar {
+            stmts: static_par_st,
+            attributes: ir::Attributes::default(),
+            latency,
+        }))
+    }
 }
 
 impl Visitor for StaticPromotion {
@@ -420,65 +528,63 @@ impl Visitor for StaticPromotion {
         Ok(Action::Continue)
     }
 
-    fn enable(
+    fn start(
         &mut self,
-        s: &mut ir::Enable,
         comp: &mut ir::Component,
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, sigs);
-        let latency_result: Option<u64>;
-        if let Some(latency) = self.infer_latency(&s.group.borrow()) {
-            if let Some(sg) =
-                builder.component.find_static_group(s.group.borrow().name())
-            {
-                let s_enable = ir::StaticControl::Enable(ir::StaticEnable {
-                    group: Rc::clone(&sg),
-                    attributes: s.attributes.clone(),
-                });
-                return Ok(Action::change(ir::Control::Static(s_enable)));
-            }
-            let grp = s.group.borrow();
-            if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static) {
-                // Inferred latency is not the same as the provided latency annotation.
-                if curr_lat != latency {
-                    let msg1 = format!("Annotated latency: {}", curr_lat);
-                    let msg2 = format!("Inferred latency: {}", latency);
-                    let msg = format!(
+        let builder = ir::Builder::new(comp, sigs);
+        let mut latency_result: Option<u64>;
+        for group in builder.component.get_groups() {
+            if let Some(latency) = self.infer_latency(&group.borrow()) {
+                let grp = group.borrow();
+                if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static)
+                {
+                    // Inferred latency is not the same as the provided latency annotation.
+                    if curr_lat != latency {
+                        let msg1 = format!("Annotated latency: {}", curr_lat);
+                        let msg2 = format!("Inferred latency: {}", latency);
+                        let msg = format!(
                             "Invalid \"static\" latency annotation for group {}.\n{}\n{}",
                             grp.name(),
                             msg1,
                             msg2
                         );
-                    return Err(Error::malformed_structure(msg)
-                        .with_pos(&grp.attributes));
+                        return Err(Error::malformed_structure(msg)
+                            .with_pos(&grp.attributes));
+                    }
                 }
+                latency_result = Some(latency);
+            } else {
+                latency_result = None;
             }
-            latency_result = Some(latency);
-        } else {
-            latency_result = None;
-        }
 
-        if let Some(res) = latency_result {
-            builder
-                .component
-                .get_groups_mut()
-                .remove(s.group.borrow().name());
-            let sg = builder.add_static_group(s.group.borrow().name(), res);
-            for assignment in s.group.borrow().assignments.iter() {
-                if !(assignment.dst.borrow().is_hole()
-                    && assignment.dst.borrow().name == "done")
-                {
-                    let static_s = ir::Assignment::from(assignment.clone());
-                    sg.borrow_mut().assignments.push(static_s);
-                }
+            if let Some(latency) = latency_result {
+                group
+                    .borrow_mut()
+                    .attributes
+                    .insert(ir::NumAttr::PromoteStatic, latency);
             }
-            let s_enable = ir::StaticControl::Enable(ir::StaticEnable {
-                group: Rc::clone(&sg),
-                attributes: s.attributes.clone(),
-            });
-            return Ok(Action::change(ir::Control::Static(s_enable)));
+        }
+        Ok(Action::Continue)
+    }
+
+    fn enable(
+        &mut self,
+        s: &mut ir::Enable,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+            if let Some(latency) = s
+            .group
+            .borrow()
+            .get_attributes()
+            .unwrap()
+            .get(ir::NumAttr::PromoteStatic)
+        {
+            s.attributes.insert(ir::NumAttr::PromoteStatic, latency);
         }
         Ok(Action::Continue)
     }
@@ -523,31 +629,81 @@ impl Visitor for StaticPromotion {
     fn finish_seq(
         &mut self,
         s: &mut ir::Seq,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(sseq) = s.make_static() {
-            return Ok(Action::change(ir::Control::Static(
-                ir::StaticControl::Seq(sseq),
-            )));
+        let mut builder = ir::Builder::new(comp, sigs);
+        let mut new_stmts: Vec<ir::Control> = Vec::new();
+        let mut static_vec: Vec<ir::Control> = Vec::new();
+        let mut promote_control = true;
+        for stmt in std::mem::take(&mut s.stmts) {
+            if stmt.is_static()
+                || stmt.has_attribute(ir::NumAttr::PromoteStatic)
+            {
+                static_vec.push(stmt);
+            } else {
+                promote_control = false;
+                if static_vec.len() == 1 {
+                    new_stmts.extend(static_vec);
+                }
+                else {
+                let sseq =
+                    self.construct_static_seq(&mut builder, &mut static_vec);
+                new_stmts.push(sseq);
+                }
+                new_stmts.push(stmt);
+                static_vec = Vec::new();
+            }
         }
-        Ok(Action::Continue)
+        if !static_vec.is_empty() {
+            if static_vec.len() == 1 {
+                new_stmts.extend(static_vec);
+            }else {
+            let sseq = self.construct_static_seq(&mut builder, &mut static_vec);
+            if promote_control {
+                return Ok(Action::change(sseq));
+            } else {
+                new_stmts.push(sseq);
+            }
+            }
+        }
+        let new_seq = ir::Control::Seq(ir::Seq {
+            stmts: new_stmts,
+            attributes: ir::Attributes::default(),
+        });
+        return Ok(Action::change(new_seq));
     }
 
     fn finish_par(
         &mut self,
         s: &mut ir::Par,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(spar) = s.make_static() {
-            return Ok(Action::change(ir::Control::Static(
-                ir::StaticControl::Par(spar),
-            )));
+        let mut builder = ir::Builder::new(comp, sigs);
+        let mut new_stmts: Vec<ir::Control> = Vec::new();
+        let (mut s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
+            std::mem::take(&mut s.stmts).into_iter().partition(|s| {
+                s.is_static()
+                    || s.get_attributes().has(ir::NumAttr::PromoteStatic)
+            });
+        if s_stmts.len() > 0 { 
+            let s_par = self.construct_static_par(&mut builder, &mut s_stmts);
+            if d_stmts.len() == 0 {
+                return Ok(Action::change(s_par));
+            }
+            else {
+                new_stmts.push(s_par);
+            }
         }
-        Ok(Action::Continue)
+        new_stmts.extend(d_stmts);
+        let new_par = ir::Control::Par(ir::Par {
+            stmts: new_stmts,
+            attributes: ir::Attributes::default(),
+        });
+        Ok(Action::change(new_par))
     }
 
     fn finish_if(

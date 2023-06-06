@@ -98,6 +98,9 @@ pub enum NumAttr {
     #[strum(serialize = "pos")]
     /// Source location position for this node
     Pos,
+    #[strum(serialize = "promote_static")]
+    /// Promote the group or control to static with the annotated latency
+    PromoteStatic,
 }
 impl From<NumAttr> for Attribute {
     fn from(attr: NumAttr) -> Self {
