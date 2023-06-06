@@ -1,5 +1,3 @@
-use smallvec::SmallVec;
-
 use super::index_trait::{IndexRangeIterator, IndexRef};
 use std::{
     marker::PhantomData,
@@ -7,15 +5,15 @@ use std::{
 };
 
 #[derive(Debug)]
-pub struct IndexedMap<K, D, const N: usize = 0>
+pub struct IndexedMap<K, D>
 where
     K: IndexRef,
 {
-    data: SmallVec<[D; N]>,
+    data: Vec<D>,
     phantom: PhantomData<K>,
 }
 
-impl<K, const N: usize> IndexedMap<K, (), N>
+impl<K> IndexedMap<K, ()>
 where
     K: IndexRef,
 {
@@ -25,7 +23,7 @@ where
     }
 }
 
-impl<K, D, const N: usize> ops::IndexMut<K> for IndexedMap<K, D, N>
+impl<K, D> ops::IndexMut<K> for IndexedMap<K, D>
 where
     K: IndexRef,
 {
@@ -34,7 +32,7 @@ where
     }
 }
 
-impl<K, D, const N: usize> ops::Index<K> for IndexedMap<K, D, N>
+impl<K, D> ops::Index<K> for IndexedMap<K, D>
 where
     K: IndexRef,
 {
@@ -45,20 +43,20 @@ where
     }
 }
 
-impl<K, D, const N: usize> IndexedMap<K, D, N>
+impl<K, D> IndexedMap<K, D>
 where
     K: IndexRef,
 {
     pub fn with_capacity(size: usize) -> Self {
         Self {
-            data: SmallVec::with_capacity(size),
+            data: Vec::with_capacity(size),
             phantom: PhantomData,
         }
     }
 
     pub fn new() -> Self {
         Self {
-            data: SmallVec::new(),
+            data: Vec::new(),
             phantom: PhantomData,
         }
     }
@@ -95,9 +93,18 @@ where
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (K, &D)> {
+        self.data.iter().enumerate().map(|(i, v)| (K::new(i), v))
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
+        // TODO (griffin): Make this an actual struct instead
+        self.data.iter().enumerate().map(|(i, _)| K::new(i))
+    }
 }
 
-impl<T, K, const N: usize> Default for IndexedMap<K, T, N>
+impl<T, K> Default for IndexedMap<K, T>
 where
     K: IndexRef,
 {
@@ -106,23 +113,23 @@ where
     }
 }
 
-pub struct IndexedMapRangeIterator<'range, 'data, K, D, const N: usize>
+pub struct IndexedMapRangeIterator<'range, 'data, K, D>
 where
     K: IndexRef + PartialOrd,
 {
     iterator: IndexRangeIterator<'range, K>,
-    data: &'data IndexedMap<K, D, N>,
+    data: &'data IndexedMap<K, D>,
 }
 
-impl<'range, 'data, K, D, const N: usize> ExactSizeIterator
-    for IndexedMapRangeIterator<'range, 'data, K, D, N>
+impl<'range, 'data, K, D> ExactSizeIterator
+    for IndexedMapRangeIterator<'range, 'data, K, D>
 where
     K: IndexRef + PartialOrd,
 {
 }
 
-impl<'range, 'data, K, D, const N: usize> Iterator
-    for IndexedMapRangeIterator<'range, 'data, K, D, N>
+impl<'range, 'data, K, D> Iterator
+    for IndexedMapRangeIterator<'range, 'data, K, D>
 where
     K: IndexRef + PartialOrd,
 {
@@ -142,19 +149,19 @@ where
 }
 
 #[derive(Debug)]
-pub struct AuxillaryMap<K, D, const N: usize = 0>
+pub struct AuxillaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
 {
-    data: SmallVec<[D; N]>,
+    data: Vec<D>,
     phantom: PhantomData<K>,
     default_value: D,
 }
 
 // NOTE TO SELF: do not implement IndexMut
 
-impl<K, D, const N: usize> Index<K> for AuxillaryMap<K, D, N>
+impl<K, D> Index<K> for AuxillaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
@@ -170,7 +177,7 @@ where
     }
 }
 
-impl<K, D, const N: usize> AuxillaryMap<K, D, N>
+impl<K, D> AuxillaryMap<K, D>
 where
     K: IndexRef,
     D: Clone,
@@ -185,7 +192,7 @@ where
 
     pub fn capacity_with_default(default_value: D, size: usize) -> Self {
         Self {
-            data: SmallVec::with_capacity(size),
+            data: Vec::with_capacity(size),
             phantom: PhantomData,
             default_value,
         }
@@ -214,7 +221,7 @@ where
     }
 }
 
-impl<K, D, const N: usize> AuxillaryMap<K, D, N>
+impl<K, D> AuxillaryMap<K, D>
 where
     K: IndexRef,
     D: Clone + Default,
@@ -229,14 +236,14 @@ where
 
     pub fn with_capacity(size: usize) -> Self {
         Self {
-            data: SmallVec::with_capacity(size),
+            data: Vec::with_capacity(size),
             phantom: PhantomData,
             default_value: Default::default(),
         }
     }
 }
 
-impl<K, D, const N: usize> Default for AuxillaryMap<K, D, N>
+impl<K, D> Default for AuxillaryMap<K, D>
 where
     K: IndexRef,
     D: Clone + Default,

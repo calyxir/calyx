@@ -29,6 +29,14 @@ def main():
         action="store_true",
         help="Convert <datafile> to calyx input (instead of compiling)",
     )
+
+    parser.add_argument(
+        "-m",
+        "--my-map",
+        action="store_true",
+        help="Use my_map instead of the default map implementation",
+    )
+
     parser.add_argument(
         "filename",
         metavar="<file>",
@@ -59,6 +67,6 @@ def main():
             raise ValueError("Must provide data if converting")
         emit_data(ast, data)  # type: ignore
     else:
-        emit(ast)
+        emit(ast, args.my_map)
 
     sys.exit(0)

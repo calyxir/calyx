@@ -6,27 +6,37 @@ use super::{control::structures::ControlIdx, prelude::*};
 
 #[derive(Debug, Clone)]
 pub struct DefinitionRanges {
-    cells: IndexRange<CellDefinition>,
-    ports: IndexRange<PortDefinition>,
-    ref_cells: IndexRange<RefCellDefinition>,
-    ref_ports: IndexRange<RefPortDefinition>,
+    cells: IndexRange<CellDefinitionIdx>,
+    ports: IndexRange<PortDefinitionIdx>,
+    ref_cells: IndexRange<RefCellDefinitionIdx>,
+    ref_ports: IndexRange<RefPortDefinitionIdx>,
+    groups: IndexRange<GroupIdx>,
+    comb_groups: IndexRange<CombGroupIdx>,
 }
 
 impl DefinitionRanges {
-    pub fn cells(&self) -> &IndexRange<CellDefinition> {
+    pub fn cells(&self) -> &IndexRange<CellDefinitionIdx> {
         &self.cells
     }
 
-    pub fn ports(&self) -> &IndexRange<PortDefinition> {
+    pub fn ports(&self) -> &IndexRange<PortDefinitionIdx> {
         &self.ports
     }
 
-    pub fn ref_cells(&self) -> &IndexRange<RefCellDefinition> {
+    pub fn ref_cells(&self) -> &IndexRange<RefCellDefinitionIdx> {
         &self.ref_cells
     }
 
-    pub fn ref_ports(&self) -> &IndexRange<RefPortDefinition> {
+    pub fn ref_ports(&self) -> &IndexRange<RefPortDefinitionIdx> {
         &self.ref_ports
+    }
+
+    pub fn groups(&self) -> &IndexRange<GroupIdx> {
+        &self.groups
+    }
+
+    pub fn comb_groups(&self) -> &IndexRange<CombGroupIdx> {
+        &self.comb_groups
     }
 }
 
@@ -37,6 +47,8 @@ impl Default for DefinitionRanges {
             ref_ports: IndexRange::empty_interval(),
             cells: IndexRange::empty_interval(),
             ref_cells: IndexRange::empty_interval(),
+            groups: IndexRange::empty_interval(),
+            comb_groups: IndexRange::empty_interval(),
         }
     }
 }
@@ -64,10 +76,12 @@ pub struct AuxillaryComponentInfo {
     /// the definitions created by this component
     pub definitions: DefinitionRanges,
     // -------------------
-    pub port_offset_map: SparseMap<LocalPortOffset, PortDefinition>,
-    pub ref_port_offset_map: SparseMap<LocalRefPortOffset, RefPortDefinition>,
-    pub cell_offset_map: SparseMap<LocalCellOffset, CellDefinition>,
-    pub ref_cell_offset_map: SparseMap<LocalRefCellOffset, RefCellDefinition>,
+    pub port_offset_map: SparseMap<LocalPortOffset, PortDefinitionIdx>,
+    pub ref_port_offset_map:
+        SparseMap<LocalRefPortOffset, RefPortDefinitionIdx>,
+    pub cell_offset_map: SparseMap<LocalCellOffset, CellDefinitionIdx>,
+    pub ref_cell_offset_map:
+        SparseMap<LocalRefCellOffset, RefCellDefinitionIdx>,
 }
 
 impl Default for AuxillaryComponentInfo {
@@ -93,34 +107,46 @@ impl AuxillaryComponentInfo {
 
     pub fn set_port_range(
         &mut self,
-        start: PortDefinition,
-        end: PortDefinition,
+        start: PortDefinitionIdx,
+        end: PortDefinitionIdx,
     ) {
         self.definitions.ports = IndexRange::new(start, end)
     }
 
     pub fn set_ref_port_range(
         &mut self,
-        start: RefPortDefinition,
-        end: RefPortDefinition,
+        start: RefPortDefinitionIdx,
+        end: RefPortDefinitionIdx,
     ) {
         self.definitions.ref_ports = IndexRange::new(start, end)
     }
 
     pub fn set_cell_range(
         &mut self,
-        start: CellDefinition,
-        end: CellDefinition,
+        start: CellDefinitionIdx,
+        end: CellDefinitionIdx,
     ) {
         self.definitions.cells = IndexRange::new(start, end)
     }
 
     pub fn set_ref_cell_range(
         &mut self,
-        start: RefCellDefinition,
-        end: RefCellDefinition,
+        start: RefCellDefinitionIdx,
+        end: RefCellDefinitionIdx,
     ) {
         self.definitions.ref_cells = IndexRange::new(start, end)
+    }
+
+    pub fn set_group_range(&mut self, start: GroupIdx, end: GroupIdx) {
+        self.definitions.groups = IndexRange::new(start, end)
+    }
+
+    pub fn set_comb_group_range(
+        &mut self,
+        start: CombGroupIdx,
+        end: CombGroupIdx,
+    ) {
+        self.definitions.comb_groups = IndexRange::new(start, end)
     }
 
     fn offset_sizes(&self, cell_ty: ContainmentType) -> IdxSkipSizes {

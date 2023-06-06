@@ -78,14 +78,14 @@ mrxl frontends/mrxl/test/sos.mrxl
 
 ## Simulating our example with Verilog
 
-Finally, let us go the whole hog: we will compile our MrXL code into Calyx and then simulate the Calyx code in Verilog.
+Finally, let us go the whole hog: we compile our MrXL program to Calyx, which is then compiled to Verilog, and simulated by [Verilator][].
 
 Run:
 ```
-fud e --from mrxl frontends/mrxl/test/sos.mrxl --to dat --through verilog -s mrxl.data frontends/mrxl/test/sos.mrxl.data  
+fud e --from mrxl frontends/mrxl/test/sos.mrxl --to dat --through verilog -s mrxl.data frontends/mrxl/test/sos.mrxl.data
 ```
 
-The above command takes a MrXL program, `sos.mrxl`, and generates results with Verilator using the MrXL data `sos.mrxl.data`.
+The above command takes a MrXL program, `sos.mrxl`, and generates results with Verilator using the MrXL data file `sos.mrxl.data`.
 
 # Compiling MrXL into Calyx
 
@@ -206,6 +206,26 @@ At a high level, we want to generate the following pieces of hardware:
 3. An adder to increment the value of the index.
 4. Whatever hardware is needed to implement the loop body computation.
 
+As an extra challenge to the reader, we have left an empty function body in
+`gen_calyx.py`.
+```python
+{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:my_map_impl}}
+```
+You are invited to try implementing map yourself according to the outline given
+in the description by filling in the body of this function.
+
+To run `mrxl` with `my_map_impl` instead of our map implementation pass the
+`--my-map` flag. This can be done with `fud` as follows:
+```sh
+fud e --from mrxl test/sos.mrxl \     # Start with MrXL code.
+      --to dat --through verilog \    # Generate results using Verilator
+      -s mrxl.flags "--my-map "  \    # NEW (!!)
+      -s mrxl.data test/sos.mrxl.data # Set the data file
+```
+
+If you are satisfied with your map implementation you may skip to
+[the next section](#adding-parallelization)! If you'd like to read through the
+details of our implementation---or build yours in tandem---continue on with the rest of this section.
 
 ### Loop condition
 
@@ -232,18 +252,18 @@ We do this by setting the group's `done` condition to track the register's `done
 The final piece of the puzzle is the body's computation.
 The corresponding group indexes into the input memories:
 ```python
-{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:map_inputs}}
+{{#include ../../frontends/mrxl/mrxl/map.py:map_inputs}}
 ```
 Because the builder module is an embedded DSL, we can simply use Python's `for` loop to generate all the required assignments for indexing.
 
 This code instantiates an adder or a multiplier depending on the computation needed using the `expr_to_port` helper function:
 ```python
-{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:map_op}}
+{{#include ../../frontends/mrxl/mrxl/map.py:map_op}}
 ```
 
 and writes the value from the operation into the output memory:
 ```py
-{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:map_write}}
+{{#include ../../frontends/mrxl/mrxl/map.py:map_write}}
 ```
 This final operation is complicated because we must account for whether we're using an adder or a multiplier.
 Adders are *combinational*–they produce their output immediately–while multipliers are *sequential* and require multiple cycles to produce its output.
@@ -257,7 +277,7 @@ Finally, the group's computation is done when the memory write is committed.
 
 Once we have generated the hardware needed for our computation, we can schedule its computation using [control operators][lf-control]:
 ```py
-{{#include ../../frontends/mrxl/mrxl/gen_calyx.py:map_loop}}
+{{#include ../../frontends/mrxl/mrxl/map.py:map_loop}}
 ```
 
 We generate a while loop that checks that the index is less than the array size.
@@ -351,7 +371,7 @@ Here are some of those restrictions again, along with pointers about how to lift
 
     Say you wanted to add subtraction and division to the mix.
     We have set you up for success: the MrXL parser already parses `-` and `/` into `sub` and `div` respectively.
-    Now, in `gen_calyx.py`, you need to check for "sub" and "div" as possible binary operations, and then invoke the appropriate cell-builders of the `builder` library. 
+    Now, in `gen_calyx.py`, you need to check for "sub" and "div" as possible binary operations, and then invoke the appropriate cell-builders of the `builder` library.
     For reference, see how the `+` and `*` operations are handled at present.
     For "fun", take a look at how Calyx implements [multiplication][binary-mult], and how that maps to the existing invocation to create a 32-bit multiplication cell using the `builder`!
 
@@ -438,3 +458,4 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [compute-par]: https://github.com/cucapra/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/frontends/mrxl/mrxl/gen_calyx.py#L312
 [par-undef]: ../lang/ref.md#par
 [binary-mult]: https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45
+[verilator]: https://www.veripool.org/wiki/verilator

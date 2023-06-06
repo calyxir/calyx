@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 
-use super::structures::{index_trait::IndexRef, indexed_map::IndexedMap};
+use super::super::structures::{
+    index_trait::IndexRef, indexed_map::IndexedMap,
+};
 
 /// A handle bundling a queue of nodes to be processed and a vector of nodes that
 /// have already been processed. The vec itself is not owned by the handle.
@@ -104,12 +106,12 @@ where
     In: FlattenTree<Output = Out, IdxType = Idx, AuxillaryData = Aux>,
 {
     let mut handle = VecHandle::new(vec, root_node, base);
-    let mut node_idx: Option<Idx> = None;
+    let mut root_node_idx: Option<Idx> = None;
 
     while let Some(node) = handle.next_element() {
         let res = node.process_element(handle.produce_limited_handle(), aux);
-        node_idx.get_or_insert(handle.finish_processing(res));
+        root_node_idx.get_or_insert(handle.finish_processing(res));
     }
 
-    node_idx.unwrap()
+    root_node_idx.unwrap()
 }
