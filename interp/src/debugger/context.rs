@@ -2,10 +2,10 @@ use super::cidr::SPACING;
 use super::commands::{
     BreakPointId, ParsedGroupName, PrintTuple, WatchPosition,
 };
-
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
 use calyx_ir::Id;
+use owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Display;
@@ -69,7 +69,7 @@ struct WatchPoint {
 
 impl Display for WatchPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.  {}", self.id, self.print_details)
+        write!(f, "{}.  {}", self.id, self.print_details.yellow())
     }
 }
 
@@ -416,21 +416,21 @@ impl DebuggingContext {
     }
 
     pub fn print_breakpoints(&self) {
-        println!("{}Current breakpoints:", SPACING);
+        println!("{}Current breakpoints:", SPACING.red());
         for breakpoint in self.breakpoints.values() {
-            println!("{}{:?}", SPACING, breakpoint)
+            println!("{}{:?}", SPACING, breakpoint.green())
         }
     }
 
     pub fn print_watchpoints(&self) {
-        println!("{}Current watchpoints:", SPACING);
+        println!("{}Current watchpoints:", SPACING.red());
         let inner_spacing = format!("{}    ", SPACING);
         let outer_spacing = format!("{}  ", SPACING);
 
         for (group, (_brk, watchpoints)) in self.watchpoints_before.iter() {
             println!("{}Before {}:", outer_spacing, group);
             for watchpoint in watchpoints.iter() {
-                println!("{}{}", inner_spacing, watchpoint);
+                println!("{}{}", inner_spacing, watchpoint.magenta());
             }
         }
 
@@ -440,7 +440,7 @@ impl DebuggingContext {
             if !watchpoints.is_empty() {
                 println!("{}After {}:", outer_spacing, group);
                 for watchpoint in watchpoints.iter() {
-                    println!("{}{}", inner_spacing, watchpoint);
+                    println!("{}{}", inner_spacing, watchpoint.purple());
                 }
             }
         }

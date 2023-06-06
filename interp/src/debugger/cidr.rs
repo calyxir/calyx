@@ -1,5 +1,3 @@
-use std::{cell::Ref, collections::HashMap, rc::Rc};
-
 use super::{
     commands::{Command, PrintCode, PrintMode},
     context::DebuggingContext,
@@ -15,8 +13,9 @@ use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
 use crate::{interpreter_ir as iir, primitives::Serializable};
 use calyx_ir::{self as ir, Id, RRC};
+use owo_colors::OwoColorize;
 use std::fmt::Write;
-
+use std::{cell::Ref, collections::HashMap, rc::Rc};
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
 
@@ -71,7 +70,7 @@ impl Debugger {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_)
                     | InterpreterError::ParseError(_) => {
-                        println!("Error: {}", e);
+                        println!("Error: {}", e.green());
                         continue;
                     }
                     _ => return Err(e),
@@ -79,6 +78,27 @@ impl Debugger {
             };
 
             match comm {
+                Command::Where(flag) => {
+                    if flag {
+                        // Print the Calyx group tree even when source info is present
+                        println!(
+                            "{}",
+                            component_interpreter
+                                .get_active_tree()
+                                .remove(0)
+                                .format_tree::<true>(0)
+                        );
+                    } else {
+                        // Print the Calyx group tree without source info
+                        println!(
+                            "{}",
+                            component_interpreter
+                                .get_active_tree()
+                                .remove(0)
+                                .format_tree::<false>(0)
+                        );
+                    }
+                }
                 Command::Step(n) => {
                     for _ in 0..n {
                         component_interpreter.step()?;
@@ -117,7 +137,7 @@ impl Debugger {
                                     component_interpreter.get_env(),
                                     watch.print_mode(),
                                 ) {
-                                    println!("{}", msg);
+                                    println!("{}", msg.red());
                                 }
                             }
                         }
@@ -133,7 +153,7 @@ impl Debugger {
 
                     if !component_interpreter.is_done() {
                         for breakpoint in breakpoints {
-                            println!("Hit breakpoint: {}", breakpoint);
+                            println!("Hit breakpoint: {}", breakpoint.red());
                         }
                         component_interpreter.converge()?;
                     }
@@ -141,7 +161,7 @@ impl Debugger {
                 Command::Empty => {}
                 Command::Display => {
                     let state = component_interpreter.get_env();
-                    println!("{}", state.state_as_str());
+                    println!("{}", state.state_as_str().red());
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
@@ -151,8 +171,8 @@ impl Debugger {
                             component_interpreter.get_env(),
                             &print_mode,
                         ) {
-                            Ok(msg) => println!("{}", msg),
-                            Err(e) => println!("{}", e),
+                            Ok(msg) => println!("{}", msg.red()),
+                            Err(e) => println!("{}", e.red()),
                         }
                     }
                 }
@@ -485,12 +505,18 @@ fn print_cell(
             if matches!(&cell_state, &Serializable::Empty) {
                 print_cell(target, state, code, &PrintMode::Port)
             } else {
-                format!("{}{} = {}", SPACING, cell_ref.name(), cell_state)
+                format!(
+                    "{}{} = {}",
+                    SPACING,
+                    cell_ref.name().red(),
+                    cell_state.red()
+                )
             }
         }
+
         PrintMode::Port => {
             let mut output: String = String::new();
-            writeln!(output, "{}{}", SPACING, cell_ref.name())
+            writeln!(output, "{}{}", SPACING, cell_ref.name().red())
                 .expect("Something went wrong trying to print the port");
             for port in cell_ref.ports.iter() {
                 let v = state.lookup(port.as_raw());
@@ -498,23 +524,25 @@ fn print_cell(
                     output,
                     "{}  {} = {}",
                     SPACING,
-                    port.borrow().name,
+                    port.borrow().name.red(),
                     if let Some(code) = code {
                         match code {
                             PrintCode::Unsigned => {
                                 format!("{}", v.as_unsigned())
                             }
-                            PrintCode::Signed => format!("{}", v.as_signed()),
+                            PrintCode::Signed => {
+                                format!("{}", v.as_signed().red())
+                            }
                             PrintCode::UFixed(num) => {
-                                format!("{}", v.as_ufp(*num))
+                                format!("{}", v.as_ufp(*num).red())
                             }
                             PrintCode::SFixed(num) => {
-                                format!("{}", v.as_sfp(*num))
+                                format!("{}", v.as_sfp(*num).red())
                             }
-                            PrintCode::Binary => format!("{}", v),
+                            PrintCode::Binary => format!("{}", v.red()),
                         }
                     } else {
-                        format!("{}", &v)
+                        format!("{}", &v.red())
                     }
                 )
                 .expect("Something went wrong trying to print the port");
@@ -543,8 +571,8 @@ fn print_port(
     format!(
         "{}{}.{} = {}",
         SPACING,
-        parent_name,
-        port_ref.name,
+        parent_name.red(),
+        port_ref.name.green(),
         match code {
             PrintCode::Unsigned => format!("{}", v.as_unsigned()),
             PrintCode::Signed => format!("{}", v.as_signed()),

@@ -23,7 +23,7 @@ pest.workspace = true
 pest_derive.workspace = true
 pest_consume.workspace = true
 argh.workspace = true
-
+owo-colors = "^3.5"
 bitvec = "1.0"
 base64 = "0.13.0"
 serde_json = "1.0"
@@ -51,3 +51,5 @@ proptest = "1.0.0"
 
 [dependencies.serde_with]
 version = "1.6.4"
+
+

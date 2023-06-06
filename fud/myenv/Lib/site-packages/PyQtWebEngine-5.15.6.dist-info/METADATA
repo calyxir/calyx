@@ -1,0 +1,58 @@
+Metadata-Version: 2.1
+Name: PyQtWebEngine
+Version: 5.15.6
+Requires-Python: >=3.7
+Summary: Python bindings for the Qt WebEngine framework
+Home-Page: https://www.riverbankcomputing.com/software/pyqtwebengine/
+Author: Riverbank Computing Limited
+Author-Email: info@riverbankcomputing.com
+License: GPL v3
+Requires-Dist: PyQt5-sip (>=12.11, <13)
+Requires-Dist: PyQtWebEngine-Qt5 (>=5.15.0)
+Requires-Dist: PyQt5 (>=5.15.4)
+
+PyQtWebEngine - Python Bindings for the Qt WebEngine Framework
+==============================================================
+
+PyQtWebEngine is a set of Python bindings for The Qt Company's Qt WebEngine
+framework.  The framework provides the ability to embed web content in
+applications and is based on the Chrome browser.  The bindings sit on top of
+PyQt5 and are implemented as three separate modules corresponding to the
+different libraries that make up the framework.
+
+Author
+------
+
+PyQtWebEngine is copyright (c) Riverbank Computing Limited.  Its homepage is
+https://www.riverbankcomputing.com/software/pyqtwebengine/.
+
+Support may be obtained from the PyQt mailing list at
+https://www.riverbankcomputing.com/mailman/listinfo/pyqt/.
+
+
+License
+-------
+
+PyQtWebEngine is released under the GPL v3 license and under a commercial
+license that allows for the development of proprietary applications.
+
+
+Documentation
+-------------
+
+The documentation for the latest release can be found
+`here <https://www.riverbankcomputing.com/static/Docs/PyQt5/>`__.
+
+
+Installation
+------------
+
+The GPL version of PyQtWebEngine can be installed from PyPI::
+
+    pip install PyQtWebEngine
+
+``pip`` will also build and install the bindings from the sdist package but
+Qt's ``qmake`` tool must be on ``PATH``.
+
+The ``sip-install`` tool will also install the bindings from the sdist package
+but will allow you to configure many aspects of the installation.

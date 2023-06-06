@@ -54,8 +54,12 @@ impl CommandParser {
         Ok(Command::Exit)
     }
 
-    fn comm_where(_input: Node) -> ParseResult<Command> {
-        Ok(Command::PrintPC)
+    fn comm_where(input: Node) -> ParseResult<Command> {
+        if input.as_str() == "where \\u" {
+            Ok(Command::Where(true))
+        } else {
+            Ok(Command::PrintPC)
+        }
     }
 
     fn pc_un(_input: Node) -> ParseResult<()> {
