@@ -97,9 +97,9 @@ impl From<&ir::Cell> for GoDone {
 /// Infer "promote_static" annotation for groups and promote control to static when
 /// (conservatively) possible.
 ///
-///Promotion follows the current policies:
+/// Promotion follows the current policies:
 /// 1. if multiple groups enables aligned inside a seq are marked with the "promote_static"
-///     attribute, then promote all promotable enables to static enables, meanwhile,
+///     attribute, then promote all promotable enables to static enables, meanwhile, 
 ///     wrap them into a static seq
 ///     for example:
 /// ```
@@ -107,25 +107,25 @@ impl From<&ir::Cell> for GoDone {
 ///         a1;
 ///         @promote_static a2; @promote_static a3; }
 /// ```
-///     becomes
+///     becomes 
 /// ```
 ///     seq {
-///         a1;
+///         a1; 
 ///         static seq {a2; a3;}}
 /// ```
 /// 2. if all control statements under seq are either static statements or group enables
-///     with `promote_static` annotation, then promote all group enables and turn
+///     with `promote_static` annotation, then promote all group enables and turn 
 ///     seq into static seq
 /// 3. Under a par control op, all group enables marked with `promote_static` will be promoted.
-///     all control statements that are either static or group enables with `promote_static` annotation
+///     all control statements that are either static or group enables with `promote_static` annotation 
 ///     are wrapped inside a static par.
 /// ```
 /// par {@promote_static a1; a2; @promote_static a3;}
 /// ```
-/// becomes
+/// becomes 
 /// ```
 /// par {
-/// static par { a1; a3; }
+/// static par { a1; a3; } 
 /// a2;
 /// }
 /// ```
@@ -416,39 +416,52 @@ impl StaticPromotion {
         Some(latency_sum)
     }
 
-    fn construct_static_enable(
-        &mut self,
+    fn construct_static_enable(&mut self, 
         builder: &mut ir::Builder,
         en: ir::Enable,
-    ) -> ir::StaticControl {
-        if let Some(s_name) =
-            self.static_group_name.get(&en.group.borrow().name())
-        {
-            ir::StaticControl::Enable(ir::StaticEnable {
-                group: builder.component.find_static_group(*s_name).unwrap(),
-                attributes: ir::Attributes::default(),
-            })
-        } else {
-            let sg = builder.add_static_group(
-                en.group.borrow().name(),
-                en.get_attributes().get(ir::NumAttr::PromoteStatic).unwrap(),
-            );
-            self.static_group_name
-                .insert(en.group.borrow().name(), sg.borrow().name());
-            for assignment in en.group.borrow().assignments.iter() {
-                if !(assignment.dst.borrow().is_hole()
-                    && assignment.dst.borrow().name == "done")
+   ) -> ir::StaticControl {
+        if let Some(s_name) = self
+                    .static_group_name
+                    .get(&en.group.borrow().name())
                 {
-                    let static_s = ir::Assignment::from(assignment.clone());
-                    sg.borrow_mut().assignments.push(static_s);
+                        ir::StaticControl::Enable(
+                            ir::StaticEnable {
+                                group: builder
+                                    .component
+                                    .find_static_group(*s_name)
+                                    .unwrap(),
+                                attributes: ir::Attributes::default(),
+                            },
+                        )
+                } else {
+                    let sg = builder.add_static_group(
+                        en.group.borrow().name(),
+                        en.get_attributes().get(ir::NumAttr::PromoteStatic).unwrap(),
+                    );
+                    self.static_group_name.insert(en.group.borrow().name(), sg.borrow().name());
+                    for assignment in
+                        en.group.borrow().assignments.iter()
+                    {
+                        if !(assignment.dst.borrow().is_hole()
+                            && assignment.dst.borrow().name
+                                == "done")
+                        {
+                            let static_s = ir::Assignment::from(
+                                assignment.clone(),
+                            );
+                            sg.borrow_mut()
+                                .assignments
+                                .push(static_s);
+                        }
+                    }
+                    ir::StaticControl::Enable(
+                        ir::StaticEnable {
+                            group: Rc::clone(&sg),
+                            attributes: ir::Attributes::default(),
+                        },
+                    )
                 }
             }
-            ir::StaticControl::Enable(ir::StaticEnable {
-                group: Rc::clone(&sg),
-                attributes: ir::Attributes::default(),
-            })
-        }
-    }
 
     fn construct_static_seq(
         &mut self,
@@ -590,7 +603,7 @@ impl Visitor for StaticPromotion {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(latency) = s
+            if let Some(latency) = s
             .group
             .borrow()
             .get_attributes()
@@ -659,10 +672,11 @@ impl Visitor for StaticPromotion {
                 promote_control = false;
                 if static_vec.len() == 1 {
                     new_stmts.extend(static_vec);
-                } else {
-                    let sseq = self
-                        .construct_static_seq(&mut builder, &mut static_vec);
-                    new_stmts.push(sseq);
+                }
+                else {
+                let sseq =
+                    self.construct_static_seq(&mut builder, &mut static_vec);
+                new_stmts.push(sseq);
                 }
                 new_stmts.push(stmt);
                 static_vec = Vec::new();
@@ -671,21 +685,20 @@ impl Visitor for StaticPromotion {
         if !static_vec.is_empty() {
             if static_vec.len() == 1 {
                 new_stmts.extend(static_vec);
+            }else {
+            let sseq = self.construct_static_seq(&mut builder, &mut static_vec);
+            if promote_control {
+                return Ok(Action::change(sseq));
             } else {
-                let sseq =
-                    self.construct_static_seq(&mut builder, &mut static_vec);
-                if promote_control {
-                    return Ok(Action::change(sseq));
-                } else {
-                    new_stmts.push(sseq);
-                }
+                new_stmts.push(sseq);
+            }
             }
         }
         let new_seq = ir::Control::Seq(ir::Seq {
             stmts: new_stmts,
             attributes: ir::Attributes::default(),
         });
-        return Ok(Action::change(new_seq));
+        Ok(Action::change(new_seq))
     }
 
     fn finish_par(
@@ -702,11 +715,12 @@ impl Visitor for StaticPromotion {
                 s.is_static()
                     || s.get_attributes().has(ir::NumAttr::PromoteStatic)
             });
-        if s_stmts.len() > 0 {
+        if !s_stmts.is_empty() { 
             let s_par = self.construct_static_par(&mut builder, &mut s_stmts);
-            if d_stmts.len() == 0 {
+            if d_stmts.is_empty() {
                 return Ok(Action::change(s_par));
-            } else {
+            }
+            else {
                 new_stmts.push(s_par);
             }
         }
