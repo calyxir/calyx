@@ -93,7 +93,7 @@ def parse_fp_widths(format):
 def convert(x, round: bool, is_signed: bool, width: int, int_width=None):
     with_prefix = False
     # If `int_width` is not defined, then this is a `Bitnum`
-    if not int_width:
+    if int_width is None:
         return Bitnum(x, width, is_signed).hex_string(with_prefix)
 
     try:
@@ -149,7 +149,7 @@ def convert2dat(output_dir, data, extension, round: bool):
             "is_signed": is_signed,
             "width": width,
         }
-        if int_width:
+        if int_width is not None:
             shape[k]["int_width"] = int_width
 
         with path.open("w") as f:
