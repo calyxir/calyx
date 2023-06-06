@@ -1,5 +1,27 @@
 {
-  "radicand": {
+  "radicand_31": {
+    "data": [
+      16.25
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 31,
+      "frac_width": 16
+    }
+  },
+  "root_31": {
+    "data": [
+      0.0
+    ],
+    "format": {
+      "numeric_type": "fixed_point",
+      "is_signed": false,
+      "width": 31,
+      "frac_width": 16
+    }
+  },
+  "radicand_32": {
     "data": [
       16.25
     ],
@@ -10,7 +32,7 @@
       "frac_width": 16
     }
   },
-  "root": {
+  "root_32": {
     "data": [
       0.0
     ],

@@ -3,30 +3,53 @@ import "primitives/core.futil";
 
 component main() -> () {
   cells {
-    @external(1) radicand = std_mem_d1(32, 1, 1);
-    @external(1) root = std_mem_d1(32, 1, 1);
-    t = std_reg(32);
-    s = sqrt(32);
+    @external(1) radicand_31 = std_mem_d1(31, 1, 1);
+    @external(1) root_31 = std_mem_d1(31, 1, 1);
+
+    @external(1) radicand_32 = std_mem_d1(32, 1, 1);
+    @external(1) root_32 = std_mem_d1(32, 1, 1);
+
+    t_31 = std_reg(31);
+    t_32 = std_reg(32);
+
+    s_31 = sqrt(31);
+    s_32 = sqrt(32);
   }
   wires {
-    group save_temporary<"static"=1> {
-      t.write_en = 1'd1;
-      radicand.addr0 = 1'd0;
-      t.in = radicand.read_data;
-      save_temporary[done] = t.done ? 1'd1;
+    group save_temporary_31<"static"=1> {
+      t_31.write_en = 1'd1;
+      radicand_31.addr0 = 1'd0;
+      t_31.in = radicand_31.read_data;
+      save_temporary_31[done] = t_31.done ? 1'd1;
     }
-    group save_sqrt<"static"=1> {
-      root.addr0 = 1'd0;
-      root.write_en = 1'd1;
-      root.write_data = s.out;
-      save_sqrt[done] = root.done ? 1'd1;
+    group save_sqrt_31<"static"=1> {
+      root_31.addr0 = 1'd0;
+      root_31.write_en = 1'd1;
+      root_31.write_data = s_31.out;
+      save_sqrt_31[done] = root_31.done ? 1'd1;
+    }
+    group save_temporary_32<"static"=1> {
+      t_32.write_en = 1'd1;
+      radicand_32.addr0 = 1'd0;
+      t_32.in = radicand_32.read_data;
+      save_temporary_32[done] = t_32.done ? 1'd1;
+    }
+    group save_sqrt_32<"static"=1> {
+      root_32.addr0 = 1'd0;
+      root_32.write_en = 1'd1;
+      root_32.write_data = s_32.out;
+      save_sqrt_32[done] = root_32.done ? 1'd1;
     }
   }
   control {
     seq {
-      save_temporary;
-      invoke s(in=t.out)();
-      save_sqrt;
+      save_temporary_31;
+      invoke s_31(in=t_31.out)();
+      save_sqrt_31;
+
+      save_temporary_32;
+      invoke s_32(in=t_32.out)();
+      save_sqrt_32;
     }
   }
 }
