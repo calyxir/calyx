@@ -659,7 +659,7 @@ impl Visitor for StaticPromotion {
                 promote_control = false;
                 if static_vec.len() == 1 {
                     new_stmts.extend(static_vec);
-                } else {
+                } else if static_vec.len() > 1 {
                     let sseq = self
                         .construct_static_seq(&mut builder, &mut static_vec);
                     new_stmts.push(sseq);
