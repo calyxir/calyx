@@ -31,6 +31,8 @@ This short program shows off all of MrXL's features, so let's pick it apart line
 
 ## Running our example
 
+If you are going through this tutorial in the [Docker container][docker], 
+
 First, install the [`builder` library][calyx-py-lib] by typing the following command from the repository root:
 ```
 cd calyx-py && flit install -s && cd -
@@ -217,15 +219,15 @@ in the description by filling in the body of this function.
 To run `mrxl` with `my_map_impl` instead of our map implementation pass the
 `--my-map` flag. This can be done with `fud` as follows:
 ```sh
-fud e --from mrxl test/sos.mrxl \     # Start with MrXL code.
-      --to dat --through verilog \    # Generate results using Verilator
-      -s mrxl.flags "--my-map "  \    # NEW (!!)
-      -s mrxl.data test/sos.mrxl.data # Set the data file
+fud e --from mrxl test/sos.mrxl \     
+      --to dat --through verilog \    
+      -s mrxl.flags "--my-map "  \    
+      -s mrxl.data test/sos.mrxl.data 
 ```
 
 If you are satisfied with your map implementation you may skip to
 [the next section](#adding-parallelization)! If you'd like to read through the
-details of our implementation---or build yours in tandem---continue on with the rest of this section.
+details of our implementation-or build yours in tandem-continue on with the rest of this section.
 
 ### Loop condition
 
@@ -350,7 +352,7 @@ As specified by the language specification, [conflicting resource usage is undef
 You can use `fud` to compile the MrXL program and run it with some data:
 ```
 fud e --from mrxl --to dat \
-      --through icarus-verilog \
+      --through verilator \
       -s mrxl.data frontends/mrxl/test/squares.mrxl.data \
       frontends/mrxl/test/squares.mrxl
 ```
@@ -383,6 +385,8 @@ Here are some of those restrictions again, along with pointers about how to lift
     To get you started, we provide a toy implementation using the `builder` [here][builder-red-tree].
     That example is rather brittle: it takes exactly 16 inputs, banked into four arrays, and adds their values together.
     Try incorporating this brittle version into your MrXL-to-Calyx compiler at first, and you can later think about generalizing it to any (commutative) operation, memories of any length, and any parallelism factor.
+
+    If you'd like to read more about reduction trees, you can check out [these slides][reduc-trees] from David Kirk and Wen-mei W. Hwu.
 
 3.
     > If repeated `map`/`reduce` operations are performed on the same array, each of those operations must have the same parallelism factor.

@@ -57,6 +57,8 @@ cargo build # Builds the compiler
 
 ## Running Core Tests
 
+If you're using the Docker container, you can skip to [running a hardware design][hw-design].
+
 The core test suites tests the Calyx compiler passes.
 Install the following tools for running the core tests:
   1. [runt][] hosts our testing infrastructure. Install with:
@@ -170,3 +172,4 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [calyx-crate]: https://crates.io/crates/calyx
 [core-lib]: https://github.com/cucapra/calyx/blob/master/primitives/core.futil
 [calyx-docker]: https://github.com/cucapra/calyx/pkgs/container/calyx
+[hw-design]: ./intro.md#running-a-hardware-design
