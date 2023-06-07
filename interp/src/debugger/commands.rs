@@ -189,9 +189,8 @@ pub enum Command {
         Option<PrintCode>,
         PrintMode,
     ),
-    PrintPC,
+    PrintPC(Option<bool>),
     Explain,
-    Where(bool),
 }
 
 type Description = &'static str;

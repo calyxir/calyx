@@ -70,7 +70,8 @@ disable = { (^"disable") ~ brk_id* }
 
 exit = { ^"exit" | ^"quit" }
 
-comm_where = { ^"where" | ^"pc" }
+
+comm_where = { ^"where" ~ ("true" | "") | "pc"~ ("true" | "") }
 
 explain = { ^"explain" }
 

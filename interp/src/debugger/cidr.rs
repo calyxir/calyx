@@ -12,7 +12,9 @@ use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
 use crate::{interpreter_ir as iir, primitives::Serializable};
+
 use calyx_ir::{self as ir, Id, RRC};
+
 use owo_colors::OwoColorize;
 use std::fmt::Write;
 use std::{cell::Ref, collections::HashMap, rc::Rc};
@@ -61,7 +63,9 @@ impl Debugger {
         component_interpreter.converge()?;
 
         let mut input_stream = Input::new()?;
+
         println!("== Calyx Interactive Debugger ==");
+
         while !component_interpreter.is_done() {
             let comm = input_stream.next_command();
             let comm = match comm {
@@ -70,7 +74,7 @@ impl Debugger {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_)
                     | InterpreterError::ParseError(_) => {
-                        println!("Error: {}", e.green());
+                        println!("Error: {}", e.red().bold());
                         continue;
                     }
                     _ => return Err(e),
@@ -78,27 +82,6 @@ impl Debugger {
             };
 
             match comm {
-                Command::Where(flag) => {
-                    if flag {
-                        // Print the Calyx group tree even when source info is present
-                        println!(
-                            "{}",
-                            component_interpreter
-                                .get_active_tree()
-                                .remove(0)
-                                .format_tree::<true>(0)
-                        );
-                    } else {
-                        // Print the Calyx group tree without source info
-                        println!(
-                            "{}",
-                            component_interpreter
-                                .get_active_tree()
-                                .remove(0)
-                                .format_tree::<false>(0)
-                        );
-                    }
-                }
                 Command::Step(n) => {
                     for _ in 0..n {
                         component_interpreter.step()?;
@@ -137,7 +120,10 @@ impl Debugger {
                                     component_interpreter.get_env(),
                                     watch.print_mode(),
                                 ) {
-                                    println!("{}", msg.red());
+                                    println!(
+                                        "{}",
+                                        msg.on_black().yellow().bold()
+                                    );
                                 }
                             }
                         }
@@ -153,7 +139,10 @@ impl Debugger {
 
                     if !component_interpreter.is_done() {
                         for breakpoint in breakpoints {
-                            println!("Hit breakpoint: {}", breakpoint.red());
+                            println!(
+                                "Hit breakpoint: {}",
+                                breakpoint.bright_purple().underline()
+                            );
                         }
                         component_interpreter.converge()?;
                     }
@@ -161,7 +150,10 @@ impl Debugger {
                 Command::Empty => {}
                 Command::Display => {
                     let state = component_interpreter.get_env();
-                    println!("{}", state.state_as_str().red());
+                    println!(
+                        "{}",
+                        state.state_as_str().on_black().white().bold()
+                    );
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
@@ -171,13 +163,13 @@ impl Debugger {
                             component_interpreter.get_env(),
                             &print_mode,
                         ) {
-                            Ok(msg) => println!("{}", msg.red()),
-                            Err(e) => println!("{}", e.red()),
+                            Ok(msg) => println!("{}", msg.magenta()),
+                            Err(e) => println!("{}", e.bright_red().bold()),
                         }
                     }
                 }
                 Command::Help => {
-                    print!("{}", Command::get_help_string())
+                    print!("{}", Command::get_help_string().cyan())
                 }
                 Command::Break(targets) => {
                     if targets.is_empty() {
@@ -195,7 +187,7 @@ impl Debugger {
                             .debugging_ctx
                             .is_group_running(currently_executing, &target)
                         {
-                            println!("Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.", &target)
+                            println!("Warning: the group {} is already running. This breakpoint will not trigger until the next time the group runs.", &target.yellow().italic())
                         }
 
                         self.debugging_ctx.add_breakpoint(target);
@@ -278,7 +270,7 @@ impl Debugger {
                             &print_mode,
                         ) {
                             error_occurred = true;
-                            println!("{}", e);
+                            println!("{}", e.red().bold());
                         }
                     }
 
@@ -293,7 +285,7 @@ impl Debugger {
                     )
                 }
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
-                Command::PrintPC => {
+                Command::PrintPC(_) => {
                     if let Some(map) = &self.source_map {
                         let mut printed = false;
                         for x in component_interpreter
@@ -328,7 +320,9 @@ impl Debugger {
                         )
                     }
                 }
-                Command::Explain => print!("{}", Command::get_explain_string()),
+                Command::Explain => {
+                    print!("{}", Command::get_explain_string().blue())
+                }
             }
         }
 
@@ -344,7 +338,7 @@ impl Debugger {
                     InterpreterError::InvalidCommand(_)
                     | InterpreterError::UnknownCommand(_)
                     | InterpreterError::ParseError(_) => {
-                        println!("Error: {}", e);
+                        println!("Error: {}", e.red().bold());
                         continue;
                     }
                     _ => return Err(e),
@@ -355,7 +349,7 @@ impl Debugger {
                 Command::Empty => {}
                 Command::Display => {
                     let state = final_env.as_state_view();
-                    println!("{}", state.state_as_str());
+                    println!("{}", state.state_as_str().purple());
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
@@ -365,17 +359,21 @@ impl Debugger {
                             final_env.as_state_view(),
                             &print_mode,
                         ) {
-                            Ok(msg) => println!("{}", msg),
-                            Err(e) => println!("{}", e),
+                            Ok(msg) => println!("{}", msg.green()),
+                            Err(e) => {
+                                println!("{}", e.red().underline().bold())
+                            }
                         }
                     }
                 }
 
                 Command::Help => {
-                    print!("{}", Command::get_help_string())
+                    print!("{}", Command::get_help_string().blue())
                 }
                 Command::Exit => return Err(InterpreterError::Exit.into()),
-                Command::Explain => print!("{}", Command::get_explain_string()),
+                Command::Explain => {
+                    print!("{}", Command::get_explain_string().blue().bold())
+                }
                 _ => {
                     println!(
                         "This command is unavailable after program termination"
@@ -508,8 +506,8 @@ fn print_cell(
                 format!(
                     "{}{} = {}",
                     SPACING,
-                    cell_ref.name().red(),
-                    cell_state.red()
+                    cell_ref.name().green().bold(),
+                    cell_state.blue().bold()
                 )
             }
         }
@@ -531,18 +529,18 @@ fn print_cell(
                                 format!("{}", v.as_unsigned())
                             }
                             PrintCode::Signed => {
-                                format!("{}", v.as_signed().red())
+                                format!("{}", v.as_signed().green())
                             }
                             PrintCode::UFixed(num) => {
-                                format!("{}", v.as_ufp(*num).red())
+                                format!("{}", v.as_ufp(*num).blue())
                             }
                             PrintCode::SFixed(num) => {
-                                format!("{}", v.as_sfp(*num).red())
+                                format!("{}", v.as_sfp(*num).purple())
                             }
-                            PrintCode::Binary => format!("{}", v.red()),
+                            PrintCode::Binary => format!("{}", v.cyan()),
                         }
                     } else {
-                        format!("{}", &v.red())
+                        format!("{}", &v.magenta())
                     }
                 )
                 .expect("Something went wrong trying to print the port");
