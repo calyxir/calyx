@@ -278,11 +278,13 @@ name = "[frontend] mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
 expect_dir = "frontends/mrxl/test/expect/simulate_out/"
 cmd = """
-fud e -q {} --from mrxl --to jq \
-            --through dat \
-            --through verilog \
-            -s verilog.data {}.data \
-            -s jq.expr ".memories"
+fud e --from mrxl {} \
+      --to jq \
+      --through verilog \
+      --through dat \
+      -s mrxl.data {}.data \
+      -s jq.expr ".memories" \
+      -q
 """
 
 [[tests]]
