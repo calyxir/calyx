@@ -198,9 +198,9 @@ class FixedPoint(NumericType):
             raise InvalidNumericType(
                 f"The value: `{value}` is not representable in fixed point."
             )
-        required_int_width = int(log2(int_partition) if int_partition > 0 else 0)
+        required_int_width = int(log2(int_partition)) + 1 if int_partition > 0 else 0
         required_frac_width = int(required_frac_width)
-        int_overflow = required_int_width > self.int_width - 1
+        int_overflow = required_int_width > self.int_width
         frac_overflow = required_frac_width > self.frac_width
         if int_overflow or frac_overflow:
             raise InvalidNumericType(
@@ -216,7 +216,7 @@ has led to overflow.
         int_bits = np.binary_repr(int_partition, self.int_width)
         frac_bits = np.binary_repr(
             round(frac_partition * (2**self.frac_width)), self.frac_width
-        )
+        ) if self.frac_width > 0 else ""
         # Given the binary form of the integer part and fractional part of
         # the decimal, simply append the two strings.
         bits = int_bits + frac_bits
