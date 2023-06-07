@@ -174,7 +174,7 @@ impl ConstructVisitor for StaticPromotion {
 
     // This pass shared information between components
     fn clear_data(&mut self) {
-        /* All data is transferred between components */
+        self.static_group_name = HashMap::new();
     }
 }
 
