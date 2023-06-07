@@ -657,12 +657,18 @@ impl Visitor for StaticPromotion {
                 static_vec.push(stmt);
             } else {
                 promote_control = false;
-                if static_vec.len() == 1 {
-                    new_stmts.extend(static_vec);
-                } else if static_vec.len() > 1 {
-                    let sseq = self
-                        .construct_static_seq(&mut builder, &mut static_vec);
-                    new_stmts.push(sseq);
+                match static_vec.len().cmp(&1) {
+                    std::cmp::Ordering::Equal => {
+                        new_stmts.extend(static_vec);
+                    }
+                    std::cmp::Ordering::Greater => {
+                        let sseq = self.construct_static_seq(
+                            &mut builder,
+                            &mut static_vec,
+                        );
+                        new_stmts.push(sseq);
+                    }
+                    _ => {}
                 }
                 new_stmts.push(stmt);
                 static_vec = Vec::new();
