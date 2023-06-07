@@ -276,6 +276,7 @@ fud e --from calyx --to dat --through verilog -s verilog.data {}.data -q
 [[tests]]
 name = "[frontend] mrxl correctness"
 paths = [ "frontends/mrxl/test/*.mrxl" ]
+expect_dir = "frontends/mrxl/test/expect/simulate_out/"
 cmd = """
 fud e -q {} --from mrxl --to jq \
             --through dat \
@@ -283,8 +284,6 @@ fud e -q {} --from mrxl --to jq \
             -s verilog.data {}.data \
             -s jq.expr ".memories"
 """
-
-expect_dir = "frontends/mrxl/test/expect/simulate_out/"
 
 [[tests]]
 name = "[frontend] relay correctness"
