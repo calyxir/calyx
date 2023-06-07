@@ -58,7 +58,7 @@ module fp_sqrt #(
     always_ff @(posedge clk) begin
       if (start) begin
         quotient <= 0;
-        {acc, x} <= {{EXT_WIDTH{1'b0}}, in, 2'b0};
+        {acc, x} <= {{EXT_WIDTH + (INT_WIDTH & 1){1'b0}}, in, 2'b0};
       end else begin
         x <= x_next;
         acc <= acc_next;
