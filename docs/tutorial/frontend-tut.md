@@ -31,7 +31,7 @@ This short program shows off all of MrXL's features, so let's pick it apart line
 
 ## Running our example
 
-If you are going through this tutorial in the [Docker container][docker], 
+If you are going through this tutorial in the [Docker container][docker], you can skip these installation steps and just run the the `mrxl` command a few lines below.
 
 First, install the [`builder` library][calyx-py-lib] by typing the following command from the repository root:
 ```
