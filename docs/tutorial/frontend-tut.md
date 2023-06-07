@@ -89,8 +89,8 @@ The above command takes a MrXL program, `sos.mrxl`, and generates results with V
 
 # Compiling MrXL into Calyx
 
-Any frontend can support new commands that are relevant to the domain of interest, so long as those commands can themselves be compiled into Calyx.
-We will now step back from our example and study [the MrXL-to-Calyx compiler][impl], written in Python.
+Calyx is an infrastructure for designing *domain-specific languages* (DSL) which can generate efficient hardware.
+The rest of the tutorial will show you how to implement such a DSL by studying [the MrXL-to-Calyx compiler][impl], written in Python.
 
 We have placed a few simplifying restrictions on MrXL programs:
 1. Every array in a MrXL program has the same length.
