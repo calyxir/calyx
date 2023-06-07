@@ -284,6 +284,8 @@ fud e -q {} --from mrxl --to jq \
             -s jq.expr ".memories"
 """
 
+expect_dir = "frontends/mrxl/test/expect/simulate_out/"
+
 [[tests]]
 name = "[frontend] relay correctness"
 paths = ["tests/correctness/relay/*.relay"]
