@@ -20,6 +20,9 @@ impl CommandParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
+    fn code_calyx(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
 
     // ----------------------
 
@@ -53,15 +56,12 @@ impl CommandParser {
     fn exit(_input: Node) -> ParseResult<Command> {
         Ok(Command::Exit)
     }
+
     fn comm_where(input: Node) -> ParseResult<Command> {
-        let where_true_false = input.as_str();
-
-        let _override_flag = match where_true_false {
-            "where true" | "pc true" => true,
-            _ => false, // Default value if no flag is provided or false is specified
-        };
-
-        Ok(Command::PrintPC(_override_flag))
+        Ok(match_nodes!(input.into_children();
+            [code_calyx(_)] => Command::PrintPC(true),
+            [] => Command::PrintPC(false),
+        ))
     }
 
     fn pc_un(_input: Node) -> ParseResult<()> {

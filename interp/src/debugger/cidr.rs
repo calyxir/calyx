@@ -283,8 +283,9 @@ impl Debugger {
                 }
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
                 Command::PrintPC(override_flag) => {
-                    if let Some(map) = &self.source_map {
-                        let mut printed = true;
+                    if self.source_map.is_some() && !override_flag {
+                        let map = self.source_map.as_ref().unwrap();
+                        let mut printed = false;
                         for x in component_interpreter
                             .get_active_tree()
                             .remove(0)
@@ -308,24 +309,13 @@ impl Debugger {
                             );
                         }
                     } else {
-                        if override_flag {
-                            println!("Falling back to Calyx");
-                            print!(
-                                "{}",
-                                component_interpreter
-                                    .get_active_tree()
-                                    .remove(0)
-                                    .format_tree::<true>(0)
-                            );
-                        } else {
-                            print!(
-                                "{}",
-                                component_interpreter
-                                    .get_active_tree()
-                                    .remove(0)
-                                    .format_tree::<true>(0)
-                            );
-                        }
+                        print!(
+                            "{}",
+                            component_interpreter
+                                .get_active_tree()
+                                .remove(0)
+                                .format_tree::<true>(0)
+                        );
                     }
                 }
 
