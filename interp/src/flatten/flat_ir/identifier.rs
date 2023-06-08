@@ -3,7 +3,10 @@ use std::hash::Hash;
 
 use crate::flatten::structures::index_trait::{impl_index, IndexRef};
 
-impl_index!(pub Identifier);
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
+pub struct Identifier(u32);
+
+impl_index!(Identifier);
 
 impl Identifier {
     #[inline]
@@ -11,11 +14,21 @@ impl Identifier {
         // manually construct
         Identifier(0)
     }
+
+    /// Utility method to resolve the string associated with an identifier
+    pub fn resolve<'a>(&self, resolver: &'a IdMap) -> &'a String {
+        resolver.lookup_string(self).unwrap()
+    }
 }
 
+/// Internal enum to distinguish between the different parents for a port. Used
+/// to format names appropriately
 enum NameType {
+    /// This is one of the component ports
     Interface,
+    /// This port belongs to a group (go/done)
     Group,
+    /// The standard port on a cell
     Cell,
 }
 
@@ -73,8 +86,10 @@ impl CanonicalIdentifier {
 /// issue
 #[derive(Debug)]
 pub struct IdMap {
+    /// The forward map hashes strings to identifiers
     forward: HashMap<String, Identifier>,
-    // Identifiers are handed out linearly so this is a simple vector
+    /// Since identifiers are handed out linearly the backwards map is a vector
+    /// of strings
     backward: Vec<String>,
 }
 

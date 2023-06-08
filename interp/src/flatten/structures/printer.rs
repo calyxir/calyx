@@ -23,7 +23,7 @@ impl<'a> Printer<'a> {
         &self.ctx.secondary.string_table
     }
 
-    pub fn print_group(&self, group: GroupIdx, parent: ComponentRef) {
+    pub fn print_group(&self, group: GroupIdx, parent: ComponentIdx) {
         println!(
             "{}",
             text_utils::indent(
@@ -42,7 +42,7 @@ impl<'a> Printer<'a> {
         }
     }
 
-    pub fn print_comb_group(&self, group: CombGroupIdx, parent: ComponentRef) {
+    pub fn print_comb_group(&self, group: CombGroupIdx, parent: ComponentIdx) {
         println!(
             "{}",
             text_utils::indent(
@@ -61,7 +61,7 @@ impl<'a> Printer<'a> {
         }
     }
 
-    pub fn print_component(&self, idx: ComponentRef) {
+    pub fn print_component(&self, idx: ComponentIdx) {
         println!(
             "Component: {}",
             self.ctx.resolve_id(self.ctx.secondary[idx].name)
@@ -99,7 +99,7 @@ impl<'a> Printer<'a> {
     #[inline]
     pub fn lookup_id_from_port(
         &self,
-        comp: ComponentRef,
+        comp: ComponentIdx,
         target: PortRef,
     ) -> CanonicalIdentifier {
         let port = self.ctx.lookup_port_definition(comp, target);
@@ -116,7 +116,7 @@ impl<'a> Printer<'a> {
 
     pub fn format_control(
         &self,
-        parent: ComponentRef,
+        parent: ComponentIdx,
         control: ControlIdx,
         indent: usize,
     ) -> String {
@@ -207,7 +207,7 @@ impl<'a> Printer<'a> {
 
     pub fn format_guard(
         &self,
-        parent: ComponentRef,
+        parent: ComponentIdx,
         guard: GuardIdx,
     ) -> String {
         fn op_to_str(op: &PortComp) -> String {
@@ -256,7 +256,7 @@ impl<'a> Printer<'a> {
 
     pub fn print_assignment(
         &self,
-        parent_comp: ComponentRef,
+        parent_comp: ComponentIdx,
         target: AssignmentIdx,
     ) -> String {
         let assign = &self.ctx.primary.assignments[target];

@@ -8,7 +8,7 @@ use crate::{
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
                 Assignment, AssignmentIdx, CombGroup, CombGroupIdx,
-                ComponentRef, GroupIdx, GuardIdx, PortRef,
+                ComponentIdx, GroupIdx, GuardIdx, PortRef,
             },
             wires::{core::Group, guards::Guard},
         },
@@ -23,7 +23,7 @@ use crate::{
 use super::{structures::*, utils::CompTraversal};
 
 type PortMapper = HashMap<*const cir::Port, PortRef>;
-type ComponentMapper = HashMap<cir::Id, ComponentRef>;
+type ComponentMapper = HashMap<cir::Id, ComponentIdx>;
 
 /// An ephemeral structure used during the translation of a component.
 pub struct GroupMapper {
@@ -128,7 +128,7 @@ fn translate_component(
     interp_ctx: &mut InterpretationContext,
     secondary_ctx: &mut SecondaryContext,
     component_id_map: &mut ComponentMapper,
-) -> ComponentRef {
+) -> ComponentIdx {
     let mut auxillary_component_info = AuxillaryComponentInfo::new_with_name(
         secondary_ctx.string_table.insert(comp.name),
     );
@@ -249,7 +249,7 @@ fn insert_cell(
     aux: &mut AuxillaryComponentInfo,
     cell: &RRC<cir::Cell>,
     port_map: &mut PortMapper,
-    comp_id: ComponentRef,
+    comp_id: ComponentIdx,
 ) {
     let cell_ref = cell.borrow();
     let id = secondary_ctx.string_table.insert(cell_ref.name());

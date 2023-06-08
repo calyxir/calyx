@@ -5,7 +5,7 @@ use crate::flatten::flat_ir::{
     identifier::IdMap,
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
-        CombGroupIdx, CombGroupMap, ComponentRef, ControlIdx, ControlMap,
+        CombGroupIdx, CombGroupMap, ComponentIdx, ControlIdx, ControlMap,
         ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalPortOffset,
         LocalRefPortOffset, ParentIdx, PortDefinitionIdx, PortDefinitionRef,
         PortRef, RefCellDefinitionIdx, RefCellInfo, RefPortDefinitionIdx,
@@ -57,10 +57,10 @@ pub struct InterpretationContext {
     pub control: ControlMap,
 }
 
-impl Index<ComponentRef> for InterpretationContext {
+impl Index<ComponentIdx> for InterpretationContext {
     type Output = ComponentCore;
 
-    fn index(&self, index: ComponentRef) -> &Self::Output {
+    fn index(&self, index: ComponentIdx) -> &Self::Output {
         &self.components[index]
     }
 }
@@ -126,7 +126,7 @@ pub struct SecondaryContext {
     /// ref-cell definitions
     pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
     /// auxillary information for components
-    pub comp_aux_info: AuxillaryMap<ComponentRef, AuxillaryComponentInfo>,
+    pub comp_aux_info: AuxillaryMap<ComponentIdx, AuxillaryComponentInfo>,
 }
 
 impl Index<Identifier> for SecondaryContext {
@@ -169,10 +169,10 @@ impl Index<RefCellDefinitionIdx> for SecondaryContext {
     }
 }
 
-impl Index<ComponentRef> for SecondaryContext {
+impl Index<ComponentIdx> for SecondaryContext {
     type Output = AuxillaryComponentInfo;
 
-    fn index(&self, index: ComponentRef) -> &Self::Output {
+    fn index(&self, index: ComponentIdx) -> &Self::Output {
         &self.comp_aux_info[index]
     }
 }
@@ -194,7 +194,7 @@ impl SecondaryContext {
         &mut self,
         name: Identifier,
         ports: IndexRange<LocalPortOffset>,
-        parent: ComponentRef,
+        parent: ComponentIdx,
     ) -> CellDefinitionIdx {
         self.local_cell_defs
             .push(CellInfo::new(name, ports, parent))
@@ -204,7 +204,7 @@ impl SecondaryContext {
         &mut self,
         name: Identifier,
         ports: IndexRange<LocalRefPortOffset>,
-        parent: ComponentRef,
+        parent: ComponentIdx,
     ) -> RefCellDefinitionIdx {
         self.ref_cell_defs
             .push(RefCellInfo::new(name, ports, parent))
@@ -240,7 +240,7 @@ impl Context {
     #[inline]
     pub(crate) fn lookup_port_definition(
         &self,
-        comp: ComponentRef,
+        comp: ComponentIdx,
         target: PortRef,
     ) -> PortDefinitionRef {
         match target {
@@ -257,7 +257,7 @@ impl Context {
     /// TODO Griffin: if relevant, replace with something more efficient.
     pub(crate) fn find_parent_cell(
         &self,
-        comp: ComponentRef,
+        comp: ComponentIdx,
         target: PortRef,
     ) -> ParentIdx {
         match target {

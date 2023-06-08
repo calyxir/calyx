@@ -5,14 +5,21 @@ use crate::flatten::{
     structures::{index_trait::impl_index, indexed_map::IndexedMap},
 };
 
-impl_index!(pub ControlIdx);
+#[derive(Debug, Eq, Copy, Clone, PartialEq)]
+pub struct ControlIdx(u32);
+impl_index!(ControlIdx);
+
+/// A map storing [ControlNodes](ControlNode) indexed by [ControlIdx]
 pub type ControlMap = IndexedMap<ControlIdx, ControlNode>;
 
+/// A vector of control indices
 pub type CtrlVec = SmallVec<[ControlIdx; 4]>;
 
+/// An empty control node
 #[derive(Debug)]
 pub struct Empty;
 
+/// A group enable node
 #[derive(Debug)]
 pub struct Enable(GroupIdx);
 
@@ -26,6 +33,7 @@ impl Enable {
     }
 }
 
+/// Sequence of control nodes
 #[derive(Debug)]
 pub struct Seq(CtrlVec);
 
@@ -42,6 +50,7 @@ impl Seq {
     }
 }
 
+/// Parallel compositions of control nodes
 #[derive(Debug)]
 pub struct Par(CtrlVec);
 
@@ -58,6 +67,7 @@ impl Par {
     }
 }
 
+/// An if-then-else control node
 #[derive(Debug)]
 pub struct If {
     cond_port: PortRef,
@@ -98,6 +108,7 @@ impl If {
     }
 }
 
+/// A while loop control node
 #[derive(Debug)]
 pub struct While {
     cond_port: PortRef,
@@ -131,11 +142,13 @@ impl While {
     }
 }
 
+/// Invoke control node
 #[derive(Debug)]
 pub struct Invoke {
     // TODO: add invoke stuff
 }
 
+/// An enum representing the different types of control nodes
 #[derive(Debug)]
 pub enum ControlNode {
     Empty(Empty),
