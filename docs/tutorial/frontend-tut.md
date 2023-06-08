@@ -31,7 +31,9 @@ This short program shows off all of MrXL's features, so let's pick it apart line
 
 ## Running our example
 
-If you are going through this tutorial in the [Docker container][docker], you can skip these installation steps and just run the the `mrxl` command a few lines below.
+### Installing MrXL
+
+> If you are going through this tutorial in the [Docker container][docker], you can skip these installation steps and jump to [*Running MrXL*][running-mrxl-example] just below.
 
 First, install the [`builder` library][calyx-py-lib] by typing the following command from the repository root:
 ```
@@ -47,7 +49,9 @@ fud register mrxl -p frontends/mrxl/fud/mrxl.py
 ```
 Now, running `fud check` should report that the `mrxl` binary is correctly installed.
 
-Finally, run:
+### Running MrXL
+
+Run:
 ```
 mrxl frontends/mrxl/test/sos.mrxl --data frontends/mrxl/test/sos.mrxl.data --interpret
 ```
@@ -219,10 +223,10 @@ in the description by filling in the body of this function.
 To run `mrxl` with `my_map_impl` instead of our map implementation pass the
 `--my-map` flag. This can be done with `fud` as follows:
 ```sh
-fud e --from mrxl test/sos.mrxl \     
-      --to dat --through verilog \    
-      -s mrxl.flags "--my-map "  \    
-      -s mrxl.data test/sos.mrxl.data 
+fud e --from mrxl test/sos.mrxl \
+      --to dat --through verilog \
+      -s mrxl.flags "--my-map "  \
+      -s mrxl.data test/sos.mrxl.data
 ```
 
 If you are satisfied with your map implementation you may skip to
@@ -463,3 +467,5 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [par-undef]: ../lang/ref.md#par
 [binary-mult]: https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45
 [verilator]: https://www.veripool.org/wiki/verilator
+[docker]: https://github.com/cucapra/calyx/pkgs/container/calyx
+[running-mrxl-example]: #running-mrxl
