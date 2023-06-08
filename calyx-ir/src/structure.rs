@@ -9,14 +9,19 @@ use super::{
 use calyx_frontend::Attribute;
 use calyx_utils::GetName;
 use itertools::Itertools;
-use serde::Serialize;
-use serde_with::{serde_as, SerializeAs};
 use smallvec::{smallvec, SmallVec};
 use std::hash::Hash;
 use std::rc::Rc;
 
+#[cfg(feature = "serialize")]
+use {
+    serde::Serialize,
+    serde_with::{serde_as, SerializeAs}
+};
+
 /// Ports can come from Cells or Groups
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum PortParent {
     Cell(WRC<Cell>),
     Group(WRC<Group>),
@@ -24,7 +29,8 @@ pub enum PortParent {
 }
 
 /// Represents a port on a cell.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Port {
     /// Name of the port
     pub name: Id,
@@ -38,7 +44,9 @@ pub struct Port {
     pub attributes: Attributes,
 }
 
+#[cfg(feature = "serialize")]
 pub struct SerPortRef;
+#[cfg(feature = "serialize")]
 impl SerializeAs<RRC<Port>> for SerPortRef {
     fn serialize_as<S>(
         value: &RRC<Port>,
@@ -190,7 +198,9 @@ impl Iterator for PortIterator<'_> {
 /// Alias for bindings
 pub type Binding = SmallVec<[(Id, u64); 5]>;
 
+#[cfg(feature = "serialize")]
 pub struct SerBinding;
+#[cfg(feature = "serialize")]
 impl SerializeAs<Binding> for SerBinding {
     fn serialize_as<S>(
         value: &Binding,
@@ -204,15 +214,15 @@ impl SerializeAs<Binding> for SerBinding {
 }
 
 /// The type for a Cell
-#[serde_as]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub enum CellType {
     /// Cell constructed using a primitive definition
     Primitive {
         /// Name of the primitive cell used to instantiate this cell.
         name: Id,
         /// Bindings for the parameters. Uses Vec to retain the input order.
-        #[serde_as(as = "SerBinding")]
+        #[cfg_attr(feature = "serialize", serde_as(as = "SerBinding"))]
         param_binding: Box<Binding>,
         /// True iff this is a combinational primitive
         is_comb: bool,
@@ -265,13 +275,13 @@ impl CellType {
 }
 
 /// Represents an instantiated cell.
-#[serde_as]
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub struct Cell {
     /// Name of this cell.
     name: Id,
     /// Ports on this cell
-    #[serde_as(as = "SerVecPortRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerVecPortRef"))]
     pub ports: SmallVec<[RRC<Port>; 10]>,
     /// Underlying type for this cell
     pub prototype: CellType,
@@ -483,7 +493,9 @@ impl Cell {
     }
 }
 
+#[cfg(feature = "serialize")]
 pub struct SerCellRef;
+#[cfg(feature = "serialize")]
 impl SerializeAs<RRC<Cell>> for SerCellRef {
     fn serialize_as<S>(
         value: &RRC<Cell>,
@@ -497,15 +509,15 @@ impl SerializeAs<RRC<Cell>> for SerCellRef {
 }
 
 /// Represents a guarded assignment in the program
-#[serde_as]
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub struct Assignment<T> {
     /// The destination for the assignment.
-    #[serde_as(as = "SerPortRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerPortRef"))]
     pub dst: RRC<Port>,
 
     /// The source for the assignment.
-    #[serde_as(as = "SerPortRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerPortRef"))]
     pub src: RRC<Port>,
 
     /// The guard for this assignment.
@@ -532,7 +544,9 @@ impl<T> Assignment<T> {
     }
 }
 
+#[cfg(feature = "serialize")]
 pub struct SerVecPortRef;
+#[cfg(feature = "serialize")]
 impl<const N: usize> SerializeAs<SmallVec<[RRC<Port>; N]>> for SerVecPortRef {
     fn serialize_as<S>(
         value: &SmallVec<[RRC<Port>; N]>,
@@ -569,8 +583,8 @@ impl<StaticTiming> Assignment<StaticTiming> {
 }
 
 /// A Group of assignments that perform a logical action.
-#[serde_as]
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub struct Group {
     /// Name of this group
     name: Id,
@@ -579,7 +593,7 @@ pub struct Group {
     pub assignments: Vec<Assignment<Nothing>>,
 
     /// Holes for this group
-    #[serde_as(as = "SerVecPortRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerVecPortRef"))]
     pub holes: SmallVec<[RRC<Port>; 3]>,
 
     /// Attributes for this group.
@@ -662,7 +676,8 @@ impl Group {
 }
 
 /// A Group of assignments that perform a logical action.
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticGroup {
     /// Name of this group
     name: Id,
@@ -739,7 +754,8 @@ impl StaticGroup {
 /// A combinational group.
 /// A combinational group does not have any holes and should only contain assignments that should
 /// will be combinationally active
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct CombGroup {
     /// Name of this group
     pub(super) name: Id,

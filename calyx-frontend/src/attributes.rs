@@ -6,13 +6,16 @@ use std::convert::TryFrom;
 
 #[derive(Debug, Clone, Default)]
 /// Attribute information stored on the Heap
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 struct HeapAttrInfo {
     attrs: LinkedHashMap<Attribute, u64>,
+    #[cfg_attr(feature = "serialize", serde(skip))]
     span: GPosIdx,
 }
 
 /// Attributes associated with a specific IR structure.
 #[derive(Default, Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Attributes {
     /// Inlined attributes
     inl: InlineAttributes,
@@ -145,3 +148,18 @@ impl Attributes {
             .join(sep)
     }
 }
+
+// #[cfg(feature = "serialize")]
+// impl Serialize for Attributes {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let mut attrs = Box::into_inner(self.hinfo).attrs;
+//         let mut map = serializer.serialize_map(Some(self.len()))?;
+//         for (k, v) in self {
+//             map.serialize_key(k)?;
+//         }
+//         map.end()
+//     }
+// }

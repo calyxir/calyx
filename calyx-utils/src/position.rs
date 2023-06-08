@@ -1,11 +1,10 @@
 //! Definitions for tracking source position information of Calyx programs
 
 use itertools::Itertools;
-use serde::Serialize;
 use std::{cmp, fmt::Write, mem, sync};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde(transparent))]
 /// Handle to a position in a [PositionTable]
 /// The index refers to the index in the [PositionTable::indices] vector.
 pub struct PosIdx(u32);
@@ -126,8 +125,8 @@ impl GlobalPositionTable {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
-#[serde(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde(transparent))]
 /// A position index backed by a global [PositionTable]
 pub struct GPosIdx(pub PosIdx);
 

@@ -1,6 +1,3 @@
-use super::{structure::SerPortRef, Port, RRC};
-use serde::Serialize;
-use serde_with::serde_as;
 use super::{NumAttr, Port, RRC};
 use calyx_utils::Error;
 use std::fmt::Debug;
@@ -8,7 +5,13 @@ use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
+#[cfg(feature = "serialize")]
+use {
+    serde_with::serde_as
+};
+
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Nothing;
 
 impl ToString for Nothing {
@@ -18,7 +21,8 @@ impl ToString for Nothing {
 }
 
 /// Comparison operations that can be performed between ports by [Guard::CompOp].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum PortComp {
     /// p1 == p2
     Eq,
@@ -35,8 +39,8 @@ pub enum PortComp {
 }
 
 /// An assignment guard which has pointers to the various ports from which it reads.
-#[serde_as]
-#[derive(Default, Debug, Clone, Default, Serialize)]
+#[derive(Default, Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub enum Guard<T> {
     /// Represents `c1 || c2`.
     Or(Box<Guard<T>>, Box<Guard<T>>),
@@ -50,16 +54,17 @@ pub enum Guard<T> {
     /// Comparison operator.
     CompOp(
         PortComp,
-        #[serde_as(as = "SerPortRef")] RRC<Port>,
-        #[serde_as(as = "SerPortRef")] RRC<Port>,
+        #[cfg_attr(feature = "serialize", serde_as(as = "SerPortRef"))] RRC<Port>,
+        #[cfg_attr(feature = "serialize", serde_as(as = "SerPortRef"))] RRC<Port>,
     ),
     /// Uses the value on a port as the condition. Same as `p1 == true`
-    Port(#[serde_as(as = "SerPortRef")] RRC<Port>),
+    Port(#[cfg_attr(feature = "serialize", serde_as(as = "SerPortRef"))] RRC<Port>),
     /// Other types of information.
     Info(T),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticTiming {
     interval: (u64, u64),
 }

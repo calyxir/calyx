@@ -21,3 +21,5 @@ string-interner.workspace = true
 itertools.workspace = true
 petgraph.workspace = true
 symbol_table = { version = "0.3", features = ["global"] }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_with = { workspace = true, optional = true }

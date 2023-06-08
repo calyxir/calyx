@@ -19,6 +19,7 @@ pub const DEPRECATED_ATTRIBUTES: &[&str] = &[];
     Debug,
 )]
 #[repr(u8)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 /// Attributes that are only allowed to take boolean values.
 pub enum BoolAttr {
     #[strum(serialize = "toplevel")]
@@ -73,6 +74,7 @@ impl std::fmt::Display for BoolAttr {
 }
 
 #[derive(AsRefStr, EnumString, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 /// Attributes that can take numeric values
 pub enum NumAttr {
     // ============ numeric attributes ============
@@ -113,6 +115,7 @@ impl std::fmt::Display for NumAttr {
 #[derive(AsRefStr, Clone, Copy, Hash, PartialEq, Eq, Debug)]
 #[allow(non_camel_case_types)]
 /// Internal attributes that cannot be parsed back from the IL.
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum InternalAttr {
     DEAD,
     NODE_ID,
@@ -133,6 +136,7 @@ impl From<InternalAttr> for Attribute {
 /// Defines the known attributes that can be attached to IR nodes.
 /// All caps names represent attributes that are internal to the compiler and
 /// cannot be parsed back.
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Attribute {
     Bool(BoolAttr),
     Num(NumAttr),
@@ -170,6 +174,7 @@ impl FromStr for Attribute {
 }
 
 #[derive(Default, Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 /// Inline storage for boolean attributes.
 pub(super) struct InlineAttributes {
     /// Boolean attributes stored in a 16-bit number.

@@ -26,10 +26,16 @@ impl Backend for SexpBackend {
         Ok(())
     }
 
+    #[cfg(feature = "serialize")]
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
         writeln!(out, "{}", serde_sexpr::to_string(ctx).unwrap())?;
 
+        Ok(())
+    }
+
+    #[cfg(not(feature = "serialize"))]
+    fn emit(_ctx: &ir::Context, _file: &mut OutputFile) -> CalyxResult<()> {
         Ok(())
     }
 }

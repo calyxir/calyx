@@ -1,17 +1,12 @@
-use serde::{Deserialize, Serialize};
 pub type GSym = symbol_table::GlobalSymbol;
 
-/// Represents an identifier in a Calyx program
-// #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord, Serialize)]
-// #[cfg_attr(
-//     feature = "serialize",
-//     derive(serde::Deserialize),
-//     serde(transparent)
-// )]
-#[derive(
-    Clone, Copy, Deserialize, Hash, PartialEq, Eq, Debug, PartialOrd, Ord,
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize),
+    derive(serde::Deserialize),
+    serde(transparent)
 )]
-#[serde(transparent)]
 pub struct Id {
     pub id: GSym,
 }
@@ -94,16 +89,6 @@ impl From<Id> for GSym {
 impl From<&Id> for GSym {
     fn from(id: &Id) -> Self {
         id.id
-    }
-}
-
-// #[cfg(feature = "serialize")]
-impl Serialize for Id {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.id.serialize(serializer)
     }
 }
 

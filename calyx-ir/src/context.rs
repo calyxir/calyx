@@ -3,10 +3,15 @@
 //! Passes usually have transform/analyze the components in the IR.
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 use super::{Component, Id, Primitive};
 use std::path::PathBuf;
+
+#[cfg(feature = "serialize")]
+use {
+    serde::ser::{Serialize, Serializer, SerializeStruct},
+    serde_with::serde_as
+};
 
 /// A representation of all the primitive definitions found while parsing
 /// the root program.
@@ -117,6 +122,7 @@ pub struct BackendConf {
 
 /// The IR Context that represents an entire Calyx program with all of its
 /// imports and dependencies resolved.
+#[cfg_attr(feature = "serialize", serde_as)]
 pub struct Context {
     /// The components for this program.
     pub components: Vec<Component>,
@@ -154,6 +160,7 @@ impl Context {
     }
 }
 
+#[cfg(feature = "serialize")]
 impl Serialize for Context {
     fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
     where

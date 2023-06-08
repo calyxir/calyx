@@ -1,18 +1,21 @@
 use calyx_frontend::Attribute;
 
 use super::StaticGroup;
-use crate::structure::{SerCellRef, SerPortRef};
 use std::rc::Rc;
 
-use serde::Serialize;
-use serde_with::{serde_as, SerializeAs};
-
 use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
+
+#[cfg(feature = "serialize")]
+use {
+    serde::Serialize,
+    serde_with::{serde_as, SerializeAs},
+};
 
 type StaticLatency = u64;
 
 /// Data for the `seq` control statement.
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
     pub stmts: Vec<Control>,
@@ -30,6 +33,7 @@ impl GetAttributes for Seq {
 
 /// Data for the `static seq` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticSeq {
     /// List of `StaticControl` statements to run in sequence.
     pub stmts: Vec<StaticControl>,
@@ -48,7 +52,8 @@ impl GetAttributes for StaticSeq {
 }
 
 /// Data for the `par` control statement.
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Par {
     /// List of `Control` statements to run in parallel.
     pub stmts: Vec<Control>,
@@ -64,7 +69,9 @@ impl GetAttributes for Par {
     }
 }
 
+#[cfg(feature = "serialize")]
 struct SerCombGroupRef;
+#[cfg(feature = "serialize")]
 impl SerializeAs<RRC<CombGroup>> for SerCombGroupRef {
     fn serialize_as<S>(
         value: &RRC<CombGroup>,
@@ -74,8 +81,11 @@ impl SerializeAs<RRC<CombGroup>> for SerCombGroupRef {
         S: serde::Serializer,
     {
         value.borrow().name.serialize(serializer)
+    }
+}
 // Data for the `static par` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticPar {
     /// List of `StaticControl` statements to run in parallel.
     pub stmts: Vec<StaticControl>,
@@ -94,15 +104,18 @@ impl GetAttributes for StaticPar {
 }
 
 /// Data for the `if` control statement.
-#[serde_as]
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub struct If {
     /// Port that connects the conditional check.
-    #[serde_as(as = "SerPortRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerPortRef"))]
     pub port: RRC<Port>,
 
     /// Optional combinational group attached using `with`.
-    #[serde_as(as = "Option<SerCombGroupRef>")]
+    #[cfg_attr(
+        feature = "serialize",
+        serde_as(as = "Option<SerCombGroupRef>")
+    )]
     pub cond: Option<RRC<CombGroup>>,
 
     /// Control for the true branch.
@@ -126,6 +139,7 @@ impl GetAttributes for If {
 
 /// Data for the `static if` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticIf {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -156,12 +170,16 @@ impl GetAttributes for StaticIf {
 
 /// Data for the `while` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub struct While {
     /// Port that connects the conditional check.
-    #[serde_as(as = "SerPortRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerPortRef"))]
     pub port: RRC<Port>,
     /// Group that makes the signal on the conditional port valid.
-    #[serde_as(as = "Option<SerCombGroupRef>")]
+    #[cfg_attr(
+        feature = "serialize",
+        serde_as(as = "Option<SerCombGroupRef>")
+    )]
     pub cond: Option<RRC<CombGroup>>,
     /// Control for the loop body.
     pub body: Box<Control>,
@@ -178,7 +196,9 @@ impl GetAttributes for While {
     }
 }
 
+#[cfg(feature = "serialize")]
 struct SerGroupRef;
+#[cfg(feature = "serialize")]
 impl SerializeAs<RRC<Group>> for SerGroupRef {
     fn serialize_as<S>(
         value: &RRC<Group>,
@@ -188,8 +208,11 @@ impl SerializeAs<RRC<Group>> for SerGroupRef {
         S: serde::Serializer,
     {
         value.borrow().name().serialize(serializer)
+    }
+}
 /// Data for the `StaticRepeat` control statement. Essentially a static while loop.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticRepeat {
     /// Attributes
     pub attributes: Attributes,
@@ -211,11 +234,11 @@ impl GetAttributes for StaticRepeat {
 }
 
 /// Data for the `enable` control statement.
-#[serde_as]
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub struct Enable {
     /// List of components to run.
-    #[serde_as(as = "SerGroupRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerGroupRef"))]
     pub group: RRC<Group>,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
@@ -231,7 +254,8 @@ impl GetAttributes for Enable {
 }
 
 /// Data for the `enable` control for a static group.
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticEnable {
     /// List of components to run.
     pub group: RRC<StaticGroup>,
@@ -259,25 +283,28 @@ type PortMap = Vec<(Id, RRC<Port>)>;
 type CellMap = Vec<(Id, RRC<Cell>)>;
 
 /// Data for an `invoke` control statement.
-#[serde_as]
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub struct Invoke {
     /// Cell that is being invoked.
-    #[serde_as(as = "SerCellRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerCellRef"))]
     pub comp: RRC<Cell>,
     /// Mapping from name of input ports in `comp` to the port connected to it.
-    #[serde_as(as = "Vec<(_, SerPortRef)>")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "Vec<(_, SerPortRef)>"))]
     pub inputs: PortMap,
     /// Mapping from name of output ports in `comp` to the port connected to it.
-    #[serde_as(as = "Vec<(_, SerPortRef)>")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "Vec<(_, SerPortRef)>"))]
     pub outputs: PortMap,
     /// Attributes attached to this control statement.
     pub attributes: Attributes,
     /// Optional combinational group that is active when the invoke is active.
-    #[serde_as(as = "Option<SerCombGroupRef>")]
+    #[cfg_attr(
+        feature = "serialize",
+        serde_as(as = "Option<SerCombGroupRef>")
+    )]
     pub comb_group: Option<RRC<CombGroup>>,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
-    #[serde_as(as = "Vec<(_, SerCellRef)>")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "Vec<(_, SerCellRef)>"))]
     pub ref_cells: CellMap,
 }
 impl GetAttributes for Invoke {
@@ -292,6 +319,7 @@ impl GetAttributes for Invoke {
 
 /// Data for a `StaticInvoke` control statement
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticInvoke {
     /// Cell that is being invoked.
     pub comp: RRC<Cell>,
@@ -317,13 +345,15 @@ impl GetAttributes for StaticInvoke {
 }
 
 /// Data for the `empty` control statement.
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Empty {
     pub attributes: Attributes,
 }
 
 /// Control AST nodes.
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq(Seq),
@@ -345,6 +375,7 @@ pub enum Control {
 
 /// Control AST nodes.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum StaticControl {
     /// Essentially a Static While Loop
     Repeat(StaticRepeat),

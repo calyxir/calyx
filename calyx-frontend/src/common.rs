@@ -3,7 +3,6 @@ use crate::Attribute;
 use super::Attributes;
 use calyx_utils::{CalyxResult, Error, GetName, Id};
 use linked_hash_map::LinkedHashMap;
-use serde::Serialize;
 use smallvec::SmallVec;
 
 /// Representation of a external primitive definition.
@@ -186,7 +185,8 @@ impl PortDef<Width> {
 }
 
 /// Direction of a port on a cell.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Direction {
     /// Input port.
     Input,

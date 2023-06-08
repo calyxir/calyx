@@ -3,7 +3,6 @@ use super::{
     CombGroup, Control, Direction, GetName, Group, Id, NumAttr, PortDef,
     StaticGroup, RRC,
 };
-use crate::structure::SerCellRef;
 use crate::guard::StaticTiming;
 use crate::Nothing;
 use calyx_utils::NameGenerator;
@@ -15,8 +14,11 @@ use std::iter::Extend;
 use std::num::NonZeroU64;
 use std::rc::Rc;
 
-use serde::{ser::SerializeSeq, Serialize, Serializer};
-use serde_with::{serde_as, SerializeAs};
+#[cfg(feature = "serialize")]
+use {
+    serde::ser::{Serialize, Serializer, SerializeSeq},
+    serde_with::serde_as
+};
 
 /// The default name of the signature cell in a component.
 /// In general, this should not be used by anything.
@@ -31,13 +33,13 @@ const INTERFACE_PORTS: [(Attribute, u64, Direction); 4] = [
 ];
 
 /// In memory representation of a Component.
-#[serde_as]
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize), serde_as)]
 pub struct Component {
     /// Name of the component.
     pub name: Id,
     /// The input/output signature of this component.
-    #[serde_as(as = "SerCellRef")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "SerCellRef"))]
     pub signature: RRC<Cell>,
     /// The cells instantiated for this component.
     pub cells: IdList<Cell>,
@@ -51,7 +53,7 @@ pub struct Component {
     /// active.
     pub continuous_assignments: Vec<Assignment<Nothing>>,
     /// The control program for this component.
-    #[serde_as(as = "Control")]
+    #[cfg_attr(feature = "serialize", serde_as(as = "Control"))]
     pub control: RRC<Control>,
     /// Attributes for this component
     pub attributes: Attributes,
@@ -63,7 +65,7 @@ pub struct Component {
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
     /// component (cell and group names).
-    #[serde(skip)]
+    #[cfg_attr(feature = "serialize", serde(skip))]
     namegen: NameGenerator,
 }
 
@@ -423,13 +425,14 @@ impl<T: GetName> Default for IdList<T> {
     }
 }
 
+#[cfg(feature = "serialize")]
 impl<T: GetName + Serialize> Serialize for IdList<T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let mut seq = serializer.serialize_seq(Some(self.len()))?;
-        for obj in self.iter() {
+        for obj in self {
             let obj = obj.borrow();
             seq.serialize_element(&obj.name())?;
         }

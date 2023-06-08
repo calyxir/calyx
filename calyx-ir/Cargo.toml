@@ -11,6 +11,10 @@ homepage.workspace = true
 categories.workspace = true
 readme.workspace = true
 
+[features]
+default = []
+serialize = ["dep:serde", "dep:serde_with", "calyx-utils/serialize", "calyx-frontend/serialize"]
+
 [dependencies]
 log.workspace = true
 petgraph.workspace = true
@@ -18,8 +22,8 @@ string-interner.workspace = true
 itertools.workspace = true
 linked-hash-map.workspace = true
 smallvec.workspace = true
-serde.workspace = true
-serde_with.workspace = true
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_with = { workspace = true, optional = true }
 
 calyx-utils.workspace = true
 calyx-frontend.workspace = true
