@@ -277,6 +277,9 @@ lazy_static! {
             CIBuilder::new().invocation("where")
                 .invocation("pc")
                 .description("Displays the current program location using source metadata if applicable otherwise showing the calyx tree").build(),
+            // where calyx
+            CIBuilder::new().invocation("where calyx")
+                .description("Enhance 'where' command adding an optional flag that enables  printing calyx group tree, even if source information is not available").build(),
             // help
             CIBuilder::new().invocation("help")
                 .invocation("h")
