@@ -15,6 +15,7 @@ pc_un = { ^"u" }
 pc_s = { ^"s" }
 pc_ufx = { ^"u." ~ num }
 pc_sfx = { ^"s." ~ num }
+code_calyx = {^"calyx"}
 
 print_code = { "\\" ~
     (
@@ -70,7 +71,8 @@ disable = { (^"disable") ~ brk_id* }
 
 exit = { ^"exit" | ^"quit" }
 
-comm_where = { ^"where" | ^"pc" }
+
+comm_where = { (^"where"| "pc") ~ (code_calyx)?}
 
 explain = { ^"explain" }
 
