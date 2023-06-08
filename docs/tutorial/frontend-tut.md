@@ -84,7 +84,7 @@ mrxl frontends/mrxl/test/sos.mrxl
 
 ## Simulating our example with Verilog
 
-Finally, let us go the whole hog: we compile our MrXL program to Calyx, which is then compiled to Verilog, and simulated by [Verilator][].
+Finally, let us go the whole hog: we compile our MrXL program to Calyx, compile it to Verilog, then simulate it using [Verilator][].
 
 Run:
 ```
@@ -155,7 +155,7 @@ Finally, the [control section][lf-control] *schedules* the execution of groups u
 We perform syntax-directed compilation by walking over the nodes of the AST and generating `cells`, `wires`, and `control` operations.
 
 
-### Calyx-Embedded DSL
+### An Embedded DSL that Generates Calyx
 
 To make it easy to generate hardware, we'll use Calyx's [`builder` module][calyx-py-lib] written in Python:
 ```python
@@ -204,34 +204,34 @@ By setting `is_external=True`, we're indicating that a memory declaration is a p
 ## Compiling `map` operations
 
 For every `map` or `reduce` node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation.
-For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array.
-We can use Calyx's [while loops][lf-while] to iterate over an input array, perform the map's computation, and store the final value.
+For `map` operations, we'll perform a computation on every element of an input array, and then store the answers in a result array.
+We can use Calyx's [while loops][lf-while] to do this.
 At a high level, we want to generate the following pieces of hardware:
 1. A register to store the current value of the loop index.
 2. A comparator to check of the loop index is less than the array size.
 3. An adder to increment the value of the index.
 4. Whatever hardware is needed to implement the loop body computation.
 
-As an extra challenge to the reader, we have left an empty function body in
-`gen_calyx.py`.
+We have implemented exactly this, and you have been using it thus far with the `fud` invocations that we have provided you.
+
+However, it is time to get your hands dirty.
+We provide a stub implementation of `map` in `gen_calyx.py`:
+
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_calyx.py:my_map_impl}}
 ```
-You are invited to try implementing map yourself according to the outline given
-in the description by filling in the body of this function.
+You are invited to try implementing map yourself according to the outline given in the description by filling in the body of this function.
 
-To run `mrxl` with `my_map_impl` instead of our map implementation pass the
-`--my-map` flag. This can be done with `fud` as follows:
+To run `mrxl` with `my_map_impl` instead of our implementation, pass the `--my-map` flag:
 ```sh
 fud e --from mrxl test/sos.mrxl \
-      --to dat --through verilog \
-      -s mrxl.flags "--my-map "  \
-      -s mrxl.data test/sos.mrxl.data
+        --to dat --through verilog \
+        -s mrxl.flags "--my-map "  \
+        -s mrxl.data test/sos.mrxl.data
 ```
 
-If you are satisfied with your map implementation you may skip to
-[the next section](#adding-parallelization)! If you'd like to read through the
-details of our implementation-or build yours in tandem-continue on with the rest of this section.
+If you are feeling good about your implementation, skip to [the next section](#adding-parallelization)!
+If you'd like to read through the details of our implementation – or build yours in tandem – continue on with the rest of this section.
 
 ### Loop condition
 
@@ -337,7 +337,7 @@ Look for these in the Calyx code.
 
 When it comes time to populating the memories of this Calyx code, we can no longer just supply values for a memory `avec`.
 We need to also bank the data that we supply, i.e., we must populate `avec_b0` and `avec_b1`.
-Though nontrivial, this data-banking can also be [handled automatically](#supplying-data-to-mrxl-programs); all the necessary information is in the MrXL source program.
+Though nontrivial, this data-banking can also be [handled automatically](#aside-supplying-data-to-mrxl-programs); all the necessary information is in the MrXL source program.
 
 ### Parallel Control
 
