@@ -215,7 +215,7 @@ At a high level, we want to generate the following pieces of hardware:
 We have implemented exactly this, and you have been using it thus far with the `fud` invocations that we have provided you.
 
 However, it is time to get your hands dirty.
-We provide a stub implementation of `map` in `gen_calyx.py`:
+We provide a [stub implementation][mymap-stub] of `map` in `gen_calyx.py`:
 
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_calyx.py:my_map_impl}}
@@ -469,3 +469,4 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [verilator]: https://www.veripool.org/wiki/verilator
 [docker]: https://github.com/cucapra/calyx/pkgs/container/calyx
 [running-mrxl-example]: #running-mrxl
+[mymap-stub]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py#L171-L191
