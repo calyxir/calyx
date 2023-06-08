@@ -132,7 +132,7 @@ class MrXLDataStage(Stage):
         Specify defaults that should be added to fud's configuration file when
         this stage is registered.
         """
-        return {"exec": "mrxl-data"}
+        return {}
 
     def _define_steps(self, input, builder, config):
         """
