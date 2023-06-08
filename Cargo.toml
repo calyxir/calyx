@@ -87,7 +87,6 @@ calyx-ir.workspace = true
 calyx-frontend.workspace = true
 calyx-opt.workspace = true
 
-
 [dependencies.quick-xml]
 version = "0.28"
 default-features = false
