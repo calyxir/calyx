@@ -188,6 +188,7 @@ component main() -> () {
 For each `Decl` node, we need to determine if we're instantiating a memory or a register, translate the node into a corresponding Calyx declaration, and place the declaration inside the `cells` section of our generated program.
 
 If a memory is used in a parallel `map` or `reduce`, we might need to create different physical banks for it.
+We explain why [below][banking-need].
 We [define a function][compute-par] to walk over the AST and compute the parallelism factor for each memory:
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_calyx.py:compute_par_factors}}
@@ -331,13 +332,19 @@ But more interestingly, compile this to Calyx IL with:
 mrxl frontends/mrxl/test/squares.mrxl
 ``` -->
 
-There's a lot going on, but the thing to focus on is this.
+There's a lot going on in the Calyx code, but the thing to focus on is this.
 To take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is split into two *banks*, `avec_b0` and `avec_b1`.
 Look for these in the Calyx code.
 
-When it comes time to populating the memories of this Calyx code, we can no longer just supply values for a memory `avec`.
-We need to also bank the data that we supply, i.e., we must populate `avec_b0` and `avec_b1`.
+Why do we do this? Memories in Calyx can only support one read/write per cycle of the clock, so if we keep `avec` around as one memory, our attempts at parallelization will be thwarted simply because we will be bottlenecked when accessing our data.
+Splitting `avec` into two banks allows us to read/write into two logical spots of `avec` in parallel.
+
+Banking comes with an additional responsibility.
+When driving data to the memories, we can't just supply values for a memory `avec`.
+The memory `avec` exists logically in our minds, but Calyx now only knows about `avec_b0` and `avec_b1`.
+We must drive data to *these*.
 Though nontrivial, this data-banking can also be [handled automatically](#aside-supplying-data-to-mrxl-programs); all the necessary information is in the MrXL source program.
+
 
 ### Parallel Control
 
@@ -470,3 +477,4 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [docker]: https://github.com/cucapra/calyx/pkgs/container/calyx
 [running-mrxl-example]: #running-mrxl
 [mymap-stub]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py#L171-L191
+[banking-need]: #memory-banking
