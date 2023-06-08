@@ -150,10 +150,7 @@ impl Debugger {
                 Command::Empty => {}
                 Command::Display => {
                     let state = component_interpreter.get_env();
-                    println!(
-                        "{}",
-                        state.state_as_str().on_black().white().bold()
-                    );
+                    println!("{}", state.state_as_str().green().bold());
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
@@ -285,9 +282,9 @@ impl Debugger {
                     )
                 }
                 Command::InfoWatch => self.debugging_ctx.print_watchpoints(),
-                Command::PrintPC(_) => {
+                Command::PrintPC(override_flag) => {
                     if let Some(map) = &self.source_map {
-                        let mut printed = false;
+                        let mut printed = true;
                         for x in component_interpreter
                             .get_active_tree()
                             .remove(0)
@@ -308,18 +305,30 @@ impl Debugger {
                                     .get_active_tree()
                                     .remove(0)
                                     .format_tree::<true>(0)
-                            )
+                            );
                         }
                     } else {
-                        print!(
-                            "{}",
-                            component_interpreter
-                                .get_active_tree()
-                                .remove(0)
-                                .format_tree::<true>(0)
-                        )
+                        if override_flag {
+                            println!("Falling back to Calyx");
+                            print!(
+                                "{}",
+                                component_interpreter
+                                    .get_active_tree()
+                                    .remove(0)
+                                    .format_tree::<true>(0)
+                            );
+                        } else {
+                            print!(
+                                "{}",
+                                component_interpreter
+                                    .get_active_tree()
+                                    .remove(0)
+                                    .format_tree::<true>(0)
+                            );
+                        }
                     }
                 }
+
                 Command::Explain => {
                     print!("{}", Command::get_explain_string().blue())
                 }

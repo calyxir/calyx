@@ -53,9 +53,15 @@ impl CommandParser {
     fn exit(_input: Node) -> ParseResult<Command> {
         Ok(Command::Exit)
     }
-
     fn comm_where(input: Node) -> ParseResult<Command> {
-        Ok(Command::PrintPC(None))
+        let where_true_false = input.as_str();
+
+        let _override_flag = match where_true_false {
+            "where true" | "pc true" => true,
+            _ => false, // Default value if no flag is provided or false is specified
+        };
+
+        Ok(Command::PrintPC(_override_flag))
     }
 
     fn pc_un(_input: Node) -> ParseResult<()> {

@@ -189,7 +189,7 @@ pub enum Command {
         Option<PrintCode>,
         PrintMode,
     ),
-    PrintPC(Option<bool>),
+    PrintPC(bool),
     Explain,
 }
 
