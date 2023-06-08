@@ -1,6 +1,7 @@
 use calyx_ir::Id;
 use itertools::{self, Itertools};
 use lazy_static::lazy_static;
+use owo_colors::OwoColorize;
 use std::{
     fmt::{Display, Write},
     marker::PhantomData,
@@ -89,9 +90,9 @@ impl Display for PrintCode {
             f,
             "{}",
             match self {
-                PrintCode::Binary => "\\b".to_string(),
-                PrintCode::Unsigned => "\\u".to_string(),
-                PrintCode::Signed => "\\s".to_string(),
+                PrintCode::Binary => "\\b".cyan().to_string(),
+                PrintCode::Unsigned => "\\u".blue().to_string(),
+                PrintCode::Signed => "\\s".yellow().to_string(),
                 PrintCode::UFixed(n) => format!("\\u.{}", n),
                 PrintCode::SFixed(n) => format!("\\s.{}", n),
             }
@@ -145,8 +146,8 @@ impl Display for PrintTuple {
             f,
             "{}",
             match self.2 {
-                PrintMode::State => "print-state",
-                PrintMode::Port => "print",
+                PrintMode::State => "print-state".green(),
+                PrintMode::Port => "print".green(),
             }
         )?;
         write!(
@@ -154,7 +155,7 @@ impl Display for PrintTuple {
             " {}",
             match &self.1 {
                 Some(s) => format!("{}", s),
-                None => "".to_string(),
+                None => "".red().to_string(),
             }
         )?;
         write!(
@@ -188,7 +189,7 @@ pub enum Command {
         Option<PrintCode>,
         PrintMode,
     ),
-    PrintPC,
+    PrintPC(bool),
     Explain,
 }
 
@@ -205,7 +206,8 @@ impl Command {
             ..
         } in COMMAND_INFO.iter()
         {
-            writeln!(out, "    {: <20}{}", names.join(", "), message).unwrap();
+            writeln!(out, "    {: <20}{}", names.join(", "), message.green())
+                .unwrap();
         }
 
         out
@@ -222,7 +224,12 @@ impl Command {
             writeln!(out).unwrap();
             writeln!(out, "{}", invocation.join(", ")).unwrap();
             writeln!(out, "   {}", description).unwrap();
-            writeln!(out, "     {}", usage_example.join("\n     ")).unwrap();
+            writeln!(
+                out,
+                "     {}",
+                usage_example.join("\n     ").blue().italic()
+            )
+            .unwrap();
         }
         writeln!(out).unwrap();
         out
@@ -270,6 +277,9 @@ lazy_static! {
             CIBuilder::new().invocation("where")
                 .invocation("pc")
                 .description("Displays the current program location using source metadata if applicable otherwise showing the calyx tree").build(),
+            // where calyx
+            CIBuilder::new().invocation("where calyx")
+                .description("Enhance 'where' command adding an optional flag that enables  printing calyx group tree, even if source information is not available").build(),
             // help
             CIBuilder::new().invocation("help")
                 .invocation("h")

@@ -2,10 +2,10 @@ use super::cidr::SPACING;
 use super::commands::{
     BreakPointId, ParsedGroupName, PrintTuple, WatchPosition,
 };
-
 use crate::interpreter_ir as iir;
 use crate::structures::names::{CompGroupName, GroupQIN};
 use calyx_ir::Id;
+use owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Display;
@@ -69,7 +69,7 @@ struct WatchPoint {
 
 impl Display for WatchPoint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.  {}", self.id, self.print_details)
+        write!(f, "{}.  {}", self.id, self.print_details.blue().bold())
     }
 }
 
@@ -192,7 +192,8 @@ impl DebuggingContext {
         if component_ref.is_none() {
             println!(
                 "{} Error: there is no component named {}",
-                SPACING, target.component_name
+                SPACING,
+                target.component_name.purple().bold()
             );
             return;
         }
@@ -210,7 +211,11 @@ impl DebuggingContext {
         };
 
         if !group_exists {
-            println!("{} Error: the group {} does not exist", SPACING, target);
+            println!(
+                "{} Error: the group {} does not exist",
+                SPACING,
+                target.purple().bold()
+            );
             return;
         }
 
@@ -224,7 +229,10 @@ impl DebuggingContext {
             };
             e.insert(br);
         } else {
-            println!("A breakpoint already exists for \"{}\"", &target)
+            println!(
+                "A breakpoint already exists for \"{}\"",
+                &target.green().bold()
+            )
         }
     }
 
@@ -273,7 +281,10 @@ impl DebuggingContext {
                 if let Some(breakpoint) = self.breakpoints.get_mut(&key) {
                     action.take_action_with_feedback(breakpoint);
                 } else {
-                    println!("Error: There is no breakpoint named '{}'", key)
+                    println!(
+                        "Error: There is no breakpoint named '{}'",
+                        key.red().bold().strikethrough()
+                    )
                 };
             }
             BreakPointId::Number(target) => {
@@ -288,7 +299,7 @@ impl DebuggingContext {
                 if !found {
                     println!(
                         "Error: There is no breakpoint numbered {}",
-                        target
+                        target.red().bold().strikethrough()
                     )
                 };
             }
@@ -418,7 +429,7 @@ impl DebuggingContext {
     pub fn print_breakpoints(&self) {
         println!("{}Current breakpoints:", SPACING);
         for breakpoint in self.breakpoints.values() {
-            println!("{}{:?}", SPACING, breakpoint)
+            println!("{}{:?}", SPACING, breakpoint.red().bold())
         }
     }
 
@@ -428,9 +439,9 @@ impl DebuggingContext {
         let outer_spacing = format!("{}  ", SPACING);
 
         for (group, (_brk, watchpoints)) in self.watchpoints_before.iter() {
-            println!("{}Before {}:", outer_spacing, group);
+            println!("{}Before {}:", outer_spacing, group.magenta().bold());
             for watchpoint in watchpoints.iter() {
-                println!("{}{}", inner_spacing, watchpoint);
+                println!("{}{}", inner_spacing, watchpoint.magenta());
             }
         }
 
@@ -438,9 +449,9 @@ impl DebuggingContext {
 
         for (group, (_brk, watchpoints)) in self.watchpoints_after.iter() {
             if !watchpoints.is_empty() {
-                println!("{}After {}:", outer_spacing, group);
+                println!("{}After {}:", outer_spacing, group.green().bold());
                 for watchpoint in watchpoints.iter() {
-                    println!("{}{}", inner_spacing, watchpoint);
+                    println!("{}{}", inner_spacing, watchpoint.green());
                 }
             }
         }

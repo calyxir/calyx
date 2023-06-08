@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use crate::structures::names::GroupQualifiedInstanceName;
+use owo_colors::OwoColorize;
 use std::{collections::HashSet, fmt::Write, iter::once};
 
 #[derive(Debug, Clone)]
@@ -25,27 +26,31 @@ impl ActiveTreeNode {
         write!(out, "{}", " ".repeat(indent_level)).unwrap();
 
         if TOP {
-            write!(out, "{}", self.name.prefix.as_id()).unwrap();
+            write!(out, "{}", self.name.prefix.as_id().blue()).unwrap();
         } else if let crate::structures::names::GroupName::None =
             &self.name.group
         {
-            write!(out, "{}", self.name.prefix.last().unwrap().instance)
-                .unwrap();
+            write!(
+                out,
+                "{}",
+                self.name.prefix.last().unwrap().instance.green()
+            )
+            .unwrap();
         } else {
             write!(
                 out,
                 "{}",
-                self.name.prefix.last().unwrap().component_id.name
+                self.name.prefix.last().unwrap().component_id.name.blue()
             )
             .unwrap();
         }
 
         match &self.name.group {
             crate::structures::names::GroupName::Group(g) => {
-                write!(out, "::{}", g).unwrap()
+                write!(out, "::{}", g.blue()).unwrap()
             }
             crate::structures::names::GroupName::Phantom(p) => {
-                write!(out, "::<{}>", p).unwrap()
+                write!(out, "::<{}>", p.magenta()).unwrap()
             }
             crate::structures::names::GroupName::None => {}
         }
@@ -54,7 +59,7 @@ impl ActiveTreeNode {
 
         for child in self.children.iter() {
             let child_out = child.format_tree::<false>(indent_level + 2);
-            write!(out, "{}", child_out).unwrap();
+            write!(out, "{}", child_out.magenta()).unwrap();
         }
 
         out

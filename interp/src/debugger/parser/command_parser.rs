@@ -20,6 +20,9 @@ impl CommandParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
+    fn code_calyx(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
 
     // ----------------------
 
@@ -54,8 +57,11 @@ impl CommandParser {
         Ok(Command::Exit)
     }
 
-    fn comm_where(_input: Node) -> ParseResult<Command> {
-        Ok(Command::PrintPC)
+    fn comm_where(input: Node) -> ParseResult<Command> {
+        Ok(match_nodes!(input.into_children();
+            [code_calyx(_)] => Command::PrintPC(true),
+            [] => Command::PrintPC(false),
+        ))
     }
 
     fn pc_un(_input: Node) -> ParseResult<()> {
