@@ -132,7 +132,7 @@ impl From<&ir::Cell> for GoDone {
 pub struct StaticPromotion {
     /// component name -> vec<(go signal, done signal, latency)>
     latency_data: HashMap<ir::Id, GoDone>,
-    /// dynamic group Id -> promoted static group Id 
+    /// dynamic group Id -> promoted static group Id
     static_group_name: HashMap<ir::Id, ir::Id>,
 }
 
@@ -419,7 +419,7 @@ impl StaticPromotion {
 
     /// if we've already constructed the static group for the `ir::Enable`, then
     /// just promote `Enable` to `StaticEnable` using the constructed `static group`
-    /// if not, then first construct `static group` and then promote `Enable` to 
+    /// if not, then first construct `static group` and then promote `Enable` to
     /// `StaticEnable`
     fn construct_static_enable(
         &mut self,
