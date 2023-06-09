@@ -10,13 +10,17 @@ module fp_sqrt #(
     output logic [WIDTH-1:0] out,
     output logic             done
 );
-    localparam ITERATIONS = WIDTH+FRAC_WIDTH >> 1;
+    // The algorithm requires an even number of bits to the left of the binary
+    // point. Thus, if INT_WIDTH is odd, we extend the input to include the
+    // implicit leading 0.
+    localparam EXT_WIDTH = WIDTH + (INT_WIDTH & 1);
+    localparam ITERATIONS = EXT_WIDTH+FRAC_WIDTH >> 1;
     logic [$clog2(ITERATIONS)-1:0] idx;
 
-    logic [WIDTH-1:0] x, x_next;
-    logic [WIDTH-1:0] quotient, quotient_next;
-    logic [WIDTH+1:0] acc, acc_next;
-    logic [WIDTH+1:0] tmp;
+    logic [EXT_WIDTH-1:0] x, x_next;
+    logic [EXT_WIDTH-1:0] quotient, quotient_next;
+    logic [EXT_WIDTH+1:0] acc, acc_next;
+    logic [EXT_WIDTH+1:0] tmp;
     logic start, running, finished;
 
     assign start = go && !running;
@@ -41,23 +45,23 @@ module fp_sqrt #(
 
     always_comb begin
       tmp = acc - {quotient, 2'b01};
-      if (tmp[WIDTH+1]) begin
+      if (tmp[EXT_WIDTH+1]) begin
         // tmp is negative.
-        {acc_next, x_next} = {acc[WIDTH-1:0], x, 2'b0};
+        {acc_next, x_next} = {acc[EXT_WIDTH-1:0], x, 2'b0};
         // Append a 0 to the result.
         quotient_next = quotient << 1;
       end else begin
         // tmp is positive.
-        {acc_next, x_next} = {tmp[WIDTH-1:0], x, 2'b0};
+        {acc_next, x_next} = {tmp[EXT_WIDTH-1:0], x, 2'b0};
         // Append a 1 to the result.
-        quotient_next = {quotient[WIDTH-2:0], 1'b1};
+        quotient_next = {quotient[EXT_WIDTH-2:0], 1'b1};
       end
     end
 
     always_ff @(posedge clk) begin
       if (start) begin
         quotient <= 0;
-        {acc, x} <= {{WIDTH{1'b0}}, in, 2'b0};
+        {acc, x} <= {{EXT_WIDTH + (INT_WIDTH & 1){1'b0}}, in, 2'b0};
       end else begin
         x <= x_next;
         acc <= acc_next;
