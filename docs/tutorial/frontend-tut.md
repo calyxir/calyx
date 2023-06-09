@@ -31,6 +31,10 @@ This short program shows off all of MrXL's features, so let's pick it apart line
 
 ## Running our example
 
+### Installing MrXL
+
+> If you are going through this tutorial in the [Docker container][docker], you can skip these installation steps and jump to [*Running MrXL*][running-mrxl-example] just below.
+
 First, install the [`builder` library][calyx-py-lib] by typing the following command from the repository root:
 ```
 cd calyx-py && flit install -s && cd -
@@ -45,7 +49,9 @@ fud register mrxl -p frontends/mrxl/fud/mrxl.py
 ```
 Now, running `fud check` should report that the `mrxl` binary is correctly installed.
 
-Finally, run:
+### Running MrXL
+
+Run:
 ```
 mrxl frontends/mrxl/test/sos.mrxl --data frontends/mrxl/test/sos.mrxl.data --interpret
 ```
@@ -78,7 +84,7 @@ mrxl frontends/mrxl/test/sos.mrxl
 
 ## Simulating our example with Verilog
 
-Finally, let us go the whole hog: we compile our MrXL program to Calyx, which is then compiled to Verilog, and simulated by [Verilator][].
+Finally, let us go the whole hog: we compile our MrXL program to Calyx, compile it to Verilog, then simulate it using [Verilator][].
 
 Run:
 ```
@@ -149,7 +155,7 @@ Finally, the [control section][lf-control] *schedules* the execution of groups u
 We perform syntax-directed compilation by walking over the nodes of the AST and generating `cells`, `wires`, and `control` operations.
 
 
-### Calyx-Embedded DSL
+### An Embedded DSL that Generates Calyx
 
 To make it easy to generate hardware, we'll use Calyx's [`builder` module][calyx-py-lib] written in Python:
 ```python
@@ -182,6 +188,7 @@ component main() -> () {
 For each `Decl` node, we need to determine if we're instantiating a memory or a register, translate the node into a corresponding Calyx declaration, and place the declaration inside the `cells` section of our generated program.
 
 If a memory is used in a parallel `map` or `reduce`, we might need to create different physical banks for it.
+We explain why [below][banking-need].
 We [define a function][compute-par] to walk over the AST and compute the parallelism factor for each memory:
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_calyx.py:compute_par_factors}}
@@ -198,34 +205,34 @@ By setting `is_external=True`, we're indicating that a memory declaration is a p
 ## Compiling `map` operations
 
 For every `map` or `reduce` node, we need to generate Calyx code that iterates over an array, performs some kind of computation, and then stores the result of that computation.
-For `map` operations, we'll perform a computation on an element of an input array, and then store the result in a result array.
-We can use Calyx's [while loops][lf-while] to iterate over an input array, perform the map's computation, and store the final value.
+For `map` operations, we'll perform a computation on every element of an input array, and then store the answers in a result array.
+We can use Calyx's [while loops][lf-while] to do this.
 At a high level, we want to generate the following pieces of hardware:
 1. A register to store the current value of the loop index.
 2. A comparator to check of the loop index is less than the array size.
 3. An adder to increment the value of the index.
 4. Whatever hardware is needed to implement the loop body computation.
 
-As an extra challenge to the reader, we have left an empty function body in
-`gen_calyx.py`.
+We have implemented exactly this, and you have been using it thus far with the `fud` invocations that we have provided you.
+
+However, it is time to get your hands dirty.
+We provide a [stub implementation][mymap-stub] of `map` in `gen_calyx.py`:
+
 ```python
 {{#include ../../frontends/mrxl/mrxl/gen_calyx.py:my_map_impl}}
 ```
-You are invited to try implementing map yourself according to the outline given
-in the description by filling in the body of this function.
+You are invited to try implementing map yourself according to the outline given in the description by filling in the body of this function.
 
-To run `mrxl` with `my_map_impl` instead of our map implementation pass the
-`--my-map` flag. This can be done with `fud` as follows:
+To run `mrxl` with `my_map_impl` instead of our implementation, pass the `--my-map` flag:
 ```sh
-fud e --from mrxl test/sos.mrxl \     # Start with MrXL code.
-      --to dat --through verilog \    # Generate results using Verilator
-      -s mrxl.flags "--my-map "  \    # NEW (!!)
-      -s mrxl.data test/sos.mrxl.data # Set the data file
+fud e --from mrxl test/sos.mrxl \
+        --to dat --through verilog \
+        -s mrxl.flags "--my-map "  \
+        -s mrxl.data test/sos.mrxl.data
 ```
 
-If you are satisfied with your map implementation you may skip to
-[the next section](#adding-parallelization)! If you'd like to read through the
-details of our implementation---or build yours in tandem---continue on with the rest of this section.
+If you are feeling good about your implementation, skip to [the next section](#adding-parallelization)!
+If you'd like to read through the details of our implementation – or build yours in tandem – continue on with the rest of this section.
 
 ### Loop condition
 
@@ -325,13 +332,19 @@ But more interestingly, compile this to Calyx IL with:
 mrxl frontends/mrxl/test/squares.mrxl
 ``` -->
 
-There's a lot going on, but the thing to focus on is this.
+There's a lot going on in the Calyx code, but the thing to focus on is this.
 To take advantage of the parallelism in the program, the MrXL compiler assumes that the input memory `avec` is split into two *banks*, `avec_b0` and `avec_b1`.
 Look for these in the Calyx code.
 
-When it comes time to populating the memories of this Calyx code, we can no longer just supply values for a memory `avec`.
-We need to also bank the data that we supply, i.e., we must populate `avec_b0` and `avec_b1`.
-Though nontrivial, this data-banking can also be [handled automatically](#supplying-data-to-mrxl-programs); all the necessary information is in the MrXL source program.
+Why do we do this? Memories in Calyx can only support one read/write per cycle of the clock, so if we keep `avec` around as one memory, our attempts at parallelization will be thwarted simply because we will be bottlenecked when accessing our data.
+Splitting `avec` into two banks allows us to read/write into two logical spots of `avec` in parallel.
+
+Banking comes with an additional responsibility.
+When driving data to the memories, we can't just supply values for a memory `avec`.
+The memory `avec` exists logically in our minds, but Calyx now only knows about `avec_b0` and `avec_b1`.
+We must drive data to *these*.
+Though nontrivial, this data-banking can also be [handled automatically](#aside-supplying-data-to-mrxl-programs); all the necessary information is in the MrXL source program.
+
 
 ### Parallel Control
 
@@ -350,7 +363,7 @@ As specified by the language specification, [conflicting resource usage is undef
 You can use `fud` to compile the MrXL program and run it with some data:
 ```
 fud e --from mrxl --to dat \
-      --through icarus-verilog \
+      --through verilator \
       -s mrxl.data frontends/mrxl/test/squares.mrxl.data \
       frontends/mrxl/test/squares.mrxl
 ```
@@ -383,6 +396,8 @@ Here are some of those restrictions again, along with pointers about how to lift
     To get you started, we provide a toy implementation using the `builder` [here][builder-red-tree].
     That example is rather brittle: it takes exactly 16 inputs, banked into four arrays, and adds their values together.
     Try incorporating this brittle version into your MrXL-to-Calyx compiler at first, and you can later think about generalizing it to any (commutative) operation, memories of any length, and any parallelism factor.
+
+    If you'd like to read more about reduction trees, you can check out [these slides][reduc-trees] from David Kirk and Wen-mei W. Hwu.
 
 3.
     > If repeated `map`/`reduce` operations are performed on the same array, each of those operations must have the same parallelism factor.
@@ -459,3 +474,7 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [par-undef]: ../lang/ref.md#par
 [binary-mult]: https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45
 [verilator]: https://www.veripool.org/wiki/verilator
+[docker]: https://github.com/cucapra/calyx/pkgs/container/calyx
+[running-mrxl-example]: #running-mrxl
+[mymap-stub]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py#L171-L191
+[banking-need]: #memory-banking
