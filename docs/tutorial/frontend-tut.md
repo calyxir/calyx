@@ -291,7 +291,7 @@ We generate a while loop that checks that the index is less than the array size.
 Then, it sequentially executes the computation for the body and increments the loop index.
 
 > Take a breather! You now understand the basics of compiling DSLs to Calyx.
-> However, we're not done yet; we build hardware because we want things to be fast and efficient so the next part will teach you how to parallelize MrXL programs.
+> However, we're not done yet; we build hardware because we want things to be fast and efficient, so the next part will teach you how to parallelize MrXL programs.
 
 ## Adding parallelization
 
@@ -363,7 +363,7 @@ As specified by the language specification, [conflicting resource usage is undef
 You can use `fud` to compile the MrXL program and run it with some data:
 ```
 fud e --from mrxl --to dat \
-      --through verilator \
+      --through verilog \
       -s mrxl.data frontends/mrxl/test/squares.mrxl.data \
       frontends/mrxl/test/squares.mrxl
 ```
@@ -406,7 +406,7 @@ Here are some of those restrictions again, along with pointers about how to lift
     How do we bank it two different ways at the same time?
     The answer is to bank the array a little finer than you think, and to then use _arbitration logic_ to provide two fictional banking setups at the same time.
     We provide a toy implementation using the `builder` [here][builder-arb].
-    There, a 24-cell array has been split into _six_ banks, but then we allow the user to pretend, simulatneously, that it is split into _two_ banks or _three_ banks.
+    There, a 24-cell array has been split into _six_ banks, but then we allow the user to pretend, simultaneously, that it is split into _two_ banks or _three_ banks.
 
 
 # Aside: supplying data to MrXL programs
