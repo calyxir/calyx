@@ -10,6 +10,9 @@ module fp_sqrt #(
     output logic [WIDTH-1:0] out,
     output logic             done
 );
+    // The algorithm requires an even number of bits to the left of the binary
+    // point. Thus, if INT_WIDTH is odd, we extend the input to include the
+    // implicit leading 0.
     localparam EXT_WIDTH = WIDTH + (INT_WIDTH & 1);
     localparam ITERATIONS = EXT_WIDTH+FRAC_WIDTH >> 1;
     logic [$clog2(ITERATIONS)-1:0] idx;
