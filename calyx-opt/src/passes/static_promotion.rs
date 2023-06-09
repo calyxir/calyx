@@ -132,6 +132,7 @@ impl From<&ir::Cell> for GoDone {
 pub struct StaticPromotion {
     /// component name -> vec<(go signal, done signal, latency)>
     latency_data: HashMap<ir::Id, GoDone>,
+    /// dynamic group Id -> promoted static group Id 
     static_group_name: HashMap<ir::Id, ir::Id>,
 }
 
@@ -416,6 +417,10 @@ impl StaticPromotion {
         Some(latency_sum)
     }
 
+    /// if we've already constructed the static group for the `ir::Enable`, then
+    /// just promote `Enable` to `StaticEnable` using the constructed `static group`
+    /// if not, then first construct `static group` and then promote `Enable` to 
+    /// `StaticEnable`
     fn construct_static_enable(
         &mut self,
         builder: &mut ir::Builder,
@@ -649,14 +654,13 @@ impl Visitor for StaticPromotion {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut new_stmts: Vec<ir::Control> = Vec::new();
         let mut static_vec: Vec<ir::Control> = Vec::new();
-        let mut promote_control = true;
         for stmt in std::mem::take(&mut s.stmts) {
             if stmt.is_static()
                 || stmt.has_attribute(ir::NumAttr::PromoteStatic)
             {
                 static_vec.push(stmt);
             } else {
-                promote_control = false;
+                // we do not promote if static_vec contains only 1 single enable
                 match static_vec.len().cmp(&1) {
                     std::cmp::Ordering::Equal => {
                         new_stmts.extend(static_vec);
@@ -680,7 +684,7 @@ impl Visitor for StaticPromotion {
             } else {
                 let sseq =
                     self.construct_static_seq(&mut builder, &mut static_vec);
-                if promote_control {
+                if new_stmts.is_empty() {
                     return Ok(Action::change(sseq));
                 } else {
                     new_stmts.push(sseq);
@@ -704,7 +708,7 @@ impl Visitor for StaticPromotion {
         let mut builder = ir::Builder::new(comp, sigs);
         let mut new_stmts: Vec<ir::Control> = Vec::new();
         let (mut s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
-            std::mem::take(&mut s.stmts).into_iter().partition(|s| {
+            s.stmts.drain(..).partition(|s| {
                 s.is_static()
                     || s.get_attributes().has(ir::NumAttr::PromoteStatic)
             });
