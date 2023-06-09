@@ -24,7 +24,13 @@ docker run -it --rm ghcr.io/cucapra/calyx:latest
 
 The `--rm` flag will remove the container after you exit the shell. If you want to keep the container around, remove the flag.
 
-> If you choose to use the Docker container, you can skip a lot of what follows and head to [*running a hardware design*][hw-design].
+Just to make sure that all's well with your Docker image, run the core tests:
+```
+runt -i core
+```
+
+If all this worked out, you're in great shape.
+You can skip a lot of what follows and head to [*running a hardware design*][hw-design].
 
 
 ### Installing the Crate (to use, but not extend, Calyx)
@@ -129,7 +135,7 @@ You could consider:
 
 ## Running a Hardware Design
 
-We're all set to run a Calyx hardware design now. Run the following command:
+You're all set to run a Calyx hardware design now. Run the following command:
 ```
 fud e examples/tutorial/language-tutorial-iterate.futil \
   -s verilog.data examples/tutorial/data.json \
