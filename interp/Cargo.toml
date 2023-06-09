@@ -23,7 +23,7 @@ pest.workspace = true
 pest_derive.workspace = true
 pest_consume.workspace = true
 argh.workspace = true
-
+owo-colors = "^3.5"
 bitvec = "1.0"
 base64 = "0.13.0"
 serde_json = "1.0"
@@ -34,11 +34,9 @@ ibig = { version = "0.3.4", features = ["serde"] }
 slog = "2.7.0"
 slog-term = "2.8.0"
 slog-async = "2.7.0"
-
 ahash = "0.8.3"
 
 once_cell = "1.9.0"
-
 petgraph = "0.6.3"
 
 calyx-ir = { path = "../calyx-ir" }

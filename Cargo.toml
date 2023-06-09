@@ -110,3 +110,4 @@ calyx-frontend = { path = "calyx-frontend" }
 [[bench]]
 name = "component-sharing"
 harness = false
+
