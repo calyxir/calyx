@@ -24,10 +24,13 @@ docker run -it --rm ghcr.io/cucapra/calyx:latest
 
 The `--rm` flag will remove the container after you exit the shell. If you want to keep the container around, remove the flag.
 
-Just to make sure that all's well with your Docker image, run the core tests:
+Just to make sure that all's well with your Docker image, run the following tests:
 ```
-runt -i core
+runt -i 'core|mrxl'
+fud check verilog jq mrxl interpreter
 ```
+
+If you get any warnings or errors, please report them to us before proceeding.
 
 If all this worked out, you're in great shape.
 You can skip a lot of what follows and head to [*running a hardware design*][hw-design].
