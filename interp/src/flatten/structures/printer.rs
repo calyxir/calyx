@@ -327,7 +327,7 @@ CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l
             let src = &self.ctx.secondary[src];
             let dst = &self.ctx.secondary[dst];
 
-            write!(out, "{dst}={src}").unwrap();
+            write!(out, "{dst}={src}, ").unwrap();
         }
 
         // remove trailing ", "
