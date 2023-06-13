@@ -23,7 +23,7 @@ use super::{
 };
 
 /// The full immutable program context for the interpreter.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Context {
     /// Simulation relevant context
     pub primary: InterpretationContext,
@@ -225,6 +225,10 @@ impl Default for SecondaryContext {
 }
 
 impl Context {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     #[inline]
     pub fn resolve_id(&self, id: Identifier) -> &String {
         self.secondary.string_table.lookup_string(&id).unwrap()

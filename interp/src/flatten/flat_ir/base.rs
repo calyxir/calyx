@@ -127,6 +127,7 @@ impl From<LocalPortOffset> for PortRef {
     }
 }
 
+/// An enum wrapping the two different types of port definitions (ref/local)
 pub enum PortDefinitionRef {
     Local(PortDefinitionIdx),
     Ref(RefPortDefinitionIdx),
@@ -144,10 +145,35 @@ impl From<PortDefinitionIdx> for PortDefinitionRef {
     }
 }
 
+/// A wrapper enum distinguishing between local offsets to cells and ref cells
+///
+/// TODO griffin: do some clever bit stuff to pack this into a single u32 rather
+/// than the 64 bits it current occupies due to the discriminant being 32 bits
+/// because of alignment
 #[derive(Debug, Copy, Clone)]
 pub enum CellRef {
     Local(LocalCellOffset),
     Ref(LocalRefCellOffset),
+}
+
+impl CellRef {
+    #[must_use]
+    pub fn as_local(&self) -> Option<&LocalCellOffset> {
+        if let Self::Local(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_ref(&self) -> Option<&LocalRefCellOffset> {
+        if let Self::Ref(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<LocalRefCellOffset> for CellRef {
@@ -162,20 +188,25 @@ impl From<LocalCellOffset> for CellRef {
     }
 }
 
+/// A global index for assignments in the IR
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct AssignmentIdx(u32);
 impl_index!(AssignmentIdx);
 
+/// A global index for standard groups in the IR
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GroupIdx(u32);
 impl_index!(GroupIdx);
 
-// This is non-zero to make the option-types of this index used in the IR If and
-// While nodes the same size as the index itself.
+/// A global index for combinational groups in the IR
+///
+/// This is non-zero to make the option-types of this index used in the IR If and
+/// While nodes the same size as the index itself.
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct CombGroupIdx(NonZeroU32);
 impl_index_nonzero!(CombGroupIdx);
 
+/// A global index for guards used in the IR
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GuardIdx(u32);
 impl_index!(GuardIdx);

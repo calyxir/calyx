@@ -145,7 +145,46 @@ impl While {
 /// Invoke control node
 #[derive(Debug)]
 pub struct Invoke {
-    // TODO: add invoke stuff
+    /// The cell being invoked
+    cell: LocalCellOffset,
+    /// Optional group enabled during invocation of the cell (the calyx `with`
+    /// statement)
+    comb_group: Option<CombGroupIdx>,
+    /// The external cells passed as arguments to the invoked cell, an
+    /// association list of the refcell offset in the invoked context, and the
+    /// cell realizing it in the parent context
+    ref_cells: SmallVec<[(LocalRefCellOffset, CellRef); 1]>,
+    /// The ports attached to the input of the invoked cell, an association list
+    /// of the local port offset in the **PARENT** context, and the port connected
+    /// to it in the parent context
+    inputs: SmallVec<[(LocalPortOffset, PortRef); 1]>,
+    /// The ports attached to the outputs of the invoked cell, an association list
+    /// of the local port offset in the **PARENT** context, and the port connected
+    /// to it in the parent context
+    outputs: SmallVec<[(LocalPortOffset, PortRef); 1]>,
+}
+
+impl Invoke {
+    pub fn new<R, I, O>(
+        cell: LocalCellOffset,
+        comb_group: Option<CombGroupIdx>,
+        ref_cells: R,
+        inputs: I,
+        outputs: O,
+    ) -> Self
+    where
+        R: IntoIterator<Item = (LocalRefCellOffset, CellRef)>,
+        I: IntoIterator<Item = (LocalPortOffset, PortRef)>,
+        O: IntoIterator<Item = (LocalPortOffset, PortRef)>,
+    {
+        Self {
+            cell,
+            comb_group,
+            ref_cells: ref_cells.into_iter().collect(),
+            inputs: inputs.into_iter().collect(),
+            outputs: outputs.into_iter().collect(),
+        }
+    }
 }
 
 /// An enum representing the different types of control nodes
