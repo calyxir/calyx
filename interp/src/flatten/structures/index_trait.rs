@@ -9,15 +9,14 @@ pub trait IndexRef: Copy + Eq {
 /// a [`u32`](std::u32) as the backing type. However, if a different backing type
 /// is desired, it can be specified as the second argument.
 macro_rules! impl_index {
-    ($v: vis $struct_name: ident) => {
-        impl_index!($v $struct_name, u32);
+    ($struct_name: ident) => {
+        impl_index!($struct_name, u32);
     };
 
-    ( $v:vis $struct_name: ident, $backing_ty: ty) => {
-        #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-        $v struct $struct_name($backing_ty);
-
-        impl $crate::flatten::structures::index_trait::IndexRef for $struct_name {
+    ($struct_name: ident, $backing_ty: ty) => {
+        impl $crate::flatten::structures::index_trait::IndexRef
+            for $struct_name
+        {
             fn index(&self) -> usize {
                 self.0 as usize
             }
@@ -46,36 +45,35 @@ macro_rules! impl_index {
 /// different backing type is desired, it can be specified as the second
 /// argument to the macro.
 macro_rules! impl_index_nonzero {
-
     // Cool and normal stuff here
-
-    ($v: vis $struct_name: ident) => {
-        impl_index_nonzero!($v $struct_name, std::num::NonZeroU32, u32);
+    ($struct_name: ident) => {
+        impl_index_nonzero!($struct_name, std::num::NonZeroU32, u32);
     };
 
-    ($v: vis $struct_name: ident, NonZeroU8) => {
-        impl_index_nonzero!($v $struct_name, std::num::NonZeroU8, u8);
+    ($struct_name: ident, NonZeroU8) => {
+        impl_index_nonzero!($struct_name, std::num::NonZeroU8, u8);
     };
 
-    ($v: vis $struct_name: ident, NonZeroU16) => {
-        impl_index_nonzero!($v $struct_name, std::num::NonZeroU16, u16);
+    ($struct_name: ident, NonZeroU16) => {
+        impl_index_nonzero!($struct_name, std::num::NonZeroU16, u16);
     };
 
-    ($v: vis $struct_name: ident, NonZeroU32) => {
-        impl_index_nonzero!($v $struct_name, std::num::NonZeroU32, u32);
+    ($struct_name: ident, NonZeroU32) => {
+        impl_index_nonzero!($struct_name, std::num::NonZeroU32, u32);
     };
 
-    ( $v:vis $struct_name: ident, $non_zero_type:ty, $normal_type:ty) => {
-        #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-        $v struct $struct_name($non_zero_type);
-
-        impl $crate::flatten::structures::index_trait::IndexRef for $struct_name {
+    ($struct_name: ident, $non_zero_type:ty, $normal_type:ty) => {
+        impl $crate::flatten::structures::index_trait::IndexRef
+            for $struct_name
+        {
             fn index(&self) -> usize {
                 self.0.get() as usize - 1
             }
 
             fn new(input: usize) -> Self {
-                Self(<$non_zero_type>::new((input + 1) as $normal_type).unwrap())
+                Self(
+                    <$non_zero_type>::new((input + 1) as $normal_type).unwrap(),
+                )
             }
         }
 

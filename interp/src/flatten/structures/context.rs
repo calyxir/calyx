@@ -1,11 +1,12 @@
 use std::ops::Index;
 
 use crate::flatten::flat_ir::{
+    cell_prototype::CellPrototype,
     component::{AuxillaryComponentInfo, ComponentCore, ComponentMap},
     identifier::IdMap,
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
-        CombGroupIdx, CombGroupMap, ComponentRef, ControlIdx, ControlMap,
+        CombGroupIdx, CombGroupMap, ComponentIdx, ControlIdx, ControlMap,
         ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalPortOffset,
         LocalRefPortOffset, ParentIdx, PortDefinitionIdx, PortDefinitionRef,
         PortRef, RefCellDefinitionIdx, RefCellInfo, RefPortDefinitionIdx,
@@ -23,7 +24,7 @@ use super::{
 };
 
 /// The full immutable program context for the interpreter.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Context {
     /// Simulation relevant context
     pub primary: InterpretationContext,
@@ -57,10 +58,10 @@ pub struct InterpretationContext {
     pub control: ControlMap,
 }
 
-impl Index<ComponentRef> for InterpretationContext {
+impl Index<ComponentIdx> for InterpretationContext {
     type Output = ComponentCore;
 
-    fn index(&self, index: ComponentRef) -> &Self::Output {
+    fn index(&self, index: ComponentIdx) -> &Self::Output {
         &self.components[index]
     }
 }
@@ -126,7 +127,7 @@ pub struct SecondaryContext {
     /// ref-cell definitions
     pub ref_cell_defs: IndexedMap<RefCellDefinitionIdx, RefCellInfo>,
     /// auxillary information for components
-    pub comp_aux_info: AuxillaryMap<ComponentRef, AuxillaryComponentInfo>,
+    pub comp_aux_info: AuxillaryMap<ComponentIdx, AuxillaryComponentInfo>,
 }
 
 impl Index<Identifier> for SecondaryContext {
@@ -169,10 +170,10 @@ impl Index<RefCellDefinitionIdx> for SecondaryContext {
     }
 }
 
-impl Index<ComponentRef> for SecondaryContext {
+impl Index<ComponentIdx> for SecondaryContext {
     type Output = AuxillaryComponentInfo;
 
-    fn index(&self, index: ComponentRef) -> &Self::Output {
+    fn index(&self, index: ComponentIdx) -> &Self::Output {
         &self.comp_aux_info[index]
     }
 }
@@ -194,20 +195,22 @@ impl SecondaryContext {
         &mut self,
         name: Identifier,
         ports: IndexRange<LocalPortOffset>,
-        parent: ComponentRef,
+        parent: ComponentIdx,
+        prototype: CellPrototype,
     ) -> CellDefinitionIdx {
         self.local_cell_defs
-            .push(CellInfo::new(name, ports, parent))
+            .push(CellInfo::new(name, ports, parent, prototype))
     }
 
     pub fn push_ref_cell(
         &mut self,
         name: Identifier,
         ports: IndexRange<LocalRefPortOffset>,
-        parent: ComponentRef,
+        parent: ComponentIdx,
+        prototype: CellPrototype,
     ) -> RefCellDefinitionIdx {
         self.ref_cell_defs
-            .push(RefCellInfo::new(name, ports, parent))
+            .push(RefCellInfo::new(name, ports, parent, prototype))
     }
 }
 
@@ -225,6 +228,10 @@ impl Default for SecondaryContext {
 }
 
 impl Context {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     #[inline]
     pub fn resolve_id(&self, id: Identifier) -> &String {
         self.secondary.string_table.lookup_string(&id).unwrap()
@@ -240,7 +247,7 @@ impl Context {
     #[inline]
     pub(crate) fn lookup_port_definition(
         &self,
-        comp: ComponentRef,
+        comp: ComponentIdx,
         target: PortRef,
     ) -> PortDefinitionRef {
         match target {
@@ -257,7 +264,7 @@ impl Context {
     /// TODO Griffin: if relevant, replace with something more efficient.
     pub(crate) fn find_parent_cell(
         &self,
-        comp: ComponentRef,
+        comp: ComponentIdx,
         target: PortRef,
     ) -> ParentIdx {
         match target {
@@ -271,7 +278,7 @@ impl Context {
                     .cells()
                     .iter()
                     .find(|c| self.secondary[*c]
-                        .ports().contains(l));
+                        .ports.contains(l));
 
                     if let Some(p) = port {
                         p.into()
@@ -290,7 +297,7 @@ impl Context {
                 .definitions
                 .ref_cells()
                 .iter()
-                .find(|c| self.secondary[*c].ports().contains(r))
+                .find(|c| self.secondary[*c].ports.contains(r))
                 .expect("Port does not belong to any ref cell in the given component").into()
             },
         }

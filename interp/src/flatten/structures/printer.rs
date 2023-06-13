@@ -1,6 +1,7 @@
 use calyx_ir::PortComp;
 
 use crate::flatten::flat_ir::{
+    cell_prototype::CellPrototype,
     identifier::{CanonicalIdentifier, IdMap},
     wires::guards::Guard,
 };
@@ -8,6 +9,8 @@ use crate::flatten::flat_ir::{
 use super::super::flat_ir::prelude::*;
 use super::super::text_utils;
 use super::context::Context;
+
+use std::fmt::Write;
 
 pub struct Printer<'a> {
     ctx: &'a Context,
@@ -23,7 +26,7 @@ impl<'a> Printer<'a> {
         &self.ctx.secondary.string_table
     }
 
-    pub fn print_group(&self, group: GroupIdx, parent: ComponentRef) {
+    pub fn print_group(&self, group: GroupIdx, parent: ComponentIdx) {
         println!(
             "{}",
             text_utils::indent(
@@ -42,7 +45,7 @@ impl<'a> Printer<'a> {
         }
     }
 
-    pub fn print_comb_group(&self, group: CombGroupIdx, parent: ComponentRef) {
+    pub fn print_comb_group(&self, group: CombGroupIdx, parent: ComponentIdx) {
         println!(
             "{}",
             text_utils::indent(
@@ -61,7 +64,7 @@ impl<'a> Printer<'a> {
         }
     }
 
-    pub fn print_component(&self, idx: ComponentRef) {
+    pub fn print_component(&self, idx: ComponentIdx) {
         println!(
             "Component: {}",
             self.ctx.resolve_id(self.ctx.secondary[idx].name)
@@ -96,10 +99,48 @@ impl<'a> Printer<'a> {
         }
     }
 
+    fn lookup_cell_prototype(
+        &self,
+        parent: ComponentIdx,
+        cell: CellRef,
+    ) -> &CellPrototype {
+        match cell {
+            CellRef::Local(l) => {
+                &self.ctx.secondary
+                    [self.ctx.secondary[parent].cell_offset_map[l]]
+                    .prototype
+            }
+            CellRef::Ref(r) => {
+                &self.ctx.secondary
+                    [self.ctx.secondary[parent].ref_cell_offset_map[r]]
+                    .prototype
+            }
+        }
+    }
+
+    fn lookup_cell_id(
+        &self,
+        parent: ComponentIdx,
+        cell: CellRef,
+    ) -> Identifier {
+        match cell {
+            CellRef::Local(l) => {
+                self.ctx.secondary
+                    [self.ctx.secondary[parent].cell_offset_map[l]]
+                    .name
+            }
+            CellRef::Ref(r) => {
+                self.ctx.secondary
+                    [self.ctx.secondary[parent].ref_cell_offset_map[r]]
+                    .name
+            }
+        }
+    }
+
     #[inline]
     pub fn lookup_id_from_port(
         &self,
-        comp: ComponentRef,
+        comp: ComponentIdx,
         target: PortRef,
     ) -> CanonicalIdentifier {
         let port = self.ctx.lookup_port_definition(comp, target);
@@ -107,16 +148,22 @@ impl<'a> Printer<'a> {
 
         match (port, parent) {
             (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => CanonicalIdentifier::interface_port( self.ctx.secondary[c].name, self.ctx.secondary[l]),
-            (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => CanonicalIdentifier::cell_port( self.ctx.secondary[c].name(), self.ctx.secondary[l]),
+            (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => {
+                if let CellPrototype::ConstantLiteral { value, width }= &self.ctx.secondary[c].prototype {
+                    CanonicalIdentifier::literal(*width, *value)
+                } else {
+                    CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l])
+                }
+            },
             (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => CanonicalIdentifier::group_port( self.ctx.primary[g].name(), self.ctx.secondary[l]),
-            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.ctx.secondary[rc].name(), self.ctx.secondary[rp]),
+            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.ctx.secondary[rc].name, self.ctx.secondary[rp]),
             _ => unreachable!("Inconsistent port definition and parent. This should never happen"),
         }
     }
 
     pub fn format_control(
         &self,
-        parent: ComponentRef,
+        parent: ComponentIdx,
         control: ControlIdx,
         indent: usize,
     ) -> String {
@@ -199,15 +246,98 @@ impl<'a> Printer<'a> {
 
                 out
             }
-            ControlNode::Invoke(_) => {
-                text_utils::indent("<<<<INVOKE PLACEHOLDER>>>>", indent)
+            ControlNode::Invoke(i) => {
+                let invoked_name =
+                    &self.ctx.secondary[self.lookup_cell_id(parent, i.cell)];
+
+                let mut out = format!("invoke {invoked_name}");
+
+                if !i.ref_cells.is_empty() {
+                    let ref_cells = self.format_invoke_ref_cell_list(i, parent);
+                    out += &format!("[{}]", ref_cells);
+                }
+                let inputs = self.format_invoke_port_lists(&i.inputs, parent);
+                let outputs = self.format_invoke_port_lists(&i.outputs, parent);
+
+                out += &format!("({inputs})({outputs})");
+
+                if let Some(grp) = i.comb_group {
+                    out += &format!(
+                        " with {}",
+                        self.ctx.secondary[self.ctx.primary[grp].name()]
+                    );
+                }
+
+                out += ";";
+
+                text_utils::indent(out, indent)
             }
         }
     }
 
+    fn format_invoke_port_lists(
+        &self,
+        ports: &[(PortRef, PortRef)],
+        parent: ComponentIdx,
+    ) -> String {
+        let mut out = String::new();
+        for (dst, src) in ports {
+            let dst = *self.lookup_id_from_port(parent, *dst).name().expect("destination for a ref cell is a literal. This should never happen");
+            let src = self.lookup_id_from_port(parent, *src);
+            write!(
+                out,
+                "{}={}, ",
+                self.ctx.secondary[dst],
+                src.format_name(self.string_table())
+            )
+            .unwrap();
+        }
+        // remove trailing ", "
+        if out.ends_with(", ") {
+            out.pop();
+            out.pop();
+        }
+
+        out
+    }
+
+    fn format_invoke_ref_cell_list(
+        &self,
+        invoke: &Invoke,
+        parent: ComponentIdx,
+    ) -> String {
+        let mut out = String::new();
+        let invoked_cell = self
+            .lookup_cell_prototype(parent, invoke.cell)
+            .as_component()
+            .expect("invoked a non-component with ref cells");
+
+        let invoked_comp_info = &self.ctx.secondary[*invoked_cell];
+
+        for (dst, src) in &invoke.ref_cells {
+            let src = self.lookup_cell_id(parent, *src);
+
+            let dst = invoked_comp_info.ref_cell_offset_map[*dst];
+            let dst = self.ctx.secondary[dst].name;
+
+            let src = &self.ctx.secondary[src];
+            let dst = &self.ctx.secondary[dst];
+
+            write!(out, "{dst}={src}, ").unwrap();
+        }
+
+        // remove trailing ", "
+        if out.ends_with(", ") {
+            out.pop();
+            out.pop();
+        }
+
+        out
+    }
+
     pub fn format_guard(
         &self,
-        parent: ComponentRef,
+        parent: ComponentIdx,
         guard: GuardIdx,
     ) -> String {
         fn op_to_str(op: &PortComp) -> String {
@@ -256,7 +386,7 @@ impl<'a> Printer<'a> {
 
     pub fn print_assignment(
         &self,
-        parent_comp: ComponentRef,
+        parent_comp: ComponentIdx,
         target: AssignmentIdx,
     ) -> String {
         let assign = &self.ctx.primary.assignments[target];
@@ -270,7 +400,7 @@ impl<'a> Printer<'a> {
         };
 
         format!(
-            "{} = {}{}",
+            "{} = {}{};",
             dst.format_name(self.string_table()),
             guard,
             src.format_name(self.string_table())
