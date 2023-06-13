@@ -143,30 +143,32 @@ impl While {
 }
 
 /// Invoke control node
+///
+/// TODO Griffin: Consider making this smaller?
 #[derive(Debug)]
 pub struct Invoke {
     /// The cell being invoked
-    cell: LocalCellOffset,
+    pub cell: CellRef,
     /// Optional group enabled during invocation of the cell (the calyx `with`
     /// statement)
-    comb_group: Option<CombGroupIdx>,
+    pub comb_group: Option<CombGroupIdx>,
     /// The external cells passed as arguments to the invoked cell, an
     /// association list of the refcell offset in the invoked context, and the
     /// cell realizing it in the parent context
-    ref_cells: SmallVec<[(LocalRefCellOffset, CellRef); 1]>,
+    pub ref_cells: SmallVec<[(LocalRefCellOffset, CellRef); 1]>,
     /// The ports attached to the input of the invoked cell, an association list
     /// of the port ref in the **PARENT** context, and the port connected
     /// to it in the parent context i.e. (dst, src)
-    inputs: SmallVec<[(PortRef, PortRef); 1]>,
+    pub inputs: SmallVec<[(PortRef, PortRef); 1]>,
     /// The ports attached to the outputs of the invoked cell, an association list
     /// of the port ref in the **PARENT** context, and the port connected
     /// to it in the parent context. i.e. (dst, src)
-    outputs: SmallVec<[(PortRef, PortRef); 1]>,
+    pub outputs: SmallVec<[(PortRef, PortRef); 1]>,
 }
 
 impl Invoke {
     pub fn new<R, I, O>(
-        cell: LocalCellOffset,
+        cell: CellRef,
         comb_group: Option<CombGroupIdx>,
         ref_cells: R,
         inputs: I,

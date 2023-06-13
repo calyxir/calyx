@@ -521,15 +521,11 @@ impl FlattenTree for cir::Control {
                         let def_idx = comp_info.cell_offset_map[local_off];
                         let cell_def = &ctx.secondary[def_idx].prototype;
                         cell_def
-                            .as_component()
-                            .expect("invoking a non-component with ref cells")
                     }
                     CellRef::Ref(ref_off) => {
                         let def_idx = comp_info.ref_cell_offset_map[ref_off];
                         let cell_def = &ctx.secondary[def_idx].prototype;
                         cell_def
-                            .as_component()
-                            .expect("invoking a non-component with ref cells")
                     }
                 };
 
@@ -575,6 +571,7 @@ impl FlattenTree for cir::Control {
                 };
 
                 let ref_cells = inv.ref_cells.iter().map(|(ref_cell_id, realizing_cell)| {
+                        let invoked_comp = invoked_comp.as_component().expect("cannot invoke a non-component with ref cells");
                         let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(&_idx, &def_idx)| {
                             let def = &ctx.secondary[def_idx];
                             def.name == resolve_id(ref_cell_id)
@@ -597,9 +594,7 @@ impl FlattenTree for cir::Control {
                 });
 
                 ControlNode::Invoke(Invoke::new(
-                    *invoked_cell
-                        .as_local()
-                        .expect("Invoke cell must be local at this moment"),
+                    invoked_cell,
                     inv.comb_group
                         .as_ref()
                         .map(|x| group_map.comb_groups[&x.as_raw()]),

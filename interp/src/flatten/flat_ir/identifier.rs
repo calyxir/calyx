@@ -72,6 +72,10 @@ impl CanonicalIdentifier {
             NameType::Cell => format!("{}.{}", parent, port),
         }
     }
+
+    pub fn name(&self) -> Identifier {
+        self.name
+    }
 }
 
 /// A map used to store strings and assign them unique identifiers. This is
