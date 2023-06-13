@@ -36,8 +36,7 @@ impl CellPrototype {
         if let cir::CellType::Primitive {
             name,
             param_binding,
-            is_comb,
-            latency,
+            ..
         } = cell
         {
             let name: &str = name.as_ref();

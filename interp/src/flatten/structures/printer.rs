@@ -148,7 +148,17 @@ impl<'a> Printer<'a> {
 
         match (port, parent) {
             (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => CanonicalIdentifier::interface_port( self.ctx.secondary[c].name, self.ctx.secondary[l]),
-            (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l]),
+            (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => {
+
+
+                if let CellPrototype::ConstantLiteral { value, width }= &self.ctx.secondary[c].prototype {
+                    CanonicalIdentifier::literal(*width, *value)
+                } else {
+CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l])
+                }
+
+
+                },
             (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => CanonicalIdentifier::group_port( self.ctx.primary[g].name(), self.ctx.secondary[l]),
             (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.ctx.secondary[rc].name, self.ctx.secondary[rp]),
             _ => unreachable!("Inconsistent port definition and parent. This should never happen"),
@@ -280,7 +290,7 @@ impl<'a> Printer<'a> {
             let src = self.lookup_id_from_port(parent, *src);
             write!(
                 out,
-                "{} = {}, ",
+                "{}={}, ",
                 self.ctx.secondary[dst],
                 src.format_name(self.string_table())
             )
@@ -317,7 +327,7 @@ impl<'a> Printer<'a> {
             let src = &self.ctx.secondary[src];
             let dst = &self.ctx.secondary[dst];
 
-            write!(out, "{dst} = {src}").unwrap();
+            write!(out, "{dst}={src}").unwrap();
         }
 
         // remove trailing ", "
@@ -394,7 +404,7 @@ impl<'a> Printer<'a> {
         };
 
         format!(
-            "{} = {}{}",
+            "{} = {}{};",
             dst.format_name(self.string_table()),
             guard,
             src.format_name(self.string_table())

@@ -23,7 +23,7 @@ impl Identifier {
 
 /// Internal enum to distinguish between the different parents for a port. Used
 /// to format names appropriately
-enum NameType {
+pub enum NameType {
     /// This is one of the component ports
     Interface,
     /// This port belongs to a group (go/done)
@@ -32,15 +32,19 @@ enum NameType {
     Cell,
 }
 
-pub struct CanonicalIdentifier {
-    parent: Identifier,
-    name: Identifier,
-    name_type: NameType,
+pub enum CanonicalIdentifier {
+    Standard {
+        parent: Identifier,
+        name: Identifier,
+        name_type: NameType,
+    },
+    /// A constant literal
+    Literal { width: u64, val: u64 },
 }
 
 impl CanonicalIdentifier {
     pub fn interface_port(parent: Identifier, name: Identifier) -> Self {
-        Self {
+        Self::Standard {
             parent,
             name,
             name_type: NameType::Interface,
@@ -48,7 +52,7 @@ impl CanonicalIdentifier {
     }
 
     pub fn group_port(parent: Identifier, name: Identifier) -> Self {
-        Self {
+        Self::Standard {
             parent,
             name,
             name_type: NameType::Group,
@@ -56,25 +60,49 @@ impl CanonicalIdentifier {
     }
 
     pub fn cell_port(parent: Identifier, name: Identifier) -> Self {
-        Self {
+        Self::Standard {
             parent,
             name,
             name_type: NameType::Cell,
         }
     }
 
+    pub fn literal(width: u64, val: u64) -> Self {
+        Self::Literal { width, val }
+    }
+
     pub fn format_name(&self, resolver: &IdMap) -> String {
-        let parent = resolver.lookup_string(&self.parent).unwrap();
-        let port = resolver.lookup_string(&self.name).unwrap();
-        match self.name_type {
-            NameType::Interface => port.to_string(),
-            NameType::Group => format!("{}[{}]", parent, port),
-            NameType::Cell => format!("{}.{}", parent, port),
+        match self {
+            CanonicalIdentifier::Standard {
+                parent,
+                name,
+                name_type,
+            } => {
+                let parent = resolver.lookup_string(parent).unwrap();
+                let port = resolver.lookup_string(name).unwrap();
+                match name_type {
+                    NameType::Interface => port.to_string(),
+                    NameType::Group => format!("{}[{}]", parent, port),
+                    NameType::Cell => format!("{}.{}", parent, port),
+                }
+            }
+            CanonicalIdentifier::Literal { width, val } => {
+                format!("{width}'d{val}")
+            }
         }
     }
 
     pub fn name(&self) -> Identifier {
-        self.name
+        match self {
+            CanonicalIdentifier::Standard {
+                parent,
+                name,
+                name_type,
+            } => *name,
+            CanonicalIdentifier::Literal { width, val } => {
+                panic!("Cannot get name of literal")
+            }
+        }
     }
 }
 
