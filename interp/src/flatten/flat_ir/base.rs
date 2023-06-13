@@ -4,7 +4,7 @@ use crate::flatten::structures::index_trait::{
     impl_index, impl_index_nonzero, IndexRange,
 };
 
-use super::prelude::Identifier;
+use super::{cell_prototype::CellPrototype, prelude::Identifier};
 
 // making these all u32 for now, can give the macro an optional type as the
 // second arg to contract or expand as needed
@@ -216,9 +216,10 @@ pub struct CellDefinitionInfo<C>
 where
     C: sealed::PortType,
 {
-    name: Identifier,
-    ports: IndexRange<C>,
-    parent: ComponentIdx,
+    pub name: Identifier,
+    pub ports: IndexRange<C>,
+    pub parent: ComponentIdx,
+    pub prototype: CellPrototype,
 }
 
 impl<C> CellDefinitionInfo<C>
@@ -229,20 +230,14 @@ where
         name: Identifier,
         ports: IndexRange<C>,
         parent: ComponentIdx,
+        prototype: CellPrototype,
     ) -> Self {
         Self {
             name,
             ports,
             parent,
+            prototype,
         }
-    }
-
-    pub fn name(&self) -> Identifier {
-        self.name
-    }
-
-    pub fn ports(&self) -> &IndexRange<C> {
-        &self.ports
     }
 }
 

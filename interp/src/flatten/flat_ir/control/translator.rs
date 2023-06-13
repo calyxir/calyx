@@ -4,6 +4,7 @@ use calyx_ir::{self as cir, RRC};
 use crate::{
     flatten::{
         flat_ir::{
+            cell_prototype::CellPrototype,
             component::{AuxillaryComponentInfo, ComponentCore},
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
@@ -254,6 +255,7 @@ fn insert_cell(
     cell: &RRC<cir::Cell>,
     layout: &mut Layout,
     comp_id: ComponentIdx,
+    comp_id_map: &ComponentMapper,
 ) {
     let cell_ref = cell.borrow();
     let id = secondary_ctx.string_table.insert(cell_ref.name());
@@ -268,7 +270,12 @@ fn insert_cell(
         }
         let range =
             IndexRange::new(base, aux.port_offset_map.peek_next_index());
-        let cell_def = secondary_ctx.push_local_cell(id, range, comp_id);
+        let cell_def = secondary_ctx.push_local_cell(
+            id,
+            range,
+            comp_id,
+            create_cell_prototype(cell, comp_id_map),
+        );
         let cell_offset = aux.cell_offset_map.insert(cell_def);
         layout.cell_map.insert(cell.as_raw(), cell_offset.into());
     }
@@ -284,7 +291,12 @@ fn insert_cell(
 
         let range =
             IndexRange::new(base, aux.ref_port_offset_map.peek_next_index());
-        let ref_cell_def = secondary_ctx.push_ref_cell(id, range, comp_id);
+        let ref_cell_def = secondary_ctx.push_ref_cell(
+            id,
+            range,
+            comp_id,
+            create_cell_prototype(cell, comp_id_map),
+        );
         let cell_offset = aux.ref_cell_offset_map.insert(ref_cell_def);
         layout.cell_map.insert(cell.as_raw(), cell_offset.into());
     }
@@ -294,6 +306,7 @@ fn insert_cell(
 pub struct Layout {
     port_map: PortMapper,
     cell_map: CellMapper,
+    component_map: ComponentMapper,
 }
 
 fn compute_local_layout(
@@ -346,7 +359,14 @@ fn compute_local_layout(
         // this is silly
         // CASE 1 & 2 - local/ref cells
         if is_primitive(&cell.borrow()) {
-            insert_cell(&mut ctx.secondary, aux, cell, &mut layout, comp_id)
+            insert_cell(
+                &mut ctx.secondary,
+                aux,
+                cell,
+                &mut layout,
+                comp_id,
+                component_id_map,
+            )
         }
         // CASE 3 - Subcomponent
         else {
@@ -358,7 +378,14 @@ fn compute_local_layout(
     // fourth, the sub-components
     for cell in sub_component_queue {
         // insert the cells and ports
-        insert_cell(&mut ctx.secondary, aux, cell, &mut layout, comp_id);
+        insert_cell(
+            &mut ctx.secondary,
+            aux,
+            cell,
+            &mut layout,
+            comp_id,
+            component_id_map,
+        );
 
         // Advance the offsets to appropriately layout the next comp-cell
         let cell_ref = cell.borrow();
@@ -393,6 +420,31 @@ fn compute_local_layout(
     );
 
     layout
+}
+
+fn create_cell_prototype(
+    cell: &RRC<cir::Cell>,
+    comp_id_map: &ComponentMapper,
+) -> CellPrototype {
+    let borrow = cell.borrow();
+    match &borrow.prototype {
+        prim @ cir::CellType::Primitive { .. } => {
+            CellPrototype::construct_primitive(prim)
+        }
+        cir::CellType::Component { name } => {
+            CellPrototype::Component(comp_id_map[name])
+        }
+
+        cir::CellType::Constant { val, width } => {
+            CellPrototype::ConstantLiteral {
+                value: *val,
+                width: *width,
+            }
+        }
+        cir::CellType::ThisComponent => unreachable!(
+            "the flattening should not have this cell type, this is an error"
+        ),
+    }
 }
 
 fn is_primitive(cell_ref: &std::cell::Ref<cir::Cell>) -> bool {
@@ -464,6 +516,23 @@ impl FlattenTree for cir::Control {
             cir::Control::Invoke(inv) => {
                 let invoked_cell = layout.cell_map[&inv.comp.as_raw()];
 
+                let invoked_comp = match invoked_cell {
+                    CellRef::Local(local_off) => {
+                        let def_idx = comp_info.cell_offset_map[local_off];
+                        let cell_def = &ctx.secondary[def_idx].prototype;
+                        cell_def
+                            .as_component()
+                            .expect("invoking a non-component with ref cells")
+                    }
+                    CellRef::Ref(ref_off) => {
+                        let def_idx = comp_info.ref_cell_offset_map[ref_off];
+                        let cell_def = &ctx.secondary[def_idx].prototype;
+                        cell_def
+                            .as_component()
+                            .expect("invoking a non-component with ref cells")
+                    }
+                };
+
                 let resolve_id = |id: &cir::Id| {
                     *ctx.secondary.string_table.lookup_id(id).unwrap()
                 };
@@ -477,7 +546,7 @@ impl FlattenTree for cir::Control {
                             let cell_def = &ctx.secondary[def_idx];
 
                             cell_def
-                                .ports()
+                                .ports
                                 .into_iter()
                                 .find(|&candidate_offset| {
                                     let candidate_def = comp_info
@@ -492,7 +561,7 @@ impl FlattenTree for cir::Control {
                             let cell_def = &ctx.secondary[def_idx];
 
                             cell_def
-                                .ports()
+                                .ports
                                 .into_iter()
                                 .find(|&candidate_offset| {
                                     let candidate_def = comp_info
@@ -505,6 +574,28 @@ impl FlattenTree for cir::Control {
                     }
                 };
 
+                let ref_cells = inv.ref_cells.iter().map(|(ref_cell_id, realizing_cell)| {
+                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(&_idx, &def_idx)| {
+                            let def = &ctx.secondary[def_idx];
+                            def.name == resolve_id(ref_cell_id)
+                        }).map(|(&t, _)| t).expect("Unable to find the given ref cell in the invoked component");
+                        (*target, layout.cell_map[&realizing_cell.as_raw()])
+                    });
+
+                let inputs = inv.inputs.iter().map(|(id, port)| {
+                    (
+                        resolve_invoked_cell_port(id),
+                        layout.port_map[&port.as_raw()],
+                    )
+                });
+
+                let outputs = inv.outputs.iter().map(|(id, port)| {
+                    (
+                        resolve_invoked_cell_port(id),
+                        layout.port_map[&port.as_raw()],
+                    )
+                });
+
                 ControlNode::Invoke(Invoke::new(
                     *invoked_cell
                         .as_local()
@@ -512,31 +603,9 @@ impl FlattenTree for cir::Control {
                     inv.comb_group
                         .as_ref()
                         .map(|x| group_map.comb_groups[&x.as_raw()]),
-                    inv.ref_cells.iter().map(|(id, cell)| {
-                        let cell_name = resolve_id(id);
-                        let ref_cell_actual = layout.cell_map[&cell.as_raw()];
-
-
-                        todo!()
-
-                    }),
-                    inv.inputs.iter().map(|(id, port)| {
-                        // rust fmt doesn't like this for some reason. I don't
-                        // blame it
-                        (
-                         *resolve_invoked_cell_port(id).as_local().expect(
-                                "Invoke input port must be local at this moment",
-                            ),
-                        layout.port_map[&port.as_raw()],
-                        )
-                    }),
-                    inv.outputs.iter().map(|(id, port)| {
-                        (
-                         *resolve_invoked_cell_port(id).as_local().expect(
-                                "Invoke input port must be local at this moment",
-                            ),
-                        layout.port_map[&port.as_raw()],
-                        )}),
+                    ref_cells,
+                    inputs,
+                    outputs,
                 ))
             }
             cir::Control::Enable(e) => ControlNode::Enable(Enable::new(

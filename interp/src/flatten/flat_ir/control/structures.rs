@@ -155,13 +155,13 @@ pub struct Invoke {
     /// cell realizing it in the parent context
     ref_cells: SmallVec<[(LocalRefCellOffset, CellRef); 1]>,
     /// The ports attached to the input of the invoked cell, an association list
-    /// of the local port offset in the **PARENT** context, and the port connected
-    /// to it in the parent context
-    inputs: SmallVec<[(LocalPortOffset, PortRef); 1]>,
+    /// of the port ref in the **PARENT** context, and the port connected
+    /// to it in the parent context i.e. (dst, src)
+    inputs: SmallVec<[(PortRef, PortRef); 1]>,
     /// The ports attached to the outputs of the invoked cell, an association list
-    /// of the local port offset in the **PARENT** context, and the port connected
-    /// to it in the parent context
-    outputs: SmallVec<[(LocalPortOffset, PortRef); 1]>,
+    /// of the port ref in the **PARENT** context, and the port connected
+    /// to it in the parent context. i.e. (dst, src)
+    outputs: SmallVec<[(PortRef, PortRef); 1]>,
 }
 
 impl Invoke {
@@ -174,8 +174,8 @@ impl Invoke {
     ) -> Self
     where
         R: IntoIterator<Item = (LocalRefCellOffset, CellRef)>,
-        I: IntoIterator<Item = (LocalPortOffset, PortRef)>,
-        O: IntoIterator<Item = (LocalPortOffset, PortRef)>,
+        I: IntoIterator<Item = (PortRef, PortRef)>,
+        O: IntoIterator<Item = (PortRef, PortRef)>,
     {
         Self {
             cell,

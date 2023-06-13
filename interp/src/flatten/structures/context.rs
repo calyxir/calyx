@@ -1,6 +1,7 @@
 use std::ops::Index;
 
 use crate::flatten::flat_ir::{
+    cell_prototype::CellPrototype,
     component::{AuxillaryComponentInfo, ComponentCore, ComponentMap},
     identifier::IdMap,
     prelude::{
@@ -195,9 +196,10 @@ impl SecondaryContext {
         name: Identifier,
         ports: IndexRange<LocalPortOffset>,
         parent: ComponentIdx,
+        prototype: CellPrototype,
     ) -> CellDefinitionIdx {
         self.local_cell_defs
-            .push(CellInfo::new(name, ports, parent))
+            .push(CellInfo::new(name, ports, parent, prototype))
     }
 
     pub fn push_ref_cell(
@@ -205,9 +207,10 @@ impl SecondaryContext {
         name: Identifier,
         ports: IndexRange<LocalRefPortOffset>,
         parent: ComponentIdx,
+        prototype: CellPrototype,
     ) -> RefCellDefinitionIdx {
         self.ref_cell_defs
-            .push(RefCellInfo::new(name, ports, parent))
+            .push(RefCellInfo::new(name, ports, parent, prototype))
     }
 }
 
@@ -275,7 +278,7 @@ impl Context {
                     .cells()
                     .iter()
                     .find(|c| self.secondary[*c]
-                        .ports().contains(l));
+                        .ports.contains(l));
 
                     if let Some(p) = port {
                         p.into()
@@ -294,7 +297,7 @@ impl Context {
                 .definitions
                 .ref_cells()
                 .iter()
-                .find(|c| self.secondary[*c].ports().contains(r))
+                .find(|c| self.secondary[*c].ports.contains(r))
                 .expect("Port does not belong to any ref cell in the given component").into()
             },
         }

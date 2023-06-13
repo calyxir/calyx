@@ -107,9 +107,9 @@ impl<'a> Printer<'a> {
 
         match (port, parent) {
             (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => CanonicalIdentifier::interface_port( self.ctx.secondary[c].name, self.ctx.secondary[l]),
-            (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => CanonicalIdentifier::cell_port( self.ctx.secondary[c].name(), self.ctx.secondary[l]),
+            (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l]),
             (PortDefinitionRef::Local(l), ParentIdx::Group(g)) => CanonicalIdentifier::group_port( self.ctx.primary[g].name(), self.ctx.secondary[l]),
-            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.ctx.secondary[rc].name(), self.ctx.secondary[rp]),
+            (PortDefinitionRef::Ref(rp), ParentIdx::RefCell(rc)) => CanonicalIdentifier::cell_port( self.ctx.secondary[rc].name, self.ctx.secondary[rp]),
             _ => unreachable!("Inconsistent port definition and parent. This should never happen"),
         }
     }
