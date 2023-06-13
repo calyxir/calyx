@@ -286,7 +286,7 @@ CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l
     ) -> String {
         let mut out = String::new();
         for (dst, src) in ports {
-            let dst = self.lookup_id_from_port(parent, *dst).name();
+            let dst = *self.lookup_id_from_port(parent, *dst).name().expect("destination for a ref cell is a literal. This should never happen");
             let src = self.lookup_id_from_port(parent, *src);
             write!(
                 out,

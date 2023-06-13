@@ -92,12 +92,10 @@ impl CanonicalIdentifier {
         }
     }
 
-    pub fn name(&self) -> Identifier {
+    pub fn name(&self) -> Option<&Identifier> {
         match self {
-            CanonicalIdentifier::Standard { name, .. } => *name,
-            CanonicalIdentifier::Literal { .. } => {
-                panic!("Cannot get name of literal")
-            }
+            CanonicalIdentifier::Standard { name, .. } => name.into(),
+            CanonicalIdentifier::Literal { .. } => None,
         }
     }
 }
