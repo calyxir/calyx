@@ -9,7 +9,7 @@ use crate::{
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
                 Assignment, AssignmentIdx, CellRef, CombGroup, CombGroupIdx,
-                ComponentIdx, GroupIdx, GuardIdx, Identifier, PortRef,
+                ComponentIdx, GroupIdx, GuardIdx, PortRef,
             },
             wires::{core::Group, guards::Guard},
         },
@@ -519,13 +519,13 @@ impl FlattenTree for cir::Control {
                 let invoked_comp = match invoked_cell {
                     CellRef::Local(local_off) => {
                         let def_idx = comp_info.cell_offset_map[local_off];
-                        let cell_def = &ctx.secondary[def_idx].prototype;
-                        cell_def
+
+                        &ctx.secondary[def_idx].prototype
                     }
                     CellRef::Ref(ref_off) => {
                         let def_idx = comp_info.ref_cell_offset_map[ref_off];
-                        let cell_def = &ctx.secondary[def_idx].prototype;
-                        cell_def
+
+                        &ctx.secondary[def_idx].prototype
                     }
                 };
 

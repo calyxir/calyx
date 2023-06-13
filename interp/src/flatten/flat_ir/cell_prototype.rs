@@ -1,4 +1,4 @@
-use calyx_ir::{self as cir, RRC};
+use calyx_ir::{self as cir};
 use smallvec::SmallVec;
 
 use crate::primitives::prim_utils::get_params;

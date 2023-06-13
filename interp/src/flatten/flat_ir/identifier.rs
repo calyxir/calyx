@@ -94,12 +94,8 @@ impl CanonicalIdentifier {
 
     pub fn name(&self) -> Identifier {
         match self {
-            CanonicalIdentifier::Standard {
-                parent,
-                name,
-                name_type,
-            } => *name,
-            CanonicalIdentifier::Literal { width, val } => {
+            CanonicalIdentifier::Standard { name, .. } => *name,
+            CanonicalIdentifier::Literal { .. } => {
                 panic!("Cannot get name of literal")
             }
         }
