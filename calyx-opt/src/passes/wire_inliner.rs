@@ -62,16 +62,69 @@ impl Visitor for WireInliner {
             let this = Rc::clone(&comp.signature);
             let mut builder = ir::Builder::new(comp, sigs);
             let group = &data.group;
+            let signature =
+                builder.component.signature.borrow().get_signature();
+            // getting the names of the go/done ports on this component
+            let mut go_ports: Vec<_> = signature
+                .iter()
+                .filter_map(|port_def| {
+                    if port_def.attributes.has(ir::NumAttr::Go) {
+                        Some(port_def.name)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let done_ports: Vec<_> = signature
+                .iter()
+                .filter_map(|port_def| {
+                    if port_def.attributes.has(ir::NumAttr::Done) {
+                        Some(port_def.name)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            // check that component has same number of go and done ports, and > 0 go/done ports
+            if !(go_ports.len() == done_ports.len()) {
+                unreachable!("different number of go ports and done ports. Number of `go`: {}. Number of `done`: {}", go_ports.len(), done_ports.len());
+            } else if go_ports.len() == 0 {
+                unreachable!("detected 0 go ports");
+            }
 
             structure!(builder;
                 let one = constant(1, 1);
             );
+
+            // handles thisComponent's go and done ports
+            let mut go_done_assigns = Vec::new();
+
+            let go_port = go_ports.pop().unwrap();
+            let go_assigns = if go_ports.is_empty() {
+                // group[go] = this[go_port]; if only one go port
+                build_assignments!(builder; group["go"] = ? this[go_port];)
+            } else {
+                // group[go] = this[go_port] || this[go_port1] || ...  ? 1'd1;
+                // if more than one port
+                let mut go_guard = guard!(this[go_port]);
+                for go_port in go_ports {
+                    go_guard.update(|cur_guard| {
+                        cur_guard.or(guard!(this[go_port]))
+                    });
+                }
+                build_assignments!(builder; group["go"] = go_guard ? one["out"];)
+            };
+            go_done_assigns.extend(go_assigns);
+
+            // adding assigns: this[done_port] = group[done] ? 1'd1;
+            // this[done_port1] = group[done] ? 1'd1; etc.
             let group_done = guard!(group["done"]);
-            let assigns = build_assignments!(builder;
-                group["go"] = ? this["go"];
-                this["done"] = group_done ? one["out"];
-            );
-            comp.continuous_assignments.extend(assigns);
+            for done_port in done_ports {
+                let done_assign = build_assignments!(builder; this[done_port] = group_done ? one["out"];);
+                go_done_assigns.extend(done_assign);
+            }
+
+            comp.continuous_assignments.extend(go_done_assigns);
         } else {
             return Err(calyx_utils::Error::malformed_control(format!(
                 "{}: Structure has more than one group",

@@ -1,0 +1,35 @@
+import "primitives/core.futil";
+component mult_go_done(@go go1: 1, @go(2) go2: 1, @clk clk: 1, @reset reset: 1) -> (@done done1: 1, @done(2) done2: 1) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    @generated foo_go = std_wire(1);
+    @generated foo_done = std_wire(1);
+  }
+  wires {
+    foo_go.in = go2 | go1 ? 1'd1;
+    done1 = foo_done.out ? 1'd1;
+    done2 = foo_done.out ? 1'd1;
+    r1.in = go1 & foo_go.out ? 32'd1;
+    r1.write_en = go1 & foo_go.out ? 1'd1;
+    r2.in = go2 & foo_go.out ? 32'd2;
+    r2.write_en = go2 & foo_go.out ? 1'd1;
+    foo_done.in = r1.done | r2.done ? 1'd1;
+  }
+  control {}
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    @generated write_r_go = std_wire(1);
+    @generated write_r_done = std_wire(1);
+  }
+  wires {
+    write_r_go.in = go;
+    done = write_r_done.out ? 1'd1;
+    r.in = write_r_go.out ? 32'd2;
+    r.write_en = write_r_go.out ? 1'd1;
+    write_r_done.in = r.done;
+  }
+  control {}
+}

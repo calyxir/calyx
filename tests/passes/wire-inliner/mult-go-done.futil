@@ -1,0 +1,44 @@
+// -p go-insertion -p wire-inliner
+
+import "primitives/core.futil";
+
+component mult_go_done(@go(1) go1: 1, @go(2) go2: 1) -> (@done(1) done1: 1, @done(2) done2: 1) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+  }
+
+  wires {
+    group foo {
+      r1.in = go1 ? 32'd1; 
+      r1.write_en = go1 ? 1'd1; 
+      r2.in = go2 ? 32'd2; 
+      r2.write_en = go2 ? 1'd1; 
+      foo[done] = r1.done | r2.done ? 1'd1;
+    }
+  }
+
+  control {
+    foo;
+  }
+
+}
+
+component main() -> () {
+  cells {
+    r = std_reg(32);
+  }
+
+  wires {
+    group write_r {
+      r.in = 32'd2; 
+      r.write_en = 1'd1; 
+      write_r[done] = r.done;
+    }
+  }
+
+  control {
+    write_r;
+  }
+
+}
