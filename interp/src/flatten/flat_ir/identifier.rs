@@ -3,7 +3,10 @@ use std::hash::Hash;
 
 use crate::flatten::structures::index_trait::{impl_index, IndexRef};
 
-impl_index!(pub Identifier);
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
+pub struct Identifier(u32);
+
+impl_index!(Identifier);
 
 impl Identifier {
     #[inline]
@@ -11,23 +14,37 @@ impl Identifier {
         // manually construct
         Identifier(0)
     }
+
+    /// Utility method to resolve the string associated with an identifier
+    pub fn resolve<'a>(&self, resolver: &'a IdMap) -> &'a String {
+        resolver.lookup_string(self).unwrap()
+    }
 }
 
-enum NameType {
+/// Internal enum to distinguish between the different parents for a port. Used
+/// to format names appropriately
+pub enum NameType {
+    /// This is one of the component ports
     Interface,
+    /// This port belongs to a group (go/done)
     Group,
+    /// The standard port on a cell
     Cell,
 }
 
-pub struct CanonicalIdentifier {
-    parent: Identifier,
-    name: Identifier,
-    name_type: NameType,
+pub enum CanonicalIdentifier {
+    Standard {
+        parent: Identifier,
+        name: Identifier,
+        name_type: NameType,
+    },
+    /// A constant literal
+    Literal { width: u64, val: u64 },
 }
 
 impl CanonicalIdentifier {
     pub fn interface_port(parent: Identifier, name: Identifier) -> Self {
-        Self {
+        Self::Standard {
             parent,
             name,
             name_type: NameType::Interface,
@@ -35,7 +52,7 @@ impl CanonicalIdentifier {
     }
 
     pub fn group_port(parent: Identifier, name: Identifier) -> Self {
-        Self {
+        Self::Standard {
             parent,
             name,
             name_type: NameType::Group,
@@ -43,20 +60,42 @@ impl CanonicalIdentifier {
     }
 
     pub fn cell_port(parent: Identifier, name: Identifier) -> Self {
-        Self {
+        Self::Standard {
             parent,
             name,
             name_type: NameType::Cell,
         }
     }
 
+    pub fn literal(width: u64, val: u64) -> Self {
+        Self::Literal { width, val }
+    }
+
     pub fn format_name(&self, resolver: &IdMap) -> String {
-        let parent = resolver.lookup_string(&self.parent).unwrap();
-        let port = resolver.lookup_string(&self.name).unwrap();
-        match self.name_type {
-            NameType::Interface => port.to_string(),
-            NameType::Group => format!("{}[{}]", parent, port),
-            NameType::Cell => format!("{}.{}", parent, port),
+        match self {
+            CanonicalIdentifier::Standard {
+                parent,
+                name,
+                name_type,
+            } => {
+                let parent = resolver.lookup_string(parent).unwrap();
+                let port = resolver.lookup_string(name).unwrap();
+                match name_type {
+                    NameType::Interface => port.to_string(),
+                    NameType::Group => format!("{}[{}]", parent, port),
+                    NameType::Cell => format!("{}.{}", parent, port),
+                }
+            }
+            CanonicalIdentifier::Literal { width, val } => {
+                format!("{width}'d{val}")
+            }
+        }
+    }
+
+    pub fn name(&self) -> Option<&Identifier> {
+        match self {
+            CanonicalIdentifier::Standard { name, .. } => name.into(),
+            CanonicalIdentifier::Literal { .. } => None,
         }
     }
 }
@@ -73,8 +112,10 @@ impl CanonicalIdentifier {
 /// issue
 #[derive(Debug)]
 pub struct IdMap {
+    /// The forward map hashes strings to identifiers
     forward: HashMap<String, Identifier>,
-    // Identifiers are handed out linearly so this is a simple vector
+    /// Since identifiers are handed out linearly the backwards map is a vector
+    /// of strings
     backward: Vec<String>,
 }
 

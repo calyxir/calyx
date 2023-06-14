@@ -26,4 +26,4 @@ The following commands help focus on specific tests to run:
 
 For other options, look at `runt --help` which documents other features in `runt`.
 
-For instruction on using runt, see the [official documentation](https://github.com/rachitnigam/runt#run-test-runt--).
+For instruction on using runt, see the [official documentation](https://docs.rs/runt/latest/runt/).

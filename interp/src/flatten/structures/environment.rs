@@ -2,7 +2,7 @@ use super::indexed_map::IndexedMap;
 use crate::{
     flatten::{
         flat_ir::{
-            base::{ComponentRef, GlobalCellId, GlobalPortId, GlobalRefCellId},
+            base::{ComponentIdx, GlobalCellId, GlobalPortId, GlobalRefCellId},
             prelude::Identifier,
         },
         primitives::Primitive,
@@ -23,7 +23,7 @@ pub(crate) enum CellLedger {
     Component {
         name: Identifier,
         port_base_offset: GlobalPortId,
-        comp_id: ComponentRef,
+        comp_id: ComponentIdx,
     },
 }
 
