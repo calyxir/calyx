@@ -86,9 +86,9 @@ impl Visitor for WireInliner {
                 })
                 .collect();
             // check that component has same number of go and done ports, and > 0 go/done ports
-            if !(go_ports.len() == done_ports.len()) {
+            if go_ports.len() != done_ports.len() {
                 unreachable!("different number of go ports and done ports. Number of `go`: {}. Number of `done`: {}", go_ports.len(), done_ports.len());
-            } else if go_ports.len() == 0 {
+            } else if go_ports.is_empty() {
                 unreachable!("detected 0 go ports");
             }
 
