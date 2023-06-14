@@ -48,7 +48,6 @@ default-features = false
 features = ["matrix_graph"]
 
 # =========== Package configuration ===========
-
 [package]
 name = "calyx"
 build = false
