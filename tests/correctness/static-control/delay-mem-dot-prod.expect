@@ -1,5 +1,10 @@
 {
-  "out": [
-    43
-  ]
+  "cycles": 53,
+  "memories": {
+    "out": [
+      43
+    ]
+  }
 }
+---STDERR---
+[fud] WARNING: Unknown option `verilog.top_module' for stage `verilog'
