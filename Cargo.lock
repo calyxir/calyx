@@ -260,6 +260,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "cider-dap"
+version = "0.1.0"
+dependencies = [
+ "dap",
+ "thiserror",
+]
+
+[[package]]
 name = "clap"
 version = "2.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -408,6 +416,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b2466559f260f48ad25fe6317b3c8dac77b5bdb5763ac7d9d6103530663bc90"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "dap"
+version = "0.2.0-alpha1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85b03f0c23c75d79d10ae9e6ea850f795db0b11bb9610d55f7751d8a92272db2"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
