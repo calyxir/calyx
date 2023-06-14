@@ -5,14 +5,21 @@ use crate::flatten::{
     structures::{index_trait::impl_index, indexed_map::IndexedMap},
 };
 
-impl_index!(pub ControlIdx);
+#[derive(Debug, Eq, Copy, Clone, PartialEq)]
+pub struct ControlIdx(u32);
+impl_index!(ControlIdx);
+
+/// A map storing [ControlNodes](ControlNode) indexed by [ControlIdx]
 pub type ControlMap = IndexedMap<ControlIdx, ControlNode>;
 
+/// A vector of control indices
 pub type CtrlVec = SmallVec<[ControlIdx; 4]>;
 
+/// An empty control node
 #[derive(Debug)]
 pub struct Empty;
 
+/// A group enable node
 #[derive(Debug)]
 pub struct Enable(GroupIdx);
 
@@ -26,6 +33,7 @@ impl Enable {
     }
 }
 
+/// Sequence of control nodes
 #[derive(Debug)]
 pub struct Seq(CtrlVec);
 
@@ -42,6 +50,7 @@ impl Seq {
     }
 }
 
+/// Parallel compositions of control nodes
 #[derive(Debug)]
 pub struct Par(CtrlVec);
 
@@ -58,6 +67,7 @@ impl Par {
     }
 }
 
+/// An if-then-else control node
 #[derive(Debug)]
 pub struct If {
     cond_port: PortRef,
@@ -98,6 +108,7 @@ impl If {
     }
 }
 
+/// A while loop control node
 #[derive(Debug)]
 pub struct While {
     cond_port: PortRef,
@@ -131,11 +142,54 @@ impl While {
     }
 }
 
+/// Invoke control node
+///
+/// TODO Griffin: Consider making this smaller?
 #[derive(Debug)]
 pub struct Invoke {
-    // TODO: add invoke stuff
+    /// The cell being invoked
+    pub cell: CellRef,
+    /// Optional group enabled during invocation of the cell (the calyx `with`
+    /// statement)
+    pub comb_group: Option<CombGroupIdx>,
+    /// The external cells passed as arguments to the invoked cell, an
+    /// association list of the refcell offset in the invoked context, and the
+    /// cell realizing it in the parent context
+    pub ref_cells: SmallVec<[(LocalRefCellOffset, CellRef); 1]>,
+    /// The ports attached to the input of the invoked cell, an association list
+    /// of the port ref in the **PARENT** context, and the port connected
+    /// to it in the parent context i.e. (dst, src)
+    pub inputs: SmallVec<[(PortRef, PortRef); 1]>,
+    /// The ports attached to the outputs of the invoked cell, an association list
+    /// of the port ref in the **PARENT** context, and the port connected
+    /// to it in the parent context. i.e. (dst, src)
+    pub outputs: SmallVec<[(PortRef, PortRef); 1]>,
 }
 
+impl Invoke {
+    pub fn new<R, I, O>(
+        cell: CellRef,
+        comb_group: Option<CombGroupIdx>,
+        ref_cells: R,
+        inputs: I,
+        outputs: O,
+    ) -> Self
+    where
+        R: IntoIterator<Item = (LocalRefCellOffset, CellRef)>,
+        I: IntoIterator<Item = (PortRef, PortRef)>,
+        O: IntoIterator<Item = (PortRef, PortRef)>,
+    {
+        Self {
+            cell,
+            comb_group,
+            ref_cells: ref_cells.into_iter().collect(),
+            inputs: inputs.into_iter().collect(),
+            outputs: outputs.into_iter().collect(),
+        }
+    }
+}
+
+/// An enum representing the different types of control nodes
 #[derive(Debug)]
 pub enum ControlNode {
     Empty(Empty),

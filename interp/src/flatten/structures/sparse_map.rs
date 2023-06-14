@@ -82,4 +82,16 @@ where
     pub fn count(&self) -> usize {
         self.count
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&K, &D)> {
+        self.data.iter()
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &K> {
+        self.data.keys()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &D> {
+        self.data.values()
+    }
 }

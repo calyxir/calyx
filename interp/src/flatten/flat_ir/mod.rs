@@ -1,5 +1,6 @@
 pub mod attributes;
 pub mod base;
+pub mod cell_prototype;
 pub mod component;
 pub mod control;
 pub mod flatten_trait;

@@ -220,4 +220,4 @@ impl IdxSkipSizes {
     }
 }
 
-pub type ComponentMap = IndexedMap<ComponentRef, ComponentCore>;
+pub type ComponentMap = IndexedMap<ComponentIdx, ComponentCore>;
