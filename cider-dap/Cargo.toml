@@ -11,7 +11,7 @@ thiserror = "1.*"
 serde_json = "1.0"
 
 [[bin]]
-name = "tcp_Client"
+name = "tcp_client"
 path = "src/tcp_client.rs"
 
 [[bin]]
