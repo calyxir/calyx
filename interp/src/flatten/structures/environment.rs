@@ -31,9 +31,15 @@ pub(crate) struct ProgramCounter {
 }
 
 pub struct Environment {
-    pcs: ProgramCounter,
+    /// A map from global port IDs to their current values.
     ports: PortMap,
+    /// A map from global cell IDs to their current state and execution info.
     cells: CellMap,
+    /// A map from global ref cell IDs to the cell they reference, if any.
     ref_cells: RefCellMap,
+    /// A map from global ref port IDs to the port they reference, if any.
     ref_ports: RefPortMap,
+
+    /// The program counter for the whole program execution.
+    pcs: ProgramCounter,
 }

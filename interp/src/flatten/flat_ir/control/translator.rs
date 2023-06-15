@@ -43,10 +43,13 @@ pub fn translate(orig_ctx: &cir::Context) -> Context {
     // iteration over the components in a post-order so this is a hack instead
 
     for comp in CompTraversal::new(&orig_ctx.components).iter() {
-        // TODO Griffin: capture the entry-point component and store that
-        // somewhere in the context
-        let _ = translate_component(comp, &mut ctx, &mut component_id_map);
+        translate_component(comp, &mut ctx, &mut component_id_map);
     }
+
+    ctx.entry_point = *component_id_map
+        .get(&orig_ctx.entrypoint().name)
+        .expect("Unable to find entrypoint");
+
     ctx
 }
 
@@ -116,7 +119,6 @@ fn translate_guard(
     flatten_tree(guard, None, &mut interp_ctx.guards, map)
 }
 
-#[must_use]
 fn translate_component(
     comp: &cir::Component,
     ctx: &mut Context,

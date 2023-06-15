@@ -18,27 +18,10 @@ use crate::flatten::flat_ir::{
 };
 
 use super::{
-    index_trait::IndexRange,
+    index_trait::{IndexRange, IndexRef},
     indexed_map::{AuxillaryMap, IndexedMap},
     printer::Printer,
 };
-
-/// The full immutable program context for the interpreter.
-#[derive(Debug, Default)]
-pub struct Context {
-    /// Simulation relevant context
-    pub primary: InterpretationContext,
-    /// Setup/debugging relevant context
-    pub secondary: SecondaryContext,
-}
-
-impl From<(InterpretationContext, SecondaryContext)> for Context {
-    fn from(
-        (primary, secondary): (InterpretationContext, SecondaryContext),
-    ) -> Self {
-        Self { primary, secondary }
-    }
-}
 
 /// The immutable program context for the interpreter. Relevant at simulation
 /// time
@@ -223,6 +206,41 @@ impl Default for SecondaryContext {
             local_cell_defs: Default::default(),
             ref_cell_defs: Default::default(),
             comp_aux_info: Default::default(),
+        }
+    }
+}
+
+/// The full immutable program context for the interpreter.
+#[derive(Debug)]
+pub struct Context {
+    /// Simulation relevant context
+    pub primary: InterpretationContext,
+    /// Setup/debugging relevant context
+    pub secondary: SecondaryContext,
+    /// The ID of the entry component for the program (usually called "main")
+    /// In general this will be the last component in the program to be
+    /// processed and should have the highest index.
+    pub entry_point: ComponentIdx,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self {
+            primary: Default::default(),
+            secondary: Default::default(),
+            entry_point: ComponentIdx::new(0),
+        }
+    }
+}
+
+impl From<(InterpretationContext, SecondaryContext)> for Context {
+    fn from(
+        (primary, secondary): (InterpretationContext, SecondaryContext),
+    ) -> Self {
+        Self {
+            primary,
+            secondary,
+            entry_point: ComponentIdx::new(0),
         }
     }
 }
