@@ -6,15 +6,6 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
     m0 = std_mem_d1(32, 1, 1);
   }
   wires {
-    group one_cycle<"promote_static"=1> {
-      r0.write_en = 1'd1;
-      one_cycle[done] = r0.done;
-    }
-    group two_cycles<"promote_static"=2> {
-      r0.write_en = 1'd1;
-      r1.write_en = r0.done;
-      two_cycles[done] = r1.done;
-    }
     group mult_wrts_to_done {
       r0.write_en = 1'd1;
       mult_wrts_to_done[done] = r0.done ? 1'd1;
@@ -33,16 +24,13 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
     }
   }
   control {
-    seq {
-      static<4> seq  {
+    par {
+      static<2> par {
         one_cycle0;
         two_cycles0;
         mem_wrt_to_done0;
       }
       mult_wrts_to_done;
-      @promote_static one_cycle;
-      mult_wrts_to_done;
-      @promote_static(2) two_cycles;
     }
   }
 }

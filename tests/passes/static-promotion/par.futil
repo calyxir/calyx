@@ -30,14 +30,11 @@ component main(go: 1, clk: 1) -> (done: 1) {
   }
 
   control {
-    seq {
+    par {
       one_cycle;
       two_cycles;
+      mult_wrts_to_done;
       mem_wrt_to_done;
-      mult_wrts_to_done;
-      one_cycle;
-      mult_wrts_to_done;
-      two_cycles;
     }
   }
 }
