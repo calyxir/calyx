@@ -1,62 +1,54 @@
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::thread;
+use std::time::Duration;
 
-use thiserror::Error;
+mod tcp_client;
 
-use dap::prelude::*;
+fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
+    println!("Handling client connection...");
+    let mut buffer = [0; 1024];
+    stream.read(&mut buffer)?; // Read the request message from the client
 
-#[derive(Error, Debug)]
-enum MyAdapterError {
-    #[error("Unhandled command")]
-    UnhandledCommandError,
+    // Process the received message and send appropriate responses
+    let response = match String::from_utf8_lossy(&buffer).as_ref() {
+        "{\"seq\": 152, \"type\": \"request\", \"command\": \"initialize\", \"arguments\": {\"adapterId\": \"0001e357-72c7-4f03-ae8f-c5b54bd8dabf\", \"clientName\": \"Some Cool Editor\"}}" => {
+            "{\"seq\": 152, \"type\": \"response\", \"command\": \"initialize\", \"success\": true}"
+        }
+        "{\"seq\": 153, \"type\": \"request\", \"command\": \"next\", \"arguments\": {\"threadId\": 3}}" => {
+            "{\"seq\": 153, \"type\": \"response\", \"command\": \"next\", \"success\": true}"
+        }
+        _ => "{\"seq\": 0, \"type\": \"response\", \"command\": \"unknown\", \"success\": false}",
+    };
+
+    stream.write_all(response.as_bytes())?; // Send the response back to the client
+    stream.flush()?; // Flush the stream to ensure data is sent
+    Ok(())
 }
+fn main() {
+    let listener =
+        TcpListener::bind("127.0.0.1:8080").expect("Failed to bind address");
+    listener
+        .set_nonblocking(false)
+        .expect("Failed to set non-blocking mode");
 
-struct MyAdapter;
+    println!("DAP server listening on port 8080...");
 
-impl Adapter for MyAdapter {
-    type Error = MyAdapterError;
-
-    fn accept(
-        &mut self,
-        request: Request,
-        _ctx: &mut dyn Context,
-    ) -> Result<Response, Self::Error> {
-        eprintln!("Accept {:#?}\n", request.command);
-
-        match &request.command {
-            Command::Initialize(args) => {
-                if let Some(client_name) = args.client_name.as_ref() {
-                    eprintln!(
-                        "> Client '{client_name}' requested initialization."
-                    );
-                    Ok(Response::make_success(
-                        &request,
-                        ResponseBody::Initialize(Some(types::Capabilities {
-                            supports_configuration_done_request: Some(true),
-                            supports_evaluate_for_hovers: Some(true),
-                            ..Default::default()
-                        })),
-                    ))
-                } else {
-                    Ok(Response::make_error(&request, "Missing client name"))
-                }
+    loop {
+        match listener.accept() {
+            Ok((stream, _)) => {
+                println!("Handling client connection...");
+                handle_client(stream);
             }
-            Command::Next(_) => Ok(Response::make_ack(&request).unwrap()),
-            _ => Err(MyAdapterError::UnhandledCommandError),
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                // No incoming connections yet, handle other tasks or sleep
+                // to avoid busy-waiting
+                std::thread::sleep(Duration::from_millis(100));
+                println!("Err");
+            }
+            Err(e) => {
+                eprintln!("Error: {}", e);
+            }
         }
     }
-}
-
-type DynResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-fn main() -> DynResult<()> {
-    let adapter = MyAdapter {};
-    let client = BasicClient::new(BufWriter::new(std::io::stdout()));
-    let mut server = Server::new(adapter, client);
-
-    let f = File::open("testinput.txt")?;
-    let mut reader = BufReader::new(f);
-
-    server.run(&mut reader)?;
-    Ok(())
 }
