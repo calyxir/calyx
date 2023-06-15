@@ -35,4 +35,5 @@ pub struct Environment {
     ports: PortMap,
     cells: CellMap,
     ref_cells: RefCellMap,
+    ref_ports: RefPortMap,
 }

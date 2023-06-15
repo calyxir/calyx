@@ -38,13 +38,13 @@ impl_index!(RefPortDefinitionIdx);
 
 /// The index of a port instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-pub struct GlobalPortId(u32);
-impl_index!(GlobalPortId);
+pub struct GlobalPortId(NonZeroU32);
+impl_index_nonzero!(GlobalPortId);
 
 /// The index of a cell instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-pub struct GlobalCellId(u32);
-impl_index!(GlobalCellId);
+pub struct GlobalCellId(NonZeroU32);
+impl_index_nonzero!(GlobalCellId);
 
 /// The index of a ref cell instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
