@@ -28,14 +28,15 @@ M-x package-install RET highlight-numbers RET
 ```
 
 Clone the repository, add the above path to your [load path][], and require
-`futil-mode`.
-If you use [Spacemacs][], this looks like adding the following lines to
-`dotspacemacs/user-config` in your `.spacemacs` file:
+`futil-mode` in your `.emacs` file:
 ```elisp
 (push "~/.emacs.d/private/local/futil-mode" load-path)
 (require 'futil-mode)
 ```
-I imagine it looks very similar for pure emacs, but haven't actually tried it myself.
+
+If you use [Spacemacs][], you would add this to `dotspacemacs/user-config`
+in your `.spacemacs`.
+
 
 ## Visual Studio Code
 
