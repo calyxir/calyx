@@ -1,5 +1,5 @@
 use dap::prelude::*;
-use std::io::{BufReader, BufWriter, Read, Write};
+use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use thiserror::Error;
 mod tcp_client;
@@ -91,12 +91,10 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
     println!("Handling client connection...");
     let mut buffer = [0; 1024];
 
-    stream.read(&mut buffer)?; // Read the request message from the client.
-
-    // Create CloneStreams and pass it to handle_dap_rs
-    let dap_stream = TcpStream::connect("127.0.0.1:8080")?;
-    let clone_streams = CloneStreams::new(stream.try_clone()?, dap_stream);
-    handle_dap_rs(clone_streams)?;
+    // Read the request message from the client.
+    let read_bytes = stream.read(&mut buffer)?;
+    let request = String::from_utf8_lossy(&buffer[..read_bytes]);
+    println!("Received request: {}", request);
 
     // Create a BasicClient instance with the TCP stream
     let client = BasicClient::new(stream.try_clone()?);
@@ -112,17 +110,6 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
         Ok(()) => println!("Request handled successfully"),
         Err(err) => eprintln!("Error handling request: {:?}", err),
     }
-
-    Ok(())
-}
-
-fn handle_dap_rs(mut streams: CloneStreams) -> std::io::Result<()> {
-    // Read from `streams` and send data to `dap-rs` (server.rs).
-    // needs change?
-    // Example usage:
-    let mut buffer = [0; 1024];
-    streams.read(&mut buffer)?;
-    streams.write_all(&buffer)?;
 
     Ok(())
 }
