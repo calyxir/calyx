@@ -24,6 +24,7 @@ impl Adapter for MyAdapter {
 
         match &request.command {
             Command::Initialize(args) => {
+                eprintln!("entered intialize handler");
                 if let Some(client_name) = args.client_name.as_ref() {
                     eprintln!(
                         "> Client '{client_name}' requested initialization."
@@ -49,9 +50,12 @@ impl Adapter for MyAdapter {
 fn main() -> std::io::Result<()> {
     let listener = TcpListener::bind("127.0.0.1:8080")?;
 
-    for stream in listener.incoming() {
-        let stream = stream?;
-        handle_client(stream)?;
+    match listener.accept() {
+        Ok((stream, addr)) => {
+            println!("Accepted client on: {} ", addr);
+            handle_client(stream)?;
+        }
+        Err(_) => todo!(),
     }
 
     Ok(())
@@ -88,13 +92,13 @@ impl Write for CloneStreams {
 }
 
 fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
-    println!("Handling client connection...");
+    /*     println!("Handling client connection...");
     let mut buffer = [0; 1024];
 
     // Read the request message from the client.
     let read_bytes = stream.read(&mut buffer)?;
     let request = String::from_utf8_lossy(&buffer[..read_bytes]);
-    println!("Received request: {}", request);
+    println!("Received request: {}", request); */
 
     // Create a BasicClient instance with the TCP stream
     let client = BasicClient::new(stream.try_clone()?);
@@ -110,6 +114,7 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
         Ok(()) => println!("Request handled successfully"),
         Err(err) => eprintln!("Error handling request: {:?}", err),
     }
+    println!("Additional code after server.run()");
 
     Ok(())
 }
