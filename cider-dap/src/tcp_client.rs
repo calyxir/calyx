@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
 pub(crate) fn send_request(
@@ -15,14 +15,48 @@ pub(crate) fn send_request(
 
     let mut response = String::new();
     let mut buf = vec![0u8; 1024];
-    /*
-    read the first 2 lines into a buffer
-    extract the content length header
-    use read.take with the specified length number from the content header
-     */
-    stream.read(&mut buf)?;
 
-    Ok(String::from_utf8(buf).unwrap())
+    // Read the response until "\r\n\r\n" is encountered, indicating the end of the headers
+    let headers_end = b"\r\n\r\n";
+    let mut headers = Vec::new();
+
+    loop {
+        let bytes_read = match stream.read(&mut buf) {
+            Ok(0) => break, // Reached the end of the stream
+            Ok(n) => n,
+            Err(e) => {
+                println!("Error reading from stream: {}", e);
+                break;
+            }
+        };
+        headers.extend_from_slice(&buf[..bytes_read]);
+        if headers.ends_with(headers_end) {
+            break;
+        }
+    }
+
+    // Print the received response headers
+    let headers_str = String::from_utf8_lossy(&headers);
+    println!("Response Headers:\n{}", headers_str);
+
+    // Parse the Content-Length header to determine the response body size
+    let content_length = headers_str
+        .lines()
+        .find(|line| line.starts_with("Content-Length:"))
+        .and_then(|line| line.split(":").nth(1))
+        .and_then(|length| length.trim().parse::<usize>().ok())
+        .unwrap_or(0);
+
+    // Read the response body based on the content length
+    let mut response_body = vec![0u8; content_length];
+    stream.read_exact(&mut response_body)?;
+
+    response.push_str(&String::from_utf8_lossy(&response_body));
+
+    // Print the received response body
+    println!("Response Body:\n{}", response);
+
+    Ok(response)
 }
 
 fn main() -> std::io::Result<()> {
