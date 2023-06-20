@@ -22,6 +22,11 @@ And run:
 `futil-mode` is implements highlighting for `.futil` files in emacs.
 It is located in `<repo>/tools/emacs/futil-mode`.
 
+The `highlight-numbers` package is required as part of `futil-mode`, install it:
+```
+M-x package-install RET highlight-numbers RET
+```
+
 Clone the repository, add the above path to your [load path][], and require
 `futil-mode`.
 If you use [Spacemacs][], this looks like adding the following lines to
