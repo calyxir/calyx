@@ -32,8 +32,8 @@ Clone the repository, add the above path to your [load path][], and require
 If you use [Spacemacs][], this looks like adding the following lines to
 `dotspacemacs/user-config` in your `.spacemacs` file:
 ```elisp
-(push "~/.emacs.d/private/local/fuse-mode" load-path)
-(require 'fuse-mode)
+(push "~/.emacs.d/private/local/futil-mode" load-path)
+(require 'futil-mode)
 ```
 I imagine it looks very similar for pure emacs, but haven't actually tried it myself.
 
