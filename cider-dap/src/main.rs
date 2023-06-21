@@ -2,7 +2,9 @@ use dap::prelude::*;
 use std::io::{BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use thiserror::Error;
-mod tcp_client;
+
+mod client;
+use client::TcpClient;
 
 #[derive(Error, Debug)]
 enum MyAdapterError {
@@ -100,8 +102,8 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
     let request = String::from_utf8_lossy(&buffer[..read_bytes]);
     println!("Received request: {}", request); */
 
-    // Create a BasicClient instance with the TCP stream
-    let client = BasicClient::new(stream.try_clone()?);
+    // Create a TcpClient instance with the TCP stream
+    let client = TcpClient::new(stream.try_clone()?);
 
     // Create a Server instance with an appropriate adapter and the client
     let mut server = Server::new(MyAdapter, client);

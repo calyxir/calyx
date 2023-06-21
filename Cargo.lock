@@ -264,6 +264,7 @@ name = "cider-dap"
 version = "0.1.0"
 dependencies = [
  "dap",
+ "serde",
  "serde_json",
  "thiserror",
 ]
