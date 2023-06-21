@@ -1,6 +1,5 @@
-use std::ops::Index;
-
 use std::collections::HashMap;
+use std::ops::{AddAssign, Index};
 
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
@@ -24,8 +23,6 @@ use super::{
     indexed_map::{AuxillaryMap, IndexedMap},
     printer::Printer,
 };
-
-use std::ops::AddAssign;
 
 /// The immutable program context for the interpreter. Relevant at simulation
 /// time
