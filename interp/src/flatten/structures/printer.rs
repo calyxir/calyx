@@ -1,7 +1,7 @@
 use calyx_ir::PortComp;
 
 use crate::flatten::flat_ir::{
-    cell_prototype::CellPrototype,
+    cell_prototype::{CellPrototype, LiteralOrPrimitive},
     identifier::{CanonicalIdentifier, IdMap},
     wires::guards::Guard,
 };
@@ -149,8 +149,11 @@ impl<'a> Printer<'a> {
         match (port, parent) {
             (PortDefinitionRef::Local(l), ParentIdx::Component(c)) => CanonicalIdentifier::interface_port( self.ctx.secondary[c].name, self.ctx.secondary[l]),
             (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => {
-                if let CellPrototype::ConstantLiteral { value, width }= &self.ctx.secondary[c].prototype {
-                    CanonicalIdentifier::literal(*width, *value)
+                if let CellPrototype::Constant { value, width, c_type }= &self.ctx.secondary[c].prototype {
+                    match c_type {
+                        LiteralOrPrimitive::Literal => CanonicalIdentifier::literal(*width, *value),
+                        LiteralOrPrimitive::Primitive => CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l]),
+                    }
                 } else {
                     CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l])
                 }

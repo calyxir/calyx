@@ -10,7 +10,7 @@ use super::{cell_prototype::CellPrototype, prelude::Identifier};
 // second arg to contract or expand as needed
 
 /// The identifier for a component definition
-#[derive(Debug, Eq, Copy, Clone, PartialEq)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
 pub struct ComponentIdx(u32);
 impl_index!(ComponentIdx);
 

@@ -1,4 +1,4 @@
-use super::indexed_map::IndexedMap;
+use super::{context::Context, indexed_map::IndexedMap};
 use crate::{
     flatten::{
         flat_ir::prelude::{
@@ -42,4 +42,18 @@ pub struct Environment {
 
     /// The program counter for the whole program execution.
     pcs: ProgramCounter,
+}
+
+impl Environment {
+    pub fn new(ctx: &Context) -> Self {
+        let root = ctx.entry_point;
+        let sizes = ctx.get_component_size_definitions(root);
+
+        let mut ports = PortMap::with_capacity(sizes.ports);
+        let mut cells = CellMap::with_capacity(sizes.cells);
+        let mut ref_cells = RefCellMap::with_capacity(sizes.ref_cells);
+        let mut ref_ports = RefPortMap::with_capacity(sizes.ref_ports);
+
+        todo!()
+    }
 }

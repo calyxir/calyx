@@ -4,7 +4,7 @@ use calyx_ir::{self as cir, RRC};
 use crate::{
     flatten::{
         flat_ir::{
-            cell_prototype::CellPrototype,
+            cell_prototype::{CellPrototype, LiteralOrPrimitive},
             component::{AuxillaryComponentInfo, ComponentCore},
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
@@ -437,12 +437,11 @@ fn create_cell_prototype(
             CellPrototype::Component(comp_id_map[name])
         }
 
-        cir::CellType::Constant { val, width } => {
-            CellPrototype::ConstantLiteral {
-                value: *val,
-                width: *width,
-            }
-        }
+        cir::CellType::Constant { val, width } => CellPrototype::Constant {
+            value: *val,
+            width: *width,
+            c_type: LiteralOrPrimitive::Literal,
+        },
         cir::CellType::ThisComponent => unreachable!(
             "the flattening should not have this cell type, this is an error"
         ),

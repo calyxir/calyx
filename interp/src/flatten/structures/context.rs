@@ -1,5 +1,7 @@
 use std::ops::Index;
 
+use std::collections::HashMap;
+
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,
     component::{AuxillaryComponentInfo, ComponentCore, ComponentMap},
@@ -22,6 +24,8 @@ use super::{
     indexed_map::{AuxillaryMap, IndexedMap},
     printer::Printer,
 };
+
+use std::ops::AddAssign;
 
 /// The immutable program context for the interpreter. Relevant at simulation
 /// time
@@ -319,5 +323,67 @@ impl Context {
                 .expect("Port does not belong to any ref cell in the given component").into()
             },
         }
+    }
+
+    pub fn get_component_size_definitions(
+        &self,
+        idx: ComponentIdx,
+    ) -> SizeDefinitions {
+        fn size_definitions_inner(
+            ctx: &Context,
+            idx: ComponentIdx,
+            map: &mut HashMap<ComponentIdx, SizeDefinitions>,
+        ) -> SizeDefinitions {
+            let (mut ports, mut ref_ports, mut cells, mut ref_cells) =
+                (0, 0, 0, 0);
+            let aux = &ctx.secondary.comp_aux_info[idx];
+
+            ports += aux.definitions.ports().size();
+            ref_ports += aux.definitions.ref_ports().size();
+            cells += aux.definitions.cells().size();
+            ref_cells += aux.definitions.ref_cells().size();
+
+            let mut out = SizeDefinitions {
+                ports,
+                ref_ports,
+                cells,
+                ref_cells,
+            };
+
+            for cell in aux.definitions.cells() {
+                let proto = &ctx.secondary[cell].prototype;
+                if proto.is_component() {
+                    let comp = proto.as_component().unwrap();
+                    if !map.contains_key(comp) {
+                        let result = size_definitions_inner(ctx, *comp, map);
+                        map.insert(*comp, result);
+                    }
+                    out += &map[comp];
+                }
+            }
+
+            out
+        }
+
+        let mut map = HashMap::new();
+
+        size_definitions_inner(self, idx, &mut map)
+    }
+}
+
+#[derive(Debug)]
+pub struct SizeDefinitions {
+    pub ports: usize,
+    pub cells: usize,
+    pub ref_cells: usize,
+    pub ref_ports: usize,
+}
+
+impl AddAssign<&SizeDefinitions> for SizeDefinitions {
+    fn add_assign(&mut self, rhs: &Self) {
+        self.ports += rhs.ports;
+        self.cells += rhs.cells;
+        self.ref_cells += rhs.ref_cells;
+        self.ref_ports += rhs.ref_ports;
     }
 }
