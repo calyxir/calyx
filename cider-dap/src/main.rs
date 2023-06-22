@@ -1,5 +1,5 @@
 use dap::prelude::*;
-use std::io::{BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use thiserror::Error;
 
@@ -63,45 +63,7 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-struct CloneStreams {
-    client_stream: BufReader<TcpStream>,
-    dap_stream: TcpStream,
-}
-
-impl CloneStreams {
-    fn new(client_stream: TcpStream, dap_stream: TcpStream) -> Self {
-        Self {
-            client_stream: BufReader::new(client_stream),
-            dap_stream,
-        }
-    }
-}
-
-impl Read for CloneStreams {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.client_stream.read(buf)
-    }
-}
-
-impl Write for CloneStreams {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.dap_stream.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.dap_stream.flush()
-    }
-}
-
 fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
-    /*     println!("Handling client connection...");
-    let mut buffer = [0; 1024];
-
-    // Read the request message from the client.
-    let read_bytes = stream.read(&mut buffer)?;
-    let request = String::from_utf8_lossy(&buffer[..read_bytes]);
-    println!("Received request: {}", request); */
-
     // Create a TcpClient instance with the TCP stream
     let client = TcpClient::new(stream.try_clone()?);
 
@@ -111,12 +73,29 @@ fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
     // Create a BufReader from the TcpStream
     let mut reader = BufReader::new(&mut stream);
 
-    // Run the server to handle the request and generate a response
-    match server.run(&mut reader) {
-        Ok(()) => println!("Request handled successfully"),
-        Err(err) => eprintln!("Error handling request: {:?}", err),
+    loop {
+        // Run the server to handle the request and generate a response
+        match server.run(&mut reader) {
+            Ok(()) => println!("Request handled successfully"),
+            Err(err) => {
+                eprintln!("Error handling request: {:?}", err);
+                break; // Exit the loop on error
+            }
+        }
+
+        // Check if there are more requests to process
+        let mut buf = [0; 1];
+        match reader.read(&mut buf) {
+            Ok(0) => break,    // No more data to read, exit the loop
+            Ok(_) => continue, // Continue to handle the next request
+            Err(err) => {
+                eprintln!("Error reading from stream: {:?}", err);
+                break; // Exit the loop on error
+            }
+        }
     }
-    println!("Additional code after server.run()");
+
+    println!("Additional code after handling requests");
 
     Ok(())
 }
