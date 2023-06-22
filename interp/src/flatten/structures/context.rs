@@ -8,9 +8,10 @@ use crate::flatten::flat_ir::{
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
         CombGroupIdx, CombGroupMap, ComponentIdx, ControlIdx, ControlMap,
-        ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalPortOffset,
-        LocalRefPortOffset, ParentIdx, PortDefinitionIdx, PortDefinitionRef,
-        PortRef, RefCellDefinitionIdx, RefCellInfo, RefPortDefinitionIdx,
+        ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalCellOffset,
+        LocalPortOffset, LocalRefCellOffset, LocalRefPortOffset, ParentIdx,
+        PortDefinitionIdx, PortDefinitionRef, PortRef, RefCellDefinitionIdx,
+        RefCellInfo, RefPortDefinitionIdx,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
@@ -97,13 +98,19 @@ impl InterpretationContext {
 }
 
 #[derive(Debug)]
+pub struct PortDefinitionInfo {
+    pub name: Identifier,
+    pub width: usize,
+}
+
+#[derive(Debug)]
 /// Immutable context for the interpreter. Relevant at setup time and during
 /// error printing and debugging
 pub struct SecondaryContext {
     /// table for mapping strings to identifiers
     pub string_table: IdMap,
     /// non-ref port definitions
-    pub local_port_defs: IndexedMap<PortDefinitionIdx, Identifier>,
+    pub local_port_defs: IndexedMap<PortDefinitionIdx, PortDefinitionInfo>,
     /// ref-cell ports
     pub ref_port_defs: IndexedMap<RefPortDefinitionIdx, Identifier>,
     /// non-ref-cell definitions
@@ -123,7 +130,7 @@ impl Index<Identifier> for SecondaryContext {
 }
 
 impl Index<PortDefinitionIdx> for SecondaryContext {
-    type Output = Identifier;
+    type Output = PortDefinitionInfo;
 
     fn index(&self, index: PortDefinitionIdx) -> &Self::Output {
         &self.local_port_defs[index]
@@ -167,8 +174,13 @@ impl SecondaryContext {
         Default::default()
     }
 
-    pub fn push_local_port(&mut self, id: Identifier) -> PortDefinitionIdx {
-        self.local_port_defs.push(id)
+    pub fn push_local_port(
+        &mut self,
+        name: Identifier,
+        width: usize,
+    ) -> PortDefinitionIdx {
+        self.local_port_defs
+            .push(PortDefinitionInfo { name, width })
     }
 
     pub fn push_ref_port(&mut self, id: Identifier) -> RefPortDefinitionIdx {
@@ -263,6 +275,42 @@ impl Context {
 
 // Internal helper functions
 impl Context {
+    pub fn lookup_port_def(
+        &self,
+        comp: &ComponentIdx,
+        port: LocalPortOffset,
+    ) -> &PortDefinitionInfo {
+        &self.secondary.local_port_defs
+            [self.secondary.comp_aux_info[*comp].port_offset_map[port]]
+    }
+
+    pub fn lookup_ref_port_def(
+        &self,
+        comp: &ComponentIdx,
+        port: LocalRefPortOffset,
+    ) -> &Identifier {
+        &self.secondary.ref_port_defs
+            [self.secondary.comp_aux_info[*comp].ref_port_offset_map[port]]
+    }
+
+    pub fn lookup_cell_def(
+        &self,
+        comp: &ComponentIdx,
+        cell: LocalCellOffset,
+    ) -> &CellInfo {
+        &self.secondary.local_cell_defs
+            [self.secondary.comp_aux_info[*comp].cell_offset_map[cell]]
+    }
+
+    pub fn lookup_ref_cell_def(
+        &self,
+        comp: &ComponentIdx,
+        cell: LocalRefCellOffset,
+    ) -> &RefCellInfo {
+        &self.secondary.ref_cell_defs
+            [self.secondary.comp_aux_info[*comp].ref_cell_offset_map[cell]]
+    }
+
     #[inline]
     pub(crate) fn lookup_port_definition(
         &self,
@@ -320,67 +368,5 @@ impl Context {
                 .expect("Port does not belong to any ref cell in the given component").into()
             },
         }
-    }
-
-    pub fn get_component_size_definitions(
-        &self,
-        idx: ComponentIdx,
-    ) -> SizeDefinitions {
-        fn size_definitions_inner(
-            ctx: &Context,
-            idx: ComponentIdx,
-            map: &mut HashMap<ComponentIdx, SizeDefinitions>,
-        ) -> SizeDefinitions {
-            let (mut ports, mut ref_ports, mut cells, mut ref_cells) =
-                (0, 0, 0, 0);
-            let aux = &ctx.secondary.comp_aux_info[idx];
-
-            ports += aux.definitions.ports().size();
-            ref_ports += aux.definitions.ref_ports().size();
-            cells += aux.definitions.cells().size();
-            ref_cells += aux.definitions.ref_cells().size();
-
-            let mut out = SizeDefinitions {
-                ports,
-                ref_ports,
-                cells,
-                ref_cells,
-            };
-
-            for cell in aux.definitions.cells() {
-                let proto = &ctx.secondary[cell].prototype;
-                if proto.is_component() {
-                    let comp = proto.as_component().unwrap();
-                    if !map.contains_key(comp) {
-                        let result = size_definitions_inner(ctx, *comp, map);
-                        map.insert(*comp, result);
-                    }
-                    out += &map[comp];
-                }
-            }
-
-            out
-        }
-
-        let mut map = HashMap::new();
-
-        size_definitions_inner(self, idx, &mut map)
-    }
-}
-
-#[derive(Debug)]
-pub struct SizeDefinitions {
-    pub ports: usize,
-    pub cells: usize,
-    pub ref_cells: usize,
-    pub ref_ports: usize,
-}
-
-impl AddAssign<&SizeDefinitions> for SizeDefinitions {
-    fn add_assign(&mut self, rhs: &Self) {
-        self.ports += rhs.ports;
-        self.cells += rhs.cells;
-        self.ref_cells += rhs.ref_cells;
-        self.ref_ports += rhs.ref_ports;
     }
 }

@@ -244,7 +244,8 @@ fn insert_port(
             local_offset.into()
         }
         ContainmentType::Local => {
-            let idx_definition = secondary_ctx.push_local_port(id);
+            let idx_definition =
+                secondary_ctx.push_local_port(id, port.borrow().width as usize);
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()
         }
@@ -548,7 +549,7 @@ impl FlattenTree for cir::Control {
                                 .find(|&candidate_offset| {
                                     let candidate_def = comp_info
                                         .port_offset_map[candidate_offset];
-                                    ctx.secondary[candidate_def] == id
+                                    ctx.secondary[candidate_def].name == id
                                 })
                                 .unwrap()
                                 .into()
@@ -573,10 +574,10 @@ impl FlattenTree for cir::Control {
 
                 let ref_cells = inv.ref_cells.iter().map(|(ref_cell_id, realizing_cell)| {
                         let invoked_comp = invoked_comp.as_component().expect("cannot invoke a non-component with ref cells");
-                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(&_idx, &def_idx)| {
+                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(_idx, &def_idx)| {
                             let def = &ctx.secondary[def_idx];
                             def.name == resolve_id(ref_cell_id)
-                        }).map(|(&t, _)| t).expect("Unable to find the given ref cell in the invoked component");
+                        }).map(|(t, _)| t).expect("Unable to find the given ref cell in the invoked component");
                         (*target, layout.cell_map[&realizing_cell.as_raw()])
                     });
 

@@ -11,4 +11,5 @@ pub fn flat_main(ctx: &calyx_ir::Context) {
     i_ctx.printer().print_program();
 
     let env = Environment::new(&i_ctx);
+    dbg!(env);
 }

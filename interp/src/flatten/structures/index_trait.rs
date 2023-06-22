@@ -146,6 +146,10 @@ where
     pub fn contains(&self, candidate: I) -> bool {
         self.start <= candidate && self.end > candidate
     }
+
+    pub fn set_end(&mut self, end: I) {
+        self.end = end;
+    }
 }
 
 impl<'a, I> IntoIterator for &'a IndexRange<I>

@@ -292,12 +292,12 @@ mod sealed {
     impl PortType for LocalRefPortOffset {}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BaseIndices {
-    port_base: GlobalPortId,
-    cell_base: GlobalCellId,
-    ref_cell_base: GlobalRefCellId,
-    ref_port_base: GlobalRefPortId,
+    pub port_base: GlobalPortId,
+    pub cell_base: GlobalCellId,
+    pub ref_cell_base: GlobalRefCellId,
+    pub ref_port_base: GlobalRefPortId,
 }
 
 impl BaseIndices {

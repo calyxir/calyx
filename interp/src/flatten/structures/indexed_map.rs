@@ -102,6 +102,10 @@ where
         // TODO (griffin): Make this an actual struct instead
         self.data.iter().enumerate().map(|(i, _)| K::new(i))
     }
+
+    pub fn capacity(&self) -> usize {
+        self.data.capacity()
+    }
 }
 
 impl<T, K> Default for IndexedMap<K, T>
