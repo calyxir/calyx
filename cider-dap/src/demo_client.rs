@@ -1,3 +1,4 @@
+use owo_colors::OwoColorize;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 
@@ -49,7 +50,7 @@ pub(crate) fn send_request(
     let formatted_request =
         format!("Content-Length: {}\r\n\r\n{}", content_length, request);
 
-    println!("{} ", formatted_request);
+    println!("{} ", formatted_request.magenta().bold());
     stream.write_all(formatted_request.as_bytes())?;
     eprint!("finished writing");
 
@@ -62,7 +63,7 @@ pub(crate) fn send_request(
     let mut header_line = String::new();
     reader.read_line(&mut header_line)?;
 
-    println!("Header line: {}", header_line);
+    println!("Header line: {}", header_line.green().bold());
 
     // Read the empty line (second line)
     let mut empty_line = String::new();
@@ -94,7 +95,7 @@ fn main() -> std::io::Result<()> {
 "#;
 
     let response1 = send_request(&mut stream, request1)?;
-    println!("Received response 1: {}", response1);
+    println!("Received response 1: {}", response1.blue().bold().italic());
 
     // Request 2
     let request2 = r#"{
@@ -107,7 +108,7 @@ fn main() -> std::io::Result<()> {
 "#;
 
     let response2 = send_request(&mut stream, request2)?;
-    println!("Received response 2: {}", response2);
+    println!("Received response 2: {}", response2.blue().bold().italic());
 
     Ok(())
 }
