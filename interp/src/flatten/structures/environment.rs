@@ -7,7 +7,7 @@ use crate::{
             BaseIndices, ComponentIdx, GlobalCellId, GlobalPortId,
             GlobalRefCellId, GlobalRefPortId,
         },
-        primitives::{self, prim_trait::DummyPrimitive, Primitive},
+        primitives::{self, Primitive},
         structures::index_trait::IndexRef,
     },
     values::Value,
