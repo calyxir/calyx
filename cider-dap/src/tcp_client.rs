@@ -2,7 +2,7 @@ use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
-pub(crate) fn send_request(
+/* pub(crate) fn send_request(
     stream: &mut TcpStream,
     request: &str,
 ) -> std::io::Result<String> {
@@ -33,49 +33,85 @@ pub(crate) fn send_request(
         }
     }
 
-    /*  loop {
-           println!("reached loop");
-           let bytes_read = match stream.read(&mut buf) {
-               Ok(0) => break, // Reached the end of the stream
-               Ok(n) => n,
-               Err(e) => {
-                   println!("Error reading from stream: {}", e);
-                   break;
-               }
-           };
-           println!("finished read");
-           headers.extend_from_slice(&buf[..bytes_read]);
+    Ok(response)
+} */
+//working?
+/* pub(crate) fn send_request(
+    stream: &mut TcpStream,
+    request: &str,
+) -> std::io::Result<String> {
+    let content_length = request.len();
 
-           let headers_str = String::from_utf8_lossy(&headers);
-           if headers_str.contains("\r\n\r\n") {
-               break;
-           }
-       }
+    let formatted_request =
+        format!("Content-Length: {}\r\n\r\n{}", content_length, request);
 
-       // Print the received response headers
-       let headers_str = String::from_utf8_lossy(&headers);
-       println!("Response Headers:\n{}", headers_str);
+    println!("{} ", formatted_request);
+    stream.write_all(formatted_request.as_bytes())?;
+    eprint!("finished writing");
 
-       // Parse the Content-Length header to determine the response body size
-       let content_length = headers_str
-           .lines()
-           .find(|line| line.starts_with("Content-Length:"))
-           .and_then(|line| line.split(":").nth(1))
-           .and_then(|length| length.trim().parse::<usize>().ok())
-           .unwrap_or(0);
+    let mut response = String::new();
+    let mut buf = vec![0u8; 1024];
+    dbg!(stream.peek(&mut buf).unwrap());
 
-       // Read the response body based on the content length
-       let mut response_body = vec![0u8; content_length];
-       stream.read_exact(&mut response_body)?;
+    // Read the header line (first line)
+    let mut reader = BufReader::new(stream);
+    let mut header_line = String::new();
+    reader.read_line(&mut header_line)?;
 
-       response.push_str(&String::from_utf8_lossy(&response_body));
+    println!("Header line: {}", header_line);
 
-       // Print the received response body
-       println!("Response Body:\n{}", response);
-    */
+    // Read the empty line (second line)
+    let mut empty_line = String::new();
+    reader.read_line(&mut empty_line)?;
+
+    println!("Empty line: {}", empty_line);
+
+    // Read the specified bytes of the message
+    let mut message_buf = vec![0u8; content_length];
+    reader.read_exact(&mut message_buf)?;
+
+    response = String::from_utf8_lossy(&message_buf).to_string();
+
+    Ok(response)
+} */
+pub(crate) fn send_request(
+    stream: &mut TcpStream,
+    request: &str,
+) -> std::io::Result<String> {
+    let content_length = request.len();
+
+    let formatted_request =
+        format!("Content-Length: {}\r\n\r\n{}", content_length, request);
+
+    println!("{} ", formatted_request);
+    stream.write_all(formatted_request.as_bytes())?;
+    eprint!("finished writing");
+
+    let mut response = String::new();
+    let mut buf = vec![0u8; 1024];
+    dbg!(stream.peek(&mut buf).unwrap());
+
+    // Read the header line (first line)
+    let mut reader = BufReader::new(stream);
+    let mut header_line = String::new();
+    reader.read_line(&mut header_line)?;
+
+    println!("Header line: {}", header_line);
+
+    // Read the empty line (second line)
+    let mut empty_line = String::new();
+    reader.read_line(&mut empty_line)?;
+
+    println!("Empty line: {}", empty_line);
+
+    // Read the specified bytes of the message
+    let mut message_buf = Vec::new();
+    reader.read_until(b'\n', &mut message_buf).unwrap();
+
+    response = String::from_utf8_lossy(&message_buf).to_string();
+
     Ok(response)
 }
-
 fn main() -> std::io::Result<()> {
     let mut stream = TcpStream::connect("127.0.0.1:8080")
         .expect("Failed to connect to server");
