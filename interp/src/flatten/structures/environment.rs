@@ -130,6 +130,10 @@ impl Environment {
         }
         // second group ports
         for group_idx in comp_aux.definitions.groups() {
+            // TODO Griffin: The sanity checks here are assuming that go & done
+            // are defined in that order. This could break if the IR changes the
+            // order on hole ports in groups.
+
             //go
             let go = self.ports.push(Value::bit_low());
             debug_assert_eq!(go, index_bases + ctx.primary[group_idx].go);
