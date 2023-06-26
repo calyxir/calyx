@@ -1,5 +1,3 @@
-use bitvec::index;
-
 use super::{context::Context, indexed_map::IndexedMap};
 use crate::{
     flatten::{
