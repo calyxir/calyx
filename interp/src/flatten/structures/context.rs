@@ -7,9 +7,10 @@ use crate::flatten::flat_ir::{
     prelude::{
         Assignment, AssignmentIdx, CellDefinitionIdx, CellInfo, CombGroup,
         CombGroupIdx, CombGroupMap, ComponentIdx, ControlIdx, ControlMap,
-        ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalPortOffset,
-        LocalRefPortOffset, ParentIdx, PortDefinitionIdx, PortDefinitionRef,
-        PortRef, RefCellDefinitionIdx, RefCellInfo, RefPortDefinitionIdx,
+        ControlNode, Group, GroupIdx, GuardIdx, Identifier, LocalCellOffset,
+        LocalPortOffset, LocalRefCellOffset, LocalRefPortOffset, ParentIdx,
+        PortDefinitionIdx, PortDefinitionRef, PortRef, RefCellDefinitionIdx,
+        RefCellInfo, RefPortDefinitionIdx,
     },
     wires::{
         core::{AssignmentMap, GroupMap},
@@ -18,27 +19,10 @@ use crate::flatten::flat_ir::{
 };
 
 use super::{
-    index_trait::IndexRange,
+    index_trait::{IndexRange, IndexRef},
     indexed_map::{AuxillaryMap, IndexedMap},
     printer::Printer,
 };
-
-/// The full immutable program context for the interpreter.
-#[derive(Debug, Default)]
-pub struct Context {
-    /// Simulation relevant context
-    pub primary: InterpretationContext,
-    /// Setup/debugging relevant context
-    pub secondary: SecondaryContext,
-}
-
-impl From<(InterpretationContext, SecondaryContext)> for Context {
-    fn from(
-        (primary, secondary): (InterpretationContext, SecondaryContext),
-    ) -> Self {
-        Self { primary, secondary }
-    }
-}
 
 /// The immutable program context for the interpreter. Relevant at simulation
 /// time
@@ -113,13 +97,19 @@ impl InterpretationContext {
 }
 
 #[derive(Debug)]
+pub struct PortDefinitionInfo {
+    pub name: Identifier,
+    pub width: usize,
+}
+
+#[derive(Debug)]
 /// Immutable context for the interpreter. Relevant at setup time and during
 /// error printing and debugging
 pub struct SecondaryContext {
     /// table for mapping strings to identifiers
     pub string_table: IdMap,
     /// non-ref port definitions
-    pub local_port_defs: IndexedMap<PortDefinitionIdx, Identifier>,
+    pub local_port_defs: IndexedMap<PortDefinitionIdx, PortDefinitionInfo>,
     /// ref-cell ports
     pub ref_port_defs: IndexedMap<RefPortDefinitionIdx, Identifier>,
     /// non-ref-cell definitions
@@ -139,7 +129,7 @@ impl Index<Identifier> for SecondaryContext {
 }
 
 impl Index<PortDefinitionIdx> for SecondaryContext {
-    type Output = Identifier;
+    type Output = PortDefinitionInfo;
 
     fn index(&self, index: PortDefinitionIdx) -> &Self::Output {
         &self.local_port_defs[index]
@@ -183,8 +173,13 @@ impl SecondaryContext {
         Default::default()
     }
 
-    pub fn push_local_port(&mut self, id: Identifier) -> PortDefinitionIdx {
-        self.local_port_defs.push(id)
+    pub fn push_local_port(
+        &mut self,
+        name: Identifier,
+        width: usize,
+    ) -> PortDefinitionIdx {
+        self.local_port_defs
+            .push(PortDefinitionInfo { name, width })
     }
 
     pub fn push_ref_port(&mut self, id: Identifier) -> RefPortDefinitionIdx {
@@ -227,6 +222,41 @@ impl Default for SecondaryContext {
     }
 }
 
+/// The full immutable program context for the interpreter.
+#[derive(Debug)]
+pub struct Context {
+    /// Simulation relevant context
+    pub primary: InterpretationContext,
+    /// Setup/debugging relevant context
+    pub secondary: SecondaryContext,
+    /// The ID of the entry component for the program (usually called "main")
+    /// In general this will be the last component in the program to be
+    /// processed and should have the highest index.
+    pub entry_point: ComponentIdx,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self {
+            primary: Default::default(),
+            secondary: Default::default(),
+            entry_point: ComponentIdx::new(0),
+        }
+    }
+}
+
+impl From<(InterpretationContext, SecondaryContext)> for Context {
+    fn from(
+        (primary, secondary): (InterpretationContext, SecondaryContext),
+    ) -> Self {
+        Self {
+            primary,
+            secondary,
+            entry_point: ComponentIdx::new(0),
+        }
+    }
+}
+
 impl Context {
     pub fn new() -> Self {
         Default::default()
@@ -244,6 +274,42 @@ impl Context {
 
 // Internal helper functions
 impl Context {
+    pub fn lookup_port_def(
+        &self,
+        comp: &ComponentIdx,
+        port: LocalPortOffset,
+    ) -> &PortDefinitionInfo {
+        &self.secondary.local_port_defs
+            [self.secondary.comp_aux_info[*comp].port_offset_map[port]]
+    }
+
+    pub fn lookup_ref_port_def(
+        &self,
+        comp: &ComponentIdx,
+        port: LocalRefPortOffset,
+    ) -> &Identifier {
+        &self.secondary.ref_port_defs
+            [self.secondary.comp_aux_info[*comp].ref_port_offset_map[port]]
+    }
+
+    pub fn lookup_cell_def(
+        &self,
+        comp: &ComponentIdx,
+        cell: LocalCellOffset,
+    ) -> &CellInfo {
+        &self.secondary.local_cell_defs
+            [self.secondary.comp_aux_info[*comp].cell_offset_map[cell]]
+    }
+
+    pub fn lookup_ref_cell_def(
+        &self,
+        comp: &ComponentIdx,
+        cell: LocalRefCellOffset,
+    ) -> &RefCellInfo {
+        &self.secondary.ref_cell_defs
+            [self.secondary.comp_aux_info[*comp].ref_cell_offset_map[cell]]
+    }
+
     #[inline]
     pub(crate) fn lookup_port_definition(
         &self,

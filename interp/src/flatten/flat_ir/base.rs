@@ -1,7 +1,7 @@
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, ops::Add};
 
 use crate::flatten::structures::index_trait::{
-    impl_index, impl_index_nonzero, IndexRange,
+    impl_index, impl_index_nonzero, IndexRange, IndexRef,
 };
 
 use super::{cell_prototype::CellPrototype, prelude::Identifier};
@@ -10,7 +10,7 @@ use super::{cell_prototype::CellPrototype, prelude::Identifier};
 // second arg to contract or expand as needed
 
 /// The identifier for a component definition
-#[derive(Debug, Eq, Copy, Clone, PartialEq)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
 pub struct ComponentIdx(u32);
 impl_index!(ComponentIdx);
 
@@ -38,18 +38,23 @@ impl_index!(RefPortDefinitionIdx);
 
 /// The index of a port instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-pub struct GlobalPortId(u32);
-impl_index!(GlobalPortId);
+pub struct GlobalPortId(NonZeroU32);
+impl_index_nonzero!(GlobalPortId);
 
 /// The index of a cell instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-pub struct GlobalCellId(u32);
-impl_index!(GlobalCellId);
+pub struct GlobalCellId(NonZeroU32);
+impl_index_nonzero!(GlobalCellId);
 
 /// The index of a ref cell instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct GlobalRefCellId(u32);
 impl_index!(GlobalRefCellId);
+
+/// The index of a ref port instance in the global value map
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
+pub struct GlobalRefPortId(u32);
+impl_index!(GlobalRefPortId);
 
 // Offset indices
 
@@ -285,4 +290,92 @@ mod sealed {
 
     impl PortType for LocalPortOffset {}
     impl PortType for LocalRefPortOffset {}
+}
+
+#[derive(Debug, Clone)]
+pub struct BaseIndices {
+    pub port_base: GlobalPortId,
+    pub cell_base: GlobalCellId,
+    pub ref_cell_base: GlobalRefCellId,
+    pub ref_port_base: GlobalRefPortId,
+}
+
+impl BaseIndices {
+    pub fn new(
+        port_base: GlobalPortId,
+        cell_base: GlobalCellId,
+        ref_cell_base: GlobalRefCellId,
+        ref_port_base: GlobalRefPortId,
+    ) -> Self {
+        Self {
+            port_base,
+            cell_base,
+            ref_cell_base,
+            ref_port_base,
+        }
+    }
+}
+
+impl Add<LocalPortOffset> for &BaseIndices {
+    type Output = GlobalPortId;
+
+    fn add(self, rhs: LocalPortOffset) -> Self::Output {
+        GlobalPortId::new(self.port_base.index() + rhs.index())
+    }
+}
+
+impl Add<LocalRefPortOffset> for &BaseIndices {
+    type Output = GlobalRefPortId;
+
+    fn add(self, rhs: LocalRefPortOffset) -> Self::Output {
+        GlobalRefPortId::new(self.ref_port_base.index() + rhs.index())
+    }
+}
+
+impl Add<LocalCellOffset> for &BaseIndices {
+    type Output = GlobalCellId;
+
+    fn add(self, rhs: LocalCellOffset) -> Self::Output {
+        GlobalCellId::new(self.cell_base.index() + rhs.index())
+    }
+}
+
+impl Add<LocalRefCellOffset> for &BaseIndices {
+    type Output = GlobalRefCellId;
+
+    fn add(self, rhs: LocalRefCellOffset) -> Self::Output {
+        GlobalRefCellId::new(self.ref_cell_base.index() + rhs.index())
+    }
+}
+
+impl Add<&LocalPortOffset> for &BaseIndices {
+    type Output = GlobalPortId;
+
+    fn add(self, rhs: &LocalPortOffset) -> Self::Output {
+        GlobalPortId::new(self.port_base.index() + rhs.index())
+    }
+}
+
+impl Add<&LocalRefPortOffset> for &BaseIndices {
+    type Output = GlobalRefPortId;
+
+    fn add(self, rhs: &LocalRefPortOffset) -> Self::Output {
+        GlobalRefPortId::new(self.ref_port_base.index() + rhs.index())
+    }
+}
+
+impl Add<&LocalCellOffset> for &BaseIndices {
+    type Output = GlobalCellId;
+
+    fn add(self, rhs: &LocalCellOffset) -> Self::Output {
+        GlobalCellId::new(self.cell_base.index() + rhs.index())
+    }
+}
+
+impl Add<&LocalRefCellOffset> for &BaseIndices {
+    type Output = GlobalRefCellId;
+
+    fn add(self, rhs: &LocalRefCellOffset) -> Self::Output {
+        GlobalRefCellId::new(self.ref_cell_base.index() + rhs.index())
+    }
 }

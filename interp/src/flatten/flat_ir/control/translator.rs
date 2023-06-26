@@ -4,7 +4,7 @@ use calyx_ir::{self as cir, RRC};
 use crate::{
     flatten::{
         flat_ir::{
-            cell_prototype::CellPrototype,
+            cell_prototype::{CellPrototype, LiteralOrPrimitive},
             component::{AuxillaryComponentInfo, ComponentCore},
             flatten_trait::{flatten_tree, FlattenTree, SingleHandle},
             prelude::{
@@ -43,10 +43,13 @@ pub fn translate(orig_ctx: &cir::Context) -> Context {
     // iteration over the components in a post-order so this is a hack instead
 
     for comp in CompTraversal::new(&orig_ctx.components).iter() {
-        // TODO Griffin: capture the entry-point component and store that
-        // somewhere in the context
-        let _ = translate_component(comp, &mut ctx, &mut component_id_map);
+        translate_component(comp, &mut ctx, &mut component_id_map);
     }
+
+    ctx.entry_point = *component_id_map
+        .get(&orig_ctx.entrypoint().name)
+        .expect("Unable to find entrypoint");
+
     ctx
 }
 
@@ -116,7 +119,6 @@ fn translate_guard(
     flatten_tree(guard, None, &mut interp_ctx.guards, map)
 }
 
-#[must_use]
 fn translate_component(
     comp: &cir::Component,
     ctx: &mut Context,
@@ -242,7 +244,8 @@ fn insert_port(
             local_offset.into()
         }
         ContainmentType::Local => {
-            let idx_definition = secondary_ctx.push_local_port(id);
+            let idx_definition =
+                secondary_ctx.push_local_port(id, port.borrow().width as usize);
             let local_offset = aux.port_offset_map.insert(idx_definition);
             local_offset.into()
         }
@@ -435,12 +438,11 @@ fn create_cell_prototype(
             CellPrototype::Component(comp_id_map[name])
         }
 
-        cir::CellType::Constant { val, width } => {
-            CellPrototype::ConstantLiteral {
-                value: *val,
-                width: *width,
-            }
-        }
+        cir::CellType::Constant { val, width } => CellPrototype::Constant {
+            value: *val,
+            width: *width,
+            c_type: LiteralOrPrimitive::Literal,
+        },
         cir::CellType::ThisComponent => unreachable!(
             "the flattening should not have this cell type, this is an error"
         ),
@@ -547,7 +549,7 @@ impl FlattenTree for cir::Control {
                                 .find(|&candidate_offset| {
                                     let candidate_def = comp_info
                                         .port_offset_map[candidate_offset];
-                                    ctx.secondary[candidate_def] == id
+                                    ctx.secondary[candidate_def].name == id
                                 })
                                 .unwrap()
                                 .into()
@@ -572,10 +574,10 @@ impl FlattenTree for cir::Control {
 
                 let ref_cells = inv.ref_cells.iter().map(|(ref_cell_id, realizing_cell)| {
                         let invoked_comp = invoked_comp.as_component().expect("cannot invoke a non-component with ref cells");
-                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(&_idx, &def_idx)| {
+                        let target = &ctx.secondary[*invoked_comp].ref_cell_offset_map.iter().find(|(_idx, &def_idx)| {
                             let def = &ctx.secondary[def_idx];
                             def.name == resolve_id(ref_cell_id)
-                        }).map(|(&t, _)| t).expect("Unable to find the given ref cell in the invoked component");
+                        }).map(|(t, _)| t).expect("Unable to find the given ref cell in the invoked component");
                         (*target, layout.cell_map[&realizing_cell.as_raw()])
                     });
 
