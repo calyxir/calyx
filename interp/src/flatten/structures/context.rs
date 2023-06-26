@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::ops::{AddAssign, Index};
+use std::ops::Index;
 
 use crate::flatten::flat_ir::{
     cell_prototype::CellPrototype,

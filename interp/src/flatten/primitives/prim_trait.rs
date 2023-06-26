@@ -20,11 +20,11 @@ impl DummyPrimitive {
 }
 
 impl Primitive for DummyPrimitive {
-    fn exec_comb_paths(&self, portmap: &PortMap) -> PortResults {
+    fn exec_comb_paths(&self, _portmap: &PortMap) -> PortResults {
         todo!()
     }
 
-    fn exec_stateful_paths(&mut self, portmap: &PortMap) -> PortResults {
+    fn exec_stateful_paths(&mut self, _portmap: &PortMap) -> PortResults {
         todo!()
     }
 }
