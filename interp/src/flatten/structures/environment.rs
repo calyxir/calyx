@@ -192,4 +192,12 @@ impl Environment {
             )
         }
     }
+
+    pub fn print_env_stats(&self) {
+        println!("Environment Stats:");
+        println!("  Ports: {}", self.ports.len());
+        println!("  Cells: {}", self.cells.len());
+        println!("  Ref Cells: {}", self.ref_cells.len());
+        println!("  Ref Ports: {}", self.ref_ports.len());
+    }
 }
