@@ -12,4 +12,5 @@ pub fn flat_main(ctx: &calyx_ir::Context) {
 
     let env = Environment::new(&i_ctx);
     env.print_env_stats();
+    env.print_env();
 }
