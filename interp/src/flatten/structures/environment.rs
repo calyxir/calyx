@@ -217,6 +217,12 @@ impl<'a> Environment<'a> {
         let comp = &self.ctx.secondary[info.comp_id];
         hierarchy.push(target);
 
+        // This funky iterator chain first pulls the first element (the
+        // entrypoint) and extracts its name. Subsequent element are pairs of
+        // global offsets produced by a staggered iteration, yielding `(root,
+        // child)` then `(child, grandchild)` and so on. All the strings are
+        // finally collected and concatenated with a `.` separator to produce
+        // the fully qualified name prefix for the given component instance.
         let name_prefix = hierarchy
             .first()
             .iter()
