@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use super::{context::Context, indexed_map::IndexedMap};
 use crate::{
     flatten::{
@@ -198,6 +200,53 @@ impl<'a> Environment<'a> {
                 cell_actual
             )
         }
+    }
+
+    pub fn print_env(&self) {
+        let root_idx = GlobalCellId::new(0);
+        let mut hierarchy = Vec::new();
+        self.print_component(root_idx, &mut hierarchy)
+    }
+
+    fn print_component(
+        &self,
+        target: GlobalCellId,
+        hierarchy: &mut Vec<GlobalCellId>,
+    ) {
+        let info = self.cells[target].as_comp().unwrap();
+        let comp = &self.ctx.secondary[info.comp_id];
+        hierarchy.push(target);
+
+        let name_prefix = hierarchy
+            .iter()
+            .map(|x| {
+                let info = self.cells[*x].as_comp().unwrap();
+                let comp = &self.ctx.secondary[info.comp_id];
+                &self.ctx.secondary[comp.name]
+            })
+            .join(".");
+
+        for (cell_off, def_idx) in comp.cell_offset_map.iter() {
+            let definition = &self.ctx.secondary[*def_idx];
+
+            println!("{}.{}", name_prefix, self.ctx.secondary[definition.name]);
+            for port in definition.ports.iter() {
+                let definition =
+                    &self.ctx.secondary[comp.port_offset_map[port]];
+                println!(
+                    "    {}: {}",
+                    self.ctx.secondary[definition.name],
+                    self.ports[&info.index_bases + port]
+                );
+            }
+
+            if definition.prototype.is_component() {
+                let child_target = &info.index_bases + cell_off;
+                self.print_component(child_target, hierarchy);
+            }
+        }
+
+        hierarchy.pop();
     }
 
     pub fn print_env_stats(&self) {

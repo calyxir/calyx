@@ -106,6 +106,10 @@ where
     pub fn capacity(&self) -> usize {
         self.data.capacity()
     }
+
+    pub fn first(&self) -> Option<&D> {
+        self.data.first()
+    }
 }
 
 impl<T, K> Default for IndexedMap<K, T>
