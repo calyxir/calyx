@@ -8,6 +8,7 @@ members = [
     "interp",
     "web/rust",
     "tools/data_gen",
+    "cider-dap",
 ]
 exclude = ["site"]
 
@@ -110,4 +111,3 @@ calyx-frontend = { path = "calyx-frontend" }
 [[bench]]
 name = "component-sharing"
 harness = false
-

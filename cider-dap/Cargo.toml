@@ -1,0 +1,21 @@
+[package]
+name = "cider-dap"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dap = "0.2.0-alpha1"
+thiserror = "1.*"
+serde_json = "1.0"
+serde.workspace= true
+owo-colors = "^3.5"
+
+[[bin]]
+name = "demo_client"
+path = "src/demo_client.rs"
+
+[[bin]]
+name = "cider-dap"
+path = "src/main.rs"
