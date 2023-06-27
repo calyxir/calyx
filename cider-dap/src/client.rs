@@ -1,4 +1,4 @@
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufWriter, Write};
 use std::net::TcpStream;
 
 use dap::prelude::*;
