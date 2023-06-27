@@ -1,5 +1,5 @@
 use owo_colors::OwoColorize;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{BufRead, BufReader, Write};
 use std::net::TcpStream;
 
 pub(crate) fn send_request(
@@ -13,9 +13,7 @@ pub(crate) fn send_request(
 
     println!("{} ", formatted_request.magenta().bold());
     stream.write_all(formatted_request.as_bytes())?;
-    eprint!("finished writing");
 
-    let mut response = String::new();
     let mut buf = vec![0u8; 1024];
     dbg!(stream.peek(&mut buf).unwrap());
 
@@ -34,8 +32,7 @@ pub(crate) fn send_request(
     let mut message_buf = Vec::new();
     reader.read_until(b'\n', &mut message_buf).unwrap();
 
-    response = String::from_utf8_lossy(&message_buf).to_string();
-
+    let response = String::from_utf8_lossy(&message_buf).to_string();
     Ok(response)
 }
 fn main() -> std::io::Result<()> {

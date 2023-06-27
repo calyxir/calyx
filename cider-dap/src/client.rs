@@ -3,7 +3,7 @@ use std::net::TcpStream;
 
 use dap::prelude::*;
 
-#[doc = "A modified variant of BasicClient that works well with TcpStreams."]
+/// A modified variant of BasicClient that works well with TcpStreams.
 pub struct TcpClient {
     buff_writer: BufWriter<TcpStream>,
     should_exit: bool,
@@ -23,7 +23,7 @@ impl TcpClient {
         }
     }
     /// Sends a serializable object `s` over the TCP connection.
-    ///
+    /// For short: Sends a message to the server.
     /// # Arguments
     ///
     /// * `s` - The serializable object to send.
@@ -31,7 +31,6 @@ impl TcpClient {
     /// # Errors
     ///
     /// Returns an error if there is an issue with serialization or IO.
-    #[doc = "Sends a message to the server."]
     fn send<S: serde::Serialize>(&mut self, s: S) -> dap::client::Result<()> {
         let json = serde_json::to_string(&s)
             .map_err(ClientError::SerializationError)?;
@@ -54,7 +53,6 @@ impl Client for TcpClient {
     /// # Errors
     ///
     /// Returns an error if there is an issue with sending the response.
-    #[doc = "Sends a response to the server."]
     fn respond(&mut self, response: Response) -> dap::client::Result<()> {
         self.send(response)
     }
@@ -70,7 +68,6 @@ impl Context for TcpClient {
     /// # Errors
     ///
     /// Returns an error if there is an issue with sending the event.
-    #[doc = "Sends an event to the server."]
     fn send_event(&mut self, event: Event) -> dap::client::Result<()> {
         self.send(event)
     }
@@ -83,7 +80,6 @@ impl Context for TcpClient {
     /// # Errors
     ///
     /// Returns an error if there is an issue with sending the reverse request.
-    #[doc = "Sends a reverse request to the server."]
     fn send_reverse_request(
         &mut self,
         request: ReverseRequest,
@@ -91,12 +87,10 @@ impl Context for TcpClient {
         self.send(request)
     }
     /// Requests the client to exit.
-    #[doc = "Requests that the client exit."]
     fn request_exit(&mut self) {
         self.should_exit = true;
     }
     /// Cancels the exit request.
-    #[doc = "Cancels a request to exit."]
     fn cancel_exit(&mut self) {
         self.should_exit = false;
     }
@@ -105,7 +99,6 @@ impl Context for TcpClient {
     /// # Returns
     ///
     /// * `true` if the client should exit, `false` otherwise.
-    #[doc = "Returns the client's exit state."]
     fn get_exit_state(&self) -> bool {
         self.should_exit
     }
