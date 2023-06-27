@@ -2,45 +2,6 @@ use owo_colors::OwoColorize;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 
-//working?
-/* pub(crate) fn send_request(
-    stream: &mut TcpStream,
-    request: &str,
-) -> std::io::Result<String> {
-    let content_length = request.len();
-
-    let formatted_request =
-        format!("Content-Length: {}\r\n\r\n{}", content_length, request);
-
-    println!("{} ", formatted_request);
-    stream.write_all(formatted_request.as_bytes())?;
-    eprint!("finished writing");
-
-    let mut response = String::new();
-    let mut buf = vec![0u8; 1024];
-    dbg!(stream.peek(&mut buf).unwrap());
-
-    // Read the header line (first line)
-    let mut reader = BufReader::new(stream);
-    let mut header_line = String::new();
-    reader.read_line(&mut header_line)?;
-
-    println!("Header line: {}", header_line);
-
-    // Read the empty line (second line)
-    let mut empty_line = String::new();
-    reader.read_line(&mut empty_line)?;
-
-    println!("Empty line: {}", empty_line);
-
-    // Read the specified bytes of the message
-    let mut message_buf = vec![0u8; content_length];
-    reader.read_exact(&mut message_buf)?;
-
-    response = String::from_utf8_lossy(&message_buf).to_string();
-
-    Ok(response)
-} */
 pub(crate) fn send_request(
     stream: &mut TcpStream,
     request: &str,
@@ -68,8 +29,6 @@ pub(crate) fn send_request(
     // Read the empty line (second line)
     let mut empty_line = String::new();
     reader.read_line(&mut empty_line)?;
-
-    println!("Empty line: {}", empty_line);
 
     // Read the specified bytes of the message
     let mut message_buf = Vec::new();
