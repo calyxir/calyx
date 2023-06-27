@@ -414,3 +414,35 @@ impl Sub<&BaseIndices> for GlobalRefCellId {
         LocalRefCellOffset::new(self.index() - rhs.ref_cell_base.index())
     }
 }
+
+impl Sub<&BaseIndices> for &GlobalPortId {
+    type Output = LocalPortOffset;
+
+    fn sub(self, rhs: &BaseIndices) -> Self::Output {
+        LocalPortOffset::new(self.index() - rhs.port_base.index())
+    }
+}
+
+impl Sub<&BaseIndices> for &GlobalRefPortId {
+    type Output = LocalRefPortOffset;
+
+    fn sub(self, rhs: &BaseIndices) -> Self::Output {
+        LocalRefPortOffset::new(self.index() - rhs.ref_port_base.index())
+    }
+}
+
+impl Sub<&BaseIndices> for &GlobalCellId {
+    type Output = LocalCellOffset;
+
+    fn sub(self, rhs: &BaseIndices) -> Self::Output {
+        LocalCellOffset::new(self.index() - rhs.cell_base.index())
+    }
+}
+
+impl Sub<&BaseIndices> for &GlobalRefCellId {
+    type Output = LocalRefCellOffset;
+
+    fn sub(self, rhs: &BaseIndices) -> Self::Output {
+        LocalRefCellOffset::new(self.index() - rhs.ref_cell_base.index())
+    }
+}

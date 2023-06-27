@@ -218,12 +218,25 @@ impl<'a> Environment<'a> {
         hierarchy.push(target);
 
         let name_prefix = hierarchy
+            .first()
             .iter()
             .map(|x| {
-                let info = self.cells[*x].as_comp().unwrap();
-                let comp = &self.ctx.secondary[info.comp_id];
-                &self.ctx.secondary[comp.name]
+                let info = self.cells[**x].as_comp().unwrap();
+                let prior_comp = &self.ctx.secondary[info.comp_id];
+                &self.ctx.secondary[prior_comp.name]
             })
+            .chain(hierarchy.iter().zip(hierarchy.iter().skip(1)).map(
+                |(l, r)| {
+                    let info = self.cells[*l].as_comp().unwrap();
+                    let prior_comp = &self.ctx.secondary[info.comp_id];
+                    let local_target = r - (&info.index_bases);
+
+                    let def_idx = &prior_comp.cell_offset_map[local_target];
+
+                    let id = &self.ctx.secondary[*def_idx];
+                    &self.ctx.secondary[id.name]
+                },
+            ))
             .join(".");
 
         for (cell_off, def_idx) in comp.cell_offset_map.iter() {
