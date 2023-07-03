@@ -410,3 +410,9 @@ static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
     }
   }
 }
+metadata #{
+0: pe_0_0 filling: [1,4) accumulating: [5 8)
+1: pe_0_1 filling: [2,5) accumulating: [6 9)
+2: pe_1_0 filling: [2,5) accumulating: [6 9)
+3: pe_1_1 filling: [3,6) accumulating: [7 10)
+}#

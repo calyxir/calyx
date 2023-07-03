@@ -181,7 +181,7 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
 
 def gen_schedules(top_length, top_depth, left_length, left_depth):
     """
-    Generates 3 arrays that are the same size as the output (systolic) array
+    Generates 4 arrays that are the same size as the output (systolic) array
     Each entry in the array has tuple [start, end) that indicates the cycles that
     they are active
     `update_sched` contains when to update the indices of the input memories and feed
@@ -190,6 +190,7 @@ def gen_schedules(top_length, top_depth, left_length, left_depth):
     are not ready with an output yet)
     `pe_accum_sched` contains when to invoke PE and accumulate (bc the multipliers
     are ready with an output)
+    `pe_move_sched` contains when to "move" the PE (i.e., pass data)
     """
     update_sched = np.zeros((left_length, top_length), dtype=object)
     pe_fill_sched = np.zeros((left_length, top_length), dtype=object)
@@ -207,6 +208,10 @@ def gen_schedules(top_length, top_depth, left_length, left_depth):
 
 def accum_nec_ranges(nec_ranges, schedule):
     """
+    Essentially creates a set that contains all of the idx ranges that
+    we need to check for (e.g., [1,3) [2,4)] in order to realize
+    the schedule
+
     nec_ranges is a set of tuples.
     schedule is a 2d array with tuple (start,end) entries.
     Adds all intervals (start,end) in schedule to nec_ranges if the it's
@@ -236,7 +241,7 @@ def instantiate_idx_groups(comp: cb.ComponentBuilder, width, limit):
 
 def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
     """
-    Instantiates a static group and register called "idx_between_{lo}_{hi}_reg"
+    Instantiates a static group and register called "idx_between_{lo}_{hi}_reg/group"
     that should output whether idx is between [lo, hi). That is, whether lo <= idx < hi.
 
     Note: If you're trying to understand why this works, we are checking `idx_add` which
@@ -337,25 +342,12 @@ def get_pe_invoke(r, c, top_length, left_length, mul_ready):
     )
 
 
-def get_idx_updates(idx, top_length, left_length):
-    """
-    get idx invokes for [idx, idx + depth)
-    """
-    idx_updates = []
-    if idx < left_length:
-        idx_updates.append(NAME_SCHEME["index update"].format(prefix=f"l{idx}"))
-    if idx < top_length:
-        idx_updates.append(NAME_SCHEME["index update"].format(prefix=f"t{idx}"))
-    update_enables = [py_ast.Enable(name) for name in idx_updates]
-    return update_enables
-
-
 def execute_if_between(comp: cb.ComponentBuilder, start, end, body):
     """
     body is a list of control stmts
     if body is empty, return an empty list
-    otherwise, builds an if stmt that executes body in parallel
-    if idx is between start and end
+    otherwise, builds an if stmt that executes body in parallel if
+    idx is between start and end
     """
     if not body:
         return []
@@ -382,11 +374,14 @@ def generate_control(
 ):
     """
     Logically, control performs the following actions:
-    1. Initialize all the memory indexors at the start.
-    2. For each time step in the schedule:
-        a. Move the data required by PEs in this cycle.
-        b. Update the memory indices if needed.
-        c. Run the PEs that need to be active this cycle.
+    1. Initialize all the memory indexors and idx and idx_between
+    registers at the start
+    2. Build a static repeat with a one cycle body that:
+        a. Updates memory indices if needed/feeds memory into systolic array.
+        b. Invokes the PEs correctly (mul_ready should only be hi if
+        the multiplier's values are ready).
+        c. Move the data needed by each PE
+    3. Writes the PE values into external memory
     """
 
     control = []
@@ -447,6 +442,11 @@ def generate_control(
                 accum_sched[r][c][1],
                 [get_pe_invoke(r, c, top_length, left_length, 1)],
             )
+            tag = counter()
+            source_map[
+                tag
+            ] = f"pe_{r}_{c} filling: [{fill_sched[r][c][0]},{fill_sched[r][c][1]}) \
+accumulating: [{accum_sched[r][c][0]} {accum_sched[r][c][1]})"
             pe_control = input_mem_updates + pe_fills + pe_moves + pe_accums
             control_stmts.append(py_ast.StaticParComp(pe_control))
     for start, end in nec_ranges:
@@ -459,7 +459,7 @@ def generate_control(
     )
 
     # build the static repeat
-    # repeat: (top_length - 1) + (left_length - 1) + (top_depth - 1) + 5 + 1
+    # num repeats = (top_length - 1) + (left_length - 1) + (top_depth - 1) + 5 + 1
     static_repeat = cb.static_repeat(
         top_length + left_length + top_depth + 3, repeat_body
     )
@@ -540,10 +540,11 @@ def create_systolic_array(
 
     iter_limit = top_length + left_length + top_depth + 3
     iter_idx_size = bits_needed(iter_limit)
+    # instantiate groups that initialize idx to 0 and increment it
     instantiate_idx_groups(main, iter_idx_size, iter_limit)
 
     for start, end in nec_ranges:
-        # idx_in_between_start_end should only start high if the interval includes 0
+        # create the groups that create for idx_in_between registers
         instantiate_idx_between(main, start, end, iter_idx_size)
         instantiate_init_group(main, start, end)
 

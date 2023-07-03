@@ -119,27 +119,6 @@ class ComponentBuilder:
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
 
-    def try_get_cell(
-        self,
-        name: str,
-    ) -> Optional[CellBuilder]:
-        """Retrieve a cell builder by name. None if doesn't exist"""
-        out = self.index.get(name)
-        if out and isinstance(out, CellBuilder):
-            return out
-        else:
-            return None
-
-    def get_group(self, name: str) -> GroupBuilder:
-        """Retrieve a group builder by name."""
-        out = self.index.get(name)
-        if out and isinstance(out, GroupBuilder):
-            return out
-        else:
-            raise Exception(
-                f"Group `{name}' not found in component {self.component.name}"
-            )
-
     def try_get_group(self, name: str) -> GroupBuilder:
         """Retrieve a group builder by name."""
         out = self.index.get(name)
@@ -292,7 +271,7 @@ class ComponentBuilder:
         return self.cell(name, ast.Stdlib.op("and", size, False))
 
     def pipelined_mult(self, name: str) -> CellBuilder:
-        """Generate a StdAnd cell."""
+        """Generate a pipelined multiplier."""
         self.prog.import_("primitives/pipelined.futil")
         return self.cell(name, ast.Stdlib.pipelined_mult())
 
@@ -351,7 +330,7 @@ def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
 
 
 def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
-    """Build a `while` control statement."""
+    """Build a `static repeat` control statement."""
     return ast.StaticRepeat(num_repeats, as_control(body))
 
 
@@ -361,7 +340,7 @@ def if_(
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `if` control statement."""
+    """Build an `static if` control statement."""
     else_body = ast.Empty() if else_body is None else else_body
 
     if cond:
