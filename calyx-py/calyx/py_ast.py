@@ -86,9 +86,9 @@ class Component:
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
         latency_annotation = (
-            f"static<{self.latency}>" if self.latency is not None else ""
+            f"static<{self.latency}> " if self.latency is not None else ""
         )
-        signature = f"{latency_annotation} component {self.name}({ins}) -> ({outs})"
+        signature = f"{latency_annotation}component {self.name}({ins}) -> ({outs})"
         cells = block("cells", [c.doc() for c in self.cells])
         wires = block("wires", [w.doc() for w in self.wires])
         controls = block("control", [self.controls.doc()])
