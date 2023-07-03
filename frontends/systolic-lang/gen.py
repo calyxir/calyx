@@ -79,8 +79,8 @@ def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuil
 
     init_name = NAME_SCHEME["index init"].format(prefix=prefix)
     with comp.group(init_name) as init:
-        # Initialize the indexor to its maximum value.
-        reg.in_ = 2**width - 1
+        # Initialize the indexor to 0
+        reg.in_ = 0
         reg.write_en = 1
         init.done = reg.done
 
@@ -188,109 +188,116 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
         move.done = out.done
 
 
-def generate_schedule(top_length, top_depth, left_length, left_depth):
-    """
-    Generate the *schedule* for each PE and data mover. A schedule is the
-    timesteps when a PE needs to compute.
-
-    Returns a schedule array `sch` of size `top_length`*`left_length` array
-    such that `sch[i][j]` returns the timesteps when PE_{i}{j} is active.
-
-    Timesteps start from 0.
-
-    The schedule for matrix multiply looks like:
-
-    (0, 1,..top_depth)  ->  (1, 2,..top_depth + 1)
-            |
-            V
-    (1, 2,..top_depth + 1) -> ...
-    """
-    # The process of calculating the schedule starts from the leftmost
-    # topmost element which is active from 0..top_depth timesteps.
-    out = np.zeros((left_length, top_length, top_depth), dtype="i")
-    out[0][0] = np.arange(top_depth)
-
-    # Fill the first col: Every column runs one "step" behind the column on
-    # its left.
-    for col in range(1, top_length):
-        out[0][col] = out[0][col - 1] + 1
-
-    # Fill the remaining rows. Similarly, all rows run one "step" behind the
-    # row on their top.
-    for row in range(1, left_length):
-        out[row][0] = out[row - 1][0] + 1
-        for col in range(1, top_length):
-            out[row][col] = out[row][col - 1] + 1
-    return out
-
-
 def gen_active_ranges(top_length, top_depth, left_length, left_depth):
-    out = np.zeros((left_length, top_length), dtype=object)
+    out = np.zeros((left_length, top_length), dtype="i")
     for row in range(0, left_length):
         for col in range(0, top_length):
+            # PE at [row][col] is active for iterations [row_col, row + col + left_depth)
+            # (could've chosen top_depth instead since we know left_depth == top_depth)
             out[row][col] = (row + col, row + col + left_depth)
     return out
 
 
-def schedule_to_timesteps(schedule):
+def instantiate_while_groups(comp: cb.ComponentBuilder, width, limit):
     """
-    Transforms a *schedule*, which is a two dimensional array that contains
-    a list of timesteps when the corresponding element is active, into
-    an array with all the elements active at that index.
-
-    Returns an array A s.t. A[i] returns the list of all elements active
-    in time step `i`.
+    comp: cb.ComponentBuilder, row, col, cols
     """
-    max_timestep = np.max(schedule.flatten())
-    out = [[] for _ in range(max_timestep + 1)]
-    (rows, cols, _) = schedule.shape
+    reg = comp.reg("idx", width)
+    add = comp.add(f"idx_add", width)
+    lt = comp.lt(f"idx_lt_cell", width)
+    with comp.group("incr_idx") as incr_grp:
+        add.left = reg.out
+        add.right = 1
+        reg.in_ = add.out
+        reg.write_en = 1
+        incr_grp.done = reg.done
+    with comp.comb_group("idx_lt_group") as idx_lt:
+        lt.left = reg.out
+        lt.right = limit
 
-    for row in range(rows):
-        for col in range(cols):
-            for time_step in schedule[row][col]:
-                out[time_step].append((row, col))
 
-    return out
+def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
+    if lo == 0:
+        lt = comp.lt(f"idx_between_{lo}_{hi}_cell", width)
+        idx = comp.get_cell("idx")
+        with comp.comb_group(f"idx_between_{lo}_{hi}_group") as idx_between:
+            lt.left = idx.out
+            lt.right = hi
+    else:
+        lt = comp.lt(f"index_lt_{hi}", width)
+        ge = comp.ge(f"index_ge_{lo}", width)
+        and_ = comp.and_(f"idx_between_{lo}_{hi}_cell", 1)
+        idx = comp.get_cell("idx")
+        with comp.comb_group(f"idx_between_{lo}_{hi}_group") as idx_between:
+            ge.left = idx.out
+            ge.right = lo
+            lt.left = idx.out
+            lt.right = hi
+            and_.left = ge.out
+            and_.right = lt.out
 
 
-def row_data_mover_at(row, col):
+def get_movers(idx, top_length, left_length):
+    # get movers active at [idx, idx + depth)
+    movers = []
+    if idx < left_length:
+        movers.append(NAME_SCHEME["memory move"].format(prefix=f"l{idx}"))
+    if idx < top_length:
+        movers.append(NAME_SCHEME["memory move"].format(prefix=f"t{idx}"))
+    for r in range(left_length):
+        for c in range(top_length):
+            if idx - 1 == r + c:
+                if r < left_length - 1:
+                    movers.append(
+                        NAME_SCHEME["register move down"].format(pe=f"pe_{r}_{c}")
+                    )
+                if c < top_length - 1:
+                    movers.append(
+                        NAME_SCHEME["register move right"].format(pe=f"pe_{r}_{c}")
+                    )
+    mover_enables = [py_ast.Enable(name) for name in movers]
+    return mover_enables
+
+
+def get_pe_invokes(idx, top_length, left_length):
     """
-    Returns the name of the group that is abstractly at the location (row, col)
-    in the "row data mover" matrix.
+    get PE invokes for [idx, idx + depth)
     """
-    if row == 0:
-        return NAME_SCHEME["memory move"].format(prefix=f"t{col}")
+    pe_invokes = []
+    for x in range(left_length):
+        for y in range(top_length):
+            if idx == x + y:
+                invoke = py_ast.Invoke(
+                    id=py_ast.CompVar(f"pe_{x}_{y}"),
+                    in_connects=[
+                        ("top", py_ast.CompPort(py_ast.CompVar(f"top_{x}_{y}"), "out")),
+                        (
+                            "left",
+                            py_ast.CompPort(py_ast.CompVar(f"left_{x}_{y}"), "out"),
+                        ),
+                    ],
+                    out_connects=[],
+                )
+                pe_invokes.append(invoke)
+    return pe_invokes
 
-    return NAME_SCHEME["register move down"].format(pe=f"pe_{row - 1}_{col}")
 
-
-def col_data_mover_at(row, col):
+def get_idx_updates(idx, top_length, left_length):
     """
-    Returns the name of the group that is abstractly at the location (row, col)
-    in the "col data mover" matrix.
+    get idx invokes for [idx, idx + depth)
     """
-    if col == 0:
-        return NAME_SCHEME["memory move"].format(prefix=f"l{row}")
-
-    return NAME_SCHEME["register move right"].format(pe=f"pe_{row}_{col - 1}")
-
-
-def index_update_at(row, col):
-    """
-    Returns the name of the group that is abstractly at the location (row, col)
-    in the "col data mover" matrix.
-    """
-    updates = []
-    if row == 0:
-        updates.append(NAME_SCHEME["index update"].format(prefix=f"t{col}"))
-
-    if col == 0:
-        updates.append(NAME_SCHEME["index update"].format(prefix=f"l{row}"))
-
-    return updates
+    idx_updates = []
+    if idx < left_length:
+        idx_updates.append(NAME_SCHEME["index update"].format(prefix=f"l{idx}"))
+    if idx < top_length:
+        idx_updates.append(NAME_SCHEME["index update"].format(prefix=f"t{idx}"))
+    update_enables = [py_ast.Enable(name) for name in idx_updates]
+    return update_enables
 
 
-def generate_control(top_length, top_depth, left_length, left_depth):
+def generate_control(
+    comp: cb.ComponentBuilder, top_length, top_depth, left_length, left_depth
+):
     """
     Logically, control performs the following actions:
     1. Initialize all the memory indexors at the start.
@@ -302,8 +309,6 @@ def generate_control(top_length, top_depth, left_length, left_depth):
     sch = schedule_to_timesteps(
         generate_schedule(top_length, top_depth, left_length, left_depth)
     )
-
-    print(gen_active_ranges(top_length, top_depth, left_length, left_depth))
 
     control = []
 
@@ -332,51 +337,40 @@ def generate_control(top_length, top_depth, left_length, left_depth):
 
     # end source pos init
 
-    # Increment memories for PE_00 before computing with it.
-    upd_pe00_mem = []
-    upd_pe00_mem.append(py_ast.Enable(NAME_SCHEME["index update"].format(prefix="t0")))
-    upd_pe00_mem.append(py_ast.Enable(NAME_SCHEME["index update"].format(prefix="l0")))
-    control.append(py_ast.ParComp(upd_pe00_mem))
+    while_comb_group = comp.get_group("idx_lt_group")
 
-    for idx, elements in enumerate(sch):
-        # Move all the requisite data.
-        move: list[py_ast.Control] = [
-            py_ast.Enable(row_data_mover_at(r, c)) for (r, c) in elements
+    first_control_stmts = []
+    second_control_stmts = []
+    for idx in range(top_length + left_length - 1):
+        hi = idx + top_depth
+        if_cell = comp.get_cell(f"idx_between_{idx}_{hi}_cell")
+        if_comb_group = comp.get_group(f"idx_between_{idx}_{hi}_group")
+
+        # get movers
+        movers = get_movers(idx, top_length, left_length)
+        if_stmt = cb.if_(if_cell.out, if_comb_group, py_ast.ParComp(movers))
+        first_control_stmts.append(if_stmt)
+
+        # get second control
+        pe_invokes = get_pe_invokes(idx, top_length, left_length)
+        idx_updates = get_idx_updates(idx, top_length, left_length)
+        if_stmt2 = cb.if_(
+            if_cell.out, if_comb_group, py_ast.ParComp(pe_invokes + idx_updates)
+        )
+        second_control_stmts.append(if_stmt2)
+
+    while_body = py_ast.SeqComp(
+        [
+            py_ast.ParComp(first_control_stmts),
+            py_ast.ParComp(second_control_stmts),
+            py_ast.Enable("incr_idx"),
         ]
-        move.extend([py_ast.Enable(col_data_mover_at(r, c)) for (r, c) in elements])
-        control.append(py_ast.ParComp(move))
+    )
+    while_cell = comp.get_cell("idx_lt_cell")
+    while_comb_group = comp.get_group("idx_lt_group")
+    while_loop = cb.while_(while_cell.out, while_comb_group, while_body)
 
-        # Update the indices if needed.
-        more_control = []
-        if idx < len(sch) - 1:
-            next_elements = sch[idx + 1]
-            upd_memory = [
-                py_ast.Enable(upd)
-                for (r, c) in next_elements
-                if (r == 0 or c == 0)
-                for upd in index_update_at(r, c)
-            ]
-            more_control.extend(upd_memory)
-
-        # py_ast.Invoke the PEs and move the data to the next layer.
-        for r, c in elements:
-            invoke = py_ast.Invoke(
-                id=py_ast.CompVar(f"pe_{r}_{c}"),
-                in_connects=[
-                    ("top", py_ast.CompPort(py_ast.CompVar(f"top_{r}_{c}"), "out")),
-                    (
-                        "left",
-                        py_ast.CompPort(py_ast.CompVar(f"left_{r}_{c}"), "out"),
-                    ),
-                ],
-                out_connects=[],
-            )
-
-            tag = counter()
-            more_control.append(invoke.with_attr("pos", tag))
-            source_map[tag] = f"pe_{r}_{c} running. Iteration {idx}"
-
-        control.append(py_ast.ParComp(more_control))
+    control.append(while_loop)
 
     # Move all the results into output memory
     mover_groups = []
@@ -441,9 +435,16 @@ def create_systolic_array(
             # Instantiate output movement structure
             instantiate_output_move(main, row, col, top_length)
 
+    iter_limit = top_length + left_length + top_depth - 2
+    iter_idx_size = bits_needed(iter_limit)
+    instantiate_while_groups(main, iter_idx_size, iter_limit)
+
+    for idx in range(top_length + left_length - 1):
+        instantiate_idx_between(main, idx, idx + left_depth, iter_idx_size)
+
     # Generate the control and set the source map
     control, source_map = generate_control(
-        top_length, top_depth, left_length, left_depth
+        main, top_length, top_depth, left_length, left_depth
     )
     main.control = control
     prog.program.meta = source_map

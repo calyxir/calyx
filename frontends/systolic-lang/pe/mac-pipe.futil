@@ -1,0 +1,37 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/pipelined.futil";
+
+// A MAC pipelined MAC that performs an add in the first cycle and multiply
+// in the next. It immediately (combinationally) forwards the left signal to
+// right and top to down.
+static<1> component mac_pipe_pe(top: 32, left: 32, mul_ready: 1) -> (down: 32, right: 32) {
+  cells {
+    // Storage
+    acc = std_reg(32);
+    // Computation
+    add = std_add(32);
+    mul = pipelined_mult();
+  }
+
+  wires {
+    static<1> group do_mul {
+      mul.left = top;
+      mul.right = left;
+    }
+
+    static<1> group do_add {
+      add.left = acc.out;
+      add.right = mul.out;
+      acc.in = mul_ready ? add.out;
+      acc.write_en = mul_ready;
+    }
+
+    down = top;
+    right = left;
+  }
+
+  control {
+    static par { do_mul; do_add; }
+  }
+}
