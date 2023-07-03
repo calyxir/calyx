@@ -45,21 +45,21 @@ class Program(Emittable):
 @dataclass
 class Component:
     name: str
-    latency: Optional[int]
     inputs: list[PortDef]
     outputs: list[PortDef]
     wires: list[Structure]
     cells: list[Cell]
     controls: Control
+    latency: Optional[int]
 
     def __init__(
         self,
         name: str,
-        latency: Optional[int],
         inputs: list[PortDef],
         outputs: list[PortDef],
         structs: list[Structure],
         controls: Control,
+        latency: Optional[int] = None,
     ):
         self.inputs = inputs
         self.outputs = outputs

@@ -61,11 +61,11 @@ class ComponentBuilder:
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
-            latency,
             inputs=[],
             outputs=[],
             structs=cells,
             controls=ast.Empty(),
+            latency=latency,
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
         for cell in cells:
