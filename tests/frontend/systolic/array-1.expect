@@ -27,7 +27,7 @@ static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
     }
   }
 }
- component main() -> () {
+component main() -> () {
   cells {
     pe_0_0 = mac_pe();
     top_0_0 = std_reg(32);
@@ -42,7 +42,7 @@ static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
     idx = std_reg(4);
     idx_add = std_add(4);
     idx_between_0_3_reg = std_reg(1);
-    idx_between_0_3_comb = std_lt(4);
+    index_lt_3 = std_lt(4);
     idx_between_1_4_reg = std_reg(1);
     index_lt_4 = std_lt(4);
     index_ge_1 = std_ge(4);
@@ -99,9 +99,9 @@ static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
       idx.write_en = 1'd1;
     }
     static<1> group idx_between_0_3_group {
-      idx_between_0_3_comb.left = idx_add.out;
-      idx_between_0_3_comb.right = 4'd3;
-      idx_between_0_3_reg.in = idx_between_0_3_comb.out;
+      index_lt_3.left = idx_add.out;
+      index_lt_3.right = 4'd3;
+      idx_between_0_3_reg.in = index_lt_3.out;
       idx_between_0_3_reg.write_en = 1'd1;
     }
     static<1> group init_idx_between_0_3 {

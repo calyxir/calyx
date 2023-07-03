@@ -119,13 +119,23 @@ class ComponentBuilder:
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
 
-    def try_get_group(self, name: str) -> GroupBuilder:
+    def try_get_cell(self, name: str) -> CellBuilder:
+        """Tries to get a cell builder by name. If cannot find it, return None"""
+        out = self.index.get(name)
+        if out and isinstance(out, CellBuilder):
+            return out
+        else:
+            return None
+
+    def get_group(self, name: str) -> GroupBuilder:
         """Retrieve a group builder by name."""
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
         else:
-            return None
+            raise Exception(
+                f"Group `{name}' not found in component {self.component.name}"
+            )
 
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""

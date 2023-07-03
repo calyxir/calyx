@@ -254,9 +254,13 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
     index_lt = f"index_lt_{hi}"
     index_ge = f"index_ge_{lo}"
     reg = comp.reg(reg_str, 1)
+    lt = (
+        comp.get_cell(index_lt)
+        if comp.try_get_cell(index_lt) is not None
+        else comp.lt(index_lt, width)
+    )
     # if lo == 0, then only need to check if reg < hi
     if lo == 0:
-        lt = comp.lt(comb_str, width)
         with comp.static_group(group_str, 1):
             lt.left = idx_add.out
             lt.right = hi
@@ -264,8 +268,11 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
             reg.write_en = 1
     # need to check if reg >= lo and reg < hi
     else:
-        lt = comp.lt(index_lt, width)
-        ge = comp.ge(index_ge, width)
+        ge = (
+            comp.get_cell(index_ge)
+            if comp.try_get_cell(index_ge) is not None
+            else comp.ge(index_ge, width)
+        )
         and_ = comp.and_(comb_str, 1)
         with comp.static_group(group_str, 1):
             ge.left = idx_add.out
