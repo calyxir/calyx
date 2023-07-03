@@ -75,13 +75,13 @@ def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuil
     add = comp.add(f"{prefix}_add", width)
 
     init_name = NAME_SCHEME["index init"].format(prefix=prefix)
-    with comp.static_group(init_name, 1) as init:
+    with comp.static_group(init_name, 1):
         # Initialize the indexor to 0
         reg.in_ = 0
         reg.write_en = 1
 
     upd_name = NAME_SCHEME["index update"].format(prefix=prefix)
-    with comp.static_group(upd_name, 1) as upd:
+    with comp.static_group(upd_name, 1):
         # Increment the indexor.
         add.left = 1
         add.right = reg.out
@@ -122,7 +122,7 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     # Register to save the value from the memory. Defined by [[instantiate_pe]].
     target = comp.get_cell(target_reg)
     group_name = NAME_SCHEME["memory move"].format(prefix=name)
-    with comp.static_group(group_name, 1) as move:
+    with comp.static_group(group_name, 1):
         mem.addr0 = idx.out
         target.in_ = mem.read_data
         target.write_en = 1
@@ -152,7 +152,7 @@ def instantiate_data_move(
         group_name = NAME_SCHEME["register move right"].format(pe=name)
         src_reg = comp.get_cell(f"left_{row}_{col}")
         dst_reg = comp.get_cell(f"left_{row}_{col + 1}")
-        with comp.static_group(group_name, 1) as move:
+        with comp.static_group(group_name, 1):
             dst_reg.in_ = src_reg.out
             dst_reg.write_en = 1
 
@@ -160,7 +160,7 @@ def instantiate_data_move(
         group_name = NAME_SCHEME["register move down"].format(pe=name)
         src_reg = comp.get_cell(f"top_{row}_{col}")
         dst_reg = comp.get_cell(f"top_{row + 1}_{col}")
-        with comp.static_group(group_name, 1) as move:
+        with comp.static_group(group_name, 1):
             dst_reg.in_ = src_reg.out
             dst_reg.write_en = 1
 
@@ -173,7 +173,7 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
     idx = row * cols + col
     pe = comp.get_cell(f"pe_{row}_{col}")
     out = comp.get_cell(OUT_MEM)
-    with comp.static_group(group_name, 1) as move:
+    with comp.static_group(group_name, 1):
         out.addr0 = idx
         out.write_data = pe.out
         out.write_en = 1
@@ -182,8 +182,8 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
 def gen_schedules(top_length, top_depth, left_length, left_depth):
     """
     Generates 3 arrays that are the same size as the output (systolic) array
-    Each entry in the array has tuple [start, end) that indicates the cycles that they are
-    active
+    Each entry in the array has tuple [start, end) that indicates the cycles that
+    they are active
     `update_sched` contains when to update the indices of the input memories and feed
     them into the systolic array
     `pe_fill_sched` contains when to invoke PE but not accumulate (bc the multipliers
@@ -197,8 +197,6 @@ def gen_schedules(top_length, top_depth, left_length, left_depth):
     pe_move_sched = np.zeros((left_length, top_length), dtype=object)
     for row in range(0, left_length):
         for col in range(0, top_length):
-            # PE at [row][col] is active for iterations [row_col, row + col + left_depth + 4)
-            # (could've chosen top_depth instead since we know left_depth == top_depth)
             pos = row + col
             update_sched[row][col] = (pos, pos + left_depth)
             pe_fill_sched[row][col] = (pos + 1, pos + min(4, left_depth) + 1)
@@ -225,7 +223,7 @@ def instantiate_idx_groups(comp: cb.ComponentBuilder, width, limit):
     Builds groups that instantiate idx to 0 and increment idx
     """
     idx = comp.reg("idx", width)
-    add = comp.add(f"idx_add", width)
+    add = comp.add("idx_add", width)
     with comp.static_group("init_idx", 1) as incr_grp:
         idx.in_ = 0
         idx.write_en = 1
