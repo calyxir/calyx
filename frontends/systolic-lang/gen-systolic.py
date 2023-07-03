@@ -24,13 +24,13 @@ def pe(prog: cb.Builder):
     mul = comp.pipelined_mult("mul")
 
     this = comp.this()
-    with comp.static_group("do_add", 1) as do_add:
+    with comp.static_group("do_add", 1):
         add.left = acc.out
         add.right = mul.out
         acc.in_ = add.out
         acc.write_en = this.mul_ready
 
-    with comp.static_group("do_mul", 1) as do_mul:
+    with comp.static_group("do_mul", 1):
         mul.left = this.top
         mul.right = this.left
 
@@ -224,10 +224,10 @@ def instantiate_idx_groups(comp: cb.ComponentBuilder, width, limit):
     """
     idx = comp.reg("idx", width)
     add = comp.add("idx_add", width)
-    with comp.static_group("init_idx", 1) as incr_grp:
+    with comp.static_group("init_idx", 1):
         idx.in_ = 0
         idx.write_en = 1
-    with comp.static_group("incr_idx", 1) as incr_grp:
+    with comp.static_group("incr_idx", 1):
         add.left = idx.out
         add.right = 1
         idx.in_ = add.out
@@ -252,7 +252,7 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
     # if lo == 0, then only need to check if reg < hi
     if lo == 0:
         lt = comp.lt(comb_str, width)
-        with comp.static_group(group_str, 1) as idx_between:
+        with comp.static_group(group_str, 1):
             lt.left = idx_add.out
             lt.right = hi
             reg.in_ = lt.out
@@ -262,7 +262,7 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
         lt = comp.lt(index_lt, width)
         ge = comp.ge(index_ge, width)
         and_ = comp.and_(comb_str, 1)
-        with comp.static_group(group_str, 1) as idx_between:
+        with comp.static_group(group_str, 1):
             ge.left = idx_add.out
             ge.right = lo
             lt.left = idx_add.out
@@ -281,7 +281,7 @@ def instantiate_init_group(comp: cb.ComponentBuilder, lo, hi):
     # need to set idx_between to high
     start_hi = 1 if lo == 0 else 0
     idx_between = comp.get_cell(f"idx_between_{lo}_{hi}_reg")
-    with comp.static_group(f"init_idx_between_{lo}_{hi}", 1) as incr_grp:
+    with comp.static_group(f"init_idx_between_{lo}_{hi}", 1):
         idx_between.in_ = start_hi
         idx_between.write_en = 1
 
@@ -354,7 +354,8 @@ def execute_if_between(comp: cb.ComponentBuilder, start, end, body):
     """
     body is a list of control stmts
     if body is empty, return an empty list
-    otherwise, builds an if stmt that executes body in parallel if idx is between start and end
+    otherwise, builds an if stmt that executes body in parallel
+    if idx is between start and end
     """
     if not body:
         return []
