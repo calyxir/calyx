@@ -58,6 +58,10 @@ struct FilePaths {
     /// whether data is fixpoint or int
     #[argh(option, short = 'f', default = "false")]
     pub fp_data: bool,
+
+    /// whether data is randomized or 0
+    #[argh(option, short = 'r', default = "false")]
+    pub random_data: bool,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {
@@ -67,6 +71,7 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
 fn main() -> CalyxResult<()> {
     let p: FilePaths = argh::from_env();
     let fp_data = p.fp_data;
+    let rand_data = p.random_data;
 
     let ws = frontend::Workspace::construct(&p.file_path, &p.lib_path)?;
     let ctx: ir::Context = ir::from_ast::ast_to_ir(ws)?;
@@ -84,9 +89,9 @@ fn main() -> CalyxResult<()> {
 
     for CellData { name, width, sizes } in data_vec {
         let json_comp = if !(fp_data) {
-            gen_comp(&sizes[..], width)
+            gen_comp(&sizes[..], width, rand_data)
         } else {
-            gen_comp_float(&sizes[..], width)
+            gen_comp_float(&sizes[..], width, rand_data)
         };
         map.insert(name, json_comp);
     }
@@ -94,6 +99,38 @@ fn main() -> CalyxResult<()> {
     let json_map: Value = map.into();
     println!("{}", json_map);
     Ok(())
+}
+
+// generates random of size usize
+fn gen_random_int_vec(d0: usize) -> Vec<u64> {
+    let mut rng = rand::thread_rng();
+    (0..d0).map(|_| rng.gen_range(0..100)).collect()
+}
+
+fn gen_random_2d_int(d0: usize, d1: usize) -> Vec<Vec<u64>> {
+    (0..d0).map(|_| gen_random_int_vec(d1)).collect()
+}
+
+// generates random 3d vec of size usize
+fn gen_random_3d_int(d0: usize, d1: usize, d2: usize) -> Vec<Vec<Vec<u64>>> {
+    (0..d0)
+        .map(|_| (0..d1).map(|_| gen_random_int_vec(d2)).collect())
+        .collect()
+}
+
+fn gen_random_4d_int(
+    d0: usize,
+    d1: usize,
+    d2: usize,
+    d3: usize,
+) -> Vec<Vec<Vec<Vec<u64>>>> {
+    (0..d0)
+        .map(|_| {
+            (0..d1)
+                .map(|_| (0..d2).map(|_| gen_random_int_vec(d3)).collect())
+                .collect()
+        })
+        .collect()
 }
 
 // generates random of size usize
@@ -114,7 +151,7 @@ fn gen_random_3d(d0: usize, d1: usize, d2: usize) -> Vec<Vec<Vec<f32>>> {
         .collect()
 }
 
-// generates random 3d vec of size usize
+// generates random 4d vec of size usize
 fn gen_random_4d(
     d0: usize,
     d1: usize,
@@ -131,16 +168,28 @@ fn gen_random_4d(
 }
 
 //generates a json value associated with sizes_vec and width
-fn gen_comp(sizes_vec: &[usize], width: u64) -> serde_json::Value {
+fn gen_comp(sizes_vec: &[usize], width: u64, rand: bool) -> serde_json::Value {
     let data = match *sizes_vec {
-        [d0] => serde_json::to_value(vec![0_u64; d0]),
-        [d0, d1] => serde_json::to_value(vec![vec![0_u64; d1]; d0]),
-        [d0, d1, d2] => {
-            serde_json::to_value(vec![vec![vec![0_u64; d2]; d1]; d0])
-        }
-        [d0, d1, d2, d3] => {
-            serde_json::to_value(vec![vec![vec![vec![0_u64; d3]; d2]; d1]; d0])
-        }
+        [d0] => serde_json::to_value(if rand {
+            gen_random_int_vec(d0)
+        } else {
+            vec![0_u64; d0]
+        }),
+        [d0, d1] => serde_json::to_value(if rand {
+            gen_random_2d_int(d0, d1)
+        } else {
+            vec![vec![0_u64; d1]; d0]
+        }),
+        [d0, d1, d2] => serde_json::to_value(if rand {
+            gen_random_3d_int(d0, d1, d2)
+        } else {
+            vec![vec![vec![0_u64; d2]; d1]; d0]
+        }),
+        [d0, d1, d2, d3] => serde_json::to_value(if rand {
+            gen_random_4d_int(d0, d1, d2, d3)
+        } else {
+            vec![vec![vec![vec![0_u64; d3]; d2]; d1]; d0]
+        }),
         _ => panic!("Sizes Vec is not 1-4 dimensional"),
     }
     .unwrap_or_else(|_| panic!("could not unwrap data to put into json"));
@@ -155,12 +204,32 @@ fn gen_comp(sizes_vec: &[usize], width: u64) -> serde_json::Value {
 }
 
 // generates a fix<32,16> json value associated with sizes_vec and width
-fn gen_comp_float(sizes_vec: &[usize], width: u64) -> serde_json::Value {
+fn gen_comp_float(
+    sizes_vec: &[usize],
+    width: u64,
+    rand_data: bool,
+) -> serde_json::Value {
     let data = match *sizes_vec {
-        [d0] => serde_json::to_value(gen_random_vec(d0)),
-        [d0, d1] => serde_json::to_value(gen_random_2d(d0, d1)),
-        [d0, d1, d2] => serde_json::to_value(gen_random_3d(d0, d1, d2)),
-        [d0, d1, d2, d3] => serde_json::to_value(gen_random_4d(d0, d1, d2, d3)),
+        [d0] => serde_json::to_value(if rand_data {
+            gen_random_vec(d0)
+        } else {
+            vec![0_f32; d0]
+        }),
+        [d0, d1] => serde_json::to_value(if rand_data {
+            gen_random_2d(d0, d1)
+        } else {
+            vec![vec![0_f32; d1]; d0]
+        }),
+        [d0, d1, d2] => serde_json::to_value(if rand_data {
+            gen_random_3d(d0, d1, d2)
+        } else {
+            vec![vec![vec![0_f32; d2]; d1]; d0]
+        }),
+        [d0, d1, d2, d3] => serde_json::to_value(if rand_data {
+            gen_random_4d(d0, d1, d2, d3)
+        } else {
+            vec![vec![vec![vec![0_f32; d3]; d2]; d1]; d0]
+        }),
         _ => panic!("Sizes Vec is not 1-4 dimensional"),
     }
     .unwrap_or_else(|_| panic!("could not unwrap data to put into json"));
