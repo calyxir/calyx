@@ -24,7 +24,6 @@ left = np.zeros((ll, ld), dtype="i")
 top = np.zeros((td, tl), dtype="i")
 json_data = json.load(open(json_file))["memories"]
 
-
 for r in range(ll):
     for c in range(ld):
         left[r][c] = json_data[f"l{r}"][c]
@@ -32,7 +31,6 @@ for r in range(ll):
 for r in range(td):
     for c in range(tl):
         top[r][c] = json_data[f"t{c}"][r]
-
 
 matmul_result = np.matmul(left, top).flatten()
 
