@@ -246,8 +246,8 @@ fud exec --from calyx --to jq \
 """
 
 [[tests]]
-name = "[frontend] systolic array correctness"
-paths = [ "tests/correctness/systolic/*.systolic" ]
+name = "[frontend] systolic array PE correctness"
+paths = [ "tests/correctness/systolic/pe/*.systolic" ]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -255,6 +255,17 @@ fud e --from systolic --to jq \
       -s verilog.data {}.data \
       -s calyx.exec './target/debug/calyx' \
       -s jq.file {}.jq \
+      {} -q
+"""
+
+[[tests]]
+name = "[frontend] systolic array output correctness"
+paths = [ "tests/correctness/systolic/output/*.systolic" ]
+cmd = """
+fud e --from systolic --to dat \
+      --through verilog \
+      -s verilog.data {}.data \
+      -s calyx.exec './target/debug/calyx' \
       {} -q
 """
 
