@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use dap::prelude::*;
 
 pub struct MyAdapter;
@@ -9,6 +11,8 @@ pub mod error {
     pub enum MyAdapterError {
         #[error("Unhandled command")]
         UnhandledCommandError,
+        #[error(transparent)]
+        Io(#[from] std::io::Error),
         // Add more error variants as needed
     }
 }
@@ -24,14 +28,19 @@ impl Adapter for MyAdapter {
         _ctx: &mut dyn Context,
     ) -> Result<Response, Self::Error> {
         eprintln!("Accept {:#?}\n", request.command);
+        let mut stdout = io::stdout();
 
         match &request.command {
             Command::Initialize(args) => {
                 eprintln!("entered initialize handler");
                 if let Some(client_name) = args.client_name.as_ref() {
-                    eprintln!(
-                        "> Client '{client_name}' requested initialization."
-                    );
+                    writeln!(
+                        stdout,
+                        "> Client '{}' requested initialization.",
+                        client_name
+                    )
+                    .map_err(|err| MyAdapterError::from(err))?;
+                    stdout.flush().map_err(MyAdapterError::from)?;
                     Ok(Response::make_success(
                         &request,
                         ResponseBody::Initialize(Some(types::Capabilities {
@@ -41,10 +50,18 @@ impl Adapter for MyAdapter {
                         })),
                     ))
                 } else {
+                    writeln!(stdout, "Missing client name")
+                        .map_err(MyAdapterError::from)?;
+                    stdout.flush().map_err(MyAdapterError::from)?;
                     Ok(Response::make_error(&request, "Missing client name"))
                 }
             }
-            Command::Next(_) => Ok(Response::make_ack(&request).unwrap()),
+            Command::Next(_) => {
+                writeln!(stdout, "Next command received")
+                    .map_err(MyAdapterError::from)?;
+                stdout.flush().map_err(MyAdapterError::from)?;
+                Ok(Response::make_ack(&request).unwrap())
+            }
             _ => Err(MyAdapterError::UnhandledCommandError),
         }
     }
