@@ -170,18 +170,17 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
     Generates groups to move the final value from a PE into the output array.
     """
     group_name = NAME_SCHEME["out mem move"].format(pe=f"pe_{row}_{col}")
-    idx = row * cols + col
     pe = comp.get_cell(f"pe_{row}_{col}")
-    out = comp.get_cell(OUT_MEM)
+    out = comp.get_cell(OUT_MEM + f"_{row}")
     with comp.static_group(group_name, 1):
-        out.addr0 = idx
+        out.addr0 = col
         out.write_data = pe.out
         out.write_en = 1
 
 
 def gen_schedules(top_length, top_depth, left_length, left_depth):
     """
-    Generates 4 arrays that are the same size as the output (systolic) array
+    Generates 5 arrays that are the same size as the output (systolic) array
     Each entry in the array has tuple [start, end) that indicates the cycles that
     they are active
     `update_sched` contains when to update the indices of the input memories and feed
@@ -191,11 +190,14 @@ def gen_schedules(top_length, top_depth, left_length, left_depth):
     `pe_accum_sched` contains when to invoke PE and accumulate (bc the multipliers
     are ready with an output)
     `pe_move_sched` contains when to "move" the PE (i.e., pass data)
+    `pe_write_sched` contains when to "write" the PE value into memory (i.e., when
+    the PE is "finished")
     """
     update_sched = np.zeros((left_length, top_length), dtype=object)
     pe_fill_sched = np.zeros((left_length, top_length), dtype=object)
     pe_accum_sched = np.zeros((left_length, top_length), dtype=object)
     pe_move_sched = np.zeros((left_length, top_length), dtype=object)
+    pe_write_sched = np.zeros((left_length, top_length), dtype=object)
     for row in range(0, left_length):
         for col in range(0, top_length):
             pos = row + col
@@ -203,7 +205,8 @@ def gen_schedules(top_length, top_depth, left_length, left_depth):
             pe_fill_sched[row][col] = (pos + 1, pos + min(4, left_depth) + 1)
             pe_accum_sched[row][col] = (pos + 5, pos + left_depth + 5)
             pe_move_sched[row][col] = (pos + 1, pos + left_depth + 1)
-    return (update_sched, pe_fill_sched, pe_accum_sched, pe_move_sched)
+            pe_write_sched[row][col] = (pos + left_depth + 5, pos + left_depth + 6)
+    return (update_sched, pe_fill_sched, pe_accum_sched, pe_move_sched, pe_write_sched)
 
 
 def accum_nec_ranges(nec_ranges, schedule):
@@ -377,6 +380,7 @@ def generate_control(
     fill_sched,
     accum_sched,
     move_sched,
+    write_sched,
     nec_ranges,
 ):
     """
@@ -449,13 +453,20 @@ def generate_control(
                 accum_sched[r][c][1],
                 [get_pe_invoke(r, c, top_length, left_length, 1)],
             )
+            pe_writes = execute_if_between(
+                comp,
+                write_sched[r][c][0],
+                write_sched[r][c][1],
+                [py_ast.Enable(NAME_SCHEME["out mem move"].format(pe=f"pe_{r}_{c}"))],
+            )
+            pe_control = input_mem_updates + pe_fills + pe_moves + pe_accums + pe_writes
+            control_stmts.append(py_ast.StaticParComp(pe_control))
+            # providing metadata
             tag = counter()
             source_map[
                 tag
             ] = f"pe_{r}_{c} filling: [{fill_sched[r][c][0]},{fill_sched[r][c][1]}) \
 accumulating: [{accum_sched[r][c][0]} {accum_sched[r][c][1]})"
-            pe_control = input_mem_updates + pe_fills + pe_moves + pe_accums
-            control_stmts.append(py_ast.StaticParComp(pe_control))
     for start, end in nec_ranges:
         # build the control stmts that assign correct values to
         # idx_between_{start}_{end}_reg, which is what the if stmts above^ rely on
@@ -468,20 +479,11 @@ accumulating: [{accum_sched[r][c][0]} {accum_sched[r][c][1]})"
     # build the static repeat
     # num repeats = (top_length - 1) + (left_length - 1) + (top_depth - 1) + 5 + 1
     static_repeat = cb.static_repeat(
-        top_length + left_length + top_depth + 3, repeat_body
+        top_length + left_length + top_depth + 4, repeat_body
     )
 
     control.append(static_repeat)
 
-    # Move all the results into output memory
-    mover_groups = []
-    for row in range(left_length):
-        for col in range(top_length):
-            mover_groups.append(
-                py_ast.Enable(NAME_SCHEME["out mem move"].format(pe=f"pe_{row}_{col}"))
-            )
-
-    control.append(py_ast.StaticSeqComp(mover_groups))
     return py_ast.StaticSeqComp(stmts=control), source_map
 
 
@@ -500,7 +502,7 @@ def create_systolic_array(
         f"{top_length}x{top_depth} and {left_depth}x{left_length}"
     )
 
-    (update_sched, fill_sched, accum_sched, move_sched) = gen_schedules(
+    (update_sched, fill_sched, accum_sched, move_sched, write_sched) = gen_schedules(
         top_length, top_depth, left_length, left_depth
     )
     nec_ranges = set()
@@ -508,6 +510,7 @@ def create_systolic_array(
     accum_nec_ranges(nec_ranges, fill_sched)
     accum_nec_ranges(nec_ranges, accum_sched)
     accum_nec_ranges(nec_ranges, move_sched)
+    accum_nec_ranges(nec_ranges, write_sched)
 
     main = prog.component("main")
 
@@ -524,15 +527,15 @@ def create_systolic_array(
         instantiate_memory(main, "left", col, left_depth)
 
     # Instantiate output memory
-    total_size = left_length * top_length
-    out_idx_size = bits_needed(total_size)
-    main.mem_d1(
-        OUT_MEM,
-        BITWIDTH,
-        total_size,
-        out_idx_size,
-        is_external=True,
-    )
+    out_idx_size = bits_needed(top_length)
+    for i in range(left_length):
+        main.mem_d1(
+            OUT_MEM + f"_{i}",
+            BITWIDTH,
+            top_length,
+            out_idx_size,
+            is_external=True,
+        )
 
     # Instantiate all the PEs
     for row in range(left_length):
@@ -545,7 +548,7 @@ def create_systolic_array(
             # Instantiate output movement structure
             instantiate_output_move(main, row, col, top_length)
 
-    iter_limit = top_length + left_length + top_depth + 3
+    iter_limit = top_length + left_length + top_depth + 4
     iter_idx_size = bits_needed(iter_limit)
     # instantiate groups that initialize idx to 0 and increment it
     instantiate_idx_groups(main, iter_idx_size, iter_limit)
@@ -566,6 +569,7 @@ def create_systolic_array(
         fill_sched,
         accum_sched,
         move_sched,
+        write_sched,
         nec_ranges,
     )
     main.control = control

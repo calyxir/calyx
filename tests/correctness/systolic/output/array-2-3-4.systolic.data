@@ -23,12 +23,21 @@
       "width": 32
     }
   },
-  "out_mem": {
+  "out_mem_0": {
     "data": [
       0,
       0,
       0,
-      0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out_mem_1": {
+    "data": [
       0,
       0,
       0,
