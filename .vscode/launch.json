@@ -2,10 +2,72 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Cider Dap: Current File",
-            "type": "cider-dap",
+            "name": "Python: Current File",
+            "type": "python",
             "request": "launch",
-            "program": "./cider-dap"
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Compiler",
+            "args": [
+                "${input:target}",
+                "-l",
+                "${workspaceFolder}",
+                "-p",
+                "${input:pass}",
+                "-b",
+                "${input:backend}",
+            ],
+            "program": "${workspaceFolder}/target/debug/calyx",
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "sourceLanguages": [
+                "rust"
+            ],
+            "preLaunchTask": "Cargo Build",
+            "console": "integratedTerminal",
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Interpreter",
+            "args": [
+                "${input:target}",
+                "-l",
+                "${workspaceFolder}"
+            ],
+            "program": "${workspaceFolder}/target/debug/interp",
+            "windows": {
+                "program": "${workspaceFolder}/target/debug/interp.exe"
+            },
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "sourceLanguages": [
+                "rust"
+            ],
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Interpreter on current file",
+            "args": [
+                "${file}",
+                "-l",
+                "${workspaceFolder}"
+            ],
+            "program": "${workspaceFolder}/target/debug/interp",
+            "windows": {
+                "program": "${workspaceFolder}/target/debug/interp.exe"
+            },
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "sourceLanguages": [
+                "rust"
+            ],
         }
     ],
     "inputs": [
