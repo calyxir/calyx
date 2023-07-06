@@ -37,11 +37,11 @@ pub trait Primitive {
     where
         Self: Sized;
 
-    fn exec_comb_paths(&self, _port_map: &PortMap) -> Results {
+    fn exec_comb(&self, _port_map: &PortMap) -> Results {
         Ok(vec![])
     }
 
-    fn exec_stateful_paths(&mut self, _port_map: &PortMap) -> Results {
+    fn exec_cycle(&mut self, _port_map: &PortMap) -> Results {
         Ok(vec![])
     }
 
