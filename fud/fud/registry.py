@@ -1,13 +1,15 @@
-from typing import Optional, List, Tuple
+from typing import List, Tuple
 
 from collections import namedtuple
 import networkx as nx  # type: ignore
+import logging as log
 
-from fud import stages
+from fud import stages, errors
 from fud.errors import UndefinedState, MultiplePaths
 
 # An edge in the state graph
 Edge = namedtuple("Edge", ["dest", "stage"])
+DEPRECATED_STATES = [("futil", "calyx")]
 
 
 class Registry:
@@ -31,17 +33,25 @@ class Registry:
         assert len(out) > 0, f"No state tranformation for {stage} found."
         return out
 
+    @staticmethod
+    def _deprecate_check(stage_name, state):
+        for st, alt in DEPRECATED_STATES:
+            if state == st:
+                raise errors.DeprecatedState(stage_name, state, alt)
+
     def register(self, stage):
         """
         Defines a new stage named `stage` that converts programs from `src` to
         `tar`
         """
 
+        # Error if the stage is attempting to register deprecated states.
+        Registry._deprecate_check(stage.name, stage.src_state)
+        Registry._deprecate_check(stage.name, stage.target_state)
+
         self.graph.add_edge(stage.src_state, stage.target_state, stage=stage)
 
-    def make_path(
-        self, start: str, dest: str, through=[]
-    ) -> Optional[List[stages.Stage]]:
+    def make_path(self, start: str, dest: str, through=[]) -> List[stages.Stage]:
         """
         Compute a path from `start` to `dest` that contains all stages
         mentioned in `through`.
@@ -102,7 +112,7 @@ class Registry:
         if len(stage_paths) > 1:
             raise MultiplePaths(start, dest, self.paths_str(all_paths))
         elif len(stage_paths) == 0:
-            return None
+            raise errors.NoPathFound(start, dest, through)
         else:
             return stage_paths[0]
 
@@ -123,6 +133,11 @@ class Registry:
                     path_str += f" (cost: {cost})"
             p.append(path_str)
         return "\n".join(p)
+
+    def all_from(self, from_st):
+        """
+        Returns all the transformations from a particular state
+        """
 
     def __str__(self):
         stages = {}
