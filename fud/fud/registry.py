@@ -2,7 +2,6 @@ from typing import List, Tuple
 
 from collections import namedtuple
 import networkx as nx  # type: ignore
-import logging as log
 
 from fud import stages, errors
 from fud.errors import UndefinedState, MultiplePaths
