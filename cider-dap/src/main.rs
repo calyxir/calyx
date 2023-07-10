@@ -1,14 +1,14 @@
 mod adapter;
 mod client;
-mod error;
 
 use adapter::MyAdapter;
+use adapter::MyAdapterError;
 use client::TcpClient;
-use error::MyAdapterError;
 
+use adapter::AdapterResult;
 use dap::prelude::*;
-use error::AdapterResult;
-use std::io::BufReader;
+use std::convert::From;
+use std::io::{stdin, stdout, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 
@@ -21,37 +21,57 @@ struct Opts {
     #[argh(switch, long = "tcp")]
     /// runs in tcp mode
     is_multi_session: bool,
-
-    #[argh(option, short = 'p', long = "port", default = "8080")]
-    /// port for the TCP server
+    #[argh(option, short = 'p', default = "8080")]
+    /// sets the port for the TCP server
     port: u16,
 }
 fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(path))
 }
+impl From<std::io::Error> for MyAdapterError {
+    fn from(err: std::io::Error) -> Self {
+        MyAdapterError::TcpListenerError(err)
+    }
+}
 
-fn main() -> AdapterResult<()> {
+fn main() -> Result<(), MyAdapterError> {
     let opts: Opts = argh::from_env();
     println!("{:?}", opts.file);
     let path = match opts.file {
         Some(p) => Ok(p),
         None => Err(MyAdapterError::MissingFile),
     }?;
-    /* let file = opts.file.unwrap_or_else(|| {
-        eprintln!("Missing input file argument");
-        std::process::exit(1);
-    });*/
 
-    /*  let listener = TcpListener::bind("127.0.0.1:8080")?;
+    if opts.is_multi_session {
+        // TCP mode
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", opts.port))
+            .map_err(|err| MyAdapterError::from(err))?;
+        match listener.accept() {
+            Ok((stream, addr)) => {
+                println!("Accepted client on: {}", addr);
+                handle_client(stream, path)?;
+            }
+            Err(_) => todo!(),
+        }
+    } else {
+        // stdin/stdout mode
+        let mut buffer = Vec::new();
+        stdin().read_to_end(&mut buffer)?;
 
-       match listener.accept() {
-           Ok((stream, addr)) => {
-               println!("Accepted client on: {}", addr);
-               handle_client(stream, file)?;
-           }
-           Err(_) => todo!(),
-       }
-    */
+        let input = String::from_utf8_lossy(&buffer).to_string();
+
+        let output = if input.trim().to_lowercase() == "tcp" {
+            let stream = TcpStream::connect("127.0.0.1:8080")
+                .expect("Failed to connect to server");
+            handle_client(stream, path)?;
+            "TCP mode activated".to_string()
+        } else {
+            format!("Received input: {}", input)
+        };
+
+        stdout().write_all(output.as_bytes())?;
+    }
+
     Ok(())
 }
 
