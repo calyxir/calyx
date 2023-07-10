@@ -8,8 +8,8 @@ paths can be used to generate VCD files from Dahlia programs:
 ```
 % fud e --from dahlia --to vcd
 [fud] ERROR: Multiple stage pipelines can transform dahlia to vcd:
-dahlia → futil → verilog → vcd
-dahlia → futil → icarus-verilog → vcd
+dahlia → calyx → verilog → vcd
+dahlia → calyx → icarus-verilog → vcd
 Use the --through flag to select an intermediate stage
 ```
 
