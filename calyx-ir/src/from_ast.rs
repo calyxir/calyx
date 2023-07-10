@@ -894,6 +894,7 @@ fn build_static_control(
         | ast::Control::If { .. }
         | ast::Control::While { .. }
         | ast::Control::Seq { .. }
+        | ast::Control::DynamicRepeat { .. }
         | ast::Control::Invoke { .. } => {
             return Err(Error::malformed_control(
                 "found dynamic control in static context".to_string(),
@@ -1164,6 +1165,18 @@ fn build_control(
                     Direction::Output,
                 )?,
                 group,
+                Box::new(build_control(*body, sig_ctx, builder)?),
+            );
+            *con.get_mut_attributes() = attributes;
+            con
+        }
+        ast::Control::DynamicRepeat {
+            num_repeats,
+            body,
+            attributes,
+        } => {
+            let mut con = Control::repeat(
+                num_repeats,
                 Box::new(build_control(*body, sig_ctx, builder)?),
             );
             *con.get_mut_attributes() = attributes;

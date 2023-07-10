@@ -160,6 +160,9 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                 }
                 self.construct(body);
             }
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
+                self.construct(body);
+            }
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 stmts.iter().for_each(|con| self.construct(con));

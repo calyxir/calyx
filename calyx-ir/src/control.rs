@@ -159,6 +159,27 @@ impl GetAttributes for While {
     }
 }
 
+/// Data for the Dynamic `Repeat` control statement. Repeats the body of the loop
+/// a given number times.
+#[derive(Debug)]
+pub struct Repeat {
+    /// Attributes
+    pub attributes: Attributes,
+    /// Body to repeat
+    pub body: Box<Control>,
+    /// Number of times to repeat the body
+    pub num_repeats: u64,
+}
+impl GetAttributes for Repeat {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
 /// Data for the `StaticRepeat` control statement. Essentially a static while loop.
 #[derive(Debug)]
 pub struct StaticRepeat {
@@ -296,6 +317,8 @@ pub enum Control {
     If(If),
     /// Standard imperative while statement
     While(While),
+    /// Standard repeat control statement
+    Repeat(Repeat),
     /// Invoke a sub-component with the given port assignments
     Invoke(Invoke),
     /// Runs the control for a list of subcomponents.
@@ -387,6 +410,7 @@ impl GetAttributes for Control {
             | Self::Par(Par { attributes, .. })
             | Self::If(If { attributes, .. })
             | Self::While(While { attributes, .. })
+            | Self::Repeat(Repeat { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
             | Self::Empty(Empty { attributes }) => attributes,
@@ -400,6 +424,7 @@ impl GetAttributes for Control {
             | Self::Par(Par { attributes, .. })
             | Self::If(If { attributes, .. })
             | Self::While(While { attributes, .. })
+            | Self::Repeat(Repeat { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
             | Self::Empty(Empty { attributes }) => attributes,
@@ -516,6 +541,15 @@ impl Control {
             port,
             cond,
             body,
+            attributes: Attributes::default(),
+        })
+    }
+
+    /// Convience constructor for dynamic repeat
+    pub fn repeat(num_repeats: u64, body: Box<Control>) -> Self {
+        Control::Repeat(Repeat {
+            body,
+            num_repeats,
             attributes: Attributes::default(),
         })
     }
@@ -672,12 +706,20 @@ impl Cloner {
         }
     }
 
-    pub fn repeat(rep: &StaticRepeat) -> StaticRepeat {
+    pub fn static_repeat(rep: &StaticRepeat) -> StaticRepeat {
         StaticRepeat {
             attributes: rep.attributes.clone(),
             body: Box::new(Self::static_control(&rep.body)),
             num_repeats: rep.num_repeats,
             latency: rep.latency,
+        }
+    }
+
+    pub fn dynamic_repeat(rep: &Repeat) -> Repeat {
+        Repeat {
+            attributes: rep.attributes.clone(),
+            body: Box::new(Self::control(&rep.body)),
+            num_repeats: rep.num_repeats,
         }
     }
 
@@ -748,7 +790,7 @@ impl Cloner {
                 StaticControl::Enable(Cloner::static_enable(sen))
             }
             StaticControl::Repeat(rep) => {
-                StaticControl::Repeat(Cloner::repeat(rep))
+                StaticControl::Repeat(Cloner::static_repeat(rep))
             }
             StaticControl::Seq(sseq) => {
                 StaticControl::Seq(Cloner::static_seq(sseq))
@@ -770,6 +812,9 @@ impl Cloner {
             Control::Par(par) => Control::Par(Cloner::par(par)),
             Control::If(if_) => Control::If(Cloner::if_(if_)),
             Control::While(wh) => Control::While(Cloner::while_(wh)),
+            Control::Repeat(repeat) => {
+                Control::Repeat(Cloner::dynamic_repeat(repeat))
+            }
             Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
             Control::Enable(en) => Control::Enable(Cloner::enable(en)),
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),

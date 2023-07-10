@@ -83,6 +83,9 @@ impl ComputeStates {
             ir::Control::Invoke(_) => unreachable!(
                 "Invoke statements should have been compiled away."
             ),
+            ir::Control::Repeat(_) => {
+                unreachable!("Repeats should've been compiled away.")
+            }
             ir::Control::Empty(_) => {
                 unreachable!("Empty blocks should have been compiled away")
             }
@@ -161,6 +164,9 @@ impl ComputeStates {
             }
             ir::Control::Invoke(_) => {
                 unreachable!("Invoke should have been compiled away")
+            }
+            ir::Control::Repeat(_) => {
+                unreachable!("Repeat should have been compiled away")
             }
             ir::Control::Empty(_) => {
                 unreachable!("Empty block in control_exits")

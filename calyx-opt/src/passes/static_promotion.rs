@@ -775,4 +775,34 @@ impl Visitor for StaticPromotion {
         }
         Ok(Action::Continue)
     }
+
+    // upgrades repeats with static bodies to static repeats
+    fn finish_repeat(
+        &mut self,
+        s: &mut ir::Repeat,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if s.body.is_static() {
+            // need to do this weird thing to get the repeat body
+            let empty = Box::new(ir::Control::empty());
+            let repeat_body = std::mem::replace(&mut s.body, empty);
+            if let ir::Control::Static(sc) = *repeat_body {
+                let static_repeat =
+                    ir::StaticControl::Repeat(ir::StaticRepeat {
+                        latency: s.num_repeats * sc.get_latency(),
+                        attributes: s.attributes.clone(),
+                        body: Box::new(sc),
+                        num_repeats: s.num_repeats,
+                    });
+                return Ok(Action::Change(Box::new(ir::Control::Static(
+                    static_repeat,
+                ))));
+            } else {
+                unreachable!("already checked that body is static");
+            }
+        }
+        Ok(Action::Continue)
+    }
 }

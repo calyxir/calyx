@@ -1001,6 +1001,18 @@ impl CalyxParser {
         ))
     }
 
+    fn dynamic_repeat_stmt(input: Node) -> ParseResult<ast::Control> {
+        let span = Self::get_span(&input);
+        Ok(match_nodes!(
+            input.into_children();
+            [at_attributes(attrs), bitwidth(num_repeats) , block(stmt)] => ast::Control::DynamicRepeat {
+                num_repeats,
+                body: Box::new(stmt),
+                attributes: attrs.add_span(span),
+            }
+        ))
+    }
+
     fn stmt(input: Node) -> ParseResult<ast::Control> {
         Ok(match_nodes!(
             input.into_children();
@@ -1015,7 +1027,8 @@ impl CalyxParser {
             [if_stmt(data)] => data,
             [static_if_stmt(data)] => data,
             [while_stmt(data)] => data,
-            [repeat_stmt(data)] => data,
+            [while_stmt(data)] => data,
+            [dynamic_repeat_stmt(data)] => data,
         ))
     }
 

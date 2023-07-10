@@ -528,7 +528,6 @@ impl LiveRangeAnalysis {
     /// par_thread_map maps direct children of par blocks to their parents
     /// live_cell_map maps cells to the nodes in which it is live
     /// par_thread_map maps direct children of par blocks to their parents
-    /// live_cell_map maps cells to the nodes in which it is live
     /// parents is the list of current control statements (that are direct children
     /// of par blocks) that are parents (at any level of nesting) of c.
     pub fn get_live_control_data(
@@ -631,6 +630,15 @@ impl LiveRangeAnalysis {
                             .insert(id);
                     }
                 }
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
+                self.get_live_control_data(
+                    live_once_map,
+                    par_thread_map,
+                    live_cell_map,
+                    parents,
+                    body,
+                );
             }
             ir::Control::Enable(_) | ir::Control::Invoke(_) => {
                 let id = ControlId::get_guaranteed_id(c);
@@ -1372,6 +1380,12 @@ impl LiveRangeAnalysis {
                 }
 
                 (alive, gens, input_kills)
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
+                // have to go through the repeat body twice in order to get a correct live range analysis
+                let (a, g, k) =
+                    self.build_live_ranges(body, alive, gens, kills);
+                self.build_live_ranges(body, a, g, k)
             }
             ir::Control::Static(sc) => {
                 self.build_live_ranges_static(sc, alive, gens, kills)

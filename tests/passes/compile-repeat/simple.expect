@@ -1,0 +1,62 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    @generated idx = std_reg(3);
+    @generated cond_reg = std_reg(1);
+    @generated adder = std_add(3);
+    @generated lt = std_lt(3);
+  }
+  wires {
+    group write_r1 {
+      r1.in = 32'd2;
+      r1.write_en = 1'd1;
+      write_r1[done] = r1.done;
+    }
+    group write_r2 {
+      r2.in = 32'd2;
+      r2.write_en = 1'd1;
+      write_r2[done] = r2.done;
+    }
+    group init_repeat {
+      idx.write_en = 1'd1;
+      idx.in = 3'd0;
+      cond_reg.write_en = 1'd1;
+      cond_reg.in = 1'd1;
+      init_repeat[done] = cond_reg.done & idx.done ? 1'd1;
+    }
+    group incr_repeat {
+      adder.left = idx.out;
+      adder.right = 3'd1;
+      lt.left = adder.out;
+      lt.right = 3'd4;
+      cond_reg.write_en = 1'd1;
+      cond_reg.in = lt.out;
+      idx.write_en = 1'd1;
+      idx.in = adder.out;
+      incr_repeat[done] = cond_reg.done & idx.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      seq {
+        init_repeat;
+        while cond_reg.out {
+          par {
+            seq {
+              write_r1;
+              write_r2;
+            }
+            incr_repeat;
+          }
+        }
+      }
+      
+      seq {
+        write_r1;
+        write_r2;
+      }
+    }
+  }
+}

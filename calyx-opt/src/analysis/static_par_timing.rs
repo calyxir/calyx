@@ -349,7 +349,8 @@ impl StaticParTiming {
                 self.build_time_map(tbranch, live);
                 self.build_time_map(fbranch, live);
             }
-            ir::Control::While(ir::While { body, .. }) => {
+            ir::Control::While(ir::While { body, .. })
+            | ir::Control::Repeat(ir::Repeat { body, .. }) => {
                 self.build_time_map(body, live);
             }
             ir::Control::Static(sc) => {

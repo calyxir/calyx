@@ -338,6 +338,10 @@ while_stmt = {
       at_attributes ~ "while" ~ port_with ~ block
 }
 
+dynamic_repeat_stmt = {
+      at_attributes ~ "repeat" ~ bitwidth ~ block
+}
+
 repeat_stmt = {
       at_attributes ~ static_word ~ "repeat" ~ bitwidth ~ block
 }
@@ -354,6 +358,7 @@ stmt = {
     | if_stmt
     | static_if_stmt
     | while_stmt
+    | dynamic_repeat_stmt
     | repeat_stmt
 }
 
