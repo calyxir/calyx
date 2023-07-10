@@ -1,5 +1,7 @@
-use dap::prelude::*;
+use std::io::{self, Write};
 
+use dap::prelude::*;
+use error::MyAdapterError;
 pub struct MyAdapter;
 
 pub mod error {
@@ -9,6 +11,8 @@ pub mod error {
     pub enum MyAdapterError {
         #[error("Unhandled command")]
         UnhandledCommandError,
+        #[error(transparent)]
+        Io(#[from] std::io::Error),
         // Add more error variants as needed
     }
 }
