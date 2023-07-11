@@ -33,10 +33,6 @@ impl From<(Value, GlobalPortId)> for AssignResult {
 pub type Results = InterpreterResult<Vec<AssignResult>>;
 
 pub trait Primitive {
-    fn new(base: GlobalPortId) -> Self
-    where
-        Self: Sized;
-
     fn exec_comb(&self, _port_map: &PortMap) -> Results {
         Ok(vec![])
     }
@@ -78,11 +74,4 @@ impl DummyPrimitive {
     }
 }
 
-impl Primitive for DummyPrimitive {
-    fn new(_: GlobalPortId) -> Self
-    where
-        Self: Sized,
-    {
-        Self
-    }
-}
+impl Primitive for DummyPrimitive {}

@@ -179,7 +179,7 @@ impl<'a> IntoIterator for &'a ProgramCounter {
 #[derive(Debug)]
 pub struct Environment<'a> {
     /// A map from global port IDs to their current values.
-    ports: PortMap,
+    pub(crate) ports: PortMap,
     /// A map from global cell IDs to their current state and execution info.
     cells: CellMap,
     /// A map from global ref cell IDs to the cell they reference, if any.
@@ -257,6 +257,7 @@ impl<'a> Environment<'a> {
         for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
             let info = &self.ctx.secondary[*def_idx];
             if !info.prototype.is_component() {
+                let port_base = self.ports.peek_next_idx();
                 for port in info.ports.iter() {
                     let width = self.ctx.lookup_port_def(&comp_id, port).width;
                     let idx = self.ports.push(Value::zeroes(width));
@@ -265,7 +266,8 @@ impl<'a> Environment<'a> {
                         idx
                     );
                 }
-                let cell_dyn = primitives::build_primitive(info, self);
+                let cell_dyn =
+                    primitives::build_primitive(self, info, port_base);
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
 
                 debug_assert_eq!(
