@@ -4,7 +4,7 @@ use crate::{
         primitives::{
             declare_ports, output, ports, prim_trait::Results, Primitive,
         },
-        structures::{environment::PortMap, index_trait::IndexRef},
+        structures::environment::PortMap,
     },
     primitives::{Entry, Serializable},
     values::Value,
