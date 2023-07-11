@@ -402,7 +402,7 @@ impl CellPrototype {
                         width: width.try_into().unwrap(),
                     }
                 }
-                n @ ("std_fp_gt" | "std_fp_sgt" | "std_fg_slt") => {
+                _n @ ("std_fp_gt" | "std_fp_sgt" | "std_fg_slt") => {
                     get_params![params;
                         width: "WIDTH",
                         int_width: "INT_WIDTH",
