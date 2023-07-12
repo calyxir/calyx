@@ -15,6 +15,8 @@ pub enum MyAdapterError {
     IO,
     #[error("Issues with TCPListener")]
     TcpListenerError(std::io::Error),
+    #[error("Missing command")]
+    MissingCommandError,
 }
 
 pub type AdapterResult<T> = Result<T, MyAdapterError>;
