@@ -42,25 +42,26 @@ impl From<std::io::Error> for MyAdapterError {
 fn main() -> Result<(), MyAdapterError> {
     let opts: Opts = argh::from_env();
     println!("{:?}", opts.file);
-    let path = opts.file.expect("missing file"); //will fix later
-    let file = File::open(path).expect("unable to open file"); //will properly address the error later
+    let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
+    let file = File::open(path).map_err(|_| MyAdapterError::IO)?;
     let adapter = MyAdapter::new(file);
 
     if opts.is_multi_session {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", opts.port))
-            .expect("binding port failed"); //will fix later
-
+            .map_err(|e| MyAdapterError::TcpListenerError(e))?;
         match listener.accept() {
             Ok((stream, addr)) => {
                 println!("Accepted client on: {}", addr);
                 let read_stream = BufReader::new(
-                    stream.try_clone().expect("failed to clone stream"),
+                    stream
+                        .try_clone()
+                        .map_err(|e| MyAdapterError::TcpListenerError(e))?,
                 );
                 let write_stream = BufWriter::new(stream);
                 let server = Server::new(read_stream, write_stream);
                 run_server(server, adapter)?;
             }
-            Err(_) => todo!(),
+            Err(e) => return Err(MyAdapterError::TcpListenerError(e)),
         }
     } else {
         let write = BufWriter::new(stdout());

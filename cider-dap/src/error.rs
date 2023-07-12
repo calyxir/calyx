@@ -12,7 +12,7 @@ pub enum MyAdapterError {
     MissingFile,
     #[error("Issues with IO")]
     IO,
-    #[error("Issues with TCPListener")]
+    #[error("Issues with TCPListener: {0}")]
     TcpListenerError(std::io::Error),
     #[error("Missing command")]
     MissingCommandError,
