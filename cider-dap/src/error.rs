@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-
 use thiserror::Error;
 
+#[allow(dead_code)] //remove this later
 #[derive(Debug, Error)]
 pub enum MyAdapterError {
     #[error("Unhandled command")]

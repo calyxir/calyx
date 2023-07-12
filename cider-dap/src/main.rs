@@ -1,6 +1,5 @@
 mod adapter;
 mod error;
-use dap::server;
 
 use adapter::MyAdapter;
 use error::MyAdapterError;
@@ -9,7 +8,7 @@ use dap::prelude::*;
 use error::AdapterResult;
 use std::fs::File;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::path::PathBuf;
 
 /** write func called run_server which takes server type with generic parameters
@@ -74,8 +73,8 @@ fn main() -> Result<(), MyAdapterError> {
 }
 
 fn run_server<R: Read, W: Write>(
-    server: Server<R, W>,
-    adapter: MyAdapter,
+    _server: Server<R, W>,
+    _adapter: MyAdapter,
 ) -> AdapterResult<()> {
     todo!()
 }
