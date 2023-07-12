@@ -34,8 +34,13 @@ struct Opts {
 fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(path))
 }
+impl From<std::io::Error> for MyAdapterError {
+    fn from(err: std::io::Error) -> Self {
+        MyAdapterError::TcpListenerError(err)
+    }
+}
 
-fn main() -> AdapterResult<()> {
+fn main() -> Result<(), MyAdapterError> {
     let opts: Opts = argh::from_env();
     println!("{:?}", opts.file);
     let path = opts.file.expect("missing file"); //will fix later
@@ -74,59 +79,3 @@ fn run_server<R: Read, W: Write>(
 ) -> AdapterResult<()> {
     todo!()
 }
-
-/* fn handle_client_stdio(file: PathBuf) -> AdapterResult<()> {
-    let f = File::open(file)?;
-    let input = BufReader::new(f);
-    let output = BufWriter::new(std::io::stdout());
-    let mut server = Server::new(input, output);
-
-    let req = match server.poll_request()? {
-        Some(req) => req,
-        None => return Err(*Box::new(MyAdapterError::MissingCommandError)),
-    };
-    if let Command::Initialize(_) = req.command {
-        let rsp =
-            req.success(ResponseBody::Initialize(Some(types::Capabilities {
-                ..Default::default()
-            })));
-
-        server.respond(rsp)?;
-
-        server.send_event(Event::Initialized)?;
-    } else {
-        return Err(*Box::new(MyAdapterError::UnhandledCommandError));
-    }
-
-    Ok(())
-}
-fn handle_client_tcp(
-    mut stream: TcpStream,
-    file: PathBuf,
-) -> AdapterResult<()> {
-    let f = File::open(file).map_err(|e| {
-        MyAdapterError::from(error::MyAdapterError::TcpListenerError(e))
-    })?;
-    let input = BufReader::new(f);
-    let output = BufWriter::new(&mut stream);
-    let mut server = Server::new(input, output);
-
-    let req = match server.poll_request()? {
-        Some(req) => req,
-        None => return Err(MyAdapterError::MissingCommandError.into()),
-    };
-    if let Command::Initialize(_) = req.command {
-        let rsp =
-            req.success(ResponseBody::Initialize(Some(types::Capabilities {
-                ..Default::default()
-            })));
-
-        server.respond(rsp)?;
-
-        server.send_event(Event::Initialized)?;
-    } else {
-        return Err(MyAdapterError::UnhandledCommandError.into());
-    }
-
-    Ok(())
-} */

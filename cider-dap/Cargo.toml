@@ -22,5 +22,3 @@ name = "cider-dap"
 path = "src/main.rs"
 
 
-[net]
-git-fetch-with-cli = true
