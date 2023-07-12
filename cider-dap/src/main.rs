@@ -48,14 +48,14 @@ fn main() -> Result<(), MyAdapterError> {
 
     if opts.is_multi_session {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", opts.port))
-            .map_err(|e| MyAdapterError::TcpListenerError(e))?;
+            .map_err(MyAdapterError::TcpListenerError)?;
         match listener.accept() {
             Ok((stream, addr)) => {
                 println!("Accepted client on: {}", addr);
                 let read_stream = BufReader::new(
                     stream
                         .try_clone()
-                        .map_err(|e| MyAdapterError::TcpListenerError(e))?,
+                        .map_err(MyAdapterError::TcpListenerError)?,
                 );
                 let write_stream = BufWriter::new(stream);
                 let server = Server::new(read_stream, write_stream);

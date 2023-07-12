@@ -1,5 +1,6 @@
 use std::fs::File;
 pub struct MyAdapter {
+    #[allow(dead_code)]
     file: File,
     // Other fields of the struct
 }
