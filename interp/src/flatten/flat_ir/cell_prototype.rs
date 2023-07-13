@@ -35,20 +35,20 @@ pub enum PrimType1 {
     Mux,
     Wire,
     //
-    SAdd,
-    SSub,
-    SGt,
-    SLt,
-    SEq,
-    SNeq,
-    SGe,
-    SLe,
-    SLsh,
-    SRsh,
+    SignedAdd,
+    SignedSub,
+    SignedGt,
+    SignedLt,
+    SignedEq,
+    SignedNeq,
+    SignedGe,
+    SignedLe,
+    SignedLsh,
+    SignedRsh,
     MultPipe,
-    SMultPipe,
+    SignedMultPipe,
     DivPipe,
-    SDivPipe,
+    SignedDivPipe,
     Sqrt,
     //
     UnsynMult,
@@ -66,13 +66,13 @@ pub enum FPType {
     Sub,
     Mult,
     Div,
-    SAdd,
-    SSub,
-    SMult,
-    SDiv,
+    SignedAdd,
+    SignedSub,
+    SignedMult,
+    SignedDiv,
     Gt,
-    SGt,
-    SLt,
+    SignedGt,
+    SignedLt,
     Sqrt,
 }
 
@@ -214,7 +214,7 @@ impl CellPrototype {
                         op: if n == "std_add" {
                             PrimType1::Add
                         } else {
-                            PrimType1::SAdd
+                            PrimType1::SignedAdd
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -226,7 +226,7 @@ impl CellPrototype {
                         op: if n == "std_sub" {
                             PrimType1::Sub
                         } else {
-                            PrimType1::SSub
+                            PrimType1::SignedSub
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -242,7 +242,7 @@ impl CellPrototype {
                         op: if n == "std_fp_add" {
                             FPType::Add
                         } else {
-                            FPType::SAdd
+                            FPType::SignedAdd
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -260,7 +260,7 @@ impl CellPrototype {
                         op: if n == "std_fp_sub" {
                             FPType::Sub
                         } else {
-                            FPType::SSub
+                            FPType::SignedSub
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -274,7 +274,7 @@ impl CellPrototype {
                         op: if n == "std_mult_pipe" {
                             PrimType1::MultPipe
                         } else {
-                            PrimType1::SMultPipe
+                            PrimType1::SignedMultPipe
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -286,7 +286,7 @@ impl CellPrototype {
                         op: if n == "std_div_pipe" {
                             PrimType1::DivPipe
                         } else {
-                            PrimType1::SDivPipe
+                            PrimType1::SignedDivPipe
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -325,9 +325,9 @@ impl CellPrototype {
                     Self::FixedPoint {
                         op: match n {
                             "std_fp_mult_pipe" => FPType::Mult,
-                            "std_fp_smult_pipe" => FPType::SMult,
+                            "std_fp_smult_pipe" => FPType::SignedMult,
                             "std_fp_div_pipe" => FPType::Div,
-                            _ => FPType::SDiv,
+                            _ => FPType::SignedDiv,
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
@@ -342,8 +342,8 @@ impl CellPrototype {
                         op: match n {
                             "std_lsh" => PrimType1::Lsh,
                             "std_rsh" => PrimType1::Rsh,
-                            "std_lrsh" => PrimType1::SLsh,
-                            _ => PrimType1::SRsh,
+                            "std_lrsh" => PrimType1::SignedLsh,
+                            _ => PrimType1::SignedRsh,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -392,12 +392,12 @@ impl CellPrototype {
 
                     Self::SingleWidth {
                         op: match n {
-                            "std_sge" => PrimType1::SGe,
-                            "std_sle" => PrimType1::SLe,
-                            "std_sgt" => PrimType1::SGt,
-                            "std_slt" => PrimType1::SLt,
-                            "std_seq" => PrimType1::SEq,
-                            _ => PrimType1::SNeq,
+                            "std_sge" => PrimType1::SignedGe,
+                            "std_sle" => PrimType1::SignedLe,
+                            "std_sgt" => PrimType1::SignedGt,
+                            "std_slt" => PrimType1::SignedLt,
+                            "std_seq" => PrimType1::SignedEq,
+                            _ => PrimType1::SignedNeq,
                         },
                         width: width.try_into().unwrap(),
                     }
@@ -413,9 +413,9 @@ impl CellPrototype {
                         op: if n == "std_fp_gt" {
                             FPType::Gt
                         } else if n == "std_fp_sgt" {
-                            FPType::SGt
+                            FPType::SignedGt
                         } else {
-                            FPType::SLt
+                            FPType::SignedLt
                         },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
