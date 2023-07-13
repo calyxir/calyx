@@ -1028,6 +1028,7 @@ impl CalyxParser {
             [static_if_stmt(data)] => data,
             [while_stmt(data)] => data,
             [while_stmt(data)] => data,
+            [repeat_stmt(data)] => data,
             [dynamic_repeat_stmt(data)] => data,
         ))
     }

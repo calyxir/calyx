@@ -420,12 +420,13 @@ impl DominatorMap {
                     self.update_node(pred, cur_id);
                 }
                 ir::StaticControl::Repeat(ir::StaticRepeat {
-                    body, num_repeats, ..
+                    body,
+                    num_repeats,
+                    ..
                 }) => {
                     if *num_repeats != 0 {
                         let body_id = get_id_static::<true>(body);
                         self.update_map_static(main_sc, body_id, pred);
-
                     }
                 }
                 ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
@@ -438,11 +439,12 @@ impl DominatorMap {
                         nxt = self
                             .exits_map
                             .get(&id)
-                            .unwrap_or_else(|| 
-                                // If the exits map is empty, then it means the 
-                                // statement never executes anything. Therefore 
-                                // we keep the same predecessors. 
-                                pred)
+                            .unwrap_or(
+                                // If the exits map is empty, then it means the
+                                // statement never executes anything. Therefore
+                                // we keep the same predecessors.
+                                pred,
+                            )
                             .clone();
                         p = &nxt;
                     }
@@ -511,12 +513,11 @@ impl DominatorMap {
                             nxt = self
                                 .exits_map
                                 .get(&id)
-                                .unwrap_or_else(|| {
-                                    // If the exits map is empty, then it means the 
+                                .unwrap_or( // If the exits map is empty, then it means the 
                                 // statement never executes anything. Therefore 
                                 // we keep the same predecessors. 
                                 pred
-                                }).clone();
+                                ).clone();
                             p = &nxt;
                         }
                     }
@@ -530,7 +531,7 @@ impl DominatorMap {
                         if *num_repeats != 0 {
                             let body_id = get_id::<true>(body);
                             self.update_map(main_c, body_id, pred);
-                        } 
+                        }
                     }
                     // Keep in mind that NODE_IDs attached to while loops/if statements
                     // refer to the while/if guard, and as we pattern match against a while
@@ -667,7 +668,7 @@ impl DominatorMap {
                 }
                 None
             }
-            | ir::Control::Repeat(ir::Repeat {body, ..}) => {
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
                 Self::get_control(id, body)
             }
             ir::Control::If(ir::If {
