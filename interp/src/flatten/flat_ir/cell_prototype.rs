@@ -402,7 +402,7 @@ impl CellPrototype {
                         width: width.try_into().unwrap(),
                     }
                 }
-                _n @ ("std_fp_gt" | "std_fp_sgt" | "std_fg_slt") => {
+                n @ ("std_fp_gt" | "std_fp_sgt" | "std_fg_slt") => {
                     get_params![params;
                         width: "WIDTH",
                         int_width: "INT_WIDTH",
@@ -410,7 +410,13 @@ impl CellPrototype {
                     ];
 
                     Self::FixedPoint {
-                        op: FPType::Gt,
+                        op: if n == "std_fp_gt" {
+                            FPType::Gt
+                        } else if n == "std_fp_sgt" {
+                            FPType::SGt
+                        } else {
+                            FPType::SLt
+                        },
                         width: width.try_into().unwrap(),
                         int_width: int_width.try_into().unwrap(),
                         frac_width: frac_width.try_into().unwrap(),
