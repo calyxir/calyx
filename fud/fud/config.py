@@ -385,8 +385,6 @@ class Configuration:
             log.debug(f"Inferred target state: {target}")
 
         path = self.registry.make_path(source, target, through)
-        if path is None:
-            raise errors.NoPathFound(source, target, through)
 
         # If the path doesn't execute anything, it is probably an error.
         if len(path) == 0:

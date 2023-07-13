@@ -125,12 +125,12 @@ impl PassManager {
             pm,
             "lower",
             [
+                WrapMain,
                 GoInsertion,
                 WireInliner,
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,
-                WrapMain
             ]
         );
 

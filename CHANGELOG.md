@@ -1,3 +1,7 @@
+## Unreleased
+- Fix: `wrap-main` correctly instantiates the original `"toplevel"` component in the generated `main` component.
+
+
 ## 0.3.0
 - `ir::Component` takes a `has_interface` argument and ensures that interface ports are present when it is true.
 - The `Visitor` trait supports new `start_context` and `finish_context` methods which allow the pass to affect the context before and after the components are visited respectively.
