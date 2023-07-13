@@ -43,7 +43,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       seq {
         init_repeat;
         while cond_reg.out {
-          par {
+          seq {
             seq {
               write_r1;
               write_r2;
