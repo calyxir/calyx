@@ -30,27 +30,33 @@ impl Visitor for CompileRepeat {
         let num_repeats = s.num_repeats;
         let empty = Box::new(ir::Control::empty());
         if num_repeats == 0 {
+            // 0 repeats is the same thing as an empty control statement.
             Ok(Action::Change(empty))
         } else if num_repeats == 1 {
+            // 1 repeat means we can just replace the repeat stmt with the body.
             let repeat_body = std::mem::replace(&mut s.body, empty);
             Ok(Action::Change(repeat_body))
         } else {
+            // Otherwise we build a while loop.
             let mut builder = ir::Builder::new(comp, ctx);
             let idx_size = get_bit_width_from(num_repeats + 1);
             structure!( builder;
+                // holds the idx of the iteration
                 let idx = prim std_reg(idx_size);
+                // cond_reg.out will be condition port for the while loop
                 let cond_reg = prim std_reg(1);
                 let adder = prim std_add(idx_size);
                 let lt = prim std_lt(idx_size);
-                // done hole will be undefined bc of early reset
                 let const_zero = constant(0, idx_size);
                 let const_one = constant(1, idx_size);
                 let num_repeats = constant(num_repeats, idx_size);
                 let signal_on = constant(1,1);
             );
-            let init_group = builder.add_group("init_repeat");
+            // regs_done is `cond_reg.done & idx.done`
             let regs_done: ir::Guard<ir::Nothing> =
                 guard!(cond_reg["done"]).and(guard!(idx["done"]));
+            // init_group sets cond_reg to 1 and idx to 0
+            let init_group = builder.add_group("init_repeat");
             let init_assigns = build_assignments!(
               builder;
               // initial state for idx and cond_reg;
@@ -62,10 +68,12 @@ impl Visitor for CompileRepeat {
             )
             .to_vec();
             init_group.borrow_mut().assignments = init_assigns;
+            // incr_group:
+            // 1) writes results of idx + 1 into idx (i.e., increments idx)
+            // 2) writes the result of (idx + 1 < num_repeats) into cond_reg,
             let incr_group = builder.add_group("incr_repeat");
             let idx_incr_assigns = build_assignments!(
               builder;
-              // increments the fsm
               adder["left"] = ? idx["out"];
               adder["right"] = ? const_one["out"];
               lt["left"] = ? adder["out"];
@@ -78,8 +86,10 @@ impl Visitor for CompileRepeat {
             )
             .to_vec();
             incr_group.borrow_mut().assignments = idx_incr_assigns;
+            // create control:
+            // init_group; while cond_reg.out {repeat_body; incr_group;}
             let repeat_body = std::mem::replace(&mut s.body, empty);
-            let while_body = ir::Control::par(vec![
+            let while_body = ir::Control::seq(vec![
                 *repeat_body,
                 ir::Control::enable(incr_group),
             ]);
