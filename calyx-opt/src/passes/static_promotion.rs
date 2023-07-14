@@ -755,20 +755,19 @@ impl Visitor for StaticPromotion {
             // checks body is static and we have an @bound annotation
             if let Some(num_repeats) = s.attributes.get(ir::NumAttr::Bound) {
                 let while_body = ir::Control::take_control_box(&mut s.body);
-                if let ir::Control::Static(sc) = *while_body {
-                    let static_repeat =
-                        ir::StaticControl::Repeat(ir::StaticRepeat {
-                            latency: num_repeats * sc.get_latency(),
-                            attributes: s.attributes.clone(),
-                            body: Box::new(sc),
-                            num_repeats,
-                        });
-                    return Ok(Action::Change(Box::new(ir::Control::Static(
-                        static_repeat,
-                    ))));
-                } else {
+                let ir::Control::Static(sc) = *while_body else {
                     unreachable!("already checked that body is static");
-                }
+                };
+                let static_repeat =
+                    ir::StaticControl::Repeat(ir::StaticRepeat {
+                        latency: num_repeats * sc.get_latency(),
+                        attributes: s.attributes.clone(),
+                        body: Box::new(sc),
+                        num_repeats,
+                    });
+                return Ok(Action::Change(Box::new(ir::Control::Static(
+                    static_repeat,
+                ))));
             }
         }
         Ok(Action::Continue)
@@ -784,20 +783,18 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         if s.body.is_static() {
             let repeat_body = ir::Control::take_control_box(&mut s.body);
-            if let ir::Control::Static(sc) = *repeat_body {
-                let static_repeat =
-                    ir::StaticControl::Repeat(ir::StaticRepeat {
-                        latency: s.num_repeats * sc.get_latency(),
-                        attributes: s.attributes.clone(),
-                        body: Box::new(sc),
-                        num_repeats: s.num_repeats,
-                    });
-                return Ok(Action::Change(Box::new(ir::Control::Static(
-                    static_repeat,
-                ))));
-            } else {
+            let ir::Control::Static(sc) = *repeat_body else {
                 unreachable!("already checked that body is static");
-            }
+            };
+            let static_repeat = ir::StaticControl::Repeat(ir::StaticRepeat {
+                latency: s.num_repeats * sc.get_latency(),
+                attributes: s.attributes.clone(),
+                body: Box::new(sc),
+                num_repeats: s.num_repeats,
+            });
+            return Ok(Action::Change(Box::new(ir::Control::Static(
+                static_repeat,
+            ))));
         }
         Ok(Action::Continue)
     }
