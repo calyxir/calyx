@@ -30,11 +30,10 @@ impl Visitor for CompileRepeat {
         let num_repeats = s.num_repeats;
         if num_repeats == 0 {
             // 0 repeats is the same thing as an empty control statement.
-            Ok(Action::Change(Box::new(ir::Control::empty())))
+            Ok(Action::change(ir::Control::empty()))
         } else if num_repeats == 1 {
             // 1 repeat means we can just replace the repeat stmt with the body.
-            let repeat_body = ir::Control::take_control_box(&mut s.body);
-            Ok(Action::Change(repeat_body))
+            Ok(Action::change(s.body.take_control()))
         } else {
             // Otherwise we build a while loop.
             let mut builder = ir::Builder::new(comp, ctx);
@@ -87,9 +86,8 @@ impl Visitor for CompileRepeat {
             incr_group.borrow_mut().assignments = idx_incr_assigns;
             // create control:
             // init_group; while cond_reg.out {repeat_body; incr_group;}
-            let repeat_body = ir::Control::take_control_box(&mut s.body);
             let while_body = ir::Control::seq(vec![
-                *repeat_body,
+                s.body.take_control(),
                 ir::Control::enable(incr_group),
             ]);
             let while_loop = ir::Control::while_(
@@ -101,7 +99,7 @@ impl Visitor for CompileRepeat {
                 ir::Control::enable(init_group),
                 while_loop,
             ]);
-            Ok(Action::Change(Box::new(while_seq)))
+            Ok(Action::change(while_seq))
         }
     }
 }

@@ -342,27 +342,6 @@ pub enum StaticControl {
     Invoke(StaticInvoke),
 }
 
-impl Control {
-    pub fn is_static(&self) -> bool {
-        matches!(self, Control::Static(_))
-    }
-
-    pub fn get_latency(&self) -> Option<StaticLatency> {
-        match self {
-            Control::Static(sc) => Some(sc.get_latency()),
-            _ => None,
-        }
-    }
-
-    /// Takes a mutable reference to a Box<Control>, and moves its
-    /// contents to a new box and returns that new box. The old box will now
-    /// just hold an empty control statement.
-    pub fn take_control_box(control: &mut Box<Control>) -> Box<Control> {
-        let empty = Box::new(Control::empty());
-        std::mem::replace(control, empty)
-    }
-}
-
 impl From<Invoke> for Control {
     fn from(inv: Invoke) -> Self {
         Control::Invoke(inv)
@@ -577,6 +556,23 @@ impl Control {
     {
         self.get_attributes().has(attr)
     }
+
+    pub fn is_static(&self) -> bool {
+        matches!(self, Control::Static(_))
+    }
+
+    pub fn get_latency(&self) -> Option<StaticLatency> {
+        match self {
+            Control::Static(sc) => Some(sc.get_latency()),
+            _ => None,
+        }
+    }
+
+    /// Replaces &mut self with an empty control statement, and returns self
+    pub fn take_control(&mut self) -> Control {
+        let empty = Control::empty();
+        std::mem::replace(self, empty)
+    }
 }
 
 impl StaticControl {
@@ -651,6 +647,12 @@ impl StaticControl {
             | StaticControl::Invoke(StaticInvoke { latency, .. }) => *latency,
             &StaticControl::Empty(_) => 0,
         }
+    }
+
+    /// Replaces &mut self with an empty static control statement, and returns self
+    pub fn take_static_control(&mut self) -> StaticControl {
+        let empty = StaticControl::empty();
+        std::mem::replace(self, empty)
     }
 }
 
