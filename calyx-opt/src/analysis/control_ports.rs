@@ -167,9 +167,10 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 stmts.iter().for_each(|con| self.construct(con));
             }
-            ir::Control::Static(sc) =>
-            // don't need self, because no comb groups in static controls
-            {
+            ir::Control::Static(sc) => {
+                // Static control currently has no comb groups. But we have a
+                // (currently pointless) function here in case we want to add
+                // comb groups to static control at some point.
                 self.construct_static(sc)
             }
         }

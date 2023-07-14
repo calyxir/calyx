@@ -176,7 +176,6 @@ impl ControlId {
                 cur_state += 1;
                 Self::compute_unique_ids(body, cur_state, two_if_ids)
             }
-
             ir::Control::Static(s) => {
                 Self::compute_unique_ids_static(s, cur_state, two_if_ids)
             }

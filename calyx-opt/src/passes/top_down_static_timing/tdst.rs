@@ -370,8 +370,8 @@ impl Schedule<'_, '_> {
                 "`invoke` statements should have been compiled away. Run `{}` before this pass.",
                 passes::CompileInvoke::name()),
             ir::Control::Repeat(_) => unreachable!(
-                    "`repeat` statements should have been compiled away. Run (THIS IS CURRENTLY WRONG IT's SOME OTHER PASS)`{}` before this pass.",
-                    passes::CompileInvoke::name()),
+                    "`repeat` statements should have been compiled away. Run `{}` before this pass.",
+                    passes::CompileRepeat::name()),
             ir::Control::Empty(_) => unreachable!(
                 "`empty` statements should have been compiled away. Run `{}` before this pass.",
                 passes::CompileEmpty::name()),

@@ -638,6 +638,9 @@ fn build_reaching_def(
         ),
         ir::Control::Empty(_) => (reach, killed),
         ir::Control::Repeat(ir::Repeat { body, .. }) => {
+            // (XXX) If we start using this analysis, we should think more carefully
+            // about how exactly to handle repeats. This code basically just copies
+            // what while loops do (except for its dealing with cond ports).
             let (post_cond_def, post_cond_killed) = build_reaching_def(
                 &ir::Control::empty(),
                 reach.clone(),

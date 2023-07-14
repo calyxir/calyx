@@ -989,7 +989,7 @@ impl CalyxParser {
         ))
     }
 
-    fn repeat_stmt(input: Node) -> ParseResult<ast::Control> {
+    fn static_repeat_stmt(input: Node) -> ParseResult<ast::Control> {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
@@ -1028,7 +1028,7 @@ impl CalyxParser {
             [static_if_stmt(data)] => data,
             [while_stmt(data)] => data,
             [while_stmt(data)] => data,
-            [repeat_stmt(data)] => data,
+            [static_repeat_stmt(data)] => data,
             [dynamic_repeat_stmt(data)] => data,
         ))
     }

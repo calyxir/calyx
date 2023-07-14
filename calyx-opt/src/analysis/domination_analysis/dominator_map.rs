@@ -208,6 +208,8 @@ fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
             num_repeats,
             ..
         }) => {
+            // `Repeat 0` statements are essentially just Control::empty() stmts
+            // and therefore do not have "final" nodes
             if *num_repeats != 0 {
                 return get_final_static(body);
             }
@@ -245,6 +247,8 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
         ir::Control::Repeat(ir::Repeat {
             body, num_repeats, ..
         }) => {
+            // `Repeat 0` statements are essentially just Control::empty() stmts
+            // and therefore do not have "final" nodes
             if *num_repeats != 0 {
                 return get_final(body);
             }
@@ -441,8 +445,9 @@ impl DominatorMap {
                             .get(&id)
                             .unwrap_or(
                                 // If the exits map is empty, then it means the
-                                // statement never executes anything. Therefore
-                                // we keep the same predecessors.
+                                // current stmt is `Repeat 0`/Empty.
+                                // So the predecessors for the nxt stmt are the
+                                // same as the predecessors for the current stmt.
                                 pred,
                             )
                             .clone();
@@ -513,10 +518,11 @@ impl DominatorMap {
                             nxt = self
                                 .exits_map
                                 .get(&id)
-                                .unwrap_or( // If the exits map is empty, then it means the 
-                                // statement never executes anything. Therefore 
-                                // we keep the same predecessors. 
-                                pred
+                                .unwrap_or(pred
+                                    // If the exits map is empty, then it means the
+                                    // current stmt is `Repeat 0`/Empty.
+                                    // So the predecessors for the nxt stmt are the
+                                    // same as the predecessors for the current stmt
                                 ).clone();
                             p = &nxt;
                         }
