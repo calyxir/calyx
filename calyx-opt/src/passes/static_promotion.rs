@@ -754,9 +754,7 @@ impl Visitor for StaticPromotion {
         if s.body.is_static() {
             // checks body is static and we have an @bound annotation
             if let Some(num_repeats) = s.attributes.get(ir::NumAttr::Bound) {
-                // need to do this weird thing to get the while body
-                let empty = Box::new(ir::Control::empty());
-                let while_body = std::mem::replace(&mut s.body, empty);
+                let while_body = ir::Control::take_control_box(&mut s.body);
                 if let ir::Control::Static(sc) = *while_body {
                     let static_repeat =
                         ir::StaticControl::Repeat(ir::StaticRepeat {
@@ -785,9 +783,7 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         if s.body.is_static() {
-            // need to do this weird thing to get the repeat body
-            let empty = Box::new(ir::Control::empty());
-            let repeat_body = std::mem::replace(&mut s.body, empty);
+            let repeat_body = ir::Control::take_control_box(&mut s.body);
             if let ir::Control::Static(sc) = *repeat_body {
                 let static_repeat =
                     ir::StaticControl::Repeat(ir::StaticRepeat {

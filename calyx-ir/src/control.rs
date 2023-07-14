@@ -353,6 +353,14 @@ impl Control {
             _ => None,
         }
     }
+
+    /// Takes a mutable reference to a Box<Control>, and moves its
+    /// contents to a new box and returns that new box. The old box will now
+    /// just hold an empty control statement.
+    pub fn take_control_box(control: &mut Box<Control>) -> Box<Control> {
+        let empty = Box::new(Control::empty());
+        std::mem::replace(control, empty)
+    }
 }
 
 impl From<Invoke> for Control {

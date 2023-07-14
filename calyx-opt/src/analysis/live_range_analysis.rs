@@ -1073,21 +1073,12 @@ impl LiveRangeAnalysis {
                     kills,
                 )
             }
-            ir::StaticControl::Repeat(ir::StaticRepeat {
-                num_repeats,
-                body,
-                ..
-            }) => {
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 let (a, g, k) =
                     self.build_live_ranges_static(body, alive, gens, kills);
-                if *num_repeats == 1 {
-                    // only one execution of the body, so do not need to go through
-                    // repeat twice
-                    (a, g, k)
-                } else {
-                    // have to go through the repeat body twice in order to get a correct live range analysis
-                    self.build_live_ranges_static(body, a, g, k)
-                }
+                // Have to go through the repeat body twice in order to get a
+                // correct live range analysis
+                self.build_live_ranges_static(body, a, g, k)
             }
             ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
                 .iter()
@@ -1391,20 +1382,12 @@ impl LiveRangeAnalysis {
 
                 (alive, gens, input_kills)
             }
-            ir::Control::Repeat(ir::Repeat {
-                body, num_repeats, ..
-            }) => {
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
                 let (a, g, k) =
                     self.build_live_ranges(body, alive, gens, kills);
-                if *num_repeats == 1 {
-                    // only one execution, so we don't need to iterate through
-                    // twice
-                    (a, g, k)
-                } else {
-                    // need to feed the live nodes on the output of the body
-                    // back into the body to get correct live range analysis
-                    self.build_live_ranges(body, a, g, k)
-                }
+                // need to feed the live nodes on the output of the body
+                // back into the body to get correct live range analysis
+                self.build_live_ranges(body, a, g, k)
             }
             ir::Control::Static(sc) => {
                 self.build_live_ranges_static(sc, alive, gens, kills)
