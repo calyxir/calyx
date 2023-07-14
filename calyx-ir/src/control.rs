@@ -725,7 +725,7 @@ impl Cloner {
         }
     }
 
-    pub fn dynamic_repeat(rep: &Repeat) -> Repeat {
+    pub fn repeat(rep: &Repeat) -> Repeat {
         Repeat {
             attributes: rep.attributes.clone(),
             body: Box::new(Self::control(&rep.body)),
@@ -822,9 +822,7 @@ impl Cloner {
             Control::Par(par) => Control::Par(Cloner::par(par)),
             Control::If(if_) => Control::If(Cloner::if_(if_)),
             Control::While(wh) => Control::While(Cloner::while_(wh)),
-            Control::Repeat(repeat) => {
-                Control::Repeat(Cloner::dynamic_repeat(repeat))
-            }
+            Control::Repeat(repeat) => Control::Repeat(Cloner::repeat(repeat)),
             Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
             Control::Enable(en) => Control::Enable(Cloner::enable(en)),
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),

@@ -81,6 +81,7 @@ impl PassManager {
             "pre-opt",
             [
                 DataPathInfer,
+                CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.
                 CompileSyncWithoutSyncReg,
                 GroupToSeq,
                 DeadAssignmentRemoval,
