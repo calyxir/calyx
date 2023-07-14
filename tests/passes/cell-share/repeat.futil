@@ -1,4 +1,6 @@
 // -p simplify-with-control -p cell-share -p remove-ids
+
+// shouldn't share in this case 
 import "primitives/core.futil";
 component main() -> () {
   cells {

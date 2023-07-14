@@ -332,7 +332,7 @@ pub enum Control {
         attributes: Attributes,
     },
     /// Static Repeat (essentially a bounded while loop w/o a condition)
-    DynamicRepeat {
+    Repeat {
         /// Control for the true branch.
         num_repeats: u64,
 
@@ -447,7 +447,7 @@ impl Control {
             Control::Par { attributes, .. } => attributes,
             Control::If { attributes, .. } => attributes,
             Control::While { attributes, .. } => attributes,
-            Control::DynamicRepeat { attributes, .. } => attributes,
+            Control::Repeat { attributes, .. } => attributes,
             Control::Enable { attributes, .. } => attributes,
             Control::Invoke { attributes, .. } => attributes,
             Control::Empty { attributes, .. } => attributes,
