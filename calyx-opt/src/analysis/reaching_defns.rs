@@ -644,12 +644,8 @@ fn build_reaching_def(
         ),
         ir::Control::Empty(_) => (reach, killed),
         ir::Control::Repeat(ir::Repeat { body, .. }) => {
-            // XXX(caleb): If we start using this analysis, we should think more carefully
-            // about how exactly to handle repeats. This code basically just copies
-            // what while loops do (except for its dealing with cond ports).
             handle_repeat_while_body(body, reach, killed, rd, counter)
         }
-
         ir::Control::Static(sc) => {
             build_reaching_def_static(sc, reach, killed, rd, counter)
         }

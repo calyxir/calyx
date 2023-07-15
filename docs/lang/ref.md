@@ -404,6 +404,18 @@ value of `port`.
 > **Well-formedness**: The combinational group is considered active during the execution of the while
 > loop and therefore should not have conflicting assignments with `body_c`.
 
+### `repeat`
+
+The syntax is:
+```
+repeat <num_repeats> {
+  body_c
+}
+```
+
+Repeatedly executes the control program `body_c` `num_repeat` times in a row. 
+
+
 ## The `go`-`done` Interface
 
 By default, Calyx components implement a one-sided ready-valid interface called
