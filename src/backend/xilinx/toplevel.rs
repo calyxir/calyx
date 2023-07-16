@@ -47,12 +47,12 @@ impl Backend for XilinxInterfaceBackend {
         let mem_info = get_mem_info(toplevel);
 
         let mut modules = vec![top_level(toplevel)];
-        for (i, _mem) in memories.iter().enumerate() {
+        for (i, mem) in mem_info.iter().enumerate() {
             modules.push(bram(
                 &format!("SINGLE_PORT_BRAM_{}", i),
-                mem_info[i].0,
-                mem_info[i].1,
-                mem_info[i].2,
+                mem.width,
+                mem.size,
+                mem.idx_size,
             ))
         }
 
@@ -64,14 +64,14 @@ impl Backend for XilinxInterfaceBackend {
             &memories,
         ));
 
-        for (i, _mem) in memories.iter().enumerate() {
+        for (i, mem) in mem_info.iter().enumerate() {
             modules.push(axi::AxiInterface::memory_module(
                 &format!("Memory_controller_axi_{}", i),
                 512,
                 64,
-                mem_info[i].0,
-                mem_info[i].1,
-                mem_info[i].2,
+                mem.width,
+                mem.size,
+                mem.idx_size,
             ))
         }
 
@@ -114,17 +114,25 @@ fn external_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
         .collect()
 }
 
+/// Parameters for single dimensional memory
+struct MemInfo {
+    width: u64,
+    size: u64,
+    idx_size: u64,
+}
+
 // Returns a vector of tuples containing external memory info of [comp] of form:
 // [(WIDTH, SIZE, IDX_SIZE)]
-fn get_mem_info(comp: &ir::Component) -> Vec<(u64, u64, u64)> {
+fn get_mem_info(comp: &ir::Component) -> Vec<MemInfo> {
     external_memories_cells(comp)
         .iter()
-        .map(|cell_ref| {
-            (
-                cell_ref.borrow().get_parameter("WIDTH").unwrap(),
-                cell_ref.borrow().get_parameter("SIZE").unwrap(),
-                cell_ref.borrow().get_parameter("IDX_SIZE").unwrap(),
-            )
+        .map(|cr| {
+            let cell = cr.borrow();
+            MemInfo {
+                width: cell.get_parameter("WIDTH").unwrap(),
+                size: cell.get_parameter("SIZE").unwrap(),
+                idx_size: cell.get_parameter("IDX_SIZE").unwrap(),
+            }
         })
         .collect()
 }
@@ -221,9 +229,10 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         let addr0 = format!("{}_addr0", mem);
         let write_en = format!("{}_write_en", mem);
         let done = format!("{}_done", mem);
-        module.add_decl(v::Decl::new_wire(&write_data, mem_info[idx].0));
-        module.add_decl(v::Decl::new_wire(&read_data, mem_info[idx].0));
-        module.add_decl(v::Decl::new_wire(&addr0, mem_info[idx].2));
+        let width = mem_info[idx].width;
+        module.add_decl(v::Decl::new_wire(&write_data, width));
+        module.add_decl(v::Decl::new_wire(&read_data, width));
+        module.add_decl(v::Decl::new_wire(&addr0, mem_info[idx].idx_size));
         module.add_decl(v::Decl::new_wire(&write_en, 1));
         module.add_decl(v::Decl::new_wire(&done, 1));
 
@@ -271,13 +280,11 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         let addr0 = format!("{}_addr0", mem);
         let write_data = format!("{}_write_data", mem);
         let write_en = format!("{}_write_en", mem);
-        let clk = format!("{}_clk", mem);
         kernel_instance.connect_ref(&read_data, &read_data);
         kernel_instance.connect_ref(&done, &done);
         kernel_instance.connect_ref(&addr0, &addr0);
         kernel_instance.connect_ref(&write_data, &write_data);
         kernel_instance.connect_ref(&write_en, &write_en);
-        kernel_instance.connect_ref(&clk, "");
     }
     module.add_instance(kernel_instance);
 
