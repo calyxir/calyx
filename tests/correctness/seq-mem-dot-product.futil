@@ -38,19 +38,22 @@ component main() -> () {
 
     // Prime memories for reading
     group prime_in1 {
-      in1.read_en = 1'd1;
+      in1.content_en = 1'd1;
+      in1.write_en = 1'd0;
       in1.addr0 = idx.out;
-      prime_in1[done] = in1.read_done;
+      prime_in1[done] = in1.done;
     }
     group prime_in2 {
-      in2.read_en = 1'd1;
+      in2.content_en = 1'd1;
+      in2.write_en = 1'd0;
       in2.addr0 = idx.out;
-      prime_in2[done] = in2.read_done;
+      prime_in2[done] = in2.done;
     }
 
     // Computation
     group init_tmp {
       tmp.in = 32'd0;
+      tmp.content_en = 1'd1;
       tmp.write_en = 1'd1;
       init_tmp[done] = tmp.done;
     }
@@ -58,6 +61,7 @@ component main() -> () {
       add.left = tmp.out;
       add.right = mult.out;
       tmp.in = add.out;
+      tmp.content_en = 1'd1;
       tmp.write_en = 1'd1;
       do_add[done] = tmp.done;
     }
@@ -65,6 +69,7 @@ component main() -> () {
     // Write to output
     group write {
       out.addr0 = 1'd0;
+      out.content_en = 1'd1;
       out.write_en = 1'd1;
       out.write_data = tmp.out;
       write[done] = out.write_done;

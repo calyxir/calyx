@@ -74,8 +74,9 @@ component main() -> () {
       in1.addr1 = j.out; 
       in1.addr2 = k.out; 
       in1.addr3 = l.out; 
-      in1.read_en = 1'd1; 
-      in1_reg.write_en = in1.read_done; 
+      in1.content_en = 1'd1; 
+      in1.write_en = 1'd0; 
+      in1_reg.write_en = in1.done; 
       in1_reg.in = in1.read_data;
       read_in1[done] = in1_reg.done; 
     }
@@ -84,8 +85,9 @@ component main() -> () {
       in2.addr1 = j.out; 
       in2.addr2 = k.out; 
       in2.addr3 = l.out; 
-      in2.read_en = 1'd1;
-      in2_reg.write_en = in2.read_done; 
+      in2.content_en = 1'd1;
+      in2.write_en = 1'd0;
+      in2_reg.write_en = in2.done; 
       in2_reg.in = in2.read_data;
       read_in2[done] = in2_reg.done; 
     }
@@ -96,6 +98,7 @@ component main() -> () {
       out.addr1 = j.out;
       out.addr2 = k.out;
       out.addr3 = l.out;
+      out.content_en = 1'd1;
       out.write_en = 1'd1; 
       out.write_data = add.out;
       update_val[done] = out.write_done;
