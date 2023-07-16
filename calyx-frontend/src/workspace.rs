@@ -174,7 +174,7 @@ impl Workspace {
     /// Merge the contents of a namespace into this workspace.
     /// `is_source` identifies this namespace as a source file.
     /// The output is a list of files that need to be parsed next and whether they are source files.
-    fn merge_namespace(
+    pub fn merge_namespace(
         &mut self,
         ns: NamespaceDef,
         is_source: bool,
