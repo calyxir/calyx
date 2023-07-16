@@ -89,7 +89,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         if let Ok(order) = algo::toposort(&gr, None) {
             let assigns = order
                 .into_iter()
-                .map(|idx| std::mem::replace(&mut gr[idx], None).unwrap())
+                .map(|idx| gr[idx].take().unwrap())
                 .collect_vec();
             Ok(assigns)
         } else {

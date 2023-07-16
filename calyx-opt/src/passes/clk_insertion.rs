@@ -1,5 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
+use std::rc::Rc;
 
 #[derive(Default)]
 /// Adds assignments from a components `clk` port to every
@@ -24,6 +25,11 @@ impl Visitor for ClkInsertion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let builder = ir::Builder::new(comp, sigs);
+        let clk = builder
+            .component
+            .signature
+            .borrow()
+            .get_with_attr(ir::BoolAttr::Clk);
 
         for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();
@@ -31,11 +37,7 @@ impl Visitor for ClkInsertion {
                 builder.component.continuous_assignments.push(
                     builder.build_assignment(
                         port,
-                        builder
-                            .component
-                            .signature
-                            .borrow()
-                            .get_with_attr(ir::BoolAttr::Clk),
+                        Rc::clone(&clk),
                         ir::Guard::True,
                     ),
                 )
