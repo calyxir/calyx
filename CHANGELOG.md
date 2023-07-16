@@ -1,5 +1,7 @@
 ## Unreleased
 - Fix: `wrap-main` correctly instantiates the original `"toplevel"` component in the generated `main` component.
+- Make `Workspace::construct_with_all_deps` public to allow construction of multi-file workspaces.
+- Don't emit `clk` ports for `@external` cells in the AXI generator.
 
 
 ## 0.3.0
