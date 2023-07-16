@@ -136,7 +136,10 @@ impl Workspace {
         file: &Option<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        Self::construct_with_all_deps::<false>(file, lib_path)
+        Self::construct_with_all_deps::<false>(
+            file.iter().cloned().collect(),
+            lib_path,
+        )
     }
 
     /// Construct the Workspace using the given [NamespaceDef] and ignore all
@@ -145,7 +148,10 @@ impl Workspace {
         file: &Option<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        Self::construct_with_all_deps::<true>(file, lib_path)
+        Self::construct_with_all_deps::<true>(
+            file.iter().cloned().collect(),
+            lib_path,
+        )
     }
 
     fn get_parent(p: &Path) -> PathBuf {
@@ -162,22 +168,23 @@ impl Workspace {
         }
     }
 
-    /// Construct the Workspace by transitively parsing all `import`ed Calyx
-    /// files.
-    /// If SHALLOW is true, then parse imported cmoponents as declarations
-    fn construct_with_all_deps<const SHALLOW: bool>(
-        file: &Option<PathBuf>,
+    /// Construct the Workspace using the given files and all their dependencies.
+    /// If SHALLOW is true, then parse imported components as declarations and not added to the workspace components.
+    /// If in doubt, set SHALLOW to false.
+    pub fn construct_with_all_deps<const SHALLOW: bool>(
+        mut files: Vec<PathBuf>,
         lib_path: &Path,
     ) -> CalyxResult<Self> {
-        // Construct initial namespace.
-        let namespace = NamespaceDef::construct(file)?;
-        let parent_path = file
+        // Construct initial namespace. If `files` is empty, then we're reading from the standard input.
+        let first = files.pop();
+        let namespace = NamespaceDef::construct(&first)?;
+        let parent_path = first
             .as_ref()
             .map(|p| Self::get_parent(p))
             .unwrap_or_else(|| PathBuf::from("."));
 
         // Set of current dependencies
-        let mut dependencies: Vec<PathBuf> = Vec::new();
+        let mut dependencies: Vec<PathBuf> = files;
         // Set of imports that have already been parsed once.
         let mut already_imported: HashSet<PathBuf> = HashSet::new();
 
