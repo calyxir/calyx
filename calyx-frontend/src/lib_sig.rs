@@ -218,12 +218,12 @@ impl LibrarySignatures {
     pub fn prim_inlines(
         &self,
     ) -> impl Iterator<Item = (&Primitive, bool)> + '_ {
-        self.prims.iter().map(|prim| match prim {
-            PrimitiveInfo::Extern { .. } => panic!("Expected inline primitive"),
+        self.prims.iter().flat_map(|prim| match prim {
+            PrimitiveInfo::Extern { .. } => None,
             PrimitiveInfo::Inline {
                 primitive,
                 is_source,
-            } => (primitive, *is_source),
+            } => Some((primitive, *is_source)),
         })
     }
 

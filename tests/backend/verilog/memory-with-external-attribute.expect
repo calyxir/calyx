@@ -462,8 +462,7 @@ module undef #(
 ) (
    output logic [WIDTH-1:0] out
 );
-
-    assign out = 'x;
+assign out = 'x;
 endmodule
 
 module std_const #(
@@ -472,8 +471,7 @@ module std_const #(
 ) (
    output logic [WIDTH-1:0] out
 );
-
-    assign out = VALUE;
+assign out = VALUE;
 endmodule
 
 module std_wire #(
@@ -482,8 +480,7 @@ module std_wire #(
    input logic [WIDTH-1:0] in,
    output logic [WIDTH-1:0] out
 );
-
-    assign out = in;
+assign out = in;
 endmodule
 
 module std_add #(
@@ -493,8 +490,7 @@ module std_add #(
    input logic [WIDTH-1:0] right,
    output logic [WIDTH-1:0] out
 );
-
-  assign out = left + right;
+assign out = left + right;
 endmodule
 
 module std_reg #(
@@ -507,8 +503,7 @@ module std_reg #(
    output logic [WIDTH-1:0] out,
    output logic done
 );
-
-  always_ff @(posedge clk) begin
+always_ff @(posedge clk) begin
     if (reset) begin
        out <= 0;
        done <= 0;

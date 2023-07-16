@@ -208,12 +208,12 @@ fn emit_prim_inline<F: io::Write>(
     }
     writeln!(f, ");")?;
 
-    write!(
+    writeln!(
         f,
         "{}",
         prim.body.as_ref().unwrap_or_else(|| panic!(
             "expected primitive {} to have a body",
-            { prim.name }
+            prim.name
         ))
     )?;
 
