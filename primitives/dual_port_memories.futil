@@ -1,0 +1,72 @@
+extern "dual_port_memories.sv" {
+  primitive dual_port_mem_d1[WIDTH, SIZE, IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    // Write ports
+    @write_together(1) @static(1) @go(1) write_en: 1,
+    @write_together(1) @data write_data: WIDTH,
+    @write_together(1) @data addr0_w: IDX_SIZE,
+    // Read ports
+    @write_together(2) @static(1) @go(2) read_en: 1,
+    @write_together(2) @data addr0_r: IDX_SIZE
+  ) -> (
+    @stable read_data: WIDTH
+    
+  );
+
+  primitive dual_port_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    
+    // Write ports
+    @write_together(1) @static(1) @go(1) write_en: 1,
+    @write_together(1) @data write_data: WIDTH,
+    @write_together(1) @data addr0_w: D0_IDX_SIZE,
+    @write_together(1) @data addr1_w: D1_IDX_SIZE,
+    // Read ports
+    @write_together(2) @static(1) @go(2) read_en: 1,
+    @write_together(2) @data addr0_r: D0_IDX_SIZE,
+    @write_together(2) @data addr1_r: D1_IDX_SIZE
+  ) -> (
+    @stable read_data: WIDTH
+  );
+
+  primitive dual_port_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    // Write ports
+    @write_together(1) @static(1) @go(1) write_en: 1,
+    @write_together(1) @data write_data: WIDTH,
+    @write_together(1) @data addr0_w: D0_IDX_SIZE,
+    @write_together(1) @data addr1_w: D1_IDX_SIZE,
+    @write_together(1) @data addr2_w: D2_IDX_SIZE,
+    // Read ports
+    @write_together(2) @static(1) @go(2) read_en: 1,
+    @write_together(2) @data addr0_r: D0_IDX_SIZE,
+    @write_together(2) @data addr1_r: D1_IDX_SIZE,
+    @write_together(2) @data addr2_r: D2_IDX_SIZE
+  ) -> (
+    @stable read_data: WIDTH
+  );
+
+  primitive seq_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    // Write ports
+    @write_together(1) @static(1) @go(1) write_en: 1,
+    @write_together(1) @data write_data: WIDTH,
+    @write_together(1) @data addr0_w: D0_IDX_SIZE,
+    @write_together(1) @data addr1_w: D1_IDX_SIZE,
+    @write_together(1) @data addr2_w: D2_IDX_SIZE,
+    @write_together(1) @data addr3_w: D3_IDX_SIZE,
+    // Read ports
+    @write_together(2) @static(1) @go(2) read_en: 1,
+    @write_together(2) @data addr0_r: D0_IDX_SIZE,
+    @write_together(2) @data addr1_r: D1_IDX_SIZE,
+    @write_together(2) @data addr2_r: D2_IDX_SIZE,
+    @write_together(2) @data addr3_r: D3_IDX_SIZE
+    
+  ) -> (
+    @stable read_data: WIDTH
+  );
+}
