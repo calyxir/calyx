@@ -2,9 +2,8 @@ use super::{
     ast::{ComponentDef, NamespaceDef},
     parser,
 };
-use crate::Primitive;
+use crate::LibrarySignatures;
 use calyx_utils::{CalyxResult, Error};
-use linked_hash_map::LinkedHashMap;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -46,7 +45,7 @@ pub struct Workspace {
     /// compilation mode.
     pub declarations: Vec<ComponentDef>,
     /// Absolute path to extern definitions and primitives defined by them.
-    pub externs: LinkedHashMap<Option<PathBuf>, Vec<Primitive>>,
+    pub lib: LibrarySignatures,
     /// Original import statements present in the top-level file.
     pub original_imports: Vec<String>,
     /// Optional opaque metadata attached to the top-level file
@@ -122,9 +121,13 @@ impl Workspace {
             "core library should only contain inline externs"
         );
         let (_, externs) = ns.externs.pop().unwrap();
+        let mut lib = LibrarySignatures::default();
+        for ext in externs {
+            lib.add_inline_primitive(ext);
+        }
         let ws = Workspace {
             components: ns.components,
-            externs: LinkedHashMap::from_iter(Some((None, externs))),
+            lib,
             ..Default::default()
         };
         Ok(ws)
@@ -168,6 +171,59 @@ impl Workspace {
         }
     }
 
+    /// Merge the contents of a namespace into this workspace.
+    /// `is_source` identifies this namespace as a source file.
+    /// The output is a list of files that need to be parsed next and whether they are source files.
+    fn merge_namespace(
+        &mut self,
+        ns: NamespaceDef,
+        is_source: bool,
+        parent: &Path,
+        shallow: bool,
+        lib_path: &Path,
+    ) -> CalyxResult<Vec<(PathBuf, bool)>> {
+        // Canonicalize the extern paths and add them
+        for (path, exts) in ns.externs {
+            match path {
+                Some(p) => {
+                    let abs_path = Self::canonicalize_extern(p, parent)?;
+                    let p = self.lib.add_extern(abs_path, exts);
+                    if is_source {
+                        p.set_source();
+                    }
+                }
+                None => {
+                    for ext in exts {
+                        let p = self.lib.add_inline_primitive(ext);
+                        if is_source {
+                            p.set_source();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add components defined by this namespace to either components or
+        // declarations
+        if !is_source && shallow {
+            self.declarations.extend(&mut ns.components.into_iter());
+        } else {
+            self.components.extend(&mut ns.components.into_iter());
+        }
+
+        // Return the canonical location of import paths
+        let deps = ns
+            .imports
+            .into_iter()
+            .map(|p| {
+                Self::canonicalize_import(p, parent, lib_path)
+                    .map(|s| (s, false))
+            })
+            .collect::<CalyxResult<_>>()?;
+
+        Ok(deps)
+    }
+
     /// Construct the Workspace using the given files and all their dependencies.
     /// If SHALLOW is true, then parse imported components as declarations and not added to the workspace components.
     /// If in doubt, set SHALLOW to false.
@@ -177,18 +233,19 @@ impl Workspace {
     ) -> CalyxResult<Self> {
         // Construct initial namespace. If `files` is empty, then we're reading from the standard input.
         let first = files.pop();
-        let namespace = NamespaceDef::construct(&first)?;
+        let ns = NamespaceDef::construct(&first)?;
         let parent_path = first
             .as_ref()
             .map(|p| Self::get_parent(p))
             .unwrap_or_else(|| PathBuf::from("."));
 
-        // Set of current dependencies
-        let mut dependencies: Vec<PathBuf> = files;
+        // Set of current dependencies and whether they are considered source files.
+        let mut dependencies: Vec<(PathBuf, bool)> =
+            files.into_iter().map(|p| (p, true)).collect();
         // Set of imports that have already been parsed once.
         let mut already_imported: HashSet<PathBuf> = HashSet::new();
 
-        let mut workspace = Workspace::default();
+        let mut ws = Workspace::default();
         let abs_lib_path = lib_path.canonicalize().map_err(|err| {
             Error::invalid_file(format!(
                 "Failed to canonicalize library path `{}`: {}",
@@ -198,58 +255,11 @@ impl Workspace {
         })?;
 
         // Add original imports to workspace
-        workspace.original_imports = namespace.imports.clone();
+        ws.original_imports = ns.imports.clone();
 
         // TODO (griffin): Probably not a great idea to clone the metadata
         // string but it works for now
-        workspace.metadata = namespace.metadata.clone();
-
-        // Function to merge contents of a namespace into the workspace and
-        // return the dependencies that need to be parsed next.
-        let mut merge_into_ws = |ns: NamespaceDef,
-                                 parent: &Path,
-                                 shallow: bool|
-         -> CalyxResult<Vec<PathBuf>> {
-            // Canonicalize the extern paths and add them
-            for (path, mut exts) in ns.externs {
-                match path {
-                    Some(p) => {
-                        let abs_path = Self::canonicalize_extern(p, parent)?;
-                        workspace
-                            .externs
-                            .entry(Some(abs_path))
-                            .or_default()
-                            .append(&mut exts);
-                    }
-                    None => {
-                        workspace
-                            .externs
-                            .entry(None)
-                            .or_default()
-                            .append(&mut exts);
-                    }
-                }
-            }
-
-            // Add components defined by this namespace to either components or
-            // declarations
-            if shallow {
-                workspace
-                    .declarations
-                    .extend(&mut ns.components.into_iter());
-            } else {
-                workspace.components.extend(&mut ns.components.into_iter());
-            }
-
-            // Return the canonical location of import paths
-            let deps = ns
-                .imports
-                .into_iter()
-                .map(|p| Self::canonicalize_import(p, parent, &abs_lib_path))
-                .collect::<CalyxResult<_>>()?;
-
-            Ok(deps)
-        };
+        ws.metadata = ns.metadata.clone();
 
         // Merge the initial namespace
         let parent_canonical = parent_path.canonicalize().map_err(|err| {
@@ -259,21 +269,33 @@ impl Workspace {
                 err
             ))
         })?;
-        let mut deps = merge_into_ws(namespace, &parent_canonical, false)?;
+        let mut deps = ws.merge_namespace(
+            ns,
+            true,
+            &parent_canonical,
+            false,
+            &abs_lib_path,
+        )?;
         dependencies.append(&mut deps);
 
-        while let Some(p) = dependencies.pop() {
+        while let Some((p, source)) = dependencies.pop() {
             if already_imported.contains(&p) {
                 continue;
             }
             let ns = parser::CalyxParser::parse_file(&p)?;
             let parent = Self::get_parent(&p);
 
-            let mut deps = merge_into_ws(ns, &parent, SHALLOW)?;
+            let mut deps = ws.merge_namespace(
+                ns,
+                source,
+                &parent,
+                SHALLOW,
+                &abs_lib_path,
+            )?;
             dependencies.append(&mut deps);
 
             already_imported.insert(p);
         }
-        Ok(workspace)
+        Ok(ws)
     }
 }

@@ -124,7 +124,7 @@ impl Backend for VerilogBackend {
             // Add a newline after appending a library file
             writeln!(fw)?;
         }
-        for prim in ctx.lib.prim_inlines() {
+        for (prim, _) in ctx.lib.prim_inlines() {
             emit_prim_inline(prim, fw)?;
         }
         Ok(())

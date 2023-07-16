@@ -26,7 +26,7 @@ pub use builder::Builder;
 pub use calyx_utils::{GetName, Id};
 pub use common::{RRC, WRC};
 pub use component::{Component, IdList};
-pub use context::{BackendConf, Context, LibrarySignatures};
+pub use context::{BackendConf, Context};
 pub use control::{
     Cloner, Control, Empty, Enable, GenericControl, If, Invoke, Par, Seq,
     StaticControl, StaticEnable, StaticIf, StaticInvoke, StaticPar,
@@ -45,7 +45,8 @@ pub use structure::{
 // Re-export types from the frontend.
 pub use calyx_frontend::{
     Attribute, Attributes, BoolAttr, Direction, GetAttributes, InternalAttr,
-    NumAttr, PortDef, Primitive, Width, DEPRECATED_ATTRIBUTES,
+    LibrarySignatures, NumAttr, PortDef, Primitive, PrimitiveInfo, Width,
+    DEPRECATED_ATTRIBUTES,
 };
 
 /// Module to transform AST programs into IR.

@@ -7,6 +7,7 @@ use super::{
 use crate::{Nothing, PortComp, StaticTiming};
 use calyx_frontend::{ast, ast::Atom, BoolAttr, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, WithPos};
+use itertools::Itertools;
 use std::cell::RefCell;
 
 use std::collections::{HashMap, HashSet};
@@ -127,14 +128,11 @@ fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
 
 /// Construct an IR representation using a parsed AST and command line options.
 pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
-    let mut all_names: HashSet<&Id> = HashSet::with_capacity(
-        workspace.components.len() + workspace.externs.len(),
-    );
+    let prims = workspace.lib.signatures().collect_vec();
+    let mut all_names: HashSet<&Id> =
+        HashSet::with_capacity(workspace.components.len() + prims.len());
 
-    let prim_names = workspace
-        .externs
-        .iter()
-        .flat_map(|(_, prims)| prims.iter().map(|prim| &prim.name));
+    let prim_names = prims.iter().map(|p| &p.name);
 
     let comp_names = workspace.components.iter().map(|comp| &comp.name);
 
@@ -150,7 +148,7 @@ pub fn ast_to_ir(mut workspace: Workspace) -> CalyxResult<Context> {
 
     // Build the signature context
     let mut sig_ctx = SigCtx {
-        lib: workspace.externs.into(),
+        lib: workspace.lib,
         ..Default::default()
     };
 

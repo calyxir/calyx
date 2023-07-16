@@ -1,6 +1,5 @@
-use crate::Attribute;
-
 use super::Attributes;
+use crate::Attribute;
 use calyx_utils::{CalyxResult, Error, GetName, Id};
 use linked_hash_map::LinkedHashMap;
 use smallvec::SmallVec;

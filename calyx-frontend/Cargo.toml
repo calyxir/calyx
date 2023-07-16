@@ -22,6 +22,7 @@ smallvec.workspace = true
 pest.workspace = true
 pest_derive.workspace = true
 pest_consume.workspace = true
+itertools.workspace = true
 
 calyx-utils.workspace = true
 
