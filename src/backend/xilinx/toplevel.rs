@@ -93,14 +93,22 @@ impl Backend for XilinxInterfaceBackend {
     }
 }
 
-fn external_memories_cells(
-    comp: &ir::Component,
-) -> Vec<calyx_ir::RRC<ir::Cell>> {
+fn external_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
     comp.cells
         .iter()
         // find external memories
         .filter(|cell_ref| {
-            cell_ref.borrow().attributes.has(ir::BoolAttr::External)
+            let cell = cell_ref.borrow();
+            // NOTE(rachit): We only support one dimensional std_mem_d1 memories
+            if cell.attributes.has(ir::BoolAttr::External) {
+                if cell.is_primitive(Some("std_mem_d1")) {
+                    panic!("cell `{}' marked with `@external' but is not a std_mem_d1. The AXI generator currently only supports `std_mem_d1'", cell.name())
+                } else {
+                   true
+                }
+            } else {
+                false
+            }
         })
         .cloned()
         .collect()
