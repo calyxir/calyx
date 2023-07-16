@@ -101,7 +101,7 @@ fn external_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
             let cell = cell_ref.borrow();
             // NOTE(rachit): We only support one dimensional std_mem_d1 memories
             if cell.attributes.has(ir::BoolAttr::External) {
-                if cell.is_primitive(Some("std_mem_d1")) {
+                if !cell.is_primitive(Some("std_mem_d1")) {
                     panic!("cell `{}' marked with `@external' but is not a std_mem_d1. The AXI generator currently only supports `std_mem_d1'", cell.name())
                 } else {
                    true
