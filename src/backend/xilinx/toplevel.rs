@@ -272,13 +272,11 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         let addr0 = format!("{}_addr0", mem);
         let write_data = format!("{}_write_data", mem);
         let write_en = format!("{}_write_en", mem);
-        let clk = format!("{}_clk", mem);
         kernel_instance.connect_ref(&read_data, &read_data);
         kernel_instance.connect_ref(&done, &done);
         kernel_instance.connect_ref(&addr0, &addr0);
         kernel_instance.connect_ref(&write_data, &write_data);
         kernel_instance.connect_ref(&write_en, &write_en);
-        kernel_instance.connect_ref(&clk, "");
     }
     module.add_instance(kernel_instance);
 
