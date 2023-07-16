@@ -180,7 +180,7 @@ impl DataflowOrder {
         if let Ok(order) = algo::toposort(&gr, None) {
             let mut assigns = order
                 .into_iter()
-                .map(|idx| std::mem::replace(&mut gr[idx], None).unwrap())
+                .map(|idx| gr[idx].take().unwrap())
                 .collect_vec();
             assigns.append(&mut hole_writes);
             Ok(assigns)
