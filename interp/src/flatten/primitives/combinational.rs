@@ -1,8 +1,11 @@
+use std::ops::Not;
+
 use crate::{
     flatten::{
         flat_ir::prelude::GlobalPortId,
         primitives::{
-            declare_ports, output, ports, prim_trait::Results, Primitive,
+            comb_primitive, declare_ports, output, ports, prim_trait::Results,
+            Primitive,
         },
         structures::environment::PortMap,
     },
@@ -56,7 +59,7 @@ impl Primitive for StdMux {
         Ok(output![out: port_map[out_idx].clone()])
     }
 
-    fn reset(&mut self) -> Results {
+    fn reset(&mut self, _: &PortMap) -> Results {
         ports![&self.base; out: Self::OUT];
         Ok(output![out: Value::zeroes(self.width)])
     }
@@ -65,3 +68,7 @@ impl Primitive for StdMux {
         false
     }
 }
+
+comb_primitive!(StdNot[WIDTH](input: WIDTH [0]) -> (out: WIDTH [1]) {
+    Ok(output![out: input.clone_bit_vec().not().into()])
+});

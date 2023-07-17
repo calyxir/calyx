@@ -50,7 +50,7 @@ impl Primitive for StdReg {
         Ok(out)
     }
 
-    fn reset(&mut self) -> Results {
+    fn reset(&mut self, _: &PortMap) -> Results {
         ports![&self.base_port; done: Self::DONE];
         Ok(output![done: Value::bit_low()])
     }

@@ -41,7 +41,7 @@ pub trait Primitive {
         Ok(vec![])
     }
 
-    fn reset(&mut self) -> Results {
+    fn reset(&mut self, _port_map: &PortMap) -> Results {
         Ok(vec![])
     }
 

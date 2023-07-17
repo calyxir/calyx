@@ -6,6 +6,7 @@ macro_rules! ports {
 
 macro_rules! declare_ports {
     ($( $port:ident : $offset:expr ),+  $(,)? ) => {
+        #[allow(non_upper_case_globals)]
         $(const $port: usize = $offset;)+
     }
 }
@@ -19,3 +20,65 @@ macro_rules! output {
 pub(crate) use declare_ports;
 pub(crate) use output;
 pub(crate) use ports;
+
+macro_rules! comb_primitive {
+    ($name:ident[$($param:ident),+]
+        ($($port:ident : $width:ident [$port_idx:expr]),+)
+        ->
+        ($($out_port:ident : $out_width:ident [$out_port_idx:expr]),+)
+        $execute:block) => {
+        #[derive(Clone, Debug)]
+        #[allow(non_snake_case)]
+        pub struct $name {
+            base_port: $crate::flatten::flat_ir::prelude::GlobalPortId,
+        }
+
+        impl $name {
+
+            $crate::flatten::primitives::macros::declare_ports![$($port: $port_idx),+];
+            $crate::flatten::primitives::macros::declare_ports![$($out_port: $out_port_idx),+];
+
+            pub fn new(
+                base_port: $crate::flatten::flat_ir::prelude::GlobalPortId
+            ) -> Self {
+                Self { base_port }
+            }
+        }
+
+        impl $crate::flatten::primitives::Primitive for $name {
+            fn exec_comb(
+                &self,
+                port_map: &$crate::flatten::structures::environment::PortMap,
+            ) -> $crate::flatten::primitives::prim_trait::Results {
+
+                $crate::flatten::primitives::macros::ports![&self.base_port;
+                    $($port: Self::$port,),+
+                    $($out_port: Self::$out_port),+
+                ];
+
+                let exec_func = |$($port: &$crate::values::Value),+, $($out_port:$crate::flatten::flat_ir::prelude::GlobalPortId,)+ | -> $crate::flatten::primitives::prim_trait::Results {
+                    $execute
+                };
+
+
+                let out = exec_func(
+                    $(&port_map[$port],)+
+                    $($out_port,)+
+                );
+
+                out
+            }
+
+            fn has_stateful(&self) -> bool {
+                false
+            }
+
+            fn reset(&mut self, map:&$crate::flatten::structures::environment::PortMap) -> $crate::flatten::primitives::prim_trait::Results {
+                self.exec_comb(map)
+            }
+        }
+    };
+
+}
+
+pub(crate) use comb_primitive;
