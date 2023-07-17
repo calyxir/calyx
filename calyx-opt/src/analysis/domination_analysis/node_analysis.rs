@@ -121,6 +121,7 @@ impl NodeReads {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
+                | ir::Control::Repeat(_)
                 | ir::Control::Static(_) => {
                     unreachable!(
                         "no empty/seqs/pars/static should be in domination map"
@@ -290,9 +291,10 @@ impl NodeSearch {
                 ir::Control::Empty(_)
                 | ir::Control::Seq(_)
                 | ir::Control::Par(_)
+                | ir::Control::Repeat(_)
                 | ir::Control::Static(_) => {
                     unreachable!(
-                        "no empty/seqs/pars/static should be in domination map"
+                        "no empty/seqs/pars/repeat/static should be in domination map"
                     )
                 }
                 ir::Control::Enable(ir::Enable { group, .. }) => {

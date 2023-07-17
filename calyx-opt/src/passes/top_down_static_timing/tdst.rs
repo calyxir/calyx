@@ -369,6 +369,9 @@ impl Schedule<'_, '_> {
             ir::Control::Invoke(_) => unreachable!(
                 "`invoke` statements should have been compiled away. Run `{}` before this pass.",
                 passes::CompileInvoke::name()),
+            ir::Control::Repeat(_) => unreachable!(
+                    "`repeat` statements should have been compiled away. Run `{}` before this pass.",
+                    passes::CompileRepeat::name()),
             ir::Control::Empty(_) => unreachable!(
                 "`empty` statements should have been compiled away. Run `{}` before this pass.",
                 passes::CompileEmpty::name()),
@@ -823,6 +826,7 @@ impl TopDownStaticTiming {
                 ir::Control::Enable(_)
                 | ir::Control::Invoke(_)
                 | ir::Control::Static(_)
+                | ir::Control::Repeat(_)
                 | ir::Control::Empty(_) => {}
             }
         }

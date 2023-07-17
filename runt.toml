@@ -233,6 +233,21 @@ fud exec --from calyx --to jq \
 """
 
 [[tests]]
+name = "dynamic repeat correctness test"
+paths = [
+  "tests/correctness/repeat/*.futil",
+]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through verilog \
+         -s verilog.data {}.data \
+         -s calyx.flags "-d static-promotion" \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+
+[[tests]]
 name = "[frontend] tcam testing"
 paths = [
   "tests/correctness/tcam/*.futil"

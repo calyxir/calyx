@@ -645,6 +645,18 @@ impl Printer {
                 }
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
+            ir::Control::Repeat(ir::Repeat {
+                num_repeats,
+                attributes,
+                body,
+                ..
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                write!(f, "repeat {} ", num_repeats)?;
+                writeln!(f, "{{")?;
+                Self::write_control(body, indent_level + 2, f)?;
+                writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
             ir::Control::Par(ir::Par { stmts, attributes }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 writeln!(f, "par {{")?;

@@ -64,8 +64,9 @@ fn count_barriers(
             }
             Ok(())
         }
-        ir::Control::While(w) => {
-            count_barriers(&w.body, count)?;
+        ir::Control::While(ir::While { body, .. })
+        | ir::Control::Repeat(ir::Repeat { body, .. }) => {
+            count_barriers(body, count)?;
             Ok(())
         }
         ir::Control::If(i) => {

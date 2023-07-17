@@ -335,6 +335,28 @@ pub trait Visitor {
         Ok(Action::Continue)
     }
 
+    /// Executed before visiting the children of a [ir::Repeat] node.
+    fn start_repeat(
+        &mut self,
+        _s: &mut ir::Repeat,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
+    /// Executed after visiting the children of a [ir::Repeat] node.
+    fn finish_repeat(
+        &mut self,
+        _s: &mut ir::Repeat,
+        _comp: &mut Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        Ok(Action::Continue)
+    }
+
     /// Executed before visiting the contents of an [ir::StaticControl] node.
     fn start_static_control(
         &mut self,
@@ -556,6 +578,13 @@ impl Visitable for Control {
                 .pop()
                 .and_then(|| {
                     visitor.finish_while(ctrl, component, sigs, comps)
+                })?,
+            Control::Repeat(ctrl) => visitor
+                .start_repeat(ctrl, component, sigs, comps)?
+                .and_then(|| ctrl.body.visit(visitor, component, sigs, comps))?
+                .pop()
+                .and_then(|| {
+                    visitor.finish_repeat(ctrl, component, sigs, comps)
                 })?,
             Control::Enable(ctrl) => {
                 visitor.enable(ctrl, component, sigs, comps)?

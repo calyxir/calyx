@@ -261,6 +261,9 @@ impl ReadWriteSet {
                 }
                 (reads, writes)
             }
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
+                Self::control_port_read_write_set(body)
+            }
             ir::Control::Static(sc) => {
                 Self::control_port_read_write_set_static(sc)
             }

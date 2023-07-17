@@ -1,0 +1,40 @@
+// -p infer-share -x infer-share:print-dmap
+// should ignore `repeat 0` stmts in domination map 
+import "primitives/core.futil";
+component example() -> () {
+  cells {
+    lt = std_lt(4); 
+  }
+  wires {
+    group A{
+    }
+    group B{
+    }
+    group C {
+    }
+  }
+  control {
+    repeat 0 {
+      A; 
+    }
+    repeat 2 {
+      B; 
+    }
+    C; 
+  }
+}
+
+
+component main() -> () {
+  cells {
+    e = example();
+  }
+
+  wires {
+  }
+
+  control {
+    invoke e() (); 
+  }
+  
+}

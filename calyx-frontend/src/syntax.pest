@@ -339,7 +339,7 @@ while_stmt = {
 }
 
 repeat_stmt = {
-      at_attributes ~ static_word ~ "repeat" ~ bitwidth ~ block
+      at_attributes ~ static_word? ~ "repeat" ~ bitwidth ~ block
 }
 
 stmt = {

@@ -203,8 +203,16 @@ fn get_final_static(sc: &ir::StaticControl) -> HashSet<u64> {
         ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
             hs.insert(ControlId::get_guaranteed_attribute_static(sc, NODE_ID));
         }
-        ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
-            return get_final_static(body);
+        ir::StaticControl::Repeat(ir::StaticRepeat {
+            body,
+            num_repeats,
+            ..
+        }) => {
+            // `Repeat 0` statements are essentially just Control::empty() stmts
+            // and therefore do not have "final" nodes
+            if *num_repeats != 0 {
+                return get_final_static(body);
+            }
         }
         ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
             return get_final_static(stmts[..].last().unwrap_or_else(|| {
@@ -235,6 +243,15 @@ fn get_final(c: &ir::Control) -> HashSet<u64> {
         | ir::Control::Enable(_)
         | ir::Control::While(_) => {
             hs.insert(ControlId::get_guaranteed_attribute(c, NODE_ID));
+        }
+        ir::Control::Repeat(ir::Repeat {
+            body, num_repeats, ..
+        }) => {
+            // `Repeat 0` statements are essentially just Control::empty() stmts
+            // and therefore do not have "final" nodes
+            if *num_repeats != 0 {
+                return get_final(body);
+            }
         }
         ir::Control::If(_) => {
             hs.insert(ControlId::get_guaranteed_attribute(c, END_ID));
@@ -325,6 +342,11 @@ impl DominatorMap {
                 self.exits_map.insert(id, HashSet::from([id]));
                 self.build_exit_map(body);
             }
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
+                let id = ControlId::get_guaranteed_attribute(c, NODE_ID);
+                self.exits_map.insert(id, get_final(body));
+                self.build_exit_map(body);
+            }
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
             }) => {
@@ -402,10 +424,14 @@ impl DominatorMap {
                     self.update_node(pred, cur_id);
                 }
                 ir::StaticControl::Repeat(ir::StaticRepeat {
-                    body, ..
+                    body,
+                    num_repeats,
+                    ..
                 }) => {
-                    let body_id = get_id_static::<true>(body);
-                    self.update_map_static(main_sc, body_id, pred);
+                    if *num_repeats != 0 {
+                        let body_id = get_id_static::<true>(body);
+                        self.update_map_static(main_sc, body_id, pred);
+                    }
                 }
                 ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => {
                     let mut p = pred;
@@ -417,11 +443,14 @@ impl DominatorMap {
                         nxt = self
                             .exits_map
                             .get(&id)
-                            .unwrap_or_else(|| {
-                                unreachable!(
-                                    "{}", "exit node map does not have value for {prev_id}",
-                                )
-                            }).clone();
+                            .unwrap_or(
+                                // If the exits map is empty, then it means the
+                                // current stmt is `Repeat 0`/Empty.
+                                // So the predecessors for the nxt stmt are the
+                                // same as the predecessors for the current stmt.
+                                pred,
+                            )
+                            .clone();
                         p = &nxt;
                     }
                 }
@@ -489,11 +518,12 @@ impl DominatorMap {
                             nxt = self
                                 .exits_map
                                 .get(&id)
-                                .unwrap_or_else(|| {
-                                    unreachable!(
-                                        "{}", "exit node map does not have value for {prev_id}",
-                                    )
-                                }).clone();
+                                .unwrap_or(pred
+                                    // If the exits map is empty, then it means the
+                                    // current stmt is `Repeat 0`/Empty.
+                                    // So the predecessors for the nxt stmt are the
+                                    // same as the predecessors for the current stmt
+                                ).clone();
                             p = &nxt;
                         }
                     }
@@ -501,6 +531,12 @@ impl DominatorMap {
                         for stmt in stmts {
                             let id = get_id::<true>(stmt);
                             self.update_map(main_c, id, pred);
+                        }
+                    }
+                    ir::Control::Repeat(ir::Repeat { body, num_repeats, .. }) => {
+                        if *num_repeats != 0 {
+                            let body_id = get_id::<true>(body);
+                            self.update_map(main_c, body_id, pred);
                         }
                     }
                     // Keep in mind that NODE_IDs attached to while loops/if statements
@@ -637,6 +673,9 @@ impl DominatorMap {
                     }
                 }
                 None
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
+                Self::get_control(id, body)
             }
             ir::Control::If(ir::If {
                 tbranch, fbranch, ..
