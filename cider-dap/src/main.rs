@@ -11,11 +11,6 @@ use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
 use std::path::PathBuf;
 
-/** write func called run_server which takes server type with generic parameters
- * will handle for both single and multi
- *
- * main will instantiate the server with the approporiate read/rite arguments and pass it to run_server
-*/
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
 struct Opts {
@@ -29,40 +24,24 @@ struct Opts {
     /// port for the TCP server
     port: u16,
 }
-
 fn read_path(path: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(path))
-}
-impl From<std::io::Error> for MyAdapterError {
-    fn from(err: std::io::Error) -> Self {
-        MyAdapterError::TcpListenerError(err)
-    }
 }
 
 fn main() -> Result<(), MyAdapterError> {
     let opts: Opts = argh::from_env();
-    println!("{:?}", opts.file);
     let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
-    let file = File::open(path).map_err(|_| MyAdapterError::IO)?;
+    let file = File::open(path)?;
     let adapter = MyAdapter::new(file);
 
     if opts.is_multi_session {
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", opts.port))
-            .map_err(MyAdapterError::TcpListenerError)?;
-        match listener.accept() {
-            Ok((stream, addr)) => {
-                println!("Accepted client on: {}", addr);
-                let read_stream = BufReader::new(
-                    stream
-                        .try_clone()
-                        .map_err(MyAdapterError::TcpListenerError)?,
-                );
-                let write_stream = BufWriter::new(stream);
-                let server = Server::new(read_stream, write_stream);
-                run_server(server, adapter)?;
-            }
-            Err(e) => return Err(MyAdapterError::TcpListenerError(e)),
-        }
+        let listener = TcpListener::bind(("127.0.0.1", opts.port))?;
+        let (stream, addr) = listener.accept()?;
+        println!("Accepted client on: {}", addr);
+        let read_stream = BufReader::new(stream.try_clone()?);
+        let write_stream = BufWriter::new(stream);
+        let server = Server::new(read_stream, write_stream);
+        run_server(server, adapter)?;
     } else {
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
