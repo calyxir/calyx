@@ -1,0 +1,18 @@
+{
+  "ans_in": {
+    "data": [ 0 ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "err_in": {
+    "data": [ 0 ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  }
+}

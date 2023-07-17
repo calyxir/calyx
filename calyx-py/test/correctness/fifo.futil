@@ -1,0 +1,235 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component fifo(pop: 1, push: 1, payload: 32) -> () {
+  cells {
+    mem = std_mem_d1(32, 10, 32); // The memory we will use internally
+    next_write = std_reg(32); // The next address to write to
+    next_read = std_reg(32); // The next address to read from
+    // We will orchestrate `mem`, along with the two pointers above, to
+    // simulate a circular queue of size 10
+    full = std_reg(1); // This will be 1 if the queue is full, 0 otherwise
+    empty = std_reg(1); // This will be 1 if the queue is empty, 0 otherwise
+
+    ref ans = std_mem_d1(32, 1, 32);
+    // If the user wants to pop, we will write the popped value to `ans`
+    ref err = std_mem_d1(1, 1, 1);
+    // We'll raise this in case of overflow, underflow, or if the user calls pop and push at the same time
+
+    eq0 = std_eq(1); // We'll use this to check if pop == push
+    eq1 = std_eq(1); // We'll use this to check if pop == 1
+    eq2 = std_eq(1); // We'll use this to check if push == 1
+    eq3 = std_eq(32); // We'll use this to check if next_read == next_write
+    eq4a = std_eq(1); // We'll use this to check if the queue is full
+    eq4b = std_eq(1); // We'll use this to check if the queue is empty
+    eq5 = std_eq(32); // As part of the wrap-around,
+                      // we'll need to check if next_write/next_read == 10
+
+    add1 = std_add(32); // We'll use this to increment next_write
+    add2 = std_add(32); // We'll use this to increment next_read
+    // The two incrs above may need to wrap around to 0.
+  }
+  wires {
+    comb group pop_eq_push {
+      eq0.left = pop;
+      eq0.right = push;
+    }
+    comb group pop_eq_1 {
+      eq1.left = pop;
+      eq1.right = 1'd1;
+    }
+    comb group push_eq_1 {
+      eq2.left = push;
+      eq2.right = 1'd1;
+    }
+    comb group next_read_eq_next_write {
+      eq3.left = next_read.out;
+      eq3.right = next_write.out;
+    }
+    group next_write_incr {
+      // Increment next_write by 1, not accounting for wrap-around for now
+      add1.left = next_write.out;
+      add1.right = 32'd1;
+      next_write.write_en = 1'd1;
+      next_write.in = add1.out;
+      next_write_incr[done] = next_write.done;
+    }
+    group next_read_incr {
+      // Increment next_read by 1, not accounting for wrap-around for now
+      add2.left = next_read.out;
+      add2.right = 32'd1;
+      next_read.write_en = 1'd1;
+      next_read.in = add2.out;
+      next_read_incr[done] = next_read.done;
+    }
+    comb group next_write_eq_10 {
+      eq5.left = next_write.out;
+      eq5.right = 32'd10;
+    }
+    comb group next_read_eq_10 {
+      eq5.left = next_read.out;
+      eq5.right = 32'd10;
+    }
+    group next_write_wraparound {
+      next_write.in = 32'd0;
+      next_write.write_en = 1'd1;
+      next_write_wraparound[done] = next_write.done;
+    }
+    group next_read_wraparound {
+      next_read.in = 32'd0;
+      next_read.write_en = 1'd1;
+      next_read_wraparound[done] = next_read.done;
+    }
+    group write_payload_to_mem {
+      mem.addr0 = next_write.out;
+      mem.write_en = 1'd1;
+      mem.write_data = payload;
+      write_payload_to_mem[done] = mem.done;
+    }
+    group read_payload_from_mem {
+      mem.addr0 = next_read.out;
+      ans.write_en = 1'd1;
+      ans.write_data = mem.read_data;
+      read_payload_from_mem[done] = ans.done;
+    }
+    group raise_full_flag {
+      full.in = 1'd1;
+      full.write_en = 1'd1;
+      raise_full_flag[done] = full.done;
+    }
+    group lower_full_flag {
+      full.in = 1'd0;
+      full.write_en = 1'd1;
+      lower_full_flag[done] = full.done;
+    }
+    group raise_empty_flag {
+      empty.in = 1'd1;
+      empty.write_en = 1'd1;
+      raise_empty_flag[done] = empty.done;
+    }
+    group lower_empty_flag {
+      empty.in = 1'd0;
+      empty.write_en = 1'd1;
+      lower_empty_flag[done] = empty.done;
+    }
+    comb group is_full {
+      eq4a.left = full.out;
+      eq4a.right = 1'd1;
+    }
+    comb group is_empty {
+      eq4b.left = empty.out;
+      eq4b.right = 1'd1;
+    }
+    group raise_err_flag {
+      err.addr0 = 1'd0;
+      err.write_en = 1'd1;
+      err.write_data = 1'd1;
+      raise_err_flag[done] = err.done;
+    }
+  }
+  control {
+      if eq0.out with pop_eq_push {
+        // The user either called pop and push at the same time, or issued no command.
+        raise_err_flag;
+      } else {
+        par {
+          if eq1.out with pop_eq_1 {
+          // The user called pop
+            if eq4b.out with is_empty {
+              // If the queue is empty, we can't pop.
+              raise_err_flag; // Underflow
+            } else {
+              // If not, we proceed to pop
+              // We will read from `mem` and move `next_read` forward by 1,
+              // accounting for wrap-around if needed.
+              read_payload_from_mem;
+              next_read_incr;
+              if eq5.out with next_read_eq_10 {
+                next_read_wraparound;
+              }
+              // Did this pop make the queue empty?
+              if eq3.out with next_read_eq_next_write {
+                // If so, we raise the empty flag
+                raise_empty_flag;
+              }
+              // Regardless, we lower the full flag if it is up
+              if eq4a.out with is_full {
+                lower_full_flag;
+              }
+            }
+          }
+          if eq2.out with push_eq_1 {
+            // The user called push
+            if eq4a.out with is_full {
+              // If the queue is full, we can't push
+              raise_err_flag; // Overflow
+            } else {
+              // If the queue is not full, we can push!
+              // We will put `payload` into `mem` and move `next_write` forward by 1,
+              // accounting for wrap-around if needed.
+              write_payload_to_mem;
+              next_write_incr;
+              if eq5.out with next_write_eq_10 {
+                next_write_wraparound;
+              }
+              // Did this push make the queue full?
+              if eq3.out with next_read_eq_next_write {
+                // If so, we raise the full flag
+                raise_full_flag;
+              }
+              // Regardless, we lower the empty flag if it is up
+              if eq4b.out with is_empty {
+                lower_empty_flag;
+              }
+            }
+          }
+        }
+      }
+  }
+}
+
+component main() -> () {
+  cells {
+    @external ans_in = std_mem_d1(32, 1, 32);
+    @external err_in = std_mem_d1(1, 1, 1);
+    myfifo = fifo();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      // Let's push 100, 101, 102... 109 into the FIFO
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd100)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd101)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd102)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd103)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd104)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd105)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd106)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd107)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd108)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd109)();
+      // Pushing one more would give an error:
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd1, payload=32'd110)();
+      // But popping one and then pushing one works:
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd110)();
+
+      // // Let's pop 10 times
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // The answer at this point is 110.
+
+      // Running the line below gives an error:
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+    }
+  }
+}
