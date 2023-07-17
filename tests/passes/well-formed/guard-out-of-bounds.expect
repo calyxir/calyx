@@ -1,5 +1,3 @@
----CODE---
-1
 ---STDERR---
 Error: tests/passes/well-formed/guard-out-of-bounds.futil
 10 |      r1.write_en = %2 ? 1'd1; 
