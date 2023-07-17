@@ -1,5 +1,3 @@
----CODE---
-1
 ---STDERR---
 Error: No possible sequential ordering. Control programs exhibit data race:
 do_r0;
