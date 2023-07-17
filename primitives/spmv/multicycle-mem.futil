@@ -1,0 +1,86 @@
+import "primitives/core.futil";
+import "primitives/memories.futil";
+
+static<1> component multicycle_buffer(@data addr0: 32,
+    @write_together(1) @data write_data: 32,
+    @write_together(1) write_en: 1,
+    read_en: 1,
+    @clk clk: 1,
+    @reset reset: 1) -> (read_data: 32,
+     write_done: 1,
+    read_done: 1) {
+      cells {
+        shift_data_w_1 = std_reg(32);
+        shift_data_w_2 = std_reg(32);
+        shift_en_w_1 = std_reg(1);
+        shift_en_w_2 = std_reg(1);
+        shift_en_r_1 = std_reg(1);
+        shift_en_r_2 = std_reg(1);
+        shift_addr_1 = std_reg(32);
+        shift_addr_2 = std_reg(32);
+        buffer = seq_mem_d1(32, 32, 32);
+      }
+
+      wires {
+        static<1> group shift_w_1 {
+          shift_data_w_1.in = write_data;
+          shift_data_w_1.write_en = 1'd1;
+          shift_en_w_1.in = write_en;
+          shift_en_w_1.write_en = 1'd1;
+        }
+
+        static<1> group shift_w_2 {
+          shift_data_w_2.in = shift_data_w_1.out;
+          shift_data_w_2.write_en = 1'd1;
+          shift_en_w_2.in = shift_en_w_1.out;
+          shift_en_w_2.write_en = 1'd1;
+        }
+
+        static<1> group shift_addr0_1 {
+          shift_addr_1.in = addr0;
+          shift_addr_1.write_en = 1'd1;
+        }
+
+        static<1> group shift_addr0_2 {
+          shift_addr_2.in = shift_addr_1.out;
+          shift_addr_2.write_en = 1'd1;
+        }
+
+        static<1> group w_mem {
+          buffer.write_data = shift_data_w_2.out;
+          buffer.write_en = shift_en_w_2.out;
+          buffer.addr0 = shift_addr_2.out;
+        }
+
+        static<1> group shift_read_en_1 {
+          shift_en_r_1.in = read_en;
+          shift_en_r_1.write_en = 1'd1;
+        }
+
+        static<1> group shift_read_en_2 {
+          shift_en_r_2.in = shift_en_r_1.out;
+          shift_en_r_2.write_en = 1'd1;
+        }
+
+        static<1> group r_mem {
+          buffer.read_en = shift_en_r_2.out;
+        }
+
+        read_done = buffer.read_done;
+        write_done = buffer.write_done;
+        read_data = buffer.read_data;
+      }
+
+      control {
+        static par {
+          shift_w_1;
+          shift_w_2;
+          shift_addr0_1;
+          shift_addr0_2;
+          w_mem;
+          shift_read_en_1;
+          shift_read_en_2;
+          r_mem;
+        }
+      }
+}

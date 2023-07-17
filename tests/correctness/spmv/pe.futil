@@ -1,0 +1,35 @@
+import "primitives/spmv/multicycle-mem.futil";
+import "primitives/spmv/pe.futil";
+import "primitives/core.futil";
+
+component main () -> () {
+  cells {
+    buffer = multicycle_buffer();
+    pe = processing_engine();
+    @external out = std_mem_d1(32, 1, 32);
+  }
+
+  wires {
+    static<1> group buffer_to_out {
+      out.write_data = buffer.read_data;
+      out.write_en = 1'd1;
+      out.addr0 = 32'd0;
+    }
+  }
+
+  control {
+    static seq {
+      static invoke pe[buffer=buffer](mat_value=32'd10, vec_value=32'd5, row_idx=32'd4, valid=1'd1)();
+      static invoke pe[buffer=buffer](mat_value=32'd6, vec_value=32'd5, row_idx=32'd4, valid=1'd1)();
+      static invoke pe[buffer=buffer](mat_value=32'd7, vec_value=32'd5, row_idx=32'd4, valid=1'd1)();
+      static invoke pe[buffer=buffer](mat_value=32'd3, vec_value=32'd5, row_idx=32'd4, valid=1'd1)();
+      static repeat 10 {
+        static invoke pe[buffer=buffer]()();
+      }
+      static repeat 3 {
+        static invoke buffer(read_en=1'd1, addr0=32'd4)();
+      }
+      buffer_to_out;
+    }
+  }
+}
