@@ -53,7 +53,7 @@ with some additional pieces:
 For example, the following is the signature of the `std_reg` primitive from the
 Calyx standard library:
 ```
-{{#include ../../primitives/core.futil:std_reg_def}}
+{{#include ../../primitives/compile.futil:std_reg_def}}
 ```
 
 The primitive defines one parameter called `WIDTH`, which describes the sizes for
