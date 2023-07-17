@@ -90,7 +90,7 @@ impl Workspace {
     where
         S: AsRef<Path> + Clone,
     {
-        let parent_path = parent.join(extern_path.clone());
+        let parent_path = parent.join(extern_path.clone()).canonicalize()?;
         if parent_path.exists() {
             return Ok(parent_path);
         }
