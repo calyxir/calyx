@@ -125,6 +125,12 @@ component fifo(pop: 1, push: 1, payload: 32) -> () {
       err.write_data = 1'd1;
       raise_err_flag[done] = err.done;
     }
+    group lower_err_flag {
+      err.addr0 = 1'd0;
+      err.write_en = 1'd1;
+      err.write_data = 1'd0;
+      lower_err_flag[done] = err.done;
+    }
   }
   control {
       if eq0.out with pop_eq_push {
@@ -141,6 +147,7 @@ component fifo(pop: 1, push: 1, payload: 32) -> () {
               // If not, we proceed to pop
               // We will read from `mem` and move `next_read` forward by 1,
               // accounting for wrap-around if needed.
+              lower_err_flag;
               read_payload_from_mem;
               next_read_incr;
               if eq5.out with next_read_eq_10 {
@@ -148,7 +155,7 @@ component fifo(pop: 1, push: 1, payload: 32) -> () {
               }
               // Did this pop make the queue empty?
               if eq3.out with next_read_eq_next_write {
-                // If so, we raise the empty flag
+                // If so, we raise the empty flag for next time
                 raise_empty_flag;
               }
               // Regardless, we lower the full flag if it is up
@@ -166,6 +173,7 @@ component fifo(pop: 1, push: 1, payload: 32) -> () {
               // If the queue is not full, we can push!
               // We will put `payload` into `mem` and move `next_write` forward by 1,
               // accounting for wrap-around if needed.
+              lower_err_flag;
               write_payload_to_mem;
               next_write_incr;
               if eq5.out with next_write_eq_10 {
@@ -173,7 +181,7 @@ component fifo(pop: 1, push: 1, payload: 32) -> () {
               }
               // Did this push make the queue full?
               if eq3.out with next_read_eq_next_write {
-                // If so, we raise the full flag
+                // If so, we raise the full flag for next time
                 raise_full_flag;
               }
               // Regardless, we lower the empty flag if it is up
@@ -209,13 +217,14 @@ component main() -> () {
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd107)();
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd108)();
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd109)();
+
       // Pushing one more would give an error:
-      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd1, payload=32'd110)();
+      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd1, payload=32'd110)();
       // But popping one and then pushing one works:
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd110)();
 
-      // // Let's pop 10 times
+      // Let's pop 10 times
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
