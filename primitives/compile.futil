@@ -28,8 +28,9 @@ primitive std_reg<"state_share"=1>[WIDTH](
 ) -> (
   @stable out: WIDTH,
   @done done: 1
-) {
+)
 // ANCHOR_END: std_reg_def
+{
   always_ff @(posedge clk) begin
     if (reset) begin
        out <= 0;
