@@ -218,27 +218,31 @@ component main() -> () {
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd108)();
       invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd109)();
 
-      // Pushing one more would give an error:
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd1, payload=32'd110)();
-      // But popping one and then pushing one works:
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd110)();
+      // At this point, the `ans` and `err` registers should be 0; not very exciting.
+      // Now you may want to uncomment the lines below step by step and see how the answer changes.
+      // Eventually all the `invoke` lines can be uncommented.
 
-      // Let's pop 10 times
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
-      // The answer at this point is 110.
+      // // Pushing one more would give an error:
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd1, payload=32'd110)();
+      // // But popping one and then pushing one works:
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd0, push=1'd1, payload=32'd110)();
 
-      // Running the line below gives an error:
-      invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // // Let's pop 10 times
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
+      // // The answer at this point is 110.
+
+      // // Running the line below gives an error:
+      // invoke myfifo[ans=ans_in, err=err_in](pop=1'd1, push=1'd0)();
     }
   }
 }
