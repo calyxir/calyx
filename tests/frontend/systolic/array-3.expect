@@ -1,25 +1,29 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-component mac_pe(top: 32, left: 32) -> (out: 32) {
+import "primitives/pipelined.futil";
+static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
   cells {
     acc = std_reg(32);
     add = std_add(32);
-    mul = std_mult_pipe(32);
+    mul = pipelined_mult();
   }
   wires {
-    group do_add {
+    static<1> group do_add {
       add.left = acc.out;
       add.right = mul.out;
       acc.in = add.out;
-      acc.write_en = 1'd1;
-      do_add[done] = acc.done;
+      acc.write_en = mul_ready;
+    }
+    static<1> group do_mul {
+      mul.left = top;
+      mul.right = left;
     }
     out = acc.out;
   }
   control {
-    seq {
-      invoke mul(left=top, right=left)();
+    static par {
       do_add;
+      do_mul;
     }
   }
 }
@@ -70,411 +74,755 @@ component main() -> () {
     @external l2 = std_mem_d1(32, 3, 2);
     l2_idx = std_reg(2);
     l2_add = std_add(2);
-    @external out_mem = std_mem_d1(32, 9, 4);
+    @external out_mem_0 = std_mem_d1(32, 3, 2);
+    @external out_mem_1 = std_mem_d1(32, 3, 2);
+    @external out_mem_2 = std_mem_d1(32, 3, 2);
+    idx = std_reg(4);
+    idx_add = std_add(4);
+    idx_between_9_10_reg = std_reg(1);
+    index_lt_10 = std_lt(4);
+    index_ge_9 = std_ge(4);
+    idx_between_9_10_comb = std_and(1);
+    idx_between_10_11_reg = std_reg(1);
+    index_lt_11 = std_lt(4);
+    index_ge_10 = std_ge(4);
+    idx_between_10_11_comb = std_and(1);
+    idx_between_5_8_reg = std_reg(1);
+    index_lt_8 = std_lt(4);
+    index_ge_5 = std_ge(4);
+    idx_between_5_8_comb = std_and(1);
+    idx_between_7_10_reg = std_reg(1);
+    index_ge_7 = std_ge(4);
+    idx_between_7_10_comb = std_and(1);
+    idx_between_0_3_reg = std_reg(1);
+    index_lt_3 = std_lt(4);
+    idx_between_9_12_reg = std_reg(1);
+    index_lt_12 = std_lt(4);
+    idx_between_9_12_comb = std_and(1);
+    idx_between_12_13_reg = std_reg(1);
+    index_lt_13 = std_lt(4);
+    index_ge_12 = std_ge(4);
+    idx_between_12_13_comb = std_and(1);
+    idx_between_1_4_reg = std_reg(1);
+    index_lt_4 = std_lt(4);
+    index_ge_1 = std_ge(4);
+    idx_between_1_4_comb = std_and(1);
+    idx_between_11_12_reg = std_reg(1);
+    index_ge_11 = std_ge(4);
+    idx_between_11_12_comb = std_and(1);
+    idx_between_8_9_reg = std_reg(1);
+    index_lt_9 = std_lt(4);
+    index_ge_8 = std_ge(4);
+    idx_between_8_9_comb = std_and(1);
+    idx_between_3_6_reg = std_reg(1);
+    index_lt_6 = std_lt(4);
+    index_ge_3 = std_ge(4);
+    idx_between_3_6_comb = std_and(1);
+    idx_between_2_5_reg = std_reg(1);
+    index_lt_5 = std_lt(4);
+    index_ge_2 = std_ge(4);
+    idx_between_2_5_comb = std_and(1);
+    idx_between_6_9_reg = std_reg(1);
+    index_ge_6 = std_ge(4);
+    idx_between_6_9_comb = std_and(1);
+    idx_between_4_7_reg = std_reg(1);
+    index_lt_7 = std_lt(4);
+    index_ge_4 = std_ge(4);
+    idx_between_4_7_comb = std_and(1);
+    idx_between_8_11_reg = std_reg(1);
+    idx_between_8_11_comb = std_and(1);
   }
   wires {
-    group t0_idx_init {
-      t0_idx.in = 2'd3;
+    static<1> group t0_idx_init {
+      t0_idx.in = 2'd0;
       t0_idx.write_en = 1'd1;
-      t0_idx_init[done] = t0_idx.done;
     }
-    group t0_idx_update {
+    static<1> group t0_idx_update {
       t0_add.left = 2'd1;
       t0_add.right = t0_idx.out;
       t0_idx.in = t0_add.out;
       t0_idx.write_en = 1'd1;
-      t0_idx_update[done] = t0_idx.done;
     }
-    group t0_move {
+    static<1> group t0_move {
       t0.addr0 = t0_idx.out;
       top_0_0.in = t0.read_data;
       top_0_0.write_en = 1'd1;
-      t0_move[done] = top_0_0.done;
     }
-    group t1_idx_init {
-      t1_idx.in = 2'd3;
+    static<1> group t1_idx_init {
+      t1_idx.in = 2'd0;
       t1_idx.write_en = 1'd1;
-      t1_idx_init[done] = t1_idx.done;
     }
-    group t1_idx_update {
+    static<1> group t1_idx_update {
       t1_add.left = 2'd1;
       t1_add.right = t1_idx.out;
       t1_idx.in = t1_add.out;
       t1_idx.write_en = 1'd1;
-      t1_idx_update[done] = t1_idx.done;
     }
-    group t1_move {
+    static<1> group t1_move {
       t1.addr0 = t1_idx.out;
       top_0_1.in = t1.read_data;
       top_0_1.write_en = 1'd1;
-      t1_move[done] = top_0_1.done;
     }
-    group t2_idx_init {
-      t2_idx.in = 2'd3;
+    static<1> group t2_idx_init {
+      t2_idx.in = 2'd0;
       t2_idx.write_en = 1'd1;
-      t2_idx_init[done] = t2_idx.done;
     }
-    group t2_idx_update {
+    static<1> group t2_idx_update {
       t2_add.left = 2'd1;
       t2_add.right = t2_idx.out;
       t2_idx.in = t2_add.out;
       t2_idx.write_en = 1'd1;
-      t2_idx_update[done] = t2_idx.done;
     }
-    group t2_move {
+    static<1> group t2_move {
       t2.addr0 = t2_idx.out;
       top_0_2.in = t2.read_data;
       top_0_2.write_en = 1'd1;
-      t2_move[done] = top_0_2.done;
     }
-    group l0_idx_init {
-      l0_idx.in = 2'd3;
+    static<1> group l0_idx_init {
+      l0_idx.in = 2'd0;
       l0_idx.write_en = 1'd1;
-      l0_idx_init[done] = l0_idx.done;
     }
-    group l0_idx_update {
+    static<1> group l0_idx_update {
       l0_add.left = 2'd1;
       l0_add.right = l0_idx.out;
       l0_idx.in = l0_add.out;
       l0_idx.write_en = 1'd1;
-      l0_idx_update[done] = l0_idx.done;
     }
-    group l0_move {
+    static<1> group l0_move {
       l0.addr0 = l0_idx.out;
       left_0_0.in = l0.read_data;
       left_0_0.write_en = 1'd1;
-      l0_move[done] = left_0_0.done;
     }
-    group l1_idx_init {
-      l1_idx.in = 2'd3;
+    static<1> group l1_idx_init {
+      l1_idx.in = 2'd0;
       l1_idx.write_en = 1'd1;
-      l1_idx_init[done] = l1_idx.done;
     }
-    group l1_idx_update {
+    static<1> group l1_idx_update {
       l1_add.left = 2'd1;
       l1_add.right = l1_idx.out;
       l1_idx.in = l1_add.out;
       l1_idx.write_en = 1'd1;
-      l1_idx_update[done] = l1_idx.done;
     }
-    group l1_move {
+    static<1> group l1_move {
       l1.addr0 = l1_idx.out;
       left_1_0.in = l1.read_data;
       left_1_0.write_en = 1'd1;
-      l1_move[done] = left_1_0.done;
     }
-    group l2_idx_init {
-      l2_idx.in = 2'd3;
+    static<1> group l2_idx_init {
+      l2_idx.in = 2'd0;
       l2_idx.write_en = 1'd1;
-      l2_idx_init[done] = l2_idx.done;
     }
-    group l2_idx_update {
+    static<1> group l2_idx_update {
       l2_add.left = 2'd1;
       l2_add.right = l2_idx.out;
       l2_idx.in = l2_add.out;
       l2_idx.write_en = 1'd1;
-      l2_idx_update[done] = l2_idx.done;
     }
-    group l2_move {
+    static<1> group l2_move {
       l2.addr0 = l2_idx.out;
       left_2_0.in = l2.read_data;
       left_2_0.write_en = 1'd1;
-      l2_move[done] = left_2_0.done;
     }
-    group pe_0_0_right_move {
+    static<1> group pe_0_0_right_move {
       left_0_1.in = left_0_0.out;
       left_0_1.write_en = 1'd1;
-      pe_0_0_right_move[done] = left_0_1.done;
     }
-    group pe_0_0_down_move {
+    static<1> group pe_0_0_down_move {
       top_1_0.in = top_0_0.out;
       top_1_0.write_en = 1'd1;
-      pe_0_0_down_move[done] = top_1_0.done;
     }
-    group pe_0_0_out_write {
-      out_mem.addr0 = 4'd0;
-      out_mem.write_data = pe_0_0.out;
-      out_mem.write_en = 1'd1;
-      pe_0_0_out_write[done] = out_mem.done;
+    static<1> group pe_0_0_out_write {
+      out_mem_0.addr0 = 2'd0;
+      out_mem_0.write_data = pe_0_0.out;
+      out_mem_0.write_en = 1'd1;
     }
-    group pe_0_1_right_move {
+    static<1> group pe_0_1_right_move {
       left_0_2.in = left_0_1.out;
       left_0_2.write_en = 1'd1;
-      pe_0_1_right_move[done] = left_0_2.done;
     }
-    group pe_0_1_down_move {
+    static<1> group pe_0_1_down_move {
       top_1_1.in = top_0_1.out;
       top_1_1.write_en = 1'd1;
-      pe_0_1_down_move[done] = top_1_1.done;
     }
-    group pe_0_1_out_write {
-      out_mem.addr0 = 4'd1;
-      out_mem.write_data = pe_0_1.out;
-      out_mem.write_en = 1'd1;
-      pe_0_1_out_write[done] = out_mem.done;
+    static<1> group pe_0_1_out_write {
+      out_mem_0.addr0 = 2'd1;
+      out_mem_0.write_data = pe_0_1.out;
+      out_mem_0.write_en = 1'd1;
     }
-    group pe_0_2_down_move {
+    static<1> group pe_0_2_down_move {
       top_1_2.in = top_0_2.out;
       top_1_2.write_en = 1'd1;
-      pe_0_2_down_move[done] = top_1_2.done;
     }
-    group pe_0_2_out_write {
-      out_mem.addr0 = 4'd2;
-      out_mem.write_data = pe_0_2.out;
-      out_mem.write_en = 1'd1;
-      pe_0_2_out_write[done] = out_mem.done;
+    static<1> group pe_0_2_out_write {
+      out_mem_0.addr0 = 2'd2;
+      out_mem_0.write_data = pe_0_2.out;
+      out_mem_0.write_en = 1'd1;
     }
-    group pe_1_0_right_move {
+    static<1> group pe_1_0_right_move {
       left_1_1.in = left_1_0.out;
       left_1_1.write_en = 1'd1;
-      pe_1_0_right_move[done] = left_1_1.done;
     }
-    group pe_1_0_down_move {
+    static<1> group pe_1_0_down_move {
       top_2_0.in = top_1_0.out;
       top_2_0.write_en = 1'd1;
-      pe_1_0_down_move[done] = top_2_0.done;
     }
-    group pe_1_0_out_write {
-      out_mem.addr0 = 4'd3;
-      out_mem.write_data = pe_1_0.out;
-      out_mem.write_en = 1'd1;
-      pe_1_0_out_write[done] = out_mem.done;
+    static<1> group pe_1_0_out_write {
+      out_mem_1.addr0 = 2'd0;
+      out_mem_1.write_data = pe_1_0.out;
+      out_mem_1.write_en = 1'd1;
     }
-    group pe_1_1_right_move {
+    static<1> group pe_1_1_right_move {
       left_1_2.in = left_1_1.out;
       left_1_2.write_en = 1'd1;
-      pe_1_1_right_move[done] = left_1_2.done;
     }
-    group pe_1_1_down_move {
+    static<1> group pe_1_1_down_move {
       top_2_1.in = top_1_1.out;
       top_2_1.write_en = 1'd1;
-      pe_1_1_down_move[done] = top_2_1.done;
     }
-    group pe_1_1_out_write {
-      out_mem.addr0 = 4'd4;
-      out_mem.write_data = pe_1_1.out;
-      out_mem.write_en = 1'd1;
-      pe_1_1_out_write[done] = out_mem.done;
+    static<1> group pe_1_1_out_write {
+      out_mem_1.addr0 = 2'd1;
+      out_mem_1.write_data = pe_1_1.out;
+      out_mem_1.write_en = 1'd1;
     }
-    group pe_1_2_down_move {
+    static<1> group pe_1_2_down_move {
       top_2_2.in = top_1_2.out;
       top_2_2.write_en = 1'd1;
-      pe_1_2_down_move[done] = top_2_2.done;
     }
-    group pe_1_2_out_write {
-      out_mem.addr0 = 4'd5;
-      out_mem.write_data = pe_1_2.out;
-      out_mem.write_en = 1'd1;
-      pe_1_2_out_write[done] = out_mem.done;
+    static<1> group pe_1_2_out_write {
+      out_mem_1.addr0 = 2'd2;
+      out_mem_1.write_data = pe_1_2.out;
+      out_mem_1.write_en = 1'd1;
     }
-    group pe_2_0_right_move {
+    static<1> group pe_2_0_right_move {
       left_2_1.in = left_2_0.out;
       left_2_1.write_en = 1'd1;
-      pe_2_0_right_move[done] = left_2_1.done;
     }
-    group pe_2_0_out_write {
-      out_mem.addr0 = 4'd6;
-      out_mem.write_data = pe_2_0.out;
-      out_mem.write_en = 1'd1;
-      pe_2_0_out_write[done] = out_mem.done;
+    static<1> group pe_2_0_out_write {
+      out_mem_2.addr0 = 2'd0;
+      out_mem_2.write_data = pe_2_0.out;
+      out_mem_2.write_en = 1'd1;
     }
-    group pe_2_1_right_move {
+    static<1> group pe_2_1_right_move {
       left_2_2.in = left_2_1.out;
       left_2_2.write_en = 1'd1;
-      pe_2_1_right_move[done] = left_2_2.done;
     }
-    group pe_2_1_out_write {
-      out_mem.addr0 = 4'd7;
-      out_mem.write_data = pe_2_1.out;
-      out_mem.write_en = 1'd1;
-      pe_2_1_out_write[done] = out_mem.done;
+    static<1> group pe_2_1_out_write {
+      out_mem_2.addr0 = 2'd1;
+      out_mem_2.write_data = pe_2_1.out;
+      out_mem_2.write_en = 1'd1;
     }
-    group pe_2_2_out_write {
-      out_mem.addr0 = 4'd8;
-      out_mem.write_data = pe_2_2.out;
-      out_mem.write_en = 1'd1;
-      pe_2_2_out_write[done] = out_mem.done;
+    static<1> group pe_2_2_out_write {
+      out_mem_2.addr0 = 2'd2;
+      out_mem_2.write_data = pe_2_2.out;
+      out_mem_2.write_en = 1'd1;
+    }
+    static<1> group init_idx {
+      idx.in = 4'd0;
+      idx.write_en = 1'd1;
+    }
+    static<1> group incr_idx {
+      idx_add.left = idx.out;
+      idx_add.right = 4'd1;
+      idx.in = idx_add.out;
+      idx.write_en = 1'd1;
+    }
+    static<1> group idx_between_9_10_group {
+      index_ge_9.left = idx_add.out;
+      index_ge_9.right = 4'd9;
+      index_lt_10.left = idx_add.out;
+      index_lt_10.right = 4'd10;
+      idx_between_9_10_comb.left = index_ge_9.out;
+      idx_between_9_10_comb.right = index_lt_10.out;
+      idx_between_9_10_reg.in = idx_between_9_10_comb.out;
+      idx_between_9_10_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_9_10 {
+      idx_between_9_10_reg.in = 1'd0;
+      idx_between_9_10_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_10_11_group {
+      index_ge_10.left = idx_add.out;
+      index_ge_10.right = 4'd10;
+      index_lt_11.left = idx_add.out;
+      index_lt_11.right = 4'd11;
+      idx_between_10_11_comb.left = index_ge_10.out;
+      idx_between_10_11_comb.right = index_lt_11.out;
+      idx_between_10_11_reg.in = idx_between_10_11_comb.out;
+      idx_between_10_11_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_10_11 {
+      idx_between_10_11_reg.in = 1'd0;
+      idx_between_10_11_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_5_8_group {
+      index_ge_5.left = idx_add.out;
+      index_ge_5.right = 4'd5;
+      index_lt_8.left = idx_add.out;
+      index_lt_8.right = 4'd8;
+      idx_between_5_8_comb.left = index_ge_5.out;
+      idx_between_5_8_comb.right = index_lt_8.out;
+      idx_between_5_8_reg.in = idx_between_5_8_comb.out;
+      idx_between_5_8_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_5_8 {
+      idx_between_5_8_reg.in = 1'd0;
+      idx_between_5_8_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_7_10_group {
+      index_ge_7.left = idx_add.out;
+      index_ge_7.right = 4'd7;
+      index_lt_10.left = idx_add.out;
+      index_lt_10.right = 4'd10;
+      idx_between_7_10_comb.left = index_ge_7.out;
+      idx_between_7_10_comb.right = index_lt_10.out;
+      idx_between_7_10_reg.in = idx_between_7_10_comb.out;
+      idx_between_7_10_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_7_10 {
+      idx_between_7_10_reg.in = 1'd0;
+      idx_between_7_10_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_0_3_group {
+      index_lt_3.left = idx_add.out;
+      index_lt_3.right = 4'd3;
+      idx_between_0_3_reg.in = index_lt_3.out;
+      idx_between_0_3_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_0_3 {
+      idx_between_0_3_reg.in = 1'd1;
+      idx_between_0_3_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_9_12_group {
+      index_ge_9.left = idx_add.out;
+      index_ge_9.right = 4'd9;
+      index_lt_12.left = idx_add.out;
+      index_lt_12.right = 4'd12;
+      idx_between_9_12_comb.left = index_ge_9.out;
+      idx_between_9_12_comb.right = index_lt_12.out;
+      idx_between_9_12_reg.in = idx_between_9_12_comb.out;
+      idx_between_9_12_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_9_12 {
+      idx_between_9_12_reg.in = 1'd0;
+      idx_between_9_12_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_12_13_group {
+      index_ge_12.left = idx_add.out;
+      index_ge_12.right = 4'd12;
+      index_lt_13.left = idx_add.out;
+      index_lt_13.right = 4'd13;
+      idx_between_12_13_comb.left = index_ge_12.out;
+      idx_between_12_13_comb.right = index_lt_13.out;
+      idx_between_12_13_reg.in = idx_between_12_13_comb.out;
+      idx_between_12_13_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_12_13 {
+      idx_between_12_13_reg.in = 1'd0;
+      idx_between_12_13_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_1_4_group {
+      index_ge_1.left = idx_add.out;
+      index_ge_1.right = 4'd1;
+      index_lt_4.left = idx_add.out;
+      index_lt_4.right = 4'd4;
+      idx_between_1_4_comb.left = index_ge_1.out;
+      idx_between_1_4_comb.right = index_lt_4.out;
+      idx_between_1_4_reg.in = idx_between_1_4_comb.out;
+      idx_between_1_4_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_1_4 {
+      idx_between_1_4_reg.in = 1'd0;
+      idx_between_1_4_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_11_12_group {
+      index_ge_11.left = idx_add.out;
+      index_ge_11.right = 4'd11;
+      index_lt_12.left = idx_add.out;
+      index_lt_12.right = 4'd12;
+      idx_between_11_12_comb.left = index_ge_11.out;
+      idx_between_11_12_comb.right = index_lt_12.out;
+      idx_between_11_12_reg.in = idx_between_11_12_comb.out;
+      idx_between_11_12_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_11_12 {
+      idx_between_11_12_reg.in = 1'd0;
+      idx_between_11_12_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_8_9_group {
+      index_ge_8.left = idx_add.out;
+      index_ge_8.right = 4'd8;
+      index_lt_9.left = idx_add.out;
+      index_lt_9.right = 4'd9;
+      idx_between_8_9_comb.left = index_ge_8.out;
+      idx_between_8_9_comb.right = index_lt_9.out;
+      idx_between_8_9_reg.in = idx_between_8_9_comb.out;
+      idx_between_8_9_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_8_9 {
+      idx_between_8_9_reg.in = 1'd0;
+      idx_between_8_9_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_3_6_group {
+      index_ge_3.left = idx_add.out;
+      index_ge_3.right = 4'd3;
+      index_lt_6.left = idx_add.out;
+      index_lt_6.right = 4'd6;
+      idx_between_3_6_comb.left = index_ge_3.out;
+      idx_between_3_6_comb.right = index_lt_6.out;
+      idx_between_3_6_reg.in = idx_between_3_6_comb.out;
+      idx_between_3_6_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_3_6 {
+      idx_between_3_6_reg.in = 1'd0;
+      idx_between_3_6_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_2_5_group {
+      index_ge_2.left = idx_add.out;
+      index_ge_2.right = 4'd2;
+      index_lt_5.left = idx_add.out;
+      index_lt_5.right = 4'd5;
+      idx_between_2_5_comb.left = index_ge_2.out;
+      idx_between_2_5_comb.right = index_lt_5.out;
+      idx_between_2_5_reg.in = idx_between_2_5_comb.out;
+      idx_between_2_5_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_2_5 {
+      idx_between_2_5_reg.in = 1'd0;
+      idx_between_2_5_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_6_9_group {
+      index_ge_6.left = idx_add.out;
+      index_ge_6.right = 4'd6;
+      index_lt_9.left = idx_add.out;
+      index_lt_9.right = 4'd9;
+      idx_between_6_9_comb.left = index_ge_6.out;
+      idx_between_6_9_comb.right = index_lt_9.out;
+      idx_between_6_9_reg.in = idx_between_6_9_comb.out;
+      idx_between_6_9_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_6_9 {
+      idx_between_6_9_reg.in = 1'd0;
+      idx_between_6_9_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_4_7_group {
+      index_ge_4.left = idx_add.out;
+      index_ge_4.right = 4'd4;
+      index_lt_7.left = idx_add.out;
+      index_lt_7.right = 4'd7;
+      idx_between_4_7_comb.left = index_ge_4.out;
+      idx_between_4_7_comb.right = index_lt_7.out;
+      idx_between_4_7_reg.in = idx_between_4_7_comb.out;
+      idx_between_4_7_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_4_7 {
+      idx_between_4_7_reg.in = 1'd0;
+      idx_between_4_7_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_8_11_group {
+      index_ge_8.left = idx_add.out;
+      index_ge_8.right = 4'd8;
+      index_lt_11.left = idx_add.out;
+      index_lt_11.right = 4'd11;
+      idx_between_8_11_comb.left = index_ge_8.out;
+      idx_between_8_11_comb.right = index_lt_11.out;
+      idx_between_8_11_reg.in = idx_between_8_11_comb.out;
+      idx_between_8_11_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_8_11 {
+      idx_between_8_11_reg.in = 1'd0;
+      idx_between_8_11_reg.write_en = 1'd1;
     }
   }
   control {
-    seq {
-      par {
+    static seq {
+      static par {
         t0_idx_init;
         t1_idx_init;
         t2_idx_init;
         l0_idx_init;
         l1_idx_init;
         l2_idx_init;
+        init_idx;
+        init_idx_between_9_10;
+        init_idx_between_10_11;
+        init_idx_between_5_8;
+        init_idx_between_7_10;
+        init_idx_between_0_3;
+        init_idx_between_9_12;
+        init_idx_between_12_13;
+        init_idx_between_1_4;
+        init_idx_between_11_12;
+        init_idx_between_8_9;
+        init_idx_between_3_6;
+        init_idx_between_2_5;
+        init_idx_between_6_9;
+        init_idx_between_4_7;
+        init_idx_between_8_11;
       }
-      par {
-        t0_idx_update;
-        l0_idx_update;
-      }
-      par {
-        t0_move;
-        l0_move;
-      }
-      par {
-        t0_idx_update;
-        l0_idx_update;
-        t1_idx_update;
-        l1_idx_update;
-        @pos(0) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
-      }
-      par {
-        t0_move;
-        t1_move;
-        pe_0_0_down_move;
-        l0_move;
-        pe_0_0_right_move;
-        l1_move;
-      }
-      par {
-        t0_idx_update;
-        l0_idx_update;
-        t1_idx_update;
-        t2_idx_update;
-        l1_idx_update;
-        l2_idx_update;
-        @pos(1) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
-        @pos(2) invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
-        @pos(3) invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
-      }
-      par {
-        t0_move;
-        t1_move;
-        t2_move;
-        pe_0_0_down_move;
-        pe_0_1_down_move;
-        pe_1_0_down_move;
-        l0_move;
-        pe_0_0_right_move;
-        pe_0_1_right_move;
-        l1_move;
-        pe_1_0_right_move;
-        l2_move;
-      }
-      par {
-        t1_idx_update;
-        t2_idx_update;
-        l1_idx_update;
-        l2_idx_update;
-        @pos(4) invoke pe_0_0(top=top_0_0.out, left=left_0_0.out)();
-        @pos(5) invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
-        @pos(6) invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
-        @pos(7) invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
-        @pos(8) invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
-        @pos(9) invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
-      }
-      par {
-        t1_move;
-        t2_move;
-        pe_0_0_down_move;
-        pe_0_1_down_move;
-        pe_0_2_down_move;
-        pe_1_0_down_move;
-        pe_1_1_down_move;
-        pe_0_0_right_move;
-        pe_0_1_right_move;
-        l1_move;
-        pe_1_0_right_move;
-        pe_1_1_right_move;
-        l2_move;
-        pe_2_0_right_move;
-      }
-      par {
-        t2_idx_update;
-        l2_idx_update;
-        @pos(10) invoke pe_0_1(top=top_0_1.out, left=left_0_1.out)();
-        @pos(11) invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
-        @pos(12) invoke pe_1_0(top=top_1_0.out, left=left_1_0.out)();
-        @pos(13) invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
-        @pos(14) invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
-        @pos(15) invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
-        @pos(16) invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
-      }
-      par {
-        t2_move;
-        pe_0_1_down_move;
-        pe_0_2_down_move;
-        pe_1_0_down_move;
-        pe_1_1_down_move;
-        pe_1_2_down_move;
-        pe_0_1_right_move;
-        pe_1_0_right_move;
-        pe_1_1_right_move;
-        l2_move;
-        pe_2_0_right_move;
-        pe_2_1_right_move;
-      }
-      par {
-        @pos(17) invoke pe_0_2(top=top_0_2.out, left=left_0_2.out)();
-        @pos(18) invoke pe_1_1(top=top_1_1.out, left=left_1_1.out)();
-        @pos(19) invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
-        @pos(20) invoke pe_2_0(top=top_2_0.out, left=left_2_0.out)();
-        @pos(21) invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
-        @pos(22) invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
-      }
-      par {
-        pe_0_2_down_move;
-        pe_1_1_down_move;
-        pe_1_2_down_move;
-        pe_1_1_right_move;
-        pe_2_0_right_move;
-        pe_2_1_right_move;
-      }
-      par {
-        @pos(23) invoke pe_1_2(top=top_1_2.out, left=left_1_2.out)();
-        @pos(24) invoke pe_2_1(top=top_2_1.out, left=left_2_1.out)();
-        @pos(25) invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
-      }
-      par {
-        pe_1_2_down_move;
-        pe_2_1_right_move;
-      }
-      par {
-        @pos(26) invoke pe_2_2(top=top_2_2.out, left=left_2_2.out)();
-      }
-      seq {
-        pe_0_0_out_write;
-        pe_0_1_out_write;
-        pe_0_2_out_write;
-        pe_1_0_out_write;
-        pe_1_1_out_write;
-        pe_1_2_out_write;
-        pe_2_0_out_write;
-        pe_2_1_out_write;
-        pe_2_2_out_write;
+      static repeat 13 {
+        static par {
+          static par {
+            static par {
+              static if idx_between_0_3_reg.out {
+                static par {
+                  l0_move;
+                  l0_idx_update;
+                  t0_move;
+                  t0_idx_update;
+                }
+              }
+              static if idx_between_1_4_reg.out {
+                static par {
+                  static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_1_4_reg.out {
+                static par {
+                  pe_0_0_down_move;
+                  pe_0_0_right_move;
+                }
+              }
+              static if idx_between_5_8_reg.out {
+                static par {
+                  static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_8_9_reg.out {
+                static par {
+                  pe_0_0_out_write;
+                }
+              }
+            }
+            static par {
+              static if idx_between_1_4_reg.out {
+                static par {
+                  t1_move;
+                  t1_idx_update;
+                }
+              }
+              static if idx_between_2_5_reg.out {
+                static par {
+                  static invoke pe_0_1(top=top_0_1.out, left=left_0_1.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_2_5_reg.out {
+                static par {
+                  pe_0_1_down_move;
+                  pe_0_1_right_move;
+                }
+              }
+              static if idx_between_6_9_reg.out {
+                static par {
+                  static invoke pe_0_1(top=top_0_1.out, left=left_0_1.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_9_10_reg.out {
+                static par {
+                  pe_0_1_out_write;
+                }
+              }
+            }
+            static par {
+              static if idx_between_2_5_reg.out {
+                static par {
+                  t2_move;
+                  t2_idx_update;
+                }
+              }
+              static if idx_between_3_6_reg.out {
+                static par {
+                  static invoke pe_0_2(top=top_0_2.out, left=left_0_2.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_3_6_reg.out {
+                static par {
+                  pe_0_2_down_move;
+                }
+              }
+              static if idx_between_7_10_reg.out {
+                static par {
+                  static invoke pe_0_2(top=top_0_2.out, left=left_0_2.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_10_11_reg.out {
+                static par {
+                  pe_0_2_out_write;
+                }
+              }
+            }
+            static par {
+              static if idx_between_1_4_reg.out {
+                static par {
+                  l1_move;
+                  l1_idx_update;
+                }
+              }
+              static if idx_between_2_5_reg.out {
+                static par {
+                  static invoke pe_1_0(top=top_1_0.out, left=left_1_0.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_2_5_reg.out {
+                static par {
+                  pe_1_0_down_move;
+                  pe_1_0_right_move;
+                }
+              }
+              static if idx_between_6_9_reg.out {
+                static par {
+                  static invoke pe_1_0(top=top_1_0.out, left=left_1_0.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_9_10_reg.out {
+                static par {
+                  pe_1_0_out_write;
+                }
+              }
+            }
+            static par {
+              static if idx_between_3_6_reg.out {
+                static par {
+                  static invoke pe_1_1(top=top_1_1.out, left=left_1_1.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_3_6_reg.out {
+                static par {
+                  pe_1_1_down_move;
+                  pe_1_1_right_move;
+                }
+              }
+              static if idx_between_7_10_reg.out {
+                static par {
+                  static invoke pe_1_1(top=top_1_1.out, left=left_1_1.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_10_11_reg.out {
+                static par {
+                  pe_1_1_out_write;
+                }
+              }
+            }
+            static par {
+              static if idx_between_4_7_reg.out {
+                static par {
+                  static invoke pe_1_2(top=top_1_2.out, left=left_1_2.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_4_7_reg.out {
+                static par {
+                  pe_1_2_down_move;
+                }
+              }
+              static if idx_between_8_11_reg.out {
+                static par {
+                  static invoke pe_1_2(top=top_1_2.out, left=left_1_2.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_11_12_reg.out {
+                static par {
+                  pe_1_2_out_write;
+                }
+              }
+            }
+            static par {
+              static if idx_between_2_5_reg.out {
+                static par {
+                  l2_move;
+                  l2_idx_update;
+                }
+              }
+              static if idx_between_3_6_reg.out {
+                static par {
+                  static invoke pe_2_0(top=top_2_0.out, left=left_2_0.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_3_6_reg.out {
+                static par {
+                  pe_2_0_right_move;
+                }
+              }
+              static if idx_between_7_10_reg.out {
+                static par {
+                  static invoke pe_2_0(top=top_2_0.out, left=left_2_0.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_10_11_reg.out {
+                static par {
+                  pe_2_0_out_write;
+                }
+              }
+            }
+            static par {
+              static if idx_between_4_7_reg.out {
+                static par {
+                  static invoke pe_2_1(top=top_2_1.out, left=left_2_1.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_4_7_reg.out {
+                static par {
+                  pe_2_1_right_move;
+                }
+              }
+              static if idx_between_8_11_reg.out {
+                static par {
+                  static invoke pe_2_1(top=top_2_1.out, left=left_2_1.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_11_12_reg.out {
+                static par {
+                  pe_2_1_out_write;
+                }
+              }
+            }
+            static par {
+              static if idx_between_5_8_reg.out {
+                static par {
+                  static invoke pe_2_2(top=top_2_2.out, left=left_2_2.out, mul_ready=1'd0)();
+                }
+              }
+              static if idx_between_9_12_reg.out {
+                static par {
+                  static invoke pe_2_2(top=top_2_2.out, left=left_2_2.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_12_13_reg.out {
+                static par {
+                  pe_2_2_out_write;
+                }
+              }
+            }
+          }
+          static par {
+            incr_idx;
+            idx_between_9_10_group;
+            idx_between_10_11_group;
+            idx_between_5_8_group;
+            idx_between_7_10_group;
+            idx_between_0_3_group;
+            idx_between_9_12_group;
+            idx_between_12_13_group;
+            idx_between_1_4_group;
+            idx_between_11_12_group;
+            idx_between_8_9_group;
+            idx_between_3_6_group;
+            idx_between_2_5_group;
+            idx_between_6_9_group;
+            idx_between_4_7_group;
+            idx_between_8_11_group;
+          }
+        }
       }
     }
   }
 }
 metadata #{
-0: pe_0_0 running. Iteration 0
-1: pe_0_0 running. Iteration 1
-2: pe_0_1 running. Iteration 1
-3: pe_1_0 running. Iteration 1
-4: pe_0_0 running. Iteration 2
-5: pe_0_1 running. Iteration 2
-6: pe_0_2 running. Iteration 2
-7: pe_1_0 running. Iteration 2
-8: pe_1_1 running. Iteration 2
-9: pe_2_0 running. Iteration 2
-10: pe_0_1 running. Iteration 3
-11: pe_0_2 running. Iteration 3
-12: pe_1_0 running. Iteration 3
-13: pe_1_1 running. Iteration 3
-14: pe_1_2 running. Iteration 3
-15: pe_2_0 running. Iteration 3
-16: pe_2_1 running. Iteration 3
-17: pe_0_2 running. Iteration 4
-18: pe_1_1 running. Iteration 4
-19: pe_1_2 running. Iteration 4
-20: pe_2_0 running. Iteration 4
-21: pe_2_1 running. Iteration 4
-22: pe_2_2 running. Iteration 4
-23: pe_1_2 running. Iteration 5
-24: pe_2_1 running. Iteration 5
-25: pe_2_2 running. Iteration 5
-26: pe_2_2 running. Iteration 6
+0: pe_0_0 filling: [1,4) accumulating: [5 8)
+1: pe_0_1 filling: [2,5) accumulating: [6 9)
+2: pe_0_2 filling: [3,6) accumulating: [7 10)
+3: pe_1_0 filling: [2,5) accumulating: [6 9)
+4: pe_1_1 filling: [3,6) accumulating: [7 10)
+5: pe_1_2 filling: [4,7) accumulating: [8 11)
+6: pe_2_0 filling: [3,6) accumulating: [7 10)
+7: pe_2_1 filling: [4,7) accumulating: [8 11)
+8: pe_2_2 filling: [5,8) accumulating: [9 12)
 }#

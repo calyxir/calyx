@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 
@@ -24,6 +26,11 @@ impl Visitor for ResetInsertion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let builder = ir::Builder::new(comp, sigs);
+        let reset = builder
+            .component
+            .signature
+            .borrow()
+            .get_with_attr(ir::BoolAttr::Reset);
 
         for cell_ref in builder.component.cells.iter() {
             let cell = cell_ref.borrow();
@@ -31,11 +38,7 @@ impl Visitor for ResetInsertion {
                 builder.component.continuous_assignments.push(
                     builder.build_assignment(
                         port,
-                        builder
-                            .component
-                            .signature
-                            .borrow()
-                            .get_with_attr(ir::BoolAttr::Reset),
+                        Rc::clone(&reset),
                         ir::Guard::True,
                     ),
                 )

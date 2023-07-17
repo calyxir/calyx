@@ -4,7 +4,12 @@ component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   control {}
 }
 component main<"toplevel"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
-  cells {}
-  wires {}
+  cells {
+    @generated foo = foo();
+  }
+  wires {
+    foo.go = go;
+    done = foo.done;
+  }
   control {}
 }

@@ -375,7 +375,7 @@ impl CalyxParser {
     fn block_string(input: Node) -> ParseResult<String> {
         Ok(match_nodes!(
             input.into_children();
-            [block_char(c)..] => c.collect::<String>()
+            [block_char(c)..] => c.collect::<String>().trim().to_string()
         ))
     }
 
@@ -993,6 +993,11 @@ impl CalyxParser {
         let span = Self::get_span(&input);
         Ok(match_nodes!(
             input.into_children();
+            [at_attributes(attrs), bitwidth(num_repeats) , block(stmt)] => ast::Control::Repeat {
+                num_repeats,
+                body: Box::new(stmt),
+                attributes: attrs.add_span(span),
+            },
             [at_attributes(attrs), static_word(_), bitwidth(num_repeats) , block(stmt)] => ast::Control::StaticRepeat {
                 num_repeats,
                 body: Box::new(stmt),

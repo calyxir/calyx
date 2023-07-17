@@ -168,6 +168,9 @@ impl ControlId {
             }
             ir::Control::While(ir::While {
                 body, attributes, ..
+            })
+            | ir::Control::Repeat(ir::Repeat {
+                body, attributes, ..
             }) => {
                 attributes.insert(NODE_ID, cur_state);
                 cur_state += 1;
@@ -282,7 +285,8 @@ impl ControlId {
                 new_state = Self::add_static_enable_ids(fbranch, cur_state);
                 new_state
             }
-            ir::Control::While(ir::While { body, .. }) => {
+            ir::Control::While(ir::While { body, .. })
+            | ir::Control::Repeat(ir::Repeat { body, .. }) => {
                 Self::add_static_enable_ids(body, cur_state)
             }
             ir::Control::Static(s) => {

@@ -172,6 +172,7 @@ version = "0.3.0"
 dependencies = [
  "atty",
  "calyx-utils",
+ "itertools 0.10.5",
  "lazy_static",
  "linked-hash-map",
  "log",

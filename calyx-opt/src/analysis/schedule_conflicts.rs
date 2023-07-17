@@ -173,6 +173,9 @@ fn build_conflict_graph(
             }
             build_conflict_graph(body, confs, all_nodes);
         }
+        ir::Control::Repeat(ir::Repeat { body, .. }) => {
+            build_conflict_graph(body, confs, all_nodes);
+        }
         ir::Control::Par(ir::Par { stmts, .. }) => {
             let par_nodes = stmts
                 .iter()

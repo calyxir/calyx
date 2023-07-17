@@ -10,6 +10,7 @@ pub mod parser;
 mod attribute;
 mod attributes;
 mod common;
+mod lib_sig;
 mod workspace;
 
 use attribute::InlineAttributes;
@@ -20,4 +21,5 @@ pub use attribute::{
 };
 pub use attributes::{Attributes, GetAttributes};
 pub use common::{Direction, PortDef, Primitive, Width};
+pub use lib_sig::{LibrarySignatures, PrimitiveInfo};
 pub use workspace::Workspace;

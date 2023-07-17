@@ -1,4 +1,6 @@
 #![allow(clippy::unused_unit)]
+use std::path::PathBuf;
+
 use calyx_frontend as frontend;
 use calyx_ir as ir;
 use calyx_opt::pass_manager::PassManager;
@@ -13,16 +15,13 @@ fn ws_from_ns(ns: frontend::NamespaceDef) -> CalyxResult<frontend::Workspace> {
         ));
     }
     let mut ws = frontend::Workspace::default();
-    ws.externs.extend(
-        ns.externs
-            .into_iter()
-            .map(|(path, es)| (path.map(|p| p.into()), es)),
-    );
-
-    // Add components defined by this namespace to either components or
-    // declarations
-    ws.components.extend(&mut ns.components.into_iter());
-
+    ws.merge_namespace(
+        ns,
+        true,
+        &PathBuf::default(),
+        true,
+        &PathBuf::default(),
+    )?;
     Ok(ws)
 }
 

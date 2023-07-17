@@ -1,4 +1,7 @@
 import "primitives/core.futil";
+extern "<ROOT>/calyx/tests/passes/group2invoke/multi-go-done.futil" {
+  primitive real_mem(@static @go read_en: 1, @static(2) @go(2) write_en: 1) -> (@done read_done: 1, @done(2) write_done: 1);
+}
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     mem = real_mem();

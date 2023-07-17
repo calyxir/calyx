@@ -1,5 +1,3 @@
----CODE---
-1
 ---STDERR---
 Error: Malformed Control: tests/passes/well-formed/while-unstable.futil
 19 |    while lt.out {

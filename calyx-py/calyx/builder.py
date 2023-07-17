@@ -22,10 +22,10 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None) -> ComponentBuilder:
+    def component(self, name: str, cells=None, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
         cells = cells or []
-        comp_builder = ComponentBuilder(self, name, cells)
+        comp_builder = ComponentBuilder(self, name, cells, latency)
         self.program.components.append(comp_builder.component)
         self._index[name] = comp_builder
         return comp_builder
@@ -49,7 +49,11 @@ class ComponentBuilder:
     """Builds Calyx components definitions."""
 
     def __init__(
-        self, prog: Builder, name: str, cells: Optional[List[ast.Cell]] = None
+        self,
+        prog: Builder,
+        name: str,
+        cells: Optional[List[ast.Cell]] = None,
+        latency: Optional[int] = None,
     ):
         """Contructs a new component in the current program. If `cells` is
         provided, the component will be initialized with those cells."""
@@ -61,6 +65,7 @@ class ComponentBuilder:
             outputs=[],
             structs=cells,
             controls=ast.Empty(),
+            latency=latency,
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
         for cell in cells:
@@ -114,6 +119,14 @@ class ComponentBuilder:
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
 
+    def try_get_cell(self, name: str) -> CellBuilder:
+        """Tries to get a cell builder by name. If cannot find it, return None"""
+        out = self.index.get(name)
+        if out and isinstance(out, CellBuilder):
+            return out
+        else:
+            return None
+
     def get_group(self, name: str) -> GroupBuilder:
         """Retrieve a group builder by name."""
         out = self.index.get(name)
@@ -137,7 +150,17 @@ class ComponentBuilder:
     def comb_group(self, name: str) -> GroupBuilder:
         """Create a new combinational group with the given name."""
         group = ast.CombGroup(ast.CompVar(name), connections=[])
-        assert group not in self.component.wires, f"comb group '{name}' already exists"
+        assert group not in self.component.wires, f"group '{name}' already exists"
+
+        self.component.wires.append(group)
+        builder = GroupBuilder(group, self)
+        self.index[name] = builder
+        return builder
+
+    def static_group(self, name: str, latency: int) -> GroupBuilder:
+        """Create a new combinational group with the given name."""
+        group = ast.StaticGroup(ast.CompVar(name), connections=[], latency=latency)
+        assert group not in self.component.wires, f"group '{name}' already exists"
 
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
@@ -253,6 +276,15 @@ class ComponentBuilder:
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("le", size, signed))
 
+    def and_(self, name: str, size: int) -> CellBuilder:
+        """Generate a StdAnd cell."""
+        return self.cell(name, ast.Stdlib.op("and", size, False))
+
+    def pipelined_mult(self, name: str) -> CellBuilder:
+        """Generate a pipelined multiplier."""
+        self.prog.import_("primitives/pipelined.futil")
+        return self.cell(name, ast.Stdlib.pipelined_mult())
+
 
 def as_control(obj):
     """Convert a Python object into a control statement.
@@ -307,13 +339,18 @@ def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
     return ast.While(port.expr, cg, as_control(body))
 
 
+def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
+    """Build a `static repeat` control statement."""
+    return ast.StaticRepeat(num_repeats, as_control(body))
+
+
 def if_(
     port: ExprBuilder,
     cond: Optional[GroupBuilder],
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `if` control statement."""
+    """Build an `static if` control statement."""
     else_body = ast.Empty() if else_body is None else else_body
 
     if cond:
@@ -324,6 +361,16 @@ def if_(
     else:
         cg = None
     return ast.If(port.expr, cg, as_control(body), as_control(else_body))
+
+
+def static_if(
+    port: ExprBuilder,
+    body,
+    else_body=None,
+) -> ast.If:
+    """Build an `if` control statement."""
+    else_body = ast.Empty() if else_body is None else else_body
+    return ast.StaticIf(port.expr, as_control(body), as_control(else_body))
 
 
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
@@ -654,7 +701,7 @@ def infer_width(expr):
             return inst.args[0]
         elif port_name == "write_en":
             return 1
-    elif prim in ("std_add", "std_lt", "std_eq"):
+    elif prim in ("std_add", "std_lt", "std_le", "std_ge", "std_gt", "std_eq"):
         if port_name == "left" or port_name == "right":
             return inst.args[0]
     elif prim == "std_mem_d1" or prim == "seq_mem_d1":

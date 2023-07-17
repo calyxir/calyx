@@ -50,6 +50,7 @@ class Component:
     wires: list[Structure]
     cells: list[Cell]
     controls: Control
+    latency: Optional[int]
 
     def __init__(
         self,
@@ -58,11 +59,13 @@ class Component:
         outputs: list[PortDef],
         structs: list[Structure],
         controls: Control,
+        latency: Optional[int] = None,
     ):
         self.inputs = inputs
         self.outputs = outputs
         self.name = name
         self.controls = controls
+        self.latency = latency
 
         # Partition cells and wires.
         def is_cell(x):
@@ -82,7 +85,10 @@ class Component:
     def doc(self) -> str:
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
-        signature = f"component {self.name}({ins}) -> ({outs})"
+        latency_annotation = (
+            f"static<{self.latency}> " if self.latency is not None else ""
+        )
+        signature = f"{latency_annotation}component {self.name}({ins}) -> ({outs})"
         cells = block("cells", [c.doc() for c in self.cells])
         wires = block("wires", [w.doc() for w in self.wires])
         controls = block("control", [self.controls.doc()])
@@ -220,6 +226,19 @@ class CombGroup(Structure):
 
 
 @dataclass
+class StaticGroup(Structure):
+    id: CompVar
+    connections: list[Connect]
+    latency: int
+
+    def doc(self) -> str:
+        return block(
+            f"static<{self.latency}> group {self.id.doc()}",
+            [c.doc() for c in self.connections],
+        )
+
+
+@dataclass
 class CompInst(Emittable):
     id: str
     args: list[int]
@@ -310,11 +329,27 @@ class SeqComp(Control):
 
 
 @dataclass
+class StaticSeqComp(Control):
+    stmts: list[Control]
+
+    def doc(self) -> str:
+        return block("static seq", [s.doc() for s in self.stmts])
+
+
+@dataclass
 class ParComp(Control):
     stmts: list[Control]
 
     def doc(self) -> str:
         return block("par", [s.doc() for s in self.stmts])
+
+
+@dataclass
+class StaticParComp(Control):
+    stmts: list[Control]
+
+    def doc(self) -> str:
+        return block("static par", [s.doc() for s in self.stmts])
 
 
 @dataclass
@@ -357,6 +392,40 @@ class Invoke(Control):
 
 
 @dataclass
+class StaticInvoke(Control):
+    id: CompVar
+    in_connects: List[Tuple[str, Port]]
+    out_connects: List[Tuple[str, Port]]
+    ref_cells: List[Tuple[str, CompVar]] = field(default_factory=list)
+    attributes: List[Tuple[str, int]] = field(default_factory=list)
+
+    def doc(self) -> str:
+        inv = f"static invoke {self.id.doc()}"
+
+        # Add attributes if present
+        if len(self.attributes) > 0:
+            attrs = " ".join([f"@{tag}({val})" for tag, val in self.attributes])
+            inv = f"{attrs} {inv}"
+
+        # Add ref cells if present
+        if len(self.ref_cells) > 0:
+            rcs = ", ".join([f"{n}={arg.doc()}" for (n, arg) in self.ref_cells])
+            inv += f"[{rcs}]"
+
+        # Inputs and outputs
+        in_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.in_connects])
+        out_defs = ", ".join([f"{p}={a.doc()}" for p, a in self.out_connects])
+        inv += f"({in_defs})({out_defs})"
+        inv += ";"
+
+        return inv
+
+    def with_attr(self, key: str, value: int) -> Invoke:
+        self.attributes.append((key, value))
+        return self
+
+
+@dataclass
 class While(Control):
     port: Port
     # XXX: This should probably be called the cond_group.
@@ -367,6 +436,16 @@ class While(Control):
         cond = f"while {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
+        return block(cond, self.body.doc(), sep="")
+
+
+@dataclass
+class StaticRepeat(Control):
+    num_repeats: int
+    body: Control
+
+    def doc(self) -> str:
+        cond = f"static repeat {self.num_repeats}"
         return block(cond, self.body.doc(), sep="")
 
 
@@ -388,6 +467,22 @@ class If(Control):
         cond = f"if {self.port.doc()}"
         if self.cond:
             cond += f" with {self.cond.doc()}"
+        true_branch = self.true_branch.doc()
+        if isinstance(self.false_branch, Empty):
+            false_branch = ""
+        else:
+            false_branch = block(" else", self.false_branch.doc(), sep="")
+        return block(cond, true_branch, sep="") + false_branch
+
+
+@dataclass
+class StaticIf(Control):
+    port: Port
+    true_branch: Control
+    false_branch: Control = field(default_factory=Empty)
+
+    def doc(self) -> str:
+        cond = f"static if {self.port.doc()}"
         true_branch = self.true_branch.doc()
         if isinstance(self.false_branch, Empty):
             false_branch = ""
@@ -532,3 +627,7 @@ class Stdlib:
         return CompInst(
             f'std_fp_{"s" if signed else ""}{op}', [width, int_width, frac_width]
         )
+
+    @staticmethod
+    def pipelined_mult():
+        return CompInst(f"pipelined_mult", [])
