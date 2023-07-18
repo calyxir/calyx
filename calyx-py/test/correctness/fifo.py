@@ -123,20 +123,20 @@ def add_fifo(prog):
     err = fifo.mem_d1("err", 1, 1, 1, is_ref=True)
 
     # Cells and groups to compute equality
-    eq0cell, eq0grp = add_eq(fifo, pop, push, "pop_eq_push", 1)
-    eq1cell, eq1grp = add_eq(fifo, pop, 1, "pop_eq_1", 1)
-    eq2cell, eq2grp = add_eq(fifo, push, 1, "push_eq_1", 1)
-    eq3cell, eq3grp = add_eq(fifo, next_read.out, next_write.out, "read_eq_write", 32)
-    eq5acell, eq5agrp = add_eq(fifo, next_write.out, 10, "write_eq_10", 32)
-    eq5bcell, eq5bgrp = add_eq(fifo, next_read.out, 10, "read_eq_10", 32)
-    eq4acell, eq4agrp = add_eq(fifo, full.out, 1, "full_eq_1", 1)
-    eq4bcell, eq4bgrp = add_eq(fifo, empty.out, 1, "empty_eq_1", 1)
+    pop_eq_push = add_eq(fifo, pop, push, "pop_eq_push", 1)
+    pop_eq_1 = add_eq(fifo, pop, 1, "pop_eq_1", 1)
+    push_eq_1 = add_eq(fifo, push, 1, "push_eq_1", 1)
+    read_eq_write = add_eq(fifo, next_read.out, next_write.out, "read_eq_write", 32)
+    write_eq_10 = add_eq(fifo, next_write.out, 10, "write_eq_10", 32)
+    read_eq_10 = add_eq(fifo, next_read.out, 10, "read_eq_10", 32)
+    full_eq_1 = add_eq(fifo, full.out, 1, "full_eq_1", 1)
+    empty_eq_1 = add_eq(fifo, empty.out, 1, "empty_eq_1", 1)
 
-    # Cells and groups to increment read and write registers, including wraparound
+    # Cells and groups to increment read and write registers
     write_incr = add_incr(fifo, next_write, "add1", "next_write_incr")
     read_incr = add_incr(fifo, next_read, "add2", "next_read_incr")
 
-    # Cells and groups to modify flags, which may be registers or memories of size one
+    # Cells and groups to modify flags, which may be registers or memories of size 1
     write_wrap = set_flag_reg(fifo, next_write, 0, "next_write_wraparound")
     read_wrap = set_flag_reg(fifo, next_read, 0, "next_read_wraparound")
     raise_full = set_flag_reg(fifo, full, 1, "raise_full_flag")
@@ -152,41 +152,41 @@ def add_fifo(prog):
 
     fifo.control += [
         cb.if_(
-            eq0cell.out,
-            eq0grp,
+            pop_eq_push[0].out,
+            pop_eq_push[1],
             raise_err,
             cb.par(
                 cb.if_(
-                    eq1cell.out,
-                    eq1grp,
+                    pop_eq_1[0].out,
+                    pop_eq_1[1],
                     cb.if_(
-                        eq4bcell.out,
-                        eq4bgrp,
+                        empty_eq_1[0].out,
+                        empty_eq_1[1],
                         raise_err,
                         [
                             lower_err,
                             read_from_mem,
                             read_incr,
-                            cb.if_(eq5bcell.out, eq5bgrp, read_wrap),
-                            cb.if_(eq3cell.out, eq3grp, raise_empty),
-                            cb.if_(eq4acell.out, eq4agrp, lower_full),
+                            cb.if_(read_eq_10[0].out, read_eq_10[1], read_wrap),
+                            cb.if_(read_eq_write[0].out, read_eq_write[1], raise_empty),
+                            cb.if_(full_eq_1[0].out, full_eq_1[1], lower_full),
                         ],
                     ),
                 ),
                 cb.if_(
-                    eq2cell.out,
-                    eq2grp,
+                    push_eq_1[0].out,
+                    push_eq_1[1],
                     cb.if_(
-                        eq4acell.out,
-                        eq4agrp,
+                        full_eq_1[0].out,
+                        full_eq_1[1],
                         raise_err,
                         [
                             lower_err,
                             write_to_mem,
                             write_incr,
-                            cb.if_(eq5acell.out, eq5agrp, write_wrap),
-                            cb.if_(eq3cell.out, eq3grp, raise_full),
-                            cb.if_(eq4bcell.out, eq4bgrp, lower_empty),
+                            cb.if_(write_eq_10[0].out, write_eq_10[1], write_wrap),
+                            cb.if_(read_eq_write[0].out, read_eq_write[1], raise_full),
+                            cb.if_(empty_eq_1[0].out, empty_eq_1[1], lower_empty),
                         ],
                     ),
                 ),
