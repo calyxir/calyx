@@ -215,3 +215,13 @@ impl InlineAttributes {
         })
     }
 }
+
+#[cfg(feature = "serialize")]
+impl serde::Serialize for InlineAttributes {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_owned().attrs.serialize(ser)
+    }
+}

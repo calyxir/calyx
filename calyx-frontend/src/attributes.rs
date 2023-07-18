@@ -16,7 +16,6 @@ struct HeapAttrInfo {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Attributes {
     /// Inlined attributes
-    #[cfg_attr(feature = "serialize", serde(skip))]
     inl: InlineAttributes,
     /// Attributes stored on the heap
     hinfo: Box<HeapAttrInfo>,
