@@ -13,11 +13,17 @@ readme.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = []
+serialize = ["dep:serde/derive", "dep:serde_with"]
+
 [dependencies]
 atty.workspace = true
 lazy_static.workspace = true
 linked-hash-map.workspace = true
 log.workspace = true
+serde = { workspace = true, optional = true }
+serde_with = { workspace = true, optional = true }
 smallvec.workspace = true
 pest.workspace = true
 pest_derive.workspace = true

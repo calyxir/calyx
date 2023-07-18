@@ -18,6 +18,7 @@ pub const DEPRECATED_ATTRIBUTES: &[&str] = &[];
     Eq,
     Debug,
 )]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 #[repr(u8)]
 /// Attributes that are only allowed to take boolean values.
 pub enum BoolAttr {
@@ -73,6 +74,7 @@ impl std::fmt::Display for BoolAttr {
 }
 
 #[derive(AsRefStr, EnumString, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 /// Attributes that can take numeric values
 pub enum NumAttr {
     // ============ numeric attributes ============
@@ -114,6 +116,7 @@ impl std::fmt::Display for NumAttr {
 }
 
 #[derive(AsRefStr, Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 #[allow(non_camel_case_types)]
 /// Internal attributes that cannot be parsed back from the IL.
 pub enum InternalAttr {
@@ -133,6 +136,7 @@ impl From<InternalAttr> for Attribute {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 /// Defines the known attributes that can be attached to IR nodes.
 /// All caps names represent attributes that are internal to the compiler and
 /// cannot be parsed back.
