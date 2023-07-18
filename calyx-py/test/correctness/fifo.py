@@ -109,84 +109,128 @@ def add_fifo(prog):
     push = fifo.input("push", 1)
     payload = fifo.input("payload", 32)
 
-    # A memory cell
     mem = fifo.mem_d1("mem", 32, 10, 32)
 
-    # Four registers
-    next_write = fifo.reg("next_write", 32)
-    next_read = fifo.reg("next_read", 32)
+    write = fifo.reg("next_write", 32)  # The next address to write to
+    read = fifo.reg("next_read", 32)  # The next address to read from
     full = fifo.reg("full", 1)
     empty = fifo.reg("empty", 1)
 
-    # Two ref memories
+    # We will orchestrate `mem`, along with the two pointers above, to
+    # simulate a circular queue of size 10.
+    # `write` == `read` can mean the queue is empty or full, so we use
+    # the `full` and `empty` flags to keep track of this.
+
     ans = fifo.mem_d1("ans", 32, 1, 32, is_ref=True)
+    # If the user wants to pop, we will write the popped value to `ans`
+
     err = fifo.mem_d1("err", 1, 1, 1, is_ref=True)
+    # We'll raise this as a general warning flag.
+    # Overflow, underflow, if the user calls pop and push at the same time,
+    # or if the user issues no command
 
     # Cells and groups to compute equality
-    pop_eq_push = add_eq(fifo, pop, push, "pop_eq_push", 1)
-    pop_eq_1 = add_eq(fifo, pop, 1, "pop_eq_1", 1)
-    push_eq_1 = add_eq(fifo, push, 1, "push_eq_1", 1)
-    read_eq_write = add_eq(fifo, next_read.out, next_write.out, "read_eq_write", 32)
-    write_eq_10 = add_eq(fifo, next_write.out, 10, "write_eq_10", 32)
-    read_eq_10 = add_eq(fifo, next_read.out, 10, "read_eq_10", 32)
-    full_eq_1 = add_eq(fifo, full.out, 1, "full_eq_1", 1)
-    empty_eq_1 = add_eq(fifo, empty.out, 1, "empty_eq_1", 1)
+    pop_eq_push = add_eq(fifo, pop, push, "pop_eq_push", 1)  # is `pop` == `push`?
+    pop_eq_1 = add_eq(fifo, pop, 1, "pop_eq_1", 1)  # is `pop` == 1?
+    push_eq_1 = add_eq(fifo, push, 1, "push_eq_1", 1)  # is `push` == 1?
+    read_eq_write = add_eq(
+        fifo, read.out, write.out, "read_eq_write", 32
+    )  # is `read` == `write`?
+    write_eq_10 = add_eq(fifo, write.out, 10, "write_eq_10", 32)  # is `write` == 10?
+    read_eq_10 = add_eq(fifo, read.out, 10, "read_eq_10", 32)  # is `read` == 10?
+    full_eq_1 = add_eq(fifo, full.out, 1, "full_eq_1", 1)  # is the `full` flag up?
+    empty_eq_1 = add_eq(fifo, empty.out, 1, "empty_eq_1", 1)  # is the `empty` flag up?
 
     # Cells and groups to increment read and write registers
-    write_incr = add_incr(fifo, next_write, "add1", "next_write_incr")
-    read_incr = add_incr(fifo, next_read, "add2", "next_read_incr")
+    write_incr = add_incr(fifo, write, "add1", "write_incr")  # write = write + 1
+    read_incr = add_incr(fifo, read, "add2", "read_incr")  # read = read + 1
 
     # Cells and groups to modify flags, which may be registers or memories of size 1
-    write_wrap = set_flag_reg(fifo, next_write, 0, "next_write_wraparound")
-    read_wrap = set_flag_reg(fifo, next_read, 0, "next_read_wraparound")
-    raise_full = set_flag_reg(fifo, full, 1, "raise_full_flag")
-    lower_full = set_flag_reg(fifo, full, 0, "lower_full_flag")
-    raise_empty = set_flag_reg(fifo, empty, 1, "raise_empty_flag")
-    lower_empty = set_flag_reg(fifo, empty, 0, "lower_empty_flag")
-    raise_err = set_flag_mem(fifo, err, cb.const(1, 1), "raise_err_flag")
-    lower_err = set_flag_mem(fifo, err, cb.const(1, 0), "lower_err_flag")
+    write_wrap = set_flag_reg(fifo, write, 0, "write_wraparound")  # zero out `write`
+    read_wrap = set_flag_reg(fifo, read, 0, "read_wraparound")  # zero out `read`
+    raise_full = set_flag_reg(fifo, full, 1, "raise_full")  # set `full` to 1
+    lower_full = set_flag_reg(fifo, full, 0, "lower_full")  # set `full` to 0
+    raise_empty = set_flag_reg(fifo, empty, 1, "raise_empty")  # set `empty` to 1
+    lower_empty = set_flag_reg(fifo, empty, 0, "lower_empty")  # set `empty` to 0
+    raise_err = set_flag_mem(fifo, err, cb.const(1, 1), "raise_err")  # set `err` to 1
+    lower_err = set_flag_mem(fifo, err, cb.const(1, 0), "lower_err")  # set `err` to 0
 
-    # Load and store
-    write_to_mem = mem_store(fifo, mem, next_write.out, payload, "write_payload_to_mem")
-    read_from_mem = mem_load(fifo, mem, next_read.out, ans, "read_payload_from_mem")
+    # Load and store into arbitary slot in memory
+    write_to_mem = mem_store(fifo, mem, write.out, payload, "write_payload_to_mem")
+    read_from_mem = mem_load(fifo, mem, read.out, ans, "read_payload_from_mem")
 
     fifo.control += [
         cb.if_(
             pop_eq_push[0].out,
             pop_eq_push[1],
+            # The user called pop and push at the same time, or issued no command.
             raise_err,
             cb.par(
                 cb.if_(
+                    # Did the user call pop?
                     pop_eq_1[0].out,
                     pop_eq_1[1],
                     cb.if_(
+                        # Yes, the user called pop. But is the queue empty?
                         empty_eq_1[0].out,
                         empty_eq_1[1],
-                        raise_err,
-                        [
-                            lower_err,
-                            read_from_mem,
-                            read_incr,
-                            cb.if_(read_eq_10[0].out, read_eq_10[1], read_wrap),
-                            cb.if_(read_eq_write[0].out, read_eq_write[1], raise_empty),
-                            cb.if_(full_eq_1[0].out, full_eq_1[1], lower_full),
+                        raise_err,  # The queue is empty: underflow.
+                        [  # The queue is not empty. Proceed.
+                            lower_err,  # Clear the error flag.
+                            read_from_mem,  # Read from the queue.
+                            read_incr,  # Increment the read pointer.
+                            cb.if_(
+                                # Wrap around if necessary.
+                                read_eq_10[0].out,
+                                read_eq_10[1],
+                                read_wrap,
+                            ),
+                            cb.if_(
+                                # Raise the empty flag if necessary.
+                                read_eq_write[0].out,
+                                read_eq_write[1],
+                                raise_empty,
+                            ),
+                            cb.if_(
+                                # Lower the full flag if necessary.
+                                full_eq_1[0].out,
+                                full_eq_1[1],
+                                lower_full,
+                            ),
                         ],
                     ),
                 ),
                 cb.if_(
+                    # Did the user call push?
                     push_eq_1[0].out,
                     push_eq_1[1],
                     cb.if_(
+                        # Yes, the user called push. But is the queue full?
                         full_eq_1[0].out,
                         full_eq_1[1],
-                        raise_err,
-                        [
-                            lower_err,
-                            write_to_mem,
-                            write_incr,
-                            cb.if_(write_eq_10[0].out, write_eq_10[1], write_wrap),
-                            cb.if_(read_eq_write[0].out, read_eq_write[1], raise_full),
-                            cb.if_(empty_eq_1[0].out, empty_eq_1[1], lower_empty),
+                        raise_err,  # The queue is full: overflow.
+                        [  # The queue is not full. Proceed.
+                            lower_err,  # Clear the error flag.
+                            write_to_mem,  # Write to the queue.
+                            write_incr,  # Increment the write pointer.
+                            cb.if_(
+                                # Wrap around if necessary.
+                                write_eq_10[0].out,
+                                write_eq_10[1],
+                                write_wrap,
+                            ),
+                            cb.if_(
+                                # Raise the full flag if necessary.
+                                read_eq_write[0].out,
+                                read_eq_write[1],
+                                raise_full,
+                            ),
+                            cb.if_(
+                                # Lower the empty flag if necessary.
+                                empty_eq_1[0].out,
+                                empty_eq_1[1],
+                                lower_empty,
+                            ),
                         ],
                     ),
                 ),
@@ -230,9 +274,9 @@ def add_main(prog, fifo):
     ten_pops = [pop for _ in range(10)]
 
     main.control += (
-        ten_pushes
+        ten_pushes  # These will succeed
         + [
-            cb.invoke(
+            cb.invoke(  # This will fail
                 fifo,
                 in_pop=cb.const(1, 0),
                 in_push=cb.const(1, 1),
@@ -240,8 +284,8 @@ def add_main(prog, fifo):
                 ref_ans=ans,
                 ref_err=err,
             ),
-            pop,
-            cb.invoke(
+            pop,  # This will succeed
+            cb.invoke(  # As will this
                 fifo,
                 in_pop=cb.const(1, 0),
                 in_push=cb.const(1, 1),
@@ -250,8 +294,8 @@ def add_main(prog, fifo):
                 ref_err=err,
             ),
         ]
-        + ten_pops
-        + [pop]
+        + ten_pops  # These will succeed
+        + [pop]  # This will fail
     )
 
 
