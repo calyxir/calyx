@@ -219,14 +219,66 @@ def add_main(prog, fifo):
     This will be used to `invoke` the component `fifo`.
     """
     main: cb.ComponentBuilder = prog.component("main")
-    fifo = main.cell("fifo", fifo)
+
+    ans = main.mem_d1("ans_in", 32, 1, 32, is_external=True)
+    err = main.mem_d1("err_in", 1, 1, 1, is_external=True)
+    fifo = main.cell("myfifo", fifo)
+
+    ten_pushes = [
+        cb.invoke(
+            fifo,
+            in_pop=cb.const(1, 0),
+            in_push=cb.const(1, 1),
+            in_payload=cb.const(32, 100 + i),
+            ref_ans=ans,
+            ref_err=err,
+        )
+        for i in range(10)
+    ]
+
+    pop = cb.invoke(
+        fifo,
+        in_pop=cb.const(1, 1),
+        in_push=cb.const(1, 0),
+        ref_ans=ans,
+        ref_err=err,
+    )
+
+    ten_pops = [pop for _ in range(10)]
+
+    main.control += (
+        ten_pushes
+        + [
+            cb.invoke(
+                fifo,
+                in_pop=cb.const(1, 0),
+                in_push=cb.const(1, 1),
+                in_payload=cb.const(32, 110),
+                ref_ans=ans,
+                ref_err=err,
+            ),
+            pop,
+            cb.invoke(
+                fifo,
+                in_pop=cb.const(1, 0),
+                in_push=cb.const(1, 1),
+                in_payload=cb.const(32, 110),
+                ref_ans=ans,
+                ref_err=err,
+            ),
+        ]
+        + ten_pops
+        + [pop]
+    )
+
+    # + [push_n(110), pop, push_n(110), ten_pops + [pop]]
 
 
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
     fifo = add_fifo(prog)
-    # add_main(prog, fifo)
+    add_main(prog, fifo)
     return prog.program
 
 
