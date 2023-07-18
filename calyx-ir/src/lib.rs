@@ -54,3 +54,6 @@ pub mod from_ast;
 
 /// Convinience macros for constructing IR nodes.
 mod macros;
+
+/// Serializer methods for IR nodes.
+pub mod serializers;

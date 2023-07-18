@@ -9,6 +9,7 @@ type StaticLatency = u64;
 
 /// Data for the `seq` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
     pub stmts: Vec<Control>,
@@ -26,6 +27,7 @@ impl GetAttributes for Seq {
 
 /// Data for the `static seq` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticSeq {
     /// List of `StaticControl` statements to run in sequence.
     pub stmts: Vec<StaticControl>,
@@ -45,6 +47,7 @@ impl GetAttributes for StaticSeq {
 
 /// Data for the `par` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Par {
     /// List of `Control` statements to run in parallel.
     pub stmts: Vec<Control>,
@@ -62,6 +65,7 @@ impl GetAttributes for Par {
 
 // Data for the `static par` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticPar {
     /// List of `StaticControl` statements to run in parallel.
     pub stmts: Vec<StaticControl>,
@@ -81,6 +85,7 @@ impl GetAttributes for StaticPar {
 
 /// Data for the `if` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct If {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -109,6 +114,7 @@ impl GetAttributes for If {
 
 /// Data for the `static if` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticIf {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -139,6 +145,7 @@ impl GetAttributes for StaticIf {
 
 /// Data for the `while` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct While {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -162,6 +169,7 @@ impl GetAttributes for While {
 /// Data for the Dynamic `Repeat` control statement. Repeats the body of the loop
 /// a given number times.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Repeat {
     /// Attributes
     pub attributes: Attributes,
@@ -182,6 +190,7 @@ impl GetAttributes for Repeat {
 
 /// Data for the `StaticRepeat` control statement. Essentially a static while loop.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticRepeat {
     /// Attributes
     pub attributes: Attributes,
@@ -204,6 +213,7 @@ impl GetAttributes for StaticRepeat {
 
 /// Data for the `enable` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Enable {
     /// List of components to run.
     pub group: RRC<Group>,
@@ -222,6 +232,7 @@ impl GetAttributes for Enable {
 
 /// Data for the `enable` control for a static group.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticEnable {
     /// List of components to run.
     pub group: RRC<StaticGroup>,
@@ -250,6 +261,7 @@ type CellMap = Vec<(Id, RRC<Cell>)>;
 
 /// Data for an `invoke` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Invoke {
     /// Cell that is being invoked.
     pub comp: RRC<Cell>,
@@ -276,6 +288,7 @@ impl GetAttributes for Invoke {
 
 /// Data for a `StaticInvoke` control statement
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticInvoke {
     /// Cell that is being invoked.
     pub comp: RRC<Cell>,
@@ -302,12 +315,14 @@ impl GetAttributes for StaticInvoke {
 
 /// Data for the `empty` control statement.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Empty {
     pub attributes: Attributes,
 }
 
 /// Control AST nodes.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq(Seq),
@@ -331,6 +346,7 @@ pub enum Control {
 
 /// Control AST nodes.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum StaticControl {
     /// Essentially a Static While Loop
     Repeat(StaticRepeat),
