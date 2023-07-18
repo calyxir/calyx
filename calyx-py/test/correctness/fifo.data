@@ -1,14 +1,41 @@
 {
-  "ans_in": {
-    "data": [ 0 ],
+  "commands": {
+    "data": [
+      100,
+      0,
+      101,
+      102,
+      0,
+      103,
+      104,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "format": {
       "is_signed": false,
       "numeric_type": "bitnum",
       "width": 32
     }
   },
-  "err_in": {
-    "data": [ 0 ],
+  "ans_mem": {
+    "data": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "format": {
       "is_signed": false,
       "numeric_type": "bitnum",
