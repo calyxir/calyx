@@ -1,42 +1,60 @@
-use dap::prelude::*;
-use std::io::BufReader;
-use std::net::{TcpListener, TcpStream};
-
-mod client;
-use client::TcpClient;
 mod adapter;
+mod error;
+
 use adapter::MyAdapter;
+use error::MyAdapterError;
 
-fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:8080")?;
+use dap::prelude::*;
+use error::AdapterResult;
+use std::fs::File;
+use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
+use std::net::TcpListener;
+use std::path::PathBuf;
 
-    match listener.accept() {
-        Ok((stream, addr)) => {
-            println!("Accepted client on: {} ", addr);
-            handle_client(stream)?;
-        }
-        Err(_) => todo!(),
+#[derive(argh::FromArgs)]
+/// Positional arguments for file path
+struct Opts {
+    /// input file
+    #[argh(positional, from_str_fn(read_path))]
+    file: Option<PathBuf>,
+    #[argh(switch, long = "tcp")]
+    /// runs in tcp mode
+    is_multi_session: bool,
+    #[argh(option, short = 'p', long = "port", default = "8080")]
+    /// port for the TCP server
+    port: u16,
+}
+fn read_path(path: &str) -> Result<PathBuf, String> {
+    Ok(PathBuf::from(path))
+}
+
+fn main() -> Result<(), MyAdapterError> {
+    let opts: Opts = argh::from_env();
+    let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
+    let file = File::open(path)?;
+    let adapter = MyAdapter::new(file);
+
+    if opts.is_multi_session {
+        let listener = TcpListener::bind(("127.0.0.1", opts.port))?;
+        let (stream, addr) = listener.accept()?;
+        println!("Accepted client on: {}", addr);
+        let read_stream = BufReader::new(stream.try_clone()?);
+        let write_stream = BufWriter::new(stream);
+        let server = Server::new(read_stream, write_stream);
+        run_server(server, adapter)?;
+    } else {
+        let write = BufWriter::new(stdout());
+        let read = BufReader::new(stdin());
+        let server = Server::new(read, write);
+        run_server(server, adapter)?;
     }
 
     Ok(())
 }
 
-fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
-    // Create a TcpClient instance with the TCP stream
-    let client = TcpClient::new(stream.try_clone()?);
-
-    // Create a Server instance with an appropriate adapter and the client
-    let mut server = Server::new(MyAdapter, client);
-
-    // Create a BufReader from the TcpStream
-    let mut reader = BufReader::new(&mut stream);
-
-    match server.run(&mut reader) {
-        Ok(()) => println!("Request handled successfully"),
-        Err(err) => {
-            eprintln!("Error handling request: {:?}", err);
-        }
-    }
-
-    Ok(())
+fn run_server<R: Read, W: Write>(
+    _server: Server<R, W>,
+    _adapter: MyAdapter,
+) -> AdapterResult<()> {
+    todo!()
 }
