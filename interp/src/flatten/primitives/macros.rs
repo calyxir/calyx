@@ -22,15 +22,16 @@ pub(crate) use output;
 pub(crate) use ports;
 
 macro_rules! comb_primitive {
-    ($name:ident[$($param:ident),+]
-        ($($port:ident : $width:ident [$port_idx:expr]),+)
+    ($name:ident$([$($param:ident),+])?
+        ($($port:ident [$port_idx:expr]),+)
         ->
-        ($($out_port:ident : $out_width:ident [$out_port_idx:expr]),+)
+        ($($out_port:ident [$out_port_idx:expr]),+)
         $execute:block) => {
         #[derive(Clone, Debug)]
         #[allow(non_snake_case)]
         pub struct $name {
-            base_port: $crate::flatten::flat_ir::prelude::GlobalPortId,
+            $($($param: u64,)+)?
+            base_port: $crate::flatten::flat_ir::prelude::GlobalPortId
         }
 
         impl $name {
@@ -38,10 +39,15 @@ macro_rules! comb_primitive {
             $crate::flatten::primitives::macros::declare_ports![$($port: $port_idx),+];
             $crate::flatten::primitives::macros::declare_ports![$($out_port: $out_port_idx),+];
 
+            #[allow(non_snake_case)]
             pub fn new(
-                base_port: $crate::flatten::flat_ir::prelude::GlobalPortId
+                base_port: $crate::flatten::flat_ir::prelude::GlobalPortId,
+                $($($param: u64,)+)?
             ) -> Self {
-                Self { base_port }
+                Self {
+                    base_port,
+                    $($($param,)+)?
+                }
             }
         }
 
@@ -56,12 +62,14 @@ macro_rules! comb_primitive {
                     $($out_port: Self::$out_port),+
                 ];
 
-                let exec_func = |$($port: &$crate::values::Value),+, $($out_port:$crate::flatten::flat_ir::prelude::GlobalPortId,)+ | -> $crate::flatten::primitives::prim_trait::Results {
+                #[allow(non_snake_case)]
+                let exec_func = |$($($param: u64,)+)? $($port: &$crate::values::Value),+, $($out_port:$crate::flatten::flat_ir::prelude::GlobalPortId,)+ | -> $crate::flatten::primitives::prim_trait::Results {
                     $execute
                 };
 
 
                 let out = exec_func(
+                    $($(self.$param,)*)?
                     $(&port_map[$port],)+
                     $($out_port,)+
                 );

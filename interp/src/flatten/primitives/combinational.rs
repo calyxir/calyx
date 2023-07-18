@@ -69,6 +69,6 @@ impl Primitive for StdMux {
     }
 }
 
-comb_primitive!(StdNot[WIDTH](input: WIDTH [0]) -> (out: WIDTH [1]) {
+comb_primitive!(StdNot(input [0]) -> (out [1]) {
     Ok(output![out: input.clone_bit_vec().not().into()])
 });
