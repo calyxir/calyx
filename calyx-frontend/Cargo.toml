@@ -15,7 +15,7 @@ readme.workspace = true
 
 [features]
 default = []
-serialize = ["dep:serde/derive", "dep:serde_with"]
+serialize = ["serde/derive", "dep:serde_with"]
 
 [dependencies]
 atty.workspace = true
