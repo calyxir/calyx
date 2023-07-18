@@ -2,17 +2,17 @@
 import calyx.builder as cb
 
 
-def add_eq(comp: cb.ComponentBuilder, port, const, cell, width, group):
-    """Adds wiring into component {comp} to check if {port} == {const}.
-    1. Within {comp}, creates a group called {group}.
-    2. Within {group}, creates a cell called {cell} that checks equality of width {width}.
-    3. Puts the values of {port} and {const} into {cell}.
+def add_eq(comp: cb.ComponentBuilder, a, b, cell, width):
+    """Adds wiring into component {comp} to check if {a} == {b}.
+    1. Within {comp}, creates a group called {cell}_group.
+    2. Within the group, creates a cell {cell} that checks equalities of width {width}.
+    3. Puts the values {a} and {b} into {cell}.
     4. Returns the equality-checking cell and the equality-checking group.
     """
     eq_cell = comp.eq(cell, width)
-    with comp.comb_group(group) as eq_group:
-        eq_cell.left = port
-        eq_cell.right = const
+    with comp.comb_group(f"{cell}_group") as eq_group:
+        eq_cell.left = a
+        eq_cell.right = b
     return eq_cell, eq_group
 
 
@@ -34,21 +34,6 @@ def add_incr(comp: cb.ComponentBuilder, reg, cell, group):
     return incr_group
 
 
-def zero_out_reg(comp: cb.ComponentBuilder, reg, group):
-    """Adds wiring into component {comp} to zero out {reg}.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, adds a cell {cell} that computes sums.
-    3. Puts the values of {port} and 1 into {cell}.
-    4. Then puts the answer of the computation back into {port}.
-    4. Returns the add-computing group.
-    """
-    with comp.group(group) as zero_group:
-        reg.in_ = 0
-        reg.write_en = 1
-        zero_group.done = reg.done
-    return zero_group
-
-
 def mem_load(comp: cb.ComponentBuilder, mem, i, ans, group):
     """Loads a value from one memory into another.
     1. Within component {comp}, creates a group called {group}.
@@ -59,6 +44,7 @@ def mem_load(comp: cb.ComponentBuilder, mem, i, ans, group):
     with comp.group(group) as load_grp:
         mem.addr0 = i
         ans.write_en = 1
+        ans.addr0 = 0
         ans.write_data = mem.read_data
         load_grp.done = ans.done
     return load_grp
@@ -67,8 +53,8 @@ def mem_load(comp: cb.ComponentBuilder, mem, i, ans, group):
 def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
     """Stores a value from one memory into another.
     1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, reads from memory {mem} at address {i}.
-    3. Writes the value into memory {ans} at address 0.
+    2. Within {group}, reads from {val}.
+    3. Writes the value into memory {mem} at address i.
     4. Returns the group that does this.
     """
     with comp.group(group) as store_grp:
@@ -79,11 +65,12 @@ def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
     return store_grp
 
 
-def set_flag(comp: cb.ComponentBuilder, flagname, flagval, group):
+def set_flag_reg(comp: cb.ComponentBuilder, flagname, flagval, group):
     """Sets a flag to a value.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, sets the flag {flagname} to {flagval}.
     3. Returns the group that does this.
+    Note that it assumes the flag is a register.
     """
     with comp.group(group) as flag_grp:
         flagname.in_ = flagval
@@ -97,6 +84,7 @@ def set_flag_mem(comp: cb.ComponentBuilder, flagname, flagval, group):
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, sets the flag {flagname} to {flagval}.
     3. Returns the group that does this.
+    Same as the above, but assumes the flag is a memory of size 1.
     """
     with comp.group(group) as flag_grp:
         flagname.addr0 = 0
@@ -121,51 +109,46 @@ def add_fifo(prog):
     push = fifo.input("push", 1)
     payload = fifo.input("payload", 32)
 
-    # A memory cell.
+    # A memory cell
     mem = fifo.mem_d1("mem", 32, 10, 32)
 
-    # Four registers.
+    # Four registers
     next_write = fifo.reg("next_write", 32)
     next_read = fifo.reg("next_read", 32)
     full = fifo.reg("full", 1)
     empty = fifo.reg("empty", 1)
 
-    # Two ref memories.
+    # Two ref memories
     ans = fifo.mem_d1("ans", 32, 1, 32, is_ref=True)
     err = fifo.mem_d1("err", 1, 1, 1, is_ref=True)
 
-    # Additional cells and groups to compute equality and sums
-    eq0cell, eq0grp = add_eq(fifo, pop, push, "eq0", 1, "pop_eq_push")
-    eq1cell, eq1grp = add_eq(fifo, pop, 1, "eq1", 1, "pop_eq_1")
-    eq2cell, eq2grp = add_eq(fifo, push, 1, "eq2", 1, "push_eq_1")
-    eq3cell, eq3grp = add_eq(
-        fifo, next_read.out, next_write.out, "eq3", 32, "next_read_eq_next_write"
-    )
+    # Cells and groups to compute equality
+    eq0cell, eq0grp = add_eq(fifo, pop, push, "pop_eq_push", 1)
+    eq1cell, eq1grp = add_eq(fifo, pop, 1, "pop_eq_1", 1)
+    eq2cell, eq2grp = add_eq(fifo, push, 1, "push_eq_1", 1)
+    eq3cell, eq3grp = add_eq(fifo, next_read.out, next_write.out, "read_eq_write", 32)
+    eq5acell, eq5agrp = add_eq(fifo, next_write.out, 10, "write_eq_10", 32)
+    eq5bcell, eq5bgrp = add_eq(fifo, next_read.out, 10, "read_eq_10", 32)
+    eq4acell, eq4agrp = add_eq(fifo, full.out, 1, "full_eq_1", 1)
+    eq4bcell, eq4bgrp = add_eq(fifo, empty.out, 1, "empty_eq_1", 1)
 
+    # Cells and groups to increment read and write registers, including wraparound
     write_incr = add_incr(fifo, next_write, "add1", "next_write_incr")
     read_incr = add_incr(fifo, next_read, "add2", "next_read_incr")
 
-    eq5acell, eq5agrp = add_eq(fifo, next_write.out, 10, "eq5b", 32, "next_write_eq_10")
-    eq5bcell, eq5bgrp = add_eq(fifo, next_read.out, 10, "eq5a", 32, "next_read_eq_10")
-
-    write_wrap = zero_out_reg(fifo, next_write, "next_write_wraparound")
-    read_wrap = zero_out_reg(fifo, next_read, "next_read_wraparound")
+    # Cells and groups to modify flags, which may be registers or memories of size one
+    write_wrap = set_flag_reg(fifo, next_write, 0, "next_write_wraparound")
+    read_wrap = set_flag_reg(fifo, next_read, 0, "next_read_wraparound")
+    raise_full = set_flag_reg(fifo, full, 1, "raise_full_flag")
+    lower_full = set_flag_reg(fifo, full, 0, "lower_full_flag")
+    raise_empty = set_flag_reg(fifo, empty, 1, "raise_empty_flag")
+    lower_empty = set_flag_reg(fifo, empty, 0, "lower_empty_flag")
+    raise_err = set_flag_mem(fifo, err, cb.const(1, 1), "raise_err_flag")
+    lower_err = set_flag_mem(fifo, err, cb.const(1, 0), "lower_err_flag")
 
     # Load and store
     write_to_mem = mem_store(fifo, mem, next_write.out, payload, "write_payload_to_mem")
     read_from_mem = mem_load(fifo, mem, next_read.out, ans, "read_payload_from_mem")
-
-    # Set flags
-    raise_full = set_flag(fifo, full, 1, "raise_full_flag")
-    lower_full = set_flag(fifo, full, 0, "lower_full_flag")
-    raise_empty = set_flag(fifo, empty, 1, "raise_empty_flag")
-    lower_empty = set_flag(fifo, empty, 0, "lower_empty_flag")
-
-    eq4acell, eq4agrp = add_eq(fifo, full.out, 1, "eq4a", 1, "is_full")
-    eq4bcell, eq4bgrp = add_eq(fifo, empty.out, 1, "eq4b", 1, "is_empty")
-
-    raise_err = set_flag_mem(fifo, err, cb.const(1, 1), "raise_err_flag")
-    lower_err = set_flag_mem(fifo, err, cb.const(1, 0), "lower_err_flag")
 
     fifo.control += [
         cb.if_(
@@ -270,8 +253,6 @@ def add_main(prog, fifo):
         + ten_pops
         + [pop]
     )
-
-    # + [push_n(110), pop, push_n(110), ten_pops + [pop]]
 
 
 def build():
