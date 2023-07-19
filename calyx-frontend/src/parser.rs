@@ -455,7 +455,7 @@ impl CalyxParser {
             input.into_children();
             [io_port((name, width, attributes))] => {
                 let pd = PortDef {
-                    name, width, direction: Direction::Output, attributes
+                    name, width, direction: Direction::Input, attributes
                 };
                 vec![pd]
             },
