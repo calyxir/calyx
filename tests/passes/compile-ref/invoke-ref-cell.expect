@@ -1,0 +1,67 @@
+import "primitives/core.futil";
+component add_one(@go go: 1, @clk clk: 1, @reset reset: 1, mem_read_data: 32, mem_done: 1) -> (@done done: 1, mem_addr0: 1, mem_write_data: 32, mem_write_en: 1) {
+  cells {
+    r = std_reg(32);
+    add = std_add(32);
+  }
+  wires {
+    group increment {
+      r.write_en = 1'd1;
+      add.right = 32'd1;
+      mem_addr0 = 1'd0;
+      add.left = mem_read_data;
+      r.in = add.out;
+      increment[done] = r.done;
+    }
+    group r_to_mem {
+      mem_write_en = 1'd1;
+      mem_addr0 = 1'd0;
+      mem_write_data = r.out;
+      r_to_mem[done] = mem_done;
+    }
+  }
+  control {
+    seq {
+      increment;
+      r_to_mem;
+    }
+  }
+}
+component drive(@go go: 1, @clk clk: 1, @reset reset: 1, incr_done: 1, incr_mem_write_data: 32, incr_mem_write_en: 1, incr_mem_addr0: 1) -> (@done done: 1, incr_go: 1, incr_mem_done: 1, incr_mem_read_data: 32) {
+  cells {
+    mem = std_mem_d1(32, 1, 1);
+  }
+  wires {
+    group invoke0 {
+      incr_mem_read_data = mem.read_data;
+      incr_mem_done = mem.done;
+      mem.addr0 = incr_mem_addr0;
+      mem.write_data = incr_mem_write_data;
+      mem.write_en = incr_mem_write_en;
+      incr_go = 1'd1;
+      invoke0[done] = incr_done;
+    }
+  }
+  control {
+    invoke0;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    d = drive();
+    incr = add_one();
+  }
+  wires {}
+  control {
+    invoke d(
+      incr_done = incr.done,
+      incr_mem_write_data = incr.mem_write_data,
+      incr_mem_write_en = incr.mem_write_en,
+      incr_mem_addr0 = incr.mem_addr0
+    )(
+      incr_go = incr.go,
+      incr_mem_done = incr.mem_done,
+      incr_mem_read_data = incr.mem_read_data
+    );
+  }
+}

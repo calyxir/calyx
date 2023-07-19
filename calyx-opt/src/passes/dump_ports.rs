@@ -1,7 +1,8 @@
 use crate::passes::compile_ref::RefPortMap;
 use calyx_ir::{self as ir, RRC, WRC};
 use itertools::Itertools;
-use std::rc::Rc;
+use std::{rc::Rc};
+use super::compile_ref::GoDonePortMap;
 
 /// Formats name of a port given the id of the cell and the port
 pub(super) fn format_port_name(canon: &ir::Canonical) -> ir::Id {
@@ -18,6 +19,8 @@ pub(super) fn dump_ports_to_signature(
     cell_filter: fn(&RRC<ir::Cell>) -> bool,
     remove_signals: bool,
     port_names: &mut RefPortMap,
+    go_ports: &mut GoDonePortMap,
+    done_ports: &mut GoDonePortMap
 ) {
     let comp_name = component.name;
     let (ext_cells, cells): (Vec<_>, Vec<_>) =
@@ -26,6 +29,13 @@ pub(super) fn dump_ports_to_signature(
 
     for cell_ref in ext_cells {
         let mut cell = cell_ref.borrow_mut();
+
+        let go = cell.find_all_with_attr(ir::NumAttr::Go).collect_vec();
+        go_ports.entry(component.name).or_default().insert(cell.name(),go);
+
+        let done = cell.find_all_with_attr(ir::NumAttr::Done).collect_vec();
+        done_ports.entry(component.name).or_default().insert(cell.name(), done);
+        
 
         // If we do not eliminate the @clk and @reset ports, we may
         // get signals conflicting the original @clk and @reset signals of

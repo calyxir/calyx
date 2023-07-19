@@ -1,14 +1,16 @@
 use super::dump_ports;
+use calyx_ir::structure;
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use calyx_ir::WRC;
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_ir::{Attributes, Canonical};
-use calyx_utils::CalyxResult;
+use calyx_utils::{CalyxResult, Error};
+use ir::Assignment;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::rc::Rc; 
 
 type PortMap = Vec<(ir::Id, ir::RRC<ir::Port>)>;
 
@@ -22,6 +24,9 @@ type PortMap = Vec<(ir::Id, ir::RRC<ir::Port>)>;
 /// HashMap<-component name-, Hashmap<(-cell name-,-port name-), port>>;
 pub(super) type RefPortMap =
     HashMap<ir::Id, HashMap<ir::Canonical, RRC<ir::Port>>>;
+
+pub(super) type GoDonePortMap =
+    HashMap<ir::Id, HashMap<ir::Id, Vec<RRC<ir::Port>>>>;
 
 trait GetPorts {
     fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>>;
@@ -42,6 +47,8 @@ impl GetPorts for RefPortMap {
 }
 pub struct CompileRef {
     port_names: RefPortMap,
+    go_ports: GoDonePortMap,
+    done_ports: GoDonePortMap
 }
 
 impl ConstructVisitor for CompileRef {
@@ -51,6 +58,8 @@ impl ConstructVisitor for CompileRef {
     {
         let compile_external = CompileRef {
             port_names: HashMap::new(),
+            go_ports: HashMap::new(),
+            done_ports: HashMap::new()
         };
         Ok(compile_external)
     }
@@ -126,13 +135,6 @@ impl Visitor for CompileRef {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        dump_ports::dump_ports_to_signature(
-            comp,
-            is_external_cell,
-            true,
-            &mut self.port_names,
-        );
-
         for cell in comp.cells.iter() {
             let mut new_ports: Vec<RRC<ir::Port>> = Vec::new();
             if let Some(ref name) = cell.borrow().type_name() {
@@ -151,14 +153,24 @@ impl Visitor for CompileRef {
             }
             cell.borrow_mut().ports.extend(new_ports);
         }
+
+        dump_ports::dump_ports_to_signature(
+            comp,
+            is_external_cell,
+            true,
+            &mut self.port_names,
+            &mut self.go_ports,
+            &mut self.done_ports
+        );
+
         Ok(Action::Continue)
     }
 
     fn invoke(
         &mut self,
         s: &mut ir::Invoke,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
         let comp_name = s.comp.borrow().type_name().unwrap();
@@ -166,13 +178,91 @@ impl Visitor for CompileRef {
             self.ref_cells_to_ports(comp_name, &mut s.ref_cells);
         s.inputs.append(&mut inputs);
         s.outputs.append(&mut outputs);
+
+        if s.comp.borrow().is_reference() {
+            let mut builder = ir::Builder::new(comp, sigs);
+            let invoked_group = builder.add_group("invoke");
+            let mut assignments:Vec<Assignment<ir::Nothing>> = Vec::new();
+            let c_name = builder.component.name;
+
+            // make assignments for inputs and outputs
+            assignments.extend(s.inputs.drain(..).map(|(name, port)| {
+                let canon = Canonical(s.comp.borrow().name(), name);
+                builder.build_assignment(Rc::clone(&self.port_names[&c_name][&canon]), port, ir::Guard::True)
+            }).chain(s.outputs.drain(..).map(|(name, port)| {
+                let canon = Canonical(s.comp.borrow().name(), name);
+                builder.build_assignment(port, Rc::clone(&self.port_names[&c_name][&canon]), ir::Guard::True)
+            })));
+
+            //get go port
+            let go = &self.go_ports[&c_name][&s.comp.borrow().name()];
+
+            if go.len() > 1 {
+                return Err(Error::malformed_control(format!("Invoked component `{comp_name}` defines multiple @go signals. Cannot compile the invoke")));
+            } else if go.is_empty() {
+                return Err(Error::malformed_control(format!("Invoked component `{comp_name}` does not define a @go signal. Cannot compile the invoke")));
+            }
+            let go_p = Rc::clone(&go[0]);
+
+            //get done port
+            let done = &self.done_ports[&c_name][&s.comp.borrow().name()];
+
+            if done.len() > 1 {
+                return Err(Error::malformed_control(format!("Invoked component `{comp_name}` defines multiple @done signals. Cannot compile the invoke")));
+            } else if done.is_empty() {
+                return Err(Error::malformed_control(format!("Invoked component `{comp_name}` does not define a @done signal. Cannot compile the invoke")));
+            }
+            let done_p = Rc::clone(&done[0]);
+
+            //build go assignment and done assignment
+            structure!(builder;
+                let one = constant(1, 1);
+            );
+
+            let go_assign: Assignment<ir::Nothing> = builder.build_assignment(
+                go_p,
+                one.borrow().get("out"),
+                ir::Guard::True,
+            );
+            let done_assign: Assignment<ir::Nothing> = builder.build_assignment(
+                invoked_group.borrow().get("done"),
+                done_p,
+                ir::Guard::True,
+            );
+
+            assignments.push(go_assign);
+            assignments.push(done_assign);
+
+            if s.comb_group.is_some() {
+                // if invoke has comb group then dump all assignments into group
+                let s_owned = std::mem::replace(s, ir::Invoke{
+                    comp: Rc::clone(&s.comp),
+                    inputs: Vec::new(),
+                    outputs: Vec::new(),
+                    attributes: ir::Attributes::default(),
+                    comb_group: None,
+                    ref_cells: Vec::new()
+                });
+                let g_ref = s_owned.comb_group.unwrap();
+                let mut g = g_ref.borrow_mut();
+                for assignment in std::mem::take(&mut g.assignments) {
+                    assignments.push(assignment);
+                }
+            }
+
+            invoked_group.borrow_mut().assignments.extend(assignments);   
+            return Ok(Action::change(ir::Control::Enable(ir::Enable{
+                group: invoked_group,
+                attributes: Attributes::default()
+            })));      
+        }
         Ok(Action::Continue)
     }
     fn static_invoke(
         &mut self,
         s: &mut ir::StaticInvoke,
-        _comp: &mut ir::Component,
-        _sigs: &LibrarySignatures,
+        comp: &mut ir::Component,
+        sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
         let comp_name = s.comp.borrow().type_name().unwrap();
@@ -180,6 +270,52 @@ impl Visitor for CompileRef {
             self.ref_cells_to_ports(comp_name, &mut s.ref_cells);
         s.inputs.append(&mut inputs);
         s.outputs.append(&mut outputs);
+
+        if s.comp.borrow().is_reference() {
+            let mut builder = ir::Builder::new(comp, sigs);
+            let invoked_group = builder.add_static_group("static_invoke", s.latency);
+            let mut assignments:Vec<Assignment<ir::StaticTiming>> = Vec::new();
+            let c_name = builder.component.name;
+
+            // make assignments for inputs and outputs
+            assignments.extend(s.inputs.drain(..).map(|(name, port)| {
+                let canon = Canonical(s.comp.borrow().name(), name);
+                builder.build_assignment(Rc::clone(&self.port_names[&c_name][&canon]), port, ir::Guard::True)
+            }).chain(s.outputs.drain(..).map(|(name, port)| {
+                let canon = Canonical(s.comp.borrow().name(), name);
+                builder.build_assignment(port, Rc::clone(&self.port_names[&c_name][&canon]), ir::Guard::True)
+            })));
+
+            //get go port
+            let go = &self.go_ports[&c_name][&s.comp.borrow().name()];
+
+            if go.len() > 1 {
+                return Err(Error::malformed_control(format!("Invoked component `{comp_name}` defines multiple @go signals. Cannot compile the invoke")));
+            } else if go.is_empty() {
+                return Err(Error::malformed_control(format!("Invoked component `{comp_name}` does not define a @go signal. Cannot compile the invoke")));
+            }
+            let go_p = Rc::clone(&go[0]);
+
+            structure!(builder;
+                let one = constant(1, 1);
+            );
+
+            let go_assign: Assignment<ir::StaticTiming> = builder.build_assignment(
+                go_p,
+                one.borrow().get("out"),
+                ir::Guard::True,
+            );
+
+            assignments.push(go_assign);
+
+            invoked_group.borrow_mut().assignments.extend(assignments);   
+
+            return Ok(Action::static_change(ir::StaticControl::Enable(ir::StaticEnable{
+                group: invoked_group,
+                attributes: Attributes::default()
+            })));   
+
+        }
         Ok(Action::Continue)
     }
 }
