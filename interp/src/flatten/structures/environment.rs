@@ -1,11 +1,13 @@
+use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
+use smallvec::SmallVec;
 
 use super::{context::Context, indexed_map::IndexedMap};
 use crate::{
     flatten::{
         flat_ir::prelude::{
-            BaseIndices, ComponentIdx, GlobalCellId, GlobalPortId,
-            GlobalRefCellId, GlobalRefPortId,
+            BaseIndices, ComponentIdx, ControlIdx, ControlNode, GlobalCellId,
+            GlobalPortId, GlobalRefCellId, GlobalRefPortId,
         },
         primitives::{self, Primitive},
         structures::index_trait::IndexRef,
@@ -69,15 +71,115 @@ impl Debug for CellLedger {
     }
 }
 
+/// Simple struct containing both the component instance and the active leaf
+/// node in the component
 #[derive(Debug)]
+pub struct ControlPoint {
+    pub comp: GlobalCellId,
+    pub control_leaf: ControlIdx,
+}
+
+impl ControlPoint {
+    pub fn new(comp: GlobalCellId, control_leaf: ControlIdx) -> Self {
+        Self { comp, control_leaf }
+    }
+}
+
+/// The number of control points to preallocate for the program counter.
+/// Using 1 for now, as this is the same size as using a vec, but this can
+/// change in the future and probably should.
+const CONTROL_POINT_PREALLOCATE: usize = 1;
+
+/// The program counter for the whole program execution. Wraps over a vector of
+/// the active leaf statements for each component instance.
+#[derive(Debug, Default)]
 pub(crate) struct ProgramCounter {
-    // TODO
+    vec: SmallVec<[ControlPoint; CONTROL_POINT_PREALLOCATE]>,
+}
+
+impl ProgramCounter {
+    pub fn new(ctx: &Context) -> Self {
+        let root = ctx.entry_point;
+        // TODO: this relies on the fact that we construct the root cell-ledger
+        // as the first possible cell in the program. If that changes this will break.
+        let root_cell = GlobalCellId::new(0);
+
+        let mut vec = SmallVec::new();
+        if let Some(current) = ctx.primary[root].control {
+            let mut work_queue: Vec<ControlIdx> = Vec::from([current]);
+            let mut backtrack_map = HashMap::new();
+
+            while let Some(current) = work_queue.pop() {
+                match &ctx.primary[current] {
+                    ControlNode::Empty(_) => {
+                        vec.push(ControlPoint::new(root_cell, current))
+                    }
+                    ControlNode::Enable(_) => {
+                        vec.push(ControlPoint::new(root_cell, current))
+                    }
+                    ControlNode::Seq(s) => match s
+                        .stms()
+                        .iter()
+                        .find(|&x| !backtrack_map.contains_key(x))
+                    {
+                        Some(n) => {
+                            backtrack_map.insert(*n, current);
+                            work_queue.push(*n);
+                        }
+                        None => {
+                            if let Some(b) = backtrack_map.get(&current) {
+                                work_queue.push(*b)
+                            }
+                        }
+                    },
+                    ControlNode::Par(p) => {
+                        for node in p.stms() {
+                            work_queue.push(*node);
+                        }
+                    }
+                    ControlNode::If(_) => {
+                        vec.push(ControlPoint::new(root_cell, current))
+                    }
+                    ControlNode::While(_) => {
+                        vec.push(ControlPoint::new(root_cell, current))
+                    }
+                    ControlNode::Invoke(_) => {
+                        vec.push(ControlPoint::new(root_cell, current))
+                    }
+                }
+            }
+        } else {
+            todo!(
+                "Flat interpreter does not support control-less components yet"
+            )
+        }
+
+        Self { vec }
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
+        self.vec.iter()
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.vec.is_empty()
+    }
+}
+
+impl<'a> IntoIterator for &'a ProgramCounter {
+    type Item = &'a ControlPoint;
+
+    type IntoIter = std::slice::Iter<'a, ControlPoint>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }
 
 #[derive(Debug)]
 pub struct Environment<'a> {
     /// A map from global port IDs to their current values.
-    ports: PortMap,
+    pub(crate) ports: PortMap,
     /// A map from global cell IDs to their current state and execution info.
     cells: CellMap,
     /// A map from global ref cell IDs to the cell they reference, if any.
@@ -106,7 +208,7 @@ impl<'a> Environment<'a> {
             ref_ports: RefPortMap::with_capacity(
                 aux.ref_port_offset_map.count(),
             ),
-            pcs: ProgramCounter {},
+            pcs: ProgramCounter::new(ctx),
             ctx,
         };
 
@@ -155,6 +257,7 @@ impl<'a> Environment<'a> {
         for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
             let info = &self.ctx.secondary[*def_idx];
             if !info.prototype.is_component() {
+                let port_base = self.ports.peek_next_idx();
                 for port in info.ports.iter() {
                     let width = self.ctx.lookup_port_def(&comp_id, port).width;
                     let idx = self.ports.push(Value::zeroes(width));
@@ -163,7 +266,8 @@ impl<'a> Environment<'a> {
                         idx
                     );
                 }
-                let cell_dyn = primitives::build_primitive(info, self);
+                let cell_dyn =
+                    primitives::build_primitive(self, info, port_base);
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
 
                 debug_assert_eq!(
@@ -274,5 +378,9 @@ impl<'a> Environment<'a> {
         println!("  Cells: {}", self.cells.len());
         println!("  Ref Cells: {}", self.ref_cells.len());
         println!("  Ref Ports: {}", self.ref_ports.len());
+    }
+
+    pub fn print_pc(&self) {
+        println!("{:?}", self.pcs)
     }
 }
