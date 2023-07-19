@@ -204,6 +204,17 @@ impl CalyxParser {
         Ok(())
     }
 
+    fn comma_req(_input: Node) -> ParseResult<()> {
+        Ok(())
+    }
+    fn comma(input: Node) -> ParseResult<()> {
+        match_nodes!(
+            input.clone().into_children();
+            [comma_req(_)] => Ok(()),
+            [] => Err(input.error("expected comma"))
+        )
+    }
+
     fn comb(_input: Node) -> ParseResult<()> {
         Ok(())
     }
@@ -442,10 +453,19 @@ impl CalyxParser {
     fn inputs(input: Node) -> ParseResult<Vec<PortDef<Width>>> {
         Ok(match_nodes!(
             input.into_children();
-            [io_port(ins)..] => {
-                ins.map(|(name, width, attributes)| PortDef {
+            [io_port((name, width, attributes))] => {
+                let pd = PortDef {
+                    name, width, direction: Direction::Output, attributes
+                };
+                vec![pd]
+            },
+            [io_port((name, width, attributes)), comma(_), inputs(rest)] => {
+                let pd = PortDef {
                     name, width, direction: Direction::Input, attributes
-                }).collect()
+                };
+                let mut v = vec![pd];
+                v.extend(rest);
+                v
             }
         ))
     }
@@ -453,10 +473,19 @@ impl CalyxParser {
     fn outputs(input: Node) -> ParseResult<Vec<PortDef<Width>>> {
         Ok(match_nodes!(
             input.into_children();
-            [io_port(outs)..] => {
-                outs.map(|(name, width, attributes)| PortDef {
+            [io_port((name, width, attributes))] => {
+                let pd = PortDef {
                     name, width, direction: Direction::Output, attributes
-                }).collect()
+                };
+                vec![pd]
+            },
+            [io_port((name, width, attributes)), comma(_), outputs(rest)] => {
+                let pd = PortDef {
+                    name, width, direction: Direction::Output, attributes
+                };
+                let mut v = vec![pd];
+                v.extend(rest);
+                v
             }
         ))
     }
