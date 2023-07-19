@@ -6,8 +6,11 @@ macro_rules! ports {
 
 macro_rules! declare_ports {
     ($( $port:ident : $offset:expr ),+  $(,)? ) => {
-        #[allow(non_upper_case_globals)]
-        $(const $port: usize = $offset;)+
+
+        $(
+            #[allow(non_upper_case_globals)]
+            const $port: usize = $offset;
+        )+
     }
 }
 
@@ -23,7 +26,7 @@ pub(crate) use ports;
 
 macro_rules! comb_primitive {
     ($name:ident$([$($param:ident),+])?
-        ($($port:ident [$port_idx:expr]),+)
+        ( $($port:ident [$port_idx:expr]),+ )
         ->
         ($($out_port:ident [$out_port_idx:expr]),+)
         $execute:block) => {
@@ -58,7 +61,7 @@ macro_rules! comb_primitive {
             ) -> $crate::flatten::primitives::prim_trait::Results {
 
                 $crate::flatten::primitives::macros::ports![&self.base_port;
-                    $($port: Self::$port,),+
+                    $($port: Self::$port,)+
                     $($out_port: Self::$out_port),+
                 ];
 
