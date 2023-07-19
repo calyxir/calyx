@@ -440,7 +440,7 @@ fn create_cell_prototype(
 
         cir::CellType::Constant { val, width } => CellPrototype::Constant {
             value: *val,
-            width: *width,
+            width: (*width).try_into().unwrap(),
             c_type: LiteralOrPrimitive::Literal,
         },
         cir::CellType::ThisComponent => unreachable!(
