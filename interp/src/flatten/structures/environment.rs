@@ -305,7 +305,10 @@ impl<'a> Environment<'a> {
             )
         }
     }
+}
 
+// ===================== Environment print implementations =====================
+impl<'a> Environment<'a> {
     pub fn print_env(&self) {
         let root_idx = GlobalCellId::new(0);
         let mut hierarchy = Vec::new();
