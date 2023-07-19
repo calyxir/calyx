@@ -85,6 +85,10 @@ imports = { import* }
 
 // ====== Component signature ======
 
+// This rule is optional but the parser errors in the case when a comma is required but not present.
+comma_req = { "," }
+comma = { comma_req? }
+
 signature = {
       "(" ~ inputs? ~ ")" ~ "->" ~ "(" ~ outputs? ~ ")"
 }
@@ -93,12 +97,15 @@ io_port = {
      at_attributes? ~ identifier ~ ":" ~ (bitwidth | identifier)
 }
 
+// Defined separately because we need to provide different `ir::Direction` for inputs and outputs.
 inputs = {
-      io_port ~ ("," ~ io_port)*
+      io_port ~ comma ~ inputs
+      | io_port ~ ","?
 }
 
 outputs = {
-      io_port ~ ("," ~ io_port)*
+      io_port ~ comma ~ outputs
+      | io_port ~ ","?
 }
 
 // ========= Exernal primitive definitions ===============
