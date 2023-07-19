@@ -43,6 +43,7 @@ mod unroll_bound;
 mod well_formed;
 mod wire_inliner;
 mod wrap_main;
+mod build_invoke;
 
 pub use attribute_promotion::AttributePromotion;
 pub use canonical::Canonicalize;
