@@ -43,11 +43,11 @@ reference = { "ref" }
 
 static_word = { "static" }
 
-static_annotation = { static_word ~ latency_annotation} 
+static_annotation = { static_word ~ latency_annotation}
 
-static_optional_latency = { static_word ~ latency_annotation? } 
+static_optional_latency = { static_word ~ latency_annotation? }
 
-both_comb_static = { (comb ~ static_annotation) | (static_annotation ~ comb) } 
+both_comb_static = { (comb ~ static_annotation) | (static_annotation ~ comb) }
 
 comb_or_static = {both_comb_static | comb | static_annotation}
 
@@ -119,7 +119,7 @@ block_char = { !"}" ~ ANY }
 block_string = ${ "{" ~ block_char* ~ "}" }
 
 prim_inline = {
-      (comb_or_static)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"
+      (comb_or_static)? ~ "primitive" ~ name_with_attribute ~ sig_with_params ~ block_string ~ ";"?
 }
 
 ext = {
@@ -215,7 +215,7 @@ static_term = {
     | "(" ~ static_guard_expr ~ ")"
     | cmp_expr
     | expr
-    | static_timing_expr 
+    | static_timing_expr
 }
 
 static_guard_expr = {
@@ -339,7 +339,7 @@ while_stmt = {
 }
 
 repeat_stmt = {
-      at_attributes ~ static_word ~ "repeat" ~ bitwidth ~ block
+      at_attributes ~ static_word? ~ "repeat" ~ bitwidth ~ block
 }
 
 stmt = {
@@ -350,7 +350,7 @@ stmt = {
     | seq
     | static_seq
     | par
-    | static_par 
+    | static_par
     | if_stmt
     | static_if_stmt
     | while_stmt

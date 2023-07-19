@@ -1,5 +1,5 @@
 // -p well-formed -b verilog
-import "primitives/core.futil";
+import "primitives/compile.futil";
 
 component main(@go go: 1, g: 1) -> (@done done: 1) {
   cells {

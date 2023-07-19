@@ -1,0 +1,8 @@
+import "primitives/compile.futil";
+comb primitive prim_inlined() -> (out: 8) {
+  assign out = 8'd42;
+}
+comb component main() -> () {
+  cells {}
+  wires {}
+}

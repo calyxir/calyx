@@ -306,7 +306,8 @@ impl StaticParDomination {
                 self.build_time_map(tbranch);
                 self.build_time_map(fbranch);
             }
-            ir::Control::While(ir::While { body, .. }) => {
+            ir::Control::While(ir::While { body, .. })
+            | ir::Control::Repeat(ir::Repeat { body, .. }) => {
                 self.build_time_map(body);
             }
             ir::Control::Static(sc) => {

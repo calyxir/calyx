@@ -1,5 +1,3 @@
----CODE---
-1
 ---STDERR---
 Error: tests/passes/well-formed/ref-type-mismatch.futil
 32 |      invoke f[m = k1]()();

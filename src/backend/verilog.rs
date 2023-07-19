@@ -124,7 +124,7 @@ impl Backend for VerilogBackend {
             // Add a newline after appending a library file
             writeln!(fw)?;
         }
-        for prim in ctx.lib.prim_inlines() {
+        for (prim, _) in ctx.lib.prim_inlines() {
             emit_prim_inline(prim, fw)?;
         }
         Ok(())
@@ -208,12 +208,12 @@ fn emit_prim_inline<F: io::Write>(
     }
     writeln!(f, ");")?;
 
-    write!(
+    writeln!(
         f,
         "{}",
         prim.body.as_ref().unwrap_or_else(|| panic!(
             "expected primitive {} to have a body",
-            { prim.name }
+            prim.name
         ))
     )?;
 

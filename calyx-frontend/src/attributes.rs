@@ -13,6 +13,7 @@ struct HeapAttrInfo {
 
 /// Attributes associated with a specific IR structure.
 #[derive(Default, Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Attributes {
     /// Inlined attributes
     inl: InlineAttributes,
@@ -143,5 +144,15 @@ impl Attributes {
             .chain(self.inl.iter().map(|k| fmt(k.as_ref().to_string(), 1)))
             .collect::<Vec<_>>()
             .join(sep)
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl serde::Serialize for HeapAttrInfo {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        ser.collect_map(self.to_owned().attrs.iter())
     }
 }

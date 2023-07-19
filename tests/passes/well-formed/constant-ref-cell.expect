@@ -1,5 +1,3 @@
----CODE---
-1
 ---STDERR---
 Error: tests/passes/well-formed/constant-ref-cell.futil
 8 |    ref m2 = std_const(2, 1);

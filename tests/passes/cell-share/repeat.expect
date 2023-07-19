@@ -1,0 +1,47 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    x = std_reg(1);
+    lt = std_lt(32);
+  }
+  wires {
+    group wr_r1 {
+      r1.in = 32'd1;
+      r1.write_en = 1'd1;
+      wr_r1[done] = r1.done;
+    }
+    group wr_r2 {
+      r2.in = 32'd1;
+      r2.write_en = 1'd1;
+      wr_r2[done] = r2.done;
+    }
+    group read_r1 {
+      lt.left = r1.out;
+      lt.right = 32'd2;
+      x.in = lt.out;
+      x.write_en = 1'd1;
+      read_r1[done] = x.done;
+    }
+    group read_r2 {
+      lt.left = r2.out;
+      lt.right = 32'd2;
+      x.in = lt.out;
+      x.write_en = 1'd1;
+      read_r2[done] = x.done;
+    }
+  }
+  control {
+    seq {
+      wr_r1;
+      repeat 3 {
+        seq {
+          read_r1;
+          wr_r2;
+          read_r2;
+        }
+      }
+    }
+  }
+}
