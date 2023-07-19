@@ -18,7 +18,7 @@ pub struct StdReg {
 impl StdReg {
     declare_ports![IN: 0, WRITE_EN: 1, CLK: 2, RESET: 3, OUT: 4, DONE: 5];
 
-    pub fn new(base_port: GlobalPortId, width: u64) -> Self {
+    pub fn new(base_port: GlobalPortId, width: u32) -> Self {
         let internal_state = Value::zeroes(width);
         Self {
             base_port,

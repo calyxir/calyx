@@ -51,6 +51,9 @@ pub struct StdMux {
 
 impl StdMux {
     declare_ports![ COND: 0, TRU: 1, FAL:2, OUT: 3];
+    pub fn new(base: GlobalPortId, width: u32) -> Self {
+        Self { base, width }
+    }
 }
 
 impl Primitive for StdMux {
@@ -181,7 +184,7 @@ comb_primitive!(StdLsh[WIDTH](left [0], right [1]) -> (out [2]) {
         tr.append(&mut to_append);
         tr.truncate(WIDTH as usize);
         let tr = Value::from_bv(tr);
-        debug_assert_eq!(tr.width(), WIDTH);
+        debug_assert_eq!(tr.width(), WIDTH as u64);
         //sanity check the widths
         Ok(output![out: tr])
 });
@@ -214,7 +217,7 @@ comb_primitive!(StdRsh[WIDTH](left [0], right [1]) -> (out [2]) {
         //now resize to proper size, putting 0s at the end (0 is false)
         tr.resize(WIDTH as usize, false);
         let tr = Value::from_bv(tr);
-        debug_assert_eq!(tr.width(), WIDTH);
+        debug_assert_eq!(tr.width(), WIDTH as u64);
         //sanity check the widths
         Ok(output![out: tr])
 });

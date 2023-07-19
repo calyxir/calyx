@@ -33,7 +33,7 @@ macro_rules! comb_primitive {
         #[derive(Clone, Debug)]
         #[allow(non_snake_case)]
         pub struct $name {
-            $($($param: u64,)+)?
+            $($($param: u32,)+)?
             base_port: $crate::flatten::flat_ir::prelude::GlobalPortId
         }
 
@@ -45,7 +45,7 @@ macro_rules! comb_primitive {
             #[allow(non_snake_case)]
             pub fn new(
                 base_port: $crate::flatten::flat_ir::prelude::GlobalPortId,
-                $($($param: u64,)+)?
+                $($($param: u32,)+)?
             ) -> Self {
                 Self {
                     base_port,
@@ -66,7 +66,7 @@ macro_rules! comb_primitive {
                 ];
 
                 #[allow(non_snake_case)]
-                let exec_func = |$($($param: u64,)+)? $($port: &$crate::values::Value),+, $($out_port:$crate::flatten::flat_ir::prelude::GlobalPortId,)+ | -> $crate::flatten::primitives::prim_trait::Results {
+                let exec_func = |$($($param: u32,)+)? $($port: &$crate::values::Value),+, $($out_port:$crate::flatten::flat_ir::prelude::GlobalPortId,)+ | -> $crate::flatten::primitives::prim_trait::Results {
                     $execute
                 };
 
