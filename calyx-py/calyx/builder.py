@@ -214,9 +214,9 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int) -> CellBuilder:
+    def reg(self, name: str, size: int, is_ref=False) -> CellBuilder:
         """Generate a StdReg cell."""
-        return self.cell(name, ast.Stdlib.register(size))
+        return self.cell(name, ast.Stdlib.register(size), is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
