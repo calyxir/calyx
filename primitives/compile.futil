@@ -19,6 +19,7 @@ comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) 
 }
 
 /// Standard register with a one-cycle latency.
+// ANCHOR: std_reg_def
 primitive std_reg<"state_share"=1>[WIDTH](
   @write_together(1) @data in: WIDTH,
   @write_together(1) @static(1) @go write_en: 1,
@@ -27,7 +28,9 @@ primitive std_reg<"state_share"=1>[WIDTH](
 ) -> (
   @stable out: WIDTH,
   @done done: 1
-) {
+)
+// ANCHOR_END: std_reg_def
+{
   always_ff @(posedge clk) begin
     if (reset) begin
        out <= 0;
