@@ -20,7 +20,7 @@ impl Named for CompileRepeat {
 }
 
 impl Visitor for CompileRepeat {
-    fn start_repeat(
+    fn finish_repeat(
         &mut self,
         s: &mut ir::Repeat,
         comp: &mut ir::Component,
@@ -35,7 +35,7 @@ impl Visitor for CompileRepeat {
             // 1 repeat means we can just replace the repeat stmt with the body.
             Ok(Action::change(s.body.take_control()))
         } else {
-            // Otherwise we build a while loop.
+            // Otherwise we should build a while loop.
             let mut builder = ir::Builder::new(comp, ctx);
             let idx_size = get_bit_width_from(num_repeats + 1);
             structure!( builder;

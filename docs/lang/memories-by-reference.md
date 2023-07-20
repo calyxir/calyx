@@ -1,7 +1,7 @@
 # Passing Cells by Reference
 
 One question that may arise when using Calyx as a backend is how to
-pass a memory "by reference" between components. In C++, this might look like:
+pass a cell "by reference" between components. In C++, this might look like:
 ```C++
 #include <array>
 #include <cstdint>
@@ -17,9 +17,11 @@ int main() {
 }
 ```
 
-There are two steps to passing a memory by reference in Calyx:
-1. Define the component in a manner such that it can accept a memory by reference.
-2. Pass the desired memory by reference.
+In Calyx, there are two steps to passing a cell by reference:
+1. Define the component in a manner such that it can accept a cell by reference.
+2. Pass the desired cell by reference.
+
+When we say cell, we mean any cell, including memories of various dimensions and registers.
 
 The language provides two ways of doing this.
 
