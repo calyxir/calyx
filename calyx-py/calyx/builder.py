@@ -214,9 +214,9 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int, is_ref=False) -> CellBuilder:
+    def reg(self, name: str, size: int) -> CellBuilder:
         """Generate a StdReg cell."""
-        return self.cell(name, ast.Stdlib.register(size), is_ref)
+        return self.cell(name, ast.Stdlib.register(size))
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
@@ -246,6 +246,7 @@ class ComponentBuilder:
         is_ref=False,
     ) -> CellBuilder:
         """Generate a SeqMemD1 cell."""
+        self.prog.import_("primitives/memories.futil")
         return self.cell(
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
