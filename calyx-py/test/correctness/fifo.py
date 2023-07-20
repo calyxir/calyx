@@ -28,7 +28,7 @@ def add_eq_mem(comp: cb.ComponentBuilder, mem, i, b, cell, width):
         eq_cell.left = mem.read_data
         eq_cell.right = b
         mem.addr0 = i
-        eq_group.done = mem.done
+        eq_group.done = mem.write_done
     return eq_cell, eq_group
 
 
@@ -77,7 +77,7 @@ def mem_load(comp: cb.ComponentBuilder, mem, i, ans, group):
         ans.write_en = 1
         ans.addr0 = cb.const(32, 0)
         ans.write_data = mem.read_data
-        load_grp.done = ans.done
+        load_grp.done = ans.write_done
     return load_grp
 
 
@@ -107,7 +107,7 @@ def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
         mem.addr0 = i
         mem.write_en = 1
         mem.write_data = val
-        store_grp.done = mem.done
+        store_grp.done = mem.write_done
     return store_grp
 
 
@@ -123,7 +123,7 @@ def mem_store_from_mem(comp: cb.ComponentBuilder, mem, i, val_mem, val_i, group)
         mem.write_en = 1
         mem.write_data = val_mem.read_data
         val_mem.addr0 = val_i
-        store_grp.done = mem.done
+        store_grp.done = mem.write_done
     return store_grp
 
 
