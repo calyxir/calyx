@@ -20,7 +20,7 @@ impl Named for CompileRepeat {
 }
 
 impl Visitor for CompileRepeat {
-    fn start_repeat(
+    fn finish_repeat(
         &mut self,
         s: &mut ir::Repeat,
         comp: &mut ir::Component,
