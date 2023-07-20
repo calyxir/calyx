@@ -1,6 +1,5 @@
 name: Verification
 
-# Right now, we should only run this check on the vcalyx branch
 on: [push]
 
 # Ensures that only the latest commit of a PR can execute the actions.
