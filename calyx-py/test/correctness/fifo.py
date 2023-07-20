@@ -16,34 +16,32 @@ def add_eq(comp: cb.ComponentBuilder, a, b, cell, width):
     return eq_cell, eq_group
 
 
-def add_eq_mem(comp: cb.ComponentBuilder, mem, i, b, cell, width):
-    """Adds wiring into component {comp} to check if {mem[i]} == {b}.
+def add_eq_reg(comp: cb.ComponentBuilder, reg, value, cell):
+    """Adds wiring into component {comp} to check if {reg} == {value}.
     1. Within {comp}, creates a non-combinational group called {cell}_group.
-    2. Within the group, creates a cell {cell} that checks equalities of width {width}.
-    3. Puts the values {mem[i]} and {b} into {cell}.
+    2. Within the group, creates a cell {cell} that checks equalities.
+    3. Puts the values {reg} and {value} into {cell}.
     4. Returns the equality-checking cell and the equality-checking group.
     """
-    eq_cell = comp.eq(cell, width)
+    eq_cell = comp.eq(cell, 1)
     with comp.group(f"{cell}_group") as eq_group:
-        eq_cell.left = mem.read_data
-        eq_cell.right = b
-        mem.addr0 = i
-        eq_group.done = mem.write_done
+        eq_cell.left = reg.out
+        eq_cell.right = value
+        eq_group.done = eq_cell.done  # ...
     return eq_cell, eq_group
 
 
-def add_eq_mem_comb(comp: cb.ComponentBuilder, mem, i, b, cell, width):
-    """Adds wiring into component {comp} to check if {mem[i]} == {b}.
+def add_eq_reg_comb(comp: cb.ComponentBuilder, reg, value, cell):
+    """Adds wiring into component {comp} to check if {reg} == {value}.
     1. Within {comp}, creates a combinational group called {cell}_group.
-    2. Within the group, creates a cell {cell} that checks equalities of width {width}.
-    3. Puts the values {mem[i]} and {b} into {cell}.
+    2. Within the group, creates a cell {cell} that checks equalities.
+    3. Puts the values {reg} and {value} into {cell}.
     4. Returns the equality-checking cell and the equality-checking group.
     """
-    eq_cell = comp.eq(cell, width)
+    eq_cell = comp.eq(cell, 1)
     with comp.comb_group(f"{cell}_group") as eq_group:
-        eq_cell.left = mem.read_data
-        eq_cell.right = b
-        mem.addr0 = i
+        eq_cell.left = reg.out
+        eq_cell.right = value
     return eq_cell, eq_group
 
 
@@ -65,23 +63,7 @@ def add_incr(comp: cb.ComponentBuilder, reg, cell, group):
     return incr_group
 
 
-def mem_load(comp: cb.ComponentBuilder, mem, i, ans, group):
-    """Loads a value from one memory into another.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, reads from memory {mem} at address {i}.
-    3. Writes the value into memory {ans} at address 0.
-    4. Returns the group that does this.
-    """
-    with comp.group(group) as load_grp:
-        mem.addr0 = i
-        ans.write_en = 1
-        ans.addr0 = cb.const(32, 0)
-        ans.write_data = mem.read_data
-        load_grp.done = ans.write_done
-    return load_grp
-
-
-def mem_load_to_reg(comp: cb.ComponentBuilder, mem, i, reg, group):
+def mem_load(comp: cb.ComponentBuilder, mem, i, reg, group):
     """Loads a value from one memory into a register.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, reads from memory {mem} at address {i}.
@@ -111,22 +93,6 @@ def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
     return store_grp
 
 
-def mem_store_from_mem(comp: cb.ComponentBuilder, mem, i, val_mem, val_i, group):
-    """Stores a value from one memory into another.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, reads from {val_mem} at address {val_i}.
-    3. Writes the value into memory {mem} at address i.
-    4. Returns the group that does this.
-    """
-    with comp.group(group) as store_grp:
-        mem.addr0 = i
-        mem.write_en = 1
-        mem.write_data = val_mem.read_data
-        val_mem.addr0 = val_i
-        store_grp.done = mem.write_done
-    return store_grp
-
-
 def set_flag_reg(comp: cb.ComponentBuilder, flagname, flagval, group):
     """Sets a flag to a value.
     1. Within component {comp}, creates a group called {group}.
@@ -137,21 +103,6 @@ def set_flag_reg(comp: cb.ComponentBuilder, flagname, flagval, group):
     with comp.group(group) as flag_grp:
         flagname.in_ = flagval
         flagname.write_en = 1
-        flag_grp.done = flagname.done
-    return flag_grp
-
-
-def set_flag_mem(comp: cb.ComponentBuilder, flagname, flagval, group):
-    """Sets a flag to a value.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, sets the flag {flagname} to {flagval}.
-    3. Returns the group that does this.
-    Same as the above, but assumes the flag is a memory of size 1.
-    """
-    with comp.group(group) as flag_grp:
-        flagname.addr0 = 0
-        flagname.write_en = cb.const(1, 1)
-        flagname.write_data = flagval
         flag_grp.done = flagname.done
     return flag_grp
 
@@ -183,10 +134,10 @@ def add_fifo(prog):
     # `write` == `read` can mean the queue is empty or full, so we use
     # the `full` and `empty` flags to keep track of this.
 
-    ans = fifo.seq_mem_d1("ans", 32, 1, 32, is_ref=True)
+    ans = fifo.reg("ans", 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`
 
-    err = fifo.seq_mem_d1("err", 1, 1, 1, is_ref=True)
+    err = fifo.reg("err", 1, is_ref=True)
     # We'll raise this as a general warning flag.
     # Overflow, underflow, if the user calls pop and push at the same time,
     # or if the user issues no command
@@ -207,14 +158,14 @@ def add_fifo(prog):
     write_incr = add_incr(fifo, write, "add1", "write_incr")  # write = write + 1
     read_incr = add_incr(fifo, read, "add2", "read_incr")  # read = read + 1
 
-    # Cells and groups to modify flags, which may be registers or memories of size 1
+    # Cells and groups to modify flags, which are registers
     write_wrap = set_flag_reg(fifo, write, 0, "write_wraparound")  # zero out `write`
     read_wrap = set_flag_reg(fifo, read, 0, "read_wraparound")  # zero out `read`
     raise_full = set_flag_reg(fifo, full, 1, "raise_full")  # set `full` to 1
     lower_full = set_flag_reg(fifo, full, 0, "lower_full")  # set `full` to 0
     raise_empty = set_flag_reg(fifo, empty, 1, "raise_empty")  # set `empty` to 1
     lower_empty = set_flag_reg(fifo, empty, 0, "lower_empty")  # set `empty` to 0
-    raise_err = mem_store(fifo, err, 0, cb.const(1, 1), "raise_err")  # set `err` to 1
+    raise_err = set_flag_reg(fifo, err, 1, "raise_err")  # set `err` to 1
 
     # Load and store into arbitary slot in memory
     write_to_mem = mem_store(fifo, mem, write.out, payload, "write_payload_to_mem")
@@ -318,8 +269,8 @@ def add_main(prog, fifo):
     # We will use the `invoke` method to call the `fifo` component.
     fifo = main.cell("myfifo", fifo)
     # The component takes as `ref` input:
-    err = main.seq_mem_d1("err", 1, 1, 1)  # A flag to indicate an error
-    ans = main.seq_mem_d1("ans", 32, 1, 32)  # A memory to hold the answer of a pop
+    err = main.reg("err", 1)  # A flag to indicate an error
+    ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
     # It will run until the `err` flag is raised by the `fifo` component or
@@ -333,15 +284,15 @@ def add_main(prog, fifo):
     zero_j = set_flag_reg(main, j, 0, "zero_j")  # zero out `j`
     incr_i = add_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = add_incr(main, j, "add4", "incr_j")  # j = j + 1
-    err_eq_zero_comb = add_eq_mem_comb(
-        main, err, 0, 0, "err_eq_0_comb", 1
+    err_eq_zero_comb = add_eq_reg_comb(
+        main, err, 0, "err_eq_0_comb"
     )  # is the `err` flag down?
-    err_eq_zero = add_eq_mem(main, err, 0, 0, "err_eq_0", 1)  # is the `err` flag down?
+    # err_eq_zero = add_eq_reg(main, err, 0, "err_eq_0")  # is the `err` flag down?
     # i_eq_15 = add_eq(main, i.out, 15, "i_eq_15", 32)  # is `i` == 15?
     # raise_err = mem_store(main, err, 0, cb.const(1, 1), "raise_err")  # set `err` to 1
-    read_command = mem_load_to_reg(main, commands, i.out, command, "read_command")
+    read_command = mem_load(main, commands, i.out, command, "read_command")
     command_eq_zero = add_eq(main, command.out, 0, "command_eq_zero", 32)
-    write_ans = mem_store_from_mem(main, ans_mem, j.out, ans, 0, "write_ans")
+    write_ans = mem_store(main, ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
         zero_i,
@@ -368,10 +319,9 @@ def add_main(prog, fifo):
                         # To avoid clashing with the combinational group
                         # `err_eq_zero_comb`, we use a new non-combinational
                         # group `err_eq_zero`.
-                        err_eq_zero[1],
                         cb.if_(
-                            err_eq_zero[0].out,
-                            None,
+                            err_eq_zero_comb[0].out,
+                            err_eq_zero_comb[1],
                             [  # Yes, it was successful: write the answer to ans_mem
                                 write_ans,
                                 incr_j,
