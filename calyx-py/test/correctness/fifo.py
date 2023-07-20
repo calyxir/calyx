@@ -171,7 +171,7 @@ def add_fifo(prog):
     push = fifo.input("push", 1)
     payload = fifo.input("payload", 32)
 
-    mem = fifo.seq_mem_d1("mem", 32, 10, 32)
+    mem = fifo.mem_d1("mem", 32, 10, 32)
 
     write = fifo.reg("next_write", 32)  # The next address to write to
     read = fifo.reg("next_read", 32)  # The next address to read from
@@ -183,10 +183,10 @@ def add_fifo(prog):
     # `write` == `read` can mean the queue is empty or full, so we use
     # the `full` and `empty` flags to keep track of this.
 
-    ans = fifo.seq_mem_d1("ans", 32, 1, 32, is_ref=True)
+    ans = fifo.mem_d1("ans", 32, 1, 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`
 
-    err = fifo.seq_mem_d1("err", 1, 1, 1, is_ref=True)
+    err = fifo.mem_d1("err", 1, 1, 1, is_ref=True)
     # We'll raise this as a general warning flag.
     # Overflow, underflow, if the user calls pop and push at the same time,
     # or if the user issues no command
@@ -312,14 +312,14 @@ def add_main(prog, fifo):
     #    `0`: pop
     #    any other value: push that value
     # - a list of answers (the output).
-    commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    commands = main.mem_d1("commands", 32, 15, 32, is_external=True)
+    ans_mem = main.mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # We will use the `invoke` method to call the `fifo` component.
     fifo = main.cell("myfifo", fifo)
     # The component takes as `ref` input:
-    err = main.seq_mem_d1("err", 1, 1, 1)  # A flag to indicate an error
-    ans = main.seq_mem_d1("ans", 32, 1, 32)  # A memory to hold the answer of a pop
+    err = main.mem_d1("err", 1, 1, 1)  # A flag to indicate an error
+    ans = main.mem_d1("ans", 32, 1, 32)  # A memory to hold the answer of a pop
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
     # It will run until the `err` flag is raised by the `fifo` component or
