@@ -16,6 +16,7 @@ from .stages import (
     systolic,
     vcdump,
     jq,
+    vcalyx,
     verilator,
     vivado,
     xilinx,
@@ -115,6 +116,15 @@ def register_stages(registry):
             "Generate a CSV that estimates a Calyx program's resource usage",
         )
     )
+    registry.register(
+        futil.CalyxStage(
+            "vcalyx",
+            "-b sexp -p canonicalize --log info",
+            # TODO put dataflow passes here
+            # -s futil.flags ... to override flags
+            "Prints a Calyx program in s-expression form",
+        )
+    )
 
     # Data conversion
     registry.register(verilator.JsonToDat())
@@ -153,6 +163,9 @@ def register_stages(registry):
     registry.register(interpreter.InterpreterStage.debugger("", "", "Run the debugger"))
     registry.register(interpreter.InterpreterStage.data_converter())
 
+    # VCalyx
+    registry.register(vcalyx.VCalyxStage("Parse Calyx programs in s-expression form with Coq semantics"))
+    registry.register(vcalyx.VCalyxStage("vcalyx-out"))
 
 def register_external_stages(cfg, registry):
     """

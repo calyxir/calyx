@@ -1,0 +1,11 @@
+(library
+ (name extr)
+ (public_name vcalyx.extr)
+ (libraries stdlib-shims)
+ (flags
+  (:standard -w -3 -w -39 -w -33 -w -20 -w -27)))
+
+(coq.extraction
+ (prelude Extraction)
+ (extracted_modules extr)
+ (theories VCalyx))

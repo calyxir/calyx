@@ -1,0 +1,21 @@
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    const0 = std_const(32, 2);
+    reg1 = std_reg(32);
+  }
+
+  wires {
+    group move {
+      reg1.write_en = 1'd1;
+      reg1.in = const0.out;
+
+      move[done] = reg1.done;
+    }
+  }
+
+  control {
+    move;
+  }
+}

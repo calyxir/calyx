@@ -1,0 +1,181 @@
+ver = "0.4.0"
+
+# Check basic functionality of the interpreter
+[[tests]]
+name = "unit"
+paths = ["../interp/tests/unit/*.futil"]
+cmd = """
+  ./_build/default/ocaml/vcx.exe {}
+"""
+timeout = 3
+
+[[tests]]
+name = "errors"
+paths = ["../interp/tests/errors/*.futil"]
+
+cmd = """
+./_build/default/ocaml/vcx.exe {}
+"""
+timeout = 3
+
+[[tests]]
+name = "complex"
+paths = ["../interp/tests/complex/*.futil"]
+
+cmd = """
+./_build/default/ocaml/vcx.exe {}
+"""
+timeout = 3
+
+[[tests]]
+name = "primitives"
+paths = ["../interp/tests/primitives/*.futil"]
+cmd = """
+./_build/default/ocaml/vcx.exe parse{}
+"""
+timeout = 3
+
+[[tests]]
+name = "par to seq"
+paths = ["../interp/tests/control/par_reg.futil", "../interp/tests/control/par_mem.futil"]
+cmd = """
+../target/debug/futil {} -p par-to-seq -l ../ | ./_build/default/ocaml/vcx.exe parse {}
+"""
+timeout = 3
+
+[[tests]]
+name = "control"
+paths = [
+  "../interp/tests/control/*.futil",
+  "../interp/tests/control/iteration/*.futil",
+  "../interp/tests/control/static/*.futil",
+]
+cmd = """
+./_build/default/ocaml/vcx.exe parse {}
+"""
+timeout = 3
+
+# TODO support data files
+# [[tests]]
+# name = "invoke"
+# paths = ["../interp/tests/control/invoke/*.futil"]
+# cmd = """
+# fud e {} --to vcx -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories
+# """
+
+# [[tests]]
+# name = "invoke comp"
+# paths = ["../interp/tests/control/invoke/*.futil"]
+# cmd = """
+# fud e {} --to interpreter-out -s futil.flags "-p compile-invoke" -s interpreter.flags " -q" -s verilog.data {}.data -q | jq .memories
+# """
+
+[[tests]]
+name = "fully structural"
+paths = [
+  "../interp/tests/control/*.futil",
+  # Disabled iteration tests due to bug
+  #    "../interp/tests/control/iteration/*.futil"
+]
+cmd = """
+../target/debug/futil {} -d pre-opt -d post-opt -p remove-comb-groups -l ../ | ./_build/default/ocaml/vcx.exe parse
+"""
+expect_dir = "../interp/tests/lowered/"
+timeout = 3
+
+[[tests]]
+name = "fully structural static"
+paths = ["../interp/tests/control/static*.futil"]
+cmd = """
+../target/debug/futil {} -d pre-opt -d post-opt  -l ../ | ./_build/default/ocaml/vcx.exe parse
+"""
+expect_dir = "../interp/tests/lowered/"
+timeout = 3
+
+# [[tests]]
+# name = "correctness dynamic"
+# paths = ["../tests/correctness/*.futil"]
+# cmd = """
+# fud exec --to jq \
+#          --through interpreter-out \
+#          -s verilog.data {}.data \
+#          -s interpreter.flags " --raw" \
+#          -s jq.expr ".main" \
+#          {} -q
+# """
+
+# [[tests]]
+# name = "numeric types correctness and parsing"
+# paths = [
+#   "../tests/correctness/numeric-types/parsing/*.futil",
+#   "../tests/correctness/numeric-types/bitnum/*.futil",
+#   "../tests/correctness/numeric-types/fixed-point/*.futil",
+# ]
+# cmd = """
+# fud exec --to jq \
+#          --through interpreter-out \
+#          -s interpreter.flags "--raw " \
+#          -s verilog.data {}.data \
+#          -s jq.expr ".main" \
+#          {} -q
+# """
+
+# [[tests]]
+# name = "[frontend] tcam testing"
+# paths = ["../tests/correctness/tcam/*.futil"]
+# cmd = """
+# fud exec --to jq \
+#       --through interpreter-out \
+#       -s interpreter.flags "--raw " \
+#       -s verilog.data {}.data \
+#       -s jq.expr ".main" \
+#       {} -q
+# """
+
+# [[tests]]
+# name = "[frontend] systolic array correctness"
+# paths = ["../tests/correctness/systolic/*.systolic"]
+# cmd = """
+# fud e --from systolic --to jq \
+#       --through interpreter-out \
+#       -s interpreter.flags "--raw " \
+#       -s verilog.data {}.data \
+#       -s jq.expr ".main" \
+#       {} -q
+# """
+
+# [[tests]]
+# name = "[frontend] NTT pipeline correctness"
+# paths = ["../tests/correctness/ntt-pipeline/*.txt"]
+# cmd = """
+# fud e --from ntt --to jq \
+#       --through interpreter-out \
+#       -s interpreter.flags "--raw " \
+#       -s verilog.data {}.data \
+#       -s jq.expr ".main" \
+#       {} -q
+# """
+# expect_dir = "../interp/tests/ntt-results/"
+
+
+# [[tests]]
+# name = "[frontend] mrxl correctness"
+# paths = ["../frontends/mrxl/test/*.mrxl"]
+# cmd = """
+# fud e -q {} --from mrxl --to jq \
+#             --through interpreter-out \
+#             -s interpreter.flags "--raw " \
+#             -s verilog.data {}.data \
+#             -s jq.expr ".main"
+# """
+
+# [[tests]]
+# name = "[frontend] relay correctness"
+# paths = ["../tests/correctness/relay/*.relay"]
+# cmd = """
+# fud e -q {} --from relay --to jq \
+#             --through interpreter-out \
+#             -s interpreter.flags "--raw " \
+#             -s verilog.data {}.data \
+#             -s jq.expr ".main"
+# """
