@@ -1,5 +1,5 @@
-(lang dune 2.9)
-(using coq 0.2)
+(lang dune 3.8)
+(using coq 0.8)
 (using menhir 2.1)
 (name vcalyx)
 
@@ -21,4 +21,5 @@
    (coq-ceres (>= "0.4.0"))
    (coq-stdpp (>= "1.8.0"))
    (coq (>= "8.15.2"))
+   (menhir (>= "20230608"))
    (ocamlformat (and :build (>= "0.24.1")))))
