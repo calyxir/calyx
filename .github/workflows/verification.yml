@@ -24,10 +24,6 @@ jobs:
       uses: ocaml/setup-ocaml@v2
       with:
           ocaml-compiler: 4.13.1
-    - name: Checkout commit that triggered run
-      run: |
-        git fetch --all
-        git checkout $GITHUB_SHA
     - name: Install dependencies
       run: |
         cd vcalyx
