@@ -1,10 +1,7 @@
 name: Verification
 
 # Right now, we should only run this check on the vcalyx branch
-on:  
-  push:
-    branches:
-      - vcalyx
+on: [push]
 
 # Ensures that only the latest commit of a PR can execute the actions.
 # Useful for cancelling job when a sequence of commits are quickly added.
@@ -39,7 +36,19 @@ jobs:
         opam repo add coq-released https://coq.inria.fr/opam/released
         opam install . --deps-only 
         opam install coq yojson core core_unix ppx_deriving coq-stdpp coq-ceres
-    - name: Build with dune
+
+    - name: Build Rust
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --features serialize --all --manifest-path /home/calyx/interp/Cargo.toml
+
+    - name: Build Coq and OCaml
       run: |
         cd vcalyx
         opam exec -- dune build
+
+    - name: Coq Interpreter Runt Tests
+      run: |
+        cd vcalyx
+        runt --diff --only fail
