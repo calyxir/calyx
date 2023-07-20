@@ -4,7 +4,7 @@ import calyx.builder as cb
 
 def add_eq(comp: cb.ComponentBuilder, a, b, cell, width):
     """Adds wiring into component {comp} to check if {a} == {b}.
-    1. Within {comp}, creates a group called {cell}_group.
+    1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a cell {cell} that checks equalities of width {width}.
     3. Puts the values {a} and {b} into {cell}.
     4. Returns the equality-checking cell and the equality-checking group.
@@ -18,7 +18,23 @@ def add_eq(comp: cb.ComponentBuilder, a, b, cell, width):
 
 def add_eq_mem(comp: cb.ComponentBuilder, mem, i, b, cell, width):
     """Adds wiring into component {comp} to check if {mem[i]} == {b}.
-    1. Within {comp}, creates a group called {cell}_group.
+    1. Within {comp}, creates a non-combinational group called {cell}_group.
+    2. Within the group, creates a cell {cell} that checks equalities of width {width}.
+    3. Puts the values {mem[i]} and {b} into {cell}.
+    4. Returns the equality-checking cell and the equality-checking group.
+    """
+    eq_cell = comp.eq(cell, width)
+    with comp.group(f"{cell}_group") as eq_group:
+        eq_cell.left = mem.read_data
+        eq_cell.right = b
+        mem.addr0 = i
+        eq_group.done = mem.done
+    return eq_cell, eq_group
+
+
+def add_eq_mem_comb(comp: cb.ComponentBuilder, mem, i, b, cell, width):
+    """Adds wiring into component {comp} to check if {mem[i]} == {b}.
+    1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a cell {cell} that checks equalities of width {width}.
     3. Puts the values {mem[i]} and {b} into {cell}.
     4. Returns the equality-checking cell and the equality-checking group.
@@ -317,6 +333,9 @@ def add_main(prog, fifo):
     zero_j = set_flag_reg(main, j, 0, "zero_j")  # zero out `j`
     incr_i = add_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = add_incr(main, j, "add4", "incr_j")  # j = j + 1
+    err_eq_zero_comb = add_eq_mem_comb(
+        main, err, 0, 0, "err_eq_0_comb", 1
+    )  # is the `err` flag down?
     err_eq_zero = add_eq_mem(main, err, 0, 0, "err_eq_0", 1)  # is the `err` flag down?
     # i_eq_15 = add_eq(main, i.out, 15, "i_eq_15", 32)  # is `i` == 15?
     # raise_err = mem_store(main, err, 0, cb.const(1, 1), "raise_err")  # set `err` to 1
@@ -328,36 +347,38 @@ def add_main(prog, fifo):
         zero_i,
         zero_j,
         cb.while_(
-            err_eq_zero[0].out,
-            err_eq_zero[1],  # Run while the `err` flag is down
+            err_eq_zero_comb[0].out,
+            err_eq_zero_comb[1],  # Run while the `err` flag is down
             [
                 read_command,  # Read the command at `i`
                 cb.if_(
                     # Is this a pop or a push?
                     command_eq_zero[0].out,
                     command_eq_zero[1],
-                    [  # a pop
-                        cb.invoke(  # first we call pop
+                    [  # A pop
+                        cb.invoke(  # First we call pop
                             fifo,
                             in_pop=cb.const(1, 1),
                             in_push=cb.const(1, 0),
                             ref_ans=ans,
                             ref_err=err,
                         ),
-                        cb.if_(  # but was it successful?
+                        # But was it successful?
+                        # We need to check on the `err` flag.
+                        # To avoid clashing with the combinational group
+                        # `err_eq_zero_comb`, we use a new non-combinational
+                        # group `err_eq_zero`.
+                        err_eq_zero[1],
+                        cb.if_(
                             err_eq_zero[0].out,
-                            err_eq_zero[1],
-                            [  # yes, it was successful: write the answer to ans_mem
+                            None,
+                            [  # Yes, it was successful: write the answer to ans_mem
                                 write_ans,
                                 incr_j,
                             ],
                         ),
-                        # AM:
-                        # The if-check above is giving me trouble:
-                        # I need to check on the `err` flag, but I am getting complaints
-                        # from Calyx because the same `err` flag is checked in the while-loop.
                     ],
-                    cb.invoke(  # a push
+                    cb.invoke(  # A push
                         fifo,
                         in_pop=cb.const(1, 0),
                         in_push=cb.const(1, 1),
