@@ -246,6 +246,7 @@ class ComponentBuilder:
         is_ref=False,
     ) -> CellBuilder:
         """Generate a SeqMemD1 cell."""
+        self.prog.import_("primitives/memories.futil")
         return self.cell(
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
