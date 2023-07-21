@@ -24,7 +24,7 @@ def reg_swap(comp: cb.ComponentBuilder, a, b, group):
     return swap_grp
 
 
-def insert_len_update(comp: cb.ComponentBuilder, len, len_1, len_2, group):
+def insert_len_update(comp: cb.ComponentBuilder, length, len_1, len_2, group):
     """Updates the length of the PIFO.
     It is just the sum of the lengths of the two FIFOs.
     1. Within component {comp}, creates a group called {group}.
@@ -37,9 +37,9 @@ def insert_len_update(comp: cb.ComponentBuilder, len, len_1, len_2, group):
     with comp.group(group) as update_length_grp:
         cell.left = len_1.out
         cell.right = len_2.out
-        len.write_en = 1
-        len.in_ = cell.out
-        update_length_grp.done = len.done
+        length.write_en = 1
+        length.in_ = cell.out
+        update_length_grp.done = length.done
     return update_length_grp
 
 
@@ -100,9 +100,9 @@ def insert_pifo(prog, fifo_1, fifo_2):
     len_1 = pifo.reg("len_1", 32, is_ref=True)  # The length of fifo_1
     len_2 = pifo.reg("len_2", 32, is_ref=True)  # The length of fifo_2
 
-    # Create the two FIFOs.
-    fifo_1 = pifo.cell("fifo_1", fifo_1)
-    fifo_2 = pifo.cell("fifo_2", fifo_2)
+    # Create the two FIFOs and ready them for invocation.
+    fifo_1 = pifo.cell("myfifo_1", fifo_1)
+    fifo_2 = pifo.cell("myfifo_2", fifo_2)
 
     # Create the two registers.
     hot = pifo.reg("hot", 1)
@@ -236,26 +236,24 @@ def insert_pifo(prog, fifo_1, fifo_2):
                             cb.if_(
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
-                                [  # The user wants to push to flow 1.
-                                    cb.invoke(
-                                        fifo_1,
-                                        in_pop=cb.const(1, 0),
-                                        in_push=cb.const(1, 1),
-                                        ref_payload=payload,
-                                        ref_err=err,  # Its error is our error.
-                                        ref_len=len_1,
-                                    ),
-                                ],
-                                [  # The user wants to push to flow 2.
-                                    cb.invoke(
-                                        fifo_2,
-                                        in_pop=cb.const(1, 0),
-                                        in_push=cb.const(1, 1),
-                                        ref_payload=payload,
-                                        ref_err=err,  # Its error is our error.
-                                        ref_len=len_2,
-                                    ),
-                                ],
+                                # The user wants to push to flow 1.
+                                cb.invoke(
+                                    fifo_1,
+                                    in_pop=cb.const(1, 0),
+                                    in_push=cb.const(1, 1),
+                                    in_payload=payload,
+                                    ref_err=err,  # Its error is our error.
+                                    ref_len=len_1,
+                                ),
+                                # The user wants to push to flow 2.
+                                cb.invoke(
+                                    fifo_2,
+                                    in_pop=cb.const(1, 0),
+                                    in_push=cb.const(1, 1),
+                                    in_payload=payload,
+                                    ref_err=err,  # Its error is our error.
+                                    ref_len=len_2,
+                                ),
                             ),
                             update_length,  # Update the length of the PIFO.
                         ],
@@ -353,8 +351,8 @@ def insert_main(prog, pifo, raise_err_if_i_eq_15):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    fifo_1 = fifo.insert_fifo(prog)
-    fifo_2 = fifo.insert_fifo(prog)
+    fifo_1 = fifo.insert_fifo(prog, "fifo_1")
+    fifo_2 = fifo.insert_fifo(prog, "fifo_2")
     pifo = insert_pifo(prog, fifo_1, fifo_2)
     raise_err_if_i_eq_15 = fifo.insert_raise_err_if_i_eq_15(prog)
     insert_main(prog, pifo, raise_err_if_i_eq_15)
