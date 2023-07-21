@@ -16,35 +16,6 @@ def add_eq(comp: cb.ComponentBuilder, a, b, cell, width):
     return eq_cell, eq_group
 
 
-def add_eq_reg(comp: cb.ComponentBuilder, reg, value, cell):
-    """Adds wiring into component {comp} to check if {reg} == {value}.
-    1. Within {comp}, creates a non-combinational group called {cell}_group.
-    2. Within the group, creates a cell {cell} that checks equalities.
-    3. Puts the values {reg} and {value} into {cell}.
-    4. Returns the equality-checking cell and the equality-checking group.
-    """
-    eq_cell = comp.eq(cell, 1)
-    with comp.group(f"{cell}_group") as eq_group:
-        eq_cell.left = reg.out
-        eq_cell.right = value
-        eq_group.done = eq_cell.done  # ...
-    return eq_cell, eq_group
-
-
-def add_eq_reg_comb(comp: cb.ComponentBuilder, reg, value, cell):
-    """Adds wiring into component {comp} to check if {reg} == {value}.
-    1. Within {comp}, creates a combinational group called {cell}_group.
-    2. Within the group, creates a cell {cell} that checks equalities.
-    3. Puts the values {reg} and {value} into {cell}.
-    4. Returns the equality-checking cell and the equality-checking group.
-    """
-    eq_cell = comp.eq(cell, 1)
-    with comp.comb_group(f"{cell}_group") as eq_group:
-        eq_cell.left = reg.out
-        eq_cell.right = value
-    return eq_cell, eq_group
-
-
 def add_incr(comp: cb.ComponentBuilder, reg, cell, group):
     """Adds wiring into component {comp} to increment {reg} by 1.
     1. Within component {comp}, creates a group called {group}.
@@ -89,11 +60,11 @@ def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
         mem.addr0 = i
         mem.write_en = 1
         mem.write_data = val
-        store_grp.done = mem.write_done
+        store_grp.done = mem.done
     return store_grp
 
 
-def set_flag_reg(comp: cb.ComponentBuilder, flagname, flagval, group):
+def set_flag(comp: cb.ComponentBuilder, flagname, flagval, group):
     """Sets a flag to a value.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, sets the flag {flagname} to {flagval}.
@@ -122,12 +93,12 @@ def add_fifo(prog):
     push = fifo.input("push", 1)
     payload = fifo.input("payload", 32)
 
-    mem = fifo.seq_mem_d1("mem", 32, 10, 32)
+    mem = fifo.mem_d1("mem", 32, 10, 32)
 
     write = fifo.reg("next_write", 32)  # The next address to write to
     read = fifo.reg("next_read", 32)  # The next address to read from
-    full = fifo.reg("full", 1)
-    empty = fifo.reg("empty", 1)
+    full = fifo.reg("full", 1)  # The flag to indicate the queue is full
+    empty = fifo.reg("empty", 1)  # The flag to indicate the queue is empty
 
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size 10.
@@ -138,19 +109,21 @@ def add_fifo(prog):
     # If the user wants to pop, we will write the popped value to `ans`
 
     err = fifo.reg("err", 1, is_ref=True)
-    # We'll raise this as a general warning flag.
-    # Overflow, underflow, if the user calls pop and push at the same time,
+    # We'll raise this as a general error flag.
+    # Overflow,
+    # underflow,
+    # if the user calls pop and push at the same time,
     # or if the user issues no command
 
     # Cells and groups to compute equality
-    pop_eq_push = add_eq(fifo, pop, push, "pop_eq_push", 1)  # is `pop` == `push`?
-    pop_eq_1 = add_eq(fifo, pop, 1, "pop_eq_1", 1)  # is `pop` == 1?
-    push_eq_1 = add_eq(fifo, push, 1, "push_eq_1", 1)  # is `push` == 1?
+    pop_eq_push = add_eq(fifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
+    pop_eq_1 = add_eq(fifo, pop, 1, "pop_eq_1", 1)  # `pop` == 1
+    push_eq_1 = add_eq(fifo, push, 1, "push_eq_1", 1)  # `push` == 1
     read_eq_write = add_eq(
         fifo, read.out, write.out, "read_eq_write", 32
-    )  # is `read` == `write`?
-    write_eq_10 = add_eq(fifo, write.out, 10, "write_eq_10", 32)  # is `write` == 10?
-    read_eq_10 = add_eq(fifo, read.out, 10, "read_eq_10", 32)  # is `read` == 10?
+    )  # `read` == `write`
+    write_eq_10 = add_eq(fifo, write.out, 10, "write_eq_10", 32)  # `write` == 10
+    read_eq_10 = add_eq(fifo, read.out, 10, "read_eq_10", 32)  # `read` == 10
     full_eq_1 = add_eq(fifo, full.out, 1, "full_eq_1", 1)  # is the `full` flag up?
     empty_eq_1 = add_eq(fifo, empty.out, 1, "empty_eq_1", 1)  # is the `empty` flag up?
 
@@ -159,15 +132,15 @@ def add_fifo(prog):
     read_incr = add_incr(fifo, read, "add2", "read_incr")  # read = read + 1
 
     # Cells and groups to modify flags, which are registers
-    write_wrap = set_flag_reg(fifo, write, 0, "write_wraparound")  # zero out `write`
-    read_wrap = set_flag_reg(fifo, read, 0, "read_wraparound")  # zero out `read`
-    raise_full = set_flag_reg(fifo, full, 1, "raise_full")  # set `full` to 1
-    lower_full = set_flag_reg(fifo, full, 0, "lower_full")  # set `full` to 0
-    raise_empty = set_flag_reg(fifo, empty, 1, "raise_empty")  # set `empty` to 1
-    lower_empty = set_flag_reg(fifo, empty, 0, "lower_empty")  # set `empty` to 0
-    raise_err = set_flag_reg(fifo, err, 1, "raise_err")  # set `err` to 1
+    write_wrap = set_flag(fifo, write, 0, "write_wraparound")  # zero out `write`
+    read_wrap = set_flag(fifo, read, 0, "read_wraparound")  # zero out `read`
+    raise_full = set_flag(fifo, full, 1, "raise_full")  # set `full` to 1
+    lower_full = set_flag(fifo, full, 0, "lower_full")  # set `full` to 0
+    raise_empty = set_flag(fifo, empty, 1, "raise_empty")  # set `empty` to 1
+    lower_empty = set_flag(fifo, empty, 0, "lower_empty")  # set `empty` to 0
+    raise_err = set_flag(fifo, err, 1, "raise_err")  # set `err` to 1
 
-    # Load and store into arbitary slot in memory
+    # Load and store into an arbitary slot in memory
     write_to_mem = mem_store(fifo, mem, write.out, payload, "write_payload_to_mem")
     read_from_mem = mem_load(fifo, mem, read.out, ans, "read_payload_from_mem")
 
@@ -175,9 +148,10 @@ def add_fifo(prog):
         cb.if_(
             pop_eq_push[0].out,
             pop_eq_push[1],
-            # The user called pop and push at the same time, or issued no command.
-            raise_err,
-            cb.par(
+            # Checking if the user called pop and push at the same time,
+            # or issued no command.
+            raise_err,  # If so, we're done.
+            cb.par(  # If not, we continue.
                 cb.if_(
                     # Did the user call pop?
                     pop_eq_1[0].out,
@@ -263,33 +237,28 @@ def add_main(prog, fifo):
     #    `0`: pop
     #    any other value: push that value
     # - a list of answers (the output).
-    commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    commands = main.mem_d1("commands", 32, 15, 32, is_external=True)
+    ans_mem = main.mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # We will use the `invoke` method to call the `fifo` component.
     fifo = main.cell("myfifo", fifo)
-    # The component takes as `ref` input:
+    # The fifo component takes two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
+
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
-    # It will run until the `err` flag is raised by the `fifo` component or
-    # until it reaches the end of the command list.
+    # It will run until the `err` flag is raised by the `fifo` component.
 
     i = main.reg("i", 32)  # The index of the command we're currently processing
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     command = main.reg("command", 32)  # The command we're currently processing
 
-    zero_i = set_flag_reg(main, i, 0, "zero_i")  # zero out `i`
-    zero_j = set_flag_reg(main, j, 0, "zero_j")  # zero out `j`
+    zero_i = set_flag(main, i, 0, "zero_i")  # zero out `i`
+    zero_j = set_flag(main, j, 0, "zero_j")  # zero out `j`
     incr_i = add_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = add_incr(main, j, "add4", "incr_j")  # j = j + 1
-    err_eq_zero_comb = add_eq_reg_comb(
-        main, err, 0, "err_eq_0_comb"
-    )  # is the `err` flag down?
-    # err_eq_zero = add_eq_reg(main, err, 0, "err_eq_0")  # is the `err` flag down?
-    # i_eq_15 = add_eq(main, i.out, 15, "i_eq_15", 32)  # is `i` == 15?
-    # raise_err = mem_store(main, err, 0, cb.const(1, 1), "raise_err")  # set `err` to 1
+    err_eq_zero = add_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
     read_command = mem_load(main, commands, i.out, command, "read_command")
     command_eq_zero = add_eq(main, command.out, 0, "command_eq_zero", 32)
     write_ans = mem_store(main, ans_mem, j.out, ans.out, "write_ans")
@@ -298,8 +267,8 @@ def add_main(prog, fifo):
         zero_i,
         zero_j,
         cb.while_(
-            err_eq_zero_comb[0].out,
-            err_eq_zero_comb[1],  # Run while the `err` flag is down
+            err_eq_zero[0].out,
+            err_eq_zero[1],  # Run while the `err` flag is down
             [
                 read_command,  # Read the command at `i`
                 cb.if_(
@@ -314,19 +283,8 @@ def add_main(prog, fifo):
                             ref_ans=ans,
                             ref_err=err,
                         ),
-                        # But was it successful?
-                        # We need to check on the `err` flag.
-                        # To avoid clashing with the combinational group
-                        # `err_eq_zero_comb`, we use a new non-combinational
-                        # group `err_eq_zero`.
-                        cb.if_(
-                            err_eq_zero_comb[0].out,
-                            err_eq_zero_comb[1],
-                            [  # Yes, it was successful: write the answer to ans_mem
-                                write_ans,
-                                incr_j,
-                            ],
-                        ),
+                        write_ans,
+                        incr_j,
                     ],
                     cb.invoke(  # A push
                         fifo,
@@ -338,12 +296,6 @@ def add_main(prog, fifo):
                     ),
                 ),
                 incr_i,  # Increment the command index
-                # cb.if_(
-                #     # Did we reach the end of the command list?
-                #     i_eq_15[0].out,
-                #     i_eq_15[1],
-                #     raise_err,  # Yes, raise the error flag.
-                # ),
             ],
         ),
     ]
