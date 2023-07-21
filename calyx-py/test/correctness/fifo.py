@@ -171,7 +171,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
 
     # We will use the `invoke` method to call the `fifo` component.
     fifo = main.cell("myfifo", fifo)
-    # The fifo component takes two `ref` inputs:
+    # The fifo component takes three `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
     len = main.reg("len", 32)  # A register to hold the len of the queue
