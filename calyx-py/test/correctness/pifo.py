@@ -234,7 +234,31 @@ def insert_pifo(prog):
                         len_eq_10[1],
                         [raise_err, zero_out_ans],  # The queue is full: overflow.
                         [  # The queue is not full. Proceed.
-                            # TK
+                            # We need to check which flow the user wants to push to.
+                            cb.if_(
+                                flow_eq_1[0].out,
+                                flow_eq_1[1],
+                                [  # The user wants to push to flow 1.
+                                    cb.invoke(
+                                        fifo_1,
+                                        in_pop=cb.const(1, 0),
+                                        in_push=cb.const(1, 1),
+                                        ref_payload=payload,
+                                        ref_err=err,  # Its error is our error.
+                                        ref_len=len_fifo_1,
+                                    ),
+                                ],
+                                [  # The user wants to push to flow 2.
+                                    cb.invoke(
+                                        fifo_2,
+                                        in_pop=cb.const(1, 0),
+                                        in_push=cb.const(1, 1),
+                                        ref_payload=payload,
+                                        ref_err=err,  # Its error is our error.
+                                        ref_len=len_fifo_2,
+                                    ),
+                                ],
+                            ),
                             update_length,  # Update the length of the PIFO.
                         ],
                     ),
