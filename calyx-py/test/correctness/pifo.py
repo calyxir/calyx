@@ -13,7 +13,7 @@ def reg_swap(comp: cb.ComponentBuilder, a, b, group):
     5. Returns the group that does this.
     """
     with comp.group(group) as swap_grp:
-        tmp = comp.register("tmp", 1)
+        tmp = comp.reg("tmp", 1)
         tmp.write_en = 1
         tmp.in_ = a.out
         a.write_en = 1
@@ -24,26 +24,26 @@ def reg_swap(comp: cb.ComponentBuilder, a, b, group):
     return swap_grp
 
 
-def insert_len_update(comp: cb.ComponentBuilder, len, len_fifo_1, len_fifo_2, group):
+def insert_len_update(comp: cb.ComponentBuilder, len, len_1, len_2, group):
     """Updates the length of the PIFO.
     It is just the sum of the lengths of the two FIFOs.
     1. Within component {comp}, creates a group called {group}.
     2. Creates a cell {cell} that computes sums.
-    3. Puts the values of {len_fifo_1} and {len_fifo_2} into {cell}.
+    3. Puts the values of {len_1} and {len_2} into {cell}.
     4. Then puts the answer of the computation back into {len}.
     4. Returns the group that does this.
     """
     cell = comp.add("cell", 32)
     with comp.group(group) as update_length_grp:
-        cell.left = len_fifo_1.out
-        cell.right = len_fifo_2.out
+        cell.left = len_1.out
+        cell.right = len_2.out
         len.write_en = 1
         len.in_ = cell.out
         update_length_grp.done = len.done
     return update_length_grp
 
 
-def insert_pifo(prog):
+def insert_pifo(prog, fifo_1, fifo_2):
     """A PIFO that achieves a 50/50 split between two flows.
 
     Up to the availability of values, this PIFO seeks to alternate 50/50
@@ -78,7 +78,7 @@ def insert_pifo(prog):
            Leave `hot` and `cold` as they were.
     """
 
-    pifo: cb.ComponentBuilder = prog.new_component("pifo")
+    pifo: cb.ComponentBuilder = prog.component("pifo")
     pop = pifo.input("pop", 1)
     push = pifo.input("push", 1)
     payload = pifo.input("payload", 32)  # The value to push
@@ -93,38 +93,36 @@ def insert_pifo(prog):
     # underflow,
     # if the user calls pop and push at the same time,
     # or if the user issues no command.
-    err_fifo_1 = pifo.reg("err_fifo_1", 1, is_ref=True)
-    err_fifo_2 = pifo.reg("err_fifo_2", 1, is_ref=True)
+    err_1 = pifo.reg("err_fifo_1", 1, is_ref=True)
+    err_2 = pifo.reg("err_fifo_2", 1, is_ref=True)
 
     len = pifo.reg("len", 32, is_ref=True)  # The length of the PIFO
-    len_fifo_1 = pifo.reg("len_fifo_1", 32, is_ref=True)  # The length of fifo_1
-    len_fifo_2 = pifo.reg("len_fifo_2", 32, is_ref=True)  # The length of fifo_2
+    len_1 = pifo.reg("len_1", 32, is_ref=True)  # The length of fifo_1
+    len_2 = pifo.reg("len_2", 32, is_ref=True)  # The length of fifo_2
 
     # Create the two FIFOs.
-    fifo_1 = fifo.insert_fifo(prog)
-    fifo_2 = fifo.insert_fifo(prog)
+    fifo_1 = pifo.cell("fifo_1", fifo_1)
+    fifo_2 = pifo.cell("fifo_2", fifo_2)
 
     # Create the two registers.
-    hot = pifo.register("hot", 1)
-    cold = pifo.register("cold", 1)
+    hot = pifo.reg("hot", 1)
+    cold = pifo.reg("cold", 1)
 
     # Some equality checks.
-    hot_eq_1 = util.insert_eq(pifo, hot, 1, "hot_eq_1", 1)  # hot == 1
+    hot_eq_1 = util.insert_eq(pifo, hot.out, 1, "hot_eq_1", 1)  # hot == 1
     flow_eq_1 = util.insert_eq(pifo, flow, 1, "flow_eq_1", 1)  # flow == 1
     len_eq_0 = util.insert_eq(pifo, len.out, 0, "len_eq_0", 32)  # `len` == 0
     len_eq_10 = util.insert_eq(pifo, len.out, 10, "len_eq_10", 32)  # `len` == 10
     pop_eq_push = util.insert_eq(pifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
     pop_eq_1 = util.insert_eq(pifo, pop, 1, "pop_eq_1", 1)  # `pop` == 1
     push_eq_1 = util.insert_eq(pifo, push, 1, "push_eq_1", 1)  # `push` == 1
-    err_1_eq_1 = util.insert_eq(pifo, err_fifo_1, 1, "err_1_eq_1", 1)  # err_1 == 1
-    err_2_eq_1 = util.insert_eq(pifo, err_fifo_2, 1, "err_2_eq_1", 1)  # err_2 == 1
+    err_1_eq_1 = util.insert_eq(pifo, err_1.out, 1, "err_1_eq_1", 1)  # err_1 == 1
+    err_2_eq_1 = util.insert_eq(pifo, err_2.out, 1, "err_2_eq_1", 1)  # err_2 == 1
 
     swap = reg_swap(pifo, hot, cold, "swap")  # Swap `hot` and `cold`.
     raise_err = util.reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
     zero_out_ans = util.reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
-    update_length = insert_len_update(
-        pifo, len, len_fifo_1, len_fifo_2, "update_length"
-    )
+    update_length = insert_len_update(pifo, len, len_1, len_2, "update_length")
 
     # The main logic.
     pifo.control += [
@@ -158,8 +156,8 @@ def insert_pifo(prog):
                                         in_pop=cb.const(1, 1),
                                         in_push=cb.const(1, 0),
                                         ref_ans=ans,  # Its answer is our answer.
-                                        ref_err=err_fifo_1,  # We sequester its error.
-                                        ref_len=len_fifo_1,
+                                        ref_err=err_1,  # We sequester its error.
+                                        ref_len=len_1,
                                     ),
                                     # Now we check if `fifo_1` raised an error.
                                     cb.if_(
@@ -175,7 +173,7 @@ def insert_pifo(prog):
                                                 # Its answer is our answer.
                                                 ref_err=err,
                                                 # its error is our error
-                                                ref_len=len_fifo_2,
+                                                ref_len=len_2,
                                             ),
                                         ],
                                         [  # `fifo_1` did not raise an error.
@@ -192,8 +190,8 @@ def insert_pifo(prog):
                                         in_pop=cb.const(1, 1),
                                         in_push=cb.const(1, 0),
                                         ref_ans=ans,  # Its answer is our answer.
-                                        ref_err=err_fifo_2,  # We sequester its error.
-                                        ref_len=len_fifo_2,
+                                        ref_err=err_2,  # We sequester its error.
+                                        ref_len=len_2,
                                     ),
                                     # Now we check if `fifo_2` raised an error.
                                     cb.if_(
@@ -209,7 +207,7 @@ def insert_pifo(prog):
                                                 # Its answer is our answer.
                                                 ref_err=err,
                                                 # its error is our error
-                                                ref_len=len_fifo_1,
+                                                ref_len=len_1,
                                             ),
                                         ],
                                         [  # `fifo_2` did not raise an error.
@@ -245,7 +243,7 @@ def insert_pifo(prog):
                                         in_push=cb.const(1, 1),
                                         ref_payload=payload,
                                         ref_err=err,  # Its error is our error.
-                                        ref_len=len_fifo_1,
+                                        ref_len=len_1,
                                     ),
                                 ],
                                 [  # The user wants to push to flow 2.
@@ -255,7 +253,7 @@ def insert_pifo(prog):
                                         in_push=cb.const(1, 1),
                                         ref_payload=payload,
                                         ref_err=err,  # Its error is our error.
-                                        ref_len=len_fifo_2,
+                                        ref_len=len_2,
                                     ),
                                 ],
                             ),
@@ -268,3 +266,100 @@ def insert_pifo(prog):
     ]
 
     return pifo
+
+
+def insert_main(prog, pifo, raise_err_if_i_eq_15):
+    """Inserts the component `main` into the program.
+    This will be used to `invoke` the component `fifo`.
+    """
+    main: cb.ComponentBuilder = prog.component("main")
+
+    # The user-facing interface is:
+    # - a list of commands (the input)
+    #    where each command is a 32-bit unsigned integer, with the following format:
+    #    `0`: pop
+    #    any other value: push that value
+    # - a list of answers (the output).
+    commands = main.mem_d1("commands", 32, 15, 32, is_external=True)
+    ans_mem = main.mem_d1("ans_mem", 32, 10, 32, is_external=True)
+
+    # We will use the `invoke` method to call the `pifo` component.
+    pifo = main.cell("mypifo", pifo)
+    # The pifo component takes three `ref` inputs:
+    err = main.reg("err", 1)  # A flag to indicate an error
+    ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
+    len = main.reg("len", 32)  # A register to hold the len of the queue
+
+    # We will set up a while loop that runs over the command list, relaying
+    # the commands to the `pifo` component.
+    # It will run until the `err` flag is raised by the `pifo` component.
+    raise_err_if_i_eq_15 = main.cell("raise_err_if_i_eq_15", raise_err_if_i_eq_15)
+
+    i = main.reg("i", 32)  # The index of the command we're currently processing
+    j = main.reg("j", 32)  # The index on the answer-list we'll write to
+    command = main.reg("command", 32)  # The command we're currently processing
+
+    incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
+    incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
+    err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
+    read_command = util.mem_load(main, commands, i.out, command, "read_command")
+    command_eq_zero = util.insert_eq(main, command.out, 0, "command_eq_zero", 32)
+    write_ans = util.mem_store(main, ans_mem, j.out, ans.out, "write_ans")
+
+    main.control += [
+        cb.while_(
+            err_eq_zero[0].out,
+            err_eq_zero[1],  # Run while the `err` flag is down
+            [
+                read_command,  # Read the command at `i`
+                cb.if_(
+                    # Is this a pop or a push?
+                    command_eq_zero[0].out,
+                    command_eq_zero[1],
+                    [  # A pop
+                        cb.invoke(  # First we call pop
+                            pifo,
+                            in_pop=cb.const(1, 1),
+                            in_push=cb.const(1, 0),
+                            ref_ans=ans,
+                            ref_err=err,
+                            ref_len=len,
+                        ),
+                        # AM: if err flag comes back raised,
+                        # do not perform this write or this incr
+                        write_ans,
+                        incr_j,
+                    ],
+                    cb.invoke(  # A push
+                        pifo,
+                        in_pop=cb.const(1, 0),
+                        in_push=cb.const(1, 1),
+                        in_payload=command.out,
+                        # flow stuff...
+                        ref_ans=ans,
+                        ref_err=err,
+                        ref_len=len,
+                    ),
+                ),
+                incr_i,  # Increment the command index
+                cb.invoke(  # If i = 15, raise error flag
+                    raise_err_if_i_eq_15, in_i=i.out, ref_err=err
+                ),  # AM: hella hacky
+            ],
+        ),
+    ]
+
+
+def build():
+    """Top-level function to build the program."""
+    prog = cb.Builder()
+    fifo_1 = fifo.insert_fifo(prog)
+    fifo_2 = fifo.insert_fifo(prog)
+    pifo = insert_pifo(prog, fifo_1, fifo_2)
+    raise_err_if_i_eq_15 = fifo.insert_raise_err_if_i_eq_15(prog)
+    insert_main(prog, pifo, raise_err_if_i_eq_15)
+    return prog.program
+
+
+if __name__ == "__main__":
+    build().emit()
