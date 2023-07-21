@@ -43,6 +43,27 @@ def insert_len_update(comp: cb.ComponentBuilder, length, len_1, len_2, group):
     return update_length_grp
 
 
+def insert_flow_inference(comp: cb.ComponentBuilder, command, flow, group):
+    """The flow is needed when the command is a push.
+    If the value to be pushed is less than 200, we push to flow 1.
+    Otherwise, we push to flow 2.
+    This method adds a group to the component {comp} that does this.
+    1. Within component {comp}, creates a group called {group}.
+    2. Within {group}, creates a cell {cell} that checks for less-than.
+    3. Puts the values of {command} and 200 into {cell}.
+    4. Then puts the answer of the computation into {flow}.
+    4. Returns the group that does this.
+    """
+    cell = comp.lt("cell", 32)
+    with comp.group(group) as infer_flow_grp:
+        cell.left = command.out
+        cell.right = 200
+        flow.write_en = 1
+        flow.in_ = cell.out
+        infer_flow_grp.done = flow.done
+    return infer_flow_grp
+
+
 def insert_pifo(prog, fifo_1, fifo_2):
     """A PIFO that achieves a 50/50 split between two flows.
 
@@ -304,6 +325,9 @@ def insert_main(prog, pifo, raise_err_if_i_eq_15):
     command_eq_zero = util.insert_eq(main, command.out, 0, "command_eq_zero", 32)
     write_ans = util.mem_store(main, ans_mem, j.out, ans.out, "write_ans")
 
+    flow = main.reg("flow", 1)  # The flow to push to
+    infer_flow = insert_flow_inference(main, command, flow, "infer_flow")
+
     main.control += [
         cb.while_(
             err_eq_zero[0].out,
@@ -328,16 +352,20 @@ def insert_main(prog, pifo, raise_err_if_i_eq_15):
                         write_ans,
                         incr_j,
                     ],
-                    cb.invoke(  # A push
-                        pifo,
-                        in_pop=cb.const(1, 0),
-                        in_push=cb.const(1, 1),
-                        in_payload=command.out,
-                        # flow stuff...
-                        ref_ans=ans,
-                        ref_err=err,
-                        ref_len=len,
-                    ),
+                    [
+                        # A push
+                        infer_flow,  # Infer the flow and write it to `flow`.
+                        cb.invoke(
+                            pifo,
+                            in_pop=cb.const(1, 0),
+                            in_push=cb.const(1, 1),
+                            in_payload=command.out,
+                            in_flow=flow.out,
+                            ref_ans=ans,
+                            ref_err=err,
+                            ref_len=len,
+                        ),
+                    ],
                 ),
                 incr_i,  # Increment the command index
                 cb.invoke(  # If i = 15, raise error flag
