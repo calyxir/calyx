@@ -2,7 +2,7 @@
 import calyx.builder as cb
 
 
-def add_eq(comp: cb.ComponentBuilder, a, b, cell, width):
+def insert_eq(comp: cb.ComponentBuilder, a, b, cell, width):
     """Adds wiring into component {comp} to check if {a} == {b}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a cell {cell} that checks equalities of width {width}.
@@ -16,7 +16,7 @@ def add_eq(comp: cb.ComponentBuilder, a, b, cell, width):
     return eq_cell, eq_group
 
 
-def add_incr(comp: cb.ComponentBuilder, reg, cell, group):
+def insert_incr(comp: cb.ComponentBuilder, reg, cell, group):
     """Adds wiring into component {comp} to increment {reg} by 1.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, adds a cell {cell} that computes sums.
@@ -78,7 +78,7 @@ def set_flag(comp: cb.ComponentBuilder, flagname, flagval, group):
     return flag_grp
 
 
-def add_fifo(prog):
+def insert_fifo(prog):
     """Inserts the component `fifo` into the program.
 
     It has:
@@ -116,20 +116,22 @@ def add_fifo(prog):
     # or if the user issues no command
 
     # Cells and groups to compute equality
-    pop_eq_push = add_eq(fifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
-    pop_eq_1 = add_eq(fifo, pop, 1, "pop_eq_1", 1)  # `pop` == 1
-    push_eq_1 = add_eq(fifo, push, 1, "push_eq_1", 1)  # `push` == 1
-    read_eq_write = add_eq(
+    pop_eq_push = insert_eq(fifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
+    pop_eq_1 = insert_eq(fifo, pop, 1, "pop_eq_1", 1)  # `pop` == 1
+    push_eq_1 = insert_eq(fifo, push, 1, "push_eq_1", 1)  # `push` == 1
+    read_eq_write = insert_eq(
         fifo, read.out, write.out, "read_eq_write", 32
     )  # `read` == `write`
-    write_eq_10 = add_eq(fifo, write.out, 10, "write_eq_10", 32)  # `write` == 10
-    read_eq_10 = add_eq(fifo, read.out, 10, "read_eq_10", 32)  # `read` == 10
-    full_eq_1 = add_eq(fifo, full.out, 1, "full_eq_1", 1)  # is the `full` flag up?
-    empty_eq_1 = add_eq(fifo, empty.out, 1, "empty_eq_1", 1)  # is the `empty` flag up?
+    write_eq_10 = insert_eq(fifo, write.out, 10, "write_eq_10", 32)  # `write` == 10
+    read_eq_10 = insert_eq(fifo, read.out, 10, "read_eq_10", 32)  # `read` == 10
+    full_eq_1 = insert_eq(fifo, full.out, 1, "full_eq_1", 1)  # is the `full` flag up?
+    empty_eq_1 = insert_eq(
+        fifo, empty.out, 1, "empty_eq_1", 1
+    )  # is the `empty` flag up?
 
     # Cells and groups to increment read and write registers
-    write_incr = add_incr(fifo, write, "add1", "write_incr")  # write = write + 1
-    read_incr = add_incr(fifo, read, "add2", "read_incr")  # read = read + 1
+    write_incr = insert_incr(fifo, write, "add1", "write_incr")  # write = write + 1
+    read_incr = insert_incr(fifo, read, "add2", "read_incr")  # read = read + 1
 
     # Cells and groups to modify flags, which are registers
     write_wrap = set_flag(fifo, write, 0, "write_wraparound")  # zero out `write`
@@ -229,7 +231,7 @@ def add_fifo(prog):
     return fifo
 
 
-def add_main(prog, fifo):
+def insert_main(prog, fifo):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `fifo`.
     """
@@ -260,11 +262,11 @@ def add_main(prog, fifo):
 
     zero_i = set_flag(main, i, 0, "zero_i")  # zero out `i`
     zero_j = set_flag(main, j, 0, "zero_j")  # zero out `j`
-    incr_i = add_incr(main, i, "add3", "incr_i")  # i = i + 1
-    incr_j = add_incr(main, j, "add4", "incr_j")  # j = j + 1
-    err_eq_zero = add_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
+    incr_i = insert_incr(main, i, "add3", "incr_i")  # i = i + 1
+    incr_j = insert_incr(main, j, "add4", "incr_j")  # j = j + 1
+    err_eq_zero = insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
     read_command = mem_load(main, commands, i.out, command, "read_command")
-    command_eq_zero = add_eq(main, command.out, 0, "command_eq_zero", 32)
+    command_eq_zero = insert_eq(main, command.out, 0, "command_eq_zero", 32)
     write_ans = mem_store(main, ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
@@ -311,8 +313,8 @@ def add_main(prog, fifo):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    fifo = add_fifo(prog)
-    add_main(prog, fifo)
+    fifo = insert_fifo(prog)
+    insert_main(prog, fifo)
     return prog.program
 
 
