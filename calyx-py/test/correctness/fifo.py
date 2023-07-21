@@ -129,7 +129,7 @@ def insert_fifo(prog):
     - three inputs, `pop`, `push`, and `payload`.
     - one memory, `mem`, of size 10.
     - two registers, `next_write` and `next_read`.
-    - three ref registers, `ans`, `err`, and `length`.
+    - three ref registers, `ans`, `err`, and `len`.
     """
 
     fifo: cb.ComponentBuilder = prog.component("fifo")
@@ -155,7 +155,7 @@ def insert_fifo(prog):
     # if the user calls pop and push at the same time,
     # or if the user issues no command.
 
-    length = fifo.reg("length", 32, is_ref=True)  # The length of the queue
+    len = fifo.reg("len", 32, is_ref=True)  # The length of the queue
 
     # Cells and groups to compute equality
     pop_eq_push = insert_eq(fifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
@@ -163,14 +163,14 @@ def insert_fifo(prog):
     push_eq_1 = insert_eq(fifo, push, 1, "push_eq_1", 1)  # `push` == 1
     write_eq_10 = insert_eq(fifo, write.out, 10, "write_eq_10", 32)  # `write` == 10
     read_eq_10 = insert_eq(fifo, read.out, 10, "read_eq_10", 32)  # `read` == 10
-    length_eq_0 = insert_eq(fifo, length.out, 0, "length_eq_0", 32)  # `length` == 0
-    length_eq_10 = insert_eq(fifo, length.out, 10, "length_eq_10", 32)  # `length` == 10
+    len_eq_0 = insert_eq(fifo, len.out, 0, "len_eq_0", 32)  # `len` == 0
+    len_eq_10 = insert_eq(fifo, len.out, 10, "len_eq_10", 32)  # `len` == 10
 
     # Cells and groups to increment read and write registers
     write_incr = insert_incr(fifo, write, "add1", "write_incr")  # write++
     read_incr = insert_incr(fifo, read, "add2", "read_incr")  # read++
-    length_incr = insert_incr(fifo, length, "add5", "length_incr")  # length++
-    length_decr = insert_decr(fifo, length, "add6", "length_decr")  # length--
+    len_incr = insert_incr(fifo, len, "add5", "len_incr")  # len++
+    len_decr = insert_decr(fifo, len, "add6", "len_decr")  # len--
 
     # Cells and groups to modify flags, which are registers
     write_wrap = reg_store(fifo, write, 0, "write_wraparound")  # zero out `write`
@@ -199,8 +199,8 @@ def insert_fifo(prog):
                     pop_eq_1[1],
                     cb.if_(
                         # Yes, the user called pop. But is the queue empty?
-                        length_eq_0[0].out,
-                        length_eq_0[1],
+                        len_eq_0[0].out,
+                        len_eq_0[1],
                         [raise_err, zero_out_ans],  # The queue is empty: underflow.
                         [  # The queue is not empty. Proceed.
                             read_from_mem,  # Read from the queue.
@@ -211,7 +211,7 @@ def insert_fifo(prog):
                                 read_eq_10[1],
                                 read_wrap,
                             ),
-                            length_decr,  # Decrement the length.
+                            len_decr,  # Decrement the length.
                         ],
                     ),
                 ),
@@ -221,8 +221,8 @@ def insert_fifo(prog):
                     push_eq_1[1],
                     cb.if_(
                         # Yes, the user called push. But is the queue full?
-                        length_eq_10[0].out,
-                        length_eq_10[1],
+                        len_eq_10[0].out,
+                        len_eq_10[1],
                         [raise_err, zero_out_ans],  # The queue is full: overflow.
                         [  # The queue is not full. Proceed.
                             write_to_mem,  # Write to the queue.
@@ -233,7 +233,7 @@ def insert_fifo(prog):
                                 write_eq_10[1],
                                 write_wrap,
                             ),
-                            length_incr,  # Increment the length.
+                            len_incr,  # Increment the length.
                         ],
                     ),
                 ),
@@ -264,7 +264,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     # The fifo component takes two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
-    length = main.reg("length", 32)  # A register to hold the length of the queue
+    len = main.reg("len", 32)  # A register to hold the len of the queue
 
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
@@ -303,7 +303,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
                             in_push=cb.const(1, 0),
                             ref_ans=ans,
                             ref_err=err,
-                            ref_length=length,
+                            ref_len=len,
                         ),
                         # AM: if err flag comes back raised,
                         # do not perform this write or this incr
@@ -317,7 +317,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
                         in_payload=command.out,
                         ref_ans=ans,
                         ref_err=err,
-                        ref_length=length,
+                        ref_len=len,
                     ),
                 ),
                 incr_i,  # Increment the command index
