@@ -1,0 +1,45 @@
+{
+  "commands": {
+    "data": [
+      100,
+      0,
+      101,
+      102,
+      0,
+      103,
+      204,
+      205,
+      106,
+      107,
+      208,
+      0,
+      0,
+      0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "ans_mem": {
+    "data": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  }
+}
