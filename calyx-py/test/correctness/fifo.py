@@ -334,7 +334,7 @@ def insert_main(prog, fifo, loopbreaker):
                 incr_i,  # Increment the command index
                 cb.invoke(  # If i = 15, raise error flag
                     loopbreaker, in_i=i.out, ref_err=err
-                ),
+                ),  # AM: hella hacky
             ],
         ),
     ]
