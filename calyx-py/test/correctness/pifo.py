@@ -33,7 +33,7 @@ def insert_len_update(comp: cb.ComponentBuilder, length, len_1, len_2, group):
     4. Then puts the answer of the computation back into {len}.
     4. Returns the group that does this.
     """
-    cell = comp.add("cell", 32)
+    cell = comp.add("len_adder", 32)
     with comp.group(group) as update_length_grp:
         cell.left = len_1.out
         cell.right = len_2.out
@@ -54,7 +54,7 @@ def insert_flow_inference(comp: cb.ComponentBuilder, command, flow, group):
     4. Then puts the answer of the computation into {flow}.
     4. Returns the group that does this.
     """
-    cell = comp.lt("cell", 32)
+    cell = comp.lt("flow_inf", 32)
     with comp.group(group) as infer_flow_grp:
         cell.left = command.out
         cell.right = 200
@@ -114,12 +114,12 @@ def insert_pifo(prog, fifo_1, fifo_2):
     # underflow,
     # if the user calls pop and push at the same time,
     # or if the user issues no command.
-    err_1 = pifo.reg("err_fifo_1", 1, is_ref=True)
-    err_2 = pifo.reg("err_fifo_2", 1, is_ref=True)
+    err_1 = pifo.reg("err_fifo_1", 1)
+    err_2 = pifo.reg("err_fifo_2", 1)
 
     len = pifo.reg("len", 32, is_ref=True)  # The length of the PIFO
-    len_1 = pifo.reg("len_1", 32, is_ref=True)  # The length of fifo_1
-    len_2 = pifo.reg("len_2", 32, is_ref=True)  # The length of fifo_2
+    len_1 = pifo.reg("len_1", 32)  # The length of fifo_1
+    len_2 = pifo.reg("len_2", 32)  # The length of fifo_2
 
     # Create the two FIFOs and ready them for invocation.
     fifo_1 = pifo.cell("myfifo_1", fifo_1)
@@ -265,6 +265,7 @@ def insert_pifo(prog, fifo_1, fifo_2):
                                     in_payload=payload,
                                     ref_err=err,  # Its error is our error.
                                     ref_len=len_1,
+                                    ref_ans=ans,
                                 ),
                                 # The user wants to push to flow 2.
                                 cb.invoke(
@@ -274,6 +275,7 @@ def insert_pifo(prog, fifo_1, fifo_2):
                                     in_payload=payload,
                                     ref_err=err,  # Its error is our error.
                                     ref_len=len_2,
+                                    ref_ans=ans,
                                 ),
                             ),
                             update_length,  # Update the length of the PIFO.
