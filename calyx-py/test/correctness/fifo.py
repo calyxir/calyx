@@ -77,8 +77,8 @@ def reg_store(comp: cb.ComponentBuilder, reg, val, group):
     return reg_grp
 
 
-def insert_loopbreaker(prog):
-    """Inserts a the component `loopbreaker` into the program.
+def insert_raise_err_if_i_eq_15(prog):
+    """Inserts a the component `raise_err_if_i_eq_15` into the program.
 
     It has:
     - one input, `i`.
@@ -86,14 +86,14 @@ def insert_loopbreaker(prog):
 
     If `i` equals 15, it raises the `err` flag.
     """
-    loopbreaker: cb.ComponentBuilder = prog.component("loopbreaker")
-    i = loopbreaker.input("i", 32)
-    err = loopbreaker.reg("err", 1, is_ref=True)
+    raise_err_if_i_eq_15: cb.ComponentBuilder = prog.component("raise_err_if_i_eq_15")
+    i = raise_err_if_i_eq_15.input("i", 32)
+    err = raise_err_if_i_eq_15.reg("err", 1, is_ref=True)
 
-    i_eq_15 = insert_eq(loopbreaker, i, 15, "i_eq_15", 32)
-    raise_err = reg_store(loopbreaker, err, 1, "raise_err")
+    i_eq_15 = insert_eq(raise_err_if_i_eq_15, i, 15, "i_eq_15", 32)
+    raise_err = reg_store(raise_err_if_i_eq_15, err, 1, "raise_err")
 
-    loopbreaker.control += [
+    raise_err_if_i_eq_15.control += [
         cb.if_(
             i_eq_15[0].out,
             i_eq_15[1],
@@ -101,7 +101,7 @@ def insert_loopbreaker(prog):
         )
     ]
 
-    return loopbreaker
+    return raise_err_if_i_eq_15
 
 
 def insert_fifo(prog):
@@ -257,7 +257,7 @@ def insert_fifo(prog):
     return fifo
 
 
-def insert_main(prog, fifo, loopbreaker):
+def insert_main(prog, fifo, raise_err_if_i_eq_15):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `fifo`.
     """
@@ -281,8 +281,8 @@ def insert_main(prog, fifo, loopbreaker):
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
     # It will run until the `err` flag is raised by the `fifo` component.
-    loopbreaker = main.cell("loopbreaker", loopbreaker)
-    
+    raise_err_if_i_eq_15 = main.cell("raise_err_if_i_eq_15", raise_err_if_i_eq_15)
+
     i = main.reg("i", 32)  # The index of the command we're currently processing
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     command = main.reg("command", 32)  # The command we're currently processing
@@ -332,7 +332,7 @@ def insert_main(prog, fifo, loopbreaker):
                 ),
                 incr_i,  # Increment the command index
                 cb.invoke(  # If i = 15, raise error flag
-                    loopbreaker, in_i=i.out, ref_err=err
+                    raise_err_if_i_eq_15, in_i=i.out, ref_err=err
                 ),  # AM: hella hacky
             ],
         ),
@@ -343,8 +343,8 @@ def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
     fifo = insert_fifo(prog)
-    loopbreaker = insert_loopbreaker(prog)
-    insert_main(prog, fifo, loopbreaker)
+    raise_err_if_i_eq_15 = insert_raise_err_if_i_eq_15(prog)
+    insert_main(prog, fifo, raise_err_if_i_eq_15)
     return prog.program
 
 
