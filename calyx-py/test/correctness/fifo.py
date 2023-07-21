@@ -30,7 +30,7 @@ def insert_raise_err_if_i_eq_15(prog):
     return raise_err_if_i_eq_15
 
 
-def insert_fifo(prog):
+def insert_fifo(prog, name):
     """Inserts the component `fifo` into the program.
 
     It has:
@@ -40,7 +40,7 @@ def insert_fifo(prog):
     - three ref registers, `ans`, `err`, and `len`.
     """
 
-    fifo: cb.ComponentBuilder = prog.component("fifo")
+    fifo: cb.ComponentBuilder = prog.component(name)
     pop = fifo.input("pop", 1)
     push = fifo.input("push", 1)
     payload = fifo.input("payload", 32)
@@ -238,7 +238,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    fifo = insert_fifo(prog)
+    fifo = insert_fifo(prog, "fifo")
     raise_err_if_i_eq_15 = insert_raise_err_if_i_eq_15(prog)
     insert_main(prog, fifo, raise_err_if_i_eq_15)
     return prog.program
