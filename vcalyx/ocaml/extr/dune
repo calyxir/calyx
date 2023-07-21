@@ -8,4 +8,4 @@
 (coq.extraction
  (prelude Extraction)
  (extracted_modules extr)
- (theories VCalyx))
+ (theories VCalyx stdpp Ceres))
