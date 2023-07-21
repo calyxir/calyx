@@ -287,6 +287,8 @@ def add_main(prog, fifo):
                             ref_ans=ans,
                             ref_err=err,
                         ),
+                        # AM: if err flag comes back raised,
+                        # do not perform this write or this incr
                         write_ans,
                         incr_j,
                     ],
@@ -300,6 +302,7 @@ def add_main(prog, fifo):
                     ),
                 ),
                 incr_i,  # Increment the command index
+                # AM: if i = 15, raise error flag
             ],
         ),
     ]
