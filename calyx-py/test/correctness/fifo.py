@@ -185,8 +185,6 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     command = main.reg("command", 32)  # The command we're currently processing
 
-    zero_i = util.reg_store(main, i, 0, "zero_i")  # zero out `i`
-    zero_j = util.reg_store(main, j, 0, "zero_j")  # zero out `j`
     incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
@@ -195,8 +193,6 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     write_ans = util.mem_store(main, ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
-        zero_i,
-        zero_j,
         cb.while_(
             err_eq_zero[0].out,
             err_eq_zero[1],  # Run while the `err` flag is down
