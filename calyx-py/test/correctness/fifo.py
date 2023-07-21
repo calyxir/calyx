@@ -34,6 +34,24 @@ def insert_incr(comp: cb.ComponentBuilder, reg, cell, group):
     return incr_group
 
 
+def insert_decr(comp: cb.ComponentBuilder, reg, cell, group):
+    """Inserts wiring into component {comp} to decrement {reg} by 1.
+    1. Within component {comp}, creates a group called {group}.
+    2. Within {group}, adds a cell {cell} that computes differences.
+    3. Puts the values of {port} and 1 into {cell}.
+    4. Then puts the answer of the computation back into {port}.
+    4. Returns the group that does this.
+    """
+    decr_cell = comp.sub(cell, 32)
+    with comp.group(group) as decr_group:
+        decr_cell.left = reg.out
+        decr_cell.right = cb.const(32, 1)
+        reg.write_en = 1
+        reg.in_ = decr_cell.out
+        decr_group.done = reg.done
+    return decr_group
+
+
 def mem_load(comp: cb.ComponentBuilder, mem, i, reg, group):
     """Loads a value from one memory into a register.
     1. Within component {comp}, creates a group called {group}.
@@ -111,7 +129,7 @@ def insert_fifo(prog):
     - three inputs, `pop`, `push`, and `payload`.
     - one memory, `mem`, of size 10.
     - four registers, `next_write`, `next_read`, `full`, and `empty`.
-    - two ref registers, `ans` and `err`.
+    - three ref registers, `ans`, `err`, and `length`.
     """
 
     fifo: cb.ComponentBuilder = prog.component("fifo")
@@ -141,6 +159,8 @@ def insert_fifo(prog):
     # if the user calls pop and push at the same time,
     # or if the user issues no command.
 
+    length = fifo.reg("length", 32, is_ref=True)  # The length of the queue
+
     # Cells and groups to compute equality
     pop_eq_push = insert_eq(fifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
     pop_eq_1 = insert_eq(fifo, pop, 1, "pop_eq_1", 1)  # `pop` == 1
@@ -156,8 +176,10 @@ def insert_fifo(prog):
     )  # is the `empty` flag up?
 
     # Cells and groups to increment read and write registers
-    write_incr = insert_incr(fifo, write, "add1", "write_incr")  # write = write + 1
-    read_incr = insert_incr(fifo, read, "add2", "read_incr")  # read = read + 1
+    write_incr = insert_incr(fifo, write, "add1", "write_incr")  # write++
+    read_incr = insert_incr(fifo, read, "add2", "read_incr")  # read++
+    length_incr = insert_incr(fifo, length, "add5", "length_incr")  # length++
+    length_decr = insert_decr(fifo, length, "add6", "length_decr")  # length--
 
     # Cells and groups to modify flags, which are registers
     write_wrap = reg_store(fifo, write, 0, "write_wraparound")  # zero out `write`
@@ -214,6 +236,7 @@ def insert_fifo(prog):
                                 full_eq_1[1],
                                 lower_full,
                             ),
+                            length_decr,  # Decrement the length.
                         ],
                     ),
                 ),
@@ -247,6 +270,7 @@ def insert_fifo(prog):
                                 empty_eq_1[1],
                                 lower_empty,
                             ),
+                            length_incr,  # Increment the length.
                         ],
                     ),
                 ),
@@ -277,6 +301,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     # The fifo component takes two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
+    length = main.reg("length", 32)  # A register to hold the length of the queue
 
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
@@ -315,6 +340,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
                             in_push=cb.const(1, 0),
                             ref_ans=ans,
                             ref_err=err,
+                            ref_length=length,
                         ),
                         # AM: if err flag comes back raised,
                         # do not perform this write or this incr
@@ -328,6 +354,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
                         in_payload=command.out,
                         ref_ans=ans,
                         ref_err=err,
+                        ref_length=length,
                     ),
                 ),
                 incr_i,  # Increment the command index
