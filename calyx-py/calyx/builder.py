@@ -216,7 +216,7 @@ class ComponentBuilder:
 
     def reg(self, name: str, size: int, is_ref=False) -> CellBuilder:
         """Generate a StdReg cell."""
-        return self.cell(name, ast.Stdlib.register(size), is_ref)
+        return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
