@@ -3,7 +3,7 @@ import calyx.builder as cb
 
 
 def insert_eq(comp: cb.ComponentBuilder, a, b, cell, width):
-    """Adds wiring into component {comp} to check if {a} == {b}.
+    """Inserts wiring into component {comp} to check if {a} == {b}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a cell {cell} that checks equalities of width {width}.
     3. Puts the values {a} and {b} into {cell}.
@@ -17,7 +17,7 @@ def insert_eq(comp: cb.ComponentBuilder, a, b, cell, width):
 
 
 def insert_incr(comp: cb.ComponentBuilder, reg, cell, group):
-    """Adds wiring into component {comp} to increment {reg} by 1.
+    """Inserts wiring into component {comp} to increment {reg} by 1.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, adds a cell {cell} that computes sums.
     3. Puts the values of {port} and 1 into {cell}.
@@ -78,6 +78,33 @@ def set_flag(comp: cb.ComponentBuilder, flagname, flagval, group):
     return flag_grp
 
 
+def insert_loopbreaker(prog):
+    """Inserts a the component `loopbreaker` into the program.
+
+    It has:
+    - one input, `i`.
+    - one ref register, `err`.
+
+    If `i` equals 15, it will raise the `err` flag.
+    """
+    loopbreaker: cb.ComponentBuilder = prog.component("loopbreaker")
+    i = loopbreaker.input("i", 32)
+    err = loopbreaker.reg("err", 1, is_ref=True)
+
+    i_eq_15 = insert_eq(loopbreaker, i, 15, "i_eq_15", 32)
+    raise_err = set_flag(loopbreaker, err, 1, "raise_err")  # set `err` to 1
+
+    loopbreaker.control += [
+        cb.if_(
+            i_eq_15[0].out,
+            i_eq_15[1],
+            raise_err,
+        )
+    ]
+
+    return loopbreaker
+
+
 def insert_fifo(prog):
     """Inserts the component `fifo` into the program.
 
@@ -85,7 +112,7 @@ def insert_fifo(prog):
     - three inputs, `pop`, `push`, and `payload`.
     - one memory, `mem`, of size 10.
     - four registers, `next_write`, `next_read`, `full`, and `empty`.
-    - two ref memories, `ans` and `err`.
+    - two ref registers, `ans` and `err`.
     """
 
     fifo: cb.ComponentBuilder = prog.component("fifo")
@@ -231,7 +258,7 @@ def insert_fifo(prog):
     return fifo
 
 
-def insert_main(prog, fifo):
+def insert_main(prog, fifo, loopbreaker):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `fifo`.
     """
@@ -248,6 +275,7 @@ def insert_main(prog, fifo):
 
     # We will use the `invoke` method to call the `fifo` component.
     fifo = main.cell("myfifo", fifo)
+    loopbreaker = main.cell("loopbreaker", loopbreaker)
     # The fifo component takes two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
@@ -304,7 +332,9 @@ def insert_main(prog, fifo):
                     ),
                 ),
                 incr_i,  # Increment the command index
-                # AM: if i = 15, raise error flag
+                cb.invoke(  # If i = 15, raise error flag
+                    loopbreaker, in_i=i.out, ref_err=err
+                ),
             ],
         ),
     ]
@@ -314,7 +344,8 @@ def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
     fifo = insert_fifo(prog)
-    insert_main(prog, fifo)
+    loopbreaker = insert_loopbreaker(prog)
+    insert_main(prog, fifo, loopbreaker)
     return prog.program
 
 

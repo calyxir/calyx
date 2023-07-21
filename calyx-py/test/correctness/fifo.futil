@@ -1,0 +1,289 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component fifo(pop: 1, push: 1, payload: 32) -> () {
+  cells {
+    mem = std_mem_d1(32, 10, 32);
+    next_write = std_reg(32);
+    next_read = std_reg(32);
+    full = std_reg(1);
+    empty = std_reg(1);
+    ref ans = std_reg(32);
+    ref err = std_reg(1);
+    pop_eq_push = std_eq(1);
+    pop_eq_1 = std_eq(1);
+    push_eq_1 = std_eq(1);
+    read_eq_write = std_eq(32);
+    write_eq_10 = std_eq(32);
+    read_eq_10 = std_eq(32);
+    full_eq_1 = std_eq(1);
+    empty_eq_1 = std_eq(1);
+    add1 = std_add(32);
+    add2 = std_add(32);
+  }
+  wires {
+    comb group pop_eq_push_group {
+      pop_eq_push.left = pop;
+      pop_eq_push.right = push;
+    }
+    comb group pop_eq_1_group {
+      pop_eq_1.left = pop;
+      pop_eq_1.right = 1'd1;
+    }
+    comb group push_eq_1_group {
+      push_eq_1.left = push;
+      push_eq_1.right = 1'd1;
+    }
+    comb group read_eq_write_group {
+      read_eq_write.left = next_read.out;
+      read_eq_write.right = next_write.out;
+    }
+    comb group write_eq_10_group {
+      write_eq_10.left = next_write.out;
+      write_eq_10.right = 32'd10;
+    }
+    comb group read_eq_10_group {
+      read_eq_10.left = next_read.out;
+      read_eq_10.right = 32'd10;
+    }
+    comb group full_eq_1_group {
+      full_eq_1.left = full.out;
+      full_eq_1.right = 1'd1;
+    }
+    comb group empty_eq_1_group {
+      empty_eq_1.left = empty.out;
+      empty_eq_1.right = 1'd1;
+    }
+    group write_incr {
+      add1.left = next_write.out;
+      add1.right = 32'd1;
+      next_write.write_en = 1'd1;
+      next_write.in = add1.out;
+      write_incr[done] = next_write.done;
+    }
+    group read_incr {
+      add2.left = next_read.out;
+      add2.right = 32'd1;
+      next_read.write_en = 1'd1;
+      next_read.in = add2.out;
+      read_incr[done] = next_read.done;
+    }
+    group write_wraparound {
+      next_write.in = 32'd0;
+      next_write.write_en = 1'd1;
+      write_wraparound[done] = next_write.done;
+    }
+    group read_wraparound {
+      next_read.in = 32'd0;
+      next_read.write_en = 1'd1;
+      read_wraparound[done] = next_read.done;
+    }
+    group raise_full {
+      full.in = 1'd1;
+      full.write_en = 1'd1;
+      raise_full[done] = full.done;
+    }
+    group lower_full {
+      full.in = 1'd0;
+      full.write_en = 1'd1;
+      lower_full[done] = full.done;
+    }
+    group raise_empty {
+      empty.in = 1'd1;
+      empty.write_en = 1'd1;
+      raise_empty[done] = empty.done;
+    }
+    group lower_empty {
+      empty.in = 1'd0;
+      empty.write_en = 1'd1;
+      lower_empty[done] = empty.done;
+    }
+    group raise_err {
+      err.in = 1'd1;
+      err.write_en = 1'd1;
+      raise_err[done] = err.done;
+    }
+    group zero_out_ans {
+      ans.in = 32'd0;
+      ans.write_en = 1'd1;
+      zero_out_ans[done] = ans.done;
+    }
+    group write_payload_to_mem {
+      mem.addr0 = next_write.out;
+      mem.write_en = 1'd1;
+      mem.write_data = payload;
+      write_payload_to_mem[done] = mem.done;
+    }
+    group read_payload_from_mem {
+      mem.addr0 = next_read.out;
+      ans.write_en = 1'd1;
+      ans.in = mem.read_data;
+      read_payload_from_mem[done] = ans.done;
+    }
+  }
+  control {
+    seq {
+      if pop_eq_push.out with pop_eq_push_group {
+        seq {
+          raise_err;
+          zero_out_ans;
+        }
+      } else {
+        par {
+          if pop_eq_1.out with pop_eq_1_group {
+            if empty_eq_1.out with empty_eq_1_group {
+              seq {
+                raise_err;
+                zero_out_ans;
+              }
+            } else {
+              seq {
+                read_payload_from_mem;
+                read_incr;
+                if read_eq_10.out with read_eq_10_group {
+                  read_wraparound;
+                }
+                if read_eq_write.out with read_eq_write_group {
+                  raise_empty;
+                }
+                if full_eq_1.out with full_eq_1_group {
+                  lower_full;
+                }
+              }
+            }
+          }
+          if push_eq_1.out with push_eq_1_group {
+            if full_eq_1.out with full_eq_1_group {
+              seq {
+                raise_err;
+                zero_out_ans;
+              }
+            } else {
+              seq {
+                write_payload_to_mem;
+                write_incr;
+                if write_eq_10.out with write_eq_10_group {
+                  write_wraparound;
+                }
+                if read_eq_write.out with read_eq_write_group {
+                  raise_full;
+                }
+                if empty_eq_1.out with empty_eq_1_group {
+                  lower_empty;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component loopbreaker(i: 32) -> () {
+  cells {
+    ref err = std_reg(1);
+    i_eq_15 = std_eq(32);
+  }
+  wires {
+    comb group i_eq_15_group {
+      i_eq_15.left = i;
+      i_eq_15.right = 32'd15;
+    }
+    group raise_err {
+      err.in = 1'd1;
+      err.write_en = 1'd1;
+      raise_err[done] = err.done;
+    }
+  }
+  control {
+    seq {
+      if i_eq_15.out with i_eq_15_group {
+        raise_err;
+      }
+    }
+  }
+}
+component main() -> () {
+  cells {
+    @external commands = std_mem_d1(32, 15, 32);
+    @external ans_mem = std_mem_d1(32, 10, 32);
+    myfifo = fifo();
+    loopbreaker = loopbreaker();
+    err = std_reg(1);
+    ans = std_reg(32);
+    i = std_reg(32);
+    j = std_reg(32);
+    command = std_reg(32);
+    add3 = std_add(32);
+    add4 = std_add(32);
+    err_eq_0 = std_eq(1);
+    command_eq_zero = std_eq(32);
+  }
+  wires {
+    group zero_i {
+      i.in = 32'd0;
+      i.write_en = 1'd1;
+      zero_i[done] = i.done;
+    }
+    group zero_j {
+      j.in = 32'd0;
+      j.write_en = 1'd1;
+      zero_j[done] = j.done;
+    }
+    group incr_i {
+      add3.left = i.out;
+      add3.right = 32'd1;
+      i.write_en = 1'd1;
+      i.in = add3.out;
+      incr_i[done] = i.done;
+    }
+    group incr_j {
+      add4.left = j.out;
+      add4.right = 32'd1;
+      j.write_en = 1'd1;
+      j.in = add4.out;
+      incr_j[done] = j.done;
+    }
+    comb group err_eq_0_group {
+      err_eq_0.left = err.out;
+      err_eq_0.right = 1'd0;
+    }
+    group read_command {
+      commands.addr0 = i.out;
+      command.write_en = 1'd1;
+      command.in = commands.read_data;
+      read_command[done] = command.done;
+    }
+    comb group command_eq_zero_group {
+      command_eq_zero.left = command.out;
+      command_eq_zero.right = 32'd0;
+    }
+    group write_ans {
+      ans_mem.addr0 = j.out;
+      ans_mem.write_en = 1'd1;
+      ans_mem.write_data = ans.out;
+      write_ans[done] = ans_mem.done;
+    }
+  }
+  control {
+    seq {
+      zero_i;
+      zero_j;
+      while err_eq_0.out with err_eq_0_group {
+        seq {
+          read_command;
+          if command_eq_zero.out with command_eq_zero_group {
+            seq {
+              invoke myfifo[ans=ans, err=err](pop=1'd1, push=1'd0)();
+              write_ans;
+              incr_j;
+            }
+          } else {
+            invoke myfifo[ans=ans, err=err](pop=1'd0, push=1'd1, payload=command.out)();
+          }
+          incr_i;
+          invoke loopbreaker[err=err](i=i.out)();
+        }
+      }
+    }
+  }
+}
