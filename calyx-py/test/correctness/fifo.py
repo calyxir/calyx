@@ -139,6 +139,7 @@ def add_fifo(prog):
     raise_empty = set_flag(fifo, empty, 1, "raise_empty")  # set `empty` to 1
     lower_empty = set_flag(fifo, empty, 0, "lower_empty")  # set `empty` to 0
     raise_err = set_flag(fifo, err, 1, "raise_err")  # set `err` to 1
+    zero_out_ans = set_flag(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
 
     # Load and store into an arbitary slot in memory
     write_to_mem = mem_store(fifo, mem, write.out, payload, "write_payload_to_mem")
@@ -150,7 +151,10 @@ def add_fifo(prog):
             pop_eq_push[1],
             # Checking if the user called pop and push at the same time,
             # or issued no command.
-            raise_err,  # If so, we're done.
+            [
+                raise_err,  # If so, we're done.
+                zero_out_ans,  # We zero out the answer register.
+            ],
             cb.par(  # If not, we continue.
                 cb.if_(
                     # Did the user call pop?
@@ -160,7 +164,7 @@ def add_fifo(prog):
                         # Yes, the user called pop. But is the queue empty?
                         empty_eq_1[0].out,
                         empty_eq_1[1],
-                        raise_err,  # The queue is empty: underflow.
+                        [raise_err, zero_out_ans],  # The queue is empty: underflow.
                         [  # The queue is not empty. Proceed.
                             read_from_mem,  # Read from the queue.
                             read_incr,  # Increment the read pointer.
@@ -193,7 +197,7 @@ def add_fifo(prog):
                         # Yes, the user called push. But is the queue full?
                         full_eq_1[0].out,
                         full_eq_1[1],
-                        raise_err,  # The queue is full: overflow.
+                        [raise_err, zero_out_ans],  # The queue is full: overflow.
                         [  # The queue is not full. Proceed.
                             write_to_mem,  # Write to the queue.
                             write_incr,  # Increment the write pointer.
