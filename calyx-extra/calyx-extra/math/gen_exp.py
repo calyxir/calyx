@@ -9,7 +9,7 @@ from calyx.py_ast import (
 from calyx.utils import float_to_fixed_point
 from math import factorial, log2
 from fud.stages.verilator import numeric_types
-from calyx.gen_ln import generate_ln
+from gen_ln import generate_ln
 
 from calyx.builder import (
     Builder,

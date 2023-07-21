@@ -1,23 +1,9 @@
 from typing import List
 from calyx.py_ast import (
-    Connect,
-    CompVar,
-    Cell,
-    Group,
-    ConstantPort,
-    CompPort,
     Stdlib,
     Component,
-    ThisPort,
-    HolePort,
-    PortDef,
-    SeqComp,
-    Enable,
-    While,
-    Control,
-    CombGroup,
 )
-from calyx.builder import Builder, ComponentBuilder, const, HI, while_
+from calyx.builder import Builder, const, HI, while_
 
 
 def gen_msb_calc(width: int, int_width: int) -> List[Component]:

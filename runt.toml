@@ -92,7 +92,7 @@ cmd = "python3 frontends/relay/relay_visitor.py {}"
 [[tests]]
 name = "[frontend] exp"
 paths = ["tests/frontend/exp/*.txt"]
-cmd = "python3 calyx-py/calyx/gen_exp.py {}"
+cmd = "python3 calyx-extra/calyx-extra/math/gen_exp.py {}"
 
 [[tests]]
 name = "[calyx-py] builder"
@@ -296,7 +296,7 @@ fud e --from ntt {} --through verilog --to dat -s verilog.data {}.data -q
 name = "exp correctness"
 paths = [ "tests/correctness/exp/*.txt" ]
 cmd = """
-python3 calyx-py/calyx/gen_exp.py {} |\
+python3 calyx-extra/calyx-extra/math/gen_exp.py {} |\
 fud e --from calyx --to dat --through verilog -s verilog.data {}.data -q
 """
 
