@@ -5,9 +5,9 @@ import calyx.builder as cb
 def insert_eq(comp: cb.ComponentBuilder, a, b, cell, width):
     """Inserts wiring into component {comp} to check if {a} == {b}.
     1. Within {comp}, creates a combinational group called {cell}_group.
-    2. Within the group, creates a cell {cell} that checks equalities of width {width}.
+    2. Within the group, creates a {cell} that checks equalities of {width}.
     3. Puts the values {a} and {b} into {cell}.
-    4. Returns the equality-checking cell and the equality-checking group.
+    4. Returns the equality-checking cell and the overall group.
     """
     eq_cell = comp.eq(cell, width)
     with comp.comb_group(f"{cell}_group") as eq_group:
@@ -22,7 +22,7 @@ def insert_incr(comp: cb.ComponentBuilder, reg, cell, group):
     2. Within {group}, adds a cell {cell} that computes sums.
     3. Puts the values of {port} and 1 into {cell}.
     4. Then puts the answer of the computation back into {port}.
-    4. Returns the add-computing group.
+    4. Returns the group that does this.
     """
     incr_cell = comp.add(cell, 32)
     with comp.group(group) as incr_group:
@@ -64,18 +64,17 @@ def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
     return store_grp
 
 
-def set_flag(comp: cb.ComponentBuilder, flagname, flagval, group):
-    """Sets a flag to a value.
+def reg_store(comp: cb.ComponentBuilder, reg, val, group):
+    """Stores a value in a register.
     1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, sets the flag {flagname} to {flagval}.
+    2. Within {group}, sets the register {reg} to {val}.
     3. Returns the group that does this.
-    Note that it assumes the flag is a register.
     """
-    with comp.group(group) as flag_grp:
-        flagname.in_ = flagval
-        flagname.write_en = 1
-        flag_grp.done = flagname.done
-    return flag_grp
+    with comp.group(group) as reg_grp:
+        reg.in_ = val
+        reg.write_en = 1
+        reg_grp.done = reg.done
+    return reg_grp
 
 
 def insert_loopbreaker(prog):
@@ -85,14 +84,14 @@ def insert_loopbreaker(prog):
     - one input, `i`.
     - one ref register, `err`.
 
-    If `i` equals 15, it will raise the `err` flag.
+    If `i` equals 15, it raises the `err` flag.
     """
     loopbreaker: cb.ComponentBuilder = prog.component("loopbreaker")
     i = loopbreaker.input("i", 32)
     err = loopbreaker.reg("err", 1, is_ref=True)
 
     i_eq_15 = insert_eq(loopbreaker, i, 15, "i_eq_15", 32)
-    raise_err = set_flag(loopbreaker, err, 1, "raise_err")  # set `err` to 1
+    raise_err = reg_store(loopbreaker, err, 1, "raise_err")
 
     loopbreaker.control += [
         cb.if_(
@@ -130,17 +129,17 @@ def insert_fifo(prog):
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size 10.
     # `write` == `read` can mean the queue is empty or full, so we use
-    # the `full` and `empty` flags to keep track of this.
+    # the `full` and `empty` flags to keep track of which it is.
 
     ans = fifo.reg("ans", 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`
 
     err = fifo.reg("err", 1, is_ref=True)
-    # We'll raise this as a general error flag.
-    # Overflow,
+    # We'll raise this as a general error flag:
+    # overflow,
     # underflow,
     # if the user calls pop and push at the same time,
-    # or if the user issues no command
+    # or if the user issues no command.
 
     # Cells and groups to compute equality
     pop_eq_push = insert_eq(fifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
@@ -161,14 +160,14 @@ def insert_fifo(prog):
     read_incr = insert_incr(fifo, read, "add2", "read_incr")  # read = read + 1
 
     # Cells and groups to modify flags, which are registers
-    write_wrap = set_flag(fifo, write, 0, "write_wraparound")  # zero out `write`
-    read_wrap = set_flag(fifo, read, 0, "read_wraparound")  # zero out `read`
-    raise_full = set_flag(fifo, full, 1, "raise_full")  # set `full` to 1
-    lower_full = set_flag(fifo, full, 0, "lower_full")  # set `full` to 0
-    raise_empty = set_flag(fifo, empty, 1, "raise_empty")  # set `empty` to 1
-    lower_empty = set_flag(fifo, empty, 0, "lower_empty")  # set `empty` to 0
-    raise_err = set_flag(fifo, err, 1, "raise_err")  # set `err` to 1
-    zero_out_ans = set_flag(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
+    write_wrap = reg_store(fifo, write, 0, "write_wraparound")  # zero out `write`
+    read_wrap = reg_store(fifo, read, 0, "read_wraparound")  # zero out `read`
+    raise_full = reg_store(fifo, full, 1, "raise_full")  # set `full` to 1
+    lower_full = reg_store(fifo, full, 0, "lower_full")  # set `full` to 0
+    raise_empty = reg_store(fifo, empty, 1, "raise_empty")  # set `empty` to 1
+    lower_empty = reg_store(fifo, empty, 0, "lower_empty")  # set `empty` to 0
+    raise_err = reg_store(fifo, err, 1, "raise_err")  # set `err` to 1
+    zero_out_ans = reg_store(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
 
     # Load and store into an arbitary slot in memory
     write_to_mem = mem_store(fifo, mem, write.out, payload, "write_payload_to_mem")
@@ -275,7 +274,6 @@ def insert_main(prog, fifo, loopbreaker):
 
     # We will use the `invoke` method to call the `fifo` component.
     fifo = main.cell("myfifo", fifo)
-    loopbreaker = main.cell("loopbreaker", loopbreaker)
     # The fifo component takes two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
@@ -283,13 +281,14 @@ def insert_main(prog, fifo, loopbreaker):
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
     # It will run until the `err` flag is raised by the `fifo` component.
-
+    loopbreaker = main.cell("loopbreaker", loopbreaker)
+    
     i = main.reg("i", 32)  # The index of the command we're currently processing
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     command = main.reg("command", 32)  # The command we're currently processing
 
-    zero_i = set_flag(main, i, 0, "zero_i")  # zero out `i`
-    zero_j = set_flag(main, j, 0, "zero_j")  # zero out `j`
+    zero_i = reg_store(main, i, 0, "zero_i")  # zero out `i`
+    zero_j = reg_store(main, j, 0, "zero_j")  # zero out `j`
     incr_i = insert_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = insert_incr(main, j, "add4", "incr_j")  # j = j + 1
     err_eq_zero = insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
