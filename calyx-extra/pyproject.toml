@@ -12,4 +12,4 @@ requires-python = ">=3.4"
 urls.Source = "https://github.com/cucapra/calyx"
 
 [tool.flit.module]
-name = "calyx-extra"
+name = "calyx_extra"

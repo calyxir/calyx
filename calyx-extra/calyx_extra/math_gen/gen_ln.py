@@ -7,7 +7,7 @@ from calyx.py_ast import (
 )
 from calyx.utils import float_to_fixed_point
 from fud.stages.verilator import numeric_types
-from gen_msb import gen_msb_calc
+from .gen_msb import gen_msb_calc
 
 from calyx.builder import Builder, ComponentBuilder, CellBuilder, HI, par, invoke
 

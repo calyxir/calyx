@@ -1,9 +1,13 @@
 from typing import List
 from calyx.py_ast import *
 from dahlia_utils import *
-from calyx.gen_exp import generate_exp_taylor_series_approximation, generate_fp_pow_full
+from calyx_extra.math_gen.gen_exp import (
+    generate_exp_taylor_series_approximation,
+    generate_fp_pow_full,
+)
 from calyx.utils import float_to_fixed_point
 from calyx.builder import Builder
+
 ### Dahlia Implementations for Relay Call Nodes ###
 
 # Context: While implementing a Relay frontend for
@@ -344,17 +348,18 @@ def dense(fd: DahliaFuncDef, save_mem=True) -> str:
     """
     tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense
     If save_mem=True, instead of actually building the transpose of the weight matrix,
-    we just access W[j][i] everytime we would have accessed W^T[i][j]. It seems 
-    to be a better way (in terms of resource usage) to calculate dense, which 
-    is why it has been save_mem is the default setting. 
+    we just access W[j][i] everytime we would have accessed W^T[i][j]. It seems
+    to be a better way (in terms of resource usage) to calculate dense, which
+    is why it has been save_mem is the default setting.
     """
     a, b, res = fd.args[0], fd.args[1], fd.dest
     type = fd.data_type
     M1_size0, M1_size1, M1_index_size0, M1_index_size1 = a.comp.args[1:5]
     M2_size0, M2_size1, M2_index_size0, M2_index_size1 = b.comp.args[1:5]
     units = fd.attributes.get_int("units")
-    assert units is None or units == res.comp.args[2], (
-        "parameter for `units` should be the same as the second dimension of the result")
+    assert (
+        units is None or units == res.comp.args[2]
+    ), "parameter for `units` should be the same as the second dimension of the result"
     if save_mem:
         # don't generate internal `transpose` memory
         return emit_dahlia_definition(
@@ -404,8 +409,7 @@ def conv2d(fd: DahliaFuncDef) -> str:
         prepend_rows = 0
         prepend_cols = 0
     else:
-        assert len(
-            padding) == 4, "Can only handle when we're given 4 padding values"
+        assert len(padding) == 4, "Can only handle when we're given 4 padding values"
         prepend_rows = padding[0]
         # might want to use this value to check when out of bounds on the high end
         # currently if index is too high, it just deafults to a 0 value.
@@ -495,7 +499,7 @@ def reshape(fd: DahliaFuncDef) -> str:
         E.g.
         let  %x: Tensor[(1, 2, 2, 2), float32] = ...;
         let %x1: Tensor[(1, 8), float32] = reshape(%x, newshape[-1, 8]);
-        
+
         Or supports reshape when the first dimension of the new size is 1
 
         Or supports reshape when all you are going from a 4d to 2d array, but the
@@ -536,8 +540,7 @@ def softmax(fd: DahliaFuncDef) -> str:
     """tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.softmax"""
     data, res = fd.args[0], fd.dest
     axis = fd.attributes.get_int("axis")
-    assert axis == - \
-        1 or axis == 1, f"nn.softmax with axis = {axis} is not supported."
+    assert axis == -1 or axis == 1, f"nn.softmax with axis = {axis} is not supported."
 
     data_type = fd.data_type
     size0, size1, index_size0, index_size1 = data.comp.args[1:5]
@@ -744,14 +747,14 @@ def global_avg_pool2d(fd: DahliaFuncDef) -> str:
 
 
 def lrn(fd: DahliaFuncDef) -> str:
-    '''
+    """
     https://tvm.apache.org/docs/reference/api/python/relay/nn.html
-    '''
+    """
     data, res = fd.args[0], fd.dest
 
     axis = fd.attributes.get_str("axis")
 
-    assert (axis == 1), f"""currently can only support lrn along axis 1"""
+    assert axis == 1, f"""currently can only support lrn along axis 1"""
 
     size = fd.attributes.get_str("size")
 
@@ -765,7 +768,9 @@ def lrn(fd: DahliaFuncDef) -> str:
     data_type = fd.data_type
     size0, size1, size2, size3 = data_args[1:5]
 
-    assert size0 == 1, f"""currently only supports lrn if the first dimension of the tensor has size of 1"""
+    assert (
+        size0 == 1
+    ), f"""currently only supports lrn if the first dimension of the tensor has size of 1"""
 
     return emit_dahlia_definition(
         fd,
@@ -781,7 +786,7 @@ def lrn(fd: DahliaFuncDef) -> str:
                   }}
                 }}
                 let __divisor: {data_type} = fp_pow_full((({bias} as {data_type}) + (({alpha} as {data_type}) * __sum)), ({beta} as {data_type}));
-                {res.id.name}[__n][__c][__h][__w] := {data.id.name}[__n][__c][__h][__w] / __divisor; 
+                {res.id.name}[__n][__c][__h][__w] := {data.id.name}[__n][__c][__h][__w] / __divisor;
               }}
             }}
           }}
@@ -855,8 +860,8 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
     if any(f.function_id == "lrn" for f in func_defs):
         # Import `exp` operator for softmax.
         sep = type.find(",")
-        width = int(type[type.find("<") + 1: sep])
-        int_width = int(type[sep + 1: type.find(">")])
+        width = int(type[type.find("<") + 1 : sep])
+        int_width = int(type[sep + 1 : type.find(">")])
         exp_components = generate_fp_pow_full(
             builder=Builder(),
             degree=8,
@@ -870,8 +875,8 @@ def emit_components(func_defs: List[DahliaFuncDef], save_mem=True) -> str:
     elif any(f.function_id == "softmax" for f in func_defs):
         # Import `exp` operator for softmax.
         sep = type.find(",")
-        width = int(type[type.find("<") + 1: sep])
-        int_width = int(type[sep + 1: type.find(">")])
+        width = int(type[type.find("<") + 1 : sep])
+        int_width = int(type[sep + 1 : type.find(">")])
         exp_components = generate_exp_taylor_series_approximation(
             builder=Builder(),
             degree=8,
