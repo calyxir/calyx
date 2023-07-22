@@ -30,13 +30,13 @@ def add_wrap2(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells and groups to compute equality and lt
-    eq0cell, eq0grp = util.insert_eq(wrap, i, 0, "eq0", "i_eq_0")
-    eq1cell, eq1grp = util.insert_eq(wrap, i, 1, "eq1", "i_eq_1")
-    lt1cell, lt1grp = util.insert_lt(wrap, j, 4, "lt1", "j_lt_4")
-    lt2cell, lt2grp = util.insert_lt(wrap, j, 8, "lt2", "j_lt_8")
+    eq0cell, eq0grp = util.insert_eq(wrap, i, 0, "i_eq_0", 32)
+    eq1cell, eq1grp = util.insert_eq(wrap, i, 1, "i_eq_1", 32)
+    lt1cell, lt1grp = util.insert_lt(wrap, j, 4, "j_lt_4", 32)
+    lt2cell, lt2grp = util.insert_lt(wrap, j, 8, "j_lt_8", 32)
 
     # Load `j` unchanged into `j_mod_4`.
-    unchanged = util.insert_reg_load(wrap, j, j_mod_4, "j_unchanged")
+    unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
 
     # A subtraction cell and wiring to perform j-4 and j-8.
     sub_cell = wrap.sub("sub", 32)
@@ -46,7 +46,9 @@ def add_wrap2(prog):
     load_from_mems = [
         # Add wiring to load the value `j_mod_4` from all of the memory cells.
         # We'll have to invoke the correct one of these groups later on.
-        util.insert_mem_load(wrap, mems[i], j_mod_4.out, ans, f"load_from_mem{i}")
+        util.insert_mem_load_to_mem(
+            wrap, mems[i], j_mod_4.out, ans, cb.const(32, 0), f"load_from_mem{i}"
+        )
         for i in range(6)
     ]
 
@@ -121,20 +123,22 @@ def add_wrap3(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells to compute equality, and lt
-    eq0cell, eq0grp = util.insert_eq(wrap, i, 0, "eq0", "i_eq_0")
-    eq1cell, eq1grp = util.insert_eq(wrap, i, 1, "eq1", "i_eq_1")
-    eq2cell, eq2grp = util.insert_eq(wrap, i, 2, "eq2", "i_eq_2")
-    ltcell, ltgrp = util.insert_lt(wrap, j, 4, "lt", "j_lt_4")
+    eq0cell, eq0grp = util.insert_eq(wrap, i, 0, "i_eq_0", 32)
+    eq1cell, eq1grp = util.insert_eq(wrap, i, 1, "i_eq_1", 32)
+    eq2cell, eq2grp = util.insert_eq(wrap, i, 2, "i_eq_2", 32)
+    ltcell, ltgrp = util.insert_lt(wrap, j, 4, "j_lt_4", 32)
 
     # Load `j` unchanged into `j_mod_4`.
-    unchanged = util.insert_reg_load(wrap, j, j_mod_4, "j_unchanged")
+    unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
 
     # A subtraction cell and wiring to perform j-4.
     sub_cell = wrap.sub("sub", 32)
     subcell = util.insert_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_minus_4")
 
     emit_from_mems = [
-        util.insert_mem_load(wrap, mems[i], j_mod_4.out, ans, f"load_from_mem{i}")
+        util.insert_mem_load_to_mem(
+            wrap, mems[i], j_mod_4.out, ans, cb.const(32, 0), f"load_from_mem{i}"
+        )
         for i in range(6)
     ]
 
