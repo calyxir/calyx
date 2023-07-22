@@ -30,19 +30,19 @@ def add_wrap2(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells and groups to compute equality and lt
-    eq0cell, eq0grp = util.insert_eq(wrap, i, 0, "i_eq_0", 32)
-    eq1cell, eq1grp = util.insert_eq(wrap, i, 1, "i_eq_1", 32)
-    lt1cell, lt1grp = util.insert_lt(wrap, j, 4, "j_lt_4", 32)
-    lt2cell, lt2grp = util.insert_lt(wrap, j, 8, "j_lt_8", 32)
+    i_eq_0_cell, i_eq_0_grp = util.insert_eq(wrap, i, 0, "i_eq_0", 32)
+    i_eq_1_cell, i_eq_1_group = util.insert_eq(wrap, i, 1, "i_eq_1", 32)
+    j_lt_4_cell, j_lt_4_group = util.insert_lt(wrap, j, 4, "j_lt_4", 32)
+    j_lt_8_cell, j_lt_8_group = util.insert_lt(wrap, j, 8, "j_lt_8", 32)
 
     # Load `j` unchanged into `j_mod_4`.
     unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and j-8. Either of these will store the result in `j_mod_4`.
-    sub1cell = util.insert_sub_and_store(
+    j_minus_4 = util.insert_sub_and_store(
         wrap, j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
     )
-    sub2cell = util.insert_sub_and_store(
+    j_minus_8 = util.insert_sub_and_store(
         wrap, j, cb.const(32, 8), "j_minus_8", 32, j_mod_4
     )
 
@@ -57,37 +57,37 @@ def add_wrap2(prog):
 
     wrap.control += [
         cb.if_(
-            lt1cell.out,
-            lt1grp,
+            j_lt_4_cell.out,
+            j_lt_4_group,
             unchanged,
-            cb.if_(lt2cell.out, lt2grp, sub1cell, sub2cell),
+            cb.if_(j_lt_8_cell.out, j_lt_8_group, j_minus_4, j_minus_8),
         ),
         cb.par(
             cb.if_(
-                eq0cell.out,
-                eq0grp,
+                i_eq_0_cell.out,
+                i_eq_0_grp,
                 cb.if_(
-                    lt1cell.out,
-                    lt1grp,
+                    j_lt_4_cell.out,
+                    j_lt_4_group,
                     load_from_mems[0],
                     cb.if_(
-                        lt2cell.out,
-                        lt2grp,
+                        j_lt_8_cell.out,
+                        j_lt_8_group,
                         load_from_mems[1],
                         load_from_mems[2],
                     ),
                 ),
             ),
             cb.if_(
-                eq1cell.out,
-                eq1grp,
+                i_eq_1_cell.out,
+                i_eq_1_group,
                 cb.if_(
-                    lt1cell.out,
-                    lt1grp,
+                    j_lt_4_cell.out,
+                    j_lt_4_group,
                     load_from_mems[3],
                     cb.if_(
-                        lt2cell.out,
-                        lt2grp,
+                        j_lt_8_cell.out,
+                        j_lt_8_group,
                         load_from_mems[4],
                         load_from_mems[5],
                     ),
@@ -126,10 +126,10 @@ def add_wrap3(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells to compute equality, and lt
-    eq0cell, eq0grp = util.insert_eq(wrap, i, 0, "i_eq_0", 32)
-    eq1cell, eq1grp = util.insert_eq(wrap, i, 1, "i_eq_1", 32)
-    eq2cell, eq2grp = util.insert_eq(wrap, i, 2, "i_eq_2", 32)
-    ltcell, ltgrp = util.insert_lt(wrap, j, 4, "j_lt_4", 32)
+    i_eq_0_cell, i_eq_0_group = util.insert_eq(wrap, i, 0, "i_eq_0", 32)
+    i_eq_1_cell, i_eq_1_group = util.insert_eq(wrap, i, 1, "i_eq_1", 32)
+    i_eq_2_cell, i_eq_2_group = util.insert_eq(wrap, i, 2, "i_eq_2", 32)
+    j_lt_4_cell, j_lt_4_group = util.insert_lt(wrap, j, 4, "j_lt_4", 32)
 
     # Load `j` unchanged into `j_mod_4`.
     unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
@@ -147,22 +147,28 @@ def add_wrap3(prog):
     ]
 
     wrap.control += [
-        cb.if_(ltcell.out, ltgrp, unchanged, subcell),
+        cb.if_(j_lt_4_cell.out, j_lt_4_group, unchanged, subcell),
         cb.par(
             cb.if_(
-                eq0cell.out,
-                eq0grp,
-                cb.if_(ltcell.out, ltgrp, emit_from_mems[0], emit_from_mems[1]),
+                i_eq_0_cell.out,
+                i_eq_0_group,
+                cb.if_(
+                    j_lt_4_cell.out, j_lt_4_group, emit_from_mems[0], emit_from_mems[1]
+                ),
             ),
             cb.if_(
-                eq1cell.out,
-                eq1grp,
-                cb.if_(ltcell.out, ltgrp, emit_from_mems[2], emit_from_mems[3]),
+                i_eq_1_cell.out,
+                i_eq_1_group,
+                cb.if_(
+                    j_lt_4_cell.out, j_lt_4_group, emit_from_mems[2], emit_from_mems[3]
+                ),
             ),
             cb.if_(
-                eq2cell.out,
-                eq2grp,
-                cb.if_(ltcell.out, ltgrp, emit_from_mems[4], emit_from_mems[5]),
+                i_eq_2_cell.out,
+                i_eq_2_group,
+                cb.if_(
+                    j_lt_4_cell.out, j_lt_4_group, emit_from_mems[4], emit_from_mems[5]
+                ),
             ),
         ),
     ]
