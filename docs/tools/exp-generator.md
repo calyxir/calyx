@@ -35,7 +35,7 @@ and `ret` for the result of `b^x`.
 In order to generate an example program (that can only calculate exponent values with base
 `e`), with degree `4`, bit width `32`, integer bit width `16`, and `x` interpreted as a signed value:
 ```
-./calyx-extra/calyx-extra/math/gen_exp.py -d 4 -w 32 -i 16 -s true -e true
+./calyx-extra/calyx_extra/math_gen/gen_exp.py -d 4 -w 32 -i 16 -s true -e true
 ```
 
 Similarly, it provides a function to produce only the necessary components to be dropped into other Calyx programs.
