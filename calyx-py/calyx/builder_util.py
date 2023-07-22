@@ -9,7 +9,8 @@ def insert_adder(
     port_r,
     ans_reg,
 ):
-    """Inserts wiring into component {comp} to compute {port_l} + {port_r} and store it in {ans_reg}.
+    """Inserts wiring into component {comp} to compute {port_l} + {port_r} and
+      store it in {ans_reg}.
 
     1. Within component {comp}, creates a group called {cell}_group.
     2. Within {group}, create a {cell} that computes sums.
@@ -27,7 +28,7 @@ def insert_adder(
     return adder_group
 
 
-def insert_eq(comp: cb.ComponentBuilder, a, b, cell, width):
+def insert_eq(comp: cb.ComponentBuilder, left, right, cell, width):
     """Inserts wiring into component {comp} to check if {a} == {b}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a {cell} that checks equalities of {width}.
@@ -36,12 +37,12 @@ def insert_eq(comp: cb.ComponentBuilder, a, b, cell, width):
     """
     eq_cell = comp.eq(cell, width)
     with comp.comb_group(f"{cell}_group") as eq_group:
-        eq_cell.left = a
-        eq_cell.right = b
+        eq_cell.left = left
+        eq_cell.right = right
     return eq_cell, eq_group
 
 
-def insert_lt(comp: cb.ComponentBuilder, a, b, cell, width):
+def insert_lt(comp: cb.ComponentBuilder, left, right, cell, width):
     """Inserts wiring into component {comp} to check if {a} < {b}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a {cell} that checks less-than of {width}.
@@ -50,12 +51,12 @@ def insert_lt(comp: cb.ComponentBuilder, a, b, cell, width):
     """
     lt_cell = comp.lt(cell, width)
     with comp.comb_group(f"{cell}_group") as lt_group:
-        lt_cell.left = a
-        lt_cell.right = b
+        lt_cell.left = left
+        lt_cell.right = right
     return lt_cell, lt_group
 
 
-def insert_add(comp: cb.ComponentBuilder, a, b, cell, width):
+def insert_add(comp: cb.ComponentBuilder, left, right, cell, width):
     """Inserts wiring into component {comp} to compute {a} + {b}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a {cell} that computes sums of {width}.
@@ -64,12 +65,12 @@ def insert_add(comp: cb.ComponentBuilder, a, b, cell, width):
     """
     add_cell = comp.add(cell, width)
     with comp.comb_group(f"{cell}_group") as add_group:
-        add_cell.left = a
-        add_cell.right = b
+        add_cell.left = left
+        add_cell.right = right
     return add_cell, add_group
 
 
-def insert_sub(comp: cb.ComponentBuilder, a, b, cell, width):
+def insert_sub(comp: cb.ComponentBuilder, left, right, cell, width):
     """Inserts wiring into component {comp} to compute {a} - {b}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a {cell} that computes differences of {width}.
@@ -78,8 +79,8 @@ def insert_sub(comp: cb.ComponentBuilder, a, b, cell, width):
     """
     sub_cell = comp.sub(cell, width)
     with comp.comb_group(f"{cell}_group") as sub_group:
-        sub_cell.left = a
-        sub_cell.right = b
+        sub_cell.left = left
+        sub_cell.right = right
     return sub_cell, sub_group
 
 
