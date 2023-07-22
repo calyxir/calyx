@@ -25,17 +25,13 @@ def add_tree(prog):
     root = tree.reg("root", 32)
     left = tree.reg("left_node", 32)
     right = tree.reg("right_node", 32)
-    add1 = tree.add("add1", 32)
-    add2 = tree.add("add2", 32)
 
     # Into the component `tree`, add the wiring for three adder groups that will
     # use the tree to perform their additions.
     # These need to be orchestrated in the control below.
-    add_l0_l1 = util.insert_adder(tree, add1, "add_l0_l1", leaf0, leaf1, left)
-    add_l2_l3 = util.insert_adder(tree, add2, "add_l2_l3", leaf2, leaf3, right)
-    add_l_r_nodes = util.insert_adder(
-        tree, add1, "add_left_right_nodes", left.out, right.out, root
-    )
+    add_l0_l1 = util.insert_adder(tree, "add_l0_l1", leaf0, leaf1, left)
+    add_l2_l3 = util.insert_adder(tree, "add_l2_l3", leaf2, leaf3, right)
+    add_l_r_nodes = util.insert_adder(tree, "add_l_r", left.out, right.out, root)
 
     # Continuously output the value of the root register.
     # It is the invoker's responsibility to ensure that the tree is done

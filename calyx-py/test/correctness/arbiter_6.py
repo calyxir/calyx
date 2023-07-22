@@ -38,10 +38,13 @@ def add_wrap2(prog):
     # Load `j` unchanged into `j_mod_4`.
     unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
 
-    # A subtraction cell and wiring to perform j-4 and j-8.
-    sub_cell = wrap.sub("sub", 32)
-    sub1cell = util.insert_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_minus_4")
-    sub2cell = util.insert_sub(wrap, j, cb.const(32, 8), sub_cell, j_mod_4, "j_minus_8")
+    # Wiring to perform j-4 and j-8. Either of these will store the result in `j_mod_4`.
+    sub1cell = util.insert_sub_and_store(
+        wrap, j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
+    )
+    sub2cell = util.insert_sub_and_store(
+        wrap, j, cb.const(32, 8), "j_minus_8", 32, j_mod_4
+    )
 
     load_from_mems = [
         # Add wiring to load the value `j_mod_4` from all of the memory cells.
@@ -131,9 +134,10 @@ def add_wrap3(prog):
     # Load `j` unchanged into `j_mod_4`.
     unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
 
-    # A subtraction cell and wiring to perform j-4.
-    sub_cell = wrap.sub("sub", 32)
-    subcell = util.insert_sub(wrap, j, cb.const(32, 4), sub_cell, j_mod_4, "j_minus_4")
+    # Wiring to perform j-4 and store the result in `j_mod_4`.
+    subcell = util.insert_sub_and_store(
+        wrap, j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
+    )
 
     emit_from_mems = [
         util.insert_mem_load_to_mem(

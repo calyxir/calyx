@@ -4,19 +4,21 @@ import calyx.builder as cb
 
 def insert_adder(
     comp: cb.ComponentBuilder,
-    adder: cb.CellBuilder,
-    group,
+    cell,
     port_l,
     port_r,
     ans_reg,
 ):
-    """To component {comp}, adds wiring for an group called {group}.
-    Assumes the adder cell {adder} is in the component.
-    In {group}, puts {port_l} and {port_r} into the {adder} cell.
-    Then puts the output of {adder} into the memory register {ans_reg}.
-    Returns the group.
+    """Inserts wiring into component {comp} to compute {port_l} + {port_r} and store it in {ans_reg}.
+
+    1. Within component {comp}, creates a group called {cell}_group.
+    2. Within {group}, create a {cell} that computes sums.
+    3. Puts the values of {port_l} and {port_r} into {cell}.
+    4. Then puts the answer of the computation into {ans_reg}.
+    4. Returns the summing group.
     """
-    with comp.group(group) as adder_group:
+    adder = comp.add(cell, 32)
+    with comp.group(f"{cell}_group") as adder_group:
         adder.left = port_l
         adder.right = port_r
         ans_reg.write_en = 1
@@ -161,20 +163,24 @@ def insert_mem_load_to_mem(comp: cb.ComponentBuilder, mem, i, ans, j, group):
     return load_grp
 
 
-def insert_sub(comp: cb.ComponentBuilder, port, const, sub_cell, ans_reg, group):
-    """Adds wiring into component {comp} to compute {port} - {const}.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, assumes there is a cell {cell} that computes differences.
+def insert_sub_and_store(
+    comp: cb.ComponentBuilder,
+    port,
+    const,
+    cell,
+    width,
+    ans_reg,
+):
+    """Adds wiring into component {comp} to compute {port} - {const}
+    and store it in {ans_reg}.
+    1. Within component {comp}, creates a group called {cell}_group.
+    2. Within {group}, create a {cell} that computes differences.
     3. Puts the values of {port} and {const} into {cell}.
     4. Then puts the answer of the computation into {ans_reg}.
     4. Returns the sub-checking group.
     """
-    # Note, this one is a little different than the others.
-    # 1. We assume the subtraction cell already exists.
-    # 2. We're not returning the cell, because we don't need to.
-    # 3. We write the answer into `ans_reg`.
-
-    with comp.group(group) as sub_group:
+    sub_cell = comp.sub(cell, width)
+    with comp.group(f"{cell}_group") as sub_group:
         sub_cell.left = port
         sub_cell.right = const
         ans_reg.write_en = 1
