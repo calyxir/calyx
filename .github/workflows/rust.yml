@@ -77,13 +77,10 @@ jobs:
         git fetch --all
         git checkout $GITHUB_SHA
 
-    - name: Install calyx-py & MrXL
+    - name: Install calyx-extra
       working-directory: /home/calyx
       run: |
-        cd calyx-py
-        FLIT_ROOT_INSTALL=1 flit install --symlink
-        cd -
-        cd frontends/mrxl
+        cd calyx-extra
         FLIT_ROOT_INSTALL=1 flit install --symlink
 
     - name: Build
