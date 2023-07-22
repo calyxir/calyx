@@ -1,11 +1,12 @@
 use super::math_utilities::get_bit_width_from;
+use crate::analysis::GraphColoring;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
 use ir::{build_assignments, Nothing, StaticTiming, RRC};
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
 
@@ -16,6 +17,8 @@ pub struct CompileStatic {
     reset_early_map: HashMap<ir::Id, ir::Id>,
     /// maps group that has an FSM that resets early to its dynamic "wrapper" group name.
     wrapper_map: HashMap<ir::Id, ir::Id>,
+    /// maps fsm names to their corresponding signal_reg
+    signal_reg_map: HashMap<ir::Id, ir::Id>,
     /// maps reset_early_group names to (fsm name, fsm_width)
     fsm_info_map: HashMap<ir::Id, (ir::Id, u64)>,
     /// rewrites `static_group[go]` to `dynamic_group[go]`
@@ -115,12 +118,17 @@ impl CompileStatic {
         sgroup_name: ir::Id,
         latency: u64,
         attributes: ir::Attributes,
+        fsm: ir::RRC<ir::Cell>,
         builder: &mut ir::Builder,
     ) -> ir::RRC<ir::Group> {
-        let fsm_size =
-            get_bit_width_from(latency + 1 /* represent 0..latency */);
+        let fsm_name = fsm.borrow().name();
+        let fsm_size = fsm
+            .borrow()
+            .find("out")
+            .unwrap_or_else(|| unreachable!("no `out` port on {fsm_name}"))
+            .borrow()
+            .width;
         structure!( builder;
-            let fsm = prim std_reg(fsm_size);
             // done hole will be undefined bc of early reset
             let ud = prim undef(1);
             let signal_on = constant(1,1);
@@ -172,7 +180,9 @@ impl CompileStatic {
         fsm_name: &ir::Id,
         fsm_width: u64,
         group_name: &ir::Id,
+        signal_reg: ir::RRC<ir::Cell>,
         builder: &mut ir::Builder,
+        add_continuous_assigns: bool,
     ) -> ir::RRC<ir::Group> {
         // get the groups/fsm necessary to build the wrapper group
         let early_reset_group = builder
@@ -194,7 +204,6 @@ impl CompileStatic {
             });
 
         structure!( builder;
-            let signal_reg = prim std_reg(1);
             let state_zero = constant(0, fsm_width);
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
@@ -226,15 +235,17 @@ impl CompileStatic {
           // group[done] = fsm.out == 0 & signal_reg.out ? 1'd1
           g["done"] = first_state_and_signal ? signal_on["out"];
         );
-        // continuous assignments to reset signal_reg back to 0 when the wrapper is done
-        let continuous_assigns = build_assignments!(
-            builder;
-            // when (fsm == 0 & signal_reg is high), which is the done condition of the wrapper,
-            // reset the signal_reg back to low
-            signal_reg["write_en"] = first_state_and_signal ? signal_on["out"];
-            signal_reg["in"] =  first_state_and_signal ? signal_off["out"];
-        );
-        builder.add_continuous_assignments(continuous_assigns.to_vec());
+        if add_continuous_assigns {
+            // continuous assignments to reset signal_reg back to 0 when the wrapper is done
+            let continuous_assigns = build_assignments!(
+                builder;
+                // when (fsm == 0 & signal_reg is high), which is the done condition of the wrapper,
+                // reset the signal_reg back to low
+                signal_reg["write_en"] = first_state_and_signal ? signal_on["out"];
+                signal_reg["in"] =  first_state_and_signal ? signal_off["out"];
+            );
+            builder.add_continuous_assignments(continuous_assigns.to_vec());
+        }
         g.borrow_mut().assignments = group_assigns.to_vec();
         g.borrow_mut().attributes =
             early_reset_group.borrow().attributes.clone();
@@ -321,6 +332,104 @@ impl CompileStatic {
         wrapper_group.borrow_mut().assignments.extend(assignments);
         wrapper_group
     }
+
+    fn get_used_sgroups(c: &ir::Control, cur_names: &mut HashSet<ir::Id>) {
+        match c {
+            ir::Control::Empty(_)
+            | ir::Control::Enable(_)
+            | ir::Control::Invoke(_) => (),
+            ir::Control::Static(sc) => {
+                let ir::StaticControl::Enable(s) = sc else {
+                    unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+                };
+                cur_names.insert(s.group.borrow().name());
+            }
+            ir::Control::Par(ir::Par { stmts, .. })
+            | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+                for stmt in stmts {
+                    Self::get_used_sgroups(stmt, cur_names);
+                }
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. })
+            | ir::Control::While(ir::While { body, .. }) => {
+                Self::get_used_sgroups(body, cur_names);
+            }
+            ir::Control::If(if_stmt) => {
+                Self::get_used_sgroups(&if_stmt.tbranch, cur_names);
+                Self::get_used_sgroups(&if_stmt.fbranch, cur_names);
+            }
+        }
+    }
+
+    fn build_conflict_graph(
+        c: &ir::Control,
+        sgroup_graph: &mut GraphColoring<ir::Id>,
+    ) {
+        match c {
+            ir::Control::Empty(_)
+            | ir::Control::Enable(_)
+            | ir::Control::Invoke(_)
+            | ir::Control::Static(_) => (),
+            ir::Control::Seq(seq) => {
+                for stmt in &seq.stmts {
+                    Self::build_conflict_graph(stmt, sgroup_graph);
+                }
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. })
+            | ir::Control::While(ir::While { body, .. }) => {
+                Self::build_conflict_graph(body, sgroup_graph)
+            }
+            ir::Control::If(if_stmt) => {
+                Self::build_conflict_graph(&if_stmt.tbranch, sgroup_graph);
+                Self::build_conflict_graph(&if_stmt.fbranch, sgroup_graph);
+            }
+            ir::Control::Par(par) => {
+                let mut sgroup_conflict_vec = Vec::new();
+                for stmt in &par.stmts {
+                    let mut used_sgroups = HashSet::new();
+                    Self::get_used_sgroups(stmt, &mut used_sgroups);
+                    sgroup_conflict_vec.push(used_sgroups);
+                }
+                for (thread1_sgroups, thread2_sgroups) in
+                    sgroup_conflict_vec.iter().tuple_combinations()
+                {
+                    for sgroup1 in thread1_sgroups {
+                        for sgroup2 in thread2_sgroups {
+                            sgroup_graph.insert_conflict(sgroup1, sgroup2);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn build_fsm_mapping(
+        color_to_groups: HashMap<ir::Id, HashSet<ir::Id>>,
+        builder: &mut ir::Builder,
+    ) -> HashMap<ir::Id, HashSet<ir::Id>> {
+        color_to_groups.into_iter().map(|(color, group_names)| {
+            let max_latency = group_names
+                .iter()
+                .map(|g| {
+                    builder.component.find_static_group(*g)
+                        .unwrap_or_else(|| {
+                            unreachable!("couldn't find group {g}")
+                        })
+                        .borrow()
+                        .latency
+                })
+                .max().unwrap_or_else(|| unreachable!("group {color} had no corresponding groups in its coloring map")
+                );
+            let fsm_size = get_bit_width_from(
+                max_latency + 1, /* represent 0..latency */
+            );
+            structure!( builder;
+                let fsm = prim std_reg(fsm_size);
+            );
+            let fsm_name = fsm.borrow().name();
+            (fsm_name, group_names)
+        }).collect()
+    }
 }
 
 impl Visitor for CompileStatic {
@@ -332,7 +441,26 @@ impl Visitor for CompileStatic {
     ) -> VisResult {
         let sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
+
+        let mut conflict_graph: GraphColoring<ir::Id> =
+            GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
+        Self::build_conflict_graph(&comp.control.borrow(), &mut conflict_graph);
+        let coloring = conflict_graph.color_greedy(None);
+        let mut rev_coloring: HashMap<ir::Id, HashSet<ir::Id>> = HashMap::new();
+        for (group, color) in coloring {
+            rev_coloring.entry(color).or_default().insert(group);
+        }
         let mut builder = ir::Builder::new(comp, sigs);
+        let fsm_mappings = Self::build_fsm_mapping(rev_coloring, &mut builder);
+
+        let mut groups_to_fsms = HashMap::new();
+        for (fsm_name, group_names) in fsm_mappings {
+            let fsm = builder.component.find_guaranteed_cell(fsm_name);
+            for group_name in group_names {
+                groups_to_fsms.insert(group_name, Rc::clone(&fsm));
+            }
+        }
+
         // create "early reset" dynamic groups that never reach set their done hole
         for sgroup in sgroups.iter() {
             let mut sgroup_ref = sgroup.borrow_mut();
@@ -345,6 +473,9 @@ impl Visitor for CompileStatic {
                 sgroup_name,
                 sgroup_latency,
                 sgroup_attributes,
+                Rc::clone(&groups_to_fsms.get(&sgroup_name).unwrap_or_else(
+                    || unreachable!("{sgroup_name} has no corresponding fsm"),
+                )),
                 &mut builder,
             );
             // map the static group name -> early reset group name
@@ -409,12 +540,43 @@ impl Visitor for CompileStatic {
                 // create the builder/cells that we need to create wrapper group
                 let mut builder = ir::Builder::new(comp, sigs);
                 let (fsm_name, fsm_width )= self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
-                let wrapper = Self::build_wrapper_group(
-                    fsm_name,
-                    *fsm_width,
-                    early_reset_name,
-                    &mut builder,
-                );
+                let wrapper = match self.signal_reg_map.get(fsm_name) {
+                    None => {
+                        // need to build the signal_reg
+                        // therefore, we need to add continuous assignment that
+                        // resets the signal_reg
+                        structure!( builder;
+                            let signal_reg = prim std_reg(1);
+                        );
+                        Self::build_wrapper_group(
+                            fsm_name,
+                            *fsm_width,
+                            early_reset_name,
+                            signal_reg,
+                            &mut builder,
+                            true,
+                        )
+                    }
+                    Some(reg_name) => {
+                        // already_built the signal_reg
+                        // therefore, we don't need to add continuous assignments
+                        // that resets signal_reg
+                        let signal_reg = builder
+                            .component
+                            .find_cell(*reg_name)
+                            .unwrap_or_else(|| {
+                                unreachable!("signal reg {reg_name} found")
+                            });
+                        Self::build_wrapper_group(
+                            fsm_name,
+                            *fsm_width,
+                            early_reset_name,
+                            signal_reg,
+                            &mut builder,
+                            false,
+                        )
+                    }
+                };
                 self.wrapper_map
                     .insert(*early_reset_name, wrapper.borrow().name());
                 wrapper
@@ -444,7 +606,6 @@ impl Visitor for CompileStatic {
     ///   }
     ///    ...
     /// }
-
     /// control {
     ///   while l.out {
     ///     A;

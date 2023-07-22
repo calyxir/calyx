@@ -207,6 +207,17 @@ impl Component {
         self.cells.find(name)
     }
 
+    /// Return a reference to the cell with `name` if present.
+    pub fn find_guaranteed_cell<S>(&self, name: S) -> RRC<Cell>
+    where
+        S: Into<Id>,
+    {
+        //
+        self.cells.find(name).unwrap_or_else(|| {
+            unreachable!("called find_certain_cell on but it wasn't found",)
+        })
+    }
+
     /// Construct a non-conflicting name using the Component's namegenerator.
     pub fn generate_name<S>(&mut self, prefix: S) -> Id
     where
