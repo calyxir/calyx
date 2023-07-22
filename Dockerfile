@@ -80,6 +80,10 @@ RUN fud config --create global.root /home/calyx && \
 WORKDIR /home/calyx/calyx-py
 RUN FLIT_ROOT_INSTALL=1 flit install --symlink
 
+# Install calyx-extra
+WORKDIR /home/calyx/calyx-extra
+RUN FLIT_ROOT_INSTALL=1 flit install --symlink
+
 # Install MrXL
 WORKDIR /home/calyx/frontends/mrxl
 RUN FLIT_ROOT_INSTALL=1 flit install --symlink
