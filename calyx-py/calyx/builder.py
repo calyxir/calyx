@@ -108,6 +108,15 @@ class ComponentBuilder:
         else:
             self.component.controls = builder
 
+    def get_port_width(self, name: str) -> int:
+        for input in self.component.inputs:
+            if input.id.name == name:
+                return input.width
+        for output in self.component.outputs:
+            if output.id.name == name:
+                return output.width
+        raise Exception(f"couldn't find port {name} on component {self.component.name}")
+
     def get_cell(self, name: str) -> CellBuilder:
         """Retrieve a cell builder by name."""
         out = self.index.get(name)
@@ -217,6 +226,10 @@ class ComponentBuilder:
     def reg(self, name: str, size: int, is_ref=False) -> CellBuilder:
         """Generate a StdReg cell."""
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
+
+    def slice(self, name: str, in_width: int, out_width, is_ref=False) -> CellBuilder:
+        """Generate a StdReg cell."""
+        return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
@@ -699,6 +712,9 @@ def infer_width(expr):
 
     # Otherwise, it's a `cell.port` lookup.
     assert isinstance(expr, ast.Atom)
+    if isinstance(expr.item, ast.ThisPort):
+        name = expr.item.id.name
+        return group_builder.comp.get_port_width(name)
     cell_name = expr.item.id.name
     port_name = expr.item.name
 

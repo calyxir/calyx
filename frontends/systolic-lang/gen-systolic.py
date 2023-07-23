@@ -10,6 +10,38 @@ BITWIDTH = 32
 # Name of the ouput array
 OUT_MEM = "out_mem"
 PE_NAME = "mac_pe"
+DEPTH = "depth"
+
+
+class CalyxAdd:
+    def __init__(self, port, const):
+        self.port = port
+        self.const = const
+
+    def __eq__(self, other):
+        if type(other) != CalyxAdd:
+            return False
+        return (
+            cb.ExprBuilder.unwrap(self.port) == cb.ExprBuilder.unwrap(other.port)
+            and self.const == other.const
+        )
+
+    def __hash__(self):
+        return hash(self.const)
+
+    def __repr__(self):
+        return (
+            str(cb.ExprBuilder.unwrap(self.port).item.id.name)
+            + "_plus_"
+            + str(self.const)
+        )
+
+    def __str__(self):
+        return (
+            str(cb.ExprBuilder.unwrap(self.port).item.id.name)
+            + "_plus_"
+            + str(self.const)
+        )
 
 
 def pe(prog: cb.Builder):
@@ -91,6 +123,17 @@ def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuil
     return reg
 
 
+def add_read_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
+    comp.input(f"{name}_read_data", BITWIDTH)
+    comp.output(f"{name}_addr0", addr_width)
+
+
+def add_write_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
+    comp.output(f"{name}_addr0", addr_width)
+    comp.output(f"{name}_write_data", BITWIDTH)
+    comp.output(f"{name}_write_en", 1)
+
+
 def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     """
     Instantiates:
@@ -110,21 +153,18 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
 
     idx_width = bits_needed(size)
     # Instantiate the memory
-    mem = comp.mem_d1(
-        name,
-        BITWIDTH,
-        size,
-        idx_width,
-        is_external=True,
-    )
+    add_read_mem_argument(comp, name, idx_width)
+    this = comp.this()
+    addr0_port = cb.ExprBuilder.unwrap(this.port(name + "_addr0"))
+    read_data_port = this.port(name + "_read_data")
     # Instantiate the indexing register
     idx = instantiate_indexor(comp, name, idx_width)
     # Register to save the value from the memory. Defined by [[instantiate_pe]].
     target = comp.get_cell(target_reg)
     group_name = NAME_SCHEME["memory move"].format(prefix=name)
-    with comp.static_group(group_name, 1):
-        mem.addr0 = idx.out
-        target.in_ = mem.read_data
+    with comp.static_group(group_name, 1) as g:
+        g.asgn(addr0_port, idx.out)
+        target.in_ = read_data_port
         target.write_en = 1
 
 
@@ -171,14 +211,20 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
     """
     group_name = NAME_SCHEME["out mem move"].format(pe=f"pe_{row}_{col}")
     pe = comp.get_cell(f"pe_{row}_{col}")
-    out = comp.get_cell(OUT_MEM + f"_{row}")
-    with comp.static_group(group_name, 1):
-        out.addr0 = col
-        out.write_data = pe.out
-        out.write_en = 1
+    this = comp.this()
+    mem_name = OUT_MEM + f"_{row}"
+    addr0_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_addr0"))
+    write_data_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_write_data"))
+    write_en_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_write_en"))
+    with comp.static_group(group_name, 1) as g:
+        g.asgn(addr0_port, col)
+        g.asgn(write_data_port, pe.out)
+        g.asgn(write_en_port, 1)
 
 
-def gen_schedules(top_length, top_depth, left_length, left_depth):
+def gen_schedules(
+    top_length, top_depth, left_length, left_depth, comp: cb.ComponentBuilder
+):
     """
     Generates 5 arrays that are the same size as the output (systolic) array
     Each entry in the array has tuple [start, end) that indicates the cycles that
@@ -193,6 +239,9 @@ def gen_schedules(top_length, top_depth, left_length, left_depth):
     `pe_write_sched` contains when to "write" the PE value into memory (i.e., when
     the PE is "finished")
     """
+    depth_port = comp.this().depth
+    min_depth_4_port = comp.get_cell("min_depth_4").port("out")
+    schedules = {}
     update_sched = np.zeros((left_length, top_length), dtype=object)
     pe_fill_sched = np.zeros((left_length, top_length), dtype=object)
     pe_accum_sched = np.zeros((left_length, top_length), dtype=object)
@@ -201,12 +250,20 @@ def gen_schedules(top_length, top_depth, left_length, left_depth):
     for row in range(0, left_length):
         for col in range(0, top_length):
             pos = row + col
-            update_sched[row][col] = (pos, pos + left_depth)
-            pe_fill_sched[row][col] = (pos + 1, pos + min(4, left_depth) + 1)
-            pe_accum_sched[row][col] = (pos + 5, pos + left_depth + 5)
-            pe_move_sched[row][col] = (pos + 1, pos + left_depth + 1)
-            pe_write_sched[row][col] = (pos + left_depth + 5, pos + left_depth + 6)
-    return (update_sched, pe_fill_sched, pe_accum_sched, pe_move_sched, pe_write_sched)
+            update_sched[row][col] = (pos, CalyxAdd(depth_port, pos))
+            pe_fill_sched[row][col] = (pos + 1, CalyxAdd(min_depth_4_port, pos + 1))
+            pe_accum_sched[row][col] = (pos + 5, CalyxAdd(depth_port, pos + 5))
+            pe_move_sched[row][col] = (pos + 1, CalyxAdd(depth_port, pos + 1))
+            pe_write_sched[row][col] = (
+                CalyxAdd(depth_port, pos + 5),
+                CalyxAdd(depth_port, pos + 6),
+            )
+    schedules["update_sched"] = update_sched
+    schedules["fill_sched"] = pe_fill_sched
+    schedules["accum_sched"] = pe_accum_sched
+    schedules["move_sched"] = pe_move_sched
+    schedules["write_sched"] = pe_write_sched
+    return schedules
 
 
 def accum_nec_ranges(nec_ranges, schedule):
@@ -226,12 +283,42 @@ def accum_nec_ranges(nec_ranges, schedule):
     return nec_ranges
 
 
-def instantiate_idx_groups(comp: cb.ComponentBuilder, width, limit):
+def instantiate_depth_adder(comp, nec_ranges):
+    """
+    Should refactor code
+    """
+    depth_adders = []
+    for lo, hi in nec_ranges:
+        if type(lo) == CalyxAdd:
+            add_str = str(lo)
+            if comp.try_get_cell(add_str) is None:
+                add = comp.add(add_str, BITWIDTH)
+                group_name = f"{add_str}_group"
+                with comp.static_group(group_name, 1):
+                    add.left = lo.port
+                    add.right = lo.const
+                depth_adders.append(group_name)
+        if type(hi) == CalyxAdd:
+            add_str = str(hi)
+            if comp.try_get_cell(add_str) is None:
+                add = comp.add(add_str, BITWIDTH)
+                group_name = f"{add_str}_group"
+                with comp.static_group(group_name, 1):
+                    add.left = hi.port
+                    add.right = hi.const
+                depth_adders.append(group_name)
+    return depth_adders
+
+
+def instantiate_idx_groups(comp: cb.ComponentBuilder):
     """
     Builds groups that instantiate idx to 0 and increment idx
     """
-    idx = comp.reg("idx", width)
-    add = comp.add("idx_add", width)
+    idx = comp.reg("idx", BITWIDTH)
+    add = comp.add("idx_add", BITWIDTH)
+    iter_limit = comp.get_cell("iter_limit")
+    lt_iter_limit = comp.lt("lt_iter_limit", BITWIDTH)
+    cond_reg = comp.reg("cond_reg", 1)
     with comp.static_group("init_idx", 1):
         idx.in_ = 0
         idx.write_en = 1
@@ -240,9 +327,38 @@ def instantiate_idx_groups(comp: cb.ComponentBuilder, width, limit):
         add.right = 1
         idx.in_ = add.out
         idx.write_en = 1
+    with comp.static_group("lt_iter_limit_group", 1):
+        lt_iter_limit.left = add.out
+        lt_iter_limit.right = iter_limit.out
+        cond_reg.in_ = lt_iter_limit.out
+        cond_reg.write_en = 1
+    with comp.static_group("init_cond_reg", 1):
+        cond_reg.in_ = 1
+        cond_reg.write_en = 1
 
 
-def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
+def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, rem_iter_limit):
+    """
+    Builds groups that instantiate idx to 0 and increment idx
+    """
+    min_depth_4 = comp.reg("min_depth_4", BITWIDTH)
+    lt_depth_4 = comp.lt("lt_depth_4", BITWIDTH)
+    iter_limit = comp.reg("iter_limit", BITWIDTH)
+    iter_limit_add = comp.add("iter_limit_add", BITWIDTH)
+    with comp.static_group("init_min_depth", 1):
+        lt_depth_4.left = depth_port
+        lt_depth_4.right = 4
+        min_depth_4.in_ = lt_depth_4.out @ depth_port
+        min_depth_4.in_ = ~lt_depth_4.out @ 4
+        min_depth_4.write_en = 1
+    with comp.static_group("init_iter_limit", 1):
+        iter_limit_add.left = rem_iter_limit
+        iter_limit_add.right = depth_port
+        iter_limit.in_ = iter_limit_add.out
+        iter_limit.write_en = 1
+
+
+def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
     """
     Instantiates a static group and register called "idx_between_{lo}_{hi}_reg/group"
     that should output whether idx is between [lo, hi). That is, whether lo <= idx < hi.
@@ -250,23 +366,31 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
     Note: If you're trying to understand why this works, we are checking `idx_add` which
     is one higher than idx. This offsets the cycle it takes to update the register.
     """
+    if type(hi) == CalyxAdd:
+        hi_value = comp.get_cell(str(hi)).port("out")
+    else:
+        hi_value = hi
+    if type(lo) == CalyxAdd:
+        lo_value = comp.get_cell(str(lo)).port("out")
+    else:
+        lo_value = lo
     idx_add = comp.get_cell("idx_add")
     reg_str = f"idx_between_{lo}_{hi}_reg"
     comb_str = f"idx_between_{lo}_{hi}_comb"
     group_str = f"idx_between_{lo}_{hi}_group"
-    index_lt = f"index_lt_{hi}"
-    index_ge = f"index_ge_{lo}"
+    index_lt = f"index_lt_{str(hi)}"
+    index_ge = f"index_ge_{str(lo)}"
     reg = comp.reg(reg_str, 1)
     lt = (
         comp.get_cell(index_lt)
         if comp.try_get_cell(index_lt) is not None
-        else comp.lt(index_lt, width)
+        else comp.lt(index_lt, BITWIDTH)
     )
     # if lo == 0, then only need to check if reg < hi
-    if lo == 0:
+    if type(lo) == int and lo == 0:
         with comp.static_group(group_str, 1):
             lt.left = idx_add.out
-            lt.right = hi
+            lt.right = hi_value
             reg.in_ = lt.out
             reg.write_en = 1
     # need to check if reg >= lo and reg < hi
@@ -274,14 +398,14 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi, width) -> list:
         ge = (
             comp.get_cell(index_ge)
             if comp.try_get_cell(index_ge) is not None
-            else comp.ge(index_ge, width)
+            else comp.ge(index_ge, BITWIDTH)
         )
         and_ = comp.and_(comb_str, 1)
         with comp.static_group(group_str, 1):
             ge.left = idx_add.out
-            ge.right = lo
+            ge.right = lo_value
             lt.left = idx_add.out
-            lt.right = hi
+            lt.right = hi_value
             and_.left = ge.out
             and_.right = lt.out
             reg.in_ = and_.out
@@ -376,11 +500,8 @@ def generate_control(
     top_depth,
     left_length,
     left_depth,
-    update_sched,
-    fill_sched,
-    accum_sched,
-    move_sched,
-    write_sched,
+    schedules,
+    depth_adders,
     nec_ranges,
 ):
     """
@@ -407,7 +528,12 @@ def generate_control(
             py_ast.Enable(NAME_SCHEME["index init"].format(prefix=f"l{idx}"))
             for idx in range(left_length)
         ]
-        + [py_ast.Enable("init_idx")]
+        + [
+            py_ast.Enable("init_idx"),
+            py_ast.Enable("init_min_depth"),
+            py_ast.Enable("init_iter_limit"),
+            py_ast.Enable("init_cond_reg"),
+        ]
         + [py_ast.Enable(f"init_idx_between_{lo}_{hi}") for (lo, hi) in (nec_ranges)]
     )
     control.append(py_ast.StaticParComp(init_indices))
@@ -425,38 +551,38 @@ def generate_control(
     # end source pos init
 
     control_stmts = []
-    incr_stmts = [py_ast.Enable("incr_idx")]
+    incr_stmts = [py_ast.Enable("incr_idx"), py_ast.Enable("lt_iter_limit_group")]
     for r in range(left_length):
         for c in range(top_length):
             # build 4 if stmts for the 4 schedules that we need to account for
             input_mem_updates = execute_if_between(
                 comp,
-                update_sched[r][c][0],
-                update_sched[r][c][1],
+                schedules["update_sched"][r][c][0],
+                schedules["update_sched"][r][c][1],
                 get_memory_updates(r, c),
             )
             pe_fills = execute_if_between(
                 comp,
-                fill_sched[r][c][0],
-                fill_sched[r][c][1],
+                schedules["fill_sched"][r][c][0],
+                schedules["fill_sched"][r][c][1],
                 [get_pe_invoke(r, c, top_length, left_length, 0)],
             )
             pe_moves = execute_if_between(
                 comp,
-                move_sched[r][c][0],
-                move_sched[r][c][1],
+                schedules["move_sched"][r][c][0],
+                schedules["move_sched"][r][c][1],
                 get_pe_moves(r, c, top_length, left_length),
             )
             pe_accums = execute_if_between(
                 comp,
-                accum_sched[r][c][0],
-                accum_sched[r][c][1],
+                schedules["accum_sched"][r][c][0],
+                schedules["accum_sched"][r][c][1],
                 [get_pe_invoke(r, c, top_length, left_length, 1)],
             )
             pe_writes = execute_if_between(
                 comp,
-                write_sched[r][c][0],
-                write_sched[r][c][1],
+                schedules["write_sched"][r][c][0],
+                schedules["write_sched"][r][c][1],
                 [py_ast.Enable(NAME_SCHEME["out mem move"].format(pe=f"pe_{r}_{c}"))],
             )
             pe_control = input_mem_updates + pe_fills + pe_moves + pe_accums + pe_writes
@@ -465,26 +591,27 @@ def generate_control(
             tag = counter()
             source_map[
                 tag
-            ] = f"pe_{r}_{c} filling: [{fill_sched[r][c][0]},{fill_sched[r][c][1]}) \
-accumulating: [{accum_sched[r][c][0]} {accum_sched[r][c][1]})"
+            ] = f"pe_{r}_{c} filling: [{schedules['fill_sched'][r][c][0]},{schedules['fill_sched'][r][c][1]}) \
+accumulating: [{schedules['accum_sched'][r][c][0]} {schedules['accum_sched'][r][c][1]})"
     for start, end in nec_ranges:
         # build the control stmts that assign correct values to
         # idx_between_{start}_{end}_reg, which is what the if stmts above^ rely on
         incr_stmts.append(py_ast.Enable(f"idx_between_{start}_{end}_group"))
+    for depth_adder_group in depth_adders:
+        incr_stmts.append(py_ast.Enable(depth_adder_group))
 
-    repeat_body = py_ast.StaticParComp(
+    while_body = py_ast.StaticParComp(
         [py_ast.StaticParComp(control_stmts), py_ast.StaticParComp(incr_stmts)]
     )
 
     # build the static repeat
     # num repeats = (top_length - 1) + (left_length - 1) + (top_depth - 1) + 5 + 1
-    static_repeat = cb.static_repeat(
-        top_length + left_length + top_depth + 4, repeat_body
-    )
+    cond_reg_port = comp.get_cell("cond_reg").port("out")
+    static_repeat = cb.while_(cond_reg_port, None, while_body)
 
     control.append(static_repeat)
 
-    return py_ast.StaticSeqComp(stmts=control), source_map
+    return py_ast.SeqComp(stmts=control), source_map
 
 
 def create_systolic_array(
@@ -502,78 +629,116 @@ def create_systolic_array(
         f"{top_length}x{top_depth} and {left_depth}x{left_length}"
     )
 
-    (update_sched, fill_sched, accum_sched, move_sched, write_sched) = gen_schedules(
-        top_length, top_depth, left_length, left_depth
+    computational_unit = prog.component("systolic")
+    depth_port = computational_unit.input("depth", BITWIDTH)
+    init_dyn_vals(computational_unit, depth_port, top_length + left_length + 4)
+
+    schedules = gen_schedules(
+        top_length, top_depth, left_length, left_depth, computational_unit
     )
     nec_ranges = set()
-    accum_nec_ranges(nec_ranges, update_sched)
-    accum_nec_ranges(nec_ranges, fill_sched)
-    accum_nec_ranges(nec_ranges, accum_sched)
-    accum_nec_ranges(nec_ranges, move_sched)
-    accum_nec_ranges(nec_ranges, write_sched)
-
-    main = prog.component("main")
+    for sched in schedules.values():
+        accum_nec_ranges(nec_ranges, sched)
+    depth_adders = instantiate_depth_adder(computational_unit, nec_ranges)
 
     for row in range(left_length):
         for col in range(top_length):
             # Instantiate the PEs and surronding registers
-            instantiate_pe(main, row, col)
+            instantiate_pe(computational_unit, row, col)
 
     # Instantiate all the memories
     for r in range(top_length):
-        instantiate_memory(main, "top", r, top_depth)
+        instantiate_memory(computational_unit, "top", r, top_depth)
 
     for col in range(left_length):
-        instantiate_memory(main, "left", col, left_depth)
+        instantiate_memory(computational_unit, "left", col, left_depth)
 
+    idx_width = BITWIDTH
     # Instantiate output memory
-    out_idx_size = bits_needed(top_length)
     for i in range(left_length):
-        main.mem_d1(
-            OUT_MEM + f"_{i}",
-            BITWIDTH,
-            top_length,
-            out_idx_size,
-            is_external=True,
-        )
+        add_write_mem_argument(computational_unit, OUT_MEM + f"_{i}", idx_width)
 
     # Instantiate all the PEs
     for row in range(left_length):
         for col in range(top_length):
             # Instantiate the mover fabric
             instantiate_data_move(
-                main, row, col, col == top_length - 1, row == left_length - 1
+                computational_unit,
+                row,
+                col,
+                col == top_length - 1,
+                row == left_length - 1,
             )
 
             # Instantiate output movement structure
-            instantiate_output_move(main, row, col, top_length)
+            instantiate_output_move(computational_unit, row, col, top_length)
 
-    iter_limit = top_length + left_length + top_depth + 4
-    iter_idx_size = bits_needed(iter_limit)
-    # instantiate groups that initialize idx to 0 and increment it
-    instantiate_idx_groups(main, iter_idx_size, iter_limit)
-
+    # instantiate two groups: one that initialize idx to 0 and one increments it
+    instantiate_idx_groups(computational_unit)
     for start, end in nec_ranges:
         # create the groups that create for idx_in_between registers
-        instantiate_idx_between(main, start, end, iter_idx_size)
-        instantiate_init_group(main, start, end)
+        instantiate_idx_between(computational_unit, start, end)
+        instantiate_init_group(computational_unit, start, end)
 
     # Generate the control and set the source map
     control, source_map = generate_control(
-        main,
+        computational_unit,
         top_length,
         top_depth,
         left_length,
         left_depth,
-        update_sched,
-        fill_sched,
-        accum_sched,
-        move_sched,
-        write_sched,
+        schedules,
+        depth_adders,
         nec_ranges,
     )
-    main.control = control
+    computational_unit.control = control
     prog.program.meta = source_map
+
+    # build the main component
+    main = prog.component("main")
+    systolic_array = main.cell("systolic_array", computational_unit)
+    invoke_args = {}
+    invoke_args["in_depth"] = py_ast.ConstantPort(BITWIDTH, left_depth)
+    for r in range(top_length):
+        name = f"t{r}"
+        idx_width = bits_needed(top_depth)
+        mem = main.mem_d1(
+            name,
+            BITWIDTH,
+            top_depth,
+            idx_width,
+            is_external=True,
+        )
+        invoke_args[f"in_{name}_read_data"] = mem.read_data
+        invoke_args[f"out_{name}_addr0"] = mem.addr0
+    for col in range(left_length):
+        name = f"l{col}"
+        idx_width = bits_needed(left_depth)
+        mem = main.mem_d1(
+            name,
+            BITWIDTH,
+            left_depth,
+            idx_width,
+            is_external=True,
+        )
+        invoke_args[f"in_{name}_read_data"] = mem.read_data
+        invoke_args[f"out_{name}_addr0"] = mem.addr0
+
+    for i in range(left_length):
+        name = OUT_MEM + f"_{i}"
+        mem = main.mem_d1(
+            name,
+            BITWIDTH,
+            top_length,
+            BITWIDTH,
+            is_external=True,
+        )
+        invoke_args[f"out_{name}_addr0"] = mem.addr0
+        invoke_args[f"out_{name}_write_data"] = mem.write_data
+        invoke_args[f"out_{name}_write_en"] = mem.write_en
+
+    invoke = cb.invoke(systolic_array, **invoke_args)
+    main.control = invoke
 
 
 if __name__ == "__main__":
