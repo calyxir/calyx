@@ -74,7 +74,11 @@ where
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
     /// that no node has a neighbor with the same `T`.
-    pub fn color_greedy(&mut self, bound: Option<i64>) -> HashMap<T, T> {
+    pub fn color_greedy(
+        &mut self,
+        bound: Option<i64>,
+        keep_self_color: bool,
+    ) -> HashMap<T, T> {
         let mut all_colors: BTreeMap<Idx, i64> = BTreeMap::new();
         let mut coloring: HashMap<Idx, Idx> = HashMap::new();
         let always_share = bound.is_none();
@@ -159,7 +163,7 @@ where
         coloring
             .into_iter()
             .map(|(n1, n2)| (rev_map[&n1].clone(), rev_map[&n2].clone()))
-            .filter(|(a, b)| a != b)
+            .filter(|(a, b)| (a != b) || keep_self_color)
             .collect()
     }
 

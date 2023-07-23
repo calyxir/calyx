@@ -1,0 +1,774 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component main<"toplevel"=1>(@clk clk: 1, @reset reset: 1, @go go: 1) -> (@done done: 1) {
+  cells {
+    std_slice_29 = std_slice(32, 6);
+    std_slice_28 = std_slice(32, 6);
+    std_slice_27 = std_slice(32, 6);
+    std_slice_26 = std_slice(32, 6);
+    std_slice_25 = std_slice(32, 6);
+    std_slice_24 = std_slice(32, 6);
+    std_slice_23 = std_slice(32, 6);
+    std_slice_22 = std_slice(32, 6);
+    std_slice_21 = std_slice(32, 6);
+    std_slice_20 = std_slice(32, 6);
+    std_slice_19 = std_slice(32, 6);
+    std_slice_18 = std_slice(32, 6);
+    std_slice_17 = std_slice(32, 6);
+    std_slice_16 = std_slice(32, 6);
+    std_slice_15 = std_slice(32, 6);
+    std_slice_14 = std_slice(32, 6);
+    std_slice_13 = std_slice(32, 6);
+    std_slice_12 = std_slice(32, 6);
+    std_slice_11 = std_slice(32, 6);
+    std_slice_10 = std_slice(32, 6);
+    std_slice_9 = std_slice(32, 6);
+    std_slice_8 = std_slice(32, 6);
+    std_slice_7 = std_slice(32, 6);
+    std_slice_6 = std_slice(32, 6);
+    std_slice_5 = std_slice(32, 6);
+    std_slice_4 = std_slice(32, 6);
+    std_slice_3 = std_slice(32, 6);
+    std_slice_2 = std_slice(32, 6);
+    std_slice_1 = std_slice(32, 6);
+    std_slice_0 = std_slice(32, 6);
+    std_add_14 = std_add(32);
+    muli_9_reg = std_reg(32);
+    std_mult_pipe_9 = std_mult_pipe(32);
+    divsi_1_reg = std_reg(32);
+    std_divs_pipe_1 = std_sdiv_pipe(32);
+    load_20_reg = std_reg(32);
+    std_add_13 = std_add(32);
+    muli_8_reg = std_reg(32);
+    std_mult_pipe_8 = std_mult_pipe(32);
+    std_add_12 = std_add(32);
+    muli_7_reg = std_reg(32);
+    std_mult_pipe_7 = std_mult_pipe(32);
+    load_19_reg = std_reg(32);
+    std_sub_3 = std_sub(32);
+    load_18_reg = std_reg(32);
+    muli_6_reg = std_reg(32);
+    std_mult_pipe_6 = std_mult_pipe(32);
+    load_17_reg = std_reg(32);
+    load_16_reg = std_reg(32);
+    std_add_11 = std_add(32);
+    muli_5_reg = std_reg(32);
+    std_mult_pipe_5 = std_mult_pipe(32);
+    std_add_10 = std_add(32);
+    std_slt_8 = std_slt(32);
+    std_add_9 = std_add(32);
+    muli_4_reg = std_reg(32);
+    std_mult_pipe_4 = std_mult_pipe(32);
+    load_15_reg = std_reg(32);
+    std_add_8 = std_add(32);
+    muli_3_reg = std_reg(32);
+    std_mult_pipe_3 = std_mult_pipe(32);
+    std_add_7 = std_add(32);
+    std_slt_7 = std_slt(32);
+    load_14_reg = std_reg(32);
+    std_sub_2 = std_sub(32);
+    load_13_reg = std_reg(32);
+    muli_2_reg = std_reg(32);
+    std_mult_pipe_2 = std_mult_pipe(32);
+    load_12_reg = std_reg(32);
+    load_11_reg = std_reg(32);
+    std_add_6 = std_add(32);
+    std_slt_6 = std_slt(32);
+    std_add_5 = std_add(32);
+    std_slt_5 = std_slt(32);
+    load_10_reg = std_reg(32);
+    std_sub_1 = std_sub(32);
+    load_9_reg = std_reg(32);
+    muli_1_reg = std_reg(32);
+    std_mult_pipe_1 = std_mult_pipe(32);
+    load_8_reg = std_reg(32);
+    load_7_reg = std_reg(32);
+    std_add_4 = std_add(32);
+    std_slt_4 = std_slt(32);
+    load_6_reg = std_reg(32);
+    std_add_3 = std_add(32);
+    std_slt_3 = std_slt(32);
+    divsi_0_reg = std_reg(32);
+    std_divs_pipe_0 = std_sdiv_pipe(32);
+    load_5_reg = std_reg(32);
+    load_4_reg = std_reg(32);
+    std_sub_0 = std_sub(32);
+    load_3_reg = std_reg(32);
+    muli_0_reg = std_reg(32);
+    std_mult_pipe_0 = std_mult_pipe(32);
+    load_2_reg = std_reg(32);
+    load_1_reg = std_reg(32);
+    std_add_2 = std_add(32);
+    std_slt_2 = std_slt(32);
+    load_0_reg = std_reg(32);
+    std_add_1 = std_add(32);
+    std_slt_1 = std_slt(32);
+    std_add_0 = std_add(32);
+    std_slt_0 = std_slt(32);
+    @external(1) mem_4 = std_mem_d1(32, 1, 1);
+    @external(1) mem_3 = std_mem_d2(32, 40, 40, 6, 6);
+    @external(1) mem_2 = std_mem_d1(32, 40, 6);
+    @external(1) mem_1 = std_mem_d1(32, 40, 6);
+    @external(1) mem_0 = std_mem_d1(32, 40, 6);
+    while_8_arg0_reg = std_reg(32);
+    while_7_arg0_reg = std_reg(32);
+    while_6_arg0_reg = std_reg(32);
+    while_5_arg0_reg = std_reg(32);
+    while_4_arg0_reg = std_reg(32);
+    while_3_arg0_reg = std_reg(32);
+    while_2_arg0_reg = std_reg(32);
+    while_1_arg0_reg = std_reg(32);
+    while_0_arg0_reg = std_reg(32);
+  }
+  wires {
+    group assign_while_0_init_0 {
+      while_0_arg0_reg.in = 32'd0;
+      while_0_arg0_reg.write_en = 1'd1;
+      assign_while_0_init_0[done] = while_0_arg0_reg.done;
+    }
+    group assign_while_1_init_0 {
+      while_1_arg0_reg.in = 32'd0;
+      while_1_arg0_reg.write_en = 1'd1;
+      assign_while_1_init_0[done] = while_1_arg0_reg.done;
+    }
+    group assign_while_2_init_0 {
+      while_2_arg0_reg.in = 32'd0;
+      while_2_arg0_reg.write_en = 1'd1;
+      assign_while_2_init_0[done] = while_2_arg0_reg.done;
+    }
+    group assign_while_3_init_0 {
+      while_3_arg0_reg.in = while_4_arg0_reg.out;
+      while_3_arg0_reg.write_en = 1'd1;
+      assign_while_3_init_0[done] = while_3_arg0_reg.done;
+    }
+    group assign_while_4_init_0 {
+      while_4_arg0_reg.in = 32'd0;
+      while_4_arg0_reg.write_en = 1'd1;
+      assign_while_4_init_0[done] = while_4_arg0_reg.done;
+    }
+    group assign_while_5_init_0 {
+      while_5_arg0_reg.in = 32'd0;
+      while_5_arg0_reg.write_en = 1'd1;
+      assign_while_5_init_0[done] = while_5_arg0_reg.done;
+    }
+    group assign_while_6_init_0 {
+      while_6_arg0_reg.in = 32'd0;
+      while_6_arg0_reg.write_en = 1'd1;
+      assign_while_6_init_0[done] = while_6_arg0_reg.done;
+    }
+    group assign_while_7_init_0 {
+      while_7_arg0_reg.in = std_add_9.out;
+      while_7_arg0_reg.write_en = 1'd1;
+      std_add_9.left = std_mult_pipe_4.out;
+      std_add_9.right = 32'd40;
+      assign_while_7_init_0[done] = while_7_arg0_reg.done;
+    }
+    group assign_while_8_init_0 {
+      while_8_arg0_reg.in = 32'd0;
+      while_8_arg0_reg.write_en = 1'd1;
+      assign_while_8_init_0[done] = while_8_arg0_reg.done;
+    }
+    group bb0_0 {
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = 32'd0;
+      mem_4.write_en = 1'd1;
+      bb0_0[done] = mem_4.done;
+    }
+    comb group bb0_1 {
+      std_slt_0.left = while_4_arg0_reg.out;
+      std_slt_0.right = 32'd40;
+    }
+    comb group bb0_3 {
+      std_slt_1.left = while_1_arg0_reg.out;
+      std_slt_1.right = while_4_arg0_reg.out;
+    }
+    group bb0_5 {
+      std_slice_29.in = while_4_arg0_reg.out;
+      std_slice_28.in = while_1_arg0_reg.out;
+      mem_3.addr0 = std_slice_29.out;
+      mem_3.addr1 = std_slice_28.out;
+      load_0_reg.in = mem_3.read_data;
+      load_0_reg.write_en = 1'd1;
+      bb0_5[done] = load_0_reg.done;
+    }
+    group bb0_6 {
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = load_0_reg.out;
+      mem_4.write_en = 1'd1;
+      bb0_6[done] = mem_4.done;
+    }
+    comb group bb0_7 {
+      std_slt_2.left = while_0_arg0_reg.out;
+      std_slt_2.right = while_1_arg0_reg.out;
+    }
+    group bb0_9 {
+      std_slice_27.in = while_4_arg0_reg.out;
+      std_slice_26.in = while_0_arg0_reg.out;
+      mem_3.addr0 = std_slice_27.out;
+      mem_3.addr1 = std_slice_26.out;
+      load_1_reg.in = mem_3.read_data;
+      load_1_reg.write_en = 1'd1;
+      bb0_9[done] = load_1_reg.done;
+    }
+    group bb0_10 {
+      std_slice_25.in = while_0_arg0_reg.out;
+      std_slice_24.in = while_1_arg0_reg.out;
+      mem_3.addr0 = std_slice_25.out;
+      mem_3.addr1 = std_slice_24.out;
+      load_2_reg.in = mem_3.read_data;
+      load_2_reg.write_en = 1'd1;
+      bb0_10[done] = load_2_reg.done;
+    }
+    group bb0_11 {
+      std_mult_pipe_0.left = load_1_reg.out;
+      std_mult_pipe_0.right = load_2_reg.out;
+      muli_0_reg.in = std_mult_pipe_0.out;
+      muli_0_reg.write_en = std_mult_pipe_0.done;
+      std_mult_pipe_0.go = !std_mult_pipe_0.done ? 1'd1;
+      bb0_11[done] = muli_0_reg.done;
+    }
+    group bb0_12 {
+      mem_4.addr0 = 1'd0;
+      load_3_reg.in = mem_4.read_data;
+      load_3_reg.write_en = 1'd1;
+      bb0_12[done] = load_3_reg.done;
+    }
+    group bb0_14 {
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = std_sub_0.out;
+      mem_4.write_en = 1'd1;
+      std_sub_0.left = load_3_reg.out;
+      std_sub_0.right = std_mult_pipe_0.out;
+      bb0_14[done] = mem_4.done;
+    }
+    group assign_while_0_latch {
+      while_0_arg0_reg.in = std_add_2.out;
+      while_0_arg0_reg.write_en = 1'd1;
+      std_add_2.left = while_0_arg0_reg.out;
+      std_add_2.right = 32'd1;
+      assign_while_0_latch[done] = while_0_arg0_reg.done;
+    }
+    group bb0_15 {
+      mem_4.addr0 = 1'd0;
+      load_4_reg.in = mem_4.read_data;
+      load_4_reg.write_en = 1'd1;
+      bb0_15[done] = load_4_reg.done;
+    }
+    group bb0_16 {
+      std_slice_23.in = while_1_arg0_reg.out;
+      std_slice_22.in = while_1_arg0_reg.out;
+      mem_3.addr0 = std_slice_23.out;
+      mem_3.addr1 = std_slice_22.out;
+      load_5_reg.in = mem_3.read_data;
+      load_5_reg.write_en = 1'd1;
+      bb0_16[done] = load_5_reg.done;
+    }
+    group bb0_17 {
+      std_divs_pipe_0.left = load_4_reg.out;
+      std_divs_pipe_0.right = load_5_reg.out;
+      divsi_0_reg.in = std_divs_pipe_0.out_quotient;
+      divsi_0_reg.write_en = std_divs_pipe_0.done;
+      std_divs_pipe_0.go = !std_divs_pipe_0.done ? 1'd1;
+      bb0_17[done] = divsi_0_reg.done;
+    }
+    group bb0_18 {
+      std_slice_21.in = while_4_arg0_reg.out;
+      std_slice_20.in = while_1_arg0_reg.out;
+      mem_3.addr0 = std_slice_21.out;
+      mem_3.addr1 = std_slice_20.out;
+      mem_3.write_data = std_divs_pipe_0.out_quotient;
+      mem_3.write_en = 1'd1;
+      bb0_18[done] = mem_3.done;
+    }
+    group assign_while_1_latch {
+      while_1_arg0_reg.in = std_add_1.out;
+      while_1_arg0_reg.write_en = 1'd1;
+      std_add_1.left = while_1_arg0_reg.out;
+      std_add_1.right = 32'd1;
+      assign_while_1_latch[done] = while_1_arg0_reg.done;
+    }
+    comb group bb0_19 {
+      std_slt_3.left = while_3_arg0_reg.out;
+      std_slt_3.right = 32'd40;
+    }
+    group bb0_21 {
+      std_slice_19.in = while_4_arg0_reg.out;
+      std_slice_18.in = while_3_arg0_reg.out;
+      mem_3.addr0 = std_slice_19.out;
+      mem_3.addr1 = std_slice_18.out;
+      load_6_reg.in = mem_3.read_data;
+      load_6_reg.write_en = 1'd1;
+      bb0_21[done] = load_6_reg.done;
+    }
+    group bb0_22 {
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = load_6_reg.out;
+      mem_4.write_en = 1'd1;
+      bb0_22[done] = mem_4.done;
+    }
+    comb group bb0_23 {
+      std_slt_4.left = while_2_arg0_reg.out;
+      std_slt_4.right = while_4_arg0_reg.out;
+    }
+    group bb0_25 {
+      std_slice_17.in = while_4_arg0_reg.out;
+      std_slice_16.in = while_2_arg0_reg.out;
+      mem_3.addr0 = std_slice_17.out;
+      mem_3.addr1 = std_slice_16.out;
+      load_7_reg.in = mem_3.read_data;
+      load_7_reg.write_en = 1'd1;
+      bb0_25[done] = load_7_reg.done;
+    }
+    group bb0_26 {
+      std_slice_15.in = while_2_arg0_reg.out;
+      std_slice_14.in = while_3_arg0_reg.out;
+      mem_3.addr0 = std_slice_15.out;
+      mem_3.addr1 = std_slice_14.out;
+      load_8_reg.in = mem_3.read_data;
+      load_8_reg.write_en = 1'd1;
+      bb0_26[done] = load_8_reg.done;
+    }
+    group bb0_27 {
+      std_mult_pipe_1.left = load_7_reg.out;
+      std_mult_pipe_1.right = load_8_reg.out;
+      muli_1_reg.in = std_mult_pipe_1.out;
+      muli_1_reg.write_en = std_mult_pipe_1.done;
+      std_mult_pipe_1.go = !std_mult_pipe_1.done ? 1'd1;
+      bb0_27[done] = muli_1_reg.done;
+    }
+    group bb0_28 {
+      mem_4.addr0 = 1'd0;
+      load_9_reg.in = mem_4.read_data;
+      load_9_reg.write_en = 1'd1;
+      bb0_28[done] = load_9_reg.done;
+    }
+    group bb0_30 {
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = std_sub_1.out;
+      mem_4.write_en = 1'd1;
+      std_sub_1.left = load_9_reg.out;
+      std_sub_1.right = std_mult_pipe_1.out;
+      bb0_30[done] = mem_4.done;
+    }
+    group assign_while_2_latch {
+      while_2_arg0_reg.in = std_add_4.out;
+      while_2_arg0_reg.write_en = 1'd1;
+      std_add_4.left = while_2_arg0_reg.out;
+      std_add_4.right = 32'd1;
+      assign_while_2_latch[done] = while_2_arg0_reg.done;
+    }
+    group bb0_31 {
+      mem_4.addr0 = 1'd0;
+      load_10_reg.in = mem_4.read_data;
+      load_10_reg.write_en = 1'd1;
+      bb0_31[done] = load_10_reg.done;
+    }
+    group bb0_32 {
+      std_slice_13.in = while_4_arg0_reg.out;
+      std_slice_12.in = while_3_arg0_reg.out;
+      mem_3.addr0 = std_slice_13.out;
+      mem_3.addr1 = std_slice_12.out;
+      mem_3.write_data = load_10_reg.out;
+      mem_3.write_en = 1'd1;
+      bb0_32[done] = mem_3.done;
+    }
+    group assign_while_3_latch {
+      while_3_arg0_reg.in = std_add_3.out;
+      while_3_arg0_reg.write_en = 1'd1;
+      std_add_3.left = while_3_arg0_reg.out;
+      std_add_3.right = 32'd1;
+      assign_while_3_latch[done] = while_3_arg0_reg.done;
+    }
+    group assign_while_4_latch {
+      while_4_arg0_reg.in = std_add_0.out;
+      while_4_arg0_reg.write_en = 1'd1;
+      std_add_0.left = while_4_arg0_reg.out;
+      std_add_0.right = 32'd1;
+      assign_while_4_latch[done] = while_4_arg0_reg.done;
+    }
+    comb group bb0_33 {
+      std_slt_5.left = while_6_arg0_reg.out;
+      std_slt_5.right = 32'd40;
+    }
+    group bb0_36 {
+      std_slice_11.in = while_6_arg0_reg.out;
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = mem_2.read_data;
+      mem_4.write_en = 1'd1;
+      mem_2.addr0 = std_slice_11.out;
+      bb0_36[done] = mem_4.done;
+    }
+    comb group bb0_37 {
+      std_slt_6.left = while_5_arg0_reg.out;
+      std_slt_6.right = while_6_arg0_reg.out;
+    }
+    group bb0_39 {
+      std_slice_10.in = while_6_arg0_reg.out;
+      std_slice_9.in = while_5_arg0_reg.out;
+      mem_3.addr0 = std_slice_10.out;
+      mem_3.addr1 = std_slice_9.out;
+      load_11_reg.in = mem_3.read_data;
+      load_11_reg.write_en = 1'd1;
+      bb0_39[done] = load_11_reg.done;
+    }
+    group bb0_40 {
+      std_slice_8.in = while_5_arg0_reg.out;
+      mem_0.addr0 = std_slice_8.out;
+      load_12_reg.in = mem_0.read_data;
+      load_12_reg.write_en = 1'd1;
+      bb0_40[done] = load_12_reg.done;
+    }
+    group bb0_41 {
+      std_mult_pipe_2.left = load_11_reg.out;
+      std_mult_pipe_2.right = load_12_reg.out;
+      muli_2_reg.in = std_mult_pipe_2.out;
+      muli_2_reg.write_en = std_mult_pipe_2.done;
+      std_mult_pipe_2.go = !std_mult_pipe_2.done ? 1'd1;
+      bb0_41[done] = muli_2_reg.done;
+    }
+    group bb0_42 {
+      mem_4.addr0 = 1'd0;
+      load_13_reg.in = mem_4.read_data;
+      load_13_reg.write_en = 1'd1;
+      bb0_42[done] = load_13_reg.done;
+    }
+    group bb0_44 {
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = std_sub_2.out;
+      mem_4.write_en = 1'd1;
+      std_sub_2.left = load_13_reg.out;
+      std_sub_2.right = std_mult_pipe_2.out;
+      bb0_44[done] = mem_4.done;
+    }
+    group assign_while_5_latch {
+      while_5_arg0_reg.in = std_add_6.out;
+      while_5_arg0_reg.write_en = 1'd1;
+      std_add_6.left = while_5_arg0_reg.out;
+      std_add_6.right = 32'd1;
+      assign_while_5_latch[done] = while_5_arg0_reg.done;
+    }
+    group bb0_45 {
+      mem_4.addr0 = 1'd0;
+      load_14_reg.in = mem_4.read_data;
+      load_14_reg.write_en = 1'd1;
+      bb0_45[done] = load_14_reg.done;
+    }
+    group bb0_46 {
+      std_slice_7.in = while_6_arg0_reg.out;
+      mem_0.addr0 = std_slice_7.out;
+      mem_0.write_data = load_14_reg.out;
+      mem_0.write_en = 1'd1;
+      bb0_46[done] = mem_0.done;
+    }
+    group assign_while_6_latch {
+      while_6_arg0_reg.in = std_add_5.out;
+      while_6_arg0_reg.write_en = 1'd1;
+      std_add_5.left = while_6_arg0_reg.out;
+      std_add_5.right = 32'd1;
+      assign_while_6_latch[done] = while_6_arg0_reg.done;
+    }
+    comb group bb0_47 {
+      std_slt_7.left = while_8_arg0_reg.out;
+      std_slt_7.right = 32'd40;
+    }
+    group bb0_49 {
+      std_mult_pipe_3.left = while_8_arg0_reg.out;
+      std_mult_pipe_3.right = 32'd4294967295;
+      muli_3_reg.in = std_mult_pipe_3.out;
+      muli_3_reg.write_en = std_mult_pipe_3.done;
+      std_mult_pipe_3.go = !std_mult_pipe_3.done ? 1'd1;
+      bb0_49[done] = muli_3_reg.done;
+    }
+    group bb0_51 {
+      std_slice_6.in = std_add_8.out;
+      mem_0.addr0 = std_slice_6.out;
+      load_15_reg.in = mem_0.read_data;
+      load_15_reg.write_en = 1'd1;
+      std_add_8.left = std_mult_pipe_3.out;
+      std_add_8.right = 32'd39;
+      bb0_51[done] = load_15_reg.done;
+    }
+    group bb0_52 {
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = load_15_reg.out;
+      mem_4.write_en = 1'd1;
+      bb0_52[done] = mem_4.done;
+    }
+    group bb0_53 {
+      std_mult_pipe_4.left = while_8_arg0_reg.out;
+      std_mult_pipe_4.right = 32'd4294967295;
+      muli_4_reg.in = std_mult_pipe_4.out;
+      muli_4_reg.write_en = std_mult_pipe_4.done;
+      std_mult_pipe_4.go = !std_mult_pipe_4.done ? 1'd1;
+      bb0_53[done] = muli_4_reg.done;
+    }
+    comb group bb0_55 {
+      std_slt_8.left = while_7_arg0_reg.out;
+      std_slt_8.right = 32'd40;
+    }
+    group bb0_57 {
+      std_mult_pipe_5.left = while_8_arg0_reg.out;
+      std_mult_pipe_5.right = 32'd4294967295;
+      muli_5_reg.in = std_mult_pipe_5.out;
+      muli_5_reg.write_en = std_mult_pipe_5.done;
+      std_mult_pipe_5.go = !std_mult_pipe_5.done ? 1'd1;
+      bb0_57[done] = muli_5_reg.done;
+    }
+    group bb0_59 {
+      std_slice_5.in = std_add_11.out;
+      std_slice_4.in = while_7_arg0_reg.out;
+      mem_3.addr0 = std_slice_5.out;
+      mem_3.addr1 = std_slice_4.out;
+      load_16_reg.in = mem_3.read_data;
+      load_16_reg.write_en = 1'd1;
+      std_add_11.left = std_mult_pipe_5.out;
+      std_add_11.right = 32'd39;
+      bb0_59[done] = load_16_reg.done;
+    }
+    group bb0_60 {
+      std_slice_3.in = while_7_arg0_reg.out;
+      mem_1.addr0 = std_slice_3.out;
+      load_17_reg.in = mem_1.read_data;
+      load_17_reg.write_en = 1'd1;
+      bb0_60[done] = load_17_reg.done;
+    }
+    group bb0_61 {
+      std_mult_pipe_6.left = load_16_reg.out;
+      std_mult_pipe_6.right = load_17_reg.out;
+      muli_6_reg.in = std_mult_pipe_6.out;
+      muli_6_reg.write_en = std_mult_pipe_6.done;
+      std_mult_pipe_6.go = !std_mult_pipe_6.done ? 1'd1;
+      bb0_61[done] = muli_6_reg.done;
+    }
+    group bb0_62 {
+      mem_4.addr0 = 1'd0;
+      load_18_reg.in = mem_4.read_data;
+      load_18_reg.write_en = 1'd1;
+      bb0_62[done] = load_18_reg.done;
+    }
+    group bb0_64 {
+      mem_4.addr0 = 1'd0;
+      mem_4.write_data = std_sub_3.out;
+      mem_4.write_en = 1'd1;
+      std_sub_3.left = load_18_reg.out;
+      std_sub_3.right = std_mult_pipe_6.out;
+      bb0_64[done] = mem_4.done;
+    }
+    group assign_while_7_latch {
+      while_7_arg0_reg.in = std_add_10.out;
+      while_7_arg0_reg.write_en = 1'd1;
+      std_add_10.left = while_7_arg0_reg.out;
+      std_add_10.right = 32'd1;
+      assign_while_7_latch[done] = while_7_arg0_reg.done;
+    }
+    group bb0_65 {
+      mem_4.addr0 = 1'd0;
+      load_19_reg.in = mem_4.read_data;
+      load_19_reg.write_en = 1'd1;
+      bb0_65[done] = load_19_reg.done;
+    }
+    group bb0_66 {
+      std_mult_pipe_7.left = while_8_arg0_reg.out;
+      std_mult_pipe_7.right = 32'd4294967295;
+      muli_7_reg.in = std_mult_pipe_7.out;
+      muli_7_reg.write_en = std_mult_pipe_7.done;
+      std_mult_pipe_7.go = !std_mult_pipe_7.done ? 1'd1;
+      bb0_66[done] = muli_7_reg.done;
+    }
+    group bb0_68 {
+      std_mult_pipe_8.left = while_8_arg0_reg.out;
+      std_mult_pipe_8.right = 32'd4294967295;
+      muli_8_reg.in = std_mult_pipe_8.out;
+      muli_8_reg.write_en = std_mult_pipe_8.done;
+      std_mult_pipe_8.go = !std_mult_pipe_8.done ? 1'd1;
+      bb0_68[done] = muli_8_reg.done;
+    }
+    group bb0_70 {
+      std_slice_2.in = std_add_12.out;
+      std_slice_1.in = std_add_13.out;
+      mem_3.addr0 = std_slice_2.out;
+      mem_3.addr1 = std_slice_1.out;
+      load_20_reg.in = mem_3.read_data;
+      load_20_reg.write_en = 1'd1;
+      std_add_12.left = std_mult_pipe_7.out;
+      std_add_12.right = 32'd39;
+      std_add_13.left = std_mult_pipe_8.out;
+      std_add_13.right = 32'd39;
+      bb0_70[done] = load_20_reg.done;
+    }
+    group bb0_71 {
+      std_divs_pipe_1.left = load_19_reg.out;
+      std_divs_pipe_1.right = load_20_reg.out;
+      divsi_1_reg.in = std_divs_pipe_1.out_quotient;
+      divsi_1_reg.write_en = std_divs_pipe_1.done;
+      std_divs_pipe_1.go = !std_divs_pipe_1.done ? 1'd1;
+      bb0_71[done] = divsi_1_reg.done;
+    }
+    group bb0_72 {
+      std_mult_pipe_9.left = while_8_arg0_reg.out;
+      std_mult_pipe_9.right = 32'd4294967295;
+      muli_9_reg.in = std_mult_pipe_9.out;
+      muli_9_reg.write_en = std_mult_pipe_9.done;
+      std_mult_pipe_9.go = !std_mult_pipe_9.done ? 1'd1;
+      bb0_72[done] = muli_9_reg.done;
+    }
+    group bb0_74 {
+      std_slice_0.in = std_add_14.out;
+      mem_1.addr0 = std_slice_0.out;
+      mem_1.write_data = std_divs_pipe_1.out_quotient;
+      mem_1.write_en = 1'd1;
+      std_add_14.left = std_mult_pipe_9.out;
+      std_add_14.right = 32'd39;
+      bb0_74[done] = mem_1.done;
+    }
+    group assign_while_8_latch {
+      while_8_arg0_reg.in = std_add_7.out;
+      while_8_arg0_reg.write_en = 1'd1;
+      std_add_7.left = while_8_arg0_reg.out;
+      std_add_7.right = 32'd1;
+      assign_while_8_latch[done] = while_8_arg0_reg.done;
+    }
+  }
+  control {
+    seq {
+      seq {
+        bb0_0;
+        par {
+          assign_while_4_init_0;
+        }
+        while std_slt_0.out with bb0_1 {
+          seq {
+            seq {
+              par {
+                assign_while_1_init_0;
+              }
+              while std_slt_1.out with bb0_3 {
+                seq {
+                  seq {
+                    bb0_5;
+                    bb0_6;
+                    par {
+                      assign_while_0_init_0;
+                    }
+                    while std_slt_2.out with bb0_7 {
+                      seq {
+                        seq {
+                          bb0_9;
+                          bb0_10;
+                          bb0_11;
+                          bb0_12;
+                          bb0_14;
+                        }
+                        assign_while_0_latch;
+                      }
+                    }
+                    bb0_15;
+                    bb0_16;
+                    bb0_17;
+                    bb0_18;
+                  }
+                  assign_while_1_latch;
+                }
+              }
+              par {
+                assign_while_3_init_0;
+              }
+              while std_slt_3.out with bb0_19 {
+                seq {
+                  seq {
+                    bb0_21;
+                    bb0_22;
+                    par {
+                      assign_while_2_init_0;
+                    }
+                    while std_slt_4.out with bb0_23 {
+                      seq {
+                        seq {
+                          bb0_25;
+                          bb0_26;
+                          bb0_27;
+                          bb0_28;
+                          bb0_30;
+                        }
+                        assign_while_2_latch;
+                      }
+                    }
+                    bb0_31;
+                    bb0_32;
+                  }
+                  assign_while_3_latch;
+                }
+              }
+            }
+            assign_while_4_latch;
+          }
+        }
+        par {
+          assign_while_6_init_0;
+        }
+        while std_slt_5.out with bb0_33 {
+          seq {
+            seq {
+              bb0_36;
+              par {
+                assign_while_5_init_0;
+              }
+              while std_slt_6.out with bb0_37 {
+                seq {
+                  seq {
+                    bb0_39;
+                    bb0_40;
+                    bb0_41;
+                    bb0_42;
+                    bb0_44;
+                  }
+                  assign_while_5_latch;
+                }
+              }
+              bb0_45;
+              bb0_46;
+            }
+            assign_while_6_latch;
+          }
+        }
+        par {
+          assign_while_8_init_0;
+        }
+        while std_slt_7.out with bb0_47 {
+          seq {
+            seq {
+              bb0_49;
+              bb0_51;
+              bb0_52;
+              bb0_53;
+              par {
+                assign_while_7_init_0;
+              }
+              while std_slt_8.out with bb0_55 {
+                seq {
+                  seq {
+                    bb0_57;
+                    bb0_59;
+                    bb0_60;
+                    bb0_61;
+                    bb0_62;
+                    bb0_64;
+                  }
+                  assign_while_7_latch;
+                }
+              }
+              bb0_65;
+              bb0_66;
+              bb0_68;
+              bb0_70;
+              bb0_71;
+              bb0_72;
+              bb0_74;
+            }
+            assign_while_8_latch;
+          }
+        }
+      }
+    }
+  }
+}

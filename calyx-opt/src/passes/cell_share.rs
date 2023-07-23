@@ -497,7 +497,7 @@ impl Visitor for CellShare {
             if graph.has_nodes() {
                 coloring.extend(
                     graph
-                        .color_greedy(*bound)
+                        .color_greedy(*bound, false)
                         .iter()
                         .map(|(a, b)| (*a, comp.find_cell(*b).unwrap())),
                 );
