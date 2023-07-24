@@ -76,10 +76,10 @@ def insert_fifo(prog, name):
     len_eq_10 = util.insert_eq(fifo, len.out, 10, "len_eq_10", 32)  # `len` == 10
 
     # Cells and groups to increment read and write registers
-    write_incr = util.insert_incr(fifo, write, "add1", "write_incr")  # write++
-    read_incr = util.insert_incr(fifo, read, "add2", "read_incr")  # read++
-    len_incr = util.insert_incr(fifo, len, "add5", "len_incr")  # len++
-    len_decr = util.insert_decr(fifo, len, "add6", "len_decr")  # len--
+    write_incr = util.insert_incr(fifo, write, "write_incr", "write_incr")  # write++
+    read_incr = util.insert_incr(fifo, read, "read_incr", "read_incr")  # read++
+    len_incr = util.insert_incr(fifo, len, "len_incr", "len_incr")  # len++
+    len_decr = util.insert_decr(fifo, len, "len_decr", "len_decr")  # len--
 
     # Cells and groups to modify flags, which are registers
     write_wrap = util.reg_store(fifo, write, 0, "write_wraparound")  # zero out `write`
@@ -188,8 +188,8 @@ def insert_main(prog):
 
     zero_i = util.reg_store(main, i, 0, "zero_i")  # zero out `i`
     zero_j = util.reg_store(main, j, 0, "zero_j")  # zero out `j`
-    incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
-    incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
+    incr_i = util.insert_incr(main, i, "i_incr", "incr_i")  # i = i + 1
+    incr_j = util.insert_incr(main, j, "j_incr", "incr_j")  # j = j + 1
     err_eq_0 = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
     cmd_eq_0 = util.insert_eq(main, command.out, 0, "command_eq_0", 32)
     cmd_neq_0 = util.insert_neq(main, command.out, cb.const(32, 0), "command_neq_0", 32)
