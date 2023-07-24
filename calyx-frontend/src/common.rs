@@ -134,7 +134,7 @@ where
 }
 
 /// Represents an abstract width of a primitive signature.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Width {
     /// The width is a constant.
     Const { value: u64 },
