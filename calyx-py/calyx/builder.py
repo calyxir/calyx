@@ -251,6 +251,13 @@ class ComponentBuilder:
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
+    def is_seq_mem_d1(self, cell: CellBuilder) -> bool:
+        """Check if the cell is a SeqMemD1 cell."""
+        return (
+            isinstance(cell._cell.comp, ast.CompInst)
+            and cell._cell.comp.name == "seq_mem_d1"
+        )
+
     def add(self, name: str, size: int, signed=False) -> CellBuilder:
         """Generate a StdAdd cell."""
         self.prog.import_("primitives/binary_operators.futil")
