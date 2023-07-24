@@ -1,7 +1,7 @@
 from typing import List
 from calyx.py_ast import *
 from dahlia_utils import *
-from calyx_extra.math_gen.gen_exp import (
+from calyx_extra.math_gen.exp import (
     generate_exp_taylor_series_approximation,
     generate_fp_pow_full,
 )
