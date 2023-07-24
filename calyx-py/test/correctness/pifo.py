@@ -4,26 +4,6 @@ import calyx.builder_util as util
 import calyx.builder as cb
 
 
-def reg_swap(comp: cb.ComponentBuilder, a, b, group):
-    """Swaps the values of two registers.
-    1. Within component {comp}, creates a group called {group}.
-    2. Reads the value of {a} into a temporary register.
-    3. Writes the value of {b} into {a}.
-    4. Writes the value of the temporary register into {b}.
-    5. Returns the group that does this.
-    """
-    with comp.group(group) as swap_grp:
-        tmp = comp.reg("tmp", 1)
-        tmp.write_en = 1
-        tmp.in_ = a.out
-        a.write_en = 1
-        a.in_ = b.out
-        b.write_en = 1
-        b.in_ = tmp.out
-        swap_grp.done = b.done
-    return swap_grp
-
-
 def insert_len_update(comp: cb.ComponentBuilder, length, len_1, len_2, group):
     """Updates the length of the PIFO.
     It is just the sum of the lengths of the two FIFOs.
@@ -64,7 +44,7 @@ def insert_flow_inference(comp: cb.ComponentBuilder, command, flow, group):
     return infer_flow_grp
 
 
-def insert_pifo(prog, fifo_1, fifo_2):
+def insert_pifo(prog, name):
     """A PIFO that achieves a 50/50 split between two flows.
 
     Up to the availability of values, this PIFO seeks to alternate 50/50
@@ -99,7 +79,12 @@ def insert_pifo(prog, fifo_1, fifo_2):
            Leave `hot` and `cold` as they were.
     """
 
-    pifo: cb.ComponentBuilder = prog.component("pifo")
+    pifo: cb.ComponentBuilder = prog.component(name)
+
+    # Create the two FIFOs and ready them for invocation.
+    fifo_1 = pifo.cell("myfifo_1", fifo.insert_fifo(prog, "fifo_1"))
+    fifo_2 = pifo.cell("myfifo_2", fifo.insert_fifo(prog, "fifo_2"))
+
     pop = pifo.input("pop", 1)
     push = pifo.input("push", 1)
     payload = pifo.input("payload", 32)  # The value to push
@@ -121,10 +106,6 @@ def insert_pifo(prog, fifo_1, fifo_2):
     len_1 = pifo.reg("len_1", 32)  # The length of fifo_1
     len_2 = pifo.reg("len_2", 32)  # The length of fifo_2
 
-    # Create the two FIFOs and ready them for invocation.
-    fifo_1 = pifo.cell("myfifo_1", fifo_1)
-    fifo_2 = pifo.cell("myfifo_2", fifo_2)
-
     # Create the two registers.
     hot = pifo.reg("hot", 1)
     cold = pifo.reg("cold", 1)
@@ -140,7 +121,7 @@ def insert_pifo(prog, fifo_1, fifo_2):
     err_1_eq_1 = util.insert_eq(pifo, err_1.out, 1, "err_1_eq_1", 1)  # err_1 == 1
     err_2_eq_1 = util.insert_eq(pifo, err_2.out, 1, "err_2_eq_1", 1)  # err_2 == 1
 
-    swap = reg_swap(pifo, hot, cold, "swap")  # Swap `hot` and `cold`.
+    swap = util.reg_swap(pifo, hot, cold, "swap")  # Swap `hot` and `cold`.
     raise_err = util.reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
     zero_out_ans = util.reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
     update_length = insert_len_update(pifo, len, len_1, len_2, "update_length")
@@ -289,7 +270,7 @@ def insert_pifo(prog, fifo_1, fifo_2):
     return pifo
 
 
-def insert_main(prog, pifo, raise_err_if_i_eq_15):
+def insert_main(prog):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `fifo`.
     """
@@ -305,7 +286,7 @@ def insert_main(prog, pifo, raise_err_if_i_eq_15):
     ans_mem = main.mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # We will use the `invoke` method to call the `pifo` component.
-    pifo = main.cell("mypifo", pifo)
+    pifo = main.cell("mypifo", insert_pifo(prog, "pifo"))
     # The pifo component takes three `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
@@ -314,7 +295,12 @@ def insert_main(prog, pifo, raise_err_if_i_eq_15):
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `pifo` component.
     # It will run until the `err` flag is raised by the `pifo` component.
-    raise_err_if_i_eq_15 = main.cell("raise_err_if_i_eq_15", raise_err_if_i_eq_15)
+
+    # It is handy to have this component, which can additionally raise the `err`
+    # flag in case i = 15.
+    raise_err_if_i_eq_15 = main.cell(
+        "raise_err_if_i_eq_15", fifo.insert_raise_err_if_i_eq_15(prog)
+    )
 
     i = main.reg("i", 32)  # The index of the command we're currently processing
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
@@ -381,11 +367,7 @@ def insert_main(prog, pifo, raise_err_if_i_eq_15):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    fifo_1 = fifo.insert_fifo(prog, "fifo_1")
-    fifo_2 = fifo.insert_fifo(prog, "fifo_2")
-    pifo = insert_pifo(prog, fifo_1, fifo_2)
-    raise_err_if_i_eq_15 = fifo.insert_raise_err_if_i_eq_15(prog)
-    insert_main(prog, pifo, raise_err_if_i_eq_15)
+    insert_main(prog)
     return prog.program
 
 

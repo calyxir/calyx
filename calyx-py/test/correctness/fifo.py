@@ -168,12 +168,6 @@ def insert_main(prog):
     """
     main: cb.ComponentBuilder = prog.component("main")
 
-    # The two components we'll use:
-    fifo = main.cell("myfifo", insert_fifo(prog, "fifo"))
-    raise_err_if_i_eq_15 = main.cell(
-        "raise_err_if_i_eq_15", insert_raise_err_if_i_eq_15(prog)
-    )
-
     # The user-facing interface of the `main` component is:
     # - a list of commands (the input)
     #    where each command is a 32-bit unsigned integer, with the following format:
@@ -183,8 +177,14 @@ def insert_main(prog):
     commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
+    # The two components we'll use:
+    fifo = main.cell("myfifo", insert_fifo(prog, "fifo"))
+    raise_err_if_i_eq_15 = main.cell(
+        "raise_err_if_i_eq_15", insert_raise_err_if_i_eq_15(prog)
+    )
+
     # We will use the `invoke` method to call the `fifo` component.
-    # The fifo component takes two `ref` inputs:
+    # The fifo component takes three `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
     len = main.reg("len", 32)  # A register to hold the len of the queue
