@@ -56,6 +56,7 @@ def mem_read_seqd1(comp: cb.ComponentBuilder, mem, i, group):
     """Given a seq_mem_d1, reads from memory at address i.
     Note that this does not write the value anywhere.
     """
+    assert mem.is_seq_mem_d1
     with comp.group(group) as read_grp:
         mem.addr0 = i
         mem.read_en = 1
@@ -67,6 +68,7 @@ def mem_write_seqd1_to_reg(comp: cb.ComponentBuilder, mem, reg, group):
     """Given a seq_mem_d1 that is already assumed to have a latched value,
     reads the latched value and writes it to a register.
     """
+    assert mem.is_seq_mem_d1
     with comp.group(group) as write_grp:
         reg.write_en = 1
         reg.in_ = mem.read_data
@@ -81,6 +83,7 @@ def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
     3. Writes the value into memory {mem} at address i.
     4. Returns the group that does this.
     """
+    assert mem.is_seq_mem_d1
     with comp.group(group) as store_grp:
         mem.addr0 = i
         mem.write_en = 1
