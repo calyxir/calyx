@@ -368,7 +368,7 @@ impl CompileStatic {
 
     // Gets all of the triggered static groups within `c`, and adds it to `cur_names`.
     // Relies on sgroup_uses_map to take into account groups that are triggered through
-    // their `done` hole.
+    // their `go` hole.
     fn get_used_sgroups(
         c: &ir::Control,
         cur_names: &mut HashSet<ir::Id>,
@@ -384,9 +384,7 @@ impl CompileStatic {
                 };
                 let group_name = s.group.borrow().name();
                 if let Some(sgroup_uses) = sgroup_uses_map.get(&group_name) {
-                    for sgroup in sgroup_uses {
-                        cur_names.insert(*sgroup);
-                    }
+                    cur_names.extend(sgroup_uses);
                 }
                 cur_names.insert(group_name);
             }
@@ -480,7 +478,7 @@ impl CompileStatic {
                         }
                     }
                 }
-                // Necessary to conflicts between nested pars
+                // Necessary to add conflicts between nested pars
                 for stmt in &par.stmts {
                     Self::add_par_conflicts(
                         stmt,
@@ -497,7 +495,8 @@ impl CompileStatic {
     /// of (even recursively).
     /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
     /// Would map: A -> {B,C} and B -> {C}
-    /// Adds conflicts between any groups triggered at the same time
+    /// Adds conflicts between any groups triggered at the same time based on
+    /// `go` port triggering.
     fn add_use_conflicts(
         sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
         conflict_graph: &mut GraphColoring<ir::Id>,
@@ -506,7 +505,8 @@ impl CompileStatic {
             for sgroup_use in sgroup_uses {
                 conflict_graph.insert_conflict(sgroup_use, sgroup);
             }
-            // if multiple groups are triggered must add conflicts too
+            // If multiple groups are triggered by the same group, then
+            // we conservatively add a conflict between such groups
             for (sgroup_use1, sgroup_use2) in
                 sgroup_uses.iter().tuple_combinations()
             {
