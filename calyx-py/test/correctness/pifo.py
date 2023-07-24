@@ -44,6 +44,22 @@ def insert_flow_inference(comp: cb.ComponentBuilder, command, flow, group):
     return infer_flow_grp
 
 
+def insert_propagate_err(prog, name):
+    """A component that propagates an error flag.
+    It takes as input an error flag, and sets its own error flag to that value.
+    """
+    propagate_err: cb.ComponentBuilder = prog.component(name)
+
+    val = propagate_err.input("val", 1)
+    err = propagate_err.reg("err", 1, is_ref=True)
+
+    prop_err = util.reg_store(propagate_err, err, val, "prop_err")
+
+    propagate_err.control += [prop_err]
+
+    return propagate_err
+
+
 def insert_pifo(prog, name):
     """A PIFO that achieves a 50/50 split between two flows.
 
@@ -56,7 +72,7 @@ def insert_pifo(prog, name):
     At that point we go back to 50/50.
 
     Say the PIFO's maximum capacity is 10. Create two FIFOs, each of capacity 10.
-    Let's say the two floww are called `1` and `2`, and our FIFOs are called
+    Let's say the two flow are called `1` and `2`, and our FIFOs are called
     `fifo_1` and `fifo_2`.
     Maintain additionally a register that points to which of these FIFOs is "hot".
     Start off with `hot` pointing to `fifo_1` (arbitrarily).
@@ -84,6 +100,7 @@ def insert_pifo(prog, name):
     # Create the two FIFOs and ready them for invocation.
     fifo_1 = pifo.cell("myfifo_1", fifo.insert_fifo(prog, "fifo_1"))
     fifo_2 = pifo.cell("myfifo_2", fifo.insert_fifo(prog, "fifo_2"))
+    propagate_err = pifo.cell("prop_err", insert_propagate_err(prog, "propagate_err"))
 
     pop = pifo.input("pop", 1)
     push = pifo.input("push", 1)
@@ -173,9 +190,16 @@ def insert_pifo(prog, name):
                                                 in_push=cb.const(1, 0),
                                                 ref_ans=ans,
                                                 # Its answer is our answer.
-                                                ref_err=err,
-                                                # its error is our error
+                                                ref_err=err_2,
+                                                # We sequester its error.
                                                 ref_len=len_2,
+                                            ),
+                                            cb.invoke(
+                                                # If `fifo_2` also raised an error,
+                                                # we propagate it.
+                                                propagate_err,
+                                                in_val=cb.const(1, 1),
+                                                ref_err=err,
                                             ),
                                         ],
                                         [  # `fifo_1` did not raise an error.
@@ -207,9 +231,16 @@ def insert_pifo(prog, name):
                                                 in_push=cb.const(1, 0),
                                                 ref_ans=ans,
                                                 # Its answer is our answer.
-                                                ref_err=err,
+                                                ref_err=err_1,
                                                 # its error is our error
                                                 ref_len=len_1,
+                                            ),
+                                            cb.invoke(
+                                                # If `fifo_1` also raised an error,
+                                                # we propagate it.
+                                                propagate_err,
+                                                in_val=cb.const(1, 1),
+                                                ref_err=err,
                                             ),
                                         ],
                                         [  # `fifo_2` did not raise an error.
@@ -246,7 +277,7 @@ def insert_pifo(prog, name):
                                     in_payload=payload,
                                     ref_err=err,  # Its error is our error.
                                     ref_len=len_1,
-                                    ref_ans=ans,
+                                    ref_ans=ans,  # Its answer is our answer.
                                 ),
                                 # The user wants to push to flow 2.
                                 cb.invoke(
@@ -256,7 +287,7 @@ def insert_pifo(prog, name):
                                     in_payload=payload,
                                     ref_err=err,  # Its error is our error.
                                     ref_len=len_2,
-                                    ref_ans=ans,
+                                    ref_ans=ans,  # Its answer is our answer.
                                 ),
                             ),
                             update_length,  # Update the length of the PIFO.
