@@ -388,6 +388,7 @@ impl CompileStatic {
                         cur_names.insert(*sgroup);
                     }
                 }
+                cur_names.insert(group_name);
             }
             ir::Control::Par(ir::Par { stmts, .. })
             | ir::Control::Seq(ir::Seq { stmts, .. }) => {
@@ -479,6 +480,14 @@ impl CompileStatic {
                         }
                     }
                 }
+                // Necessary to conflicts between nested pars
+                for stmt in &par.stmts {
+                    Self::add_par_conflicts(
+                        stmt,
+                        sgroup_uses_map,
+                        conflict_graph,
+                    );
+                }
             }
         }
     }
@@ -514,7 +523,12 @@ impl CompileStatic {
         for (group, color) in coloring {
             color_to_groups.entry(color).or_default().insert(group);
         }
-        color_to_groups.into_iter().map(|(color, group_names)| {
+        // Need deterministic ordering for testing.
+        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
+            color_to_groups.into_iter().collect();
+        vec_color_to_groups
+            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
+        vec_color_to_groups.into_iter().map(|(color, group_names)| {
             // For each color, build an FSM that has the number of bits required 
             // for the largest latency in `group_names`
             let max_latency = group_names
@@ -665,7 +679,7 @@ impl Visitor for CompileStatic {
         }
 
         // rewrite static_group[go] to early_reset_group[go]
-        // don't have to worrry about writing static_group[done] b/c static
+        // don't have to worry about writing static_group[done] b/c static
         // groups don't have done holes.
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
