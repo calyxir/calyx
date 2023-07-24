@@ -22,7 +22,7 @@ description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
-version = "0.3.0"
+version = "0.4.0"
 rust-version = "1.66"
 
 [workspace.dependencies]
@@ -40,10 +40,10 @@ pest = "2.0"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
-calyx-utils = { path = "calyx-utils", version = "0.3.0" }
-calyx-ir = { path = "calyx-ir", version = "0.3.0" }
-calyx-frontend = { path = "calyx-frontend", version = "0.3.0" }
-calyx-opt = { path = "calyx-opt", version = "0.3.0" }
+calyx-utils = { path = "calyx-utils", version = "0.4.0" }
+calyx-ir = { path = "calyx-ir", version = "0.4.0" }
+calyx-frontend = { path = "calyx-frontend", version = "0.4.0" }
+calyx-opt = { path = "calyx-opt", version = "0.4.0" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
