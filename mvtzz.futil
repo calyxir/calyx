@@ -1,0 +1,540 @@
+extern "/Users/calebkim/learning/calyx/primitives/binary_operators.sv" {
+  comb primitive std_fp_add<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_fp_sub<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  primitive std_fp_mult_pipe<"state_share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@clk clk: 1, @reset reset: 1, @write_together @static(3) @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out: WIDTH, @done done: 1);
+  primitive std_fp_div_pipe<"state_share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@clk clk: 1, @reset reset: 1, @write_together @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out_remainder: WIDTH, @stable out_quotient: WIDTH, @done done: 1);
+  comb primitive std_fp_gt<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_fp_sadd<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_fp_ssub<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  primitive std_fp_smult_pipe<"state_share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@clk clk: 1, @reset reset: 1, @write_together @static(3) @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out: WIDTH, @done done: 1);
+  primitive std_fp_sdiv_pipe<"state_share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@clk clk: 1, @reset reset: 1, @write_together @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out_remainder: WIDTH, @stable out_quotient: WIDTH, @done done: 1);
+  comb primitive std_fp_sgt<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_fp_slt<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  primitive std_mult_pipe<"state_share"=1>[WIDTH](@clk clk: 1, @reset reset: 1, @write_together @static(3) @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out: WIDTH, @done done: 1);
+  primitive std_div_pipe<"state_share"=1>[WIDTH](@clk clk: 1, @reset reset: 1, @write_together @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out_quotient: WIDTH, @stable out_remainder: WIDTH, @done done: 1);
+  comb primitive std_sadd<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_ssub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  primitive std_smult_pipe<"state_share"=1>[WIDTH](@clk clk: 1, @reset reset: 1, @write_together @static(3) @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out: WIDTH, @done done: 1);
+  primitive std_sdiv_pipe[WIDTH](@clk clk: 1, @reset reset: 1, @write_together @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (out_quotient: WIDTH, out_remainder: WIDTH, @done done: 1);
+  comb primitive std_sgt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_slt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_seq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sneq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sge<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sle<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_slsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_srsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+}
+extern "/Users/calebkim/learning/calyx/primitives/memories.sv" {
+  primitive seq_mem_d1[WIDTH, SIZE, IDX_SIZE](@clk clk: 1, @reset reset: 1, @data addr0: IDX_SIZE, @write_together @static @go write_en: 1, @write_together @data write_data: WIDTH, @static @go(2) read_en: 1) -> (@stable read_data: WIDTH, @done write_done: 1, @done(2) read_done: 1);
+  primitive seq_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](@clk clk: 1, @reset reset: 1, @data addr0: D0_IDX_SIZE, @data addr1: D1_IDX_SIZE, @write_together @static @go write_en: 1, @write_together @data write_data: WIDTH, @static @go(2) read_en: 1) -> (@stable read_data: WIDTH, @done write_done: 1, @done(2) read_done: 1);
+  primitive seq_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](@clk clk: 1, @reset reset: 1, @data addr0: D0_IDX_SIZE, @data addr1: D1_IDX_SIZE, @data addr2: D2_IDX_SIZE, @write_together @static @go write_en: 1, @write_together @data write_data: WIDTH, @static @go(2) read_en: 1) -> (@stable read_data: WIDTH, @done write_done: 1, @done(2) read_done: 1);
+  primitive seq_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](@clk clk: 1, @reset reset: 1, @data addr0: D0_IDX_SIZE, @data addr1: D1_IDX_SIZE, @data addr2: D2_IDX_SIZE, @data addr3: D3_IDX_SIZE, @write_together @static @go write_en: 1, @write_together @data write_data: WIDTH, @static @go(2) read_en: 1) -> (@stable read_data: WIDTH, @done write_done: 1, @done(2) read_done: 1);
+}
+extern "/Users/calebkim/learning/calyx/primitives/core.sv" {
+  comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_cat<"share"=1>[LEFT_WIDTH, RIGHT_WIDTH, OUT_WIDTH](@data left: LEFT_WIDTH, @data right: RIGHT_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_not<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH);
+  comb primitive std_and<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_or<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_xor<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_sub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_gt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_lt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_eq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_neq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_ge<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_le<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_lsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_rsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_mux<"share"=1>[WIDTH](@data cond: 1, @data tru: WIDTH, @data fal: WIDTH) -> (out: WIDTH);
+  primitive std_mem_d1[WIDTH, SIZE, IDX_SIZE](@read_together addr0: IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive std_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive std_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+  primitive std_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @read_together @write_together(2) addr3: D3_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1) -> (@read_together read_data: WIDTH, @done done: 1);
+}
+primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH) {
+  assign out = 'x;
+}
+comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH) {
+  assign out = VALUE;
+}
+comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
+  assign out = in;
+}
+comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+  assign out = left + right;
+}
+primitive std_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 0;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
+static<2016> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data A0_0 = seq_mem_d2(32, 8, 8, 4, 4);
+    @external @data A_int = seq_mem_d2(32, 8, 8, 4, 4);
+    @data A_int_read0_0 = std_reg(32);
+    @data A_read0_0 = std_reg(32);
+    @data A_read1_0 = std_reg(32);
+    @data add0 = std_add(4);
+    @data add1 = std_add(4);
+    @data add2 = std_add(4);
+    @data add3 = std_add(32);
+    @data add4 = std_add(4);
+    @data add5 = std_add(4);
+    @data add6 = std_add(32);
+    @data add7 = std_add(4);
+    @data add8 = std_add(4);
+    @data add9 = std_add(4);
+    @data bin_read0_0 = std_reg(32);
+    @data bin_read1_0 = std_reg(32);
+    @data const0 = std_const(4, 0);
+    @control const1 = std_const(4, 7);
+    @control const10 = std_const(4, 7);
+    @data const11 = std_const(4, 0);
+    @control const12 = std_const(4, 7);
+    @data const13 = std_const(4, 1);
+    @data const14 = std_const(4, 1);
+    @data const15 = std_const(4, 0);
+    @control const16 = std_const(4, 7);
+    @data const17 = std_const(4, 0);
+    @control const18 = std_const(4, 7);
+    @data const19 = std_const(4, 1);
+    @data const2 = std_const(4, 1);
+    @data const20 = std_const(4, 1);
+    @data const21 = std_const(4, 0);
+    @control const22 = std_const(4, 7);
+    @data const23 = std_const(4, 1);
+    @data const3 = std_const(4, 0);
+    @control const4 = std_const(4, 7);
+    @data const5 = std_const(4, 0);
+    @control const6 = std_const(4, 7);
+    @data const7 = std_const(4, 1);
+    @data const8 = std_const(4, 1);
+    @data const9 = std_const(4, 0);
+    @data i0 = std_reg(4);
+    @data i1 = std_reg(4);
+    @data i2 = std_reg(4);
+    @data i3 = std_reg(4);
+    @data i4 = std_reg(4);
+    @data j0 = std_reg(4);
+    @data j1 = std_reg(4);
+    @data j2 = std_reg(4);
+    @control le0 = std_le(4);
+    @control le1 = std_le(4);
+    @control le2 = std_le(4);
+    @control le3 = std_le(4);
+    @control le4 = std_le(4);
+    @control le5 = std_le(4);
+    @control le6 = std_le(4);
+    @control le7 = std_le(4);
+    @data mult_pipe0 = std_mult_pipe(32);
+    @data mult_pipe1 = std_mult_pipe(32);
+    @data red_read00 = std_reg(32);
+    @data red_read10 = std_reg(32);
+    @data tmp2_0 = std_reg(32);
+    @data tmp_0 = std_reg(32);
+    @data x10 = seq_mem_d1(32, 8, 4);
+    @external @data x1_int = seq_mem_d1(32, 8, 4);
+    @data x1_int_read0_0 = std_reg(32);
+    @data x1_sh_read0_0 = std_reg(32);
+    @data x20 = seq_mem_d1(32, 8, 4);
+    @external @data x2_int = seq_mem_d1(32, 8, 4);
+    @data x2_int_read0_0 = std_reg(32);
+    @data x2_sh_read0_0 = std_reg(32);
+    @data y10 = seq_mem_d1(32, 8, 4);
+    @external @data y1_int = seq_mem_d1(32, 8, 4);
+    @data y1_int_read0_0 = std_reg(32);
+    @data y1_read0_0 = std_reg(32);
+    @data y20 = seq_mem_d1(32, 8, 4);
+    @external @data y2_int = seq_mem_d1(32, 8, 4);
+    @data y2_int_read0_0 = std_reg(32);
+    @data y2_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(1);
+    @generated comb_reg1 = std_reg(1);
+    @generated comb_reg2 = std_reg(1);
+    @generated comb_reg3 = std_reg(1);
+    @generated comb_reg4 = std_reg(1);
+    @generated comb_reg5 = std_reg(1);
+    @generated comb_reg6 = std_reg(1);
+    @generated comb_reg7 = std_reg(4);
+    @generated comb_reg8 = std_reg(4);
+    @generated comb_reg9 = std_reg(4);
+    @generated comb_reg10 = std_reg(4);
+    @generated comb_reg11 = std_reg(4);
+    @generated comb_reg12 = std_reg(4);
+    @generated comb_reg13 = std_reg(4);
+    @generated comb_reg14 = std_reg(4);
+    @generated fsm = std_reg(3);
+    @generated fsm0 = std_reg(6);
+    @generated fsm1 = std_reg(3);
+    @generated fsm2 = std_reg(4);
+    @generated fsm3 = std_reg(11);
+    @generated fsm4 = std_reg(4);
+    @generated fsm5 = std_reg(7);
+    @generated fsm6 = std_reg(7);
+    @generated fsm7 = std_reg(4);
+    @generated ud = undef(1);
+    @generated adder = std_add(4);
+    @generated ud0 = undef(1);
+    @generated adder0 = std_add(4);
+    @generated ud1 = undef(1);
+    @generated adder1 = std_add(3);
+    @generated ud2 = undef(1);
+    @generated adder2 = std_add(4);
+    @generated ud3 = undef(1);
+    @generated adder3 = std_add(6);
+    @generated ud4 = undef(1);
+    @generated adder4 = std_add(7);
+    @generated ud5 = undef(1);
+    @generated adder5 = std_add(7);
+    @generated ud6 = undef(1);
+    @generated adder6 = std_add(3);
+    @generated ud7 = undef(1);
+    @generated adder7 = std_add(11);
+    @generated signal_reg = std_reg(1);
+  }
+  wires {
+    group early_reset_static_seq13 {
+      A0_0.addr1 = fsm4.out == 4'd0 ? i0.out;
+      A0_0.addr0 = fsm4.out == 4'd0 ? i1.out;
+      A0_0.read_en = fsm4.out == 4'd0 ? 1'd1;
+      A_int_read0_0.in = fsm4.out == 4'd1 ? A0_0.read_data;
+      A_int_read0_0.write_en = fsm4.out == 4'd1 ? 1'd1;
+      y20.addr0 = fsm4.out == 4'd0 ? i1.out;
+      y20.read_en = fsm4.out == 4'd0 ? 1'd1;
+      x1_int_read0_0.in = fsm4.out == 4'd1 ? y20.read_data;
+      x1_int_read0_0.write_en = fsm4.out == 4'd1 ? 1'd1;
+      mult_pipe0.left = fsm4.out >= 4'd2 & fsm4.out < 4'd5 ? A_int_read0_0.out;
+      mult_pipe0.right = fsm4.out >= 4'd2 & fsm4.out < 4'd5 ? x1_int_read0_0.out;
+      mult_pipe0.go = fsm4.out >= 4'd2 & fsm4.out < 4'd5 ? 1'd1;
+      A_int_read0_0.in = fsm4.out == 4'd5 ? mult_pipe0.out;
+      A_int_read0_0.write_en = fsm4.out == 4'd5 ? 1'd1;
+      x1_int_read0_0.in = fsm4.out == 4'd6 ? A_int_read0_0.out;
+      x1_int_read0_0.write_en = fsm4.out == 4'd6 ? 1'd1;
+      x20.addr0 = fsm4.out == 4'd7 ? i0.out;
+      x20.read_en = fsm4.out == 4'd7 ? 1'd1;
+      A_int_read0_0.in = fsm4.out == 4'd8 ? x20.read_data;
+      A_int_read0_0.write_en = fsm4.out == 4'd8 ? 1'd1;
+      x20.addr0 = fsm4.out == 4'd9 ? i0.out;
+      x20.write_en = fsm4.out == 4'd9 ? 1'd1;
+      add3.left = fsm4.out == 4'd9 ? A_int_read0_0.out;
+      add3.right = fsm4.out == 4'd9 ? x1_int_read0_0.out;
+      x20.write_data = fsm4.out == 4'd9 ? add3.out;
+      i1.in = fsm4.out == 4'd10 ? add0.out;
+      i1.write_en = fsm4.out == 4'd10 ? 1'd1;
+      add0.left = fsm4.out == 4'd10 ? i1.out;
+      add0.right = fsm4.out == 4'd10 ? const2.out;
+      le0.left = fsm4.out == 4'd11 ? i1.out;
+      le0.right = fsm4.out == 4'd11 ? const1.out;
+      comb_reg5.in = fsm4.out == 4'd11 ? le0.out;
+      comb_reg5.write_en = fsm4.out == 4'd11 ? 1'd1;
+      adder.left = fsm4.out;
+      adder.right = 4'd1;
+      fsm4.write_en = 1'd1;
+      fsm4.in = fsm4.out != 4'd11 ? adder.out;
+      fsm4.in = fsm4.out == 4'd11 ? 4'd0;
+      early_reset_static_seq13[done] = ud.out;
+    }
+    group early_reset_static_seq9 {
+      A0_0.addr1 = fsm7.out == 4'd0 ? i1.out;
+      A0_0.addr0 = fsm7.out == 4'd0 ? i0.out;
+      A0_0.read_en = fsm7.out == 4'd0 ? 1'd1;
+      A_int_read0_0.in = fsm7.out == 4'd1 ? A0_0.read_data;
+      A_int_read0_0.write_en = fsm7.out == 4'd1 ? 1'd1;
+      y10.addr0 = fsm7.out == 4'd0 ? i1.out;
+      y10.read_en = fsm7.out == 4'd0 ? 1'd1;
+      x1_int_read0_0.in = fsm7.out == 4'd1 ? y10.read_data;
+      x1_int_read0_0.write_en = fsm7.out == 4'd1 ? 1'd1;
+      mult_pipe0.left = fsm7.out >= 4'd2 & fsm7.out < 4'd5 ? A_int_read0_0.out;
+      mult_pipe0.right = fsm7.out >= 4'd2 & fsm7.out < 4'd5 ? x1_int_read0_0.out;
+      mult_pipe0.go = fsm7.out >= 4'd2 & fsm7.out < 4'd5 ? 1'd1;
+      A_int_read0_0.in = fsm7.out == 4'd5 ? mult_pipe0.out;
+      A_int_read0_0.write_en = fsm7.out == 4'd5 ? 1'd1;
+      x1_int_read0_0.in = fsm7.out == 4'd6 ? A_int_read0_0.out;
+      x1_int_read0_0.write_en = fsm7.out == 4'd6 ? 1'd1;
+      x10.addr0 = fsm7.out == 4'd7 ? i0.out;
+      x10.read_en = fsm7.out == 4'd7 ? 1'd1;
+      A_int_read0_0.in = fsm7.out == 4'd8 ? x10.read_data;
+      A_int_read0_0.write_en = fsm7.out == 4'd8 ? 1'd1;
+      x10.addr0 = fsm7.out == 4'd9 ? i0.out;
+      x10.write_en = fsm7.out == 4'd9 ? 1'd1;
+      add3.left = fsm7.out == 4'd9 ? A_int_read0_0.out;
+      add3.right = fsm7.out == 4'd9 ? x1_int_read0_0.out;
+      x10.write_data = fsm7.out == 4'd9 ? add3.out;
+      i1.in = fsm7.out == 4'd10 ? add0.out;
+      i1.write_en = fsm7.out == 4'd10 ? 1'd1;
+      add0.left = fsm7.out == 4'd10 ? i1.out;
+      add0.right = fsm7.out == 4'd10 ? const2.out;
+      le0.left = fsm7.out == 4'd11 ? i1.out;
+      le0.right = fsm7.out == 4'd11 ? const1.out;
+      comb_reg3.in = fsm7.out == 4'd11 ? le0.out;
+      comb_reg3.write_en = fsm7.out == 4'd11 ? 1'd1;
+      adder0.left = fsm7.out;
+      adder0.right = 4'd1;
+      fsm7.write_en = 1'd1;
+      fsm7.in = fsm7.out != 4'd11 ? adder0.out;
+      fsm7.in = fsm7.out == 4'd11 ? 4'd0;
+      early_reset_static_seq9[done] = ud0.out;
+    }
+    group early_reset_static_seq7 {
+      A_int.addr1 = fsm.out == 3'd0 ? j0.out;
+      A_int.addr0 = fsm.out == 3'd0 ? i1.out;
+      A_int.read_en = fsm.out == 3'd0 ? 1'd1;
+      A_int_read0_0.in = fsm.out == 3'd1 ? A_int.read_data;
+      A_int_read0_0.write_en = fsm.out == 3'd1 ? 1'd1;
+      A0_0.addr1 = fsm.out == 3'd2 ? j0.out;
+      A0_0.addr0 = fsm.out == 3'd2 ? i1.out;
+      A0_0.write_en = fsm.out == 3'd2 ? 1'd1;
+      A0_0.write_data = fsm.out == 3'd2 ? A_int_read0_0.out;
+      j0.in = fsm.out == 3'd3 ? add1.out;
+      j0.write_en = fsm.out == 3'd3 ? 1'd1;
+      add1.left = fsm.out == 3'd3 ? j0.out;
+      add1.right = fsm.out == 3'd3 ? const7.out;
+      le1.left = fsm.out == 3'd4 ? j0.out;
+      le1.right = fsm.out == 3'd4 ? const4.out;
+      comb_reg1.in = fsm.out == 3'd4 ? le1.out;
+      comb_reg1.write_en = fsm.out == 3'd4 ? 1'd1;
+      adder1.left = fsm.out;
+      adder1.right = 3'd1;
+      fsm.write_en = 1'd1;
+      fsm.in = fsm.out != 3'd4 ? adder1.out;
+      fsm.in = fsm.out == 3'd4 ? 3'd0;
+      early_reset_static_seq7[done] = ud1.out;
+    }
+    group early_reset_static_seq1 {
+      y1_int.addr0 = fsm2.out == 4'd0 ? i0.out;
+      y1_int.read_en = fsm2.out == 4'd0 ? 1'd1;
+      x1_int_read0_0.in = fsm2.out == 4'd1 ? y1_int.read_data;
+      x1_int_read0_0.write_en = fsm2.out == 4'd1 ? 1'd1;
+      y10.addr0 = fsm2.out == 4'd2 ? i0.out;
+      y10.write_en = fsm2.out == 4'd2 ? 1'd1;
+      y10.write_data = fsm2.out == 4'd2 ? x1_int_read0_0.out;
+      y2_int.addr0 = fsm2.out == 4'd2 ? i0.out;
+      y2_int.read_en = fsm2.out == 4'd2 ? 1'd1;
+      x2_int_read0_0.in = fsm2.out == 4'd3 ? y2_int.read_data;
+      x2_int_read0_0.write_en = fsm2.out == 4'd3 ? 1'd1;
+      y20.addr0 = fsm2.out == 4'd4 ? i0.out;
+      y20.write_en = fsm2.out == 4'd4 ? 1'd1;
+      y20.write_data = fsm2.out == 4'd4 ? x2_int_read0_0.out;
+      x1_int.addr0 = fsm2.out == 4'd4 ? i0.out;
+      x1_int.read_en = fsm2.out == 4'd4 ? 1'd1;
+      x1_int_read0_0.in = fsm2.out == 4'd5 ? x1_int.read_data;
+      x1_int_read0_0.write_en = fsm2.out == 4'd5 ? 1'd1;
+      x10.addr0 = fsm2.out == 4'd6 ? i0.out;
+      x10.write_en = fsm2.out == 4'd6 ? 1'd1;
+      x10.write_data = fsm2.out == 4'd6 ? x1_int_read0_0.out;
+      x2_int.addr0 = fsm2.out == 4'd6 ? i0.out;
+      x2_int.read_en = fsm2.out == 4'd6 ? 1'd1;
+      x2_int_read0_0.in = fsm2.out == 4'd7 ? x2_int.read_data;
+      x2_int_read0_0.write_en = fsm2.out == 4'd7 ? 1'd1;
+      x20.addr0 = fsm2.out == 4'd8 ? i0.out;
+      x20.write_en = fsm2.out == 4'd8 ? 1'd1;
+      x20.write_data = fsm2.out == 4'd8 ? x2_int_read0_0.out;
+      i0.in = fsm2.out == 4'd9 ? add0.out;
+      i0.write_en = fsm2.out == 4'd9 ? 1'd1;
+      add0.left = fsm2.out == 4'd9 ? i0.out;
+      add0.right = fsm2.out == 4'd9 ? const2.out;
+      le0.left = fsm2.out == 4'd10 ? i0.out;
+      le0.right = fsm2.out == 4'd10 ? const1.out;
+      comb_reg.in = fsm2.out == 4'd10 ? le0.out;
+      comb_reg.write_en = fsm2.out == 4'd10 ? 1'd1;
+      adder2.left = fsm2.out;
+      adder2.right = 4'd1;
+      fsm2.write_en = 1'd1;
+      fsm2.in = fsm2.out != 4'd10 ? adder2.out;
+      fsm2.in = fsm2.out == 4'd10 ? 4'd0;
+      early_reset_static_seq1[done] = ud2.out;
+    }
+    group early_reset_static_seq6 {
+      j0.in = fsm0.out == 6'd0 ? const3.out;
+      j0.write_en = fsm0.out == 6'd0 ? 1'd1;
+      le1.left = fsm0.out == 6'd1 ? j0.out;
+      le1.right = fsm0.out == 6'd1 ? const4.out;
+      comb_reg1.in = fsm0.out == 6'd1 ? le1.out;
+      comb_reg1.write_en = fsm0.out == 6'd1 ? 1'd1;
+      early_reset_static_seq7[go] = fsm0.out >= 6'd2 & fsm0.out < 6'd42 ? 1'd1;
+      i1.in = fsm0.out == 6'd42 ? add1.out;
+      i1.write_en = fsm0.out == 6'd42 ? 1'd1;
+      add1.left = fsm0.out == 6'd42 ? i1.out;
+      add1.right = fsm0.out == 6'd42 ? const7.out;
+      le1.left = fsm0.out == 6'd43 ? i1.out;
+      le1.right = fsm0.out == 6'd43 ? const4.out;
+      comb_reg0.in = fsm0.out == 6'd43 ? le1.out;
+      comb_reg0.write_en = fsm0.out == 6'd43 ? 1'd1;
+      adder3.left = fsm0.out;
+      adder3.right = 6'd1;
+      fsm0.write_en = 1'd1;
+      fsm0.in = fsm0.out != 6'd43 ? adder3.out;
+      fsm0.in = fsm0.out == 6'd43 ? 6'd0;
+      early_reset_static_seq6[done] = ud3.out;
+    }
+    group early_reset_static_seq8 {
+      i1.in = fsm5.out == 7'd0 ? const0.out;
+      i1.write_en = fsm5.out == 7'd0 ? 1'd1;
+      le0.left = fsm5.out == 7'd1 ? i1.out;
+      le0.right = fsm5.out == 7'd1 ? const1.out;
+      comb_reg3.in = fsm5.out == 7'd1 ? le0.out;
+      comb_reg3.write_en = fsm5.out == 7'd1 ? 1'd1;
+      early_reset_static_seq9[go] = fsm5.out >= 7'd2 & fsm5.out < 7'd98 ? 1'd1;
+      i0.in = fsm5.out == 7'd98 ? add0.out;
+      i0.write_en = fsm5.out == 7'd98 ? 1'd1;
+      add0.left = fsm5.out == 7'd98 ? i0.out;
+      add0.right = fsm5.out == 7'd98 ? const2.out;
+      le0.left = fsm5.out == 7'd99 ? i0.out;
+      le0.right = fsm5.out == 7'd99 ? const1.out;
+      comb_reg2.in = fsm5.out == 7'd99 ? le0.out;
+      comb_reg2.write_en = fsm5.out == 7'd99 ? 1'd1;
+      adder4.left = fsm5.out;
+      adder4.right = 7'd1;
+      fsm5.write_en = 1'd1;
+      fsm5.in = fsm5.out != 7'd99 ? adder4.out;
+      fsm5.in = fsm5.out == 7'd99 ? 7'd0;
+      early_reset_static_seq8[done] = ud4.out;
+    }
+    group early_reset_static_seq12 {
+      i1.in = fsm6.out == 7'd0 ? const0.out;
+      i1.write_en = fsm6.out == 7'd0 ? 1'd1;
+      le0.left = fsm6.out == 7'd1 ? i1.out;
+      le0.right = fsm6.out == 7'd1 ? const1.out;
+      comb_reg5.in = fsm6.out == 7'd1 ? le0.out;
+      comb_reg5.write_en = fsm6.out == 7'd1 ? 1'd1;
+      early_reset_static_seq13[go] = fsm6.out >= 7'd2 & fsm6.out < 7'd98 ? 1'd1;
+      i0.in = fsm6.out == 7'd98 ? add0.out;
+      i0.write_en = fsm6.out == 7'd98 ? 1'd1;
+      add0.left = fsm6.out == 7'd98 ? i0.out;
+      add0.right = fsm6.out == 7'd98 ? const2.out;
+      le0.left = fsm6.out == 7'd99 ? i0.out;
+      le0.right = fsm6.out == 7'd99 ? const1.out;
+      comb_reg4.in = fsm6.out == 7'd99 ? le0.out;
+      comb_reg4.write_en = fsm6.out == 7'd99 ? 1'd1;
+      adder5.left = fsm6.out;
+      adder5.right = 7'd1;
+      fsm6.write_en = 1'd1;
+      fsm6.in = fsm6.out != 7'd99 ? adder5.out;
+      fsm6.in = fsm6.out == 7'd99 ? 7'd0;
+      early_reset_static_seq12[done] = ud5.out;
+    }
+    group early_reset_static_seq16 {
+      x10.addr0 = fsm1.out == 3'd0 ? i0.out;
+      x10.read_en = fsm1.out == 3'd0 ? 1'd1;
+      A_int_read0_0.in = fsm1.out == 3'd1 ? x10.read_data;
+      A_int_read0_0.write_en = fsm1.out == 3'd1 ? 1'd1;
+      x1_int.addr0 = fsm1.out == 3'd2 ? i0.out;
+      x1_int.write_en = fsm1.out == 3'd2 ? 1'd1;
+      x1_int.write_data = fsm1.out == 3'd2 ? A_int_read0_0.out;
+      x20.addr0 = fsm1.out == 3'd2 ? i0.out;
+      x20.read_en = fsm1.out == 3'd2 ? 1'd1;
+      x1_int_read0_0.in = fsm1.out == 3'd3 ? x20.read_data;
+      x1_int_read0_0.write_en = fsm1.out == 3'd3 ? 1'd1;
+      x2_int.addr0 = fsm1.out == 3'd4 ? i0.out;
+      x2_int.write_en = fsm1.out == 3'd4 ? 1'd1;
+      x2_int.write_data = fsm1.out == 3'd4 ? x1_int_read0_0.out;
+      i0.in = fsm1.out == 3'd5 ? add0.out;
+      i0.write_en = fsm1.out == 3'd5 ? 1'd1;
+      add0.left = fsm1.out == 3'd5 ? i0.out;
+      add0.right = fsm1.out == 3'd5 ? const2.out;
+      le0.left = fsm1.out == 3'd6 ? i0.out;
+      le0.right = fsm1.out == 3'd6 ? const1.out;
+      comb_reg6.in = fsm1.out == 3'd6 ? le0.out;
+      comb_reg6.write_en = fsm1.out == 3'd6 ? 1'd1;
+      adder6.left = fsm1.out;
+      adder6.right = 3'd1;
+      fsm1.write_en = 1'd1;
+      fsm1.in = fsm1.out != 3'd6 ? adder6.out;
+      fsm1.in = fsm1.out == 3'd6 ? 3'd0;
+      early_reset_static_seq16[done] = ud6.out;
+    }
+    group early_reset_static_seq {
+      i0.in = fsm3.out == 11'd0 ? const0.out;
+      i0.write_en = fsm3.out == 11'd0 ? 1'd1;
+      le0.left = fsm3.out == 11'd1 ? i0.out;
+      le0.right = fsm3.out == 11'd1 ? const1.out;
+      comb_reg.in = fsm3.out == 11'd1 ? le0.out;
+      comb_reg.write_en = fsm3.out == 11'd1 ? 1'd1;
+      early_reset_static_seq1[go] = fsm3.out >= 11'd2 & fsm3.out < 11'd90 ? 1'd1;
+      i1.in = fsm3.out == 11'd0 ? const3.out;
+      i1.write_en = fsm3.out == 11'd0 ? 1'd1;
+      le1.left = fsm3.out == 11'd1 ? i1.out;
+      le1.right = fsm3.out == 11'd1 ? const4.out;
+      comb_reg0.in = fsm3.out == 11'd1 ? le1.out;
+      comb_reg0.write_en = fsm3.out == 11'd1 ? 1'd1;
+      early_reset_static_seq6[go] = fsm3.out >= 11'd2 & fsm3.out < 11'd354 ? 1'd1;
+      i0.in = fsm3.out == 11'd354 ? const0.out;
+      i0.write_en = fsm3.out == 11'd354 ? 1'd1;
+      le0.left = fsm3.out == 11'd355 ? i0.out;
+      le0.right = fsm3.out == 11'd355 ? const1.out;
+      comb_reg2.in = fsm3.out == 11'd355 ? le0.out;
+      comb_reg2.write_en = fsm3.out == 11'd355 ? 1'd1;
+      early_reset_static_seq8[go] = fsm3.out >= 11'd356 & fsm3.out < 11'd1156 ? 1'd1;
+      i0.in = fsm3.out == 11'd1156 ? const0.out;
+      i0.write_en = fsm3.out == 11'd1156 ? 1'd1;
+      le0.left = fsm3.out == 11'd1157 ? i0.out;
+      le0.right = fsm3.out == 11'd1157 ? const1.out;
+      comb_reg4.in = fsm3.out == 11'd1157 ? le0.out;
+      comb_reg4.write_en = fsm3.out == 11'd1157 ? 1'd1;
+      early_reset_static_seq12[go] = fsm3.out >= 11'd1158 & fsm3.out < 11'd1958 ? 1'd1;
+      i0.in = fsm3.out == 11'd1958 ? const0.out;
+      i0.write_en = fsm3.out == 11'd1958 ? 1'd1;
+      le0.left = fsm3.out == 11'd1959 ? i0.out;
+      le0.right = fsm3.out == 11'd1959 ? const1.out;
+      comb_reg6.in = fsm3.out == 11'd1959 ? le0.out;
+      comb_reg6.write_en = fsm3.out == 11'd1959 ? 1'd1;
+      early_reset_static_seq16[go] = fsm3.out >= 11'd1960 & fsm3.out < 11'd2016 ? 1'd1;
+      adder7.left = fsm3.out;
+      adder7.right = 11'd1;
+      fsm3.write_en = 1'd1;
+      fsm3.in = fsm3.out != 11'd2015 ? adder7.out;
+      fsm3.in = fsm3.out == 11'd2015 ? 11'd0;
+      early_reset_static_seq[done] = ud7.out;
+    }
+    group wrapper_early_reset_static_seq {
+      early_reset_static_seq[go] = 1'd1;
+      signal_reg.write_en = fsm3.out == 11'd0 & !signal_reg.out ? 1'd1;
+      signal_reg.in = fsm3.out == 11'd0 & !signal_reg.out ? 1'd1;
+      wrapper_early_reset_static_seq[done] = fsm3.out == 11'd0 & signal_reg.out ? 1'd1;
+    }
+    signal_reg.write_en = fsm3.out == 11'd0 & signal_reg.out ? 1'd1;
+    signal_reg.in = fsm3.out == 11'd0 & signal_reg.out ? 1'd0;
+  }
+  control {
+    wrapper_early_reset_static_seq;
+  }
+}
+metadata #{
+0: for (let i: ubit<4> = 0..8) {
+  1:   y1_sh[i] := y1_int[i];
+  2:   y1_sh[i] := y1_int[i];
+  3:   y2_sh[i] := y2_int[i];
+  4:   y2_sh[i] := y2_int[i];
+  5:   x1_sh[i] := x1_int[i];  // XXX no need for this
+  6:   x1_sh[i] := x1_int[i];  // XXX no need for this
+  7:   x2_sh[i] := x2_int[i];  // XXX x1 & x2 are outputs
+  8:   x2_sh[i] := x2_int[i];  // XXX x1 & x2 are outputs
+  9: for (let i: ubit<4> = 0..8) {
+  10:   for (let j: ubit<4> = 0..8) {
+  11:     A_sh[i][j] := A_int[i][j];
+  12:     A_sh[i][j] := A_int[i][j];
+  13: for (let i: ubit<4> = 0..8) {
+  14:   for (let j: ubit<4> = 0..8) {
+  15:     let tmp = A[i][j] * y1[j];
+  16:     let tmp = A[i][j] * y1[j];
+  17: for (let i: ubit<4> = 0..8) {
+  18:   for (let j: ubit<4> = 0..8) {
+  19:     let tmp2 = A[j][i] * y2[j];
+  20:     let tmp2 = A[j][i] * y2[j];
+  21: for (let i: ubit<4> = 0..8) {
+  22:   x1_int[i] := x1_sh[i];
+  23:   x1_int[i] := x1_sh[i];
+  24:   x2_int[i] := x2_sh[i];
+  25:   x2_int[i] := x2_sh[i];
+}#

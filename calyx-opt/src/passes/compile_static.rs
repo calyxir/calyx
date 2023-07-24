@@ -506,6 +506,12 @@ impl CompileStatic {
             for sgroup_use in sgroup_uses {
                 conflict_graph.insert_conflict(sgroup_use, sgroup);
             }
+            // if multiple groups are triggered must add conflicts too
+            for (sgroup_use1, sgroup_use2) in
+                sgroup_uses.iter().tuple_combinations()
+            {
+                conflict_graph.insert_conflict(sgroup_use1, sgroup_use2);
+            }
         }
     }
 
@@ -624,6 +630,7 @@ impl Visitor for CompileStatic {
         // `sgroup_uses_map` builds a mapping of static groups -> groups that
         // it (even indirectly) triggers the `go` port of.
         let sgroup_uses_map = Self::build_sgroup_uses_map(&sgroups);
+        dbg!(&sgroup_uses_map);
         // Build conflict graph and get coloring.
         let mut conflict_graph: GraphColoring<ir::Id> =
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
