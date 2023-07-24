@@ -210,11 +210,13 @@ impl Component {
     /// Return a reference to the cell with `name` if present.
     pub fn find_guaranteed_cell<S>(&self, name: S) -> RRC<Cell>
     where
-        S: Into<Id>,
+        S: Into<Id> + std::fmt::Debug + Copy,
     {
-        //
         self.cells.find(name).unwrap_or_else(|| {
-            unreachable!("called find_certain_cell on but it wasn't found",)
+            unreachable!(
+                "called find_certain_cell on {:?} but it wasn't found",
+                name
+            )
         })
     }
 

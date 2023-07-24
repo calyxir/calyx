@@ -74,6 +74,8 @@ where
 
     /// Given an `ordering` of `T`s, find a mapping from nodes to `T`s such
     /// that no node has a neighbor with the same `T`.
+    /// keep_self_color tells whether to keep the mapping of the node to
+    /// itself in the coloring (since nodes are "colors")
     pub fn color_greedy(
         &mut self,
         bound: Option<i64>,
