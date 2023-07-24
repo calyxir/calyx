@@ -313,8 +313,8 @@ def insert_main(prog):
     #    `0`: pop
     #    any other value: push that value
     # - a list of answers (the output).
-    commands = main.mem_d1("commands", 32, 15, 32, is_external=True)
-    ans_mem = main.mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # We will use the `invoke` method to call the `pifo` component.
     pifo = main.cell("mypifo", insert_pifo(prog, "pifo"))
@@ -340,10 +340,15 @@ def insert_main(prog):
     incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
-    read_command = util.mem_load(main, commands, i.out, command, "read_command")
+    # read_command = util.mem_load(main, commands, i.out, command, "read_command")
+    read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
+    write_command_to_reg = util.mem_write_seqd1_to_reg(
+        main, commands, command, "read_command_phase2"
+    )
+
     command_eq_0 = util.insert_eq(main, command.out, 0, "command_eq_0", 32)
     command_eq_1 = util.insert_eq(main, command.out, 1, "command_eq_1", 32)
-    write_ans = util.mem_store(main, ans_mem, j.out, ans.out, "write_ans")
+    write_ans = util.mem_store_seq_d1(main, ans_mem, j.out, ans.out, "write_ans")
 
     flow = main.reg("flow", 1)  # The flow to push to
     infer_flow = insert_flow_inference(main, command, flow, "infer_flow")
@@ -353,7 +358,8 @@ def insert_main(prog):
             err_eq_zero[0].out,
             err_eq_zero[1],  # Run while the `err` flag is down
             [
-                read_command,  # Read the command at `i`
+                read_command,  # Read `command[i]`
+                write_command_to_reg,  # And write it to `command`
                 cb.par(  # Process the command
                     cb.if_(
                         # Is this a pop?
