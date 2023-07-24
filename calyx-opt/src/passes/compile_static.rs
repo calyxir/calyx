@@ -106,6 +106,31 @@ fn make_assign_dyn(
     }
 }
 
+fn find_static_group(
+    group_name: &ir::Id,
+    static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+) -> ir::RRC<ir::StaticGroup> {
+    Rc::clone(
+        static_groups
+            .iter()
+            .find(|static_group| static_group.borrow().name() == group_name)
+            .unwrap_or_else(|| {
+                unreachable!("couldn't find static group {group_name}")
+            }),
+    )
+}
+
+fn get_group_uses(group: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
+    let mut uses = HashSet::new();
+    for asgn in &group.borrow().assignments {
+        let dst = asgn.dst.borrow();
+        if dst.is_hole() && dst.name == "go" {
+            uses.insert(dst.get_parent_name());
+        }
+    }
+    uses
+}
+
 impl CompileStatic {
     // returns an "early reset" group based on the information given
     // in the arguments.
@@ -336,6 +361,7 @@ impl CompileStatic {
     fn get_used_sgroups(
         c: &ir::Control,
         cur_names: &mut HashSet<ir::Id>,
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
         conflict_graph: &mut GraphColoring<ir::Id>,
     ) {
         match c {
@@ -347,35 +373,43 @@ impl CompileStatic {
                     unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
                 };
                 let group_name = s.group.borrow().name();
-                for asgn in &s.group.borrow().assignments {
-                    let src = asgn.src.borrow();
-                    if src.is_hole() && src.name == "go" {
-                        let src_name = src.get_parent_name();
-                        conflict_graph.insert_conflict(&src_name, &group_name);
-                        cur_names.insert(src_name);
+                if let Some(sgroup_uses) = sgroup_uses_map.get(&group_name) {
+                    for sgroup in sgroup_uses {
+                        cur_names.insert(*sgroup);
                     }
                 }
-                cur_names.insert(group_name);
             }
             ir::Control::Par(ir::Par { stmts, .. })
             | ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 for stmt in stmts {
-                    Self::get_used_sgroups(stmt, cur_names, conflict_graph);
+                    Self::get_used_sgroups(
+                        stmt,
+                        cur_names,
+                        sgroup_uses_map,
+                        conflict_graph,
+                    );
                 }
             }
             ir::Control::Repeat(ir::Repeat { body, .. })
             | ir::Control::While(ir::While { body, .. }) => {
-                Self::get_used_sgroups(body, cur_names, conflict_graph);
+                Self::get_used_sgroups(
+                    body,
+                    cur_names,
+                    sgroup_uses_map,
+                    conflict_graph,
+                );
             }
             ir::Control::If(if_stmt) => {
                 Self::get_used_sgroups(
                     &if_stmt.tbranch,
                     cur_names,
+                    sgroup_uses_map,
                     conflict_graph,
                 );
                 Self::get_used_sgroups(
                     &if_stmt.fbranch,
                     cur_names,
+                    sgroup_uses_map,
                     conflict_graph,
                 );
             }
@@ -384,38 +418,38 @@ impl CompileStatic {
 
     fn build_conflict_graph(
         c: &ir::Control,
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
         sgroup_graph: &mut GraphColoring<ir::Id>,
     ) {
         match c {
             ir::Control::Empty(_)
             | ir::Control::Enable(_)
-            | ir::Control::Invoke(_) => (),
-            ir::Control::Static(sc) => {
-                let ir::StaticControl::Enable(s) = sc else {
-                    unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
-                };
-                for asgn in &s.group.borrow().assignments {
-                    let dst = asgn.dst.borrow();
-                    if dst.is_hole() && dst.name == "go" {
-                        sgroup_graph.insert_conflict(
-                            &dst.get_parent_name(),
-                            &s.group.borrow().name(),
-                        );
-                    }
-                }
-            }
+            | ir::Control::Invoke(_)
+            | ir::Control::Static(_) => (),
             ir::Control::Seq(seq) => {
                 for stmt in &seq.stmts {
-                    Self::build_conflict_graph(stmt, sgroup_graph);
+                    Self::build_conflict_graph(
+                        stmt,
+                        sgroup_uses_map,
+                        sgroup_graph,
+                    );
                 }
             }
             ir::Control::Repeat(ir::Repeat { body, .. })
             | ir::Control::While(ir::While { body, .. }) => {
-                Self::build_conflict_graph(body, sgroup_graph)
+                Self::build_conflict_graph(body, sgroup_uses_map, sgroup_graph)
             }
             ir::Control::If(if_stmt) => {
-                Self::build_conflict_graph(&if_stmt.tbranch, sgroup_graph);
-                Self::build_conflict_graph(&if_stmt.fbranch, sgroup_graph);
+                Self::build_conflict_graph(
+                    &if_stmt.tbranch,
+                    sgroup_uses_map,
+                    sgroup_graph,
+                );
+                Self::build_conflict_graph(
+                    &if_stmt.fbranch,
+                    sgroup_uses_map,
+                    sgroup_graph,
+                );
             }
             ir::Control::Par(par) => {
                 let mut sgroup_conflict_vec = Vec::new();
@@ -424,6 +458,7 @@ impl CompileStatic {
                     Self::get_used_sgroups(
                         stmt,
                         &mut used_sgroups,
+                        sgroup_uses_map,
                         sgroup_graph,
                     );
                     sgroup_conflict_vec.push(used_sgroups);
@@ -441,6 +476,16 @@ impl CompileStatic {
         }
     }
 
+    fn add_use_conflicts(
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
+        sgroup_graph: &mut GraphColoring<ir::Id>,
+    ) {
+        for (sgroup, sgroup_uses) in sgroup_uses_map {
+            for sgroup_use in sgroup_uses {
+                sgroup_graph.insert_conflict(sgroup_use, sgroup);
+            }
+        }
+    }
     fn build_fsm_mapping(
         color_to_groups: HashMap<ir::Id, HashSet<ir::Id>>,
         static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
@@ -469,6 +514,53 @@ impl CompileStatic {
             (fsm_name, group_names)
         }).collect()
     }
+
+    fn update_sgroup_uses_map(
+        parent_group: &ir::Id,
+        full_group_ancestry: &mut HashSet<ir::Id>,
+        cur_mapping: &mut HashMap<ir::Id, HashSet<ir::Id>>,
+        group_names: &mut HashSet<ir::Id>,
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+    ) {
+        let group_uses =
+            get_group_uses(&find_static_group(&parent_group, sgroups));
+        for group_use in group_uses {
+            for ancestor in full_group_ancestry.iter() {
+                cur_mapping.entry(*ancestor).or_default().insert(group_use);
+            }
+            full_group_ancestry.insert(group_use);
+            Self::update_sgroup_uses_map(
+                &group_use,
+                full_group_ancestry,
+                cur_mapping,
+                group_names,
+                sgroups,
+            );
+            full_group_ancestry.remove(&group_use);
+        }
+        group_names.remove(parent_group);
+    }
+
+    fn build_sgroup_uses_map(
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+    ) -> HashMap<ir::Id, HashSet<ir::Id>> {
+        let mut names: HashSet<ir::Id> = sgroups
+            .iter()
+            .map(|sgroup| sgroup.borrow().name())
+            .collect();
+        let mut cur_mapping = HashMap::new();
+        while !names.is_empty() {
+            let random_group = names.iter().next().unwrap().clone();
+            Self::update_sgroup_uses_map(
+                &random_group,
+                &mut HashSet::from([random_group]),
+                &mut cur_mapping,
+                &mut names,
+                sgroups,
+            )
+        }
+        cur_mapping
+    }
 }
 
 impl Visitor for CompileStatic {
@@ -480,10 +572,15 @@ impl Visitor for CompileStatic {
     ) -> VisResult {
         let sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
-
+        let sgroup_uses_map = Self::build_sgroup_uses_map(&sgroups);
         let mut conflict_graph: GraphColoring<ir::Id> =
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
-        Self::build_conflict_graph(&comp.control.borrow(), &mut conflict_graph);
+        Self::build_conflict_graph(
+            &comp.control.borrow(),
+            &sgroup_uses_map,
+            &mut conflict_graph,
+        );
+        Self::add_use_conflicts(&sgroup_uses_map, &mut conflict_graph);
         let coloring = conflict_graph.color_greedy(None, true);
         let mut rev_coloring: HashMap<ir::Id, HashSet<ir::Id>> = HashMap::new();
         for (group, color) in coloring {
@@ -588,6 +685,8 @@ impl Visitor for CompileStatic {
                         structure!( builder;
                             let signal_reg = prim std_reg(1);
                         );
+                        self.signal_reg_map
+                            .insert(*fsm_name, signal_reg.borrow().name());
                         Self::build_wrapper_group(
                             fsm_name,
                             *fsm_width,
