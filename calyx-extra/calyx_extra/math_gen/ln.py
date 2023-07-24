@@ -3,7 +3,6 @@ from math import log
 from calyx.py_ast import (
     Stdlib,
     Component,
-    Import,
 )
 from calyx.utils import float_to_fixed_point
 from fud.stages.verilator import numeric_types
@@ -349,74 +348,3 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
         + [comp.component]
     )
 
-
-if __name__ == "__main__":
-    import argparse
-    import json
-
-    parser = argparse.ArgumentParser(
-        description="`exp` using a Taylor Series approximation"
-    )
-    parser.add_argument("file", nargs="?", type=str)
-    parser.add_argument("-w", "--width", type=int)
-    parser.add_argument("-i", "--int_width", type=int)
-
-    args = parser.parse_args()
-
-    width, int_width = None, None
-    required_fields = [args.width, args.int_width]
-    if all(map(lambda x: x is not None, required_fields)):
-        width = args.width
-        int_width = args.int_width
-    elif args.file is not None:
-        with open(args.file, "r") as f:
-            spec = json.load(f)
-            is_signed = spec["is_signed"]
-            width = spec["width"]
-            int_width = spec["int_width"]
-    else:
-        parser.error(
-            "Need to pass either `-f FILE` or all of `-d DEGREE -w WIDTH -i INT_WIDTH`"
-        )
-
-    # NOTE (griffin): I'm gonna leave these but I am pretty sure this is a copy
-    # paste error
-    # build 2 separate programs: 1 if base_is_e is true, the other if false
-    # any_base_program is (obviously) the one for any base
-
-    builder = Builder()
-    builder.program.imports += [
-        Import("primitives/core.futil"),
-        Import("primitives/binary_operators.futil"),
-    ]
-    builder.program.components.append(generate_ln(width, int_width, is_signed))
-
-    # main component for testing purposes
-    main = builder.component("main")
-    x = main.reg("x", width)
-    in_ = main.mem_d1("in", width, 1, 1, is_external=True)
-    out = main.mem_d1("out", width, 1, 1, is_external=True)
-    ln = main.comp_instance("l", "ln")
-
-    with main.group("read_in_mem") as read_in_mem:
-        in_.read_addr = 0
-        x.in_ = in_.read_data
-        x.write_en = HI
-        read_in_mem.done = x.done
-
-    with main.group("write_to_memory") as write_to_memory:
-        out.addr0 = 0
-        out.write_en = HI
-        out.write_data = ln.out
-        write_to_memory.done = out.done
-
-    main.control += [
-        read_in_mem,
-        invoke(
-            ln,
-            in_x=x.out,
-        ),
-        write_to_memory,
-    ]
-
-    builder.program.emit()
