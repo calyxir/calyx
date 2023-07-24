@@ -110,7 +110,7 @@ fn make_assign_dyn(
 // If there is no such group, then there is an unreachable! error.
 fn find_static_group(
     name: &ir::Id,
-    static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+    static_groups: &[ir::RRC<ir::StaticGroup>],
 ) -> ir::RRC<ir::StaticGroup> {
     Rc::clone(
         static_groups
@@ -520,7 +520,7 @@ impl CompileStatic {
     // fsm names -> groups that it handles
     fn build_fsm_mapping(
         coloring: HashMap<ir::Id, ir::Id>,
-        static_groups: &Vec<ir::RRC<ir::StaticGroup>>,
+        static_groups: &[ir::RRC<ir::StaticGroup>],
         builder: &mut ir::Builder,
     ) -> HashMap<ir::Id, HashSet<ir::Id>> {
         // "reverse" the coloring to map colors -> static group_names
@@ -573,7 +573,7 @@ impl CompileStatic {
         sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
     ) {
         let group_uses =
-            get_go_writes(&find_static_group(&parent_group, sgroups));
+            get_go_writes(&find_static_group(parent_group, sgroups));
         for group_use in group_uses {
             for ancestor in full_group_ancestry.iter() {
                 cur_mapping.entry(*ancestor).or_default().insert(group_use);
@@ -605,7 +605,7 @@ impl CompileStatic {
             .collect();
         let mut cur_mapping = HashMap::new();
         while !names.is_empty() {
-            let random_group = names.iter().next().unwrap().clone();
+            let random_group = *names.iter().next().unwrap();
             Self::update_sgroup_uses_map(
                 &random_group,
                 &mut HashSet::from([random_group]),
