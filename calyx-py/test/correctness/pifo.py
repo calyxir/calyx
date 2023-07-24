@@ -341,7 +341,8 @@ def insert_main(prog):
     incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
     read_command = util.mem_load(main, commands, i.out, command, "read_command")
-    command_eq_zero = util.insert_eq(main, command.out, 0, "command_eq_zero", 32)
+    command_eq_0 = util.insert_eq(main, command.out, 0, "command_eq_0", 32)
+    command_eq_1 = util.insert_eq(main, command.out, 1, "command_eq_1", 32)
     write_ans = util.mem_store(main, ans_mem, j.out, ans.out, "write_ans")
 
     flow = main.reg("flow", 1)  # The flow to push to
@@ -353,38 +354,45 @@ def insert_main(prog):
             err_eq_zero[1],  # Run while the `err` flag is down
             [
                 read_command,  # Read the command at `i`
-                cb.if_(
-                    # Is this a pop or a push?
-                    command_eq_zero[0].out,
-                    command_eq_zero[1],
-                    [  # A pop
-                        cb.invoke(  # First we call pop
-                            pifo,
-                            in_pop=cb.const(1, 1),
-                            in_push=cb.const(1, 0),
-                            ref_ans=ans,
-                            ref_err=err,
-                            ref_len=len,
-                        ),
-                        # AM: if err flag comes back raised,
-                        # do not perform this write or this incr
-                        write_ans,
-                        incr_j,
-                    ],
-                    [
-                        # A push
-                        infer_flow,  # Infer the flow and write it to `flow`.
-                        cb.invoke(
-                            pifo,
-                            in_pop=cb.const(1, 0),
-                            in_push=cb.const(1, 1),
-                            in_payload=command.out,
-                            in_flow=flow.out,
-                            ref_ans=ans,
-                            ref_err=err,
-                            ref_len=len,
-                        ),
-                    ],
+                cb.par(  # Process the command
+                    cb.if_(
+                        # Is this a pop?
+                        command_eq_0[0].out,
+                        command_eq_0[1],
+                        [  # A pop
+                            cb.invoke(  # First we call pop
+                                pifo,
+                                in_pop=cb.const(1, 1),
+                                in_push=cb.const(1, 0),
+                                ref_ans=ans,
+                                ref_err=err,
+                                ref_len=len,
+                            ),
+                            # AM: if err flag comes back raised,
+                            # do not perform this write or this incr
+                            write_ans,
+                            incr_j,
+                        ],
+                    ),
+                    cb.if_(
+                        # Is this a push?
+                        command_eq_1[0].out,
+                        command_eq_1[1],
+                        [
+                            # A push
+                            infer_flow,  # Infer the flow and write it to `flow`.
+                            cb.invoke(
+                                pifo,
+                                in_pop=cb.const(1, 0),
+                                in_push=cb.const(1, 1),
+                                in_payload=command.out,
+                                in_flow=flow.out,
+                                ref_ans=ans,
+                                ref_err=err,
+                                ref_len=len,
+                            ),
+                        ],
+                    ),
                 ),
                 incr_i,  # Increment the command index
                 cb.invoke(  # If i = 15, raise error flag
