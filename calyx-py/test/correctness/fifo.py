@@ -1,6 +1,6 @@
 # pylint: disable=import-error
-import calyx.builder_util as util
 import calyx.builder as cb
+import calyx.builder_util as util
 
 
 def insert_raise_err_if_i_eq_15(prog):
@@ -45,7 +45,7 @@ def insert_fifo(prog, name):
     push = fifo.input("push", 1)
     payload = fifo.input("payload", 32)
 
-    mem = fifo.mem_d1("mem", 32, 10, 32)
+    mem = fifo.seq_mem_d1("mem", 32, 10, 32)
 
     write = fifo.reg("next_write", 32)  # The next address to write to
     read = fifo.reg("next_read", 32)  # The next address to read from
@@ -89,8 +89,15 @@ def insert_fifo(prog, name):
     zero_out_ans = util.reg_store(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
 
     # Load and store into an arbitary slot in memory
-    write_to_mem = util.mem_store(fifo, mem, write.out, payload, "write_payload_to_mem")
-    read_from_mem = util.mem_load(fifo, mem, read.out, ans, "read_payload_from_mem")
+    write_to_mem = util.mem_store_seq_d1(
+        fifo, mem, write.out, payload, "write_payload_to_mem"
+    )
+    read_from_mem = util.mem_read_seqd1(
+        fifo, mem, read.out, "read_payload_from_mem_phase1"
+    )
+    write_to_ans = util.mem_write_seqd1_to_reg(
+        fifo, mem, ans, "read_payload_from_mem_phase2"
+    )
 
     fifo.control += [
         cb.if_(
@@ -114,6 +121,7 @@ def insert_fifo(prog, name):
                         [raise_err, zero_out_ans],  # The queue is empty: underflow.
                         [  # The queue is not empty. Proceed.
                             read_from_mem,  # Read from the queue.
+                            write_to_ans,  # Write the answer to the answer register.
                             read_incr,  # Increment the read pointer.
                             cb.if_(
                                 # Wrap around if necessary.
@@ -166,12 +174,12 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     #    `0`: pop
     #    any other value: push that value
     # - a list of answers (the output).
-    commands = main.mem_d1("commands", 32, 15, 32, is_external=True)
-    ans_mem = main.mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # We will use the `invoke` method to call the `fifo` component.
     fifo = main.cell("myfifo", fifo)
-    # The fifo component takes three `ref` inputs:
+    # The fifo component takes two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
     len = main.reg("len", 32)  # A register to hold the len of the queue
@@ -185,19 +193,27 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     command = main.reg("command", 32)  # The command we're currently processing
 
+    zero_i = util.reg_store(main, i, 0, "zero_i")  # zero out `i`
+    zero_j = util.reg_store(main, j, 0, "zero_j")  # zero out `j`
     incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
-    read_command = util.mem_load(main, commands, i.out, command, "read_command")
+    read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
+    write_command_to_reg = util.mem_write_seqd1_to_reg(
+        main, commands, command, "write_command_phase2"
+    )
     command_eq_zero = util.insert_eq(main, command.out, 0, "command_eq_zero", 32)
-    write_ans = util.mem_store(main, ans_mem, j.out, ans.out, "write_ans")
+    write_ans = util.mem_store_seq_d1(main, ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
+        zero_i,
+        zero_j,
         cb.while_(
             err_eq_zero[0].out,
             err_eq_zero[1],  # Run while the `err` flag is down
             [
                 read_command,  # Read the command at `i`
+                write_command_to_reg,  # Write the command to `command`
                 cb.if_(
                     # Is this a pop or a push?
                     command_eq_zero[0].out,
