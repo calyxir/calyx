@@ -1,4 +1,8 @@
 ## Unreleased
+
+
+## 0.4.0
+- Language: New `repeat` operator that can be used in dynamic contexts as well. When possible, `static-promotion` will attempt to promote it.
 - Fix: `wrap-main` correctly instantiates the original `"toplevel"` component in the generated `main` component.
 - Make `Workspace::construct_with_all_deps` public to allow construction of multi-file workspaces.
 - Don't emit `clk` ports for `@external` cells in the AXI generator.
