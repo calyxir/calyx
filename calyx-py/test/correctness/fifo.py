@@ -162,13 +162,19 @@ def insert_fifo(prog, name):
     return fifo
 
 
-def insert_main(prog, fifo, raise_err_if_i_eq_15):
+def insert_main(prog):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `fifo`.
     """
     main: cb.ComponentBuilder = prog.component("main")
 
-    # The user-facing interface is:
+    # The two components we'll use:
+    fifo = main.cell("myfifo", insert_fifo(prog, "fifo"))
+    raise_err_if_i_eq_15 = main.cell(
+        "raise_err_if_i_eq_15", insert_raise_err_if_i_eq_15(prog)
+    )
+
+    # The user-facing interface of the `main` component is:
     # - a list of commands (the input)
     #    where each command is a 32-bit unsigned integer, with the following format:
     #    `0`: pop
@@ -178,7 +184,6 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # We will use the `invoke` method to call the `fifo` component.
-    fifo = main.cell("myfifo", fifo)
     # The fifo component takes two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
@@ -187,7 +192,6 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
     # It will run until the `err` flag is raised by the `fifo` component.
-    raise_err_if_i_eq_15 = main.cell("raise_err_if_i_eq_15", raise_err_if_i_eq_15)
 
     i = main.reg("i", 32)  # The index of the command we're currently processing
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
@@ -254,9 +258,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    fifo = insert_fifo(prog, "fifo")
-    raise_err_if_i_eq_15 = insert_raise_err_if_i_eq_15(prog)
-    insert_main(prog, fifo, raise_err_if_i_eq_15)
+    insert_main(prog)
     return prog.program
 
 
