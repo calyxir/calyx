@@ -497,7 +497,7 @@ impl CompileStatic {
     /// Would map: A -> {B,C} and B -> {C}
     /// Adds conflicts between any groups triggered at the same time based on
     /// `go` port triggering.
-    fn add_use_conflicts(
+    fn add_go_port_conflicts(
         sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
         conflict_graph: &mut GraphColoring<ir::Id>,
     ) {
@@ -638,7 +638,7 @@ impl Visitor for CompileStatic {
             &sgroup_uses_map,
             &mut conflict_graph,
         );
-        Self::add_use_conflicts(&sgroup_uses_map, &mut conflict_graph);
+        Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
         let coloring = conflict_graph.color_greedy(None, true);
         let mut builder = ir::Builder::new(comp, sigs);
         // build Mappings of fsm names -> set of groups that it can handle.
