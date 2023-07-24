@@ -236,6 +236,13 @@ class ComponentBuilder:
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
+    def is_mem_d1(self, cell: CellBuilder) -> bool:
+        """Check if the cell is a StdMemD1 cell."""
+        return (
+            isinstance(cell._cell.comp, ast.CompInst)
+            and cell._cell.comp.name == "mem_d1"
+        )
+
     def seq_mem_d1(
         self,
         name: str,

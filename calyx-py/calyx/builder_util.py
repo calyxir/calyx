@@ -107,28 +107,14 @@ def insert_reg_store(comp: cb.ComponentBuilder, reg, val, group):
     return store_grp
 
 
-def insert_mem_load(comp: cb.ComponentBuilder, mem, i, reg, group):
-    """Loads a value from one memory into a register.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, reads from memory {mem} at address {i}.
-    3. Writes the value into register {reg}.
-    4. Returns the group that does this.
-    """
-    with comp.group(group) as load_grp:
-        mem.addr0 = i
-        reg.write_en = 1
-        reg.in_ = mem.read_data
-        load_grp.done = reg.done
-    return load_grp
-
-
 def insert_mem_load_to_mem(comp: cb.ComponentBuilder, mem, i, ans, j, group):
-    """Loads a value from one memory into another.
+    """Loads a value from one std_mem_d1 memory into another.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, reads from memory {mem} at address {i}.
     3. Writes the value into memory {ans} at address {j}.
     4. Returns the group that does this.
     """
+    assert mem.is_mem_d1 and ans.is_mem_d1
     with comp.group(group) as load_grp:
         mem.addr0 = i
         ans.write_en = 1
