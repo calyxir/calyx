@@ -52,19 +52,26 @@ def insert_decr(comp: cb.ComponentBuilder, reg, cell, group):
     return decr_group
 
 
-def mem_load(comp: cb.ComponentBuilder, mem, i, reg, group):
-    """Loads a value from one memory into a register.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, reads from memory {mem} at address {i}.
-    3. Writes the value into register {reg}.
-    4. Returns the group that does this.
+def mem_read_seqd1(comp: cb.ComponentBuilder, mem, i, group):
+    """Given a seq_mem_d1, reads from memory at address i.
+    Note that this does not write the value anywhere.
     """
-    with comp.group(group) as load_grp:
+    with comp.group(group) as read_grp:
         mem.addr0 = i
+        mem.read_en = 1
+        read_grp.done = mem.read_done
+    return read_grp
+
+
+def mem_write_seqd1_to_reg(comp: cb.ComponentBuilder, mem, reg, group):
+    """Given a seq_mem_d1 that is already assumed to have a latched value,
+    reads the latched value and writes it to a register.
+    """
+    with comp.group(group) as write_grp:
         reg.write_en = 1
         reg.in_ = mem.read_data
-        load_grp.done = reg.done
-    return load_grp
+        write_grp.done = reg.done
+    return write_grp
 
 
 def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
@@ -78,7 +85,7 @@ def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
         mem.addr0 = i
         mem.write_en = 1
         mem.write_data = val
-        store_grp.done = mem.done
+        store_grp.done = mem.write_done
     return store_grp
 
 
@@ -137,7 +144,7 @@ def insert_fifo(prog):
     push = fifo.input("push", 1)
     payload = fifo.input("payload", 32)
 
-    mem = fifo.mem_d1("mem", 32, 10, 32)
+    mem = fifo.seq_mem_d1("mem", 32, 10, 32)
 
     write = fifo.reg("next_write", 32)  # The next address to write to
     read = fifo.reg("next_read", 32)  # The next address to read from
@@ -180,7 +187,12 @@ def insert_fifo(prog):
 
     # Load and store into an arbitary slot in memory
     write_to_mem = mem_store(fifo, mem, write.out, payload, "write_payload_to_mem")
-    read_from_mem = mem_load(fifo, mem, read.out, ans, "read_payload_from_mem")
+    # read_from_mem = mem_load(fifo, mem, read.out, ans, "read_payload_from_mem")
+
+    read_from_mem = mem_read_seqd1(fifo, mem, read.out, "read_payload_from_mem_phase1")
+    write_to_ans = mem_write_seqd1_to_reg(
+        fifo, mem, ans, "read_payload_from_mem_phase2"
+    )
 
     fifo.control += [
         cb.if_(
@@ -204,6 +216,7 @@ def insert_fifo(prog):
                         [raise_err, zero_out_ans],  # The queue is empty: underflow.
                         [  # The queue is not empty. Proceed.
                             read_from_mem,  # Read from the queue.
+                            write_to_ans,  # Write the answer to the answer register.
                             read_incr,  # Increment the read pointer.
                             cb.if_(
                                 # Wrap around if necessary.
@@ -256,8 +269,8 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     #    `0`: pop
     #    any other value: push that value
     # - a list of answers (the output).
-    commands = main.mem_d1("commands", 32, 15, 32, is_external=True)
-    ans_mem = main.mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # We will use the `invoke` method to call the `fifo` component.
     fifo = main.cell("myfifo", fifo)
@@ -280,7 +293,10 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
     incr_i = insert_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = insert_incr(main, j, "add4", "incr_j")  # j = j + 1
     err_eq_zero = insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
-    read_command = mem_load(main, commands, i.out, command, "read_command")
+    read_command = mem_read_seqd1(main, commands, i.out, "read_command_phase1")
+    write_command_to_reg = mem_write_seqd1_to_reg(
+        main, commands, command, "write_command_phase2"
+    )
     command_eq_zero = insert_eq(main, command.out, 0, "command_eq_zero", 32)
     write_ans = mem_store(main, ans_mem, j.out, ans.out, "write_ans")
 
@@ -292,6 +308,7 @@ def insert_main(prog, fifo, raise_err_if_i_eq_15):
             err_eq_zero[1],  # Run while the `err` flag is down
             [
                 read_command,  # Read the command at `i`
+                write_command_to_reg,  # Write the command to `command`
                 cb.if_(
                     # Is this a pop or a push?
                     command_eq_zero[0].out,
