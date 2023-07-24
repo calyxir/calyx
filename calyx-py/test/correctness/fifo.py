@@ -1,5 +1,5 @@
 # pylint: disable=import-error
-import builder_util as util
+import calyx.builder_util as util
 import calyx.builder as cb
 
 
