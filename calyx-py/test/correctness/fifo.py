@@ -34,16 +34,14 @@ def insert_fifo(prog, name):
     """Inserts the component `fifo` into the program.
 
     It has:
-    - three inputs, `pop`, `push`, and `payload`.
+    - one input, `cmd`.
     - one memory, `mem`, of size 10.
     - two registers, `next_write` and `next_read`.
     - three ref registers, `ans`, `err`, and `len`.
     """
 
     fifo: cb.ComponentBuilder = prog.component(name)
-    pop = fifo.input("pop", 1)
-    push = fifo.input("push", 1)
-    payload = fifo.input("payload", 32)
+    cmd = fifo.input("cmd", 32)  # If this is 0, we pop. Otherwise, we push the value.
 
     mem = fifo.seq_mem_d1("mem", 32, 10, 32)
 
@@ -66,9 +64,10 @@ def insert_fifo(prog, name):
     len = fifo.reg("len", 32, is_ref=True)  # The length of the queue
 
     # Cells and groups to compute equality
-    pop_eq_push = util.insert_eq(fifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
-    pop_eq_1 = util.insert_eq(fifo, pop, 1, "pop_eq_1", 1)  # `pop` == 1
-    push_eq_1 = util.insert_eq(fifo, push, 1, "push_eq_1", 1)  # `push` == 1
+    cmd_eq_0 = util.insert_eq(fifo, cmd, 0, "cmd_eq_0", 32)  # `cmd` == 0
+    cmd_neq_0 = util.insert_neq(
+        fifo, cmd, cb.const(32, 0), "cmd_neq_0", 32
+    )  # `cmd` != 0
     write_eq_10 = util.insert_eq(
         fifo, write.out, 10, "write_eq_10", 32
     )  # `write` == 10
@@ -90,7 +89,7 @@ def insert_fifo(prog, name):
 
     # Load and store into an arbitary slot in memory
     write_to_mem = util.mem_store_seq_d1(
-        fifo, mem, write.out, payload, "write_payload_to_mem"
+        fifo, mem, write.out, cmd, "write_payload_to_mem"
     )
     read_from_mem = util.mem_read_seqd1(
         fifo, mem, read.out, "read_payload_from_mem_phase1"
@@ -100,63 +99,53 @@ def insert_fifo(prog, name):
     )
 
     fifo.control += [
-        cb.if_(
-            pop_eq_push[0].out,
-            pop_eq_push[1],
-            # Checking if the user called pop and push at the same time,
-            # or issued no command.
-            [
-                raise_err,  # If so, we're done.
-                zero_out_ans,  # We zero out the answer register.
-            ],
-            cb.par(  # If not, we continue.
+        cb.par(
+            cb.if_(
+                # Did the user call pop?
+                cmd_eq_0[0].out,
+                cmd_eq_0[1],
                 cb.if_(
-                    # Did the user call pop?
-                    pop_eq_1[0].out,
-                    pop_eq_1[1],
-                    cb.if_(
-                        # Yes, the user called pop. But is the queue empty?
-                        len_eq_0[0].out,
-                        len_eq_0[1],
-                        [raise_err, zero_out_ans],  # The queue is empty: underflow.
-                        [  # The queue is not empty. Proceed.
-                            read_from_mem,  # Read from the queue.
-                            write_to_ans,  # Write the answer to the answer register.
-                            read_incr,  # Increment the read pointer.
-                            cb.if_(
-                                # Wrap around if necessary.
-                                read_eq_10[0].out,
-                                read_eq_10[1],
-                                read_wrap,
-                            ),
-                            len_decr,  # Decrement the length.
-                        ],
-                    ),
-                ),
-                cb.if_(
-                    # Did the user call push?
-                    push_eq_1[0].out,
-                    push_eq_1[1],
-                    cb.if_(
-                        # Yes, the user called push. But is the queue full?
-                        len_eq_10[0].out,
-                        len_eq_10[1],
-                        [raise_err, zero_out_ans],  # The queue is full: overflow.
-                        [  # The queue is not full. Proceed.
-                            write_to_mem,  # Write to the queue.
-                            write_incr,  # Increment the write pointer.
-                            cb.if_(
-                                # Wrap around if necessary.
-                                write_eq_10[0].out,
-                                write_eq_10[1],
-                                write_wrap,
-                            ),
-                            len_incr,  # Increment the length.
-                        ],
-                    ),
+                    # Yes, the user called pop. But is the queue empty?
+                    len_eq_0[0].out,
+                    len_eq_0[1],
+                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [  # The queue is not empty. Proceed.
+                        read_from_mem,  # Read from the queue.
+                        write_to_ans,  # Write the answer to the answer register.
+                        read_incr,  # Increment the read pointer.
+                        cb.if_(
+                            # Wrap around if necessary.
+                            read_eq_10[0].out,
+                            read_eq_10[1],
+                            read_wrap,
+                        ),
+                        len_decr,  # Decrement the length.
+                    ],
                 ),
             ),
-        )
+            cb.if_(
+                # Did the user call push?
+                cmd_neq_0[0].out,
+                cmd_neq_0[1],
+                cb.if_(
+                    # Yes, the user called push. But is the queue full?
+                    len_eq_10[0].out,
+                    len_eq_10[1],
+                    [raise_err, zero_out_ans],  # The queue is full: overflow.
+                    [  # The queue is not full. Proceed.
+                        write_to_mem,  # Write to the queue.
+                        write_incr,  # Increment the write pointer.
+                        cb.if_(
+                            # Wrap around if necessary.
+                            write_eq_10[0].out,
+                            write_eq_10[1],
+                            write_wrap,
+                        ),
+                        len_incr,  # Increment the length.
+                    ],
+                ),
+            ),
+        ),
     ]
 
     return fifo
@@ -201,49 +190,55 @@ def insert_main(prog):
     zero_j = util.reg_store(main, j, 0, "zero_j")  # zero out `j`
     incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
     incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
-    err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
+    err_eq_0 = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
+    cmd_eq_0 = util.insert_eq(main, command.out, 0, "command_eq_0", 32)
+    cmd_neq_0 = util.insert_neq(main, command.out, cb.const(32, 0), "command_neq_0", 32)
+
     read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
     write_command_to_reg = util.mem_write_seqd1_to_reg(
         main, commands, command, "write_command_phase2"
     )
-    command_eq_zero = util.insert_eq(main, command.out, 0, "command_eq_zero", 32)
+
     write_ans = util.mem_store_seq_d1(main, ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
         zero_i,
         zero_j,
         cb.while_(
-            err_eq_zero[0].out,
-            err_eq_zero[1],  # Run while the `err` flag is down
+            err_eq_0[0].out,
+            err_eq_0[1],  # Run while the `err` flag is down
             [
-                read_command,  # Read the command at `i`
-                write_command_to_reg,  # Write the command to `command`
-                cb.if_(
-                    # Is this a pop or a push?
-                    command_eq_zero[0].out,
-                    command_eq_zero[1],
-                    [  # A pop
-                        cb.invoke(  # First we call pop
+                read_command,  # Read `commands[i]`
+                write_command_to_reg,  # Write it to `command`
+                cb.par(
+                    cb.if_(
+                        # Is this a pop?
+                        cmd_eq_0[0].out,
+                        cmd_eq_0[1],
+                        [  # A pop
+                            cb.invoke(  # First we call pop
+                                fifo,
+                                in_cmd=command.out,
+                                ref_ans=ans,
+                                ref_err=err,
+                                ref_len=len,
+                            ),
+                            # AM: if err flag comes back raised,
+                            # do not perform this write or this incr
+                            write_ans,
+                            incr_j,
+                        ],
+                    ),
+                    cb.if_(  # Is this a push?
+                        cmd_neq_0[0].out,
+                        cmd_neq_0[1],
+                        cb.invoke(  # A push
                             fifo,
-                            in_pop=cb.const(1, 1),
-                            in_push=cb.const(1, 0),
+                            in_cmd=command.out,
                             ref_ans=ans,
                             ref_err=err,
                             ref_len=len,
                         ),
-                        # AM: if err flag comes back raised,
-                        # do not perform this write or this incr
-                        write_ans,
-                        incr_j,
-                    ],
-                    cb.invoke(  # A push
-                        fifo,
-                        in_pop=cb.const(1, 0),
-                        in_push=cb.const(1, 1),
-                        in_payload=command.out,
-                        ref_ans=ans,
-                        ref_err=err,
-                        ref_len=len,
                     ),
                 ),
                 incr_i,  # Increment the command index

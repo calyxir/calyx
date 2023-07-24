@@ -172,8 +172,7 @@ def insert_pifo(prog, name):
                                 [  # `hot` is 1. We'll invoke `pop` on `fifo_1`.
                                     cb.invoke(  # First we call pop
                                         fifo_1,
-                                        in_pop=cb.const(1, 1),
-                                        in_push=cb.const(1, 0),
+                                        in_cmd=cb.const(32, 0),
                                         ref_ans=ans,  # Its answer is our answer.
                                         ref_err=err_1,  # We sequester its error.
                                         ref_len=len_1,
@@ -186,8 +185,7 @@ def insert_pifo(prog, name):
                                             # We'll try to pop from `fifo_2`.
                                             cb.invoke(
                                                 fifo_2,
-                                                in_pop=cb.const(1, 1),
-                                                in_push=cb.const(1, 0),
+                                                in_cmd=cb.const(32, 0),
                                                 ref_ans=ans,
                                                 # Its answer is our answer.
                                                 ref_err=err_2,
@@ -213,8 +211,7 @@ def insert_pifo(prog, name):
                                     # We'll proceed symmetrically.
                                     cb.invoke(
                                         fifo_2,
-                                        in_pop=cb.const(1, 1),
-                                        in_push=cb.const(1, 0),
+                                        in_cmd=cb.const(32, 0),
                                         ref_ans=ans,  # Its answer is our answer.
                                         ref_err=err_2,  # We sequester its error.
                                         ref_len=len_2,
@@ -227,8 +224,7 @@ def insert_pifo(prog, name):
                                             # We'll try to pop from `fifo_1`.
                                             cb.invoke(
                                                 fifo_1,
-                                                in_pop=cb.const(1, 1),
-                                                in_push=cb.const(1, 0),
+                                                in_cmd=cb.const(32, 0),
                                                 ref_ans=ans,
                                                 # Its answer is our answer.
                                                 ref_err=err_1,
@@ -272,9 +268,7 @@ def insert_pifo(prog, name):
                                 # The user wants to push to flow 1.
                                 cb.invoke(
                                     fifo_1,
-                                    in_pop=cb.const(1, 0),
-                                    in_push=cb.const(1, 1),
-                                    in_payload=payload,
+                                    in_cmd=payload,
                                     ref_err=err,  # Its error is our error.
                                     ref_len=len_1,
                                     ref_ans=ans,  # Its answer is our answer.
@@ -282,9 +276,7 @@ def insert_pifo(prog, name):
                                 # The user wants to push to flow 2.
                                 cb.invoke(
                                     fifo_2,
-                                    in_pop=cb.const(1, 0),
-                                    in_push=cb.const(1, 1),
-                                    in_payload=payload,
+                                    in_cmd=payload,
                                     ref_err=err,  # Its error is our error.
                                     ref_len=len_2,
                                     ref_ans=ans,  # Its answer is our answer.
