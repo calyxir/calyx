@@ -39,10 +39,10 @@ def add_wrap2(prog):
     unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and j-8. Either of these will store the result in `j_mod_4`.
-    j_minus_4 = util.insert_sub_and_store(
+    j_minus_4 = util.insert_sub_store_in_reg(
         wrap, j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
     )
-    j_minus_8 = util.insert_sub_and_store(
+    j_minus_8 = util.insert_sub_store_in_reg(
         wrap, j, cb.const(32, 8), "j_minus_8", 32, j_mod_4
     )
 
@@ -135,7 +135,7 @@ def add_wrap3(prog):
     unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and store the result in `j_mod_4`.
-    subcell = util.insert_sub_and_store(
+    subcell = util.insert_sub_store_in_reg(
         wrap, j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
     )
 

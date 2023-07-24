@@ -2,37 +2,11 @@
 import calyx.builder as cb
 
 
-def insert_adder(
-    comp: cb.ComponentBuilder,
-    cell,
-    port_l,
-    port_r,
-    ans_reg,
-):
-    """Inserts wiring into component {comp} to compute {port_l} + {port_r} and
-      store it in {ans_reg}.
-
-    1. Within component {comp}, creates a group called {cell}_group.
-    2. Within {group}, create a {cell} that computes sums.
-    3. Puts the values of {port_l} and {port_r} into {cell}.
-    4. Then puts the answer of the computation into {ans_reg}.
-    4. Returns the summing group.
-    """
-    adder = comp.add(cell, 32)
-    with comp.group(f"{cell}_group") as adder_group:
-        adder.left = port_l
-        adder.right = port_r
-        ans_reg.write_en = 1
-        ans_reg.in_ = adder.out
-        adder_group.done = ans_reg.done
-    return adder_group
-
-
 def insert_eq(comp: cb.ComponentBuilder, left, right, cell, width):
-    """Inserts wiring into component {comp} to check if {a} == {b}.
+    """Inserts wiring into component {comp} to check if {left} == {right}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a {cell} that checks equalities of {width}.
-    3. Puts the values {a} and {b} into {cell}.
+    3. Puts the values {left} and {right} into {cell}.
     4. Returns the equality-checking cell and the overall group.
     """
     eq_cell = comp.eq(cell, width)
@@ -43,10 +17,10 @@ def insert_eq(comp: cb.ComponentBuilder, left, right, cell, width):
 
 
 def insert_lt(comp: cb.ComponentBuilder, left, right, cell, width):
-    """Inserts wiring into component {comp} to check if {a} < {b}.
+    """Inserts wiring into component {comp} to check if {left} < {right}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a {cell} that checks less-than of {width}.
-    3. Puts the values {a} and {b} into {cell}.
+    3. Puts the values {left} and {right} into {cell}.
     4. Returns the less-than-checking cell and the overall group.
     """
     lt_cell = comp.lt(cell, width)
@@ -57,10 +31,10 @@ def insert_lt(comp: cb.ComponentBuilder, left, right, cell, width):
 
 
 def insert_add(comp: cb.ComponentBuilder, left, right, cell, width):
-    """Inserts wiring into component {comp} to compute {a} + {b}.
+    """Inserts wiring into component {comp} to compute {left} + {right}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a {cell} that computes sums of {width}.
-    3. Puts the values {a} and {b} into {cell}.
+    3. Puts the values {left} and {right} into {cell}.
     4. Returns the summing cell and the overall group.
     """
     add_cell = comp.add(cell, width)
@@ -71,10 +45,10 @@ def insert_add(comp: cb.ComponentBuilder, left, right, cell, width):
 
 
 def insert_sub(comp: cb.ComponentBuilder, left, right, cell, width):
-    """Inserts wiring into component {comp} to compute {a} - {b}.
+    """Inserts wiring into component {comp} to compute {left} - {right}.
     1. Within {comp}, creates a combinational group called {cell}_group.
     2. Within the group, creates a {cell} that computes differences of {width}.
-    3. Puts the values {a} and {b} into {cell}.
+    3. Puts the values {left} and {right} into {cell}.
     4. Returns the subtracting cell and the overall group.
     """
     sub_cell = comp.sub(cell, width)
@@ -87,17 +61,17 @@ def insert_sub(comp: cb.ComponentBuilder, left, right, cell, width):
 def insert_incr(comp: cb.ComponentBuilder, reg, cell, group):
     """Inserts wiring into component {comp} to increment {reg} by 1.
     1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, adds a cell {cell} that computes sums.
-    3. Puts the values of {port} and 1 into {cell}.
-    4. Then puts the answer of the computation back into {port}.
+    2. Within {group}, adds a {cell} that computes sums.
+    3. Puts the values {reg} and 1 into {cell}.
+    4. Then puts the answer of the computation back into {reg}.
     4. Returns the group that does this.
     """
-    incr_cell = comp.add(cell, 32)
+    add_cell = comp.add(cell, 32)
     with comp.group(group) as incr_group:
-        incr_cell.left = reg.out
-        incr_cell.right = 1
+        add_cell.left = reg.out
+        add_cell.right = 1
         reg.write_en = 1
-        reg.in_ = incr_cell.out
+        reg.in_ = add_cell.out
         incr_group.done = reg.done
     return incr_group
 
@@ -105,17 +79,17 @@ def insert_incr(comp: cb.ComponentBuilder, reg, cell, group):
 def insert_decr(comp: cb.ComponentBuilder, reg, cell, group):
     """Inserts wiring into component {comp} to decrement {reg} by 1.
     1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, adds a cell {cell} that computes differences.
-    3. Puts the values of {port} and 1 into {cell}.
-    4. Then puts the answer of the computation back into {port}.
+    2. Within {group}, adds a {cell} that computes differences.
+    3. Puts the values of {reg} and 1 into {cell}.
+    4. Then puts the answer of the computation back into {reg}.
     4. Returns the group that does this.
     """
-    decr_cell = comp.sub(cell, 32)
+    sub_cell = comp.sub(cell, 32)
     with comp.group(group) as decr_group:
-        decr_cell.left = reg.out
-        decr_cell.right = cb.const(32, 1)
+        sub_cell.left = reg.out
+        sub_cell.right = cb.const(32, 1)
         reg.write_en = 1
-        reg.in_ = decr_cell.out
+        reg.in_ = sub_cell.out
         decr_group.done = reg.done
     return decr_group
 
@@ -126,11 +100,11 @@ def insert_reg_store(comp: cb.ComponentBuilder, reg, val, group):
     2. Within {group}, sets the register {reg} to {val}.
     3. Returns the group that does this.
     """
-    with comp.group(group) as reg_grp:
+    with comp.group(group) as store_grp:
         reg.in_ = val
         reg.write_en = 1
-        reg_grp.done = reg.done
-    return reg_grp
+        store_grp.done = reg.done
+    return store_grp
 
 
 def insert_mem_load(comp: cb.ComponentBuilder, mem, i, reg, group):
@@ -164,26 +138,51 @@ def insert_mem_load_to_mem(comp: cb.ComponentBuilder, mem, i, ans, j, group):
     return load_grp
 
 
-def insert_sub_and_store(
+def insert_add_store_in_reg(
     comp: cb.ComponentBuilder,
-    port,
-    const,
+    cell,
+    left,
+    right,
+    ans_reg,
+):
+    """Inserts wiring into component {comp} to compute {left} + {right} and
+      store it in {ans_reg}.
+    1. Within component {comp}, creates a group called {cell}_group.
+    2. Within {group}, create a {cell} that computes sums.
+    3. Puts the values of {left} and {right} into {cell}.
+    4. Then puts the answer of the computation into {ans_reg}.
+    4. Returns the summing group.
+    """
+    add_cell = comp.add(cell, 32)
+    with comp.group(f"{cell}_group") as adder_group:
+        add_cell.left = left
+        add_cell.right = right
+        ans_reg.write_en = 1
+        ans_reg.in_ = add_cell.out
+        adder_group.done = ans_reg.done
+    return adder_group
+
+
+def insert_sub_store_in_reg(
+    comp: cb.ComponentBuilder,
+    left,
+    right,
     cell,
     width,
     ans_reg,
 ):
-    """Adds wiring into component {comp} to compute {port} - {const}
+    """Adds wiring into component {comp} to compute {left} - {right}
     and store it in {ans_reg}.
     1. Within component {comp}, creates a group called {cell}_group.
     2. Within {group}, create a {cell} that computes differences.
-    3. Puts the values of {port} and {const} into {cell}.
+    3. Puts the values of {left} and {right} into {cell}.
     4. Then puts the answer of the computation into {ans_reg}.
     4. Returns the sub-checking group.
     """
     sub_cell = comp.sub(cell, width)
     with comp.group(f"{cell}_group") as sub_group:
-        sub_cell.left = port
-        sub_cell.right = const
+        sub_cell.left = left
+        sub_cell.right = right
         ans_reg.write_en = 1
         ans_reg.in_ = sub_cell.out
         sub_group.done = ans_reg.done
