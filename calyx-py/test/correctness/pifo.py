@@ -283,13 +283,13 @@ def insert_pifo(prog, name):
                     len_eq_10[1],
                     [raise_err, zero_out_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
-                        # We need to check which flow the user wants to push to.
+                        # We need to check which flow this value should be pushed to.
                         infer_flow,  # Infer the flow and write it to `flow`.
                         cb.par(
                             cb.if_(
                                 flow_eq_0[0].out,
                                 flow_eq_0[1],
-                                # The user wants to push to flow 0.
+                                # This value should be pushed to flow 0.
                                 cb.invoke(
                                     fifo_0,
                                     in_pop=cb.const(1, 0),
@@ -303,7 +303,7 @@ def insert_pifo(prog, name):
                             cb.if_(
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
-                                # The user wants to push to flow 1.
+                                # This value should be pushed to flow 1.
                                 cb.invoke(
                                     fifo_1,
                                     in_pop=cb.const(1, 0),
