@@ -148,7 +148,7 @@ def insert_add_store_in_reg(
     cellname,
     left,
     right,
-    ans_reg,
+    ans_reg=None,
 ):
     """Inserts wiring into component {comp} to compute {left} + {right} and
       store it in {ans_reg}.
@@ -156,16 +156,17 @@ def insert_add_store_in_reg(
     2. Within {group}, create a cell {cellname} that computes sums.
     3. Puts the values of {left} and {right} into the cell.
     4. Then puts the answer of the computation into {ans_reg}.
-    4. Returns the summing group.
+    4. Returns the summing group and the register.
     """
     add_cell = comp.add(cellname, 32)
+    ans_reg = ans_reg or comp.reg(f"reg_{cellname}", 32)
     with comp.group(f"{cellname}_group") as adder_group:
         add_cell.left = left
         add_cell.right = right
         ans_reg.write_en = 1
         ans_reg.in_ = add_cell.out
         adder_group.done = ans_reg.done
-    return adder_group
+    return adder_group, ans_reg
 
 
 def insert_sub_store_in_reg(
@@ -174,7 +175,7 @@ def insert_sub_store_in_reg(
     right,
     cellname,
     width,
-    ans_reg,
+    ans_reg=None,
 ):
     """Adds wiring into component {comp} to compute {left} - {right}
     and store it in {ans_reg}.
@@ -182,13 +183,14 @@ def insert_sub_store_in_reg(
     2. Within {group}, create a cell {cellname} that computes differences.
     3. Puts the values of {left} and {right} into {cell}.
     4. Then puts the answer of the computation into {ans_reg}.
-    4. Returns the sub-checking group.
+    4. Returns the subtracting group and the register.
     """
     sub_cell = comp.sub(cellname, width)
+    ans_reg = ans_reg or comp.reg(f"reg_{cellname}", width)
     with comp.group(f"{cellname}_group") as sub_group:
         sub_cell.left = left
         sub_cell.right = right
         ans_reg.write_en = 1
         ans_reg.in_ = sub_cell.out
         sub_group.done = ans_reg.done
-    return sub_group
+    return sub_group, ans_reg
