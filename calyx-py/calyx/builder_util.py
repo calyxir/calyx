@@ -18,9 +18,9 @@ def insert_eq(comp: cb.ComponentBuilder, a, b, cell, width):
 def insert_neq(comp: cb.ComponentBuilder, a, b, cell, width):
     """Inserts wiring into component {comp} to check if {a} != {b}.
     1. Within {comp}, creates a combinational group called {cell}_group.
-    2. Within the group, creates a {cell} that checks equalities of {width}.
+    2. Within the group, creates a {cell} that checks inequalities of {width}.
     3. Puts the values {a} and {b} into {cell}.
-    4. Returns the equality-checking cell and the overall group.
+    4. Returns the inequality-checking cell and the overall group.
     """
     neq_cell = comp.neq(cell, width)
     with comp.comb_group(f"{cell}_group") as neq_group:
