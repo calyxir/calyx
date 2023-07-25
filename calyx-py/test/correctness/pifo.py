@@ -79,10 +79,11 @@ def insert_pifo(prog, name):
     Maintain `cold` that points to the other fifo.
 
     - len(PIFO) = len(fifo_0) + len(fifo_1)
-    - `push(v, f, PIFO)`:
+    - `push(v, PIFO)`:
        + If len(PIFO) = 10, raise an "overflow" err and exit.
-       + Otherwise, the charge is to enqueue value `v`, that is known to be from
-         flow `f`, and `f` better be either `0` or `1`.
+       + Otherwise, the charge is to enqueue value `v`. 
+         Find out which flow `f` the value `v` should go to;
+         `f` better be either `0` or `1`.
          Enqueue `v` into `fifo_f`.
          Note that the FIFO's enqueue method is itself partial: it may raise
          "overflow", in which case we propagate the overflow flag.
@@ -92,6 +93,7 @@ def insert_pifo(prog, name):
          * If it succeeds it will return a value `v`; just propagate `v`. Also flip
            `hot` and `cold`.
          * If it fails because of underflow, return `pop(FIFO_{cold})`.
+           If the _second_ pop also fails, propagate the error.
            Leave `hot` and `cold` as they were.
     """
 
@@ -105,28 +107,25 @@ def insert_pifo(prog, name):
         "cmd", 32
     )  # The command to execute. 0 = pop, nonzero = push that value
 
-    flow = pifo.reg("flow", 1)  # The flow to push to
-    # We will infer this using an external component and the value of `cmd`.
+    flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1
+    # We will infer this using an external component and the value of `cmd`
     infer_flow = insert_flow_inference(pifo, cmd, flow, "infer_flow")
 
     ans = pifo.reg("ans", 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`
 
     err = pifo.reg("err", 1, is_ref=True)
-    # We'll raise this as a general error flag:
-    # overflow,
-    # underflow,
-    # if the user calls pop and push at the same time,
-    # or if the user issues no command.
-    err_0 = pifo.reg("err_fifo_0", 1)
-    err_1 = pifo.reg("err_fifo_1", 1)
+    # We'll raise this as a general error flag for overflow and underflow
+    err_0 = pifo.reg("err_fifo_0", 1) # an error flag dedicated to fifo_1
+    err_1 = pifo.reg("err_fifo_1", 1) # and one for fifo_1
     propagate_err = pifo.cell("prop_err", insert_propagate_err(prog, "propagate_err"))
+    # Sometimes we'll need to propagate an error message to the main `err` flag
 
     len = pifo.reg("len", 32, is_ref=True)  # The length of the PIFO
     len_0 = pifo.reg("len_0", 32)  # The length of fifo_0
     len_1 = pifo.reg("len_1", 32)  # The length of fifo_1
 
-    # Create the two registers.
+    # Two registers that mark the next FIFO to `pop` from
     hot = pifo.reg("hot", 1)
     cold = pifo.reg("cold", 1)
 
@@ -242,7 +241,7 @@ def insert_pifo(prog, name):
                                                 ref_ans=ans,
                                                 # Its answer is our answer.
                                                 ref_err=err_0,
-                                                # its error is our error
+                                                # We sequester its error.
                                                 ref_len=len_0,
                                             ),
                                             # If `fifo_0` also raised an error,
@@ -361,8 +360,8 @@ def insert_main(prog):
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     command = main.reg("command", 32)  # The command we're currently processing
 
-    incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
-    incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
+    incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i++
+    incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j++
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
     # read_command = util.mem_load(main, commands, i.out, command, "read_command")
     read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
