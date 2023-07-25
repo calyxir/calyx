@@ -2,72 +2,91 @@
 import calyx.builder as cb
 
 
+def insert_comb_group(comp: cb.ComponentBuilder, left, right, cell, groupname):
+    """Accepts a cell that performs some computation on values {left} and {right}.
+    Creates a combinational group {groupname} that wires up the cell with these ports.
+    Returns the cell and the combintational group.
+    """
+    with comp.comb_group(groupname) as comb_group:
+        cell.left = left
+        cell.right = right
+    return cell, comb_group
+
+
 def insert_eq(comp: cb.ComponentBuilder, left, right, cellname, width):
     """Inserts wiring into component {comp} to check if {left} == {right}.
-    1. Within {comp}, creates a combinational group called {cellname}_group.
-    2. Within the group, creates a cell {cellname} that checks equalities of {width}.
-    3. Puts the values {left} and {right} into the cell.
-    4. Returns the equality-checking cell and the overall group.
+
+    <cellname> = std_eq(<width>);
+    ...
+    comb group <cellname>_group {
+        <cellname>.left = <left>;
+        <cellname>.right = <right>;
+    }
+
+    Returns handles to the cell and the combinational group.
     """
     eq_cell = comp.eq(cellname, width)
-    with comp.comb_group(f"{cellname}_group") as eq_group:
-        eq_cell.left = left
-        eq_cell.right = right
-    return eq_cell, eq_group
+    return insert_comb_group(comp, left, right, eq_cell, f"{cellname}_group")
 
 
 def insert_lt(comp: cb.ComponentBuilder, left, right, cellname, width):
     """Inserts wiring into component {comp} to check if {left} < {right}.
-    1. Within {comp}, creates a combinational group called {cellname}_group.
-    2. Within the group, creates a cell {cellname} that checks less-than of {width}.
-    3. Puts the values {left} and {right} into the cell.
-    4. Returns the less-than-checking cell and the overall group.
+
+    <cellname> = std_lt(<width>);
+    ...
+    comb group <cellname>_group {
+        <cellname>.left = <left>;
+        <cellname>.right = <right>;
+    }
+
+    Returns handles to the cell and the combinational group.
     """
     lt_cell = comp.lt(cellname, width)
-    with comp.comb_group(f"{cellname}_group") as lt_group:
-        lt_cell.left = left
-        lt_cell.right = right
-    return lt_cell, lt_group
+    return insert_comb_group(comp, left, right, lt_cell, f"{cellname}_group")
 
 
 def insert_add(comp: cb.ComponentBuilder, left, right, cellname, width):
     """Inserts wiring into component {comp} to compute {left} + {right}.
-    1. Within {comp}, creates a combinational group called {cellname}_group.
-    2. Within the group, creates a cell {cellname} that computes sums of {width}.
-    3. Puts the values {left} and {right} into the cell.
-    4. Returns the summing cell and the overall group.
+
+    <cellname> = std_add(<width>);
+    ...
+    comb group <cellname>_group {
+        <cellname>.left = <left>;
+        <cellname>.right = <right>;
+    }
+
+    Returns handles to the cell and the combinational group.
     """
     add_cell = comp.add(cellname, width)
-    with comp.comb_group(f"{cellname}_group") as add_group:
-        add_cell.left = left
-        add_cell.right = right
-    return add_cell, add_group
+    return insert_comb_group(comp, left, right, add_cell, f"{cellname}_group")
 
 
 def insert_sub(comp: cb.ComponentBuilder, left, right, cellname, width):
     """Inserts wiring into component {comp} to compute {left} - {right}.
-    1. Within {comp}, creates a combinational group called {cellname}_group.
-    2. Within the group, creates a cell {cellname} that computes differences of {width}.
-    3. Puts the values {left} and {right} into the cell.
-    4. Returns the subtracting cell and the overall group.
+
+    <cellname> = std_sub(<width>);
+    ...
+    comb group <cellname>_group {
+        <cellname>.left = <left>;
+        <cellname>.right = <right>;
+    }
+
+    Returns handles to the cell and the combinational group.
     """
     sub_cell = comp.sub(cellname, width)
-    with comp.comb_group(f"{cellname}_group") as sub_group:
-        sub_cell.left = left
-        sub_cell.right = right
-    return sub_cell, sub_group
+    return insert_comb_group(comp, left, right, sub_cell, f"{cellname}_group")
 
 
-def insert_incr(comp: cb.ComponentBuilder, reg, cellname, group, val=1):
-    """Inserts wiring into component {comp} to increment {reg} by {val}.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, adds a cell {cellname} that computes sums.
+def insert_incr(comp: cb.ComponentBuilder, reg, cellname, val=1):
+    """Inserts wiring into component {comp} to increment register {reg} by {val}.
+    1. Within component {comp}, creates a group called {cellname}_group.
+    2. Within the group, adds a cell {cellname} that computes sums.
     3. Puts the values {reg} and {val} into the cell.
     4. Then puts the answer of the computation back into {reg}.
-    4. Returns the group that does this.
+    5. Returns the group that does this.
     """
     add_cell = comp.add(cellname, 32)
-    with comp.group(group) as incr_group:
+    with comp.group(f"{cellname}_group") as incr_group:
         add_cell.left = reg.out
         add_cell.right = cb.const(32, val)
         reg.write_en = 1
@@ -76,16 +95,16 @@ def insert_incr(comp: cb.ComponentBuilder, reg, cellname, group, val=1):
     return incr_group
 
 
-def insert_decr(comp: cb.ComponentBuilder, reg, cellname, group, val=1):
-    """Inserts wiring into component {comp} to decrement {reg} by {val}.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, adds a cell {cellname} that computes differences.
-    3. Puts the values of {reg} and {val} into the cell.
+def insert_decr(comp: cb.ComponentBuilder, reg, cellname, val=1):
+    """Inserts wiring into component {comp} to decrement register {reg} by {val}.
+    1. Within component {comp}, creates a group called {cellname}_group.
+    2. Within the group, adds a cell {cellname} that computes differences.
+    3. Puts the values {reg} and {val} into the cell.
     4. Then puts the answer of the computation back into {reg}.
-    4. Returns the group that does this.
+    5. Returns the group that does this.
     """
     sub_cell = comp.sub(cellname, 32)
-    with comp.group(group) as decr_group:
+    with comp.group(f"{cellname}_group") as decr_group:
         sub_cell.left = reg.out
         sub_cell.right = cb.const(32, val)
         reg.write_en = 1
