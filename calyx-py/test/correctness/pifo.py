@@ -25,19 +25,19 @@ def insert_len_update(comp: cb.ComponentBuilder, length, len_0, len_1, group):
 
 def insert_flow_inference(comp: cb.ComponentBuilder, command, flow, group):
     """The flow is needed when the command is a push.
-    If the value to be pushed is less than 200, we push to flow 1.
-    Otherwise, we push to flow 2.
+    If the value to be pushed is less than 200, we push to flow 0.
+    Otherwise, we push to flow 1.
     This method adds a group to the component {comp} that does this.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, creates a cell {cell} that checks for less-than.
-    3. Puts the values of {command} and 200 into {cell}.
+    3. Puts the values of 199 and {command} into {cell}.
     4. Then puts the answer of the computation into {flow}.
     4. Returns the group that does this.
     """
     cell = comp.lt("flow_inf", 32)
     with comp.group(group) as infer_flow_grp:
-        cell.left = command
-        cell.right = 200
+        cell.left = 199
+        cell.right = command
         flow.write_en = 1
         flow.in_ = cell.out
         infer_flow_grp.done = flow.done
@@ -160,7 +160,8 @@ def insert_pifo(prog, name):
                     len_eq_0[0].out,
                     len_eq_0[1],
                     [raise_err, zero_out_ans],  # The queue is empty: underflow.
-                    [  # The queue is not empty. Proceed. We must check if `hot` is 0 or 1.
+                    [  # The queue is not empty. Proceed.
+                        # We must check if `hot` is 0 or 1.
                         cb.par(  # We'll check both cases in parallel.
                             cb.if_(
                                 # Check if `hot` is 0.
