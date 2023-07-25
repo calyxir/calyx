@@ -58,36 +58,36 @@ def insert_sub(comp: cb.ComponentBuilder, left, right, cellname, width):
     return sub_cell, sub_group
 
 
-def insert_incr(comp: cb.ComponentBuilder, reg, cellname, group):
-    """Inserts wiring into component {comp} to increment {reg} by 1.
+def insert_incr(comp: cb.ComponentBuilder, reg, cellname, group, val=1):
+    """Inserts wiring into component {comp} to increment {reg} by {val}.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, adds a cell {cellname} that computes sums.
-    3. Puts the values {reg} and 1 into the cell.
+    3. Puts the values {reg} and {val} into the cell.
     4. Then puts the answer of the computation back into {reg}.
     4. Returns the group that does this.
     """
     add_cell = comp.add(cellname, 32)
     with comp.group(group) as incr_group:
         add_cell.left = reg.out
-        add_cell.right = 1
+        add_cell.right = cb.const(32, val)
         reg.write_en = 1
         reg.in_ = add_cell.out
         incr_group.done = reg.done
     return incr_group
 
 
-def insert_decr(comp: cb.ComponentBuilder, reg, cellname, group):
-    """Inserts wiring into component {comp} to decrement {reg} by 1.
+def insert_decr(comp: cb.ComponentBuilder, reg, cellname, group, val=1):
+    """Inserts wiring into component {comp} to decrement {reg} by {val}.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, adds a cell {cellname} that computes differences.
-    3. Puts the values of {reg} and 1 into the cell.
+    3. Puts the values of {reg} and {val} into the cell.
     4. Then puts the answer of the computation back into {reg}.
     4. Returns the group that does this.
     """
     sub_cell = comp.sub(cellname, 32)
     with comp.group(group) as decr_group:
         sub_cell.left = reg.out
-        sub_cell.right = cb.const(32, 1)
+        sub_cell.right = cb.const(32, val)
         reg.write_en = 1
         reg.in_ = sub_cell.out
         decr_group.done = reg.done
