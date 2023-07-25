@@ -194,12 +194,19 @@ def insert_pifo(prog, name):
                                                 # We sequester its error.
                                                 ref_len=len_2,
                                             ),
-                                            cb.invoke(
+                                            cb.if_(
                                                 # If `fifo_2` also raised an error,
-                                                # we propagate it.
-                                                propagate_err,
-                                                in_val=cb.const(1, 1),
-                                                ref_err=err,
+                                                # we propagate it and zero out `ans`.
+                                                err_2_eq_1[0].out,
+                                                err_2_eq_1[1],
+                                                [  # `fifo_2` raised an error.
+                                                    cb.invoke(
+                                                        propagate_err,
+                                                        in_val=cb.const(1, 1),
+                                                        ref_err=err,
+                                                    ),
+                                                    zero_out_ans,
+                                                ],
                                             ),
                                         ],
                                         [  # `fifo_1` did not raise an error.
@@ -235,12 +242,19 @@ def insert_pifo(prog, name):
                                                 # its error is our error
                                                 ref_len=len_1,
                                             ),
-                                            cb.invoke(
-                                                # If `fifo_1` also raised an error,
-                                                # we propagate it.
-                                                propagate_err,
-                                                in_val=cb.const(1, 1),
-                                                ref_err=err,
+                                            # If `fifo_1` also raised an error,
+                                            # we propagate it and zero out `ans`.
+                                            cb.if_(
+                                                err_1_eq_1[0].out,
+                                                err_1_eq_1[1],
+                                                [  # `fifo_1` raised an error.
+                                                    cb.invoke(
+                                                        propagate_err,
+                                                        in_val=cb.const(1, 1),
+                                                        ref_err=err,
+                                                    ),
+                                                    zero_out_ans,
+                                                ],
                                             ),
                                         ],
                                         [  # `fifo_2` did not raise an error.
