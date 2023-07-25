@@ -29,25 +29,25 @@ def insert_neq(comp: cb.ComponentBuilder, a, b, cell, width):
     return neq_cell, neq_group
 
 
-def insert_incr(comp: cb.ComponentBuilder, reg, cell, group):
+def insert_incr(comp: cb.ComponentBuilder, reg, cell):
     """Inserts wiring into component {comp} to increment {reg} by 1.
-    1. Within component {comp}, creates a group called {group}.
+    1. Within component {comp}, creates a group called cell_{group}.
     2. Within {group}, adds a cell {cell} that computes sums.
     3. Puts the values of {port} and 1 into {cell}.
     4. Then puts the answer of the computation back into {port}.
     4. Returns the group that does this.
     """
     incr_cell = comp.add(cell, 32)
-    with comp.group(group) as incr_group:
+    with comp.group(f"{cell}group") as incr_group:
         incr_cell.left = reg.out
-        incr_cell.right = 1
+        incr_cell.right = cb.const(32, 1)
         reg.write_en = 1
         reg.in_ = incr_cell.out
         incr_group.done = reg.done
     return incr_group
 
 
-def insert_decr(comp: cb.ComponentBuilder, reg, cell, group):
+def insert_decr(comp: cb.ComponentBuilder, reg, cell):
     """Inserts wiring into component {comp} to decrement {reg} by 1.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, adds a cell {cell} that computes differences.
@@ -56,7 +56,7 @@ def insert_decr(comp: cb.ComponentBuilder, reg, cell, group):
     4. Returns the group that does this.
     """
     decr_cell = comp.sub(cell, 32)
-    with comp.group(group) as decr_group:
+    with comp.group(f"{cell}group") as decr_group:
         decr_cell.left = reg.out
         decr_cell.right = cb.const(32, 1)
         reg.write_en = 1

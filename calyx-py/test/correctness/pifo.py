@@ -288,7 +288,7 @@ def insert_pifo(prog, name):
                                 # This value should be pushed to flow 0.
                                 cb.invoke(
                                     fifo_0,
-                                    in_cmd=payload,
+                                    in_cmd=cmd,
                                     ref_err=err,  # Its error is our error.
                                     ref_len=len_0,
                                     ref_ans=ans,  # Its answer is our answer.
@@ -300,7 +300,7 @@ def insert_pifo(prog, name):
                                 # This value should be pushed to flow 1.
                                 cb.invoke(
                                     fifo_1,
-                                    in_cmd=payload,
+                                    in_cmd=cmd,
                                     ref_err=err,  # Its error is our error.
                                     ref_len=len_1,
                                     ref_ans=ans,  # Its answer is our answer.
@@ -353,8 +353,8 @@ def insert_main(prog):
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     command = main.reg("command", 32)  # The command we're currently processing
 
-    incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
-    incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
+    incr_i = util.insert_incr(main, i, "incr_i")  # i = i + 1
+    incr_j = util.insert_incr(main, j, "incr_j")  # j = j + 1
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
     # read_command = util.mem_load(main, commands, i.out, command, "read_command")
     read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
