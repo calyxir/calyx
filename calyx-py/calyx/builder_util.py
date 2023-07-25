@@ -133,7 +133,7 @@ def insert_mem_load_to_mem(comp: cb.ComponentBuilder, mem, i, ans, j, group):
     3. Writes the value into memory {ans} at address {j}.
     4. Returns the group that does this.
     """
-    assert mem.is_mem_d1 and ans.is_mem_d1
+    assert mem.is_mem_d1() and ans.is_mem_d1()
     with comp.group(group) as load_grp:
         mem.addr0 = i
         ans.write_en = 1
