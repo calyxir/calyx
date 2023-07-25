@@ -531,7 +531,7 @@ impl<'a> Simulator<'a> {
             }
         }
 
-        // phase 3, take the immediate next node and descend to find it's leaf
+        // phase 3, take the immediate next node and descend to find its leaf
         if let Some(immediate_next) = immediate_next_node {
             // reuse our existing stack
             search_stack.clear();
