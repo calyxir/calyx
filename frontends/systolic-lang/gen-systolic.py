@@ -14,6 +14,10 @@ DEPTH = "depth"
 
 
 class CalyxAdd:
+    """
+    A class that represents addition in Calyx between a port and a constant
+    """
+
     def __init__(self, port, const):
         self.port = port
         self.const = const
@@ -124,11 +128,19 @@ def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuil
 
 
 def add_read_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
+    """
+    Add arguments to component `comp` if we want to read from a mem named `name` wth
+    width of `addr_width`
+    """
     comp.input(f"{name}_read_data", BITWIDTH)
     comp.output(f"{name}_addr0", addr_width)
 
 
 def add_write_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
+    """
+    Add arguments to component `comp` if we want to write to a mem named `name` wth
+    width of `addr_width`
+    """
     comp.output(f"{name}_addr0", addr_width)
     comp.output(f"{name}_write_data", BITWIDTH)
     comp.output(f"{name}_write_en", 1)
@@ -283,36 +295,42 @@ def accum_nec_ranges(nec_ranges, schedule):
     return nec_ranges
 
 
-def instantiate_depth_adder(comp, nec_ranges):
+def build_calyx_add(comp, obj):
     """
-    Should refactor code
+    Attempts to build an adder for obj, with name str(obj) and group name
+    str(obj) + "_group" that adds obj.port and obj.const
+    Returns true if we actually build it
+    Returns false otherwise
+    """
+    if type(obj) == CalyxAdd:
+        add_str = str(obj)
+        if comp.try_get_cell(add_str) is None:
+            add = comp.add(add_str, BITWIDTH)
+            with comp.static_group(add_str + "_group", 1):
+                add.left = obj.port
+                add.right = obj.const
+            return True
+    return False
+
+
+def instantiate_calyx_adds(comp, nec_ranges):
+    """
+    Instantiates the CalyxAdds objects to adders and actual groups that add things
     """
     depth_adders = []
     for lo, hi in nec_ranges:
-        if type(lo) == CalyxAdd:
-            add_str = str(lo)
-            if comp.try_get_cell(add_str) is None:
-                add = comp.add(add_str, BITWIDTH)
-                group_name = f"{add_str}_group"
-                with comp.static_group(group_name, 1):
-                    add.left = lo.port
-                    add.right = lo.const
-                depth_adders.append(group_name)
-        if type(hi) == CalyxAdd:
-            add_str = str(hi)
-            if comp.try_get_cell(add_str) is None:
-                add = comp.add(add_str, BITWIDTH)
-                group_name = f"{add_str}_group"
-                with comp.static_group(group_name, 1):
-                    add.left = hi.port
-                    add.right = hi.const
-                depth_adders.append(group_name)
+        if build_calyx_add(comp, lo):
+            depth_adders.append(str(lo) + "_group")
+        if build_calyx_add(comp, hi):
+            depth_adders.append(str(hi) + "_group")
     return depth_adders
 
 
-def instantiate_idx_groups(comp: cb.ComponentBuilder):
+def instantiate_idx_cond_groups(comp: cb.ComponentBuilder):
     """
     Builds groups that instantiate idx to 0 and increment idx
+    Also builds groups that set cond_reg to 1 (runs before the while loop)
+    and that sets cond_reg to idx + 1 < iter_limit
     """
     idx = comp.reg("idx", BITWIDTH)
     add = comp.add("idx_add", BITWIDTH)
@@ -339,7 +357,9 @@ def instantiate_idx_groups(comp: cb.ComponentBuilder):
 
 def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, rem_iter_limit):
     """
-    Builds groups that instantiate idx to 0 and increment idx
+    Builds group that instantiates the dynamic/runtime values for the systolic
+    array: its depth and iteration limit/count (since its iteration limit depends on
+    its depth).
     """
     min_depth_4 = comp.reg("min_depth_4", BITWIDTH)
     lt_depth_4 = comp.lt("lt_depth_4", BITWIDTH)
@@ -604,12 +624,12 @@ accumulating: [{schedules['accum_sched'][r][c][0]} {schedules['accum_sched'][r][
         [py_ast.StaticParComp(control_stmts), py_ast.StaticParComp(incr_stmts)]
     )
 
-    # build the static repeat
+    # build the while loop with condition cond_reg.
     # num repeats = (top_length - 1) + (left_length - 1) + (top_depth - 1) + 5 + 1
     cond_reg_port = comp.get_cell("cond_reg").port("out")
-    static_repeat = cb.while_(cond_reg_port, None, while_body)
+    while_loop = cb.while_(cond_reg_port, None, while_body)
 
-    control.append(static_repeat)
+    control.append(while_loop)
 
     return py_ast.SeqComp(stmts=control), source_map
 
@@ -629,7 +649,7 @@ def create_systolic_array(
         f"{top_length}x{top_depth} and {left_depth}x{left_length}"
     )
 
-    computational_unit = prog.component("systolic")
+    computational_unit = prog.component("systolic_array_comp")
     depth_port = computational_unit.input("depth", BITWIDTH)
     init_dyn_vals(computational_unit, depth_port, top_length + left_length + 4)
 
@@ -639,7 +659,7 @@ def create_systolic_array(
     nec_ranges = set()
     for sched in schedules.values():
         accum_nec_ranges(nec_ranges, sched)
-    depth_adders = instantiate_depth_adder(computational_unit, nec_ranges)
+    depth_adders = instantiate_calyx_adds(computational_unit, nec_ranges)
 
     for row in range(left_length):
         for col in range(top_length):
@@ -673,8 +693,8 @@ def create_systolic_array(
             # Instantiate output movement structure
             instantiate_output_move(computational_unit, row, col, top_length)
 
-    # instantiate two groups: one that initialize idx to 0 and one increments it
-    instantiate_idx_groups(computational_unit)
+    # instantiate groups that handle cond_reg and idx variables
+    instantiate_idx_cond_groups(computational_unit)
     for start, end in nec_ranges:
         # create the groups that create for idx_in_between registers
         instantiate_idx_between(computational_unit, start, end)
@@ -695,6 +715,8 @@ def create_systolic_array(
     prog.program.meta = source_map
 
     # build the main component
+    # instantaites the systolic array/computational_unit and the mems,
+    # and then invokes it
     main = prog.component("main")
     systolic_array = main.cell("systolic_array", computational_unit)
     invoke_args = {}
