@@ -4,19 +4,19 @@ import calyx.builder_util as util
 import calyx.builder as cb
 
 
-def insert_len_update(comp: cb.ComponentBuilder, length, len_1, len_2, group):
+def insert_len_update(comp: cb.ComponentBuilder, length, len_0, len_1, group):
     """Updates the length of the PIFO.
     It is just the sum of the lengths of the two FIFOs.
     1. Within component {comp}, creates a group called {group}.
     2. Creates a cell {cell} that computes sums.
-    3. Puts the values of {len_1} and {len_2} into {cell}.
+    3. Puts the values of {len_0} and {len_1} into {cell}.
     4. Then puts the answer of the computation back into {len}.
     4. Returns the group that does this.
     """
     cell = comp.add("len_adder", 32)
     with comp.group(group) as update_length_grp:
-        cell.left = len_1.out
-        cell.right = len_2.out
+        cell.left = len_0.out
+        cell.right = len_1.out
         length.write_en = 1
         length.in_ = cell.out
         update_length_grp.done = length.done
@@ -72,17 +72,17 @@ def insert_pifo(prog, name):
     At that point we go back to 50/50.
 
     Say the PIFO's maximum capacity is 10. Create two FIFOs, each of capacity 10.
-    Let's say the two flow are called `1` and `2`, and our FIFOs are called
-    `fifo_1` and `fifo_2`.
+    Let's say the two flow are called `0` and `1`, and our FIFOs are called
+    `fifo_0` and `fifo_1`.
     Maintain additionally a register that points to which of these FIFOs is "hot".
-    Start off with `hot` pointing to `fifo_1` (arbitrarily).
+    Start off with `hot` pointing to `fifo_0` (arbitrarily).
     Maintain `cold` that points to the other fifo.
 
-    - len(PIFO) = len(fifo_1) + len(fifo_2)
+    - len(PIFO) = len(fifo_0) + len(fifo_1)
     - `push(v, f, PIFO)`:
        + If len(PIFO) = 10, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`, that is known to be from
-         flow `f`, and `f` better be either `1` or `2`.
+         flow `f`, and `f` better be either `0` or `1`.
          Enqueue `v` into `fifo_f`.
          Note that the FIFO's enqueue method is itself partial: it may raise
          "overflow", in which case we propagate the overflow flag.
@@ -98,8 +98,8 @@ def insert_pifo(prog, name):
     pifo: cb.ComponentBuilder = prog.component(name)
 
     # Create the two FIFOs and ready them for invocation.
+    fifo_0 = pifo.cell("myfifo_0", fifo.insert_fifo(prog, "fifo_0"))
     fifo_1 = pifo.cell("myfifo_1", fifo.insert_fifo(prog, "fifo_1"))
-    fifo_2 = pifo.cell("myfifo_2", fifo.insert_fifo(prog, "fifo_2"))
     propagate_err = pifo.cell("prop_err", insert_propagate_err(prog, "propagate_err"))
 
     pop = pifo.input("pop", 1)
@@ -116,32 +116,34 @@ def insert_pifo(prog, name):
     # underflow,
     # if the user calls pop and push at the same time,
     # or if the user issues no command.
+    err_0 = pifo.reg("err_fifo_0", 1)
     err_1 = pifo.reg("err_fifo_1", 1)
-    err_2 = pifo.reg("err_fifo_2", 1)
 
     len = pifo.reg("len", 32, is_ref=True)  # The length of the PIFO
+    len_0 = pifo.reg("len_0", 32)  # The length of fifo_0
     len_1 = pifo.reg("len_1", 32)  # The length of fifo_1
-    len_2 = pifo.reg("len_2", 32)  # The length of fifo_2
 
     # Create the two registers.
     hot = pifo.reg("hot", 1)
     cold = pifo.reg("cold", 1)
 
     # Some equality checks.
+    hot_eq_0 = util.insert_eq(pifo, hot.out, cb.const(1, 0), "hot_eq_0", 1)  # hot == 0
     hot_eq_1 = util.insert_eq(pifo, hot.out, 1, "hot_eq_1", 1)  # hot == 1
+    flow_eq_0 = util.insert_eq(pifo, flow, 0, "flow_eq_0", 1)  # flow == 0
     flow_eq_1 = util.insert_eq(pifo, flow, 1, "flow_eq_1", 1)  # flow == 1
     len_eq_0 = util.insert_eq(pifo, len.out, 0, "len_eq_0", 32)  # `len` == 0
     len_eq_10 = util.insert_eq(pifo, len.out, 10, "len_eq_10", 32)  # `len` == 10
     pop_eq_push = util.insert_eq(pifo, pop, push, "pop_eq_push", 1)  # `pop` == `push`
     pop_eq_1 = util.insert_eq(pifo, pop, 1, "pop_eq_1", 1)  # `pop` == 1
     push_eq_1 = util.insert_eq(pifo, push, 1, "push_eq_1", 1)  # `push` == 1
+    err_0_eq_1 = util.insert_eq(pifo, err_0.out, 1, "err_0_eq_1", 1)  # err_0 == 1
     err_1_eq_1 = util.insert_eq(pifo, err_1.out, 1, "err_1_eq_1", 1)  # err_1 == 1
-    err_2_eq_1 = util.insert_eq(pifo, err_2.out, 1, "err_2_eq_1", 1)  # err_2 == 1
 
     swap = util.reg_swap(pifo, hot, cold, "swap")  # Swap `hot` and `cold`.
     raise_err = util.reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
     zero_out_ans = util.reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
-    update_length = insert_len_update(pifo, len, len_1, len_2, "update_length")
+    update_length = insert_len_update(pifo, len, len_0, len_1, "update_length")
 
     # The main logic.
     pifo.control += [
@@ -164,106 +166,113 @@ def insert_pifo(prog, name):
                         len_eq_0[0].out,
                         len_eq_0[1],
                         [raise_err, zero_out_ans],  # The queue is empty: underflow.
-                        [  # The queue is not empty. Proceed.
-                            # Check if `hot` is 1.
-                            cb.if_(
-                                hot_eq_1[0].out,
-                                hot_eq_1[1],
-                                [  # `hot` is 1. We'll invoke `pop` on `fifo_1`.
-                                    cb.invoke(  # First we call pop
-                                        fifo_1,
-                                        in_pop=cb.const(1, 1),
-                                        in_push=cb.const(1, 0),
-                                        ref_ans=ans,  # Its answer is our answer.
-                                        ref_err=err_1,  # We sequester its error.
-                                        ref_len=len_1,
-                                    ),
-                                    # Now we check if `fifo_1` raised an error.
-                                    cb.if_(
-                                        err_1_eq_1[0].out,
-                                        err_1_eq_1[1],
-                                        [  # `fifo_1` raised an error.
-                                            # We'll try to pop from `fifo_2`.
-                                            cb.invoke(
-                                                fifo_2,
-                                                in_pop=cb.const(1, 1),
-                                                in_push=cb.const(1, 0),
-                                                ref_ans=ans,
+                        [  # The queue is not empty. Proceed. We must check if `hot` is 0 or 1.
+                            cb.par(  # We'll check both cases in parallel.
+                                cb.if_(
+                                    # Check if `hot` is 0.
+                                    hot_eq_0[0].out,
+                                    hot_eq_0[1],
+                                    [  # `hot` is 0. We'll invoke `pop` on `fifo_0`.
+                                        cb.invoke(  # First we call pop
+                                            fifo_0,
+                                            in_pop=cb.const(1, 1),
+                                            in_push=cb.const(1, 0),
+                                            ref_ans=ans,  # Its answer is our answer.
+                                            ref_err=err_0,  # We sequester its error.
+                                            ref_len=len_0,
+                                        ),
+                                        # Now we check if `fifo_0` raised an error.
+                                        cb.if_(
+                                            err_0_eq_1[0].out,
+                                            err_0_eq_1[1],
+                                            [  # `fifo_0` raised an error.
+                                                # We'll try to pop from `fifo_1`.
+                                                cb.invoke(
+                                                    fifo_1,
+                                                    in_pop=cb.const(1, 1),
+                                                    in_push=cb.const(1, 0),
+                                                    ref_ans=ans,
+                                                    # Its answer is our answer.
+                                                    ref_err=err_1,
+                                                    # We sequester its error.
+                                                    ref_len=len_1,
+                                                ),
+                                                cb.if_(
+                                                    # If `fifo_1` also raised an error,
+                                                    # we propagate it and zero out `ans`.
+                                                    err_1_eq_1[0].out,
+                                                    err_1_eq_1[1],
+                                                    [  # `fifo_1` raised an error.
+                                                        cb.invoke(
+                                                            propagate_err,
+                                                            in_val=cb.const(1, 1),
+                                                            ref_err=err,
+                                                        ),
+                                                        zero_out_ans,
+                                                    ],
+                                                ),
+                                            ],
+                                            [  # `fifo_0` did not raise an error.
                                                 # Its answer is our answer.
-                                                ref_err=err_2,
-                                                # We sequester its error.
-                                                ref_len=len_2,
-                                            ),
-                                            cb.if_(
-                                                # If `fifo_2` also raised an error,
+                                                # We'll just swap `hot` and `cold`.
+                                                swap,
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                                cb.if_(
+                                    # Check if `hot` is 1.
+                                    hot_eq_1[0].out,
+                                    hot_eq_1[1],
+                                    [  # `hot` is 1.
+                                        # We'll proceed symmetrically.
+                                        cb.invoke(
+                                            fifo_1,
+                                            in_pop=cb.const(1, 1),
+                                            in_push=cb.const(1, 0),
+                                            ref_ans=ans,  # Its answer is our answer.
+                                            ref_err=err_1,  # We sequester its error.
+                                            ref_len=len_1,
+                                        ),
+                                        # Now we check if `fifo_1` raised an error.
+                                        cb.if_(
+                                            err_1_eq_1[0].out,
+                                            err_1_eq_1[1],
+                                            [  # `fifo_1` raised an error.
+                                                # We'll try to pop from `fifo_0`.
+                                                cb.invoke(
+                                                    fifo_0,
+                                                    in_pop=cb.const(1, 1),
+                                                    in_push=cb.const(1, 0),
+                                                    ref_ans=ans,
+                                                    # Its answer is our answer.
+                                                    ref_err=err_0,
+                                                    # its error is our error
+                                                    ref_len=len_0,
+                                                ),
+                                                # If `fifo_0` also raised an error,
                                                 # we propagate it and zero out `ans`.
-                                                err_2_eq_1[0].out,
-                                                err_2_eq_1[1],
-                                                [  # `fifo_2` raised an error.
-                                                    cb.invoke(
-                                                        propagate_err,
-                                                        in_val=cb.const(1, 1),
-                                                        ref_err=err,
-                                                    ),
-                                                    zero_out_ans,
-                                                ],
-                                            ),
-                                        ],
-                                        [  # `fifo_1` did not raise an error.
-                                            # Its answer is our answer.
-                                            # We'll just swap `hot` and `cold`.
-                                            swap,
-                                        ],
-                                    ),
-                                ],
-                                [  # `hot` is 2.
-                                    # We'll proceed symmetrically.
-                                    cb.invoke(
-                                        fifo_2,
-                                        in_pop=cb.const(1, 1),
-                                        in_push=cb.const(1, 0),
-                                        ref_ans=ans,  # Its answer is our answer.
-                                        ref_err=err_2,  # We sequester its error.
-                                        ref_len=len_2,
-                                    ),
-                                    # Now we check if `fifo_2` raised an error.
-                                    cb.if_(
-                                        err_2_eq_1[0].out,
-                                        err_2_eq_1[1],
-                                        [  # `fifo_2` raised an error.
-                                            # We'll try to pop from `fifo_1`.
-                                            cb.invoke(
-                                                fifo_1,
-                                                in_pop=cb.const(1, 1),
-                                                in_push=cb.const(1, 0),
-                                                ref_ans=ans,
+                                                cb.if_(
+                                                    err_0_eq_1[0].out,
+                                                    err_0_eq_1[1],
+                                                    [  # `fifo_0` raised an error.
+                                                        cb.invoke(
+                                                            propagate_err,
+                                                            in_val=cb.const(1, 1),
+                                                            ref_err=err,
+                                                        ),
+                                                        zero_out_ans,
+                                                    ],
+                                                ),
+                                            ],
+                                            [  # `fifo_1` did not raise an error.
                                                 # Its answer is our answer.
-                                                ref_err=err_1,
-                                                # its error is our error
-                                                ref_len=len_1,
-                                            ),
-                                            # If `fifo_1` also raised an error,
-                                            # we propagate it and zero out `ans`.
-                                            cb.if_(
-                                                err_1_eq_1[0].out,
-                                                err_1_eq_1[1],
-                                                [  # `fifo_1` raised an error.
-                                                    cb.invoke(
-                                                        propagate_err,
-                                                        in_val=cb.const(1, 1),
-                                                        ref_err=err,
-                                                    ),
-                                                    zero_out_ans,
-                                                ],
-                                            ),
-                                        ],
-                                        [  # `fifo_2` did not raise an error.
-                                            # Its answer is our answer.
-                                            # We'll just swap `hot` and `cold`.
-                                            swap,
-                                        ],
-                                    ),
-                                ],
+                                                # We'll just swap `hot` and `cold`.
+                                                swap,
+                                            ],
+                                        ),
+                                    ],
+                                ),
                             ),
                             update_length,  # Update the length of the PIFO.
                         ],
@@ -280,28 +289,34 @@ def insert_pifo(prog, name):
                         [raise_err, zero_out_ans],  # The queue is full: overflow.
                         [  # The queue is not full. Proceed.
                             # We need to check which flow the user wants to push to.
-                            cb.if_(
-                                flow_eq_1[0].out,
-                                flow_eq_1[1],
-                                # The user wants to push to flow 1.
-                                cb.invoke(
-                                    fifo_1,
-                                    in_pop=cb.const(1, 0),
-                                    in_push=cb.const(1, 1),
-                                    in_payload=payload,
-                                    ref_err=err,  # Its error is our error.
-                                    ref_len=len_1,
-                                    ref_ans=ans,  # Its answer is our answer.
+                            cb.par(
+                                cb.if_(
+                                    flow_eq_0[0].out,
+                                    flow_eq_0[1],
+                                    # The user wants to push to flow 0.
+                                    cb.invoke(
+                                        fifo_0,
+                                        in_pop=cb.const(1, 0),
+                                        in_push=cb.const(1, 1),
+                                        in_payload=payload,
+                                        ref_err=err,  # Its error is our error.
+                                        ref_len=len_0,
+                                        ref_ans=ans,  # Its answer is our answer.
+                                    ),
                                 ),
-                                # The user wants to push to flow 2.
-                                cb.invoke(
-                                    fifo_2,
-                                    in_pop=cb.const(1, 0),
-                                    in_push=cb.const(1, 1),
-                                    in_payload=payload,
-                                    ref_err=err,  # Its error is our error.
-                                    ref_len=len_2,
-                                    ref_ans=ans,  # Its answer is our answer.
+                                cb.if_(
+                                    flow_eq_1[0].out,
+                                    flow_eq_1[1],
+                                    # The user wants to push to flow 1.
+                                    cb.invoke(
+                                        fifo_1,
+                                        in_pop=cb.const(1, 0),
+                                        in_push=cb.const(1, 1),
+                                        in_payload=payload,
+                                        ref_err=err,  # Its error is our error.
+                                        ref_len=len_1,
+                                        ref_ans=ans,  # Its answer is our answer.
+                                    ),
                                 ),
                             ),
                             update_length,  # Update the length of the PIFO.
