@@ -540,14 +540,27 @@ impl<'a> Simulator<'a> {
                 next: extract_next_search(immediate_next),
             });
 
-            while let Some(node) = search_stack.pop() {
+            while let Some(mut node) = search_stack.pop() {
                 match &self.ctx().primary[node.node] {
                     ControlNode::Empty(_) => {
                         // for now not going to pause on empty nodes but this
                         // should maybe be changed in the future
                     }
 
-                    ControlNode::Seq(_) => todo!(),
+                    ControlNode::Seq(_) => {
+                        if let Some(next) = node.next.pop_front() {
+                            search_stack.push(node);
+                            let next_search_node = SearchNode {
+                                node: next,
+                                next: extract_next_search(next),
+                            };
+                            search_stack.push(next_search_node);
+                        } else {
+                            // this seq does not contain any more nodes.
+                            // Currently only possible if the seq is empty or
+                            // exclusively contains empty statements
+                        }
+                    },
 
                     // functionally terminals for the purposes of needing to be
                     // seen in the control program and given extra treatment
