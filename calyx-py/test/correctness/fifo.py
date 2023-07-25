@@ -188,21 +188,21 @@ def insert_main(prog):
 
     i = main.reg("i", 32)  # The index of the command we're currently processing
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
-    command = main.reg("command", 32)  # The command we're currently processing
+    cmd = main.reg("command", 32)  # The command we're currently processing
 
     zero_i = util.insert_reg_store(main, i, 0, "zero_i")  # zero out `i`
     zero_j = util.insert_reg_store(main, j, 0, "zero_j")  # zero out `j`
     incr_i = util.insert_incr(main, i, "incr_i")  # i = i + 1
     incr_j = util.insert_incr(main, j, "incr_j")  # j = j + 1
     err_eq_0 = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
-    cmd_eq_0 = util.insert_eq(main, command.out, 0, "cmd_eq_0", 32)  # is `command` 0?
+    cmd_eq_0 = util.insert_eq(main, cmd.out, 0, "cmd_eq_0", 32)  # cmd == 0
     cmd_neq_0 = util.insert_neq(
-        main, command.out, cb.const(32, 0), "cmd_neq_0", 32
-    )  # is `command` 0?
+        main, cmd.out, cb.const(32, 0), "cmd_neq_0", 32
+    )  # cmd != 0
 
-    read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
-    write_command_to_reg = util.mem_write_seqd1_to_reg(
-        main, commands, command, "write_command_phase2"
+    read_cmd = util.mem_read_seqd1(main, commands, i.out, "read_cmd_phase1")
+    write_cmd_to_reg = util.mem_write_seqd1_to_reg(
+        main, commands, cmd, "write_cmd_phase2"
     )
 
     write_ans = util.mem_store_seq_d1(main, ans_mem, j.out, ans.out, "write_ans")
@@ -214,8 +214,8 @@ def insert_main(prog):
             err_eq_0[0].out,
             err_eq_0[1],  # Run while the `err` flag is down
             [
-                read_command,  # Read `commands[i]`
-                write_command_to_reg,  # Write it to `command`
+                read_cmd,  # Read `commands[i]`
+                write_cmd_to_reg,  # Write it to `cmd`
                 cb.par(
                     cb.if_(
                         # Is this a pop?
@@ -224,7 +224,7 @@ def insert_main(prog):
                         [  # A pop
                             cb.invoke(  # First we call pop
                                 fifo,
-                                in_cmd=command.out,
+                                in_cmd=cmd.out,
                                 ref_ans=ans,
                                 ref_err=err,
                                 ref_len=len,
@@ -240,7 +240,7 @@ def insert_main(prog):
                         cmd_neq_0[1],
                         cb.invoke(  # A push
                             fifo,
-                            in_cmd=command.out,
+                            in_cmd=cmd.out,
                             ref_ans=ans,
                             ref_err=err,
                             ref_len=len,

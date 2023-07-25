@@ -23,21 +23,21 @@ def insert_len_update(comp: cb.ComponentBuilder, length, len_0, len_1, group):
     return update_length_grp
 
 
-def insert_flow_inference(comp: cb.ComponentBuilder, command, flow, group):
+def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
     """The flow is needed when the command is a push.
     If the value to be pushed is less than 200, we push to flow 0.
     Otherwise, we push to flow 1.
     This method adds a group to the component {comp} that does this.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, creates a cell {cell} that checks for less-than.
-    3. Puts the values of 199 and {command} into {cell}.
+    3. Puts the values of 199 and {cmd} into {cell}.
     4. Then puts the answer of the computation into {flow}.
     4. Returns the group that does this.
     """
     cell = comp.lt("flow_inf", 32)
     with comp.group(group) as infer_flow_grp:
         cell.left = 199
-        cell.right = command
+        cell.right = cmd
         flow.write_en = 1
         flow.in_ = cell.out
         infer_flow_grp.done = flow.done
@@ -350,19 +350,18 @@ def insert_main(prog):
 
     i = main.reg("i", 32)  # The index of the command we're currently processing
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
-    command = main.reg("command", 32)  # The command we're currently processing
+    cmd = main.reg("command", 32)  # The command we're currently processing
 
     incr_i = util.insert_incr(main, i, "incr_i")  # i++
     incr_j = util.insert_incr(main, j, "incr_j")  # j++
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
-    # read_command = util.mem_load(main, commands, i.out, command, "read_command")
-    read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
-    write_command_to_reg = util.mem_write_seqd1_to_reg(
-        main, commands, command, "read_command_phase2"
+    read_cmd = util.mem_read_seqd1(main, commands, i.out, "read_cmd_phase1")
+    write_cmd_to_reg = util.mem_write_seqd1_to_reg(
+        main, commands, cmd, "read_cmd_phase2"
     )
 
-    command_eq_0 = util.insert_eq(main, command.out, 0, "command_eq_0", 32)
-    command_eq_1 = util.insert_eq(main, command.out, 1, "command_eq_1", 32)
+    cmd_eq_0 = util.insert_eq(main, cmd.out, 0, "cmd_eq_0", 32)
+    cmd_eq_1 = util.insert_eq(main, cmd.out, 1, "cmd_eq_1", 32)
     write_ans = util.mem_store_seq_d1(main, ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
@@ -370,17 +369,17 @@ def insert_main(prog):
             err_eq_zero[0].out,
             err_eq_zero[1],  # Run while the `err` flag is down
             [
-                read_command,  # Read `command[i]`
-                write_command_to_reg,  # And write it to `command`
+                read_cmd,  # Read `cmd[i]`
+                write_cmd_to_reg,  # And write it to `cmd`
                 cb.par(  # Process the command
                     cb.if_(
                         # Is this a pop?
-                        command_eq_0[0].out,
-                        command_eq_0[1],
+                        cmd_eq_0[0].out,
+                        cmd_eq_0[1],
                         [  # A pop
                             cb.invoke(  # First we call pop
                                 pifo,
-                                in_cmd=command.out,
+                                in_cmd=cmd.out,
                                 ref_ans=ans,
                                 ref_err=err,
                                 ref_len=len,
@@ -393,13 +392,13 @@ def insert_main(prog):
                     ),
                     cb.if_(
                         # Is this a push?
-                        command_eq_1[0].out,
-                        command_eq_1[1],
+                        cmd_eq_1[0].out,
+                        cmd_eq_1[1],
                         [
                             # A push
                             cb.invoke(
                                 pifo,
-                                in_cmd=command.out,
+                                in_cmd=cmd.out,
                                 ref_ans=ans,
                                 ref_err=err,
                                 ref_len=len,
