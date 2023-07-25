@@ -13,12 +13,21 @@ struct HeapAttrInfo {
 
 /// Attributes associated with a specific IR structure.
 #[derive(Default, Debug, Clone)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Attributes {
     /// Inlined attributes
     inl: InlineAttributes,
     /// Attributes stored on the heap
     hinfo: Box<HeapAttrInfo>,
+}
+
+#[cfg(feature = "serialize")]
+impl serde::Serialize for Attributes {
+    fn serialize<S>(&self, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        ser.collect_map(self.to_owned().iter())
+    }
 }
 
 impl TryFrom<Vec<(Attribute, u64)>> for Attributes {
@@ -127,6 +136,16 @@ impl Attributes {
     pub fn add_span(mut self, span: GPosIdx) -> Self {
         self.hinfo.span = span;
         self
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (Attribute, u64)> + '_ {
+        self.hinfo
+            .attrs
+            .iter()
+            .map(|(k, v)| (*k, *v))
+            .chain(self.inl
+                   .iter()
+                   .map(|k| (Attribute::Bool(k), 1)))
     }
 
     pub fn to_string_with<F>(&self, sep: &'static str, fmt: F) -> String
