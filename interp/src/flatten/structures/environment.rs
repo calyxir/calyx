@@ -542,10 +542,7 @@ impl<'a> Simulator<'a> {
 
             while let Some(mut node) = search_stack.pop() {
                 match &self.ctx().primary[node.node] {
-                    ControlNode::Empty(_) => {
-                        // for now not going to pause on empty nodes but this
-                        // should maybe be changed in the future
-                    }
+
 
                     ControlNode::Seq(_) => {
                         if let Some(next) = node.next.pop_front() {
@@ -569,7 +566,9 @@ impl<'a> Simulator<'a> {
                     | ControlNode::While(_)
                     // actual terminals
                     | ControlNode::Invoke(_)
-                    | ControlNode::Enable(_) => {
+                    | ControlNode::Enable(_)
+                    // might not want this here in the future
+                    | ControlNode::Empty(_)=> {
                         return Some(ControlPoint::new(comp, node.node))
                     }
                 }
