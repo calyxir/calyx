@@ -21,22 +21,13 @@ def add_tree(prog):
     # Add the output port.
     tree.output("sum", 32)
 
-    # Add three registers and two adders.
-    root = tree.reg("root", 32)
-    left = tree.reg("left_node", 32)
-    right = tree.reg("right_node", 32)
-
     # Into the component `tree`, add the wiring for three adder groups that will
     # use the tree to perform their additions.
     # These need to be orchestrated in the control below.
-    add_l0_l1, left = util.insert_add_store_in_reg(
-        tree, "add_l0_l1", leaf0, leaf1, left
-    )
-    add_l2_l3, right = util.insert_add_store_in_reg(
-        tree, "add_l2_l3", leaf2, leaf3, right
-    )
+    add_l0_l1, left = util.insert_add_store_in_reg(tree, "add_l0_l1", leaf0, leaf1)
+    add_l2_l3, right = util.insert_add_store_in_reg(tree, "add_l2_l3", leaf2, leaf3)
     add_l_r_nodes, root = util.insert_add_store_in_reg(
-        tree, "add_l_r", left.out, right.out, root
+        tree, "add_l_r", left.out, right.out
     )
 
     # Continuously output the value of the root register.
