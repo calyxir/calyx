@@ -17,7 +17,7 @@ def insert_raise_err_if_i_eq_15(prog):
     err = raise_err_if_i_eq_15.reg("err", 1, is_ref=True)
 
     i_eq_15 = util.insert_eq(raise_err_if_i_eq_15, i, 15, "i_eq_15", 32)
-    raise_err = util.reg_store(raise_err_if_i_eq_15, err, 1, "raise_err")
+    raise_err = util.insert_reg_store(raise_err_if_i_eq_15, err, 1, "raise_err")
 
     raise_err_if_i_eq_15.control += [
         cb.if_(
@@ -77,16 +77,20 @@ def insert_fifo(prog, name):
     len_eq_10 = util.insert_eq(fifo, len.out, 10, "len_eq_10", 32)  # `len` == 10
 
     # Cells and groups to increment read and write registers
-    write_incr = util.insert_incr(fifo, write, "add1", "write_incr")  # write++
-    read_incr = util.insert_incr(fifo, read, "add2", "read_incr")  # read++
-    len_incr = util.insert_incr(fifo, len, "add5", "len_incr")  # len++
-    len_decr = util.insert_decr(fifo, len, "add6", "len_decr")  # len--
+    write_incr = util.insert_incr(fifo, write, "write_incr")  # write++
+    read_incr = util.insert_incr(fifo, read, "read_incr")  # read++
+    len_incr = util.insert_incr(fifo, len, "len_incr")  # len++
+    len_decr = util.insert_decr(fifo, len, "len_decr")  # len--
 
     # Cells and groups to modify flags, which are registers
-    write_wrap = util.reg_store(fifo, write, 0, "write_wraparound")  # zero out `write`
-    read_wrap = util.reg_store(fifo, read, 0, "read_wraparound")  # zero out `read`
-    raise_err = util.reg_store(fifo, err, 1, "raise_err")  # set `err` to 1
-    zero_out_ans = util.reg_store(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
+    write_wrap = util.insert_reg_store(
+        fifo, write, 0, "write_wraparound"
+    )  # zero out `write`
+    read_wrap = util.insert_reg_store(
+        fifo, read, 0, "read_wraparound"
+    )  # zero out `read`
+    raise_err = util.insert_reg_store(fifo, err, 1, "raise_err")  # set `err` to 1
+    zero_out_ans = util.insert_reg_store(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
 
     # Load and store into an arbitary slot in memory
     write_to_mem = util.mem_store_seq_d1(
@@ -197,10 +201,10 @@ def insert_main(prog):
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     command = main.reg("command", 32)  # The command we're currently processing
 
-    zero_i = util.reg_store(main, i, 0, "zero_i")  # zero out `i`
-    zero_j = util.reg_store(main, j, 0, "zero_j")  # zero out `j`
-    incr_i = util.insert_incr(main, i, "add3", "incr_i")  # i = i + 1
-    incr_j = util.insert_incr(main, j, "add4", "incr_j")  # j = j + 1
+    zero_i = util.insert_reg_store(main, i, 0, "zero_i")  # zero out `i`
+    zero_j = util.insert_reg_store(main, j, 0, "zero_j")  # zero out `j`
+    incr_i = util.insert_incr(main, i, "incr_i")  # i = i + 1
+    incr_j = util.insert_incr(main, j, "incr_j")  # j = j + 1
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
     read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
     write_command_to_reg = util.mem_write_seqd1_to_reg(

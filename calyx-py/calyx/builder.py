@@ -564,6 +564,13 @@ class CellBuilder(CellLikeBuilder):
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
+    def is_mem_d1(self) -> bool:
+        """Check if the cell is a StdMemD1 cell."""
+        return (
+            isinstance(self._cell.comp, ast.CompInst)
+            and self._cell.comp.id == "std_mem_d1"
+        )
+
     @classmethod
     def unwrap_id(cls, obj):
         if isinstance(obj, cls):
