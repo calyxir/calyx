@@ -10,7 +10,7 @@ def insert_len_update(comp: cb.ComponentBuilder, length, len_0, len_1, group):
     1. Within component {comp}, creates a group called {group}.
     2. Creates a cell {cell} that computes sums.
     3. Puts the values of {len_0} and {len_1} into {cell}.
-    4. Then puts the answer of the computation back into {len}.
+    4. Then puts the answer of the computation back into {length}.
     4. Returns the group that does this.
     """
     cell = comp.add("len_adder", 32)
@@ -100,14 +100,13 @@ def insert_pifo(prog, name):
     # Create the two FIFOs and ready them for invocation.
     fifo_0 = pifo.cell("myfifo_0", fifo.insert_fifo(prog, "fifo_0"))
     fifo_1 = pifo.cell("myfifo_1", fifo.insert_fifo(prog, "fifo_1"))
-    propagate_err = pifo.cell("prop_err", insert_propagate_err(prog, "propagate_err"))
 
     cmd = pifo.input(
         "cmd", 32
     )  # The command to execute. 0 = pop, nonzero = push that value
 
     flow = pifo.reg("flow", 1)  # The flow to push to
-    # We will infer this using a component and the value of `cmd`.
+    # We will infer this using an external component and the value of `cmd`.
     infer_flow = insert_flow_inference(pifo, cmd, flow, "infer_flow")
 
     ans = pifo.reg("ans", 32, is_ref=True)
@@ -121,6 +120,7 @@ def insert_pifo(prog, name):
     # or if the user issues no command.
     err_0 = pifo.reg("err_fifo_0", 1)
     err_1 = pifo.reg("err_fifo_1", 1)
+    propagate_err = pifo.cell("prop_err", insert_propagate_err(prog, "propagate_err"))
 
     len = pifo.reg("len", 32, is_ref=True)  # The length of the PIFO
     len_0 = pifo.reg("len_0", 32)  # The length of fifo_0
