@@ -53,7 +53,7 @@ def insert_propagate_err(prog, name):
     val = propagate_err.input("val", 1)
     err = propagate_err.reg("err", 1, is_ref=True)
 
-    prop_err = util.reg_store(propagate_err, err, val, "prop_err")
+    prop_err = util.insert_reg_store(propagate_err, err, val, "prop_err")
 
     propagate_err.control += [prop_err]
 
@@ -81,7 +81,7 @@ def insert_pifo(prog, name):
     - len(PIFO) = len(fifo_0) + len(fifo_1)
     - `push(v, PIFO)`:
        + If len(PIFO) = 10, raise an "overflow" err and exit.
-       + Otherwise, the charge is to enqueue value `v`. 
+       + Otherwise, the charge is to enqueue value `v`.
          Find out which flow `f` the value `v` should go to;
          `f` better be either `0` or `1`.
          Enqueue `v` into `fifo_f`.
@@ -116,8 +116,8 @@ def insert_pifo(prog, name):
 
     err = pifo.reg("err", 1, is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow
-    err_0 = pifo.reg("err_fifo_0", 1) # an error flag dedicated to fifo_1
-    err_1 = pifo.reg("err_fifo_1", 1) # and one for fifo_1
+    err_0 = pifo.reg("err_fifo_0", 1)  # an error flag dedicated to fifo_1
+    err_1 = pifo.reg("err_fifo_1", 1)  # and one for fifo_1
     propagate_err = pifo.cell("prop_err", insert_propagate_err(prog, "propagate_err"))
     # Sometimes we'll need to propagate an error message to the main `err` flag
 
@@ -142,8 +142,8 @@ def insert_pifo(prog, name):
     cmd_neq_0 = util.insert_neq(pifo, cmd, cb.const(32, 0), "cmd_neq_0", 32)  # cmd != 0
 
     swap = util.reg_swap(pifo, hot, cold, "swap")  # Swap `hot` and `cold`.
-    raise_err = util.reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
-    zero_out_ans = util.reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
+    raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
+    zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
     update_length = insert_len_update(pifo, len, len_0, len_1, "update_length")
 
     # The main logic.
@@ -354,7 +354,6 @@ def insert_main(prog):
 
     incr_i = util.insert_incr(main, i, "incr_i")  # i++
     incr_j = util.insert_incr(main, j, "incr_j")  # j++
-
     err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
     # read_command = util.mem_load(main, commands, i.out, command, "read_command")
     read_command = util.mem_read_seqd1(main, commands, i.out, "read_command_phase1")
