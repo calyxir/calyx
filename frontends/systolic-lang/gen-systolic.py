@@ -611,8 +611,9 @@ def generate_control(
             tag = counter()
             source_map[
                 tag
-            ] = f"pe_{r}_{c} filling: [{schedules['fill_sched'][r][c][0]},{schedules['fill_sched'][r][c][1]}) \
-accumulating: [{schedules['accum_sched'][r][c][0]} {schedules['accum_sched'][r][c][1]})"
+            ] = f"pe_{r}_{c} filling: [{schedules['fill_sched'][r][c][0]},\
+{schedules['fill_sched'][r][c][1]}) accumulating: [{schedules['accum_sched'][r][c][0]} \
+{schedules['accum_sched'][r][c][1]})"
     for start, end in nec_ranges:
         # build the control stmts that assign correct values to
         # idx_between_{start}_{end}_reg, which is what the if stmts above^ rely on
