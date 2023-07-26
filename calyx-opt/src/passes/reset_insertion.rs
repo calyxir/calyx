@@ -1,7 +1,7 @@
-use std::rc::Rc;
-
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
+use calyx_utils::Error;
+use std::rc::Rc;
 
 #[derive(Default)]
 /// Adds assignments from a components `reset` port to every
@@ -30,18 +30,32 @@ impl Visitor for ResetInsertion {
             .component
             .signature
             .borrow()
-            .get_with_attr(ir::BoolAttr::Reset);
+            .find_with_attr(ir::BoolAttr::Reset);
 
-        for cell_ref in builder.component.cells.iter() {
-            let cell = cell_ref.borrow();
-            if let Some(port) = cell.find_with_attr(ir::BoolAttr::Reset) {
-                builder.component.continuous_assignments.push(
-                    builder.build_assignment(
-                        port,
-                        Rc::clone(&reset),
-                        ir::Guard::True,
-                    ),
-                )
+        if let Some(reset) = reset {
+            for cell_ref in builder.component.cells.iter() {
+                let cell = cell_ref.borrow();
+                if let Some(port) = cell.find_with_attr(ir::BoolAttr::Reset) {
+                    builder.component.continuous_assignments.push(
+                        builder.build_assignment(
+                            port,
+                            Rc::clone(&reset),
+                            ir::Guard::True,
+                        ),
+                    )
+                }
+            }
+        } else {
+            for cell_ref in builder.component.cells.iter() {
+                let cell = cell_ref.borrow();
+                if cell.find_with_attr(ir::BoolAttr::Reset).is_some() {
+                    return Err(Error::malformed_structure(format!(
+                        "Cell `{}' in component `{}' has a reset port, \
+                        but the component does not have a reset port.",
+                        cell.name(),
+                        builder.component.name
+                    )));
+                }
             }
         }
 

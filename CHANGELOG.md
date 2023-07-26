@@ -1,4 +1,5 @@
 ## Unreleased
+- Don't require `@clk` and `@reset` ports in `comb` components
 
 
 ## 0.4.0
