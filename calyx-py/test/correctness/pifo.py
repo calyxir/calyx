@@ -4,25 +4,6 @@ import calyx.builder_util as util
 import calyx.builder as cb
 
 
-def insert_len_update(comp: cb.ComponentBuilder, length, len_0, len_1, group):
-    """Updates the length of the PIFO.
-    It is just the sum of the lengths of the two FIFOs.
-    1. Within component {comp}, creates a group called {group}.
-    2. Creates a cell {cell} that computes sums.
-    3. Puts the values of {len_0} and {len_1} into {cell}.
-    4. Then puts the answer of the computation back into {length}.
-    4. Returns the group that does this.
-    """
-    cell = comp.add("len_adder", 32)
-    with comp.group(group) as update_length_grp:
-        cell.left = len_0.out
-        cell.right = len_1.out
-        length.write_en = 1
-        length.in_ = cell.out
-        update_length_grp.done = length.done
-    return update_length_grp
-
-
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
     """The flow is needed when the command is a push.
     If the value to be pushed is less than 200, we push to flow 0.
@@ -46,7 +27,8 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
 
 def insert_propagate_err(prog, name):
     """A component that propagates an error flag.
-    It takes as input an error flag, and sets its own error flag to that value.
+    It takes as input a value, and as reference an error register.
+    It writes the value to the ref register.
     """
     propagate_err: cb.ComponentBuilder = prog.component(name)
 
@@ -78,7 +60,6 @@ def insert_pifo(prog, name):
     Start off with `hot` pointing to `fifo_0` (arbitrarily).
     Maintain `cold` that points to the other fifo.
 
-    - len(PIFO) = len(fifo_0) + len(fifo_1)
     - `push(v, PIFO)`:
        + If len(PIFO) = 10, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`.
@@ -121,9 +102,7 @@ def insert_pifo(prog, name):
     propagate_err = pifo.cell("prop_err", insert_propagate_err(prog, "propagate_err"))
     # Sometimes we'll need to propagate an error message to the main `err` flag
 
-    len = pifo.reg("len", 32, is_ref=True)  # The length of the PIFO
-    len_0 = pifo.reg("len_0", 32)  # The length of fifo_0
-    len_1 = pifo.reg("len_1", 32)  # The length of fifo_1
+    len = pifo.reg("len", 32)  # The length of the PIFO
 
     # Two registers that mark the next FIFO to `pop` from
     hot = pifo.reg("hot", 1)
@@ -144,7 +123,9 @@ def insert_pifo(prog, name):
     swap = util.reg_swap(pifo, hot, cold, "swap")  # Swap `hot` and `cold`.
     raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
     zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
-    update_length = insert_len_update(pifo, len, len_0, len_1, "update_length")
+
+    incr_len = util.insert_incr(pifo, len, "incr_len")  # len++
+    decr_len = util.insert_decr(pifo, len, "decr_len")  # len--
 
     # The main logic.
     pifo.control += [
@@ -172,7 +153,6 @@ def insert_pifo(prog, name):
                                         in_cmd=cb.const(32, 0),
                                         ref_ans=ans,  # Its answer is our answer.
                                         ref_err=err_0,  # We sequester its error.
-                                        ref_len=len_0,
                                     ),
                                     # Now we check if `fifo_0` raised an error.
                                     cb.if_(
@@ -187,7 +167,6 @@ def insert_pifo(prog, name):
                                                 # Its answer is our answer.
                                                 ref_err=err_1,
                                                 # We sequester its error.
-                                                ref_len=len_1,
                                             ),
                                             cb.if_(
                                                 # If `fifo_1` also raised an error,
@@ -206,8 +185,7 @@ def insert_pifo(prog, name):
                                         ],
                                         [  # `fifo_0` did not raise an error.
                                             # Its answer is our answer.
-                                            # We'll just swap `hot` and `cold`.
-                                            swap,
+                                            swap  # We'll swap `hot` and `cold`.
                                         ],
                                     ),
                                 ],
@@ -223,7 +201,6 @@ def insert_pifo(prog, name):
                                         in_cmd=cb.const(32, 0),
                                         ref_ans=ans,  # Its answer is our answer.
                                         ref_err=err_1,  # We sequester its error.
-                                        ref_len=len_1,
                                     ),
                                     # Now we check if `fifo_1` raised an error.
                                     cb.if_(
@@ -238,7 +215,6 @@ def insert_pifo(prog, name):
                                                 # Its answer is our answer.
                                                 ref_err=err_0,
                                                 # We sequester its error.
-                                                ref_len=len_0,
                                             ),
                                             # If `fifo_0` also raised an error,
                                             # we propagate it and zero out `ans`.
@@ -257,14 +233,17 @@ def insert_pifo(prog, name):
                                         ],
                                         [  # `fifo_1` did not raise an error.
                                             # Its answer is our answer.
-                                            # We'll just swap `hot` and `cold`.
-                                            swap,
+                                            swap  # We'll swap `hot` and `cold`.
                                         ],
                                     ),
                                 ],
                             ),
                         ),
-                        update_length,  # Update the length of the PIFO.
+                        decr_len,  # Decrement the length.
+                        # It is possible that an irrecoverable error was raised above,
+                        # in which case the length should _not_ in fact be decremented.
+                        # However, in that case the PIFO's `err` flag would also
+                        # have been raised, and no one will check this length anyway.
                     ],
                 ),
             ),
@@ -279,7 +258,7 @@ def insert_pifo(prog, name):
                     [raise_err, zero_out_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         # We need to check which flow this value should be pushed to.
-                        infer_flow,  # Infer the flow and write it to `flow`.
+                        infer_flow,  # Infer the flow and write it to `fifo_{flow}`.
                         cb.par(
                             cb.if_(
                                 flow_eq_0[0].out,
@@ -289,7 +268,6 @@ def insert_pifo(prog, name):
                                     fifo_0,
                                     in_cmd=cmd,
                                     ref_err=err,  # Its error is our error.
-                                    ref_len=len_0,
                                     ref_ans=ans,  # Its answer is our answer.
                                 ),
                             ),
@@ -301,12 +279,15 @@ def insert_pifo(prog, name):
                                     fifo_1,
                                     in_cmd=cmd,
                                     ref_err=err,  # Its error is our error.
-                                    ref_len=len_1,
                                     ref_ans=ans,  # Its answer is our answer.
                                 ),
                             ),
                         ),
-                        update_length,  # Update the length of the PIFO.
+                        incr_len,  # Increment the length.
+                        # It is possible that an irrecoverable error was raised above,
+                        # in which case the length should _not_ in fact be incremented.
+                        # However, in that case the PIFO's `err` flag would also
+                        # have been raised, and no one will check this length anyway.
                     ],
                 ),
             ),
@@ -336,7 +317,6 @@ def insert_main(prog):
     # The pifo component takes three `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
-    len = main.reg("len", 32)  # A register to hold the len of the queue
 
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `pifo` component.
@@ -382,7 +362,6 @@ def insert_main(prog):
                                 in_cmd=cmd.out,
                                 ref_ans=ans,
                                 ref_err=err,
-                                ref_len=len,
                             ),
                             # AM: if err flag comes back raised,
                             # do not perform this write or this incr
@@ -401,7 +380,6 @@ def insert_main(prog):
                                 in_cmd=cmd.out,
                                 ref_ans=ans,
                                 ref_err=err,
-                                ref_len=len,
                             ),
                         ],
                     ),
