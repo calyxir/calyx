@@ -232,7 +232,7 @@ def insert_pifo(prog, name):
                                     ref_ans=ans,  # Its answer is our answer.
                                     ref_err=err,  # Its error is our error.
                                 ),
-                                # [zero_out_ans] # AM: if you'd like to see it
+                                # zero_out_ans  # AM: if you'd like to see it
                                 # terminate, just uncomment this line,
                                 # which is just a placeholder,
                                 # and comment out the `invoke` lines above.
@@ -248,7 +248,7 @@ def insert_pifo(prog, name):
                                     ref_ans=ans,  # Its answer is our answer.
                                     ref_err=err,  # Its error is our error.
                                 ),
-                                # [zero_out_ans] # AM: if you'd like to see it
+                                # zero_out_ans  # AM: if you'd like to see it
                                 # terminate, just uncomment this line
                             ),
                         ),
