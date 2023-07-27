@@ -1,0 +1,27 @@
+import "primitives/core.futil";
+
+comb component shuffle_unit (row_idx: 32, mat_val: 32, vec_val: 32, valid: 1) -> 
+(row_idx_1: 32, mat_val_1: 32, vec_val_1: 32, valid_1: 1,
+row_idx_2: 32, mat_val_2: 32, vec_val_2: 32, valid_2: 1) {
+  cells {
+    lt1 = std_lt(32);
+    sub1 = std_sub(32);
+  }
+  wires {
+    lt1.left = row_idx;
+    lt1.right = 32'd16;
+
+    row_idx_1 = lt1.out ? row_idx;
+    mat_val_1 = lt1.out ? mat_val;
+    vec_val_1 = lt1.out ? vec_val;
+    valid_1 = lt1.out? valid;
+    sub1.left = !lt.out ? row_idx;
+    sub1.right = !lt.out ? 32'd16;
+    row_idx_2 = !lt.out ? sub1.out;
+    mat_val_2 = !lt.out ? mat_val;
+    vec_val_2 = !lt.out ? vec_val;
+  }
+
+  control {
+  }
+}

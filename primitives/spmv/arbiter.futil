@@ -1,0 +1,81 @@
+import "primitives/core.futil";
+
+component arbiter (addr0_left: 32, addr0_right:32, read_en_left: 1, read_en_right: 1, read_data: 32) -> 
+(block_left: 1, block_right: 1, addr0: 32, read_en: 1, data_out_left: 32, valid_left: 1,  data_out_right: 32, valid_right: 1) {
+  cells {
+    hand = std_reg(1);
+    two_hot = std_wire(1);
+    dec = std_wire(1);
+    issue = std_wire(1);
+    issue_shift_1 = std_reg(1);
+    issue_shift_2 = std_reg(1);
+    issue_shift_3 = std_reg(1);
+    m = std_mux(1);
+    give = std_reg(1);
+    give2 = std_reg(1);
+    give3 = std_reg(1);
+    m2 = std_mux(1);
+    m3 = std_mux(1);
+
+  }
+  wires {
+    two_hot.in = (read_en_left & read_en_right) ? 1'd1;
+    m.cond = read_en_right;
+    m.tru = 1'd1;
+    m.fal = 1'd0;
+    issue.in = (read_en_left | read_en_right) ? 1'd1;
+    dec.in = two_hot ? hand.out : m.out;
+    
+    static<1> group grant {
+      addr0.in = dec.out ? addr0_right : addr0_left;
+      read_en.in = issue.out;
+      give.in = dec.out;
+      give.write_en = 1'd1;
+      block_left = issue.out & dec.out==1'd1 ? 1'd1;
+      block_right = issue.out & dec.out==1'd0 ? 1'd1;
+    }
+
+    static<1> group switch_hand {
+      m2.cond = issue.out==1'd1 & dec.out==1'd0 & hand.out==1'd0;
+      m2.tru = 1'd1;
+      m2.fal = hand.out;
+      m3.cond = issue.out==1'd1 & dec.out==1'd1 & hand.out==1'd1;
+      m3.tru = 1'd0;
+      m3.fal = m2.out;
+      hand.in = m3.out;
+      hand.write_en = 1'd1; 
+    }
+
+    static<1> group shift_issue {
+      issue_shift_1.in = issue.out;
+      issue_shift_1.write_en = 1'd1;
+      issue_shift_2.in = issue_shift_1.out;
+      issue_shift_2.write_en = 1'd1;
+      issue_shift_3.in = issue_shift_2.out;
+      issue_shift_3.write_en = 1'd1;
+    }
+
+    static<1> group shift_give {
+      give2.in = give.out;
+      give2.write_en = 1'd1;
+      give3.in = give2.out;
+      give3.write_en = 1'd1;
+    }
+
+    static<1> group write_back {
+      read_data_left = give3.out == 1'd0 ? read_data;
+      valid_left = issue_shift_3.out & give3.out == 1'd0 ? 1'd1;
+      read_data_right = give3.out == 1'd1 ? read_data;
+      valid_right = issue_shift_3.out & give3.out == 1'd1 ? 1'd1;
+    }
+  }
+  control {
+    static par {
+      grant;
+      switch_hand;
+      shift_issue;
+      shift_give;
+      write_back;
+    }
+  }
+}

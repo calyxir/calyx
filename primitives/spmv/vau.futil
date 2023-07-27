@@ -1,0 +1,96 @@
+import "primitives/core.futil";
+
+static<1> component vector_access_unit(buffer_read_data_1: 32, buffer_read_data_2: 32, row_idx: 32, col_idx: 32, mat_value_in: 32, input_valid: 1, blocked_1: 1, blocked_2: 1) -> 
+ (read_en_1: 1, read_en_2: 1, addr0_1: 32, addr0_2: 32, stall: 1, valid: 1, mat_value: 32, row_idx: 32, vec_value: 32) {
+    cells {
+      le = std_lt(32);
+      minus = std_sub(32);
+      valid_1 = std_reg(2);
+      valid_2 = std_reg(2);
+      valid_3 = std_reg(2);
+      mat_val_1 = std_reg(32);
+      mat_val_2 = std_reg(32);
+      mat_val_3 = std_reg(32);
+      row_idx_1 = std_reg(32);
+      row_idx_2 = std_reg(32);
+      row_idx_3 = std_reg(32);
+    }
+
+    wires {
+      le.left = col_idx;
+      le.right = 
+      minus.left = col_idx;
+      minus.right = 32'd16;
+
+      static<1> group write_valid_1 {
+        valid_1.in = !blocked_1 ? 2'd1;
+        valid_1.write_en = 1'd1;
+      }
+
+      static<1> group shift_valid {
+        valid_2.in = valid_1.out;
+        valid_2.write_en = 1'd1;
+        valid_3.in = valid_2.out;
+        valid_3.write_en = 1'd1;
+      }
+
+      static<1> group shift_mat_value {
+        mat_val_1.in = mat_value_in.out;
+        mat_val_1.write_en = 1'd1;
+        mat_val_2.in = mat_val_1.out;
+        mat_val_2.write_en = 1'd1;
+        mat_val_3.in = mat_val_2.out;
+        mat_val_3.write_en = 1'd1;
+      }
+
+      static<1> group write_valid_2 {
+        valid_1.in = !blocked_2 ? 2'd2;
+        valid_1.write_en = 1'd1;
+      }
+
+      static<1> group shift_addr {
+        row_idx_1.in = !(blocked_1 | blocked_2) ? row_idx;
+        row_idx_1.write_en = 1'd1;
+        row_idx_2.in = row_idx_1.out;
+        row_idx_2.write_en = 1'd1;
+        row_idx_3.in = row_idx_2.out;
+        row_idx_3.write_en = 1'd1;
+      }
+
+      static<1> group read_buffer_1 {
+        read_en_1 = 1'd1;
+        addr0_1 = col_idx;
+      }
+
+      static<1> group read_buffer_2 {
+        read_en_2 = 1'd1;
+        addr0_2 = minus.out;
+      }
+
+      stall = (blocked_1 | blocked_2) ? 1'd1;
+      valid = valid_3.out;
+      row_idx = row_idx_3.out;
+      value = (valid_3.out == 2'd2) ? buffer_read_data_2 : buffer_read_data_1;
+    }
+
+    control {
+      static par {
+        static if le.out {
+          static par {
+            read_buffer_1;
+            shift_valid_1;
+          }
+        }
+        else {
+          static par {
+            read_buffer_2;
+            shift_valid_2;
+          }
+        }
+        shift_valid;
+        shift_addr;
+        shift_mat_value;
+      }
+    }
+ }
+

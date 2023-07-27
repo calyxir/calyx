@@ -1,0 +1,57 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component main () -> () {
+  cells {
+    left = std_mem_d1(32, 10, 5);
+    right = std_mem_d1(32, 10, 5);
+    mult = std_smult_pipe(32);
+    res = std_reg(32);
+    add = std_add(32);
+    incr = std_add(5);
+    i = std_reg(5);
+    gt1 = std_gt(32);
+    gt2 = std_gt(32);
+    or1 = std_or(1);
+    lt1 = std_lt(5);
+    cond = std_reg(1);
+    loop = std_reg(1);
+    lt2 = std_lt(5);
+  }
+
+  wires {
+    static<7> group body {
+      left.addr0 = %[0:1] ? i.out;
+      right.addr0 = %[0:1] ? i.out;
+      gt1.left = %0 ? left.read_data;
+      gt1.right = %0 ? 32'd0;
+      gt2.left = %0 ? right.read_data;
+      gt2.right = %0 ? 32'd0;
+      or1.left = %0 ? gt1.out;
+      or1.right = %0 ? gt2.out;
+      cond.in = %0 ? or.out;
+      cond.write_en = %0 ? 1'd1;
+      mult.left = %1 & cond ? left.read_data;
+      mult.right = %1 & cond ? right.read_data;
+      mult.go = %1 & cond ? 1'd1;
+      add.left = %4 & cond ? mult.out;
+      add.right = %4 & cond ? res.out;
+      res.in = %4 & cond ? add.out;
+      res.write_en = %4 & cond ? add.out;
+    ` incr.left = %5 & cond ? i.out;
+      incr.right = %5 & cond ? 5'd1;
+      lt2.left = %6 ? incr.out;
+      lt2.right = %6 ? 5'd10;
+      loop.in = %6 ? lt2.out;
+      loop.write_en = %6 ? 1'd1;
+    }
+  }
+
+  control {
+    while loop.out {
+      body;
+    }
+  }
+
+  
+}

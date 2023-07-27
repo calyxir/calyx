@@ -3,33 +3,47 @@ import "primitives/compile.futil";
 import "primitives/binary_operators.futil";
 import "primitives/spmv/multicycle-mem.futil";
 
-static<2> component processing_engine(mat_value: 32, vec_value: 32, row_idx: 32, valid: 1) -> () {
+static<1> component processing_engine(acc_value: 32, mat_value: 32, vec_value: 32, row_idx: 32, valid: 1) -> 
+(buffer_read_en: 1, buffer_write_en: 1, buffer_write_data: 32, buffer_addr0_r: 32, buffer_addr0_w: 32  ) {
   cells {
     mult = std_smult_pipe(32);
     mult_reg = std_reg(32);
     mult_valid = std_reg(1);
     add = std_add(32);
-    ref buffer = multicycle_buffer();
-    addr = std_reg(32);
-    addr_shift = std_reg(32);
+    addr_shift_1 = std_reg(32);
+    addr_shift_2 = std_reg(32);
+    addr_shift_3 = std_reg(32);
     IFWQ1_value = std_reg(32);
     IFWQ2_value = std_reg(32);
     IFWQ3_value = std_reg(32);
+    IFWQ4_value = std_reg(32);
+    IFWQ5_value = std_reg(32);
+    IFWQ6_value = std_reg(32);
     IFWQ1_ridx = std_reg(32);
     IFWQ2_ridx = std_reg(32);
     IFWQ3_ridx = std_reg(32);
+    IFWQ4_ridx = std_reg(32);
+    IFWQ5_ridx = std_reg(32);
+    IFWQ6_ridx = std_reg(32);
     IFWQ1_valid = std_reg(1);
     IFWQ2_valid = std_reg(1);
     IFWQ3_valid = std_reg(1);
+    IFWQ4_valid = std_reg(1);
+    IFWQ5_valid = std_reg(1);
+    IFWQ6_valid = std_reg(1);
     j1 = std_mux(32);
     j2 = std_mux(32);
     j3 = std_mux(32);
+    j4 = std_mux(32);
+    j5 = std_mux(32);
     base_det = std_mux(32);
     eq1 = std_eq(32);
     eq2 = std_eq(32);
     eq3 = std_eq(32);
+    eq4 = std_eq(32);
+    eq5 = std_eq(32);
+    eq6 = std_eq(32);
     has_raw = std_wire(1);
-    base = std_reg(32);
   }
 
   wires {
@@ -39,61 +53,70 @@ static<2> component processing_engine(mat_value: 32, vec_value: 32, row_idx: 32,
       mult.go = valid;
     }
 
-    static<1> group save_addr {
-      addr.in = row_idx;
-      addr.write_en = 1'd1;
+    static<1> group read_buffer {
+      buffer_read_en = valid;
+      buffer_addr0_r = row_idx;
     }
 
     static<1> group shift_addr {
-      addr_shift.in = addr.out;
-      addr_shift.write_en = 1'd1;
+      addr_shift_1.in = row_idx;
+      addr_shift_1.write_en = 1'd1;
+      addr_shift_2.in = addr_shift_1.out;
+      addr_shift_2.write_en = 1'd1;
+      addr_shift_3.in = addr_shift_2.out;
+      addr_shift_3.write_en = 1'd1;
     }
 
-    static<2> group save_mult {
-      mult_reg.in = %1 ? mult.out;
-      mult_reg.write_en = %1 ? 1'd1;
-      mult_valid.in = %1 ? mult.done;
-      mult_valid.write_en = %1 ? 1'd1;
-    }
 
-    eq1.left = addr_shift.out;
+    eq1.left = addr_shift_3.out;
     eq1.right = IFWQ1_ridx.out;
-    eq2.left = addr_shift.out;
+    eq2.left = addr_shift_3.out;
     eq2.right = IFWQ2_ridx.out;
-    eq3.left = addr_shift.out;
+    eq3.left = addr_shift_3.out;
     eq3.right= IFWQ3_ridx.out;
+    eq4.left = addr_shift_3.out;
+    eq4.right= IFWQ4_ridx.out;
+    eq5.left = addr_shift_3.out;
+    eq5.right = IFWQ5_ridx.out;
+    eq6.left = addr_shift_3.out;
+    eq6.right = IFWQ5_ridx.out;
 
     j1.cond = eq1.out;
     j2.cond = eq2.out;
     j3.cond = eq3.out;
+    j4.cond = eq4.out;
+    j5.cond = eq5.out;
+
 
     j1.tru = IFWQ1_value.out;
     j1.fal = j2.out;
     j2.tru = IFWQ2_value.out;
     j2.fal = j3.out;
     j3.tru = IFWQ3_value.out;
-    j3.fal = 32'd0;
+    j3.fal = j4.out;
+    j4.tru = IFWQ4_value.out;
+    j4.fal = j5.out;
+    j5.tru = IFWQ5_value.out;
+    j5.fal = IFWQ6_value.out;
 
-    has_raw.in = (IFWQ1_valid.out & eq1.out) | (IFWQ2_valid.out & eq2.out) | (IFWQ3_valid.out & eq3.out) ? 1'd1;
+    has_raw.in = (IFWQ1_valid.out & eq1.out) | (IFWQ2_valid.out & eq2.out) | (IFWQ3_valid.out & eq3.out) 
+  | (IFWQ4_valid.out & eq4.out) | (IFWQ5_valid.out & eq5.out) | (IFWQ6_valid.out & eq6.out) ? 1'd1;
 
-
-    static<2> group determine_base {
-      base_det.cond = %1 ? has_raw.out;
-      base_det.tru = %1 ? j3.out;
-      base_det.fal = %1 ? buffer.read_data;
-      base.in = %1 ? base_det.out;
-      base.write_en = %1 ? 1'd1;
-    }
-
-    static<1> group do_add {
-      add.left = base.out;
-      add.right = mult_reg.out;
+    static<1> group calculate_result {
+      base_det.cond = has_raw.out;
+      base_det.tru = j1.out;
+      base_det.fal = buffer.read_data;
+      add.left = base_det.out;
+      add.right = mult.out;
       IFWQ1_value.in = add.out;
       IFWQ1_value.write_en = 1'd1;
-      IFWQ1_valid.in = mult_valid.out;
+      IFWQ1_valid.in = mult.done;
       IFWQ1_valid.write_en = 1'd1;
-      IFWQ1_ridx.in = addr_shift.out;
+      IFWQ1_ridx.in = addr_shift_3.out;
       IFWQ1_ridx.write_en = 1'd1;
+      buffer_write_en = mult.done;
+      buffer_addr0_w = addr_shift_3;
+      buffer_write_data = base_det.out;
     }
 
     static<1> group shift_IFWQ {
@@ -109,21 +132,33 @@ static<2> component processing_engine(mat_value: 32, vec_value: 32, row_idx: 32,
       IFWQ3_value.write_en = 1'd1;
       IFWQ3_ridx.in = IFWQ2_ridx.out;
       IFWQ3_ridx.write_en = 1'd1;
+      IFWQ4_valid.in = IFWQ3_valid.out;
+      IFWQ4_valid.write_en = 1'd1;
+      IFWQ4_value.in = IFWQ3_value.out;
+      IFWQ4_value.write_en = 1'd1;
+      IFWQ4_ridx.in = IFWQ3_ridx.out;
+      IFWQ4_ridx.write_en = 1'd1;
+      IFWQ5_valid.in = IFWQ4_valid.out;
+      IFWQ5_valid.write_en = 1'd1;
+      IFWQ5_value.in = IFWQ4_value.out;
+      IFWQ5_value.write_en = 1'd1;
+      IFWQ5_ridx.in = IFWQ4_ridx.out;
+      IFWQ5_ridx.write_en = 1'd1;
+      IFWQ6_valid.in = IFWQ5_valid.out;
+      IFWQ6_valid.write_en = 1'd1;
+      IFWQ6_value.in = IFWQ5_value.out;
+      IFWQ6_value.write_en = 1'd1;
+      IFWQ6_ridx.in = IFWQ5_ridx.out;
+      IFWQ6_ridx.write_en = 1'd1;
     }
   }
 
   control {
     static par {
-      static seq {
-        static invoke buffer(read_en=valid, addr0=row_idx)();
-        static invoke buffer(write_en=IFWQ1_valid.out, write_data=IFWQ1_value.out, addr0=IFWQ1_ridx.out)();
-      }
       do_multiply;
-      save_addr;
+      read_buffer;
       shift_addr;
-      save_mult;
-      determine_base;
-      do_add;
+      calculate_result;
       shift_IFWQ;
     }
   }
