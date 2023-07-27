@@ -66,7 +66,7 @@ def insert_fifo(prog, name):
 
     # Cells and groups to compute equality
     cmd_eq_0 = util.insert_eq(fifo, cmd, 0, "cmd_eq_0", 32)  # `cmd` == 0
-    # cmd_eq_1 = util.insert_eq(fifo, cmd, 1, "cmd_eq_1", 32)  # `cmd` == 1
+    cmd_eq_1 = util.insert_eq(fifo, cmd, 1, "cmd_eq_1", 32)  # `cmd` == 1
     cmd_gt_1 = util.insert_gt(fifo, cmd, 1, "cmd_gt_1", 32)  # `cmd` > 1
 
     write_eq_10 = util.insert_eq(
@@ -125,6 +125,21 @@ def insert_fifo(prog, name):
                             read_wrap,
                         ),
                         len_decr,  # Decrement the length.
+                    ],
+                ),
+            ),
+            cb.if_(
+                # Did the user call peek?
+                cmd_eq_1[0].out,
+                cmd_eq_1[1],
+                cb.if_(  # Yes, the user called peek. But is the queue empty?
+                    len_eq_0[0].out,
+                    len_eq_0[1],
+                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [  # The queue is not empty. Proceed.
+                        read_from_mem,  # Read from the queue.
+                        write_to_ans,  # Write the answer to the answer register.
+                        # But don't increment the read pointer or change the length.
                     ],
                 ),
             ),
