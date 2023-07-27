@@ -63,6 +63,7 @@ def insert_fifo(prog, name):
         fifo, read, 0, "read_wraparound"
     )  # zero out `read`
     raise_err = util.insert_reg_store(fifo, err, 1, "raise_err")  # set `err` to 1
+    lower_err = util.insert_reg_store(fifo, err, 0, "lower_err")  # set `err` to 0
     zero_out_ans = util.insert_reg_store(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
 
     # Load and store into an arbitary slot in memory
@@ -98,6 +99,7 @@ def insert_fifo(prog, name):
                             read_wrap,
                         ),
                         len_decr,  # Decrement the length.
+                        lower_err,  # Lower the error flag.
                     ],
                 ),
             ),
@@ -120,6 +122,7 @@ def insert_fifo(prog, name):
                             write_wrap,
                         ),
                         len_incr,  # Increment the length.
+                        lower_err,  # Lower the error flag.
                     ],
                 ),
             ),
