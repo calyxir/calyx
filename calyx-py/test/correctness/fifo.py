@@ -61,7 +61,7 @@ def insert_fifo(prog, name):
     # if the user calls pop and push at the same time,
     # or if the user issues no command.
 
-    len = fifo.reg("len", 32, is_ref=True)  # The length of the queue
+    len = fifo.reg("len", 32)  # The length of the queue
 
     # Cells and groups to compute equality
     cmd_eq_0 = util.insert_eq(fifo, cmd, 0, "cmd_eq_0", 32)  # `cmd` == 0
@@ -180,7 +180,6 @@ def insert_main(prog):
     # The fifo component takes three `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
-    len = main.reg("len", 32)  # A register to hold the len of the queue
 
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `fifo` component.
@@ -227,7 +226,6 @@ def insert_main(prog):
                                 in_cmd=cmd.out,
                                 ref_ans=ans,
                                 ref_err=err,
-                                ref_len=len,
                             ),
                             # AM: if err flag comes back raised,
                             # do not perform this write or this incr
@@ -243,7 +241,6 @@ def insert_main(prog):
                             in_cmd=cmd.out,
                             ref_ans=ans,
                             ref_err=err,
-                            ref_len=len,
                         ),
                     ),
                 ),
