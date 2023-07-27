@@ -29,6 +29,22 @@ def insert_eq(comp: cb.ComponentBuilder, left, right, cellname, width):
     return insert_comb_group(comp, left, right, eq_cell, f"{cellname}_group")
 
 
+def insert_neq(comp: cb.ComponentBuilder, left, right, cellname, width):
+    """Inserts wiring into component {comp} to check if {left} != {right}.
+
+    <cellname> = std_neq(<width>);
+    ...
+    comb group <cellname>_group {
+        <cellname>.left = <left>;
+        <cellname>.right = <right>;
+    }
+
+    Returns handles to the cell and the combinational group.
+    """
+    neq_cell = comp.neq(cellname, width)
+    return insert_comb_group(comp, left, right, neq_cell, f"{cellname}_group")
+
+
 def insert_lt(comp: cb.ComponentBuilder, left, right, cellname, width):
     """Inserts wiring into component {comp} to check if {left} < {right}.
 
@@ -113,17 +129,107 @@ def insert_decr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     return decr_group
 
 
+def mem_load(comp: cb.ComponentBuilder, mem, i, reg, group):
+    """Loads a value from one memory into a register.
+    1. Within component {comp}, creates a group called {group}.
+    2. Within {group}, reads from memory {mem} at address {i}.
+    3. Writes the value into register {reg}.
+    4. Returns the group that does this.
+    """
+    with comp.group(group) as load_grp:
+        mem.addr0 = i
+        reg.write_en = 1
+        reg.in_ = mem.read_data
+        load_grp.done = reg.done
+    return load_grp
+
+
+def mem_store(comp: cb.ComponentBuilder, mem, i, val, group):
+    """Stores a value from one memory into another.
+    1. Within component {comp}, creates a group called {group}.
+    2. Within {group}, reads from {val}.
+    3. Writes the value into memory {mem} at address i.
+    4. Returns the group that does this.
+    """
+    with comp.group(group) as store_grp:
+        mem.addr0 = i
+        mem.write_en = 1
+        mem.write_data = val
+        store_grp.done = mem.done
+    return store_grp
+
+
 def insert_reg_store(comp: cb.ComponentBuilder, reg, val, group):
     """Stores a value in a register.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, sets the register {reg} to {val}.
     3. Returns the group that does this.
     """
-    with comp.group(group) as store_grp:
+    with comp.group(group) as reg_grp:
         reg.in_ = val
         reg.write_en = 1
-        store_grp.done = reg.done
+        reg_grp.done = reg.done
+    return reg_grp
+
+
+def mem_read_seqd1(comp: cb.ComponentBuilder, mem, i, group):
+    """Given a seq_mem_d1, reads from memory at address i.
+    Note that this does not write the value anywhere.
+    """
+    assert mem.is_seq_mem_d1
+    with comp.group(group) as read_grp:
+        mem.addr0 = i
+        mem.read_en = 1
+        read_grp.done = mem.read_done
+    return read_grp
+
+
+def mem_write_seqd1_to_reg(comp: cb.ComponentBuilder, mem, reg, group):
+    """Given a seq_mem_d1 that is already assumed to have a latched value,
+    reads the latched value and writes it to a register.
+    """
+    assert mem.is_seq_mem_d1
+    with comp.group(group) as write_grp:
+        reg.write_en = 1
+        reg.in_ = mem.read_data
+        write_grp.done = reg.done
+    return write_grp
+
+
+def mem_store_seq_d1(comp: cb.ComponentBuilder, mem, i, val, group):
+    """Stores a value from one memory into another.
+    1. Within component {comp}, creates a group called {group}.
+    2. Within {group}, reads from {val}.
+    3. Writes the value into memory {mem} at address i.
+    4. Returns the group that does this.
+    """
+    assert mem.is_seq_mem_d1
+    with comp.group(group) as store_grp:
+        mem.addr0 = i
+        mem.write_en = 1
+        mem.write_data = val
+        store_grp.done = mem.write_done
     return store_grp
+
+
+def reg_swap(comp: cb.ComponentBuilder, a, b, group):
+    """Swaps the values of two registers.
+    1. Within component {comp}, creates a group called {group}.
+    2. Reads the value of {a} into a temporary register.
+    3. Writes the value of {b} into {a}.
+    4. Writes the value of the temporary register into {b}.
+    5. Returns the group that does this.
+    """
+    with comp.group(group) as swap_grp:
+        tmp = comp.reg("tmp", 1)
+        tmp.write_en = 1
+        tmp.in_ = a.out
+        a.write_en = 1
+        a.in_ = b.out
+        b.write_en = 1
+        b.in_ = tmp.out
+        swap_grp.done = b.done
+    return swap_grp
 
 
 def insert_mem_load_to_mem(comp: cb.ComponentBuilder, mem, i, ans, j, group):
