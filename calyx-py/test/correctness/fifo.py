@@ -18,10 +18,8 @@ def insert_fifo(prog, name):
     cmd = fifo.input("cmd", 32)  # If this is 0, we pop. Otherwise, we push the value.
 
     mem = fifo.seq_mem_d1("mem", 32, 10, 32)
-
     write = fifo.reg("next_write", 32)  # The next address to write to
     read = fifo.reg("next_read", 32)  # The next address to read from
-
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size 10.
 
@@ -29,15 +27,11 @@ def insert_fifo(prog, name):
     # If the user wants to pop, we will write the popped value to `ans`
 
     err = fifo.reg("err", 1, is_ref=True)
-    # We'll raise this as a general error flag:
-    # overflow,
-    # underflow,
-    # if the user calls pop and push at the same time,
-    # or if the user issues no command.
+    # We'll raise this as a general error flag for overflow and underflow
 
-    len = fifo.reg("len", 32)  # The length of the queue
+    len = fifo.reg("len", 32)  # The length of the FIFO
 
-    # Cells and groups to compute equality
+    # Some equality checks.
     cmd_eq_0 = util.insert_eq(fifo, cmd, 0, "cmd_eq_0", 32)  # `cmd` == 0
     cmd_neq_0 = util.insert_neq(
         fifo, cmd, cb.const(32, 0), "cmd_neq_0", 32
@@ -79,6 +73,7 @@ def insert_fifo(prog, name):
 
     fifo.control += [
         cb.par(
+            # Was it a pop or a push? We can do both cases in parallel.
             cb.if_(
                 # Did the user call pop?
                 cmd_eq_0[0].out,

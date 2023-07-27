@@ -63,22 +63,18 @@ def insert_pifo(prog, name):
     """
 
     pifo: cb.ComponentBuilder = prog.component(name)
+    cmd = pifo.input("cmd", 32)  # If this is 0, we pop. Otherwise, we push the value.
 
     # Create the two FIFOs and ready them for invocation.
     fifo_0 = pifo.cell("myfifo_0", fifo.insert_fifo(prog, "fifo_0"))
     fifo_1 = pifo.cell("myfifo_1", fifo.insert_fifo(prog, "fifo_1"))
-
-    cmd = pifo.input(
-        "cmd", 32
-    )  # The command to execute. 0 = pop, nonzero = push that value
 
     flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1
     # We will infer this using a separate component and the item to be pushed.
     infer_flow = insert_flow_inference(pifo, cmd, flow, "infer_flow")
 
     ans = pifo.reg("ans", 32, is_ref=True)
-    # If the user wants to pop, we will write the popped value to `ans`.
-    # Otherwie we'll zero this out.
+    # If the user wants to pop, we will write the popped value to `ans`
 
     err = pifo.reg("err", 1, is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow
@@ -230,25 +226,35 @@ def insert_pifo(prog, name):
                                 flow_eq_0[0].out,
                                 flow_eq_0[1],
                                 # This value should be pushed to flow 0.
-                                cb.invoke(
+                                cb.invoke(  # AM: this does not terminate
                                     fifo_0,
                                     in_cmd=cmd,
-                                    ref_err=err,  # Its error is our error.
                                     ref_ans=ans,  # Its answer is our answer.
+                                    ref_err=err,  # Its error is our error.
                                 ),
+                                # [zero_out_ans] # AM: if you'd like to see it
+                                # terminate, just uncomment this line,
+                                # which is just a placeholder,
+                                # and comment out the `invoke` lines above.
+                                # Do the same for the other `cb.invoke` below.
                             ),
                             cb.if_(
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
                                 # This value should be pushed to flow 1.
-                                cb.invoke(
+                                cb.invoke(  # AM: this does not terminate
                                     fifo_1,
                                     in_cmd=cmd,
-                                    ref_err=err,  # Its error is our error.
                                     ref_ans=ans,  # Its answer is our answer.
+                                    ref_err=err,  # Its error is our error.
                                 ),
+                                # [zero_out_ans] # AM: if you'd like to see it
+                                # terminate, just uncomment this line
                             ),
                         ),
+                        # AM: incredibly, the line below is one of the sources of
+                        # non-termination!! Comment it out as well, if you want
+                        # to see the program terminate.
                         incr_len,  # Increment the length.
                         # It is possible that an irrecoverable error was raised above,
                         # in which case the length should _not_ in fact be incremented.
