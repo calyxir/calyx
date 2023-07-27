@@ -2,6 +2,7 @@
 import fifo
 import calyx.builder_util as util
 import calyx.builder as cb
+import calyx.queue_call as qc
 
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
@@ -297,106 +298,11 @@ def insert_pifo(prog, name):
     return pifo
 
 
-def insert_main(prog):
-    """Inserts the component `main` into the program.
-    This will be used to `invoke` the component `fifo`.
-    """
-    main: cb.ComponentBuilder = prog.component("main")
-
-    # The user-facing interface is:
-    # - a list of commands (the input)
-    #    where each command is a 32-bit unsigned integer, with the following format:
-    #    `0`: pop
-    #    any other value: push that value
-    # - a list of answers (the output).
-    commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
-
-    # We will use the `invoke` method to call the `pifo` component.
-    pifo = main.cell("mypifo", insert_pifo(prog, "pifo"))
-    # The pifo component takes three `ref` inputs:
-    err = main.reg("err", 1)  # A flag to indicate an error
-    ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
-
-    # We will set up a while loop that runs over the command list, relaying
-    # the commands to the `pifo` component.
-    # It will run until the `err` flag is raised by the `pifo` component.
-
-    # It is handy to have this component, which can additionally raise the `err`
-    # flag in case i = 15.
-    raise_err_if_i_eq_15 = main.cell(
-        "raise_err_if_i_eq_15", fifo.insert_raise_err_if_i_eq_15(prog)
-    )
-
-    i = main.reg("i", 32)  # The index of the command we're currently processing
-    j = main.reg("j", 32)  # The index on the answer-list we'll write to
-    cmd = main.reg("command", 32)  # The command we're currently processing
-
-    incr_i = util.insert_incr(main, i, "incr_i")  # i++
-    incr_j = util.insert_incr(main, j, "incr_j")  # j++
-    err_eq_zero = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
-    read_cmd = util.mem_read_seqd1(main, commands, i.out, "read_cmd_phase1")
-    write_cmd_to_reg = util.mem_write_seqd1_to_reg(
-        main, commands, cmd, "read_cmd_phase2"
-    )
-
-    cmd_eq_0 = util.insert_eq(main, cmd.out, 0, "cmd_eq_0", 32)
-    cmd_eq_1 = util.insert_eq(main, cmd.out, 1, "cmd_eq_1", 32)
-    write_ans = util.mem_store_seq_d1(main, ans_mem, j.out, ans.out, "write_ans")
-
-    main.control += [
-        cb.while_(
-            err_eq_zero[0].out,
-            err_eq_zero[1],  # Run while the `err` flag is down
-            [
-                read_cmd,  # Read `cmd[i]`
-                write_cmd_to_reg,  # And write it to `cmd`
-                cb.par(  # Process the command
-                    cb.if_(
-                        # Is this a pop?
-                        cmd_eq_0[0].out,
-                        cmd_eq_0[1],
-                        [  # A pop
-                            cb.invoke(  # First we call pop
-                                pifo,
-                                in_cmd=cmd.out,
-                                ref_ans=ans,
-                                ref_err=err,
-                            ),
-                            # AM: if err flag comes back raised,
-                            # do not perform this write or this incr
-                            write_ans,
-                            incr_j,
-                        ],
-                    ),
-                    cb.if_(
-                        # Is this a push?
-                        cmd_eq_1[0].out,
-                        cmd_eq_1[1],
-                        [
-                            # A push
-                            cb.invoke(
-                                pifo,
-                                in_cmd=cmd.out,
-                                ref_ans=ans,
-                                ref_err=err,
-                            ),
-                        ],
-                    ),
-                ),
-                incr_i,  # Increment the command index
-                cb.invoke(  # If i = 15, raise error flag
-                    raise_err_if_i_eq_15, in_i=i.out, ref_err=err
-                ),  # AM: hella hacky
-            ],
-        ),
-    ]
-
-
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    insert_main(prog)
+    pifo = insert_pifo(prog, "pifo")
+    qc.insert_main(prog, pifo)
     return prog.program
 
 
