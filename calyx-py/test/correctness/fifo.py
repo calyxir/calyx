@@ -41,7 +41,8 @@ def insert_fifo(prog, name):
     """
 
     fifo: cb.ComponentBuilder = prog.component(name)
-    cmd = fifo.input("cmd", 32)  # If this is 0, we pop. Otherwise, we push the value.
+    cmd = fifo.input("cmd", 32)
+    # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
 
     mem = fifo.seq_mem_d1("mem", 32, 10, 32)
 
@@ -65,9 +66,9 @@ def insert_fifo(prog, name):
 
     # Cells and groups to compute equality
     cmd_eq_0 = util.insert_eq(fifo, cmd, 0, "cmd_eq_0", 32)  # `cmd` == 0
-    cmd_neq_0 = util.insert_neq(
-        fifo, cmd, cb.const(32, 0), "cmd_neq_0", 32
-    )  # `cmd` != 0
+    # cmd_eq_1 = util.insert_eq(fifo, cmd, 1, "cmd_eq_1", 32)  # `cmd` == 1
+    cmd_gt_1 = util.insert_gt(fifo, cmd, 1, "cmd_gt_1", 32)  # `cmd` > 1
+
     write_eq_10 = util.insert_eq(
         fifo, write.out, 10, "write_eq_10", 32
     )  # `write` == 10
@@ -129,8 +130,8 @@ def insert_fifo(prog, name):
             ),
             cb.if_(
                 # Did the user call push?
-                cmd_neq_0[0].out,
-                cmd_neq_0[1],
+                cmd_gt_1[0].out,
+                cmd_gt_1[1],
                 cb.if_(
                     # Yes, the user called push. But is the queue full?
                     len_eq_10[0].out,
@@ -165,7 +166,8 @@ def insert_main(prog):
     # - a list of commands (the input)
     #    where each command is a 32-bit unsigned integer, with the following format:
     #    `0`: pop
-    #    any other value: push that value
+    #    `1`: peek
+    #    any value greater than 1: push that value
     # - a list of answers (the output).
     commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
