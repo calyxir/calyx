@@ -3,13 +3,22 @@ import "primitives/compile.futil";
 import "primitives/binary_operators.futil";
 import "primitives/spmv/multicycle-mem.futil";
 
-static<1> component processing_engine(acc_value: 32, mat_value: 32, vec_value: 32, row_idx: 32, valid: 1) -> 
-(buffer_read_en: 1, buffer_write_en: 1, buffer_write_data: 32, buffer_addr0_r: 32, buffer_addr0_w: 32  ) {
+static<1> component processing_engine(
+  // accumulator from read_buffer
+  acc_value: 32, 
+  // matrix value, vector value, row index, valid bit
+  mat_value: 32, vec_value: 32, row_idx: 32, valid: 1) -> 
+(
+  // buffer.go
+  buffer_go: 1,
+  // read signals
+  buffer_read_en: 1, buffer_addr0_r: 32, 
+  // write signals
+  buffer_write_en: 1, buffer_write_data: 32,  buffer_addr0_w: 32  ) {
   cells {
     mult = std_smult_pipe(32);
-    mult_reg = std_reg(32);
-    mult_valid = std_reg(1);
     add = std_add(32);
+    store_mult = std_reg(32);
     addr_shift_1 = std_reg(32);
     addr_shift_2 = std_reg(32);
     addr_shift_3 = std_reg(32);
@@ -44,13 +53,18 @@ static<1> component processing_engine(acc_value: 32, mat_value: 32, vec_value: 3
     eq5 = std_eq(32);
     eq6 = std_eq(32);
     has_raw = std_wire(1);
+    // valid shift reg
+    v_1 = std_reg(1);
+    v_2 = std_reg(1);
+    v_3 = std_reg(1);
   }
 
   wires {
     static<1> group do_multiply {
       mult.left = mat_value;
       mult.right = vec_value;
-      mult.go = valid;
+      mult.go = v_1.out | v_2.out | valid ? 1'd1;
+
     }
 
     static<1> group read_buffer {
@@ -67,7 +81,18 @@ static<1> component processing_engine(acc_value: 32, mat_value: 32, vec_value: 3
       addr_shift_3.write_en = 1'd1;
     }
 
+    static<1> group shift_valid {
+      v_1.in = valid;
+      v_1.write_en = 1'd1;
+      v_2.in = v_1.out;
+      v_2.write_en = 1'd1;
+      v_3.in = v_2.out;
+      v_3.write_en = 1'd1;
+    }
 
+
+    // activate buffer
+    buffer_go = 1'd1;
     eq1.left = addr_shift_3.out;
     eq1.right = IFWQ1_ridx.out;
     eq2.left = addr_shift_3.out;
@@ -102,21 +127,26 @@ static<1> component processing_engine(acc_value: 32, mat_value: 32, vec_value: 3
     has_raw.in = (IFWQ1_valid.out & eq1.out) | (IFWQ2_valid.out & eq2.out) | (IFWQ3_valid.out & eq3.out) 
   | (IFWQ4_valid.out & eq4.out) | (IFWQ5_valid.out & eq5.out) | (IFWQ6_valid.out & eq6.out) ? 1'd1;
 
+    static<1> group shift_mult {
+      store_mult.in = mult.out;
+      store_mult.write_en = v_2.out; 
+    }
+
     static<1> group calculate_result {
       base_det.cond = has_raw.out;
       base_det.tru = j1.out;
-      base_det.fal = buffer.read_data;
+      base_det.fal = acc_value;
       add.left = base_det.out;
-      add.right = mult.out;
+      add.right = store_mult.out;
       IFWQ1_value.in = add.out;
       IFWQ1_value.write_en = 1'd1;
-      IFWQ1_valid.in = mult.done;
+      IFWQ1_valid.in = v_3.out;
       IFWQ1_valid.write_en = 1'd1;
       IFWQ1_ridx.in = addr_shift_3.out;
       IFWQ1_ridx.write_en = 1'd1;
-      buffer_write_en = mult.done;
-      buffer_addr0_w = addr_shift_3;
-      buffer_write_data = base_det.out;
+      buffer_write_en = v_3.out;
+      buffer_addr0_w = addr_shift_3.out;
+      buffer_write_data = add.out;
     }
 
     static<1> group shift_IFWQ {
@@ -158,8 +188,10 @@ static<1> component processing_engine(acc_value: 32, mat_value: 32, vec_value: 3
       do_multiply;
       read_buffer;
       shift_addr;
+      shift_mult;
       calculate_result;
       shift_IFWQ;
+      shift_valid;
     }
   }
 

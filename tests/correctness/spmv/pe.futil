@@ -19,15 +19,52 @@ component main () -> () {
 
   control {
     static seq {
-      static invoke pe[buffer=buffer](mat_value=32'd10, vec_value=32'd5, row_idx=32'd4, valid=1'd1)();
-      static invoke pe[buffer=buffer](mat_value=32'd6, vec_value=32'd5, row_idx=32'd4, valid=1'd1)();
-      static invoke pe[buffer=buffer](mat_value=32'd7, vec_value=32'd5, row_idx=32'd4, valid=1'd1)();
-      static invoke pe[buffer=buffer](mat_value=32'd3, vec_value=32'd5, row_idx=32'd4, valid=1'd1)();
+      static invoke pe(acc_value=buffer.read_data,mat_value=32'd10, vec_value=32'd5, row_idx=32'd4, valid=1'd1)
+      (
+      buffer_go = buffer.go,
+      buffer_read_en=buffer.read_en,
+      buffer_addr0_r=buffer.addr0_r,
+      buffer_write_en=buffer.write_en,
+      buffer_write_data=buffer.write_data,
+      buffer_addr0_w=buffer.addr0_w);
+      static invoke pe(acc_value=buffer.read_data,mat_value=32'd6, vec_value=32'd5, row_idx=32'd4, valid=1'd1)
+      (
+      buffer_go=buffer.go,
+      buffer_read_en=buffer.read_en,
+      buffer_addr0_r=buffer.addr0_r,
+      buffer_write_en=buffer.write_en,
+      buffer_write_data=buffer.write_data,
+      buffer_addr0_w=buffer.addr0_w);
+      static invoke pe(acc_value=buffer.read_data,mat_value=32'd7, vec_value=32'd5, row_idx=32'd4, valid=1'd1)
+      (
+      buffer_go=buffer.go,
+      buffer_read_en=buffer.read_en,
+      buffer_addr0_r=buffer.addr0_r,
+      buffer_write_en=buffer.write_en,
+      buffer_write_data=buffer.write_data,
+      buffer_addr0_w=buffer.addr0_w);
+      static invoke pe(acc_value=buffer.read_data, mat_value=32'd3, vec_value=32'd5, row_idx=32'd4, valid=1'd1)
+      (
+      buffer_go=buffer.go,
+      buffer_read_en=buffer.read_en,
+      buffer_addr0_r=buffer.addr0_r,
+      buffer_write_en=buffer.write_en,
+      buffer_write_data=buffer.write_data,
+      buffer_addr0_w=buffer.addr0_w);
       static repeat 10 {
-        static invoke pe[buffer=buffer]()();
+        static invoke pe(
+          acc_value=buffer.read_data
+        )(
+          buffer_go=buffer.go,
+          buffer_read_en=buffer.read_en,
+          buffer_addr0_r=buffer.addr0_r,
+          buffer_write_en=buffer.write_en,
+          buffer_write_data=buffer.write_data,
+          buffer_addr0_w=buffer.addr0_w
+        );
       }
       static repeat 3 {
-        static invoke buffer(read_en=1'd1, addr0=32'd4)();
+        static invoke buffer(read_en=1'd1, addr0_r=32'd4)();
       }
       buffer_to_out;
     }

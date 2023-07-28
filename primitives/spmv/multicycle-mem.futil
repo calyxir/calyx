@@ -76,7 +76,7 @@ static<1> component multicycle_buffer(@data addr0_r: 32,
 
         static<1> group r_mem {
           buffer.read_en = shift_en_r_2.out;
-          buffer.addr0_r = shift_addr0_r_2.out;
+          buffer.addr0_r = shift_addr_r_2.out;
         }
 
         read_data = buffer.read_data;

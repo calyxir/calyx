@@ -1,10 +1,28 @@
 import "primitives/core.futil";
 
-static<1> component vector_access_unit(buffer_read_data_1: 32, buffer_read_data_2: 32, row_idx: 32, col_idx: 32, mat_value_in: 32, input_valid: 1, blocked_1: 1, blocked_2: 1) -> 
- (read_en_1: 1, read_en_2: 1, addr0_1: 32, addr0_2: 32, stall: 1, valid: 1, mat_value: 32, row_idx: 32, vec_value: 32) {
+static<1> component vector_access_unit(
+  // buffer1.read_data
+  buffer_read_data_1: 32, 
+  // buffer2.read_data
+  buffer_read_data_2: 32, 
+  // payload in
+  row_idx: 32, col_idx: 32, mat_value_in: 32, input_valid: 1, 
+  // block
+  blocked_1: 1, blocked_2: 1) -> 
+ (
+  // buffer1 read command
+  read_en_1: 1, addr0_1: 32, 
+  // buffer2 read command
+  read_en_2: 1, addr0_2: 32, 
+  // stalling
+  stall,
+  // payload out
+  valid: 1, mat_value: 32, row_idx: 32, vec_value: 32) {
     cells {
       le = std_lt(32);
       minus = std_sub(32);
+      // valid signal is 2'd1 when read from buffer1, and 2'd2 when read from 
+      // buffer2
       valid_1 = std_reg(2);
       valid_2 = std_reg(2);
       valid_3 = std_reg(2);
@@ -18,7 +36,7 @@ static<1> component vector_access_unit(buffer_read_data_1: 32, buffer_read_data_
 
     wires {
       le.left = col_idx;
-      le.right = 
+      le.right = 32'd16;
       minus.left = col_idx;
       minus.right = 32'd16;
 
@@ -78,13 +96,13 @@ static<1> component vector_access_unit(buffer_read_data_1: 32, buffer_read_data_
         static if le.out {
           static par {
             read_buffer_1;
-            shift_valid_1;
+            write_valid_1;
           }
         }
         else {
           static par {
             read_buffer_2;
-            shift_valid_2;
+            write_valid_2;
           }
         }
         shift_valid;

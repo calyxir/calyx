@@ -3,13 +3,10 @@ import "primitives/spmv/multicycle-mem.futil";
 component main () -> () {
   cells {
     buffer = multicycle_buffer();
-    cond = std_wire(1);
     @external out = std_mem_d1(32, 2, 32);
   }
 
   wires {
-    cond.in = buffer.write_done? 1'd1;
-
     static<1> group buffer_to_out {
       out.addr0 = 32'd0;
       out.write_en = 1'd1;
@@ -25,13 +22,13 @@ component main () -> () {
 
   control {
     static seq {
-      static invoke buffer(addr0=32'd0, write_data = 32'd5, write_en = 1'd1)();
-      static invoke buffer(addr0=32'd1, write_data = 32'd6, write_en = 1'd1)();
+      static invoke buffer(addr0_w=32'd0, write_data = 32'd5, write_en = 1'd1)();
+      static invoke buffer(addr0_w=32'd1, write_data = 32'd6, write_en = 1'd1)();
       static repeat 2 {
         static invoke buffer()();
       }
-      static invoke buffer(addr0=32'd0, read_en=1'd1)();
-      static invoke buffer(addr0=32'd1, read_en=1'd1)();
+      static invoke buffer(addr0_r=32'd0, read_en=1'd1)();
+      static invoke buffer(addr0_r=32'd1, read_en=1'd1)();
       static invoke buffer()();
       static par {
         static invoke buffer()();
