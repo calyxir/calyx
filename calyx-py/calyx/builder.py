@@ -214,9 +214,9 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int) -> CellBuilder:
+    def reg(self, name: str, size: int, is_ref=False) -> CellBuilder:
         """Generate a StdReg cell."""
-        return self.cell(name, ast.Stdlib.register(size))
+        return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
@@ -234,6 +234,28 @@ class ComponentBuilder:
         """Generate a StdMemD1 cell."""
         return self.cell(
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
+
+    def seq_mem_d1(
+        self,
+        name: str,
+        bitwidth: int,
+        len: int,
+        idx_size: int,
+        is_external=False,
+        is_ref=False,
+    ) -> CellBuilder:
+        """Generate a SeqMemD1 cell."""
+        self.prog.import_("primitives/memories.futil")
+        return self.cell(
+            name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
+
+    def is_seq_mem_d1(self, cell: CellBuilder) -> bool:
+        """Check if the cell is a SeqMemD1 cell."""
+        return (
+            isinstance(cell._cell.comp, ast.CompInst)
+            and cell._cell.comp.name == "seq_mem_d1"
         )
 
     def add(self, name: str, size: int, signed=False) -> CellBuilder:
@@ -541,6 +563,13 @@ class CellBuilder(CellLikeBuilder):
     def port(self, name: str) -> ExprBuilder:
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
+
+    def is_mem_d1(self) -> bool:
+        """Check if the cell is a StdMemD1 cell."""
+        return (
+            isinstance(self._cell.comp, ast.CompInst)
+            and self._cell.comp.id == "std_mem_d1"
+        )
 
     @classmethod
     def unwrap_id(cls, obj):

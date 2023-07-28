@@ -1,5 +1,8 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
+extern "<ROOT>/calyx/tests/passes/group2invoke/multi-go-done-component.futil" {
+  primitive real_mem(@static @go read_en: 1, @static(2) @go(2) write_en: 1) -> (@done read_done: 1, @done(2) write_done: 1);
+}
 component real_mem_comp(@go port0_read_en: 1, @go(2) port1_write_en: 1, @clk clk: 1, @reset reset: 1) -> (@done port0_read_done: 1, @done(2) port1_write_done: 1) {
   cells {
     mem_0 = real_mem();

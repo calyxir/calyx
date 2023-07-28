@@ -38,9 +38,13 @@ component main() -> () {
     @external l0 = std_mem_d1(32, 3, 2);
     l0_idx = std_reg(2);
     l0_add = std_add(2);
-    @external out_mem = std_mem_d1(32, 1, 1);
+    @external out_mem_0 = std_mem_d1(32, 1, 1);
     idx = std_reg(4);
     idx_add = std_add(4);
+    idx_between_8_9_reg = std_reg(1);
+    index_lt_9 = std_lt(4);
+    index_ge_8 = std_ge(4);
+    idx_between_8_9_comb = std_and(1);
     idx_between_0_3_reg = std_reg(1);
     index_lt_3 = std_lt(4);
     idx_between_1_4_reg = std_reg(1);
@@ -84,9 +88,9 @@ component main() -> () {
       left_0_0.write_en = 1'd1;
     }
     static<1> group pe_0_0_out_write {
-      out_mem.addr0 = 1'd0;
-      out_mem.write_data = pe_0_0.out;
-      out_mem.write_en = 1'd1;
+      out_mem_0.addr0 = 1'd0;
+      out_mem_0.write_data = pe_0_0.out;
+      out_mem_0.write_en = 1'd1;
     }
     static<1> group init_idx {
       idx.in = 4'd0;
@@ -97,6 +101,20 @@ component main() -> () {
       idx_add.right = 4'd1;
       idx.in = idx_add.out;
       idx.write_en = 1'd1;
+    }
+    static<1> group idx_between_8_9_group {
+      index_ge_8.left = idx_add.out;
+      index_ge_8.right = 4'd8;
+      index_lt_9.left = idx_add.out;
+      index_lt_9.right = 4'd9;
+      idx_between_8_9_comb.left = index_ge_8.out;
+      idx_between_8_9_comb.right = index_lt_9.out;
+      idx_between_8_9_reg.in = idx_between_8_9_comb.out;
+      idx_between_8_9_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_8_9 {
+      idx_between_8_9_reg.in = 1'd0;
+      idx_between_8_9_reg.write_en = 1'd1;
     }
     static<1> group idx_between_0_3_group {
       index_lt_3.left = idx_add.out;
@@ -143,11 +161,12 @@ component main() -> () {
         t0_idx_init;
         l0_idx_init;
         init_idx;
+        init_idx_between_8_9;
         init_idx_between_0_3;
         init_idx_between_1_4;
         init_idx_between_5_8;
       }
-      static repeat 8 {
+      static repeat 9 {
         static par {
           static par {
             static par {
@@ -169,18 +188,21 @@ component main() -> () {
                   static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=1'd1)();
                 }
               }
+              static if idx_between_8_9_reg.out {
+                static par {
+                  pe_0_0_out_write;
+                }
+              }
             }
           }
           static par {
             incr_idx;
+            idx_between_8_9_group;
             idx_between_0_3_group;
             idx_between_1_4_group;
             idx_between_5_8_group;
           }
         }
-      }
-      static seq {
-        pe_0_0_out_write;
       }
     }
   }

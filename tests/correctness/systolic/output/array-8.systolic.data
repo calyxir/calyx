@@ -135,7 +135,7 @@
       "width": 32
     }
   },
-  "out_mem": {
+  "out_mem_0": {
     "data": [
       0,
       0,
@@ -144,6 +144,16 @@
       0,
       0,
       0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out_mem_1": {
+    "data": [
       0,
       0,
       0,
@@ -151,6 +161,16 @@
       0,
       0,
       0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out_mem_2": {
+    "data": [
       0,
       0,
       0,
@@ -158,6 +178,16 @@
       0,
       0,
       0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out_mem_3": {
+    "data": [
       0,
       0,
       0,
@@ -165,6 +195,16 @@
       0,
       0,
       0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out_mem_4": {
+    "data": [
       0,
       0,
       0,
@@ -172,6 +212,16 @@
       0,
       0,
       0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out_mem_5": {
+    "data": [
       0,
       0,
       0,
@@ -179,6 +229,16 @@
       0,
       0,
       0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out_mem_6": {
+    "data": [
       0,
       0,
       0,
@@ -186,13 +246,16 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "out_mem_7": {
+    "data": [
       0,
       0,
       0,

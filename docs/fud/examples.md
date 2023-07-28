@@ -12,7 +12,7 @@ to compile Calyx programs to Verilog.
 # to Verilog. We must explicitly specify the input
 # file type because it can not be guessed from
 # the file extension.
-fud exec examples/futil/simple.expect --from futil --to verilog
+fud exec examples/futil/simple.futil --from calyx --to verilog
 ```
 
 Fud can explain its execution plan when running a complex sequence of

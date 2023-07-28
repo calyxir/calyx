@@ -1,3 +1,17 @@
+## Unreleased
+- Don't require `@clk` and `@reset` ports in `comb` components
+
+
+## 0.4.0
+- Language: New `repeat` operator that can be used in dynamic contexts as well. When possible, `static-promotion` will attempt to promote it.
+- Fix: `wrap-main` correctly instantiates the original `"toplevel"` component in the generated `main` component.
+- Make `Workspace::construct_with_all_deps` public to allow construction of multi-file workspaces.
+- Don't emit `clk` ports for `@external` cells in the AXI generator.
+- BREAKING: Redesign the interface for `LibrarySignatures`.
+    - Expose methods to add new primitives to the library
+    - Rewrite the IR printer to print out source primitives when `skip_primitive` is set.
+
+
 ## 0.3.0
 - `ir::Component` takes a `has_interface` argument and ensures that interface ports are present when it is true.
 - The `Visitor` trait supports new `start_context` and `finish_context` methods which allow the pass to affect the context before and after the components are visited respectively.

@@ -6,6 +6,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 use std::{cmp::Ordering, hash::Hash, rc::Rc};
 
 #[derive(Debug, Clone, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Nothing;
 
 impl ToString for Nothing {
@@ -16,6 +17,7 @@ impl ToString for Nothing {
 
 /// Comparison operations that can be performed between ports by [Guard::CompOp].
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum PortComp {
     /// p1 == p2
     Eq,
@@ -33,6 +35,7 @@ pub enum PortComp {
 
 /// An assignment guard which has pointers to the various ports from which it reads.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Guard<T> {
     /// Represents `c1 || c2`.
     Or(Box<Guard<T>>, Box<Guard<T>>),
@@ -52,6 +55,7 @@ pub enum Guard<T> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticTiming {
     interval: (u64, u64),
 }

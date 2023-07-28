@@ -28,6 +28,7 @@ const INTERFACE_PORTS: [(Attribute, u64, Direction); 4] = [
 
 /// In memory representation of a Component.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Component {
     /// Name of the component.
     pub name: Id,
@@ -56,6 +57,7 @@ pub struct Component {
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
     /// component (cell and group names).
+    #[cfg_attr(feature = "serialize", serde(skip))]
     namegen: NameGenerator,
 }
 

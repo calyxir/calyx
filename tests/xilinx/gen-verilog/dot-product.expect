@@ -358,13 +358,11 @@ module Toplevel (
     wire kernel_done;
     main kernel_inst (
         .A0_addr0(A0_addr0),
-        .A0_clk(),
         .A0_done(A0_done),
         .A0_read_data(A0_read_data),
         .A0_write_data(A0_write_data),
         .A0_write_en(A0_write_en),
         .B0_addr0(B0_addr0),
-        .B0_clk(),
         .B0_done(B0_done),
         .B0_read_data(B0_read_data),
         .B0_write_data(B0_write_data),
@@ -374,7 +372,6 @@ module Toplevel (
         .go(kernel_start),
         .reset(reset || memories_sent),
         .v0_addr0(v0_addr0),
-        .v0_clk(),
         .v0_done(v0_done),
         .v0_read_data(v0_read_data),
         .v0_write_data(v0_write_data),

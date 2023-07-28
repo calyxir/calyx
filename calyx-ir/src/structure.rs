@@ -23,6 +23,7 @@ pub enum PortParent {
 
 /// Represents a port on a cell.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Port {
     /// Name of the port
     pub name: Id,
@@ -172,6 +173,7 @@ pub type Binding = SmallVec<[(Id, u64); 5]>;
 
 /// The type for a Cell
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum CellType {
     /// Cell constructed using a primitive definition
     Primitive {
@@ -231,6 +233,7 @@ impl CellType {
 
 /// Represents an instantiated cell.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Cell {
     /// Name of this cell.
     name: Id,
@@ -448,6 +451,7 @@ impl Cell {
 
 /// Represents a guarded assignment in the program
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Assignment<T> {
     /// The destination for the assignment.
     pub dst: RRC<Port>,
@@ -504,6 +508,7 @@ impl<StaticTiming> Assignment<StaticTiming> {
 
 /// A Group of assignments that perform a logical action.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Group {
     /// Name of this group
     name: Id,
@@ -595,6 +600,7 @@ impl Group {
 
 /// A Group of assignments that perform a logical action.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticGroup {
     /// Name of this group
     name: Id,
@@ -672,6 +678,7 @@ impl StaticGroup {
 /// A combinational group does not have any holes and should only contain assignments that should
 /// will be combinationally active
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct CombGroup {
     /// Name of this group
     pub(super) name: Id,

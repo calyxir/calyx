@@ -53,15 +53,23 @@ component main() -> () {
     @external l1 = std_mem_d1(32, 3, 2);
     l1_idx = std_reg(2);
     l1_add = std_add(2);
-    @external out_mem = std_mem_d1(32, 4, 3);
+    @external out_mem_0 = std_mem_d1(32, 2, 2);
+    @external out_mem_1 = std_mem_d1(32, 2, 2);
     idx = std_reg(4);
     idx_add = std_add(4);
+    idx_between_9_10_reg = std_reg(1);
+    index_lt_10 = std_lt(4);
+    index_ge_9 = std_ge(4);
+    idx_between_9_10_comb = std_and(1);
+    idx_between_10_11_reg = std_reg(1);
+    index_lt_11 = std_lt(4);
+    index_ge_10 = std_ge(4);
+    idx_between_10_11_comb = std_and(1);
     idx_between_5_8_reg = std_reg(1);
     index_lt_8 = std_lt(4);
     index_ge_5 = std_ge(4);
     idx_between_5_8_comb = std_and(1);
     idx_between_7_10_reg = std_reg(1);
-    index_lt_10 = std_lt(4);
     index_ge_7 = std_ge(4);
     idx_between_7_10_comb = std_and(1);
     idx_between_0_3_reg = std_reg(1);
@@ -70,6 +78,10 @@ component main() -> () {
     index_lt_4 = std_lt(4);
     index_ge_1 = std_ge(4);
     idx_between_1_4_comb = std_and(1);
+    idx_between_8_9_reg = std_reg(1);
+    index_lt_9 = std_lt(4);
+    index_ge_8 = std_ge(4);
+    idx_between_8_9_comb = std_and(1);
     idx_between_3_6_reg = std_reg(1);
     index_lt_6 = std_lt(4);
     index_ge_3 = std_ge(4);
@@ -79,7 +91,6 @@ component main() -> () {
     index_ge_2 = std_ge(4);
     idx_between_2_5_comb = std_and(1);
     idx_between_6_9_reg = std_reg(1);
-    index_lt_9 = std_lt(4);
     index_ge_6 = std_ge(4);
     idx_between_6_9_comb = std_and(1);
   }
@@ -153,32 +164,32 @@ component main() -> () {
       top_1_0.write_en = 1'd1;
     }
     static<1> group pe_0_0_out_write {
-      out_mem.addr0 = 3'd0;
-      out_mem.write_data = pe_0_0.out;
-      out_mem.write_en = 1'd1;
+      out_mem_0.addr0 = 2'd0;
+      out_mem_0.write_data = pe_0_0.out;
+      out_mem_0.write_en = 1'd1;
     }
     static<1> group pe_0_1_down_move {
       top_1_1.in = top_0_1.out;
       top_1_1.write_en = 1'd1;
     }
     static<1> group pe_0_1_out_write {
-      out_mem.addr0 = 3'd1;
-      out_mem.write_data = pe_0_1.out;
-      out_mem.write_en = 1'd1;
+      out_mem_0.addr0 = 2'd1;
+      out_mem_0.write_data = pe_0_1.out;
+      out_mem_0.write_en = 1'd1;
     }
     static<1> group pe_1_0_right_move {
       left_1_1.in = left_1_0.out;
       left_1_1.write_en = 1'd1;
     }
     static<1> group pe_1_0_out_write {
-      out_mem.addr0 = 3'd2;
-      out_mem.write_data = pe_1_0.out;
-      out_mem.write_en = 1'd1;
+      out_mem_1.addr0 = 2'd0;
+      out_mem_1.write_data = pe_1_0.out;
+      out_mem_1.write_en = 1'd1;
     }
     static<1> group pe_1_1_out_write {
-      out_mem.addr0 = 3'd3;
-      out_mem.write_data = pe_1_1.out;
-      out_mem.write_en = 1'd1;
+      out_mem_1.addr0 = 2'd1;
+      out_mem_1.write_data = pe_1_1.out;
+      out_mem_1.write_en = 1'd1;
     }
     static<1> group init_idx {
       idx.in = 4'd0;
@@ -189,6 +200,34 @@ component main() -> () {
       idx_add.right = 4'd1;
       idx.in = idx_add.out;
       idx.write_en = 1'd1;
+    }
+    static<1> group idx_between_9_10_group {
+      index_ge_9.left = idx_add.out;
+      index_ge_9.right = 4'd9;
+      index_lt_10.left = idx_add.out;
+      index_lt_10.right = 4'd10;
+      idx_between_9_10_comb.left = index_ge_9.out;
+      idx_between_9_10_comb.right = index_lt_10.out;
+      idx_between_9_10_reg.in = idx_between_9_10_comb.out;
+      idx_between_9_10_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_9_10 {
+      idx_between_9_10_reg.in = 1'd0;
+      idx_between_9_10_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_10_11_group {
+      index_ge_10.left = idx_add.out;
+      index_ge_10.right = 4'd10;
+      index_lt_11.left = idx_add.out;
+      index_lt_11.right = 4'd11;
+      idx_between_10_11_comb.left = index_ge_10.out;
+      idx_between_10_11_comb.right = index_lt_11.out;
+      idx_between_10_11_reg.in = idx_between_10_11_comb.out;
+      idx_between_10_11_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_10_11 {
+      idx_between_10_11_reg.in = 1'd0;
+      idx_between_10_11_reg.write_en = 1'd1;
     }
     static<1> group idx_between_5_8_group {
       index_ge_5.left = idx_add.out;
@@ -242,6 +281,20 @@ component main() -> () {
       idx_between_1_4_reg.in = 1'd0;
       idx_between_1_4_reg.write_en = 1'd1;
     }
+    static<1> group idx_between_8_9_group {
+      index_ge_8.left = idx_add.out;
+      index_ge_8.right = 4'd8;
+      index_lt_9.left = idx_add.out;
+      index_lt_9.right = 4'd9;
+      idx_between_8_9_comb.left = index_ge_8.out;
+      idx_between_8_9_comb.right = index_lt_9.out;
+      idx_between_8_9_reg.in = idx_between_8_9_comb.out;
+      idx_between_8_9_reg.write_en = 1'd1;
+    }
+    static<1> group init_idx_between_8_9 {
+      idx_between_8_9_reg.in = 1'd0;
+      idx_between_8_9_reg.write_en = 1'd1;
+    }
     static<1> group idx_between_3_6_group {
       index_ge_3.left = idx_add.out;
       index_ge_3.right = 4'd3;
@@ -293,15 +346,18 @@ component main() -> () {
         l0_idx_init;
         l1_idx_init;
         init_idx;
+        init_idx_between_9_10;
+        init_idx_between_10_11;
         init_idx_between_5_8;
         init_idx_between_7_10;
         init_idx_between_0_3;
         init_idx_between_1_4;
+        init_idx_between_8_9;
         init_idx_between_3_6;
         init_idx_between_2_5;
         init_idx_between_6_9;
       }
-      static repeat 10 {
+      static repeat 11 {
         static par {
           static par {
             static par {
@@ -329,6 +385,11 @@ component main() -> () {
                   static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=1'd1)();
                 }
               }
+              static if idx_between_8_9_reg.out {
+                static par {
+                  pe_0_0_out_write;
+                }
+              }
             }
             static par {
               static if idx_between_1_4_reg.out {
@@ -350,6 +411,11 @@ component main() -> () {
               static if idx_between_6_9_reg.out {
                 static par {
                   static invoke pe_0_1(top=top_0_1.out, left=left_0_1.out, mul_ready=1'd1)();
+                }
+              }
+              static if idx_between_9_10_reg.out {
+                static par {
+                  pe_0_1_out_write;
                 }
               }
             }
@@ -375,6 +441,11 @@ component main() -> () {
                   static invoke pe_1_0(top=top_1_0.out, left=left_1_0.out, mul_ready=1'd1)();
                 }
               }
+              static if idx_between_9_10_reg.out {
+                static par {
+                  pe_1_0_out_write;
+                }
+              }
             }
             static par {
               static if idx_between_3_6_reg.out {
@@ -387,25 +458,27 @@ component main() -> () {
                   static invoke pe_1_1(top=top_1_1.out, left=left_1_1.out, mul_ready=1'd1)();
                 }
               }
+              static if idx_between_10_11_reg.out {
+                static par {
+                  pe_1_1_out_write;
+                }
+              }
             }
           }
           static par {
             incr_idx;
+            idx_between_9_10_group;
+            idx_between_10_11_group;
             idx_between_5_8_group;
             idx_between_7_10_group;
             idx_between_0_3_group;
             idx_between_1_4_group;
+            idx_between_8_9_group;
             idx_between_3_6_group;
             idx_between_2_5_group;
             idx_between_6_9_group;
           }
         }
-      }
-      static seq {
-        pe_0_0_out_write;
-        pe_0_1_out_write;
-        pe_1_0_out_write;
-        pe_1_1_out_write;
       }
     }
   }

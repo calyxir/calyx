@@ -46,9 +46,12 @@ if __name__ == "__main__":
         for c in range(tl):
             top[r][c] = json_data[f"t{c}"][r]
 
-    matmul_result = np.matmul(left, top).flatten()
+    matmul_result = np.matmul(left, top)
 
-    json_result = np.array(json_data["out_mem"])
+    res = []
+    for r in range(ll):
+        res.append(json_data[f"out_mem_{r}"])
+    json_result = np.array(res)
 
     if np.array_equal(json_result, matmul_result):
         print("Correct")
