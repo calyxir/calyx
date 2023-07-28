@@ -14,4 +14,6 @@ Extract Constant VCalyx.Parse.oops => "(fun _ -> failwith ""oops!"")".
 transitive dependencies. *)
 Extraction "extr.ml"
            VCalyx.IRSyntax.context
+           VCalyx.IRSyntax.is_in
+           VCalyx.IRSyntax.is_out
            VCalyx.Parse.parse_context.

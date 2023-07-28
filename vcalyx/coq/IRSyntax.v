@@ -13,25 +13,29 @@ From Coq Require Import
 Definition ident := string.
 
 (** https://docs.calyxir.org/lang/attribute.html?highlight=attribute#attribute *)
-(** TODO: Some attribute can only belong to cells, or groups, or components, etc. *)
-Inductive attribute :=
-| Toplevel
-| Go
-| Done
-| Clk
-| Reset
-| Nointerface
+Inductive bool_attr :=
+| TopLevel
 | External
-| Static (cycles: nat)
-| Inline
+| NoInterface
+| Reset
+| Clk
 | Stable
+| Data
+| Control
 | Share
 | StateShare
-| Bound (iters: nat)
 | Generated
-| WriteTogether (signals: nat) 
-| ReadTogether (signals: nat) 
-| Data.
+| NewFSM
+| Inline.
+
+Inductive num_attr :=
+| Go
+| Done.
+Inductive internal_attr := .
+Inductive attribute :=
+| NumAttr (attr_name: num_attr) (n: nat)
+| BoolAttr (attr_name: bool_attr) (b: bool)
+| UnknownAttr (attr_name: ident) (n: nat).
 
 Definition attributes := list attribute.
 
@@ -41,10 +45,20 @@ Inductive direction :=
 | Output
 | InOut.
 
-Inductive port_parent :=
-| PCell (name: ident)
-| PGroup (name: ident)
-| PStaticGroup (name: ident). 
+Definition is_in (d: direction) : bool :=
+  match d with
+  | Input
+  | InOut => true
+  | _ => false
+  end.
+
+Definition is_out (d: direction) : bool :=
+  match d with
+  | Output
+  | InOut => true
+  | _ => false
+  end.
+
 
 (** Ports. *)
 Record port :=
@@ -52,7 +66,7 @@ Record port :=
       port_name: ident;
       port_width: N;
       port_dir: direction;
-      parent: port_parent;
+      parent: ident;
       port_attribute: attributes;
     }.
 

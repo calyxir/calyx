@@ -36,6 +36,15 @@ rule tokens = parse
 | "is_comb"       { IS_COMB }
 | "true"          { TRUE }
 | "false"         { FALSE }
+| "num"           { NUM }
+| "input"         { INPUT }
+| "output"        { OUTPUT }
+| "inout"         { INOUT }
+| "width"         { WIDTH }
+| "holes"         { HOLES }
+| "parent"        { PARENT }
+| "direction"     { DIRECTION }
+| "assignments"   { ASSIGNMENTS }
 | eof             { EOF }
 | id as x         { ID x }
 | _ { raise (ParseError (Printf.sprintf "At offset %d: unexpected character.\n" (Lexing.lexeme_start lexbuf))) }

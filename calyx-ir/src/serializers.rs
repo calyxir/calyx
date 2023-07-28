@@ -73,17 +73,15 @@ impl Serialize for PortParent {
     {
         match &self {
             PortParent::Cell(weak_cell_ref) => {
-                (weak_cell_ref.upgrade().borrow().name().to_string() + "::Cell")
+                (weak_cell_ref.upgrade().borrow().name().to_string())
                     .serialize(ser)
             }
             PortParent::Group(weak_group_ref) => {
-                (weak_group_ref.upgrade().borrow().name().to_string()
-                    + "::Group")
+                (weak_group_ref.upgrade().borrow().name().to_string())
                     .serialize(ser)
             }
             PortParent::StaticGroup(weak_sgroup_ref) => {
-                (weak_sgroup_ref.upgrade().borrow().name().to_string()
-                    + "::StaticGroup")
+                (weak_sgroup_ref.upgrade().borrow().name().to_string())
                     .serialize(ser)
             }
         }
