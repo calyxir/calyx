@@ -129,7 +129,7 @@ async function getProgramName() {
 
 // Activate the extension
 function activate(context) {
-  logToPanel("started activatation");
+  logToPanel("Extension activated!");
 
   let disposableStart = vscode.commands.registerCommand('cider.startDebugging', startDebugging);
   context.subscriptions.push(disposableStart);
