@@ -111,37 +111,21 @@ async function getProgramName() {
   });
 
   if (fileName) {
-    // Return the complete path to the file
-    return vscode.workspace.workspaceFolders[0].uri + "/" + fileName;
+    // If the fileName is a relative path (not starting with "/"), 
+    // prepend the path to the workspace folder
+    if (!fileName.startsWith('/')) {
+      // Also, use path.join to properly join paths
+      const path = require('path');
+      return path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, fileName);
+    }
+    // If the fileName is an absolute path, return it as is
+    return fileName;
   } else {
     // Return null if the user canceled the input
     return null;
   }
 }
 
-/* // Register the DebugConfigurationProvider
-let provider = vscode.debug.registerDebugConfigurationProvider('cider-dap', {
-  provideDebugConfigurations: (folder) => {
-    return [
-      {
-        type: 'cider-dap',
-        request: 'launch',
-        name: 'Ask for file name',
-        program: '${command:AskForProgramName}',
-        stopOnEntry: true
-      }
-    ];
-  },
-  resolveDebugConfiguration: (folder, config) => {
-    // Resolve program attribute using the 'getProgramName' command
-    return getProgramName(config).then(program => {
-      if (program) {
-        config.program = program;
-      }
-      return config;
-    });
-  }
-}); */
 
 // Activate the extension
 function activate(context) {
