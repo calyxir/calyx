@@ -2,186 +2,199 @@ import "primitives/core.futil";
 
 static<1> component matrix_loader (
   // buffer.read_data
-  read_data: 132) -> 
+  read_data_1: 64, read_data_2: 64) -> 
 ( 
-  // buffer.read_en
-  read_en: 1,
-  // buffer.addr0_r
-  addr0_r: 32, 
+  // buffer1.read_en
+  read_en_1: 1,
+  // buffer1.addr0_r
+  addr0_r_1: 30, 
+  // buffer2.read_en
+  read_en_2: 1,
+  // buffer2.addr0_r
+  addr0_r_2: 30,
   // first set of payload 
-  valid_1: 1, row_idx_1: 32, col_idx_1: 32, mat_val_1: 32, 
+  valid_1: 1, row_idx_1: 30, col_idx_1: 30, mat_val_1: 32, 
   // second set of payload
-  valid_2: 1, row_idx_2: 32, col_idx_2: 32, mat_val_2: 32, 
+  valid_2: 1, row_idx_2: 30, col_idx_2: 30, mat_val_2: 32, 
   // stop signal
-  stop: 1, 
+  stop_1: 1, stop_2: 1,
   // stall signal
-  stall: 1 ) {
+  stall_1: 1, stall_2: 1 ) {
   cells {
     // address to read
-    addr = std_reg(32);
+    addr_1 = std_reg(32);
+    addr_2 = std_reg(32);
     //adder to increment address
-    incr = std_add(32);
-    row_num = std_reg(32);
-    incr = std_add(32);
-    slice_1 = std_slice(132, 66);
-    slice_2 = std_slice(132, 66);
-    right_shift = std_rsh(132);
-    reg_left = std_reg(66);
-    rsh1_left = std_rsh(66);
-    rsh2_left = std_rsh(66);
-    slice1_left = std_slice(66, 2);
+    incr_1 = std_add(32);
+    incr_2 = std_add(32);
+    // read_en_1 shift
+    read_en_1_shift_1 = std_reg(1);
+    read_en_1_shift_2 = std_reg(1);
+    read_en_1_shift_3 = std_reg(1);
+    read_en_1_shift_4 = std_reg(1);
+    // read_en_2 shift
+    read_en_2_shift_1 = std_reg(1);
+    read_en_2_shift_2 = std_reg(1);
+    read_en_2_shift_3 = std_reg(1);
+    read_en_2_shift_4 = std_reg(1);
+    // row num
+    row_num_1 = std_reg(30);
+    row_num_2 = std_reg(30);
+    add_row_1 = std_add(30);
+    add_row_2 = std_add(30);
+    right_shift = std_rsh(64);
+    rsh1_left = std_rsh(64);
+    rsh2_left = std_rsh(64);
+    slice1_left = std_slice(64, 2);
     flag_reg_left = std_reg(2);
     eq1_left = std_eq(2);
-    eq1_reg_left = std_reg(1);
     eq2_left = std_eq(2);
-    eq2_reg_left = std_reg(1);
     eq3_left = std_eq(2);
-    eq3_reg_left = std_reg(1);
-    slice2_left = std_slice(66, 32);
-    idx_reg_left = std_reg(32);
-    idx_reg_left_shift = std_reg(32);
-    slice3_left = std_slice(66, 32);
+    slice2_left = std_slice(64, 30);
+    idx_reg_left = std_reg(30);
+    slice3_left = std_slice(64, 32);
     value_reg_left = std_reg(32);
     value_reg_left_shift = std_reg(32);
-    reg_right = std_reg(66);
-    rsh1_right = std_rsh(66);
-    rsh2_right = std_rsh(66);
-    slice1_right = std_slice(66, 2);
+    reg_right = std_reg(64);
+    rsh1_right = std_rsh(64);
+    rsh2_right = std_rsh(64);
+    slice1_right = std_slice(64, 2);
     flag_reg_right = std_reg(2);
     eq1_right = std_eq(2);
-    eq1_reg_right = std_reg(1);
     eq2_right = std_eq(2);
-    eq2_reg_right = std_reg(1);
     eq3_right = std_eq(2);
-    eq3_reg_right = std_reg(1);
-    slice2_right = std_slice(66, 32);
-    idx_reg_right =std_reg(32);
-    idx_reg_right_shift = std_reg(32);
-    slice3_right = std_slice(66, 32);
+    slice2_right = std_slice(64, 30);
+    idx_reg_right =std_reg(30);
+    slice3_right = std_slice(64, 32);
     value_reg_right = std_reg(32);
     value_reg_right_shift = std_reg(32);
   }
 
   wires {
-    static<1> group get_slices {
-      reg_left.in = slice_1.out;
-      slice_1.in = read_data;
-      reg_left.write_en = 1'd1;
-      reg_right.in = slice_2.out;
-      slice_2.in = right_shift.out;
-      right_shift.left = read_data;
-      right_shift.right = 132'd66;
-      reg_right.write_en = 1'd1;
-    }
+    eq1_left.left = flag_reg_left.out;
+    eq1_left.right = 2'd1;
+    eq2_left.left = flag_reg_left.out;
+    eq2_left.right = 2'd2;
+    eq3_left.left = flag_reg_left.out;
+    eq3_left.right = 2'd3;
+    eq1_right.left = flag_reg_right.out;
+    eq1_right.right = 2'd1;
+    eq2_right.left = flag_reg_right.out;
+    eq2_right.right = 2'd2;
+    eq3_right.left = flag_reg_right.out;
+    eq3_right.right = 2'd3;
+
+    static<1> group shift_read_en {
+      read_en_1_shift_1.in = read_en_1;
+      read_en_1_shift_1.write_en = 1'd1;
+      read_en_1_shift_2.in = read_en_1_shift_1.out;
+      read_en_1_shift_2.write_en = 1'd1;
+      read_en_1_shift_3.in = read_en_1_shift_2.out;
+      read_en_1_shift_3.write_en = 1'd1;
+      read_en_1_shift_4.in = read_en_1_shift_3.out;
+      read_en_1_shift_4.write_en = 1'd1;
+      read_en_2_shift_1.in = read_en_2;
+      read_en_2_shift_1.write_en = 1'd1;
+      read_en_2_shift_2.in = read_en_2_shift_1.out;
+      read_en_2_shift_2.write_en = 1'd1;
+      read_en_2_shift_3.in = read_en_2_shift_2.out;
+      read_en_2_shift_3.write_en = 1'd1;
+      read_en_2_shift_4.in = read_en_2_shift_3.out;
+      read_en_2_shift_4.write_en = 1'd1;
+    }  
 
     static<1> group incr_addr {
-      addr.in = !stall ? add.out;
-      add.left = !stall ? addr.out;
-      add.right = !stall ? 32'd1;
-      addr.write_en = !stall ? 1'd1;
+      addr_1.in = !stall_1 ? add.out;
+      add.left = !stall_1 ? addr_1.out;
+      add.right = !stall_1 ? 32'd1;
+      addr_1.write_en = !stall_1 ? 1'd1;
+      addr_2.in = !stall_2 ? add.out;
+      add.left = !stall_2 ? addr_2.out;
+      add.right = !stall_2 ? 32'd1;
+      addr_2.write_en = !stall_2 ? 1'd1;
     }
 
     static<1> group segment {
+      // write flag
       slice1_left.in = rsh1_left.out;
-      rsh1_left.left = reg_left.out;
-      rsh1_left.right = 66'd64;
+      rsh1_left.left = read_data_1;
+      rsh1_left.right = 64'd62;
       flag_reg_left.in = slice1_left.out;
       flag_reg_left.write_en = 1'd1;
+      // write addr
       slice2_left.in = rsh2_left.out;
-      rsh2_left.left = reg_left.out;
+      rsh2_left.left = read_data_1;
       rsh2_left.right = 64'd32;
       idx_reg_left.in = slice2_left.out;
       idx_reg_left.write_en = 1'd1;
-      slice3_left.in = reg_left.out;
+      // write value
+      slice3_left.in = read_data_1;
       value_reg_left.in = slice3_left.out;
       value_reg_left.write_en = 1'd1;
+      // write flag
       slice1_right.in = rsh1_right.out;
-      rsh1_right.left = reg_right.out;
-      rsh1_right.right = 66'd64;
+      rsh1_right.left = read_data_2;
+      rsh1_right.right = 64'd62;
       flag_reg_right.in = slice1_right.out;
       flag_reg_right.write_en = 1'd1;
+      // write idx
       rsh2_right.left = reg_right.out;
       rsh2_right.right = 64'd32;
       idx_reg_right.in = slice2_right.out;
       idx_reg_right.write_en = 1'd1;
+      // write value
       slice3_right.in = reg_right.out;
       value_reg_right.in = slice3_right.out;
       value_reg_right.write_en = 1'd1;
     }
 
-    static<1> group determine_flag {
-      eq1_left.left = flag_reg_left.out;
-      eq1_left.right = 2'd1;
-      eq1_reg_left.in = eq1_left.out;
-      eq1_reg_left.write_en = 1'd1;
-      eq2_left.left = flag_reg_left.out;
-      eq2_left.right = 2'd2;
-      eq2_reg_left.in = eq2_left.out;
-      eq2_reg_left.write_en = 1'd1;
-      eq3_left.left = flag_reg_left.out;
-      eq3_left.right = 2'd3;
-      eq3_reg_left.in = eq3_left.out;
-      eq3_reg_left.write_en = 1'd1;
-      eq1_right.left = flag_reg_right.out;
-      eq1_right.right = 2'd1;
-      eq1_reg_right.in = eq1_right.out;
-      eq1_reg_right.write_en = 1'd1;
-      eq2_right.left = flag_reg_right.out;
-      eq2_right.right = 2'd2;
-      eq2_reg_right.in = eq2_right.out;
-      eq2_reg_right.write_en = 1'd1;
-      eq3_right.left = flag_reg_right.out;
-      eq3_right.right = 2'd3;
-      eq3_reg_right.in = eq3_right.out;
-      eq3_reg_right.write_en = 1'd1;
-    }
-
     static<1> group send_payload_left {
-      valid_1 = 1'd1;
-      row_idx_1 = row_num.out;
-      col_idx_1 = slice2_left.out;
-      mat_val_1 = slice3_left.out;
+      valid_1 = eq1_left.out ? read_en_1_shift_4.out;
+      row_idx_1 = eq1_left.out ? row_num_1.out;
+      col_idx_1 = eq1_left.out ? slice2_left.out;
+      mat_val_1 = eq1_left.out ? slice3_left.out;
     }
 
     static<1> group send_payload_right {
-      valid_2 = 1'd1;
-      row_idx_2 = row_num.out;
-      col_idx_2 = slice2_right.out;
-      mat_val_2 = slice3_right.out;
+      valid_2 = eq1_right.out ? read_en_2_shift_4.out;
+      row_idx_2 = eq1_right.out ? row_num_2.out;
+      col_idx_2 = eq1_right.out ? slice2_right.out;
+      mat_val_2 = eq1_right.out ? slice3_right.out;
     }
 
-    static<1> group incr_row_idx {
-      row_num.in = incr.out;
-      incr.left = row_num.out;
-      incr.right = slice3_left.out;
-      row_num.write_en = 1'd1;
+    static<1> group incr_row_idx_1 {
+      row_num.in = eq2_left.out ? add_row_1.out;
+      incr.left =eq2_left.out ? row_num_1.out;
+      incr.right = eq2_left.out ? slice2_left.out;
+      row_num.write_en = eq2_left.out ? 1'd1;
+    }
+
+    static<1> group incr_row_idx_2 {
+      row_num.in = eq2_right.out ? add_row_2.out;
+      incr.left = eq2_right.out ? row_num_2.out;
+      incr.right = eq2_right.out ? slice2_right.out;
+      row_num.write_en = eq2_right.out ? 1'd1;
     }
 
     static<1> group signal_stop {
-      stop = 1'd1;
+      stop_1 = eq3_left.out ? 1'd1;
+      stop_2 = eq3_right.out ? 1'd1;
     }
 
-    read_en = !stall ? 1'd1;
-    addr0_r = addr.out;
+    read_en_1 = !stall_1 ? 1'd1;
+    addr0_r = !stall_1addr.out;
   }
 
   control {
     static par {
-      get_slices;
+      shift_read_en;
+      incr_addr;
       segment;
-      determine_flag;
-      static if eq1_reg_left.out {
-        send_payload_left;
-      }
-      static if eq2_reg_left.out {
-        incr_row_idx;
-      }
-      static if eq3_reg_left.out {
-        signal_stop;
-      }
-      static if eq1_reg_right.out {
-        send_payload_right;
-      }
+      send_payload_left;
+      send_payload_right;
+      incr_row_idx_1;
+      incr_row_idx_2;
+      signal_stop;
     }
   }
 }
