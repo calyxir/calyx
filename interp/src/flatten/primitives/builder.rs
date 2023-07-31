@@ -9,8 +9,8 @@ use crate::{
     values::Value,
 };
 
-use super::stateful::*;
 use super::{combinational::*, Primitive};
+use super::{prim_trait::DummyPrimitive, stateful::*};
 
 pub fn build_primitive(
     env: &mut Environment,
@@ -107,7 +107,7 @@ pub fn build_primitive(
             width: _,
             size: _,
             idx_size: _,
-        } => todo!(),
+        } => Box::new(DummyPrimitive),
         CellPrototype::MemD2 {
             mem_type: _,
             width: _,

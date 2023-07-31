@@ -4,6 +4,7 @@ use smallvec::SmallVec;
 
 use super::{context::Context, indexed_map::IndexedMap};
 use crate::{
+    errors::InterpreterResult,
     flatten::{
         flat_ir::prelude::{
             BaseIndices, ComponentIdx, ControlIdx, ControlNode, GlobalCellId,
@@ -404,7 +405,7 @@ impl<'a> Simulator<'a> {
     }
 
     pub fn ctx(&self) -> &Context {
-        &self.env.ctx
+        self.env.ctx
     }
 }
 
@@ -419,7 +420,7 @@ impl<'a> Simulator<'a> {
     /// handled elsewhere.
     fn find_next_control_point(
         &self,
-        target: ControlPoint,
+        target: &ControlPoint,
     ) -> Option<ControlPoint> {
         let comp = target.comp;
         let comp_idx = self.env.cells[comp].as_comp().unwrap().comp_id;
@@ -577,5 +578,16 @@ impl<'a> Simulator<'a> {
 
         // if we exit without finding the next node then it does not exist
         None
+    }
+
+    pub fn step(&mut self) -> InterpreterResult<()> {
+        todo!()
+    }
+
+    pub fn _main_test(&mut self) {
+        self.env.print_pc();
+        for x in self.env.pcs.iter() {
+            println!("{:?} next {:?}", x, self.find_next_control_point(x))
+        }
     }
 }
