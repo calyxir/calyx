@@ -1,0 +1,99 @@
+import "primitives/core.futil";
+import "primitives/dual_port_memories.futil";
+
+static<1> component matrix_buffer(@data addr0_r: 32,
+    @data addr0_w: 32,
+    @write_together(1) @data write_data: 32,
+    @write_together(1) write_en: 1,
+    read_en: 1,
+    @go go:1,
+    @clk clk: 1,
+    @reset reset: 1) -> (read_data: 32) {
+      cells {
+        shift_data_w_1 = std_reg(128);
+        shift_data_w_2 = std_reg(128);
+        shift_en_w_1 = std_reg(1);
+        shift_en_w_2 = std_reg(1);
+        shift_en_r_1 = std_reg(1);
+        shift_en_r_2 = std_reg(1);
+        shift_addr_r_1 = std_reg(32);
+        shift_addr_r_2 = std_reg(32);
+        shift_addr_w_1 = std_reg(32);
+        shift_addr_w_2 = std_reg(32);
+        buffer = dual_port_mem_d1(32, 132, 32);
+      }
+
+      wires {
+        static<1> group shift_w_1 {
+          shift_data_w_1.in = write_data;
+          shift_data_w_1.write_en = 1'd1;
+          shift_en_w_1.in = write_en;
+          shift_en_w_1.write_en = 1'd1;
+        }
+
+        static<1> group shift_w_2 {
+          shift_data_w_2.in = shift_data_w_1.out;
+          shift_data_w_2.write_en = 1'd1;
+          shift_en_w_2.in = shift_en_w_1.out;
+          shift_en_w_2.write_en = 1'd1;
+        }
+
+        static<1> group shift_addr0_r_1 {
+          shift_addr_r_1.in = addr0_r;
+          shift_addr_r_1.write_en = 1'd1;
+        }
+
+        static<1> group shift_addr0_r_2 {
+          shift_addr_r_2.in = shift_addr_r_1.out;
+          shift_addr_r_2.write_en = 1'd1;
+        }
+
+        static<1> group shift_addr0_w_1 {
+          shift_addr_w_1.in = addr0_w;
+          shift_addr_w_1.write_en = 1'd1;
+        }
+
+        static<1> group shift_addr0_w_2 {
+          shift_addr_w_2.in = shift_addr_w_1.out;
+          shift_addr_w_2.write_en = 1'd1;
+        }
+
+        static<1> group w_mem {
+          buffer.write_data = shift_data_w_2.out;
+          buffer.write_en = shift_en_w_2.out;
+          buffer.addr0_w = shift_addr_w_2.out;
+        }
+
+        static<1> group shift_read_en_1 {
+          shift_en_r_1.in = read_en;
+          shift_en_r_1.write_en = 1'd1;
+        }
+
+        static<1> group shift_read_en_2 {
+          shift_en_r_2.in = shift_en_r_1.out;
+          shift_en_r_2.write_en = 1'd1;
+        }
+
+        static<1> group r_mem {
+          buffer.read_en = shift_en_r_2.out;
+          buffer.addr0_r = shift_addr_r_2.out;
+        }
+
+        read_data = buffer.read_data;
+      }
+
+      control {
+        static par {
+          shift_w_1;
+          shift_w_2;
+          shift_addr0_r_1;
+          shift_addr0_r_2;
+          shift_addr0_w_1;
+          shift_addr0_w_2;
+          w_mem;
+          shift_read_en_1;
+          shift_read_en_2;
+          r_mem;
+        }
+      }
+}

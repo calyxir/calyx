@@ -7,9 +7,21 @@ component main () -> () {
     vau = vector_access_unit();
     buffer1 = multicycle_buffer();
     buffer2 = multicycle_buffer();
+    @external out = std_mem_d1(32, 2, 5);
   }
 
   wires {
+    static<1> group write_mem {
+      out.write_data = vau.vec_value;
+      out.write_en = 1'd1;
+      out.addr0 = 5'd0;
+    }
+
+    static<1> group write_mem_1 {
+      out.write_data = vau.vec_value;
+      out.write_en = 1'd1;
+      out.addr0 = 5'd1;
+    }
   }
 
   control {
@@ -24,18 +36,34 @@ component main () -> () {
       }
       static invoke vau(buffer_read_data_1=buffer1.read_data, 
         buffer_read_data_2=buffer2.read_data,
-        row_idx=32'd2, col_idx=32'd5, mat_value_in=32'd12)(
-          read_en_1=buffer1.read_en, addr0_1=buffer1.addr0_r,
-          read_en_2=buffer2.read_en, addr0_2=buffer2.addr0_r
-        )
+        row_idx_in=32'd2, col_idx=32'd5, mat_value_in=32'd12, input_valid=1'd1)(
+          read_en_1=buffer1.read_en, addr0_1=buffer1.addr0_r, go_1=buffer1.go,
+          read_en_2=buffer2.read_en, addr0_2=buffer2.addr0_r, go_2=buffer2.go
+        );
       static invoke vau(buffer_read_data_1=buffer1.read_data,
         buffer_read_data_2=buffer2.read_data,
-        row_idx=32'd4, col_idx=32'd20, mat_value_in=32'd14, input_valid=1'd1)(
-          read_en_1=buffer1.read_en, addr0_1=buffer1.addr0_r,
-          read_en_2=buffer2.read_en, addr0_2=buffer2.addr0_r
-        )
-      static repeat 2 {
-        static invoke vau()();
+        row_idx_in=32'd4, col_idx=32'd20, mat_value_in=32'd14, input_valid=1'd1)(
+          read_en_1=buffer1.read_en, addr0_1=buffer1.addr0_r, go_1=buffer1.go,
+          read_en_2=buffer2.read_en, addr0_2=buffer2.addr0_r, go_2=buffer2.go
+        );
+      static invoke vau(buffer_read_data_1=buffer1.read_data,
+        buffer_read_data_2=buffer2.read_data)(
+          read_en_1=buffer1.read_en, addr0_1=buffer1.addr0_r, go_1=buffer1.go,
+          read_en_2=buffer2.read_en, addr0_2=buffer2.addr0_r, go_2=buffer2.go
+        );
+      static par {
+        static invoke vau(buffer_read_data_1=buffer1.read_data,
+        buffer_read_data_2=buffer2.read_data)(
+          read_en_1=buffer1.read_en, addr0_1=buffer1.addr0_r, go_1=buffer1.go,
+          read_en_2=buffer2.read_en, addr0_2=buffer2.addr0_r, go_2=buffer2.go);
+        write_mem;
+      }
+      static par {
+        static invoke vau(buffer_read_data_1=buffer1.read_data,
+        buffer_read_data_2=buffer2.read_data)(
+          read_en_1=buffer1.read_en, addr0_1=buffer1.addr0_r, go_1=buffer1.go,
+          read_en_2=buffer2.read_en, addr0_2=buffer2.addr0_r, go_2=buffer2.go);
+        write_mem_1;
       }
     }
   }

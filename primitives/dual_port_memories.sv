@@ -9,13 +9,13 @@ module dual_port_mem_d1 #(
   
   // Read signal 
   input wire logic read_en,
-  input wire logic addr0_r,
+  input wire logic [IDX_SIZE-1:0] addr0_r,
   output logic [ WIDTH-1:0] read_data,
 
   // Write signal
   input wire logic write_en,
   input wire logic [ WIDTH-1: 0] write_data,
-  input wire logic addr0_w
+  input wire logic [IDX_SIZE-1:0] addr0_w
 
 );
 
