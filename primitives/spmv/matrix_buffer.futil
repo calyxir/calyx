@@ -3,15 +3,15 @@ import "primitives/dual_port_memories.futil";
 
 static<1> component matrix_buffer(@data addr0_r: 32,
     @data addr0_w: 32,
-    @write_together(1) @data write_data: 32,
+    @write_together(1) @data write_data: 63,
     @write_together(1) write_en: 1,
     read_en: 1,
     @go go:1,
     @clk clk: 1,
-    @reset reset: 1) -> (read_data: 32) {
+    @reset reset: 1) -> (read_data: 63) {
       cells {
-        shift_data_w_1 = std_reg(128);
-        shift_data_w_2 = std_reg(128);
+        shift_data_w_1 = std_reg(63);
+        shift_data_w_2 = std_reg(63);
         shift_en_w_1 = std_reg(1);
         shift_en_w_2 = std_reg(1);
         shift_en_r_1 = std_reg(1);
@@ -20,7 +20,7 @@ static<1> component matrix_buffer(@data addr0_r: 32,
         shift_addr_r_2 = std_reg(32);
         shift_addr_w_1 = std_reg(32);
         shift_addr_w_2 = std_reg(32);
-        buffer = dual_port_mem_d1(32, 132, 32);
+        buffer = dual_port_mem_d1(63, 32, 32);
       }
 
       wires {

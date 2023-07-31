@@ -2,24 +2,25 @@ import "primitives/core.futil";
 
 static<1> component matrix_loader (
   // buffer.read_data
-  read_data_1: 64, read_data_2: 64) -> 
+  read_data_1: 63, read_data_2: 63,
+  // stall signal
+  stall_1: 1, stall_2: 1 ) -> 
 ( 
   // buffer1.read_en
   read_en_1: 1,
   // buffer1.addr0_r
-  addr0_r_1: 30, 
+  addr0_r_1: 32, 
   // buffer2.read_en
   read_en_2: 1,
   // buffer2.addr0_r
-  addr0_r_2: 30,
+  addr0_r_2: 32,
   // first set of payload 
-  valid_1: 1, row_idx_1: 30, col_idx_1: 30, mat_val_1: 32, 
+  valid_1: 1, row_idx_1: 29, col_idx_1: 29, mat_val_1: 32, 
   // second set of payload
-  valid_2: 1, row_idx_2: 30, col_idx_2: 30, mat_val_2: 32, 
+  valid_2: 1, row_idx_2: 29, col_idx_2: 29, mat_val_2: 32, 
   // stop signal
   stop_1: 1, stop_2: 1,
-  // stall signal
-  stall_1: 1, stall_2: 1 ) {
+   ) {
   cells {
     // address to read
     addr_1 = std_reg(32);
@@ -38,34 +39,34 @@ static<1> component matrix_loader (
     read_en_2_shift_3 = std_reg(1);
     read_en_2_shift_4 = std_reg(1);
     // row num
-    row_num_1 = std_reg(30);
-    row_num_2 = std_reg(30);
-    add_row_1 = std_add(30);
-    add_row_2 = std_add(30);
-    right_shift = std_rsh(64);
-    rsh1_left = std_rsh(64);
-    rsh2_left = std_rsh(64);
-    slice1_left = std_slice(64, 2);
+    row_num_1 = std_reg(29);
+    row_num_2 = std_reg(29);
+    add_row_1 = std_add(29);
+    add_row_2 = std_add(29);
+    right_shift = std_rsh(63);
+    rsh1_left = std_rsh(63);
+    rsh2_left = std_rsh(63);
+    slice1_left = std_slice(63, 2);
     flag_reg_left = std_reg(2);
     eq1_left = std_eq(2);
     eq2_left = std_eq(2);
     eq3_left = std_eq(2);
-    slice2_left = std_slice(64, 30);
-    idx_reg_left = std_reg(30);
-    slice3_left = std_slice(64, 32);
+    slice2_left = std_slice(63, 29);
+    idx_reg_left = std_reg(29);
+    slice3_left = std_slice(63, 32);
     value_reg_left = std_reg(32);
     value_reg_left_shift = std_reg(32);
-    reg_right = std_reg(64);
-    rsh1_right = std_rsh(64);
-    rsh2_right = std_rsh(64);
-    slice1_right = std_slice(64, 2);
+    reg_right = std_reg(63);
+    rsh1_right = std_rsh(63);
+    rsh2_right = std_rsh(63);
+    slice1_right = std_slice(63, 2);
     flag_reg_right = std_reg(2);
     eq1_right = std_eq(2);
     eq2_right = std_eq(2);
     eq3_right = std_eq(2);
-    slice2_right = std_slice(64, 30);
-    idx_reg_right =std_reg(30);
-    slice3_right = std_slice(64, 32);
+    slice2_right = std_slice(63, 29);
+    idx_reg_right =std_reg(29);
+    slice3_right = std_slice(63, 32);
     value_reg_right = std_reg(32);
     value_reg_right_shift = std_reg(32);
   }
@@ -85,7 +86,7 @@ static<1> component matrix_loader (
     eq3_right.right = 2'd3;
 
     static<1> group shift_read_en {
-      read_en_1_shift_1.in = read_en_1;
+      read_en_1_shift_1.in = !stall_1 ? 1'd1;
       read_en_1_shift_1.write_en = 1'd1;
       read_en_1_shift_2.in = read_en_1_shift_1.out;
       read_en_1_shift_2.write_en = 1'd1;
@@ -93,7 +94,7 @@ static<1> component matrix_loader (
       read_en_1_shift_3.write_en = 1'd1;
       read_en_1_shift_4.in = read_en_1_shift_3.out;
       read_en_1_shift_4.write_en = 1'd1;
-      read_en_2_shift_1.in = read_en_2;
+      read_en_2_shift_1.in = !stall_2 ? 1'd1;
       read_en_2_shift_1.write_en = 1'd1;
       read_en_2_shift_2.in = read_en_2_shift_1.out;
       read_en_2_shift_2.write_en = 1'd1;
@@ -104,13 +105,13 @@ static<1> component matrix_loader (
     }  
 
     static<1> group incr_addr {
-      addr_1.in = !stall_1 ? add.out;
-      add.left = !stall_1 ? addr_1.out;
-      add.right = !stall_1 ? 32'd1;
+      addr_1.in = !stall_1 ? incr_1.out;
+      incr_1.left = !stall_1 ? addr_1.out;
+      incr_1.right = !stall_1 ? 32'd1;
       addr_1.write_en = !stall_1 ? 1'd1;
-      addr_2.in = !stall_2 ? add.out;
-      add.left = !stall_2 ? addr_2.out;
-      add.right = !stall_2 ? 32'd1;
+      addr_2.in = !stall_2 ? incr_2.out;
+      incr_2.left = !stall_2 ? addr_2.out;
+      incr_2.right = !stall_2 ? 32'd1;
       addr_2.write_en = !stall_2 ? 1'd1;
     }
 
@@ -118,13 +119,13 @@ static<1> component matrix_loader (
       // write flag
       slice1_left.in = rsh1_left.out;
       rsh1_left.left = read_data_1;
-      rsh1_left.right = 64'd62;
+      rsh1_left.right = 63'd61;
       flag_reg_left.in = slice1_left.out;
       flag_reg_left.write_en = 1'd1;
       // write addr
       slice2_left.in = rsh2_left.out;
       rsh2_left.left = read_data_1;
-      rsh2_left.right = 64'd32;
+      rsh2_left.right = 63'd32;
       idx_reg_left.in = slice2_left.out;
       idx_reg_left.write_en = 1'd1;
       // write value
@@ -134,12 +135,12 @@ static<1> component matrix_loader (
       // write flag
       slice1_right.in = rsh1_right.out;
       rsh1_right.left = read_data_2;
-      rsh1_right.right = 64'd62;
+      rsh1_right.right = 63'd61;
       flag_reg_right.in = slice1_right.out;
       flag_reg_right.write_en = 1'd1;
       // write idx
       rsh2_right.left = reg_right.out;
-      rsh2_right.right = 64'd32;
+      rsh2_right.right = 63'd32;
       idx_reg_right.in = slice2_right.out;
       idx_reg_right.write_en = 1'd1;
       // write value
@@ -163,17 +164,17 @@ static<1> component matrix_loader (
     }
 
     static<1> group incr_row_idx_1 {
-      row_num.in = eq2_left.out ? add_row_1.out;
-      incr.left =eq2_left.out ? row_num_1.out;
-      incr.right = eq2_left.out ? slice2_left.out;
-      row_num.write_en = eq2_left.out ? 1'd1;
+      row_num_1.in = eq2_left.out ? add_row_1.out;
+      add_row_1.left = eq2_left.out ? row_num_1.out;
+      add_row_1.right = eq2_left.out ? slice2_left.out;
+      row_num_1.write_en = eq2_left.out ? 1'd1;
     }
 
     static<1> group incr_row_idx_2 {
-      row_num.in = eq2_right.out ? add_row_2.out;
-      incr.left = eq2_right.out ? row_num_2.out;
-      incr.right = eq2_right.out ? slice2_right.out;
-      row_num.write_en = eq2_right.out ? 1'd1;
+      row_num_2.in = eq2_right.out ? add_row_2.out;
+      add_row_2.left = eq2_right.out ? row_num_2.out;
+      add_row_2.right = eq2_right.out ? slice2_right.out;
+      row_num_2.write_en = eq2_right.out ? 1'd1;
     }
 
     static<1> group signal_stop {
@@ -182,7 +183,9 @@ static<1> component matrix_loader (
     }
 
     read_en_1 = !stall_1 ? 1'd1;
-    addr0_r = !stall_1addr.out;
+    addr0_r_1 = !stall_1 ? addr_1.out;
+    read_en_2 = !stall_2 ? 1'd1;
+    addr0_r_2 = !stall_2 ? addr_2.out;
   }
 
   control {

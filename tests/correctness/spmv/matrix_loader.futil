@@ -6,12 +6,14 @@ import "primitives/dual_port_memories.futil";
 component main () -> () {
   cells {
     loader = matrix_loader();
-    buffer = matrix_buffer();
-    @external out = std_mem_d1(32, 4, 3);
+    buffer_1 = matrix_buffer();
+    buffer_2 = matrix_buffer();
+    @external out1 = std_mem_d1(32, 2, 3);
+    @external out2 = std_mem_d1(29, 2, 3);
     reg_1 = std_reg(32);
-    reg_addr_1 = std_reg(32);
+    reg_addr_1 = std_reg(29);
     reg_2 = std_reg(32);
-    reg_addr_2 = std_reg(32);
+    reg_addr_2 = std_reg(29);
   }
 
   wires {
@@ -27,44 +29,56 @@ component main () -> () {
     }
 
     static<1> group write_out_1 {
-      out.write_data = reg_1.out;
-      out.addr0 = 3'd0;
-      out.write_en = 1'd1;
+      out1.write_data = reg_1.out;
+      out1.addr0 = 3'd0;
+      out1.write_en = 1'd1;
     }
 
     static<1> group write_out_2 {
-      out.write_data = reg_2.out;
-      out.addr0 = 3'd1;
-      out.write_en = 1'd1;
+      out1.write_data = reg_2.out;
+      out1.addr0 = 3'd1;
+      out1.write_en = 1'd1;
     }
 
     static<1> group write_out_3 {
-      out.write_data = reg_addr_1.out;
-      out.addr0 = 3'd2;
-      out.write_en = 1'd1;
+      out2.write_data = reg_addr_1.out;
+      out2.addr0 = 3'd2;
+      out2.write_en = 1'd1;
     }
 
-    static<1> group write_out_3 {
-      out.write_data = reg_addr_2.out;
-      out.addr0 = 3'd3;
-      out.write_en = 1'd1;
+    static<1> group write_out_4 {
+      out2.write_data = reg_addr_2.out;
+      out2.addr0 = 3'd3;
+      out2.write_en = 1'd1;
     }
   }
 
   control {
     static seq {
-      static invoke buffer(write_en=1'd1, write_data=132'd32,
-      addr0_w=32'd0)();
-      static repeat 2 {
-        static invoke buffer()();
+      static par {
+        static seq {
+          static invoke buffer_1(write_en=1'd1, write_data=63'd2305843030688530444,
+          addr0_w=32'd0)();
+          static repeat 2 {
+            static invoke buffer_1()();
+          }
+        }
+        static seq {
+          static invoke buffer_2(write_en=1'd1, write_data=63'd2305843030688530444,
+          addr0_w=32'd0)();
+          static repeat 2 {
+            static invoke buffer_2()();
+          }
+        }
       }
-      static invoke loader(read_data=buffer.read_data)(
-        read_en=buffer.read_en, addr0_r=buffer.addr0_r);
+      static invoke loader(read_data_1=buffer_1.read_data, read_data_2=buffer_2.read_data)(
+        read_en_1=buffer_1.read_en, addr0_r_1=buffer_1.addr0_r, 
+        read_en_2=buffer_2.read_en, addr0_r_2=buffer_2.addr0_r);
       static repeat 2 {
-        static invoke loader()(stall=1'd1);
+        static invoke loader()(stall_1=1'd1, stall_2=1'd1);
       }
       static par {
-      static invoke loader()(stall=1'd1);
+      static invoke loader()(stall_1=1'd1, stall_2=1'd1);
       write_reg;
       }
       write_out_1;
