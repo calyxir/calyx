@@ -277,5 +277,6 @@ much of the execution is occurring in parallel at any given point.
 Use `help` to see all commands. Use `exit` to exit the debugger.
 
 
-[fud]: /fud/index.md
+[fud]: ../fud/index.md
 [gdb]: https://sourceware.org/gdb/
+[interp]: ../interpreter.md
