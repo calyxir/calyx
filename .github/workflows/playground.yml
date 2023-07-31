@@ -23,7 +23,7 @@ jobs:
       - name: Install wasm-pack
         uses: actions-rs/cargo@v1
         with:
-          command: install
+          command: install --locked
           args: wasm-pack
       - name: Install wasm-bindgen-cli
         uses: actions-rs/cargo@v1
