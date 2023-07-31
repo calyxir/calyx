@@ -233,9 +233,9 @@ fud exec --from calyx --to jq \
 """
 
 [[tests]]
-name = "dynamic repeat correctness test"
+name = "correctness test of static islands without static promotion"
 paths = [
-  "tests/correctness/repeat/*.futil",
+  "tests/correctness/static-islands/*.futil",
 ]
 cmd = """
 fud exec --from calyx --to jq \

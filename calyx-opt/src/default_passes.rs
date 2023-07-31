@@ -106,6 +106,7 @@ impl PassManager {
             [
                 StaticInliner,
                 MergeAssign, // Static inliner generates lots of assigns
+                DeadGroupRemoval, // Static inliner generates lots of dead groups
                 SimplifyStaticGuards,
                 CompileStatic,
                 TopDownStaticTiming,

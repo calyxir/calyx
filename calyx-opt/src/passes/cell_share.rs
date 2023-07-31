@@ -442,9 +442,9 @@ impl Visitor for CellShare {
                                 let parent_b =
                                     par_thread_map.get(live_b).unwrap();
                                 if live_a != live_b && parent_a == parent_b {
-                                    // we have to check par_timing_map
-                                    // to see whether liveness overlaps
-                                    // for dynamic pars, liveness_overlaps() returns
+                                    // We have to check par_timing_map
+                                    // to see whether liveness overlaps.
+                                    // For dynamic pars, liveness_overlaps() returns
                                     // true no matter what.
                                     if self.par_timing_map.liveness_overlaps(
                                         parent_a, live_a, live_b, a, b,
@@ -497,7 +497,7 @@ impl Visitor for CellShare {
             if graph.has_nodes() {
                 coloring.extend(
                     graph
-                        .color_greedy(*bound)
+                        .color_greedy(*bound, false)
                         .iter()
                         .map(|(a, b)| (*a, comp.find_cell(*b).unwrap())),
                 );

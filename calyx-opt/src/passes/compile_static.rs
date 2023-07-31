@@ -1,11 +1,12 @@
 use super::math_utilities::get_bit_width_from;
+use crate::analysis::GraphColoring;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
 use ir::{build_assignments, Nothing, StaticTiming, RRC};
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
 
@@ -16,6 +17,8 @@ pub struct CompileStatic {
     reset_early_map: HashMap<ir::Id, ir::Id>,
     /// maps group that has an FSM that resets early to its dynamic "wrapper" group name.
     wrapper_map: HashMap<ir::Id, ir::Id>,
+    /// maps fsm names to their corresponding signal_reg
+    signal_reg_map: HashMap<ir::Id, ir::Id>,
     /// maps reset_early_group names to (fsm name, fsm_width)
     fsm_info_map: HashMap<ir::Id, (ir::Id, u64)>,
     /// rewrites `static_group[go]` to `dynamic_group[go]`
@@ -103,6 +106,39 @@ fn make_assign_dyn(
     }
 }
 
+// Given a list of `static_groups`, find the group named `name`.
+// If there is no such group, then there is an unreachable! error.
+fn find_static_group(
+    name: &ir::Id,
+    static_groups: &[ir::RRC<ir::StaticGroup>],
+) -> ir::RRC<ir::StaticGroup> {
+    Rc::clone(
+        static_groups
+            .iter()
+            .find(|static_group| static_group.borrow().name() == name)
+            .unwrap_or_else(|| {
+                unreachable!("couldn't find static group {name}")
+            }),
+    )
+}
+
+// Given an input static_group `sgroup`, finds the names of all of the groups
+// that it triggers through their go hole.
+// E.g., if `sgroup` has assignments that write to `sgroup1[go]` and `sgroup2[go]`
+// then return `{sgroup1, sgroup2}`
+// NOTE: assumes that static groups will only write the go holes of other static
+// groups, and never dynamic groups
+fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
+    let mut uses = HashSet::new();
+    for asgn in &sgroup.borrow().assignments {
+        let dst = asgn.dst.borrow();
+        if dst.is_hole() && dst.name == "go" {
+            uses.insert(dst.get_parent_name());
+        }
+    }
+    uses
+}
+
 impl CompileStatic {
     // returns an "early reset" group based on the information given
     // in the arguments.
@@ -115,12 +151,17 @@ impl CompileStatic {
         sgroup_name: ir::Id,
         latency: u64,
         attributes: ir::Attributes,
+        fsm: ir::RRC<ir::Cell>,
         builder: &mut ir::Builder,
     ) -> ir::RRC<ir::Group> {
-        let fsm_size =
-            get_bit_width_from(latency + 1 /* represent 0..latency */);
+        let fsm_name = fsm.borrow().name();
+        let fsm_size = fsm
+            .borrow()
+            .find("out")
+            .unwrap_or_else(|| unreachable!("no `out` port on {fsm_name}"))
+            .borrow()
+            .width;
         structure!( builder;
-            let fsm = prim std_reg(fsm_size);
             // done hole will be undefined bc of early reset
             let ud = prim undef(1);
             let signal_on = constant(1,1);
@@ -172,7 +213,9 @@ impl CompileStatic {
         fsm_name: &ir::Id,
         fsm_width: u64,
         group_name: &ir::Id,
+        signal_reg: ir::RRC<ir::Cell>,
         builder: &mut ir::Builder,
+        add_continuous_assigns: bool,
     ) -> ir::RRC<ir::Group> {
         // get the groups/fsm necessary to build the wrapper group
         let early_reset_group = builder
@@ -194,7 +237,6 @@ impl CompileStatic {
             });
 
         structure!( builder;
-            let signal_reg = prim std_reg(1);
             let state_zero = constant(0, fsm_width);
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
@@ -226,15 +268,17 @@ impl CompileStatic {
           // group[done] = fsm.out == 0 & signal_reg.out ? 1'd1
           g["done"] = first_state_and_signal ? signal_on["out"];
         );
-        // continuous assignments to reset signal_reg back to 0 when the wrapper is done
-        let continuous_assigns = build_assignments!(
-            builder;
-            // when (fsm == 0 & signal_reg is high), which is the done condition of the wrapper,
-            // reset the signal_reg back to low
-            signal_reg["write_en"] = first_state_and_signal ? signal_on["out"];
-            signal_reg["in"] =  first_state_and_signal ? signal_off["out"];
-        );
-        builder.add_continuous_assignments(continuous_assigns.to_vec());
+        if add_continuous_assigns {
+            // continuous assignments to reset signal_reg back to 0 when the wrapper is done
+            let continuous_assigns = build_assignments!(
+                builder;
+                // when (fsm == 0 & signal_reg is high), which is the done condition of the wrapper,
+                // reset the signal_reg back to low
+                signal_reg["write_en"] = first_state_and_signal ? signal_on["out"];
+                signal_reg["in"] =  first_state_and_signal ? signal_off["out"];
+            );
+            builder.add_continuous_assignments(continuous_assigns.to_vec());
+        }
         g.borrow_mut().assignments = group_assigns.to_vec();
         g.borrow_mut().attributes =
             early_reset_group.borrow().attributes.clone();
@@ -321,6 +365,257 @@ impl CompileStatic {
         wrapper_group.borrow_mut().assignments.extend(assignments);
         wrapper_group
     }
+
+    // Gets all of the triggered static groups within `c`, and adds it to `cur_names`.
+    // Relies on sgroup_uses_map to take into account groups that are triggered through
+    // their `go` hole.
+    fn get_used_sgroups(
+        c: &ir::Control,
+        cur_names: &mut HashSet<ir::Id>,
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
+    ) {
+        match c {
+            ir::Control::Empty(_)
+            | ir::Control::Enable(_)
+            | ir::Control::Invoke(_) => (),
+            ir::Control::Static(sc) => {
+                let ir::StaticControl::Enable(s) = sc else {
+                    unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+                };
+                let group_name = s.group.borrow().name();
+                if let Some(sgroup_uses) = sgroup_uses_map.get(&group_name) {
+                    cur_names.extend(sgroup_uses);
+                }
+                cur_names.insert(group_name);
+            }
+            ir::Control::Par(ir::Par { stmts, .. })
+            | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+                for stmt in stmts {
+                    Self::get_used_sgroups(stmt, cur_names, sgroup_uses_map);
+                }
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. })
+            | ir::Control::While(ir::While { body, .. }) => {
+                Self::get_used_sgroups(body, cur_names, sgroup_uses_map);
+            }
+            ir::Control::If(if_stmt) => {
+                Self::get_used_sgroups(
+                    &if_stmt.tbranch,
+                    cur_names,
+                    sgroup_uses_map,
+                );
+                Self::get_used_sgroups(
+                    &if_stmt.fbranch,
+                    cur_names,
+                    sgroup_uses_map,
+                );
+            }
+        }
+    }
+
+    /// Given control `c`, adds conflicts to `conflict_graph` between all
+    /// static groups that are executed in separate threads of the same par block.
+    /// `sgroup_uses_map` maps:
+    /// static group names -> all of the static groups that it triggers the go ports
+    /// of (even recursively).
+    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
+    /// Would map: A -> {B,C} and B -> {C}
+    fn add_par_conflicts(
+        c: &ir::Control,
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
+        conflict_graph: &mut GraphColoring<ir::Id>,
+    ) {
+        match c {
+            ir::Control::Empty(_)
+            | ir::Control::Enable(_)
+            | ir::Control::Invoke(_)
+            | ir::Control::Static(_) => (),
+            ir::Control::Seq(seq) => {
+                for stmt in &seq.stmts {
+                    Self::add_par_conflicts(
+                        stmt,
+                        sgroup_uses_map,
+                        conflict_graph,
+                    );
+                }
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. })
+            | ir::Control::While(ir::While { body, .. }) => {
+                Self::add_par_conflicts(body, sgroup_uses_map, conflict_graph)
+            }
+            ir::Control::If(if_stmt) => {
+                Self::add_par_conflicts(
+                    &if_stmt.tbranch,
+                    sgroup_uses_map,
+                    conflict_graph,
+                );
+                Self::add_par_conflicts(
+                    &if_stmt.fbranch,
+                    sgroup_uses_map,
+                    conflict_graph,
+                );
+            }
+            ir::Control::Par(par) => {
+                // sgroup_conflict_vec is a vec of HashSets.
+                // Each entry of the vec corresponds to a par thread, and holds
+                // all of the groups executed in that thread.
+                let mut sgroup_conflict_vec = Vec::new();
+                for stmt in &par.stmts {
+                    let mut used_sgroups = HashSet::new();
+                    Self::get_used_sgroups(
+                        stmt,
+                        &mut used_sgroups,
+                        sgroup_uses_map,
+                    );
+                    sgroup_conflict_vec.push(used_sgroups);
+                }
+                for (thread1_sgroups, thread2_sgroups) in
+                    sgroup_conflict_vec.iter().tuple_combinations()
+                {
+                    for sgroup1 in thread1_sgroups {
+                        for sgroup2 in thread2_sgroups {
+                            conflict_graph.insert_conflict(sgroup1, sgroup2);
+                        }
+                    }
+                }
+                // Necessary to add conflicts between nested pars
+                for stmt in &par.stmts {
+                    Self::add_par_conflicts(
+                        stmt,
+                        sgroup_uses_map,
+                        conflict_graph,
+                    );
+                }
+            }
+        }
+    }
+
+    /// Given an `sgroup_uses_map`, which maps:
+    /// static group names -> all of the static groups that it triggers the go ports
+    /// of (even recursively).
+    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
+    /// Would map: A -> {B,C} and B -> {C}
+    /// Adds conflicts between any groups triggered at the same time based on
+    /// `go` port triggering.
+    fn add_go_port_conflicts(
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
+        conflict_graph: &mut GraphColoring<ir::Id>,
+    ) {
+        for (sgroup, sgroup_uses) in sgroup_uses_map {
+            for sgroup_use in sgroup_uses {
+                conflict_graph.insert_conflict(sgroup_use, sgroup);
+            }
+            // If multiple groups are triggered by the same group, then
+            // we conservatively add a conflict between such groups
+            for (sgroup_use1, sgroup_use2) in
+                sgroup_uses.iter().tuple_combinations()
+            {
+                conflict_graph.insert_conflict(sgroup_use1, sgroup_use2);
+            }
+        }
+    }
+
+    // Given a "coloring" of static group names -> their "colors",
+    // instantiate one fsm per color and return a hashmap that maps
+    // fsm names -> groups that it handles
+    fn build_fsm_mapping(
+        coloring: HashMap<ir::Id, ir::Id>,
+        static_groups: &[ir::RRC<ir::StaticGroup>],
+        builder: &mut ir::Builder,
+    ) -> HashMap<ir::Id, HashSet<ir::Id>> {
+        // "reverse" the coloring to map colors -> static group_names
+        let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
+            HashMap::new();
+        for (group, color) in coloring {
+            color_to_groups.entry(color).or_default().insert(group);
+        }
+        // Need deterministic ordering for testing.
+        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
+            color_to_groups.into_iter().collect();
+        vec_color_to_groups
+            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
+        vec_color_to_groups.into_iter().map(|(color, group_names)| {
+            // For each color, build an FSM that has the number of bits required 
+            // for the largest latency in `group_names`
+            let max_latency = group_names
+                .iter()
+                .map(|g| {
+                    find_static_group(g, static_groups).borrow()
+                        .latency
+                })
+                .max().unwrap_or_else(|| unreachable!("group {color} had no corresponding groups in its coloring map")
+                );
+            let fsm_size = get_bit_width_from(
+                max_latency + 1, /* represent 0..latency */
+            );
+            structure!( builder;
+                let fsm = prim std_reg(fsm_size);
+            );
+            let fsm_name = fsm.borrow().name();
+            (fsm_name, group_names)
+        }).collect()
+    }
+
+    // helper to `build_sgroup_uses_map`
+    // `parent_group` is the group that we are "currently" analyzing
+    // `full_group_ancestry` is the "ancestry of the group we are analyzing"
+    // Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}, and `parent_group`
+    // is B, then ancestry would be B and A.
+    // `cur_mapping` is the current_mapping for `sgroup_uses_map`
+    // `group_names` is a vec of group_names. Once we analyze a group, we should
+    // remove it from group_names
+    // `sgroups` is a vec of static groups.
+    fn update_sgroup_uses_map(
+        parent_group: &ir::Id,
+        full_group_ancestry: &mut HashSet<ir::Id>,
+        cur_mapping: &mut HashMap<ir::Id, HashSet<ir::Id>>,
+        group_names: &mut HashSet<ir::Id>,
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+    ) {
+        let group_uses =
+            get_go_writes(&find_static_group(parent_group, sgroups));
+        for group_use in group_uses {
+            for ancestor in full_group_ancestry.iter() {
+                cur_mapping.entry(*ancestor).or_default().insert(group_use);
+            }
+            full_group_ancestry.insert(group_use);
+            Self::update_sgroup_uses_map(
+                &group_use,
+                full_group_ancestry,
+                cur_mapping,
+                group_names,
+                sgroups,
+            );
+            full_group_ancestry.remove(&group_use);
+        }
+        group_names.remove(parent_group);
+    }
+
+    /// Builds an `sgroup_uses_map`, which maps:
+    /// static group names -> all of the static groups that it triggers the go ports
+    /// of (even recursively).
+    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
+    /// Would map: A -> {B,C} and B -> {C}
+    fn build_sgroup_uses_map(
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+    ) -> HashMap<ir::Id, HashSet<ir::Id>> {
+        let mut names: HashSet<ir::Id> = sgroups
+            .iter()
+            .map(|sgroup| sgroup.borrow().name())
+            .collect();
+        let mut cur_mapping = HashMap::new();
+        while !names.is_empty() {
+            let random_group = *names.iter().next().unwrap();
+            Self::update_sgroup_uses_map(
+                &random_group,
+                &mut HashSet::from([random_group]),
+                &mut cur_mapping,
+                &mut names,
+                sgroups,
+            )
+        }
+        cur_mapping
+    }
 }
 
 impl Visitor for CompileStatic {
@@ -332,7 +627,32 @@ impl Visitor for CompileStatic {
     ) -> VisResult {
         let sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
+        // `sgroup_uses_map` builds a mapping of static groups -> groups that
+        // it (even indirectly) triggers the `go` port of.
+        let sgroup_uses_map = Self::build_sgroup_uses_map(&sgroups);
+        // Build conflict graph and get coloring.
+        let mut conflict_graph: GraphColoring<ir::Id> =
+            GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
+        Self::add_par_conflicts(
+            &comp.control.borrow(),
+            &sgroup_uses_map,
+            &mut conflict_graph,
+        );
+        Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
+        let coloring = conflict_graph.color_greedy(None, true);
         let mut builder = ir::Builder::new(comp, sigs);
+        // build Mappings of fsm names -> set of groups that it can handle.
+        let fsm_mappings =
+            Self::build_fsm_mapping(coloring, &sgroups, &mut builder);
+        let mut groups_to_fsms = HashMap::new();
+        // "Reverses" fsm_mappings to map group names -> fsm cells
+        for (fsm_name, group_names) in fsm_mappings {
+            let fsm = builder.component.find_guaranteed_cell(fsm_name);
+            for group_name in group_names {
+                groups_to_fsms.insert(group_name, Rc::clone(&fsm));
+            }
+        }
+
         // create "early reset" dynamic groups that never reach set their done hole
         for sgroup in sgroups.iter() {
             let mut sgroup_ref = sgroup.borrow_mut();
@@ -345,6 +665,9 @@ impl Visitor for CompileStatic {
                 sgroup_name,
                 sgroup_latency,
                 sgroup_attributes,
+                Rc::clone(groups_to_fsms.get(&sgroup_name).unwrap_or_else(
+                    || unreachable!("{sgroup_name} has no corresponding fsm"),
+                )),
                 &mut builder,
             );
             // map the static group name -> early reset group name
@@ -362,7 +685,7 @@ impl Visitor for CompileStatic {
         }
 
         // rewrite static_group[go] to early_reset_group[go]
-        // don't have to worrry about writing static_group[done] b/c static
+        // don't have to worry about writing static_group[done] b/c static
         // groups don't have done holes.
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
@@ -398,7 +721,7 @@ impl Visitor for CompileStatic {
         let early_reset_name =
             self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
                 unreachable!(
-                    "group {} early reset wrapper has not been created",
+                    "group {} early reset has not been created",
                     sgroup_name
                 )
             });
@@ -409,12 +732,47 @@ impl Visitor for CompileStatic {
                 // create the builder/cells that we need to create wrapper group
                 let mut builder = ir::Builder::new(comp, sigs);
                 let (fsm_name, fsm_width )= self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
-                let wrapper = Self::build_wrapper_group(
-                    fsm_name,
-                    *fsm_width,
-                    early_reset_name,
-                    &mut builder,
-                );
+                // If we've already made a wrapper for a group that uses the same
+                // FSM, we can reuse the signal_reg. Otherwise, we must
+                // instantiate a new signal_reg.
+                let wrapper = match self.signal_reg_map.get(fsm_name) {
+                    None => {
+                        // Need to build the signal_reg and the continuous
+                        // assignment that resets the signal_reg
+                        structure!( builder;
+                            let signal_reg = prim std_reg(1);
+                        );
+                        self.signal_reg_map
+                            .insert(*fsm_name, signal_reg.borrow().name());
+                        Self::build_wrapper_group(
+                            fsm_name,
+                            *fsm_width,
+                            early_reset_name,
+                            signal_reg,
+                            &mut builder,
+                            true,
+                        )
+                    }
+                    Some(reg_name) => {
+                        // Already_built the signal_reg.
+                        // We don't need to add continuous assignments
+                        // that resets signal_reg.
+                        let signal_reg = builder
+                            .component
+                            .find_cell(*reg_name)
+                            .unwrap_or_else(|| {
+                                unreachable!("signal reg {reg_name} found")
+                            });
+                        Self::build_wrapper_group(
+                            fsm_name,
+                            *fsm_width,
+                            early_reset_name,
+                            signal_reg,
+                            &mut builder,
+                            false,
+                        )
+                    }
+                };
                 self.wrapper_map
                     .insert(*early_reset_name, wrapper.borrow().name());
                 wrapper
@@ -444,7 +802,6 @@ impl Visitor for CompileStatic {
     ///   }
     ///    ...
     /// }
-
     /// control {
     ///   while l.out {
     ///     A;
@@ -479,7 +836,7 @@ impl Visitor for CompileStatic {
                 let mut builder = ir::Builder::new(comp, sigs);
                 let reset_group_name = self.get_reset_group_name(sc);
 
-                // get fsm for reset_group
+                // Get fsm for reset_group
                 let (fsm, fsm_width) = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
                 let wrapper_group = self.build_wrapper_group_while(
                     fsm,
