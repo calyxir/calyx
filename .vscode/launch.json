@@ -5,8 +5,11 @@
             "type": "cider-dap",
             "request": "launch",
             "name": "Launch Program (Single Session)",
-            "program": "/AskForProgramName",
-            "stopOnEntry": true
+            "args": [
+                "${file}"
+            ],
+            "program": "${command:cider.startDebugging}",
+            "stopOnEntry": true,
         },
         {
             "type": "cider-dap",

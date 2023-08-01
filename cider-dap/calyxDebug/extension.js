@@ -63,24 +63,20 @@ class CiderDebugAdapter {
 }
 
 // Start debugging
-async function startDebugging() {
+async function startDebugging(arg1) {
+  logToPanel("inside startDebugging");
+  console.log(arg1);
   if (!debugAdapter) {
     // Set the path to the debug adapter and current working directory
     const adapterPath = '/home/basantkhalil/calyx2/target/debug/cider-dap';
     const cwd = vscode.workspace.rootPath;
-
-    // Get the program name from the user
-    const program = await getProgramName();
-    if (!program) {
-      logToPanel('No program selected. Aborting debugging.');
-      return;
-    }
 
     // Create an instance of the CiderDebugAdapter
     debugAdapter = new CiderDebugAdapter(adapterPath, cwd, outputChannel);
 
     // Start the debug adapter with the selected program
     debugAdapter.start();
+    debugAdapter = null; //will need to change with multi session
   }
 }
 
