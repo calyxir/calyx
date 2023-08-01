@@ -7,7 +7,7 @@ let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '.']*
 
 rule tokens = parse 
 (* i.e., 1'd1 *)
-| ['0'-'9']+"'d"['0'-'9']+ as i { INT i } 
+| ['0'-'9']+"'d"['0'-'9']+ as i { INT (int_of_string i) } 
 | "("             { LPAREN }
 | ")"             { RPAREN }
 | "components"    { COMPONENTS }
@@ -17,7 +17,6 @@ rule tokens = parse
 | "cells"         { CELLS }
 | "ports"         { PORTS }
 | "prototype"     { PROTOTYPE }
-| "param_binding" { PARAM_BINDING }
 | "reference"     { REFERENCE }
 | "groups"        { GROUPS }
 | "static_groups" { STATIC_GROUPS }
@@ -27,12 +26,7 @@ rule tokens = parse
 | "src"           { SRC }
 | "guard"         { GUARD }
 | "attributes"    { ATTRIBUTES }
-| "span"          { SPAN }
-| "attrs"         { ATTRS }
 | "control"       { CONTROL }
-| "Seq"           { SEQ }
-| "Enable"        { ENABLE }
-| "stmts"         { STMTS }
 | "is_comb"       { IS_COMB }
 | "true"          { TRUE }
 | "false"         { FALSE }

@@ -3,7 +3,7 @@
   open Extr
 %}
 
-%token <Extr.n> INT 
+%token <int> INT 
 %token <string> ID
 %token NUM
 %token COMPONENTS ENTRYPOINT
@@ -63,6 +63,7 @@ LPAREN; REFERENCE; reference = bool; RPAREN; RPAREN
 { let ins = List.filter ports ~f:(fun p -> is_in p.port_dir) in
   let outs = List.filter ports ~f:(fun p -> is_out p.port_dir) in
   {cell_name = name;
+   cell_attrs = attributes;
    cell_in_ports = ins;
    cell_out_ports = outs;
    cell_proto = proto;
@@ -103,18 +104,18 @@ assignment:
   | LPAREN;
       LPAREN; DST; dst = ID; RPAREN;
       LPAREN; SRC; src = ID; RPAREN; 
-      LPAREN; GUARD; guard = guard; RPAREN; 
-      attributes = attrs_clause;
+      LPAREN; GUARD; assign_guard = guard; RPAREN; 
+      attrs = attrs_clause;
     RPAREN
-    { dst = dst; src = src; assign_guard = guard; attrs = attributes }
+    { { dst; src; assign_guard; attrs } }
 
 control: 
 | LPAREN; CONTROL; RPAREN
   { CSeq ([], []) }
 
 attribute:
-| LPAREN; NUM;  RPAREN
-  { NumAttr (Go, 0) }
+| LPAREN; NUM; RPAREN
+   { NumAttr (Go, 0) }
 
 bool: 
 | TRUE { true }

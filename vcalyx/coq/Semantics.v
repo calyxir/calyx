@@ -77,34 +77,23 @@ Section Semantics.
              ce.
 
   Definition read_port (p: port) (σ: cell_map) : option value :=
-    match p.(parent) with
-    | PCell cell =>
-      lookup cell σ ≫= lookup p.(port_name)
-    | _ => None
-    end.
+    lookup p.(parent) σ ≫= lookup p.(port_name).
 
   Definition write_port (p: port) (v: value) (σ: cell_map) : option cell_map :=
-    match p.(parent) with
-    | PCell cell =>
-      mret (alter (insert p.(port_name) v) cell σ)
-    | _ => None
-    end.
+    mret (alter (insert p.(port_name) v) p.(parent) σ).
   
   Definition interp_assign
              (ce: cell_env)
              (ρ: state_map)
              (op: assignment)
              (σ: cell_map) 
-              : option cell_map :=
-    match op.(src).(parent) with
-    | PCell cell =>
-      c ← ce !! cell;
-      σ' ← poke_all_cells ce ρ σ;
-      v ← read_port op.(src) σ';
-      write_port op.(dst) v σ'
-    | _ =>
-      None
-    end.
+    : option cell_map.
+  Admitted.
+    (*
+    c ← ce !! op.(src).(parent);
+    σ' ← poke_all_cells ce ρ σ;
+    v ← read_port op.(src) σ';
+    write_port op.(dst) v σ'.*)
   
   Definition program : Type :=
     cell_env * list assignment.

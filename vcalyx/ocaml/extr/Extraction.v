@@ -1,12 +1,14 @@
 (*! Extraction to OCaml !*)
+Set Warnings "-extraction-reserved-identifier".
 From VCalyx Require
      IRSyntax
      Parse.
-Require Export Coq.extraction.Extraction.
+Require Coq.extraction.Extraction.
 From Coq.extraction Require Import
      ExtrOcamlBasic
      ExtrOcamlNativeString
-     ExtrOcamlNatInt.
+     ExtrOcamlNatInt
+     ExtrOcamlZInt.
 
 Extract Constant VCalyx.Parse.oops => "(fun _ -> failwith ""oops!"")".
 
@@ -15,5 +17,4 @@ transitive dependencies. *)
 Extraction "extr.ml"
            VCalyx.IRSyntax.context
            VCalyx.IRSyntax.is_in
-           VCalyx.IRSyntax.is_out
-           VCalyx.Parse.parse_context.
+           VCalyx.IRSyntax.is_out.

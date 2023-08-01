@@ -108,6 +108,8 @@ Record cell :=
   Cell {
       (* name of this cell. *)
       cell_name: ident;
+      (* attributes *)
+      cell_attrs: attributes;
       (* ports *)
       cell_in_ports: list port;
       cell_out_ports: list port;
@@ -158,8 +160,8 @@ Inductive guard_expr :=
 (* From AST wires *)
 Record assignment := 
   Assign {
-    dst: port;
-    src: port; 
+    dst: ident;
+    src: ident; 
     assign_guard: guard_expr;
     attrs: attributes;
   }.
