@@ -1,0 +1,95 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+import "primitives/binary_operators.futil";
+
+
+component main() -> () {
+  cells {
+      mul = pipelined_mult();
+      fp_mult = std_fp_smult_pipe(32,16,16);
+      @external m = std_mem_d1(32, 3, 32);
+      idx_reg = std_reg(32);
+      incr = std_add(32);
+      cond_reg = std_reg(1);
+      incr_lt = std_lt(32);
+      cur_gt = std_fp_sgt(32,16,16); 
+      go_next = std_wire(1);
+      cur_value = std_wire(32);
+      signal_reg = std_reg(1);
+
+      m1 = std_reg(32);
+      m2 = std_reg(32);
+      m3 = std_reg(32);
+  }
+  wires {
+    static<1> group init {
+      cond_reg.in = 1'd1; 
+      cond_reg.write_en = 1'd1; 
+      m1.in = 32'd2147509999;
+      m1.write_en = 1'd1; 
+      m2.in = 32'd21475;
+      m2.write_en = 1'd1; 
+      m3.in = 32'd21475;
+      // m3.in = 32'd2147500000;
+      m3.write_en = 1'd1;
+    }
+    
+    // static<1> group write_mem {
+    //   m.write_en = 1'd1; 
+    //   m.addr0 = %0 ? 32'd0; 
+    //   m.write_data = %0 ? m1.out; 
+    // }
+    // static<1> group write_2 {
+    //   m.write_en = 1'd1;
+    //   m.addr0 = 32'd1; 
+    //   m.write_data = m2.out; 
+    // }
+    // static<1> group write_3 {
+    //   m.write_en = 1'd1;
+    //   m.addr0 = 32'd2; 
+    //   m.write_data = m3.out; 
+    // }
+    static<1> group check_idx_lt {
+      // while loop logic
+      incr_lt.left = idx_reg.out; 
+      incr_lt.right = 32'd3; 
+      cond_reg.in = incr_lt.out; 
+      cond_reg.write_en = 1'd1;
+
+      // idx/incr
+      incr.left = idx_reg.out; 
+      incr.right = 32'd1; 
+      signal_reg.write_en = !cur_gt.out ? 1'd1; 
+      signal_reg.in = fp_mult.done & !cur_gt.out ? 1'd1; 
+      signal_reg.in = !fp_mult.done & !cur_gt.out ? 1'd0;
+
+      go_next.in = fp_mult.done | cur_gt.out ? 1'd1;
+      idx_reg.in = go_next.out ? incr.out;
+      idx_reg.write_en = go_next.out ? 1'd1; 
+
+      // mult 
+      fp_mult.left = 32'd655; 
+      fp_mult.right = cur_value.out; 
+      fp_mult.go = !cur_gt.out & (!fp_mult.done | signal_reg.out) ? 1'd1; 
+
+      // mem logic
+      cur_value.in = idx_reg.out == 32'd0 ? m1.out; 
+      cur_value.in = idx_reg.out == 32'd1 ? m2.out; 
+      cur_value.in = idx_reg.out == 32'd2 ? m3.out; 
+      cur_gt.left = cur_value.out; 
+      cur_gt.right = 32'd0;
+
+      // write to mem 
+      m.write_en = !(idx_reg.out == 32'd3) & go_next.out ? 1'd1; 
+      m.addr0 = !(idx_reg.out == 32'd3) ? idx_reg.out ; 
+      m.write_data = cur_gt.out ? cur_value.out;
+      m.write_data = !cur_gt.out ? fp_mult.out;
+    }
+  }
+  control {
+    init;
+    while cond_reg.out {
+      check_idx_lt;
+    }
+  }
+}

@@ -1,0 +1,40 @@
+import "primitives/core.futil";
+import "primitives/pipelined.futil";
+import "primitives/binary_operators.futil";
+
+
+component main() -> () {
+  cells {
+      mul = pipelined_mult();
+      fp_mult = std_fp_smult_pipe(32,16,16);
+      @external m = std_mem_d1(32, 3, 32);
+      idx_reg = std_reg(32);
+      incr = std_add(32);
+      cond_reg = std_reg(1);
+      incr_lt = std_lt(32);
+      cur_gt = std_fp_sgt(32,16,16); 
+      go_next = std_wire(1);
+      cur_value = std_wire(32);
+
+      m1 = std_reg(32);
+      m2 = std_reg(32);
+      m3 = std_reg(32);
+  }
+  wires {
+    static<10> group run {
+      fp_mult.go = %[0:2] ? 1'd1;
+      fp_mult.left = %[0:2] ? 32'd111;
+      fp_mult.right = %[0:2] ? 32'd99990;
+    }
+    static<1> group write_mem {
+      m.write_en = 1'd1; 
+      m.addr0 = %0 ? 32'd0; 
+      m.write_data = %0 ? fp_mult.out; 
+    }
+  }
+  control {
+    write_mem;
+    run;
+  }
+
+}
