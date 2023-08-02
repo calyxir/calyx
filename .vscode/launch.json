@@ -4,11 +4,13 @@
         {
             "type": "cider-dap",
             "request": "launch",
-            "name": "Launch Program (Single Session)",
-            "args": [
-                "${file}"
-            ],
-            "program": "${command:cider.startDebugging}",
+            "name": "Launch Program (Multi Session)",
+            "debugServer": 8888,
+            "program": "${file}",
+            "preLaunchTask": {
+                "type": "shell",
+                "command": "${command:cider.startDebugging}"
+            },
             "stopOnEntry": true,
         },
         {

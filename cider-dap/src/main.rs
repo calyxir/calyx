@@ -35,20 +35,24 @@ fn main() -> Result<(), MyAdapterError> {
     let adapter = MyAdapter::new(file);
 
     if opts.is_multi_session {
+        eprintln!("running multi-session");
         let listener = TcpListener::bind(("127.0.0.1", opts.port))?;
+        eprintln!("bound on port: {} ", opts.port);
         let (stream, addr) = listener.accept()?;
         println!("Accepted client on: {}", addr);
         let read_stream = BufReader::new(stream.try_clone()?);
         let write_stream = BufWriter::new(stream);
         let server = Server::new(read_stream, write_stream);
+
         run_server(server, adapter)?;
     } else {
+        eprintln!("running single-session");
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
         let server = Server::new(read, write);
         run_server(server, adapter)?;
     }
-
+    eprintln!("exited run_Server");
     Ok(())
 }
 
@@ -56,5 +60,6 @@ fn run_server<R: Read, W: Write>(
     _server: Server<R, W>,
     _adapter: MyAdapter,
 ) -> AdapterResult<()> {
-    todo!()
+    println!("inside run_server");
+    Ok(()) //still need to implement this
 }
