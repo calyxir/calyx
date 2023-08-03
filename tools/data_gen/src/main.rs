@@ -136,7 +136,7 @@ fn gen_random_4d_int(
 // generates random of size usize
 fn gen_random_vec(d0: usize) -> Vec<f32> {
     let mut rng = rand::thread_rng();
-    (0..d0).map(|_| rng.gen_range(0.0..1.0)).collect()
+    (0..d0).map(|_| rng.gen_range(-10.0..10.0)).collect()
 }
 
 // generates random 2d vec of size usize
