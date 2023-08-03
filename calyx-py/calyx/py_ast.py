@@ -502,6 +502,10 @@ class Stdlib:
         return CompInst("std_reg", [bitwidth])
 
     @staticmethod
+    def wire(bitwidth: int):
+        return CompInst("std_wire", [bitwidth])
+
+    @staticmethod
     def constant(bitwidth: int, value: int):
         return CompInst("std_const", [bitwidth, value])
 

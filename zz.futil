@@ -2,7 +2,6 @@ import "primitives/core.futil";
 import "primitives/pipelined.futil";
 import "primitives/binary_operators.futil";
 
-
 component main() -> () {
   cells {
       mul = pipelined_mult();
