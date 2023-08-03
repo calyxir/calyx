@@ -57,9 +57,9 @@ def pe(prog: cb.Builder):
     comp.input("mul_ready", 1)
     comp.output("out", BITWIDTH)
     acc = comp.reg("acc", BITWIDTH)
-    add = comp.add("add", BITWIDTH)
+    add = comp.fp_sop("adder", "add", BITWIDTH, INTWIDTH, FRACWIDTH)
     # XXX: pipelined mult assumes 32 bit multiplication
-    mul = comp.pipelined_mult("mul")
+    mul = comp.pipelined_fp_smult("mul", BITWIDTH, INTWIDTH, FRACWIDTH)
 
     this = comp.this()
     with comp.static_group("do_add", 1):
@@ -241,15 +241,22 @@ def instantiate_write_cond_reg(
     num_rows,
 ):
     """
-    writes into cond_reg
+    Writes into `cond_reg`, the condition register for the while loop.
+    Basically, writes has to check that both a) all computations have
+    been completed and b) all of the Leaky ReLUs have been completed
     """
-    lt_iter_limit = comp.get_cell("lt_iter_limit")
     cond_reg = comp.get_cell("cond_reg")
-    guard = lt_iter_limit.port("out")
+    cond_wire = comp.wire("cond_wire",1)
+    guard = None
     for r in range(num_rows):
-        guard = guard | comp.get_cell(f"relu_r{r}_idx_lt").port("out")
+        if r == 0:
+            guard = comp.get_cell(f"relu_finished_reg_r{r}").port("out")
+        else:
+            guard = guard & comp.get_cell(f"relu_finished_reg_r{r}").port("out")
     with comp.static_group("write_cond_reg", 1) as g:
-        cond_reg.in_ = guard @ 1
+        cond_wire.in_ = guard @ 1
+        cond_reg.in_ = ~cond_wire.out @ 1
+        cond_reg.in_ = cond_wire.out @ 0
         cond_reg.write_en = 1
 
 
@@ -424,12 +431,12 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
     group_str = f"idx_between_{lo}_{hi}_group"
     index_lt = f"index_lt_{str(hi)}"
     index_ge = f"index_ge_{str(lo)}"
-    reg = comp.reg(reg_str, 1)
     assert (
         not type(lo) is None
     ), "None Type Lower Bound not supported in instantiate_idx_between"
     if hi is None:
-        # if no upper bound provided, then only need to check reg >= lo
+        # XXX(Caleb): Expect this hi=None for only leaky RELU execution
+        # If no upper bound provided, then only need to check reg >= lo
         ge = (
             comp.get_cell(index_ge)
             if comp.try_get_cell(index_ge) is not None
@@ -438,9 +445,8 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
         with comp.static_group(group_str, 1):
             ge.left = idx_add.out
             ge.right = lo_value
-            reg.in_ = ge.out
-            reg.write_en = 1
         return
+    reg = comp.reg(reg_str, 1)
     lt = (
         comp.get_cell(index_lt)
         if comp.try_get_cell(index_lt) is not None
@@ -479,38 +485,42 @@ def instantiate_init_group(comp: cb.ComponentBuilder, lo, hi):
     # if lo == 0, then the idx will initially be in between the interval, so
     # need to set idx_between to high
     start_hi = 1 if lo == 0 else 0
+    # XXX(Caleb): assumed hi=None means Relu
+    if hi is None:
+        return
     idx_between = comp.get_cell(f"idx_between_{lo}_{hi}_reg")
     with comp.static_group(f"init_idx_between_{lo}_{hi}", 1):
         idx_between.in_ = start_hi
         idx_between.write_en = 1
 
 
-def build_wire_assign(
-    comp: cb.ComponentBuilder, group: cb.GroupBuilder, wire, register, row, col
-):
-    """
-    builds assignment:
-    wire.in = register.out == col ? pe_{row}_{col}.out
-    """
-    wire_in = wire.port("in")
-    reg_out = register.port("out")
-    pe_out = comp.get_cell(f"pe_{row}_{col}").port("out")
-    group.asgn(wire_in, pe_out, reg_out == cb.ExprBuilder(py_ast.ConstantPort(32, col)))
-    # py_ast.Eq(reg_out, py_ast.ConstantPort(32, col))
-
-
 def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
     """
     Instantiates leaky_relu group for `row`
     """
+
+    # adds assignment wire.in = reg.out == col ? pe_{row}_{col}_out
+    def build_assignment(
+        comp: cb.ComponentBuilder, group: cb.GroupBuilder, wire, register, row, col
+    ):
+        wire_in = wire.port("in")
+        reg_out = register.port("out")
+        pe_out = comp.get_cell(f"pe_{row}_{col}").port("out")
+        group.asgn(
+            wire_in,
+            pe_out,
+            reg_out == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, col)),
+        )
+
     cur_val = comp.wire(f"relu_r{row}_cur_val", BITWIDTH)
     idx_reg = comp.reg(f"relu_r{row}_cur_idx", BITWIDTH)
     group_assigns = []
     group = comp.static_group(f"relu_r{row}_helper", 1)
     for col in range(top_length):
-        group_assigns.append(build_wire_assign(comp, group, cur_val, idx_reg, row, col))
+        group_assigns.append(build_assignment(comp, group, cur_val, idx_reg, row, col))
 
-    incr_lt = comp.lt(f"relu_r{row}_idx_lt", BITWIDTH)
+    relu_finished_wire = comp.wire(f"relu_finished_wire_r{row}", 1)
+    relu_finished_reg = comp.reg(f"relu_finished_reg_r{row}", 1)
     cur_gt = comp.fp_sop(f"relu_r{row}_val_gt", "gt", BITWIDTH, INTWIDTH, FRACWIDTH)
     go_next = comp.wire(f"relu_r{row}_go_next", BITWIDTH)
     incr = comp.add(f"relu_r{row}_incr", BITWIDTH)
@@ -550,8 +560,25 @@ def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
         g.asgn(write_data_port, fp_mult.out, ~cur_gt.out)
 
         # while loop logic
-        incr_lt.left = incr.out
-        incr_lt.right = top_length
+        relu_finished_wire.in_ = (
+            go_next.out
+            & (
+                idx_reg.out
+                == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, top_length - 1))
+            )
+        ) @ 1
+        relu_finished_reg.in_ = relu_finished_wire.out @ 1
+        relu_finished_reg.write_en_ = relu_finished_wire.out @ 1
+
+    relu_start_port = comp.get_cell(f"index_ge_depth_plus_{5 + row}").port("out")
+    relu_cond_wire = comp.wire(f"relu_cond_wire_r{row}", 1)
+    relu_cond_reg = comp.reg(f"relu_cond_reg_r{row}", 1)
+    guard = relu_start_port & (~relu_finished_wire.out)
+    with comp.static_group(f"check_relu_cond_r{row}", 1):
+        relu_cond_wire.in_ = guard @ 1
+        relu_cond_reg.in_ = relu_cond_wire.out @ 1
+        relu_cond_reg.in_ = ~relu_cond_wire.out @ 0
+        relu_cond_reg.write_en = ~relu_finished_reg.out @ 1
 
 
 def get_memory_updates(row, col):
@@ -623,6 +650,23 @@ def execute_if_between(comp: cb.ComponentBuilder, start, end, body):
     ]
 
 
+def execute_if_register(comp: cb.ComponentBuilder, register, body):
+    """
+    body is a list of control stmts
+    if body is empty, return an empty list
+    otherwise, builds an if stmt that executes body in parallel if
+    idx is between start and end
+    """
+    if not body:
+        return []
+    return [
+        cb.static_if(
+            register.out,
+            py_ast.StaticParComp(body),
+        )
+    ]
+
+
 def generate_control(
     comp: cb.ComponentBuilder,
     top_length,
@@ -663,7 +707,10 @@ def generate_control(
             py_ast.Enable("init_iter_limit"),
             py_ast.Enable("init_cond_reg"),
         ]
-        + [py_ast.Enable(f"init_idx_between_{lo}_{hi}") for (lo, hi) in (nec_ranges)]
+        + [
+            py_ast.Enable(f"init_idx_between_{lo}_{hi}")
+            for (lo, hi) in filter(lambda x: x[1] is not None, nec_ranges)
+        ]
     )
     control.append(py_ast.StaticParComp(init_indices))
 
@@ -720,12 +767,12 @@ def generate_control(
 
     relu_execution = [py_ast.Enable(f"write_cond_reg")]
     for r in range(left_length):
-        relu_execution += execute_if_between(
+        relu_execution += execute_if_register(
             comp,
-            schedules["relu_sched"][r][0],
-            schedules["relu_sched"][r][1],
+            comp.get_cell(f"relu_cond_reg_r{r}"),
             [py_ast.Enable(f"execute_relu_r{r}"), py_ast.Enable(f"relu_r{r}_helper")],
         )
+        relu_execution.append(py_ast.Enable(f"check_relu_cond_r{r}"))
 
     for start, end in nec_ranges:
         # build the control stmts that assign correct values to
@@ -817,6 +864,7 @@ def create_systolic_array(
         # create the groups that create for idx_in_between registers
         instantiate_idx_between(computational_unit, start, end)
         instantiate_init_group(computational_unit, start, end)
+
     for row in range(left_length):
         instantiate_relu_groups(computational_unit, row, top_length)
     instantiate_write_cond_reg(computational_unit, left_length)

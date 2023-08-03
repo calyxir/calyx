@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 // run: cargo run -p data_gen -- <calyx file> to generate data w/ all 0s and
 // type int
 // add -f true if you want random values of type fix<32,16>
+// add -r true if you want randomized values
 
 lazy_static::lazy_static! {
     static ref SIZEMAP: HashMap<&'static str, Vec<&'static str>> = {
@@ -136,7 +137,7 @@ fn gen_random_4d_int(
 // generates random of size usize
 fn gen_random_vec(d0: usize) -> Vec<f32> {
     let mut rng = rand::thread_rng();
-    (0..d0).map(|_| rng.gen_range(-10.0..10.0)).collect()
+    (0..d0).map(|_| rng.gen_range(-5.0..5.0)).collect()
 }
 
 // generates random 2d vec of size usize

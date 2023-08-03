@@ -324,6 +324,15 @@ class ComponentBuilder:
         self.prog.import_("primitives/pipelined.futil")
         return self.cell(name, ast.Stdlib.pipelined_mult())
 
+    def pipelined_fp_smult(
+        self, name: str, width, int_width, frac_width
+    ) -> CellBuilder:
+        """Generate a pipelined fixed point signed multiplier."""
+        self.prog.import_("primitives/pipelined.futil")
+        return self.cell(
+            name, ast.Stdlib.pipelined_fp_smult(width, int_width, frac_width)
+        )
+
     def fp_op(
         self,
         cell_name: str,

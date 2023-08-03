@@ -4,14 +4,14 @@ import "primitives/pipelined.futil";
 static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
   cells {
     acc = std_reg(32);
-    add = std_add(32);
-    mul = pipelined_mult();
+    adder = std_fp_sadd(32, 16, 16);
+    mul = pipelined_fp_smult(32, 16, 16);
   }
   wires {
     static<1> group do_add {
-      add.left = acc.out;
-      add.right = mul.out;
-      acc.in = add.out;
+      adder.left = acc.out;
+      adder.right = mul.out;
+      acc.in = adder.out;
       acc.write_en = mul_ready;
     }
     static<1> group do_mul {
@@ -44,9 +44,9 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     depth_plus_9 = std_add(32);
     depth_plus_1 = std_add(32);
     min_depth_4_plus_1 = std_add(32);
-    depth_plus_6 = std_add(32);
     depth_plus_3 = std_add(32);
     min_depth_4_plus_3 = std_add(32);
+    depth_plus_6 = std_add(32);
     depth_plus_2 = std_add(32);
     pe_0_0 = mac_pe();
     top_0_0 = std_reg(32);
@@ -123,7 +123,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     index_lt_depth_plus_9 = std_lt(32);
     index_ge_9 = std_ge(32);
     idx_between_9_depth_plus_9_comb = std_and(1);
-    idx_between_depth_plus_7_None_reg = std_reg(1);
     index_ge_depth_plus_7 = std_ge(32);
     idx_between_1_depth_plus_1_reg = std_reg(1);
     index_lt_depth_plus_1 = std_lt(32);
@@ -132,10 +131,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     idx_between_1_min_depth_4_plus_1_reg = std_reg(1);
     index_lt_min_depth_4_plus_1 = std_lt(32);
     idx_between_1_min_depth_4_plus_1_comb = std_and(1);
-    idx_between_depth_plus_5_None_reg = std_reg(1);
     index_ge_depth_plus_5 = std_ge(32);
-    idx_between_depth_plus_6_None_reg = std_reg(1);
-    index_ge_depth_plus_6 = std_ge(32);
     idx_between_3_depth_plus_3_reg = std_reg(1);
     index_lt_depth_plus_3 = std_lt(32);
     index_ge_3 = std_ge(32);
@@ -143,6 +139,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     idx_between_3_min_depth_4_plus_3_reg = std_reg(1);
     index_lt_min_depth_4_plus_3 = std_lt(32);
     idx_between_3_min_depth_4_plus_3_comb = std_and(1);
+    index_ge_depth_plus_6 = std_ge(32);
     idx_between_2_depth_plus_2_reg = std_reg(1);
     index_lt_depth_plus_2 = std_lt(32);
     idx_between_2_depth_plus_2_comb = std_and(1);
@@ -152,25 +149,35 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     idx_between_6_depth_plus_6_comb = std_and(1);
     relu_r0_cur_val = std_wire(32);
     relu_r0_cur_idx = std_reg(32);
-    relu_r0_idx_lt = std_lt(32);
+    relu_finished_wire_r0 = std_wire(1);
+    relu_finished_reg_r0 = std_reg(1);
     relu_r0_val_gt = std_fp_sgt(32, 16, 16);
     relu_r0_go_next = std_wire(32);
     relu_r0_incr = std_add(32);
     relu_r0_val_mult = std_fp_smult_pipe(32, 16, 16);
+    relu_cond_wire_r0 = std_wire(1);
+    relu_cond_reg_r0 = std_reg(1);
     relu_r1_cur_val = std_wire(32);
     relu_r1_cur_idx = std_reg(32);
-    relu_r1_idx_lt = std_lt(32);
+    relu_finished_wire_r1 = std_wire(1);
+    relu_finished_reg_r1 = std_reg(1);
     relu_r1_val_gt = std_fp_sgt(32, 16, 16);
     relu_r1_go_next = std_wire(32);
     relu_r1_incr = std_add(32);
     relu_r1_val_mult = std_fp_smult_pipe(32, 16, 16);
+    relu_cond_wire_r1 = std_wire(1);
+    relu_cond_reg_r1 = std_reg(1);
     relu_r2_cur_val = std_wire(32);
     relu_r2_cur_idx = std_reg(32);
-    relu_r2_idx_lt = std_lt(32);
+    relu_finished_wire_r2 = std_wire(1);
+    relu_finished_reg_r2 = std_reg(1);
     relu_r2_val_gt = std_fp_sgt(32, 16, 16);
     relu_r2_go_next = std_wire(32);
     relu_r2_incr = std_add(32);
     relu_r2_val_mult = std_fp_smult_pipe(32, 16, 16);
+    relu_cond_wire_r2 = std_wire(1);
+    relu_cond_reg_r2 = std_reg(1);
+    cond_wire = std_wire(1);
   }
   wires {
     static<1> group init_min_depth {
@@ -230,10 +237,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
       min_depth_4_plus_1.left = min_depth_4.out;
       min_depth_4_plus_1.right = 32'd1;
     }
-    static<1> group depth_plus_6_group {
-      depth_plus_6.left = depth;
-      depth_plus_6.right = 32'd6;
-    }
     static<1> group depth_plus_3_group {
       depth_plus_3.left = depth;
       depth_plus_3.right = 32'd3;
@@ -241,6 +244,10 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     static<1> group min_depth_4_plus_3_group {
       min_depth_4_plus_3.left = min_depth_4.out;
       min_depth_4_plus_3.right = 32'd3;
+    }
+    static<1> group depth_plus_6_group {
+      depth_plus_6.left = depth;
+      depth_plus_6.right = 32'd6;
     }
     static<1> group depth_plus_2_group {
       depth_plus_2.left = depth;
@@ -527,12 +534,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     static<1> group idx_between_depth_plus_7_None_group {
       index_ge_depth_plus_7.left = idx_add.out;
       index_ge_depth_plus_7.right = depth_plus_7.out;
-      idx_between_depth_plus_7_None_reg.in = index_ge_depth_plus_7.out;
-      idx_between_depth_plus_7_None_reg.write_en = 1'd1;
-    }
-    static<1> group init_idx_between_depth_plus_7_None {
-      idx_between_depth_plus_7_None_reg.in = 1'd0;
-      idx_between_depth_plus_7_None_reg.write_en = 1'd1;
     }
     static<1> group idx_between_1_depth_plus_1_group {
       index_ge_1.left = idx_add.out;
@@ -565,22 +566,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     static<1> group idx_between_depth_plus_5_None_group {
       index_ge_depth_plus_5.left = idx_add.out;
       index_ge_depth_plus_5.right = depth_plus_5.out;
-      idx_between_depth_plus_5_None_reg.in = index_ge_depth_plus_5.out;
-      idx_between_depth_plus_5_None_reg.write_en = 1'd1;
-    }
-    static<1> group init_idx_between_depth_plus_5_None {
-      idx_between_depth_plus_5_None_reg.in = 1'd0;
-      idx_between_depth_plus_5_None_reg.write_en = 1'd1;
-    }
-    static<1> group idx_between_depth_plus_6_None_group {
-      index_ge_depth_plus_6.left = idx_add.out;
-      index_ge_depth_plus_6.right = depth_plus_6.out;
-      idx_between_depth_plus_6_None_reg.in = index_ge_depth_plus_6.out;
-      idx_between_depth_plus_6_None_reg.write_en = 1'd1;
-    }
-    static<1> group init_idx_between_depth_plus_6_None {
-      idx_between_depth_plus_6_None_reg.in = 1'd0;
-      idx_between_depth_plus_6_None_reg.write_en = 1'd1;
     }
     static<1> group idx_between_3_depth_plus_3_group {
       index_ge_3.left = idx_add.out;
@@ -609,6 +594,10 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     static<1> group init_idx_between_3_min_depth_4_plus_3 {
       idx_between_3_min_depth_4_plus_3_reg.in = 1'd0;
       idx_between_3_min_depth_4_plus_3_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_depth_plus_6_None_group {
+      index_ge_depth_plus_6.left = idx_add.out;
+      index_ge_depth_plus_6.right = depth_plus_6.out;
     }
     static<1> group idx_between_2_depth_plus_2_group {
       index_ge_2.left = idx_add.out;
@@ -658,8 +647,15 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
       out_mem_0_addr0 = relu_r0_cur_idx.out;
       out_mem_0_write_data = relu_r0_val_gt.out ? relu_r0_cur_val.out;
       out_mem_0_write_data = !relu_r0_val_gt.out ? relu_r0_val_mult.out;
-      relu_r0_idx_lt.left = relu_r0_incr.out;
-      relu_r0_idx_lt.right = 32'd3;
+      relu_finished_wire_r0.in = relu_r0_go_next.out & relu_r0_cur_idx.out == 32'd2 ? 1'd1;
+      relu_finished_reg_r0.in = relu_finished_wire_r0.out ? 1'd1;
+      relu_finished_reg_r0.write_en = relu_finished_wire_r0.out ? 1'd1;
+    }
+    static<1> group check_relu_cond_r0 {
+      relu_cond_wire_r0.in = index_ge_depth_plus_5.out & !relu_finished_wire_r0.out ? 1'd1;
+      relu_cond_reg_r0.in = relu_cond_wire_r0.out ? 1'd1;
+      relu_cond_reg_r0.in = !relu_cond_wire_r0.out ? 1'd0;
+      relu_cond_reg_r0.write_en = !relu_finished_reg_r0.out ? 1'd1;
     }
     static<1> group relu_r1_helper {
       relu_r1_cur_val.in = relu_r1_cur_idx.out == 32'd0 ? pe_1_0.out;
@@ -681,8 +677,15 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
       out_mem_1_addr0 = relu_r1_cur_idx.out;
       out_mem_1_write_data = relu_r1_val_gt.out ? relu_r1_cur_val.out;
       out_mem_1_write_data = !relu_r1_val_gt.out ? relu_r1_val_mult.out;
-      relu_r1_idx_lt.left = relu_r1_incr.out;
-      relu_r1_idx_lt.right = 32'd3;
+      relu_finished_wire_r1.in = relu_r1_go_next.out & relu_r1_cur_idx.out == 32'd2 ? 1'd1;
+      relu_finished_reg_r1.in = relu_finished_wire_r1.out ? 1'd1;
+      relu_finished_reg_r1.write_en = relu_finished_wire_r1.out ? 1'd1;
+    }
+    static<1> group check_relu_cond_r1 {
+      relu_cond_wire_r1.in = index_ge_depth_plus_6.out & !relu_finished_wire_r1.out ? 1'd1;
+      relu_cond_reg_r1.in = relu_cond_wire_r1.out ? 1'd1;
+      relu_cond_reg_r1.in = !relu_cond_wire_r1.out ? 1'd0;
+      relu_cond_reg_r1.write_en = !relu_finished_reg_r1.out ? 1'd1;
     }
     static<1> group relu_r2_helper {
       relu_r2_cur_val.in = relu_r2_cur_idx.out == 32'd0 ? pe_2_0.out;
@@ -704,11 +707,20 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
       out_mem_2_addr0 = relu_r2_cur_idx.out;
       out_mem_2_write_data = relu_r2_val_gt.out ? relu_r2_cur_val.out;
       out_mem_2_write_data = !relu_r2_val_gt.out ? relu_r2_val_mult.out;
-      relu_r2_idx_lt.left = relu_r2_incr.out;
-      relu_r2_idx_lt.right = 32'd3;
+      relu_finished_wire_r2.in = relu_r2_go_next.out & relu_r2_cur_idx.out == 32'd2 ? 1'd1;
+      relu_finished_reg_r2.in = relu_finished_wire_r2.out ? 1'd1;
+      relu_finished_reg_r2.write_en = relu_finished_wire_r2.out ? 1'd1;
+    }
+    static<1> group check_relu_cond_r2 {
+      relu_cond_wire_r2.in = index_ge_depth_plus_7.out & !relu_finished_wire_r2.out ? 1'd1;
+      relu_cond_reg_r2.in = relu_cond_wire_r2.out ? 1'd1;
+      relu_cond_reg_r2.in = !relu_cond_wire_r2.out ? 1'd0;
+      relu_cond_reg_r2.write_en = !relu_finished_reg_r2.out ? 1'd1;
     }
     static<1> group write_cond_reg {
-      cond_reg.in = lt_iter_limit.out | relu_r0_idx_lt.out | relu_r1_idx_lt.out | relu_r2_idx_lt.out ? 1'd1;
+      cond_wire.in = relu_finished_reg_r0.out & relu_finished_reg_r1.out & relu_finished_reg_r2.out ? 1'd1;
+      cond_reg.in = !cond_wire.out ? 1'd1;
+      cond_reg.in = cond_wire.out ? 1'd0;
       cond_reg.write_en = 1'd1;
     }
   }
@@ -734,11 +746,8 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
         init_idx_between_7_depth_plus_7;
         init_idx_between_0_depth_plus_0;
         init_idx_between_9_depth_plus_9;
-        init_idx_between_depth_plus_7_None;
         init_idx_between_1_depth_plus_1;
         init_idx_between_1_min_depth_4_plus_1;
-        init_idx_between_depth_plus_5_None;
-        init_idx_between_depth_plus_6_None;
         init_idx_between_3_depth_plus_3;
         init_idx_between_3_min_depth_4_plus_3;
         init_idx_between_2_depth_plus_2;
@@ -948,9 +957,9 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
             idx_between_1_depth_plus_1_group;
             idx_between_1_min_depth_4_plus_1_group;
             idx_between_depth_plus_5_None_group;
-            idx_between_depth_plus_6_None_group;
             idx_between_3_depth_plus_3_group;
             idx_between_3_min_depth_4_plus_3_group;
+            idx_between_depth_plus_6_None_group;
             idx_between_2_depth_plus_2_group;
             idx_between_6_depth_plus_6_group;
             depth_plus_4_group;
@@ -964,31 +973,34 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
             depth_plus_9_group;
             depth_plus_1_group;
             min_depth_4_plus_1_group;
-            depth_plus_6_group;
             depth_plus_3_group;
             min_depth_4_plus_3_group;
+            depth_plus_6_group;
             depth_plus_2_group;
           }
           static par {
             write_cond_reg;
-            static if idx_between_depth_plus_5_None_reg.out {
+            static if relu_cond_reg_r0.out {
               static par {
                 execute_relu_r0;
                 relu_r0_helper;
               }
             }
-            static if idx_between_depth_plus_6_None_reg.out {
+            check_relu_cond_r0;
+            static if relu_cond_reg_r1.out {
               static par {
                 execute_relu_r1;
                 relu_r1_helper;
               }
             }
-            static if idx_between_depth_plus_7_None_reg.out {
+            check_relu_cond_r1;
+            static if relu_cond_reg_r2.out {
               static par {
                 execute_relu_r2;
                 relu_r2_helper;
               }
             }
+            check_relu_cond_r2;
           }
         }
       }
