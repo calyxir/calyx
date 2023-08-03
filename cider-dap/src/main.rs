@@ -30,9 +30,6 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
 
 fn main() -> Result<(), MyAdapterError> {
     let opts: Opts = argh::from_env();
-    let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
-    let file = File::open(path)?;
-    let adapter = MyAdapter::new(file);
 
     if opts.is_multi_session {
         eprintln!("running multi-session");
@@ -42,10 +39,13 @@ fn main() -> Result<(), MyAdapterError> {
         println!("Accepted client on: {}", addr);
         let read_stream = BufReader::new(stream.try_clone()?);
         let write_stream = BufWriter::new(stream);
-        let server = Server::new(read_stream, write_stream);
-
-        run_server(server, adapter)?;
+        let mut server = Server::new(read_stream, write_stream);
+        dbg!(server.poll_request());
+        // run_server(server, adapter)?;
     } else {
+        let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
+        let file = File::open(path)?;
+        let adapter = MyAdapter::new(file);
         eprintln!("running single-session");
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());

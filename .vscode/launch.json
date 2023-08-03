@@ -5,13 +5,8 @@
             "type": "cider-dap",
             "request": "launch",
             "name": "Launch Program (Multi Session)",
-            "debugServer": 8888,
-            "program": "${file}",
-            "preLaunchTask": {
-                "type": "shell",
-                "command": "${command:cider.startDebugging}"
-            },
-            "stopOnEntry": true,
+            "program": "${workspaceFolder}/${file}",
+            //  "stopOnEntry": true,
         },
         {
             "type": "cider-dap",
