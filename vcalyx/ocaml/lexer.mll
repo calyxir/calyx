@@ -1,13 +1,17 @@
 { 
   open Parser 
-  exception ParseError of string
+  exception SyntaxError of string
 }
 
 let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '.']*
+let whitespace = [' ' '\t']+
+let newline = '\r' | '\n' | "\r\n"
 
 rule tokens = parse 
 (* i.e., 1'd1 *)
-| ['0'-'9']+"'d"['0'-'9']+ as i { INT (int_of_string i) } 
+| ['0'-'9']+ as i { INT (int_of_string i) } 
+| whitespace      { tokens lexbuf }
+| newline         { Lexing.new_line lexbuf; tokens lexbuf }
 | "("             { LPAREN }
 | ")"             { RPAREN }
 | "components"    { COMPONENTS }
@@ -41,4 +45,4 @@ rule tokens = parse
 | "assignments"   { ASSIGNMENTS }
 | eof             { EOF }
 | id as x         { ID x }
-| _ { raise (ParseError (Printf.sprintf "At offset %d: unexpected character.\n" (Lexing.lexeme_start lexbuf))) }
+| _ { raise (SyntaxError (Printf.sprintf "At offset %d: unexpected character %s" (Lexing.lexeme_start lexbuf) (Lexing.lexeme lexbuf))) }

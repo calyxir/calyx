@@ -17,13 +17,13 @@
 %token DIRECTION
 %token ASSIGNMENTS
 
-%start <Extr.context> main
+%start <Extr.context option> main
 %%
 
 main: 
 | LPAREN; LPAREN; COMPONENTS; LPAREN; comps = list(component); RPAREN; RPAREN; 
 LPAREN; ENTRYPOINT; entry = ID; RPAREN; RPAREN; EOF
-  { {ctx_comps = comps; ctx_entrypoint = entry} }
+  { Some {ctx_comps = comps; ctx_entrypoint = entry} }
 
 attrs_clause:
   | LPAREN; ATTRIBUTES; LPAREN; attrs = list(attribute); RPAREN; RPAREN
