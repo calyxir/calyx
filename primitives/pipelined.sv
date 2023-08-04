@@ -49,8 +49,8 @@ module pipelined_fp_smult #(
     output wire [WIDTH-1:0] out
 );
 
-logic [WIDTH-1:0] lt, rt;
-logic [(WIDTH << 1) - 1:0] tmp_prod, buff0, buff1, buff2;
+logic [WIDTH-1:0] lt, rt, buff0, buff1, buff2;
+logic [(WIDTH << 1) - 1:0] tmp_prod;
 
 assign out = buff2;
 assign tmp_prod = $signed(
