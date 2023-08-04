@@ -123,7 +123,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     index_lt_depth_plus_9 = std_lt(32);
     index_ge_9 = std_ge(32);
     idx_between_9_depth_plus_9_comb = std_and(1);
-    index_ge_depth_plus_7 = std_ge(32);
     idx_between_1_depth_plus_1_reg = std_reg(1);
     index_lt_depth_plus_1 = std_lt(32);
     index_ge_1 = std_ge(32);
@@ -131,7 +130,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     idx_between_1_min_depth_4_plus_1_reg = std_reg(1);
     index_lt_min_depth_4_plus_1 = std_lt(32);
     idx_between_1_min_depth_4_plus_1_comb = std_and(1);
-    index_ge_depth_plus_5 = std_ge(32);
+    index_ge_depth_plus_7 = std_ge(32);
     idx_between_3_depth_plus_3_reg = std_reg(1);
     index_lt_depth_plus_3 = std_lt(32);
     index_ge_3 = std_ge(32);
@@ -139,6 +138,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     idx_between_3_min_depth_4_plus_3_reg = std_reg(1);
     index_lt_min_depth_4_plus_3 = std_lt(32);
     idx_between_3_min_depth_4_plus_3_comb = std_and(1);
+    index_ge_depth_plus_5 = std_ge(32);
     index_ge_depth_plus_6 = std_ge(32);
     idx_between_2_depth_plus_2_reg = std_reg(1);
     index_lt_depth_plus_2 = std_lt(32);
@@ -531,10 +531,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
       idx_between_9_depth_plus_9_reg.in = 1'd0;
       idx_between_9_depth_plus_9_reg.write_en = 1'd1;
     }
-    static<1> group idx_between_depth_plus_7_None_group {
-      index_ge_depth_plus_7.left = idx_add.out;
-      index_ge_depth_plus_7.right = depth_plus_7.out;
-    }
     static<1> group idx_between_1_depth_plus_1_group {
       index_ge_1.left = idx_add.out;
       index_ge_1.right = 32'd1;
@@ -563,9 +559,9 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
       idx_between_1_min_depth_4_plus_1_reg.in = 1'd0;
       idx_between_1_min_depth_4_plus_1_reg.write_en = 1'd1;
     }
-    static<1> group idx_between_depth_plus_5_None_group {
-      index_ge_depth_plus_5.left = idx_add.out;
-      index_ge_depth_plus_5.right = depth_plus_5.out;
+    static<1> group idx_between_depth_plus_7_None_group {
+      index_ge_depth_plus_7.left = idx_add.out;
+      index_ge_depth_plus_7.right = depth_plus_7.out;
     }
     static<1> group idx_between_3_depth_plus_3_group {
       index_ge_3.left = idx_add.out;
@@ -594,6 +590,10 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
     static<1> group init_idx_between_3_min_depth_4_plus_3 {
       idx_between_3_min_depth_4_plus_3_reg.in = 1'd0;
       idx_between_3_min_depth_4_plus_3_reg.write_en = 1'd1;
+    }
+    static<1> group idx_between_depth_plus_5_None_group {
+      index_ge_depth_plus_5.left = idx_add.out;
+      index_ge_depth_plus_5.right = depth_plus_5.out;
     }
     static<1> group idx_between_depth_plus_6_None_group {
       index_ge_depth_plus_6.left = idx_add.out;
@@ -953,12 +953,12 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_
             idx_between_7_depth_plus_7_group;
             idx_between_0_depth_plus_0_group;
             idx_between_9_depth_plus_9_group;
-            idx_between_depth_plus_7_None_group;
             idx_between_1_depth_plus_1_group;
             idx_between_1_min_depth_4_plus_1_group;
-            idx_between_depth_plus_5_None_group;
+            idx_between_depth_plus_7_None_group;
             idx_between_3_depth_plus_3_group;
             idx_between_3_min_depth_4_plus_3_group;
+            idx_between_depth_plus_5_None_group;
             idx_between_depth_plus_6_None_group;
             idx_between_2_depth_plus_2_group;
             idx_between_6_depth_plus_6_group;

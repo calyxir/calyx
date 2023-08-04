@@ -4,6 +4,8 @@ import numpy as np
 import calyx.builder as cb
 from calyx import py_ast
 from calyx.utils import bits_needed
+from fud.stages.verilator import numeric_types
+from calyx.utils import float_to_fixed_point
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
@@ -57,8 +59,9 @@ def pe(prog: cb.Builder):
     comp.input("mul_ready", 1)
     comp.output("out", BITWIDTH)
     acc = comp.reg("acc", BITWIDTH)
+    # signed fixed point adder
     add = comp.fp_sop("adder", "add", BITWIDTH, INTWIDTH, FRACWIDTH)
-    # XXX: pipelined mult assumes 32 bit multiplication
+    # signed fixed point multiplier
     mul = comp.pipelined_fp_smult("mul", BITWIDTH, INTWIDTH, FRACWIDTH)
 
     this = comp.this()
@@ -131,7 +134,7 @@ def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuil
 
 def add_read_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
     """
-    Add arguments to component `comp` if we want to read from a mem named `name` wth
+    Add arguments to component `comp` if we want to read from a mem named `name` with
     width of `addr_width`
     """
     comp.input(f"{name}_read_data", BITWIDTH)
@@ -140,8 +143,8 @@ def add_read_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
 
 def add_write_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
     """
-    Add arguments to component `comp` if we want to write to a mem named `name` wth
-    width of `addr_width`
+    Add arguments to component `comp` if we want to write to a mem named `name` with
+    width of `addr_width` inside `comp.`
     """
     comp.output(f"{name}_addr0", addr_width)
     comp.output(f"{name}_write_data", BITWIDTH)
@@ -242,18 +245,18 @@ def instantiate_write_cond_reg(
 ):
     """
     Writes into `cond_reg`, the condition register for the while loop.
-    Basically, writes has to check that both a) all computations have
-    been completed and b) all of the Leaky ReLUs have been completed
+    `cond_reg` basically checks whether the relu operation has finished yet
+    for all rows of the array. If so, it sets `cond_reg` to lo. Otherwise it
+    sets it to high.
     """
     cond_reg = comp.get_cell("cond_reg")
-    cond_wire = comp.wire("cond_wire",1)
-    guard = None
+    cond_wire = comp.wire("cond_wire", 1)
     for r in range(num_rows):
         if r == 0:
             guard = comp.get_cell(f"relu_finished_reg_r{r}").port("out")
         else:
             guard = guard & comp.get_cell(f"relu_finished_reg_r{r}").port("out")
-    with comp.static_group("write_cond_reg", 1) as g:
+    with comp.static_group("write_cond_reg", 1):
         cond_wire.in_ = guard @ 1
         cond_reg.in_ = ~cond_wire.out @ 1
         cond_reg.in_ = cond_wire.out @ 0
@@ -274,7 +277,9 @@ def gen_schedules(
     `pe_accum_sched` contains when to invoke PE and accumulate (bc the multipliers
     are ready with an output)
     `pe_move_sched` contains when to "move" the PE (i.e., pass data)
-    `pe_write_sched` contains when to "write" the PE value into memory (i.e., when
+    `relu_sched` contains when to start the relu operation (i.e., when the PE is
+    ``finished``). This replaces `write_sched` in the normal systoilc array,
+    which contains when to "write" the PE value into memory (i.e., when
     the PE is "finished")
     """
     depth_port = comp.this().depth
@@ -312,9 +317,9 @@ def accum_nec_ranges(nec_ranges, schedule):
     the schedule
 
     nec_ranges is a set of tuples.
-    schedule is a 2d array with tuple (start,end) entries.
+    schedule is either a 2d array or 1d array with tuple (start,end) entries.
     Adds all intervals (start,end) in schedule to nec_ranges if the it's
-    not already in nec_ranges
+    not already in nec_ranges.
     """
     if schedule.ndim == 1:
         for r in schedule:
@@ -328,7 +333,7 @@ def accum_nec_ranges(nec_ranges, schedule):
     return nec_ranges
 
 
-def build_calyx_add(comp, obj):
+def try_build_calyx_add(comp, obj):
     """
     Attempts to build an adder for obj, with name str(obj) and group name
     str(obj) + "_group" that adds obj.port and obj.const
@@ -352,9 +357,9 @@ def instantiate_calyx_adds(comp, nec_ranges):
     """
     depth_adders = []
     for lo, hi in nec_ranges:
-        if build_calyx_add(comp, lo):
+        if try_build_calyx_add(comp, lo):
             depth_adders.append(str(lo) + "_group")
-        if build_calyx_add(comp, hi):
+        if try_build_calyx_add(comp, hi):
             depth_adders.append(str(hi) + "_group")
     return depth_adders
 
@@ -367,8 +372,6 @@ def instantiate_idx_cond_groups(comp: cb.ComponentBuilder):
     """
     idx = comp.reg("idx", BITWIDTH)
     add = comp.add("idx_add", BITWIDTH)
-    iter_limit = comp.get_cell("iter_limit")
-    lt_iter_limit = comp.lt("lt_iter_limit", BITWIDTH)
     cond_reg = comp.reg("cond_reg", 1)
     with comp.static_group("init_idx", 1):
         idx.in_ = 0
@@ -378,35 +381,26 @@ def instantiate_idx_cond_groups(comp: cb.ComponentBuilder):
         add.right = 1
         idx.in_ = add.out
         idx.write_en = 1
-    with comp.static_group("lt_iter_limit_group", 1):
-        lt_iter_limit.left = add.out
-        lt_iter_limit.right = iter_limit.out
     with comp.static_group("init_cond_reg", 1):
         cond_reg.in_ = 1
         cond_reg.write_en = 1
 
 
-def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, rem_iter_limit):
+def init_dyn_vals(comp: cb.ComponentBuilder, depth_port):
     """
     Builds group that instantiates the dynamic/runtime values for the systolic
-    array: its depth and iteration limit/count (since its iteration limit depends on
-    its depth).
+    array: its depth.
+    We don't need iter_limit anymore, since the loop runs until the relu operations
+    are done, not some sort of iteration count.
     """
     min_depth_4 = comp.reg("min_depth_4", BITWIDTH)
     lt_depth_4 = comp.lt("lt_depth_4", BITWIDTH)
-    iter_limit = comp.reg("iter_limit", BITWIDTH)
-    iter_limit_add = comp.add("iter_limit_add", BITWIDTH)
     with comp.static_group("init_min_depth", 1):
         lt_depth_4.left = depth_port
         lt_depth_4.right = 4
         min_depth_4.in_ = lt_depth_4.out @ depth_port
         min_depth_4.in_ = ~lt_depth_4.out @ 4
         min_depth_4.write_en = 1
-    with comp.static_group("init_iter_limit", 1):
-        iter_limit_add.left = rem_iter_limit
-        iter_limit_add.right = depth_port
-        iter_limit.in_ = iter_limit_add.out
-        iter_limit.write_en = 1
 
 
 def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
@@ -434,9 +428,8 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
     assert (
         not type(lo) is None
     ), "None Type Lower Bound not supported in instantiate_idx_between"
+    # If no upper bound, then only need to check reg >= lo
     if hi is None:
-        # XXX(Caleb): Expect this hi=None for only leaky RELU execution
-        # If no upper bound provided, then only need to check reg >= lo
         ge = (
             comp.get_cell(index_ge)
             if comp.try_get_cell(index_ge) is not None
@@ -445,37 +438,37 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
         with comp.static_group(group_str, 1):
             ge.left = idx_add.out
             ge.right = lo_value
-        return
-    reg = comp.reg(reg_str, 1)
-    lt = (
-        comp.get_cell(index_lt)
-        if comp.try_get_cell(index_lt) is not None
-        else comp.lt(index_lt, BITWIDTH)
-    )
-    # if lo == 0, then only need to check if reg < hi
-    if type(lo) == int and lo == 0:
-        with comp.static_group(group_str, 1):
-            lt.left = idx_add.out
-            lt.right = hi_value
-            reg.in_ = lt.out
-            reg.write_en = 1
-    # need to check if reg >= lo and reg < hi
     else:
-        ge = (
-            comp.get_cell(index_ge)
-            if comp.try_get_cell(index_ge) is not None
-            else comp.ge(index_ge, BITWIDTH)
+        reg = comp.reg(reg_str, 1)
+        lt = (
+            comp.get_cell(index_lt)
+            if comp.try_get_cell(index_lt) is not None
+            else comp.lt(index_lt, BITWIDTH)
         )
-        and_ = comp.and_(comb_str, 1)
-        with comp.static_group(group_str, 1):
-            ge.left = idx_add.out
-            ge.right = lo_value
-            lt.left = idx_add.out
-            lt.right = hi_value
-            and_.left = ge.out
-            and_.right = lt.out
-            reg.in_ = and_.out
-            reg.write_en = 1
+        # if lo == 0, then only need to check if reg < hi
+        if type(lo) == int and lo == 0:
+            with comp.static_group(group_str, 1):
+                lt.left = idx_add.out
+                lt.right = hi_value
+                reg.in_ = lt.out
+                reg.write_en = 1
+        # need to check if reg >= lo and reg < hi
+        else:
+            ge = (
+                comp.get_cell(index_ge)
+                if comp.try_get_cell(index_ge) is not None
+                else comp.ge(index_ge, BITWIDTH)
+            )
+            and_ = comp.and_(comb_str, 1)
+            with comp.static_group(group_str, 1):
+                ge.left = idx_add.out
+                ge.right = lo_value
+                lt.left = idx_add.out
+                lt.right = hi_value
+                and_.left = ge.out
+                and_.right = lt.out
+                reg.in_ = and_.out
+                reg.write_en = 1
 
 
 def instantiate_init_group(comp: cb.ComponentBuilder, lo, hi):
@@ -485,7 +478,8 @@ def instantiate_init_group(comp: cb.ComponentBuilder, lo, hi):
     # if lo == 0, then the idx will initially be in between the interval, so
     # need to set idx_between to high
     start_hi = 1 if lo == 0 else 0
-    # XXX(Caleb): assumed hi=None means Relu
+    # XXX(Caleb): assumed hi=None is used for a Relu computation, and therefore
+    # idx_between_reg is not necessary.
     if hi is None:
         return
     idx_between = comp.get_cell(f"idx_between_{lo}_{hi}_reg")
@@ -496,10 +490,10 @@ def instantiate_init_group(comp: cb.ComponentBuilder, lo, hi):
 
 def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
     """
-    Instantiates leaky_relu group for `row`
+    Instantiates leaky relu groups that performs leaky relu on `row`.
     """
 
-    # adds assignment wire.in = reg.out == col ? pe_{row}_{col}_out
+    # Helper function adds assignment wire.in = reg.out == col ? pe_{row}_{col}_out.
     def build_assignment(
         comp: cb.ComponentBuilder, group: cb.GroupBuilder, wire, register, row, col
     ):
@@ -512,18 +506,28 @@ def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
             reg_out == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, col)),
         )
 
+    # Current value we are performing relu on.
     cur_val = comp.wire(f"relu_r{row}_cur_val", BITWIDTH)
+    # Current idx within the row for the value we are performing relu on.
     idx_reg = comp.reg(f"relu_r{row}_cur_idx", BITWIDTH)
     group_assigns = []
     group = comp.static_group(f"relu_r{row}_helper", 1)
+    # assigning cur_val = value of PE at (row,idx_reg).
     for col in range(top_length):
         group_assigns.append(build_assignment(comp, group, cur_val, idx_reg, row, col))
 
+    # Wire that tells us we are finished with relu operation for this row.
     relu_finished_wire = comp.wire(f"relu_finished_wire_r{row}", 1)
+    # Register that holds the value of relu_finished_wire for later cycles.
     relu_finished_reg = comp.reg(f"relu_finished_reg_r{row}", 1)
+    # Checks whether cur_val is > 0.
     cur_gt = comp.fp_sop(f"relu_r{row}_val_gt", "gt", BITWIDTH, INTWIDTH, FRACWIDTH)
+    # Checks whether we should go onto the next entry in the row. This occurs
+    # either when a) value is positive or b) multiply operation has finished.
     go_next = comp.wire(f"relu_r{row}_go_next", BITWIDTH)
+    # Increments idx_reg.
     incr = comp.add(f"relu_r{row}_incr", BITWIDTH)
+    # Performs multiplication for leaky relu.
     fp_mult = comp.fp_sop(
         f"relu_r{row}_val_mult", "mult_pipe", BITWIDTH, INTWIDTH, FRACWIDTH
     )
@@ -533,11 +537,11 @@ def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
     write_data_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_write_data"))
     write_en_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_write_en"))
     with comp.static_group(f"execute_relu_r{row}", 1) as g:
-        # check if the current value is positive or negative
+        # Check if the current value is positive or negative.
         cur_gt.left = cur_val.out
         cur_gt.right = 0
 
-        # handle incrementing the idx_reg
+        # Handle incrementing the idx_reg.
         # Increment either when a) multiplication is done or b) cur value is positive
         incr.left = idx_reg.out
         incr.right = 1
@@ -545,21 +549,22 @@ def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
         idx_reg.in_ = go_next.out @ incr.out
         idx_reg.write_en = go_next.out @ 1
 
-        # perform the multiplication
-        # XXX(find better way to show that this 655 ~= 0.01)
-        fp_mult.left = 655
+        # Perform the multiplication.
+        # Get FP approximation of 0.01.
+        fp_mult.left = numeric_types.FixedPoint(
+            str(float_to_fixed_point(0.01, FRACWIDTH)), BITWIDTH, INTWIDTH, True
+        ).unsigned_integer()
         fp_mult.right = cur_val.out
         fp_mult.go = ~go_next.out @ 1
 
-        # write to mem
+        # Write to mem based on whether cur_valu >= 0
         g.asgn(write_en_port, 1, go_next.out)
         g.asgn(addr0_port, idx_reg.out)
-        # if positive write cur_val
         g.asgn(write_data_port, cur_val.out, cur_gt.out)
-        # if negative write result of multiplication
         g.asgn(write_data_port, fp_mult.out, ~cur_gt.out)
 
-        # while loop logic
+        # While loop logic. relu_finished when idx_reg == top_length -1 & go_next,
+        # i.e., when we're at the last index and about to "go to the next value".
         relu_finished_wire.in_ = (
             go_next.out
             & (
@@ -570,8 +575,13 @@ def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
         relu_finished_reg.in_ = relu_finished_wire.out @ 1
         relu_finished_reg.write_en_ = relu_finished_wire.out @ 1
 
+    # Start relu when idx_ge row + depth + 5, i.e., when first value in row
+    # is ready to be computed.
     relu_start_port = comp.get_cell(f"index_ge_depth_plus_{5 + row}").port("out")
+    # relu_cond_wire coordinates when relu_cond_reg should be hi/lo
     relu_cond_wire = comp.wire(f"relu_cond_wire_r{row}", 1)
+    # relu_cond_reg guards when we should perform the relu execution group defined
+    # above.
     relu_cond_reg = comp.reg(f"relu_cond_reg_r{row}", 1)
     guard = relu_start_port & (~relu_finished_wire.out)
     with comp.static_group(f"check_relu_cond_r{row}", 1):
@@ -654,8 +664,7 @@ def execute_if_register(comp: cb.ComponentBuilder, register, body):
     """
     body is a list of control stmts
     if body is empty, return an empty list
-    otherwise, builds an if stmt that executes body in parallel if
-    idx is between start and end
+    otherwise, builds an if stmt that executes body in parallel reg.out is high
     """
     if not body:
         return []
@@ -704,7 +713,6 @@ def generate_control(
         + [
             py_ast.Enable("init_idx"),
             py_ast.Enable("init_min_depth"),
-            py_ast.Enable("init_iter_limit"),
             py_ast.Enable("init_cond_reg"),
         ]
         + [
@@ -727,7 +735,7 @@ def generate_control(
     # end source pos init
 
     control_stmts = []
-    incr_stmts = [py_ast.Enable("incr_idx"), py_ast.Enable("lt_iter_limit_group")]
+    incr_stmts = [py_ast.Enable("incr_idx")]
     for r in range(left_length):
         for c in range(top_length):
             # build 4 if stmts for the 4 schedules that we need to account for
@@ -765,7 +773,7 @@ def generate_control(
 {schedules['fill_sched'][r][c][1]}) accumulating: [{schedules['accum_sched'][r][c][0]} \
 {schedules['accum_sched'][r][c][1]})"
 
-    relu_execution = [py_ast.Enable(f"write_cond_reg")]
+    relu_execution = [py_ast.Enable("write_cond_reg")]
     for r in range(left_length):
         relu_execution += execute_if_register(
             comp,
@@ -816,7 +824,7 @@ def create_systolic_array(
 
     computational_unit = prog.component("systolic_array_comp")
     depth_port = computational_unit.input("depth", BITWIDTH)
-    init_dyn_vals(computational_unit, depth_port, top_length + left_length + 4)
+    init_dyn_vals(computational_unit, depth_port)
 
     schedules = gen_schedules(
         top_length, top_depth, left_length, left_depth, computational_unit
@@ -865,8 +873,10 @@ def create_systolic_array(
         instantiate_idx_between(computational_unit, start, end)
         instantiate_init_group(computational_unit, start, end)
 
+    # Instantiate groups to compute Relu.
     for row in range(left_length):
         instantiate_relu_groups(computational_unit, row, top_length)
+    # Write into the cond reg of the while loop.
     instantiate_write_cond_reg(computational_unit, left_length)
 
     # Generate the control and set the source map
