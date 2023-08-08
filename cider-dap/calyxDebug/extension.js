@@ -76,9 +76,10 @@ class CiderDebugAdapter {
   // Start the debug adapter process
   start(port) {
     logToPanel('begining of start');
+
     // Spawn a new child process for the debug adapter
     // Include the port as a command line argument
-    this.adapterProcess = cp.spawn(this.adapterPath, ['--port', port, "--tcp"], { cwd: this.cwd });
+    this.adapterProcess = cp.spawn(this.adapterPath, [programName, '--port', port, "--tcp"], { cwd: this.cwd });
 
     // Attach event listener to capture standard output of the adapter process and log it to the output channel
     this.adapterProcess.stdout.on('data', (data) => {

@@ -1,3 +1,5 @@
+use dap::errors::ServerError;
+
 #[allow(dead_code)] //remove this later
 #[derive(thiserror::Error, Debug)]
 pub enum MyAdapterError {
@@ -17,10 +19,25 @@ pub enum MyAdapterError {
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),
 
+    /// Represents an error for an invalid path.
+    #[error("Invalid path provided")]
+    InvalidPathError,
+
     /// Represents an error when a command is missing.
     #[error("Missing command")]
     MissingCommandError,
+
+    /// Represents a missing request.
+    #[error("Missing request")]
+    MissingRequest,
 }
 
 /// A type alias for the result returned by the adapter functions.
 pub type AdapterResult<T> = Result<T, MyAdapterError>;
+
+impl From<ServerError> for MyAdapterError {
+    fn from(error: ServerError) -> Self {
+        // You can adjust this to more specific error handling if desired
+        MyAdapterError::MissingRequest
+    }
+}

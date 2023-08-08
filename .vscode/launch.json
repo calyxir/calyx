@@ -5,8 +5,8 @@
             "type": "cider-dap",
             "request": "launch",
             "name": "Launch Program (Multi Session)",
-            "program": "${workspaceFolder}/${file}",
-            //  "stopOnEntry": true,
+            "program": "${file}",
+            "stopOnEntry": true,
         },
         {
             "type": "cider-dap",
