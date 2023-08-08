@@ -104,8 +104,8 @@ def insert_pifo(prog, name):
     lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # set `err` to 0
     zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
 
-    incr_len = util.insert_incr(pifo, len, "incr_len")  # len++
-    decr_len = util.insert_decr(pifo, len, "decr_len")  # len--
+    len_incr = util.insert_incr(pifo, len, "len_incr")  # len++
+    len_decr = util.insert_decr(pifo, len, "len_decr")  # len--
 
     # The main logic.
     pifo.control += [
@@ -200,7 +200,7 @@ def insert_pifo(prog, name):
                                 ],
                             ),
                         ),
-                        decr_len,  # Decrement the length.
+                        len_decr,  # Decrement the length.
                         # It is possible that an irrecoverable error was raised above,
                         # in which case the length should _not_ in fact be decremented.
                         # However, in that case the PIFO's `err` flag would also
@@ -226,13 +226,13 @@ def insert_pifo(prog, name):
                                 flow_eq_0[0].out,
                                 flow_eq_0[1],
                                 # This value should be pushed to flow 0.
-                                cb.invoke(  # AM: this does not terminate
-                                    fifo_0,
-                                    in_cmd=cmd,
-                                    ref_ans=ans,  # Its answer is our answer.
-                                    ref_err=err,  # Its error is our error.
-                                ),
-                                # zero_out_ans  # AM: if you'd like to see it
+                                # cb.invoke(  # AM: this does not terminate
+                                #     fifo_0,
+                                #     in_cmd=cmd,
+                                #     ref_ans=ans,  # Its answer is our answer.
+                                #     ref_err=err,  # Its error is our error.
+                                # ),
+                                zero_out_ans  # AM: if you'd like to see it
                                 # terminate, just uncomment this line,
                                 # which is just a placeholder,
                                 # and comment out the `invoke` lines above.
@@ -242,20 +242,20 @@ def insert_pifo(prog, name):
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
                                 # This value should be pushed to flow 1.
-                                cb.invoke(  # AM: this does not terminate
-                                    fifo_1,
-                                    in_cmd=cmd,
-                                    ref_ans=ans,  # Its answer is our answer.
-                                    ref_err=err,  # Its error is our error.
-                                ),
-                                # zero_out_ans  # AM: if you'd like to see it
+                                # cb.invoke(  # AM: this does not terminate
+                                #     fifo_1,
+                                #     in_cmd=cmd,
+                                #     ref_ans=ans,  # Its answer is our answer.
+                                #     ref_err=err,  # Its error is our error.
+                                # ),
+                                zero_out_ans  # AM: if you'd like to see it
                                 # terminate, just uncomment this line
                             ),
                         ),
                         # AM: incredibly, the line below is one of the sources of
                         # non-termination!! Comment it out as well, if you want
                         # to see the program terminate.
-                        incr_len,  # Increment the length.
+                        len_incr,  # Increment the length.
                         # It is possible that an irrecoverable error was raised above,
                         # in which case the length should _not_ in fact be incremented.
                         # However, in that case the PIFO's `err` flag would also
