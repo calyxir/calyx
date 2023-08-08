@@ -61,6 +61,22 @@ def insert_lt(comp: cb.ComponentBuilder, left, right, cellname, width):
     return insert_comb_group(comp, left, right, lt_cell, f"{cellname}_group")
 
 
+def insert_gt(comp: cb.ComponentBuilder, left, right, cellname, width):
+    """Inserts wiring into component {comp} to check if {left} > {right}.
+
+    <cellname> = std_gt(<width>);
+    ...
+    comb group <cellname>_group {
+        <cellname>.left = <left>;
+        <cellname>.right = <right>;
+    }
+
+    Returns handles to the cell and the combinational group.
+    """
+    gt_cell = comp.gt(cellname, width)
+    return insert_comb_group(comp, left, right, gt_cell, f"{cellname}_group")
+
+
 def insert_add(comp: cb.ComponentBuilder, left, right, cellname, width):
     """Inserts wiring into component {comp} to compute {left} + {right}.
 

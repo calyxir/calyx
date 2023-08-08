@@ -4,6 +4,33 @@ import calyx.builder_util as util
 import calyx.queue_call as qc
 
 
+def insert_raise_err_if_i_eq_15(prog):
+    """Inserts a the component `raise_err_if_i_eq_15` into the program.
+
+    It has:
+    - one input, `i`.
+    - one ref register, `err`.
+
+    If `i` equals 15, it raises the `err` flag.
+    """
+    raise_err_if_i_eq_15: cb.ComponentBuilder = prog.component("raise_err_if_i_eq_15")
+    i = raise_err_if_i_eq_15.input("i", 32)
+    err = raise_err_if_i_eq_15.reg("err", 1, is_ref=True)
+
+    i_eq_15 = util.insert_eq(raise_err_if_i_eq_15, i, 15, "i_eq_15", 32)
+    raise_err = util.insert_reg_store(raise_err_if_i_eq_15, err, 1, "raise_err")
+
+    raise_err_if_i_eq_15.control += [
+        cb.if_(
+            i_eq_15[0].out,
+            i_eq_15[1],
+            raise_err,
+        )
+    ]
+
+    return raise_err_if_i_eq_15
+
+
 def insert_fifo(prog, name):
     """Inserts the component `fifo` into the program.
 
@@ -15,7 +42,8 @@ def insert_fifo(prog, name):
     """
 
     fifo: cb.ComponentBuilder = prog.component(name)
-    cmd = fifo.input("cmd", 32)  # If this is 0, we pop. Otherwise, we push the value.
+    cmd = fifo.input("cmd", 32)
+    # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
 
     mem = fifo.seq_mem_d1("mem", 32, 10, 32)
     write = fifo.reg("next_write", 32)  # The next address to write to
@@ -31,11 +59,11 @@ def insert_fifo(prog, name):
 
     len = fifo.reg("len", 32)  # The length of the FIFO
 
-    # Some equality checks.
+    # Cells and groups to compute equality
     cmd_eq_0 = util.insert_eq(fifo, cmd, 0, "cmd_eq_0", 32)  # `cmd` == 0
-    cmd_neq_0 = util.insert_neq(
-        fifo, cmd, cb.const(32, 0), "cmd_neq_0", 32
-    )  # `cmd` != 0
+    cmd_eq_1 = util.insert_eq(fifo, cmd, 1, "cmd_eq_1", 32)  # `cmd` == 1
+    cmd_gt_1 = util.insert_gt(fifo, cmd, 1, "cmd_gt_1", 32)  # `cmd` > 1
+
     write_eq_10 = util.insert_eq(
         fifo, write.out, 10, "write_eq_10", 32
     )  # `write` == 10
@@ -99,9 +127,24 @@ def insert_fifo(prog, name):
                 ),
             ),
             cb.if_(
+                # Did the user call peek?
+                cmd_eq_1[0].out,
+                cmd_eq_1[1],
+                cb.if_(  # Yes, the user called peek. But is the queue empty?
+                    len_eq_0[0].out,
+                    len_eq_0[1],
+                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [  # The queue is not empty. Proceed.
+                        read_from_mem,  # Read from the queue.
+                        write_to_ans,  # Write the answer to the answer register.
+                        # But don't increment the read pointer or change the length.
+                    ],
+                ),
+            ),
+            cb.if_(
                 # Did the user call push?
-                cmd_neq_0[0].out,
-                cmd_neq_0[1],
+                cmd_gt_1[0].out,
+                cmd_gt_1[1],
                 cb.if_(
                     # Yes, the user called push. But is the queue full?
                     len_eq_10[0].out,
