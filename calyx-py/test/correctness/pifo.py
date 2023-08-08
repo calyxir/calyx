@@ -1,7 +1,7 @@
 # pylint: disable=import-error
 import fifo
-import calyx.builder_util as util
 import calyx.builder as cb
+import calyx.builder_util as util
 import calyx.queue_call as qc
 
 
@@ -14,7 +14,7 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
     2. Within {group}, creates a cell {cell} that checks for less-than.
     3. Puts the values of 199 and {cmd} into {cell}.
     4. Then puts the answer of the computation into {flow}.
-    4. Returns the group that does this.
+    5. Returns the group that does this.
     """
     cell = comp.lt("flow_inf", 32)
     with comp.group(group) as infer_flow_grp:
@@ -27,9 +27,10 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
 
 
 def insert_pifo(prog, name):
-    """A PIFO that achieves a 50/50 split between two flows.
+    """Inserts the component `pifo` into the program.
 
-    Up to the availability of values, this PIFO seeks to alternate 50/50
+    The PIFO achieves a 50/50 split between two flows.
+    That is, up to the availability of values, this PIFO seeks to alternate 50/50
     between two "flows".
 
     We say "up to availability" because, if one flow is silent and the other
@@ -63,7 +64,8 @@ def insert_pifo(prog, name):
     """
 
     pifo: cb.ComponentBuilder = prog.component(name)
-    cmd = pifo.input("cmd", 32)  # If this is 0, we pop. Otherwise, we push the value.
+    cmd = pifo.input("cmd", 32)
+    # If this is 0, we pop. Otherwise, we push the value.
 
     # Create the two FIFOs and ready them for invocation.
     fifo_0 = pifo.cell("myfifo_0", fifo.insert_fifo(prog, "fifo_0"))

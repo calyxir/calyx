@@ -4,33 +4,6 @@ import calyx.builder_util as util
 import calyx.queue_call as qc
 
 
-def insert_raise_err_if_i_eq_15(prog):
-    """Inserts a the component `raise_err_if_i_eq_15` into the program.
-
-    It has:
-    - one input, `i`.
-    - one ref register, `err`.
-
-    If `i` equals 15, it raises the `err` flag.
-    """
-    raise_err_if_i_eq_15: cb.ComponentBuilder = prog.component("raise_err_if_i_eq_15")
-    i = raise_err_if_i_eq_15.input("i", 32)
-    err = raise_err_if_i_eq_15.reg("err", 1, is_ref=True)
-
-    i_eq_15 = util.insert_eq(raise_err_if_i_eq_15, i, 15, "i_eq_15", 32)
-    raise_err = util.insert_reg_store(raise_err_if_i_eq_15, err, 1, "raise_err")
-
-    raise_err_if_i_eq_15.control += [
-        cb.if_(
-            i_eq_15[0].out,
-            i_eq_15[1],
-            raise_err,
-        )
-    ]
-
-    return raise_err_if_i_eq_15
-
-
 def insert_fifo(prog, name):
     """Inserts the component `fifo` into the program.
 
