@@ -1,0 +1,47 @@
+import "primitives/core.futil";
+
+component main() -> () {
+    cells {
+      @external m = std_mem_d1(32, 1, 1);
+      r1 = std_reg(32);
+      r2 = std_reg(32);
+      add1 = std_add(32);
+      add2 = std_add(32); 
+      add = std_add(32);
+    }
+    wires {
+        static<1> group add_five_r1 {
+            add1.left = r1.out;
+            add1.right = 32'd5;
+            r1.in = add1.out;
+            r1.write_en = 1'd1; 
+        }
+        static<1> group add_five_r2 {
+            add2.left = r2.out;
+            add2.right = 32'd5;
+            r2.in = add2.out;
+            r2.write_en = 1'd1; 
+        }
+        group write_mem  {
+            m.addr0 = 1'd0;
+            add.left = r1.out;
+            add.right = r2.out;
+            m.write_data = add.out; 
+            m.write_en = 1'd1; 
+            write_mem[done] = m.done; 
+        }
+    }
+    control {
+        seq {
+            par {
+                static repeat 15 {
+                    add_five_r1;
+                }
+                static repeat 15 {
+                    add_five_r2;
+                }
+            }
+            write_mem; 
+        }
+    }
+}
