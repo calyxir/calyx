@@ -1,8 +1,9 @@
-extern "pipelined.sv" {
+extern "stallable.sv" {
     // A latency-sensitive multiplier that takes 4 cycles to compute its result.
-    static<4> primitive pipelined_mult[WIDTH] (
+    static<4> primitive pipe_stall_mult[WIDTH] (
         @clk clk: 1,
         @reset reset: 1,
+        stall: 1,
         left: WIDTH,
         right: WIDTH
     ) -> (

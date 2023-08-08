@@ -1,11 +1,12 @@
 
 /// This is mostly used for testing the static guarantees currently.
 /// A realistic implementation would probably take four cycles.
-module pipelined_mult #(
+module pipe_stall_mult #(
     parameter WIDTH = 32
 ) (
     input wire clk,
     input wire reset,
+    input wire stall,
     // inputs
     input wire [WIDTH-1:0] left,
     input wire [WIDTH-1:0] right,
@@ -25,7 +26,7 @@ always_ff @(posedge clk) begin
         buff0 <= 0;
         buff1 <= 0;
         buff2 <= 0;
-    end else begin
+    end else if (!stall) begin
         lt <= left;
         rt <= right;
         buff0 <= tmp_prod;
