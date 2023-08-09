@@ -2,13 +2,15 @@ use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
 use smallvec::SmallVec;
 
-use super::{context::Context, indexed_map::IndexedMap};
+use super::{
+    context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
+};
 use crate::{
     errors::InterpreterResult,
     flatten::{
         flat_ir::prelude::{
-            BaseIndices, ComponentIdx, ControlIdx, ControlNode, GlobalCellId,
-            GlobalPortId, GlobalRefCellId, GlobalRefPortId,
+            AssignmentIdx, BaseIndices, ComponentIdx, ControlIdx, ControlNode,
+            GlobalCellId, GlobalPortId, GlobalRefCellId, GlobalRefPortId,
         },
         primitives::{self, Primitive},
         structures::index_trait::IndexRef,
@@ -21,6 +23,7 @@ pub(crate) type PortMap = IndexedMap<GlobalPortId, Value>;
 pub(crate) type CellMap = IndexedMap<GlobalCellId, CellLedger>;
 pub(crate) type RefCellMap = IndexedMap<GlobalRefCellId, Option<GlobalCellId>>;
 pub(crate) type RefPortMap = IndexedMap<GlobalRefPortId, Option<GlobalPortId>>;
+type AssignmentRange = IndexRange<AssignmentIdx>;
 
 pub(crate) struct ComponentLedger {
     pub(crate) index_bases: BaseIndices,
@@ -87,16 +90,16 @@ impl ControlPoint {
 }
 
 /// The number of control points to preallocate for the program counter.
-/// Using 1 for now, as this is the same size as using a vec, but this can
-/// change in the future and probably should.
-const CONTROL_POINT_PREALLOCATE: usize = 1;
+const CONTROL_POINT_PREALLOCATE: usize = 10;
 
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
 #[derive(Debug, Default)]
 pub(crate) struct ProgramCounter {
-    vec: SmallVec<[ControlPoint; CONTROL_POINT_PREALLOCATE]>,
+    vec: Vec<ControlPoint>,
 }
+
+// we need a few things from the program counter
 
 impl ProgramCounter {
     pub fn new(ctx: &Context) -> Self {
@@ -105,7 +108,7 @@ impl ProgramCounter {
         // as the first possible cell in the program. If that changes this will break.
         let root_cell = GlobalCellId::new(0);
 
-        let mut vec = SmallVec::new();
+        let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
         if let Some(current) = ctx.primary[root].control {
             let mut work_queue: Vec<ControlIdx> = Vec::from([current]);
             let mut backtrack_map = HashMap::new();
@@ -189,7 +192,7 @@ pub struct Environment<'a> {
     ref_ports: RefPortMap,
 
     /// The program counter for the whole program execution.
-    pcs: ProgramCounter,
+    pc: ProgramCounter,
 
     /// The immutable context. This is retained for ease of use.
     ctx: &'a Context,
@@ -209,7 +212,7 @@ impl<'a> Environment<'a> {
             ref_ports: RefPortMap::with_capacity(
                 aux.ref_port_offset_map.count(),
             ),
-            pcs: ProgramCounter::new(ctx),
+            pc: ProgramCounter::new(ctx),
             ctx,
         };
 
@@ -385,7 +388,7 @@ impl<'a> Environment<'a> {
     }
 
     pub fn print_pc(&self) {
-        println!("{:?}", self.pcs)
+        println!("{:?}", self.pc)
     }
 }
 
@@ -487,6 +490,10 @@ impl<'a> Simulator<'a> {
         }
 
         if search_stack.is_empty() {
+            // The reason this should never happen is that this implies a
+            // controlpoint was constructed for a fully-structural component
+            // instance which means something went wrong with the construction
+            // as such an instance could not have a control program to reference
             panic!("Could not find control point in component, this should never happen. Please report this error.")
         }
 
@@ -581,13 +588,61 @@ impl<'a> Simulator<'a> {
     }
 
     pub fn step(&mut self) -> InterpreterResult<()> {
+        // place to keep track of what groups we need to conclude at the end of
+        // this step. These are indices into the program counter
+        let mut done_group_club: Vec<usize> = Vec::new();
+
+        for (idx, node) in self.env.pc.iter().enumerate() {
+            match self.env.ctx.primary[node.control_leaf] {
+                ControlNode::Empty(_) => {
+                    // do nothing
+                }
+                ControlNode::Enable(_) => {
+                    // do nothing
+                }
+                ControlNode::Seq(_) => {
+                    // do nothing
+                }
+                ControlNode::Par(_) => {
+                    // do nothing
+                }
+                ControlNode::If(_) => {
+                    // do nothing
+                }
+                ControlNode::While(_) => {
+                    // do nothing
+                }
+                ControlNode::Invoke(_) => {
+                    // do nothing
+                }
+            }
+        }
+
+        // first we need to check for conditional control nodes
+
         todo!()
     }
 
     pub fn _main_test(&mut self) {
         self.env.print_pc();
-        for x in self.env.pcs.iter() {
+        for x in self.env.pc.iter() {
             println!("{:?} next {:?}", x, self.find_next_control_point(x))
+        }
+    }
+}
+
+// The number of assignment ranges to allocate space for when passing a bundle
+// of assignments. At 2, this is the same size as using a vector.
+const ASSIGNMENT_PREALLOCATE: usize = 2;
+
+struct AssignmentBundle {
+    assigns: SmallVec<[AssignmentRange; ASSIGNMENT_PREALLOCATE]>,
+}
+
+impl AssignmentBundle {
+    fn with_capacity(size: usize) -> Self {
+        Self {
+            assigns: SmallVec::with_capacity(size),
         }
     }
 }
