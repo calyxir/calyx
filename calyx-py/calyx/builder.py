@@ -342,7 +342,6 @@ class ComponentBuilder:
         frac_width: int,
     ) -> CellBuilder:
         """Generate an UNSIGNED fixed point op."""
-        # XXX(Caleb): Not sure whether primitives/binary_operators.futil
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(
             cell_name,
@@ -358,7 +357,6 @@ class ComponentBuilder:
         frac_width: int,
     ) -> CellBuilder:
         """Generate a SIGNED fixed point op."""
-        # XXX(Caleb): Not sure whether primitives/binary_operators.futil
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(
             cell_name,

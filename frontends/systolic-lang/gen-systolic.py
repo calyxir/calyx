@@ -335,7 +335,7 @@ def accum_nec_ranges(nec_ranges, schedule):
     we need to check for (e.g., [1,3) [2,4)] in order to realize
     the schedule
 
-    ec_ranges is a set of tuples.
+    nec_ranges is a set of tuples.
     schedule is either a 2d array or 1d array with tuple (start,end) entries.
     Adds all intervals (start,end) in schedule to nec_ranges if the it's
     not already in nec_ranges.
