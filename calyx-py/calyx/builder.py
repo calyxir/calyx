@@ -227,6 +227,10 @@ class ComponentBuilder:
         """Generate a StdReg cell."""
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
+    def wire(self, name: str, size: int, is_ref=False) -> CellBuilder:
+        """Generate a StdReg cell."""
+        return self.cell(name, ast.Stdlib.wire(size), False, is_ref)
+
     def slice(self, name: str, in_width: int, out_width, is_ref=False) -> CellBuilder:
         """Generate a StdReg cell."""
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
@@ -319,6 +323,45 @@ class ComponentBuilder:
         """Generate a pipelined multiplier."""
         self.prog.import_("primitives/pipelined.futil")
         return self.cell(name, ast.Stdlib.pipelined_mult())
+
+    def pipelined_fp_smult(
+        self, name: str, width, int_width, frac_width
+    ) -> CellBuilder:
+        """Generate a pipelined fixed point signed multiplier."""
+        self.prog.import_("primitives/pipelined.futil")
+        return self.cell(
+            name, ast.Stdlib.pipelined_fp_smult(width, int_width, frac_width)
+        )
+
+    def fp_op(
+        self,
+        cell_name: str,
+        op_name,
+        width: int,
+        int_width: int,
+        frac_width: int,
+    ) -> CellBuilder:
+        """Generate an UNSIGNED fixed point op."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(
+            cell_name,
+            ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, False),
+        )
+
+    def fp_sop(
+        self,
+        cell_name: str,
+        op_name,
+        width: int,
+        int_width: int,
+        frac_width: int,
+    ) -> CellBuilder:
+        """Generate a SIGNED fixed point op."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(
+            cell_name,
+            ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, True),
+        )
 
 
 def as_control(obj):
@@ -746,7 +789,19 @@ def infer_width(expr):
             return inst.args[0]
         elif port_name == "write_en":
             return 1
-    elif prim in ("std_add", "std_lt", "std_le", "std_ge", "std_gt", "std_eq"):
+    # XXX(Caleb): add all the primitive names instead of adding whenever I need one
+    elif prim in (
+        "std_add",
+        "std_lt",
+        "std_le",
+        "std_ge",
+        "std_gt",
+        "std_eq",
+        "std_sgt",
+        "std_slt",
+        "std_fp_sgt",
+        "std_fp_slt",
+    ):
         if port_name == "left" or port_name == "right":
             return inst.args[0]
     elif prim == "std_mem_d1" or prim == "seq_mem_d1":
@@ -766,6 +821,7 @@ def infer_width(expr):
         "std_smod_pipe",
         "std_div_pipe",
         "std_sdiv_pipe",
+        "std_fp_smult_pipe",
     ):
         if port_name == "left" or port_name == "right":
             return inst.args[0]

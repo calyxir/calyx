@@ -502,6 +502,10 @@ class Stdlib:
         return CompInst("std_reg", [bitwidth])
 
     @staticmethod
+    def wire(bitwidth: int):
+        return CompInst("std_wire", [bitwidth])
+
+    @staticmethod
     def constant(bitwidth: int, value: int):
         return CompInst("std_const", [bitwidth, value])
 
@@ -631,3 +635,7 @@ class Stdlib:
     @staticmethod
     def pipelined_mult():
         return CompInst(f"pipelined_mult", [])
+
+    @staticmethod
+    def pipelined_fp_smult(width: int, int_width: int, frac_width: int):
+        return CompInst(f"pipelined_fp_smult", [width, int_width, frac_width])
