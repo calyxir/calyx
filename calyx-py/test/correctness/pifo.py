@@ -146,6 +146,8 @@ def insert_pifo(prog, name):
                                             err_neq_0[1],
                                             [  # `fifo_0` raised an error.
                                                 # We'll try to pop from `fifo_1`.
+                                                # We'll pass it a lowered err
+                                                lower_err,
                                                 cb.invoke(
                                                     fifo_1,
                                                     in_cmd=cb.const(32, 0),
@@ -185,6 +187,7 @@ def insert_pifo(prog, name):
                                             err_neq_0[0].out,
                                             err_neq_0[1],
                                             [
+                                                lower_err,
                                                 cb.invoke(
                                                     fifo_0,
                                                     in_cmd=cb.const(32, 0),
@@ -228,13 +231,13 @@ def insert_pifo(prog, name):
                                 flow_eq_0[0].out,
                                 flow_eq_0[1],
                                 # This value should be pushed to flow 0.
-                                # cb.invoke(  # AM: this does not terminate
-                                #     fifo_0,
-                                #     in_cmd=cmd,
-                                #     ref_ans=ans,  # Its answer is our answer.
-                                #     ref_err=err,  # Its error is our error.
-                                # ),
-                                zero_out_ans  # AM: if you'd like to see it
+                                cb.invoke(  # AM: this does not terminate
+                                    fifo_0,
+                                    in_cmd=cmd,
+                                    ref_ans=ans,  # Its answer is our answer.
+                                    ref_err=err,  # Its error is our error.
+                                ),
+                                # zero_out_ans  # AM: if you'd like to see it
                                 # terminate, just uncomment this line,
                                 # which is just a placeholder,
                                 # and comment out the `invoke` lines above.
@@ -244,12 +247,12 @@ def insert_pifo(prog, name):
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
                                 # This value should be pushed to flow 1.
-                                # cb.invoke(  # AM: this does not terminate
-                                #     fifo_1,
-                                #     in_cmd=cmd,
-                                #     ref_ans=ans,  # Its answer is our answer.
-                                #     ref_err=err,  # Its error is our error.
-                                # ),
+                                cb.invoke(  # AM: this does not terminate
+                                    fifo_1,
+                                    in_cmd=cmd,
+                                    ref_ans=ans,  # Its answer is our answer.
+                                    ref_err=err,  # Its error is our error.
+                                ),
                                 zero_out_ans  # AM: if you'd like to see it
                                 # terminate, just uncomment this line
                             ),
