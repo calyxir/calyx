@@ -276,7 +276,7 @@ fud e --from systolic --to jq \
 
 [[tests]]
 name = "[frontend] systolic array output correctness"
-paths = [ "tests/correctness/systolic/output/*.systolic" ]
+paths = [ "tests/correctness/systolic/output/*.systolic", "tests/correctness/systolic/leaky-relu/*.systolic" ]
 cmd = """
 fud e --from systolic --to dat \
       --through verilog \

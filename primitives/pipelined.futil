@@ -8,4 +8,16 @@ extern "pipelined.sv" {
     ) -> (
         out: 32
     );
+
+    // A latency-sensitive multiplier that takes 4 cycles to compute its result.
+    static<4> primitive pipelined_fp_smult [
+        WIDTH, INT_WIDTH, FRAC_WIDTH
+    ] (
+        @clk clk: 1,
+        @reset reset: 1,
+        left: WIDTH,
+        right: WIDTH
+    ) -> (
+        out: WIDTH
+    );
 }
