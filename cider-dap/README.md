@@ -62,6 +62,10 @@ The function continuously polls for requests from the client.
 - Upon receiving a Launch command, it sends a successful response back to the client. This indicates that the server is ready to begin debugging.
 - The loop can be expanded to handle other DAP commands as needed. For example, handling a Disconnect command could cleanly terminate the loop and close the server.
 
+##### Command Processing:
+- The only command being actively handled right now is the Launch command. Upon receiving this command, the server simply responds with a success message, indicating that it's ready to commence debugging.
+- The loop is designed with extensibility in mind. Comments suggest places where commands like Disconnect can be incorporated to handle disconnection events, allowing the server to terminate gracefully.
+
 ##### <font size="3"> Error Handling </font>:
 - If an unknown command is received, it's printed to the error output and the server terminates with an UnhandledCommandError.
 - This is a robust approach, ensuring that only expected commands are processed and any anomalies are immediately flagged.
@@ -85,4 +89,17 @@ The following dependencies have been added to the project as specified in the ca
 
 1. Advanced Error Handling: Utilize the structures in error.rs to provide detailed insights, potentially integrating with external error databases or logs.
 2. Command Enhancements: Augment the DAP commands and responses in main.rs, exploring beyond traditional debugging actions.
+3. There are changes needed to be done inside run_server:
+### Additional Command Handling:
+- Incorporate command handlers for other DAP commands:
+- Disconnect: Handle disconnect commands gracefully, ensuring any necessary cleanup is done before closing the server.
+- Breakpoint: Implement functionality to pause execution at specific points.
+- StepOver, StepInto, StepOut: Allow fine-grained control over the debugging process, allowing users to inspect code step-by-step.
+- Evaluate: Handle evaluation requests from the debugger, returning values as needed.
+### Refined Error Handling:
+- Instead of immediate termination on an unknown command, consider logging these events or sending specific error messages back to the client. This provides a more user-friendly debugging experience.
+### Enhanced Logging:
+- Implement more detailed logging to provide insights into server operations. This would be especially useful in identifying issues or understanding the flow of commands and responses.
+### Asynchronous Processing:
+- Consider incorporating asynchronous command processing. This would allow the server to handle multiple requests concurrently, offering faster response times and smoother user experiences, especially in complex debugging scenarios.
 
