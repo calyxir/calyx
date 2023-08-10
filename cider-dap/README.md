@@ -9,15 +9,15 @@ This project primarily leverages the Debug Adapter Protocol (DAP) for its functi
 <br>
 1.``` cider-dap ``` directory: The main directory which contains the following sub-directories and files:
 <br> 
-&nbsp; &nbsp; ```calyxDebug```: Contains the file responsible for debugging extensions and related utilities. So it is a dedicated directory for VSCode debugging extensions. It establishes the bridge between your Rust codebase and the VSCode debugging environment. <br> 
-     ```src```: Houses the Rust source files for the project. It contains the project's core functionalities, logic, and structures. <br> 
-     ```cargo.lock``` & ```cargo.toml```: Standard Rust project files detailing dependencies and project metadata. <br>
+&nbsp; &nbsp; &nbsp; &nbsp; ```calyxDebug```: Contains the file responsible for debugging extensions and related utilities. So it is a dedicated directory for VSCode debugging extensions. It establishes the bridge between your Rust codebase and the VSCode debugging environment. <br> 
+&nbsp; &nbsp; &nbsp; &nbsp; ```src```: Houses the Rust source files for the project. It contains the project's core functionalities, logic, and structures. <br> 
+&nbsp; &nbsp; &nbsp; &nbsp; ```cargo.lock``` & ```cargo.toml```: Standard Rust project files detailing dependencies and project metadata. <br>
 3. ```src``` directory: <br>
-     ```adapter.rs```: Defines the primary adapter structure for the project and its associated functionalities. Not just any adapter, this file structures the fundamental protocols, handling the translation of high-level debugging commands into actionable, low-level instructions. <br>
-     ```error.rs```: Contains custom error definitions and types for better error handling. <br>
-     ```main.rs```: The entry point for the project, it integrates functionalities from the other source files and provides the main execution logic. <br>
+&nbsp; &nbsp; &nbsp; &nbsp; ```adapter.rs```: Defines the primary adapter structure for the project and its associated functionalities. Not just any adapter, this file structures the fundamental protocols, handling the translation of high-level debugging commands into actionable, low-level instructions. <br>
+&nbsp; &nbsp; &nbsp; &nbsp; ```error.rs```: Contains custom error definitions and types for better error handling. <br>
+&nbsp; &nbsp; &nbsp; &nbsp; ```main.rs```: The entry point for the project, it integrates functionalities from the other source files and provides the main execution logic. <br>
 4. ```calyxDebug``` directory: <br>
-     ```extension.js```: JavaScript file for VSCode extension integration. It provides functions to interface between the VSCode environment and the Rust backend. <br>
+&nbsp; &nbsp; &nbsp; &nbsp; ```extension.js```: JavaScript file for VSCode extension integration. It provides functions to interface between the VSCode environment and the Rust backend. <br>
 
 ### Dependencies
 The following dependencies have been added to the project as specified in the cargo.toml:
