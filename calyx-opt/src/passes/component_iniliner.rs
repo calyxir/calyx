@@ -271,6 +271,7 @@ impl ComponentInliner {
     ///    of interface ports of the component being inlined.
     fn inline_component(
         builder: &mut ir::Builder,
+        mut cell_map: rewriter::RewriteMap<ir::Cell>,
         comp: &ir::Component,
         name: ir::Id,
     ) -> (
@@ -279,11 +280,14 @@ impl ComponentInliner {
     ) {
         // For each cell in the component, create a new cell in the parent
         // of the same type and build a rewrite map using it.
-        let cell_map: rewriter::RewriteMap<ir::Cell> = comp
-            .cells
-            .iter()
-            .map(|cell_ref| Self::inline_cell(builder, cell_ref))
-            .collect();
+        cell_map.extend(comp.cells.iter().filter_map(|cell_ref| {
+            if !cell_ref.borrow().is_reference() {
+                Some(Self::inline_cell(builder, cell_ref))
+            } else {
+                None
+            }
+        }));
+
         // Rewrites to inline the interface.
         let interface_map = Self::inline_interface(builder, comp, name);
         let rewrite = ir::Rewriter::new(&cell_map, &interface_map);
@@ -423,8 +427,12 @@ impl Visitor for ComponentInliner {
             }
 
             let comp_name = cell.type_name().unwrap();
+            let (cell_binds, _) = &invoke_bindings[&cell.name()][0];
+            let cell_map =
+                cell_binds.iter().map(|(k, v)| (*k, v.clone())).collect();
             let (control, rewrites) = Self::inline_component(
                 &mut builder,
+                cell_map,
                 comp_map[&comp_name],
                 cell.name(),
             );
@@ -557,10 +565,6 @@ impl Visitor for ComponentInliner {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Invokes with ref cells are not supported
-        if !s.ref_cells.is_empty() {
-            return Err(Error::pass_assumption(Self::name(), format!("invoke with ref cell is not supported. Run {} before this pass", super::CompileRef::name())));
-        }
         // Regardless of whether the associated instance has been inlined,
         // we still may need to rewrite the input/output ports
         self.rewrite_invoke_ports(s);
