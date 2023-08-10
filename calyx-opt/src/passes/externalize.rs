@@ -93,6 +93,12 @@ impl Visitor for Externalize {
         comp.for_each_static_assignment(|assign| {
             rw.rewrite_assign(assign);
         });
+        rw.rewrite_control(
+            &mut comp.control.borrow_mut(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
         // Don't allow cells to be dropped before this because otherwise rewriting will fail
         drop(cells);
 

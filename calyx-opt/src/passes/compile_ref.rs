@@ -238,14 +238,20 @@ impl Visitor for CompileRef {
         _comps: &[ir::Component],
     ) -> VisResult {
         // Rewrite all of the ref cell ports
-        let cell_map = HashMap::new();
-        let rw = ir::Rewriter::new(&cell_map, &self.removed);
+        let empty = HashMap::new();
+        let rw = ir::Rewriter::new(&empty, &self.removed);
         comp.for_each_assignment(|assign| {
             rw.rewrite_assign(assign);
         });
         comp.for_each_static_assignment(|assign| {
             rw.rewrite_assign(assign);
         });
+        rw.rewrite_control(
+            &mut comp.control.borrow_mut(),
+            &HashMap::new(),
+            &HashMap::new(),
+            &HashMap::new(),
+        );
         Ok(Action::Continue)
     }
 }
