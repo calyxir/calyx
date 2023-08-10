@@ -427,9 +427,17 @@ impl Visitor for ComponentInliner {
             }
 
             let comp_name = cell.type_name().unwrap();
-            let (cell_binds, _) = &invoke_bindings[&cell.name()][0];
             let cell_map =
-                cell_binds.iter().map(|(k, v)| (*k, v.clone())).collect();
+                if let Some(binding) = &invoke_bindings.get(&cell.name()) {
+                    let (cell_binds, _) = &binding[0];
+                    cell_binds.iter().map(|(k, v)| (*k, v.clone())).collect()
+                } else {
+                    log::info!(
+                        "no binding for `{}` which means instance is unused",
+                        cell.name()
+                    );
+                    HashMap::new()
+                };
             let (control, rewrites) = Self::inline_component(
                 &mut builder,
                 cell_map,
