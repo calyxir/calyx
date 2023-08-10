@@ -36,11 +36,16 @@ fn main() -> Result<(), MyAdapterError> {
         let listener = TcpListener::bind(("127.0.0.1", opts.port))?;
         eprintln!("bound on port: {} ", opts.port);
         let (stream, addr) = listener.accept()?;
-        println!("Accepted client on: {}", addr);
+        eprintln!("Accepted client on: {}", addr); // changed to eprintln!
         let read_stream = BufReader::new(stream.try_clone()?);
         let write_stream = BufWriter::new(stream);
         let mut server = Server::new(read_stream, write_stream);
-        multi_session_init(&mut server)?;
+
+        // Get the adapter from the init function
+        let adapter = multi_session_init(&mut server)?;
+
+        // Run the server using the adapter
+        run_server(&mut server, adapter)?;
     } else {
         let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
         let file = File::open(path)?;
@@ -48,14 +53,16 @@ fn main() -> Result<(), MyAdapterError> {
         eprintln!("running single-session");
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
-        let server = Server::new(read, write);
-        // run_server(server, adapter)?;
+        let mut server = Server::new(read, write);
+        run_server(&mut server, adapter)?;
     }
     eprintln!("exited run_Server");
     Ok(())
 }
 
-fn multi_session_init<R, W>(server: &mut Server<R, W>) -> AdapterResult<()>
+fn multi_session_init<R, W>(
+    server: &mut Server<R, W>,
+) -> AdapterResult<MyAdapter>
 where
     R: Read,
     W: Write,
@@ -74,7 +81,7 @@ where
             server.respond(rsp)?;
             server.send_event(Event::Initialized)?;
         }
-        _ => unreachable!(),
+        _ => return Err(MyAdapterError::UnhandledCommandError),
     }
 
     // handle the second request (Launch)
@@ -83,7 +90,7 @@ where
         None => return Err(MyAdapterError::MissingCommandError),
     };
 
-    let program_path = if let Command::Launch(ref params) = &req.command {
+    let program_path = if let Command::Launch(params) = &req.command {
         if let Some(data) = &params.additional_data {
             if let Some(program_path) = data.get("program") {
                 eprintln!("Program path: {}", program_path);
@@ -97,7 +104,7 @@ where
             return Err(MyAdapterError::MissingFile);
         }
     } else {
-        unreachable!();
+        panic!("second request was not a launch");
     };
 
     // Open file using the extracted program path
@@ -106,8 +113,8 @@ where
     // Construct the adapter
     let adapter = MyAdapter::new(file);
 
-    // Now, run the server with the adapter
-    run_server(server, adapter)
+    // Return the adapter instead of running the server
+    Ok(adapter)
 }
 
 fn run_server<R: Read, W: Write>(
@@ -121,11 +128,11 @@ fn run_server<R: Read, W: Write>(
             None => return Err(MyAdapterError::MissingCommandError),
         };
         match &req.command {
-            Command::Launch(ref params) => {
+            Command::Launch(_) => {
                 let rsp = req.success(ResponseBody::Launch);
                 server.respond(rsp)?;
             }
-            // Here, you could add a match pattern for a disconnect or exit command
+            // Here, can add a match pattern for a disconnect or exit command
             // to break out of the loop and close the server.
             // Command::Disconnect(_) => break,
             // ...

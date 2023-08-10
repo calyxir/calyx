@@ -1,6 +1,6 @@
 use dap::errors::ServerError;
 
-#[allow(dead_code)] //remove this later
+#[allow(dead_code)] // remove this later
 #[derive(thiserror::Error, Debug)]
 pub enum MyAdapterError {
     /// Represents an unhandled command error.
@@ -30,14 +30,11 @@ pub enum MyAdapterError {
     /// Represents a missing request.
     #[error("Missing request")]
     MissingRequest,
+
+    /// Represents a server error.
+    #[error(transparent)]
+    ServerError(#[from] ServerError),
 }
 
 /// A type alias for the result returned by the adapter functions.
 pub type AdapterResult<T> = Result<T, MyAdapterError>;
-
-impl From<ServerError> for MyAdapterError {
-    fn from(error: ServerError) -> Self {
-        // You can adjust this to more specific error handling if desired
-        MyAdapterError::MissingRequest
-    }
-}
