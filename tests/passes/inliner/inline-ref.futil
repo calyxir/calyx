@@ -1,0 +1,32 @@
+// -p validate -p inline
+import "primitives/compile.futil";
+
+component foo() -> () {
+    cells {
+        ref r = std_reg(32);
+        add = std_add(32);
+    }
+    wires {
+        group incr {
+            r.in = add.out;
+            r.write_en = 1'd1;
+            add.left = r.out;
+            add.right = 32'd1;
+            incr[done] = r.done;
+        }
+    }
+    control {
+        incr;
+    }
+}
+
+component main () -> () {
+    cells {
+        @inline f = foo();
+        r0 = std_reg(32);
+    }
+    wires {}
+    control {
+        invoke f[r=r0]()();
+    }
+}

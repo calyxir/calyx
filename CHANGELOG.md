@@ -1,5 +1,6 @@
 ## Unreleased
 - Don't require `@clk` and `@reset` ports in `comb` components
+- `inline` pass supports inlining `ref` cells
 
 
 ## 0.4.0
