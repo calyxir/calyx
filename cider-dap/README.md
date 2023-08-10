@@ -5,9 +5,7 @@ cider-dap is a sub-crate created for facilitating debugging processes. The name 
 ### Project Overview:
 Cider-dap is a debug adapter protocol implementation using Rust, which aids in debugging processes. It interfaces with IDEs or other tools using the Debug Adapter Protocol.
 This project primarily leverages the Debug Adapter Protocol (DAP) for its functionality. The structure is organized into different directories and files which encapsulate the functionalities:
-1.
-``` cider-dap ``` 
-directory: The main directory which contains the following sub-directories and files:
+1.``` cider-dap ``` directory: The main directory which contains the following sub-directories and files:
      ```calyxDebug```: Contains the file responsible for debugging extensions and related utilities. So it is a dedicated directory for VSCode debugging extensions. It establishes the bridge between your Rust codebase and the VSCode debugging environment.
      ```src```: Houses the Rust source files for the project. It contains the project's core functionalities, logic, and structures.
      ```cargo.lock``` & ```cargo.toml```: Standard Rust project files detailing dependencies and project metadata.
