@@ -151,7 +151,7 @@ impl<'a> Printer<'a> {
             (PortDefinitionRef::Local(l), ParentIdx::Cell(c)) => {
                 if let CellPrototype::Constant { value, width, c_type }= &self.ctx.secondary[c].prototype {
                     match c_type {
-                        LiteralOrPrimitive::Literal => CanonicalIdentifier::literal(*width, *value),
+                        LiteralOrPrimitive::Literal => CanonicalIdentifier::literal((*width).into(), *value),
                         LiteralOrPrimitive::Primitive => CanonicalIdentifier::cell_port( self.ctx.secondary[c].name, self.ctx.secondary[l].name),
                     }
                 } else {

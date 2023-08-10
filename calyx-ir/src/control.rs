@@ -9,6 +9,7 @@ type StaticLatency = u64;
 
 /// Data for the `seq` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Seq {
     /// List of `Control` statements to run in sequence.
     pub stmts: Vec<Control>,
@@ -26,6 +27,7 @@ impl GetAttributes for Seq {
 
 /// Data for the `static seq` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticSeq {
     /// List of `StaticControl` statements to run in sequence.
     pub stmts: Vec<StaticControl>,
@@ -45,6 +47,7 @@ impl GetAttributes for StaticSeq {
 
 /// Data for the `par` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Par {
     /// List of `Control` statements to run in parallel.
     pub stmts: Vec<Control>,
@@ -62,6 +65,7 @@ impl GetAttributes for Par {
 
 // Data for the `static par` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticPar {
     /// List of `StaticControl` statements to run in parallel.
     pub stmts: Vec<StaticControl>,
@@ -81,6 +85,7 @@ impl GetAttributes for StaticPar {
 
 /// Data for the `if` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct If {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -109,6 +114,7 @@ impl GetAttributes for If {
 
 /// Data for the `static if` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticIf {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -139,6 +145,7 @@ impl GetAttributes for StaticIf {
 
 /// Data for the `while` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct While {
     /// Port that connects the conditional check.
     pub port: RRC<Port>,
@@ -159,8 +166,31 @@ impl GetAttributes for While {
     }
 }
 
+/// Data for the Dynamic `Repeat` control statement. Repeats the body of the loop
+/// a given number times.
+#[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
+pub struct Repeat {
+    /// Attributes
+    pub attributes: Attributes,
+    /// Body to repeat
+    pub body: Box<Control>,
+    /// Number of times to repeat the body
+    pub num_repeats: u64,
+}
+impl GetAttributes for Repeat {
+    fn get_attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn get_mut_attributes(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
 /// Data for the `StaticRepeat` control statement. Essentially a static while loop.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticRepeat {
     /// Attributes
     pub attributes: Attributes,
@@ -183,6 +213,7 @@ impl GetAttributes for StaticRepeat {
 
 /// Data for the `enable` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Enable {
     /// List of components to run.
     pub group: RRC<Group>,
@@ -201,6 +232,7 @@ impl GetAttributes for Enable {
 
 /// Data for the `enable` control for a static group.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticEnable {
     /// List of components to run.
     pub group: RRC<StaticGroup>,
@@ -229,6 +261,7 @@ type CellMap = Vec<(Id, RRC<Cell>)>;
 
 /// Data for an `invoke` control statement.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Invoke {
     /// Cell that is being invoked.
     pub comp: RRC<Cell>,
@@ -255,6 +288,7 @@ impl GetAttributes for Invoke {
 
 /// Data for a `StaticInvoke` control statement
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct StaticInvoke {
     /// Cell that is being invoked.
     pub comp: RRC<Cell>,
@@ -281,12 +315,14 @@ impl GetAttributes for StaticInvoke {
 
 /// Data for the `empty` control statement.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Empty {
     pub attributes: Attributes,
 }
 
 /// Control AST nodes.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Control {
     /// Represents sequential composition of control statements.
     Seq(Seq),
@@ -296,6 +332,8 @@ pub enum Control {
     If(If),
     /// Standard imperative while statement
     While(While),
+    /// Standard repeat control statement
+    Repeat(Repeat),
     /// Invoke a sub-component with the given port assignments
     Invoke(Invoke),
     /// Runs the control for a list of subcomponents.
@@ -308,6 +346,7 @@ pub enum Control {
 
 /// Control AST nodes.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum StaticControl {
     /// Essentially a Static While Loop
     Repeat(StaticRepeat),
@@ -317,19 +356,6 @@ pub enum StaticControl {
     If(StaticIf),
     Empty(Empty),
     Invoke(StaticInvoke),
-}
-
-impl Control {
-    pub fn is_static(&self) -> bool {
-        matches!(self, Control::Static(_))
-    }
-
-    pub fn get_latency(&self) -> Option<StaticLatency> {
-        match self {
-            Control::Static(sc) => Some(sc.get_latency()),
-            _ => None,
-        }
-    }
 }
 
 impl From<Invoke> for Control {
@@ -387,6 +413,7 @@ impl GetAttributes for Control {
             | Self::Par(Par { attributes, .. })
             | Self::If(If { attributes, .. })
             | Self::While(While { attributes, .. })
+            | Self::Repeat(Repeat { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
             | Self::Empty(Empty { attributes }) => attributes,
@@ -400,6 +427,7 @@ impl GetAttributes for Control {
             | Self::Par(Par { attributes, .. })
             | Self::If(If { attributes, .. })
             | Self::While(While { attributes, .. })
+            | Self::Repeat(Repeat { attributes, .. })
             | Self::Invoke(Invoke { attributes, .. })
             | Self::Enable(Enable { attributes, .. })
             | Self::Empty(Empty { attributes }) => attributes,
@@ -520,6 +548,15 @@ impl Control {
         })
     }
 
+    /// Convience constructor for dynamic repeat
+    pub fn repeat(num_repeats: u64, body: Box<Control>) -> Self {
+        Control::Repeat(Repeat {
+            body,
+            num_repeats,
+            attributes: Attributes::default(),
+        })
+    }
+
     /// Returns the value of an attribute if present
     pub fn get_attribute<A>(&self, attr: A) -> Option<u64>
     where
@@ -534,6 +571,23 @@ impl Control {
         A: Into<Attribute>,
     {
         self.get_attributes().has(attr)
+    }
+
+    pub fn is_static(&self) -> bool {
+        matches!(self, Control::Static(_))
+    }
+
+    pub fn get_latency(&self) -> Option<StaticLatency> {
+        match self {
+            Control::Static(sc) => Some(sc.get_latency()),
+            _ => None,
+        }
+    }
+
+    /// Replaces &mut self with an empty control statement, and returns self
+    pub fn take_control(&mut self) -> Control {
+        let empty = Control::empty();
+        std::mem::replace(self, empty)
     }
 }
 
@@ -610,6 +664,12 @@ impl StaticControl {
             &StaticControl::Empty(_) => 0,
         }
     }
+
+    /// Replaces &mut self with an empty static control statement, and returns self
+    pub fn take_static_control(&mut self) -> StaticControl {
+        let empty = StaticControl::empty();
+        std::mem::replace(self, empty)
+    }
 }
 
 #[derive(Debug)]
@@ -672,12 +732,20 @@ impl Cloner {
         }
     }
 
-    pub fn repeat(rep: &StaticRepeat) -> StaticRepeat {
+    pub fn static_repeat(rep: &StaticRepeat) -> StaticRepeat {
         StaticRepeat {
             attributes: rep.attributes.clone(),
             body: Box::new(Self::static_control(&rep.body)),
             num_repeats: rep.num_repeats,
             latency: rep.latency,
+        }
+    }
+
+    pub fn repeat(rep: &Repeat) -> Repeat {
+        Repeat {
+            attributes: rep.attributes.clone(),
+            body: Box::new(Self::control(&rep.body)),
+            num_repeats: rep.num_repeats,
         }
     }
 
@@ -748,7 +816,7 @@ impl Cloner {
                 StaticControl::Enable(Cloner::static_enable(sen))
             }
             StaticControl::Repeat(rep) => {
-                StaticControl::Repeat(Cloner::repeat(rep))
+                StaticControl::Repeat(Cloner::static_repeat(rep))
             }
             StaticControl::Seq(sseq) => {
                 StaticControl::Seq(Cloner::static_seq(sseq))
@@ -770,6 +838,7 @@ impl Cloner {
             Control::Par(par) => Control::Par(Cloner::par(par)),
             Control::If(if_) => Control::If(Cloner::if_(if_)),
             Control::While(wh) => Control::While(Cloner::while_(wh)),
+            Control::Repeat(repeat) => Control::Repeat(Cloner::repeat(repeat)),
             Control::Invoke(inv) => Control::Invoke(Cloner::invoke(inv)),
             Control::Enable(en) => Control::Enable(Cloner::enable(en)),
             Control::Empty(en) => Control::Empty(Cloner::empty(en)),

@@ -1,0 +1,26 @@
+{
+    "in1": {
+      "data": [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ],
+      "format": {
+        "numeric_type": "bitnum",
+        "is_signed": false,
+        "width": 32
+      }
+    },
+    "in2": {
+      "data": [ 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 ],
+      "format": {
+        "numeric_type": "bitnum",
+        "is_signed": false,
+        "width": 32
+      }
+    },
+    "out": {
+      "data": [ 0 ],
+      "format": {
+        "numeric_type": "bitnum",
+        "is_signed": false,
+        "width": 32
+      }
+    }
+  }

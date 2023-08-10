@@ -1,8 +1,9 @@
 //! Command line parsing for the Calyx compiler.
 use crate::backend::traits::Backend;
 use crate::backend::{
-    mlir::MlirBackend, resources::ResourcesBackend, verilog::VerilogBackend,
-    xilinx::XilinxInterfaceBackend, xilinx::XilinxXmlBackend,
+    mlir::MlirBackend, resources::ResourcesBackend, sexp::SexpBackend,
+    verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
+    xilinx::XilinxXmlBackend,
 };
 use argh::FromArgs;
 use calyx_ir as ir;
@@ -110,6 +111,7 @@ pub enum BackendOpt {
     XilinxXml,
     Mlir,
     Resources,
+    Sexp,
     None,
 }
 
@@ -123,6 +125,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("calyx", BackendOpt::Calyx),
         ("mlir", BackendOpt::Mlir),
         ("resources", BackendOpt::Resources),
+        ("sexp", BackendOpt::Sexp),
         ("none", BackendOpt::None),
     ]
 }
@@ -160,6 +163,7 @@ impl ToString for BackendOpt {
         match self {
             Self::Mlir => "mlir",
             Self::Resources => "resources",
+            Self::Sexp => "sexp",
             Self::Verilog => "verilog",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
@@ -180,6 +184,10 @@ impl Opts {
             }
             BackendOpt::Resources => {
                 let backend = ResourcesBackend::default();
+                backend.run(context, self.output)
+            }
+            BackendOpt::Sexp => {
+                let backend = SexpBackend::default();
                 backend.run(context, self.output)
             }
             BackendOpt::Verilog => {

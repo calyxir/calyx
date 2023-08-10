@@ -754,24 +754,45 @@ impl Visitor for StaticPromotion {
         if s.body.is_static() {
             // checks body is static and we have an @bound annotation
             if let Some(num_repeats) = s.attributes.get(ir::NumAttr::Bound) {
-                // need to do this weird thing to get the while body
-                let empty = Box::new(ir::Control::empty());
-                let while_body = std::mem::replace(&mut s.body, empty);
-                if let ir::Control::Static(sc) = *while_body {
-                    let static_repeat =
-                        ir::StaticControl::Repeat(ir::StaticRepeat {
-                            latency: num_repeats * sc.get_latency(),
-                            attributes: s.attributes.clone(),
-                            body: Box::new(sc),
-                            num_repeats,
-                        });
-                    return Ok(Action::Change(Box::new(ir::Control::Static(
-                        static_repeat,
-                    ))));
-                } else {
+                let ir::Control::Static(sc) = s.body.take_control() else {
                     unreachable!("already checked that body is static");
-                }
+                };
+                let static_repeat =
+                    ir::StaticControl::Repeat(ir::StaticRepeat {
+                        latency: num_repeats * sc.get_latency(),
+                        attributes: s.attributes.clone(),
+                        body: Box::new(sc),
+                        num_repeats,
+                    });
+                return Ok(Action::Change(Box::new(ir::Control::Static(
+                    static_repeat,
+                ))));
             }
+        }
+        Ok(Action::Continue)
+    }
+
+    // upgrades repeats with static bodies to static repeats
+    fn finish_repeat(
+        &mut self,
+        s: &mut ir::Repeat,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if s.body.is_static() {
+            let ir::Control::Static(sc) = s.body.take_control() else {
+                unreachable!("already checked that body is static");
+            };
+            let static_repeat = ir::StaticControl::Repeat(ir::StaticRepeat {
+                latency: s.num_repeats * sc.get_latency(),
+                attributes: s.attributes.clone(),
+                body: Box::new(sc),
+                num_repeats: s.num_repeats,
+            });
+            return Ok(Action::Change(Box::new(ir::Control::Static(
+                static_repeat,
+            ))));
         }
         Ok(Action::Continue)
     }

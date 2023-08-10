@@ -2,6 +2,7 @@ use std::borrow::BorrowMut;
 
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
+use ir::build_assignments;
 
 #[derive(Default)]
 /// If the top-level component is not named `main`, adds a new `main` component
@@ -54,6 +55,11 @@ impl Visitor for WrapMain {
             );
             return Ok(Action::Stop);
         }
+        let entry_name = entry.name;
+        let mut ports = sig.get_signature();
+        ports
+            .iter_mut()
+            .for_each(|pd| pd.direction = pd.direction.reverse());
         drop(sig);
 
         // Remove top-level attribute from previous component
@@ -66,6 +72,23 @@ impl Visitor for WrapMain {
         main.borrow_mut()
             .attributes
             .insert(ir::BoolAttr::TopLevel, 1);
+
+        // Add the original top-level component as a cell to the main component.
+        {
+            let mut builder = ir::Builder::new(&mut main, &ctx.lib);
+            let comp = builder.add_component(entry_name, entry_name, ports);
+            let main_sig = builder.component.signature.clone();
+            let cont_assigns = build_assignments!(builder;
+                comp["go"] = ? main_sig["go"];
+                main_sig["done"] = ? comp["done"];
+            );
+            builder
+                .component
+                .continuous_assignments
+                .extend(cont_assigns);
+        }
+
+        // Update the context entrypoint to be the main component
         ctx.entrypoint = main.name;
         ctx.components.push(main);
 

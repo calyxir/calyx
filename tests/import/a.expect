@@ -27,19 +27,19 @@ extern "<ROOT>/calyx/primitives/core.sv" {
   primitive std_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@read_together read_data: WIDTH, @done done: 1);
   primitive std_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](@read_together @write_together(2) addr0: D0_IDX_SIZE, @read_together @write_together(2) addr1: D1_IDX_SIZE, @read_together @write_together(2) addr2: D2_IDX_SIZE, @read_together @write_together(2) addr3: D3_IDX_SIZE, @write_together @data write_data: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1) -> (@read_together read_data: WIDTH, @done done: 1);
 }
-  primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH){ 
-    assign out = 'x;
- };
-  comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH){ 
-    assign out = VALUE;
- };
-  comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH){ 
-    assign out = in;
- };
-  comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH){ 
+primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH) {
+  assign out = 'x;
+}
+comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH) {
+  assign out = VALUE;
+}
+comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
+  assign out = in;
+}
+comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
   assign out = left + right;
- };
-  primitive std_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1){ 
+}
+primitive std_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @static @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
   always_ff @(posedge clk) begin
     if (reset) begin
        out <= 0;
@@ -49,7 +49,7 @@ extern "<ROOT>/calyx/primitives/core.sv" {
       done <= 1'd1;
     end else done <= 1'd0;
   end
- };
+}
 component pow(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {}
   wires {}

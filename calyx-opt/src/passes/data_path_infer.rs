@@ -37,10 +37,10 @@ impl DataPathInfer {
     /// Mark the cell associated with the port as a part of the control path.
     fn mark_port_control(&mut self, port: &ir::Port) {
         if Self::always_safe_src(port) || port.is_hole() {
-            log::info!("`{}': safe port", port.canonical());
+            log::debug!("`{}': safe port", port.canonical());
             return;
         }
-        log::info!("`{}': control port", port.canonical());
+        log::debug!("`{}': control port", port.canonical());
         self.control_cells.insert(port.get_parent_name());
     }
 

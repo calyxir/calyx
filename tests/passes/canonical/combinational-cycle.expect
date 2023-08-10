@@ -1,5 +1,3 @@
----CODE---
-1
 ---STDERR---
 Error: Found combinational cycle:
 lt.left = add.out;

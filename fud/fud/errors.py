@@ -4,6 +4,21 @@ class FudError(Exception):
     """
 
 
+class DeprecatedState(FudError):
+    """
+    The given state has been deprecated
+    """
+
+    def __init__(self, stage, state, alt=None):
+        msg = (
+            f"Stage `{stage}' acts upon deprecated state `{state}'"
+            f". Use state `{alt}' instead in the stage definition"
+            if alt
+            else ""
+        )
+        super().__init__(msg)
+
+
 class CycleLimitedReached(FudError):
     """
     The cycle limit has been reached for simulation.

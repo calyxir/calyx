@@ -22,10 +22,10 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None) -> ComponentBuilder:
+    def component(self, name: str, cells=None, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
         cells = cells or []
-        comp_builder = ComponentBuilder(self, name, cells)
+        comp_builder = ComponentBuilder(self, name, cells, latency)
         self.program.components.append(comp_builder.component)
         self._index[name] = comp_builder
         return comp_builder
@@ -49,7 +49,11 @@ class ComponentBuilder:
     """Builds Calyx components definitions."""
 
     def __init__(
-        self, prog: Builder, name: str, cells: Optional[List[ast.Cell]] = None
+        self,
+        prog: Builder,
+        name: str,
+        cells: Optional[List[ast.Cell]] = None,
+        latency: Optional[int] = None,
     ):
         """Contructs a new component in the current program. If `cells` is
         provided, the component will be initialized with those cells."""
@@ -61,6 +65,7 @@ class ComponentBuilder:
             outputs=[],
             structs=cells,
             controls=ast.Empty(),
+            latency=latency,
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
         for cell in cells:
@@ -103,6 +108,15 @@ class ComponentBuilder:
         else:
             self.component.controls = builder
 
+    def get_port_width(self, name: str) -> int:
+        for input in self.component.inputs:
+            if input.id.name == name:
+                return input.width
+        for output in self.component.outputs:
+            if output.id.name == name:
+                return output.width
+        raise Exception(f"couldn't find port {name} on component {self.component.name}")
+
     def get_cell(self, name: str) -> CellBuilder:
         """Retrieve a cell builder by name."""
         out = self.index.get(name)
@@ -113,6 +127,14 @@ class ComponentBuilder:
                 f"Cell `{name}' not found in component {self.component.name}.\n"
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
+
+    def try_get_cell(self, name: str) -> CellBuilder:
+        """Tries to get a cell builder by name. If cannot find it, return None"""
+        out = self.index.get(name)
+        if out and isinstance(out, CellBuilder):
+            return out
+        else:
+            return None
 
     def get_group(self, name: str) -> GroupBuilder:
         """Retrieve a group builder by name."""
@@ -137,7 +159,17 @@ class ComponentBuilder:
     def comb_group(self, name: str) -> GroupBuilder:
         """Create a new combinational group with the given name."""
         group = ast.CombGroup(ast.CompVar(name), connections=[])
-        assert group not in self.component.wires, f"comb group '{name}' already exists"
+        assert group not in self.component.wires, f"group '{name}' already exists"
+
+        self.component.wires.append(group)
+        builder = GroupBuilder(group, self)
+        self.index[name] = builder
+        return builder
+
+    def static_group(self, name: str, latency: int) -> GroupBuilder:
+        """Create a new combinational group with the given name."""
+        group = ast.StaticGroup(ast.CompVar(name), connections=[], latency=latency)
+        assert group not in self.component.wires, f"group '{name}' already exists"
 
         self.component.wires.append(group)
         builder = GroupBuilder(group, self)
@@ -191,9 +223,17 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int) -> CellBuilder:
+    def reg(self, name: str, size: int, is_ref=False) -> CellBuilder:
         """Generate a StdReg cell."""
-        return self.cell(name, ast.Stdlib.register(size))
+        return self.cell(name, ast.Stdlib.register(size), False, is_ref)
+
+    def wire(self, name: str, size: int, is_ref=False) -> CellBuilder:
+        """Generate a StdReg cell."""
+        return self.cell(name, ast.Stdlib.wire(size), False, is_ref)
+
+    def slice(self, name: str, in_width: int, out_width, is_ref=False) -> CellBuilder:
+        """Generate a StdReg cell."""
+        return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
@@ -211,6 +251,28 @@ class ComponentBuilder:
         """Generate a StdMemD1 cell."""
         return self.cell(
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
+
+    def seq_mem_d1(
+        self,
+        name: str,
+        bitwidth: int,
+        len: int,
+        idx_size: int,
+        is_external=False,
+        is_ref=False,
+    ) -> CellBuilder:
+        """Generate a SeqMemD1 cell."""
+        self.prog.import_("primitives/memories.futil")
+        return self.cell(
+            name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
+
+    def is_seq_mem_d1(self, cell: CellBuilder) -> bool:
+        """Check if the cell is a SeqMemD1 cell."""
+        return (
+            isinstance(cell._cell.comp, ast.CompInst)
+            and cell._cell.comp.name == "seq_mem_d1"
         )
 
     def add(self, name: str, size: int, signed=False) -> CellBuilder:
@@ -252,6 +314,54 @@ class ComponentBuilder:
         """Generate a StdLe cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("le", size, signed))
+
+    def and_(self, name: str, size: int) -> CellBuilder:
+        """Generate a StdAnd cell."""
+        return self.cell(name, ast.Stdlib.op("and", size, False))
+
+    def pipelined_mult(self, name: str) -> CellBuilder:
+        """Generate a pipelined multiplier."""
+        self.prog.import_("primitives/pipelined.futil")
+        return self.cell(name, ast.Stdlib.pipelined_mult())
+
+    def pipelined_fp_smult(
+        self, name: str, width, int_width, frac_width
+    ) -> CellBuilder:
+        """Generate a pipelined fixed point signed multiplier."""
+        self.prog.import_("primitives/pipelined.futil")
+        return self.cell(
+            name, ast.Stdlib.pipelined_fp_smult(width, int_width, frac_width)
+        )
+
+    def fp_op(
+        self,
+        cell_name: str,
+        op_name,
+        width: int,
+        int_width: int,
+        frac_width: int,
+    ) -> CellBuilder:
+        """Generate an UNSIGNED fixed point op."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(
+            cell_name,
+            ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, False),
+        )
+
+    def fp_sop(
+        self,
+        cell_name: str,
+        op_name,
+        width: int,
+        int_width: int,
+        frac_width: int,
+    ) -> CellBuilder:
+        """Generate a SIGNED fixed point op."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(
+            cell_name,
+            ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, True),
+        )
 
 
 def as_control(obj):
@@ -307,13 +417,18 @@ def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
     return ast.While(port.expr, cg, as_control(body))
 
 
+def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
+    """Build a `static repeat` control statement."""
+    return ast.StaticRepeat(num_repeats, as_control(body))
+
+
 def if_(
     port: ExprBuilder,
     cond: Optional[GroupBuilder],
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `if` control statement."""
+    """Build an `static if` control statement."""
     else_body = ast.Empty() if else_body is None else else_body
 
     if cond:
@@ -324,6 +439,16 @@ def if_(
     else:
         cg = None
     return ast.If(port.expr, cg, as_control(body), as_control(else_body))
+
+
+def static_if(
+    port: ExprBuilder,
+    body,
+    else_body=None,
+) -> ast.If:
+    """Build an `if` control statement."""
+    else_body = ast.Empty() if else_body is None else else_body
+    return ast.StaticIf(port.expr, as_control(body), as_control(else_body))
 
 
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
@@ -495,6 +620,13 @@ class CellBuilder(CellLikeBuilder):
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
+    def is_mem_d1(self) -> bool:
+        """Check if the cell is a StdMemD1 cell."""
+        return (
+            isinstance(self._cell.comp, ast.CompInst)
+            and self._cell.comp.id == "std_mem_d1"
+        )
+
     @classmethod
     def unwrap_id(cls, obj):
         if isinstance(obj, cls):
@@ -637,6 +769,9 @@ def infer_width(expr):
 
     # Otherwise, it's a `cell.port` lookup.
     assert isinstance(expr, ast.Atom)
+    if isinstance(expr.item, ast.ThisPort):
+        name = expr.item.id.name
+        return group_builder.comp.get_port_width(name)
     cell_name = expr.item.id.name
     port_name = expr.item.name
 
@@ -654,7 +789,19 @@ def infer_width(expr):
             return inst.args[0]
         elif port_name == "write_en":
             return 1
-    elif prim in ("std_add", "std_lt", "std_eq"):
+    # XXX(Caleb): add all the primitive names instead of adding whenever I need one
+    elif prim in (
+        "std_add",
+        "std_lt",
+        "std_le",
+        "std_ge",
+        "std_gt",
+        "std_eq",
+        "std_sgt",
+        "std_slt",
+        "std_fp_sgt",
+        "std_fp_slt",
+    ):
         if port_name == "left" or port_name == "right":
             return inst.args[0]
     elif prim == "std_mem_d1" or prim == "seq_mem_d1":
@@ -674,6 +821,7 @@ def infer_width(expr):
         "std_smod_pipe",
         "std_div_pipe",
         "std_sdiv_pipe",
+        "std_fp_smult_pipe",
     ):
         if port_name == "left" or port_name == "right":
             return inst.args[0]

@@ -2,8 +2,8 @@ use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir::{self as ir};
 use std::collections::{HashMap, HashSet};
 
-// maps combinational combinational components to set of all combinational components that it reads from
-// so the entries are (comb comp, <set of comb components that write to comb comp>)
+// Construct map from combinational instances to all the combinational instances that write to them.
+// So the entries are (comb comp, <set of comb components that write to comb comp>)
 fn get_comb_dependence_map<T>(
     assigns: &Vec<ir::Assignment<T>>,
 ) -> HashMap<ir::Id, HashSet<ir::Id>> {
@@ -74,45 +74,72 @@ impl Named for DeadAssignmentRemoval {
     }
 }
 
+/// Saturate the combinational dependence map by repeatedly adding used cells till we reach a fixed point.
+fn saturate_dep_maps(
+    mut comb_dep_map: HashMap<ir::Id, HashSet<ir::Id>>,
+    mut non_comb_writes: Vec<ir::Id>,
+) -> HashSet<ir::Id> {
+    // To be a used_comb, must
+    // a) be a non_comb_write
+    // b) writes to a used_comb
+    let mut used_combs = HashSet::new();
+    // while loop is bound by size of comb_dependence_map, which is bound
+    // in size by number of ports in the group's assignments
+    while !(non_comb_writes.is_empty()) {
+        let used = non_comb_writes.pop().unwrap();
+        // add all writes to used to non_comb_writes
+        if let Some(write_to_used) = comb_dep_map.remove(&used) {
+            for write in write_to_used {
+                non_comb_writes.push(write);
+            }
+        }
+        // add used to used_combs
+        used_combs.insert(used);
+    }
+
+    used_combs
+}
+
 impl Visitor for DeadAssignmentRemoval {
-    fn enable(
+    fn start(
         &mut self,
-        s: &mut ir::Enable,
-        _comp: &mut ir::Component,
+        comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut comb_dependence_map: HashMap<ir::Id, HashSet<ir::Id>> =
-            get_comb_dependence_map(&s.group.borrow().assignments);
-        let mut non_comb_writes: Vec<ir::Id> =
-            get_non_comb_writes(&s.group.borrow().assignments);
-        // To be a used_comb, must
-        // a) be a non_comb_write
-        // b) writes to a used_comb
-        let mut used_combs: HashSet<ir::Id> = HashSet::new();
-        // while loop is bound by size of comb_dependence_map, which is bound
-        // in size by number of ports in the group's assignments
-        while !(non_comb_writes.is_empty()) {
-            let used = non_comb_writes.pop().unwrap();
-            // add all writes to used to non_comb_writes
-            if let Some(write_to_used) = comb_dependence_map.remove(&used) {
-                for write in write_to_used {
-                    non_comb_writes.push(write);
+        let cont_comb_dep_map =
+            get_comb_dependence_map(&comp.continuous_assignments);
+        let cont_non_comb_writes =
+            get_non_comb_writes(&comp.continuous_assignments);
+
+        for gr in comp.groups.iter() {
+            let group = gr.borrow();
+
+            // Construct the dependence maps from the group assignments and extend using the continuous assignments
+            let mut comb_dependence_map =
+                get_comb_dependence_map(&group.assignments);
+            comb_dependence_map.extend(cont_comb_dep_map.clone());
+
+            let mut non_comb_writes = get_non_comb_writes(&group.assignments);
+            non_comb_writes.extend(cont_non_comb_writes.clone());
+
+            let used_combs =
+                saturate_dep_maps(comb_dependence_map, non_comb_writes);
+
+            // Explicit drop so we don't get already borrowed error from mutable borrow.
+            drop(group);
+
+            gr.borrow_mut().assignments.retain(|assign| {
+                let dst = assign.dst.borrow();
+                // if dst is a combinational component, must be used
+                if dst.parent_is_comb() {
+                    return used_combs.contains(&dst.get_parent_name());
                 }
-            }
-            // add used to used_combs
-            used_combs.insert(used);
+                // Make sure that the assignment's guard it not false
+                !assign.guard.is_false()
+            });
         }
 
-        s.group.borrow_mut().assignments.retain(|assign| {
-            let dst = assign.dst.borrow();
-            // if dst is a combinational component, must be used
-            if dst.parent_is_comb() {
-                return used_combs.contains(&dst.get_parent_name());
-            }
-            // Make sure that the assignment's guard it not false
-            !assign.guard.is_false()
-        });
-        Ok(Action::Continue)
+        Ok(Action::Stop)
     }
 }

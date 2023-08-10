@@ -1,5 +1,5 @@
 // -p well-formed -b verilog
-import "primitives/core.futil";
+import "primitives/compile.futil";
 component main() -> () {
   cells {
     c = std_const(36, 34359738368);

@@ -1,24 +1,25 @@
 /// Represents an undefined value. Should never appear in the output of a program.
 primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH) {
     assign out = 'x;
-};
+}
 
 /// Constants
 comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH) {
     assign out = VALUE;
-};
+}
 
 /// Combinational wire to forward values
 comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
     assign out = in;
-};
+}
 
 /// Add two numbers.
 comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
   assign out = left + right;
-};
+}
 
 /// Standard register with a one-cycle latency.
+// ANCHOR: std_reg_def
 primitive std_reg<"state_share"=1>[WIDTH](
   @write_together(1) @data in: WIDTH,
   @write_together(1) @static(1) @go write_en: 1,
@@ -27,7 +28,9 @@ primitive std_reg<"state_share"=1>[WIDTH](
 ) -> (
   @stable out: WIDTH,
   @done done: 1
-) {
+)
+// ANCHOR_END: std_reg_def
+{
   always_ff @(posedge clk) begin
     if (reset) begin
        out <= 0;
@@ -37,4 +40,4 @@ primitive std_reg<"state_share"=1>[WIDTH](
       done <= 1'd1;
     end else done <= 1'd0;
   end
-};
+}

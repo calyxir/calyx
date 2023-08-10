@@ -28,6 +28,7 @@ const INTERFACE_PORTS: [(Attribute, u64, Direction); 4] = [
 
 /// In memory representation of a Component.
 #[derive(Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Component {
     /// Name of the component.
     pub name: Id,
@@ -56,6 +57,7 @@ pub struct Component {
     ///// Internal structures
     /// Namegenerator that contains the names currently defined in this
     /// component (cell and group names).
+    #[cfg_attr(feature = "serialize", serde(skip))]
     namegen: NameGenerator,
 }
 
@@ -203,6 +205,19 @@ impl Component {
         S: Into<Id>,
     {
         self.cells.find(name)
+    }
+
+    /// Return a reference to the cell with `name` if present.
+    pub fn find_guaranteed_cell<S>(&self, name: S) -> RRC<Cell>
+    where
+        S: Into<Id> + std::fmt::Debug + Copy,
+    {
+        self.cells.find(name).unwrap_or_else(|| {
+            unreachable!(
+                "called find_certain_cell on {:?} but it wasn't found",
+                name
+            )
+        })
     }
 
     /// Construct a non-conflicting name using the Component's namegenerator.

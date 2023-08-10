@@ -2,7 +2,7 @@
 
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-extern "../../../primitives/core.sv" {
+extern "./multi-go-done-component.futil" {
   primitive real_mem(
     @static(1) @go read_en: 1,
     @static(2) @go(2) write_en: 1

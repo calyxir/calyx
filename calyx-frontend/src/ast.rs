@@ -331,6 +331,17 @@ pub enum Control {
         /// Attributes
         attributes: Attributes,
     },
+    /// Static Repeat (essentially a bounded while loop w/o a condition)
+    Repeat {
+        /// Control for the true branch.
+        num_repeats: u64,
+
+        /// Control for the true branch.
+        body: Box<Control>,
+
+        /// Attributes
+        attributes: Attributes,
+    },
     /// Runs the control for a list of subcomponents.
     Enable {
         /// Group to be enabled
@@ -436,6 +447,7 @@ impl Control {
             Control::Par { attributes, .. } => attributes,
             Control::If { attributes, .. } => attributes,
             Control::While { attributes, .. } => attributes,
+            Control::Repeat { attributes, .. } => attributes,
             Control::Enable { attributes, .. } => attributes,
             Control::Invoke { attributes, .. } => attributes,
             Control::Empty { attributes, .. } => attributes,

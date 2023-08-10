@@ -1,7 +1,7 @@
 // -p well-formed -p group2invoke
 import "primitives/core.futil";
 
-extern "../../../primitives/core.sv" {
+extern "./multi-go-done.futil" {
   primitive real_mem(
     @static(1) @go(1) read_en: 1,
     @static(2) @go(2) write_en: 1

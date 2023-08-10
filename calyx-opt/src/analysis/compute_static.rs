@@ -47,6 +47,7 @@ impl WithStatic for ir::Control {
             ir::Control::Par(par) => par.update_static(extra),
             ir::Control::If(if_) => if_.update_static(extra),
             ir::Control::While(wh) => wh.update_static(extra),
+            ir::Control::Repeat(rep) => rep.update_static(extra),
             ir::Control::Invoke(inv) => inv.update_static(extra),
             ir::Control::Enable(en) => en.update_static(&()),
             ir::Control::Empty(_) => Some(0),
@@ -132,6 +133,15 @@ impl WithStatic for ir::While {
         }
         let bound = self.attributes.get(ir::NumAttr::Bound)?;
         Some(bound * b_time)
+    }
+}
+
+impl WithStatic for ir::Repeat {
+    type Info = CompTime;
+    fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
+        let b_time = self.body.update_static(extra)?;
+        let num_repeats = self.num_repeats;
+        Some(num_repeats * b_time)
     }
 }
 

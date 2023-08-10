@@ -22,7 +22,7 @@ description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
-version = "0.3.0"
+version = "0.4.0"
 rust-version = "1.66"
 
 [workspace.dependencies]
@@ -34,14 +34,16 @@ lazy_static = "1"
 linked-hash-map = "0.5"
 smallvec = "1"
 serde = { version = "1.0", features = ["derive"] }
+serde_sexpr = "0.1.0"
+serde_with = "3.0.0"
 pest = "2.0"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
-calyx-utils = { path = "calyx-utils", version = "0.3.0" }
-calyx-ir = { path = "calyx-ir", version = "0.3.0" }
-calyx-frontend = { path = "calyx-frontend", version = "0.3.0" }
-calyx-opt = { path = "calyx-opt", version = "0.3.0" }
+calyx-utils = { path = "calyx-utils", version = "0.4.0" }
+calyx-ir = { path = "calyx-ir", version = "0.4.0" }
+calyx-frontend = { path = "calyx-frontend", version = "0.4.0" }
+calyx-opt = { path = "calyx-opt", version = "0.4.0" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
@@ -74,11 +76,17 @@ path = "src/main.rs"
 name = "futil"
 path = "src/futil.rs"
 
+[features]
+default = []
+serialize = ["dep:serde_with", "calyx-ir/serialize", "dep:serde_sexpr", "serde/rc"]
+
 [dependencies]
 atty.workspace = true
 itertools.workspace = true
 log.workspace = true
 serde.workspace = true
+serde_with = { workspace = true, optional = true }
+serde_sexpr = { workspace = true, optional = true }
 argh.workspace = true
 csv = "1.1"
 vast = "0.3.1"

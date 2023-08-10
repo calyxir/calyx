@@ -246,6 +246,15 @@ impl<'a> Rewriter<'a> {
                     static_group_map,
                 );
             }
+            ir::Control::Repeat(rep) => {
+                // rewrite body
+                self.rewrite_control(
+                    &mut rep.body,
+                    group_map,
+                    comb_group_map,
+                    static_group_map,
+                );
+            }
             ir::Control::Invoke(inv) => {
                 self.rewrite_invoke(inv, comb_group_map)
             }

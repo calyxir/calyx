@@ -18,22 +18,12 @@ The easiest way is to use the [Calyx Docker image][calyx-docker] that provides a
 The following commands will fetch the Docker image and start a container with an interactive shell:
 
 ```sh
-docker run -it --rm ghcr.io/cucapra/calyx:0.3.0-FCRC
+docker run -it --rm ghcr.io/cucapra/calyx:latest
 ```
 
 The `--rm` flag will remove the container after you exit the shell. If you want to keep the container around, remove the flag.
 
-Just to make sure that all's well with your Docker image, run the following tests:
-```
-fud check verilog jq mrxl interpreter
-runt -i 'core|mrxl'
-```
-
-If you get any warnings or errors, please report them to us before proceeding.
-
-If all this worked out, you're in great shape.
-You can skip a lot of what follows and head to [*running a hardware design*][hw-design].
-
+You can skip forward to [*running a hardware design*][hw-design].
 
 ### Installing the Crate (to use, but not extend, Calyx)
 

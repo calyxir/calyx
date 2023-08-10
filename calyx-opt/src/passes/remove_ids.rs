@@ -71,7 +71,8 @@ fn remove_ids(c: &mut ir::Control) {
         ir::Control::Enable(ir::Enable { group, .. }) => {
             group.borrow_mut().remove_attribute(NODE_ID)
         }
-        ir::Control::While(ir::While { body, .. }) => {
+        ir::Control::While(ir::While { body, .. })
+        | ir::Control::Repeat(ir::Repeat { body, .. }) => {
             remove_ids(body);
         }
         ir::Control::If(ir::If {

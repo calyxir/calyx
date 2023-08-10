@@ -1,8 +1,8 @@
 //! Implements a formatter for the in-memory representation of Components.
 //! The printing operation clones inner nodes and doesn't perform any mutation
 //! to the Component.
-use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
+use calyx_frontend::PrimitiveInfo;
 use itertools::Itertools;
 use std::io;
 use std::path::Path;
@@ -77,29 +77,31 @@ impl Printer {
     }
 
     /// Prints out the program context.
-    /// `skip_primitives` controls whether the primitives are printed out.
+    /// If `skip_primitives` is true, the printer will skip printing primitives defined outside the source file.
     pub fn write_context<F: io::Write>(
         ctx: &ir::Context,
         skip_primitives: bool,
         f: &mut F,
     ) -> io::Result<()> {
-        if !skip_primitives {
-            for (path, prims) in ctx.lib.all_prims() {
-                match path {
-                    Some(p) => {
-                        ir::Printer::write_externs(
-                            (&p, prims.into_iter().map(|(_, v)| v)),
-                            f,
-                        )?;
-                    }
-                    None => {
-                        for (_, prim) in prims {
-                            ir::Printer::write_primitive(prim, 2, f)?;
-                        }
-                    }
+        for prim_info in ctx.lib.prim_infos() {
+            if skip_primitives && !prim_info.is_source() {
+                continue;
+            }
+            match prim_info {
+                PrimitiveInfo::Extern {
+                    path, primitives, ..
+                } => {
+                    ir::Printer::write_externs(
+                        (path, primitives.into_iter().map(|(_, v)| v)),
+                        f,
+                    )?;
+                }
+                PrimitiveInfo::Inline { primitive, .. } => {
+                    ir::Printer::write_primitive(primitive, 0, f)?;
                 }
             }
         }
+
         for comp in &ctx.components {
             ir::Printer::write_component(comp, f)?;
             writeln!(f)?
@@ -125,10 +127,10 @@ impl Printer {
 
     pub fn write_primitive<F: io::Write>(
         prim: &ir::Primitive,
-        indent_level: usize,
+        indent: usize,
         f: &mut F,
     ) -> io::Result<()> {
-        write!(f, "{}", " ".repeat(indent_level))?;
+        write!(f, "{}", " ".repeat(indent))?;
         if prim.is_comb {
             write!(f, "comb ")?;
         }
@@ -166,10 +168,13 @@ impl Printer {
             Self::format_port_def(&inputs),
             Self::format_port_def(&outputs)
         )?;
-        if prim.body.is_some() {
-            write!(f, "{{ {} }}", prim.body.as_ref().unwrap())?;
-        };
-        writeln!(f, ";")
+        if let Some(b) = prim.body.as_ref() {
+            writeln!(f, " {{")?;
+            writeln!(f, "{:indent$}{b}", "", indent = indent + 2)?;
+            writeln!(f, "}}")
+        } else {
+            writeln!(f, ";")
+        }
     }
 
     /// Formats and writes the Component to the formatter.
@@ -491,7 +496,7 @@ impl Printer {
                     writeln!(f, "{}}}", " ".repeat(indent_level))
                 }
             }
-            ir::StaticControl::Invoke(StaticInvoke {
+            ir::StaticControl::Invoke(ir::StaticInvoke {
                 comp,
                 latency,
                 inputs,
@@ -638,6 +643,18 @@ impl Printer {
                 for stmt in stmts {
                     Self::write_control(stmt, indent_level + 2, f)?;
                 }
+                writeln!(f, "{}}}", " ".repeat(indent_level))
+            }
+            ir::Control::Repeat(ir::Repeat {
+                num_repeats,
+                attributes,
+                body,
+                ..
+            }) => {
+                write!(f, "{}", Self::format_at_attributes(attributes))?;
+                write!(f, "repeat {} ", num_repeats)?;
+                writeln!(f, "{{")?;
+                Self::write_control(body, indent_level + 2, f)?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))
             }
             ir::Control::Par(ir::Par { stmts, attributes }) => {

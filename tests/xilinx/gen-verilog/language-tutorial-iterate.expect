@@ -187,7 +187,6 @@ module Toplevel (
         .done(kernel_done),
         .go(kernel_start),
         .mem_addr0(mem_addr0),
-        .mem_clk(),
         .mem_done(mem_done),
         .mem_read_data(mem_read_data),
         .mem_write_data(mem_write_data),

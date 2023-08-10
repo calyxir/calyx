@@ -6,7 +6,7 @@ use std::{
 };
 
 type PortMap = HashMap<ir::Id, Vec<RRC<ir::Port>>>;
-type Binding = Vec<(ir::Id, RRC<ir::Port>)>;
+type Binding = (Vec<(ir::Id, RRC<ir::Cell>)>, Vec<(ir::Id, RRC<ir::Port>)>);
 type InvokeMap = HashMap<ir::Id, Vec<Binding>>;
 
 /// Contains a mapping from name of [ir::CombGroup] to the ports read by the control program
@@ -15,7 +15,7 @@ type InvokeMap = HashMap<ir::Id, Vec<Binding>>;
 pub struct ControlPorts<const INVOKE_MAP: bool> {
     // Map name of combinational group to the ports read by the control program.
     cg_to_port: PortMap,
-    // Mapping from name of invoke instance to the port bindings.
+    // Mapping from name of invoke instance to the ref cells and port bindings.
     invoke_map: InvokeMap,
 }
 
@@ -61,6 +61,7 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
         &mut self,
         inputs: &[(ir::Id, ir::RRC<ir::Port>)],
         outputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        ref_cells: &[(ir::Id, ir::RRC<ir::Cell>)],
         comp: &ir::RRC<ir::Cell>,
         comb_group: &Option<ir::RRC<ir::CombGroup>>,
     ) {
@@ -86,7 +87,10 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
             let name = comp.borrow().name();
             let bindings =
                 inputs.iter().chain(outputs.iter()).cloned().collect_vec();
-            self.invoke_map.entry(name).or_default().push(bindings);
+            self.invoke_map
+                .entry(name)
+                .or_default()
+                .push((ref_cells.to_vec(), bindings));
         }
     }
 
@@ -113,9 +117,10 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                 comp,
                 inputs,
                 outputs,
+                ref_cells,
                 ..
             }) => {
-                self.handle_invoke(inputs, outputs, comp, &None);
+                self.handle_invoke(inputs, outputs, ref_cells, comp, &None);
             }
         }
     }
@@ -128,9 +133,12 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                 comb_group,
                 inputs,
                 outputs,
+                ref_cells,
                 ..
             }) => {
-                self.handle_invoke(inputs, outputs, comp, comb_group);
+                self.handle_invoke(
+                    inputs, outputs, ref_cells, comp, comb_group,
+                );
             }
             ir::Control::If(ir::If {
                 cond,
@@ -160,13 +168,17 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
                 }
                 self.construct(body);
             }
+            ir::Control::Repeat(ir::Repeat { body, .. }) => {
+                self.construct(body);
+            }
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 stmts.iter().for_each(|con| self.construct(con));
             }
-            ir::Control::Static(sc) =>
-            // don't need self, because no comb groups in static controls
-            {
+            ir::Control::Static(sc) => {
+                // Static control currently has no comb groups. But we have a
+                // (currently pointless) function here in case we want to add
+                // comb groups to static control at some point.
                 self.construct_static(sc)
             }
         }
@@ -189,12 +201,19 @@ impl<const INVOKE_MAP: bool> From<&ir::Control> for ControlPorts<INVOKE_MAP> {
             cp.invoke_map.values_mut().for_each(|v| {
                 *v = v
                     .drain(..)
-                    .unique_by(|binding| {
-                        binding
-                            .clone()
-                            .into_iter()
-                            .map(|(p, v)| (p, v.borrow().canonical()))
-                            .collect_vec()
+                    .unique_by(|(cells, ports)| {
+                        (
+                            cells
+                                .clone()
+                                .into_iter()
+                                .map(|(c, cell)| (c, cell.borrow().name()))
+                                .collect_vec(),
+                            ports
+                                .clone()
+                                .into_iter()
+                                .map(|(p, v)| (p, v.borrow().canonical()))
+                                .collect_vec(),
+                        )
                     })
                     .collect()
             });

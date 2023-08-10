@@ -390,6 +390,7 @@ fn build_reaching_def_static(
 
             (&final_def | &post_cond2_def, final_kill)
         }
+
         ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
             .iter()
             .fold((reach, killed), |(acc, killed), inner_c| {
@@ -486,6 +487,49 @@ fn build_reaching_def_static(
     }
 }
 
+// Handles both `repeat` and `while` bodies when building reaching defs.
+fn handle_repeat_while_body(
+    body: &ir::Control,
+    reach: DefSet,
+    killed: KilledSet,
+    rd: &mut ReachingDefinitionAnalysis,
+    counter: &mut u64,
+) -> (DefSet, KilledSet) {
+    let (post_cond_def, post_cond_killed) = build_reaching_def(
+        &ir::Control::empty(),
+        reach.clone(),
+        killed,
+        rd,
+        counter,
+    );
+
+    let (round_1_def, mut round_1_killed) =
+        build_reaching_def(body, post_cond_def, post_cond_killed, rd, counter);
+
+    remove_entries_defined_by(&mut round_1_killed, &reach);
+
+    let (post_cond2_def, post_cond2_killed) = build_reaching_def(
+        &ir::Control::empty(),
+        &round_1_def | &reach,
+        round_1_killed,
+        rd,
+        counter,
+    );
+    // Run the analysis a second time to get the fixed point of the
+    // while loop using the defsets calculated during the first iteration
+    let (final_def, mut final_kill) = build_reaching_def(
+        body,
+        post_cond2_def.clone(),
+        post_cond2_killed,
+        rd,
+        counter,
+    );
+
+    remove_entries_defined_by(&mut final_kill, &post_cond2_def);
+
+    (&final_def | &post_cond2_def, final_kill)
+}
+
 fn build_reaching_def(
     c: &ir::Control,
     reach: DefSet,
@@ -555,44 +599,7 @@ fn build_reaching_def(
             (&t_case_def | &f_case_def, &t_case_killed | &f_case_killed)
         }
         ir::Control::While(ir::While { body, .. }) => {
-            let (post_cond_def, post_cond_killed) = build_reaching_def(
-                &ir::Control::empty(),
-                reach.clone(),
-                killed,
-                rd,
-                counter,
-            );
-
-            let (round_1_def, mut round_1_killed) = build_reaching_def(
-                body,
-                post_cond_def,
-                post_cond_killed,
-                rd,
-                counter,
-            );
-
-            remove_entries_defined_by(&mut round_1_killed, &reach);
-
-            let (post_cond2_def, post_cond2_killed) = build_reaching_def(
-                &ir::Control::empty(),
-                &round_1_def | &reach,
-                round_1_killed,
-                rd,
-                counter,
-            );
-            // Run the analysis a second time to get the fixed point of the
-            // while loop using the defsets calculated during the first iteration
-            let (final_def, mut final_kill) = build_reaching_def(
-                body,
-                post_cond2_def.clone(),
-                post_cond2_killed,
-                rd,
-                counter,
-            );
-
-            remove_entries_defined_by(&mut final_kill, &post_cond2_def);
-
-            (&final_def | &post_cond2_def, final_kill)
+            handle_repeat_while_body(body, reach, killed, rd, counter)
         }
         ir::Control::Invoke(invoke) => {
             *counter += 1;
@@ -636,6 +643,9 @@ fn build_reaching_def(
             en.group.borrow().name(),
         ),
         ir::Control::Empty(_) => (reach, killed),
+        ir::Control::Repeat(ir::Repeat { body, .. }) => {
+            handle_repeat_while_body(body, reach, killed, rd, counter)
+        }
         ir::Control::Static(sc) => {
             build_reaching_def_static(sc, reach, killed, rd, counter)
         }

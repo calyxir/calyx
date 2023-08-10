@@ -1,6 +1,5 @@
-use crate::Attribute;
-
 use super::Attributes;
+use crate::Attribute;
 use calyx_utils::{CalyxResult, Error, GetName, Id};
 use linked_hash_map::LinkedHashMap;
 use smallvec::SmallVec;
@@ -135,7 +134,7 @@ where
 }
 
 /// Represents an abstract width of a primitive signature.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Width {
     /// The width is a constant.
     Const { value: u64 },
@@ -186,6 +185,7 @@ impl PortDef<Width> {
 
 /// Direction of a port on a cell.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum Direction {
     /// Input port.
     Input,

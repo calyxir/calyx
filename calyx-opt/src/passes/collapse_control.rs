@@ -198,9 +198,23 @@ impl Visitor for CollapseControl {
             return Ok(Action::static_change(ir::StaticControl::empty()));
         }
         if s.num_repeats == 1 {
-            let body =
-                std::mem::replace(&mut *s.body, ir::StaticControl::empty());
-            return Ok(Action::static_change(body));
+            return Ok(Action::static_change(s.body.take_static_control()));
+        }
+        Ok(Action::Continue)
+    }
+
+    fn finish_repeat(
+        &mut self,
+        s: &mut ir::Repeat,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        if s.num_repeats == 0 {
+            return Ok(Action::change(ir::Control::empty()));
+        }
+        if s.num_repeats == 1 {
+            return Ok(Action::change(s.body.take_control()));
         }
         Ok(Action::Continue)
     }

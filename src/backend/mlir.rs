@@ -324,6 +324,9 @@ impl MlirBackend {
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("invoke operator for MLIR backend")
             }
+            ir::Control::Repeat(ir::Repeat { .. }) => {
+                todo!("repeat operator for MLIR backend")
+            }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
                 writeln!(f, "calyx.seq {{")?;
                 for stmt in stmts {

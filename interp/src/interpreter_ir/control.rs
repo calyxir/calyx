@@ -83,6 +83,9 @@ impl From<CalyxControl> for Control {
             CalyxControl::Static(_) => {
                 todo!("interpreter does not yet support static")
             }
+            CalyxControl::Repeat(_) => {
+                todo!("interpreter does not yet support repeat")
+            }
             CalyxControl::Empty(empty) => Control::Empty(Rc::new(empty)),
         }
     }
