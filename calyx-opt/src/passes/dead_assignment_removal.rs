@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 // Construct map from combinational instances to all the combinational instances that write to them.
 // So the entries are (comb comp, <set of comb components that write to comb comp>)
 fn get_comb_dependence_map<T>(
-    assigns: &Vec<ir::Assignment<T>>,
+    assigns: &[ir::Assignment<T>],
 ) -> HashMap<ir::Id, HashSet<ir::Id>> {
     let mut comb_dependence_map: HashMap<ir::Id, HashSet<ir::Id>> =
         HashMap::new();
@@ -36,7 +36,7 @@ fn get_comb_dependence_map<T>(
 // non_comb_writes includes all combinational cells that write to
 // something besides a combinational cell
 // i.e., the combinational cells that write to group holes or stateful cells
-fn get_non_comb_writes<T>(assigns: &Vec<ir::Assignment<T>>) -> Vec<ir::Id> {
+fn get_non_comb_writes<T>(assigns: &[ir::Assignment<T>]) -> Vec<ir::Id> {
     let mut non_comb_writes: Vec<ir::Id> = Vec::new();
     for assign in assigns {
         if !assign.dst.borrow().parent_is_comb() {
@@ -100,6 +100,36 @@ fn saturate_dep_maps(
     used_combs
 }
 
+fn compute_used_combs<T>(
+    assigns: &[ir::Assignment<T>],
+    base_comb_dep_map: HashMap<ir::Id, HashSet<ir::Id>>,
+    base_non_comb_writes: Vec<ir::Id>,
+) -> HashSet<ir::Id> {
+    // Construct the dependence maps from the group assignments and extend using the continuous assignments
+    let mut comb_dependence_map = get_comb_dependence_map(assigns);
+    comb_dependence_map.extend(base_comb_dep_map);
+
+    let mut non_comb_writes = get_non_comb_writes(assigns);
+    non_comb_writes.extend(base_non_comb_writes);
+
+    saturate_dep_maps(comb_dependence_map, non_comb_writes)
+}
+
+fn remove_unused<T>(
+    assigns: &mut Vec<ir::Assignment<T>>,
+    used_combs: &HashSet<ir::Id>,
+) {
+    assigns.retain(|assign| {
+        let dst = assign.dst.borrow();
+        // if dst is a combinational component, must be used
+        if dst.parent_is_comb() {
+            return used_combs.contains(&dst.get_parent_name());
+        }
+        // Make sure that the assignment's guard it not false
+        !assign.guard.is_false()
+    });
+}
+
 impl Visitor for DeadAssignmentRemoval {
     fn start(
         &mut self,
@@ -113,32 +143,26 @@ impl Visitor for DeadAssignmentRemoval {
             get_non_comb_writes(&comp.continuous_assignments);
 
         for gr in comp.groups.iter() {
-            let group = gr.borrow();
-
-            // Construct the dependence maps from the group assignments and extend using the continuous assignments
-            let mut comb_dependence_map =
-                get_comb_dependence_map(&group.assignments);
-            comb_dependence_map.extend(cont_comb_dep_map.clone());
-
-            let mut non_comb_writes = get_non_comb_writes(&group.assignments);
-            non_comb_writes.extend(cont_non_comb_writes.clone());
-
-            let used_combs =
-                saturate_dep_maps(comb_dependence_map, non_comb_writes);
-
-            // Explicit drop so we don't get already borrowed error from mutable borrow.
-            drop(group);
-
-            gr.borrow_mut().assignments.retain(|assign| {
-                let dst = assign.dst.borrow();
-                // if dst is a combinational component, must be used
-                if dst.parent_is_comb() {
-                    return used_combs.contains(&dst.get_parent_name());
-                }
-                // Make sure that the assignment's guard it not false
-                !assign.guard.is_false()
-            });
+            let used_combs = compute_used_combs(
+                &gr.borrow().assignments,
+                cont_comb_dep_map.clone(),
+                cont_non_comb_writes.clone(),
+            );
+            remove_unused(&mut gr.borrow_mut().assignments, &used_combs);
         }
+
+        for sgr in comp.static_groups.iter() {
+            let used_combs = compute_used_combs(
+                &sgr.borrow().assignments,
+                cont_comb_dep_map.clone(),
+                cont_non_comb_writes.clone(),
+            );
+            remove_unused(&mut sgr.borrow_mut().assignments, &used_combs);
+        }
+
+        // This pass does not support comb groups yet because removing assigns
+        // from them requires looking at all the ports used in the control
+        // program.
 
         Ok(Action::Stop)
     }

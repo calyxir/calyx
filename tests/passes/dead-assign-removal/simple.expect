@@ -1,15 +1,23 @@
-import "primitives/core.futil";
+import "primitives/compile.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(32);
+    add = std_add(32);
   }
   wires {
     group false_guard {
       r.in = 32'd10;
       false_guard[done] = r.done;
     }
+    static<1> group unused_add {
+      r.write_en = 1'd1;
+      r.in = 32'd10;
+    }
   }
   control {
-    false_guard;
+    seq {
+      false_guard;
+      unused_add;
+    }
   }
 }
