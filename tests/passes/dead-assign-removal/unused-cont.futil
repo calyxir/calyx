@@ -1,0 +1,24 @@
+// -p validate -p dead-assign-removal
+import "primitives/core.futil";
+
+component main(x: 16) -> (out: 8) {
+  cells {
+    r = std_reg(8);
+    rsh = std_rsh(16);
+    slice = std_slice(16, 8);
+  }
+  wires {
+    group write {
+      rsh.left = x;
+      rsh.right = 16'd8;
+      r.in = 8'd10;
+      r.write_en = 1'd1;
+      write[done] = r.done;
+    }
+    slice.in = rsh.out;
+    out = r.out;
+  }
+  control {
+    write;
+  }
+}

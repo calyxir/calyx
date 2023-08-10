@@ -66,8 +66,8 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
     l1_add = std_add(2);
     idx = std_reg(32);
     idx_add = std_add(32);
-    lt_iter_limit = std_lt(32);
     cond_reg = std_reg(1);
+    lt_iter_limit = std_lt(32);
     idx_between_5_depth_plus_5_reg = std_reg(1);
     index_lt_depth_plus_5 = std_lt(32);
     index_ge_5 = std_ge(32);
@@ -278,14 +278,14 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
       idx.in = idx_add.out;
       idx.write_en = 1'd1;
     }
+    static<1> group init_cond_reg {
+      cond_reg.in = 1'd1;
+      cond_reg.write_en = 1'd1;
+    }
     static<1> group lt_iter_limit_group {
       lt_iter_limit.left = idx_add.out;
       lt_iter_limit.right = iter_limit.out;
       cond_reg.in = lt_iter_limit.out;
-      cond_reg.write_en = 1'd1;
-    }
-    static<1> group init_cond_reg {
-      cond_reg.in = 1'd1;
       cond_reg.write_en = 1'd1;
     }
     static<1> group idx_between_5_depth_plus_5_group {
@@ -476,7 +476,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
         l1_idx_init;
         init_idx;
         init_min_depth;
-        init_iter_limit;
         init_cond_reg;
         init_idx_between_5_depth_plus_5;
         init_idx_between_2_depth_plus_2;
@@ -491,6 +490,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
         init_idx_between_2_min_depth_4_plus_2;
         init_idx_between_6_depth_plus_6;
         init_idx_between_depth_plus_7_depth_plus_8;
+        init_iter_limit;
       }
       while cond_reg.out {
         static par {

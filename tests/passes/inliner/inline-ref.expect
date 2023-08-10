@@ -1,0 +1,41 @@
+import "primitives/compile.futil";
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    ref r = std_reg(32);
+    add = std_add(32);
+  }
+  wires {
+    group incr {
+      add.right = 32'd1;
+      add.left = r.out;
+      r.write_en = 1'd1;
+      r.in = add.out;
+      incr[done] = r.done;
+    }
+  }
+  control {
+    incr;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r0 = std_reg(32);
+    @generated add = std_add(32);
+    @generated f_go = std_wire(1);
+    @generated f_clk = std_wire(1);
+    @generated f_reset = std_wire(1);
+    @generated f_done = std_wire(1);
+  }
+  wires {
+    group incr {
+      add.right = 32'd1;
+      add.left = r0.out;
+      r0.write_en = 1'd1;
+      r0.in = add.out;
+      incr[done] = r0.done;
+    }
+  }
+  control {
+    incr;
+  }
+}
