@@ -1,4 +1,6 @@
-#[allow(dead_code)] //remove this later
+use dap::errors::ServerError;
+
+#[allow(dead_code)] // remove this later
 #[derive(thiserror::Error, Debug)]
 pub enum MyAdapterError {
     /// Represents an unhandled command error.
@@ -17,9 +19,21 @@ pub enum MyAdapterError {
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),
 
+    /// Represents an error for an invalid path.
+    #[error("Invalid path provided")]
+    InvalidPathError,
+
     /// Represents an error when a command is missing.
     #[error("Missing command")]
     MissingCommandError,
+
+    /// Represents a missing request.
+    #[error("Missing request")]
+    MissingRequest,
+
+    /// Represents a server error.
+    #[error(transparent)]
+    ServerError(#[from] ServerError),
 }
 
 /// A type alias for the result returned by the adapter functions.
