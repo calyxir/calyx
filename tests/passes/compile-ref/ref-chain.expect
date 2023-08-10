@@ -1,0 +1,55 @@
+import "primitives/compile.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    i = incr();
+    value = std_reg(32);
+  }
+  wires {}
+  control {
+    seq {
+      invoke i(
+        value_out = value.out,
+        value_done = value.done
+      )(
+        value_in = value.in,
+        value_write_en = value.write_en
+      );
+    }
+  }
+}
+component incr(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_done: 1) -> (@done done: 1, value_in: 32, value_write_en: 1) {
+  cells {
+    ih = incr_helper();
+  }
+  wires {}
+  control {
+    seq {
+      invoke ih(
+        value_out = value_out,
+        value_done = value_done
+      )(
+        value_in = value_in,
+        value_write_en = value_write_en
+      );
+    }
+  }
+}
+component incr_helper(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_done: 1) -> (@done done: 1, value_in: 32, value_write_en: 1) {
+  cells {
+    incr_value = std_add(32);
+  }
+  wires {
+    group incr_value_group {
+      value_write_en = 1'd1;
+      incr_value.right = 32'd1;
+      incr_value.left = value_out;
+      value_in = incr_value.out;
+      incr_value_group[done] = value_done;
+    }
+  }
+  control {
+    seq {
+      incr_value_group;
+    }
+  }
+}
