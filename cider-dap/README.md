@@ -53,7 +53,7 @@ This function sets up an adapter for a multi-session environment. Here's a step-
 - The program is then opened and used to construct the MyAdapter instance.
 The purpose of this function is to perform the initial setup necessary to start a debugging session. By separating it from the run_server function, the code remains modular, allowing for easier debugging, testing, and modification.
 
-#### <big> run_server:
+####  <font size="1"> run_server </font> :
 The heart of the debugger's runtime:
 
 #####  <big> Core Loop:
