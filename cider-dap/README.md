@@ -9,7 +9,7 @@ This project primarily leverages the Debug Adapter Protocol (DAP) for its functi
 <br>
 1.``` cider-dap ``` directory: The main directory which contains the following sub-directories and files:
 <br> 
-     ```calyxDebug```: Contains the file responsible for debugging extensions and related utilities. So it is a dedicated directory for VSCode debugging extensions. It establishes the bridge between your Rust codebase and the VSCode debugging environment. <br> 
+&nbsp; &nbsp; ```calyxDebug```: Contains the file responsible for debugging extensions and related utilities. So it is a dedicated directory for VSCode debugging extensions. It establishes the bridge between your Rust codebase and the VSCode debugging environment. <br> 
      ```src```: Houses the Rust source files for the project. It contains the project's core functionalities, logic, and structures. <br> 
      ```cargo.lock``` & ```cargo.toml```: Standard Rust project files detailing dependencies and project metadata. <br>
 3. ```src``` directory: <br>
