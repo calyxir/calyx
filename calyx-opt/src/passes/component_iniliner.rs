@@ -372,6 +372,30 @@ impl Visitor for ComponentInliner {
             return Ok(Action::Stop);
         }
 
+        // Use analysis to get all bindings for invokes and filter out bindings
+        // for inlined cells.
+        let invoke_bindings: HashMap<ir::Id, _> =
+            analysis::ControlPorts::<true>::from(&*comp.control.borrow())
+                .get_all_bindings()
+                .into_iter()
+                .filter(|(instance, _)| {
+                    inline_cells.iter().any(|c| c.borrow().name() == instance)
+                })
+                .collect();
+
+        // If any invoke has more than one binding, error out:
+        for (instance, bindings) in &invoke_bindings {
+            if bindings.len() > 1 {
+                return Err(
+                    Error::pass_assumption(
+                        Self::name(),
+                        format!(
+                            "Instance `{}.{}` invoked with multiple parameters (currently unsupported)",
+                            comp.name,
+                            instance)));
+            }
+        }
+
         // Mapping from component name to component definition
         let comp_map = comps
             .iter()
@@ -385,17 +409,8 @@ impl Visitor for ComponentInliner {
         let mut builder = ir::Builder::new(comp, sigs);
         for cell_ref in &inline_cells {
             let cell = cell_ref.borrow();
-            if cell.is_component() {
-                let comp_name = cell.type_name().unwrap();
-                let (control, rewrites) = Self::inline_component(
-                    &mut builder,
-                    comp_map[&comp_name],
-                    cell.name(),
-                );
-                interface_rewrites.extend(rewrites);
-                self.control_map.insert(cell.name(), control);
-                inlined_cells.insert(cell.name());
-            } else {
+            // Error if the cell is not a component
+            if !cell.is_component() {
                 let msg = format!(
                     "Cannot inline `{}`. It is a instance of primitive: `{}`",
                     cell.name(),
@@ -406,6 +421,16 @@ impl Visitor for ComponentInliner {
                 return Err(Error::pass_assumption(Self::name(), msg)
                     .with_pos(&cell.attributes));
             }
+
+            let comp_name = cell.type_name().unwrap();
+            let (control, rewrites) = Self::inline_component(
+                &mut builder,
+                comp_map[&comp_name],
+                cell.name(),
+            );
+            interface_rewrites.extend(rewrites);
+            self.control_map.insert(cell.name(), control);
+            inlined_cells.insert(cell.name());
         }
 
         // XXX: This is unneccessarily iterate over the newly inlined groups.
@@ -440,15 +465,6 @@ impl Visitor for ComponentInliner {
             });
         });
 
-        // Use analysis to get all bindings for invokes and filter out bindings
-        // for inlined cells.
-        let invoke_bindings = analysis::ControlPorts::<true>::from(
-            &*builder.component.control.borrow(),
-        )
-        .get_all_bindings()
-        .into_iter()
-        .filter(|(instance, _)| inlined_cells.contains(instance));
-
         // Ensure that all invokes use the same parameters and inline the parameter assignments.
         for (instance, mut bindings) in invoke_bindings {
             if bindings.len() > 1 {
@@ -460,8 +476,9 @@ impl Visitor for ComponentInliner {
                             comp.name,
                             instance)));
             }
-            let binding =
-                bindings.pop().expect("Instance binding cannot be empty");
+            let Some((_, binding)) = bindings.pop() else {
+                unreachable!("Instance binding is empty");
+            };
             let mut assigns = binding
                 .into_iter()
                 .map(|(name, param)| {
