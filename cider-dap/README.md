@@ -23,20 +23,20 @@ This project primarily leverages the Debug Adapter Protocol (DAP) for its functi
 In ``` main.rs ```, our program is set up to accommodate both single and multi-session debugging. It defines the entry point of our application and orchestrates how the server is run based on user-provided arguments.
 
 #### Initialization:
-At the start of the main() function:
+At the start of the ```main()``` function:
 
 - The Opts struct captures command-line arguments. This struct contains an optional file path, a switch to determine if the application runs in multi-session mode, and a port number (with a default of 8080).
-- argh::from_env() processes the command-line arguments based on the defined struct. The use of argh simplifies command-line parsing, allowing you to focus on the main logic without getting bogged down in argument processing.
+- ```argh::from_env()``` processes the command-line arguments based on the defined struct. The use of argh simplifies command-line parsing, allowing you to focus on the main logic without getting bogged down in argument processing.
 
 #### Single vs. Multi-Session Decision:
 Depending on whether the ```is_multi_session flag``` is set:
 
-- Multi-Session:
+##### Multi-Session:
 - &nbsp; &nbsp; &nbsp; &nbsp; A TCP listener is set up, which will listen for incoming debugger connections.
 - &nbsp; &nbsp; &nbsp; &nbsp; On accepting a connection, the streams are buffered for efficient I/O operations.
 - &nbsp; &nbsp; &nbsp; &nbsp; The multi_session_init function gets the adapter configured for the session, handling initial handshakes like the Initialize and Launch commands.
 - &nbsp; &nbsp; &nbsp; &nbsp; The run_server function then takes over, orchestrating the actual debugging session with the given adapter.
-- Single-Session:
+##### Single-Session:
 - &nbsp; &nbsp; &nbsp; &nbsp; Directly reads from standard input and writes to standard output.
 - &nbsp; &nbsp; &nbsp; &nbsp; Instead of expecting and processing initial handshakes, the function simply sets up the adapter with the provided file and begins the server loop.
 
@@ -53,19 +53,19 @@ This function sets up an adapter for a multi-session environment. Here's a step-
 - The program is then opened and used to construct the MyAdapter instance.
 The purpose of this function is to perform the initial setup necessary to start a debugging session. By separating it from the run_server function, the code remains modular, allowing for easier debugging, testing, and modification.
 
-#### run_server:
+#### <big> run_server:
 The heart of the debugger's runtime:
 
-##### Core Loop:
+#####  <big> Core Loop:
 
 The function continuously polls for requests from the client.
 - Upon receiving a Launch command, it sends a successful response back to the client. This indicates that the server is ready to begin debugging.
 - The loop can be expanded to handle other DAP commands as needed. For example, handling a Disconnect command could cleanly terminate the loop and close the server.
 
-##### Error Handling:
+##### <big> Error Handling:
 - If an unknown command is received, it's printed to the error output and the server terminates with an UnhandledCommandError.
 - This is a robust approach, ensuring that only expected commands are processed and any anomalies are immediately flagged.
-- 
+
 ### Dependencies
 The following dependencies have been added to the project as specified in the cargo.toml:
 <br>
