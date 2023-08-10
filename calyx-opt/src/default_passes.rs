@@ -87,8 +87,6 @@ impl PassManager {
                 DeadAssignmentRemoval,
                 GroupToInvoke, // Creates Dead Groups potentially
                 InferShare,
-                DeadGroupRemoval, // Reduces the work of inliner
-                DeadCellRemoval,  // Required by inliner
                 ComponentInliner,
                 CombProp,
                 CompileRef, //Must run before cell-share, and before component-inliner
