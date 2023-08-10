@@ -28,7 +28,8 @@ The following dependencies have been added to the project as specified in the ca
 ### Running the Project
 1. Ensure you have the necessary dependencies installed. If not, you can install them using cargo:
  ```cargo install ```
-3. To run the main project: ```cargo run ```
+3. To run the main project:
+```cargo run ```
 
 ### Next Steps
 
