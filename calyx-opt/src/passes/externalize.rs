@@ -76,14 +76,26 @@ impl Visitor for Externalize {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut port_names = HashMap::new();
-        dump_ports::dump_ports_to_signature(
+        let mut renamed = HashMap::new();
+        let cells = dump_ports::dump_ports_to_signature(
             comp,
             has_external_attribute,
             false,
             &mut port_names,
-            &mut HashMap::new(), // Unused
+            &mut renamed,
         );
 
-        Ok(Action::Continue)
+        let cell_map = HashMap::default();
+        let rw = ir::Rewriter::new(&cell_map, &renamed);
+        comp.for_each_assignment(|assign| {
+            rw.rewrite_assign(assign);
+        });
+        comp.for_each_static_assignment(|assign| {
+            rw.rewrite_assign(assign);
+        });
+        // Don't allow cells to be dropped before this because otherwise rewriting will fail
+        drop(cells);
+
+        Ok(Action::Stop)
     }
 }
