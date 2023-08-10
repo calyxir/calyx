@@ -142,5 +142,4 @@ fn run_server<R: Read, W: Write>(
             }
         }
     }
-    Ok(())
 }

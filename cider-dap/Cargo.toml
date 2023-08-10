@@ -14,9 +14,5 @@ owo-colors = "^3.5"
 argh = "0.1"
 
 [[bin]]
-name = "demo_client"
-path = "src/demo_client.rs"
-
-[[bin]]
 name = "cider-dap"
 path = "src/main.rs"
