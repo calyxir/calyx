@@ -81,6 +81,7 @@ impl Visitor for Externalize {
             has_external_attribute,
             false,
             &mut port_names,
+            &mut HashMap::new(), // Unused
         );
 
         Ok(Action::Continue)
