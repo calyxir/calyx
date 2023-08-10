@@ -1,0 +1,22 @@
+import "primitives/core.futil";
+component main(x: 16, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 1) {
+  cells {
+    r = std_reg(8);
+    rsh = std_rsh(16);
+    slice = std_slice(16, 8);
+  }
+  wires {
+    group write {
+      r.write_en = 1'd1;
+      r.in = slice.out;
+      rsh.right = 16'd8;
+      rsh.left = x;
+      write[done] = r.done;
+    }
+    out = r.out;
+    slice.in = rsh.out;
+  }
+  control {
+    write;
+  }
+}

@@ -441,6 +441,8 @@ impl Cell {
 
     // returns true if cell is comb, false otherwise
     // note that this component/component cannot be combinational
+    // XXX(rachit): Combinational components are now supported so this function returns
+    // the wrong answer when the parent is a combinational component
     pub fn is_comb_cell(&self) -> bool {
         match self.prototype {
             CellType::Primitive { is_comb, .. } => is_comb,
