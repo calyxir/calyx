@@ -26,9 +26,10 @@ The following dependencies have been added to the project as specified in the ca
 - argh: For command line argument parsing. It simplifies command line interactions, ensuring that user inputs are effectively parsed and processed.
 
 ### Running the Project
-1. Ensure you have the necessary dependencies installed. If not, you can install them using cargo: cargo install --path .
+1. Ensure you have the necessary dependencies installed. If not, you can install them using cargo:
+ ```cargo install ```
 
-2. To run the main project:
+3. To run the main project:
 
 ### Next Steps
 
