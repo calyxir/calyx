@@ -1,5 +1,8 @@
 ## Unreleased
 - Don't require `@clk` and `@reset` ports in `comb` components
+-  `dead-assign-removal`
+    - Bugfix (#1645): not considering ports used in continuous assignments
+    - `dead-assign-removal` supports `static group`s
 
 
 ## 0.4.0
