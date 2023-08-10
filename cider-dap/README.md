@@ -53,16 +53,16 @@ This function sets up an adapter for a multi-session environment. Here's a step-
 - The program is then opened and used to construct the MyAdapter instance.
 The purpose of this function is to perform the initial setup necessary to start a debugging session. By separating it from the run_server function, the code remains modular, allowing for easier debugging, testing, and modification.
 
-####  <font size="1"> run_server </font> :
+####  <font size="3"> run_server </font> :
 The heart of the debugger's runtime:
 
-#####  <big> Core Loop:
+##### <font size="3"> Core Loop </font>:
 
 The function continuously polls for requests from the client.
 - Upon receiving a Launch command, it sends a successful response back to the client. This indicates that the server is ready to begin debugging.
 - The loop can be expanded to handle other DAP commands as needed. For example, handling a Disconnect command could cleanly terminate the loop and close the server.
 
-##### <big> Error Handling:
+##### <font size="3"> Error Handling </font>:
 - If an unknown command is received, it's printed to the error output and the server terminates with an UnhandledCommandError.
 - This is a robust approach, ensuring that only expected commands are processed and any anomalies are immediately flagged.
 
