@@ -45,6 +45,8 @@ pub struct CompileRef {
     /// Mapping from the ports of cells that were removed to the new port on the
     /// component signature.
     removed: HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+    /// Ref cells in the component. We hold onto these so that our references don't get invalidated
+    ref_cells: Vec<ir::RRC<ir::Cell>>,
 }
 
 impl ConstructVisitor for CompileRef {
@@ -55,11 +57,13 @@ impl ConstructVisitor for CompileRef {
         Ok(CompileRef {
             port_names: HashMap::new(),
             removed: HashMap::new(),
+            ref_cells: Vec::new(),
         })
     }
 
     fn clear_data(&mut self) {
-        self.removed.clear()
+        self.removed.clear();
+        self.ref_cells.clear()
     }
 }
 
@@ -160,7 +164,7 @@ impl Visitor for CompileRef {
         _comps: &[ir::Component],
     ) -> VisResult {
         log::debug!("compile-ref: {}", comp.name);
-        dump_ports::dump_ports_to_signature(
+        self.ref_cells = dump_ports::dump_ports_to_signature(
             comp,
             is_external_cell,
             true,
@@ -224,6 +228,24 @@ impl Visitor for CompileRef {
             self.ref_cells_to_ports(comp_name, ref_cells);
         s.inputs.append(&mut inputs);
         s.outputs.append(&mut outputs);
+        Ok(Action::Continue)
+    }
+
+    fn finish(
+        &mut self,
+        comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        // Rewrite all of the ref cell ports
+        let cell_map = HashMap::new();
+        let rw = ir::Rewriter::new(&cell_map, &self.removed);
+        comp.for_each_assignment(|assign| {
+            rw.rewrite_assign(assign);
+        });
+        comp.for_each_static_assignment(|assign| {
+            rw.rewrite_assign(assign);
+        });
         Ok(Action::Continue)
     }
 }

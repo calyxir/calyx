@@ -19,13 +19,13 @@ pub(super) fn dump_ports_to_signature(
     remove_signals: bool,
     port_names: &mut RefPortMap,
     removed: &mut HashMap<ir::Canonical, RRC<ir::Port>>,
-) {
+) -> Vec<RRC<ir::Cell>> {
     let comp_name = component.name;
     let (ext_cells, cells): (Vec<_>, Vec<_>) =
         component.cells.drain().partition(cell_filter);
     component.cells.append(cells.into_iter());
 
-    for cell_ref in ext_cells {
+    for cell_ref in &ext_cells {
         let cell = cell_ref.borrow();
         log::debug!("`{}' is matches predictate", cell.name());
 
@@ -73,4 +73,5 @@ pub(super) fn dump_ports_to_signature(
                 .insert(canon, Rc::clone(&new_port));
         }
     }
+    ext_cells
 }
