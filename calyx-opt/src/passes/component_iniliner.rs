@@ -390,13 +390,35 @@ impl Visitor for ComponentInliner {
         // If any invoke has more than one binding, error out:
         for (instance, bindings) in &invoke_bindings {
             if bindings.len() > 1 {
+                let bindings_str = bindings
+                    .iter()
+                    .map(|(cells, ports)| {
+                        format!(
+                            "[{}]({})",
+                            cells
+                                .iter()
+                                .map(|(c, cell)| format!(
+                                    "{c}={}",
+                                    cell.borrow().name()
+                                ))
+                                .join(", "),
+                            ports
+                                .iter()
+                                .map(|(p, port)| format!(
+                                    "{p}={}",
+                                    port.borrow().canonical()
+                                ))
+                                .join(", ")
+                        )
+                    })
+                    .join("\n");
                 return Err(
                     Error::pass_assumption(
                         Self::name(),
                         format!(
-                            "Instance `{}.{}` invoked with multiple parameters (currently unsupported)",
+                            "Instance `{}.{instance}` invoked with multiple parameters (currently unsupported):\n{bindings_str}",
                             comp.name,
-                            instance)));
+                        )));
             }
         }
 
@@ -483,20 +505,17 @@ impl Visitor for ComponentInliner {
 
         // Ensure that all invokes use the same parameters and inline the parameter assignments.
         for (instance, mut bindings) in invoke_bindings {
-            if bindings.len() > 1 {
-                return Err(
-                    Error::pass_assumption(
-                        Self::name(),
-                        format!(
-                            "Instance `{}.{}` invoked with multiple parameters (currently unsupported)",
-                            comp.name,
-                            instance)));
-            }
             let Some((_, binding)) = bindings.pop() else {
                 unreachable!("Instance binding is empty");
             };
             let mut assigns = binding
                 .into_iter()
+                .filter(|(_, pr)| {
+                    let port = pr.borrow();
+                    // Skip clk and reset ports
+                    !port.attributes.has(ir::BoolAttr::Clk)
+                        && !port.attributes.has(ir::BoolAttr::Reset)
+                })
                 .map(|(name, param)| {
                     let port = Rc::clone(
                         &interface_rewrites[&ir::Canonical(instance, name)],
