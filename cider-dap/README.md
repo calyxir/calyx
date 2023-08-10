@@ -92,10 +92,10 @@ The following dependencies have been added to the project as specified in the ca
 3. There are changes needed to be done inside run_server:
 ### Additional Command Handling:
 - Incorporate command handlers for other DAP commands:
-- Disconnect: Handle disconnect commands gracefully, ensuring any necessary cleanup is done before closing the server.
-- Breakpoint: Implement functionality to pause execution at specific points.
-- StepOver, StepInto, StepOut: Allow fine-grained control over the debugging process, allowing users to inspect code step-by-step.
-- Evaluate: Handle evaluation requests from the debugger, returning values as needed.
+-  ```Disconnect ```: Handle disconnect commands gracefully, ensuring any necessary cleanup is done before closing the server.
+-  ```Breakpoint ```: Implement functionality to pause execution at specific points.
+-  ```StepOver ```,  ```StepInto ```,  ```StepOut ```: Allow fine-grained control over the debugging process, allowing users to inspect code step-by-step.
+-  ```Evaluate ```: Handle evaluation requests from the debugger, returning values as needed.
 ### Refined Error Handling:
 - Instead of immediate termination on an unknown command, consider logging these events or sending specific error messages back to the client. This provides a more user-friendly debugging experience.
 ### Enhanced Logging:
