@@ -1,5 +1,6 @@
 use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -82,6 +83,42 @@ impl<'a> Rewriter<'a> {
     pub fn get(&self, port_ref: &RRC<ir::Port>) -> Option<RRC<ir::Port>> {
         self.get_port_rewrite(port_ref)
             .or_else(|| self.get_cell_port_rewrite(port_ref))
+    }
+
+    /// Rewrite assignments in a guard
+    pub fn rewrite_guard<T>(&self, guard: &mut ir::Guard<T>) {
+        match guard {
+            ir::Guard::And(l, r) | ir::Guard::Or(l, r) => {
+                self.rewrite_guard(l.borrow_mut());
+                self.rewrite_guard(r.borrow_mut())
+            }
+            ir::Guard::Not(g) => self.rewrite_guard(g.borrow_mut()),
+            ir::Guard::CompOp(_, l, r) => {
+                if let Some(nl) = self.get(l) {
+                    *l = nl;
+                }
+                if let Some(nr) = self.get(r) {
+                    *r = nr;
+                }
+            }
+            ir::Guard::Port(p) => {
+                if let Some(np) = self.get(p) {
+                    *p = np;
+                }
+            }
+            ir::Guard::Info(_) | ir::Guard::True => (),
+        }
+    }
+
+    /// Rewrite an assignment
+    pub fn rewrite_assign<T>(&self, assign: &mut ir::Assignment<T>) {
+        if let Some(dst) = self.get(&assign.dst) {
+            assign.dst = dst;
+        }
+        if let Some(src) = self.get(&assign.src) {
+            assign.src = src;
+        }
+        self.rewrite_guard(&mut assign.guard);
     }
 
     // =========== Control Rewriting Methods =============
