@@ -231,35 +231,25 @@ def insert_pifo(prog, name):
                                 flow_eq_0[0].out,
                                 flow_eq_0[1],
                                 # This value should be pushed to flow 0.
-                                cb.invoke(  # AM: this does not terminate
+                                cb.invoke(
                                     fifo_0,
                                     in_cmd=cmd,
                                     ref_ans=ans,  # Its answer is our answer.
                                     ref_err=err,  # Its error is our error.
                                 ),
-                                # zero_out_ans  # AM: if you'd like to see it
-                                # terminate, just uncomment this line,
-                                # which is just a placeholder,
-                                # and comment out the `invoke` lines above.
-                                # Do the same for the other `cb.invoke` below.
                             ),
                             cb.if_(
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
                                 # This value should be pushed to flow 1.
-                                cb.invoke(  # AM: this does not terminate
+                                cb.invoke(
                                     fifo_1,
                                     in_cmd=cmd,
                                     ref_ans=ans,  # Its answer is our answer.
                                     ref_err=err,  # Its error is our error.
                                 ),
-                                zero_out_ans  # AM: if you'd like to see it
-                                # terminate, just uncomment this line
                             ),
                         ),
-                        # AM: incredibly, the line below is one of the sources of
-                        # non-termination!! Comment it out as well, if you want
-                        # to see the program terminate.
                         len_incr,  # Increment the length.
                         # It is possible that an irrecoverable error was raised above,
                         # in which case the length should _not_ in fact be incremented.
