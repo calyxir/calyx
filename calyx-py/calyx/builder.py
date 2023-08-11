@@ -312,6 +312,10 @@ class ComponentBuilder:
         """Generate a StdAnd cell."""
         return self.cell(name, ast.Stdlib.op("and", size, False))
 
+    def not_(self, name: str, size: int) -> CellBuilder:
+        """Generate a StdNot cell."""
+        return self.cell(name, ast.Stdlib.op("not", size, False))
+
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
         self.prog.import_("primitives/pipelined.futil")

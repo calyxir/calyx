@@ -109,6 +109,20 @@ def insert_sub(comp: cb.ComponentBuilder, left, right, cellname, width):
     return insert_comb_group(comp, left, right, sub_cell, f"{cellname}_group")
 
 
+def insert_bitwise_flip_reg(comp: cb.ComponentBuilder, reg, cellname, width):
+    """Inserts wiring into component {comp} to put the bitwise flip of {reg} into {reg}.
+
+    Returns a handle to the group that does this.
+    """
+    not_cell = comp.not_(cellname, width)
+    with comp.group(f"{cellname}_group") as not_group:
+        not_cell.in_ = reg.out
+        reg.write_en = 1
+        reg.in_ = not_cell.out
+        not_group.done = reg.done
+    return not_group
+
+
 def insert_incr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     """Inserts wiring into component {comp} to increment register {reg} by {val}.
     1. Within component {comp}, creates a group called {cellname}_group.
@@ -228,26 +242,6 @@ def mem_store_seq_d1(comp: cb.ComponentBuilder, mem, i, val, group):
         mem.write_data = val
         store_grp.done = mem.write_done
     return store_grp
-
-
-def reg_swap(comp: cb.ComponentBuilder, a, b, group):
-    """Swaps the values of two registers.
-    1. Within component {comp}, creates a group called {group}.
-    2. Reads the value of {a} into a temporary register.
-    3. Writes the value of {b} into {a}.
-    4. Writes the value of the temporary register into {b}.
-    5. Returns the group that does this.
-    """
-    with comp.group(group) as swap_grp:
-        tmp = comp.reg("tmp", 1)
-        tmp.write_en = 1
-        tmp.in_ = a.out
-        a.write_en = 1
-        a.in_ = b.out
-        b.write_en = 1
-        b.in_ = tmp.out
-        swap_grp.done = b.done
-    return swap_grp
 
 
 def insert_mem_load_to_mem(comp: cb.ComponentBuilder, mem, i, ans, j, group):

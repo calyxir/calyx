@@ -43,7 +43,6 @@ def insert_pifo(prog, name):
     `fifo_0` and `fifo_1`.
     Maintain additionally a register that points to which of these FIFOs is "hot".
     Start off with `hot` pointing to `fifo_0` (arbitrarily).
-    Maintain `cold` that points to the other fifo.
 
     - `push(v, PIFO)`:
        + If len(PIFO) = 10, raise an "overflow" err and exit.
@@ -56,11 +55,11 @@ def insert_pifo(prog, name):
     - `pop(PIFO)`:
        + If `len(PIFO)` = 0, raise an "underflow" flag and exit.
        + Try `pop(FIFO_{hot})`.
-         * If it succeeds it will return a value `v`; just propagate `v`. Also flip
-           `hot` and `cold`.
-         * If it fails because of underflow, return `pop(FIFO_{cold})`.
+         * If it succeeds it will return a value `v`; just propagate `v`.
+            Also flip `hot` so it points to the other FIFO.
+         * If it fails because of underflow, return `pop(FIFO_{not-hot})`.
            If the _second_ pop also fails, propagate the error.
-           Leave `hot` and `cold` as they were.
+           Leave `hot` as it was.
     """
 
     pifo: cb.ComponentBuilder = prog.component(name)
@@ -85,7 +84,6 @@ def insert_pifo(prog, name):
 
     # Two registers that mark the next FIFO to `pop` from
     hot = pifo.reg("hot", 1)
-    cold = pifo.reg("cold", 1)
 
     # Some equality checks.
     hot_eq_0 = util.insert_eq(pifo, hot.out, cb.const(1, 0), "hot_eq_0", 1)  # hot == 0
@@ -101,7 +99,7 @@ def insert_pifo(prog, name):
         pifo, err.out, cb.const(1, 0), "err_neq_0", 1
     )  # err != 0
 
-    swap = util.reg_swap(pifo, hot, cold, "swap")  # Swap `hot` and `cold`.
+    flip_hot = util.insert_bitwise_flip_reg(pifo, hot, "flip_hot", 1)  # Flip `hot`.
     raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
     lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # set `err` to 0
     zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
@@ -164,8 +162,9 @@ def insert_pifo(prog, name):
                                             err_eq_0[1],
                                             [  # `fifo_0` succeeded.
                                                 # Its answer is our answer.
-                                                swap
-                                                # We'll just swap `hot` and `cold`.
+                                                flip_hot
+                                                # We'll just make `hot` point
+                                                # to the other FIFO.
                                             ],
                                         ),
                                     ),
@@ -199,7 +198,7 @@ def insert_pifo(prog, name):
                                         cb.if_(
                                             err_eq_0[0].out,
                                             err_eq_0[1],
-                                            [swap],
+                                            [flip_hot],
                                         ),
                                     ),
                                 ],
