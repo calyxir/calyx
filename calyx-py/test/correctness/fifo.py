@@ -18,7 +18,7 @@ def insert_fifo(prog, name):
     cmd = fifo.input("cmd", 32)
     # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
 
-    mem = fifo.seq_mem_d1("mem", 32, 10, 32)
+    mem = fifo.mem_d1("mem", 32, 10, 32)
     write = fifo.reg("next_write", 32)  # The next address to write to
     read = fifo.reg("next_read", 32)  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
@@ -61,14 +61,11 @@ def insert_fifo(prog, name):
     zero_out_ans = util.insert_reg_store(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
 
     # Load and store into an arbitary slot in memory
-    write_to_mem = util.mem_store_seq_d1(
+    write_to_mem = util.mem_store_std_d1(
         fifo, mem, write.out, cmd, "write_payload_to_mem"
     )
-    read_from_mem = util.mem_read_seqd1(
-        fifo, mem, read.out, "read_payload_from_mem_phase1"
-    )
-    write_to_ans = util.mem_write_seqd1_to_reg(
-        fifo, mem, ans, "read_payload_from_mem_phase2"
+    load_from_mem = util.mem_load_std_d1(
+        fifo, mem, read.out, ans, "load_payload_from_mem"
     )
 
     fifo.control += [
@@ -84,8 +81,7 @@ def insert_fifo(prog, name):
                     len_eq_0[1],
                     [raise_err, zero_out_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
-                        read_from_mem,  # Read from the queue.
-                        write_to_ans,  # Write the answer to the answer register.
+                        load_from_mem,  # Read from the queue and write to `ans`.
                         read_incr,  # Increment the read pointer.
                         cb.if_(
                             # Wrap around if necessary.
@@ -106,8 +102,7 @@ def insert_fifo(prog, name):
                     len_eq_0[1],
                     [raise_err, zero_out_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
-                        read_from_mem,  # Read from the queue.
-                        write_to_ans,  # Write the answer to the answer register.
+                        load_from_mem,  # Read from the queue and write to `ans`.
                         # But don't increment the read pointer or change the length.
                     ],
                 ),
