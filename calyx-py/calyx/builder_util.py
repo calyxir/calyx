@@ -110,7 +110,7 @@ def insert_sub(comp: cb.ComponentBuilder, left, right, cellname, width):
 
 
 def insert_bitwise_flip_reg(comp: cb.ComponentBuilder, reg, cellname, width):
-    """Inserts wiring into component {comp} to put the bitwise flip of {reg} into {reg}.
+    """Inserts wiring into component {comp} to bitwise-flip the contents of {reg}.
 
     Returns a handle to the group that does this.
     """
@@ -159,6 +159,19 @@ def insert_decr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     return decr_group
 
 
+def insert_reg_store(comp: cb.ComponentBuilder, reg, val, group):
+    """Stores a value in a register.
+    1. Within component {comp}, creates a group called {group}.
+    2. Within {group}, sets the register {reg} to {val}.
+    3. Returns the group that does this.
+    """
+    with comp.group(group) as reg_grp:
+        reg.in_ = val
+        reg.write_en = 1
+        reg_grp.done = reg.done
+    return reg_grp
+
+
 def mem_load_std_d1(comp: cb.ComponentBuilder, mem, i, reg, group):
     """Loads a value from one memory (std_d1) into a register.
     1. Within component {comp}, creates a group called {group}.
@@ -191,22 +204,14 @@ def mem_store_std_d1(comp: cb.ComponentBuilder, mem, i, val, group):
     return store_grp
 
 
-def insert_reg_store(comp: cb.ComponentBuilder, reg, val, group):
-    """Stores a value in a register.
-    1. Within component {comp}, creates a group called {group}.
-    2. Within {group}, sets the register {reg} to {val}.
-    3. Returns the group that does this.
-    """
-    with comp.group(group) as reg_grp:
-        reg.in_ = val
-        reg.write_en = 1
-        reg_grp.done = reg.done
-    return reg_grp
-
-
 def mem_read_seq_d1(comp: cb.ComponentBuilder, mem, i, group):
     """Given a seq_mem_d1, reads from memory at address i.
     Note that this does not write the value anywhere.
+
+    1. Within component {comp}, creates a group called {group}.
+    2. Within {group}, reads from memory {mem} at address {i},
+       thereby "latching" the value.
+    3. Returns the group that does this.
     """
     assert mem.is_seq_mem_d1()
     with comp.group(group) as read_grp:
@@ -219,6 +224,11 @@ def mem_read_seq_d1(comp: cb.ComponentBuilder, mem, i, group):
 def mem_write_seq_d1_to_reg(comp: cb.ComponentBuilder, mem, reg, group):
     """Given a seq_mem_d1 that is already assumed to have a latched value,
     reads the latched value and writes it to a register.
+
+    1. Within component {comp}, creates a group called {group}.
+    2. Within {group}, reads from memory {mem}.
+    3. Writes the value into register {reg}.
+    4. Returns the group that does this.
     """
     assert mem.is_seq_mem_d1()
     with comp.group(group) as write_grp:
@@ -229,7 +239,8 @@ def mem_write_seq_d1_to_reg(comp: cb.ComponentBuilder, mem, reg, group):
 
 
 def mem_store_seq_d1(comp: cb.ComponentBuilder, mem, i, val, group):
-    """Stores a value from one memory into another.
+    """Given a seq_mem_d1, stores a value into memory at address i.
+
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, reads from {val}.
     3. Writes the value into memory {mem} at address i.
