@@ -1,0 +1,18 @@
+import "primitives/compile.futil";
+component main<"toplevel"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    opt = std_wire(32);
+    r = std_reg(32);
+    r0 = std_reg(1);
+    r1 = std_reg(1);
+    r2 = std_reg(1);
+  }
+  wires {
+    r.in = opt.out;
+    r.write_en = 1'd1;
+    opt.in = r0.out ? 32'd10;
+    opt.in = r1.out ? 32'd20;
+    out = r2.out ? opt.out;
+  }
+  control {}
+}

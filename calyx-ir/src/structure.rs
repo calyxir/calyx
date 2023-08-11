@@ -469,6 +469,26 @@ pub struct Assignment<T> {
 }
 
 impl<T> Assignment<T> {
+    /// Build a new unguarded assignment
+    pub fn new(dst: RRC<Port>, src: RRC<Port>) -> Self {
+        assert!(
+            dst.borrow().direction == Direction::Input,
+            "{} is not in input port",
+            dst.borrow().canonical()
+        );
+        assert!(
+            src.borrow().direction == Direction::Output,
+            "{} is not in output port",
+            src.borrow().canonical()
+        );
+        Self {
+            dst,
+            src,
+            guard: Box::new(Guard::True),
+            attributes: Attributes::default(),
+        }
+    }
+
     /// Apply function `f` to each port contained within the assignment and
     /// replace the port with the generated value if not None.
     pub fn for_each_port<F>(&mut self, mut f: F)
