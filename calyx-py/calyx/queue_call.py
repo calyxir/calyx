@@ -82,8 +82,8 @@ def insert_main(prog, queue):
         main, cmd.out, cb.const(32, 0), "cmd_neq_0", 32
     )  # cmd != 0
 
-    read_cmd = util.mem_read_seqd1(main, commands, i.out, "read_cmd_phase1")
-    write_cmd_to_reg = util.mem_write_seqd1_to_reg(
+    read_cmd = util.mem_read_seq_d1(main, commands, i.out, "read_cmd_phase1")
+    write_cmd_to_reg = util.mem_write_seq_d1_to_reg(
         main, commands, cmd, "write_cmd_phase2"
     )
 

@@ -190,7 +190,7 @@ def insert_reg_store(comp: cb.ComponentBuilder, reg, val, group):
     return reg_grp
 
 
-def mem_read_seqd1(comp: cb.ComponentBuilder, mem, i, group):
+def mem_read_seq_d1(comp: cb.ComponentBuilder, mem, i, group):
     """Given a seq_mem_d1, reads from memory at address i.
     Note that this does not write the value anywhere.
     """
@@ -202,7 +202,7 @@ def mem_read_seqd1(comp: cb.ComponentBuilder, mem, i, group):
     return read_grp
 
 
-def mem_write_seqd1_to_reg(comp: cb.ComponentBuilder, mem, reg, group):
+def mem_write_seq_d1_to_reg(comp: cb.ComponentBuilder, mem, reg, group):
     """Given a seq_mem_d1 that is already assumed to have a latched value,
     reads the latched value and writes it to a register.
     """
