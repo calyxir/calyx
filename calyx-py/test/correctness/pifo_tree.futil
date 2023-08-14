@@ -1,0 +1,1068 @@
+import "primitives/core.futil";
+import "primitives/memories.futil";
+import "primitives/binary_operators.futil";
+component fifo_purple(cmd: 32) -> () {
+  cells {
+    mem = seq_mem_d1(32, 10, 32);
+    next_write = std_reg(32);
+    next_read = std_reg(32);
+    ref ans = std_reg(32);
+    ref err = std_reg(1);
+    len = std_reg(32);
+    cmd_eq_0 = std_eq(32);
+    cmd_eq_1 = std_eq(32);
+    cmd_gt_1 = std_gt(32);
+    write_eq_10 = std_eq(32);
+    read_eq_10 = std_eq(32);
+    len_eq_0 = std_eq(32);
+    len_eq_10 = std_eq(32);
+    write_incr = std_add(32);
+    read_incr = std_add(32);
+    len_incr = std_add(32);
+    len_decr = std_sub(32);
+  }
+  wires {
+    comb group cmd_eq_0_group {
+      cmd_eq_0.left = cmd;
+      cmd_eq_0.right = 32'd0;
+    }
+    comb group cmd_eq_1_group {
+      cmd_eq_1.left = cmd;
+      cmd_eq_1.right = 32'd1;
+    }
+    comb group cmd_gt_1_group {
+      cmd_gt_1.left = cmd;
+      cmd_gt_1.right = 32'd1;
+    }
+    comb group write_eq_10_group {
+      write_eq_10.left = next_write.out;
+      write_eq_10.right = 32'd10;
+    }
+    comb group read_eq_10_group {
+      read_eq_10.left = next_read.out;
+      read_eq_10.right = 32'd10;
+    }
+    comb group len_eq_0_group {
+      len_eq_0.left = len.out;
+      len_eq_0.right = 32'd0;
+    }
+    comb group len_eq_10_group {
+      len_eq_10.left = len.out;
+      len_eq_10.right = 32'd10;
+    }
+    group write_incr_group {
+      write_incr.left = next_write.out;
+      write_incr.right = 32'd1;
+      next_write.write_en = 1'd1;
+      next_write.in = write_incr.out;
+      write_incr_group[done] = next_write.done;
+    }
+    group read_incr_group {
+      read_incr.left = next_read.out;
+      read_incr.right = 32'd1;
+      next_read.write_en = 1'd1;
+      next_read.in = read_incr.out;
+      read_incr_group[done] = next_read.done;
+    }
+    group len_incr_group {
+      len_incr.left = len.out;
+      len_incr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_incr.out;
+      len_incr_group[done] = len.done;
+    }
+    group len_decr_group {
+      len_decr.left = len.out;
+      len_decr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_decr.out;
+      len_decr_group[done] = len.done;
+    }
+    group write_wraparound {
+      next_write.in = 32'd0;
+      next_write.write_en = 1'd1;
+      write_wraparound[done] = next_write.done;
+    }
+    group read_wraparound {
+      next_read.in = 32'd0;
+      next_read.write_en = 1'd1;
+      read_wraparound[done] = next_read.done;
+    }
+    group raise_err {
+      err.in = 1'd1;
+      err.write_en = 1'd1;
+      raise_err[done] = err.done;
+    }
+    group zero_out_ans {
+      ans.in = 32'd0;
+      ans.write_en = 1'd1;
+      zero_out_ans[done] = ans.done;
+    }
+    group write_payload_to_mem {
+      mem.addr0 = next_write.out;
+      mem.write_en = 1'd1;
+      mem.write_data = cmd;
+      write_payload_to_mem[done] = mem.write_done;
+    }
+    group read_payload_from_mem_phase1 {
+      mem.addr0 = next_read.out;
+      mem.read_en = 1'd1;
+      read_payload_from_mem_phase1[done] = mem.read_done;
+    }
+    group read_payload_from_mem_phase2 {
+      ans.write_en = 1'd1;
+      ans.in = mem.read_data;
+      read_payload_from_mem_phase2[done] = ans.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        if cmd_eq_0.out with cmd_eq_0_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              read_payload_from_mem_phase1;
+              read_payload_from_mem_phase2;
+              read_incr_group;
+              if read_eq_10.out with read_eq_10_group {
+                read_wraparound;
+              }
+              len_decr_group;
+            }
+          }
+        }
+        if cmd_eq_1.out with cmd_eq_1_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              read_payload_from_mem_phase1;
+              read_payload_from_mem_phase2;
+            }
+          }
+        }
+        if cmd_gt_1.out with cmd_gt_1_group {
+          if len_eq_10.out with len_eq_10_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              write_payload_to_mem;
+              write_incr_group;
+              if write_eq_10.out with write_eq_10_group {
+                write_wraparound;
+              }
+              len_incr_group;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component fifo_tangerine(cmd: 32) -> () {
+  cells {
+    mem = seq_mem_d1(32, 10, 32);
+    next_write = std_reg(32);
+    next_read = std_reg(32);
+    ref ans = std_reg(32);
+    ref err = std_reg(1);
+    len = std_reg(32);
+    cmd_eq_0 = std_eq(32);
+    cmd_eq_1 = std_eq(32);
+    cmd_gt_1 = std_gt(32);
+    write_eq_10 = std_eq(32);
+    read_eq_10 = std_eq(32);
+    len_eq_0 = std_eq(32);
+    len_eq_10 = std_eq(32);
+    write_incr = std_add(32);
+    read_incr = std_add(32);
+    len_incr = std_add(32);
+    len_decr = std_sub(32);
+  }
+  wires {
+    comb group cmd_eq_0_group {
+      cmd_eq_0.left = cmd;
+      cmd_eq_0.right = 32'd0;
+    }
+    comb group cmd_eq_1_group {
+      cmd_eq_1.left = cmd;
+      cmd_eq_1.right = 32'd1;
+    }
+    comb group cmd_gt_1_group {
+      cmd_gt_1.left = cmd;
+      cmd_gt_1.right = 32'd1;
+    }
+    comb group write_eq_10_group {
+      write_eq_10.left = next_write.out;
+      write_eq_10.right = 32'd10;
+    }
+    comb group read_eq_10_group {
+      read_eq_10.left = next_read.out;
+      read_eq_10.right = 32'd10;
+    }
+    comb group len_eq_0_group {
+      len_eq_0.left = len.out;
+      len_eq_0.right = 32'd0;
+    }
+    comb group len_eq_10_group {
+      len_eq_10.left = len.out;
+      len_eq_10.right = 32'd10;
+    }
+    group write_incr_group {
+      write_incr.left = next_write.out;
+      write_incr.right = 32'd1;
+      next_write.write_en = 1'd1;
+      next_write.in = write_incr.out;
+      write_incr_group[done] = next_write.done;
+    }
+    group read_incr_group {
+      read_incr.left = next_read.out;
+      read_incr.right = 32'd1;
+      next_read.write_en = 1'd1;
+      next_read.in = read_incr.out;
+      read_incr_group[done] = next_read.done;
+    }
+    group len_incr_group {
+      len_incr.left = len.out;
+      len_incr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_incr.out;
+      len_incr_group[done] = len.done;
+    }
+    group len_decr_group {
+      len_decr.left = len.out;
+      len_decr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_decr.out;
+      len_decr_group[done] = len.done;
+    }
+    group write_wraparound {
+      next_write.in = 32'd0;
+      next_write.write_en = 1'd1;
+      write_wraparound[done] = next_write.done;
+    }
+    group read_wraparound {
+      next_read.in = 32'd0;
+      next_read.write_en = 1'd1;
+      read_wraparound[done] = next_read.done;
+    }
+    group raise_err {
+      err.in = 1'd1;
+      err.write_en = 1'd1;
+      raise_err[done] = err.done;
+    }
+    group zero_out_ans {
+      ans.in = 32'd0;
+      ans.write_en = 1'd1;
+      zero_out_ans[done] = ans.done;
+    }
+    group write_payload_to_mem {
+      mem.addr0 = next_write.out;
+      mem.write_en = 1'd1;
+      mem.write_data = cmd;
+      write_payload_to_mem[done] = mem.write_done;
+    }
+    group read_payload_from_mem_phase1 {
+      mem.addr0 = next_read.out;
+      mem.read_en = 1'd1;
+      read_payload_from_mem_phase1[done] = mem.read_done;
+    }
+    group read_payload_from_mem_phase2 {
+      ans.write_en = 1'd1;
+      ans.in = mem.read_data;
+      read_payload_from_mem_phase2[done] = ans.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        if cmd_eq_0.out with cmd_eq_0_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              read_payload_from_mem_phase1;
+              read_payload_from_mem_phase2;
+              read_incr_group;
+              if read_eq_10.out with read_eq_10_group {
+                read_wraparound;
+              }
+              len_decr_group;
+            }
+          }
+        }
+        if cmd_eq_1.out with cmd_eq_1_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              read_payload_from_mem_phase1;
+              read_payload_from_mem_phase2;
+            }
+          }
+        }
+        if cmd_gt_1.out with cmd_gt_1_group {
+          if len_eq_10.out with len_eq_10_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              write_payload_to_mem;
+              write_incr_group;
+              if write_eq_10.out with write_eq_10_group {
+                write_wraparound;
+              }
+              len_incr_group;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component pifo_red(cmd: 32) -> () {
+  cells {
+    queue_l = fifo_purple();
+    queue_r = fifo_tangerine();
+    flow = std_reg(1);
+    flow_inf = std_lt(32);
+    ref ans = std_reg(32);
+    ref err = std_reg(1);
+    len = std_reg(32);
+    hot = std_reg(1);
+    hot_eq_0 = std_eq(1);
+    hot_eq_1 = std_eq(1);
+    flow_eq_0 = std_eq(1);
+    flow_eq_1 = std_eq(1);
+    len_eq_0 = std_eq(32);
+    len_eq_10 = std_eq(32);
+    cmd_eq_0 = std_eq(32);
+    cmd_eq_1 = std_eq(32);
+    cmd_gt_1 = std_gt(32);
+    err_eq_0 = std_eq(1);
+    err_neq_0 = std_neq(1);
+    flip_hot = std_not(1);
+    len_incr = std_add(32);
+    len_decr = std_sub(32);
+  }
+  wires {
+    group infer_flow {
+      flow_inf.left = 32'd100;
+      flow_inf.right = cmd;
+      flow.write_en = 1'd1;
+      flow.in = flow_inf.out;
+      infer_flow[done] = flow.done;
+    }
+    comb group hot_eq_0_group {
+      hot_eq_0.left = hot.out;
+      hot_eq_0.right = 1'd0;
+    }
+    comb group hot_eq_1_group {
+      hot_eq_1.left = hot.out;
+      hot_eq_1.right = 1'd1;
+    }
+    comb group flow_eq_0_group {
+      flow_eq_0.left = flow.out;
+      flow_eq_0.right = 1'd0;
+    }
+    comb group flow_eq_1_group {
+      flow_eq_1.left = flow.out;
+      flow_eq_1.right = 1'd1;
+    }
+    comb group len_eq_0_group {
+      len_eq_0.left = len.out;
+      len_eq_0.right = 32'd0;
+    }
+    comb group len_eq_10_group {
+      len_eq_10.left = len.out;
+      len_eq_10.right = 32'd10;
+    }
+    comb group cmd_eq_0_group {
+      cmd_eq_0.left = cmd;
+      cmd_eq_0.right = 32'd0;
+    }
+    comb group cmd_eq_1_group {
+      cmd_eq_1.left = cmd;
+      cmd_eq_1.right = 32'd1;
+    }
+    comb group cmd_gt_1_group {
+      cmd_gt_1.left = cmd;
+      cmd_gt_1.right = 32'd1;
+    }
+    comb group err_eq_0_group {
+      err_eq_0.left = err.out;
+      err_eq_0.right = 1'd0;
+    }
+    comb group err_neq_0_group {
+      err_neq_0.left = err.out;
+      err_neq_0.right = 1'd0;
+    }
+    group flip_hot_group {
+      flip_hot.in = hot.out;
+      hot.write_en = 1'd1;
+      hot.in = flip_hot.out;
+      flip_hot_group[done] = hot.done;
+    }
+    group raise_err {
+      err.in = 1'd1;
+      err.write_en = 1'd1;
+      raise_err[done] = err.done;
+    }
+    group lower_err {
+      err.in = 1'd0;
+      err.write_en = 1'd1;
+      lower_err[done] = err.done;
+    }
+    group zero_out_ans {
+      ans.in = 32'd0;
+      ans.write_en = 1'd1;
+      zero_out_ans[done] = ans.done;
+    }
+    group len_incr_group {
+      len_incr.left = len.out;
+      len_incr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_incr.out;
+      len_incr_group[done] = len.done;
+    }
+    group len_decr_group {
+      len_decr.left = len.out;
+      len_decr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_decr.out;
+      len_decr_group[done] = len.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        if cmd_eq_0.out with cmd_eq_0_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              lower_err;
+              par {
+                if hot_eq_0.out with hot_eq_0_group {
+                  seq {
+                    invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                    par {
+                      if err_neq_0.out with err_neq_0_group {
+                        seq {
+                          lower_err;
+                          invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                        }
+                      }
+                      if err_eq_0.out with err_eq_0_group {
+                        seq {
+                          flip_hot_group;
+                        }
+                      }
+                    }
+                  }
+                }
+                if hot_eq_1.out with hot_eq_1_group {
+                  seq {
+                    invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                    par {
+                      if err_neq_0.out with err_neq_0_group {
+                        seq {
+                          lower_err;
+                          invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                        }
+                      }
+                      if err_eq_0.out with err_eq_0_group {
+                        seq {
+                          flip_hot_group;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              len_decr_group;
+            }
+          }
+        }
+        if cmd_eq_1.out with cmd_eq_1_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              lower_err;
+              par {
+                if hot_eq_0.out with hot_eq_0_group {
+                  seq {
+                    invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                    if err_neq_0.out with err_neq_0_group {
+                      seq {
+                        lower_err;
+                        invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                      }
+                    }
+                  }
+                }
+                if hot_eq_1.out with hot_eq_1_group {
+                  seq {
+                    invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                    if err_neq_0.out with err_neq_0_group {
+                      seq {
+                        lower_err;
+                        invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        if cmd_gt_1.out with cmd_gt_1_group {
+          if len_eq_10.out with len_eq_10_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              lower_err;
+              infer_flow;
+              par {
+                if flow_eq_0.out with flow_eq_0_group {
+                  invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                }
+                if flow_eq_1.out with flow_eq_1_group {
+                  invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                }
+              }
+              len_incr_group;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component fifo_blue(cmd: 32) -> () {
+  cells {
+    mem = seq_mem_d1(32, 10, 32);
+    next_write = std_reg(32);
+    next_read = std_reg(32);
+    ref ans = std_reg(32);
+    ref err = std_reg(1);
+    len = std_reg(32);
+    cmd_eq_0 = std_eq(32);
+    cmd_eq_1 = std_eq(32);
+    cmd_gt_1 = std_gt(32);
+    write_eq_10 = std_eq(32);
+    read_eq_10 = std_eq(32);
+    len_eq_0 = std_eq(32);
+    len_eq_10 = std_eq(32);
+    write_incr = std_add(32);
+    read_incr = std_add(32);
+    len_incr = std_add(32);
+    len_decr = std_sub(32);
+  }
+  wires {
+    comb group cmd_eq_0_group {
+      cmd_eq_0.left = cmd;
+      cmd_eq_0.right = 32'd0;
+    }
+    comb group cmd_eq_1_group {
+      cmd_eq_1.left = cmd;
+      cmd_eq_1.right = 32'd1;
+    }
+    comb group cmd_gt_1_group {
+      cmd_gt_1.left = cmd;
+      cmd_gt_1.right = 32'd1;
+    }
+    comb group write_eq_10_group {
+      write_eq_10.left = next_write.out;
+      write_eq_10.right = 32'd10;
+    }
+    comb group read_eq_10_group {
+      read_eq_10.left = next_read.out;
+      read_eq_10.right = 32'd10;
+    }
+    comb group len_eq_0_group {
+      len_eq_0.left = len.out;
+      len_eq_0.right = 32'd0;
+    }
+    comb group len_eq_10_group {
+      len_eq_10.left = len.out;
+      len_eq_10.right = 32'd10;
+    }
+    group write_incr_group {
+      write_incr.left = next_write.out;
+      write_incr.right = 32'd1;
+      next_write.write_en = 1'd1;
+      next_write.in = write_incr.out;
+      write_incr_group[done] = next_write.done;
+    }
+    group read_incr_group {
+      read_incr.left = next_read.out;
+      read_incr.right = 32'd1;
+      next_read.write_en = 1'd1;
+      next_read.in = read_incr.out;
+      read_incr_group[done] = next_read.done;
+    }
+    group len_incr_group {
+      len_incr.left = len.out;
+      len_incr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_incr.out;
+      len_incr_group[done] = len.done;
+    }
+    group len_decr_group {
+      len_decr.left = len.out;
+      len_decr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_decr.out;
+      len_decr_group[done] = len.done;
+    }
+    group write_wraparound {
+      next_write.in = 32'd0;
+      next_write.write_en = 1'd1;
+      write_wraparound[done] = next_write.done;
+    }
+    group read_wraparound {
+      next_read.in = 32'd0;
+      next_read.write_en = 1'd1;
+      read_wraparound[done] = next_read.done;
+    }
+    group raise_err {
+      err.in = 1'd1;
+      err.write_en = 1'd1;
+      raise_err[done] = err.done;
+    }
+    group zero_out_ans {
+      ans.in = 32'd0;
+      ans.write_en = 1'd1;
+      zero_out_ans[done] = ans.done;
+    }
+    group write_payload_to_mem {
+      mem.addr0 = next_write.out;
+      mem.write_en = 1'd1;
+      mem.write_data = cmd;
+      write_payload_to_mem[done] = mem.write_done;
+    }
+    group read_payload_from_mem_phase1 {
+      mem.addr0 = next_read.out;
+      mem.read_en = 1'd1;
+      read_payload_from_mem_phase1[done] = mem.read_done;
+    }
+    group read_payload_from_mem_phase2 {
+      ans.write_en = 1'd1;
+      ans.in = mem.read_data;
+      read_payload_from_mem_phase2[done] = ans.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        if cmd_eq_0.out with cmd_eq_0_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              read_payload_from_mem_phase1;
+              read_payload_from_mem_phase2;
+              read_incr_group;
+              if read_eq_10.out with read_eq_10_group {
+                read_wraparound;
+              }
+              len_decr_group;
+            }
+          }
+        }
+        if cmd_eq_1.out with cmd_eq_1_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              read_payload_from_mem_phase1;
+              read_payload_from_mem_phase2;
+            }
+          }
+        }
+        if cmd_gt_1.out with cmd_gt_1_group {
+          if len_eq_10.out with len_eq_10_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              write_payload_to_mem;
+              write_incr_group;
+              if write_eq_10.out with write_eq_10_group {
+                write_wraparound;
+              }
+              len_incr_group;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component pifo(cmd: 32) -> () {
+  cells {
+    queue_l = pifo_red();
+    queue_r = fifo_blue();
+    flow = std_reg(1);
+    flow_inf = std_lt(32);
+    ref ans = std_reg(32);
+    ref err = std_reg(1);
+    len = std_reg(32);
+    hot = std_reg(1);
+    hot_eq_0 = std_eq(1);
+    hot_eq_1 = std_eq(1);
+    flow_eq_0 = std_eq(1);
+    flow_eq_1 = std_eq(1);
+    len_eq_0 = std_eq(32);
+    len_eq_10 = std_eq(32);
+    cmd_eq_0 = std_eq(32);
+    cmd_eq_1 = std_eq(32);
+    cmd_gt_1 = std_gt(32);
+    err_eq_0 = std_eq(1);
+    err_neq_0 = std_neq(1);
+    flip_hot = std_not(1);
+    len_incr = std_add(32);
+    len_decr = std_sub(32);
+  }
+  wires {
+    group infer_flow {
+      flow_inf.left = 32'd200;
+      flow_inf.right = cmd;
+      flow.write_en = 1'd1;
+      flow.in = flow_inf.out;
+      infer_flow[done] = flow.done;
+    }
+    comb group hot_eq_0_group {
+      hot_eq_0.left = hot.out;
+      hot_eq_0.right = 1'd0;
+    }
+    comb group hot_eq_1_group {
+      hot_eq_1.left = hot.out;
+      hot_eq_1.right = 1'd1;
+    }
+    comb group flow_eq_0_group {
+      flow_eq_0.left = flow.out;
+      flow_eq_0.right = 1'd0;
+    }
+    comb group flow_eq_1_group {
+      flow_eq_1.left = flow.out;
+      flow_eq_1.right = 1'd1;
+    }
+    comb group len_eq_0_group {
+      len_eq_0.left = len.out;
+      len_eq_0.right = 32'd0;
+    }
+    comb group len_eq_10_group {
+      len_eq_10.left = len.out;
+      len_eq_10.right = 32'd10;
+    }
+    comb group cmd_eq_0_group {
+      cmd_eq_0.left = cmd;
+      cmd_eq_0.right = 32'd0;
+    }
+    comb group cmd_eq_1_group {
+      cmd_eq_1.left = cmd;
+      cmd_eq_1.right = 32'd1;
+    }
+    comb group cmd_gt_1_group {
+      cmd_gt_1.left = cmd;
+      cmd_gt_1.right = 32'd1;
+    }
+    comb group err_eq_0_group {
+      err_eq_0.left = err.out;
+      err_eq_0.right = 1'd0;
+    }
+    comb group err_neq_0_group {
+      err_neq_0.left = err.out;
+      err_neq_0.right = 1'd0;
+    }
+    group flip_hot_group {
+      flip_hot.in = hot.out;
+      hot.write_en = 1'd1;
+      hot.in = flip_hot.out;
+      flip_hot_group[done] = hot.done;
+    }
+    group raise_err {
+      err.in = 1'd1;
+      err.write_en = 1'd1;
+      raise_err[done] = err.done;
+    }
+    group lower_err {
+      err.in = 1'd0;
+      err.write_en = 1'd1;
+      lower_err[done] = err.done;
+    }
+    group zero_out_ans {
+      ans.in = 32'd0;
+      ans.write_en = 1'd1;
+      zero_out_ans[done] = ans.done;
+    }
+    group len_incr_group {
+      len_incr.left = len.out;
+      len_incr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_incr.out;
+      len_incr_group[done] = len.done;
+    }
+    group len_decr_group {
+      len_decr.left = len.out;
+      len_decr.right = 32'd1;
+      len.write_en = 1'd1;
+      len.in = len_decr.out;
+      len_decr_group[done] = len.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        if cmd_eq_0.out with cmd_eq_0_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              lower_err;
+              par {
+                if hot_eq_0.out with hot_eq_0_group {
+                  seq {
+                    invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                    par {
+                      if err_neq_0.out with err_neq_0_group {
+                        seq {
+                          lower_err;
+                          invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                        }
+                      }
+                      if err_eq_0.out with err_eq_0_group {
+                        seq {
+                          flip_hot_group;
+                        }
+                      }
+                    }
+                  }
+                }
+                if hot_eq_1.out with hot_eq_1_group {
+                  seq {
+                    invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                    par {
+                      if err_neq_0.out with err_neq_0_group {
+                        seq {
+                          lower_err;
+                          invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                        }
+                      }
+                      if err_eq_0.out with err_eq_0_group {
+                        seq {
+                          flip_hot_group;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              len_decr_group;
+            }
+          }
+        }
+        if cmd_eq_1.out with cmd_eq_1_group {
+          if len_eq_0.out with len_eq_0_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              lower_err;
+              par {
+                if hot_eq_0.out with hot_eq_0_group {
+                  seq {
+                    invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                    if err_neq_0.out with err_neq_0_group {
+                      seq {
+                        lower_err;
+                        invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                      }
+                    }
+                  }
+                }
+                if hot_eq_1.out with hot_eq_1_group {
+                  seq {
+                    invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                    if err_neq_0.out with err_neq_0_group {
+                      seq {
+                        lower_err;
+                        invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        if cmd_gt_1.out with cmd_gt_1_group {
+          if len_eq_10.out with len_eq_10_group {
+            seq {
+              raise_err;
+              zero_out_ans;
+            }
+          } else {
+            seq {
+              lower_err;
+              infer_flow;
+              par {
+                if flow_eq_0.out with flow_eq_0_group {
+                  invoke queue_l[ans=ans, err=err](cmd=cmd)();
+                }
+                if flow_eq_1.out with flow_eq_1_group {
+                  invoke queue_r[ans=ans, err=err](cmd=cmd)();
+                }
+              }
+              len_incr_group;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component main() -> () {
+  cells {
+    @external commands = seq_mem_d1(32, 15, 32);
+    @external ans_mem = seq_mem_d1(32, 10, 32);
+    myqueue = pifo();
+    raise_err_if_i_eq_15 = raise_err_if_i_eq_15();
+    err = std_reg(1);
+    ans = std_reg(32);
+    i = std_reg(32);
+    j = std_reg(32);
+    command = std_reg(32);
+    incr_i = std_add(32);
+    incr_j = std_add(32);
+    err_eq_0 = std_eq(1);
+    cmd_le_1 = std_le(32);
+  }
+  wires {
+    group incr_i_group {
+      incr_i.left = i.out;
+      incr_i.right = 32'd1;
+      i.write_en = 1'd1;
+      i.in = incr_i.out;
+      incr_i_group[done] = i.done;
+    }
+    group incr_j_group {
+      incr_j.left = j.out;
+      incr_j.right = 32'd1;
+      j.write_en = 1'd1;
+      j.in = incr_j.out;
+      incr_j_group[done] = j.done;
+    }
+    comb group err_eq_0_group {
+      err_eq_0.left = err.out;
+      err_eq_0.right = 1'd0;
+    }
+    comb group cmd_le_1_group {
+      cmd_le_1.left = command.out;
+      cmd_le_1.right = 32'd1;
+    }
+    group read_cmd_phase1 {
+      commands.addr0 = i.out;
+      commands.read_en = 1'd1;
+      read_cmd_phase1[done] = commands.read_done;
+    }
+    group write_cmd_phase2 {
+      command.write_en = 1'd1;
+      command.in = commands.read_data;
+      write_cmd_phase2[done] = command.done;
+    }
+    group write_ans {
+      ans_mem.addr0 = j.out;
+      ans_mem.write_en = 1'd1;
+      ans_mem.write_data = ans.out;
+      write_ans[done] = ans_mem.write_done;
+    }
+  }
+  control {
+    seq {
+      while err_eq_0.out with err_eq_0_group {
+        seq {
+          read_cmd_phase1;
+          write_cmd_phase2;
+          invoke myqueue[ans=ans, err=err](cmd=command.out)();
+          if cmd_le_1.out with cmd_le_1_group {
+            seq {
+              write_ans;
+              incr_j_group;
+            }
+          }
+          incr_i_group;
+          invoke raise_err_if_i_eq_15[err=err](i=i.out)();
+        }
+      }
+    }
+  }
+}
+component raise_err_if_i_eq_15(i: 32) -> () {
+  cells {
+    ref err = std_reg(1);
+    i_eq_15 = std_eq(32);
+  }
+  wires {
+    comb group i_eq_15_group {
+      i_eq_15.left = i;
+      i_eq_15.right = 32'd15;
+    }
+    group raise_err {
+      err.in = 1'd1;
+      err.write_en = 1'd1;
+      raise_err[done] = err.done;
+    }
+  }
+  control {
+    seq {
+      if i_eq_15.out with i_eq_15_group {
+        raise_err;
+      }
+    }
+  }
+}
