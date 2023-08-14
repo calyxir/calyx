@@ -11,7 +11,7 @@ def insert_fifo(prog, name):
     - one input, `cmd`.
     - one memory, `mem`, of size 10.
     - two registers, `next_write` and `next_read`.
-    - three ref registers, `ans` and `err`.
+    - two ref registers, `ans` and `err`.
     """
 
     fifo: cb.ComponentBuilder = prog.component(name)
