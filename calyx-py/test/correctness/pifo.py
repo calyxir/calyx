@@ -26,6 +26,20 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
     return infer_flow_grp
 
 
+def invoke_fifo(fifo_cell, cmd, ans, err) -> cb.invoke:
+    """Invokes the cell {fifo_cell} with:
+    {cmd} passed by value
+    {ans} passed by reference
+    {err} passed by reference
+    """
+    return cb.invoke(
+        fifo_cell,
+        in_cmd=cmd,
+        ref_ans=ans,
+        ref_err=err,
+    )
+
+
 def insert_pifo(prog, name):
     """Inserts the component `pifo` into the program.
 
@@ -128,12 +142,7 @@ def insert_pifo(prog, name):
                                 hot_eq_0[0].out,
                                 hot_eq_0[1],
                                 [  # `hot` is 0. We'll invoke `pop` on `fifo_0`.
-                                    cb.invoke(  # First we call pop
-                                        fifo_0,
-                                        in_cmd=cmd,
-                                        ref_ans=ans,  # Its answer is our answer.
-                                        ref_err=err,
-                                    ),
+                                    invoke_fifo(fifo_0, cmd, ans, err),
                                     # Our next step depends on whether `fifo_0`
                                     # raised the error flag.
                                     # We can check these cases in parallel.
@@ -145,15 +154,7 @@ def insert_pifo(prog, name):
                                                 # We'll try to pop from `fifo_1`.
                                                 # We'll pass it a lowered err
                                                 lower_err,
-                                                cb.invoke(
-                                                    fifo_1,
-                                                    in_cmd=cmd,
-                                                    ref_ans=ans,
-                                                    # Its answer is our answer.
-                                                    ref_err=err,
-                                                    # Its error is our error,
-                                                    # whether it raised one or not.
-                                                ),
+                                                invoke_fifo(fifo_1, cmd, ans, err),
                                             ],
                                         ),
                                         cb.if_(
@@ -174,24 +175,14 @@ def insert_pifo(prog, name):
                                 hot_eq_1[0].out,
                                 hot_eq_1[1],
                                 [
-                                    cb.invoke(
-                                        fifo_1,
-                                        in_cmd=cmd,
-                                        ref_ans=ans,
-                                        ref_err=err,
-                                    ),
+                                    invoke_fifo(fifo_1, cmd, ans, err),
                                     cb.par(
                                         cb.if_(
                                             err_neq_0[0].out,
                                             err_neq_0[1],
                                             [
                                                 lower_err,
-                                                cb.invoke(
-                                                    fifo_0,
-                                                    in_cmd=cmd,
-                                                    ref_ans=ans,
-                                                    ref_err=err,
-                                                ),
+                                                invoke_fifo(fifo_0, cmd, ans, err),
                                             ],
                                         ),
                                         cb.if_(
@@ -229,23 +220,13 @@ def insert_pifo(prog, name):
                                 flow_eq_0[0].out,
                                 flow_eq_0[1],
                                 # This value should be pushed to flow 0.
-                                cb.invoke(
-                                    fifo_0,
-                                    in_cmd=cmd,
-                                    ref_ans=ans,  # Its answer is our answer.
-                                    ref_err=err,  # Its error is our error.
-                                ),
+                                invoke_fifo(fifo_0, cmd, ans, err),
                             ),
                             cb.if_(
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
                                 # This value should be pushed to flow 1.
-                                cb.invoke(
-                                    fifo_1,
-                                    in_cmd=cmd,
-                                    ref_ans=ans,  # Its answer is our answer.
-                                    ref_err=err,  # Its error is our error.
-                                ),
+                                invoke_fifo(fifo_1, cmd, ans, err),
                             ),
                         ),
                         len_incr,  # Increment the length.
