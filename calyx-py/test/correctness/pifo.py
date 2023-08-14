@@ -131,7 +131,7 @@ def insert_pifo(prog, name):
                                 [  # `hot` is 0. We'll invoke `pop` on `fifo_0`.
                                     cb.invoke(  # First we call pop
                                         fifo_0,
-                                        in_cmd=cb.const(32, 0),
+                                        in_cmd=cmd,
                                         ref_ans=ans,  # Its answer is our answer.
                                         ref_err=err,
                                     ),
@@ -148,7 +148,7 @@ def insert_pifo(prog, name):
                                                 lower_err,
                                                 cb.invoke(
                                                     fifo_1,
-                                                    in_cmd=cb.const(32, 0),
+                                                    in_cmd=cmd,
                                                     ref_ans=ans,
                                                     # Its answer is our answer.
                                                     ref_err=err,
@@ -177,7 +177,7 @@ def insert_pifo(prog, name):
                                 [
                                     cb.invoke(
                                         fifo_1,
-                                        in_cmd=cb.const(32, 0),
+                                        in_cmd=cmd,
                                         ref_ans=ans,
                                         ref_err=err,
                                     ),
@@ -189,7 +189,7 @@ def insert_pifo(prog, name):
                                                 lower_err,
                                                 cb.invoke(
                                                     fifo_0,
-                                                    in_cmd=cb.const(32, 0),
+                                                    in_cmd=cmd,
                                                     ref_ans=ans,
                                                     ref_err=err,
                                                 ),
