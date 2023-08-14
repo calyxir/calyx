@@ -5,20 +5,21 @@ import calyx.builder_util as util
 import calyx.queue_call as qc
 
 
-def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
+def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
     """The flow is needed when the command is a push.
-    If the value to be pushed is less than 200, the value belongs to flow 0.
+    If the value to be pushed is less than or equal to {boundary},
+    the value belongs to flow 0.
     Otherwise, the value belongs to flow 1.
     This method adds a group to the component {comp} that does this.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, creates a cell {cell} that checks for less-than.
-    3. Puts the values of 199 and {cmd} into {cell}.
+    3. Puts the values {boundary} and {cmd} into the left and right ports of {cell}.
     4. Then puts the answer of the computation into {flow}.
     5. Returns the group that does this.
     """
     cell = comp.lt("flow_inf", 32)
     with comp.group(group) as infer_flow_grp:
-        cell.left = 199
+        cell.left = boundary
         cell.right = cmd
         flow.write_en = 1
         flow.in_ = cell.out
@@ -40,7 +41,7 @@ def invoke_subqueue(queue_cell, cmd, ans, err) -> cb.invoke:
     )
 
 
-def insert_pifo(prog, name, queue_l, queue_r):
+def insert_pifo(prog, name, queue_l, queue_r, boundary):
     """Inserts the component `pifo` into the program.
 
     The PIFO achieves a 50/50 split between two "flows" or "kinds".
@@ -89,7 +90,7 @@ def insert_pifo(prog, name, queue_l, queue_r):
     flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1.
     # We will infer this using a separate component;
     # it is a function of the value being pushed.
-    infer_flow = insert_flow_inference(pifo, cmd, flow, "infer_flow")
+    infer_flow = insert_flow_inference(pifo, cmd, flow, boundary, "infer_flow")
 
     ans = pifo.reg("ans", 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
@@ -306,7 +307,7 @@ def build():
     prog = cb.Builder()
     fifo_l = fifo.insert_fifo(prog, "fifo_l")
     fifo_r = fifo.insert_fifo(prog, "fifo_r")
-    pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r)
+    pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
     qc.insert_main(prog, pifo)
     return prog.program
 
