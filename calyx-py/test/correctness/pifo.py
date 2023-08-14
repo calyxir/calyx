@@ -29,16 +29,16 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
 def insert_pifo(prog, name):
     """Inserts the component `pifo` into the program.
 
-    The PIFO achieves a 50/50 split between two flows.
-    That is, up to the availability of values, this PIFO seeks to alternate 50/50
-    between two "flows".
+    The PIFO achieves a 50/50 split between two "flows" or "kinds".
+    That is, up to the availability of values, this PIFO seeks to alternate
+    between values of the two flows.
 
     We say "up to availability" because, if one flow is silent and the other
     is active, the active ones gets to emit consecutive values (in temporary
     violation of the 50/50 rule) until the silent flow starts transmitting again.
     At that point we go back to 50/50.
 
-    Say the PIFO's maximum capacity is 10. Create two FIFOs, each of capacity 10.
+    The PIFO's maximum capacity is 10. Create two FIFOs, each of capacity 10.
     Let's say the two flow are called `0` and `1`, and our FIFOs are called
     `fifo_0` and `fifo_1`.
     Maintain additionally a register that points to which of these FIFOs is "hot".
@@ -70,39 +70,38 @@ def insert_pifo(prog, name):
     fifo_0 = pifo.cell("myfifo_0", fifo.insert_fifo(prog, "fifo_0"))
     fifo_1 = pifo.cell("myfifo_1", fifo.insert_fifo(prog, "fifo_1"))
 
-    flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1
-    # We will infer this using a separate component and the item to be pushed.
+    flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1.
+    # We will infer this using a separate component;
+    # it is a function of the value being pushed.
     infer_flow = insert_flow_inference(pifo, cmd, flow, "infer_flow")
 
     ans = pifo.reg("ans", 32, is_ref=True)
-    # If the user wants to pop, we will write the popped value to `ans`
+    # If the user wants to pop, we will write the popped value to `ans`.
 
     err = pifo.reg("err", 1, is_ref=True)
-    # We'll raise this as a general error flag for overflow and underflow
+    # We'll raise this as a general error flag for overflow and underflow.
 
-    len = pifo.reg("len", 32)  # The length of the PIFO
+    len = pifo.reg("len", 32)  # The length of the PIFO.
 
-    # Two registers that mark the next FIFO to `pop` from
+    # Two registers that mark the next FIFO to `pop` from.
     hot = pifo.reg("hot", 1)
 
     # Some equality checks.
-    hot_eq_0 = util.insert_eq(pifo, hot.out, cb.const(1, 0), "hot_eq_0", 1)  # hot == 0
-    hot_eq_1 = util.insert_eq(pifo, hot.out, 1, "hot_eq_1", 1)  # hot == 1
-    flow_eq_0 = util.insert_eq(pifo, flow.out, 0, "flow_eq_0", 1)  # flow == 0
-    flow_eq_1 = util.insert_eq(pifo, flow.out, 1, "flow_eq_1", 1)  # flow == 1
-    len_eq_0 = util.insert_eq(pifo, len.out, 0, "len_eq_0", 32)  # `len` == 0
-    len_eq_10 = util.insert_eq(pifo, len.out, 10, "len_eq_10", 32)  # `len` == 10
-    cmd_eq_0 = util.insert_eq(pifo, cmd, cb.const(32, 0), "cmd_eq_0", 32)  # cmd == 0
-    cmd_neq_0 = util.insert_neq(pifo, cmd, cb.const(32, 0), "cmd_neq_0", 32)  # cmd != 0
-    err_eq_0 = util.insert_eq(pifo, err.out, 0, "err_eq_0", 1)  # err == 0
-    err_neq_0 = util.insert_neq(
-        pifo, err.out, cb.const(1, 0), "err_neq_0", 1
-    )  # err != 0
+    hot_eq_0 = util.insert_eq(pifo, hot.out, 0, "hot_eq_0", 1)
+    hot_eq_1 = util.insert_eq(pifo, hot.out, 1, "hot_eq_1", 1)
+    flow_eq_0 = util.insert_eq(pifo, flow.out, 0, "flow_eq_0", 1)
+    flow_eq_1 = util.insert_eq(pifo, flow.out, 1, "flow_eq_1", 1)
+    len_eq_0 = util.insert_eq(pifo, len.out, 0, "len_eq_0", 32)
+    len_eq_10 = util.insert_eq(pifo, len.out, 10, "len_eq_10", 32)
+    cmd_eq_0 = util.insert_eq(pifo, cmd, 0, "cmd_eq_0", 32)
+    cmd_neq_0 = util.insert_neq(pifo, cmd, cb.const(32, 0), "cmd_neq_0", 32)
+    err_eq_0 = util.insert_eq(pifo, err.out, 0, "err_eq_0", 1)
+    err_neq_0 = util.insert_neq(pifo, err.out, 0, "err_neq_0", 1)
 
-    flip_hot = util.insert_bitwise_flip_reg(pifo, hot, "flip_hot", 1)  # Flip `hot`.
+    flip_hot = util.insert_bitwise_flip_reg(pifo, hot, "flip_hot", 1)
     raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
     lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # set `err` to 0
-    zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")  # zero out `ans`
+    zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")
 
     len_incr = util.insert_incr(pifo, len, "len_incr")  # len++
     len_decr = util.insert_decr(pifo, len, "len_decr")  # len--
