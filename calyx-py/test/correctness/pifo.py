@@ -96,7 +96,7 @@ def insert_pifo(prog, name):
     cmd_eq_0 = util.insert_eq(pifo, cmd, 0, "cmd_eq_0", 32)
     cmd_neq_0 = util.insert_neq(pifo, cmd, cb.const(32, 0), "cmd_neq_0", 32)
     err_eq_0 = util.insert_eq(pifo, err.out, 0, "err_eq_0", 1)
-    err_neq_0 = util.insert_neq(pifo, err.out, 0, "err_neq_0", 1)
+    err_neq_0 = util.insert_neq(pifo, err.out, cb.const(1, 0), "err_neq_0", 1)
 
     flip_hot = util.insert_bitwise_flip_reg(pifo, hot, "flip_hot", 1)
     raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
