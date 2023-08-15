@@ -617,19 +617,20 @@ class CellBuilder(CellLikeBuilder):
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
-    def is_std_mem_d1(self) -> bool:
-        """Check if the cell is a StdMemD1 cell."""
+    def is_primitive(self, prim_name) -> bool:
+        """Check if the cell is an instance of the primitive {prim_name}."""
         return (
             isinstance(self._cell.comp, ast.CompInst)
-            and self._cell.comp.id == "std_mem_d1"
+            and self._cell.comp.id == prim_name
         )
+
+    def is_std_mem_d1(self) -> bool:
+        """Check if the cell is a StdMemD1 cell."""
+        return self.is_primitive("std_mem_d1")
 
     def is_seq_mem_d1(self) -> bool:
         """Check if the cell is a SeqMemD1 cell."""
-        return (
-            isinstance(self._cell.comp, ast.CompInst)
-            and self._cell.comp.id == "seq_mem_d1"
-        )
+        return self.is_primitive("seq_mem_d1")
 
     @classmethod
     def unwrap_id(cls, obj):
