@@ -78,7 +78,7 @@ def insert_pifo(prog, name):
 
     pifo: cb.ComponentBuilder = prog.component(name)
     cmd = pifo.input("cmd", 32)
-    # If this is 0, we pop. Otherwise, we push the value.
+    # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
 
     # Create the two FIFOs and ready them for invocation.
     fifo_0 = pifo.cell("myfifo_0", fifo.insert_fifo(prog, "fifo_0"))
@@ -108,7 +108,8 @@ def insert_pifo(prog, name):
     len_eq_0 = util.insert_eq(pifo, len.out, 0, "len_eq_0", 32)
     len_eq_10 = util.insert_eq(pifo, len.out, 10, "len_eq_10", 32)
     cmd_eq_0 = util.insert_eq(pifo, cmd, 0, "cmd_eq_0", 32)
-    cmd_neq_0 = util.insert_neq(pifo, cmd, cb.const(32, 0), "cmd_neq_0", 32)
+    cmd_eq_1 = util.insert_eq(pifo, cmd, 1, "cmd_eq_1", 32)
+    cmd_gt_1 = util.insert_gt(pifo, cmd, 1, "cmd_gt_1", 32)
     err_eq_0 = util.insert_eq(pifo, err.out, 0, "err_eq_0", 1)
     err_neq_0 = util.insert_neq(pifo, err.out, cb.const(1, 0), "err_neq_0", 1)
 
@@ -123,7 +124,7 @@ def insert_pifo(prog, name):
     # The main logic.
     pifo.control += [
         cb.par(
-            # Was it a pop or a push? We can do both cases in parallel.
+            # Was it a pop, peek, or a push? We can do all cases in parallel.
             cb.if_(
                 # Did the user call pop?
                 cmd_eq_0[0].out,
@@ -203,9 +204,87 @@ def insert_pifo(prog, name):
                 ),
             ),
             cb.if_(
+                # Did the user call peek?
+                cmd_eq_1[0].out,
+                cmd_eq_1[1],
+                cb.if_(
+                    # Yes, the user called peek. But is the queue empty?
+                    len_eq_0[0].out,
+                    len_eq_0[1],
+                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [  # The queue is not empty. Proceed.
+                        # We must check if `hot` is 0 or 1.
+                        lower_err,
+                        cb.par(  # We'll check both cases in parallel.
+                            cb.if_(
+                                # Check if `hot` is 0.
+                                hot_eq_0[0].out,
+                                hot_eq_0[1],
+                                [  # `hot` is 0. We'll invoke `peek` on `fifo_0`.
+                                    cb.invoke(  # First we call peek
+                                        fifo_0,
+                                        in_cmd=cb.const(32, 1),
+                                        ref_ans=ans,  # Its answer is our answer.
+                                        ref_err=err,
+                                    ),
+                                    # Our next step depends on whether `fifo_0`
+                                    # raised the error flag.
+                                    cb.if_(
+                                        err_neq_0[0].out,
+                                        err_neq_0[1],
+                                        [  # `fifo_0` raised an error.
+                                            # We'll try to peek from `fifo_1`.
+                                            # We'll pass it a lowered `err`.
+                                            lower_err,
+                                            cb.invoke(
+                                                fifo_1,
+                                                in_cmd=cb.const(32, 1),
+                                                ref_ans=ans,
+                                                # Its answer is our answer.
+                                                ref_err=err,
+                                                # Its error is our error,
+                                                # whether it raised one or not.
+                                            ),
+                                        ],
+                                    ),
+                                    # Peeking does not affect `hot`.
+                                    # Peeking does not affect the length.
+                                ],
+                            ),
+                            # If `hot` is 1, we proceed symmetrically.
+                            cb.if_(
+                                hot_eq_1[0].out,
+                                hot_eq_1[1],
+                                [
+                                    cb.invoke(
+                                        fifo_1,
+                                        in_cmd=cb.const(32, 1),
+                                        ref_ans=ans,
+                                        ref_err=err,
+                                    ),
+                                    cb.if_(
+                                        err_neq_0[0].out,
+                                        err_neq_0[1],
+                                        [
+                                            lower_err,
+                                            cb.invoke(
+                                                fifo_0,
+                                                in_cmd=cb.const(32, 1),
+                                                ref_ans=ans,
+                                                ref_err=err,
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+            cb.if_(
                 # Did the user call push?
-                cmd_neq_0[0].out,
-                cmd_neq_0[1],
+                cmd_gt_1[0].out,
+                cmd_gt_1[1],
                 cb.if_(
                     # Yes, the user called push. But is the queue full?
                     len_eq_10[0].out,

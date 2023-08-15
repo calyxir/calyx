@@ -83,10 +83,7 @@ def insert_main(prog, queue):
     incr_i = util.insert_incr(main, i, "incr_i")  # i++
     incr_j = util.insert_incr(main, j, "incr_j")  # j++
     err_eq_0 = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
-    cmd_eq_0 = util.insert_eq(main, cmd.out, 0, "cmd_eq_0", 32)  # cmd == 0
-    cmd_neq_0 = util.insert_neq(
-        main, cmd.out, cb.const(32, 0), "cmd_neq_0", 32
-    )  # cmd != 0
+    cmd_le_1 = util.insert_le(main, cmd.out, 1, "cmd_le_1", 32)  # cmd <= 1
 
     read_cmd = util.mem_read_seq_d1(main, commands, i.out, "read_cmd_phase1")
     write_cmd_to_reg = util.mem_write_seq_d1_to_reg(
@@ -102,38 +99,24 @@ def insert_main(prog, queue):
             [
                 read_cmd,  # Read `commands[i]`
                 write_cmd_to_reg,  # Write it to `cmd`
-                cb.par(  # Now, in parallel, act based on the value of `cmd`
-                    cb.if_(
-                        # Is this a pop?
-                        cmd_eq_0[0].out,
-                        cmd_eq_0[1],
-                        [  # A pop
-                            cb.invoke(  # First we call pop
-                                queue,
-                                in_cmd=cmd.out,
-                                ref_ans=ans,
-                                ref_err=err,
-                            ),
-                            # AM: my goal is that,
-                            # if err flag comes back raised,
-                            # we do not perform this write or this incr_j
-                            write_ans,
-                            incr_j,
-                        ],
-                    ),
-                    cb.if_(  # Is this a push?
-                        cmd_neq_0[0].out,
-                        cmd_neq_0[1],
-                        cb.invoke(  # A push
-                            queue,
-                            in_cmd=cmd.out,
-                            ref_ans=ans,
-                            ref_err=err,
-                        ),
-                    ),
+                cb.invoke(  # Call the queue with `cmd`
+                    queue,
+                    in_cmd=cmd.out,
+                    ref_ans=ans,
+                    ref_err=err,
+                ),
+                cb.if_(  # If it was a pop or a peek, write ans to the answer list
+                    cmd_le_1[0].out,
+                    cmd_le_1[1],
+                    [  # AM: I'd like to have an additional check hereL
+                        # if err flag comes back raised,
+                        # we do not perform this write_ans or this incr_j
+                        write_ans,
+                        incr_j,
+                    ],
                 ),
                 incr_i,  # Increment the command index
-                cb.invoke(  # If i = MAX_CMDS, raise error flag
+                cb.invoke(  # If i = 15, raise error flag
                     raise_err_if_i_eq_max_cmds, in_i=i.out, ref_err=err
                 ),  # AM: hella hacky
             ],
