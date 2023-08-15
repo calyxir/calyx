@@ -385,7 +385,9 @@ class ComponentBuilder:
 
         Returns handles to the cell and the combinational group.
         """
-        return self.insert_comb_group(left, right, self.eq(width, cellname))
+        cell, comb_group = self.insert_comb_group(left, right, self.eq(width, cellname))
+        cellgroup: CellGroupBuilder = CellGroupBuilder(cell, comb_group)
+        return cellgroup
 
 
 def as_control(obj):
@@ -452,7 +454,7 @@ def if_(
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `static if` control statement."""
+    """Build a `static if` control statement."""
     else_body = ast.Empty() if else_body is None else else_body
 
     if cond:
@@ -463,6 +465,35 @@ def if_(
     else:
         cg = None
     return ast.If(port.expr, cg, as_control(body), as_control(else_body))
+
+
+class CellGroupBuilder:
+    """Just a cell and a group, for when it is convenient to pass them around together."""
+
+    def __init__(self, cell, group):
+        self.cell = cell
+        self.group = group
+
+
+def if_sugary(
+    port_cond: CellGroupBuilder,
+    body,
+    else_body=None,
+) -> ast.If:
+    """Build an if statement, where the cell and the conditional group are provided
+    together.
+    """
+    return if_(port_cond.cell, port_cond.group, body, else_body)
+
+
+def while_sugary(
+    port_cond: CellGroupBuilder,
+    body,
+) -> ast.While:
+    """Build a while statement, where the cell and the conditional group are provided
+    together.
+    """
+    return while_(port_cond.cell, port_cond.group, body)
 
 
 def static_if(
