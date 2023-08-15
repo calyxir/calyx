@@ -5,20 +5,21 @@ import calyx.builder_util as util
 import calyx.queue_call as qc
 
 
-def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
+def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
     """The flow is needed when the command is a push.
-    If the value to be pushed is less than 200, we push to flow 0.
-    Otherwise, we push to flow 1.
+    If the value to be pushed is less than or equal to {boundary},
+    the value belongs to flow 0.
+    Otherwise, the value belongs to flow 1.
     This method adds a group to the component {comp} that does this.
     1. Within component {comp}, creates a group called {group}.
     2. Within {group}, creates a cell {cell} that checks for less-than.
-    3. Puts the values of 199 and {cmd} into {cell}.
+    3. Puts the values {boundary} and {cmd} into the left and right ports of {cell}.
     4. Then puts the answer of the computation into {flow}.
     5. Returns the group that does this.
     """
     cell = comp.lt("flow_inf", 32)
     with comp.group(group) as infer_flow_grp:
-        cell.left = 199
+        cell.left = boundary
         cell.right = cmd
         flow.write_en = 1
         flow.in_ = cell.out
@@ -26,21 +27,21 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, group):
     return infer_flow_grp
 
 
-def invoke_fifo(fifo_cell, cmd, ans, err) -> cb.invoke:
-    """Invokes the cell {fifo_cell} with:
+def invoke_subqueue(queue_cell, cmd, ans, err) -> cb.invoke:
+    """Invokes the cell {queue_cell} with:
     {cmd} passed by value
     {ans} passed by reference
     {err} passed by reference
     """
     return cb.invoke(
-        fifo_cell,
+        queue_cell,
         in_cmd=cmd,
         ref_ans=ans,
         ref_err=err,
     )
 
 
-def insert_pifo(prog, name):
+def insert_pifo(prog, name, queue_l, queue_r, boundary):
     """Inserts the component `pifo` into the program.
 
     The PIFO achieves a 50/50 split between two "flows" or "kinds".
@@ -52,26 +53,28 @@ def insert_pifo(prog, name):
     violation of the 50/50 rule) until the silent flow starts transmitting again.
     At that point we go back to 50/50.
 
-    The PIFO's maximum capacity is 10. Create two FIFOs, each of capacity 10.
-    Let's say the two flow are called `0` and `1`, and our FIFOs are called
-    `fifo_0` and `fifo_1`.
-    Maintain additionally a register that points to which of these FIFOs is "hot".
-    Start off with `hot` pointing to `fifo_0` (arbitrarily).
+    The PIFO's maximum capacity is 10.
+    Let's say the two flows are called `0` and `1`.
+    We orchestrate two sub-queues, `queue_l` and `queue_r`, each of capacity 10.
+    We maintain a register that points to which of these sub-queues is "hot".
+    Start off with `hot` pointing to `queue_l` (arbitrarily).
 
     - `push(v, PIFO)`:
        + If len(PIFO) = 10, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`.
          Find out which flow `f` the value `v` should go to;
          `f` better be either `0` or `1`.
-         Enqueue `v` into `fifo_f`.
-         Note that the FIFO's enqueue method is itself partial: it may raise
+         Enqueue `v` into `queue_l` if `f` = `0`, and into `queue_r` if `f` = `1`.
+         Note that the sub-queue's enqueue method is itself partial: it may raise
          "overflow", in which case we propagate the overflow flag.
     - `pop(PIFO)`:
        + If `len(PIFO)` = 0, raise an "underflow" flag and exit.
-       + Try `pop(FIFO_{hot})`.
+       + Try `pop(queue_{hot})`, where we use the value of `hot` to determine
+            which sub-queue to pop from:
+            `queue_l` if `hot` = 0, and `queue_r` if `hot` = 1.
          * If it succeeds it will return a value `v`; just propagate `v`.
-            Also flip `hot` so it points to the other FIFO.
-         * If it fails because of underflow, return `pop(FIFO_{not-hot})`.
+            Also flip `hot` so it points to the other sub-queue.
+         * If it fails because of underflow, return `pop(queue_{not-hot})`.
            If the _second_ pop also fails, propagate the error.
            Leave `hot` as it was.
     """
@@ -80,14 +83,14 @@ def insert_pifo(prog, name):
     cmd = pifo.input("cmd", 32)
     # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
 
-    # Create the two FIFOs and ready them for invocation.
-    fifo_0 = pifo.cell("myfifo_0", fifo.insert_fifo(prog, "fifo_0"))
-    fifo_1 = pifo.cell("myfifo_1", fifo.insert_fifo(prog, "fifo_1"))
+    # Declare the two sub-queues as cells of this component.
+    queue_l = pifo.cell("queue_l", queue_l)
+    queue_r = pifo.cell("queue_r", queue_r)
 
     flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1.
     # We will infer this using a separate component;
     # it is a function of the value being pushed.
-    infer_flow = insert_flow_inference(pifo, cmd, flow, "infer_flow")
+    infer_flow = insert_flow_inference(pifo, cmd, flow, boundary, "infer_flow")
 
     ans = pifo.reg("ans", 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
@@ -97,7 +100,7 @@ def insert_pifo(prog, name):
 
     len = pifo.reg("len", 32)  # The length of the PIFO.
 
-    # Two registers that mark the next FIFO to `pop` from.
+    # A register that marks the next sub-queue to `pop` from.
     hot = pifo.reg("hot", 1)
 
     # Some equality checks.
@@ -142,30 +145,30 @@ def insert_pifo(prog, name):
                                 # Check if `hot` is 0.
                                 hot_eq_0[0].out,
                                 hot_eq_0[1],
-                                [  # `hot` is 0. We'll invoke `pop` on `fifo_0`.
-                                    invoke_fifo(fifo_0, cmd, ans, err),
-                                    # Our next step depends on whether `fifo_0`
+                                [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
+                                    invoke_subqueue(queue_l, cmd, ans, err),
+                                    # Our next step depends on whether `queue_l`
                                     # raised the error flag.
                                     # We can check these cases in parallel.
                                     cb.par(
                                         cb.if_(
                                             err_neq_0[0].out,
                                             err_neq_0[1],
-                                            [  # `fifo_0` raised an error.
-                                                # We'll try to pop from `fifo_1`.
+                                            [  # `queue_l` raised an error.
+                                                # We'll try to pop from `queue_r`.
                                                 # We'll pass it a lowered err
                                                 lower_err,
-                                                invoke_fifo(fifo_1, cmd, ans, err),
+                                                invoke_subqueue(queue_r, cmd, ans, err),
                                             ],
                                         ),
                                         cb.if_(
                                             err_eq_0[0].out,
                                             err_eq_0[1],
-                                            [  # `fifo_0` succeeded.
+                                            [  # `queue_l` succeeded.
                                                 # Its answer is our answer.
                                                 flip_hot
                                                 # We'll just make `hot` point
-                                                # to the other FIFO.
+                                                # to the other sub-queue.
                                             ],
                                         ),
                                     ),
@@ -176,14 +179,14 @@ def insert_pifo(prog, name):
                                 hot_eq_1[0].out,
                                 hot_eq_1[1],
                                 [
-                                    invoke_fifo(fifo_1, cmd, ans, err),
+                                    invoke_subqueue(queue_r, cmd, ans, err),
                                     cb.par(
                                         cb.if_(
                                             err_neq_0[0].out,
                                             err_neq_0[1],
                                             [
                                                 lower_err,
-                                                invoke_fifo(fifo_0, cmd, ans, err),
+                                                invoke_subqueue(queue_l, cmd, ans, err),
                                             ],
                                         ),
                                         cb.if_(
@@ -220,31 +223,18 @@ def insert_pifo(prog, name):
                                 # Check if `hot` is 0.
                                 hot_eq_0[0].out,
                                 hot_eq_0[1],
-                                [  # `hot` is 0. We'll invoke `peek` on `fifo_0`.
-                                    cb.invoke(  # First we call peek
-                                        fifo_0,
-                                        in_cmd=cb.const(32, 1),
-                                        ref_ans=ans,  # Its answer is our answer.
-                                        ref_err=err,
-                                    ),
-                                    # Our next step depends on whether `fifo_0`
+                                [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
+                                    invoke_subqueue(queue_l, cmd, ans, err),
+                                    # Our next step depends on whether `queue_l`
                                     # raised the error flag.
                                     cb.if_(
                                         err_neq_0[0].out,
                                         err_neq_0[1],
-                                        [  # `fifo_0` raised an error.
-                                            # We'll try to peek from `fifo_1`.
+                                        [  # `queue_l` raised an error.
+                                            # We'll try to peek from `queue_r`.
                                             # We'll pass it a lowered `err`.
                                             lower_err,
-                                            cb.invoke(
-                                                fifo_1,
-                                                in_cmd=cb.const(32, 1),
-                                                ref_ans=ans,
-                                                # Its answer is our answer.
-                                                ref_err=err,
-                                                # Its error is our error,
-                                                # whether it raised one or not.
-                                            ),
+                                            invoke_subqueue(queue_r, cmd, ans, err),
                                         ],
                                     ),
                                     # Peeking does not affect `hot`.
@@ -256,23 +246,13 @@ def insert_pifo(prog, name):
                                 hot_eq_1[0].out,
                                 hot_eq_1[1],
                                 [
-                                    cb.invoke(
-                                        fifo_1,
-                                        in_cmd=cb.const(32, 1),
-                                        ref_ans=ans,
-                                        ref_err=err,
-                                    ),
+                                    invoke_subqueue(queue_r, cmd, ans, err),
                                     cb.if_(
                                         err_neq_0[0].out,
                                         err_neq_0[1],
                                         [
                                             lower_err,
-                                            cb.invoke(
-                                                fifo_0,
-                                                in_cmd=cb.const(32, 1),
-                                                ref_ans=ans,
-                                                ref_err=err,
-                                            ),
+                                            invoke_subqueue(queue_l, cmd, ans, err),
                                         ],
                                     ),
                                 ],
@@ -298,14 +278,14 @@ def insert_pifo(prog, name):
                             cb.if_(
                                 flow_eq_0[0].out,
                                 flow_eq_0[1],
-                                # This value should be pushed to flow 0.
-                                invoke_fifo(fifo_0, cmd, ans, err),
+                                # This value should be pushed to queue_l.
+                                invoke_subqueue(queue_l, cmd, ans, err),
                             ),
                             cb.if_(
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
-                                # This value should be pushed to flow 1.
-                                invoke_fifo(fifo_1, cmd, ans, err),
+                                # This value should be pushed to queue_r.
+                                invoke_subqueue(queue_r, cmd, ans, err),
                             ),
                         ),
                         len_incr,  # Increment the length.
@@ -325,7 +305,9 @@ def insert_pifo(prog, name):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    pifo = insert_pifo(prog, "pifo")
+    fifo_l = fifo.insert_fifo(prog, "fifo_l")
+    fifo_r = fifo.insert_fifo(prog, "fifo_r")
+    pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
     qc.insert_main(prog, pifo)
     return prog.program
 
