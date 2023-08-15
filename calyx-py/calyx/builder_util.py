@@ -2,33 +2,6 @@
 import calyx.builder as cb
 
 
-def insert_comb_group(comp: cb.ComponentBuilder, left, right, cell, groupname=None):
-    """Accepts a cell that performs some computation on values {left} and {right}.
-    Creates a combinational group that wires up the cell with these ports.
-    Returns the cell and the combintational group.
-    """
-    groupname = groupname or f"{cell.name()}_group"
-    with comp.comb_group(groupname) as comb_group:
-        cell.left = left
-        cell.right = right
-    return cell, comb_group
-
-
-def insert_eq(comp: cb.ComponentBuilder, left, right, width, cellname=None):
-    """Inserts wiring into component {comp} to check if {left} == {right}.
-
-    <cellname> = std_eq(<width>);
-    ...
-    comb group <cellname>_group {
-        <cellname>.left = <left>;
-        <cellname>.right = <right>;
-    }
-
-    Returns handles to the cell and the combinational group.
-    """
-    return insert_comb_group(comp, left, right, comp.eq(width, cellname))
-
-
 def insert_neq(comp: cb.ComponentBuilder, left, right, cellname, width):
     """Inserts wiring into component {comp} to check if {left} != {right}.
 
@@ -42,7 +15,7 @@ def insert_neq(comp: cb.ComponentBuilder, left, right, cellname, width):
     Returns handles to the cell and the combinational group.
     """
     neq_cell = comp.neq(cellname, width)
-    return insert_comb_group(comp, left, right, neq_cell, f"{cellname}_group")
+    return comp.insert_comb_group(left, right, neq_cell, f"{cellname}_group")
 
 
 def insert_lt(comp: cb.ComponentBuilder, left, right, cellname, width):
@@ -58,7 +31,7 @@ def insert_lt(comp: cb.ComponentBuilder, left, right, cellname, width):
     Returns handles to the cell and the combinational group.
     """
     lt_cell = comp.lt(cellname, width)
-    return insert_comb_group(comp, left, right, lt_cell, f"{cellname}_group")
+    return comp.insert_comb_group(left, right, lt_cell, f"{cellname}_group")
 
 
 def insert_le(comp: cb.ComponentBuilder, left, right, cellname, width):
@@ -74,7 +47,7 @@ def insert_le(comp: cb.ComponentBuilder, left, right, cellname, width):
     Returns handles to the cell and the combinational group.
     """
     le_cell = comp.le(cellname, width)
-    return insert_comb_group(comp, left, right, le_cell, f"{cellname}_group")
+    return comp.insert_comb_group(left, right, le_cell, f"{cellname}_group")
 
 
 def insert_gt(comp: cb.ComponentBuilder, left, right, cellname, width):
@@ -90,7 +63,7 @@ def insert_gt(comp: cb.ComponentBuilder, left, right, cellname, width):
     Returns handles to the cell and the combinational group.
     """
     gt_cell = comp.gt(cellname, width)
-    return insert_comb_group(comp, left, right, gt_cell, f"{cellname}_group")
+    return comp.insert_comb_group(left, right, gt_cell, f"{cellname}_group")
 
 
 def insert_add(comp: cb.ComponentBuilder, left, right, cellname, width):
@@ -106,7 +79,7 @@ def insert_add(comp: cb.ComponentBuilder, left, right, cellname, width):
     Returns handles to the cell and the combinational group.
     """
     add_cell = comp.add(cellname, width)
-    return insert_comb_group(comp, left, right, add_cell, f"{cellname}_group")
+    return comp.insert_comb_group(left, right, add_cell, f"{cellname}_group")
 
 
 def insert_sub(comp: cb.ComponentBuilder, left, right, cellname, width):
@@ -122,7 +95,7 @@ def insert_sub(comp: cb.ComponentBuilder, left, right, cellname, width):
     Returns handles to the cell and the combinational group.
     """
     sub_cell = comp.sub(cellname, width)
-    return insert_comb_group(comp, left, right, sub_cell, f"{cellname}_group")
+    return comp.insert_comb_group(left, right, sub_cell, f"{cellname}_group")
 
 
 def insert_bitwise_flip_reg(comp: cb.ComponentBuilder, reg, cellname, width):

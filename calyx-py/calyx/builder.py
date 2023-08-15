@@ -362,6 +362,31 @@ class ComponentBuilder:
             ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, True),
         )
 
+    def insert_comb_group(self, left, right, cell, groupname=None):
+        """Accepts a cell that performs some computation on values {left} and {right}.
+        Creates a combinational group that wires up the cell with these ports.
+        Returns the cell and the combintational group.
+        """
+        groupname = groupname or f"{cell.name()}_group"
+        with self.comb_group(groupname) as comb_group:
+            cell.left = left
+            cell.right = right
+        return cell, comb_group
+
+    def eq_use(self, left, right, width, cellname=None):
+        """Inserts wiring into component {self} to check if {left} == {right}.
+
+        <cellname> = std_eq(<width>);
+        ...
+        comb group <cellname>_group {
+            <cellname>.left = <left>;
+            <cellname>.right = <right>;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        return self.insert_comb_group(left, right, self.eq(width, cellname))
+
 
 def as_control(obj):
     """Convert a Python object into a control statement.
