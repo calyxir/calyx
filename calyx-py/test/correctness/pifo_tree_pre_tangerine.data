@@ -1,6 +1,30 @@
 {
   "commands": {
     "data": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 2
+    }
+  },
+  "values": {
+    "data": [
       11,
       12,
       201,
