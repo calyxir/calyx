@@ -24,9 +24,8 @@ def insert_raise_err_if_i_eq_max_cmds(prog):
     raise_err = util.insert_reg_store(raise_err_if_i_eq_max_cmds, err, 1, "raise_err")
 
     raise_err_if_i_eq_max_cmds.control += [
-        cb.if_(
-            i_eq_max_cmds[0].out,
-            i_eq_max_cmds[1],
+        cb.if_sugary(
+            i_eq_max_cmds,
             raise_err,
         )
     ]
@@ -91,9 +90,8 @@ def insert_main(prog, queue):
     write_ans = util.mem_store_seq_d1(main, ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
-        cb.while_(
-            err_eq_0[0].out,
-            err_eq_0[1],  # Run while the `err` flag is down
+        cb.while_sugary(
+            err_eq_0,  # Run while the `err` flag is down
             [
                 read_cmd,  # Read `commands[i]`
                 write_cmd_to_reg,  # Write it to `cmd`

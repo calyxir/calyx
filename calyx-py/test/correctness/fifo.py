@@ -73,36 +73,31 @@ def insert_fifo(prog, name):
     fifo.control += [
         cb.par(
             # Was it a pop or a push? We can do both cases in parallel.
-            cb.if_(
+            cb.if_sugary(
                 # Did the user call pop?
-                cmd_eq_0[0].out,
-                cmd_eq_0[1],
-                cb.if_(
+                cmd_eq_0,
+                cb.if_sugary(
                     # Yes, the user called pop. But is the queue empty?
-                    len_eq_0[0].out,
-                    len_eq_0[1],
+                    len_eq_0,
                     [raise_err, zero_out_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         read_from_mem,  # Read from the queue.
                         write_to_ans,  # Write the answer to the answer register.
                         read_incr,  # Increment the read pointer.
-                        cb.if_(
+                        cb.if_sugary(
                             # Wrap around if necessary.
-                            read_eq_10[0].out,
-                            read_eq_10[1],
+                            read_eq_10,
                             read_wrap,
                         ),
                         len_decr,  # Decrement the length.
                     ],
                 ),
             ),
-            cb.if_(
+            cb.if_sugary(
                 # Did the user call peek?
-                cmd_eq_1[0].out,
-                cmd_eq_1[1],
-                cb.if_(  # Yes, the user called peek. But is the queue empty?
-                    len_eq_0[0].out,
-                    len_eq_0[1],
+                cmd_eq_1,
+                cb.if_sugary(  # Yes, the user called peek. But is the queue empty?
+                    len_eq_0,
                     [raise_err, zero_out_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         read_from_mem,  # Read from the queue.
@@ -115,18 +110,16 @@ def insert_fifo(prog, name):
                 # Did the user call push?
                 cmd_gt_1[0].out,
                 cmd_gt_1[1],
-                cb.if_(
+                cb.if_sugary(
                     # Yes, the user called push. But is the queue full?
-                    len_eq_10[0].out,
-                    len_eq_10[1],
+                    len_eq_10,
                     [raise_err, zero_out_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         write_to_mem,  # Write to the queue.
                         write_incr,  # Increment the write pointer.
-                        cb.if_(
+                        cb.if_sugary(
                             # Wrap around if necessary.
-                            write_eq_10[0].out,
-                            write_eq_10[1],
+                            write_eq_10,
                             write_wrap,
                         ),
                         len_incr,  # Increment the length.

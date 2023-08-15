@@ -483,7 +483,7 @@ def if_sugary(
     """Build an if statement, where the cell and the conditional group are provided
     together.
     """
-    return if_(port_cond.cell, port_cond.group, body, else_body)
+    return if_(port_cond.cell.out, port_cond.group, body, else_body)
 
 
 def while_sugary(
@@ -493,7 +493,7 @@ def while_sugary(
     """Build a while statement, where the cell and the conditional group are provided
     together.
     """
-    return while_(port_cond.cell, port_cond.group, body)
+    return while_(port_cond.cell.out, port_cond.group, body)
 
 
 def static_if(
