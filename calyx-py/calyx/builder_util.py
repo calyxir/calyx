@@ -14,7 +14,7 @@ def insert_comb_group(comp: cb.ComponentBuilder, left, right, cell, groupname=No
     return cell, comb_group
 
 
-def insert_eq(comp: cb.ComponentBuilder, left, right, width):
+def insert_eq(comp: cb.ComponentBuilder, left, right, width, cellname=None):
     """Inserts wiring into component {comp} to check if {left} == {right}.
 
     <cellname> = std_eq(<width>);
@@ -26,7 +26,7 @@ def insert_eq(comp: cb.ComponentBuilder, left, right, width):
 
     Returns handles to the cell and the combinational group.
     """
-    return insert_comb_group(comp, left, right, comp.eq(width))
+    return insert_comb_group(comp, left, right, comp.eq(width, cellname))
 
 
 def insert_neq(comp: cb.ComponentBuilder, left, right, cellname, width):
