@@ -2,18 +2,19 @@
 import calyx.builder as cb
 
 
-def insert_comb_group(comp: cb.ComponentBuilder, left, right, cell, groupname):
+def insert_comb_group(comp: cb.ComponentBuilder, left, right, cell, groupname=None):
     """Accepts a cell that performs some computation on values {left} and {right}.
-    Creates a combinational group {groupname} that wires up the cell with these ports.
+    Creates a combinational group that wires up the cell with these ports.
     Returns the cell and the combintational group.
     """
+    groupname = groupname or f"{cell.name()}_group"
     with comp.comb_group(groupname) as comb_group:
         cell.left = left
         cell.right = right
     return cell, comb_group
 
 
-def insert_eq(comp: cb.ComponentBuilder, left, right, cellname, width):
+def insert_eq(comp: cb.ComponentBuilder, left, right, width):
     """Inserts wiring into component {comp} to check if {left} == {right}.
 
     <cellname> = std_eq(<width>);
@@ -25,8 +26,7 @@ def insert_eq(comp: cb.ComponentBuilder, left, right, cellname, width):
 
     Returns handles to the cell and the combinational group.
     """
-    eq_cell = comp.eq(cellname, width)
-    return insert_comb_group(comp, left, right, eq_cell, f"{cellname}_group")
+    return insert_comb_group(comp, left, right, comp.eq(width))
 
 
 def insert_neq(comp: cb.ComponentBuilder, left, right, cellname, width):

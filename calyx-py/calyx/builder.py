@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import random
 from typing import Dict, Union, Optional, List
 from . import py_ast as ast
 
@@ -288,9 +289,10 @@ class ComponentBuilder:
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("lt", size, signed))
 
-    def eq(self, name: str, size: int, signed=False):
+    def eq(self, size: int, name=None, signed=False):
         """Generate a StdEq cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"eq_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("eq", size, signed))
 
     def neq(self, name: str, size: int, signed=False):
@@ -631,6 +633,10 @@ class CellBuilder(CellLikeBuilder):
     def is_seq_mem_d1(self) -> bool:
         """Check if the cell is a SeqMemD1 cell."""
         return self.is_primitive("seq_mem_d1")
+
+    def name(self) -> str:
+        """Get the name of the cell."""
+        return self._cell.id.name
 
     @classmethod
     def unwrap_id(cls, obj):
