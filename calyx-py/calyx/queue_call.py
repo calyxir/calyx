@@ -2,32 +2,38 @@
 import calyx.builder as cb
 import calyx.builder_util as util
 
+MAX_CMDS = 15
 
-def insert_raise_err_if_i_eq_15(prog):
-    """Inserts a the component `raise_err_if_i_eq_15` into the program.
+
+def insert_raise_err_if_i_eq_max_cmds(prog):
+    """Inserts a the component `raise_err_if_i_eq_MAX_CMDS` into the program.
 
     It has:
     - one input, `i`.
     - one ref register, `err`.
 
-    If `i` equals 15, it raises the `err` flag.
+    If `i` equals MAX_CMDS, it raises the `err` flag.
     """
-    raise_err_if_i_eq_15: cb.ComponentBuilder = prog.component("raise_err_if_i_eq_15")
-    i = raise_err_if_i_eq_15.input("i", 32)
-    err = raise_err_if_i_eq_15.reg("err", 1, is_ref=True)
+    raise_err_if_i_eq_max_cmds: cb.ComponentBuilder = prog.component(
+        "raise_err_if_i_eq_MAX_CMDS"
+    )
+    i = raise_err_if_i_eq_max_cmds.input("i", 32)
+    err = raise_err_if_i_eq_max_cmds.reg("err", 1, is_ref=True)
 
-    i_eq_15 = util.insert_eq(raise_err_if_i_eq_15, i, 15, "i_eq_15", 32)
-    raise_err = util.insert_reg_store(raise_err_if_i_eq_15, err, 1, "raise_err")
+    i_eq_max_cmds = util.insert_eq(
+        raise_err_if_i_eq_max_cmds, i, MAX_CMDS, "i_eq_MAX_CMDS", 32
+    )
+    raise_err = util.insert_reg_store(raise_err_if_i_eq_max_cmds, err, 1, "raise_err")
 
-    raise_err_if_i_eq_15.control += [
+    raise_err_if_i_eq_max_cmds.control += [
         cb.if_(
-            i_eq_15[0].out,
-            i_eq_15[1],
+            i_eq_max_cmds[0].out,
+            i_eq_max_cmds[1],
             raise_err,
         )
     ]
 
-    return raise_err_if_i_eq_15
+    return raise_err_if_i_eq_max_cmds
 
 
 def insert_main(prog, queue):
@@ -51,13 +57,13 @@ def insert_main(prog, queue):
     # - one ref register, `ans`, into which the result of a pop is written.
     # - one ref register, `err`, which is raised if an error occurs.
 
-    commands = main.seq_mem_d1("commands", 32, 15, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 32, MAX_CMDS, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # The two components we'll use:
     queue = main.cell("myqueue", queue)
-    raise_err_if_i_eq_15 = main.cell(
-        "raise_err_if_i_eq_15", insert_raise_err_if_i_eq_15(prog)
+    raise_err_if_i_eq_max_cmds = main.cell(
+        "raise_err_if_i_eq_MAX_CMDS", insert_raise_err_if_i_eq_max_cmds(prog)
     )
 
     # We will use the `invoke` method to call the `queue` component.
@@ -127,8 +133,8 @@ def insert_main(prog, queue):
                     ),
                 ),
                 incr_i,  # Increment the command index
-                cb.invoke(  # If i = 15, raise error flag
-                    raise_err_if_i_eq_15, in_i=i.out, ref_err=err
+                cb.invoke(  # If i = MAX_CMDS, raise error flag
+                    raise_err_if_i_eq_max_cmds, in_i=i.out, ref_err=err
                 ),  # AM: hella hacky
             ],
         ),
