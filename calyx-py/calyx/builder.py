@@ -268,13 +268,6 @@ class ComponentBuilder:
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def is_seq_mem_d1(self, cell: CellBuilder) -> bool:
-        """Check if the cell is a SeqMemD1 cell."""
-        return (
-            isinstance(cell._cell.comp, ast.CompInst)
-            and cell._cell.comp.name == "seq_mem_d1"
-        )
-
     def add(self, name: str, size: int, signed=False) -> CellBuilder:
         """Generate a StdAdd cell."""
         self.prog.import_("primitives/binary_operators.futil")
@@ -318,6 +311,10 @@ class ComponentBuilder:
     def and_(self, name: str, size: int) -> CellBuilder:
         """Generate a StdAnd cell."""
         return self.cell(name, ast.Stdlib.op("and", size, False))
+
+    def not_(self, name: str, size: int) -> CellBuilder:
+        """Generate a StdNot cell."""
+        return self.cell(name, ast.Stdlib.op("not", size, False))
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
@@ -620,12 +617,20 @@ class CellBuilder(CellLikeBuilder):
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
-    def is_mem_d1(self) -> bool:
-        """Check if the cell is a StdMemD1 cell."""
+    def is_primitive(self, prim_name) -> bool:
+        """Check if the cell is an instance of the primitive {prim_name}."""
         return (
             isinstance(self._cell.comp, ast.CompInst)
-            and self._cell.comp.id == "std_mem_d1"
+            and self._cell.comp.id == prim_name
         )
+
+    def is_std_mem_d1(self) -> bool:
+        """Check if the cell is a StdMemD1 cell."""
+        return self.is_primitive("std_mem_d1")
+
+    def is_seq_mem_d1(self) -> bool:
+        """Check if the cell is a SeqMemD1 cell."""
+        return self.is_primitive("seq_mem_d1")
 
     @classmethod
     def unwrap_id(cls, obj):
