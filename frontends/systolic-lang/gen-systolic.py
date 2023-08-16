@@ -408,7 +408,7 @@ def instantiate_idx_cond_groups(comp: cb.ComponentBuilder, leaky_relu):
     # operations are finished yet
     if not leaky_relu:
         iter_limit = comp.get_cell("iter_limit")
-        lt_iter_limit = comp.lt("lt_iter_limit", BITWIDTH)
+        lt_iter_limit = comp.lt(BITWIDTH, "lt_iter_limit")
         with comp.static_group("lt_iter_limit_group", 1):
             lt_iter_limit.left = add.out
             lt_iter_limit.right = iter_limit.out
