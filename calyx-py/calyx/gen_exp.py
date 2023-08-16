@@ -87,7 +87,7 @@ def generate_fp_pow_component(
     comp.control += [
         init,
         while_with(
-            CellGroupBuilder(lt.out, cond),
+            CellGroupBuilder(lt, cond),
             par(execute_mul, incr_count),
         ),
     ]
@@ -439,7 +439,7 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
             init,
             if_with(
                 CellGroupBuilder(
-                    lt.out,
+                    lt,
                     comp.get_group("is_negative"),
                 ),
                 comp.get_group("negate"),
@@ -455,7 +455,7 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
             comp.get_group("final_multiply"),
             if_with(
                 CellGroupBuilder(
-                    lt.out,
+                    lt,
                     comp.get_group("is_negative"),
                 ),
                 comp.get_group("reciprocal"),
@@ -675,34 +675,22 @@ def generate_fp_pow_full(
     )
 
     base_reciprocal = if_with(
-        CellGroupBuilder(
-            lt.out,
-            comp.get_group("base_lt_one"),
-        ),
+        CellGroupBuilder(lt, comp.get_group("base_lt_one")),
         comp.get_group("set_base_reciprocal"),
     )
 
     res_reciprocal = if_with(
-        CellGroupBuilder(
-            lt.out,
-            comp.get_group("base_lt_one"),
-        ),
+        CellGroupBuilder(lt, comp.get_group("base_lt_one")),
         comp.get_group("set_res_reciprocal"),
     )
 
     if is_signed:
         base_rev = if_with(
-            CellGroupBuilder(
-                lt.out,
-                comp.get_group("base_lt_zero"),
-            ),
+            CellGroupBuilder(lt, comp.get_group("base_lt_zero")),
             comp.get_group("rev_base_sign"),
         )
         res_rev = if_with(
-            CellGroupBuilder(
-                lt.out,
-                comp.get_group("base_lt_zero"),
-            ),
+            CellGroupBuilder(lt, comp.get_group("base_lt_zero")),
             comp.get_group("rev_res_sign"),
         )
         pre_process = [base_rev, store_old_reg_val, base_reciprocal]
