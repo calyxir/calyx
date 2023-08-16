@@ -106,10 +106,9 @@ def insert_fifo(prog, name):
                     ],
                 ),
             ),
-            cb.if_(
+            cb.if_with(
                 # Did the user call push?
-                cmd_gt_1[0].out,
-                cmd_gt_1[1],
+                cmd_gt_1,
                 cb.if_with(
                     # Yes, the user called push. But is the queue full?
                     len_eq_10,

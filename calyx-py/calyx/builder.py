@@ -371,7 +371,7 @@ class ComponentBuilder:
         with self.comb_group(groupname) as comb_group:
             cell.left = left
             cell.right = right
-        return cell, comb_group
+        return CellGroupBuilder(cell, comb_group)
 
     def eq_use(self, left, right, width, cellname=None):
         """Inserts wiring into component {self} to check if {left} == {right}.
@@ -385,9 +385,7 @@ class ComponentBuilder:
 
         Returns handles to the cell and the combinational group.
         """
-        cell, comb_group = self.insert_comb_group(left, right, self.eq(width, cellname))
-        cellgroup: CellGroupBuilder = CellGroupBuilder(cell, comb_group)
-        return cellgroup
+        return self.insert_comb_group(left, right, self.eq(width, cellname))
 
 
 class CellGroupBuilder:

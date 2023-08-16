@@ -101,9 +101,8 @@ def insert_main(prog, queue):
                     ref_ans=ans,
                     ref_err=err,
                 ),
-                cb.if_(  # If it was a pop or a peek, write ans to the answer list
-                    cmd_le_1[0].out,
-                    cmd_le_1[1],
+                cb.if_with(  # If it was a pop or a peek, write ans to the answer list
+                    cmd_le_1,
                     [  # AM: I'd like to have an additional check hereL
                         # if err flag comes back raised,
                         # we do not perform this write_ans or this incr_j
