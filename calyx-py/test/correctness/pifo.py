@@ -4,6 +4,8 @@ import calyx.builder as cb
 import calyx.builder_util as util
 import calyx.queue_call as qc
 
+MAX_QUEUE_LEN = 10
+
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
     """The flow is needed when the command is a push.
@@ -53,14 +55,15 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     violation of the 50/50 rule) until the silent flow starts transmitting again.
     At that point we go back to 50/50.
 
-    The PIFO's maximum capacity is 10.
+    The PIFO's maximum capacity is MAX_QUEUE_LEN.
     Let's say the two flows are called `0` and `1`.
-    We orchestrate two sub-queues, `queue_l` and `queue_r`, each of capacity 10.
+    We orchestrate two sub-queues, `queue_l` and `queue_r`,
+    each of capacity MAX_QUEUE_LEN.
     We maintain a register that points to which of these sub-queues is "hot".
     Start off with `hot` pointing to `queue_l` (arbitrarily).
 
     - `push(v, PIFO)`:
-       + If len(PIFO) = 10, raise an "overflow" err and exit.
+       + If len(PIFO) = MAX_QUEUE_LEN, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`.
          Find out which flow `f` the value `v` should go to;
          `f` better be either `0` or `1`.
@@ -109,7 +112,9 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     flow_eq_0 = util.insert_eq(pifo, flow.out, 0, "flow_eq_0", 1)
     flow_eq_1 = util.insert_eq(pifo, flow.out, 1, "flow_eq_1", 1)
     len_eq_0 = util.insert_eq(pifo, len.out, 0, "len_eq_0", 32)
-    len_eq_10 = util.insert_eq(pifo, len.out, 10, "len_eq_10", 32)
+    len_eq_max_queue_len = util.insert_eq(
+        pifo, len.out, MAX_QUEUE_LEN, "len_eq_MAX_QUEUE_LEN", 32
+    )
     cmd_eq_0 = util.insert_eq(pifo, cmd, 0, "cmd_eq_0", 32)
     cmd_eq_1 = util.insert_eq(pifo, cmd, 1, "cmd_eq_1", 32)
     cmd_gt_1 = util.insert_gt(pifo, cmd, 1, "cmd_gt_1", 32)
@@ -267,8 +272,8 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                 cmd_gt_1[1],
                 cb.if_(
                     # Yes, the user called push. But is the queue full?
-                    len_eq_10[0].out,
-                    len_eq_10[1],
+                    len_eq_max_queue_len[0].out,
+                    len_eq_max_queue_len[1],
                     [raise_err, zero_out_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         lower_err,
