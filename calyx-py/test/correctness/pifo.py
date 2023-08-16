@@ -1,7 +1,6 @@
 # pylint: disable=import-error
 import fifo
 import calyx.builder as cb
-import calyx.builder_util as util
 import calyx.queue_call as qc
 
 MAX_QUEUE_LEN = 10
@@ -120,9 +119,9 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     err_neq_0 = pifo.neq_use(err.out, cb.const(1, 0), 1)
 
     flip_hot = pifo.bitwise_flip_reg(hot, 1)
-    raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # err := 1
-    lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # err := 0
-    flash_ans = util.insert_reg_store(pifo, ans, 0, "flash_ans")  # ans := 0
+    raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
+    lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
+    flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
     len_incr = pifo.incr(len, 32)  # len++
     len_decr = pifo.decr(len, 32)  # len--

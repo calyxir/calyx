@@ -1,6 +1,5 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-import calyx.builder_util as util
 import calyx.queue_call as qc
 
 MAX_QUEUE_LEN = 10
@@ -51,20 +50,16 @@ def insert_fifo(prog, name):
     len_decr = fifo.decr(len, 32)  # len--
 
     # Cells and groups to modify flags, which are registers
-    flash_write = util.insert_reg_store(fifo, write, 0, "flash_write")  # write := 0
-    flash_read = util.insert_reg_store(fifo, read, 0, "flash_read")  # read := 0
-    raise_err = util.insert_reg_store(fifo, err, 1, "raise_err")  # err := 1
-    flash_ans = util.insert_reg_store(fifo, ans, 0, "flash_ans")  # ans := 0
+    flash_write = fifo.reg_store(write, 0, "flash_write")  # write := 0
+    flash_read = fifo.reg_store(read, 0, "flash_read")  # read := 0
+    raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
+    flash_ans = fifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
     # Load and store into an arbitary slot in memory
-    write_to_mem = util.mem_store_seq_d1(
-        fifo, mem, write.out, cmd, "write_payload_to_mem"
-    )
-    read_from_mem = util.mem_read_seq_d1(
-        fifo, mem, read.out, "read_payload_from_mem_phase1"
-    )
-    write_to_ans = util.mem_write_seq_d1_to_reg(
-        fifo, mem, ans, "read_payload_from_mem_phase2"
+    write_to_mem = fifo.mem_store_seq_d1(mem, write.out, cmd, "write_payload_to_mem")
+    read_from_mem = fifo.mem_read_seq_d1(mem, read.out, "read_payload_from_mem_phase1")
+    write_to_ans = fifo.mem_write_seq_d1_to_reg(
+        mem, ans, "read_payload_from_mem_phase2"
     )
 
     fifo.control += [

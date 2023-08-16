@@ -1,5 +1,4 @@
 # pylint: disable=import-error
-import calyx.builder_util as util
 import calyx.builder as cb
 
 
@@ -36,21 +35,21 @@ def add_wrap2(prog):
     j_lt_8_cell, j_lt_8_group = wrap.lt_use(j, 8, 32)
 
     # Load `j` unchanged into `j_mod_4`.
-    unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
+    unchanged = wrap.reg_store(j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and j-8. Either of these will store the result in `j_mod_4`.
-    j_minus_4, j_mod_4 = util.insert_sub_store_in_reg(
-        wrap, j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
+    j_minus_4, j_mod_4 = wrap.sub_store_in_reg(
+        j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
     )
-    j_minus_8, j_mod_4 = util.insert_sub_store_in_reg(
-        wrap, j, cb.const(32, 8), "j_minus_8", 32, j_mod_4
+    j_minus_8, j_mod_4 = wrap.sub_store_in_reg(
+        j, cb.const(32, 8), "j_minus_8", 32, j_mod_4
     )
 
     load_from_mems = [
         # Add wiring to load the value `j_mod_4` from all of the memory cells.
         # We'll have to invoke the correct one of these groups later on.
-        util.insert_mem_load_to_mem(
-            wrap, mems[i], j_mod_4.out, ans, cb.const(32, 0), f"load_from_mem{i}"
+        wrap.mem_load_to_mem(
+            mems[i], j_mod_4.out, ans, cb.const(32, 0), f"load_from_mem{i}"
         )
         for i in range(6)
     ]
@@ -132,16 +131,16 @@ def add_wrap3(prog):
     j_lt_4_cell, j_lt_4_group = wrap.lt_use(j, 4, 32)
 
     # Load `j` unchanged into `j_mod_4`.
-    unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
+    unchanged = wrap.reg_store(j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and store the result in `j_mod_4`.
-    subcell, j_mod_4 = util.insert_sub_store_in_reg(
-        wrap, j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
+    subcell, j_mod_4 = wrap.sub_store_in_reg(
+        j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
     )
 
     emit_from_mems = [
-        util.insert_mem_load_to_mem(
-            wrap, mems[i], j_mod_4.out, ans, cb.const(32, 0), f"load_from_mem{i}"
+        wrap.mem_load_to_mem(
+            mems[i], j_mod_4.out, ans, cb.const(32, 0), f"load_from_mem{i}"
         )
         for i in range(6)
     ]
