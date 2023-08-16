@@ -390,6 +390,20 @@ class ComponentBuilder:
         return cellgroup
 
 
+class CellGroupBuilder:
+    """Just a cell and a group, for when it is convenient to
+    pass them around together.
+
+    Typically the group will be a combinational group, and `if_with` and
+    `while_with` will require that a CellGroupBuilder be passed in, not a
+    cell and a group separately.
+    """
+
+    def __init__(self, cell, group):
+        self.cell = cell
+        self.group = group
+
+
 def as_control(obj):
     """Convert a Python object into a control statement.
 
@@ -455,7 +469,7 @@ def if_(
     else_body=None,
 ) -> ast.If:
     """Build a `static if` control statement."""
-    else_body = ast.Empty() if else_body is None else else_body
+    else_body = else_body or ast.Empty()
 
     if cond:
         assert isinstance(
@@ -467,43 +481,43 @@ def if_(
     return ast.If(port.expr, cg, as_control(body), as_control(else_body))
 
 
-class CellGroupBuilder:
-    """Just a cell and a group, for when it is convenient to pass them around together."""
-
-    def __init__(self, cell, group):
-        self.cell = cell
-        self.group = group
-
-
-def if_with(
-    port_cond: CellGroupBuilder,
-    body,
-    else_body=None,
-) -> ast.If:
-    """Build an if statement, where the cell and the conditional group are provided
-    together.
-    """
-    return if_(port_cond.cell.out, port_cond.group, body, else_body)
-
-
-def while_with(
-    port_cond: CellGroupBuilder,
-    body,
-) -> ast.While:
-    """Build a while statement, where the cell and the conditional group are provided
-    together.
-    """
-    return while_(port_cond.cell.out, port_cond.group, body)
-
-
 def static_if(
     port: ExprBuilder,
     body,
     else_body=None,
 ) -> ast.If:
     """Build an `if` control statement."""
-    else_body = ast.Empty() if else_body is None else else_body
+    else_body = else_body or ast.Empty()
     return ast.StaticIf(port.expr, as_control(body), as_control(else_body))
+
+
+def if_with(port_comb: CellGroupBuilder, body, else_body=None) -> ast.If:
+    """Build an if statement, where the cell and the combinational group
+    are provided together.
+    """
+    port = port_comb.cell.out
+    cond = port_comb.group
+    else_body = else_body or ast.Empty()
+
+    assert isinstance(
+        cond.group_like, ast.CombGroup
+    ), "if condition must be a combinational group"
+    return ast.If(
+        port.expr, cond.group_like.id, as_control(body), as_control(else_body)
+    )
+
+
+def while_with(port_comb: CellGroupBuilder, body) -> ast.While:
+    """Build a while statement, where the cell and the combinational
+    group are provided together.
+    """
+
+    port = port_comb.cell.out
+    cond = port_comb.group
+    assert isinstance(
+        cond.group_like, ast.CombGroup
+    ), "while condition must be a combinational group"
+    return ast.While(port.expr, cond.group_like.id, as_control(body))
 
 
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
