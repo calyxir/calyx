@@ -503,7 +503,7 @@ class ComponentBuilder:
 
     def incr(self, reg, width, val=1, cellname=None):
         """Inserts wiring into component {self} to increment register {reg} by {val}.
-        1. Within component {self}, creates a group called {cellname}_group.
+        1. Within component {self}, creates a group.
         2. Within the group, adds a cell {cellname} that computes sums.
         3. Puts the values {reg} and {val} into the cell.
         4. Then puts the answer of the computation back into {reg}.
@@ -521,11 +521,11 @@ class ComponentBuilder:
 
     def decr(self, reg, width, val=1, cellname=None):
         """Inserts wiring into component {self} to decrement register {reg} by {val}.
-        1. Within component {self}, creates a group called {cellname}_group.
+        1. Within component {self}, creates a group.
         2. Within the group, adds a cell {cellname} that computes differences.
         3. Puts the values {reg} and {val} into the cell.
         4. Then puts the answer of the computation back into {reg}.
-        5. Returns the group that does this.
+        5. Returns the group.
         """
         cellname = cellname or f"{reg.name()}_decr"
         sub_cell = self.sub(width, cellname)
@@ -536,6 +536,161 @@ class ComponentBuilder:
             reg.in_ = sub_cell.out
             decr_group.done = reg.done
         return decr_group
+
+    def insert_reg_store(self, reg, val, groupname=None):
+        """Stores a value in a register.
+        1. Within component {self}, creates a group.
+        2. Within the group, sets the register {reg} to {val}.
+        3. Returns the group.
+        """
+        groupname = groupname or f"{reg.name()}_store_to_reg"
+        with self.group(groupname) as reg_grp:
+            reg.in_ = val
+            reg.write_en = 1
+            reg_grp.done = reg.done
+        return reg_grp
+
+    def mem_load_std_d1(self, mem, i, reg, groupname=None):
+        """Loads a value from one memory (std_d1) into a register.
+        1. Within component {comp}, creates a group.
+        2. Within the group, reads from memory {mem} at address {i}.
+        3. Writes the value into register {reg}.
+        4. Returns the group.
+        """
+        assert mem.is_std_mem_d1()
+        groupname = groupname or f"{mem.name()}_load_to_reg"
+        with self.group(groupname) as load_grp:
+            mem.addr0 = i
+            reg.write_en = 1
+            reg.in_ = mem.read_data
+            load_grp.done = reg.done
+        return load_grp
+
+    def mem_store_std_d1(self, mem, i, val, groupname=None):
+        """Stores a value into a (std_d1) memory.
+        1. Within component {self}, creates a group.
+        2. Within the group, reads from {val}.
+        3. Writes the value into memory {mem} at address i.
+        4. Returns the group.
+        """
+        assert mem.is_std_mem_d1()
+        groupname = groupname or f"store_into_{mem.name()}"
+        with self.group(groupname) as store_grp:
+            mem.addr0 = i
+            mem.write_en = 1
+            mem.write_data = val
+            store_grp.done = mem.done
+        return store_grp
+
+    def mem_read_seq_d1(self, mem, i, groupname=None):
+        """Given a seq_mem_d1, reads from memory at address i.
+        Note that this does not write the value anywhere.
+
+        1. Within component {self}, creates a group.
+        2. Within the group, reads from memory {mem} at address {i},
+        thereby "latching" the value.
+        3. Returns the group.
+        """
+        assert mem.is_seq_mem_d1()
+        groupname = groupname or f"read_from_{mem.name()}"
+        with self.group(groupname) as read_grp:
+            mem.addr0 = i
+            mem.read_en = 1
+            read_grp.done = mem.read_done
+        return read_grp
+
+    def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
+        """Given a seq_mem_d1 that is already assumed to have a latched value,
+        reads the latched value and writes it to a register.
+
+        1. Within component {self}, creates a group.
+        2. Within the group, reads from memory {mem}.
+        3. Writes the value into register {reg}.
+        4. Returns the group.
+        """
+        assert mem.is_seq_mem_d1()
+        groupname = groupname or f"{mem.name()}_write_to_reg"
+        with self.group(groupname) as write_grp:
+            reg.write_en = 1
+            reg.in_ = mem.read_data
+            write_grp.done = reg.done
+        return write_grp
+
+
+def mem_store_seq_d1(self, mem, i, val, groupname=None):
+    """Given a seq_mem_d1, stores a value into memory at address i.
+
+    1. Within component {self}, creates a group.
+    2. Within the group, reads from {val}.
+    3. Writes the value into memory {mem} at address i.
+    4. Returns the group.
+    """
+    assert mem.is_seq_mem_d1()
+    groupname = groupname or f"{mem.name()}_store"
+    with self.group(groupname) as store_grp:
+        mem.addr0 = i
+        mem.write_en = 1
+        mem.write_data = val
+        store_grp.done = mem.write_done
+    return store_grp
+
+
+def insert_mem_load_to_mem(self, mem, i, ans, j, groupname=None):
+    """Loads a value from one std_mem_d1 memory into another.
+    1. Within component {self}, creates a group.
+    2. Within the group, reads from memory {mem} at address {i}.
+    3. Writes the value into memory {ans} at address {j}.
+    4. Returns the group.
+    """
+    assert mem.is_std_mem_d1() and ans.is_std_mem_d1()
+    groupname = groupname or f"{mem.name()}_load_to_mem"
+    with self.group(groupname) as load_grp:
+        mem.addr0 = i
+        ans.write_en = 1
+        ans.addr0 = j
+        ans.write_data = mem.read_data
+        load_grp.done = ans.done
+    return load_grp
+
+
+def insert_add_store_in_reg(self, cellname, left, right, ans_reg=None):
+    """Inserts wiring into component {self} to compute {left} + {right} and
+      store it in {ans_reg}.
+    1. Within component {self}, creates a group called {cellname}_group.
+    2. Within {group}, create a cell {cellname} that computes sums.
+    3. Puts the values of {left} and {right} into the cell.
+    4. Then puts the answer of the computation into {ans_reg}.
+    4. Returns the summing group and the register.
+    """
+    add_cell = self.add(32, cellname)
+    ans_reg = ans_reg or self.reg(f"reg_{cellname}", 32)
+    with self.group(f"{cellname}_group") as adder_group:
+        add_cell.left = left
+        add_cell.right = right
+        ans_reg.write_en = 1
+        ans_reg.in_ = add_cell.out
+        adder_group.done = ans_reg.done
+    return adder_group, ans_reg
+
+
+def insert_sub_store_in_reg(self, left, right, cellname, width, ans_reg=None):
+    """Adds wiring into component {self} to compute {left} - {right}
+    and store it in {ans_reg}.
+    1. Within component {self}, creates a group called {cellname}_group.
+    2. Within {group}, create a cell {cellname} that computes differences.
+    3. Puts the values of {left} and {right} into {cell}.
+    4. Then puts the answer of the computation into {ans_reg}.
+    4. Returns the subtracting group and the register.
+    """
+    sub_cell = self.sub(width, cellname)
+    ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
+    with self.group(f"{cellname}_group") as sub_group:
+        sub_cell.left = left
+        sub_cell.right = right
+        ans_reg.write_en = 1
+        ans_reg.in_ = sub_cell.out
+        sub_group.done = ans_reg.done
+    return sub_group, ans_reg
 
 
 def as_control(obj):
