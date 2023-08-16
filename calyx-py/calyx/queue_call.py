@@ -3,6 +3,7 @@ import calyx.builder as cb
 import calyx.builder_util as util
 
 MAX_CMDS = 15
+ANS_MEM_LEN = 10
 
 
 def insert_raise_err_if_i_eq_max_cmds(prog):
