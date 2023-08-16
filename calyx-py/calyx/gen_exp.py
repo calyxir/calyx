@@ -679,7 +679,7 @@ def generate_fp_pow_full(
             lt.out,
             comp.get_group("base_lt_one"),
         ),
-        body=comp.get_group("set_base_reciprocal"),
+        comp.get_group("set_base_reciprocal"),
     )
 
     res_reciprocal = if_with(
