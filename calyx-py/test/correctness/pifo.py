@@ -19,7 +19,7 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group)
     4. Then puts the answer of the computation into {flow}.
     5. Returns the group that does this.
     """
-    cell = comp.lt("flow_inf", 32)
+    cell = comp.lt(32)
     with comp.group(group) as infer_flow_grp:
         cell.left = boundary
         cell.right = cmd

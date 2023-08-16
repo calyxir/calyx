@@ -41,10 +41,10 @@ def insert_neq(comp: cb.ComponentBuilder, left, right, width, cellname=None):
 
     Returns handles to the cell and the combinational group.
     """
-    return insert_comb_group(comp, left, right, comp.neq(cellname, width))
+    return insert_comb_group(comp, left, right, comp.neq(width, cellname))
 
 
-def insert_lt(comp: cb.ComponentBuilder, left, right, cellname, width):
+def insert_lt(comp: cb.ComponentBuilder, left, right, width, cellname=None):
     """Inserts wiring into component {comp} to check if {left} < {right}.
 
     <cellname> = std_lt(<width>);
@@ -56,8 +56,8 @@ def insert_lt(comp: cb.ComponentBuilder, left, right, cellname, width):
 
     Returns handles to the cell and the combinational group.
     """
-    lt_cell = comp.lt(cellname, width)
-    return insert_comb_group(comp, left, right, lt_cell, f"{cellname}_group")
+    lt_cell = comp.lt(width, cellname)
+    return insert_comb_group(comp, left, right, lt_cell)
 
 
 def insert_le(comp: cb.ComponentBuilder, left, right, cellname, width):

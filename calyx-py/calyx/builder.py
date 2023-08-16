@@ -284,9 +284,10 @@ class ComponentBuilder:
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("gt", size, signed))
 
-    def lt(self, name: str, size: int, signed=False):
+    def lt(self, size: int, name=None, signed=False):
         """Generate a StdLt cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"lt_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("lt", size, signed))
 
     def eq(self, size: int, name=None, signed=False):
@@ -295,9 +296,10 @@ class ComponentBuilder:
         name = name or f"eq_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("eq", size, signed))
 
-    def neq(self, name: str, size: int, signed=False):
+    def neq(self, size: int, name=None, signed=False):
         """Generate a StdNeq cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"neq_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("neq", size, signed))
 
     def ge(self, name: str, size: int, signed=False):

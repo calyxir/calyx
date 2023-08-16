@@ -32,8 +32,8 @@ def add_wrap2(prog):
     # Additional cells and groups to compute equality and lt
     i_eq_0_cell, i_eq_0_grp = util.insert_eq(wrap, i, 0, 32)
     i_eq_1_cell, i_eq_1_group = util.insert_eq(wrap, i, 1, 32)
-    j_lt_4_cell, j_lt_4_group = util.insert_lt(wrap, j, 4, "j_lt_4", 32)
-    j_lt_8_cell, j_lt_8_group = util.insert_lt(wrap, j, 8, "j_lt_8", 32)
+    j_lt_4_cell, j_lt_4_group = util.insert_lt(wrap, j, 4, 32)
+    j_lt_8_cell, j_lt_8_group = util.insert_lt(wrap, j, 8, 32)
 
     # Load `j` unchanged into `j_mod_4`.
     unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
@@ -129,7 +129,7 @@ def add_wrap3(prog):
     i_eq_0_cell, i_eq_0_group = util.insert_eq(wrap, i, 0, 32)
     i_eq_1_cell, i_eq_1_group = util.insert_eq(wrap, i, 1, 32)
     i_eq_2_cell, i_eq_2_group = util.insert_eq(wrap, i, 2, 32)
-    j_lt_4_cell, j_lt_4_group = util.insert_lt(wrap, j, 4, "j_lt_4", 32)
+    j_lt_4_cell, j_lt_4_group = util.insert_lt(wrap, j, 4, 32)
 
     # Load `j` unchanged into `j_mod_4`.
     unchanged = util.insert_reg_store(wrap, j_mod_4, j, "j_unchanged")
