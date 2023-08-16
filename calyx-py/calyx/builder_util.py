@@ -2,20 +2,6 @@
 import calyx.builder as cb
 
 
-def insert_bitwise_flip_reg(comp: cb.ComponentBuilder, reg, cellname, width):
-    """Inserts wiring into component {comp} to bitwise-flip the contents of {reg}.
-
-    Returns a handle to the group that does this.
-    """
-    not_cell = comp.not_(width, cellname)
-    with comp.group(f"{cellname}_group") as not_group:
-        not_cell.in_ = reg.out
-        reg.write_en = 1
-        reg.in_ = not_cell.out
-        not_group.done = reg.done
-    return not_group
-
-
 def insert_incr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     """Inserts wiring into component {comp} to increment register {reg} by {val}.
     1. Within component {comp}, creates a group called {cellname}_group.

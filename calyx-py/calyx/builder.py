@@ -487,6 +487,20 @@ class ComponentBuilder:
         """
         return self.insert_comb_group(left, right, self.sub(width, cellname))
 
+    def bitwise_flip_reg(self, reg, width, cellname=None):
+        """Inserts wiring into component {self} to bitwise-flip the contents of {reg}.
+
+        Returns a handle to the group that does this.
+        """
+        cellname = cellname or f"{reg.name()}_not"
+        not_cell = self.not_(width, cellname)
+        with self.group(f"{cellname}_group") as not_group:
+            not_cell.in_ = reg.out
+            reg.write_en = 1
+            reg.in_ = not_cell.out
+            not_group.done = reg.done
+        return not_group
+
 
 def as_control(obj):
     """Convert a Python object into a control statement.
