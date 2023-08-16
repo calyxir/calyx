@@ -120,9 +120,9 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     err_neq_0 = pifo.neq_use(err.out, cb.const(1, 0), 1)
 
     flip_hot = util.insert_bitwise_flip_reg(pifo, hot, "flip_hot", 1)
-    raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
-    lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # set `err` to 0
-    zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")
+    raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # err := 1
+    lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # err := 0
+    flash_ans = util.insert_reg_store(pifo, ans, 0, "flash_ans")  # ans := 0
 
     len_incr = util.insert_incr(pifo, len, "len_incr")  # len++
     len_decr = util.insert_decr(pifo, len, "len_decr")  # len--
@@ -139,7 +139,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                     # Yes, the user called pop. But is the queue empty?
                     len_eq_0[0].out,
                     len_eq_0[1],
-                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
@@ -217,7 +217,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                     # Yes, the user called peek. But is the queue empty?
                     len_eq_0[0].out,
                     len_eq_0[1],
-                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
@@ -272,7 +272,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                     # Yes, the user called push. But is the queue full?
                     len_eq_max_queue_len[0].out,
                     len_eq_max_queue_len[1],
-                    [raise_err, zero_out_ans],  # The queue is full: overflow.
+                    [raise_err, flash_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         lower_err,
                         # We need to check which flow this value should be pushed to.

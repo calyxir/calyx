@@ -30,8 +30,8 @@ def add_wrap2(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells and groups to compute equality and lt
-    i_eq_0_cell, i_eq_0_grp = wrap.eq_use(i, 0, 32, "i_eq_0")
-    i_eq_1_cell, i_eq_1_group = wrap.eq_use(i, 1, 32, "i_eq_1")
+    i_eq_0_cell, i_eq_0_grp = wrap.eq_use(i, 0, 32)
+    i_eq_1_cell, i_eq_1_group = wrap.eq_use(i, 1, 32)
     j_lt_4_cell, j_lt_4_group = wrap.lt_use(j, 4, 32)
     j_lt_8_cell, j_lt_8_group = wrap.lt_use(j, 8, 32)
 
