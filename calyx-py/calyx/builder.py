@@ -272,16 +272,19 @@ class ComponentBuilder:
     def add(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdAdd cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"add_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("add", size, signed))
 
     def sub(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdSub cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"sub_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("sub", size, signed))
 
     def gt(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdGt cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"gt_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("gt", size, signed))
 
     def lt(self, size: int, name=None, signed=False) -> CellBuilder:
@@ -305,19 +308,23 @@ class ComponentBuilder:
     def ge(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdGe cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"ge_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("ge", size, signed))
 
     def le(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdLe cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"le_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("le", size, signed))
 
     def and_(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdAnd cell."""
+        name = name or f"and_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("and", size, False))
 
     def not_(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdNot cell."""
+        name = name or f"not_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("not", size, False))
 
     def pipelined_mult(self, name: str) -> CellBuilder:
