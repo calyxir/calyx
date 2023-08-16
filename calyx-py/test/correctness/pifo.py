@@ -115,7 +115,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     len_eq_max_queue_len = util.insert_eq(pifo, len.out, MAX_QUEUE_LEN, 32)
     cmd_eq_0 = util.insert_eq(pifo, cmd, 0, 32)
     cmd_eq_1 = util.insert_eq(pifo, cmd, 1, 32)
-    cmd_gt_1 = util.insert_gt(pifo, cmd, 1, "cmd_gt_1", 32)
+    cmd_gt_1 = util.insert_gt(pifo, cmd, 1, 32)
     err_eq_0 = util.insert_eq(pifo, err.out, 0, 1)
     err_neq_0 = util.insert_neq(pifo, err.out, cb.const(1, 0), 1)
 

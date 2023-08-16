@@ -124,7 +124,7 @@ def insert_bitwise_flip_reg(comp: cb.ComponentBuilder, reg, cellname, width):
 
     Returns a handle to the group that does this.
     """
-    not_cell = comp.not_(cellname, width)
+    not_cell = comp.not_(width, cellname)
     with comp.group(f"{cellname}_group") as not_group:
         not_cell.in_ = reg.out
         reg.write_en = 1
@@ -141,7 +141,7 @@ def insert_incr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     4. Then puts the answer of the computation back into {reg}.
     5. Returns the group that does this.
     """
-    add_cell = comp.add(cellname, 32)
+    add_cell = comp.add(32, cellname)
     with comp.group(f"{cellname}_group") as incr_group:
         add_cell.left = reg.out
         add_cell.right = cb.const(32, val)
@@ -159,7 +159,7 @@ def insert_decr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     4. Then puts the answer of the computation back into {reg}.
     5. Returns the group that does this.
     """
-    sub_cell = comp.sub(cellname, 32)
+    sub_cell = comp.sub(32, cellname)
     with comp.group(f"{cellname}_group") as decr_group:
         sub_cell.left = reg.out
         sub_cell.right = cb.const(32, val)
@@ -297,7 +297,7 @@ def insert_add_store_in_reg(
     4. Then puts the answer of the computation into {ans_reg}.
     4. Returns the summing group and the register.
     """
-    add_cell = comp.add(cellname, 32)
+    add_cell = comp.add(32, cellname)
     ans_reg = ans_reg or comp.reg(f"reg_{cellname}", 32)
     with comp.group(f"{cellname}_group") as adder_group:
         add_cell.left = left
@@ -324,7 +324,7 @@ def insert_sub_store_in_reg(
     4. Then puts the answer of the computation into {ans_reg}.
     4. Returns the subtracting group and the register.
     """
-    sub_cell = comp.sub(cellname, width)
+    sub_cell = comp.sub(width, cellname)
     ans_reg = ans_reg or comp.reg(f"reg_{cellname}", width)
     with comp.group(f"{cellname}_group") as sub_group:
         sub_cell.left = left

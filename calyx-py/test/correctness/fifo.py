@@ -37,7 +37,7 @@ def insert_fifo(prog, name):
     # Cells and groups to compute equality
     cmd_eq_0 = util.insert_eq(fifo, cmd, 0, 32)  # `cmd` == 0
     cmd_eq_1 = util.insert_eq(fifo, cmd, 1, 32)  # `cmd` == 1
-    cmd_gt_1 = util.insert_gt(fifo, cmd, 1, "cmd_gt_1", 32)  # `cmd` > 1
+    cmd_gt_1 = util.insert_gt(fifo, cmd, 1, 32)  # `cmd` > 1
 
     write_eq_max_queue_len = util.insert_eq(
         fifo, write.out, MAX_QUEUE_LEN, 32

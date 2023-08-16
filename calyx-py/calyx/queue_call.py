@@ -82,7 +82,7 @@ def insert_main(prog, queue):
     incr_i = util.insert_incr(main, i, "incr_i")  # i++
     incr_j = util.insert_incr(main, j, "incr_j")  # j++
     err_eq_0 = util.insert_eq(main, err.out, 0, 1)  # is `err` flag down?
-    cmd_le_1 = util.insert_le(main, cmd.out, 1, "cmd_le_1", 32)  # cmd <= 1
+    cmd_le_1 = util.insert_le(main, cmd.out, 1, 32)  # cmd <= 1
 
     read_cmd = util.mem_read_seq_d1(main, commands, i.out, "read_cmd_phase1")
     write_cmd_to_reg = util.mem_write_seq_d1_to_reg(
