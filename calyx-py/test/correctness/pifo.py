@@ -1,8 +1,9 @@
 # pylint: disable=import-error
 import fifo
 import calyx.builder as cb
-import calyx.builder_util as util
 import calyx.queue_call as qc
+
+MAX_QUEUE_LEN = 10
 
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
@@ -17,7 +18,7 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group)
     4. Then puts the answer of the computation into {flow}.
     5. Returns the group that does this.
     """
-    cell = comp.lt("flow_inf", 32)
+    cell = comp.lt(32)
     with comp.group(group) as infer_flow_grp:
         cell.left = boundary
         cell.right = cmd
@@ -53,14 +54,15 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     violation of the 50/50 rule) until the silent flow starts transmitting again.
     At that point we go back to 50/50.
 
-    The PIFO's maximum capacity is 10.
+    The PIFO's maximum capacity is MAX_QUEUE_LEN.
     Let's say the two flows are called `0` and `1`.
-    We orchestrate two sub-queues, `queue_l` and `queue_r`, each of capacity 10.
+    We orchestrate two sub-queues, `queue_l` and `queue_r`,
+    each of capacity MAX_QUEUE_LEN.
     We maintain a register that points to which of these sub-queues is "hot".
     Start off with `hot` pointing to `queue_l` (arbitrarily).
 
     - `push(v, PIFO)`:
-       + If len(PIFO) = 10, raise an "overflow" err and exit.
+       + If len(PIFO) = MAX_QUEUE_LEN, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`.
          Find out which flow `f` the value `v` should go to;
          `f` better be either `0` or `1`.
@@ -104,25 +106,25 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     hot = pifo.reg("hot", 1)
 
     # Some equality checks.
-    hot_eq_0 = pifo.eq_use(hot.out, 0, 1, "hot_eq_0")
-    hot_eq_1 = pifo.eq_use(hot.out, 1, 1, "hot_eq_1")
-    flow_eq_0 = pifo.eq_use(flow.out, 0, 1, "flow_eq_0")
-    flow_eq_1 = pifo.eq_use(flow.out, 1, 1, "flow_eq_1")
-    len_eq_0 = pifo.eq_use(len.out, 0, 32, "len_eq_0")
-    len_eq_10 = pifo.eq_use(len.out, 10, 32, "len_eq_10")
-    cmd_eq_0 = pifo.eq_use(cmd, 0, 32, "cmd_eq_0")
-    cmd_eq_1 = pifo.eq_use(cmd, 1, 32, "cmd_eq_1")
-    cmd_gt_1 = util.insert_gt(pifo, cmd, 1, "cmd_gt_1", 32)
-    err_eq_0 = pifo.eq_use(err.out, 0, 1, "err_eq_0")
-    err_neq_0 = util.insert_neq(pifo, err.out, cb.const(1, 0), "err_neq_0", 1)
+    hot_eq_0 = pifo.eq_use(hot.out, 0, 1)
+    hot_eq_1 = pifo.eq_use(hot.out, 1, 1)
+    flow_eq_0 = pifo.eq_use(flow.out, 0, 1)
+    flow_eq_1 = pifo.eq_use(flow.out, 1, 1)
+    len_eq_0 = pifo.eq_use(len.out, 0, 32)
+    len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN, 32)
+    cmd_eq_0 = pifo.eq_use(cmd, 0, 32)
+    cmd_eq_1 = pifo.eq_use(cmd, 1, 32)
+    cmd_gt_1 = pifo.gt_use(cmd, 1, 32)
+    err_eq_0 = pifo.eq_use(err.out, 0, 1)
+    err_neq_0 = pifo.neq_use(err.out, cb.const(1, 0), 1)
 
-    flip_hot = util.insert_bitwise_flip_reg(pifo, hot, "flip_hot", 1)
-    raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
-    lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # set `err` to 0
-    zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")
+    flip_hot = pifo.bitwise_flip_reg(hot, 1)
+    raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
+    lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
+    flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
-    len_incr = util.insert_incr(pifo, len, "len_incr")  # len++
-    len_decr = util.insert_decr(pifo, len, "len_decr")  # len--
+    len_incr = pifo.incr(len, 32)  # len++
+    len_decr = pifo.decr(len, 32)  # len--
 
     # The main logic.
     pifo.control += [
@@ -134,7 +136,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                 cb.if_with(
                     # Yes, the user called pop. But is the queue empty?
                     len_eq_0,
-                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
@@ -204,7 +206,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                 cb.if_with(
                     # Yes, the user called peek. But is the queue empty?
                     len_eq_0,
-                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
@@ -252,8 +254,8 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                 cmd_gt_1,
                 cb.if_with(
                     # Yes, the user called push. But is the queue full?
-                    len_eq_10,
-                    [raise_err, zero_out_ans],  # The queue is full: overflow.
+                    len_eq_max_queue_len,
+                    [raise_err, flash_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         lower_err,
                         # We need to check which flow this value should be pushed to.

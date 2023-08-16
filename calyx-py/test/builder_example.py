@@ -13,7 +13,7 @@ def add_main_component(prog):
     lhs = main.reg("lhs", 32)
     rhs = main.reg("rhs", 32)
     sum = main.reg("sum", 32)
-    add = main.add("add", 32)
+    add = main.add(32, "add")
     # ANCHOR_END: cells
 
     # ANCHOR: bare

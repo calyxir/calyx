@@ -1,7 +1,8 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-import calyx.builder_util as util
 import calyx.queue_call as qc
+
+MAX_QUEUE_LEN = 10
 
 
 def insert_fifo(prog, name):
@@ -9,7 +10,7 @@ def insert_fifo(prog, name):
 
     It has:
     - one input, `cmd`.
-    - one memory, `mem`, of size 10.
+    - one memory, `mem`, of size MAX_QUEUE_LEN.
     - two registers, `next_write` and `next_read`.
     - two ref registers, `ans` and `err`.
     """
@@ -18,11 +19,11 @@ def insert_fifo(prog, name):
     cmd = fifo.input("cmd", 32)
     # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
 
-    mem = fifo.seq_mem_d1("mem", 32, 10, 32)
+    mem = fifo.seq_mem_d1("mem", 32, MAX_QUEUE_LEN, 32)
     write = fifo.reg("next_write", 32)  # The next address to write to
     read = fifo.reg("next_read", 32)  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
-    # simulate a circular queue of size 10.
+    # simulate a circular queue of size MAX_QUEUE_LEN.
 
     ans = fifo.reg("ans", 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`
@@ -33,41 +34,32 @@ def insert_fifo(prog, name):
     len = fifo.reg("len", 32)  # The length of the FIFO
 
     # Cells and groups to compute equality
-    cmd_eq_0 = fifo.eq_use(cmd, 0, 32)  # `cmd` == 0
+    cmd_eq_0 = fifo.eq_use(cmd, 0, 32)
+    cmd_eq_1 = fifo.eq_use(cmd, 1, 32)
+    cmd_gt_1 = fifo.gt_use(cmd, 1, 32)
 
-    cmd_eq_1 = fifo.eq_use(cmd, 1, 32)  # `cmd` == 1
-    cmd_gt_1 = util.insert_gt(fifo, cmd, 1, "cmd_gt_1", 32)  # `cmd` > 1
-
-    write_eq_10 = fifo.eq_use(write.out, 10, 32)  # `write` == 10
-    read_eq_10 = fifo.eq_use(read.out, 10, 32)  # `read` == 10
-    len_eq_0 = fifo.eq_use(len.out, 0, 32)  # `len` == 0
-    len_eq_10 = fifo.eq_use(len.out, 10, 32)  # `len` == 10
+    write_eq_max_queue_len = fifo.eq_use(write.out, MAX_QUEUE_LEN, 32)
+    read_eq_max_queue_len = fifo.eq_use(read.out, MAX_QUEUE_LEN, 32)
+    len_eq_0 = fifo.eq_use(len.out, 0, 32)
+    len_eq_max_queue_len = fifo.eq_use(len.out, MAX_QUEUE_LEN, 32)
 
     # Cells and groups to increment read and write registers
-    write_incr = util.insert_incr(fifo, write, "write_incr")  # write++
-    read_incr = util.insert_incr(fifo, read, "read_incr")  # read++
-    len_incr = util.insert_incr(fifo, len, "len_incr")  # len++
-    len_decr = util.insert_decr(fifo, len, "len_decr")  # len--
+    write_incr = fifo.incr(write, 32)  # write++
+    read_incr = fifo.incr(read, 32)  # read++
+    len_incr = fifo.incr(len, 32)  # len++
+    len_decr = fifo.decr(len, 32)  # len--
 
     # Cells and groups to modify flags, which are registers
-    write_wrap = util.insert_reg_store(
-        fifo, write, 0, "write_wraparound"
-    )  # zero out `write`
-    read_wrap = util.insert_reg_store(
-        fifo, read, 0, "read_wraparound"
-    )  # zero out `read`
-    raise_err = util.insert_reg_store(fifo, err, 1, "raise_err")  # set `err` to 1
-    zero_out_ans = util.insert_reg_store(fifo, ans, 0, "zero_out_ans")  # zero out `ans`
+    flash_write = fifo.reg_store(write, 0, "flash_write")  # write := 0
+    flash_read = fifo.reg_store(read, 0, "flash_read")  # read := 0
+    raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
+    flash_ans = fifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
     # Load and store into an arbitary slot in memory
-    write_to_mem = util.mem_store_seq_d1(
-        fifo, mem, write.out, cmd, "write_payload_to_mem"
-    )
-    read_from_mem = util.mem_read_seq_d1(
-        fifo, mem, read.out, "read_payload_from_mem_phase1"
-    )
-    write_to_ans = util.mem_write_seq_d1_to_reg(
-        fifo, mem, ans, "read_payload_from_mem_phase2"
+    write_to_mem = fifo.mem_store_seq_d1(mem, write.out, cmd, "write_payload_to_mem")
+    read_from_mem = fifo.mem_read_seq_d1(mem, read.out, "read_payload_from_mem_phase1")
+    write_to_ans = fifo.mem_write_seq_d1_to_reg(
+        mem, ans, "read_payload_from_mem_phase2"
     )
 
     fifo.control += [
@@ -79,15 +71,15 @@ def insert_fifo(prog, name):
                 cb.if_with(
                     # Yes, the user called pop. But is the queue empty?
                     len_eq_0,
-                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         read_from_mem,  # Read from the queue.
                         write_to_ans,  # Write the answer to the answer register.
                         read_incr,  # Increment the read pointer.
                         cb.if_with(
                             # Wrap around if necessary.
-                            read_eq_10,
-                            read_wrap,
+                            read_eq_max_queue_len,
+                            flash_read,
                         ),
                         len_decr,  # Decrement the length.
                     ],
@@ -98,7 +90,7 @@ def insert_fifo(prog, name):
                 cmd_eq_1,
                 cb.if_with(  # Yes, the user called peek. But is the queue empty?
                     len_eq_0,
-                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         read_from_mem,  # Read from the queue.
                         write_to_ans,  # Write the answer to the answer register.
@@ -111,15 +103,15 @@ def insert_fifo(prog, name):
                 cmd_gt_1,
                 cb.if_with(
                     # Yes, the user called push. But is the queue full?
-                    len_eq_10,
-                    [raise_err, zero_out_ans],  # The queue is full: overflow.
+                    len_eq_max_queue_len,
+                    [raise_err, flash_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         write_to_mem,  # Write to the queue.
                         write_incr,  # Increment the write pointer.
                         cb.if_with(
                             # Wrap around if necessary.
-                            write_eq_10,
-                            write_wrap,
+                            write_eq_max_queue_len,
+                            flash_write,
                         ),
                         len_incr,  # Increment the length.
                     ],
