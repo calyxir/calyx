@@ -107,18 +107,16 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     hot = pifo.reg("hot", 1)
 
     # Some equality checks.
-    hot_eq_0 = util.insert_eq(pifo, hot.out, 0, 1, "hot_eq_0")
-    hot_eq_1 = util.insert_eq(pifo, hot.out, 1, 1, "hot_eq_1")
-    flow_eq_0 = util.insert_eq(pifo, flow.out, 0, 1, "flow_eq_0")
-    flow_eq_1 = util.insert_eq(pifo, flow.out, 1, 1, "flow_eq_1")
-    len_eq_0 = util.insert_eq(pifo, len.out, 0, 32, "len_eq_0")
-    len_eq_max_queue_len = util.insert_eq(
-        pifo, len.out, MAX_QUEUE_LEN, 32, "len_eq_MAX_QUEUE_LEN"
-    )
-    cmd_eq_0 = util.insert_eq(pifo, cmd, 0, 32, "cmd_eq_0")
-    cmd_eq_1 = util.insert_eq(pifo, cmd, 1, 32, "cmd_eq_1")
+    hot_eq_0 = util.insert_eq(pifo, hot.out, 0, 1)
+    hot_eq_1 = util.insert_eq(pifo, hot.out, 1, 1)
+    flow_eq_0 = util.insert_eq(pifo, flow.out, 0, 1)
+    flow_eq_1 = util.insert_eq(pifo, flow.out, 1, 1)
+    len_eq_0 = util.insert_eq(pifo, len.out, 0, 32)
+    len_eq_max_queue_len = util.insert_eq(pifo, len.out, MAX_QUEUE_LEN, 32)
+    cmd_eq_0 = util.insert_eq(pifo, cmd, 0, 32)
+    cmd_eq_1 = util.insert_eq(pifo, cmd, 1, 32)
     cmd_gt_1 = util.insert_gt(pifo, cmd, 1, "cmd_gt_1", 32)
-    err_eq_0 = util.insert_eq(pifo, err.out, 0, 1, "err_eq_0")
+    err_eq_0 = util.insert_eq(pifo, err.out, 0, 1)
     err_neq_0 = util.insert_neq(pifo, err.out, cb.const(1, 0), "err_neq_0", 1)
 
     flip_hot = util.insert_bitwise_flip_reg(pifo, hot, "flip_hot", 1)
