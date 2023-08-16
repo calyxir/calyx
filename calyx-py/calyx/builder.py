@@ -269,52 +269,54 @@ class ComponentBuilder:
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int, signed=False) -> CellBuilder:
+    def add(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdAdd cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("add", size, signed))
 
-    def sub(self, name: str, size: int, signed=False):
+    def sub(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdSub cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("sub", size, signed))
 
-    def gt(self, name: str, size: int, signed=False):
+    def gt(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdGt cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("gt", size, signed))
 
-    def lt(self, name: str, size: int, signed=False):
+    def lt(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdLt cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"lt_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("lt", size, signed))
 
-    def eq(self, size: int, name=None, signed=False):
+    def eq(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdEq cell."""
         self.prog.import_("primitives/binary_operators.futil")
         name = name or f"eq_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("eq", size, signed))
 
-    def neq(self, name: str, size: int, signed=False):
+    def neq(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdNeq cell."""
         self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"neq_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("neq", size, signed))
 
-    def ge(self, name: str, size: int, signed=False):
+    def ge(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdGe cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("ge", size, signed))
 
-    def le(self, name: str, size: int, signed=False):
+    def le(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdLe cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("le", size, signed))
 
-    def and_(self, name: str, size: int) -> CellBuilder:
+    def and_(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdAnd cell."""
         return self.cell(name, ast.Stdlib.op("and", size, False))
 
-    def not_(self, name: str, size: int) -> CellBuilder:
+    def not_(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdNot cell."""
         return self.cell(name, ast.Stdlib.op("not", size, False))
 
@@ -386,6 +388,104 @@ class ComponentBuilder:
         Returns handles to the cell and the combinational group.
         """
         return self.insert_comb_group(left, right, self.eq(width, cellname))
+
+    def neq_use(self, left, right, width, cellname=None):
+        """Inserts wiring into component {self} to check if {left} != {right}.
+
+        <cellname> = std_neq(<width>);
+        ...
+        comb group <cellname>_group {
+            <cellname>.left = <left>;
+            <cellname>.right = <right>;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        return self.insert_comb_group(left, right, self.neq(width, cellname))
+
+    def lt_use(self, left, right, width, cellname=None):
+        """Inserts wiring into component {self} to check if {left} < {right}.
+
+        <cellname> = std_lt(<width>);
+        ...
+        comb group <cellname>_group {
+            <cellname>.left = <left>;
+            <cellname>.right = <right>;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        return self.insert_comb_group(left, right, self.lt(width, cellname))
+
+    def le_use(self, left, right, width, cellname=None):
+        """Inserts wiring into component {self} to check if {left} <= {right}.
+
+        <cellname> = std_le(<width>);
+        ...
+        comb group <cellname>_group {
+            <cellname>.left = <left>;
+            <cellname>.right = <right>;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        return self.insert_comb_group(left, right, self.le(width, cellname))
+
+    def ge_use(self, left, right, width, cellname=None):
+        """Inserts wiring into component {self} to check if {left} >= {right}.
+
+        <cellname> = std_ge(<width>);
+        ...
+        comb group <cellname>_group {
+            <cellname>.left = <left>;
+            <cellname>.right = <right>;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        return self.insert_comb_group(left, right, self.ge(width, cellname))
+
+    def gt_use(self, left, right, width, cellname=None):
+        """Inserts wiring into component {self} to check if {left} > {right}.
+
+        <cellname> = std_gt(<width>);
+        ...
+        comb group <cellname>_group {
+            <cellname>.left = <left>;
+            <cellname>.right = <right>;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        return self.insert_comb_group(left, right, self.gt(width, cellname))
+
+    def add_use(self, left, right, width, cellname=None):
+        """Inserts wiring into component {self} to compute {left} + {right}.
+
+        <cellname> = std_add(<width>);
+        ...
+        comb group <cellname>_group {
+            <cellname>.left = <left>;
+            <cellname>.right = <right>;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        return self.insert_comb_group(left, right, self.add(width, cellname))
+
+    def sub_use(self, left, right, width, cellname=None):
+        """Inserts wiring into component {self} to compute {left} - {right}.
+
+        <cellname> = std_sub(<width>);
+        ...
+        comb group <cellname>_group {
+            <cellname>.left = <left>;
+            <cellname>.right = <right>;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        return self.insert_comb_group(left, right, self.sub(width, cellname))
 
 
 def as_control(obj):

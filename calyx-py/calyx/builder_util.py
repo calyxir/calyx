@@ -2,108 +2,12 @@
 import calyx.builder as cb
 
 
-def insert_neq(comp: cb.ComponentBuilder, left, right, cellname, width):
-    """Inserts wiring into component {comp} to check if {left} != {right}.
-
-    <cellname> = std_neq(<width>);
-    ...
-    comb group <cellname>_group {
-        <cellname>.left = <left>;
-        <cellname>.right = <right>;
-    }
-
-    Returns handles to the cell and the combinational group.
-    """
-    neq_cell = comp.neq(cellname, width)
-    return comp.insert_comb_group(left, right, neq_cell, f"{cellname}_group")
-
-
-def insert_lt(comp: cb.ComponentBuilder, left, right, cellname, width):
-    """Inserts wiring into component {comp} to check if {left} < {right}.
-
-    <cellname> = std_lt(<width>);
-    ...
-    comb group <cellname>_group {
-        <cellname>.left = <left>;
-        <cellname>.right = <right>;
-    }
-
-    Returns handles to the cell and the combinational group.
-    """
-    lt_cell = comp.lt(cellname, width)
-    return comp.insert_comb_group(left, right, lt_cell, f"{cellname}_group")
-
-
-def insert_le(comp: cb.ComponentBuilder, left, right, cellname, width):
-    """Inserts wiring into component {comp} to check if {left} <= {right}.
-
-    <cellname> = std_le(<width>);
-    ...
-    comb group <cellname>_group {
-        <cellname>.left = <left>;
-        <cellname>.right = <right>;
-    }
-
-    Returns handles to the cell and the combinational group.
-    """
-    le_cell = comp.le(cellname, width)
-    return comp.insert_comb_group(left, right, le_cell, f"{cellname}_group")
-
-
-def insert_gt(comp: cb.ComponentBuilder, left, right, cellname, width):
-    """Inserts wiring into component {comp} to check if {left} > {right}.
-
-    <cellname> = std_gt(<width>);
-    ...
-    comb group <cellname>_group {
-        <cellname>.left = <left>;
-        <cellname>.right = <right>;
-    }
-
-    Returns handles to the cell and the combinational group.
-    """
-    gt_cell = comp.gt(cellname, width)
-    return comp.insert_comb_group(left, right, gt_cell, f"{cellname}_group")
-
-
-def insert_add(comp: cb.ComponentBuilder, left, right, cellname, width):
-    """Inserts wiring into component {comp} to compute {left} + {right}.
-
-    <cellname> = std_add(<width>);
-    ...
-    comb group <cellname>_group {
-        <cellname>.left = <left>;
-        <cellname>.right = <right>;
-    }
-
-    Returns handles to the cell and the combinational group.
-    """
-    add_cell = comp.add(cellname, width)
-    return comp.insert_comb_group(left, right, add_cell, f"{cellname}_group")
-
-
-def insert_sub(comp: cb.ComponentBuilder, left, right, cellname, width):
-    """Inserts wiring into component {comp} to compute {left} - {right}.
-
-    <cellname> = std_sub(<width>);
-    ...
-    comb group <cellname>_group {
-        <cellname>.left = <left>;
-        <cellname>.right = <right>;
-    }
-
-    Returns handles to the cell and the combinational group.
-    """
-    sub_cell = comp.sub(cellname, width)
-    return comp.insert_comb_group(left, right, sub_cell, f"{cellname}_group")
-
-
 def insert_bitwise_flip_reg(comp: cb.ComponentBuilder, reg, cellname, width):
     """Inserts wiring into component {comp} to bitwise-flip the contents of {reg}.
 
     Returns a handle to the group that does this.
     """
-    not_cell = comp.not_(cellname, width)
+    not_cell = comp.not_(width, cellname)
     with comp.group(f"{cellname}_group") as not_group:
         not_cell.in_ = reg.out
         reg.write_en = 1
@@ -120,7 +24,7 @@ def insert_incr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     4. Then puts the answer of the computation back into {reg}.
     5. Returns the group that does this.
     """
-    add_cell = comp.add(cellname, 32)
+    add_cell = comp.add(32, cellname)
     with comp.group(f"{cellname}_group") as incr_group:
         add_cell.left = reg.out
         add_cell.right = cb.const(32, val)
@@ -138,7 +42,7 @@ def insert_decr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     4. Then puts the answer of the computation back into {reg}.
     5. Returns the group that does this.
     """
-    sub_cell = comp.sub(cellname, 32)
+    sub_cell = comp.sub(32, cellname)
     with comp.group(f"{cellname}_group") as decr_group:
         sub_cell.left = reg.out
         sub_cell.right = cb.const(32, val)
@@ -276,7 +180,7 @@ def insert_add_store_in_reg(
     4. Then puts the answer of the computation into {ans_reg}.
     4. Returns the summing group and the register.
     """
-    add_cell = comp.add(cellname, 32)
+    add_cell = comp.add(32, cellname)
     ans_reg = ans_reg or comp.reg(f"reg_{cellname}", 32)
     with comp.group(f"{cellname}_group") as adder_group:
         add_cell.left = left
@@ -303,7 +207,7 @@ def insert_sub_store_in_reg(
     4. Then puts the answer of the computation into {ans_reg}.
     4. Returns the subtracting group and the register.
     """
-    sub_cell = comp.sub(cellname, width)
+    sub_cell = comp.sub(width, cellname)
     ans_reg = ans_reg or comp.reg(f"reg_{cellname}", width)
     with comp.group(f"{cellname}_group") as sub_group:
         sub_cell.left = left

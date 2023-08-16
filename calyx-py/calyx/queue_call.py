@@ -3,6 +3,7 @@ import calyx.builder as cb
 import calyx.builder_util as util
 
 MAX_CMDS = 15
+ANS_MEM_LEN = 10
 
 
 def insert_raise_err_if_i_eq_max_cmds(prog):
@@ -56,7 +57,7 @@ def insert_main(prog, queue):
     # - one ref register, `err`, which is raised if an error occurs.
 
     commands = main.seq_mem_d1("commands", 32, MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, ANS_MEM_LEN, 32, is_external=True)
 
     # The two components we'll use:
     queue = main.cell("myqueue", queue)
@@ -81,7 +82,7 @@ def insert_main(prog, queue):
     incr_i = util.insert_incr(main, i, "incr_i")  # i++
     incr_j = util.insert_incr(main, j, "incr_j")  # j++
     err_eq_0 = main.eq_use(err.out, 0, 1)  # is `err` flag down?
-    cmd_le_1 = util.insert_le(main, cmd.out, 1, "cmd_le_1", 32)  # cmd <= 1
+    cmd_le_1 = main.le_use(cmd.out, 1, 32)  # cmd <= 1
 
     read_cmd = util.mem_read_seq_d1(main, commands, i.out, "read_cmd_phase1")
     write_cmd_to_reg = util.mem_write_seq_d1_to_reg(
