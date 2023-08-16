@@ -269,54 +269,54 @@ class ComponentBuilder:
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int, signed=False) -> CellBuilder:
+    def add(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdAdd cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("add", size, signed))
 
-    def sub(self, name: str, size: int, signed=False):
+    def sub(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdSub cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("sub", size, signed))
 
-    def gt(self, name: str, size: int, signed=False):
+    def gt(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdGt cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("gt", size, signed))
 
-    def lt(self, size: int, name=None, signed=False):
+    def lt(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdLt cell."""
         self.prog.import_("primitives/binary_operators.futil")
         name = name or f"lt_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("lt", size, signed))
 
-    def eq(self, size: int, name=None, signed=False):
+    def eq(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdEq cell."""
         self.prog.import_("primitives/binary_operators.futil")
         name = name or f"eq_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("eq", size, signed))
 
-    def neq(self, size: int, name=None, signed=False):
+    def neq(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdNeq cell."""
         self.prog.import_("primitives/binary_operators.futil")
         name = name or f"neq_{random.randint(0, 2**32)}"
         return self.cell(name, ast.Stdlib.op("neq", size, signed))
 
-    def ge(self, name: str, size: int, signed=False):
+    def ge(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdGe cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("ge", size, signed))
 
-    def le(self, name: str, size: int, signed=False):
+    def le(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdLe cell."""
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.op("le", size, signed))
 
-    def and_(self, name: str, size: int) -> CellBuilder:
+    def and_(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdAnd cell."""
         return self.cell(name, ast.Stdlib.op("and", size, False))
 
-    def not_(self, name: str, size: int) -> CellBuilder:
+    def not_(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdNot cell."""
         return self.cell(name, ast.Stdlib.op("not", size, False))
 
