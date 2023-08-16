@@ -2,42 +2,6 @@
 import calyx.builder as cb
 
 
-def insert_incr(comp: cb.ComponentBuilder, reg, cellname, val=1):
-    """Inserts wiring into component {comp} to increment register {reg} by {val}.
-    1. Within component {comp}, creates a group called {cellname}_group.
-    2. Within the group, adds a cell {cellname} that computes sums.
-    3. Puts the values {reg} and {val} into the cell.
-    4. Then puts the answer of the computation back into {reg}.
-    5. Returns the group that does this.
-    """
-    add_cell = comp.add(32, cellname)
-    with comp.group(f"{cellname}_group") as incr_group:
-        add_cell.left = reg.out
-        add_cell.right = cb.const(32, val)
-        reg.write_en = 1
-        reg.in_ = add_cell.out
-        incr_group.done = reg.done
-    return incr_group
-
-
-def insert_decr(comp: cb.ComponentBuilder, reg, cellname, val=1):
-    """Inserts wiring into component {comp} to decrement register {reg} by {val}.
-    1. Within component {comp}, creates a group called {cellname}_group.
-    2. Within the group, adds a cell {cellname} that computes differences.
-    3. Puts the values {reg} and {val} into the cell.
-    4. Then puts the answer of the computation back into {reg}.
-    5. Returns the group that does this.
-    """
-    sub_cell = comp.sub(32, cellname)
-    with comp.group(f"{cellname}_group") as decr_group:
-        sub_cell.left = reg.out
-        sub_cell.right = cb.const(32, val)
-        reg.write_en = 1
-        reg.in_ = sub_cell.out
-        decr_group.done = reg.done
-    return decr_group
-
-
 def insert_reg_store(comp: cb.ComponentBuilder, reg, val, group):
     """Stores a value in a register.
     1. Within component {comp}, creates a group called {group}.

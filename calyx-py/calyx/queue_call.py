@@ -79,8 +79,8 @@ def insert_main(prog, queue):
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     cmd = main.reg("command", 32)  # The command we're currently processing
 
-    incr_i = util.insert_incr(main, i, "incr_i")  # i++
-    incr_j = util.insert_incr(main, j, "incr_j")  # j++
+    incr_i = main.incr(i, 32)  # i++
+    incr_j = main.incr(j, 32)  # j++
     err_eq_0 = main.eq_use(err.out, 0, 1)  # is `err` flag down?
     cmd_le_1 = main.le_use(cmd.out, 1, 32)  # cmd <= 1
 

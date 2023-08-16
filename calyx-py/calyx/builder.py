@@ -501,6 +501,42 @@ class ComponentBuilder:
             not_group.done = reg.done
         return not_group
 
+    def incr(self, reg, width, val=1, cellname=None):
+        """Inserts wiring into component {self} to increment register {reg} by {val}.
+        1. Within component {self}, creates a group called {cellname}_group.
+        2. Within the group, adds a cell {cellname} that computes sums.
+        3. Puts the values {reg} and {val} into the cell.
+        4. Then puts the answer of the computation back into {reg}.
+        5. Returns the group that does this.
+        """
+        cellname = cellname or f"{reg.name()}_incr"
+        add_cell = self.add(width, cellname)
+        with self.group(f"{cellname}_group") as incr_group:
+            add_cell.left = reg.out
+            add_cell.right = const(32, val)
+            reg.write_en = 1
+            reg.in_ = add_cell.out
+            incr_group.done = reg.done
+        return incr_group
+
+    def decr(self, reg, width, val=1, cellname=None):
+        """Inserts wiring into component {self} to decrement register {reg} by {val}.
+        1. Within component {self}, creates a group called {cellname}_group.
+        2. Within the group, adds a cell {cellname} that computes differences.
+        3. Puts the values {reg} and {val} into the cell.
+        4. Then puts the answer of the computation back into {reg}.
+        5. Returns the group that does this.
+        """
+        cellname = cellname or f"{reg.name()}_decr"
+        sub_cell = self.sub(width, cellname)
+        with self.group(f"{cellname}_group") as decr_group:
+            sub_cell.left = reg.out
+            sub_cell.right = const(32, val)
+            reg.write_en = 1
+            reg.in_ = sub_cell.out
+            decr_group.done = reg.done
+        return decr_group
+
 
 def as_control(obj):
     """Convert a Python object into a control statement.

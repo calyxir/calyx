@@ -45,10 +45,10 @@ def insert_fifo(prog, name):
     len_eq_max_queue_len = fifo.eq_use(len.out, MAX_QUEUE_LEN, 32)
 
     # Cells and groups to increment read and write registers
-    write_incr = util.insert_incr(fifo, write, "write_incr")  # write++
-    read_incr = util.insert_incr(fifo, read, "read_incr")  # read++
-    len_incr = util.insert_incr(fifo, len, "len_incr")  # len++
-    len_decr = util.insert_decr(fifo, len, "len_decr")  # len--
+    write_incr = fifo.incr(write, 32)  # write++
+    read_incr = fifo.incr(read, 32)  # read++
+    len_incr = fifo.incr(len, 32)  # len++
+    len_decr = fifo.decr(len, 32)  # len--
 
     # Cells and groups to modify flags, which are registers
     flash_write = util.insert_reg_store(fifo, write, 0, "flash_write")  # write := 0

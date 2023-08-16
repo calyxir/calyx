@@ -124,8 +124,8 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # err := 0
     flash_ans = util.insert_reg_store(pifo, ans, 0, "flash_ans")  # ans := 0
 
-    len_incr = util.insert_incr(pifo, len, "len_incr")  # len++
-    len_decr = util.insert_decr(pifo, len, "len_decr")  # len--
+    len_incr = pifo.incr(len, 32)  # len++
+    len_decr = pifo.decr(len, 32)  # len--
 
     # The main logic.
     pifo.control += [
