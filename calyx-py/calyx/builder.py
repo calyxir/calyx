@@ -445,16 +445,12 @@ def as_control(obj):
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
-    """Build a `while` control statement."""
-    if cond:
-        assert isinstance(
-            cond.group_like, ast.CombGroup
-        ), "while condition must be a combinational group"
-        cg = cond.group_like.id
-    else:
-        cg = None
-    return ast.While(port.expr, cg, as_control(body))
+def while_(port: ExprBuilder, body) -> ast.While:
+    """Build a `while` control statement.
+
+    To build a `while` statement with a combinational group, use `while_with`.
+    """
+    return ast.While(port.expr, None, as_control(body))
 
 
 def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
@@ -464,21 +460,15 @@ def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
 
 def if_(
     port: ExprBuilder,
-    cond: Optional[GroupBuilder],
     body,
     else_body=None,
 ) -> ast.If:
-    """Build a `static if` control statement."""
-    else_body = else_body or ast.Empty()
+    """Build a `static if` control statement.
 
-    if cond:
-        assert isinstance(
-            cond.group_like, ast.CombGroup
-        ), "if condition must be a combinational group"
-        cg = cond.group_like.id
-    else:
-        cg = None
-    return ast.If(port.expr, cg, as_control(body), as_control(else_body))
+    To build an `if` statement with a combinational group, use `if_with`.
+    """
+    else_body = else_body or ast.Empty()
+    return ast.If(port.expr, None, as_control(body), as_control(else_body))
 
 
 def static_if(
