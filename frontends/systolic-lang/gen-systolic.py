@@ -65,7 +65,7 @@ def pe(prog: cb.Builder, leaky_relu):
         mul = comp.pipelined_fp_smult("mul", BITWIDTH, INTWIDTH, FRACWIDTH)
     # No leaky relu means integer operations
     else:
-        add = comp.add("add", BITWIDTH)
+        add = comp.add(BITWIDTH, "add")
         # XXX: pipelined mult assumes 32 bit multiplication
         mul = comp.pipelined_mult("mul")
 
@@ -118,7 +118,7 @@ def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuil
     name = NAME_SCHEME["index name"].format(prefix=prefix)
 
     reg = comp.reg(name, width)
-    add = comp.add(f"{prefix}_add", width)
+    add = comp.add(width, f"{prefix}_add")
 
     init_name = NAME_SCHEME["index init"].format(prefix=prefix)
     with comp.static_group(init_name, 1):
@@ -362,7 +362,7 @@ def try_build_calyx_add(comp, obj):
     if type(obj) == CalyxAdd:
         add_str = str(obj)
         if comp.try_get_cell(add_str) is None:
-            add = comp.add(add_str, BITWIDTH)
+            add = comp.add(BITWIDTH, add_str)
             with comp.static_group(add_str + "_group", 1):
                 add.left = obj.port
                 add.right = obj.const
@@ -390,7 +390,7 @@ def instantiate_idx_cond_groups(comp: cb.ComponentBuilder, leaky_relu):
     and that sets cond_reg to idx + 1 < iter_limit
     """
     idx = comp.reg("idx", BITWIDTH)
-    add = comp.add("idx_add", BITWIDTH)
+    add = comp.add(BITWIDTH, "idx_add")
     cond_reg = comp.reg("cond_reg", 1)
     with comp.static_group("init_idx", 1):
         idx.in_ = 0
@@ -408,7 +408,7 @@ def instantiate_idx_cond_groups(comp: cb.ComponentBuilder, leaky_relu):
     # operations are finished yet
     if not leaky_relu:
         iter_limit = comp.get_cell("iter_limit")
-        lt_iter_limit = comp.lt("lt_iter_limit", BITWIDTH)
+        lt_iter_limit = comp.lt(BITWIDTH, "lt_iter_limit")
         with comp.static_group("lt_iter_limit_group", 1):
             lt_iter_limit.left = add.out
             lt_iter_limit.right = iter_limit.out
@@ -424,7 +424,7 @@ def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, rem_iter_limit, leaky_r
     If leaky_relu, we do not need to check iteration limit.
     """
     min_depth_4 = comp.reg("min_depth_4", BITWIDTH)
-    lt_depth_4 = comp.lt("lt_depth_4", BITWIDTH)
+    lt_depth_4 = comp.lt(BITWIDTH, "lt_depth_4")
     with comp.static_group("init_min_depth", 1):
         lt_depth_4.left = depth_port
         lt_depth_4.right = 4
@@ -433,7 +433,7 @@ def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, rem_iter_limit, leaky_r
         min_depth_4.write_en = 1
     if not leaky_relu:
         iter_limit = comp.reg("iter_limit", BITWIDTH)
-        iter_limit_add = comp.add("iter_limit_add", BITWIDTH)
+        iter_limit_add = comp.add(BITWIDTH, "iter_limit_add")
         with comp.static_group("init_iter_limit", 1):
             iter_limit_add.left = rem_iter_limit
             iter_limit_add.right = depth_port
@@ -471,7 +471,7 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
         ge = (
             comp.get_cell(index_ge)
             if comp.try_get_cell(index_ge) is not None
-            else comp.ge(index_ge, BITWIDTH)
+            else comp.ge(BITWIDTH, index_ge)
         )
         with comp.static_group(group_str, 1):
             ge.left = idx_add.out
@@ -481,7 +481,7 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
         lt = (
             comp.get_cell(index_lt)
             if comp.try_get_cell(index_lt) is not None
-            else comp.lt(index_lt, BITWIDTH)
+            else comp.lt(BITWIDTH, index_lt)
         )
         # if lo == 0, then only need to check if reg < hi
         if type(lo) == int and lo == 0:
@@ -495,9 +495,9 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
             ge = (
                 comp.get_cell(index_ge)
                 if comp.try_get_cell(index_ge) is not None
-                else comp.ge(index_ge, BITWIDTH)
+                else comp.ge(BITWIDTH, index_ge)
             )
-            and_ = comp.and_(comb_str, 1)
+            and_ = comp.and_(1, comb_str)
             with comp.static_group(group_str, 1):
                 ge.left = idx_add.out
                 ge.right = lo_value
@@ -564,7 +564,7 @@ def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
     # either when a) value is positive or b) multiply operation has finished.
     go_next = comp.wire(f"relu_r{row}_go_next", BITWIDTH)
     # Increments idx_reg.
-    incr = comp.add(f"relu_r{row}_incr", BITWIDTH)
+    incr = comp.add(BITWIDTH, f"relu_r{row}_incr")
     # Performs multiplication for leaky relu.
     fp_mult = comp.fp_sop(
         f"relu_r{row}_val_mult", "mult_pipe", BITWIDTH, INTWIDTH, FRACWIDTH
