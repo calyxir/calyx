@@ -63,7 +63,7 @@ def add_wrap2(prog):
             cb.if_(j_lt_8_cell.out, j_lt_8_group, j_minus_4, j_minus_8),
         ),
         cb.par(
-            cb.if_sugary(
+            cb.if_with(
                 i_eq_0,
                 cb.if_(
                     j_lt_4_cell.out,
@@ -77,7 +77,7 @@ def add_wrap2(prog):
                     ),
                 ),
             ),
-            cb.if_sugary(
+            cb.if_with(
                 i_eq_1,
                 cb.if_(
                     j_lt_4_cell.out,
@@ -147,19 +147,19 @@ def add_wrap3(prog):
     wrap.control += [
         cb.if_(j_lt_4_cell.out, j_lt_4_group, unchanged, subcell),
         cb.par(
-            cb.if_sugary(
+            cb.if_with(
                 i_eq_0,
                 cb.if_(
                     j_lt_4_cell.out, j_lt_4_group, emit_from_mems[0], emit_from_mems[1]
                 ),
             ),
-            cb.if_sugary(
+            cb.if_with(
                 i_eq_1,
                 cb.if_(
                     j_lt_4_cell.out, j_lt_4_group, emit_from_mems[2], emit_from_mems[3]
                 ),
             ),
-            cb.if_sugary(
+            cb.if_with(
                 i_eq_2,
                 cb.if_(
                     j_lt_4_cell.out, j_lt_4_group, emit_from_mems[4], emit_from_mems[5]

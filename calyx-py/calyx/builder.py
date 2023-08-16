@@ -475,7 +475,7 @@ class CellGroupBuilder:
         self.group = group
 
 
-def if_sugary(
+def if_with(
     port_cond: CellGroupBuilder,
     body,
     else_body=None,
@@ -486,7 +486,7 @@ def if_sugary(
     return if_(port_cond.cell.out, port_cond.group, body, else_body)
 
 
-def while_sugary(
+def while_with(
     port_cond: CellGroupBuilder,
     body,
 ) -> ast.While:

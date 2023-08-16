@@ -73,10 +73,10 @@ def insert_fifo(prog, name):
     fifo.control += [
         cb.par(
             # Was it a pop or a push? We can do both cases in parallel.
-            cb.if_sugary(
+            cb.if_with(
                 # Did the user call pop?
                 cmd_eq_0,
-                cb.if_sugary(
+                cb.if_with(
                     # Yes, the user called pop. But is the queue empty?
                     len_eq_0,
                     [raise_err, zero_out_ans],  # The queue is empty: underflow.
@@ -84,7 +84,7 @@ def insert_fifo(prog, name):
                         read_from_mem,  # Read from the queue.
                         write_to_ans,  # Write the answer to the answer register.
                         read_incr,  # Increment the read pointer.
-                        cb.if_sugary(
+                        cb.if_with(
                             # Wrap around if necessary.
                             read_eq_10,
                             read_wrap,
@@ -93,10 +93,10 @@ def insert_fifo(prog, name):
                     ],
                 ),
             ),
-            cb.if_sugary(
+            cb.if_with(
                 # Did the user call peek?
                 cmd_eq_1,
-                cb.if_sugary(  # Yes, the user called peek. But is the queue empty?
+                cb.if_with(  # Yes, the user called peek. But is the queue empty?
                     len_eq_0,
                     [raise_err, zero_out_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
@@ -110,14 +110,14 @@ def insert_fifo(prog, name):
                 # Did the user call push?
                 cmd_gt_1[0].out,
                 cmd_gt_1[1],
-                cb.if_sugary(
+                cb.if_with(
                     # Yes, the user called push. But is the queue full?
                     len_eq_10,
                     [raise_err, zero_out_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         write_to_mem,  # Write to the queue.
                         write_incr,  # Increment the write pointer.
-                        cb.if_sugary(
+                        cb.if_with(
                             # Wrap around if necessary.
                             write_eq_10,
                             write_wrap,
