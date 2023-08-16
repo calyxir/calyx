@@ -3,13 +3,15 @@ import calyx.builder as cb
 import calyx.builder_util as util
 import calyx.queue_call as qc
 
+MAX_QUEUE_LEN = 10
+
 
 def insert_fifo(prog, name):
     """Inserts the component `fifo` into the program.
 
     It has:
     - one input, `cmd`.
-    - one memory, `mem`, of size 10.
+    - one memory, `mem`, of size MAX_QUEUE_LEN.
     - two registers, `next_write` and `next_read`.
     - two ref registers, `ans` and `err`.
     """
@@ -18,11 +20,11 @@ def insert_fifo(prog, name):
     cmd = fifo.input("cmd", 32)
     # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
 
-    mem = fifo.seq_mem_d1("mem", 32, 10, 32)
+    mem = fifo.seq_mem_d1("mem", 32, MAX_QUEUE_LEN, 32)
     write = fifo.reg("next_write", 32)  # The next address to write to
     read = fifo.reg("next_read", 32)  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
-    # simulate a circular queue of size 10.
+    # simulate a circular queue of size MAX_QUEUE_LEN.
 
     ans = fifo.reg("ans", 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`
@@ -37,12 +39,16 @@ def insert_fifo(prog, name):
     cmd_eq_1 = util.insert_eq(fifo, cmd, 1, "cmd_eq_1", 32)  # `cmd` == 1
     cmd_gt_1 = util.insert_gt(fifo, cmd, 1, "cmd_gt_1", 32)  # `cmd` > 1
 
-    write_eq_10 = util.insert_eq(
-        fifo, write.out, 10, "write_eq_10", 32
-    )  # `write` == 10
-    read_eq_10 = util.insert_eq(fifo, read.out, 10, "read_eq_10", 32)  # `read` == 10
+    write_eq_max_queue_len = util.insert_eq(
+        fifo, write.out, MAX_QUEUE_LEN, "write_eq_MAX_QUEUE_LEN", 32
+    )  # `write` == MAX_QUEUE_LEN
+    read_eq_max_queue_len = util.insert_eq(
+        fifo, read.out, MAX_QUEUE_LEN, "read_eq_MAX_QUEUE_LEN", 32
+    )  # `read` == MAX_QUEUE_LEN
     len_eq_0 = util.insert_eq(fifo, len.out, 0, "len_eq_0", 32)  # `len` == 0
-    len_eq_10 = util.insert_eq(fifo, len.out, 10, "len_eq_10", 32)  # `len` == 10
+    len_eq_max_queue_len = util.insert_eq(
+        fifo, len.out, MAX_QUEUE_LEN, "len_eq_MAX_QUEUE_LEN", 32
+    )  # `len` == MAX_QUEUE_LEN
 
     # Cells and groups to increment read and write registers
     write_incr = util.insert_incr(fifo, write, "write_incr")  # write++
@@ -89,8 +95,8 @@ def insert_fifo(prog, name):
                         read_incr,  # Increment the read pointer.
                         cb.if_(
                             # Wrap around if necessary.
-                            read_eq_10[0].out,
-                            read_eq_10[1],
+                            read_eq_max_queue_len[0].out,
+                            read_eq_max_queue_len[1],
                             read_wrap,
                         ),
                         len_decr,  # Decrement the length.
@@ -118,16 +124,16 @@ def insert_fifo(prog, name):
                 cmd_gt_1[1],
                 cb.if_(
                     # Yes, the user called push. But is the queue full?
-                    len_eq_10[0].out,
-                    len_eq_10[1],
+                    len_eq_max_queue_len[0].out,
+                    len_eq_max_queue_len[1],
                     [raise_err, zero_out_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         write_to_mem,  # Write to the queue.
                         write_incr,  # Increment the write pointer.
                         cb.if_(
                             # Wrap around if necessary.
-                            write_eq_10[0].out,
-                            write_eq_10[1],
+                            write_eq_max_queue_len[0].out,
+                            write_eq_max_queue_len[1],
                             write_wrap,
                         ),
                         len_incr,  # Increment the length.
