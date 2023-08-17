@@ -72,6 +72,14 @@ class ComponentBuilder:
         for cell in cells:
             self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
+        random.seed(4)
+
+    def generate_name(self, prefix: str) -> str:
+        """Generate a unique name with the given prefix."""
+        while True:
+            name = f"{prefix}_{random.randint(0, 2**32)}"
+            if name not in self.index:
+                return name
 
     def input(self, name: str, size: int) -> ExprBuilder:
         """Declare an input port on the component.
@@ -270,11 +278,15 @@ class ComponentBuilder:
         )
 
     def binary_op_helper(
-        self, operation: str, size: int, name=None, signed=False
+        self,
+        operation: str,
+        size: int,
+        name=None,
+        signed=False,
     ) -> CellBuilder:
         """Generate a binary cell of the kind specified in {operation}."""
         self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"{operation}_{random.randint(0, 2**32)}"
+        name = name or f"{operation}_{self.generate_name(operation)}"
         assert isinstance(name, str)
         return self.cell(name, ast.Stdlib.op(operation, size, signed))
 
@@ -310,19 +322,19 @@ class ComponentBuilder:
         """Generate a StdLe cell."""
         return self.binary_op_helper("le", size, name, signed)
 
-    def logic_op_helper(self, operation, size: int, name=None) -> CellBuilder:
+    def logical_op_helper(self, operation, size: int, name=None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in {operation}."""
-        name = name or f"{operation}_{random.randint(0, 2**32)}"
+        name = name or f"{operation}_{self.generate_name(operation)}"
         assert isinstance(name, str)
         return self.cell(name, ast.Stdlib.op(operation, size, False))
 
     def and_(self, size: int, name=None) -> CellBuilder:
         """Generate a StdAnd cell."""
-        return self.logic_op_helper("and", size, name)
+        return self.logical_op_helper("and", size, name)
 
     def not_(self, size: int, name=None) -> CellBuilder:
         """Generate a StdNot cell."""
-        return self.logic_op_helper("not", size, name)
+        return self.logical_op_helper("not", size, name)
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
