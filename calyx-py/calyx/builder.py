@@ -269,73 +269,60 @@ class ComponentBuilder:
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
+    def binary_op_helper(
+        self, operation: str, size: int, name=None, signed=False
+    ) -> CellBuilder:
+        """Generate a binary cell of the kind specified in {operation}."""
+        self.prog.import_("primitives/binary_operators.futil")
+        name = name or f"{operation}_{random.randint(0, 2**32)}"
+        assert isinstance(name, str)
+        return self.cell(name, ast.Stdlib.op(operation, size, signed))
+
     def add(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdAdd cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"add_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("add", size, signed))
+        return self.binary_op_helper("add", size, name, signed)
 
     def sub(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdSub cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"sub_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("sub", size, signed))
+        return self.binary_op_helper("sub", size, name, signed)
 
     def gt(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdGt cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"gt_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("gt", size, signed))
+        return self.binary_op_helper("gt", size, name, signed)
 
     def lt(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdLt cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"lt_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("lt", size, signed))
+        return self.binary_op_helper("lt", size, name, signed)
 
     def eq(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdEq cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"eq_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("eq", size, signed))
+        return self.binary_op_helper("eq", size, name, signed)
 
     def neq(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdNeq cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"neq_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("neq", size, signed))
+        return self.binary_op_helper("neq", size, name, signed)
 
     def ge(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdGe cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"ge_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("ge", size, signed))
+        return self.binary_op_helper("ge", size, name, signed)
 
     def le(self, size: int, name=None, signed=False) -> CellBuilder:
         """Generate a StdLe cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"le_{random.randint(0, 2**32)}"
+        return self.binary_op_helper("le", size, name, signed)
+
+    def logic_op_helper(self, operation, size: int, name=None) -> CellBuilder:
+        """Generate a logical operator cell, of the flavor specified in {operation}."""
+        name = name or f"{operation}_{random.randint(0, 2**32)}"
         assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("le", size, signed))
+        return self.cell(name, ast.Stdlib.op(operation, size, False))
 
     def and_(self, size: int, name=None) -> CellBuilder:
         """Generate a StdAnd cell."""
-        name = name or f"and_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("and", size, False))
+        return self.logic_op_helper("and", size, name)
 
     def not_(self, size: int, name=None) -> CellBuilder:
         """Generate a StdNot cell."""
-        name = name or f"not_{random.randint(0, 2**32)}"
-        assert isinstance(name, str)
-        return self.cell(name, ast.Stdlib.op("not", size, False))
+        return self.logic_op_helper("not", size, name)
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
