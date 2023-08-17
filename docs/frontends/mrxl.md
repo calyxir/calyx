@@ -2,7 +2,7 @@
 
 MrXL is an example DSL developed for the [frontend tutorial][fronttut].
 MrXL programs consist of `map` and `reduce` operations on arrays.
-For example, here is a dot-product implementation:
+For example, here is an implementation of dot-products:
 
     input avec: int[1024]
     input bvec: int[1024]
@@ -10,16 +10,16 @@ For example, here is a dot-product implementation:
     prodvec := map 16 (a <- avec, b <- bvec) { a * b }
     dot := reduce 4 (a, b <- prodvec) 0 { a + b }
 
-The numbers that come right after `map` and `reduce` (16 and 4 respectively) are "parallelism factors" that guide the generation of hardware.
-
+The numbers that come right after `map` and `reduce` (`16` and `4` respectively) are "parallelism factors" that guide the generation of hardware.
+The explanation on this page is relatively brief; see the [frontend tutorial][fronttut] for a more detailed explanation of the language. In particular, the [sum of squares][fronttut-sumsq] example is a good place to start.
 
 Install
 -------
 
-Install the [calyx-py](../calyx-py.md) library.
+First, install the [calyx-py](../calyx-py.md) library.
 
 The MrXL implementation is in Python and uses [Flit][].
-First, [install flit][flit] (`pip install flit` or similar), and then type the
+Install Flit (`pip install flit` or similar), and then type the
 following after changing your directory to `frontend/mrxl`:
 
     flit install --symlink
@@ -43,24 +43,26 @@ To run the program through the MrXL interpreter, execute:
 
     mrxl <prog>.mrxl --data <prog>.mrxl.data --interpret
 
-where `<prog>.mrxl` is a file containing MrXL source code and `<prog>.mrxl.data` is a file containing values for all the variables declared as `input`s in the MrXL program. The interpreter dumps the `output` variables, in JSON, to stdout.
+where `<prog>.mrxl` is a file containing MrXL source code and `<prog>.mrxl.data` is a file containing values for all the variables declared as `input`s in the MrXL program. The interpreter dumps the `output` variables, in JSON format, to stdout.
 
 You could try, for example:
 
     mrxl test/dot.mrxl --data test/dot.mrxl.data --interpret
 
 This is just a baby version of the dot-product implementation we showed at the very top; we have just shortened the input array so you can easily see it in full.
-We also provide `add.mrxl` and `sum.mrxl`, along with sample `<prog>.mrxl.data` files, under `test/`. Try playing with the inputs and the operations!
+Similarly, we also provide `add.mrxl` and `sum.mrxl`, along with accompanying `<prog>.mrxl.data` files, under `test/`. Try playing with the inputs and the operations!
 
 
 Compiling to Calyx
 ------------------
 
+> The dot-product example above shows off features of MrXL that are not yet supported by the compiler. In particular, the compiler does not yet support `reduce` with a parallelism factor other than `1`. This is because MrXL is mostly a pedagogical device, and we want new users of Calyx to try implementing this feature themselves. To learn more about this and other extensions to MrXL, consider working through the [frontend tutorial][fronttut].
+
 To run the compiler and see the Calyx code your MrXL program generates, just drop the `--data` and `--interpret` flags. For instance:
 
     mrxl test/dot.mrxl
 
-In order to run the compiler through `fud`, pass the `--from mrxl` and `--to futil` flags:
+In order to run the compiler through `fud`, pass the `--from mrxl` and `--to calyx` flags:
 
     fud e --from mrxl <prog.mrxl> --to calyx
 
@@ -85,5 +87,5 @@ The changes it makes are:
 
 
 [flit]: https://flit.readthedocs.io/en/latest/index.html
-[fronttut]: ../tutorial/frontend-tut.md
-
+[fronttut]: ../tutorial/frontend-tut.html
+[fronttut-sumsq]: ../tutorial/frontend-tut.html#example-sum-of-squares
