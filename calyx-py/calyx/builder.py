@@ -779,7 +779,7 @@ def if_(
     body,
     else_body=None,
 ) -> ast.If:
-    """Build a `static if` control statement.
+    """Build an `if` control statement.
 
     To build an `if` statement with a combinational group, use `if_with`.
     """
@@ -792,7 +792,7 @@ def static_if(
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `if` control statement."""
+    """Build a `static if` control statement."""
     else_body = else_body or ast.Empty()
     return ast.StaticIf(port.expr, as_control(body), as_control(else_body))
 
