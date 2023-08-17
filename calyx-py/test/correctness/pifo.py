@@ -29,15 +29,17 @@ def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group)
     return infer_flow_grp
 
 
-def invoke_subqueue(queue_cell, cmd, ans, err) -> cb.invoke:
+def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
     """Invokes the cell {queue_cell} with:
     {cmd} passed by value
+    {value} passed by value
     {ans} passed by reference
     {err} passed by reference
     """
     return cb.invoke(
         queue_cell,
         in_cmd=cmd,
+        in_value=value,
         ref_ans=ans,
         ref_err=err,
     )
@@ -83,8 +85,10 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     """
 
     pifo: cb.ComponentBuilder = prog.component(name)
-    cmd = pifo.input("cmd", 32)
-    # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
+    cmd = pifo.input("cmd", 2)
+    # If this is 0, we pop. If it is 1, we peek.
+    # If it is 2, we push `value` to the queue.
+    value = pifo.input("value", 32)  # The value to push to the queue
 
     # Declare the two sub-queues as cells of this component.
     queue_l = pifo.cell("queue_l", queue_l)
@@ -93,7 +97,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1.
     # We will infer this using a separate component;
     # it is a function of the value being pushed.
-    infer_flow = insert_flow_inference(pifo, cmd, flow, boundary, "infer_flow")
+    infer_flow = insert_flow_inference(pifo, value, flow, boundary, "infer_flow")
 
     ans = pifo.reg("ans", 32, is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
@@ -115,9 +119,9 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     len_eq_max_queue_len = util.insert_eq(
         pifo, len.out, MAX_QUEUE_LEN, "len_eq_MAX_QUEUE_LEN", 32
     )
-    cmd_eq_0 = util.insert_eq(pifo, cmd, 0, "cmd_eq_0", 32)
-    cmd_eq_1 = util.insert_eq(pifo, cmd, 1, "cmd_eq_1", 32)
-    cmd_gt_1 = util.insert_gt(pifo, cmd, 1, "cmd_gt_1", 32)
+    cmd_eq_0 = util.insert_eq(pifo, cmd, 0, "cmd_eq_0", 2)
+    cmd_eq_1 = util.insert_eq(pifo, cmd, 1, "cmd_eq_1", 2)
+    cmd_eq_2 = util.insert_eq(pifo, cmd, 2, "cmd_eq_2", 2)
     err_eq_0 = util.insert_eq(pifo, err.out, 0, "err_eq_0", 1)
     err_neq_0 = util.insert_neq(pifo, err.out, cb.const(1, 0), "err_neq_0", 1)
 
@@ -151,7 +155,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                 hot_eq_0[0].out,
                                 hot_eq_0[1],
                                 [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
-                                    invoke_subqueue(queue_l, cmd, ans, err),
+                                    invoke_subqueue(queue_l, cmd, value, ans, err),
                                     # Our next step depends on whether `queue_l`
                                     # raised the error flag.
                                     # We can check these cases in parallel.
@@ -163,7 +167,9 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                                 # We'll try to pop from `queue_r`.
                                                 # We'll pass it a lowered err
                                                 lower_err,
-                                                invoke_subqueue(queue_r, cmd, ans, err),
+                                                invoke_subqueue(
+                                                    queue_r, cmd, value, ans, err
+                                                ),
                                             ],
                                         ),
                                         cb.if_(
@@ -184,14 +190,16 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                 hot_eq_1[0].out,
                                 hot_eq_1[1],
                                 [
-                                    invoke_subqueue(queue_r, cmd, ans, err),
+                                    invoke_subqueue(queue_r, cmd, value, ans, err),
                                     cb.par(
                                         cb.if_(
                                             err_neq_0[0].out,
                                             err_neq_0[1],
                                             [
                                                 lower_err,
-                                                invoke_subqueue(queue_l, cmd, ans, err),
+                                                invoke_subqueue(
+                                                    queue_l, cmd, value, ans, err
+                                                ),
                                             ],
                                         ),
                                         cb.if_(
@@ -229,7 +237,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                 hot_eq_0[0].out,
                                 hot_eq_0[1],
                                 [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
-                                    invoke_subqueue(queue_l, cmd, ans, err),
+                                    invoke_subqueue(queue_l, cmd, value, ans, err),
                                     # Our next step depends on whether `queue_l`
                                     # raised the error flag.
                                     cb.if_(
@@ -239,7 +247,9 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                             # We'll try to peek from `queue_r`.
                                             # We'll pass it a lowered `err`.
                                             lower_err,
-                                            invoke_subqueue(queue_r, cmd, ans, err),
+                                            invoke_subqueue(
+                                                queue_r, cmd, value, ans, err
+                                            ),
                                         ],
                                     ),
                                     # Peeking does not affect `hot`.
@@ -251,13 +261,15 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                 hot_eq_1[0].out,
                                 hot_eq_1[1],
                                 [
-                                    invoke_subqueue(queue_r, cmd, ans, err),
+                                    invoke_subqueue(queue_r, cmd, value, ans, err),
                                     cb.if_(
                                         err_neq_0[0].out,
                                         err_neq_0[1],
                                         [
                                             lower_err,
-                                            invoke_subqueue(queue_l, cmd, ans, err),
+                                            invoke_subqueue(
+                                                queue_l, cmd, value, ans, err
+                                            ),
                                         ],
                                     ),
                                 ],
@@ -268,8 +280,8 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
             ),
             cb.if_(
                 # Did the user call push?
-                cmd_gt_1[0].out,
-                cmd_gt_1[1],
+                cmd_eq_2[0].out,
+                cmd_eq_2[1],
                 cb.if_(
                     # Yes, the user called push. But is the queue full?
                     len_eq_max_queue_len[0].out,
@@ -284,13 +296,13 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                 flow_eq_0[0].out,
                                 flow_eq_0[1],
                                 # This value should be pushed to queue_l.
-                                invoke_subqueue(queue_l, cmd, ans, err),
+                                invoke_subqueue(queue_l, cmd, value, ans, err),
                             ),
                             cb.if_(
                                 flow_eq_1[0].out,
                                 flow_eq_1[1],
                                 # This value should be pushed to queue_r.
-                                invoke_subqueue(queue_r, cmd, ans, err),
+                                invoke_subqueue(queue_r, cmd, value, ans, err),
                             ),
                         ),
                         len_incr,  # Increment the length.
