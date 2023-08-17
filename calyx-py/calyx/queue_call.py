@@ -129,10 +129,13 @@ def insert_main(prog, queue):
                     cmd_le_1[0].out,
                     cmd_le_1[1],
                     [  # AM: I'd like to have an additional check here:
-                        # if err flag comes back raised,
-                        # we do not perform this write_ans or this incr_j
-                        write_ans,
-                        incr_j,
+                        # perform this write_ans and incr_j
+                        # only if the err flag is down.
+                        cb.if_(
+                            err_eq_0[0].out,
+                            err_eq_0[1],
+                            [write_ans, incr_j],
+                        )
                     ],
                 ),
                 incr_i,  # Increment the command index
