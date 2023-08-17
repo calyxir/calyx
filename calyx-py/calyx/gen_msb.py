@@ -19,7 +19,7 @@ from calyx.py_ast import (
 )
 from calyx.builder import (
     Builder,
-    CellGroupBuilder,
+    CellAndGroup,
     ComponentBuilder,
     const,
     HI,
@@ -124,14 +124,14 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
     comp.control += [
         wr_cur_val,
         while_with(
-            CellGroupBuilder(neq, cur_val_cond),
+            CellAndGroup(neq, cur_val_cond),
             [incr_count, shift_cur_val],
         ),
         decr_count,
         wr_count,
         wr_val_build,
         while_with(
-            CellGroupBuilder(neq, count_cond),
+            CellAndGroup(neq, count_cond),
             [decr_count, shift_val_build],
         ),
         wr_val,

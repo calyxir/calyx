@@ -14,7 +14,7 @@ from calyx.gen_ln import generate_ln
 from calyx.builder import (
     Builder,
     ComponentBuilder,
-    CellGroupBuilder,
+    CellAndGroup,
     while_with,
     if_with,
     invoke,
@@ -87,7 +87,7 @@ def generate_fp_pow_component(
     comp.control += [
         init,
         while_with(
-            CellGroupBuilder(lt, cond),
+            CellAndGroup(lt, cond),
             par(execute_mul, incr_count),
         ),
     ]
@@ -438,7 +438,7 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
         for x in (
             init,
             if_with(
-                CellGroupBuilder(
+                CellAndGroup(
                     lt,
                     comp.get_group("is_negative"),
                 ),
@@ -454,7 +454,7 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
             comp.get_group("add_degree_zero"),
             comp.get_group("final_multiply"),
             if_with(
-                CellGroupBuilder(
+                CellAndGroup(
                     lt,
                     comp.get_group("is_negative"),
                 ),
@@ -675,22 +675,22 @@ def generate_fp_pow_full(
     )
 
     base_reciprocal = if_with(
-        CellGroupBuilder(lt, comp.get_group("base_lt_one")),
+        CellAndGroup(lt, comp.get_group("base_lt_one")),
         comp.get_group("set_base_reciprocal"),
     )
 
     res_reciprocal = if_with(
-        CellGroupBuilder(lt, comp.get_group("base_lt_one")),
+        CellAndGroup(lt, comp.get_group("base_lt_one")),
         comp.get_group("set_res_reciprocal"),
     )
 
     if is_signed:
         base_rev = if_with(
-            CellGroupBuilder(lt, comp.get_group("base_lt_zero")),
+            CellAndGroup(lt, comp.get_group("base_lt_zero")),
             comp.get_group("rev_base_sign"),
         )
         res_rev = if_with(
-            CellGroupBuilder(lt, comp.get_group("base_lt_zero")),
+            CellAndGroup(lt, comp.get_group("base_lt_zero")),
             comp.get_group("rev_res_sign"),
         )
         pre_process = [base_rev, store_old_reg_val, base_reciprocal]

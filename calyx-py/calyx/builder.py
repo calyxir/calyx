@@ -390,7 +390,7 @@ class ComponentBuilder:
         with self.comb_group(groupname) as comb_group:
             cell.left = left
             cell.right = right
-        return CellGroupBuilder(cell, comb_group)
+        return CellAndGroup(cell, comb_group)
 
     def eq_use(self, left, right, width, cellname=None):
         """Inserts wiring into component {self} to check if {left} == {right}.
@@ -706,12 +706,12 @@ class ComponentBuilder:
         return sub_group, ans_reg
 
 
-class CellGroupBuilder:
+class CellAndGroup:
     """Just a cell and a group, for when it is convenient to
     pass them around together.
 
     Typically the group will be a combinational group, and `if_with` and
-    `while_with` will require that a CellGroupBuilder be passed in, not a
+    `while_with` will require that a CellAndGroup be passed in, not a
     cell and a group separately.
     """
 
@@ -797,7 +797,7 @@ def static_if(
     return ast.StaticIf(port.expr, as_control(body), as_control(else_body))
 
 
-def if_with(port_comb: CellGroupBuilder, body, else_body=None) -> ast.If:
+def if_with(port_comb: CellAndGroup, body, else_body=None) -> ast.If:
     """Build an if statement, where the cell and the combinational group
     are provided together.
     """
@@ -813,7 +813,7 @@ def if_with(port_comb: CellGroupBuilder, body, else_body=None) -> ast.If:
     )
 
 
-def while_with(port_comb: CellGroupBuilder, body) -> ast.While:
+def while_with(port_comb: CellAndGroup, body) -> ast.While:
     """Build a while statement, where the cell and the combinational
     group are provided together.
     """
