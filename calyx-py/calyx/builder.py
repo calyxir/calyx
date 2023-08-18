@@ -385,10 +385,17 @@ class ComponentBuilder:
             ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, True),
         )
 
-    def insert_comb_group(self, left, right, cell, groupname=None):
+    def binary_use(self, left, right, cell, groupname=None):
         """Accepts a cell that performs some computation on values {left} and {right}.
         Creates a combinational group that wires up the cell with these ports.
         Returns the cell and the combintational group.
+
+        comb group `groupname` {
+            `cell.name`.left = `left`;
+            `cell.name`.right = `right`;
+        }
+
+        Returns handles to the cell and the combinational group.
         """
         groupname = groupname or f"{cell.name}_group"
         with self.comb_group(groupname) as comb_group:
@@ -397,119 +404,40 @@ class ComponentBuilder:
         return cell, comb_group
 
     def eq_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} == {right}.
-
-        <cellname> = std_eq(<width>);
-        ...
-        comb group <cellname>_group {
-            <cellname>.left = <left>;
-            <cellname>.right = <right>;
-        }
-
-        Returns handles to the cell and the combinational group.
-        """
-        return self.insert_comb_group(left, right, self.eq(width, cellname))
+        """Inserts wiring into component {self} to check if {left} == {right}."""
+        return self.binary_use(left, right, self.eq(width, cellname))
 
     def neq_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} != {right}.
-
-        <cellname> = std_neq(<width>);
-        ...
-        comb group <cellname>_group {
-            <cellname>.left = <left>;
-            <cellname>.right = <right>;
-        }
-
-        Returns handles to the cell and the combinational group.
-        """
-        return self.insert_comb_group(left, right, self.neq(width, cellname))
+        """Inserts wiring into component {self} to check if {left} != {right}."""
+        return self.binary_use(left, right, self.neq(width, cellname))
 
     def lt_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} < {right}.
-
-        <cellname> = std_lt(<width>);
-        ...
-        comb group <cellname>_group {
-            <cellname>.left = <left>;
-            <cellname>.right = <right>;
-        }
-
-        Returns handles to the cell and the combinational group.
-        """
-        return self.insert_comb_group(left, right, self.lt(width, cellname))
+        """Inserts wiring into component {self} to check if {left} < {right}."""
+        return self.binary_use(left, right, self.lt(width, cellname))
 
     def le_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} <= {right}.
-
-        <cellname> = std_le(<width>);
-        ...
-        comb group <cellname>_group {
-            <cellname>.left = <left>;
-            <cellname>.right = <right>;
-        }
-
-        Returns handles to the cell and the combinational group.
-        """
-        return self.insert_comb_group(left, right, self.le(width, cellname))
+        """Inserts wiring into component {self} to check if {left} <= {right}."""
+        return self.binary_use(left, right, self.le(width, cellname))
 
     def ge_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} >= {right}.
-
-        <cellname> = std_ge(<width>);
-        ...
-        comb group <cellname>_group {
-            <cellname>.left = <left>;
-            <cellname>.right = <right>;
-        }
-
-        Returns handles to the cell and the combinational group.
-        """
-        return self.insert_comb_group(left, right, self.ge(width, cellname))
+        """Inserts wiring into component {self} to check if {left} >= {right}."""
+        return self.binary_use(left, right, self.ge(width, cellname))
 
     def gt_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} > {right}.
-
-        <cellname> = std_gt(<width>);
-        ...
-        comb group <cellname>_group {
-            <cellname>.left = <left>;
-            <cellname>.right = <right>;
-        }
-
-        Returns handles to the cell and the combinational group.
-        """
-        return self.insert_comb_group(left, right, self.gt(width, cellname))
+        """Inserts wiring into component {self} to check if {left} > {right}."""
+        return self.binary_use(left, right, self.gt(width, cellname))
 
     def add_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to compute {left} + {right}.
-
-        <cellname> = std_add(<width>);
-        ...
-        comb group <cellname>_group {
-            <cellname>.left = <left>;
-            <cellname>.right = <right>;
-        }
-
-        Returns handles to the cell and the combinational group.
-        """
-        return self.insert_comb_group(left, right, self.add(width, cellname))
+        """Inserts wiring into component {self} to compute {left} + {right}."""
+        return self.binary_use(left, right, self.add(width, cellname))
 
     def sub_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to compute {left} - {right}.
-
-        <cellname> = std_sub(<width>);
-        ...
-        comb group <cellname>_group {
-            <cellname>.left = <left>;
-            <cellname>.right = <right>;
-        }
-
-        Returns handles to the cell and the combinational group.
-        """
-        return self.insert_comb_group(left, right, self.sub(width, cellname))
+        """Inserts wiring into component {self} to compute {left} - {right}."""
+        return self.binary_use(left, right, self.sub(width, cellname))
 
     def bitwise_flip_reg(self, reg, width, cellname=None):
-        """Inserts wiring into component {self} to bitwise-flip the contents of {reg}.
+        """Inserts wiring into component {self} to bitwise-flip the contents of {reg}
+        and put the result back into {reg}.
 
         Returns a handle to the group that does this.
         """
