@@ -125,7 +125,7 @@ def insert_bitwise_flip_reg(comp: cb.ComponentBuilder, reg, cellname, width):
     Returns a handle to the group that does this.
     """
     not_cell = comp.not_(width, cellname)
-    with comp.group(f"`cellname`_group") as not_group:
+    with comp.group(f"{cellname}_group") as not_group:
         not_cell.in_ = reg.out
         reg.write_en = 1
         reg.in_ = not_cell.out
@@ -142,7 +142,7 @@ def insert_incr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     5. Returns the group that does this.
     """
     add_cell = comp.add(32, cellname)
-    with comp.group(f"`cellname`_group") as incr_group:
+    with comp.group(f"{cellname}_group") as incr_group:
         add_cell.left = reg.out
         add_cell.right = cb.const(32, val)
         reg.write_en = 1
@@ -160,7 +160,7 @@ def insert_decr(comp: cb.ComponentBuilder, reg, cellname, val=1):
     5. Returns the group that does this.
     """
     sub_cell = comp.sub(32, cellname)
-    with comp.group(f"`cellname`_group") as decr_group:
+    with comp.group(f"{cellname}_group") as decr_group:
         sub_cell.left = reg.out
         sub_cell.right = cb.const(32, val)
         reg.write_en = 1
@@ -298,8 +298,8 @@ def insert_add_store_in_reg(
     4. Returns the summing group and the register.
     """
     add_cell = comp.add(32, cellname)
-    ans_reg = ans_reg or comp.reg(f"reg_`cellname`", 32)
-    with comp.group(f"`cellname`_group") as adder_group:
+    ans_reg = ans_reg or comp.reg(f"reg_{cellname}", 32)
+    with comp.group(f"{cellname}_group") as adder_group:
         add_cell.left = left
         add_cell.right = right
         ans_reg.write_en = 1
@@ -325,8 +325,8 @@ def insert_sub_store_in_reg(
     4. Returns the subtracting group and the register.
     """
     sub_cell = comp.sub(width, cellname)
-    ans_reg = ans_reg or comp.reg(f"reg_`cellname`", width)
-    with comp.group(f"`cellname`_group") as sub_group:
+    ans_reg = ans_reg or comp.reg(f"reg_{cellname}", width)
+    with comp.group(f"{cellname}_group") as sub_group:
         sub_cell.left = left
         sub_cell.right = right
         ans_reg.write_en = 1
