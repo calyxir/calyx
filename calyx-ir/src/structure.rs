@@ -429,12 +429,12 @@ impl Cell {
             .iter()
             .map(|port_ref| {
                 let port = port_ref.borrow();
-                PortDef {
-                    name: port.name,
-                    width: port.width,
-                    direction: port.direction.clone(),
-                    attributes: port.attributes.clone(),
-                }
+                PortDef::new(
+                    port.name,
+                    port.width,
+                    port.direction.clone(),
+                    port.attributes.clone(),
+                )
             })
             .collect()
     }

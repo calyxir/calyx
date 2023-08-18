@@ -185,19 +185,19 @@ fn emit_prim_inline<F: io::Write>(
                 write!(f, "   output")?;
             }
             ir::Direction::Inout => {
-                panic!("Unexpected Inout port on Component: {}", port.name)
+                panic!("Unexpected Inout port on Component: {}", port.name())
             }
         }
         match port.width {
             ir::Width::Const { value } => {
                 if value == 1 {
-                    write!(f, " logic {}", port.name)?;
+                    write!(f, " logic {}", port.name())?;
                 } else {
-                    write!(f, " logic [{}:0] {}", value - 1, port.name)?;
+                    write!(f, " logic [{}:0] {}", value - 1, port.name())?;
                 }
             }
             ir::Width::Param { value } => {
-                write!(f, " logic [{}-1:0] {}", value, port.name)?;
+                write!(f, " logic [{}-1:0] {}", value, port.name())?;
             }
         }
         if idx == prim.signature.len() - 1 {

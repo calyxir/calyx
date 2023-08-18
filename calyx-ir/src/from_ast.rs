@@ -68,10 +68,10 @@ fn check_valid_port(
         if let Some(prim) = sig_ctx.lib.find_primitive(comp_name) {
             prim.signature
                 .iter()
-                .map(|port_def| port_def.name)
+                .map(|port_def| port_def.name())
                 .collect()
         } else if let Some((comp_sigs, _)) = sig_ctx.comp_sigs.get(&comp_name) {
-            comp_sigs.iter().map(|port_def| port_def.name).collect()
+            comp_sigs.iter().map(|port_def| port_def.name()).collect()
         } else {
             return Err(Error::undefined(
                 comp_name,
@@ -91,31 +91,23 @@ fn check_valid_port(
 
 /// Validates a component signature to make sure there are not duplicate ports.
 fn check_signature(pds: &[PortDef<u64>]) -> CalyxResult<()> {
-    let mut ports: HashSet<&Id> = HashSet::new();
-    for PortDef {
-        name, direction, ..
-    } in pds
-    {
+    let mut ports: HashSet<Id> = HashSet::new();
+    for pd in pds {
+        let name = pd.name();
         // check for uniqueness
-        match &direction {
+        match &pd.direction {
             Direction::Input => {
                 if !ports.contains(&name) {
                     ports.insert(name);
                 } else {
-                    return Err(Error::already_bound(
-                        *name,
-                        "port".to_string(),
-                    ));
+                    return Err(Error::already_bound(name, "port".to_string()));
                 }
             }
             Direction::Output => {
                 if !ports.contains(&name) {
                     ports.insert(name);
                 } else {
-                    return Err(Error::already_bound(
-                        *name,
-                        "port".to_string(),
-                    ));
+                    return Err(Error::already_bound(name, "port".to_string()));
                 }
             }
             Direction::Inout => {
