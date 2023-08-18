@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import random
 from typing import Dict, Union, Optional, List
+from dataclasses import dataclass
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
@@ -401,7 +402,7 @@ class ComponentBuilder:
         with self.comb_group(groupname) as comb_group:
             cell.left = left
             cell.right = right
-        return cell, comb_group
+        return CellAndGroup(cell, comb_group)
 
     def eq_use(self, left, right, width, cellname=None):
         """Inserts wiring into component `self` to check if `left` == `right`."""
@@ -638,6 +639,20 @@ class ComponentBuilder:
         return sub_group, ans_reg
 
 
+@dataclass(frozen=True)
+class CellAndGroup:
+    """Just a cell and a group, for when it is convenient to
+    pass them around together.
+
+    Typically the group will be a combinational group, and `if_with` and
+    `while_with` will require that a CellAndGroup be passed in, not a
+    cell and a group separately.
+    """
+
+    cell: CellBuilder
+    group: GroupBuilder
+
+
 def as_control(obj):
     """Convert a Python object into a control statement.
 
@@ -679,16 +694,12 @@ def as_control(obj):
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
-    """Build a `while` control statement."""
-    if cond:
-        assert isinstance(
-            cond.group_like, ast.CombGroup
-        ), "while condition must be a combinational group"
-        cg = cond.group_like.id
-    else:
-        cg = None
-    return ast.While(port.expr, cg, as_control(body))
+def while_(port: ExprBuilder, body) -> ast.While:
+    """Build a `while` control statement.
+
+    To build a `while` statement with a combinational group, use `while_with`.
+    """
+    return ast.While(port.expr, None, as_control(body))
 
 
 def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
@@ -698,21 +709,15 @@ def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
 
 def if_(
     port: ExprBuilder,
-    cond: Optional[GroupBuilder],
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `static if` control statement."""
-    else_body = ast.Empty() if else_body is None else else_body
+    """Build an `if` control statement.
 
-    if cond:
-        assert isinstance(
-            cond.group_like, ast.CombGroup
-        ), "if condition must be a combinational group"
-        cg = cond.group_like.id
-    else:
-        cg = None
-    return ast.If(port.expr, cg, as_control(body), as_control(else_body))
+    To build an `if` statement with a combinational group, use `if_with`.
+    """
+    else_body = else_body or ast.Empty()
+    return ast.If(port.expr, None, as_control(body), as_control(else_body))
 
 
 def static_if(
@@ -720,9 +725,38 @@ def static_if(
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `if` control statement."""
-    else_body = ast.Empty() if else_body is None else else_body
+    """Build a `static if` control statement."""
+    else_body = else_body or ast.Empty()
     return ast.StaticIf(port.expr, as_control(body), as_control(else_body))
+
+
+def if_with(port_comb: CellAndGroup, body, else_body=None) -> ast.If:
+    """Build an if statement, where the cell and the combinational group
+    are provided together.
+    """
+    port = port_comb.cell.out
+    cond = port_comb.group
+    else_body = else_body or ast.Empty()
+
+    assert isinstance(
+        cond.group_like, ast.CombGroup
+    ), "if condition must be a combinational group"
+    return ast.If(
+        port.expr, cond.group_like.id, as_control(body), as_control(else_body)
+    )
+
+
+def while_with(port_comb: CellAndGroup, body) -> ast.While:
+    """Build a while statement, where the cell and the combinational
+    group are provided together.
+    """
+
+    port = port_comb.cell.out
+    cond = port_comb.group
+    assert isinstance(
+        cond.group_like, ast.CombGroup
+    ), "while condition must be a combinational group"
+    return ast.While(port.expr, cond.group_like.id, as_control(body))
 
 
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
