@@ -1,6 +1,5 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-import calyx.builder_util as util
 
 MAX_CMDS = 15
 ANS_MEM_LEN = 10
@@ -21,8 +20,8 @@ def insert_raise_err_if_i_eq_max_cmds(prog):
     i = raise_err_if_i_eq_max_cmds.input("i", 32)
     err = raise_err_if_i_eq_max_cmds.reg("err", 1, is_ref=True)
 
-    i_eq_max_cmds = util.insert_eq(raise_err_if_i_eq_max_cmds, i, MAX_CMDS, 32)
-    raise_err = util.insert_reg_store(raise_err_if_i_eq_max_cmds, err, 1, "raise_err")
+    i_eq_max_cmds = raise_err_if_i_eq_max_cmds.eq_use(i, MAX_CMDS, 32)
+    raise_err = raise_err_if_i_eq_max_cmds.reg_store(err, 1, "raise_err")
 
     raise_err_if_i_eq_max_cmds.control += [
         cb.if_(
@@ -88,22 +87,19 @@ def insert_main(prog, queue):
     cmd = main.reg("command", 2)  # The command we're currently processing
     value = main.reg("value", 32)  # The value we're currently processing
 
-    incr_i = util.insert_incr(main, i, "incr_i")  # i++
-    incr_j = util.insert_incr(main, j, "incr_j")  # j++
-    err_eq_0 = util.insert_eq(main, err.out, 0, 1)  # is `err` flag down?
-    cmd_le_1 = util.insert_le(main, cmd.out, 1, 2)  # cmd <= 1
+    incr_i = main.incr(i, 32)  # i++
+    incr_j = main.incr(j, 32)  # j++
+    err_eq_0 = main.eq_use(err.out, 0, 1)  # is `err` flag down?
+    cmd_le_1 = main.le_use(cmd.out, 1, 2)  # cmd <= 1
 
-    read_cmd = util.mem_read_seq_d1(main, commands, i.out, "read_cmd_phase1")
-    write_cmd_to_reg = util.mem_write_seq_d1_to_reg(
-        main, commands, cmd, "write_cmd_phase2"
+    read_cmd = main.mem_read_seq_d1(commands, i.out, "read_cmd_phase1")
+    write_cmd_to_reg = main.mem_write_seq_d1_to_reg(commands, cmd, "write_cmd_phase2")
+
+    read_value = main.mem_read_seq_d1(values, i.out, "read_value")
+    write_value_to_reg = main.mem_write_seq_d1_to_reg(
+        values, value, "write_value_to_reg"
     )
-
-    read_value = util.mem_read_seq_d1(main, values, i.out, "read_value")
-    write_value_to_reg = util.mem_write_seq_d1_to_reg(
-        main, values, value, "write_value_to_reg"
-    )
-
-    write_ans = util.mem_store_seq_d1(main, ans_mem, j.out, ans.out, "write_ans")
+    write_ans = main.mem_store_seq_d1(ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
         cb.while_(
