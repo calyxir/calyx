@@ -286,7 +286,7 @@ class ComponentBuilder:
     ) -> CellBuilder:
         """Generate a binary cell of the kind specified in {operation}."""
         self.prog.import_("primitives/binary_operators.futil")
-        name = name or f"{operation}_{self.generate_name(operation)}"
+        name = name or self.generate_name(operation)
         assert isinstance(name, str)
         return self.cell(name, ast.Stdlib.op(operation, size, signed))
 
