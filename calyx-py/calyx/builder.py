@@ -189,8 +189,8 @@ class ComponentBuilder:
         self,
         name: str,
         comp: Union[ast.CompInst, ComponentBuilder],
-        is_external=False,
-        is_ref=False,
+        is_external: bool = False,
+        is_ref: bool = False,
     ) -> CellBuilder:
         """Declare a cell in the component. Returns a cell builder."""
         # If we get a (non-primitive) component builder, instantiate it
@@ -232,16 +232,18 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int, is_ref=False) -> CellBuilder:
+    def reg(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
         """Generate a StdReg cell."""
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
-    def wire(self, name: str, size: int, is_ref=False) -> CellBuilder:
-        """Generate a StdReg cell."""
+    def wire(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
+        """Generate a StdWire cell."""
         return self.cell(name, ast.Stdlib.wire(size), False, is_ref)
 
-    def slice(self, name: str, in_width: int, out_width, is_ref=False) -> CellBuilder:
-        """Generate a StdReg cell."""
+    def slice(
+        self, name: str, in_width: int, out_width, is_ref: bool = False
+    ) -> CellBuilder:
+        """Generate a StdSlice cell."""
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
@@ -254,8 +256,8 @@ class ComponentBuilder:
         bitwidth: int,
         len: int,
         idx_size: int,
-        is_external=False,
-        is_ref=False,
+        is_external: bool = False,
+        is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a StdMemD1 cell."""
         return self.cell(
@@ -268,8 +270,8 @@ class ComponentBuilder:
         bitwidth: int,
         len: int,
         idx_size: int,
-        is_external=False,
-        is_ref=False,
+        is_external: bool = False,
+        is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a SeqMemD1 cell."""
         self.prog.import_("primitives/memories.futil")
@@ -281,8 +283,8 @@ class ComponentBuilder:
         self,
         operation: str,
         size: int,
-        name=None,
-        signed=False,
+        name: Optional[str] = None,
+        signed: bool = False,
     ) -> CellBuilder:
         """Generate a binary cell of the kind specified in {operation}."""
         self.prog.import_("primitives/binary_operators.futil")
@@ -290,49 +292,49 @@ class ComponentBuilder:
         assert isinstance(name, str)
         return self.cell(name, ast.Stdlib.op(operation, size, signed))
 
-    def add(self, size: int, name=None, signed=False) -> CellBuilder:
+    def add(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdAdd cell."""
         return self.binary_op_helper("add", size, name, signed)
 
-    def sub(self, size: int, name=None, signed=False) -> CellBuilder:
+    def sub(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdSub cell."""
         return self.binary_op_helper("sub", size, name, signed)
 
-    def gt(self, size: int, name=None, signed=False) -> CellBuilder:
+    def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGt cell."""
         return self.binary_op_helper("gt", size, name, signed)
 
-    def lt(self, size: int, name=None, signed=False) -> CellBuilder:
+    def lt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLt cell."""
         return self.binary_op_helper("lt", size, name, signed)
 
-    def eq(self, size: int, name=None, signed=False) -> CellBuilder:
+    def eq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdEq cell."""
         return self.binary_op_helper("eq", size, name, signed)
 
-    def neq(self, size: int, name=None, signed=False) -> CellBuilder:
+    def neq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdNeq cell."""
         return self.binary_op_helper("neq", size, name, signed)
 
-    def ge(self, size: int, name=None, signed=False) -> CellBuilder:
+    def ge(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGe cell."""
         return self.binary_op_helper("ge", size, name, signed)
 
-    def le(self, size: int, name=None, signed=False) -> CellBuilder:
+    def le(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLe cell."""
         return self.binary_op_helper("le", size, name, signed)
 
-    def logical_op_helper(self, operation, size: int, name=None) -> CellBuilder:
+    def logical_op_helper(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in {operation}."""
         name = name or f"{operation}_{self.generate_name(operation)}"
         assert isinstance(name, str)
         return self.cell(name, ast.Stdlib.op(operation, size, False))
 
-    def and_(self, size: int, name=None) -> CellBuilder:
+    def and_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdAnd cell."""
         return self.logical_op_helper("and", size, name)
 
-    def not_(self, size: int, name=None) -> CellBuilder:
+    def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
         return self.logical_op_helper("not", size, name)
 
