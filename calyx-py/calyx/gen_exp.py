@@ -14,8 +14,9 @@ from calyx.gen_ln import generate_ln
 from calyx.builder import (
     Builder,
     ComponentBuilder,
-    while_,
-    if_,
+    CellAndGroup,
+    while_with,
+    if_with,
     invoke,
     CellBuilder,
     ExprBuilder,
@@ -85,7 +86,10 @@ def generate_fp_pow_component(
 
     comp.control += [
         init,
-        while_(lt.out, cond, par(execute_mul, incr_count)),
+        while_with(
+            CellAndGroup(lt, cond),
+            par(execute_mul, incr_count),
+        ),
     ]
 
     return comp.component
@@ -433,7 +437,13 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
         x
         for x in (
             init,
-            if_(lt.out, comp.get_group("is_negative"), comp.get_group("negate"))
+            if_with(
+                CellAndGroup(
+                    lt,
+                    comp.get_group("is_negative"),
+                ),
+                comp.get_group("negate"),
+            )
             if is_signed
             else [],
             split_bits,
@@ -443,7 +453,13 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
             *divide_and_conquer,
             comp.get_group("add_degree_zero"),
             comp.get_group("final_multiply"),
-            if_(lt.out, comp.get_group("is_negative"), comp.get_group("reciprocal"))
+            if_with(
+                CellAndGroup(
+                    lt,
+                    comp.get_group("is_negative"),
+                ),
+                comp.get_group("reciprocal"),
+            )
             if is_signed
             else [],
         )
@@ -658,28 +674,24 @@ def generate_fp_pow_full(
         const_one,
     )
 
-    base_reciprocal = if_(
-        port=lt.out,
-        cond=comp.get_group("base_lt_one"),
-        body=comp.get_group("set_base_reciprocal"),
+    base_reciprocal = if_with(
+        CellAndGroup(lt, comp.get_group("base_lt_one")),
+        comp.get_group("set_base_reciprocal"),
     )
 
-    res_reciprocal = if_(
-        port=lt.out,
-        cond=comp.get_group("base_lt_one"),
-        body=comp.get_group("set_res_reciprocal"),
+    res_reciprocal = if_with(
+        CellAndGroup(lt, comp.get_group("base_lt_one")),
+        comp.get_group("set_res_reciprocal"),
     )
 
     if is_signed:
-        base_rev = if_(
-            lt.out,
-            comp.get_group("base_lt_zero"),
+        base_rev = if_with(
+            CellAndGroup(lt, comp.get_group("base_lt_zero")),
             comp.get_group("rev_base_sign"),
         )
-        res_rev = if_(
-            port=lt.out,
-            cond=comp.get_group("base_lt_zero"),
-            body=comp.get_group("rev_res_sign"),
+        res_rev = if_with(
+            CellAndGroup(lt, comp.get_group("base_lt_zero")),
+            comp.get_group("rev_res_sign"),
         )
         pre_process = [base_rev, store_old_reg_val, base_reciprocal]
         post_process = [res_rev, res_reciprocal]
