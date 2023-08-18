@@ -41,22 +41,30 @@ def insert_main(prog, queue):
     main: cb.ComponentBuilder = prog.component("main")
 
     # The user-facing interface of the `main` component is:
-    # - a list of commands (the input)
-    #    where each command is a 32-bit unsigned integer, with the following format:
+    # - input 1: a list of commands
+    #    where each command is a 2-bit unsigned integer, with the following format:
     #    `0`: pop
-    #    any other value: push that value
-    # - a list of answers (the output).
+    #    `1`: peek
+    #    `2`: push
+    # - input 2: a list of values to push
+    #    where each value is a 32-bit unsigned integer
+    #    the value at `i` is pushed if the command at `i` is `2`.
+    # - output: a list of answers, reflecting any pops or peeks from the queue.
     #
     # The user-facing interface of the `queue` component is:
-    # - one input, `cmd`.
-    #    where each command is a 32-bit unsigned integer, with the following format:
+    # - input `cmd`
+    #    where each command is a 2-bit unsigned integer, with the following format:
     #    `0`: pop
-    #    any other value: push that value
-    # - one ref register, `ans`, into which the result of a pop is written.
+    #    `1`: peek
+    #    `2`: push
+    # - input `value`
+    #   which is a 32-bit unsigned integer. If `cmd` is `2`, push this value.
+    # - one ref register, `ans`, into which the result of a pop or peek is written.
     # - one ref register, `err`, which is raised if an error occurs.
 
-    commands = main.seq_mem_d1("commands", 32, MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, ANS_MEM_LEN, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
+    values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     # The two components we'll use:
     queue = main.cell("myqueue", queue)
@@ -76,16 +84,21 @@ def insert_main(prog, queue):
 
     i = main.reg("i", 32)  # The index of the command we're currently processing
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
-    cmd = main.reg("command", 32)  # The command we're currently processing
+    cmd = main.reg("command", 2)  # The command we're currently processing
+    value = main.reg("value", 32)  # The value we're currently processing
 
     incr_i = main.incr(i, 32)  # i++
     incr_j = main.incr(j, 32)  # j++
     err_eq_0 = main.eq_use(err.out, 0, 1)  # is `err` flag down?
-    cmd_le_1 = main.le_use(cmd.out, 1, 32)  # cmd <= 1
+    cmd_le_1 = main.le_use(cmd.out, 1, 2)  # cmd <= 1
 
     read_cmd = main.mem_read_seq_d1(commands, i.out, "read_cmd_phase1")
     write_cmd_to_reg = main.mem_write_seq_d1_to_reg(commands, cmd, "write_cmd_phase2")
 
+    read_value = main.mem_read_seq_d1(values, i.out, "read_value")
+    write_value_to_reg = main.mem_write_seq_d1_to_reg(
+        values, value, "write_value_to_reg"
+    )
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, ans.out, "write_ans")
 
     main.control += [
@@ -93,18 +106,23 @@ def insert_main(prog, queue):
             err_eq_0[0].out,
             err_eq_0[1],  # Run while the `err` flag is down
             [
-                read_cmd,  # Read `commands[i]`
-                write_cmd_to_reg,  # Write it to `cmd`
-                cb.invoke(  # Call the queue with `cmd`
+                read_cmd,
+                write_cmd_to_reg,
+                # `cmd := commands[i]`
+                read_value,
+                write_value_to_reg,
+                # `value := values[i]`
+                cb.invoke(  # Invoke the queue.
                     queue,
                     in_cmd=cmd.out,
+                    in_value=value.out,
                     ref_ans=ans,
                     ref_err=err,
                 ),
                 cb.if_(  # If it was a pop or a peek, write ans to the answer list
                     cmd_le_1[0].out,
                     cmd_le_1[1],
-                    [  # AM: I'd like to have an additional check hereL
+                    [  # AM: I'd like to have an additional check here:
                         # if err flag comes back raised,
                         # we do not perform this write_ans or this incr_j
                         write_ans,
@@ -112,7 +130,7 @@ def insert_main(prog, queue):
                     ],
                 ),
                 incr_i,  # Increment the command index
-                cb.invoke(  # If i = 15, raise error flag
+                cb.invoke(  # If i = MAX_CMDS, raise error flag
                     raise_err_if_i_eq_max_cmds, in_i=i.out, ref_err=err
                 ),  # AM: hella hacky
             ],

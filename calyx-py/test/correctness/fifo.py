@@ -9,15 +9,17 @@ def insert_fifo(prog, name):
     """Inserts the component `fifo` into the program.
 
     It has:
-    - one input, `cmd`.
-    - one memory, `mem`, of size MAX_QUEUE_LEN.
+    - two inputs, `cmd` and `value`.
+    - one memory, `mem`, of size 10.
     - two registers, `next_write` and `next_read`.
     - two ref registers, `ans` and `err`.
     """
 
     fifo: cb.ComponentBuilder = prog.component(name)
-    cmd = fifo.input("cmd", 32)
-    # If this is 0, we pop. If it is 1, we peek. Otherwise, we push the value.
+    cmd = fifo.input("cmd", 2)
+    # If this is 0, we pop. If it is 1, we peek.
+    # If it is 2, we push `value` to the queue.
+    value = fifo.input("value", 32)  # The value to push to the queue
 
     mem = fifo.seq_mem_d1("mem", 32, MAX_QUEUE_LEN, 32)
     write = fifo.reg("next_write", 32)  # The next address to write to
@@ -26,17 +28,17 @@ def insert_fifo(prog, name):
     # simulate a circular queue of size MAX_QUEUE_LEN.
 
     ans = fifo.reg("ans", 32, is_ref=True)
-    # If the user wants to pop, we will write the popped value to `ans`
+    # If the user wants to pop or peek, we will write the value to `ans`.
 
     err = fifo.reg("err", 1, is_ref=True)
-    # We'll raise this as a general error flag for overflow and underflow
+    # We'll raise this as a general error flag for overflow and underflow.
 
-    len = fifo.reg("len", 32)  # The length of the FIFO
+    len = fifo.reg("len", 32)  # The length of the FIFO.
 
     # Cells and groups to compute equality
-    cmd_eq_0 = fifo.eq_use(cmd, 0, 32)
-    cmd_eq_1 = fifo.eq_use(cmd, 1, 32)
-    cmd_gt_1 = fifo.gt_use(cmd, 1, 32)
+    cmd_eq_0 = fifo.eq_use(cmd, 0, 2)
+    cmd_eq_1 = fifo.eq_use(cmd, 1, 2)
+    cmd_eq_2 = fifo.eq_use(cmd, 2, 2)
 
     write_eq_max_queue_len = fifo.eq_use(write.out, MAX_QUEUE_LEN, 32)
     read_eq_max_queue_len = fifo.eq_use(read.out, MAX_QUEUE_LEN, 32)
@@ -56,7 +58,7 @@ def insert_fifo(prog, name):
     flash_ans = fifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
     # Load and store into an arbitary slot in memory
-    write_to_mem = fifo.mem_store_seq_d1(mem, write.out, cmd, "write_payload_to_mem")
+    write_to_mem = fifo.mem_store_seq_d1(mem, write.out, value, "write_payload_to_mem")
     read_from_mem = fifo.mem_read_seq_d1(mem, read.out, "read_payload_from_mem_phase1")
     write_to_ans = fifo.mem_write_seq_d1_to_reg(
         mem, ans, "read_payload_from_mem_phase2"
@@ -64,7 +66,7 @@ def insert_fifo(prog, name):
 
     fifo.control += [
         cb.par(
-            # Was it a pop or a push? We can do both cases in parallel.
+            # Was it a pop, peek, or a push? We can do all cases in parallel.
             cb.if_(
                 # Did the user call pop?
                 cmd_eq_0[0].out,
@@ -105,15 +107,15 @@ def insert_fifo(prog, name):
             ),
             cb.if_(
                 # Did the user call push?
-                cmd_gt_1[0].out,
-                cmd_gt_1[1],
+                cmd_eq_2[0].out,
+                cmd_eq_2[1],
                 cb.if_(
                     # Yes, the user called push. But is the queue full?
                     len_eq_max_queue_len[0].out,
                     len_eq_max_queue_len[1],
                     [raise_err, flash_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
-                        write_to_mem,  # Write to the queue.
+                        write_to_mem,  # Write `value` to the queue.
                         write_incr,  # Increment the write pointer.
                         cb.if_(
                             # Wrap around if necessary.

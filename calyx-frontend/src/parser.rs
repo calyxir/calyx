@@ -454,15 +454,15 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [io_port((name, width, attributes))] => {
-                let pd = PortDef {
-                    name, width, direction: Direction::Input, attributes
-                };
+                let pd = PortDef::new(
+                    name, width, Direction::Input, attributes
+                );
                 vec![pd]
             },
             [io_port((name, width, attributes)), comma(_), inputs(rest)] => {
-                let pd = PortDef {
-                    name, width, direction: Direction::Input, attributes
-                };
+                let pd = PortDef::new(
+                    name, width, Direction::Input, attributes
+                );
                 let mut v = vec![pd];
                 v.extend(rest);
                 v
@@ -474,15 +474,15 @@ impl CalyxParser {
         Ok(match_nodes!(
             input.into_children();
             [io_port((name, width, attributes))] => {
-                let pd = PortDef {
-                    name, width, direction: Direction::Output, attributes
-                };
+                let pd = PortDef::new(
+                    name, width, Direction::Output, attributes
+                );
                 vec![pd]
             },
             [io_port((name, width, attributes)), comma(_), outputs(rest)] => {
-                let pd = PortDef {
-                    name, width, direction: Direction::Output, attributes
-                };
+                let pd = PortDef::new(
+                    name, width, Direction::Output, attributes
+                );
                 let mut v = vec![pd];
                 v.extend(rest);
                 v
@@ -1094,14 +1094,14 @@ impl CalyxParser {
                     Err(input.error("Static Component must have defined control"))?;
                 }
                 let (continuous_assignments, groups, static_groups) = connections;
-                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                    if let Width::Const { value } = width {
-                        Ok(PortDef {
-                            name,
-                            width: value,
-                            direction,
-                            attributes
-                        })
+                let sig = sig.into_iter().map(|pd| {
+                    if let Width::Const { value } = pd.width {
+                        Ok(PortDef::new(
+                            pd.name(),
+                            value,
+                            pd.direction,
+                            pd.attributes
+                        ))
                     } else {
                         Err(input.error("Components cannot use parameters"))
                     }
@@ -1127,14 +1127,14 @@ impl CalyxParser {
                 control(control)
             ] => {
                 let (continuous_assignments, groups, static_groups) = connections;
-                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                    if let Width::Const { value } = width {
-                        Ok(PortDef {
-                            name,
-                            width: value,
-                            direction,
-                            attributes
-                        })
+                let sig = sig.into_iter().map(|pd| {
+                    if let Width::Const { value } = pd.width {
+                        Ok(PortDef::new(
+                            pd.name(),
+                            value,
+                            pd.direction,
+                            pd.attributes
+                        ))
                     } else {
                         Err(input.error("Components cannot use parameters"))
                     }
@@ -1161,14 +1161,14 @@ impl CalyxParser {
                 control(control),
             ] => {
                 let (continuous_assignments, groups, static_groups) = connections;
-                let sig = sig.into_iter().map(|PortDef { name, width, direction, attributes }| {
-                    if let Width::Const { value } = width {
-                        Ok(PortDef {
-                            name,
-                            width: value,
-                            direction,
-                            attributes
-                        })
+                let sig = sig.into_iter().map(|pd| {
+                    if let Width::Const { value } = pd.width {
+                        Ok(PortDef::new(
+                            pd.name(),
+                            value,
+                            pd.direction,
+                            pd.attributes
+                        ))
                     } else {
                         Err(input.error("Components cannot use parameters"))
                     }
