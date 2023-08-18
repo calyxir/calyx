@@ -36,21 +36,15 @@ def insert_fifo(prog, name):
 
     len = fifo.reg("len", 32)  # The length of the FIFO.
 
-    # Cells and groups to compute equality.
-    cmd_eq_0 = util.insert_eq(fifo, cmd, 0, "cmd_eq_0", 2)
-    cmd_eq_1 = util.insert_eq(fifo, cmd, 1, "cmd_eq_1", 2)
-    cmd_eq_2 = util.insert_eq(fifo, cmd, 2, "cmd_eq_2", 2)
+    # Cells and groups to compute equality
+    cmd_eq_0 = util.insert_eq(fifo, cmd, 0, 2)
+    cmd_eq_1 = util.insert_eq(fifo, cmd, 1, 2)
+    cmd_eq_2 = util.insert_eq(fifo, cmd, 2, 2)
 
-    write_eq_max_queue_len = util.insert_eq(
-        fifo, write.out, MAX_QUEUE_LEN, "write_eq_MAX_QUEUE_LEN", 32
-    )
-    read_eq_max_queue_len = util.insert_eq(
-        fifo, read.out, MAX_QUEUE_LEN, "read_eq_MAX_QUEUE_LEN", 32
-    )
-    len_eq_0 = util.insert_eq(fifo, len.out, 0, "len_eq_0", 32)
-    len_eq_max_queue_len = util.insert_eq(
-        fifo, len.out, MAX_QUEUE_LEN, "len_eq_MAX_QUEUE_LEN", 32
-    )
+    write_eq_max_queue_len = util.insert_eq(fifo, write.out, MAX_QUEUE_LEN, 32)
+    read_eq_max_queue_len = util.insert_eq(fifo, read.out, MAX_QUEUE_LEN, 32)
+    len_eq_0 = util.insert_eq(fifo, len.out, 0, 32)
+    len_eq_max_queue_len = util.insert_eq(fifo, len.out, MAX_QUEUE_LEN, 32)
 
     # Cells and groups to increment read and write registers
     write_incr = util.insert_incr(fifo, write, "write_incr")  # write++

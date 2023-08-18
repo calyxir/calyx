@@ -48,6 +48,8 @@ class Builder:
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
+    next_gen_idx = 0
+
     def __init__(
         self,
         prog: Builder,
@@ -71,6 +73,15 @@ class ComponentBuilder:
         for cell in cells:
             self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
+        self.next_gen_idx = 0
+
+    def generate_name(self, prefix: str) -> str:
+        """Generate a unique name with the given prefix."""
+        while True:
+            self.next_gen_idx += 1
+            name = f"{prefix}_{self.next_gen_idx}"
+            if name not in self.index:
+                return name
 
     def input(self, name: str, size: int) -> ExprBuilder:
         """Declare an input port on the component.
@@ -180,8 +191,8 @@ class ComponentBuilder:
         self,
         name: str,
         comp: Union[ast.CompInst, ComponentBuilder],
-        is_external=False,
-        is_ref=False,
+        is_external: bool = False,
+        is_ref: bool = False,
     ) -> CellBuilder:
         """Declare a cell in the component. Returns a cell builder."""
         # If we get a (non-primitive) component builder, instantiate it
@@ -223,16 +234,18 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int, is_ref=False) -> CellBuilder:
+    def reg(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
         """Generate a StdReg cell."""
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
-    def wire(self, name: str, size: int, is_ref=False) -> CellBuilder:
-        """Generate a StdReg cell."""
+    def wire(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
+        """Generate a StdWire cell."""
         return self.cell(name, ast.Stdlib.wire(size), False, is_ref)
 
-    def slice(self, name: str, in_width: int, out_width, is_ref=False) -> CellBuilder:
-        """Generate a StdReg cell."""
+    def slice(
+        self, name: str, in_width: int, out_width, is_ref: bool = False
+    ) -> CellBuilder:
+        """Generate a StdSlice cell."""
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
@@ -245,8 +258,8 @@ class ComponentBuilder:
         bitwidth: int,
         len: int,
         idx_size: int,
-        is_external=False,
-        is_ref=False,
+        is_external: bool = False,
+        is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a StdMemD1 cell."""
         return self.cell(
@@ -259,8 +272,8 @@ class ComponentBuilder:
         bitwidth: int,
         len: int,
         idx_size: int,
-        is_external=False,
-        is_ref=False,
+        is_external: bool = False,
+        is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a SeqMemD1 cell."""
         self.prog.import_("primitives/memories.futil")
@@ -268,53 +281,64 @@ class ComponentBuilder:
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int, signed=False) -> CellBuilder:
+    def binary(
+        self,
+        operation: str,
+        size: int,
+        name: Optional[str] = None,
+        signed: bool = False,
+    ) -> CellBuilder:
+        """Generate a binary cell of the kind specified in `operation`."""
+        self.prog.import_("primitives/binary_operators.futil")
+        name = name or self.generate_name(operation)
+        assert isinstance(name, str)
+        return self.cell(name, ast.Stdlib.op(operation, size, signed))
+
+    def add(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdAdd cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("add", size, signed))
+        return self.binary("add", size, name, signed)
 
-    def sub(self, name: str, size: int, signed=False):
+    def sub(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdSub cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("sub", size, signed))
+        return self.binary("sub", size, name, signed)
 
-    def gt(self, name: str, size: int, signed=False):
+    def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGt cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("gt", size, signed))
+        return self.binary("gt", size, name, signed)
 
-    def lt(self, name: str, size: int, signed=False):
+    def lt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLt cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("lt", size, signed))
+        return self.binary("lt", size, name, signed)
 
-    def eq(self, name: str, size: int, signed=False):
+    def eq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdEq cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("eq", size, signed))
+        return self.binary("eq", size, name, signed)
 
-    def neq(self, name: str, size: int, signed=False):
+    def neq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdNeq cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("neq", size, signed))
+        return self.binary("neq", size, name, signed)
 
-    def ge(self, name: str, size: int, signed=False):
+    def ge(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGe cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("ge", size, signed))
+        return self.binary("ge", size, name, signed)
 
-    def le(self, name: str, size: int, signed=False):
+    def le(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLe cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("le", size, signed))
+        return self.binary("le", size, name, signed)
 
-    def and_(self, name: str, size: int) -> CellBuilder:
+    def logic(self, operation, size: int, name: str = None) -> CellBuilder:
+        """Generate a logical operator cell, of the flavor specified in `operation`."""
+        name = name or self.generate_name(operation)
+        assert isinstance(name, str)
+        return self.cell(name, ast.Stdlib.op(operation, size, False))
+
+    def and_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdAnd cell."""
-        return self.cell(name, ast.Stdlib.op("and", size, False))
+        return self.logic("and", size, name)
 
-    def not_(self, name: str, size: int) -> CellBuilder:
+    def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
-        return self.cell(name, ast.Stdlib.op("not", size, False))
+        return self.logic("not", size, name)
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
@@ -618,7 +642,7 @@ class CellBuilder(CellLikeBuilder):
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
     def is_primitive(self, prim_name) -> bool:
-        """Check if the cell is an instance of the primitive {prim_name}."""
+        """Check if the cell is an instance of the primitive `prim_name`."""
         return (
             isinstance(self._cell.comp, ast.CompInst)
             and self._cell.comp.id == prim_name
@@ -631,6 +655,11 @@ class CellBuilder(CellLikeBuilder):
     def is_seq_mem_d1(self) -> bool:
         """Check if the cell is a SeqMemD1 cell."""
         return self.is_primitive("seq_mem_d1")
+
+    @property
+    def name(self) -> str:
+        """Get the name of the cell."""
+        return self._cell.id.name
 
     @classmethod
     def unwrap_id(cls, obj):

@@ -21,9 +21,7 @@ def insert_raise_err_if_i_eq_max_cmds(prog):
     i = raise_err_if_i_eq_max_cmds.input("i", 32)
     err = raise_err_if_i_eq_max_cmds.reg("err", 1, is_ref=True)
 
-    i_eq_max_cmds = util.insert_eq(
-        raise_err_if_i_eq_max_cmds, i, MAX_CMDS, "i_eq_MAX_CMDS", 32
-    )
+    i_eq_max_cmds = util.insert_eq(raise_err_if_i_eq_max_cmds, i, MAX_CMDS, 32)
     raise_err = util.insert_reg_store(raise_err_if_i_eq_max_cmds, err, 1, "raise_err")
 
     raise_err_if_i_eq_max_cmds.control += [
@@ -92,8 +90,8 @@ def insert_main(prog, queue):
 
     incr_i = util.insert_incr(main, i, "incr_i")  # i++
     incr_j = util.insert_incr(main, j, "incr_j")  # j++
-    err_eq_0 = util.insert_eq(main, err.out, 0, "err_eq_0", 1)  # is `err` flag down?
-    cmd_le_1 = util.insert_le(main, cmd.out, 1, "cmd_le_1", 2)  # cmd <= 1
+    err_eq_0 = util.insert_eq(main, err.out, 0, 1)  # is `err` flag down?
+    cmd_le_1 = util.insert_le(main, cmd.out, 1, 2)  # cmd <= 1
 
     read_cmd = util.mem_read_seq_d1(main, commands, i.out, "read_cmd_phase1")
     write_cmd_to_reg = util.mem_write_seq_d1_to_reg(
