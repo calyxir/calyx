@@ -134,32 +134,28 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     pifo.control += [
         cb.par(
             # Was it a pop, peek, or a push? We can do all cases in parallel.
-            cb.if_(
+            cb.if_with(
                 # Did the user call pop?
-                cmd_eq_0[0].out,
-                cmd_eq_0[1],
-                cb.if_(
+                cmd_eq_0,
+                cb.if_with(
                     # Yes, the user called pop. But is the queue empty?
-                    len_eq_0[0].out,
-                    len_eq_0[1],
+                    len_eq_0,
                     [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
                         cb.par(  # We'll check both cases in parallel.
-                            cb.if_(
+                            cb.if_with(
                                 # Check if `hot` is 0.
-                                hot_eq_0[0].out,
-                                hot_eq_0[1],
+                                hot_eq_0,
                                 [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
                                     invoke_subqueue(queue_l, cmd, value, ans, err),
                                     # Our next step depends on whether `queue_l`
                                     # raised the error flag.
                                     # We can check these cases in parallel.
                                     cb.par(
-                                        cb.if_(
-                                            err_neq_0[0].out,
-                                            err_neq_0[1],
+                                        cb.if_with(
+                                            err_neq_0,
                                             [  # `queue_l` raised an error.
                                                 # We'll try to pop from `queue_r`.
                                                 # We'll pass it a lowered err
@@ -169,9 +165,8 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                                 ),
                                             ],
                                         ),
-                                        cb.if_(
-                                            err_eq_0[0].out,
-                                            err_eq_0[1],
+                                        cb.if_with(
+                                            err_eq_0,
                                             [  # `queue_l` succeeded.
                                                 # Its answer is our answer.
                                                 flip_hot
@@ -183,15 +178,13 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                 ],
                             ),
                             # If `hot` is 1, we proceed symmetrically.
-                            cb.if_(
-                                hot_eq_1[0].out,
-                                hot_eq_1[1],
+                            cb.if_with(
+                                hot_eq_1,
                                 [
                                     invoke_subqueue(queue_r, cmd, value, ans, err),
                                     cb.par(
-                                        cb.if_(
-                                            err_neq_0[0].out,
-                                            err_neq_0[1],
+                                        cb.if_with(
+                                            err_neq_0,
                                             [
                                                 lower_err,
                                                 invoke_subqueue(
@@ -199,9 +192,8 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                                 ),
                                             ],
                                         ),
-                                        cb.if_(
-                                            err_eq_0[0].out,
-                                            err_eq_0[1],
+                                        cb.if_with(
+                                            err_eq_0,
                                             [flip_hot],
                                         ),
                                     ),
@@ -216,30 +208,26 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                     ],
                 ),
             ),
-            cb.if_(
+            cb.if_with(
                 # Did the user call peek?
-                cmd_eq_1[0].out,
-                cmd_eq_1[1],
-                cb.if_(
+                cmd_eq_1,
+                cb.if_with(
                     # Yes, the user called peek. But is the queue empty?
-                    len_eq_0[0].out,
-                    len_eq_0[1],
+                    len_eq_0,
                     [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
                         cb.par(  # We'll check both cases in parallel.
-                            cb.if_(
+                            cb.if_with(
                                 # Check if `hot` is 0.
-                                hot_eq_0[0].out,
-                                hot_eq_0[1],
+                                hot_eq_0,
                                 [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
                                     invoke_subqueue(queue_l, cmd, value, ans, err),
                                     # Our next step depends on whether `queue_l`
                                     # raised the error flag.
-                                    cb.if_(
-                                        err_neq_0[0].out,
-                                        err_neq_0[1],
+                                    cb.if_with(
+                                        err_neq_0,
                                         [  # `queue_l` raised an error.
                                             # We'll try to peek from `queue_r`.
                                             # We'll pass it a lowered `err`.
@@ -254,14 +242,12 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                 ],
                             ),
                             # If `hot` is 1, we proceed symmetrically.
-                            cb.if_(
-                                hot_eq_1[0].out,
-                                hot_eq_1[1],
+                            cb.if_with(
+                                hot_eq_1,
                                 [
                                     invoke_subqueue(queue_r, cmd, value, ans, err),
-                                    cb.if_(
-                                        err_neq_0[0].out,
-                                        err_neq_0[1],
+                                    cb.if_with(
+                                        err_neq_0,
                                         [
                                             lower_err,
                                             invoke_subqueue(
@@ -275,29 +261,25 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                     ],
                 ),
             ),
-            cb.if_(
+            cb.if_with(
                 # Did the user call push?
-                cmd_eq_2[0].out,
-                cmd_eq_2[1],
-                cb.if_(
+                cmd_eq_2,
+                cb.if_with(
                     # Yes, the user called push. But is the queue full?
-                    len_eq_max_queue_len[0].out,
-                    len_eq_max_queue_len[1],
+                    len_eq_max_queue_len,
                     [raise_err, flash_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         lower_err,
                         # We need to check which flow this value should be pushed to.
                         infer_flow,  # Infer the flow and write it to `fifo_{flow}`.
                         cb.par(
-                            cb.if_(
-                                flow_eq_0[0].out,
-                                flow_eq_0[1],
+                            cb.if_with(
+                                flow_eq_0,
                                 # This value should be pushed to queue_l.
                                 invoke_subqueue(queue_l, cmd, value, ans, err),
                             ),
-                            cb.if_(
-                                flow_eq_1[0].out,
-                                flow_eq_1[1],
+                            cb.if_with(
+                                flow_eq_1,
                                 # This value should be pushed to queue_r.
                                 invoke_subqueue(queue_r, cmd, value, ans, err),
                             ),
