@@ -7,7 +7,7 @@ def insert_comb_group(comp: cb.ComponentBuilder, left, right, cell, groupname=No
     Creates a combinational group that wires up the cell with these ports.
     Returns the cell and the combintational group.
     """
-    groupname = groupname or f"{cell.name()}_group"
+    groupname = groupname or f"{cell.name}_group"
     with comp.comb_group(groupname) as comb_group:
         cell.left = left
         cell.right = right

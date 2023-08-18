@@ -286,7 +286,7 @@ class ComponentBuilder:
         name: Optional[str] = None,
         signed: bool = False,
     ) -> CellBuilder:
-        """Generate a binary cell of the kind specified in {operation}."""
+        """Generate a binary cell of the kind specified in `operation`."""
         self.prog.import_("primitives/binary_operators.futil")
         name = name or self.generate_name(operation)
         assert isinstance(name, str)
@@ -325,8 +325,8 @@ class ComponentBuilder:
         return self.binary("le", size, name, signed)
 
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
-        """Generate a logical operator cell, of the flavor specified in {operation}."""
-        name = name or f"{operation}_{self.generate_name(operation)}"
+        """Generate a logical operator cell, of the flavor specified in `operation`."""
+        name = name or self.generate_name(operation)
         assert isinstance(name, str)
         return self.cell(name, ast.Stdlib.op(operation, size, False))
 
@@ -640,7 +640,7 @@ class CellBuilder(CellLikeBuilder):
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
 
     def is_primitive(self, prim_name) -> bool:
-        """Check if the cell is an instance of the primitive {prim_name}."""
+        """Check if the cell is an instance of the primitive `prim_name`."""
         return (
             isinstance(self._cell.comp, ast.CompInst)
             and self._cell.comp.id == prim_name
@@ -654,6 +654,7 @@ class CellBuilder(CellLikeBuilder):
         """Check if the cell is a SeqMemD1 cell."""
         return self.is_primitive("seq_mem_d1")
 
+    @property
     def name(self) -> str:
         """Get the name of the cell."""
         return self._cell.id.name
