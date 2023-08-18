@@ -14,7 +14,7 @@ pub struct Printer;
 impl Printer {
     /// Format attributes of the form `@static(1)`.
     /// Returns the empty string if the `attrs` is empty.
-    fn format_at_attributes(attrs: &ir::Attributes) -> String {
+    pub fn format_at_attributes(attrs: &ir::Attributes) -> String {
         let mut buf = attrs.to_string_with(" ", |name, val| {
             if val == 1 {
                 format!("@{}", name)
@@ -30,7 +30,7 @@ impl Printer {
 
     /// Format attributes of the form `<"static"=1>`.
     /// Returns the empty string if the `attrs` is empty.
-    fn format_attributes(attrs: &ir::Attributes) -> String {
+    pub fn format_attributes(attrs: &ir::Attributes) -> String {
         if attrs.is_empty() {
             "".to_string()
         } else {
@@ -44,7 +44,7 @@ impl Printer {
     }
 
     /// Formats port definitions in signatures
-    fn format_ports(ports: &[RRC<ir::Port>]) -> String {
+    pub fn format_ports(ports: &[RRC<ir::Port>]) -> String {
         ports
             .iter()
             .map(|p| {
@@ -59,7 +59,7 @@ impl Printer {
             .join(", ")
     }
 
-    fn format_port_def<W: std::fmt::Display>(
+    pub fn format_port_def<W: std::fmt::Display>(
         port_defs: &[&ir::PortDef<W>],
     ) -> String {
         port_defs
@@ -68,7 +68,7 @@ impl Printer {
                 format!(
                     "{}{}: {}",
                     Self::format_at_attributes(&pd.attributes),
-                    pd.name,
+                    pd.name(),
                     pd.width
                 )
             })

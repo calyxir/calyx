@@ -68,7 +68,7 @@ pub struct Component {
 impl Component {
     /// Extend the signature with interface ports if they are missing.
     pub(super) fn extend_signature(sig: &mut Vec<PortDef<u64>>) {
-        let port_names: HashSet<_> = sig.iter().map(|pd| pd.name).collect();
+        let port_names: HashSet<_> = sig.iter().map(|pd| pd.name()).collect();
         let mut namegen = NameGenerator::with_prev_defined_names(port_names);
         for (attr, width, direction) in INTERFACE_PORTS.iter() {
             // Check if there is already another interface port defined for the
@@ -77,12 +77,12 @@ impl Component {
                 let mut attributes = Attributes::default();
                 attributes.insert(*attr, 1);
                 let name = Id::from(attr.to_string());
-                sig.push(PortDef {
-                    name: namegen.gen_name(name.to_string()),
-                    width: *width,
-                    direction: direction.clone(),
+                sig.push(PortDef::new(
+                    namegen.gen_name(name.to_string()),
+                    *width,
+                    direction.clone(),
                     attributes,
-                });
+                ));
             }
         }
     }
@@ -108,7 +108,7 @@ impl Component {
             Self::extend_signature(&mut ports);
         }
 
-        let prev_names: HashSet<_> = ports.iter().map(|pd| pd.name).collect();
+        let prev_names: HashSet<_> = ports.iter().map(|pd| pd.name()).collect();
 
         let this_sig = Builder::cell_from_signature(
             THIS_ID.into(),
@@ -116,9 +116,13 @@ impl Component {
             ports
                 .into_iter()
                 // Reverse the port directions inside the component.
-                .map(|pd| PortDef {
-                    direction: pd.direction.reverse(),
-                    ..pd
+                .map(|pd| {
+                    PortDef::new(
+                        pd.name(),
+                        pd.width,
+                        pd.direction.reverse(),
+                        pd.attributes,
+                    )
                 })
                 .collect(),
         );
