@@ -52,7 +52,7 @@ impl From<&ir::Primitive> for GoDone {
     fn from(prim: &ir::Primitive) -> Self {
         let done_ports: HashMap<_, _> = prim
             .find_all_with_attr(ir::NumAttr::Done)
-            .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name))
+            .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name()))
             .collect();
 
         let go_ports = prim
@@ -61,7 +61,7 @@ impl From<&ir::Primitive> for GoDone {
                 pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                     done_ports
                         .get(&pd.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (pd.name, *done_port, st))
+                        .map(|done_port| (pd.name(), *done_port, st))
                 })
             })
             .collect_vec();
@@ -146,7 +146,7 @@ impl ConstructVisitor for StaticPromotion {
         for prim in ctx.lib.signatures() {
             let done_ports: HashMap<_, _> = prim
                 .find_all_with_attr(ir::NumAttr::Done)
-                .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name))
+                .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name()))
                 .collect();
 
             let go_ports = prim
@@ -155,7 +155,7 @@ impl ConstructVisitor for StaticPromotion {
                     pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
                         done_ports
                             .get(&pd.attributes.get(ir::NumAttr::Go))
-                            .map(|done_port| (pd.name, *done_port, st))
+                            .map(|done_port| (pd.name(), *done_port, st))
                     })
                 })
                 .collect_vec();
