@@ -92,7 +92,7 @@ def insert_gt(comp: cb.ComponentBuilder, left, right, width, cellname=None):
 def insert_add(comp: cb.ComponentBuilder, left, right, width, cellname=None):
     """Inserts wiring into component `comp` to check if `left` > `right`.
 
-    <cellname> = std_gt(<width>);
+    <cellname> = std_add(<width>);
     ...
     comb group <cellname>_group {
         <cellname>.left = <left>;
@@ -107,7 +107,7 @@ def insert_add(comp: cb.ComponentBuilder, left, right, width, cellname=None):
 def insert_sub(comp: cb.ComponentBuilder, left, right, width, cellname=None):
     """Inserts wiring into component `comp` to check if `left` > `right`.
 
-    <cellname> = std_gt(<width>);
+    <cellname> = std_sub(<width>);
     ...
     comb group <cellname>_group {
         <cellname>.left = <left>;
