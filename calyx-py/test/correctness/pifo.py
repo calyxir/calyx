@@ -1,7 +1,6 @@
 # pylint: disable=import-error
 import fifo
 import calyx.builder as cb
-import calyx.builder_util as util
 import calyx.queue_call as qc
 
 MAX_QUEUE_LEN = 10
@@ -111,25 +110,25 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     hot = pifo.reg("hot", 1)
 
     # Some equality checks.
-    hot_eq_0 = util.insert_eq(pifo, hot.out, 0, 1)
-    hot_eq_1 = util.insert_eq(pifo, hot.out, 1, 1)
-    flow_eq_0 = util.insert_eq(pifo, flow.out, 0, 1)
-    flow_eq_1 = util.insert_eq(pifo, flow.out, 1, 1)
-    len_eq_0 = util.insert_eq(pifo, len.out, 0, 32)
-    len_eq_max_queue_len = util.insert_eq(pifo, len.out, MAX_QUEUE_LEN, 32)
-    cmd_eq_0 = util.insert_eq(pifo, cmd, 0, 2)
-    cmd_eq_1 = util.insert_eq(pifo, cmd, 1, 2)
-    cmd_eq_2 = util.insert_eq(pifo, cmd, 2, 2)
-    err_eq_0 = util.insert_eq(pifo, err.out, 0, 1)
-    err_neq_0 = util.insert_neq(pifo, err.out, cb.const(1, 0), 1)
+    hot_eq_0 = pifo.eq_use(hot.out, 0, 1)
+    hot_eq_1 = pifo.eq_use(hot.out, 1, 1)
+    flow_eq_0 = pifo.eq_use(flow.out, 0, 1)
+    flow_eq_1 = pifo.eq_use(flow.out, 1, 1)
+    len_eq_0 = pifo.eq_use(len.out, 0, 32)
+    len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN, 32)
+    cmd_eq_0 = pifo.eq_use(cmd, 0, 2)
+    cmd_eq_1 = pifo.eq_use(cmd, 1, 2)
+    cmd_eq_2 = pifo.eq_use(cmd, 2, 2)
+    err_eq_0 = pifo.eq_use(err.out, 0, 1)
+    err_neq_0 = pifo.neq_use(err.out, cb.const(1, 0), 1)
 
-    flip_hot = util.insert_bitwise_flip_reg(pifo, hot, "flip_hot", 1)
-    raise_err = util.insert_reg_store(pifo, err, 1, "raise_err")  # set `err` to 1
-    lower_err = util.insert_reg_store(pifo, err, 0, "lower_err")  # set `err` to 0
-    zero_out_ans = util.insert_reg_store(pifo, ans, 0, "zero_out_ans")
+    flip_hot = pifo.bitwise_flip_reg(hot, 1)
+    raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
+    lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
+    flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
-    len_incr = util.insert_incr(pifo, len, "len_incr")  # len++
-    len_decr = util.insert_decr(pifo, len, "len_decr")  # len--
+    len_incr = pifo.incr(len, 32)  # len++
+    len_decr = pifo.decr(len, 32)  # len--
 
     # The main logic.
     pifo.control += [
@@ -143,7 +142,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                     # Yes, the user called pop. But is the queue empty?
                     len_eq_0[0].out,
                     len_eq_0[1],
-                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
@@ -225,7 +224,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                     # Yes, the user called peek. But is the queue empty?
                     len_eq_0[0].out,
                     len_eq_0[1],
-                    [raise_err, zero_out_ans],  # The queue is empty: underflow.
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
@@ -284,7 +283,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                     # Yes, the user called push. But is the queue full?
                     len_eq_max_queue_len[0].out,
                     len_eq_max_queue_len[1],
-                    [raise_err, zero_out_ans],  # The queue is full: overflow.
+                    [raise_err, flash_ans],  # The queue is full: overflow.
                     [  # The queue is not full. Proceed.
                         lower_err,
                         # We need to check which flow this value should be pushed to.
