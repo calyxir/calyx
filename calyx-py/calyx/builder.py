@@ -279,7 +279,7 @@ class ComponentBuilder:
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def binary_op_helper(
+    def binary(
         self,
         operation: str,
         size: int,
@@ -294,37 +294,37 @@ class ComponentBuilder:
 
     def add(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdAdd cell."""
-        return self.binary_op_helper("add", size, name, signed)
+        return self.binary("add", size, name, signed)
 
     def sub(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdSub cell."""
-        return self.binary_op_helper("sub", size, name, signed)
+        return self.binary("sub", size, name, signed)
 
     def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGt cell."""
-        return self.binary_op_helper("gt", size, name, signed)
+        return self.binary("gt", size, name, signed)
 
     def lt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLt cell."""
-        return self.binary_op_helper("lt", size, name, signed)
+        return self.binary("lt", size, name, signed)
 
     def eq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdEq cell."""
-        return self.binary_op_helper("eq", size, name, signed)
+        return self.binary("eq", size, name, signed)
 
     def neq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdNeq cell."""
-        return self.binary_op_helper("neq", size, name, signed)
+        return self.binary("neq", size, name, signed)
 
     def ge(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGe cell."""
-        return self.binary_op_helper("ge", size, name, signed)
+        return self.binary("ge", size, name, signed)
 
     def le(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLe cell."""
-        return self.binary_op_helper("le", size, name, signed)
+        return self.binary("le", size, name, signed)
 
-    def logical_op_helper(self, operation, size: int, name: str = None) -> CellBuilder:
+    def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in {operation}."""
         name = name or f"{operation}_{self.generate_name(operation)}"
         assert isinstance(name, str)
@@ -332,11 +332,11 @@ class ComponentBuilder:
 
     def and_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdAnd cell."""
-        return self.logical_op_helper("and", size, name)
+        return self.logic("and", size, name)
 
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
-        return self.logical_op_helper("not", size, name)
+        return self.logic("not", size, name)
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
