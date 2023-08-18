@@ -386,7 +386,7 @@ class ComponentBuilder:
         )
 
     def binary_use(self, left, right, cell, groupname=None):
-        """Accepts a cell that performs some computation on values {left} and {right}.
+        """Accepts a cell that performs some computation on values `left` and `right`.
         Creates a combinational group that wires up the cell with these ports.
         Returns the cell and the combintational group.
 
@@ -404,40 +404,40 @@ class ComponentBuilder:
         return cell, comb_group
 
     def eq_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} == {right}."""
+        """Inserts wiring into component `self` to check if `left` == `right`."""
         return self.binary_use(left, right, self.eq(width, cellname))
 
     def neq_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} != {right}."""
+        """Inserts wiring into component `self` to check if `left` != `right`."""
         return self.binary_use(left, right, self.neq(width, cellname))
 
     def lt_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} < {right}."""
+        """Inserts wiring into component `self` to check if `left` < `right`."""
         return self.binary_use(left, right, self.lt(width, cellname))
 
     def le_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} <= {right}."""
+        """Inserts wiring into component `self` to check if `left` <= `right`."""
         return self.binary_use(left, right, self.le(width, cellname))
 
     def ge_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} >= {right}."""
+        """Inserts wiring into component `self` to check if `left` >= `right`."""
         return self.binary_use(left, right, self.ge(width, cellname))
 
     def gt_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to check if {left} > {right}."""
+        """Inserts wiring into component `self` to check if `left` > `right`."""
         return self.binary_use(left, right, self.gt(width, cellname))
 
     def add_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to compute {left} + {right}."""
+        """Inserts wiring into component `self` to compute `left` + `right`."""
         return self.binary_use(left, right, self.add(width, cellname))
 
     def sub_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component {self} to compute {left} - {right}."""
+        """Inserts wiring into component `self` to compute `left` - `right`."""
         return self.binary_use(left, right, self.sub(width, cellname))
 
     def bitwise_flip_reg(self, reg, width, cellname=None):
-        """Inserts wiring into component {self} to bitwise-flip the contents of {reg}
-        and put the result back into {reg}.
+        """Inserts wiring into component `self` to bitwise-flip the contents of `reg`
+        and put the result back into `reg`.
 
         Returns a handle to the group that does this.
         """
@@ -451,11 +451,11 @@ class ComponentBuilder:
         return not_group
 
     def incr(self, reg, width, val=1, cellname=None):
-        """Inserts wiring into component {self} to increment register {reg} by {val}.
-        1. Within component {self}, creates a group.
-        2. Within the group, adds a cell {cellname} that computes sums.
-        3. Puts the values {reg} and {val} into the cell.
-        4. Then puts the answer of the computation back into {reg}.
+        """Inserts wiring into component `self` to increment register `reg` by `val`.
+        1. Within component `self`, creates a group.
+        2. Within the group, adds a cell `cellname` that computes sums.
+        3. Puts the values `reg` and `val` into the cell.
+        4. Then puts the answer of the computation back into `reg`.
         5. Returns the group that does this.
         """
         cellname = cellname or f"{reg.name}_incr"
@@ -469,11 +469,11 @@ class ComponentBuilder:
         return incr_group
 
     def decr(self, reg, width, val=1, cellname=None):
-        """Inserts wiring into component {self} to decrement register {reg} by {val}.
-        1. Within component {self}, creates a group.
-        2. Within the group, adds a cell {cellname} that computes differences.
-        3. Puts the values {reg} and {val} into the cell.
-        4. Then puts the answer of the computation back into {reg}.
+        """Inserts wiring into component `self` to decrement register `reg` by `val`.
+        1. Within component `self`, creates a group.
+        2. Within the group, adds a cell `cellname` that computes differences.
+        3. Puts the values `reg` and `val` into the cell.
+        4. Then puts the answer of the computation back into `reg`.
         5. Returns the group.
         """
         cellname = cellname or f"{reg.name}_decr"
@@ -488,8 +488,8 @@ class ComponentBuilder:
 
     def reg_store(self, reg, val, groupname=None):
         """Stores a value in a register.
-        1. Within component {self}, creates a group.
-        2. Within the group, sets the register {reg} to {val}.
+        1. Within component `self`, creates a group.
+        2. Within the group, sets the register `reg` to `val`.
         3. Returns the group.
         """
         groupname = groupname or f"{reg.name}_store_to_reg"
@@ -501,9 +501,9 @@ class ComponentBuilder:
 
     def mem_load_std_d1(self, mem, i, reg, groupname=None):
         """Loads a value from one memory (std_d1) into a register.
-        1. Within component {comp}, creates a group.
-        2. Within the group, reads from memory {mem} at address {i}.
-        3. Writes the value into register {reg}.
+        1. Within component `comp`, creates a group.
+        2. Within the group, reads from memory `mem` at address `i`.
+        3. Writes the value into register `reg`.
         4. Returns the group.
         """
         assert mem.is_std_mem_d1()
@@ -517,9 +517,9 @@ class ComponentBuilder:
 
     def mem_store_std_d1(self, mem, i, val, groupname=None):
         """Stores a value into a (std_d1) memory.
-        1. Within component {self}, creates a group.
-        2. Within the group, reads from {val}.
-        3. Writes the value into memory {mem} at address i.
+        1. Within component `self`, creates a group.
+        2. Within the group, reads from `val`.
+        3. Writes the value into memory `mem` at address i.
         4. Returns the group.
         """
         assert mem.is_std_mem_d1()
@@ -535,8 +535,8 @@ class ComponentBuilder:
         """Given a seq_mem_d1, reads from memory at address i.
         Note that this does not write the value anywhere.
 
-        1. Within component {self}, creates a group.
-        2. Within the group, reads from memory {mem} at address {i},
+        1. Within component `self`, creates a group.
+        2. Within the group, reads from memory `mem` at address `i`,
         thereby "latching" the value.
         3. Returns the group.
         """
@@ -552,9 +552,9 @@ class ComponentBuilder:
         """Given a seq_mem_d1 that is already assumed to have a latched value,
         reads the latched value and writes it to a register.
 
-        1. Within component {self}, creates a group.
-        2. Within the group, reads from memory {mem}.
-        3. Writes the value into register {reg}.
+        1. Within component `self`, creates a group.
+        2. Within the group, reads from memory `mem`.
+        3. Writes the value into register `reg`.
         4. Returns the group.
         """
         assert mem.is_seq_mem_d1()
@@ -568,9 +568,9 @@ class ComponentBuilder:
     def mem_store_seq_d1(self, mem, i, val, groupname=None):
         """Given a seq_mem_d1, stores a value into memory at address i.
 
-        1. Within component {self}, creates a group.
-        2. Within the group, reads from {val}.
-        3. Writes the value into memory {mem} at address i.
+        1. Within component `self`, creates a group.
+        2. Within the group, reads from `val`.
+        3. Writes the value into memory `mem` at address i.
         4. Returns the group.
         """
         assert mem.is_seq_mem_d1()
@@ -584,9 +584,9 @@ class ComponentBuilder:
 
     def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
         """Loads a value from one std_mem_d1 memory into another.
-        1. Within component {self}, creates a group.
-        2. Within the group, reads from memory {mem} at address {i}.
-        3. Writes the value into memory {ans} at address {j}.
+        1. Within component `self`, creates a group.
+        2. Within the group, reads from memory `mem` at address `i`.
+        3. Writes the value into memory `ans` at address `j`.
         4. Returns the group.
         """
         assert mem.is_std_mem_d1() and ans.is_std_mem_d1()
@@ -600,12 +600,12 @@ class ComponentBuilder:
         return load_grp
 
     def add_store_in_reg(self, cellname, left, right, ans_reg=None):
-        """Inserts wiring into component {self} to compute {left} + {right} and
-        store it in {ans_reg}.
-        1. Within component {self}, creates a group called {cellname}_group.
-        2. Within {group}, create a cell {cellname} that computes sums.
-        3. Puts the values of {left} and {right} into the cell.
-        4. Then puts the answer of the computation into {ans_reg}.
+        """Inserts wiring into component `self` to compute `left` + `right` and
+        store it in `ans_reg`.
+        1. Within component `self`, creates a group called `cellname`_group.
+        2. Within `group`, create a cell `cellname` that computes sums.
+        3. Puts the values of `left` and `right` into the cell.
+        4. Then puts the answer of the computation into `ans_reg`.
         4. Returns the summing group and the register.
         """
         add_cell = self.add(32, cellname)
@@ -619,12 +619,12 @@ class ComponentBuilder:
         return adder_group, ans_reg
 
     def sub_store_in_reg(self, left, right, cellname, width, ans_reg=None):
-        """Adds wiring into component {self} to compute {left} - {right}
-        and store it in {ans_reg}.
-        1. Within component {self}, creates a group called {cellname}_group.
-        2. Within {group}, create a cell {cellname} that computes differences.
-        3. Puts the values of {left} and {right} into {cell}.
-        4. Then puts the answer of the computation into {ans_reg}.
+        """Adds wiring into component `self` to compute `left` - `right`
+        and store it in `ans_reg`.
+        1. Within component `self`, creates a group called `cellname`_group.
+        2. Within `group`, create a cell `cellname` that computes differences.
+        3. Puts the values of `left` and `right` into `cell`.
+        4. Then puts the answer of the computation into `ans_reg`.
         4. Returns the subtracting group and the register.
         """
         sub_cell = self.sub(width, cellname)
