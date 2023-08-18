@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-import random
 from typing import Dict, Union, Optional, List
 from . import py_ast as ast
 
@@ -49,6 +48,8 @@ class Builder:
 class ComponentBuilder:
     """Builds Calyx components definitions."""
 
+    next_gen_idx = 0
+
     def __init__(
         self,
         prog: Builder,
@@ -72,12 +73,13 @@ class ComponentBuilder:
         for cell in cells:
             self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
-        random.seed(4)
+        self.next_gen_idx = 0
 
     def generate_name(self, prefix: str) -> str:
         """Generate a unique name with the given prefix."""
         while True:
-            name = f"{prefix}_{random.randint(0, 2**32)}"
+            self.next_gen_idx += 1
+            name = f"{prefix}_{self.next_gen_idx}"
             if name not in self.index:
                 return name
 
