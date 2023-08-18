@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-import random
 from typing import Dict, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
@@ -10,6 +9,18 @@ from . import py_ast as ast
 # entered as a context manager. This is weird magic!
 TLS = threading.local()
 TLS.groups = []
+
+
+class NotFoundError(Exception):
+    """Raised when a component or group is not found."""
+
+
+class WidthInferenceError(Exception):
+    """Raised when we cannot infer the width of an expression."""
+
+
+class MalformedGroupError(Exception):
+    """Raised when a group is malformed."""
 
 
 class Builder:
@@ -36,7 +47,7 @@ class Builder:
         """Retrieve a component builder by name."""
         comp_builder = self._index.get(name)
         if comp_builder is None:
-            raise Exception(f"Component `{name}' not found in program.")
+            raise NotFoundError(f"Component `{name}' not found in program.")
         else:
             return comp_builder
 
@@ -128,7 +139,9 @@ class ComponentBuilder:
         for output in self.component.outputs:
             if output.id.name == name:
                 return output.width
-        raise Exception(f"couldn't find port {name} on component {self.component.name}")
+        raise NotFoundError(
+            f"couldn't find port {name} on component {self.component.name}"
+        )
 
     def get_cell(self, name: str) -> CellBuilder:
         """Retrieve a cell builder by name."""
@@ -136,7 +149,7 @@ class ComponentBuilder:
         if out and isinstance(out, CellBuilder):
             return out
         else:
-            raise Exception(
+            raise NotFoundError(
                 f"Cell `{name}' not found in component {self.component.name}.\n"
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
@@ -155,7 +168,7 @@ class ComponentBuilder:
         if out and isinstance(out, GroupBuilder):
             return out
         else:
-            raise Exception(
+            raise NotFoundError(
                 f"Group `{name}' not found in component {self.component.name}"
             )
 
@@ -667,11 +680,11 @@ def as_control(obj):
     """
     if isinstance(obj, ast.Control):
         return obj
-    elif isinstance(obj, str):
+    if isinstance(obj, str):
         return ast.Enable(obj)
-    elif isinstance(obj, ast.Group):
+    if isinstance(obj, ast.Group):
         return ast.Enable(obj.id.name)
-    elif isinstance(obj, GroupBuilder):
+    if isinstance(obj, GroupBuilder):
         gl = obj.group_like
         assert gl, (
             "GroupBuilder represents continuous assignments and"
@@ -681,14 +694,14 @@ def as_control(obj):
             gl, ast.CombGroup
         ), "Cannot use combinational group as control statement"
         return ast.Enable(gl.id.name)
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
-    elif isinstance(obj, set):
+    if isinstance(obj, set):
         raise TypeError(
             "Python sets are not supported in control programs. For a parallel"
             " composition use `Builder.par` instead."
         )
-    elif obj is None:
+    if obj is None:
         return ast.Empty()
     else:
         assert False, f"unsupported control type {type(obj)}"
@@ -859,16 +872,18 @@ class ExprBuilder:
 
     @classmethod
     def unwrap(cls, obj):
+        """Unwrap an expression builder, or return the object if it is not one."""
         if isinstance(obj, cls):
             return obj.expr
-        else:
-            return obj
+        return obj
 
 
+@dataclass
 class CondExprBuilder:
-    def __init__(self, cond, value):
-        self.cond = cond
-        self.value = value
+    """Wraps a conditional expression."""
+
+    cond: ExprBuilder
+    value: ExprBuilder
 
 
 class CellLikeBuilder:
@@ -1016,7 +1031,7 @@ class GroupBuilder:
         if isinstance(rhs, int):
             width = infer_width(lhs)
             if not width:
-                raise Exception(f"could not infer width for literal {rhs}")
+                raise WidthInferenceError(f"could not infer width for literal {rhs}")
             rhs = const(width, rhs)
 
         assert isinstance(rhs, (ExprBuilder, ast.Port)), (
@@ -1051,8 +1066,9 @@ class GroupBuilder:
     def done(self, expr):
         """Build an assignment to `done` in the group."""
         if not self.group_like:
-            raise Exception(
-                "GroupBuilder represents continuous assignments and does not have a done hole"
+            raise MalformedGroupError(
+                "GroupBuilder represents continuous assignments and does "
+                "not have a done hole"
             )
         self.asgn(self.done, expr)
 
@@ -1163,10 +1179,8 @@ def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     group_builder.asgn(lhs, rhs)
 
 
-"""A one bit low signal"""
-LO = const(1, 0)
-"""A one bit high signal"""
-HI = const(1, 1)
+LO = const(1, 0)  # A one bit low signal
+HI = const(1, 1)  # A one bit high signal
 
 
 def par(*args) -> ast.ParComp:
