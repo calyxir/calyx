@@ -528,7 +528,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
         where `mem` is a seq_d1 memory.
         Note that this does not write the value anywhere.
-        """"
+        """
         assert mem.is_seq_mem_d1()
         groupname = groupname or f"read_from_{mem.name()}"
         with self.group(groupname) as read_grp:
