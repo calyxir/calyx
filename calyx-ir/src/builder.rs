@@ -179,12 +179,12 @@ impl<'a> Builder<'a> {
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Constant { val, width },
-            vec![ir::PortDef {
-                name: "out".into(),
+            vec![ir::PortDef::new(
+                ir::Id::from("out"),
                 width,
-                direction: ir::Direction::Output,
-                attributes: ir::Attributes::default(),
-            }],
+                ir::Direction::Output,
+                ir::Attributes::default(),
+            )],
         );
 
         // Add constant to the Component.
@@ -347,23 +347,16 @@ impl<'a> Builder<'a> {
         ports: Vec<ir::PortDef<u64>>,
     ) -> RRC<ir::Cell> {
         let cell = Rc::new(RefCell::new(ir::Cell::new(name, typ)));
-        ports.into_iter().for_each(
-            |PortDef {
-                 name,
-                 width,
-                 direction,
-                 attributes,
-             }| {
-                let port = Rc::new(RefCell::new(ir::Port {
-                    name,
-                    width,
-                    direction,
-                    parent: ir::PortParent::Cell(WRC::from(&cell)),
-                    attributes,
-                }));
-                cell.borrow_mut().ports.push(port);
-            },
-        );
+        ports.into_iter().for_each(|pd| {
+            let port = Rc::new(RefCell::new(ir::Port {
+                name: pd.name(),
+                width: pd.width,
+                direction: pd.direction,
+                parent: ir::PortParent::Cell(WRC::from(&cell)),
+                attributes: pd.attributes,
+            }));
+            cell.borrow_mut().ports.push(port);
+        });
         cell
     }
 }
