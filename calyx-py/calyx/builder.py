@@ -472,7 +472,7 @@ class ComponentBuilder:
         add_cell = self.add(width, cellname)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
-            add_cell.right = const(32, val)
+            add_cell.right = const(width, val)
             reg.write_en = 1
             reg.in_ = add_cell.out
             incr_group.done = reg.done
@@ -484,7 +484,7 @@ class ComponentBuilder:
         sub_cell = self.sub(width, cellname)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
-            sub_cell.right = const(32, val)
+            sub_cell.right = const(width, val)
             reg.write_en = 1
             reg.in_ = sub_cell.out
             decr_group.done = reg.done
@@ -576,10 +576,10 @@ class ComponentBuilder:
             load_grp.done = ans.done
         return load_grp
 
-    def add_store_in_reg(self, cellname, left, right, ans_reg=None):
+    def add_store_in_reg(self, left, right, cellname, width, ans_reg=None):
         """Inserts wiring into `self` to perform `reg := left + right`."""
-        add_cell = self.add(32, cellname)
-        ans_reg = ans_reg or self.reg(f"reg_{cellname}", 32)
+        add_cell = self.add(width, cellname)
+        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
         with self.group(f"{cellname}_group") as adder_group:
             add_cell.left = left
             add_cell.right = right
