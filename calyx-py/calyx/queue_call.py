@@ -88,7 +88,6 @@ def insert_main(prog, queue):
 
     incr_i = main.incr(i, 32)  # i++
     incr_j = main.incr(j, 32)  # j++
-    err_eq_0 = main.eq_use(err.out, 0, 1)  # is `err` flag down?
     cmd_le_1 = main.le_use(cmd.out, 1, 2)  # cmd <= 1
 
     read_cmd = main.mem_read_seq_d1(commands, i.out, "read_cmd_phase1")
@@ -100,10 +99,14 @@ def insert_main(prog, queue):
     )
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, ans.out, "write_ans")
     update_err_is_down, err_is_down = main.eq_store_in_reg(err.out, 0, "err_is_down", 1)
+    update_i_neq_15, _ = main.neq_store_in_reg(
+        i.out, cb.const(32, 15), "i_eq_15", 32, err_is_down
+    )
 
     main.control += [
-        cb.while_with(
-            err_eq_0,  # Run while the `err` flag is down
+        update_err_is_down,
+        cb.while_(
+            err_is_down.out,  # Run while the `err` flag is down
             [
                 read_cmd,
                 write_cmd_to_reg,
@@ -118,21 +121,21 @@ def insert_main(prog, queue):
                     ref_ans=ans,
                     ref_err=err,
                 ),
-                cb.if_with(  # If it was a pop or a peek, write ans to the answer list
-                    cmd_le_1,
-                    [  # AM: I'd like to have an additional check hereL
-                        # if err flag comes back raised,
-                        # we do not perform this write_ans or this incr_j
-                        cb.if_with(
-                            err_eq_0,
-                            [write_ans, incr_j],
+                update_err_is_down,
+                cb.if_with(
+                    cmd_le_1,  # If it was a pop or a peek...
+                    [
+                        cb.if_(
+                            err_is_down.out,  # And the err flag is down...
+                            [
+                                write_ans,
+                                incr_j,
+                            ],  # Write the answer and increment the answer index
                         )
                     ],
                 ),
                 incr_i,  # Increment the command index
-                cb.invoke(  # If i = MAX_CMDS, raise error flag
-                    raise_err_if_i_eq_max_cmds, in_i=i.out, ref_err=err
-                ),  # AM: hella hacky
+                update_i_neq_15,  # Did this increment make i == 15?
             ],
         ),
     ]

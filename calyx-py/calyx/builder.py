@@ -619,6 +619,25 @@ class ComponentBuilder:
             eq_group.done = ans_reg.done
         return eq_group, ans_reg
 
+    def neq_store_in_reg(self, left, right, cellname, width, ans_reg=None):
+        """Adds wiring into component `self` to compute `left` != `right`
+        and store it in `ans_reg`.
+        1. Within component `self`, creates a group called `cellname`_group.
+        2. Within `group`, create a cell `cellname` that computes inequality.
+        3. Puts the values of `left` and `right` into `cell`.
+        4. Then puts the answer of the computation into `ans_reg`.
+        4. Returns the inequality group and the register.
+        """
+        neq_cell = self.neq(width, cellname)
+        ans_reg = ans_reg or self.reg(f"reg_{cellname}", 1)
+        with self.group(f"{cellname}_group") as neq_group:
+            neq_cell.left = left
+            neq_cell.right = right
+            ans_reg.write_en = 1
+            ans_reg.in_ = neq_cell.out
+            neq_group.done = ans_reg.done
+        return neq_group, ans_reg
+
 
 @dataclass(frozen=True)
 class CellAndGroup:
