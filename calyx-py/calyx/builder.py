@@ -1058,6 +1058,7 @@ def infer_width_prim(inst, port_name):
         "std_ge",
         "std_gt",
         "std_eq",
+        "std_neq",
         "std_sgt",
         "std_slt",
         "std_fp_sgt",
