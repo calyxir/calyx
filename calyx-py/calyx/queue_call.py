@@ -24,9 +24,8 @@ def insert_raise_err_if_i_eq_max_cmds(prog):
     raise_err = raise_err_if_i_eq_max_cmds.reg_store(err, 1, "raise_err")
 
     raise_err_if_i_eq_max_cmds.control += [
-        cb.if_(
-            i_eq_max_cmds[0].out,
-            i_eq_max_cmds[1],
+        cb.if_with(
+            i_eq_max_cmds,
             raise_err,
         )
     ]
@@ -103,9 +102,8 @@ def insert_main(prog, queue):
     update_err_is_down, err_is_down = main.eq_store_in_reg(err.out, 0, "err_is_down", 1)
 
     main.control += [
-        cb.while_(
-            err_eq_0[0].out,
-            err_eq_0[1],  # Run while the `err` flag is down
+        cb.while_with(
+            err_eq_0,  # Run while the `err` flag is down
             [
                 read_cmd,
                 write_cmd_to_reg,
@@ -120,15 +118,13 @@ def insert_main(prog, queue):
                     ref_ans=ans,
                     ref_err=err,
                 ),
-                cb.if_(  # If it was a pop or a peek, write ans to the answer list
-                    cmd_le_1[0].out,
-                    cmd_le_1[1],
-                    [  # AM: I'd like to have an additional check here:
-                        # perform this write_ans and incr_j
-                        # only if the err flag is down.
-                        cb.if_(
-                            err_eq_0[0].out,
-                            err_eq_0[1],
+                cb.if_with(  # If it was a pop or a peek, write ans to the answer list
+                    cmd_le_1,
+                    [  # AM: I'd like to have an additional check hereL
+                        # if err flag comes back raised,
+                        # we do not perform this write_ans or this incr_j
+                        cb.if_with(
+                            err_eq_0,
                             [write_ans, incr_j],
                         )
                     ],

@@ -858,7 +858,7 @@ def generate_control(
     # build the while loop with condition cond_reg.
     # num repeats = (top_length - 1) + (left_length - 1) + (top_depth - 1) + 5 + 1
     cond_reg_port = comp.get_cell("cond_reg").port("out")
-    while_loop = cb.while_(cond_reg_port, None, while_body)
+    while_loop = cb.while_(cond_reg_port, while_body)
 
     control.append(while_loop)
 

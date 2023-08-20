@@ -1,14 +1,26 @@
 from __future__ import annotations
 
 import threading
-import random
 from typing import Dict, Union, Optional, List
+from dataclasses import dataclass
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!
 TLS = threading.local()
 TLS.groups = []
+
+
+class NotFoundError(Exception):
+    """Raised when a component or group is not found."""
+
+
+class WidthInferenceError(Exception):
+    """Raised when we cannot infer the width of an expression."""
+
+
+class MalformedGroupError(Exception):
+    """Raised when a group is malformed."""
 
 
 class Builder:
@@ -35,7 +47,7 @@ class Builder:
         """Retrieve a component builder by name."""
         comp_builder = self._index.get(name)
         if comp_builder is None:
-            raise Exception(f"Component `{name}' not found in program.")
+            raise NotFoundError(f"Component `{name}' not found in program.")
         else:
             return comp_builder
 
@@ -127,7 +139,9 @@ class ComponentBuilder:
         for output in self.component.outputs:
             if output.id.name == name:
                 return output.width
-        raise Exception(f"couldn't find port {name} on component {self.component.name}")
+        raise NotFoundError(
+            f"couldn't find port {name} on component {self.component.name}"
+        )
 
     def get_cell(self, name: str) -> CellBuilder:
         """Retrieve a cell builder by name."""
@@ -135,7 +149,7 @@ class ComponentBuilder:
         if out and isinstance(out, CellBuilder):
             return out
         else:
-            raise Exception(
+            raise NotFoundError(
                 f"Cell `{name}' not found in component {self.component.name}.\n"
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
@@ -154,7 +168,7 @@ class ComponentBuilder:
         if out and isinstance(out, GroupBuilder):
             return out
         else:
-            raise Exception(
+            raise NotFoundError(
                 f"Group `{name}' not found in component {self.component.name}"
             )
 
@@ -195,8 +209,8 @@ class ComponentBuilder:
         is_external: bool = False,
         is_ref: bool = False,
     ) -> CellBuilder:
-        """Declare a cell in the component. Returns a cell builder."""
-        # If we get a (non-primitive) component builder, instantiate it
+        """Declare a cell in the component. Return a cell builder."""
+        # If given a (non-primitive) component builder, instantiate it
         # with no parameters.
         if isinstance(comp, ComponentBuilder):
             comp = ast.CompInst(comp.component.name, [])
@@ -244,7 +258,11 @@ class ComponentBuilder:
         return self.cell(name, ast.Stdlib.wire(size), False, is_ref)
 
     def slice(
-        self, name: str, in_width: int, out_width, is_ref: bool = False
+        self,
+        name: str,
+        in_width: int,
+        out_width: int,
+        is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a StdSlice cell."""
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
@@ -401,45 +419,43 @@ class ComponentBuilder:
         with self.comb_group(groupname) as comb_group:
             cell.left = left
             cell.right = right
-        return cell, comb_group
+        return CellAndGroup(cell, comb_group)
 
     def eq_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component `self` to check if `left` == `right`."""
+        """Inserts wiring into `self` to check if `left` == `right`."""
         return self.binary_use(left, right, self.eq(width, cellname))
 
     def neq_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component `self` to check if `left` != `right`."""
+        """Inserts wiring into `self` to check if `left` != `right`."""
         return self.binary_use(left, right, self.neq(width, cellname))
 
     def lt_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component `self` to check if `left` < `right`."""
+        """Inserts wiring into `self` to check if `left` < `right`."""
         return self.binary_use(left, right, self.lt(width, cellname))
 
     def le_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component `self` to check if `left` <= `right`."""
+        """Inserts wiring into `self` to check if `left` <= `right`."""
         return self.binary_use(left, right, self.le(width, cellname))
 
     def ge_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component `self` to check if `left` >= `right`."""
+        """Inserts wiring into `self` to check if `left` >= `right`."""
         return self.binary_use(left, right, self.ge(width, cellname))
 
     def gt_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component `self` to check if `left` > `right`."""
+        """Inserts wiring into `self` to check if `left` > `right`."""
         return self.binary_use(left, right, self.gt(width, cellname))
 
     def add_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component `self` to compute `left` + `right`."""
+        """Inserts wiring into `self` to compute `left` + `right`."""
         return self.binary_use(left, right, self.add(width, cellname))
 
     def sub_use(self, left, right, width, cellname=None):
-        """Inserts wiring into component `self` to compute `left` - `right`."""
+        """Inserts wiring into `self` to compute `left` - `right`."""
         return self.binary_use(left, right, self.sub(width, cellname))
 
     def bitwise_flip_reg(self, reg, width, cellname=None):
-        """Inserts wiring into component `self` to bitwise-flip the contents of `reg`
+        """Inserts wiring into `self` to bitwise-flip the contents of `reg`
         and put the result back into `reg`.
-
-        Returns a handle to the group that does this.
         """
         cellname = cellname or f"{reg.name}_not"
         not_cell = self.not_(width, cellname)
@@ -451,47 +467,31 @@ class ComponentBuilder:
         return not_group
 
     def incr(self, reg, width, val=1, cellname=None):
-        """Inserts wiring into component `self` to increment register `reg` by `val`.
-        1. Within component `self`, creates a group.
-        2. Within the group, adds a cell `cellname` that computes sums.
-        3. Puts the values `reg` and `val` into the cell.
-        4. Then puts the answer of the computation back into `reg`.
-        5. Returns the group that does this.
-        """
+        """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
         add_cell = self.add(width, cellname)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
-            add_cell.right = const(32, val)
+            add_cell.right = const(width, val)
             reg.write_en = 1
             reg.in_ = add_cell.out
             incr_group.done = reg.done
         return incr_group
 
     def decr(self, reg, width, val=1, cellname=None):
-        """Inserts wiring into component `self` to decrement register `reg` by `val`.
-        1. Within component `self`, creates a group.
-        2. Within the group, adds a cell `cellname` that computes differences.
-        3. Puts the values `reg` and `val` into the cell.
-        4. Then puts the answer of the computation back into `reg`.
-        5. Returns the group.
-        """
+        """Inserts wiring into `self` to perform `reg := reg - val`."""
         cellname = cellname or f"{reg.name}_decr"
         sub_cell = self.sub(width, cellname)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
-            sub_cell.right = const(32, val)
+            sub_cell.right = const(width, val)
             reg.write_en = 1
             reg.in_ = sub_cell.out
             decr_group.done = reg.done
         return decr_group
 
     def reg_store(self, reg, val, groupname=None):
-        """Stores a value in a register.
-        1. Within component `self`, creates a group.
-        2. Within the group, sets the register `reg` to `val`.
-        3. Returns the group.
-        """
+        """Inserts wiring into `self` to perform `reg := val`."""
         groupname = groupname or f"{reg.name}_store_to_reg"
         with self.group(groupname) as reg_grp:
             reg.in_ = val
@@ -500,11 +500,8 @@ class ComponentBuilder:
         return reg_grp
 
     def mem_load_std_d1(self, mem, i, reg, groupname=None):
-        """Loads a value from one memory (std_d1) into a register.
-        1. Within component `comp`, creates a group.
-        2. Within the group, reads from memory `mem` at address `i`.
-        3. Writes the value into register `reg`.
-        4. Returns the group.
+        """Inserts wiring into `self` to perform `reg := mem[i]`,
+        where `mem` is a std_d1 memory.
         """
         assert mem.is_std_mem_d1()
         groupname = groupname or f"{mem.name()}_load_to_reg"
@@ -516,12 +513,8 @@ class ComponentBuilder:
         return load_grp
 
     def mem_store_std_d1(self, mem, i, val, groupname=None):
-        """Stores a value into a (std_d1) memory.
-        1. Within component `self`, creates a group.
-        2. Within the group, reads from `val`.
-        3. Writes the value into memory `mem` at address i.
-        4. Returns the group.
-        """
+        """Inserts wiring into `self` to perform `mem[i] := val`,
+        where `mem` is a std_d1 memory."""
         assert mem.is_std_mem_d1()
         groupname = groupname or f"store_into_{mem.name()}"
         with self.group(groupname) as store_grp:
@@ -532,13 +525,9 @@ class ComponentBuilder:
         return store_grp
 
     def mem_read_seq_d1(self, mem, i, groupname=None):
-        """Given a seq_mem_d1, reads from memory at address i.
+        """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
+        where `mem` is a seq_d1 memory.
         Note that this does not write the value anywhere.
-
-        1. Within component `self`, creates a group.
-        2. Within the group, reads from memory `mem` at address `i`,
-        thereby "latching" the value.
-        3. Returns the group.
         """
         assert mem.is_seq_mem_d1()
         groupname = groupname or f"read_from_{mem.name()}"
@@ -549,13 +538,8 @@ class ComponentBuilder:
         return read_grp
 
     def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
-        """Given a seq_mem_d1 that is already assumed to have a latched value,
-        reads the latched value and writes it to a register.
-
-        1. Within component `self`, creates a group.
-        2. Within the group, reads from memory `mem`.
-        3. Writes the value into register `reg`.
-        4. Returns the group.
+        """Inserts wiring into `self` to perform reg := <mem_latched_value>,
+        where `mem` is a seq_d1 memory that already has some latched value.
         """
         assert mem.is_seq_mem_d1()
         groupname = groupname or f"{mem.name()}_write_to_reg"
@@ -566,12 +550,8 @@ class ComponentBuilder:
         return write_grp
 
     def mem_store_seq_d1(self, mem, i, val, groupname=None):
-        """Given a seq_mem_d1, stores a value into memory at address i.
-
-        1. Within component `self`, creates a group.
-        2. Within the group, reads from `val`.
-        3. Writes the value into memory `mem` at address i.
-        4. Returns the group.
+        """Inserts wiring into `self` to perform `mem[i] := val`,
+        where `mem` is a seq_d1 memory.
         """
         assert mem.is_seq_mem_d1()
         groupname = groupname or f"{mem.name()}_store"
@@ -583,11 +563,8 @@ class ComponentBuilder:
         return store_grp
 
     def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
-        """Loads a value from one std_mem_d1 memory into another.
-        1. Within component `self`, creates a group.
-        2. Within the group, reads from memory `mem` at address `i`.
-        3. Writes the value into memory `ans` at address `j`.
-        4. Returns the group.
+        """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
+        where `mem` and `ans` are both std_d1 memories.
         """
         assert mem.is_std_mem_d1() and ans.is_std_mem_d1()
         groupname = groupname or f"{mem.name()}_load_to_mem"
@@ -599,17 +576,10 @@ class ComponentBuilder:
             load_grp.done = ans.done
         return load_grp
 
-    def add_store_in_reg(self, cellname, left, right, ans_reg=None):
-        """Inserts wiring into component `self` to compute `left` + `right` and
-        store it in `ans_reg`.
-        1. Within component `self`, creates a group called `cellname`_group.
-        2. Within `group`, create a cell `cellname` that computes sums.
-        3. Puts the values of `left` and `right` into the cell.
-        4. Then puts the answer of the computation into `ans_reg`.
-        4. Returns the summing group and the register.
-        """
-        add_cell = self.add(32, cellname)
-        ans_reg = ans_reg or self.reg(f"reg_{cellname}", 32)
+    def add_store_in_reg(self, left, right, cellname, width, ans_reg=None):
+        """Inserts wiring into `self` to perform `reg := left + right`."""
+        add_cell = self.add(width, cellname)
+        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
         with self.group(f"{cellname}_group") as adder_group:
             add_cell.left = left
             add_cell.right = right
@@ -619,14 +589,7 @@ class ComponentBuilder:
         return adder_group, ans_reg
 
     def sub_store_in_reg(self, left, right, cellname, width, ans_reg=None):
-        """Adds wiring into component `self` to compute `left` - `right`
-        and store it in `ans_reg`.
-        1. Within component `self`, creates a group called `cellname`_group.
-        2. Within `group`, create a cell `cellname` that computes differences.
-        3. Puts the values of `left` and `right` into `cell`.
-        4. Then puts the answer of the computation into `ans_reg`.
-        4. Returns the subtracting group and the register.
-        """
+        """Inserts wiring into `self` to perform `reg := left - right`."""
         sub_cell = self.sub(width, cellname)
         ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
         with self.group(f"{cellname}_group") as sub_group:
@@ -657,6 +620,20 @@ class ComponentBuilder:
         return eq_group, ans_reg
 
 
+@dataclass(frozen=True)
+class CellAndGroup:
+    """Just a cell and a group, for when it is convenient to
+    pass them around together.
+
+    Typically the group will be a combinational group, and `if_with` and
+    `while_with` will require that a CellAndGroup be passed in, not a
+    cell and a group separately.
+    """
+
+    cell: CellBuilder
+    group: GroupBuilder
+
+
 def as_control(obj):
     """Convert a Python object into a control statement.
 
@@ -671,11 +648,11 @@ def as_control(obj):
     """
     if isinstance(obj, ast.Control):
         return obj
-    elif isinstance(obj, str):
+    if isinstance(obj, str):
         return ast.Enable(obj)
-    elif isinstance(obj, ast.Group):
+    if isinstance(obj, ast.Group):
         return ast.Enable(obj.id.name)
-    elif isinstance(obj, GroupBuilder):
+    if isinstance(obj, GroupBuilder):
         gl = obj.group_like
         assert gl, (
             "GroupBuilder represents continuous assignments and"
@@ -685,29 +662,25 @@ def as_control(obj):
             gl, ast.CombGroup
         ), "Cannot use combinational group as control statement"
         return ast.Enable(gl.id.name)
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
-    elif isinstance(obj, set):
+    if isinstance(obj, set):
         raise TypeError(
             "Python sets are not supported in control programs. For a parallel"
             " composition use `Builder.par` instead."
         )
-    elif obj is None:
+    if obj is None:
         return ast.Empty()
     else:
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
-    """Build a `while` control statement."""
-    if cond:
-        assert isinstance(
-            cond.group_like, ast.CombGroup
-        ), "while condition must be a combinational group"
-        cg = cond.group_like.id
-    else:
-        cg = None
-    return ast.While(port.expr, cg, as_control(body))
+def while_(port: ExprBuilder, body) -> ast.While:
+    """Build a `while` control statement.
+
+    To build a `while` statement with a combinational group, use `while_with`.
+    """
+    return ast.While(port.expr, None, as_control(body))
 
 
 def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
@@ -717,21 +690,15 @@ def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
 
 def if_(
     port: ExprBuilder,
-    cond: Optional[GroupBuilder],
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `static if` control statement."""
-    else_body = ast.Empty() if else_body is None else else_body
+    """Build an `if` control statement.
 
-    if cond:
-        assert isinstance(
-            cond.group_like, ast.CombGroup
-        ), "if condition must be a combinational group"
-        cg = cond.group_like.id
-    else:
-        cg = None
-    return ast.If(port.expr, cg, as_control(body), as_control(else_body))
+    To build an `if` statement with a combinational group, use `if_with`.
+    """
+    else_body = else_body or ast.Empty()
+    return ast.If(port.expr, None, as_control(body), as_control(else_body))
 
 
 def static_if(
@@ -739,9 +706,38 @@ def static_if(
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `if` control statement."""
-    else_body = ast.Empty() if else_body is None else else_body
+    """Build a `static if` control statement."""
+    else_body = else_body or ast.Empty()
     return ast.StaticIf(port.expr, as_control(body), as_control(else_body))
+
+
+def if_with(port_comb: CellAndGroup, body, else_body=None) -> ast.If:
+    """Build an if statement, where the cell and the combinational group
+    are provided together.
+    """
+    port = port_comb.cell.out
+    cond = port_comb.group
+    else_body = else_body or ast.Empty()
+
+    assert isinstance(
+        cond.group_like, ast.CombGroup
+    ), "if condition must be a combinational group"
+    return ast.If(
+        port.expr, cond.group_like.id, as_control(body), as_control(else_body)
+    )
+
+
+def while_with(port_comb: CellAndGroup, body) -> ast.While:
+    """Build a while statement, where the cell and the combinational
+    group are provided together.
+    """
+
+    port = port_comb.cell.out
+    cond = port_comb.group
+    assert isinstance(
+        cond.group_like, ast.CombGroup
+    ), "while condition must be a combinational group"
+    return ast.While(port.expr, cond.group_like.id, as_control(body))
 
 
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
@@ -844,16 +840,18 @@ class ExprBuilder:
 
     @classmethod
     def unwrap(cls, obj):
+        """Unwrap an expression builder, or return the object if it is not one."""
         if isinstance(obj, cls):
             return obj.expr
-        else:
-            return obj
+        return obj
 
 
+@dataclass
 class CondExprBuilder:
-    def __init__(self, cond, value):
-        self.cond = cond
-        self.value = value
+    """Wraps a conditional expression."""
+
+    cond: ExprBuilder
+    value: ExprBuilder
 
 
 class CellLikeBuilder:
@@ -1001,7 +999,7 @@ class GroupBuilder:
         if isinstance(rhs, int):
             width = infer_width(lhs)
             if not width:
-                raise Exception(f"could not infer width for literal {rhs}")
+                raise WidthInferenceError(f"could not infer width for literal {rhs}")
             rhs = const(width, rhs)
 
         assert isinstance(rhs, (ExprBuilder, ast.Port)), (
@@ -1036,8 +1034,9 @@ class GroupBuilder:
     def done(self, expr):
         """Build an assignment to `done` in the group."""
         if not self.group_like:
-            raise Exception(
-                "GroupBuilder represents continuous assignments and does not have a done hole"
+            raise MalformedGroupError(
+                "GroupBuilder represents continuous assignments and does "
+                "not have a done hole"
             )
         self.asgn(self.done, expr)
 
@@ -1148,10 +1147,8 @@ def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     group_builder.asgn(lhs, rhs)
 
 
-"""A one bit low signal"""
-LO = const(1, 0)
-"""A one bit high signal"""
-HI = const(1, 1)
+LO = const(1, 0)  # A one bit low signal
+HI = const(1, 1)  # A one bit high signal
 
 
 def par(*args) -> ast.ParComp:
