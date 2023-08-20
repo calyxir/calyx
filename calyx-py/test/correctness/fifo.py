@@ -1,6 +1,5 @@
 # pylint: disable=import-error
 import calyx.builder as cb
-import calyx.builder_util as util
 import calyx.queue_call as qc
 
 MAX_QUEUE_LEN = 10
@@ -36,48 +35,38 @@ def insert_fifo(prog, name):
 
     len = fifo.reg("len", 32)  # The length of the FIFO.
 
-    # Cells and groups to compute equality.
-    cmd_eq_0 = util.insert_eq(fifo, cmd, 0, "cmd_eq_0", 2)
-    cmd_eq_1 = util.insert_eq(fifo, cmd, 1, "cmd_eq_1", 2)
-    cmd_eq_2 = util.insert_eq(fifo, cmd, 2, "cmd_eq_2", 2)
+    # Cells and groups to compute equality
+    cmd_eq_0 = fifo.eq_use(cmd, 0, 2)
+    cmd_eq_1 = fifo.eq_use(cmd, 1, 2)
+    cmd_eq_2 = fifo.eq_use(cmd, 2, 2)
 
-    write_eq_max_queue_len = util.insert_eq(
-        fifo, write.out, MAX_QUEUE_LEN, "write_eq_MAX_QUEUE_LEN", 32
-    )
-    read_eq_max_queue_len = util.insert_eq(
-        fifo, read.out, MAX_QUEUE_LEN, "read_eq_MAX_QUEUE_LEN", 32
-    )
-    len_eq_0 = util.insert_eq(fifo, len.out, 0, "len_eq_0", 32)
-    len_eq_max_queue_len = util.insert_eq(
-        fifo, len.out, MAX_QUEUE_LEN, "len_eq_MAX_QUEUE_LEN", 32
-    )
+    write_eq_max_queue_len = fifo.eq_use(write.out, MAX_QUEUE_LEN, 32)
+    read_eq_max_queue_len = fifo.eq_use(read.out, MAX_QUEUE_LEN, 32)
+    len_eq_0 = fifo.eq_use(len.out, 0, 32)
+    len_eq_max_queue_len = fifo.eq_use(len.out, MAX_QUEUE_LEN, 32)
 
     # Cells and groups to increment read and write registers
-    write_incr = util.insert_incr(fifo, write, "write_incr")  # write++
-    read_incr = util.insert_incr(fifo, read, "read_incr")  # read++
-    len_incr = util.insert_incr(fifo, len, "len_incr")  # len++
-    len_decr = util.insert_decr(fifo, len, "len_decr")  # len--
+    write_incr = fifo.incr(write, 32)  # write++
+    read_incr = fifo.incr(read, 32)  # read++
+    len_incr = fifo.incr(len, 32)  # len++
+    len_decr = fifo.decr(len, 32)  # len--
 
-    # Cells and groups to modify flags, which are registers.
-    flash_write = util.insert_reg_store(fifo, write, 0, "flash_write")  # write := 0
-    flash_read = util.insert_reg_store(fifo, read, 0, "flash_read")  # read := 0
-    flash_ans = util.insert_reg_store(fifo, ans, 0, "flash_ans")  # ans := 0
-    raise_err = util.insert_reg_store(fifo, err, 1, "raise_err")  # err := 1
+    # Cells and groups to modify flags, which are registers
+    flash_write = fifo.reg_store(write, 0, "flash_write")  # write := 0
+    flash_read = fifo.reg_store(read, 0, "flash_read")  # read := 0
+    raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
+    flash_ans = fifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
-    # Load/store to/from an arbitary slot in `mem`.
-    write_to_mem = util.mem_store_seq_d1(
-        fifo, mem, write.out, value, "write_payload_to_mem"
-    )
-    read_from_mem = util.mem_read_seq_d1(
-        fifo, mem, read.out, "read_payload_from_mem_phase1"
-    )
-    write_to_ans = util.mem_write_seq_d1_to_reg(
-        fifo, mem, ans, "read_payload_from_mem_phase2"
+    # Load and store into an arbitary slot in memory
+    write_to_mem = fifo.mem_store_seq_d1(mem, write.out, value, "write_payload_to_mem")
+    read_from_mem = fifo.mem_read_seq_d1(mem, read.out, "read_payload_from_mem_phase1")
+    write_to_ans = fifo.mem_write_seq_d1_to_reg(
+        mem, ans, "read_payload_from_mem_phase2"
     )
 
     fifo.control += [
         cb.par(
-            # Was it a pop or a push? We can do both cases in parallel.
+            # Was it a pop, peek, or a push? We can do all cases in parallel.
             cb.if_(
                 # Did the user call pop?
                 cmd_eq_0[0].out,

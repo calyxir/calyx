@@ -1,6 +1,5 @@
 # pylint: disable=import-error
 from typing import List
-import calyx.builder_util as util
 import calyx.builder as cb
 
 
@@ -24,11 +23,9 @@ def add_tree(prog):
     # Into the component `tree`, add the wiring for three adder groups that will
     # use the tree to perform their additions.
     # These need to be orchestrated in the control below.
-    add_l0_l1, left = util.insert_add_store_in_reg(tree, "add_l0_l1", leaf0, leaf1)
-    add_l2_l3, right = util.insert_add_store_in_reg(tree, "add_l2_l3", leaf2, leaf3)
-    add_l_r_nodes, root = util.insert_add_store_in_reg(
-        tree, "add_l_r", left.out, right.out
-    )
+    add_l0_l1, left = tree.add_store_in_reg("add_l0_l1", leaf0, leaf1)
+    add_l2_l3, right = tree.add_store_in_reg("add_l2_l3", leaf2, leaf3)
+    add_l_r_nodes, root = tree.add_store_in_reg("add_l_r", left.out, right.out)
 
     # Continuously output the value of the root register.
     # It is the invoker's responsibility to ensure that the tree is done

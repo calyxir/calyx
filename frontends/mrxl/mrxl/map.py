@@ -68,7 +68,7 @@ def gen_map_impl(
                 f"mul_{suffix}", Stdlib.op("mult_pipe", 32, signed=False)
             )
         else:
-            operation = comp.add(f"add_{suffix}", 32)
+            operation = comp.add(32, f"add_{suffix}")
         # ANCHOR_END: map_op
 
         assert (
