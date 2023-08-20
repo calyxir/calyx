@@ -82,7 +82,7 @@ def insert_main(prog, queue):
     update_i_neq_15, _ = main.neq_store_in_reg(
         i.out,
         cb.const(32, 15),
-        "i_eq_15",
+        "i_neq_15",
         32,
         loop_goes_on
         # Does the `i` index say that the loop should continue?
