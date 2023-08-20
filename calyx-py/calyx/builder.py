@@ -472,7 +472,7 @@ class ComponentBuilder:
         add_cell = self.add(width, cellname)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
-            add_cell.right = const(width, val)
+            add_cell.right = val
             reg.write_en = 1
             reg.in_ = add_cell.out
             incr_group.done = reg.done
@@ -484,7 +484,7 @@ class ComponentBuilder:
         sub_cell = self.sub(width, cellname)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
-            sub_cell.right = const(width, val)
+            sub_cell.right = val
             reg.write_en = 1
             reg.in_ = sub_cell.out
             decr_group.done = reg.done
@@ -1050,6 +1050,7 @@ def infer_width_prim(inst, port_name):
     # XXX(Caleb): add all the primitive names instead of adding whenever I need one
     elif prim in (
         "std_add",
+        "std_sub",
         "std_lt",
         "std_le",
         "std_ge",
