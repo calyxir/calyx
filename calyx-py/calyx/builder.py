@@ -604,13 +604,13 @@ class ComponentBuilder:
     def eq_store_in_reg(self, left, right, cellname, width, ans_reg=None):
         """Adds wiring into `self to perform `reg := left == right`."""
         return self.op_store_in_reg(
-            self.eq(width, cellname), left, right, cellname, width, ans_reg
+            self.eq(width, cellname), left, right, cellname, 1, ans_reg
         )
 
     def neq_store_in_reg(self, left, right, cellname, width, ans_reg=None):
         """Adds wiring into `self to perform `reg := left != right`."""
         return self.op_store_in_reg(
-            self.neq(width, cellname), left, right, cellname, width, ans_reg
+            self.neq(width, cellname), left, right, cellname, 1, ans_reg
         )
 
 
