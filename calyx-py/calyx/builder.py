@@ -459,12 +459,12 @@ class ComponentBuilder:
         """Inserts wiring into `self` to compute `left` - `right`."""
         return self.binary_use(left, right, self.sub(width, cellname, signed))
 
-    def bitwise_flip_reg(self, reg, width, signed=False, cellname=None):
+    def bitwise_flip_reg(self, reg, width, cellname=None):
         """Inserts wiring into `self` to bitwise-flip the contents of `reg`
         and put the result back into `reg`.
         """
         cellname = cellname or f"{reg.name}_not"
-        not_cell = self.not_(width, cellname, signed)
+        not_cell = self.not_(width, cellname)
         with self.group(f"{cellname}_group") as not_group:
             not_cell.in_ = reg.out
             reg.write_en = 1
