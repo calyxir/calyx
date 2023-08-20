@@ -122,7 +122,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     err_eq_0 = pifo.eq_use(err.out, 0, 1)
     err_neq_0 = pifo.neq_use(err.out, 0, 1)
 
-    flip_hot = pifo.bitwise_flip_reg(hot, 1)
+    flip_hot = pifo.bitwise_flip_reg(hot)
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
     flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
