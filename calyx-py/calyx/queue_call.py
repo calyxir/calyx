@@ -76,7 +76,7 @@ def insert_main(prog, queue):
     # The queue component takes two inputs by reference and one input directly.
     # The two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
-    ans = main.reg("ans", 32)  # A memory to hold the answer of a pop
+    ans = main.reg("ans", 32)  # A memory to hold the answer of a pop or peek
 
     # We will set up a while loop that runs over the command list, relaying
     # the commands to the `queue` component.
@@ -100,6 +100,7 @@ def insert_main(prog, queue):
         values, value, "write_value_to_reg"
     )
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, ans.out, "write_ans")
+    update_err_is_down, err_is_down = main.eq_store_in_reg(err.out, 0, "err_is_down", 1)
 
     main.control += [
         cb.while_(

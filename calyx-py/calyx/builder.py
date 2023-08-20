@@ -637,6 +637,25 @@ class ComponentBuilder:
             sub_group.done = ans_reg.done
         return sub_group, ans_reg
 
+    def eq_store_in_reg(self, left, right, cellname, width, ans_reg=None):
+        """Adds wiring into component `self` to compute `left` == `right`
+        and store it in `ans_reg`.
+        1. Within component `self`, creates a group called `cellname`_group.
+        2. Within `group`, create a cell `cellname` that computes equality.
+        3. Puts the values of `left` and `right` into `cell`.
+        4. Then puts the answer of the computation into `ans_reg`.
+        4. Returns the equality group and the register.
+        """
+        eq_cell = self.eq(width, cellname)
+        ans_reg = ans_reg or self.reg(f"reg_{cellname}", 1)
+        with self.group(f"{cellname}_group") as eq_group:
+            eq_cell.left = left
+            eq_cell.right = right
+            ans_reg.write_en = 1
+            ans_reg.in_ = eq_cell.out
+            eq_group.done = ans_reg.done
+        return eq_group, ans_reg
+
 
 def as_control(obj):
     """Convert a Python object into a control statement.
