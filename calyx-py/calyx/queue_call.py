@@ -67,22 +67,36 @@ def insert_main(prog, queue):
         values, value, "write_value_to_reg"
     )
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, ans.out, "write_ans")
-    update_err_is_down, err_is_down = main.eq_store_in_reg(err.out, 0, "err_is_down", 1)
+
+    loop_goes_on = main.reg(
+        "loop_goes_on", 1
+    )  # A flag to indicate whether the loop should continue
+    update_err_is_down, _ = main.eq_store_in_reg(
+        err.out,
+        0,
+        "err_is_down",
+        1,
+        loop_goes_on
+        # Does the `err` flag say that the loop should continue?
+    )
     update_i_neq_15, _ = main.neq_store_in_reg(
-        i.out, cb.const(32, 15), "i_eq_15", 32, err_is_down
+        i.out,
+        cb.const(32, 15),
+        "i_eq_15",
+        32,
+        loop_goes_on
+        # Does the `i` index say that the loop should continue?
     )
 
     main.control += [
         update_err_is_down,
         cb.while_(
-            err_is_down.out,  # Run while the `err` flag is down
+            loop_goes_on.out,  # Run while the `err` flag is down
             [
                 read_cmd,
-                write_cmd_to_reg,
-                # `cmd := commands[i]`
+                write_cmd_to_reg,  # `cmd := commands[i]`
                 read_value,
-                write_value_to_reg,
-                # `value := values[i]`
+                write_value_to_reg,  # `value := values[i]`
                 cb.invoke(  # Invoke the queue.
                     queue,
                     in_cmd=cmd.out,
@@ -90,21 +104,21 @@ def insert_main(prog, queue):
                     ref_ans=ans,
                     ref_err=err,
                 ),
-                update_err_is_down,
-                cb.if_with(
-                    cmd_le_1,  # If it was a pop or a peek...
+                update_err_is_down,  # Does `err` say that the loop should be broken?
+                cb.if_(
+                    loop_goes_on.out,  # If the loop is not meant to be broken...
                     [
-                        cb.if_(
-                            err_is_down.out,  # And the err flag is down...
+                        cb.if_with(
+                            cmd_le_1,  # If the command was a pop or peek,
                             [
-                                write_ans,
-                                incr_j,
-                            ],  # Write the answer and increment the answer index
-                        )
+                                write_ans,  # Write the answer to the answer list
+                                incr_j,  # And increment the answer index.
+                            ],
+                        ),
+                        incr_i,  # Increment the command index
+                        update_i_neq_15,  # Did this increment make us need to break?
                     ],
                 ),
-                incr_i,  # Increment the command index
-                update_i_neq_15,  # Did this increment make i == 15?
             ],
         ),
     ]
