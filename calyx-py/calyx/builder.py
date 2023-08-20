@@ -345,10 +345,6 @@ class ComponentBuilder:
         """Generate a StdLe cell."""
         return self.binary("le", size, name, signed)
 
-    def rsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
-        """Generate a StdRsh cell."""
-        return self.binary("rsh", size, name, signed)
-
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)
@@ -357,12 +353,10 @@ class ComponentBuilder:
 
     def and_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdAnd cell."""
-        name = name or self.generate_name("and")
         return self.logic("and", size, name)
 
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
-        name = name or self.generate_name("not")
         return self.logic("not", size, name)
 
     def pipelined_mult(self, name: str) -> CellBuilder:
@@ -427,44 +421,44 @@ class ComponentBuilder:
             cell.right = right
         return CellAndGroup(cell, comb_group)
 
-    def eq_use(self, left, right, width, signed=False, cellname=None):
+    def eq_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to check if `left` == `right`."""
-        return self.binary_use(left, right, self.eq(width, cellname, signed))
+        return self.binary_use(left, right, self.eq(width, cellname))
 
-    def neq_use(self, left, right, width, signed=False, cellname=None):
+    def neq_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to check if `left` != `right`."""
-        return self.binary_use(left, right, self.neq(width, cellname, signed))
+        return self.binary_use(left, right, self.neq(width, cellname))
 
-    def lt_use(self, left, right, width, signed=False, cellname=None):
+    def lt_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to check if `left` < `right`."""
-        return self.binary_use(left, right, self.lt(width, cellname, signed))
+        return self.binary_use(left, right, self.lt(width, cellname))
 
-    def le_use(self, left, right, width, signed=False, cellname=None):
+    def le_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to check if `left` <= `right`."""
-        return self.binary_use(left, right, self.le(width, cellname, signed))
+        return self.binary_use(left, right, self.le(width, cellname))
 
-    def ge_use(self, left, right, width, signed=False, cellname=None):
+    def ge_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to check if `left` >= `right`."""
-        return self.binary_use(left, right, self.ge(width, cellname, signed))
+        return self.binary_use(left, right, self.ge(width, cellname))
 
-    def gt_use(self, left, right, width, signed=False, cellname=None):
+    def gt_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to check if `left` > `right`."""
-        return self.binary_use(left, right, self.gt(width, cellname, signed))
+        return self.binary_use(left, right, self.gt(width, cellname))
 
-    def add_use(self, left, right, width, signed=False, cellname=None):
+    def add_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to compute `left` + `right`."""
-        return self.binary_use(left, right, self.add(width, cellname, signed))
+        return self.binary_use(left, right, self.add(width, cellname))
 
-    def sub_use(self, left, right, width, signed=False, cellname=None):
+    def sub_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to compute `left` - `right`."""
-        return self.binary_use(left, right, self.sub(width, cellname, signed))
+        return self.binary_use(left, right, self.sub(width, cellname))
 
-    def bitwise_flip_reg(self, reg, width, signed=False, cellname=None):
+    def bitwise_flip_reg(self, reg, width, cellname=None):
         """Inserts wiring into `self` to bitwise-flip the contents of `reg`
         and put the result back into `reg`.
         """
         cellname = cellname or f"{reg.name}_not"
-        not_cell = self.not_(width, cellname, signed)
+        not_cell = self.not_(width, cellname)
         with self.group(f"{cellname}_group") as not_group:
             not_cell.in_ = reg.out
             reg.write_en = 1
@@ -472,10 +466,10 @@ class ComponentBuilder:
             not_group.done = reg.done
         return not_group
 
-    def incr(self, reg, width, val=1, signed=False, cellname=None):
+    def incr(self, reg, width, val=1, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
-        add_cell = self.add(width, cellname, signed)
+        add_cell = self.add(width, cellname)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
             add_cell.right = const(width, val)
@@ -484,10 +478,10 @@ class ComponentBuilder:
             incr_group.done = reg.done
         return incr_group
 
-    def decr(self, reg, width, val=1, signed=False, cellname=None):
+    def decr(self, reg, width, val=1, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg - val`."""
         cellname = cellname or f"{reg.name}_decr"
-        sub_cell = self.sub(width, cellname, signed)
+        sub_cell = self.sub(width, cellname)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
             sub_cell.right = const(width, val)
@@ -582,11 +576,9 @@ class ComponentBuilder:
             load_grp.done = ans.done
         return load_grp
 
-    def add_store_in_reg(
-        self, left, right, cellname, width, ans_reg=None, signed=False
-    ):
+    def add_store_in_reg(self, left, right, cellname, width, ans_reg=None):
         """Inserts wiring into `self` to perform `reg := left + right`."""
-        add_cell = self.add(width, cellname, signed)
+        add_cell = self.add(width, cellname)
         ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
         with self.group(f"{cellname}_group") as adder_group:
             add_cell.left = left
@@ -596,11 +588,9 @@ class ComponentBuilder:
             adder_group.done = ans_reg.done
         return adder_group, ans_reg
 
-    def sub_store_in_reg(
-        self, left, right, cellname, width, ans_reg=None, signed=False
-    ):
+    def sub_store_in_reg(self, left, right, cellname, width, ans_reg=None):
         """Inserts wiring into `self` to perform `reg := left - right`."""
-        sub_cell = self.sub(width, cellname, signed)
+        sub_cell = self.sub(width, cellname)
         ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
         with self.group(f"{cellname}_group") as sub_group:
             sub_cell.left = left
