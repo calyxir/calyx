@@ -5,34 +5,6 @@ MAX_CMDS = 15
 ANS_MEM_LEN = 10
 
 
-def insert_raise_err_if_i_eq_max_cmds(prog):
-    """Inserts a the component `raise_err_if_i_eq_MAX_CMDS` into the program.
-
-    It has:
-    - one input, `i`.
-    - one ref register, `err`.
-
-    If `i` equals MAX_CMDS, it raises the `err` flag.
-    """
-    raise_err_if_i_eq_max_cmds: cb.ComponentBuilder = prog.component(
-        "raise_err_if_i_eq_MAX_CMDS"
-    )
-    i = raise_err_if_i_eq_max_cmds.input("i", 32)
-    err = raise_err_if_i_eq_max_cmds.reg("err", 1, is_ref=True)
-
-    i_eq_max_cmds = raise_err_if_i_eq_max_cmds.eq_use(i, MAX_CMDS, 32)
-    raise_err = raise_err_if_i_eq_max_cmds.reg_store(err, 1, "raise_err")
-
-    raise_err_if_i_eq_max_cmds.control += [
-        cb.if_with(
-            i_eq_max_cmds,
-            raise_err,
-        )
-    ]
-
-    return raise_err_if_i_eq_max_cmds
-
-
 def insert_main(prog, queue):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `queue` and feed it a list of commands.
@@ -67,9 +39,6 @@ def insert_main(prog, queue):
 
     # The two components we'll use:
     queue = main.cell("myqueue", queue)
-    raise_err_if_i_eq_max_cmds = main.cell(
-        "raise_err_if_i_eq_MAX_CMDS", insert_raise_err_if_i_eq_max_cmds(prog)
-    )
 
     # We will use the `invoke` method to call the `queue` component.
     # The queue component takes two inputs by reference and one input directly.
