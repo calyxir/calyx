@@ -86,8 +86,8 @@ def insert_main(prog, queue):
     cmd = main.reg("command", 2)  # The command we're currently processing
     value = main.reg("value", 32)  # The value we're currently processing
 
-    incr_i = main.incr(i, 32)  # i++
-    incr_j = main.incr(j, 32)  # j++
+    incr_i = main.incr(i)  # i++
+    incr_j = main.incr(j)  # j++
     err_eq_0 = main.eq_use(err.out, 0, 1)  # is `err` flag down?
     cmd_le_1 = main.le_use(cmd.out, 1, 2)  # cmd <= 1
 

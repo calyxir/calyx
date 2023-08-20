@@ -466,9 +466,10 @@ class ComponentBuilder:
             not_group.done = reg.done
         return not_group
 
-    def incr(self, reg, width, val=1, cellname=None):
+    def incr(self, reg, val=1, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
+        width = infer_width_prim(reg._cell.comp, "in")
         add_cell = self.add(width, cellname)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
@@ -478,9 +479,10 @@ class ComponentBuilder:
             incr_group.done = reg.done
         return incr_group
 
-    def decr(self, reg, width, val=1, cellname=None):
+    def decr(self, reg, val=1, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg - val`."""
         cellname = cellname or f"{reg.name}_decr"
+        width = infer_width_prim(reg._cell.comp, "in")
         sub_cell = self.sub(width, cellname)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
