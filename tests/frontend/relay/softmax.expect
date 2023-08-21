@@ -619,7 +619,7 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
     pow = std_reg(32);
     count = std_reg(32);
     mul = std_fp_smult_pipe(32, 16, 16);
-    count_incr = std_sadd(32);
+    count_incr = std_add(32);
     lt_1 = std_slt(32);
   }
   wires {
