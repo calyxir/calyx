@@ -49,7 +49,6 @@ def generate_fp_pow_component(
             "mult_pipe", width, int_width, frac_width, signed=is_signed
         ),
     )
-    incr = comp.cell("incr", Stdlib.op("add", width, signed=is_signed))
 
     # groups
     with comp.group("init") as init:
