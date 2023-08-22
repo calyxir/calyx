@@ -576,29 +576,42 @@ class ComponentBuilder:
             load_grp.done = ans.done
         return load_grp
 
+    def op_store_in_reg(self, op_cell, left, right, cellname, width, ans_reg=None):
+        """Inserts wiring into `self` to perform `reg := left op right`,
+        where `op_cell`, a Cell that performs some `op`, is provided.
+        """
+        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
+        with self.group(f"{cellname}_group") as op_group:
+            op_cell.left = left
+            op_cell.right = right
+            ans_reg.write_en = 1
+            ans_reg.in_ = op_cell.out
+            op_group.done = ans_reg.done
+        return op_group, ans_reg
+
     def add_store_in_reg(self, left, right, cellname, width, ans_reg=None):
         """Inserts wiring into `self` to perform `reg := left + right`."""
-        add_cell = self.add(width, cellname)
-        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
-        with self.group(f"{cellname}_group") as adder_group:
-            add_cell.left = left
-            add_cell.right = right
-            ans_reg.write_en = 1
-            ans_reg.in_ = add_cell.out
-            adder_group.done = ans_reg.done
-        return adder_group, ans_reg
+        return self.op_store_in_reg(
+            self.add(width, cellname), left, right, cellname, width, ans_reg
+        )
 
     def sub_store_in_reg(self, left, right, cellname, width, ans_reg=None):
         """Inserts wiring into `self` to perform `reg := left - right`."""
-        sub_cell = self.sub(width, cellname)
-        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
-        with self.group(f"{cellname}_group") as sub_group:
-            sub_cell.left = left
-            sub_cell.right = right
-            ans_reg.write_en = 1
-            ans_reg.in_ = sub_cell.out
-            sub_group.done = ans_reg.done
-        return sub_group, ans_reg
+        return self.op_store_in_reg(
+            self.sub(width, cellname), left, right, cellname, width, ans_reg
+        )
+
+    def eq_store_in_reg(self, left, right, cellname, width, ans_reg=None):
+        """Adds wiring into `self to perform `reg := left == right`."""
+        return self.op_store_in_reg(
+            self.eq(width, cellname), left, right, cellname, 1, ans_reg
+        )
+
+    def neq_store_in_reg(self, left, right, cellname, width, ans_reg=None):
+        """Adds wiring into `self to perform `reg := left != right`."""
+        return self.op_store_in_reg(
+            self.neq(width, cellname), left, right, cellname, 1, ans_reg
+        )
 
     def eq_store_in_reg(self, left, right, cellname, width, ans_reg=None):
         """Adds wiring into component `self` to compute `left` == `right`
