@@ -24,7 +24,11 @@ impl Backend for MlirBackend {
     ) -> calyx_utils::CalyxResult<()> {
         let res = {
             let f = &mut file.get_write();
-            writeln!(f, "calyx.program \"{}\" {{\n", ctx.entrypoint)?;
+            writeln!(
+                f,
+                "module attributes {{calyx.entrypoint = \"{}\" }} {{",
+                ctx.entrypoint
+            )?;
             ctx.components.iter().try_for_each(|comp| {
                 Self::write_component(comp, f)?;
                 writeln!(f)
@@ -130,11 +134,13 @@ impl MlirBackend {
         write!(f, "}}")
     }
 
+    /// Write the operation corresponding to the primitve and return true if the
+    /// operation accepts attributes.
     pub fn write_prototype_sig<F: io::Write, S: ToString>(
         cell_type: &ir::CellType,
         cell_name: S,
         f: &mut F,
-    ) -> io::Result<()> {
+    ) -> io::Result<bool> {
         let cell_name = cell_name.to_string();
         match cell_type {
             ir::CellType::Primitive {
@@ -148,7 +154,7 @@ impl MlirBackend {
                     .collect();
                 match name.as_ref() {
                     "std_reg" => {
-                        write!(f, "calyx.register @{}", cell_name)
+                        write!(f, "calyx.register @{}", cell_name)?
                     }
                     "std_mem_d1" => write!(
                         f,
@@ -157,7 +163,7 @@ impl MlirBackend {
                         bind["SIZE"],
                         bind["WIDTH"],
                         bind["IDX_SIZE"]
-                    ),
+                    )?,
                     "std_mem_d2" => write!(
                         f,
                         "calyx.memory @{} <[{}, {}] x {}> [{}, {}]",
@@ -167,7 +173,7 @@ impl MlirBackend {
                         bind["WIDTH"],
                         bind["D0_IDX_SIZE"],
                         bind["D1_IDX_SIZE"]
-                    ),
+                    )?,
                     "std_mem_d3" => write!(
                         f,
                         "calyx.memory @{} <[{}, {}, {}] x {}> [{}, {}, {}]",
@@ -179,7 +185,7 @@ impl MlirBackend {
                         bind["D0_IDX_SIZE"],
                         bind["D1_IDX_SIZE"],
                         bind["D2_IDX_SIZE"]
-                    ),
+                    )?,
                     "std_mem_d4" => write!(
                         f,
                         "calyx.memory @{} <[{}, {}, {}, {}] x {}> [{}, {}, {}, {}]",
@@ -193,18 +199,20 @@ impl MlirBackend {
                         bind["D1_IDX_SIZE"],
                         bind["D2_IDX_SIZE"],
                         bind["D3_IDX_SIZE"]
-                    ),
-                    prim => write!(f, "calyx.{} @{}", prim, cell_name)
+                    )?,
+                    prim => write!(f, "calyx.{} @{}", prim, cell_name)?,
                 }
             }
             ir::CellType::Component { name } => {
-                write!(f, "calyx.instance @{} of @{}", cell_name, name)
+                write!(f, "calyx.instance @{} of @{}", cell_name, name)?;
             }
             ir::CellType::Constant { val, .. } => {
-                write!(f, "hw.constant {}", val)
+                write!(f, "hw.constant {}", val)?;
+                return Ok(false);
             }
-            _ => Ok(()),
-        }
+            _ => (),
+        };
+        Ok(true)
     }
 
     /// Format and write a cell.
@@ -222,8 +230,11 @@ impl MlirBackend {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "{} = ", all_ports)?;
-        Self::write_prototype_sig(&cell.prototype, name.as_str(), f)?;
-        write!(f, "{}", Self::format_attributes(&cell.attributes))?;
+        let supports_attrs =
+            Self::write_prototype_sig(&cell.prototype, name.as_str(), f)?;
+        if supports_attrs {
+            write!(f, "{}", Self::format_attributes(&cell.attributes))?;
+        }
         write!(f, " : ")?;
         let all_port_widths = cell
             .ports()

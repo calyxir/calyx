@@ -5,6 +5,7 @@ members = [
     "calyx-utils",
     "calyx-opt",
     "calyx-frontend",
+    "calyx-stdlib",
     "interp",
     "web/rust",
     "tools/data_gen",
@@ -54,7 +55,6 @@ features = ["matrix_graph"]
 
 [package]
 name = "calyx"
-build = false
 default-run = "calyx"
 version.workspace = true
 edition.workspace = true
@@ -67,6 +67,7 @@ homepage.workspace = true
 categories.workspace = true
 readme.workspace = true
 rust-version.workspace = true
+build = "src/build.rs"
 
 [[bin]]
 name = "calyx"
@@ -80,6 +81,9 @@ serialize = [
     "dep:serde_sexpr",
     "serde/rc",
 ]
+
+[build-dependencies]
+calyx-stdlib = { path = "calyx-stdlib", version = "0.4.0" }
 
 [dependencies]
 atty.workspace = true

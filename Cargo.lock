@@ -191,6 +191,7 @@ dependencies = [
  "calyx-frontend",
  "calyx-ir",
  "calyx-opt",
+ "calyx-stdlib",
  "calyx-utils",
  "criterion",
  "csv",
@@ -256,6 +257,10 @@ dependencies = [
  "serde_json",
  "smallvec",
 ]
+
+[[package]]
+name = "calyx-stdlib"
+version = "0.4.0"
 
 [[package]]
 name = "calyx-utils"
