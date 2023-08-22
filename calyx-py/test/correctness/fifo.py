@@ -36,7 +36,7 @@ def insert_fifo(prog, name):
     len = fifo.reg("len", 32)  # The length of the FIFO.
 
     # Cells and groups to compute equality
-    cmd_eq_0 = fifo.eq_use(cmd, 0, 2)
+    cmd_eq_0 = fifo.eq_use(cmd, 0)
     cmd_eq_1 = fifo.eq_use(cmd, 1, 2)
     cmd_eq_2 = fifo.eq_use(cmd, 2, 2)
 

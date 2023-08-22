@@ -423,6 +423,8 @@ class ComponentBuilder:
 
     def eq_use(self, left, right, width=None, cellname=None):
         """Inserts wiring into `self` to check if `left` == `right`."""
+        # width = width or self.get_port_width("cmd")
+        width = width or self.get_port_width(ExprBuilder.unwrap(left).item.id.name)
         return self.binary_use(left, right, self.eq(width, cellname))
 
     def neq_use(self, left, right, width, cellname=None):
