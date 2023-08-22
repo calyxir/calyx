@@ -12,12 +12,9 @@ macro_rules! load_prims {
         pub const $name: [(&str, &str); 2] = [
             (
                 $futil_path,
-                include_str!(concat!("../../primitives/", $futil_path)),
+                include_str!(concat!("../primitives/", $futil_path)),
             ),
-            (
-                $sv_path,
-                include_str!(concat!("../../primitives/", $sv_path)),
-            ),
+            ($sv_path, include_str!(concat!("../primitives/", $sv_path))),
         ];
     };
 }
@@ -30,10 +27,8 @@ load_prims! { PIPELINED, "pipelined.futil", "pipelined.sv" }
 load_prims! { SYNC, "sync.futil", "sync.sv" }
 
 /// The core primitive in the compiler
-pub const COMPILE_LIB: (&str, &str) = (
-    "compile.futil",
-    include_str!("../../primitives/compile.futil"),
-);
+pub const COMPILE_LIB: (&str, &str) =
+    ("compile.futil", include_str!("../primitives/compile.futil"));
 
 pub const KNOWN_LIBS: [(&str, [(&str, &str); 2]); 6] = [
     ("core", CORE),
