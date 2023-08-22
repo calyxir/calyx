@@ -72,13 +72,14 @@ rust-version.workspace = true
 name = "calyx"
 path = "src/main.rs"
 
-[[bin]]
-name = "futil"
-path = "src/futil.rs"
-
 [features]
 default = []
-serialize = ["dep:serde_with", "calyx-ir/serialize", "dep:serde_sexpr", "serde/rc"]
+serialize = [
+    "dep:serde_with",
+    "calyx-ir/serialize",
+    "dep:serde_sexpr",
+    "serde/rc",
+]
 
 [dependencies]
 atty.workspace = true
