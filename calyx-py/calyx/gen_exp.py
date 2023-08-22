@@ -68,7 +68,7 @@ def generate_fp_pow_component(
         pow.in_ = mul.out
         execute_mul.done = pow.done
 
-    incr_count = comp.incr(count, width)
+    incr_count = comp.incr(count, width, 1, is_signed)
 
     cond = comp.lt_use(count.out, comp.this().integer_exp, width, is_signed)
 
