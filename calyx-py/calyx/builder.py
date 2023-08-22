@@ -458,7 +458,7 @@ class ComponentBuilder:
         and put the result back into `reg`.
         """
         cellname = cellname or f"{reg.name}_not"
-        width = infer_width_prim(reg._cell.comp, "in")
+        width = infer_width_reg(reg)
         not_cell = self.not_(width, cellname)
         with self.group(f"{cellname}_group") as not_group:
             not_cell.in_ = reg.out
@@ -470,7 +470,7 @@ class ComponentBuilder:
     def incr(self, reg, val=1, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
-        width = infer_width_prim(reg._cell.comp, "in")
+        width = infer_width_reg(reg)
         add_cell = self.add(width, cellname)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
@@ -483,7 +483,7 @@ class ComponentBuilder:
     def decr(self, reg, val=1, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg - val`."""
         cellname = cellname or f"{reg.name}_decr"
-        width = infer_width_prim(reg._cell.comp, "in")
+        width = infer_width_reg(reg)
         sub_cell = self.sub(width, cellname)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
@@ -1080,14 +1080,49 @@ def const(width: int, value: int) -> ExprBuilder:
     return ExprBuilder(ast.Atom(ast.ConstantPort(width, value)))
 
 
-def infer_width_prim(inst, port_name):
-    """Extract widths from stdlib components we know."""
+def infer_width_reg(reg, port_name="in"):
+    if port_name == "in":
+        return reg._cell.comp.args[0]
+    if port_name == "write_en":
+        return 1
+    return None
+
+
+def infer_width(expr):
+    """Try to guess the width of a port expression.
+
+    Return an int, or None if we don't have a guess.
+    """
+    assert TLS.groups, "int width inference only works inside `with group:`"
+    group_builder: GroupBuilder = TLS.groups[-1]
+
+    # Deal with `done` holes.
+    expr = ExprBuilder.unwrap(expr)
+    if isinstance(expr, ast.HolePort):
+        assert expr.name == "done", f"unknown hole {expr.name}"
+        return 1
+
+    # Otherwise, it's a `cell.port` lookup.
+    assert isinstance(expr, ast.Atom)
+    if isinstance(expr.item, ast.ThisPort):
+        name = expr.item.id.name
+        return group_builder.comp.get_port_width(name)
+    cell_name = expr.item.id.name
+    port_name = expr.item.name
+
+    # Look up the component for the referenced cell.
+    cell_builder = group_builder.comp.index[cell_name]
+    if not isinstance(cell_builder, CellBuilder):
+        return None
+
+    inst = cell_builder._cell.comp
+
+    # Extract widths from stdlib components we know.
     prim = inst.id
+
     if prim == "std_reg":
-        if port_name == "in":
-            return inst.args[0]
-        elif port_name == "write_en":
-            return 1
+        return infer_width_reg(cell_builder, port_name)
+
     # XXX(Caleb): add all the primitive names instead of adding whenever I need one
     elif prim in (
         "std_add",
@@ -1131,39 +1166,8 @@ def infer_width_prim(inst, port_name):
     elif prim == "std_wire":
         if port_name == "in":
             return inst.args[0]
+    # Give up.
     return None
-
-
-def infer_width(expr):
-    """Try to guess the width of a port expression.
-
-    Return an int, or None if we don't have a guess.
-    """
-    assert TLS.groups, "int width inference only works inside `with group:`"
-    group_builder: GroupBuilder = TLS.groups[-1]
-
-    # Deal with `done` holes.
-    expr = ExprBuilder.unwrap(expr)
-    if isinstance(expr, ast.HolePort):
-        assert expr.name == "done", f"unknown hole {expr.name}"
-        return 1
-
-    # Otherwise, it's a `cell.port` lookup.
-    assert isinstance(expr, ast.Atom)
-    if isinstance(expr.item, ast.ThisPort):
-        name = expr.item.id.name
-        return group_builder.comp.get_port_width(name)
-    cell_name = expr.item.id.name
-    port_name = expr.item.name
-
-    # Look up the component for the referenced cell.
-    cell_builder = group_builder.comp.index[cell_name]
-    if not isinstance(cell_builder, CellBuilder):
-        return None
-
-    inst = cell_builder._cell.comp
-    return infer_width_prim(inst, port_name)
-    # Extract widths from stdlib components we know.
 
 
 def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
