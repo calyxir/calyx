@@ -1166,6 +1166,7 @@ def infer_width(expr):
     elif prim == "std_wire":
         if port_name == "in":
             return inst.args[0]
+
     # Give up.
     return None
 
