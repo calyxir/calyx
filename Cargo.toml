@@ -73,10 +73,6 @@ build = "src/build.rs"
 name = "calyx"
 path = "src/main.rs"
 
-[[bin]]
-name = "futil"
-path = "src/futil.rs"
-
 [features]
 default = []
 serialize = [
@@ -88,7 +84,6 @@ serialize = [
 
 [build-dependencies]
 calyx-stdlib = { path = "calyx-stdlib", version = "0.4.0" }
-
 
 [dependencies]
 atty.workspace = true
