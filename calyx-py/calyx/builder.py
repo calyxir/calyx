@@ -879,10 +879,6 @@ class ExprBuilder:
             return obj.expr
         return obj
 
-    def infer_width(self):
-        """Infer the width of the expression."""
-        return self.expr.infer_width()
-
 
 @dataclass
 class CondExprBuilder:
@@ -1144,8 +1140,7 @@ class GroupBuilder:
         """Try to guess the width of an port expression in this group."""
         assert isinstance(expr, ast.Atom)
         if isinstance(expr.item, ast.ThisPort):
-            name = expr.item.id.name
-            return self.comp.get_port_width(name)
+            return self.comp.port_width(expr)
         cell_name = expr.item.id.name
         port_name = expr.item.name
 
