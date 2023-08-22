@@ -132,16 +132,17 @@ class ComponentBuilder:
         else:
             self.component.controls = builder
 
-    def get_port_width(self, name: str) -> int:
+    def port_width(self, port: ExprBuilder) -> int:
+        """Get the width of an expression, which may be a port of this component."""
+        name = ExprBuilder.unwrap(port).item.id.name
         for input in self.component.inputs:
             if input.id.name == name:
                 return input.width
         for output in self.component.outputs:
             if output.id.name == name:
                 return output.width
-        raise NotFoundError(
-            f"couldn't find port {name} on component {self.component.name}"
-        )
+        # Give up.
+        return None
 
     def get_cell(self, name: str) -> CellBuilder:
         """Retrieve a cell builder by name."""
@@ -423,8 +424,12 @@ class ComponentBuilder:
 
     def eq_use(self, left, right, width=None, cellname=None):
         """Inserts wiring into `self` to check if `left` == `right`."""
-        # width = width or self.get_port_width("cmd")
-        width = width or self.get_port_width(ExprBuilder.unwrap(left).item.id.name)
+        width = width or self.port_width(left) or self.port_width(right)
+        if not width:
+            raise WidthInferenceError(
+                f"Cannot infer width of expression {left} or {right}. "
+                "Consider providing a width argument."
+            )
         return self.binary_use(left, right, self.eq(width, cellname))
 
     def neq_use(self, left, right, width, cellname=None):
@@ -873,6 +878,10 @@ class ExprBuilder:
         if isinstance(obj, cls):
             return obj.expr
         return obj
+
+    def infer_width(self):
+        """Infer the width of the expression."""
+        return self.expr.infer_width()
 
 
 @dataclass

@@ -37,8 +37,8 @@ def insert_fifo(prog, name):
 
     # Cells and groups to compute equality
     cmd_eq_0 = fifo.eq_use(cmd, 0)
-    cmd_eq_1 = fifo.eq_use(cmd, 1, 2)
-    cmd_eq_2 = fifo.eq_use(cmd, 2, 2)
+    cmd_eq_1 = fifo.eq_use(cmd, 1)
+    cmd_eq_2 = fifo.eq_use(cmd, 2)
 
     write_eq_max_queue_len = fifo.eq_use(write.out, MAX_QUEUE_LEN, 32)
     read_eq_max_queue_len = fifo.eq_use(read.out, MAX_QUEUE_LEN, 32)
