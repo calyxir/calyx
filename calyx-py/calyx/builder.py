@@ -144,9 +144,6 @@ class ComponentBuilder:
         # Give up.
         return None
 
-    def port_name(self, port: ExprBuilder) -> str:
-        return ExprBuilder.unwrap(port).item.id.name
-
     def get_cell(self, name: str) -> CellBuilder:
         """Retrieve a cell builder by name."""
         out = self.index.get(name)
@@ -430,7 +427,8 @@ class ComponentBuilder:
         width = width or self.infer_width(left) or self.infer_width(right)
         if not width:
             raise WidthInferenceError(
-                "Cannot infer width; consider providing a width argument."
+                "Cannot infer widths from `left` or `right` to create an eq cell. "
+                "Consider providing width as an argument."
             )
         return self.binary_use(left, right, self.eq(width, cellname))
 
@@ -653,7 +651,7 @@ class ComponentBuilder:
     def infer_width(self, expr) -> int:
         """Infer the width of an expression.
         For now, all we do is:
-        - gracefully give up in case of integeres
+        - gracefully give up in case of integers
         - return the width of a port if it is a port of this component
 
         I'd like to expand further.
@@ -1151,7 +1149,7 @@ class GroupBuilder:
         TLS.groups.pop()
 
     def infer_width(self, expr):
-        """Try to guess the width of an port expression in this group."""
+        """Try to guess the width of a port expression in this group."""
         assert isinstance(expr, ast.Atom)
         if isinstance(expr.item, ast.ThisPort):
             return self.comp.port_width(expr)
