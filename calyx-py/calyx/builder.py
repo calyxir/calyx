@@ -421,7 +421,7 @@ class ComponentBuilder:
             cell.right = right
         return CellAndGroup(cell, comb_group)
 
-    def eq_use(self, left, right, width, cellname=None):
+    def eq_use(self, left, right, width=None, cellname=None):
         """Inserts wiring into `self` to check if `left` == `right`."""
         return self.binary_use(left, right, self.eq(width, cellname))
 
@@ -860,6 +860,11 @@ class ExprBuilder:
         """Construct an inequality comparison with ==."""
         return ExprBuilder(ast.Neq(self.expr, other.expr))
 
+    @property
+    def name(self):
+        """Get the name of the expression."""
+        return self.expr.name
+
     @classmethod
     def unwrap(cls, obj):
         """Unwrap an expression builder, or return the object if it is not one."""
@@ -949,6 +954,7 @@ class CellBuilder(CellLikeBuilder):
         return self.is_primitive("seq_mem_d1")
 
     def infer_width(self, port_name) -> int:
+        """Infer the width of a port on the cell."""
         inst = self._cell.comp
         prim = inst.id
         if prim == "std_reg":
@@ -1123,6 +1129,21 @@ class GroupBuilder:
     def __exit__(self, exc, value, tb):
         TLS.groups.pop()
 
+    def infer_width(self, expr):
+        """Try to guess the width of an port expression in this group."""
+        assert isinstance(expr, ast.Atom)
+        if isinstance(expr.item, ast.ThisPort):
+            name = expr.item.id.name
+            return self.comp.get_port_width(name)
+        cell_name = expr.item.id.name
+        port_name = expr.item.name
+
+        cell_builder = self.comp.index[cell_name]
+        if not isinstance(cell_builder, CellBuilder):
+            return None
+
+        return cell_builder.infer_width(port_name)
+
 
 def const(width: int, value: int) -> ExprBuilder:
     """Build a sized integer constant expression.
@@ -1139,8 +1160,6 @@ def infer_width(expr):
 
     Return an int, or None if we don't have a guess.
     """
-    assert TLS.groups, "int width inference only works inside `with group:`"
-    group_builder: GroupBuilder = TLS.groups[-1]
 
     # Deal with `done` holes.
     expr = ExprBuilder.unwrap(expr)
@@ -1148,20 +1167,10 @@ def infer_width(expr):
         assert expr.name == "done", f"unknown hole {expr.name}"
         return 1
 
-    # Otherwise, it's a `cell.port` lookup.
-    assert isinstance(expr, ast.Atom)
-    if isinstance(expr.item, ast.ThisPort):
-        name = expr.item.id.name
-        return group_builder.comp.get_port_width(name)
-    cell_name = expr.item.id.name
-    port_name = expr.item.name
+    assert TLS.groups, "int width inference only works inside `with group:`"
+    group_builder: GroupBuilder = TLS.groups[-1]
 
-    # Look up the component for the referenced cell.
-    cell_builder = group_builder.comp.index[cell_name]
-    if not isinstance(cell_builder, CellBuilder):
-        return None
-
-    return cell_builder.infer_width(port_name)
+    return group_builder.infer_width(expr)
 
 
 def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
