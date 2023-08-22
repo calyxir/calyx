@@ -1,4 +1,4 @@
-## Unreleased
+## 0.5.0
 - Don't require `@clk` and `@reset` ports in `comb` components
 - `inline` pass supports inlining `ref` cells
 - `comb-prop`: disable rewrite from `wire.in = port` when the output of a wire is read.
