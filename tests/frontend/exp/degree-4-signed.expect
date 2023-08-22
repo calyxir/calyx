@@ -198,7 +198,7 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
     pow = std_reg(16);
     count = std_reg(16);
     mul = std_fp_smult_pipe(16, 8, 8);
-    count_incr = std_add(16);
+    count_incr = std_sadd(16);
     lt_1 = std_slt(16);
   }
   wires {
