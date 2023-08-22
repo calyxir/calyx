@@ -5,6 +5,7 @@ members = [
     "calyx-utils",
     "calyx-opt",
     "calyx-frontend",
+    "calyx-stdlib",
     "interp",
     "web/rust",
     "tools/data_gen",
@@ -22,7 +23,7 @@ description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
-version = "0.4.0"
+version = "0.5.0"
 rust-version = "1.66"
 
 [workspace.dependencies]
@@ -40,10 +41,10 @@ pest = "2.0"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
-calyx-utils = { path = "calyx-utils", version = "0.4.0" }
-calyx-ir = { path = "calyx-ir", version = "0.4.0" }
-calyx-frontend = { path = "calyx-frontend", version = "0.4.0" }
-calyx-opt = { path = "calyx-opt", version = "0.4.0" }
+calyx-utils = { path = "calyx-utils", version = "0.5.0" }
+calyx-ir = { path = "calyx-ir", version = "0.5.0" }
+calyx-frontend = { path = "calyx-frontend", version = "0.5.0" }
+calyx-opt = { path = "calyx-opt", version = "0.5.0" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
@@ -54,7 +55,6 @@ features = ["matrix_graph"]
 
 [package]
 name = "calyx"
-build = false
 default-run = "calyx"
 version.workspace = true
 edition.workspace = true
@@ -67,18 +67,23 @@ homepage.workspace = true
 categories.workspace = true
 readme.workspace = true
 rust-version.workspace = true
+build = "src/build.rs"
 
 [[bin]]
 name = "calyx"
 path = "src/main.rs"
 
-[[bin]]
-name = "futil"
-path = "src/futil.rs"
-
 [features]
 default = []
-serialize = ["dep:serde_with", "calyx-ir/serialize", "dep:serde_sexpr", "serde/rc"]
+serialize = [
+    "dep:serde_with",
+    "calyx-ir/serialize",
+    "dep:serde_sexpr",
+    "serde/rc",
+]
+
+[build-dependencies]
+calyx-stdlib = { path = "calyx-stdlib", version = "0.5.0" }
 
 [dependencies]
 atty.workspace = true

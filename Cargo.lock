@@ -184,13 +184,14 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "calyx"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "argh",
  "atty",
  "calyx-frontend",
  "calyx-ir",
  "calyx-opt",
+ "calyx-stdlib",
  "calyx-utils",
  "criterion",
  "csv",
@@ -206,7 +207,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-frontend"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "atty",
  "calyx-utils",
@@ -226,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-ir"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "calyx-frontend",
  "calyx-utils",
@@ -242,7 +243,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-opt"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "boolean_expression",
  "calyx-ir",
@@ -258,8 +259,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "calyx-stdlib"
+version = "0.5.0"
+
+[[package]]
 name = "calyx-utils"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "atty",
  "itertools 0.10.5",
