@@ -3,6 +3,7 @@
 - `inline` pass supports inlining `ref` cells
 - `comb-prop`: disable rewrite from `wire.in = port` when the output of a wire is read.
 - BREAKING: Remove `PortDef::into()` because it makes it easy to miss copying attributes.
+- Remove the `futil` binary.
 
 
 ## 0.4.0
