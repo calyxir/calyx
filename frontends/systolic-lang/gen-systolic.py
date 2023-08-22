@@ -88,6 +88,61 @@ def pe(prog: cb.Builder, leaky_relu):
     comp.control += par
 
 
+def leaky_relu_comp(prog: cb.Builder):
+    """
+    Creates a dynamic, non-pipelined, leaky relu component
+    """
+    comp = prog.component(name="leaky_relu")
+    comp.input("value", BITWIDTH)
+    comp.input("index", BITWIDTH)
+    add_write_mem_argument(comp, OUT_MEM, BITWIDTH)
+    add_register_argument(comp, "idx_reg")
+
+    this = comp.this()
+
+    addr0_port = cb.ExprBuilder.unwrap(this.port(OUT_MEM + "_addr0"))
+    write_data_port = cb.ExprBuilder.unwrap(this.port(OUT_MEM + "_write_data"))
+    write_en_port = cb.ExprBuilder.unwrap(this.port(OUT_MEM + "_write_en"))
+    write_done_port = this.port(OUT_MEM + "_done")
+
+    fp_mult = comp.fp_sop(f"fp_mult", "mult_pipe", BITWIDTH, INTWIDTH, FRACWIDTH)
+    lt = comp.fp_sop(f"val_lt", "lt", BITWIDTH, INTWIDTH, FRACWIDTH)
+    incr_idx = comp.add(BITWIDTH, f"incr_idx")
+    write_mem = comp.wire(f"write_mem", 1)
+
+    with comp.continuous:
+        # gt holds whether this.value > 0
+        lt.left = this.value
+        lt.right = 0
+
+    with comp.group("do_relu") as g:
+        # Write_mem holds whether we should be writing to memory, which is when:
+        # a) multiplier is done, so we write fp_mult.out to mem
+        # b) this.value >=0 (i.e., !(this.value < 0)) so we write this.value to mem
+        write_mem.in_ = (fp_mult.done | ~lt.out) @ 1
+        # trigger the multiplier when we're not writing to memory
+        fp_mult.left = numeric_types.FixedPoint(
+            str(float_to_fixed_point(0.01, FRACWIDTH)), BITWIDTH, INTWIDTH, True
+        ).unsigned_integer()
+        fp_mult.right = this.value
+        fp_mult.go = ~(write_mem.out) @ 1
+
+        # increment idx_reg while we are writing to memory.
+        incr_idx.left = this.idx_reg_out
+        incr_idx.right = 1
+        this.idx_reg_in = write_mem.out @ incr_idx.out
+        this.idx_reg_write_en = write_mem.out @ 1
+
+        # write to memory
+        g.asgn(write_en_port, 1, write_mem.out)
+        g.asgn(addr0_port, this.index)
+        g.asgn(write_data_port, this.value, ~lt.out)
+        g.asgn(write_data_port, fp_mult.out, lt.out)
+        g.done = write_done_port
+
+    comp.control = py_ast.Enable("do_relu")
+
+
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.
 NAME_SCHEME = {
@@ -154,6 +209,17 @@ def add_write_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
     comp.output(f"{name}_addr0", addr_width)
     comp.output(f"{name}_write_data", BITWIDTH)
     comp.output(f"{name}_write_en", 1)
+    comp.input(f"{name}_done", 1)
+
+
+def add_register_argument(comp: cb.ComponentBuilder, name):
+    """
+    Add arguments to component `comp` if we want to write to use a register named
+    `name` inside `comp.`
+    """
+    comp.output(f"{name}_write_en", 1)
+    comp.output(f"{name}_in", BITWIDTH)
+    comp.input(f"{name}_out", BITWIDTH)
 
 
 def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
@@ -257,10 +323,12 @@ def instantiate_relu_cond_reg(
     cond_reg = comp.get_cell("cond_reg")
     cond_wire = comp.wire("cond_wire", 1)
     for r in range(num_rows):
+        relu_finished_wire = comp.get_cell(f"relu_finished_wire_r{r}")
         if r == 0:
-            guard = comp.get_cell(f"relu_finished_reg_r{r}").port("out")
+            guard = relu_finished_wire.out
         else:
-            guard = guard & comp.get_cell(f"relu_finished_reg_r{r}").port("out")
+            guard = guard & relu_finished_wire.out
+
     with comp.static_group("write_cond_reg", 1):
         cond_wire.in_ = guard @ 1
         cond_reg.in_ = ~cond_wire.out @ 1
@@ -463,6 +531,7 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
     group_str = f"idx_between_{lo}_{hi}_group"
     index_lt = f"index_lt_{str(hi)}"
     index_ge = f"index_ge_{str(lo)}"
+    reg = comp.reg(reg_str, 1)
     assert (
         not type(lo) is None
     ), "None Type Lower Bound not supported in instantiate_idx_between"
@@ -476,8 +545,9 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
         with comp.static_group(group_str, 1):
             ge.left = idx_add.out
             ge.right = lo_value
+            reg.in_ = ge.out
+            reg.write_en = 1
     else:
-        reg = comp.reg(reg_str, 1)
         lt = (
             comp.get_cell(index_lt)
             if comp.try_get_cell(index_lt) is not None
@@ -516,10 +586,6 @@ def instantiate_init_group(comp: cb.ComponentBuilder, lo, hi):
     # if lo == 0, then the idx will initially be in between the interval, so
     # need to set idx_between to high
     start_hi = 1 if lo == 0 else 0
-    # XXX(Caleb): assumed hi=None is used for a Relu computation, and therefore
-    # idx_between_reg is not necessary.
-    if hi is None:
-        return
     idx_between = comp.get_cell(f"idx_between_{lo}_{hi}_reg")
     with comp.static_group(f"init_idx_between_{lo}_{hi}", 1):
         idx_between.in_ = start_hi
@@ -544,89 +610,54 @@ def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
             reg_out == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, col)),
         )
 
+    group = comp.static_group(f"relu_r{row}_helper", 1)
+    group_assigns = []
+
     # Current value we are performing relu on.
     cur_val = comp.wire(f"relu_r{row}_cur_val", BITWIDTH)
-    # Current idx within the row for the value we are performing relu on.
+    # Current idx within the row (i.e., column) for the value we are performing relu on.
     idx_reg = comp.reg(f"relu_r{row}_cur_idx", BITWIDTH)
-    group_assigns = []
-    group = comp.static_group(f"relu_r{row}_helper", 1)
     # assigning cur_val = value of PE at (row,idx_reg).
     for col in range(top_length):
         group_assigns.append(build_assignment(comp, group, cur_val, idx_reg, row, col))
 
+    # instantiate an instance of a leaky_relu component
+    relu_instance = comp.cell(f"leaky_relu_r{row}", py_ast.CompInst("leaky_relu", []))
     # Wire that tells us we are finished with relu operation for this row.
     relu_finished_wire = comp.wire(f"relu_finished_wire_r{row}", 1)
-    # Register that holds the value of relu_finished_wire for later cycles.
-    relu_finished_reg = comp.reg(f"relu_finished_reg_r{row}", 1)
-    # Checks whether cur_val is > 0.
-    cur_gt = comp.fp_sop(f"relu_r{row}_val_gt", "gt", BITWIDTH, INTWIDTH, FRACWIDTH)
-    # Checks whether we should go onto the next entry in the row. This occurs
-    # either when a) value is positive or b) multiply operation has finished.
-    go_next = comp.wire(f"relu_r{row}_go_next", BITWIDTH)
-    # Increments idx_reg.
-    incr = comp.add(BITWIDTH, f"relu_r{row}_incr")
-    # Performs multiplication for leaky relu.
-    fp_mult = comp.fp_sop(
-        f"relu_r{row}_val_mult", "mult_pipe", BITWIDTH, INTWIDTH, FRACWIDTH
-    )
+
+    # Annoying memory port stuff because we can't use ref cells
     this = comp.this()
     mem_name = OUT_MEM + f"_{row}"
     addr0_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_addr0"))
+    relu_addr0_port = relu_instance.port(OUT_MEM + "_addr0")
     write_data_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_write_data"))
+    relu_write_data_port = relu_instance.port(OUT_MEM + "_write_data")
     write_en_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_write_en"))
+    relu_write_en_port = relu_instance.port(OUT_MEM + "_write_en")
+    done_port = this.port(mem_name + "_done")
+    relu_done_port = cb.ExprBuilder.unwrap(relu_instance.port(OUT_MEM + "_done"))
+
     with comp.static_group(f"execute_relu_r{row}", 1) as g:
-        # Check if the current value is positive or negative.
-        cur_gt.left = cur_val.out
-        cur_gt.right = 0
-
         # Handle incrementing the idx_reg.
-        # Increment either when a) multiplication is done or b) cur value is positive
-        incr.left = idx_reg.out
-        incr.right = 1
-        go_next.in_ = (fp_mult.done | cur_gt.out) @ 1
-        idx_reg.in_ = go_next.out @ incr.out
-        idx_reg.write_en = go_next.out @ 1
+        relu_instance.go = (~relu_finished_wire.out) @ cb.ExprBuilder(
+            py_ast.ConstantPort(1, 1)
+        )
+        # input ports
+        relu_instance.value = cur_val.out
+        relu_instance.index = idx_reg.out
+        g.asgn(relu_done_port, done_port)
+        relu_instance.idx_reg_out = idx_reg.out
+        # output ports
+        g.asgn(addr0_port, relu_addr0_port)
+        g.asgn(write_data_port, relu_write_data_port)
+        g.asgn(write_en_port, relu_write_en_port)
+        idx_reg.write_en = relu_instance.idx_reg_write_en
+        idx_reg.in_ = relu_instance.idx_reg_in
 
-        # Perform the multiplication.
-        # Get FP approximation of 0.01.
-        fp_mult.left = numeric_types.FixedPoint(
-            str(float_to_fixed_point(0.01, FRACWIDTH)), BITWIDTH, INTWIDTH, True
-        ).unsigned_integer()
-        fp_mult.right = cur_val.out
-        fp_mult.go = ~go_next.out @ 1
-
-        # Write to mem based on whether cur_valu >= 0
-        g.asgn(write_en_port, 1, go_next.out)
-        g.asgn(addr0_port, idx_reg.out)
-        g.asgn(write_data_port, cur_val.out, cur_gt.out)
-        g.asgn(write_data_port, fp_mult.out, ~cur_gt.out)
-
-        # While loop logic. relu_finished when idx_reg == top_length - 1 & go_next,
-        # i.e., when we're at the last index and about to "go to the next value".
         relu_finished_wire.in_ = (
-            go_next.out
-            & (
-                idx_reg.out
-                == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, top_length - 1))
-            )
+            idx_reg.out == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, top_length))
         ) @ 1
-        relu_finished_reg.in_ = relu_finished_wire.out @ 1
-        relu_finished_reg.write_en_ = relu_finished_wire.out @ 1
-
-    # Start relu when idx_ge row + depth + 5, i.e., when first value in row
-    # is ready to be computed.
-    relu_start_port = comp.get_cell(f"index_ge_depth_plus_{5 + row}").port("out")
-    # relu_cond_wire coordinates when relu_cond_reg should be hi/lo
-    relu_cond_wire = comp.wire(f"relu_cond_wire_r{row}", 1)
-    # relu_cond_reg guards when we should perform the relu execution group defined
-    # above.
-    relu_cond_reg = comp.reg(f"relu_cond_reg_r{row}", 1)
-    guard = relu_start_port & (~relu_finished_wire.out)
-    with comp.static_group(f"check_relu_cond_r{row}", 1):
-        relu_cond_wire.in_ = guard @ 1
-        relu_cond_reg.in_ = relu_cond_wire.out @ 1
-        relu_cond_reg.in_ = ~relu_cond_wire.out @ 0
-        relu_cond_reg.write_en = ~relu_finished_reg.out @ 1
 
 
 def get_memory_updates(row, col):
@@ -754,10 +785,11 @@ def generate_control(
             py_ast.Enable("init_min_depth"),
             py_ast.Enable("init_cond_reg"),
         ]
-        + [
-            py_ast.Enable(f"init_idx_between_{lo}_{hi}")
-            for (lo, hi) in filter(lambda x: x[1] is not None, nec_ranges)
-        ]
+        # + [
+        #     py_ast.Enable(f"init_idx_between_{lo}_{hi}")
+        #     for (lo, hi) in filter(lambda x: x[1] is not None, nec_ranges)
+        # ]
+        + [py_ast.Enable(f"init_idx_between_{lo}_{hi}") for (lo, hi) in nec_ranges]
     )
     if not leaky_relu:
         init_indices.append(py_ast.Enable("init_iter_limit"))
@@ -833,15 +865,15 @@ def generate_control(
     if leaky_relu:
         relu_execution = [py_ast.Enable("write_cond_reg")]
         for r in range(left_length):
-            relu_execution += execute_if_register(
+            relu_execution += execute_if_between(
                 comp,
-                comp.get_cell(f"relu_cond_reg_r{r}"),
+                schedules["relu_sched"][r][0],
+                schedules["relu_sched"][r][1],
                 [
                     py_ast.Enable(f"execute_relu_r{r}"),
                     py_ast.Enable(f"relu_r{r}_helper"),
                 ],
             )
-            relu_execution.append(py_ast.Enable(f"check_relu_cond_r{r}"))
 
     for start, end in nec_ranges:
         # build the control stmts that assign correct values to
@@ -1006,6 +1038,7 @@ def create_systolic_array(
         invoke_args[f"out_{name}_addr0"] = mem.addr0
         invoke_args[f"out_{name}_write_data"] = mem.write_data
         invoke_args[f"out_{name}_write_en"] = mem.write_en
+        invoke_args[f"in_{name}_done"] = mem.done
 
     invoke = cb.invoke(systolic_array, **invoke_args)
     main.control = invoke
@@ -1057,6 +1090,8 @@ if __name__ == "__main__":
 
     prog = cb.Builder()
     pe(prog, leaky_relu)
+    if leaky_relu:
+        leaky_relu_comp(prog)
     create_systolic_array(
         prog,
         top_length=top_length,
