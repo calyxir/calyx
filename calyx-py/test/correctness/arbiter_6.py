@@ -29,8 +29,8 @@ def add_wrap2(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells and groups to compute equality and lt
-    i_eq_0 = wrap.eq_use(i, 0, 32)
-    i_eq_1 = wrap.eq_use(i, 1, 32)
+    i_eq_0 = wrap.eq_use(i, 0)
+    i_eq_1 = wrap.eq_use(i, 1)
     j_lt_4 = wrap.lt_use(j, 4, 32)
     j_lt_8 = wrap.lt_use(j, 8, 32)
 
@@ -112,9 +112,9 @@ def add_wrap3(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells to compute equality, and lt
-    i_eq_0 = wrap.eq_use(i, 0, 32)
-    i_eq_1 = wrap.eq_use(i, 1, 32)
-    i_eq_2 = wrap.eq_use(i, 2, 32)
+    i_eq_0 = wrap.eq_use(i, 0)
+    i_eq_1 = wrap.eq_use(i, 1)
+    i_eq_2 = wrap.eq_use(i, 2)
     j_lt_4 = wrap.lt_use(j, 4, 32)
 
     # Load `j` unchanged into `j_mod_4`.

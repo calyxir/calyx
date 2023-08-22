@@ -144,6 +144,9 @@ class ComponentBuilder:
         # Give up.
         return None
 
+    def port_name(self, port: ExprBuilder) -> str:
+        return ExprBuilder.unwrap(port).item.id.name
+
     def get_cell(self, name: str) -> CellBuilder:
         """Retrieve a cell builder by name."""
         out = self.index.get(name)
@@ -424,11 +427,10 @@ class ComponentBuilder:
 
     def eq_use(self, left, right, width=None, cellname=None):
         """Inserts wiring into `self` to check if `left` == `right`."""
-        width = width or self.port_width(left) or self.port_width(right)
+        width = width or self.infer_width(left) or self.infer_width(right)
         if not width:
             raise WidthInferenceError(
-                f"Cannot infer width of expression {left} or {right}. "
-                "Consider providing a width argument."
+                "Cannot infer width; consider providing a width argument."
             )
         return self.binary_use(left, right, self.eq(width, cellname))
 
@@ -647,6 +649,18 @@ class ComponentBuilder:
             ans_reg.in_ = neq_cell.out
             neq_group.done = ans_reg.done
         return neq_group, ans_reg
+
+    def infer_width(self, expr) -> int:
+        """Infer the width of an expression.
+        For now, all we do is:
+        - gracefully give up in case of integeres
+        - return the width of a port if it is a port of this component
+
+        I'd like to expand further.
+        """
+        if isinstance(expr, int):
+            return None
+        return self.port_width(expr)
 
 
 @dataclass(frozen=True)
