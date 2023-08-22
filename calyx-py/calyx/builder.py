@@ -458,7 +458,7 @@ class ComponentBuilder:
         and put the result back into `reg`.
         """
         cellname = cellname or f"{reg.name}_not"
-        width = infer_width_reg(reg)
+        width = reg.infer_width("in")
         not_cell = self.not_(width, cellname)
         with self.group(f"{cellname}_group") as not_group:
             not_cell.in_ = reg.out
@@ -470,7 +470,7 @@ class ComponentBuilder:
     def incr(self, reg, val=1, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
-        width = infer_width_reg(reg)
+        width = reg.infer_width("in")
         add_cell = self.add(width, cellname)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
@@ -483,7 +483,7 @@ class ComponentBuilder:
     def decr(self, reg, val=1, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg - val`."""
         cellname = cellname or f"{reg.name}_decr"
-        width = infer_width_reg(reg)
+        width = reg.infer_width("in")
         sub_cell = self.sub(width, cellname)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
@@ -948,6 +948,60 @@ class CellBuilder(CellLikeBuilder):
         """Check if the cell is a SeqMemD1 cell."""
         return self.is_primitive("seq_mem_d1")
 
+    def infer_width(self, port_name) -> int:
+        inst = self._cell.comp
+        prim = inst.id
+        if prim == "std_reg":
+            if port_name == "in":
+                return inst.args[0]
+            if port_name == "write_en":
+                return 1
+            return None
+        # XXX(Caleb): add all the primitive names instead of adding whenever I need one
+        if prim in (
+            "std_add",
+            "std_sub",
+            "std_lt",
+            "std_le",
+            "std_ge",
+            "std_gt",
+            "std_eq",
+            "std_neq",
+            "std_sgt",
+            "std_slt",
+            "std_fp_sgt",
+            "std_fp_slt",
+        ):
+            if port_name in ("left", "right"):
+                return inst.args[0]
+        if prim in ("std_mem_d1", "seq_mem_d1"):
+            if port_name == "write_en":
+                return 1
+            if port_name == "addr0":
+                return inst.args[2]
+            if port_name == "in":
+                return inst.args[0]
+            if prim == "seq_mem_d1" and port_name == "read_en":
+                return 1
+        if prim in (
+            "std_mult_pipe",
+            "std_smult_pipe",
+            "std_mod_pipe",
+            "std_smod_pipe",
+            "std_div_pipe",
+            "std_sdiv_pipe",
+            "std_fp_smult_pipe",
+        ):
+            if port_name in ("left", "right"):
+                return inst.args[0]
+            if port_name == "go":
+                return 1
+        if prim == "std_wire" and port_name == "in":
+            return inst.args[0]
+
+        # Give up.
+        return None
+
     @property
     def name(self) -> str:
         """Get the name of the cell."""
@@ -1080,14 +1134,6 @@ def const(width: int, value: int) -> ExprBuilder:
     return ExprBuilder(ast.Atom(ast.ConstantPort(width, value)))
 
 
-def infer_width_reg(reg, port_name="in"):
-    if port_name == "in":
-        return reg._cell.comp.args[0]
-    if port_name == "write_en":
-        return 1
-    return None
-
-
 def infer_width(expr):
     """Try to guess the width of a port expression.
 
@@ -1115,60 +1161,7 @@ def infer_width(expr):
     if not isinstance(cell_builder, CellBuilder):
         return None
 
-    inst = cell_builder._cell.comp
-
-    # Extract widths from stdlib components we know.
-    prim = inst.id
-
-    if prim == "std_reg":
-        return infer_width_reg(cell_builder, port_name)
-
-    # XXX(Caleb): add all the primitive names instead of adding whenever I need one
-    elif prim in (
-        "std_add",
-        "std_sub",
-        "std_lt",
-        "std_le",
-        "std_ge",
-        "std_gt",
-        "std_eq",
-        "std_neq",
-        "std_sgt",
-        "std_slt",
-        "std_fp_sgt",
-        "std_fp_slt",
-    ):
-        if port_name == "left" or port_name == "right":
-            return inst.args[0]
-    elif prim == "std_mem_d1" or prim == "seq_mem_d1":
-        if port_name == "write_en":
-            return 1
-        elif port_name == "addr0":
-            return inst.args[2]
-        elif port_name == "in":
-            return inst.args[0]
-        if prim == "seq_mem_d1":
-            if port_name == "read_en":
-                return 1
-    elif prim in (
-        "std_mult_pipe",
-        "std_smult_pipe",
-        "std_mod_pipe",
-        "std_smod_pipe",
-        "std_div_pipe",
-        "std_sdiv_pipe",
-        "std_fp_smult_pipe",
-    ):
-        if port_name == "left" or port_name == "right":
-            return inst.args[0]
-        elif port_name == "go":
-            return 1
-    elif prim == "std_wire":
-        if port_name == "in":
-            return inst.args[0]
-
-    # Give up.
-    return None
+    return cell_builder.infer_width(port_name)
 
 
 def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
