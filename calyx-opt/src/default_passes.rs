@@ -91,7 +91,6 @@ impl PassManager {
                 CombProp,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
-                CompileRef, //Must run before cell-share, and before component-inliner
                 CompileInvoke, // creates dead comb groups
                 AttributePromotion,
                 StaticPromotion,

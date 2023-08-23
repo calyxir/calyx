@@ -14,8 +14,7 @@ type PortMap = Vec<(ir::Id, ir::RRC<ir::Port>)>;
 /// Map for storing added ports for each ref cell
 /// level of Hashmap represents:
 /// HashMap<-component name-, Hashmap<(-ref cell name-,-port name-), port>>;
-pub(super) type RefPortMap =
-    HashMap<ir::Id, HashMap<ir::Canonical, RRC<ir::Port>>>;
+type RefPortMap = HashMap<ir::Id, HashMap<ir::Canonical, RRC<ir::Port>>>;
 
 trait GetPorts {
     fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>>;
@@ -23,15 +22,8 @@ trait GetPorts {
 
 impl GetPorts for RefPortMap {
     fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>> {
-        if self.contains_key(comp_name) {
-            let mut ret = Vec::new();
-            for (_, p) in self[comp_name].iter() {
-                ret.push(Rc::clone(p));
-            }
-            Some(ret)
-        } else {
-            None
-        }
+        self.get(comp_name)
+            .map(|map| map.values().cloned().collect())
     }
 }
 

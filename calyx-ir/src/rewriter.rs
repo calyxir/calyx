@@ -1,6 +1,7 @@
 use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
 use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -256,5 +257,19 @@ impl Rewriter {
             ir::Control::Invoke(inv) => self.rewrite_invoke(inv),
             ir::Control::Static(s) => self.rewrite_static_control(s),
         }
+    }
+
+    /// Rewrite the component using the given maps
+    pub fn rewrite(&self, comp: &mut ir::Component) {
+        // Rewrite all of the ref cell ports
+        comp.for_each_assignment(|assign| {
+            self.rewrite_assign(assign);
+        });
+        comp.for_each_static_assignment(|assign| {
+            self.rewrite_assign(assign);
+        });
+        self.rewrite_control(&mut RefCell::borrow_mut(
+            comp.control.borrow_mut(),
+        ));
     }
 }
