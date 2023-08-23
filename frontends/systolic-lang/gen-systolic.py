@@ -127,10 +127,10 @@ def leaky_relu_comp(prog: cb.Builder):
     write_en_port = cb.ExprBuilder.unwrap(this.port(OUT_MEM + "_write_en"))
     write_done_port = this.port(OUT_MEM + "_done")
 
-    fp_mult = comp.fp_sop(f"fp_mult", "mult_pipe", BITWIDTH, INTWIDTH, FRACWIDTH)
-    lt = comp.fp_sop(f"val_lt", "lt", BITWIDTH, INTWIDTH, FRACWIDTH)
-    incr_idx = comp.add(BITWIDTH, f"incr_idx")
-    write_mem = comp.wire(f"write_mem", 1)
+    fp_mult = comp.fp_sop("fp_mult", "mult_pipe", BITWIDTH, INTWIDTH, FRACWIDTH)
+    lt = comp.fp_sop("val_lt", "lt", BITWIDTH, INTWIDTH, FRACWIDTH)
+    incr_idx = comp.add(BITWIDTH, "incr_idx")
+    write_mem = comp.wire("write_mem", 1)
 
     with comp.continuous:
         # gt holds whether this.value > 0
