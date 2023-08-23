@@ -69,6 +69,7 @@ def generate_fp_pow_component(
         execute_mul.done = pow.done
 
     incr_count = comp.incr(count, width, 1, is_signed)
+
     cond = comp.lt_use(count.out, comp.this().integer_exp, width, is_signed)
 
     with comp.continuous:
@@ -93,7 +94,6 @@ def generate_cells(
     comp.and_(width, "and0")
     comp.and_(width, "and1")
     comp.rsh(width, "rsh")
-
     if is_signed:
         comp.lt(width, "lt", is_signed)
 
@@ -561,7 +561,7 @@ def generate_fp_pow_full(
     comp.input("base", width)
     comp.input("exp_value", width)
     comp.output("out", width)
-    lt = comp.lt(width, "lt", is_signed)
+
     div = comp.cell(
         "div",
         Stdlib.fixed_point_op(
@@ -603,12 +603,14 @@ def generate_fp_pow_full(
         )
         gen_reverse_sign(comp, "rev_base_sign", new_base_reg, mult, const_neg_one),
         gen_reverse_sign(comp, "rev_res_sign", res, mult, const_neg_one),
+
         base_lt_zero = comp.lt_use(
             comp.this().base,
             const_zero.out,
             width,
             is_signed,
         )
+
     new_exp_val = comp.reg("new_exp_val", width)
     e = comp.comp_instance("e", "exp", check_undeclared=False)
     ln = comp.comp_instance("l", "ln", check_undeclared=False)
