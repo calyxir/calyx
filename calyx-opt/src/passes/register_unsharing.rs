@@ -163,8 +163,10 @@ impl Bookkeeper {
         for (grp, rename_cells) in grp_map {
             let group_ref = comp.find_group(grp).unwrap();
             let mut group = group_ref.borrow_mut();
-            let empty_map = HashMap::new();
-            let rewriter = ir::Rewriter::new(&rename_cells, &empty_map);
+            let rewriter = ir::Rewriter {
+                cell_map: rename_cells,
+                ..Default::default()
+            };
             group
                 .assignments
                 .iter_mut()
@@ -198,14 +200,18 @@ impl Visitor for RegisterUnsharing {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let book = &self.bookkeeper;
+        let book = &mut self.bookkeeper;
 
         if let Some(name) = book.analysis.meta.fetch_label(invoke) {
             // only do rewrites if there is actually rewriting to do
-            if let Some(rename_vec) = book.invoke_map.get(name) {
-                let empty_map = HashMap::new();
-                let rewriter = ir::Rewriter::new(rename_vec, &empty_map);
-                rewriter.rewrite_invoke(invoke, &HashMap::new());
+            if let Some(rename_vec) = book.invoke_map.get_mut(name) {
+                let cell_map = std::mem::take(rename_vec);
+                let rewriter = ir::Rewriter {
+                    cell_map,
+                    ..Default::default()
+                };
+                rewriter.rewrite_invoke(invoke);
+                *rename_vec = rewriter.cell_map;
             }
         }
 
@@ -219,14 +225,18 @@ impl Visitor for RegisterUnsharing {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let book = &self.bookkeeper;
+        let book = &mut self.bookkeeper;
 
         if let Some(name) = book.analysis.meta.fetch_label_static(invoke) {
             // only do rewrites if there is actually rewriting to do
-            if let Some(rename_vec) = book.invoke_map.get(name) {
-                let empty_map = HashMap::new();
-                let rewriter = ir::Rewriter::new(rename_vec, &empty_map);
+            if let Some(rename_vec) = book.invoke_map.get_mut(name) {
+                let cell_map = std::mem::take(rename_vec);
+                let rewriter = ir::Rewriter {
+                    cell_map,
+                    ..Default::default()
+                };
                 rewriter.rewrite_static_invoke(invoke);
+                *rename_vec = rewriter.cell_map;
             }
         }
 

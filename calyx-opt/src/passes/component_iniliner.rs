@@ -290,21 +290,25 @@ impl ComponentInliner {
 
         // Rewrites to inline the interface.
         let interface_map = Self::inline_interface(builder, comp, name);
-        let rewrite = ir::Rewriter::new(&cell_map, &interface_map);
+        let mut rewrite = ir::Rewriter {
+            cell_map,
+            port_map: interface_map,
+            ..Default::default()
+        };
 
         // For each group, create a new group and rewrite all assignments within
         // it using the `rewrite_map`.
-        let group_map: rewriter::RewriteMap<ir::Group> = comp
+        rewrite.group_map = comp
             .get_groups()
             .iter()
             .map(|gr| Self::inline_group(builder, &rewrite, gr))
             .collect();
-        let static_group_map: rewriter::RewriteMap<ir::StaticGroup> = comp
+        rewrite.static_group_map = comp
             .get_static_groups()
             .iter()
             .map(|gr| Self::inline_static_group(builder, &rewrite, gr))
             .collect();
-        let comb_group_map: rewriter::RewriteMap<ir::CombGroup> = comp
+        rewrite.comb_group_map = comp
             .comb_groups
             .iter()
             .map(|gr| Self::inline_comb_group(builder, &rewrite, gr))
@@ -320,17 +324,12 @@ impl ComponentInliner {
 
         // Generate a control program associated with this instance
         let mut con = ir::Cloner::control(&comp.control.borrow());
-        rewrite.rewrite_control(
-            &mut con,
-            &group_map,
-            &comb_group_map,
-            &static_group_map,
-        );
+        rewrite.rewrite_control(&mut con);
 
         // Generate interface map for use in the parent cell.
         // Return as an iterator because it's immediately merged into the global rewrite map.
         let rev_interface_map =
-            interface_map.into_iter().map(move |(cp, pr)| {
+            rewrite.port_map.into_iter().map(move |(cp, pr)| {
                 let ir::Canonical(_, p) = cp;
                 let port = pr.borrow();
                 let np = match port.name.id.as_str() {
