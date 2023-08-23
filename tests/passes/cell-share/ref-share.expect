@@ -1,0 +1,34 @@
+import "primitives/compile.futil";
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    ref r1 = std_reg(32);
+    ref r2 = std_reg(32);
+  }
+  wires {
+    group write_r1 {
+      r1.in = 32'd0;
+      r1.write_en = 1'd1;
+      write_r1[done] = r1.done;
+    }
+    group write_r2 {
+      r2.in = 32'd0;
+      r2.write_en = 1'd1;
+      write_r2[done] = r2.done;
+    }
+  }
+  control {
+    seq {
+      write_r1;
+      write_r2;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    f = foo();
+  }
+  wires {}
+  control {
+    invoke f[r1 = r1,r2 = r2]()();
+  }
+}
