@@ -346,6 +346,10 @@ class ComponentBuilder:
         """Generate a StdLe cell."""
         return self.binary("le", size, name, signed)
 
+    def rsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+        """Generate a StdRsh cell."""
+        return self.binary("rsh", size, name, signed)
+
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)
@@ -354,10 +358,12 @@ class ComponentBuilder:
 
     def and_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdAnd cell."""
+        name = name or self.generate_name("and")
         return self.logic("and", size, name)
 
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
+        name = name or self.generate_name("not")
         return self.logic("not", size, name)
 
     def pipelined_mult(self, name: str) -> CellBuilder:
@@ -422,7 +428,7 @@ class ComponentBuilder:
             cell.right = right
         return CellAndGroup(cell, comb_group)
 
-    def eq_use(self, left, right, width=None, cellname=None):
+    def eq_use(self, left, right, width=None, signed=False, cellname=None):
         """Inserts wiring into `self` to check if `left` == `right`."""
         width = width or self.infer_width(left) or self.infer_width(right)
         if not width:
@@ -430,35 +436,42 @@ class ComponentBuilder:
                 "Cannot infer widths from `left` or `right` to create an eq cell. "
                 "Consider providing width as an argument."
             )
-        return self.binary_use(left, right, self.eq(width, cellname))
+        return self.binary_use(left, right, self.eq(width, cellname, signed))
 
-    def neq_use(self, left, right, width, cellname=None):
+    def neq_use(self, left, right, width, signed=False, cellname=None):
         """Inserts wiring into `self` to check if `left` != `right`."""
-        return self.binary_use(left, right, self.neq(width, cellname))
+        return self.binary_use(left, right, self.neq(width, cellname, signed))
 
-    def lt_use(self, left, right, width, cellname=None):
+    def lt_use(self, left, right, width, signed=False, cellname=None):
         """Inserts wiring into `self` to check if `left` < `right`."""
-        return self.binary_use(left, right, self.lt(width, cellname))
+        return self.binary_use(left, right, self.lt(width, cellname, signed))
 
     def le_use(self, left, right, width, cellname=None):
         """Inserts wiring into `self` to check if `left` <= `right`."""
-        return self.binary_use(left, right, self.le(width, cellname))
+        return self.binary_use(left, right, self.le(width, cellname, signed))
 
-    def ge_use(self, left, right, width, cellname=None):
+    def ge_use(self, left, right, width, signed=False, cellname=None):
         """Inserts wiring into `self` to check if `left` >= `right`."""
-        return self.binary_use(left, right, self.ge(width, cellname))
+        return self.binary_use(left, right, self.ge(width, cellname, signed))
 
-    def gt_use(self, left, right, width, cellname=None):
+    def gt_use(self, left, right, width, signed=False, cellname=None):
         """Inserts wiring into `self` to check if `left` > `right`."""
-        return self.binary_use(left, right, self.gt(width, cellname))
+        return self.binary_use(left, right, self.gt(width, cellname, signed))
 
-    def add_use(self, left, right, width, cellname=None):
+    def add_use(self, left, right, width, signed=False, cellname=None):
         """Inserts wiring into `self` to compute `left` + `right`."""
-        return self.binary_use(left, right, self.add(width, cellname))
+        return self.binary_use(left, right, self.add(width, cellname, signed))
 
-    def sub_use(self, left, right, width, cellname=None):
+    def sub_use(self, left, right, width, signed=False, cellname=None):
         """Inserts wiring into `self` to compute `left` - `right`."""
-        return self.binary_use(left, right, self.sub(width, cellname))
+        return self.binary_use(
+            left,
+            right,
+            self.sub(
+                width,
+                cellname,
+            ),
+        )
 
     def bitwise_flip_reg(self, reg, cellname=None):
         """Inserts wiring into `self` to bitwise-flip the contents of `reg`
