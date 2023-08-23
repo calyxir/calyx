@@ -263,7 +263,7 @@ impl Visitor for CompileInvoke {
             dump_ports::dump_ports_to_signature(
                 comp,
                 |cell| cell.borrow().is_reference(),
-                false,
+                true,
             );
 
         // Hold onto the cells so they don't get dropped.

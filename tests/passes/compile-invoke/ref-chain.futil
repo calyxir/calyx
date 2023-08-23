@@ -1,5 +1,6 @@
-// -p validate -p compile-ref
+// -p validate -p compile-invoke
 import "primitives/compile.futil";
+
 component main() -> () {
   cells {
     i = incr();
