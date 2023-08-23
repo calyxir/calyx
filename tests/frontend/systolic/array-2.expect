@@ -27,7 +27,7 @@ static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
     }
   }
 }
-component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_read_data: 32, l1_read_data: 32) -> (t0_addr0: 2, t1_addr0: 2, l0_addr0: 2, l1_addr0: 2, out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1, out_mem_1_addr0: 32, out_mem_1_write_data: 32, out_mem_1_write_en: 1) {
+component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_read_data: 32, l1_read_data: 32, out_mem_0_done: 1, out_mem_1_done: 1) -> (t0_addr0: 2, t1_addr0: 2, l0_addr0: 2, l1_addr0: 2, out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1, out_mem_1_addr0: 32, out_mem_1_write_data: 32, out_mem_1_write_en: 1) {
   cells {
     min_depth_4 = std_reg(32);
     lt_depth_4 = std_lt(32);
@@ -67,7 +67,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
     idx = std_reg(32);
     idx_add = std_add(32);
     cond_reg = std_reg(1);
-    lt_iter_limit = std_lt(32);
     idx_between_5_depth_plus_5_reg = std_reg(1);
     index_lt_depth_plus_5 = std_lt(32);
     index_ge_5 = std_ge(32);
@@ -113,6 +112,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
     index_lt_depth_plus_8 = std_lt(32);
     index_ge_depth_plus_7 = std_ge(32);
     idx_between_depth_plus_7_depth_plus_8_comb = std_and(1);
+    lt_iter_limit = std_lt(32);
   }
   wires {
     static<1> group init_min_depth {
@@ -280,12 +280,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
     }
     static<1> group init_cond_reg {
       cond_reg.in = 1'd1;
-      cond_reg.write_en = 1'd1;
-    }
-    static<1> group lt_iter_limit_group {
-      lt_iter_limit.left = idx_add.out;
-      lt_iter_limit.right = iter_limit.out;
-      cond_reg.in = lt_iter_limit.out;
       cond_reg.write_en = 1'd1;
     }
     static<1> group idx_between_5_depth_plus_5_group {
@@ -466,6 +460,12 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
       idx_between_depth_plus_7_depth_plus_8_reg.in = 1'd0;
       idx_between_depth_plus_7_depth_plus_8_reg.write_en = 1'd1;
     }
+    static<1> group lt_iter_limit_group {
+      lt_iter_limit.left = idx_add.out;
+      lt_iter_limit.right = iter_limit.out;
+      cond_reg.in = lt_iter_limit.out;
+      cond_reg.write_en = 1'd1;
+    }
   }
   control {
     seq {
@@ -616,17 +616,17 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
             idx_between_2_min_depth_4_plus_2_group;
             idx_between_6_depth_plus_6_group;
             idx_between_depth_plus_7_depth_plus_8_group;
-            depth_plus_5_group;
-            depth_plus_2_group;
-            depth_plus_7_group;
             depth_plus_0_group;
-            min_depth_4_plus_1_group;
             depth_plus_1_group;
-            depth_plus_6_group;
-            min_depth_4_plus_3_group;
+            depth_plus_2_group;
             depth_plus_3_group;
-            min_depth_4_plus_2_group;
+            depth_plus_5_group;
+            depth_plus_6_group;
+            depth_plus_7_group;
             depth_plus_8_group;
+            min_depth_4_plus_1_group;
+            min_depth_4_plus_2_group;
+            min_depth_4_plus_3_group;
           }
         }
       }
@@ -647,7 +647,7 @@ component main() -> () {
 
   }
   control {
-    invoke systolic_array(depth=32'd3, t0_read_data=t0.read_data, t1_read_data=t1.read_data, l0_read_data=l0.read_data, l1_read_data=l1.read_data)(t0_addr0=t0.addr0, t1_addr0=t1.addr0, l0_addr0=l0.addr0, l1_addr0=l1.addr0, out_mem_0_addr0=out_mem_0.addr0, out_mem_0_write_data=out_mem_0.write_data, out_mem_0_write_en=out_mem_0.write_en, out_mem_1_addr0=out_mem_1.addr0, out_mem_1_write_data=out_mem_1.write_data, out_mem_1_write_en=out_mem_1.write_en);
+    invoke systolic_array(depth=32'd3, t0_read_data=t0.read_data, t1_read_data=t1.read_data, l0_read_data=l0.read_data, l1_read_data=l1.read_data, out_mem_0_done=out_mem_0.done, out_mem_1_done=out_mem_1.done)(t0_addr0=t0.addr0, t1_addr0=t1.addr0, l0_addr0=l0.addr0, l1_addr0=l1.addr0, out_mem_0_addr0=out_mem_0.addr0, out_mem_0_write_data=out_mem_0.write_data, out_mem_0_write_en=out_mem_0.write_en, out_mem_1_addr0=out_mem_1.addr0, out_mem_1_write_data=out_mem_1.write_data, out_mem_1_write_en=out_mem_1.write_en);
   }
 }
 metadata #{

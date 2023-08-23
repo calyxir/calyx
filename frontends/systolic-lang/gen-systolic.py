@@ -16,6 +16,21 @@ OUT_MEM = "out_mem"
 PE_NAME = "mac_pe"
 DEPTH = "depth"
 
+# Naming scheme for generated groups. Used to keep group names consistent
+# across structure and control.
+NAME_SCHEME = {
+    # Indexing into the memory
+    "index name": "{prefix}_idx",
+    "index init": "{prefix}_idx_init",
+    "index update": "{prefix}_idx_update",
+    # Move data from main memories
+    "memory move": "{prefix}_move",
+    "out mem move": "{pe}_out_write",
+    # Move data between internal registers
+    "register move down": "{pe}_down_move",
+    "register move right": "{pe}_right_move",
+}
+
 
 class CalyxAdd:
     """
@@ -37,19 +52,25 @@ class CalyxAdd:
     def __hash__(self):
         return hash(self.const)
 
-    def __repr__(self):
-        return (
-            str(cb.ExprBuilder.unwrap(self.port).item.id.name)
-            + "_plus_"
-            + str(self.const)
-        )
-
     def __str__(self):
         return (
             str(cb.ExprBuilder.unwrap(self.port).item.id.name)
             + "_plus_"
             + str(self.const)
         )
+
+    def build_group(self, comp: cb.ComponentBuilder) -> cb.GroupBuilder:
+        """
+        Builds a static Calyx group (latency 1) that implemnets `self`
+        Note that we avoid creating duplicate groups.
+        """
+        group_name = str(self) + "_group"
+        if comp.try_get_group(group_name) is None:
+            add = comp.add(BITWIDTH, str(self))
+            with comp.static_group(group_name, 1):
+                add.left = self.port
+                add.right = self.const
+        return group_name
 
 
 def pe(prog: cb.Builder, leaky_relu):
@@ -95,8 +116,9 @@ def leaky_relu_comp(prog: cb.Builder):
     comp = prog.component(name="leaky_relu")
     comp.input("value", BITWIDTH)
     comp.input("index", BITWIDTH)
-    add_write_mem_argument(comp, OUT_MEM, BITWIDTH)
-    add_register_argument(comp, "idx_reg")
+    # Takes a memory and register (i.e., arguments that essentially act as ref cells)
+    add_write_mem_arguments(comp, OUT_MEM, BITWIDTH)
+    add_register_arguments(comp, "idx_reg")
 
     this = comp.this()
 
@@ -120,43 +142,58 @@ def leaky_relu_comp(prog: cb.Builder):
         # a) multiplier is done, so we write fp_mult.out to mem
         # b) this.value >=0 (i.e., !(this.value < 0)) so we write this.value to mem
         write_mem.in_ = (fp_mult.done | ~lt.out) @ 1
-        # trigger the multiplier when we're not writing to memory
+        # Trigger the multiplier when we're not writing to memory.
         fp_mult.left = numeric_types.FixedPoint(
             str(float_to_fixed_point(0.01, FRACWIDTH)), BITWIDTH, INTWIDTH, True
         ).unsigned_integer()
         fp_mult.right = this.value
         fp_mult.go = ~(write_mem.out) @ 1
 
-        # increment idx_reg while we are writing to memory.
+        # Increment idx_reg during the cycle that we write to memory.
         incr_idx.left = this.idx_reg_out
         incr_idx.right = 1
         this.idx_reg_in = write_mem.out @ incr_idx.out
         this.idx_reg_write_en = write_mem.out @ 1
 
-        # write to memory
+        # Write to memory.
         g.asgn(write_en_port, 1, write_mem.out)
         g.asgn(addr0_port, this.index)
         g.asgn(write_data_port, this.value, ~lt.out)
         g.asgn(write_data_port, fp_mult.out, lt.out)
+        # Groups is done once we have written to memory.
         g.done = write_done_port
 
     comp.control = py_ast.Enable("do_relu")
 
 
-# Naming scheme for generated groups. Used to keep group names consistent
-# across structure and control.
-NAME_SCHEME = {
-    # Indexing into the memory
-    "index name": "{prefix}_idx",
-    "index init": "{prefix}_idx_init",
-    "index update": "{prefix}_idx_update",
-    # Move data from main memories
-    "memory move": "{prefix}_move",
-    "out mem move": "{pe}_out_write",
-    # Move data between internal registers
-    "register move down": "{pe}_down_move",
-    "register move right": "{pe}_right_move",
-}
+def add_read_mem_arguments(comp: cb.ComponentBuilder, name, addr_width):
+    """
+    Add arguments to component `comp` if we want to read from a mem named `name` with
+    width of `addr_width`
+    """
+    comp.input(f"{name}_read_data", BITWIDTH)
+    comp.output(f"{name}_addr0", addr_width)
+
+
+def add_write_mem_arguments(comp: cb.ComponentBuilder, name, addr_width):
+    """
+    Add arguments to component `comp` if we want to write to a mem named `name` with
+    width of `addr_width` inside `comp.`
+    """
+    comp.output(f"{name}_addr0", addr_width)
+    comp.output(f"{name}_write_data", BITWIDTH)
+    comp.output(f"{name}_write_en", 1)
+    comp.input(f"{name}_done", 1)
+
+
+def add_register_arguments(comp: cb.ComponentBuilder, name):
+    """
+    Add arguments to component `comp` if we want to use a register named
+    `name` inside `comp.`
+    """
+    comp.output(f"{name}_write_en", 1)
+    comp.output(f"{name}_in", BITWIDTH)
+    comp.input(f"{name}_out", BITWIDTH)
 
 
 def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuilder:
@@ -192,36 +229,6 @@ def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuil
     return reg
 
 
-def add_read_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
-    """
-    Add arguments to component `comp` if we want to read from a mem named `name` with
-    width of `addr_width`
-    """
-    comp.input(f"{name}_read_data", BITWIDTH)
-    comp.output(f"{name}_addr0", addr_width)
-
-
-def add_write_mem_argument(comp: cb.ComponentBuilder, name, addr_width):
-    """
-    Add arguments to component `comp` if we want to write to a mem named `name` with
-    width of `addr_width` inside `comp.`
-    """
-    comp.output(f"{name}_addr0", addr_width)
-    comp.output(f"{name}_write_data", BITWIDTH)
-    comp.output(f"{name}_write_en", 1)
-    comp.input(f"{name}_done", 1)
-
-
-def add_register_argument(comp: cb.ComponentBuilder, name):
-    """
-    Add arguments to component `comp` if we want to write to use a register named
-    `name` inside `comp.`
-    """
-    comp.output(f"{name}_write_en", 1)
-    comp.output(f"{name}_in", BITWIDTH)
-    comp.input(f"{name}_out", BITWIDTH)
-
-
 def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     """
     Instantiates:
@@ -241,7 +248,7 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
 
     idx_width = bits_needed(size)
     # Instantiate the memory
-    add_read_mem_argument(comp, name, idx_width)
+    add_read_mem_arguments(comp, name, idx_width)
     this = comp.this()
     addr0_port = cb.ExprBuilder.unwrap(this.port(name + "_addr0"))
     read_data_port = this.port(name + "_read_data")
@@ -310,30 +317,38 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col, cols):
         g.asgn(write_en_port, 1)
 
 
-def instantiate_relu_cond_reg(
-    comp: cb.ComponentBuilder,
-    num_rows,
-):
+def instantiate_cond_reg_group(comp: cb.ComponentBuilder, num_rows, leaky_relu):
     """
     Writes into `cond_reg`, the condition register for the while loop.
-    `cond_reg` basically checks whether the relu operation has finished yet
-    for all rows of the array. If so, it sets `cond_reg` to lo. Otherwise it
-    sets it to high.
+    For leaky relu, it checks whether all rows have finished with their
+    relu operations.
+    For the non leaky relu, it checks the iteration count.
     """
     cond_reg = comp.get_cell("cond_reg")
-    cond_wire = comp.wire("cond_wire", 1)
-    for r in range(num_rows):
-        relu_finished_wire = comp.get_cell(f"relu_finished_wire_r{r}")
-        if r == 0:
-            guard = relu_finished_wire.out
-        else:
-            guard = guard & relu_finished_wire.out
-
-    with comp.static_group("write_cond_reg", 1):
-        cond_wire.in_ = guard @ 1
-        cond_reg.in_ = ~cond_wire.out @ 1
-        cond_reg.in_ = cond_wire.out @ 0
-        cond_reg.write_en = 1
+    if leaky_relu:
+        # Check if all relu operations have finished for each row
+        cond_wire = comp.wire("cond_wire", 1)
+        for r in range(num_rows):
+            relu_finished_wire = comp.get_cell(f"relu_finished_wire_r{r}")
+            if r == 0:
+                guard = relu_finished_wire.out
+            else:
+                guard = guard & relu_finished_wire.out
+        with comp.static_group("write_cond_reg", 1):
+            cond_wire.in_ = guard @ 1
+            cond_reg.in_ = ~cond_wire.out @ 1
+            cond_reg.in_ = cond_wire.out @ 0
+            cond_reg.write_en = 1
+    else:
+        # Check iteration count
+        iter_limit = comp.get_cell("iter_limit")
+        add = comp.get_cell("idx_add")
+        lt_iter_limit = comp.lt(BITWIDTH, "lt_iter_limit")
+        with comp.static_group("lt_iter_limit_group", 1):
+            lt_iter_limit.left = add.out
+            lt_iter_limit.right = iter_limit.out
+            cond_reg.in_ = lt_iter_limit.out
+            cond_reg.write_en = 1
 
 
 def gen_schedules(
@@ -420,35 +435,22 @@ def accum_nec_ranges(nec_ranges, schedule):
     return nec_ranges
 
 
-def try_build_calyx_add(comp, obj):
-    """
-    Attempts to build an adder for obj, with name str(obj) and group name
-    str(obj) + "_group" that adds obj.port and obj.const
-    Returns true if we actually build it
-    Returns false otherwise
-    """
-    if type(obj) == CalyxAdd:
-        add_str = str(obj)
-        if comp.try_get_cell(add_str) is None:
-            add = comp.add(BITWIDTH, add_str)
-            with comp.static_group(add_str + "_group", 1):
-                add.left = obj.port
-                add.right = obj.const
-            return True
-    return False
-
-
-def instantiate_calyx_adds(comp, nec_ranges):
+def instantiate_calyx_adds(comp, nec_ranges) -> list:
     """
     Instantiates the CalyxAdds objects to adders and actual groups that add things
     """
-    depth_adders = []
+    calyx_add_groups = set()
     for lo, hi in nec_ranges:
-        if try_build_calyx_add(comp, lo):
-            depth_adders.append(str(lo) + "_group")
-        if try_build_calyx_add(comp, hi):
-            depth_adders.append(str(hi) + "_group")
-    return depth_adders
+        if type(lo) == CalyxAdd:
+            group_name = lo.build_group(comp)
+            calyx_add_groups.add(group_name)
+        if type(hi) == CalyxAdd:
+            group_name = hi.build_group(comp)
+            calyx_add_groups.add(group_name)
+    group_list = list(calyx_add_groups)
+    # sort for testing purposes
+    group_list.sort()
+    return group_list
 
 
 def instantiate_idx_cond_groups(comp: cb.ComponentBuilder, leaky_relu):
@@ -471,17 +473,6 @@ def instantiate_idx_cond_groups(comp: cb.ComponentBuilder, leaky_relu):
     with comp.static_group("init_cond_reg", 1):
         cond_reg.in_ = 1
         cond_reg.write_en = 1
-    # Only check iter_limit if not leaky_relu.
-    # For leaky_relu we don't check iterations, we check if the relu
-    # operations are finished yet
-    if not leaky_relu:
-        iter_limit = comp.get_cell("iter_limit")
-        lt_iter_limit = comp.lt(BITWIDTH, "lt_iter_limit")
-        with comp.static_group("lt_iter_limit_group", 1):
-            lt_iter_limit.left = add.out
-            lt_iter_limit.right = iter_limit.out
-            cond_reg.in_ = lt_iter_limit.out
-            cond_reg.write_en = 1
 
 
 def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, rem_iter_limit, leaky_relu):
@@ -626,7 +617,7 @@ def instantiate_relu_groups(comp: cb.ComponentBuilder, row, top_length):
     # Wire that tells us we are finished with relu operation for this row.
     relu_finished_wire = comp.wire(f"relu_finished_wire_r{row}", 1)
 
-    # Annoying memory port stuff because we can't use ref cells
+    # Annoying memory stuff because we can't use ref cells
     this = comp.this()
     mem_name = OUT_MEM + f"_{row}"
     addr0_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_addr0"))
@@ -729,22 +720,6 @@ def execute_if_between(comp: cb.ComponentBuilder, start, end, body):
     ]
 
 
-def execute_if_register(comp: cb.ComponentBuilder, register, body):
-    """
-    body is a list of control stmts
-    if body is empty, return an empty list
-    otherwise, builds an if stmt that executes body in parallel reg.out is high
-    """
-    if not body:
-        return []
-    return [
-        cb.static_if(
-            register.out,
-            py_ast.StaticParComp(body),
-        )
-    ]
-
-
 def generate_control(
     comp: cb.ComponentBuilder,
     top_length,
@@ -752,7 +727,7 @@ def generate_control(
     left_length,
     left_depth,
     schedules,
-    depth_adders,
+    calyx_add_groups,
     nec_ranges,
     leaky_relu,
 ):
@@ -785,10 +760,6 @@ def generate_control(
             py_ast.Enable("init_min_depth"),
             py_ast.Enable("init_cond_reg"),
         ]
-        # + [
-        #     py_ast.Enable(f"init_idx_between_{lo}_{hi}")
-        #     for (lo, hi) in filter(lambda x: x[1] is not None, nec_ranges)
-        # ]
         + [py_ast.Enable(f"init_idx_between_{lo}_{hi}") for (lo, hi) in nec_ranges]
     )
     if not leaky_relu:
@@ -879,8 +850,8 @@ def generate_control(
         # build the control stmts that assign correct values to
         # idx_between_{start}_{end}_reg, which is what the if stmts above^ rely on
         incr_stmts.append(py_ast.Enable(f"idx_between_{start}_{end}_group"))
-    for depth_adder_group in depth_adders:
-        incr_stmts.append(py_ast.Enable(depth_adder_group))
+    for calyx_add_group in calyx_add_groups:
+        incr_stmts.append(py_ast.Enable(calyx_add_group))
 
     while_ctrl = [py_ast.StaticParComp(control_stmts), py_ast.StaticParComp(incr_stmts)]
     if leaky_relu:
@@ -929,7 +900,7 @@ def create_systolic_array(
     nec_ranges = set()
     for sched in schedules.values():
         accum_nec_ranges(nec_ranges, sched)
-    depth_adders = instantiate_calyx_adds(computational_unit, nec_ranges)
+    calyx_add_groups = instantiate_calyx_adds(computational_unit, nec_ranges)
 
     for row in range(left_length):
         for col in range(top_length):
@@ -946,7 +917,7 @@ def create_systolic_array(
     idx_width = BITWIDTH
     # Instantiate output memory
     for i in range(left_length):
-        add_write_mem_argument(computational_unit, OUT_MEM + f"_{i}", idx_width)
+        add_write_mem_arguments(computational_unit, OUT_MEM + f"_{i}", idx_width)
 
     # Instantiate all the PEs
     for row in range(left_length):
@@ -973,11 +944,12 @@ def create_systolic_array(
         instantiate_init_group(computational_unit, start, end)
 
     if leaky_relu:
-        # Instantiate groups to compute Relu.
+        # Instantiate groups to compute relu.
         for row in range(left_length):
             instantiate_relu_groups(computational_unit, row, top_length)
-        # Write into the cond reg of the while loop.
-        instantiate_relu_cond_reg(computational_unit, left_length)
+
+    # Instantiate group that writes into the cond reg of the while loop.
+    instantiate_cond_reg_group(computational_unit, left_length, leaky_relu)
 
     # Generate the control and set the source map
     control, source_map = generate_control(
@@ -987,16 +959,16 @@ def create_systolic_array(
         left_length,
         left_depth,
         schedules,
-        depth_adders,
+        calyx_add_groups,
         nec_ranges,
         leaky_relu,
     )
     computational_unit.control = control
     prog.program.meta = source_map
 
-    # build the main component
-    # instantaites the systolic array/computational_unit and the mems,
-    # and then invokes it
+    # Build the main component.
+    # Instantiates the systolic array/computational_unit and the mems,
+    # and then invokes it.
     main = prog.component("main")
     systolic_array = main.cell("systolic_array", computational_unit)
     invoke_args = {}

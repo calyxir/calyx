@@ -172,6 +172,14 @@ class ComponentBuilder:
                 f"Group `{name}' not found in component {self.component.name}"
             )
 
+    def try_get_group(self, name: str) -> GroupBuilder:
+        """Tries to get a group builder by name. If cannot find it, return None"""
+        out = self.index.get(name)
+        if out and isinstance(out, GroupBuilder):
+            return out
+        else:
+            return None
+
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
