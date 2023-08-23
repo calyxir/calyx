@@ -2,7 +2,6 @@ use super::dump_ports;
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::CalyxResult;
-use std::collections::HashMap;
 
 /// Externalize input/output ports for cells marked with the `@external(1)` attribute.
 /// The ports of these cells are exposed through the ports of the parent
