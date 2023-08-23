@@ -487,7 +487,7 @@ class ComponentBuilder:
         add_cell = self.add(width, cellname, signed)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
-            add_cell.right = val
+            add_cell.right = const(width, val)
             reg.write_en = 1
             reg.in_ = add_cell.out
             incr_group.done = reg.done
@@ -500,7 +500,7 @@ class ComponentBuilder:
         sub_cell = self.sub(width, cellname, signed)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
-            sub_cell.right = val
+            sub_cell.right = const(width, val)
             reg.write_en = 1
             reg.in_ = sub_cell.out
             decr_group.done = reg.done
