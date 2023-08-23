@@ -49,8 +49,6 @@ def generate_fp_pow_component(
             "mult_pipe", width, int_width, frac_width, signed=is_signed
         ),
     )
-    lt = comp.cell("lt", Stdlib.op("lt", width, signed=is_signed))
-    incr = comp.cell("incr", Stdlib.op("add", width, signed=is_signed))
 
     # groups
     with comp.group("init") as init:
@@ -70,27 +68,13 @@ def generate_fp_pow_component(
         pow.in_ = mul.out
         execute_mul.done = pow.done
 
-    with comp.group("incr_count") as incr_count:
-        incr.left = const(width, 1)
-        incr.right = count.out
-        count.in_ = incr.out
-        count.write_en = 1
-        incr_count.done = count.done
-
-    with comp.comb_group("cond") as cond:
-        lt.left = count.out
-        lt.right = comp.this().integer_exp
+    incr_count = comp.incr(count, width, 1, is_signed)
+    cond = comp.lt_use(count.out, comp.this().integer_exp, width, is_signed)
 
     with comp.continuous:
         comp.this().out = pow.out
 
-    comp.control += [
-        init,
-        while_with(
-            CellAndGroup(lt, cond),
-            par(execute_mul, incr_count),
-        ),
-    ]
+    comp.control += [init, while_with(cond, par(execute_mul, incr_count))]
 
     return comp.component
 
@@ -105,11 +89,13 @@ def generate_cells(
     comp.reg("int_x", width)
     comp.reg("frac_x", width)
     comp.reg("m", width)
-    comp.cell("and0", Stdlib.op("and", width, signed=False))
-    comp.cell("and1", Stdlib.op("and", width, signed=False))
-    comp.cell("rsh", Stdlib.op("rsh", width, signed=False))
+
+    comp.and_(width, "and0")
+    comp.and_(width, "and1")
+    comp.rsh(width, "rsh")
+
     if is_signed:
-        comp.cell("lt", Stdlib.op("lt", width, signed=is_signed))
+        comp.lt(width, "lt", is_signed)
 
     # constants
     for i in range(2, degree + 1):
@@ -541,21 +527,6 @@ def gen_reverse_sign(
         group.done = base_cell.done
 
 
-def gen_comb_lt(
-    comp: ComponentBuilder,
-    name: str,
-    lhs: ExprBuilder,
-    lt: CellBuilder,
-    const_cell: CellBuilder,
-):
-    """
-    Generates lhs < const_cell
-    """
-    with comp.comb_group(name):
-        lt.left = lhs
-        lt.right = const_cell.out
-
-
 # This appears to be unused. Brilliant.
 # TODO (griffin): Double check that this is unused and, if so, remove it.
 def gen_constant_cell(
@@ -590,7 +561,7 @@ def generate_fp_pow_full(
     comp.input("base", width)
     comp.input("exp_value", width)
     comp.output("out", width)
-    lt = comp.cell("lt", Stdlib.op("lt", width, is_signed))
+    lt = comp.lt(width, "lt", is_signed)
     div = comp.cell(
         "div",
         Stdlib.fixed_point_op(
@@ -632,8 +603,12 @@ def generate_fp_pow_full(
         )
         gen_reverse_sign(comp, "rev_base_sign", new_base_reg, mult, const_neg_one),
         gen_reverse_sign(comp, "rev_res_sign", res, mult, const_neg_one),
-        gen_comb_lt(comp, "base_lt_zero", comp.this().base, lt, const_zero),
-
+        base_lt_zero = comp.lt_use(
+            comp.this().base,
+            const_zero.out,
+            width,
+            is_signed,
+        )
     new_exp_val = comp.reg("new_exp_val", width)
     e = comp.comp_instance("e", "exp", check_undeclared=False)
     ln = comp.comp_instance("l", "ln", check_undeclared=False)
@@ -649,48 +624,29 @@ def generate_fp_pow_full(
     with comp.continuous:
         comp.this().out = res.out
 
-    with comp.group("write_to_base_reg") as write_to_base_reg:
-        new_base_reg.write_en = 1
-        new_base_reg.in_ = comp.this().base
-        write_to_base_reg.done = new_base_reg.done
-
-    with comp.group("store_old_reg_val") as store_old_reg_val:
-        stored_base_reg.write_en = 1
-        stored_base_reg.in_ = new_base_reg.out
-        store_old_reg_val.done = stored_base_reg.done
-
-    with comp.group("write_e_to_res") as write_e_to_res:
-        res.write_en = 1
-        res.in_ = e.out
-        write_e_to_res.done = res.done
+    write_to_base_reg = comp.reg_store(
+        new_base_reg, comp.this().base, "write_to_base_reg"
+    )
+    store_old_reg_val = comp.reg_store(
+        stored_base_reg, new_base_reg.out, "store_old_reg_val"
+    )
+    write_e_to_res = comp.reg_store(res, e.out, "write_e_to_res")
 
     gen_reciprocal(comp, "set_base_reciprocal", new_base_reg, div, const_one)
     gen_reciprocal(comp, "set_res_reciprocal", res, div, const_one),
-    gen_comb_lt(
-        comp,
-        "base_lt_one",
-        stored_base_reg.out,
-        lt,
-        const_one,
-    )
+    base_lt_one = comp.lt_use(stored_base_reg.out, const_one.out, width, is_signed)
 
-    base_reciprocal = if_with(
-        CellAndGroup(lt, comp.get_group("base_lt_one")),
-        comp.get_group("set_base_reciprocal"),
-    )
+    base_reciprocal = if_with(base_lt_one, comp.get_group("set_base_reciprocal"))
 
-    res_reciprocal = if_with(
-        CellAndGroup(lt, comp.get_group("base_lt_one")),
-        comp.get_group("set_res_reciprocal"),
-    )
+    res_reciprocal = if_with(base_lt_one, comp.get_group("set_res_reciprocal"))
 
     if is_signed:
         base_rev = if_with(
-            CellAndGroup(lt, comp.get_group("base_lt_zero")),
+            base_lt_zero,
             comp.get_group("rev_base_sign"),
         )
         res_rev = if_with(
-            CellAndGroup(lt, comp.get_group("base_lt_zero")),
+            base_lt_zero,
             comp.get_group("rev_res_sign"),
         )
         pre_process = [base_rev, store_old_reg_val, base_reciprocal]
@@ -741,23 +697,9 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     ret = main.mem_d1("ret", width, 1, 1, is_external=True)
     f = main.comp_instance("f", "fp_pow_full")
 
-    with main.group("read_base") as read_base:
-        b.addr0 = 0
-        base_reg.in_ = b.read_data
-        base_reg.write_en = 1
-        read_base.done = base_reg.done
-
-    with main.group("read_exp") as read_exp:
-        x.addr0 = 0
-        exp_reg.in_ = x.read_data
-        exp_reg.write_en = 1
-        read_exp.done = exp_reg.done
-
-    with main.group("write_to_memory") as write_to_memory:
-        ret.addr0 = 0
-        ret.write_en = 1
-        ret.write_data = f.out
-        write_to_memory.done = ret.done
+    read_base = main.mem_load_std_d1(b, 0, base_reg, "read_base")
+    read_exp = main.mem_load_std_d1(x, 0, exp_reg, "read_exp")
+    write_to_memory = main.mem_store_std_d1(ret, 0, f.out, "write_to_memory")
 
     main.control += [
         read_base,
@@ -796,11 +738,7 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
         t.write_en = 1
         init.done = t.done
 
-    with main.group("write_to_memory") as write_to_memory:
-        ret.addr0 = 0
-        ret.write_en = 1
-        ret.write_data = e.out
-        write_to_memory.done = ret.done
+    write_to_memory = main.mem_store_std_d1(ret, 0, e.out, "write_to_memory")
 
     main.control += [
         init,
