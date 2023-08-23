@@ -207,7 +207,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-frontend"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "atty",
  "calyx-utils",
@@ -227,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-ir"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "calyx-frontend",
  "calyx-utils",
@@ -243,7 +243,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-opt"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "boolean_expression",
  "calyx-ir",
@@ -260,11 +260,11 @@ dependencies = [
 
 [[package]]
 name = "calyx-stdlib"
-version = "0.4.0"
+version = "0.5.0"
 
 [[package]]
 name = "calyx-utils"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "atty",
  "itertools 0.10.5",
@@ -440,7 +440,7 @@ dependencies = [
 name = "crossbeam-epoch"
 version = "0.9.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae211234986c545741a7dc064309f67ee1e5ad243d0e48335adc0484d960bcc7"
+checksum = "ae211234986c545741a7dc0.5.09f67ee1e5ad243d0e48335adc0484d960bcc7"
 dependencies = [
  "autocfg",
  "cfg-if",
@@ -750,7 +750,7 @@ checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
+checksum = "ab5ef0.5.09ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
 dependencies = [
  "ahash 0.7.6",
 ]
@@ -926,7 +926,7 @@ checksum = "62b02a5381cc465bd3041d84623d0fa3b66738b52b8e2fc3bab8ad63ab032f4a"
 name = "js-sys"
 version = "0.3.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "671a26f820db17c2a2750743f1dd03bafd15b98c9f30c7c2628c024c05d73397"
+checksum = "671a26f820db17c2a2750743f1dd03bafd15b98c9f30c7c2628c0.5.05d73397"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -1646,7 +1646,7 @@ dependencies = [
 name = "sha2"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "479fb9d862239e610720565ca91403019f2f00410f1864c5aa7479b950a76ed8"
+checksum = "479fb9d862239e610720565ca91403019f2f0.5.0f1864c5aa7479b950a76ed8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -2071,7 +2071,7 @@ dependencies = [
 
 [[package]]
 name = "winapi-i686-pc-windows-gnu"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
 
@@ -2079,14 +2079,14 @@ checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
 name = "winapi-util"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70ec6ce85bb158151cae5e5c87f95a8e97d2c0c4b001223f33a334e3ce5de178"
+checksum = "70ec6ce85bb158151cae5e5c87f95a8e97d2c0.5.001223f33a334e3ce5de178"
 dependencies = [
  "winapi",
 ]
 
 [[package]]
 name = "winapi-x86_64-pc-windows-gnu"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
