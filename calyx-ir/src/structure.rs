@@ -7,7 +7,7 @@ use super::{
     Attributes, Direction, GetAttributes, Guard, Id, PortDef, RRC, WRC,
 };
 use calyx_frontend::Attribute;
-use calyx_utils::GetName;
+use calyx_utils::{CalyxResult, Error, GetName};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::hash::Hash;
@@ -292,18 +292,6 @@ impl Cell {
             .map(Rc::clone)
     }
 
-    /// Get a reference to the first port that has the attribute `attr`.
-    pub fn find_with_attr<A>(&self, attr: A) -> Option<RRC<Port>>
-    where
-        A: Into<Attribute>,
-    {
-        let attr = attr.into();
-        self.ports
-            .iter()
-            .find(|&g| g.borrow().attributes.has(attr))
-            .map(Rc::clone)
-    }
-
     /// Return all ports that have the attribute `attr`.
     pub fn find_all_with_attr<A>(
         &self,
@@ -317,6 +305,32 @@ impl Cell {
             .iter()
             .filter(move |&p| p.borrow().attributes.has(attr))
             .map(Rc::clone)
+    }
+
+    /// Return the unique port with the given attribute.
+    /// If multiple ports have the same attribute, then we panic.
+    /// If there are not ports with the give attribute, then we return None.
+    pub fn find_unique_with_attr<A>(
+        &self,
+        attr: A,
+    ) -> CalyxResult<Option<RRC<Port>>>
+    where
+        A: Into<Attribute>,
+    {
+        let attr = attr.into();
+        let mut ports = self.find_all_with_attr(attr);
+        if let Some(port) = ports.next() {
+            if ports.next().is_some() {
+                Err(Error::malformed_structure(format!(
+                    "Multiple ports with attribute `{}` found on cell `{}`",
+                    attr, self.name
+                )))
+            } else {
+                Ok(Some(port))
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get a reference to the named port and throw an error if it doesn't
@@ -362,18 +376,18 @@ impl Cell {
         }
     }
 
-    /// Get a reference to the first port with the attribute `attr` and throw an error if none
-    /// exist.
-    pub fn get_with_attr<A>(&self, attr: A) -> RRC<Port>
+    /// Get the unique port with the given attribute.
+    /// Panic if no port with the attribute is found and returns an error if multiple ports with the attribute are found.
+    pub fn get_unique_with_attr<A>(&self, attr: A) -> CalyxResult<RRC<Port>>
     where
         A: Into<Attribute> + std::fmt::Display + Copy,
     {
-        self.find_with_attr(attr).unwrap_or_else(|| {
+        Ok(self.find_unique_with_attr(attr)?.unwrap_or_else(|| {
             panic!(
                 "Port with attribute `{attr}' not found on cell `{}'",
                 self.name,
             )
-        })
+        }))
     }
 
     /// Returns the name of the component that is this cells type.

@@ -13,14 +13,17 @@ fn get_go_port(cell_ref: ir::RRC<ir::Cell>) -> CalyxResult<ir::RRC<ir::Port>> {
     let name = cell.name();
 
     // Get the go port
-    let mut go_ports = cell.find_all_with_attr(ir::NumAttr::Go).collect_vec();
-    if go_ports.len() > 1 {
-        return Err(Error::malformed_control(format!("Invoked component `{name}` defines multiple @go signals. Cannot compile the invoke")));
-    } else if go_ports.is_empty() {
-        return Err(Error::malformed_control(format!("Invoked component `{name}` does not define a @go signal. Cannot compile the invoke")));
+    match cell.find_unique_with_attr(ir::NumAttr::Go) {
+        Ok(Some(p)) => Ok(p),
+        Ok(None) => Err(Error::malformed_control(format!(
+            "Invoked component `{name}` does not define a @go signal. Cannot compile the invoke",
+        ))),
+        Err(_) => {
+            Err(Error::malformed_control(format!(
+                "Invoked component `{name}` defines multiple @go signals. Cannot compile the invoke",
+            )))
+        }
     }
-
-    Ok(go_ports.pop().unwrap())
 }
 
 // given inputs and outputs (of the invoke), and the `enable_assignments` (e.g., invoked_component.go = 1'd1)
