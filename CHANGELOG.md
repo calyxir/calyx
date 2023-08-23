@@ -1,9 +1,8 @@
-## 0.5.0
+## Unreleased
 - Don't require `@clk` and `@reset` ports in `comb` components
 - `inline` pass supports inlining `ref` cells
 - `comb-prop`: disable rewrite from `wire.in = port` when the output of a wire is read.
 - BREAKING: Remove `PortDef::into()` because it makes it easy to miss copying attributes.
-- Remove the `futil` binary.
 - The `calyx` binary ships all the primitives and therefore self-contained now.
     - Add the `calyx-stdlib` package
     - Add a new build script that installs primitives when the package is installed.
