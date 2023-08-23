@@ -1,3 +1,6 @@
+## 0.5.1
+- Change the `calyx` build script to use the `CALYX_PRIMITIVES_DIR` env variable to install primitive libraries. If unset, use `$HOME/.calyx`.
+
 ## 0.5.0
 - Don't require `@clk` and `@reset` ports in `comb` components
 - `inline` pass supports inlining `ref` cells

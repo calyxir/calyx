@@ -56,7 +56,7 @@ features = ["matrix_graph"]
 [package]
 name = "calyx"
 default-run = "calyx"
-version.workspace = true
+version = "0.5.1"
 edition.workspace = true
 description.workspace = true
 authors.workspace = true
