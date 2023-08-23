@@ -1,7 +1,17 @@
-use crate::passes::compile_ref::RefPortMap;
 use calyx_ir::{self as ir, RRC, WRC};
+use ir::rewriter;
 use itertools::Itertools;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
+
+#[derive(Default)]
+/// Results generated from the process of dumping out ports.
+pub struct DumpResults {
+    /// The cells that were removed from the component.
+    pub cells: Vec<RRC<ir::Cell>>,
+    /// Rewrites from (cell, port) to the new port.
+    /// Usually consumed by an [`ir::rewriter::Rewriter`].
+    pub rewrites: rewriter::PortRewriteMap,
+}
 
 /// Formats name of a port given the id of the cell and the port
 pub(super) fn format_port_name(canon: &ir::Canonical) -> ir::Id {
@@ -12,15 +22,17 @@ pub(super) fn format_port_name(canon: &ir::Canonical) -> ir::Id {
 /// the component and inline all the ports of the removed cells to the component
 /// signature.
 ///
-/// If remove_signals is true, does not inline ports marked with @clk and @reset.
-pub(super) fn dump_ports_to_signature(
+/// If `remove_clk_and_reset` is true, does not inline ports marked with @clk and @reset.
+pub(super) fn dump_ports_to_signature<F>(
     component: &mut ir::Component,
-    cell_filter: fn(&RRC<ir::Cell>) -> bool,
-    remove_signals: bool,
-    port_names: &mut RefPortMap,
-    removed: &mut HashMap<ir::Canonical, RRC<ir::Port>>,
-) -> Vec<RRC<ir::Cell>> {
-    let comp_name = component.name;
+    cell_filter: F,
+    remove_clk_and_reset: bool,
+) -> DumpResults
+where
+    F: Fn(&RRC<ir::Cell>) -> bool,
+{
+    let mut removed = rewriter::PortRewriteMap::default();
+
     let (ext_cells, cells): (Vec<_>, Vec<_>) =
         component.cells.drain().partition(cell_filter);
     component.cells.append(cells.into_iter());
@@ -36,8 +48,8 @@ pub(super) fn dump_ports_to_signature(
             .ports
             .iter()
             .filter(|pr| {
-                let p = pr.borrow();
-                if remove_signals {
+                if remove_clk_and_reset {
+                    let p = pr.borrow();
                     !p.attributes.has(ir::BoolAttr::Clk)
                         && !p.attributes.has(ir::BoolAttr::Reset)
                 } else {
@@ -65,13 +77,10 @@ pub(super) fn dump_ports_to_signature(
 
             // Record the port as removed
             removed.insert(canon.clone(), Rc::clone(&new_port));
-
-            // Record the port to add to cells
-            port_names
-                .entry(comp_name)
-                .or_default()
-                .insert(canon, Rc::clone(&new_port));
         }
     }
-    ext_cells
+    DumpResults {
+        cells: ext_cells,
+        rewrites: removed,
+    }
 }

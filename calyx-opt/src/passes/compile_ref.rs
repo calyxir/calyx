@@ -164,13 +164,11 @@ impl Visitor for CompileRef {
         _comps: &[ir::Component],
     ) -> VisResult {
         log::debug!("compile-ref: {}", comp.name);
-        self.ref_cells = dump_ports::dump_ports_to_signature(
-            comp,
-            is_external_cell,
-            true,
-            &mut self.port_names,
-            &mut self.removed,
-        );
+        let dump_ports::DumpResults { cells, rewrites } =
+            dump_ports::dump_ports_to_signature(comp, is_external_cell, true);
+        self.removed.extend(rewrites.clone());
+        self.port_names.insert(comp.name, rewrites);
+        self.ref_cells = cells;
 
         // For all subcomponents that had a `ref` cell in them, we need to
         // update their cell to have the new ports added from inlining the
@@ -237,21 +235,19 @@ impl Visitor for CompileRef {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        let port_map = std::mem::take(&mut self.removed);
         // Rewrite all of the ref cell ports
-        let empty = HashMap::new();
-        let rw = ir::Rewriter::new(&empty, &self.removed);
+        let rw = ir::Rewriter {
+            port_map,
+            ..Default::default()
+        };
         comp.for_each_assignment(|assign| {
             rw.rewrite_assign(assign);
         });
         comp.for_each_static_assignment(|assign| {
             rw.rewrite_assign(assign);
         });
-        rw.rewrite_control(
-            &mut comp.control.borrow_mut(),
-            &HashMap::new(),
-            &HashMap::new(),
-            &HashMap::new(),
-        );
+        rw.rewrite_control(&mut comp.control.borrow_mut());
         Ok(Action::Continue)
     }
 }
