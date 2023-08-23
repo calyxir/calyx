@@ -311,7 +311,7 @@ class ComponentBuilder:
         """Generate a binary cell of the kind specified in `operation`."""
         self.prog.import_("primitives/binary_operators.futil")
         name = name or self.generate_name(operation)
-        assert isinstance(name, str)
+        assert isinstance(name, str), f"name {name} is not a string"
         return self.cell(name, ast.Stdlib.op(operation, size, signed))
 
     def add(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
@@ -471,7 +471,7 @@ class ComponentBuilder:
         and put the result back into `reg`.
         """
         cellname = cellname or f"{reg.name}_not"
-        width = reg.infer_width("in")
+        width = reg.infer_width_reg()
         not_cell = self.not_(width, cellname)
         with self.group(f"{cellname}_group") as not_group:
             not_cell.in_ = reg.out
@@ -483,7 +483,7 @@ class ComponentBuilder:
     def incr(self, reg, val=1, signed=False, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
-        width = reg.infer_width("in")
+        width = reg.infer_width_reg()
         add_cell = self.add(width, cellname, signed)
         with self.group(f"{cellname}_group") as incr_group:
             add_cell.left = reg.out
@@ -496,7 +496,7 @@ class ComponentBuilder:
     def decr(self, reg, val=1, signed=False, cellname=None):
         """Inserts wiring into `self` to perform `reg := reg - val`."""
         cellname = cellname or f"{reg.name}_decr"
-        width = reg.infer_width("in")
+        width = reg.infer_width_reg()
         sub_cell = self.sub(width, cellname, signed)
         with self.group(f"{cellname}_group") as decr_group:
             sub_cell.left = reg.out
@@ -958,6 +958,11 @@ class CellBuilder(CellLikeBuilder):
     def is_seq_mem_d1(self) -> bool:
         """Check if the cell is a SeqMemD1 cell."""
         return self.is_primitive("seq_mem_d1")
+
+    def infer_width_reg(self) -> int:
+        """Infer the width of a register. That is, the width of `reg.in`."""
+        assert self._cell.comp.id == "std_reg", "Cell is not a register"
+        return self._cell.comp.args[0]
 
     def infer_width(self, port_name) -> int:
         """Infer the width of a port on the cell."""
