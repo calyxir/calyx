@@ -30,12 +30,14 @@ impl Visitor for ResetInsertion {
             .component
             .signature
             .borrow()
-            .find_with_attr(ir::BoolAttr::Reset);
+            .find_unique_with_attr(ir::BoolAttr::Reset)?;
 
         if let Some(reset) = reset {
             for cell_ref in builder.component.cells.iter() {
                 let cell = cell_ref.borrow();
-                if let Some(port) = cell.find_with_attr(ir::BoolAttr::Reset) {
+                if let Some(port) =
+                    cell.find_unique_with_attr(ir::BoolAttr::Reset)?
+                {
                     builder.component.continuous_assignments.push(
                         builder.build_assignment(
                             port,
@@ -48,7 +50,7 @@ impl Visitor for ResetInsertion {
         } else {
             for cell_ref in builder.component.cells.iter() {
                 let cell = cell_ref.borrow();
-                if cell.find_with_attr(ir::BoolAttr::Reset).is_some() {
+                if cell.find_unique_with_attr(ir::BoolAttr::Reset)?.is_some() {
                     return Err(Error::malformed_structure(format!(
                         "Cell `{}' in component `{}' has a reset port, \
                         but the component does not have a reset port.",
