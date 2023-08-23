@@ -13,7 +13,7 @@ The [`calyx` binary][calyx-crate] is published using Rust's crates.io repository
 
 1. The [`calyx-stdlib`][calyx-stdlib] package pulls in the sources of all the primitives using the Rust `include_str!` macro.
 2. The `calyx` binary defines a build script that depends on `calyx-stdlib` as a build dependency.
-3. During build time, the script loads the string representation of all the primitives files and writes them to `$OUT_DIR/primitives`. The `OUT_DIR` environment variable is defined by `cargo`.
+3. During build time, the script loads the string representation of all the primitives files and writes them to `$CALYX_PRIMITIVE_DIR/primitives`. If the variable is not set, the location defaults to `$HOME/.calyx`.
 4. If (3) succeeds, the build scripts defines the `CALYX_PRIMITIVES_LIB` environment variable which is used when compiling the `calyx` crate.
 5. During compilation, `calyx` embeds the value of this environment variable as the default argument to the `-l` flag. If the variable is not defined, the default value of the `-l` flag is `.`.
 
