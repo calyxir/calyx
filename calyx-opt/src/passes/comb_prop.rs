@@ -1,7 +1,6 @@
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, RRC};
 use itertools::Itertools;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// A data structure to track rewrites of ports with added functionality to declare
@@ -369,14 +368,11 @@ impl Visitor for CombProp {
             }
         });
 
-        let cell_rewrites = HashMap::new();
-        let rewriter = ir::Rewriter::new(&cell_rewrites, &rewrites);
-        rewriter.rewrite_control(
-            &mut comp.control.borrow_mut(),
-            &HashMap::new(),
-            &HashMap::new(),
-            &HashMap::new(),
-        );
+        let rewriter = ir::Rewriter {
+            port_map: rewrites,
+            ..Default::default()
+        };
+        rewriter.rewrite_control(&mut comp.control.borrow_mut());
 
         Ok(Action::Stop)
     }
