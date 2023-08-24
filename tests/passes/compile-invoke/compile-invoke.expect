@@ -21,16 +21,16 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {
     group invoke0<"static"=4> {
-      exp0.base = r.out;
-      exp0.exp = 4'd3;
       exp0.go = 1'd1;
       invoke0[done] = exp0.done;
+      exp0.base = r.out;
+      exp0.exp = 4'd3;
     }
     group invoke1<"static"=4> {
-      exp0.base = w.out;
-      exp0.exp = 4'd3;
       exp0.go = 1'd1;
       invoke1[done] = exp0.done;
+      exp0.base = w.out;
+      exp0.exp = 4'd3;
       w.in = 32'd10;
     }
   }

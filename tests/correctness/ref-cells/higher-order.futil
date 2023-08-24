@@ -1,0 +1,137 @@
+import "primitives/core.futil";
+import "primitives/memories.futil";
+
+/// The function we can map over the array.
+/// This function increments in input by 10 and tracks the number of elements
+/// its processed.
+component func() -> (@stable processed: 32) {
+    cells {
+        ref in = std_reg(32);
+        acc_r = std_reg(32);
+        incr = std_add(32);
+        add = std_add(32);
+    }
+    wires {
+         group apply {
+            incr.left = in.out;
+            incr.right = 32'd10;
+            in.in = incr.out;
+            in.write_en = 1'd1;
+            apply[done] = in.done;
+        }
+        group bump_proc {
+            add.left = acc_r.out;
+            add.right = 32'd1;
+            acc_r.in = add.out;
+            acc_r.write_en = 1'd1;
+            bump_proc[done] = acc_r.done;
+        }
+        processed = acc_r.out;
+    }
+    control {
+        seq { apply; bump_proc; }
+    }
+}
+
+// A component that takes an array and a function and applies the function to
+// each element, returning the result.
+component map_f() -> () {
+    cells {
+        // We have to pre-commit to the function we'll call which means this is
+        // not really a higher-order map. However, we can certainly pass in
+        // different inputs for the function.
+        // In Rust-terms, this is a FnMut since it updates its own state.
+        ref func = func();
+        // We apply the function and store the result in the output array.
+        ref in = seq_mem_d1(32, 10, 4);
+        ref out = seq_mem_d1(32, 10, 4);
+        idx = std_reg(4);
+        lt = std_lt(4);
+        add = std_add(4);
+        r = std_reg(32);
+    }
+    wires {
+        comb group cmp {
+            lt.left = idx.out;
+            lt.right = 4'd10;
+        }
+        group init {
+            idx.write_en = 1'd1;
+            idx.in = 4'd0;
+            init[done] = idx.done;
+        }
+        group incr {
+            add.left = idx.out;
+            add.right = 4'd1;
+            idx.in = add.out;
+            idx.write_en = 1'd1;
+            incr[done] = idx.done;
+        }
+        group read_in {
+            in.read_en = 1'd1;
+            in.addr0 = idx.out;
+            read_in[done] = in.read_done;
+        }
+        group write_r {
+            r.write_en = 1'd1;
+            r.in = in.read_data;
+            write_r[done] = r.done;
+        }
+        group write_out {
+            out.write_en = 1'd1;
+            out.addr0 = idx.out;
+            out.write_data = r.out;
+            write_out[done] = out.write_done;
+        }
+    }
+    control {
+       seq {
+            init;
+            while lt.out with cmp {
+                read_in;
+                write_r;
+                invoke func[in=r]()();
+                write_out; incr;
+            }
+       }
+    }
+}
+
+component main() -> () {
+    cells {
+        @external A = seq_mem_d1(32, 10, 4);
+        @external B = seq_mem_d1(32, 10, 4);
+        @external C = seq_mem_d1(32, 10, 4);
+        @external stats = seq_mem_d1(32, 2, 2);
+        f1 = func();
+        f2 = func();
+        map = map_f();
+    }
+    wires {
+        group f1_stats {
+            stats.addr0 = 2'd0;
+            stats.write_data = f1.processed;
+            stats.write_en = 1'd1;
+            f1_stats[done] = stats.write_done;
+        }
+        group f2_stats {
+            stats.addr0 = 2'd1;
+            stats.write_data = f2.processed;
+            stats.write_en = 1'd1;
+            f2_stats[done] = stats.write_done;
+        }
+    }
+    control {
+        // The same map can be used with different memories.
+        invoke map[in=A, func=f1, out=B]()();
+        invoke map[in=B, func=f1, out=A]()();
+
+        // The same map can be used with different functions
+        invoke map[in=A, func=f2, out=C]()();
+
+        // Write the statistics computed by the functions
+        f1_stats;
+        f2_stats;
+    }
+
+}

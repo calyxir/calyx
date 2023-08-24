@@ -1,5 +1,4 @@
 import "primitives/core.futil";
-import "primitives/binary_operators.futil";
 static<2> component add_one(@go go: 1, @clk clk: 1, @reset reset: 1, out_read_data: 32, out_done: 1) -> (@done done: 1, out_addr0: 1, out_write_data: 32, out_write_en: 1) {
   cells {
     add = std_add(32);
@@ -47,17 +46,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       mem.write_en = 1'd1;
       reg_to_mem[done] = mem.done;
     }
+    static<2> group static_invoke {
+      adder.go = 1'd1;
+    }
   }
   control {
     seq {
-      static<2> invoke adder(
-        out_read_data = mem.read_data,
-        out_done = mem.done
-      )(
-        out_addr0 = mem.addr0,
-        out_write_data = mem.write_data,
-        out_write_en = mem.write_en
-      );
+      static_invoke;
       add_1;
       reg_to_mem;
     }
