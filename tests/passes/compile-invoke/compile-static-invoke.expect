@@ -20,9 +20,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {
     static<4> group static_invoke {
+      exp0.go = 1'd1;
       exp0.base = r.out;
       exp0.exp = 4'd3;
-      exp0.go = 1'd1;
     }
   }
   control {
