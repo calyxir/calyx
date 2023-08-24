@@ -411,7 +411,6 @@ impl Primitive for ComponentInterpreter {
         for (port, value) in input_vec {
             env.insert(port, value);
         }
-
         self.converge().unwrap();
 
         Ok(self.look_up_outputs())
