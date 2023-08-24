@@ -412,10 +412,6 @@ impl Primitive for ComponentInterpreter {
             env.insert(port, value);
         }
 
-        if self.done_is_high() {
-            dbg!(self.full_name_clone);
-        }
-
         self.converge().unwrap();
 
         Ok(self.look_up_outputs())
