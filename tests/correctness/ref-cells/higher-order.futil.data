@@ -1,0 +1,70 @@
+{
+    "A": {
+        "data": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    },
+    "B": {
+        "data": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    },
+    "C": {
+        "data": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    },
+    "stats": {
+        "data": [
+            0,
+            0
+        ],
+        "format": {
+            "is_signed": false,
+            "numeric_type": "bitnum",
+            "width": 32
+        }
+    }
+}

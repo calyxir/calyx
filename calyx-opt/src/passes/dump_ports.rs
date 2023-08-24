@@ -39,7 +39,7 @@ where
 
     for cell_ref in &ext_cells {
         let cell = cell_ref.borrow();
-        log::debug!("`{}' is matches predictate", cell.name());
+        log::debug!("cell `{}' removed", cell.name());
 
         // If we do not eliminate the @clk and @reset ports, we may
         // get signals conflicting the original @clk and @reset signals of

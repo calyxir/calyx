@@ -1,6 +1,5 @@
-// -p compile-ref
-import "primitives/core.futil";
-import "primitives/binary_operators.futil";
+// -p compile-invoke
+import "primitives/compile.futil";
 component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r = std_reg(32);
