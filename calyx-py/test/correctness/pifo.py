@@ -110,16 +110,16 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     hot = pifo.reg("hot", 1)
 
     # Some equality checks.
-    hot_eq_0 = pifo.eq_use(hot.out, 0, 1)
-    hot_eq_1 = pifo.eq_use(hot.out, 1, 1)
-    flow_eq_0 = pifo.eq_use(flow.out, 0, 1)
-    flow_eq_1 = pifo.eq_use(flow.out, 1, 1)
-    len_eq_0 = pifo.eq_use(len.out, 0, 32)
-    len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN, 32)
+    hot_eq_0 = pifo.eq_use(hot.out, 0)
+    hot_eq_1 = pifo.eq_use(hot.out, 1)
+    flow_eq_0 = pifo.eq_use(flow.out, 0)
+    flow_eq_1 = pifo.eq_use(flow.out, 1)
+    len_eq_0 = pifo.eq_use(len.out, 0)
+    len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
     cmd_eq_1 = pifo.eq_use(cmd, 1)
     cmd_eq_2 = pifo.eq_use(cmd, 2)
-    err_eq_0 = pifo.eq_use(err.out, 0, 1)
+    err_eq_0 = pifo.eq_use(err.out, 0)
     err_neq_0 = pifo.neq_use(err.out, 0, 1)
 
     flip_hot = pifo.bitwise_flip_reg(hot)

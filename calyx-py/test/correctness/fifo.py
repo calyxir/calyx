@@ -41,9 +41,9 @@ def insert_fifo(prog, name):
     cmd_eq_2 = fifo.eq_use(cmd, 2)
 
     write_eq_max_queue_len = fifo.eq_use(write.out, MAX_QUEUE_LEN)
-    read_eq_max_queue_len = fifo.eq_use(read.out, MAX_QUEUE_LEN, 32)
-    len_eq_0 = fifo.eq_use(len.out, 0, 32)
-    len_eq_max_queue_len = fifo.eq_use(len.out, MAX_QUEUE_LEN, 32)
+    read_eq_max_queue_len = fifo.eq_use(read.out, MAX_QUEUE_LEN)
+    len_eq_0 = fifo.eq_use(len.out, 0)
+    len_eq_max_queue_len = fifo.eq_use(len.out, MAX_QUEUE_LEN)
 
     # Cells and groups to increment read and write registers
     write_incr = fifo.incr(write)  # write++
