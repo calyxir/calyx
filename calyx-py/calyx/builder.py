@@ -636,16 +636,26 @@ class ComponentBuilder:
         )
 
     def infer_width(self, expr) -> int:
-        """Infer the width of an expression.
-        For now, all we do is:
-        - gracefully give up in case of integers
-        - return the width of a port if it is a port of this component
-
-        I'd like to expand further.
-        """
-        if isinstance(expr, int):
+        """Infer the width of an expression."""
+        if isinstance(expr, int):  # We can't infer the width of an integer.
             return None
-        return self.port_width(expr)
+        if self.port_width(expr):  # It's an in/out port of this component!
+            return self.port_width(expr)
+        expr = ExprBuilder.unwrap(expr)  # We unwrap the expr.
+        if isinstance(expr, ast.Atom):  # Inferring width of Atom.
+            if isinstance(expr.item, ast.ThisPort):  # Atom is a ThisPort.
+                # If we can infer it from this, great, otherwise give up.
+                return self.port_width(expr)
+            # Not a ThisPort, but maybe some `cell.port`?
+            cell_name = expr.item.id.name
+            port_name = expr.item.name
+            cell_builder = self.index[cell_name]
+            if not isinstance(cell_builder, CellBuilder):
+                return None  # Something is wrong, we should have a CellBuilder
+            # Okay, we really have a CellBuilder.
+            # Let's try to infer the width of the port.
+            # If this fails, give up.
+            return cell_builder.infer_width(port_name)
 
 
 @dataclass(frozen=True)
@@ -969,7 +979,7 @@ class CellBuilder(CellLikeBuilder):
         inst = self._cell.comp
         prim = inst.id
         if prim == "std_reg":
-            if port_name == "in":
+            if port_name in ("in", "out"):
                 return inst.args[0]
             if port_name == "write_en":
                 return 1
