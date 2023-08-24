@@ -589,33 +589,66 @@ impl<'a> Simulator<'a> {
 
         while let Some(mut node) = search_stack.pop() {
             match &self.ctx().primary[node.node] {
-                    ControlNode::Seq(_) => {
-                        if let Some(next) = node.next.pop_front() {
-                            search_stack.push(node);
-                            let next_search_node = SearchNode {
-                                node: next,
-                                next: self.extract_next_search(next),
-                            };
-                            search_stack.push(next_search_node);
-                        } else {
-                            // this seq does not contain any more nodes.
-                            // Currently only possible if the seq is empty
-                        }
-                    },
+                ControlNode::Seq(_) => {
+                    if let Some(next) = node.next.pop_front() {
+                        search_stack.push(node);
+                        let next_search_node = SearchNode {
+                            node: next,
+                            next: self.extract_next_search(next),
+                        };
+                        search_stack.push(next_search_node);
+                    } else {
+                        // this seq does not contain any more nodes.
+                        // Currently only possible if the seq is empty
+                    }
+                },
 
-                    // functionally terminals for the purposes of needing to be
-                    // seen in the control program and given extra treatment
-                    ControlNode::Par(_)
-                    | ControlNode::If(_)
-                    | ControlNode::While(_)
-                    // actual terminals
-                    | ControlNode::Invoke(_)
-                    | ControlNode::Enable(_)
-                    // might not want this here in the future
-                    | ControlNode::Empty(_)=> {
-                        return NextControlPoint::Next(ControlPoint::new(comp, node.node))
+                ControlNode::Par(p) => {
+                    let mut ctrl_points = vec![];
+                    let mut pars_activated = vec![];
+
+                    let mut this_par = (ControlPoint::new(comp, node.node), p.stms().len() as u32);
+
+                    // TODO Griffin: Maybe consider making this not
+                    // recursive in the future
+                    for arm in p.stms().iter().map( |x| {
+                        self.descend_to_leaf(*x, &mut vec![], comp)
+                    }) {
+                        match arm {
+                            NextControlPoint::None => {
+                                this_par.1 -= 1;
+                            },
+                            NextControlPoint::Next(c) => ctrl_points.push(c),
+                            NextControlPoint::FinishedParChild(_) => unreachable!("I think this impossible"),
+                            NextControlPoint::StartedParChild(nodes, pars) => {
+                                ctrl_points.extend(nodes);
+                                pars_activated.extend(pars);
+                            },
+                        }
+                    }
+
+                    if this_par.1 != 0 {
+                        pars_activated.push(this_par);
+                        return NextControlPoint::StartedParChild(ctrl_points, pars_activated)
+                    } else {
+                        // there were no next nodes under this par, so we
+                        // ascend the search tree and continue
                     }
                 }
+
+                // functionally terminals for the purposes of needing to be
+                // seen in the control program and given extra treatment
+                ControlNode::If(_)
+                | ControlNode::While(_)
+                // actual terminals
+                | ControlNode::Invoke(_)
+                | ControlNode::Enable(_)
+                // might not want this here in the future, but makes sense
+                // if we think about annotations on empty groups.
+                | ControlNode::Empty(_)=> {
+                    return NextControlPoint::Next(ControlPoint::new(comp, node.node))
+                }
+            }
         }
         NextControlPoint::None
     }
@@ -623,33 +656,8 @@ impl<'a> Simulator<'a> {
     pub fn step(&mut self) -> InterpreterResult<()> {
         // place to keep track of what groups we need to conclude at the end of
         // this step. These are indices into the program counter
-        let mut done_group_club: Vec<usize> = Vec::new();
 
-        for (idx, node) in self.env.pc.iter().enumerate() {
-            match self.env.ctx.primary[node.control_leaf] {
-                ControlNode::Empty(_) => {
-                    // do nothing
-                }
-                ControlNode::Enable(_) => {
-                    // do nothing
-                }
-                ControlNode::Seq(_) => {
-                    // do nothing
-                }
-                ControlNode::Par(_) => {
-                    // do nothing
-                }
-                ControlNode::If(_) => {
-                    // do nothing
-                }
-                ControlNode::While(_) => {
-                    // do nothing
-                }
-                ControlNode::Invoke(_) => {
-                    // do nothing
-                }
-            }
-        }
+        // we want to iterate through all the nodes present in the program counter
 
         // first we need to check for conditional control nodes
 
