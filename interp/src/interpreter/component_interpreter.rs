@@ -421,9 +421,13 @@ impl Primitive for ComponentInterpreter {
         _inputs: &[(ir::Id, &crate::values::Value)],
     ) -> InterpreterResult<Vec<(ir::Id, crate::values::Value)>> {
         if self.interp.is_control() {
+            if !self.is_done() && !self.go_is_high() {
+                return Ok(self.look_up_outputs());
+            }
             assert!(
                 self.is_done(),
-                "Component interpreter reset before finishing"
+                "Component {} interpreter reset before finishing",
+                self.full_name_clone
             );
         }
 
