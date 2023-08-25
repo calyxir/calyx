@@ -105,6 +105,20 @@ fud exec --from calyx --to jq \
 """
 
 [[tests]]
+name = "correctness ref cells"
+paths = ["../tests/correctness/ref-cells/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through interpreter-out \
+         -s calyx.flags "-p compile-invoke" \
+         -s verilog.data {}.data \
+         -s interpreter.flags " --raw" \
+         -s jq.expr ".main" \
+         -s jq.flags "--sort-keys " \
+         {} -q
+"""
+
+[[tests]]
 name = "numeric types correctness and parsing"
 paths = [
   "../tests/correctness/numeric-types/parsing/*.futil",
