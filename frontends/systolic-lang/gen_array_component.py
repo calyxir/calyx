@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 
 import numpy as np
+from gen_pe import PE_NAME
 import calyx.builder as cb
 from calyx import py_ast
 from calyx.utils import bits_needed
-from fud.stages.verilator import numeric_types
-from calyx.utils import float_to_fixed_point
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
-INTWIDTH = 16
-FRACWIDTH = 16
-# Name of the ouput array
-PE_NAME = "mac_pe"
 DEPTH = "depth"
+SYSTOLIC_ARRAY_COMP = "systolic_array_comp"
 
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.
@@ -60,7 +56,7 @@ class CalyxAdd:
 
     def build_group(self, comp: cb.ComponentBuilder) -> cb.GroupBuilder:
         """
-        Builds a static Calyx group (latency 1) that implemnets `self`
+        Builds a static Calyx group (latency 1) that implements `self`
         Note that we avoid creating duplicate groups.
         """
         group_name = str(self) + "_group"
@@ -70,35 +66,6 @@ class CalyxAdd:
                 add.left = self.port
                 add.right = self.const
         return group_name
-
-
-def pe(prog: cb.Builder):
-    comp = prog.component(name=PE_NAME, latency=1)
-    comp.input("top", BITWIDTH)
-    comp.input("left", BITWIDTH)
-    comp.input("mul_ready", 1)
-    comp.output("out", BITWIDTH)
-    acc = comp.reg("acc", BITWIDTH)
-    add = comp.fp_sop("adder", "add", BITWIDTH, INTWIDTH, FRACWIDTH)
-    mul = comp.pipelined_fp_smult("mul", BITWIDTH, INTWIDTH, FRACWIDTH)
-
-    this = comp.this()
-    with comp.static_group("do_add", 1):
-        add.left = acc.out
-        add.right = mul.out
-        acc.in_ = add.out
-        acc.write_en = this.mul_ready
-
-    with comp.static_group("do_mul", 1):
-        mul.left = this.top
-        mul.right = this.left
-
-    par = py_ast.StaticParComp([py_ast.Enable("do_add"), py_ast.Enable("do_mul")])
-
-    with comp.continuous:
-        this.out = acc.out
-
-    comp.control += par
 
 
 def add_read_mem_arguments(comp: cb.ComponentBuilder, name, addr_width):
@@ -173,7 +140,7 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     # Instantiate the memory
     add_read_mem_arguments(comp, name, idx_width)
     this = comp.this()
-    addr0_port = cb.ExprBuilder.unwrap(this.port(name + "_addr0"))
+    addr0_port = this.port(name + "_addr0")
     read_data_port = this.port(name + "_read_data")
     # Instantiate the indexing register
     idx = instantiate_indexor(comp, name, idx_width)
@@ -230,9 +197,9 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col):
     group_name = NAME_SCHEME["out mem move"].format(pe=f"pe_{row}_{col}")
     pe = comp.get_cell(f"pe_{row}_{col}")
     this = comp.this()
-    valid_port = cb.ExprBuilder.unwrap(this.port(f"r{row}_valid"))
-    value_port = cb.ExprBuilder.unwrap(this.port(f"r{row}_value"))
-    idx_port = cb.ExprBuilder.unwrap(this.port(f"r{row}_idx"))
+    valid_port = this.port(f"r{row}_valid")
+    value_port = this.port(f"r{row}_value")
+    idx_port = this.port(f"r{row}_idx")
     with comp.static_group(group_name, 1) as g:
         g.asgn(valid_port, 1)
         g.asgn(value_port, pe.out)
@@ -495,7 +462,7 @@ def get_pe_moves(r, c, top_length, left_length):
     return pe_enables
 
 
-def get_pe_invoke(r, c, top_length, left_length, mul_ready):
+def get_pe_invoke(r, c, mul_ready):
     """
     gets the PE invokes for the PE at (r,c). mul_ready signals whether 1 or 0
     should be passed into mul_ready
@@ -607,7 +574,7 @@ def generate_control(
                 comp,
                 schedules["fill_sched"][r][c][0],
                 schedules["fill_sched"][r][c][1],
-                [get_pe_invoke(r, c, top_length, left_length, 0)],
+                [get_pe_invoke(r, c, 0)],
             )
             pe_moves = execute_if_between(
                 comp,
@@ -619,7 +586,7 @@ def generate_control(
                 comp,
                 schedules["accum_sched"][r][c][0],
                 schedules["accum_sched"][r][c][1],
-                [get_pe_invoke(r, c, top_length, left_length, 1)],
+                [get_pe_invoke(r, c, 1)],
             )
             output_writes = execute_if_between(
                 comp,
@@ -679,7 +646,7 @@ def create_systolic_array(
         f"{top_length}x{top_depth} and {left_depth}x{left_length}"
     )
 
-    computational_unit = prog.component("systolic_array_comp")
+    computational_unit = prog.component(SYSTOLIC_ARRAY_COMP)
     depth_port = computational_unit.input("depth", BITWIDTH)
     init_dyn_vals(computational_unit, depth_port, top_length + left_length + 4)
 

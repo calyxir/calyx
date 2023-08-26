@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
-from gen_array_component import create_systolic_array, BITWIDTH, OUT_MEM
+from gen_array_component import create_systolic_array, BITWIDTH, SYSTOLIC_ARRAY_COMP
+from gen_post_op import default_post_op, OUT_MEM, DEFAULT_POST_OP
+from gen_pe import pe
+from calyx import py_ast
 from calyx.utils import bits_needed
-from gen_post_op import default_post_op
 
 
-def build_main(systolic_component, post_op_component):
+def build_main(prog):
     """
     Build the main component.
     It basically connects the ports of the systolic component and post_op component
     so that they both run.
     """
     main = prog.component("main")
-    systolic_array = main.cell("systolic_array_component", systolic_component)
-    post_op = main.cell("post_op_component", post_op_component)
+    systolic_array = main.cell(
+        "systolic_array_component", py_ast.CompInst(SYSTOLIC_ARRAY_COMP, [])
+    )
+    post_op = main.cell("post_op_component", py_ast.CompInst(DEFAULT_POST_OP, []))
     connections = []
     # connect input memories to systolic_array
     for r in range(top_length):
@@ -27,9 +31,9 @@ def build_main(systolic_component, post_op_component):
             is_external=True,
         )
         connections.append((systolic_array.port(f"{name}_read_data"), mem.read_data))
-        connections.append((systolic_array.port(mem.read_data, f"{name}_read_data")))
-    for col in range(left_length):
-        name = f"l{col}"
+        connections.append((mem.addr0, systolic_array.port(f"{name}_addr0")))
+    for c in range(left_length):
+        name = f"l{c}"
         idx_width = bits_needed(left_depth)
         mem = main.mem_d1(
             name,
@@ -39,7 +43,7 @@ def build_main(systolic_component, post_op_component):
             is_external=True,
         )
         connections.append((systolic_array.port(f"{name}_read_data"), mem.read_data))
-        connections.append((systolic_array.port(mem.read_data, f"{name}_read_data")))
+        connections.append((mem.addr0, systolic_array.port(f"{name}_addr0")))
     # connect outout memories to post_op
     for i in range(left_length):
         name = OUT_MEM + f"_{i}"
@@ -50,11 +54,34 @@ def build_main(systolic_component, post_op_component):
             BITWIDTH,
             is_external=True,
         )
-        connections.append(mem.addr0, post_op.port(f"{name}_addr0"))
-        connections.append(mem.write_data, post_op.port(f"{name}_write_data"))
-        connections.append(mem.write_en, post_op.port(f"{name}_write_en"))
-        connections.append(post_op.port(f"{name}_done"), mem.done)
-    main.control = []
+        connections.append((mem.addr0, post_op.port(f"{name}_addr0")))
+        connections.append((mem.write_data, post_op.port(f"{name}_write_data")))
+        connections.append((mem.write_en, post_op.port(f"{name}_write_en")))
+        connections.append((post_op.port(f"{name}_done"), mem.done))
+        connections.append(
+            (post_op.port(f"r{i}_valid"), systolic_array.port(f"r{i}_valid"))
+        )
+        connections.append(
+            (post_op.port(f"r{i}_value"), systolic_array.port(f"r{i}_value"))
+        )
+        connections.append(
+            (post_op.port(f"r{i}_idx"), systolic_array.port(f"r{i}_idx"))
+        )
+    systolic_array_done = main.reg("systolic_done", 1)
+    systolic_done_wire = main.wire("systolic_done_wire", 1)
+    with main.group("perform_computation") as g:
+        for i, o in connections:
+            g.asgn(i, o)
+        systolic_array.go = ~systolic_array.done @ py_ast.ConstantPort(1, 1)
+        systolic_array_done.write_en = systolic_array.done @ 1
+        systolic_array_done.in_ = systolic_array.done @ 1
+        systolic_done_wire.in_ = (systolic_array.done | systolic_array_done.out) @ 1
+        post_op.go = py_ast.ConstantPort(1, 1)
+        systolic_array.go = py_ast.ConstantPort(1, 1)
+        systolic_array.depth = py_ast.ConstantPort(BITWIDTH, left_depth)
+        g.done = systolic_array.done
+
+    main.control = py_ast.Enable("perform_computation")
 
 
 if __name__ == "__main__":
@@ -102,6 +129,7 @@ if __name__ == "__main__":
         )
 
     prog = cb.Builder()
+    pe(prog)
     create_systolic_array(
         prog,
         top_length=top_length,
@@ -110,4 +138,5 @@ if __name__ == "__main__":
         left_depth=left_depth,
     )
     default_post_op(prog, num_rows=left_length, num_cols=top_length, idx_width=BITWIDTH)
+    build_main(prog)
     prog.program.emit()
