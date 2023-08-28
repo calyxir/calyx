@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from gen_pe import PE_NAME
+from gen_pe import PE_NAME, pe
 import calyx.builder as cb
 from calyx import py_ast
 from calyx.utils import bits_needed
+from gen_post_op import BITWIDTH
 
 # Global constant for the current bitwidth.
-BITWIDTH = 32
 DEPTH = "depth"
 SYSTOLIC_ARRAY_COMP = "systolic_array_comp"
 
@@ -643,7 +643,7 @@ def create_systolic_array(
         f"Cannot multiply matrices: "
         f"{top_length}x{top_depth} and {left_depth}x{left_length}"
     )
-
+    pe(prog)
     computational_unit = prog.component(SYSTOLIC_ARRAY_COMP)
     depth_port = computational_unit.input("depth", BITWIDTH)
     init_dyn_vals(computational_unit, depth_port, top_length + left_length + 4)

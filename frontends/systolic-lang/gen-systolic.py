@@ -173,7 +173,6 @@ if __name__ == "__main__":
         )
 
     prog = cb.Builder()
-    pe(prog)
     create_systolic_array(
         prog,
         top_length=top_length,
