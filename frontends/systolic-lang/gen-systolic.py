@@ -1,23 +1,40 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
 from gen_array_component import create_systolic_array, BITWIDTH, SYSTOLIC_ARRAY_COMP
-from gen_post_op import default_post_op, OUT_MEM, DEFAULT_POST_OP
+from gen_post_op import (
+    default_post_op,
+    leaky_relu_post_op,
+    OUT_MEM,
+    DEFAULT_POST_OP,
+    LEAKY_RELU_POST_OP,
+    COND_REG,
+)
 from gen_pe import pe
 from calyx import py_ast
 from calyx.utils import bits_needed
 
 
-def build_main(prog):
+def instantiate_cond_reg(comp: cb.ComponentBuilder):
+    cond_reg = comp.get_cell(COND_REG)
+    with comp.static_group("init_cond_reg", 1):
+        cond_reg.in_ = 1
+        cond_reg.write_en = 1
+
+
+def build_main(prog, post_op_name):
     """
     Build the main component.
     It basically connects the ports of the systolic component and post_op component
     so that they both run.
     """
     main = prog.component("main")
+    this = main.this()
     systolic_array = main.cell(
         "systolic_array_component", py_ast.CompInst(SYSTOLIC_ARRAY_COMP, [])
     )
-    post_op = main.cell("post_op_component", py_ast.CompInst(DEFAULT_POST_OP, []))
+    post_op = main.cell("post_op_component", py_ast.CompInst(post_op_name, []))
+    cond_reg = main.reg(COND_REG, 1)
+    instantiate_cond_reg(main)
     connections = []
     # connect input memories to systolic_array
     for r in range(top_length):
@@ -69,19 +86,25 @@ def build_main(prog):
         )
     systolic_array_done = main.reg("systolic_done", 1)
     systolic_done_wire = main.wire("systolic_done_wire", 1)
-    with main.group("perform_computation") as g:
+    post_op_cond_reg_write_en = post_op.port(f"{COND_REG}_write_en")
+    post_op_cond_reg_in = post_op.port(f"{COND_REG}_in")
+    post_op_cond_reg_out = post_op.port(f"{COND_REG}_out")
+    with main.static_group("perform_computation", 1) as g:
         for i, o in connections:
             g.asgn(i, o)
-        systolic_array.go = ~systolic_array.done @ py_ast.ConstantPort(1, 1)
+        systolic_array.go = ~systolic_done_wire.out @ py_ast.ConstantPort(1, 1)
         systolic_array_done.write_en = systolic_array.done @ 1
         systolic_array_done.in_ = systolic_array.done @ 1
         systolic_done_wire.in_ = (systolic_array.done | systolic_array_done.out) @ 1
         post_op.go = py_ast.ConstantPort(1, 1)
         systolic_array.go = py_ast.ConstantPort(1, 1)
         systolic_array.depth = py_ast.ConstantPort(BITWIDTH, left_depth)
-        g.done = systolic_array.done
+        g.asgn(post_op_cond_reg_out, cond_reg.out)
+        g.asgn(cond_reg.write_en, post_op_cond_reg_write_en)
+        g.asgn(cond_reg.in_, post_op_cond_reg_in)
 
-    main.control = py_ast.Enable("perform_computation")
+    while_loop = cb.while_(cond_reg.port("out"), py_ast.Enable("perform_computation"))
+    main.control = py_ast.SeqComp([py_ast.Enable("init_cond_reg"), while_loop])
 
 
 if __name__ == "__main__":
@@ -137,6 +160,15 @@ if __name__ == "__main__":
         left_length=left_length,
         left_depth=left_depth,
     )
-    default_post_op(prog, num_rows=left_length, num_cols=top_length, idx_width=BITWIDTH)
-    build_main(prog)
+    if leaky_relu:
+        leaky_relu_post_op(
+            prog, num_rows=left_length, num_cols=top_length, idx_width=BITWIDTH
+        )
+        post_op = LEAKY_RELU_POST_OP
+    else:
+        default_post_op(
+            prog, num_rows=left_length, num_cols=top_length, idx_width=BITWIDTH
+        )
+        post_op = DEFAULT_POST_OP
+    build_main(prog, post_op)
     prog.program.emit()

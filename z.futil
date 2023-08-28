@@ -633,47 +633,165 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
     }
   }
 }
-component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 32, out_mem_1_done: 1, r1_valid: 1, r1_value: 32, r1_idx: 32) -> (out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1, out_mem_1_addr0: 32, out_mem_1_write_data: 32, out_mem_1_write_en: 1) {
+component leaky_relu(value: 32, index: 32, out_mem_done: 1, idx_reg_out: 32) -> (out_mem_addr0: 32, out_mem_write_data: 32, out_mem_write_en: 1, idx_reg_write_en: 1, idx_reg_in: 32) {
   cells {
-    cond_reg = std_reg(1);
+    fp_mult = std_fp_smult_pipe(32, 16, 16);
+    val_lt = std_fp_slt(32, 16, 16);
+    incr_idx = std_add(32);
+    write_mem = std_wire(1);
   }
   wires {
-    static<1> group write_r0 {
-      out_mem_0_write_en = r0_valid;
-      out_mem_0_write_data = r0_value;
-      out_mem_0_addr0 = r0_idx;
-    }
-    static<1> group write_r1 {
-      out_mem_1_write_en = r1_valid;
-      out_mem_1_write_data = r1_value;
-      out_mem_1_addr0 = r1_idx;
-    }
-    static<1> group init_cond_reg {
-      cond_reg.in = 1'd1;
-      cond_reg.write_en = 1'd1;
-    }
-    static<1> group write_cond_reg {
-      cond_reg.in = 1'd0;
-      cond_reg.write_en = r1_valid & r1_idx == 32'd1 ? 1'd1;
+    val_lt.left = value;
+    val_lt.right = 32'd0;
+    group do_relu {
+      write_mem.in = fp_mult.done | !val_lt.out ? 1'd1;
+      fp_mult.left = 32'd655;
+      fp_mult.right = value;
+      fp_mult.go = !write_mem.out ? 1'd1;
+      incr_idx.left = idx_reg_out;
+      incr_idx.right = 32'd1;
+      idx_reg_in = write_mem.out ? incr_idx.out;
+      idx_reg_write_en = write_mem.out ? 1'd1;
+      out_mem_write_en = write_mem.out ? 1'd1;
+      out_mem_addr0 = index;
+      out_mem_write_data = !val_lt.out ? value;
+      out_mem_write_data = val_lt.out ? fp_mult.out;
+      do_relu[done] = out_mem_done;
     }
   }
   control {
-    seq {
-      init_cond_reg;
-      while cond_reg.out {
-        static par {
-          write_cond_reg;
-          write_r0;
-          write_r1;
-        }
-      }
+    do_relu;
+  }
+}
+component leaky_relu_post_op(cond_reg_out: 1, out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 32, out_mem_1_done: 1, r1_valid: 1, r1_value: 32, r1_idx: 32) -> (cond_reg_write_en: 1, cond_reg_in: 1, out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1, out_mem_1_addr0: 32, out_mem_1_write_data: 32, out_mem_1_write_en: 1) {
+  cells {
+    r0_cur_val = std_wire(32);
+    r0_cur_idx = std_reg(32);
+    r0_ready_wire = std_wire(1);
+    r0_ready_reg = std_reg(1);
+    r0_c0_val_wire = std_wire(32);
+    r0_c0_val_reg = std_reg(32);
+    r0_c0_val_ready = std_wire(1);
+    r0_c1_val_wire = std_wire(32);
+    r0_c1_val_reg = std_reg(32);
+    r0_c1_val_ready = std_wire(1);
+    leaky_relu_r0 = leaky_relu();
+    relu_finished_wire_r0 = std_wire(1);
+    r1_cur_val = std_wire(32);
+    r1_cur_idx = std_reg(32);
+    r1_ready_wire = std_wire(1);
+    r1_ready_reg = std_reg(1);
+    r1_c0_val_wire = std_wire(32);
+    r1_c0_val_reg = std_reg(32);
+    r1_c0_val_ready = std_wire(1);
+    r1_c1_val_wire = std_wire(32);
+    r1_c1_val_reg = std_reg(32);
+    r1_c1_val_ready = std_wire(1);
+    leaky_relu_r1 = leaky_relu();
+    relu_finished_wire_r1 = std_wire(1);
+    cond_wire = std_wire(1);
+  }
+  wires {
+    static<1> group r0_helper {
+      r0_cur_val.in = r0_cur_idx.out == 32'd0 ? r0_c0_val_wire.out;
+      r0_cur_val.in = r0_cur_idx.out == 32'd1 ? r0_c1_val_wire.out;
+    }
+    static<1> group r0_c0_value_group {
+      r0_ready_reg.in = r0_valid ? 1'd1;
+      r0_ready_reg.write_en = r0_valid ? 1'd1;
+      r0_ready_wire.in = r0_valid | r0_ready_reg.out ? 1'd1;
+      r0_c0_val_ready.in = r0_valid & r0_idx == 32'd0 ? 1'd1;
+      r0_c0_val_wire.in = r0_c0_val_ready.out ? r0_value;
+      r0_c0_val_wire.in = !r0_c0_val_ready.out ? r0_c0_val_reg.out;
+      r0_c0_val_reg.in = r0_c0_val_ready.out ? r0_value;
+      r0_c0_val_reg.write_en = r0_c0_val_ready.out ? 1'd1;
+    }
+    static<1> group r0_c1_value_group {
+      r0_ready_reg.in = r0_valid ? 1'd1;
+      r0_ready_reg.write_en = r0_valid ? 1'd1;
+      r0_ready_wire.in = r0_valid | r0_ready_reg.out ? 1'd1;
+      r0_c1_val_ready.in = r0_valid & r0_idx == 32'd1 ? 1'd1;
+      r0_c1_val_wire.in = r0_c1_val_ready.out ? r0_value;
+      r0_c1_val_wire.in = !r0_c1_val_ready.out ? r0_c1_val_reg.out;
+      r0_c1_val_reg.in = r0_c1_val_ready.out ? r0_value;
+      r0_c1_val_reg.write_en = r0_c1_val_ready.out ? 1'd1;
+    }
+    static<1> group execute_relu_r0 {
+      leaky_relu_r0.go = r0_ready_wire.out & !relu_finished_wire_r0.out ? 1'd1;
+      leaky_relu_r0.value = r0_cur_val.out;
+      leaky_relu_r0.index = r0_cur_idx.out;
+      leaky_relu_r0.out_mem_done = out_mem_0_done;
+      leaky_relu_r0.idx_reg_out = r0_cur_idx.out;
+      out_mem_0_addr0 = leaky_relu_r0.out_mem_addr0;
+      out_mem_0_write_data = leaky_relu_r0.out_mem_write_data;
+      out_mem_0_write_en = leaky_relu_r0.out_mem_write_en;
+      r0_cur_idx.write_en = leaky_relu_r0.idx_reg_write_en;
+      r0_cur_idx.in = leaky_relu_r0.idx_reg_in;
+      relu_finished_wire_r0.in = r0_cur_idx.out == 32'd2 ? 1'd1;
+    }
+    static<1> group r1_helper {
+      r1_cur_val.in = r1_cur_idx.out == 32'd0 ? r1_c0_val_wire.out;
+      r1_cur_val.in = r1_cur_idx.out == 32'd1 ? r1_c1_val_wire.out;
+    }
+    static<1> group r1_c0_value_group {
+      r1_ready_reg.in = r1_valid ? 1'd1;
+      r1_ready_reg.write_en = r1_valid ? 1'd1;
+      r1_ready_wire.in = r1_valid | r1_ready_reg.out ? 1'd1;
+      r1_c0_val_ready.in = r1_valid & r1_idx == 32'd0 ? 1'd1;
+      r1_c0_val_wire.in = r1_c0_val_ready.out ? r1_value;
+      r1_c0_val_wire.in = !r1_c0_val_ready.out ? r1_c0_val_reg.out;
+      r1_c0_val_reg.in = r1_c0_val_ready.out ? r1_value;
+      r1_c0_val_reg.write_en = r1_c0_val_ready.out ? 1'd1;
+    }
+    static<1> group r1_c1_value_group {
+      r1_ready_reg.in = r1_valid ? 1'd1;
+      r1_ready_reg.write_en = r1_valid ? 1'd1;
+      r1_ready_wire.in = r1_valid | r1_ready_reg.out ? 1'd1;
+      r1_c1_val_ready.in = r1_valid & r1_idx == 32'd1 ? 1'd1;
+      r1_c1_val_wire.in = r1_c1_val_ready.out ? r1_value;
+      r1_c1_val_wire.in = !r1_c1_val_ready.out ? r1_c1_val_reg.out;
+      r1_c1_val_reg.in = r1_c1_val_ready.out ? r1_value;
+      r1_c1_val_reg.write_en = r1_c1_val_ready.out ? 1'd1;
+    }
+    static<1> group execute_relu_r1 {
+      leaky_relu_r1.go = r1_ready_wire.out & !relu_finished_wire_r1.out ? 1'd1;
+      leaky_relu_r1.value = r1_cur_val.out;
+      leaky_relu_r1.index = r1_cur_idx.out;
+      leaky_relu_r1.out_mem_done = out_mem_1_done;
+      leaky_relu_r1.idx_reg_out = r1_cur_idx.out;
+      out_mem_1_addr0 = leaky_relu_r1.out_mem_addr0;
+      out_mem_1_write_data = leaky_relu_r1.out_mem_write_data;
+      out_mem_1_write_en = leaky_relu_r1.out_mem_write_en;
+      r1_cur_idx.write_en = leaky_relu_r1.idx_reg_write_en;
+      r1_cur_idx.in = leaky_relu_r1.idx_reg_in;
+      relu_finished_wire_r1.in = r1_cur_idx.out == 32'd2 ? 1'd1;
+    }
+    static<1> group write_cond_reg {
+      cond_wire.in = relu_finished_wire_r0.out & relu_finished_wire_r1.out ? 1'd1;
+      cond_reg_in = !cond_wire.out ? 1'd1;
+      cond_reg_in = cond_wire.out ? 1'd0;
+      cond_reg_write_en = 1'd1;
+    }
+  }
+  control {
+    static par {
+      write_cond_reg;
+      r0_helper;
+      execute_relu_r0;
+      r0_c0_value_group;
+      r0_c1_value_group;
+      r1_helper;
+      execute_relu_r1;
+      r1_c0_value_group;
+      r1_c1_value_group;
     }
   }
 }
 component main() -> () {
   cells {
     systolic_array_component = systolic_array_comp();
-    post_op_component = default_post_op();
+    post_op_component = leaky_relu_post_op();
+    cond_reg = std_reg(1);
     @external t0 = std_mem_d1(32, 2, 2);
     @external t1 = std_mem_d1(32, 2, 2);
     @external l0 = std_mem_d1(32, 2, 2);
@@ -684,7 +802,11 @@ component main() -> () {
     systolic_done_wire = std_wire(1);
   }
   wires {
-    group perform_computation {
+    static<1> group init_cond_reg {
+      cond_reg.in = 1'd1;
+      cond_reg.write_en = 1'd1;
+    }
+    static<1> group perform_computation {
       systolic_array_component.t0_read_data = t0.read_data;
       t0.addr0 = systolic_array_component.t0_addr0;
       systolic_array_component.t1_read_data = t1.read_data;
@@ -707,18 +829,25 @@ component main() -> () {
       post_op_component.r1_valid = systolic_array_component.r1_valid;
       post_op_component.r1_value = systolic_array_component.r1_value;
       post_op_component.r1_idx = systolic_array_component.r1_idx;
-      systolic_array_component.go = !systolic_array_component.done ? 1'd1;
+      systolic_array_component.go = !systolic_done_wire.out ? 1'd1;
       systolic_done.write_en = systolic_array_component.done ? 1'd1;
       systolic_done.in = systolic_array_component.done ? 1'd1;
       systolic_done_wire.in = systolic_array_component.done | systolic_done.out ? 1'd1;
       post_op_component.go = 1'd1;
       systolic_array_component.go = 1'd1;
       systolic_array_component.depth = 32'd2;
-      perform_computation[done] = systolic_array_component.done;
+      post_op_component.cond_reg_out = cond_reg.out;
+      cond_reg.write_en = post_op_component.cond_reg_write_en;
+      cond_reg.in = post_op_component.cond_reg_in;
     }
   }
   control {
-    perform_computation;
+    seq {
+      init_cond_reg;
+      while cond_reg.out {
+        perform_computation;
+      }
+    }
   }
 }
 metadata #{
