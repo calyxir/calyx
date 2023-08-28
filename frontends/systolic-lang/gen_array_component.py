@@ -20,10 +20,18 @@ NAME_SCHEME = {
     "index update": "{prefix}_idx_update",
     # Move data from main memories
     "memory move": "{prefix}_move",
-    "out mem move": "{pe}_out_write",
+    "out write": "{pe}_out_write",
     # Move data between internal registers
     "register move down": "{pe}_down_move",
     "register move right": "{pe}_right_move",
+    # Output signals
+    "systolic valid signal": "r{row_num}_valid",
+    "systolic value signal": "r{row_num}_value",
+    "systolic idx signal": "r{row_num}_idx",
+    # "Index between" registers to help with scheduling
+    "idx between reg": "idx_between_{lo}_{hi}_reg",
+    "idx between group": "idx_between_{lo}_{hi}_group",
+    "idx between init": "init_idx_between_{lo}_{hi}",
 }
 
 
@@ -54,10 +62,11 @@ class CalyxAdd:
             + str(self.const)
         )
 
-    def build_group(self, comp: cb.ComponentBuilder) -> cb.GroupBuilder:
+    def build_group(self, comp: cb.ComponentBuilder) -> str:
         """
         Builds a static Calyx group (latency 1) that implements `self`
         Note that we avoid creating duplicate groups.
+        Returns the group name
         """
         group_name = str(self) + "_group"
         if comp.try_get_group(group_name) is None:
@@ -80,10 +89,12 @@ def add_read_mem_arguments(comp: cb.ComponentBuilder, name, addr_width):
 def add_systolic_output_arguments(comp: cb.ComponentBuilder, row_num, addr_width):
     """
     Add output arguments to systolic array component `comp` for row `row_num`.
+    The ouptut arguments alllow the systolic array to expose its outputs for `row_num`
+    without writing to memory (e.g., r0_valid, r0_value, r0_idx).
     """
-    comp.output(f"r{row_num}_valid", 1)
-    comp.output(f"r{row_num}_value", BITWIDTH)
-    comp.output(f"r{row_num}_idx", addr_width)
+    comp.output(NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1)
+    comp.output(NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH)
+    comp.output(NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width)
 
 
 def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuilder:
@@ -192,14 +203,15 @@ def instantiate_data_move(
 
 def instantiate_output_move(comp: cb.ComponentBuilder, row, col):
     """
-    Generates groups to move the final value from a PE into the output array.
+    Generates groups to move the final value from a PE to the output ports,
+    e.g., writes the value of the PE to `this.r{row}_value_port`
     """
-    group_name = NAME_SCHEME["out mem move"].format(pe=f"pe_{row}_{col}")
+    group_name = NAME_SCHEME["out write"].format(pe=f"pe_{row}_{col}")
     pe = comp.get_cell(f"pe_{row}_{col}")
     this = comp.this()
-    valid_port = this.port(f"r{row}_valid")
-    value_port = this.port(f"r{row}_value")
-    idx_port = this.port(f"r{row}_idx")
+    valid_port = this.port(NAME_SCHEME["systolic valid signal"].format(row_num=row))
+    value_port = this.port(NAME_SCHEME["systolic value signal"].format(row_num=row))
+    idx_port = this.port(NAME_SCHEME["systolic idx signal"].format(row_num=row))
     with comp.static_group(group_name, 1) as g:
         g.asgn(valid_port, 1)
         g.asgn(value_port, pe.out)
@@ -224,8 +236,8 @@ def gen_schedules(
     `pe_accum_sched` contains when to invoke PE and accumulate (bc the multipliers
     are ready with an output)
     `pe_move_sched` contains when to "move" the PE (i.e., pass data)
-    `pe_write_sched` contains when to "write" the PE value into memory (i.e., when
-    the PE is "finished")
+    `pe_write_sched` contains when to "write" the PE value into the output ports
+    (e.g., this.r0_valid)
     """
     depth_port = comp.this().depth
     min_depth_4_port = comp.get_cell("min_depth_4").port("out")
@@ -280,7 +292,9 @@ def accum_nec_ranges(nec_ranges, schedule):
 
 def instantiate_calyx_adds(comp, nec_ranges) -> list:
     """
-    Instantiates the CalyxAdds objects to adders and actual groups that add things
+    Instantiates the CalyxAdd objects to adders and actual groups that perform the
+    specified add.
+    Returns a list of all the group names that we created.
     """
     calyx_add_groups = set()
     for lo, hi in nec_ranges:
@@ -300,7 +314,7 @@ def instantiate_while_groups(comp: cb.ComponentBuilder):
     """
     Builds groups that instantiate idx to 0 and increment idx.
     Also builds groups that set cond_reg to 1 (runs before the while loop)
-    and that sets cond_reg to idx + 1 < iter_limit.
+    and that sets cond_reg to (idx + 1 < iter_limit).
     """
     idx = comp.reg("idx", BITWIDTH)
     add = comp.add(BITWIDTH, "idx_add")
@@ -366,69 +380,53 @@ def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
         lo_value = comp.get_cell(str(lo)).port("out")
     else:
         lo_value = lo
-    idx_add = comp.get_cell("idx_add")
-    reg_str = f"idx_between_{lo}_{hi}_reg"
-    comb_str = f"idx_between_{lo}_{hi}_comb"
-    group_str = f"idx_between_{lo}_{hi}_group"
-    index_lt = f"index_lt_{str(hi)}"
-    index_ge = f"index_ge_{str(lo)}"
+    reg_str = NAME_SCHEME["idx between reg"].format(lo=lo, hi=hi)
+    group_str = NAME_SCHEME["idx between group"].format(lo=lo, hi=hi)
+    index_lt = f"index_lt_{hi}"
+    index_ge = f"index_ge_{lo}"
     reg = comp.reg(reg_str, 1)
-    assert (
-        not type(lo) is None
-    ), "None Type Lower Bound not supported in instantiate_idx_between"
+    idx_add = comp.get_cell("idx_add")
     # If no upper bound, then only need to check reg >= lo
-    if hi is None:
+    lt = (
+        comp.get_cell(index_lt)
+        if comp.try_get_cell(index_lt) is not None
+        else comp.lt(BITWIDTH, index_lt)
+    )
+    # if lo == 0, then only need to check if reg < hi
+    if type(lo) == int and lo == 0:
+        with comp.static_group(group_str, 1):
+            lt.left = idx_add.out
+            lt.right = hi_value
+            reg.in_ = lt.out
+            reg.write_en = 1
+    # need to check if reg >= lo and reg < hi
+    else:
         ge = (
             comp.get_cell(index_ge)
             if comp.try_get_cell(index_ge) is not None
             else comp.ge(BITWIDTH, index_ge)
         )
+        and_ = comp.and_(1, f"idx_between_{lo}_{hi}_comb")
         with comp.static_group(group_str, 1):
             ge.left = idx_add.out
             ge.right = lo_value
-            reg.in_ = ge.out
+            lt.left = idx_add.out
+            lt.right = hi_value
+            and_.left = ge.out
+            and_.right = lt.out
+            reg.in_ = and_.out
             reg.write_en = 1
-    else:
-        lt = (
-            comp.get_cell(index_lt)
-            if comp.try_get_cell(index_lt) is not None
-            else comp.lt(BITWIDTH, index_lt)
-        )
-        # if lo == 0, then only need to check if reg < hi
-        if type(lo) == int and lo == 0:
-            with comp.static_group(group_str, 1):
-                lt.left = idx_add.out
-                lt.right = hi_value
-                reg.in_ = lt.out
-                reg.write_en = 1
-        # need to check if reg >= lo and reg < hi
-        else:
-            ge = (
-                comp.get_cell(index_ge)
-                if comp.try_get_cell(index_ge) is not None
-                else comp.ge(BITWIDTH, index_ge)
-            )
-            and_ = comp.and_(1, comb_str)
-            with comp.static_group(group_str, 1):
-                ge.left = idx_add.out
-                ge.right = lo_value
-                lt.left = idx_add.out
-                lt.right = hi_value
-                and_.left = ge.out
-                and_.right = lt.out
-                reg.in_ = and_.out
-                reg.write_en = 1
 
 
-def instantiate_init_idx_between(comp: cb.ComponentBuilder, lo, hi):
+def init_idx_between(comp: cb.ComponentBuilder, lo, hi):
     """
     Builds a group to set initial state for register idx_between_{lo}_{hi}_reg.
     """
     # if lo == 0, then the idx will initially be in between the interval, so
     # need to set idx_between to high
     start_hi = 1 if lo == 0 else 0
-    idx_between = comp.get_cell(f"idx_between_{lo}_{hi}_reg")
-    with comp.static_group(f"init_idx_between_{lo}_{hi}", 1):
+    idx_between = comp.get_cell(NAME_SCHEME["idx between reg"].format(lo=lo, hi=hi))
+    with comp.static_group(NAME_SCHEME["idx between init"].format(lo=lo, hi=hi), 1):
         idx_between.in_ = start_hi
         idx_between.write_en = 1
 
@@ -592,7 +590,7 @@ def generate_control(
                 comp,
                 schedules["write_sched"][r][c][0],
                 schedules["write_sched"][r][c][1],
-                [py_ast.Enable(NAME_SCHEME["out mem move"].format(pe=f"pe_{r}_{c}"))],
+                [py_ast.Enable(NAME_SCHEME["out write"].format(pe=f"pe_{r}_{c}"))],
             )
             pe_control = (
                 input_mem_updates + pe_fills + pe_moves + pe_accums + output_writes
@@ -696,7 +694,7 @@ def create_systolic_array(
     for start, end in nec_ranges:
         # create the groups that create for idx_in_between registers
         instantiate_idx_between(computational_unit, start, end)
-        instantiate_init_idx_between(computational_unit, start, end)
+        init_idx_between(computational_unit, start, end)
 
     # Generate the control and set the source map
     control, source_map = generate_control(

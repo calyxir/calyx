@@ -2,6 +2,7 @@
 
 import calyx.builder as cb
 from calyx import py_ast
+from gen_array_component import NAME_SCHEME
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
@@ -42,9 +43,9 @@ def add_systolic_input_params(comp: cb.ComponentBuilder, row_num, addr_width):
     Add ports "r_{row_num}_valid", "r_{row_num}_value", "r_{row_num}_idx" to comp.
     These ports are meant to read from the systolic array.
     """
-    comp.input(f"r{row_num}_valid", 1)
-    comp.input(f"r{row_num}_value", BITWIDTH)
-    comp.input(f"r{row_num}_idx", addr_width)
+    comp.input(NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1)
+    comp.input(NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH)
+    comp.input(NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width)
 
 
 def create_write_mem_groups(comp: cb.ComponentBuilder, row_num):
@@ -61,9 +62,9 @@ def create_write_mem_groups(comp: cb.ComponentBuilder, row_num):
     addr0_port = this.port(OUT_MEM + f"_{row_num}_addr0")
 
     # ports to read from systolic array
-    valid_port = this.port(f"r{row_num}_valid")
-    value_port = this.port(f"r{row_num}_value")
-    idx_port = this.port(f"r{row_num}_idx")
+    valid_port = this.port(NAME_SCHEME["systolic valid signal"].format(row_num=row_num))
+    value_port = this.port(NAME_SCHEME["systolic value signal"].format(row_num=row_num))
+    idx_port = this.port(NAME_SCHEME["systolic idx signal"].format(row_num=row_num))
 
     # group that writes output of systolic arrays to memory
     with comp.static_group(f"write_r{row_num}", 1) as g:
@@ -83,7 +84,6 @@ def create_cond_reg_group(
     # ports to read from systolic array
     cond_reg_in = this.port(f"{COND_REG}_in")
     cond_reg_write_en = this.port(f"{COND_REG}_write_en")
-    max_idx = num_cols - 1
     if leaky_relu:
         # Check if all relu operations have finished for each row
         cond_wire = comp.wire("cond_wire", 1)
@@ -101,6 +101,7 @@ def create_cond_reg_group(
     else:
         valid_port = this.port(f"r{num_rows -1}_valid")
         idx_port = this.port(f"r{num_rows-1}_idx")
+        max_idx = num_cols - 1
         with comp.static_group(f"write_cond_reg", 1) as g:
             g.asgn(cond_reg_in, 0)
             g.asgn(
