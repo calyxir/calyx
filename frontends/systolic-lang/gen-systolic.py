@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
-from gen_array_component import create_systolic_array, BITWIDTH, SYSTOLIC_ARRAY_COMP
+from gen_array_component import (
+    create_systolic_array,
+    BITWIDTH,
+    SYSTOLIC_ARRAY_COMP,
+    NAME_SCHEME,
+)
 from gen_post_op import (
     default_post_op,
     leaky_relu_post_op,
@@ -28,13 +33,14 @@ def build_main(prog, post_op_name):
     so that they both run.
     """
     main = prog.component("main")
-    this = main.this()
     systolic_array = main.cell(
         "systolic_array_component", py_ast.CompInst(SYSTOLIC_ARRAY_COMP, [])
     )
     post_op = main.cell("post_op_component", py_ast.CompInst(post_op_name, []))
     cond_reg = main.reg(COND_REG, 1)
     instantiate_cond_reg(main)
+    # Connections contains the RTL-like connections between the ports of
+    # systolic_array_comp and the post_op.
     connections = []
     # connect input memories to systolic_array
     for r in range(top_length):
@@ -76,13 +82,28 @@ def build_main(prog, post_op_name):
         connections.append((mem.write_en, post_op.port(f"{name}_write_en")))
         connections.append((post_op.port(f"{name}_done"), mem.done))
         connections.append(
-            (post_op.port(f"r{i}_valid"), systolic_array.port(f"r{i}_valid"))
+            (
+                post_op.port(NAME_SCHEME["systolic valid signal"].format(row_num=i)),
+                systolic_array.port(
+                    NAME_SCHEME["systolic valid signal"].format(row_num=i)
+                ),
+            )
         )
         connections.append(
-            (post_op.port(f"r{i}_value"), systolic_array.port(f"r{i}_value"))
+            (
+                post_op.port(NAME_SCHEME["systolic value signal"].format(row_num=i)),
+                systolic_array.port(
+                    NAME_SCHEME["systolic value signal"].format(row_num=i)
+                ),
+            )
         )
         connections.append(
-            (post_op.port(f"r{i}_idx"), systolic_array.port(f"r{i}_idx"))
+            (
+                post_op.port(NAME_SCHEME["systolic idx signal"].format(row_num=i)),
+                systolic_array.port(
+                    NAME_SCHEME["systolic idx signal"].format(row_num=i)
+                ),
+            )
         )
     systolic_array_done = main.reg("systolic_done", 1)
     systolic_done_wire = main.wire("systolic_done_wire", 1)
