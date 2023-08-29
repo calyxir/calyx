@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-from gen_pe import PE_NAME, pe
+from gen_pe import pe, PE_NAME, BITWIDTH
 import calyx.builder as cb
 from calyx import py_ast
 from calyx.utils import bits_needed
@@ -9,10 +9,6 @@ from calyx.utils import bits_needed
 # Global constant for the current bitwidth.
 DEPTH = "depth"
 SYSTOLIC_ARRAY_COMP = "systolic_array_comp"
-# Global constant for the current bitwidth.
-BITWIDTH = 32
-INTWIDTH = 16
-FRACWIDTH = 16
 
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.

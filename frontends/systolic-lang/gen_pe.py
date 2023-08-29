@@ -5,7 +5,7 @@ from calyx import py_ast
 BITWIDTH = 32
 INTWIDTH = 16
 FRACWIDTH = 16
-# Name of the ouput array
+# Name of the pe component
 PE_NAME = "mac_pe"
 
 

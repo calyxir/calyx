@@ -18,30 +18,39 @@ from calyx import py_ast
 from calyx.utils import bits_needed
 
 
-def instantiate_cond_reg(comp: cb.ComponentBuilder):
-    cond_reg = comp.get_cell(COND_REG)
-    with comp.static_group("init_cond_reg", 1):
-        cond_reg.in_ = 1
-        cond_reg.write_en = 1
+# def instantiate_cond_reg(comp: cb.ComponentBuilder):
+#     cond_reg = comp.get_cell(COND_REG)
+#     with comp.static_group("init_cond_reg", 1):
+#         cond_reg.in_ = 1
+#         cond_reg.write_en = 1
 
 
-def build_main(prog, post_op_name):
+def build_main(prog, post_op_component_name):
     """
     Build the main component.
     It basically connects the ports of the systolic component and post_op component
-    so that they both run.
+    in a single group so that they run.
+
+    One weird thing about the implementation: we pass a condition register to
+    the post_op component. The post op component (i.e., the component that coordinates
+    the post op execution: the component that actuallly the post op is in a
+    separate component) writes to this register to signal when it's done.
+    The basic reason for this is that it allows the post-op component to be more
+    RTL-like instead of control-flow-y and we avoid the performance drawbacks of
+    dynamic control in Calyx. It also makes the code look worse, though.
     """
     main = prog.component("main")
     systolic_array = main.cell(
         "systolic_array_component", py_ast.CompInst(SYSTOLIC_ARRAY_COMP, [])
     )
-    post_op = main.cell("post_op_component", py_ast.CompInst(post_op_name, []))
+    post_op = main.cell(
+        "post_op_component", py_ast.CompInst(post_op_component_name, [])
+    )
     cond_reg = main.reg(COND_REG, 1)
-    instantiate_cond_reg(main)
     # Connections contains the RTL-like connections between the ports of
     # systolic_array_comp and the post_op.
     connections = []
-    # connect input memories to systolic_array
+    # Connect input memories to systolic_array
     for r in range(top_length):
         name = f"t{r}"
         idx_width = bits_needed(top_depth)
@@ -66,7 +75,7 @@ def build_main(prog, post_op_name):
         )
         connections.append((systolic_array.port(f"{name}_read_data"), mem.read_data))
         connections.append((mem.addr0, systolic_array.port(f"{name}_addr0")))
-    # connect outout memories to post_op
+    # Connect outout memories to post_op
     for i in range(left_length):
         name = OUT_MEM + f"_{i}"
         mem = main.mem_d1(
@@ -109,22 +118,25 @@ def build_main(prog, post_op_name):
     post_op_cond_reg_write_en = post_op.port(f"{COND_REG}_write_en")
     post_op_cond_reg_in = post_op.port(f"{COND_REG}_in")
     post_op_cond_reg_out = post_op.port(f"{COND_REG}_out")
-    with main.static_group("perform_computation", 1) as g:
+    with main.group("perform_computation") as g:
         for i, o in connections:
             g.asgn(i, o)
-        systolic_array.go = ~systolic_done_wire.out @ py_ast.ConstantPort(1, 1)
+        # Use a wire and register so that we have a signal that tells us when
+        # systolic array component is done.
         systolic_array_done.write_en = systolic_array.done @ 1
         systolic_array_done.in_ = systolic_array.done @ 1
         systolic_done_wire.in_ = (systolic_array.done | systolic_array_done.out) @ 1
-        post_op.go = py_ast.ConstantPort(1, 1)
-        systolic_array.go = py_ast.ConstantPort(1, 1)
+        systolic_array.go = ~systolic_done_wire.out @ py_ast.ConstantPort(1, 1)
         systolic_array.depth = py_ast.ConstantPort(BITWIDTH, left_depth)
+
+        # Passing the condition register into the post op component.
+        post_op.go = py_ast.ConstantPort(1, 1)
         g.asgn(post_op_cond_reg_out, cond_reg.out)
         g.asgn(cond_reg.write_en, post_op_cond_reg_write_en)
         g.asgn(cond_reg.in_, post_op_cond_reg_in)
+        g.done = cond_reg.done
 
-    while_loop = cb.while_(cond_reg.port("out"), py_ast.Enable("perform_computation"))
-    main.control = py_ast.SeqComp([py_ast.Enable("init_cond_reg"), while_loop])
+    main.control = py_ast.Enable("perform_computation")
 
 
 if __name__ == "__main__":
@@ -183,11 +195,11 @@ if __name__ == "__main__":
         leaky_relu_post_op(
             prog, num_rows=left_length, num_cols=top_length, idx_width=BITWIDTH
         )
-        post_op = LEAKY_RELU_POST_OP
+        post_op_component_name = LEAKY_RELU_POST_OP
     else:
         default_post_op(
             prog, num_rows=left_length, num_cols=top_length, idx_width=BITWIDTH
         )
-        post_op = DEFAULT_POST_OP
-    build_main(prog, post_op)
+        post_op_component_name = DEFAULT_POST_OP
+    build_main(prog, post_op_component_name)
     prog.program.emit()

@@ -2,7 +2,8 @@
 
 import calyx.builder as cb
 from calyx import py_ast
-from gen_array_component import NAME_SCHEME, BITWIDTH, INTWIDTH, FRACWIDTH
+from gen_array_component import NAME_SCHEME
+from gen_pe import BITWIDTH, INTWIDTH, FRACWIDTH
 from fud.stages.verilator import numeric_types
 from calyx.utils import float_to_fixed_point
 
@@ -144,7 +145,9 @@ def default_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
 
 def leaky_relu_comp(prog: cb.Builder):
     """
-    Creates a dynamic, non-pipelined, leaky relu component
+    Creates a dynamic, non-pipelined, leaky relu component.
+    This is the component that actually performs the leaky relu computation on
+    a given output.
     """
     comp = prog.component(name="leaky_relu")
     comp.input("value", BITWIDTH)
@@ -200,9 +203,17 @@ def leaky_relu_comp(prog: cb.Builder):
 
 
 def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_width):
-    """ """
+    """
+    Creates the groups for the leaky relu post op.
+    """
 
     def store_output_vals(comp: cb.ComponentBuilder, row, num_cols, addr_width):
+        """
+        Helper function that looks at the systolic array output signsl (e.g.,
+        `r0_valid`, `r0_value`, etc.) and creates signals that tells us when: a)
+        each row is ready for the leaky relu computation to be performed and b)
+        the current value for the given row given our `idx_reg`.
+        """
         this = comp.this()
         row_ready_wire = comp.wire(f"r{row}_ready_wire", 1)
         row_ready_reg = comp.reg(f"r{row}_ready_reg", 1)
@@ -232,9 +243,7 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
                 reg_value.write_en = val_ready.out @ 1
 
     # Helper function adds assignment wire.in = reg.out == col ? pe_{row}_{col}_out.
-    def build_assignment(
-        comp: cb.ComponentBuilder, group: cb.GroupBuilder, wire, register, output_val
-    ):
+    def build_assignment(group: cb.GroupBuilder, wire, register, output_val):
         group.asgn(
             wire.port("in"),
             output_val.out,
@@ -251,7 +260,7 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
     store_output_vals(comp, row, num_cols, addr_width)
     for col in range(num_cols):
         output_val = comp.get_cell(f"r{row}_c{col}_val_wire")
-        build_assignment(comp, group, cur_val, idx_reg, output_val)
+        build_assignment(group, cur_val, idx_reg, output_val)
 
     # instantiate an instance of a leaky_relu component
     relu_instance = comp.cell(f"leaky_relu_r{row}", py_ast.CompInst("leaky_relu", []))
