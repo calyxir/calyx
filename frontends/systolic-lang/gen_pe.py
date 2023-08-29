@@ -1,4 +1,3 @@
-import numpy as np
 import calyx.builder as cb
 from calyx import py_ast
 

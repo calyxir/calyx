@@ -3,6 +3,8 @@
 import calyx.builder as cb
 from calyx import py_ast
 from gen_array_component import NAME_SCHEME
+from fud.stages.verilator import numeric_types
+from calyx.utils import float_to_fixed_point
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
@@ -13,8 +15,6 @@ OUT_MEM = "out_mem"
 DEFAULT_POST_OP = "default_post_op"
 LEAKY_RELU_POST_OP = "leaky_relu_post_op"
 COND_REG = "cond_reg"
-from fud.stages.verilator import numeric_types
-from calyx.utils import float_to_fixed_point
 
 
 def add_register_params(comp: cb.ComponentBuilder, name, width):
@@ -102,7 +102,7 @@ def create_cond_reg_group(
         valid_port = this.port(f"r{num_rows -1}_valid")
         idx_port = this.port(f"r{num_rows-1}_idx")
         max_idx = num_cols - 1
-        with comp.static_group(f"write_cond_reg", 1) as g:
+        with comp.static_group("write_cond_reg", 1) as g:
             g.asgn(cond_reg_in, 0)
             g.asgn(
                 cond_reg_write_en,

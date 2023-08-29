@@ -14,7 +14,6 @@ from gen_post_op import (
     LEAKY_RELU_POST_OP,
     COND_REG,
 )
-from gen_pe import pe
 from calyx import py_ast
 from calyx.utils import bits_needed
 
