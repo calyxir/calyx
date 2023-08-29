@@ -57,7 +57,9 @@ class IcarusBaseStage(Stage):
             return TmpDir()
 
         # Step 2a: Dynamically retrieve the value of stages.verilog.data
-        @builder.step(description="Dynamically retrieve the value of stages.verilog.data")
+        @builder.step(
+            description="Dynamically retrieve the value of stages.verilog.data"
+        )
         def get_verilog_data() -> SourceType.Path:
             data_path = config.get(["stages", "verilog", "data"])
             path = Path(data_path) if data_path else None
@@ -186,7 +188,7 @@ class IcarusBaseStage(Stage):
 
         # if we need to, convert dynamically sourced json to dat
         check_verilog_for_mem_read(input_data, data_path)
-        # otherwise, convert 
+        # otherwise, convert
         json_to_dat(tmpdir, data_path)
 
         compile_with_iverilog(input_data, tmpdir)

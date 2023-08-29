@@ -4,14 +4,14 @@ import "primitives/pipelined.futil";
 static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
   cells {
     acc = std_reg(32);
-    add = std_add(32);
-    mul = pipelined_mult();
+    adder = std_fp_sadd(32, 16, 16);
+    mul = pipelined_fp_smult(32, 16, 16);
   }
   wires {
     static<1> group do_add {
-      add.left = acc.out;
-      add.right = mul.out;
-      acc.in = add.out;
+      adder.left = acc.out;
+      adder.right = mul.out;
+      acc.in = adder.out;
       acc.write_en = mul_ready;
     }
     static<1> group do_mul {
@@ -27,7 +27,7 @@ static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
     }
   }
 }
-component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out_mem_0_done: 1) -> (t0_addr0: 2, l0_addr0: 2, out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
+component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> (t0_addr0: 2, l0_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 32) {
   cells {
     min_depth_4 = std_reg(32);
     lt_depth_4 = std_lt(32);
@@ -48,6 +48,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out
     idx = std_reg(32);
     idx_add = std_add(32);
     cond_reg = std_reg(1);
+    lt_iter_limit = std_lt(32);
     idx_between_5_depth_plus_5_reg = std_reg(1);
     index_lt_depth_plus_5 = std_lt(32);
     index_ge_5 = std_ge(32);
@@ -65,7 +66,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out
     index_lt_depth_plus_6 = std_lt(32);
     index_ge_depth_plus_5 = std_ge(32);
     idx_between_depth_plus_5_depth_plus_6_comb = std_and(1);
-    lt_iter_limit = std_lt(32);
   }
   wires {
     static<1> group init_min_depth {
@@ -132,9 +132,9 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out
       left_0_0.write_en = 1'd1;
     }
     static<1> group pe_0_0_out_write {
-      out_mem_0_addr0 = 32'd0;
-      out_mem_0_write_data = pe_0_0.out;
-      out_mem_0_write_en = 1'd1;
+      r0_valid = 1'd1;
+      r0_value = pe_0_0.out;
+      r0_idx = 32'd0;
     }
     static<1> group init_idx {
       idx.in = 32'd0;
@@ -148,6 +148,12 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out
     }
     static<1> group init_cond_reg {
       cond_reg.in = 1'd1;
+      cond_reg.write_en = 1'd1;
+    }
+    static<1> group write_cond_reg {
+      lt_iter_limit.left = idx_add.out;
+      lt_iter_limit.right = iter_limit.out;
+      cond_reg.in = lt_iter_limit.out;
       cond_reg.write_en = 1'd1;
     }
     static<1> group idx_between_5_depth_plus_5_group {
@@ -216,12 +222,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out
       idx_between_depth_plus_5_depth_plus_6_reg.in = 1'd0;
       idx_between_depth_plus_5_depth_plus_6_reg.write_en = 1'd1;
     }
-    static<1> group lt_iter_limit_group {
-      lt_iter_limit.left = idx_add.out;
-      lt_iter_limit.right = iter_limit.out;
-      cond_reg.in = lt_iter_limit.out;
-      cond_reg.write_en = 1'd1;
-    }
   }
   control {
     seq {
@@ -231,12 +231,12 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out
         init_idx;
         init_min_depth;
         init_cond_reg;
+        init_iter_limit;
         init_idx_between_5_depth_plus_5;
         init_idx_between_0_depth_plus_0;
         init_idx_between_1_depth_plus_1;
         init_idx_between_1_min_depth_4_plus_1;
         init_idx_between_depth_plus_5_depth_plus_6;
-        init_iter_limit;
       }
       while cond_reg.out {
         static par {
@@ -269,7 +269,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out
           }
           static par {
             incr_idx;
-            lt_iter_limit_group;
+            write_cond_reg;
             idx_between_5_depth_plus_5_group;
             idx_between_0_depth_plus_0_group;
             idx_between_1_depth_plus_1_group;
@@ -286,20 +286,77 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32, out
     }
   }
 }
+component default_post_op(cond_reg_out: 1, out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 32) -> (cond_reg_write_en: 1, cond_reg_in: 1, out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
+  cells {
+
+  }
+  wires {
+    static<1> group write_r0 {
+      out_mem_0_write_en = r0_valid;
+      out_mem_0_write_data = r0_value;
+      out_mem_0_addr0 = r0_idx;
+    }
+    static<1> group write_cond_reg {
+      cond_reg_in = 1'd0;
+      cond_reg_write_en = r0_valid & r0_idx == 32'd0 ? 1'd1;
+    }
+  }
+  control {
+    static par {
+      write_cond_reg;
+      write_r0;
+    }
+  }
+}
 component main() -> () {
   cells {
-    systolic_array = systolic_array_comp();
+    systolic_array_component = systolic_array_comp();
+    post_op_component = default_post_op();
+    cond_reg = std_reg(1);
     @external t0 = std_mem_d1(32, 3, 2);
     @external l0 = std_mem_d1(32, 3, 2);
     @external out_mem_0 = std_mem_d1(32, 1, 32);
+    systolic_done = std_reg(1);
+    systolic_done_wire = std_wire(1);
   }
   wires {
-
+    static<1> group init_cond_reg {
+      cond_reg.in = 1'd1;
+      cond_reg.write_en = 1'd1;
+    }
+    static<1> group perform_computation {
+      systolic_array_component.t0_read_data = t0.read_data;
+      t0.addr0 = systolic_array_component.t0_addr0;
+      systolic_array_component.l0_read_data = l0.read_data;
+      l0.addr0 = systolic_array_component.l0_addr0;
+      out_mem_0.addr0 = post_op_component.out_mem_0_addr0;
+      out_mem_0.write_data = post_op_component.out_mem_0_write_data;
+      out_mem_0.write_en = post_op_component.out_mem_0_write_en;
+      post_op_component.out_mem_0_done = out_mem_0.done;
+      post_op_component.r0_valid = systolic_array_component.r0_valid;
+      post_op_component.r0_value = systolic_array_component.r0_value;
+      post_op_component.r0_idx = systolic_array_component.r0_idx;
+      systolic_array_component.go = !systolic_done_wire.out ? 1'd1;
+      systolic_done.write_en = systolic_array_component.done ? 1'd1;
+      systolic_done.in = systolic_array_component.done ? 1'd1;
+      systolic_done_wire.in = systolic_array_component.done | systolic_done.out ? 1'd1;
+      post_op_component.go = 1'd1;
+      systolic_array_component.go = 1'd1;
+      systolic_array_component.depth = 32'd3;
+      post_op_component.cond_reg_out = cond_reg.out;
+      cond_reg.write_en = post_op_component.cond_reg_write_en;
+      cond_reg.in = post_op_component.cond_reg_in;
+    }
   }
   control {
-    invoke systolic_array(depth=32'd3, t0_read_data=t0.read_data, l0_read_data=l0.read_data, out_mem_0_done=out_mem_0.done)(t0_addr0=t0.addr0, l0_addr0=l0.addr0, out_mem_0_addr0=out_mem_0.addr0, out_mem_0_write_data=out_mem_0.write_data, out_mem_0_write_en=out_mem_0.write_en);
+    seq {
+      init_cond_reg;
+      while cond_reg.out {
+        perform_computation;
+      }
+    }
   }
 }
 metadata #{
-0: pe_0_0 filling: [1,min_depth_4_plus_1) accumulating: [5 depth_plus_5)
+0: pe_0_0 filling: [1,min_depth_4_plus_1), accumulating: [5 depth_plus_5), writing: [depth_plus_5 depth_plus_6)
 }#

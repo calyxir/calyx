@@ -5,11 +5,14 @@ from gen_pe import PE_NAME, pe
 import calyx.builder as cb
 from calyx import py_ast
 from calyx.utils import bits_needed
-from gen_post_op import BITWIDTH
 
 # Global constant for the current bitwidth.
 DEPTH = "depth"
 SYSTOLIC_ARRAY_COMP = "systolic_array_comp"
+# Global constant for the current bitwidth.
+BITWIDTH = 32
+INTWIDTH = 16
+FRACWIDTH = 16
 
 # Naming scheme for generated groups. Used to keep group names consistent
 # across structure and control.
@@ -601,11 +604,11 @@ def generate_control(
             source_map[
                 tag
             ] = f"pe_{r}_{c} filling: [{schedules['fill_sched'][r][c][0]},\
-                {schedules['fill_sched'][r][c][1]}), \
-                accumulating: [{schedules['accum_sched'][r][c][0]} \
-                {schedules['accum_sched'][r][c][1]}), \
-                writing: [{schedules['write_sched'][r][c][0]} \
-                {schedules['write_sched'][r][c][1]})"
+{schedules['fill_sched'][r][c][1]}), \
+accumulating: [{schedules['accum_sched'][r][c][0]} \
+{schedules['accum_sched'][r][c][1]}), \
+writing: [{schedules['write_sched'][r][c][0]} \
+{schedules['write_sched'][r][c][1]})"
 
     # handles the coordination so that `idx_if_between` statements work correctly `
     for start, end in nec_ranges:

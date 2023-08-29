@@ -2,14 +2,11 @@
 
 import calyx.builder as cb
 from calyx import py_ast
-from gen_array_component import NAME_SCHEME
+from gen_array_component import NAME_SCHEME, BITWIDTH, INTWIDTH, FRACWIDTH
 from fud.stages.verilator import numeric_types
 from calyx.utils import float_to_fixed_point
 
-# Global constant for the current bitwidth.
-BITWIDTH = 32
-INTWIDTH = 16
-FRACWIDTH = 16
+
 # Name of the ouput array
 OUT_MEM = "out_mem"
 DEFAULT_POST_OP = "default_post_op"

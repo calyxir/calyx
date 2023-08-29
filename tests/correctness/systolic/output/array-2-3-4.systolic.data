@@ -1,99 +1,107 @@
 {
   "l0": {
     "data": [
-      62,
-      2,
-      58
+      -1.5258562564849854,
+      1.379702091217041,
+      3.964019775390625
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l1": {
     "data": [
-      93,
-      28,
-      61
+      -4.908147811889648,
+      1.1556873321533203,
+      0.08813953399658203
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_0": {
     "data": [
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_1": {
     "data": [
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t0": {
     "data": [
-      48,
-      62,
-      38
+      -3.77524733543396,
+      -4.961813926696777,
+      4.771636962890625
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t1": {
     "data": [
-      69,
-      40,
-      22
+      0.8634233474731445,
+      -0.42656421661376953,
+      -3.2995009422302246
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t2": {
     "data": [
-      38,
-      73,
-      99
+      -3.8273227214813232,
+      1.6114530563354492,
+      -2.2347795963287354
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t3": {
     "data": [
-      14,
-      23,
-      2
+      4.7815046310424805,
+      -4.697761535644531,
+      -0.5455026626586914
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   }
