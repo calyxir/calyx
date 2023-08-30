@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::fmt::Write;
 use std::vec;
 
-use crate::backend::traits::Backend;
+use crate::traits::Backend;
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, OutputFile};
 

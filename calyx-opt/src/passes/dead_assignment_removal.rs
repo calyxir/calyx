@@ -85,8 +85,7 @@ fn saturate_dep_maps(
     let mut used_combs = HashSet::new();
     // while loop is bound by size of comb_dependence_map, which is bound
     // in size by number of ports in the group's assignments
-    while !(non_comb_writes.is_empty()) {
-        let used = non_comb_writes.pop().unwrap();
+    while let Some(used) = non_comb_writes.pop() {
         // add all writes to used to non_comb_writes
         if let Some(write_to_used) = comb_dep_map.remove(&used) {
             for write in write_to_used {

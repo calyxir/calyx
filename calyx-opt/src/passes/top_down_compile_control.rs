@@ -526,7 +526,7 @@ impl Schedule<'_, '_> {
             )?
         };
 
-        let prevs = tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
+        let prevs = tru_prev.into_iter().chain(fal_prev).collect();
         Ok(prevs)
     }
 
@@ -573,7 +573,7 @@ impl Schedule<'_, '_> {
         let not_port_guard = !port_guard;
         let all_prevs = preds
             .into_iter()
-            .chain(prevs.into_iter())
+            .chain(prevs)
             .map(|(st, guard)| (st, guard & not_port_guard.clone()))
             .collect();
 
