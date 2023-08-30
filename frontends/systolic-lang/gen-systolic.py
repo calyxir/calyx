@@ -101,7 +101,7 @@ def build_main(prog, post_op_component_name):
         )
     # Use a wire and register so that we have a signal that tells us when
     # systolic array component is done. This way, we don't retrigger systolic_array_comp
-    # when it has already ran.
+    # when it has already finished.
     systolic_array_done = main.reg("systolic_done", 1)
     systolic_done_wire = main.wire("systolic_done_wire", 1)
     with main.group("perform_computation") as g:
@@ -115,7 +115,7 @@ def build_main(prog, post_op_component_name):
         systolic_array.go = ~systolic_done_wire.out @ py_ast.ConstantPort(1, 1)
         systolic_array.depth = py_ast.ConstantPort(BITWIDTH, left_depth)
 
-        # Passing the condition register into the post op component.
+        # Triggering post_op component.
         post_op.go = py_ast.ConstantPort(1, 1)
         g.done = post_op.computation_done
 
