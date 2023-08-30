@@ -12,7 +12,6 @@ from gen_post_op import (
     OUT_MEM,
     DEFAULT_POST_OP,
     LEAKY_RELU_POST_OP,
-    COND_REG,
 )
 from calyx import py_ast
 from calyx.utils import bits_needed

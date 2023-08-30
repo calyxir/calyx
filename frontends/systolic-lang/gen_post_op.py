@@ -102,7 +102,7 @@ def done_condition_groups(
             else:
                 guard = guard & row_finished_wire.out
         all_relu_finished_wire = comp.wire("all_relu_finished_wire", 1)
-        with comp.static_group(WRITE_DONE_COND, 1) as g:
+        with comp.static_group(WRITE_DONE_COND, 1):
             all_relu_finished_wire.in_ = guard @ 1
             this.computation_done = all_relu_finished_wire.out @ 1
     else:
@@ -111,7 +111,7 @@ def done_condition_groups(
         max_idx = num_cols - 1
         # delay_reg to delay writing to this.computation_done
         delay_reg = comp.reg("delay_reg", 1)
-        with comp.static_group(WRITE_DONE_COND, 1) as g:
+        with comp.static_group(WRITE_DONE_COND, 1):
             delay_reg.in_ = 1
             delay_reg.write_en = (
                 valid_port
@@ -221,7 +221,7 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
             valid_signal = this.port(f"r{row}_valid")
             idx_signal = this.port(f"r{row}_idx")
             value_signal = this.port(f"r{row}_value")
-            with comp.static_group(f"r{row}_c{col}_value_group", 1) as g:
+            with comp.static_group(f"r{row}_c{col}_value_group", 1):
                 # Wire to detect and hold when the row is first valid. Once
                 # it is valid, we can safely start our relu operations.
                 row_ready_reg.in_ = valid_signal @ 1
