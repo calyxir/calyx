@@ -1,3 +1,4 @@
+//! Generation for the MLIR backend of the Calyx compiler
 use super::traits::Backend;
 use calyx_frontend::GetAttributes;
 use calyx_ir::{self as ir, RRC};

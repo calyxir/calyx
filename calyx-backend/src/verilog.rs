@@ -3,7 +3,7 @@
 //! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid SystemVerilog program.
 
-use crate::backend::traits::Backend;
+use crate::traits::Backend;
 use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;

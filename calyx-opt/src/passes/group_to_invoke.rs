@@ -266,10 +266,12 @@ impl GroupToInvoke {
         }
 
         // Component must define exactly one @go/@done interface
-        let Ok(Some(go_port)) = cell.find_unique_with_attr(ir::NumAttr::Go) else {
+        let Ok(Some(go_port)) = cell.find_unique_with_attr(ir::NumAttr::Go)
+        else {
             return;
         };
-        let Ok(Some(done_port)) = cell.find_unique_with_attr(ir::NumAttr::Done) else {
+        let Ok(Some(done_port)) = cell.find_unique_with_attr(ir::NumAttr::Done)
+        else {
             return;
         };
 
