@@ -11,6 +11,16 @@ pub fn run_compiler() -> CalyxResult<()> {
     // parse the command line arguments into Opts struct
     let mut opts = Opts::get_opts()?;
 
+    // Return the version and the git commit this was built on
+    if opts.version {
+        println!("Calyx compiler version {}", env!("CARGO_PKG_VERSION"));
+        println!(
+            "Library location: {}",
+            option_env!("CALYX_PRIMITIVES_DIR").unwrap_or(".")
+        );
+        return Ok(());
+    }
+
     // enable tracing
     env_logger::Builder::new()
         .format_timestamp(None)
