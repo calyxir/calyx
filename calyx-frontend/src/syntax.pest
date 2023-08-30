@@ -247,7 +247,7 @@ latency_annotation = {
   "<" ~ bitwidth ~ ">"
 }
 attributes = {
-      "<" ~ (attribute ~ ("," ~ attribute)*) ~ ">"
+      "<" ~ (attribute ~ ("," ~ attribute)*) ~ ","? ~ ">"
 }
 name_with_attribute = {
   identifier ~ attributes?
