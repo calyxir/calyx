@@ -7,4 +7,4 @@ pub mod stateful;
 pub(crate) use builder::build_primitive;
 pub use prim_trait::Primitive;
 
-pub(self) use macros::*;
+use macros::*;

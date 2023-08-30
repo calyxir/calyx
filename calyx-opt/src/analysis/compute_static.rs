@@ -163,7 +163,9 @@ impl IntoStatic for ir::Seq {
         }
 
         for stmt in self.stmts.drain(..) {
-            let ir::Control::Static(sc) = stmt else {unreachable!("We have already checked that all control statements are static")};
+            let ir::Control::Static(sc) = stmt else {
+                unreachable!("We have already checked that all control statements are static")
+            };
             latency += sc.get_latency();
             static_stmts.push(sc);
         }
@@ -188,7 +190,9 @@ impl IntoStatic for ir::Par {
         }
 
         for stmt in self.stmts.drain(..) {
-            let ir::Control::Static(sc) = stmt else {unreachable!("We have already checked that all control statements are static")};
+            let ir::Control::Static(sc) = stmt else {
+                unreachable!("We have already checked that all control statements are static")
+            };
             latency = std::cmp::max(latency, sc.get_latency());
             static_stmts.push(sc);
         }
@@ -209,11 +213,11 @@ impl IntoStatic for ir::If {
         let tb = std::mem::replace(&mut *self.tbranch, ir::Control::empty());
         let fb = std::mem::replace(&mut *self.fbranch, ir::Control::empty());
         let ir::Control::Static(sc_t) = tb else {
-                    unreachable!("we have already checked tbranch to be static")
-                };
+            unreachable!("we have already checked tbranch to be static")
+        };
         let ir::Control::Static(sc_f) = fb else {
-                    unreachable!("we have already checker fbranch to be static")
-                };
+            unreachable!("we have already checker fbranch to be static")
+        };
         let latency = std::cmp::max(sc_t.get_latency(), sc_f.get_latency());
         Some(ir::StaticIf {
             tbranch: Box::new(sc_t),

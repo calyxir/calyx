@@ -1,14 +1,12 @@
 //! Command line parsing for the Calyx compiler.
-use crate::backend::traits::Backend;
-use crate::backend::{
-    mlir::MlirBackend, resources::ResourcesBackend, sexp::SexpBackend,
-    verilog::VerilogBackend, xilinx::XilinxInterfaceBackend,
-    xilinx::XilinxXmlBackend,
-};
 use argh::FromArgs;
+use calyx_backend::{
+    xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
+    Backend, BackendOpt, MlirBackend, ResourcesBackend, SexpBackend,
+    VerilogBackend,
+};
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
-use itertools::Itertools;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -109,105 +107,32 @@ impl FromStr for CompileMode {
 
 // ================== Backend Variant and Parsing ===================== //
 
-/// Enumeration of valid backends
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub enum BackendOpt {
-    #[default]
-    Calyx,
-    Verilog,
-    Xilinx,
-    XilinxXml,
-    Mlir,
-    Resources,
-    Sexp,
-    None,
-}
-
-/// Return a vector that maps strings to Backends.
-#[inline(always)]
-fn backends() -> Vec<(&'static str, BackendOpt)> {
-    vec![
-        ("verilog", BackendOpt::Verilog),
-        ("xilinx", BackendOpt::Xilinx),
-        ("xilinx-xml", BackendOpt::XilinxXml),
-        ("calyx", BackendOpt::Calyx),
-        ("mlir", BackendOpt::Mlir),
-        ("resources", BackendOpt::Resources),
-        ("sexp", BackendOpt::Sexp),
-        ("none", BackendOpt::None),
-    ]
-}
-
-/// Command line parsing for the Backend enum
-impl FromStr for BackendOpt {
-    type Err = String;
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        // allocate a vector for the list of backends
-        let backends = backends();
-        // see if there is a backend for the string that we receive
-        let found_backend = backends
-            .iter()
-            .find(|(backend_name, _)| &input == backend_name);
-        if let Some((_, opt)) = found_backend {
-            // return the BackendOpt if we found one
-            Ok(opt.clone())
-        } else {
-            // build list of backends for error message
-            let backend_str = backends
-                .iter()
-                .map(|(name, _)| (*name).to_string())
-                .join(", ");
-            Err(format!(
-                "`{}` is not a valid backend.\nValid backends: {}",
-                input, backend_str
-            ))
-        }
-    }
-}
-
-/// Convert `BackendOpt` to a string
-impl ToString for BackendOpt {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Mlir => "mlir",
-            Self::Resources => "resources",
-            Self::Sexp => "sexp",
-            Self::Verilog => "verilog",
-            Self::Xilinx => "xilinx",
-            Self::XilinxXml => "xilinx-xml",
-            Self::Calyx => "calyx",
-            Self::None => "none",
-        }
-        .to_string()
-    }
-}
-
 impl Opts {
     /// Given a context, calls the backend corresponding to the `BackendOpt` variant
     pub fn run_backend(self, context: ir::Context) -> CalyxResult<()> {
         match self.backend {
             BackendOpt::Mlir => {
-                let backend = MlirBackend::default();
+                let backend = MlirBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Resources => {
-                let backend = ResourcesBackend::default();
+                let backend = ResourcesBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Sexp => {
-                let backend = SexpBackend::default();
+                let backend = SexpBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Verilog => {
-                let backend = VerilogBackend::default();
+                let backend = VerilogBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Xilinx => {
-                let backend = XilinxInterfaceBackend::default();
+                let backend = XilinxInterfaceBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::XilinxXml => {
-                let backend = XilinxXmlBackend::default();
+                let backend = XilinxXmlBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {

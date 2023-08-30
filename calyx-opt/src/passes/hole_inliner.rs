@@ -199,7 +199,7 @@ impl Visitor for HoleInliner {
             builder;
             let signal_on = constant(1, 1);
         );
-        assignments.iter_mut().for_each(|mut asgn| {
+        assignments.iter_mut().for_each(|asgn| {
             if asgn.src.borrow().is_hole() {
                 let and_guard = ir::Guard::port(Rc::clone(&asgn.src));
                 *asgn.guard &= and_guard;

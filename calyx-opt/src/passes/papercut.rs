@@ -215,7 +215,7 @@ impl Papercut {
                     all_writes.get(&(inst, comp_type)).unwrap_or(&empty);
                 for (read, required) in spec {
                     if reads.contains(read)
-                        && matches!(required.difference(writes).next(), Some(_))
+                        && required.difference(writes).next().is_some()
                     {
                         let missing = required
                             .difference(writes)

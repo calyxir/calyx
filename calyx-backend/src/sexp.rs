@@ -1,7 +1,7 @@
 //! Pretty-printer for Calyx syntax.
 //! Outputs s-expressions.
 
-use crate::backend::traits::Backend;
+use crate::traits::Backend;
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, OutputFile};
 
@@ -26,18 +26,10 @@ impl Backend for SexpBackend {
         Ok(())
     }
 
-    #[cfg(feature = "serialize")]
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
         writeln!(out, "{}", serde_sexpr::to_string(ctx).unwrap())?;
 
-        Ok(())
-    }
-
-    #[cfg(not(feature = "serialize"))]
-    fn emit(_ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        let out = &mut file.get_write();
-        writeln!(out, "The serialize feature is not enabled. To compile Calyx with the serialize feature, run `cargo build --features serialize`")?;
         Ok(())
     }
 }
