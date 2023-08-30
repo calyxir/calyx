@@ -52,7 +52,8 @@ impl ConstructVisitor for DiscoverExternal {
             let spl = splits.next();
             // Search for the "default=<n>" option
             if spl == Some("default") {
-                let Some(val) = splits.next().and_then(|v| v.parse().ok()) else {
+                let Some(val) = splits.next().and_then(|v| v.parse().ok())
+                else {
                     log::warn!("Failed to parse default value. Please specify using -x {}:default=<n>", n);
                     continue;
                 };
