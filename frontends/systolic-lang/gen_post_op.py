@@ -13,19 +13,20 @@ OUT_MEM = "out_mem"
 DEFAULT_POST_OP = "default_post_op"
 LEAKY_RELU_POST_OP = "leaky_relu_post_op"
 COND_REG = "cond_reg"
+WRITE_DONE_COND = "write_done_cond"
 
 
 def add_register_params(comp: cb.ComponentBuilder, name, width):
     """
     Add params to component `comp` if we want to use a register named
-    `name` inside `comp.`
+    `name` inside `comp.`Specifically adds the write_en, in, and out ports.
     """
     comp.output(f"{name}_write_en", 1)
     comp.output(f"{name}_in", width)
     comp.input(f"{name}_out", width)
 
 
-def add_write_mem_arguments(comp: cb.ComponentBuilder, name, addr_width):
+def add_write_mem_params(comp: cb.ComponentBuilder, name, addr_width):
     """
     Add arguments to component `comp` if we want to write to a mem named `name` with
     width of `addr_width` inside `comp.`
@@ -39,17 +40,27 @@ def add_write_mem_arguments(comp: cb.ComponentBuilder, name, addr_width):
 def add_systolic_input_params(comp: cb.ComponentBuilder, row_num, addr_width):
     """
     Add ports "r_{row_num}_valid", "r_{row_num}_value", "r_{row_num}_idx" to comp.
-    These ports are meant to read from the systolic array.
+    These ports are meant to read from the systolic array output.
     """
     comp.input(NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1)
     comp.input(NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH)
     comp.input(NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width)
 
 
+def add_post_op_params(comp: cb.Builder, num_rows: int, idx_width: int):
+    """
+    Adds correct parameters for post op component comp
+    """
+    comp.output("computation_done", 1)
+    for r in range(num_rows):
+        add_write_mem_params(comp, OUT_MEM + f"_{r}", idx_width)
+        add_systolic_input_params(comp, r, idx_width)
+
+
 def create_write_mem_groups(comp: cb.ComponentBuilder, row_num):
     """
     Instantiates group that writes the systolic array values for `row_num` into
-    memory.
+    the output memory.
     `comp` should have access to systolic array values through the parameters added
     in `add_systolic_input_params()`.
     """
@@ -71,58 +82,42 @@ def create_write_mem_groups(comp: cb.ComponentBuilder, row_num):
         g.asgn(addr0_port, idx_port)
 
 
-def create_cond_reg_group(
+def done_condition_groups(
     comp: cb.ComponentBuilder, num_rows, num_cols, idx_width, leaky_relu=False
 ):
     """
-    Writes to `cond_reg`, which should be initialized to hold 1.
-    It should then hold 0 once we want to stop executing the while loop.
+    Writes to this.computation_done
+    For leaky relu, we wait until the relu operations are done for each row.
+    For default post op, you simply have to check when the systolic array output
+    is at the last entry.
     """
     this = comp.this()
     # ports to read from systolic array
-    cond_reg_in = this.port(f"{COND_REG}_in")
-    cond_reg_write_en = this.port(f"{COND_REG}_write_en")
     if leaky_relu:
         # Check if all relu operations have finished for each row
-        cond_wire = comp.wire("cond_wire", 1)
         for r in range(num_rows):
-            relu_finished_wire = comp.get_cell(f"relu_finished_wire_r{r}")
+            row_finished_wire = comp.get_cell(f"relu_finished_wire_r{r}")
             if r == 0:
-                guard = relu_finished_wire.out
+                guard = row_finished_wire.out
             else:
-                guard = guard & relu_finished_wire.out
-        with comp.static_group("write_cond_reg", 1) as g:
-            cond_wire.in_ = guard @ 1
-            g.asgn(cond_reg_in, 1, ~cond_wire.out)
-            g.asgn(cond_reg_in, 0, cond_wire.out)
-            g.asgn(cond_reg_write_en, 1)
+                guard = guard & row_finished_wire.out
+        all_relu_finished_wire = comp.wire("all_relu_finished_wire", 1)
+        with comp.static_group(WRITE_DONE_COND, 1) as g:
+            all_relu_finished_wire.in_ = guard @ 1
+            this.computation_done = all_relu_finished_wire.out @ 1
     else:
         valid_port = this.port(f"r{num_rows -1}_valid")
         idx_port = this.port(f"r{num_rows-1}_idx")
         max_idx = num_cols - 1
-        with comp.static_group("write_cond_reg", 1) as g:
-            g.asgn(cond_reg_in, 0)
-            g.asgn(
-                cond_reg_write_en,
-                1,
-                (
-                    valid_port
-                    & (
-                        idx_port
-                        == cb.ExprBuilder(py_ast.ConstantPort(idx_width, max_idx))
-                    )
-                ),
-            )
-
-
-def create_post_op_params(comp, num_rows, idx_width):
-    """
-    Adds correct parameters for post op component comp
-    """
-    add_register_params(comp, COND_REG, 1)
-    for r in range(num_rows):
-        add_write_mem_arguments(comp, OUT_MEM + f"_{r}", idx_width)
-        add_systolic_input_params(comp, r, idx_width)
+        # delay_reg to delay writing to this.computation_done
+        delay_reg = comp.reg("delay_reg", 1)
+        with comp.static_group(WRITE_DONE_COND, 1) as g:
+            delay_reg.in_ = 1
+            delay_reg.write_en = (
+                valid_port
+                & (idx_port == cb.ExprBuilder(py_ast.ConstantPort(idx_width, max_idx)))
+            ) @ 1
+            this.computation_done = delay_reg.done @ 1
 
 
 def default_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
@@ -131,13 +126,13 @@ def default_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
     This post-op does nothing except immediately write to memory.
     """
     comp = prog.component(name=DEFAULT_POST_OP)
-    create_post_op_params(comp, num_rows, idx_width)
+    add_post_op_params(comp, num_rows, idx_width)
     for r in range(num_rows):
         create_write_mem_groups(comp, r)
-    create_cond_reg_group(comp, num_rows, num_cols, idx_width)
+    done_condition_groups(comp, num_rows, num_cols, idx_width)
 
     comp.control = py_ast.StaticParComp(
-        [py_ast.Enable("write_cond_reg")]
+        [py_ast.Enable(WRITE_DONE_COND)]
         # write to memory
         + [py_ast.Enable(f"write_r{r}") for r in range(num_rows)]
     )
@@ -153,7 +148,7 @@ def leaky_relu_comp(prog: cb.Builder):
     comp.input("value", BITWIDTH)
     comp.input("index", BITWIDTH)
     # Takes a memory and register (i.e., arguments that essentially act as ref cells)
-    add_write_mem_arguments(comp, OUT_MEM, BITWIDTH)
+    add_write_mem_params(comp, OUT_MEM, BITWIDTH)
     add_register_params(comp, "idx_reg", BITWIDTH)
 
     this = comp.this()
@@ -204,15 +199,17 @@ def leaky_relu_comp(prog: cb.Builder):
 
 def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_width):
     """
-    Creates the groups for the leaky relu post op.
+    Creates the groups for the leaky relu post op, i.e., the post-op that
+    coordinates the leaky-relu execution.
     """
 
     def store_output_vals(comp: cb.ComponentBuilder, row, num_cols, addr_width):
         """
         Helper function that looks at the systolic array output signsl (e.g.,
         `r0_valid`, `r0_value`, etc.) and creates signals that tells us when: a)
-        each row is ready for the leaky relu computation to be performed and b)
-        the current value for the given row given our `idx_reg`.
+        each row is ready for the leaky relu operations to start and b)
+        the output systolic array values (we need them in registers bc the systolic
+        array outputs are only available for one cycle).
         """
         this = comp.this()
         row_ready_wire = comp.wire(f"r{row}_ready_wire", 1)
@@ -225,18 +222,21 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
             idx_signal = this.port(f"r{row}_idx")
             value_signal = this.port(f"r{row}_value")
             with comp.static_group(f"r{row}_c{col}_value_group", 1) as g:
+                # Wire to detect and hold when the row is first valid. Once
+                # it is valid, we can safely start our relu operations.
                 row_ready_reg.in_ = valid_signal @ 1
                 row_ready_reg.write_en = valid_signal @ 1
                 row_ready_wire.in_ = (valid_signal | row_ready_reg.out) @ 1
-                g.asgn(
-                    val_ready.in_,
-                    1,
+                # Logic to hold the systolic array output values. We need registers
+                # because the output values for systolic arrays are only available
+                # for one cycle before they change.
+                val_ready.in_ = (
                     valid_signal
                     & (
                         idx_signal
                         == cb.ExprBuilder(py_ast.ConstantPort(addr_width, col))
-                    ),
-                )
+                    )
+                ) @ 1
                 wire_value.in_ = val_ready.out @ value_signal
                 wire_value.in_ = ~(val_ready.out) @ reg_value.out
                 reg_value.in_ = val_ready.out @ value_signal
@@ -256,13 +256,16 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
     cur_val = comp.wire(f"r{row}_cur_val", BITWIDTH)
     # Current idx within the row (i.e., column) for the value we are performing relu on.
     idx_reg = comp.reg(f"r{row}_cur_idx", BITWIDTH)
-    # assigning cur_val = value of PE at (row, idx_reg).
+    # Handling logic to hold the systolic array's output values so they're available
+    # for moer than one cycle.
     store_output_vals(comp, row, num_cols, addr_width)
     for col in range(num_cols):
         output_val = comp.get_cell(f"r{row}_c{col}_val_wire")
+        # Assigning to cur_val wire so that we always have the current value of the
+        # row based on idx_reg.
         build_assignment(group, cur_val, idx_reg, output_val)
 
-    # instantiate an instance of a leaky_relu component
+    # Instantiate an instance of a leaky_relu component
     relu_instance = comp.cell(f"leaky_relu_r{row}", py_ast.CompInst("leaky_relu", []))
     # Wire that tells us we are finished with relu operation for this row.
     relu_finished_wire = comp.wire(f"relu_finished_wire_r{row}", 1)
@@ -286,12 +289,12 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
         relu_instance.go = (
             row_ready_wire.out & (~relu_finished_wire.out)
         ) @ cb.ExprBuilder(py_ast.ConstantPort(1, 1))
-        # input ports
+        # input ports for relu_instance
         relu_instance.value = cur_val.out
         relu_instance.index = idx_reg.out
         g.asgn(relu_done_port, mem_done_port)
         relu_instance.idx_reg_out = idx_reg.out
-        # output ports
+        # output ports for relu_instance
         g.asgn(addr0_port, relu_addr0_port)
         g.asgn(mem_write_data_port, relu_write_data_port)
         g.asgn(mem_write_en_port, relu_write_en_port)
@@ -310,12 +313,13 @@ def leaky_relu_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
     # Create a leaky relu component.
     leaky_relu_comp(prog)
     comp = prog.component(name=LEAKY_RELU_POST_OP)
-    create_post_op_params(comp, num_rows, idx_width)
+    add_post_op_params(comp, num_rows, idx_width)
     for r in range(num_rows):
         create_leaky_relu_groups(comp, r, num_cols, idx_width)
-    create_cond_reg_group(comp, num_rows, num_cols, idx_width, leaky_relu=True)
+    done_condition_groups(comp, num_rows, num_cols, idx_width, leaky_relu=True)
 
-    all_groups = [py_ast.Enable("write_cond_reg")]
+    # all_groups go in one big static par.
+    all_groups = [py_ast.Enable(WRITE_DONE_COND)]
     for r in range(num_rows):
         all_groups.append(py_ast.Enable(f"r{r}_helper"))
         all_groups.append(py_ast.Enable(f"execute_relu_r{r}"))

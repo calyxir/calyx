@@ -96,39 +96,6 @@ def add_systolic_output_arguments(comp: cb.ComponentBuilder, row_num, addr_width
     comp.output(NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width)
 
 
-def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuilder:
-    """
-    Instantiate an indexor for accessing memory with name `prefix`.
-    Generates structure to initialize and update the indexor.
-
-    The initializor starts sets the memories to their maximum value
-    because we expect all indices to be incremented once before
-    being used.
-
-    Returns (cells, structure)
-    """
-    name = NAME_SCHEME["index name"].format(prefix=prefix)
-
-    reg = comp.reg(name, width)
-    add = comp.add(width, f"{prefix}_add")
-
-    init_name = NAME_SCHEME["index init"].format(prefix=prefix)
-    with comp.static_group(init_name, 1):
-        # Initialize the indexor to 0
-        reg.in_ = 0
-        reg.write_en = 1
-
-    upd_name = NAME_SCHEME["index update"].format(prefix=prefix)
-    with comp.static_group(upd_name, 1):
-        # Increment the indexor.
-        add.left = 1
-        add.right = reg.out
-        reg.in_ = add.out
-        reg.write_en = 1
-
-    return reg
-
-
 def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     """
     Instantiates:
@@ -171,6 +138,39 @@ def instantiate_pe(comp: cb.ComponentBuilder, row: int, col: int):
     comp.cell(f"pe_{row}_{col}", py_ast.CompInst(PE_NAME, []))
     comp.reg(f"top_{row}_{col}", BITWIDTH)
     comp.reg(f"left_{row}_{col}", BITWIDTH)
+
+
+def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuilder:
+    """
+    Instantiate an indexor for accessing memory with name `prefix`.
+    Generates structure to initialize and update the indexor.
+
+    The initializor starts sets the memories to their maximum value
+    because we expect all indices to be incremented once before
+    being used.
+
+    Returns (cells, structure)
+    """
+    name = NAME_SCHEME["index name"].format(prefix=prefix)
+
+    reg = comp.reg(name, width)
+    add = comp.add(width, f"{prefix}_add")
+
+    init_name = NAME_SCHEME["index init"].format(prefix=prefix)
+    with comp.static_group(init_name, 1):
+        # Initialize the indexor to 0
+        reg.in_ = 0
+        reg.write_en = 1
+
+    upd_name = NAME_SCHEME["index update"].format(prefix=prefix)
+    with comp.static_group(upd_name, 1):
+        # Increment the indexor.
+        add.left = 1
+        add.right = reg.out
+        reg.in_ = add.out
+        reg.write_en = 1
+
+    return reg
 
 
 def instantiate_data_move(
@@ -217,96 +217,79 @@ def instantiate_output_move(comp: cb.ComponentBuilder, row, col):
         g.asgn(idx_port, col)
 
 
-def gen_schedules(
-    top_length,
-    top_depth,
-    left_length,
-    left_depth,
-    comp: cb.ComponentBuilder,
-):
+def get_memory_updates(row, col):
     """
-    Generates 4 arrays that are the same size as the output (systolic) array
-    Each entry in the array has tuple [start, end) that indicates the cycles that
-    they are active
-    `update_sched` contains when to update the indices of the input memories and feed
-    them into the systolic array
-    `pe_fill_sched` contains when to invoke PE but not accumulate (bc the multipliers
-    are not ready with an output yet)
-    `pe_accum_sched` contains when to invoke PE and accumulate (bc the multipliers
-    are ready with an output)
-    `pe_move_sched` contains when to "move" the PE (i.e., pass data)
-    `pe_write_sched` contains when to "write" the PE value into the output ports
-    (e.g., this.r0_valid)
+    Gets the memory moves and memory idx updates for (row,col)
+    This is how we coordinate feeding the memories into the systolic array
     """
-    depth_port = comp.this().depth
-    min_depth_4_port = comp.get_cell("min_depth_4").port("out")
-    schedules = {}
-    update_sched = np.zeros((left_length, top_length), dtype=object)
-    pe_fill_sched = np.zeros((left_length, top_length), dtype=object)
-    pe_accum_sched = np.zeros((left_length, top_length), dtype=object)
-    pe_move_sched = np.zeros((left_length, top_length), dtype=object)
-    # will only actually use one of the following two schedules
-    pe_write_sched = np.zeros((left_length, top_length), dtype=object)
-    for row in range(0, left_length):
-        for col in range(0, top_length):
-            pos = row + col
-            update_sched[row][col] = (pos, CalyxAdd(depth_port, pos))
-            pe_fill_sched[row][col] = (pos + 1, CalyxAdd(min_depth_4_port, pos + 1))
-            pe_accum_sched[row][col] = (pos + 5, CalyxAdd(depth_port, pos + 5))
-            pe_move_sched[row][col] = (pos + 1, CalyxAdd(depth_port, pos + 1))
-            pe_write_sched[row][col] = (
-                CalyxAdd(depth_port, pos + 5),
-                CalyxAdd(depth_port, pos + 6),
-            )
-    schedules["update_sched"] = update_sched
-    schedules["fill_sched"] = pe_fill_sched
-    schedules["accum_sched"] = pe_accum_sched
-    schedules["move_sched"] = pe_move_sched
-    schedules["write_sched"] = pe_write_sched
-    return schedules
+    movers = []
+    if col == 0:
+        movers.append(NAME_SCHEME["memory move"].format(prefix=f"l{row}"))
+        movers.append(NAME_SCHEME["index update"].format(prefix=f"l{row}"))
+    if row == 0:
+        movers.append(NAME_SCHEME["memory move"].format(prefix=f"t{col}"))
+        movers.append(NAME_SCHEME["index update"].format(prefix=f"t{col}"))
+    mover_enables = [py_ast.Enable(name) for name in movers]
+    return mover_enables
 
 
-def accum_nec_ranges(nec_ranges, schedule):
+def get_pe_moves(r, c, top_length, left_length):
     """
-    Essentially creates a set that contains all of the idx ranges that
-    we need to check for (e.g., [1,3) [2,4)] in order to realize
-    the schedule
-
-    nec_ranges is a set of tuples.
-    schedule is either a 2d array or 1d array with tuple (start,end) entries.
-    Adds all intervals (start,end) in schedule to nec_ranges if the it's
-    not already in nec_ranges.
+    Gets the PE moves for the PE at (r,c)
     """
-    if schedule.ndim == 1:
-        for r in schedule:
-            nec_ranges.add(r)
-    elif schedule.ndim == 2:
-        for r in schedule:
-            for c in r:
-                nec_ranges.add(c)
-    else:
-        raise Exception("accum_nec_ranges expects only 1d or 2d arrays")
-    return nec_ranges
+    pe_moves = []
+    if r < left_length - 1:
+        pe_moves.append(NAME_SCHEME["register move down"].format(pe=f"pe_{r}_{c}"))
+    if c < top_length - 1:
+        pe_moves.append(NAME_SCHEME["register move right"].format(pe=f"pe_{r}_{c}"))
+    pe_enables = [py_ast.Enable(name) for name in pe_moves]
+    return pe_enables
 
 
-def instantiate_calyx_adds(comp, nec_ranges) -> list:
+def get_pe_invoke(r, c, mul_ready):
     """
-    Instantiates the CalyxAdd objects to adders and actual groups that perform the
-    specified add.
-    Returns a list of all the group names that we created.
+    gets the PE invokes for the PE at (r,c). mul_ready signals whether 1 or 0
+    should be passed into mul_ready
     """
-    calyx_add_groups = set()
-    for lo, hi in nec_ranges:
-        if type(lo) == CalyxAdd:
-            group_name = lo.build_group(comp)
-            calyx_add_groups.add(group_name)
-        if type(hi) == CalyxAdd:
-            group_name = hi.build_group(comp)
-            calyx_add_groups.add(group_name)
-    group_list = list(calyx_add_groups)
-    # sort for testing purposes
-    group_list.sort()
-    return group_list
+    return py_ast.StaticInvoke(
+        id=py_ast.CompVar(f"pe_{r}_{c}"),
+        in_connects=[
+            ("top", py_ast.CompPort(py_ast.CompVar(f"top_{r}_{c}"), "out")),
+            (
+                "left",
+                py_ast.CompPort(py_ast.CompVar(f"left_{r}_{c}"), "out"),
+            ),
+            (
+                "mul_ready",
+                py_ast.ConstantPort(1, mul_ready),
+            ),
+        ],
+        out_connects=[],
+    )
+
+
+def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
+    """
+    Builds group that instantiates the dynamic/runtime values for the systolic
+    array: its depth and iteration limit/count (since its iteration limit depends on
+    its depth).
+    iteration limit = depth + partial_iter_limit
+    """
+    min_depth_4 = comp.reg("min_depth_4", BITWIDTH)
+    lt_depth_4 = comp.lt(BITWIDTH, "lt_depth_4")
+    iter_limit = comp.reg("iter_limit", BITWIDTH)
+    iter_limit_add = comp.add(BITWIDTH, "iter_limit_add")
+    with comp.static_group("init_min_depth", 1):
+        lt_depth_4.left = depth_port
+        lt_depth_4.right = 4
+        min_depth_4.in_ = lt_depth_4.out @ depth_port
+        min_depth_4.in_ = ~lt_depth_4.out @ 4
+        min_depth_4.write_en = 1
+    with comp.static_group("init_iter_limit", 1):
+        iter_limit_add.left = partial_iter_limit
+        iter_limit_add.right = depth_port
+        iter_limit.in_ = iter_limit_add.out
+        iter_limit.write_en = 1
 
 
 def instantiate_while_groups(comp: cb.ComponentBuilder):
@@ -339,28 +322,24 @@ def instantiate_while_groups(comp: cb.ComponentBuilder):
         cond_reg.write_en = 1
 
 
-def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
+def instantiate_calyx_adds(comp, nec_ranges) -> list:
     """
-    Builds group that instantiates the dynamic/runtime values for the systolic
-    array: its depth and iteration limit/count (since its iteration limit depends on
-    its depth).
-    iteration limit = depth + partial_iter_limit
+    Instantiates the CalyxAdd objects to adders and actual groups that perform the
+    specified add.
+    Returns a list of all the group names that we created.
     """
-    min_depth_4 = comp.reg("min_depth_4", BITWIDTH)
-    lt_depth_4 = comp.lt(BITWIDTH, "lt_depth_4")
-    iter_limit = comp.reg("iter_limit", BITWIDTH)
-    iter_limit_add = comp.add(BITWIDTH, "iter_limit_add")
-    with comp.static_group("init_min_depth", 1):
-        lt_depth_4.left = depth_port
-        lt_depth_4.right = 4
-        min_depth_4.in_ = lt_depth_4.out @ depth_port
-        min_depth_4.in_ = ~lt_depth_4.out @ 4
-        min_depth_4.write_en = 1
-    with comp.static_group("init_iter_limit", 1):
-        iter_limit_add.left = partial_iter_limit
-        iter_limit_add.right = depth_port
-        iter_limit.in_ = iter_limit_add.out
-        iter_limit.write_en = 1
+    calyx_add_groups = set()
+    for lo, hi in nec_ranges:
+        if type(lo) == CalyxAdd:
+            group_name = lo.build_group(comp)
+            calyx_add_groups.add(group_name)
+        if type(hi) == CalyxAdd:
+            group_name = hi.build_group(comp)
+            calyx_add_groups.add(group_name)
+    group_list = list(calyx_add_groups)
+    # sort for testing purposes
+    group_list.sort()
+    return group_list
 
 
 def instantiate_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
@@ -430,55 +409,76 @@ def init_idx_between(comp: cb.ComponentBuilder, lo, hi):
         idx_between.write_en = 1
 
 
-def get_memory_updates(row, col):
+def accum_nec_ranges(nec_ranges, schedule):
     """
-    Gets the memory moves and memory idx updates for (row,col)
-    This is how we coordinate feeding the memories into the systolic array
+    Essentially creates a set that contains all of the idx ranges that
+    we need to check for (e.g., [1,3) [2,4)] in order to realize
+    the schedule
+
+    nec_ranges is a set of tuples.
+    schedule is either a 2d array or 1d array with tuple (start,end) entries.
+    Adds all intervals (start,end) in schedule to nec_ranges if the it's
+    not already in nec_ranges.
     """
-    movers = []
-    if col == 0:
-        movers.append(NAME_SCHEME["memory move"].format(prefix=f"l{row}"))
-        movers.append(NAME_SCHEME["index update"].format(prefix=f"l{row}"))
-    if row == 0:
-        movers.append(NAME_SCHEME["memory move"].format(prefix=f"t{col}"))
-        movers.append(NAME_SCHEME["index update"].format(prefix=f"t{col}"))
-    mover_enables = [py_ast.Enable(name) for name in movers]
-    return mover_enables
+    if schedule.ndim == 1:
+        for r in schedule:
+            nec_ranges.add(r)
+    elif schedule.ndim == 2:
+        for r in schedule:
+            for c in r:
+                nec_ranges.add(c)
+    else:
+        raise Exception("accum_nec_ranges expects only 1d or 2d arrays")
+    return nec_ranges
 
 
-def get_pe_moves(r, c, top_length, left_length):
+def gen_schedules(
+    top_length,
+    top_depth,
+    left_length,
+    left_depth,
+    comp: cb.ComponentBuilder,
+):
     """
-    Gets the PE moves for the PE at (r,c)
+    Generates 4 arrays that are the same size as the output (systolic) array
+    Each entry in the array has tuple [start, end) that indicates the cycles that
+    they are active
+    `update_sched` contains when to update the indices of the input memories and feed
+    them into the systolic array
+    `pe_fill_sched` contains when to invoke PE but not accumulate (bc the multipliers
+    are not ready with an output yet)
+    `pe_accum_sched` contains when to invoke PE and accumulate (bc the multipliers
+    are ready with an output)
+    `pe_move_sched` contains when to "move" the PE (i.e., pass data)
+    `pe_write_sched` contains when to "write" the PE value into the output ports
+    (e.g., this.r0_valid)
     """
-    pe_moves = []
-    if r < left_length - 1:
-        pe_moves.append(NAME_SCHEME["register move down"].format(pe=f"pe_{r}_{c}"))
-    if c < top_length - 1:
-        pe_moves.append(NAME_SCHEME["register move right"].format(pe=f"pe_{r}_{c}"))
-    pe_enables = [py_ast.Enable(name) for name in pe_moves]
-    return pe_enables
-
-
-def get_pe_invoke(r, c, mul_ready):
-    """
-    gets the PE invokes for the PE at (r,c). mul_ready signals whether 1 or 0
-    should be passed into mul_ready
-    """
-    return py_ast.StaticInvoke(
-        id=py_ast.CompVar(f"pe_{r}_{c}"),
-        in_connects=[
-            ("top", py_ast.CompPort(py_ast.CompVar(f"top_{r}_{c}"), "out")),
-            (
-                "left",
-                py_ast.CompPort(py_ast.CompVar(f"left_{r}_{c}"), "out"),
-            ),
-            (
-                "mul_ready",
-                py_ast.ConstantPort(1, mul_ready),
-            ),
-        ],
-        out_connects=[],
-    )
+    depth_port = comp.this().depth
+    min_depth_4_port = comp.get_cell("min_depth_4").port("out")
+    schedules = {}
+    update_sched = np.zeros((left_length, top_length), dtype=object)
+    pe_fill_sched = np.zeros((left_length, top_length), dtype=object)
+    pe_accum_sched = np.zeros((left_length, top_length), dtype=object)
+    pe_move_sched = np.zeros((left_length, top_length), dtype=object)
+    # will only actually use one of the following two schedules
+    pe_write_sched = np.zeros((left_length, top_length), dtype=object)
+    for row in range(0, left_length):
+        for col in range(0, top_length):
+            pos = row + col
+            update_sched[row][col] = (pos, CalyxAdd(depth_port, pos))
+            pe_fill_sched[row][col] = (pos + 1, CalyxAdd(min_depth_4_port, pos + 1))
+            pe_accum_sched[row][col] = (pos + 5, CalyxAdd(depth_port, pos + 5))
+            pe_move_sched[row][col] = (pos + 1, CalyxAdd(depth_port, pos + 1))
+            pe_write_sched[row][col] = (
+                CalyxAdd(depth_port, pos + 5),
+                CalyxAdd(depth_port, pos + 6),
+            )
+    schedules["update_sched"] = update_sched
+    schedules["fill_sched"] = pe_fill_sched
+    schedules["accum_sched"] = pe_accum_sched
+    schedules["move_sched"] = pe_move_sched
+    schedules["write_sched"] = pe_write_sched
+    return schedules
 
 
 def execute_if_between(comp: cb.ComponentBuilder, start, end, body):

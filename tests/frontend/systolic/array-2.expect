@@ -633,9 +633,9 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_
     }
   }
 }
-component default_post_op(cond_reg_out: 1, out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 32, out_mem_1_done: 1, r1_valid: 1, r1_value: 32, r1_idx: 32) -> (cond_reg_write_en: 1, cond_reg_in: 1, out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1, out_mem_1_addr0: 32, out_mem_1_write_data: 32, out_mem_1_write_en: 1) {
+component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 32, out_mem_1_done: 1, r1_valid: 1, r1_value: 32, r1_idx: 32) -> (computation_done: 1, out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1, out_mem_1_addr0: 32, out_mem_1_write_data: 32, out_mem_1_write_en: 1) {
   cells {
-
+    delay_reg = std_reg(1);
   }
   wires {
     static<1> group write_r0 {
@@ -648,14 +648,15 @@ component default_post_op(cond_reg_out: 1, out_mem_0_done: 1, r0_valid: 1, r0_va
       out_mem_1_write_data = r1_value;
       out_mem_1_addr0 = r1_idx;
     }
-    static<1> group write_cond_reg {
-      cond_reg_in = 1'd0;
-      cond_reg_write_en = r1_valid & r1_idx == 32'd1 ? 1'd1;
+    static<1> group write_done_cond {
+      delay_reg.in = 1'd1;
+      delay_reg.write_en = r1_valid & r1_idx == 32'd1 ? 1'd1;
+      computation_done = delay_reg.done ? 1'd1;
     }
   }
   control {
     static par {
-      write_cond_reg;
+      write_done_cond;
       write_r0;
       write_r1;
     }
@@ -665,7 +666,6 @@ component main() -> () {
   cells {
     systolic_array_component = systolic_array_comp();
     post_op_component = default_post_op();
-    cond_reg = std_reg(1);
     @external t0 = std_mem_d1(32, 3, 2);
     @external t1 = std_mem_d1(32, 3, 2);
     @external l0 = std_mem_d1(32, 3, 2);
@@ -676,11 +676,7 @@ component main() -> () {
     systolic_done_wire = std_wire(1);
   }
   wires {
-    static<1> group init_cond_reg {
-      cond_reg.in = 1'd1;
-      cond_reg.write_en = 1'd1;
-    }
-    static<1> group perform_computation {
+    group perform_computation {
       systolic_array_component.t0_read_data = t0.read_data;
       t0.addr0 = systolic_array_component.t0_addr0;
       systolic_array_component.t1_read_data = t1.read_data;
@@ -703,25 +699,17 @@ component main() -> () {
       post_op_component.r1_valid = systolic_array_component.r1_valid;
       post_op_component.r1_value = systolic_array_component.r1_value;
       post_op_component.r1_idx = systolic_array_component.r1_idx;
-      systolic_array_component.go = !systolic_done_wire.out ? 1'd1;
       systolic_done.write_en = systolic_array_component.done ? 1'd1;
       systolic_done.in = systolic_array_component.done ? 1'd1;
       systolic_done_wire.in = systolic_array_component.done | systolic_done.out ? 1'd1;
-      post_op_component.go = 1'd1;
-      systolic_array_component.go = 1'd1;
+      systolic_array_component.go = !systolic_done_wire.out ? 1'd1;
       systolic_array_component.depth = 32'd3;
-      post_op_component.cond_reg_out = cond_reg.out;
-      cond_reg.write_en = post_op_component.cond_reg_write_en;
-      cond_reg.in = post_op_component.cond_reg_in;
+      post_op_component.go = 1'd1;
+      perform_computation[done] = post_op_component.computation_done;
     }
   }
   control {
-    seq {
-      init_cond_reg;
-      while cond_reg.out {
-        perform_computation;
-      }
-    }
+    perform_computation;
   }
 }
 metadata #{
