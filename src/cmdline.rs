@@ -75,6 +75,10 @@ pub struct Opts {
     #[argh(switch, long = "dump-ir")]
     /// print out the IR after every pass
     pub dump_ir: bool,
+
+    #[argh(switch, long = "version")]
+    /// print out the version information
+    pub version: bool,
 }
 
 fn read_path(path: &str) -> Result<PathBuf, String> {
