@@ -5,7 +5,7 @@ ver = "0.4.0"
 name = "unit"
 paths = ["tests/unit/*.futil"]
 cmd = """
-  ../target/debug/interp {} | jq .memories --sort-keys
+  ../target/debug/cider {} | jq .memories --sort-keys
 """
 timeout = 3
 
@@ -14,7 +14,7 @@ name = "errors"
 paths = ["tests/errors/*.futil"]
 
 cmd = """
-../target/debug/interp {}
+../target/debug/cider {}
 """
 timeout = 3
 
@@ -23,7 +23,7 @@ name = "complex"
 paths = ["tests/complex/*.futil"]
 
 cmd = """
-../target/debug/interp {} | jq . --sort-keys
+../target/debug/cider {} | jq . --sort-keys
 """
 timeout = 3
 
@@ -31,7 +31,7 @@ timeout = 3
 name = "primitives"
 paths = ["tests/primitives/*.futil"]
 cmd = """
-../target/debug/interp {} -q | jq .memories --sort-keys
+../target/debug/cider {} -q | jq .memories --sort-keys
 """
 timeout = 3
 
@@ -39,7 +39,7 @@ timeout = 3
 name = "par to seq"
 paths = ["tests/control/par_reg.futil", "tests/control/par_mem.futil"]
 cmd = """
-../target/debug/calyx {} -p par-to-seq -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -p par-to-seq -l ../ | ../target/debug/cider | jq .memories --sort-keys
 """
 timeout = 3
 
@@ -51,7 +51,7 @@ paths = [
   "tests/control/static/*.futil",
 ]
 cmd = """
-../target/debug/interp {} -q | jq .memories --sort-keys
+../target/debug/cider {} -q | jq .memories --sort-keys
 """
 timeout = 3
 
@@ -77,7 +77,7 @@ paths = [
   #    "tests/control/iteration/*.futil"
 ]
 cmd = """
-../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -d pre-opt -d post-opt -p simplify-with-control -l ../ | ../target/debug/cider | jq .memories --sort-keys
 """
 expect_dir = "tests/lowered/"
 timeout = 3
@@ -86,7 +86,7 @@ timeout = 3
 name = "fully structural static"
 paths = ["tests/control/static*.futil"]
 cmd = """
-../target/debug/calyx {} -d pre-opt -d post-opt  -l ../ | ../target/debug/interp | jq .memories --sort-keys
+../target/debug/calyx {} -d pre-opt -d post-opt  -l ../ | ../target/debug/cider | jq .memories --sort-keys
 """
 expect_dir = "tests/lowered/"
 timeout = 3
