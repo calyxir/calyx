@@ -182,19 +182,17 @@ impl Schedule<'_, '_> {
         fsm: &RRC<ir::Cell>,
     ) -> ir::Guard<Nothing> {
         structure!(builder;
-            let lb_const = constant(s, fsm_size);
-            let ub_const = constant(e, fsm_size);
+            let lb = constant(s, fsm_size);
+            let ub = constant(e, fsm_size);
         );
         if s == 0 {
-            guard!(fsm["out"]).lt(guard!(ub_const["out"]))
+            guard!(fsm["out"] < ub["out"])
         } else if e == s + 1 {
-            guard!(fsm["out"]).eq(guard!(lb_const["out"]))
+            guard!(fsm["out"] == lb["out"])
         } else if e == 1 << fsm_size {
-            guard!(fsm["out"]).ge(guard!(lb_const["out"]))
+            guard!(fsm["out"] >= lb["out"])
         } else {
-            guard!(fsm["out"])
-                .ge(guard!(lb_const["out"]))
-                .and(guard!(fsm["out"]).lt(guard!(ub_const["out"])))
+            guard!((fsm["out"] >= lb["out"]) & (fsm["out"] < ub["out"]))
         }
     }
 
@@ -291,11 +289,11 @@ impl Schedule<'_, '_> {
         // Done condition for group.
         let (st, g) = out_edges.pop().expect("No outgoing edges");
         let c = builder.add_constant(st, fsm_size);
-        let mut done_guard = guard!(st_fsm["out"]).eq(guard!(c["out"])) & g;
+        let mut done_guard = guard!(st_fsm["out"] == c["out"] & g);
         for (st, g) in out_edges {
             let stc = builder.add_constant(st, fsm_size);
-            let st_guard = guard!(st_fsm["out"]).eq(guard!(stc["out"]));
-            done_guard |= st_guard & g;
+            let st_guard = guard!(st_fsm["out"] == stc["out"] & g);
+            done_guard |= st_guard;
         }
         let done_assign = build_assignments!(builder;
             group["done"] = done_guard ? signal_on["out"];
@@ -642,7 +640,7 @@ impl Schedule<'_, '_> {
             let on = constant(1, 1);
         );
         // Add back edges
-        let enter_guard = guard!(idx["out"]).lt(guard!(total["out"]));
+        let enter_guard = guard!(idx["out"] < total["out"]);
         let mut exits = vec![];
         self.states
             .control_exits(&wh.body, self.builder, &mut exits);
@@ -681,7 +679,7 @@ impl Schedule<'_, '_> {
         }
 
         // Reset the index when exiting the loop
-        let exit = guard!(idx["out"]).eq(guard!(total["out"]));
+        let exit = guard!(idx["out"] == total["out"]);
         let reset_group = self.reset_group(&idx);
         let reset_activate = self.builder.build_assignment(
             reset_group.borrow().get("go"),

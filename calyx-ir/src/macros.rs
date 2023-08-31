@@ -1,15 +1,63 @@
-/// Convinience macro to get a port and turn it into an [`ir::Guard`](crate::Guard).
+/// Parse guard expression into [`ir::Guard`](crate::Guard).
 ///
 /// The identifier should either be a [`ir::Group`](crate::Group) or an
 /// [`ir::Cell`](crate::Cell).
 /// Example:
 /// ```
-/// let fsm_out = guard!(fsm["out"]);
+/// let fsm_out = guard!(fsm["out"] == lb["out"] & g);
 /// ```
+///
+/// The macro supports constructing guards using the following operators:
+/// - Port access: `node[port]`
+/// - Comparison operators: `==`, `>=`, `<=`, `>`, `<`
+/// - Logical operators: `&`, `|`
+/// - Parentheses: `()`
 #[macro_export]
 macro_rules! guard {
+    // Base
+    // Port access
     ($node:ident[$port:expr]) => {
         $crate::Guard::from($node.borrow().get($port))
+    };
+    // Parentheses
+    ( ( $($head:tt)* ) ) => {
+        guard!($($head)*)
+    };
+    // A bare name
+    ($e:ident) => { $e };
+
+    // Comparison operators
+    ($node:ident[$port:expr] >= $($tail:tt)*) => {
+        $crate::Guard::from($node.borrow().get($port)).ge(guard!($($tail)*))
+    };
+    ($node:ident[$port:expr] <= $($tail:tt)*) => {
+        $crate::Guard::from($node.borrow().get($port)).le(guard!($($tail)*))
+    };
+    ($node:ident[$port:expr] < $($tail:tt)*) => {
+        $crate::Guard::from($node.borrow().get($port)).lt(guard!($($tail)*))
+    };
+    ($node:ident[$port:expr] > $($tail:tt)*) => {
+        $crate::Guard::from($node.borrow().get($port)).gt(guard!($($tail)*))
+    };
+    ($node:ident[$port:expr] == $($tail:tt)*) => {
+        $crate::Guard::from($node.borrow().get($port)).eq(guard!($($tail)*))
+    };
+
+    // Logical operators
+    // AND
+    ($node:ident[$port:expr] & $($tail:tt)*) => {
+        $crate::Guard::from($node.borrow().get($port)) & guard!($($tail)*)
+    };
+    ( ( $($head:tt)* ) & $($tail:tt)*) => {
+        guard!($($head)*) & guard!($($tail)*)
+    };
+
+    // OR
+    ($node:ident[$port:expr] | $($tail:tt)*) => {
+        $crate::Guard::from($node.borrow().get($port)) | guard!($($tail)*)
+    };
+    ( ( $($head:tt)* ) | $($tail:tt)*) => {
+        guard!($($head)*) | guard!($($tail)*)
     };
 }
 
