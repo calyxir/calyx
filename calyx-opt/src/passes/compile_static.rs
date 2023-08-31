@@ -351,9 +351,8 @@ impl CompileStatic {
 
         let port_parent = port.borrow().cell_parent();
         let port_name = port.borrow().name;
-        let done_guard = guard!(
-            !port_parent[port_name] & early_reset_fsm["out"] == time_0["out"]
-        );
+        let done_guard = guard!(port_parent[port_name]).not()
+            & guard!(early_reset_fsm["out"] == time_0["out"]);
 
         let assignments = build_assignments!(
             builder;

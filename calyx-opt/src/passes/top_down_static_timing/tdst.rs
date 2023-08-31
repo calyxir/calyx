@@ -252,9 +252,7 @@ impl Schedule<'_, '_> {
                         let end_const = constant(end, fsm_size);
                     );
 
-                    let transition_guard = guard!(st_fsm["out"])
-                        .eq(guard!(start_const["out"]))
-                        .and(guard);
+                    let transition_guard = guard!((st_fsm["out"] == start_const["out"]) & guard);
 
                     let assigns = build_assignments!(builder;
                         st_fsm["in"] = transition_guard ? end_const["out"];
@@ -289,10 +287,10 @@ impl Schedule<'_, '_> {
         // Done condition for group.
         let (st, g) = out_edges.pop().expect("No outgoing edges");
         let c = builder.add_constant(st, fsm_size);
-        let mut done_guard = guard!(st_fsm["out"] == c["out"] & g);
+        let mut done_guard = guard!((st_fsm["out"] == c["out"]) & g);
         for (st, g) in out_edges {
             let stc = builder.add_constant(st, fsm_size);
-            let st_guard = guard!(st_fsm["out"] == stc["out"] & g);
+            let st_guard = guard!((st_fsm["out"] == stc["out"]) & g);
             done_guard |= st_guard;
         }
         let done_assign = build_assignments!(builder;
