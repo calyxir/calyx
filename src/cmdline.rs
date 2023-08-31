@@ -1,9 +1,10 @@
 //! Command line parsing for the Calyx compiler.
 use argh::FromArgs;
+#[cfg(feature = "serialize")]
+use calyx_backend::SexpBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
-    Backend, BackendOpt, MlirBackend, ResourcesBackend, SexpBackend,
-    VerilogBackend,
+    Backend, BackendOpt, MlirBackend, ResourcesBackend, VerilogBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
@@ -120,8 +121,17 @@ impl Opts {
                 backend.run(context, self.output)
             }
             BackendOpt::Sexp => {
-                let backend = SexpBackend;
-                backend.run(context, self.output)
+                #[cfg(feature = "serialize")]
+                {
+                    let backend = SexpBackend;
+                    backend.run(context, self.output)
+                }
+                #[cfg(not(feature = "serialize"))]
+                {
+                    Err(Error::misc(
+                        "Sexp backend requires the `serialize` feature to be enabled",
+                    ))
+                }
             }
             BackendOpt::Verilog => {
                 let backend = VerilogBackend;

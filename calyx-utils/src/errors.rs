@@ -43,9 +43,9 @@ impl Error {
             post_msg: None,
         }
     }
-    pub fn malformed_control(msg: String) -> Self {
+    pub fn malformed_control<S: ToString>(msg: S) -> Self {
         Self {
-            kind: Box::new(ErrorKind::MalformedControl(msg)),
+            kind: Box::new(ErrorKind::MalformedControl(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
             post_msg: None,
         }
@@ -67,16 +67,16 @@ impl Error {
             post_msg: None,
         }
     }
-    pub fn undefined(name: Id, typ: String) -> Self {
+    pub fn undefined<S: ToString>(name: Id, typ: S) -> Self {
         Self {
-            kind: Box::new(ErrorKind::Undefined(name, typ)),
+            kind: Box::new(ErrorKind::Undefined(name, typ.to_string())),
             pos: GPosIdx::UNKNOWN,
             post_msg: None,
         }
     }
-    pub fn already_bound(name: Id, typ: String) -> Self {
+    pub fn already_bound<S: ToString>(name: Id, typ: S) -> Self {
         Self {
-            kind: Box::new(ErrorKind::AlreadyBound(name, typ)),
+            kind: Box::new(ErrorKind::AlreadyBound(name, typ.to_string())),
             pos: GPosIdx::UNKNOWN,
             post_msg: None,
         }
@@ -88,30 +88,30 @@ impl Error {
             post_msg: None,
         }
     }
-    pub fn papercut(msg: String) -> Self {
+    pub fn papercut<S: ToString>(msg: S) -> Self {
         Self {
-            kind: Box::new(ErrorKind::Papercut(msg)),
+            kind: Box::new(ErrorKind::Papercut(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
             post_msg: None,
         }
     }
-    pub fn misc(msg: String) -> Self {
+    pub fn misc<S: ToString>(msg: S) -> Self {
         Self {
-            kind: Box::new(ErrorKind::Misc(msg)),
+            kind: Box::new(ErrorKind::Misc(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
             post_msg: None,
         }
     }
-    pub fn invalid_file(msg: String) -> Self {
+    pub fn invalid_file<S: ToString>(msg: S) -> Self {
         Self {
-            kind: Box::new(ErrorKind::InvalidFile(msg)),
+            kind: Box::new(ErrorKind::InvalidFile(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
             post_msg: None,
         }
     }
-    pub fn write_error(msg: String) -> Self {
+    pub fn write_error<S: ToString>(msg: S) -> Self {
         Self {
-            kind: Box::new(ErrorKind::WriteError(msg)),
+            kind: Box::new(ErrorKind::WriteError(msg.to_string())),
             pos: GPosIdx::UNKNOWN,
             post_msg: None,
         }

@@ -192,8 +192,6 @@ dependencies = [
  "itertools 0.11.0",
  "log",
  "serde",
- "serde_sexpr",
- "serde_with 3.3.0",
 ]
 
 [[package]]
