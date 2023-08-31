@@ -10,7 +10,7 @@
 /// The macro supports constructing guards using the following operators:
 /// - Port access: `node[port]`
 /// - Comparison operators: `==`, `>=`, `<=`, `>`, `<`
-/// - Logical operators: `&`, `|`
+/// - Logical operators: `&`, `|`, and `!`
 /// - Parentheses: `()`
 #[macro_export]
 macro_rules! guard {
@@ -18,6 +18,10 @@ macro_rules! guard {
     // Port access
     ($node:ident[$port:expr]) => {
         $crate::Guard::from($node.borrow().get($port))
+    };
+    // Not operator
+    (! $($tail:tt)*) => {
+        guard!($($tail)*).not()
     };
     // Parentheses
     ( ( $($head:tt)* ) ) => {
@@ -41,6 +45,9 @@ macro_rules! guard {
     };
     ($node:ident[$port:expr] == $($tail:tt)*) => {
         $crate::Guard::from($node.borrow().get($port)).eq(guard!($($tail)*))
+    };
+    ($node:ident[$port:expr] != $($tail:tt)*) => {
+        $crate::Guard::from($node.borrow().get($port)).neq(guard!($($tail)*))
     };
 
     // Logical operators
