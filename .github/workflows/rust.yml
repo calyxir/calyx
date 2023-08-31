@@ -37,6 +37,10 @@ jobs:
         command: build
         args: --all --manifest-path /home/calyx/interp/Cargo.toml
 
+    - name: Set location of cider binary
+      run: |
+        fud c stages.interpreter.exec /home/calyx/target/debug/cider
+
     - name: Runt tests
       working-directory: /home/calyx
       run: |
