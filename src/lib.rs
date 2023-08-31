@@ -1,10 +1,7 @@
-//! # The Calyx Compiler Driver
+//! # The Calyx Compiler
 //!
 //! This crate plumbs together the Calyx compiler crates and provides a command-line interface for the Calyx compiler.
 //! What `clang` it to `llvm`, this crate is to the Calyx IL.
-//!
-//! For the most part, you don't want to directly rely on this crate and instead use the [`calyx_ir`] or the [`calyx_opt`] crates.
-//! However, the [driver::run_compiler] function's is a good example for how to use the Calyx compiler crates.
-pub mod backend;
+//! You SHOULD NOT depend on this crate since does things like installing the primitives library in a global location.
+//! Instead, depend on the crates that this crate depends: [`calyx_frontend`], [`calyx_ir`], [`calyx_opt`].
 pub mod cmdline;
-pub mod driver;

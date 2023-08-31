@@ -1,0 +1,37 @@
+// -p well-formed -p simplify-with-control -p cell-share -p dead-cell-removal -p remove-ids
+import "primitives/compile.futil";
+
+component foo() -> () {
+    cells {
+        ref r1 = std_reg(32);
+        ref r2 = std_reg(32);
+    }
+    wires {
+        group write_r1 {
+            r1.in = 32'd0;
+            r1.write_en = 1'd1;
+            write_r1[done] = r1.done;
+        }
+        group write_r2 {
+            r2.in = 32'd0;
+            r2.write_en = 1'd1;
+            write_r2[done] = r2.done;
+        }
+    }
+    control {
+        write_r1;
+        write_r2;
+    }
+}
+
+component main() -> () {
+    cells {
+        f = foo();
+        r1 = std_reg(32);
+        r2 = std_reg(32);
+    }
+    wires {}
+    control {
+        invoke f[r1=r1, r2=r2]()();
+    }
+}

@@ -23,7 +23,6 @@ lazy_static.workspace = true
 smallvec.workspace = true
 serde.workspace = true
 
-boolean_expression = "=0.4.1"
 serde_json = "1.0.79"
 
 calyx-ir.workspace = true

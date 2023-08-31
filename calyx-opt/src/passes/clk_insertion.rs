@@ -32,12 +32,14 @@ impl Visitor for ClkInsertion {
             .component
             .signature
             .borrow()
-            .find_with_attr(ir::BoolAttr::Clk);
+            .find_unique_with_attr(ir::BoolAttr::Clk)?;
 
         if let Some(clk) = clk {
             for cell_ref in builder.component.cells.iter() {
                 let cell = cell_ref.borrow();
-                if let Some(port) = cell.find_with_attr(ir::BoolAttr::Clk) {
+                if let Some(port) =
+                    cell.find_unique_with_attr(ir::BoolAttr::Clk)?
+                {
                     builder.component.continuous_assignments.push(
                         builder.build_assignment(
                             port,
@@ -50,7 +52,7 @@ impl Visitor for ClkInsertion {
         } else {
             for cell_ref in builder.component.cells.iter() {
                 let cell = cell_ref.borrow();
-                if cell.find_with_attr(ir::BoolAttr::Clk).is_some() {
+                if cell.find_unique_with_attr(ir::BoolAttr::Clk)?.is_some() {
                     return Err(Error::malformed_structure(format!(
                         "Cell `{}' in component `{}' has a clk port, \
                         but the component does not have a clk port.",
