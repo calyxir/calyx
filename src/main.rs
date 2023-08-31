@@ -1,9 +1,17 @@
-use calyx::cmdline::{CompileMode, Opts};
+//! # The Calyx Compiler
+//!
+//! This crate plumbs together the Calyx compiler crates and provides a command-line interface for the Calyx compiler.
+//! What `clang` it to `llvm`, this crate is to the Calyx IL.
+//! You SHOULD NOT depend on this crate since does things like installing the primitives library in a global location.
+//! Instead, depend on the crates that this crate depends: [`calyx_frontend`], [`calyx_ir`], [`calyx_opt`].
+
+mod cmdline;
 use calyx_backend::BackendOpt;
 use calyx_frontend as frontend;
 use calyx_ir as ir;
 use calyx_opt::pass_manager::PassManager;
 use calyx_utils::CalyxResult;
+use cmdline::{CompileMode, Opts};
 use itertools::Itertools;
 
 fn main() -> CalyxResult<()> {
