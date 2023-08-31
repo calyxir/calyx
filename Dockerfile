@@ -58,7 +58,7 @@ ADD . calyx
 WORKDIR /home/calyx
 RUN cargo build --all && \
     cargo install vcdump && \
-    cargo install runt --version $(grep ^ver runt.toml | awk '{print $3}' | tr -d '"')
+    cargo install runt --version 0.4.1
 
 # Install fud
 WORKDIR /home/calyx/fud
