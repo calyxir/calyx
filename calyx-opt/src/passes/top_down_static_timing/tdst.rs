@@ -10,7 +10,6 @@ use calyx_ir::{
 use calyx_utils::{CalyxResult, Error};
 use ir::Nothing;
 use itertools::Itertools;
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::iter;
@@ -910,7 +909,7 @@ impl Visitor for TopDownStaticTiming {
         Self::compile_sub_programs(&mut con, &mut builder, self.dump_fsm)?;
 
         // Add the control program back.
-        comp.control = Rc::new(RefCell::new(con));
+        comp.control = ir::rrc(con);
 
         // If the force flag is set, make sure that we only have one group remaining
         if self.force

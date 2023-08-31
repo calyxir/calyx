@@ -9,6 +9,8 @@ use itertools::Itertools;
 use serde::de::{self, Deserialize, Visitor};
 use serde::Serialize;
 
+use calyx_ir as ir;
+
 pub type BitString = BitVec<usize, Lsb0>;
 
 /// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
@@ -333,8 +335,8 @@ impl Value {
         let input_num: InputNumber = bitwidth.into();
         Value {
             vec: Rc::new(bitvec![usize, Lsb0; 0; input_num.as_usize()]),
-            unsigned: Rc::new(RefCell::new(Some(0_u8.into()))),
-            signed: Rc::new(RefCell::new(Some(0.into()))),
+            unsigned: ir::rrc(Some(0_u8.into())),
+            signed: ir::rrc(Some(0.into())),
         }
     }
 
@@ -383,8 +385,8 @@ impl Value {
         (
             Value {
                 vec: Rc::new(bv),
-                signed: Rc::new(RefCell::new(None)),
-                unsigned: Rc::new(RefCell::new(None)),
+                signed: ir::rrc(None),
+                unsigned: ir::rrc(None),
             },
             flag,
         )
