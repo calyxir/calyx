@@ -1,7 +1,7 @@
 use calyx_ir::{self as ir, RRC, WRC};
 use ir::rewriter;
 use itertools::Itertools;
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 #[derive(Default)]
 /// Results generated from the process of dumping out ports.
@@ -62,13 +62,13 @@ where
         for port_ref in ports_inline {
             let canon = port_ref.borrow().canonical();
             let port = port_ref.borrow();
-            let new_port = Rc::new(RefCell::new(ir::Port {
+            let new_port = ir::rrc(ir::Port {
                 name: component.generate_name(format_port_name(&canon)),
                 width: port.width,
                 direction: port.direction.clone(),
                 parent: ir::PortParent::Cell(WRC::from(&component.signature)),
                 attributes: ir::Attributes::default(),
-            }));
+            });
             component
                 .signature
                 .borrow_mut()

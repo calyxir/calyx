@@ -6,7 +6,6 @@ use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
 use ir::{RRC, WRC};
 use itertools::Itertools;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -245,13 +244,13 @@ impl Visitor for CompileInvoke {
                         cell.borrow().name()
                     );
                     for p in vec.iter() {
-                        let new_port = Rc::new(RefCell::new(ir::Port {
+                        let new_port = ir::rrc(ir::Port {
                             name: p.borrow().name,
                             width: p.borrow().width,
                             direction: p.borrow().direction.reverse(),
                             parent: ir::PortParent::Cell(WRC::from(cell)),
                             attributes: Attributes::default(),
-                        }));
+                        });
                         new_ports.push(new_port);
                     }
                 }
