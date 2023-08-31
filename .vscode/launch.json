@@ -53,9 +53,9 @@
                 "-l",
                 "${workspaceFolder}"
             ],
-            "program": "${workspaceFolder}/target/debug/interp",
+            "program": "${workspaceFolder}/target/debug/cider",
             "windows": {
-                "program": "${workspaceFolder}/target/debug/interp.exe"
+                "program": "${workspaceFolder}/target/debug/cider.exe"
             },
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
@@ -72,9 +72,9 @@
                 "-l",
                 "${workspaceFolder}"
             ],
-            "program": "${workspaceFolder}/target/debug/interp",
+            "program": "${workspaceFolder}/target/debug/cider",
             "windows": {
-                "program": "${workspaceFolder}/target/debug/interp.exe"
+                "program": "${workspaceFolder}/target/debug/cider.exe"
             },
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
