@@ -88,3 +88,23 @@ macro_rules! build_assignments {
 
     };
 }
+
+#[macro_export]
+/// Construct an [`crate::Attributes`] object with the provided attributes.
+/// ```
+/// let attrs = attrs!(static=10, precious=1);
+/// ```
+macro_rules! attrs {
+    () => {
+        $crate::Attributes::default()
+    };
+    ( $( $attr:ident = $val:expr ),* ) => {
+        {
+            let mut attrs = $crate::Attributes::default();
+            $(
+                attrs.insert($attr, $val);
+            )*
+            attrs
+        }
+    };
+}

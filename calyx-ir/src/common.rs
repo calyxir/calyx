@@ -8,6 +8,11 @@ use std::rc::{Rc, Weak};
 #[allow(clippy::upper_case_acronyms)]
 pub type RRC<T> = Rc<RefCell<T>>;
 
+/// Construct a new RRC.
+pub fn rrc<T>(t: T) -> RRC<T> {
+    Rc::new(RefCell::new(t))
+}
+
 /// A Wrapper for a weak RefCell pointer.
 /// Used by parent pointers in the internal representation.
 #[allow(clippy::upper_case_acronyms)]

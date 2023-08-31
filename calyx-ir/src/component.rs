@@ -8,7 +8,6 @@ use crate::Nothing;
 use calyx_utils::NameGenerator;
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::iter::Extend;
 use std::num::NonZeroU64;
@@ -135,7 +134,7 @@ impl Component {
             static_groups: IdList::default(),
             comb_groups: IdList::default(),
             continuous_assignments: vec![],
-            control: Rc::new(RefCell::new(Control::empty())),
+            control: super::rrc(Control::empty()),
             namegen: NameGenerator::with_prev_defined_names(prev_names),
             attributes: Attributes::default(),
             is_comb,
