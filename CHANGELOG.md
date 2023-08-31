@@ -2,6 +2,7 @@
 - BREAKING: Deprecate `Cell::find_with_attr` in favor of `Cell::find_with_unique_attr`. The former is error-prone because pass logic might implicitly assume that there is only one port with a particular attribute.
 - BREAKING: Redesign the `ir::Rewriter` interface to take all the rewrite maps when constructing the `ir::Rewriter` struct.
 - Merge the logic of `compile-ref` pass into `compile-invoke` so that `ref` cells can be invoked.
+- The `guard!` macro supports parsing complex guard expressions that use logical connectives, comparison operators, and negation.
 
 ## 0.5.1
 - Change the `calyx` build script to use the `CALYX_PRIMITIVES_DIR` env variable to install primitive libraries. If unset, use `$HOME/.calyx`.
