@@ -65,22 +65,22 @@ fn make_guard_dyn(
             if beg + 1 == end {
                 // if beg + 1 == end then we only need to check if fsm == beg
                 let interval_const = builder.add_constant(beg, fsm_size);
-                let g = guard!(fsm["out"]).eq(guard!(interval_const["out"]));
+                let g = guard!(fsm["out"] == interval_const["out"]);
                 Box::new(g)
             } else if beg == 0 {
                 // if beg == 0, then we only need to check if fsm < end
                 let end_const = builder.add_constant(end, fsm_size);
                 let lt: ir::Guard<Nothing> =
-                    guard!(fsm["out"]).lt(guard!(end_const["out"]));
+                    guard!(fsm["out"] < end_const["out"]);
                 Box::new(lt)
             } else {
                 // otherwise, check if fsm >= beg & fsm < end
                 let beg_const = builder.add_constant(beg, fsm_size);
                 let end_const = builder.add_constant(end, fsm_size);
                 let beg_guard: ir::Guard<Nothing> =
-                    guard!(fsm["out"]).ge(guard!(beg_const["out"]));
+                    guard!(fsm["out"] >= beg_const["out"]);
                 let end_guard: ir::Guard<Nothing> =
-                    guard!(fsm["out"]).lt(guard!(end_const["out"]));
+                    guard!(fsm["out"] < end_const["out"]);
                 Box::new(ir::Guard::And(
                     Box::new(beg_guard),
                     Box::new(end_guard),
@@ -181,9 +181,9 @@ impl CompileStatic {
             .collect_vec();
         // assignments to increment the fsm
         let not_penultimate_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"]).neq(guard!(penultimate_state["out"]));
+            guard!(fsm["out"] != penultimate_state["out"]);
         let penultimate_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"]).eq(guard!(penultimate_state["out"]));
+            guard!(fsm["out"] == penultimate_state["out"]);
         let fsm_incr_assigns = build_assignments!(
           builder;
           // increments the fsm
@@ -244,16 +244,16 @@ impl CompileStatic {
         // make guards
         // fsm.out == 0 ?
         let first_state: ir::Guard<ir::Nothing> =
-            guard!(early_reset_fsm["out"]).eq(guard!(state_zero["out"]));
+            guard!(early_reset_fsm["out"] == state_zero["out"]);
         // signal_reg.out ?
         let signal_reg_guard: ir::Guard<ir::Nothing> =
             guard!(signal_reg["out"]);
         // !signal_reg.out ?
         let not_signal_reg = signal_reg_guard.clone().not();
         // fsm.out == 0 & signal_reg.out ?
-        let first_state_and_signal = first_state.clone().and(signal_reg_guard);
+        let first_state_and_signal = first_state.clone() & signal_reg_guard;
         // fsm.out == 0 & ! signal_reg.out ?
-        let first_state_and_not_signal = first_state.and(not_signal_reg);
+        let first_state_and_not_signal = first_state & not_signal_reg;
         // create the wrapper group for early_reset_group
         let mut wrapper_name = group_name.clone().to_string();
         wrapper_name.insert_str(0, "wrapper_");
@@ -351,8 +351,8 @@ impl CompileStatic {
 
         let port_parent = port.borrow().cell_parent();
         let port_name = port.borrow().name;
-        let done_guard = (!guard!(port_parent[port_name]))
-            & guard!(early_reset_fsm["out"]).eq(guard!(time_0["out"]));
+        let done_guard = guard!(port_parent[port_name]).not()
+            & guard!(early_reset_fsm["out"] == time_0["out"]);
 
         let assignments = build_assignments!(
             builder;
@@ -535,7 +535,7 @@ impl CompileStatic {
         vec_color_to_groups
             .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
         vec_color_to_groups.into_iter().map(|(color, group_names)| {
-            // For each color, build an FSM that has the number of bits required 
+            // For each color, build an FSM that has the number of bits required
             // for the largest latency in `group_names`
             let max_latency = group_names
                 .iter()
