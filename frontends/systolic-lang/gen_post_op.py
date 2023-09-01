@@ -146,7 +146,6 @@ def leaky_relu_comp(prog: cb.Builder):
     """
     comp = prog.component(name="leaky_relu")
     comp.input("value", BITWIDTH)
-    comp.input("index", BITWIDTH)
     # Takes a memory and register (i.e., arguments that essentially act as ref cells)
     add_write_mem_params(comp, OUT_MEM, BITWIDTH)
     add_register_params(comp, "idx_reg", BITWIDTH)
@@ -188,7 +187,7 @@ def leaky_relu_comp(prog: cb.Builder):
 
         # Write to memory.
         g.asgn(write_en_port, 1, write_mem.out)
-        g.asgn(addr0_port, this.index)
+        g.asgn(addr0_port, this.idx_reg_out)
         g.asgn(write_data_port, this.value, ~lt.out)
         g.asgn(write_data_port, fp_mult.out, lt.out)
         # Groups is done once we have written to memory.
@@ -221,6 +220,9 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
             valid_signal = this.port(f"r{row}_valid")
             idx_signal = this.port(f"r{row}_idx")
             value_signal = this.port(f"r{row}_value")
+            value_ready_signal = valid_signal & (
+                idx_signal == cb.ExprBuilder(py_ast.ConstantPort(addr_width, col))
+            )
             with comp.static_group(f"r{row}_c{col}_value_group", 1):
                 # Wire to detect and hold when the row is first valid. Once
                 # it is valid, we can safely start our relu operations.
@@ -230,13 +232,7 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
                 # Logic to hold the systolic array output values. We need registers
                 # because the output values for systolic arrays are only available
                 # for one cycle before they change.
-                val_ready.in_ = (
-                    valid_signal
-                    & (
-                        idx_signal
-                        == cb.ExprBuilder(py_ast.ConstantPort(addr_width, col))
-                    )
-                ) @ 1
+                val_ready.in_ = value_ready_signal @ 1
                 wire_value.in_ = val_ready.out @ value_signal
                 wire_value.in_ = ~(val_ready.out) @ reg_value.out
                 reg_value.in_ = val_ready.out @ value_signal
@@ -269,41 +265,41 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
     relu_instance = comp.cell(f"leaky_relu_r{row}", py_ast.CompInst("leaky_relu", []))
     # Wire that tells us we are finished with relu operation for this row.
     relu_finished_wire = comp.wire(f"relu_finished_wire_r{row}", 1)
-
     row_ready_wire = comp.get_cell(f"r{row}_ready_wire")
 
-    # Annoying memory stuff because we can't use ref cells
-    this = comp.this()
-    mem_name = OUT_MEM + f"_{row}"
-    addr0_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_addr0"))
-    relu_addr0_port = relu_instance.port(OUT_MEM + "_addr0")
-    mem_write_data_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_write_data"))
-    relu_write_data_port = relu_instance.port(OUT_MEM + "_write_data")
-    mem_write_en_port = cb.ExprBuilder.unwrap(this.port(mem_name + "_write_en"))
-    relu_write_en_port = relu_instance.port(OUT_MEM + "_write_en")
-    mem_done_port = this.port(mem_name + "_done")
-    relu_done_port = cb.ExprBuilder.unwrap(relu_instance.port(OUT_MEM + "_done"))
-
+    # Building connections betwen this and the leaky_relu cell
+    this_relu_io_ports = cb.build_connections(
+        cell1=comp.this(),
+        cell2=relu_instance,
+        root1=OUT_MEM + f"_{row}_",
+        root2=OUT_MEM + "_",
+        forward_ports=["addr0", "write_data", "write_en"],
+        reverse_ports=["done"],
+    )
+    # Building connections between relu and idx_reg
+    relu_idx_io_ports = cb.build_connections(
+        cell1=idx_reg,
+        cell2=relu_instance,
+        root1="",
+        root2="idx_reg_",
+        forward_ports=["write_en", "in"],
+        reverse_ports=["out"],
+    )
+    idx_limit_reached = idx_reg.out == cb.ExprBuilder(
+        py_ast.ConstantPort(BITWIDTH, num_cols)
+    )
     with comp.static_group(f"execute_relu_r{row}", 1) as g:
+        for i, o in this_relu_io_ports:
+            g.asgn(i, o)
+        for i, o in relu_idx_io_ports:
+            g.asgn(i, o)
         # Handle incrementing the idx_reg.
         relu_instance.go = (
             row_ready_wire.out & (~relu_finished_wire.out)
         ) @ cb.ExprBuilder(py_ast.ConstantPort(1, 1))
         # input ports for relu_instance
         relu_instance.value = cur_val.out
-        relu_instance.index = idx_reg.out
-        g.asgn(relu_done_port, mem_done_port)
-        relu_instance.idx_reg_out = idx_reg.out
-        # output ports for relu_instance
-        g.asgn(addr0_port, relu_addr0_port)
-        g.asgn(mem_write_data_port, relu_write_data_port)
-        g.asgn(mem_write_en_port, relu_write_en_port)
-        idx_reg.write_en = relu_instance.idx_reg_write_en
-        idx_reg.in_ = relu_instance.idx_reg_in
-
-        relu_finished_wire.in_ = (
-            idx_reg.out == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, num_cols))
-        ) @ 1
+        relu_finished_wire.in_ = idx_limit_reached @ 1
 
 
 def leaky_relu_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):

@@ -1184,3 +1184,27 @@ def seq(*args) -> ast.SeqComp:
     {a; b; c;}`.
     """
     return ast.SeqComp([as_control(x) for x in args])
+
+
+def build_connections(
+    cell1: Union[CellBuilder, ThisBuilder],
+    cell2: Union[CellBuilder, ThisBuilder],
+    root1: str,
+    root2: str,
+    forward_ports: List,
+    reverse_ports: List,
+):
+    """
+    Intended for wiring together two cells whose ports have similar names.
+    For each `name` in `forward_port_names`, adds the following connection:
+    `(cell1.root1_name,cell2.root2_name)`
+    For `backwards_port_names`, adds the following connection:
+    `(cell2.root2_name,cell1.root1_name)`
+    Returns a list of the resulting connections.
+    """
+    res = []
+    for port in forward_ports:
+        res.append((cell1.port(root1 + port), cell2.port(root2 + port)))
+    for port in reverse_ports:
+        res.append((cell2.port(root2 + port), cell1.port(root1 + port)))
+    return res
