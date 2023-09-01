@@ -1,37 +1,40 @@
 {
   "t0": {
     "data": [
-      30,
-      40,
-      50
+      30.0,
+      40.0,
+      50.0
     ],
     "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l0": {
     "data": [
-      4,
-      6,
-      8
+      4.0,
+      6.0,
+      8.0
     ],
     "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
-  "out_mem": {
+  "out_mem_0": {
     "data": [
       [
-        0
+        0.0
       ]
     ],
     "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   }

@@ -6,8 +6,9 @@
       50
     ],
     "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
@@ -18,8 +19,9 @@
       30
     ],
     "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
@@ -30,8 +32,9 @@
       8
     ],
     "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
@@ -42,21 +45,33 @@
       11
     ],
     "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
-  "out_mem": {
+  "out_mem_0": {
     "data": [
-      [
-        [0,0],
-        [0,0]
-      ]
+      0.0,
+      0.0
     ],
     "format": {
-      "numeric_type": "bitnum",
-      "is_signed": false,
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  },
+  "out_mem_1": {
+    "data": [
+      0.0,
+      0.0
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   }

@@ -36,12 +36,8 @@ if __name__ == "__main__":
 
     assert td == ld, f"Cannot multiply matrices: " f"{tl}x{td} and {ld}x{ll}"
 
-    if relu:
-        dtype = "f"
-    else:
-        dtype = "i"
-    left = np.zeros((ll, ld), dtype)
-    top = np.zeros((td, tl), dtype)
+    left = np.zeros((ll, ld), "f")
+    top = np.zeros((td, tl), "f")
     json_data = json.load(open(json_file))["memories"]
 
     for r in range(ll):
@@ -58,26 +54,14 @@ if __name__ == "__main__":
 
     res = []
     for r in range(ll):
-        if relu:
-            res.append(list(map(float, json_data[f"out_mem_{r}"])))
-        else:
-            res.append(json_data[f"out_mem_{r}"])
+        res.append(list(map(float, json_data[f"out_mem_{r}"])))
 
     json_result = np.array(res)
 
-    if relu:
-        if np.isclose(matmul_result, json_result, atol=1e-3).all():
-            print("Correct")
-        else:
-            print("Incorrect\n. Should have been:\n")
-            print(matmul_result)
-            print("\nBut got:\n")
-            print(json_result)
+    if np.isclose(matmul_result, json_result, atol=1e-3).all():
+        print("Correct")
     else:
-        if np.equal(json_result, matmul_result):
-            print("Correct")
-        else:
-            print("Incorrect\n. Should have been:\n")
-            print(matmul_result)
-            print("\nBut got:\n")
-            print(json_result)
+        print("Incorrect\n. Should have been:\n")
+        print(matmul_result)
+        print("\nBut got:\n")
+        print(json_result)
