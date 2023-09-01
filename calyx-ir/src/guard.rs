@@ -1,3 +1,5 @@
+use crate::Printer;
+
 use super::{NumAttr, Port, RRC};
 use calyx_utils::Error;
 use std::fmt::Debug;
@@ -257,21 +259,25 @@ impl<T> Guard<T> {
 
     pub fn eq(self, other: Guard<T>) -> Self
     where
-        T: Debug,
+        T: Debug + Eq + ToString,
     {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Eq, l, r)
             }
             (l, r) => {
-                unreachable!("Cannot build Guard::Eq using {:?} and {:?}", l, r)
+                unreachable!(
+                    "Cannot build Guard::Eq using `{}' and `{}'",
+                    Printer::guard_str(&l),
+                    Printer::guard_str(&r),
+                )
             }
         }
     }
 
     pub fn neq(self, other: Guard<T>) -> Self
     where
-        T: Debug,
+        T: Debug + Eq + ToString,
     {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
@@ -279,8 +285,9 @@ impl<T> Guard<T> {
             }
             (l, r) => {
                 unreachable!(
-                    "Cannot build Guard::Neq using {:?} and {:?}",
-                    l, r
+                    "Cannot build Guard::Eq using `{}' and `{}'",
+                    Printer::guard_str(&l),
+                    Printer::guard_str(&r),
                 )
             }
         }
@@ -288,7 +295,7 @@ impl<T> Guard<T> {
 
     pub fn le(self, other: Guard<T>) -> Self
     where
-        T: Debug,
+        T: Debug + Eq + ToString,
     {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
@@ -296,8 +303,9 @@ impl<T> Guard<T> {
             }
             (l, r) => {
                 unreachable!(
-                    "Cannot build Guard::Leq using {:?} and {:?}",
-                    l, r
+                    "Cannot build Guard::Eq using `{}' and `{}'",
+                    Printer::guard_str(&l),
+                    Printer::guard_str(&r),
                 )
             }
         }
@@ -305,21 +313,25 @@ impl<T> Guard<T> {
 
     pub fn lt(self, other: Guard<T>) -> Self
     where
-        T: Debug,
+        T: Debug + Eq + ToString,
     {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Lt, l, r)
             }
             (l, r) => {
-                unreachable!("Cannot build Guard::Lt using {:?} and {:?}", l, r)
+                unreachable!(
+                    "Cannot build Guard::Eq using `{}' and `{}'",
+                    Printer::guard_str(&l),
+                    Printer::guard_str(&r),
+                )
             }
         }
     }
 
     pub fn ge(self, other: Guard<T>) -> Self
     where
-        T: Debug,
+        T: Debug + Eq + ToString,
     {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
@@ -327,8 +339,9 @@ impl<T> Guard<T> {
             }
             (l, r) => {
                 unreachable!(
-                    "Cannot build Guard::Geq using {:?} and {:?}",
-                    l, r
+                    "Cannot build Guard::Eq using `{}' and `{}'",
+                    Printer::guard_str(&l),
+                    Printer::guard_str(&r),
                 )
             }
         }
@@ -336,14 +349,18 @@ impl<T> Guard<T> {
 
     pub fn gt(self, other: Guard<T>) -> Self
     where
-        T: Debug,
+        T: Debug + Eq + ToString,
     {
         match (self, other) {
             (Guard::Port(l), Guard::Port(r)) => {
                 Guard::CompOp(PortComp::Gt, l, r)
             }
             (l, r) => {
-                unreachable!("Cannot build Guard::Gt using {:?} and {:?}", l, r)
+                unreachable!(
+                    "Cannot build Guard::Eq using `{}' and `{}'",
+                    Printer::guard_str(&l),
+                    Printer::guard_str(&r),
+                )
             }
         }
     }

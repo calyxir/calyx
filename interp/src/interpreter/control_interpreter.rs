@@ -1042,12 +1042,13 @@ impl InvokeInterpreter {
             assignment_vec.extend(w_ref.assignments.iter().cloned());
         }
 
-        let go_port = comp_cell.get_with_attr(ir::NumAttr::Go);
+        let go_port = comp_cell.get_unique_with_attr(ir::NumAttr::Go).unwrap();
         // insert one into the go_port
         // should probably replace with an actual assignment from a constant one
         env.insert(go_port, Value::bit_high());
 
-        let comp_done_port = comp_cell.get_with_attr(ir::NumAttr::Done);
+        let comp_done_port =
+            comp_cell.get_unique_with_attr(ir::NumAttr::Done).unwrap();
         let interp = AssignmentInterpreter::new(
             env,
             comp_done_port.into(),
@@ -1078,7 +1079,12 @@ impl Interpreter for InvokeInterpreter {
         let mut env = self.assign_interp.reset()?;
 
         // set go low
-        let go_port = self.invoke.comp.borrow().get_with_attr(ir::NumAttr::Go);
+        let go_port = self
+            .invoke
+            .comp
+            .borrow()
+            .get_unique_with_attr(ir::NumAttr::Go)
+            .unwrap();
         // insert one into the go_port
         // should probably replace with an actual assignment from a constant one
         env.insert(go_port, Value::bit_low());
@@ -1238,7 +1244,8 @@ impl StructuralInterpreter {
         env: InterpreterState,
     ) -> Self {
         let comp_sig = comp.signature.borrow();
-        let done_port = comp_sig.get_with_attr(ir::NumAttr::Done);
+        let done_port =
+            comp_sig.get_unique_with_attr(ir::NumAttr::Done).unwrap();
         let done_raw = done_port.as_raw();
         let continuous = Rc::clone(&comp.continuous_assignments);
         let assigns: Vec<ir::Assignment<ir::Nothing>> = vec![];

@@ -24,7 +24,7 @@ pub mod rewriter;
 // Re-export types at the module level.
 pub use builder::Builder;
 pub use calyx_utils::{GetName, Id};
-pub use common::{RRC, WRC};
+pub use common::{rrc, RRC, WRC};
 pub use component::{Component, IdList};
 pub use context::{BackendConf, Context};
 pub use control::{

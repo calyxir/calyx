@@ -1,0 +1,23 @@
+// -p validate -p compile-invoke
+import "primitives/compile.futil";
+
+component foo() -> () {
+    cells {
+        ref r = std_reg(32);
+    }
+    wires {}
+    control {
+        invoke r(in = 32'd10)();
+    }
+}
+
+component main() -> () {
+    cells {
+        r0 = std_reg(32);
+        f = foo();
+    }
+    wires {}
+    control {
+        invoke f[r=r0]()();
+    }
+}

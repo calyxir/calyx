@@ -1,6 +1,7 @@
 use crate::control::StaticInvoke;
 use crate::{self as ir, RRC};
 use std::borrow::BorrowMut;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -11,22 +12,24 @@ pub type RewriteMap<T> = HashMap<ir::Id, RRC<T>>;
 /// [ir::Port::canonical]) to the new [ir::Port] instance.
 pub type PortRewriteMap = HashMap<ir::Canonical, RRC<ir::Port>>;
 
+#[derive(Default)]
 /// A structure to track rewrite maps for ports. Stores both cell rewrites and direct port
 /// rewrites. Attempts to apply port rewrites first before trying the cell
 /// rewrite.
-pub struct Rewriter<'a> {
-    cell_map: &'a RewriteMap<ir::Cell>,
-    port_map: &'a PortRewriteMap,
+pub struct Rewriter {
+    /// Mapping from canonical names of ports to port instances
+    pub port_map: PortRewriteMap,
+    /// Mapping from names of cells to cell instance.
+    pub cell_map: RewriteMap<ir::Cell>,
+    /// Mapping from names of groups to group instance.
+    pub group_map: RewriteMap<ir::Group>,
+    /// Mapping from names of combinational groups to combinational group instance.
+    pub comb_group_map: RewriteMap<ir::CombGroup>,
+    /// Mapping from names of static groups to static group instance.
+    pub static_group_map: RewriteMap<ir::StaticGroup>,
 }
 
-impl<'a> Rewriter<'a> {
-    pub fn new(
-        cell_map: &'a RewriteMap<ir::Cell>,
-        port_map: &'a PortRewriteMap,
-    ) -> Self {
-        Self { cell_map, port_map }
-    }
-
+impl Rewriter {
     /// Return the rewrite for a cell
     pub fn get_cell_rewrite(&self, cell: &ir::Id) -> Option<RRC<ir::Cell>> {
         self.cell_map.get(cell).map(Rc::clone)
@@ -123,11 +126,7 @@ impl<'a> Rewriter<'a> {
 
     // =========== Control Rewriting Methods =============
     /// Rewrite a `invoke` node using a [RewriteMap<ir::Cell>] and a [RewriteMap<ir::CombGroup>]
-    pub fn rewrite_invoke(
-        &self,
-        inv: &mut ir::Invoke,
-        comb_group_map: &RewriteMap<ir::CombGroup>,
-    ) {
+    pub fn rewrite_invoke(&self, inv: &mut ir::Invoke) {
         // Rewrite the name of the cell
         let name = inv.comp.borrow().name();
         if let Some(new_cell) = &self.get_cell_rewrite(&name) {
@@ -137,7 +136,7 @@ impl<'a> Rewriter<'a> {
         // Rewrite the combinational group
         if let Some(cg_ref) = &inv.comb_group {
             let cg = cg_ref.borrow().name();
-            if let Some(new_cg) = &comb_group_map.get(&cg) {
+            if let Some(new_cg) = &self.comb_group_map.get(&cg) {
                 inv.comb_group = Some(Rc::clone(new_cg));
             }
         }
@@ -174,34 +173,30 @@ impl<'a> Rewriter<'a> {
 
     /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
     /// rewrite maps.
-    pub fn rewrite_static_control(
-        &self,
-        sc: &mut ir::StaticControl,
-        static_group_map: &RewriteMap<ir::StaticGroup>,
-    ) {
+    pub fn rewrite_static_control(&self, sc: &mut ir::StaticControl) {
         match sc {
             ir::StaticControl::Empty(_) => (),
             ir::StaticControl::Enable(sen) => {
                 let g = &sen.group.borrow().name();
-                if let Some(new_group) = static_group_map.get(g) {
+                if let Some(new_group) = self.static_group_map.get(g) {
                     sen.group = Rc::clone(new_group);
                 }
             }
             ir::StaticControl::Repeat(rep) => {
-                self.rewrite_static_control(&mut rep.body, static_group_map)
+                self.rewrite_static_control(&mut rep.body)
             }
             ir::StaticControl::Seq(ir::StaticSeq { stmts, .. })
             | ir::StaticControl::Par(ir::StaticPar { stmts, .. }) => stmts
                 .iter_mut()
-                .for_each(|c| self.rewrite_static_control(c, static_group_map)),
+                .for_each(|c| self.rewrite_static_control(c)),
             ir::StaticControl::If(sif) => {
                 // Rewrite port use
                 if let Some(new_port) = self.get(&sif.port) {
                     sif.port = new_port;
                 }
                 // rewrite branches
-                self.rewrite_static_control(&mut sif.tbranch, static_group_map);
-                self.rewrite_static_control(&mut sif.fbranch, static_group_map);
+                self.rewrite_static_control(&mut sif.tbranch);
+                self.rewrite_static_control(&mut sif.fbranch);
             }
             ir::StaticControl::Invoke(sin) => {
                 self.rewrite_static_invoke(sin);
@@ -211,31 +206,18 @@ impl<'a> Rewriter<'a> {
 
     /// Given a control program, rewrite all uses of cells, groups, and comb groups using the given
     /// rewrite maps.
-    pub fn rewrite_control(
-        &self,
-        c: &mut ir::Control,
-        group_map: &RewriteMap<ir::Group>,
-        comb_group_map: &RewriteMap<ir::CombGroup>,
-        static_group_map: &RewriteMap<ir::StaticGroup>,
-    ) {
+    pub fn rewrite_control(&self, c: &mut ir::Control) {
         match c {
             ir::Control::Empty(_) => (),
             ir::Control::Enable(en) => {
                 let g = &en.group.borrow().name();
-                if let Some(new_group) = group_map.get(g) {
+                if let Some(new_group) = self.group_map.get(g) {
                     en.group = Rc::clone(new_group);
                 }
             }
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
-                stmts.iter_mut().for_each(|c| {
-                    self.rewrite_control(
-                        c,
-                        group_map,
-                        comb_group_map,
-                        static_group_map,
-                    )
-                })
+                stmts.iter_mut().for_each(|c| self.rewrite_control(c))
             }
             ir::Control::If(ife) => {
                 // Rewrite port use
@@ -245,23 +227,13 @@ impl<'a> Rewriter<'a> {
                 // Rewrite conditional comb group if defined
                 if let Some(cg_ref) = &ife.cond {
                     let cg = cg_ref.borrow().name();
-                    if let Some(new_cg) = &comb_group_map.get(&cg) {
+                    if let Some(new_cg) = &self.comb_group_map.get(&cg) {
                         ife.cond = Some(Rc::clone(new_cg));
                     }
                 }
                 // rewrite branches
-                self.rewrite_control(
-                    &mut ife.tbranch,
-                    group_map,
-                    comb_group_map,
-                    static_group_map,
-                );
-                self.rewrite_control(
-                    &mut ife.fbranch,
-                    group_map,
-                    comb_group_map,
-                    static_group_map,
-                );
+                self.rewrite_control(&mut ife.tbranch);
+                self.rewrite_control(&mut ife.fbranch);
             }
             ir::Control::While(wh) => {
                 // Rewrite port use
@@ -271,33 +243,33 @@ impl<'a> Rewriter<'a> {
                 // Rewrite conditional comb group if defined
                 if let Some(cg_ref) = &wh.cond {
                     let cg = cg_ref.borrow().name();
-                    if let Some(new_cg) = &comb_group_map.get(&cg) {
+                    if let Some(new_cg) = &self.comb_group_map.get(&cg) {
                         wh.cond = Some(Rc::clone(new_cg));
                     }
                 }
                 // rewrite body
-                self.rewrite_control(
-                    &mut wh.body,
-                    group_map,
-                    comb_group_map,
-                    static_group_map,
-                );
+                self.rewrite_control(&mut wh.body);
             }
             ir::Control::Repeat(rep) => {
                 // rewrite body
-                self.rewrite_control(
-                    &mut rep.body,
-                    group_map,
-                    comb_group_map,
-                    static_group_map,
-                );
+                self.rewrite_control(&mut rep.body);
             }
-            ir::Control::Invoke(inv) => {
-                self.rewrite_invoke(inv, comb_group_map)
-            }
-            ir::Control::Static(s) => {
-                self.rewrite_static_control(s, static_group_map)
-            }
+            ir::Control::Invoke(inv) => self.rewrite_invoke(inv),
+            ir::Control::Static(s) => self.rewrite_static_control(s),
         }
+    }
+
+    /// Rewrite the component using the given maps
+    pub fn rewrite(&self, comp: &mut ir::Component) {
+        // Rewrite all of the ref cell ports
+        comp.for_each_assignment(|assign| {
+            self.rewrite_assign(assign);
+        });
+        comp.for_each_static_assignment(|assign| {
+            self.rewrite_assign(assign);
+        });
+        self.rewrite_control(&mut RefCell::borrow_mut(
+            comp.control.borrow_mut(),
+        ));
     }
 }

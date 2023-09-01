@@ -37,7 +37,8 @@ impl VariableDetection {
         // if guard is empty, because if it isn't this would show up as
         // a write
         let graph = GraphAnalysis::from(&*group);
-        let go_port = cell.find_with_attr(ir::NumAttr::Go)?;
+        let go_port =
+            cell.find_unique_with_attr(ir::NumAttr::Go).ok().flatten()?;
         let activation = graph
             .writes_to(&go_port.borrow())
             .map(|src| src.borrow().is_constant(1, 1))

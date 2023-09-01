@@ -1,8 +1,22 @@
-## Unreleased
+## 0.6.0
+- BREAKING: Deprecate `Cell::find_with_attr` in favor of `Cell::find_with_unique_attr`. The former is error-prone because pass logic might implicitly assume that there is only one port with a particular attribute.
+- BREAKING: Redesign the `ir::Rewriter` interface to take all the rewrite maps when constructing the `ir::Rewriter` struct.
+- Merge the logic of `compile-ref` pass into `compile-invoke` so that `ref` cells can be invoked.
+- The `guard!` macro supports parsing complex guard expressions that use logical connectives and comparison operators.
+- The `calyx` library no longer exposes any methods and should not be depended upon. Instead, the new `calyx-backend` crate provides the code needed to emit Verilog from Calyx.
+
+## 0.5.1
+- Change the `calyx` build script to use the `CALYX_PRIMITIVES_DIR` env variable to install primitive libraries. If unset, use `$HOME/.calyx`.
+
+## 0.5.0
 - Don't require `@clk` and `@reset` ports in `comb` components
 - `inline` pass supports inlining `ref` cells
 - `comb-prop`: disable rewrite from `wire.in = port` when the output of a wire is read.
 - BREAKING: Remove `PortDef::into()` because it makes it easy to miss copying attributes.
+- Remove the `futil` binary.
+- The `calyx` binary ships all the primitives and therefore self-contained now.
+    - Add the `calyx-stdlib` package
+    - Add a new build script that installs primitives when the package is installed.
 
 
 ## 0.4.0

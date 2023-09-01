@@ -4,16 +4,19 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     i = incr();
     value = std_reg(32);
   }
-  wires {}
+  wires {
+    group invoke0 {
+      value.in = i.value_in;
+      value.write_en = i.value_write_en;
+      i.value_out = value.out;
+      i.value_done = value.done;
+      i.go = 1'd1;
+      invoke0[done] = i.done;
+    }
+  }
   control {
     seq {
-      invoke i(
-        value_out = value.out,
-        value_done = value.done
-      )(
-        value_in = value.in,
-        value_write_en = value.write_en
-      );
+      invoke0;
     }
   }
 }
@@ -21,16 +24,19 @@ component incr(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_don
   cells {
     ih = incr_helper();
   }
-  wires {}
+  wires {
+    group invoke0 {
+      value_in = ih.value_in;
+      value_write_en = ih.value_write_en;
+      ih.value_out = value_out;
+      ih.value_done = value_done;
+      ih.go = 1'd1;
+      invoke0[done] = ih.done;
+    }
+  }
   control {
     seq {
-      invoke ih(
-        value_out = value_out,
-        value_done = value_done
-      )(
-        value_in = value_in,
-        value_write_en = value_write_en
-      );
+      invoke0;
     }
   }
 }

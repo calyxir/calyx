@@ -1,11 +1,11 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
     AttributePromotion, Canonicalize, CellShare, ClkInsertion, CollapseControl,
-    CombProp, CompileEmpty, CompileInvoke, CompileRef, CompileRepeat,
-    CompileStatic, CompileSync, CompileSyncWithoutSyncReg, ComponentInliner,
-    DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval,
-    DiscoverExternal, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
-    HoleInliner, InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
+    CombProp, CompileEmpty, CompileInvoke, CompileRepeat, CompileStatic,
+    CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
+    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
+    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
+    InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
     RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticInliner, StaticPromotion, SynthesisPapercut,
     TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
@@ -49,7 +49,6 @@ impl PassManager {
         pm.register_pass::<SimplifyWithControl>()?;
         pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
-        pm.register_pass::<CompileRef>()?;
         pm.register_pass::<CompileSync>()?;
         pm.register_pass::<CompileSyncWithoutSyncReg>()?;
 
@@ -89,9 +88,8 @@ impl PassManager {
                 InferShare,
                 ComponentInliner,
                 CombProp,
-                CompileRef, //Must run before cell-share, and before component-inliner
-                CellShare,  // LiveRangeAnalaysis should handle comb groups
-                SimplifyWithControl, // Must run before infer-static-timing
+                CellShare, // LiveRangeAnalaysis should handle comb groups
+                SimplifyWithControl, // Must run before compile-invoke
                 CompileInvoke, // creates dead comb groups
                 AttributePromotion,
                 StaticPromotion,
@@ -150,7 +148,6 @@ impl PassManager {
             [
                 "validate",
                 CompileSync,
-                CompileRef,
                 SimplifyWithControl,
                 CompileInvoke,
                 "compile",

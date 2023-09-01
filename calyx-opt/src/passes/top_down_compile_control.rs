@@ -308,8 +308,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .flat_map(|(state, mut assigns)| {
                     let state_const =
                         self.builder.add_constant(state, fsm_size);
-                    let state_guard =
-                        guard!(fsm["out"]).eq(guard!(state_const["out"]));
+                    let state_guard = guard!(fsm["out"] == state_const["out"]);
                     assigns.iter_mut().for_each(|asgn| {
                         asgn.guard.update(|g| g.and(state_guard.clone()))
                     });
@@ -326,7 +325,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 );
                 let ec_borrow = end_const.borrow();
                 let trans_guard =
-                    guard!(fsm["out"]).eq(guard!(start_const["out"])) & guard;
+                    guard!((fsm["out"] == start_const["out"]) & guard);
 
                 vec![
                     self.builder.build_assignment(
@@ -344,7 +343,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         );
 
         // Done condition for group
-        let last_guard = guard!(fsm["out"]).eq(guard!(last_state["out"]));
+        let last_guard = guard!(fsm["out"] == last_state["out"]);
         let done_assign = self.builder.build_assignment(
             group.borrow().get("done"),
             signal_on.borrow().get("out"),
@@ -526,7 +525,7 @@ impl Schedule<'_, '_> {
             )?
         };
 
-        let prevs = tru_prev.into_iter().chain(fal_prev.into_iter()).collect();
+        let prevs = tru_prev.into_iter().chain(fal_prev).collect();
         Ok(prevs)
     }
 
@@ -573,7 +572,7 @@ impl Schedule<'_, '_> {
         let not_port_guard = !port_guard;
         let all_prevs = preds
             .into_iter()
-            .chain(prevs.into_iter())
+            .chain(prevs)
             .map(|(st, guard)| (st, guard & not_port_guard.clone()))
             .collect();
 
@@ -952,7 +951,7 @@ impl Visitor for TopDownCompileControl {
             structure!(builder;
                 let pd = prim std_reg(1);
             );
-            let group_go = !(guard!(pd["out"]) | guard!(group["done"]));
+            let group_go = !(guard!(pd["out"] | group["done"]));
             let group_done = guard!(group["done"]);
 
             // Save the done condition in a register.

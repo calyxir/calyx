@@ -58,7 +58,7 @@ ADD . calyx
 WORKDIR /home/calyx
 RUN cargo build --all && \
     cargo install vcdump && \
-    cargo install runt --version $(grep ^ver runt.toml | awk '{print $3}' | tr -d '"')
+    cargo install runt --version 0.4.1
 
 # Install fud
 WORKDIR /home/calyx/fud
@@ -71,7 +71,7 @@ ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
 RUN fud config --create global.root /home/calyx && \
     fud config stages.dahlia.exec '/home/dahlia/fuse' && \
     fud config stages.calyx.exec '/home/calyx/target/debug/calyx' && \
-    fud config stages.interpreter.exec '/home/calyx/target/debug/interp' && \
+    fud config stages.interpreter.exec '/home/calyx/target/debug/cider' && \
     fud register ntt -p '/home/calyx/frontends/ntt-pipeline/fud/ntt.py' && \
     fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
     fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'

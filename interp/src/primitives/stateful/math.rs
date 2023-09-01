@@ -205,7 +205,7 @@ impl<const SIGNED: bool, const DEPTH: usize> Primitive
     fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
         Serializable::Array(
-            vec![self.product.clone()]
+            [self.product.clone()]
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
                 .collect(),
@@ -415,8 +415,7 @@ impl<const SIGNED: bool> Primitive for StdDivPipe<SIGNED> {
     fn serialize(&self, signed: Option<PrintCode>) -> Serializable {
         let code = signed.unwrap_or_default();
         Serializable::Array(
-            //vec![self.left.clone(), self.right.clone(), self.product.clone()]
-            vec![self.quotient.clone(), self.remainder.clone()]
+            [self.quotient.clone(), self.remainder.clone()]
                 .iter()
                 .map(|x| Entry::from_val_code(x, &code))
                 .collect(),

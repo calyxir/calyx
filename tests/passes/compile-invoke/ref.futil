@@ -1,0 +1,35 @@
+// -p well-formed -p compile-invoke
+import "primitives/compile.futil";
+
+component foo() -> () {
+  cells {
+    ref r = std_reg(32);
+  }
+
+  wires {
+    group reg_to_mem {
+      r.in = 32'd10;
+      r.write_en = 1'd1;
+      reg_to_mem[done] = r.done;
+    }
+  }
+
+  control {
+    seq {
+      if r.out {
+        reg_to_mem;
+      }
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    f = foo();
+    r0 = std_reg(32);
+  }
+  wires {}
+  control {
+    invoke f[r = r0]()();
+  }
+}
