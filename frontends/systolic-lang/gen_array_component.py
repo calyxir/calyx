@@ -4,7 +4,6 @@ import numpy as np
 from gen_pe import pe, PE_NAME, BITWIDTH
 import calyx.builder as cb
 from calyx import py_ast
-from calyx.utils import bits_needed
 
 # Global constant for the current bitwidth.
 DEPTH = "depth"
@@ -113,7 +112,8 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     else:
         raise Exception(f"Invalid top_or_left: {top_or_left}")
 
-    idx_width = bits_needed(size)
+    # XXX(Caleb): should change to be exact
+    idx_width = BITWIDTH
     # Instantiate the memory
     add_read_mem_arguments(comp, name, idx_width)
     this = comp.this()
@@ -639,7 +639,6 @@ def create_systolic_array(
     left_length: Number of PEs in each column.
     left_depth: Number of elements processed by each PE in a col.
     """
-
     assert top_depth == left_depth, (
         f"Cannot multiply matrices: "
         f"{top_length}x{top_depth} and {left_depth}x{left_length}"

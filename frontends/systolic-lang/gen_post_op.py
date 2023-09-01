@@ -19,7 +19,7 @@ WRITE_DONE_COND = "write_done_cond"
 def add_register_params(comp: cb.ComponentBuilder, name, width):
     """
     Add params to component `comp` if we want to use a register named
-    `name` inside `comp.`Specifically adds the write_en, in, and out ports.
+    `name` inside `comp.` Specifically adds the write_en, in, and out ports.
     """
     comp.output(f"{name}_write_en", 1)
     comp.output(f"{name}_in", width)
@@ -83,7 +83,11 @@ def create_write_mem_groups(comp: cb.ComponentBuilder, row_num):
 
 
 def done_condition_groups(
-    comp: cb.ComponentBuilder, num_rows, num_cols, idx_width, leaky_relu=False
+    comp: cb.ComponentBuilder,
+    num_rows: int,
+    num_cols: int,
+    idx_width: int,
+    leaky_relu: bool,
 ):
     """
     Writes to this.computation_done
@@ -95,28 +99,28 @@ def done_condition_groups(
     # ports to read from systolic array
     if leaky_relu:
         # Check if all relu operations have finished for each row
-        for r in range(num_rows):
-            row_finished_wire = comp.get_cell(f"relu_finished_wire_r{r}")
-            if r == 0:
-                guard = row_finished_wire.out
-            else:
-                guard = guard & row_finished_wire.out
+        guard = comp.get_cell("relu_finished_wire_r0").out
+        for r in range(1, num_rows):
+            guard = guard & comp.get_cell(f"relu_finished_wire_r{r}").out
         all_relu_finished_wire = comp.wire("all_relu_finished_wire", 1)
         with comp.static_group(WRITE_DONE_COND, 1):
             all_relu_finished_wire.in_ = guard @ 1
             this.computation_done = all_relu_finished_wire.out @ 1
     else:
-        valid_port = this.port(f"r{num_rows -1}_valid")
-        idx_port = this.port(f"r{num_rows-1}_idx")
+        final_row_valid = this.port(f"r{num_rows -1}_valid")
+        final_row_idx = this.port(f"r{num_rows-1}_idx")
         max_idx = num_cols - 1
-        # delay_reg to delay writing to this.computation_done
+        # delay_reg delays writing to this.computation_done
         delay_reg = comp.reg("delay_reg", 1)
+        final_col_idx_reached = final_row_idx == cb.ExprBuilder(
+            py_ast.ConstantPort(idx_width, max_idx)
+        )
         with comp.static_group(WRITE_DONE_COND, 1):
             delay_reg.in_ = 1
-            delay_reg.write_en = (
-                valid_port
-                & (idx_port == cb.ExprBuilder(py_ast.ConstantPort(idx_width, max_idx)))
-            ) @ 1
+            # When we are at the final index in the final row, we still need
+            # one cycle to write into the memory. Therefore, we delay computation_done
+            # by one cycle.
+            delay_reg.write_en = (final_row_valid & final_col_idx_reached) @ 1
             this.computation_done = delay_reg.done @ 1
 
 
@@ -129,7 +133,7 @@ def default_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
     add_post_op_params(comp, num_rows, idx_width)
     for r in range(num_rows):
         create_write_mem_groups(comp, r)
-    done_condition_groups(comp, num_rows, num_cols, idx_width)
+    done_condition_groups(comp, num_rows, num_cols, idx_width, leaky_relu=False)
 
     comp.control = py_ast.StaticParComp(
         [py_ast.Enable(WRITE_DONE_COND)]
@@ -188,6 +192,8 @@ def leaky_relu_comp(prog: cb.Builder):
         # Write to memory.
         g.asgn(write_en_port, 1, write_mem.out)
         g.asgn(addr0_port, this.idx_reg_out)
+        # Write value if this.value >= 0
+        # Write mult.out if this.value < 0
         g.asgn(write_data_port, this.value, ~lt.out)
         g.asgn(write_data_port, fp_mult.out, lt.out)
         # Groups is done once we have written to memory.

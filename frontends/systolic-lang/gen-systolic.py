@@ -14,7 +14,37 @@ from gen_post_op import (
     LEAKY_RELU_POST_OP,
 )
 from calyx import py_ast
-from calyx.utils import bits_needed
+
+
+def create_mem_connections(
+    main: cb.ComponentBuilder,
+    component_builder: cb.ComponentBuilder,
+    mem_name: str,
+    mem_size: int,
+    read_mem: bool,
+):
+    """
+    Instantiates 1d memory named mem_name with idx widths of idx_width.
+    Also connects the memory ports to `component_builder`
+    If `read_mem` == True, then connects memory ports such that
+    `component_builder` can read from memory.
+    If `read_mem` == False, then connects memory ports such that
+    `component_builder` can write to memory.
+    """
+    # XXX(Caleb): should change idx_width to be more precise
+    idx_width = BITWIDTH
+    mem = main.mem_d1(
+        mem_name,
+        BITWIDTH,
+        mem_size,
+        idx_width,
+        is_external=True,
+    )
+    input_portname = ["addr0"] if read_mem else ["write_data", "write_en", "addr0"]
+    output_portnames = ["read_data"] if read_mem else ["done"]
+    return cb.build_connections(
+        mem, component_builder, "", f"{mem_name}_", input_portname, output_portnames
+    )
 
 
 def build_main(prog, post_op_component_name):
@@ -37,67 +67,37 @@ def build_main(prog, post_op_component_name):
     connections = []
     # Connect input memories to systolic_array
     for r in range(top_length):
-        name = f"t{r}"
-        idx_width = bits_needed(top_depth)
-        mem = main.mem_d1(
-            name,
-            BITWIDTH,
-            top_depth,
-            idx_width,
-            is_external=True,
+        connections += create_mem_connections(
+            main, systolic_array, f"t{r}", top_depth, read_mem=True
         )
-        connections.append((systolic_array.port(f"{name}_read_data"), mem.read_data))
-        connections.append((mem.addr0, systolic_array.port(f"{name}_addr0")))
     for c in range(left_length):
-        name = f"l{c}"
-        idx_width = bits_needed(left_depth)
-        mem = main.mem_d1(
-            name,
-            BITWIDTH,
+        connections += create_mem_connections(
+            # top_depth should = left_depth
+            main,
+            systolic_array,
+            f"l{c}",
             left_depth,
-            idx_width,
-            is_external=True,
+            read_mem=True,
         )
-        connections.append((systolic_array.port(f"{name}_read_data"), mem.read_data))
-        connections.append((mem.addr0, systolic_array.port(f"{name}_addr0")))
     # Connect outout memories to post_op, and systolic_array_output to
     # post_op inputs.
     for i in range(left_length):
-        name = OUT_MEM + f"_{i}"
-        mem = main.mem_d1(
-            name,
-            BITWIDTH,
-            top_length,
-            BITWIDTH,
-            is_external=True,
+        # connect output memory to post op
+        connections += create_mem_connections(
+            main, post_op, OUT_MEM + f"_{i}", top_length, read_mem=False
         )
-        connections.append((mem.addr0, post_op.port(f"{name}_addr0")))
-        connections.append((mem.write_data, post_op.port(f"{name}_write_data")))
-        connections.append((mem.write_en, post_op.port(f"{name}_write_en")))
-        connections.append((post_op.port(f"{name}_done"), mem.done))
-        connections.append(
-            (
-                post_op.port(NAME_SCHEME["systolic valid signal"].format(row_num=i)),
-                systolic_array.port(
-                    NAME_SCHEME["systolic valid signal"].format(row_num=i)
-                ),
-            )
-        )
-        connections.append(
-            (
-                post_op.port(NAME_SCHEME["systolic value signal"].format(row_num=i)),
-                systolic_array.port(
-                    NAME_SCHEME["systolic value signal"].format(row_num=i)
-                ),
-            )
-        )
-        connections.append(
-            (
-                post_op.port(NAME_SCHEME["systolic idx signal"].format(row_num=i)),
-                systolic_array.port(
-                    NAME_SCHEME["systolic idx signal"].format(row_num=i)
-                ),
-            )
+        # Connect systolic array to post op
+        connections += cb.build_connections(
+            post_op,
+            systolic_array,
+            "",
+            "",
+            [
+                NAME_SCHEME["systolic valid signal"].format(row_num=i),
+                NAME_SCHEME["systolic value signal"].format(row_num=i),
+                NAME_SCHEME["systolic idx signal"].format(row_num=i),
+            ],
+            [],
         )
     # Use a wire and register so that we have a signal that tells us when
     # systolic array component is done. This way, we don't retrigger systolic_array_comp
@@ -126,6 +126,7 @@ if __name__ == "__main__":
     import argparse
     import json
 
+    # Arg parsing
     parser = argparse.ArgumentParser(description="Process some integers.")
     parser.add_argument("file", nargs="?", type=str)
     parser.add_argument("-tl", "--top-length", type=int)
@@ -166,6 +167,7 @@ if __name__ == "__main__":
             "-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`"
         )
 
+    # Building the main component
     prog = cb.Builder()
     create_systolic_array(
         prog,
