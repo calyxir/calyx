@@ -27,7 +27,7 @@ static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
     }
   }
 }
-component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> (t0_addr0: 32, l0_addr0: 32, r0_valid: 1, r0_value: 32, r0_idx: 32) {
+component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> (t0_addr0: 2, l0_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 1) {
   cells {
     min_depth_4 = std_reg(32);
     lt_depth_4 = std_lt(32);
@@ -41,10 +41,10 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
     pe_0_0 = mac_pe();
     top_0_0 = std_reg(32);
     left_0_0 = std_reg(32);
-    t0_idx = std_reg(32);
-    t0_add = std_add(32);
-    l0_idx = std_reg(32);
-    l0_add = std_add(32);
+    t0_idx = std_reg(2);
+    t0_add = std_add(2);
+    l0_idx = std_reg(2);
+    l0_add = std_add(2);
     idx = std_reg(32);
     idx_add = std_add(32);
     cond_reg = std_reg(1);
@@ -102,11 +102,11 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
       depth_plus_6.right = 32'd6;
     }
     static<1> group t0_idx_init {
-      t0_idx.in = 32'd0;
+      t0_idx.in = 2'd0;
       t0_idx.write_en = 1'd1;
     }
     static<1> group t0_idx_update {
-      t0_add.left = 32'd1;
+      t0_add.left = 2'd1;
       t0_add.right = t0_idx.out;
       t0_idx.in = t0_add.out;
       t0_idx.write_en = 1'd1;
@@ -117,11 +117,11 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
       top_0_0.write_en = 1'd1;
     }
     static<1> group l0_idx_init {
-      l0_idx.in = 32'd0;
+      l0_idx.in = 2'd0;
       l0_idx.write_en = 1'd1;
     }
     static<1> group l0_idx_update {
-      l0_add.left = 32'd1;
+      l0_add.left = 2'd1;
       l0_add.right = l0_idx.out;
       l0_idx.in = l0_add.out;
       l0_idx.write_en = 1'd1;
@@ -134,7 +134,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
     static<1> group pe_0_0_out_write {
       r0_valid = 1'd1;
       r0_value = pe_0_0.out;
-      r0_idx = 32'd0;
+      r0_idx = 1'd0;
     }
     static<1> group init_idx {
       idx.in = 32'd0;
@@ -286,7 +286,7 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
     }
   }
 }
-component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 32) -> (computation_done: 1, out_mem_0_addr0: 32, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
+component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 1) -> (computation_done: 1, out_mem_0_addr0: 1, out_mem_0_write_data: 32, out_mem_0_write_en: 1) {
   cells {
     delay_reg = std_reg(1);
   }
@@ -298,7 +298,7 @@ component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 
     }
     static<1> group write_done_cond {
       delay_reg.in = 1'd1;
-      delay_reg.write_en = r0_valid & r0_idx == 32'd0 ? 1'd1;
+      delay_reg.write_en = r0_valid & r0_idx == 1'd0 ? 1'd1;
       computation_done = delay_reg.done ? 1'd1;
     }
   }
@@ -313,9 +313,9 @@ component main() -> () {
   cells {
     systolic_array_component = systolic_array_comp();
     post_op_component = default_post_op();
-    @external t0 = std_mem_d1(32, 3, 32);
-    @external l0 = std_mem_d1(32, 3, 32);
-    @external out_mem_0 = std_mem_d1(32, 1, 32);
+    @external t0 = std_mem_d1(32, 3, 2);
+    @external l0 = std_mem_d1(32, 3, 2);
+    @external out_mem_0 = std_mem_d1(32, 1, 1);
     systolic_done = std_reg(1);
     systolic_done_wire = std_wire(1);
   }
