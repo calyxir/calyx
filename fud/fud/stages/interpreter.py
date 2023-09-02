@@ -3,8 +3,7 @@ from fud.stages import Stage, SourceType, Source
 from pathlib import Path
 import simplejson as sjson
 import numpy as np
-from calyx.numeric_types import FixedPoint, Bitnum
-from fud.errors import InvalidNumericType
+from calyx.numeric_types import FixedPoint, Bitnum, InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
 from fud.utils import shell, TmpDir, unwrap_or, transparent_shell
 from fud import config as cfg
