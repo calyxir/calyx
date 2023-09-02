@@ -142,7 +142,7 @@ def default_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
     )
 
 
-def leaky_relu_comp(prog: cb.Builder):
+def leaky_relu_comp(prog: cb.Builder, idx_width: int):
     """
     Creates a dynamic, non-pipelined, leaky relu component.
     This is the component that actually performs the leaky relu computation on
@@ -151,8 +151,8 @@ def leaky_relu_comp(prog: cb.Builder):
     comp = prog.component(name="leaky_relu")
     comp.input("value", BITWIDTH)
     # Takes a memory and register (i.e., arguments that essentially act as ref cells)
-    add_write_mem_params(comp, OUT_MEM, BITWIDTH)
-    add_register_params(comp, "idx_reg", BITWIDTH)
+    add_write_mem_params(comp, OUT_MEM, idx_width)
+    add_register_params(comp, "idx_reg", idx_width)
 
     this = comp.this()
 
@@ -163,7 +163,7 @@ def leaky_relu_comp(prog: cb.Builder):
 
     fp_mult = comp.fp_sop("fp_mult", "mult_pipe", BITWIDTH, INTWIDTH, FRACWIDTH)
     lt = comp.fp_sop("val_lt", "lt", BITWIDTH, INTWIDTH, FRACWIDTH)
-    incr_idx = comp.add(BITWIDTH, "incr_idx")
+    incr_idx = comp.add(idx_width, "incr_idx")
     write_mem = comp.wire("write_mem", 1)
 
     with comp.continuous:
@@ -257,7 +257,7 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
     # Current value we are performing relu on.
     cur_val = comp.wire(f"r{row}_cur_val", BITWIDTH)
     # Current idx within the row (i.e., column) for the value we are performing relu on.
-    idx_reg = comp.reg(f"r{row}_cur_idx", BITWIDTH)
+    idx_reg = comp.reg(f"r{row}_cur_idx", addr_width)
     # Handling logic to hold the systolic array's output values so they're available
     # for moer than one cycle.
     store_output_vals(comp, row, num_cols, addr_width)
@@ -313,7 +313,7 @@ def leaky_relu_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
     Adds a dynamic leaky relu post op to `prog`
     """
     # Create a leaky relu component.
-    leaky_relu_comp(prog)
+    leaky_relu_comp(prog, idx_width)
     comp = prog.component(name=LEAKY_RELU_POST_OP)
     add_post_op_params(comp, num_rows, idx_width)
     for r in range(num_rows):

@@ -4,6 +4,7 @@ import numpy as np
 from gen_pe import pe, PE_NAME, BITWIDTH
 import calyx.builder as cb
 from calyx import py_ast
+from calyx.utils import bits_needed
 
 # Global constant for the current bitwidth.
 DEPTH = "depth"
@@ -112,8 +113,7 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     else:
         raise Exception(f"Invalid top_or_left: {top_or_left}")
 
-    # XXX(Caleb): should change to be exact
-    idx_width = BITWIDTH
+    idx_width = bits_needed(size)
     # Instantiate the memory
     add_read_mem_arguments(comp, name, idx_width)
     this = comp.this()
@@ -668,10 +668,9 @@ def create_systolic_array(
     for col in range(left_length):
         instantiate_memory(computational_unit, "left", col, left_depth)
 
-    idx_width = BITWIDTH
     # Instantiate output memory
     for i in range(left_length):
-        add_systolic_output_arguments(computational_unit, i, idx_width)
+        add_systolic_output_arguments(computational_unit, i, bits_needed(top_length))
 
     # Instantiate all the PEs
     for row in range(left_length):

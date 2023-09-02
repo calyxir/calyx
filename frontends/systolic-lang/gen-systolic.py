@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
+from calyx.utils import bits_needed
 from gen_array_component import (
     create_systolic_array,
     BITWIDTH,
@@ -31,13 +32,11 @@ def create_mem_connections(
     If `read_mem` == False, then connects memory ports such that
     `component_builder` can write to memory.
     """
-    # XXX(Caleb): should change idx_width to be more precise
-    idx_width = BITWIDTH
     mem = main.mem_d1(
         mem_name,
         BITWIDTH,
         mem_size,
-        idx_width,
+        bits_needed(mem_size),
         is_external=True,
     )
     input_portname = ["addr0"] if read_mem else ["write_data", "write_en", "addr0"]
@@ -178,12 +177,18 @@ if __name__ == "__main__":
     )
     if leaky_relu:
         leaky_relu_post_op(
-            prog, num_rows=left_length, num_cols=top_length, idx_width=BITWIDTH
+            prog,
+            num_rows=left_length,
+            num_cols=top_length,
+            idx_width=bits_needed(top_length),
         )
         post_op_component_name = LEAKY_RELU_POST_OP
     else:
         default_post_op(
-            prog, num_rows=left_length, num_cols=top_length, idx_width=BITWIDTH
+            prog,
+            num_rows=left_length,
+            num_cols=top_length,
+            idx_width=bits_needed(top_length),
         )
         post_op_component_name = DEFAULT_POST_OP
     build_main(prog, post_op_component_name)
