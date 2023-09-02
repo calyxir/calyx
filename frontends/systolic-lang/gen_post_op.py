@@ -16,35 +16,20 @@ COND_REG = "cond_reg"
 WRITE_DONE_COND = "write_done_cond"
 
 
-def add_register_params(comp: cb.ComponentBuilder, name, width):
-    """
-    Add params to component `comp` if we want to use a register named
-    `name` inside `comp.` Specifically adds the write_en, in, and out ports.
-    """
-    comp.output(f"{name}_write_en", 1)
-    comp.output(f"{name}_in", width)
-    comp.input(f"{name}_out", width)
-
-
-def add_write_mem_params(comp: cb.ComponentBuilder, name, addr_width):
-    """
-    Add arguments to component `comp` if we want to write to a mem named `name` with
-    width of `addr_width` inside `comp.`
-    """
-    comp.output(f"{name}_addr0", addr_width)
-    comp.output(f"{name}_write_data", BITWIDTH)
-    comp.output(f"{name}_write_en", 1)
-    comp.input(f"{name}_done", 1)
-
-
 def add_systolic_input_params(comp: cb.ComponentBuilder, row_num, addr_width):
     """
     Add ports "r_{row_num}_valid", "r_{row_num}_value", "r_{row_num}_idx" to comp.
     These ports are meant to read from the systolic array output.
     """
-    comp.input(NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1)
-    comp.input(NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH)
-    comp.input(NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width)
+    cb.add_comp_params(
+        comp,
+        input_params=[
+            (NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1),
+            (NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH),
+            (NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width),
+        ],
+        output_params=[],
+    )
 
 
 def add_post_op_params(comp: cb.Builder, num_rows: int, idx_width: int):
@@ -53,7 +38,9 @@ def add_post_op_params(comp: cb.Builder, num_rows: int, idx_width: int):
     """
     comp.output("computation_done", 1)
     for r in range(num_rows):
-        add_write_mem_params(comp, OUT_MEM + f"_{r}", idx_width)
+        cb.add_write_mem_params(
+            comp, OUT_MEM + f"_{r}", data_width=BITWIDTH, addr_width=idx_width
+        )
         add_systolic_input_params(comp, r, idx_width)
 
 
@@ -151,20 +138,15 @@ def leaky_relu_comp(prog: cb.Builder, idx_width: int):
     comp = prog.component(name="leaky_relu")
     comp.input("value", BITWIDTH)
     # Takes a memory and register (i.e., arguments that essentially act as ref cells)
-    add_write_mem_params(comp, OUT_MEM, idx_width)
-    add_register_params(comp, "idx_reg", idx_width)
+    cb.add_write_mem_params(comp, OUT_MEM, data_width=BITWIDTH, addr_width=idx_width)
+    cb.add_register_params(comp, "idx_reg", idx_width)
 
     this = comp.this()
-
-    addr0_port = cb.ExprBuilder.unwrap(this.port(OUT_MEM + "_addr0"))
-    write_data_port = cb.ExprBuilder.unwrap(this.port(OUT_MEM + "_write_data"))
-    write_en_port = cb.ExprBuilder.unwrap(this.port(OUT_MEM + "_write_en"))
-    write_done_port = this.port(OUT_MEM + "_done")
 
     fp_mult = comp.fp_sop("fp_mult", "mult_pipe", BITWIDTH, INTWIDTH, FRACWIDTH)
     lt = comp.fp_sop("val_lt", "lt", BITWIDTH, INTWIDTH, FRACWIDTH)
     incr_idx = comp.add(idx_width, "incr_idx")
-    write_mem = comp.wire("write_mem", 1)
+    write_mem = comp.wire("should_write_mem", 1)
 
     with comp.continuous:
         # gt holds whether this.value > 0
@@ -190,14 +172,13 @@ def leaky_relu_comp(prog: cb.Builder, idx_width: int):
         this.idx_reg_write_en = write_mem.out @ 1
 
         # Write to memory.
-        g.asgn(write_en_port, 1, write_mem.out)
-        g.asgn(addr0_port, this.idx_reg_out)
+        this.out_mem_write_en = write_mem.out @ 1
+        this.out_mem_addr0 = this.idx_reg_out
         # Write value if this.value >= 0
         # Write mult.out if this.value < 0
-        g.asgn(write_data_port, this.value, ~lt.out)
-        g.asgn(write_data_port, fp_mult.out, lt.out)
-        # Groups is done once we have written to memory.
-        g.done = write_done_port
+        this.out_mem_write_data = ~lt.out @ this.value
+        this.out_mem_write_data = lt.out @ fp_mult.out
+        g.done = this.out_mem_write_done
 
     comp.control = py_ast.Enable("do_relu")
 
@@ -273,7 +254,8 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
     relu_finished_wire = comp.wire(f"relu_finished_wire_r{row}", 1)
     row_ready_wire = comp.get_cell(f"r{row}_ready_wire")
 
-    # Building connections betwen this and the leaky_relu cell
+    # Need to pass this component's memory ports another layer down to
+    # the leaky_relu cell.
     this_relu_io_ports = cb.build_connections(
         cell1=comp.this(),
         cell2=relu_instance,
@@ -288,7 +270,7 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
         cell2=relu_instance,
         root1="",
         root2="idx_reg_",
-        forward_ports=["write_en", "in"],
+        forward_ports=["write_en", "in", "done"],
         reverse_ports=["out"],
     )
     idx_limit_reached = idx_reg.out == cb.ExprBuilder(
