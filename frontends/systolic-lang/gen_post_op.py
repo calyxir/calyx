@@ -23,12 +23,12 @@ def add_systolic_input_params(comp: cb.ComponentBuilder, row_num, addr_width):
     """
     cb.add_comp_params(
         comp,
-        input_params=[
+        input_ports=[
             (NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1),
             (NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH),
             (NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width),
         ],
-        output_params=[],
+        output_ports=[],
     )
 
 
@@ -178,7 +178,7 @@ def leaky_relu_comp(prog: cb.Builder, idx_width: int):
         # Write mult.out if this.value < 0
         this.out_mem_write_data = ~lt.out @ this.value
         this.out_mem_write_data = lt.out @ fp_mult.out
-        g.done = this.out_mem_write_done
+        g.done = this.out_mem_done
 
     comp.control = py_ast.Enable("do_relu")
 
@@ -270,8 +270,8 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
         cell2=relu_instance,
         root1="",
         root2="idx_reg_",
-        forward_ports=["write_en", "in", "done"],
-        reverse_ports=["out"],
+        forward_ports=["write_en", "in"],
+        reverse_ports=["out", "done"],
     )
     idx_limit_reached = idx_reg.out == cb.ExprBuilder(
         py_ast.ConstantPort(BITWIDTH, num_cols)

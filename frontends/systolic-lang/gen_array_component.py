@@ -84,8 +84,8 @@ def add_systolic_output_params(comp: cb.ComponentBuilder, row_num, addr_width):
     """
     cb.add_comp_params(
         comp,
-        input_params=[],
-        output_params=[
+        input_ports=[],
+        output_ports=[
             (NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1),
             (NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH),
             (NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width),

@@ -1219,13 +1219,12 @@ def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
 
 def add_register_params(comp: ComponentBuilder, name, width):
     """
-    Add params to component `comp` if we want to use a register named
-    `name`.  Specifically adds the write_en, in, and out ports.
+    Add params to component `comp` if we want to use a register named `name`.
     """
     comp.output(f"{name}_write_en", 1)
-    comp.output(f"{name}_done", 1)
     comp.output(f"{name}_in", width)
     comp.input(f"{name}_out", width)
+    comp.input(f"{name}_done", 1)
 
 
 def build_connections(
