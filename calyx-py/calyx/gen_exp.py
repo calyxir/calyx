@@ -8,9 +8,8 @@ from calyx.py_ast import (
 )
 from calyx.utils import float_to_fixed_point
 from math import factorial, log2
-from fud.stages.verilator import numeric_types
+from calyx.numeric_types import FixedPoint
 from calyx.gen_ln import generate_ln
-
 from calyx.builder import (
     Builder,
     ComponentBuilder,
@@ -19,7 +18,6 @@ from calyx.builder import (
     if_with,
     invoke,
     CellBuilder,
-    ExprBuilder,
     const,
     HI,
     par,
@@ -52,7 +50,7 @@ def generate_fp_pow_component(
 
     # groups
     with comp.group("init") as init:
-        pow.in_ = numeric_types.FixedPoint(
+        pow.in_ = FixedPoint(
             "1.0", width, int_width, is_signed=is_signed
         ).unsigned_integer()
         pow.write_en = 1
@@ -105,14 +103,12 @@ def generate_cells(
     comp.const(
         "one",
         width,
-        numeric_types.FixedPoint(
-            "1.0", width, int_width, is_signed=is_signed
-        ).unsigned_integer(),
+        FixedPoint("1.0", width, int_width, is_signed=is_signed).unsigned_integer(),
     )
     comp.const(
         "e",
         width,
-        numeric_types.FixedPoint(
+        FixedPoint(
             str(float_to_fixed_point(2.7182818284, frac_width)),
             width,
             int_width,
@@ -124,7 +120,7 @@ def generate_cells(
         comp.const(
             "negative_one",
             width,
-            numeric_types.FixedPoint(
+            FixedPoint(
                 "-1.0", width, int_width, is_signed=is_signed
             ).unsigned_integer(),
         )
@@ -168,7 +164,7 @@ def generate_cells(
     # reciprocal factorials
     for i in range(2, degree + 1):
         fixed_point_value = float_to_fixed_point(1.0 / factorial(i), frac_width)
-        value = numeric_types.FixedPoint(
+        value = FixedPoint(
             str(fixed_point_value), width, int_width, is_signed=is_signed
         ).unsigned_integer()
         comp.const(f"reciprocal_factorial{i}", width, value)
@@ -540,9 +536,7 @@ def gen_constant_cell(
     return comp.const(
         name,
         width,
-        numeric_types.FixedPoint(
-            value, width, int_width, is_signed=is_signed
-        ).unsigned_integer(),
+        FixedPoint(value, width, int_width, is_signed=is_signed).unsigned_integer(),
     )
 
 
@@ -572,16 +566,12 @@ def generate_fp_pow_full(
     const_one = comp.const(
         "one",
         width,
-        numeric_types.FixedPoint(
-            "1.0", width, int_width, is_signed=is_signed
-        ).unsigned_integer(),
+        FixedPoint("1.0", width, int_width, is_signed=is_signed).unsigned_integer(),
     )
     const_zero = comp.const(
         "zero",
         width,
-        numeric_types.FixedPoint(
-            "0.0", width, int_width, is_signed=is_signed
-        ).unsigned_integer(),
+        FixedPoint("0.0", width, int_width, is_signed=is_signed).unsigned_integer(),
     )
     mult = comp.cell(
         "mult",
@@ -598,7 +588,7 @@ def generate_fp_pow_full(
         const_neg_one = comp.const(
             "neg_one",
             width,
-            numeric_types.FixedPoint(
+            FixedPoint(
                 "-1.0", width, int_width, is_signed=is_signed
             ).unsigned_integer(),
         )
