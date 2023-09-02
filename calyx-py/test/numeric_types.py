@@ -1,5 +1,5 @@
 from random import randint
-from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
+from calyx.numeric_types import FixedPoint, Bitnum
 from fud.errors import InvalidNumericType
 from hypothesis import given, strategies as st  # type: ignore
 import numpy as np

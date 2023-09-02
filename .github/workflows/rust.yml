@@ -115,7 +115,7 @@ jobs:
 
     - name: Run Python Tests
       working-directory: /home/calyx
-      run: pytest fud/fud/stages/verilator/tests/numeric_types.py
+      run: pytest calyx-py/test/numeric_types_test.py
 
   evaluation:
     name: Polybench Integration
