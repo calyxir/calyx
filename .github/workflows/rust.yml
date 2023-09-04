@@ -29,7 +29,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin git@github.com:cucapra/calyx.git
+        git remote add origin https://github.com/cucapra/calyx.git
         git fetch --all
         git checkout $GITHUB_SHA
 
@@ -81,7 +81,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin git@github.com:cucapra/calyx.git
+        git remote add origin https://github.com/cucapra/calyx.git
         git fetch --all
         git checkout $GITHUB_SHA
 
@@ -141,7 +141,7 @@ jobs:
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin git@github.com:cucapra/calyx.git
+        git remote add origin https://github.com/cucapra/calyx.git
         git fetch --all
         git checkout $GITHUB_SHA
 
