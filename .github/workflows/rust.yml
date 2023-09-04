@@ -28,6 +28,8 @@ jobs:
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
+        git init
+        git remote add origin git@github.com:cucapra/calyx.git
         git fetch --all
         git checkout $GITHUB_SHA
 
@@ -78,6 +80,8 @@ jobs:
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
+        git init
+        git remote add origin git@github.com:cucapra/calyx.git
         git fetch --all
         git checkout $GITHUB_SHA
 
@@ -136,6 +140,8 @@ jobs:
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
+        git init
+        git remote add origin git@github.com:cucapra/calyx.git
         git fetch --all
         git checkout $GITHUB_SHA
 
