@@ -265,7 +265,7 @@ def get_pe_invoke(r, c, mul_ready):
     )
 
 
-def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
+def init_runtime_vals(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
     """
     Builds group that instantiates the dynamic/runtime values for the systolic
     array: its depth and iteration limit/count (since its iteration limit depends on
@@ -643,7 +643,7 @@ def create_systolic_array(
     pe(prog)
     computational_unit = prog.component(SYSTOLIC_ARRAY_COMP)
     depth_port = computational_unit.input("depth", BITWIDTH)
-    init_dyn_vals(computational_unit, depth_port, top_length + left_length + 4)
+    init_runtime_vals(computational_unit, depth_port, top_length + left_length + 4)
 
     schedules = gen_schedules(
         top_length, top_depth, left_length, left_depth, computational_unit

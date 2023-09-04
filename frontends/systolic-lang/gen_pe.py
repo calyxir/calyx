@@ -11,7 +11,7 @@ PE_NAME = "mac_pe"
 
 def pe(prog: cb.Builder):
     """
-    Builds a pipeliend "multiply and accumulate" PE that multiplies its `top`
+    Builds a pipelined "multiply and accumulate" PE that multiplies its `top`
     and `left` input values, and accumulate the value.
     The output is displayed through the `out` port.
     This PE can accept new inputs every cycle: therefore it has a `mul_ready`

@@ -186,7 +186,7 @@ def leaky_relu_comp(prog: cb.Builder, idx_width: int):
 def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_width):
     """
     Creates the groups for the leaky relu post op, i.e., the post-op that
-    coordinates the leaky-relu execution.
+    coordinates the execution of the leaky relu component.
     """
 
     def store_output_vals(comp: cb.ComponentBuilder, row, num_cols, addr_width):
