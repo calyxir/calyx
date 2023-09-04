@@ -31,7 +31,7 @@ jobs:
         git init
         git remote add origin https://github.com/cucapra/calyx.git
         git fetch --all
-        git checkout $GITHUB_SHA
+        git checkout -f $GITHUB_SHA
 
     - name: Build
       uses: actions-rs/cargo@v1
@@ -83,7 +83,7 @@ jobs:
         git init
         git remote add origin https://github.com/cucapra/calyx.git
         git fetch --all
-        git checkout $GITHUB_SHA
+        git checkout -f $GITHUB_SHA
 
     - name: Install calyx-py & MrXL
       working-directory: /home/calyx
@@ -143,7 +143,7 @@ jobs:
         git init
         git remote add origin https://github.com/cucapra/calyx.git
         git fetch --all
-        git checkout $GITHUB_SHA
+        git checkout -f $GITHUB_SHA
 
     - name: Build
       uses: actions-rs/cargo@v1
