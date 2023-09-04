@@ -32,7 +32,7 @@ jobs:
         git remote add origin https://github.com/cucapra/calyx.git
         git fetch --all
         git checkout -f $GITHUB_SHA
-
+    
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -84,6 +84,13 @@ jobs:
         git remote add origin https://github.com/cucapra/calyx.git
         git fetch --all
         git checkout -f $GITHUB_SHA
+
+    #Calyx docker container 0.6.0 has some quirks which requires this for now. Eventually hope to delete
+    - name: Remove stale systolic-array
+      working-directory: /home/calyx/tests/frontend/systolic
+      run: |
+        rm array-2.*
+        rm array-3.*
 
     - name: Install calyx-py & MrXL
       working-directory: /home/calyx
