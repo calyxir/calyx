@@ -448,42 +448,42 @@ class ComponentBuilder:
             )
         return width
 
-    def eq_use(self, left, right, width=None, signed=False, cellname=None):
+    def eq_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to check if `left` == `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.eq(width, cellname, signed))
 
-    def neq_use(self, left, right, width=None, signed=False, cellname=None):
+    def neq_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to check if `left` != `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.neq(width, cellname, signed))
 
-    def lt_use(self, left, right, width=None, signed=False, cellname=None):
+    def lt_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to check if `left` < `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.lt(width, cellname, signed))
 
-    def le_use(self, left, right, width=None, signed=False, cellname=None):
+    def le_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to check if `left` <= `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.le(width, cellname, signed))
 
-    def ge_use(self, left, right, width=None, signed=False, cellname=None):
+    def ge_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to check if `left` >= `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.ge(width, cellname, signed))
 
-    def gt_use(self, left, right, width=None, signed=False, cellname=None):
+    def gt_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to check if `left` > `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.gt(width, cellname, signed))
 
-    def add_use(self, left, right, width=None, signed=False, cellname=None):
+    def add_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to compute `left` + `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.add(width, cellname, signed))
 
-    def sub_use(self, left, right, width=None, signed=False, cellname=None):
+    def sub_use(self, left, right, signed=False, cellname=None, width=None):
         """Inserts wiring into `self` to compute `left` - `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.sub(width, cellname, signed))
