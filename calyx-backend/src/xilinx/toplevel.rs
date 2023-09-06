@@ -2,7 +2,7 @@ use super::{
     axi, control_axi::ControlInterface, fsm, memory_axi::bram,
     memory_axi::MemoryInterface, utils,
 };
-use crate::backend::traits::Backend;
+use crate::traits::Backend;
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error};
 use vast::v05::ast as v;

@@ -8,7 +8,6 @@ use crate::{Nothing, PortComp, StaticTiming};
 use calyx_frontend::{ast, ast::Atom, BoolAttr, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, WithPos};
 use itertools::Itertools;
-use std::cell::RefCell;
 
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU64;
@@ -287,11 +286,8 @@ fn build_component(
     builder.component.continuous_assignments = continuous_assignments;
 
     // Build the Control ast using ast::Control.
-    let control = Rc::new(RefCell::new(build_control(
-        comp.control,
-        sig_ctx,
-        &mut builder,
-    )?));
+    let control =
+        super::rrc(build_control(comp.control, sig_ctx, &mut builder)?);
 
     builder.component.control = control;
 

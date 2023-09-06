@@ -52,7 +52,7 @@ impl Visitor for CompileRepeat {
             );
             // regs_done is `cond_reg.done & idx.done`
             let regs_done: ir::Guard<ir::Nothing> =
-                guard!(cond_reg["done"]).and(guard!(idx["done"]));
+                guard!(cond_reg["done"] & idx["done"]);
             // init_group sets cond_reg to 1 and idx to 0
             let init_group = builder.add_group("init_repeat");
             let init_assigns = build_assignments!(

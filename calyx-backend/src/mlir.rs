@@ -1,3 +1,4 @@
+//! Generation for the MLIR backend of the Calyx compiler
 use super::traits::Backend;
 use calyx_frontend::GetAttributes;
 use calyx_ir::{self as ir, RRC};
@@ -153,21 +154,22 @@ impl MlirBackend {
                     .map(|(k, v)| (k.as_ref(), *v))
                     .collect();
                 match name.as_ref() {
+                    "undef" => {
+                        write!(f, "calyx.undefined @{cell_name}")?
+                    }
                     "std_reg" => {
-                        write!(f, "calyx.register @{}", cell_name)?
+                        write!(f, "calyx.register @{cell_name}")?
                     }
                     "std_mem_d1" => write!(
                         f,
-                        "calyx.memory @{} <[{}] x {}> [{}]",
-                        cell_name,
+                        "calyx.memory @{cell_name} <[{}] x {}> [{}]",
                         bind["SIZE"],
                         bind["WIDTH"],
                         bind["IDX_SIZE"]
                     )?,
                     "std_mem_d2" => write!(
                         f,
-                        "calyx.memory @{} <[{}, {}] x {}> [{}, {}]",
-                        cell_name,
+                        "calyx.memory @{cell_name} <[{}, {}] x {}> [{}, {}]",
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
                         bind["WIDTH"],
@@ -176,8 +178,7 @@ impl MlirBackend {
                     )?,
                     "std_mem_d3" => write!(
                         f,
-                        "calyx.memory @{} <[{}, {}, {}] x {}> [{}, {}, {}]",
-                        cell_name,
+                        "calyx.memory @{cell_name} <[{}, {}, {}] x {}> [{}, {}, {}]",
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
                         bind["D2_SIZE"],
@@ -188,8 +189,7 @@ impl MlirBackend {
                     )?,
                     "std_mem_d4" => write!(
                         f,
-                        "calyx.memory @{} <[{}, {}, {}, {}] x {}> [{}, {}, {}, {}]",
-                        cell_name,
+                        "calyx.memory @{cell_name} <[{}, {}, {}, {}] x {}> [{}, {}, {}, {}]",
                         bind["D0_SIZE"],
                         bind["D1_SIZE"],
                         bind["D2_SIZE"],
@@ -200,14 +200,14 @@ impl MlirBackend {
                         bind["D2_IDX_SIZE"],
                         bind["D3_IDX_SIZE"]
                     )?,
-                    prim => write!(f, "calyx.{} @{}", prim, cell_name)?,
+                    prim => write!(f, "calyx.{prim} @{cell_name}")?,
                 }
             }
             ir::CellType::Component { name } => {
-                write!(f, "calyx.instance @{} of @{}", cell_name, name)?;
+                write!(f, "calyx.instance @{cell_name} of @{name}")?;
             }
             ir::CellType::Constant { val, .. } => {
-                write!(f, "hw.constant {}", val)?;
+                write!(f, "hw.constant {val}")?;
                 return Ok(false);
             }
             _ => (),

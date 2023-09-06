@@ -214,9 +214,13 @@ has led to overflow.
             )
 
         int_bits = np.binary_repr(int_partition, self.int_width)
-        frac_bits = np.binary_repr(
-            round(frac_partition * (2**self.frac_width)), self.frac_width
-        ) if self.frac_width > 0 else ""
+        frac_bits = (
+            np.binary_repr(
+                round(frac_partition * (2**self.frac_width)), self.frac_width
+            )
+            if self.frac_width > 0
+            else ""
+        )
         # Given the binary form of the integer part and fractional part of
         # the decimal, simply append the two strings.
         bits = int_bits + frac_bits
@@ -313,3 +317,12 @@ Bit String: 0b{self.bit_string_repr}
 Hex String: 0x{self.hex_string_repr}
 Unsigned Integer: {self.uint_repr}"""
         )
+
+
+def bitnum_to_fixed(bitnum: Bitnum, int_width: int) -> FixedPoint:
+    return FixedPoint(
+        value="0b" + bitnum.bit_string_repr,
+        width=bitnum.width,
+        int_width=int_width,
+        is_signed=bitnum.is_signed,
+    )
