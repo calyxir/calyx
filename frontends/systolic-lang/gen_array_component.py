@@ -2,7 +2,7 @@
 
 import numpy as np
 from gen_pe import pe, PE_NAME, BITWIDTH
-from calyx import builder as cb
+import calyx.builder as cb
 from calyx import py_ast
 
 # Global constant for the current bitwidth.

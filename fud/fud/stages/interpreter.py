@@ -3,7 +3,8 @@ from fud.stages import Stage, SourceType, Source
 from pathlib import Path
 import simplejson as sjson
 import numpy as np
-from calyx.numeric_types import FixedPoint, Bitnum, InvalidNumericType
+from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
+from fud.errors import InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
 from fud.utils import shell, TmpDir, unwrap_or, transparent_shell
 from fud import config as cfg
@@ -87,9 +88,8 @@ class InterpreterStage(Stage):
 
     def _define_steps(self, input_data, builder, config):
         script = config["stages", self.name, "exec"]
-        data_path_exists: bool = config["stages", "verilog", "data"] or config.get(
-            ["stages", "mrxl", "data"]
-        )
+        data_path_exists: bool = (config["stages", "verilog", "data"] or
+                                  config.get(["stages", "mrxl", "data"]))
 
         cmd = [
             script,
@@ -118,9 +118,7 @@ class InterpreterStage(Stage):
             """
             return TmpDir()
 
-        @builder.step(
-            description="Dynamically retrieve the value of stages.verilog.data"
-        )
+        @builder.step(description="Dynamically retrieve the value of stages.verilog.data")
         def get_verilog_data() -> SourceType.Path:
             data_path = config.get(["stages", "verilog", "data"])
             path = Path(data_path) if data_path else None
@@ -199,7 +197,9 @@ class InterpreterStage(Stage):
         data_path = get_verilog_data()
 
         if data_path_exists:
-            convert_json_to_interp_json(tmpdir, data_path)
+            convert_json_to_interp_json(
+                tmpdir, data_path
+            )
 
         if self._is_data_converter():
             if data_path_exists:
@@ -213,7 +213,9 @@ class InterpreterStage(Stage):
             result = interpret(input_data, tmpdir)
 
             if "--raw" in cmd:
-                return parse_output(result, data_path, tmpdir)
+                return parse_output(
+                    result, data_path, tmpdir
+                )
             else:
                 return result
 

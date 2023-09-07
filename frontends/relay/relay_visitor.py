@@ -24,7 +24,7 @@ from calyx.py_ast import (
     Component,
 )
 from calyx.utils import float_to_fixed_point
-from calyx import numeric_types
+from fud.stages.verilator import numeric_types
 from dahlia_impl import emit_components
 
 calyx_keywords_list = ["input"]
