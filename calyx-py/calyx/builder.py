@@ -1202,8 +1202,11 @@ def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
     Add parameters to component `comp` if we want to read from a mem named
     `name` with address width of `addr_width` and data width of `data_width`.
     """
-    comp.input(f"{name}_read_data", data_width)
-    comp.output(f"{name}_addr0", addr_width)
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_read_data", data_width)],
+        output_ports=[(f"{name}_addr0", addr_width)],
+    )
 
 
 def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
@@ -1211,20 +1214,29 @@ def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
     Add arguments to component `comp` if we want to write to a mem named
     `name` with address width of `addr_width` and data width of `data_width`.
     """
-    comp.output(f"{name}_addr0", addr_width)
-    comp.output(f"{name}_write_data", data_width)
-    comp.output(f"{name}_write_en", 1)
-    comp.input(f"{name}_done", 1)
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_done", 1)],
+        output_ports=[
+            (f"{name}_addr0", addr_width),
+            (f"{name}_write_data", data_width),
+            (f"{name}_write_en", 1),
+        ],
+    )
 
 
 def add_register_params(comp: ComponentBuilder, name, width):
     """
     Add params to component `comp` if we want to use a register named `name`.
     """
-    comp.output(f"{name}_write_en", 1)
-    comp.output(f"{name}_in", width)
-    comp.input(f"{name}_out", width)
-    comp.input(f"{name}_done", 1)
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_done", 1), (f"{name}_out", width)],
+        output_ports=[
+            (f"{name}_in", width),
+            (f"{name}_write_en", 1),
+        ],
+    )
 
 
 def build_connections(
