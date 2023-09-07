@@ -1,8 +1,8 @@
 import simplejson as sjson
 import numpy as np
-from .numeric_types import FixedPoint, Bitnum
+from calyx.numeric_types import FixedPoint, Bitnum, InvalidNumericType
 from pathlib import Path
-from fud.errors import InvalidNumericType, Malformed
+from fud.errors import Malformed
 import logging as log
 
 
