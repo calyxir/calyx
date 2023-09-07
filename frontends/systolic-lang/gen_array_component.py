@@ -2,7 +2,7 @@
 
 import numpy as np
 from gen_pe import pe, PE_NAME, BITWIDTH
-import calyx.builder as cb
+from calyx import builder as cb
 from calyx import py_ast
 from calyx.utils import bits_needed
 
