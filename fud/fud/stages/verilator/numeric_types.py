@@ -5,18 +5,9 @@ from math import log2
 from fractions import Fraction
 from dataclasses import dataclass
 from decimal import Decimal, getcontext
+from fud.errors import InvalidNumericType
 import math
 import logging as log
-
-
-class InvalidNumericType(Exception):
-    """
-    An error raised when an invalid numeric type is provided.
-    """
-
-    def __init__(self, msg):
-        msg = f"""Invalid Numeric Type: {msg}"""
-        super().__init__(msg)
 
 
 @dataclass
