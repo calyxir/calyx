@@ -34,7 +34,7 @@ def cond_group(
     less_than = comp.cell(cell, Stdlib.op("lt", 32, signed=False))
     with comp.comb_group(group_name):
         less_than.left = idx.out
-        less_than.right = cb.const(32, arr_size)
+        less_than.right = arr_size
     # ANCHOR_END: cond_group
 
     return cell, group_name
