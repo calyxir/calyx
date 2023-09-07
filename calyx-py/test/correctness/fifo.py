@@ -36,20 +36,20 @@ def insert_fifo(prog, name):
     len = fifo.reg("len", 32)  # The length of the FIFO.
 
     # Cells and groups to compute equality
-    cmd_eq_0 = fifo.eq_use(cmd, 0, 2)
-    cmd_eq_1 = fifo.eq_use(cmd, 1, 2)
-    cmd_eq_2 = fifo.eq_use(cmd, 2, 2)
+    cmd_eq_0 = fifo.eq_use(cmd, 0)
+    cmd_eq_1 = fifo.eq_use(cmd, 1)
+    cmd_eq_2 = fifo.eq_use(cmd, 2)
 
-    write_eq_max_queue_len = fifo.eq_use(write.out, MAX_QUEUE_LEN, 32)
-    read_eq_max_queue_len = fifo.eq_use(read.out, MAX_QUEUE_LEN, 32)
-    len_eq_0 = fifo.eq_use(len.out, 0, 32)
-    len_eq_max_queue_len = fifo.eq_use(len.out, MAX_QUEUE_LEN, 32)
+    write_eq_max_queue_len = fifo.eq_use(write.out, MAX_QUEUE_LEN)
+    read_eq_max_queue_len = fifo.eq_use(read.out, MAX_QUEUE_LEN)
+    len_eq_0 = fifo.eq_use(len.out, 0)
+    len_eq_max_queue_len = fifo.eq_use(len.out, MAX_QUEUE_LEN)
 
     # Cells and groups to increment read and write registers
-    write_incr = fifo.incr(write, 32)  # write++
-    read_incr = fifo.incr(read, 32)  # read++
-    len_incr = fifo.incr(len, 32)  # len++
-    len_decr = fifo.decr(len, 32)  # len--
+    write_incr = fifo.incr(write)  # write++
+    read_incr = fifo.incr(read)  # read++
+    len_incr = fifo.incr(len)  # len++
+    len_decr = fifo.decr(len)  # len--
 
     # Cells and groups to modify flags, which are registers
     flash_write = fifo.reg_store(write, 0, "flash_write")  # write := 0
