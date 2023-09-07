@@ -1,6 +1,6 @@
 import argparse
 import json
-from calyx import numeric_types
+from fud.stages.verilator import numeric_types
 
 
 if __name__ == "__main__":
