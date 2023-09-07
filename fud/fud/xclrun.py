@@ -36,7 +36,7 @@ import sys
 from typing import Mapping, Any, Dict
 from pathlib import Path
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
-from calyx.numeric_types import InvalidNumericType
+from fud.errors import InvalidNumericType
 
 
 def mem_to_buf(mem):
@@ -96,9 +96,8 @@ def run(xclbin: Path, data: Mapping[str, Any]) -> Dict[str, Any]:
     # Collect the output data.
     for buf in buffers:
         buf.sync_from_device()
-    mems = {
-        name: buf_to_mem(data[name]["format"], buf) for name, buf in zip(data, buffers)
-    }
+    mems = {name: buf_to_mem(data[name]["format"], buf)
+            for name, buf in zip(data, buffers)}
 
     # PYNQ recommends explicitly freeing its resources.
     del buffers
@@ -119,16 +118,14 @@ def _dtype(fmt) -> np.dtype:
 def xclrun():
     # Parse command-line arguments.
     parser = argparse.ArgumentParser(
-        description="run a compiled XRT program",
+        description='run a compiled XRT program',
     )
-    parser.add_argument("bin", metavar="XCLBIN", help="the .xclbin binary file to run")
-    parser.add_argument("data", metavar="DATA", help="the JSON input data file")
-    parser.add_argument(
-        "--out",
-        "-o",
-        metavar="FILE",
-        help="write JSON results to a file instead of stdout",
-    )
+    parser.add_argument('bin', metavar='XCLBIN',
+                        help='the .xclbin binary file to run')
+    parser.add_argument('data', metavar='DATA',
+                        help='the JSON input data file')
+    parser.add_argument('--out', '-o', metavar='FILE',
+                        help='write JSON results to a file instead of stdout')
     args = parser.parse_args()
 
     # Load the input JSON data file.
@@ -139,7 +136,7 @@ def xclrun():
     out_data = run(Path(args.bin), in_data)
 
     # Dump the output JSON data.
-    outfile = open(args.out, "w") if args.out else sys.stdout
+    outfile = open(args.out, 'w') if args.out else sys.stdout
     sjson.dump(out_data, outfile, indent=2, use_decimal=True)
 
 

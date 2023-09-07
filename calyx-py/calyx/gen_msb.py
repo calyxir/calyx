@@ -1,11 +1,26 @@
 from typing import List
 from calyx.py_ast import (
+    Connect,
+    CompVar,
+    Cell,
+    Group,
+    ConstantPort,
+    CompPort,
     Stdlib,
     Component,
+    ThisPort,
+    HolePort,
+    PortDef,
+    SeqComp,
+    Enable,
+    While,
+    Control,
+    CombGroup,
 )
 from calyx.builder import (
     Builder,
     CellAndGroup,
+    ComponentBuilder,
     const,
     HI,
     while_with,

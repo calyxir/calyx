@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from calyx import builder as cb
+import calyx.builder as cb
 from calyx import py_ast
 from gen_array_component import NAME_SCHEME
 from gen_pe import BITWIDTH, INTWIDTH, FRACWIDTH
-from calyx import numeric_types
+from fud.stages.verilator import numeric_types
 from calyx.utils import float_to_fixed_point
 
 
