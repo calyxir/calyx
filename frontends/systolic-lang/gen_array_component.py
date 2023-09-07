@@ -4,6 +4,7 @@ import numpy as np
 from gen_pe import pe, PE_NAME, BITWIDTH
 import calyx.builder as cb
 from calyx import py_ast
+from calyx.utils import bits_needed
 
 # Global constant for the current bitwidth.
 DEPTH = "depth"
@@ -75,24 +76,21 @@ class CalyxAdd:
         return group_name
 
 
-def add_read_mem_arguments(comp: cb.ComponentBuilder, name, addr_width):
-    """
-    Add arguments to component `comp` if we want to read from a mem named `name` with
-    width of `addr_width`
-    """
-    comp.input(f"{name}_read_data", BITWIDTH)
-    comp.output(f"{name}_addr0", addr_width)
-
-
-def add_systolic_output_arguments(comp: cb.ComponentBuilder, row_num, addr_width):
+def add_systolic_output_params(comp: cb.ComponentBuilder, row_num, addr_width):
     """
     Add output arguments to systolic array component `comp` for row `row_num`.
     The ouptut arguments alllow the systolic array to expose its outputs for `row_num`
     without writing to memory (e.g., r0_valid, r0_value, r0_idx).
     """
-    comp.output(NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1)
-    comp.output(NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH)
-    comp.output(NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width)
+    cb.add_comp_params(
+        comp,
+        input_ports=[],
+        output_ports=[
+            (NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1),
+            (NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH),
+            (NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width),
+        ],
+    )
 
 
 def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
@@ -112,10 +110,9 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     else:
         raise Exception(f"Invalid top_or_left: {top_or_left}")
 
-    # XXX(Caleb): should change to be exact
-    idx_width = BITWIDTH
+    idx_width = bits_needed(size)
     # Instantiate the memory
-    add_read_mem_arguments(comp, name, idx_width)
+    cb.add_read_mem_params(comp, name, data_width=BITWIDTH, addr_width=idx_width)
     this = comp.this()
     addr0_port = this.port(name + "_addr0")
     read_data_port = this.port(name + "_read_data")
@@ -268,7 +265,7 @@ def get_pe_invoke(r, c, mul_ready):
     )
 
 
-def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
+def init_runtime_vals(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
     """
     Builds group that instantiates the dynamic/runtime values for the systolic
     array: its depth and iteration limit/count (since its iteration limit depends on
@@ -646,7 +643,7 @@ def create_systolic_array(
     pe(prog)
     computational_unit = prog.component(SYSTOLIC_ARRAY_COMP)
     depth_port = computational_unit.input("depth", BITWIDTH)
-    init_dyn_vals(computational_unit, depth_port, top_length + left_length + 4)
+    init_runtime_vals(computational_unit, depth_port, top_length + left_length + 4)
 
     schedules = gen_schedules(
         top_length, top_depth, left_length, left_depth, computational_unit
@@ -668,10 +665,9 @@ def create_systolic_array(
     for col in range(left_length):
         instantiate_memory(computational_unit, "left", col, left_depth)
 
-    idx_width = BITWIDTH
     # Instantiate output memory
     for i in range(left_length):
-        add_systolic_output_arguments(computational_unit, i, idx_width)
+        add_systolic_output_params(computational_unit, i, bits_needed(top_length))
 
     # Instantiate all the PEs
     for row in range(left_length):

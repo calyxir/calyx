@@ -1247,6 +1247,59 @@ def seq(*args) -> ast.SeqComp:
     return ast.SeqComp([as_control(x) for x in args])
 
 
+def add_comp_params(comp: ComponentBuilder, input_ports: List, output_ports: List):
+    """
+    Adds `input_ports`/`output_ports` as inputs/outputs to comp.
+    `input_ports`/`output_ports` should contain an (input_name, input_width) pair.
+    """
+    for name, width in input_ports:
+        comp.input(name, width)
+    for name, width in output_ports:
+        comp.output(name, width)
+
+
+def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
+    """
+    Add parameters to component `comp` if we want to read from a mem named
+    `name` with address width of `addr_width` and data width of `data_width`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_read_data", data_width)],
+        output_ports=[(f"{name}_addr0", addr_width)],
+    )
+
+
+def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
+    """
+    Add arguments to component `comp` if we want to write to a mem named
+    `name` with address width of `addr_width` and data width of `data_width`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_done", 1)],
+        output_ports=[
+            (f"{name}_addr0", addr_width),
+            (f"{name}_write_data", data_width),
+            (f"{name}_write_en", 1),
+        ],
+    )
+
+
+def add_register_params(comp: ComponentBuilder, name, width):
+    """
+    Add params to component `comp` if we want to use a register named `name`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_done", 1), (f"{name}_out", width)],
+        output_ports=[
+            (f"{name}_in", width),
+            (f"{name}_write_en", 1),
+        ],
+    )
+
+
 def build_connections(
     cell1: Union[CellBuilder, ThisBuilder],
     cell2: Union[CellBuilder, ThisBuilder],
@@ -1258,10 +1311,12 @@ def build_connections(
     """
     Intended for wiring together two cells whose ports have similar names.
     For each `name` in `forward_port_names`, adds the following connection:
-    `(cell1.root1_name,cell2.root2_name)`
-    For `backwards_port_names`, adds the following connection:
-    `(cell2.root2_name,cell1.root1_name)`
-    Returns a list of the resulting connections.
+    `(cell1.root1name, cell2.root2name)`
+    For each `name` in `backwards_port_names`, adds the following connection:
+    `(cell2.root2name, cell1.root1name)`
+    `root1name` refers to the string formed by `root1 + name` (i.e., no underscore
+    between root1 and name)
+    Returns a list of the resulting connections
     """
     res = []
     for port in forward_ports:
