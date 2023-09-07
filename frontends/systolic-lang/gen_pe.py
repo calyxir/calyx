@@ -10,6 +10,14 @@ PE_NAME = "mac_pe"
 
 
 def pe(prog: cb.Builder):
+    """
+    Builds a pipelined "multiply and accumulate" PE that multiplies its `top`
+    and `left` input values, and accumulate the value.
+    The output is displayed through the `out` port.
+    This PE can accept new inputs every cycle: therefore it has a `mul_ready`
+    parameter to signal whether the output of the multiplier should be accumulated
+    yet.
+    """
     comp = prog.component(name=PE_NAME, latency=1)
     comp.input("top", BITWIDTH)
     comp.input("left", BITWIDTH)
