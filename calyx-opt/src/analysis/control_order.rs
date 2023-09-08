@@ -123,4 +123,53 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             Err(Error::misc(format!("No possible sequential ordering. Control programs exhibit data race:\n{}", msg)))
         }
     }
+
+    pub fn get_total_order_static_seq(stmts: impl Iterator<Item = ir::StaticControl>, dependency: &mut HashMap<NodeIndex, Vec<NodeIndex>>, latency_map: &mut HashMap<NodeIndex, u64>) -> DiGraph<Option<ir::StaticControl>, ()> {
+        // Directed graph where edges means that a control program must be run before.
+        let mut gr: DiGraph<Option<ir::StaticControl>, ()> = DiGraph::new();
+
+        // Mapping name of cell to all the indices that read or write to it.
+        let mut reads: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
+        let mut writes: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
+
+        for c in stmts {
+            let (port_reads, port_writes) =
+                ReadWriteSet::control_port_read_write_set_static(&c);
+            let r_cells = Self::get_cells(port_reads);
+            let w_cells = Self::get_cells(port_writes);
+            let latency = c.get_latency();
+            let idx = gr.add_node(Some(c));
+            latency_map.insert(idx, latency);
+
+            for cell in r_cells {
+                if let Some(wr_idxs) = writes.get(&cell) {
+                    for wr_idx in wr_idxs {
+                        gr.add_edge(*wr_idx, idx, ());
+                        dependency.entry(idx).or_default().push(*wr_idx);
+                    }
+                }
+                reads.entry(cell).or_default().push(idx);
+            }
+
+            for cell in w_cells {
+                if let Some(wr_idxs) = writes.get(&cell) {
+                    for wr_idx in wr_idxs {
+                        gr.add_edge(*wr_idx, idx, ());
+                        dependency.entry(idx).or_default().push(*wr_idx);
+                    }
+                }
+
+                if let Some(r_idxs) = reads.get(&cell) {
+                    for r_idx in r_idxs {
+                        gr.add_edge(*r_idx, idx, ());
+                        dependency.entry(idx).or_default().push(*r_idx);
+                    }
+                }
+
+                writes.entry(cell).or_default().push(idx);
+            }
+
+        }
+        gr
+    }
 }

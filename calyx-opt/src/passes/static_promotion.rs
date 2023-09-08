@@ -476,9 +476,11 @@ impl StaticPromotion {
             _ => unreachable!("We do not insert non-static controls other than group enables with `promote_static` attribute")
         }
         }
+        let mut attributes = ir::Attributes::default();
+        attributes.insert(ir::NumAttr::Compactable, 1);
         ir::Control::Static(StaticControl::Seq(ir::StaticSeq {
             stmts: static_seq_st,
-            attributes: ir::Attributes::default(),
+            attributes,
             latency,
         }))
     }
@@ -691,9 +693,11 @@ impl Visitor for StaticPromotion {
                 }
             }
         }
+        let mut attributes = ir::Attributes::default();
+        attributes.insert(ir::NumAttr::Compactable, 1);
         let new_seq = ir::Control::Seq(ir::Seq {
             stmts: new_stmts,
-            attributes: ir::Attributes::default(),
+            attributes,
         });
         Ok(Action::change(new_seq))
     }
