@@ -17,10 +17,7 @@ class SystolicConfiguration:
         """
         Parses arguments to give self the following fields:
         top_length, top_depth, left_length, left_depth, and post_op
-
         """
-        import argparse
-        import json
 
         # Arg parsing
         parser = argparse.ArgumentParser(description="Process some integers.")
@@ -56,7 +53,8 @@ class SystolicConfiguration:
             )
         assert self.top_depth == self.left_depth, (
             f"Cannot multiply matrices: "
-            f"{self.top_length}x{self.top_depth} and {self.left_depth}x{self.left_length}"
+            f"{self.top_length}x{self.top_depth} and \
+                {self.left_depth}x{self.left_length}"
         )
 
     def get_output_dimensions(self):

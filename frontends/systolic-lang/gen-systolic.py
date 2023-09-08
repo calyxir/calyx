@@ -142,12 +142,13 @@ if __name__ == "__main__":
     elif systolic_config.post_op == "relu":
         imm_write_mem_post_op(prog, config=systolic_config, perform_relu=True)
         post_op_component_name = RELU_POST_OP
-    elif systolic_config.post_op == None:
+    elif systolic_config.post_op is None:
         imm_write_mem_post_op(prog, config=systolic_config, perform_relu=False)
         post_op_component_name = DEFAULT_POST_OP
     else:
         raise ValueError(
-            f"{systolic_config.post_op} not supported as a post op. Supported post ops are {SUPPORTED_POST_OPS}"
+            f"{systolic_config.post_op} not supported as a post op. \
+                Supported post ops are {SUPPORTED_POST_OPS}"
         )
 
     build_main(
