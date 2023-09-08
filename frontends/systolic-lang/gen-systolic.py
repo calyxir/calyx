@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
-from calyx.utils import bits_needed
 from gen_array_component import (
     create_systolic_array,
     BITWIDTH,
@@ -14,7 +13,9 @@ from gen_post_op import (
     DEFAULT_POST_OP,
     LEAKY_RELU_POST_OP,
 )
+from systolic_arg_parser import SystolicConfiguration, SUPPORTED_POST_OPS
 from calyx import py_ast
+from calyx.utils import bits_needed
 
 
 def create_mem_connections(
@@ -39,24 +40,24 @@ def create_mem_connections(
         bits_needed(mem_size),
         is_external=True,
     )
-    input_portname = ["addr0"] if read_mem else ["write_data", "write_en", "addr0"]
-    output_portnames = ["read_data"] if read_mem else ["done"]
+    input_port_names = ["addr0"] if read_mem else ["write_data", "write_en", "addr0"]
+    output_port_names = ["read_data"] if read_mem else ["done"]
     return cb.build_connections(
-        mem, component_builder, "", f"{mem_name}_", input_portname, output_portnames
+        mem, component_builder, "", f"{mem_name}_", input_port_names, output_port_names
     )
 
 
-def build_main(
-    prog, top_length, top_depth, left_length, left_depth, post_op_component_name
-):
+def build_main(prog, config: SystolicConfiguration, post_op_component_name):
     """
     Build the main component.
     It basically connects the ports of the systolic component and post_op component
     in a single group so that they run.
     """
-    assert top_depth == left_depth, (
-        f"Cannot multiply matrices: "
-        f"{top_length}x{top_depth} and {left_depth}x{left_length}"
+    top_length, top_depth, left_length, left_depth = (
+        config.top_length,
+        config.top_depth,
+        config.left_length,
+        config.left_depth,
     )
     main = prog.component("main")
     systolic_array = main.cell(
@@ -128,90 +129,26 @@ def build_main(
     main.control = py_ast.Enable("perform_computation")
 
 
-def parse_arguments() -> (int, int, int, int, bool):
-    """
-    Parses arguments and returns the following outputs:
-    top_length, top_depth, left_length, left_depth, leaky_relu
-    """
-    import argparse
-    import json
-
-    # Arg parsing
-    parser = argparse.ArgumentParser(description="Process some integers.")
-    parser.add_argument("file", nargs="?", type=str)
-    parser.add_argument("-tl", "--top-length", type=int)
-    parser.add_argument("-td", "--top-depth", type=int)
-    parser.add_argument("-ll", "--left-length", type=int)
-    parser.add_argument("-ld", "--left-depth", type=int)
-    parser.add_argument("-r", "--leaky-relu", action="store_true")
-
-    args = parser.parse_args()
-
-    top_length, top_depth, left_length, left_depth, leaky_relu = (
-        None,
-        None,
-        None,
-        None,
-        False,
-    )
-
-    fields = [args.top_length, args.top_depth, args.left_length, args.left_depth]
-    if all(map(lambda x: x is not None, fields)):
-        top_length = args.top_length
-        top_depth = args.top_depth
-        left_length = args.left_length
-        left_depth = args.left_depth
-        leaky_relu = args.leaky_relu
-    elif args.file is not None:
-        with open(args.file, "r") as f:
-            spec = json.load(f)
-            top_length = spec["top_length"]
-            top_depth = spec["top_depth"]
-            left_length = spec["left_length"]
-            left_depth = spec["left_depth"]
-            # default to not perform leaky_relu
-            leaky_relu = spec.get("leaky_relu", False)
-    else:
-        parser.error(
-            "Need to pass either `FILE` or all of `"
-            "-tl TOP_LENGTH -td TOP_DEPTH -ll LEFT_LENGTH -ld LEFT_DEPTH`"
-        )
-    return (top_length, top_depth, left_length, left_depth, leaky_relu)
-
-
 if __name__ == "__main__":
-    (top_length, top_depth, left_length, left_depth, leaky_relu) = parse_arguments()
+    systolic_config = SystolicConfiguration()
+    systolic_config.parse_arguments()
     # Building the main component
     prog = cb.Builder()
-    create_systolic_array(
-        prog,
-        top_length=top_length,
-        top_depth=top_depth,
-        left_length=left_length,
-        left_depth=left_depth,
-    )
-    if leaky_relu:
-        leaky_relu_post_op(
-            prog,
-            num_rows=left_length,
-            num_cols=top_length,
-            idx_width=bits_needed(top_length),
-        )
+    create_systolic_array(prog, systolic_config)
+    if systolic_config.post_op == "leaky-relu":
+        leaky_relu_post_op(prog, config=systolic_config)
         post_op_component_name = LEAKY_RELU_POST_OP
-    else:
-        default_post_op(
-            prog,
-            num_rows=left_length,
-            num_cols=top_length,
-            idx_width=bits_needed(top_length),
-        )
+    elif systolic_config.post_op == None:
+        default_post_op(prog, config=systolic_config)
         post_op_component_name = DEFAULT_POST_OP
+    else:
+        raise ValueError(
+            f"{systolic_config.post_op} not supported as a post op. Supported post ops are {SUPPORTED_POST_OPS}"
+        )
+
     build_main(
         prog,
-        top_length=top_length,
-        top_depth=top_depth,
-        left_length=left_length,
-        left_depth=left_depth,
+        config=systolic_config,
         post_op_component_name=post_op_component_name,
     )
     prog.program.emit()

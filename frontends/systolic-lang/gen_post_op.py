@@ -6,6 +6,8 @@ from gen_array_component import NAME_SCHEME
 from gen_pe import BITWIDTH, INTWIDTH, FRACWIDTH
 from fud.stages.verilator import numeric_types
 from calyx.utils import float_to_fixed_point
+from systolic_arg_parser import SystolicConfiguration
+from calyx.utils import bits_needed
 
 
 # Name of the ouput array
@@ -111,11 +113,13 @@ def done_condition_groups(
             this.computation_done = delay_reg.done @ 1
 
 
-def default_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
+def default_post_op(prog: cb.Builder, config=SystolicConfiguration):
     """
     Adds a default post-op to `prog`.
     This post-op does nothing except immediately write to memory.
     """
+    num_rows, num_cols = config.left_length, config.top_length
+    idx_width = bits_needed(num_cols)
     comp = prog.component(name=DEFAULT_POST_OP)
     add_post_op_params(comp, num_rows, idx_width)
     for r in range(num_rows):
@@ -290,10 +294,12 @@ def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_widt
         relu_finished_wire.in_ = idx_limit_reached @ 1
 
 
-def leaky_relu_post_op(prog: cb.Builder, num_rows, num_cols, idx_width):
+def leaky_relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
     """
     Adds a dynamic leaky relu post op to `prog`
     """
+    num_rows, num_cols = config.left_length, config.top_length
+    idx_width = bits_needed(num_cols)
     # Create a leaky relu component.
     leaky_relu_comp(prog, idx_width)
     comp = prog.component(name=LEAKY_RELU_POST_OP)
