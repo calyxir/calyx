@@ -13,6 +13,7 @@ from calyx.utils import bits_needed
 # Name of the ouput array
 OUT_MEM = "out_mem"
 DEFAULT_POST_OP = "default_post_op"
+RELU_POST_OP = "relu_post_op"
 LEAKY_RELU_POST_OP = "leaky_relu_post_op"
 COND_REG = "cond_reg"
 WRITE_DONE_COND = "write_done_cond"
@@ -46,7 +47,36 @@ def add_post_op_params(comp: cb.Builder, num_rows: int, idx_width: int):
         add_systolic_input_params(comp, r, idx_width)
 
 
-def create_write_mem_groups(comp: cb.ComponentBuilder, row_num):
+def create_immediate_done_condition(
+    comp: cb.ComponentBuilder,
+    num_rows: int,
+    num_cols: int,
+    idx_width: int,
+):
+    """
+    Creates wiring for an "immediate" done condition.
+    In other words, the done condition is triggered the cycle after the
+    systolic array presents its final value.
+    """
+    this = comp.this()
+    final_row_valid = this.port(f"r{num_rows -1}_valid")
+    final_row_idx = this.port(f"r{num_rows-1}_idx")
+    max_idx = num_cols - 1
+    # delay_reg delays writing to this.computation_done
+    delay_reg = comp.reg("delay_reg", 1)
+    final_col_idx_reached = final_row_idx == cb.ExprBuilder(
+        py_ast.ConstantPort(idx_width, max_idx)
+    )
+    with comp.static_group(WRITE_DONE_COND, 1):
+        delay_reg.in_ = 1
+        # When we are at the final index in the final row, we still need
+        # one cycle to write into the memory. Therefore, we delay computation_done
+        # by one cycle.
+        delay_reg.write_en = (final_row_valid & final_col_idx_reached) @ 1
+        this.computation_done = delay_reg.done @ 1
+
+
+def imm_write_mem_groups(comp: cb.ComponentBuilder, row_num: int, perform_relu: bool):
     """
     Instantiates group that writes the systolic array values for `row_num` into
     the output memory.
@@ -64,67 +94,41 @@ def create_write_mem_groups(comp: cb.ComponentBuilder, row_num):
     value_port = this.port(NAME_SCHEME["systolic value signal"].format(row_num=row_num))
     idx_port = this.port(NAME_SCHEME["systolic idx signal"].format(row_num=row_num))
 
-    # group that writes output of systolic arrays to memory
-    with comp.static_group(f"write_r{row_num}", 1) as g:
-        g.asgn(write_en_port, valid_port)
-        g.asgn(write_data_port, value_port)
-        g.asgn(addr0_port, idx_port)
+    if perform_relu:
+        # lt operator to see if value is < 0
+        lt = comp.fp_sop(f"val_lt_r{row_num}", "lt", BITWIDTH, INTWIDTH, FRACWIDTH)
+        # group that writes output of systolic arrays to memory
+        with comp.static_group(f"write_r{row_num}", 1) as g:
+            lt.left = value_port
+            lt.right = 0
+            g.asgn(write_en_port, valid_port)
+            g.asgn(write_data_port, value_port, ~lt.out)
+            g.asgn(write_data_port, 0, lt.out)
+            g.asgn(addr0_port, idx_port)
+    else:
+        with comp.static_group(f"write_r{row_num}", 1) as g:
+            g.asgn(write_en_port, valid_port)
+            g.asgn(write_data_port, value_port)
+            g.asgn(addr0_port, idx_port)
 
 
-def done_condition_groups(
-    comp: cb.ComponentBuilder,
-    num_rows: int,
-    num_cols: int,
-    idx_width: int,
-    leaky_relu: bool,
+def imm_write_mem_post_op(
+    prog: cb.Builder, config: SystolicConfiguration, perform_relu: bool
 ):
     """
-    Writes to this.computation_done
-    For leaky relu, we wait until the relu operations are done for each row.
-    For default post op, you simply have to check when the systolic array output
-    is at the last entry.
-    """
-    this = comp.this()
-    # ports to read from systolic array
-    if leaky_relu:
-        # Check if all relu operations have finished for each row
-        guard = comp.get_cell("relu_finished_wire_r0").out
-        for r in range(1, num_rows):
-            guard = guard & comp.get_cell(f"relu_finished_wire_r{r}").out
-        all_relu_finished_wire = comp.wire("all_relu_finished_wire", 1)
-        with comp.static_group(WRITE_DONE_COND, 1):
-            all_relu_finished_wire.in_ = guard @ 1
-            this.computation_done = all_relu_finished_wire.out @ 1
-    else:
-        final_row_valid = this.port(f"r{num_rows -1}_valid")
-        final_row_idx = this.port(f"r{num_rows-1}_idx")
-        max_idx = num_cols - 1
-        # delay_reg delays writing to this.computation_done
-        delay_reg = comp.reg("delay_reg", 1)
-        final_col_idx_reached = final_row_idx == cb.ExprBuilder(
-            py_ast.ConstantPort(idx_width, max_idx)
-        )
-        with comp.static_group(WRITE_DONE_COND, 1):
-            delay_reg.in_ = 1
-            # When we are at the final index in the final row, we still need
-            # one cycle to write into the memory. Therefore, we delay computation_done
-            # by one cycle.
-            delay_reg.write_en = (final_row_valid & final_col_idx_reached) @ 1
-            this.computation_done = delay_reg.done @ 1
-
-
-def default_post_op(prog: cb.Builder, config=SystolicConfiguration):
-    """
-    Adds a default post-op to `prog`.
     This post-op does nothing except immediately write to memory.
+    If perform_relu is true, then writes 0 to memory if result < 0, and writes
+    the result to memory otherwise. In other words, it performs relu on the value
+    before writing to memory.
     """
-    num_rows, num_cols = config.left_length, config.top_length
+    (num_rows, num_cols) = config.get_output_dimensions()
     idx_width = bits_needed(num_cols)
-    comp = prog.component(name=DEFAULT_POST_OP)
+    post_op_name = RELU_POST_OP if perform_relu else DEFAULT_POST_OP
+    comp = prog.component(name=post_op_name)
     add_post_op_params(comp, num_rows, idx_width)
     for r in range(num_rows):
-        create_write_mem_groups(comp, r)
-    done_condition_groups(comp, num_rows, num_cols, idx_width, leaky_relu=False)
+        imm_write_mem_groups(comp, r, perform_relu=perform_relu)
+    create_immediate_done_condition(comp, num_rows, num_cols, idx_width)
 
     comp.control = py_ast.StaticParComp(
         [py_ast.Enable(WRITE_DONE_COND)]
@@ -185,6 +189,22 @@ def leaky_relu_comp(prog: cb.Builder, idx_width: int):
         g.done = this.out_mem_done
 
     comp.control = py_ast.Enable("do_relu")
+
+
+def create_leaky_relu_done_condition(comp: cb.ComponentBuilder, num_rows: int):
+    """
+    The done condition for leaky relu components is triggered once all of the
+    leaky relu operations have finished.
+    """
+    this = comp.this()
+    # Check if all relu operations have finished for each row
+    guard = comp.get_cell("relu_finished_wire_r0").out
+    for r in range(1, num_rows):
+        guard = guard & comp.get_cell(f"relu_finished_wire_r{r}").out
+    all_relu_finished_wire = comp.wire("all_relu_finished_wire", 1)
+    with comp.static_group(WRITE_DONE_COND, 1):
+        all_relu_finished_wire.in_ = guard @ 1
+        this.computation_done = all_relu_finished_wire.out @ 1
 
 
 def create_leaky_relu_groups(comp: cb.ComponentBuilder, row, num_cols, addr_width):
@@ -306,7 +326,7 @@ def leaky_relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
     add_post_op_params(comp, num_rows, idx_width)
     for r in range(num_rows):
         create_leaky_relu_groups(comp, r, num_cols, idx_width)
-    done_condition_groups(comp, num_rows, num_cols, idx_width, leaky_relu=True)
+    create_leaky_relu_done_condition(comp, num_rows)
 
     # all_groups go in one big static par.
     all_groups = [py_ast.Enable(WRITE_DONE_COND)]

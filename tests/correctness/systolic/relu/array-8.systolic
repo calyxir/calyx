@@ -1,0 +1,7 @@
+{
+  "top_length": 8,
+  "top_depth": 8,
+  "left_length": 8,
+  "left_depth": 8,
+  "post_op": "relu"
+}

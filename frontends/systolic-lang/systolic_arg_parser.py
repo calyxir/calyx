@@ -7,14 +7,17 @@ SUPPORTED_POST_OPS = ["leaky-relu"]
 class SystolicConfiguration:
     """
     A class that represents a "systolic configuration". Includes:
-    Top length, top depth, left length, left depth.
-    Post Op (default=None)
+    top_length, top_depth, left_length, left_depth
+    post_op
+    post_op has a default of None, the other values have no default: their value
+    must be provided.
     """
 
     def parse_arguments(self):
         """
-        Parses arguments and returns the following outputs:
-        top_length, top_depth, left_length, left_depth, leaky_relu
+        Parses arguments to give self the following fields:
+        top_length, top_depth, left_length, left_depth, and post_op
+
         """
         import argparse
         import json
@@ -26,7 +29,7 @@ class SystolicConfiguration:
         parser.add_argument("-td", "--top-depth", type=int)
         parser.add_argument("-ll", "--left-length", type=int)
         parser.add_argument("-ld", "--left-depth", type=int)
-        parser.add_argument("-p", "--post-op", type=str, required=False)
+        parser.add_argument("-p", "--post-op", type=str, default=None)
 
         args = parser.parse_args()
 
@@ -45,7 +48,7 @@ class SystolicConfiguration:
                 self.left_length = spec["left_length"]
                 self.left_depth = spec["left_depth"]
                 # default to not perform leaky_relu
-                self.post_op = spec.get("post_op", False)
+                self.post_op = spec.get("post_op", None)
         else:
             parser.error(
                 "Need to pass either `FILE` or all of `"
@@ -55,3 +58,10 @@ class SystolicConfiguration:
             f"Cannot multiply matrices: "
             f"{self.top_length}x{self.top_depth} and {self.left_depth}x{self.left_length}"
         )
+
+    def get_output_dimensions(self):
+        """
+        Returns the dimensions of the output systolic array (in the form
+        of num_rows x num_cols)
+        """
+        return (self.left_length, self.top_length)

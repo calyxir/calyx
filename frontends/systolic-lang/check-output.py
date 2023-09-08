@@ -22,7 +22,7 @@ if __name__ == "__main__":
     parser.add_argument("-td", "--top-depth", type=int)
     parser.add_argument("-ll", "--left-length", type=int)
     parser.add_argument("-ld", "--left-depth", type=int)
-    parser.add_argument("-r", "--leaky-relu", action="store_true")
+    parser.add_argument("-p", "--post-op", type=str, default=None)
     parser.add_argument("-j", "--json-file", type=str)
 
     args = parser.parse_args()
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     td = args.top_depth
     ll = args.left_length
     ld = args.left_depth
-    relu = args.leaky_relu
+    post_op = args.post_op
     json_file = args.json_file
 
     assert td == ld, f"Cannot multiply matrices: " f"{tl}x{td} and {ld}x{ll}"
@@ -49,8 +49,10 @@ if __name__ == "__main__":
             top[r][c] = json_data[f"t{c}"][r]
 
     matmul_result = np.matmul(left, top)
-    if relu:
+    if post_op == "leaky-relu":
         matmul_result = np.where(matmul_result > 0, matmul_result, matmul_result * 0.01)
+    elif post_op == "relu":
+        matmul_result = np.where(matmul_result > 0, matmul_result, 0)
 
     res = []
     for r in range(ll):
