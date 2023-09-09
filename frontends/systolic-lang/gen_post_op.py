@@ -137,6 +137,21 @@ def imm_write_mem_post_op(
     )
 
 
+def default_post_op(prog: cb.Builder, config: SystolicConfiguration):
+    """
+    Default post op that immediately writes to output memory.
+    """
+    imm_write_mem_post_op(prog=prog, config=config, perform_relu=False)
+
+
+def relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
+    """
+    Relu post op that (combinationally) performs relu before
+    immediately writing the result to memory.
+    """
+    imm_write_mem_post_op(prog=prog, config=config, perform_relu=True)
+
+
 def leaky_relu_comp(prog: cb.Builder, idx_width: int):
     """
     Creates a dynamic, non-pipelined, leaky relu component.

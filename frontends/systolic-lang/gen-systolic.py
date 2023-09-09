@@ -7,7 +7,8 @@ from gen_array_component import (
     NAME_SCHEME,
 )
 from gen_post_op import (
-    imm_write_mem_post_op,
+    default_post_op,
+    relu_post_op,
     leaky_relu_post_op,
     OUT_MEM,
     DEFAULT_POST_OP,
@@ -140,10 +141,10 @@ if __name__ == "__main__":
         leaky_relu_post_op(prog, config=systolic_config)
         post_op_component_name = LEAKY_RELU_POST_OP
     elif systolic_config.post_op == "relu":
-        imm_write_mem_post_op(prog, config=systolic_config, perform_relu=True)
+        relu_post_op(prog, config=systolic_config)
         post_op_component_name = RELU_POST_OP
     elif systolic_config.post_op is None:
-        imm_write_mem_post_op(prog, config=systolic_config, perform_relu=False)
+        default_post_op(prog, config=systolic_config)
         post_op_component_name = DEFAULT_POST_OP
     else:
         raise ValueError(
