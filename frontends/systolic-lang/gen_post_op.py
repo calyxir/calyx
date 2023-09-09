@@ -333,7 +333,7 @@ def leaky_relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
     """
     Adds a dynamic leaky relu post op to `prog`
     """
-    num_rows, num_cols = config.left_length, config.top_length
+    num_rows, num_cols = config.get_output_dimensions()
     idx_width = bits_needed(num_cols)
     # Create a leaky relu component.
     leaky_relu_comp(prog, idx_width)

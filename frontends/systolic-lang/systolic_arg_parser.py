@@ -1,7 +1,7 @@
 import argparse
 import json
 
-SUPPORTED_POST_OPS = ["leaky-relu"]
+SUPPORTED_POST_OPS = ["leaky-relu", "relu"]
 
 
 class SystolicConfiguration:
