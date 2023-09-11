@@ -1,15 +1,15 @@
-use ir::{build_assignments, structure, Attributes, StaticTiming};
-use std::collections::HashMap;
 use crate::traversal::Action;
 use crate::{
     analysis,
     traversal::{Named, Visitor},
 };
 use calyx_ir as ir;
+use ir::{build_assignments, structure, Attributes, StaticTiming};
 use petgraph::{algo, graph::NodeIndex};
+use std::collections::HashMap;
 
 #[derive(Default)]
-/// for static seqs that are statically promoted by the compiler, 
+/// for static seqs that are statically promoted by the compiler,
 /// aggressively compacts the execution schedule so that the execution
 /// order of control operators still respects data dependency
 /// Example: see tests/passes/schedule-compaction/schedule-compaction.rs
@@ -34,8 +34,8 @@ impl Visitor for ScheduleCompaction {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
-      // currently this pass only works for cases where all control operators
-      // are static enables
+        // currently this pass only works for cases where all control operators
+        // are static enables
         if s.attributes.has(ir::NumAttr::Compactable) {
             for stmt in s.stmts.iter() {
                 match stmt {
@@ -101,7 +101,9 @@ impl Visitor for ScheduleCompaction {
                             }
                             group_assignments.extend(assignments);
                         }
-                        _ => { unreachable!("We have filtered out static seqs with control operators other than static enables. Compiler internal error.");}
+                        _ => {
+                            unreachable!("We have filtered out static seqs with control operators other than static enables. Compiler internal error.");
+                        }
                     }
                 }
 
@@ -114,9 +116,8 @@ impl Visitor for ScheduleCompaction {
                 return Ok(Action::static_change(ir::StaticControl::Enable(
                     s_enable,
                 )));
-            }
-            else {
-              println!("Error when producing topo sort. Dependency graph has a cycle.");
+            } else {
+                println!("Error when producing topo sort. Dependency graph has a cycle.");
             }
         }
         Ok(Action::Continue)

@@ -124,7 +124,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         }
     }
 
-    // returns a graph of dependency for input programs 
+    // returns a graph of dependency for input programs
     // input control programs are considered to have data dependency if:
     // 1. subsequent program writes to cells that previous program reads from
     // 2. subsequent program writes to cells that previous program writes to
@@ -170,7 +170,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             for cell in w_cells {
                 if let Some(wr_idxs) = writes.get(&cell) {
                     for wr_idx in wr_idxs {
-                        if !wr_idx.eq(&idx){
+                        if !wr_idx.eq(&idx) {
                             gr.add_edge(*wr_idx, idx, ());
                             dependency.entry(idx).or_default().push(*wr_idx);
                         }
