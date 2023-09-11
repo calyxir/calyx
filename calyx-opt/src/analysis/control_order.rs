@@ -124,7 +124,16 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         }
     }
 
-    pub fn get_total_order_static_seq(stmts: impl Iterator<Item = ir::StaticControl>, dependency: &mut HashMap<NodeIndex, Vec<NodeIndex>>, latency_map: &mut HashMap<NodeIndex, u64>) -> DiGraph<Option<ir::StaticControl>, ()> {
+    // returns a graph of dependency for input programs 
+    // input control programs are considered to have data dependency if:
+    // 1. subsequent program writes to cells that previous program reads from
+    // 2. subsequent program writes to cells that previous program writes to
+    // 3. subsequent program reads from cells that previous program writes to
+    pub fn get_dependency_graph_static_seq(
+        stmts: impl Iterator<Item = ir::StaticControl>,
+        dependency: &mut HashMap<NodeIndex, Vec<NodeIndex>>,
+        latency_map: &mut HashMap<NodeIndex, u64>,
+    ) -> DiGraph<Option<ir::StaticControl>, ()> {
         // Directed graph where edges means that a control program must be run before.
         let mut gr: DiGraph<Option<ir::StaticControl>, ()> = DiGraph::new();
 
@@ -136,16 +145,23 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             let (port_reads, port_writes) =
                 ReadWriteSet::control_port_read_write_set_static(&c);
             let r_cells = Self::get_cells(port_reads);
+            // for cell in r_cells {
+            //     println!("read cell: {}", cell);
+            // }
+            // println!("");
             let w_cells = Self::get_cells(port_writes);
             let latency = c.get_latency();
             let idx = gr.add_node(Some(c));
+            dependency.insert(idx, Vec::new());
             latency_map.insert(idx, latency);
 
             for cell in r_cells {
                 if let Some(wr_idxs) = writes.get(&cell) {
                     for wr_idx in wr_idxs {
-                        gr.add_edge(*wr_idx, idx, ());
-                        dependency.entry(idx).or_default().push(*wr_idx);
+                        if !wr_idx.eq(&idx) {
+                            gr.add_edge(*wr_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*wr_idx);
+                        }
                     }
                 }
                 reads.entry(cell).or_default().push(idx);
@@ -154,21 +170,24 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             for cell in w_cells {
                 if let Some(wr_idxs) = writes.get(&cell) {
                     for wr_idx in wr_idxs {
-                        gr.add_edge(*wr_idx, idx, ());
-                        dependency.entry(idx).or_default().push(*wr_idx);
+                        if !wr_idx.eq(&idx){
+                            gr.add_edge(*wr_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*wr_idx);
+                        }
                     }
                 }
 
                 if let Some(r_idxs) = reads.get(&cell) {
                     for r_idx in r_idxs {
-                        gr.add_edge(*r_idx, idx, ());
-                        dependency.entry(idx).or_default().push(*r_idx);
+                        if !r_idx.eq(&idx) {
+                            gr.add_edge(*r_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*r_idx);
+                        }
                     }
                 }
 
                 writes.entry(cell).or_default().push(idx);
             }
-
         }
         gr
     }
