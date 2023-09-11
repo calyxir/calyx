@@ -266,6 +266,7 @@ name = "[frontend] systolic array output correctness"
 paths = [
   "tests/correctness/systolic/output/*.systolic",
   "tests/correctness/systolic/leaky-relu/*.systolic",
+  "tests/correctness/systolic/relu/*.systolic",
 ]
 cmd = """
 fud e --from systolic --to dat \
