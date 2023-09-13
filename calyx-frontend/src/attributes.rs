@@ -143,9 +143,7 @@ impl Attributes {
             .attrs
             .iter()
             .map(|(k, v)| (*k, *v))
-            .chain(self.inl
-                   .iter()
-                   .map(|k| (Attribute::Bool(k), 1)))
+            .chain(self.inl.iter().map(|k| (Attribute::Bool(k), 1)))
     }
 
     pub fn to_string_with<F>(&self, sep: &'static str, fmt: F) -> String
