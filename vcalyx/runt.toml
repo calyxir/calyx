@@ -5,7 +5,7 @@ ver = "0.4.0"
 name = "unit"
 paths = ["../interp/tests/unit/*.futil"]
 cmd = """
-  ./_build/default/ocaml/vcx.exe {}
+  ./_build/default/ocaml/vcx.exe parse {}
 """
 timeout = 3
 
@@ -14,7 +14,7 @@ name = "errors"
 paths = ["../interp/tests/errors/*.futil"]
 
 cmd = """
-./_build/default/ocaml/vcx.exe {}
+./_build/default/ocaml/vcx.exe parse {}
 """
 timeout = 3
 
@@ -23,7 +23,7 @@ name = "complex"
 paths = ["../interp/tests/complex/*.futil"]
 
 cmd = """
-./_build/default/ocaml/vcx.exe {}
+./_build/default/ocaml/vcx.exe parse {}
 """
 timeout = 3
 
@@ -31,7 +31,7 @@ timeout = 3
 name = "primitives"
 paths = ["../interp/tests/primitives/*.futil"]
 cmd = """
-./_build/default/ocaml/vcx.exe parse{}
+./_build/default/ocaml/vcx.exe parse {}
 """
 timeout = 3
 
