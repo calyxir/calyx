@@ -28,13 +28,20 @@ let vcx_parse : Command.t =
   let open Command.Let_syntax in
   Command.basic ~summary:"interpret a Calyx program with Coq semantics"
     [%map_open
-      let source_location = anon ("prog.futils" %: string) in
+      let source_arg = anon (maybe ("prog.futils" %: string)) in
       fun () ->
-        let source_chan = In_channel.create source_location in
+        let source_name = 
+          match source_arg with
+          | Some source_location -> source_location
+          | None -> "<stdin>" in
+        let source_chan =
+          match source_arg with
+          | Some source_location -> In_channel.create source_location
+          | None -> In_channel.stdin in
         let source_str = Lexing.from_channel source_chan in
         source_str.lex_curr_p <-
-          { source_str.lex_curr_p with pos_fname = source_location };
-        parse_and_print source_str source_location;
+          { source_str.lex_curr_p with pos_fname = source_name };
+        parse_and_print source_str source_name;
         In_channel.close source_chan]
 
 let vcx_cmd : Command.t =
