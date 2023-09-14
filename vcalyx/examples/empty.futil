@@ -1,0 +1,10 @@
+component main() -> () {
+  cells {
+  }
+
+  wires {
+  }
+
+  control {
+  }
+}

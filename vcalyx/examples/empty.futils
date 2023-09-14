@@ -1,0 +1,45 @@
+((components
+  (((name main)
+    (signature
+     ((name _this)
+      (ports
+       (((name go)
+         (width 1)
+         (direction Output)
+         (parent _this)
+         (attributes (((Num Go) 1))))
+        ((name clk)
+         (width 1)
+         (direction Output)
+         (parent _this)
+         (attributes (((Bool Clk) 1))))
+        ((name reset)
+         (width 1)
+         (direction Output)
+         (parent _this)
+         (attributes (((Bool Reset) 1))))
+        ((name done)
+         (width 1)
+         (direction Input)
+         (parent _this)
+         (attributes (((Num Done) 1))))))
+      (prototype ThisComponent)
+      (attributes ())
+      (reference false)))
+    (cells ())
+    (groups ())
+    (static_groups ())
+    (comb_groups ())
+    (continuous_assignments ())
+    (control (Empty ((attributes ()))))
+    (attributes ())
+    (is_comb false)
+    (latency ()))))
+
+ (entrypoint main)
+
+
+
+)
+
+
