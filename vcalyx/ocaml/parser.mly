@@ -5,7 +5,12 @@
 
 %token <int> INT 
 %token <string> ID
-%token NUM
+(* numerical attributes *)
+%token NUM GO DONE
+(* boolean attributes *)
+%token BOOL TOP_LEVEL EXTERNAL NO_INTERFACE RESET CLK STABLE DATA
+(* more boolean attributes *)
+%token CAPS_CONTROL SHARE STATE_SHARE GENERATED NEW_FSM INLINE
 %token COMPONENTS ENTRYPOINT
 %token NAME SIGNATURE CELLS GROUPS STATIC_GROUPS COMB_GROUPS CONT_ASSNS CONTROL IS_COMB ATTRIBUTES
 %token TRUE FALSE DST SRC GUARD PORTS PROTOTYPE REFERENCE
@@ -113,9 +118,30 @@ control:
 | LPAREN; CONTROL; RPAREN
   { CSeq ([], []) }
 
+num_attr_name:
+| GO { Go }
+| DONE { Done }
+
+bool_attr_name:
+| TOP_LEVEL { TopLevel }
+| EXTERNAL { External }
+| NO_INTERFACE { NoInterface }
+| RESET { Reset }
+| CLK { Clk }
+| STABLE { Stable }
+| DATA { Data }
+| CAPS_CONTROL { Control }
+| SHARE { Share }
+| STATE_SHARE { StateShare }
+| GENERATED { Generated }
+| NEW_FSM { NewFSM }
+| INLINE { Inline }
+
 attribute:
-| LPAREN; NUM; RPAREN
-   { NumAttr (Go, 0) }
+| LPAREN; LPAREN; NUM; name = num_attr_name; RPAREN; value = INT; RPAREN
+   { NumAttr (name, value) }
+| LPAREN; LPAREN; BOOL; name = bool_attr_name; RPAREN; value = INT; RPAREN
+   { BoolAttr (name, value <> 0) }
 
 bool: 
 | TRUE { true }
