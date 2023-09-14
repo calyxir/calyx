@@ -6,7 +6,7 @@
 %token <int> INT 
 %token <string> ID
 (* numerical attributes *)
-%token NUM GO DONE
+%token NUM GO DONE STATIC WRITE_TOGETHER
 (* boolean attributes *)
 %token BOOL TOP_LEVEL EXTERNAL NO_INTERFACE RESET CLK STABLE DATA
 (* more boolean attributes *)
@@ -23,6 +23,10 @@
 %token ASSIGNMENTS
 %token EMPTY
 %token LATENCY
+%token PRIMITIVE
+%token VAL
+%token PARAM_BINDING
+%token CONSTANT
 
 %start <Extr.context> main
 %%
@@ -128,6 +132,8 @@ control:
 num_attr_name:
 | GO { Go }
 | DONE { Done }
+| STATIC { Static }
+| WRITE_TOGETHER { WriteTogether }
 
 bool_attr_name:
 | TOP_LEVEL { TopLevel }
@@ -154,10 +160,26 @@ bool:
 | TRUE { true }
 | FALSE { false }
 
+param_binding:
+| LPAREN; name = ID; value = INT; RPAREN
+  { (name, value) }
+
 prototype:
-(* TODO other cases *)
-| THIS_COMPONENT
-  { ProtoThis }
+  (* TODO other cases *)
+  | THIS_COMPONENT
+    { ProtoThis }
+  | LPAREN; PRIMITIVE;
+      LPAREN; NAME; name = ID; RPAREN; 
+      LPAREN; PARAM_BINDING; LPAREN; param_binding = list(param_binding); RPAREN; RPAREN; 
+      LPAREN; IS_COMB; is_comb = bool; RPAREN;
+      LPAREN; LATENCY; LPAREN; RPAREN; RPAREN;
+    RPAREN
+    { ProtoPrim (name, param_binding, is_comb) }
+  | LPAREN; CONSTANT;
+      LPAREN; VAL; value = INT; RPAREN;
+      LPAREN; WIDTH; width = INT; RPAREN;
+    RPAREN
+    { ProtoConst (value, width) }
 
 sgroup:
   | LPAREN;

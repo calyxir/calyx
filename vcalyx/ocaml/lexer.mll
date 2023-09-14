@@ -39,6 +39,8 @@ rule tokens = parse
 | "Num"           { NUM }
 | "Go"            { GO }
 | "Done"          { DONE }
+| "Static"        { STATIC }
+| "WriteTogether" { WRITE_TOGETHER }
 | "Bool"          { BOOL }
 | "TopLevel"      { TOP_LEVEL }
 | "External"      { EXTERNAL }
@@ -63,5 +65,10 @@ rule tokens = parse
 | "assignments"   { ASSIGNMENTS }
 | "latency"       { LATENCY }
 | "Empty"         { EMPTY }
+| "Primitive"     { PRIMITIVE }
+| "val"           { VAL }
+| "width"         { WIDTH }
+| "param_binding" { PARAM_BINDING }
+| "Constant"      { CONSTANT }
 | id as x         { ID x }
 | _ { raise (SyntaxError (Printf.sprintf "At offset %d: unexpected character %s" (Lexing.lexeme_start lexbuf) (Lexing.lexeme lexbuf))) }

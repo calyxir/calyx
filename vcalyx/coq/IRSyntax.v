@@ -30,7 +30,9 @@ Inductive bool_attr :=
 
 Inductive num_attr :=
 | Go
-| Done.
+| Done
+| Static
+| WriteTogether.
 Inductive internal_attr := .
 Inductive attribute :=
 | NumAttr (attr_name: num_attr) (n: nat)
