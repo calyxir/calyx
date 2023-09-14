@@ -3,7 +3,7 @@ ver = "0.4.0"
 # Check basic functionality of the interpreter
 [[tests]]
 name = "sexp"
-paths = ["./examples/empty.futils"]
+paths = ["./examples/*.futils"]
 cmd = """
 ./_build/default/ocaml/vcx.exe parse {}
 """
