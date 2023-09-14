@@ -80,3 +80,6 @@ lia.cache
 nia.cache
 nlia.cache
 nra.cache
+
+# vim temporary files
+*.sw?
