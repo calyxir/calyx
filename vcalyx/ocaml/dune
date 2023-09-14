@@ -1,5 +1,7 @@
 (menhir
- (modules parser))
+ (modules parser)
+ ;(flags --trace)
+ )
 
 (ocamllex
  (modules lexer))

@@ -8,6 +8,7 @@ let whitespace = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
 
 rule tokens = parse 
+| eof             { EOF }
 (* i.e., 1'd1 *)
 | ['0'-'9']+ as i { INT (int_of_string i) } 
 | whitespace      { tokens lexbuf }
@@ -21,6 +22,7 @@ rule tokens = parse
 | "cells"         { CELLS }
 | "ports"         { PORTS }
 | "prototype"     { PROTOTYPE }
+| "ThisComponent" { THIS_COMPONENT }
 | "reference"     { REFERENCE }
 | "groups"        { GROUPS }
 | "static_groups" { STATIC_GROUPS }
@@ -59,6 +61,7 @@ rule tokens = parse
 | "parent"        { PARENT }
 | "direction"     { DIRECTION }
 | "assignments"   { ASSIGNMENTS }
-| eof             { EOF }
+| "latency"       { LATENCY }
+| "Empty"         { EMPTY }
 | id as x         { ID x }
 | _ { raise (SyntaxError (Printf.sprintf "At offset %d: unexpected character %s" (Lexing.lexeme_start lexbuf) (Lexing.lexeme lexbuf))) }

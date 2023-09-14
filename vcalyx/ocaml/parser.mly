@@ -13,7 +13,7 @@
 %token CAPS_CONTROL SHARE STATE_SHARE GENERATED NEW_FSM INLINE
 %token COMPONENTS ENTRYPOINT
 %token NAME SIGNATURE CELLS GROUPS STATIC_GROUPS COMB_GROUPS CONT_ASSNS CONTROL IS_COMB ATTRIBUTES
-%token TRUE FALSE DST SRC GUARD PORTS PROTOTYPE REFERENCE
+%token TRUE FALSE DST SRC GUARD PORTS PROTOTYPE THIS_COMPONENT REFERENCE
 %token LPAREN RPAREN EOF
 %token INPUT OUTPUT INOUT
 %token WIDTH
@@ -21,30 +21,37 @@
 %token PARENT
 %token DIRECTION
 %token ASSIGNMENTS
+%token EMPTY
+%token LATENCY
 
-%start <Extr.context option> main
+%start <Extr.context> main
 %%
 
 main: 
-| LPAREN; LPAREN; COMPONENTS; LPAREN; comps = list(component); RPAREN; RPAREN; 
-LPAREN; ENTRYPOINT; entry = ID; RPAREN; RPAREN; EOF
-  { Some {ctx_comps = comps; ctx_entrypoint = entry} }
+  | LPAREN;
+      LPAREN; COMPONENTS; LPAREN; comps = list(component); RPAREN; RPAREN; 
+      LPAREN; ENTRYPOINT; entry = ID; RPAREN;
+    RPAREN; EOF
+  { {ctx_comps = comps; ctx_entrypoint = entry} }
 
 attrs_clause:
   | LPAREN; ATTRIBUTES; LPAREN; attrs = list(attribute); RPAREN; RPAREN
    { attrs }
 
 component: 
-| LPAREN; LPAREN; NAME; name = ID; RPAREN; 
-LPAREN; SIGNATURE; signature = cell; RPAREN; 
-LPAREN; CELLS; LPAREN; cells = list(cell); RPAREN; RPAREN;
-LPAREN; GROUPS; LPAREN; groups = list(group); RPAREN; RPAREN; 
-LPAREN; STATIC_GROUPS; LPAREN; sgroups = list(sgroup); RPAREN; RPAREN; 
-LPAREN; COMB_GROUPS; LPAREN; cgroups = list(cgroup); RPAREN; RPAREN; 
-LPAREN; CONT_ASSNS; LPAREN; assns = list(assignment); RPAREN; RPAREN; 
-LPAREN; CONTROL; LPAREN; ctl = control; RPAREN; RPAREN; 
-attributes = attrs_clause;
-LPAREN; IS_COMB; comb = bool; RPAREN; RPAREN
+  | LPAREN;
+      LPAREN; NAME; name = ID; RPAREN; 
+      LPAREN; SIGNATURE; signature = cell; RPAREN; 
+      LPAREN; CELLS; LPAREN; cells = list(cell); RPAREN; RPAREN;
+      LPAREN; GROUPS; LPAREN; groups = list(group); RPAREN; RPAREN; 
+      LPAREN; STATIC_GROUPS; LPAREN; sgroups = list(sgroup); RPAREN; RPAREN; 
+      LPAREN; COMB_GROUPS; LPAREN; cgroups = list(cgroup); RPAREN; RPAREN; 
+      LPAREN; CONT_ASSNS; LPAREN; assns = list(assignment); RPAREN; RPAREN; 
+      LPAREN; CONTROL; LPAREN; ctl = control; RPAREN; RPAREN; 
+      attributes = attrs_clause;
+      LPAREN; IS_COMB; comb = bool; RPAREN;
+      LPAREN; LATENCY; LPAREN; RPAREN; RPAREN;
+    RPAREN
 { {comp_attrs = attributes; comp_name = name; comp_sig = signature;
 comp_cells = cells; comp_groups = groups; comp_comb_groups = cgroups;
 comp_static_groups = sgroups; comp_cont_assns = assns; comp_control = ctl;
@@ -115,8 +122,8 @@ assignment:
     { { dst; src; assign_guard; attrs } }
 
 control: 
-| LPAREN; CONTROL; RPAREN
-  { CSeq ([], []) }
+| EMPTY; LPAREN; attrs = attrs_clause; RPAREN
+  { CEmpty attrs }
 
 num_attr_name:
 | GO { Go }
@@ -148,7 +155,9 @@ bool:
 | FALSE { false }
 
 prototype:
-| LPAREN; RPAREN { failwith "todo: parse cell prototype" }
+(* TODO other cases *)
+| THIS_COMPONENT
+  { ProtoThis }
 
 sgroup:
   | LPAREN;

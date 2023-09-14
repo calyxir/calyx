@@ -9,20 +9,21 @@ let print_position outx lexbuf =
     (pos.pos_cnum - pos.pos_bol + 1)
 
 let parse_with_error lexbuf =
-  try Parser.main Lexer.tokens lexbuf with
+  try Some (Parser.main Lexer.tokens lexbuf) with
   (* | SyntaxError msg ->
     fprintf stderr "%a: %s\n" print_position lexbuf msg;
     None *)
   | Parser.Error ->
     fprintf stderr "%a: syntax error\n" print_position lexbuf;
-    exit (-1)
+    None
 
-let rec parse_and_print source_str source_location =
-  match parse_with_error source_str with
+let parse_and_print lexbuf source_location =
+  match parse_with_error lexbuf with
   | Some _ ->
-    Printf.printf "Successfully parsed %s.\n" source_location;
-    parse_and_print source_str source_location
-  | None -> ()
+    Printf.printf "Successfully parsed %s.\n" source_location
+    (* TODO: print AST back out *)
+  | None ->
+    exit (-1)
 
 let vcx_parse : Command.t =
   let open Command.Let_syntax in
