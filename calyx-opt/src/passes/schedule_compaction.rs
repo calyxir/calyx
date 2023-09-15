@@ -81,25 +81,25 @@ impl Visitor for ScheduleCompaction {
                     let control = total_order[i].take().unwrap();
 
                     if let ir::StaticControl::Enable(en) = control {
-                            let timing_guard =
-                                ir::Guard::Info(ir::StaticTiming::new((
-                                    start,
-                                    start + latency_map[&i] - 1,
-                                )));
-                            structure!(
-                              builder;
-                              let one = constant(1, 1);
-                            );
-                            let group = en.group;
-                            let assignments = build_assignments!( builder;
-                              group["go"] = timing_guard ? one["out"];
-                            );
-                            if start + latency_map[&i] > total_time {
-                                total_time = start + latency_map[&i];
-                            }
-                            group_assignments.extend(assignments);
+                        let timing_guard =
+                            ir::Guard::Info(ir::StaticTiming::new((
+                                start,
+                                start + latency_map[&i] - 1,
+                            )));
+                        structure!(
+                          builder;
+                          let one = constant(1, 1);
+                        );
+                        let group = en.group;
+                        let assignments = build_assignments!( builder;
+                          group["go"] = timing_guard ? one["out"];
+                        );
+                        if start + latency_map[&i] > total_time {
+                            total_time = start + latency_map[&i];
                         }
-                      }
+                        group_assignments.extend(assignments);
+                    }
+                }
 
                 let group = builder.add_static_group("compact_seq", total_time);
                 group.borrow_mut().assignments.extend(group_assignments);
