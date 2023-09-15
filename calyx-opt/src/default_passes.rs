@@ -94,6 +94,7 @@ impl PassManager {
                 CompileInvoke, // creates dead comb groups
                 AttributePromotion,
                 StaticPromotion,
+                ScheduleCompaction,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
