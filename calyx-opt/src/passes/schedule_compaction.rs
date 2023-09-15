@@ -13,7 +13,6 @@ use std::collections::HashMap;
 /// aggressively compacts the execution schedule so that the execution
 /// order of control operators still respects data dependency
 /// Example: see tests/passes/schedule-compaction/schedule-compaction.rs
-
 pub struct ScheduleCompaction;
 
 impl Named for ScheduleCompaction {
@@ -81,8 +80,7 @@ impl Visitor for ScheduleCompaction {
 
                     let control = total_order[i].take().unwrap();
 
-                    match control {
-                        ir::StaticControl::Enable(en) => {
+                    if let ir::StaticControl::Enable(en) = control {
                             let timing_guard =
                                 ir::Guard::Info(ir::StaticTiming::new((
                                     start,
@@ -101,11 +99,7 @@ impl Visitor for ScheduleCompaction {
                             }
                             group_assignments.extend(assignments);
                         }
-                        _ => {
-                            unreachable!("We have filtered out static seqs with control operators other than static enables. Compiler internal error.");
-                        }
-                    }
-                }
+                      }
 
                 let group = builder.add_static_group("compact_seq", total_time);
                 group.borrow_mut().assignments.extend(group_assignments);
