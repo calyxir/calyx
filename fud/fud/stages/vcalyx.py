@@ -43,7 +43,7 @@ class VCalyxStage(Stage):
         @builder.step(description=cmd)
         def vcx(
             target: SourceType.Path
-        ) -> SourceType.Terminal:
+        ) -> SourceType.Stream:
             """
             Parse Calyx program in sexp form
             """

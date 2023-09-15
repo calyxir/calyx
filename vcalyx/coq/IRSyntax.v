@@ -187,7 +187,7 @@ Inductive control :=
          (body: control)
          (attrs: attributes)
 | CEnable (comp: ident)
-          (atrs: attributes)
+          (attrs: attributes)
 | CInvoke (comp: ident)
           (inputs: list (ident * port))
           (outputs: list (ident * port))

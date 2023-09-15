@@ -1070,7 +1070,7 @@
                        (direction
                          Inout)
                        (parent
-                         init)
+                        init)
                        (attributes
                          ()))
                       ((name

@@ -24,6 +24,7 @@ rule tokens = parse
 | "prototype"     { PROTOTYPE }
 | "ThisComponent" { THIS_COMPONENT }
 | "reference"     { REFERENCE }
+| "group"         { GROUP }
 | "groups"        { GROUPS }
 | "static_groups" { STATIC_GROUPS }
 | "comb_groups"   { COMB_GROUPS }
@@ -34,6 +35,7 @@ rule tokens = parse
 | "attributes"    { ATTRIBUTES }
 | "control"       { CONTROL }
 | "is_comb"       { IS_COMB }
+| "True"          { TRUE }
 | "true"          { TRUE }
 | "false"         { FALSE }
 | "Num"           { NUM }
@@ -57,7 +59,7 @@ rule tokens = parse
 | "Inline"        { INLINE }
 | "Input"         { INPUT }
 | "Output"        { OUTPUT }
-| "InOut"         { INOUT }
+| "Inout"         { INOUT }
 | "width"         { WIDTH }
 | "holes"         { HOLES }
 | "parent"        { PARENT }
@@ -65,10 +67,15 @@ rule tokens = parse
 | "assignments"   { ASSIGNMENTS }
 | "latency"       { LATENCY }
 | "Empty"         { EMPTY }
+| "Seq"           { SEQ }
+| "Enable"        { ENABLE }
+| "stmts"         { STMTS }
 | "Primitive"     { PRIMITIVE }
 | "val"           { VAL }
 | "width"         { WIDTH }
 | "param_binding" { PARAM_BINDING }
 | "Constant"      { CONSTANT }
+| "Port"          { PORT }
+| "And"           { AND }
 | id as x         { ID x }
 | _ { raise (SyntaxError (Printf.sprintf "At offset %d: unexpected character %s" (Lexing.lexeme_start lexbuf) (Lexing.lexeme lexbuf))) }

@@ -21,12 +21,15 @@
 %token PARENT
 %token DIRECTION
 %token ASSIGNMENTS
-%token EMPTY
 %token LATENCY
 %token PRIMITIVE
 %token VAL
 %token PARAM_BINDING
 %token CONSTANT
+(* Guard expressions. *)
+%token PORT AND
+(* Control statements. *)
+%token SEQ ENABLE EMPTY STMTS GROUP
 
 %start <Extr.context> main
 %%
@@ -51,7 +54,7 @@ component:
       LPAREN; STATIC_GROUPS; LPAREN; sgroups = list(sgroup); RPAREN; RPAREN; 
       LPAREN; COMB_GROUPS; LPAREN; cgroups = list(cgroup); RPAREN; RPAREN; 
       LPAREN; CONT_ASSNS; LPAREN; assns = list(assignment); RPAREN; RPAREN; 
-      LPAREN; CONTROL; LPAREN; ctl = control; RPAREN; RPAREN; 
+      LPAREN; CONTROL; ctl = control; RPAREN; 
       attributes = attrs_clause;
       LPAREN; IS_COMB; comb = bool; RPAREN;
       LPAREN; LATENCY; LPAREN; RPAREN; RPAREN;
@@ -115,19 +118,30 @@ group:
 guard:
 | TRUE
   { GTrue }
+| LPAREN; PORT; p = port; RPAREN
+  { GPort p }
+| LPAREN; AND; g1 = guard; g2 = guard; RPAREN
+  { GAnd (g1, g2) }
 
 assignment: 
   | LPAREN;
-      LPAREN; DST; dst = ID; RPAREN;
-      LPAREN; SRC; src = ID; RPAREN; 
+      LPAREN; DST; dst = port; RPAREN;
+      LPAREN; SRC; src = port; RPAREN; 
       LPAREN; GUARD; assign_guard = guard; RPAREN; 
       attrs = attrs_clause;
     RPAREN
-    { { dst; src; assign_guard; attrs } }
+    { { dst = dst.port_name; src = src.port_name; assign_guard; attrs } }
 
 control: 
-| EMPTY; LPAREN; attrs = attrs_clause; RPAREN
-  { CEmpty attrs }
+  | LPAREN; EMPTY; LPAREN; attrs = attrs_clause; RPAREN; RPAREN
+    { CEmpty attrs }
+  | LPAREN; SEQ; LPAREN;
+      LPAREN; STMTS; LPAREN; stmts = list(control); RPAREN; RPAREN;
+      attrs = attrs_clause;
+    RPAREN; RPAREN
+    { CSeq (stmts, attrs) }
+  | LPAREN; ENABLE; LPAREN; LPAREN; GROUP; grp = group; RPAREN; attrs = attrs_clause; RPAREN; RPAREN
+    { CEnable (grp.group_name, attrs) }
 
 num_attr_name:
 | GO { Go }
