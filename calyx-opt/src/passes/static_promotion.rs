@@ -693,11 +693,9 @@ impl Visitor for StaticPromotion {
                 }
             }
         }
-        let mut attributes = ir::Attributes::default();
-        attributes.insert(ir::NumAttr::Compactable, 1);
         let new_seq = ir::Control::Seq(ir::Seq {
             stmts: new_stmts,
-            attributes,
+            attributes: ir::Attributes::default(),
         });
         Ok(Action::change(new_seq))
     }

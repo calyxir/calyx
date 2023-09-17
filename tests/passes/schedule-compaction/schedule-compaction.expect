@@ -27,10 +27,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       d_reg.in = a_reg.out;
     }
     static<11> group compact_seq {
-      C[go] = %[0:9] ? 1'd1;
-      A[go] = %[0:0] ? 1'd1;
-      D[go] = %[1:10] ? 1'd1;
-      B[go] = %[10:10] ? 1'd1;
+      C[go] = %[0:10] ? 1'd1;
+      A[go] = %0 ? 1'd1;
+      D[go] = %[1:11] ? 1'd1;
+      B[go] = %10 ? 1'd1;
     }
   }
   control {
