@@ -84,7 +84,7 @@ impl Visitor for ScheduleCompaction {
                         let timing_guard =
                             ir::Guard::Info(ir::StaticTiming::new((
                                 start,
-                                start + latency_map[&i] - 1,
+                                start + latency_map[&i],
                             )));
                         structure!(
                           builder;
