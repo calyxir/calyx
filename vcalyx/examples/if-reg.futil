@@ -18,16 +18,16 @@ component main() -> () {
       cond[done] = reg0.done;
     }
 
-    group true<"static"=1> {
+    group mytrue<"static"=1> {
       reg1.write_en = 1'd1;
       reg1.in = 32'd15;
-      true[done] = reg1.done;
+      mytrue[done] = reg1.done;
     }
 
-    group false<"static"=1> {
+    group myfalse<"static"=1> {
       reg1.write_en = 1'd1;
       reg1.in = 32'd10;
-      false[done] = reg1.done;
+      myfalse[done] = reg1.done;
     }
   }
 
@@ -39,9 +39,9 @@ component main() -> () {
     seq {
       cond;
       if reg0.out {
-      true;
+      mytrue;
     } else {
-      false;
+      myfalse;
     }
     }
 

@@ -162,8 +162,8 @@ Inductive guard_expr :=
 (* From AST wires *)
 Record assignment := 
   Assign {
-    dst: ident;
-    src: ident; 
+    dst: port_ref;
+    src: port_ref;
     assign_guard: guard_expr;
     attrs: attributes;
   }.

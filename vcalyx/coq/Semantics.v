@@ -22,58 +22,88 @@ Global Instance value_EqDec : EqDec value eq :=
 Eval compute in (Z == Z).
 Eval compute in (Z ==b V 12).
 
-Definition state : Type. (* TODO *)
-Admitted.
+Inductive numtype :=
+| Bitnum
+| FixedPoint.
+    
+Record mem_fmt := { is_signed: bool;
+                    numeric_type: numtype;
+                    width: nat; }.
+
+Definition mem_data := list N.
+
+Inductive state : Type :=
+(* std_reg *)
+| StateReg (val: value)
+(* std_mem *)
+| StateMem (fmt: mem_fmt) (contents: mem_data).
+
+Definition get_reg_state (st: state) :=
+  match st with
+  | StateReg v => Some v
+  | _ => None
+  end.
+
+Definition get_mem_state (st: state) :=
+  match st with
+  | StateMem fmt contents => Some (fmt, contents)
+  | _ => None
+  end.
 
 Section Semantics.
+  (* ENVIRONMENTS AND STORES *)
+  (* Definitions of types of finite maps used in the semantics. *)
   Context (ident_map: Type -> Type)
           `{FinMap ident ident_map}.
   (* TODO put the computations in here *)
-  (* map from cell names to port names to values *)
+  (* map from port names to values *)
   Definition val_map : Type := ident_map value.
+  (* map from cell names to port names to values *)
   Definition cell_map : Type := ident_map val_map.
+  (* map from cell name to state *)
   Definition state_map : Type := ident_map state.
 
+  (* environment collecting all defined cells *)
   Definition cell_env : Type := ident_map cell.
-  Definition prim_map : Type := ident_map (val_map -> option val_map).
+  (* An environment collecting all defined primitives *)
+  Definition prim_map : Type := ident_map (state -> val_map -> option (state * val_map)).
 
+  (* An environment collecting all defined groups *)
   Definition group_env : Type := ident_map group.
+  (* map from group name to values of its ports *)
   Definition group_map : Type := ident_map val_map.
-
-  Definition five := 5.
-  Definition my_emp: ident_map value :=
-    empty.
 
   Open Scope stdpp_scope.
   Definition calyx_prims : prim_map :=
     list_to_map 
       [("std_reg",
-         fun inputs =>
-           wen ← (inputs !! "std_reg.write_en");
+         fun st inputs =>
+           v ← get_reg_state st;
+           wen ← (inputs !! "write_en");
            if wen ==b (V 1%N)
-           then v ← inputs !! "std_reg.in";
-                Some (<["std_reg.done" := wen]>(<["std_reg.out" := v]>inputs))
-           else None)]. 
+           then v' ← inputs !! "in";
+                Some (StateReg v', <["done" := wen]>(<["out" := v']>inputs))
+           else Some (StateReg v, inputs))]. 
   
-(* TODO put the computations in here *)
-  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (inputs: val_map) : option val_map := 
+  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : option (state * val_map) := 
     fn ← calyx_prims !! prim;
-    fn inputs.
+    fn st inputs.
   
-  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : option cell_map :=
+  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : option (state_map * cell_map) :=
     match c.(cell_proto) with
     | ProtoPrim prim param_binding _ =>
-        old ← σ !! c.(cell_name);
-        new ← poke_prim prim param_binding old;
-        Some (<[c.(cell_name) := new]>σ)
+        st ← ρ !! c.(cell_name);
+        vs ← σ !! c.(cell_name);
+        '(st', vs') ← poke_prim prim param_binding st vs;
+        Some (<[c.(cell_name) := st']>ρ, <[c.(cell_name) := vs']>σ)
     | _ => None (* unimplemented *)
     end.
 
-  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option cell_map :=
-    map_fold (fun _ cell σ_opt =>
-                σ ← σ_opt;
+  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option (state_map * cell_map) :=
+    map_fold (fun _ cell ρσ_opt =>
+                '(ρ, σ) ← ρσ_opt;
                 poke_cell cell ρ σ)
-             (Some σ)
+             (Some (ρ, σ))
              ce.
 
   Definition read_port (p: port) (σ: cell_map) : option value :=
@@ -88,7 +118,7 @@ Section Semantics.
              (op: assignment)
              (σ: cell_map) 
     : option cell_map.
-  Admitted.
+  Admitted. (* Needs case analysis on the datatype port_ref = PComp / PThis / PHole *)
     (*
     c ← ce !! op.(src).(parent);
     σ' ← poke_all_cells ce ρ σ;
