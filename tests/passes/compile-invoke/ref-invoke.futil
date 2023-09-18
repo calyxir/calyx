@@ -1,0 +1,35 @@
+// -p compile-invoke
+import "primitives/compile.futil";
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+    ref m = std_reg(32);
+  }
+  wires {
+    group upd_m {
+      m.in = 32'd10;
+      m.write_en = 1'd1;
+      upd_m[done] = m.done;
+    }
+  }
+
+  control {
+    upd_m;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    f = foo();
+    k1 = std_reg(32);
+    k2 = std_reg(32);
+  }
+  wires {
+  }
+
+  control {
+    seq {
+      invoke f[m = k1]()();
+      invoke f[m = k2]()();
+    }
+  }
+}

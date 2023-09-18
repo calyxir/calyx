@@ -32,7 +32,7 @@ DEFAULT_CONFIGURATION = {
             "flags": None,
         },
         "interpreter": {
-            "exec": "./target/debug/interp",
+            "exec": "./target/debug/cider",
             "flags": "--raw ",
             "data": None,
             "round_float_to_fixed": True,

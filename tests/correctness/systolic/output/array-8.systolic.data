@@ -1,409 +1,433 @@
 {
   "l0": {
     "data": [
-      26,
-      46,
-      44,
-      62,
-      47,
-      38,
-      13,
-      94
+      3.3614635467529297,
+      3.7810144424438477,
+      -0.6595420837402344,
+      -2.0093393325805664,
+      -1.072697639465332,
+      -1.735914945602417,
+      -2.231743335723877,
+      3.242586135864258
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l1": {
     "data": [
-      7,
-      14,
-      72,
-      44,
-      71,
-      6,
-      33,
-      14
+      -3.6655306816101074,
+      1.8622779846191406,
+      -4.598508834838867,
+      1.7374038696289062,
+      1.5211162567138672,
+      2.48116397857666,
+      4.366230010986328,
+      -4.712061882019043
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l2": {
     "data": [
-      12,
-      11,
-      88,
-      41,
-      84,
-      88,
-      42,
-      11
+      -0.19861793518066406,
+      3.6620922088623047,
+      -3.450254201889038,
+      1.607121467590332,
+      -4.554588794708252,
+      1.3513288497924805,
+      -3.6712777614593506,
+      -1.172710657119751
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l3": {
     "data": [
-      65,
-      31,
-      17,
-      69,
-      33,
-      90,
-      94,
-      93
+      -4.384279251098633,
+      3.6720046997070312,
+      4.325924873352051,
+      3.365457534790039,
+      -3.8186287879943848,
+      2.700267791748047,
+      0.10878324508666992,
+      -1.9494962692260742
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l4": {
     "data": [
-      7,
-      43,
-      94,
-      51,
-      34,
-      3,
-      84,
-      64
+      3.226938247680664,
+      -2.69220232963562,
+      -3.0911314487457275,
+      -2.3430871963500977,
+      2.8538217544555664,
+      1.8892107009887695,
+      -0.6345248222351074,
+      2.381865978240967
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l5": {
     "data": [
-      23,
-      92,
-      71,
-      99,
-      47,
-      39,
-      27,
-      55
+      0.47180652618408203,
+      0.8296308517456055,
+      1.471487045288086,
+      3.470722198486328,
+      1.9392023086547852,
+      -0.39588451385498047,
+      -4.363941192626953,
+      0.8649253845214844
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l6": {
     "data": [
-      45,
-      73,
-      27,
-      17,
-      7,
-      53,
-      13,
-      70
+      3.718292236328125,
+      3.1377687454223633,
+      1.5491843223571777,
+      0.18115758895874023,
+      -1.056511402130127,
+      3.2894468307495117,
+      -1.6756761074066162,
+      -3.321586847305298
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "l7": {
     "data": [
-      90,
-      21,
-      26,
-      7,
-      60,
-      29,
-      70,
-      91
+      0.4992542266845703,
+      2.6269302368164062,
+      3.8421621322631836,
+      1.6167521476745605,
+      0.43836021423339844,
+      2.73500919342041,
+      4.4162797927856445,
+      -0.7459220886230469
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_0": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_1": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_2": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_3": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_4": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_5": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_6": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "out_mem_7": {
     "data": [
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t0": {
     "data": [
-      38,
-      37,
-      40,
-      45,
-      15,
-      64,
-      51,
-      43
+      0.6451263427734375,
+      -1.3166892528533936,
+      -4.308672904968262,
+      2.24473237991333,
+      2.0837268829345703,
+      -3.566269874572754,
+      1.9752159118652344,
+      -0.027441978454589844
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t1": {
     "data": [
-      69,
-      98,
-      0,
-      35,
-      45,
-      15,
-      93,
-      50
+      -4.8111772537231445,
+      4.710016250610352,
+      0.46476268768310547,
+      4.42365837097168,
+      3.944472312927246,
+      -3.5243332386016846,
+      1.0266780853271484,
+      -2.9813599586486816
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t2": {
     "data": [
-      49,
-      57,
-      39,
-      99,
-      70,
-      86,
-      26,
-      78
+      1.9195914268493652,
+      -4.071036338806152,
+      -2.61210560798645,
+      -0.963374137878418,
+      3.7477893829345703,
+      -1.586371660232544,
+      0.8641839027404785,
+      -1.0011076927185059
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t3": {
     "data": [
-      91,
-      46,
-      8,
-      36,
-      58,
-      57,
-      63,
-      12
+      -2.434360980987549,
+      -4.969264030456543,
+      0.7401218414306641,
+      1.0282669067382812,
+      -4.4361186027526855,
+      3.986025810241699,
+      -1.3222312927246094,
+      1.4773082733154297
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t4": {
     "data": [
-      86,
-      56,
-      58,
-      20,
-      49,
-      17,
-      64,
-      53
+      -2.499678134918213,
+      2.3520255088806152,
+      3.4475793838500977,
+      4.744197845458984,
+      -1.9682538509368896,
+      -1.9696319103240967,
+      4.64195442199707,
+      -1.344829797744751
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t5": {
     "data": [
-      71,
-      94,
-      72,
-      83,
-      87,
-      97,
-      24,
-      57
+      0.3425884246826172,
+      -3.760256767272949,
+      -2.5798070430755615,
+      3.9580202102661133,
+      1.7683610916137695,
+      3.4049606323242188,
+      0.9685015678405762,
+      3.2888946533203125
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t6": {
     "data": [
-      25,
-      95,
-      18,
-      9,
-      35,
-      85,
-      70,
-      58
+      3.3383445739746094,
+      0.17033672332763672,
+      -2.088654041290283,
+      -4.548826217651367,
+      -1.364973783493042,
+      -1.1960172653198242,
+      -1.5400052070617676,
+      -3.136591911315918
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   },
   "t7": {
     "data": [
-      43,
-      1,
-      7,
-      45,
-      38,
-      59,
-      86,
-      46
+      4.767667770385742,
+      -4.948601722717285,
+      0.8839473724365234,
+      -2.3918545246124268,
+      -2.087804079055786,
+      1.2293744087219238,
+      2.3766794204711914,
+      2.255117893218994
     ],
     "format": {
-      "is_signed": false,
-      "numeric_type": "bitnum",
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
       "width": 32
     }
   }

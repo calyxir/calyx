@@ -1,0 +1,51 @@
+// -p validate -p compile-invoke
+import "primitives/compile.futil";
+
+component main() -> () {
+  cells {
+    i = incr();
+    value = std_reg(32);
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke i[value=value]()();
+    }
+  }
+}
+component incr() -> () {
+  cells {
+    ref value = std_reg(32);
+    ih = incr_helper();
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke ih[value=value]()();
+    }
+  }
+}
+component incr_helper() -> () {
+  cells {
+    ref value = std_reg(32);
+    incr_value = std_add(32);
+  }
+  wires {
+    group incr_value_group {
+      incr_value.left = value.out;
+      incr_value.right = 32'd1;
+      value.write_en = 1'd1;
+      value.in = incr_value.out;
+      incr_value_group[done] = value.done;
+    }
+  }
+  control {
+    seq {
+      incr_value_group;
+    }
+  }
+}

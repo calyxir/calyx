@@ -52,7 +52,8 @@ impl ConstructVisitor for DiscoverExternal {
             let spl = splits.next();
             // Search for the "default=<n>" option
             if spl == Some("default") {
-                let Some(val) = splits.next().and_then(|v| v.parse().ok()) else {
+                let Some(val) = splits.next().and_then(|v| v.parse().ok())
+                else {
                     log::warn!("Failed to parse default value. Please specify using -x {}:default=<n>", n);
                     continue;
                 };
@@ -131,7 +132,7 @@ impl Visitor for DiscoverExternal {
                     !p.attributes.has(ir::BoolAttr::Clk)
                         && !p.attributes.has(ir::BoolAttr::Reset)
                 })
-                .map(|p| p.name)
+                .map(|p| p.name())
                 .collect::<HashSet<_>>();
             prim_ports.insert(prim.name, hs);
         }
@@ -185,10 +186,10 @@ impl Visitor for DiscoverExternal {
                             p.borrow()
                                 .name
                                 .as_ref()
-                                .ends_with(abs.name.as_ref())
+                                .ends_with(abs.name().as_ref())
                         })
                         .unwrap_or_else(|| {
-                            panic!("No port found for {}", abs.name)
+                            panic!("No port found for {}", abs.name())
                         });
                     // Update the value of the parameter
                     let v = params.get_mut(&value).unwrap();

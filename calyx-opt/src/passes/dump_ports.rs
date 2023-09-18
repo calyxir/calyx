@@ -1,7 +1,17 @@
-use crate::passes::compile_ref::RefPortMap;
 use calyx_ir::{self as ir, RRC, WRC};
+use ir::rewriter;
 use itertools::Itertools;
 use std::rc::Rc;
+
+#[derive(Default)]
+/// Results generated from the process of dumping out ports.
+pub struct DumpResults {
+    /// The cells that were removed from the component.
+    pub cells: Vec<RRC<ir::Cell>>,
+    /// Rewrites from (cell, port) to the new port.
+    /// Usually consumed by an [`ir::rewriter::Rewriter`].
+    pub rewrites: rewriter::PortRewriteMap,
+}
 
 /// Formats name of a port given the id of the cell and the port
 pub(super) fn format_port_name(canon: &ir::Canonical) -> ir::Id {
@@ -12,59 +22,65 @@ pub(super) fn format_port_name(canon: &ir::Canonical) -> ir::Id {
 /// the component and inline all the ports of the removed cells to the component
 /// signature.
 ///
-/// If remove_signals is true, does not inline ports marked with @clk and @reset.
-pub(super) fn dump_ports_to_signature(
+/// If `remove_clk_and_reset` is true, does not inline ports marked with @clk and @reset.
+pub(super) fn dump_ports_to_signature<F>(
     component: &mut ir::Component,
-    cell_filter: fn(&RRC<ir::Cell>) -> bool,
-    remove_signals: bool,
-    port_names: &mut RefPortMap,
-) {
-    let comp_name = component.name;
+    cell_filter: F,
+    remove_clk_and_reset: bool,
+) -> DumpResults
+where
+    F: Fn(&RRC<ir::Cell>) -> bool,
+{
+    let mut removed = rewriter::PortRewriteMap::default();
+
     let (ext_cells, cells): (Vec<_>, Vec<_>) =
         component.cells.drain().partition(cell_filter);
     component.cells.append(cells.into_iter());
 
-    for cell_ref in ext_cells {
-        let mut cell = cell_ref.borrow_mut();
+    for cell_ref in &ext_cells {
+        let cell = cell_ref.borrow();
+        log::debug!("cell `{}' removed", cell.name());
 
         // If we do not eliminate the @clk and @reset ports, we may
         // get signals conflicting the original @clk and @reset signals of
         // the component, see https://github.com/cucapra/calyx/issues/1034
         let ports_inline = cell
             .ports
-            .drain(..)
+            .iter()
             .filter(|pr| {
-                let p = pr.borrow();
-                if remove_signals {
-                    p.attributes.get(ir::BoolAttr::Clk).is_none()
-                        && p.attributes.get(ir::BoolAttr::Reset).is_none()
+                if remove_clk_and_reset {
+                    let p = pr.borrow();
+                    !p.attributes.has(ir::BoolAttr::Clk)
+                        && !p.attributes.has(ir::BoolAttr::Reset)
                 } else {
                     true
                 }
             })
+            .map(Rc::clone)
             .collect_vec();
-        // Explicitly drop `cell` otherwise call to `canonical` will panic
-        drop(cell);
 
         for port_ref in ports_inline {
             let canon = port_ref.borrow().canonical();
-            let port = &mut port_ref.borrow_mut();
-            // Change the name and the parent of this port.
-            port.name = component.generate_name(format_port_name(&canon));
-            // Point to the signature cell as its parent
-            port.parent = ir::PortParent::Cell(WRC::from(&component.signature));
-            // Remove any attributes from this cell port.
-            port.attributes = ir::Attributes::default();
+            let port = port_ref.borrow();
+            let new_port = ir::rrc(ir::Port {
+                name: component.generate_name(format_port_name(&canon)),
+                width: port.width,
+                direction: port.direction.clone(),
+                parent: ir::PortParent::Cell(WRC::from(&component.signature)),
+                attributes: ir::Attributes::default(),
+            });
             component
                 .signature
                 .borrow_mut()
                 .ports
-                .push(Rc::clone(&port_ref));
-            // Record the port to add to cells
-            port_names
-                .entry(comp_name)
-                .or_default()
-                .insert(canon, Rc::clone(&port_ref));
+                .push(Rc::clone(&new_port));
+
+            // Record the port as removed
+            removed.insert(canon.clone(), Rc::clone(&new_port));
         }
+    }
+    DumpResults {
+        cells: ext_cells,
+        rewrites: removed,
     }
 }

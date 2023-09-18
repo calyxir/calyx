@@ -1,0 +1,22 @@
+// -p well-formed -p clk-insertion
+import "primitives/core.futil";
+comb component layout_hw0() -> (flat_port_addr0: 4) {
+  cells {
+    add_0 = std_add(4);
+  }
+  wires {
+    flat_port_addr0 = add_0.out;
+    add_0.left = 4'd1;
+    add_0.right = 4'd2;
+  }
+}
+
+component main(@clk clk: 1) -> (out: 32) {
+    cells {
+        r = std_reg(32);
+    }
+    wires {
+        out = r.out;
+    }
+    control {}
+}

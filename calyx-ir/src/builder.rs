@@ -2,7 +2,6 @@
 //! representation.
 use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
 use calyx_frontend::BoolAttr;
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use super::{CellType, PortDef};
@@ -75,17 +74,17 @@ impl<'a> Builder<'a> {
         let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::Group::new(name)));
+        let group = ir::rrc(ir::Group::new(name));
 
         // Add default holes to the group.
         for (name, width) in &[("go", 1), ("done", 1)] {
-            let hole = Rc::new(RefCell::new(ir::Port {
+            let hole = ir::rrc(ir::Port {
                 name: ir::Id::from(*name),
                 width: *width,
                 direction: ir::Direction::Inout,
                 parent: ir::PortParent::Group(WRC::from(&group)),
                 attributes: ir::Attributes::default(),
-            }));
+            });
             group.borrow_mut().holes.push(hole);
         }
 
@@ -114,19 +113,19 @@ impl<'a> Builder<'a> {
         let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::StaticGroup::new(name, latency)));
+        let group = ir::rrc(ir::StaticGroup::new(name, latency));
 
         // Add default holes to the group.
         // Static Groups don't need a done hole.
         // May be beneficial to have a go hole, though (although maybe not)
         let (name, width) = ("go", 1);
-        let hole = Rc::new(RefCell::new(ir::Port {
+        let hole = ir::rrc(ir::Port {
             name: ir::Id::from(name),
             width,
             direction: ir::Direction::Inout,
             parent: ir::PortParent::StaticGroup(WRC::from(&group)),
             attributes: ir::Attributes::default(),
-        }));
+        });
         group.borrow_mut().holes.push(hole);
 
         // Add the group to the component.
@@ -145,11 +144,11 @@ impl<'a> Builder<'a> {
         let name = self.component.generate_name(prefix);
 
         // Check if there is a group with the same name.
-        let group = Rc::new(RefCell::new(ir::CombGroup {
+        let group = ir::rrc(ir::CombGroup {
             name,
             attributes: ir::Attributes::default(),
             assignments: vec![],
-        }));
+        });
 
         // Add the group to the component.
         self.component.comb_groups.add(Rc::clone(&group));
@@ -179,12 +178,12 @@ impl<'a> Builder<'a> {
         let cell = Self::cell_from_signature(
             name,
             ir::CellType::Constant { val, width },
-            vec![ir::PortDef {
-                name: "out".into(),
+            vec![ir::PortDef::new(
+                ir::Id::from("out"),
                 width,
-                direction: ir::Direction::Output,
-                attributes: ir::Attributes::default(),
-            }],
+                ir::Direction::Output,
+                ir::Attributes::default(),
+            )],
         );
 
         // Add constant to the Component.
@@ -346,24 +345,17 @@ impl<'a> Builder<'a> {
         typ: ir::CellType,
         ports: Vec<ir::PortDef<u64>>,
     ) -> RRC<ir::Cell> {
-        let cell = Rc::new(RefCell::new(ir::Cell::new(name, typ)));
-        ports.into_iter().for_each(
-            |PortDef {
-                 name,
-                 width,
-                 direction,
-                 attributes,
-             }| {
-                let port = Rc::new(RefCell::new(ir::Port {
-                    name,
-                    width,
-                    direction,
-                    parent: ir::PortParent::Cell(WRC::from(&cell)),
-                    attributes,
-                }));
-                cell.borrow_mut().ports.push(port);
-            },
-        );
+        let cell = ir::rrc(ir::Cell::new(name, typ));
+        ports.into_iter().for_each(|pd| {
+            let port = ir::rrc(ir::Port {
+                name: pd.name(),
+                width: pd.width,
+                direction: pd.direction,
+                parent: ir::PortParent::Cell(WRC::from(&cell)),
+                attributes: pd.attributes,
+            });
+            cell.borrow_mut().ports.push(port);
+        });
         cell
     }
 }

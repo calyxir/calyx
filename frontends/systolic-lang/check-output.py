@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument("-td", "--top-depth", type=int)
     parser.add_argument("-ll", "--left-length", type=int)
     parser.add_argument("-ld", "--left-depth", type=int)
+    parser.add_argument("-p", "--post-op", type=str, default=None)
     parser.add_argument("-j", "--json-file", type=str)
 
     args = parser.parse_args()
@@ -30,12 +31,13 @@ if __name__ == "__main__":
     td = args.top_depth
     ll = args.left_length
     ld = args.left_depth
+    post_op = args.post_op
     json_file = args.json_file
 
     assert td == ld, f"Cannot multiply matrices: " f"{tl}x{td} and {ld}x{ll}"
 
-    left = np.zeros((ll, ld), dtype="i")
-    top = np.zeros((td, tl), dtype="i")
+    left = np.zeros((ll, ld), "f")
+    top = np.zeros((td, tl), "f")
     json_data = json.load(open(json_file))["memories"]
 
     for r in range(ll):
@@ -47,13 +49,18 @@ if __name__ == "__main__":
             top[r][c] = json_data[f"t{c}"][r]
 
     matmul_result = np.matmul(left, top)
+    if post_op == "leaky-relu":
+        matmul_result = np.where(matmul_result > 0, matmul_result, matmul_result * 0.01)
+    elif post_op == "relu":
+        matmul_result = np.where(matmul_result > 0, matmul_result, 0)
 
     res = []
     for r in range(ll):
-        res.append(json_data[f"out_mem_{r}"])
+        res.append(list(map(float, json_data[f"out_mem_{r}"])))
+
     json_result = np.array(res)
 
-    if np.array_equal(json_result, matmul_result):
+    if np.isclose(matmul_result, json_result, atol=1e-3).all():
         print("Correct")
     else:
         print("Incorrect\n. Should have been:\n")

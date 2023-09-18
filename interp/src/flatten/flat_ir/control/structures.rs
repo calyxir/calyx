@@ -5,7 +5,7 @@ use crate::flatten::{
     structures::{index_trait::impl_index, indexed_map::IndexedMap},
 };
 
-#[derive(Debug, Eq, Copy, Clone, PartialEq)]
+#[derive(Debug, Eq, Copy, Clone, PartialEq, Hash)]
 pub struct ControlIdx(u32);
 impl_index!(ControlIdx);
 

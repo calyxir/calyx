@@ -2,7 +2,6 @@ use super::dump_ports;
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::CalyxResult;
-use std::collections::HashMap;
 
 /// Externalize input/output ports for cells marked with the `@external(1)` attribute.
 /// The ports of these cells are exposed through the ports of the parent
@@ -75,14 +74,27 @@ impl Visitor for Externalize {
         _ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut port_names = HashMap::new();
-        dump_ports::dump_ports_to_signature(
-            comp,
-            has_external_attribute,
-            false,
-            &mut port_names,
-        );
+        let dump_ports::DumpResults { cells, rewrites } =
+            dump_ports::dump_ports_to_signature(
+                comp,
+                has_external_attribute,
+                false,
+            );
 
-        Ok(Action::Continue)
+        let rw = ir::Rewriter {
+            port_map: rewrites,
+            ..Default::default()
+        };
+        comp.for_each_assignment(|assign| {
+            rw.rewrite_assign(assign);
+        });
+        comp.for_each_static_assignment(|assign| {
+            rw.rewrite_assign(assign);
+        });
+        rw.rewrite_control(&mut comp.control.borrow_mut());
+        // Don't allow cells to be dropped before this because otherwise rewriting will fail
+        drop(cells);
+
+        Ok(Action::Stop)
     }
 }

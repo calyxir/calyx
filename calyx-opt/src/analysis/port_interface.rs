@@ -30,7 +30,7 @@ impl PortInterface {
                 .map(|pd| {
                     (
                         pd.attributes.get(ir::NumAttr::WriteTogether).unwrap(),
-                        pd.name,
+                        pd.name(),
                     )
                 })
                 .into_group_map()
@@ -69,10 +69,10 @@ impl PortInterface {
                     }
                     assert!(outputs.len() == 1);
                     Ok((
-                        outputs[0].name,
+                        outputs[0].name(),
                         inputs
                             .into_iter()
-                            .map(|port| port.name)
+                            .map(|port| port.name())
                             .collect::<HashSet<_>>(),
                     ))
                 })

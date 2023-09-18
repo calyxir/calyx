@@ -1,0 +1,47 @@
+import "primitives/compile.futil";
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1, m_out: 32, m_done: 1) -> (@done done: 1, m_in: 32, m_write_en: 1) {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    group upd_m {
+      m_in = 32'd10;
+      m_write_en = 1'd1;
+      upd_m[done] = m_done;
+    }
+  }
+  control {
+    upd_m;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    f = foo();
+    k1 = std_reg(32);
+    k2 = std_reg(32);
+  }
+  wires {
+    group invoke0 {
+      k1.in = f.m_in;
+      k1.write_en = f.m_write_en;
+      f.m_out = k1.out;
+      f.m_done = k1.done;
+      f.go = 1'd1;
+      invoke0[done] = f.done;
+    }
+    group invoke1 {
+      k2.in = f.m_in;
+      k2.write_en = f.m_write_en;
+      f.m_out = k2.out;
+      f.m_done = k2.done;
+      f.go = 1'd1;
+      invoke1[done] = f.done;
+    }
+  }
+  control {
+    seq {
+      invoke0;
+      invoke1;
+    }
+  }
+}

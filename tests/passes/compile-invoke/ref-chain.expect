@@ -1,0 +1,61 @@
+import "primitives/compile.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    i = incr();
+    value = std_reg(32);
+  }
+  wires {
+    group invoke0 {
+      value.in = i.value_in;
+      value.write_en = i.value_write_en;
+      i.value_out = value.out;
+      i.value_done = value.done;
+      i.go = 1'd1;
+      invoke0[done] = i.done;
+    }
+  }
+  control {
+    seq {
+      invoke0;
+    }
+  }
+}
+component incr(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_done: 1) -> (@done done: 1, value_in: 32, value_write_en: 1) {
+  cells {
+    ih = incr_helper();
+  }
+  wires {
+    group invoke0 {
+      value_in = ih.value_in;
+      value_write_en = ih.value_write_en;
+      ih.value_out = value_out;
+      ih.value_done = value_done;
+      ih.go = 1'd1;
+      invoke0[done] = ih.done;
+    }
+  }
+  control {
+    seq {
+      invoke0;
+    }
+  }
+}
+component incr_helper(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_done: 1) -> (@done done: 1, value_in: 32, value_write_en: 1) {
+  cells {
+    incr_value = std_add(32);
+  }
+  wires {
+    group incr_value_group {
+      value_write_en = 1'd1;
+      incr_value.right = 32'd1;
+      incr_value.left = value_out;
+      value_in = incr_value.out;
+      incr_value_group[done] = value_done;
+    }
+  }
+  control {
+    seq {
+      incr_value_group;
+    }
+  }
+}

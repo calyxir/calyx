@@ -2,12 +2,25 @@ from __future__ import annotations
 
 import threading
 from typing import Dict, Union, Optional, List
+from dataclasses import dataclass
 from . import py_ast as ast
 
 # Thread-local storage to keep track of the current GroupBuilder we have
 # entered as a context manager. This is weird magic!
 TLS = threading.local()
 TLS.groups = []
+
+
+class NotFoundError(Exception):
+    """Raised when a component or group is not found."""
+
+
+class WidthInferenceError(Exception):
+    """Raised when we cannot infer the width of an expression."""
+
+
+class MalformedGroupError(Exception):
+    """Raised when a group is malformed."""
 
 
 class Builder:
@@ -34,7 +47,7 @@ class Builder:
         """Retrieve a component builder by name."""
         comp_builder = self._index.get(name)
         if comp_builder is None:
-            raise Exception(f"Component `{name}' not found in program.")
+            raise NotFoundError(f"Component `{name}' not found in program.")
         else:
             return comp_builder
 
@@ -47,6 +60,8 @@ class Builder:
 
 class ComponentBuilder:
     """Builds Calyx components definitions."""
+
+    next_gen_idx = 0
 
     def __init__(
         self,
@@ -71,6 +86,15 @@ class ComponentBuilder:
         for cell in cells:
             self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
+        self.next_gen_idx = 0
+
+    def generate_name(self, prefix: str) -> str:
+        """Generate a unique name with the given prefix."""
+        while True:
+            self.next_gen_idx += 1
+            name = f"{prefix}_{self.next_gen_idx}"
+            if name not in self.index:
+                return name
 
     def input(self, name: str, size: int) -> ExprBuilder:
         """Declare an input port on the component.
@@ -108,13 +132,25 @@ class ComponentBuilder:
         else:
             self.component.controls = builder
 
+    def port_width(self, port: ExprBuilder) -> int:
+        """Get the width of an expression, which may be a port of this component."""
+        name = ExprBuilder.unwrap(port).item.id.name
+        for input in self.component.inputs:
+            if input.id.name == name:
+                return input.width
+        for output in self.component.outputs:
+            if output.id.name == name:
+                return output.width
+        # Give up.
+        return None
+
     def get_cell(self, name: str) -> CellBuilder:
         """Retrieve a cell builder by name."""
         out = self.index.get(name)
         if out and isinstance(out, CellBuilder):
             return out
         else:
-            raise Exception(
+            raise NotFoundError(
                 f"Cell `{name}' not found in component {self.component.name}.\n"
                 f"Known cells: {list(map(lambda c: c.id.name, self.component.cells))}"
             )
@@ -133,9 +169,17 @@ class ComponentBuilder:
         if out and isinstance(out, GroupBuilder):
             return out
         else:
-            raise Exception(
+            raise NotFoundError(
                 f"Group `{name}' not found in component {self.component.name}"
             )
+
+    def try_get_group(self, name: str) -> GroupBuilder:
+        """Tries to get a group builder by name. If cannot find it, return None"""
+        out = self.index.get(name)
+        if out and isinstance(out, GroupBuilder):
+            return out
+        else:
+            return None
 
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""
@@ -171,11 +215,11 @@ class ComponentBuilder:
         self,
         name: str,
         comp: Union[ast.CompInst, ComponentBuilder],
-        is_external=False,
-        is_ref=False,
+        is_external: bool = False,
+        is_ref: bool = False,
     ) -> CellBuilder:
-        """Declare a cell in the component. Returns a cell builder."""
-        # If we get a (non-primitive) component builder, instantiate it
+        """Declare a cell in the component. Return a cell builder."""
+        # If given a (non-primitive) component builder, instantiate it
         # with no parameters.
         if isinstance(comp, ComponentBuilder):
             comp = ast.CompInst(comp.component.name, [])
@@ -214,9 +258,23 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int) -> CellBuilder:
+    def reg(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
         """Generate a StdReg cell."""
-        return self.cell(name, ast.Stdlib.register(size))
+        return self.cell(name, ast.Stdlib.register(size), False, is_ref)
+
+    def wire(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
+        """Generate a StdWire cell."""
+        return self.cell(name, ast.Stdlib.wire(size), False, is_ref)
+
+    def slice(
+        self,
+        name: str,
+        in_width: int,
+        out_width: int,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a StdSlice cell."""
+        return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
@@ -228,62 +286,412 @@ class ComponentBuilder:
         bitwidth: int,
         len: int,
         idx_size: int,
-        is_external=False,
-        is_ref=False,
+        is_external: bool = False,
+        is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a StdMemD1 cell."""
         return self.cell(
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
-    def add(self, name: str, size: int, signed=False) -> CellBuilder:
+    def seq_mem_d1(
+        self,
+        name: str,
+        bitwidth: int,
+        len: int,
+        idx_size: int,
+        is_external: bool = False,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a SeqMemD1 cell."""
+        self.prog.import_("primitives/memories.futil")
+        return self.cell(
+            name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
+        )
+
+    def binary(
+        self,
+        operation: str,
+        size: int,
+        name: Optional[str] = None,
+        signed: bool = False,
+    ) -> CellBuilder:
+        """Generate a binary cell of the kind specified in `operation`."""
+        self.prog.import_("primitives/binary_operators.futil")
+        name = name or self.generate_name(operation)
+        assert isinstance(name, str), f"name {name} is not a string"
+        return self.cell(name, ast.Stdlib.op(operation, size, signed))
+
+    def add(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdAdd cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("add", size, signed))
+        return self.binary("add", size, name, signed)
 
-    def sub(self, name: str, size: int, signed=False):
+    def sub(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdSub cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("sub", size, signed))
+        return self.binary("sub", size, name, signed)
 
-    def gt(self, name: str, size: int, signed=False):
+    def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGt cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("gt", size, signed))
+        return self.binary("gt", size, name, signed)
 
-    def lt(self, name: str, size: int, signed=False):
+    def lt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLt cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("lt", size, signed))
+        return self.binary("lt", size, name, signed)
 
-    def eq(self, name: str, size: int, signed=False):
+    def eq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdEq cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("eq", size, signed))
+        return self.binary("eq", size, name, signed)
 
-    def neq(self, name: str, size: int, signed=False):
+    def neq(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdNeq cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("neq", size, signed))
+        return self.binary("neq", size, name, signed)
 
-    def ge(self, name: str, size: int, signed=False):
+    def ge(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGe cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("ge", size, signed))
+        return self.binary("ge", size, name, signed)
 
-    def le(self, name: str, size: int, signed=False):
+    def le(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLe cell."""
-        self.prog.import_("primitives/binary_operators.futil")
-        return self.cell(name, ast.Stdlib.op("le", size, signed))
+        return self.binary("le", size, name, signed)
 
-    def and_(self, name: str, size: int) -> CellBuilder:
+    def rsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+        """Generate a StdRsh cell."""
+        return self.binary("rsh", size, name, signed)
+
+    def logic(self, operation, size: int, name: str = None) -> CellBuilder:
+        """Generate a logical operator cell, of the flavor specified in `operation`."""
+        name = name or self.generate_name(operation)
+        assert isinstance(name, str)
+        return self.cell(name, ast.Stdlib.op(operation, size, False))
+
+    def and_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdAnd cell."""
-        return self.cell(name, ast.Stdlib.op("and", size, False))
+        name = name or self.generate_name("and")
+        return self.logic("and", size, name)
+
+    def not_(self, size: int, name: str = None) -> CellBuilder:
+        """Generate a StdNot cell."""
+        name = name or self.generate_name("not")
+        return self.logic("not", size, name)
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
         self.prog.import_("primitives/pipelined.futil")
         return self.cell(name, ast.Stdlib.pipelined_mult())
+
+    def pipelined_fp_smult(
+        self, name: str, width, int_width, frac_width
+    ) -> CellBuilder:
+        """Generate a pipelined fixed point signed multiplier."""
+        self.prog.import_("primitives/pipelined.futil")
+        return self.cell(
+            name, ast.Stdlib.pipelined_fp_smult(width, int_width, frac_width)
+        )
+
+    def fp_op(
+        self,
+        cell_name: str,
+        op_name,
+        width: int,
+        int_width: int,
+        frac_width: int,
+    ) -> CellBuilder:
+        """Generate an UNSIGNED fixed point op."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(
+            cell_name,
+            ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, False),
+        )
+
+    def fp_sop(
+        self,
+        cell_name: str,
+        op_name,
+        width: int,
+        int_width: int,
+        frac_width: int,
+    ) -> CellBuilder:
+        """Generate a SIGNED fixed point op."""
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(
+            cell_name,
+            ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, True),
+        )
+
+    def binary_use(self, left, right, cell, groupname=None):
+        """Accepts a cell that performs some computation on values `left` and `right`.
+        Creates a combinational group that wires up the cell with these ports.
+        Returns the cell and the combintational group.
+
+        comb group `groupname` {
+            `cell.name`.left = `left`;
+            `cell.name`.right = `right`;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        groupname = groupname or f"{cell.name}_group"
+        with self.comb_group(groupname) as comb_group:
+            cell.left = left
+            cell.right = right
+        return CellAndGroup(cell, comb_group)
+
+    def try_infer_width(self, width, left, right):
+        """If `width` is None, try to infer it from `left` or `right`.
+        If that fails, raise an error.
+        """
+        width = width or self.infer_width(left) or self.infer_width(right)
+        if not width:
+            raise WidthInferenceError(
+                "Cannot infer widths from `left` or `right`. "
+                "Consider providing width as an argument."
+            )
+        return width
+
+    def eq_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to check if `left` == `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.eq(width, cellname, signed))
+
+    def neq_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to check if `left` != `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.neq(width, cellname, signed))
+
+    def lt_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to check if `left` < `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.lt(width, cellname, signed))
+
+    def le_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to check if `left` <= `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.le(width, cellname, signed))
+
+    def ge_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to check if `left` >= `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.ge(width, cellname, signed))
+
+    def gt_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to check if `left` > `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.gt(width, cellname, signed))
+
+    def add_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to compute `left` + `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.add(width, cellname, signed))
+
+    def sub_use(self, left, right, signed=False, cellname=None, width=None):
+        """Inserts wiring into `self` to compute `left` - `right`."""
+        width = self.try_infer_width(width, left, right)
+        return self.binary_use(left, right, self.sub(width, cellname, signed))
+
+    def bitwise_flip_reg(self, reg, cellname=None):
+        """Inserts wiring into `self` to bitwise-flip the contents of `reg`
+        and put the result back into `reg`.
+        """
+        cellname = cellname or f"{reg.name}_not"
+        width = reg.infer_width_reg()
+        not_cell = self.not_(width, cellname)
+        with self.group(f"{cellname}_group") as not_group:
+            not_cell.in_ = reg.out
+            reg.write_en = 1
+            reg.in_ = not_cell.out
+            not_group.done = reg.done
+        return not_group
+
+    def incr(self, reg, val=1, signed=False, cellname=None):
+        """Inserts wiring into `self` to perform `reg := reg + val`."""
+        cellname = cellname or f"{reg.name}_incr"
+        width = reg.infer_width_reg()
+        add_cell = self.add(width, cellname, signed)
+        with self.group(f"{cellname}_group") as incr_group:
+            add_cell.left = reg.out
+            add_cell.right = const(width, val)
+            reg.write_en = 1
+            reg.in_ = add_cell.out
+            incr_group.done = reg.done
+        return incr_group
+
+    def decr(self, reg, val=1, signed=False, cellname=None):
+        """Inserts wiring into `self` to perform `reg := reg - val`."""
+        cellname = cellname or f"{reg.name}_decr"
+        width = reg.infer_width_reg()
+        sub_cell = self.sub(width, cellname, signed)
+        with self.group(f"{cellname}_group") as decr_group:
+            sub_cell.left = reg.out
+            sub_cell.right = const(width, val)
+            reg.write_en = 1
+            reg.in_ = sub_cell.out
+            decr_group.done = reg.done
+        return decr_group
+
+    def reg_store(self, reg, val, groupname=None):
+        """Inserts wiring into `self` to perform `reg := val`."""
+        groupname = groupname or f"{reg.name}_store_to_reg"
+        with self.group(groupname) as reg_grp:
+            reg.in_ = val
+            reg.write_en = 1
+            reg_grp.done = reg.done
+        return reg_grp
+
+    def mem_load_std_d1(self, mem, i, reg, groupname=None):
+        """Inserts wiring into `self` to perform `reg := mem[i]`,
+        where `mem` is a std_d1 memory.
+        """
+        assert mem.is_std_mem_d1()
+        groupname = groupname or f"{mem.name()}_load_to_reg"
+        with self.group(groupname) as load_grp:
+            mem.addr0 = i
+            reg.write_en = 1
+            reg.in_ = mem.read_data
+            load_grp.done = reg.done
+        return load_grp
+
+    def mem_store_std_d1(self, mem, i, val, groupname=None):
+        """Inserts wiring into `self` to perform `mem[i] := val`,
+        where `mem` is a std_d1 memory."""
+        assert mem.is_std_mem_d1()
+        groupname = groupname or f"store_into_{mem.name()}"
+        with self.group(groupname) as store_grp:
+            mem.addr0 = i
+            mem.write_en = 1
+            mem.write_data = val
+            store_grp.done = mem.done
+        return store_grp
+
+    def mem_read_seq_d1(self, mem, i, groupname=None):
+        """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
+        where `mem` is a seq_d1 memory.
+        Note that this does not write the value anywhere.
+        """
+        assert mem.is_seq_mem_d1()
+        groupname = groupname or f"read_from_{mem.name()}"
+        with self.group(groupname) as read_grp:
+            mem.addr0 = i
+            mem.read_en = 1
+            read_grp.done = mem.read_done
+        return read_grp
+
+    def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
+        """Inserts wiring into `self` to perform reg := <mem_latched_value>,
+        where `mem` is a seq_d1 memory that already has some latched value.
+        """
+        assert mem.is_seq_mem_d1()
+        groupname = groupname or f"{mem.name()}_write_to_reg"
+        with self.group(groupname) as write_grp:
+            reg.write_en = 1
+            reg.in_ = mem.read_data
+            write_grp.done = reg.done
+        return write_grp
+
+    def mem_store_seq_d1(self, mem, i, val, groupname=None):
+        """Inserts wiring into `self` to perform `mem[i] := val`,
+        where `mem` is a seq_d1 memory.
+        """
+        assert mem.is_seq_mem_d1()
+        groupname = groupname or f"{mem.name()}_store"
+        with self.group(groupname) as store_grp:
+            mem.addr0 = i
+            mem.write_en = 1
+            mem.write_data = val
+            store_grp.done = mem.write_done
+        return store_grp
+
+    def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
+        """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
+        where `mem` and `ans` are both std_d1 memories.
+        """
+        assert mem.is_std_mem_d1() and ans.is_std_mem_d1()
+        groupname = groupname or f"{mem.name()}_load_to_mem"
+        with self.group(groupname) as load_grp:
+            mem.addr0 = i
+            ans.write_en = 1
+            ans.addr0 = j
+            ans.write_data = mem.read_data
+            load_grp.done = ans.done
+        return load_grp
+
+    def op_store_in_reg(self, op_cell, left, right, cellname, width, ans_reg=None):
+        """Inserts wiring into `self` to perform `reg := left op right`,
+        where `op_cell`, a Cell that performs some `op`, is provided.
+        """
+        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
+        with self.group(f"{cellname}_group") as op_group:
+            op_cell.left = left
+            op_cell.right = right
+            ans_reg.write_en = 1
+            ans_reg.in_ = op_cell.out
+            op_group.done = ans_reg.done
+        return op_group, ans_reg
+
+    def add_store_in_reg(
+        self, left, right, cellname, width, ans_reg=None, signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left + right`."""
+        return self.op_store_in_reg(
+            self.add(width, cellname, signed), left, right, cellname, width, ans_reg
+        )
+
+    def sub_store_in_reg(
+        self, left, right, cellname, width, ans_reg=None, signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left - right`."""
+        return self.op_store_in_reg(
+            self.sub(width, cellname, signed), left, right, cellname, width, ans_reg
+        )
+
+    def eq_store_in_reg(self, left, right, cellname, width, ans_reg=None, signed=False):
+        """Inserts wiring into `self` to perform `reg := left == right`."""
+        return self.op_store_in_reg(
+            self.eq(width, cellname, signed), left, right, cellname, 1, ans_reg
+        )
+
+    def neq_store_in_reg(
+        self, left, right, cellname, width, ans_reg=None, signed=False
+    ):
+        """Inserts wiring into `self` to perform `reg := left != right`."""
+        return self.op_store_in_reg(
+            self.neq(width, cellname, signed), left, right, cellname, 1, ans_reg
+        )
+
+    def infer_width(self, expr) -> int:
+        """Infer the width of an expression."""
+        if isinstance(expr, int):  # We can't infer the width of an integer.
+            return None
+        if self.port_width(expr):  # It's an in/out port of this component!
+            return self.port_width(expr)
+        expr = ExprBuilder.unwrap(expr)  # We unwrap the expr.
+        if isinstance(expr, ast.Atom):  # Inferring width of Atom.
+            if isinstance(expr.item, ast.ThisPort):  # Atom is a ThisPort.
+                # If we can infer it from this, great, otherwise give up.
+                return self.port_width(expr)
+            # Not a ThisPort, but maybe some `cell.port`?
+            cell_name = expr.item.id.name
+            port_name = expr.item.name
+            cell_builder = self.index[cell_name]
+            if not isinstance(cell_builder, CellBuilder):
+                return None  # Something is wrong, we should have a CellBuilder
+            # Okay, we really have a CellBuilder.
+            # Let's try to infer the width of the port.
+            # If this fails, give up.
+            return cell_builder.infer_width(port_name)
+
+
+@dataclass(frozen=True)
+class CellAndGroup:
+    """Just a cell and a group, for when it is convenient to
+    pass them around together.
+
+    Typically the group will be a combinational group, and `if_with` and
+    `while_with` will require that a CellAndGroup be passed in, not a
+    cell and a group separately.
+    """
+
+    cell: CellBuilder
+    group: GroupBuilder
 
 
 def as_control(obj):
@@ -300,11 +708,11 @@ def as_control(obj):
     """
     if isinstance(obj, ast.Control):
         return obj
-    elif isinstance(obj, str):
+    if isinstance(obj, str):
         return ast.Enable(obj)
-    elif isinstance(obj, ast.Group):
+    if isinstance(obj, ast.Group):
         return ast.Enable(obj.id.name)
-    elif isinstance(obj, GroupBuilder):
+    if isinstance(obj, GroupBuilder):
         gl = obj.group_like
         assert gl, (
             "GroupBuilder represents continuous assignments and"
@@ -314,29 +722,25 @@ def as_control(obj):
             gl, ast.CombGroup
         ), "Cannot use combinational group as control statement"
         return ast.Enable(gl.id.name)
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
-    elif isinstance(obj, set):
+    if isinstance(obj, set):
         raise TypeError(
             "Python sets are not supported in control programs. For a parallel"
             " composition use `Builder.par` instead."
         )
-    elif obj is None:
+    if obj is None:
         return ast.Empty()
     else:
         assert False, f"unsupported control type {type(obj)}"
 
 
-def while_(port: ExprBuilder, cond: Optional[GroupBuilder], body) -> ast.While:
-    """Build a `while` control statement."""
-    if cond:
-        assert isinstance(
-            cond.group_like, ast.CombGroup
-        ), "while condition must be a combinational group"
-        cg = cond.group_like.id
-    else:
-        cg = None
-    return ast.While(port.expr, cg, as_control(body))
+def while_(port: ExprBuilder, body) -> ast.While:
+    """Build a `while` control statement.
+
+    To build a `while` statement with a combinational group, use `while_with`.
+    """
+    return ast.While(port.expr, None, as_control(body))
 
 
 def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
@@ -346,21 +750,15 @@ def static_repeat(num_repeats: int, body) -> ast.StaticRepeat:
 
 def if_(
     port: ExprBuilder,
-    cond: Optional[GroupBuilder],
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `static if` control statement."""
-    else_body = ast.Empty() if else_body is None else else_body
+    """Build an `if` control statement.
 
-    if cond:
-        assert isinstance(
-            cond.group_like, ast.CombGroup
-        ), "if condition must be a combinational group"
-        cg = cond.group_like.id
-    else:
-        cg = None
-    return ast.If(port.expr, cg, as_control(body), as_control(else_body))
+    To build an `if` statement with a combinational group, use `if_with`.
+    """
+    else_body = else_body or ast.Empty()
+    return ast.If(port.expr, None, as_control(body), as_control(else_body))
 
 
 def static_if(
@@ -368,9 +766,38 @@ def static_if(
     body,
     else_body=None,
 ) -> ast.If:
-    """Build an `if` control statement."""
-    else_body = ast.Empty() if else_body is None else else_body
+    """Build a `static if` control statement."""
+    else_body = else_body or ast.Empty()
     return ast.StaticIf(port.expr, as_control(body), as_control(else_body))
+
+
+def if_with(port_comb: CellAndGroup, body, else_body=None) -> ast.If:
+    """Build an if statement, where the cell and the combinational group
+    are provided together.
+    """
+    port = port_comb.cell.out
+    cond = port_comb.group
+    else_body = else_body or ast.Empty()
+
+    assert isinstance(
+        cond.group_like, ast.CombGroup
+    ), "if condition must be a combinational group"
+    return ast.If(
+        port.expr, cond.group_like.id, as_control(body), as_control(else_body)
+    )
+
+
+def while_with(port_comb: CellAndGroup, body) -> ast.While:
+    """Build a while statement, where the cell and the combinational
+    group are provided together.
+    """
+
+    port = port_comb.cell.out
+    cond = port_comb.group
+    assert isinstance(
+        cond.group_like, ast.CombGroup
+    ), "while condition must be a combinational group"
+    return ast.While(port.expr, cond.group_like.id, as_control(body))
 
 
 def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
@@ -471,18 +898,25 @@ class ExprBuilder:
         """Construct an inequality comparison with ==."""
         return ExprBuilder(ast.Neq(self.expr, other.expr))
 
+    @property
+    def name(self):
+        """Get the name of the expression."""
+        return self.expr.name
+
     @classmethod
     def unwrap(cls, obj):
+        """Unwrap an expression builder, or return the object if it is not one."""
         if isinstance(obj, cls):
             return obj.expr
-        else:
-            return obj
+        return obj
 
 
+@dataclass
 class CondExprBuilder:
-    def __init__(self, cond, value):
-        self.cond = cond
-        self.value = value
+    """Wraps a conditional expression."""
+
+    cond: ExprBuilder
+    value: ExprBuilder
 
 
 class CellLikeBuilder:
@@ -541,6 +975,86 @@ class CellBuilder(CellLikeBuilder):
     def port(self, name: str) -> ExprBuilder:
         """Build a port access expression."""
         return ExprBuilder(ast.Atom(ast.CompPort(self._cell.id, name)))
+
+    def is_primitive(self, prim_name) -> bool:
+        """Check if the cell is an instance of the primitive `prim_name`."""
+        return (
+            isinstance(self._cell.comp, ast.CompInst)
+            and self._cell.comp.id == prim_name
+        )
+
+    def is_std_mem_d1(self) -> bool:
+        """Check if the cell is a StdMemD1 cell."""
+        return self.is_primitive("std_mem_d1")
+
+    def is_seq_mem_d1(self) -> bool:
+        """Check if the cell is a SeqMemD1 cell."""
+        return self.is_primitive("seq_mem_d1")
+
+    def infer_width_reg(self) -> int:
+        """Infer the width of a register. That is, the width of `reg.in`."""
+        assert self._cell.comp.id == "std_reg", "Cell is not a register"
+        return self._cell.comp.args[0]
+
+    def infer_width(self, port_name) -> int:
+        """Infer the width of a port on the cell."""
+        inst = self._cell.comp
+        prim = inst.id
+        if prim == "std_reg":
+            if port_name in ("in", "out"):
+                return inst.args[0]
+            if port_name == "write_en":
+                return 1
+            return None
+        # XXX(Caleb): add all the primitive names instead of adding whenever I need one
+        if prim in (
+            "std_add",
+            "std_sub",
+            "std_lt",
+            "std_le",
+            "std_ge",
+            "std_gt",
+            "std_eq",
+            "std_neq",
+            "std_sgt",
+            "std_slt",
+            "std_fp_sgt",
+            "std_fp_slt",
+        ):
+            if port_name in ("left", "right"):
+                return inst.args[0]
+        if prim in ("std_mem_d1", "seq_mem_d1"):
+            if port_name == "write_en":
+                return 1
+            if port_name == "addr0":
+                return inst.args[2]
+            if port_name == "in":
+                return inst.args[0]
+            if prim == "seq_mem_d1" and port_name == "read_en":
+                return 1
+        if prim in (
+            "std_mult_pipe",
+            "std_smult_pipe",
+            "std_mod_pipe",
+            "std_smod_pipe",
+            "std_div_pipe",
+            "std_sdiv_pipe",
+            "std_fp_smult_pipe",
+        ):
+            if port_name in ("left", "right"):
+                return inst.args[0]
+            if port_name == "go":
+                return 1
+        if prim == "std_wire" and port_name == "in":
+            return inst.args[0]
+
+        # Give up.
+        return None
+
+    @property
+    def name(self) -> str:
+        """Get the name of the cell."""
+        return self._cell.id.name
 
     @classmethod
     def unwrap_id(cls, obj):
@@ -610,7 +1124,7 @@ class GroupBuilder:
         if isinstance(rhs, int):
             width = infer_width(lhs)
             if not width:
-                raise Exception(f"could not infer width for literal {rhs}")
+                raise WidthInferenceError(f"could not infer width for literal {rhs}")
             rhs = const(width, rhs)
 
         assert isinstance(rhs, (ExprBuilder, ast.Port)), (
@@ -645,8 +1159,9 @@ class GroupBuilder:
     def done(self, expr):
         """Build an assignment to `done` in the group."""
         if not self.group_like:
-            raise Exception(
-                "GroupBuilder represents continuous assignments and does not have a done hole"
+            raise MalformedGroupError(
+                "GroupBuilder represents continuous assignments and does "
+                "not have a done hole"
             )
         self.asgn(self.done, expr)
 
@@ -656,6 +1171,20 @@ class GroupBuilder:
 
     def __exit__(self, exc, value, tb):
         TLS.groups.pop()
+
+    def infer_width(self, expr):
+        """Try to guess the width of a port expression in this group."""
+        assert isinstance(expr, ast.Atom)
+        if isinstance(expr.item, ast.ThisPort):
+            return self.comp.port_width(expr)
+        cell_name = expr.item.id.name
+        port_name = expr.item.name
+
+        cell_builder = self.comp.index[cell_name]
+        if not isinstance(cell_builder, CellBuilder):
+            return None
+
+        return cell_builder.infer_width(port_name)
 
 
 def const(width: int, value: int) -> ExprBuilder:
@@ -673,8 +1202,6 @@ def infer_width(expr):
 
     Return an int, or None if we don't have a guess.
     """
-    assert TLS.groups, "int width inference only works inside `with group:`"
-    group_builder: GroupBuilder = TLS.groups[-1]
 
     # Deal with `done` holes.
     expr = ExprBuilder.unwrap(expr)
@@ -682,56 +1209,10 @@ def infer_width(expr):
         assert expr.name == "done", f"unknown hole {expr.name}"
         return 1
 
-    # Otherwise, it's a `cell.port` lookup.
-    assert isinstance(expr, ast.Atom)
-    cell_name = expr.item.id.name
-    port_name = expr.item.name
+    assert TLS.groups, "int width inference only works inside `with group:`"
+    group_builder: GroupBuilder = TLS.groups[-1]
 
-    # Look up the component for the referenced cell.
-    cell_builder = group_builder.comp.index[cell_name]
-    if isinstance(cell_builder, CellBuilder):
-        inst = cell_builder._cell.comp
-    else:
-        return None
-
-    # Extract widths from stdlib components we know.
-    prim = inst.id
-    if prim == "std_reg":
-        if port_name == "in":
-            return inst.args[0]
-        elif port_name == "write_en":
-            return 1
-    elif prim in ("std_add", "std_lt", "std_le", "std_ge", "std_gt", "std_eq"):
-        if port_name == "left" or port_name == "right":
-            return inst.args[0]
-    elif prim == "std_mem_d1" or prim == "seq_mem_d1":
-        if port_name == "write_en":
-            return 1
-        elif port_name == "addr0":
-            return inst.args[2]
-        elif port_name == "in":
-            return inst.args[0]
-        if prim == "seq_mem_d1":
-            if port_name == "read_en":
-                return 1
-    elif prim in (
-        "std_mult_pipe",
-        "std_smult_pipe",
-        "std_mod_pipe",
-        "std_smod_pipe",
-        "std_div_pipe",
-        "std_sdiv_pipe",
-    ):
-        if port_name == "left" or port_name == "right":
-            return inst.args[0]
-        elif port_name == "go":
-            return 1
-    elif prim == "std_wire":
-        if port_name == "in":
-            return inst.args[0]
-
-    # Give up.
-    return None
+    return group_builder.infer_width(expr)
 
 
 def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
@@ -741,10 +1222,8 @@ def ctx_asgn(lhs: ExprBuilder, rhs: Union[ExprBuilder, CondExprBuilder]):
     group_builder.asgn(lhs, rhs)
 
 
-"""A one bit low signal"""
-LO = const(1, 0)
-"""A one bit high signal"""
-HI = const(1, 1)
+LO = const(1, 0)  # A one bit low signal
+HI = const(1, 1)  # A one bit high signal
 
 
 def par(*args) -> ast.ParComp:
@@ -766,3 +1245,82 @@ def seq(*args) -> ast.SeqComp:
     {a; b; c;}`.
     """
     return ast.SeqComp([as_control(x) for x in args])
+
+
+def add_comp_params(comp: ComponentBuilder, input_ports: List, output_ports: List):
+    """
+    Adds `input_ports`/`output_ports` as inputs/outputs to comp.
+    `input_ports`/`output_ports` should contain an (input_name, input_width) pair.
+    """
+    for name, width in input_ports:
+        comp.input(name, width)
+    for name, width in output_ports:
+        comp.output(name, width)
+
+
+def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
+    """
+    Add parameters to component `comp` if we want to read from a mem named
+    `name` with address width of `addr_width` and data width of `data_width`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_read_data", data_width)],
+        output_ports=[(f"{name}_addr0", addr_width)],
+    )
+
+
+def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
+    """
+    Add arguments to component `comp` if we want to write to a mem named
+    `name` with address width of `addr_width` and data width of `data_width`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_done", 1)],
+        output_ports=[
+            (f"{name}_addr0", addr_width),
+            (f"{name}_write_data", data_width),
+            (f"{name}_write_en", 1),
+        ],
+    )
+
+
+def add_register_params(comp: ComponentBuilder, name, width):
+    """
+    Add params to component `comp` if we want to use a register named `name`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_done", 1), (f"{name}_out", width)],
+        output_ports=[
+            (f"{name}_in", width),
+            (f"{name}_write_en", 1),
+        ],
+    )
+
+
+def build_connections(
+    cell1: Union[CellBuilder, ThisBuilder],
+    cell2: Union[CellBuilder, ThisBuilder],
+    root1: str,
+    root2: str,
+    forward_ports: List,
+    reverse_ports: List,
+):
+    """
+    Intended for wiring together two cells whose ports have similar names.
+    For each `name` in `forward_port_names`, adds the following connection:
+    `(cell1.root1name, cell2.root2name)`
+    For each `name` in `backwards_port_names`, adds the following connection:
+    `(cell2.root2name, cell1.root1name)`
+    `root1name` refers to the string formed by `root1 + name` (i.e., no underscore
+    between root1 and name)
+    Returns a list of the resulting connections
+    """
+    res = []
+    for port in forward_ports:
+        res.append((cell1.port(root1 + port), cell2.port(root2 + port)))
+    for port in reverse_ports:
+        res.append((cell2.port(root2 + port), cell1.port(root1 + port)))
+    return res

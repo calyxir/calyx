@@ -1,0 +1,8 @@
+component main(
+    a: 1 // missing comma
+    b: 2
+) -> () {
+    cells {}
+    wires {}
+    control {}
+}

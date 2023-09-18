@@ -95,7 +95,7 @@ impl GetName for Primitive {
 #[derive(Clone, Debug)]
 pub struct PortDef<W> {
     /// The name of the port.
-    pub name: Id,
+    name: Id,
     /// The width of the port. .
     pub width: W,
     /// The direction of the port. Only allowed to be [Direction::Input]
@@ -105,36 +105,34 @@ pub struct PortDef<W> {
     pub attributes: Attributes,
 }
 
-impl<I> From<(I, u64, Direction)> for PortDef<Width>
-where
-    I: Into<Id>,
-{
-    fn from(port: (I, u64, Direction)) -> Self {
-        PortDef {
-            name: port.0.into(),
-            width: Width::Const { value: port.1 },
-            direction: port.2,
-            attributes: Attributes::default(),
+impl<W> PortDef<W> {
+    pub fn new(
+        name: impl Into<Id>,
+        width: W,
+        direction: Direction,
+        attributes: Attributes,
+    ) -> Self {
+        assert!(
+            matches!(direction, Direction::Input | Direction::Output),
+            "Direction must be either Input or Output"
+        );
+
+        Self {
+            name: name.into(),
+            width,
+            direction,
+            attributes,
         }
     }
-}
 
-impl<I> From<(I, u64, Direction)> for PortDef<u64>
-where
-    I: Into<Id>,
-{
-    fn from(port: (I, u64, Direction)) -> Self {
-        PortDef {
-            name: port.0.into(),
-            width: port.1,
-            direction: port.2,
-            attributes: Attributes::default(),
-        }
+    /// Return the name of the port definition
+    pub fn name(&self) -> Id {
+        self.name
     }
 }
 
 /// Represents an abstract width of a primitive signature.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Width {
     /// The width is a constant.
     Const { value: u64 },
@@ -148,6 +146,18 @@ impl std::fmt::Display for Width {
             Width::Const { value } => write!(f, "{}", value),
             Width::Param { value } => write!(f, "{}", value),
         }
+    }
+}
+
+impl From<u64> for Width {
+    fn from(value: u64) -> Self {
+        Width::Const { value }
+    }
+}
+
+impl From<Id> for Width {
+    fn from(value: Id) -> Self {
+        Width::Param { value }
     }
 }
 

@@ -107,6 +107,8 @@ macro_rules! get_inputs {
     };
 }
 
+/// An internal macro which is used to extract parameter values from an
+/// association list input. Structured as a declaration list
 macro_rules! get_params {
     ($inputs:ident; $( $param:ident : $id_name:expr ),+ ) => {
         $( let mut $param = None; )+

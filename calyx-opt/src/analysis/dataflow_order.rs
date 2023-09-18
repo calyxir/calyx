@@ -36,10 +36,10 @@ fn prim_to_write_map(prim: &ir::Primitive) -> CalyxResult<WriteMap> {
         }
         match port.direction {
             ir::Direction::Input => {
-                inputs.insert(port.name);
+                inputs.insert(port.name());
             }
             ir::Direction::Output => outputs.push((
-                port.name,
+                port.name(),
                 attrs
                     .get(ir::BoolAttr::Stable)
                     .or_else(|| attrs.get(ir::NumAttr::Done))

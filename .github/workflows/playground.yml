@@ -24,12 +24,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: wasm-pack
+          args: wasm-pack --locked
       - name: Install wasm-bindgen-cli
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: --version 0.2.80 -f wasm-bindgen-cli
+          args: --version 0.2.80 -f wasm-bindgen-cli --locked
       - run: yarn
         working-directory: ./web
       - run: yarn build

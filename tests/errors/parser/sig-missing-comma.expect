@@ -1,0 +1,9 @@
+---CODE---
+1
+---STDERR---
+Error: Failed to parse `tests/errors/parser/sig-missing-comma.futil`:  --> 3:5
+  |
+3 |     b: 2
+  |     ^
+  |
+  = expected comma

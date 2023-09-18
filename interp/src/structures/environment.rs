@@ -17,7 +17,6 @@ use crate::{
     values::Value,
 };
 use calyx_ir::{self as ir, RRC};
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::iter::once;
 use std::rc::Rc;
@@ -488,7 +487,7 @@ impl InterpreterState {
                 _ => {}
             }
         }
-        Ok((Rc::new(RefCell::new(map)), set))
+        Ok((ir::rrc(map), set))
     }
 
     /// A helper meathod which constructs the initial environment map from ports

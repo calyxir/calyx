@@ -3,29 +3,6 @@ from typing import List
 import calyx.builder as cb
 
 
-def add_adder(
-    comp: cb.ComponentBuilder,
-    adder: cb.CellBuilder,
-    group,
-    port_l,
-    port_r,
-    ans_reg,
-):
-    """To component {comp}, adds wiring for an group called {group}.
-    Assumes the adder cell {adder} is in the component.
-    In {group}, puts {port_l} and {port_r} into the {adder} cell.
-    Then puts the output of {adder} into the memory register {ans_reg}.
-    Returns the group.
-    """
-    with comp.group(group) as adder_group:
-        adder.left = port_l
-        adder.right = port_r
-        ans_reg.write_en = 1
-        ans_reg.in_ = adder.out
-        adder_group.done = ans_reg.done
-    return adder_group
-
-
 def add_tree(prog):
     """Inserts the component `tree` into the program.
     It has:
@@ -43,21 +20,12 @@ def add_tree(prog):
     # Add the output port.
     tree.output("sum", 32)
 
-    # Add three registers and two adders.
-    root = tree.reg("root", 32)
-    left = tree.reg("left_node", 32)
-    right = tree.reg("right_node", 32)
-    add1 = tree.add("add1", 32)
-    add2 = tree.add("add2", 32)
-
     # Into the component `tree`, add the wiring for three adder groups that will
     # use the tree to perform their additions.
     # These need to be orchestrated in the control below.
-    add_l0_l1 = add_adder(tree, add1, "add_l0_l1", leaf0, leaf1, left)
-    add_l2_l3 = add_adder(tree, add2, "add_l2_l3", leaf2, leaf3, right)
-    add_l_r_nodes = add_adder(
-        tree, add1, "add_left_right_nodes", left.out, right.out, root
-    )
+    add_l0_l1, left = tree.add_store_in_reg(leaf0, leaf1, "add_l0_l1", 32)
+    add_l2_l3, right = tree.add_store_in_reg(leaf2, leaf3, "add_l2_l3", 32)
+    add_l_r_nodes, root = tree.add_store_in_reg(left.out, right.out, "add_l_r", 32)
 
     # Continuously output the value of the root register.
     # It is the invoker's responsibility to ensure that the tree is done

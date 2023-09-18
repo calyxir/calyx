@@ -34,7 +34,7 @@ def cond_group(
     less_than = comp.cell(cell, Stdlib.op("lt", 32, signed=False))
     with comp.comb_group(group_name):
         less_than.left = idx.out
-        less_than.right = cb.const(32, arr_size)
+        less_than.right = arr_size
     # ANCHOR_END: cond_group
 
     return cell, group_name
@@ -46,7 +46,7 @@ def incr_group(comp: cb.ComponentBuilder, idx: cb.CellBuilder, suffix: str) -> s
     """
     # ANCHOR: incr_group
     group_name = f"incr_idx_{suffix}"
-    adder = comp.add(f"incr_{suffix}", 32)
+    adder = comp.add(32)
     with comp.group(group_name) as incr:
         adder.left = idx.out
         adder.right = 1
@@ -138,7 +138,7 @@ def gen_reduce_impl(
     if body.operation == "mul":
         operation = comp.cell(f"mul_{s_idx}", Stdlib.op("mult_pipe", 32, signed=False))
     else:
-        operation = comp.add(f"add_{s_idx}", 32)
+        operation = comp.add(32)
     with comp.group(f"reduce{s_idx}") as evl:
         inp = comp.get_cell(f"{bind.src}_b0")
         inp.addr0 = idx.out

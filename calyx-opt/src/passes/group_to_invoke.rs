@@ -105,7 +105,8 @@ fn construct_invoke(
         // inputs. we can ignore the cell.go assignment, since that is not
         // going to be part of the `invoke`.
         else if parent_is_cell(&assign.dst.borrow())
-            && assign.dst != comp.borrow().get_with_attr(ir::NumAttr::Go)
+            && assign.dst
+                != comp.borrow().get_unique_with_attr(ir::NumAttr::Go).unwrap()
         {
             let name = assign.dst.borrow().name;
             if assign.guard.is_true() {
@@ -264,22 +265,16 @@ impl GroupToInvoke {
             return;
         }
 
-        // Component must define a @go/@done interface
-        let maybe_go_port = cell.find_with_attr(ir::NumAttr::Go);
-        let maybe_done_port = cell.find_with_attr(ir::NumAttr::Done);
-        if maybe_go_port.is_none() || maybe_done_port.is_none() {
+        // Component must define exactly one @go/@done interface
+        let Ok(Some(go_port)) = cell.find_unique_with_attr(ir::NumAttr::Go)
+        else {
             return;
-        }
-
-        // Component must have a single @go/@done pair
-        let go_ports = cell.find_all_with_attr(ir::NumAttr::Go).count();
-        let done_ports = cell.find_all_with_attr(ir::NumAttr::Done).count();
-        if go_ports > 1 || done_ports > 1 {
+        };
+        let Ok(Some(done_port)) = cell.find_unique_with_attr(ir::NumAttr::Done)
+        else {
             return;
-        }
+        };
 
-        let go_port = maybe_go_port.unwrap();
-        let done_port = maybe_done_port.unwrap();
         let mut go_wr_cnt = 0;
         let mut done_wr_cnt = 0;
 
@@ -288,9 +283,9 @@ impl GroupToInvoke {
             if assign.dst == go_port {
                 if go_wr_cnt > 0 {
                     log::info!(
-                            "Cannot transform `{}` due to multiple writes to @go port",
-                            group_name,
-                        );
+                        "Cannot transform `{}` due to multiple writes to @go port",
+                        group_name,
+                    );
                     return;
                 } else if !assign.guard.is_true() {
                     log::info!(

@@ -123,11 +123,11 @@ impl Visitor for HoleInliner {
         let mut asgns = vec![
             builder.build_assignment(
                 top_level.borrow().get("go"),
-                this_comp.borrow().get_with_attr(ir::NumAttr::Go),
+                this_comp.borrow().get_unique_with_attr(ir::NumAttr::Go)?,
                 ir::Guard::True,
             ),
             builder.build_assignment(
-                this_comp.borrow().get_with_attr(ir::NumAttr::Done),
+                this_comp.borrow().get_unique_with_attr(ir::NumAttr::Done)?,
                 top_level.borrow().get("done"),
                 ir::Guard::True,
             ),
@@ -199,7 +199,7 @@ impl Visitor for HoleInliner {
             builder;
             let signal_on = constant(1, 1);
         );
-        assignments.iter_mut().for_each(|mut asgn| {
+        assignments.iter_mut().for_each(|asgn| {
             if asgn.src.borrow().is_hole() {
                 let and_guard = ir::Guard::port(Rc::clone(&asgn.src));
                 *asgn.guard &= and_guard;

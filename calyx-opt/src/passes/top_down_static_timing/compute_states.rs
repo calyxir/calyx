@@ -155,7 +155,7 @@ impl ComputeStates {
 
                 // Guard the exit edges for the body with the loop exit condition
                 let (idx, bound) = self.loop_bounds(wh, builder);
-                let guard = guard!(idx["out"]).eq(guard!(bound["out"]));
+                let guard = guard!(idx["out"] == bound["out"]);
                 exits.extend(
                     loop_exits
                         .into_iter()
