@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
+from systolic_arg_parser import SystolicConfiguration
+from calyx import py_ast
+from calyx.utils import bits_needed
 from gen_array_component import (
     create_systolic_array,
     BITWIDTH,
@@ -26,10 +29,6 @@ POST_OP_DICT = {
     "relu": (RELU_POST_OP, relu_post_op),
     "relu-dynamic": (RELU_DYNAMIC_POST_OP, relu_dynamic_post_op),
 }
-
-from systolic_arg_parser import SystolicConfiguration
-from calyx import py_ast
-from calyx.utils import bits_needed
 
 
 def create_mem_connections(
