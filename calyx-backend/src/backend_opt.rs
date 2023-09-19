@@ -12,6 +12,7 @@ pub enum BackendOpt {
     Mlir,
     Resources,
     Sexp,
+    Idl
     None,
 }
 
@@ -26,6 +27,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("mlir", BackendOpt::Mlir),
         ("resources", BackendOpt::Resources),
         ("sexp", BackendOpt::Sexp),
+        ("idl", BackendOpt::Idl),
         ("none", BackendOpt::None),
     ]
 }
