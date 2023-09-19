@@ -1,6 +1,7 @@
 From stdpp Require Import
      base
      numbers
+     list
      fin_maps
      strings
      option.
@@ -131,44 +132,52 @@ Section Semantics.
     σ'' ← write_port_ref op.(dst) v σ';
     mret σ''.
 
-  Definition program : Type :=
-    cell_env * list assignment.
-
-  (* The interpreter *)
-  Definition interp
-             (program: program)
-             (σ: cell_map)
-             (ρ: state_map)
-    : option cell_map :=
-    let (ce, assigns) := program in 
+  Definition interp_group ce σ ρ (g: group) : option cell_map := 
+    (* there is probably a monad sequencing operation that should be used here *)
     foldr (fun op res => res ≫= interp_assign ce ρ op)
           (Some σ)
-          assigns.
+          g.(group_assns).
 
   Definition is_entrypoint (entrypoint: ident) (c: comp) : bool :=
     bool_decide (entrypoint = c.(comp_name)).
 
-  (*
-  Definition allocate_maps 
-  Definition interp_control ()
-*)
-  (*
-  Definition interp_context (c: context) : option _ :=
+  Definition load_group (g: group) (ge: group_env) : group_env :=
+    <[g.(group_name) := g]>ge.
+
+  Definition load_groups (ge: group_env) (c: comp) :=
+    foldr load_group ge c.(comp_groups).
+
+  Definition load_cell (c: cell) (ce: cell_env) : cell_env :=
+    <[c.(cell_name) := c]>ce.
+
+  Definition load_cells (ce: cell_env) (c: comp) :=
+    foldr load_cell ce c.(comp_cells).
+
+  Definition load_comp (c: comp) : cell_env * group_env -> cell_env * group_env :=
+    fun '(ce, ge) =>
+      (load_cells ce c, load_groups ge c).
+
+  Definition load_context (c: context) : cell_env * group_env := 
+    foldr load_comp (empty, empty) c.(ctx_comps).
+
+  Definition interp_control (ce: cell_env) (ge: group_env) σ ρ ctrl :=
+    match ctrl with
+    | CEnable group _ =>
+        g ← ge !! group;
+        interp_group ce σ ρ g
+    | _ => None
+    end.
+
+  Definition allocate_cell_map (ce: cell_env) : cell_map.
+  Admitted.
+
+  Definition allocate_state_map (ce: cell_env) : state_map.
+  Admitted.
+  
+  Definition interp_context (c: context) :=
     main ← List.find (is_entrypoint c.(ctx_entrypoint)) c.(ctx_comps);
-    cell_env ← instantiate_cells main.(comp_cells);
-    group_env ← instantiate_groups main.(comp_groups);
-    interp_control cell_env group_env  main.(comp_control)
-*)
-    
-  
-(*
-  comp_sig: cell;
-  comp_cells: cells;
-  comp_groups: list group;
-  comp_comb_groups: list comb_group;
-  comp_cont_assns: assignments;
-  comp_control: control;
-  comp_is_comb: bool
-*)
-  
+    let '(ce, ge) := load_context c in
+    let σ := allocate_cell_map ce in
+    let ρ := allocate_state_map ce in
+    interp_control ce ge σ ρ main.(comp_control).
 End Semantics.

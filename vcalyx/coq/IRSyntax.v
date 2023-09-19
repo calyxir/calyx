@@ -192,7 +192,7 @@ Inductive control :=
          (cond: option ident)
          (body: control)
          (attrs: attributes)
-| CEnable (comp: ident)
+| CEnable (group: ident)
           (attrs: attributes)
 | CInvoke (comp: ident)
           (inputs: list (ident * port))
