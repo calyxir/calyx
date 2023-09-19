@@ -34,13 +34,13 @@ Definition mem_data := list N.
 
 Inductive state : Type :=
 (* std_reg *)
-| StateReg (val: value)
+| StateReg (write_done: bool) (val: value)
 (* std_mem *)
 | StateMem (fmt: mem_fmt) (contents: mem_data).
 
 Definition get_reg_state (st: state) :=
   match st with
-  | StateReg v => Some v
+  | StateReg write_done v => Some (write_done, v)
   | _ => None
   end.
 
@@ -66,7 +66,7 @@ Section Semantics.
   (* environment collecting all defined cells *)
   Definition cell_env : Type := ident_map cell.
   (* An environment collecting all defined primitives *)
-  Definition prim_map : Type := ident_map (state -> val_map -> option (state * val_map)).
+  Definition prim_map : Type := ident_map (state -> val_map -> option (val_map)).
 
   (* An environment collecting all defined groups *)
   Definition group_env : Type := ident_map group.
@@ -78,53 +78,59 @@ Section Semantics.
     list_to_map 
       [("std_reg",
          fun st inputs =>
-           v ← get_reg_state st;
-           wen ← (inputs !! "write_en");
-           if wen ==b (V 1%N)
-           then v' ← inputs !! "in";
-                Some (StateReg v', <["done" := wen]>(<["out" := v']>inputs))
-           else Some (StateReg v, inputs))]. 
+           '(_, v) ← get_reg_state st;
+           Some (<["out" := v]>inputs))].
   
-  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : option (state * val_map) := 
+  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : option val_map := 
     fn ← calyx_prims !! prim;
     fn st inputs.
   
-  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : option (state_map * cell_map) :=
+  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : option (cell_map) :=
     match c.(cell_proto) with
     | ProtoPrim prim param_binding _ =>
         st ← ρ !! c.(cell_name);
         vs ← σ !! c.(cell_name);
-        '(st', vs') ← poke_prim prim param_binding st vs;
-        Some (<[c.(cell_name) := st']>ρ, <[c.(cell_name) := vs']>σ)
+        vs' ← poke_prim prim param_binding st vs;
+        Some (<[c.(cell_name) := vs']>σ)
     | _ => None (* unimplemented *)
     end.
 
-  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option (state_map * cell_map) :=
+  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option cell_map :=
     map_fold (fun _ cell ρσ_opt =>
-                '(ρ, σ) ← ρσ_opt;
+                σ ← ρσ_opt;
                 poke_cell cell ρ σ)
-             (Some (ρ, σ))
+             (Some σ)
              ce.
 
   Definition read_port (p: port) (σ: cell_map) : option value :=
     lookup p.(parent) σ ≫= lookup p.(port_name).
 
+  Definition read_port_ref (p: port_ref) (σ: cell_map) : option value :=
+    match p with
+    | PComp comp port => lookup comp σ ≫= lookup port
+    | _ => None (* TODO *)
+    end.
+
   Definition write_port (p: port) (v: value) (σ: cell_map) : option cell_map :=
     mret (alter (insert p.(port_name) v) p.(parent) σ).
+
+  Definition write_port_ref (p: port_ref) (v: value) (σ: cell_map) : option cell_map :=
+    match p with
+    | PComp comp port => mret (alter (insert port v) comp σ)
+    | _ => None (* TODO *)
+    end.
   
   Definition interp_assign
              (ce: cell_env)
              (ρ: state_map)
              (op: assignment)
              (σ: cell_map) 
-    : option cell_map.
-  Admitted. (* Needs case analysis on the datatype port_ref = PComp / PThis / PHole *)
-    (*
-    c ← ce !! op.(src).(parent);
+    : option cell_map :=
     σ' ← poke_all_cells ce ρ σ;
-    v ← read_port op.(src) σ';
-    write_port op.(dst) v σ'.*)
-  
+    v ← read_port_ref op.(src) σ';
+    σ'' ← write_port_ref op.(dst) v σ';
+    mret σ''.
+
   Definition program : Type :=
     cell_env * list assignment.
 
