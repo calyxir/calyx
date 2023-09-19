@@ -1,0 +1,127 @@
+import "primitives/core.futil";
+
+component seq_writes(@go go: 1) -> (@done done: 1) {
+  cells {
+    mem1 = std_mem_d1(32, 1, 1);
+    mem2 = std_mem_d1(32, 1, 1);
+  }
+  wires {
+    group g1 {
+      mem1.addr0 = 1'b0;
+      mem1.write_data = 32'd42;
+      mem1.write_en = 1'b1;
+      g1[done] = mem1.done;
+    }
+    group g2 {
+      mem2.addr0 = 1'b0;
+      mem2.write_data = 32'd69;
+      mem2.write_en = 1'b1;
+      g2[done] = mem2.done;
+    }
+  }
+  control {
+    seq {
+      g1; g2;
+    }
+  }
+}
+
+component par_writes(@go go: 1) -> (@done done: 1) {
+  cells {
+    mem1 = std_mem_d1(32, 1, 1);
+    mem2 = std_mem_d1(32, 1, 1);
+  }
+  wires {
+    group g1 {
+      mem1.addr0 = 1'b0;
+      mem1.write_data = 32'd42;
+      mem1.write_en = 1'b1;
+      g1[done] = mem1.done;
+    }
+    group g2 {
+      mem2.addr0 = 1'b0;
+      mem2.write_data = 32'd69;
+      mem2.write_en = 1'b1;
+      g2[done] = mem2.done;
+    }
+  }
+  control {
+    par {
+      g1; g2;
+    }
+  }
+}
+
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external seq_mem = std_mem_d1(32, 1, 1);
+    seq_stopwatch = std_reg(32);
+    seq_incr = std_add(32);
+    seq_experiment = seq_writes();
+
+    @external par_mem = std_mem_d1(32, 1, 1);
+    par_stopwatch = std_reg(32);
+    par_incr = std_add(32);
+    par_experiment = par_writes();
+  }
+  wires {
+    group start_stopwatch_seq {
+      seq_stopwatch.in = 32'b0;
+      seq_stopwatch.write_en = 1'd1;
+      start_stopwatch_seq[done] = seq_stopwatch.done;
+    }
+    group run_experiment_seq {
+      seq_incr.left = seq_stopwatch.out;
+      seq_incr.right = 32'd1;
+      seq_stopwatch.in = seq_incr.out;
+      seq_stopwatch.write_en = 1'b1;
+      seq_experiment.go = 1'd1;
+      run_experiment_seq[done] = seq_experiment.done;
+    }
+    group write_output_seq {
+      seq_mem.addr0 = 1'b0;
+      seq_mem.write_data = seq_stopwatch.out;
+      seq_mem.write_en = 1'b1;
+      write_output_seq[done] = seq_mem.done;
+    }
+
+    group start_stopwatch_par {
+      par_stopwatch.in = 32'b0;
+      par_stopwatch.write_en = 1'd1;
+      start_stopwatch_par[done] = par_stopwatch.done;
+    }
+    group run_experiment_par {
+      par_incr.left = par_stopwatch.out;
+      par_incr.right = 32'd1;
+      par_stopwatch.in = par_incr.out;
+      par_stopwatch.write_en = 1'b1;
+      par_experiment.go = 1'd1;
+      run_experiment_par[done] = par_experiment.done;
+    }
+    group write_output_par {
+      par_mem.addr0 = 1'b0;
+      par_mem.write_data = par_stopwatch.out;
+      par_mem.write_en = 1'b1;
+      write_output_par[done] = par_mem.done;
+    }
+  }
+  control {
+    par {
+      seq {
+        start_stopwatch_seq;
+        par {
+          run_experiment_seq;
+        }
+        write_output_seq;
+      };
+      seq {
+        start_stopwatch_par;
+        par {
+          run_experiment_par;
+        }
+        write_output_par;
+      };
+    }
+  }
+}
