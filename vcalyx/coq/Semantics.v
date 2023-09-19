@@ -1,5 +1,6 @@
 From stdpp Require Import
      base
+     fin_maps
      numbers
      list
      fin_maps
@@ -134,31 +135,31 @@ Section Semantics.
 
   Definition interp_group ce σ ρ (g: group) : option cell_map := 
     (* there is probably a monad sequencing operation that should be used here *)
-    foldr (fun op res => res ≫= interp_assign ce ρ op)
+    foldl (fun res op => res ≫= interp_assign ce ρ op)
           (Some σ)
           g.(group_assns).
 
   Definition is_entrypoint (entrypoint: ident) (c: comp) : bool :=
     bool_decide (entrypoint = c.(comp_name)).
 
-  Definition load_group (g: group) (ge: group_env) : group_env :=
+  Definition load_group (ge: group_env) (g: group) : group_env :=
     <[g.(group_name) := g]>ge.
 
   Definition load_groups (ge: group_env) (c: comp) :=
-    foldr load_group ge c.(comp_groups).
+    foldl load_group ge c.(comp_groups).
 
-  Definition load_cell (c: cell) (ce: cell_env) : cell_env :=
+  Definition load_cell (ce: cell_env) (c: cell) : cell_env :=
     <[c.(cell_name) := c]>ce.
 
   Definition load_cells (ce: cell_env) (c: comp) :=
-    foldr load_cell ce c.(comp_cells).
+    foldl load_cell ce c.(comp_cells).
 
-  Definition load_comp (c: comp) : cell_env * group_env -> cell_env * group_env :=
-    fun '(ce, ge) =>
+  Definition load_comp : cell_env * group_env -> comp -> cell_env * group_env :=
+    fun '(ce, ge) (c: comp) =>
       (load_cells ce c, load_groups ge c).
 
   Definition load_context (c: context) : cell_env * group_env := 
-    foldr load_comp (empty, empty) c.(ctx_comps).
+    foldl load_comp (empty, empty) c.(ctx_comps).
 
   Definition interp_control (ce: cell_env) (ge: group_env) σ ρ ctrl :=
     match ctrl with
@@ -168,16 +169,36 @@ Section Semantics.
     | _ => None
     end.
 
-  Definition allocate_cell_map (ce: cell_env) : cell_map.
-  Admitted.
+  Definition allocate_val_map (c: cell) : val_map :=
+    foldl (fun σ p => <[p.(port_name) := X]>σ)
+          empty
+          (c.(cell_in_ports) ++ c.(cell_out_ports)).
 
-  Definition allocate_state_map (ce: cell_env) : state_map.
-  Admitted.
+  Definition allocate_cell_map (ce: cell_env) : cell_map :=
+    fmap allocate_val_map ce.
+
+  Definition prim_initial_state (name: ident) : option state :=
+    if decide (name = "std_reg")
+    then Some (StateReg false X)
+    else None.
+
+  Definition allocate_state_for_cell (c: cell) (ρ: state_map) : option state_map :=
+    match c.(cell_proto) with
+    | ProtoPrim prim_name bindings is_comb =>
+        st ← prim_initial_state prim_name;
+        mret (<[c.(cell_name) := st]>ρ)
+    | _ => None
+    end.
+
+  Definition allocate_state_map (ce: cell_env) : option state_map :=
+    map_fold (fun name (c: cell) (ρ0: option state_map) =>
+                ρ ← ρ0;
+                allocate_state_for_cell c ρ) (Some empty) ce.
   
   Definition interp_context (c: context) :=
     main ← List.find (is_entrypoint c.(ctx_entrypoint)) c.(ctx_comps);
     let '(ce, ge) := load_context c in
     let σ := allocate_cell_map ce in
-    let ρ := allocate_state_map ce in
+    ρ ← allocate_state_map ce;
     interp_control ce ge σ ρ main.(comp_control).
 End Semantics.
