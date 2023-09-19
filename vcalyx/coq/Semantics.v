@@ -145,8 +145,8 @@ Section Semantics.
           (Some σ)
           assigns.
 
-  Definition is_entrypoint (entrypoint: ident) (c: comp) : bool.
-  Admitted.
+  Definition is_entrypoint (entrypoint: ident) (c: comp) : bool :=
+    bool_decide (entrypoint = c.(comp_name)).
 
   (*
   Definition allocate_maps 

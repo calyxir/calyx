@@ -1,6 +1,7 @@
 From stdpp Require Import
-     strings
-     fin_maps.
+     decidable
+     fin_maps
+     strings.
 From Coq Require Import
      Numbers.BinNums.
 
@@ -11,6 +12,11 @@ From Coq Require Import
 
 (** Calyx identifiers are strings. *)
 Definition ident := string.
+#[global]
+Instance ident_EqDecision: EqDecision ident.
+Proof.
+  solve_decision.
+Defined.
 
 (** https://docs.calyxir.org/lang/attribute.html?highlight=attribute#attribute *)
 Inductive bool_attr :=
