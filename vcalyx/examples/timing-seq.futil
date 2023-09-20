@@ -1,0 +1,62 @@
+import "primitives/core.futil";
+
+component seq_writes(@go go: 1) -> (@done done: 1) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+  }
+  wires {
+    group g1 {
+      r1.in = 32'd42;
+      r1.write_en = 1'b1;
+      g1[done] = r1.done;
+    }
+    group g2 {
+      r2.in = 32'd42;
+      r2.write_en = 1'b1;
+      g2[done] = r2.done;
+    }
+  }
+  control {
+    seq {
+      g1; g2;
+    }
+  }
+}
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external mem = std_mem_d1(32, 1, 1);
+    stopwatch = std_reg(32);
+    incr = std_add(32);
+    experiment = seq_writes();
+  }
+  wires {
+    group start_stopwatch {
+      stopwatch.in = 32'b0;
+      stopwatch.write_en = 1'd1;
+      start_stopwatch[done] = stopwatch.done;
+    }
+    group run_experiment {
+      incr.left = stopwatch.out;
+      incr.right = 32'd1;
+      stopwatch.in = incr.out;
+      stopwatch.write_en = 1'b1;
+      experiment.go = 1'd1;
+      run_experiment[done] = experiment.done;
+    }
+    group write_output {
+      mem.addr0 = 1'b0;
+      mem.write_data = stopwatch.out;
+      mem.write_en = 1'b1;
+      write_output[done] = mem.done;
+    }
+  }
+  control {
+    seq {
+      start_stopwatch;
+      run_experiment;
+      write_output;
+    }
+  }
+}
