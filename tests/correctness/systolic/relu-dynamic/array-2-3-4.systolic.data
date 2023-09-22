@@ -1,0 +1,108 @@
+{
+  "l0": {
+    "data": [
+      3.349827766418457,
+      3.6539793014526367,
+      0.05110502243041992
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  },
+  "l1": {
+    "data": [
+      -0.16600513458251953,
+      3.4381656646728516,
+      0.1073751449584961
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  },
+  "out_mem_0": {
+    "data": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  },
+  "out_mem_1": {
+    "data": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  },
+  "t0": {
+    "data": [
+      4.058065414428711,
+      -0.2537107467651367,
+      -1.8967020511627197
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  },
+  "t1": {
+    "data": [
+      -1.2882888317108154,
+      -3.0372798442840576,
+      3.0884532928466797
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  },
+  "t2": {
+    "data": [
+      0.07303619384765625,
+      0.27355289459228516,
+      0.3317680358886719
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  },
+  "t3": {
+    "data": [
+      1.702174186706543,
+      0.6259689331054688,
+      0.4635009765625
+    ],
+    "format": {
+      "frac_width": 16,
+      "is_signed": true,
+      "numeric_type": "fixed_point",
+      "width": 32
+    }
+  }
+}
