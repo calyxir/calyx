@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
+from systolic_arg_parser import SystolicConfiguration
+from calyx import py_ast
+from calyx.utils import bits_needed
 from gen_array_component import (
     create_systolic_array,
     BITWIDTH,
@@ -10,14 +13,22 @@ from gen_post_op import (
     default_post_op,
     relu_post_op,
     leaky_relu_post_op,
+    relu_dynamic_post_op,
     OUT_MEM,
     DEFAULT_POST_OP,
     RELU_POST_OP,
     LEAKY_RELU_POST_OP,
+    RELU_DYNAMIC_POST_OP,
 )
-from systolic_arg_parser import SystolicConfiguration, SUPPORTED_POST_OPS
-from calyx import py_ast
-from calyx.utils import bits_needed
+
+# Dict that maps command line arguments (e.g., "leaky-relu") to component names
+# and function that creates them.
+POST_OP_DICT = {
+    None: (DEFAULT_POST_OP, default_post_op),
+    "leaky-relu": (LEAKY_RELU_POST_OP, leaky_relu_post_op),
+    "relu": (RELU_POST_OP, relu_post_op),
+    "relu-dynamic": (RELU_DYNAMIC_POST_OP, relu_dynamic_post_op),
+}
 
 
 def create_mem_connections(
@@ -90,7 +101,7 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
     # Connect outout memories to post_op, and systolic_array_output to
     # post_op inputs.
     for i in range(left_length):
-        # connect output memory to post op
+        # Connect output memory to post op. want to write to this memory.
         connections += create_mem_connections(
             main, post_op, OUT_MEM + f"_{i}", top_length, read_mem=False
         )
@@ -137,19 +148,16 @@ if __name__ == "__main__":
     # Building the main component
     prog = cb.Builder()
     create_systolic_array(prog, systolic_config)
-    if systolic_config.post_op == "leaky-relu":
-        leaky_relu_post_op(prog, config=systolic_config)
-        post_op_component_name = LEAKY_RELU_POST_OP
-    elif systolic_config.post_op == "relu":
-        relu_post_op(prog, config=systolic_config)
-        post_op_component_name = RELU_POST_OP
-    elif systolic_config.post_op is None:
-        default_post_op(prog, config=systolic_config)
-        post_op_component_name = DEFAULT_POST_OP
+    if systolic_config.post_op in POST_OP_DICT.keys():
+        post_op_component_name, component_building_func = POST_OP_DICT[
+            systolic_config.post_op
+        ]
+        component_building_func(prog, config=systolic_config)
     else:
         raise ValueError(
             f"{systolic_config.post_op} not supported as a post op. \
-                Supported post ops are {SUPPORTED_POST_OPS}"
+                Supported post ops are (None means you pass no argument for -p) \
+                {POST_OP_DICT.keys()}"
         )
 
     build_main(
