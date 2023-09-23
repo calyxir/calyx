@@ -105,7 +105,7 @@ fn main() -> CalyxResult<()> {
 // generates random of size usize
 fn gen_random_int_vec(d0: usize) -> Vec<u64> {
     let mut rng = rand::thread_rng();
-    (0..d0).map(|_| rng.gen_range(0..100)).collect()
+    (0..d0).map(|_| rng.gen_range(0..1073741824)).collect()
 }
 
 fn gen_random_2d_int(d0: usize, d1: usize) -> Vec<Vec<u64>> {

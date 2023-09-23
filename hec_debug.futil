@@ -1,0 +1,278 @@
+import "primitives/core.futil";
+import "hec_systolic_array.futil";
+import "primitives/binary_operators.futil";
+component input_comp(in_ready: 1, in_mem_read_data: 32) -> (in_valid: 1, in_bits: 32, in_mem_addr0: 4, finished_sending: 1) {
+  cells {
+    idx_reg = std_reg(4);
+    incr_idx = std_add(4);
+    finished_sending_wire = std_wire(1);
+  }
+  wires {
+    finished_sending_wire.in = idx_reg.out == 4'd8 ? 1'd1;
+    in_valid = finished_sending_wire.out ? 1'd0;
+    in_valid = !finished_sending_wire.out ? 1'd1;
+    incr_idx.left = idx_reg.out;
+    incr_idx.right = 4'd1;
+    idx_reg.write_en = !finished_sending_wire.out & in_ready ? 1'd1;
+    idx_reg.in = incr_idx.out;
+    in_bits = in_mem_read_data;
+    in_mem_addr0 = !finished_sending_wire.out ? idx_reg.out;
+    finished_sending = finished_sending_wire.out ? 1'd1;
+    done = finished_sending_wire.out ? 1'd1;
+  }
+  control {
+
+  }
+}
+component output_comp(out_valid: 1, out_bits: 32, out_mem_done: 1) -> (out_ready: 1, out_mem_addr0: 4, out_mem_write_data: 32, out_mem_write_en: 1, finished_writing: 1) {
+  cells {
+    idx_reg = std_reg(4);
+    incr_idx = std_add(4);
+    finished_writing_wire = std_wire(1);
+  }
+  wires {
+    finished_writing_wire.in = idx_reg.out == 4'd8 ? 1'd1;
+    out_ready = finished_writing_wire.out ? 1'd0;
+    out_ready = !finished_writing_wire.out ? 1'd1;
+    incr_idx.left = idx_reg.out;
+    incr_idx.right = 4'd1;
+    idx_reg.write_en = !finished_writing_wire.out & out_valid ? 1'd1;
+    idx_reg.in = incr_idx.out;
+    out_mem_write_data = out_bits;
+    out_mem_write_en = !finished_writing_wire.out & out_valid ? 1'd1;
+    out_mem_addr0 = !finished_writing_wire.out ? idx_reg.out;
+    finished_writing = finished_writing_wire.out ? 1'd1;
+    done = finished_writing_wire.out ? 1'd1;
+  }
+  control {
+
+  }
+}
+component main() -> () {
+  cells {
+    debug_reg = std_reg(32);
+    debug_incr = std_add(32);
+    hec_SA = hec_systolic_array_8();
+    left_input_comp_0 = input_comp();
+    left_input_comp_1 = input_comp();
+    left_input_comp_2 = input_comp();
+    left_input_comp_3 = input_comp();
+    left_input_comp_4 = input_comp();
+    left_input_comp_5 = input_comp();
+    left_input_comp_6 = input_comp();
+    left_input_comp_7 = input_comp();
+    top_input_comp_0 = input_comp();
+    top_input_comp_1 = input_comp();
+    top_input_comp_2 = input_comp();
+    top_input_comp_3 = input_comp();
+    top_input_comp_4 = input_comp();
+    top_input_comp_5 = input_comp();
+    top_input_comp_6 = input_comp();
+    top_input_comp_7 = input_comp();
+    output_comp_0 = output_comp();
+    output_comp_1 = output_comp();
+    output_comp_2 = output_comp();
+    output_comp_3 = output_comp();
+    output_comp_4 = output_comp();
+    output_comp_5 = output_comp();
+    output_comp_6 = output_comp();
+    output_comp_7 = output_comp();
+    @external t0 = std_mem_d1(32, 8, 4);
+    @external t1 = std_mem_d1(32, 8, 4);
+    @external t2 = std_mem_d1(32, 8, 4);
+    @external t3 = std_mem_d1(32, 8, 4);
+    @external t4 = std_mem_d1(32, 8, 4);
+    @external t5 = std_mem_d1(32, 8, 4);
+    @external t6 = std_mem_d1(32, 8, 4);
+    @external t7 = std_mem_d1(32, 8, 4);
+    @external l0 = std_mem_d1(32, 8, 4);
+    @external l1 = std_mem_d1(32, 8, 4);
+    @external l2 = std_mem_d1(32, 8, 4);
+    @external l3 = std_mem_d1(32, 8, 4);
+    @external l4 = std_mem_d1(32, 8, 4);
+    @external l5 = std_mem_d1(32, 8, 4);
+    @external l6 = std_mem_d1(32, 8, 4);
+    @external l7 = std_mem_d1(32, 8, 4);
+    @external out_mem_0 = std_mem_d1(32, 8, 4);
+    @external out_mem_1 = std_mem_d1(32, 8, 4);
+    @external out_mem_2 = std_mem_d1(32, 8, 4);
+    @external out_mem_3 = std_mem_d1(32, 8, 4);
+    @external out_mem_4 = std_mem_d1(32, 8, 4);
+    @external out_mem_5 = std_mem_d1(32, 8, 4);
+    @external out_mem_6 = std_mem_d1(32, 8, 4);
+    @external out_mem_7 = std_mem_d1(32, 8, 4);
+  }
+  wires {
+    group perform_computation {
+      debug_incr.left = debug_reg.out;
+      debug_incr.right = 32'd1;
+      debug_reg.write_en = 1'd1;
+      debug_reg.in = debug_incr.out;
+
+      top_input_comp_0.in_ready = hec_SA.var17_ready;
+      hec_SA.var17_valid = top_input_comp_0.in_valid;
+      hec_SA.var17_bits = top_input_comp_0.in_bits;
+      top_input_comp_1.in_ready = hec_SA.var18_ready;
+      hec_SA.var18_valid = top_input_comp_1.in_valid;
+      hec_SA.var18_bits = top_input_comp_1.in_bits;
+      top_input_comp_2.in_ready = hec_SA.var19_ready;
+      hec_SA.var19_valid = top_input_comp_2.in_valid;
+      hec_SA.var19_bits = top_input_comp_2.in_bits;
+      top_input_comp_3.in_ready = hec_SA.var20_ready;
+      hec_SA.var20_valid = top_input_comp_3.in_valid;
+      hec_SA.var20_bits = top_input_comp_3.in_bits;
+      top_input_comp_4.in_ready = hec_SA.var21_ready;
+      hec_SA.var21_valid = top_input_comp_4.in_valid;
+      hec_SA.var21_bits = top_input_comp_4.in_bits;
+      top_input_comp_5.in_ready = hec_SA.var22_ready;
+      hec_SA.var22_valid = top_input_comp_5.in_valid;
+      hec_SA.var22_bits = top_input_comp_5.in_bits;
+      top_input_comp_6.in_ready = hec_SA.var23_ready;
+      hec_SA.var23_valid = top_input_comp_6.in_valid;
+      hec_SA.var23_bits = top_input_comp_6.in_bits;
+      top_input_comp_7.in_ready = hec_SA.var24_ready;
+      hec_SA.var24_valid = top_input_comp_7.in_valid;
+      hec_SA.var24_bits = top_input_comp_7.in_bits;
+      left_input_comp_0.in_ready = hec_SA.var25_ready;
+      hec_SA.var25_valid = left_input_comp_0.in_valid;
+      hec_SA.var25_bits = left_input_comp_0.in_bits;
+      left_input_comp_1.in_ready = hec_SA.var26_ready;
+      hec_SA.var26_valid = left_input_comp_1.in_valid;
+      hec_SA.var26_bits = left_input_comp_1.in_bits;
+      left_input_comp_2.in_ready = hec_SA.var27_ready;
+      hec_SA.var27_valid = left_input_comp_2.in_valid;
+      hec_SA.var27_bits = left_input_comp_2.in_bits;
+      left_input_comp_3.in_ready = hec_SA.var28_ready;
+      hec_SA.var28_valid = left_input_comp_3.in_valid;
+      hec_SA.var28_bits = left_input_comp_3.in_bits;
+      left_input_comp_4.in_ready = hec_SA.var29_ready;
+      hec_SA.var29_valid = left_input_comp_4.in_valid;
+      hec_SA.var29_bits = left_input_comp_4.in_bits;
+      left_input_comp_5.in_ready = hec_SA.var30_ready;
+      hec_SA.var30_valid = left_input_comp_5.in_valid;
+      hec_SA.var30_bits = left_input_comp_5.in_bits;
+      left_input_comp_6.in_ready = hec_SA.var31_ready;
+      hec_SA.var31_valid = left_input_comp_6.in_valid;
+      hec_SA.var31_bits = left_input_comp_6.in_bits;
+      left_input_comp_7.in_ready = hec_SA.var32_ready;
+      hec_SA.var32_valid = left_input_comp_7.in_valid;
+      hec_SA.var32_bits = left_input_comp_7.in_bits;
+      hec_SA.var33_ready = output_comp_0.out_ready;
+      output_comp_0.out_valid = hec_SA.var33_valid;
+      output_comp_0.out_bits = hec_SA.var33_bits;
+      hec_SA.var34_ready = output_comp_1.out_ready;
+      output_comp_1.out_valid = hec_SA.var34_valid;
+      output_comp_1.out_bits = hec_SA.var34_bits;
+      hec_SA.var35_ready = output_comp_2.out_ready;
+      output_comp_2.out_valid = hec_SA.var35_valid;
+      output_comp_2.out_bits = hec_SA.var35_bits;
+      hec_SA.var36_ready = output_comp_3.out_ready;
+      output_comp_3.out_valid = hec_SA.var36_valid;
+      output_comp_3.out_bits = hec_SA.var36_bits;
+      hec_SA.var37_ready = output_comp_4.out_ready;
+      output_comp_4.out_valid = hec_SA.var37_valid;
+      output_comp_4.out_bits = hec_SA.var37_bits;
+      hec_SA.var38_ready = output_comp_5.out_ready;
+      output_comp_5.out_valid = hec_SA.var38_valid;
+      output_comp_5.out_bits = hec_SA.var38_bits;
+      hec_SA.var39_ready = output_comp_6.out_ready;
+      output_comp_6.out_valid = hec_SA.var39_valid;
+      output_comp_6.out_bits = hec_SA.var39_bits;
+      hec_SA.var40_ready = output_comp_7.out_ready;
+      output_comp_7.out_valid = hec_SA.var40_valid;
+      output_comp_7.out_bits = hec_SA.var40_bits;
+      t0.addr0 = top_input_comp_0.in_mem_addr0;
+      top_input_comp_0.in_mem_read_data = t0.read_data;
+      t1.addr0 = top_input_comp_1.in_mem_addr0;
+      top_input_comp_1.in_mem_read_data = t1.read_data;
+      t2.addr0 = top_input_comp_2.in_mem_addr0;
+      top_input_comp_2.in_mem_read_data = t2.read_data;
+      t3.addr0 = top_input_comp_3.in_mem_addr0;
+      top_input_comp_3.in_mem_read_data = t3.read_data;
+      t4.addr0 = top_input_comp_4.in_mem_addr0;
+      top_input_comp_4.in_mem_read_data = t4.read_data;
+      t5.addr0 = top_input_comp_5.in_mem_addr0;
+      top_input_comp_5.in_mem_read_data = t5.read_data;
+      t6.addr0 = top_input_comp_6.in_mem_addr0;
+      top_input_comp_6.in_mem_read_data = t6.read_data;
+      t7.addr0 = top_input_comp_7.in_mem_addr0;
+      top_input_comp_7.in_mem_read_data = t7.read_data;
+      l0.addr0 = left_input_comp_0.in_mem_addr0;
+      left_input_comp_0.in_mem_read_data = l0.read_data;
+      l1.addr0 = left_input_comp_1.in_mem_addr0;
+      left_input_comp_1.in_mem_read_data = l1.read_data;
+      l2.addr0 = left_input_comp_2.in_mem_addr0;
+      left_input_comp_2.in_mem_read_data = l2.read_data;
+      l3.addr0 = left_input_comp_3.in_mem_addr0;
+      left_input_comp_3.in_mem_read_data = l3.read_data;
+      l4.addr0 = left_input_comp_4.in_mem_addr0;
+      left_input_comp_4.in_mem_read_data = l4.read_data;
+      l5.addr0 = left_input_comp_5.in_mem_addr0;
+      left_input_comp_5.in_mem_read_data = l5.read_data;
+      l6.addr0 = left_input_comp_6.in_mem_addr0;
+      left_input_comp_6.in_mem_read_data = l6.read_data;
+      l7.addr0 = left_input_comp_7.in_mem_addr0;
+      left_input_comp_7.in_mem_read_data = l7.read_data;
+      out_mem_0.write_data = output_comp_0.out_mem_write_data;
+      out_mem_0.write_en = output_comp_0.out_mem_write_en;
+      out_mem_0.addr0 = output_comp_0.out_mem_addr0;
+      output_comp_0.out_mem_done = out_mem_0.done;
+      out_mem_1.write_data = output_comp_1.out_mem_write_data;
+      out_mem_1.write_en = output_comp_1.out_mem_write_en;
+      out_mem_1.addr0 = output_comp_1.out_mem_addr0;
+      output_comp_1.out_mem_done = out_mem_1.done;
+      out_mem_2.write_data = output_comp_2.out_mem_write_data;
+      out_mem_2.write_en = output_comp_2.out_mem_write_en;
+      out_mem_2.addr0 = output_comp_2.out_mem_addr0;
+      output_comp_2.out_mem_done = out_mem_2.done;
+      out_mem_3.write_data = output_comp_3.out_mem_write_data;
+      out_mem_3.write_en = output_comp_3.out_mem_write_en;
+      out_mem_3.addr0 = output_comp_3.out_mem_addr0;
+      output_comp_3.out_mem_done = out_mem_3.done;
+      out_mem_4.write_data = output_comp_4.out_mem_write_data;
+      out_mem_4.write_en = output_comp_4.out_mem_write_en;
+      out_mem_4.addr0 = output_comp_4.out_mem_addr0;
+      output_comp_4.out_mem_done = out_mem_4.done;
+      out_mem_5.write_data = output_comp_5.out_mem_write_data;
+      out_mem_5.write_en = output_comp_5.out_mem_write_en;
+      out_mem_5.addr0 = output_comp_5.out_mem_addr0;
+      output_comp_5.out_mem_done = out_mem_5.done;
+      out_mem_6.write_data = output_comp_6.out_mem_write_data;
+      out_mem_6.write_en = output_comp_6.out_mem_write_en;
+      out_mem_6.addr0 = output_comp_6.out_mem_addr0;
+      output_comp_6.out_mem_done = out_mem_6.done;
+      out_mem_7.write_data = output_comp_7.out_mem_write_data;
+      out_mem_7.write_en = output_comp_7.out_mem_write_en;
+      out_mem_7.addr0 = output_comp_7.out_mem_addr0;
+      output_comp_7.out_mem_done = out_mem_7.done;
+      left_input_comp_0.go = 1'd1;
+      left_input_comp_1.go = 1'd1;
+      left_input_comp_2.go = 1'd1;
+      left_input_comp_3.go = 1'd1;
+      left_input_comp_4.go = 1'd1;
+      left_input_comp_5.go = 1'd1;
+      left_input_comp_6.go = 1'd1;
+      left_input_comp_7.go = 1'd1;
+      top_input_comp_0.go = 1'd1;
+      top_input_comp_1.go = 1'd1;
+      top_input_comp_2.go = 1'd1;
+      top_input_comp_3.go = 1'd1;
+      top_input_comp_4.go = 1'd1;
+      top_input_comp_5.go = 1'd1;
+      top_input_comp_6.go = 1'd1;
+      top_input_comp_7.go = 1'd1;
+      output_comp_0.go = 1'd1;
+      output_comp_1.go = 1'd1;
+      output_comp_2.go = 1'd1;
+      output_comp_3.go = 1'd1;
+      output_comp_4.go = 1'd1;
+      output_comp_5.go = 1'd1;
+      output_comp_6.go = 1'd1;
+      output_comp_7.go = 1'd1;
+      perform_computation[done] = (debug_reg.out == 32'd200) ? 1'd1;
+    }
+  }
+  control {
+    perform_computation;
+  }
+}
