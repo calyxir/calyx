@@ -1,0 +1,71 @@
+import "primitives/core.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external(1) mem = std_mem_d1(32, 1, 1);  // what does the (1) mean?
+    val = std_reg(32);
+    add = std_add(32);
+
+    counter = std_reg(32);
+    add2 = std_add(32);
+    lt = std_lt(32);
+
+  }
+  wires {
+    group init {
+      counter.in = 32'd0;
+      counter.write_en = 1'b1;
+      init[done] = counter.done;
+    }
+
+    group incr {
+      add2.left = counter.out;
+      add2.right = 32'd1;
+      counter.in = add2.out;
+      counter.write_en = 1'b1;
+      incr[done] = counter.done;
+    }
+
+    comb group cond {     // can be run combinationally (ready "instantly" without the need to wait for a done signal.)
+      lt.left = counter.out;
+      lt.right = 32'd8;   // loop up to 8 times;
+    }
+
+    group write {
+      mem.addr0 = 1'b0;  
+      mem.write_en = 1'b1;
+      mem.write_data = val.out;
+      write[done] = mem.done;
+    }
+
+    group read {
+      mem.addr0 = 1'b0;
+      val.in = mem.read_data;
+      val.write_en = 1'b1;
+      read[done] = val.done;
+    }
+
+    group upd {
+      add.left = val.out;
+      add.right = 32'd4;
+      val.in = add.out;
+      val.write_en = 1'b1;
+      upd[done] = val.done;
+    }
+  }
+  control {
+    seq {
+      init;
+      while lt.out with cond {
+        par {
+          seq {
+            read;
+            upd;
+            write;
+          }
+          incr;
+        }
+      }
+    }
+  }
+}
