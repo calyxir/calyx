@@ -5,22 +5,33 @@ component input_comp(in_ready: 1, in_mem_read_data: 32) -> (in_valid: 1, in_bits
   cells {
     idx_reg = std_reg(4);
     incr_idx = std_add(4);
+    count_reg = std_reg(3);
+    incr_count = std_add(3);
+    handshake_done_wire = std_wire(1);
     finished_sending_wire = std_wire(1);
   }
   wires {
-    finished_sending_wire.in = idx_reg.out == 4'd8 ? 1'd1;
-    in_valid = 1'd1;
-    incr_idx.left = idx_reg.out;
-    incr_idx.right = 4'd1;
-    idx_reg.write_en = !finished_sending_wire.out & in_ready ? 1'd1;
-    idx_reg.in = incr_idx.out;
-    in_bits = in_mem_read_data;
-    in_mem_addr0 = !finished_sending_wire.out ? idx_reg.out;
-    finished_sending = finished_sending_wire.out ? 1'd1;
-    done = finished_sending_wire.out ? 1'd1;
+    static<1> group g {
+        finished_sending_wire.in = idx_reg.out == 4'd8 ? 1'd1;
+        handshake_done_wire.in = count_reg.out == 3'd6 ? 1'd1;
+        in_valid = finished_sending_wire.out ? 1'd0;
+        incr_count.left = count_reg.out;
+        incr_count.right = 3'd1;
+        count_reg.in = handshake_done_wire.out ? 3'd0;
+        count_reg.in = !handshake_done_wire.out ? incr_count.out;
+        count_reg.write_en = !finished_sending_wire.out & in_ready ? 1'd1;
+        incr_idx.left = idx_reg.out;
+        incr_idx.right = 4'd1;
+        idx_reg.write_en = handshake_done_wire.out & (!finished_sending_wire.out) ? 1'd1;
+        idx_reg.in = incr_idx.out;
+        in_bits = in_mem_read_data;
+        in_mem_addr0 = !finished_sending_wire.out ? idx_reg.out;
+        finished_sending = finished_sending_wire.out ? 1'd1;
+        done = finished_sending_wire.out ? 1'd1;
+    }
   }
   control {
-
+    g;
   }
 }
 component output_comp(out_valid: 1, out_bits: 32, out_mem_done: 1) -> (out_ready: 1, out_mem_addr0: 4, out_mem_write_data: 32, out_mem_write_en: 1, finished_writing: 1) {
@@ -31,7 +42,8 @@ component output_comp(out_valid: 1, out_bits: 32, out_mem_done: 1) -> (out_ready
   }
   wires {
     finished_writing_wire.in = idx_reg.out == 4'd8 ? 1'd1;
-    out_ready = 1'd1;
+    out_ready = finished_writing_wire.out ? 1'd0;
+    out_ready = !finished_writing_wire.out ? 1'd1;
     incr_idx.left = idx_reg.out;
     incr_idx.right = 4'd1;
     idx_reg.write_en = !finished_writing_wire.out & out_valid ? 1'd1;
@@ -49,14 +61,6 @@ component output_comp(out_valid: 1, out_bits: 32, out_mem_done: 1) -> (out_ready
 component main() -> () {
   cells {
     hec_SA = hec_systolic_array_8();
-    left_input_comp_0 = input_comp();
-    left_input_comp_1 = input_comp();
-    left_input_comp_2 = input_comp();
-    left_input_comp_3 = input_comp();
-    left_input_comp_4 = input_comp();
-    left_input_comp_5 = input_comp();
-    left_input_comp_6 = input_comp();
-    left_input_comp_7 = input_comp();
     top_input_comp_0 = input_comp();
     top_input_comp_1 = input_comp();
     top_input_comp_2 = input_comp();
@@ -65,6 +69,14 @@ component main() -> () {
     top_input_comp_5 = input_comp();
     top_input_comp_6 = input_comp();
     top_input_comp_7 = input_comp();
+    left_input_comp_0 = input_comp();
+    left_input_comp_1 = input_comp();
+    left_input_comp_2 = input_comp();
+    left_input_comp_3 = input_comp();
+    left_input_comp_4 = input_comp();
+    left_input_comp_5 = input_comp();
+    left_input_comp_6 = input_comp();
+    left_input_comp_7 = input_comp();
     output_comp_0 = output_comp();
     output_comp_1 = output_comp();
     output_comp_2 = output_comp();
@@ -99,7 +111,7 @@ component main() -> () {
     @external out_mem_7 = std_mem_d1(32, 8, 4);
   }
   wires {
-    group perform_computation {
+    static<200> group perform_computation {
       top_input_comp_0.in_ready = hec_SA.var17_ready;
       hec_SA.var17_valid = top_input_comp_0.in_valid;
       hec_SA.var17_bits = top_input_comp_0.in_bits;
@@ -236,22 +248,22 @@ component main() -> () {
       out_mem_7.write_en = output_comp_7.out_mem_write_en;
       out_mem_7.addr0 = output_comp_7.out_mem_addr0;
       output_comp_7.out_mem_done = out_mem_7.done;
-      left_input_comp_0.go = 1'd1;
-      left_input_comp_1.go = 1'd1;
-      left_input_comp_2.go = 1'd1;
-      left_input_comp_3.go = 1'd1;
-      left_input_comp_4.go = 1'd1;
-      left_input_comp_5.go = 1'd1;
-      left_input_comp_6.go = 1'd1;
-      left_input_comp_7.go = 1'd1;
-      top_input_comp_0.go = 1'd1;
-      top_input_comp_1.go = 1'd1;
-      top_input_comp_2.go = 1'd1;
-      top_input_comp_3.go = 1'd1;
-      top_input_comp_4.go = 1'd1;
-      top_input_comp_5.go = 1'd1;
-      top_input_comp_6.go = 1'd1;
-      top_input_comp_7.go = 1'd1;
+      left_input_comp_0.go = %[0:200] ? 1'd1;
+      left_input_comp_1.go = %[1:200] ? 1'd1;
+      left_input_comp_2.go = %[2:200] ? 1'd1;
+      left_input_comp_3.go = %[3:200] ? 1'd1;
+      left_input_comp_4.go = %[4:200] ? 1'd1;
+      left_input_comp_5.go = %[5:200] ? 1'd1;
+      left_input_comp_6.go = %[6:200] ? 1'd1;
+      left_input_comp_7.go = %[7:200] ? 1'd1;
+      top_input_comp_0.go = %[0:200] ? 1'd1;
+      top_input_comp_1.go = %[1:200] ? 1'd1;
+      top_input_comp_2.go = %[2:200] ? 1'd1;
+      top_input_comp_3.go = %[3:200] ? 1'd1;
+      top_input_comp_4.go = %[4:200] ? 1'd1;
+      top_input_comp_5.go = %[5:200] ? 1'd1;
+      top_input_comp_6.go = %[6:200] ? 1'd1;
+      top_input_comp_7.go = %[7:200] ? 1'd1;
       output_comp_0.go = 1'd1;
       output_comp_1.go = 1'd1;
       output_comp_2.go = 1'd1;
@@ -260,7 +272,6 @@ component main() -> () {
       output_comp_5.go = 1'd1;
       output_comp_6.go = 1'd1;
       output_comp_7.go = 1'd1;
-      perform_computation[done] = output_comp_0.finished_writing & output_comp_1.finished_writing & output_comp_2.finished_writing & output_comp_3.finished_writing & output_comp_4.finished_writing & output_comp_5.finished_writing & output_comp_6.finished_writing & output_comp_7.finished_writing ? 1'd1;
     }
   }
   control {

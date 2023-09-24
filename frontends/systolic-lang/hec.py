@@ -119,6 +119,10 @@ def input_comp(prog: cb.Builder, num_cols: int):
     idx_width = bits_needed(num_cols)
     idx_reg = comp.reg("idx_reg", idx_width)
     incr_idx = comp.add(idx_width, "incr_idx")
+    count_reg = comp.reg("count_reg", 3)
+    incr_count = comp.add(3, "incr_count")
+    handshake_done_wire = comp.wire("handshake_done_wire", 1)
+    handshake_zero_wire = comp.wire("handshake_zero_wire", 1)
     finished_sending_wire = comp.wire("finished_sending_wire", 1)
 
     this = comp.this()
@@ -130,13 +134,30 @@ def input_comp(prog: cb.Builder, num_cols: int):
         finished_sending_wire.in_ = (
             idx_reg.out == cb.ExprBuilder(py_ast.ConstantPort(idx_width, num_cols))
         ) @ 1
-        this.in_valid = finished_sending_wire.out @ 0
-        this.in_valid = ~(finished_sending_wire.out) @ 1
+        handshake_zero_wire.in_ = (
+            count_reg.out == cb.ExprBuilder(py_ast.ConstantPort(3, 0))
+        ) @ 1
+        # (I think) Handshake has to occur for seven cycles
+        handshake_done_wire.in_ = (
+            count_reg.out == cb.ExprBuilder(py_ast.ConstantPort(3, 6))
+        ) @ 1
+        # Input valid as long as we're not finished sending
+        this.in_valid = (finished_sending_wire.out | (~handshake_zero_wire.out)) @ 0
+        this.in_valid = ((~finished_sending_wire.out) & handshake_zero_wire.out) @ 1
+
+        # (I think) handshake has to occur for seven cycles
+        incr_count.left = count_reg.out
+        incr_count.right = 1
+        count_reg.in_ = handshake_done_wire.out @ 0
+        count_reg.in_ = ~(handshake_done_wire.out) @ incr_count.out
+        count_reg.write_en = should_send_next @ 1
+
+        # Increment index as we're sending the data to input
         incr_idx.left = idx_reg.out
         incr_idx.right = 1
-        # Increment index as we're sending the data to input
-        idx_reg.write_en = should_send_next @ 1
+        idx_reg.write_en = (handshake_done_wire.out) @ 1
         idx_reg.in_ = incr_idx.out
+
         # Write to systolic array.
         this.in_bits = this.in_mem_read_data
         this.in_mem_addr0 = ~(finished_sending_wire.out) @ idx_reg.out
@@ -155,15 +176,15 @@ if __name__ == "__main__":
     output_comp(prog, num_out_cols)
     main = prog.component("main")
     hec_SA = main.cell(f"hec_SA", py_ast.CompInst("hec_systolic_array_8", []))
-    left_inputs = []
-    for i in range(systolic_config.left_length):
-        left_inputs.append(
-            main.cell(f"left_input_comp_{i}", py_ast.CompInst(INPUT_COMP_NAME, []))
-        )
     top_inputs = []
     for i in range(systolic_config.top_length):
         top_inputs.append(
             main.cell(f"top_input_comp_{i}", py_ast.CompInst(INPUT_COMP_NAME, []))
+        )
+    left_inputs = []
+    for i in range(systolic_config.left_length):
+        left_inputs.append(
+            main.cell(f"left_input_comp_{i}", py_ast.CompInst(INPUT_COMP_NAME, []))
         )
     outputs = []
     for i in range(num_out_rows):
