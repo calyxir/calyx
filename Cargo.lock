@@ -208,6 +208,7 @@ dependencies = [
  "petgraph",
  "quick-xml",
  "serde",
+ "serde_json",
  "serde_sexpr",
  "serde_with 3.3.0",
  "smallvec",
