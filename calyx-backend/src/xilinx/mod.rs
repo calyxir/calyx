@@ -7,6 +7,7 @@ mod memory_axi;
 mod toplevel;
 mod utils;
 mod xml;
+mod idl;
 
 pub use toplevel::XilinxInterfaceBackend;
 pub use xml::XilinxXmlBackend;
