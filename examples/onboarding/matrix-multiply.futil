@@ -24,30 +24,8 @@ component main(@go go: 1) -> (@done done: 1) {
     mult_10_11 = std_mult_pipe(32);
     mult_11_11 = std_mult_pipe(32);
 
-    // counter = std_reg(32);
-    // add2 = std_add(32);
-    // lt = std_lt(32);
-
   }
   wires {
-    // group init {
-    //   counter.in = 32'd0;
-    //   counter.write_en = 1'b1;
-    //   init[done] = counter.done;
-    // }
-
-    // group incr {
-    //   add2.left = counter.out;
-    //   add2.right = 32'd1;
-    //   counter.in = add2.out;
-    //   counter.write_en = 1'b1;
-    //   incr[done] = counter.done;
-    // }
-
-    // comb group cond {     // can be run combinationally (ready "instantly" without the need to wait for a done signal.)
-    //   lt.left = counter.out;
-    //   lt.right = 32'd8;   // loop up to 8 times;
-    // }
 
     group write_00 {
       mem.addr0 = 2'b0;
@@ -107,36 +85,47 @@ component main(@go go: 1) -> (@done done: 1) {
       read_11[done] = val_11.done;
     }
 
-    group mul {
+    group mul_00_00 {        
         mult_00_00.left = val_00.out;
         mult_00_00.right = val_00.out;
         mult_00_00.go = !mult_00_00.done ? 1'd1;
-
+        mul_00_00[done] = mult_00_00.done ? 1'd1;
+    }
+    group mul_00_01 {
         mult_00_01.left = val_00.out;
         mult_00_01.right = val_01.out;
         mult_00_01.go = !mult_00_01.done ? 1'd1;
-
+        mul_00_01[done] = mult_00_01.done ? 1'd1;
+    }
+    group mul_00_10 {
         mult_00_10.left = val_00.out;
         mult_00_10.right = val_10.out;
         mult_00_10.go = !mult_00_10.done ? 1'd1;
-
+        mul_00_10[done] = mult_00_10.done ? 1'd1;
+    }
+    group mul_01_10 {
         mult_01_10.left = val_01.out;
         mult_01_10.right = val_10.out;
         mult_01_10.go = !mult_01_10.done ? 1'd1;
-
+        mul_01_10[done] = mult_01_10.done ? 1'd1;
+    }
+    group mul_01_11 {
         mult_01_11.left = val_01.out;
         mult_01_11.right = val_11.out;
         mult_01_11.go = !mult_01_11.done ? 1'd1;
-
+        mul_01_11[done] = mult_01_11.done ? 1'd1;
+    }
+    group mul_10_11 {
         mult_10_11.left = val_10.out;
         mult_10_11.right = val_11.out;
         mult_10_11.go = !mult_10_11.done ? 1'd1;
-
+        mul_10_11[done] = mult_10_11.done ? 1'd1;
+    }
+    group mul_11_11 {
         mult_11_11.left = val_11.out;
         mult_11_11.right = val_11.out;
         mult_11_11.go = !mult_11_11.done ? 1'd1;
-
-        mul[done] = mult_00_00.done & mult_00_01.done & mult_00_10.done & mult_01_10.done & mult_01_11.done & mult_10_11.done & mult_11_11.done ? 1'd1;
+        mul_11_11[done] = mult_11_11.done ? 1'd1;
     }
 
     group add {
@@ -161,54 +150,27 @@ component main(@go go: 1) -> (@done done: 1) {
         val_11.write_en = 1'b1;
         add[done] = val_00.done & val_01.done & val_10.done & val_11.done ? 1'd1;
     }
-
-    // group upd_00 {
-    //   mult.left = mem.addr0
-    //   add.left = val.out;
-    //   add.right = 32'd4;
-    //   val.in = add.out;
-    //   val.write_en = 1'b1;
-    //   upd[done] = val.done;
-    // }
-    // group upd_01 {
-    //   add.left = val.out;
-    //   add.right = 32'd4;
-    //   val.in = add.out;
-    //   val.write_en = 1'b1;
-    //   upd[done] = val.done;
-    // }
-    // group upd_10 {
-    //   add.left = val.out;
-    //   add.right = 32'd4;
-    //   val.in = add.out;
-    //   val.write_en = 1'b1;
-    //   upd[done] = val.done;
-    // }
-    // group upd_11 {
-    //   add.left = val.out;
-    //   add.right = 32'd4;
-    //   val.in = add.out;
-    //   val.write_en = 1'b1;
-    //   upd[done] = val.done;
-    // }
   }
   control {
     seq {
-        // Can mem.read_data directly before upd
-        // par {
-            read_00;
-            read_01;
-            read_10;
-            read_11;
-        // }
-        mul;
+        read_00;
+        read_01;
+        read_10;
+        read_11;
+        par {
+            mul_00_00;
+            mul_00_01;
+            mul_00_10;
+            mul_01_10;
+            mul_01_11;
+            mul_10_11;
+            mul_11_11;
+        }
         add;
-        // par {
-            write_00;
-            write_01;
-            write_10;
-            write_11;
-        // }
+        write_00;
+        write_01;
+        write_10;
+        write_11;
     }
   }
 }
