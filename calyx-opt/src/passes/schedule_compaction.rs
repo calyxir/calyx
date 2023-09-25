@@ -4,7 +4,6 @@ use crate::{
     traversal::{Named, Visitor},
 };
 use calyx_ir as ir;
-use ir::{build_assignments, structure, Attributes, StaticTiming};
 use petgraph::{algo, graph::NodeIndex};
 use std::collections::HashMap;
 
@@ -64,9 +63,8 @@ impl Visitor for ScheduleCompaction {
                 );
 
             if let Ok(order) = algo::toposort(&total_order, None) {
-                let mut group_assignments: Vec<ir::Assignment<StaticTiming>> =
-                    Vec::new();
                 let mut total_time: u64 = 0;
+                let mut stmts: Vec<ir::StaticControl> = Vec::new();
 
                 for i in order {
                     let mut start: u64 = 0;
@@ -79,37 +77,35 @@ impl Visitor for ScheduleCompaction {
                     schedule.insert(i, start);
 
                     let control = total_order[i].take().unwrap();
+                    let mut st_seq_stmts: Vec<ir::StaticControl> = Vec::new();
+                    if start > 0 {
+                        let no_op = builder.add_static_group("no-op", start);
 
-                    if let ir::StaticControl::Enable(en) = control {
-                        let timing_guard =
-                            ir::Guard::Info(ir::StaticTiming::new((
-                                start,
-                                start + latency_map[&i],
-                            )));
-                        structure!(
-                          builder;
-                          let one = constant(1, 1);
-                        );
-                        let group = en.group;
-                        let assignments = build_assignments!( builder;
-                          group["go"] = timing_guard ? one["out"];
-                        );
-                        if start + latency_map[&i] > total_time {
-                            total_time = start + latency_map[&i];
-                        }
-                        group_assignments.extend(assignments);
+                        st_seq_stmts.push(ir::StaticControl::Enable(
+                            ir::StaticEnable {
+                                group: no_op,
+                                attributes: ir::Attributes::default(),
+                            },
+                        ));
                     }
+                    if start + latency_map[&i] > total_time {
+                        total_time = start + latency_map[&i];
+                    }
+
+                    st_seq_stmts.push(control);
+                    stmts.push(ir::StaticControl::Seq(ir::StaticSeq {
+                        stmts: st_seq_stmts,
+                        attributes: ir::Attributes::default(),
+                        latency: start + latency_map[&i],
+                    }));
                 }
 
-                let group = builder.add_static_group("compact_seq", total_time);
-                group.borrow_mut().assignments.extend(group_assignments);
-                let s_enable = ir::StaticEnable {
-                    group,
-                    attributes: Attributes::default(),
-                };
-                return Ok(Action::static_change(ir::StaticControl::Enable(
-                    s_enable,
-                )));
+                let s_par = ir::StaticControl::Par(ir::StaticPar {
+                    stmts,
+                    attributes: ir::Attributes::default(),
+                    latency: total_time,
+                });
+                return Ok(Action::static_change(s_par));
             } else {
                 println!("Error when producing topo sort. Dependency graph has a cycle.");
             }

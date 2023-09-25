@@ -26,14 +26,27 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       d_reg.write_en = %0 ? 1'd1;
       d_reg.in = a_reg.out;
     }
-    static<11> group compact_seq {
-      C[go] = %[0:10] ? 1'd1;
-      A[go] = %0 ? 1'd1;
-      D[go] = %[1:11] ? 1'd1;
-      B[go] = %10 ? 1'd1;
+    static<1> group no-op {
+    }
+    static<10> group no-op0 {
     }
   }
   control {
-    compact_seq;
+    static<11> par {
+      static<10> seq  {
+        C;
+      }
+      static<1> seq  {
+        A;
+      }
+      static<11> seq  {
+        no-op;
+        D;
+      }
+      static<11> seq  {
+        no-op0;
+        B;
+      }
+    }
   }
 }
