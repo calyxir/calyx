@@ -64,8 +64,8 @@ impl Backend for IdlBackend {
             .collect();
 
         let program_interface = ProgramInterface {
-            toplevel_name: &toplevel.name.to_string(),
-            memories: memories,
+            toplevel_name: toplevel.name.as_ref(),
+            memories,
         };
 
         //TODO: we want to have na array of component names
@@ -95,11 +95,7 @@ fn external_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
         // find external memories
         .filter(|cell_ref| {
             let cell = cell_ref.borrow();
-            if cell.attributes.has(ir::BoolAttr::External) {
-                true
-            } else {
-                false
-            }
+            cell.attributes.has(ir::BoolAttr::External)
         })
         .cloned()
         .collect()

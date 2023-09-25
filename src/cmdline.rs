@@ -3,7 +3,7 @@ use argh::FromArgs;
 #[cfg(feature = "serialize")]
 use calyx_backend::SexpBackend;
 use calyx_backend::{
-    xilinx::{XilinxInterfaceBackend, XilinxXmlBackend, IdlBackend},
+    xilinx::{IdlBackend, XilinxInterfaceBackend, XilinxXmlBackend},
     Backend, BackendOpt, MlirBackend, ResourcesBackend, VerilogBackend,
 };
 use calyx_ir as ir;
