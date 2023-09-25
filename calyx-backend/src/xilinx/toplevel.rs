@@ -116,14 +116,14 @@ fn external_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
 
 /// Parameters for single dimensional memory
 struct MemInfo {
-    pub width: u64,
-    pub size: u64,
-    pub idx_size: u64,
+    width: u64,
+    size: u64,
+    idx_size: u64,
 }
 
 // Returns a vector of tuples containing external memory info of [comp] of form:
 // [(WIDTH, SIZE, IDX_SIZE)]
-pub fn get_mem_info(comp: &ir::Component) -> Vec<MemInfo> {
+fn get_mem_info(comp: &ir::Component) -> Vec<MemInfo> {
     external_memories_cells(comp)
         .iter()
         .map(|cr| {
@@ -138,7 +138,7 @@ pub fn get_mem_info(comp: &ir::Component) -> Vec<MemInfo> {
 }
 
 // Returns Vec<String> of memory names
-pub fn external_memories(comp: &ir::Component) -> Vec<String> {
+fn external_memories(comp: &ir::Component) -> Vec<String> {
     external_memories_cells(comp)
         .iter()
         .map(|cell_ref| cell_ref.borrow().name().to_string())

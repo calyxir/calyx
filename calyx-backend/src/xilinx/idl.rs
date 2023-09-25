@@ -2,8 +2,6 @@ use crate::traits::Backend;
 use calyx_ir as ir;
 use calyx_utils::CalyxResult;
 use serde::Serialize;
-use serde_json::Result;
-use super::toplevel::{get_mem_info, external_memories};
 /// Backend that generates the Interface Design Language
 /// that we need to create AXI wrappers on arbitrary programs
 #[derive(Default)]
@@ -14,9 +12,9 @@ pub struct IdlBackend;
 ///
 /// [ug]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
 #[derive(Serialize)]
-struct IDL<'a> {
-    name: &'a str,
-    memories : Memories<'a>,
+struct ProgramInterface<'a> {
+    toplevel_name: &'a str,
+    memories : Vec<Memory<'a>>,
 }
 
 #[derive(Serialize)]
@@ -25,21 +23,6 @@ struct Memory<'a> {
     width: u64,
     size: u64, //size of width size memory, as defined in stdlib.
 }
-
-//XXX(nathanielnrn): Do we need this vs just a vec?
-#[derive(Serialize)]
-struct Memories<'a> {
-    memories: Vec<Memory<'a>>,
-}
-
-impl<'a> From<Vec<Memory<'a>>> for Memories<'a> {
-    fn from(memories: Vec<Memory<'a>>) -> Self {
-        Memories {memories}
-    }
-}
-
-
-///TOOD: OLD stuff, delete this
 
 impl Backend for IdlBackend {
     fn name(&self) -> &'static str {
@@ -81,13 +64,66 @@ impl Backend for IdlBackend {
             }
         }).collect();
 
+        let program_interface = ProgramInterface {
+            toplevel_name: &toplevel.name.to_string(),
+            memories: memories,
+        };
 
+        //TODO: we want to have na array of component names
+        // check how to get them
 
         write!(
             file.get_write(),
-            quick_xml::se::to_string(&root).expect("XML Serialization failed")
+            "{}",
+            serde_json::to_string_pretty(&program_interface).expect("IDL Serialization failed")
         )?;
 
         Ok(())
     }
+    }
+
+
+
+    /// Parameters for single dimensional memory
+    struct MemInfo {
+        width: u64,
+        size: u64,
+    }
+
+    // Gets all external memory cells in top level
+    fn external_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
+        comp.cells
+            .iter()
+            // find external memories
+            .filter(|cell_ref| {
+                let cell = cell_ref.borrow();
+                if cell.attributes.has(ir::BoolAttr::External) {
+                    true
+                } else {
+                    false
+                }
+            })
+            .cloned()
+            .collect()
+    }
+
+    fn get_mem_info(comp: &ir::Component) -> Vec<MemInfo> {
+        external_memories_cells(comp)
+            .iter()
+            .map(|cr| {
+                let cell = cr.borrow();
+                MemInfo {
+                    width: cell.get_parameter("WIDTH").unwrap(),
+                    size: cell.get_parameter("SIZE").unwrap(),
+                }
+            })
+            .collect()
+    }
+
+    // Returns Vec<String> of memory names
+    fn external_memories(comp: &ir::Component) -> Vec<String> {
+    external_memories_cells(comp)
+        .iter()
+        .map(|cell_ref| cell_ref.borrow().name().to_string())
+        .collect()
 }

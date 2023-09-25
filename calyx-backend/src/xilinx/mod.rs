@@ -11,3 +11,4 @@ mod idl;
 
 pub use toplevel::XilinxInterfaceBackend;
 pub use xml::XilinxXmlBackend;
+pub use idl::IdlBackend;

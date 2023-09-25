@@ -3,7 +3,7 @@ use argh::FromArgs;
 #[cfg(feature = "serialize")]
 use calyx_backend::SexpBackend;
 use calyx_backend::{
-    xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
+    xilinx::{XilinxInterfaceBackend, XilinxXmlBackend, IdlBackend},
     Backend, BackendOpt, MlirBackend, ResourcesBackend, VerilogBackend,
 };
 use calyx_ir as ir;
@@ -143,6 +143,10 @@ impl Opts {
             }
             BackendOpt::XilinxXml => {
                 let backend = XilinxXmlBackend;
+                backend.run(context, self.output)
+            }
+            BackendOpt::Idl => {
+                let backend = IdlBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {

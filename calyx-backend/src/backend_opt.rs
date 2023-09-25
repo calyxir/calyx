@@ -12,7 +12,7 @@ pub enum BackendOpt {
     Mlir,
     Resources,
     Sexp,
-    Idl
+    Idl,
     None,
 }
 
@@ -69,6 +69,7 @@ impl ToString for BackendOpt {
             Self::Verilog => "verilog",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
+            Self::Idl => "idl",
             Self::Calyx => "calyx",
             Self::None => "none",
         }
