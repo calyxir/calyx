@@ -204,42 +204,49 @@ Inductive control :=
 
 (** Groups. *)
 Record group :=
-  Group { group_attrs: attributes;
-          group_name: ident;
-          group_assns: assignments;
-          group_holes: ports; 
+  Group {
+      group_attrs: attributes;
+      group_name: ident;
+      group_assns: assignments;
+      group_holes: ports; 
   }.
 
 (** Combinational groups. *)
 Record comb_group :=
-  CombGroup { comb_group_attrs: attributes;
-          comb_group_name: ident;
-          comb_group_assns: assignments;
+  CombGroup {
+      comb_group_attrs: attributes;
+      comb_group_name: ident;
+      comb_group_assns: assignments;
   }.
 
 (** Static groups. *)
 Record static_group :=
-  StaticGroup { static_group_attrs: attributes;
-          static_group_name: ident;
-          static_group_assns: assignments;
-          static_group_holes: ports;
-          static_latency: nat;
+  StaticGroup {
+      static_group_attrs: attributes;
+      static_group_name: ident;
+      static_group_assns: assignments;
+      static_group_holes: ports;
+      static_latency: nat;
   }.
 
 (** Components. *)
 Record comp :=
-  Comp { comp_attrs: attributes; 
-         comp_name: ident;
-         (* aka signature *)
-         comp_sig: cell;
-         comp_cells: cells;
-         comp_groups: list group;
-         comp_comb_groups: list comb_group;
-         comp_static_groups: list static_group;
-         comp_cont_assns: assignments;
-         comp_control: control;
-         comp_is_comb: bool }.
+  Comp {
+      comp_attrs: attributes; 
+      comp_name: ident;
+      (* aka signature *)
+      comp_sig: cell;
+      comp_cells: cells;
+      comp_groups: list group;
+      comp_comb_groups: list comb_group;
+      comp_static_groups: list static_group;
+      comp_cont_assns: assignments;
+      comp_control: control;
+      comp_is_comb: bool
+  }.
 
 Record context :=
-  Context { ctx_comps: list comp;
-            ctx_entrypoint: ident; }.
+  Context {
+      ctx_comps: list comp;
+      ctx_entrypoint: ident;
+  }.

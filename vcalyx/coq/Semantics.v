@@ -3,7 +3,6 @@ From stdpp Require Import
      fin_maps
      numbers
      list
-     fin_maps
      strings
      option.
 Require Import Coq.Classes.EquivDec.
@@ -52,6 +51,10 @@ Definition get_mem_state (st: state) :=
   | _ => None
   end.
 
+Inductive hole :=
+| Go
+| Done.
+
 Section Semantics.
   (* ENVIRONMENTS AND STORES *)
   (* Definitions of types of finite maps used in the semantics. *)
@@ -72,7 +75,7 @@ Section Semantics.
 
   (* An environment collecting all defined groups *)
   Definition group_env : Type := ident_map group.
-  (* map from group name to values of its ports *)
+  (* map from group name to values of its holes *)
   Definition group_map : Type := ident_map val_map.
 
   Open Scope stdpp_scope.
@@ -83,65 +86,10 @@ Section Semantics.
            '(_, v) ← get_reg_state st;
            Some (<["out" := v]>inputs))].
   
-  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : option val_map := 
-    fn ← calyx_prims !! prim;
-    fn st inputs.
-  
-  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : option (cell_map) :=
-    match c.(cell_proto) with
-    | ProtoPrim prim param_binding _ =>
-        st ← ρ !! c.(cell_name);
-        vs ← σ !! c.(cell_name);
-        vs' ← poke_prim prim param_binding st vs;
-        Some (<[c.(cell_name) := vs']>σ)
-    | _ => None (* unimplemented *)
-    end.
-
-  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option cell_map :=
-    map_fold (fun _ cell ρσ_opt =>
-                σ ← ρσ_opt;
-                poke_cell cell ρ σ)
-             (Some σ)
-             ce.
-
-  Definition read_port (p: port) (σ: cell_map) : option value :=
-    lookup p.(parent) σ ≫= lookup p.(port_name).
-
-  Definition read_port_ref (p: port_ref) (σ: cell_map) : option value :=
-    match p with
-    | PComp comp port => lookup comp σ ≫= lookup port
-    | _ => None (* TODO *)
-    end.
-
-  Definition write_port (p: port) (v: value) (σ: cell_map) : option cell_map :=
-    mret (alter (insert p.(port_name) v) p.(parent) σ).
-
-  Definition write_port_ref (p: port_ref) (v: value) (σ: cell_map) : option cell_map :=
-    match p with
-    | PComp comp port => mret (alter (insert port v) comp σ)
-    | _ => None (* TODO *)
-    end.
-  
-  Definition interp_assign
-             (ce: cell_env)
-             (ρ: state_map)
-             (op: assignment)
-             (σ: cell_map) 
-    : option cell_map :=
-    σ' ← poke_all_cells ce ρ σ;
-    v ← read_port_ref op.(src) σ';
-    σ'' ← write_port_ref op.(dst) v σ';
-    mret σ''.
-
-  Definition interp_group ce σ ρ (g: group) : option cell_map := 
-    (* there is probably a monad sequencing operation that should be used here *)
-    foldl (fun res op => res ≫= interp_assign ce ρ op)
-          (Some σ)
-          g.(group_assns).
-
   Definition is_entrypoint (entrypoint: ident) (c: comp) : bool :=
     bool_decide (entrypoint = c.(comp_name)).
 
+  (* LOADING AND ALLOCATION *)
   Definition load_group (ge: group_env) (g: group) : group_env :=
     <[g.(group_name) := g]>ge.
 
@@ -161,14 +109,6 @@ Section Semantics.
   Definition load_context (c: context) : cell_env * group_env := 
     foldl load_comp (empty, empty) c.(ctx_comps).
 
-  Definition interp_control (ce: cell_env) (ge: group_env) σ ρ ctrl :=
-    match ctrl with
-    | CEnable group _ =>
-        g ← ge !! group;
-        interp_group ce σ ρ g
-    | _ => None
-    end.
-
   Definition allocate_val_map (c: cell) : val_map :=
     foldl (fun σ p => <[p.(port_name) := X]>σ)
           empty
@@ -176,6 +116,10 @@ Section Semantics.
 
   Definition allocate_cell_map (ce: cell_env) : cell_map :=
     fmap allocate_val_map ce.
+
+  (* Initialize go and done holes to undef *)
+  Definition allocate_group_map (ge: group_env) : group_map :=
+    fmap (fun (g: group) => <["go" := X]>(<["done" := X]>empty)) ge.
 
   Definition prim_initial_state (name: ident) : option state :=
     if decide (name = "std_reg")
@@ -194,11 +138,108 @@ Section Semantics.
     map_fold (fun name (c: cell) (ρ0: option state_map) =>
                 ρ ← ρ0;
                 allocate_state_for_cell c ρ) (Some empty) ce.
+
+  (* COMBINATIONAL UPDATES *)
+  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : option val_map := 
+    fn ← calyx_prims !! prim;
+    fn st inputs.
   
-  Definition interp_context (c: context) :=
+  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : option cell_map :=
+    match c.(cell_proto) with
+    | ProtoPrim prim param_binding _ =>
+        st ← ρ !! c.(cell_name);
+        vs ← σ !! c.(cell_name);
+        vs' ← poke_prim prim param_binding st vs;
+        Some (<[c.(cell_name) := vs']>σ)
+    | _ => None (* unimplemented *)
+    end.
+
+  Definition tick_cell (c: cell) (ρ: state_map) (σ: cell_map) : option (state_map * cell_map) :=
+    None.
+
+  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option cell_map :=
+    map_fold (fun _ cell σ_opt =>
+                σ ← σ_opt;
+                poke_cell cell ρ σ)
+             (Some σ)
+             ce.
+
+  (* Update the state, invalidate outgoing wires *)
+  Definition tick_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option (state_map * cell_map) :=
+    map_fold (fun _ cell ρσ_opt =>
+                '(ρ, σ) ← ρσ_opt;
+                tick_cell cell ρ σ)
+             (Some (ρ, σ))
+             ce.
+
+  Definition read_port_ref (p: port_ref) (σ: cell_map) (γ: group_map) : option value :=
+    match p with
+    | PComp comp port => lookup comp σ ≫= lookup port
+    | PHole group hole => lookup group γ ≫= lookup hole
+    | _ => None (* TODO *)
+    end.
+
+  Definition write_port_ref (p: port_ref) (v: value) (σ: cell_map) (γ: group_map) : option (cell_map * group_map) :=
+    match p with
+    | PComp comp port => mret (alter (insert port v) comp σ, γ)
+    | PHole group hole => mret (σ, alter (insert hole v) group γ)
+    | _ => None (* TODO *)
+    end.
+  
+  Definition interp_assign
+             (ce: cell_env)
+             (ρ: state_map)
+             (σ: cell_map) 
+             (γ: group_map)
+             (op: assignment)
+    : option (cell_map * group_map) :=
+    σ' ← poke_all_cells ce ρ σ;
+    v ← read_port_ref op.(src) σ' γ;
+    '(σ'', γ') ← write_port_ref op.(dst) v σ' γ;
+    mret (σ'', γ').
+
+  Definition poke_group ce ρ σ γ (g: group) : option (cell_map * group_map) := 
+    (* there is probably a monad sequencing operation that should be used here *)
+    (* n.b. this defintion using foldl assumes the assignments are
+            already in dataflow order and will not require iteration
+            to reach a fixed point. *)
+    foldl (fun res op =>
+             '(σ, γ) ← res;
+             interp_assign ce ρ σ γ op)
+          (Some (σ, γ))
+          g.(group_assns).
+
+  Definition is_done (γ: group_map) (g: group) : bool :=
+    match holes ← γ !! g.(group_name);
+          holes !! "done" with
+    | Some v => v ==b (V 1%N)
+    | None => false
+    end.
+
+  Fixpoint interp_group (ce: cell_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (g: group) (gas: nat) : option (state_map * cell_map * group_map) :=
+    '(ρ, σ) ← tick_all_cells ce ρ σ;
+    '(σ, γ) ← poke_group ce ρ σ γ g;
+    if is_done γ g
+    then Some (ρ, σ, γ)
+    else match gas with
+         | S gas => interp_group ce ρ σ γ g gas
+         | O => None
+         end.
+
+  Definition interp_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) (gas: nat) :=
+    match ctrl with
+    | CEnable group _ =>
+        g ← ge !! group;
+        interp_group ce ρ σ γ g gas
+    | _ => None
+    end.
+
+  Definition interp_context (c: context) (gas: nat) :=
     main ← List.find (is_entrypoint c.(ctx_entrypoint)) c.(ctx_comps);
     let '(ce, ge) := load_context c in
     let σ := allocate_cell_map ce in
+    let γ := allocate_group_map ge in
     ρ ← allocate_state_map ce;
-    interp_control ce ge σ ρ main.(comp_control).
+    interp_control ce ge ρ σ γ main.(comp_control) gas.
+
 End Semantics.
