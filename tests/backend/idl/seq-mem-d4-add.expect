@@ -1,0 +1,20 @@
+{
+  "toplevel_name": "main",
+  "memories": [
+    {
+      "name": "in1",
+      "width": 32,
+      "size": 24
+    },
+    {
+      "name": "in2",
+      "width": 32,
+      "size": 24
+    },
+    {
+      "name": "out",
+      "width": 32,
+      "size": 24
+    }
+  ]
+}
