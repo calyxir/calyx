@@ -98,6 +98,20 @@ port:
   { {port_name = name; port_width = width; port_dir = dir; parent = par; 
      port_attribute = attributes} }
 
+port_ref: 
+| LPAREN; LPAREN; NAME; name = ID; RPAREN; 
+    LPAREN; WIDTH; width = INT; RPAREN;
+    LPAREN; DIRECTION; dir = direction; RPAREN;
+    LPAREN; PARENT; par = ID; RPAREN; 
+    attributes = attrs_clause;
+  RPAREN
+    { let _ = attributes in
+      let _ = width in
+      let _ = dir in
+      if String.equal par "_this"
+      then PThis name
+      else PRef (par, name) }
+
 direction: 
 | INPUT { Input }
 | OUTPUT { Output }
@@ -125,12 +139,12 @@ guard:
 
 assignment: 
   | LPAREN;
-      LPAREN; DST; dst = port; RPAREN;
-      LPAREN; SRC; src = port; RPAREN; 
+      LPAREN; DST; dst = port_ref; RPAREN;
+      LPAREN; SRC; src = port_ref; RPAREN; 
       LPAREN; GUARD; assign_guard = guard; RPAREN; 
       attrs = attrs_clause;
     RPAREN
-    { { dst = dst.port_name; src = src.port_name; assign_guard; attrs } }
+    { { dst; src; assign_guard; attrs } }
 
 control: 
   | LPAREN; EMPTY; LPAREN; attrs = attrs_clause; RPAREN; RPAREN

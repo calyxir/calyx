@@ -172,17 +172,28 @@ Section Semantics.
              (Some (ρ, σ))
              ce.
 
+  Definition catch {X} (c1 c2: option X) : option X :=
+    match c1 with
+    | Some x => Some x
+    | None => c2
+    end.
+
   Definition read_port_ref (p: port_ref) (σ: cell_map) (γ: group_map) : option value :=
     match p with
-    | PComp comp port => lookup comp σ ≫= lookup port
-    | PHole group hole => lookup group γ ≫= lookup hole
+    | PRef parent port =>
+        catch (σ !! parent ≫= (!!) port)
+              (γ !! parent ≫= (!!) port)
     | _ => None (* TODO *)
     end.
 
   Definition write_port_ref (p: port_ref) (v: value) (σ: cell_map) (γ: group_map) : option (cell_map * group_map) :=
     match p with
-    | PComp comp port => mret (alter (insert port v) comp σ, γ)
-    | PHole group hole => mret (σ, alter (insert hole v) group γ)
+    | PRef parent port =>
+        if decide (is_Some (σ !! parent))
+        then mret (alter (insert port v) parent σ, γ)
+        else if decide (is_Some (γ !! parent))
+             then mret (σ, alter (insert port v) parent γ)
+             else None
     | _ => None (* TODO *)
     end.
   

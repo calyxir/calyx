@@ -131,13 +131,10 @@ Definition cells := list cell.
 
 (** Relative references to ports. *)
 Inductive port_ref :=
-(* refers to the port named [port] on the subcomponent [component]. *)
-| PComp (component: ident) (port: ident)
+(* refers to the port named [port] on the thing [parent]. *)
+| PRef (parent: ident) (port: ident)
 (* refers to the port named [port] on the enclosing component. *)
-| PThis (port: ident)
-(* group[name] parses into [Hole group name] and is a hole named name
-   on the group [group] *)
-| PHole (group: ident) (name: ident).
+| PThis (port: ident).
 
 (** Nonnegative integers of a fixed bit-width. *)
 Record num :=
