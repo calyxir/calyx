@@ -153,24 +153,24 @@ component main(@go go: 1) -> (@done done: 1) {
   }
   control {
     seq {
-        read_00;
-        read_01;
-        read_10;
-        read_11;
-        par {
-            mul_00_00;
-            mul_00_01;
-            mul_00_10;
-            mul_01_10;
-            mul_01_11;
-            mul_10_11;
-            mul_11_11;
-        }
-        add;
-        write_00;
-        write_01;
-        write_10;
-        write_11;
+      read_00;
+      read_01;
+      read_10;
+      read_11;
+      par {
+        mul_00_00;
+        mul_00_01;
+        mul_00_10;
+        mul_01_10;
+        mul_01_11;
+        mul_10_11;
+        mul_11_11;
+      }
+      add;
+      write_00;
+      write_01;
+      write_10;
+      write_11;
     }
   }
 }
