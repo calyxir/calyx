@@ -22,4 +22,5 @@
    (coq-stdpp (>= "1.8.0"))
    (coq (>= "8.15.2"))
    (menhir (>= "20230608"))
+   (yojson (>= "2.1.0"))
    (ocamlformat (and :build (>= "0.24.1")))))

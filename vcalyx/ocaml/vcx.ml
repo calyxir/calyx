@@ -1,6 +1,26 @@
 open Core
 open Vcalyx
 open Lexing
+open Yojson
+
+let load_mem (obj : Safe.t) : Extr.state =
+  let open Yojson.Safe.Util in
+  let mem_data = obj
+                 |> member "data" 
+                 |> to_list
+                 |> List.map ~f:to_int in
+  Extr.StateMemD1 (false,
+                   {is_signed = false;
+                    numeric_type = Bitnum;
+                    width = 32},
+                   mem_data)
+
+let load_mems file =
+  let obj = Yojson.Safe.from_file file in
+  match obj with
+  | `Assoc kvs ->
+    List.map ~f:(fun (k, v) -> (k, load_mem v)) kvs
+  | _ -> failwith "unexpected JSON object"
 
 (* from https://dev.realworldocaml.org/parsing-with-ocamllex-and-menhir.html *)
 let print_position outx lexbuf =
@@ -29,8 +49,10 @@ let vcx_parse : Command.t =
   let open Command.Let_syntax in
   Command.basic ~summary:"interpret a Calyx program with Coq semantics"
     [%map_open
-      let source_arg = anon (maybe ("prog.futils" %: string)) in
+      let source_arg = anon (maybe ("prog.futils" %: string))
+      and data_arg = flag "-d" (optional string) ~doc:"JSON data for memories, etc" in
       fun () ->
+        let _ = data_arg in (* todo use this *)
         let source_name = 
           match source_arg with
           | Some source_location -> source_location

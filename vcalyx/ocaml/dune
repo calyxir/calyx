@@ -16,7 +16,7 @@
  (name vcx)
  (public_name vcx)
  (modules vcx)
- (libraries core core_unix.command_unix vcalyx yojson)
+ (libraries core core_unix.command_unix extr vcalyx yojson)
  (preprocess
   (pps ppx_let ppx_deriving.show)))
 
