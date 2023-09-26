@@ -25,6 +25,13 @@ impl Named for ScheduleCompaction {
 }
 
 impl Visitor for ScheduleCompaction {
+    fn iteration_order() -> crate::traversal::Order
+    where
+        Self: Sized,
+    {
+        crate::traversal::Order::Post
+    }
+
     fn finish_static_seq(
         &mut self,
         s: &mut calyx_ir::StaticSeq,
@@ -136,6 +143,38 @@ impl Visitor for ScheduleCompaction {
     ) -> crate::traversal::VisResult {
         s.latency =
             std::cmp::max(s.tbranch.get_latency(), s.fbranch.get_latency());
+        Ok(Action::Continue)
+    }
+
+    fn finish(
+        &mut self,
+        comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> crate::traversal::VisResult {
+        if comp.is_static() {
+            comp.latency = Some(
+                std::num::NonZeroU64::new(
+                    comp.control.borrow().get_latency().unwrap(),
+                )
+                .unwrap(),
+            );
+        }
+        Ok(Action::Continue)
+    }
+
+    fn static_invoke(
+        &mut self,
+        s: &mut ir::StaticInvoke,
+        _comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        comps: &[ir::Component],
+    ) -> crate::traversal::VisResult {
+        for comp in comps {
+            if comp.name.eq(&s.comp.borrow().type_name().unwrap()) {
+                s.latency = u64::from(comp.latency.unwrap());
+            }
+        }
         Ok(Action::Continue)
     }
 }

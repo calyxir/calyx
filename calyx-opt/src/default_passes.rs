@@ -91,10 +91,10 @@ impl PassManager {
                 CombProp,
                 CellShare, // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
+                AttributePromotion, // go before CompileInvoke
+                StaticPromotion, // go before CompileInvoke
+                ScheduleCompaction, // go before CompileInvoke
                 CompileInvoke, // creates dead comb groups
-                AttributePromotion,
-                StaticPromotion,
-                ScheduleCompaction,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,

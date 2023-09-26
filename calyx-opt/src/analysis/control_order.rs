@@ -1,6 +1,6 @@
 use crate::analysis::ReadWriteSet;
 use calyx_ir as ir;
-use calyx_utils::{CalyxResult, Error};
+use calyx_utils::{CalyxResult, Error, Id};
 use ir::RRC;
 use itertools::Itertools;
 use petgraph::{
@@ -34,8 +34,8 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                 let cell = cr.borrow();
                 match cell.prototype {
                     // Ignore constants and _this
-                    ir::CellType::Constant { .. }
-                    | ir::CellType::ThisComponent => None,
+                    ir::CellType::Constant { .. } => None,
+                    ir::CellType::ThisComponent => Some(Id::new("this_comp")),
                     _ => Some(cell.name()),
                 }
             })
