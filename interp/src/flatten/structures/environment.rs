@@ -1,6 +1,5 @@
 use ahash::{HashMap, HashMapExt};
 use itertools::Itertools;
-use smallvec::SmallVec;
 
 use super::{
     context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
@@ -8,9 +7,14 @@ use super::{
 use crate::{
     errors::InterpreterResult,
     flatten::{
-        flat_ir::prelude::{
-            AssignmentIdx, BaseIndices, ComponentIdx, ControlIdx, ControlNode,
-            GlobalCellId, GlobalPortId, GlobalRefCellId, GlobalRefPortId,
+        flat_ir::{
+            prelude::{
+                Assignment, AssignmentIdx, BaseIndices, ComponentIdx,
+                ControlIdx, ControlNode, GlobalCellId, GlobalPortId,
+                GlobalPortRef, GlobalRefCellId, GlobalRefPortId, GuardIdx,
+                PortRef,
+            },
+            wires::guards::Guard,
         },
         primitives::{self, Primitive},
         structures::index_trait::IndexRef,
@@ -28,6 +32,17 @@ type AssignmentRange = IndexRange<AssignmentIdx>;
 pub(crate) struct ComponentLedger {
     pub(crate) index_bases: BaseIndices,
     pub(crate) comp_id: ComponentIdx,
+}
+
+impl ComponentLedger {
+    /// Convert a relative offset to a global one. Perhaps should take an owned
+    /// value rather than a pointer
+    pub fn convert_to_global(&self, port: &PortRef) -> GlobalPortRef {
+        match port {
+            PortRef::Local(l) => (&self.index_bases + l).into(),
+            PortRef::Ref(r) => (&self.index_bases + r).into(),
+        }
+    }
 }
 
 pub(crate) enum CellLedger {
@@ -56,6 +71,12 @@ impl CellLedger {
             Self::Component(comp) => Some(comp),
             _ => None,
         }
+    }
+
+    #[inline]
+    pub fn unwrap_comp(&self) -> &ComponentLedger {
+        self.as_comp()
+            .expect("Unwrapped cell ledger as component but received primitive")
     }
 }
 
@@ -92,7 +113,10 @@ impl ControlPoint {
 /// The number of control points to preallocate for the program counter.
 const CONTROL_POINT_PREALLOCATE: usize = 10;
 
-pub type ChildCount = u32;
+/// The number of children that have yet to finish for a given par arm. I have
+/// this a u16 at the moment which is hopefully fine? More than 65,535 parallel
+/// children would be a lot.
+pub type ChildCount = u16;
 
 /// The program counter for the whole program execution. Wraps over a vector of
 /// the active leaf statements for each component instance.
@@ -110,7 +134,7 @@ impl ProgramCounter {
         // TODO: this relies on the fact that we construct the root cell-ledger
         // as the first possible cell in the program. If that changes this will break.
         let root_cell = GlobalCellId::new(0);
-        let mut par_map: HashMap<ControlPoint, u32> = HashMap::new();
+        let mut par_map: HashMap<ControlPoint, ChildCount> = HashMap::new();
 
         let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
         if let Some(current) = ctx.primary[root].control {
@@ -144,7 +168,7 @@ impl ProgramCounter {
                         par_map.insert(
                             ControlPoint::new(root_cell, current),
                             p.stms().len().try_into().expect(
-                                "number of par arms does not fit into a u32",
+                                "number of par arms does not fit into the default size value. Please let us know so that we can adjust the datatype accordingly",
                             ),
                         );
                         for node in p.stms() {
@@ -575,6 +599,29 @@ impl<'a> Simulator<'a> {
         }
     }
 
+    fn lookup_global_port_id(&self, port: GlobalPortRef) -> GlobalPortId {
+        match port {
+            GlobalPortRef::Port(p) => p,
+            // TODO Griffin: Please make sure this error message is correct with
+            // respect to the compiler
+            GlobalPortRef::Ref(r) => self.env.ref_ports[r].expect("A ref port is being queried without a supplied ref-cell. This is an error?"),
+        }
+    }
+
+    fn get_global_idx(
+        &self,
+        port: &PortRef,
+        comp: GlobalCellId,
+    ) -> GlobalPortId {
+        let ledger = self.env.cells[comp].unwrap_comp();
+        self.lookup_global_port_id(ledger.convert_to_global(port))
+    }
+
+    fn get_value(&self, port: &PortRef, comp: GlobalCellId) -> &Value {
+        let port_idx = self.get_global_idx(port, comp);
+        &self.env.ports[port_idx]
+    }
+
     fn descend_to_leaf(
         &self,
         // the node (possibly terminal) which we want to start evaluating
@@ -653,6 +700,34 @@ impl<'a> Simulator<'a> {
         NextControlPoint::None
     }
 
+    // may want to make this iterate directly if it turns out that the vec
+    // allocation is too expensive in this context
+    fn get_assignments(&self) -> AssignmentBundle {
+        // maybe should give this a capacity equivalent to the number of
+        // elements in the program counter? It would be a bit of an over
+        // approximation
+        let mut out = AssignmentBundle::new();
+        for node in self.env.pc.iter() {
+            match &self.ctx().primary[node.control_leaf] {
+                ControlNode::Empty(_) => {
+                    // don't need to add any assignments here
+                }
+                ControlNode::Enable(e) => {
+                    out.assigns.push((node.comp, self.ctx().primary[e.group()].assignments))
+                }
+
+                ControlNode::Invoke(_) => todo!("invokes not yet implemented"),
+                // The reason this shouldn't happen is that the program counter
+                // should've processed these nodes into their children and
+                // stored the needed auxillary data for par structures
+                ControlNode::If(_) | ControlNode::While(_) => panic!("If/While nodes are present in the control program when `get_assignments` is called. This is an error, please report it."),
+                ControlNode::Seq(_) | ControlNode::Par(_) => unreachable!(),
+            }
+        }
+
+        out
+    }
+
     pub fn step(&mut self) -> InterpreterResult<()> {
         // place to keep track of what groups we need to conclude at the end of
         // this step. These are indices into the program counter
@@ -661,7 +736,80 @@ impl<'a> Simulator<'a> {
 
         // first we need to check for conditional control nodes
 
+        self.simulate_combinational();
+
         todo!()
+    }
+
+    fn evaluate_guard(&self, guard: GuardIdx, comp: GlobalCellId) -> bool {
+        let guard = &self.ctx().primary[guard];
+        match guard {
+            Guard::True => true,
+            Guard::Or(a, b) => {
+                self.evaluate_guard(*a, comp) || self.evaluate_guard(*b, comp)
+            }
+            Guard::And(a, b) => {
+                self.evaluate_guard(*a, comp) || self.evaluate_guard(*b, comp)
+            }
+            Guard::Not(n) => !self.evaluate_guard(*n, comp),
+            Guard::Comp(c, a, b) => {
+                let comp_v = self.env.cells[comp].unwrap_comp();
+
+                let a = self.lookup_global_port_id(comp_v.convert_to_global(a));
+                let b = self.lookup_global_port_id(comp_v.convert_to_global(b));
+
+                let a_val = &self.env.ports[a];
+                let b_val = &self.env.ports[b];
+                match c {
+                    calyx_ir::PortComp::Eq => a_val == b_val,
+                    calyx_ir::PortComp::Neq => a_val != b_val,
+                    calyx_ir::PortComp::Gt => a_val > b_val,
+                    calyx_ir::PortComp::Lt => a_val < b_val,
+                    calyx_ir::PortComp::Geq => a_val >= b_val,
+                    calyx_ir::PortComp::Leq => a_val <= b_val,
+                }
+            }
+            Guard::Port(p) => {
+                let comp_v = self.env.cells[comp].unwrap_comp();
+                let p_idx =
+                    self.lookup_global_port_id(comp_v.convert_to_global(p));
+                self.env.ports[p_idx].as_bool()
+            }
+        }
+    }
+
+    fn simulate_combinational(&mut self) {
+        let assigns = self.get_assignments();
+        let mut has_changed = true;
+
+        // This is an upper-bound, i.e. if every assignment succeeds then there
+        // will be this many entries
+        let mut updates_vec: Vec<(GlobalPortId, Value)> =
+            Vec::with_capacity(assigns.len());
+
+        while has_changed {
+            let updates = assigns.iter_over_assignments(self.ctx()).filter_map(
+                |(comp_idx, assign)| {
+                    if self.evaluate_guard(assign.guard, comp_idx) {
+                        let val = self.get_value(&assign.src, comp_idx);
+                        Some((
+                            self.get_global_idx(&assign.dst, comp_idx),
+                            val.clone(),
+                        ))
+                    } else {
+                        None
+                    }
+                },
+            );
+
+            // want to buffer all updates before committing. It's not ideal to
+            // be doing this in a tight loop.
+            updates_vec.extend(updates);
+
+            for (dest, val) in updates_vec.drain(..) {
+                self.env.ports[dest] = val;
+            }
+        }
     }
 
     pub fn _main_test(&mut self) {
@@ -669,21 +817,71 @@ impl<'a> Simulator<'a> {
         for x in self.env.pc.iter() {
             println!("{:?} next {:?}", x, self.find_next_control_point(x))
         }
+        println!("{:?}", self.get_assignments())
     }
 }
 
-// The number of assignment ranges to allocate space for when passing a bundle
-// of assignments. At 2, this is the same size as using a vector.
-const ASSIGNMENT_PREALLOCATE: usize = 2;
-
+/// A collection of assignments represented using a series of half-open ranges
+/// via [AssignmentRange]
+#[derive(Debug)]
 struct AssignmentBundle {
-    assigns: SmallVec<[AssignmentRange; ASSIGNMENT_PREALLOCATE]>,
+    assigns: Vec<(GlobalCellId, AssignmentRange)>,
 }
 
 impl AssignmentBundle {
+    fn new() -> Self {
+        Self {
+            assigns: Vec::new(),
+        }
+    }
+
     fn with_capacity(size: usize) -> Self {
         Self {
-            assigns: SmallVec::with_capacity(size),
+            assigns: Vec::with_capacity(size),
+        }
+    }
+
+    #[inline]
+    pub fn push(&mut self, value: (GlobalCellId, AssignmentRange)) {
+        self.assigns.push(value)
+    }
+
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = &(GlobalCellId, AssignmentRange)> {
+        self.assigns.iter()
+    }
+
+    pub fn iter_over_indices(
+        &self,
+    ) -> impl Iterator<Item = (GlobalCellId, AssignmentIdx)> + '_ {
+        self.assigns
+            .iter()
+            .flat_map(|(c, x)| x.iter().map(|y| (*c, y)))
+    }
+
+    pub fn iter_over_assignments<'a>(
+        &'a self,
+        ctx: &'a Context,
+    ) -> impl Iterator<Item = (GlobalCellId, &'a Assignment)> {
+        self.iter_over_indices()
+            .map(|(c, idx)| (c, &ctx.primary[idx]))
+    }
+
+    /// The total number of assignments. Not the total number of index ranges!
+    pub fn len(&self) -> usize {
+        self.assigns
+            .iter()
+            .fold(0, |acc, (_, range)| acc + range.size())
+    }
+}
+
+impl FromIterator<(GlobalCellId, AssignmentRange)> for AssignmentBundle {
+    fn from_iter<T: IntoIterator<Item = (GlobalCellId, AssignmentRange)>>(
+        iter: T,
+    ) -> Self {
+        Self {
+            assigns: iter.into_iter().collect(),
         }
     }
 }
