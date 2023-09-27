@@ -29,3 +29,5 @@ Definition lift_opt {A} (msg: string) (o: option A) : exn A :=
   | Some a => inl a
   | None => inr msg
   end.
+
+Definition err {A} : string -> exn A := inr.

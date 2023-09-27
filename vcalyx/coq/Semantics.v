@@ -51,7 +51,9 @@ Inductive state : Type :=
 (* std_reg *)
 | StateReg (write_done: bool) (val: value)
 (* std_mem_d1 *)
-| StateMemD1 (write_done: bool) (fmt: mem_fmt) (contents: mem_data).
+| StateMemD1 (write_done: bool) (fmt: mem_fmt) (contents: mem_data)
+(* A primitive with no internal state *)
+| StateComb.
 
 Definition get_reg_state (st: state) :=
   match st with
@@ -174,7 +176,13 @@ Section Semantics.
   Definition prim_initial_state (name: ident) : exn state :=
     if decide (name = "std_reg")
     then mret (StateReg false X)
-    else inr ("prim_initial_state: " +:+ name +:+ " is not a std_reg, unimplemented").
+    else if decide (name = "std_add")
+    then mret StateComb
+    else if decide (name = "std_or")
+    then mret StateComb
+    else if decide (name = "std_const")
+    then mret StateComb
+    else err ("prim_initial_state: " +:+ name +:+ " is not a std_reg, unimplemented").
 
   Definition allocate_state_for_cell (c: cell) (ρ: state_map) : exn state_map :=
     match c.(cell_proto) with
@@ -197,47 +205,59 @@ Section Semantics.
              ce.
 
   (* COMBINATIONAL UPDATES *)
-  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : option val_map := 
-    fns ← calyx_prims !! prim;
-    fns.(prim_sem_poke) st inputs.
+  Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : exn val_map := 
+    fns ← lift_opt ("poke_prim: " +:+ prim +:+ " not found")
+                   (calyx_prims !! prim);
+    lift_opt "poke_prim: failure in prim_sem_poke"
+             (fns.(prim_sem_poke) st inputs).
   
-  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : option cell_map :=
+  Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : exn cell_map :=
     match c.(cell_proto) with
     | ProtoPrim prim param_binding _ =>
-        st ← ρ !! c.(cell_name);
-        vs ← σ !! c.(cell_name);
+        st ← lift_opt "poke_cell" (ρ !! c.(cell_name));
+        vs ← lift_opt "poke_cell" (σ !! c.(cell_name));
         vs' ← poke_prim prim param_binding st vs;
-        Some (<[c.(cell_name) := vs']>σ)
-    | _ => None (* unimplemented *)
+        mret (<[c.(cell_name) := vs']>σ)
+    | ProtoComp c => err "tick_cell: ProtoComp unimplemented"
+    | ProtoThis => err "tick_cell: ProtoThis unimplemented"
+    | ProtoConst val width =>
+        let vs := <["out" := V val]>empty in
+        mret (<[c.(cell_name) := vs]>σ)
     end.
 
-  Definition tick_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : option state := 
-    fns ← calyx_prims !! prim;
-    fns.(prim_sem_tick) st inputs.
+  Definition tick_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : exn state := 
+    fns ← lift_opt ("tick_prim: " +:+ prim +:+ " not found")
+                   (calyx_prims !! prim);
+    lift_opt "tick_prim: failure in prim_sem_tick"
+             (fns.(prim_sem_tick) st inputs).
 
-  Definition tick_cell (c: cell) (ρ: state_map) (σ: cell_map) : option state_map :=
+  Definition tick_cell (c: cell) (ρ: state_map) (σ: cell_map) : exn state_map :=
     match c.(cell_proto) with
     | ProtoPrim prim param_binding _ =>
-        st ← ρ !! c.(cell_name);
-        vs ← σ !! c.(cell_name);
+        st ← lift_opt ("tick_cell: " +:+ c.(cell_name) +:+ " not found in state_map")
+                      (ρ !! c.(cell_name));
+        vs ← lift_opt ("tick_cell: " +:+ c.(cell_name) +:+ " not found in cell_map")
+                      (σ !! c.(cell_name));
         st' ← tick_prim prim param_binding st vs;
-        Some (<[c.(cell_name) := st']>ρ)
-    | _ => None (* unimplemented *)
+        mret (<[c.(cell_name) := st']>ρ)
+    | ProtoComp c => err "tick_cell: ProtoComp unimplemented"
+    | ProtoThis => err "tick_cell: ProtoThis unimplemented"
+    | ProtoConst _ _ => mret ρ
     end.
 
-  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option cell_map :=
+  Definition poke_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : exn cell_map :=
     map_fold (fun _ cell σ_opt =>
                 σ ← σ_opt;
                 poke_cell cell ρ σ)
-             (Some σ)
+             (inl σ)
              ce.
 
   (* Update the state, invalidate outgoing wires *)
-  Definition tick_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : option state_map :=
+  Definition tick_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : exn state_map :=
     map_fold (fun _ cell ρ_opt =>
                 ρ ← ρ_opt;
                 tick_cell cell ρ σ)
-             (Some ρ)
+             (inl ρ)
              ce.
 
   Definition catch {X} (c1 c2: option X) : option X :=
@@ -246,23 +266,24 @@ Section Semantics.
     | None => c2
     end.
 
-  Definition read_port_ref (p: port_ref) (σ: cell_map) (γ: group_map) : option value :=
+  Definition read_port_ref (p: port_ref) (σ: cell_map) (γ: group_map) : exn value :=
     match p with
     | PRef parent port =>
-        catch (σ !! parent ≫= (!!) port)
-              (γ !! parent ≫= (!!) port)
-    | _ => None (* TODO *)
+        lift_opt "read_port_ref: port not found"
+                 (catch (σ !! parent ≫= (!!) port)
+                        (γ !! parent ≫= (!!) port))
+    | _ => err "read_port_ref: ports other than PRef unimplemented"
     end.
 
-  Definition write_port_ref (p: port_ref) (v: value) (σ: cell_map) (γ: group_map) : option (cell_map * group_map) :=
+  Definition write_port_ref (p: port_ref) (v: value) (σ: cell_map) (γ: group_map) : exn (cell_map * group_map) :=
     match p with
     | PRef parent port =>
         if decide (is_Some (σ !! parent))
         then mret (alter (insert port v) parent σ, γ)
         else if decide (is_Some (γ !! parent))
              then mret (σ, alter (insert port v) parent γ)
-             else None
-    | _ => None (* TODO *)
+             else err "write_port_ref: parent not found in group_map"
+    | _ => err "write_port_ref: ports other than PRef unimplemented"
     end.
   
   Definition interp_assign
@@ -271,13 +292,13 @@ Section Semantics.
              (σ: cell_map) 
              (γ: group_map)
              (op: assignment)
-    : option (cell_map * group_map) :=
+    : exn (cell_map * group_map) :=
     σ' ← poke_all_cells ce ρ σ;
     v ← read_port_ref op.(src) σ' γ;
     '(σ'', γ') ← write_port_ref op.(dst) v σ' γ;
     mret (σ'', γ').
 
-  Definition poke_group ce ρ σ γ (g: group) : option (cell_map * group_map) := 
+  Definition poke_group ce ρ σ γ (g: group) : exn (cell_map * group_map) := 
     (* there is probably a monad sequencing operation that should be used here *)
     (* n.b. this defintion using foldl assumes the assignments are
             already in dataflow order and will not require iteration
@@ -285,7 +306,7 @@ Section Semantics.
     foldl (fun res op =>
              '(σ, γ) ← res;
              interp_assign ce ρ σ γ op)
-          (Some (σ, γ))
+          (mret (σ, γ))
           g.(group_assns).
 
   Definition is_done (γ: group_map) (g: group) : bool :=
@@ -295,22 +316,23 @@ Section Semantics.
     | None => false
     end.
 
-  Fixpoint interp_group (ce: cell_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (g: group) (gas: nat) : option (state_map * cell_map * group_map) :=
+  Fixpoint interp_group (ce: cell_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (g: group) (gas: nat) : exn (state_map * cell_map * group_map) :=
     ρ ← tick_all_cells ce ρ σ;
     '(σ, γ) ← poke_group ce ρ σ γ g;
     if is_done γ g
-    then Some (ρ, σ, γ)
+    then inl (ρ, σ, γ)
     else match gas with
          | S gas => interp_group ce ρ σ γ g gas
-         | O => None
+         | O => err "interp_group: out of gas"
          end.
 
-  Definition interp_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) (gas: nat) :=
+  Definition interp_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) (gas: nat) : exn _:=
     match ctrl with
     | CEnable group _ =>
-        g ← ge !! group;
+        g ← lift_opt ("interp_control: group " +:+ group +:+ " not found in group_env")
+                     (ge !! group);
         interp_group ce ρ σ γ g gas
-    | _ => None
+    | _ => err "interp_control: control was not a single CEnable"
     end.
 
   Definition find_entrypoint (name: ident) (comps: list comp) :=
@@ -323,7 +345,7 @@ Section Semantics.
     let σ := allocate_cell_map ce in
     let γ := allocate_group_map ge in
     ρ ← allocate_state_map ce mems;
-    lift_opt "failure in interp_control" (interp_control ce ge ρ σ γ main.(comp_control) gas).
+    interp_control ce ge ρ σ γ main.(comp_control) gas.
 
   Definition extract_mems (ρ: state_map) : list (ident * state) :=
     List.filter (fun '(name, st) => is_mem_state_bool st) (map_to_list ρ).
