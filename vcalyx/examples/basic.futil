@@ -2,8 +2,8 @@ import "primitives/core.futil";
 
 component main() -> () {
   cells {
-    const0 = std_const(32, 2);
     reg1 = std_reg(32);
+    const0 = std_const(32, 2);
   }
 
   wires {

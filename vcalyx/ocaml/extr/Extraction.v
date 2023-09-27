@@ -17,6 +17,7 @@ Extract Constant VCalyx.Parse.oops => "(fun _ -> failwith ""oops!"")".
 transitive dependencies. *)
 Extraction "extr.ml"
            VCalyx.Semantics.interp_with_mems
+           VCalyx.Semantics.find_prim
            VCalyx.IRSyntax.context
            VCalyx.IRSyntax.is_in
            VCalyx.IRSyntax.is_out.

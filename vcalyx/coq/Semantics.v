@@ -21,10 +21,10 @@ Scheme Equality for value.
 Global Instance value_EqDec : EqDec value eq :=
   value_eq_dec.
 
-Definition expect_V (v: value) : option N :=
+Definition expect_V (v: value) : exn N :=
   match v with
-  | V val => Some val
-  | _ => None
+  | V val => mret val
+  | _ => err "expect_V"
   end.
 
 Definition is_high (v: value) :=
@@ -57,14 +57,15 @@ Inductive state : Type :=
 
 Definition get_reg_state (st: state) :=
   match st with
-  | StateReg write_done v => Some (write_done, v)
-  | _ => None
+  | StateReg write_done v => mret (write_done, v)
+  | _ => err "get_reg_state"
   end.
 
 Definition get_mem_d1_state (st: state) :=
   match st with
-  | StateMemD1 write_done fmt contents => Some (write_done, fmt, contents)
-  | _ => None
+  | StateMemD1 write_done fmt contents => mret (write_done, fmt, contents)
+  | StateReg _ _ => err "get_mem_d1_state: got reg"
+  | StateComb => err "get_mem_d1_state: got comb"
   end.
 
 Definition is_mem_state_bool (st: state) : bool :=
@@ -90,8 +91,8 @@ Section Semantics.
   Definition cell_env : Type := ident_map cell.
 
   Record prim_sem :=
-    { prim_sem_poke: state -> val_map -> option val_map;
-      prim_sem_tick: state -> val_map -> option state }.
+    { prim_sem_poke: state -> val_map -> exn val_map;
+      prim_sem_tick: state -> val_map -> exn state }.
   
   (* An environment collecting all defined primitives *)
   Definition prim_map : Type := ident_map prim_sem.
@@ -101,43 +102,9 @@ Section Semantics.
   (* map from group name to values of its holes *)
   Definition group_map : Type := ident_map val_map.
 
+  Variable (calyx_prims : prim_map).
+
   Open Scope stdpp_scope.
-  Definition calyx_prims : prim_map :=
-    list_to_map 
-      [("std_reg",
-         {| prim_sem_poke st inputs :=
-              '(write_done, v) ← get_reg_state st;
-              Some (<["done" := bool_to_value write_done]>(<["out" := v]>inputs));
-            prim_sem_tick st inputs :=
-              '(_, val_old) ← get_reg_state st;
-              write_en ← inputs !! "write_en";
-              if is_high write_en
-              then val_in ← inputs !! "in";
-                   Some (StateReg true val_in)
-              else Some (StateReg false val_old)
-         |});
-       ("std_mem_d1",
-         {| prim_sem_poke st inputs :=
-              '(write_done, fmt, contents) ← get_mem_d1_state st;
-              addr ← inputs !! "addr0";
-              mem_val ← match addr with
-                        | Z => Some Z
-                        | V idx => V <$> contents !! (N.to_nat idx)
-                        | X => Some X
-                        end;
-              Some (<["done" := bool_to_value write_done]>(<["read_data" := mem_val]>inputs));
-           prim_sem_tick st inputs :=
-              '(_, fmt, contents) ← get_mem_d1_state st;
-              write_en ← inputs !! "write_en";
-              if is_high write_en
-              then val_in ← inputs !! "write_data";
-                   val ← expect_V val_in;
-                   addr ← inputs !! "addr0";
-                   idx ← expect_V addr;
-                   Some (StateMemD1 true fmt (<[N.to_nat idx := val]>contents))
-              else Some (StateMemD1 false fmt contents)
-         |})].
-  
   Definition is_entrypoint (entrypoint: ident) (c: comp) : bool :=
     bool_decide (entrypoint = c.(comp_name)).
 
@@ -208,8 +175,7 @@ Section Semantics.
   Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : exn val_map := 
     fns ← lift_opt ("poke_prim: " +:+ prim +:+ " not found")
                    (calyx_prims !! prim);
-    lift_opt "poke_prim: failure in prim_sem_poke"
-             (fns.(prim_sem_poke) st inputs).
+    fns.(prim_sem_poke) st inputs.
   
   Definition poke_cell (c: cell) (ρ: state_map) (σ: cell_map) : exn cell_map :=
     match c.(cell_proto) with
@@ -228,8 +194,10 @@ Section Semantics.
   Definition tick_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : exn state := 
     fns ← lift_opt ("tick_prim: " +:+ prim +:+ " not found")
                    (calyx_prims !! prim);
-    lift_opt "tick_prim: failure in prim_sem_tick"
-             (fns.(prim_sem_tick) st inputs).
+    match fns.(prim_sem_tick) st inputs with 
+    | inl ok => inl ok
+    | inr error => inr ("tick_prim for " +:+ prim +:+ ": " +:+ error)
+    end.
 
   Definition tick_cell (c: cell) (ρ: state_map) (σ: cell_map) : exn state_map :=
     match c.(cell_proto) with
@@ -254,6 +222,15 @@ Section Semantics.
 
   (* Update the state, invalidate outgoing wires *)
   Definition tick_all_cells (ce: cell_env) (ρ: state_map) (σ: cell_map) : exn state_map :=
+    (*
+    err (map_fold (fun key cell acc =>
+                     let prim := match cell.(cell_proto) with
+                                 | ProtoPrim prim param_binding _ => prim
+                                 | _ => "<no prim>"
+                                 end in
+                key +:+ ":" +:+ prim +:+ " " +:+ acc)
+             ""
+             ce). *)
     map_fold (fun _ cell ρ_opt =>
                 ρ ← ρ_opt;
                 tick_cell cell ρ σ)
@@ -352,8 +329,84 @@ Section Semantics.
 
 End Semantics.
 
+Definition assoc_list K V := list (K * V).
+Instance assoc_list_FMap (K: Type) : FMap (assoc_list K) :=
+  fun V V' f => List.map (fun '(k, v) => (k, f v)).
+
+Instance assoc_list_Lookup : forall V, Lookup string V (assoc_list string V) :=
+  fun _ needle haystack =>
+    match List.find (fun '(k, v) => if string_eq_dec k needle then true else false) haystack with
+    | Some (_, v) => Some v
+    | None => None
+    end.
+
+Instance assoc_list_Empty: forall V, Empty (assoc_list string V) :=
+  fun _ => [].
+
+Instance assoc_list_PartialAlter: ∀ V : Type, PartialAlter string V (assoc_list string V) :=
+  fun V alter k m =>
+    m.
+
+Instance assoc_list_OMap: OMap (assoc_list string) :=
+  fun V B f m =>
+    [].
+
+Instance assoc_list_Merge: Merge (assoc_list string) :=
+  fun _ _ _ _ _ _ => [].
+
+Instance assoc_list_FinMapToList: forall V, FinMapToList string V (assoc_list string V) :=
+  fun _ => id.
+
+Instance assoc_list_finmap: FinMap string (assoc_list string).
+Admitted.
+
+Definition calyx_prims : prim_map (assoc_list string) :=
+  [
+    ("std_reg",
+         {| prim_sem_poke st inputs :=
+              '(write_done, v) ← get_reg_state st;
+              mret (<["done" := bool_to_value write_done]>(<["out" := v]>inputs));
+            prim_sem_tick st inputs :=
+              '(_, val_old) ← get_reg_state st;
+              write_en ← lift_opt "std_reg tick: write_en missing"
+                                  (inputs !! "write_en");
+              if is_high write_en
+              then val_in ← lift_opt "std_reg tick: in missing" (inputs !! "in");
+                   mret (StateReg true val_in)
+              else mret (StateReg false val_old)
+         |});
+       ("std_mem_d1",
+         {| prim_sem_poke st inputs :=
+              '(write_done, fmt, contents) ← get_mem_d1_state st;
+              addr ← lift_opt "std_mem_d1 poke: addr0 missing" (inputs !! "addr0");
+              mem_val ← match addr with
+                        | Z => mret Z
+                        | V idx => V <$> lift_opt "std_mem_d1 poke: out of bounds access" (contents !! (N.to_nat idx))
+                        | X => mret X
+                        end;
+              mret (<["done" := bool_to_value write_done]>(<["read_data" := mem_val]>inputs));
+           prim_sem_tick st inputs :=
+              '(_, fmt, contents) ← get_mem_d1_state st;
+              write_en ← lift_opt "std_mem_d1 tick: write_en missing"
+                                  (inputs !! "write_en");
+              if is_high write_en
+              then val_in ← lift_opt "std_mem_d1 tick: write_data missing" (inputs !! "write_data");
+                   val ← expect_V val_in;
+                   addr ← lift_opt "st_mem_d1 tick: addr0 missing" (inputs !! "addr0");
+                   idx ← expect_V addr;
+                   mret (StateMemD1 true fmt (<[N.to_nat idx := val]>contents))
+              else mret (StateMemD1 false fmt contents)
+         |});
+       ("std_const", {|
+           prim_sem_poke st inputs := mret inputs;
+           prim_sem_tick st inputs := mret st;
+       |})].
+
 (* interp_context instantiated with the gmap finite map data structure *)
 Definition interp_with_mems (c: context) (mems: list (ident * state)) (gas: nat) :=
   let mems := list_to_map mems in
-  '(ρ, σ, γ) ← interp_context (gmap ident) c mems gas;
+  '(ρ, σ, γ) ← interp_context (assoc_list ident) calyx_prims c mems gas;
   mret (extract_mems _ ρ).
+
+Definition find_prim s := calyx_prims !! s.
+Eval vm_compute in find_prim "".
