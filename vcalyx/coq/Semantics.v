@@ -1,6 +1,7 @@
 From stdpp Require Import
      base
      fin_maps
+     gmap
      numbers
      list
      strings
@@ -63,11 +64,17 @@ Definition get_mem_d1_state (st: state) :=
   | _ => None
   end.
 
+Definition is_mem_state_bool (st: state) : bool :=
+  match st with
+  | StateMemD1 _ _ _ => true
+  | _ => false
+  end.
+
 Section Semantics.
   (* ENVIRONMENTS AND STORES *)
   (* Definitions of types of finite maps used in the semantics. *)
-  Context (ident_map: Type -> Type)
-          `{FinMap ident ident_map}.
+  Context (ident_map: Type -> Type).
+  Context `{FinMap ident ident_map}.
   (* TODO put the computations in here *)
   (* map from port names to values *)
   Definition val_map : Type := ident_map value.
@@ -176,10 +183,15 @@ Section Semantics.
     | _ => None
     end.
 
-  Definition allocate_state_map (ce: cell_env) : option state_map :=
+  Definition allocate_state_map (ce: cell_env) (initial: state_map) : option state_map :=
     map_fold (fun name (c: cell) (ρ0: option state_map) =>
                 ρ ← ρ0;
-                allocate_state_for_cell c ρ) (Some empty) ce.
+                match initial !! c.(cell_name) with
+                | Some st__init => mret (<[c.(cell_name) := st__init]>ρ)
+                | None => allocate_state_for_cell c ρ
+                end)
+             (Some empty)
+             ce.
 
   (* COMBINATIONAL UPDATES *)
   Definition poke_prim (prim: ident) (param_binding: list (ident * N)) (st: state) (inputs: val_map) : option val_map := 
@@ -298,12 +310,23 @@ Section Semantics.
     | _ => None
     end.
 
-  Definition interp_context (c: context) (gas: nat) :=
+  Definition interp_context (c: context) (mems: state_map) (gas: nat) :=
     main ← List.find (is_entrypoint c.(ctx_entrypoint)) c.(ctx_comps);
     let '(ce, ge) := load_context c in
     let σ := allocate_cell_map ce in
     let γ := allocate_group_map ge in
-    ρ ← allocate_state_map ce;
+    ρ ← allocate_state_map ce mems;
     interp_control ce ge ρ σ γ main.(comp_control) gas.
 
+  Definition extract_mems (ρ: state_map) : list (ident * state) :=
+    List.filter (fun '(name, st) => is_mem_state_bool st) (map_to_list ρ).
+
 End Semantics.
+
+(* interp_context instantiated with the gmap finite map data structure *)
+Definition interp_with_mems (c: context) (mems: list (ident * state)) (gas: nat) :=
+  let mems := list_to_map mems in
+  match interp_context (gmap ident) c mems gas with
+  | Some (ρ, σ, γ) => Some (extract_mems _ ρ)
+  | None => None
+  end.

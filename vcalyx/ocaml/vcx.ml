@@ -1,9 +1,8 @@
 open Core
 open Vcalyx
 open Lexing
-open Yojson
 
-let load_mem (obj : Safe.t) : Extr.state =
+let load_mem obj : Extr.state =
   let open Yojson.Safe.Util in
   let mem_data = obj
                  |> member "data" 
@@ -22,6 +21,16 @@ let load_mems file =
     List.map ~f:(fun (k, v) -> (k, load_mem v)) kvs
   | _ -> failwith "unexpected JSON object"
 
+let dump_mem =
+  function
+  | Extr.StateMemD1 (_, _, mem_data) ->
+    `List (List.map ~f:(fun i -> `Int i) mem_data)
+  | _ -> failwith "unexpected @external state to dump"
+
+let dump_mems chan mems =
+  let kvs = List.map ~f:(fun (k, v) -> (k, dump_mem v)) mems in
+  Yojson.Safe.to_channel chan (`Assoc kvs)
+
 (* from https://dev.realworldocaml.org/parsing-with-ocamllex-and-menhir.html *)
 let print_position outx lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -37,13 +46,15 @@ let parse_with_error lexbuf =
     fprintf stderr "%a: syntax error\n" print_position lexbuf;
     None
 
-let parse_and_print lexbuf source_location =
+let parse_context lexbuf source_location : Extr.context =
   match parse_with_error lexbuf with
-  | Some _ ->
-    Printf.printf "Successfully parsed %s.\n" source_location
-    (* TODO: print AST back out *)
-  | None ->
-    exit (-1)
+  | Some ctx -> ctx
+  | None -> failwith (Printf.sprintf "Error parsing %s." source_location)
+
+let interp_exn ctx mems_initial =
+  match Extr.interp_with_mems ctx mems_initial 100 with
+  | Some mems_final -> mems_final
+  | None -> failwith "error in evaluation..."
 
 let vcx_parse : Command.t =
   let open Command.Let_syntax in
@@ -52,7 +63,11 @@ let vcx_parse : Command.t =
       let source_arg = anon (maybe ("prog.futils" %: string))
       and data_arg = flag "-d" (optional string) ~doc:"JSON data for memories, etc" in
       fun () ->
-        let _ = data_arg in (* todo use this *)
+        let mems_initial =
+          match data_arg with
+          | Some data_arg -> load_mems data_arg
+          | None -> []
+        in (* todo use this *)
         let source_name = 
           match source_arg with
           | Some source_location -> source_location
@@ -61,11 +76,13 @@ let vcx_parse : Command.t =
           match source_arg with
           | Some source_location -> In_channel.create source_location
           | None -> In_channel.stdin in
-        let source_str = Lexing.from_channel source_chan in
-        source_str.lex_curr_p <-
-          { source_str.lex_curr_p with pos_fname = source_name };
-        parse_and_print source_str source_name;
-        In_channel.close source_chan]
+        let source_lexbuf = Lexing.from_channel source_chan in
+        Lexing.set_filename source_lexbuf source_name;
+        let ctx = parse_context source_lexbuf source_name in
+        In_channel.close source_chan;
+        (* need to print out the result appropriately and include # of cycles... *)
+        let mems_final = interp_exn ctx mems_initial in
+        dump_mems Out_channel.stdout mems_final]
 
 let vcx_cmd : Command.t =
   Command.group ~summary:"vcx: the vcalyx command-line interface"
