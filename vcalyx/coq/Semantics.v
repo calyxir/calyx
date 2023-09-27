@@ -343,9 +343,24 @@ Instance assoc_list_Lookup : forall V, Lookup string V (assoc_list string V) :=
 Instance assoc_list_Empty: forall V, Empty (assoc_list string V) :=
   fun _ => [].
 
+Fixpoint assoc_list_partial_alter (V: Type) (f: option V -> option V) (k: string) (l: assoc_list string V) : assoc_list string V :=
+  match l with
+  | [] =>
+      match f None with
+      | Some fv => [(k, fv)]
+      | None => []
+      end
+  | (k', v)::l =>
+      if string_eq_dec k k'
+      then match f (Some v) with
+           | Some fv => (k, fv)::l
+           | None => l
+           end
+      else (k', v)::assoc_list_partial_alter V f k l
+  end.
+
 Instance assoc_list_PartialAlter: ∀ V : Type, PartialAlter string V (assoc_list string V) :=
-  fun V alter k m =>
-    m.
+  assoc_list_partial_alter.
 
 Instance assoc_list_OMap: OMap (assoc_list string) :=
   fun V B f m =>
