@@ -8,8 +8,6 @@ use itertools::Itertools;
 use serde::de::{self, Deserialize, Visitor};
 use serde::Serialize;
 
-use calyx_ir as ir;
-
 pub type BitString = BitVec<usize, Lsb0>;
 
 /// Retrieves the unsigned fixed point representation of `v`. This splits the representation into
