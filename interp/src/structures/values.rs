@@ -1,6 +1,5 @@
 use std::ops::Not;
-use std::rc::Rc;
-use std::{cell::RefCell, fmt::Write, ops::Index};
+use std::{fmt::Write, ops::Index};
 
 use bitvec::prelude::*;
 use fraction::Fraction;

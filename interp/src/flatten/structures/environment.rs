@@ -807,6 +807,9 @@ impl<'a> Simulator<'a> {
             updates_vec.extend(updates);
 
             for (dest, val) in updates_vec.drain(..) {
+                if self.env.ports[dest] != val {
+                    has_changed = true
+                }
                 self.env.ports[dest] = val;
             }
         }
