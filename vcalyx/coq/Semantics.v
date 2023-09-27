@@ -8,6 +8,7 @@ From stdpp Require Import
      option.
 Require Import Coq.Classes.EquivDec.
 Require Import VCalyx.IRSyntax.
+Require Import VCalyx.Exception.
 
 Inductive value := 
 (* Top: more than 1 assignment to this port has occurred *)
@@ -170,27 +171,29 @@ Section Semantics.
   Definition allocate_group_map (ge: group_env) : group_map :=
     fmap (fun (g: group) => <["go" := X]>(<["done" := X]>empty)) ge.
 
-  Definition prim_initial_state (name: ident) : option state :=
+  Definition prim_initial_state (name: ident) : exn state :=
     if decide (name = "std_reg")
-    then Some (StateReg false X)
-    else None.
+    then mret (StateReg false X)
+    else inr ("prim_initial_state: " +:+ name +:+ " is not a std_reg, unimplemented").
 
-  Definition allocate_state_for_cell (c: cell) (ρ: state_map) : option state_map :=
+  Definition allocate_state_for_cell (c: cell) (ρ: state_map) : exn state_map :=
     match c.(cell_proto) with
     | ProtoPrim prim_name bindings is_comb =>
         st ← prim_initial_state prim_name;
         mret (<[c.(cell_name) := st]>ρ)
-    | _ => None
+    | ProtoThis
+    | ProtoConst _ _
+    | ProtoComp _ => mret ρ (* TODO FIX *)
     end.
 
-  Definition allocate_state_map (ce: cell_env) (initial: state_map) : option state_map :=
-    map_fold (fun name (c: cell) (ρ0: option state_map) =>
+  Definition allocate_state_map (ce: cell_env) (initial: state_map) : exn state_map :=
+    map_fold (fun name (c: cell) (ρ0: exn state_map) =>
                 ρ ← ρ0;
                 match initial !! c.(cell_name) with
                 | Some st__init => mret (<[c.(cell_name) := st__init]>ρ)
                 | None => allocate_state_for_cell c ρ
                 end)
-             (Some empty)
+             (inl empty)
              ce.
 
   (* COMBINATIONAL UPDATES *)
@@ -310,13 +313,17 @@ Section Semantics.
     | _ => None
     end.
 
-  Definition interp_context (c: context) (mems: state_map) (gas: nat) :=
-    main ← List.find (is_entrypoint c.(ctx_entrypoint)) c.(ctx_comps);
+  Definition find_entrypoint (name: ident) (comps: list comp) :=
+    lift_opt ("find_entrypoint: " +:+ name +:+ " not found")
+             (List.find (is_entrypoint name) comps).
+
+  Definition interp_context (c: context) (mems: state_map) (gas: nat) : exn (state_map * cell_map * group_map) :=
+    main ← find_entrypoint c.(ctx_entrypoint) c.(ctx_comps);
     let '(ce, ge) := load_context c in
     let σ := allocate_cell_map ce in
     let γ := allocate_group_map ge in
     ρ ← allocate_state_map ce mems;
-    interp_control ce ge ρ σ γ main.(comp_control) gas.
+    lift_opt "failure in interp_control" (interp_control ce ge ρ σ γ main.(comp_control) gas).
 
   Definition extract_mems (ρ: state_map) : list (ident * state) :=
     List.filter (fun '(name, st) => is_mem_state_bool st) (map_to_list ρ).
@@ -326,7 +333,5 @@ End Semantics.
 (* interp_context instantiated with the gmap finite map data structure *)
 Definition interp_with_mems (c: context) (mems: list (ident * state)) (gas: nat) :=
   let mems := list_to_map mems in
-  match interp_context (gmap ident) c mems gas with
-  | Some (ρ, σ, γ) => Some (extract_mems _ ρ)
-  | None => None
-  end.
+  '(ρ, σ, γ) ← interp_context (gmap ident) c mems gas;
+  mret (extract_mems _ ρ).

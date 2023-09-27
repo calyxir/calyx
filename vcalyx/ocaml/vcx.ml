@@ -52,9 +52,9 @@ let parse_context lexbuf source_location : Extr.context =
   | None -> failwith (Printf.sprintf "Error parsing %s." source_location)
 
 let interp_exn ctx mems_initial =
-  match Extr.interp_with_mems ctx mems_initial 100 with
-  | Some mems_final -> mems_final
-  | None -> failwith "error in evaluation..."
+  match Extr.interp_with_mems ctx mems_initial 100000 with
+  | Inl mems_final -> mems_final
+  | Inr msg -> failwith msg
 
 let vcx_parse : Command.t =
   let open Command.Let_syntax in

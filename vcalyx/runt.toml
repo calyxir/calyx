@@ -5,7 +5,7 @@ ver = "0.4.1"
 name = "sexp"
 paths = ["./examples/*.futils"]
 cmd = """
-./_build/default/ocaml/vcx.exe parse {}
+./_build/default/ocaml/vcx.exe parse -d {}.data {}
 """
 timeout = 3
 

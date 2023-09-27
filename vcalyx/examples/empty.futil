@@ -3,8 +3,12 @@ component main() -> () {
   }
 
   wires {
+    group g {
+      g[done] = 1'd1;
+    }
   }
 
   control {
+    g;
   }
 }
