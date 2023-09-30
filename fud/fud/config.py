@@ -37,6 +37,12 @@ DEFAULT_CONFIGURATION = {
             "data": None,
             "round_float_to_fixed": True,
         },
+        "vcalyx-interp": {
+            "exec": "dune exec --root=./vcalyx -- vcx interp",
+            "flags": None,
+            "data": None,
+            "round_float_to_fixed": True,
+        },
         "debugger": {"flags": None},
         "dahlia": {
             "exec": "dahlia",

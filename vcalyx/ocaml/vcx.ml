@@ -56,18 +56,21 @@ let interp_exn ctx mems_initial =
   | Inl mems_final -> mems_final
   | Inr msg -> failwith msg
 
-let vcx_parse : Command.t =
+let vcx_interp : Command.t =
   let open Command.Let_syntax in
   Command.basic ~summary:"interpret a Calyx program with Coq semantics"
     [%map_open
       let source_arg = anon (maybe ("prog.futils" %: string))
-      and data_arg = flag "-d" (optional string) ~doc:"JSON data for memories, etc" in
-      fun () ->
+      and data_arg = flag ~aliases:["-d"] "--data" (optional string)
+          ~doc:"file.json JSON data for memories, etc"
+      and _ = flag ~aliases:["-l"] "--lib" (optional string)
+          ~doc:"dir Path to primitives library"
+      in fun () ->
         let mems_initial =
           match data_arg with
           | Some data_arg -> load_mems data_arg
           | None -> []
-        in (* todo use this *)
+        in
         let source_name = 
           match source_arg with
           | Some source_location -> source_location
@@ -86,6 +89,6 @@ let vcx_parse : Command.t =
 
 let vcx_cmd : Command.t =
   Command.group ~summary:"vcx: the vcalyx command-line interface"
-    [ ("parse", vcx_parse) ]
+    [ ("interp", vcx_interp) ]
 
 let () = Command_unix.run ~version:"dev" vcx_cmd

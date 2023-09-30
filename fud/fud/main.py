@@ -17,6 +17,7 @@ from .stages import (
     vcdump,
     jq,
     vcalyx,
+    vcalyx_interpreter,
     verilator,
     vivado,
     xilinx,
@@ -111,6 +112,13 @@ def register_stages(registry):
     )
     registry.register(
         futil.CalyxStage(
+            "vcalyx-interp",
+            "-p none",
+            "Compile Calyx for interpretation with VCalyx",
+        )
+    )
+    registry.register(
+        futil.CalyxStage(
             "resources",
             "-b resources",
             "Generate a CSV that estimates a Calyx program's resource usage",
@@ -153,6 +161,7 @@ def register_stages(registry):
     registry.register(jq.JqStage("vcd_json"))
     registry.register(jq.JqStage("dat"))
     registry.register(jq.JqStage("interpreter-out"))
+    registry.register(jq.JqStage("vcalyx-interp-out"))
 
     # Xilinx
     registry.register(xilinx.XilinxStage())
@@ -166,6 +175,7 @@ def register_stages(registry):
     # VCalyx
     registry.register(vcalyx.VCalyxStage("Parse Calyx programs in s-expression form with Coq semantics"))
     registry.register(vcalyx.VCalyxStage("vcalyx-out"))
+    registry.register(vcalyx_interpreter.VCalyxInterpStage("", "", "Run the VCalyx interpreter"))
 
 def register_external_stages(cfg, registry):
     """
