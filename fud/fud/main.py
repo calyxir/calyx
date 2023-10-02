@@ -16,8 +16,8 @@ from .stages import (
     systolic,
     vcdump,
     jq,
+    sexp,
     vcalyx,
-    vcalyx_interpreter,
     verilator,
     vivado,
     xilinx,
@@ -112,9 +112,9 @@ def register_stages(registry):
     )
     registry.register(
         futil.CalyxStage(
-            "vcalyx-interp",
-            "-p none",
-            "Compile Calyx for interpretation with VCalyx",
+            "calyx-sexp",
+            "-b sexp -p canonicalize --log info",
+            "Convert Calyx to s-expression format for VCalyx",
         )
     )
     registry.register(
@@ -122,15 +122,6 @@ def register_stages(registry):
             "resources",
             "-b resources",
             "Generate a CSV that estimates a Calyx program's resource usage",
-        )
-    )
-    registry.register(
-        futil.CalyxStage(
-            "vcalyx",
-            "-b sexp -p canonicalize --log info",
-            # TODO put dataflow passes here
-            # -s futil.flags ... to override flags
-            "Prints a Calyx program in s-expression form",
         )
     )
 
@@ -161,7 +152,7 @@ def register_stages(registry):
     registry.register(jq.JqStage("vcd_json"))
     registry.register(jq.JqStage("dat"))
     registry.register(jq.JqStage("interpreter-out"))
-    registry.register(jq.JqStage("vcalyx-interp-out"))
+    registry.register(jq.JqStage("vcalyx-out"))
 
     # Xilinx
     registry.register(xilinx.XilinxStage())
@@ -173,9 +164,7 @@ def register_stages(registry):
     registry.register(interpreter.InterpreterStage.data_converter())
 
     # VCalyx
-    registry.register(vcalyx.VCalyxStage("Parse Calyx programs in s-expression form with Coq semantics"))
-    registry.register(vcalyx.VCalyxStage("vcalyx-out"))
-    registry.register(vcalyx_interpreter.VCalyxInterpStage("", "", "Run the VCalyx interpreter"))
+    registry.register(vcalyx.VCalyxStage("", "", "Run the VCalyx interpreter"))
 
 def register_external_stages(cfg, registry):
     """
