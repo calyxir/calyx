@@ -1,5 +1,5 @@
 {
-  "toplevel_name": "main",
+  "toplevel": "main",
   "memories": [
     {
       "name": "A0",

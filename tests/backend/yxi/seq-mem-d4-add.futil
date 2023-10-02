@@ -1,4 +1,4 @@
-// -b idl
+// -b yxi
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/memories.futil";
