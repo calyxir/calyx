@@ -13,7 +13,7 @@ rule tokens = parse
 | ['0'-'9']+ as i { INT (int_of_string i) } 
 | whitespace      { tokens lexbuf }
 | newline         { Lexing.new_line lexbuf; tokens lexbuf }
-| ['"'][^'"']+['"'] as s { STRING s }
+| ['"']([^'"']* as s)['"'] { STRING s }
 | "."             { DOT }
 | "#("            { LPAREN }
 | "("             { LPAREN }
