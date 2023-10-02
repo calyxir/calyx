@@ -19,7 +19,7 @@ itertools.workspace = true
 linked-hash-map.workspace = true
 serde = { workspace = true }
 serde_with = { workspace = true, optional = true }
-serde_sexpr = { workspace = true, optional = true }
+serde-lexpr = { workspace = true, optional = true }
 smallvec.workspace = true
 
 calyx-utils.workspace = true
@@ -40,4 +40,4 @@ default = []
 mlir = []
 xilinx = ["dep:quick-xml"]
 resources = ["dep:csv"]
-sexp = ["dep:serde_with", "dep:serde_sexpr", "serde/rc", "calyx-ir/serialize"]
+sexp = ["dep:serde_with", "dep:serde-lexpr", "serde/rc", "calyx-ir/serialize"]

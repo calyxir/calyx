@@ -5,6 +5,8 @@
 
 %token <int> INT 
 %token <string> ID
+%token <string> STRING
+%token DOT
 (* numerical attributes *)
 %token NUM GO DONE STATIC WRITE_TOGETHER
 (* boolean attributes *)
@@ -36,49 +38,53 @@
 
 main: 
   | LPAREN;
-      LPAREN; COMPONENTS; LPAREN; comps = list(component); RPAREN; RPAREN; 
-      LPAREN; ENTRYPOINT; entry = ID; RPAREN;
+      LPAREN; COMPONENTS; comps = list(component); RPAREN; 
+      LPAREN; ENTRYPOINT; DOT; entry = STRING; RPAREN;
     RPAREN; EOF
   { {ctx_comps = comps; ctx_entrypoint = entry} }
 
 attrs_clause:
-  | LPAREN; ATTRIBUTES; LPAREN; attrs = list(attribute); RPAREN; RPAREN
+  | LPAREN; ATTRIBUTES; attrs = list(attribute); RPAREN
    { attrs }
 
 component: 
   | LPAREN;
-      LPAREN; NAME; name = ID; RPAREN; 
+      LPAREN; NAME; DOT; name = STRING; RPAREN; 
       LPAREN; SIGNATURE; signature = cell; RPAREN; 
-      LPAREN; CELLS; LPAREN; cells = list(cell); RPAREN; RPAREN;
-      LPAREN; GROUPS; LPAREN; groups = list(group); RPAREN; RPAREN; 
-      LPAREN; STATIC_GROUPS; LPAREN; sgroups = list(sgroup); RPAREN; RPAREN; 
-      LPAREN; COMB_GROUPS; LPAREN; cgroups = list(cgroup); RPAREN; RPAREN; 
-      LPAREN; CONT_ASSNS; LPAREN; assns = list(assignment); RPAREN; RPAREN; 
+      LPAREN; CELLS; cells = list(paren_cell); RPAREN;
+      LPAREN; GROUPS; groups = list(paren_group); RPAREN; 
+      LPAREN; STATIC_GROUPS; sgroups = list(sgroup); RPAREN; 
+      LPAREN; COMB_GROUPS; cgroups = list(cgroup); RPAREN; 
+      LPAREN; CONT_ASSNS; assns = list(assignment); RPAREN; 
       LPAREN; CONTROL; ctl = control; RPAREN; 
       attributes = attrs_clause;
-      LPAREN; IS_COMB; comb = bool; RPAREN;
-      LPAREN; LATENCY; LPAREN; RPAREN; RPAREN;
+      LPAREN; IS_COMB; DOT; is_comb = bool; RPAREN;
+      LPAREN; LATENCY; RPAREN;
     RPAREN
 { {comp_attrs = attributes; comp_name = name; comp_sig = signature;
 comp_cells = cells; comp_groups = groups; comp_comb_groups = cgroups;
 comp_static_groups = sgroups; comp_cont_assns = assns; comp_control = ctl;
-comp_is_comb = comb} }
+comp_is_comb = is_comb} }
 
 cgroup:
   | LPAREN;
-      LPAREN; NAME; comb_group_name = ID; RPAREN;
-      LPAREN; ASSIGNMENTS; LPAREN; comb_group_assns = list(assignment); RPAREN; RPAREN;
+      LPAREN; NAME; DOT; comb_group_name = STRING; RPAREN;
+      LPAREN; ASSIGNMENTS; comb_group_assns = list(assignment); RPAREN;
       comb_group_attrs = attrs_clause;
     RPAREN
     { { comb_group_name;
         comb_group_attrs;
         comb_group_assns } }
+
+paren_cell:
+  | LPAREN; cell = cell; RPAREN { cell }
+
 cell:
-| LPAREN; LPAREN; NAME; name = ID; RPAREN; 
-LPAREN; PORTS; LPAREN; ports = list(port); RPAREN; RPAREN;
-LPAREN; PROTOTYPE; proto = prototype; RPAREN; 
-attributes = attrs_clause;
-LPAREN; REFERENCE; reference = bool; RPAREN; RPAREN
+  | LPAREN; NAME; DOT; name = STRING; RPAREN; 
+    LPAREN; PORTS; ports = list(port); RPAREN;
+    LPAREN; PROTOTYPE; proto = prototype; RPAREN; 
+    attributes = attrs_clause;
+    LPAREN; REFERENCE; DOT; reference = bool; RPAREN;
 { let ins = List.filter ports ~f:(fun p -> is_in p.port_dir) in
   let outs = List.filter ports ~f:(fun p -> is_out p.port_dir) in
   {cell_name = name;
@@ -89,22 +95,21 @@ LPAREN; REFERENCE; reference = bool; RPAREN; RPAREN
    cell_ref = reference} }
 
 port: 
-| LPAREN; LPAREN; NAME; name = ID; RPAREN; 
-    LPAREN; WIDTH; width = INT; RPAREN;
-    LPAREN; DIRECTION; dir = direction; RPAREN;
-    LPAREN; PARENT; par = ID; RPAREN; 
+| LPAREN; LPAREN; NAME; DOT; name = STRING; RPAREN; 
+    LPAREN; WIDTH; DOT; width = INT; RPAREN;
+    LPAREN; DIRECTION; DOT; dir = direction; RPAREN;
+    LPAREN; PARENT; DOT; par = STRING; RPAREN; 
     attributes = attrs_clause;
   RPAREN
   { {port_name = name; port_width = width; port_dir = dir; parent = par; 
      port_attribute = attributes} }
 
 port_ref: 
-| LPAREN; LPAREN; NAME; name = ID; RPAREN; 
-    LPAREN; WIDTH; width = INT; RPAREN;
-    LPAREN; DIRECTION; dir = direction; RPAREN;
-    LPAREN; PARENT; par = ID; RPAREN; 
-    attributes = attrs_clause;
-  RPAREN
+| LPAREN; NAME; DOT; name = STRING; RPAREN; 
+  LPAREN; WIDTH; DOT; width = INT; RPAREN;
+  LPAREN; DIRECTION; DOT; dir = direction; RPAREN;
+  LPAREN; PARENT; DOT; par = STRING; RPAREN; 
+  attributes = attrs_clause;
     { let _ = attributes in
       let _ = width in
       let _ = dir in
@@ -117,13 +122,14 @@ direction:
 | OUTPUT { Output }
 | INOUT { InOut }
 
+paren_group:
+  | LPAREN; group = group; RPAREN { group }
+
 group:
-  | LPAREN;
-      LPAREN; NAME; group_name = ID; RPAREN;
-      LPAREN; ASSIGNMENTS; LPAREN; group_assns = list(assignment); RPAREN; RPAREN;
-      LPAREN; HOLES; LPAREN; group_holes = list(port); RPAREN; RPAREN;
-      group_attrs = attrs_clause;
-    RPAREN
+  | LPAREN; NAME; DOT; group_name = STRING; RPAREN;
+    LPAREN; ASSIGNMENTS; group_assns = list(assignment); RPAREN;
+    LPAREN; HOLES; group_holes = list(port); RPAREN;
+    group_attrs = attrs_clause
     { { group_attrs;
         group_name;
         group_assns;
@@ -141,7 +147,7 @@ assignment:
   | LPAREN;
       LPAREN; DST; dst = port_ref; RPAREN;
       LPAREN; SRC; src = port_ref; RPAREN; 
-      LPAREN; GUARD; assign_guard = guard; RPAREN; 
+      LPAREN; GUARD; DOT; assign_guard = guard; RPAREN; 
       attrs = attrs_clause;
     RPAREN
     { { dst; src; assign_guard; attrs } }
@@ -150,11 +156,11 @@ control:
   | LPAREN; EMPTY; LPAREN; attrs = attrs_clause; RPAREN; RPAREN
     { CEmpty attrs }
   | LPAREN; SEQ; LPAREN;
-      LPAREN; STMTS; LPAREN; stmts = list(control); RPAREN; RPAREN;
+      LPAREN; STMTS; stmts = list(control); RPAREN;
       attrs = attrs_clause;
     RPAREN; RPAREN
     { CSeq (stmts, attrs) }
-  | LPAREN; ENABLE; LPAREN; LPAREN; GROUP; grp = group; RPAREN; attrs = attrs_clause; RPAREN; RPAREN
+  | ENABLE; LPAREN; GROUP; grp = group; RPAREN; attrs = attrs_clause
     { CEnable (grp.group_name, attrs) }
 
 num_attr_name:
@@ -179,9 +185,9 @@ bool_attr_name:
 | INLINE { Inline }
 
 attribute:
-| LPAREN; LPAREN; NUM; name = num_attr_name; RPAREN; value = INT; RPAREN
+| LPAREN; LPAREN; NUM; DOT; name = num_attr_name; RPAREN; DOT; value = INT; RPAREN
    { NumAttr (name, value) }
-| LPAREN; LPAREN; BOOL; name = bool_attr_name; RPAREN; value = INT; RPAREN
+| LPAREN; LPAREN; BOOL; DOT; name = bool_attr_name; RPAREN; DOT; value = INT; RPAREN
    { BoolAttr (name, value <> 0) }
 
 bool: 
@@ -189,31 +195,29 @@ bool:
 | FALSE { false }
 
 param_binding:
-| LPAREN; name = ID; value = INT; RPAREN
+| LPAREN; name = STRING; value = INT; RPAREN
   { (name, value) }
 
 prototype:
   (* TODO other cases *)
-  | THIS_COMPONENT
+  | DOT; THIS_COMPONENT
     { ProtoThis }
-  | LPAREN; PRIMITIVE;
-      LPAREN; NAME; name = ID; RPAREN; 
-      LPAREN; PARAM_BINDING; LPAREN; param_binding = list(param_binding); RPAREN; RPAREN; 
-      LPAREN; IS_COMB; is_comb = bool; RPAREN;
-      LPAREN; LATENCY; LPAREN; RPAREN; RPAREN;
-    RPAREN
+  | PRIMITIVE;
+    LPAREN; NAME; DOT; name = STRING; RPAREN; 
+    LPAREN; PARAM_BINDING; param_binding = list(param_binding); RPAREN; 
+    LPAREN; IS_COMB; DOT; is_comb = bool; RPAREN;
+    LPAREN; LATENCY; RPAREN;
     { ProtoPrim (name, param_binding, is_comb) }
-  | LPAREN; CONSTANT;
-      LPAREN; VAL; value = INT; RPAREN;
-      LPAREN; WIDTH; width = INT; RPAREN;
-    RPAREN
+  | CONSTANT;
+      LPAREN; VAL; DOT; value = INT; RPAREN;
+      LPAREN; WIDTH; DOT; width = INT; RPAREN;
     { ProtoConst (value, width) }
 
 sgroup:
   | LPAREN;
       LPAREN; NAME; static_group_name = ID; RPAREN;
-      LPAREN; ASSIGNMENTS; LPAREN; static_group_assns = list(assignment); RPAREN; RPAREN;
-      LPAREN; HOLES; LPAREN; static_group_holes = list(port); RPAREN; RPAREN;
+      LPAREN; ASSIGNMENTS; static_group_assns = list(assignment); RPAREN;
+      LPAREN; HOLES; static_group_holes = list(port); RPAREN;
       static_group_attrs = attrs_clause;
     RPAREN
     { { static_group_attrs;

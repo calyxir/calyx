@@ -2,30 +2,26 @@ ver = "0.4.1"
 
 # Check basic functionality of the interpreter
 [[tests]]
-name = "vcalyx examples"
-paths = ["./examples/*.futils"]
-cmd = """
-./_build/default/ocaml/vcx.exe parse -d {}.data {}
-"""
-timeout = 3
+  name = "vcalyx examples"
+  paths = ["./examples/*.futil"]
+  cmd = """
+  fud exec --to jq \
+           --through vcalyx-out \
+           -s verilog.data {}.data \
+           {} -q
+  """
+  timeout = 3
 
-[[tests]]
-name = "correctness dynamic"
-paths = ["../tests/correctness/*.futil"]
-cmd = """
-fud exec --to jq \
-         --through interpreter-out \
-         -s verilog.data {}.data \
-         -s interpreter.flags " --raw" \
-         -s jq.expr ".main" \
-         {} -q
-"""
-name = "calyx correctness"
-paths = ["./examples/*.futils"]
-cmd = """
-./_build/default/ocaml/vcx.exe parse -d {}.data {}
-"""
-timeout = 3
+#[[tests]]
+#  name = "correctness dynamic"
+#  paths = ["../tests/correctness/*.futil"]
+#  cmd = """
+#  fud exec --to jq \
+#           --through vcalyx-out \
+#           -s verilog.data {}.data \
+#           {} -q
+#  """
+#  timeout = 3
 
 
 # [[tests]]
