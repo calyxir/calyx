@@ -71,6 +71,7 @@ rule tokens = parse
 | "latency"       { LATENCY }
 | "Empty"         { EMPTY }
 | "Seq"           { SEQ }
+| "If"            { IF }
 | "Enable"        { ENABLE }
 | "stmts"         { STMTS }
 | "Primitive"     { PRIMITIVE }
@@ -79,6 +80,10 @@ rule tokens = parse
 | "param_binding" { PARAM_BINDING }
 | "Constant"      { CONSTANT }
 | "Port"          { PORT }
+| "port"          { PORT }
 | "And"           { AND }
+| "cond"          { COND }
+| "tbranch"       { TBRANCH }
+| "fbranch"       { FBRANCH }
 | id as x         { ID x }
 | _ { raise (SyntaxError (Printf.sprintf "At offset %d: unexpected character %s" (Lexing.lexeme_start lexbuf) (Lexing.lexeme lexbuf))) }

@@ -32,6 +32,7 @@
 %token PORT AND
 (* Control statements. *)
 %token SEQ ENABLE EMPTY STMTS GROUP
+%token IF COND TBRANCH FBRANCH
 
 %start <Extr.context> main
 %%
@@ -81,7 +82,7 @@ paren_cell:
 
 cell:
   | LPAREN; NAME; DOT; name = STRING; RPAREN; 
-    LPAREN; PORTS; ports = list(port); RPAREN;
+    LPAREN; PORTS; ports = list(paren_port); RPAREN;
     LPAREN; PROTOTYPE; proto = prototype; RPAREN; 
     attributes = attrs_clause;
     LPAREN; REFERENCE; DOT; reference = bool; RPAREN;
@@ -94,13 +95,14 @@ cell:
    cell_proto = proto;
    cell_ref = reference} }
 
+paren_port:
+| LPAREN; port = port; RPAREN { port }
 port: 
-| LPAREN; LPAREN; NAME; DOT; name = STRING; RPAREN; 
+| LPAREN; NAME; DOT; name = STRING; RPAREN; 
     LPAREN; WIDTH; DOT; width = INT; RPAREN;
     LPAREN; DIRECTION; DOT; dir = direction; RPAREN;
     LPAREN; PARENT; DOT; par = STRING; RPAREN; 
-    attributes = attrs_clause;
-  RPAREN
+    attributes = attrs_clause
   { {port_name = name; port_width = width; port_dir = dir; parent = par; 
      port_attribute = attributes} }
 
@@ -128,40 +130,51 @@ paren_group:
 group:
   | LPAREN; NAME; DOT; group_name = STRING; RPAREN;
     LPAREN; ASSIGNMENTS; group_assns = list(assignment); RPAREN;
-    LPAREN; HOLES; group_holes = list(port); RPAREN;
+    LPAREN; HOLES; group_holes = list(paren_port); RPAREN;
     group_attrs = attrs_clause
     { { group_attrs;
         group_name;
         group_assns;
         group_holes; } }
 
+paren_guard:
+| LPAREN; guard = guard; RPAREN { guard }
+
 guard:
+| DOT; TRUE
 | TRUE
   { GTrue }
-| LPAREN; PORT; p = port; RPAREN
+| PORT; p = port
   { GPort p }
-| LPAREN; AND; g1 = guard; g2 = guard; RPAREN
+| AND; g1 = paren_guard; g2 = paren_guard
   { GAnd (g1, g2) }
 
 assignment: 
   | LPAREN;
       LPAREN; DST; dst = port_ref; RPAREN;
       LPAREN; SRC; src = port_ref; RPAREN; 
-      LPAREN; GUARD; DOT; assign_guard = guard; RPAREN; 
+      LPAREN; GUARD; assign_guard = guard; RPAREN; 
       attrs = attrs_clause;
     RPAREN
     { { dst; src; assign_guard; attrs } }
 
+paren_control:
+  | LPAREN; control = control; RPAREN { control }
+
 control: 
   | LPAREN; EMPTY; LPAREN; attrs = attrs_clause; RPAREN; RPAREN
     { CEmpty attrs }
-  | LPAREN; SEQ; LPAREN;
-      LPAREN; STMTS; stmts = list(control); RPAREN;
-      attrs = attrs_clause;
-    RPAREN; RPAREN
+  | SEQ; LPAREN; STMTS; stmts = list(paren_control); RPAREN; attrs = attrs_clause;
     { CSeq (stmts, attrs) }
   | ENABLE; LPAREN; GROUP; grp = group; RPAREN; attrs = attrs_clause
     { CEnable (grp.group_name, attrs) }
+  | IF; LPAREN; PORT; cond_port = port_ref; RPAREN;
+        LPAREN; COND; RPAREN;
+        LPAREN; TBRANCH; tru = control; RPAREN;
+        LPAREN; FBRANCH; fls = control; RPAREN;
+        attrs = attrs_clause
+    { CIf (cond_port, None, tru, fls, attrs) }
+
 
 num_attr_name:
 | GO { Go }
@@ -201,6 +214,7 @@ param_binding:
 prototype:
   (* TODO other cases *)
   | DOT; THIS_COMPONENT
+  | THIS_COMPONENT
     { ProtoThis }
   | PRIMITIVE;
     LPAREN; NAME; DOT; name = STRING; RPAREN; 
@@ -217,7 +231,7 @@ sgroup:
   | LPAREN;
       LPAREN; NAME; static_group_name = ID; RPAREN;
       LPAREN; ASSIGNMENTS; static_group_assns = list(assignment); RPAREN;
-      LPAREN; HOLES; static_group_holes = list(port); RPAREN;
+      LPAREN; HOLES; static_group_holes = list(paren_port); RPAREN;
       static_group_attrs = attrs_clause;
     RPAREN
     { { static_group_attrs;
