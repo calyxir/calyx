@@ -8,7 +8,7 @@
 %token <string> STRING
 %token DOT
 (* numerical attributes *)
-%token NUM GO DONE STATIC WRITE_TOGETHER
+%token NUM GO DONE STATIC WRITE_TOGETHER READ_TOGETHER
 (* boolean attributes *)
 %token BOOL TOP_LEVEL EXTERNAL NO_INTERFACE RESET CLK STABLE DATA
 (* more boolean attributes *)
@@ -31,15 +31,19 @@
 (* Guard expressions. *)
 %token PORT AND
 (* Control statements. *)
-%token SEQ ENABLE EMPTY STMTS GROUP
+%token SEQ PAR INVOKE ENABLE EMPTY STMTS GROUP
 %token IF COND TBRANCH FBRANCH
+%token WHILE BODY
+%token COMP INPUTS OUTPUTS COMB_GROUP REF_CELLS
+%token COMPONENT
+%token NOT
 
 %start <Extr.context> main
 %%
 
 main: 
   | LPAREN;
-      LPAREN; COMPONENTS; comps = list(component); RPAREN; 
+      LPAREN; COMPONENTS; comps = list(paren_component); RPAREN; 
       LPAREN; ENTRYPOINT; DOT; entry = STRING; RPAREN;
     RPAREN; EOF
   { {ctx_comps = comps; ctx_entrypoint = entry} }
@@ -48,31 +52,33 @@ attrs_clause:
   | LPAREN; ATTRIBUTES; attrs = list(attribute); RPAREN
    { attrs }
 
+paren_component:
+  | LPAREN; component = component; RPAREN { component }
+
 component: 
-  | LPAREN;
-      LPAREN; NAME; DOT; name = STRING; RPAREN; 
-      LPAREN; SIGNATURE; signature = cell; RPAREN; 
-      LPAREN; CELLS; cells = list(paren_cell); RPAREN;
-      LPAREN; GROUPS; groups = list(paren_group); RPAREN; 
-      LPAREN; STATIC_GROUPS; sgroups = list(sgroup); RPAREN; 
-      LPAREN; COMB_GROUPS; cgroups = list(cgroup); RPAREN; 
-      LPAREN; CONT_ASSNS; assns = list(assignment); RPAREN; 
-      LPAREN; CONTROL; ctl = control; RPAREN; 
-      attributes = attrs_clause;
-      LPAREN; IS_COMB; DOT; is_comb = bool; RPAREN;
-      LPAREN; LATENCY; RPAREN;
-    RPAREN
+  | LPAREN; NAME; DOT; name = STRING; RPAREN; 
+    LPAREN; SIGNATURE; signature = cell; RPAREN; 
+    LPAREN; CELLS; cells = list(paren_cell); RPAREN;
+    LPAREN; GROUPS; groups = list(paren_group); RPAREN; 
+    LPAREN; STATIC_GROUPS; sgroups = list(sgroup); RPAREN; 
+    LPAREN; COMB_GROUPS; cgroups = list(paren_cgroup); RPAREN; 
+    LPAREN; CONT_ASSNS; assns = list(assignment); RPAREN; 
+    LPAREN; CONTROL; ctl = control; RPAREN; 
+    attributes = attrs_clause;
+    LPAREN; IS_COMB; DOT; is_comb = bool; RPAREN;
+    LPAREN; LATENCY; RPAREN
 { {comp_attrs = attributes; comp_name = name; comp_sig = signature;
 comp_cells = cells; comp_groups = groups; comp_comb_groups = cgroups;
 comp_static_groups = sgroups; comp_cont_assns = assns; comp_control = ctl;
 comp_is_comb = is_comb} }
 
+paren_cgroup:
+| LPAREN; cgroup = cgroup; RPAREN { cgroup }
+
 cgroup:
-  | LPAREN;
-      LPAREN; NAME; DOT; comb_group_name = STRING; RPAREN;
-      LPAREN; ASSIGNMENTS; comb_group_assns = list(assignment); RPAREN;
-      comb_group_attrs = attrs_clause;
-    RPAREN
+  | LPAREN; NAME; DOT; comb_group_name = STRING; RPAREN;
+    LPAREN; ASSIGNMENTS; comb_group_assns = list(assignment); RPAREN;
+    comb_group_attrs = attrs_clause;
     { { comb_group_name;
         comb_group_attrs;
         comb_group_assns } }
@@ -148,6 +154,8 @@ guard:
   { GPort p }
 | AND; g1 = paren_guard; g2 = paren_guard
   { GAnd (g1, g2) }
+| NOT; g = guard
+  { GNot g }
 
 assignment: 
   | LPAREN;
@@ -161,19 +169,53 @@ assignment:
 paren_control:
   | LPAREN; control = control; RPAREN { control }
 
+port_binding:
+  | LPAREN; name = STRING; LPAREN; port = port_ref RPAREN; RPAREN
+    { (name, port) }
+
 control: 
-  | LPAREN; EMPTY; LPAREN; attrs = attrs_clause; RPAREN; RPAREN
+  | EMPTY; attrs = attrs_clause
     { CEmpty attrs }
   | SEQ; LPAREN; STMTS; stmts = list(paren_control); RPAREN; attrs = attrs_clause;
     { CSeq (stmts, attrs) }
+  | PAR; LPAREN; STMTS; stmts = list(paren_control); RPAREN; attrs = attrs_clause;
+    { CPar (stmts, attrs) }
   | ENABLE; LPAREN; GROUP; grp = group; RPAREN; attrs = attrs_clause
     { CEnable (grp.group_name, attrs) }
+  | INVOKE; LPAREN; COMP; comp = cell; RPAREN;
+            LPAREN; INPUTS; inputs = list(port_binding); RPAREN;
+            LPAREN; OUTPUTS; outputs = list(port_binding); RPAREN;
+            attrs = attrs_clause;
+            LPAREN; COMB_GROUP; comb_group = option(paren_cgroup); RPAREN
+            LPAREN; REF_CELLS; RPAREN
+    {
+      let cg_name =
+        match comb_group with
+        | Some comb_group -> Some comb_group.comb_group_name
+        | None -> None in
+      CInvoke (comp.cell_name, inputs, outputs, attrs, cg_name, []) }
   | IF; LPAREN; PORT; cond_port = port_ref; RPAREN;
         LPAREN; COND; RPAREN;
         LPAREN; TBRANCH; tru = control; RPAREN;
         LPAREN; FBRANCH; fls = control; RPAREN;
         attrs = attrs_clause
     { CIf (cond_port, None, tru, fls, attrs) }
+  | IF; LPAREN; PORT; cond_port = port_ref; RPAREN;
+        LPAREN; COND; cgroup = paren_cgroup RPAREN;
+        LPAREN; TBRANCH; tru = control; RPAREN;
+        LPAREN; FBRANCH; fls = control; RPAREN;
+        attrs = attrs_clause
+    { CIf (cond_port, Some cgroup.comb_group_name, tru, fls, attrs) }
+  | WHILE; LPAREN; PORT; cond_port = port_ref; RPAREN;
+        LPAREN; COND; RPAREN;
+        LPAREN; BODY; body = control; RPAREN;
+        attrs = attrs_clause
+    { CWhile (cond_port, None, body, attrs) }
+  | WHILE; LPAREN; PORT; cond_port = port_ref; RPAREN;
+        LPAREN; COND; cgroup = paren_cgroup RPAREN;
+        LPAREN; BODY; body = control; RPAREN;
+        attrs = attrs_clause
+    { CWhile (cond_port, Some cgroup.comb_group_name, body, attrs) }
 
 
 num_attr_name:
@@ -181,6 +223,8 @@ num_attr_name:
 | DONE { Done }
 | STATIC { Static }
 | WRITE_TOGETHER { WriteTogether }
+| READ_TOGETHER { ReadTogether }
+
 
 bool_attr_name:
 | TOP_LEVEL { TopLevel }
@@ -226,6 +270,8 @@ prototype:
       LPAREN; VAL; DOT; value = INT; RPAREN;
       LPAREN; WIDTH; DOT; width = INT; RPAREN;
     { ProtoConst (value, width) }
+  | COMPONENT; LPAREN; NAME; DOT; name = STRING; RPAREN; 
+    { ProtoComp name }
 
 sgroup:
   | LPAREN;

@@ -38,7 +38,8 @@ Inductive num_attr :=
 | Go
 | Done
 | Static
-| WriteTogether.
+| WriteTogether
+| ReadTogether.
 Inductive internal_attr := .
 Inductive attribute :=
 | NumAttr (attr_name: num_attr) (n: nat)
@@ -192,8 +193,8 @@ Inductive control :=
 | CEnable (group: ident)
           (attrs: attributes)
 | CInvoke (comp: ident)
-          (inputs: list (ident * port))
-          (outputs: list (ident * port))
+          (inputs: list (ident * port_ref))
+          (outputs: list (ident * port_ref))
           (attrs: attributes)
           (comb_group: option ident)
           (ref_cells: list (ident * ident))

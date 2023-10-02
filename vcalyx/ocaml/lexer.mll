@@ -19,6 +19,7 @@ rule tokens = parse
 | "("             { LPAREN }
 | ")"             { RPAREN }
 | "components"    { COMPONENTS }
+| "Component"     { COMPONENT }
 | "entrypoint"    { ENTRYPOINT }
 | "name"          { NAME }
 | "signature"     { SIGNATURE }
@@ -46,6 +47,7 @@ rule tokens = parse
 | "Done"          { DONE }
 | "Static"        { STATIC }
 | "WriteTogether" { WRITE_TOGETHER }
+| "ReadTogether"  { READ_TOGETHER }
 | "Bool"          { BOOL }
 | "TopLevel"      { TOP_LEVEL }
 | "External"      { EXTERNAL }
@@ -71,8 +73,16 @@ rule tokens = parse
 | "latency"       { LATENCY }
 | "Empty"         { EMPTY }
 | "Seq"           { SEQ }
+| "Par"           { PAR }
 | "If"            { IF }
+| "While"         { WHILE }
 | "Enable"        { ENABLE }
+| "Invoke"        { INVOKE }
+| "comp"          { COMP }
+| "inputs"        { INPUTS }
+| "outputs"       { OUTPUTS }
+| "comb_group"    { COMB_GROUP }
+| "ref_cells"     { REF_CELLS }
 | "stmts"         { STMTS }
 | "Primitive"     { PRIMITIVE }
 | "val"           { VAL }
@@ -85,5 +95,7 @@ rule tokens = parse
 | "cond"          { COND }
 | "tbranch"       { TBRANCH }
 | "fbranch"       { FBRANCH }
+| "body"          { BODY }
+| "Not"           { NOT }
 | id as x         { ID x }
 | _ { raise (SyntaxError (Printf.sprintf "At offset %d: unexpected character %s" (Lexing.lexeme_start lexbuf) (Lexing.lexeme lexbuf))) }
