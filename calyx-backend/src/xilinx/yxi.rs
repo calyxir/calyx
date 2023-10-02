@@ -2,18 +2,15 @@ use crate::traits::Backend;
 use calyx_ir as ir;
 use calyx_utils::CalyxResult;
 use serde::Serialize;
-/// Backend that generates the Interface Design Language
-/// that we need to create AXI wrappers on arbitrary programs
+/// Backend that generates the YXI Interface Definition Language.
+/// YXI aims to be a description of toplevel hardware modules that we can then consume
+/// to create things like AXI wrappers on arbitrary programs
 #[derive(Default)]
-pub struct IdlBackend;
+pub struct YxiBackend;
 
-/// The root element of the `kernel.xml` file that describes an `.xo` package for the
-/// Xilinx toolchain, as documented [in the Vitis user guide][ug].
-///
-/// [ug]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
 #[derive(Serialize)]
 struct ProgramInterface<'a> {
-    toplevel_name: &'a str,
+    toplevel: &'a str,
     memories: Vec<Memory<'a>>,
 }
 
@@ -24,9 +21,9 @@ struct Memory<'a> {
     size: u64, //size of width size memory, as defined in stdlib.
 }
 
-impl Backend for IdlBackend {
+impl Backend for YxiBackend {
     fn name(&self) -> &'static str {
-        "idl"
+        "yxi"
     }
 
     fn validate(_ctx: &ir::Context) -> CalyxResult<()> {
@@ -64,18 +61,13 @@ impl Backend for IdlBackend {
             .collect();
 
         let program_interface = ProgramInterface {
-            toplevel_name: toplevel.name.as_ref(),
+            toplevel: toplevel.name.as_ref(),
             memories,
         };
 
-        //TODO: we want to have na array of component names
-        // check how to get them
-
-        write!(
+        serde_json::to_writer_pretty(
             file.get_write(),
-            "{}",
-            serde_json::to_string_pretty(&program_interface)
-                .expect("IDL Serialization failed")
+            &program_interface
         )?;
 
         Ok(())
