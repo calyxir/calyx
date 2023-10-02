@@ -65,10 +65,7 @@ impl Backend for YxiBackend {
             memories,
         };
 
-        serde_json::to_writer_pretty(
-            file.get_write(),
-            &program_interface
-        )?;
+        serde_json::to_writer_pretty(file.get_write(), &program_interface)?;
 
         Ok(())
     }
