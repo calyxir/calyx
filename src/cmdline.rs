@@ -3,8 +3,8 @@ use argh::FromArgs;
 #[cfg(feature = "serialize")]
 use calyx_backend::SexpBackend;
 use calyx_backend::{
-    xilinx::{XilinxInterfaceBackend, XilinxXmlBackend, YxiBackend},
-    Backend, BackendOpt, MlirBackend, ResourcesBackend, VerilogBackend,
+    xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
+    Backend, BackendOpt, MlirBackend, ResourcesBackend, VerilogBackend, YxiBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
