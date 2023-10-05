@@ -44,7 +44,7 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
     )
 
 
-def insert_pifo(prog, name, queue_l, queue_r, boundary):
+def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
     """Inserts the component `pifo` into the program.
 
     The PIFO achieves a 50/50 split between two "flows" or "kinds".
@@ -66,11 +66,13 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
     - `push(v, PIFO)`:
        + If len(PIFO) = MAX_QUEUE_LEN, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`.
-         Find out which flow `f` the value `v` should go to;
+         * Find out which flow `f` the value `v` should go to;
          `f` better be either `0` or `1`.
-         Enqueue `v` into `queue_l` if `f` = `0`, and into `queue_r` if `f` = `1`.
-         Note that the sub-queue's enqueue method is itself partial: it may raise
+         * Enqueue `v` into `queue_l` if `f` = `0`, and into `queue_r` if `f` = `1`.
+         * Note that the sub-queue's enqueue method is itself partial: it may raise
          "overflow", in which case we propagate the overflow flag.
+         * If the enqueue succeeds, _and_ if a stats component is provided,
+         invoke the stats component and tell it that a value of flow `f` was enqueued.
     - `pop(PIFO)`:
        + If `len(PIFO)` = 0, raise an "underflow" flag and exit.
        + Try `pop(queue_{hot})`, where we use the value of `hot` to determine
@@ -284,11 +286,12 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary):
                                 invoke_subqueue(queue_r, cmd, value, ans, err),
                             ),
                         ),
-                        len_incr,  # Increment the length.
-                        # It is possible that an irrecoverable error was raised above,
-                        # in which case the length should _not_ in fact be incremented.
-                        # However, in that case the PIFO's `err` flag would also
-                        # have been raised, and no one will check this length anyway.
+                        cb.if_with(
+                            err_eq_0,
+                            [len_incr, cb.invoke(stats, in_flow=flow.out)]
+                            if stats  # If a stats component is provided, invoke it.
+                            else [len_incr],  # Either way, increment the length.
+                        ),
                     ],
                 ),
             ),
