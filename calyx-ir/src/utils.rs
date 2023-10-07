@@ -1,42 +1,41 @@
 //! Helpers used to examine calyx programs. Used in Xilinx and Yxi backends among others.
-use super::{Component, BoolAttr, RRC, Cell};
+use super::{BoolAttr, Cell, Component, RRC};
 // Returns Vec<String> of memory names
 pub fn external_memories_names(comp: &Component) -> Vec<String> {
-  external_memories_cells(comp)
-      .iter()
-      .map(|cell_ref| cell_ref.borrow().name().to_string())
-      .collect()
+    external_memories_cells(comp)
+        .iter()
+        .map(|cell_ref| cell_ref.borrow().name().to_string())
+        .collect()
 }
 
 // Gets all memory cells in top level marked external.
 pub fn external_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
-  comp.cells
-      .iter()
-      // find external memories
-      .filter(|cell_ref| {
-          let cell = cell_ref.borrow();
-          cell.attributes.has(BoolAttr::External)
-      })
-      .cloned()
-      .collect()
+    comp.cells
+        .iter()
+        // find external memories
+        .filter(|cell_ref| {
+            let cell = cell_ref.borrow();
+            cell.attributes.has(BoolAttr::External)
+        })
+        .cloned()
+        .collect()
 }
-
 
 /// Parameters for std memories
 pub struct MemInfo {
-  pub width: u64,
-  pub size: u64,
-  //idx port width, in case size is ambiguous
-  pub idx_sizes: Vec<u64>,
+    pub width: u64,
+    pub size: u64,
+    //idx port width, in case size is ambiguous
+    pub idx_sizes: Vec<u64>,
 }
- 
- // Returns a vector of tuples containing external memory info of [comp] of form:
+
+// Returns a vector of tuples containing external memory info of [comp] of form:
 // [(WIDTH, SIZE, IDX_SIZE)]
 pub trait GetMemInfo {
     fn get_mem_info(&self) -> Vec<MemInfo>;
 }
 
-impl GetMemInfo for Vec<RRC<Cell>>{
+impl GetMemInfo for Vec<RRC<Cell>> {
     fn get_mem_info(&self) -> Vec<MemInfo> {
         self.iter()
               .map(|cr| {
@@ -60,7 +59,6 @@ impl GetMemInfo for Vec<RRC<Cell>>{
                         * mem.get_parameter("D2_SIZE").unwrap();
                         idx_count = 3;
                     }
-                    
                     "std_mem_d4" | "seq_mem_d4" => {
                         mem_size = mem.get_parameter("D0_SIZE").unwrap()
                         * mem.get_parameter("D1_SIZE").unwrap()
@@ -79,19 +77,18 @@ impl GetMemInfo for Vec<RRC<Cell>>{
                         idx_sizes.push(mem.get_parameter(format!("D{}_IDX_SIZE",i)).unwrap());
                     }
                   }
-        
                   MemInfo {
                       width: mem.get_parameter("WIDTH").unwrap(),
                       size: mem_size,
-                      idx_sizes: idx_sizes
+                      idx_sizes
                   }
               })
               .collect()
-        }
+    }
 }
 
-impl GetMemInfo for Component{
+impl GetMemInfo for Component {
     fn get_mem_info(&self) -> Vec<MemInfo> {
-        return external_memories_cells(self).get_mem_info();
+        external_memories_cells(self).get_mem_info()
     }
 }

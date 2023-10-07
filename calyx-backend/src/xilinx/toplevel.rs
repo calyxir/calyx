@@ -94,17 +94,16 @@ impl Backend for XilinxInterfaceBackend {
     }
 }
 
-
 // Gets all memory cells in top level marked external.
 //Panics if not all memories are 1-d
 fn external_1d_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
     let memories = ir::utils::external_memories_cells(comp);
     for memory in memories.iter() {
-        if memory.borrow().is_primitive(Some("std_mem_d1")){
+        if !memory.borrow().is_primitive(Some("std_mem_d1")) {
             panic!("cell `{}' marked with `@external' but is not a std_mem_d1. The AXI generator currently only supports `std_mem_d1'", memory.borrow().name())
         }
     }
-    return memories;
+    memories
 }
 
 fn top_level(toplevel: &ir::Component) -> v::Module {
