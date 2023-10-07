@@ -5,7 +5,6 @@ mod namegenerator;
 mod out_file;
 mod position;
 mod weight_graph;
-mod mem_helpers;
 
 mod math;
 pub(crate) mod measure_time;
@@ -19,4 +18,3 @@ pub use position::{
     FileIdx, GPosIdx, GlobalPositionTable, PosIdx, PositionTable, WithPos,
 };
 pub use weight_graph::{BoolIdx, Idx, WeightGraph};
-pub use mem_helpers::{external_memories_names, external_memories_cells, get_mem_info, MemInfo};

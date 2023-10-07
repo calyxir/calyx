@@ -4,6 +4,7 @@ use super::{
 };
 use crate::traits::Backend;
 use calyx_ir as ir;
+use calyx_ir::utils::GetMemInfo;
 use calyx_utils::{CalyxResult, Error};
 use vast::v05::ast as v;
 
@@ -37,14 +38,14 @@ impl Backend for XilinxInterfaceBackend {
             .find(|c| c.name == prog.entrypoint)
             .unwrap();
 
-        let memories = calyx_utils::external_memories_names(toplevel);
+        let memories = ir::utils::external_memories_names(toplevel);
         if memories.is_empty() {
             return Err(Error::misc(
                     "Program has no memories marked with attribute @external.".to_owned() +
                     " Please make sure that at least one memory is marked as @external."));
         }
 
-        let mem_info = calyx_utils::get_mem_info(toplevel);
+        let mem_info = toplevel.get_mem_info();
 
         let mut modules = vec![top_level(toplevel)];
         for (i, mem) in mem_info.iter().enumerate() {
@@ -52,7 +53,7 @@ impl Backend for XilinxInterfaceBackend {
                 &format!("SINGLE_PORT_BRAM_{}", i),
                 mem.width,
                 mem.size,
-                mem.idx_size,
+                mem.idx_sizes[0],
             ))
         }
 
@@ -71,7 +72,7 @@ impl Backend for XilinxInterfaceBackend {
                 64,
                 mem.width,
                 mem.size,
-                mem.idx_size,
+                mem.idx_sizes[0],
             ))
         }
 
@@ -96,26 +97,19 @@ impl Backend for XilinxInterfaceBackend {
 
 // Gets all memory cells in top level marked external.
 //Panics if not all memories are 1-d
-fn external_1d_memories_cells(comp: &ir::Component) {
-    let memories = calyx_utils::external_memories_cells(comp);
-    for &memory in memories.iter() {
+fn external_1d_memories_cells(comp: &ir::Component) -> Vec<ir::RRC<ir::Cell>> {
+    let memories = ir::utils::external_memories_cells(comp);
+    for memory in memories.iter() {
         if memory.borrow().is_primitive(Some("std_mem_d1")){
-            panic!("cell `{}' marked with `@external' but is not a std_mem_d1. The AXI generator currently only supports `std_mem_d1'", memory.name())
+            panic!("cell `{}' marked with `@external' but is not a std_mem_d1. The AXI generator currently only supports `std_mem_d1'", memory.borrow().name())
         }
     }
     return memories;
 }
 
-/// Parameters for single dimensional memory
-struct MemInfo {
-    width: u64,
-    size: u64,
-    idx_size: u64,
-}
-
 fn top_level(toplevel: &ir::Component) -> v::Module {
-    let memories = &calyx_utils::external_memories_names(toplevel);
-    let mem_info = calyx_utils::get_mem_info(toplevel);
+    let memories = &ir::utils::external_memories_names(toplevel);
+    let mem_info = &external_1d_memories_cells(toplevel).get_mem_info();
     assert!(!memories.is_empty()); // At least 1 memory should exist within the toplevel
     let mut module = v::Module::new("Toplevel");
 
@@ -200,7 +194,7 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         let width = mem_info[idx].width;
         module.add_decl(v::Decl::new_wire(&write_data, width));
         module.add_decl(v::Decl::new_wire(&read_data, width));
-        module.add_decl(v::Decl::new_wire(&addr0, mem_info[idx].idx_size));
+        module.add_decl(v::Decl::new_wire(&addr0, mem_info[idx].idx_sizes[0]));
         module.add_decl(v::Decl::new_wire(&write_en, 1));
         module.add_decl(v::Decl::new_wire(&done, 1));
 
@@ -258,7 +252,7 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
 
     // add timeout counter
     module.add_decl(v::Decl::new_reg("counter", 32));
-    module.add_stmt(calyx_utils::cond_non_blk_assign(
+    module.add_stmt(utils::cond_non_blk_assign(
         "ap_clk",
         "counter",
         vec![
