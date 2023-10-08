@@ -16,8 +16,6 @@ SYSTOLIC_ARRAY_COMP = "systolic_array_comp"
 NAME_SCHEME = {
     # Indexing into the memory
     "index name": "{prefix}_idx",
-    "index init": "{prefix}_idx_init",
-    "index update": "{prefix}_idx_update",
     # Move data from main memories
     "memory move": "{prefix}_move",
     "out write": "{pe}_out_write",
@@ -72,6 +70,7 @@ class CalyxAdd:
                 add.left = self.port
                 add.right = self.const
 
+
 def add_systolic_output_params(comp: cb.ComponentBuilder, row_num, addr_width):
     """
     Add output arguments to systolic array component `comp` for row `row_num`.
@@ -112,13 +111,15 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     this = comp.this()
     addr0_port = this.port(name + "_addr0")
     read_data_port = this.port(name + "_read_data")
-    # Instantiate the indexing register
-    idx = instantiate_indexor(comp, name, idx_width)
+    # Get the indexing value, taking into account offset
+    # For example, for l2, we want to access idx-2 (since we want to wait two
+    # cycles before we start feeding memories in)
+    idx_val = get_indexor(comp, idx_width, offset=idx)
     # Register to save the value from the memory. Defined by [[instantiate_pe]].
     target = comp.get_cell(target_reg)
     group_name = NAME_SCHEME["memory move"].format(prefix=name)
     with comp.static_group(group_name, 1) as g:
-        g.asgn(addr0_port, idx.out)
+        g.asgn(addr0_port, idx_val.out)
         target.in_ = read_data_port
         target.write_en = 1
 
@@ -133,37 +134,23 @@ def instantiate_pe(comp: cb.ComponentBuilder, row: int, col: int):
     comp.reg(f"left_{row}_{col}", BITWIDTH)
 
 
-def instantiate_indexor(comp: cb.ComponentBuilder, prefix, width) -> cb.CellBuilder:
+def get_indexor(comp: cb.ComponentBuilder, width: int, offset: int) -> cb.CellBuilder:
     """
-    Instantiate an indexor for accessing memory with name `prefix`.
-    Generates structure to initialize and update the indexor.
-
-    The initializor starts sets the memories to their maximum value
-    because we expect all indices to be incremented once before
-    being used.
-
-    Returns (cells, structure)
+    Gets (instantiates if needed) an indexor for accessing memory with offset
+    `offset` (as compared to the iteration idx)
     """
-    name = NAME_SCHEME["index name"].format(prefix=prefix)
-
-    reg = comp.reg(name, width)
-    add = comp.add(width, f"{prefix}_add")
-
-    init_name = NAME_SCHEME["index init"].format(prefix=prefix)
-    with comp.static_group(init_name, 1):
-        # Initialize the indexor to 0
-        reg.in_ = 0
-        reg.write_en = 1
-
-    upd_name = NAME_SCHEME["index update"].format(prefix=prefix)
-    with comp.static_group(upd_name, 1):
-        # Increment the indexor.
-        add.left = 1
-        add.right = reg.out
-        reg.in_ = add.out
-        reg.write_en = 1
-
-    return reg
+    if comp.try_get_cell(f"idx_minus_{offset}_res") is None:
+        idx = comp.get_cell("idx")
+        # idx has width bitwidth
+        sub = comp.sub(BITWIDTH, f"idx_minus_{offset}")
+        sub_res = comp.slice(f"idx_minus_{offset}_res", BITWIDTH, width)
+        with comp.continuous:
+            sub.left = idx.out
+            sub.right = offset
+            sub_res.in_ = sub.out
+        return sub_res
+    else:
+        return comp.get_cell(f"idx_minus_{offset}_res")
 
 
 def instantiate_data_move(
@@ -218,10 +205,8 @@ def get_memory_updates(row, col):
     movers = []
     if col == 0:
         movers.append(NAME_SCHEME["memory move"].format(prefix=f"l{row}"))
-        movers.append(NAME_SCHEME["index update"].format(prefix=f"l{row}"))
     if row == 0:
         movers.append(NAME_SCHEME["memory move"].format(prefix=f"t{col}"))
-        movers.append(NAME_SCHEME["index update"].format(prefix=f"t{col}"))
     mover_enables = [py_ast.Enable(name) for name in movers]
     return mover_enables
 
@@ -313,6 +298,7 @@ def instantiate_calyx_adds(comp, nec_ranges) -> list:
         if type(hi) == CalyxAdd:
             hi.implement_add(comp)
 
+
 def check_idx_lower_bound(comp: cb.ComponentBuilder, lo):
     """
     Creates assignments to test if idx >= lo
@@ -327,6 +313,7 @@ def check_idx_lower_bound(comp: cb.ComponentBuilder, lo):
     with comp.continuous:
         ge.left = idx.out
         ge.right = lo_value
+
 
 def check_idx_upper_bound(comp: cb.ComponentBuilder, hi):
     """
@@ -350,7 +337,7 @@ def check_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
     That is, whether lo <= idx < hi.
     """
     # This is the name of the combinational cell that checks the condition
-    idx_between_str =  f"idx_between_{lo}_{hi}_comb"
+    idx_between_str = f"idx_between_{lo}_{hi}_comb"
     lt = comp.get_cell(f"index_lt_{hi}")
     # if lo == 0, then only need to check if reg < hi
     if type(lo) == int and lo == 0:
@@ -366,6 +353,7 @@ def check_idx_between(comp: cb.ComponentBuilder, lo, hi) -> list:
         with comp.continuous:
             and_.right = lt.out
             and_.left = ge.out
+
 
 def accum_nec_ranges(nec_ranges, schedule):
     """
@@ -388,6 +376,7 @@ def accum_nec_ranges(nec_ranges, schedule):
     else:
         raise Exception("accum_nec_ranges expects only 1d or 2d arrays")
     return nec_ranges
+
 
 def gen_schedules(
     config: SystolicConfiguration,
@@ -453,10 +442,7 @@ def execute_if_between(comp: cb.ComponentBuilder, start, end, body):
 
 
 def generate_control(
-    comp: cb.ComponentBuilder,
-    config: SystolicConfiguration,
-    schedules,
-    nec_ranges,
+    comp: cb.ComponentBuilder, config: SystolicConfiguration, schedules
 ):
     """
     Logically, control performs the following actions:
@@ -473,22 +459,14 @@ def generate_control(
     top_length, left_length = config.top_length, config.left_length
 
     # Initialize all memories.
-    init_indices: list[py_ast.Control] = [
-        py_ast.Enable(NAME_SCHEME["index init"].format(prefix=f"t{idx}"))
-        for idx in range(top_length)
-    ]
-    init_indices.extend(
-        [
-            py_ast.Enable(NAME_SCHEME["index init"].format(prefix=f"l{idx}"))
-            for idx in range(left_length)
-        ]
-        + [
-            py_ast.Enable("init_idx"),
-            py_ast.Enable("init_iter_limit"),
-        ]
+    control.append(
+        py_ast.StaticParComp(
+            [
+                py_ast.Enable("init_idx"),
+                py_ast.Enable("init_iter_limit"),
+            ]
+        )
     )
-
-    control.append(py_ast.StaticParComp(init_indices))
 
     # source_pos metadata init
     init_tag = 0
@@ -583,6 +561,19 @@ def create_systolic_array(prog: cb.Builder, config: SystolicConfiguration):
         accum_nec_ranges(nec_ranges, sched)
     instantiate_calyx_adds(computational_unit, nec_ranges)
 
+    # instantiate groups that handles the idx variables
+    instantiate_idx_groups(computational_unit)
+    list1, list2 = zip(*nec_ranges)
+    nec_ranges_beg = set(list1)
+    nec_ranges_end = set(list2)
+    for val in nec_ranges_beg:
+        check_idx_lower_bound(computational_unit, val)
+    for val in nec_ranges_end:
+        check_idx_upper_bound(computational_unit, val)
+    for start, end in nec_ranges:
+        # create the assignments that help determine if idx is in between
+        check_idx_between(computational_unit, start, end)
+
     for row in range(config.left_length):
         for col in range(config.top_length):
             # Instantiate the PEs and surronding registers
@@ -617,25 +608,7 @@ def create_systolic_array(prog: cb.Builder, config: SystolicConfiguration):
             # `computational_unit`'s output ports
             instantiate_output_move(computational_unit, row, col)
 
-    # instantiate groups that handles the idx variables
-    instantiate_idx_groups(computational_unit)
-    list1, list2 = zip(*nec_ranges)
-    nec_ranges_beg = set(list1)
-    nec_ranges_end = set(list2)
-    for val in nec_ranges_beg:
-        check_idx_lower_bound(computational_unit, val)
-    for val in nec_ranges_end:
-        check_idx_upper_bound(computational_unit, val)
-    for start, end in nec_ranges:
-        # create the assignments that help determine if idx is in between
-        check_idx_between(computational_unit, start, end)
-
     # Generate the control and set the source map
-    control, source_map = generate_control(
-        computational_unit,
-        config,
-        schedules,
-        nec_ranges,
-    )
+    control, source_map = generate_control(computational_unit, config, schedules)
     computational_unit.control = control
     prog.program.meta = source_map

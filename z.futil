@@ -1,0 +1,705 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/pipelined.futil";
+static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
+  cells {
+    acc = std_reg(32);
+    adder = std_fp_sadd(32, 16, 16);
+    mul = pipelined_fp_smult(32, 16, 16);
+  }
+  wires {
+    static<1> group do_add {
+      adder.left = acc.out;
+      adder.right = mul.out;
+      acc.in = adder.out;
+      acc.write_en = mul_ready;
+    }
+    static<1> group do_mul {
+      mul.left = top;
+      mul.right = left;
+    }
+    out = acc.out;
+  }
+  control {
+    static par {
+      do_add;
+      do_mul;
+    }
+  }
+}
+component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, t2_read_data: 32, t3_read_data: 32, l0_read_data: 32, l1_read_data: 32) -> (t0_addr0: 2, t1_addr0: 2, t2_addr0: 2, t3_addr0: 2, l0_addr0: 2, l1_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 3, r1_valid: 1, r1_value: 32, r1_idx: 3) {
+  cells {
+    iter_limit = std_reg(32);
+    iter_limit_add = std_add(32);
+    depth_plus_8 = std_add(32);
+    depth_plus_9 = std_add(32);
+    depth_plus_2 = std_add(32);
+    depth_plus_7 = std_add(32);
+    depth_plus_3 = std_add(32);
+    depth_plus_5 = std_add(32);
+    depth_plus_6 = std_add(32);
+    depth_plus_10 = std_add(32);
+    depth_plus_4 = std_add(32);
+    depth_plus_0 = std_add(32);
+    depth_plus_1 = std_add(32);
+    idx = std_reg(32);
+    idx_add = std_add(32);
+    lt_iter_limit = std_lt(32);
+    index_ge_0 = std_ge(32);
+    index_ge_1 = std_ge(32);
+    index_ge_2 = std_ge(32);
+    index_ge_3 = std_ge(32);
+    index_ge_4 = std_ge(32);
+    index_ge_depth_plus_5 = std_ge(32);
+    index_ge_5 = std_ge(32);
+    index_ge_7 = std_ge(32);
+    index_ge_depth_plus_8 = std_ge(32);
+    index_ge_depth_plus_9 = std_ge(32);
+    index_ge_8 = std_ge(32);
+    index_ge_depth_plus_6 = std_ge(32);
+    index_ge_9 = std_ge(32);
+    index_ge_6 = std_ge(32);
+    index_ge_depth_plus_7 = std_ge(32);
+    index_lt_depth_plus_0 = std_lt(32);
+    index_lt_depth_plus_1 = std_lt(32);
+    index_lt_depth_plus_2 = std_lt(32);
+    index_lt_depth_plus_3 = std_lt(32);
+    index_lt_depth_plus_4 = std_lt(32);
+    index_lt_5 = std_lt(32);
+    index_lt_depth_plus_6 = std_lt(32);
+    index_lt_depth_plus_7 = std_lt(32);
+    index_lt_7 = std_lt(32);
+    index_lt_depth_plus_9 = std_lt(32);
+    index_lt_8 = std_lt(32);
+    index_lt_9 = std_lt(32);
+    index_lt_depth_plus_10 = std_lt(32);
+    index_lt_depth_plus_8 = std_lt(32);
+    index_lt_depth_plus_5 = std_lt(32);
+    index_lt_6 = std_lt(32);
+    idx_between_3_7_comb = std_and(1);
+    idx_between_depth_plus_8_depth_plus_9_comb = std_and(1);
+    idx_between_2_depth_plus_2_comb = std_and(1);
+    idx_between_7_depth_plus_7_comb = std_and(1);
+    idx_between_3_depth_plus_3_comb = std_and(1);
+    idx_between_depth_plus_5_depth_plus_6_comb = std_and(1);
+    idx_between_4_8_comb = std_and(1);
+    idx_between_5_9_comb = std_and(1);
+    idx_between_depth_plus_9_depth_plus_10_comb = std_and(1);
+    idx_between_8_depth_plus_8_comb = std_and(1);
+    idx_between_1_5_comb = std_and(1);
+    idx_between_depth_plus_6_depth_plus_7_comb = std_and(1);
+    idx_between_4_depth_plus_4_comb = std_and(1);
+    idx_between_5_depth_plus_5_comb = std_and(1);
+    idx_between_0_depth_plus_0_comb = std_wire(1);
+    idx_between_9_depth_plus_9_comb = std_and(1);
+    idx_between_1_depth_plus_1_comb = std_and(1);
+    idx_between_2_6_comb = std_and(1);
+    idx_between_6_depth_plus_6_comb = std_and(1);
+    idx_between_depth_plus_7_depth_plus_8_comb = std_and(1);
+    pe_0_0 = mac_pe();
+    top_0_0 = std_reg(32);
+    left_0_0 = std_reg(32);
+    pe_0_1 = mac_pe();
+    top_0_1 = std_reg(32);
+    left_0_1 = std_reg(32);
+    pe_0_2 = mac_pe();
+    top_0_2 = std_reg(32);
+    left_0_2 = std_reg(32);
+    pe_0_3 = mac_pe();
+    top_0_3 = std_reg(32);
+    left_0_3 = std_reg(32);
+    pe_1_0 = mac_pe();
+    top_1_0 = std_reg(32);
+    left_1_0 = std_reg(32);
+    pe_1_1 = mac_pe();
+    top_1_1 = std_reg(32);
+    left_1_1 = std_reg(32);
+    pe_1_2 = mac_pe();
+    top_1_2 = std_reg(32);
+    left_1_2 = std_reg(32);
+    pe_1_3 = mac_pe();
+    top_1_3 = std_reg(32);
+    left_1_3 = std_reg(32);
+    idx_minus_0 = std_sub(32);
+    idx_minus_0_res = std_slice(32, 2);
+    idx_minus_1 = std_sub(32);
+    idx_minus_1_res = std_slice(32, 2);
+    idx_minus_2 = std_sub(32);
+    idx_minus_2_res = std_slice(32, 2);
+    idx_minus_3 = std_sub(32);
+    idx_minus_3_res = std_slice(32, 2);
+  }
+  wires {
+    static<1> group init_iter_limit {
+      iter_limit_add.left = 32'd10;
+      iter_limit_add.right = depth;
+      iter_limit.in = iter_limit_add.out;
+      iter_limit.write_en = 1'd1;
+    }
+    depth_plus_8.left = depth;
+    depth_plus_8.right = 32'd8;
+    depth_plus_9.left = depth;
+    depth_plus_9.right = 32'd9;
+    depth_plus_2.left = depth;
+    depth_plus_2.right = 32'd2;
+    depth_plus_7.left = depth;
+    depth_plus_7.right = 32'd7;
+    depth_plus_3.left = depth;
+    depth_plus_3.right = 32'd3;
+    depth_plus_5.left = depth;
+    depth_plus_5.right = 32'd5;
+    depth_plus_6.left = depth;
+    depth_plus_6.right = 32'd6;
+    depth_plus_10.left = depth;
+    depth_plus_10.right = 32'd10;
+    depth_plus_4.left = depth;
+    depth_plus_4.right = 32'd4;
+    depth_plus_0.left = depth;
+    depth_plus_0.right = 32'd0;
+    depth_plus_1.left = depth;
+    depth_plus_1.right = 32'd1;
+    static<1> group init_idx {
+      idx.in = 32'd0;
+      idx.write_en = 1'd1;
+    }
+    static<1> group incr_idx {
+      idx_add.left = idx.out;
+      idx_add.right = 32'd1;
+      idx.in = idx_add.out;
+      idx.write_en = 1'd1;
+    }
+    lt_iter_limit.left = idx.out;
+    lt_iter_limit.right = iter_limit.out;
+    index_ge_0.left = idx.out;
+    index_ge_0.right = 32'd0;
+    index_ge_1.left = idx.out;
+    index_ge_1.right = 32'd1;
+    index_ge_2.left = idx.out;
+    index_ge_2.right = 32'd2;
+    index_ge_3.left = idx.out;
+    index_ge_3.right = 32'd3;
+    index_ge_4.left = idx.out;
+    index_ge_4.right = 32'd4;
+    index_ge_depth_plus_5.left = idx.out;
+    index_ge_depth_plus_5.right = depth_plus_5.out;
+    index_ge_5.left = idx.out;
+    index_ge_5.right = 32'd5;
+    index_ge_7.left = idx.out;
+    index_ge_7.right = 32'd7;
+    index_ge_depth_plus_8.left = idx.out;
+    index_ge_depth_plus_8.right = depth_plus_8.out;
+    index_ge_depth_plus_9.left = idx.out;
+    index_ge_depth_plus_9.right = depth_plus_9.out;
+    index_ge_8.left = idx.out;
+    index_ge_8.right = 32'd8;
+    index_ge_depth_plus_6.left = idx.out;
+    index_ge_depth_plus_6.right = depth_plus_6.out;
+    index_ge_9.left = idx.out;
+    index_ge_9.right = 32'd9;
+    index_ge_6.left = idx.out;
+    index_ge_6.right = 32'd6;
+    index_ge_depth_plus_7.left = idx.out;
+    index_ge_depth_plus_7.right = depth_plus_7.out;
+    index_lt_depth_plus_0.left = idx.out;
+    index_lt_depth_plus_0.right = depth_plus_0.out;
+    index_lt_depth_plus_1.left = idx.out;
+    index_lt_depth_plus_1.right = depth_plus_1.out;
+    index_lt_depth_plus_2.left = idx.out;
+    index_lt_depth_plus_2.right = depth_plus_2.out;
+    index_lt_depth_plus_3.left = idx.out;
+    index_lt_depth_plus_3.right = depth_plus_3.out;
+    index_lt_depth_plus_4.left = idx.out;
+    index_lt_depth_plus_4.right = depth_plus_4.out;
+    index_lt_5.left = idx.out;
+    index_lt_5.right = 32'd5;
+    index_lt_depth_plus_6.left = idx.out;
+    index_lt_depth_plus_6.right = depth_plus_6.out;
+    index_lt_depth_plus_7.left = idx.out;
+    index_lt_depth_plus_7.right = depth_plus_7.out;
+    index_lt_7.left = idx.out;
+    index_lt_7.right = 32'd7;
+    index_lt_depth_plus_9.left = idx.out;
+    index_lt_depth_plus_9.right = depth_plus_9.out;
+    index_lt_8.left = idx.out;
+    index_lt_8.right = 32'd8;
+    index_lt_9.left = idx.out;
+    index_lt_9.right = 32'd9;
+    index_lt_depth_plus_10.left = idx.out;
+    index_lt_depth_plus_10.right = depth_plus_10.out;
+    index_lt_depth_plus_8.left = idx.out;
+    index_lt_depth_plus_8.right = depth_plus_8.out;
+    index_lt_depth_plus_5.left = idx.out;
+    index_lt_depth_plus_5.right = depth_plus_5.out;
+    index_lt_6.left = idx.out;
+    index_lt_6.right = 32'd6;
+    idx_between_3_7_comb.right = index_lt_7.out;
+    idx_between_3_7_comb.left = index_ge_3.out;
+    idx_between_depth_plus_8_depth_plus_9_comb.right = index_lt_depth_plus_9.out;
+    idx_between_depth_plus_8_depth_plus_9_comb.left = index_ge_depth_plus_8.out;
+    idx_between_2_depth_plus_2_comb.right = index_lt_depth_plus_2.out;
+    idx_between_2_depth_plus_2_comb.left = index_ge_2.out;
+    idx_between_7_depth_plus_7_comb.right = index_lt_depth_plus_7.out;
+    idx_between_7_depth_plus_7_comb.left = index_ge_7.out;
+    idx_between_3_depth_plus_3_comb.right = index_lt_depth_plus_3.out;
+    idx_between_3_depth_plus_3_comb.left = index_ge_3.out;
+    idx_between_depth_plus_5_depth_plus_6_comb.right = index_lt_depth_plus_6.out;
+    idx_between_depth_plus_5_depth_plus_6_comb.left = index_ge_depth_plus_5.out;
+    idx_between_4_8_comb.right = index_lt_8.out;
+    idx_between_4_8_comb.left = index_ge_4.out;
+    idx_between_5_9_comb.right = index_lt_9.out;
+    idx_between_5_9_comb.left = index_ge_5.out;
+    idx_between_depth_plus_9_depth_plus_10_comb.right = index_lt_depth_plus_10.out;
+    idx_between_depth_plus_9_depth_plus_10_comb.left = index_ge_depth_plus_9.out;
+    idx_between_8_depth_plus_8_comb.right = index_lt_depth_plus_8.out;
+    idx_between_8_depth_plus_8_comb.left = index_ge_8.out;
+    idx_between_1_5_comb.right = index_lt_5.out;
+    idx_between_1_5_comb.left = index_ge_1.out;
+    idx_between_depth_plus_6_depth_plus_7_comb.right = index_lt_depth_plus_7.out;
+    idx_between_depth_plus_6_depth_plus_7_comb.left = index_ge_depth_plus_6.out;
+    idx_between_4_depth_plus_4_comb.right = index_lt_depth_plus_4.out;
+    idx_between_4_depth_plus_4_comb.left = index_ge_4.out;
+    idx_between_5_depth_plus_5_comb.right = index_lt_depth_plus_5.out;
+    idx_between_5_depth_plus_5_comb.left = index_ge_5.out;
+    idx_between_0_depth_plus_0_comb.in = index_lt_depth_plus_0.out;
+    idx_between_9_depth_plus_9_comb.right = index_lt_depth_plus_9.out;
+    idx_between_9_depth_plus_9_comb.left = index_ge_9.out;
+    idx_between_1_depth_plus_1_comb.right = index_lt_depth_plus_1.out;
+    idx_between_1_depth_plus_1_comb.left = index_ge_1.out;
+    idx_between_2_6_comb.right = index_lt_6.out;
+    idx_between_2_6_comb.left = index_ge_2.out;
+    idx_between_6_depth_plus_6_comb.right = index_lt_depth_plus_6.out;
+    idx_between_6_depth_plus_6_comb.left = index_ge_6.out;
+    idx_between_depth_plus_7_depth_plus_8_comb.right = index_lt_depth_plus_8.out;
+    idx_between_depth_plus_7_depth_plus_8_comb.left = index_ge_depth_plus_7.out;
+    idx_minus_0.left = idx.out;
+    idx_minus_0.right = 32'd0;
+    idx_minus_0_res.in = idx_minus_0.out;
+    static<1> group t0_move {
+      t0_addr0 = idx_minus_0_res.out;
+      top_0_0.in = t0_read_data;
+      top_0_0.write_en = 1'd1;
+    }
+    idx_minus_1.left = idx.out;
+    idx_minus_1.right = 32'd1;
+    idx_minus_1_res.in = idx_minus_1.out;
+    static<1> group t1_move {
+      t1_addr0 = idx_minus_1_res.out;
+      top_0_1.in = t1_read_data;
+      top_0_1.write_en = 1'd1;
+    }
+    idx_minus_2.left = idx.out;
+    idx_minus_2.right = 32'd2;
+    idx_minus_2_res.in = idx_minus_2.out;
+    static<1> group t2_move {
+      t2_addr0 = idx_minus_2_res.out;
+      top_0_2.in = t2_read_data;
+      top_0_2.write_en = 1'd1;
+    }
+    idx_minus_3.left = idx.out;
+    idx_minus_3.right = 32'd3;
+    idx_minus_3_res.in = idx_minus_3.out;
+    static<1> group t3_move {
+      t3_addr0 = idx_minus_3_res.out;
+      top_0_3.in = t3_read_data;
+      top_0_3.write_en = 1'd1;
+    }
+    static<1> group l0_move {
+      l0_addr0 = idx_minus_0_res.out;
+      left_0_0.in = l0_read_data;
+      left_0_0.write_en = 1'd1;
+    }
+    static<1> group l1_move {
+      l1_addr0 = idx_minus_1_res.out;
+      left_1_0.in = l1_read_data;
+      left_1_0.write_en = 1'd1;
+    }
+    static<1> group pe_0_0_right_move {
+      left_0_1.in = left_0_0.out;
+      left_0_1.write_en = 1'd1;
+    }
+    static<1> group pe_0_0_down_move {
+      top_1_0.in = top_0_0.out;
+      top_1_0.write_en = 1'd1;
+    }
+    static<1> group pe_0_0_out_write {
+      r0_valid = 1'd1;
+      r0_value = pe_0_0.out;
+      r0_idx = 3'd0;
+    }
+    static<1> group pe_0_1_right_move {
+      left_0_2.in = left_0_1.out;
+      left_0_2.write_en = 1'd1;
+    }
+    static<1> group pe_0_1_down_move {
+      top_1_1.in = top_0_1.out;
+      top_1_1.write_en = 1'd1;
+    }
+    static<1> group pe_0_1_out_write {
+      r0_valid = 1'd1;
+      r0_value = pe_0_1.out;
+      r0_idx = 3'd1;
+    }
+    static<1> group pe_0_2_right_move {
+      left_0_3.in = left_0_2.out;
+      left_0_3.write_en = 1'd1;
+    }
+    static<1> group pe_0_2_down_move {
+      top_1_2.in = top_0_2.out;
+      top_1_2.write_en = 1'd1;
+    }
+    static<1> group pe_0_2_out_write {
+      r0_valid = 1'd1;
+      r0_value = pe_0_2.out;
+      r0_idx = 3'd2;
+    }
+    static<1> group pe_0_3_down_move {
+      top_1_3.in = top_0_3.out;
+      top_1_3.write_en = 1'd1;
+    }
+    static<1> group pe_0_3_out_write {
+      r0_valid = 1'd1;
+      r0_value = pe_0_3.out;
+      r0_idx = 3'd3;
+    }
+    static<1> group pe_1_0_right_move {
+      left_1_1.in = left_1_0.out;
+      left_1_1.write_en = 1'd1;
+    }
+    static<1> group pe_1_0_out_write {
+      r1_valid = 1'd1;
+      r1_value = pe_1_0.out;
+      r1_idx = 3'd0;
+    }
+    static<1> group pe_1_1_right_move {
+      left_1_2.in = left_1_1.out;
+      left_1_2.write_en = 1'd1;
+    }
+    static<1> group pe_1_1_out_write {
+      r1_valid = 1'd1;
+      r1_value = pe_1_1.out;
+      r1_idx = 3'd1;
+    }
+    static<1> group pe_1_2_right_move {
+      left_1_3.in = left_1_2.out;
+      left_1_3.write_en = 1'd1;
+    }
+    static<1> group pe_1_2_out_write {
+      r1_valid = 1'd1;
+      r1_value = pe_1_2.out;
+      r1_idx = 3'd2;
+    }
+    static<1> group pe_1_3_out_write {
+      r1_valid = 1'd1;
+      r1_value = pe_1_3.out;
+      r1_idx = 3'd3;
+    }
+  }
+  control {
+    seq {
+      static par {
+        init_idx;
+        init_iter_limit;
+      }
+      while lt_iter_limit.out {
+        static par {
+          incr_idx;
+          static par {
+            static if idx_between_0_depth_plus_0_comb.out {
+              static par {
+                l0_move;
+                t0_move;
+              }
+            }
+            static if idx_between_1_5_comb.out {
+              static par {
+                static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=1'd0)();
+              }
+            }
+            static if idx_between_1_depth_plus_1_comb.out {
+              static par {
+                pe_0_0_down_move;
+                pe_0_0_right_move;
+              }
+            }
+            static if idx_between_5_depth_plus_5_comb.out {
+              static par {
+                static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=1'd1)();
+              }
+            }
+            static if idx_between_depth_plus_5_depth_plus_6_comb.out {
+              static par {
+                pe_0_0_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_1_depth_plus_1_comb.out {
+              static par {
+                t1_move;
+              }
+            }
+            static if idx_between_2_6_comb.out {
+              static par {
+                static invoke pe_0_1(top=top_0_1.out, left=left_0_1.out, mul_ready=1'd0)();
+              }
+            }
+            static if idx_between_2_depth_plus_2_comb.out {
+              static par {
+                pe_0_1_down_move;
+                pe_0_1_right_move;
+              }
+            }
+            static if idx_between_6_depth_plus_6_comb.out {
+              static par {
+                static invoke pe_0_1(top=top_0_1.out, left=left_0_1.out, mul_ready=1'd1)();
+              }
+            }
+            static if idx_between_depth_plus_6_depth_plus_7_comb.out {
+              static par {
+                pe_0_1_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_2_depth_plus_2_comb.out {
+              static par {
+                t2_move;
+              }
+            }
+            static if idx_between_3_7_comb.out {
+              static par {
+                static invoke pe_0_2(top=top_0_2.out, left=left_0_2.out, mul_ready=1'd0)();
+              }
+            }
+            static if idx_between_3_depth_plus_3_comb.out {
+              static par {
+                pe_0_2_down_move;
+                pe_0_2_right_move;
+              }
+            }
+            static if idx_between_7_depth_plus_7_comb.out {
+              static par {
+                static invoke pe_0_2(top=top_0_2.out, left=left_0_2.out, mul_ready=1'd1)();
+              }
+            }
+            static if idx_between_depth_plus_7_depth_plus_8_comb.out {
+              static par {
+                pe_0_2_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_3_depth_plus_3_comb.out {
+              static par {
+                t3_move;
+              }
+            }
+            static if idx_between_4_8_comb.out {
+              static par {
+                static invoke pe_0_3(top=top_0_3.out, left=left_0_3.out, mul_ready=1'd0)();
+              }
+            }
+            static if idx_between_4_depth_plus_4_comb.out {
+              static par {
+                pe_0_3_down_move;
+              }
+            }
+            static if idx_between_8_depth_plus_8_comb.out {
+              static par {
+                static invoke pe_0_3(top=top_0_3.out, left=left_0_3.out, mul_ready=1'd1)();
+              }
+            }
+            static if idx_between_depth_plus_8_depth_plus_9_comb.out {
+              static par {
+                pe_0_3_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_1_depth_plus_1_comb.out {
+              static par {
+                l1_move;
+              }
+            }
+            static if idx_between_2_6_comb.out {
+              static par {
+                static invoke pe_1_0(top=top_1_0.out, left=left_1_0.out, mul_ready=1'd0)();
+              }
+            }
+            static if idx_between_2_depth_plus_2_comb.out {
+              static par {
+                pe_1_0_right_move;
+              }
+            }
+            static if idx_between_6_depth_plus_6_comb.out {
+              static par {
+                static invoke pe_1_0(top=top_1_0.out, left=left_1_0.out, mul_ready=1'd1)();
+              }
+            }
+            static if idx_between_depth_plus_6_depth_plus_7_comb.out {
+              static par {
+                pe_1_0_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_3_7_comb.out {
+              static par {
+                static invoke pe_1_1(top=top_1_1.out, left=left_1_1.out, mul_ready=1'd0)();
+              }
+            }
+            static if idx_between_3_depth_plus_3_comb.out {
+              static par {
+                pe_1_1_right_move;
+              }
+            }
+            static if idx_between_7_depth_plus_7_comb.out {
+              static par {
+                static invoke pe_1_1(top=top_1_1.out, left=left_1_1.out, mul_ready=1'd1)();
+              }
+            }
+            static if idx_between_depth_plus_7_depth_plus_8_comb.out {
+              static par {
+                pe_1_1_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_4_8_comb.out {
+              static par {
+                static invoke pe_1_2(top=top_1_2.out, left=left_1_2.out, mul_ready=1'd0)();
+              }
+            }
+            static if idx_between_4_depth_plus_4_comb.out {
+              static par {
+                pe_1_2_right_move;
+              }
+            }
+            static if idx_between_8_depth_plus_8_comb.out {
+              static par {
+                static invoke pe_1_2(top=top_1_2.out, left=left_1_2.out, mul_ready=1'd1)();
+              }
+            }
+            static if idx_between_depth_plus_8_depth_plus_9_comb.out {
+              static par {
+                pe_1_2_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_5_9_comb.out {
+              static par {
+                static invoke pe_1_3(top=top_1_3.out, left=left_1_3.out, mul_ready=1'd0)();
+              }
+            }
+            static if idx_between_9_depth_plus_9_comb.out {
+              static par {
+                static invoke pe_1_3(top=top_1_3.out, left=left_1_3.out, mul_ready=1'd1)();
+              }
+            }
+            static if idx_between_depth_plus_9_depth_plus_10_comb.out {
+              static par {
+                pe_1_3_out_write;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 3, out_mem_1_done: 1, r1_valid: 1, r1_value: 32, r1_idx: 3) -> (computation_done: 1, out_mem_0_addr0: 3, out_mem_0_write_data: 32, out_mem_0_write_en: 1, out_mem_1_addr0: 3, out_mem_1_write_data: 32, out_mem_1_write_en: 1) {
+  cells {
+    delay_reg = std_reg(1);
+  }
+  wires {
+    static<1> group write_r0 {
+      out_mem_0_write_en = r0_valid;
+      out_mem_0_write_data = r0_value;
+      out_mem_0_addr0 = r0_idx;
+    }
+    static<1> group write_r1 {
+      out_mem_1_write_en = r1_valid;
+      out_mem_1_write_data = r1_value;
+      out_mem_1_addr0 = r1_idx;
+    }
+    static<1> group write_done_cond {
+      delay_reg.in = 1'd1;
+      delay_reg.write_en = r1_valid & r1_idx == 3'd3 ? 1'd1;
+      computation_done = delay_reg.done ? 1'd1;
+    }
+  }
+  control {
+    static par {
+      write_done_cond;
+      write_r0;
+      write_r1;
+    }
+  }
+}
+component main() -> () {
+  cells {
+    systolic_array_component = systolic_array_comp();
+    post_op_component = default_post_op();
+    @external t0 = std_mem_d1(32, 3, 2);
+    @external t1 = std_mem_d1(32, 3, 2);
+    @external t2 = std_mem_d1(32, 3, 2);
+    @external t3 = std_mem_d1(32, 3, 2);
+    @external l0 = std_mem_d1(32, 3, 2);
+    @external l1 = std_mem_d1(32, 3, 2);
+    @external out_mem_0 = std_mem_d1(32, 4, 3);
+    @external out_mem_1 = std_mem_d1(32, 4, 3);
+    systolic_done = std_reg(1);
+    systolic_done_wire = std_wire(1);
+  }
+  wires {
+    group perform_computation {
+      t0.addr0 = systolic_array_component.t0_addr0;
+      systolic_array_component.t0_read_data = t0.read_data;
+      t1.addr0 = systolic_array_component.t1_addr0;
+      systolic_array_component.t1_read_data = t1.read_data;
+      t2.addr0 = systolic_array_component.t2_addr0;
+      systolic_array_component.t2_read_data = t2.read_data;
+      t3.addr0 = systolic_array_component.t3_addr0;
+      systolic_array_component.t3_read_data = t3.read_data;
+      l0.addr0 = systolic_array_component.l0_addr0;
+      systolic_array_component.l0_read_data = l0.read_data;
+      l1.addr0 = systolic_array_component.l1_addr0;
+      systolic_array_component.l1_read_data = l1.read_data;
+      out_mem_0.write_data = post_op_component.out_mem_0_write_data;
+      out_mem_0.write_en = post_op_component.out_mem_0_write_en;
+      out_mem_0.addr0 = post_op_component.out_mem_0_addr0;
+      post_op_component.out_mem_0_done = out_mem_0.done;
+      post_op_component.r0_valid = systolic_array_component.r0_valid;
+      post_op_component.r0_value = systolic_array_component.r0_value;
+      post_op_component.r0_idx = systolic_array_component.r0_idx;
+      out_mem_1.write_data = post_op_component.out_mem_1_write_data;
+      out_mem_1.write_en = post_op_component.out_mem_1_write_en;
+      out_mem_1.addr0 = post_op_component.out_mem_1_addr0;
+      post_op_component.out_mem_1_done = out_mem_1.done;
+      post_op_component.r1_valid = systolic_array_component.r1_valid;
+      post_op_component.r1_value = systolic_array_component.r1_value;
+      post_op_component.r1_idx = systolic_array_component.r1_idx;
+      systolic_done.write_en = systolic_array_component.done ? 1'd1;
+      systolic_done.in = systolic_array_component.done ? 1'd1;
+      systolic_done_wire.in = systolic_array_component.done | systolic_done.out ? 1'd1;
+      systolic_array_component.go = !systolic_done_wire.out ? 1'd1;
+      systolic_array_component.depth = 32'd3;
+      post_op_component.go = 1'd1;
+      perform_computation[done] = post_op_component.computation_done;
+    }
+  }
+  control {
+    perform_computation;
+  }
+}
+metadata #{
+0: pe_0_0 filling: [1,5), accumulating: [5 depth_plus_5), writing: [depth_plus_5 depth_plus_6)
+1: pe_0_1 filling: [2,6), accumulating: [6 depth_plus_6), writing: [depth_plus_6 depth_plus_7)
+2: pe_0_2 filling: [3,7), accumulating: [7 depth_plus_7), writing: [depth_plus_7 depth_plus_8)
+3: pe_0_3 filling: [4,8), accumulating: [8 depth_plus_8), writing: [depth_plus_8 depth_plus_9)
+4: pe_1_0 filling: [2,6), accumulating: [6 depth_plus_6), writing: [depth_plus_6 depth_plus_7)
+5: pe_1_1 filling: [3,7), accumulating: [7 depth_plus_7), writing: [depth_plus_7 depth_plus_8)
+6: pe_1_2 filling: [4,8), accumulating: [8 depth_plus_8), writing: [depth_plus_8 depth_plus_9)
+7: pe_1_3 filling: [5,9), accumulating: [9 depth_plus_9), writing: [depth_plus_9 depth_plus_10)
+}#
