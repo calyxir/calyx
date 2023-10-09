@@ -262,7 +262,7 @@ impl StaticInliner {
                 if *latency == 1 {
                     // Special case: if latency = 1, we don't need a register
                     // to hold the value of the cond port.
-                    let cond_port_guard = ir::Guard::Port(Rc::clone(&port));
+                    let cond_port_guard = ir::Guard::Port(Rc::clone(port));
                     let not_cond_port_guard =
                         ir::Guard::Not(Box::new(cond_port_guard.clone()));
                     tgroup_assigns.iter_mut().for_each(|assign| {
