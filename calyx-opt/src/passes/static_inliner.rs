@@ -50,11 +50,18 @@ impl StaticInliner {
     // all guards also must update so that guard -> guard & %[offset, offset+latency] since that
     // is when the group will be active in the control, i.e., dst = guard ? src
     // becomes dst =  guard & %[offset, offset+latency] ? src
+    // total_latency is the latency of the entire control block being inlined.
     fn update_assignments_timing(
         assigns: &mut Vec<ir::Assignment<ir::StaticTiming>>,
         offset: u64,
         latency: u64,
+        total_latency: u64,
     ) {
+        if offset == 0 && latency == total_latency {
+            // In this special case, we do nothing, since the timing guards
+            // would be redundant.
+            return;
+        }
         for assign in assigns {
             Self::update_assignment_timing(assign, offset, latency);
         }
@@ -151,10 +158,11 @@ impl StaticInliner {
                         &mut g_assigns,
                         cur_offset,
                         stmt_latency,
+                        *latency,
                     );
                     // add g_assigns to seq_group_assigns
                     seq_group_assigns.extend(g_assigns.into_iter());
-                    // updates cur_offset so that next stmt gets its static timign
+                    // updates cur_offset so that next stmt gets its static timing
                     // offset appropriately
                     cur_offset += stmt_latency;
                 }
@@ -194,6 +202,7 @@ impl StaticInliner {
                         &mut g_assigns,
                         0,
                         stmt_latency,
+                        *latency,
                     );
                     // add g_assigns to par_group_assigns
                     par_group_assigns.extend(g_assigns.into_iter());
@@ -209,40 +218,25 @@ impl StaticInliner {
                 latency,
                 attributes,
             }) => {
-                let if_group = builder.add_static_group("static_if", *latency);
-                let mut if_group_assigns: Vec<
-                    ir::Assignment<ir::StaticTiming>,
-                > = vec![];
-                structure!( builder;
-                    let cond = prim std_reg(port.borrow().width);
-                    let cond_wire = prim std_wire(port.borrow().width);
-                );
-                // build_cond_assigns makes assigns such that
-                // cond_wire.in can guard all of the tru branch assigns,
-                // and !cond_wire.in can guard all fo the false branch assigns x
-                let cond_assigns = StaticInliner::make_cond_assigns(
-                    Rc::clone(&cond),
-                    Rc::clone(&cond_wire),
-                    Rc::clone(port),
-                    *latency,
-                    builder,
-                );
-                if_group_assigns.extend(cond_assigns.to_vec());
+                // Making sure max of the two branches latency is the latency
+                // of the if statement
                 let tbranch_latency = tbranch.get_latency();
                 let fbranch_latency = fbranch.get_latency();
                 let max_latency =
                     std::cmp::max(tbranch_latency, fbranch_latency);
                 assert_eq!(max_latency, *latency, "if group latency and max of the if branch latencies do not match");
-                // turn tbranch into group and put assigns into tgroup_assigns
+
+                // Inline assignments in tbranch and fbranch, and get resulting
+                // tgroup_assigns and fgroup_assigns
                 let tgroup =
                     StaticInliner::inline_static_control(tbranch, builder);
+                let mut tgroup_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
+                    tgroup.borrow_mut().assignments.clone();
                 assert_eq!(
                     tbranch_latency,
                     tgroup.borrow().get_latency(),
                     "tru branch and tru branch group latency do not match"
                 );
-                let mut tgroup_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
-                    tgroup.borrow_mut().assignments.clone();
                 // turn fgroup (if it exists) into group and put assigns into fgroup_assigns
                 let mut fgroup_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
                     match **fbranch {
@@ -258,32 +252,85 @@ impl StaticInliner {
                             fgroup_assigns
                         }
                     };
-                // need to do two things:
-                // add cond_wire.out ? in front of each tgroup assignment
-                // (and ! cond_wire.out for fgroup assignemnts)
-                // add %[0:tbranch_latency] in front of each tgroup assignment
-                // (and %[0: fbranch_latency]) in front of each fgroup assignment
-                let cond_wire_guard =
-                    ir::Guard::Port(cond_wire.borrow().get("out"));
-                let not_cond_wire_guard =
-                    ir::Guard::Not(Box::new(cond_wire_guard.clone()));
-                tgroup_assigns.iter_mut().for_each(|assign| {
-                    // adds the %[0:tbranch_latency] ? guard
-                    Self::update_assignment_timing(assign, 0, tbranch_latency);
-                    // adds the cond_wire ? guard
-                    assign
-                        .guard
-                        .update(|guard| guard.and(cond_wire_guard.clone()))
-                });
+
+                // if_group = the eventual group we inline all the assignments
+                // into.
+                let if_group = builder.add_static_group("static_if", *latency);
+                let mut if_group_assigns: Vec<
+                    ir::Assignment<ir::StaticTiming>,
+                > = vec![];
+                if *latency == 1 {
+                    // Special case: if latency = 1, we don't need a register
+                    // to hold the value of the cond port.
+                    let cond_port_guard = ir::Guard::Port(Rc::clone(&port));
+                    let not_cond_port_guard =
+                        ir::Guard::Not(Box::new(cond_port_guard.clone()));
+                    tgroup_assigns.iter_mut().for_each(|assign| {
+                        // adds the cond_port ? guard
+                        assign
+                            .guard
+                            .update(|guard| guard.and(cond_port_guard.clone()))
+                    });
+                    fgroup_assigns.iter_mut().for_each(|assign| {
+                        // adds the !cond_port ? guard
+                        assign.guard.update(|guard| {
+                            guard.and(not_cond_port_guard.clone())
+                        })
+                    });
+                } else {
+                    // If latency != 1, we do need a register to hold the
+                    // value of the cond port.
+                    structure!( builder;
+                        let cond = prim std_reg(port.borrow().width);
+                        let cond_wire = prim std_wire(port.borrow().width);
+                    );
+                    // build_cond_assigns makes assigns such that
+                    // cond_wire.in can guard all of the tru branch assigns,
+                    // and !cond_wire.in can guard all fo the false branch assigns
+                    let cond_assigns = StaticInliner::make_cond_assigns(
+                        Rc::clone(&cond),
+                        Rc::clone(&cond_wire),
+                        Rc::clone(port),
+                        *latency,
+                        builder,
+                    );
+                    if_group_assigns.extend(cond_assigns.to_vec());
+
+                    // need to do two things:
+                    // add cond_wire.out ? in front of each tgroup assignment
+                    // (and ! cond_wire.out for fgroup assignemnts)
+                    // add %[0:tbranch_latency] in front of each tgroup assignment
+                    // (and %[0: fbranch_latency]) in front of each fgroup assignment
+                    let cond_wire_guard =
+                        ir::Guard::Port(cond_wire.borrow().get("out"));
+                    let not_cond_wire_guard =
+                        ir::Guard::Not(Box::new(cond_wire_guard.clone()));
+                    tgroup_assigns.iter_mut().for_each(|assign| {
+                        // adds the %[0:tbranch_latency] ? guard
+                        Self::update_assignment_timing(
+                            assign,
+                            0,
+                            tbranch_latency,
+                        );
+                        // adds the cond_wire ? guard
+                        assign
+                            .guard
+                            .update(|guard| guard.and(cond_wire_guard.clone()))
+                    });
+                    fgroup_assigns.iter_mut().for_each(|assign| {
+                        // adds the %[0:fbranch_latency] ? guard
+                        Self::update_assignment_timing(
+                            assign,
+                            0,
+                            fbranch_latency,
+                        );
+                        // adds the !cond_wire ? guard
+                        assign.guard.update(|guard| {
+                            guard.and(not_cond_wire_guard.clone())
+                        })
+                    });
+                }
                 if_group_assigns.extend(tgroup_assigns);
-                fgroup_assigns.iter_mut().for_each(|assign| {
-                    // adds the %[0:fbranch_latency] ? guard
-                    Self::update_assignment_timing(assign, 0, fbranch_latency);
-                    // adds the !cond_wire ? guard
-                    assign
-                        .guard
-                        .update(|guard| guard.and(not_cond_wire_guard.clone()))
-                });
                 if_group_assigns.extend(fgroup_assigns);
                 if_group.borrow_mut().assignments = if_group_assigns;
                 if_group.borrow_mut().attributes = attributes.clone();
