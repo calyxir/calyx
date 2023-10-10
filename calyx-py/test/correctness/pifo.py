@@ -301,6 +301,40 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
     return pifo
 
 
+def insert_stats(prog, name):
+    """Inserts a stats component into the program.
+
+    It accepts, as input, the index of a flow (0 or 1).
+    It maintains two registers, count_0 and count_1, that count the number of
+    times that this component has been invoked with that flow.
+    """
+
+    stats: cb.ComponentBuilder = prog.component(name)
+    flow = stats.input("flow", 1)
+    # If this is 0, we add to `count_0`.
+    # If it is 1, we add to `count_1`.
+
+    # Two registers to count the number of times we've been invoked with each flow.
+    count_0 = stats.reg("count_0", 32)
+    count_1 = stats.reg("count_1", 32)
+
+    # Wiring to increment the appropriate register.
+    count_0_incr = stats.incr(count_0)
+    count_1_incr = stats.incr(count_1)
+
+    # Equality checks on `flow`.
+    flow_eq_0 = stats.eq_use(flow, 0)
+    flow_eq_1 = stats.eq_use(flow, 1)
+
+    # The main logic.
+    stats.control += [
+        cb.par(
+            cb.if_with(flow_eq_0, [count_0_incr]),
+            cb.if_with(flow_eq_1, [count_1_incr]),
+        ),
+    ]
+
+
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
