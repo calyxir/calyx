@@ -168,8 +168,10 @@ impl ReadWriteSet {
                 ref_cells,
                 ..
             }) => {
-                let mut inps: Vec<RRC<ir::Port>> = inputs.iter().map(|(_, p)| p).cloned().collect();
-                let mut outs: Vec<RRC<ir::Port>> = outputs.iter().map(|(_, p)| p).cloned().collect();
+                let mut inps: Vec<RRC<ir::Port>> =
+                    inputs.iter().map(|(_, p)| p).cloned().collect();
+                let mut outs: Vec<RRC<ir::Port>> =
+                    outputs.iter().map(|(_, p)| p).cloned().collect();
                 for (_, cell) in ref_cells.iter() {
                     for port in cell.borrow().ports.iter() {
                         match port.borrow().direction {
