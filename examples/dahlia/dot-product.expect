@@ -26,6 +26,3 @@
     ]
   }
 }
----STDERR---
-[fud] WARNING: Unknown option `verilog.top_module' for stage `verilog'
-[fud] WARNING: Unknown option `verilog.priority' for stage `verilog'
