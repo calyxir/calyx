@@ -1,5 +1,5 @@
 {
-  "cycles": 98,
+  "cycles": 90,
   "memories": {
     "A": [
       27,
@@ -26,3 +26,6 @@
     ]
   }
 }
+---STDERR---
+[fud] WARNING: Unknown option `verilog.top_module' for stage `verilog'
+[fud] WARNING: Unknown option `verilog.priority' for stage `verilog'

@@ -42,7 +42,9 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             .unique()
     }
 
-    fn get_cells_static_seq(ports: Vec<RRC<ir::Port>>) -> impl Iterator<Item = ir::Id> {
+    fn get_cells_static_seq(
+        ports: Vec<RRC<ir::Port>>,
+    ) -> impl Iterator<Item = ir::Id> {
         ports
             .into_iter()
             .filter_map(|p| {
@@ -51,7 +53,9 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                 match cell.prototype {
                     // Ignore constants and _this
                     ir::CellType::Constant { .. } => None,
-                    ir::CellType::ThisComponent => Some(ir::Id::new("this_comp")),
+                    ir::CellType::ThisComponent => {
+                        Some(ir::Id::new("this_comp"))
+                    }
                     _ => Some(cell.name()),
                 }
             })
