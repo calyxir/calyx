@@ -1,6 +1,6 @@
 use crate::analysis::ReadWriteSet;
 use calyx_ir as ir;
-use calyx_utils::{CalyxResult, Error, Id};
+use calyx_utils::{CalyxResult, Error};
 use ir::RRC;
 use itertools::Itertools;
 use petgraph::{
@@ -35,7 +35,23 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                 match cell.prototype {
                     // Ignore constants and _this
                     ir::CellType::Constant { .. } => None,
-                    ir::CellType::ThisComponent => Some(Id::new("this_comp")),
+                    ir::CellType::ThisComponent => None,
+                    _ => Some(cell.name()),
+                }
+            })
+            .unique()
+    }
+
+    fn get_cells_static_seq(ports: Vec<RRC<ir::Port>>) -> impl Iterator<Item = ir::Id> {
+        ports
+            .into_iter()
+            .filter_map(|p| {
+                let cr = p.borrow().cell_parent();
+                let cell = cr.borrow();
+                match cell.prototype {
+                    // Ignore constants and _this
+                    ir::CellType::Constant { .. } => None,
+                    ir::CellType::ThisComponent => Some(ir::Id::new("this_comp")),
                     _ => Some(cell.name()),
                 }
             })
@@ -144,12 +160,8 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         for c in stmts {
             let (port_reads, port_writes) =
                 ReadWriteSet::control_port_read_write_set_static(&c);
-            let r_cells = Self::get_cells(port_reads);
-            // for cell in r_cells {
-            //     println!("read cell: {}", cell);
-            // }
-            // println!("");
-            let w_cells = Self::get_cells(port_writes);
+            let r_cells = Self::get_cells_static_seq(port_reads);
+            let w_cells = Self::get_cells_static_seq(port_writes);
             let latency = c.get_latency();
             let idx = gr.add_node(Some(c));
             dependency.insert(idx, Vec::new());
