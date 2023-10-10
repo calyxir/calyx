@@ -95,6 +95,10 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
     queue_l = pifo.cell("queue_l", queue_l)
     queue_r = pifo.cell("queue_r", queue_r)
 
+    # If a stats component was provided, declare it as a cell of this component.
+    if stats:
+        stats = pifo.cell("stats", stats)
+
     flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1.
     # We will infer this using a separate component;
     # it is a function of the value being pushed.
@@ -302,10 +306,10 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
 
 
 def insert_stats(prog, name):
-    """Inserts a stats component into the program.
+    """Inserts a stats component called `name` into the program `prog`.
 
     It accepts, as input, the index of a flow (0 or 1).
-    It maintains two registers, count_0 and count_1, that count the number of
+    It maintains two ref registers, count_0 and count_1, that count the number of
     times that this component has been invoked with that flow.
     """
 
@@ -332,6 +336,29 @@ def insert_stats(prog, name):
             cb.if_with(flow_eq_0, [count_0_incr]),
             cb.if_with(flow_eq_1, [count_1_incr]),
         ),
+    ]
+
+
+def insert_controller(prog, name, stats):
+    """Inserts a controller component called `name` into the program `prog`.
+
+    This component invokes the `stats` component, to which it has a handle,
+    to retrieve its latest stats.
+
+    The eventual goal is to have this happen _periodically_.
+    For now, we just do it once.
+    """
+
+    controller = prog.component(name)
+    stats = controller.cell("stats", stats)
+
+    count_0 = controller.reg("count_0", 32)
+    count_1 = controller.reg("count_1", 32)
+
+    # The main logic.
+    controller.control += [
+        # Invoke the stats component.
+        cb.invoke(stats, ref_count_0=count_0, ref_count_1=count_1),
     ]
 
 
