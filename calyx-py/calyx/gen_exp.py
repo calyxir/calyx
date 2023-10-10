@@ -68,9 +68,9 @@ def generate_fp_pow_component(
         pow.in_ = mul.out
         execute_mul.done = pow.done
 
-    incr_count = comp.incr(count, width, 1, is_signed)
+    incr_count = comp.incr(count, 1, is_signed)
 
-    cond = comp.lt_use(count.out, comp.this().integer_exp, width, is_signed)
+    cond = comp.lt_use(count.out, comp.this().integer_exp, is_signed, None, width)
 
     with comp.continuous:
         comp.this().out = pow.out
@@ -561,7 +561,6 @@ def generate_fp_pow_full(
     comp.input("base", width)
     comp.input("exp_value", width)
     comp.output("out", width)
-    lt = comp.lt(width, "lt", is_signed)
 
     div = comp.cell(
         "div",
@@ -608,8 +607,9 @@ def generate_fp_pow_full(
         base_lt_zero = comp.lt_use(
             comp.this().base,
             const_zero.out,
-            width,
             is_signed,
+            None,
+            width,
         )
 
     new_exp_val = comp.reg("new_exp_val", width)
@@ -637,7 +637,13 @@ def generate_fp_pow_full(
 
     gen_reciprocal(comp, "set_base_reciprocal", new_base_reg, div, const_one)
     gen_reciprocal(comp, "set_res_reciprocal", res, div, const_one),
-    base_lt_one = comp.lt_use(stored_base_reg.out, const_one.out, width, is_signed)
+    base_lt_one = comp.lt_use(
+        stored_base_reg.out,
+        const_one.out,
+        is_signed,
+        None,
+        width,
+    )
 
     base_reciprocal = if_with(base_lt_one, comp.get_group("set_base_reciprocal"))
 

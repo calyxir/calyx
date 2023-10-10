@@ -4,6 +4,8 @@ import numpy as np
 from gen_pe import pe, PE_NAME, BITWIDTH
 import calyx.builder as cb
 from calyx import py_ast
+from calyx.utils import bits_needed
+from systolic_arg_parser import SystolicConfiguration
 
 # Global constant for the current bitwidth.
 DEPTH = "depth"
@@ -75,24 +77,21 @@ class CalyxAdd:
         return group_name
 
 
-def add_read_mem_arguments(comp: cb.ComponentBuilder, name, addr_width):
-    """
-    Add arguments to component `comp` if we want to read from a mem named `name` with
-    width of `addr_width`
-    """
-    comp.input(f"{name}_read_data", BITWIDTH)
-    comp.output(f"{name}_addr0", addr_width)
-
-
-def add_systolic_output_arguments(comp: cb.ComponentBuilder, row_num, addr_width):
+def add_systolic_output_params(comp: cb.ComponentBuilder, row_num, addr_width):
     """
     Add output arguments to systolic array component `comp` for row `row_num`.
     The ouptut arguments alllow the systolic array to expose its outputs for `row_num`
     without writing to memory (e.g., r0_valid, r0_value, r0_idx).
     """
-    comp.output(NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1)
-    comp.output(NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH)
-    comp.output(NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width)
+    cb.add_comp_params(
+        comp,
+        input_ports=[],
+        output_ports=[
+            (NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1),
+            (NAME_SCHEME["systolic value signal"].format(row_num=row_num), BITWIDTH),
+            (NAME_SCHEME["systolic idx signal"].format(row_num=row_num), addr_width),
+        ],
+    )
 
 
 def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
@@ -112,10 +111,9 @@ def instantiate_memory(comp: cb.ComponentBuilder, top_or_left, idx, size):
     else:
         raise Exception(f"Invalid top_or_left: {top_or_left}")
 
-    # XXX(Caleb): should change to be exact
-    idx_width = BITWIDTH
+    idx_width = bits_needed(size)
     # Instantiate the memory
-    add_read_mem_arguments(comp, name, idx_width)
+    cb.add_read_mem_params(comp, name, data_width=BITWIDTH, addr_width=idx_width)
     this = comp.this()
     addr0_port = this.port(name + "_addr0")
     read_data_port = this.port(name + "_read_data")
@@ -268,7 +266,7 @@ def get_pe_invoke(r, c, mul_ready):
     )
 
 
-def init_dyn_vals(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
+def init_runtime_vals(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
     """
     Builds group that instantiates the dynamic/runtime values for the systolic
     array: its depth and iteration limit/count (since its iteration limit depends on
@@ -433,10 +431,7 @@ def accum_nec_ranges(nec_ranges, schedule):
 
 
 def gen_schedules(
-    top_length,
-    top_depth,
-    left_length,
-    left_depth,
+    config: SystolicConfiguration,
     comp: cb.ComponentBuilder,
 ):
     """
@@ -453,6 +448,7 @@ def gen_schedules(
     `pe_write_sched` contains when to "write" the PE value into the output ports
     (e.g., this.r0_valid)
     """
+    left_length, top_length = config.left_length, config.top_length
     depth_port = comp.this().depth
     min_depth_4_port = comp.get_cell("min_depth_4").port("out")
     schedules = {}
@@ -501,10 +497,7 @@ def execute_if_between(comp: cb.ComponentBuilder, start, end, body):
 
 def generate_control(
     comp: cb.ComponentBuilder,
-    top_length,
-    top_depth,
-    left_length,
-    left_depth,
+    config: SystolicConfiguration,
     schedules,
     calyx_add_groups,
     nec_ranges,
@@ -520,8 +513,8 @@ def generate_control(
         c. Move the data needed by each PE
     3. Writes the PE values into external memory
     """
-
     control = []
+    top_length, left_length = config.top_length, config.left_length
 
     # Initialize all memories.
     init_indices: list[py_ast.Control] = [
@@ -626,63 +619,54 @@ writing: [{schedules['write_sched'][r][c][0]} \
     return py_ast.SeqComp(stmts=control), source_map
 
 
-def create_systolic_array(
-    prog: cb.Builder,
-    top_length,
-    top_depth,
-    left_length,
-    left_depth,
-):
+def create_systolic_array(prog: cb.Builder, config: SystolicConfiguration):
     """
     top_length: Number of PEs in each row.
     top_depth: Number of elements processed by each PE in a row.
     left_length: Number of PEs in each column.
     left_depth: Number of elements processed by each PE in a col.
     """
-    assert top_depth == left_depth, (
-        f"Cannot multiply matrices: "
-        f"{top_length}x{top_depth} and {left_depth}x{left_length}"
-    )
     pe(prog)
     computational_unit = prog.component(SYSTOLIC_ARRAY_COMP)
     depth_port = computational_unit.input("depth", BITWIDTH)
-    init_dyn_vals(computational_unit, depth_port, top_length + left_length + 4)
-
-    schedules = gen_schedules(
-        top_length, top_depth, left_length, left_depth, computational_unit
+    init_runtime_vals(
+        computational_unit, depth_port, config.top_length + config.left_length + 4
     )
+
+    schedules = gen_schedules(config, computational_unit)
     nec_ranges = set()
     for sched in schedules.values():
         accum_nec_ranges(nec_ranges, sched)
     calyx_add_groups = instantiate_calyx_adds(computational_unit, nec_ranges)
 
-    for row in range(left_length):
-        for col in range(top_length):
+    for row in range(config.left_length):
+        for col in range(config.top_length):
             # Instantiate the PEs and surronding registers
             instantiate_pe(computational_unit, row, col)
 
     # Instantiate all the memories
-    for r in range(top_length):
-        instantiate_memory(computational_unit, "top", r, top_depth)
+    for r in range(config.top_length):
+        instantiate_memory(computational_unit, "top", r, config.top_depth)
 
-    for col in range(left_length):
-        instantiate_memory(computational_unit, "left", col, left_depth)
+    for col in range(config.left_length):
+        instantiate_memory(computational_unit, "left", col, config.left_depth)
 
-    idx_width = BITWIDTH
     # Instantiate output memory
-    for i in range(left_length):
-        add_systolic_output_arguments(computational_unit, i, idx_width)
+    for i in range(config.left_length):
+        add_systolic_output_params(
+            computational_unit, i, bits_needed(config.top_length)
+        )
 
     # Instantiate all the PEs
-    for row in range(left_length):
-        for col in range(top_length):
+    for row in range(config.left_length):
+        for col in range(config.top_length):
             # Instantiate the mover fabric
             instantiate_data_move(
                 computational_unit,
                 row,
                 col,
-                col == top_length - 1,
-                row == left_length - 1,
+                col == config.top_length - 1,
+                row == config.left_length - 1,
             )
 
             # Instantiate output movement structure, i.e., writes to
@@ -699,10 +683,7 @@ def create_systolic_array(
     # Generate the control and set the source map
     control, source_map = generate_control(
         computational_unit,
-        top_length,
-        top_depth,
-        left_length,
-        left_depth,
+        config,
         schedules,
         calyx_add_groups,
         nec_ranges,

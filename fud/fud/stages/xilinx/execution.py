@@ -83,13 +83,14 @@ class HwExecutionStage(Stage):
 
             # Create the `emconfig.json` file that the simulator loudly (but
             # perhaps unnecessarily?) complains about if it's missing.
-            platform = config["stages", "xclbin", "device"]
-            utilpath = os.path.join(vitis_path, 'bin', 'emconfigutil')
-            shell(
-                f'{utilpath} --platform {platform} --od {new_dir.name}',
-                capture_stdout=False,
-                stdout_as_debug=True,
-            )
+            if emu_mode != 'hw':
+                platform = config["stages", "xclbin", "device"]
+                utilpath = os.path.join(vitis_path, 'bin', 'emconfigutil')
+                shell(
+                    f'{utilpath} --platform {platform} --od {new_dir.name}',
+                    capture_stdout=False,
+                    stdout_as_debug=True,
+                )
 
         @builder.step()
         def run(xclbin: SourceType.Path) -> SourceType.String:
@@ -110,10 +111,15 @@ class HwExecutionStage(Stage):
                 f"{xclbin_abs} {data_abs}"
             )
             envs = {
-                "EMCONFIG_PATH": new_dir.name,
-                "XCL_EMULATION_MODE": emu_mode,  # hw_emu or hw
                 "XRT_INI_PATH": xrt_ini_path,
             }
+            if emu_mode != 'hw':
+                # `hw` denotes actual hardware execution. In other modes,
+                # configure emulation.
+                envs.update({
+                    "EMCONFIG_PATH": new_dir.name,
+                    "XCL_EMULATION_MODE": emu_mode,  # hw_emu or hw
+                })
 
             # Invoke xclrun.
             start_time = time.time()
@@ -125,7 +131,7 @@ class HwExecutionStage(Stage):
                 stdout_as_debug=True,
             )
             end_time = time.time()
-            log.debug(f"Emulation time: {end_time - start_time} sec")
+            log.debug(f"Execution time: {end_time - start_time} sec")
 
             # Add xrt log output to our debug output.
             if os.path.exists(self.xrt_output_logname):

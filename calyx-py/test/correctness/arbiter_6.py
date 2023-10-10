@@ -29,28 +29,22 @@ def add_wrap2(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells and groups to compute equality and lt
-    i_eq_0 = wrap.eq_use(i, 0, 32)
-    i_eq_1 = wrap.eq_use(i, 1, 32)
-    j_lt_4 = wrap.lt_use(j, 4, 32)
-    j_lt_8 = wrap.lt_use(j, 8, 32)
+    i_eq_0 = wrap.eq_use(i, 0)
+    i_eq_1 = wrap.eq_use(i, 1)
+    j_lt_4 = wrap.lt_use(j, 4)
+    j_lt_8 = wrap.lt_use(j, 8)
 
     # Load `j` unchanged into `j_mod_4`.
     unchanged = wrap.reg_store(j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and j-8. Either of these will store the result in `j_mod_4`.
-    j_minus_4, j_mod_4 = wrap.sub_store_in_reg(
-        j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
-    )
-    j_minus_8, j_mod_4 = wrap.sub_store_in_reg(
-        j, cb.const(32, 8), "j_minus_8", 32, j_mod_4
-    )
+    j_minus_4, j_mod_4 = wrap.sub_store_in_reg(j, 4, "j_minus_4", 32, j_mod_4)
+    j_minus_8, j_mod_4 = wrap.sub_store_in_reg(j, 8, "j_minus_8", 32, j_mod_4)
 
     load_from_mems = [
         # Add wiring to load the value `j_mod_4` from all of the memory cells.
         # We'll have to invoke the correct one of these groups later on.
-        wrap.mem_load_to_mem(
-            mems[i], j_mod_4.out, ans, cb.const(32, 0), f"load_from_mem{i}"
-        )
+        wrap.mem_load_to_mem(mems[i], j_mod_4.out, ans, 0, f"load_from_mem{i}")
         for i in range(6)
     ]
 
@@ -118,23 +112,19 @@ def add_wrap3(prog):
     j_mod_4 = wrap.reg("j_mod_4", 32)
 
     # Additional cells to compute equality, and lt
-    i_eq_0 = wrap.eq_use(i, 0, 32)
-    i_eq_1 = wrap.eq_use(i, 1, 32)
-    i_eq_2 = wrap.eq_use(i, 2, 32)
-    j_lt_4 = wrap.lt_use(j, 4, 32)
+    i_eq_0 = wrap.eq_use(i, 0)
+    i_eq_1 = wrap.eq_use(i, 1)
+    i_eq_2 = wrap.eq_use(i, 2)
+    j_lt_4 = wrap.lt_use(j, 4)
 
     # Load `j` unchanged into `j_mod_4`.
     unchanged = wrap.reg_store(j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and store the result in `j_mod_4`.
-    subcell, j_mod_4 = wrap.sub_store_in_reg(
-        j, cb.const(32, 4), "j_minus_4", 32, j_mod_4
-    )
+    subcell, j_mod_4 = wrap.sub_store_in_reg(j, 4, "j_minus_4", 32, j_mod_4)
 
     emit_from_mems = [
-        wrap.mem_load_to_mem(
-            mems[i], j_mod_4.out, ans, cb.const(32, 0), f"load_from_mem{i}"
-        )
+        wrap.mem_load_to_mem(mems[i], j_mod_4.out, ans, 0, f"load_from_mem{i}")
         for i in range(6)
     ]
 
