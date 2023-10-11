@@ -299,7 +299,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
                             else [
                                 # If a stats component is provided,
                                 # Increment the length and also
-                                # tell the state component what flow we pushed.
+                                # tell the stats component what flow we pushed.
                                 # Do not request a report.
                                 len_incr,
                                 cb.invoke(
@@ -325,7 +325,7 @@ def insert_stats(prog, name):
     - a flag that indicates whether a _report_ is sought.
     - the index of a flow (0 or 1).
 
-    It maintains two registers, `count_0` and `count_1`, that are initialized to 0.
+    It maintains two registers, `count_0` and `count_1`.
 
     If the `report` flag is set:
     Two further inputs are expected, passed by reference:
@@ -334,13 +334,12 @@ def insert_stats(prog, name):
 
     If the `report` flag is not set:
     The component reads the flow index and increments `count_0` or `count_1` as needed.
-
     """
 
     stats: cb.ComponentBuilder = prog.component(name)
     report = stats.input(
         "report", 1
-    )  # If 1, report the counts so far. If 0, increment a counter.
+    )  # If 0, increment a counter. If 1, report the counts so far.
     flow = stats.input(
         "flow", 1
     )  # If 0, increment `count_0`. If 1, increment `count_1`.
@@ -411,8 +410,8 @@ def insert_controller(prog, name, stats):
         # but request a report. Store the results in `count_0` and `count_1`.
         cb.invoke(
             stats,
-            in_flow=0,  # Bogus
-            in_report=1,  # Meaningful: request a report.
+            in_flow=0,
+            in_report=1,
             ref_count_0=count_0,
             ref_count_1=count_1,
         ),  # Great, now I have the counts locally.
