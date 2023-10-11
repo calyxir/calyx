@@ -292,9 +292,22 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
                         ),
                         cb.if_with(
                             err_eq_0,
-                            [len_incr, cb.invoke(stats, in_flow=flow.out)]
-                            if stats  # If a stats component is provided, invoke it.
-                            else [len_incr],  # Either way, increment the length.
+                            # If no stats component is provided,
+                            # just increment the length.
+                            [len_incr]
+                            if not stats
+                            else [
+                                # If a stats component is provided,
+                                # Increment the length and also
+                                # tell the state component what flow we pushed.
+                                # Do not request a report.
+                                len_incr,
+                                cb.invoke(
+                                    stats,
+                                    in_flow=flow.out,
+                                    in_report=0,
+                                ),
+                            ],
                         ),
                     ],
                 ),
@@ -308,33 +321,70 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
 def insert_stats(prog, name):
     """Inserts a stats component called `name` into the program `prog`.
 
-    It accepts, as input, the index of a flow (0 or 1).
-    It maintains two ref registers, count_0 and count_1, that count the number of
-    times that this component has been invoked with that flow.
+    It accepts, as input, two things:
+    - a flag that indicates whether a _report_ is sought.
+    - the index of a flow (0 or 1).
+
+    It maintains two registers, `count_0` and `count_1`, that are initialized to 0.
+
+    If the `report` flag is set:
+    Two further inputs are expected, passed by reference:
+    `ref_count_0` and `ref_count_1`.
+    The component will write the values of `count_0` and `count_1` to these registers.
+
+    If the `report` flag is not set:
+    The component reads the flow index and increments `count_0` or `count_1` as needed.
+
     """
 
     stats: cb.ComponentBuilder = prog.component(name)
-    flow = stats.input("flow", 1)
-    # If this is 0, we add to `count_0`.
-    # If it is 1, we add to `count_1`.
+    report = stats.input(
+        "report", 1
+    )  # If 1, report the counts so far. If 0, increment a counter.
+    flow = stats.input(
+        "flow", 1
+    )  # If 0, increment `count_0`. If 1, increment `count_1`.
 
     # Two registers to count the number of times we've been invoked with each flow.
     count_0 = stats.reg("count_0", 32)
     count_1 = stats.reg("count_1", 32)
 
+    # Two registers to report the counts.
+    ref_count_0 = stats.reg("ref_count_0", 32, is_ref=True)
+    ref_count_1 = stats.reg("ref_count_1", 32, is_ref=True)
+
     # Wiring to increment the appropriate register.
     count_0_incr = stats.incr(count_0)
     count_1_incr = stats.incr(count_1)
 
-    # Equality checks on `flow`.
+    # Wiring to drive counts to the output registers.
+    count_0_out = stats.reg_store(ref_count_0, count_0.out, "count_0_out")
+    count_1_out = stats.reg_store(ref_count_1, count_1.out, "count_1_out")
+
+    # Equality checks.
     flow_eq_0 = stats.eq_use(flow, 0)
     flow_eq_1 = stats.eq_use(flow, 1)
+    report_eq_0 = stats.eq_use(report, 0)
+    report_eq_1 = stats.eq_use(report, 1)
 
     # The main logic.
     stats.control += [
-        cb.par(
-            cb.if_with(flow_eq_0, [count_0_incr]),
-            cb.if_with(flow_eq_1, [count_1_incr]),
+        cb.par(  # In parallel, check if we need to report.
+            cb.if_with(
+                report_eq_0,  # No report needed; increment the appropriate count.
+                cb.par(
+                    cb.if_with(flow_eq_0, [count_0_incr]),
+                    cb.if_with(flow_eq_1, [count_1_incr]),
+                ),
+            ),
+            cb.if_with(report_eq_1, [count_1_incr]),
+        ),
+        cb.if_with(
+            report_eq_1,  # Report needed; leave counts alone.
+            cb.par(  # In parallel, drive the counts to the output registers.
+                count_0_out,
+                count_1_out,
+            ),
         ),
     ]
 
@@ -357,8 +407,15 @@ def insert_controller(prog, name, stats):
 
     # The main logic.
     controller.control += [
-        # Invoke the stats component.
-        cb.invoke(stats, ref_count_0=count_0, ref_count_1=count_1),
+        # Invoke the stats component. Pass a bogus value for `flow`,
+        # but request a report. Store the results in `count_0` and `count_1`.
+        cb.invoke(
+            stats,
+            in_flow=0,  # Bogus
+            in_report=1,  # Meaningful: request a report.
+            ref_count_0=count_0,
+            ref_count_1=count_1,
+        ),  # Great, now I have the counts locally.
     ]
 
 
