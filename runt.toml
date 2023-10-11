@@ -257,6 +257,7 @@ fud e --from systolic --to jq \
       --through vcd_json \
       -s verilog.data {}.data \
       -s calyx.exec './target/debug/calyx' \
+      -s calyx.flags "-d well-formed" \
       -s jq.file {}.jq \
       {} -q
 """
@@ -274,6 +275,7 @@ fud e --from systolic --to dat \
       --through verilog \
       -s verilog.data {}.data \
       -s calyx.exec './target/debug/calyx' \
+      -s calyx.flags "-d well-formed" \
       {} -q
 """
 
