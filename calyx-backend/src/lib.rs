@@ -2,10 +2,12 @@
 mod backend_opt;
 mod traits;
 mod verilog;
+mod yxi;
 
 pub use backend_opt::BackendOpt;
 pub use traits::Backend;
 pub use verilog::VerilogBackend;
+pub use yxi::YxiBackend;
 
 #[cfg(feature = "mlir")]
 mod mlir;
