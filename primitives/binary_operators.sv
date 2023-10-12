@@ -740,3 +740,26 @@ module std_srsh #(
 );
   assign out = left >>> right;
 endmodule
+
+// Signed extension
+module std_signext #(
+  parameter IN_WIDTH  = 32,
+  parameter OUT_WIDTH = 32
+) (
+  input wire logic [IN_WIDTH-1:0]  in,
+  output logic     [OUT_WIDTH-1:0] out
+);
+  localparam EXTEND = OUT_WIDTH - IN_WIDTH;
+  assign out = { {EXTEND {in[IN_WIDTH-1]}}, in};
+
+  `ifdef VERILATOR
+    always_comb begin
+      if (IN_WIDTH > OUT_WIDTH)
+        $error(
+          "std_signext: Output width less than input width\n",
+          "IN_WIDTH: %0d", IN_WIDTH,
+          "OUT_WIDTH: %0d", OUT_WIDTH
+        );
+    end
+  `endif
+endmodule
