@@ -269,6 +269,7 @@ paths = [
   "tests/correctness/systolic/leaky-relu/*.systolic",
   "tests/correctness/systolic/relu/*.systolic",
   "tests/correctness/systolic/relu-dynamic/*.systolic",
+  "tests/correctness/systolic/static/*.systolic",
 ]
 cmd = """
 fud e --from systolic --to dat \

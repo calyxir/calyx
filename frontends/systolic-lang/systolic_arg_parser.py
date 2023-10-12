@@ -27,6 +27,7 @@ class SystolicConfiguration:
         parser.add_argument("-ll", "--left-length", type=int)
         parser.add_argument("-ld", "--left-depth", type=int)
         parser.add_argument("-p", "--post-op", type=str, default=None)
+        parser.add_argument("-s", "--static", action="store_true")
 
         args = parser.parse_args()
 
@@ -37,6 +38,7 @@ class SystolicConfiguration:
             self.left_length = args.left_length
             self.left_depth = args.left_depth
             self.post_op = args.post_op
+            self.static = args.static
         elif args.file is not None:
             with open(args.file, "r") as f:
                 spec = json.load(f)
@@ -46,6 +48,8 @@ class SystolicConfiguration:
                 self.left_depth = spec["left_depth"]
                 # default to not perform leaky_relu
                 self.post_op = spec.get("post_op", None)
+                # default to non-static (i.e., dynamic contraction dimension)
+                self.static = spec.get("static", False)
         else:
             parser.error(
                 "Need to pass either `FILE` or all of `"
@@ -63,3 +67,26 @@ class SystolicConfiguration:
         of num_rows x num_cols)
         """
         return (self.left_length, self.top_length)
+
+    def get_contraction_dimension(self):
+        """
+        Returns the contraction dimension
+        """
+        assert (
+            self.left_depth == self.top_depth
+        ), "left_depth and top_depth should be same"
+        # Could have also returend self.top_depth
+        return self.left_depth
+
+    def get_iteration_count(self):
+        """
+        Returns the iteration count if self.static
+        Otherwise throws an error
+        """
+        # Could have also returend self.top_depth
+        if self.static:
+            (num_out_rows, num_out_cols) = self.get_output_dimensions()
+            return self.get_contraction_dimension() + num_out_rows + num_out_cols + 4
+        raise Exception(
+            "Cannot get iteration count for systolic array with dynamic contraction dimension"
+        )
