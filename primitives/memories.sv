@@ -80,7 +80,7 @@ module seq_mem_d1 #(
     always_comb begin
       if (read_en)
         if (addr0 >= SIZE)
-          $display(
+          $error(
             "std_mem_d1: Out of bounds access\n",
             "addr0: %0d\n", addr0,
             "SIZE: %0d", SIZE
