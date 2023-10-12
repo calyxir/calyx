@@ -98,6 +98,17 @@ extern "binary_operators.sv" {
     @done done: 1
   );
 
+  primitive std_mult_seq<"state_share"=1>[WIDTH](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @static(3) @go go: 1,
+    @write_together(1) @data left: WIDTH,
+    @write_together(1) @data right: WIDTH
+  ) -> (
+    @stable out: WIDTH,
+    @done done: 1
+  );
+
   primitive std_div_pipe<"state_share"=1>[WIDTH](
     @clk clk: 1,
     @reset reset: 1,

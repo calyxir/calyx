@@ -374,6 +374,46 @@ module std_mult_pipe #(
     output logic [WIDTH-1:0] out,
     output logic             done
 );
+  //std_fp_mult_pipe #(
+  //  .WIDTH(WIDTH),
+  //  .INT_WIDTH(WIDTH),
+  //  .FRAC_WIDTH(0),
+  //  .SIGNED(0)
+  //) comp (
+  //  .reset(reset),
+  //  .clk(clk),
+  // .done(done),
+  //  .go(go),
+  //  .left(left),
+  //  .right(right),
+  //  .out(out)
+  //);
+
+  always_ff @(posedge clk) begin
+    if (reset) begin
+        out <= 'd0;
+        done <= 1'b0;
+    end else if (go) begin
+        done <= 1'b1;
+        out <= left * right;
+    end else begin
+        done <= 1'b0;
+    end
+end
+
+endmodule
+
+module std_mult_seq #(
+    parameter WIDTH = 32
+) (
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    input  logic             reset,
+    input  logic             go,
+    input  logic             clk,
+    output logic [WIDTH-1:0] out,
+    output logic             done
+);
   std_fp_mult_pipe #(
     .WIDTH(WIDTH),
     .INT_WIDTH(WIDTH),
