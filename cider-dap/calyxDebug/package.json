@@ -1,0 +1,37 @@
+{
+    "name": "cider-dap",
+    "displayName": "Cider",
+    "version": "0.0.1",
+    "publisher": "Cider",
+    "description": "A debug adapter for Calyx files",
+    "author": {
+        "name": "...",
+        "email": "..."
+    },
+    "engines": {
+        "vscode": "^1.54.0"
+    },
+    "icon": "",
+    "categories": [
+        "Debuggers"
+    ],
+    "main": "./extension.js",
+    "contributes": {
+        "breakpoints": [
+            {
+                "language": "calyx"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "cider-dap",
+                "label": "Cider Debug",
+                "configurationAttributes": {}
+            }
+        ]
+    },
+    "activationEvents": [
+        "onDebug",
+        "onLanguage:calyx"
+    ]
+}
