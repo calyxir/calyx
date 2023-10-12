@@ -88,5 +88,6 @@ class SystolicConfiguration:
             (num_out_rows, num_out_cols) = self.get_output_dimensions()
             return self.get_contraction_dimension() + num_out_rows + num_out_cols + 4
         raise Exception(
-            "Cannot get iteration count for systolic array with dynamic contraction dimension"
+            "Cannot get iteration count for systolic array with dynamic \
+            contraction dimension"
         )
