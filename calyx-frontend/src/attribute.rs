@@ -103,6 +103,9 @@ pub enum NumAttr {
     #[strum(serialize = "promote_static")]
     /// Promote the group or control to static with the annotated latency
     PromoteStatic,
+    #[strum(serialize = "compactable")]
+    /// suggest that the current static seq block is compactable
+    Compactable,
 }
 impl From<NumAttr> for Attribute {
     fn from(attr: NumAttr) -> Self {
