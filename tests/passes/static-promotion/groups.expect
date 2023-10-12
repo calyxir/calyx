@@ -34,7 +34,7 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
   }
   control {
     seq {
-      static<4> seq  {
+      @compactable static<4> seq  {
         one_cycle0;
         two_cycles0;
         mem_wrt_to_done0;

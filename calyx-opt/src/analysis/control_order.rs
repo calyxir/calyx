@@ -34,8 +34,28 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                 let cell = cr.borrow();
                 match cell.prototype {
                     // Ignore constants and _this
-                    ir::CellType::Constant { .. }
-                    | ir::CellType::ThisComponent => None,
+                    ir::CellType::Constant { .. } => None,
+                    ir::CellType::ThisComponent => None,
+                    _ => Some(cell.name()),
+                }
+            })
+            .unique()
+    }
+
+    fn get_cells_static_seq(
+        ports: Vec<RRC<ir::Port>>,
+    ) -> impl Iterator<Item = ir::Id> {
+        ports
+            .into_iter()
+            .filter_map(|p| {
+                let cr = p.borrow().cell_parent();
+                let cell = cr.borrow();
+                match cell.prototype {
+                    // Ignore constants and _this
+                    ir::CellType::Constant { .. } => None,
+                    ir::CellType::ThisComponent => {
+                        Some(ir::Id::new("this_comp"))
+                    }
                     _ => Some(cell.name()),
                 }
             })
@@ -122,5 +142,69 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             }
             Err(Error::misc(format!("No possible sequential ordering. Control programs exhibit data race:\n{}", msg)))
         }
+    }
+
+    // returns a graph of dependency for input programs
+    // input control programs are considered to have data dependency if:
+    // 1. subsequent program writes to cells that previous program reads from
+    // 2. subsequent program writes to cells that previous program writes to
+    // 3. subsequent program reads from cells that previous program writes to
+    pub fn get_dependency_graph_static_seq(
+        stmts: impl Iterator<Item = ir::StaticControl>,
+        dependency: &mut HashMap<NodeIndex, Vec<NodeIndex>>,
+        latency_map: &mut HashMap<NodeIndex, u64>,
+    ) -> DiGraph<Option<ir::StaticControl>, ()> {
+        // Directed graph where edges means that a control program must be run before.
+        let mut gr: DiGraph<Option<ir::StaticControl>, ()> = DiGraph::new();
+
+        // Mapping name of cell to all the indices that read or write to it.
+        let mut reads: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
+        let mut writes: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
+
+        for c in stmts {
+            let (port_reads, port_writes) =
+                ReadWriteSet::control_port_read_write_set_static(&c);
+            let r_cells = Self::get_cells_static_seq(port_reads);
+            let w_cells = Self::get_cells_static_seq(port_writes);
+            let latency = c.get_latency();
+            let idx = gr.add_node(Some(c));
+            dependency.insert(idx, Vec::new());
+            latency_map.insert(idx, latency);
+
+            for cell in r_cells {
+                if let Some(wr_idxs) = writes.get(&cell) {
+                    for wr_idx in wr_idxs {
+                        if !wr_idx.eq(&idx) {
+                            gr.add_edge(*wr_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*wr_idx);
+                        }
+                    }
+                }
+                reads.entry(cell).or_default().push(idx);
+            }
+
+            for cell in w_cells {
+                if let Some(wr_idxs) = writes.get(&cell) {
+                    for wr_idx in wr_idxs {
+                        if !wr_idx.eq(&idx) {
+                            gr.add_edge(*wr_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*wr_idx);
+                        }
+                    }
+                }
+
+                if let Some(r_idxs) = reads.get(&cell) {
+                    for r_idx in r_idxs {
+                        if !r_idx.eq(&idx) {
+                            gr.add_edge(*r_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*r_idx);
+                        }
+                    }
+                }
+
+                writes.entry(cell).or_default().push(idx);
+            }
+        }
+        gr
     }
 }

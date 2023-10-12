@@ -5,6 +5,7 @@ use calyx_backend::SexpBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
     Backend, BackendOpt, MlirBackend, ResourcesBackend, VerilogBackend,
+    YxiBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
@@ -143,6 +144,10 @@ impl Opts {
             }
             BackendOpt::XilinxXml => {
                 let backend = XilinxXmlBackend;
+                backend.run(context, self.output)
+            }
+            BackendOpt::Yxi => {
+                let backend = YxiBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {
