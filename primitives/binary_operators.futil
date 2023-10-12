@@ -145,5 +145,5 @@ extern "binary_operators.sv" {
   comb primitive std_sle<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
   comb primitive std_slsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_srsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
-
+  comb primitive std_signext<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
 }
