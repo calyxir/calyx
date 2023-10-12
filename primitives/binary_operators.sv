@@ -363,33 +363,6 @@ module std_fp_slt #(
 endmodule
 
 /// =================== Unsigned, Bitnum =========================
-module std_mult_pipe #(
-    parameter WIDTH = 32
-) (
-    input  logic [WIDTH-1:0] left,
-    input  logic [WIDTH-1:0] right,
-    input  logic             reset,
-    input  logic             go,
-    input  logic             clk,
-    output logic [WIDTH-1:0] out,
-    output logic             done
-);
-  std_fp_mult_pipe #(
-    .WIDTH(WIDTH),
-    .INT_WIDTH(WIDTH),
-    .FRAC_WIDTH(0),
-    .SIGNED(0)
-  ) comp (
-    .reset(reset),
-    .clk(clk),
-   .done(done),
-    .go(go),
-    .left(left),
-    .right(right),
-    .out(out)
-  );
-endmodule
-
 module std_mult_seq #(
     parameter WIDTH = 32
 ) (
