@@ -1,23 +1,10 @@
 /// Memories
-module std_reg #(
+module std_add #(
     parameter WIDTH = 32
 ) (
-   input wire [ WIDTH-1:0]    in,
-   input wire                 write_en,
-   input wire                 clk,
-   input wire                 reset,
-    // output
-   output logic [WIDTH - 1:0] out,
-   output logic               done
+    input  wire logic [WIDTH-1:0] left,
+    input  wire logic [WIDTH-1:0] right,
+    output logic      [WIDTH-1:0] out
 );
-
-  always_ff @(posedge clk) begin
-    if (reset) begin
-       out <= 0;
-       done <= 0;
-    end else if (write_en) begin
-      out <= in;
-      done <= 1'd1;
-    end else done <= 1'd0;
-  end
+  assign out = left + right;
 endmodule
