@@ -6,29 +6,29 @@ static<5> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done
     @generated ud = undef(1);
     @generated adder = std_add(3);
     @generated signal_reg = std_reg(1);
-    @generated early_reset_static_seq_go = std_wire(1);
-    @generated early_reset_static_seq_done = std_wire(1);
-    @generated wrapper_early_reset_static_seq_go = std_wire(1);
-    @generated wrapper_early_reset_static_seq_done = std_wire(1);
+    @generated early_reset_static_par_go = std_wire(1);
+    @generated early_reset_static_par_done = std_wire(1);
+    @generated wrapper_early_reset_static_par_go = std_wire(1);
+    @generated wrapper_early_reset_static_par_done = std_wire(1);
   }
   wires {
-    done = wrapper_early_reset_static_seq_done.out ? 1'd1;
-    fsm.write_en = early_reset_static_seq_go.out ? 1'd1;
+    done = wrapper_early_reset_static_par_done.out ? 1'd1;
+    fsm.write_en = early_reset_static_par_go.out ? 1'd1;
     fsm.clk = clk;
     fsm.reset = reset;
-    fsm.in = fsm.out != 3'd4 & early_reset_static_seq_go.out ? adder.out;
-    fsm.in = fsm.out == 3'd4 & early_reset_static_seq_go.out ? 3'd0;
-    adder.left = early_reset_static_seq_go.out ? fsm.out;
-    adder.right = early_reset_static_seq_go.out ? 3'd1;
-    wrapper_early_reset_static_seq_done.in = fsm.out == 3'd0 & signal_reg.out ? 1'd1;
-    early_reset_static_seq_go.in = wrapper_early_reset_static_seq_go.out ? 1'd1;
-    signal_reg.write_en = fsm.out == 3'd0 & signal_reg.out | fsm.out == 3'd0 & !signal_reg.out & wrapper_early_reset_static_seq_go.out ? 1'd1;
+    fsm.in = fsm.out != 3'd4 & early_reset_static_par_go.out ? adder.out;
+    fsm.in = fsm.out == 3'd4 & early_reset_static_par_go.out ? 3'd0;
+    adder.left = early_reset_static_par_go.out ? fsm.out;
+    adder.right = early_reset_static_par_go.out ? 3'd1;
+    wrapper_early_reset_static_par_go.in = go;
+    wrapper_early_reset_static_par_done.in = fsm.out == 3'd0 & signal_reg.out ? 1'd1;
+    early_reset_static_par_done.in = ud.out;
+    signal_reg.write_en = fsm.out == 3'd0 & signal_reg.out | fsm.out == 3'd0 & !signal_reg.out & wrapper_early_reset_static_par_go.out ? 1'd1;
     signal_reg.clk = clk;
     signal_reg.reset = reset;
-    signal_reg.in = fsm.out == 3'd0 & !signal_reg.out & wrapper_early_reset_static_seq_go.out ? 1'd1;
+    signal_reg.in = fsm.out == 3'd0 & !signal_reg.out & wrapper_early_reset_static_par_go.out ? 1'd1;
     signal_reg.in = fsm.out == 3'd0 & signal_reg.out ? 1'd0;
-    early_reset_static_seq_done.in = ud.out;
-    wrapper_early_reset_static_seq_go.in = go;
+    early_reset_static_par_go.in = wrapper_early_reset_static_par_go.out ? 1'd1;
   }
   control {}
 }

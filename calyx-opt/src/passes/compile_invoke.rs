@@ -128,11 +128,11 @@ impl CompileInvoke {
     ///
     /// Since this pass eliminates all ref cells in post order, we expect that
     /// invoked component already had all of its ref cells removed.
-    fn ref_cells_to_ports(
+    fn ref_cells_to_ports<T>(
         &mut self,
         inv_cell: RRC<ir::Cell>,
         ref_cells: impl Iterator<Item = (ir::Id, ir::RRC<ir::Cell>)>,
-    ) -> Vec<ir::Assignment<ir::Nothing>> {
+    ) -> Vec<ir::Assignment<T>> {
         let inv_comp = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
         for (ref_cell_name, cell) in ref_cells {
@@ -360,6 +360,10 @@ impl Visitor for CompileInvoke {
         let mut builder = ir::Builder::new(comp, ctx);
 
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
+
+        invoke_group.borrow_mut().assignments.extend(
+            self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
+        );
 
         // comp.go = 1'd1;
         structure!(builder;
