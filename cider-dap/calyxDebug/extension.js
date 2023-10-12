@@ -6,7 +6,7 @@ const net = require('net');
 let debugAdapter = null;
 let programName = null; // Store the program name
 // Create output channel
-let outputChannel = vscode.window.createOutputChannel("cider dap");
+let outputChannel = vscode.window.createOutputChannel("Cider dap");
 
 function logToPanel(message) {
   console.log("inside logPanel");
@@ -43,6 +43,7 @@ class CiderDebugAdapterDescriptorFactory {
   createDebugAdapterDescriptor(session) {
     // Return a new debug adapter descriptor
     logToPanel("creating adapter descriptor");
+
     return new vscode.DebugAdapterServer(this._startDebugServer(session));
   }
 
@@ -75,7 +76,7 @@ class CiderDebugAdapter {
   }
   // Start the debug adapter process
   start(port) {
-    logToPanel('begining of start');
+    logToPanel('beginning of start');
 
     // Spawn a new child process for the debug adapter
     // Include the port as a command line argument
@@ -91,7 +92,10 @@ class CiderDebugAdapter {
       logToPanel(data.toString());
     });
 
-    logToPanel('Debugger started on port ' + port + '!');
+    this.adapterProcess.on('spawn', () => {
+      logToPanel('Debugger started on port ' + port + '!');
+    });
+
   }
 
   stop() {
@@ -110,13 +114,11 @@ function activate(context) {
   logToPanel('Extension activated!');
 
   // Start the debug server explicitly
-  const factory = new CiderDebugAdapterDescriptorFactory('/home/basantkhalil/calyx2/target/debug/cider-dap', vscode.workspace.rootPath, outputChannel);
+  const factory = new CiderDebugAdapterDescriptorFactory('cider-dap', vscode.workspace.rootPath, outputChannel);
   context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory('cider-dap', factory));
   logToPanel("after start server");
 
   // Update the adapter path with the serverPort and use it for starting the debug adapter
-  const adapterPath = '/home/basantkhalil/calyx2/target/debug/cider-dap';
-  const cwd = vscode.workspace.rootPath;
   logToPanel("before startDebugging");
   /* context.subscriptions.push(vscode.commands.registerCommand('cider.startDebugging', startDebugging));
   context.subscriptions.push(vscode.commands.registerCommand('cider.stopDebugging', stopDebugging));
