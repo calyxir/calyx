@@ -2,6 +2,7 @@ import "primitives/core.futil";
 comb component custom_lt(left: 4, right: 4) -> (out: 1) {
   cells {
     lt = std_lt(4);
+    c0 = std_const(64, 1000);
   }
   wires {
     lt.left = left;

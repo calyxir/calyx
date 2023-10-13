@@ -2,7 +2,7 @@
 //! representation.
 use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
 use calyx_frontend::BoolAttr;
-use std::rc::Rc;
+use std::{cmp, rc::Rc};
 
 use super::{CellType, PortDef};
 
@@ -160,9 +160,15 @@ impl<'a> Builder<'a> {
     /// pair, building and adding it to the component if needed..
     /// If the constant does not exist, it is added to the Context.
     pub fn add_constant(&mut self, val: u64, width: u64) -> RRC<ir::Cell> {
+        log::warn!("Attempted to add constant {val} with width {width}",);
         // Ensure that the value can fit within the width
         assert!(
-            val < (1 << width),
+            val < match width.cmp(&64) {
+                cmp::Ordering::Less => 1 << width,
+                cmp::Ordering::Equal => u64::MAX,
+                cmp::Ordering::Greater =>
+                    panic!("Widths greater than 64 are not supported."),
+            },
             "Constant value {} cannot fit in {} bits",
             val,
             width
