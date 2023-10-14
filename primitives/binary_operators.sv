@@ -363,7 +363,7 @@ module std_fp_slt #(
 endmodule
 
 /// =================== Unsigned, Bitnum =========================
-module std_mult_seq #(
+module std_mult_pipe #(
     parameter WIDTH = 32
 ) (
     input  logic [WIDTH-1:0] left,
