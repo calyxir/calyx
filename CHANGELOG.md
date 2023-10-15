@@ -1,3 +1,11 @@
+## Current
+
+## 0.6.1
+- Fix checking for large constants (#1743)
+- Better static inlining for single cycle `if` (#1734)
+- Implement `schedule-compaction` pass to optimize inferred static islands (#1722)
+- Add `std_signext` primitive
+
 ## 0.6.0
 - BREAKING: Deprecate `Cell::find_with_attr` in favor of `Cell::find_with_unique_attr`. The former is error-prone because pass logic might implicitly assume that there is only one port with a particular attribute.
 - BREAKING: Redesign the `ir::Rewriter` interface to take all the rewrite maps when constructing the `ir::Rewriter` struct.
