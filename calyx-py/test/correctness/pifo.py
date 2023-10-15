@@ -418,7 +418,7 @@ def build():
     fifo_r = fifo.insert_fifo(prog, "fifo_r")
     stats = insert_stats(prog, "stats")
     pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200, stats)
-    controller = insert_controller(prog, "controller", stats)
+    _ = insert_controller(prog, "controller", stats)
     qc.insert_main(prog, pifo)
     return prog.program
 
