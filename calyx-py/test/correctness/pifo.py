@@ -305,7 +305,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
                                 cb.invoke(
                                     stats,
                                     in_flow=flow.out,
-                                    in_report=0,
+                                    in_report=cb.LO,
                                 ),
                             ],
                         ),
@@ -393,18 +393,20 @@ def insert_controller(prog, name, stats):
     count_0 = controller.reg("count_0", 32)
     count_1 = controller.reg("count_1", 32)
 
+    with controller.group("query_stats") as query_stats:
+        stats.report = cb.HI
+        stats.flow = cb.LO
+        query_stats.done = stats.done
+
+    with controller.group("get_data_locally") as get_data_locally:
+        count_0.in_ = stats.count_0_out
+        count_0.write_en = 1
+        count_1.in_ = stats.count_1_out
+        count_1.write_en = 1
+        get_data_locally.done = count_0.done & count_1.done
+
     # The main logic.
-    controller.control += [
-        # Invoke the stats component. Pass a bogus value for `flow`,
-        # but request a report. Store the results in `count_0` and `count_1`.
-        cb.invoke(
-            stats,
-            in_flow=0,
-            in_report=1,
-            ref_count_0=count_0,
-            ref_count_1=count_1,
-        ),  # Great, now I have the counts locally.
-    ]
+    controller.control += [query_stats, get_data_locally]
 
     return controller
 
@@ -415,8 +417,8 @@ def build():
     fifo_l = fifo.insert_fifo(prog, "fifo_l")
     fifo_r = fifo.insert_fifo(prog, "fifo_r")
     stats = insert_stats(prog, "stats")
-    pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
-    # controller = insert_controller(prog, "controller", stats)
+    pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200, stats)
+    controller = insert_controller(prog, "controller", stats)
     qc.insert_main(prog, pifo)
     return prog.program
 
