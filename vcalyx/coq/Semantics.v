@@ -18,7 +18,7 @@ Inductive value :=
 (* Bottom: no assignment to this port has occurred *)
 | X.
 Scheme Equality for value.
-Global Instance value_EqDec : EqDec value eq :=
+#[export] Instance value_EqDec : EqDec value eq :=
   value_eq_dec.
 
 Definition expect_V (v: value) : exn N :=
@@ -145,11 +145,15 @@ Section Semantics.
     then mret (StateReg false X)
     else if decide (name = "std_add")
     then mret StateComb
+    else if decide (name = "std_lt")
+    then mret StateComb
     else if decide (name = "std_or")
     then mret StateComb
     else if decide (name = "std_const")
     then mret StateComb
-    else err ("prim_initial_state: " +:+ name +:+ " is not a std_reg, unimplemented").
+    else if decide (name = "std_div_pipe")
+    then mret StateComb
+    else err ("prim_initial_state: " +:+ name +:+ " is unimplemented").
 
   Definition allocate_state_for_cell (c: cell) (ρ: state_map) : exn state_map :=
     match c.(cell_proto) with
@@ -330,17 +334,17 @@ Section Semantics.
 End Semantics.
 
 Definition assoc_list K V := list (K * V).
-Instance assoc_list_FMap (K: Type) : FMap (assoc_list K) :=
+#[export] Instance assoc_list_FMap (K: Type) : FMap (assoc_list K) :=
   fun V V' f => List.map (fun '(k, v) => (k, f v)).
 
-Instance assoc_list_Lookup : forall V, Lookup string V (assoc_list string V) :=
+#[export] Instance assoc_list_Lookup : forall V, Lookup string V (assoc_list string V) :=
   fun _ needle haystack =>
     match List.find (fun '(k, v) => if string_eq_dec k needle then true else false) haystack with
     | Some (_, v) => Some v
     | None => None
     end.
 
-Instance assoc_list_Empty: forall V, Empty (assoc_list string V) :=
+#[export] Instance assoc_list_Empty: forall V, Empty (assoc_list string V) :=
   fun _ => [].
 
 Fixpoint assoc_list_partial_alter (V: Type) (f: option V -> option V) (k: string) (l: assoc_list string V) : assoc_list string V :=
@@ -359,17 +363,17 @@ Fixpoint assoc_list_partial_alter (V: Type) (f: option V -> option V) (k: string
       else (k', v)::assoc_list_partial_alter V f k l
   end.
 
-Instance assoc_list_PartialAlter: ∀ V : Type, PartialAlter string V (assoc_list string V) :=
+#[export] Instance assoc_list_PartialAlter: ∀ V : Type, PartialAlter string V (assoc_list string V) :=
   assoc_list_partial_alter.
 
-Instance assoc_list_OMap: OMap (assoc_list string) :=
+#[export] Instance assoc_list_OMap: OMap (assoc_list string) :=
   fun V B f m =>
     [].
 
-Instance assoc_list_Merge: Merge (assoc_list string) :=
+#[export] Instance assoc_list_Merge: Merge (assoc_list string) :=
   fun _ _ _ _ _ _ => [].
 
-Instance assoc_list_FinMapToList: forall V, FinMapToList string V (assoc_list string V) :=
+#[export] Instance assoc_list_FinMapToList: forall V, FinMapToList string V (assoc_list string V) :=
   fun _ => id.
 
 Instance assoc_list_finmap: FinMap string (assoc_list string).
@@ -378,44 +382,44 @@ Admitted.
 Definition calyx_prims : prim_map (assoc_list string) :=
   [
     ("std_reg",
-         {| prim_sem_poke st inputs :=
-              '(write_done, v) ← get_reg_state st;
-              mret (<["done" := bool_to_value write_done]>(<["out" := v]>inputs));
-            prim_sem_tick st inputs :=
-              '(_, val_old) ← get_reg_state st;
-              write_en ← lift_opt "std_reg tick: write_en missing"
-                                  (inputs !! "write_en");
-              if is_high write_en
-              then val_in ← lift_opt "std_reg tick: in missing" (inputs !! "in");
-                   mret (StateReg true val_in)
-              else mret (StateReg false val_old)
-         |});
-       ("std_mem_d1",
-         {| prim_sem_poke st inputs :=
-              '(write_done, fmt, contents) ← get_mem_d1_state st;
-              addr ← lift_opt "std_mem_d1 poke: addr0 missing" (inputs !! "addr0");
-              mem_val ← match addr with
-                        | Z => mret Z
-                        | V idx => V <$> lift_opt "std_mem_d1 poke: out of bounds access" (contents !! (N.to_nat idx))
-                        | X => mret X
-                        end;
-              mret (<["done" := bool_to_value write_done]>(<["read_data" := mem_val]>inputs));
-           prim_sem_tick st inputs :=
-              '(_, fmt, contents) ← get_mem_d1_state st;
-              write_en ← lift_opt "std_mem_d1 tick: write_en missing"
-                                  (inputs !! "write_en");
-              if is_high write_en
-              then val_in ← lift_opt "std_mem_d1 tick: write_data missing" (inputs !! "write_data");
-                   val ← expect_V val_in;
-                   addr ← lift_opt "st_mem_d1 tick: addr0 missing" (inputs !! "addr0");
-                   idx ← expect_V addr;
-                   mret (StateMemD1 true fmt (<[N.to_nat idx := val]>contents))
-              else mret (StateMemD1 false fmt contents)
-         |});
-       ("std_const", {|
-           prim_sem_poke st inputs := mret inputs;
-           prim_sem_tick st inputs := mret st;
-       |})].
+      {| prim_sem_poke st inputs :=
+        '(write_done, v) ← get_reg_state st;
+        mret (<["done" := bool_to_value write_done]>(<["out" := v]>inputs));
+        prim_sem_tick st inputs :=
+        '(_, val_old) ← get_reg_state st;
+        write_en ← lift_opt "std_reg tick: write_en missing"
+                 (inputs !! "write_en");
+        if is_high write_en
+        then val_in ← lift_opt "std_reg tick: in missing" (inputs !! "in");
+          mret (StateReg true val_in)
+        else mret (StateReg false val_old)
+      |});
+    ("std_mem_d1",
+      {| prim_sem_poke st inputs :=
+        '(write_done, fmt, contents) ← get_mem_d1_state st;
+        addr ← lift_opt "std_mem_d1 poke: addr0 missing" (inputs !! "addr0");
+        mem_val ← match addr with
+                  | Z => mret Z
+                  | V idx => V <$> lift_opt "std_mem_d1 poke: out of bounds access" (contents !! (N.to_nat idx))
+                  | X => mret X
+                  end;
+        mret (<["done" := bool_to_value write_done]>(<["read_data" := mem_val]>inputs));
+        prim_sem_tick st inputs :=
+        '(_, fmt, contents) ← get_mem_d1_state st;
+        write_en ← lift_opt "std_mem_d1 tick: write_en missing"
+                 (inputs !! "write_en");
+        if is_high write_en
+        then val_in ← lift_opt "std_mem_d1 tick: write_data missing" (inputs !! "write_data");
+          val ← expect_V val_in;
+          addr ← lift_opt "st_mem_d1 tick: addr0 missing" (inputs !! "addr0");
+          idx ← expect_V addr;
+          mret (StateMemD1 true fmt (<[N.to_nat idx := val]>contents))
+        else mret (StateMemD1 false fmt contents)
+      |});
+    ("std_const",
+      {| prim_sem_poke st inputs := mret inputs;
+         prim_sem_tick st inputs := mret st;
+      |})].
 
 (* interp_context instantiated with the gmap finite map data structure *)
 Definition interp_with_mems (c: context) (mems: list (ident * state)) (gas: nat) :=
