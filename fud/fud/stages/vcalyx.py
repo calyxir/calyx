@@ -5,7 +5,7 @@ import numpy as np
 from fud.stages.verilator.numeric_types import FixedPoint, Bitnum
 from fud.errors import InvalidNumericType
 from fud.stages.verilator.json_to_dat import parse_fp_widths, float_to_fixed
-from fud.utils import shell, FreshDir, unwrap_or, transparent_shell
+from fud.utils import shell, TmpDir, unwrap_or, transparent_shell
 from fud import config as cfg
 from enum import Enum, auto
 
@@ -58,7 +58,7 @@ class VCalyxStage(Stage):
             """
             Make temporary directory to store Verilator build files.
             """
-            return FreshDir()
+            return TmpDir()
 
         @builder.step(description="Dynamically retrieve the value of stages.verilog.data")
         def get_verilog_data() -> SourceType.Path:

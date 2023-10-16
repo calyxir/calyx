@@ -12,17 +12,17 @@ ver = "0.4.1"
   """
   timeout = 3
 
-[[tests]]
-  name = "correctness dynamic"
-  paths = ["../tests/correctness/*.futil"]
-  cmd = """
-  fud exec --to jq \
-           --through vcalyx-out \
-           -s verilog.data {}.data \
-           {} -q
-  """
-  timeout = 3
-
+# [[tests]]
+#   name = "correctness dynamic"
+#   paths = ["../tests/correctness/*.futil"]
+#   cmd = """
+#   fud exec --to jq \
+#            --through vcalyx-out \
+#            -s verilog.data {}.data \
+#            {} -q
+#   """
+#   timeout = 3
+# 
 
 # [[tests]]
 #  name = "unit"

@@ -12,11 +12,11 @@ Require Import VCalyx.Exception.
 
 Inductive value := 
 (* Top: more than 1 assignment to this port has occurred *)
-| Z
+| Top 
 (* If only 1 assignment has occurred, this value is in port.in *)
 | V (val: N)
 (* Bottom: no assignment to this port has occurred *)
-| X.
+| Bot.
 Scheme Equality for value.
 #[export] Instance value_EqDec : EqDec value eq :=
   value_eq_dec.
@@ -30,12 +30,40 @@ Definition expect_V (v: value) : exn N :=
 Definition is_high (v: value) :=
   v ==b (V 1%N).
 
+Definition bool_to_N (b: bool) : N :=
+  if b then 1%N else 0%N.
+
 Definition bool_to_value (b: bool) : value :=
-  if b then V 1%N else V 0%N.
+  V (bool_to_N b).
+
+Definition value_lift_binop (f: N -> N -> N) : value -> value -> value :=
+  fun u v =>
+    match u, v with
+    | Bot, _
+    | _, Bot => Bot
+    | V u, V v => V (f u v)
+    | Top, _
+    | _, Top => Top
+    end.
+
+Definition value_lt : value -> value -> value :=
+  value_lift_binop (fun n m => bool_to_N (N.ltb n m)).
+
+Definition value_or : value -> value -> value :=
+  value_lift_binop N.lor.
+
+Definition value_add : value -> value -> value :=
+  value_lift_binop N.add.
+
+Definition value_div_quotient : value -> value -> value :=
+  value_lift_binop N.div.
+
+Definition value_div_remainder : value -> value -> value :=
+  value_lift_binop (fun a b => (N.div_eucl a b).2).
 
 (* Testing out the eqdec instance *)
-Eval compute in (Z == Z).
-Eval compute in (Z ==b V 12).
+Eval compute in (Bot == Bot).
+Eval compute in (Bot ==b V 12).
 
 Inductive numtype :=
 | Bitnum
@@ -49,9 +77,10 @@ Definition mem_data := list N.
 
 Inductive state : Type :=
 (* std_reg *)
-| StateReg (write_done: bool) (val: value)
+| StateReg (write_done: value) (val: value)
 (* std_mem_d1 *)
-| StateMemD1 (write_done: bool) (fmt: mem_fmt) (contents: mem_data)
+| StateMemD1 (write_done: value) (fmt: mem_fmt) (contents: mem_data)
+| StateDiv (div_done: value) (quotient remainder: value)
 (* A primitive with no internal state *)
 | StateComb.
 
@@ -65,6 +94,7 @@ Definition get_mem_d1_state (st: state) :=
   match st with
   | StateMemD1 write_done fmt contents => mret (write_done, fmt, contents)
   | StateReg _ _ => err "get_mem_d1_state: got reg"
+  | StateDiv _ _ _ => err "get_mem_d1_state: got div"
   | StateComb => err "get_mem_d1_state: got comb"
   end.
 
@@ -72,6 +102,12 @@ Definition is_mem_state_bool (st: state) : bool :=
   match st with
   | StateMemD1 _ _ _ => true
   | _ => false
+  end.
+
+Definition get_div_state (st: state) :=
+  match st with
+  | StateDiv div_done quot rem => mret (div_done, quot, rem)
+  | _ => err "get_div_state"
   end.
 
 Section Semantics.
@@ -129,7 +165,7 @@ Section Semantics.
     foldl load_comp (empty, empty) c.(ctx_comps).
 
   Definition allocate_val_map (c: cell) : val_map :=
-    foldl (fun σ p => <[p.(port_name) := X]>σ)
+    foldl (fun σ p => <[p.(port_name) := Bot]>σ)
           empty
           (c.(cell_in_ports) ++ c.(cell_out_ports)).
 
@@ -138,11 +174,11 @@ Section Semantics.
 
   (* Initialize go and done holes to undef *)
   Definition allocate_group_map (ge: group_env) : group_map :=
-    fmap (fun (g: group) => <["go" := X]>(<["done" := X]>empty)) ge.
+    fmap (fun (g: group) => <["go" := Bot]>(<["done" := Bot]>empty)) ge.
 
   Definition prim_initial_state (name: ident) : exn state :=
     if decide (name = "std_reg")
-    then mret (StateReg false X)
+    then mret (StateReg Bot Bot)
     else if decide (name = "std_add")
     then mret StateComb
     else if decide (name = "std_lt")
@@ -152,7 +188,7 @@ Section Semantics.
     else if decide (name = "std_const")
     then mret StateComb
     else if decide (name = "std_div_pipe")
-    then mret StateComb
+    then mret (StateDiv Bot Bot Bot)
     else err ("prim_initial_state: " +:+ name +:+ " is unimplemented").
 
   Definition allocate_state_for_cell (c: cell) (ρ: state_map) : exn state_map :=
@@ -267,6 +303,12 @@ Section Semantics.
     | _ => err "write_port_ref: ports other than PRef unimplemented"
     end.
   
+  Definition incorp (lhs rhs: value) : value :=
+    match lhs with
+    | Bot => rhs
+    | _ => Top
+    end.
+  
   Definition interp_assign
              (ce: cell_env)
              (ρ: state_map)
@@ -275,8 +317,9 @@ Section Semantics.
              (op: assignment)
     : exn (cell_map * group_map) :=
     σ' ← poke_all_cells ce ρ σ;
-    v ← read_port_ref op.(src) σ' γ;
-    '(σ'', γ') ← write_port_ref op.(dst) v σ' γ;
+    lhs ← read_port_ref op.(dst) σ' γ;
+    rhs ← read_port_ref op.(src) σ' γ;
+    '(σ'', γ') ← write_port_ref op.(dst) rhs σ' γ;
     mret (σ'', γ').
 
   Definition poke_group ce ρ σ γ (g: group) : exn (cell_map * group_map) := 
@@ -307,12 +350,20 @@ Section Semantics.
          | O => err "interp_group: out of gas"
          end.
 
-  Definition interp_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) (gas: nat) : exn _:=
+  Fixpoint interp_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) (gas: nat) : exn _:=
     match ctrl with
     | CEnable group _ =>
         g ← lift_opt ("interp_control: group " +:+ group +:+ " not found in group_env")
                      (ge !! group);
         interp_group ce ρ σ γ g gas
+    | CSeq (ctrl :: ctrls) attrs =>
+        match gas with
+        | S gas =>
+            '(ρ, σ, γ) ← interp_control ce ge ρ σ γ ctrl gas;
+            interp_control ce ge ρ σ γ (CSeq ctrls attrs) gas
+        | O => err "interp_control: out of gas"
+        end
+    | CSeq [] _ => mret (ρ, σ, γ)
     | _ => err "interp_control: control was not a single CEnable"
     end.
 
@@ -384,26 +435,26 @@ Definition calyx_prims : prim_map (assoc_list string) :=
     ("std_reg",
       {| prim_sem_poke st inputs :=
         '(write_done, v) ← get_reg_state st;
-        mret (<["done" := bool_to_value write_done]>(<["out" := v]>inputs));
+        mret (<["done" := write_done]>(<["out" := v]>inputs));
         prim_sem_tick st inputs :=
         '(_, val_old) ← get_reg_state st;
         write_en ← lift_opt "std_reg tick: write_en missing"
                  (inputs !! "write_en");
         if is_high write_en
         then val_in ← lift_opt "std_reg tick: in missing" (inputs !! "in");
-          mret (StateReg true val_in)
-        else mret (StateReg false val_old)
+          mret (StateReg (V 1%N) val_in)
+        else mret (StateReg (V 0%N) val_old)
       |});
     ("std_mem_d1",
       {| prim_sem_poke st inputs :=
         '(write_done, fmt, contents) ← get_mem_d1_state st;
         addr ← lift_opt "std_mem_d1 poke: addr0 missing" (inputs !! "addr0");
         mem_val ← match addr with
-                  | Z => mret Z
+                  | Top => mret Top
                   | V idx => V <$> lift_opt "std_mem_d1 poke: out of bounds access" (contents !! (N.to_nat idx))
-                  | X => mret X
+                  | Bot => mret Bot
                   end;
-        mret (<["done" := bool_to_value write_done]>(<["read_data" := mem_val]>inputs));
+        mret (<["done" := write_done]>(<["read_data" := mem_val]>inputs));
         prim_sem_tick st inputs :=
         '(_, fmt, contents) ← get_mem_d1_state st;
         write_en ← lift_opt "std_mem_d1 tick: write_en missing"
@@ -413,13 +464,57 @@ Definition calyx_prims : prim_map (assoc_list string) :=
           val ← expect_V val_in;
           addr ← lift_opt "st_mem_d1 tick: addr0 missing" (inputs !! "addr0");
           idx ← expect_V addr;
-          mret (StateMemD1 true fmt (<[N.to_nat idx := val]>contents))
-        else mret (StateMemD1 false fmt contents)
+          mret (StateMemD1 (V 1%N) fmt (<[N.to_nat idx := val]>contents))
+        else mret (StateMemD1 (V 0%N) fmt contents)
       |});
     ("std_const",
       {| prim_sem_poke st inputs := mret inputs;
          prim_sem_tick st inputs := mret st;
-      |})].
+      |});
+    ("std_lt",
+      {| prim_sem_poke st inputs :=
+           val_left ← lift_opt "std_lt poke: left missing" (inputs !! "left");
+           val_right ← lift_opt "std_lt poke: right missing" (inputs !! "right");
+           let val_out := value_lt val_left val_right in
+           mret (<["out" := val_out]>inputs);
+         prim_sem_tick st inputs := mret st;
+      |});
+    ("std_or",
+      {| prim_sem_poke st inputs :=
+           val_left ← lift_opt "std_or poke: left missing" (inputs !! "left");
+           val_right ← lift_opt "std_or poke: right missing" (inputs !! "right");
+           let val_out := value_or val_left val_right in
+           mret (<["out" := val_out]>inputs);
+         prim_sem_tick st inputs := mret st;
+      |});
+    ("std_add",
+      {| prim_sem_poke st inputs :=
+           val_left ← lift_opt "std_add poke: left missing" (inputs !! "left");
+           val_right ← lift_opt "std_add poke: right missing" (inputs !! "right");
+           let val_out := value_add val_left val_right in
+           mret (<["out" := val_out]>inputs);
+         prim_sem_tick st inputs := mret st;
+      |});
+    ("std_div_pipe",
+      {| prim_sem_poke st inputs :=
+           '(div_done, div_quotient, div_remainder) ← get_div_state st;
+           mret (<["done" := div_done]>
+                   (<["out_quotient" := div_quotient]>
+                      (<["out_remainder" := div_remainder]>
+                         inputs)));
+         prim_sem_tick st inputs :=
+           '(div_done, div) ← get_div_state st;
+           go ← lift_opt "std_div_pipe tick: go missing"
+                         (inputs !! "go");
+           if is_high go
+           then val_left ← lift_opt "std_div_pipe poke: left missing" (inputs !! "left");
+                val_right ← lift_opt "std_div_pipe poke: right missing" (inputs !! "right");
+                let val_out_quotient := value_div_quotient val_left val_right in
+                let val_out_remainder := value_div_remainder val_left val_right in
+                mret (StateDiv (V 1%N) val_out_quotient val_out_remainder)
+           else mret (StateDiv (V 0%N) Bot Bot)
+      |})
+  ].
 
 (* interp_context instantiated with the gmap finite map data structure *)
 Definition interp_with_mems (c: context) (mems: list (ident * state)) (gas: nat) :=

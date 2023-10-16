@@ -8,7 +8,7 @@ let load_mem obj : Extr.state =
                  |> member "data" 
                  |> to_list
                  |> List.map ~f:to_int in
-  Extr.StateMemD1 (false,
+  Extr.StateMemD1 (Bot,
                    {is_signed = false;
                     numeric_type = Bitnum;
                     width = 32},
