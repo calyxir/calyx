@@ -9,61 +9,8 @@ From stdpp Require Import
 Require Import Coq.Classes.EquivDec.
 Require Import VCalyx.IRSyntax.
 Require Import VCalyx.Exception.
-
-Inductive value := 
-(* Top: more than 1 assignment to this port has occurred *)
-| Top 
-(* If only 1 assignment has occurred, this value is in port.in *)
-| V (val: N)
-(* Bottom: no assignment to this port has occurred *)
-| Bot.
-Scheme Equality for value.
-#[export] Instance value_EqDec : EqDec value eq :=
-  value_eq_dec.
-
-Definition expect_V (v: value) : exn N :=
-  match v with
-  | V val => mret val
-  | _ => err "expect_V"
-  end.
-
-Definition is_high (v: value) :=
-  v ==b (V 1%N).
-
-Definition bool_to_N (b: bool) : N :=
-  if b then 1%N else 0%N.
-
-Definition bool_to_value (b: bool) : value :=
-  V (bool_to_N b).
-
-Definition value_lift_binop (f: N -> N -> N) : value -> value -> value :=
-  fun u v =>
-    match u, v with
-    | Bot, _
-    | _, Bot => Bot
-    | V u, V v => V (f u v)
-    | Top, _
-    | _, Top => Top
-    end.
-
-Definition value_lt : value -> value -> value :=
-  value_lift_binop (fun n m => bool_to_N (N.ltb n m)).
-
-Definition value_or : value -> value -> value :=
-  value_lift_binop N.lor.
-
-Definition value_add : value -> value -> value :=
-  value_lift_binop N.add.
-
-Definition value_div_quotient : value -> value -> value :=
-  value_lift_binop N.div.
-
-Definition value_div_remainder : value -> value -> value :=
-  value_lift_binop (fun a b => (N.div_eucl a b).2).
-
-(* Testing out the eqdec instance *)
-Eval compute in (Bot == Bot).
-Eval compute in (Bot ==b V 12).
+Require Import VCalyx.Value.
+Require Import VCalyx.Arith.
 
 Inductive numtype :=
 | Bitnum
@@ -336,7 +283,7 @@ Section Semantics.
   Definition is_done (γ: group_map) (g: group) : bool :=
     match holes ← γ !! g.(group_name);
           holes !! "done" with
-    | Some v => is_high v
+    | Some v => is_one v
     | None => false
     end.
 
@@ -351,20 +298,29 @@ Section Semantics.
          end.
 
   Fixpoint interp_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) (gas: nat) : exn _:=
-    match ctrl with
-    | CEnable group _ =>
+    match gas with
+    | S gas =>
+      match ctrl with
+      | CEnable group _ =>
         g ← lift_opt ("interp_control: group " +:+ group +:+ " not found in group_env")
-                     (ge !! group);
+                    (ge !! group);
         interp_group ce ρ σ γ g gas
-    | CSeq (ctrl :: ctrls) attrs =>
-        match gas with
-        | S gas =>
-            '(ρ, σ, γ) ← interp_control ce ge ρ σ γ ctrl gas;
-            interp_control ce ge ρ σ γ (CSeq ctrls attrs) gas
-        | O => err "interp_control: out of gas"
-        end
-    | CSeq [] _ => mret (ρ, σ, γ)
-    | _ => err "interp_control: control was not a single CEnable"
+      | CSeq (ctrl :: ctrls) attrs =>
+        '(ρ, σ, γ) ← interp_control ce ge ρ σ γ ctrl gas;
+        interp_control ce ge ρ σ γ (CSeq ctrls attrs) gas
+      | CSeq [] _ => mret (ρ, σ, γ)
+      | CIf cond_port cond_group then_ctrl else_ctrl _ =>
+        (* n.b. we don't implement with right now *)
+        port_val ← read_port_ref cond_port σ γ;
+        if is_nonzero port_val
+        then interp_control ce ge ρ σ γ then_ctrl gas
+        else interp_control ce ge ρ σ γ else_ctrl gas
+      | CEmpty _ => mret (ρ, σ, γ)
+      | CWhile _ _ _ _ => err "interp_control: CWhile unimplemented"
+      | CInvoke _ _ _ _ _ _ => err "interp_control: CInvoke unimplemented"
+      | CPar _ _ => err "interp_control: CPar unimplemented"
+      end
+    | O => err "interp_control: out of gas"
     end.
 
   Definition find_entrypoint (name: ident) (comps: list comp) :=
@@ -427,7 +383,7 @@ Fixpoint assoc_list_partial_alter (V: Type) (f: option V -> option V) (k: string
 #[export] Instance assoc_list_FinMapToList: forall V, FinMapToList string V (assoc_list string V) :=
   fun _ => id.
 
-Instance assoc_list_finmap: FinMap string (assoc_list string).
+#[export] Instance assoc_list_finmap: FinMap string (assoc_list string).
 Admitted.
 
 Definition calyx_prims : prim_map (assoc_list string) :=
@@ -440,7 +396,7 @@ Definition calyx_prims : prim_map (assoc_list string) :=
         '(_, val_old) ← get_reg_state st;
         write_en ← lift_opt "std_reg tick: write_en missing"
                  (inputs !! "write_en");
-        if is_high write_en
+        if is_one write_en
         then val_in ← lift_opt "std_reg tick: in missing" (inputs !! "in");
           mret (StateReg (V 1%N) val_in)
         else mret (StateReg (V 0%N) val_old)
@@ -459,7 +415,7 @@ Definition calyx_prims : prim_map (assoc_list string) :=
         '(_, fmt, contents) ← get_mem_d1_state st;
         write_en ← lift_opt "std_mem_d1 tick: write_en missing"
                  (inputs !! "write_en");
-        if is_high write_en
+        if is_one write_en
         then val_in ← lift_opt "std_mem_d1 tick: write_data missing" (inputs !! "write_data");
           val ← expect_V val_in;
           addr ← lift_opt "st_mem_d1 tick: addr0 missing" (inputs !! "addr0");
@@ -506,7 +462,7 @@ Definition calyx_prims : prim_map (assoc_list string) :=
            '(div_done, div) ← get_div_state st;
            go ← lift_opt "std_div_pipe tick: go missing"
                          (inputs !! "go");
-           if is_high go
+           if is_one go
            then val_left ← lift_opt "std_div_pipe poke: left missing" (inputs !! "left");
                 val_right ← lift_opt "std_div_pipe poke: right missing" (inputs !! "right");
                 let val_out_quotient := value_div_quotient val_left val_right in
@@ -523,4 +479,3 @@ Definition interp_with_mems (c: context) (mems: list (ident * state)) (gas: nat)
   mret (extract_mems _ ρ).
 
 Definition find_prim s := calyx_prims !! s.
-Eval vm_compute in find_prim "".
