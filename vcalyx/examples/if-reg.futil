@@ -39,11 +39,10 @@ component main() -> () {
     seq {
       cond;
       if reg0.out {
-      mytrue;
-    } else {
-      myfalse;
+        mytrue;
+      } else {
+        myfalse;
+      }
     }
-    }
-
   }
 }
