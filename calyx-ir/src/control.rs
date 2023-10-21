@@ -589,6 +589,18 @@ impl Control {
         let empty = Control::empty();
         std::mem::replace(self, empty)
     }
+
+    /// Replaces &mut self with an empty control statement, and returns StaticControl
+    /// of self. Note that this only works on Control that is static
+    pub fn take_static_control(&mut self) -> StaticControl {
+        let empty = Control::empty();
+        let control = std::mem::replace(self, empty);
+        if let Control::Static(static_control) = control {
+            static_control
+        } else {
+            unreachable!("Called take_static_control on non-static control")
+        }
+    }
 }
 
 impl StaticControl {
