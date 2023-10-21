@@ -219,18 +219,19 @@ impl StaticPromotion {
             .collect();
 
         // searching for "-x static-promotion:threshold=1" and getting back "1"
-        let threshold: Option<u64> = given_opts.iter().find_map(|arg| {
+        let threshold: Option<&str> = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
             if let Some(str) = split.first() {
                 if str == &"threshold" {
-                    Some(split[0]);
+                    return Some(split[1]);
                 }
             }
             None
         });
 
-        // Default threshold = 1
-        threshold.unwrap_or_else(|| 1)
+        // Need to convert string argument into int argument
+        // Always default to threshold=1
+        threshold.unwrap_or_else(|| "1").parse::<u64>().unwrap_or(1)
     }
 
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
@@ -518,18 +519,20 @@ impl StaticPromotion {
             .collect()
     }
 
+    fn approx_control_vec_size(v: &Vec<ir::Control>) -> u64 {
+        v.iter().map(|c| Self::approx_size(c)).sum()
+    }
+
     /// First checks if the vec of control statements meets the self.threshold.
     /// If so, converts vec of control to a static seq, and returns a vec containing
     /// the static seq.
     /// Otherwise, just returns the vec without changing it.
-    fn convert_vec_if_threshold(
+    fn convert_vec_seq_if_threshold(
         &mut self,
         builder: &mut ir::Builder,
         control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
-        let approx_size: u64 =
-            control_vec.iter().map(|c| Self::approx_size(c)).sum();
-        if approx_size > self.threshold {
+        if Self::approx_control_vec_size(&control_vec) > self.threshold {
             // Convert vec to static seq
             let s_seq_stmts = self.convert_vec_to_static(builder, control_vec);
             let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
@@ -540,6 +543,33 @@ impl StaticPromotion {
             sseq.get_mut_attributes()
                 .insert(ir::NumAttr::Compactable, 1);
             return vec![sseq];
+        }
+        // Return unchanged vec
+        control_vec
+    }
+
+    /// First checks if the vec of control statements meets the self.threshold.
+    /// If so, converts vec of control to a static par, and returns a vec containing
+    /// the static par.
+    /// Otherwise, just returns the vec without changing it.
+    fn convert_vec_par_if_threshold(
+        &mut self,
+        builder: &mut ir::Builder,
+        control_vec: Vec<ir::Control>,
+    ) -> Vec<ir::Control> {
+        if Self::approx_control_vec_size(&control_vec) > self.threshold {
+            // Convert vec to static seq
+            let s_par_stmts = self.convert_vec_to_static(builder, control_vec);
+            let latency = s_par_stmts
+                .iter()
+                .map(|sc| sc.get_latency())
+                .max()
+                .unwrap_or_else(|| unreachable!("empty par block"));
+            let spar = ir::Control::Static(ir::StaticControl::par(
+                s_par_stmts,
+                latency,
+            ));
+            return vec![spar];
         }
         // Return unchanged vec
         control_vec
@@ -840,7 +870,7 @@ impl Visitor for StaticPromotion {
             } else {
                 // Accumualte cur_vec into a static seq if it meets threshold
                 let possibly_promoted_stmts =
-                    self.convert_vec_if_threshold(&mut builder, cur_vec);
+                    self.convert_vec_seq_if_threshold(&mut builder, cur_vec);
                 new_stmts.extend(possibly_promoted_stmts);
                 cur_vec = Vec::new();
                 // Add the current (non-promotable) stmt
@@ -876,7 +906,7 @@ impl Visitor for StaticPromotion {
         }
         if !cur_vec.is_empty() {
             let possibly_promoted_stmts =
-                self.convert_vec_if_threshold(&mut builder, cur_vec);
+                self.convert_vec_seq_if_threshold(&mut builder, cur_vec);
             new_stmts.extend(possibly_promoted_stmts);
         }
         let new_seq = ir::Control::Seq(ir::Seq {
@@ -901,23 +931,33 @@ impl Visitor for StaticPromotion {
                 s.is_static()
                     || s.get_attributes().has(ir::NumAttr::PromoteStatic)
             });
-        if !s_stmts.is_empty() {
-            let s_par_stmts = self.convert_vec_to_static(&mut builder, s_stmts);
-            let latency = s_par_stmts
-                .iter()
-                .map(|sc| sc.get_latency())
-                .max()
-                .unwrap_or_else(|| unreachable!("empty par block"));
-            let s_par = ir::Control::Static(ir::StaticControl::par(
-                s_par_stmts,
-                latency,
-            ));
-            if d_stmts.is_empty() {
-                return Ok(Action::change(s_par));
+        if d_stmts.is_empty() {
+            if Self::approx_control_vec_size(&s_stmts) > self.threshold {
+                let static_par_stmts =
+                    self.convert_vec_to_static(&mut builder, s_stmts);
+                let latency = static_par_stmts
+                    .iter()
+                    .map(|sc| sc.get_latency())
+                    .max()
+                    .unwrap_or_else(|| unreachable!("empty par block"));
+                return Ok(Action::change(ir::Control::Static(
+                    ir::StaticControl::par(static_par_stmts, latency),
+                )));
             } else {
-                new_stmts.push(s_par);
+                let inferred_latency = s_stmts
+                    .iter()
+                    .map(|c| Self::get_inferred_latency(c))
+                    .max()
+                    .unwrap_or_else(|| unreachable!("empty par block"));
+                s.get_mut_attributes()
+                    .insert(ir::NumAttr::PromoteStatic, inferred_latency);
+                s.stmts = s_stmts;
+                return Ok(Action::Continue);
             }
         }
+        let s_stmts_possibly_promoted =
+            self.convert_vec_par_if_threshold(&mut builder, s_stmts);
+        new_stmts.extend(s_stmts_possibly_promoted);
         new_stmts.extend(d_stmts);
         let new_par = ir::Control::Par(ir::Par {
             stmts: new_stmts,
