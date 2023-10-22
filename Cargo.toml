@@ -24,7 +24,7 @@ description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
-version = "0.6.0"
+version = "0.6.1"
 rust-version = "1.67"
 
 [workspace.dependencies]
@@ -43,11 +43,11 @@ pest = "2"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
-calyx-utils = { path = "calyx-utils", version = "0.6.0" }
-calyx-ir = { path = "calyx-ir", version = "0.6.0" }
-calyx-frontend = { path = "calyx-frontend", version = "0.6.0" }
-calyx-opt = { path = "calyx-opt", version = "0.6.0" }
-calyx-backend = { path = "calyx-backend", version = "0.6.0" }
+calyx-utils = { path = "calyx-utils", version = "0.6.1" }
+calyx-ir = { path = "calyx-ir", version = "0.6.1" }
+calyx-frontend = { path = "calyx-frontend", version = "0.6.1" }
+calyx-opt = { path = "calyx-opt", version = "0.6.1" }
+calyx-backend = { path = "calyx-backend", version = "0.6.1" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
@@ -81,7 +81,7 @@ default = []
 serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
 
 [build-dependencies]
-calyx-stdlib = { path = "calyx-stdlib", version = "0.6.0" }
+calyx-stdlib = { path = "calyx-stdlib", version = "0.6.1" }
 
 [dependencies]
 atty.workspace = true

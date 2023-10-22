@@ -246,23 +246,28 @@ def get_pe_invoke(r, c, mul_ready):
     )
 
 
-def init_iter_limit(comp: cb.ComponentBuilder, depth_port, partial_iter_limit):
+def init_iter_limit(
+    comp: cb.ComponentBuilder, depth_port, config: SystolicConfiguration
+):
     """
     Builds group that instantiates the dynamic/runtime values for the systolic
     array: its depth and iteration limit/count (since its iteration limit depends on
     its depth).
     iteration limit = depth + partial_iter_limit
     """
-    iter_limit = comp.reg("iter_limit", BITWIDTH)
-    iter_limit_add = comp.add(BITWIDTH, "iter_limit_add")
-    with comp.static_group("init_iter_limit", 1):
-        iter_limit_add.left = partial_iter_limit
-        iter_limit_add.right = depth_port
-        iter_limit.in_ = iter_limit_add.out
-        iter_limit.write_en = 1
+    # Only need to initalize this group if
+    if not config.static:
+        partial_iter_limit = config.top_length + config.left_length + 4
+        iter_limit = comp.reg("iter_limit", BITWIDTH)
+        iter_limit_add = comp.add(BITWIDTH, "iter_limit_add")
+        with comp.static_group("init_iter_limit", 1):
+            iter_limit_add.left = partial_iter_limit
+            iter_limit_add.right = depth_port
+            iter_limit.in_ = iter_limit_add.out
+            iter_limit.write_en = 1
 
 
-def instantiate_idx_groups(comp: cb.ComponentBuilder):
+def instantiate_idx_groups(comp: cb.ComponentBuilder, config: SystolicConfiguration):
     """
     Builds groups that instantiate idx to 0 and increment idx.
     Also builds groups that set cond_reg to 1 (runs before the while loop)
@@ -270,8 +275,6 @@ def instantiate_idx_groups(comp: cb.ComponentBuilder):
     """
     idx = comp.reg("idx", BITWIDTH)
     add = comp.add(BITWIDTH, "idx_add")
-    iter_limit = comp.get_cell("iter_limit")
-    lt_iter_limit = comp.lt(BITWIDTH, "lt_iter_limit")
 
     with comp.static_group("init_idx", 1):
         idx.in_ = 0
@@ -281,9 +284,12 @@ def instantiate_idx_groups(comp: cb.ComponentBuilder):
         add.right = 1
         idx.in_ = add.out
         idx.write_en = 1
-    with comp.continuous:
-        lt_iter_limit.left = idx.out
-        lt_iter_limit.right = iter_limit.out
+    if not config.static:
+        iter_limit = comp.get_cell("iter_limit")
+        lt_iter_limit = comp.lt(BITWIDTH, "lt_iter_limit")
+        with comp.continuous:
+            lt_iter_limit.left = idx.out
+            lt_iter_limit.right = iter_limit.out
 
 
 def instantiate_calyx_adds(comp, nec_ranges) -> list:
@@ -396,8 +402,22 @@ def gen_schedules(
     `pe_write_sched` contains when to "write" the PE value into the output ports
     (e.g., this.r0_valid)
     """
+
+    def depth_plus_const(const: int):
+        """
+        Returns depth + const. If config.static, then this is an int.
+        Otherwise, we need to perform a Calyx addition to figure this out.
+        """
+        if config.static:
+            # return an int
+            return config.get_contraction_dimension() + const
+        else:
+            # return a CalyxAdd object, whose value is determined after generation
+            depth_port = comp.this().depth
+            return CalyxAdd(depth_port, const)
+
     left_length, top_length = config.left_length, config.top_length
-    depth_port = comp.this().depth
+
     schedules = {}
     update_sched = np.zeros((left_length, top_length), dtype=object)
     pe_fill_sched = np.zeros((left_length, top_length), dtype=object)
@@ -407,13 +427,13 @@ def gen_schedules(
     for row in range(0, left_length):
         for col in range(0, top_length):
             pos = row + col
-            update_sched[row][col] = (pos, CalyxAdd(depth_port, pos))
+            update_sched[row][col] = (pos, depth_plus_const(pos))
             pe_fill_sched[row][col] = (pos + 1, pos + 5)
-            pe_accum_sched[row][col] = (pos + 5, CalyxAdd(depth_port, pos + 5))
-            pe_move_sched[row][col] = (pos + 1, CalyxAdd(depth_port, pos + 1))
+            pe_accum_sched[row][col] = (pos + 5, depth_plus_const(pos + 5))
+            pe_move_sched[row][col] = (pos + 1, depth_plus_const(pos + 1))
             pe_write_sched[row][col] = (
-                CalyxAdd(depth_port, pos + 5),
-                CalyxAdd(depth_port, pos + 6),
+                depth_plus_const(pos + 5),
+                depth_plus_const(pos + 6),
             )
     schedules["update_sched"] = update_sched
     schedules["fill_sched"] = pe_fill_sched
@@ -458,15 +478,12 @@ def generate_control(
     control = []
     top_length, left_length = config.top_length, config.left_length
 
-    # Initialize all memories.
-    control.append(
-        py_ast.StaticParComp(
-            [
-                py_ast.Enable("init_idx"),
-                py_ast.Enable("init_iter_limit"),
-            ]
-        )
-    )
+    # Initialize the idx and iteration_limit.
+    # We only need to initialize iteration_limit for dynamic configurations
+    init_groups = [py_ast.Enable("init_idx")]
+    if not config.static:
+        init_groups += [py_ast.Enable("init_iter_limit")]
+    control.append(py_ast.StaticParComp(init_groups))
 
     # source_pos metadata init
     init_tag = 0
@@ -532,11 +549,16 @@ writing: [{schedules['write_sched'][r][c][0]} \
     while_body = py_ast.StaticParComp(while_body_stmts)
 
     # build the while loop with condition cond_reg.
-    cond_reg_port = comp.get_cell("lt_iter_limit").port("out")
-    while_loop = cb.while_(cond_reg_port, while_body)
+    if config.static:
+        while_loop = cb.static_repeat(config.get_iteration_count(), while_body)
+    else:
+        cond_reg_port = comp.get_cell("lt_iter_limit").port("out")
+        while_loop = cb.while_(cond_reg_port, while_body)
 
     control.append(while_loop)
 
+    if config.static:
+        return py_ast.StaticSeqComp(stmts=control), source_map
     return py_ast.SeqComp(stmts=control), source_map
 
 
@@ -551,9 +573,7 @@ def create_systolic_array(prog: cb.Builder, config: SystolicConfiguration):
     computational_unit = prog.component(SYSTOLIC_ARRAY_COMP)
     depth_port = computational_unit.input("depth", BITWIDTH)
     # initialize the iteration limit to top_length + left_length + depth + 4
-    init_iter_limit(
-        computational_unit, depth_port, config.top_length + config.left_length + 4
-    )
+    init_iter_limit(computational_unit, depth_port, config)
 
     schedules = gen_schedules(config, computational_unit)
     nec_ranges = set()
@@ -562,7 +582,7 @@ def create_systolic_array(prog: cb.Builder, config: SystolicConfiguration):
     instantiate_calyx_adds(computational_unit, nec_ranges)
 
     # instantiate groups that handles the idx variables
-    instantiate_idx_groups(computational_unit)
+    instantiate_idx_groups(computational_unit, config)
     list1, list2 = zip(*nec_ranges)
     nec_ranges_beg = set(list1)
     nec_ranges_end = set(list2)

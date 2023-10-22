@@ -1,16 +1,37 @@
-## About the Name?
-Inspired by the comforting essence of apple cider, our sub-crate tries to bring some of that warmth to debugging. Now, onto what this project is and what's been brewing!
+# Cider Debug Adapter
+## Installing the extension
+Navigate to your vscode extension directory `~/.vscode/extensions` for local
+installations. For WSL users, you need to use the *server's* extension folder not
+the normal installation in windows. Once in the appropriate folder create a
+symlink for the extension
+```
+ln -s  <PATH TO CALYX ROOT>/cider-dap/calyxDebug cider.cider-dap-0.0.1
+```
 
-cider-dap is a sub-crate created for facilitating debugging processes. The name is inspired by the core name "Cider", and "dap" stands for Debug Adapter Protocol!
-### Project Overview:
+Once vscode is reloaded, the extension should be active and viewable in the
+`Cider dap` tab of the output panel. You will also need to create a symlink for
+the cider-dap binary somewhere on your path. From some directory on your PATH:
+```
+ln -s <PATH TO CALYX ROOT>/target/debug/cider-dap
+```
+
+You can then launch the adapter with the Launch Program (Multi Session) action
+
+## Known issues
+ * The launch action can sometimes attempt a connection before the server is
+   ready and will cause a failure, subsequent attempts will work until the
+   server closes. Ideally the extension would wait until the server has fully launched.
+
+
+## Project Overview:
 Cider-dap is a debug adapter protocol implementation using Rust, which aids in debugging processes. It interfaces with IDEs or other tools using the Debug Adapter Protocol.
-This project primarily leverages the Debug Adapter Protocol (DAP) for its functionality. The structure is organized into different directories and files which encapsulate the functionalities: 
+This project primarily leverages the Debug Adapter Protocol (DAP) for its functionality. The structure is organized into different directories and files which encapsulate the functionalities:
 <br>
 <br>
 1.``` cider-dap ``` directory: The main directory which contains the following sub-directories and files:
-<br> 
-&nbsp; &nbsp; &nbsp; &nbsp; ```calyxDebug```: Contains the file responsible for debugging extensions and related utilities. So it is a dedicated directory for VSCode debugging extensions. It establishes the bridge between your Rust codebase and the VSCode debugging environment. <br> 
-&nbsp; &nbsp; &nbsp; &nbsp; ```src```: Houses the Rust source files for the project. It contains the project's core functionalities, logic, and structures. <br> 
+<br>
+&nbsp; &nbsp; &nbsp; &nbsp; ```calyxDebug```: Contains the file responsible for debugging extensions and related utilities. So it is a dedicated directory for VSCode debugging extensions. It establishes the bridge between your Rust codebase and the VSCode debugging environment. <br>
+&nbsp; &nbsp; &nbsp; &nbsp; ```src```: Houses the Rust source files for the project. It contains the project's core functionalities, logic, and structures. <br>
 &nbsp; &nbsp; &nbsp; &nbsp; ```cargo.lock``` & ```cargo.toml```: Standard Rust project files detailing dependencies and project metadata. <br>
 3. ```src``` directory: <br>
 &nbsp; &nbsp; &nbsp; &nbsp; ```adapter.rs```: Defines the primary adapter structure for the project and its associated functionalities. Not just any adapter, this file structures the fundamental protocols, handling the translation of high-level debugging commands into actionable, low-level instructions. <br>
@@ -102,4 +123,3 @@ The following dependencies have been added to the project as specified in the ca
 - Implement more detailed logging to provide insights into server operations. This would be especially useful in identifying issues or understanding the flow of commands and responses.
 ### Asynchronous Processing:
 - Consider incorporating asynchronous command processing. This would allow the server to handle multiple requests concurrently, offering faster response times and smoother user experiences, especially in complex debugging scenarios.
-
