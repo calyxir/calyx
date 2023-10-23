@@ -197,7 +197,8 @@ impl Named for StaticPromotion {
 }
 
 impl StaticPromotion {
-    // Looks through ctx to get the giveh threshold
+    // Looks through ctx to get the given command line threshold.
+    // Default threshold = 1
     fn get_threshold(ctx: &ir::Context) -> u64
     where
         Self: Named,
@@ -463,6 +464,7 @@ impl StaticPromotion {
 
     /// Gets the inferred latency, which should either be from being a static
     /// control operator or the promote_static attribute.
+    /// Will raise an error if neither of these is true.
     fn get_inferred_latency(c: &ir::Control) -> u64 {
         if let ir::Control::Static(sc) = c {
             sc.get_latency()
@@ -475,6 +477,12 @@ impl StaticPromotion {
         }
     }
 
+    fn check_latencies_match(actual: u64, inferred: u64) {
+        assert_eq!(actual, inferred, "Inferred and Annotated Latencies do not match. Latency: {}. Inferred: {}", actual, inferred);
+    }
+
+    /// Returns true if a control statement is already static, or has the static
+    /// attributes
     fn can_be_promoted(c: &ir::Control) -> bool {
         c.is_static() || c.has_attribute(ir::NumAttr::PromoteStatic)
     }
@@ -504,79 +512,6 @@ impl StaticPromotion {
             }
             Rc::clone(&sg)
         }
-    }
-
-    /// Converts vec of control to vec of static control.
-    /// All control statements in the vec must be promotable or already static.
-    fn convert_vec_to_static(
-        &mut self,
-        builder: &mut ir::Builder,
-        control_vec: Vec<ir::Control>,
-    ) -> Vec<ir::StaticControl> {
-        control_vec
-            .into_iter()
-            .map(|mut c| self.convert_to_static(&mut c, builder))
-            .collect()
-    }
-
-    fn approx_control_vec_size(v: &[ir::Control]) -> u64 {
-        v.iter().map(Self::approx_size).sum()
-    }
-
-    /// First checks if the vec of control statements meets the self.threshold.
-    /// If so, converts vec of control to a static seq, and returns a vec containing
-    /// the static seq.
-    /// Otherwise, just returns the vec without changing it.
-    fn convert_vec_seq_if_threshold(
-        &mut self,
-        builder: &mut ir::Builder,
-        control_vec: Vec<ir::Control>,
-    ) -> Vec<ir::Control> {
-        if Self::approx_control_vec_size(&control_vec) > self.threshold {
-            // Convert vec to static seq
-            let s_seq_stmts = self.convert_vec_to_static(builder, control_vec);
-            let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
-            let mut sseq = ir::Control::Static(ir::StaticControl::seq(
-                s_seq_stmts,
-                latency,
-            ));
-            sseq.get_mut_attributes()
-                .insert(ir::NumAttr::Compactable, 1);
-            return vec![sseq];
-        }
-        // Return unchanged vec
-        control_vec
-    }
-
-    /// First checks if the vec of control statements meets the self.threshold.
-    /// If so, converts vec of control to a static par, and returns a vec containing
-    /// the static par.
-    /// Otherwise, just returns the vec without changing it.
-    fn convert_vec_par_if_threshold(
-        &mut self,
-        builder: &mut ir::Builder,
-        control_vec: Vec<ir::Control>,
-    ) -> Vec<ir::Control> {
-        if Self::approx_control_vec_size(&control_vec) > self.threshold {
-            // Convert vec to static seq
-            let s_par_stmts = self.convert_vec_to_static(builder, control_vec);
-            let latency = s_par_stmts
-                .iter()
-                .map(|sc| sc.get_latency())
-                .max()
-                .unwrap_or_else(|| unreachable!("empty par block"));
-            let spar = ir::Control::Static(ir::StaticControl::par(
-                s_par_stmts,
-                latency,
-            ));
-            return vec![spar];
-        }
-        // Return unchanged vec
-        control_vec
-    }
-
-    fn check_latencies_match(actual: u64, inferred: u64) {
-        assert_eq!(actual, inferred, "Inferred and Annotated Latencies do not match. Latency: {}. Inferred: {}", actual, inferred);
     }
 
     /// Converts control to static control.
@@ -688,6 +623,19 @@ impl StaticPromotion {
         }
     }
 
+    /// Converts vec of control to vec of static control.
+    /// All control statements in the vec must be promotable or already static.
+    fn convert_vec_to_static(
+        &mut self,
+        builder: &mut ir::Builder,
+        control_vec: Vec<ir::Control>,
+    ) -> Vec<ir::StaticControl> {
+        control_vec
+            .into_iter()
+            .map(|mut c| self.convert_to_static(&mut c, builder))
+            .collect()
+    }
+
     /// Calculates the approximate "size" of the control statements.
     /// Tries to approximate the number of dynamic FSM transitions that will occur
     fn approx_size(c: &ir::Control) -> u64 {
@@ -718,6 +666,66 @@ impl StaticPromotion {
                 crate::passes::CompileInvoke::name()
             )
         }
+    }
+
+    /// Uses `approx_size` function to sum the sizes of the control statements
+    /// in the given vector
+    fn approx_control_vec_size(v: &[ir::Control]) -> u64 {
+        v.iter().map(Self::approx_size).sum()
+    }
+
+    /// First checks if the vec of control statements meets the self.threshold.
+    /// (That is, whether the combined approx_size of the static_vec is greater)
+    /// Than the threshold.
+    /// If so, converts vec of control to a static seq, and returns a vec containing
+    /// the static seq.
+    /// Otherwise, just returns the vec without changing it.
+    fn convert_vec_seq_if_threshold(
+        &mut self,
+        builder: &mut ir::Builder,
+        control_vec: Vec<ir::Control>,
+    ) -> Vec<ir::Control> {
+        if Self::approx_control_vec_size(&control_vec) > self.threshold {
+            // Convert vec to static seq
+            let s_seq_stmts = self.convert_vec_to_static(builder, control_vec);
+            let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
+            let mut sseq = ir::Control::Static(ir::StaticControl::seq(
+                s_seq_stmts,
+                latency,
+            ));
+            sseq.get_mut_attributes()
+                .insert(ir::NumAttr::Compactable, 1);
+            return vec![sseq];
+        }
+        // Return unchanged vec
+        control_vec
+    }
+
+    /// First checks if the vec of control statements meets the self.threshold.
+    /// If so, converts vec of control to a static par, and returns a vec containing
+    /// the static par.
+    /// Otherwise, just returns the vec without changing it.
+    fn convert_vec_par_if_threshold(
+        &mut self,
+        builder: &mut ir::Builder,
+        control_vec: Vec<ir::Control>,
+    ) -> Vec<ir::Control> {
+        if Self::approx_control_vec_size(&control_vec) > self.threshold {
+            // Convert vec to static seq
+            let s_par_stmts = self.convert_vec_to_static(builder, control_vec);
+            let latency = s_par_stmts
+                .iter()
+                .map(|sc| sc.get_latency())
+                .max()
+                .unwrap_or_else(|| unreachable!("empty par block"));
+            let spar = ir::Control::Static(ir::StaticControl::par(
+                s_par_stmts,
+                latency,
+            ));
+            return vec![spar];
+        }
+        // Return unchanged vec
+        control_vec
     }
 }
 
@@ -894,7 +902,8 @@ impl Visitor for StaticPromotion {
                     .insert(ir::NumAttr::Compactable, 1);
                 return Ok(Action::change(sseq));
             } else {
-                // Otherwise add attribute to seq so parent might promote it.
+                // Doesn't meet threshold.
+                // Add attribute to seq so parent might promote it.
                 let inferred_latency =
                     cur_vec.iter().map(Self::get_inferred_latency).sum();
                 s.attributes
@@ -903,11 +912,12 @@ impl Visitor for StaticPromotion {
                 return Ok(Action::Continue);
             }
         }
-        if !cur_vec.is_empty() {
-            let possibly_promoted_stmts =
-                self.convert_vec_seq_if_threshold(&mut builder, cur_vec);
-            new_stmts.extend(possibly_promoted_stmts);
-        }
+        // Entire seq is not static, so we're only promoting the last
+        // bit of it if possible.
+        let possibly_promoted_stmts =
+            self.convert_vec_seq_if_threshold(&mut builder, cur_vec);
+        new_stmts.extend(possibly_promoted_stmts);
+
         let new_seq = ir::Control::Seq(ir::Seq {
             stmts: new_stmts,
             attributes: ir::Attributes::default(),
@@ -931,7 +941,9 @@ impl Visitor for StaticPromotion {
                     || s.get_attributes().has(ir::NumAttr::PromoteStatic)
             });
         if d_stmts.is_empty() {
+            // Entire par block can be promoted to static
             if Self::approx_control_vec_size(&s_stmts) > self.threshold {
+                // Promote entire par block to static
                 let static_par_stmts =
                     self.convert_vec_to_static(&mut builder, s_stmts);
                 let latency = static_par_stmts
@@ -943,6 +955,8 @@ impl Visitor for StaticPromotion {
                     ir::StaticControl::par(static_par_stmts, latency),
                 )));
             } else {
+                // Doesn't meet threshold, but add promotion attribute since
+                // parent might want to promote it.
                 let inferred_latency = s_stmts
                     .iter()
                     .map(Self::get_inferred_latency)
@@ -954,6 +968,7 @@ impl Visitor for StaticPromotion {
                 return Ok(Action::Continue);
             }
         }
+        // Otherwise just promote the par threads that we can into a static par
         let s_stmts_possibly_promoted =
             self.convert_vec_par_if_threshold(&mut builder, s_stmts);
         new_stmts.extend(s_stmts_possibly_promoted);
@@ -976,10 +991,12 @@ impl Visitor for StaticPromotion {
         if Self::can_be_promoted(&s.tbranch)
             && Self::can_be_promoted(&s.fbranch)
         {
+            // Both branches can be promoted
             let approx_size_if = Self::approx_size(&s.tbranch)
                 + Self::approx_size(&s.fbranch)
                 + APPROX_IF_SIZE;
             if approx_size_if > self.threshold {
+                // Meets size threshold so promote to static
                 let static_tbranch =
                     self.convert_to_static(&mut s.tbranch, &mut builder);
                 let static_fbranch =
@@ -997,6 +1014,8 @@ impl Visitor for StaticPromotion {
                     ),
                 )));
             } else {
+                // Doesn't meet size threshold, so attach attribute
+                // so parent might be able to promote it.
                 let inferred_max_latency = std::cmp::max(
                     Self::get_inferred_latency(&s.tbranch),
                     Self::get_inferred_latency(&s.fbranch),
@@ -1059,10 +1078,11 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         if Self::can_be_promoted(&s.body) {
+            // Body can be promoted
             let approx_size =
                 Self::approx_size(&s.body) + APPROX_WHILE_REPEAT_SIZE;
             if approx_size > self.threshold {
-                // Turn repeat into static repeat
+                // Meets size threshold, so turn repeat into static repeat
                 let sc = self.convert_to_static(&mut s.body, &mut builder);
                 let latency = s.num_repeats * sc.get_latency();
                 let static_repeat = ir::StaticControl::repeat(
@@ -1074,6 +1094,7 @@ impl Visitor for StaticPromotion {
                     static_repeat,
                 ))));
             } else {
+                // Doesn't meet threshold.
                 // Attach static_promote attribute since parent control may
                 // want to promote
                 s.attributes.insert(
