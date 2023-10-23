@@ -140,6 +140,8 @@ pub struct StaticPromotion {
     static_group_name: HashMap<ir::Id, ir::Id>,
     /// Threshold for promotion
     threshold: u64,
+    /// Whether we should stop promoting when we see a loop.
+    stop_loop: bool,
 }
 
 // Override constructor to build latency_data information from the primitives
@@ -173,10 +175,12 @@ impl ConstructVisitor for StaticPromotion {
             }
             latency_data.insert(prim.name, GoDone::new(go_ports));
         }
+        let (threshold, stop_loop) = Self::get_threshold(ctx);
         Ok(StaticPromotion {
             latency_data,
             static_group_name: HashMap::new(),
-            threshold: Self::get_threshold(ctx),
+            threshold,
+            stop_loop,
         })
     }
 
@@ -199,7 +203,7 @@ impl Named for StaticPromotion {
 impl StaticPromotion {
     // Looks through ctx to get the given command line threshold.
     // Default threshold = 1
-    fn get_threshold(ctx: &ir::Context) -> u64
+    fn get_threshold(ctx: &ir::Context) -> (u64, bool)
     where
         Self: Named,
     {
@@ -219,6 +223,13 @@ impl StaticPromotion {
             })
             .collect();
 
+        let mut stop_loop = false;
+        given_opts.iter().for_each(|arg| {
+            if *arg == "stop_loop" {
+                stop_loop = true
+            }
+        });
+
         // searching for "-x static-promotion:threshold=1" and getting back "1"
         let threshold: Option<&str> = given_opts.iter().find_map(|arg| {
             let split: Vec<&str> = arg.split('=').collect();
@@ -232,7 +243,10 @@ impl StaticPromotion {
 
         // Need to convert string argument into int argument
         // Always default to threshold=1
-        threshold.unwrap_or("1").parse::<u64>().unwrap_or(1)
+        (
+            threshold.unwrap_or("1").parse::<u64>().unwrap_or(1),
+            stop_loop,
+        )
     }
 
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
@@ -1035,6 +1049,9 @@ impl Visitor for StaticPromotion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        if self.stop_loop {
+            return Ok(Action::Continue);
+        }
         let mut builder = ir::Builder::new(comp, sigs);
         // First check that while loop is bounded
         if let Some(num_repeats) = s.get_attributes().get(ir::NumAttr::Bound) {
@@ -1076,6 +1093,9 @@ impl Visitor for StaticPromotion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        if self.stop_loop {
+            return Ok(Action::Continue);
+        }
         let mut builder = ir::Builder::new(comp, sigs);
         if Self::can_be_promoted(&s.body) {
             // Body can be promoted
