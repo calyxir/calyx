@@ -1,3 +1,4 @@
+"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -34,9 +35,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var vscode = require('vscode');
-var cp = require('child_process');
-var net = require('net');
+Object.defineProperty(exports, "__esModule", { value: true });
+var vscode = require("vscode");
+var cp = require("child_process");
 // Hold the debug adapter instance
 var debugAdapter = null;
 var programName = null; // Store the program name
@@ -53,14 +54,14 @@ function getProgramName() {
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0: return [4 /*yield*/, vscode.window.showInputBox({
-                        placeHolder: 'Please enter the name of a futil file in the workspace folder',
-                        value: 'default.futil'
+                        placeHolder: "Please enter the name of a futil file in the workspace folder",
+                        value: "default.futil",
                     })];
                 case 1:
                     fileName = _a.sent();
                     if (fileName) {
-                        if (!fileName.startsWith('/')) {
-                            path = require('path');
+                        if (!fileName.startsWith("/")) {
+                            path = require("path");
                             return [2 /*return*/, path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, fileName)];
                         }
                         return [2 /*return*/, fileName];
@@ -114,20 +115,20 @@ var CiderDebugAdapter = /** @class */ (function () {
     };
     // Start the debug adapter process
     CiderDebugAdapter.prototype.start = function (port) {
-        logToPanel('beginning of start');
+        logToPanel("beginning of start");
         // Spawn a new child process for the debug adapter
         // Include the port as a command line argument
-        this.adapterProcess = cp.spawn(this.adapterPath, [programName, '--port', port, "--tcp"], { cwd: this.cwd });
+        this.adapterProcess = cp.spawn(this.adapterPath, [programName, "--port", port, "--tcp"], { cwd: this.cwd });
         // Attach event listener to capture standard output of the adapter process and log it to the output channel
-        this.adapterProcess.stdout.on('data', function (data) {
+        this.adapterProcess.stdout.on("data", function (data) {
             logToPanel(data.toString());
         });
         // Attach event listener to capture standard error of the adapter process and log it to the output channel
-        this.adapterProcess.stderr.on('data', function (data) {
+        this.adapterProcess.stderr.on("data", function (data) {
             logToPanel(data.toString());
         });
-        this.adapterProcess.on('spawn', function () {
-            logToPanel('Debugger started on port ' + port + '!');
+        this.adapterProcess.on("spawn", function () {
+            logToPanel("Debugger started on port " + port + "!");
         });
     };
     CiderDebugAdapter.prototype.stop = function () {
@@ -135,33 +136,33 @@ var CiderDebugAdapter = /** @class */ (function () {
             this.adapterProcess.kill();
             this.adapterProcess = null;
             this.isRunning = false;
-            logToPanel('Debugger stopped.');
+            logToPanel("Debugger stopped.");
         }
         else {
-            logToPanel('No running debug adapter to stop.');
+            logToPanel("No running debug adapter to stop.");
         }
     };
     return CiderDebugAdapter;
 }());
 function activate(context) {
-    logToPanel('Extension activated!');
+    logToPanel("Extension activated!");
     // Start the debug server explicitly
-    var factory = new CiderDebugAdapterDescriptorFactory('cider-dap', vscode.workspace.rootPath, outputChannel);
-    context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory('cider-dap', factory));
+    var factory = new CiderDebugAdapterDescriptorFactory("cider-dap", vscode.workspace.rootPath, outputChannel);
+    context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory));
     logToPanel("after start server");
     // Update the adapter path with the serverPort and use it for starting the debug adapter
     logToPanel("before startDebugging");
     /* context.subscriptions.push(vscode.commands.registerCommand('cider.startDebugging', startDebugging));
     context.subscriptions.push(vscode.commands.registerCommand('cider.stopDebugging', stopDebugging));
    */
-    logToPanel('Hello, your extension is now activated!');
+    logToPanel("Hello, your extension is now activated!");
 }
 function stopDebugging() {
     if (debugAdapter) {
         debugAdapter.stop();
     }
     else {
-        logToPanel('No running debug adapter to stop.');
+        logToPanel("No running debug adapter to stop.");
     }
 }
 function deactivate() {
@@ -169,5 +170,5 @@ function deactivate() {
 }
 module.exports = {
     activate: activate,
-    deactivate: deactivate
+    deactivate: deactivate,
 };
