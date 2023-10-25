@@ -863,7 +863,7 @@ impl LiveRangeAnalysis {
             .collect();
 
         let written_in_group =
-            comb_group_info.as_ref().is_some_and(|comb_group| {
+            comb_group_info.as_ref().map_or(false, |comb_group| {
                 ReadWriteSet::must_write_set(
                     comb_group.borrow().assignments.iter(),
                 )
