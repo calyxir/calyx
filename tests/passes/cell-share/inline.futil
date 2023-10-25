@@ -1,0 +1,31 @@
+// -p pre-opt -p post-opt
+import "primitives/core.futil";
+
+component my_reg<"state_share"=1>(@data in: 32) -> (@stable out: 32) {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    out = r.out;
+  }
+  control {
+    invoke r(in = in)();
+  }
+}
+
+component main() -> () {
+  cells {
+    @external mem = std_mem_d1(32, 2, 1);
+    @inline r0 = my_reg();
+    @inline r1 = my_reg();
+  }
+  wires {}
+  control {
+    seq {
+      invoke r0(in = 32'd0)();
+      invoke mem(addr0 = 1'd0, write_data = r0.out)();
+      invoke r1(in = 32'd1)();
+      invoke mem(addr0 = 1'd1, write_data = r1.out)();
+    }
+  }
+}

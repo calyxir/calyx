@@ -862,7 +862,15 @@ impl LiveRangeAnalysis {
             })
             .collect();
 
-        let comp_is_written = !inputs.is_empty()
+        let written_in_group =
+            comb_group_info.as_ref().is_some_and(|comb_group| {
+                ReadWriteSet::must_write_set(
+                    comb_group.borrow().assignments.iter(),
+                )
+                .any(|cell| Rc::ptr_eq(comp, &cell))
+            });
+
+        let comp_is_written = (!inputs.is_empty() || written_in_group)
             && shareable_components.is_shareable_component(comp);
         if comp_is_written {
             write_set.insert((
