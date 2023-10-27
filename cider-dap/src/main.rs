@@ -81,7 +81,10 @@ where
             server.respond(rsp)?;
             server.send_event(Event::Initialized)?;
         }
-        _ => return Err(MyAdapterError::UnhandledCommandError),
+        
+        unknown_command => {
+            return Err(MyAdapterError::UnhandledCommandError(unknown_command.clone()));
+        }
     }
 
     // handle the second request (Launch)
@@ -137,8 +140,7 @@ fn run_server<R: Read, W: Write>(
             // Command::Disconnect(_) => break,
             // ...
             unknown_command => {
-                eprintln!("Unknown_command: {:?}", unknown_command);
-                return Err(MyAdapterError::UnhandledCommandError);
+                return Err(MyAdapterError::UnhandledCommandError(unknown_command.clone()));
             }
         }
     }
