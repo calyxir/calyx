@@ -45,6 +45,8 @@ impl ComponentLedger {
     }
 }
 
+/// An enum encapsulating cell functionality. It is either a pointer to a
+/// primitive or information about a calyx component instance
 pub(crate) enum CellLedger {
     Primitive {
         // wish there was a better option with this one
@@ -54,7 +56,7 @@ pub(crate) enum CellLedger {
 }
 
 impl CellLedger {
-    fn comp(idx: ComponentIdx, env: &Environment) -> Self {
+    fn new_comp(idx: ComponentIdx, env: &Environment) -> Self {
         Self::Component(ComponentLedger {
             index_bases: BaseIndices::new(
                 env.ports.peek_next_idx(),
@@ -111,7 +113,7 @@ impl ControlPoint {
 }
 
 /// The number of control points to preallocate for the program counter.
-const CONTROL_POINT_PREALLOCATE: usize = 10;
+const CONTROL_POINT_PREALLOCATE: usize = 16;
 
 /// The number of children that have yet to finish for a given par arm. I have
 /// this a u16 at the moment which is hopefully fine? More than 65,535 parallel
@@ -250,13 +252,21 @@ impl<'a> Environment<'a> {
             ctx,
         };
 
-        let root_node = CellLedger::comp(root, &env);
+        let root_node = CellLedger::new_comp(root, &env);
         let root = env.cells.push(root_node);
         env.layout_component(root);
 
         env
     }
 
+    /// Internal function used to layout a given component from a cell id
+    ///
+    /// Layout is handled in the following order:
+    /// 1. component signature (input/output)
+    /// 2. group hole ports
+    /// 3. cells + ports, primitive
+    /// 4. sub-components
+    /// 5. ref-cells & ports
     fn layout_component(&mut self, comp: GlobalCellId) {
         let ComponentLedger {
             index_bases,
@@ -276,20 +286,29 @@ impl<'a> Environment<'a> {
         }
         // second group ports
         for group_idx in comp_aux.definitions.groups() {
-            // TODO Griffin: The sanity checks here are assuming that go & done
-            // are defined in that order. This could break if the IR changes the
-            // order on hole ports in groups.
-
             //go
             let go = self.ports.push(Value::bit_low());
-            debug_assert_eq!(go, index_bases + self.ctx.primary[group_idx].go);
 
             //done
             let done = self.ports.push(Value::bit_low());
-            debug_assert_eq!(
-                done,
-                index_bases + self.ctx.primary[group_idx].done
-            );
+
+            // quick sanity check asserts
+            let go_actual = index_bases + self.ctx.primary[group_idx].go;
+            let done_actual = index_bases + self.ctx.primary[group_idx].done;
+            // Case 1 - Go defined before done
+            if self.ctx.primary[group_idx].go < self.ctx.primary[group_idx].done
+            {
+                debug_assert_eq!(done, done_actual);
+                debug_assert_eq!(go, go_actual);
+            }
+            // Case 2 - Done defined before go
+            else {
+                // in this case go is defined after done, so our variable names
+                // are backward, but this is not a problem since they are
+                // initialized to the same value
+                debug_assert_eq!(go, done_actual);
+                debug_assert_eq!(done, go_actual);
+            }
         }
 
         for (cell_off, def_idx) in comp_aux.cell_offset_map.iter() {
@@ -314,7 +333,7 @@ impl<'a> Environment<'a> {
                 );
             } else {
                 let child_comp = info.prototype.as_component().unwrap();
-                let child_comp = CellLedger::comp(*child_comp, self);
+                let child_comp = CellLedger::new_comp(*child_comp, self);
 
                 let cell = self.cells.push(child_comp);
                 debug_assert_eq!(
