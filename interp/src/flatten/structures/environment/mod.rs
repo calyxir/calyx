@@ -133,7 +133,7 @@ pub(crate) struct ProgramCounter {
 impl ProgramCounter {
     pub fn new(ctx: &Context) -> Self {
         let root = ctx.entry_point;
-        // TODO: this relies on the fact that we construct the root cell-ledger
+        // this relies on the fact that we construct the root cell-ledger
         // as the first possible cell in the program. If that changes this will break.
         let root_cell = GlobalCellId::new(0);
         let mut par_map: HashMap<ControlPoint, ChildCount> = HashMap::new();
