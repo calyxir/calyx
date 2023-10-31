@@ -82,8 +82,8 @@ Section Semantics.
 
   (* An environment collecting all defined groups *)
   Definition group_env : Type := ident_map group.
-  (* map from group name to values of its holes *)
-  Definition group_map : Type := ident_map val_map.
+  (* map from group name to active flag + values of its holes *)
+  Definition group_map : Type := ident_map (bool * val_map).
 
   Variable (calyx_prims : prim_map).
 
@@ -108,7 +108,7 @@ Section Semantics.
     fun '(ce, ge) (c: comp) =>
       (load_cells ce c, load_groups ge c).
 
-  Definition load_context (c: context) : cell_env * group_env := 
+  Definition load_cells_groups (c: context) : cell_env * group_env := 
     foldl load_comp (empty, empty) c.(ctx_comps).
 
   Definition allocate_val_map (c: cell) : val_map :=
@@ -121,7 +121,7 @@ Section Semantics.
 
   (* Initialize go and done holes to undef *)
   Definition allocate_group_map (ge: group_env) : group_map :=
-    fmap (fun (g: group) => <["go" := Bot]>(<["done" := Bot]>empty)) ge.
+    fmap (fun (g: group) => (false, <["go" := Bot]>(<["done" := Bot]>empty))) ge.
 
   Definition prim_initial_state (name: ident) : exn state :=
     if decide (name = "std_reg")
@@ -235,7 +235,7 @@ Section Semantics.
     | PRef parent port =>
         lift_opt "read_port_ref: port not found"
                  (catch (σ !! parent ≫= (!!) port)
-                        (γ !! parent ≫= (!!) port))
+                        (γ !! parent ≫= (!!) port ∘ snd))
     | _ => err "read_port_ref: ports other than PRef unimplemented"
     end.
 
@@ -245,11 +245,20 @@ Section Semantics.
         if decide (is_Some (σ !! parent))
         then mret (alter (insert port v) parent σ, γ)
         else if decide (is_Some (γ !! parent))
-             then mret (σ, alter (insert port v) parent γ)
+             then mret (σ, alter (fun '(active, holes) => (active, insert port v holes)) parent γ)
              else err "write_port_ref: parent not found in group_map"
     | _ => err "write_port_ref: ports other than PRef unimplemented"
     end.
-  
+
+  Definition set_group_active_bit (b: bool) (g: ident) (γ: group_map) : group_map :=
+    alter (fun '(active, holes) => (b, holes)) g γ.
+
+  Definition mark_group_active : ident -> group_map -> group_map :=
+    set_group_active_bit true.
+
+  Definition mark_group_inactive : ident -> group_map -> group_map :=
+    set_group_active_bit false.
+
   Definition incorp (lhs rhs: value) : value :=
     match lhs with
     | Bot => rhs
@@ -280,60 +289,187 @@ Section Semantics.
           (mret (σ, γ))
           g.(group_assns).
 
-  Definition is_done (γ: group_map) (g: group) : bool :=
-    match holes ← γ !! g.(group_name);
+  Definition is_done (γ: group_map) (g: ident) : bool :=
+    match '(_, holes) ← γ !! g;
           holes !! "done" with
     | Some v => is_one v
     | None => false
     end.
 
-  Fixpoint interp_group (ce: cell_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (g: group) (gas: nat) : exn (state_map * cell_map * group_map) :=
+  Definition cycle_group (ce: cell_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (g: group) : exn (state_map * cell_map * group_map) :=
     ρ ← tick_all_cells ce ρ σ;
     '(σ, γ) ← poke_group ce ρ σ γ g;
-    if is_done γ g
-    then inl (ρ, σ, γ)
-    else match gas with
-         | S gas => interp_group ce ρ σ γ g gas
-         | O => err "interp_group: out of gas"
-         end.
+    inl (ρ, σ, γ).
 
-  Fixpoint interp_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) (gas: nat) : exn _:=
-    match gas with
-    | S gas =>
+  Definition cycle_groups (ce: cell_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (gs: list group) : exn (state_map * cell_map * group_map) :=
+    foldl (fun res g =>
+             '(ρ, σ, γ) ← res;
+             cycle_group ce ρ σ γ g)
+          (mret (ρ, σ, γ)) gs.
+
+  (* Two size functions for getting a handle on nested recursion *)
+  Fixpoint control_size (ctrl: control) : nat :=
+    match ctrl with
+    | CSeq ctrls _ =>
+        1 + (fix controls_size cs :=
+               match cs with
+               | c :: cs => control_size c + controls_size cs
+               | [] => 0
+               end) ctrls
+    | _ => 1
+    end.
+
+  Fixpoint control_size_exn (ctrl: control) : exn nat :=
+    match ctrl with
+    | CSeq ctrls _ =>
+        v ← (fix controls_size_exn cs : exn nat :=
+               match cs with
+               | c :: cs =>
+                   n ← control_size_exn c;
+                   m ← controls_size_exn cs;
+                   mret $ n + m
+               | [] => mret $ 0
+               end) ctrls;
+       mret (1 + v)
+    | _ => mret 1
+    end.
+
+  Definition ctrl_is_done (ctrl: control) : bool :=
+    match ctrl with
+    | CSeq [] _
+    | CPar [] _
+    | CEmpty _ => true
+    | CSeq _ _
+    | CPar _ _
+    | CIf _ _ _ _ _
+    | CWhile _ _ _ _
+    | CEnable _ _
+    | CWaitGroup _ _
+    | CInvoke _ _ _ _ _ _
+    | CWaitComp _ _ => false
+    end.
+
+  Fixpoint open_control (ctrl: control) : exn control :=
+    match ctrl with
+    | CEnable group attrs =>
+        mret $ CWaitGroup group attrs
+    | CSeq ctrls attrs =>
+        ctrls' ← (fix open_controls (cs: list control) : exn (list control) :=
+                    match cs with
+                    | c :: cs =>
+                        if ctrl_is_done c
+                        then open_controls cs
+                        else c ← open_control c;
+                             cs ← open_controls cs;
+                             mret $ c :: cs
+                    | [] => mret $ []
+                    end) ctrls;
+        mret $ match ctrls' with
+               | [] => CEmpty attrs
+               | ctrls' => CSeq ctrls' attrs
+               end
+    | CPar ctrls attrs =>
+        if forallb ctrl_is_done ctrls
+        then mret $ CEmpty attrs
+        else ctrls' ← mapM (open_control) ctrls;
+        mret $ CPar ctrls' attrs
+    | CWaitGroup g attrs => mret $ CWaitGroup g attrs
+    | CWaitComp c attrs => mret $ CWaitComp c attrs
+    | CEmpty attrs => mret $ CEmpty attrs
+    | CIf cond_port cond_group then_ctrl else_ctrl attrs =>
+        mret $ CIf cond_port cond_group then_ctrl else_ctrl attrs
+    | CWhile cond_port cond_group body_ctrl attrs =>
+        mret $ CWhile cond_port cond_group body_ctrl attrs
+    | CInvoke _ _ _ _ _ _ => err "open_control: CInvoke unimplemented"
+    end.
+
+  Fixpoint close_control γ (ctrl: control) {struct ctrl} : exn control :=
+    match ctrl with
+    | CEnable group attrs =>
+      mret $ CEnable group attrs
+    | CSeq stmts attrs =>
+        stmts' ← (fix close_controls (stmts: list control) : exn (list control) :=
+           match stmts with
+           | stmt :: stmts =>
+               if ctrl_is_done stmt
+               then close_controls stmts
+               else stmt' ← close_control γ stmt;
+                    mret $ stmt' :: stmts
+           | [] => mret $ []
+           end) stmts;
+        mret $ match stmts' with
+               | [] => CEmpty attrs
+               | ctrls' => CSeq stmts' attrs
+               end
+    | CPar stmts attrs =>
+        stmts' ← mapM (close_control γ) stmts;
+        mret $ CPar stmts' attrs
+    | CWaitGroup group attrs =>
+        if is_done γ group
+        then mret $ CEmpty attrs
+        else mret $ CWaitGroup group attrs
+    | CWaitComp comp _ => err "close_control: CWaitComp unimplemented"
+    | CEmpty attrs => mret $ CEmpty attrs
+    | CIf cond_port cond tru fls attrs =>
+        err "close_control: CIf unimplemented"
+    | CWhile cond_port cond body attrs =>
+        err "close_control: CWhile unimplemented"
+    | CInvoke _ _ _ _ _ _ => err "close_control: CInvoke unimplemented"
+    end.
+
+  Fixpoint cycle_active_cells (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) : exn (state_map * cell_map * group_map) :=
       match ctrl with
-      | CEnable group _ =>
-        g ← lift_opt ("interp_control: group " +:+ group +:+ " not found in group_env")
+      | CWaitGroup group _ =>
+        g ← lift_opt ("cycle_active_cells: group " +:+ group +:+ " not found in group_env")
                     (ge !! group);
-        interp_group ce ρ σ γ g gas
+        cycle_group ce ρ σ γ g
       | CSeq (ctrl :: ctrls) attrs =>
-        '(ρ, σ, γ) ← interp_control ce ge ρ σ γ ctrl gas;
-        interp_control ce ge ρ σ γ (CSeq ctrls attrs) gas
+        cycle_active_cells ce ge ρ σ γ ctrl
       | CSeq [] _ => mret (ρ, σ, γ)
       | CIf cond_port cond_group then_ctrl else_ctrl _ =>
         (* n.b. we don't implement with right now *)
         port_val ← read_port_ref cond_port σ γ;
         if is_nonzero port_val
-        then interp_control ce ge ρ σ γ then_ctrl gas
-        else interp_control ce ge ρ σ γ else_ctrl gas
+        then cycle_active_cells ce ge ρ σ γ then_ctrl
+        else cycle_active_cells ce ge ρ σ γ else_ctrl
+      | CEnable _ _
+      | CInvoke _ _ _ _ _ _
       | CEmpty _ => mret (ρ, σ, γ)
-      | CWhile _ _ _ _ => err "interp_control: CWhile unimplemented"
-      | CInvoke _ _ _ _ _ _ => err "interp_control: CInvoke unimplemented"
-      | CPar _ _ => err "interp_control: CPar unimplemented"
-      end
-    | O => err "interp_control: out of gas"
-    end.
+      | CPar ctrls attrs => err "cycle_active_cells: CPar unimplemented"
+      | CWhile _ _ _ _ => err "cycle_active_cells: CWhile unimplemented"
+      | CWaitComp _ _ => err "cycle_active_cells: CWaitComp unimplemented"
+      end.
 
   Definition find_entrypoint (name: ident) (comps: list comp) :=
     lift_opt ("find_entrypoint: " +:+ name +:+ " not found")
              (List.find (is_entrypoint name) comps).
 
-  Definition interp_context (c: context) (mems: state_map) (gas: nat) : exn (state_map * cell_map * group_map) :=
+  Definition load_context (c: context) (mems: state_map) :=
     main ← find_entrypoint c.(ctx_entrypoint) c.(ctx_comps);
-    let '(ce, ge) := load_context c in
+    let '(ce, ge) := load_cells_groups c in
     let σ := allocate_cell_map ce in
     let γ := allocate_group_map ge in
     ρ ← allocate_state_map ce mems;
-    interp_control ce ge ρ σ γ main.(comp_control) gas.
+    mret (ce, ge, ρ, σ, γ, main.(comp_control)).
+
+  Definition tick_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) : exn (control * state_map * cell_map * group_map) :=
+    ctrl ← open_control ctrl;
+    '(ρ, σ, γ) ← cycle_active_cells ce ge ρ σ γ ctrl;
+    ctrl ← close_control γ ctrl;
+    mret (ctrl, ρ, σ, γ).
+
+  Fixpoint interp_control (ce: cell_env) (ge: group_env) (ρ: state_map) (σ: cell_map) (γ: group_map) (ctrl: control) (gas: nat) : exn (state_map * cell_map * group_map) :=
+    match gas with
+    | 0 => err "interp_control: out of gas"
+    | S gas => if ctrl_is_done ctrl
+              then mret (ρ, σ, γ)
+              else '(ctrl, ρ, σ, γ) ← tick_control ce ge ρ σ γ ctrl;
+                   interp_control ce ge ρ σ γ ctrl gas
+    end.
+
+  Definition interp_context (c: context) (mems: state_map) (gas: nat) : exn (state_map * cell_map * group_map) :=
+    '(ce, ge, ρ, σ, γ, ctrl) ← load_context c mems;
+    interp_control ce ge ρ σ γ ctrl gas.
 
   Definition extract_mems (ρ: state_map) : list (ident * state) :=
     List.filter (fun '(name, st) => is_mem_state_bool st) (map_to_list ρ).

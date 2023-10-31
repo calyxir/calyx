@@ -192,12 +192,16 @@ Inductive control :=
          (attrs: attributes)
 | CEnable (group: ident)
           (attrs: attributes)
+| CWaitGroup (group: ident)
+             (attrs: attributes) (* Administrative redex for CEnable *)
 | CInvoke (comp: ident)
           (inputs: list (ident * port_ref))
           (outputs: list (ident * port_ref))
           (attrs: attributes)
           (comb_group: option ident)
           (ref_cells: list (ident * ident))
+| CWaitComp (comp: ident)
+            (attrs: attributes) (* Administrative redex for CInvoke *)
 | CEmpty (attrs: attributes).
 
 (** Groups. *)
