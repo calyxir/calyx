@@ -1,0 +1,33 @@
+// -p pre-opt -p post-opt
+import "primitives/core.futil";
+
+component write_one() -> (out: 32) {
+  cells {
+    x = std_reg(32);
+  }
+  wires {
+    out = x.out;
+  }
+  control {
+    invoke x(in = 32'd1)();
+  }
+}
+
+component main() -> () {
+  cells {
+    @external mem = std_mem_d1(32, 2, 1);
+    // these should be shared
+    x = write_one();
+    y = write_one();
+  }
+  wires {}
+  control {
+    seq {
+      invoke x()();
+      invoke y()(); // x is dead here
+      invoke mem(addr0 = 1'd0, write_data = y.out)();
+      invoke x()();
+      invoke mem(addr0 = 1'd1, write_data = x.out)();
+    }
+  }
+}

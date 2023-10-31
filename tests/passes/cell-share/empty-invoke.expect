@@ -1,0 +1,58 @@
+import "primitives/core.futil";
+component write_one<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    @data x = std_reg(32);
+  }
+  wires {
+    group invoke0<"promote_static"=1> {
+      x.write_en = 1'd1;
+      invoke0[done] = x.done;
+      x.in = 32'd1;
+    }
+    out = x.out;
+  }
+  control {
+    @promote_static invoke0;
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external @data mem = std_mem_d1(32, 2, 1);
+    @data x = write_one();
+  }
+  wires {
+    group invoke0 {
+      x.go = 1'd1;
+      invoke0[done] = x.done;
+    }
+    group invoke1 {
+      x.go = 1'd1;
+      invoke1[done] = x.done;
+    }
+    group invoke2<"promote_static"=1> {
+      mem.write_en = 1'd1;
+      invoke2[done] = mem.done;
+      mem.addr0 = 1'd0;
+      mem.write_data = x.out;
+    }
+    group invoke3 {
+      x.go = 1'd1;
+      invoke3[done] = x.done;
+    }
+    group invoke4<"promote_static"=1> {
+      mem.write_en = 1'd1;
+      invoke4[done] = mem.done;
+      mem.addr0 = 1'd1;
+      mem.write_data = x.out;
+    }
+  }
+  control {
+    seq {
+      invoke0;
+      invoke1;
+      @promote_static invoke2;
+      invoke3;
+      @promote_static invoke4;
+    }
+  }
+}
