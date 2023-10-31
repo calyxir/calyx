@@ -48,12 +48,40 @@ impl DeadCellRemoval {
             out
         }
     }
+
+    fn visit_invoke(
+        &mut self,
+        comp: &ir::RRC<ir::Cell>,
+        inputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        outputs: &[(ir::Id, ir::RRC<ir::Port>)],
+        ref_cells: &[(ir::Id, ir::RRC<ir::Cell>)],
+    ) {
+        let cells = inputs
+            .iter()
+            .map(|(_, p)| p)
+            .chain(outputs.iter().map(|(_, p)| p))
+            .map(|p| p.borrow().get_parent_name())
+            .chain(iter::once(comp.borrow().name()))
+            .chain(ref_cells.iter().map(|(_, c)| c.borrow().name()));
+        self.all_reads.extend(cells);
+    }
 }
 
 impl Visitor for DeadCellRemoval {
     fn start_if(
         &mut self,
         s: &mut ir::If,
+        _comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        self.all_reads.insert(s.port.borrow().get_parent_name());
+        Ok(Action::Continue)
+    }
+
+    fn start_static_if(
+        &mut self,
+        s: &mut ir::StaticIf,
         _comp: &mut ir::Component,
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
@@ -80,16 +108,18 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let ir::Invoke {
-            inputs, outputs, ..
-        } = s;
-        let cells = inputs
-            .iter()
-            .map(|(_, p)| p)
-            .chain(outputs.iter().map(|(_, p)| p))
-            .map(|p| p.borrow().get_parent_name())
-            .chain(iter::once(s.comp.borrow().name()));
-        self.all_reads.extend(cells);
+        self.visit_invoke(&s.comp, &s.inputs, &s.outputs, &s.ref_cells);
+        Ok(Action::Continue)
+    }
+
+    fn static_invoke(
+        &mut self,
+        s: &mut ir::StaticInvoke,
+        _comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        self.visit_invoke(&s.comp, &s.inputs, &s.outputs, &s.ref_cells);
         Ok(Action::Continue)
     }
 
@@ -99,12 +129,14 @@ impl Visitor for DeadCellRemoval {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Add @external cells.
+        // Add @external cells and ref cells.
         self.all_reads.extend(
             comp.cells
                 .iter()
                 .filter(|c| {
-                    c.borrow().attributes.get(ir::BoolAttr::External).is_some()
+                    let cell = c.borrow();
+                    cell.attributes.get(ir::BoolAttr::External).is_some()
+                        || cell.is_reference()
                 })
                 .map(|c| c.borrow().name()),
         );
