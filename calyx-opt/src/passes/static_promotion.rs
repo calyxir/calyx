@@ -485,12 +485,11 @@ impl StaticPromotion {
     fn get_inferred_latency(c: &ir::Control) -> u64 {
         if let ir::Control::Static(sc) = c {
             sc.get_latency()
-        } else if let Some(latency) =
-            c.get_attribute(ir::NumAttr::PromoteStatic)
-        {
-            latency
         } else {
+            let Some(latency) = c.get_attribute(ir::NumAttr::PromoteStatic) else {
             unreachable!("Called get_latency on control that is neither static nor promotable")
+        };
+            latency
         }
     }
 
@@ -630,7 +629,7 @@ impl StaticPromotion {
                 attributes.remove(ir::NumAttr::Bound);
                 let sc = self.convert_to_static(body, builder);
                 let num_repeats = bound_attribute.unwrap_or_else(|| unreachable!("Called convert_to_static on a while loop without a bound"));
-                let latency = (num_repeats) * sc.get_latency();
+                let latency = num_repeats * sc.get_latency();
                 Self::check_latencies_match(latency, inferred_latency);
                 ir::StaticControl::Repeat(ir::StaticRepeat {
                     attributes: std::mem::take(attributes),
@@ -755,20 +754,18 @@ impl StaticPromotion {
         builder: &mut ir::Builder,
         control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
-        if Self::approx_control_vec_size(&control_vec) > self.threshold {
-            // Convert vec to static seq
-            let s_seq_stmts = self.convert_vec_to_static(builder, control_vec);
-            let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
-            let mut sseq = ir::Control::Static(ir::StaticControl::seq(
-                s_seq_stmts,
-                latency,
-            ));
-            sseq.get_mut_attributes()
-                .insert(ir::NumAttr::Compactable, 1);
-            return vec![sseq];
+        if Self::approx_control_vec_size(&control_vec) <= self.threshold {
+            // Return unchanged vec
+            return control_vec;
         }
-        // Return unchanged vec
-        control_vec
+        // Convert vec to static seq
+        let s_seq_stmts = self.convert_vec_to_static(builder, control_vec);
+        let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
+        let mut sseq =
+            ir::Control::Static(ir::StaticControl::seq(s_seq_stmts, latency));
+        sseq.get_mut_attributes()
+            .insert(ir::NumAttr::Compactable, 1);
+        vec![sseq]
     }
 
     /// First checks if the vec of control statements meets the self.threshold.
@@ -780,22 +777,20 @@ impl StaticPromotion {
         builder: &mut ir::Builder,
         control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
-        if Self::approx_control_vec_size(&control_vec) > self.threshold {
-            // Convert vec to static seq
-            let s_par_stmts = self.convert_vec_to_static(builder, control_vec);
-            let latency = s_par_stmts
-                .iter()
-                .map(|sc| sc.get_latency())
-                .max()
-                .unwrap_or_else(|| unreachable!("empty par block"));
-            let spar = ir::Control::Static(ir::StaticControl::par(
-                s_par_stmts,
-                latency,
-            ));
-            return vec![spar];
+        if Self::approx_control_vec_size(&control_vec) <= self.threshold {
+            // Return unchanged vec
+            return control_vec;
         }
-        // Return unchanged vec
-        control_vec
+        // Convert vec to static seq
+        let s_par_stmts = self.convert_vec_to_static(builder, control_vec);
+        let latency = s_par_stmts
+            .iter()
+            .map(|sc| sc.get_latency())
+            .max()
+            .unwrap_or_else(|| unreachable!("empty par block"));
+        let spar =
+            ir::Control::Static(ir::StaticControl::par(s_par_stmts, latency));
+        vec![spar]
     }
 }
 
@@ -905,6 +900,7 @@ impl Visitor for StaticPromotion {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Shouldn't promote to static invoke if we have a comb group
         if s.comp.borrow().is_component() && s.comb_group.is_none() {
             if let Some(latency) = self
                 .static_component_latencies

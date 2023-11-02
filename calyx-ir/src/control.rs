@@ -595,11 +595,10 @@ impl Control {
     pub fn take_static_control(&mut self) -> StaticControl {
         let empty = Control::empty();
         let control = std::mem::replace(self, empty);
-        if let Control::Static(static_control) = control {
-            static_control
-        } else {
+        let Control::Static(static_control) = control  else {
             unreachable!("Called take_static_control on non-static control")
-        }
+        };
+        static_control
     }
 }
 
