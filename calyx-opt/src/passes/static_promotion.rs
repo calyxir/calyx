@@ -683,7 +683,7 @@ impl StaticPromotion {
                     }),
                 ).unwrap_or_else(|| unreachable!("Called convert_to_static for static invoke that does not have a static component")).get(), inferred_latency);
                 let s_inv = ir::StaticInvoke {
-                    comp: Rc::clone(&comp),
+                    comp: Rc::clone(comp),
                     inputs: std::mem::take(inputs),
                     outputs: std::mem::take(outputs),
                     latency: inferred_latency,
