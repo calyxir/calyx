@@ -2,6 +2,7 @@ mod adapter;
 mod error;
 
 use adapter::MyAdapter;
+use dap::responses::SetBreakpointsResponse;
 use error::MyAdapterError;
 
 use dap::prelude::*;
@@ -81,9 +82,11 @@ where
             server.respond(rsp)?;
             server.send_event(Event::Initialized)?;
         }
-        
+
         unknown_command => {
-            return Err(MyAdapterError::UnhandledCommandError(unknown_command.clone()));
+            return Err(MyAdapterError::UnhandledCommandError(
+                unknown_command.clone(),
+            ));
         }
     }
 
@@ -122,7 +125,7 @@ where
 
 fn run_server<R: Read, W: Write>(
     server: &mut Server<R, W>,
-    _adapter: MyAdapter,
+    mut _adapter: MyAdapter,
 ) -> AdapterResult<()> {
     loop {
         // Start looping here
@@ -135,12 +138,33 @@ fn run_server<R: Read, W: Write>(
                 let rsp = req.success(ResponseBody::Launch);
                 server.respond(rsp)?;
             }
+
+            Command::SetBreakpoints(args) => {
+                //Add breakpoints
+                if let Some(breakpoint) = &args.breakpoints {
+                    let out = _adapter
+                        .set_breakpoint(args.source.clone(), breakpoint);
+
+                    //Success
+                    let rsp = req.success(ResponseBody::SetBreakpoints(
+                        SetBreakpointsResponse { breakpoints: (out) },
+                    ));
+                    server.respond(rsp)?;
+                }
+            }
+
+            Command::Continue(args) => {}
+
+            Command::Next(args) => {}
+
             // Here, can add a match pattern for a disconnect or exit command
             // to break out of the loop and close the server.
             // Command::Disconnect(_) => break,
             // ...
             unknown_command => {
-                return Err(MyAdapterError::UnhandledCommandError(unknown_command.clone()));
+                return Err(MyAdapterError::UnhandledCommandError(
+                    unknown_command.clone(),
+                ));
             }
         }
     }
