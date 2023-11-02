@@ -483,14 +483,13 @@ impl StaticPromotion {
     /// control operator or the promote_static attribute.
     /// Will raise an error if neither of these is true.
     fn get_inferred_latency(c: &ir::Control) -> u64 {
-        if let ir::Control::Static(sc) = c {
-            sc.get_latency()
-        } else {
+        let ir::Control::Static(sc) = c else {
             let Some(latency) = c.get_attribute(ir::NumAttr::PromoteStatic) else {
-            unreachable!("Called get_latency on control that is neither static nor promotable")
+                unreachable!("Called get_latency on control that is neither static nor promotable")
+            };
+            return latency;
         };
-            latency
-        }
+        sc.get_latency()
     }
 
     fn check_latencies_match(actual: u64, inferred: u64) {
