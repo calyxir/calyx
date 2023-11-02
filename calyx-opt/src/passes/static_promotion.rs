@@ -138,6 +138,8 @@ pub struct StaticPromotion {
     latency_data: HashMap<ir::Id, GoDone>,
     /// dynamic group Id -> promoted static group Id
     static_group_name: HashMap<ir::Id, ir::Id>,
+    /// Maps static component names to their latencies
+    static_component_latencies: HashMap<ir::Id, NonZeroU64>,
     /// Threshold for promotion
     threshold: u64,
     /// Whether we should stop promoting when we see a loop.
@@ -179,6 +181,7 @@ impl ConstructVisitor for StaticPromotion {
         Ok(StaticPromotion {
             latency_data,
             static_group_name: HashMap::new(),
+            static_component_latencies: HashMap::new(),
             threshold,
             stop_loop,
         })
@@ -547,8 +550,10 @@ impl StaticPromotion {
         let inferred_latency = Self::get_inferred_latency(c);
         match c {
             ir::Control::Empty(_) => ir::StaticControl::empty(),
-            ir::Control::Enable(ir::Enable { group, .. }) => {
-                ir::StaticControl::Enable(ir::StaticEnable {
+            ir::Control::Enable(ir::Enable { group, attributes }) => {
+                // Removing the `promote_static` attribute bc we don't need it anymore.
+                attributes.remove(ir::NumAttr::PromoteStatic);
+                let enable = ir::StaticControl::Enable(ir::StaticEnable {
                     // upgrading group to static group
                     group: self.construct_static_group(
                         builder,
@@ -560,11 +565,13 @@ impl StaticPromotion {
                             .get(ir::NumAttr::PromoteStatic)
                             .unwrap(),
                     ),
-                    attributes: ir::Attributes::default(),
-                })
+                    attributes: std::mem::take(attributes),
+                });
+                enable
             }
-            ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                let mut attributes = ir::Attributes::default();
+            ir::Control::Seq(ir::Seq { stmts, attributes }) => {
+                // Removing the `promote_static` attribute bc we don't need it anymore
+                attributes.remove(ir::NumAttr::PromoteStatic);
                 // The resulting static seq should be compactable.
                 attributes.insert(ir::NumAttr::Compactable, 1);
                 let static_stmts =
@@ -574,11 +581,13 @@ impl StaticPromotion {
                 Self::check_latencies_match(latency, inferred_latency);
                 ir::StaticControl::Seq(ir::StaticSeq {
                     stmts: static_stmts,
-                    attributes,
+                    attributes: std::mem::take(attributes),
                     latency,
                 })
             }
-            ir::Control::Par(ir::Par { stmts, .. }) => {
+            ir::Control::Par(ir::Par { stmts, attributes }) => {
+                // Removing the `promote_static` attribute bc we don't need it anymore
+                attributes.remove(ir::NumAttr::PromoteStatic);
                 // Convert stmts to static
                 let static_stmts =
                     self.convert_vec_to_static(builder, std::mem::take(stmts));
@@ -596,44 +605,94 @@ impl StaticPromotion {
                 })
             }
             ir::Control::Repeat(ir::Repeat {
-                body, num_repeats, ..
+                body,
+                num_repeats,
+                attributes,
             }) => {
+                // Removing the `promote_static` attribute bc we don't need it anymore
+                attributes.remove(ir::NumAttr::PromoteStatic);
                 let sc = self.convert_to_static(body, builder);
                 let latency = (*num_repeats) * sc.get_latency();
                 Self::check_latencies_match(latency, inferred_latency);
                 ir::StaticControl::Repeat(ir::StaticRepeat {
-                    attributes: ir::Attributes::default(),
+                    attributes: std::mem::take(attributes),
                     body: Box::new(sc),
                     num_repeats: *num_repeats,
                     latency,
                 })
             }
-            ir::Control::While(ir::While { body, .. }) => {
+            ir::Control::While(ir::While {
+                body, attributes, ..
+            }) => {
+                // Removing the `promote_static` attribute bc we don't need it anymore
+                attributes.remove(ir::NumAttr::PromoteStatic);
+                // Removing the `bound` attribute bc we don't need it anymore
+                attributes.remove(ir::NumAttr::Bound);
                 let sc = self.convert_to_static(body, builder);
                 let num_repeats = bound_attribute.unwrap_or_else(|| unreachable!("Called convert_to_static on a while loop without a bound"));
                 let latency = (num_repeats) * sc.get_latency();
                 Self::check_latencies_match(latency, inferred_latency);
                 ir::StaticControl::Repeat(ir::StaticRepeat {
-                    attributes: ir::Attributes::default(),
+                    attributes: std::mem::take(attributes),
                     body: Box::new(sc),
                     num_repeats,
                     latency,
                 })
             }
             ir::Control::If(ir::If {
-               port,  tbranch, fbranch, ..
+                port,
+                tbranch,
+                fbranch,
+                attributes,
+                ..
             }) => {
+                // Removing the `promote_static` attribute bc we don't need it anymore
+                attributes.remove(ir::NumAttr::PromoteStatic);
                 let static_tbranch = self.convert_to_static(tbranch, builder);
                 let static_fbranch = self.convert_to_static(fbranch, builder);
-                let latency = std::cmp::max(static_tbranch.get_latency(), static_fbranch.get_latency());
+                let latency = std::cmp::max(
+                    static_tbranch.get_latency(),
+                    static_fbranch.get_latency(),
+                );
                 Self::check_latencies_match(latency, inferred_latency);
-                ir::StaticControl::static_if(Rc::clone(port), Box::new(static_tbranch), Box::new(static_fbranch), latency)
+                ir::StaticControl::static_if(
+                    Rc::clone(port),
+                    Box::new(static_tbranch),
+                    Box::new(static_fbranch),
+                    latency,
+                )
             }
             ir::Control::Static(_) => c.take_static_control(),
-            ir::Control::Invoke(_) => unreachable!(
-                "Invoke statements should have been compiled away. Run {} to compile invokes",
-                crate::passes::CompileInvoke::name()
-            ),
+            ir::Control::Invoke(ir::Invoke {
+                comp,
+                inputs,
+                outputs,
+                attributes,
+                comb_group,
+                ref_cells,
+            }) => {
+                assert!(
+                    comb_group.is_none(),
+                    "Shouldn't Promote to Static if there is a Comb Group",
+                );
+                attributes.remove(ir::NumAttr::PromoteStatic);
+                Self::check_latencies_match(self.static_component_latencies.get(
+                    &comp.borrow().type_name().unwrap_or_else(|| {
+                        unreachable!(
+                            "Already checked that comp is component"
+                        )
+                    }),
+                ).unwrap_or_else(|| unreachable!("Called convert_to_static for static invoke that does not have a static component")).get(), inferred_latency);
+                let s_inv = ir::StaticInvoke {
+                    comp: Rc::clone(&comp),
+                    inputs: std::mem::take(inputs),
+                    outputs: std::mem::take(outputs),
+                    latency: inferred_latency,
+                    attributes: std::mem::take(attributes),
+                    ref_cells: std::mem::take(ref_cells),
+                };
+                ir::StaticControl::Invoke(s_inv)
+            }
         }
     }
 
@@ -675,10 +734,7 @@ impl StaticPromotion {
                 // static control appears as one big group to the dynamic FSM
                 1
             }
-            ir::Control::Invoke(_) => unreachable!(
-                "Invoke statements should have been compiled away. Run {} to compile invokes",
-                crate::passes::CompileInvoke::name()
-            )
+            ir::Control::Invoke(_) => 1,
         }
     }
 
@@ -774,6 +830,10 @@ impl Visitor for StaticPromotion {
                 }
             }
         }
+        if comp.is_static() {
+            self.static_component_latencies
+                .insert(comp.name, comp.latency.unwrap());
+        }
         Ok(Action::Continue)
     }
 
@@ -843,33 +903,15 @@ impl Visitor for StaticPromotion {
         s: &mut ir::Invoke,
         _comp: &mut ir::Component,
         _sigs: &LibrarySignatures,
-        comps: &[ir::Component],
+        _comps: &[ir::Component],
     ) -> VisResult {
-        if s.comp.borrow().is_component() {
-            let name = s.comp.borrow().type_name().unwrap();
-            for c in comps {
-                if c.name == name && c.is_static() {
-                    let emp = ir::Invoke {
-                        comp: Rc::clone(&s.comp),
-                        inputs: Vec::new(),
-                        outputs: Vec::new(),
-                        attributes: ir::Attributes::default(),
-                        comb_group: None,
-                        ref_cells: Vec::new(),
-                    };
-                    let actual_invoke = std::mem::replace(s, emp);
-                    let s_inv = ir::StaticInvoke {
-                        comp: Rc::clone(&actual_invoke.comp),
-                        inputs: actual_invoke.inputs,
-                        outputs: actual_invoke.outputs,
-                        latency: c.latency.unwrap().get(),
-                        attributes: ir::Attributes::default(),
-                        ref_cells: actual_invoke.ref_cells,
-                    };
-                    return Ok(Action::change(ir::Control::Static(
-                        ir::StaticControl::Invoke(s_inv),
-                    )));
-                }
+        if s.comp.borrow().is_component() && s.comb_group.is_none() {
+            if let Some(latency) = self
+                .static_component_latencies
+                .get(&s.comp.borrow().type_name().unwrap())
+            {
+                s.attributes
+                    .insert(ir::NumAttr::PromoteStatic, latency.get());
             }
         }
         Ok(Action::Continue)
