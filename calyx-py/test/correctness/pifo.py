@@ -318,111 +318,12 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
     return pifo
 
 
-def insert_stats(prog, name):
-    """Inserts a stats component called `name` into the program `prog`.
-
-    It accepts, as input ports, two things:
-    - a flag that indicates whether a _report_ is sought.
-    - the index of a flow (0 or 1).
-
-    It maintains two output ports, `count_0` and `count_1`.
-
-    It also maintains two internal registers, `count_0_sto` and `count_1_sto`.
-
-    If the `report` flag is set:
-    The component doesn't change the stored counts, it just them to the output ports.
-
-    If the `report` flag is not set:
-    The component reads the flow index and increments `count_0_sto` or `count_1_sto`.
-    """
-
-    stats: cb.ComponentBuilder = prog.component(name)
-    report = stats.input(
-        "report", 1
-    )  # If 0, increment a counter. If 1, report the counts so far.
-    flow = stats.input(
-        "flow", 1
-    )  # If 0, increment `count_0_sto`. If 1, increment `count_1_sto`.
-    stats.output("count_0", 32)
-    stats.output("count_1", 32)
-
-    # Two registers to count the number of times we've been invoked with each flow.
-    count_0_sto = stats.reg("count_0_sto", 32)
-    count_1_sto = stats.reg("count_1_sto", 32)
-
-    # Wiring to increment the appropriate register.
-    count_0_incr = stats.incr(count_0_sto)
-    count_1_incr = stats.incr(count_1_sto)
-
-    # Equality checks.
-    flow_eq_0 = stats.eq_use(flow, 0)
-    flow_eq_1 = stats.eq_use(flow, 1)
-    report_eq_0 = stats.eq_use(report, 0)
-
-    with stats.continuous:
-        stats.this().count_0 = count_0_sto.out
-        stats.this().count_1 = count_1_sto.out
-
-    # The main logic.
-    stats.control += [
-        cb.if_with(
-            report_eq_0,  # Report is low, so the user wants to update the counts.
-            cb.par(
-                cb.if_with(flow_eq_0, [count_0_incr]),
-                cb.if_with(flow_eq_1, [count_1_incr]),
-            ),
-        ),
-    ]
-
-    return stats
-
-
-def insert_controller(prog, name, stats):
-    """Inserts a controller component called `name` into the program `prog`.
-
-    This component invokes the `stats` component, to which it has a handle,
-    to retrieve its latest stats.
-
-    The eventual goal is to have this happen _periodically_.
-    For now, we just do it once.
-    """
-
-    controller = prog.component(name)
-    stats = controller.cell("stats", stats)
-
-    count_0 = controller.reg("count_0", 32)
-    count_1 = controller.reg("count_1", 32)
-
-    with controller.group("query_stats") as query_stats:
-        stats.report = cb.HI
-        stats.flow = cb.LO
-        query_stats.done = stats.done
-
-    with controller.group("get_data_locally") as get_data_locally:
-        count_0.in_ = stats.count_0
-        count_0.write_en = 1
-        count_1.in_ = stats.count_1
-        count_1.write_en = 1
-        get_data_locally.done = count_0.done & count_1.done
-
-    # The main logic.
-    controller.control += [
-        query_stats,
-        get_data_locally,
-        # Great, now I have the data around locally.
-    ]
-
-    return controller
-
-
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    stats = insert_stats(prog, "stats")
     fifo_l = fifo.insert_fifo(prog, "fifo_l")
     fifo_r = fifo.insert_fifo(prog, "fifo_r")
-    pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200, stats)
-    _ = insert_controller(prog, "controller", stats)
+    pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
     qc.insert_main(prog, pifo)
     return prog.program
 
