@@ -5,11 +5,14 @@ MAX_CMDS = 15
 ANS_MEM_LEN = 10
 
 
-def insert_main(prog, queue):
-    """Inserts the component `main` into the program.
+def insert_main(prog, queue, name=None):
+    """Inserts the component `name` into the program.
     This will be used to `invoke` the component `queue` and feed it a list of commands.
     """
-    main: cb.ComponentBuilder = prog.component("main")
+    if name is None:
+        # Unless given a name, we'll call the component `main`.
+        name = "main"
+    main: cb.ComponentBuilder = prog.component(name)
 
     # The user-facing interface of the `main` component is:
     # - input 1: a list of commands
