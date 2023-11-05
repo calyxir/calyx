@@ -36,9 +36,17 @@ def insert_main(prog, queue, name=None):
     # - one ref register, `ans`, into which the result of a pop or peek is written.
     # - one ref register, `err`, which is raised if an error occurs.
 
-    commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
-    values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    if name == "main":
+        # If this is the main component, we'll set up the external memories.
+        commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
+        values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
+        ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    else:
+        # If not, the actual main component will need to pass us these
+        # memories by reference.
+        commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_ref=True)
+        values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_ref=True)
+        ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_ref=True)
 
     # The two components we'll use:
     queue = main.cell("myqueue", queue)
@@ -125,3 +133,5 @@ def insert_main(prog, queue, name=None):
             ],
         ),
     ]
+
+    return main
