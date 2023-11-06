@@ -27,6 +27,11 @@ class CalyxAdd:
             return False
         return self.const < other.const
 
+    def __gt__(self, other):
+        if type(other) != CalyxAdd:
+            return True
+        return self.const > other.const
+
     def __hash__(self):
         return hash(self.const)
 
@@ -63,6 +68,14 @@ class ScheduleInstance:
         if type == ScheduleType.INTERVAL and self.i2 is None:
             raise Exception("INTERVAL type must specify beginning and end")
 
+    def __lt__(self, other):
+        if self.i2 is None:
+            return True
+        elif other.i2 is None:
+            return True
+        else:
+            return self.i1 < other.i2
+
 
 class Schedule:
     def __init__(self):
@@ -75,9 +88,14 @@ class Schedule:
         for schedule_instance in schedule_instances.flatten():
             self.instances.add(schedule_instance)
 
+    def __get_sorted_instances(self):
+        list_instances = list(self.instances)
+        list_instances.sort()
+        return list_instances
+
     def __instantiate_calyx_adds(self, comp) -> list:
         """ """
-        for schedule_instance in self.instances:
+        for schedule_instance in self.__get_sorted_instances():
             if type(schedule_instance.i1) == CalyxAdd:
                 schedule_instance.i1.implement_add(comp)
             if type(schedule_instance.i2) == CalyxAdd:
