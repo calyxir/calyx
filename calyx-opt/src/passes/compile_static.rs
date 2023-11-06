@@ -63,7 +63,7 @@ pub(super) fn make_guard_dyn(
                 fsm_size,
                 builder,
                 is_static_comp,
-                comp_sig.clone(),
+                comp_sig,
             ),
         )),
         ir::Guard::And(l, r) => Box::new(ir::Guard::And(
@@ -81,7 +81,7 @@ pub(super) fn make_guard_dyn(
                 fsm_size,
                 builder,
                 is_static_comp,
-                comp_sig.clone(),
+                comp_sig,
             ),
         )),
         ir::Guard::Not(g) => Box::new(ir::Guard::Not(make_guard_dyn(
@@ -97,8 +97,7 @@ pub(super) fn make_guard_dyn(
         ir::Guard::True => Box::new(ir::Guard::True),
         ir::Guard::Info(static_timing) => {
             let (beg, end) = static_timing.get_interval();
-            if is_static_comp {
-                if beg == 0 && end == 1 {
+            if is_static_comp && beg == 0 && end == 1 {
                     let interval_const = builder.add_constant(0, fsm_size);
                     let sig = comp_sig.unwrap();
                     let g1 = guard!(sig["go"]);
@@ -106,7 +105,6 @@ pub(super) fn make_guard_dyn(
                     let g = ir::Guard::And(Box::new(g1), Box::new(g2));
                     return Box::new(g);
                 }
-            }
             if beg + 1 == end {
                 // if beg + 1 == end then we only need to check if fsm == beg
                 let interval_const = builder.add_constant(beg, fsm_size);

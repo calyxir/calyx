@@ -30,8 +30,7 @@ fn separate_first_cycle(
     match guard {
         ir::Guard::Info(st) => {
             let (beg, end) = st.get_interval();
-            if beg == 0 {
-                if end != 1 {
+            if beg == 0 && end != 1 {
                     let first_cycle =
                         ir::Guard::Info(ir::StaticTiming::new((0, 1)));
                     let after =
@@ -39,7 +38,6 @@ fn separate_first_cycle(
                     let cong = ir::Guard::or(first_cycle, after);
                     return cong;
                 }
-            }
             guard
         }
         ir::Guard::And(l, r) => {
@@ -89,7 +87,7 @@ impl CompileStaticInterface {
             .width;
         let mut assigns = sgroup_assigns
             .drain(..)
-            .map(|assign| separate_first_cycle_assign(assign))
+            .map(separate_first_cycle_assign)
             .collect_vec();
         let mut dyn_assigns = assigns
             .drain(..)
