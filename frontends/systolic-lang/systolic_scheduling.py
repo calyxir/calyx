@@ -22,6 +22,11 @@ class CalyxAdd:
             and self.const == other.const
         )
 
+    def __lt__(self, other):
+        if type(other) != CalyxAdd:
+            return False
+        return self.const < other.const
+
     def __hash__(self):
         return hash(self.const)
 
@@ -167,6 +172,15 @@ class Schedule:
                 lt_ranges.add(schedule_instance.i2)
                 interval_ranges.add((schedule_instance.i1, schedule_instance.i2))
         self.__instantiate_calyx_adds(comp)
+        # Need to sort for testing purposes
+        eq_ranges_list = list(eq_ranges)
+        ge_ranges_list = list(ge_ranges)
+        lt_ranges_list = list(lt_ranges)
+        interval_ranges_list = list(interval_ranges)
+        eq_ranges_list.sort()
+        ge_ranges_list.sort()
+        lt_ranges_list.sort()
+        interval_ranges_list.sort()
         for val in eq_ranges:
             self.__check_idx_eq(comp, idx_reg, val)
         for val in ge_ranges:

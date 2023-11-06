@@ -41,8 +41,8 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
     index_ge_5 = std_ge(32);
     index_lt_depth_plus_0 = std_lt(32);
     index_lt_depth_plus_5 = std_lt(32);
-    idx_between_1_depth_plus_5_comb = std_and(1);
     idx_between_0_depth_plus_0_comb = std_wire(1);
+    idx_between_1_depth_plus_5_comb = std_and(1);
     pe_0_0 = mac_pe();
     top_0_0 = std_reg(32);
     left_0_0 = std_reg(32);
@@ -82,9 +82,9 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
     index_lt_depth_plus_0.right = depth_plus_0.out;
     index_lt_depth_plus_5.left = idx.out;
     index_lt_depth_plus_5.right = depth_plus_5.out;
+    idx_between_0_depth_plus_0_comb.in = index_lt_depth_plus_0.out;
     idx_between_1_depth_plus_5_comb.right = index_lt_depth_plus_5.out;
     idx_between_1_depth_plus_5_comb.left = index_ge_1.out;
-    idx_between_0_depth_plus_0_comb.in = index_lt_depth_plus_0.out;
     idx_minus_0.left = idx.out;
     idx_minus_0.right = 32'd0;
     idx_minus_0_res.in = idx_minus_0.out;
