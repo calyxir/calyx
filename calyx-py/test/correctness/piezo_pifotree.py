@@ -122,16 +122,29 @@ def insert_main(prog, dataplane, controller):
     ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     main.control += [
-        cb.par(
-            cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                in_commands=commands,
-                in_values=values,
-                in_ans_mem=ans_mem,
-            ),
-            cb.invoke(controller),  # Invoke the controller component.
+        # cb.par(
+        cb.invoke(  # Invoke the dataplane component.
+            dataplane,
+            ref_commands=commands,
+            ref_values=values,
+            ref_ans_mem=ans_mem,
+            # ),
+            # cb.invoke(controller),  # Invoke the controller component.
+            # Commenting out since it causes the `par` to run forever.
         )
     ]
+    # In reality we need to write this in near-RTL:
+    # group fake_par
+    # {
+    #     dataplane.my_fake_mem.
+    #     dataplane.go = cb.HI
+    #     controller.go = cb.HI
+    #     fake_par.done = dataplane.done
+    #     # NOTE: Conditioned on the dataplane being done, and not the controller.
+    # }
+    # BUT working in near-RTL means that need to do more:
+    # We need to pass the memories "by reference" but cannot use the nice
+    # abstraction of `invoke`.
 
 
 def build():
@@ -142,7 +155,7 @@ def build():
     fifo_tangerine = fifo.insert_fifo(prog, "fifo_tangerine")
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
-    pifo_root = pifo.insert_pifo(prog, "pifo_root", pifo_red, fifo_blue, 200, stats)
+    pifo_root = pifo.insert_pifo(prog, "pifo_root", pifo_red, fifo_blue, 200)
     # The root PIFO has a stats component.
     dataplane = qc.insert_main(prog, pifo_root, "dataplane")
     controller = insert_controller(prog, "controller", stats)
