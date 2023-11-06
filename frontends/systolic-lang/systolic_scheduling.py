@@ -58,12 +58,6 @@ class ScheduleInstance:
         if type == ScheduleType.INTERVAL and self.i2 == None:
             raise Exception(f"INTERVAL type must specify beginning and end")
 
-    def get_i1(self):
-        return self.i1
-
-    def get_i2(self):
-        return self.i2
-
 
 class Schedule:
     def __init__(self):
