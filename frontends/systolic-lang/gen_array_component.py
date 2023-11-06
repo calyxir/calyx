@@ -123,8 +123,6 @@ def instantiate_data_move(
     from the `write` register of the PE at (row, col) to the read register
     of the PEs at (row+1, col) and (row, col+1)
     """
-    name = f"pe_{row}_{col}"
-
     if not right_edge:
         src_reg = comp.get_cell(f"left_{row}_{col}")
         dst_reg = comp.get_cell(f"left_{row}_{col + 1}")
@@ -343,7 +341,8 @@ def generate_control(
             tag = counter()
             boundary_fill_sched = ""
             if r == 0 or c == 0:
-                boundary_fill_sched = f"Feeding Boundary PE: [{schedule.mappings['update_sched'][r][c].i1},\
+                boundary_fill_sched = f"Feeding Boundary PE: \
+[{schedule.mappings['update_sched'][r][c].i1},\
 {schedule.mappings['update_sched'][r][c].i2}) || "
             source_map[
                 tag

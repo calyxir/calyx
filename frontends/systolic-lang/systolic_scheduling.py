@@ -55,8 +55,8 @@ class ScheduleInstance:
         self.type = type
         self.i1 = i1
         self.i2 = i2
-        if type == ScheduleType.INTERVAL and self.i2 == None:
-            raise Exception(f"INTERVAL type must specify beginning and end")
+        if type == ScheduleType.INTERVAL and self.i2 is None:
+            raise Exception("INTERVAL type must specify beginning and end")
 
 
 class Schedule:
