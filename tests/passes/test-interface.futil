@@ -1,0 +1,54 @@
+// -p wire-inliner
+import "primitives/core.futil";
+static<6> component do_add<"state_share"=1>(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data add = std_add(32);
+    @data r = std_reg(32);
+    @generated fsm = std_reg(3);
+    @generated adder = std_add(3);
+    @generated fsm0 = std_reg(3);
+    @generated ud = undef(1);
+    @generated adder0 = std_add(3);
+  }
+  wires {
+    group early_reset_a {
+      r.write_en = early_reset_a[go] ? 1'd1;
+      r.in = early_reset_a[go] ? add.out;
+      add.left = early_reset_a[go] ? r.out;
+      add.right = early_reset_a[go] ? right;
+      adder0.left = early_reset_a[go] ? fsm0.out;
+      adder0.right = early_reset_a[go] ? 3'd1;
+      fsm0.write_en = early_reset_a[go] ? 1'd1;
+      fsm0.in = fsm0.out != 3'd0 & early_reset_a[go] ? adder0.out;
+      fsm0.in = fsm0.out == 3'd0 & early_reset_a[go] ? 3'd0;
+      early_reset_a[done] = ud.out;
+    }
+    r.write_en = go & fsm.out == 3'd0 ? 1'd1;
+    r.in = go & fsm.out == 3'd0 ? add.out;
+    early_reset_a[go] = fsm.out >= 3'd1 & fsm.out < 3'd6 ? 1'd1;
+    add.left = go & fsm.out == 3'd0 ? left;
+    add.right = go & fsm.out == 3'd0 ? right;
+    adder.left = fsm.out;
+    adder.right = 3'd1;
+    fsm.write_en = 1'd1;
+    fsm.in = go & fsm.out == 3'd0 ? 3'd1;
+    fsm.in = fsm.out != 3'd0 & fsm.out != 3'd5 ? adder.out;
+    fsm.in = fsm.out == 3'd5 ? 3'd0;
+  }
+  control {}
+}
+static<6> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @generated fsm = std_reg(3);
+    @generated adder = std_add(3);
+  }
+  wires {
+    adder.left = fsm.out;
+    adder.right = 3'd1;
+    fsm.write_en = 1'd1;
+    fsm.in = go & fsm.out == 3'd0 ? 3'd1;
+    fsm.in = fsm.out != 3'd0 & fsm.out != 3'd5 ? adder.out;
+    fsm.in = fsm.out == 3'd5 ? 3'd0;
+  }
+  control {}
+}

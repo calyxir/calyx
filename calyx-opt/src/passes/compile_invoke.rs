@@ -373,13 +373,12 @@ impl Visitor for CompileInvoke {
         // Get the go port
         let go_port = get_go_port(Rc::clone(&s.comp))?;
 
+        // define first cycle guard
+        let first_cycle = ir::Guard::Info(ir::StaticTiming::new((0, 1)));
+
         // Build assignemnts
         let go_assign: ir::Assignment<ir::StaticTiming> = builder
-            .build_assignment(
-                go_port,
-                one.borrow().get("out"),
-                ir::Guard::True,
-            );
+            .build_assignment(go_port, one.borrow().get("out"), first_cycle);
         invoke_group.borrow_mut().assignments.push(go_assign);
 
         // Generate argument assignments
