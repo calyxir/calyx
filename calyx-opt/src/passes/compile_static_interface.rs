@@ -8,8 +8,8 @@ use ir::{
 };
 use itertools::Itertools;
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::num::NonZeroU64;
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct CompileStaticInterface;
@@ -176,7 +176,7 @@ impl Visitor for CompileStaticInterface {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if comp.is_static() && comp.latency > NonZeroU64::new(1){
+        if comp.is_static() && comp.latency > NonZeroU64::new(1) {
             //let _c = std::mem::replace(&mut comp.control, Rc::new(RefCell::new(ir::Control::Static(ir::StaticControl::Empty(ir::Empty{attributes:Attributes::default()})))));
             let _c = std::mem::replace(
                 &mut comp.control,
