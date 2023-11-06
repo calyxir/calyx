@@ -196,5 +196,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: For pe_0_0: Feeding Boundary PE: [0,depth_plus_0)Invoking PE: [1, depth_plus_5), Writing PE Result: depth_plus_5
+0: pe_0_0: Feeding Boundary PE: [0,depth_plus_0) || Invoking PE: [1, depth_plus_5) || Writing PE Result: depth_plus_5
 }#

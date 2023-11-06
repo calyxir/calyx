@@ -344,13 +344,13 @@ def generate_control(
             boundary_fill_sched = ""
             if r == 0 or c == 0:
                 boundary_fill_sched = f"Feeding Boundary PE: [{schedule.mappings['update_sched'][r][c].i1},\
-{schedule.mappings['update_sched'][r][c].i2})"
+{schedule.mappings['update_sched'][r][c].i2}) || "
             source_map[
                 tag
-            ] = f"For pe_{r}_{c}: \
+            ] = f"pe_{r}_{c}: \
 {boundary_fill_sched}\
 Invoking PE: [{schedule.mappings['pe_sched'][r][c].i1}, \
-{schedule.mappings['pe_sched'][r][c].i2}), \
+{schedule.mappings['pe_sched'][r][c].i2}) || \
 Writing PE Result: {schedule.mappings['pe_write_sched'][r][c].i1}"
 
     while_body = py_ast.StaticParComp(while_body_stmts)
