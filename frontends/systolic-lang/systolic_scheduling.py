@@ -25,12 +25,12 @@ class CalyxAdd:
     def __lt__(self, other):
         if type(other) != CalyxAdd:
             return False
-        return self.const < other.const
+        return (self.const, self.port) < (other.const, other.const)
 
     def __gt__(self, other):
         if type(other) != CalyxAdd:
             return True
-        return self.const > other.const
+        return (self.const, self.port) > (other.const, other.const)
 
     def __hash__(self):
         return hash(self.const)
@@ -69,7 +69,9 @@ class ScheduleInstance:
             raise Exception("INTERVAL type must specify beginning and end")
 
     def __lt__(self, other):
-        return self.i1 < other.i1
+        if self.i2 is not None and other.i2 is not None:
+            return self.i1 < other.i1
+        return (self.i1, self.i2) < (other.i1, other.i2)
 
 
 class Schedule:
