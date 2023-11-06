@@ -5,62 +5,6 @@ from systolic_arg_parser import SystolicConfiguration
 import numpy as np
 
 
-def gen_schedules(
-    config: SystolicConfiguration,
-    comp: cb.ComponentBuilder,
-):
-    """
-    Generates 4 arrays that are the same size as the output (systolic) array
-    Each entry in the array has tuple [start, end) that indicates the cycles that
-    they are active
-    `update_sched` contains when to update the indices of the input memories and feed
-    them into the systolic array
-    `pe_sched` contains when to invoke PE
-    `pe_accum_cond` contains when to allow the PEs to accumulate (bc the multipliers
-    are ready with an output)
-    `pe_write_sched` contains when to "write" the PE value into the output ports
-    (e.g., this.r0_valid)
-    """
-
-    def depth_plus_const(const: int):
-        """
-        Returns depth + const. If config.static, then this is an int.
-        Otherwise, we need to perform a Calyx addition to figure this out.
-        """
-        if config.static:
-            # return an int
-            return config.get_contraction_dimension() + const
-        else:
-            # return a CalyxAdd object, whose value is determined after generation
-            depth_port = comp.this().depth
-            return CalyxAdd(depth_port, const)
-
-    left_length, top_length = config.left_length, config.top_length
-    update_sched = np.zeros((left_length, top_length), dtype=object)
-    pe_sched = np.zeros((left_length, top_length), dtype=object)
-    pe_accum_cond = np.zeros((left_length, top_length), dtype=object)
-    pe_write_sched = np.zeros((left_length, top_length), dtype=object)
-    for row in range(0, left_length):
-        for col in range(0, top_length):
-            pos = row + col
-            update_sched[row][col] = ScheduleInstance(
-                ScheduleType.INTERVAL, pos, depth_plus_const(pos)
-            )
-            pe_sched[row][col] = ScheduleInstance(
-                ScheduleType.INTERVAL, pos + 1, depth_plus_const(pos + 5)
-            )
-            pe_accum_cond[row][col] = ScheduleInstance(ScheduleType.GE, pos + 5)
-            pe_write_sched[row][col] = ScheduleInstance(
-                ScheduleType.EQ, depth_plus_const(pos + 5)
-            )
-    schedule = Schedule()
-    schedule.add_instances("update_sched", update_sched)
-    schedule.add_instances("pe_sched", pe_sched)
-    schedule.add_instances("pe_accum_cond", pe_accum_cond)
-    schedule.add_instances("pe_write_sched", pe_write_sched)
-    return schedule
-
-
 class CalyxAdd:
     """
     A class that represents addition in Calyx between a port and a constant
@@ -237,3 +181,59 @@ class Schedule:
             self.__check_idx_upper_bound(comp, idx_reg, val)
         for start, end in interval_ranges:
             self.__check_idx_between(comp, start, end)
+
+
+def gen_schedules(
+    config: SystolicConfiguration,
+    comp: cb.ComponentBuilder,
+):
+    """
+    Generates 4 arrays that are the same size as the output (systolic) array
+    Each entry in the array has tuple [start, end) that indicates the cycles that
+    they are active
+    `update_sched` contains when to update the indices of the input memories and feed
+    them into the systolic array
+    `pe_sched` contains when to invoke PE
+    `pe_accum_cond` contains when to allow the PEs to accumulate (bc the multipliers
+    are ready with an output)
+    `pe_write_sched` contains when to "write" the PE value into the output ports
+    (e.g., this.r0_valid)
+    """
+
+    def depth_plus_const(const: int):
+        """
+        Returns depth + const. If config.static, then this is an int.
+        Otherwise, we need to perform a Calyx addition to figure this out.
+        """
+        if config.static:
+            # return an int
+            return config.get_contraction_dimension() + const
+        else:
+            # return a CalyxAdd object, whose value is determined after generation
+            depth_port = comp.this().depth
+            return CalyxAdd(depth_port, const)
+
+    left_length, top_length = config.left_length, config.top_length
+    update_sched = np.zeros((left_length, top_length), dtype=object)
+    pe_sched = np.zeros((left_length, top_length), dtype=object)
+    pe_accum_cond = np.zeros((left_length, top_length), dtype=object)
+    pe_write_sched = np.zeros((left_length, top_length), dtype=object)
+    for row in range(0, left_length):
+        for col in range(0, top_length):
+            pos = row + col
+            update_sched[row][col] = ScheduleInstance(
+                ScheduleType.INTERVAL, pos, depth_plus_const(pos)
+            )
+            pe_sched[row][col] = ScheduleInstance(
+                ScheduleType.INTERVAL, pos + 1, depth_plus_const(pos + 5)
+            )
+            pe_accum_cond[row][col] = ScheduleInstance(ScheduleType.GE, pos + 5)
+            pe_write_sched[row][col] = ScheduleInstance(
+                ScheduleType.EQ, depth_plus_const(pos + 5)
+            )
+    schedule = Schedule()
+    schedule.add_instances("update_sched", update_sched)
+    schedule.add_instances("pe_sched", pe_sched)
+    schedule.add_instances("pe_accum_cond", pe_accum_cond)
+    schedule.add_instances("pe_write_sched", pe_write_sched)
+    return schedule
