@@ -22,16 +22,6 @@ class CalyxAdd:
             and self.const == other.const
         )
 
-    def __lt__(self, other):
-        if type(other) != CalyxAdd:
-            return False
-        return (self.const, self.port) < (other.const, other.const)
-
-    def __gt__(self, other):
-        if type(other) != CalyxAdd:
-            return True
-        return (self.const, self.port) > (other.const, other.const)
-
     def __hash__(self):
         return hash(self.const)
 
@@ -69,30 +59,25 @@ class ScheduleInstance:
             raise Exception("INTERVAL type must specify beginning and end")
 
     def __lt__(self, other):
-        if self.i2 is not None and other.i2 is not None:
-            return self.i1 < other.i1
-        return (self.i1, self.i2) < (other.i1, other.i2)
+        return (self.type, self.i1, self.i2) < (other.type, other.i1, other.i2)
 
 
 class Schedule:
     def __init__(self):
-        self.instances = set()
+        # XXX(Caleb): self.instances could be a set, but I'm running into annoying
+        # ordering errors on tests. Python dictionaries are luckily ordered.
+        self.instances = {}
         self.mappings = {}
 
     def add_instances(self, name, schedule_instances):
         """ """
         self.mappings[name] = schedule_instances
         for schedule_instance in schedule_instances.flatten():
-            self.instances.add(schedule_instance)
-
-    def __get_sorted_instances(self):
-        list_instances = list(self.instances)
-        list_instances.sort()
-        return list_instances
+            self.instances[schedule_instance] = None
 
     def __instantiate_calyx_adds(self, comp) -> list:
         """ """
-        for schedule_instance in self.__get_sorted_instances():
+        for schedule_instance in self.instances.keys():
             if type(schedule_instance.i1) == CalyxAdd:
                 schedule_instance.i1.implement_add(comp)
             if type(schedule_instance.i2) == CalyxAdd:
@@ -170,32 +155,25 @@ class Schedule:
     def build_hardware(self, comp: cb.ComponentBuilder, idx_reg: cb.CellBuilder):
         """ """
         # instantiate groups that handles the idx variables
-        ge_ranges = set()
-        lt_ranges = set()
-        eq_ranges = set()
-        interval_ranges = set()
-        for schedule_instance in self.instances:
+        # Dictionary to keep consistent ordering.
+        ge_ranges = {}
+        lt_ranges = {}
+        eq_ranges = {}
+        interval_ranges = {}
+        for schedule_instance in self.instances.keys():
             sched_type = schedule_instance.type
             if sched_type == ScheduleType.GE:
-                ge_ranges.add(schedule_instance.i1)
+                ge_ranges[schedule_instance.i1] = None
             elif sched_type == ScheduleType.LT:
-                lt_ranges.add(schedule_instance.i1)
+                lt_ranges[schedule_instance.i1] = None
             elif sched_type == ScheduleType.EQ:
-                eq_ranges.add(schedule_instance.i1)
+                eq_ranges[schedule_instance.i1] = None
             elif sched_type == ScheduleType.INTERVAL:
-                ge_ranges.add(schedule_instance.i1)
-                lt_ranges.add(schedule_instance.i2)
-                interval_ranges.add((schedule_instance.i1, schedule_instance.i2))
+                ge_ranges[schedule_instance.i1] = None
+                lt_ranges[schedule_instance.i2] = None
+                interval_ranges[(schedule_instance.i1, schedule_instance.i2)] = None
         self.__instantiate_calyx_adds(comp)
         # Need to sort for testing purposes
-        eq_ranges_list = list(eq_ranges)
-        ge_ranges_list = list(ge_ranges)
-        lt_ranges_list = list(lt_ranges)
-        interval_ranges_list = list(interval_ranges)
-        eq_ranges_list.sort()
-        ge_ranges_list.sort()
-        lt_ranges_list.sort()
-        interval_ranges_list.sort()
         for val in eq_ranges:
             self.__check_idx_eq(comp, idx_reg, val)
         for val in ge_ranges:
