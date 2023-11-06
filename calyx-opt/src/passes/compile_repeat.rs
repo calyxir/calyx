@@ -66,6 +66,10 @@ impl Visitor for CompileRepeat {
             )
             .to_vec();
             init_group.borrow_mut().assignments = init_assigns;
+            init_group
+                .borrow_mut()
+                .attributes
+                .insert(ir::NumAttr::PromoteStatic, 1);
             // incr_group:
             // 1) writes results of idx + 1 into idx (i.e., increments idx)
             // 2) writes the result of (idx + 1 < num_repeats) into cond_reg,
@@ -84,6 +88,10 @@ impl Visitor for CompileRepeat {
             )
             .to_vec();
             incr_group.borrow_mut().assignments = idx_incr_assigns;
+            incr_group
+                .borrow_mut()
+                .attributes
+                .insert(ir::NumAttr::PromoteStatic, 1);
             // create control:
             // init_group; while cond_reg.out {repeat_body; incr_group;}
             let while_body = ir::Control::seq(vec![
