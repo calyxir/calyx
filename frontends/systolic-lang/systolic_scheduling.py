@@ -69,12 +69,12 @@ class ScheduleInstance:
             raise Exception("INTERVAL type must specify beginning and end")
 
     def __lt__(self, other):
+        if self.i2 is not None and other.i2 is not None:
+            return self.i1 < other.i1
         if self.i2 is None:
             return True
-        elif other.i2 is None:
-            return True
         else:
-            return self.i1 < other.i2
+            return False
 
 
 class Schedule:
