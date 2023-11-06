@@ -31,13 +31,12 @@ fn separate_first_cycle(
         ir::Guard::Info(st) => {
             let (beg, end) = st.get_interval();
             if beg == 0 && end != 1 {
-                    let first_cycle =
-                        ir::Guard::Info(ir::StaticTiming::new((0, 1)));
-                    let after =
-                        ir::Guard::Info(ir::StaticTiming::new((1, end)));
-                    let cong = ir::Guard::or(first_cycle, after);
-                    return cong;
-                }
+                let first_cycle =
+                    ir::Guard::Info(ir::StaticTiming::new((0, 1)));
+                let after = ir::Guard::Info(ir::StaticTiming::new((1, end)));
+                let cong = ir::Guard::or(first_cycle, after);
+                return cong;
+            }
             guard
         }
         ir::Guard::And(l, r) => {

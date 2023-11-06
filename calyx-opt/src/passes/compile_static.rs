@@ -98,13 +98,13 @@ pub(super) fn make_guard_dyn(
         ir::Guard::Info(static_timing) => {
             let (beg, end) = static_timing.get_interval();
             if is_static_comp && beg == 0 && end == 1 {
-                    let interval_const = builder.add_constant(0, fsm_size);
-                    let sig = comp_sig.unwrap();
-                    let g1 = guard!(sig["go"]);
-                    let g2 = guard!(fsm["out"] == interval_const["out"]);
-                    let g = ir::Guard::And(Box::new(g1), Box::new(g2));
-                    return Box::new(g);
-                }
+                let interval_const = builder.add_constant(0, fsm_size);
+                let sig = comp_sig.unwrap();
+                let g1 = guard!(sig["go"]);
+                let g2 = guard!(fsm["out"] == interval_const["out"]);
+                let g = ir::Guard::And(Box::new(g1), Box::new(g2));
+                return Box::new(g);
+            }
             if beg + 1 == end {
                 // if beg + 1 == end then we only need to check if fsm == beg
                 let interval_const = builder.add_constant(beg, fsm_size);
