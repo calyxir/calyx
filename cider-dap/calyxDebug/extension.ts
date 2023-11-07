@@ -1,4 +1,4 @@
-import vscode = require("vscode");
+import * as vscode from "vscode";
 import cp = require("child_process");
 import net = require("net");
 
@@ -58,8 +58,8 @@ class CiderDebugAdapterDescriptorFactory {
 
   _startDebugServer(session) {
     logToPanel("start of startDebugServer");
-    const port = 8888; // This is the default value
-
+    // default port: 8888
+    const port = vscode.workspace.getConfiguration("cider-dap").port;
     if (!this.adapter.isServerRunning()) {
       logToPanel("server is not running");
       this.adapter.start(port);
@@ -133,7 +133,7 @@ function activate(context) {
 
   // Start the debug server explicitly
   const factory = new CiderDebugAdapterDescriptorFactory(
-    "cider-dap",
+    vscode.workspace.getConfiguration("cider-dap").path,
     vscode.workspace.rootPath,
     outputChannel
   );

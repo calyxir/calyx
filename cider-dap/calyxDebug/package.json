@@ -15,7 +15,7 @@
   "categories": [
     "Debuggers"
   ],
-  "main": "../built/extension.js",
+  "main": "./built/extension.js",
   "contributes": {
     "breakpoints": [
       {
@@ -28,7 +28,24 @@
         "label": "Cider Debug",
         "configurationAttributes": {}
       }
-    ]
+    ],
+    "configuration": {
+      "title": "cider-dap",
+      "properties": {
+        "cider-dap.path": {
+          "type": "string",
+          "scope": "machine",
+          "default": "cider-dap",
+          "description": "Cider Binary Path"
+        },
+        "cider-dap.port": {
+          "type": "number",
+          "scope": "machine",
+          "default": 8888,
+          "description": "Port number"
+        }
+      }
+    }
   },
   "activationEvents": [
     "onDebug",

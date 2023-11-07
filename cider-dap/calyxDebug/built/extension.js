@@ -89,7 +89,8 @@ var CiderDebugAdapterDescriptorFactory = /** @class */ (function () {
     };
     CiderDebugAdapterDescriptorFactory.prototype._startDebugServer = function (session) {
         logToPanel("start of startDebugServer");
-        var port = 8888; // This is the default value
+        // default port: 8888
+        var port = vscode.workspace.getConfiguration("cider-dap").port;
         if (!this.adapter.isServerRunning()) {
             logToPanel("server is not running");
             this.adapter.start(port);
@@ -147,7 +148,7 @@ var CiderDebugAdapter = /** @class */ (function () {
 function activate(context) {
     logToPanel("Extension activated!");
     // Start the debug server explicitly
-    var factory = new CiderDebugAdapterDescriptorFactory("cider-dap", vscode.workspace.rootPath, outputChannel);
+    var factory = new CiderDebugAdapterDescriptorFactory(vscode.workspace.getConfiguration("cider-dap").path, vscode.workspace.rootPath, outputChannel);
     context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory));
     logToPanel("after start server");
     // Update the adapter path with the serverPort and use it for starting the debug adapter
