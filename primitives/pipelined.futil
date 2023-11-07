@@ -1,12 +1,12 @@
 extern "pipelined.sv" {
     // A latency-sensitive multiplier that takes 4 cycles to compute its result.
-    static<4> primitive pipelined_mult (
+    static<4> primitive pipelined_mult[WIDTH] (
         @clk clk: 1,
         @reset reset: 1,
-        left: 32,
-        right: 32
+        left: WIDTH,
+        right: WIDTH
     ) -> (
-        out: 32
+        out: WIDTH
     );
 
     // A latency-sensitive multiplier that takes 4 cycles to compute its result.
@@ -20,4 +20,5 @@ extern "pipelined.sv" {
     ) -> (
         out: WIDTH
     );
+
 }

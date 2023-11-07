@@ -263,12 +263,77 @@ fud e --from systolic --to jq \
 """
 
 [[tests]]
-name = "[frontend] systolic array output correctness"
+name = "[frontend] systolic array mmult static correctness"
 paths = [
-  "tests/correctness/systolic/output/*.systolic",
+  "tests/correctness/systolic/mmult-inputs/*.data"
+]
+cmd = """
+fud e --from systolic --to jq \
+      --through verilog \
+      --through dat \
+      -s verilog.data {} \
+      -s calyx.exec './target/debug/calyx' \
+      -s calyx.flags "-d well-formed" \
+      -s jq.expr ".memories" \
+      {}_static.systolic -q
+"""
+expect_dir="tests/correctness/systolic/mmult-expect"
+
+[[tests]]
+name = "[frontend] systolic array mmult dynamic correctness"
+paths = [
+  "tests/correctness/systolic/mmult-inputs/*.data"
+]
+cmd = """
+fud e --from systolic --to jq \
+      --through verilog \
+      --through dat \
+      -s verilog.data {} \
+      -s calyx.exec './target/debug/calyx' \
+      -s calyx.flags "-d well-formed" \
+      -s jq.expr ".memories" \
+      {}_dynamic.systolic -q
+"""
+expect_dir="tests/correctness/systolic/mmult-expect"
+
+[[tests]]
+name = "[frontend] systolic array relu static correctness"
+paths = [
+  "tests/correctness/systolic/relu-inputs/*.data"
+]
+cmd = """
+fud e --from systolic --to jq \
+      --through verilog \
+      --through dat \
+      -s verilog.data {} \
+      -s calyx.exec './target/debug/calyx' \
+      -s calyx.flags "-d well-formed" \
+      -s jq.expr ".memories" \
+      {}_static.systolic -q
+"""
+expect_dir="tests/correctness/systolic/relu-expect"
+
+[[tests]]
+name = "[frontend] systolic array relu dynamic correctness"
+paths = [
+  "tests/correctness/systolic/relu-inputs/*.data"
+]
+cmd = """
+fud e --from systolic --to jq \
+      --through verilog \
+      --through dat \
+      -s verilog.data {} \
+      -s calyx.exec './target/debug/calyx' \
+      -s calyx.flags "-d well-formed" \
+      -s jq.expr ".memories" \
+      {}_dynamic.systolic -q
+"""
+expect_dir="tests/correctness/systolic/relu-expect"
+
+[[tests]]
+name = "[frontend] systolic array leaky relu correctness"
+paths = [
   "tests/correctness/systolic/leaky-relu/*.systolic",
-  "tests/correctness/systolic/relu/*.systolic",
-  "tests/correctness/systolic/relu-dynamic/*.systolic",
 ]
 cmd = """
 fud e --from systolic --to dat \

@@ -11,7 +11,7 @@ static<3> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done
     }
   }
   control {
-    static<3> seq  {
+    @compactable static<3> seq  {
       upd00;
       static<2> invoke exp0(
         base = r.out,
@@ -36,7 +36,7 @@ static<2> component exponent(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset re
     }
   }
   control {
-    static<2> seq  {
+    @compactable static<2> seq  {
       upd10;
       upd20;
     }

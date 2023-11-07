@@ -1,0 +1,59 @@
+// -p validate -p schedule-compaction
+// for control operators under static seq,
+// we consider the subsequent control operator B to have data dependency on 
+// prior operator A in the following three cases:
+// 1. B writes to a cell A reads from
+// 2. B reads from a cell A writes to
+// 3. B writes to a cell A writes to
+// As such, we can draw the following dependency graph for the control program:
+//    A       C
+//   | \      /
+//   |  \    /
+//   |   \  /
+//   |    \
+//   |   / \
+//   |  /   \
+//   | /     \
+//   B        D
+// So we can compact the execution schedule to respect this data dependency
+import "primitives/core.futil";
+
+component main () -> () {
+  cells {
+    a_reg = std_reg(32);
+    b_reg = std_reg(32);
+    c_reg = std_reg(32);
+    d_reg = std_reg(32);
+    a = std_add(32);
+  }
+
+  wires {
+    static<1> group A {
+      a_reg.in = 32'd5;
+      a_reg.write_en = 1'd1;
+    }
+    
+    static<10> group C {
+      c_reg.in = 32'd10;
+      c_reg.write_en = %0 ? 1'd1;
+    }
+
+    static<1> group B {
+      a.left = a_reg.out;
+      a.right = c_reg.out;
+      b_reg.in = a.out;
+      b_reg.write_en = 1'd1;
+    }
+
+    static<10> group D {
+      d_reg.in = a_reg.out;
+      d_reg.write_en = %0 ? 1'd1;
+    }
+  }
+
+  control {
+    @compactable static seq {
+      A; C; B; D;
+    }
+  }
+}

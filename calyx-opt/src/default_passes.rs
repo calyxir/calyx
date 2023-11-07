@@ -6,10 +6,10 @@ use crate::passes::{
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
     Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
     InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
-    RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticInliner, StaticPromotion, SynthesisPapercut,
-    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    RegisterUnsharing, RemoveIds, ResetInsertion, ScheduleCompaction,
+    SimplifyStaticGuards, SimplifyWithControl, StaticInliner, StaticPromotion,
+    SynthesisPapercut, TopDownCompileControl, TopDownStaticTiming,
+    UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -36,6 +36,7 @@ impl PassManager {
         pm.register_pass::<GroupToSeq>()?;
         pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
+        pm.register_pass::<ScheduleCompaction>()?;
         pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<AttributePromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
@@ -88,11 +89,13 @@ impl PassManager {
                 InferShare,
                 ComponentInliner,
                 CombProp,
-                CellShare, // LiveRangeAnalaysis should handle comb groups
+                DeadCellRemoval, // Clean up dead wires left by CombProp
+                CellShare,       // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
-                CompileInvoke, // creates dead comb groups
+                CompileInvoke,   // creates dead comb groups
                 AttributePromotion,
                 StaticPromotion,
+                ScheduleCompaction,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
