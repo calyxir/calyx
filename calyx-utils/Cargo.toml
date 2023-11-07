@@ -10,7 +10,6 @@ repository.workspace = true
 homepage.workspace = true
 categories.workspace = true
 readme.workspace = true
-serde_json.workspace = true
 
 [features]
 default = []

@@ -3,7 +3,7 @@ import "primitives/pipelined.futil";
 
 component main() -> () {
     cells {
-        mul = pipelined_mult();
+        mul = pipelined_mult(32);
         @external left = std_mem_d1(32, 10, 4);
         @external right = std_mem_d1(32, 10, 4);
         @external out = std_mem_d1(32, 10, 4);
