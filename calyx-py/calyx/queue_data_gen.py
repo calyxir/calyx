@@ -1,5 +1,4 @@
 import random
-import time
 import json
 from typing import Dict, Union
 
@@ -19,7 +18,7 @@ def dump_json():
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
     - The `commands` memory has MAX_CMDS items, which are 0, 1, or 2.
-    - The `values` memory has MAX_CMDS items: random values between 0 and 100.
+    - The `values` memory has MAX_CMDS items: random values between 0 and 400.
     - The `ans_mem` memory has ANS_MEM_LEN items, all zeroes.
     - Each memory has a `format` field, which is a format object for a bitvector.
     """
@@ -32,8 +31,8 @@ def dump_json():
     }
     values = {
         "values": {
-            "data": [random.randint(0, 100) for _ in range(MAX_CMDS)],
-            # The `values` memory has MAX_CMDS items: random values between 0 and 100.
+            "data": [random.randint(0, 400) for _ in range(MAX_CMDS)],
+            # The `values` memory has MAX_CMDS items: random values between 0 and 00.
             "format": format_gen(32),
         }
     }
