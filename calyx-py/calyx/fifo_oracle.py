@@ -5,10 +5,9 @@ import json
 def parse_json():
     """Effectively the opposite of `data_gen`:
     Given a JSON file formatted for Calyx purposes, parse it into its two lists:
-    - The `commands` array, which has MAX_CMDS items.
-    - The `values` array, which has MAX_CMDS items.
-
-    Returns the three lists.
+    - The `commands` memory, which has MAX_CMDS items.
+    - The `values` memory, which has MAX_CMDS items.
+    Returns the two lists.
     """
 
     # The JSON file is piped to us in stdin.
@@ -46,6 +45,7 @@ def operate_fifo(commands, values):
 
 
 def dump_json(commands, values, ans_mem):
+    """Prints a JSON representation of the data to stdout."""
     payload = {
         "ans_mem": ans_mem,
         "commands": commands,
