@@ -1164,7 +1164,7 @@ component controller() -> () {
   }
   control {
     seq {
-      query_stats;
+      invoke stats(flow=1'd0, report=1'd1)();
       get_data_locally;
     }
   }

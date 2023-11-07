@@ -84,11 +84,6 @@ def insert_controller(prog, name, stats):
     count_0 = controller.reg("count_0", 32)
     count_1 = controller.reg("count_1", 32)
 
-    with controller.group("query_stats") as query_stats:
-        stats.report = cb.HI
-        stats.flow = cb.LO
-        query_stats.done = stats.done
-
     with controller.group("get_data_locally") as get_data_locally:
         count_0.in_ = stats.count_0
         count_0.write_en = 1
@@ -98,7 +93,11 @@ def insert_controller(prog, name, stats):
 
     # The main logic.
     controller.control += [
-        query_stats,
+        cb.invoke(
+            stats,
+            in_flow=cb.LO,  # Bogus.
+            in_report=cb.HI,  # Yes, please give me a report.
+        ),  # Invoke the stats component.
         get_data_locally,
         # Great, now I have the data around locally.
         # TODO: loop, with delay.
