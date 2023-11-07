@@ -1,3 +1,4 @@
+import sys
 import json
 
 
@@ -9,8 +10,9 @@ def parse_json():
 
     Returns the three lists.
     """
-    with open("fifo.data", "r") as f:
-        data = json.load(f)
+
+    # The JSON file is piped to us in stdin.
+    data = json.load(sys.stdin)
     commands = data["commands"]["data"]
     values = data["values"]["data"]
     return commands, values
@@ -29,8 +31,12 @@ def operate_fifo(commands, values):
     ans = []
     for cmd, val in zip(commands, values):
         if cmd == 0:
+            if len(fifo) == 0:
+                break
             ans.append(fifo.pop(0))
         elif cmd == 1:
+            if len(fifo) == 0:
+                break
             ans.append(fifo[0])
         elif cmd == 2:
             fifo.append(val)

@@ -1,4 +1,5 @@
 import random
+import time
 import json
 from typing import Dict, Union
 
@@ -48,5 +49,5 @@ def dump_json():
 
 
 if __name__ == "__main__":
-    random.seed(4)
+    random.seed(5)
     dump_json()
