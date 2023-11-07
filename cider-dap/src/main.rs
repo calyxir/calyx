@@ -2,7 +2,7 @@ mod adapter;
 mod error;
 
 use adapter::MyAdapter;
-use dap::responses::SetBreakpointsResponse;
+use dap::responses::{SetBreakpointsResponse, SetExceptionBreakpointsResponse};
 use error::MyAdapterError;
 
 use dap::prelude::*;
@@ -153,9 +153,21 @@ fn run_server<R: Read, W: Write>(
                 }
             }
 
-            Command::Continue(args) => {}
+            //TODO: Implement this request fully when adapter becomes functional
+            Command::SetExceptionBreakpoints(_) => {
+                let rsp = req.success(ResponseBody::SetExceptionBreakpoints(
+                    SetExceptionBreakpointsResponse {
+                        breakpoints: (None),
+                    },
+                ));
+                server.respond(rsp)?;
+            }
 
-            Command::Next(args) => {}
+            //TODO IMPLEMENT THESE COMMANDS
+
+            // Command::Continue(args) => {}
+
+            // Command::Next(args) => {}
 
             // Here, can add a match pattern for a disconnect or exit command
             // to break out of the loop and close the server.

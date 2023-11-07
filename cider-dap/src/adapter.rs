@@ -48,9 +48,11 @@ impl MyAdapter {
         out_vec
     }
 
-    pub fn step(&self) {}
+    //TODO IMPLEMENT THESE
 
-    pub fn cont(&self) {}
+    // pub fn step(&self) {}
+
+    // pub fn cont(&self) {}
 }
 
 //Simple struct used to keep an index of the breakpoints used.
