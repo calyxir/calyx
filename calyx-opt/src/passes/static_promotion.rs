@@ -806,21 +806,24 @@ impl Visitor for StaticPromotion {
         _lib: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if comp.control.borrow().is_static() {
-            if let Some(lat) = comp.control.borrow().get_latency() {
-                comp.latency = Some(NonZeroU64::new(lat).unwrap());
-                let comp_sig = comp.signature.borrow();
-                let mut done_ports: Vec<_> =
-                    comp_sig.find_all_with_attr(ir::NumAttr::Done).collect();
-                let mut go_ports: Vec<_> =
-                    comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
-                if done_ports.len() == 1 && go_ports.len() == 1 {
-                    let go_done = GoDone::new(vec![(
-                        go_ports.pop().unwrap().borrow().name,
-                        done_ports.pop().unwrap().borrow().name,
-                        lat,
-                    )]);
-                    self.latency_data.insert(comp.name, go_done);
+        if comp.name != "main" {
+            if comp.control.borrow().is_static() {
+                if let Some(lat) = comp.control.borrow().get_latency() {
+                    comp.latency = Some(NonZeroU64::new(lat).unwrap());
+                    let comp_sig = comp.signature.borrow();
+                    let mut done_ports: Vec<_> = comp_sig
+                        .find_all_with_attr(ir::NumAttr::Done)
+                        .collect();
+                    let mut go_ports: Vec<_> =
+                        comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
+                    if done_ports.len() == 1 && go_ports.len() == 1 {
+                        let go_done = GoDone::new(vec![(
+                            go_ports.pop().unwrap().borrow().name,
+                            done_ports.pop().unwrap().borrow().name,
+                            lat,
+                        )]);
+                        self.latency_data.insert(comp.name, go_done);
+                    }
                 }
             }
         }

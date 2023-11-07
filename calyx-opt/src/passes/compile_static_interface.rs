@@ -8,7 +8,6 @@ use ir::{
 };
 use itertools::Itertools;
 use std::cell::RefCell;
-use std::num::NonZeroU64;
 use std::rc::Rc;
 
 #[derive(Default)]
@@ -68,8 +67,62 @@ fn separate_first_cycle_assign(
     }
 }
 
+fn make_guard_dyn_one_cycle_static_comp(
+    guard: ir::Guard<StaticTiming>,
+    comp_sig: RRC<ir::Cell>,
+) -> ir::Guard<Nothing> {
+    match guard {
+        ir::Guard::Or(l, r) => {
+            let left =
+                make_guard_dyn_one_cycle_static_comp(*l, Rc::clone(&comp_sig));
+            let right =
+                make_guard_dyn_one_cycle_static_comp(*r, Rc::clone(&comp_sig));
+            ir::Guard::or(left, right)
+        }
+        ir::Guard::And(l, r) => {
+            let left =
+                make_guard_dyn_one_cycle_static_comp(*l, Rc::clone(&comp_sig));
+            let right =
+                make_guard_dyn_one_cycle_static_comp(*r, Rc::clone(&comp_sig));
+            ir::Guard::and(left, right)
+        }
+        ir::Guard::Not(g) => {
+            let f =
+                make_guard_dyn_one_cycle_static_comp(*g, Rc::clone(&comp_sig));
+            ir::Guard::Not(Box::new(f))
+        }
+        ir::Guard::Info(t) => {
+            let (beg, end) = t.get_interval();
+            if beg != 0 || end != 1 {
+                unreachable!("This function is implemented for 1 cycle static components, only %0 can exist as timing guard")
+            } else {
+                let g = guard!(comp_sig["go"]);
+                g
+            }
+        }
+        ir::Guard::CompOp(op, l, r) => ir::Guard::CompOp(op, l, r),
+        ir::Guard::Port(p) => ir::Guard::Port(p),
+        ir::Guard::True => ir::Guard::True,
+    }
+}
+
+fn make_assign_dyn_one_cycle_static_comp(
+    assign: ir::Assignment<StaticTiming>,
+    comp_sig: RRC<ir::Cell>,
+) -> ir::Assignment<Nothing> {
+    ir::Assignment {
+        src: assign.src,
+        dst: assign.dst,
+        attributes: assign.attributes,
+        guard: Box::new(make_guard_dyn_one_cycle_static_comp(
+            *assign.guard,
+            comp_sig,
+        )),
+    }
+}
+
 impl CompileStaticInterface {
-    fn make_early_reset_group_static_component(
+    fn make_early_reset_assigns_static_component(
         &mut self,
         sgroup_assigns: &mut Vec<ir::Assignment<ir::StaticTiming>>,
         latency: u64,
@@ -154,14 +207,26 @@ impl Visitor for CompileStaticInterface {
                 let mut assignments =
                     std::mem::take(&mut sen.group.borrow_mut().assignments);
                 let comp_sig = Rc::clone(&builder.component.signature);
-                let dyn_assigns = self.make_early_reset_group_static_component(
-                    &mut assignments,
-                    s.get_latency(),
-                    fsm,
-                    &mut builder,
-                    comp_sig,
-                );
+                let dyn_assigns = self
+                    .make_early_reset_assigns_static_component(
+                        &mut assignments,
+                        s.get_latency(),
+                        fsm,
+                        &mut builder,
+                        comp_sig,
+                    );
                 builder.component.continuous_assignments.extend(dyn_assigns);
+            }
+        } else if comp.is_static() && s.get_latency() == 1 {
+            if let ir::StaticControl::Enable(sen) = s {
+                let assignments =
+                    std::mem::take(&mut sen.group.borrow_mut().assignments);
+                for assign in assignments {
+                    let comp_sig = Rc::clone(&comp.signature);
+                    comp.continuous_assignments.push(
+                      make_assign_dyn_one_cycle_static_comp(assign, comp_sig)
+                    );
+                }
             }
         }
         Ok(Action::Continue)
@@ -173,7 +238,7 @@ impl Visitor for CompileStaticInterface {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if comp.is_static() && comp.latency > NonZeroU64::new(1) {
+        if comp.is_static() {
             //let _c = std::mem::replace(&mut comp.control, Rc::new(RefCell::new(ir::Control::Static(ir::StaticControl::Empty(ir::Empty{attributes:Attributes::default()})))));
             let _c = std::mem::replace(
                 &mut comp.control,

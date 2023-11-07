@@ -109,10 +109,10 @@ impl PassManager {
             "compile",
             [
                 StaticInliner,
-                AddGuard,
                 MergeAssign, // Static inliner generates lots of assigns
                 DeadGroupRemoval, // Static inliner generates lots of dead groups
                 SimplifyStaticGuards,
+                AddGuard,
                 CompileStaticInterface,
                 DeadGroupRemoval,
                 CompileStatic,
