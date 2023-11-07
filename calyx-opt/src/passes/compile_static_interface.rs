@@ -224,7 +224,7 @@ impl Visitor for CompileStaticInterface {
                 for assign in assignments {
                     let comp_sig = Rc::clone(&comp.signature);
                     comp.continuous_assignments.push(
-                      make_assign_dyn_one_cycle_static_comp(assign, comp_sig)
+                        make_assign_dyn_one_cycle_static_comp(assign, comp_sig),
                     );
                 }
             }
