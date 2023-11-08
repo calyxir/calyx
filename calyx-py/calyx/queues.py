@@ -1,5 +1,9 @@
+import sys
+import json
 from dataclasses import dataclass
 from typing import List, Tuple
+
+ANS_MEM_LEN = 10
 
 
 @dataclass
@@ -40,6 +44,7 @@ class Pifo:
     We toggle between these queues when popping/peeking.
     We have a variable called `hot` that says which queue is to be popped/peeked next.
     `hot` starts at 1.
+    We also take at initialization a `boundary` value.
 
     We maintain internally a variable called `pifo_len`:
     the sum of the lengths of the two queues.
@@ -59,19 +64,20 @@ class Pifo:
     - We don't flip `hot`.
 
     When asked to push:
-    - If the value to be pushed is less than 200, we push it into queue_1.
+    - If the value to be pushed is less than `boundary`, we push it into queue_1.
     - Else, we push it into queue_2.
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2):
+    def __init__(self, queue_1, queue_2, boundary):
         self.data = (queue_1, queue_2)
         self.hot = 1
         self.pifo_len = len(queue_1) + len(queue_2)
+        self.boundary = boundary
 
     def push(self, val: int):
         """Pushes `val` to the PIFO."""
-        if val < 200:
+        if val < self.boundary:
             self.data[0].push(val)
         else:
             self.data[1].push(val)
@@ -112,3 +118,55 @@ class Pifo:
 
     def __len__(self) -> int:
         return self.pifo_len
+
+
+def parse_json():
+    """Effectively the opposite of `data_gen`:
+    Given a JSON file formatted for Calyx purposes, parse it into its two lists:
+    - The `commands` memory, which has MAX_CMDS items.
+    - The `values` memory, which has MAX_CMDS items.
+    Returns the two lists.
+    """
+
+    # The JSON file is piped to us in stdin.
+    data = json.load(sys.stdin)
+    commands = data["commands"]["data"]
+    values = data["values"]["data"]
+    return commands, values
+
+
+def dump_json(commands, values, ans_mem):
+    """Prints a JSON representation of the data to stdout."""
+    payload = {
+        "ans_mem": ans_mem,
+        "commands": commands,
+        "values": values,
+    }
+    print(json.dumps(payload, indent=2))
+
+
+def operate_queue(commands, values, queue):
+    """Given the two lists, one of commands and one of values.
+    Feed these into our queue, and return the answer memory.
+    """
+
+    ans = []
+    for cmd, val in zip(commands, values):
+        if cmd == 0:
+            try:
+                ans.append(queue.pop())
+            except IndexError:
+                break
+
+        elif cmd == 1:
+            try:
+                ans.append(queue.peek())
+            except IndexError:
+                break
+
+        elif cmd == 2:
+            queue.push(val)
+
+    # Pad the answer memory with zeroes until it is of length ANS_MEM_LEN.
+    ans += [0] * (ANS_MEM_LEN - len(ans))
+    return ans
