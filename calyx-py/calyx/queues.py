@@ -43,7 +43,7 @@ class Pifo:
     We do this by maintaining two queues that are given to us at initialization.
     We toggle between these queues when popping/peeking.
     We have a variable called `hot` that says which queue is to be popped/peeked next.
-    `hot` starts at 1.
+    `hot` starts at 0.
     We also take at initialization a `boundary` value.
 
     We maintain internally a variable called `pifo_len`:
@@ -51,11 +51,11 @@ class Pifo:
 
     When asked to pop:
     - If `pifo_len` is 0, we raise an error.
-    - Else, if `hot` is 1, we try to pop from queue_1.
-      + If it succeeds, we flip `hot` to 2 and return the value we got.
-      + If it fails, we pop from queue_2 and return the value we got.
+    - Else, if `hot` is 0, we try to pop from queue_0.
+      + If it succeeds, we flip `hot` to 1 and return the value we got.
+      + If it fails, we pop from queue_1 and return the value we got.
         We leave `hot` as it was.
-    - If `hot` is 2, we proceed symmetrically.
+    - If `hot` is 1, we proceed symmetrically.
     - We decrement `pifo_len` by 1.
 
     When asked to peek:
@@ -71,7 +71,7 @@ class Pifo:
 
     def __init__(self, queue_1, queue_2, boundary):
         self.data = (queue_1, queue_2)
-        self.hot = 1
+        self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
 
@@ -87,16 +87,16 @@ class Pifo:
         """Pops the PIFO."""
         if self.pifo_len == 0:
             raise IndexError("Cannot pop from empty PIFO.")
-        self.pifo_len -= 1
-        if self.hot == 1:
+        self.pifo_len -= 1  # We decrement `pifo_len` by 1.
+        if self.hot == 0:
             try:
-                self.hot = 2
+                self.hot = 1
                 return self.data[0].pop()
             except IndexError:
                 return self.data[1].pop()
         else:
             try:
-                self.hot = 1
+                self.hot = 0
                 return self.data[1].pop()
             except IndexError:
                 return self.data[0].pop()
@@ -105,7 +105,7 @@ class Pifo:
         """Peeks into the PIFO."""
         if self.pifo_len == 0:
             raise IndexError("Cannot peek into empty PIFO.")
-        if self.hot == 1:
+        if self.hot == 0:
             try:
                 return self.data[0].peek()
             except IndexError:
