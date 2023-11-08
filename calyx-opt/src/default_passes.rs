@@ -97,8 +97,8 @@ impl PassManager {
                 SimplifyWithControl, // Must run before compile-invoke
                 AttributePromotion,
                 StaticPromotion,
-                ScheduleCompaction,
                 CompileInvoke, // creates dead comb groups
+                ScheduleCompaction,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,
