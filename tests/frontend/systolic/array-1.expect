@@ -31,27 +31,18 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
   cells {
     iter_limit = std_reg(32);
     iter_limit_add = std_add(32);
-    depth_plus_5 = std_add(32);
-    depth_plus_0 = std_add(32);
-    depth_plus_1 = std_add(32);
-    depth_plus_6 = std_add(32);
     idx = std_reg(32);
     idx_add = std_add(32);
     lt_iter_limit = std_lt(32);
-    index_ge_0 = std_ge(32);
+    depth_plus_0 = std_add(32);
+    depth_plus_5 = std_add(32);
+    index_eq_depth_plus_5 = std_eq(32);
     index_ge_1 = std_ge(32);
-    index_ge_depth_plus_5 = std_ge(32);
     index_ge_5 = std_ge(32);
     index_lt_depth_plus_0 = std_lt(32);
-    index_lt_depth_plus_1 = std_lt(32);
-    index_lt_5 = std_lt(32);
     index_lt_depth_plus_5 = std_lt(32);
-    index_lt_depth_plus_6 = std_lt(32);
-    idx_between_5_depth_plus_5_comb = std_and(1);
-    idx_between_1_5_comb = std_and(1);
     idx_between_0_depth_plus_0_comb = std_wire(1);
-    idx_between_1_depth_plus_1_comb = std_and(1);
-    idx_between_depth_plus_5_depth_plus_6_comb = std_and(1);
+    idx_between_1_depth_plus_5_comb = std_and(1);
     pe_0_0 = mac_pe();
     top_0_0 = std_reg(32);
     left_0_0 = std_reg(32);
@@ -65,14 +56,6 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
       iter_limit.in = iter_limit_add.out;
       iter_limit.write_en = 1'd1;
     }
-    depth_plus_5.left = depth;
-    depth_plus_5.right = 32'd5;
-    depth_plus_0.left = depth;
-    depth_plus_0.right = 32'd0;
-    depth_plus_1.left = depth;
-    depth_plus_1.right = 32'd1;
-    depth_plus_6.left = depth;
-    depth_plus_6.right = 32'd6;
     static<1> group init_idx {
       idx.in = 32'd0;
       idx.write_en = 1'd1;
@@ -85,33 +68,23 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
     }
     lt_iter_limit.left = idx.out;
     lt_iter_limit.right = iter_limit.out;
-    index_ge_0.left = idx.out;
-    index_ge_0.right = 32'd0;
+    depth_plus_0.left = depth;
+    depth_plus_0.right = 32'd0;
+    depth_plus_5.left = depth;
+    depth_plus_5.right = 32'd5;
+    index_eq_depth_plus_5.left = idx.out;
+    index_eq_depth_plus_5.right = depth_plus_5.out;
     index_ge_1.left = idx.out;
     index_ge_1.right = 32'd1;
-    index_ge_depth_plus_5.left = idx.out;
-    index_ge_depth_plus_5.right = depth_plus_5.out;
     index_ge_5.left = idx.out;
     index_ge_5.right = 32'd5;
     index_lt_depth_plus_0.left = idx.out;
     index_lt_depth_plus_0.right = depth_plus_0.out;
-    index_lt_depth_plus_1.left = idx.out;
-    index_lt_depth_plus_1.right = depth_plus_1.out;
-    index_lt_5.left = idx.out;
-    index_lt_5.right = 32'd5;
     index_lt_depth_plus_5.left = idx.out;
     index_lt_depth_plus_5.right = depth_plus_5.out;
-    index_lt_depth_plus_6.left = idx.out;
-    index_lt_depth_plus_6.right = depth_plus_6.out;
-    idx_between_5_depth_plus_5_comb.right = index_lt_depth_plus_5.out;
-    idx_between_5_depth_plus_5_comb.left = index_ge_5.out;
-    idx_between_1_5_comb.right = index_lt_5.out;
-    idx_between_1_5_comb.left = index_ge_1.out;
     idx_between_0_depth_plus_0_comb.in = index_lt_depth_plus_0.out;
-    idx_between_1_depth_plus_1_comb.right = index_lt_depth_plus_1.out;
-    idx_between_1_depth_plus_1_comb.left = index_ge_1.out;
-    idx_between_depth_plus_5_depth_plus_6_comb.right = index_lt_depth_plus_6.out;
-    idx_between_depth_plus_5_depth_plus_6_comb.left = index_ge_depth_plus_5.out;
+    idx_between_1_depth_plus_5_comb.right = index_lt_depth_plus_5.out;
+    idx_between_1_depth_plus_5_comb.left = index_ge_1.out;
     idx_minus_0.left = idx.out;
     idx_minus_0.right = 32'd0;
     idx_minus_0_res.in = idx_minus_0.out;
@@ -147,17 +120,12 @@ component systolic_array_comp(depth: 32, t0_read_data: 32, l0_read_data: 32) -> 
                 t0_move;
               }
             }
-            static if idx_between_1_5_comb.out {
+            static if idx_between_1_depth_plus_5_comb.out {
               static par {
-                static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=1'd0)();
+                static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=index_ge_5.out)();
               }
             }
-            static if idx_between_5_depth_plus_5_comb.out {
-              static par {
-                static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=1'd1)();
-              }
-            }
-            static if idx_between_depth_plus_5_depth_plus_6_comb.out {
+            static if index_eq_depth_plus_5.out {
               static par {
                 pe_0_0_out_write;
               }
@@ -228,5 +196,5 @@ component main() -> () {
   }
 }
 metadata #{
-0: pe_0_0 filling: [1,5), accumulating: [5 depth_plus_5), writing: [depth_plus_5 depth_plus_6)
+0: pe_0_0: Feeding Boundary PE: [0,depth_plus_0) || Invoking PE: [1, depth_plus_5) || Writing PE Result: depth_plus_5
 }#
