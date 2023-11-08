@@ -83,6 +83,16 @@ def operate_fifo(commands, values):
     return ans
 
 
+def dump_json(commands, values, ans_mem):
+    """Prints a JSON representation of the data to stdout."""
+    payload = {
+        "ans_mem": ans_mem,
+        "commands": commands,
+        "values": values,
+    }
+    print(json.dumps(payload, indent=2))
+
+
 if __name__ == "__main__":
     commands, values = parse_json()
     ans = operate_fifo(commands, values)
