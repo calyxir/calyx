@@ -18,8 +18,8 @@ def parse_json():
 
 
 def operate_fifo(commands, values):
-    """Given the three lists, operate a FIFO routine.
-    - Read the comammands list in order.
+    """Given the two lists, operate a FIFO routine.
+    - Read the commands list in order.
     - When the value is 0, we "pop" the FIFO and write the value to the answer memory.
     - When it is 1, we "peek" into the FIFO and write the value to the answer memory.
     - When it is 2, we push the coressponding item in the `values` list to the FIFO.
