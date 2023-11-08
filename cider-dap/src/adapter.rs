@@ -1,10 +1,11 @@
-use dap::types::{Breakpoint, Source, SourceBreakpoint};
+use dap::types::{Breakpoint, Source, SourceBreakpoint, Thread};
 use std::fs::File;
 pub struct MyAdapter {
     #[allow(dead_code)]
     file: File,
     breakpoints: Vec<(Source, i64)>,
     break_count: Counter,
+    threads: Vec<Thread>,
 }
 
 impl MyAdapter {
@@ -13,6 +14,7 @@ impl MyAdapter {
             file,
             breakpoints: Vec::new(),
             break_count: Counter::new(),
+            threads: Vec::new(),
         }
     }
 
@@ -48,11 +50,10 @@ impl MyAdapter {
         out_vec
     }
 
-    //TODO IMPLEMENT THESE
-
-    // pub fn step(&self) {}
-
-    // pub fn cont(&self) {}
+    //Return threads
+    pub fn get_threads(&self) -> Vec<Thread> {
+        self.threads.clone()
+    }
 }
 
 //Simple struct used to keep an index of the breakpoints used.

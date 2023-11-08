@@ -2,7 +2,9 @@ mod adapter;
 mod error;
 
 use adapter::MyAdapter;
-use dap::responses::{SetBreakpointsResponse, SetExceptionBreakpointsResponse};
+use dap::responses::{
+    SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse,
+};
 use error::MyAdapterError;
 
 use dap::prelude::*;
@@ -125,7 +127,7 @@ where
 
 fn run_server<R: Read, W: Write>(
     server: &mut Server<R, W>,
-    mut _adapter: MyAdapter,
+    mut adapter: MyAdapter,
 ) -> AdapterResult<()> {
     loop {
         // Start looping here
@@ -142,8 +144,8 @@ fn run_server<R: Read, W: Write>(
             Command::SetBreakpoints(args) => {
                 //Add breakpoints
                 if let Some(breakpoint) = &args.breakpoints {
-                    let out = _adapter
-                        .set_breakpoint(args.source.clone(), breakpoint);
+                    let out =
+                        adapter.set_breakpoint(args.source.clone(), breakpoint);
 
                     //Success
                     let rsp = req.success(ResponseBody::SetBreakpoints(
@@ -163,12 +165,13 @@ fn run_server<R: Read, W: Write>(
                 server.respond(rsp)?;
             }
 
-            //TODO IMPLEMENT THESE COMMANDS
-
-            // Command::Continue(args) => {}
-
-            // Command::Next(args) => {}
-
+            //Retrieve a list of all threads
+            Command::Threads => {
+                let rsp = req.success(ResponseBody::Threads(ThreadsResponse {
+                    threads: adapter.get_threads(),
+                }));
+                server.respond(rsp)?;
+            }
             // Here, can add a match pattern for a disconnect or exit command
             // to break out of the loop and close the server.
             // Command::Disconnect(_) => break,
