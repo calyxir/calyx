@@ -121,15 +121,14 @@ def insert_main(prog, dataplane, controller):
     ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
     main.control += [
-        # cb.par(
-        cb.invoke(  # Invoke the dataplane component.
-            dataplane,
-            ref_commands=commands,
-            ref_values=values,
-            ref_ans_mem=ans_mem,
-            # ),
-            # cb.invoke(controller),  # Invoke the controller component.
-            # Commenting out since it causes the `par` to run forever.
+        cb.par(
+            cb.invoke(  # Invoke the dataplane component.
+                dataplane,
+                ref_commands=commands,
+                ref_values=values,
+                ref_ans_mem=ans_mem,
+            ),
+            cb.invoke(controller),  # Invoke the controller component.
         )
     ]
     # In reality we need to write this in near-RTL:
