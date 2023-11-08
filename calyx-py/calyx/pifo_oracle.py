@@ -11,17 +11,18 @@ class Pifo:
     """A PIFO data structure.
     Supports the operations `push`, `pop`, and `peek`.
 
-    We do this by maintaining two FIFOs and toggling between them when popping.
-    We have a variable called `hot` that indicates which FIFO is to be popped next.
+    We do this by maintaining two queues that are given to us at initialization.
+    We toggle between these queues when popping/peeking.
+    We have a variable called `hot` that says which queue is to be popped/peeked next.
     `hot` starts at 1.
 
-    We maintain a variable called `pifo_len`: the sum of the lengths of the two FIFOs.
+    We maintain a variable called `pifo_len`: the sum of the lengths of the two queues.
 
     When asked to pop:
     - If `pifo_len` is 0, we raise an error.
-    - Else, if `hot` is 1, we try to pop from FIFO_1.
+    - Else, if `hot` is 1, we try to pop from queue_1.
       + If it succeeds, we flip `hot` to 2 and return the value we got.
-      + If it fails, we pop from FIFO_2 and return the value we got.
+      + If it fails, we pop from queue_2 and return the value we got.
         We leave `hot` as it was.
     - If `hot` is 2, we proceed symmetrically.
     - We decrement `pifo_len` by 1.
@@ -32,15 +33,13 @@ class Pifo:
     - We don't flip `hot`.
 
     When asked to push:
-    - If the value to be pushed is less than 200, we push it into FIFO_1.
-    - Else, we push it into FIFO_2.
+    - If the value to be pushed is less than 200, we push it into queue_1.
+    - Else, we push it into queue_2.
     - We increment `pifo_len` by 1.
     """
 
-    data = Tuple[fifo_oracle.Fifo, fifo_oracle.Fifo]
-
-    def __init__(self):
-        self.data = (fifo_oracle.Fifo([]), fifo_oracle.Fifo([]))
+    def __init__(self, queue_1, queue_2):
+        self.data = (queue_1, queue_2)
         self.hot = 1
         self.pifo_len = 0
 
@@ -91,10 +90,13 @@ class Pifo:
 
 def operate_pifo(commands, values):
     """Given the three lists, operate a PIFO routine.
+    In this case, we have our PIFO just orchestrate two FIFOs.
     In the end, we return the answer memory.
     """
 
-    pifo = Pifo()
+    pifo = Pifo(fifo_oracle.Fifo([]), fifo_oracle.Fifo([]))
+    # Our PIFO is simple: it just orchestrates two FIFOs.
+
     ans = []
     for cmd, val in zip(commands, values):
         if cmd == 0:
