@@ -1,7 +1,7 @@
 import sys
 import json
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List
 
 ANS_MEM_LEN = 10
 
@@ -128,7 +128,6 @@ def parse_json():
     Returns the two lists.
     """
 
-    # The JSON file is piped to us in stdin.
     data = json.load(sys.stdin)
     commands = data["commands"]["data"]
     values = data["values"]["data"]
