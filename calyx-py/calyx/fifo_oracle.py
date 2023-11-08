@@ -1,8 +1,6 @@
 import sys
 import json
-
-from dataclasses import dataclass
-from typing import List
+import queues
 
 ANS_MEM_LEN = 10
 
@@ -32,27 +30,6 @@ def dump_json(commands, values, ans_mem):
     print(json.dumps(payload, indent=2))
 
 
-@dataclass
-class Fifo:
-    """A FIFO data structure.
-    Supports the operations `push`, `pop`, and `peek`.
-    """
-
-    data: List[int]
-
-    def push(self, val: int):
-        """Pushes `val` to the FIFO."""
-        self.data.append(val)
-
-    def pop(self) -> int:
-        """Pops the FIFO."""
-        return self.data.pop(0)
-
-    def peek(self) -> int:
-        """Peeks into the FIFO."""
-        return self.data[0]
-
-
 def operate_fifo(commands, values):
     """Given the two lists, operate a FIFO routine.
     - Read the commands list in order.
@@ -62,18 +39,20 @@ def operate_fifo(commands, values):
 
     In the end, we return the answer memory.
     """
-    fifo = Fifo([])
+    fifo = queues.Fifo([])
     ans = []
     for cmd, val in zip(commands, values):
         if cmd == 0:
-            if len(fifo) == 0:
+            try:
+                ans.append(fifo.pop())
+            except IndexError:
                 break
-            ans.append(fifo.pop())
 
         elif cmd == 1:
-            if len(fifo) == 0:
+            try:
+                ans.append(fifo.peek())
+            except IndexError:
                 break
-            ans.append(fifo.peek())
 
         elif cmd == 2:
             fifo.push(val)
