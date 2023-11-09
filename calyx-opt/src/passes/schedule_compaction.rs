@@ -64,10 +64,8 @@ impl Visitor for ScheduleCompaction {
             for i in order {
                 let mut start: u64 = 0;
                 for node in dependency.get(&i).unwrap() {
-                    let allow_start = schedule[node] + latency_map[node];
-                    if allow_start > start {
-                        start = allow_start;
-                    }
+                    start =
+                        std::cmp::max(start, schedule[node] + latency_map[node])
                 }
                 schedule.insert(i, start);
                 total_time = std::cmp::max(start + latency_map[&i], total_time);
@@ -97,6 +95,7 @@ impl Visitor for ScheduleCompaction {
                                     attributes: ir::Attributes::default(),
                                 },
                             ));
+                            *thread_latency = start;
                         }
                         thread.push(control);
                         *thread_latency += latency_map[&i];
@@ -116,11 +115,12 @@ impl Visitor for ScheduleCompaction {
                     },
                 ));
             }
+            let max = par_control_threads.iter().map(|c| c.get_latency()).max();
+            assert!(max.unwrap() == total_time, "messed up");
 
             if par_control_threads.len() == 1 {
-                return Ok(Action::static_change(
-                    Vec::pop(&mut par_control_threads).unwrap(),
-                ));
+                let c = Vec::pop(&mut par_control_threads).unwrap();
+                return Ok(Action::static_change(c));
             } else {
                 let s_par = ir::StaticControl::Par(ir::StaticPar {
                     stmts: par_control_threads,
