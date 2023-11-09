@@ -73,7 +73,8 @@ impl Visitor for ScheduleCompaction {
             // We sort the schedule by start time.
             let mut sorted_schedule: Vec<(NodeIndex, u64)> =
                 schedule.into_iter().collect();
-            sorted_schedule.sort_by(|(_, v1), (_, v2)| v1.cmp(v2));
+            sorted_schedule
+                .sort_by(|(k1, v1), (k2, v2)| (v1, k1).cmp(&(v2, k2)));
             // Threads for the static par, where each entry is (thread, thread_latency)
             let mut par_threads: Vec<(Vec<ir::StaticControl>, u64)> =
                 Vec::new();
