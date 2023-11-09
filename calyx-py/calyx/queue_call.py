@@ -126,7 +126,7 @@ def insert_main(prog, queue):
     return main
 
 
-def insert_runner(prog, queue, name):
+def insert_runner(prog, queue, name, stats_component):
     """Inserts the component `name` into the program.
     This will be used to `invoke` the component `queue` and feed it one command.
     This component is designed to be invoked by some other component, and does not
@@ -137,6 +137,10 @@ def insert_runner(prog, queue, name):
     ), "This method is not designed for the creation of `main`-style components."
 
     runner: cb.ComponentBuilder = prog.component(name)
+
+    # We take a stats component by reference,
+    # but all we'll really do with it is pass it to the queue component.
+    stats = runner.cell("stats_runner", stats_component, is_ref=True)
 
     # The user-facing interface of this component is:
     # - input 1: a list of commands
@@ -222,6 +226,7 @@ def insert_runner(prog, queue, name):
             in_value=value.out,
             ref_ans=ans,
             ref_err=err,
+            ref_stats=stats,
         ),
         # We're back from the invoke.
         # Let's assume there is no answer and lower the `has_ans` flag.

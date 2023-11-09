@@ -97,7 +97,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
 
     # If a stats component was provided, declare it as a cell of this component.
     if stats:
-        stats = pifo.cell("stats", stats)
+        stats = pifo.cell("stats", stats, is_ref=True)
 
     flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1.
     # We will infer this using a separate component;
@@ -305,7 +305,6 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
                                 cb.invoke(
                                     stats,
                                     in_flow=flow.out,
-                                    in_report=cb.LO,
                                 ),
                             ],
                         ),

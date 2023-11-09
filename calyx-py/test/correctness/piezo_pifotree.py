@@ -90,11 +90,10 @@ def insert_controller(prog, name, stats_component):
 
     # The main logic.
     controller.control += [
-        cb.invoke(
+        cb.invoke(  # Invoke the stats component.
             stats,
-            in_flow=cb.LO,  # Bogus.
-            in_report=cb.HI,  # Yes, please give me a report.
-        ),  # Invoke the stats component.
+            in_report=cb.LO,  # Yes, please give me a report.
+        ),
         get_data_locally,
         # Great, now I have the data around locally.
     ]
@@ -143,6 +142,7 @@ def insert_main(prog, dataplane, controller, stats_component):
                         ref_has_ans=has_ans,
                         ref_component_ans=dataplane_ans,
                         ref_component_err=dataplane_err,
+                        ref_stats_runner=stats,
                     ),
                     # If the dataplane component has an answer,
                     # write it to the answer-list and increment the index `j`.
@@ -168,10 +168,8 @@ def build():
     pifo_root = pifo.insert_pifo(
         prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component
     )
-    # The root PIFO has a stats component.
-    # TODO: This should be passed by Calyx-level reference,
-    # not by Python-level argument.
-    dataplane = qc.insert_runner(prog, pifo_root, "dataplane")
+    # The root PIFO will take a stats component by reference.
+    dataplane = qc.insert_runner(prog, pifo_root, "dataplane", stats_component)
     controller = insert_controller(prog, "controller", stats_component)
     insert_main(prog, dataplane, controller, stats_component)
     return prog.program
