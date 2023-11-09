@@ -182,7 +182,6 @@ def insert_runner(prog, queue, name, stats_component):
     ans = runner.reg("ans", 32)  # A memory to hold the answer of a pop or peek
 
     i = runner.reg("i", 32)  # The index of the command we're currently processing
-    # TODO: Does this actually save state, or do I need to pass `i` in?
     cmd = runner.reg("command", 2)  # The command we're currently processing
     value = runner.reg("value", 32)  # The value we're currently processing
 
