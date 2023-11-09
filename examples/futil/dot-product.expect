@@ -109,7 +109,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     early_reset_static_seq_done.in = ud0.out;
     tdcc_done.in = fsm0.out == 2'd3 ? 1'd1;
     while_wrapper_early_reset_static_seq_done.in = !comb_reg.out & fsm.out == 4'd0 ? 1'd1;
-    A_read0_0.write_en = (fsm.out == 4'd0 & fsm.out < 4'd7 | fsm.out == 4'd4 & fsm.out < 4'd5 & fsm.out < 4'd7) & early_reset_static_seq_go.out ? 1'd1;
+    A_read0_0.write_en = (fsm.out == 4'd0 & fsm.out < 4'd7 | fsm.out == 4'd4 & fsm.out < 4'd7) & early_reset_static_seq_go.out ? 1'd1;
     A_read0_0.clk = clk;
     A_read0_0.reset = reset;
     A_read0_0.in = fsm.out == 4'd0 & early_reset_static_seq_go.out ? A0.read_data;
