@@ -5,14 +5,11 @@ MAX_CMDS = 15
 ANS_MEM_LEN = 10
 
 
-def insert_main(prog, queue, name=None):
+def insert_main(prog, queue):
     """Inserts the component `name` into the program.
     This will be used to `invoke` the component `queue` and feed it a list of commands.
     """
-    if name is None:
-        # Unless given a name, we'll call the component `main`.
-        name = "main"
-    main: cb.ComponentBuilder = prog.component(name)
+    main: cb.ComponentBuilder = prog.component("main")
 
     # The user-facing interface of the `main` component is:
     # - input 1: a list of commands
@@ -25,7 +22,7 @@ def insert_main(prog, queue, name=None):
     #    the value at `i` is pushed if the command at `i` is `2`.
     # - output: a list of answers, reflecting any pops or peeks from the queue.
     #
-    # The user-facing interface of the `queue` component is:
+    # The user-facing interface of the `queue` component is assumed to be:
     # - input `cmd`
     #    where each command is a 2-bit unsigned integer, with the following format:
     #    `0`: pop
@@ -36,24 +33,14 @@ def insert_main(prog, queue, name=None):
     # - one ref register, `ans`, into which the result of a pop or peek is written.
     # - one ref register, `err`, which is raised if an error occurs.
 
-    if name == "main":
-        # If this is the main component, we'll set up the external memories.
-        commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
-        values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
-        ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
-    else:
-        # If not, the actual main component will need to pass us these
-        # memories by reference.
-        commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_ref=True)
-        values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_ref=True)
-        ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_ref=True)
+    # We set up the external memories.
+    commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
+    values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
-    # The two components we'll use:
+    # We'll invoke the queue component, which takes two inputs by reference
+    # and one input directly.
     queue = main.cell("myqueue", queue)
-
-    # We will use the `invoke` method to call the `queue` component.
-    # The queue component takes two inputs by reference and one input directly.
-    # The two `ref` inputs:
     err = main.reg("err", 1)  # A flag to indicate an error
     ans = main.reg("ans", 32)  # A memory to hold the answer of a pop or peek
 
