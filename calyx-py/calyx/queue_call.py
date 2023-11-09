@@ -6,7 +6,7 @@ ANS_MEM_LEN = 10
 
 
 def insert_main(prog, queue):
-    """Inserts the component `name` into the program.
+    """Inserts the component `main` into the program.
     This will be used to `invoke` the component `queue` and feed it a list of commands.
     This component will directly interface with external memories and will
     finally populate an external memory with the answers.
