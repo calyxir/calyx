@@ -133,26 +133,24 @@ def insert_main(prog, dataplane, controller, stats_component):
         # raises `dataplane_err`.
         cb.while_with(
             err_eq_0,  # While the dataplane component has not errored out.
-            cb.par(
-                [
-                    cb.invoke(  # Invoke the dataplane component.
-                        dataplane,
-                        ref_commands=commands,
-                        ref_values=values,
-                        ref_has_ans=has_ans,
-                        ref_component_ans=dataplane_ans,
-                        ref_component_err=dataplane_err,
-                        ref_stats_runner=stats,
-                    ),
-                    # If the dataplane component has an answer,
-                    # write it to the answer-list and increment the index `j`.
-                    cb.if_(has_ans.out, [write_ans, incr_j]),
-                ],
+            [
+                cb.invoke(  # Invoke the dataplane component.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                    ref_stats_runner=stats,
+                ),
+                # If the dataplane component has an answer,
+                # write it to the answer-list and increment the index `j`.
+                cb.if_(has_ans.out, [write_ans, incr_j]),
                 cb.invoke(  # Invoke the controller component.
                     controller,
                     ref_stats_controller=stats,
                 ),
-            ),
+            ],
         )
     ]
 

@@ -305,6 +305,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
                                 cb.invoke(
                                     stats,
                                     in_flow=flow.out,
+                                    in_report=cb.LO,  # Not requesting a report.
                                 ),
                             ],
                         ),
