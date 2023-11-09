@@ -116,12 +116,19 @@ impl Visitor for ScheduleCompaction {
                     },
                 ));
             }
-            let s_par = ir::StaticControl::Par(ir::StaticPar {
-                stmts: par_control_threads,
-                attributes: ir::Attributes::default(),
-                latency: total_time,
-            });
-            return Ok(Action::static_change(s_par));
+
+            if par_control_threads.len() == 1 {
+                return Ok(Action::static_change(
+                    Vec::pop(&mut par_control_threads).unwrap(),
+                ));
+            } else {
+                let s_par = ir::StaticControl::Par(ir::StaticPar {
+                    stmts: par_control_threads,
+                    attributes: ir::Attributes::default(),
+                    latency: total_time,
+                });
+                return Ok(Action::static_change(s_par));
+            }
         } else {
             println!(
                 "Error when producing topo sort. Dependency graph has a cycle."
