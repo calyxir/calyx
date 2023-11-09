@@ -4,7 +4,6 @@ use crate::{
     traversal::{Named, Visitor},
 };
 use calyx_ir as ir;
-use itertools::Itertools;
 use petgraph::{algo, graph::NodeIndex};
 use std::collections::HashMap;
 
@@ -60,7 +59,7 @@ impl Visitor for ScheduleCompaction {
         if let Ok(order) = algo::toposort(&total_order, None) {
             let mut total_time: u64 = 0;
 
-            // First we build the schedule
+            // First we build the schedule.
             for i in order {
                 let mut start: u64 = 0;
                 for node in dependency.get(&i).unwrap() {
@@ -71,20 +70,22 @@ impl Visitor for ScheduleCompaction {
                 total_time = std::cmp::max(start + latency_map[&i], total_time);
             }
 
+            // We sort the schedule by start time.
             let mut sorted_schedule: Vec<(NodeIndex, u64)> =
                 schedule.into_iter().collect();
             sorted_schedule.sort_by(|(_, v1), (_, v2)| v1.cmp(v2));
-            // Par Threads, where each entry is (thread, thread_latency)
+            // Threads for the static par, where each entry is (thread, thread_latency)
             let mut par_threads: Vec<(Vec<ir::StaticControl>, u64)> =
                 Vec::new();
 
-            // Now we build the ordering to minimize the number of par threads
+            // We encode the schedule attempting to minimize the number of
+            // par threads.
             'outer: for (i, start) in sorted_schedule {
                 let control = total_order[i].take().unwrap();
                 for (thread, thread_latency) in par_threads.iter_mut() {
                     if *thread_latency <= start {
                         if *thread_latency < start {
-                            // Might need a no-op group to align schedule
+                            // Might need a no-op group so the schedule starts correctly
                             let no_op = builder.add_static_group(
                                 "no-op",
                                 start - *thread_latency,
@@ -102,7 +103,10 @@ impl Visitor for ScheduleCompaction {
                         continue 'outer;
                     }
                 }
+                // We must create a new par thread.
                 if start > 0 {
+                    // If start > 0, then we must add a delay to the start of the
+                    // group.
                     let no_op = builder.add_static_group("no-op", start);
                     let no_op_enable =
                         ir::StaticControl::Enable(ir::StaticEnable {
@@ -118,6 +122,7 @@ impl Visitor for ScheduleCompaction {
                 }
             }
 
+            // Turn Vec<ir::StaticControl> -> StaticSeq
             let mut par_control_threads: Vec<ir::StaticControl> = Vec::new();
             for (thread, thread_latency) in par_threads {
                 par_control_threads.push(ir::StaticControl::Seq(
@@ -128,8 +133,9 @@ impl Visitor for ScheduleCompaction {
                     },
                 ));
             }
+            // Double checking that we have built the static par correctly.
             let max = par_control_threads.iter().map(|c| c.get_latency()).max();
-            assert!(max.unwrap() == total_time, "messed up");
+            assert!(max.unwrap() == total_time, "The schedule expects latency {}. The static par that was built has latency {}", total_time, max.unwrap());
 
             if par_control_threads.len() == 1 {
                 let c = Vec::pop(&mut par_control_threads).unwrap();
