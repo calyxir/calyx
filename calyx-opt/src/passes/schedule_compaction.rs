@@ -4,6 +4,7 @@ use crate::{
     traversal::{Named, Visitor},
 };
 use calyx_ir as ir;
+use itertools::Itertools;
 use petgraph::{algo, graph::NodeIndex};
 use std::collections::HashMap;
 
@@ -58,8 +59,8 @@ impl Visitor for ScheduleCompaction {
 
         if let Ok(order) = algo::toposort(&total_order, None) {
             let mut total_time: u64 = 0;
-            let mut stmts: Vec<ir::StaticControl> = Vec::new();
 
+            // First we build the schedule
             for i in order {
                 let mut start: u64 = 0;
                 for node in dependency.get(&i).unwrap() {
@@ -69,33 +70,54 @@ impl Visitor for ScheduleCompaction {
                     }
                 }
                 schedule.insert(i, start);
-
-                let control = total_order[i].take().unwrap();
-                let mut st_seq_stmts: Vec<ir::StaticControl> = Vec::new();
-                if start > 0 {
-                    let no_op = builder.add_static_group("no-op", start);
-
-                    st_seq_stmts.push(ir::StaticControl::Enable(
-                        ir::StaticEnable {
-                            group: no_op,
-                            attributes: ir::Attributes::default(),
-                        },
-                    ));
-                }
-                if start + latency_map[&i] > total_time {
-                    total_time = start + latency_map[&i];
-                }
-
-                st_seq_stmts.push(control);
-                stmts.push(ir::StaticControl::Seq(ir::StaticSeq {
-                    stmts: st_seq_stmts,
-                    attributes: ir::Attributes::default(),
-                    latency: start + latency_map[&i],
-                }));
+                total_time = std::cmp::max(start + latency_map[&i], total_time);
             }
 
+            let mut sorted_schedule: Vec<(NodeIndex, u64)> =
+                schedule.into_iter().collect();
+            sorted_schedule.sort_by(|(_, v1), (_, v2)| v1.cmp(v2));
+            // Par Threads, where each entry is (thread, thread_latency)
+            let mut par_threads: Vec<(Vec<ir::StaticControl>, u64)> =
+                Vec::new();
+
+            // Now we build the ordering to minimize the number of par threads
+            'outer: for (i, start) in sorted_schedule {
+                let control = total_order[i].take().unwrap();
+                for (thread, thread_latency) in par_threads.iter_mut() {
+                    if *thread_latency <= start {
+                        if *thread_latency < start {
+                            // Might need a no-op group to align schedule
+                            let no_op = builder.add_static_group(
+                                "no-op",
+                                start - *thread_latency,
+                            );
+                            thread.push(ir::StaticControl::Enable(
+                                ir::StaticEnable {
+                                    group: no_op,
+                                    attributes: ir::Attributes::default(),
+                                },
+                            ));
+                        }
+                        thread.push(control);
+                        *thread_latency += latency_map[&i];
+                        continue 'outer;
+                    }
+                }
+                par_threads.push((vec![control], latency_map[&i]));
+            }
+
+            let mut par_control_threads: Vec<ir::StaticControl> = Vec::new();
+            for (thread, thread_latency) in par_threads {
+                par_control_threads.push(ir::StaticControl::Seq(
+                    ir::StaticSeq {
+                        stmts: thread,
+                        attributes: ir::Attributes::default(),
+                        latency: thread_latency,
+                    },
+                ));
+            }
             let s_par = ir::StaticControl::Par(ir::StaticPar {
-                stmts,
+                stmts: par_control_threads,
                 attributes: ir::Attributes::default(),
                 latency: total_time,
             });
@@ -105,6 +127,7 @@ impl Visitor for ScheduleCompaction {
                 "Error when producing topo sort. Dependency graph has a cycle."
             );
         }
+
         Ok(Action::Continue)
     }
 

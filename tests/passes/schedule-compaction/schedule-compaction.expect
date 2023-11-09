@@ -26,25 +26,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       d_reg.write_en = %0 ? 1'd1;
       d_reg.in = a_reg.out;
     }
-    static<1> group no-op {
-    }
-    static<10> group no-op0 {
-    }
   }
   control {
     static<11> par {
-      static<10> seq  {
-        C;
-      }
-      static<1> seq  {
-        A;
-      }
       static<11> seq  {
-        no-op;
+        A;
         D;
       }
       static<11> seq  {
-        no-op0;
+        C;
         B;
       }
     }
