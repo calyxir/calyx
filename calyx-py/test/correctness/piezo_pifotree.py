@@ -126,7 +126,6 @@ def insert_main(prog, dataplane, controller):
                 dataplane,
                 ref_commands=commands,
                 ref_values=values,
-                ref_ans_mem=ans_mem,
             ),
             cb.invoke(controller),  # Invoke the controller component.
         )
