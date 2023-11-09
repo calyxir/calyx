@@ -68,18 +68,15 @@ def insert_stats(prog, name):
     return stats
 
 
-def insert_controller(prog, name, stats):
+def insert_controller(prog, name, stats_component):
     """Inserts a controller component called `name` into the program `prog`.
 
-    This component invokes the `stats` component, to which it has a handle,
-    to retrieve its latest stats.
-
-    The eventual goal is to have this happen _periodically_.
-    For now, we just do it once.
+    This component receives, by reference, a `stats` component.
+    It invokes the `stats` component to retrieve its latest stats.
     """
 
     controller = prog.component(name)
-    stats = controller.cell("stats", stats)
+    stats = controller.cell("stats_controller", stats_component, is_ref=True)
 
     count_0 = controller.reg("count_0", 32)
     count_1 = controller.reg("count_1", 32)
@@ -100,19 +97,19 @@ def insert_controller(prog, name, stats):
         ),  # Invoke the stats component.
         get_data_locally,
         # Great, now I have the data around locally.
-        # TODO: loop, with delay.
     ]
 
     return controller
 
 
-def insert_main(prog, dataplane, controller):
+def insert_main(prog, dataplane, controller, stats_component):
     """Inserts the component `main` into the program.
     It triggers the dataplane and controller components.
     """
 
     main: cb.ComponentBuilder = prog.component("main")
 
+    stats = main.cell("stats_main", stats_component)
     dataplane = main.cell("dataplane", dataplane)
     controller = main.cell("controller", controller)
 
@@ -151,7 +148,10 @@ def insert_main(prog, dataplane, controller):
                     # write it to the answer-list and increment the index `j`.
                     cb.if_(has_ans.out, [write_ans, incr_j]),
                 ],
-                cb.invoke(controller),  # Invoke the controller component.
+                cb.invoke(  # Invoke the controller component.
+                    controller,
+                    ref_stats_controller=stats,
+                ),
             ),
         )
     ]
@@ -160,16 +160,20 @@ def insert_main(prog, dataplane, controller):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    stats = insert_stats(prog, "stats")
+    stats_component = insert_stats(prog, "stats")
     fifo_purple = fifo.insert_fifo(prog, "fifo_purple")
     fifo_tangerine = fifo.insert_fifo(prog, "fifo_tangerine")
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
-    pifo_root = pifo.insert_pifo(prog, "pifo_root", pifo_red, fifo_blue, 200, stats)
+    pifo_root = pifo.insert_pifo(
+        prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component
+    )
     # The root PIFO has a stats component.
+    # TODO: This should be passed by Calyx-level reference,
+    # not by Python-level argument.
     dataplane = qc.insert_runner(prog, pifo_root, "dataplane")
-    controller = insert_controller(prog, "controller", stats)
-    insert_main(prog, dataplane, controller)
+    controller = insert_controller(prog, "controller", stats_component)
+    insert_main(prog, dataplane, controller, stats_component)
     return prog.program
 
 
