@@ -116,32 +116,45 @@ def insert_main(prog, dataplane, controller):
     dataplane = main.cell("dataplane", dataplane)
     controller = main.cell("controller", controller)
 
+    has_ans = main.reg("has_ans", 1)
+    dataplane_ans = main.reg("dataplane_ans", 32)
+    dataplane_err = main.reg("dataplane_err", 1)
+
     commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
     ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
 
+    j = main.reg("j", 32)  # The index on the answer-list we'll write to
+    incr_j = main.incr(j)  # j++
+    write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
+    # ans_mem[j] = dataplane_ans
+
+    err_eq_0 = main.eq_use(dataplane_err.out, 0)
+
     main.control += [
-        cb.par(
-            cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                ref_commands=commands,
-                ref_values=values,
+        # We will run the dataplane and controller components in parallel,
+        # in a while loop. The loop will terminate when the dataplane component
+        # raises `dataplane_err`.
+        cb.while_with(
+            err_eq_0,  # While the dataplane component has not errored out.
+            cb.par(
+                [
+                    cb.invoke(  # Invoke the dataplane component.
+                        dataplane,
+                        ref_commands=commands,
+                        ref_values=values,
+                        ref_has_ans=has_ans,
+                        ref_component_ans=dataplane_ans,
+                        ref_component_err=dataplane_err,
+                    ),
+                    # If the dataplane component has an answer,
+                    # write it to the answer-list and increment the index `j`.
+                    cb.if_(has_ans.out, [write_ans, incr_j]),
+                ],
+                cb.invoke(controller),  # Invoke the controller component.
             ),
-            cb.invoke(controller),  # Invoke the controller component.
         )
     ]
-    # In reality we need to write this in near-RTL:
-    # group fake_par
-    # {
-    #     dataplane.my_fake_mem.
-    #     dataplane.go = cb.HI
-    #     controller.go = cb.HI
-    #     fake_par.done = dataplane.done
-    #     # NOTE: Conditioned on the dataplane being done, and not the controller.
-    # }
-    # BUT working in near-RTL means that need to do more:
-    # We need to pass the memories "by reference" but cannot use the nice
-    # abstraction of `invoke`.
 
 
 def build():

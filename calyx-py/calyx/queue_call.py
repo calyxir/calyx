@@ -167,9 +167,9 @@ def insert_runner(prog, queue, name):
     # Our memories.
     commands = runner.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, MAX_CMDS, 32, is_ref=True)
-    has_ans = runner.reg("has_ans", 1)
-    component_ans = runner.reg("component_ans", 32)
-    component_err = runner.reg("component_err", 1)
+    has_ans = runner.reg("has_ans", 1, is_ref=True)
+    component_ans = runner.reg("component_ans", 32, is_ref=True)
+    component_err = runner.reg("component_err", 1, is_ref=True)
 
     # We'll invoke the queue component, which takes two inputs by reference
     # and one input directly.
@@ -187,11 +187,15 @@ def insert_runner(prog, queue, name):
 
     read_cmd = runner.mem_read_seq_d1(commands, i.out, "read_cmd_phase1")
     write_cmd_to_reg = runner.mem_write_seq_d1_to_reg(commands, cmd, "write_cmd_phase2")
-
     read_value = runner.mem_read_seq_d1(values, i.out, "read_value")
     write_value_to_reg = runner.mem_write_seq_d1_to_reg(
         values, value, "write_value_to_reg"
     )
+
+    raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
+    lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
+    write_ans = runner.reg_store(component_ans, ans.out, "write_ans")
+    raise_component_err = runner.reg_store(component_err, 1, "raise_component_err")
 
     err_down = runner.reg("err_down", 1)
     loop_end = runner.reg("loop_end", 1)
@@ -206,11 +210,6 @@ def insert_runner(prog, queue, name):
     update_err_is_down, _ = runner.eq_store_in_reg(
         err.out, 0, "err_is_down", 1, err_down
     )
-
-    raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
-    lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
-    write_ans = runner.reg_store(component_ans, ans.out, "write_ans")
-    raise_component_err = runner.reg_store(component_err, 1, "raise_component_err")
 
     runner.control += [
         read_cmd,
@@ -229,19 +228,21 @@ def insert_runner(prog, queue, name):
         lower_has_ans,
         #  Was there an error?
         update_err_is_down,
-        # The register `err_down` now knows whether the error flag is down.
+        # The register `err_down` is now true iff the error flag is down.
         cb.if_(
-            err_down.out,
+            err_down.out,  # If there was no error,
             [
                 cb.if_with(
-                    cmd_le_1,  # If the command was a pop or peek,
+                    cmd_le_1,  # And if the command was a pop or peek,
                     [
-                        raise_has_ans,  # raise the `has_ans` flag
+                        raise_has_ans,  # Raise the `has_ans` flag
                         write_ans,  # Write the answer to the answer out-port
                     ],
                 ),
             ],
         ),
+        # The there was an error from the queue, we should raise `component_err`.
+        cb.if_(err.out, [raise_component_err]),
         incr_i,  # Increment the command index
         update_i_eq_15,  # The register `loop_end` is now true iff `i` is 15.
         cb.if_(
