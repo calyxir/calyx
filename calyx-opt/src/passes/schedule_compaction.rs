@@ -102,7 +102,20 @@ impl Visitor for ScheduleCompaction {
                         continue 'outer;
                     }
                 }
-                par_threads.push((vec![control], latency_map[&i]));
+                if start > 0 {
+                    let no_op = builder.add_static_group("no-op", start);
+                    let no_op_enable =
+                        ir::StaticControl::Enable(ir::StaticEnable {
+                            group: no_op,
+                            attributes: ir::Attributes::default(),
+                        });
+                    par_threads.push((
+                        vec![no_op_enable, control],
+                        start + latency_map[&i],
+                    ));
+                } else {
+                    par_threads.push((vec![control], latency_map[&i]));
+                }
             }
 
             let mut par_control_threads: Vec<ir::StaticControl> = Vec::new();
