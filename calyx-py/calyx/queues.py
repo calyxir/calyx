@@ -1,9 +1,6 @@
-import sys
-import json
 from dataclasses import dataclass
 from typing import List
-
-MAX_CMDS = 15
+import queue_util
 
 
 @dataclass
@@ -120,30 +117,6 @@ class Pifo:
         return self.pifo_len
 
 
-def parse_json():
-    """Effectively the opposite of `data_gen`:
-    Given a JSON file formatted for Calyx purposes, parse it into its two lists:
-    - The `commands` memory, which has MAX_CMDS items.
-    - The `values` memory, which has MAX_CMDS items.
-    Returns the two lists.
-    """
-
-    data = json.load(sys.stdin)
-    commands = data["commands"]["data"]
-    values = data["values"]["data"]
-    return commands, values
-
-
-def dump_json(commands, values, ans_mem):
-    """Prints a JSON representation of the data to stdout."""
-    payload = {
-        "ans_mem": ans_mem,
-        "commands": commands,
-        "values": values,
-    }
-    print(json.dumps(payload, indent=2))
-
-
 def operate_queue(commands, values, queue):
     """Given the two lists, one of commands and one of values.
     Feed these into our queue, and return the answer memory.
@@ -167,5 +140,5 @@ def operate_queue(commands, values, queue):
             queue.push(val)
 
     # Pad the answer memory with zeroes until it is of length MAX_CMDS.
-    ans += [0] * (MAX_CMDS - len(ans))
+    ans += [0] * (queue_util.MAX_CMDS - len(ans))
     return ans

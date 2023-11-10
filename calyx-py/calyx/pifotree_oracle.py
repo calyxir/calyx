@@ -1,8 +1,9 @@
+import queue_util
 import queues
 
 
 if __name__ == "__main__":
-    commands, values = queues.parse_json()
+    commands, values = queue_util.parse_json()
 
     # Our PIFO is a little complicated: it is a tree of queues.
     # The root has two children, which are PIFOs.
@@ -19,4 +20,4 @@ if __name__ == "__main__":
     )
 
     ans = queues.operate_queue(commands, values, pifo)
-    queues.dump_json(commands, values, ans)
+    queue_util.dump_json(commands, values, ans)

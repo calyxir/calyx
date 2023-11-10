@@ -1,8 +1,7 @@
 import random
 import json
 from typing import Dict, Union
-
-MAX_CMDS = 15
+import queue_util
 
 FormatType = Dict[str, Union[bool, str, int]]
 
@@ -16,29 +15,31 @@ def dump_json():
     """Prints a JSON representation of the data to stdout.
     The data itself is populated randomly, following certain rules:
     - It has three "memories": `commands`, `values`, and `ans_mem`.
-    - The `commands` memory has MAX_CMDS items, which are 0, 1, or 2.
-    - The `values` memory has MAX_CMDS items: random values between 0 and 400.
-    - The `ans_mem` memory has MAX_CMDS items, all zeroes.
+    - The `commands` memory has queue_util.MAX_CMDS items, which are 0, 1, or 2.
+    - The `values` memory has queue_util.MAX_CMDS items:
+    random values between 0 and 400.
+    - The `ans_mem` memory has queue_util.MAX_CMDS items, all zeroes.
     - Each memory has a `format` field, which is a format object for a bitvector.
     """
     commands = {
         "commands": {
-            "data": [random.randint(0, 2) for _ in range(MAX_CMDS)],
-            # The `commands` memory has MAX_CMDS items, which are 0, 1, or 2.
+            "data": [random.randint(0, 2) for _ in range(queue_util.MAX_CMDS)],
+            # The `commands` memory has queue_util.MAX_CMDS items, which are 0, 1, or 2.
             "format": format_gen(2),
         }
     }
     values = {
         "values": {
-            "data": [random.randint(0, 400) for _ in range(MAX_CMDS)],
-            # The `values` memory has MAX_CMDS items: random values between 0 and 00.
+            "data": [random.randint(0, 400) for _ in range(queue_util.MAX_CMDS)],
+            # The `values` memory has queue_util.MAX_CMDS items: random values
+            # between 0 and 400.
             "format": format_gen(32),
         }
     }
     ans_mem = {
         "ans_mem": {
-            "data": [0 for _ in range(MAX_CMDS)],
-            # The `ans_mem` memory has MAX_CMDS items, all zeroes.
+            "data": [0 for _ in range(queue_util.MAX_CMDS)],
+            # The `ans_mem` memory has queue_util.MAX_CMDS items, all zeroes.
             "format": format_gen(32),
         }
     }
