@@ -258,6 +258,9 @@ class VivadoHLSPlaceAndRouteExtractStage(Stage):
     def _define_steps(self, input, builder, config):
         @builder.step()
         def extract(directory: SourceType.Directory) -> SourceType.String:
+            """
+            Extract relevant data from Vivado synthesis files.
+            """
             top = config.get(["stages", self.name, "top"]) or "kernel"
             verilog_dir = PurePath("solution1", "impl", "verilog")
 
