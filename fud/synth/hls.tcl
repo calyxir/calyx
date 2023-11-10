@@ -1,15 +1,23 @@
-# Usage: vivado_hls -f hls.tcl -tclargs [-impl] [-top <name>]
+# Usage: vivado_hls -f hls.tcl -tclargs [impl] [top <name>]
+
+proc lshift listVar {
+  upvar 1 $listVar l
+  set r [lindex $l 0]
+  set l [lreplace $l [set l 0] 0]
+  return $r
+}
 
 set impl 0
 set top kernel
 set hls_prj benchmark.prj
 
 while {[llength $argv]} {
-  switch -exact -- [lshift argv] {
-    -impl {
+  set flag [lshift argv]
+  switch -exact -- $flag {
+    impl {
       set impl 1
     }
-    -top {
+    top {
       set top [lshift argv]
     }
   }
