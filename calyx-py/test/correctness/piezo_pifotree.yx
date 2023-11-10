@@ -1038,23 +1038,19 @@ component pifo_root(cmd: 2, value: 32) -> () {
 component dataplane() -> () {
   cells {
     ref stats_runner = stats();
+    myqueue = pifo_root();
     ref commands = seq_mem_d1(2, 15, 32);
     ref values = seq_mem_d1(32, 15, 32);
     ref has_ans = std_reg(1);
     ref component_ans = std_reg(32);
     ref component_err = std_reg(1);
-    myqueue = pifo_root();
-    err = std_reg(1);
-    ans = std_reg(32);
     i = std_reg(32);
     command = std_reg(2);
     value = std_reg(32);
     i_incr = std_add(32);
     le_1 = std_le(2);
-    err_down = std_reg(1);
-    loop_end = std_reg(1);
-    i_eq_15 = std_eq(32);
-    err_is_down = std_eq(1);
+    not_2 = std_not(1);
+    i_eq_MAX_CMDS = std_eq(32);
   }
   wires {
     group i_incr_group {
@@ -1098,29 +1094,15 @@ component dataplane() -> () {
       has_ans.write_en = 1'd1;
       lower_has_ans[done] = has_ans.done;
     }
-    group write_ans {
-      component_ans.in = ans.out;
-      component_ans.write_en = 1'd1;
-      write_ans[done] = component_ans.done;
+    comb group not_2_group {
+      not_2.in = component_err.out;
     }
-    group raise_component_err {
-      component_err.in = 1'd1;
+    group i_eq_MAX_CMDS_group {
+      i_eq_MAX_CMDS.left = i.out;
+      i_eq_MAX_CMDS.right = 32'd15;
       component_err.write_en = 1'd1;
-      raise_component_err[done] = component_err.done;
-    }
-    group i_eq_15_group {
-      i_eq_15.left = i.out;
-      i_eq_15.right = 32'd15;
-      loop_end.write_en = 1'd1;
-      loop_end.in = i_eq_15.out;
-      i_eq_15_group[done] = loop_end.done;
-    }
-    group err_is_down_group {
-      err_is_down.left = err.out;
-      err_is_down.right = 1'd0;
-      err_down.write_en = 1'd1;
-      err_down.in = err_is_down.out;
-      err_is_down_group[done] = err_down.done;
+      component_err.in = i_eq_MAX_CMDS.out;
+      i_eq_MAX_CMDS_group[done] = component_err.done;
     }
   }
   control {
@@ -1129,29 +1111,20 @@ component dataplane() -> () {
       write_cmd_phase2;
       read_value;
       write_value_to_reg;
-      invoke myqueue[ans=ans, err=err, stats=stats_runner](cmd=command.out, value=value.out)();
-      lower_has_ans;
-      err_is_down_group;
-      if err_down.out {
+      invoke myqueue[ans=component_ans, err=component_err, stats=stats_runner](cmd=command.out, value=value.out)();
+      if not_2.out with not_2_group {
         seq {
           if le_1.out with le_1_group {
             seq {
               raise_has_ans;
-              write_ans;
+            }
+          } else {
+            seq {
+              lower_has_ans;
             }
           }
-        }
-      }
-      if err.out {
-        seq {
-          raise_component_err;
-        }
-      }
-      i_incr_group;
-      i_eq_15_group;
-      if loop_end.out {
-        seq {
-          raise_component_err;
+          i_incr_group;
+          i_eq_MAX_CMDS_group;
         }
       }
     }
