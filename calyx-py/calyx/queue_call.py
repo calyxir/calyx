@@ -178,8 +178,8 @@ def insert_runner(prog, queue, name, stats_component):
     commands = runner.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, MAX_CMDS, 32, is_ref=True)
     has_ans = runner.reg("has_ans", 1, is_ref=True)
-    component_ans = runner.reg("component_ans", 32, is_ref=True)
-    component_err = runner.reg("component_err", 1, is_ref=True)
+    ans = runner.reg("component_ans", 32, is_ref=True)
+    err = runner.reg("component_err", 1, is_ref=True)
 
     i = runner.reg("i", 32)  # The index of the command we're currently processing
     cmd = runner.reg("command", 2)  # The command we're currently processing
@@ -196,19 +196,14 @@ def insert_runner(prog, queue, name, stats_component):
         values, value, "write_value_to_reg"
     )
 
-    # Wiring to raise/lower various flags.
+    # Wiring to raise/lower flags and compute a negation.
     raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
     lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
+    err_neg = runner.not_use(err.out)
 
-    err_neg = runner.not_use(component_err.out)
-
+    # Wiring that raises `err` iff `i = MAX_CMDS`.
     check_if_out_of_cmds, _ = runner.eq_store_in_reg(
-        # If `i = MAX_CMDS`, raise `component_err`.
-        i.out,
-        cb.const(32, MAX_CMDS),
-        "i_eq_MAX_CMDS",
-        32,
-        component_err,
+        i.out, cb.const(32, MAX_CMDS), "i_eq_MAX_CMDS", 32, err
     )
 
     runner.control += [
@@ -220,19 +215,18 @@ def insert_runner(prog, queue, name, stats_component):
             queue,
             in_cmd=cmd.out,
             in_value=value.out,
-            ref_ans=component_ans,
-            ref_err=component_err,
+            ref_ans=ans,
+            ref_err=err,
             ref_stats=stats,
         ),
-        # We're back from the invoke.
-        # Let's assume there is no answer: lower the `has_ans` flag.
-        lower_has_ans,
+        # We're back from the invoke, and it's time for some post-mortem analysis.
         cb.if_with(
             err_neg,  # If there was no error
             [
                 cb.if_with(
                     cmd_le_1,  # If the command was a pop or peek
-                    [raise_has_ans],  # Raise the `has_ans` flag
+                    [raise_has_ans],  # then raise the `has_ans` flag
+                    [lower_has_ans],  # else lower the `has_ans` flag
                 ),
                 incr_i,  # Increment the command index
                 check_if_out_of_cmds,  # If we're out of commands, raise `err`
