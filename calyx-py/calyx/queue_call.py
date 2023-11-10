@@ -78,7 +78,7 @@ def insert_main(prog, queue):
         loop_goes_on
         # Does the `err` flag say that the loop should continue?
     )
-    update_i_neq_MAX_CMDS, _ = main.neq_store_in_reg(
+    update_i_neq_max_cmds, _ = main.neq_store_in_reg(
         i.out,
         cb.const(32, MAX_CMDS),
         "i_neq_MAX_CMDS",
@@ -115,7 +115,8 @@ def insert_main(prog, queue):
                             ],
                         ),
                         incr_i,  # Increment the command index
-                        update_i_neq_MAX_CMDS,  # Did this increment make us need to break?
+                        update_i_neq_max_cmds,
+                        # Did this increment make us need to break?
                     ],
                 ),
             ],
