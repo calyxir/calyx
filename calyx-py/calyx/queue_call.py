@@ -207,14 +207,13 @@ def insert_runner(prog, queue, name, stats_component):
     raise_component_err = runner.reg_store(component_err, 1, "raise_component_err")
 
     err_down = runner.reg("err_down", 1)
-    loop_end = runner.reg("loop_end", 1)
     update_i_eq_MAX_CMDS, _ = runner.eq_store_in_reg(
         i.out,
         cb.const(32, MAX_CMDS),
         "i_eq_MAX_CMDS",
         32,
-        loop_end
-        # If `i` is MAX_CMDS, then we should raise the `loop_end` flag.
+        component_err
+        # If `i` is MAX_CMDS, then we should raise the `component_err` flag.
     )
     update_err_is_down, _ = runner.eq_store_in_reg(
         err.out, 0, "err_is_down", 1, err_down
@@ -254,14 +253,7 @@ def insert_runner(prog, queue, name, stats_component):
         # The there was an error from the queue, we should raise `component_err`.
         cb.if_(err.out, [raise_component_err]),
         incr_i,  # Increment the command index
-        update_i_eq_MAX_CMDS,  # The register `loop_end` is now true iff `i` is MAX_CMDS.
-        cb.if_(
-            loop_end.out,
-            [
-                # If `i` is MAX_CMDS, then we should raise the `component_err` flag.
-                raise_component_err
-            ],
-        ),
+        update_i_eq_MAX_CMDS,
     ]
 
     return runner
