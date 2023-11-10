@@ -1,7 +1,7 @@
 import json
 import sys
 
-MAX_CMDS = 15
+MAX_CMDS = 20
 
 
 def parse_json():
