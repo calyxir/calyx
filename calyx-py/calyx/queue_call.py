@@ -142,20 +142,24 @@ def insert_runner(prog, queue, name, stats_component):
     # but all we'll really do with it is pass it to the queue component.
     stats = runner.cell("stats_runner", stats_component, is_ref=True)
 
-    # The user-facing interface of this component is:
-    # - input 1: a list of commands
-    #    where each command is a 2-bit unsigned integer, with the following format:
+    # The user-facing interface of this component is captured by a number
+    # of items that are passed to this component by reference.
+    #
+    # - 1: `commands`, a list of commands.
+    #    Where each command is a 2-bit unsigned integer with the following format:
     #    `0`: pop
     #    `1`: peek
     #    `2`: push
-    # - input 2: a list of values to push
-    #    where each value is a 32-bit unsigned integer
-    #    the value at `i` is pushed if the command at `i` is `2`.
-    # - output 1: has_ans, a 1-bit unsigned integer. Indicates whether the queue
-    # had a reply to the command.
-    # - output 2: ans, a 32-bit unsigned integer. The answer to the command, if any.
-    # - output 3: err, a 1-bit unsigned integer. Indicates whether an error
-    # occurred and the queue should no longer be invoked.
+    # - 2: `values`, a list of values.
+    #    Where each value is a 32-bit unsigned integer.
+    #    The value at `i` is pushed if the command at `i` is `2`.
+    # - 3: `has_ans`, a 1-bit unsigned integer.
+    #    We raise/lower this to indicate whether the queue had a reply to the command.
+    # - 4: `component_ans`, a 32-bit unsigned integer.
+    #    We put in this register the answer to the command, if any.
+    # - 5: `component_err`, a 1-bit unsigned integer.
+    #    We raise/lower it to indicates whether an error occurred
+    #    and the queue should no longer be invoked.
     #
     # The user-facing interface of the `queue` component is assumed to be:
     # - input `cmd`
@@ -165,10 +169,10 @@ def insert_runner(prog, queue, name, stats_component):
     #    `2`: push
     # - input `value`
     #   which is a 32-bit unsigned integer. If `cmd` is `2`, push this value.
-    # - one ref register, `ans`, into which the result of a pop or peek is written.
-    # - one ref register, `err`, which is raised if an error occurs.
+    # - ref register `ans`, into which the result of a pop or peek is written.
+    # - ref register `err`, which is raised if an error occurs.
 
-    # Our memories.
+    # Our memories and registers, all of which are passed to us by reference.
     commands = runner.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, MAX_CMDS, 32, is_ref=True)
     has_ans = runner.reg("has_ans", 1, is_ref=True)
@@ -176,28 +180,31 @@ def insert_runner(prog, queue, name, stats_component):
     component_err = runner.reg("component_err", 1, is_ref=True)
 
     # We'll invoke the queue component, which takes two inputs by reference
-    # and one input directly.
+    # and two inputs directly.
     queue = runner.cell("myqueue", queue)
     err = runner.reg("err", 1)  # A flag to indicate an error
-    ans = runner.reg("ans", 32)  # A memory to hold the answer of a pop or peek
+    ans = runner.reg("ans", 32)  # A register to hold the answer of a pop or peek
 
     i = runner.reg("i", 32)  # The index of the command we're currently processing
     cmd = runner.reg("command", 2)  # The command we're currently processing
     value = runner.reg("value", 32)  # The value we're currently processing
 
     incr_i = runner.incr(i)  # i++
-    cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1
+    cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1, meaning cmd is pop or peek
 
+    # Wiring to perform
+    # `cmd := commands[i]`, `value := values[i]`, and `component_ans := ans`.
     read_cmd = runner.mem_read_seq_d1(commands, i.out, "read_cmd_phase1")
     write_cmd_to_reg = runner.mem_write_seq_d1_to_reg(commands, cmd, "write_cmd_phase2")
     read_value = runner.mem_read_seq_d1(values, i.out, "read_value")
     write_value_to_reg = runner.mem_write_seq_d1_to_reg(
         values, value, "write_value_to_reg"
     )
+    write_ans = runner.reg_store(component_ans, ans.out, "write_ans")
 
+    # Wiring to raise/lower various flags.
     raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
     lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
-    write_ans = runner.reg_store(component_ans, ans.out, "write_ans")
     raise_component_err = runner.reg_store(component_err, 1, "raise_component_err")
 
     err_down = runner.reg("err_down", 1)
@@ -228,7 +235,7 @@ def insert_runner(prog, queue, name, stats_component):
             ref_stats=stats,
         ),
         # We're back from the invoke.
-        # Let's assume there is no answer and lower the `has_ans` flag.
+        # Let's assume there is no answer: lower the `has_ans` flag.
         lower_has_ans,
         #  Was there an error?
         update_err_is_down,
