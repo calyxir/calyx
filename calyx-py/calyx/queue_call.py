@@ -141,6 +141,9 @@ def insert_runner(prog, queue, name, stats_component):
     # but all we'll really do with it is pass it to the queue component.
     stats = runner.cell("stats_runner", stats_component, is_ref=True)
 
+    # We'll invoke the queue component.
+    queue = runner.cell("myqueue", queue)
+
     # The user-facing interface of this component is captured by a number
     # of items that are passed to this component by reference.
     #
@@ -178,12 +181,6 @@ def insert_runner(prog, queue, name, stats_component):
     component_ans = runner.reg("component_ans", 32, is_ref=True)
     component_err = runner.reg("component_err", 1, is_ref=True)
 
-    # We'll invoke the queue component, which takes two inputs by reference
-    # and two inputs directly.
-    queue = runner.cell("myqueue", queue)
-    err = runner.reg("err", 1)  # A flag to indicate an error
-    ans = runner.reg("ans", 32)  # A register to hold the answer of a pop or peek
-
     i = runner.reg("i", 32)  # The index of the command we're currently processing
     cmd = runner.reg("command", 2)  # The command we're currently processing
     value = runner.reg("value", 32)  # The value we're currently processing
@@ -191,32 +188,27 @@ def insert_runner(prog, queue, name, stats_component):
     incr_i = runner.incr(i)  # i++
     cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1, meaning cmd is pop or peek
 
-    # Wiring to perform
-    # `cmd := commands[i]`, `value := values[i]`, and `component_ans := ans`.
+    # Wiring to perform `cmd := commands[i]` and `value := values[i]`.
     read_cmd = runner.mem_read_seq_d1(commands, i.out, "read_cmd_phase1")
     write_cmd_to_reg = runner.mem_write_seq_d1_to_reg(commands, cmd, "write_cmd_phase2")
     read_value = runner.mem_read_seq_d1(values, i.out, "read_value")
     write_value_to_reg = runner.mem_write_seq_d1_to_reg(
         values, value, "write_value_to_reg"
     )
-    write_ans = runner.reg_store(component_ans, ans.out, "write_ans")
 
     # Wiring to raise/lower various flags.
     raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
     lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
-    raise_component_err = runner.reg_store(component_err, 1, "raise_component_err")
 
-    err_down = runner.reg("err_down", 1)
-    update_i_eq_MAX_CMDS, _ = runner.eq_store_in_reg(
+    err_neg = runner.not_use(component_err.out)
+
+    check_if_out_of_cmds, _ = runner.eq_store_in_reg(
+        # If `i = MAX_CMDS`, raise `component_err`.
         i.out,
         cb.const(32, MAX_CMDS),
         "i_eq_MAX_CMDS",
         32,
-        component_err
-        # If `i` is MAX_CMDS, then we should raise the `component_err` flag.
-    )
-    update_err_is_down, _ = runner.eq_store_in_reg(
-        err.out, 0, "err_is_down", 1, err_down
+        component_err,
     )
 
     runner.control += [
@@ -228,32 +220,24 @@ def insert_runner(prog, queue, name, stats_component):
             queue,
             in_cmd=cmd.out,
             in_value=value.out,
-            ref_ans=ans,
-            ref_err=err,
+            ref_ans=component_ans,
+            ref_err=component_err,
             ref_stats=stats,
         ),
         # We're back from the invoke.
         # Let's assume there is no answer: lower the `has_ans` flag.
         lower_has_ans,
-        #  Was there an error?
-        update_err_is_down,
-        # The register `err_down` is now true iff the error flag is down.
-        cb.if_(
-            err_down.out,  # If there was no error,
+        cb.if_with(
+            err_neg,  # If there was no error
             [
                 cb.if_with(
-                    cmd_le_1,  # And if the command was a pop or peek,
-                    [
-                        raise_has_ans,  # Raise the `has_ans` flag
-                        write_ans,  # Write the answer to the answer out-port
-                    ],
+                    cmd_le_1,  # If the command was a pop or peek
+                    [raise_has_ans],  # Raise the `has_ans` flag
                 ),
+                incr_i,  # Increment the command index
+                check_if_out_of_cmds,  # If we're out of commands, raise `err`
             ],
         ),
-        # The there was an error from the queue, we should raise `component_err`.
-        cb.if_(err.out, [raise_component_err]),
-        incr_i,  # Increment the command index
-        update_i_eq_MAX_CMDS,
     ]
 
     return runner
