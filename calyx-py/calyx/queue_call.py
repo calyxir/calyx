@@ -2,7 +2,6 @@
 import calyx.builder as cb
 
 MAX_CMDS = 15
-ANS_MEM_LEN = 10
 
 
 def insert_main(prog, queue):
@@ -79,10 +78,10 @@ def insert_main(prog, queue):
         loop_goes_on
         # Does the `err` flag say that the loop should continue?
     )
-    update_i_neq_15, _ = main.neq_store_in_reg(
+    update_i_neq_MAX_CMDS, _ = main.neq_store_in_reg(
         i.out,
-        cb.const(32, 15),
-        "i_neq_15",
+        cb.const(32, MAX_CMDS),
+        "i_neq_MAX_CMDS",
         32,
         loop_goes_on
         # Does the `i` index say that the loop should continue?
@@ -116,7 +115,7 @@ def insert_main(prog, queue):
                             ],
                         ),
                         incr_i,  # Increment the command index
-                        update_i_neq_15,  # Did this increment make us need to break?
+                        update_i_neq_MAX_CMDS,  # Did this increment make us need to break?
                     ],
                 ),
             ],
@@ -209,13 +208,13 @@ def insert_runner(prog, queue, name, stats_component):
 
     err_down = runner.reg("err_down", 1)
     loop_end = runner.reg("loop_end", 1)
-    update_i_eq_15, _ = runner.eq_store_in_reg(
+    update_i_eq_MAX_CMDS, _ = runner.eq_store_in_reg(
         i.out,
-        cb.const(32, 15),
-        "i_eq_15",
+        cb.const(32, MAX_CMDS),
+        "i_eq_MAX_CMDS",
         32,
         loop_end
-        # If `i` is 15, then we should raise the `loop_end` flag.
+        # If `i` is MAX_CMDS, then we should raise the `loop_end` flag.
     )
     update_err_is_down, _ = runner.eq_store_in_reg(
         err.out, 0, "err_is_down", 1, err_down
@@ -255,11 +254,11 @@ def insert_runner(prog, queue, name, stats_component):
         # The there was an error from the queue, we should raise `component_err`.
         cb.if_(err.out, [raise_component_err]),
         incr_i,  # Increment the command index
-        update_i_eq_15,  # The register `loop_end` is now true iff `i` is 15.
+        update_i_eq_MAX_CMDS,  # The register `loop_end` is now true iff `i` is MAX_CMDS.
         cb.if_(
             loop_end.out,
             [
-                # If `i` is 15, then we should raise the `component_err` flag.
+                # If `i` is MAX_CMDS, then we should raise the `component_err` flag.
                 raise_component_err
             ],
         ),
