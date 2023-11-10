@@ -1,7 +1,7 @@
 import random
 import json
 from typing import Dict, Union
-import queue_util
+import calyx.queue_util as queue_util
 
 FormatType = Dict[str, Union[bool, str, int]]
 

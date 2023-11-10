@@ -1,5 +1,5 @@
-import queue_util
-import queues
+import calyx.queues as queues
+import calyx.queue_util as queue_util
 
 
 if __name__ == "__main__":

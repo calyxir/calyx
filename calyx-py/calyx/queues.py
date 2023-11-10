@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import List
-import queue_util
+import calyx.queue_util as queue_util
 
 
 @dataclass
