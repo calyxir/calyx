@@ -50,5 +50,8 @@
   "activationEvents": [
     "onDebug",
     "onLanguage:calyx"
-  ]
+  ],
+  "scripts": {
+    "vscode:prepublish": "npx tsc"
+  }
 }
