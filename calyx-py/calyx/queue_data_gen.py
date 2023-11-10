@@ -3,7 +3,6 @@ import json
 from typing import Dict, Union
 
 MAX_CMDS = 15
-ANS_MEM_LEN = 10
 
 FormatType = Dict[str, Union[bool, str, int]]
 
@@ -19,7 +18,7 @@ def dump_json():
     - It has three "memories": `commands`, `values`, and `ans_mem`.
     - The `commands` memory has MAX_CMDS items, which are 0, 1, or 2.
     - The `values` memory has MAX_CMDS items: random values between 0 and 400.
-    - The `ans_mem` memory has ANS_MEM_LEN items, all zeroes.
+    - The `ans_mem` memory has MAX_CMDS items, all zeroes.
     - Each memory has a `format` field, which is a format object for a bitvector.
     """
     commands = {
@@ -38,8 +37,8 @@ def dump_json():
     }
     ans_mem = {
         "ans_mem": {
-            "data": [0 for _ in range(ANS_MEM_LEN)],
-            # The `ans_mem` memory has ANS_MEM_LEN items, all zeroes.
+            "data": [0 for _ in range(MAX_CMDS)],
+            # The `ans_mem` memory has MAX_CMDS items, all zeroes.
             "format": format_gen(32),
         }
     }

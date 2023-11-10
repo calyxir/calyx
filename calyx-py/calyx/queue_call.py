@@ -2,7 +2,6 @@
 import calyx.builder as cb
 
 MAX_CMDS = 15
-ANS_MEM_LEN = 10
 
 
 def insert_main(prog, queue):
@@ -35,7 +34,7 @@ def insert_main(prog, queue):
 
     commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, MAX_CMDS, 32, is_external=True)
 
     # The two components we'll use:
     queue = main.cell("myqueue", queue)

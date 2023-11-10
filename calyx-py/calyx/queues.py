@@ -3,7 +3,7 @@ import json
 from dataclasses import dataclass
 from typing import List
 
-ANS_MEM_LEN = 10
+MAX_CMDS = 15
 
 
 @dataclass
@@ -166,6 +166,6 @@ def operate_queue(commands, values, queue):
         elif cmd == 2:
             queue.push(val)
 
-    # Pad the answer memory with zeroes until it is of length ANS_MEM_LEN.
-    ans += [0] * (ANS_MEM_LEN - len(ans))
+    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
+    ans += [0] * (MAX_CMDS - len(ans))
     return ans
