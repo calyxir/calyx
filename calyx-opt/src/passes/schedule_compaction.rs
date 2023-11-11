@@ -60,12 +60,16 @@ impl Visitor for ScheduleCompaction {
             let mut total_time: u64 = 0;
 
             // First we build the schedule.
+
             for i in order {
-                let mut start: u64 = 0;
-                for node in dependency.get(&i).unwrap() {
-                    start =
-                        std::cmp::max(start, schedule[node] + latency_map[node])
-                }
+                // Start time is when the latest dependency finishes
+                let start = dependency
+                    .get(&i)
+                    .unwrap()
+                    .iter()
+                    .map(|node| schedule[node] + latency_map[node])
+                    .max()
+                    .unwrap_or(0);
                 schedule.insert(i, start);
                 total_time = std::cmp::max(start + latency_map[&i], total_time);
             }
@@ -140,22 +144,20 @@ impl Visitor for ScheduleCompaction {
 
             if par_control_threads.len() == 1 {
                 let c = Vec::pop(&mut par_control_threads).unwrap();
-                return Ok(Action::static_change(c));
+                Ok(Action::static_change(c))
             } else {
                 let s_par = ir::StaticControl::Par(ir::StaticPar {
                     stmts: par_control_threads,
                     attributes: ir::Attributes::default(),
                     latency: total_time,
                 });
-                return Ok(Action::static_change(s_par));
+                Ok(Action::static_change(s_par))
             }
         } else {
-            println!(
+            panic!(
                 "Error when producing topo sort. Dependency graph has a cycle."
             );
         }
-
-        Ok(Action::Continue)
     }
 
     fn finish_static_repeat(
