@@ -35,6 +35,11 @@ create_clock -period 7
 csynth_design
 
 if {$impl} {
+  # Exporting the design gives us a convenient way to run place and route via
+  # the `-flow impl` option. Another option is `-flow syn` if you only need to
+  # run RTL synthesis.
+  # The packaging options don't matter for our purposes, but we set the version
+  # to 1.1.0 to circumvent this bug: https://support.xilinx.com/s/article/76960
   export_design -format ip_catalog -version 1.1.0 -flow impl
 }
 
