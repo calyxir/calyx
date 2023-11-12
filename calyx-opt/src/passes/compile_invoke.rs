@@ -397,7 +397,7 @@ impl Visitor for CompileInvoke {
                 cg.assignments
                     .iter()
                     .cloned()
-                    .map(|a| Assignment::from(a))
+                    .map(Assignment::from)
                     .collect_vec(),
             );
         }
