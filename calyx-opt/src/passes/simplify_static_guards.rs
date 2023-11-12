@@ -35,8 +35,6 @@ impl SimplifyStaticGuards {
         cur_anded_intervals: &mut Vec<(u64, u64)>,
     ) -> Option<ir::Guard<ir::StaticTiming>> {
         match g {
-            ir::Guard::Not(_) => panic!(""),
-            ir::Guard::Or(_, _) => panic!(""),
             ir::Guard::And(g1, g2) => {
                 // recursively call separate_anded_intervals on g1 and g2
                 let rest_g1 =
@@ -64,6 +62,8 @@ impl SimplifyStaticGuards {
             }
             ir::Guard::True
             | ir::Guard::CompOp(_, _, _)
+            | ir::Guard::Not(_)
+            | ir::Guard::Or(_, _)
             | ir::Guard::Port(_) => Some(g),
         }
     }
@@ -137,8 +137,10 @@ impl SimplifyStaticGuards {
             ir::Guard::And(_, _) => {
                 Self::simplify_anded_guards(guard, group_latency)
             }
-            ir::Guard::Info(_)
-            | ir::Guard::Port(_)
+            ir::Guard::Info(_) => {
+                Self::simplify_anded_guards(guard, group_latency)
+            }
+            ir::Guard::Port(_)
             | ir::Guard::True
             | ir::Guard::CompOp(_, _, _) => guard,
         }
