@@ -376,6 +376,8 @@ pub enum Control {
         attributes: Attributes,
         /// External cells that may execute with this invoke.
         ref_cells: Vec<(Id, Id)>,
+        /// Combinational group that may execute with this invoke.
+        comb_group: Option<Id>,
         /// (optional) latency. Latency can be inferred if not given.
         latency: Option<NonZeroU64>,
     },

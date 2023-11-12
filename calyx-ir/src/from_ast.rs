@@ -705,6 +705,7 @@ fn build_static_invoke(
     ref_cells: Vec<(Id, Id)>,
     given_latency: Option<std::num::NonZeroU64>,
     sig_ctx: &SigCtx,
+    comb_group: Option<Id>,
 ) -> CalyxResult<StaticControl> {
     let cell = Rc::clone(&builder.component.find_cell(component).ok_or_else(
         || {
@@ -755,6 +756,7 @@ fn build_static_invoke(
         attributes: Attributes::default(),
         ref_cells: Vec::new(),
         latency: unwrapped_latency.into(),
+        comb_group: None,
     };
     if !ref_cells.is_empty() {
         let mut ext_cell_tuples = Vec::new();
@@ -766,6 +768,14 @@ fn build_static_invoke(
             ext_cell_tuples.push((outcell, ext_cell_ref));
         }
         inv.ref_cells = ext_cell_tuples;
+    }
+    if let Some(cg) = comb_group {
+        let cg_ref =
+            builder.component.find_comb_group(cg).ok_or_else(|| {
+                Error::undefined(cg, "combinational group".to_string())
+                    .with_pos(&inv.attributes)
+            })?;
+        inv.comb_group = Some(cg_ref);
     }
     let mut con = StaticControl::Invoke(inv);
     *con.get_mut_attributes() = attributes;
@@ -823,6 +833,7 @@ fn build_static_control(
             attributes,
             ref_cells,
             latency,
+            comb_group,
         } => {
             return build_static_invoke(
                 builder,
@@ -832,6 +843,7 @@ fn build_static_control(
                 ref_cells,
                 latency,
                 sig_ctx,
+                comb_group,
             );
         }
         ast::Control::StaticSeq {
@@ -933,6 +945,7 @@ fn build_control(
             attributes,
             ref_cells,
             latency,
+            comb_group,
         } => {
             let i = build_static_invoke(
                 builder,
@@ -942,6 +955,7 @@ fn build_control(
                 ref_cells,
                 latency,
                 sig_ctx,
+                comb_group,
             );
             Control::Static(i?)
         }

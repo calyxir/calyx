@@ -4,7 +4,7 @@ use crate::traversal::{
 use calyx_ir::structure;
 use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
-use ir::{RRC, WRC};
+use ir::{Assignment, RRC, WRC};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -390,6 +390,17 @@ impl Visitor for CompileInvoke {
             cell,
         );
         invoke_group.borrow_mut().assignments.extend(assigns);
+
+        if let Some(cgr) = &s.comb_group {
+            let cg = &*cgr.borrow();
+            invoke_group.borrow_mut().assignments.extend(
+                cg.assignments
+                    .iter()
+                    .cloned()
+                    .map(|a| Assignment::from(a))
+                    .collect_vec(),
+            );
+        }
 
         let en = ir::StaticEnable {
             group: invoke_group,

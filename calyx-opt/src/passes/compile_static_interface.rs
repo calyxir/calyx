@@ -186,6 +186,68 @@ impl CompileStaticInterface {
 
         dyn_assigns
     }
+
+    fn make_done_signal_for_promoted_component(
+        &mut self,
+        fsm: ir::RRC<ir::Cell>,
+        builder: &mut ir::Builder,
+        comp_sig: RRC<ir::Cell>,
+    ) -> Vec<ir::Assignment<Nothing>> {
+        let fsm_size = fsm
+            .borrow()
+            .find("out")
+            .unwrap_or_else(|| {
+                unreachable!("no `out` port on {}", fsm.borrow().name())
+            })
+            .borrow()
+            .width;
+        structure!(builder;
+          let sig_reg = prim std_reg(1);
+          let one = constant(1, 1);
+          let zero = constant(0, 1);
+          let first_state = constant(0, fsm_size);
+        );
+        let go_guard = guard!(comp_sig["go"]);
+        let done_guard = guard!(comp_sig["done"]);
+        let on_guard = go_guard & !done_guard;
+        let first_state_guard = guard!(fsm["out"] == first_state["out"]);
+        let signal_on_guard = guard!(sig_reg["out"]);
+        let comp_done_guard = first_state_guard & signal_on_guard;
+        let done_guard_2 = guard!(comp_sig["done"]);
+        let assigns = build_assignments!(builder;
+          sig_reg["in"] = on_guard ? one["out"];
+          sig_reg["write_en"] = on_guard ? one["out"];
+          comp_sig["done"] = comp_done_guard ? one["out"];
+          sig_reg["in"] = done_guard_2 ? zero["out"];
+          sig_reg["write_en"] = done_guard_2 ? one["out"];
+        );
+        assigns.to_vec()
+    }
+
+    fn make_done_signal_for_promoted_component_one_cycle(
+        &mut self,
+        builder: &mut ir::Builder,
+        comp_sig: RRC<ir::Cell>,
+    ) -> Vec<ir::Assignment<Nothing>> {
+        structure!(builder;
+          let sig_reg = prim std_reg(1);
+          let one = constant(1, 1);
+          let zero = constant(0, 1);
+        );
+        let go_guard = guard!(comp_sig["go"]);
+        let done_guard = guard!(comp_sig["done"]);
+        let on_guard = go_guard & !done_guard;
+        let signal_on_guard = guard!(sig_reg["out"]);
+        let done_guard_2 = guard!(comp_sig["done"]);
+        let assigns = build_assignments!(builder;
+          sig_reg["in"] = on_guard ? one["out"];
+          sig_reg["write_en"] = on_guard ? one["out"];
+          comp_sig["done"] = signal_on_guard ? one["out"];
+          sig_reg["in"] = done_guard_2 ? zero["out"];
+          sig_reg["write_en"] = done_guard_2 ? one["out"];
+        );
+        assigns.to_vec()
+    }
 }
 
 impl Visitor for CompileStaticInterface {
@@ -211,11 +273,23 @@ impl Visitor for CompileStaticInterface {
                     .make_early_reset_assigns_static_component(
                         &mut assignments,
                         s.get_latency(),
-                        fsm,
+                        Rc::clone(&fsm),
                         &mut builder,
-                        comp_sig,
+                        Rc::clone(&comp_sig),
                     );
                 builder.component.continuous_assignments.extend(dyn_assigns);
+                if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                    let done_assigns = self
+                        .make_done_signal_for_promoted_component(
+                            Rc::clone(&fsm),
+                            &mut builder,
+                            Rc::clone(&comp_sig),
+                        );
+                    builder
+                        .component
+                        .continuous_assignments
+                        .extend(done_assigns);
+                }
             }
         } else if comp.is_static() && s.get_latency() == 1 {
             if let ir::StaticControl::Enable(sen) = s {
@@ -226,6 +300,19 @@ impl Visitor for CompileStaticInterface {
                     comp.continuous_assignments.push(
                         make_assign_dyn_one_cycle_static_comp(assign, comp_sig),
                     );
+                }
+                if comp.attributes.has(ir::BoolAttr::Promoted) {
+                    let mut builder = ir::Builder::new(comp, sigs);
+                    let comp_sig = Rc::clone(&builder.component.signature);
+                    let done_assigns = self
+                        .make_done_signal_for_promoted_component_one_cycle(
+                            &mut builder,
+                            comp_sig,
+                        );
+                    builder
+                        .component
+                        .continuous_assignments
+                        .extend(done_assigns);
                 }
             }
         }

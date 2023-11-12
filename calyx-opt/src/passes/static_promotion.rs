@@ -688,6 +688,7 @@ impl StaticPromotion {
                     latency: inferred_latency,
                     attributes: std::mem::take(attributes),
                     ref_cells: std::mem::take(ref_cells),
+                    comb_group: std::mem::take(comb_group),
                 };
                 ir::StaticControl::Invoke(s_inv)
             }
@@ -808,6 +809,9 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         if comp.name != "main" && comp.control.borrow().is_static() {
             if let Some(lat) = comp.control.borrow().get_latency() {
+                if !comp.is_static() {
+                    comp.attributes.insert(ir::BoolAttr::Promoted, 1);
+                }
                 comp.latency = Some(NonZeroU64::new(lat).unwrap());
                 let comp_sig = comp.signature.borrow();
                 let mut done_ports: Vec<_> =
@@ -900,7 +904,7 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         // Shouldn't promote to static invoke if we have a comb group
-        if s.comp.borrow().is_component() && s.comb_group.is_none() {
+        if s.comp.borrow().is_component() {
             if let Some(latency) = self
                 .static_component_latencies
                 .get(&s.comp.borrow().type_name().unwrap())
