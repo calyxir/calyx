@@ -239,7 +239,7 @@ impl StaticPromotion {
         // If they don't give a cycle_limit_str, then we set it to the Default.
         // If they explicitly say "None" or "none", hten we set it to None.
         // Makes things a bit confusing.
-        let cycle_limt = if cycle_limit_str == None {
+        let cycle_limit = if cycle_limit_str.is_none() {
             Some(33554432)
         } else if cycle_limit_str.unwrap() == "None"
             || cycle_limit_str.unwrap() == "none"
@@ -270,7 +270,7 @@ impl StaticPromotion {
         // Default cycle limit = 2^25 = 33554432
         (
             threshold.unwrap_or("1").parse::<u64>().unwrap_or(1),
-            cycle_limt,
+            cycle_limit,
         )
     }
 
@@ -525,10 +525,10 @@ impl StaticPromotion {
     }
 
     fn within_cycle_limit(&self, latency: u64) -> bool {
-        if self.cycle_limit == None {
+        if self.cycle_limit.is_none() {
             return true;
         }
-        return latency < self.cycle_limit.unwrap();
+        latency < self.cycle_limit.unwrap()
     }
 
     /// If we've already constructed the static group then use the already existing
@@ -784,11 +784,8 @@ impl StaticPromotion {
         control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
         if Self::approx_control_vec_size(&control_vec) <= self.threshold
-            || self.within_cycle_limit(
-                control_vec
-                    .iter()
-                    .map(|c| Self::get_inferred_latency(c))
-                    .sum(),
+            || !self.within_cycle_limit(
+                control_vec.iter().map(Self::get_inferred_latency).sum(),
             )
         {
             // Return unchanged vec
@@ -815,10 +812,10 @@ impl StaticPromotion {
         control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
         if Self::approx_control_vec_size(&control_vec) <= self.threshold
-            || self.within_cycle_limit(
+            || !self.within_cycle_limit(
                 control_vec
                     .iter()
-                    .map(|c| Self::get_inferred_latency(c))
+                    .map(Self::get_inferred_latency)
                     .max()
                     .unwrap_or_else(|| unreachable!("Non Empty Par Block")),
             )
@@ -988,7 +985,7 @@ impl Visitor for StaticPromotion {
             let approx_size: u64 = cur_vec.iter().map(Self::approx_size).sum();
             if approx_size > self.threshold
                 && self.within_cycle_limit(
-                    cur_vec.iter().map(|c| Self::get_inferred_latency(c)).sum(),
+                    cur_vec.iter().map(Self::get_inferred_latency).sum(),
                 )
             {
                 // Promote entire seq to a static seq
@@ -1048,7 +1045,7 @@ impl Visitor for StaticPromotion {
                 && self.within_cycle_limit(
                     s_stmts
                         .iter()
-                        .map(|c| Self::get_inferred_latency(c))
+                        .map(Self::get_inferred_latency)
                         .max()
                         .unwrap_or_else(|| unreachable!("Empty Par Block")),
                 )
