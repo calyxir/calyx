@@ -54,29 +54,33 @@ impl Visitor for WireInliner {
         let control_ref = Rc::clone(&comp.control);
         let control = control_ref.borrow();
         // Don't compile if the control program is empty
-        if let ir::Control::Empty(..) = &*control {
-            return Ok(Action::Stop);
-        }
+        // if let ir::Control::Empty(..) = &*control {
+        //     return Ok(Action::Stop);
+        // }
 
-        if let ir::Control::Enable(data) = &*control {
-            let this = Rc::clone(&comp.signature);
-            let mut builder = ir::Builder::new(comp, sigs);
-            let group = &data.group;
+        match &*control {
+            ir::Control::Enable(data) => {
+                let this = Rc::clone(&comp.signature);
+                let mut builder = ir::Builder::new(comp, sigs);
+                let group = &data.group;
 
-            structure!(builder;
-                let one = constant(1, 1);
-            );
-            let group_done = guard!(group["done"]);
-            let assigns = build_assignments!(builder;
-                group["go"] = ? this["go"];
-                this["done"] = group_done ? one["out"];
-            );
-            comp.continuous_assignments.extend(assigns);
-        } else {
-            return Err(calyx_utils::Error::malformed_control(format!(
-                "{}: Structure has more than one group",
-                Self::name()
-            )));
+                structure!(builder;
+                    let one = constant(1, 1);
+                );
+                let group_done = guard!(group["done"]);
+                let assigns = build_assignments!(builder;
+                    group["go"] = ? this["go"];
+                    this["done"] = group_done ? one["out"];
+                );
+                comp.continuous_assignments.extend(assigns);
+            }
+            ir::Control::Empty(_) => {}
+            _ => {
+                return Err(calyx_utils::Error::malformed_control(format!(
+                    "{}: Structure has more than one group",
+                    Self::name()
+                )));
+            }
         }
 
         // assume static groups is empty
@@ -115,14 +119,14 @@ impl Visitor for WireInliner {
             gr.borrow_mut().assignments = assigns;
         });
 
+        comp.continuous_assignments
+            .iter_mut()
+            .for_each(|assign| rewrite_assign(&hole_map, assign));
+
         let mut group_assigns = groups
             .into_iter()
             .flat_map(|g| g.borrow_mut().assignments.drain(..).collect_vec())
             .collect_vec();
-
-        comp.continuous_assignments
-            .iter_mut()
-            .for_each(|assign| rewrite_assign(&hole_map, assign));
 
         comp.continuous_assignments.append(&mut group_assigns);
 

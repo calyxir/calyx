@@ -1,8 +1,9 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    AttributePromotion, Canonicalize, CellShare, ClkInsertion, CollapseControl,
-    CombProp, CompileEmpty, CompileInvoke, CompileRepeat, CompileStatic,
-    CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
+    AddGuard, AttributePromotion, Canonicalize, CellShare, ClkInsertion,
+    CollapseControl, CombProp, CompileEmpty, CompileInvoke, CompileRepeat,
+    CompileStatic, CompileStaticInterface, CompileSync,
+    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
     Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
     InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
@@ -52,6 +53,8 @@ impl PassManager {
         pm.register_pass::<TopDownCompileControl>()?;
         pm.register_pass::<CompileSync>()?;
         pm.register_pass::<CompileSyncWithoutSyncReg>()?;
+        pm.register_pass::<AddGuard>()?;
+        pm.register_pass::<CompileStaticInterface>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -109,6 +112,9 @@ impl PassManager {
                 MergeAssign, // Static inliner generates lots of assigns
                 DeadGroupRemoval, // Static inliner generates lots of dead groups
                 SimplifyStaticGuards,
+                AddGuard,
+                CompileStaticInterface,
+                DeadGroupRemoval,
                 CompileStatic,
                 TopDownStaticTiming,
                 TopDownCompileControl
