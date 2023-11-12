@@ -747,17 +747,17 @@ fn build_static_control(
             latency,
             comb_group,
         } => {
-            let cell = Rc::clone(&builder.component.find_cell(comp).ok_or_else(
-                || {
+            let cell = Rc::clone(
+                &builder.component.find_cell(comp).ok_or_else(|| {
                     Error::undefined(comp, "cell".to_string())
                         .with_pos(&attributes)
-                },
-            )?);
-            let comp_name = cell
-                .borrow()
-                .type_name()
-                .unwrap_or_else(|| unreachable!("invoked component without a name"));
-            let c_latency = get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?;
+                })?,
+            );
+            let comp_name = cell.borrow().type_name().unwrap_or_else(|| {
+                unreachable!("invoked component without a name")
+            });
+            let c_latency =
+                get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?;
             let unwrapped_latency = if let Some(v) = c_latency {
                 v
             } else {
@@ -768,12 +768,17 @@ fn build_static_control(
                 .with_pos(&attributes));
             };
             assert_latencies_eq(latency, unwrapped_latency.into());
-        
+
             let inputs = inputs
                 .into_iter()
                 .map(|(id, port)| {
                     // checking that comp_name.id exists on comp's signature
-                    check_valid_port(Rc::clone(&cell), &id, &attributes, sig_ctx)?;
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
                     atom_to_port(port, builder)
                         .and_then(|pr| ensure_direction(pr, Direction::Output))
                         .map(|p| (id, p))
@@ -783,7 +788,12 @@ fn build_static_control(
                 .into_iter()
                 .map(|(id, port)| {
                     // checking that comp_name.id exists on comp's signature
-                    check_valid_port(Rc::clone(&cell), &id, &attributes, sig_ctx)?;
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
                     atom_to_port(port, builder)
                         .and_then(|pr| ensure_direction(pr, Direction::Input))
                         .map(|p| (id, p))
@@ -801,10 +811,10 @@ fn build_static_control(
             if !ref_cells.is_empty() {
                 let mut ext_cell_tuples = Vec::new();
                 for (outcell, incell) in ref_cells {
-                    let ext_cell_ref = builder
-                        .component
-                        .find_cell(incell)
-                        .ok_or_else(|| Error::undefined(incell, "cell".to_string()))?;
+                    let ext_cell_ref =
+                        builder.component.find_cell(incell).ok_or_else(
+                            || Error::undefined(incell, "cell".to_string()),
+                        )?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
                 }
                 inv.ref_cells = ext_cell_tuples;
@@ -922,17 +932,17 @@ fn build_control(
             latency,
             comb_group,
         } => {
-            let cell = Rc::clone(&builder.component.find_cell(comp).ok_or_else(
-                || {
+            let cell = Rc::clone(
+                &builder.component.find_cell(comp).ok_or_else(|| {
                     Error::undefined(comp, "cell".to_string())
                         .with_pos(&attributes)
-                },
-            )?);
-            let comp_name = cell
-                .borrow()
-                .type_name()
-                .unwrap_or_else(|| unreachable!("invoked component without a name"));
-            let c_latency = get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?;
+                })?,
+            );
+            let comp_name = cell.borrow().type_name().unwrap_or_else(|| {
+                unreachable!("invoked component without a name")
+            });
+            let c_latency =
+                get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?;
             let unwrapped_latency = if let Some(v) = c_latency {
                 v
             } else {
@@ -943,12 +953,17 @@ fn build_control(
                 .with_pos(&attributes));
             };
             assert_latencies_eq(latency, unwrapped_latency.into());
-        
+
             let inputs = inputs
                 .into_iter()
                 .map(|(id, port)| {
                     // checking that comp_name.id exists on comp's signature
-                    check_valid_port(Rc::clone(&cell), &id, &attributes, sig_ctx)?;
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
                     atom_to_port(port, builder)
                         .and_then(|pr| ensure_direction(pr, Direction::Output))
                         .map(|p| (id, p))
@@ -958,7 +973,12 @@ fn build_control(
                 .into_iter()
                 .map(|(id, port)| {
                     // checking that comp_name.id exists on comp's signature
-                    check_valid_port(Rc::clone(&cell), &id, &attributes, sig_ctx)?;
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
                     atom_to_port(port, builder)
                         .and_then(|pr| ensure_direction(pr, Direction::Input))
                         .map(|p| (id, p))
@@ -976,10 +996,10 @@ fn build_control(
             if !ref_cells.is_empty() {
                 let mut ext_cell_tuples = Vec::new();
                 for (outcell, incell) in ref_cells {
-                    let ext_cell_ref = builder
-                        .component
-                        .find_cell(incell)
-                        .ok_or_else(|| Error::undefined(incell, "cell".to_string()))?;
+                    let ext_cell_ref =
+                        builder.component.find_cell(incell).ok_or_else(
+                            || Error::undefined(incell, "cell".to_string()),
+                        )?;
                     ext_cell_tuples.push((outcell, ext_cell_ref));
                 }
                 inv.ref_cells = ext_cell_tuples;
