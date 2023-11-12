@@ -36,9 +36,7 @@ static<6> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset r
     fsm.in = fsm.out != 3'd0 & fsm.out != 3'd5 ? adder.out;
     fsm.in = fsm.out == 3'd5 ? 3'd0;
   }
-  control {
-    static_seq;
-  }
+  control {}
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
