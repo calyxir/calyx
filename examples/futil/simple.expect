@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
-static<5> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     @generated fsm = std_reg(3);
     @generated ud = undef(1);
