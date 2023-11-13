@@ -3,9 +3,9 @@ use std::fs::File;
 pub struct MyAdapter {
     #[allow(dead_code)]
     file: File,
-    breakpoints: Vec<(Source, i64)>,
+    breakpoints: Vec<(Source, i64)>, //This field is a placeholder
     break_count: Counter,
-    threads: Vec<Thread>,
+    threads: Vec<Thread>, //This field is a placeholder
 }
 
 impl MyAdapter {
@@ -18,7 +18,7 @@ impl MyAdapter {
         }
     }
 
-    //Set breakpoints for adapter
+    ///Set breakpoints for adapter
     pub fn set_breakpoint(
         &mut self,
         path: Source,
@@ -31,18 +31,11 @@ impl MyAdapter {
         for source_point in source {
             self.breakpoints.push((path.clone(), source_point.line));
             //Create new Breakpoint instance
-            let breakpoint = Breakpoint {
-                id: self.break_count.increment().into(),
-                verified: true,
-                message: None,
-                source: Some(path.clone()),
-                line: None,
-                column: None,
-                end_line: None,
-                end_column: None,
-                instruction_reference: None,
-                offset: None,
-            };
+            let breakpoint = make_breakpoint(
+                self.break_count.increment().into(),
+                true,
+                Some(path.clone()),
+            );
 
             out_vec.push(breakpoint);
         }
@@ -50,13 +43,13 @@ impl MyAdapter {
         out_vec
     }
 
-    //Return threads
-    pub fn get_threads(&self) -> Vec<Thread> {
+    /// Clone threads
+    pub fn clone_threads(&self) -> Vec<Thread> {
         self.threads.clone()
     }
 }
 
-//Simple struct used to keep an index of the breakpoints used.
+/// Simple struct used to keep an index of the breakpoints used.
 pub struct Counter {
     value: i64,
 }
@@ -65,10 +58,34 @@ impl Counter {
     pub fn new() -> Self {
         Counter { value: 0 }
     }
-    //Inc the counter, return the OLD value
+
+    /// Increment the counter by 1 and return the OLD value
     pub fn increment(&mut self) -> i64 {
         let out = self.value;
         self.value += 1;
         out
+    }
+}
+
+/// Returns a Breakpoint object.
+///
+/// This function takes in relevant fields in Breakpoint that are used
+/// by the adapter. This is subject to change.
+pub fn make_breakpoint(
+    id: Option<i64>,
+    verified: bool,
+    source: Option<Source>,
+) -> Breakpoint {
+    Breakpoint {
+        id,
+        verified,
+        message: None,
+        source,
+        line: None,
+        column: None,
+        end_line: None,
+        end_column: None,
+        instruction_reference: None,
+        offset: None,
     }
 }

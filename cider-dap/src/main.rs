@@ -168,7 +168,7 @@ fn run_server<R: Read, W: Write>(
             //Retrieve a list of all threads
             Command::Threads => {
                 let rsp = req.success(ResponseBody::Threads(ThreadsResponse {
-                    threads: adapter.get_threads(),
+                    threads: adapter.clone_threads(),
                 }));
                 server.respond(rsp)?;
             }
