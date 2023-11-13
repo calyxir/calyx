@@ -1,6 +1,6 @@
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 import re
 import traceback
 import logging as log
@@ -37,9 +37,9 @@ def file_contains(regex, filename):
     return len(strings) == 0
 
 
-def rtl_component_extract(directory, name):
+def rtl_component_extract(file: Path, name: str):
     try:
-        with (directory / "synth_1" / "runme.log").open() as f:
+        with file.open() as f:
             log = f.read()
             comp_usage = re.search(
                 r"Start RTL Component Statistics(.*?)Finished RTL", log, re.DOTALL
@@ -52,13 +52,23 @@ def rtl_component_extract(directory, name):
         return 0
 
 
-def futil_extract(directory):
-    # Search for directory named FutilBuild.runs
+def place_and_route_extract(
+    directory: Path,
+    files_root: str,
+    utilization_file: PurePath,
+    timing_file: PurePath,
+    synthesis_file: PurePath,
+):
+    # Search for the given root directory
     for root, dirs, _ in os.walk(directory):
         for d in dirs:
-            if d == "FutilBuild.runs":
+            if d == files_root:
                 directory = Path(os.path.join(root, d))
                 break
+
+    util_file = directory / utilization_file
+    synth_file = directory / synthesis_file
+    timing_file = directory / timing_file
 
     # The resource information is extracted first for the implementation files, and
     # then for the synthesis files. This is done separately in case users want to
@@ -66,7 +76,6 @@ def futil_extract(directory):
     resource_info = {}
 
     # Extract utilization information
-    util_file = directory / "impl_1" / "main_utilization_placed.rpt"
     try:
         if util_file.exists():
             impl_parser = rpt.RPTParser(util_file)
@@ -87,8 +96,8 @@ def futil_extract(directory):
                         find_row(slice_logic, "Site Type", "CLB LUTs")["Used"]
                     ),
                     "dsp": to_int(find_row(dsp_table, "Site Type", "DSPs")["Used"]),
-                    "registers": rtl_component_extract(directory, "Registers"),
-                    "muxes": rtl_component_extract(directory, "Muxes"),
+                    "registers": rtl_component_extract(synth_file, "Registers"),
+                    "muxes": rtl_component_extract(synth_file, "Muxes"),
                     "clb_registers": clb_reg,
                     "carry8": carry8,
                     "f7_muxes": f7_muxes,
@@ -105,7 +114,6 @@ def futil_extract(directory):
         log.error("Failed to extract utilization information")
 
     # Get timing information
-    timing_file = directory / "impl_1" / "main_timing_summary_routed.rpt"
     if not timing_file.exists():
         log.error(f"Timing file {timing_file} is missing")
     else:
@@ -132,7 +140,6 @@ def futil_extract(directory):
         )
 
     # Extraction for synthesis files.
-    synth_file = directory / "synth_1" / "runme.log"
     try:
         if not synth_file.exists():
             log.error(f"Synthesis file {synth_file} is missing")
@@ -169,18 +176,26 @@ def futil_extract(directory):
     return json.dumps(resource_info, indent=2)
 
 
-def hls_extract(directory):
-    directory = directory / "benchmark.prj" / "solution1"
+def hls_extract(directory: Path, top: str):
+    # Search for directory named benchmark.prj
+    for root, dirs, _ in os.walk(directory):
+        for d in dirs:
+            if d == "benchmark.prj":
+                directory = Path(os.path.join(root, d))
+                break
+
+    directory = directory / "solution1"
+
     try:
-        parser = rpt.RPTParser(directory / "syn" / "report" / "kernel_csynth.rpt")
+        parser = rpt.RPTParser(directory / "syn" / "report" / f"{top}_csynth.rpt")
         summary_table = parser.get_table(re.compile(r"== Utilization Estimates"), 2)
         instance_table = parser.get_table(re.compile(r"\* Instance:"), 0)
 
         solution_data = json.load((directory / "solution1_data.json").open())
-        latency = solution_data["ModuleInfo"]["Metrics"]["kernel"]["Latency"]
+        latency = solution_data["ModuleInfo"]["Metrics"][top]["Latency"]
 
         total_row = find_row(summary_table, "Name", "Total")
-        s_axi_row = find_row(instance_table, "Instance", "kernel_control_s_axi_U")
+        s_axi_row = find_row(instance_table, "Instance", f"{top}_control_s_axi_U")
 
         return json.dumps(
             {
