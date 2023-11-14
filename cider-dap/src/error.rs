@@ -1,11 +1,12 @@
 use dap::errors::ServerError;
+use dap::requests::Command;
 
 #[allow(dead_code)] // remove this later
 #[derive(thiserror::Error, Debug)]
 pub enum MyAdapterError {
     /// Represents an unhandled command error.
-    #[error("Unhandled command")]
-    UnhandledCommandError,
+    #[error("Unhandled command: {0:?}")]
+    UnhandledCommandError(Command),
 
     /// Represents an error when unable to parse the file.
     #[error("Unable to parse the file: {0}")]
