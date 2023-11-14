@@ -2,6 +2,7 @@ mod adapter;
 mod error;
 
 use adapter::MyAdapter;
+use dap::events::ExitedEventBody;
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse,
 };
@@ -172,10 +173,20 @@ fn run_server<R: Read, W: Write>(
                 }));
                 server.respond(rsp)?;
             }
-            // Here, can add a match pattern for a disconnect or exit command
-            // to break out of the loop and close the server.
-            // Command::Disconnect(_) => break,
-            // ...
+
+            Command::StepIn(_) => {
+                return Err(MyAdapterError::MissingFile);
+            }
+
+            // Disconnect the server AND exit the debugger
+            Command::Disconnect(_) => {
+                let rsp = req.success(ResponseBody::Disconnect);
+                server.send_event(Event::Exited(ExitedEventBody {
+                    exit_code: 0,
+                }))?;
+                server.respond(rsp)?;
+                return Err(MyAdapterError::ExitError(0));
+            }
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),
