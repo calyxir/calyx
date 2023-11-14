@@ -11,29 +11,21 @@ ANS_MEM_LEN = 10
 def insert_stats(prog, name):
     """Inserts a stats component called `name` into the program `prog`.
 
-    It accepts, as input ports, two things:
-    - a flag that indicates whether a _report_ is sought.
-    - the index of a flow (0 or 1).
-
-    It maintains two output ports, `count_0` and `count_1`.
+    It maintains:
+    - One input port, the index of a flow (0 or 1).
+    - Two output ports, `count_0` and `count_1`.
 
     It also maintains two internal registers, `count_0_sto` and `count_1_sto`.
 
-    If the `report` flag is set:
-    The component doesn't change the stored counts, it just copies them over
-    to the output ports.
+    The component continously outputs the values of the two registers into the
+    two output ports.
 
-    If the `report` flag is not set:
-    The component reads the flow index and increments `count_0_sto` or `count_1_sto`.
+    When invoked, the component reads the flow index and increments
+    `count_0_sto` or `count_1_sto` as appropriate.
     """
 
     stats: cb.ComponentBuilder = prog.component(name)
-    report = stats.input(
-        "report", 1
-    )  # If 0, increment a counter. If 1, report the counts so far.
-    flow = stats.input(
-        "flow", 1
-    )  # If 0, increment `count_0_sto`. If 1, increment `count_1_sto`.
+    flow = stats.input("flow", 1)
     stats.output("count_0", 32)
     stats.output("count_1", 32)
 
@@ -48,7 +40,6 @@ def insert_stats(prog, name):
     # Equality checks.
     flow_eq_0 = stats.eq_use(flow, 0)
     flow_eq_1 = stats.eq_use(flow, 1)
-    report_eq_0 = stats.eq_use(report, 0)
 
     with stats.continuous:
         stats.this().count_0 = count_0_sto.out
@@ -56,12 +47,9 @@ def insert_stats(prog, name):
 
     # The main logic.
     stats.control += [
-        cb.if_with(
-            report_eq_0,  # Report is low, so the user wants to update the counts.
-            cb.par(
-                cb.if_with(flow_eq_0, [count_0_incr]),
-                cb.if_with(flow_eq_1, [count_1_incr]),
-            ),
+        cb.par(
+            cb.if_with(flow_eq_0, [count_0_incr]),
+            cb.if_with(flow_eq_1, [count_1_incr]),
         ),
     ]
 
@@ -90,10 +78,6 @@ def insert_controller(prog, name, stats_component):
 
     # The main logic.
     controller.control += [
-        cb.invoke(  # Invoke the stats component.
-            stats,
-            in_report=cb.HI,  # Yes, please give me a report.
-        ),
         get_data_locally,
         # Great, now I have the data around locally.
     ]
