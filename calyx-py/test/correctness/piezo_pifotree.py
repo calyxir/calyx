@@ -78,10 +78,6 @@ def insert_controller(prog, name, stats_component):
 
     # The main logic.
     controller.control += [
-        cb.invoke(  # Invoke the stats component.
-            stats,
-            in_report=cb.LO,  # Yes, please give me a report.
-        ),
         get_data_locally,
         # Great, now I have the data around locally.
     ]

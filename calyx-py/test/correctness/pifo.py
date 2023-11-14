@@ -300,13 +300,8 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
                                 # If a stats component is provided,
                                 # Increment the length and also
                                 # tell the stats component what flow we pushed.
-                                # Do not request a report.
                                 len_incr,
-                                cb.invoke(
-                                    stats,
-                                    in_flow=flow.out,
-                                    in_report=cb.LO,  # Not requesting a report.
-                                ),
+                                cb.invoke(stats, in_flow=flow.out),
                             ],
                         ),
                     ],
