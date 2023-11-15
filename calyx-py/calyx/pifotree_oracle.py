@@ -16,15 +16,7 @@ if __name__ == "__main__":
     #   - The boundary for this is 200.
 
     pifo = queues.Pifo(
-        queues.Pifo(
-            queues.Fifo([], queue_util.QUEUE_SIZE),
-            queues.Fifo([], queue_util.QUEUE_SIZE),
-            100,
-            queue_util.QUEUE_SIZE,
-        ),
-        queues.Fifo([], queue_util.QUEUE_SIZE),
-        200,
-        queue_util.QUEUE_SIZE,
+        queues.Pifo(queues.Fifo([]), queues.Fifo([]), 100), queues.Fifo([]), 200
     )
 
     ans = queues.operate_queue(commands, values, pifo)

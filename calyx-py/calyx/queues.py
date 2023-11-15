@@ -11,9 +11,9 @@ class Fifo:
     and we cannot exceed.
     """
 
-    def __init__(self, data: List[int], max_len: int):
+    def __init__(self, data: List[int], max_len: int = None):
         self.data = data
-        self.max_len = max_len
+        self.max_len = max_len or queue_util.QUEUE_SIZE
 
     def push(self, val: int):
         """Pushes `val` to the FIFO."""
@@ -77,12 +77,12 @@ class Pifo:
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary, max_len):
+    def __init__(self, queue_1, queue_2, boundary, max_len=None):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
-        self.max_len = max_len
+        self.max_len = max_len or queue_util.QUEUE_SIZE
         assert (
             self.pifo_len <= self.max_len
         )  # We can't be initialized with a PIFO that is too long.
