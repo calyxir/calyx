@@ -71,6 +71,7 @@ class Pifo:
     - We don't flip `hot`.
 
     When asked to push:
+    - If the PIFO is at length `max_len`, we raise an error.
     - If the value to be pushed is less than `boundary`, we push it into queue_1.
     - Else, we push it into queue_2.
     - We increment `pifo_len` by 1.
@@ -88,6 +89,8 @@ class Pifo:
 
     def push(self, val: int):
         """Pushes `val` to the PIFO."""
+        if self.pifo_len == self.max_len:
+            raise IndexError("Cannot push to full PIFO.")
         if val < self.boundary:
             self.data[0].push(val)
         else:
