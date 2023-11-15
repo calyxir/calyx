@@ -20,7 +20,20 @@ macro_rules! output {
     }
 }
 
+macro_rules! make_getters {
+    ($base:ident; $( $port:ident : $offset:expr ),+ ) => {
+        $(
+            #[inline]
+            fn $port(&self) -> $crate::flatten::flat_ir::prelude::GlobalPortId {
+                ($crate::flatten::structures::index_trait::IndexRef::index(&self.$base) + $offset).into()
+            }
+        )+
+
+    }
+}
+
 pub(crate) use declare_ports;
+pub(crate) use make_getters;
 pub(crate) use output;
 pub(crate) use ports;
 
