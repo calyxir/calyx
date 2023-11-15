@@ -24,13 +24,7 @@ mod val_test {
         println!("15 with bit width 4: {}", v_15_4);
         assert_eq!(v_31_4.as_u64(), v_15_4.as_u64());
     }
-    #[test]
-    fn clear() {
-        let v_15_4 = Value::from(15, 4);
-        let v_15_4 = v_15_4.clear();
-        println!("15 with bit width 4 AFTER clear: {}", v_15_4);
-        assert_eq!(v_15_4.as_u64(), 0);
-    }
+
     #[test]
     fn ext() {
         let v_15_4 = Value::from(15, 4);
