@@ -24,10 +24,10 @@ def dump_json():
     commands = {
         "commands": {
             # We'll "rig" these random values a little.
-            # The first 10% of the commands will be 2 (push).
+            # The first 5% of the commands will be 2 (push).
             # The rest will be generated randomly from among 0, 1, and 2.
-            "data": [2] * (queue_util.MAX_CMDS // 10)
-            + [random.randint(0, 2) for _ in range(queue_util.MAX_CMDS * 9 // 10)],
+            "data": [2] * (queue_util.MAX_CMDS // 20)
+            + [random.randint(0, 2) for _ in range(queue_util.MAX_CMDS * 19 // 20)],
             "format": format_gen(2),
         }
     }
