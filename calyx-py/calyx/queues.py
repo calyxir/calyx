@@ -7,14 +7,20 @@ import calyx.queue_util as queue_util
 class Fifo:
     """A FIFO data structure.
     Supports the operations `push`, `pop`, and `peek`.
+    Inherent to the queue is its `max_len`, which is given to us at initialization
+    and we cannot exceed.
     """
 
-    def __init__(self, data: List[int]):
+    def __init__(self, data: List[int], max_len: int):
         self.data = data
+        self.max_len = max_len
 
     def push(self, val: int):
         """Pushes `val` to the FIFO."""
-        self.data.append(val)
+        if len(self.data) < self.max_len:
+            self.data.append(val)
+        else:
+            raise IndexError("Cannot push to full FIFO.")
 
     def pop(self) -> int:
         """Pops the FIFO."""
@@ -46,6 +52,10 @@ class Pifo:
     We maintain internally a variable called `pifo_len`:
     the sum of the lengths of the two queues.
 
+    Inherent to the queue is its `max_len`, which is given to us at initialization
+    and we cannot exceed.
+
+
     When asked to pop:
     - If `pifo_len` is 0, we raise an error.
     - Else, if `hot` is 0, we try to pop from queue_0.
@@ -66,11 +76,15 @@ class Pifo:
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary):
+    def __init__(self, queue_1, queue_2, boundary, max_len):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
+        self.max_len = max_len
+        assert (
+            self.pifo_len <= self.max_len
+        )  # We can't be initialized with a PIFO that is too long.
 
     def push(self, val: int):
         """Pushes `val` to the PIFO."""
@@ -137,7 +151,10 @@ def operate_queue(commands, values, queue):
                 break
 
         elif cmd == 2:
-            queue.push(val)
+            try:
+                queue.push(val)
+            except IndexError:
+                break
 
     # Pad the answer memory with zeroes until it is of length MAX_CMDS.
     ans += [0] * (queue_util.MAX_CMDS - len(ans))

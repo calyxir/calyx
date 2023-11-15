@@ -1,7 +1,8 @@
 import json
 import sys
 
-MAX_CMDS = 20
+MAX_CMDS = 100
+QUEUE_SIZE = 10
 
 
 def parse_json():
