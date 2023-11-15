@@ -3,10 +3,11 @@ use crate::values::Value as BvValue;
 pub enum Value {
     /// An undefined value from which it is dangerous to read.
     Undefined,
+    /// A defined value that can be computed with
+    Defined(DefinedValue),
+}
 
-    // insert small value here
-    /// An arbitrarily large value. Should be replaced with a pointer to keep
-    /// the size manageable
+pub enum DefinedValue {
     Large(BvValue),
 }
 
@@ -17,5 +18,13 @@ impl Value {
     #[must_use]
     pub fn is_undefined(&self) -> bool {
         matches!(self, Self::Undefined)
+    }
+
+    /// Returns `true` if the value is [`Defined`].
+    ///
+    /// [`Defined`]: Value::Defined
+    #[must_use]
+    pub fn is_defined(&self) -> bool {
+        matches!(self, Self::Defined(..))
     }
 }

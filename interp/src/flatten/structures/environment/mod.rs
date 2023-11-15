@@ -1,5 +1,8 @@
-use ahash::{HashMap, HashMapExt};
+mod program_counter;
+
 use itertools::Itertools;
+
+use self::program_counter::ProgramCounter;
 
 use super::{
     context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
@@ -95,124 +98,6 @@ impl Debug for CellLedger {
                 .field("comp_id", comp_id)
                 .finish(),
         }
-    }
-}
-
-/// Simple struct containing both the component instance and the active leaf
-/// node in the component
-#[derive(Debug, Hash, Eq, PartialEq)]
-pub struct ControlPoint {
-    pub comp: GlobalCellId,
-    pub control_leaf: ControlIdx,
-}
-
-impl ControlPoint {
-    pub fn new(comp: GlobalCellId, control_leaf: ControlIdx) -> Self {
-        Self { comp, control_leaf }
-    }
-}
-
-/// The number of control points to preallocate for the program counter.
-const CONTROL_POINT_PREALLOCATE: usize = 16;
-
-/// The number of children that have yet to finish for a given par arm. I have
-/// this a u16 at the moment which is hopefully fine? More than 65,535 parallel
-/// children would be a lot.
-pub type ChildCount = u16;
-
-/// The program counter for the whole program execution. Wraps over a vector of
-/// the active leaf statements for each component instance.
-#[derive(Debug, Default)]
-pub(crate) struct ProgramCounter {
-    vec: Vec<ControlPoint>,
-    par_map: HashMap<ControlPoint, ChildCount>,
-}
-
-// we need a few things from the program counter
-
-impl ProgramCounter {
-    pub fn new(ctx: &Context) -> Self {
-        let root = ctx.entry_point;
-        // this relies on the fact that we construct the root cell-ledger
-        // as the first possible cell in the program. If that changes this will break.
-        let root_cell = GlobalCellId::new(0);
-        let mut par_map: HashMap<ControlPoint, ChildCount> = HashMap::new();
-
-        let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
-        if let Some(current) = ctx.primary[root].control {
-            let mut work_queue: Vec<ControlIdx> = Vec::from([current]);
-            let mut backtrack_map = HashMap::new();
-
-            while let Some(current) = work_queue.pop() {
-                match &ctx.primary[current] {
-                    ControlNode::Empty(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Enable(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Seq(s) => match s
-                        .stms()
-                        .iter()
-                        .find(|&x| !backtrack_map.contains_key(x))
-                    {
-                        Some(n) => {
-                            backtrack_map.insert(*n, current);
-                            work_queue.push(*n);
-                        }
-                        None => {
-                            if let Some(b) = backtrack_map.get(&current) {
-                                work_queue.push(*b)
-                            }
-                        }
-                    },
-                    ControlNode::Par(p) => {
-                        par_map.insert(
-                            ControlPoint::new(root_cell, current),
-                            p.stms().len().try_into().expect(
-                                "number of par arms does not fit into the default size value. Please let us know so that we can adjust the datatype accordingly",
-                            ),
-                        );
-                        for node in p.stms() {
-                            work_queue.push(*node);
-                        }
-                    }
-                    ControlNode::If(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::While(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Invoke(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                }
-            }
-        } else {
-            todo!(
-                "Flat interpreter does not support control-less components yet"
-            )
-        }
-
-        Self { vec, par_map }
-    }
-
-    pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
-        self.vec.iter()
-    }
-
-    pub fn is_done(&self) -> bool {
-        self.vec.is_empty()
-    }
-}
-
-impl<'a> IntoIterator for &'a ProgramCounter {
-    type Item = &'a ControlPoint;
-
-    type IntoIter = std::slice::Iter<'a, ControlPoint>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
     }
 }
 
@@ -465,27 +350,6 @@ impl<'a> Simulator<'a> {
     }
 }
 
-#[derive(Debug)]
-enum NextControlPoint {
-    /// no
-    None,
-    /// This is the node to run next. The nice friendly singular case
-    Next(ControlPoint),
-    /// We just finished the child of this par block and need to decrement its
-    /// count
-    FinishedParChild(ControlPoint),
-    /// We passed through one or more par nodes to reach this leaf (or leaves)
-    StartedParChild(Vec<ControlPoint>, Vec<(ControlPoint, u32)>),
-}
-
-struct SearchNode {
-    node: ControlIdx,
-    // nodes to search after this one, probably could just be a vec if
-    // we insist that the vec is created in reverse order so we can pop
-    // off nodes as needed
-    next: VecDeque<ControlIdx>,
-}
-
 // =========================== simulation functions ===========================
 impl<'a> Simulator<'a> {
     /// Finds the next control point from a finished control point. If there is
@@ -495,117 +359,117 @@ impl<'a> Simulator<'a> {
     /// is finished executing and will ascend to the parent context. Evaluating
     /// the if/while condition and moving to the appropriate body must be
     /// handled elsewhere.
-    fn find_next_control_point(
-        &self,
-        target: &ControlPoint,
-    ) -> NextControlPoint {
-        let comp = target.comp;
-        let comp_idx = self.env.cells[comp].as_comp().unwrap().comp_id;
-        let root_ctrl = self.env.ctx.primary[comp_idx].control.expect(
-            "Called `find_next_control_point` on a component with no control. This is an error, please report it",
-        );
+    // fn find_next_control_point(
+    //     &self,
+    //     target: &ControlPoint,
+    // ) -> NextControlPoint {
+    //     let comp = target.comp;
+    //     let comp_idx = self.env.cells[comp].as_comp().unwrap().comp_id;
+    //     let root_ctrl = self.env.ctx.primary[comp_idx].control.expect(
+    //         "Called `find_next_control_point` on a component with no control. This is an error, please report it",
+    //     );
 
-        // here's the goal:
-        // we want to first walk the control tree for this component and find
-        // the given control point and the path through the tree to get there.
-        // Once we have this, we move back along the path to find the next
-        // node to run (either a terminal node in an `invoke` or `enable` or a
-        // non-terminal while/if condition check). Since this involves
-        // backtracking, in the limit this means backtracking all the way to the
-        // root of the component in which case the component has finished
-        // executing.
+    //     // here's the goal:
+    //     // we want to first walk the control tree for this component and find
+    //     // the given control point and the path through the tree to get there.
+    //     // Once we have this, we move back along the path to find the next
+    //     // node to run (either a terminal node in an `invoke` or `enable` or a
+    //     // non-terminal while/if condition check). Since this involves
+    //     // backtracking, in the limit this means backtracking all the way to the
+    //     // root of the component in which case the component has finished
+    //     // executing.
 
-        let cont = self.extract_next_search(root_ctrl);
+    //     let cont = self.extract_next_search(root_ctrl);
 
-        let mut search_stack = Vec::from([SearchNode {
-            node: root_ctrl,
-            next: cont,
-        }]);
+    //     let mut search_stack = Vec::from([SearchNode {
+    //         node: root_ctrl,
+    //         next: cont,
+    //     }]);
 
-        while let Some(mut node) = search_stack.pop() {
-            if node.node == target.control_leaf {
-                // found the node! we return it to the stack which is now the
-                // path from the root to our finished node
-                search_stack.push(node);
-                break;
-            } else if let Some(next_node) = node.next.pop_front() {
-                let next_search_node = SearchNode {
-                    node: next_node,
-                    next: self.extract_next_search(next_node),
-                };
-                // return the now modified original
-                search_stack.push(node);
-                // push the descendent next, so that the search continues
-                // depth first
-                search_stack.push(next_search_node);
-            } else {
-                // This node was not the one we wanted and none of its
-                // children (if any) were either, we must return to the
-                // parent which means dropping the node, i.e. doing nothing here
-            }
-        }
+    //     while let Some(mut node) = search_stack.pop() {
+    //         if node.node == target.control_leaf {
+    //             // found the node! we return it to the stack which is now the
+    //             // path from the root to our finished node
+    //             search_stack.push(node);
+    //             break;
+    //         } else if let Some(next_node) = node.next.pop_front() {
+    //             let next_search_node = SearchNode {
+    //                 node: next_node,
+    //                 next: self.extract_next_search(next_node),
+    //             };
+    //             // return the now modified original
+    //             search_stack.push(node);
+    //             // push the descendent next, so that the search continues
+    //             // depth first
+    //             search_stack.push(next_search_node);
+    //         } else {
+    //             // This node was not the one we wanted and none of its
+    //             // children (if any) were either, we must return to the
+    //             // parent which means dropping the node, i.e. doing nothing here
+    //         }
+    //     }
 
-        if search_stack.is_empty() {
-            // The reason this should never happen is that this implies a
-            // controlpoint was constructed for a fully-structural component
-            // instance which means something went wrong with the construction
-            // as such an instance could not have a control program to reference
-            panic!("Could not find control point in component, this should never happen. Please report this error.")
-        }
+    //     if search_stack.is_empty() {
+    //         // The reason this should never happen is that this implies a
+    //         // controlpoint was constructed for a fully-structural component
+    //         // instance which means something went wrong with the construction
+    //         // as such an instance could not have a control program to reference
+    //         panic!("Could not find control point in component, this should never happen. Please report this error.")
+    //     }
 
-        // phase two, backtrack to find the next node to run
+    //     // phase two, backtrack to find the next node to run
 
-        // remove the deepest node (i.e. our target)
-        search_stack.pop();
+    //     // remove the deepest node (i.e. our target)
+    //     search_stack.pop();
 
-        let mut immediate_next_node = None;
+    //     let mut immediate_next_node = None;
 
-        while let Some(node) = search_stack.pop() {
-            match &self.ctx().primary[node.node] {
-                ControlNode::Seq(_) => {
-                        if let Some(next) = node.next.get(0) {
-                            // the target node will have been popped off the
-                            // list during the search meaning the next node left
-                            // over from the search is the next node to run
-                             immediate_next_node = Some(*next);
-                             // exit to descend the list
-                             break;
-                        } else {
-                            // no next node, go to parent context
-                        }
-                    },
-                ControlNode::Par(_) =>  {
-                    // par arm needs to wait until all arms are finished
-                    return NextControlPoint::FinishedParChild(ControlPoint::new(comp, node.node));
-                },
-                ControlNode::If(_) => {
-                    // do nothing, go to parent context
-                },
-                ControlNode::While(_) => {
-                    // need to recheck condition so the while itself is next
-                    return NextControlPoint::Next(ControlPoint::new(comp, node.node));
-                },
-                //
-                ControlNode::Empty(_)
-                | ControlNode::Enable(_)
-                | ControlNode::Invoke(_) => unreachable!("terminal nodes cannot be the parents of a node. If this happens something has gone horribly wrong and should be reported"),
-            }
-        }
+    //     while let Some(node) = search_stack.pop() {
+    //         match &self.ctx().primary[node.node] {
+    //             ControlNode::Seq(_) => {
+    //                     if let Some(next) = node.next.get(0) {
+    //                         // the target node will have been popped off the
+    //                         // list during the search meaning the next node left
+    //                         // over from the search is the next node to run
+    //                          immediate_next_node = Some(*next);
+    //                          // exit to descend the list
+    //                          break;
+    //                     } else {
+    //                         // no next node, go to parent context
+    //                     }
+    //                 },
+    //             ControlNode::Par(_) =>  {
+    //                 // par arm needs to wait until all arms are finished
+    //                 return NextControlPoint::FinishedParChild(ControlPoint::new(comp, node.node));
+    //             },
+    //             ControlNode::If(_) => {
+    //                 // do nothing, go to parent context
+    //             },
+    //             ControlNode::While(_) => {
+    //                 // need to recheck condition so the while itself is next
+    //                 return NextControlPoint::Next(ControlPoint::new(comp, node.node));
+    //             },
+    //             //
+    //             ControlNode::Empty(_)
+    //             | ControlNode::Enable(_)
+    //             | ControlNode::Invoke(_) => unreachable!("terminal nodes cannot be the parents of a node. If this happens something has gone horribly wrong and should be reported"),
+    //         }
+    //     }
 
-        // phase 3, take the immediate next node and descend to find its leaf
+    //     // phase 3, take the immediate next node and descend to find its leaf
 
-        if let Some(node) = immediate_next_node {
-            // we reuse the existing search stack without resetting it to allow
-            // backtracking further if the immediate next node has no actual
-            // leaves under it, e.g. a seq of empty seqs
-            // TODO Griffin: double check this aspect later as it might
-            // complicate things or introduce errors
-            self.descend_to_leaf(node, &mut search_stack, comp)
-        } else {
-            // if we exit without finding the next node then it does not exist
-            NextControlPoint::None
-        }
-    }
+    //     if let Some(node) = immediate_next_node {
+    //         // we reuse the existing search stack without resetting it to allow
+    //         // backtracking further if the immediate next node has no actual
+    //         // leaves under it, e.g. a seq of empty seqs
+    //         // TODO Griffin: double check this aspect later as it might
+    //         // complicate things or introduce errors
+    //         self.descend_to_leaf(node, &mut search_stack, comp)
+    //     } else {
+    //         // if we exit without finding the next node then it does not exist
+    //         NextControlPoint::None
+    //     }
+    // }
 
     /// pull out the next nodes to search when
     fn extract_next_search(&self, idx: ControlIdx) -> VecDeque<ControlIdx> {
@@ -641,83 +505,83 @@ impl<'a> Simulator<'a> {
         &self.env.ports[port_idx]
     }
 
-    fn descend_to_leaf(
-        &self,
-        // the node (possibly terminal) which we want to start evaluating
-        immediate_next_node: ControlIdx,
-        search_stack: &mut Vec<SearchNode>,
-        comp: GlobalCellId,
-    ) -> NextControlPoint {
-        search_stack.push(SearchNode {
-            node: immediate_next_node,
-            next: self.extract_next_search(immediate_next_node),
-        });
+    // fn descend_to_leaf(
+    //     &self,
+    //     // the node (possibly terminal) which we want to start evaluating
+    //     immediate_next_node: ControlIdx,
+    //     search_stack: &mut Vec<SearchNode>,
+    //     comp: GlobalCellId,
+    // ) -> NextControlPoint {
+    //     search_stack.push(SearchNode {
+    //         node: immediate_next_node,
+    //         next: self.extract_next_search(immediate_next_node),
+    //     });
 
-        while let Some(mut node) = search_stack.pop() {
-            match &self.ctx().primary[node.node] {
-                ControlNode::Seq(_) => {
-                    if let Some(next) = node.next.pop_front() {
-                        search_stack.push(node);
-                        let next_search_node = SearchNode {
-                            node: next,
-                            next: self.extract_next_search(next),
-                        };
-                        search_stack.push(next_search_node);
-                    } else {
-                        // this seq does not contain any more nodes.
-                        // Currently only possible if the seq is empty
-                    }
-                },
+    //     while let Some(mut node) = search_stack.pop() {
+    //         match &self.ctx().primary[node.node] {
+    //             ControlNode::Seq(_) => {
+    //                 if let Some(next) = node.next.pop_front() {
+    //                     search_stack.push(node);
+    //                     let next_search_node = SearchNode {
+    //                         node: next,
+    //                         next: self.extract_next_search(next),
+    //                     };
+    //                     search_stack.push(next_search_node);
+    //                 } else {
+    //                     // this seq does not contain any more nodes.
+    //                     // Currently only possible if the seq is empty
+    //                 }
+    //             },
 
-                ControlNode::Par(p) => {
-                    let mut ctrl_points = vec![];
-                    let mut pars_activated = vec![];
+    //             ControlNode::Par(p) => {
+    //                 let mut ctrl_points = vec![];
+    //                 let mut pars_activated = vec![];
 
-                    let mut this_par = (ControlPoint::new(comp, node.node), p.stms().len() as u32);
+    //                 let mut this_par = (ControlPoint::new(comp, node.node), p.stms().len() as u32);
 
-                    // TODO Griffin: Maybe consider making this not
-                    // recursive in the future
-                    for arm in p.stms().iter().map( |x| {
-                        self.descend_to_leaf(*x, &mut vec![], comp)
-                    }) {
-                        match arm {
-                            NextControlPoint::None => {
-                                this_par.1 -= 1;
-                            },
-                            NextControlPoint::Next(c) => ctrl_points.push(c),
-                            NextControlPoint::FinishedParChild(_) => unreachable!("I think this impossible"),
-                            NextControlPoint::StartedParChild(nodes, pars) => {
-                                ctrl_points.extend(nodes);
-                                pars_activated.extend(pars);
-                            },
-                        }
-                    }
+    //                 // TODO Griffin: Maybe consider making this not
+    //                 // recursive in the future
+    //                 for arm in p.stms().iter().map( |x| {
+    //                     self.descend_to_leaf(*x, &mut vec![], comp)
+    //                 }) {
+    //                     match arm {
+    //                         NextControlPoint::None => {
+    //                             this_par.1 -= 1;
+    //                         },
+    //                         NextControlPoint::Next(c) => ctrl_points.push(c),
+    //                         NextControlPoint::FinishedParChild(_) => unreachable!("I think this impossible"),
+    //                         NextControlPoint::StartedParChild(nodes, pars) => {
+    //                             ctrl_points.extend(nodes);
+    //                             pars_activated.extend(pars);
+    //                         },
+    //                     }
+    //                 }
 
-                    if this_par.1 != 0 {
-                        pars_activated.push(this_par);
-                        return NextControlPoint::StartedParChild(ctrl_points, pars_activated)
-                    } else {
-                        // there were no next nodes under this par, so we
-                        // ascend the search tree and continue
-                    }
-                }
+    //                 if this_par.1 != 0 {
+    //                     pars_activated.push(this_par);
+    //                     return NextControlPoint::StartedParChild(ctrl_points, pars_activated)
+    //                 } else {
+    //                     // there were no next nodes under this par, so we
+    //                     // ascend the search tree and continue
+    //                 }
+    //             }
 
-                // functionally terminals for the purposes of needing to be
-                // seen in the control program and given extra treatment
-                ControlNode::If(_)
-                | ControlNode::While(_)
-                // actual terminals
-                | ControlNode::Invoke(_)
-                | ControlNode::Enable(_)
-                // might not want this here in the future, but makes sense
-                // if we think about annotations on empty groups.
-                | ControlNode::Empty(_)=> {
-                    return NextControlPoint::Next(ControlPoint::new(comp, node.node))
-                }
-            }
-        }
-        NextControlPoint::None
-    }
+    //             // functionally terminals for the purposes of needing to be
+    //             // seen in the control program and given extra treatment
+    //             ControlNode::If(_)
+    //             | ControlNode::While(_)
+    //             // actual terminals
+    //             | ControlNode::Invoke(_)
+    //             | ControlNode::Enable(_)
+    //             // might not want this here in the future, but makes sense
+    //             // if we think about annotations on empty groups.
+    //             | ControlNode::Empty(_)=> {
+    //                 return NextControlPoint::Next(ControlPoint::new(comp, node.node))
+    //             }
+    //         }
+    //     }
+    //     NextControlPoint::None
+    // }
 
     // may want to make this iterate directly if it turns out that the vec
     // allocation is too expensive in this context
@@ -836,8 +700,8 @@ impl<'a> Simulator<'a> {
 
     pub fn _main_test(&mut self) {
         self.env.print_pc();
-        for x in self.env.pc.iter() {
-            println!("{:?} next {:?}", x, self.find_next_control_point(x))
+        for _x in self.env.pc.iter() {
+            // println!("{:?} next {:?}", x, self.find_next_control_point(x))
         }
         println!("{:?}", self.get_assignments())
     }
