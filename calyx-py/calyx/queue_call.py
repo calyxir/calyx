@@ -2,6 +2,7 @@
 from calyx import queue_util
 import calyx.builder as cb
 
+
 def insert_main(prog, queue):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `queue` and feed it a list of commands.
@@ -155,8 +156,8 @@ def insert_runner(prog, queue, name, stats_component):
     # - ref register `err`, which is raised if an error occurs.
 
     # Our memories and registers, all of which are passed to us by reference.
-    commands = runner.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_ref=True)
-    values = runner.seq_mem_d1("values", 32, MAX_CMDS, 32, is_ref=True)
+    commands = runner.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_ref=True)
+    values = runner.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_ref=True)
     has_ans = runner.reg("has_ans", 1, is_ref=True)
     ans = runner.reg("component_ans", 32, is_ref=True)
     err = runner.reg("component_err", 1, is_ref=True)
@@ -179,11 +180,11 @@ def insert_runner(prog, queue, name, stats_component):
     # Wiring to raise/lower flags and compute a negation.
     raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
     lower_has_ans = runner.reg_store(has_ans, 0, "lower_has_ans")
-    err_neg = runner.not_use(err.out)
+    not_err = runner.not_use(err.out)
 
     # Wiring that raises `err` iff `i = MAX_CMDS`.
     check_if_out_of_cmds, _ = runner.eq_store_in_reg(
-        i.out, cb.const(32, MAX_CMDS), "i_eq_MAX_CMDS", 32, err
+        i.out, cb.const(32, queue_util.MAX_CMDS), "i_eq_MAX_CMDS", 32, err
     )
 
     runner.control += [
@@ -201,17 +202,17 @@ def insert_runner(prog, queue, name, stats_component):
         ),
         # We're back from the invoke, and it's time for some post-mortem analysis.
         cb.if_with(
-            err_neg,  # If there was no error
+            not_err,  # If there was no error
             [
                 cb.if_with(
                     cmd_le_1,  # If the command was a pop or peek
                     [raise_has_ans],  # then raise the `has_ans` flag
                     [lower_has_ans],  # else lower the `has_ans` flag
                 ),
-                incr_i,  # Increment the command index
-                check_if_out_of_cmds,  # If we're out of commands, raise `err`
             ],
         ),
+        incr_i,  # Increment the command index
+        check_if_out_of_cmds,  # If we're out of commands, raise `err`
     ]
 
     return runner

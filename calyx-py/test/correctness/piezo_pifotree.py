@@ -2,10 +2,8 @@
 import fifo
 import pifo
 import calyx.builder as cb
-import calyx.queue_call as qc
-
-MAX_CMDS = 15
-ANS_MEM_LEN = 10
+from calyx import queue_call
+from calyx import queue_util
 
 
 def insert_stats(prog, name):
@@ -100,24 +98,26 @@ def insert_main(prog, dataplane, controller, stats_component):
     dataplane_ans = main.reg("dataplane_ans", 32)
     dataplane_err = main.reg("dataplane_err", 1)
 
-    commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
-    values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
+    values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, queue_util.MAX_CMDS, 32, is_external=True)
 
     j = main.reg("j", 32)  # The index on the answer-list we'll write to
     incr_j = main.incr(j)  # j++
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
     # ans_mem[j] = dataplane_ans
+    lower_has_ans = main.reg_store(has_ans, 0, "lower_has_ans")  # has_ans := 0
 
-    err_eq_0 = main.eq_use(dataplane_err.out, 0)
+    not_err = main.not_use(dataplane_err.out)
 
     main.control += [
         # We will run the dataplane and controller components in parallel,
         # in a while loop. The loop will terminate when the dataplane component
         # raises `dataplane_err`.
         cb.while_with(
-            err_eq_0,  # While the dataplane component has not errored out.
+            not_err,  # While the dataplane component has not errored out.
             [
+                lower_has_ans,  # Lower the has-ans flag.
                 cb.invoke(  # Invoke the dataplane component.
                     dataplane,
                     ref_commands=commands,
@@ -151,7 +151,7 @@ def build():
         prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component
     )
     # The root PIFO will take a stats component by reference.
-    dataplane = qc.insert_runner(prog, pifo_root, "dataplane", stats_component)
+    dataplane = queue_call.insert_runner(prog, pifo_root, "dataplane", stats_component)
     controller = insert_controller(prog, "controller", stats_component)
     insert_main(prog, dataplane, controller, stats_component)
     return prog.program
