@@ -131,12 +131,14 @@ class Pifo:
                 self.hot = 1
                 return self.data[0].pop()
             except QueueError:
+                self.hot = 0
                 return self.data[1].pop()
         else:
             try:
                 self.hot = 0
                 return self.data[1].pop()
             except QueueError:
+                self.hot = 1
                 return self.data[0].pop()
 
     def peek(self) -> Optional[int]:
