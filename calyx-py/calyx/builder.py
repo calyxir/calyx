@@ -418,6 +418,20 @@ class ComponentBuilder:
             ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, True),
         )
 
+    def unary_use(self, input, cell, groupname=None):
+        """Accepts a cell that performs some computation on value `input`.
+        Creates a combinational group that wires up the cell with this port.
+        Returns the cell and the combintational group.
+        comb group `groupname` {
+            `cell.name`.in = `input`;
+        }
+        Returns handles to the cell and the combinational group.
+        """
+        groupname = groupname or f"{cell.name}_group"
+        with self.comb_group(groupname) as comb_group:
+            cell.in_ = input
+        return CellAndGroup(cell, comb_group)
+
     def binary_use(self, left, right, cell, groupname=None):
         """Accepts a cell that performs some computation on values `left` and `right`.
         Creates a combinational group that wires up the cell with these ports.
@@ -487,6 +501,11 @@ class ComponentBuilder:
         """Inserts wiring into `self` to compute `left` - `right`."""
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.sub(width, cellname, signed))
+
+    def not_use(self, input, cellname=None, width=None):
+        """Inserts wiring into `self` to compute `not input`."""
+        width = self.try_infer_width(width, input, input)
+        return self.unary_use(input, self.not_(width, cellname))
 
     def bitwise_flip_reg(self, reg, cellname=None):
         """Inserts wiring into `self` to bitwise-flip the contents of `reg`
