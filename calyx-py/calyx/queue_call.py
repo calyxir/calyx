@@ -1,5 +1,5 @@
 # pylint: disable=import-error
-import calyx.queue_util as queue_util
+from calyx import queue_util
 import calyx.builder as cb
 
 

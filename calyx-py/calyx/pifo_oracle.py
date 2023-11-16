@@ -1,5 +1,5 @@
 import calyx.queues as queues
-import calyx.queue_util as queue_util
+from calyx import queue_util
 
 if __name__ == "__main__":
     commands, values = queue_util.parse_json()
