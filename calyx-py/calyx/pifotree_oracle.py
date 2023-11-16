@@ -21,3 +21,4 @@ if __name__ == "__main__":
 
     ans = queues.operate_queue(commands, values, pifo)
     queue_util.dump_json(commands, values, ans)
+    
