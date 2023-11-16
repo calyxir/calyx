@@ -100,6 +100,14 @@ impl Visitor for DeadGroupRemoval {
                 }
             }
         }
+
+        for assign in &comp.continuous_assignments {
+            let dst = assign.dst.borrow();
+            if dst.is_hole() && dst.name == "go" {
+                self.used_groups.insert(dst.get_parent_name());
+            }
+        }
+
         for group in comp.get_static_groups().iter() {
             for assign in &group.borrow().assignments {
                 let dst = assign.dst.borrow();

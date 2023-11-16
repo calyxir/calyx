@@ -1,37 +1,57 @@
 {
-    "name": "cider-dap",
-    "displayName": "Cider",
-    "version": "0.0.1",
-    "publisher": "Cider",
-    "description": "A debug adapter for Calyx files",
-    "author": {
-        "name": "...",
-        "email": "..."
-    },
-    "engines": {
-        "vscode": "^1.54.0"
-    },
-    "icon": "",
-    "categories": [
-        "Debuggers"
+  "name": "cider-dap",
+  "displayName": "Cider",
+  "version": "0.0.1",
+  "publisher": "Cider",
+  "description": "A debug adapter for Calyx files",
+  "author": {
+    "name": "...",
+    "email": "..."
+  },
+  "engines": {
+    "vscode": "^1.54.0"
+  },
+  "icon": "",
+  "categories": [
+    "Debuggers"
+  ],
+  "main": "./built/extension.js",
+  "contributes": {
+    "breakpoints": [
+      {
+        "language": "calyx"
+      }
     ],
-    "main": "./extension.js",
-    "contributes": {
-        "breakpoints": [
-            {
-                "language": "calyx"
-            }
-        ],
-        "debuggers": [
-            {
-                "type": "cider-dap",
-                "label": "Cider Debug",
-                "configurationAttributes": {}
-            }
-        ]
-    },
-    "activationEvents": [
-        "onDebug",
-        "onLanguage:calyx"
-    ]
+    "debuggers": [
+      {
+        "type": "cider-dap",
+        "label": "Cider Debug",
+        "configurationAttributes": {}
+      }
+    ],
+    "configuration": {
+      "title": "cider-dap",
+      "properties": {
+        "cider-dap.path": {
+          "type": "string",
+          "scope": "machine",
+          "default": "cider-dap",
+          "description": "Cider Binary Path"
+        },
+        "cider-dap.port": {
+          "type": "number",
+          "scope": "machine",
+          "default": 8888,
+          "description": "Port number"
+        }
+      }
+    }
+  },
+  "activationEvents": [
+    "onDebug",
+    "onLanguage:calyx"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npx tsc"
+  }
 }
