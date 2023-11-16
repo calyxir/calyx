@@ -1,5 +1,5 @@
 import calyx.queues as queues
-import calyx.queue_util as queue_util
+from calyx import queue_util
 
 
 if __name__ == "__main__":
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     #   - The boundary for this is 200.
 
     pifo = queues.Pifo(
-        queues.Pifo(queues.Fifo([]), queues.Fifo([]), 100), queues.Fifo([]), 200
+        queues.Pifo(queues.Fifo([]), queues.Fifo([]), 100), queues.Fifo([]), 200, False
     )
 
     ans = queues.operate_queue(commands, values, pifo)
