@@ -15,7 +15,7 @@ component my_reg<"state_share"=1>(@data in: 32, @go go: 1, @clk clk: 1, @reset r
     @promote_static invoke0;
   }
 }
-static<4> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     @external @data mem = std_mem_d1(32, 2, 1);
     @generated r = std_reg(32);
@@ -39,28 +39,13 @@ static<4> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done
       mem.addr0 = 1'd1;
       mem.write_data = r.out;
     }
-    static<1> group no-op {
-    }
-    static<2> group no-op0 {
-    }
-    static<3> group no-op1 {
-    }
   }
   control {
-    static<4> par {
+    static<4> seq  {
       invoke00;
-      static<2> seq  {
-        no-op;
-        invoke10;
-      }
-      static<3> seq  {
-        no-op0;
-        invoke20;
-      }
-      static<4> seq  {
-        no-op1;
-        invoke30;
-      }
+      invoke10;
+      invoke20;
+      invoke30;
     }
   }
 }

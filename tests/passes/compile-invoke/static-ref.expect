@@ -52,7 +52,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       mem.write_en = adder.out_write_en;
       adder.out_read_data = mem.read_data;
       adder.out_done = mem.done;
-      adder.go = 1'd1;
+      adder.go = %0 ? 1'd1;
     }
   }
   control {
