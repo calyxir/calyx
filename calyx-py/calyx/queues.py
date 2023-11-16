@@ -113,7 +113,7 @@ class Pifo:
             if self.error_mode:
                 raise QueueError("Cannot push to full PIFO.")
             return
-        if val < self.boundary:
+        if val <= self.boundary:
             self.data[0].push(val)
         else:
             self.data[1].push(val)
