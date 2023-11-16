@@ -294,7 +294,7 @@ invoke_args = { (invoke_arg ~ ("," ~ invoke_arg)*)? }
 invoke_ref_arg = {identifier ~ "=" ~ identifier}
 invoke_ref_args = {("[" ~ (invoke_ref_arg ~ ("," ~ invoke_ref_arg)*)? ~ "]")?}
 invoke = { at_attributes ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
-static_invoke = { at_attributes ~ static_optional_latency ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ";" }
+static_invoke = { at_attributes ~ static_optional_latency ~ "invoke" ~ identifier ~ invoke_ref_args ~ "(" ~ invoke_args ~ ")" ~ "(" ~ invoke_args ~ ")" ~ ("with" ~ identifier)? ~ ";" }
 
 seq = {
       at_attributes ~ "seq" ~ "{"

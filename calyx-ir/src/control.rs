@@ -302,6 +302,8 @@ pub struct StaticInvoke {
     pub attributes: Attributes,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
     pub ref_cells: CellMap,
+    /// Optional combinational group that is active when the invoke is active.
+    pub comb_group: Option<RRC<CombGroup>>,
 }
 impl GetAttributes for StaticInvoke {
     fn get_attributes(&self) -> &Attributes {
@@ -818,6 +820,7 @@ impl Cloner {
             outputs: i.outputs.clone(),
             attributes: i.attributes.clone(),
             ref_cells: i.ref_cells.clone(),
+            comb_group: i.comb_group.clone(),
         }
     }
 

@@ -3,6 +3,8 @@ from .stage import (
     VivadoExtractStage,
     VivadoHLSStage,
     VivadoHLSExtractStage,
+    VivadoHLSPlaceAndRouteStage,
+    VivadoHLSPlaceAndRouteExtractStage,
 )
 
 __all__ = [
@@ -10,4 +12,6 @@ __all__ = [
     "VivadoExtractStage",
     "VivadoHLSStage",
     "VivadoHLSExtractStage",
+    "VivadoHLSPlaceAndRouteStage",
+    "VivadoHLSPlaceAndRouteExtractStage",
 ]
