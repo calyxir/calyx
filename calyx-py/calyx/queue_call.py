@@ -1,8 +1,6 @@
 # pylint: disable=import-error
+from calyx import queue_util
 import calyx.builder as cb
-
-MAX_CMDS = 15
-
 
 def insert_main(prog, queue):
     """Inserts the component `main` into the program.
@@ -34,10 +32,9 @@ def insert_main(prog, queue):
     # - one ref register, `ans`, into which the result of a pop or peek is written.
     # - one ref register, `err`, which is raised if an error occurs.
 
-    # We set up the external memories.
-    commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
-    values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
+    values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, queue_util.MAX_CMDS, 32, is_external=True)
 
     # We'll invoke the queue component, which takes two inputs by reference
     # and one input directly.
@@ -56,6 +53,8 @@ def insert_main(prog, queue):
 
     incr_i = main.incr(i)  # i++
     incr_j = main.incr(j)  # j++
+    lower_err = main.reg_store(err, 0, "lower_err")  # err := 1
+
     cmd_le_1 = main.le_use(cmd.out, 1)  # cmd <= 1
 
     read_cmd = main.mem_read_seq_d1(commands, i.out, "read_cmd_phase1")
@@ -67,30 +66,12 @@ def insert_main(prog, queue):
     )
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, ans.out, "write_ans")
 
-    loop_goes_on = main.reg(
-        "loop_goes_on", 1
-    )  # A flag to indicate whether the loop should continue
-    update_err_is_down, _ = main.eq_store_in_reg(
-        err.out,
-        0,
-        "err_is_down",
-        1,
-        loop_goes_on
-        # Does the `err` flag say that the loop should continue?
-    )
-    update_i_neq_max_cmds, _ = main.neq_store_in_reg(
-        i.out,
-        cb.const(32, MAX_CMDS),
-        "i_neq_MAX_CMDS",
-        32,
-        loop_goes_on
-        # Does the `i` index say that the loop should continue?
-    )
+    i_lt_max_cmds = main.lt_use(i.out, queue_util.MAX_CMDS)
+    not_err = main.not_use(err.out)
 
     main.control += [
-        update_err_is_down,
-        cb.while_(
-            loop_goes_on.out,  # Run while the `err` flag is down
+        cb.while_with(
+            i_lt_max_cmds,  # Run while i < MAX_CMDS
             [
                 read_cmd,
                 write_cmd_to_reg,  # `cmd := commands[i]`
@@ -103,9 +84,8 @@ def insert_main(prog, queue):
                     ref_ans=ans,
                     ref_err=err,
                 ),
-                update_err_is_down,  # Does `err` say that the loop should be broken?
-                cb.if_(
-                    loop_goes_on.out,  # If the loop is not meant to be broken...
+                cb.if_with(
+                    not_err,
                     [
                         cb.if_with(
                             cmd_le_1,  # If the command was a pop or peek,
@@ -114,11 +94,10 @@ def insert_main(prog, queue):
                                 incr_j,  # And increment the answer index.
                             ],
                         ),
-                        incr_i,  # Increment the command index
-                        update_i_neq_max_cmds,
-                        # Did this increment make us need to break?
                     ],
                 ),
+                lower_err,  # Lower the error flag
+                incr_i,  # Increment the command index
             ],
         ),
     ]

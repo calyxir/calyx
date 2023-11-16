@@ -58,54 +58,106 @@ impl Visitor for ScheduleCompaction {
 
         if let Ok(order) = algo::toposort(&total_order, None) {
             let mut total_time: u64 = 0;
-            let mut stmts: Vec<ir::StaticControl> = Vec::new();
+
+            // First we build the schedule.
 
             for i in order {
-                let mut start: u64 = 0;
-                for node in dependency.get(&i).unwrap() {
-                    let allow_start = schedule[node] + latency_map[node];
-                    if allow_start > start {
-                        start = allow_start;
-                    }
-                }
+                // Start time is when the latest dependency finishes
+                let start = dependency
+                    .get(&i)
+                    .unwrap()
+                    .iter()
+                    .map(|node| schedule[node] + latency_map[node])
+                    .max()
+                    .unwrap_or(0);
                 schedule.insert(i, start);
-
-                let control = total_order[i].take().unwrap();
-                let mut st_seq_stmts: Vec<ir::StaticControl> = Vec::new();
-                if start > 0 {
-                    let no_op = builder.add_static_group("no-op", start);
-
-                    st_seq_stmts.push(ir::StaticControl::Enable(
-                        ir::StaticEnable {
-                            group: no_op,
-                            attributes: ir::Attributes::default(),
-                        },
-                    ));
-                }
-                if start + latency_map[&i] > total_time {
-                    total_time = start + latency_map[&i];
-                }
-
-                st_seq_stmts.push(control);
-                stmts.push(ir::StaticControl::Seq(ir::StaticSeq {
-                    stmts: st_seq_stmts,
-                    attributes: ir::Attributes::default(),
-                    latency: start + latency_map[&i],
-                }));
+                total_time = std::cmp::max(start + latency_map[&i], total_time);
             }
 
-            let s_par = ir::StaticControl::Par(ir::StaticPar {
-                stmts,
-                attributes: ir::Attributes::default(),
-                latency: total_time,
-            });
-            return Ok(Action::static_change(s_par));
+            // We sort the schedule by start time.
+            let mut sorted_schedule: Vec<(NodeIndex, u64)> =
+                schedule.into_iter().collect();
+            sorted_schedule
+                .sort_by(|(k1, v1), (k2, v2)| (v1, k1).cmp(&(v2, k2)));
+            // Threads for the static par, where each entry is (thread, thread_latency)
+            let mut par_threads: Vec<(Vec<ir::StaticControl>, u64)> =
+                Vec::new();
+
+            // We encode the schedule attempting to minimize the number of
+            // par threads.
+            'outer: for (i, start) in sorted_schedule {
+                let control = total_order[i].take().unwrap();
+                for (thread, thread_latency) in par_threads.iter_mut() {
+                    if *thread_latency <= start {
+                        if *thread_latency < start {
+                            // Might need a no-op group so the schedule starts correctly
+                            let no_op = builder.add_static_group(
+                                "no-op",
+                                start - *thread_latency,
+                            );
+                            thread.push(ir::StaticControl::Enable(
+                                ir::StaticEnable {
+                                    group: no_op,
+                                    attributes: ir::Attributes::default(),
+                                },
+                            ));
+                            *thread_latency = start;
+                        }
+                        thread.push(control);
+                        *thread_latency += latency_map[&i];
+                        continue 'outer;
+                    }
+                }
+                // We must create a new par thread.
+                if start > 0 {
+                    // If start > 0, then we must add a delay to the start of the
+                    // group.
+                    let no_op = builder.add_static_group("no-op", start);
+                    let no_op_enable =
+                        ir::StaticControl::Enable(ir::StaticEnable {
+                            group: no_op,
+                            attributes: ir::Attributes::default(),
+                        });
+                    par_threads.push((
+                        vec![no_op_enable, control],
+                        start + latency_map[&i],
+                    ));
+                } else {
+                    par_threads.push((vec![control], latency_map[&i]));
+                }
+            }
+
+            // Turn Vec<ir::StaticControl> -> StaticSeq
+            let mut par_control_threads: Vec<ir::StaticControl> = Vec::new();
+            for (thread, thread_latency) in par_threads {
+                par_control_threads.push(ir::StaticControl::Seq(
+                    ir::StaticSeq {
+                        stmts: thread,
+                        attributes: ir::Attributes::default(),
+                        latency: thread_latency,
+                    },
+                ));
+            }
+            // Double checking that we have built the static par correctly.
+            let max = par_control_threads.iter().map(|c| c.get_latency()).max();
+            assert!(max.unwrap() == total_time, "The schedule expects latency {}. The static par that was built has latency {}", total_time, max.unwrap());
+
+            if par_control_threads.len() == 1 {
+                let c = Vec::pop(&mut par_control_threads).unwrap();
+                Ok(Action::static_change(c))
+            } else {
+                let s_par = ir::StaticControl::Par(ir::StaticPar {
+                    stmts: par_control_threads,
+                    attributes: ir::Attributes::default(),
+                    latency: total_time,
+                });
+                Ok(Action::static_change(s_par))
+            }
         } else {
-            println!(
+            panic!(
                 "Error when producing topo sort. Dependency graph has a cycle."
             );
         }
-        Ok(Action::Continue)
     }
 
     fn finish_static_repeat(

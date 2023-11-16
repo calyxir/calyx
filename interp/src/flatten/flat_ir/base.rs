@@ -85,7 +85,9 @@ impl_index!(LocalCellOffset);
 pub struct LocalRefCellOffset(u32);
 impl_index!(LocalRefCellOffset);
 
-/// Enum used in assignments to encapsulate the different types of port references
+/// Enum used in assignments to encapsulate the different types of port
+/// references these are always relative to a component's base-point and must be
+/// converted to global references when used.
 #[derive(Debug, Copy, Clone)]
 pub enum PortRef {
     /// A port belonging to a non-ref cell/group in the current component or the
@@ -135,6 +137,46 @@ impl From<LocalPortOffset> for PortRef {
     }
 }
 
+/// This is the global analogue to [PortRef] and contains global identifiers
+/// after the relative offsets have been transformed via a component base location
+pub enum GlobalPortRef {
+    /// A non-ref port with an exact address
+    Port(GlobalPortId),
+    /// A reference port
+    Ref(GlobalRefPortId),
+}
+
+impl From<GlobalRefPortId> for GlobalPortRef {
+    fn from(v: GlobalRefPortId) -> Self {
+        Self::Ref(v)
+    }
+}
+
+impl From<GlobalPortId> for GlobalPortRef {
+    fn from(v: GlobalPortId) -> Self {
+        Self::Port(v)
+    }
+}
+
+impl GlobalPortRef {
+    #[must_use]
+    pub fn as_port(&self) -> Option<&GlobalPortId> {
+        if let Self::Port(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub fn as_ref(&self) -> Option<&GlobalRefPortId> {
+        if let Self::Ref(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
 /// An enum wrapping the two different types of port definitions (ref/local)
 pub enum PortDefinitionRef {
     Local(PortDefinitionIdx),

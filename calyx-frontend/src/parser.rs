@@ -10,7 +10,6 @@ use calyx_utils::{self, CalyxResult, Id};
 use calyx_utils::{FileIdx, GPosIdx, GlobalPositionTable};
 use pest::pratt_parser::{Assoc, Op, PrattParser};
 use pest_consume::{match_nodes, Error, Parser};
-use std::convert::TryInto;
 use std::fs;
 use std::io::Read;
 use std::path::Path;
@@ -865,6 +864,17 @@ impl CalyxParser {
                     attributes: attrs.add_span(span),
                     ref_cells: cells,
                     latency,
+                    comb_group: None,
+                },
+                [at_attributes(attrs), static_optional_latency(latency), identifier(comp), invoke_ref_args(cells),invoke_args(inputs), invoke_args(outputs), identifier(group)] =>
+                ast::Control::StaticInvoke {
+                    comp,
+                    inputs,
+                    outputs,
+                    attributes: attrs.add_span(span),
+                    ref_cells: cells,
+                    latency,
+                    comb_group: Some(group),
                 },
         ))
     }
