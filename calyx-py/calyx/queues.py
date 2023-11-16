@@ -20,7 +20,7 @@ class Fifo:
     Otherwise, it allows those commands to fail silently but continues the simulation.
     """
 
-    def __init__(self, data: List[int], error_mode=False, max_len: int = None):
+    def __init__(self, data: List[int], error_mode=True, max_len: int = None):
         self.data = data
         self.max_len = max_len or queue_util.QUEUE_SIZE
         self.error_mode = error_mode
@@ -96,7 +96,7 @@ class Pifo:
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary, error_mode=False, max_len=None):
+    def __init__(self, queue_1, queue_2, boundary, error_mode=True, max_len=None):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
