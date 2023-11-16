@@ -1,23 +1,26 @@
-import sys
-import json
 from dataclasses import dataclass
 from typing import List
-
-ANS_MEM_LEN = 10
+import calyx.queue_util as queue_util
 
 
 @dataclass
 class Fifo:
     """A FIFO data structure.
     Supports the operations `push`, `pop`, and `peek`.
+    Inherent to the queue is its `max_len`, which is given to us at initialization
+    and we cannot exceed.
     """
 
-    def __init__(self, data: List[int]):
+    def __init__(self, data: List[int], max_len: int = None):
         self.data = data
+        self.max_len = max_len or queue_util.QUEUE_SIZE
 
     def push(self, val: int):
         """Pushes `val` to the FIFO."""
-        self.data.append(val)
+        if len(self.data) < self.max_len:
+            self.data.append(val)
+        else:
+            raise IndexError("Cannot push to full FIFO.")
 
     def pop(self) -> int:
         """Pops the FIFO."""
@@ -49,6 +52,10 @@ class Pifo:
     We maintain internally a variable called `pifo_len`:
     the sum of the lengths of the two queues.
 
+    Inherent to the queue is its `max_len`, which is given to us at initialization
+    and we cannot exceed.
+
+
     When asked to pop:
     - If `pifo_len` is 0, we raise an error.
     - Else, if `hot` is 0, we try to pop from queue_0.
@@ -64,19 +71,26 @@ class Pifo:
     - We don't flip `hot`.
 
     When asked to push:
+    - If the PIFO is at length `max_len`, we raise an error.
     - If the value to be pushed is less than `boundary`, we push it into queue_1.
     - Else, we push it into queue_2.
     - We increment `pifo_len` by 1.
     """
 
-    def __init__(self, queue_1, queue_2, boundary):
+    def __init__(self, queue_1, queue_2, boundary, max_len=None):
         self.data = (queue_1, queue_2)
         self.hot = 0
         self.pifo_len = len(queue_1) + len(queue_2)
         self.boundary = boundary
+        self.max_len = max_len or queue_util.QUEUE_SIZE
+        assert (
+            self.pifo_len <= self.max_len
+        )  # We can't be initialized with a PIFO that is too long.
 
     def push(self, val: int):
         """Pushes `val` to the PIFO."""
+        if self.pifo_len == self.max_len:
+            raise IndexError("Cannot push to full PIFO.")
         if val < self.boundary:
             self.data[0].push(val)
         else:
@@ -120,30 +134,6 @@ class Pifo:
         return self.pifo_len
 
 
-def parse_json():
-    """Effectively the opposite of `data_gen`:
-    Given a JSON file formatted for Calyx purposes, parse it into its two lists:
-    - The `commands` memory, which has MAX_CMDS items.
-    - The `values` memory, which has MAX_CMDS items.
-    Returns the two lists.
-    """
-
-    data = json.load(sys.stdin)
-    commands = data["commands"]["data"]
-    values = data["values"]["data"]
-    return commands, values
-
-
-def dump_json(commands, values, ans_mem):
-    """Prints a JSON representation of the data to stdout."""
-    payload = {
-        "ans_mem": ans_mem,
-        "commands": commands,
-        "values": values,
-    }
-    print(json.dumps(payload, indent=2))
-
-
 def operate_queue(commands, values, queue):
     """Given the two lists, one of commands and one of values.
     Feed these into our queue, and return the answer memory.
@@ -164,8 +154,11 @@ def operate_queue(commands, values, queue):
                 break
 
         elif cmd == 2:
-            queue.push(val)
+            try:
+                queue.push(val)
+            except IndexError:
+                break
 
-    # Pad the answer memory with zeroes until it is of length ANS_MEM_LEN.
-    ans += [0] * (ANS_MEM_LEN - len(ans))
+    # Pad the answer memory with zeroes until it is of length MAX_CMDS.
+    ans += [0] * (queue_util.MAX_CMDS - len(ans))
     return ans
