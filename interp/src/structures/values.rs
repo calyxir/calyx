@@ -1,6 +1,5 @@
 use std::ops::Not;
-use std::rc::Rc;
-use std::{cell::RefCell, fmt::Write, ops::Index};
+use std::{fmt::Write, ops::Index};
 
 use bitvec::prelude::*;
 use fraction::Fraction;
@@ -8,8 +7,6 @@ use ibig::{ibig, ops::UnsignedAbs, IBig, UBig};
 use itertools::Itertools;
 use serde::de::{self, Deserialize, Visitor};
 use serde::Serialize;
-
-use calyx_ir as ir;
 
 pub type BitString = BitVec<usize, Lsb0>;
 
@@ -256,8 +253,6 @@ impl InputNumber {
     }
 }
 
-type Signed = Rc<RefCell<Option<IBig>>>;
-type Unsigned = Rc<RefCell<Option<UBig>>>;
 #[derive(Clone, Debug)]
 /// The type of all inputs and outputs to all components in Calyx.
 /// Wraps a BitVector.
@@ -265,20 +260,12 @@ pub struct Value {
     // Lsb0 means the 0th index contains the LSB. This is useful because
     // a 7-bit bitvector and 17-bit bitvector representing the number 6 have
     // ones in the same index.
-    vec: Rc<BitString>,
-
-    unsigned: Unsigned,
-
-    signed: Signed,
+    vec: BitString,
 }
 
 impl From<BitString> for Value {
     fn from(bv: BitString) -> Self {
-        Self {
-            vec: Rc::new(bv),
-            unsigned: Unsigned::default(),
-            signed: Signed::default(),
-        }
+        Self { vec: bv }
     }
 }
 
@@ -307,7 +294,7 @@ impl Value {
     }
 
     pub fn clone_bit_vec(&self) -> BitString {
-        (*self.vec).clone()
+        self.vec.clone()
     }
 
     pub fn bv_ref(&self) -> &BitString {
@@ -334,9 +321,7 @@ impl Value {
     pub fn zeroes<I: Into<InputNumber>>(bitwidth: I) -> Value {
         let input_num: InputNumber = bitwidth.into();
         Value {
-            vec: Rc::new(bitvec![usize, Lsb0; 0; input_num.as_usize()]),
-            unsigned: ir::rrc(Some(0_u8.into())),
-            signed: ir::rrc(Some(0.into())),
+            vec: bitvec![usize, Lsb0; 0; input_num.as_usize()],
         }
     }
 
@@ -382,34 +367,13 @@ impl Value {
                 && !Value::unsigned_value_fits_in(&bv, width);
 
         bv.resize(width, init.is_negative());
-        (
-            Value {
-                vec: Rc::new(bv),
-                signed: ir::rrc(None),
-                unsigned: ir::rrc(None),
-            },
-            flag,
-        )
+        (Value { vec: bv }, flag)
     }
 
     #[inline]
     pub fn from_bv(bv: BitString) -> Self {
         bv.into()
     }
-
-    /// Returns a Value containing a vector of length 0, effectively returning
-    /// a cleared vector.
-    // TODO (Griffin): Depricate this.
-    pub fn clear(&self) -> Self {
-        let mut vec = (*self.vec).clone();
-        vec.truncate(0);
-        Value {
-            vec: Rc::new(vec),
-            signed: Signed::default(),
-            unsigned: Unsigned::default(),
-        }
-    }
-
     /// Returns a Value truncated to length new_size.
     ///
     /// # Example
@@ -418,19 +382,13 @@ impl Value {
     /// let val_4_4 = Value::from(4, 16).truncate(4);
     /// ```
     pub fn truncate(&self, new_size: usize) -> Value {
-        let mut vec = (*self.vec).clone();
+        let mut vec = self.vec.clone();
         vec.truncate(new_size);
-        Value {
-            vec: Rc::new(vec),
-            signed: Signed::default(),
-            unsigned: Unsigned::default(),
-        }
+        Value { vec }
     }
 
     pub fn truncate_in_place(&mut self, new_size: usize) {
-        Rc::make_mut(&mut self.vec).truncate(new_size);
-        self.signed = Default::default();
-        self.unsigned = Unsigned::default();
+        self.vec.truncate(new_size);
     }
 
     /// Zero-extend the vector to length ext.
@@ -441,15 +399,11 @@ impl Value {
     /// let val_4_16 = Value::from(4, 4).ext(16);
     /// ```
     pub fn ext(&self, ext: usize) -> Value {
-        let mut vec = (*self.vec).clone();
+        let mut vec = self.vec.clone();
         for _x in 0..(ext - vec.len()) {
             vec.push(false);
         }
-        Value {
-            vec: Rc::new(vec),
-            signed: self.signed.clone(),
-            unsigned: self.unsigned.clone(),
-        }
+        Value { vec }
     }
 
     /// Sign-extend the vector to length ext.
@@ -461,16 +415,12 @@ impl Value {
     /// let val_31_5 = Value::from(15, 4).sext(5);
     /// ```
     pub fn sext(&self, ext: usize) -> Value {
-        let mut vec = (*self.vec).clone();
+        let mut vec = self.vec.clone();
         let sign = vec[vec.len() - 1];
         for _x in 0..(ext - vec.len()) {
             vec.push(sign);
         }
-        Value {
-            vec: Rc::new(vec),
-            signed: Signed::default(),
-            unsigned: Unsigned::default(),
-        }
+        Value { vec }
     }
 
     /// Converts value into u64 type.
@@ -628,51 +578,36 @@ impl Value {
     }
 
     pub fn as_signed(&self) -> IBig {
-        let memo_ref = self.signed.borrow();
-        if let Some(v) = &*memo_ref {
-            v.clone()
-        } else {
-            drop(memo_ref);
-            let mut acc: IBig = 0.into();
+        let mut acc: IBig = 0.into();
 
-            // skip the msb for the moment
-            for bit in self.vec.iter().take(self.vec.len() - 1).rev() {
-                acc <<= 1;
-                let bit: IBig = (*bit).into();
-                acc |= bit
-            }
-
-            if let Some(bit) = self.vec.last() {
-                if *bit {
-                    let neg: IBig = (-1).into();
-                    let two: IBig = (2).into();
-
-                    acc += neg * two.pow(self.vec.len() - 1)
-                }
-            }
-            let mut memo_ref = self.signed.borrow_mut();
-            *memo_ref = Some(acc.clone());
-            acc
+        // skip the msb for the moment
+        for bit in self.vec.iter().take(self.vec.len() - 1).rev() {
+            acc <<= 1;
+            let bit: IBig = (*bit).into();
+            acc |= bit
         }
+
+        if let Some(bit) = self.vec.last() {
+            if *bit {
+                let neg: IBig = (-1).into();
+                let two: IBig = (2).into();
+
+                acc += neg * two.pow(self.vec.len() - 1)
+            }
+        }
+
+        acc
     }
 
     pub fn as_unsigned(&self) -> UBig {
-        let memo_ref = self.unsigned.borrow();
-
-        if let Some(v) = &*memo_ref {
-            v.clone()
-        } else {
-            drop(memo_ref);
-            let mut acc: UBig = 0_u32.into();
-            for bit in self.vec.iter().rev() {
-                acc <<= 1;
-                let bit: UBig = (*bit).into();
-                acc |= bit;
-            }
-            let mut memo_ref = self.unsigned.borrow_mut();
-            *memo_ref = Some(acc.clone());
-            acc
+        let mut acc: UBig = 0_u32.into();
+        for bit in self.vec.iter().rev() {
+            acc <<= 1;
+            let bit: UBig = (*bit).into();
+            acc |= bit;
         }
+
+        acc
     }
 
     /// Interprets a 1bit value as a bool, will not panic for non-1-bit values
@@ -700,11 +635,7 @@ impl Value {
         assert!(upper_idx < self.vec.len());
 
         let new_bv = (self.vec[lower_idx..=upper_idx]).into();
-        Value {
-            vec: Rc::new(new_bv),
-            signed: Signed::default(),
-            unsigned: Unsigned::default(),
-        }
+        Value { vec: new_bv }
     }
 
     /// Returns a value containing the sliced region \[lower,upper\]
@@ -713,11 +644,7 @@ impl Value {
         assert!(upper_idx < self.vec.len());
 
         let new_bv = BitVec::from_bitslice(&self.vec[lower_idx..=upper_idx]);
-        Value {
-            vec: Rc::new(new_bv),
-            signed: Signed::default(),
-            unsigned: Unsigned::default(),
-        }
+        Value { vec: new_bv }
     }
 }
 

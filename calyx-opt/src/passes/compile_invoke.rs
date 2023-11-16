@@ -4,7 +4,7 @@ use crate::traversal::{
 use calyx_ir::structure;
 use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
-use ir::{RRC, WRC};
+use ir::{Assignment, RRC, WRC};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -373,13 +373,12 @@ impl Visitor for CompileInvoke {
         // Get the go port
         let go_port = get_go_port(Rc::clone(&s.comp))?;
 
+        // define first cycle guard
+        let first_cycle = ir::Guard::Info(ir::StaticTiming::new((0, 1)));
+
         // Build assignemnts
         let go_assign: ir::Assignment<ir::StaticTiming> = builder
-            .build_assignment(
-                go_port,
-                one.borrow().get("out"),
-                ir::Guard::True,
-            );
+            .build_assignment(go_port, one.borrow().get("out"), first_cycle);
         invoke_group.borrow_mut().assignments.push(go_assign);
 
         // Generate argument assignments
@@ -391,6 +390,17 @@ impl Visitor for CompileInvoke {
             cell,
         );
         invoke_group.borrow_mut().assignments.extend(assigns);
+
+        if let Some(cgr) = &s.comb_group {
+            let cg = &*cgr.borrow();
+            invoke_group.borrow_mut().assignments.extend(
+                cg.assignments
+                    .iter()
+                    .cloned()
+                    .map(Assignment::from)
+                    .collect_vec(),
+            );
+        }
 
         let en = ir::StaticEnable {
             group: invoke_group,

@@ -2,6 +2,9 @@ mod adapter;
 mod error;
 
 use adapter::MyAdapter;
+use dap::responses::{
+    SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse,
+};
 use error::MyAdapterError;
 
 use dap::prelude::*;
@@ -81,7 +84,12 @@ where
             server.respond(rsp)?;
             server.send_event(Event::Initialized)?;
         }
-        _ => return Err(MyAdapterError::UnhandledCommandError),
+
+        unknown_command => {
+            return Err(MyAdapterError::UnhandledCommandError(
+                unknown_command.clone(),
+            ));
+        }
     }
 
     // handle the second request (Launch)
@@ -119,7 +127,7 @@ where
 
 fn run_server<R: Read, W: Write>(
     server: &mut Server<R, W>,
-    _adapter: MyAdapter,
+    mut adapter: MyAdapter,
 ) -> AdapterResult<()> {
     loop {
         // Start looping here
@@ -132,13 +140,46 @@ fn run_server<R: Read, W: Write>(
                 let rsp = req.success(ResponseBody::Launch);
                 server.respond(rsp)?;
             }
+
+            Command::SetBreakpoints(args) => {
+                //Add breakpoints
+                if let Some(breakpoint) = &args.breakpoints {
+                    let out =
+                        adapter.set_breakpoint(args.source.clone(), breakpoint);
+
+                    //Success
+                    let rsp = req.success(ResponseBody::SetBreakpoints(
+                        SetBreakpointsResponse { breakpoints: (out) },
+                    ));
+                    server.respond(rsp)?;
+                }
+            }
+
+            //TODO: Implement this request fully when adapter becomes functional
+            Command::SetExceptionBreakpoints(_) => {
+                let rsp = req.success(ResponseBody::SetExceptionBreakpoints(
+                    SetExceptionBreakpointsResponse {
+                        breakpoints: (None),
+                    },
+                ));
+                server.respond(rsp)?;
+            }
+
+            //Retrieve a list of all threads
+            Command::Threads => {
+                let rsp = req.success(ResponseBody::Threads(ThreadsResponse {
+                    threads: adapter.clone_threads(),
+                }));
+                server.respond(rsp)?;
+            }
             // Here, can add a match pattern for a disconnect or exit command
             // to break out of the loop and close the server.
             // Command::Disconnect(_) => break,
             // ...
             unknown_command => {
-                eprintln!("Unknown_command: {:?}", unknown_command);
-                return Err(MyAdapterError::UnhandledCommandError);
+                return Err(MyAdapterError::UnhandledCommandError(
+                    unknown_command.clone(),
+                ));
             }
         }
     }
