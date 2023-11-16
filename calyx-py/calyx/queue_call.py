@@ -70,7 +70,7 @@ def insert_main(prog, queue):
 
     i_lt_max_cmds = main.lt_use(i.out, queue_util.MAX_CMDS)
     not_err = main.not_use(err.out)
-    
+
     main.control += [
         cb.while_with(
             i_lt_max_cmds,  # Run while i < MAX_CMDS
