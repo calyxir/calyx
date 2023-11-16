@@ -1,8 +1,6 @@
 # pylint: disable=import-error
+import calyx.queue_util as queue_util
 import calyx.builder as cb
-
-MAX_CMDS = 15
-ANS_MEM_LEN = 10
 
 
 def insert_main(prog, queue):
@@ -33,9 +31,9 @@ def insert_main(prog, queue):
     # - one ref register, `ans`, into which the result of a pop or peek is written.
     # - one ref register, `err`, which is raised if an error occurs.
 
-    commands = main.seq_mem_d1("commands", 2, MAX_CMDS, 32, is_external=True)
-    values = main.seq_mem_d1("values", 32, MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, 10, 32, is_external=True)
+    commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
+    values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, queue_util.MAX_CMDS, 32, is_external=True)
 
     # The two components we'll use:
     queue = main.cell("myqueue", queue)
@@ -79,10 +77,10 @@ def insert_main(prog, queue):
         loop_goes_on
         # Does the `err` flag say that the loop should continue?
     )
-    update_i_neq_15, _ = main.neq_store_in_reg(
+    update_i_neq_max_cmds, _ = main.neq_store_in_reg(
         i.out,
-        cb.const(32, 15),
-        "i_neq_15",
+        cb.const(32, queue_util.MAX_CMDS),
+        "i_neq_max_cmds",
         32,
         loop_goes_on
         # Does the `i` index say that the loop should continue?
@@ -116,7 +114,8 @@ def insert_main(prog, queue):
                             ],
                         ),
                         incr_i,  # Increment the command index
-                        update_i_neq_15,  # Did this increment make us need to break?
+                        update_i_neq_max_cmds,
+                        # Did this increment make us need to break?
                     ],
                 ),
             ],
