@@ -169,13 +169,17 @@ def operate_queue(commands, values, queue):
     for cmd, val in zip(commands, values):
         if cmd == 0:
             try:
-                ans.append(queue.pop())
+                result = queue.pop()
+                if result:
+                    ans.append(result)
             except QueueError:
                 break
 
         elif cmd == 1:
             try:
-                ans.append(queue.peek())
+                result = queue.peek()
+                if result:
+                    ans.append(queue.peek())
             except QueueError:
                 break
 
