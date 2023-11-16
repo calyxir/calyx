@@ -422,9 +422,11 @@ class ComponentBuilder:
         """Accepts a cell that performs some computation on value `input`.
         Creates a combinational group that wires up the cell with this port.
         Returns the cell and the combintational group.
+
         comb group `groupname` {
             `cell.name`.in = `input`;
         }
+
         Returns handles to the cell and the combinational group.
         """
         groupname = groupname or f"{cell.name}_group"
