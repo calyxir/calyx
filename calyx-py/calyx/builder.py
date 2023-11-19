@@ -523,12 +523,13 @@ class ComponentBuilder:
             not_group.done = reg.done
         return not_group
 
-    def incr(self, reg, val=1, signed=False, cellname=None):
+    def incr(self, reg, val=1, signed=False, cellname=None, static=False):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
         width = reg.infer_width_reg()
         add_cell = self.add(width, cellname, signed)
-        with self.group(f"{cellname}_group") as incr_group:
+        static_delay = 1 if static else None
+        with self.group(f"{cellname}_group", static_delay=static_delay) as incr_group:
             add_cell.left = reg.out
             add_cell.right = const(width, val)
             reg.write_en = 1

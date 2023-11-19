@@ -6,7 +6,7 @@ from calyx import queue_call
 from calyx import queue_util
 
 
-def insert_stats(prog, name):
+def insert_stats(prog, name, static=False):
     """Inserts a stats component called `name` into the program `prog`.
 
     It maintains:
@@ -20,9 +20,13 @@ def insert_stats(prog, name):
 
     When invoked, the component reads the flow index and increments
     `count_0_sto` or `count_1_sto` as appropriate.
+
+    If `static` is False, this component is a dynamic component.
+    Otherwise, it is a static component with delay 1.
     """
 
-    stats: cb.ComponentBuilder = prog.component(name)
+    stats: cb.ComponentBuilder = prog.component(name, latency=1 if static else None)
+
     flow = stats.input("flow", 1)
     stats.output("count_0", 32)
     stats.output("count_1", 32)
@@ -32,8 +36,8 @@ def insert_stats(prog, name):
     count_1_sto = stats.reg("count_1_sto", 32)
 
     # Wiring to increment the appropriate register.
-    count_0_incr = stats.incr(count_0_sto)
-    count_1_incr = stats.incr(count_1_sto)
+    count_0_incr = stats.incr(count_0_sto, static=static)
+    count_1_incr = stats.incr(count_1_sto, static=static)
 
     # Equality checks.
     flow_eq_0 = stats.eq_use(flow, 0)
@@ -142,7 +146,7 @@ def insert_main(prog, dataplane, controller, stats_component):
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    stats_component = insert_stats(prog, "stats")
+    stats_component = insert_stats(prog, "stats", static=True)
     fifo_purple = fifo.insert_fifo(prog, "fifo_purple")
     fifo_tangerine = fifo.insert_fifo(prog, "fifo_tangerine")
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
