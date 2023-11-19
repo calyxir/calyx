@@ -36,8 +36,8 @@ def insert_stats(prog, name, static=False):
     count_1_sto = stats.reg("count_1_sto", 32)
 
     # Wiring to increment the appropriate register.
-    count_0_incr = stats.incr(count_0_sto, static=static)
-    count_1_incr = stats.incr(count_1_sto, static=static)
+    count_0_incr = stats.incr_static(count_0_sto)
+    count_1_incr = stats.incr_static(count_1_sto)
 
     # Equality checks.
     flow_eq_0 = stats.eq_use(flow, 0)
