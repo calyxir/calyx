@@ -36,8 +36,8 @@ def insert_stats(prog, name, static=False):
     count_1_sto = stats.reg("count_1_sto", 32)
 
     # Wiring to increment the appropriate register.
-    count_0_incr = stats.incr_static(count_0_sto)
-    count_1_incr = stats.incr_static(count_1_sto)
+    count_0_incr = stats.incr_static(count_0_sto) if static else stats.incr(count_0_sto)
+    count_1_incr = stats.incr_static(count_1_sto) if static else stats.incr(count_1_sto)
 
     # Equality checks.
     flow_eq_0 = stats.eq_use(flow, 0)
@@ -48,9 +48,16 @@ def insert_stats(prog, name, static=False):
         stats.this().count_1 = count_1_sto.out
 
     # The main logic.
-    stats.control += cb.static_par(
-        cb.if_with(flow_eq_0, count_0_incr),
-        cb.if_with(flow_eq_1, count_1_incr),
+    stats.control += (
+        cb.static_par(
+            cb.if_with(flow_eq_0, count_0_incr),
+            cb.if_with(flow_eq_1, count_1_incr),
+        )
+        if static
+        else cb.par(
+            cb.if_with(flow_eq_0, count_0_incr),
+            cb.if_with(flow_eq_1, count_1_incr),
+        )
     )
 
     return stats
