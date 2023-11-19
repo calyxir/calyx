@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import sys
 import fifo
 import pifo
 import calyx.builder as cb
@@ -36,28 +37,38 @@ def insert_stats(prog, name, static=False):
     count_1_sto = stats.reg("count_1_sto", 32)
 
     # Wiring to increment the appropriate register.
-    count_0_incr = stats.incr_static(count_0_sto) if static else stats.incr(count_0_sto)
-    count_1_incr = stats.incr_static(count_1_sto) if static else stats.incr(count_1_sto)
+    if static:
+        count_0_incr = stats.incr_static(count_0_sto)
+        count_1_incr = stats.incr_static(count_1_sto)
+    else:
+        count_0_incr = stats.incr(count_0_sto)
+        count_1_incr = stats.incr(count_1_sto)
 
-    # Equality checks.
-    flow_eq_0 = stats.eq_use(flow, 0)
-    flow_eq_1 = stats.eq_use(flow, 1)
+    # If not static, we can use comb groups.
+    if not static:
+        flow_eq_0 = stats.eq_use(flow, 0)
+
+        with stats.continuous:
+            stats.this().count_0 = count_0_sto.out
+            stats.this().count_1 = count_1_sto.out
+
+        stats.control += cb.par(
+            cb.if_with(flow_eq_0, count_0_incr, count_1_incr),
+        )
+
+        return stats
+
+    # If static, we need to use continuous assignments.
+    eq_cell = stats.eq(1, "eq_cell")
 
     with stats.continuous:
         stats.this().count_0 = count_0_sto.out
         stats.this().count_1 = count_1_sto.out
+        eq_cell.left = flow
+        eq_cell.right = 0
 
-    # The main logic.
-    stats.control += (
-        cb.static_par(
-            cb.if_with(flow_eq_0, count_0_incr),
-            cb.if_with(flow_eq_1, count_1_incr),
-        )
-        if static
-        else cb.par(
-            cb.if_with(flow_eq_0, count_0_incr),
-            cb.if_with(flow_eq_1, count_1_incr),
-        )
+    stats.control += cb.static_par(
+        cb.static_if(eq_cell.out, count_0_incr, count_1_incr),
     )
 
     return stats
@@ -148,16 +159,16 @@ def insert_main(prog, dataplane, controller, stats_component):
     ]
 
 
-def build():
+def build(static):
     """Top-level function to build the program."""
     prog = cb.Builder()
-    stats_component = insert_stats(prog, "stats", static=True)
+    stats_component = insert_stats(prog, "stats", static)
     fifo_purple = fifo.insert_fifo(prog, "fifo_purple")
     fifo_tangerine = fifo.insert_fifo(prog, "fifo_tangerine")
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
     pifo_root = pifo.insert_pifo(
-        prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component
+        prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component, static
     )
     # The root PIFO will take a stats component by reference.
     dataplane = queue_call.insert_runner(prog, pifo_root, "dataplane", stats_component)
@@ -167,4 +178,6 @@ def build():
 
 
 if __name__ == "__main__":
-    build().emit()
+    # Did the user pass the `--static` flag?
+    static = len(sys.argv) > 1 and sys.argv[1] == "--static"
+    build(static).emit()

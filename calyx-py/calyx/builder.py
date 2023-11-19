@@ -859,6 +859,32 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     )
 
 
+def static_invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
+    """Build a `static invoke` control statement.
+
+    The keyword arguments should have the form `in_*`, `out_*`, or `ref_*`, where
+    `*` is the name of an input port, output port, or ref cell on the invoked cell.
+    """
+    return ast.StaticInvoke(
+        cell._cell.id,
+        [
+            (k[3:], ExprBuilder.unwrap(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("in_")
+        ],
+        [
+            (k[4:], ExprBuilder.unwrap(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("out_")
+        ],
+        [
+            (k[4:], CellBuilder.unwrap_id(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("ref_")
+        ],
+    )
+
+
 class ControlBuilder:
     """Wraps control statements for convenient construction."""
 
