@@ -48,12 +48,10 @@ def insert_stats(prog, name, static=False):
         stats.this().count_1 = count_1_sto.out
 
     # The main logic.
-    stats.control += [
-        cb.par(
-            cb.if_with(flow_eq_0, [count_0_incr]),
-            cb.if_with(flow_eq_1, [count_1_incr]),
-        ),
-    ]
+    stats.control += cb.static_par(
+        cb.if_with(flow_eq_0, count_0_incr),
+        cb.if_with(flow_eq_1, count_1_incr),
+    )
 
     return stats
 

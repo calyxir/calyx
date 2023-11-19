@@ -1275,6 +1275,15 @@ def par(*args) -> ast.ParComp:
     return ast.ParComp([as_control(x) for x in args])
 
 
+def static_par(*args) -> ast.StaticParComp:
+    """Build a static parallel composition of control expressions.
+
+    Each argument will become its own parallel arm in the resulting composition.
+    So `par([a,b])` becomes `par {seq {a; b;}}` while `par(a, b)` becomes `par {a; b;}`.
+    """
+    return ast.StaticParComp([as_control(x) for x in args])
+
+
 def seq(*args) -> ast.SeqComp:
     """Build a sequential composition of control expressions.
 
@@ -1285,6 +1294,18 @@ def seq(*args) -> ast.SeqComp:
     {a; b; c;}`.
     """
     return ast.SeqComp([as_control(x) for x in args])
+
+
+def static_seq(*args) -> ast.StaticSeqComp:
+    """Build a static sequential composition of control expressions.
+
+    Prefer use of python list syntax over this function. Use only when not directly
+    modifying the control program with the `+=` operator.
+    Each argument will become its own sequential arm in the resulting composition.
+    So `seq([a,b], c)` becomes `seq { seq {a; b;} c }` while `seq(a, b, c)` becomes `seq
+    {a; b; c;}`.
+    """
+    return ast.StaticSeqComp([as_control(x) for x in args])
 
 
 def add_comp_params(comp: ComponentBuilder, input_ports: List, output_ports: List):
