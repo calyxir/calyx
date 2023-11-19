@@ -156,7 +156,7 @@ fn get_id_static<const BEGIN: bool>(c: &ir::StaticControl) -> u64 {
 #[inline]
 fn get_id<const BEGIN: bool>(c: &ir::Control) -> u64 {
     let v = match c {
-        ir::Control::If(_) => {
+        ir::Control::If(_) | ir::Control::Static(ir::StaticControl::If(_)) => {
             if BEGIN {
                 c.get_attribute(BEGIN_ID)
             } else {
