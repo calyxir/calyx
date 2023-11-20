@@ -174,6 +174,8 @@ impl SearchPath {
         current_path
     }
 
+    /// find a path to the target node from the root of it's control tree. This
+    /// automatically finds the root node and invokes [find_path_to_node].
     pub fn find_path_from_root(target: ControlIdx, context: &Context) -> Self {
         let root = context
             .primary
