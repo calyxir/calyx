@@ -236,22 +236,12 @@ impl StaticPromotion {
             }
             None
         });
-        // If they don't give a cycle_limit_str, then we set it to the Default.
-        // If they explicitly say "None" or "none", hten we set it to None.
-        // Makes things a bit confusing.
-        let cycle_limit = if cycle_limit_str.is_none() {
-            Some(33554432)
-        } else if cycle_limit_str.unwrap() == "None"
-            || cycle_limit_str.unwrap() == "none"
+
+        // Default to None. There may be a more idiomatic way to do this.
+        let cycle_limit = match cycle_limit_str.unwrap_or("None").parse::<u64>()
         {
-            None
-        } else {
-            Some(
-                cycle_limit_str
-                    .unwrap_or("33554432")
-                    .parse::<u64>()
-                    .unwrap_or(33554432),
-            )
+            Ok(n) => Some(n),
+            Err(_) => None,
         };
 
         // searching for "-x static-promotion:threshold=1" and getting back "1"
