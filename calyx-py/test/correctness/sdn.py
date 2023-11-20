@@ -21,7 +21,7 @@ def insert_stats(prog, name, static=False):
     When invoked, the component reads the flow index and increments
     `count_0_sto` or `count_1_sto` as appropriate.
 
-    If `static` is False, this component is a dynamic component.
+    If `static` is False, this is a dynamic component.
     Otherwise, it is a static component with delay 1.
     """
 
