@@ -49,9 +49,7 @@ def insert_stats(prog, name, static=False):
             stats.this().count_0 = count_0_sto.out
             stats.this().count_1 = count_1_sto.out
 
-        stats.control += cb.par(
-            cb.if_with(flow_eq_0, count_0_incr, count_1_incr),
-        )
+        stats.control += cb.if_with(flow_eq_0, count_0_incr, count_1_incr)
 
     # If static, we need to use continuous assignments and not comb groups.
     else:
@@ -63,9 +61,7 @@ def insert_stats(prog, name, static=False):
             eq_cell.left = flow
             eq_cell.right = 0
 
-        stats.control += cb.static_par(
-            cb.static_if(eq_cell.out, count_0_incr, count_1_incr),
-        )
+        stats.control += cb.static_if(eq_cell.out, count_0_incr, count_1_incr)
 
     return stats
 
