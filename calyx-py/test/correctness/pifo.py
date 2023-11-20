@@ -44,7 +44,7 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
     )
 
 
-def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
+def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False):
     """Inserts the component `pifo` into the program.
 
     The PIFO achieves a 50/50 split between two "flows" or "kinds".
@@ -301,7 +301,11 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None):
                                 # Increment the length and also
                                 # tell the stats component what flow we pushed.
                                 len_incr,
-                                cb.invoke(stats, in_flow=flow.out),
+                                (
+                                    cb.static_invoke(stats, in_flow=flow.out)
+                                    if static
+                                    else cb.invoke(stats, in_flow=flow.out)
+                                ),
                             ],
                         ),
                     ],

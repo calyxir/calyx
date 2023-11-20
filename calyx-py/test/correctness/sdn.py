@@ -6,7 +6,7 @@ from calyx import queue_call
 from calyx import queue_util
 
 
-def insert_stats(prog, name):
+def insert_stats(prog, name, static=False):
     """Inserts a stats component called `name` into the program `prog`.
 
     It maintains:
@@ -20,9 +20,13 @@ def insert_stats(prog, name):
 
     When invoked, the component reads the flow index and increments
     `count_0_sto` or `count_1_sto` as appropriate.
+
+    If `static` is False, this is a dynamic component.
+    Otherwise, it is a static component with delay 1.
     """
 
-    stats: cb.ComponentBuilder = prog.component(name)
+    stats: cb.ComponentBuilder = prog.component(name, latency=1 if static else None)
+
     flow = stats.input("flow", 1)
     stats.output("count_0", 32)
     stats.output("count_1", 32)
@@ -32,24 +36,36 @@ def insert_stats(prog, name):
     count_1_sto = stats.reg("count_1_sto", 32)
 
     # Wiring to increment the appropriate register.
-    count_0_incr = stats.incr(count_0_sto)
-    count_1_incr = stats.incr(count_1_sto)
+    count_0_incr = stats.incr(count_0_sto, static=static)
+    count_1_incr = stats.incr(count_1_sto, static=static)
 
-    # Equality checks.
-    flow_eq_0 = stats.eq_use(flow, 0)
-    flow_eq_1 = stats.eq_use(flow, 1)
+    # The rest of the logic varies depending on whether the component is static.
 
-    with stats.continuous:
-        stats.this().count_0 = count_0_sto.out
-        stats.this().count_1 = count_1_sto.out
+    # If not static, we can use comb groups.
+    if not static:
+        flow_eq_0 = stats.eq_use(flow, 0)
 
-    # The main logic.
-    stats.control += [
-        cb.par(
-            cb.if_with(flow_eq_0, [count_0_incr]),
-            cb.if_with(flow_eq_1, [count_1_incr]),
-        ),
-    ]
+        with stats.continuous:
+            stats.this().count_0 = count_0_sto.out
+            stats.this().count_1 = count_1_sto.out
+
+        stats.control += cb.par(
+            cb.if_with(flow_eq_0, count_0_incr, count_1_incr),
+        )
+
+    # If static, we need to use continuous assignments and not comb groups.
+    else:
+        eq_cell = stats.eq(1, "eq_cell")
+
+        with stats.continuous:
+            stats.this().count_0 = count_0_sto.out
+            stats.this().count_1 = count_1_sto.out
+            eq_cell.left = flow
+            eq_cell.right = 0
+
+        stats.control += cb.static_par(
+            cb.static_if(eq_cell.out, count_0_incr, count_1_incr),
+        )
 
     return stats
 
@@ -139,16 +155,18 @@ def insert_main(prog, dataplane, controller, stats_component):
     ]
 
 
-def build():
-    """Top-level function to build the program."""
+def build(static=False):
+    """Top-level function to build the program.
+    The `static` flag determines whether the program is static or dynamic.
+    """
     prog = cb.Builder()
-    stats_component = insert_stats(prog, "stats")
+    stats_component = insert_stats(prog, "stats", static)
     fifo_purple = fifo.insert_fifo(prog, "fifo_purple")
     fifo_tangerine = fifo.insert_fifo(prog, "fifo_tangerine")
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
     pifo_root = pifo.insert_pifo(
-        prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component
+        prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component, static
     )
     # The root PIFO will take a stats component by reference.
     dataplane = queue_call.insert_runner(prog, pifo_root, "dataplane", stats_component)
