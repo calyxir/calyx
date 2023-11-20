@@ -159,8 +159,10 @@ def insert_main(prog, dataplane, controller, stats_component):
     ]
 
 
-def build(static):
-    """Top-level function to build the program."""
+def build(static=False):
+    """Top-level function to build the program.
+    The `static` flag determines whether the program is static or dynamic.
+    """
     prog = cb.Builder()
     stats_component = insert_stats(prog, "stats", static)
     fifo_purple = fifo.insert_fifo(prog, "fifo_purple")
@@ -178,6 +180,4 @@ def build(static):
 
 
 if __name__ == "__main__":
-    # Did the user pass the `--static` flag?
-    static = len(sys.argv) > 1 and sys.argv[1] == "--static"
-    build(static).emit()
+    build().emit()
