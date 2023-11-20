@@ -37,8 +37,8 @@ def insert_stats(prog, name, static=False):
 
     # Wiring to increment the appropriate register.
     if static:
-        count_0_incr = stats.incr_static(count_0_sto)
-        count_1_incr = stats.incr_static(count_1_sto)
+        count_0_incr = stats.incr(count_0_sto, static=static)
+        count_1_incr = stats.incr(count_1_sto, static=static)
     else:
         count_0_incr = stats.incr(count_0_sto)
         count_1_incr = stats.incr(count_1_sto)

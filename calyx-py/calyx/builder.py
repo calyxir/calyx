@@ -523,29 +523,23 @@ class ComponentBuilder:
             not_group.done = reg.done
         return not_group
 
-    def incr(self, reg, val=1, signed=False, cellname=None):
+    def incr(self, reg, val=1, signed=False, cellname=None, static=False):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
         width = reg.infer_width_reg()
         add_cell = self.add(width, cellname, signed)
-        with self.group(f"{cellname}_group") as incr_group:
+        group = (
+            self.static_group(f"{cellname}_group", 1)
+            if static
+            else self.group(f"{cellname}_group")
+        )
+        with group as incr_group:
             add_cell.left = reg.out
             add_cell.right = const(width, val)
             reg.write_en = 1
             reg.in_ = add_cell.out
-            incr_group.done = reg.done
-        return incr_group
-
-    def incr_static(self, reg, val=1, signed=False, cellname=None):
-        """Inserts wiring into `self` to perform `reg := reg + val` statically."""
-        cellname = cellname or f"{reg.name}_incr"
-        width = reg.infer_width_reg()
-        add_cell = self.add(width, cellname, signed)
-        with self.static_group(f"{cellname}_group", 1) as incr_group:
-            add_cell.left = reg.out
-            add_cell.right = const(width, val)
-            reg.write_en = 1
-            reg.in_ = add_cell.out
+            if not static:
+                incr_group.done = reg.done
         return incr_group
 
     def decr(self, reg, val=1, signed=False, cellname=None):
