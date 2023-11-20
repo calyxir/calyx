@@ -36,12 +36,10 @@ def insert_stats(prog, name, static=False):
     count_1_sto = stats.reg("count_1_sto", 32)
 
     # Wiring to increment the appropriate register.
-    if static:
-        count_0_incr = stats.incr(count_0_sto, static=static)
-        count_1_incr = stats.incr(count_1_sto, static=static)
-    else:
-        count_0_incr = stats.incr(count_0_sto)
-        count_1_incr = stats.incr(count_1_sto)
+    count_0_incr = stats.incr(count_0_sto, static=static)
+    count_1_incr = stats.incr(count_1_sto, static=static)
+
+    # The rest of the logic varies depending on whether the component is static.
 
     # If not static, we can use comb groups.
     if not static:
@@ -55,20 +53,19 @@ def insert_stats(prog, name, static=False):
             cb.if_with(flow_eq_0, count_0_incr, count_1_incr),
         )
 
-        return stats
+    # If static, we need to use continuous assignments and not comb groups.
+    else:
+        eq_cell = stats.eq(1, "eq_cell")
 
-    # If static, we need to use continuous assignments.
-    eq_cell = stats.eq(1, "eq_cell")
+        with stats.continuous:
+            stats.this().count_0 = count_0_sto.out
+            stats.this().count_1 = count_1_sto.out
+            eq_cell.left = flow
+            eq_cell.right = 0
 
-    with stats.continuous:
-        stats.this().count_0 = count_0_sto.out
-        stats.this().count_1 = count_1_sto.out
-        eq_cell.left = flow
-        eq_cell.right = 0
-
-    stats.control += cb.static_par(
-        cb.static_if(eq_cell.out, count_0_incr, count_1_incr),
-    )
+        stats.control += cb.static_par(
+            cb.static_if(eq_cell.out, count_0_incr, count_1_incr),
+        )
 
     return stats
 
