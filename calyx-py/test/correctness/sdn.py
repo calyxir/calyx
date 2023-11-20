@@ -1,5 +1,4 @@
 # pylint: disable=import-error
-import sys
 import fifo
 import pifo
 import calyx.builder as cb
