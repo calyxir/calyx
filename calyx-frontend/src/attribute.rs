@@ -61,6 +61,9 @@ pub enum BoolAttr {
     #[strum(serialize = "inline")]
     /// Inline this subcomponent
     Inline,
+    #[strum(serialize = "promoted")]
+    /// denotes a static component promoted from dynamic
+    Promoted,
 }
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {

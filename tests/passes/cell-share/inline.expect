@@ -15,7 +15,7 @@ component my_reg<"state_share"=1>(@data in: 32, @go go: 1, @clk clk: 1, @reset r
     @promote_static invoke0;
   }
 }
-static<4> component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     @external @data mem = std_mem_d1(32, 2, 1);
     @generated r = std_reg(32);
