@@ -15,12 +15,15 @@ use itertools::{FoldWhile, Itertools};
 #[derive(Debug, Hash, Eq, PartialEq)]
 pub struct ControlPoint {
     pub comp: GlobalCellId,
-    pub control_leaf: ControlIdx,
+    pub control_node: ControlIdx,
 }
 
 impl ControlPoint {
     pub fn new(comp: GlobalCellId, control_leaf: ControlIdx) -> Self {
-        Self { comp, control_leaf }
+        Self {
+            comp,
+            control_node: control_leaf,
+        }
     }
 }
 
@@ -222,65 +225,24 @@ impl ProgramCounter {
         // this relies on the fact that we construct the root cell-ledger
         // as the first possible cell in the program. If that changes this will break.
         let root_cell = GlobalCellId::new(0);
-        let mut par_map: HashMap<ControlPoint, ChildCount> = HashMap::new();
 
         let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
-        if let Some(current) = ctx.primary[root].control {
-            let mut work_queue: Vec<ControlIdx> = Vec::from([current]);
-            let mut backtrack_map = HashMap::new();
 
-            while let Some(current) = work_queue.pop() {
-                match &ctx.primary[current] {
-                    ControlNode::Empty(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Enable(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Seq(s) => match s
-                        .stms()
-                        .iter()
-                        .find(|&x| !backtrack_map.contains_key(x))
-                    {
-                        Some(n) => {
-                            backtrack_map.insert(*n, current);
-                            work_queue.push(*n);
-                        }
-                        None => {
-                            if let Some(b) = backtrack_map.get(&current) {
-                                work_queue.push(*b)
-                            }
-                        }
-                    },
-                    ControlNode::Par(p) => {
-                        par_map.insert(
-                            ControlPoint::new(root_cell, current),
-                            p.stms().len().try_into().expect(
-                                "number of par arms does not fit into the default size value. Please let us know so that we can adjust the datatype accordingly",
-                            ),
-                        );
-                        for node in p.stms() {
-                            work_queue.push(*node);
-                        }
-                    }
-                    ControlNode::If(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::While(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Invoke(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                }
-            }
+        if let Some(current) = ctx.primary[root].control {
+            vec.push(ControlPoint {
+                comp: root_cell,
+                control_node: current,
+            })
         } else {
             todo!(
                 "Flat interpreter does not support control-less components yet"
             )
         }
 
-        Self { vec, par_map }
+        Self {
+            vec,
+            par_map: HashMap::new(),
+        }
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
