@@ -2,7 +2,7 @@ mod adapter;
 mod error;
 
 use adapter::MyAdapter;
-use dap::events::ExitedEventBody;
+use dap::events::{ExitedEventBody, StoppedEventBody, ThreadEventBody};
 use dap::responses::{
     SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse,
 };
@@ -120,8 +120,15 @@ where
     let file = File::open(program_path)?;
 
     // Construct the adapter
-    let adapter = MyAdapter::new(file);
 
+    let mut adapter = MyAdapter::new(file);
+
+    let thread = &adapter.create_thread(String::from("Main"));
+    let _ = &adapter.create_thread(String::from("Thread 1"));
+    server.send_event(Event::Thread(ThreadEventBody {
+        reason: types::ThreadEventReason::Started,
+        thread_id: thread.id,
+    }))?;
     // Return the adapter instead of running the server
     Ok(adapter)
 }
@@ -136,7 +143,7 @@ fn run_server<R: Read, W: Write>(
             Some(req) => req,
             None => return Err(MyAdapterError::MissingCommandError),
         };
-        match &req.command {
+        match dbg!(&req.command) {
             Command::Launch(_) => {
                 let rsp = req.success(ResponseBody::Launch);
                 server.respond(rsp)?;
@@ -174,10 +181,6 @@ fn run_server<R: Read, W: Write>(
                 server.respond(rsp)?;
             }
 
-            Command::StepIn(_) => {
-                return Err(MyAdapterError::MissingFile);
-            }
-
             // Disconnect the server AND exit the debugger
             Command::Disconnect(_) => {
                 let rsp = req.success(ResponseBody::Disconnect);
@@ -187,6 +190,22 @@ fn run_server<R: Read, W: Write>(
                 server.respond(rsp)?;
                 return Err(MyAdapterError::ExitError(0));
             }
+
+            Command::Pause(args) => {
+                let thread_id = args.thread_id.clone();
+                let rsp = req.success(ResponseBody::Pause);
+                server.respond(rsp)?;
+                server.send_event(Event::Stopped(StoppedEventBody {
+                    reason: types::StoppedEventReason::Pause,
+                    description: None,
+                    preserve_focus_hint: None,
+                    text: None,
+                    thread_id: Some(thread_id),
+                    all_threads_stopped: None,
+                    hit_breakpoint_ids: None,
+                }))?;
+            }
+
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),

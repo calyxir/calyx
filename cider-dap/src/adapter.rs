@@ -5,6 +5,7 @@ pub struct MyAdapter {
     file: File,
     breakpoints: Vec<(Source, i64)>, //This field is a placeholder
     break_count: Counter,
+    thread_count: Counter,
     threads: Vec<Thread>, //This field is a placeholder
 }
 
@@ -14,6 +15,7 @@ impl MyAdapter {
             file,
             breakpoints: Vec::new(),
             break_count: Counter::new(),
+            thread_count: Counter::new(),
             threads: Vec::new(),
         }
     }
@@ -41,6 +43,16 @@ impl MyAdapter {
         }
 
         out_vec
+    }
+
+    ///Creates a thread using the parameter name.
+    pub fn create_thread(&mut self, name: String) -> Thread {
+        let thread = Thread {
+            id: self.thread_count.increment(),
+            name,
+        };
+        self.threads.push(thread.clone());
+        thread
     }
 
     /// Clone threads
