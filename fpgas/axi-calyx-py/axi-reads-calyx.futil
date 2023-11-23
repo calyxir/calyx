@@ -10,6 +10,88 @@
 // ###
 
 
+
+
+//this goes m->s unlike read channel
+component m_arread_channel(
+  ARESET: 1,
+  ARREADY: 1,
+) -> (
+  ARVALID: 1,
+  //This needs to be 64, see link below `m_axi` section.
+  ARADDR: 64,
+  //2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
+  //are doing I believe), should match width of data bus (to shell?, so 512 wide?
+  //which is 3'b110?)
+  //see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
+  // for restrictions
+  ARSIZE: 3,
+
+  ARLEN : 8, //in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
+  
+  // 00 for fixed, 01 for incrementing, 2 for wrap, needs to be incr)
+  ARBURST : 2
+) {
+  cells{
+      is_arvalid = std_reg(1);
+      //todo(nathanielnrn): we get this from `s_axi_control`. Need to check 
+      //how we known actual address
+      //should probably live in `s_axi_control` but for now will live here
+      ref base_addr = std_reg(64);
+      //also need to figure out how to calculate this. Prob from yxi.
+      transaction_len = std_reg(8);
+
+  }
+
+  wires{
+
+      group assert_val {
+          is_arvalid.in = 1'b1;
+          is_arvalid_write_en = 1'b1;
+          assert_valid[done = is_arvalid.done;
+      }
+      
+      group deassert_val {
+          is_arvalid.in = 1'b0;
+          is_arvalid_write_en = 1'b1;
+          assert_valid[done = is_arvalid.done;
+      }
+
+      group block_transfer{
+          block_transfer[done] = ARREADY && ARVALID ? 1'b1;
+          block_transfer[done] = !(ARREADY && ARVALID) ? 1'b0;
+      }
+
+      group do_ar_transfer {
+          ARADDR = base_addr.out;
+          ARSIZE = 3'b110; //see link above, needs to match data width to host.
+          //For now this can be taken from .yxi, as size of mem.
+          //If we want to use bigger mems need to be able to update base addr and
+          //make multiple calls.
+          ARLEN = transaction_len.out
+          ARBURST = 2'b01; //incr
+      }
+  }
+
+  control{
+      //perform_reads.out = TODO(nathanielnrn): figure out where this comes from.
+      //Should be high while FSM still has reads to do && done with previous read request
+      //probably for now just want a counter and done of m_read_channel_check.
+      //Question: Is there a way offering more flexibility than just a counter?
+      while perform_reads.out{ //TODO(nathanielnrn): create this
+          seq {
+              assert_val;
+              block_transfer;
+              deassert_val;
+              do_ar_transfer;
+          }
+      }
+  }
+}
+
+
+
+
 component m_read_channel(
   ARESET : 1,
   RVALID : 1,
@@ -23,13 +105,14 @@ component m_read_channel(
       //16 is due to dot-product vector length assumption
       ref data_received = seq_mem_d1(32, 16, 4);
       is_rdy = std_reg(1);
-      ref curr_addr = std_reg(32);
+      ref curr_addr = std_reg(64); //TODO(nathanielnrn): not used in axi, only internal
 
 
 
       //needed solely for with reg_rdy_en comb group
-      mem_done_or = std_or(1);
-      mem_en_or = std_or(1);
+      //TODO(nathanielnrn): Do we need this?
+      //mem_done_or = std_or(1);
+      //mem_en_or = std_or(1);
 
   }
   wires{
@@ -80,81 +163,6 @@ component m_read_channel(
 
 
 
-//this goes m->s unlike read channel
-component m_arread_channel(
-  ARESET: 1,
-  ARREADY: 1,
-) -> (
-  ARVALID: 1,
-  //This needs to be 64, see link below `m_axi` section.
-  ARADDR: 64,
-  //2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
-  //are doing I believe), should match width of data bus (to shell?, so 512 wide?
-  //which is 3'b110?)
-  //see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
-  // for restrictions
-  ARSIZE: 3,
-
-  ARLEN : 8, //in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
-  
-  // 00 for fixed, 01 for incrementing, 2 for wrap, needs to be incr)
-  ARBURST : 2
-) {
-  cells{
-      is_arvalid = std_reg(1);
-      //we get this from `s_axi_control`. Need to check how we known actual address
-      //should probably live in `s_axi_control` but for now will live here
-      base_addr = std_reg(64);
-      //also need to figure out how to calculate this. Prob from yxi.
-      transaction_len = std_reg(8);
-
-  }
-
-  wires{
-
-      group assert_val {
-          is_arvalid.in = 1'b1;
-          is_arvalid_write_en = 1'b1;
-          assert_valid[done = is_arvalid.done;
-      }
-      
-      group deassert_val {
-          is_arvalid.in = 1'b0;
-          is_arvalid_write_en = 1'b1;
-          assert_valid[done = is_arvalid.done;
-      }
-
-      group block_transfer{
-          block_transfer[done] = ARREADY && ARVALID ? 1'b1;
-          block_transfer[done] = !(ARREADY && ARVALID) ? 1'b0;
-      }
-
-      group do_ar_transfer {
-          ARADDR = base_addr.out;
-          ARSIZE = 3'b110; //see link above, needs to match data width to host.
-          //For now this can be taken from .yxi, as size of mem.
-          //If we want to use bigger mems need to be able to update base addr and
-          //make multiple calls.
-          ARLEN = transaction_len.out
-          ARBURST = 2'b01; //incr
-      }
-  }
-
-  control{
-      //perform_reads.out = TODO(nathanielnrn): figure out where this comes from. Should be high while FSM still has reads to do && done with previous read request
-      //probably for now just want a counter and done of m_read_channel_check. Question: Is there a way offering more flexibility than just a counter?
-      while perform_reads.out{ //TODO(nathanielnrn): create this
-          seq {
-              assert_val;
-              block_transfer;
-              deassert_val;
-              do_ar_transfer;
-          }
-      }
-  }
-}
-
-
 component axi_wrapper(
     ARESET : 1,
     ARREADY : 1,
@@ -165,7 +173,6 @@ component axi_wrapper(
     RRESP : 2,
 ) -> (
     ARVALID : 1,
-    RVALID: 1,
     //This needs to be 64, see link below `m_axi` section.
     ARADDR: 64,
     //2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
@@ -188,7 +195,8 @@ component axi_wrapper(
         //vec2_data = seq_mem_d1(32,16,4); 
         output_data = seq_mem_d1(32,1,0);
 
-        read_addr = std_reg(64); //TODO(nathanielnrn): figure out where this comes from, see generated toplevel and kernel interface requirements below.
+        curr_addr = std_reg(64); //TODO(nathanielnrn): figure out where this comes from, see generated toplevel and kernel interface requirements below.
+        base_addr = std_reg(64);
 
         read_channel = m_read_channel();
         arread_channel = m_arread_channel();
@@ -196,6 +204,12 @@ component axi_wrapper(
     }
 
     wires{
+
+        group set_curr_to_base_addr{
+            curr_addr.in = base_addr.out;
+            curr_addr.write_en = 1'b1;
+            set_curr_to_base_addr[done] = curr_addr.done;
+        }
     }
 
     control{
@@ -204,8 +218,30 @@ component axi_wrapper(
             //see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
             //and also base off of https://github.com/cucapra/calyx/blob/master/tests/xilinx/gen-verilog/dot-product.expect
             //which probably works? Needs to be tested
-            invoke arread_channel(input = my_reg.out, ...)(...);
-            invoke read_channel[data_received = vec1_data](...)(...)
+            invoke arread_channel[base_addr = base_addr]
+            (
+            ARRESET = ARRESET,
+            ARREADY = ARREADY
+            )
+            (
+            ARVALID = ARVALID,
+            ARADDR = ARADDR,
+            ARSIZE = ARSIZE,
+            ARLEN = ARLEN,
+            ARBUST = ARBURST
+            );
+            set_curr_to_base_addr;
+            invoke read_channel[data_received = vec1_data, curr_addr = curr_addr]
+            (
+            ARESET = ARESET,
+            RVALID = RVALID,
+            RLAST = RLAST,
+            RDATA = RDATA,
+            RRESP = RRESP
+            )
+            (
+            RREADY = RREADY
+            );
         }
     }
 
