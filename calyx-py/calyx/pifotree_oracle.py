@@ -1,3 +1,10 @@
+# Usage:
+# To make a .data file:
+# python calyx-py/calyx/queue_data_gen.py --piezo > calyx-py/test/correctness/sdn.data
+# To then make a .expect file:
+# cat calyx-py/test/correctness/sdn.data |
+# python calyx-py/calyx/pifotree_oracle.py > calyx-py/test/correctness/sdn.expect
+
 import calyx.queues as queues
 from calyx import queue_util
 
@@ -21,4 +28,3 @@ if __name__ == "__main__":
 
     ans = queues.operate_queue(commands, values, pifo)
     queue_util.dump_json(commands, values, ans)
-    
