@@ -14,13 +14,14 @@ In general, when `fud` is asked to create an [`.xclbin` file][xclbin] a `kernel.
 
 `main.sv` contains the SystemVerilog implementation of the Calyx program
 we are interested in executing on an FPGA.
-`toplevel.v` wraps our computation kernel and contains
+`toplevel.v` wraps our SystemVerilog implementation and contains
 the AXI interface for each memory marked [`@external`][external] in a Calyx program.
-Our toplevel is what interfaces directly with the  
-[`kernel.xml`][kernel_xml] defines register maps and ports of our
+Our `toplevel.v` and [`kernel.xml`][kernel_xml] is what our Xilinx tools interface with.
+Our toplevel adheres to the Xilinx [kernel interface requirements][kernel_requirements].
+`kernel.xml` defines register maps and ports of our
 toplevel module used by our Xilinx tools.
 
-For more info on file generation see [how the Xilinx Toolchain works][xilinx_how]
+For more information on the generation of the files mentioned above see [how the Xilinx Toolchain works][xilinx_how]
 
 ## Toplevel
 
@@ -82,3 +83,4 @@ allow this.
 [access_protection]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Transaction-Attributes/Access-permissions?lang=en
 [toplevel]: https://docs.calyxir.org/lang/attributes.html?highlight=toplevel#toplevel
 [xilinx_how]: https://docs.calyxir.org/fud/xilinx.html?highlight=synthesis#how-it-works
+[kernel_requirements]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
