@@ -5,7 +5,7 @@ In order to run programs on FPGAs, fud is capable of utilizing
 Calyx to generate a fairly complex AXI interface that can be daunting
 to deal with if confronting for the first time.
 The following is an overview of how the generation occurs
-and how the fud-generated-AXI-interface behaves as of 2022-9-11.
+and how the fud-generated AXI interface behaves as of 2022-9-11.
 
 In general, when `fud` is asked to create an [`.xclbin` file][xclbin] a `kernel.xml`,
 `main.sv`, and `toplevel.v` are created as intermediate files required for our
