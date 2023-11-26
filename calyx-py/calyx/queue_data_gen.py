@@ -86,7 +86,7 @@ def dump_json(piezo: bool):
     }
     values = {
         "values": {
-            "data": [random.randint(0, 400) for _ in range(queue_util.MAX_CMDS)],
+            "data": [random.randint(1, 400) for _ in range(queue_util.MAX_CMDS)],
             # The `values` memory has queue_util.MAX_CMDS items: random values
             # between 0 and 400.
             "format": format_gen(32),
