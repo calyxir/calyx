@@ -149,52 +149,39 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
-                    cb.par(  # We'll check both cases in parallel.
-                        cb.if_with(
-                            # Check if `hot` is 0.
-                            hot_eq_0,
-                            [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
-                                invoke_subqueue(queue_l, cmd, value, ans, err),
-                                # Our next step depends on whether `queue_l`
-                                # raised the error flag.
-                                cb.if_with(
-                                    err_neq_0,
-                                    [  # `queue_l` raised an error.
-                                        # We'll try to pop from `queue_r`.
-                                        # We'll pass it a lowered err
-                                        lower_err,
-                                        invoke_subqueue(queue_r, cmd, value, ans, err),
-                                    ],
-                                    # `queue_l` succeeded.
-                                    # Its answer will be our answer.
-                                    flip_hot
-                                    # We'll just make `hot` point
-                                    # to the other sub-queue.
-                                ),
-                            ],
-                        ),
-                        # If `hot` is 1, we proceed symmetrically.
-                        cb.if_with(
-                            hot_eq_1,
-                            [
-                                invoke_subqueue(queue_r, cmd, value, ans, err),
-                                cb.par(
-                                    cb.if_with(
-                                        err_neq_0,
-                                        [
-                                            lower_err,
-                                            invoke_subqueue(
-                                                queue_l, cmd, value, ans, err
-                                            ),
-                                        ],
-                                    ),
-                                    cb.if_with(
-                                        err_eq_0,
-                                        flip_hot,
-                                    ),
-                                ),
-                            ],
-                        ),
+                    cb.if_with(
+                        # Check if `hot` is 0.
+                        hot_eq_0,
+                        [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
+                            invoke_subqueue(queue_l, cmd, value, ans, err),
+                            # Our next step depends on whether `queue_l`
+                            # raised the error flag.
+                            cb.if_with(
+                                err_neq_0,
+                                [  # `queue_l` raised an error.
+                                    # We'll try to pop from `queue_r`.
+                                    # We'll pass it a lowered err
+                                    lower_err,
+                                    invoke_subqueue(queue_r, cmd, value, ans, err),
+                                ],
+                                # `queue_l` succeeded.
+                                # Its answer will be our answer.
+                                flip_hot
+                                # We'll just make `hot` point
+                                # to the other sub-queue.
+                            ),
+                        ],
+                        [  # `hot` is 1; we proceed symmetrically.
+                            invoke_subqueue(queue_r, cmd, value, ans, err),
+                            cb.if_with(
+                                err_neq_0,
+                                [
+                                    lower_err,
+                                    invoke_subqueue(queue_l, cmd, value, ans, err),
+                                ],
+                                flip_hot,
+                            ),
+                        ],
                     ),
                     len_decr,  # Decrement the length.
                     # It is possible that an irrecoverable error was raised above,
@@ -214,41 +201,34 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
-                    cb.par(  # We'll check both cases in parallel.
-                        cb.if_with(
-                            # Check if `hot` is 0.
-                            hot_eq_0,
-                            [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
-                                invoke_subqueue(queue_l, cmd, value, ans, err),
-                                # Our next step depends on whether `queue_l`
-                                # raised the error flag.
-                                cb.if_with(
-                                    err_neq_0,
-                                    [  # `queue_l` raised an error.
-                                        # We'll try to peek from `queue_r`.
-                                        # We'll pass it a lowered `err`.
-                                        lower_err,
-                                        invoke_subqueue(queue_r, cmd, value, ans, err),
-                                    ],
-                                ),
-                                # Peeking does not affect `hot`.
-                                # Peeking does not affect the length.
-                            ],
-                        ),
-                        # If `hot` is 1, we proceed symmetrically.
-                        cb.if_with(
-                            hot_eq_1,
-                            [
-                                invoke_subqueue(queue_r, cmd, value, ans, err),
-                                cb.if_with(
-                                    err_neq_0,
-                                    [
-                                        lower_err,
-                                        invoke_subqueue(queue_l, cmd, value, ans, err),
-                                    ],
-                                ),
-                            ],
-                        ),
+                    cb.if_with(
+                        hot_eq_0,  # Check if `hot` is 0 or 1
+                        [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
+                            invoke_subqueue(queue_l, cmd, value, ans, err),
+                            # Our next step depends on whether `queue_l`
+                            # raised the error flag.
+                            cb.if_with(
+                                err_neq_0,
+                                [  # `queue_l` raised an error.
+                                    # We'll try to peek from `queue_r`.
+                                    # We'll pass it a lowered `err`.
+                                    lower_err,
+                                    invoke_subqueue(queue_r, cmd, value, ans, err),
+                                ],
+                            ),
+                            # Peeking does not affect `hot`.
+                            # Peeking does not affect the length.
+                        ],
+                        [  # `hot` is 1; we proceed symmetrically.
+                            invoke_subqueue(queue_r, cmd, value, ans, err),
+                            cb.if_with(
+                                err_neq_0,
+                                [
+                                    lower_err,
+                                    invoke_subqueue(queue_l, cmd, value, ans, err),
+                                ],
+                            ),
+                        ],
                     ),
                 ],
             ),
@@ -264,17 +244,12 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                     lower_err,
                     # We need to check which flow this value should be pushed to.
                     infer_flow,  # Infer the flow and write it to `fifo_{flow}`.
-                    cb.par(
-                        cb.if_with(
-                            flow_eq_0,
-                            # This value should be pushed to queue_l.
-                            invoke_subqueue(queue_l, cmd, value, ans, err),
-                        ),
-                        cb.if_with(
-                            flow_eq_1,
-                            # This value should be pushed to queue_r.
-                            invoke_subqueue(queue_r, cmd, value, ans, err),
-                        ),
+                    cb.if_with(
+                        flow_eq_0,
+                        # This value should be pushed to queue_l.
+                        invoke_subqueue(queue_l, cmd, value, ans, err),
+                        # This value should be pushed to queue_r.
+                        invoke_subqueue(queue_r, cmd, value, ans, err),
                     ),
                     cb.if_with(
                         err_eq_0,
