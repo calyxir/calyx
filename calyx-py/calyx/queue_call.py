@@ -202,8 +202,8 @@ def insert_runner(prog, queue, name, stats_component):
             [
                 cb.if_with(
                     cmd_le_1,  # If the command was a pop or peek
-                    [raise_has_ans],  # then raise the `has_ans` flag
-                    [lower_has_ans],  # else lower the `has_ans` flag
+                    raise_has_ans,  # then raise the `has_ans` flag
+                    lower_has_ans,  # else lower the `has_ans` flag
                 ),
             ],
         ),
