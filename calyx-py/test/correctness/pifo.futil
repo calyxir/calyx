@@ -445,118 +445,107 @@ component pifo(cmd: 2, value: 32) -> () {
     }
   }
   control {
-    seq {
-      par {
-        if eq_8.out with eq_8_group {
-          if eq_6.out with eq_6_group {
-            seq {
-              raise_err;
-              flash_ans;
-            }
-          } else {
-            seq {
-              lower_err;
-              par {
-                if eq_2.out with eq_2_group {
-                  seq {
-                    invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                    par {
-                      if neq_12.out with neq_12_group {
-                        seq {
-                          lower_err;
-                          invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                        }
-                      }
-                      if eq_11.out with eq_11_group {
-                        seq {
-                          hot_not_group;
-                        }
-                      }
+    par {
+      if eq_8.out with eq_8_group {
+        if eq_6.out with eq_6_group {
+          seq {
+            raise_err;
+            flash_ans;
+          }
+        } else {
+          seq {
+            lower_err;
+            par {
+              if eq_2.out with eq_2_group {
+                seq {
+                  invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                  if neq_12.out with neq_12_group {
+                    seq {
+                      lower_err;
+                      invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
                     }
-                  }
-                }
-                if eq_3.out with eq_3_group {
-                  seq {
-                    invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                    par {
-                      if neq_12.out with neq_12_group {
-                        seq {
-                          lower_err;
-                          invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                        }
-                      }
-                      if eq_11.out with eq_11_group {
-                        seq {
-                          hot_not_group;
-                        }
-                      }
-                    }
+                  } else {
+                    hot_not_group;
                   }
                 }
               }
-              len_decr_group;
-            }
-          }
-        }
-        if eq_9.out with eq_9_group {
-          if eq_6.out with eq_6_group {
-            seq {
-              raise_err;
-              flash_ans;
-            }
-          } else {
-            seq {
-              lower_err;
-              par {
-                if eq_2.out with eq_2_group {
-                  seq {
-                    invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                    if neq_12.out with neq_12_group {
-                      seq {
-                        lower_err;
-                        invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                      }
-                    }
-                  }
-                }
-                if eq_3.out with eq_3_group {
-                  seq {
-                    invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+              if eq_3.out with eq_3_group {
+                seq {
+                  invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+                  par {
                     if neq_12.out with neq_12_group {
                       seq {
                         lower_err;
                         invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
                       }
                     }
+                    if eq_11.out with eq_11_group {
+                      hot_not_group;
+                    }
+                  }
+                }
+              }
+            }
+            len_decr_group;
+          }
+        }
+      }
+      if eq_9.out with eq_9_group {
+        if eq_6.out with eq_6_group {
+          seq {
+            raise_err;
+            flash_ans;
+          }
+        } else {
+          seq {
+            lower_err;
+            par {
+              if eq_2.out with eq_2_group {
+                seq {
+                  invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                  if neq_12.out with neq_12_group {
+                    seq {
+                      lower_err;
+                      invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+                    }
+                  }
+                }
+              }
+              if eq_3.out with eq_3_group {
+                seq {
+                  invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+                  if neq_12.out with neq_12_group {
+                    seq {
+                      lower_err;
+                      invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                    }
                   }
                 }
               }
             }
           }
         }
-        if eq_10.out with eq_10_group {
-          if eq_7.out with eq_7_group {
-            seq {
-              raise_err;
-              flash_ans;
+      }
+      if eq_10.out with eq_10_group {
+        if eq_7.out with eq_7_group {
+          seq {
+            raise_err;
+            flash_ans;
+          }
+        } else {
+          seq {
+            lower_err;
+            infer_flow;
+            par {
+              if eq_4.out with eq_4_group {
+                invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+              }
+              if eq_5.out with eq_5_group {
+                invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+              }
             }
-          } else {
-            seq {
-              lower_err;
-              infer_flow;
-              par {
-                if eq_4.out with eq_4_group {
-                  invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                }
-                if eq_5.out with eq_5_group {
-                  invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                }
-              }
-              if eq_11.out with eq_11_group {
-                seq {
-                  len_incr_group;
-                }
-              }
+            if eq_11.out with eq_11_group {
+              len_incr_group;
             }
           }
         }
