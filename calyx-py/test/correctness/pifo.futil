@@ -445,45 +445,44 @@ component pifo(cmd: 2, value: 32) -> () {
     }
   }
   control {
-    par {
-      if eq_8.out with eq_8_group {
-        if eq_6.out with eq_6_group {
-          seq {
-            raise_err;
-            flash_ans;
-          }
-        } else {
-          seq {
-            lower_err;
-            if eq_2.out with eq_2_group {
-              seq {
-                invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                if neq_12.out with neq_12_group {
-                  seq {
-                    lower_err;
-                    invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                  }
-                } else {
-                  hot_not_group;
+    if eq_8.out with eq_8_group {
+      if eq_6.out with eq_6_group {
+        seq {
+          raise_err;
+          flash_ans;
+        }
+      } else {
+        seq {
+          lower_err;
+          if eq_2.out with eq_2_group {
+            seq {
+              invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+              if neq_12.out with neq_12_group {
+                seq {
+                  lower_err;
+                  invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
                 }
-              }
-            } else {
-              seq {
-                invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                if neq_12.out with neq_12_group {
-                  seq {
-                    lower_err;
-                    invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                  }
-                } else {
-                  hot_not_group;
-                }
+              } else {
+                hot_not_group;
               }
             }
-            len_decr_group;
+          } else {
+            seq {
+              invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+              if neq_12.out with neq_12_group {
+                seq {
+                  lower_err;
+                  invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                }
+              } else {
+                hot_not_group;
+              }
+            }
           }
+          len_decr_group;
         }
       }
+    } else {
       if eq_9.out with eq_9_group {
         if eq_6.out with eq_6_group {
           seq {
@@ -516,8 +515,7 @@ component pifo(cmd: 2, value: 32) -> () {
             }
           }
         }
-      }
-      if eq_10.out with eq_10_group {
+      } else {
         if eq_7.out with eq_7_group {
           seq {
             raise_err;

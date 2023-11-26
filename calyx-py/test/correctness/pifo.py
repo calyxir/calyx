@@ -137,63 +137,60 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     len_decr = pifo.decr(len)  # len--
 
     # The main logic.
-    pifo.control += cb.par(
-        # Was it a pop, peek, or a push? We can do all cases in parallel.
+    pifo.control += cb.if_with(  # Was it a pop, peek, or a push?
+        # Did the user call pop?
+        cmd_eq_0,
         cb.if_with(
-            # Did the user call pop?
-            cmd_eq_0,
-            cb.if_with(
-                # Yes, the user called pop. But is the queue empty?
-                len_eq_0,
-                [raise_err, flash_ans],  # The queue is empty: underflow.
-                [  # The queue is not empty. Proceed.
-                    # We must check if `hot` is 0 or 1.
-                    lower_err,
-                    cb.if_with(
-                        # Check if `hot` is 0.
-                        hot_eq_0,
-                        [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
-                            invoke_subqueue(queue_l, cmd, value, ans, err),
-                            # Our next step depends on whether `queue_l`
-                            # raised the error flag.
-                            cb.if_with(
-                                err_neq_0,
-                                [  # `queue_l` raised an error.
-                                    # We'll try to pop from `queue_r`.
-                                    # We'll pass it a lowered err
-                                    lower_err,
-                                    invoke_subqueue(queue_r, cmd, value, ans, err),
-                                ],
-                                # `queue_l` succeeded.
-                                # Its answer will be our answer.
-                                flip_hot
-                                # We'll just make `hot` point
-                                # to the other sub-queue.
-                            ),
-                        ],
-                        [  # `hot` is 1; we proceed symmetrically.
-                            invoke_subqueue(queue_r, cmd, value, ans, err),
-                            cb.if_with(
-                                err_neq_0,
-                                [
-                                    lower_err,
-                                    invoke_subqueue(queue_l, cmd, value, ans, err),
-                                ],
-                                flip_hot,
-                            ),
-                        ],
-                    ),
-                    len_decr,  # Decrement the length.
-                    # It is possible that an irrecoverable error was raised above,
-                    # in which case the length should _not_ in fact be decremented.
-                    # However, in that case the PIFO's `err` flag would also
-                    # have been raised, and no one will check this length anyway.
-                ],
-            ),
+            # Yes, the user called pop. But is the queue empty?
+            len_eq_0,
+            [raise_err, flash_ans],  # The queue is empty: underflow.
+            [  # The queue is not empty. Proceed.
+                # We must check if `hot` is 0 or 1.
+                lower_err,
+                cb.if_with(
+                    # Check if `hot` is 0.
+                    hot_eq_0,
+                    [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
+                        invoke_subqueue(queue_l, cmd, value, ans, err),
+                        # Our next step depends on whether `queue_l`
+                        # raised the error flag.
+                        cb.if_with(
+                            err_neq_0,
+                            [  # `queue_l` raised an error.
+                                # We'll try to pop from `queue_r`.
+                                # We'll pass it a lowered err
+                                lower_err,
+                                invoke_subqueue(queue_r, cmd, value, ans, err),
+                            ],
+                            # `queue_l` succeeded.
+                            # Its answer will be our answer.
+                            flip_hot
+                            # We'll just make `hot` point
+                            # to the other sub-queue.
+                        ),
+                    ],
+                    [  # `hot` is 1; we proceed symmetrically.
+                        invoke_subqueue(queue_r, cmd, value, ans, err),
+                        cb.if_with(
+                            err_neq_0,
+                            [
+                                lower_err,
+                                invoke_subqueue(queue_l, cmd, value, ans, err),
+                            ],
+                            flip_hot,
+                        ),
+                    ],
+                ),
+                len_decr,  # Decrement the length.
+                # It is possible that an irrecoverable error was raised above,
+                # in which case the length should _not_ in fact be decremented.
+                # However, in that case the PIFO's `err` flag would also
+                # have been raised, and no one will check this length anyway.
+            ],
         ),
+        # The user called something other than pop.
         cb.if_with(
-            # Did the user call peek?
-            cmd_eq_1,
+            cmd_eq_1,  # Did the user call peek?
             cb.if_with(
                 # Yes, the user called peek. But is the queue empty?
                 len_eq_0,
@@ -232,12 +229,9 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                     ),
                 ],
             ),
-        ),
-        cb.if_with(
-            # Did the user call push?
-            cmd_eq_2,
+            # The user called push.
             cb.if_with(
-                # Yes, the user called push. But is the queue full?
+                # But is the queue full?
                 len_eq_max_queue_len,
                 [raise_err, flash_ans],  # The queue is full: overflow.
                 [  # The queue is not full. Proceed.
