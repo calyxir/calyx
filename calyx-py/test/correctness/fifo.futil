@@ -116,54 +116,50 @@ component fifo(cmd: 2, value: 32) -> () {
     }
   }
   control {
-    seq {
-      par {
-        if eq_1.out with eq_1_group {
-          if eq_6.out with eq_6_group {
-            seq {
-              raise_err;
-              flash_ans;
-            }
-          } else {
-            seq {
-              read_payload_from_mem_phase1;
-              read_payload_from_mem_phase2;
-              next_read_incr_group;
-              if eq_5.out with eq_5_group {
-                flash_read;
-              }
-              len_decr_group;
-            }
+    if eq_1.out with eq_1_group {
+      if eq_6.out with eq_6_group {
+        seq {
+          raise_err;
+          flash_ans;
+        }
+      } else {
+        seq {
+          read_payload_from_mem_phase1;
+          read_payload_from_mem_phase2;
+          next_read_incr_group;
+          if eq_5.out with eq_5_group {
+            flash_read;
+          }
+          len_decr_group;
+        }
+      }
+    } else {
+      if eq_2.out with eq_2_group {
+        if eq_6.out with eq_6_group {
+          seq {
+            raise_err;
+            flash_ans;
+          }
+        } else {
+          seq {
+            read_payload_from_mem_phase1;
+            read_payload_from_mem_phase2;
           }
         }
-        if eq_2.out with eq_2_group {
-          if eq_6.out with eq_6_group {
-            seq {
-              raise_err;
-              flash_ans;
-            }
-          } else {
-            seq {
-              read_payload_from_mem_phase1;
-              read_payload_from_mem_phase2;
-            }
+      } else {
+        if eq_7.out with eq_7_group {
+          seq {
+            raise_err;
+            flash_ans;
           }
-        }
-        if eq_3.out with eq_3_group {
-          if eq_7.out with eq_7_group {
-            seq {
-              raise_err;
-              flash_ans;
+        } else {
+          seq {
+            write_payload_to_mem;
+            next_write_incr_group;
+            if eq_4.out with eq_4_group {
+              flash_write;
             }
-          } else {
-            seq {
-              write_payload_to_mem;
-              next_write_incr_group;
-              if eq_4.out with eq_4_group {
-                flash_write;
-              }
-              len_incr_group;
-            }
+            len_incr_group;
           }
         }
       }
@@ -247,27 +243,23 @@ component main() -> () {
     }
   }
   control {
-    seq {
-      while lt_2.out with lt_2_group {
-        seq {
-          read_cmd_phase1;
-          write_cmd_phase2;
-          read_value;
-          write_value_to_reg;
-          invoke myqueue[ans=ans, err=err](cmd=command.out, value=value.out)();
-          if not_3.out with not_3_group {
+    while lt_2.out with lt_2_group {
+      seq {
+        read_cmd_phase1;
+        write_cmd_phase2;
+        read_value;
+        write_value_to_reg;
+        invoke myqueue[ans=ans, err=err](cmd=command.out, value=value.out)();
+        if not_3.out with not_3_group {
+          if le_1.out with le_1_group {
             seq {
-              if le_1.out with le_1_group {
-                seq {
-                  write_ans;
-                  j_incr_group;
-                }
-              }
+              write_ans;
+              j_incr_group;
             }
           }
-          lower_err;
-          i_incr_group;
         }
+        lower_err;
+        i_incr_group;
       }
     }
   }
