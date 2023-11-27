@@ -1,0 +1,25 @@
+// -p well-formed -p static-promotion -p dead-group-removal
+
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    a = std_reg(2);
+    cond = std_reg(1);
+  }
+
+  wires {
+    group A {
+      a.in = 2'd0;
+      a.write_en = 1'b1;
+      A[done] = a.done;
+    }
+  }
+
+  control {
+    // No promotion because size must be *greater* than the threshold
+    if cond.out {
+      A;
+    }
+  }
+}

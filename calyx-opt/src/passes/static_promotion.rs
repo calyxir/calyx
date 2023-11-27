@@ -869,6 +869,17 @@ impl Visitor for StaticPromotion {
         Ok(Action::Continue)
     }
 
+    fn empty(
+        &mut self,
+        s: &mut ir::Empty,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        s.attributes.insert(ir::NumAttr::PromoteStatic, 0);
+        Ok(Action::Continue)
+    }
+
     fn enable(
         &mut self,
         s: &mut ir::Enable,
@@ -1049,7 +1060,8 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         if Self::can_be_promoted(&s.tbranch)
-            && Self::can_be_promoted(&s.fbranch)
+            && (Self::can_be_promoted(&s.fbranch)
+                || matches!(*s.fbranch, ir::Control::Empty(_)))
         {
             // Both branches can be promoted
             let approx_size_if = Self::approx_size(&s.tbranch)
