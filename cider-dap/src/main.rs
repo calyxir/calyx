@@ -4,7 +4,8 @@ mod error;
 use adapter::MyAdapter;
 use dap::events::{ExitedEventBody, StoppedEventBody, ThreadEventBody};
 use dap::responses::{
-    SetBreakpointsResponse, SetExceptionBreakpointsResponse, ThreadsResponse,
+    ContinueResponse, SetBreakpointsResponse, SetExceptionBreakpointsResponse,
+    StackTraceResponse, ThreadsResponse,
 };
 use error::MyAdapterError;
 
@@ -120,15 +121,24 @@ where
     let file = File::open(program_path)?;
 
     // Construct the adapter
-
     let mut adapter = MyAdapter::new(file);
 
+    //NOT SURE IF WE NEED TWO THREADS
     let thread = &adapter.create_thread(String::from("Main"));
-    let _ = &adapter.create_thread(String::from("Thread 1"));
+    let thread2 = &adapter.create_thread(String::from("Thread 1"));
+
+    //FIND OUT IF WE NEED TO SEND EVENTS AS STILL WORKS WITHOUT IT
     server.send_event(Event::Thread(ThreadEventBody {
         reason: types::ThreadEventReason::Started,
         thread_id: thread.id,
     }))?;
+
+    //Notify server of second thread
+    server.send_event(Event::Thread(ThreadEventBody {
+        reason: types::ThreadEventReason::Started,
+        thread_id: thread2.id,
+    }))?;
+
     // Return the adapter instead of running the server
     Ok(adapter)
 }
@@ -191,13 +201,36 @@ fn run_server<R: Read, W: Write>(
                 return Err(MyAdapterError::ExitError(0));
             }
 
-            Command::Pause(args) => {
-                let thread_id = args.thread_id.clone();
-                let rsp = req.success(ResponseBody::Pause);
+            //TODO: SEE IF PROPER IMPLEMENTATION OF STACK_FRAMES AND TOTAL_FRAMES IS NEEDED
+            Command::StackTrace(_args) => {
+                let rsp =
+                    req.success(ResponseBody::StackTrace(StackTraceResponse {
+                        stack_frames: vec![],
+                        total_frames: None,
+                    }));
                 server.respond(rsp)?;
+            }
+            // TODO: ASK ABOUT STEPPING GRANUALARITY
+            //Continue the debugger
+            Command::Continue(_args) => {
+                let rsp =
+                    req.success(ResponseBody::Continue(ContinueResponse {
+                        all_threads_continued: None,
+                    }));
+                server.respond(rsp)?;
+            }
+
+            //Send a Stopped event with reason Pause
+            Command::Pause(args) => {
+                //Get ID before rsp takes ownership
+                let thread_id = args.thread_id;
+                let rsp = req.success(ResponseBody::Pause);
+                //Send response first
+                server.respond(rsp)?;
+                //Send event
                 server.send_event(Event::Stopped(StoppedEventBody {
                     reason: types::StoppedEventReason::Pause,
-                    description: None,
+                    description: Some(String::from("Paused")),
                     preserve_focus_hint: None,
                     text: None,
                     thread_id: Some(thread_id),
@@ -206,6 +239,61 @@ fn run_server<R: Read, W: Write>(
                 }))?;
             }
 
+            // Step over
+            Command::Next(args) => {
+                //Get ID before rsp takes ownership
+                let thread_id = args.thread_id;
+                let rsp = req.success(ResponseBody::Next);
+                // Send response first
+                server.respond(rsp)?;
+                // Send event
+                server.send_event(Event::Stopped(StoppedEventBody {
+                    reason: types::StoppedEventReason::Step,
+                    description: Some(String::from("Continue")),
+                    thread_id: Some(thread_id),
+                    preserve_focus_hint: None,
+                    text: None,
+                    all_threads_stopped: None,
+                    hit_breakpoint_ids: None,
+                }))?;
+            }
+            // Step in
+            //TODO: SEE IF WE NEED TO IMPLEMENT WHEN STEPIN BEHAVES LIKE NEXT
+            Command::StepIn(args) => {
+                //Get ID before rsp takes ownership
+                let thread_id = args.thread_id;
+                // Send response first
+                let rsp = req.success(ResponseBody::StepIn);
+                server.respond(rsp)?;
+                // Send event
+                server.send_event(Event::Stopped(StoppedEventBody {
+                    reason: types::StoppedEventReason::Step,
+                    description: Some(String::from("Paused on step")),
+                    thread_id: Some(thread_id),
+                    preserve_focus_hint: None,
+                    text: None,
+                    all_threads_stopped: None,
+                    hit_breakpoint_ids: None,
+                }))?;
+            }
+
+            Command::StepOut(args) => {
+                //Get ID before rsp takes ownership
+                let thread_id = args.thread_id;
+                // Send response first
+                let rsp = req.success(ResponseBody::StepOut);
+                server.respond(rsp)?;
+                // Send event
+                server.send_event(Event::Stopped(StoppedEventBody {
+                    reason: types::StoppedEventReason::Step,
+                    description: Some(String::from("Paused on step")),
+                    thread_id: Some(thread_id),
+                    preserve_focus_hint: None,
+                    text: None,
+                    all_threads_stopped: None,
+                    hit_breakpoint_ids: None,
+                }))?;
+            }
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),
