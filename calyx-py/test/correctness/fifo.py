@@ -72,7 +72,7 @@ def insert_fifo(prog, name):
             cb.if_with(
                 # Yes, the user called pop. But is the queue empty?
                 len_eq_0,
-                [raise_err, flash_ans],  # The queue is empty: underflow.
+                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     read_from_mem,  # Read from the queue.
                     write_to_ans,  # Write the answer to the answer register.
@@ -91,7 +91,7 @@ def insert_fifo(prog, name):
             cmd_eq_1,
             cb.if_with(  # Yes, the user called peek. But is the queue empty?
                 len_eq_0,
-                [raise_err, flash_ans],  # The queue is empty: underflow.
+                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     read_from_mem,  # Read from the queue.
                     write_to_ans,  # Write the answer to the answer register.
@@ -105,7 +105,7 @@ def insert_fifo(prog, name):
             cb.if_with(
                 # Yes, the user called push. But is the queue full?
                 len_eq_max_queue_len,
-                [raise_err, flash_ans],  # The queue is full: overflow.
+                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
                 [  # The queue is not full. Proceed.
                     write_to_mem,  # Write `value` to the queue.
                     write_incr,  # Increment the write pointer.
