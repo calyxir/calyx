@@ -117,7 +117,6 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
 
     # Some equality checks.
     hot_eq_0 = pifo.eq_use(hot.out, 0)
-    hot_eq_1 = pifo.eq_use(hot.out, 1)
     len_eq_0 = pifo.eq_use(len.out, 0)
     len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
@@ -201,45 +200,35 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                     [  # The queue is not empty. Proceed.
                         # We must check if `hot` is 0 or 1.
                         lower_err,
-                        cb.par(  # We'll check both cases in parallel.
-                            cb.if_with(
-                                # Check if `hot` is 0.
-                                hot_eq_0,
-                                [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
-                                    invoke_subqueue(queue_l, cmd, value, ans, err),
-                                    # Our next step depends on whether `queue_l`
-                                    # raised the error flag.
-                                    cb.if_with(
-                                        err_neq_0,
-                                        [  # `queue_l` raised an error.
-                                            # We'll try to peek from `queue_r`.
-                                            # We'll pass it a lowered `err`.
-                                            lower_err,
-                                            invoke_subqueue(
-                                                queue_r, cmd, value, ans, err
-                                            ),
-                                        ],
-                                    ),
-                                    # Peeking does not affect `hot`.
-                                    # Peeking does not affect the length.
-                                ],
-                            ),
-                            # If `hot` is 1, we proceed symmetrically.
-                            cb.if_with(
-                                hot_eq_1,
-                                [
-                                    invoke_subqueue(queue_r, cmd, value, ans, err),
-                                    cb.if_with(
-                                        err_neq_0,
-                                        [
-                                            lower_err,
-                                            invoke_subqueue(
-                                                queue_l, cmd, value, ans, err
-                                            ),
-                                        ],
-                                    ),
-                                ],
-                            ),
+                        cb.if_with(
+                            # Check if `hot` is 0.
+                            hot_eq_0,
+                            [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
+                                invoke_subqueue(queue_l, cmd, value, ans, err),
+                                # Our next step depends on whether `queue_l`
+                                # raised the error flag.
+                                cb.if_with(
+                                    err_neq_0,
+                                    [  # `queue_l` raised an error.
+                                        # We'll try to peek from `queue_r`.
+                                        # We'll pass it a lowered `err`.
+                                        lower_err,
+                                        invoke_subqueue(queue_r, cmd, value, ans, err),
+                                    ],
+                                ),
+                                # Peeking does not affect `hot`.
+                                # Peeking does not affect the length.
+                            ],
+                            [
+                                invoke_subqueue(queue_r, cmd, value, ans, err),
+                                cb.if_with(
+                                    err_neq_0,
+                                    [
+                                        lower_err,
+                                        invoke_subqueue(queue_l, cmd, value, ans, err),
+                                    ],
+                                ),
+                            ],
                         ),
                     ],
                 ),
