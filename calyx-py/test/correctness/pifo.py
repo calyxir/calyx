@@ -117,11 +117,14 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
 
     # Some equality checks.
     hot_eq_0 = pifo.eq_use(hot.out, 0)
+    hot_eq_1 = pifo.eq_use(hot.out, 1)
     flow_eq_0 = pifo.eq_use(flow.out, 0)
+    flow_eq_1 = pifo.eq_use(flow.out, 1)
     len_eq_0 = pifo.eq_use(len.out, 0)
     len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
     cmd_eq_1 = pifo.eq_use(cmd, 1)
+    cmd_eq_2 = pifo.eq_use(cmd, 2)
     err_eq_0 = pifo.eq_use(err.out, 0)
     err_neq_0 = pifo.neq_use(err.out, 0)
 
@@ -134,136 +137,182 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     len_decr = pifo.decr(len)  # len--
 
     # The main logic.
-    pifo.control += cb.if_with(  # Was it a pop, peek, or a push?
-        # Did the user call pop?
-        cmd_eq_0,
-        cb.if_with(
-            # Yes, the user called pop. But is the queue empty?
-            len_eq_0,
-            [raise_err, flash_ans],  # The queue is empty: underflow.
-            [  # The queue is not empty. Proceed.
-                # We must check if `hot` is 0 or 1.
-                lower_err,
+    pifo.control += [
+        cb.par(
+            # Was it a pop, peek, or a push? We can do all cases in parallel.
+            cb.if_with(
+                # Did the user call pop?
+                cmd_eq_0,
                 cb.if_with(
-                    # Check if `hot` is 0.
-                    hot_eq_0,
-                    [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
-                        invoke_subqueue(queue_l, cmd, value, ans, err),
-                        # Our next step depends on whether `queue_l`
-                        # raised the error flag.
-                        cb.if_with(
-                            err_neq_0,
-                            [  # `queue_l` raised an error.
-                                # We'll try to pop from `queue_r`.
-                                # We'll pass it a lowered err
-                                lower_err,
-                                invoke_subqueue(queue_r, cmd, value, ans, err),
-                            ],
-                            # `queue_l` succeeded.
-                            # Its answer will be our answer.
-                            flip_hot
-                            # We'll just make `hot` point
-                            # to the other sub-queue.
+                    # Yes, the user called pop. But is the queue empty?
+                    len_eq_0,
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
+                    [  # The queue is not empty. Proceed.
+                        # We must check if `hot` is 0 or 1.
+                        lower_err,
+                        cb.par(  # We'll check both cases in parallel.
+                            cb.if_with(
+                                # Check if `hot` is 0.
+                                hot_eq_0,
+                                [  # `hot` is 0. We'll invoke `pop` on `queue_l`.
+                                    invoke_subqueue(queue_l, cmd, value, ans, err),
+                                    # Our next step depends on whether `queue_l`
+                                    # raised the error flag.
+                                    # We can check these cases in parallel.
+                                    cb.par(
+                                        cb.if_with(
+                                            err_neq_0,
+                                            [  # `queue_l` raised an error.
+                                                # We'll try to pop from `queue_r`.
+                                                # We'll pass it a lowered err
+                                                lower_err,
+                                                invoke_subqueue(
+                                                    queue_r, cmd, value, ans, err
+                                                ),
+                                            ],
+                                        ),
+                                        cb.if_with(
+                                            err_eq_0,
+                                            [  # `queue_l` succeeded.
+                                                # Its answer is our answer.
+                                                flip_hot
+                                                # We'll just make `hot` point
+                                                # to the other sub-queue.
+                                            ],
+                                        ),
+                                    ),
+                                ],
+                            ),
+                            # If `hot` is 1, we proceed symmetrically.
+                            cb.if_with(
+                                hot_eq_1,
+                                [
+                                    invoke_subqueue(queue_r, cmd, value, ans, err),
+                                    cb.par(
+                                        cb.if_with(
+                                            err_neq_0,
+                                            [
+                                                lower_err,
+                                                invoke_subqueue(
+                                                    queue_l, cmd, value, ans, err
+                                                ),
+                                            ],
+                                        ),
+                                        cb.if_with(
+                                            err_eq_0,
+                                            [flip_hot],
+                                        ),
+                                    ),
+                                ],
+                            ),
                         ),
+                        len_decr,  # Decrement the length.
+                        # It is possible that an irrecoverable error was raised above,
+                        # in which case the length should _not_ in fact be decremented.
+                        # However, in that case the PIFO's `err` flag would also
+                        # have been raised, and no one will check this length anyway.
                     ],
-                    [  # `hot` is 1; we proceed symmetrically.
-                        invoke_subqueue(queue_r, cmd, value, ans, err),
-                        cb.if_with(
-                            err_neq_0,
-                            [
-                                lower_err,
-                                invoke_subqueue(queue_l, cmd, value, ans, err),
-                            ],
-                            flip_hot,
+                ),
+            ),
+            cb.if_with(
+                # Did the user call peek?
+                cmd_eq_1,
+                cb.if_with(
+                    # Yes, the user called peek. But is the queue empty?
+                    len_eq_0,
+                    [raise_err, flash_ans],  # The queue is empty: underflow.
+                    [  # The queue is not empty. Proceed.
+                        # We must check if `hot` is 0 or 1.
+                        lower_err,
+                        cb.par(  # We'll check both cases in parallel.
+                            cb.if_with(
+                                # Check if `hot` is 0.
+                                hot_eq_0,
+                                [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
+                                    invoke_subqueue(queue_l, cmd, value, ans, err),
+                                    # Our next step depends on whether `queue_l`
+                                    # raised the error flag.
+                                    cb.if_with(
+                                        err_neq_0,
+                                        [  # `queue_l` raised an error.
+                                            # We'll try to peek from `queue_r`.
+                                            # We'll pass it a lowered `err`.
+                                            lower_err,
+                                            invoke_subqueue(
+                                                queue_r, cmd, value, ans, err
+                                            ),
+                                        ],
+                                    ),
+                                    # Peeking does not affect `hot`.
+                                    # Peeking does not affect the length.
+                                ],
+                            ),
+                            # If `hot` is 1, we proceed symmetrically.
+                            cb.if_with(
+                                hot_eq_1,
+                                [
+                                    invoke_subqueue(queue_r, cmd, value, ans, err),
+                                    cb.if_with(
+                                        err_neq_0,
+                                        [
+                                            lower_err,
+                                            invoke_subqueue(
+                                                queue_l, cmd, value, ans, err
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
                         ),
                     ],
                 ),
-                len_decr,  # Decrement the length.
-                # It is possible that an irrecoverable error was raised above,
-                # in which case the length should _not_ in fact be decremented.
-                # However, in that case the PIFO's `err` flag would also
-                # have been raised, and no one will check this length anyway.
-            ],
-        ),
-        # The user called something other than pop.
-        cb.if_with(
-            cmd_eq_1,  # Did the user call peek?
-            cb.if_with(
-                # Yes, the user called peek. But is the queue empty?
-                len_eq_0,
-                [raise_err, flash_ans],  # The queue is empty: underflow.
-                [  # The queue is not empty. Proceed.
-                    # We must check if `hot` is 0 or 1.
-                    lower_err,
-                    cb.if_with(
-                        hot_eq_0,  # Check if `hot` is 0 or 1
-                        [  # `hot` is 0. We'll invoke `peek` on `queue_l`.
-                            invoke_subqueue(queue_l, cmd, value, ans, err),
-                            # Our next step depends on whether `queue_l`
-                            # raised the error flag.
-                            cb.if_with(
-                                err_neq_0,
-                                [  # `queue_l` raised an error.
-                                    # We'll try to peek from `queue_r`.
-                                    # We'll pass it a lowered `err`.
-                                    lower_err,
-                                    invoke_subqueue(queue_r, cmd, value, ans, err),
-                                ],
-                            ),
-                            # Peeking does not affect `hot`.
-                            # Peeking does not affect the length.
-                        ],
-                        [  # `hot` is 1; we proceed symmetrically.
-                            invoke_subqueue(queue_r, cmd, value, ans, err),
-                            cb.if_with(
-                                err_neq_0,
-                                [
-                                    lower_err,
-                                    invoke_subqueue(queue_l, cmd, value, ans, err),
-                                ],
-                            ),
-                        ],
-                    ),
-                ],
             ),
-            # The user called push.
             cb.if_with(
-                # But is the queue full?
-                len_eq_max_queue_len,
-                [raise_err, flash_ans],  # The queue is full: overflow.
-                [  # The queue is not full. Proceed.
-                    lower_err,
-                    # We need to check which flow this value should be pushed to.
-                    infer_flow,  # Infer the flow and write it to `fifo_{flow}`.
-                    cb.if_with(
-                        flow_eq_0,
-                        # This value should be pushed to queue_l.
-                        invoke_subqueue(queue_l, cmd, value, ans, err),
-                        # This value should be pushed to queue_r.
-                        invoke_subqueue(queue_r, cmd, value, ans, err),
-                    ),
-                    cb.if_with(
-                        err_eq_0,
-                        # If no stats component is provided,
-                        # just increment the length.
-                        len_incr
-                        if not stats
-                        else [
-                            # If a stats component is provided,
-                            # Increment the length and also
-                            # tell the stats component what flow we pushed.
-                            len_incr,
-                            (
-                                cb.static_invoke(stats, in_flow=flow.out)
-                                if static
-                                else cb.invoke(stats, in_flow=flow.out)
+                # Did the user call push?
+                cmd_eq_2,
+                cb.if_with(
+                    # Yes, the user called push. But is the queue full?
+                    len_eq_max_queue_len,
+                    [raise_err, flash_ans],  # The queue is full: overflow.
+                    [  # The queue is not full. Proceed.
+                        lower_err,
+                        # We need to check which flow this value should be pushed to.
+                        infer_flow,  # Infer the flow and write it to `fifo_{flow}`.
+                        cb.par(
+                            cb.if_with(
+                                flow_eq_0,
+                                # This value should be pushed to queue_l.
+                                invoke_subqueue(queue_l, cmd, value, ans, err),
                             ),
-                        ],
-                    ),
-                ],
+                            cb.if_with(
+                                flow_eq_1,
+                                # This value should be pushed to queue_r.
+                                invoke_subqueue(queue_r, cmd, value, ans, err),
+                            ),
+                        ),
+                        cb.if_with(
+                            err_eq_0,
+                            # If no stats component is provided,
+                            # just increment the length.
+                            [len_incr]
+                            if not stats
+                            else [
+                                # If a stats component is provided,
+                                # Increment the length and also
+                                # tell the stats component what flow we pushed.
+                                len_incr,
+                                (
+                                    cb.static_invoke(stats, in_flow=flow.out)
+                                    if static
+                                    else cb.invoke(stats, in_flow=flow.out)
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
             ),
         ),
-    )
+    ]
 
     return pifo
 
