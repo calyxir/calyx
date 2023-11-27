@@ -454,32 +454,29 @@ component pifo(cmd: 2, value: 32) -> () {
           } else {
             seq {
               lower_err;
-              par {
-                if eq_2.out with eq_2_group {
-                  seq {
-                    invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                    if neq_10.out with neq_10_group {
-                      seq {
-                        lower_err;
-                        invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                      }
-                    } else {
-                      hot_not_group;
+              if eq_2.out with eq_2_group {
+                seq {
+                  invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                  if neq_10.out with neq_10_group {
+                    seq {
+                      lower_err;
+                      invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
                     }
+                  } else {
+                    hot_not_group;
                   }
                 }
-                if eq_3.out with eq_3_group {
-                  seq {
-                    invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                    if neq_10.out with neq_10_group {
-                      seq {
-                        lower_err;
-                        invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                      }
-                    } else {
-                      seq {
-                        hot_not_group;
-                      }
+              } else {
+                seq {
+                  invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+                  if neq_10.out with neq_10_group {
+                    seq {
+                      lower_err;
+                      invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                    }
+                  } else {
+                    seq {
+                      hot_not_group;
                     }
                   }
                 }
