@@ -142,7 +142,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
             cb.if_with(
                 # Yes, the user called pop. But is the queue empty?
                 len_eq_0,
-                [raise_err, flash_ans],  # The queue is empty: underflow.
+                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
@@ -195,7 +195,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
             cb.if_with(
                 # Yes, the user called peek. But is the queue empty?
                 len_eq_0,
-                [raise_err, flash_ans],  # The queue is empty: underflow.
+                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
@@ -238,7 +238,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
             cb.if_with(
                 # Yes, the user called push. But is the queue full?
                 len_eq_max_queue_len,
-                [raise_err, flash_ans],  # The queue is full: overflow.
+                cb.par(raise_err, flash_ans),  # The queue is full: overflow.
                 [  # The queue is not full. Proceed.
                     lower_err,
                     # We need to check which flow this value should be pushed to.
@@ -256,7 +256,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                         # just increment the length.
                         len_incr
                         if not stats
-                        else [
+                        else cb.par(
                             # If a stats component is provided,
                             # Increment the length and also
                             # tell the stats component what flow we pushed.
@@ -266,7 +266,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                                 if static
                                 else cb.invoke(stats, in_flow=flow.out)
                             ),
-                        ],
+                        ),
                     ),
                 ],
             ),
