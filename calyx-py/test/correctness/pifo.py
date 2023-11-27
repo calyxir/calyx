@@ -159,27 +159,21 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                                     # Our next step depends on whether `queue_l`
                                     # raised the error flag.
                                     # We can check these cases in parallel.
-                                    cb.par(
-                                        cb.if_with(
-                                            err_neq_0,
-                                            [  # `queue_l` raised an error.
-                                                # We'll try to pop from `queue_r`.
-                                                # We'll pass it a lowered err
-                                                lower_err,
-                                                invoke_subqueue(
-                                                    queue_r, cmd, value, ans, err
-                                                ),
-                                            ],
-                                        ),
-                                        cb.if_with(
-                                            err_eq_0,
-                                            [  # `queue_l` succeeded.
-                                                # Its answer is our answer.
-                                                flip_hot
-                                                # We'll just make `hot` point
-                                                # to the other sub-queue.
-                                            ],
-                                        ),
+                                    cb.if_with(
+                                        err_neq_0,
+                                        [  # `queue_l` raised an error.
+                                            # We'll try to pop from `queue_r`.
+                                            # We'll pass it a lowered err
+                                            lower_err,
+                                            invoke_subqueue(
+                                                queue_r, cmd, value, ans, err
+                                            ),
+                                        ],
+                                        # `queue_l` succeeded.
+                                        # Its answer is our answer.
+                                        flip_hot
+                                        # We'll just make `hot` point
+                                        # to the other sub-queue.
                                     ),
                                 ],
                             ),
@@ -188,20 +182,15 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                                 hot_eq_1,
                                 [
                                     invoke_subqueue(queue_r, cmd, value, ans, err),
-                                    cb.par(
-                                        cb.if_with(
-                                            err_neq_0,
-                                            [
-                                                lower_err,
-                                                invoke_subqueue(
-                                                    queue_l, cmd, value, ans, err
-                                                ),
-                                            ],
-                                        ),
-                                        cb.if_with(
-                                            err_eq_0,
-                                            [flip_hot],
-                                        ),
+                                    cb.if_with(
+                                        err_neq_0,
+                                        [
+                                            lower_err,
+                                            invoke_subqueue(
+                                                queue_l, cmd, value, ans, err
+                                            ),
+                                        ],
+                                        [flip_hot],
                                     ),
                                 ],
                             ),
