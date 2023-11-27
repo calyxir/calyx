@@ -118,8 +118,6 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     # Some equality checks.
     hot_eq_0 = pifo.eq_use(hot.out, 0)
     hot_eq_1 = pifo.eq_use(hot.out, 1)
-    flow_eq_0 = pifo.eq_use(flow.out, 0)
-    flow_eq_1 = pifo.eq_use(flow.out, 1)
     len_eq_0 = pifo.eq_use(len.out, 0)
     len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
@@ -266,18 +264,13 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                     [  # The queue is not full. Proceed.
                         lower_err,
                         # We need to check which flow this value should be pushed to.
-                        infer_flow,  # Infer the flow and write it to `fifo_{flow}`.
-                        cb.par(
-                            cb.if_with(
-                                flow_eq_0,
-                                # This value should be pushed to queue_l.
-                                invoke_subqueue(queue_l, cmd, value, ans, err),
-                            ),
-                            cb.if_with(
-                                flow_eq_1,
-                                # This value should be pushed to queue_r.
-                                invoke_subqueue(queue_r, cmd, value, ans, err),
-                            ),
+                        infer_flow,  # Infer the flow and write it to `flow`.
+                        cb.if_(
+                            flow.out,
+                            # If flow = 1, value should be pushed to queue_r.
+                            invoke_subqueue(queue_r, cmd, value, ans, err),
+                            # If flow = 0, value should be pushed to queue_l.
+                            invoke_subqueue(queue_l, cmd, value, ans, err),
                         ),
                         cb.if_with(
                             err_eq_0,
