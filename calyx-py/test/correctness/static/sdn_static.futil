@@ -150,24 +150,25 @@ component fifo_purple(cmd: 2, value: 32) -> () {
     }
   }
   control {
-    if eq_1.out with eq_1_group {
-      if eq_6.out with eq_6_group {
-        seq {
-          raise_err;
-          flash_ans;
-        }
-      } else {
-        seq {
-          read_payload_from_mem_phase1;
-          read_payload_from_mem_phase2;
-          next_read_incr_group;
-          if eq_5.out with eq_5_group {
-            flash_read;
+    par {
+      if eq_1.out with eq_1_group {
+        if eq_6.out with eq_6_group {
+          seq {
+            raise_err;
+            flash_ans;
           }
-          len_decr_group;
+        } else {
+          seq {
+            read_payload_from_mem_phase1;
+            read_payload_from_mem_phase2;
+            next_read_incr_group;
+            if eq_5.out with eq_5_group {
+              flash_read;
+            }
+            len_decr_group;
+          }
         }
       }
-    } else {
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
           seq {
@@ -180,7 +181,8 @@ component fifo_purple(cmd: 2, value: 32) -> () {
             read_payload_from_mem_phase2;
           }
         }
-      } else {
+      }
+      if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
           seq {
             raise_err;
@@ -315,24 +317,25 @@ component fifo_tangerine(cmd: 2, value: 32) -> () {
     }
   }
   control {
-    if eq_1.out with eq_1_group {
-      if eq_6.out with eq_6_group {
-        seq {
-          raise_err;
-          flash_ans;
-        }
-      } else {
-        seq {
-          read_payload_from_mem_phase1;
-          read_payload_from_mem_phase2;
-          next_read_incr_group;
-          if eq_5.out with eq_5_group {
-            flash_read;
+    par {
+      if eq_1.out with eq_1_group {
+        if eq_6.out with eq_6_group {
+          seq {
+            raise_err;
+            flash_ans;
           }
-          len_decr_group;
+        } else {
+          seq {
+            read_payload_from_mem_phase1;
+            read_payload_from_mem_phase2;
+            next_read_incr_group;
+            if eq_5.out with eq_5_group {
+              flash_read;
+            }
+            len_decr_group;
+          }
         }
       }
-    } else {
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
           seq {
@@ -345,7 +348,8 @@ component fifo_tangerine(cmd: 2, value: 32) -> () {
             read_payload_from_mem_phase2;
           }
         }
-      } else {
+      }
+      if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
           seq {
             raise_err;
@@ -376,16 +380,13 @@ component pifo_red(cmd: 2, value: 32) -> () {
     len = std_reg(32);
     hot = std_reg(1);
     eq_2 = std_eq(1);
-    eq_3 = std_eq(1);
-    eq_4 = std_eq(1);
-    eq_5 = std_eq(1);
-    eq_6 = std_eq(32);
-    eq_7 = std_eq(32);
-    eq_8 = std_eq(2);
-    eq_9 = std_eq(2);
-    eq_10 = std_eq(2);
-    eq_11 = std_eq(1);
-    neq_12 = std_neq(1);
+    eq_3 = std_eq(32);
+    eq_4 = std_eq(32);
+    eq_5 = std_eq(2);
+    eq_6 = std_eq(2);
+    eq_7 = std_eq(2);
+    eq_8 = std_eq(1);
+    neq_9 = std_neq(1);
     hot_not = std_not(1);
     len_incr = std_add(32);
     len_decr = std_sub(32);
@@ -403,44 +404,32 @@ component pifo_red(cmd: 2, value: 32) -> () {
       eq_2.right = 1'd0;
     }
     comb group eq_3_group {
-      eq_3.left = hot.out;
-      eq_3.right = 1'd1;
+      eq_3.left = len.out;
+      eq_3.right = 32'd0;
     }
     comb group eq_4_group {
-      eq_4.left = flow.out;
-      eq_4.right = 1'd0;
+      eq_4.left = len.out;
+      eq_4.right = 32'd10;
     }
     comb group eq_5_group {
-      eq_5.left = flow.out;
-      eq_5.right = 1'd1;
+      eq_5.left = cmd;
+      eq_5.right = 2'd0;
     }
     comb group eq_6_group {
-      eq_6.left = len.out;
-      eq_6.right = 32'd0;
+      eq_6.left = cmd;
+      eq_6.right = 2'd1;
     }
     comb group eq_7_group {
-      eq_7.left = len.out;
-      eq_7.right = 32'd10;
+      eq_7.left = cmd;
+      eq_7.right = 2'd2;
     }
     comb group eq_8_group {
-      eq_8.left = cmd;
-      eq_8.right = 2'd0;
+      eq_8.left = err.out;
+      eq_8.right = 1'd0;
     }
-    comb group eq_9_group {
-      eq_9.left = cmd;
-      eq_9.right = 2'd1;
-    }
-    comb group eq_10_group {
-      eq_10.left = cmd;
-      eq_10.right = 2'd2;
-    }
-    comb group eq_11_group {
-      eq_11.left = err.out;
-      eq_11.right = 1'd0;
-    }
-    comb group neq_12_group {
-      neq_12.left = err.out;
-      neq_12.right = 1'd0;
+    comb group neq_9_group {
+      neq_9.left = err.out;
+      neq_9.right = 1'd0;
     }
     group hot_not_group {
       hot_not.in = hot.out;
@@ -479,46 +468,9 @@ component pifo_red(cmd: 2, value: 32) -> () {
     }
   }
   control {
-    if eq_8.out with eq_8_group {
-      if eq_6.out with eq_6_group {
-        seq {
-          raise_err;
-          flash_ans;
-        }
-      } else {
-        seq {
-          lower_err;
-          if eq_2.out with eq_2_group {
-            seq {
-              invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-              if neq_12.out with neq_12_group {
-                seq {
-                  lower_err;
-                  invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                }
-              } else {
-                hot_not_group;
-              }
-            }
-          } else {
-            seq {
-              invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-              if neq_12.out with neq_12_group {
-                seq {
-                  lower_err;
-                  invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                }
-              } else {
-                hot_not_group;
-              }
-            }
-          }
-          len_decr_group;
-        }
-      }
-    } else {
-      if eq_9.out with eq_9_group {
-        if eq_6.out with eq_6_group {
+    par {
+      if eq_5.out with eq_5_group {
+        if eq_3.out with eq_3_group {
           seq {
             raise_err;
             flash_ans;
@@ -529,7 +481,45 @@ component pifo_red(cmd: 2, value: 32) -> () {
             if eq_2.out with eq_2_group {
               seq {
                 invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                if neq_12.out with neq_12_group {
+                if neq_9.out with neq_9_group {
+                  seq {
+                    lower_err;
+                    invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+                  }
+                } else {
+                  hot_not_group;
+                }
+              }
+            } else {
+              seq {
+                invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+                if neq_9.out with neq_9_group {
+                  seq {
+                    lower_err;
+                    invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                  }
+                } else {
+                  hot_not_group;
+                }
+              }
+            }
+            len_decr_group;
+          }
+        }
+      }
+      if eq_6.out with eq_6_group {
+        if eq_3.out with eq_3_group {
+          seq {
+            raise_err;
+            flash_ans;
+          }
+        } else {
+          seq {
+            lower_err;
+            if eq_2.out with eq_2_group {
+              seq {
+                invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                if neq_9.out with neq_9_group {
                   seq {
                     lower_err;
                     invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
@@ -539,7 +529,7 @@ component pifo_red(cmd: 2, value: 32) -> () {
             } else {
               seq {
                 invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                if neq_12.out with neq_12_group {
+                if neq_9.out with neq_9_group {
                   seq {
                     lower_err;
                     invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
@@ -549,8 +539,9 @@ component pifo_red(cmd: 2, value: 32) -> () {
             }
           }
         }
-      } else {
-        if eq_7.out with eq_7_group {
+      }
+      if eq_7.out with eq_7_group {
+        if eq_4.out with eq_4_group {
           seq {
             raise_err;
             flash_ans;
@@ -559,12 +550,12 @@ component pifo_red(cmd: 2, value: 32) -> () {
           seq {
             lower_err;
             infer_flow;
-            if eq_4.out with eq_4_group {
-              invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-            } else {
+            if flow.out {
               invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+            } else {
+              invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
             }
-            if eq_11.out with eq_11_group {
+            if eq_8.out with eq_8_group {
               len_incr_group;
             }
           }
@@ -688,24 +679,25 @@ component fifo_blue(cmd: 2, value: 32) -> () {
     }
   }
   control {
-    if eq_1.out with eq_1_group {
-      if eq_6.out with eq_6_group {
-        seq {
-          raise_err;
-          flash_ans;
-        }
-      } else {
-        seq {
-          read_payload_from_mem_phase1;
-          read_payload_from_mem_phase2;
-          next_read_incr_group;
-          if eq_5.out with eq_5_group {
-            flash_read;
+    par {
+      if eq_1.out with eq_1_group {
+        if eq_6.out with eq_6_group {
+          seq {
+            raise_err;
+            flash_ans;
           }
-          len_decr_group;
+        } else {
+          seq {
+            read_payload_from_mem_phase1;
+            read_payload_from_mem_phase2;
+            next_read_incr_group;
+            if eq_5.out with eq_5_group {
+              flash_read;
+            }
+            len_decr_group;
+          }
         }
       }
-    } else {
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
           seq {
@@ -718,7 +710,8 @@ component fifo_blue(cmd: 2, value: 32) -> () {
             read_payload_from_mem_phase2;
           }
         }
-      } else {
+      }
+      if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
           seq {
             raise_err;
@@ -750,16 +743,13 @@ component pifo_root(cmd: 2, value: 32) -> () {
     len = std_reg(32);
     hot = std_reg(1);
     eq_2 = std_eq(1);
-    eq_3 = std_eq(1);
-    eq_4 = std_eq(1);
-    eq_5 = std_eq(1);
-    eq_6 = std_eq(32);
-    eq_7 = std_eq(32);
-    eq_8 = std_eq(2);
-    eq_9 = std_eq(2);
-    eq_10 = std_eq(2);
-    eq_11 = std_eq(1);
-    neq_12 = std_neq(1);
+    eq_3 = std_eq(32);
+    eq_4 = std_eq(32);
+    eq_5 = std_eq(2);
+    eq_6 = std_eq(2);
+    eq_7 = std_eq(2);
+    eq_8 = std_eq(1);
+    neq_9 = std_neq(1);
     hot_not = std_not(1);
     len_incr = std_add(32);
     len_decr = std_sub(32);
@@ -777,44 +767,32 @@ component pifo_root(cmd: 2, value: 32) -> () {
       eq_2.right = 1'd0;
     }
     comb group eq_3_group {
-      eq_3.left = hot.out;
-      eq_3.right = 1'd1;
+      eq_3.left = len.out;
+      eq_3.right = 32'd0;
     }
     comb group eq_4_group {
-      eq_4.left = flow.out;
-      eq_4.right = 1'd0;
+      eq_4.left = len.out;
+      eq_4.right = 32'd10;
     }
     comb group eq_5_group {
-      eq_5.left = flow.out;
-      eq_5.right = 1'd1;
+      eq_5.left = cmd;
+      eq_5.right = 2'd0;
     }
     comb group eq_6_group {
-      eq_6.left = len.out;
-      eq_6.right = 32'd0;
+      eq_6.left = cmd;
+      eq_6.right = 2'd1;
     }
     comb group eq_7_group {
-      eq_7.left = len.out;
-      eq_7.right = 32'd10;
+      eq_7.left = cmd;
+      eq_7.right = 2'd2;
     }
     comb group eq_8_group {
-      eq_8.left = cmd;
-      eq_8.right = 2'd0;
+      eq_8.left = err.out;
+      eq_8.right = 1'd0;
     }
-    comb group eq_9_group {
-      eq_9.left = cmd;
-      eq_9.right = 2'd1;
-    }
-    comb group eq_10_group {
-      eq_10.left = cmd;
-      eq_10.right = 2'd2;
-    }
-    comb group eq_11_group {
-      eq_11.left = err.out;
-      eq_11.right = 1'd0;
-    }
-    comb group neq_12_group {
-      neq_12.left = err.out;
-      neq_12.right = 1'd0;
+    comb group neq_9_group {
+      neq_9.left = err.out;
+      neq_9.right = 1'd0;
     }
     group hot_not_group {
       hot_not.in = hot.out;
@@ -853,46 +831,9 @@ component pifo_root(cmd: 2, value: 32) -> () {
     }
   }
   control {
-    if eq_8.out with eq_8_group {
-      if eq_6.out with eq_6_group {
-        seq {
-          raise_err;
-          flash_ans;
-        }
-      } else {
-        seq {
-          lower_err;
-          if eq_2.out with eq_2_group {
-            seq {
-              invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-              if neq_12.out with neq_12_group {
-                seq {
-                  lower_err;
-                  invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                }
-              } else {
-                hot_not_group;
-              }
-            }
-          } else {
-            seq {
-              invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-              if neq_12.out with neq_12_group {
-                seq {
-                  lower_err;
-                  invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                }
-              } else {
-                hot_not_group;
-              }
-            }
-          }
-          len_decr_group;
-        }
-      }
-    } else {
-      if eq_9.out with eq_9_group {
-        if eq_6.out with eq_6_group {
+    par {
+      if eq_5.out with eq_5_group {
+        if eq_3.out with eq_3_group {
           seq {
             raise_err;
             flash_ans;
@@ -903,7 +844,45 @@ component pifo_root(cmd: 2, value: 32) -> () {
             if eq_2.out with eq_2_group {
               seq {
                 invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-                if neq_12.out with neq_12_group {
+                if neq_9.out with neq_9_group {
+                  seq {
+                    lower_err;
+                    invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+                  }
+                } else {
+                  hot_not_group;
+                }
+              }
+            } else {
+              seq {
+                invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+                if neq_9.out with neq_9_group {
+                  seq {
+                    lower_err;
+                    invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                  }
+                } else {
+                  hot_not_group;
+                }
+              }
+            }
+            len_decr_group;
+          }
+        }
+      }
+      if eq_6.out with eq_6_group {
+        if eq_3.out with eq_3_group {
+          seq {
+            raise_err;
+            flash_ans;
+          }
+        } else {
+          seq {
+            lower_err;
+            if eq_2.out with eq_2_group {
+              seq {
+                invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
+                if neq_9.out with neq_9_group {
                   seq {
                     lower_err;
                     invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
@@ -913,7 +892,7 @@ component pifo_root(cmd: 2, value: 32) -> () {
             } else {
               seq {
                 invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
-                if neq_12.out with neq_12_group {
+                if neq_9.out with neq_9_group {
                   seq {
                     lower_err;
                     invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
@@ -923,8 +902,9 @@ component pifo_root(cmd: 2, value: 32) -> () {
             }
           }
         }
-      } else {
-        if eq_7.out with eq_7_group {
+      }
+      if eq_7.out with eq_7_group {
+        if eq_4.out with eq_4_group {
           seq {
             raise_err;
             flash_ans;
@@ -933,12 +913,12 @@ component pifo_root(cmd: 2, value: 32) -> () {
           seq {
             lower_err;
             infer_flow;
-            if eq_4.out with eq_4_group {
-              invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
-            } else {
+            if flow.out {
               invoke queue_r[ans=ans, err=err](cmd=cmd, value=value)();
+            } else {
+              invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
             }
-            if eq_11.out with eq_11_group {
+            if eq_8.out with eq_8_group {
               seq {
                 len_incr_group;
                 static invoke stats(flow=flow.out)();
