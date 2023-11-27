@@ -153,7 +153,7 @@ component fifo_purple(cmd: 2, value: 32) -> () {
     par {
       if eq_1.out with eq_1_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -171,7 +171,7 @@ component fifo_purple(cmd: 2, value: 32) -> () {
       }
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -184,7 +184,7 @@ component fifo_purple(cmd: 2, value: 32) -> () {
       }
       if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -320,7 +320,7 @@ component fifo_tangerine(cmd: 2, value: 32) -> () {
     par {
       if eq_1.out with eq_1_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -338,7 +338,7 @@ component fifo_tangerine(cmd: 2, value: 32) -> () {
       }
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -351,7 +351,7 @@ component fifo_tangerine(cmd: 2, value: 32) -> () {
       }
       if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -471,7 +471,7 @@ component pifo_red(cmd: 2, value: 32) -> () {
     par {
       if eq_5.out with eq_5_group {
         if eq_3.out with eq_3_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -509,7 +509,7 @@ component pifo_red(cmd: 2, value: 32) -> () {
       }
       if eq_6.out with eq_6_group {
         if eq_3.out with eq_3_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -542,7 +542,7 @@ component pifo_red(cmd: 2, value: 32) -> () {
       }
       if eq_7.out with eq_7_group {
         if eq_4.out with eq_4_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -682,7 +682,7 @@ component fifo_blue(cmd: 2, value: 32) -> () {
     par {
       if eq_1.out with eq_1_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -700,7 +700,7 @@ component fifo_blue(cmd: 2, value: 32) -> () {
       }
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -713,7 +713,7 @@ component fifo_blue(cmd: 2, value: 32) -> () {
       }
       if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -834,7 +834,7 @@ component pifo_root(cmd: 2, value: 32) -> () {
     par {
       if eq_5.out with eq_5_group {
         if eq_3.out with eq_3_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -872,7 +872,7 @@ component pifo_root(cmd: 2, value: 32) -> () {
       }
       if eq_6.out with eq_6_group {
         if eq_3.out with eq_3_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -905,7 +905,7 @@ component pifo_root(cmd: 2, value: 32) -> () {
       }
       if eq_7.out with eq_7_group {
         if eq_4.out with eq_4_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -919,7 +919,7 @@ component pifo_root(cmd: 2, value: 32) -> () {
               invoke queue_l[ans=ans, err=err](cmd=cmd, value=value)();
             }
             if eq_8.out with eq_8_group {
-              seq {
+              par {
                 len_incr_group;
                 static invoke stats(flow=flow.out)();
               }

@@ -119,7 +119,7 @@ component fifo(cmd: 2, value: 32) -> () {
     par {
       if eq_1.out with eq_1_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -137,7 +137,7 @@ component fifo(cmd: 2, value: 32) -> () {
       }
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -150,7 +150,7 @@ component fifo(cmd: 2, value: 32) -> () {
       }
       if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }

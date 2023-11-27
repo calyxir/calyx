@@ -119,7 +119,7 @@ component fifo_l(cmd: 2, value: 32) -> () {
     par {
       if eq_1.out with eq_1_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -137,7 +137,7 @@ component fifo_l(cmd: 2, value: 32) -> () {
       }
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -150,7 +150,7 @@ component fifo_l(cmd: 2, value: 32) -> () {
       }
       if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -286,7 +286,7 @@ component fifo_r(cmd: 2, value: 32) -> () {
     par {
       if eq_1.out with eq_1_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -304,7 +304,7 @@ component fifo_r(cmd: 2, value: 32) -> () {
       }
       if eq_2.out with eq_2_group {
         if eq_6.out with eq_6_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -317,7 +317,7 @@ component fifo_r(cmd: 2, value: 32) -> () {
       }
       if eq_3.out with eq_3_group {
         if eq_7.out with eq_7_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -437,7 +437,7 @@ component pifo(cmd: 2, value: 32) -> () {
     par {
       if eq_5.out with eq_5_group {
         if eq_3.out with eq_3_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -475,7 +475,7 @@ component pifo(cmd: 2, value: 32) -> () {
       }
       if eq_6.out with eq_6_group {
         if eq_3.out with eq_3_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
@@ -508,7 +508,7 @@ component pifo(cmd: 2, value: 32) -> () {
       }
       if eq_7.out with eq_7_group {
         if eq_4.out with eq_4_group {
-          seq {
+          par {
             raise_err;
             flash_ans;
           }
