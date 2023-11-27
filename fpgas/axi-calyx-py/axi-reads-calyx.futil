@@ -9,13 +9,16 @@
 // actually be used for anything
 // ###
 
-
+import "primitives/core.futil";
+import "primitives/compile.futil";
+import "primitives/math.futil";
+import "primitives/memories.futil";
 
 
 //this goes m->s unlike read channel
 component m_arread_channel(
   ARESET: 1,
-  ARREADY: 1,
+  ARREADY: 1
 ) -> (
   ARVALID: 1,
   //This needs to be 64, see link below `m_axi` section.
@@ -30,8 +33,7 @@ component m_arread_channel(
   ARLEN : 8, //in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
   
   // 00 for fixed, 01 for incrementing, 2 for wrap, needs to be incr)
-  ARBURST : 2
-) {
+  ARBURST : 2) {
   cells{
       is_arvalid = std_reg(1);
       //todo(nathanielnrn): we get this from `s_axi_control`. Need to check 
@@ -39,51 +41,90 @@ component m_arread_channel(
       //should probably live in `s_axi_control` but for now will live here
       ref base_addr = std_reg(64);
       //also need to figure out how to calculate this. Prob from yxi.
-      transaction_len = std_reg(8);
+      txn_len = std_reg(8);
+
+      //number of txns we wants to occur before entire m_arread_channel is done
+      //TODO(nathanielnrn): We want this txn_n to be passed by reference, but this is hard.
+      txn_n = std_const(32,1);
+      txn_count = std_reg(32);
+      perform_reads = std_neq(32);
+      txn_adder = std_add(32);
+
+      block_transfer_done_and = std_and(1);
+
 
   }
 
   wires{
 
+      ARVALID = is_arvalid.out;
+
       group assert_val {
           is_arvalid.in = 1'b1;
-          is_arvalid_write_en = 1'b1;
-          assert_valid[done = is_arvalid.done;
+          is_arvalid.write_en = 1'b1;
+          assert_val[done] = is_arvalid.done;
       }
       
       group deassert_val {
           is_arvalid.in = 1'b0;
-          is_arvalid_write_en = 1'b1;
-          assert_valid[done = is_arvalid.done;
+          is_arvalid.write_en = 1'b1;
+          deassert_val[done] = is_arvalid.done;
       }
 
       group block_transfer{
-          block_transfer[done] = ARREADY && ARVALID ? 1'b1;
-          block_transfer[done] = !(ARREADY && ARVALID) ? 1'b0;
+          block_transfer_done_and.left = ARREADY;
+          block_transfer_done_and.right = is_arvalid.out;
+          block_transfer[done] = block_transfer_done_and.out;
       }
 
-      group do_ar_transfer {
+      group do_ar_transfer { 
           ARADDR = base_addr.out;
           ARSIZE = 3'b110; //see link above, needs to match data width to host.
           //For now this can be taken from .yxi, as size of mem.
           //If we want to use bigger mems need to be able to update base addr and
           //make multiple calls.
-          ARLEN = transaction_len.out
+          ARLEN = txn_len.out;
           ARBURST = 2'b01; //incr
+          //TODO(natahnielnrn) is this okay? Will this keep everything high for a single cycle?
+          do_ar_transfer[done] = ARREADY;
+      }
+
+
+      //txn bookkeeping.
+      //We are done performing reads when txn_count == txn_n
+      group txn_init {
+          txn_count.in = 32'b0;
+          txn_count.write_en = 1'b1;
+          txn_init[done] = txn_count.done;
+      }
+
+      group txn_incr {
+          txn_adder.left = txn_count.out;
+          txn_adder.right = 32'b1;
+          txn_count.in = txn_adder.out;
+          txn_count.write_en = 1'b1;
+          txn_incr[done] = txn_count.done;
+      }
+
+      comb group check_reads_done {
+          perform_reads.left = txn_count.out;
+          perform_reads.right = txn_n.out;
       }
   }
 
   control{
-      //perform_reads.out = TODO(nathanielnrn): figure out where this comes from.
-      //Should be high while FSM still has reads to do && done with previous read request
       //probably for now just want a counter and done of m_read_channel_check.
       //Question: Is there a way offering more flexibility than just a counter?
-      while perform_reads.out{ //TODO(nathanielnrn): create this
-          seq {
-              assert_val;
-              block_transfer;
-              deassert_val;
-              do_ar_transfer;
+      seq{
+          txn_init;
+          while perform_reads.out with check_reads_done{
+              seq{
+                  assert_val;
+                  block_transfer;
+                  deassert_val;
+                  do_ar_transfer;
+                  txn_incr;
+              }
           }
       }
   }
@@ -103,21 +144,29 @@ component m_read_channel(
 ) {
   cells {
       //16 is due to dot-product vector length assumption
-      ref data_received = seq_mem_d1(32, 16, 4);
+      ref data_received = seq_mem_d1(32, 16, 64);
       is_rdy = std_reg(1);
       ref curr_addr = std_reg(64); //TODO(nathanielnrn): not used in axi, only internal
+      
+      n_RLAST = std_not(1);
+
+
+      //TODO(nathanielnrn): This is a hack to allow things to compile with bit widths.
+      //Still need to figure out how we actually want to be shrinking from 512 to 32
+      //NOTE: this takes [31:0] by definition
+      rdata_slice = std_slice(512,32);
 
 
 
-      //needed solely for with reg_rdy_en comb group
-      //TODO(nathanielnrn): Do we need this?
-      //mem_done_or = std_or(1);
-      //mem_en_or = std_or(1);
+      block_transfer_done_and = std_and(1);
 
   }
   wires{
 
       RREADY = is_rdy.out;
+      comb group not_rlast{
+          n_RLAST.in = RLAST;
+      }
 
       //note RREADY must be registered.
       //Want this to always be running for life of program. So how do we determine doneness?
@@ -137,33 +186,36 @@ component m_read_channel(
       }
 
       group block_transfer {
-        block_transfer[done] = RREADY && RVALID ? 1'b1;
-        block_transfer[done] = !(RREADY && RVALID) ? 1'b0; //good to be explicit and not rely on undefined behavior
+        block_transfer_done_and.left = is_rdy.out;
+        block_transfer_done_and.right = RVALID;
+        block_transfer[done] = block_transfer_done_and.out;
+        //block_transfer[done] = !(is_rdy.out & RVALID) ? 1'b0; //good to be explicit and not rely on undefined behavior
       }
 
       group receive_r_transfer{
           //TODO(nathanielnrn): get addr from register in ARCHANNEL?
           data_received.addr0 = curr_addr.out;
           data_received.write_en = 1'b1;
-          data_received.in = RDATA;
-          receive_r_transfer[done] = data_received.done;
+          rdata_slice.in = RDATA;
+          data_received.write_data = rdata_slice.out;
+          receive_r_transfer[done] = data_received.write_done;
       }
   }
   control{
       //XXX(nathanielnrn): is this it? Do we need any other conditions?
-      while !RLAST {
+      while n_RLAST.out with not_rlast{
           seq{
               assert_rdy;
               block_transfer;
               deassert_rdy;
-              do_transfer;
+              receive_r_transfer;
           }
       }
   }
+}
 
-
-
-component axi_wrapper(
+//TODO(nathanielnrn): this is axi_wrapper, prefer to use @toplevel attribute but its not working
+component main(
     ARESET : 1,
     ARREADY : 1,
 
@@ -185,12 +237,12 @@ component axi_wrapper(
    ARLEN : 8, //in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
 
    // 00 for fixed, 01 for incrementing, 2 for wrap, needs to be incr
-   ARBURST : 2
+   ARBURST : 2,
 
    RREADY : 1
 ) {
     cells{
-        vec1_data = seq_mem_d1(32,16,4);
+        vec1_data = seq_mem_d1(32,16,64);
         // Not used currently
         //vec2_data = seq_mem_d1(32,16,4); 
         output_data = seq_mem_d1(32,1,0);
@@ -220,7 +272,7 @@ component axi_wrapper(
             //which probably works? Needs to be tested
             invoke arread_channel[base_addr = base_addr]
             (
-            ARRESET = ARRESET,
+            ARESET = ARESET,
             ARREADY = ARREADY
             )
             (
@@ -228,7 +280,7 @@ component axi_wrapper(
             ARADDR = ARADDR,
             ARSIZE = ARSIZE,
             ARLEN = ARLEN,
-            ARBUST = ARBURST
+            ARBURST = ARBURST
             );
             set_curr_to_base_addr;
             invoke read_channel[data_received = vec1_data, curr_addr = curr_addr]
