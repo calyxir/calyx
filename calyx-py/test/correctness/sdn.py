@@ -87,10 +87,8 @@ def insert_controller(prog, name, stats_component):
         get_data_locally.done = (count_0.done & count_1.done) @ 1
 
     # The main logic.
-    controller.control += [
-        get_data_locally,
-        # Great, now I have the data around locally.
-    ]
+    controller.control += get_data_locally
+    # Great, now I have the data around locally.
 
     return controller
 
@@ -124,36 +122,34 @@ def insert_main(prog, dataplane, controller, stats_component):
 
     not_err = main.not_use(dataplane_err.out)
 
-    main.control += [
+    main.control += cb.while_with(
         # We will run the dataplane and controller components in parallel,
         # in a while loop. The loop will terminate when the dataplane component
         # raises `dataplane_err`.
-        cb.while_with(
-            not_err,  # While the dataplane component has not errored out.
-            [
-                lower_has_ans,  # Lower the has-ans flag.
-                cb.invoke(  # Invoke the dataplane component.
-                    dataplane,
-                    ref_commands=commands,
-                    ref_values=values,
-                    ref_has_ans=has_ans,
-                    ref_component_ans=dataplane_ans,
-                    ref_component_err=dataplane_err,
-                    ref_stats_runner=stats,
-                ),
-                # If the dataplane component has a nonzero answer,
-                # write it to the answer-list and increment the index `j`.
-                cb.if_(
-                    has_ans.out,
-                    cb.if_with(ans_neq_0, [write_ans, incr_j]),
-                ),
-                cb.invoke(  # Invoke the controller component.
-                    controller,
-                    ref_stats_controller=stats,
-                ),
-            ],
-        )
-    ]
+        not_err,  # While the dataplane component has not errored out.
+        [
+            lower_has_ans,  # Lower the has-ans flag.
+            cb.invoke(  # Invoke the dataplane component.
+                dataplane,
+                ref_commands=commands,
+                ref_values=values,
+                ref_has_ans=has_ans,
+                ref_component_ans=dataplane_ans,
+                ref_component_err=dataplane_err,
+                ref_stats_runner=stats,
+            ),
+            # If the dataplane component has a nonzero answer,
+            # write it to the answer-list and increment the index `j`.
+            cb.if_(
+                has_ans.out,
+                cb.if_with(ans_neq_0, [write_ans, incr_j]),
+            ),
+            cb.invoke(  # Invoke the controller component.
+                controller,
+                ref_stats_controller=stats,
+            ),
+        ],
+    )
 
 
 def build(static=False):

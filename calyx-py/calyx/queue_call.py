@@ -70,38 +70,34 @@ def insert_main(prog, queue):
     i_lt_max_cmds = main.lt_use(i.out, queue_util.MAX_CMDS)
     not_err = main.not_use(err.out)
 
-    main.control += [
-        cb.while_with(
-            i_lt_max_cmds,  # Run while i < MAX_CMDS
-            [
-                read_cmd,
-                write_cmd_to_reg,  # `cmd := commands[i]`
-                read_value,
-                write_value_to_reg,  # `value := values[i]`
-                cb.invoke(  # Invoke the queue.
-                    queue,
-                    in_cmd=cmd.out,
-                    in_value=value.out,
-                    ref_ans=ans,
-                    ref_err=err,
-                ),
+    main.control += cb.while_with(
+        i_lt_max_cmds,  # Run while i < MAX_CMDS
+        [
+            read_cmd,
+            write_cmd_to_reg,  # `cmd := commands[i]`
+            read_value,
+            write_value_to_reg,  # `value := values[i]`
+            cb.invoke(  # Invoke the queue.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                ref_ans=ans,
+                ref_err=err,
+            ),
+            cb.if_with(
+                not_err,
                 cb.if_with(
-                    not_err,
+                    cmd_le_1,  # If the command was a pop or peek,
                     [
-                        cb.if_with(
-                            cmd_le_1,  # If the command was a pop or peek,
-                            [
-                                write_ans,  # Write the answer to the answer list
-                                incr_j,  # And increment the answer index.
-                            ],
-                        ),
+                        write_ans,  # Write the answer to the answer list
+                        incr_j,  # And increment the answer index.
                     ],
                 ),
-                lower_err,  # Lower the error flag
-                incr_i,  # Increment the command index
-            ],
-        ),
-    ]
+            ),
+            lower_err,  # Lower the error flag
+            incr_i,  # Increment the command index
+        ],
+    )
 
     return main
 
@@ -206,8 +202,8 @@ def insert_runner(prog, queue, name, stats_component):
             [
                 cb.if_with(
                     cmd_le_1,  # If the command was a pop or peek
-                    [raise_has_ans],  # then raise the `has_ans` flag
-                    [lower_has_ans],  # else lower the `has_ans` flag
+                    raise_has_ans,  # then raise the `has_ans` flag
+                    lower_has_ans,  # else lower the `has_ans` flag
                 ),
             ],
         ),
