@@ -35,41 +35,41 @@ async function getProgramName() {
   }
 }
 
-class CiderDebugAdapterDescriptorFactory {
-  adapter: CiderDebugAdapter;
-  adapterPath: string;
-  workspace: string;
-  outputChannel: object;
+// class CiderDebugAdapterDescriptorFactory {
+//   adapter: CiderDebugAdapter;
+//   adapterPath: string;
+//   workspace: string;
+//   outputChannel: object;
 
-  constructor(adapterPath, workspace, outputChannel) {
-    logToPanel("inside constructor");
-    this.adapter = new CiderDebugAdapter(adapterPath, workspace, outputChannel);
-    this.adapterPath = adapterPath;
-    this.workspace = workspace;
-    this.outputChannel = outputChannel;
-  }
+//   constructor(adapterPath, workspace, outputChannel) {
+//     logToPanel("inside constructor");
+//     this.adapter = new CiderDebugAdapter(adapterPath, workspace, outputChannel);
+//     this.adapterPath = adapterPath;
+//     this.workspace = workspace;
+//     this.outputChannel = outputChannel;
+//   }
 
-  createDebugAdapterDescriptor(session) {
-    // Return a new debug adapter descriptor
-    logToPanel("creating adapter descriptor");
+//   createDebugAdapterDescriptor(session) {
+//     // Return a new debug adapter descriptor
+//     logToPanel("creating adapter descriptor");
 
-    return new vscode.DebugAdapterServer(this._startDebugServer(session));
-  }
+//     return new vscode.DebugAdapterServer(this._startDebugServer(session));
+//   }
 
-  _startDebugServer(session) {
-    logToPanel("start of startDebugServer");
-    // default port: 8888
-    const port = vscode.workspace.getConfiguration("cider-dap").port;
-    if (!this.adapter.isServerRunning()) {
-      logToPanel("server is not running");
-      this.adapter.start(port);
-      logToPanel("started dap-server");
-    }
+//   _startDebugServer(session) {
+//     logToPanel("start of startDebugServer");
+//     // default port: 8888
+//     const port = vscode.workspace.getConfiguration("cider-dap").port;
+//     if (!this.adapter.isServerRunning()) {
+//       logToPanel("server is not running");
+//       this.adapter.start(port);
+//       logToPanel("started dap-server");
+//     }
 
-    logToPanel("exiting startDebugging");
-    return port;
-  }
-}
+//     logToPanel("exiting startDebugging");
+//     return port;
+//   }
+// }
 class CiderDebugAdapter {
   adapterPath: string;
   outputChannel: object;
@@ -128,25 +128,41 @@ class CiderDebugAdapter {
   }
 }
 
+class CiderDebugAdapterDescriptorFactory {
+  createDebugAdapterDescriptor(_session, _executable) {
+    // Use the DebugAdapterExecutable as the debug adapter descriptor
+    console.log("inside adapter factory");
+    return new vscode.DebugAdapterExecutable(
+      vscode.workspace.getConfiguration("cider-dap").path
+    );
+  }
+}
+
 function activate(context) {
   logToPanel("Extension activated!");
 
   // Start the debug server explicitly
-  const factory = new CiderDebugAdapterDescriptorFactory(
-    vscode.workspace.getConfiguration("cider-dap").path,
-    vscode.workspace.rootPath,
-    outputChannel
-  );
+  // const factory = new CiderDebugAdapterDescriptorFactory(
+  //   vscode.workspace.getConfiguration("cider-dap").path,
+  //   vscode.workspace.rootPath,
+  //   outputChannel
+  // );
+
+  // context.subscriptions.push(
+  //   vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory)
+  // );
   context.subscriptions.push(
-    vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory)
+    vscode.debug.registerDebugAdapterDescriptorFactory(
+      "cider-dap",
+      new CiderDebugAdapterDescriptorFactory()
+    )
   );
   logToPanel("after start server");
 
   // Update the adapter path with the serverPort and use it for starting the debug adapter
   logToPanel("before startDebugging");
-  /* context.subscriptions.push(vscode.commands.registerCommand('cider.startDebugging', startDebugging));
-  context.subscriptions.push(vscode.commands.registerCommand('cider.stopDebugging', stopDebugging));
- */
+  // context.subscriptions.push(vscode.commands.registerCommand('cider.startDebugging', startDebugging));
+  // context.subscriptions.push(vscode.commands.registerCommand('cider.stopDebugging', stopDebugging));
   logToPanel("Hello, your extension is now activated!");
 }
 
