@@ -64,63 +64,61 @@ def insert_fifo(prog, name):
         mem, ans, "read_payload_from_mem_phase2"
     )
 
-    fifo.control += [
-        cb.par(
-            # Was it a pop or a push? We can do both cases in parallel.
+    fifo.control += cb.par(
+        # Was it a pop or a push? We can do both cases in parallel.
+        cb.if_with(
+            # Did the user call pop?
+            cmd_eq_0,
             cb.if_with(
-                # Did the user call pop?
-                cmd_eq_0,
-                cb.if_with(
-                    # Yes, the user called pop. But is the queue empty?
-                    len_eq_0,
-                    [raise_err, flash_ans],  # The queue is empty: underflow.
-                    [  # The queue is not empty. Proceed.
-                        read_from_mem,  # Read from the queue.
-                        write_to_ans,  # Write the answer to the answer register.
-                        read_incr,  # Increment the read pointer.
-                        cb.if_with(
-                            # Wrap around if necessary.
-                            read_eq_max_queue_len,
-                            flash_read,
-                        ),
-                        len_decr,  # Decrement the length.
-                    ],
-                ),
-            ),
-            cb.if_with(
-                # Did the user call peek?
-                cmd_eq_1,
-                cb.if_with(  # Yes, the user called peek. But is the queue empty?
-                    len_eq_0,
-                    [raise_err, flash_ans],  # The queue is empty: underflow.
-                    [  # The queue is not empty. Proceed.
-                        read_from_mem,  # Read from the queue.
-                        write_to_ans,  # Write the answer to the answer register.
-                        # But don't increment the read pointer or change the length.
-                    ],
-                ),
-            ),
-            cb.if_with(
-                # Did the user call push?
-                cmd_eq_2,
-                cb.if_with(
-                    # Yes, the user called push. But is the queue full?
-                    len_eq_max_queue_len,
-                    [raise_err, flash_ans],  # The queue is full: overflow.
-                    [  # The queue is not full. Proceed.
-                        write_to_mem,  # Write `value` to the queue.
-                        write_incr,  # Increment the write pointer.
-                        cb.if_with(
-                            # Wrap around if necessary.
-                            write_eq_max_queue_len,
-                            flash_write,
-                        ),
-                        len_incr,  # Increment the length.
-                    ],
-                ),
+                # Yes, the user called pop. But is the queue empty?
+                len_eq_0,
+                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                [  # The queue is not empty. Proceed.
+                    read_from_mem,  # Read from the queue.
+                    write_to_ans,  # Write the answer to the answer register.
+                    read_incr,  # Increment the read pointer.
+                    cb.if_with(
+                        # Wrap around if necessary.
+                        read_eq_max_queue_len,
+                        flash_read,
+                    ),
+                    len_decr,  # Decrement the length.
+                ],
             ),
         ),
-    ]
+        cb.if_with(
+            # Did the user call peek?
+            cmd_eq_1,
+            cb.if_with(  # Yes, the user called peek. But is the queue empty?
+                len_eq_0,
+                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                [  # The queue is not empty. Proceed.
+                    read_from_mem,  # Read from the queue.
+                    write_to_ans,  # Write the answer to the answer register.
+                    # But don't increment the read pointer or change the length.
+                ],
+            ),
+        ),
+        cb.if_with(
+            # Did the user call push?
+            cmd_eq_2,
+            cb.if_with(
+                # Yes, the user called push. But is the queue full?
+                len_eq_max_queue_len,
+                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                [  # The queue is not full. Proceed.
+                    write_to_mem,  # Write `value` to the queue.
+                    write_incr,  # Increment the write pointer.
+                    cb.if_with(
+                        # Wrap around if necessary.
+                        write_eq_max_queue_len,
+                        flash_write,
+                    ),
+                    len_incr,  # Increment the length.
+                ],
+            ),
+        ),
+    )
 
     return fifo
 
