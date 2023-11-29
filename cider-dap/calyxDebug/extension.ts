@@ -35,41 +35,42 @@ async function getProgramName() {
   }
 }
 
-// class CiderDebugAdapterDescriptorFactory {
-//   adapter: CiderDebugAdapter;
-//   adapterPath: string;
-//   workspace: string;
-//   outputChannel: object;
+// Factory for multi-sesssion
+class CiderDebugAdapterDescriptorFactoryServer {
+  adapter: CiderDebugAdapter;
+  adapterPath: string;
+  workspace: string;
+  outputChannel: object;
 
-//   constructor(adapterPath, workspace, outputChannel) {
-//     logToPanel("inside constructor");
-//     this.adapter = new CiderDebugAdapter(adapterPath, workspace, outputChannel);
-//     this.adapterPath = adapterPath;
-//     this.workspace = workspace;
-//     this.outputChannel = outputChannel;
-//   }
+  constructor(adapterPath, workspace, outputChannel) {
+    logToPanel("inside constructor");
+    this.adapter = new CiderDebugAdapter(adapterPath, workspace, outputChannel);
+    this.adapterPath = adapterPath;
+    this.workspace = workspace;
+    this.outputChannel = outputChannel;
+  }
 
-//   createDebugAdapterDescriptor(session) {
-//     // Return a new debug adapter descriptor
-//     logToPanel("creating adapter descriptor");
+  createDebugAdapterDescriptor(session) {
+    // Return a new debug adapter descriptor
+    logToPanel("creating adapter descriptor");
 
-//     return new vscode.DebugAdapterServer(this._startDebugServer(session));
-//   }
+    return new vscode.DebugAdapterServer(this._startDebugServer(session));
+  }
 
-//   _startDebugServer(session) {
-//     logToPanel("start of startDebugServer");
-//     // default port: 8888
-//     const port = vscode.workspace.getConfiguration("cider-dap").port;
-//     if (!this.adapter.isServerRunning()) {
-//       logToPanel("server is not running");
-//       this.adapter.start(port);
-//       logToPanel("started dap-server");
-//     }
+  _startDebugServer(session) {
+    logToPanel("start of startDebugServer");
+    // default port: 8888
+    const port = vscode.workspace.getConfiguration("cider-dap").port;
+    if (!this.adapter.isServerRunning()) {
+      logToPanel("server is not running");
+      this.adapter.start(port);
+      logToPanel("started dap-server");
+    }
 
-//     logToPanel("exiting startDebugging");
-//     return port;
-//   }
-// }
+    logToPanel("exiting startDebugging");
+    return port;
+  }
+}
 class CiderDebugAdapter {
   adapterPath: string;
   outputChannel: object;
@@ -128,12 +129,18 @@ class CiderDebugAdapter {
   }
 }
 
-class CiderDebugAdapterDescriptorFactory {
-  createDebugAdapterDescriptor(_session, _executable) {
+// Factory for single-session
+class CiderDebugAdapterDescriptorFactoryExecutable {
+  createDebugAdapterDescriptor(_session) {
     // Use the DebugAdapterExecutable as the debug adapter descriptor
     console.log("inside adapter factory");
+    console.log(vscode.workspace.getConfiguration("cider-dap").path);
+    console.log(programName);
+
     return new vscode.DebugAdapterExecutable(
-      vscode.workspace.getConfiguration("cider-dap").path
+      vscode.workspace.getConfiguration("cider-dap").path,
+      [programName],
+      { cwd: vscode.workspace.rootPath }
     );
   }
 }
@@ -141,21 +148,26 @@ class CiderDebugAdapterDescriptorFactory {
 function activate(context) {
   logToPanel("Extension activated!");
 
-  // Start the debug server explicitly
-  // const factory = new CiderDebugAdapterDescriptorFactory(
-  //   vscode.workspace.getConfiguration("cider-dap").path,
-  //   vscode.workspace.rootPath,
-  //   outputChannel
-  // );
+  let factory: vscode.DebugAdapterDescriptorFactory;
 
-  // context.subscriptions.push(
-  //   vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory)
-  // );
+  // Get session type (multi or single) from package.json configuration
+  switch (vscode.workspace.getConfiguration("cider-dap").sessionType) {
+    case "Multi-Session":
+      factory = new CiderDebugAdapterDescriptorFactoryServer(
+        vscode.workspace.getConfiguration("cider-dap").path,
+        vscode.workspace.rootPath,
+        outputChannel
+      );
+      break;
+
+    case "Single-Session":
+    default:
+      factory = new CiderDebugAdapterDescriptorFactoryExecutable();
+      break;
+  }
+
   context.subscriptions.push(
-    vscode.debug.registerDebugAdapterDescriptorFactory(
-      "cider-dap",
-      new CiderDebugAdapterDescriptorFactory()
-    )
+    vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory)
   );
   logToPanel("after start server");
 

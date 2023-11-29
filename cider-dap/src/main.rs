@@ -33,7 +33,6 @@ fn read_path(path: &str) -> Result<PathBuf, String> {
 
 fn main() -> Result<(), MyAdapterError> {
     let opts: Opts = argh::from_env();
-
     if opts.is_multi_session {
         eprintln!("running multi-session");
         let listener = TcpListener::bind(("127.0.0.1", opts.port))?;
@@ -50,13 +49,14 @@ fn main() -> Result<(), MyAdapterError> {
         // Run the server using the adapter
         run_server(&mut server, adapter)?;
     } else {
-        let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
-        let file = File::open(path)?;
-        let adapter = MyAdapter::new(file);
+        // let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
+        // let file = File::open(path)?;
+        // let adapter = MyAdapter::new(file);
         eprintln!("running single-session");
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
         let mut server = Server::new(read, write);
+        let adapter = multi_session_init(&mut server)?;
         run_server(&mut server, adapter)?;
     }
     eprintln!("exited run_Server");
@@ -176,6 +176,10 @@ fn run_server<R: Read, W: Write>(
             // to break out of the loop and close the server.
             // Command::Disconnect(_) => break,
             // ...
+
+            // Infinite loop for testing purposes
+            Command::Initialize(..) => loop{},
+            
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),
