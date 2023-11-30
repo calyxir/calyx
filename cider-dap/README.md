@@ -19,7 +19,7 @@ the cider-dap binary somewhere on your path. From some directory on your PATH:
 ln -s <PATH TO CALYX ROOT>/target/debug/cider-dap
 ```
 
-You will have to configure user settings of cider-dap in VSCode and input your cider binary path, session type, and port number (if debug adapter is started as a server). You can then launch the adapter with the Launch Program (Multi Session) action
+You will have to configure user settings of cider-dap in VSCode and input your cider binary path, session type, and port number (if debug adapter is started as a server). You can then launch the adapter with the Launch Program (Multi Session) action.
 
 ## Known issues
 

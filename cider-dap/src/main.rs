@@ -17,9 +17,6 @@ use std::path::PathBuf;
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
 struct Opts {
-    /// input file
-    #[argh(positional, from_str_fn(read_path))]
-    file: Option<PathBuf>,
     #[argh(switch, long = "tcp")]
     /// runs in tcp mode
     is_multi_session: bool,
@@ -49,9 +46,6 @@ fn main() -> Result<(), MyAdapterError> {
         // Run the server using the adapter
         run_server(&mut server, adapter)?;
     } else {
-        // let path = opts.file.ok_or(MyAdapterError::MissingFile)?;
-        // let file = File::open(path)?;
-        // let adapter = MyAdapter::new(file);
         eprintln!("running single-session");
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
@@ -176,9 +170,6 @@ fn run_server<R: Read, W: Write>(
             // to break out of the loop and close the server.
             // Command::Disconnect(_) => break,
             // ...
-
-            // Infinite loop for testing purposes
-            Command::Initialize(..) => loop{},
             
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
