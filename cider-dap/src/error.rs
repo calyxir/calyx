@@ -2,7 +2,7 @@ use dap::errors::ServerError;
 use dap::requests::Command;
 
 #[allow(dead_code)] // remove this later
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error)]
 pub enum MyAdapterError {
     /// Represents an unhandled command error.
     #[error("Unhandled command: {0:?}")]
@@ -39,6 +39,13 @@ pub enum MyAdapterError {
     // Represents an exit
     #[error("Exited with exit code: {0}")]
     ExitError(u64),
+}
+
+// Needed to properly display messages in output
+impl std::fmt::Debug for MyAdapterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self, f)
+    }
 }
 
 /// A type alias for the result returned by the adapter functions.

@@ -123,11 +123,11 @@ where
     // Construct the adapter
     let mut adapter = MyAdapter::new(file);
 
-    //NOT SURE IF WE NEED TWO THREADS
+    //Make two threads to make threads visible on call stack, subject to change.
     let thread = &adapter.create_thread(String::from("Main"));
     let thread2 = &adapter.create_thread(String::from("Thread 1"));
 
-    //FIND OUT IF WE NEED TO SEND EVENTS AS STILL WORKS WITHOUT IT
+    // Notify server of first thread
     server.send_event(Event::Thread(ThreadEventBody {
         reason: types::ThreadEventReason::Started,
         thread_id: thread.id,
@@ -153,19 +153,19 @@ fn run_server<R: Read, W: Write>(
             Some(req) => req,
             None => return Err(MyAdapterError::MissingCommandError),
         };
-        match dbg!(&req.command) {
+        match &req.command {
             Command::Launch(_) => {
                 let rsp = req.success(ResponseBody::Launch);
                 server.respond(rsp)?;
             }
 
             Command::SetBreakpoints(args) => {
-                //Add breakpoints
+                // Add breakpoints
                 if let Some(breakpoint) = &args.breakpoints {
                     let out =
                         adapter.set_breakpoint(args.source.clone(), breakpoint);
 
-                    //Success
+                    // Success
                     let rsp = req.success(ResponseBody::SetBreakpoints(
                         SetBreakpointsResponse { breakpoints: (out) },
                     ));
@@ -173,7 +173,7 @@ fn run_server<R: Read, W: Write>(
                 }
             }
 
-            //TODO: Implement this request fully when adapter becomes functional
+            // TODO: Implement this request fully when adapter becomes functional
             Command::SetExceptionBreakpoints(_) => {
                 let rsp = req.success(ResponseBody::SetExceptionBreakpoints(
                     SetExceptionBreakpointsResponse {
@@ -182,15 +182,13 @@ fn run_server<R: Read, W: Write>(
                 ));
                 server.respond(rsp)?;
             }
-
-            //Retrieve a list of all threads
+            // Retrieve a list of all threads
             Command::Threads => {
                 let rsp = req.success(ResponseBody::Threads(ThreadsResponse {
                     threads: adapter.clone_threads(),
                 }));
                 server.respond(rsp)?;
             }
-
             // Disconnect the server AND exit the debugger
             Command::Disconnect(_) => {
                 let rsp = req.success(ResponseBody::Disconnect);
@@ -198,10 +196,12 @@ fn run_server<R: Read, W: Write>(
                     exit_code: 0,
                 }))?;
                 server.respond(rsp)?;
-                return Err(MyAdapterError::ExitError(0));
-            }
 
-            //TODO: SEE IF PROPER IMPLEMENTATION OF STACK_FRAMES AND TOTAL_FRAMES IS NEEDED
+                //Exit
+                eprintln!("exited debugger");
+                return Ok(());
+            }
+            // Send StackTrace, may be useful to make it more robust in the future
             Command::StackTrace(_args) => {
                 let rsp =
                     req.success(ResponseBody::StackTrace(StackTraceResponse {
@@ -210,8 +210,7 @@ fn run_server<R: Read, W: Write>(
                     }));
                 server.respond(rsp)?;
             }
-            // TODO: ASK ABOUT STEPPING GRANUALARITY
-            //Continue the debugger
+            // Continue the debugger
             Command::Continue(_args) => {
                 let rsp =
                     req.success(ResponseBody::Continue(ContinueResponse {
@@ -219,15 +218,14 @@ fn run_server<R: Read, W: Write>(
                     }));
                 server.respond(rsp)?;
             }
-
-            //Send a Stopped event with reason Pause
+            // Send a Stopped event with reason Pause
             Command::Pause(args) => {
-                //Get ID before rsp takes ownership
+                // Get ID before rsp takes ownership
                 let thread_id = args.thread_id;
                 let rsp = req.success(ResponseBody::Pause);
-                //Send response first
+                // Send response first
                 server.respond(rsp)?;
-                //Send event
+                // Send event
                 server.send_event(Event::Stopped(StoppedEventBody {
                     reason: types::StoppedEventReason::Pause,
                     description: Some(String::from("Paused")),
@@ -238,10 +236,9 @@ fn run_server<R: Read, W: Write>(
                     hit_breakpoint_ids: None,
                 }))?;
             }
-
             // Step over
             Command::Next(args) => {
-                //Get ID before rsp takes ownership
+                // Get ID before rsp takes ownership
                 let thread_id = args.thread_id;
                 let rsp = req.success(ResponseBody::Next);
                 // Send response first
@@ -258,9 +255,8 @@ fn run_server<R: Read, W: Write>(
                 }))?;
             }
             // Step in
-            //TODO: SEE IF WE NEED TO IMPLEMENT WHEN STEPIN BEHAVES LIKE NEXT
             Command::StepIn(args) => {
-                //Get ID before rsp takes ownership
+                // Get ID before rsp takes ownership
                 let thread_id = args.thread_id;
                 // Send response first
                 let rsp = req.success(ResponseBody::StepIn);
@@ -276,9 +272,9 @@ fn run_server<R: Read, W: Write>(
                     hit_breakpoint_ids: None,
                 }))?;
             }
-
+            // Step out
             Command::StepOut(args) => {
-                //Get ID before rsp takes ownership
+                // Get ID before rsp takes ownership
                 let thread_id = args.thread_id;
                 // Send response first
                 let rsp = req.success(ResponseBody::StepOut);
