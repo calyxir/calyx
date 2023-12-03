@@ -39,7 +39,10 @@ __pycache__
 !.vscode/launch.json
 !.vscode/tasks.json
 
+# cocotb artifacts
 tests/xilinx/cocotb/**/hdl
+sim_build/
+results.xml
 
 
 !cider-dap/calyxDebug/package.json
