@@ -223,6 +223,8 @@ component main(
     m_RLAST : 1,
     m_RDATA : 512,
     m_RRESP : 2,
+    //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
+    m_RID : 1,
 ) -> (
     m_ARVALID : 1,
     //This needs to be 64, see link below `m_axi` section.
@@ -238,8 +240,9 @@ component main(
 
    // 00 for fixed, 01 for incrementing, 2 for wrap, needs to be incr
     m_ARBURST : 2,
-
-    m_RREADY : 1
+    m_RREADY : 1,
+    //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
+    m_ARID : 1
 ) {
     cells{
         vec1_data = seq_mem_d1(32,16,64);
@@ -256,6 +259,8 @@ component main(
     }
 
     wires{
+
+        m_ARID = 1'b0;
 
         group set_curr_to_base_addr{
             curr_addr.in = base_addr.out;

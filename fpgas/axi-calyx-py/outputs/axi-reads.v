@@ -2867,12 +2867,14 @@ module main(
   input logic m_RLAST,
   input logic [511:0] m_RDATA,
   input logic [1:0] m_RRESP,
+  input logic m_RID,
   output logic m_ARVALID,
   output logic [63:0] m_ARADDR,
   output logic [2:0] m_ARSIZE,
   output logic [7:0] m_ARLEN,
   output logic [1:0] m_ARBURST,
   output logic m_RREADY,
+  output logic m_ARID,
   input logic go,
   input logic clk,
   input logic reset,
@@ -2910,17 +2912,17 @@ logic read_channel_go;
 logic read_channel_clk;
 logic read_channel_reset;
 logic read_channel_done;
-logic read_channel_data_received_write_done;
 logic read_channel_data_received_read_en;
-logic [63:0] read_channel_curr_addr_in;
-logic [31:0] read_channel_data_received_read_data;
-logic read_channel_data_received_read_done;
 logic read_channel_data_received_write_en;
+logic [63:0] read_channel_curr_addr_out;
 logic read_channel_curr_addr_write_en;
 logic read_channel_curr_addr_done;
-logic [63:0] read_channel_data_received_addr0;
-logic [63:0] read_channel_curr_addr_out;
 logic [31:0] read_channel_data_received_write_data;
+logic [31:0] read_channel_data_received_read_data;
+logic [63:0] read_channel_data_received_addr0;
+logic read_channel_data_received_write_done;
+logic [63:0] read_channel_curr_addr_in;
+logic read_channel_data_received_read_done;
 logic arread_channel_ARESET;
 logic arread_channel_ARREADY;
 logic arread_channel_ARVALID;
@@ -2932,10 +2934,10 @@ logic arread_channel_go;
 logic arread_channel_clk;
 logic arread_channel_reset;
 logic arread_channel_done;
-logic arread_channel_base_addr_done;
-logic [63:0] arread_channel_base_addr_in;
 logic arread_channel_base_addr_write_en;
 logic [63:0] arread_channel_base_addr_out;
+logic [63:0] arread_channel_base_addr_in;
+logic arread_channel_base_addr_done;
 logic [1:0] fsm_in;
 logic fsm_write_en;
 logic fsm_clk;
@@ -3192,6 +3194,7 @@ assign m_RREADY =
 assign m_ARLEN =
   _guard5 ? arread_channel_ARLEN :
   8'd0;
+assign m_ARID = 1'd0;
 assign m_ARBURST =
   _guard6 ? arread_channel_ARBURST :
   2'd0;
