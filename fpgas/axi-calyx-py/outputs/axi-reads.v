@@ -2861,18 +2861,18 @@ assign receive_r_transfer_done_in = data_received_write_done;
 // COMPONENT END: m_read_channel
 endmodule
 module main(
-  input logic ARESET,
-  input logic ARREADY,
-  input logic RVALID,
-  input logic RLAST,
-  input logic [511:0] RDATA,
-  input logic [1:0] RRESP,
-  output logic ARVALID,
-  output logic [63:0] ARADDR,
-  output logic [2:0] ARSIZE,
-  output logic [7:0] ARLEN,
-  output logic [1:0] ARBURST,
-  output logic RREADY,
+  input logic m_ARESET,
+  input logic m_ARREADY,
+  input logic m_RVALID,
+  input logic m_RLAST,
+  input logic [511:0] m_RDATA,
+  input logic [1:0] m_RRESP,
+  output logic m_ARVALID,
+  output logic [63:0] m_ARADDR,
+  output logic [2:0] m_ARSIZE,
+  output logic [7:0] m_ARLEN,
+  output logic [1:0] m_ARBURST,
+  output logic m_RREADY,
   input logic go,
   input logic clk,
   input logic reset,
@@ -2910,17 +2910,17 @@ logic read_channel_go;
 logic read_channel_clk;
 logic read_channel_reset;
 logic read_channel_done;
-logic read_channel_data_received_read_en;
-logic read_channel_curr_addr_write_en;
-logic [63:0] read_channel_data_received_addr0;
-logic [31:0] read_channel_data_received_write_data;
-logic read_channel_data_received_read_done;
-logic [63:0] read_channel_curr_addr_out;
-logic [31:0] read_channel_data_received_read_data;
-logic read_channel_data_received_write_en;
-logic [63:0] read_channel_curr_addr_in;
 logic read_channel_data_received_write_done;
+logic read_channel_data_received_read_en;
+logic [63:0] read_channel_curr_addr_in;
+logic [31:0] read_channel_data_received_read_data;
+logic read_channel_data_received_read_done;
+logic read_channel_data_received_write_en;
+logic read_channel_curr_addr_write_en;
 logic read_channel_curr_addr_done;
+logic [63:0] read_channel_data_received_addr0;
+logic [63:0] read_channel_curr_addr_out;
+logic [31:0] read_channel_data_received_write_data;
 logic arread_channel_ARESET;
 logic arread_channel_ARREADY;
 logic arread_channel_ARVALID;
@@ -2932,9 +2932,9 @@ logic arread_channel_go;
 logic arread_channel_clk;
 logic arread_channel_reset;
 logic arread_channel_done;
-logic arread_channel_base_addr_write_en;
-logic [63:0] arread_channel_base_addr_in;
 logic arread_channel_base_addr_done;
+logic [63:0] arread_channel_base_addr_in;
+logic arread_channel_base_addr_write_en;
 logic [63:0] arread_channel_base_addr_out;
 logic [1:0] fsm_in;
 logic fsm_write_en;
@@ -3094,8 +3094,8 @@ std_wire # (
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
 wire _guard2 = invoke0_go_out;
-wire _guard3 = invoke2_go_out;
-wire _guard4 = invoke0_go_out;
+wire _guard3 = invoke0_go_out;
+wire _guard4 = invoke2_go_out;
 wire _guard5 = invoke0_go_out;
 wire _guard6 = invoke0_go_out;
 wire _guard7 = invoke0_go_out;
@@ -3180,24 +3180,24 @@ wire _guard85 = invoke0_go_out;
 wire _guard86 = invoke0_go_out;
 wire _guard87 = invoke0_go_out;
 assign done = _guard1;
-assign ARSIZE =
+assign m_ARSIZE =
   _guard2 ? arread_channel_ARSIZE :
   3'd0;
-assign RREADY =
-  _guard3 ? read_channel_RREADY :
+assign m_ARVALID =
+  _guard3 ? arread_channel_ARVALID :
   1'd0;
-assign ARLEN =
-  _guard4 ? arread_channel_ARLEN :
+assign m_RREADY =
+  _guard4 ? read_channel_RREADY :
+  1'd0;
+assign m_ARLEN =
+  _guard5 ? arread_channel_ARLEN :
   8'd0;
-assign ARADDR =
-  _guard5 ? arread_channel_ARADDR :
-  64'd0;
-assign ARBURST =
+assign m_ARBURST =
   _guard6 ? arread_channel_ARBURST :
   2'd0;
-assign ARVALID =
-  _guard7 ? arread_channel_ARVALID :
-  1'd0;
+assign m_ARADDR =
+  _guard7 ? arread_channel_ARADDR :
+  64'd0;
 assign fsm_write_en = _guard26;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
@@ -3252,10 +3252,10 @@ end
 assign invoke0_go_in = _guard64;
 assign tdcc_go_in = go;
 assign read_channel_RVALID =
-  _guard65 ? RVALID :
+  _guard65 ? m_RVALID :
   1'd0;
 assign read_channel_RLAST =
-  _guard66 ? RLAST :
+  _guard66 ? m_RLAST :
   1'd0;
 assign read_channel_data_received_read_done =
   _guard67 ? vec1_data_read_done :
@@ -3267,7 +3267,7 @@ assign read_channel_data_received_write_done =
   _guard69 ? vec1_data_write_done :
   1'd0;
 assign read_channel_RDATA =
-  _guard70 ? RDATA :
+  _guard70 ? m_RDATA :
   512'd0;
 assign read_channel_clk = clk;
 assign read_channel_curr_addr_out =
@@ -3279,10 +3279,10 @@ assign read_channel_data_received_read_data =
 assign read_channel_reset = reset;
 assign read_channel_go = _guard73;
 assign read_channel_ARESET =
-  _guard74 ? ARESET :
+  _guard74 ? m_ARESET :
   1'd0;
 assign read_channel_RRESP =
-  _guard75 ? RRESP :
+  _guard75 ? m_RRESP :
   2'd0;
 assign invoke0_done_in = arread_channel_done;
 assign invoke1_go_in = _guard81;
@@ -3295,13 +3295,13 @@ assign arread_channel_clk = clk;
 assign arread_channel_reset = reset;
 assign arread_channel_go = _guard84;
 assign arread_channel_ARESET =
-  _guard85 ? ARESET :
+  _guard85 ? m_ARESET :
   1'd0;
 assign arread_channel_base_addr_out =
   _guard86 ? base_addr_out :
   64'd0;
 assign arread_channel_ARREADY =
-  _guard87 ? ARREADY :
+  _guard87 ? m_ARREADY :
   1'd0;
 assign invoke1_done_in = curr_addr_done;
 // COMPONENT END: main

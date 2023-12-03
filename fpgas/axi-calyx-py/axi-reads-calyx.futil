@@ -216,30 +216,30 @@ component m_read_channel(
 
 //TODO(nathanielnrn): this is axi_wrapper, prefer to use @toplevel attribute but its not working
 component main(
-    ARESET : 1,
-    ARREADY : 1,
+    m_ARESET : 1,
+    m_ARREADY : 1,
 
-    RVALID : 1,
-    RLAST : 1,
-    RDATA : 512,
-    RRESP : 2,
+    m_RVALID : 1,
+    m_RLAST : 1,
+    m_RDATA : 512,
+    m_RRESP : 2,
 ) -> (
-    ARVALID : 1,
+    m_ARVALID : 1,
     //This needs to be 64, see link below `m_axi` section.
-    ARADDR: 64,
+    m_ARADDR: 64,
     //2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
     //are doing I believe), should match width of data bus (to shell?, so 512 wide?
     //which is 3'b110?)
     //see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
-   // for restrictions
-   ARSIZE: 3,
+    // for restrictions
+    m_ARSIZE: 3,
 
-   ARLEN : 8, //in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
+    m_ARLEN : 8, //in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
 
    // 00 for fixed, 01 for incrementing, 2 for wrap, needs to be incr
-   ARBURST : 2,
+    m_ARBURST : 2,
 
-   RREADY : 1
+    m_RREADY : 1
 ) {
     cells{
         vec1_data = seq_mem_d1(32,16,64);
@@ -272,27 +272,27 @@ component main(
             //which probably works? Needs to be tested
             invoke arread_channel[base_addr = base_addr]
             (
-            ARESET = ARESET,
-            ARREADY = ARREADY
+            ARESET = m_ARESET,
+            ARREADY = m_ARREADY
             )
             (
-            ARVALID = ARVALID,
-            ARADDR = ARADDR,
-            ARSIZE = ARSIZE,
-            ARLEN = ARLEN,
-            ARBURST = ARBURST
+            ARVALID = m_ARVALID,
+            ARADDR = m_ARADDR,
+            ARSIZE = m_ARSIZE,
+            ARLEN = m_ARLEN,
+            ARBURST = m_ARBURST
             );
             set_curr_to_base_addr;
             invoke read_channel[data_received = vec1_data, curr_addr = curr_addr]
             (
-            ARESET = ARESET,
-            RVALID = RVALID,
-            RLAST = RLAST,
-            RDATA = RDATA,
-            RRESP = RRESP
+            ARESET = m_ARESET,
+            RVALID = m_RVALID,
+            RLAST = m_RLAST,
+            RDATA = m_RDATA,
+            RRESP = m_RRESP
             )
             (
-            RREADY = RREADY
+            RREADY = m_RREADY
             );
         }
     }
