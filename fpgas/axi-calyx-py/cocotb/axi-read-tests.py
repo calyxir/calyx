@@ -14,7 +14,8 @@ from cocotb.triggers import Timer
 @cocotb.test()
 async def read_channels_tests(main):
     axi_ram_read = AxiRamRead(
-            AxiReadBus.from_prefix(main, "m_"), main.clk, main.reset, size=2**20
+            #NOTE: prefix should not contain the final "_"
+            AxiReadBus.from_prefix(main, "m"), main.clk, main.reset, size=2**20
     )
     axi_ram_read.hexdump(0x0000, 4, prefix="RAM")
 
