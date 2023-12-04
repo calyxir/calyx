@@ -557,7 +557,7 @@ impl Printer {
                     write!(f, "\n{})", " ".repeat(indent_level))?;
                 }
                 if let Some(group) = comb_group {
-                    writeln!(f, " with {};", group.borrow().name)?;
+                    write!(f, " with {}", group.borrow().name)?;
                 }
                 writeln!(f, ";")
             }
