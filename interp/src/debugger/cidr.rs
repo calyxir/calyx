@@ -16,8 +16,11 @@ use crate::{interpreter_ir as iir, primitives::Serializable};
 use calyx_ir::{self as ir, Id, RRC};
 
 use owo_colors::OwoColorize;
-use std::fmt::Write;
 use std::{cell::Ref, collections::HashMap, rc::Rc};
+use std::{
+    fmt::Write,
+    path::{Path, PathBuf},
+};
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
 
@@ -29,44 +32,67 @@ pub struct Debugger {
     main_component: Rc<iir::Component>,
     debugging_ctx: DebuggingContext,
     source_map: Option<SourceMap>,
+    interpreter: ComponentInterpreter,
 }
 
 impl Debugger {
+    /// construct a debugger instance from the target calyx file
+    pub fn from_file(
+        file: &PathBuf,
+        lib_path: &Path,
+    ) -> InterpreterResult<Self> {
+        // create a workspace using the file and lib_path, run the standard
+        // passes (see main.rs). Construct the initial environment then use that
+        // to create a new debugger instance with new
+        todo!()
+    }
+
     pub fn new(
         context: &iir::ComponentCtx,
         main_component: &Rc<iir::Component>,
         source_map: Option<SourceMap>,
-    ) -> Self {
-        Self {
-            _context: Rc::clone(context),
-            main_component: Rc::clone(main_component),
-            debugging_ctx: DebuggingContext::new(context, &main_component.name),
-            source_map,
-        }
-    }
-
-    pub fn main_loop(
-        &mut self,
         env: InterpreterState,
-    ) -> InterpreterResult<InterpreterState> {
+    ) -> InterpreterResult<Self> {
         let qin = ComponentQualifiedInstanceName::new_single(
-            &self.main_component,
-            self.main_component.name,
+            main_component,
+            main_component.name,
         );
-        let mut component_interpreter = ComponentInterpreter::from_component(
-            &self.main_component,
-            env,
-            qin,
-        );
+        let mut component_interpreter =
+            ComponentInterpreter::from_component(main_component, env, qin);
         component_interpreter.set_go_high();
 
         component_interpreter.converge()?;
 
+        Ok(Self {
+            _context: Rc::clone(context),
+            main_component: Rc::clone(main_component),
+            debugging_ctx: DebuggingContext::new(context, &main_component.name),
+            source_map,
+            interpreter: component_interpreter,
+        })
+    }
+
+    // probably want a different return type
+    pub fn step(&mut self, n: u64) -> InterpreterResult<()> {
+        todo!()
+    }
+
+    /// continue the execution until a breakpoint is hit, needs a different
+    /// return type or we need a different "update status" method to communicate
+    /// with the adapter. The latter might be more ergonomic, though potentially
+    /// less efficient
+    pub fn cont(&mut self) -> InterpreterResult<()> {
+        todo!()
+    }
+
+    // so on and so forth
+
+    pub fn main_loop(mut self) -> InterpreterResult<InterpreterState> {
         let mut input_stream = Input::new()?;
 
         println!("== Calyx Interactive Debugger ==");
 
-        while !component_interpreter.is_done() {
+        while !self.interpreter.is_done() {
             let comm = input_stream.next_command();
             let comm = match comm {
                 Ok(c) => c,
@@ -84,13 +110,13 @@ impl Debugger {
             match comm {
                 Command::Step(n) => {
                     for _ in 0..n {
-                        component_interpreter.step()?;
+                        self.interpreter.step()?;
                     }
-                    component_interpreter.converge()?;
+                    self.interpreter.converge()?;
                 }
                 Command::Continue => {
                     self.debugging_ctx.set_current_time(
-                        component_interpreter.currently_executing_group(),
+                        self.interpreter.currently_executing_group(),
                     );
 
                     let mut ctx = std::mem::replace(
@@ -103,21 +129,21 @@ impl Debugger {
 
                     let mut breakpoints: Vec<CompGroupName> = vec![];
 
-                    while breakpoints.is_empty()
-                        && !component_interpreter.is_done()
+                    while breakpoints.is_empty() && !self.interpreter.is_done()
                     {
-                        component_interpreter.step()?;
+                        self.interpreter.step()?;
                         let current_exec =
-                            component_interpreter.currently_executing_group();
+                            self.interpreter.currently_executing_group();
 
                         ctx.advance_time(current_exec);
 
                         for watch in ctx.process_watchpoints() {
                             for target in watch.target() {
-                                if let Ok(msg) = self.do_print(
+                                if let Ok(msg) = Self::do_print(
+                                    self.main_component.name,
                                     target,
                                     watch.print_code(),
-                                    component_interpreter.get_env(),
+                                    self.interpreter.get_env(),
                                     watch.print_mode(),
                                 ) {
                                     println!(
@@ -137,27 +163,28 @@ impl Debugger {
 
                     self.debugging_ctx = ctx;
 
-                    if !component_interpreter.is_done() {
+                    if !self.interpreter.is_done() {
                         for breakpoint in breakpoints {
                             println!(
                                 "Hit breakpoint: {}",
                                 breakpoint.bright_purple().underline()
                             );
                         }
-                        component_interpreter.converge()?;
+                        self.interpreter.converge()?;
                     }
                 }
                 Command::Empty => {}
                 Command::Display => {
-                    let state = component_interpreter.get_env();
+                    let state = self.interpreter.get_env();
                     println!("{}", state.state_as_str().green().bold());
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
-                        match self.do_print(
+                        match Self::do_print(
+                            self.main_component.name,
                             &target,
                             &code,
-                            component_interpreter.get_env(),
+                            self.interpreter.get_env(),
                             &print_mode,
                         ) {
                             Ok(msg) => println!("{}", msg.magenta()),
@@ -176,7 +203,7 @@ impl Debugger {
 
                     for target in targets {
                         let currently_executing =
-                            component_interpreter.currently_executing_group();
+                            self.interpreter.currently_executing_group();
                         let target =
                             self.debugging_ctx.concretize_group_name(target);
 
@@ -230,23 +257,22 @@ impl Debugger {
                 }
                 Command::StepOver(target) => {
                     let mut current =
-                        component_interpreter.currently_executing_group();
+                        self.interpreter.currently_executing_group();
                     let target =
                         self.debugging_ctx.concretize_group_name(target);
 
                     if !self.debugging_ctx.is_group_running(current, &target) {
                         println!("Group is not running")
                     } else {
-                        component_interpreter.step()?;
-                        current =
-                            component_interpreter.currently_executing_group();
+                        self.interpreter.step()?;
+                        current = self.interpreter.currently_executing_group();
                         while self
                             .debugging_ctx
                             .is_group_running(current, &target)
                         {
-                            component_interpreter.step()?;
-                            current = component_interpreter
-                                .currently_executing_group();
+                            self.interpreter.step()?;
+                            current =
+                                self.interpreter.currently_executing_group();
                         }
                     }
                 }
@@ -260,10 +286,11 @@ impl Debugger {
                     let mut error_occurred = false;
 
                     for target in print_target.iter() {
-                        if let Err(e) = self.do_print(
+                        if let Err(e) = Self::do_print(
+                            self.main_component.name,
                             target,
                             &print_code,
-                            component_interpreter.get_env(),
+                            self.interpreter.get_env(),
                             &print_mode,
                         ) {
                             error_occurred = true;
@@ -286,7 +313,8 @@ impl Debugger {
                     if self.source_map.is_some() && !override_flag {
                         let map = self.source_map.as_ref().unwrap();
                         let mut printed = false;
-                        for x in component_interpreter
+                        for x in self
+                            .interpreter
                             .get_active_tree()
                             .remove(0)
                             .flat_set()
@@ -302,7 +330,7 @@ impl Debugger {
                             println!("Falling back to Calyx");
                             print!(
                                 "{}",
-                                component_interpreter
+                                self.interpreter
                                     .get_active_tree()
                                     .remove(0)
                                     .format_tree::<true>(0)
@@ -311,7 +339,7 @@ impl Debugger {
                     } else {
                         print!(
                             "{}",
-                            component_interpreter
+                            self.interpreter
                                 .get_active_tree()
                                 .remove(0)
                                 .format_tree::<true>(0)
@@ -325,7 +353,7 @@ impl Debugger {
             }
         }
 
-        let final_env = component_interpreter.deconstruct()?;
+        let final_env = self.interpreter.deconstruct()?;
 
         println!("Main component has finished executing. Debugger is now in inspection mode.");
 
@@ -352,7 +380,8 @@ impl Debugger {
                 }
                 Command::Print(print_lists, code, print_mode) => {
                     for target in print_lists {
-                        match self.do_print(
+                        match Self::do_print(
+                            self.main_component.name,
                             &target,
                             &code,
                             final_env.as_state_view(),
@@ -383,7 +412,7 @@ impl Debugger {
     }
 
     fn do_print(
-        &mut self,
+        main_comp_name: Id,
         print_list: &[Id],
         code: &Option<PrintCode>,
         root: StateView,
@@ -397,7 +426,7 @@ impl Debugger {
 
         let mut iter = print_list.iter();
 
-        let length = if self.main_component.name == print_list[0] {
+        let length = if main_comp_name == print_list[0] {
             iter.next();
             print_list.len() - 1
         } else {
