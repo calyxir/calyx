@@ -553,11 +553,11 @@ impl Printer {
                 }
                 if outputs.is_empty() {
                     write!(f, ")")?;
+                } else {
+                    write!(f, "\n{})", " ".repeat(indent_level))?;
                 }
                 if let Some(group) = comb_group {
                     writeln!(f, " with {};", group.borrow().name)?;
-                } else {
-                    write!(f, "\n{})", " ".repeat(indent_level))?;
                 }
                 writeln!(f, ";")
             }
