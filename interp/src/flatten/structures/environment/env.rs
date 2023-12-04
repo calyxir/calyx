@@ -17,7 +17,9 @@ use crate::{
             wires::guards::Guard,
         },
         primitives::{self, Primitive},
-        structures::index_trait::IndexRef,
+        structures::{
+            environment::program_counter::ControlPoint, index_trait::IndexRef,
+        },
     },
     values::Value,
 };
@@ -611,6 +613,69 @@ impl<'a> Simulator<'a> {
     pub fn step(&mut self) -> InterpreterResult<()> {
         // place to keep track of what groups we need to conclude at the end of
         // this step. These are indices into the program counter
+
+        for node in self.env.pc.iter_mut() {
+            // just considering a single node case for the moment
+            match &self.env.ctx.primary[node.control_node] {
+                ControlNode::Seq(seq) => {
+                    if !seq.is_empty() {
+                        let next = seq.stms()[0];
+                        *node = node.new_w_comp(next);
+                    } else {
+                        todo!("deal with seq being empty!!!")
+                    }
+                }
+                ControlNode::Par(_par) => todo!("not ready for par yet"),
+                ControlNode::If(i) => {
+                    if i.cond_group().is_some() {
+                        todo!("if statement has a with clause")
+                    }
+
+                    let target = GlobalPortRef::from_local(
+                        i.cond_port(),
+                        &self.env.cells[node.comp].unwrap_comp().index_bases,
+                    );
+
+                    let result = match target {
+                        GlobalPortRef::Port(p) => self.env.ports[p].as_bool(),
+                        GlobalPortRef::Ref(r) => {
+                            let index = self.env.ref_ports[r].unwrap();
+                            self.env.ports[index].as_bool()
+                        }
+                    };
+
+                    let target = if result { i.tbranch() } else { i.fbranch() };
+                    *node = node.new_w_comp(target);
+                }
+                ControlNode::While(w) => {
+                    if w.cond_group().is_some() {
+                        todo!("while statement has a with clause")
+                    }
+
+                    let target = GlobalPortRef::from_local(
+                        w.cond_port(),
+                        &self.env.cells[node.comp].unwrap_comp().index_bases,
+                    );
+
+                    let result = match target {
+                        GlobalPortRef::Port(p) => self.env.ports[p].as_bool(),
+                        GlobalPortRef::Ref(r) => {
+                            let index = self.env.ref_ports[r].unwrap();
+                            self.env.ports[index].as_bool()
+                        }
+                    };
+
+                    if result {
+                        *node = node.new_w_comp(w.body())
+                    } else {
+                        todo!()
+                    }
+                }
+                ControlNode::Empty(_)
+                | ControlNode::Enable(_)
+                | ControlNode::Invoke(_) => {}
+            }
+        }
 
         // we want to iterate through all the nodes present in the program counter
 

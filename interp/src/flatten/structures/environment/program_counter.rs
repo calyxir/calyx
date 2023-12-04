@@ -4,7 +4,7 @@ use ahash::{HashMap, HashMapExt};
 
 use super::super::context::Context;
 use crate::flatten::{
-    flat_ir::prelude::{ControlIdx, ControlNode, GlobalCellId},
+    flat_ir::prelude::{ControlIdx, ControlMap, ControlNode, GlobalCellId},
     structures::index_trait::{impl_index_nonzero, IndexRef},
 };
 
@@ -23,6 +23,15 @@ impl ControlPoint {
         Self {
             comp,
             control_node: control_leaf,
+        }
+    }
+
+    /// Constructs a new [ControlPoint] from an existing one by copying over the
+    /// component identifier but changing the leaf node
+    pub fn new_w_comp(&self, target: ControlIdx) -> Self {
+        Self {
+            comp: self.comp,
+            control_node: target,
         }
     }
 }
@@ -92,6 +101,12 @@ impl SearchPath {
 
     pub fn is_empty(&self) -> bool {
         self.path.is_empty()
+    }
+
+    /// Assuming the current node (i.e. the end of this path) has finished
+    /// executing, this ascends the path to the
+    pub fn next_node(&self, control_map: &ControlMap) -> ControlIdx {
+        todo!()
     }
 
     pub fn find_path_to_node(
@@ -251,6 +266,10 @@ impl ProgramCounter {
 
     pub fn is_done(&self) -> bool {
         self.vec.is_empty()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
+        self.vec.iter_mut()
     }
 }
 

@@ -146,6 +146,15 @@ pub enum GlobalPortRef {
     Ref(GlobalRefPortId),
 }
 
+impl GlobalPortRef {
+    pub fn from_local(local: PortRef, base_info: &BaseIndices) -> Self {
+        match local {
+            PortRef::Local(l) => (base_info + l).into(),
+            PortRef::Ref(r) => (base_info + r).into(),
+        }
+    }
+}
+
 impl From<GlobalRefPortId> for GlobalPortRef {
     fn from(v: GlobalRefPortId) -> Self {
         Self::Ref(v)
