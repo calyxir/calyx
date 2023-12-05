@@ -35,7 +35,8 @@ async function getProgramName() {
   }
 }
 
-class CiderDebugAdapterDescriptorFactory {
+// Factory for multi-session
+class CiderDebugAdapterDescriptorFactoryServer {
   adapter: CiderDebugAdapter;
   adapterPath: string;
   workspace: string;
@@ -97,7 +98,7 @@ class CiderDebugAdapter {
     // Include the port as a command line argument
     this.adapterProcess = cp.spawn(
       this.adapterPath,
-      [programName, "--port", port, "--tcp"],
+      ["--port", port, "--tcp"],
       { cwd: this.cwd }
     );
 
@@ -128,15 +129,42 @@ class CiderDebugAdapter {
   }
 }
 
+// Factory for single-session
+class CiderDebugAdapterDescriptorFactoryExecutable {
+  createDebugAdapterDescriptor(_session) {
+    // Use the DebugAdapterExecutable as the debug adapter descriptor
+    console.log("inside adapter factory");
+    console.log(vscode.workspace.getConfiguration("cider-dap").path);
+
+    return new vscode.DebugAdapterExecutable(
+      vscode.workspace.getConfiguration("cider-dap").path,
+      [programName],
+      { cwd: vscode.workspace.rootPath }
+    );
+  }
+}
+
 function activate(context) {
   logToPanel("Extension activated!");
 
-  // Start the debug server explicitly
-  const factory = new CiderDebugAdapterDescriptorFactory(
-    vscode.workspace.getConfiguration("cider-dap").path,
-    vscode.workspace.rootPath,
-    outputChannel
-  );
+  let factory: vscode.DebugAdapterDescriptorFactory;
+
+  // Get session type (multi or single) from package.json configuration
+  switch (vscode.workspace.getConfiguration("cider-dap").sessionType) {
+    case "Multi-Session":
+      factory = new CiderDebugAdapterDescriptorFactoryServer(
+        vscode.workspace.getConfiguration("cider-dap").path,
+        vscode.workspace.rootPath,
+        outputChannel
+      );
+      break;
+
+    case "Single-Session":
+    default:
+      factory = new CiderDebugAdapterDescriptorFactoryExecutable();
+      break;
+  }
+
   context.subscriptions.push(
     vscode.debug.registerDebugAdapterDescriptorFactory("cider-dap", factory)
   );
@@ -144,9 +172,6 @@ function activate(context) {
 
   // Update the adapter path with the serverPort and use it for starting the debug adapter
   logToPanel("before startDebugging");
-  /* context.subscriptions.push(vscode.commands.registerCommand('cider.startDebugging', startDebugging));
-  context.subscriptions.push(vscode.commands.registerCommand('cider.stopDebugging', stopDebugging));
- */
   logToPanel("Hello, your extension is now activated!");
 }
 
