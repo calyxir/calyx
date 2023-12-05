@@ -19,7 +19,7 @@ the cider-dap binary somewhere on your path. From some directory on your PATH:
 ln -s <PATH TO CALYX ROOT>/target/debug/cider-dap
 ```
 
-You will have to configure user settings of cider-dap in VSCode and input your cider binary path and port number. You can then launch the adapter with the Launch Program (Multi Session) action
+You will have to configure user settings of cider-dap in VSCode and input your cider binary path, session type, and port number (if debug adapter is started as a server). You can then launch the adapter with the Launch Program (Multi Session) action.
 
 ## Known issues
 
@@ -40,7 +40,7 @@ This project primarily leverages the Debug Adapter Protocol (DAP) for its functi
 &nbsp; &nbsp; &nbsp; &nbsp; `adapter.rs`: Defines the primary adapter structure for the project and its associated functionalities. Not just any adapter, this file structures the fundamental protocols, handling the translation of high-level debugging commands into actionable, low-level instructions. <br>
 &nbsp; &nbsp; &nbsp; &nbsp; `error.rs`: Contains custom error definitions and types for better error handling. <br>
 &nbsp; &nbsp; &nbsp; &nbsp; `main.rs`: The entry point for the project, it integrates functionalities from the other source files and provides the main execution logic. <br> 4. `calyxDebug` directory: <br>
-&nbsp; &nbsp; &nbsp; &nbsp; `extension.js`: JavaScript file for VSCode extension integration. It provides functions to interface between the VSCode environment and the Rust backend. <br>
+&nbsp; &nbsp; &nbsp; &nbsp; `extension.ts`: TypeScript file for VSCode extension integration. It provides functions to interface between the VSCode environment and the Rust backend. <br>
 
 ### About main.rs: the Main File
 

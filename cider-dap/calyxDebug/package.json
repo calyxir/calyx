@@ -43,6 +43,18 @@
           "scope": "machine",
           "default": 8888,
           "description": "Port number"
+        },
+        "cider-dap.sessionType": {
+          "type": "string",
+          "default": "Single-Session",
+          "enum": [
+            "Single-Session",
+            "Multi-Session"
+          ],
+          "enumDescriptions": [
+            "Runs the debugger in single-session",
+            "Runs the debugger in multi-session"
+          ]
         }
       }
     }
