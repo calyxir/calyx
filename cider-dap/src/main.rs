@@ -12,7 +12,6 @@ use error::AdapterResult;
 use std::fs::File;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
-use std::path::PathBuf;
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
@@ -23,9 +22,6 @@ struct Opts {
     #[argh(option, short = 'p', long = "port", default = "8080")]
     /// port for the TCP server
     port: u16,
-}
-fn read_path(path: &str) -> Result<PathBuf, String> {
-    Ok(PathBuf::from(path))
 }
 
 fn main() -> Result<(), MyAdapterError> {

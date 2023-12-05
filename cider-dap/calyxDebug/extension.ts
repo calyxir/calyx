@@ -98,7 +98,7 @@ class CiderDebugAdapter {
     // Include the port as a command line argument
     this.adapterProcess = cp.spawn(
       this.adapterPath,
-      [programName, "--port", port, "--tcp"],
+      ["--port", port, "--tcp"],
       { cwd: this.cwd }
     );
 
