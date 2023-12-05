@@ -170,7 +170,6 @@ fn run_server<R: Read, W: Write>(
             // to break out of the loop and close the server.
             // Command::Disconnect(_) => break,
             // ...
-            
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),

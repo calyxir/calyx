@@ -35,7 +35,7 @@ async function getProgramName() {
   }
 }
 
-// Factory for multi-sesssion
+// Factory for multi-session
 class CiderDebugAdapterDescriptorFactoryServer {
   adapter: CiderDebugAdapter;
   adapterPath: string;
@@ -172,8 +172,6 @@ function activate(context) {
 
   // Update the adapter path with the serverPort and use it for starting the debug adapter
   logToPanel("before startDebugging");
-  // context.subscriptions.push(vscode.commands.registerCommand('cider.startDebugging', startDebugging));
-  // context.subscriptions.push(vscode.commands.registerCommand('cider.stopDebugging', stopDebugging));
   logToPanel("Hello, your extension is now activated!");
 }
 

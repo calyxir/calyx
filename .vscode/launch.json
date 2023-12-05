@@ -4,15 +4,9 @@
     {
       "type": "cider-dap",
       "request": "launch",
-      "name": "Launch Program (Multi Session)",
+      "name": "Debug w/ Cider",
       "program": "${file}",
       "stopOnEntry": true
-    },
-    {
-      "type": "cider-dap",
-      "request": "launch",
-      "name": "Launch Program",
-      "program": "${workspaceFolder}/Program"
     },
     {
       "name": "Python: Current File",
