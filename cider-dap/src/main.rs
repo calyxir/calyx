@@ -226,15 +226,8 @@ fn run_server<R: Read, W: Write>(
                 // Send response first
                 server.respond(rsp)?;
                 // Send event
-                server.send_event(Event::Stopped(StoppedEventBody {
-                    reason: types::StoppedEventReason::Pause,
-                    description: Some(String::from("Paused")),
-                    preserve_focus_hint: None,
-                    text: None,
-                    thread_id: Some(thread_id),
-                    all_threads_stopped: None,
-                    hit_breakpoint_ids: None,
-                }))?;
+                let stopped = create_stopped(String::from("Paused"), thread_id);
+                server.send_event(stopped)?;
             }
             // Step over
             Command::Next(args) => {
@@ -244,15 +237,9 @@ fn run_server<R: Read, W: Write>(
                 // Send response first
                 server.respond(rsp)?;
                 // Send event
-                server.send_event(Event::Stopped(StoppedEventBody {
-                    reason: types::StoppedEventReason::Step,
-                    description: Some(String::from("Continue")),
-                    thread_id: Some(thread_id),
-                    preserve_focus_hint: None,
-                    text: None,
-                    all_threads_stopped: None,
-                    hit_breakpoint_ids: None,
-                }))?;
+                let stopped =
+                    create_stopped(String::from("Continue"), thread_id);
+                server.send_event(stopped)?;
             }
             // Step in
             Command::StepIn(args) => {
@@ -262,15 +249,9 @@ fn run_server<R: Read, W: Write>(
                 let rsp = req.success(ResponseBody::StepIn);
                 server.respond(rsp)?;
                 // Send event
-                server.send_event(Event::Stopped(StoppedEventBody {
-                    reason: types::StoppedEventReason::Step,
-                    description: Some(String::from("Paused on step")),
-                    thread_id: Some(thread_id),
-                    preserve_focus_hint: None,
-                    text: None,
-                    all_threads_stopped: None,
-                    hit_breakpoint_ids: None,
-                }))?;
+                let stopped =
+                    create_stopped(String::from("Paused on step"), thread_id);
+                server.send_event(stopped)?;
             }
             // Step out
             Command::StepOut(args) => {
@@ -280,15 +261,9 @@ fn run_server<R: Read, W: Write>(
                 let rsp = req.success(ResponseBody::StepOut);
                 server.respond(rsp)?;
                 // Send event
-                server.send_event(Event::Stopped(StoppedEventBody {
-                    reason: types::StoppedEventReason::Step,
-                    description: Some(String::from("Paused on step")),
-                    thread_id: Some(thread_id),
-                    preserve_focus_hint: None,
-                    text: None,
-                    all_threads_stopped: None,
-                    hit_breakpoint_ids: None,
-                }))?;
+                let stopped =
+                    create_stopped(String::from("Paused on step"), thread_id);
+                server.send_event(stopped)?;
             }
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
@@ -297,4 +272,17 @@ fn run_server<R: Read, W: Write>(
             }
         }
     }
+}
+
+/// Helper function used to create a Stopped event
+fn create_stopped(reason: String, thread_id: i64) -> Event {
+    Event::Stopped(StoppedEventBody {
+        reason: types::StoppedEventReason::Step,
+        description: Some(reason),
+        thread_id: Some(thread_id),
+        preserve_focus_hint: None,
+        text: None,
+        all_threads_stopped: None,
+        hit_breakpoint_ids: None,
+    })
 }

@@ -35,10 +35,6 @@ pub enum MyAdapterError {
     /// Represents a server error.
     #[error(transparent)]
     ServerError(#[from] ServerError),
-
-    // Represents an exit
-    #[error("Exited with exit code: {0}")]
-    ExitError(u64),
 }
 
 // Needed to properly display messages in output
