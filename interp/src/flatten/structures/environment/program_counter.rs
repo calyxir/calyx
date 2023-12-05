@@ -104,8 +104,11 @@ impl SearchPath {
     }
 
     /// Assuming the current node (i.e. the end of this path) has finished
-    /// executing, this ascends the path to the
-    pub fn next_node(&self, control_map: &ControlMap) -> ControlIdx {
+    /// executing, this ascends the path to the parent node and then proceeds to
+    /// it's next child, if no such child exists, it ascends again and repeats
+    /// the process. If no next node is found, it returns None, indicating that
+    /// there is nothing new to evaluate on the path.
+    pub fn next_node(&self, control_map: &ControlMap) -> Option<ControlIdx> {
         todo!()
     }
 
