@@ -14,6 +14,8 @@ use error::AdapterResult;
 use std::fs::File;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
+use std::fs::OpenOptions;
+use slog::Drain;
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
@@ -28,6 +30,29 @@ struct Opts {
 
 fn main() -> Result<(), MyAdapterError> {
     let opts: Opts = argh::from_env();
+    // Initializing logger
+    let log_path = "cider-dap/src/output.log";
+    let file = OpenOptions::new()
+      .create(true)
+      .write(true)
+      .truncate(true)
+      .open(log_path)
+      .unwrap();
+
+    // let term_decorator = slog_term::TermDecorator::new().build();
+    // let file_decorator = slog_term::PlainDecorator::new(file);
+
+    // let term_drain = slog_term::FullFormat::new(term_decorator).build().fuse();
+    // let file_drain = slog_term::FullFormat::new(file_decorator).build().fuse();
+    // let async_drain = if opts.is_multi_session {slog_async::Async::new(term_drain).build().fuse()} else {slog_async::Async::new(file_drain).build().fuse()};
+    // let logger = slog::Logger::root(async_drain, slog::o!());
+
+    let decorator = slog_term::PlainDecorator::new(file);
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+    let logger = slog::Logger::root(drain, slog::o!());
+
+    slog::info!(logger, "Logging initialized");
     if opts.is_multi_session {
         eprintln!("running multi-session");
         let listener = TcpListener::bind(("127.0.0.1", opts.port))?;
