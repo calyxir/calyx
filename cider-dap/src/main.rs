@@ -16,16 +16,23 @@ use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
 use std::fs::OpenOptions;
 use slog::Drain;
+use std::path::PathBuf;
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
 struct Opts {
+    /// input file
+    #[argh(positional, from_str_fn(read_path))]
+    file: Option<PathBuf>,
     #[argh(switch, long = "tcp")]
     /// runs in tcp mode
     is_multi_session: bool,
     #[argh(option, short = 'p', long = "port", default = "8080")]
     /// port for the TCP server
     port: u16,
+}
+fn read_path(path: &str) -> Result<PathBuf, String> {
+    Ok(PathBuf::from(path))
 }
 
 fn main() -> Result<(), MyAdapterError> {
@@ -39,18 +46,13 @@ fn main() -> Result<(), MyAdapterError> {
       .open(log_path)
       .unwrap();
 
-    // let term_decorator = slog_term::TermDecorator::new().build();
-    // let file_decorator = slog_term::PlainDecorator::new(file);
+    let term_decorator = slog_term::TermDecorator::new().build();
+    let file_decorator = slog_term::PlainDecorator::new(file);
 
-    // let term_drain = slog_term::FullFormat::new(term_decorator).build().fuse();
-    // let file_drain = slog_term::FullFormat::new(file_decorator).build().fuse();
-    // let async_drain = if opts.is_multi_session {slog_async::Async::new(term_drain).build().fuse()} else {slog_async::Async::new(file_drain).build().fuse()};
-    // let logger = slog::Logger::root(async_drain, slog::o!());
-
-    let decorator = slog_term::PlainDecorator::new(file);
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-    let logger = slog::Logger::root(drain, slog::o!());
+    let term_drain = slog_term::FullFormat::new(term_decorator).build().fuse();
+    let file_drain = slog_term::FullFormat::new(file_decorator).build().fuse();
+    let async_drain = if opts.is_multi_session {slog_async::Async::new(term_drain).build().fuse()} else {slog_async::Async::new(file_drain).build().fuse()};
+    let logger = slog::Logger::root(async_drain, slog::o!());
 
     slog::info!(logger, "Logging initialized");
     if opts.is_multi_session {
@@ -280,6 +282,7 @@ fn run_server<R: Read, W: Write>(
                     create_stopped(String::from("Paused on step"), thread_id);
                 server.send_event(stopped)?;
             }
+            Command::Initialize(..) => loop{},
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),
