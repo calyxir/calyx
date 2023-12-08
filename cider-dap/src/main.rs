@@ -33,27 +33,29 @@ fn main() -> Result<(), MyAdapterError> {
     // Initializing logger
     let log_path = "cider-dap/src/output.log";
     let file = OpenOptions::new()
-      .create(true)
-      .write(true)
-      .truncate(true)
-      .open(log_path)
-      .unwrap();
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(log_path)
+        .unwrap();
 
+    // Different decorators and drains for terminal and file logging -- async_drain picks the right one based on session
     let term_decorator = slog_term::TermDecorator::new().build();
     let file_decorator = slog_term::PlainDecorator::new(file);
-
     let term_drain = slog_term::FullFormat::new(term_decorator).build().fuse();
     let file_drain = slog_term::FullFormat::new(file_decorator).build().fuse();
     let async_drain = if opts.is_multi_session {slog_async::Async::new(term_drain).build().fuse()} else {slog_async::Async::new(file_drain).build().fuse()};
+    // How do we get access to logger outside of main?
     let logger = slog::Logger::root(async_drain, slog::o!());
+
 
     slog::info!(logger, "Logging initialized");
     if opts.is_multi_session {
-        eprintln!("running multi-session");
+        slog::info!(logger, "running multi-session");
         let listener = TcpListener::bind(("127.0.0.1", opts.port))?;
-        eprintln!("bound on port: {} ", opts.port);
+        slog::info!(logger, "bound on port: {} ", opts.port);
         let (stream, addr) = listener.accept()?;
-        eprintln!("Accepted client on: {}", addr); // changed to eprintln!
+        slog::info!(logger, "Accepted client on: {}", addr); 
         let read_stream = BufReader::new(stream.try_clone()?);
         let write_stream = BufWriter::new(stream);
         let mut server = Server::new(read_stream, write_stream);
@@ -64,14 +66,14 @@ fn main() -> Result<(), MyAdapterError> {
         // Run the server using the adapter
         run_server(&mut server, adapter)?;
     } else {
-        eprintln!("running single-session");
+        slog::info!(logger, "running single-session");
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
         let mut server = Server::new(read, write);
         let adapter = multi_session_init(&mut server)?;
         run_server(&mut server, adapter)?;
     }
-    eprintln!("exited run_Server");
+    slog::info!(logger, "exited run_Server");
     Ok(())
 }
 
@@ -113,7 +115,7 @@ where
     let program_path = if let Command::Launch(params) = &req.command {
         if let Some(data) = &params.additional_data {
             if let Some(program_path) = data.get("program") {
-                eprintln!("Program path: {}", program_path);
+                // slog::info!(logger, "Program path: {}", program_path);
                 program_path
                     .as_str()
                     .ok_or(MyAdapterError::InvalidPathError)?
@@ -208,7 +210,7 @@ fn run_server<R: Read, W: Write>(
                 server.respond(rsp)?;
 
                 //Exit
-                eprintln!("exited debugger");
+                // slog::info!(logger, "exited debugger");
                 return Ok(());
             }
             // Send StackTrace, may be useful to make it more robust in the future
@@ -275,7 +277,6 @@ fn run_server<R: Read, W: Write>(
                     create_stopped(String::from("Paused on step"), thread_id);
                 server.send_event(stopped)?;
             }
-            Command::Initialize(..) => loop{},
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),
