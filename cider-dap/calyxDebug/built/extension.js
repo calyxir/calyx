@@ -154,7 +154,7 @@ var CiderDebugAdapterDescriptorFactoryExecutable = /** @class */ (function () {
         // Use the DebugAdapterExecutable as the debug adapter descriptor
         console.log("inside adapter factory");
         console.log(vscode.workspace.getConfiguration("cider-dap").path);
-        return new vscode.DebugAdapterExecutable(vscode.workspace.getConfiguration("cider-dap").path, [programName], { cwd: vscode.workspace.rootPath });
+        return new vscode.DebugAdapterExecutable(vscode.workspace.getConfiguration("cider-dap").path, [], { cwd: vscode.workspace.rootPath });
     };
     return CiderDebugAdapterDescriptorFactoryExecutable;
 }());

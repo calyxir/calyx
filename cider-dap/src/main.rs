@@ -16,23 +16,16 @@ use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
 use std::fs::OpenOptions;
 use slog::Drain;
-use std::path::PathBuf;
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
 struct Opts {
-    /// input file
-    #[argh(positional, from_str_fn(read_path))]
-    file: Option<PathBuf>,
     #[argh(switch, long = "tcp")]
     /// runs in tcp mode
     is_multi_session: bool,
     #[argh(option, short = 'p', long = "port", default = "8080")]
     /// port for the TCP server
     port: u16,
-}
-fn read_path(path: &str) -> Result<PathBuf, String> {
-    Ok(PathBuf::from(path))
 }
 
 fn main() -> Result<(), MyAdapterError> {
