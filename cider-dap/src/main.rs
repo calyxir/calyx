@@ -11,11 +11,11 @@ use error::MyAdapterError;
 
 use dap::prelude::*;
 use error::AdapterResult;
+use slog::Drain;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
-use std::fs::OpenOptions;
-use slog::Drain;
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
@@ -31,7 +31,7 @@ struct Opts {
 fn main() -> Result<(), MyAdapterError> {
     let opts: Opts = argh::from_env();
     // Initializing logger
-    let log_path = "cider-dap/src/output.log";
+    let log_path = "/tmp/output.log"; // Stores in tmp file for now, if testing, use a relative path
     let file = OpenOptions::new()
         .create(true)
         .write(true)
@@ -44,10 +44,13 @@ fn main() -> Result<(), MyAdapterError> {
     let file_decorator = slog_term::PlainDecorator::new(file);
     let term_drain = slog_term::FullFormat::new(term_decorator).build().fuse();
     let file_drain = slog_term::FullFormat::new(file_decorator).build().fuse();
-    let async_drain = if opts.is_multi_session {slog_async::Async::new(term_drain).build().fuse()} else {slog_async::Async::new(file_drain).build().fuse()};
+    let async_drain = if opts.is_multi_session {
+        slog_async::Async::new(term_drain).build().fuse()
+    } else {
+        slog_async::Async::new(file_drain).build().fuse()
+    };
     // How do we get access to logger outside of main?
     let logger = slog::Logger::root(async_drain, slog::o!());
-
 
     slog::info!(logger, "Logging initialized");
     if opts.is_multi_session {
@@ -55,23 +58,23 @@ fn main() -> Result<(), MyAdapterError> {
         let listener = TcpListener::bind(("127.0.0.1", opts.port))?;
         slog::info!(logger, "bound on port: {} ", opts.port);
         let (stream, addr) = listener.accept()?;
-        slog::info!(logger, "Accepted client on: {}", addr); 
+        slog::info!(logger, "Accepted client on: {}", addr);
         let read_stream = BufReader::new(stream.try_clone()?);
         let write_stream = BufWriter::new(stream);
         let mut server = Server::new(read_stream, write_stream);
 
         // Get the adapter from the init function
-        let adapter = multi_session_init(&mut server)?;
+        let adapter = multi_session_init(&mut server, &logger)?;
 
         // Run the server using the adapter
-        run_server(&mut server, adapter)?;
+        run_server(&mut server, adapter, &logger)?;
     } else {
         slog::info!(logger, "running single-session");
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
         let mut server = Server::new(read, write);
-        let adapter = multi_session_init(&mut server)?;
-        run_server(&mut server, adapter)?;
+        let adapter = multi_session_init(&mut server, &logger)?;
+        run_server(&mut server, adapter, &logger)?;
     }
     slog::info!(logger, "exited run_Server");
     Ok(())
@@ -79,6 +82,7 @@ fn main() -> Result<(), MyAdapterError> {
 
 fn multi_session_init<R, W>(
     server: &mut Server<R, W>,
+    logger: &slog::Logger,
 ) -> AdapterResult<MyAdapter>
 where
     R: Read,
@@ -115,7 +119,7 @@ where
     let program_path = if let Command::Launch(params) = &req.command {
         if let Some(data) = &params.additional_data {
             if let Some(program_path) = data.get("program") {
-                // slog::info!(logger, "Program path: {}", program_path);
+                slog::info!(logger, "Program path: {}", program_path);
                 program_path
                     .as_str()
                     .ok_or(MyAdapterError::InvalidPathError)?
@@ -158,6 +162,7 @@ where
 fn run_server<R: Read, W: Write>(
     server: &mut Server<R, W>,
     mut adapter: MyAdapter,
+    logger: &slog::Logger,
 ) -> AdapterResult<()> {
     loop {
         // Start looping here
@@ -210,7 +215,7 @@ fn run_server<R: Read, W: Write>(
                 server.respond(rsp)?;
 
                 //Exit
-                // slog::info!(logger, "exited debugger");
+                slog::info!(logger, "exited debugger");
                 return Ok(());
             }
             // Send StackTrace, may be useful to make it more robust in the future
