@@ -136,6 +136,7 @@ impl InterpreterState {
     ) -> InterpreterResult<Box<dyn Primitive>> {
         let cell_qin = QualifiedInstanceName::new(qin_name, cell_name).as_id();
         Ok(match prim_name.as_ref() {
+            "undef" => Box::new(combinational::Undef::new(params, cell_qin)),
             "std_const" => {
                 Box::new(combinational::StdConst::new(params, cell_qin))
             }

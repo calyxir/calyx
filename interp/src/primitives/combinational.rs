@@ -148,6 +148,52 @@ impl Primitive for StdMux {
     }
 }
 
+pub struct Undef {
+    width: u64,
+    name: ir::Id,
+}
+
+impl Undef {
+    pub fn new(params: &ir::Binding, name: ir::Id) -> Self {
+        let width = get_param(params, "WIDTH")
+            .expect("Missing width parameter from std_const binding");
+
+        Self { width, name }
+    }
+}
+
+impl Named for Undef {
+    fn get_full_name(&self) -> &ir::Id {
+        &self.name
+    }
+}
+
+impl Primitive for Undef {
+    fn is_comb(&self) -> bool {
+        true
+    }
+
+    fn validate(&self, _inputs: &[(ir::Id, &Value)]) {}
+
+    fn execute(
+        &mut self,
+        _inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        Ok(vec![("out".into(), Value::zeroes(self.width))])
+    }
+
+    fn do_tick(&mut self) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        self.execute(&[])
+    }
+
+    fn reset(
+        &mut self,
+        inputs: &[(ir::Id, &Value)],
+    ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
+        self.execute(inputs)
+    }
+}
+
 // ===================== Unary operations ======================
 comb_primitive!(StdNot[WIDTH](r#in: WIDTH) -> (out: WIDTH) {
     Ok(r#in.clone_bit_vec().not().into())
