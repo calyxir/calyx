@@ -3,9 +3,9 @@
 //! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid FIRRTL program.
 
-use crate::{traits::Backend, verilog, VerilogBackend};
-use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
-use calyx_utils::{CalyxResult, Error, OutputFile};
+use crate::{traits::Backend, VerilogBackend};
+use calyx_ir::{self as ir};
+use calyx_utils::{CalyxResult, OutputFile};
 // use ir::Nothing;
 // use itertools::Itertools;
 // use std::io;
