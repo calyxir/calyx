@@ -19,7 +19,7 @@ the cider-dap binary somewhere on your path. From some directory on your PATH:
 ln -s <PATH TO CALYX ROOT>/target/debug/cider-dap
 ```
 
-You will have to configure user settings of cider-dap in VSCode and input your cider binary path, session type, and port number (if debug adapter is started as a server). You can then launch the adapter with the Launch Program (Multi Session) action.
+You will have to configure user settings of cider-dap in VSCode and input your cider binary path, session type, and port number (if debug adapter is started as a server). You can then launch the adapter with the Debug w/ Cider action.
 
 ## Known issues
 
@@ -50,6 +50,7 @@ In `main.rs`, our program is set up to accommodate both single and multi-session
 
 At the start of the `main()` function:
 
+- Initializes a logger to log to the terminal if in multi-session and a file in single-session.
 - The Opts struct captures command-line arguments. This struct contains an optional file path, a switch to determine if the application runs in multi-session mode, and a port number (with a default of 8080).
 - `argh::from_env()` processes the command-line arguments based on the defined struct. The use of argh simplifies command-line parsing, allowing you to focus on the main logic without getting bogged down in argument processing.
 
