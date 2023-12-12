@@ -73,7 +73,7 @@ fn emit_component<F: io::Write>(
     let sig = comp.signature.borrow();
     for (_idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
-        let direction_string = 
+        let direction_string =
         // NOTE: The signature port definitions are reversed inside the component.
         match port.direction {
             ir::Direction::Input => {"output"}
@@ -86,7 +86,13 @@ fn emit_component<F: io::Write>(
         if port.name == "clk" {
             writeln!(f, "{} {}: Clock", direction_string, port.name)?;
         } else {
-            writeln!(f, "{} {}: UInt<{}>", direction_string, port.name, port.width.to_string())?;
+            writeln!(
+                f,
+                "{} {}: UInt<{}>",
+                direction_string,
+                port.name,
+                port.width.to_string()
+            )?;
         }
     }
 
