@@ -89,9 +89,7 @@ fn emit_component<F: io::Write>(
             writeln!(
                 f,
                 "{} {}: UInt<{}>",
-                direction_string,
-                port.name,
-                port.width.to_string()
+                direction_string, port.name, port.width
             )?;
         }
     }
