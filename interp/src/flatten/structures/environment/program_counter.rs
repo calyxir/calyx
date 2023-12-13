@@ -319,6 +319,10 @@ impl ProgramCounter {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
         self.vec.iter_mut()
     }
+
+    pub(crate) fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
+        &mut self.vec
+    }
 }
 
 impl<'a> IntoIterator for &'a ProgramCounter {

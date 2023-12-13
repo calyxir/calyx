@@ -217,6 +217,20 @@ pub enum ControlNode {
     Invoke(Invoke),
 }
 
+impl ControlNode {
+    pub fn is_leaf(&self) -> bool {
+        match self {
+            ControlNode::While(_)
+            | ControlNode::Seq(_)
+            | ControlNode::Par(_)
+            | ControlNode::If(_) => false,
+            ControlNode::Enable(_)
+            | ControlNode::Invoke(_)
+            | ControlNode::Empty(_) => true,
+        }
+    }
+}
+
 // ---------------------
 
 /// An enum indicating whether an entity is entirely local to the given context

@@ -11,14 +11,16 @@ use crate::{
         flat_ir::{
             prelude::{
                 AssignmentIdx, BaseIndices, ComponentIdx, ControlIdx,
-                ControlNode, GlobalCellId, GlobalPortId, GlobalPortRef,
-                GlobalRefCellId, GlobalRefPortId, GuardIdx, PortRef,
+                ControlMap, ControlNode, GlobalCellId, GlobalPortId,
+                GlobalPortRef, GlobalRefCellId, GlobalRefPortId, GuardIdx,
+                PortRef,
             },
             wires::guards::Guard,
         },
         primitives::{self, Primitive},
         structures::{
-            environment::program_counter::ControlPoint, index_trait::IndexRef,
+            environment::program_counter::{ControlPoint, SearchPath},
+            index_trait::IndexRef,
         },
     },
     values::Value,
@@ -611,18 +613,34 @@ impl<'a> Simulator<'a> {
     }
 
     pub fn step(&mut self) -> InterpreterResult<()> {
+        /// attempts to get the next node for the given control point, if found
+        /// it replaces the given node. Returns true if the node was found and
+        /// replaced, returns false otherwise
+        fn get_next(node: &mut ControlPoint, ctx: &Context) -> bool {
+            let path = SearchPath::find_path_from_root(node.control_node, ctx);
+            let next = path.next_node(&ctx.primary.control);
+            if let Some(next) = next {
+                *node = node.new_w_comp(next);
+                true
+            } else {
+                //need to remove the node from the list now
+                false
+            }
+        }
+
         // place to keep track of what groups we need to conclude at the end of
         // this step. These are indices into the program counter
 
-        for node in self.env.pc.iter_mut() {
+        self.env.pc.vec_mut().retain_mut(|node| {
             // just considering a single node case for the moment
             match &self.env.ctx.primary[node.control_node] {
                 ControlNode::Seq(seq) => {
                     if !seq.is_empty() {
                         let next = seq.stms()[0];
                         *node = node.new_w_comp(next);
+                        true
                     } else {
-                        todo!("deal with seq being empty!!!")
+                        get_next(node, self.env.ctx)
                     }
                 }
                 ControlNode::Par(_par) => todo!("not ready for par yet"),
@@ -646,6 +664,7 @@ impl<'a> Simulator<'a> {
 
                     let target = if result { i.tbranch() } else { i.fbranch() };
                     *node = node.new_w_comp(target);
+                    true
                 }
                 ControlNode::While(w) => {
                     if w.cond_group().is_some() {
@@ -666,24 +685,29 @@ impl<'a> Simulator<'a> {
                     };
 
                     if result {
-                        *node = node.new_w_comp(w.body())
+                        // enter the body
+                        *node = node.new_w_comp(w.body());
+                        true
                     } else {
-                        todo!()
+                        // ascend the tree
+                        get_next(node, self.env.ctx)
                     }
                 }
-                ControlNode::Empty(_)
-                | ControlNode::Enable(_)
-                | ControlNode::Invoke(_) => {}
+
+                // ===== leaf nodes =====
+                ControlNode::Empty(_) => get_next(node, self.env.ctx),
+                ControlNode::Enable(_) => todo!(),
+                ControlNode::Invoke(_) => todo!("invokes not implemented yet"),
             }
-        }
+        });
 
         // we want to iterate through all the nodes present in the program counter
 
         // first we need to check for conditional control nodes
 
-        self.simulate_combinational();
+        // self.simulate_combinational();
 
-        todo!()
+        Ok(())
     }
 
     fn evaluate_guard(&self, guard: GuardIdx, comp: GlobalCellId) -> bool {
@@ -765,6 +789,9 @@ impl<'a> Simulator<'a> {
         for _x in self.env.pc.iter() {
             // println!("{:?} next {:?}", x, self.find_next_control_point(x))
         }
-        println!("{:?}", self.get_assignments())
+        self.step();
+        self.step();
+        self.env.print_pc();
+        // println!("{:?}", self.get_assignments())
     }
 }
