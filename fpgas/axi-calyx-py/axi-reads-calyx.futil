@@ -51,6 +51,8 @@ component m_arread_channel(
       txn_adder = std_add(32);
 
       block_transfer_done_and = std_and(1);
+      //need to put and out into a reg to avoid combinational loops
+      bt_reg = std_reg(1);
 
 
   }
@@ -74,10 +76,18 @@ component m_arread_channel(
       group block_transfer{
           block_transfer_done_and.left = ARREADY;
           block_transfer_done_and.right = is_arvalid.out;
-          block_transfer[done] = block_transfer_done_and.out;
+          bt_reg.in = block_transfer_done_and.out;
+          bt_reg.write_en = 1'b1;
+          block_transfer[done] = bt_reg.out;
       }
 
-      group do_ar_transfer { 
+      group reset_bt {
+          bt_reg.in = 1'b0;
+          bt_reg.write_en = 1'b1;
+          reset_bt[done] = bt_reg.done;
+      }
+
+      group do_ar_transfer {
           ARADDR = base_addr.out;
           ARSIZE = 3'b110; //see link above, needs to match data width to host.
           //For now this can be taken from .yxi, as size of mem.
@@ -119,6 +129,7 @@ component m_arread_channel(
           txn_init;
           while perform_reads.out with check_reads_done{
               seq{
+                  reset_bt;
                   assert_val;
                   block_transfer;
                   deassert_val;
@@ -159,6 +170,7 @@ component m_read_channel(
 
 
       block_transfer_done_and = std_and(1);
+      bt_reg = std_reg(1);
 
   }
   wires{
@@ -185,10 +197,18 @@ component m_read_channel(
           deassert_rdy[done] = is_rdy.done;
       }
 
+      group reset_bt {
+          bt_reg.in = 1'b0;
+          bt_reg.write_en = 1'b1;
+          reset_bt[done] = bt_reg.done;
+      }
+
       group block_transfer {
         block_transfer_done_and.left = is_rdy.out;
         block_transfer_done_and.right = RVALID;
-        block_transfer[done] = block_transfer_done_and.out;
+        bt_reg.in = block_transfer_done_and.out;
+        bt_reg.write_en = 1'b1;
+        block_transfer[done] = bt_reg.out;
         //block_transfer[done] = !(is_rdy.out & RVALID) ? 1'b0; //good to be explicit and not rely on undefined behavior
       }
 
@@ -205,6 +225,7 @@ component m_read_channel(
       //XXX(nathanielnrn): is this it? Do we need any other conditions?
       while n_RLAST.out with not_rlast{
           seq{
+              reset_bt;
               assert_rdy;
               block_transfer;
               deassert_rdy;
