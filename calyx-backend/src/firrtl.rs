@@ -134,7 +134,7 @@ fn write_assignment<F: io::Write>(
     f: &mut F,
 ) -> CalyxResult<()> {
     let dest_port = asgn.dst.borrow();
-    let mut dest_string = String::from(SPACING.repeat(2));
+    let mut dest_string = SPACING.repeat(2);
     match &dest_port.parent {
         ir::PortParent::Cell(cell) => {
             let parent_ref = cell.upgrade();
@@ -165,7 +165,7 @@ fn write_assignment<F: io::Write>(
             let parent = parent_ref.borrow();
             match parent.prototype {
                 ir::CellType::Constant { val, width: _ } => {
-                    let formatted = format!("UInt({})", val.to_string());
+                    let formatted = format!("UInt({})", val);
                     src_string.push_str(&formatted);
                 }
                 ir::CellType::ThisComponent => {
