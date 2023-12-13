@@ -36,19 +36,6 @@ impl ControlPoint {
     }
 }
 
-#[derive(Debug)]
-enum NextControlPoint {
-    /// no
-    None,
-    /// This is the node to run next. The nice friendly singular case
-    Next(ControlPoint),
-    /// We just finished the child of this par block and need to decrement its
-    /// count
-    FinishedParChild(ControlPoint),
-    /// We passed through one or more par nodes to reach this leaf (or leaves)
-    StartedParChild(Vec<ControlPoint>, Vec<(ControlPoint, u32)>),
-}
-
 /// An index for searching up and down a tree. This is used to index into
 /// various  control nodes. For If blocks the true branch is denoted by 0 and
 /// the false by 1. The same is true for while blocks. For seq and par blocks,
