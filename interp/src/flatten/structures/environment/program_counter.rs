@@ -109,7 +109,65 @@ impl SearchPath {
     /// the process. If no next node is found, it returns None, indicating that
     /// there is nothing new to evaluate on the path.
     pub fn next_node(&self, control_map: &ControlMap) -> Option<ControlIdx> {
-        todo!()
+        // Case A: Path is empty? Or has exactly 1 node, so there is no next
+        if self.len() < 2 {
+            None
+        }
+        // Case B: We have an actual search to do
+        else {
+            // minus 2 gets us the second to last node index
+            for search_head in (0..=self.len() - 2).rev() {
+                let SearchNode { node, search_index } = &self.path[search_head];
+                match &control_map[*node] {
+                    ControlNode::Seq(s) => {
+                        let current_child = search_index.expect(
+                            "search index should be present in active seq",
+                        );
+                        // We still have children to iterate through in this composition
+                        if current_child.index() < (s.stms().len() - 1) {
+                            let next_child =
+                                s.stms()[current_child.index() + 1];
+                            return Some(next_child);
+                        }
+                        // we finished this seq node and need to ascend further
+                        else {
+                            continue;
+                        }
+                    }
+                    ControlNode::Par(_) => {
+                        // the challenge here is that we currently don't know if
+                        // the par is done executing. probably this means we
+                        // should return None and wait until the entire par is
+                        // done? or return a third value indicating that the
+                        // par's child count should be decremented. The latter
+                        // seems more promising but I need to think on it more
+
+                        todo!("need to deal with par")
+                    }
+                    ControlNode::If(_) => {
+                        // there is nothing to do when ascending to an if as it
+                        // is already done once the body is done
+                        continue;
+                    }
+                    ControlNode::While(_) => {
+                        // we need to re-check the conditional, so this is our
+                        // next node
+                        return Some(*node);
+                    }
+
+                    // none of these three should be possible as a non-leaf node
+                    // which is what we are currently searching through on the
+                    // path, so this is definitely an error
+                    ControlNode::Invoke(_)
+                    | ControlNode::Empty(_)
+                    | ControlNode::Enable(_) => {
+                        unreachable!("SearchPath is malformed. This is an error and should be reported")
+                    }
+                }
+            }
+
+            None
+        }
     }
 
     pub fn find_path_to_node(
