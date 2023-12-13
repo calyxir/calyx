@@ -57,7 +57,7 @@ fn emit_component<F: io::Write>(
     f: &mut F,
 ) -> io::Result<()> {
     writeln!(f, "circuit {}:", comp.name)?;
-    writeln!(f, "   module {}:", comp.name)?;
+    writeln!(f, "{}module {}:", SPACING, comp.name)?;
 
     // TODO: Inputs and Outputs
     let sig = comp.signature.borrow();
@@ -74,18 +74,27 @@ fn emit_component<F: io::Write>(
         };
         // FIXME: Hack to get clock declaration right. Should check for attribute name instead.
         if port.name == "clk" {
-            writeln!(f, "{} {}: Clock", direction_string, port.name)?;
+            writeln!(
+                f,
+                "{}{} {}: Clock",
+                SPACING.repeat(2),
+                direction_string,
+                port.name
+            )?;
         } else {
             writeln!(
                 f,
-                "{} {}: UInt<{}>",
-                direction_string, port.name, port.width
+                "{}{} {}: UInt<{}>",
+                SPACING.repeat(2),
+                direction_string,
+                port.name,
+                port.width
             )?;
         }
     }
 
     // Add a COMPONENT START: <name> anchor before any code in the component
-    writeln!(f, "; COMPONENT START: {}", comp.name)?;
+    writeln!(f, "{}; COMPONENT START: {}", SPACING.repeat(2), comp.name)?;
 
     // TODO: Cells. NOTE: leaving this one for last
 
@@ -111,11 +120,11 @@ fn emit_component<F: io::Write>(
             }
             ir::Guard::Info(_) => todo!(),
         }
-        write_assignment(asgn, f);
+        let _ = write_assignment(asgn, f);
     }
 
     // Add COMPONENT END: <name> anchor
-    writeln!(f, "; COMPONENT END: {}\n", comp.name)?;
+    writeln!(f, "{}; COMPONENT END: {}\n", SPACING.repeat(2), comp.name)?;
 
     Ok(())
 }
@@ -123,23 +132,24 @@ fn emit_component<F: io::Write>(
 fn write_assignment<F: io::Write>(
     asgn: &ir::Assignment<ir::Nothing>,
     f: &mut F,
-) {
+) -> CalyxResult<()> {
     let dest_port = asgn.dst.borrow();
+    let mut dest_string = String::from(SPACING.repeat(2));
     match &dest_port.parent {
         ir::PortParent::Cell(cell) => {
             let parent_ref = cell.upgrade();
             let parent = parent_ref.borrow();
             match parent.prototype {
                 ir::CellType::ThisComponent => {
-                    write!(f, "{}", dest_port.name.as_ref());
+                    dest_string.push_str(dest_port.name.as_ref());
                 }
                 _ => {
-                    write!(
-                        f,
+                    let formatted = format!(
                         "{}.{}",
                         parent.name().as_ref(),
                         dest_port.name.as_ref()
                     );
+                    dest_string.push_str(&formatted);
                 }
             }
         }
@@ -147,26 +157,27 @@ fn write_assignment<F: io::Write>(
             unreachable!()
         }
     }
-    write!(f, " <= ");
+    let mut src_string = String::from("");
     let source_port = asgn.src.borrow();
     match &source_port.parent {
         ir::PortParent::Cell(cell) => {
             let parent_ref = cell.upgrade();
             let parent = parent_ref.borrow();
             match parent.prototype {
-                ir::CellType::Constant { val, width } => {
-                    write!(f, "UInt({})", val.to_string());
+                ir::CellType::Constant { val, width: _ } => {
+                    let formatted = format!("UInt({})", val.to_string());
+                    src_string.push_str(&formatted);
                 }
                 ir::CellType::ThisComponent => {
-                    write!(f, "{}", asgn.src.borrow().name);
+                    src_string.push_str(asgn.src.borrow().name.as_ref());
                 }
                 _ => {
-                    write!(
-                        f,
+                    let formatted = format!(
                         "{}.{}",
                         parent.name().as_ref(),
                         source_port.name.as_ref()
                     );
+                    src_string.push_str(&formatted);
                 }
             }
         }
@@ -174,5 +185,6 @@ fn write_assignment<F: io::Write>(
             unreachable!()
         }
     }
-    writeln!(f, "");
+    writeln!(f, "{} <= {}", dest_string, src_string)?;
+    Ok(())
 }
