@@ -6,12 +6,10 @@
 use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir};
 use calyx_utils::{CalyxResult, Error, OutputFile};
-// use ir::Nothing;
-// use itertools::Itertools;
 use std::io;
-// use std::{collections::HashMap, rc::Rc};
 use std::time::Instant;
-// use vast::v17::ast as v;
+
+pub(super) const SPACING: &str = "    ";
 
 /// Implements a simple FIRRTL backend. The backend only accepts Calyx programs with no control
 /// and no groups.
@@ -39,13 +37,7 @@ impl Backend for FirrtlBackend {
         let comps = ctx.components.iter().try_for_each(|comp| {
             // Time the generation of the component.
             let time = Instant::now();
-            let out = emit_component(
-                comp,
-                ctx.bc.synthesis_mode,
-                ctx.bc.enable_verification,
-                ctx.bc.flat_assign,
-                out,
-            );
+            let out = emit_component(comp, out);
             log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
             out
         });
@@ -59,11 +51,9 @@ impl Backend for FirrtlBackend {
     }
 }
 
+// TODO: Ask about the other backend configurations in verilog.rs and see if I need any of it
 fn emit_component<F: io::Write>(
     comp: &ir::Component,
-    _synthesis_mode: bool,
-    _enable_verification: bool,
-    _flat_assign: bool,
     f: &mut F,
 ) -> io::Result<()> {
     writeln!(f, "circuit {}:", comp.name)?;
@@ -97,14 +87,92 @@ fn emit_component<F: io::Write>(
     // Add a COMPONENT START: <name> anchor before any code in the component
     writeln!(f, "; COMPONENT START: {}", comp.name)?;
 
-    // TODO: Cells
+    // TODO: Cells. NOTE: leaving this one for last
 
-    // TODO: Guards
+    // TODO: simple assignments
 
-    // TODO: assignments
+    // below code is borrowed from verilog.rs, but pretty confused.
+    // let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
+    for asgn in &comp.continuous_assignments {
+        match asgn.guard.as_ref() {
+            ir::Guard::Or(_, _) => todo!(),
+            ir::Guard::And(_, _) => todo!(),
+            ir::Guard::Not(_) => todo!(),
+            ir::Guard::True =>
+            // There is no guard here
+            {
+                // FIXME: This is just a first pass to get things working. Definitely need to fix
+            }
+            ir::Guard::CompOp(_, _, _) => todo!(),
+            ir::Guard::Port(port_ref) => {
+                // FIXME: remove
+                let borrow = port_ref.borrow();
+                writeln!(f, "when {}:", borrow.canonical())?;
+            }
+            ir::Guard::Info(_) => todo!(),
+        }
+        write_assignment(asgn, f);
+    }
 
     // Add COMPONENT END: <name> anchor
     writeln!(f, "; COMPONENT END: {}\n", comp.name)?;
 
     Ok(())
+}
+
+fn write_assignment<F: io::Write>(
+    asgn: &ir::Assignment<ir::Nothing>,
+    f: &mut F,
+) {
+    let dest_port = asgn.dst.borrow();
+    match &dest_port.parent {
+        ir::PortParent::Cell(cell) => {
+            let parent_ref = cell.upgrade();
+            let parent = parent_ref.borrow();
+            match parent.prototype {
+                ir::CellType::ThisComponent => {
+                    write!(f, "{}", dest_port.name.as_ref());
+                }
+                _ => {
+                    write!(
+                        f,
+                        "{}.{}",
+                        parent.name().as_ref(),
+                        dest_port.name.as_ref()
+                    );
+                }
+            }
+        }
+        _ => {
+            unreachable!()
+        }
+    }
+    write!(f, " <= ");
+    let source_port = asgn.src.borrow();
+    match &source_port.parent {
+        ir::PortParent::Cell(cell) => {
+            let parent_ref = cell.upgrade();
+            let parent = parent_ref.borrow();
+            match parent.prototype {
+                ir::CellType::Constant { val, width } => {
+                    write!(f, "UInt({})", val.to_string());
+                }
+                ir::CellType::ThisComponent => {
+                    write!(f, "{}", asgn.src.borrow().name);
+                }
+                _ => {
+                    write!(
+                        f,
+                        "{}.{}",
+                        parent.name().as_ref(),
+                        source_port.name.as_ref()
+                    );
+                }
+            }
+        }
+        _ => {
+            unreachable!()
+        }
+    }
+    writeln!(f, "");
 }
