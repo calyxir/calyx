@@ -1,0 +1,9 @@
+// -b firrtl
+component main(in : 32) -> (out : 32) {
+  cells {}
+  wires {
+    out = in;
+    done = 1'd1;
+  }
+  control {}
+}
