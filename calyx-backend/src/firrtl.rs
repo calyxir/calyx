@@ -98,20 +98,29 @@ fn emit_component<F: io::Write>(
 
     // TODO: Cells. NOTE: leaving this one for last
 
+    // TODO: guards
     for asgn in &comp.continuous_assignments {
-        // TODO: guards
+        let mut num_indent = 3; // if we have a guard, then the assignment should be nested
         match asgn.guard.as_ref() {
             ir::Guard::Or(_, _) => todo!(),
             ir::Guard::And(_, _) => todo!(),
             ir::Guard::Not(_) => todo!(),
             ir::Guard::True => {
                 // Simple assignment with no guard
-                let _ = write_assignment(asgn, f);
+                num_indent = 2;
             }
             ir::Guard::CompOp(_, _, _) => todo!(),
-            ir::Guard::Port(_) => {}
+            ir::Guard::Port(port) => {
+                writeln!(
+                    f,
+                    "{}when {}:",
+                    SPACING.repeat(2),
+                    get_port_string(&port.borrow().clone())
+                )?;
+            }
             ir::Guard::Info(_) => todo!(),
         }
+        let _ = write_assignment(asgn, f, num_indent);
     }
 
     // Add COMPONENT END: <name> anchor
@@ -120,12 +129,37 @@ fn emit_component<F: io::Write>(
     Ok(())
 }
 
+// returns the FIRRTL translation of a port.
+fn get_port_string(port: &calyx_ir::Port) -> String {
+    match &port.parent {
+        ir::PortParent::Cell(cell) => {
+            let parent_ref = cell.upgrade();
+            let parent = parent_ref.borrow();
+            match parent.prototype {
+                ir::CellType::Constant { val, width: _ } => {
+                    format!("UInt({})", val)
+                }
+                ir::CellType::ThisComponent => String::from(port.name.as_ref()),
+                _ => {
+                    format!("{}.{}", parent.name().as_ref(), port.name.as_ref())
+                }
+            }
+        }
+        _ => {
+            unreachable!()
+        }
+    }
+}
+
+// Writes a FIRRTL assignment
 fn write_assignment<F: io::Write>(
     asgn: &ir::Assignment<ir::Nothing>,
     f: &mut F,
+    num_indent: usize,
 ) -> CalyxResult<()> {
     let dest_port = asgn.dst.borrow();
-    let mut dest_string = SPACING.repeat(2);
+    let mut dest_string = SPACING.repeat(num_indent);
+    // This match may be worth keeping (instead of replacing with get_port_string()), since dst should never be a Constant.
     match &dest_port.parent {
         ir::PortParent::Cell(cell) => {
             let parent_ref = cell.upgrade();
@@ -148,34 +182,8 @@ fn write_assignment<F: io::Write>(
             unreachable!()
         }
     }
-    let mut src_string = String::from("");
     let source_port = asgn.src.borrow();
-    match &source_port.parent {
-        ir::PortParent::Cell(cell) => {
-            let parent_ref = cell.upgrade();
-            let parent = parent_ref.borrow();
-            match parent.prototype {
-                ir::CellType::Constant { val, width: _ } => {
-                    let formatted = format!("UInt({})", val);
-                    src_string.push_str(&formatted);
-                }
-                ir::CellType::ThisComponent => {
-                    src_string.push_str(asgn.src.borrow().name.as_ref());
-                }
-                _ => {
-                    let formatted = format!(
-                        "{}.{}",
-                        parent.name().as_ref(),
-                        source_port.name.as_ref()
-                    );
-                    src_string.push_str(&formatted);
-                }
-            }
-        }
-        _ => {
-            unreachable!()
-        }
-    }
+    let src_string = get_port_string(&source_port);
     writeln!(f, "{} <= {}", dest_string, src_string)?;
     Ok(())
 }
