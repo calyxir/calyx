@@ -124,7 +124,7 @@ fn emit_component<F: io::Write>(
     }
 
     // Add COMPONENT END: <name> anchor
-    writeln!(f, "{}; COMPONENT END: {}\n", SPACING.repeat(2), comp.name)?;
+    writeln!(f, "{}; COMPONENT END: {}", SPACING.repeat(2), comp.name)?;
 
     Ok(())
 }
