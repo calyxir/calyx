@@ -102,23 +102,16 @@ fn emit_component<F: io::Write>(
     for asgn in &comp.continuous_assignments {
         let mut num_indent = 3; // if we have a guard, then the assignment should be nested
         match asgn.guard.as_ref() {
-            ir::Guard::Or(_, _) => todo!(),
-            ir::Guard::And(_, _) => todo!(),
-            ir::Guard::Not(_) => todo!(),
             ir::Guard::True => {
                 // Simple assignment with no guard
                 num_indent = 2;
             }
-            ir::Guard::CompOp(_, _, _) => todo!(),
-            ir::Guard::Port(port) => {
-                writeln!(
-                    f,
-                    "{}when {}:",
-                    SPACING.repeat(2),
-                    get_port_string(&port.borrow().clone())
-                )?;
+            _ => {
+                // need to write out the guard.
+                // FIXME: need to prepend the "when "
+                let guard_string = get_guard_string(asgn.guard.as_ref());
+                writeln!(f, "{}when {}:", SPACING.repeat(2), guard_string)?;
             }
-            ir::Guard::Info(_) => todo!(),
         }
         let _ = write_assignment(asgn, f, num_indent);
     }
@@ -127,6 +120,22 @@ fn emit_component<F: io::Write>(
     writeln!(f, "{}; COMPONENT END: {}", SPACING.repeat(2), comp.name)?;
 
     Ok(())
+}
+
+fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
+    match guard {
+        ir::Guard::Or(g1, g2) => {
+            let g1_str = get_guard_string(g1.as_ref());
+            let g2_str = get_guard_string(g2.as_ref());
+            format!("or({}, {})", g1_str, g2_str)
+        }
+        ir::Guard::And(_, _) => todo!(),
+        ir::Guard::Not(_) => todo!(),
+        ir::Guard::True => String::from(""),
+        ir::Guard::CompOp(_, _, _) => todo!(),
+        ir::Guard::Port(port) => get_port_string(&port.borrow().clone()),
+        ir::Guard::Info(_) => todo!(),
+    }
 }
 
 // returns the FIRRTL translation of a port.
