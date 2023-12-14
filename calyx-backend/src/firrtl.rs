@@ -59,7 +59,7 @@ fn emit_component<F: io::Write>(
     writeln!(f, "circuit {}:", comp.name)?;
     writeln!(f, "{}module {}:", SPACING, comp.name)?;
 
-    // TODO: Inputs and Outputs
+    // Inputs and Outputs
     let sig = comp.signature.borrow();
     for (_idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
@@ -69,7 +69,7 @@ fn emit_component<F: io::Write>(
             ir::Direction::Input => {"output"}
             ir::Direction::Output => {"input"}
             ir::Direction::Inout => {
-                panic!("Unexpected Inout port on Component: {}", port.name) // FIXME
+                panic!("Unexpected Inout port on Component: {}", port.name)
             }
         };
         // FIXME: Hack to get clock declaration right. Should check for attribute name instead.
@@ -98,29 +98,20 @@ fn emit_component<F: io::Write>(
 
     // TODO: Cells. NOTE: leaving this one for last
 
-    // TODO: simple assignments
-
-    // below code is borrowed from verilog.rs, but pretty confused.
-    // let mut map: HashMap<_, (RRC<ir::Port>, Vec<_>)> = HashMap::new();
     for asgn in &comp.continuous_assignments {
+        // TODO: guards
         match asgn.guard.as_ref() {
             ir::Guard::Or(_, _) => todo!(),
             ir::Guard::And(_, _) => todo!(),
             ir::Guard::Not(_) => todo!(),
-            ir::Guard::True =>
-            // There is no guard here
-            {
-                // FIXME: This is just a first pass to get things working. Definitely need to fix
+            ir::Guard::True => {
+                // Simple assignment with no guard
+                let _ = write_assignment(asgn, f);
             }
             ir::Guard::CompOp(_, _, _) => todo!(),
-            ir::Guard::Port(port_ref) => {
-                // FIXME: remove
-                let borrow = port_ref.borrow();
-                writeln!(f, "when {}:", borrow.canonical())?;
-            }
+            ir::Guard::Port(_) => {}
             ir::Guard::Info(_) => todo!(),
         }
-        let _ = write_assignment(asgn, f);
     }
 
     // Add COMPONENT END: <name> anchor
