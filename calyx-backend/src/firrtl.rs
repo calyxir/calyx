@@ -98,7 +98,7 @@ fn emit_component<F: io::Write>(
 
     // TODO: Cells. NOTE: leaving this one for last
 
-    // TODO: guards
+    // Emit assignments
     for asgn in &comp.continuous_assignments {
         let mut num_indent = 3; // if we have a guard, then the assignment should be nested
         match asgn.guard.as_ref() {
@@ -108,12 +108,11 @@ fn emit_component<F: io::Write>(
             }
             _ => {
                 // need to write out the guard.
-                // FIXME: need to prepend the "when "
                 let guard_string = get_guard_string(asgn.guard.as_ref());
                 writeln!(f, "{}when {}:", SPACING.repeat(2), guard_string)?;
             }
         }
-        let _ = write_assignment(asgn, f, num_indent);
+        let _ = write_assignment(asgn, f, num_indent, false);
     }
 
     // Add COMPONENT END: <name> anchor
@@ -122,19 +121,41 @@ fn emit_component<F: io::Write>(
     Ok(())
 }
 
+// recursive function that writes the FIRRTL representation for a guard.
 fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
     match guard {
-        ir::Guard::Or(g1, g2) => {
-            let g1_str = get_guard_string(g1.as_ref());
-            let g2_str = get_guard_string(g2.as_ref());
-            format!("or({}, {})", g1_str, g2_str)
+        ir::Guard::Or(l, r) => {
+            let l_str = get_guard_string(l.as_ref());
+            let r_str = get_guard_string(r.as_ref());
+            format!("or({}, {})", l_str, r_str)
         }
-        ir::Guard::And(_, _) => todo!(),
-        ir::Guard::Not(_) => todo!(),
+        ir::Guard::And(l, r) => {
+            let l_str = get_guard_string(l.as_ref());
+            let r_str = get_guard_string(r.as_ref());
+            format!("and({}, {})", l_str, r_str)
+        }
+        ir::Guard::Not(g) => {
+            let g_str = get_guard_string(g);
+            format!("not({})", g_str)
+        }
         ir::Guard::True => String::from(""),
-        ir::Guard::CompOp(_, _, _) => todo!(),
+        ir::Guard::CompOp(op, l, r) => {
+            let l_str = get_port_string(&l.borrow());
+            let r_str = get_port_string(&r.borrow());
+            let op_str = match op {
+                ir::PortComp::Eq => "eq",
+                ir::PortComp::Neq => "neq",
+                ir::PortComp::Gt => "gt",
+                ir::PortComp::Lt => "lt",
+                ir::PortComp::Geq => "geq",
+                ir::PortComp::Leq => "leq",
+            };
+            format!("{}({}, {})", op_str, l_str, r_str)
+        }
         ir::Guard::Port(port) => get_port_string(&port.borrow().clone()),
-        ir::Guard::Info(_) => todo!(),
+        ir::Guard::Info(_) => {
+            panic!("guard should not have info") // FIXME: What should I write here?
+        }
     }
 }
 
@@ -165,6 +186,7 @@ fn write_assignment<F: io::Write>(
     asgn: &ir::Assignment<ir::Nothing>,
     f: &mut F,
     num_indent: usize,
+    default_assignment: bool,
 ) -> CalyxResult<()> {
     let dest_port = asgn.dst.borrow();
     let mut dest_string = SPACING.repeat(num_indent);
@@ -191,8 +213,14 @@ fn write_assignment<F: io::Write>(
             unreachable!()
         }
     }
-    let source_port = asgn.src.borrow();
-    let src_string = get_port_string(&source_port);
+    let src_string;
+    if !default_assignment {
+        // We will assign to 0 if
+        let source_port = asgn.src.borrow();
+        src_string = get_port_string(&source_port);
+    } else {
+        src_string = String::from("UInt(0)");
+    }
     writeln!(f, "{} <= {}", dest_string, src_string)?;
     Ok(())
 }
