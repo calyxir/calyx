@@ -220,7 +220,7 @@ fn write_assignment<F: io::Write>(
         src_string = get_port_string(&source_port);
     } else {
         src_string = String::from("UInt(0)");
-    }
+    };
     writeln!(f, "{} <= {}", dest_string, src_string)?;
     Ok(())
 }
