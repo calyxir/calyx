@@ -11,4 +11,6 @@ circuit main:
         done <= UInt(1)
         when cond:
             out <= in
+        else: ; default assignment to 0
+            out <= UInt(0)
         ; COMPONENT END: main

@@ -100,19 +100,24 @@ fn emit_component<F: io::Write>(
 
     // Emit assignments
     for asgn in &comp.continuous_assignments {
-        let mut num_indent = 3; // if we have a guard, then the assignment should be nested
         match asgn.guard.as_ref() {
             ir::Guard::True => {
                 // Simple assignment with no guard
-                num_indent = 2;
+                let _ = write_assignment(asgn, f, 2, false);
             }
             _ => {
                 // need to write out the guard.
                 let guard_string = get_guard_string(asgn.guard.as_ref());
                 writeln!(f, "{}when {}:", SPACING.repeat(2), guard_string)?;
+                let _ = write_assignment(asgn, f, 3, false);
+                writeln!(
+                    f,
+                    "{}else: ; default assignment to 0",
+                    SPACING.repeat(2)
+                )?;
+                let _ = write_assignment(asgn, f, 3, true);
             }
         }
-        let _ = write_assignment(asgn, f, num_indent, false);
     }
 
     // Add COMPONENT END: <name> anchor

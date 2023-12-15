@@ -13,4 +13,6 @@ circuit main:
         done <= UInt(1)
         when and(or(not(cond), cond2), cond3):
             out <= in
+        else: ; default assignment to 0
+            out <= UInt(0)
         ; COMPONENT END: main
