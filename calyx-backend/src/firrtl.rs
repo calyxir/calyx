@@ -213,13 +213,12 @@ fn write_assignment<F: io::Write>(
             unreachable!()
         }
     }
-    let src_string;
-    if !default_assignment {
+    let src_string = if !default_assignment {
         // We will assign to 0 if
         let source_port = asgn.src.borrow();
-        src_string = get_port_string(&source_port);
+        get_port_string(&source_port)
     } else {
-        src_string = String::from("UInt(0)");
+        String::from("UInt(0)")
     };
     writeln!(f, "{} <= {}", dest_string, src_string)?;
     Ok(())
