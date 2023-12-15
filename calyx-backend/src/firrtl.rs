@@ -3,9 +3,11 @@
 //! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid FIRRTL program.
 
+use crate::verilog::is_data_port;
 use crate::{traits::Backend, VerilogBackend};
-use calyx_ir::{self as ir};
+use calyx_ir::{self as ir, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
+use std::collections::HashSet;
 use std::io;
 use std::time::Instant;
 
@@ -98,24 +100,26 @@ fn emit_component<F: io::Write>(
 
     // TODO: Cells. NOTE: leaving this one for last
 
+    let mut dst_set: HashSet<String> = HashSet::new();
     // Emit assignments
     for asgn in &comp.continuous_assignments {
         match asgn.guard.as_ref() {
             ir::Guard::True => {
                 // Simple assignment with no guard
-                let _ = write_assignment(asgn, f, 2, false);
+                let _ = write_assignment(asgn, f, 2);
             }
             _ => {
+                let dst_canonical = &asgn.dst.as_ref().borrow().canonical();
+                let dst_canonical_str = dst_canonical.to_string();
+                if !dst_set.contains(&dst_canonical_str) {
+                    // if we don't have a "is invalid" statement yet, then we have to write one.
+                    let _ = write_invalid_initialization(&asgn.dst, f);
+                    dst_set.insert(dst_canonical_str);
+                }
                 // need to write out the guard.
                 let guard_string = get_guard_string(asgn.guard.as_ref());
                 writeln!(f, "{}when {}:", SPACING.repeat(2), guard_string)?;
-                let _ = write_assignment(asgn, f, 3, false);
-                writeln!(
-                    f,
-                    "{}else: ; default assignment to 0",
-                    SPACING.repeat(2)
-                )?;
-                let _ = write_assignment(asgn, f, 3, true);
+                let _ = write_assignment(asgn, f, 3);
             }
         }
     }
@@ -145,8 +149,8 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
         }
         ir::Guard::True => String::from(""),
         ir::Guard::CompOp(op, l, r) => {
-            let l_str = get_port_string(&l.borrow());
-            let r_str = get_port_string(&r.borrow());
+            let l_str = get_port_string(&l.borrow(), false);
+            let r_str = get_port_string(&r.borrow(), false);
             let op_str = match op {
                 ir::PortComp::Eq => "eq",
                 ir::PortComp::Neq => "neq",
@@ -157,7 +161,7 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
             };
             format!("{}({}, {})", op_str, l_str, r_str)
         }
-        ir::Guard::Port(port) => get_port_string(&port.borrow().clone()),
+        ir::Guard::Port(port) => get_port_string(&port.borrow().clone(), false),
         ir::Guard::Info(_) => {
             panic!("guard should not have info") // FIXME: What should I write here?
         }
@@ -165,14 +169,19 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
 }
 
 // returns the FIRRTL translation of a port.
-fn get_port_string(port: &calyx_ir::Port) -> String {
+// if is_dst is true, then the port is a destination of an assignment, and shouldn't be a constant.
+fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
     match &port.parent {
         ir::PortParent::Cell(cell) => {
             let parent_ref = cell.upgrade();
             let parent = parent_ref.borrow();
             match parent.prototype {
                 ir::CellType::Constant { val, width: _ } => {
-                    format!("UInt({})", val)
+                    if !is_dst {
+                        format!("UInt({})", val)
+                    } else {
+                        unreachable!()
+                    }
                 }
                 ir::CellType::ThisComponent => String::from(port.name.as_ref()),
                 _ => {
@@ -186,45 +195,52 @@ fn get_port_string(port: &calyx_ir::Port) -> String {
     }
 }
 
+// variables that get set in guards should get initialized to avoid the FIRRTL compiler from erroring.
+fn write_invalid_initialization<F: io::Write>(
+    port: &RRC<ir::Port>,
+    f: &mut F,
+) -> CalyxResult<()> {
+    // FIXME: currently using the is_data_port() function from verilog.rs, but I think we want to instead
+    // check whether the port is a control port or not. I'll leave this in as a first pass
+    let data = is_data_port(port);
+    let default_initialization_str = "; default initialization";
+    let dst_string = get_port_string(&port.borrow(), true);
+    if data {
+        writeln!(
+            f,
+            "{}{} is invalid {}",
+            SPACING.repeat(2),
+            dst_string,
+            default_initialization_str
+        )?;
+    } else {
+        writeln!(
+            f,
+            "{}{} <= UInt(0) {}",
+            SPACING.repeat(2),
+            dst_string,
+            default_initialization_str
+        )?;
+    }
+    Ok(())
+}
+
 // Writes a FIRRTL assignment
 fn write_assignment<F: io::Write>(
     asgn: &ir::Assignment<ir::Nothing>,
     f: &mut F,
     num_indent: usize,
-    default_assignment: bool,
 ) -> CalyxResult<()> {
     let dest_port = asgn.dst.borrow();
-    let mut dest_string = SPACING.repeat(num_indent);
-    // This match may be worth keeping (instead of replacing with get_port_string()), since dst should never be a Constant.
-    match &dest_port.parent {
-        ir::PortParent::Cell(cell) => {
-            let parent_ref = cell.upgrade();
-            let parent = parent_ref.borrow();
-            match parent.prototype {
-                ir::CellType::ThisComponent => {
-                    dest_string.push_str(dest_port.name.as_ref());
-                }
-                _ => {
-                    let formatted = format!(
-                        "{}.{}",
-                        parent.name().as_ref(),
-                        dest_port.name.as_ref()
-                    );
-                    dest_string.push_str(&formatted);
-                }
-            }
-        }
-        _ => {
-            unreachable!()
-        }
-    }
-    let src_string = if !default_assignment {
-        // We will assign to 0 if
-        let source_port = asgn.src.borrow();
-        get_port_string(&source_port)
-    } else {
-        String::from("UInt(0)")
-    };
-    writeln!(f, "{} <= {}", dest_string, src_string)?;
+    let dest_string = get_port_string(&dest_port, true);
+    let source_port = asgn.src.borrow();
+    let src_string = get_port_string(&source_port, false);
+    writeln!(
+        f,
+        "{}{} <= {}",
+        SPACING.repeat(num_indent),
+        dest_string,
+        src_string
+    )?;
     Ok(())
 }

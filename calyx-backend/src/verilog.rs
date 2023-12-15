@@ -491,7 +491,7 @@ fn emit_guard_disjoint_check(
 /// Checks if:
 /// 1. The port is marked with `@data`
 /// 2. The port's cell parent is marked with `@data`
-fn is_data_port(pr: &RRC<ir::Port>) -> bool {
+pub fn is_data_port(pr: &RRC<ir::Port>) -> bool {
     let port = pr.borrow();
     if !port.attributes.has(ir::BoolAttr::Data) {
         return false;
