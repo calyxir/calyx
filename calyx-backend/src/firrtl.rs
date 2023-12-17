@@ -5,9 +5,8 @@
 
 use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir};
-use calyx_utils::{CalyxResult, Error, OutputFile};
+use calyx_utils::{CalyxResult, OutputFile};
 use std::io;
-use std::time::Instant;
 
 pub(super) const SPACING: &str = "    ";
 
@@ -34,20 +33,10 @@ impl Backend for FirrtlBackend {
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
-        let comps = ctx.components.iter().try_for_each(|comp| {
-            // Time the generation of the component.
-            let time = Instant::now();
-            let out = emit_component(comp, out);
-            log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
-            out
-        });
-        comps.map_err(|err| {
-            let std::io::Error { .. } = err;
-            Error::write_error(format!(
-                "File not found: {}",
-                file.as_path_string()
-            ))
-        })
+        for comp in ctx.components.iter() {
+            emit_component(comp, out)?
+        }
+        Ok(())
     }
 }
 
@@ -72,8 +61,7 @@ fn emit_component<F: io::Write>(
                 panic!("Unexpected Inout port on Component: {}", port.name)
             }
         };
-        // FIXME: Hack to get clock declaration right. Should check for attribute name instead.
-        if port.name == "clk" {
+        if port.has_attribute(ir::BoolAttr::Clk) {
             writeln!(
                 f,
                 "{}{} {}: Clock",
@@ -120,55 +108,37 @@ fn emit_component<F: io::Write>(
     Ok(())
 }
 
+// Writes a FIRRTL assignment
 fn write_assignment<F: io::Write>(
     asgn: &ir::Assignment<ir::Nothing>,
     f: &mut F,
 ) -> CalyxResult<()> {
     let dest_port = asgn.dst.borrow();
-    let mut dest_string = SPACING.repeat(2);
-    match &dest_port.parent {
-        ir::PortParent::Cell(cell) => {
-            let parent_ref = cell.upgrade();
-            let parent = parent_ref.borrow();
-            match parent.prototype {
-                ir::CellType::ThisComponent => {
-                    dest_string.push_str(dest_port.name.as_ref());
-                }
-                _ => {
-                    let formatted = format!(
-                        "{}.{}",
-                        parent.name().as_ref(),
-                        dest_port.name.as_ref()
-                    );
-                    dest_string.push_str(&formatted);
-                }
-            }
-        }
-        _ => {
-            unreachable!()
-        }
-    }
-    let mut src_string = String::from("");
+    let dest_string = get_port_string(&dest_port, true);
     let source_port = asgn.src.borrow();
-    match &source_port.parent {
+    let src_string = get_port_string(&source_port, false);
+    writeln!(f, "{}{} <= {}", SPACING.repeat(2), dest_string, src_string)?;
+    Ok(())
+}
+
+// returns the FIRRTL translation of a port.
+// if is_dst is true, then the port is a destination of an assignment, and shouldn't be a constant.
+fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
+    match &port.parent {
         ir::PortParent::Cell(cell) => {
             let parent_ref = cell.upgrade();
             let parent = parent_ref.borrow();
             match parent.prototype {
                 ir::CellType::Constant { val, width: _ } => {
-                    let formatted = format!("UInt({})", val);
-                    src_string.push_str(&formatted);
+                    if !is_dst {
+                        format!("UInt({})", val)
+                    } else {
+                        unreachable!()
+                    }
                 }
-                ir::CellType::ThisComponent => {
-                    src_string.push_str(asgn.src.borrow().name.as_ref());
-                }
+                ir::CellType::ThisComponent => String::from(port.name.as_ref()),
                 _ => {
-                    let formatted = format!(
-                        "{}.{}",
-                        parent.name().as_ref(),
-                        source_port.name.as_ref()
-                    );
-                    src_string.push_str(&formatted);
+                    format!("{}.{}", parent.name().as_ref(), port.name.as_ref())
                 }
             }
         }
@@ -176,6 +146,4 @@ fn write_assignment<F: io::Write>(
             unreachable!()
         }
     }
-    writeln!(f, "{} <= {}", dest_string, src_string)?;
-    Ok(())
 }
