@@ -1,5 +1,5 @@
 # Use the official rust image as a parent image.
-FROM rust:1.69
+FROM rust:1.70
 
 # Connect to the Calux repository.
 LABEL org.opencontainers.image.source https://github.com/cucapra/calyx
@@ -58,7 +58,7 @@ ADD . calyx
 WORKDIR /home/calyx
 RUN cargo build --all && \
     cargo install vcdump && \
-    cargo install runt --version 0.4.1
+    cargo install runt --version 0.4.0
 
 # Install fud
 WORKDIR /home/calyx/fud
