@@ -3,7 +3,7 @@ from calyx import queue_util
 import calyx.builder as cb
 
 
-def insert_main(prog, queue):
+def insert_main_old(prog, queue):
     """Inserts the component `main` into the program.
     This will be used to `invoke` the component `queue` and feed it a list of commands.
     This component will directly interface with external memories and will
@@ -212,3 +212,64 @@ def insert_runner(prog, queue, name, stats_component):
     ]
 
     return runner
+
+
+def insert_main(prog, queue, controller, stats_component):
+    """Inserts the component `main` into the program.
+    It triggers the dataplane and controller components.
+    """
+
+    main: cb.ComponentBuilder = prog.component("main")
+
+    stats = main.cell("stats_main", stats_component)
+    controller = main.cell("controller", controller)
+
+    dataplane = insert_runner(prog, queue, "dataplane", stats_component)
+    dataplane = main.cell("dataplane", dataplane)
+
+    has_ans = main.reg("has_ans", 1)
+    dataplane_ans = main.reg("dataplane_ans", 32)
+    dataplane_err = main.reg("dataplane_err", 1)
+
+    commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
+    values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
+    ans_mem = main.seq_mem_d1("ans_mem", 32, queue_util.MAX_CMDS, 32, is_external=True)
+
+    ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
+
+    j = main.reg("j", 32)  # The index on the answer-list we'll write to
+    incr_j = main.incr(j)  # j++
+    write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
+    # ans_mem[j] = dataplane_ans
+    lower_has_ans = main.reg_store(has_ans, 0, "lower_has_ans")  # has_ans := 0
+
+    not_err = main.not_use(dataplane_err.out)
+
+    main.control += cb.while_with(
+        # We will run the dataplane and controller components in parallel,
+        # in a while loop. The loop will terminate when the dataplane component
+        # raises `dataplane_err`.
+        not_err,  # While the dataplane component has not errored out.
+        [
+            lower_has_ans,  # Lower the has-ans flag.
+            cb.invoke(  # Invoke the dataplane component.
+                dataplane,
+                ref_commands=commands,
+                ref_values=values,
+                ref_has_ans=has_ans,
+                ref_component_ans=dataplane_ans,
+                ref_component_err=dataplane_err,
+                ref_stats_runner=stats,
+            ),
+            # If the dataplane component has a nonzero answer,
+            # write it to the answer-list and increment the index `j`.
+            cb.if_(
+                has_ans.out,
+                cb.if_with(ans_neq_0, [write_ans, incr_j]),
+            ),
+            cb.invoke(  # Invoke the controller component.
+                controller,
+                ref_stats_controller=stats,
+            ),
+        ],
+    )
