@@ -143,7 +143,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
             }
         }
         _ => {
-            unreachable!()
+            unreachable!("Groups should not be parents as this backend takes place after compiler passes.")
         }
     }
 }
