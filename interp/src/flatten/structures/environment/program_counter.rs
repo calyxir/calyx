@@ -4,7 +4,7 @@ use ahash::{HashMap, HashMapExt};
 
 use super::super::context::Context;
 use crate::flatten::{
-    flat_ir::prelude::{ControlIdx, ControlMap, ControlNode, GlobalCellId},
+    flat_ir::prelude::{ControlIdx, ControlMap, ControlNode, GlobalCellIdx},
     structures::index_trait::{impl_index_nonzero, IndexRef},
 };
 
@@ -12,14 +12,14 @@ use itertools::{FoldWhile, Itertools};
 
 /// Simple struct containing both the component instance and the active leaf
 /// node in the component
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ControlPoint {
-    pub comp: GlobalCellId,
+    pub comp: GlobalCellIdx,
     pub control_node: ControlIdx,
 }
 
 impl ControlPoint {
-    pub fn new(comp: GlobalCellId, control_leaf: ControlIdx) -> Self {
+    pub fn new(comp: GlobalCellIdx, control_leaf: ControlIdx) -> Self {
         Self {
             comp,
             control_node: control_leaf,
@@ -287,7 +287,7 @@ impl ProgramCounter {
         let root = ctx.entry_point;
         // this relies on the fact that we construct the root cell-ledger
         // as the first possible cell in the program. If that changes this will break.
-        let root_cell = GlobalCellId::new(0);
+        let root_cell = GlobalCellIdx::new(0);
 
         let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
 

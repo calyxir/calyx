@@ -4,7 +4,7 @@ use bitvec::vec::BitVec;
 
 use crate::{
     flatten::{
-        flat_ir::prelude::GlobalPortId,
+        flat_ir::prelude::GlobalPortIdx,
         primitives::{
             comb_primitive, declare_ports, output, ports, prim_trait::Results,
             Primitive,
@@ -17,11 +17,11 @@ use crate::{
 
 pub struct StdConst {
     value: Value,
-    out: GlobalPortId,
+    out: GlobalPortIdx,
 }
 
 impl StdConst {
-    pub fn new(value: Value, out: GlobalPortId) -> Self {
+    pub fn new(value: Value, out: GlobalPortIdx) -> Self {
         Self { value, out }
     }
 }
@@ -45,13 +45,13 @@ impl Primitive for StdConst {
 }
 
 pub struct StdMux {
-    base: GlobalPortId,
+    base: GlobalPortIdx,
     width: u32,
 }
 
 impl StdMux {
     declare_ports![ COND: 0, TRU: 1, FAL:2, OUT: 3];
-    pub fn new(base: GlobalPortId, width: u32) -> Self {
+    pub fn new(base: GlobalPortIdx, width: u32) -> Self {
         Self { base, width }
     }
 }

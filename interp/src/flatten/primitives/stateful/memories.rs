@@ -1,6 +1,6 @@
 use crate::{
     flatten::{
-        flat_ir::prelude::GlobalPortId,
+        flat_ir::prelude::GlobalPortIdx,
         primitives::{
             declare_ports, make_getters, output, ports, prim_trait::Results,
             Primitive,
@@ -12,14 +12,14 @@ use crate::{
 };
 
 pub struct StdReg {
-    base_port: GlobalPortId,
+    base_port: GlobalPortIdx,
     internal_state: Value,
 }
 
 impl StdReg {
     declare_ports![IN: 0, WRITE_EN: 1, CLK: 2, RESET: 3, OUT: 4, DONE: 5];
 
-    pub fn new(base_port: GlobalPortId, width: u32) -> Self {
+    pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
         let internal_state = Value::zeroes(width);
         Self {
             base_port,
@@ -81,7 +81,7 @@ pub trait MemAddresser {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
+        base_port: GlobalPortIdx,
     ) -> usize;
 }
 
@@ -91,7 +91,7 @@ impl<const SEQ: bool> MemAddresser for MemD1<SEQ> {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
+        base_port: GlobalPortIdx,
     ) -> usize {
         let addr0 = if SEQ {
             ports![&base_port; addr0: Self::SEQ_ADDR0];
@@ -127,7 +127,7 @@ impl<const SEQ: bool> MemAddresser for MemD2<SEQ> {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
+        base_port: GlobalPortIdx,
     ) -> usize {
         let (addr0, addr1) = if SEQ {
             ports![&base_port;
@@ -169,7 +169,7 @@ impl<const SEQ: bool> MemAddresser for MemD3<SEQ> {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
+        base_port: GlobalPortIdx,
     ) -> usize {
         let (addr0, addr1, addr2) = if SEQ {
             ports![&base_port;
@@ -221,7 +221,7 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
+        base_port: GlobalPortIdx,
     ) -> usize {
         let (addr0, addr1, addr2, addr3) = if SEQ {
             ports![&base_port;
@@ -261,7 +261,7 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
 }
 
 pub struct StdMem<M: MemAddresser> {
-    base_port: GlobalPortId,
+    base_port: GlobalPortIdx,
     internal_state: Vec<Value>,
     allow_invalid_access: bool,
     width: u32,
@@ -345,7 +345,7 @@ pub type StdMemD4 = StdMem<MemD4<false>>;
 
 impl StdMemD1 {
     pub fn new(
-        base: GlobalPortId,
+        base: GlobalPortIdx,
         width: u32,
         allow_invalid: bool,
         size: usize,
@@ -364,7 +364,7 @@ impl StdMemD1 {
 
 impl StdMemD2 {
     pub fn new(
-        base: GlobalPortId,
+        base: GlobalPortIdx,
         width: u32,
         allow_invalid: bool,
         size: (usize, usize),
@@ -383,7 +383,7 @@ impl StdMemD2 {
 
 impl StdMemD3 {
     pub fn new(
-        base: GlobalPortId,
+        base: GlobalPortIdx,
         width: u32,
         allow_invalid: bool,
         size: (usize, usize, usize),
@@ -406,7 +406,7 @@ impl StdMemD3 {
 
 impl StdMemD4 {
     pub fn new(
-        base: GlobalPortId,
+        base: GlobalPortIdx,
         width: u32,
         allow_invalid: bool,
         size: (usize, usize, usize, usize),

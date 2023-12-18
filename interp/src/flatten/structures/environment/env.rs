@@ -11,8 +11,8 @@ use crate::{
         flat_ir::{
             prelude::{
                 AssignmentIdx, BaseIndices, ComponentIdx, ControlIdx,
-                ControlMap, ControlNode, GlobalCellId, GlobalPortId,
-                GlobalPortRef, GlobalRefCellId, GlobalRefPortId, GuardIdx,
+                ControlMap, ControlNode, GlobalCellIdx, GlobalPortIdx,
+                GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx,
                 PortRef,
             },
             wires::guards::Guard,
@@ -27,10 +27,12 @@ use crate::{
 };
 use std::{collections::VecDeque, fmt::Debug};
 
-pub type PortMap = IndexedMap<GlobalPortId, Value>;
-pub(crate) type CellMap = IndexedMap<GlobalCellId, CellLedger>;
-pub(crate) type RefCellMap = IndexedMap<GlobalRefCellId, Option<GlobalCellId>>;
-pub(crate) type RefPortMap = IndexedMap<GlobalRefPortId, Option<GlobalPortId>>;
+pub type PortMap = IndexedMap<GlobalPortIdx, Value>;
+pub(crate) type CellMap = IndexedMap<GlobalCellIdx, CellLedger>;
+pub(crate) type RefCellMap =
+    IndexedMap<GlobalRefCellIdx, Option<GlobalCellIdx>>;
+pub(crate) type RefPortMap =
+    IndexedMap<GlobalRefPortIdx, Option<GlobalPortIdx>>;
 pub(crate) type AssignmentRange = IndexRange<AssignmentIdx>;
 
 pub(crate) struct ComponentLedger {
@@ -153,7 +155,7 @@ impl<'a> Environment<'a> {
     /// 3. cells + ports, primitive
     /// 4. sub-components
     /// 5. ref-cells & ports
-    fn layout_component(&mut self, comp: GlobalCellId) {
+    fn layout_component(&mut self, comp: GlobalCellIdx) {
         let ComponentLedger {
             index_bases,
             comp_id,
@@ -253,15 +255,15 @@ impl<'a> Environment<'a> {
 // ===================== Environment print implementations =====================
 impl<'a> Environment<'a> {
     pub fn print_env(&self) {
-        let root_idx = GlobalCellId::new(0);
+        let root_idx = GlobalCellIdx::new(0);
         let mut hierarchy = Vec::new();
         self.print_component(root_idx, &mut hierarchy)
     }
 
     fn print_component(
         &self,
-        target: GlobalCellId,
-        hierarchy: &mut Vec<GlobalCellId>,
+        target: GlobalCellIdx,
+        hierarchy: &mut Vec<GlobalCellIdx>,
     ) {
         let info = self.cells[target].as_comp().unwrap();
         let comp = &self.ctx.secondary[info.comp_id];
@@ -353,125 +355,6 @@ impl<'a> Simulator<'a> {
 
 // =========================== simulation functions ===========================
 impl<'a> Simulator<'a> {
-    /// Finds the next control point from a finished control point. If there is
-    /// no next control point, returns None.
-    ///
-    /// If given an If/While statement this will assume the entire if/while node
-    /// is finished executing and will ascend to the parent context. Evaluating
-    /// the if/while condition and moving to the appropriate body must be
-    /// handled elsewhere.
-    // fn find_next_control_point(
-    //     &self,
-    //     target: &ControlPoint,
-    // ) -> NextControlPoint {
-    //     let comp = target.comp;
-    //     let comp_idx = self.env.cells[comp].as_comp().unwrap().comp_id;
-    //     let root_ctrl = self.env.ctx.primary[comp_idx].control.expect(
-    //         "Called `find_next_control_point` on a component with no control. This is an error, please report it",
-    //     );
-
-    //     // here's the goal:
-    //     // we want to first walk the control tree for this component and find
-    //     // the given control point and the path through the tree to get there.
-    //     // Once we have this, we move back along the path to find the next
-    //     // node to run (either a terminal node in an `invoke` or `enable` or a
-    //     // non-terminal while/if condition check). Since this involves
-    //     // backtracking, in the limit this means backtracking all the way to the
-    //     // root of the component in which case the component has finished
-    //     // executing.
-
-    //     let cont = self.extract_next_search(root_ctrl);
-
-    //     let mut search_stack = Vec::from([SearchNode {
-    //         node: root_ctrl,
-    //         next: cont,
-    //     }]);
-
-    //     while let Some(mut node) = search_stack.pop() {
-    //         if node.node == target.control_leaf {
-    //             // found the node! we return it to the stack which is now the
-    //             // path from the root to our finished node
-    //             search_stack.push(node);
-    //             break;
-    //         } else if let Some(next_node) = node.next.pop_front() {
-    //             let next_search_node = SearchNode {
-    //                 node: next_node,
-    //                 next: self.extract_next_search(next_node),
-    //             };
-    //             // return the now modified original
-    //             search_stack.push(node);
-    //             // push the descendent next, so that the search continues
-    //             // depth first
-    //             search_stack.push(next_search_node);
-    //         } else {
-    //             // This node was not the one we wanted and none of its
-    //             // children (if any) were either, we must return to the
-    //             // parent which means dropping the node, i.e. doing nothing here
-    //         }
-    //     }
-
-    //     if search_stack.is_empty() {
-    //         // The reason this should never happen is that this implies a
-    //         // controlpoint was constructed for a fully-structural component
-    //         // instance which means something went wrong with the construction
-    //         // as such an instance could not have a control program to reference
-    //         panic!("Could not find control point in component, this should never happen. Please report this error.")
-    //     }
-
-    //     // phase two, backtrack to find the next node to run
-
-    //     // remove the deepest node (i.e. our target)
-    //     search_stack.pop();
-
-    //     let mut immediate_next_node = None;
-
-    //     while let Some(node) = search_stack.pop() {
-    //         match &self.ctx().primary[node.node] {
-    //             ControlNode::Seq(_) => {
-    //                     if let Some(next) = node.next.get(0) {
-    //                         // the target node will have been popped off the
-    //                         // list during the search meaning the next node left
-    //                         // over from the search is the next node to run
-    //                          immediate_next_node = Some(*next);
-    //                          // exit to descend the list
-    //                          break;
-    //                     } else {
-    //                         // no next node, go to parent context
-    //                     }
-    //                 },
-    //             ControlNode::Par(_) =>  {
-    //                 // par arm needs to wait until all arms are finished
-    //                 return NextControlPoint::FinishedParChild(ControlPoint::new(comp, node.node));
-    //             },
-    //             ControlNode::If(_) => {
-    //                 // do nothing, go to parent context
-    //             },
-    //             ControlNode::While(_) => {
-    //                 // need to recheck condition so the while itself is next
-    //                 return NextControlPoint::Next(ControlPoint::new(comp, node.node));
-    //             },
-    //             //
-    //             ControlNode::Empty(_)
-    //             | ControlNode::Enable(_)
-    //             | ControlNode::Invoke(_) => unreachable!("terminal nodes cannot be the parents of a node. If this happens something has gone horribly wrong and should be reported"),
-    //         }
-    //     }
-
-    //     // phase 3, take the immediate next node and descend to find its leaf
-
-    //     if let Some(node) = immediate_next_node {
-    //         // we reuse the existing search stack without resetting it to allow
-    //         // backtracking further if the immediate next node has no actual
-    //         // leaves under it, e.g. a seq of empty seqs
-    //         // TODO Griffin: double check this aspect later as it might
-    //         // complicate things or introduce errors
-    //         self.descend_to_leaf(node, &mut search_stack, comp)
-    //     } else {
-    //         // if we exit without finding the next node then it does not exist
-    //         NextControlPoint::None
-    //     }
-    // }
-
     /// pull out the next nodes to search when
     fn extract_next_search(&self, idx: ControlIdx) -> VecDeque<ControlIdx> {
         match &self.env.ctx.primary[idx] {
@@ -483,7 +366,8 @@ impl<'a> Simulator<'a> {
         }
     }
 
-    fn lookup_global_port_id(&self, port: GlobalPortRef) -> GlobalPortId {
+    #[inline]
+    fn lookup_global_port_id(&self, port: GlobalPortRef) -> GlobalPortIdx {
         match port {
             GlobalPortRef::Port(p) => p,
             // TODO Griffin: Please make sure this error message is correct with
@@ -492,124 +376,91 @@ impl<'a> Simulator<'a> {
         }
     }
 
+    #[inline]
     fn get_global_idx(
         &self,
         port: &PortRef,
-        comp: GlobalCellId,
-    ) -> GlobalPortId {
+        comp: GlobalCellIdx,
+    ) -> GlobalPortIdx {
         let ledger = self.env.cells[comp].unwrap_comp();
         self.lookup_global_port_id(ledger.convert_to_global(port))
     }
 
-    fn get_value(&self, port: &PortRef, comp: GlobalCellId) -> &Value {
+    #[inline]
+    fn get_value(&self, port: &PortRef, comp: GlobalCellIdx) -> &Value {
         let port_idx = self.get_global_idx(port, comp);
         &self.env.ports[port_idx]
     }
 
-    // fn descend_to_leaf(
-    //     &self,
-    //     // the node (possibly terminal) which we want to start evaluating
-    //     immediate_next_node: ControlIdx,
-    //     search_stack: &mut Vec<SearchNode>,
-    //     comp: GlobalCellId,
-    // ) -> NextControlPoint {
-    //     search_stack.push(SearchNode {
-    //         node: immediate_next_node,
-    //         next: self.extract_next_search(immediate_next_node),
-    //     });
+    fn get_parent_cell(
+        &self,
+        port: PortRef,
+        comp: GlobalCellIdx,
+    ) -> GlobalCellIdx {
+        let component = self.env.cells[comp].unwrap_comp();
+        let comp_info = &self.env.ctx.secondary[component.comp_id];
 
-    //     while let Some(mut node) = search_stack.pop() {
-    //         match &self.ctx().primary[node.node] {
-    //             ControlNode::Seq(_) => {
-    //                 if let Some(next) = node.next.pop_front() {
-    //                     search_stack.push(node);
-    //                     let next_search_node = SearchNode {
-    //                         node: next,
-    //                         next: self.extract_next_search(next),
-    //                     };
-    //                     search_stack.push(next_search_node);
-    //                 } else {
-    //                     // this seq does not contain any more nodes.
-    //                     // Currently only possible if the seq is empty
-    //                 }
-    //             },
-
-    //             ControlNode::Par(p) => {
-    //                 let mut ctrl_points = vec![];
-    //                 let mut pars_activated = vec![];
-
-    //                 let mut this_par = (ControlPoint::new(comp, node.node), p.stms().len() as u32);
-
-    //                 // TODO Griffin: Maybe consider making this not
-    //                 // recursive in the future
-    //                 for arm in p.stms().iter().map( |x| {
-    //                     self.descend_to_leaf(*x, &mut vec![], comp)
-    //                 }) {
-    //                     match arm {
-    //                         NextControlPoint::None => {
-    //                             this_par.1 -= 1;
-    //                         },
-    //                         NextControlPoint::Next(c) => ctrl_points.push(c),
-    //                         NextControlPoint::FinishedParChild(_) => unreachable!("I think this impossible"),
-    //                         NextControlPoint::StartedParChild(nodes, pars) => {
-    //                             ctrl_points.extend(nodes);
-    //                             pars_activated.extend(pars);
-    //                         },
-    //                     }
-    //                 }
-
-    //                 if this_par.1 != 0 {
-    //                     pars_activated.push(this_par);
-    //                     return NextControlPoint::StartedParChild(ctrl_points, pars_activated)
-    //                 } else {
-    //                     // there were no next nodes under this par, so we
-    //                     // ascend the search tree and continue
-    //                 }
-    //             }
-
-    //             // functionally terminals for the purposes of needing to be
-    //             // seen in the control program and given extra treatment
-    //             ControlNode::If(_)
-    //             | ControlNode::While(_)
-    //             // actual terminals
-    //             | ControlNode::Invoke(_)
-    //             | ControlNode::Enable(_)
-    //             // might not want this here in the future, but makes sense
-    //             // if we think about annotations on empty groups.
-    //             | ControlNode::Empty(_)=> {
-    //                 return NextControlPoint::Next(ControlPoint::new(comp, node.node))
-    //             }
-    //         }
-    //     }
-    //     NextControlPoint::None
-    // }
-
-    // may want to make this iterate directly if it turns out that the vec
-    // allocation is too expensive in this context
-    fn get_assignments(&self) -> AssignmentBundle {
-        // maybe should give this a capacity equivalent to the number of
-        // elements in the program counter? It would be a bit of an over
-        // approximation
-        let mut out = AssignmentBundle::new();
-        for node in self.env.pc.iter() {
-            match &self.ctx().primary[node.control_node] {
-                ControlNode::Empty(_) => {
-                    // don't need to add any assignments here
+        match port {
+            PortRef::Local(l) => {
+                for (cell_offset, cell_def_idx) in
+                    comp_info.cell_offset_map.iter()
+                {
+                    if self.env.ctx.secondary[*cell_def_idx].ports.contains(l) {
+                        return &component.index_bases + cell_offset;
+                    }
                 }
-                ControlNode::Enable(e) => {
-                    out.push((node.comp, self.ctx().primary[e.group()].assignments))
+            }
+            PortRef::Ref(r) => {
+                for (cell_offset, cell_def_idx) in
+                    comp_info.ref_cell_offset_map.iter()
+                {
+                    if self.env.ctx.secondary[*cell_def_idx].ports.contains(r) {
+                        let ref_cell_idx = &component.index_bases + cell_offset;
+                        return self.env.ref_cells[ref_cell_idx]
+                            .expect("Ref cell has not been instantiated");
+                    }
                 }
-
-                ControlNode::Invoke(_) => todo!("invokes not yet implemented"),
-                // The reason this shouldn't happen is that the program counter
-                // should've processed these nodes into their children and
-                // stored the needed auxillary data for par structures
-                ControlNode::If(_) | ControlNode::While(_) => panic!("If/While nodes are present in the control program when `get_assignments` is called. This is an error, please report it."),
-                ControlNode::Seq(_) | ControlNode::Par(_) => unreachable!(),
             }
         }
 
-        out
+        unreachable!("Port does not exist on given component. This is an error please report it")
+    }
+
+    // may want to make this iterate directly if it turns out that the vec
+    // allocation is too expensive in this context
+    fn get_assignments(
+        &self,
+        control_points: &[ControlPoint],
+    ) -> AssignmentBundle {
+        control_points
+            .iter()
+            .map(|node| {
+                match &self.ctx().primary[node.control_node] {
+                    ControlNode::Enable(e) => {
+                        (node.comp, self.ctx().primary[e.group()].assignments)
+                    }
+
+                    ControlNode::Invoke(_) => {
+                        todo!("invokes not yet implemented")
+                    }
+
+                    ControlNode::Empty(_) => {
+                        unreachable!(
+                            "called `get_assignments` with an empty node"
+                        )
+                    }
+                    // non-leaf nodes
+                    ControlNode::If(_)
+                    | ControlNode::While(_)
+                    | ControlNode::Seq(_)
+                    | ControlNode::Par(_) => {
+                        unreachable!(
+                            "Called `get_assignments` with non-leaf nodes"
+                        )
+                    }
+                }
+            })
+            .collect()
     }
 
     pub fn step(&mut self) -> InterpreterResult<()> {
@@ -630,6 +481,8 @@ impl<'a> Simulator<'a> {
 
         // place to keep track of what groups we need to conclude at the end of
         // this step. These are indices into the program counter
+
+        let mut leaf_nodes = vec![];
 
         self.env.pc.vec_mut().retain_mut(|node| {
             // just considering a single node case for the moment
@@ -696,7 +549,10 @@ impl<'a> Simulator<'a> {
 
                 // ===== leaf nodes =====
                 ControlNode::Empty(_) => get_next(node, self.env.ctx),
-                ControlNode::Enable(_) => todo!(),
+                ControlNode::Enable(_) => {
+                    leaf_nodes.push(node.clone());
+                    true
+                }
                 ControlNode::Invoke(_) => todo!("invokes not implemented yet"),
             }
         });
@@ -710,7 +566,7 @@ impl<'a> Simulator<'a> {
         Ok(())
     }
 
-    fn evaluate_guard(&self, guard: GuardIdx, comp: GlobalCellId) -> bool {
+    fn evaluate_guard(&self, guard: GuardIdx, comp: GlobalCellIdx) -> bool {
         let guard = &self.ctx().primary[guard];
         match guard {
             Guard::True => true,
@@ -747,40 +603,29 @@ impl<'a> Simulator<'a> {
         }
     }
 
-    fn simulate_combinational(&mut self) {
-        let assigns = self.get_assignments();
+    fn simulate_combinational(&mut self, control_points: &[ControlPoint]) {
+        let assigns_bundle = self.get_assignments(control_points);
         let mut has_changed = true;
 
-        // This is an upper-bound, i.e. if every assignment succeeds then there
-        // will be this many entries
-        let mut updates_vec: Vec<(GlobalPortId, Value)> =
-            Vec::with_capacity(assigns.len());
-
         while has_changed {
-            let updates = assigns.iter_over_assignments(self.ctx()).filter_map(
-                |(comp_idx, assign)| {
-                    if self.evaluate_guard(assign.guard, comp_idx) {
-                        let val = self.get_value(&assign.src, comp_idx);
-                        Some((
-                            self.get_global_idx(&assign.dst, comp_idx),
-                            val.clone(),
-                        ))
-                    } else {
-                        None
+            has_changed = false;
+
+            // evaluate all the assignments and make updates
+            for (cell, assigns) in assigns_bundle.iter() {
+                for assign in assigns {
+                    let assign = &self.env.ctx.primary[assign];
+                    if self.evaluate_guard(assign.guard, *cell) {
+                        let val = self.get_value(&assign.src, *cell);
+                        let dest = self.get_global_idx(&assign.dst, *cell);
+                        if &self.env.ports[dest] != val {
+                            has_changed = true;
+                            self.env.ports[dest] = val.clone();
+                        }
                     }
-                },
-            );
-
-            // want to buffer all updates before committing. It's not ideal to
-            // be doing this in a tight loop.
-            updates_vec.extend(updates);
-
-            for (dest, val) in updates_vec.drain(..) {
-                if self.env.ports[dest] != val {
-                    has_changed = true
                 }
-                self.env.ports[dest] = val;
             }
+
+            // run the primitives
         }
     }
 

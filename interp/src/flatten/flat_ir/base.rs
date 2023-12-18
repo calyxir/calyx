@@ -41,23 +41,23 @@ impl_index!(RefPortDefinitionIdx);
 
 /// The index of a port instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-pub struct GlobalPortId(NonZeroU32);
-impl_index_nonzero!(GlobalPortId);
+pub struct GlobalPortIdx(NonZeroU32);
+impl_index_nonzero!(GlobalPortIdx);
 
 /// The index of a cell instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-pub struct GlobalCellId(NonZeroU32);
-impl_index_nonzero!(GlobalCellId);
+pub struct GlobalCellIdx(NonZeroU32);
+impl_index_nonzero!(GlobalCellIdx);
 
 /// The index of a ref cell instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-pub struct GlobalRefCellId(u32);
-impl_index!(GlobalRefCellId);
+pub struct GlobalRefCellIdx(u32);
+impl_index!(GlobalRefCellIdx);
 
 /// The index of a ref port instance in the global value map
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
-pub struct GlobalRefPortId(u32);
-impl_index!(GlobalRefPortId);
+pub struct GlobalRefPortIdx(u32);
+impl_index!(GlobalRefPortIdx);
 
 // Offset indices
 
@@ -141,9 +141,9 @@ impl From<LocalPortOffset> for PortRef {
 /// after the relative offsets have been transformed via a component base location
 pub enum GlobalPortRef {
     /// A non-ref port with an exact address
-    Port(GlobalPortId),
+    Port(GlobalPortIdx),
     /// A reference port
-    Ref(GlobalRefPortId),
+    Ref(GlobalRefPortIdx),
 }
 
 impl GlobalPortRef {
@@ -155,21 +155,21 @@ impl GlobalPortRef {
     }
 }
 
-impl From<GlobalRefPortId> for GlobalPortRef {
-    fn from(v: GlobalRefPortId) -> Self {
+impl From<GlobalRefPortIdx> for GlobalPortRef {
+    fn from(v: GlobalRefPortIdx) -> Self {
         Self::Ref(v)
     }
 }
 
-impl From<GlobalPortId> for GlobalPortRef {
-    fn from(v: GlobalPortId) -> Self {
+impl From<GlobalPortIdx> for GlobalPortRef {
+    fn from(v: GlobalPortIdx) -> Self {
         Self::Port(v)
     }
 }
 
 impl GlobalPortRef {
     #[must_use]
-    pub fn as_port(&self) -> Option<&GlobalPortId> {
+    pub fn as_port(&self) -> Option<&GlobalPortIdx> {
         if let Self::Port(v) = self {
             Some(v)
         } else {
@@ -178,7 +178,7 @@ impl GlobalPortRef {
     }
 
     #[must_use]
-    pub fn as_ref(&self) -> Option<&GlobalRefPortId> {
+    pub fn as_ref(&self) -> Option<&GlobalRefPortIdx> {
         if let Self::Ref(v) = self {
             Some(v)
         } else {
@@ -348,18 +348,18 @@ mod sealed {
 
 #[derive(Debug, Clone)]
 pub struct BaseIndices {
-    pub port_base: GlobalPortId,
-    pub cell_base: GlobalCellId,
-    pub ref_cell_base: GlobalRefCellId,
-    pub ref_port_base: GlobalRefPortId,
+    pub port_base: GlobalPortIdx,
+    pub cell_base: GlobalCellIdx,
+    pub ref_cell_base: GlobalRefCellIdx,
+    pub ref_port_base: GlobalRefPortIdx,
 }
 
 impl BaseIndices {
     pub fn new(
-        port_base: GlobalPortId,
-        cell_base: GlobalCellId,
-        ref_cell_base: GlobalRefCellId,
-        ref_port_base: GlobalRefPortId,
+        port_base: GlobalPortIdx,
+        cell_base: GlobalCellIdx,
+        ref_cell_base: GlobalRefCellIdx,
+        ref_port_base: GlobalRefPortIdx,
     ) -> Self {
         Self {
             port_base,
@@ -371,70 +371,70 @@ impl BaseIndices {
 }
 
 impl Add<LocalPortOffset> for &BaseIndices {
-    type Output = GlobalPortId;
+    type Output = GlobalPortIdx;
 
     fn add(self, rhs: LocalPortOffset) -> Self::Output {
-        GlobalPortId::new(self.port_base.index() + rhs.index())
+        GlobalPortIdx::new(self.port_base.index() + rhs.index())
     }
 }
 
 impl Add<LocalRefPortOffset> for &BaseIndices {
-    type Output = GlobalRefPortId;
+    type Output = GlobalRefPortIdx;
 
     fn add(self, rhs: LocalRefPortOffset) -> Self::Output {
-        GlobalRefPortId::new(self.ref_port_base.index() + rhs.index())
+        GlobalRefPortIdx::new(self.ref_port_base.index() + rhs.index())
     }
 }
 
 impl Add<LocalCellOffset> for &BaseIndices {
-    type Output = GlobalCellId;
+    type Output = GlobalCellIdx;
 
     fn add(self, rhs: LocalCellOffset) -> Self::Output {
-        GlobalCellId::new(self.cell_base.index() + rhs.index())
+        GlobalCellIdx::new(self.cell_base.index() + rhs.index())
     }
 }
 
 impl Add<LocalRefCellOffset> for &BaseIndices {
-    type Output = GlobalRefCellId;
+    type Output = GlobalRefCellIdx;
 
     fn add(self, rhs: LocalRefCellOffset) -> Self::Output {
-        GlobalRefCellId::new(self.ref_cell_base.index() + rhs.index())
+        GlobalRefCellIdx::new(self.ref_cell_base.index() + rhs.index())
     }
 }
 
 impl Add<&LocalPortOffset> for &BaseIndices {
-    type Output = GlobalPortId;
+    type Output = GlobalPortIdx;
 
     fn add(self, rhs: &LocalPortOffset) -> Self::Output {
-        GlobalPortId::new(self.port_base.index() + rhs.index())
+        GlobalPortIdx::new(self.port_base.index() + rhs.index())
     }
 }
 
 impl Add<&LocalRefPortOffset> for &BaseIndices {
-    type Output = GlobalRefPortId;
+    type Output = GlobalRefPortIdx;
 
     fn add(self, rhs: &LocalRefPortOffset) -> Self::Output {
-        GlobalRefPortId::new(self.ref_port_base.index() + rhs.index())
+        GlobalRefPortIdx::new(self.ref_port_base.index() + rhs.index())
     }
 }
 
 impl Add<&LocalCellOffset> for &BaseIndices {
-    type Output = GlobalCellId;
+    type Output = GlobalCellIdx;
 
     fn add(self, rhs: &LocalCellOffset) -> Self::Output {
-        GlobalCellId::new(self.cell_base.index() + rhs.index())
+        GlobalCellIdx::new(self.cell_base.index() + rhs.index())
     }
 }
 
 impl Add<&LocalRefCellOffset> for &BaseIndices {
-    type Output = GlobalRefCellId;
+    type Output = GlobalRefCellIdx;
 
     fn add(self, rhs: &LocalRefCellOffset) -> Self::Output {
-        GlobalRefCellId::new(self.ref_cell_base.index() + rhs.index())
+        GlobalRefCellIdx::new(self.ref_cell_base.index() + rhs.index())
     }
 }
 
-impl Sub<&BaseIndices> for GlobalPortId {
+impl Sub<&BaseIndices> for GlobalPortIdx {
     type Output = LocalPortOffset;
 
     fn sub(self, rhs: &BaseIndices) -> Self::Output {
@@ -442,7 +442,7 @@ impl Sub<&BaseIndices> for GlobalPortId {
     }
 }
 
-impl Sub<&BaseIndices> for GlobalRefPortId {
+impl Sub<&BaseIndices> for GlobalRefPortIdx {
     type Output = LocalRefPortOffset;
 
     fn sub(self, rhs: &BaseIndices) -> Self::Output {
@@ -450,7 +450,7 @@ impl Sub<&BaseIndices> for GlobalRefPortId {
     }
 }
 
-impl Sub<&BaseIndices> for GlobalCellId {
+impl Sub<&BaseIndices> for GlobalCellIdx {
     type Output = LocalCellOffset;
 
     fn sub(self, rhs: &BaseIndices) -> Self::Output {
@@ -458,7 +458,7 @@ impl Sub<&BaseIndices> for GlobalCellId {
     }
 }
 
-impl Sub<&BaseIndices> for GlobalRefCellId {
+impl Sub<&BaseIndices> for GlobalRefCellIdx {
     type Output = LocalRefCellOffset;
 
     fn sub(self, rhs: &BaseIndices) -> Self::Output {
@@ -466,7 +466,7 @@ impl Sub<&BaseIndices> for GlobalRefCellId {
     }
 }
 
-impl Sub<&BaseIndices> for &GlobalPortId {
+impl Sub<&BaseIndices> for &GlobalPortIdx {
     type Output = LocalPortOffset;
 
     fn sub(self, rhs: &BaseIndices) -> Self::Output {
@@ -474,7 +474,7 @@ impl Sub<&BaseIndices> for &GlobalPortId {
     }
 }
 
-impl Sub<&BaseIndices> for &GlobalRefPortId {
+impl Sub<&BaseIndices> for &GlobalRefPortIdx {
     type Output = LocalRefPortOffset;
 
     fn sub(self, rhs: &BaseIndices) -> Self::Output {
@@ -482,7 +482,7 @@ impl Sub<&BaseIndices> for &GlobalRefPortId {
     }
 }
 
-impl Sub<&BaseIndices> for &GlobalCellId {
+impl Sub<&BaseIndices> for &GlobalCellIdx {
     type Output = LocalCellOffset;
 
     fn sub(self, rhs: &BaseIndices) -> Self::Output {
@@ -490,7 +490,7 @@ impl Sub<&BaseIndices> for &GlobalCellId {
     }
 }
 
-impl Sub<&BaseIndices> for &GlobalRefCellId {
+impl Sub<&BaseIndices> for &GlobalRefCellIdx {
     type Output = LocalRefCellOffset;
 
     fn sub(self, rhs: &BaseIndices) -> Self::Output {

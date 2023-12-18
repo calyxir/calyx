@@ -1,30 +1,30 @@
 use crate::{
     debugger::PrintCode,
     errors::InterpreterResult,
-    flatten::{flat_ir::base::GlobalPortId, structures::environment::PortMap},
+    flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
     primitives::Serializable,
     values::Value,
 };
 
 pub struct AssignResult {
-    pub destination: GlobalPortId,
+    pub destination: GlobalPortIdx,
     pub value: Value,
 }
 
 impl AssignResult {
-    pub fn new(destination: GlobalPortId, value: Value) -> Self {
+    pub fn new(destination: GlobalPortIdx, value: Value) -> Self {
         Self { destination, value }
     }
 }
 
-impl From<(GlobalPortId, Value)> for AssignResult {
-    fn from(value: (GlobalPortId, Value)) -> Self {
+impl From<(GlobalPortIdx, Value)> for AssignResult {
+    fn from(value: (GlobalPortIdx, Value)) -> Self {
         Self::new(value.0, value.1)
     }
 }
 
-impl From<(Value, GlobalPortId)> for AssignResult {
-    fn from(value: (Value, GlobalPortId)) -> Self {
+impl From<(Value, GlobalPortIdx)> for AssignResult {
+    fn from(value: (Value, GlobalPortIdx)) -> Self {
         Self::new(value.1, value.0)
     }
 }
