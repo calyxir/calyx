@@ -102,7 +102,7 @@ def insert_main_old(prog, queue):
     return main
 
 
-def insert_runner(prog, queue, name, stats_component):
+def insert_runner(prog, queue, name, stats_component=None):
     """Inserts the component `name` into the program.
     This will be used to `invoke` the component `queue` and feed it one command.
     This component is designed to be invoked by some other component, and does not
@@ -116,7 +116,8 @@ def insert_runner(prog, queue, name, stats_component):
 
     # We take a stats component by reference,
     # but all we'll really do with it is pass it to the queue component.
-    stats = runner.cell("stats_runner", stats_component, is_ref=True)
+    if stats_component:
+        stats = runner.cell("stats_runner", stats_component, is_ref=True)
 
     # We'll invoke the queue component.
     queue = runner.cell("myqueue", queue)
@@ -195,6 +196,14 @@ def insert_runner(prog, queue, name, stats_component):
             ref_ans=ans,
             ref_err=err,
             ref_stats=stats,
+        )
+        if stats_component
+        else cb.invoke(  # Invoke the queue.
+            queue,
+            in_cmd=cmd.out,
+            in_value=value.out,
+            ref_ans=ans,
+            ref_err=err,
         ),
         # We're back from the invoke, and it's time for some post-mortem analysis.
         cb.if_with(
@@ -223,7 +232,6 @@ def insert_main(prog, queue, controller, stats_component):
 
     stats = main.cell("stats_main", stats_component)
     controller = main.cell("controller", controller)
-
     dataplane = insert_runner(prog, queue, "dataplane", stats_component)
     dataplane = main.cell("dataplane", dataplane)
 
