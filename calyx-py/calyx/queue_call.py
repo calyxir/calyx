@@ -223,14 +223,14 @@ def insert_runner(prog, queue, name, stats_component=None):
     return runner
 
 
-def insert_main(prog, queue, controller, stats_component):
+def insert_main(prog, queue, controller, stats_component=None):
     """Inserts the component `main` into the program.
     It triggers the dataplane and controller components.
     """
 
     main: cb.ComponentBuilder = prog.component("main")
 
-    stats = main.cell("stats_main", stats_component)
+    stats = main.cell("stats_main", stats_component) if stats_component else None
     controller = main.cell("controller", controller)
     dataplane = insert_runner(prog, queue, "dataplane", stats_component)
     dataplane = main.cell("dataplane", dataplane)
@@ -268,6 +268,15 @@ def insert_main(prog, queue, controller, stats_component):
                 ref_component_ans=dataplane_ans,
                 ref_component_err=dataplane_err,
                 ref_stats_runner=stats,
+            )
+            if stats_component
+            else cb.invoke(  # Invoke the dataplane component.
+                dataplane,
+                ref_commands=commands,
+                ref_values=values,
+                ref_has_ans=has_ans,
+                ref_component_ans=dataplane_ans,
+                ref_component_err=dataplane_err,
             ),
             # If the dataplane component has a nonzero answer,
             # write it to the answer-list and increment the index `j`.
