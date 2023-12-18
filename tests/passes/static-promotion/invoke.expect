@@ -16,8 +16,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       static<2> invoke exp0(
         base = r.out,
         exp = r.out
-      )()
-      );
+      )();
     }
   }
 }
