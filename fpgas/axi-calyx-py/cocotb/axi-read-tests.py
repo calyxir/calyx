@@ -40,5 +40,5 @@ async def read_channels_tests(main):
     axi_ram_read.hexdump(0x0000, 4, prefix="RAM")
 
     await Timer(1000, "ns")
-    print(f"vec1_data: {main.vec1_data}")
-    assert main.vec1_data.mem[0] == b"x", "Axi channel failed"
+    print(f"vec1_data: {main.vec1_data.mem.value}")
+    assert main.vec1_data.mem[0] == b"s", "Axi channel failed"
