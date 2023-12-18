@@ -115,8 +115,23 @@ python3 {} |\
 """
 
 [[tests]]
+name = "[calyx-py] queues correctness"
+paths = ["calyx-py/test/correctness/queues/*.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
 name = "[calyx-py] sdn static correctness"
-paths = ["calyx-py/test/correctness/static/*.futil"]
+paths = ["calyx-py/test/correctness/queues/static/*.futil"]
 cmd = """
 name=$(basename {} .futil) &&
 dir=$(dirname {}) &&
@@ -132,7 +147,7 @@ cat {} |\
 
 [[tests]]
 name = "[calyx-py] sdn no-promote correctness"
-paths = ["calyx-py/test/correctness/no-promote/*.futil"]
+paths = ["calyx-py/test/correctness/queues/no-promote/*.futil"]
 cmd = """
 name=$(basename {} .futil) &&
 dir=$(dirname {}) &&
@@ -148,7 +163,7 @@ cat {} |\
 
 [[tests]]
 name = "[calyx-py] sdn promote correctness"
-paths = ["calyx-py/test/correctness/promote/*.futil"]
+paths = ["calyx-py/test/correctness/queues/promote/*.futil"]
 cmd = """
 name=$(basename {} .futil) &&
 dir=$(dirname {}) &&
