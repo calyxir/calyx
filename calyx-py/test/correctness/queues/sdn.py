@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import sys
 import fifo
 import pifo
 import calyx.builder as cb
@@ -172,5 +173,7 @@ def build(static=False):
     return prog.program
 
 
+# We will have a command line argument to determine whether the program is static.
 if __name__ == "__main__":
-    build().emit()
+    static = sys.argv[1] == "--static" if len(sys.argv) > 1 else False
+    build(static=static).emit()
