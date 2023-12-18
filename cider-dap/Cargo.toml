@@ -12,6 +12,9 @@ serde_json = "1.0"
 serde.workspace= true
 owo-colors = "^3.5"
 argh = "0.1"
+slog = "2.7.0"
+slog-term = "2.8.0"
+slog-async = "2.7.0"
 
 [[bin]]
 name = "cider-dap"
