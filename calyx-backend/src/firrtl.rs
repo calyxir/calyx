@@ -34,7 +34,14 @@ impl Backend for FirrtlBackend {
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
-        writeln!(out, "circuit main:")?; // FIXME: should NOT hardcode main as the "toplevel component"
+        let mut top_level_component = String::from("main");
+        // Quick pass to check whether there exists a top-level component that we should replace main with.
+        for comp in ctx.components.iter() {
+            if comp.attributes.has(ir::BoolAttr::TopLevel) {
+                top_level_component = comp.name.to_string().clone();
+            }
+        }
+        writeln!(out, "circuit {}:", top_level_component)?;
         for comp in ctx.components.iter() {
             emit_component(comp, out)?
         }
@@ -85,7 +92,7 @@ fn emit_component<F: io::Write>(
     // Add a COMPONENT START: <name> anchor before any code in the component
     writeln!(f, "{}; COMPONENT START: {}", SPACING.repeat(2), comp.name)?;
 
-    // TODO: Cells. NOTE: leaving this one for last
+    // Cells
     for cell in comp.cells.iter() {
         let cell_borrowed = cell.as_ref().borrow();
         match cell_borrowed.type_name() {
@@ -95,7 +102,15 @@ fn emit_component<F: io::Write>(
                     param_binding: _,
                     is_comb: _,
                     latency: _,
-                } => todo!(),
+                } => {
+                    // TODO: use extmodules
+                    writeln!(
+                    f,
+                    "{}; FIXME: attempting to instantiate primitive cell {}",
+                    SPACING.repeat(2),
+                    cell_borrowed.name()
+                )?
+                }
                 ir::CellType::Component { name } => {
                     writeln!(
                         f,
