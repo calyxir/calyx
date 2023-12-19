@@ -34,6 +34,7 @@ impl Backend for FirrtlBackend {
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
+        writeln!(out, "circuit main:")?; // FIXME: should NOT hardcode main as the "toplevel component"
         for comp in ctx.components.iter() {
             emit_component(comp, out)?
         }
@@ -46,7 +47,6 @@ fn emit_component<F: io::Write>(
     comp: &ir::Component,
     f: &mut F,
 ) -> io::Result<()> {
-    writeln!(f, "circuit {}:", comp.name)?;
     writeln!(f, "{}module {}:", SPACING, comp.name)?;
 
     // Inputs and Outputs
@@ -86,6 +86,33 @@ fn emit_component<F: io::Write>(
     writeln!(f, "{}; COMPONENT START: {}", SPACING.repeat(2), comp.name)?;
 
     // TODO: Cells. NOTE: leaving this one for last
+    for cell in comp.cells.iter() {
+        let cell_borrowed = cell.as_ref().borrow();
+        match cell_borrowed.type_name() {
+            Some(_) => match cell_borrowed.prototype {
+                ir::CellType::Primitive {
+                    name: _,
+                    param_binding: _,
+                    is_comb: _,
+                    latency: _,
+                } => todo!(),
+                ir::CellType::Component { name } => {
+                    writeln!(
+                        f,
+                        "{}inst {} of {}",
+                        SPACING.repeat(2),
+                        cell_borrowed.name(),
+                        name
+                    )?;
+                }
+                ir::CellType::ThisComponent => unreachable!(),
+                ir::CellType::Constant { val: _, width: _ } => unreachable!(),
+            },
+            None => {
+                // FIXME: Not entirely sure what to do
+            }
+        }
+    }
 
     let mut dst_set: HashSet<String> = HashSet::new();
     // Emit assignments
@@ -112,7 +139,7 @@ fn emit_component<F: io::Write>(
     }
 
     // Add COMPONENT END: <name> anchor
-    writeln!(f, "{}; COMPONENT END: {}", SPACING.repeat(2), comp.name)?;
+    writeln!(f, "{}; COMPONENT END: {}\n", SPACING.repeat(2), comp.name)?;
 
     Ok(())
 }

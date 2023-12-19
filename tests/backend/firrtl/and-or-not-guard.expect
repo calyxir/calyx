@@ -15,3 +15,4 @@ circuit main:
         when and(or(not(cond), cond2), cond3):
             out <= in
         ; COMPONENT END: main
+

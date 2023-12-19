@@ -10,3 +10,4 @@ circuit main:
         done <= UInt(1)
         out <= in
         ; COMPONENT END: main
+

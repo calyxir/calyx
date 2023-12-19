@@ -14,3 +14,4 @@ circuit main:
         when or(cond, cond2):
             out <= in
         ; COMPONENT END: main
+

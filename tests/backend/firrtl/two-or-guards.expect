@@ -18,3 +18,4 @@ circuit main:
         when or(cond2, cond3):
             out <= in2
         ; COMPONENT END: main
+

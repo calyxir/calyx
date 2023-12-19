@@ -13,3 +13,4 @@ circuit main:
         when cond:
             out <= in
         ; COMPONENT END: main
+
