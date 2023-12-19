@@ -95,8 +95,8 @@ fn emit_component<F: io::Write>(
     // Cells
     for cell in comp.cells.iter() {
         let cell_borrowed = cell.as_ref().borrow();
-        match cell_borrowed.type_name() {
-            Some(_) => match cell_borrowed.prototype {
+        if let Some(_) = cell_borrowed.type_name() {
+            match cell_borrowed.prototype {
                 ir::CellType::Primitive {
                     name: _,
                     param_binding: _,
@@ -122,9 +122,6 @@ fn emit_component<F: io::Write>(
                 }
                 ir::CellType::ThisComponent => unreachable!(),
                 ir::CellType::Constant { val: _, width: _ } => unreachable!(),
-            },
-            None => {
-                // FIXME: Not entirely sure what to do
             }
         }
     }
