@@ -1,6 +1,6 @@
 macro_rules! ports {
     ($base:expr; $( $port:ident : $offset:expr ),+ ) => {
-        $(let $port: $crate::flatten::flat_ir::prelude::GlobalPortId = ($crate::flatten::structures::index_trait::IndexRef::index($base) + $offset).into();)+
+        $(let $port: $crate::flatten::flat_ir::prelude::GlobalPortIdx = ($crate::flatten::structures::index_trait::IndexRef::index($base) + $offset).into();)+
     }
 }
 
@@ -24,7 +24,7 @@ macro_rules! make_getters {
     ($base:ident; $( $port:ident : $offset:expr ),+ ) => {
         $(
             #[inline]
-            fn $port(&self) -> $crate::flatten::flat_ir::prelude::GlobalPortId {
+            fn $port(&self) -> $crate::flatten::flat_ir::prelude::GlobalPortIdx {
                 ($crate::flatten::structures::index_trait::IndexRef::index(&self.$base) + $offset).into()
             }
         )+
@@ -47,7 +47,7 @@ macro_rules! comb_primitive {
         #[allow(non_snake_case)]
         pub struct $name {
             $($($param: u32,)+)?
-            base_port: $crate::flatten::flat_ir::prelude::GlobalPortId
+            base_port: $crate::flatten::flat_ir::prelude::GlobalPortIdx
         }
 
         impl $name {
@@ -57,7 +57,7 @@ macro_rules! comb_primitive {
 
             #[allow(non_snake_case)]
             pub fn new(
-                base_port: $crate::flatten::flat_ir::prelude::GlobalPortId,
+                base_port: $crate::flatten::flat_ir::prelude::GlobalPortIdx,
                 $($($param: u32,)+)?
             ) -> Self {
                 Self {
@@ -79,7 +79,7 @@ macro_rules! comb_primitive {
                 ];
 
                 #[allow(non_snake_case)]
-                let exec_func = |$($($param: u32,)+)? $($port: &$crate::values::Value),+, $($out_port:$crate::flatten::flat_ir::prelude::GlobalPortId,)+ | -> $crate::flatten::primitives::prim_trait::Results {
+                let exec_func = |$($($param: u32,)+)? $($port: &$crate::values::Value),+, $($out_port:$crate::flatten::flat_ir::prelude::GlobalPortIdx,)+ | -> $crate::flatten::primitives::prim_trait::Results {
                     $execute
                 };
 
