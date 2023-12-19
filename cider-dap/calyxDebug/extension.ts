@@ -138,7 +138,7 @@ class CiderDebugAdapterDescriptorFactoryExecutable {
 
     return new vscode.DebugAdapterExecutable(
       vscode.workspace.getConfiguration("cider-dap").path,
-      [programName],
+      [],
       { cwd: vscode.workspace.rootPath }
     );
   }

@@ -6,10 +6,9 @@
 use crate::verilog::is_data_port;
 use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, RRC};
-use calyx_utils::{CalyxResult, Error, OutputFile};
+use calyx_utils::{CalyxResult, OutputFile};
 use std::collections::HashSet;
 use std::io;
-use std::time::Instant;
 
 pub(super) const SPACING: &str = "    ";
 
@@ -36,20 +35,10 @@ impl Backend for FirrtlBackend {
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
-        let comps = ctx.components.iter().try_for_each(|comp| {
-            // Time the generation of the component.
-            let time = Instant::now();
-            let out = emit_component(comp, out);
-            log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
-            out
-        });
-        comps.map_err(|err| {
-            let std::io::Error { .. } = err;
-            Error::write_error(format!(
-                "File not found: {}",
-                file.as_path_string()
-            ))
-        })
+        for comp in ctx.components.iter() {
+            emit_component(comp, out)?
+        }
+        Ok(())
     }
 }
 
@@ -74,8 +63,7 @@ fn emit_component<F: io::Write>(
                 panic!("Unexpected Inout port on Component: {}", port.name)
             }
         };
-        // FIXME: Hack to get clock declaration right. Should check for attribute name instead.
-        if port.name == "clk" {
+        if port.has_attribute(ir::BoolAttr::Clk) {
             writeln!(
                 f,
                 "{}{} {}: Clock",
@@ -190,7 +178,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
             }
         }
         _ => {
-            unreachable!()
+            unreachable!("Groups should not be parents as this backend takes place after compiler passes.")
         }
     }
 }
