@@ -1,8 +1,10 @@
 use crate::{
+    errors::InterpreterResult,
     flatten::{
         flat_ir::prelude::GlobalPortIdx,
         primitives::{
-            declare_ports, make_getters, output, ports, prim_trait::Results,
+            declare_ports, make_getters, output, ports,
+            prim_trait::{UpdateResult, UpdateStatus},
             Primitive,
         },
         structures::environment::PortMap,
@@ -29,31 +31,39 @@ impl StdReg {
 }
 
 impl Primitive for StdReg {
-    fn exec_cycle(&mut self, port_map: &PortMap) -> Results {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port;
             input: Self::IN,
             write_en: Self::WRITE_EN,
             reset: Self::RESET,
-            out: Self::OUT,
+            out_idx: Self::OUT,
             done: Self::DONE
         ];
 
-        let out = if port_map[reset].as_bool() {
+        let mut output_status = UpdateStatus::Unchanged;
+
+        let done_port = if port_map[reset].as_bool() {
             self.internal_state = Value::zeroes(self.internal_state.width());
-            output![ out: self.internal_state.clone(), done: Value::bit_low() ]
+            port_map.insert_val(done, Value::bit_low())
         } else if port_map[write_en].as_bool() {
             self.internal_state = port_map[input].clone();
-            output![ out: self.internal_state.clone(), done: Value::bit_high() ]
+            port_map.insert_val(done, Value::bit_high())
         } else {
-            output![ out: self.internal_state.clone(), done: Value::bit_high() ]
+            port_map.insert_val(done, Value::bit_low())
         };
 
-        Ok(out)
+        output_status.update(done_port);
+
+        output_status
+            .update(port_map.insert_val(out_idx, self.internal_state.clone()));
+
+        Ok(output_status)
     }
 
-    fn reset(&mut self, _: &PortMap) -> Results {
+    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
         ports![&self.base_port; done: Self::DONE];
-        Ok(output![done: Value::bit_low()])
+        port_map[done] = Value::bit_low();
+        Ok(())
     }
 
     fn has_comb(&self) -> bool {
@@ -288,41 +298,45 @@ impl<M: MemAddresser> StdMem<M> {
 }
 
 impl<M: MemAddresser> Primitive for StdMem<M> {
-    fn exec_comb(&self, port_map: &PortMap) -> Results {
+    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         let addr = self.addresser.calculate_addr(port_map, self.base_port);
         let read_data = self.read_data();
         if addr < self.internal_state.len() {
-            Ok(output![read_data: self.internal_state[addr].clone()])
+            Ok(port_map
+                .insert_val(read_data, self.internal_state[addr].clone()))
         } else {
             // throw error on cycle boundary rather than here
-            Ok(output![read_data: Value::zeroes(self.width)])
+            Ok(port_map.insert_val(read_data, Value::zeroes(self.width)))
         }
     }
 
-    fn exec_cycle(&mut self, port_map: &PortMap) -> Results {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
         let reset = port_map[self.reset_port()].as_bool();
         let write_en = port_map[self.write_en()].as_bool();
         let addr = self.addresser.calculate_addr(port_map, self.base_port);
         let (read_data, done) = (self.read_data(), self.done());
 
-        if write_en && !reset {
+        let done = if write_en && !reset {
             let write_data = port_map[self.write_data()].clone();
             self.internal_state[addr] = write_data;
-            Ok(
-                output![read_data: self.internal_state[addr].clone(), done: Value::bit_high()],
-            )
+            port_map.insert_val(done, Value::bit_high())
         } else {
-            Ok(
-                output![read_data: self.internal_state[addr].clone(), done: Value::bit_low()],
-            )
-        }
+            port_map.insert_val(done, Value::bit_low())
+        };
+
+        Ok(UpdateStatus::either_changed(
+            port_map.insert_val(read_data, self.internal_state[addr].clone()),
+            done,
+        ))
     }
 
-    fn reset(&mut self, _port_map: &PortMap) -> Results {
+    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
         let (read_data, done) = (self.read_data(), self.done());
-        Ok(
-            output![read_data: Value::zeroes(self.width), done: Value::bit_low()],
-        )
+
+        port_map[read_data] = Value::zeroes(self.width);
+        port_map[done] = Value::bit_low();
+
+        Ok(())
     }
 
     fn serialize(

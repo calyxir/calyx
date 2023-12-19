@@ -1,3 +1,4 @@
+use ahash::{HashSet, HashSetExt};
 use itertools::Itertools;
 
 use super::{assignments::AssignmentBundle, program_counter::ProgramCounter};
@@ -17,7 +18,11 @@ use crate::{
             },
             wires::guards::Guard,
         },
-        primitives::{self, Primitive},
+        primitives::{
+            self,
+            prim_trait::{AssignResult, UpdateStatus},
+            Primitive,
+        },
         structures::{
             environment::program_counter::{ControlPoint, SearchPath},
             index_trait::IndexRef,
@@ -28,6 +33,22 @@ use crate::{
 use std::{collections::VecDeque, fmt::Debug};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, Value>;
+
+impl PortMap {
+    pub fn insert_val(
+        &mut self,
+        target: GlobalPortIdx,
+        val: Value,
+    ) -> UpdateStatus {
+        if self[target] != val {
+            self[target] = val;
+            UpdateStatus::Changed
+        } else {
+            UpdateStatus::Unchanged
+        }
+    }
+}
+
 pub(crate) type CellMap = IndexedMap<GlobalCellIdx, CellLedger>;
 pub(crate) type RefCellMap =
     IndexedMap<GlobalRefCellIdx, Option<GlobalCellIdx>>;
@@ -603,9 +624,22 @@ impl<'a> Simulator<'a> {
         }
     }
 
-    fn simulate_combinational(&mut self, control_points: &[ControlPoint]) {
+    fn simulate_combinational(
+        &mut self,
+        control_points: &[ControlPoint],
+    ) -> InterpreterResult<()> {
         let assigns_bundle = self.get_assignments(control_points);
         let mut has_changed = true;
+
+        let parent_cells: HashSet<GlobalCellIdx> = assigns_bundle
+            .iter()
+            .flat_map(|(cell, assigns)| {
+                assigns.iter().map(|x| {
+                    let assign = &self.env.ctx.primary[x];
+                    self.get_parent_cell(assign.dst, *cell)
+                })
+            })
+            .collect();
 
         while has_changed {
             has_changed = false;
@@ -625,8 +659,26 @@ impl<'a> Simulator<'a> {
                 }
             }
 
+            // // This is incredibly silly
+            // let results: InterpreterResult<Vec<AssignResult>> = parent_cells
+            //     .iter()
+            //     .map(|x| match &mut self.env.cells[*x] {
+            //         CellLedger::Primitive { cell_dyn } => cell_dyn
+            //             .exec_comb(&self.env.ports)
+            //             .map(|x| x.into_iter()),
+            //         CellLedger::Component(_) => todo!(),
+            //     })
+            //     .flatten_ok()
+            //     .collect();
+
+            // for AssignResult { destination, value } in results? {
+
+            // }
+
             // run the primitives
         }
+
+        Ok(())
     }
 
     pub fn _main_test(&mut self) {

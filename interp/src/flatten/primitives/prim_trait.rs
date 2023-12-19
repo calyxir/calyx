@@ -29,20 +29,56 @@ impl From<(Value, GlobalPortIdx)> for AssignResult {
     }
 }
 
-/// The return value for evaluating the results of a primitive
-pub type Results = InterpreterResult<Vec<AssignResult>>;
+/// An enum used to denote whether or not committed updates changed the state
+pub enum UpdateStatus {
+    Unchanged,
+    Changed,
+}
+
+impl UpdateStatus {
+    #[inline]
+    /// If the status is unchanged and other is changed, updates the status of
+    /// self to changed, otherwise does nothing
+    pub fn update(&mut self, other: Self) {
+        match self {
+            UpdateStatus::Unchanged => {
+                if let UpdateStatus::Changed = other {
+                    *self = UpdateStatus::Changed
+                }
+            }
+            UpdateStatus::Changed => {}
+        }
+    }
+
+    /// Returns [UpdateStatus::Changed] if either input is Changed otherwise
+    /// returns Unchanged
+    pub fn either_changed(first: Self, second: Self) -> Self {
+        match (first, second) {
+            (UpdateStatus::Unchanged, UpdateStatus::Unchanged) => {
+                UpdateStatus::Unchanged
+            }
+            (UpdateStatus::Unchanged, UpdateStatus::Changed)
+            | (UpdateStatus::Changed, UpdateStatus::Unchanged)
+            | (UpdateStatus::Changed, UpdateStatus::Changed) => {
+                UpdateStatus::Changed
+            }
+        }
+    }
+}
+
+pub type UpdateResult = InterpreterResult<UpdateStatus>;
 
 pub trait Primitive {
-    fn exec_comb(&self, _port_map: &PortMap) -> Results {
-        Ok(vec![])
+    fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
+        Ok(UpdateStatus::Unchanged)
     }
 
-    fn exec_cycle(&mut self, _port_map: &PortMap) -> Results {
-        Ok(vec![])
+    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> UpdateResult {
+        Ok(UpdateStatus::Unchanged)
     }
 
-    fn reset(&mut self, _port_map: &PortMap) -> Results {
-        Ok(vec![])
+    fn reset(&mut self, _port_map: &mut PortMap) -> InterpreterResult<()> {
+        Ok(())
     }
 
     fn has_comb(&self) -> bool {

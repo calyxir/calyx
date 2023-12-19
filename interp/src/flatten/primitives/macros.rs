@@ -41,7 +41,7 @@ macro_rules! comb_primitive {
     ($name:ident$([$($param:ident),+])?
         ( $($port:ident [$port_idx:expr]),+ )
         ->
-        ($($out_port:ident [$out_port_idx:expr]),+)
+        ($out_port:ident [$out_port_idx:expr])
         $execute:block) => {
         #[derive(Clone, Debug)]
         #[allow(non_snake_case)]
@@ -53,7 +53,7 @@ macro_rules! comb_primitive {
         impl $name {
 
             $crate::flatten::primitives::macros::declare_ports![$($port: $port_idx),+];
-            $crate::flatten::primitives::macros::declare_ports![$($out_port: $out_port_idx),+];
+            $crate::flatten::primitives::macros::declare_ports![$out_port: $out_port_idx,];
 
             #[allow(non_snake_case)]
             pub fn new(
@@ -70,16 +70,17 @@ macro_rules! comb_primitive {
         impl $crate::flatten::primitives::Primitive for $name {
             fn exec_comb(
                 &self,
-                port_map: &$crate::flatten::structures::environment::PortMap,
-            ) -> $crate::flatten::primitives::prim_trait::Results {
+                port_map: &mut $crate::flatten::structures::environment::PortMap,
+            ) -> $crate::flatten::primitives::prim_trait::UpdateResult {
 
                 $crate::flatten::primitives::macros::ports![&self.base_port;
                     $($port: Self::$port,)+
-                    $($out_port: Self::$out_port),+
+                    $out_port: Self::$out_port
                 ];
 
+
                 #[allow(non_snake_case)]
-                let exec_func = |$($($param: u32,)+)? $($port: &$crate::values::Value),+, $($out_port:$crate::flatten::flat_ir::prelude::GlobalPortIdx,)+ | -> $crate::flatten::primitives::prim_trait::Results {
+                let exec_func = |$($($param: u32,)+)? $($port: &$crate::values::Value),+| ->$crate::errors::InterpreterResult<$crate::values::Value>  {
                     $execute
                 };
 
@@ -87,18 +88,24 @@ macro_rules! comb_primitive {
                 let out = exec_func(
                     $($(self.$param,)*)?
                     $(&port_map[$port],)+
-                    $($out_port,)+
-                );
 
-                out
+                )?;
+
+                Ok(if port_map[$out_port] != out {
+                    port_map[$out_port] = out;
+                    $crate::flatten::primitives::prim_trait::UpdateStatus::Changed
+                } else {
+                    $crate::flatten::primitives::prim_trait::UpdateStatus::Unchanged
+                })
             }
 
             fn has_stateful(&self) -> bool {
                 false
             }
 
-            fn reset(&mut self, map:&$crate::flatten::structures::environment::PortMap) -> $crate::flatten::primitives::prim_trait::Results {
-                self.exec_comb(map)
+            fn reset(&mut self, map:&mut $crate::flatten::structures::environment::PortMap) -> $crate::errors::InterpreterResult<()> {
+                self.exec_comb(map)?;
+                Ok(())
             }
         }
     };
