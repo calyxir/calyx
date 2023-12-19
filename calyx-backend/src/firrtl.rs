@@ -3,7 +3,6 @@
 //! Transforms an [`ir::Context`](crate::ir::Context) into a formatted string that represents a
 //! valid FIRRTL program.
 
-use crate::verilog::is_data_port;
 use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, RRC};
 use calyx_utils::{CalyxResult, OutputFile};
@@ -190,13 +189,12 @@ fn write_invalid_initialization<F: io::Write>(
 ) -> CalyxResult<()> {
     // FIXME: currently using the is_data_port() function from verilog.rs, but I think we want to instead
     // check whether the port is a control port or not. I'll leave this in as a first pass
-    let data = is_data_port(port);
     let default_initialization_str = "; default initialization";
     let dst_string = get_port_string(&port.borrow(), true);
-    if data {
+    if port.borrow().attributes.has(ir::BoolAttr::Control) {
         writeln!(
             f,
-            "{}{} is invalid {}",
+            "{}{} <= UInt(0) {}",
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
@@ -204,7 +202,7 @@ fn write_invalid_initialization<F: io::Write>(
     } else {
         writeln!(
             f,
-            "{}{} <= UInt(0) {}",
+            "{}{} is invalid {}",
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
