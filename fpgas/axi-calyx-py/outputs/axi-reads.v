@@ -2406,6 +2406,9 @@ logic n_RLAST_in;
 logic n_RLAST_out;
 logic [511:0] rdata_slice_in;
 logic [31:0] rdata_slice_out;
+logic [63:0] curr_addr_adder_left;
+logic [63:0] curr_addr_adder_right;
+logic [63:0] curr_addr_adder_out;
 logic block_transfer_done_and_left;
 logic block_transfer_done_and_right;
 logic block_transfer_done_and_out;
@@ -2455,6 +2458,10 @@ logic receive_r_transfer_go_in;
 logic receive_r_transfer_go_out;
 logic receive_r_transfer_done_in;
 logic receive_r_transfer_done_out;
+logic incr_curr_addr_go_in;
+logic incr_curr_addr_go_out;
+logic incr_curr_addr_done_in;
+logic incr_curr_addr_done_out;
 logic invoke2_go_in;
 logic invoke2_go_out;
 logic invoke2_done_in;
@@ -2501,6 +2508,13 @@ std_slice # (
 ) rdata_slice (
     .in(rdata_slice_in),
     .out(rdata_slice_out)
+);
+std_add # (
+    .WIDTH(64)
+) curr_addr_adder (
+    .left(curr_addr_adder_left),
+    .out(curr_addr_adder_out),
+    .right(curr_addr_adder_right)
 );
 std_and # (
     .WIDTH(1)
@@ -2609,6 +2623,18 @@ std_wire # (
 );
 std_wire # (
     .WIDTH(1)
+) incr_curr_addr_go (
+    .in(incr_curr_addr_go_in),
+    .out(incr_curr_addr_go_out)
+);
+std_wire # (
+    .WIDTH(1)
+) incr_curr_addr_done (
+    .in(incr_curr_addr_done_in),
+    .out(incr_curr_addr_done_out)
+);
+std_wire # (
+    .WIDTH(1)
 ) invoke2_go (
     .in(invoke2_go_in),
     .out(invoke2_go_out)
@@ -2681,122 +2707,122 @@ std_wire # (
 );
 wire _guard0 = 1;
 wire _guard1 = tdcc_done_out;
-wire _guard2 = receive_r_transfer_go_out;
-wire _guard3 = receive_r_transfer_go_out;
+wire _guard2 = incr_curr_addr_go_out;
+wire _guard3 = incr_curr_addr_go_out;
 wire _guard4 = receive_r_transfer_go_out;
-wire _guard5 = early_reset_not_rlast0_go_out;
-wire _guard6 = early_reset_static_par_go_out;
-wire _guard7 = _guard5 | _guard6;
-wire _guard8 = fsm_out != 1'd0;
-wire _guard9 = early_reset_not_rlast0_go_out;
-wire _guard10 = _guard8 & _guard9;
-wire _guard11 = fsm_out == 1'd0;
-wire _guard12 = early_reset_not_rlast0_go_out;
-wire _guard13 = _guard11 & _guard12;
-wire _guard14 = fsm_out == 1'd0;
-wire _guard15 = early_reset_static_par_go_out;
-wire _guard16 = _guard14 & _guard15;
-wire _guard17 = _guard13 | _guard16;
-wire _guard18 = fsm_out != 1'd0;
-wire _guard19 = early_reset_static_par_go_out;
-wire _guard20 = _guard18 & _guard19;
-wire _guard21 = early_reset_not_rlast0_go_out;
-wire _guard22 = early_reset_not_rlast0_go_out;
-wire _guard23 = invoke2_done_out;
-wire _guard24 = ~_guard23;
-wire _guard25 = fsm0_out == 3'd3;
-wire _guard26 = _guard24 & _guard25;
-wire _guard27 = tdcc_go_out;
+wire _guard5 = receive_r_transfer_go_out;
+wire _guard6 = receive_r_transfer_go_out;
+wire _guard7 = early_reset_not_rlast0_go_out;
+wire _guard8 = early_reset_static_par_go_out;
+wire _guard9 = _guard7 | _guard8;
+wire _guard10 = fsm_out != 1'd0;
+wire _guard11 = early_reset_not_rlast0_go_out;
+wire _guard12 = _guard10 & _guard11;
+wire _guard13 = fsm_out == 1'd0;
+wire _guard14 = early_reset_not_rlast0_go_out;
+wire _guard15 = _guard13 & _guard14;
+wire _guard16 = fsm_out == 1'd0;
+wire _guard17 = early_reset_static_par_go_out;
+wire _guard18 = _guard16 & _guard17;
+wire _guard19 = _guard15 | _guard18;
+wire _guard20 = fsm_out != 1'd0;
+wire _guard21 = early_reset_static_par_go_out;
+wire _guard22 = _guard20 & _guard21;
+wire _guard23 = early_reset_not_rlast0_go_out;
+wire _guard24 = early_reset_not_rlast0_go_out;
+wire _guard25 = invoke2_done_out;
+wire _guard26 = ~_guard25;
+wire _guard27 = fsm0_out == 3'd3;
 wire _guard28 = _guard26 & _guard27;
-wire _guard29 = early_reset_not_rlast0_go_out;
-wire _guard30 = early_reset_not_rlast0_go_out;
-wire _guard31 = fsm_out == 1'd0;
-wire _guard32 = signal_reg_out;
-wire _guard33 = _guard31 & _guard32;
-wire _guard34 = block_transfer_go_out;
-wire _guard35 = block_transfer_go_out;
-wire _guard36 = wrapper_early_reset_static_par_done_out;
-wire _guard37 = ~_guard36;
-wire _guard38 = fsm0_out == 3'd1;
-wire _guard39 = _guard37 & _guard38;
-wire _guard40 = tdcc_go_out;
+wire _guard29 = tdcc_go_out;
+wire _guard30 = _guard28 & _guard29;
+wire _guard31 = early_reset_not_rlast0_go_out;
+wire _guard32 = early_reset_not_rlast0_go_out;
+wire _guard33 = fsm_out == 1'd0;
+wire _guard34 = signal_reg_out;
+wire _guard35 = _guard33 & _guard34;
+wire _guard36 = block_transfer_go_out;
+wire _guard37 = block_transfer_go_out;
+wire _guard38 = wrapper_early_reset_static_par_done_out;
+wire _guard39 = ~_guard38;
+wire _guard40 = fsm0_out == 3'd1;
 wire _guard41 = _guard39 & _guard40;
-wire _guard42 = fsm_out == 1'd0;
-wire _guard43 = signal_reg_out;
-wire _guard44 = _guard42 & _guard43;
-wire _guard45 = invoke2_go_out;
-wire _guard46 = early_reset_static_par_go_out;
-wire _guard47 = _guard45 | _guard46;
+wire _guard42 = tdcc_go_out;
+wire _guard43 = _guard41 & _guard42;
+wire _guard44 = fsm_out == 1'd0;
+wire _guard45 = signal_reg_out;
+wire _guard46 = _guard44 & _guard45;
+wire _guard47 = invoke2_go_out;
 wire _guard48 = early_reset_static_par_go_out;
-wire _guard49 = invoke2_go_out;
-wire _guard50 = fsm0_out == 3'd6;
-wire _guard51 = fsm0_out == 3'd0;
-wire _guard52 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard53 = comb_reg_out;
-wire _guard54 = _guard52 & _guard53;
-wire _guard55 = _guard51 & _guard54;
-wire _guard56 = tdcc_go_out;
-wire _guard57 = _guard55 & _guard56;
-wire _guard58 = _guard50 | _guard57;
-wire _guard59 = fsm0_out == 3'd5;
-wire _guard60 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard61 = comb_reg_out;
-wire _guard62 = _guard60 & _guard61;
-wire _guard63 = _guard59 & _guard62;
-wire _guard64 = tdcc_go_out;
-wire _guard65 = _guard63 & _guard64;
-wire _guard66 = _guard58 | _guard65;
-wire _guard67 = fsm0_out == 3'd1;
-wire _guard68 = wrapper_early_reset_static_par_done_out;
-wire _guard69 = _guard67 & _guard68;
-wire _guard70 = tdcc_go_out;
+wire _guard49 = _guard47 | _guard48;
+wire _guard50 = early_reset_static_par_go_out;
+wire _guard51 = invoke2_go_out;
+wire _guard52 = fsm0_out == 3'd7;
+wire _guard53 = fsm0_out == 3'd0;
+wire _guard54 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard55 = comb_reg_out;
+wire _guard56 = _guard54 & _guard55;
+wire _guard57 = _guard53 & _guard56;
+wire _guard58 = tdcc_go_out;
+wire _guard59 = _guard57 & _guard58;
+wire _guard60 = _guard52 | _guard59;
+wire _guard61 = fsm0_out == 3'd6;
+wire _guard62 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard63 = comb_reg_out;
+wire _guard64 = _guard62 & _guard63;
+wire _guard65 = _guard61 & _guard64;
+wire _guard66 = tdcc_go_out;
+wire _guard67 = _guard65 & _guard66;
+wire _guard68 = _guard60 | _guard67;
+wire _guard69 = fsm0_out == 3'd1;
+wire _guard70 = wrapper_early_reset_static_par_done_out;
 wire _guard71 = _guard69 & _guard70;
-wire _guard72 = _guard66 | _guard71;
-wire _guard73 = fsm0_out == 3'd2;
-wire _guard74 = block_transfer_done_out;
-wire _guard75 = _guard73 & _guard74;
-wire _guard76 = tdcc_go_out;
+wire _guard72 = tdcc_go_out;
+wire _guard73 = _guard71 & _guard72;
+wire _guard74 = _guard68 | _guard73;
+wire _guard75 = fsm0_out == 3'd2;
+wire _guard76 = block_transfer_done_out;
 wire _guard77 = _guard75 & _guard76;
-wire _guard78 = _guard72 | _guard77;
-wire _guard79 = fsm0_out == 3'd3;
-wire _guard80 = invoke2_done_out;
-wire _guard81 = _guard79 & _guard80;
-wire _guard82 = tdcc_go_out;
+wire _guard78 = tdcc_go_out;
+wire _guard79 = _guard77 & _guard78;
+wire _guard80 = _guard74 | _guard79;
+wire _guard81 = fsm0_out == 3'd3;
+wire _guard82 = invoke2_done_out;
 wire _guard83 = _guard81 & _guard82;
-wire _guard84 = _guard78 | _guard83;
-wire _guard85 = fsm0_out == 3'd4;
-wire _guard86 = receive_r_transfer_done_out;
-wire _guard87 = _guard85 & _guard86;
-wire _guard88 = tdcc_go_out;
+wire _guard84 = tdcc_go_out;
+wire _guard85 = _guard83 & _guard84;
+wire _guard86 = _guard80 | _guard85;
+wire _guard87 = fsm0_out == 3'd4;
+wire _guard88 = receive_r_transfer_done_out;
 wire _guard89 = _guard87 & _guard88;
-wire _guard90 = _guard84 | _guard89;
-wire _guard91 = fsm0_out == 3'd0;
-wire _guard92 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard93 = comb_reg_out;
-wire _guard94 = ~_guard93;
-wire _guard95 = _guard92 & _guard94;
-wire _guard96 = _guard91 & _guard95;
-wire _guard97 = tdcc_go_out;
-wire _guard98 = _guard96 & _guard97;
-wire _guard99 = _guard90 | _guard98;
-wire _guard100 = fsm0_out == 3'd5;
-wire _guard101 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard102 = comb_reg_out;
-wire _guard103 = ~_guard102;
-wire _guard104 = _guard101 & _guard103;
-wire _guard105 = _guard100 & _guard104;
-wire _guard106 = tdcc_go_out;
-wire _guard107 = _guard105 & _guard106;
-wire _guard108 = _guard99 | _guard107;
-wire _guard109 = fsm0_out == 3'd0;
-wire _guard110 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard111 = comb_reg_out;
-wire _guard112 = ~_guard111;
-wire _guard113 = _guard110 & _guard112;
-wire _guard114 = _guard109 & _guard113;
-wire _guard115 = tdcc_go_out;
-wire _guard116 = _guard114 & _guard115;
-wire _guard117 = fsm0_out == 3'd5;
+wire _guard90 = tdcc_go_out;
+wire _guard91 = _guard89 & _guard90;
+wire _guard92 = _guard86 | _guard91;
+wire _guard93 = fsm0_out == 3'd5;
+wire _guard94 = incr_curr_addr_done_out;
+wire _guard95 = _guard93 & _guard94;
+wire _guard96 = tdcc_go_out;
+wire _guard97 = _guard95 & _guard96;
+wire _guard98 = _guard92 | _guard97;
+wire _guard99 = fsm0_out == 3'd0;
+wire _guard100 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard101 = comb_reg_out;
+wire _guard102 = ~_guard101;
+wire _guard103 = _guard100 & _guard102;
+wire _guard104 = _guard99 & _guard103;
+wire _guard105 = tdcc_go_out;
+wire _guard106 = _guard104 & _guard105;
+wire _guard107 = _guard98 | _guard106;
+wire _guard108 = fsm0_out == 3'd6;
+wire _guard109 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard110 = comb_reg_out;
+wire _guard111 = ~_guard110;
+wire _guard112 = _guard109 & _guard111;
+wire _guard113 = _guard108 & _guard112;
+wire _guard114 = tdcc_go_out;
+wire _guard115 = _guard113 & _guard114;
+wire _guard116 = _guard107 | _guard115;
+wire _guard117 = fsm0_out == 3'd0;
 wire _guard118 = wrapper_early_reset_not_rlast0_done_out;
 wire _guard119 = comb_reg_out;
 wire _guard120 = ~_guard119;
@@ -2804,74 +2830,74 @@ wire _guard121 = _guard118 & _guard120;
 wire _guard122 = _guard117 & _guard121;
 wire _guard123 = tdcc_go_out;
 wire _guard124 = _guard122 & _guard123;
-wire _guard125 = _guard116 | _guard124;
-wire _guard126 = fsm0_out == 3'd4;
-wire _guard127 = receive_r_transfer_done_out;
-wire _guard128 = _guard126 & _guard127;
-wire _guard129 = tdcc_go_out;
-wire _guard130 = _guard128 & _guard129;
-wire _guard131 = fsm0_out == 3'd1;
-wire _guard132 = wrapper_early_reset_static_par_done_out;
-wire _guard133 = _guard131 & _guard132;
-wire _guard134 = tdcc_go_out;
-wire _guard135 = _guard133 & _guard134;
-wire _guard136 = fsm0_out == 3'd3;
-wire _guard137 = invoke2_done_out;
+wire _guard125 = fsm0_out == 3'd6;
+wire _guard126 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard127 = comb_reg_out;
+wire _guard128 = ~_guard127;
+wire _guard129 = _guard126 & _guard128;
+wire _guard130 = _guard125 & _guard129;
+wire _guard131 = tdcc_go_out;
+wire _guard132 = _guard130 & _guard131;
+wire _guard133 = _guard124 | _guard132;
+wire _guard134 = fsm0_out == 3'd5;
+wire _guard135 = incr_curr_addr_done_out;
+wire _guard136 = _guard134 & _guard135;
+wire _guard137 = tdcc_go_out;
 wire _guard138 = _guard136 & _guard137;
-wire _guard139 = tdcc_go_out;
-wire _guard140 = _guard138 & _guard139;
-wire _guard141 = fsm0_out == 3'd0;
-wire _guard142 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard143 = comb_reg_out;
-wire _guard144 = _guard142 & _guard143;
-wire _guard145 = _guard141 & _guard144;
-wire _guard146 = tdcc_go_out;
-wire _guard147 = _guard145 & _guard146;
-wire _guard148 = fsm0_out == 3'd5;
-wire _guard149 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard150 = comb_reg_out;
+wire _guard139 = fsm0_out == 3'd4;
+wire _guard140 = receive_r_transfer_done_out;
+wire _guard141 = _guard139 & _guard140;
+wire _guard142 = tdcc_go_out;
+wire _guard143 = _guard141 & _guard142;
+wire _guard144 = fsm0_out == 3'd1;
+wire _guard145 = wrapper_early_reset_static_par_done_out;
+wire _guard146 = _guard144 & _guard145;
+wire _guard147 = tdcc_go_out;
+wire _guard148 = _guard146 & _guard147;
+wire _guard149 = fsm0_out == 3'd3;
+wire _guard150 = invoke2_done_out;
 wire _guard151 = _guard149 & _guard150;
-wire _guard152 = _guard148 & _guard151;
-wire _guard153 = tdcc_go_out;
-wire _guard154 = _guard152 & _guard153;
-wire _guard155 = _guard147 | _guard154;
-wire _guard156 = fsm0_out == 3'd6;
-wire _guard157 = fsm0_out == 3'd2;
-wire _guard158 = block_transfer_done_out;
-wire _guard159 = _guard157 & _guard158;
-wire _guard160 = tdcc_go_out;
-wire _guard161 = _guard159 & _guard160;
-wire _guard162 = early_reset_not_rlast0_go_out;
-wire _guard163 = early_reset_static_par_go_out;
-wire _guard164 = early_reset_static_par_go_out;
-wire _guard165 = block_transfer_go_out;
-wire _guard166 = early_reset_static_par_go_out;
-wire _guard167 = _guard165 | _guard166;
-wire _guard168 = block_transfer_go_out;
-wire _guard169 = early_reset_static_par_go_out;
-wire _guard170 = fsm_out == 1'd0;
-wire _guard171 = signal_reg_out;
+wire _guard152 = tdcc_go_out;
+wire _guard153 = _guard151 & _guard152;
+wire _guard154 = fsm0_out == 3'd0;
+wire _guard155 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard156 = comb_reg_out;
+wire _guard157 = _guard155 & _guard156;
+wire _guard158 = _guard154 & _guard157;
+wire _guard159 = tdcc_go_out;
+wire _guard160 = _guard158 & _guard159;
+wire _guard161 = fsm0_out == 3'd6;
+wire _guard162 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard163 = comb_reg_out;
+wire _guard164 = _guard162 & _guard163;
+wire _guard165 = _guard161 & _guard164;
+wire _guard166 = tdcc_go_out;
+wire _guard167 = _guard165 & _guard166;
+wire _guard168 = _guard160 | _guard167;
+wire _guard169 = fsm0_out == 3'd7;
+wire _guard170 = fsm0_out == 3'd2;
+wire _guard171 = block_transfer_done_out;
 wire _guard172 = _guard170 & _guard171;
-wire _guard173 = fsm_out == 1'd0;
-wire _guard174 = signal_reg_out;
-wire _guard175 = ~_guard174;
-wire _guard176 = _guard173 & _guard175;
-wire _guard177 = wrapper_early_reset_not_rlast0_go_out;
-wire _guard178 = _guard176 & _guard177;
-wire _guard179 = _guard172 | _guard178;
-wire _guard180 = fsm_out == 1'd0;
-wire _guard181 = signal_reg_out;
-wire _guard182 = ~_guard181;
-wire _guard183 = _guard180 & _guard182;
-wire _guard184 = wrapper_early_reset_static_par_go_out;
+wire _guard173 = tdcc_go_out;
+wire _guard174 = _guard172 & _guard173;
+wire _guard175 = early_reset_not_rlast0_go_out;
+wire _guard176 = early_reset_static_par_go_out;
+wire _guard177 = early_reset_static_par_go_out;
+wire _guard178 = block_transfer_go_out;
+wire _guard179 = early_reset_static_par_go_out;
+wire _guard180 = _guard178 | _guard179;
+wire _guard181 = block_transfer_go_out;
+wire _guard182 = early_reset_static_par_go_out;
+wire _guard183 = fsm_out == 1'd0;
+wire _guard184 = signal_reg_out;
 wire _guard185 = _guard183 & _guard184;
-wire _guard186 = _guard179 | _guard185;
-wire _guard187 = fsm_out == 1'd0;
-wire _guard188 = signal_reg_out;
-wire _guard189 = ~_guard188;
-wire _guard190 = _guard187 & _guard189;
-wire _guard191 = wrapper_early_reset_not_rlast0_go_out;
-wire _guard192 = _guard190 & _guard191;
+wire _guard186 = fsm_out == 1'd0;
+wire _guard187 = signal_reg_out;
+wire _guard188 = ~_guard187;
+wire _guard189 = _guard186 & _guard188;
+wire _guard190 = wrapper_early_reset_not_rlast0_go_out;
+wire _guard191 = _guard189 & _guard190;
+wire _guard192 = _guard185 | _guard191;
 wire _guard193 = fsm_out == 1'd0;
 wire _guard194 = signal_reg_out;
 wire _guard195 = ~_guard194;
@@ -2881,122 +2907,152 @@ wire _guard198 = _guard196 & _guard197;
 wire _guard199 = _guard192 | _guard198;
 wire _guard200 = fsm_out == 1'd0;
 wire _guard201 = signal_reg_out;
-wire _guard202 = _guard200 & _guard201;
-wire _guard203 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard204 = ~_guard203;
-wire _guard205 = fsm0_out == 3'd0;
-wire _guard206 = _guard204 & _guard205;
-wire _guard207 = tdcc_go_out;
-wire _guard208 = _guard206 & _guard207;
-wire _guard209 = wrapper_early_reset_not_rlast0_done_out;
-wire _guard210 = ~_guard209;
-wire _guard211 = fsm0_out == 3'd5;
-wire _guard212 = _guard210 & _guard211;
-wire _guard213 = tdcc_go_out;
-wire _guard214 = _guard212 & _guard213;
-wire _guard215 = _guard208 | _guard214;
-wire _guard216 = wrapper_early_reset_not_rlast0_go_out;
-wire _guard217 = fsm0_out == 3'd6;
-wire _guard218 = wrapper_early_reset_static_par_go_out;
-wire _guard219 = receive_r_transfer_done_out;
-wire _guard220 = ~_guard219;
-wire _guard221 = fsm0_out == 3'd4;
-wire _guard222 = _guard220 & _guard221;
-wire _guard223 = tdcc_go_out;
-wire _guard224 = _guard222 & _guard223;
-wire _guard225 = receive_r_transfer_go_out;
-wire _guard226 = block_transfer_done_out;
-wire _guard227 = ~_guard226;
-wire _guard228 = fsm0_out == 3'd2;
-wire _guard229 = _guard227 & _guard228;
-wire _guard230 = tdcc_go_out;
-wire _guard231 = _guard229 & _guard230;
+wire _guard202 = ~_guard201;
+wire _guard203 = _guard200 & _guard202;
+wire _guard204 = wrapper_early_reset_not_rlast0_go_out;
+wire _guard205 = _guard203 & _guard204;
+wire _guard206 = fsm_out == 1'd0;
+wire _guard207 = signal_reg_out;
+wire _guard208 = ~_guard207;
+wire _guard209 = _guard206 & _guard208;
+wire _guard210 = wrapper_early_reset_static_par_go_out;
+wire _guard211 = _guard209 & _guard210;
+wire _guard212 = _guard205 | _guard211;
+wire _guard213 = fsm_out == 1'd0;
+wire _guard214 = signal_reg_out;
+wire _guard215 = _guard213 & _guard214;
+wire _guard216 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard217 = ~_guard216;
+wire _guard218 = fsm0_out == 3'd0;
+wire _guard219 = _guard217 & _guard218;
+wire _guard220 = tdcc_go_out;
+wire _guard221 = _guard219 & _guard220;
+wire _guard222 = wrapper_early_reset_not_rlast0_done_out;
+wire _guard223 = ~_guard222;
+wire _guard224 = fsm0_out == 3'd6;
+wire _guard225 = _guard223 & _guard224;
+wire _guard226 = tdcc_go_out;
+wire _guard227 = _guard225 & _guard226;
+wire _guard228 = _guard221 | _guard227;
+wire _guard229 = wrapper_early_reset_not_rlast0_go_out;
+wire _guard230 = fsm0_out == 3'd7;
+wire _guard231 = incr_curr_addr_done_out;
+wire _guard232 = ~_guard231;
+wire _guard233 = fsm0_out == 3'd5;
+wire _guard234 = _guard232 & _guard233;
+wire _guard235 = tdcc_go_out;
+wire _guard236 = _guard234 & _guard235;
+wire _guard237 = wrapper_early_reset_static_par_go_out;
+wire _guard238 = receive_r_transfer_done_out;
+wire _guard239 = ~_guard238;
+wire _guard240 = fsm0_out == 3'd4;
+wire _guard241 = _guard239 & _guard240;
+wire _guard242 = tdcc_go_out;
+wire _guard243 = _guard241 & _guard242;
+wire _guard244 = receive_r_transfer_go_out;
+wire _guard245 = block_transfer_done_out;
+wire _guard246 = ~_guard245;
+wire _guard247 = fsm0_out == 3'd2;
+wire _guard248 = _guard246 & _guard247;
+wire _guard249 = tdcc_go_out;
+wire _guard250 = _guard248 & _guard249;
+wire _guard251 = incr_curr_addr_go_out;
+wire _guard252 = incr_curr_addr_go_out;
 assign done = _guard1;
+assign curr_addr_write_en = _guard2;
 assign data_received_read_en = 1'd0;
+assign curr_addr_in =
+  _guard3 ? curr_addr_adder_out :
+  64'd0;
 assign RREADY = is_rdy_out;
-assign data_received_write_en = _guard2;
+assign data_received_write_en = _guard4;
 assign data_received_write_data =
-  _guard3 ? rdata_slice_out :
+  _guard5 ? rdata_slice_out :
   32'd0;
 assign data_received_addr0 =
-  _guard4 ? curr_addr_out :
+  _guard6 ? curr_addr_out :
   64'd0;
-assign fsm_write_en = _guard7;
+assign fsm_write_en = _guard9;
 assign fsm_clk = clk;
 assign fsm_reset = reset;
 assign fsm_in =
-  _guard10 ? adder_out :
-  _guard17 ? 1'd0 :
-  _guard20 ? adder0_out :
+  _guard12 ? adder_out :
+  _guard19 ? 1'd0 :
+  _guard22 ? adder0_out :
   1'd0;
 assign adder_left =
-  _guard21 ? fsm_out :
+  _guard23 ? fsm_out :
   1'd0;
-assign adder_right = _guard22;
-assign invoke2_go_in = _guard28;
-assign comb_reg_write_en = _guard29;
+assign adder_right = _guard24;
+assign invoke2_go_in = _guard30;
+assign comb_reg_write_en = _guard31;
 assign comb_reg_clk = clk;
 assign comb_reg_reset = reset;
 assign comb_reg_in =
-  _guard30 ? n_RLAST_out :
+  _guard32 ? n_RLAST_out :
   1'd0;
 assign block_transfer_done_in = bt_reg_out;
-assign wrapper_early_reset_not_rlast0_done_in = _guard33;
+assign wrapper_early_reset_not_rlast0_done_in = _guard35;
 assign block_transfer_done_and_left = is_rdy_out;
 assign block_transfer_done_and_right = RVALID;
-assign wrapper_early_reset_static_par_go_in = _guard41;
-assign wrapper_early_reset_static_par_done_in = _guard44;
+assign wrapper_early_reset_static_par_go_in = _guard43;
+assign wrapper_early_reset_static_par_done_in = _guard46;
 assign tdcc_go_in = go;
-assign is_rdy_write_en = _guard47;
+assign is_rdy_write_en = _guard49;
 assign is_rdy_clk = clk;
 assign is_rdy_reset = reset;
 assign is_rdy_in =
-  _guard48 ? 1'd1 :
-  _guard49 ? 1'd0 :
+  _guard50 ? 1'd1 :
+  _guard51 ? 1'd0 :
   'x;
-assign fsm0_write_en = _guard108;
+assign fsm0_write_en = _guard116;
 assign fsm0_clk = clk;
 assign fsm0_reset = reset;
 assign fsm0_in =
-  _guard125 ? 3'd6 :
-  _guard130 ? 3'd5 :
-  _guard135 ? 3'd2 :
-  _guard140 ? 3'd4 :
-  _guard155 ? 3'd1 :
-  _guard156 ? 3'd0 :
-  _guard161 ? 3'd3 :
+  _guard133 ? 3'd7 :
+  _guard138 ? 3'd6 :
+  _guard143 ? 3'd5 :
+  _guard148 ? 3'd2 :
+  _guard153 ? 3'd4 :
+  _guard168 ? 3'd1 :
+  _guard169 ? 3'd0 :
+  _guard174 ? 3'd3 :
   3'd0;
 assign n_RLAST_in =
-  _guard162 ? RLAST :
+  _guard175 ? RLAST :
   1'd0;
 assign adder0_left =
-  _guard163 ? fsm_out :
+  _guard176 ? fsm_out :
   1'd0;
-assign adder0_right = _guard164;
+assign adder0_right = _guard177;
 assign early_reset_static_par_done_in = ud0_out;
-assign bt_reg_write_en = _guard167;
+assign bt_reg_write_en = _guard180;
 assign bt_reg_clk = clk;
 assign bt_reg_reset = reset;
 assign bt_reg_in =
-  _guard168 ? block_transfer_done_and_out :
-  _guard169 ? 1'd0 :
+  _guard181 ? block_transfer_done_and_out :
+  _guard182 ? 1'd0 :
   'x;
-assign signal_reg_write_en = _guard186;
+assign signal_reg_write_en = _guard199;
 assign signal_reg_clk = clk;
 assign signal_reg_reset = reset;
 assign signal_reg_in =
-  _guard199 ? 1'd1 :
-  _guard202 ? 1'd0 :
+  _guard212 ? 1'd1 :
+  _guard215 ? 1'd0 :
   1'd0;
 assign invoke2_done_in = is_rdy_done;
-assign wrapper_early_reset_not_rlast0_go_in = _guard215;
-assign early_reset_not_rlast0_go_in = _guard216;
-assign tdcc_done_in = _guard217;
-assign early_reset_static_par_go_in = _guard218;
-assign receive_r_transfer_go_in = _guard224;
+assign wrapper_early_reset_not_rlast0_go_in = _guard228;
+assign early_reset_not_rlast0_go_in = _guard229;
+assign tdcc_done_in = _guard230;
+assign incr_curr_addr_go_in = _guard236;
+assign early_reset_static_par_go_in = _guard237;
+assign receive_r_transfer_go_in = _guard243;
+assign incr_curr_addr_done_in = curr_addr_done;
 assign early_reset_not_rlast0_done_in = ud_out;
 assign rdata_slice_in = RDATA;
-assign block_transfer_go_in = _guard231;
+assign block_transfer_go_in = _guard250;
+assign curr_addr_adder_left = 64'd1;
+assign curr_addr_adder_right = curr_addr_out;
 assign receive_r_transfer_done_in = data_received_write_done;
 // COMPONENT END: m_read_channel
 endmodule
@@ -3052,17 +3108,17 @@ logic read_channel_go;
 logic read_channel_clk;
 logic read_channel_reset;
 logic read_channel_done;
-logic read_channel_data_received_read_en;
+logic [63:0] read_channel_curr_addr_out;
 logic [63:0] read_channel_data_received_addr0;
 logic [31:0] read_channel_data_received_write_data;
-logic read_channel_data_received_read_done;
-logic [63:0] read_channel_curr_addr_out;
-logic [31:0] read_channel_data_received_read_data;
-logic [63:0] read_channel_curr_addr_in;
-logic read_channel_curr_addr_done;
-logic read_channel_curr_addr_write_en;
 logic read_channel_data_received_write_en;
+logic read_channel_curr_addr_done;
 logic read_channel_data_received_write_done;
+logic [31:0] read_channel_data_received_read_data;
+logic read_channel_data_received_read_done;
+logic [63:0] read_channel_curr_addr_in;
+logic read_channel_curr_addr_write_en;
+logic read_channel_data_received_read_en;
 logic arread_channel_ARESET;
 logic arread_channel_ARREADY;
 logic arread_channel_ARVALID;

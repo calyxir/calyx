@@ -131,7 +131,9 @@ component m_arread_channel(
       }
 
       group txn_len_init {
-          //for txn_ln, make it 16 (dot product has 16 elements). Length is ARLEN + 1
+          //TODO(nathanielnrn): For dot product this should be 1 if data  bus width is 512
+          //otherwise should be appropriately set. 15 is good for case study. We'd
+          //expect 16 transfers but seem to get 4? Length is ARLEN + 1
           txn_len.in = 8'd15;
           txn_len.write_en = 1'b1;
           txn_len_init[done] = txn_len.done;
@@ -197,6 +199,7 @@ component m_read_channel(
       //Still need to figure out how we actually want to be shrinking from 512 to 32
       //NOTE: this takes [31:0] by definition
       rdata_slice = std_slice(512,32);
+      curr_addr_adder = std_add(64);
 
 
 
@@ -252,6 +255,14 @@ component m_read_channel(
           data_received.write_data = rdata_slice.out;
           receive_r_transfer[done] = data_received.write_done;
       }
+
+      group incr_curr_addr{
+          curr_addr_adder.left = 64'd1t ;
+          curr_addr_adder.right = curr_addr.out;
+          curr_addr.in = curr_addr_adder.out;
+          curr_addr.write_en = 1'b1;
+          incr_curr_addr[done] = curr_addr.done;
+      }
   }
   control{
       //XXX(nathanielnrn): is this it? Do we need any other conditions?
@@ -262,6 +273,7 @@ component m_read_channel(
               block_transfer;
               deassert_rdy;
               receive_r_transfer;
+              incr_curr_addr;
           }
       }
   }
