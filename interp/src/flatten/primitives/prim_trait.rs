@@ -64,6 +64,14 @@ impl UpdateStatus {
             }
         }
     }
+
+    /// Returns `true` if the update status is [`Changed`].
+    ///
+    /// [`Changed`]: UpdateStatus::Changed
+    #[must_use]
+    pub fn is_changed(&self) -> bool {
+        matches!(self, Self::Changed)
+    }
 }
 
 pub type UpdateResult = InterpreterResult<UpdateStatus>;

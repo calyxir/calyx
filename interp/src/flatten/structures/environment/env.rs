@@ -413,11 +413,13 @@ impl<'a> Simulator<'a> {
         &self.env.ports[port_idx]
     }
 
+    /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
+    /// it is a hole port, then it returns None)
     fn get_parent_cell(
         &self,
         port: PortRef,
         comp: GlobalCellIdx,
-    ) -> GlobalCellIdx {
+    ) -> Option<GlobalCellIdx> {
         let component = self.env.cells[comp].unwrap_comp();
         let comp_info = &self.env.ctx.secondary[component.comp_id];
 
@@ -427,7 +429,7 @@ impl<'a> Simulator<'a> {
                     comp_info.cell_offset_map.iter()
                 {
                     if self.env.ctx.secondary[*cell_def_idx].ports.contains(l) {
-                        return &component.index_bases + cell_offset;
+                        return Some(&component.index_bases + cell_offset);
                     }
                 }
             }
@@ -437,14 +439,16 @@ impl<'a> Simulator<'a> {
                 {
                     if self.env.ctx.secondary[*cell_def_idx].ports.contains(r) {
                         let ref_cell_idx = &component.index_bases + cell_offset;
-                        return self.env.ref_cells[ref_cell_idx]
-                            .expect("Ref cell has not been instantiated");
+                        return Some(
+                            self.env.ref_cells[ref_cell_idx]
+                                .expect("Ref cell has not been instantiated"),
+                        );
                     }
                 }
             }
         }
 
-        unreachable!("Port does not exist on given component. This is an error please report it")
+        None
     }
 
     // may want to make this iterate directly if it turns out that the vec
@@ -578,11 +582,28 @@ impl<'a> Simulator<'a> {
             }
         });
 
-        // we want to iterate through all the nodes present in the program counter
+        self.simulate_combinational(&leaf_nodes)?;
 
-        // first we need to check for conditional control nodes
+        let parent_cells: HashSet<GlobalCellIdx> = self
+            .get_assignments(&leaf_nodes)
+            .iter()
+            .flat_map(|(cell, assigns)| {
+                assigns.iter().map(|x| {
+                    let assign = &self.env.ctx.primary[x];
+                    self.get_parent_cell(assign.dst, *cell)
+                })
+            })
+            .flatten()
+            .collect();
 
-        // self.simulate_combinational();
+        for cell in parent_cells {
+            match &mut self.env.cells[cell] {
+                CellLedger::Primitive { cell_dyn } => {
+                    cell_dyn.exec_cycle(&mut self.env.ports)?;
+                }
+                CellLedger::Component(_) => todo!(),
+            }
+        }
 
         Ok(())
     }
@@ -639,6 +660,7 @@ impl<'a> Simulator<'a> {
                     self.get_parent_cell(assign.dst, *cell)
                 })
             })
+            .flatten()
             .collect();
 
         while has_changed {
@@ -659,23 +681,20 @@ impl<'a> Simulator<'a> {
                 }
             }
 
-            // // This is incredibly silly
-            // let results: InterpreterResult<Vec<AssignResult>> = parent_cells
-            //     .iter()
-            //     .map(|x| match &mut self.env.cells[*x] {
-            //         CellLedger::Primitive { cell_dyn } => cell_dyn
-            //             .exec_comb(&self.env.ports)
-            //             .map(|x| x.into_iter()),
-            //         CellLedger::Component(_) => todo!(),
-            //     })
-            //     .flatten_ok()
-            //     .collect();
+            // Run all the primitives
+            let changed: bool = parent_cells
+                .iter()
+                .map(|x| match &mut self.env.cells[*x] {
+                    CellLedger::Primitive { cell_dyn } => {
+                        cell_dyn.exec_comb(&mut self.env.ports)
+                    }
+                    CellLedger::Component(_) => todo!(),
+                })
+                .fold_ok(false, |has_changed, update| {
+                    has_changed | update.is_changed()
+                })?;
 
-            // for AssignResult { destination, value } in results? {
-
-            // }
-
-            // run the primitives
+            has_changed |= changed;
         }
 
         Ok(())
@@ -689,6 +708,7 @@ impl<'a> Simulator<'a> {
         self.step();
         self.step();
         self.env.print_pc();
+        self.print_env();
         // println!("{:?}", self.get_assignments())
     }
 }
