@@ -95,7 +95,7 @@ fn emit_component<F: io::Write>(
     // Cells
     for cell in comp.cells.iter() {
         let cell_borrowed = cell.as_ref().borrow();
-        if let Some(_) = cell_borrowed.type_name() {
+        if cell_borrowed.type_name().is_some() {
             match cell_borrowed.prototype {
                 ir::CellType::Primitive {
                     name: _,
