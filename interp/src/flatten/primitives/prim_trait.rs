@@ -40,37 +40,48 @@ impl UpdateStatus {
     /// If the status is unchanged and other is changed, updates the status of
     /// self to changed, otherwise does nothing
     pub fn update(&mut self, other: Self) {
-        match self {
-            UpdateStatus::Unchanged => {
-                if let UpdateStatus::Changed = other {
-                    *self = UpdateStatus::Changed
-                }
-            }
-            UpdateStatus::Changed => {}
+        if !self.is_changed() && other.is_changed() {
+            *self = UpdateStatus::Changed;
         }
     }
 
-    /// Returns [UpdateStatus::Changed] if either input is Changed otherwise
-    /// returns Unchanged
-    pub fn either_changed(first: Self, second: Self) -> Self {
-        match (first, second) {
-            (UpdateStatus::Unchanged, UpdateStatus::Unchanged) => {
-                UpdateStatus::Unchanged
-            }
-            (UpdateStatus::Unchanged, UpdateStatus::Changed)
-            | (UpdateStatus::Changed, UpdateStatus::Unchanged)
-            | (UpdateStatus::Changed, UpdateStatus::Changed) => {
-                UpdateStatus::Changed
-            }
-        }
-    }
-
+    #[inline]
     /// Returns `true` if the update status is [`Changed`].
     ///
     /// [`Changed`]: UpdateStatus::Changed
     #[must_use]
     pub fn is_changed(&self) -> bool {
         matches!(self, Self::Changed)
+    }
+}
+
+impl std::ops::BitOr for UpdateStatus {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        if self.is_changed() || rhs.is_changed() {
+            UpdateStatus::Changed
+        } else {
+            UpdateStatus::Unchanged
+        }
+    }
+}
+
+impl std::ops::BitOr for &UpdateStatus {
+    type Output = UpdateStatus;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        if self.is_changed() || rhs.is_changed() {
+            UpdateStatus::Changed
+        } else {
+            UpdateStatus::Unchanged
+        }
+    }
+}
+
+impl std::ops::BitOrAssign for UpdateStatus {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.update(rhs)
     }
 }
 

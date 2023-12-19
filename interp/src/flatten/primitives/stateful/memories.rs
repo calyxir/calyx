@@ -40,8 +40,6 @@ impl Primitive for StdReg {
             done: Self::DONE
         ];
 
-        let mut output_status = UpdateStatus::Unchanged;
-
         let done_port = if port_map[reset].as_bool() {
             self.internal_state = Value::zeroes(self.internal_state.width());
             port_map.insert_val(done, Value::bit_low())
@@ -52,12 +50,8 @@ impl Primitive for StdReg {
             port_map.insert_val(done, Value::bit_low())
         };
 
-        output_status.update(done_port);
-
-        output_status
-            .update(port_map.insert_val(out_idx, self.internal_state.clone()));
-
-        Ok(output_status)
+        Ok(done_port
+            | port_map.insert_val(out_idx, self.internal_state.clone()))
     }
 
     fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
@@ -324,10 +318,10 @@ impl<M: MemAddresser> Primitive for StdMem<M> {
             port_map.insert_val(done, Value::bit_low())
         };
 
-        Ok(UpdateStatus::either_changed(
-            port_map.insert_val(read_data, self.internal_state[addr].clone()),
-            done,
-        ))
+        Ok(
+            port_map.insert_val(read_data, self.internal_state[addr].clone())
+                | done,
+        )
     }
 
     fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
