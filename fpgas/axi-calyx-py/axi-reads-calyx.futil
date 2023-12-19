@@ -46,7 +46,7 @@ component m_arread_channel(
 
       //number of txns we wants to occur before entire m_arread_channel is done
       //TODO(nathanielnrn): We want this txn_n to be passed by reference, but this is not feasible for a const. Later can use a reg.
-      txn_n = std_const(32,16);
+      txn_n = std_const(32,1);
       txn_count = std_reg(32);
       perform_reads = std_neq(32);
       txn_adder = std_add(32);
@@ -62,11 +62,12 @@ component m_arread_channel(
 
       ARVALID = is_arvalid.out;
 
-      group assert_val {
-          is_arvalid.in = 1'b1;
-          is_arvalid.write_en = 1'b1;
-          assert_val[done] = is_arvalid.done;
-      }
+      //prob not needed, see do_ar_transfer
+      //group assert_val {
+      //    is_arvalid.in = 1'b1;
+      //    is_arvalid.write_en = 1'b1;
+      //    assert_val[done] = is_arvalid.done;
+      //}
       
       group deassert_val {
           is_arvalid.in = 1'b0;
@@ -74,13 +75,14 @@ component m_arread_channel(
           deassert_val[done] = is_arvalid.done;
       }
 
-      group block_transfer{
-          block_transfer_done_and.left = ARREADY;
-          block_transfer_done_and.right = is_arvalid.out;
-          bt_reg.in = block_transfer_done_and.out;
-          bt_reg.write_en = 1'b1;
-          block_transfer[done] = bt_reg.out;
-      }
+      //TODO: prob not needed, delete, see do_ar_transfer
+      //group block_transfer{
+      //    block_transfer_done_and.left = ARREADY;
+      //    block_transfer_done_and.right = is_arvalid.out;
+      //    bt_reg.in = block_transfer_done_and.out;
+      //    bt_reg.write_en = 1'b1;
+      //    block_transfer[done] = bt_reg.out;
+      //}
 
       group reset_bt {
           bt_reg.in = 1'b0;
@@ -88,7 +90,16 @@ component m_arread_channel(
           reset_bt[done] = bt_reg.done;
       }
 
+      //this asserts valid and defines all inputs correctly
+      //because valid should not be deasseretd until handshake occurrs
+      // should be all one group
+      //this contains blocking logic previously in its own group
       group do_ar_transfer {
+          //assert ARVALID
+          is_arvalid.in = 1'b1;
+          is_arvalid.write_en = 1'b1;
+
+          //drive output signals for transfer
           ARADDR = base_addr.out;
           ARSIZE = 3'b110; //see link above, needs to match data width to host.
           //For now this can be taken from .yxi, as size of mem.
@@ -96,8 +107,17 @@ component m_arread_channel(
           //make multiple calls.
           ARLEN = txn_len.out;
           ARBURST = 2'b01; //incr
-          //TODO(natahnielnrn) is this okay? Will this keep everything high for a single cycle?
-          do_ar_transfer[done] = ARREADY;
+
+
+          //done when ARREADY and arvalid.out is high.
+          //TODO(nathanielnrn) is this okay? Will this keep everything high for a single cycle?
+          block_transfer_done_and.left = ARREADY;
+          block_transfer_done_and.right = is_arvalid.out;
+          //TODO(nathanielnrn): Can we get rid of bt_reg? this was used before for
+          //parrallel assignment which we fixed? Maybe? Not sure
+          bt_reg.in = block_transfer_done_and.out;
+          bt_reg.write_en = 1'b1;
+          do_ar_transfer[done] = bt_reg.out;
       }
 
 
@@ -141,8 +161,8 @@ component m_arread_channel(
           while perform_reads.out with check_reads_done{
               seq{
                   reset_bt;
-                  assert_val;
-                  block_transfer;
+                  //assert_val;
+                  //block_transfer;
                   do_ar_transfer;
                   deassert_val;
                   txn_incr;
