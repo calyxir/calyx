@@ -189,7 +189,7 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
         }
         ir::Guard::Port(port) => get_port_string(&port.borrow().clone(), false),
         ir::Guard::Info(_) => {
-            panic!("guard should not have info") // FIXME: What should I write here?
+            panic!("guard should not have info")
         }
     }
 }
@@ -226,8 +226,6 @@ fn write_invalid_initialization<F: io::Write>(
     port: &RRC<ir::Port>,
     f: &mut F,
 ) -> CalyxResult<()> {
-    // FIXME: currently using the is_data_port() function from verilog.rs, but I think we want to instead
-    // check whether the port is a control port or not. I'll leave this in as a first pass
     let default_initialization_str = "; default initialization";
     let dst_string = get_port_string(&port.borrow(), true);
     if port.borrow().attributes.has(ir::BoolAttr::Control) {
