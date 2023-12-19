@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+from . import py_ast as ast
 from calyx import queue_util
 import calyx.builder as cb
 
@@ -223,7 +224,7 @@ def insert_runner(prog, queue, name, stats_component=None):
     return runner
 
 
-def insert_main(prog, queue, controller, stats_component=None):
+def insert_main(prog, queue, controller=None, stats_component=None):
     """Inserts the component `main` into the program.
     It triggers the dataplane and controller components.
     """
@@ -231,7 +232,7 @@ def insert_main(prog, queue, controller, stats_component=None):
     main: cb.ComponentBuilder = prog.component("main")
 
     stats = main.cell("stats_main", stats_component) if stats_component else None
-    controller = main.cell("controller", controller)
+    controller = main.cell("controller", controller) if controller else None
     dataplane = insert_runner(prog, queue, "dataplane", stats_component)
     dataplane = main.cell("dataplane", dataplane)
 
@@ -254,7 +255,7 @@ def insert_main(prog, queue, controller, stats_component=None):
     not_err = main.not_use(dataplane_err.out)
 
     main.control += cb.while_with(
-        # We will run the dataplane and controller components in parallel,
+        # We will run the dataplane and controller components in sequence,
         # in a while loop. The loop will terminate when the dataplane component
         # raises `dataplane_err`.
         not_err,  # While the dataplane component has not errored out.
@@ -287,6 +288,8 @@ def insert_main(prog, queue, controller, stats_component=None):
             cb.invoke(  # Invoke the controller component.
                 controller,
                 ref_stats_controller=stats,
-            ),
+            )
+            if controller
+            else ast.Empty,
         ],
     )
