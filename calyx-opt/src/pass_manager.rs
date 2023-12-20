@@ -157,7 +157,7 @@ impl PassManager {
         passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
             if !self.passes.contains_key(pass) {
                 Err(Error::misc(format!(
-                    "Unknown pass: {pass}. Run compiler with --list-passes to view registered passes."
+                    "Unknown pass: {pass}. Run compiler with pass-help subcommand to view registered passes."
                 )))
             } else {
                 Ok(())

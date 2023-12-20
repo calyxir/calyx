@@ -37,7 +37,7 @@ fn main() -> CalyxResult<()> {
 
     let pm = PassManager::default_passes()?;
 
-    // list all the avaliable pass options when flag --list-passes is enabled
+    // list all the avaliable pass options when pass-help subcommand is used
     if let Some(sub) = opts.sub {
         match sub {
             cmdline::Subcommand::Help(cmdline::Help { name }) => {
