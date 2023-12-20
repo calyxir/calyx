@@ -96,20 +96,25 @@ fn emit_component<F: io::Write>(
     for cell in comp.cells.iter() {
         let cell_borrowed = cell.as_ref().borrow();
         if cell_borrowed.type_name().is_some() {
-            match cell_borrowed.prototype {
+            match &cell_borrowed.prototype {
                 ir::CellType::Primitive {
-                    name: _,
-                    param_binding: _,
+                    name,
+                    param_binding,
                     is_comb: _,
                     latency: _,
                 } => {
-                    // TODO: use extmodules
+                    let mut primitive_string = String::from(name.to_string());
+                    for (_, size) in param_binding.as_ref().into_iter() {
+                        primitive_string.push_str("_");
+                        primitive_string.push_str(&size.to_string());
+                    }
                     writeln!(
-                    f,
-                    "{}; FIXME: attempting to instantiate primitive cell {}",
-                    SPACING.repeat(2),
-                    cell_borrowed.name()
-                )?
+                        f,
+                        "{}inst {} of {}",
+                        SPACING.repeat(2),
+                        cell_borrowed.name(),
+                        primitive_string
+                    )?;
                 }
                 ir::CellType::Component { name } => {
                     writeln!(
@@ -155,6 +160,8 @@ fn emit_component<F: io::Write>(
 
     Ok(())
 }
+
+// fn get_primitive_module_name() {}
 
 // recursive function that writes the FIRRTL representation for a guard.
 fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
