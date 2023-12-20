@@ -1,4 +1,6 @@
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::{self as ir, RRC};
 use itertools::Itertools;
 use std::rc::Rc;
@@ -200,7 +202,7 @@ impl ConstructVisitor for CombProp {
     {
         let opts = Self::get_opts(ctx);
         Ok(CombProp {
-            no_eliminate: opts[0],
+            no_eliminate: opts[&"no-eliminate"].bool(),
         })
     }
 
@@ -218,10 +220,12 @@ impl Named for CombProp {
         "propagate unconditional continuous assignments"
     }
 
-    fn opts() -> &'static [(&'static str, &'static str)] {
-        &[(
+    fn opts() -> &'static [PassOpt] {
+        &[PassOpt::new(
             "no-eliminate",
             "mark dead assignments with @dead instead of removing them",
+            ParseVal::Bool(false),
+            PassOpt::parse_bool,
         )]
     }
 }

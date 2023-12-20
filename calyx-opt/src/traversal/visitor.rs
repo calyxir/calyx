@@ -2,109 +2,12 @@
 //! Program passes implemented as the Visitor are directly invoked on
 //! [`ir::Context`] to compile every [`ir::Component`] using the pass.
 use super::action::{Action, VisResult};
-use super::{CompTraversal, Order};
+use super::{CompTraversal, ConstructVisitor, Named, Order};
 use calyx_ir::{
     self as ir, Component, Context, Control, LibrarySignatures, StaticControl,
 };
 use calyx_utils::CalyxResult;
-use itertools::Itertools;
-use std::collections::HashSet;
 use std::rc::Rc;
-
-/// Trait that describes named things. Calling [`do_pass`](Visitor::do_pass) and [`do_pass_default`](Visitor::do_pass_default).
-/// require this to be implemented.
-///
-/// This has to be a separate trait from [`Visitor`] because these methods don't recieve `self` which
-/// means that it is impossible to create dynamic trait objects.
-pub trait Named {
-    /// The name of a pass. Is used for identifying passes.
-    fn name() -> &'static str;
-    /// A short description of the pass.
-    fn description() -> &'static str;
-    /// Set of options that can be passed to the pass.
-    /// The options contains a tuple of the option name and a description.
-    fn opts() -> &'static [(&'static str, &'static str)] {
-        &[]
-    }
-}
-
-/// Trait defining method that can be used to construct a Visitor from an
-/// [ir::Context].
-/// This is useful when a pass needs to construct information using the context
-/// *before* visiting the components.
-///
-/// For passes that don't need to use the context, this trait can be automatically
-/// be derived from [Default].
-pub trait ConstructVisitor {
-    fn get_opts(ctx: &ir::Context) -> Vec<bool>
-    where
-        Self: Named,
-    {
-        let opts = Self::opts();
-        let n = Self::name();
-        let given_opts: HashSet<_> = ctx
-            .extra_opts
-            .iter()
-            .filter_map(|opt| {
-                let mut splits = opt.split(':');
-                if splits.next() == Some(n) {
-                    splits.next()
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        let values = opts
-            .iter()
-            .map(|(o, _)| given_opts.contains(o))
-            .collect_vec();
-
-        if let Some(unknown) = given_opts
-            .iter()
-            .find(|&&o| !opts.iter().any(|(opts, _)| opts == &o))
-        {
-            log::warn!(
-                "Ignoring unknown option for pass `{}`: {}",
-                Self::name(),
-                unknown
-            );
-        }
-
-        if log::log_enabled!(log::Level::Debug) {
-            log::debug!(
-                "Extra options for {}: {}",
-                Self::name(),
-                opts.iter()
-                    .zip(values.iter())
-                    .map(|((o, _), v)| format!("{o}->{v}"))
-                    .join(", ")
-            );
-        }
-
-        values
-    }
-
-    /// Construct the visitor using information from the Context
-    fn from(_ctx: &ir::Context) -> CalyxResult<Self>
-    where
-        Self: Sized;
-
-    /// Clear the data stored in the visitor. Called before traversing the
-    /// next component by [ir::traversal::Visitor].
-    fn clear_data(&mut self);
-}
-
-/// Derive ConstructVisitor when [Default] is provided for a visitor.
-impl<T: Default + Sized + Visitor> ConstructVisitor for T {
-    fn from(_ctx: &ir::Context) -> CalyxResult<Self> {
-        Ok(T::default())
-    }
-
-    fn clear_data(&mut self) {
-        *self = T::default();
-    }
-}
 
 /// The visiting interface for a [`ir::Control`](crate::Control) program.
 /// Contains two kinds of functions:
