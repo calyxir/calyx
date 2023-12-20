@@ -34,16 +34,16 @@ async def read_channels_tests(main):
         mem=memmap,
     )
 
-    vec1 = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    vec1 = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 4294967295]
     vec1_bytes = int_to_bytes(vec1)
     memmap.seek(0)
     memmap.write(vec1_bytes)
     memmap.seek(0)
-    print(f"memmap read: {bytes_to_int(memmap.read(4*17))}")
+    print(f"memmap read: {bytes_to_int(memmap.read(4*18))}")
 
     await Timer(20, "ns")
     # main.m_ap_start.value = 1
-    axi_ram_read.hexdump(0x0000, 4 * 17, prefix="RAM")
+    axi_ram_read.hexdump(0x0000, 4 * 18, prefix="RAM")
 
     await Timer(1000, "ns")
     print(f"vec1_data: {main.vec1_data.mem.value}")
