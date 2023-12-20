@@ -95,7 +95,16 @@ impl PassManager {
 
     /// Return the help string for a specific pass.
     pub fn specific_help(&self, pass: &str) -> Option<String> {
-        self.help.get(pass).cloned()
+        self.help.get(pass).cloned().or_else(|| {
+            self.aliases.get(pass).map(|passes| {
+                let pass_str = passes
+                    .iter()
+                    .map(|p| format!("- {p}"))
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                format!("`{pass}' is an alias for pass pipeline:\n{}", pass_str)
+            })
+        })
     }
 
     /// Return a string representation to show all available passes and aliases.
