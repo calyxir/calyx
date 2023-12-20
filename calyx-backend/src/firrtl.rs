@@ -43,6 +43,39 @@ impl Backend for FirrtlBackend {
             }
         }
         writeln!(out, "circuit {}:", top_level_component)?;
+        // Pass to output any necessary extmodule statements (for primitive calls)
+        let mut extmodule_set: HashSet<String> = HashSet::new();
+        for comp in ctx.components.iter() {
+            for cell in comp.cells.iter() {
+                let cell_borrowed = cell.as_ref().borrow();
+                if cell_borrowed.type_name().is_some() {
+                    match &cell_borrowed.prototype {
+                        ir::CellType::Primitive {
+                            name,
+                            param_binding,
+                            is_comb: _,
+                            latency: _,
+                        } => {
+                            let curr_module_name = get_primitive_module_name(
+                                &name,
+                                &param_binding,
+                            );
+                            if !extmodule_set.contains(&curr_module_name) {
+                                emit_primitive_extmodule(
+                                    &curr_module_name,
+                                    &name,
+                                    &param_binding,
+                                    out,
+                                )?;
+                                extmodule_set.insert(curr_module_name);
+                            }
+                        }
+                        _ => (),
+                    }
+                }
+            }
+        }
+        // Pass to output all of the
         for comp in ctx.components.iter() {
             emit_component(comp, out)?
         }
@@ -156,6 +189,23 @@ fn get_primitive_module_name(name: &Id, param_binding: &Binding) -> String {
     }
     primitive_string
 }
+
+fn emit_primitive_extmodule<F: io::Write>(
+    curr_module_name: &String,
+    name: &Id,
+    param_binding: &Binding,
+    f: &mut F,
+) -> io::Result<()> {
+    writeln!(f, "{}extmodule {}:", SPACING.repeat(1), curr_module_name)?;
+    writeln!(f, "{}defname = {}", SPACING.repeat(2), name)?;
+    for (id, size) in param_binding.as_ref().iter() {
+        writeln!(f, "{}parameter {} = {}", SPACING.repeat(2), id, size)?;
+    }
+    writeln!(f)?;
+    Ok(())
+}
+
+// fn create_primitive_extmodule() {}
 
 // recursive function that writes the FIRRTL representation for a guard.
 fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
