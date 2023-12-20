@@ -49,8 +49,14 @@ impl PassManager {
         self.passes.insert(name.clone(), pass_closure);
         let mut help = format!("- {}: {}", name, Pass::description());
         for opt in Pass::opts() {
-            write!(&mut help, "\n  * {}: {}", opt.name(), opt.description())
-                .unwrap();
+            write!(
+                &mut help,
+                "\n  * {}: {} (default: {})",
+                opt.name(),
+                opt.description(),
+                opt.default()
+            )
+            .unwrap();
         }
         self.help.insert(name, help);
         Ok(())
@@ -87,10 +93,15 @@ impl PassManager {
         Ok(())
     }
 
+    /// Return the help string for a specific pass.
+    pub fn specific_help(&self, pass: &str) -> Option<String> {
+        self.help.get(pass).cloned()
+    }
+
     /// Return a string representation to show all available passes and aliases.
     /// Appropriate for help text.
-    pub fn show_names(&self) -> String {
-        let mut ret = String::with_capacity(100);
+    pub fn complete_help(&self) -> String {
+        let mut ret = String::with_capacity(1000);
 
         // Push all passes.
         let mut pass_names = self.passes.keys().collect::<Vec<_>>();

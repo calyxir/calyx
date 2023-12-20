@@ -38,9 +38,22 @@ fn main() -> CalyxResult<()> {
     let pm = PassManager::default_passes()?;
 
     // list all the avaliable pass options when flag --list-passes is enabled
-    if opts.list_passes {
-        println!("{}", pm.show_names());
-        return Ok(());
+    if let Some(sub) = opts.sub {
+        match sub {
+            cmdline::Subcommand::Help(cmdline::Help { name }) => {
+                match name {
+                    Some(n) => {
+                        if let Some(help) = pm.specific_help(&n) {
+                            println!("{}", help);
+                        } else {
+                            println!("Unknown pass or alias: {}", n);
+                        }
+                    }
+                    None => println!("{}", pm.complete_help()),
+                }
+                return Ok(());
+            }
+        }
     }
 
     // Construct the namespace.

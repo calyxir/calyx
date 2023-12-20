@@ -106,6 +106,10 @@ impl PassOpt {
         self.description
     }
 
+    pub const fn default(&self) -> &ParseVal {
+        &self.default
+    }
+
     fn parse(&self, s: &str) -> Option<ParseVal> {
         (self.parse)(s)
     }
