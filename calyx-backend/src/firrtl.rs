@@ -5,7 +5,8 @@
 
 use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, RRC};
-use calyx_utils::{CalyxResult, OutputFile};
+use calyx_utils::{CalyxResult, Id, OutputFile};
+use ir::Binding;
 use std::collections::HashSet;
 use std::io;
 
@@ -96,38 +97,23 @@ fn emit_component<F: io::Write>(
     for cell in comp.cells.iter() {
         let cell_borrowed = cell.as_ref().borrow();
         if cell_borrowed.type_name().is_some() {
-            match &cell_borrowed.prototype {
+            let module_name = match &cell_borrowed.prototype {
                 ir::CellType::Primitive {
                     name,
                     param_binding,
                     is_comb: _,
                     latency: _,
-                } => {
-                    let mut primitive_string = String::from(name.to_string());
-                    for (_, size) in param_binding.as_ref().into_iter() {
-                        primitive_string.push_str("_");
-                        primitive_string.push_str(&size.to_string());
-                    }
-                    writeln!(
-                        f,
-                        "{}inst {} of {}",
-                        SPACING.repeat(2),
-                        cell_borrowed.name(),
-                        primitive_string
-                    )?;
-                }
-                ir::CellType::Component { name } => {
-                    writeln!(
-                        f,
-                        "{}inst {} of {}",
-                        SPACING.repeat(2),
-                        cell_borrowed.name(),
-                        name
-                    )?;
-                }
-                ir::CellType::ThisComponent => unreachable!(),
-                ir::CellType::Constant { val: _, width: _ } => unreachable!(),
-            }
+                } => get_primitive_module_name(name, param_binding),
+                ir::CellType::Component { name } => name.to_string(),
+                _ => unreachable!(),
+            };
+            writeln!(
+                f,
+                "{}inst {} of {}",
+                SPACING.repeat(2),
+                cell_borrowed.name(),
+                module_name
+            )?;
         }
     }
 
@@ -161,7 +147,15 @@ fn emit_component<F: io::Write>(
     Ok(())
 }
 
-// fn get_primitive_module_name() {}
+// creates a FIRRTL module name given the internal information of a primitive.
+fn get_primitive_module_name(name: &Id, param_binding: &Binding) -> String {
+    let mut primitive_string = name.to_string();
+    for (_, size) in param_binding.as_ref().iter() {
+        primitive_string.push('_');
+        primitive_string.push_str(&size.to_string());
+    }
+    primitive_string
+}
 
 // recursive function that writes the FIRRTL representation for a guard.
 fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
