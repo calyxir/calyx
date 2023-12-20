@@ -36,6 +36,9 @@ component m_arread_channel(
   ARBURST : 2) {
   cells{
       is_arvalid = std_reg(1);
+
+      //gets set high with ARVALID and remains high
+      arvalid_was_high = std_reg(1);
       //todo(nathanielnrn): we get this from `s_axi_control`. Need to check 
       //how we known actual address
       //should probably live in `s_axi_control` but for now will live here
@@ -96,8 +99,14 @@ component m_arread_channel(
       //this contains blocking logic previously in its own group
       group do_ar_transfer {
           //assert ARVALID
-          is_arvalid.in = 1'b1;
+          is_arvalid.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+          //TODO: should be able to get rid of &arvalid_was_high
+          is_arvalid.in = is_arvalid.out & ARREADY & arvalid_was_high.out ? 1'b0;
           is_arvalid.write_en = 1'b1;
+
+          arvalid_was_high.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+          arvalid_was_high.write_en = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+
 
           //drive output signals for transfer
           ARADDR = base_addr.out;
@@ -258,6 +267,9 @@ component m_read_channel(
           reset_bt[done] = bt_reg.done;
       }
 
+      //NOTE: xVALID signals must be high until xREADY is high as well, so this works
+      //because if xREADY is high (is_rdy.out) then RVALID being high makes 1 flip
+      //and group will be done by bt_reg.out
       group block_transfer {
         //set RREADY high
         //TODO: tehcnically we can make RREADY depend on on RVALID (but not vice versa).
