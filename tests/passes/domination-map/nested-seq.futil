@@ -1,8 +1,8 @@
-// -p infer-share -x infer-share:print-dmap
+// -p infer-share -x infer-share:print-dmap=<err>
 import "primitives/core.futil";
 component example() -> () {
   cells {
-    lt = std_lt(4); 
+    lt = std_lt(4);
   }
   wires {
     group A{
@@ -33,7 +33,7 @@ component main() -> () {
   wires {
   }
   control {
-    invoke e() (); 
+    invoke e() ();
   }
-  
+
 }
