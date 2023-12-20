@@ -84,7 +84,7 @@ impl ConstructVisitor for ComponentInliner {
     {
         let opts = Self::get_opts(ctx);
         Ok(ComponentInliner::new(
-            opts[&"always-inline"].bool(),
+            opts[&"always"].bool(),
             opts[&"new-fsms"].bool(),
         ))
     }
