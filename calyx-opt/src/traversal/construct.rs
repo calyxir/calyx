@@ -1,6 +1,6 @@
 use super::Visitor;
 use calyx_ir as ir;
-use calyx_utils::CalyxResult;
+use calyx_utils::{CalyxResult, OutputFile};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 
@@ -13,46 +13,64 @@ pub enum ParseVal {
     Num(usize),
     /// A list of values.
     List(Vec<ParseVal>),
+    /// An output stream (stdout, stderr, file name)
+    OutStream(OutputFile),
 }
+
 impl ParseVal {
-    pub fn bool(self) -> bool {
+    pub fn bool(&self) -> bool {
         let ParseVal::Bool(b) = self else {
             panic!("Expected bool, got {self}");
         };
-        b
+        *b
     }
 
-    pub fn num(self) -> usize {
+    pub fn num(&self) -> usize {
         let ParseVal::Num(n) = self else {
             panic!("Expected number, got {self}");
         };
-        n
+        *n
     }
 
-    pub fn num_list(self) -> Vec<usize> {
+    pub fn num_list(&self) -> Vec<usize> {
         match self {
             ParseVal::List(l) => {
-                l.into_iter().map(ParseVal::num).collect::<Vec<_>>()
+                l.iter().map(ParseVal::num).collect::<Vec<_>>()
             }
             _ => panic!("Expected list of numbers, got {self}"),
+        }
+    }
+
+    /// Returns an output stream if it is not the null stream
+    pub fn not_null_outstream(&self) -> Option<OutputFile> {
+        match self {
+            ParseVal::OutStream(o) => {
+                if matches!(o, OutputFile::Null) {
+                    None
+                } else {
+                    Some(o.clone())
+                }
+            }
+            _ => panic!("Expected output stream, got {self}"),
         }
     }
 }
 impl std::fmt::Display for ParseVal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseVal::Bool(b) => write!(f, "{}", b),
-            ParseVal::Num(n) => write!(f, "{}", n),
+            ParseVal::Bool(b) => write!(f, "{b}"),
+            ParseVal::Num(n) => write!(f, "{n}"),
             ParseVal::List(l) => {
                 write!(f, "[")?;
                 for (i, e) in l.iter().enumerate() {
                     if i != 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", e)?;
+                    write!(f, "{e}")?;
                 }
                 write!(f, "]")
             }
+            ParseVal::OutStream(o) => write!(f, "{}", o.to_string()),
         }
     }
 }
@@ -92,19 +110,6 @@ impl PassOpt {
         (self.parse)(s)
     }
 
-    pub fn parse_bool(s: &str) -> Option<ParseVal> {
-        match s {
-            "true" => Some(ParseVal::Bool(true)),
-            "false" => Some(ParseVal::Bool(false)),
-            _ => None,
-        }
-    }
-
-    /// Parse a number from a string.
-    pub fn parse_num(s: &str) -> Option<ParseVal> {
-        s.parse::<usize>().ok().map(ParseVal::Num)
-    }
-
     /// Parse of list using parser for the elements.
     /// Returns `None` if any of the elements fail to parse.
     fn parse_list(
@@ -118,9 +123,26 @@ impl PassOpt {
         Some(ParseVal::List(res))
     }
 
+    pub fn parse_bool(s: &str) -> Option<ParseVal> {
+        match s {
+            "true" => Some(ParseVal::Bool(true)),
+            "false" => Some(ParseVal::Bool(false)),
+            _ => None,
+        }
+    }
+
+    /// Parse a number from a string.
+    pub fn parse_num(s: &str) -> Option<ParseVal> {
+        s.parse::<usize>().ok().map(ParseVal::Num)
+    }
+
     /// Parse a list of numbers from a string.
     pub fn parse_num_list(s: &str) -> Option<ParseVal> {
         Self::parse_list(s, Self::parse_num)
+    }
+
+    pub fn parse_outstream(s: &str) -> Option<ParseVal> {
+        s.parse::<OutputFile>().ok().map(ParseVal::OutStream)
     }
 }
 
@@ -136,8 +158,8 @@ pub trait Named {
     fn description() -> &'static str;
     /// Set of options that can be passed to the pass.
     /// The options contains a tuple of the option name and a description.
-    fn opts() -> &'static [PassOpt] {
-        &[]
+    fn opts() -> Vec<PassOpt> {
+        vec![]
     }
 }
 
@@ -155,7 +177,7 @@ pub trait ConstructVisitor {
     {
         let opts = Self::opts();
         let n = Self::name();
-        let values: LinkedHashMap<&'static str, ParseVal> = ctx
+        let mut values: LinkedHashMap<&'static str, ParseVal> = ctx
             .extra_opts
             .iter()
             .filter_map(|opt| {

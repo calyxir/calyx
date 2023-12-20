@@ -21,7 +21,7 @@ pub struct Opts {
     pub file: Option<PathBuf>,
 
     /// output file
-    #[argh(option, short = 'o', default = "OutputFile::default()")]
+    #[argh(option, short = 'o', default = "OutputFile::Stdout")]
     pub output: OutputFile,
 
     /// path to the primitives library

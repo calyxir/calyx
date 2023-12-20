@@ -220,8 +220,8 @@ impl Named for CombProp {
         "propagate unconditional continuous assignments"
     }
 
-    fn opts() -> &'static [PassOpt] {
-        &[PassOpt::new(
+    fn opts() -> Vec<PassOpt> {
+        vec![PassOpt::new(
             "no-eliminate",
             "mark dead assignments with @dead instead of removing them",
             ParseVal::Bool(false),

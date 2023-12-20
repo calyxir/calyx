@@ -2,7 +2,9 @@ use super::compute_states::{END, START};
 use crate::analysis::WithStatic;
 use crate::passes::top_down_static_timing::{ComputeStates, Normalize};
 use crate::passes::{self, math_utilities::get_bit_width_from};
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::{
     self as ir, build_assignments, guard, structure, GetAttributes,
     LibrarySignatures, Printer, RRC,
@@ -759,8 +761,8 @@ impl ConstructVisitor for TopDownStaticTiming {
         let opts = Self::get_opts(ctx);
 
         Ok(TopDownStaticTiming {
-            dump_fsm: opts[0],
-            force: opts[1],
+            dump_fsm: opts[&"dump-fsm"].bool(),
+            force: opts[&"force"].bool(),
         })
     }
 
@@ -778,10 +780,10 @@ impl Named for TopDownStaticTiming {
         "Top-down latency-sensitive compilation for removing control constructs"
     }
 
-    fn opts() -> &'static [(&'static str, &'static str)] {
-        &[
-            ("dump-fsm", "Print out the state machine implementing the schedule"),
-            ("force", "Error if the program cannot be fully compiled using static timing")
+    fn opts() -> Vec<PassOpt> {
+        vec![
+            PassOpt::new("dump-fsm", "Print out the state machine implementing the schedule", ParseVal::Bool(false), PassOpt::parse_bool),
+            PassOpt::new("force", "Error if the program cannot be fully compiled using static timing", ParseVal::Bool(false), PassOpt::parse_bool)
         ]
     }
 }

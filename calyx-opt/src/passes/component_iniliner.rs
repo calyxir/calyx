@@ -1,6 +1,7 @@
 use crate::analysis;
 use crate::traversal::{
-    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
+    Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
+    Visitor,
 };
 use calyx_ir::{self as ir, rewriter, GetAttributes, LibrarySignatures, RRC};
 use calyx_utils::Error;
@@ -44,13 +45,20 @@ impl Named for ComponentInliner {
         "inline all component instances marked with @inline attribute"
     }
 
-    fn opts() -> &'static [(&'static str, &'static str)] {
-        &[
-            (
+    fn opts() -> Vec<PassOpt> {
+        vec![
+            PassOpt::new(
                 "always",
                 "Attempt to inline all components into the main component",
+                ParseVal::Bool(false),
+                PassOpt::parse_bool,
             ),
-            ("new-fsms", "Instantiate new FSM for each inlined component"),
+            PassOpt::new(
+                "new-fsms",
+                "Instantiate new FSM for each inlined component",
+                ParseVal::Bool(false),
+                PassOpt::parse_bool,
+            ),
         ]
     }
 }
@@ -75,7 +83,10 @@ impl ConstructVisitor for ComponentInliner {
         Self: Sized,
     {
         let opts = Self::get_opts(ctx);
-        Ok(ComponentInliner::new(opts[0], opts[1]))
+        Ok(ComponentInliner::new(
+            opts[&"always-inline"].bool(),
+            opts[&"new-fsms"].bool(),
+        ))
     }
 
     fn clear_data(&mut self) {
