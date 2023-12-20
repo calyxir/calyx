@@ -192,7 +192,14 @@ component m_read_channel(
       is_rdy = std_reg(1);
       ref curr_addr = std_reg(64); //TODO(nathanielnrn): not used in axi, only internal
       
-      n_RLAST = std_not(1);
+      n_RLAST = std_reg(1);
+      //TODO: ew. Can we get rid of this? This is needed because RLAST is set high
+      // while we are servicing the previous request. Which is kinda weird if you think about it
+      // but makes sense cause RDATA changes and is considered valid
+      n_RLAST_delayed = std_reg(1);
+
+      //TODO: get this width from yxi
+      read_data_reg = std_reg(32);
 
 
       //TODO(nathanielnrn): This is a hack to allow things to compile with bit widths.
@@ -211,26 +218,39 @@ component m_read_channel(
 
       RREADY = is_rdy.out;
       data_received.read_en = 1'b0;
-      comb group not_rlast{
-          n_RLAST.in = RLAST;
-      }
+      //comb group not_rlast{
+      //    n_RLAST.in = RLAST;
+      //}
 
       //note RREADY must be registered.
       //Want this to always be running for life of program. So how do we determine doneness?
       //This should want to look at done signal of entire program, which will depend on this group being done.
       //Don't think we can just wrap this as a top level par block for that reason.
 
-      group assert_rdy{
-          is_rdy.in = 1'b1;
-          is_rdy.write_en = 1'b1;
-          assert_rdy[done] = is_rdy.done;
+      //group assert_rdy{
+      //    is_rdy.in = 1'b1;
+      //    is_rdy.write_en = 1'b1;
+      //    assert_rdy[done] = is_rdy.done;
+      //}
+
+      //group deassert_rdy{
+      //    is_rdy.in = 1'b0;
+      //    is_rdy.write_en = 1'b1;
+      //    deassert_rdy[done] = is_rdy.done;
+      //}
+
+      group init_n_RLAST {
+          n_RLAST.in = 1'b1;
+          n_RLAST.write_en = 1'b1;
+          init_n_RLAST[done] = n_RLAST.done;
       }
 
-      group deassert_rdy{
-          is_rdy.in = 1'b0;
-          is_rdy.write_en = 1'b1;
-          deassert_rdy[done] = is_rdy.done;
-      }
+      //group init_n_RLAST_delayed {
+      //    n_RLAST_delayed.in = 1'b1;
+      //    n_RLAST_delayed.write_en = 1'b1;
+      //    init_n_RLAST_delayed[done] = n_RLAST_delayed.done;
+      //}
+
 
       group reset_bt {
           bt_reg.in = 1'b0;
@@ -239,6 +259,29 @@ component m_read_channel(
       }
 
       group block_transfer {
+        //set RREADY high
+        //TODO: tehcnically we can make RREADY depend on on RVALID (but not vice versa).
+        //Could we simplify this we just making things ready when we are in
+        //block_transfer && RVALID?
+
+        //NOTE: is_rdy.in = 1'b1; does not work, it leaves RREADY high for 2 cycles
+        is_rdy.in = !(RVALID & is_rdy.out) ? 1'b1;
+        is_rdy.in = RVALID & is_rdy.out ? 1'b0;
+        is_rdy.write_en = 1'b1;
+
+
+        //store the data we want to write
+        rdata_slice.in = RDATA;
+        read_data_reg.in = rdata_slice.out;
+        read_data_reg.write_en = is_rdy.out;
+
+        //update n_RLAST reg
+        n_RLAST.in = RLAST ? 1'b0;
+        n_RLAST.in = !RLAST ? 1'b1;
+        n_RLAST.write_en = 1'b1;
+        
+
+        //we want this to be continuous assignment to is_rdy.in, but thats not possible
         block_transfer_done_and.left = is_rdy.out;
         block_transfer_done_and.right = RVALID;
         bt_reg.in = block_transfer_done_and.out;
@@ -248,16 +291,25 @@ component m_read_channel(
       }
 
       group receive_r_transfer{
+          //set RREADY low;
+          is_rdy.in = 1'b0;
+          is_rdy.write_en = 1'b1;
+
+
           //TODO(nathanielnrn): get addr from register in ARCHANNEL?
           data_received.addr0 = curr_addr.out;
           data_received.write_en = 1'b1;
-          rdata_slice.in = RDATA;
-          data_received.write_data = rdata_slice.out;
+          data_received.write_data = read_data_reg.out;
           receive_r_transfer[done] = data_received.write_done;
+
+
+
+          n_RLAST_delayed.in = n_RLAST.out;
+          n_RLAST_delayed.write_en = 1'b1;
       }
 
       group incr_curr_addr{
-          curr_addr_adder.left = 64'd1t ;
+          curr_addr_adder.left = 64'd1 ;
           curr_addr_adder.right = curr_addr.out;
           curr_addr.in = curr_addr_adder.out;
           curr_addr.write_en = 1'b1;
@@ -265,13 +317,15 @@ component m_read_channel(
       }
   }
   control{
+      init_n_RLAST;
+      //init_n_RLAST_delayed;
       //XXX(nathanielnrn): is this it? Do we need any other conditions?
-      while n_RLAST.out with not_rlast{
+      while n_RLAST.out{
           seq{
               reset_bt;
-              assert_rdy;
+              //assert_rdy;
               block_transfer;
-              deassert_rdy;
+              //deassert_rdy;
               receive_r_transfer;
               incr_curr_addr;
           }
