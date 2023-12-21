@@ -5,6 +5,7 @@
 //
 // This wrapper assumes it is part of a dot product computation with vectors of
 // length 16
+// It assumes a bus data width of 32
 // This is largely a work in progress and as of Nov 20 2023 is not intended to
 // actually be used for anything
 // ###
@@ -24,8 +25,8 @@ component m_arread_channel(
   //This needs to be 64, see link below `m_axi` section.
   ARADDR: 64,
   //2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
-  //are doing I believe), should match width of data bus (to shell?, so 512 wide?
-  //which is 3'b110?)
+  //are doing I believe), should match width of data bus (to shell?, so 32 wide? This
+  // is 3'b010)
   //see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
   // for restrictions
   ARSIZE: 3,
@@ -110,7 +111,7 @@ component m_arread_channel(
 
           //drive output signals for transfer
           ARADDR = base_addr.out;
-          ARSIZE = 3'b110; //see link above, needs to match data width to host.
+          ARSIZE = 3'b010; //see link above, needs to match data width to host.
           //For now this can be taken from .yxi, as size of mem.
           //If we want to use bigger mems need to be able to update base addr and
           //make multiple calls.
@@ -141,8 +142,8 @@ component m_arread_channel(
 
       group txn_len_init {
           //TODO(nathanielnrn): For dot product this should be 1 if data  bus width is 512
-          //otherwise should be appropriately set. 15 is good for case study. We'd
-          //expect 16 transfers but seem to get 4? Length is ARLEN + 1
+          //otherwise should be appropriately set. 15 is good for word wide data bus. We'd
+          //expect 16 transfers? Length is ARLEN + 1
           txn_len.in = 8'd15;
           txn_len.write_en = 1'b1;
           txn_len_init[done] = txn_len.done;
@@ -190,7 +191,7 @@ component m_read_channel(
   ARESET : 1,
   RVALID : 1,
   RLAST  : 1,
-  RDATA  : 512, //TODO(nathanielnrn): figure out where we want to shrink to 32
+  RDATA  : 32, //TODO(nathanielnrn): figure out where we want to shrink to 32
   RRESP :  2,  //Note: This is generated in subordinate! had this backwards in earlier version
 ) -> (
   RREADY : 1,
@@ -214,7 +215,7 @@ component m_read_channel(
       //TODO(nathanielnrn): This is a hack to allow things to compile with bit widths.
       //Still need to figure out how we actually want to be shrinking from 512 to 32
       //NOTE: this takes [31:0] by definition
-      rdata_slice = std_slice(512,32);
+      //rdata_slice = std_slice(512,32);
       curr_addr_adder = std_add(64);
 
 
@@ -283,8 +284,8 @@ component m_read_channel(
 
 
         //store the data we want to write
-        rdata_slice.in = RDATA;
-        read_data_reg.in = rdata_slice.out;
+        //rdata_slice.in = RDATA;
+        read_data_reg.in = RDATA;
         read_data_reg.write_en = is_rdy.out;
 
         //update n_RLAST reg
@@ -352,7 +353,7 @@ component main(
 
     m_RVALID : 1,
     m_RLAST : 1,
-    m_RDATA : 512,
+    m_RDATA : 32,
     m_RRESP : 2,
     //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
     m_RID : 1,
