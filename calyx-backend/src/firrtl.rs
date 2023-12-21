@@ -105,11 +105,11 @@ fn emit_component<F: io::Write>(
                 } => {
                     // TODO: use extmodules
                     writeln!(
-                    f,
-                    "{}; FIXME: attempting to instantiate primitive cell {}",
-                    SPACING.repeat(2),
-                    cell_borrowed.name()
-                )?
+                        f, 
+                        "{}; FIXME: attempting to instantiate primitive cell {}",
+                        SPACING.repeat(2),
+                        cell_borrowed.name()
+                    )?;
                 }
                 ir::CellType::Component { name } => {
                     writeln!(
@@ -139,6 +139,8 @@ fn emit_component<F: io::Write>(
                 let dst_canonical_str = dst_canonical.to_string();
                 if !dst_set.contains(&dst_canonical_str) {
                     // if we don't have a "is invalid" statement yet, then we have to write one.
+                    // an alternative "eager" approach would be to instantiate all possible ports
+                    // (our output ports + all children's input ports) up front.
                     let _ = write_invalid_initialization(&asgn.dst, f);
                     dst_set.insert(dst_canonical_str);
                 }
@@ -221,7 +223,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
     }
 }
 
-// variables that get set in guards should get initialized to avoid the FIRRTL compiler from erroring.
+// variables that get set in assignments should get initialized to avoid the FIRRTL compiler from erroring.
 fn write_invalid_initialization<F: io::Write>(
     port: &RRC<ir::Port>,
     f: &mut F,
