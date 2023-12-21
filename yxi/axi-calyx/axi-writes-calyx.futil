@@ -64,7 +64,7 @@ component m_awwrite_channel(
 
   wires{
 
-      AWVALID = is_arvalid.out;
+      AWVALID = is_awvalid.out;
 
       group deassert_val {
           is_awvalid.in = 1'b0;
@@ -145,9 +145,9 @@ component m_awwrite_channel(
 
       }
 
-      comb group check_reads_done {
-          perform_reads.left = txn_count.out;
-          perform_reads.right = txn_n.out;
+      comb group check_writes_done {
+          perform_write_txns.left = txn_count.out;
+          perform_write_txns.right = txn_n.out;
       }
   }
 
@@ -156,7 +156,7 @@ component m_awwrite_channel(
       seq{
           txn_count_init;
           txn_len_init;
-          while perform_reads.out with check_reads_done{
+          while perform_write_txns.out with check_writes_done{
               seq{
                   reset_bt;
                   do_aw_transfer;
@@ -175,11 +175,11 @@ component m_write_channel(
   ARESET : 1,
   WVALID : 1,
   WLAST  : 1,
-  WDATA  : 32, 
 ) -> (
   // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
   // because (IIRC) it helps avoid combinational loops between READY and VALID.
-  RREADY : 1,
+  WREADY : 1,
+  WDATA  : 32, 
 ) {
   cells {
       // 16 is due to dot-product vector length assumption
@@ -289,7 +289,45 @@ component m_write_channel(
   }
 }
 
-component m_bresp_channel{
+
+//We assume that all responses are OKAY because we dont have any error handling.
+//So basically this just sets BREADY high then lowers it
+component m_bresp_channel(
+  ARESET : 1,
+  BVALID : 1,
+  // We assume all writes are valid.
+  // BRESP : 3,
+) -> (
+  // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
+  // because (IIRC) it helps avoid combinational loops between READY and VALID.
+  BREADY : 1,
+) {
+  cells{
+      bready = std_reg(1);
+      bt_reg = std_reg(1);
+
+  }
+  wires{
+      group reset_bt_reg{
+          bt_reg.in = 1'b0;
+          bt_reg.write_en = 1'b1;
+          reset_bt_reg[done] = bt_reg.done;
+      }
+
+      group block_transfer{
+          bready.in = !(BVALID & bready.out) ? 1'b1;
+          bready.in = BVALID & bready.out ? 1'b0;
+          bready.write_en = 1'b1;
+
+          bt_reg.in = brdy.out & BVALID ? 1'b1;
+          bt_reg.in = !(bready.out & BVALID) ? 1'b0;
+          bt_reg.write_en = 1'b1;
+          block_transfer[done] = bt_reg.out;
+      }
+
+  }
+  control{
+  }
 }
 
 
