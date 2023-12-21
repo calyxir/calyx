@@ -756,7 +756,7 @@ def as_control(obj):
             "Python sets are not supported in control programs. For a parallel"
             " composition use `Builder.par` instead."
         )
-    if obj is None:
+    if obj is None or obj == ast.Empty:
         return ast.Empty()
     else:
         assert False, f"unsupported control type {type(obj)}"
