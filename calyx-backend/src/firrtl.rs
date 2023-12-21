@@ -105,7 +105,7 @@ fn emit_component<F: io::Write>(
                 } => {
                     // TODO: use extmodules
                     writeln!(
-                        f, 
+                        f,
                         "{}; FIXME: attempting to instantiate primitive cell {}",
                         SPACING.repeat(2),
                         cell_borrowed.name()
