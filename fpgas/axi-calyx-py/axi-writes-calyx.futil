@@ -21,25 +21,27 @@ component m_awwrite_channel(
   ARESET: 1,
   AWREADY: 1
 ) -> (
-  ARVALID: 1,
+  AWVALID: 1,
   // This needs to be 64, see link below `m_axi` section.
-  ARADDR: 64,
+  AWADDR: 64,
   // 2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
   // are doing I believe), should match width of data bus (to shell?, so 32 wide? This
   // is 3'b010)
   // see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
   // for restrictions
-  ARSIZE: 3,
+  AWSIZE: 3,
   // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
-  ARLEN : 8, 
+  AWLEN : 8, 
   // 00 for fixed, 01 for incrementing, 2 for wrap,
-  // needs to be incr for RTL kernels (can't use wrapped of fixed
-  ARBURST : 2) {
+  // needs to be incr for RTL kernels (can't use wrapped or fixed)
+  AWBURST : 2,
+  // required according to spec. We hardcode this
+  AWPROT : 3) {
   cells{
-      is_arvalid = std_reg(1);
+      is_awvalid = std_reg(1);
 
       // gets set high with ARVALID and remains high
-      arvalid_was_high = std_reg(1);
+      awvalid_was_high = std_reg(1);
       // TODO(nathanielnrn): should arguably eventually live in `s_axi_control`
       // but for now will live here.
       ref base_addr = std_reg(64);
@@ -51,7 +53,7 @@ component m_awwrite_channel(
       // this is internal to the channel (unlike txn_len)
       txn_n = std_const(32,1);
       txn_count = std_reg(32);
-      perform_reads = std_neq(32);
+      perform_write_txns = std_neq(32);
       txn_adder = std_add(32);
 
       //"block_transfer" register. need to put into a reg to avoid combinational loops
@@ -62,12 +64,12 @@ component m_awwrite_channel(
 
   wires{
 
-      ARVALID = is_arvalid.out;
+      AWVALID = is_arvalid.out;
 
       group deassert_val {
-          is_arvalid.in = 1'b0;
-          is_arvalid.write_en = 1'b1;
-          deassert_val[done] = is_arvalid.done;
+          is_awvalid.in = 1'b0;
+          is_awvalid.write_en = 1'b1;
+          deassert_val[done] = is_awvalid.done;
       }
 
       group reset_bt {
@@ -80,38 +82,40 @@ component m_awwrite_channel(
       // because valid should not be deasserted until handshake occurs
       // this all needs to be one group
       // this contains blocking logic previously in its own group
-      group do_ar_transfer {
-          //assert ARVALID
-          is_arvalid.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+      group do_aw_transfer {
+          //assert AWVALID
+          is_awvalid.in = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
           
-          // TODO(nathanielnrn): in theory should be able to get rid of arvalid_was_high
+          // TODO(nathanielnrn): in theory should be able to get rid of awvalid_was_high
           // but for now we will be explicit and reduce this in generation maybe. Not sure
           // it even matters.
-          // This makes ARVALID go low after a single cycle. Without it it stays high for 2.
-          is_arvalid.in = is_arvalid.out & ARREADY & arvalid_was_high.out ? 1'b0;
-          is_arvalid.write_en = 1'b1;
+          // This makes AWVALID go low after a single cycle. Without it it stays high for 2.
+          is_awvalid.in = is_awvalid.out & AWREADY & awvalid_was_high.out ? 1'b0;
+          is_awvalid.write_en = 1'b1;
 
-          arvalid_was_high.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
-          arvalid_was_high.write_en = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+          awvalid_was_high.in = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
+          awvalid_was_high.write_en = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
 
 
         // drive output signals for transfer  
-          ARADDR = base_addr.out;
+          AWADDR = base_addr.out;
           // see link above, needs to match data width to host.
           // In this case 2^2 = 4 bytes = 32 bits = width of our data_bus.
-          ARSIZE = 3'b010; 
+          AWSIZE = 3'b010; 
           // For now this can be taken from .yxi, as size of mem, because we are assuming
           // data_bus width that matches size of memory cells
           // If we want to use bigger mems need to be able to update base addr
-          ARLEN = txn_len.out;
-          ARBURST = 2'b01; //incr
+          AWLEN = txn_len.out;
+          AWBURST = 2'b01; //incr
+          // 3'b110 is [privileged access] [Non-secure access] [Data access]]
+          AWPROT = 3'b110;
 
 
           //done when one cycle after handshake (handshake happens for a single cycle)
-          bt_reg.in = ARREADY & is_arvalid.out ? 1'b1;
-          bt_reg.in = !(ARREADY & is_arvalid.out) ? 1'b0;
+          bt_reg.in = AWREADY & is_awvalid.out ? 1'b1;
+          bt_reg.in = !(AWREADY & is_awvalid.out) ? 1'b0;
           bt_reg.write_en = 1'b1;
-          do_ar_transfer[done] = bt_reg.out;
+          do_aw_transfer[done] = bt_reg.out;
       }
 
 
@@ -126,7 +130,7 @@ component m_awwrite_channel(
 
       group txn_len_init {
           //TODO(nathanielnrn): 15 is good for word wide data bus. We'd
-          //expect 16 transfers. Number of transfers that occur is ARLEN + 1
+          //expect 16 transfers. Number of transfers that occur is AWLEN + 1
           txn_len.in = 8'd15;
           txn_len.write_en = 1'b1;
           txn_len_init[done] = txn_len.done;
@@ -155,7 +159,7 @@ component m_awwrite_channel(
           while perform_reads.out with check_reads_done{
               seq{
                   reset_bt;
-                  do_ar_transfer;
+                  do_aw_transfer;
                   deassert_val;
                   txn_incr;
               }
@@ -167,12 +171,11 @@ component m_awwrite_channel(
 
 
 
-component m_read_channel(
+component m_write_channel(
   ARESET : 1,
-  RVALID : 1,
-  RLAST  : 1,
-  RDATA  : 32, 
-  RRESP :  2,  // Note: This is generated in subordinate! had this backwards in earlier version
+  WVALID : 1,
+  WLAST  : 1,
+  WDATA  : 32, 
 ) -> (
   // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
   // because (IIRC) it helps avoid combinational loops between READY and VALID.
@@ -285,6 +288,11 @@ component m_read_channel(
       }
   }
 }
+
+component m_bresp_channel{
+}
+
+
 
 //TODO(nathanielnrn): this is axi_wrapper, prefer to use @toplevel attribute but its not working
 // See individual channel components for explanations of signals
