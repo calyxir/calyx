@@ -30,7 +30,7 @@ pub struct Opts {
         option,
         short = 'o',
         long = "output",
-        default = "OutputFile::default()"
+        default = "OutputFile::Stdout"
     )]
     pub output: OutputFile,
 
