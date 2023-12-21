@@ -1,0 +1,26 @@
+// -b firrtl
+import "primitives/core.futil";
+component identity(in : 32) -> (out : 32) {
+  cells {}
+  wires {
+    out = in;
+    done = 1'd1;
+  }
+  control {}
+}
+
+component main() -> () {
+  cells {
+    id = identity();
+  }
+  wires {
+    group run_id {
+      id.in = 32'd5;
+      id.go = 1'd1;
+      run_id[done] = id.done;
+    }
+  }
+  control {
+    seq { run_id; }
+  }
+}
