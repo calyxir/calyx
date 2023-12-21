@@ -1,6 +1,8 @@
 circuit main:
     module main:
         input in: UInt<32>
+        input cond: UInt<1>
+        input cond2: UInt<1>
         output out: UInt<32>
         input go: UInt<1>
         input clk: Clock
@@ -8,6 +10,8 @@ circuit main:
         output done: UInt<1>
         ; COMPONENT START: main
         done <= UInt(1)
-        out <= in
+        out is invalid ; default initialization
+        when or(cond, cond2):
+            out <= in
         ; COMPONENT END: main
 
