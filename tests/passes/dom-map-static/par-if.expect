@@ -1,31 +1,3 @@
-This maps ids of par blocks to "node timing maps", which map node ids to the first interval (i,j) that the node (i.e., enable/invoke/if conditional) is active for, 
- relative to the start of the given par block
-============ Map for Component "example" ============
-========Par Node ID: 0========
-====MUST EXECUTE====
-2 -- (0, 4)
-3 -- (4, 5)
-4 -- (5, 6)
-14 -- (12, 15)
-16 -- (0, 3)
-17 -- (3, 5)
-18 -- (5, 8)
-19 -- (8, 10)
-====MAY EXECUTE====
-7 -- (5, 9)
-8 -- (9, 12)
-10 -- (5, 6)
-11 -- (6, 8)
-12 -- (5, 10)
-========Par Node ID: 5========
-====MUST EXECUTE====
-7 -- (0, 4)
-8 -- (4, 7)
-10 -- (0, 1)
-11 -- (1, 3)
-====MAY EXECUTE====
-
-
 import "primitives/core.futil";
 component example<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
@@ -100,3 +72,31 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     invoke e()();
   }
 }
+---STDERR---
+This maps ids of par blocks to "node timing maps", which map node ids to the first interval (i,j) that the node (i.e., enable/invoke/if conditional) is active for, 
+ relative to the start of the given par block
+============ Map for Component "example" ============
+========Par Node ID: 0========
+====MUST EXECUTE====
+2 -- (0, 4)
+3 -- (4, 5)
+4 -- (5, 6)
+14 -- (12, 15)
+16 -- (0, 3)
+17 -- (3, 5)
+18 -- (5, 8)
+19 -- (8, 10)
+====MAY EXECUTE====
+7 -- (5, 9)
+8 -- (9, 12)
+10 -- (5, 6)
+11 -- (6, 8)
+12 -- (5, 10)
+========Par Node ID: 5========
+====MUST EXECUTE====
+7 -- (0, 4)
+8 -- (4, 7)
+10 -- (0, 1)
+11 -- (1, 3)
+====MAY EXECUTE====
+
