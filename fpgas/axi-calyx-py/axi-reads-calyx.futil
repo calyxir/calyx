@@ -212,24 +212,27 @@ component m_read_channel(
           init_n_RLAST[done] = n_RLAST.done;
       }
 
-      //Used to block any servicing until handshake occurs. 
+      // Used to block any servicing until handshake occurs. 
       group reset_bt {
           bt_reg.in = 1'b0;
           bt_reg.write_en = 1'b1;
           reset_bt[done] = bt_reg.done;
       }
 
-      //NOTE: xVALID signals must be high until xREADY is high as well, so this works
-      //because if xREADY is high (is_rdy.out) then RVALID being high makes 1 flip
-      //and group will be done by bt_reg.out
+      // NOTE: xVALID signals must be high until xREADY is high as well, so this works
+      // because if xREADY is high (is_rdy.out) then RVALID being high makes 1 flip
+      // and group will be done by bt_reg.out
       group block_transfer {
-        //set RREADY high
-        //TODO (nathanielnrn): technically we can make RREADY depend on on RVALID (but not vice versa).
-        //Could we simplify this we just making things ready when we are in
-        //block_transfer && RVALID?
+        // set RREADY high
+        // TODO (nathanielnrn): technically we can make RREADY depend on on RVALID (but not vice versa).
+        // Could we simplify this we just making things ready when we are in
+        // block_transfer && RVALID?
 
         //NOTE: is_rdy.in = 1'b1; does not work, it leaves RREADY high for 2 cycles
         // this both asserts and deasserts one cycle later
+        // TODO(nathanielnrn): Spec recommends defaulting xREADY high as it
+        // can get rid of extra cycle. Maybe doing so here would be useful?
+        as opposed to waiting for RVALID
         is_rdy.in = !(RVALID & is_rdy.out) ? 1'b1;
         is_rdy.in = RVALID & is_rdy.out ? 1'b0;
         is_rdy.write_en = 1'b1;
