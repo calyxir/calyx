@@ -10,46 +10,130 @@ from typing import Union, Literal, List
 # install cocotb-bus directly from github, as 0.2.1 has a bug
 
 
+# Reads 16 elements from mmap of 16*4 bytes. Writes these elements to 16 cells in calyx defined seq_d1 mem.
 @cocotb.test()
-async def read_channels_tests(main):
-    cocotb.start_soon(Clock(main.clk, 2, units="ns").start())
+async def read_channels_happy_path(main):
+    happy_data_vec = [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024,
+        2048,
+        4096,
+        8192,
+        16384,
+        32768,
+    ]
+    await read_axi_test_helper(main, happy_data_vec, happy_data_vec)
+
+
+# Adding extra data to backing mmap does not ruin reading of 16 elements and writing them correctly.
+@cocotb.test()
+async def read_channels_extra_mmap_data(main):
+    large_data_vec = [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024,
+        2048,
+        4096,
+        8192,
+        16384,
+        32768,
+        2**32 - 1,
+    ]
+    await read_axi_test_helper(main, large_data_vec, large_data_vec[0:16])
+
+
+# Using a small mmap will have the AXI read loop back around
+# NOTE: From what I can tell, this is not part of AXI spec, but rather behavior of cocotb AXI.
+# Still think it is useful to test for to see if anything breaks with this
+@cocotb.test()
+async def read_channels_small_mmap_data(main):
+    small_data_vec = [1, 2, 4, 8, 2**32 - 1]
+    expected_data_vec = [
+        1,
+        2,
+        4,
+        8,
+        2**32 - 1,
+        1,
+        2,
+        4,
+        8,
+        2**32 - 1,
+        1,
+        2,
+        4,
+        8,
+        2**32 - 1,
+        1,
+    ]
+    await read_axi_test_helper(main, small_data_vec, expected_data_vec)
+
+
+async def read_axi_test_helper(
+    module, data_vec: List[int], expected: List[int], mmap_size: int = None
+):
+    """Create an mmap with data of `data_vec` and use this to initialize
+    a cocotb-axi-ram (read only) with this data. Assert that the data that
+    our AXI program reads has been written to the memory inside our Calyx program
+    correctly and matches `expected.`
+
+    mmap_size is in bytes.
+
+    """
+    cocotb.start_soon(Clock(module.clk, 2, units="ns").start())
 
     # Assert reset for 5 cycles (reuqired for Calyx interfacing)
-    main.reset.value = 1
-    await ClockCycles(main.clk, 5)  # wait a bit
-    main.reset.value = 0
+    module.reset.value = 1
+    await ClockCycles(module.clk, 5)  # wait a bit
+    module.reset.value = 0
 
     # Start the execution
-    main.go.value = 1
+    module.go.value = 1
 
+    if mmap_size is None:
+        # 4 bytes per integer
+        mmap_size = len(data_vec) * 4
     # anonymous mmep for now to back axiram
-    memmap = mmap.mmap(-1, 128)
+    memmap = mmap.mmap(-1, mmap_size)
     axi_ram_read = AxiRamRead(
         # NOTE: prefix should not contain the final "_"
-        AxiReadBus.from_prefix(main, "m"),
-        main.clk,
-        main.reset,
+        AxiReadBus.from_prefix(module, "m"),
+        module.clk,
+        module.reset,
         # size in bytes
-        size=128,
+        size=mmap_size,
         mem=memmap,
     )
 
-    vec1 = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
-    vec1_bytes = int_to_bytes(vec1)
+    data_vec_bytes = int_to_bytes(data_vec)
     memmap.seek(0)
-    memmap.write(vec1_bytes)
-    print(f"vec1 bytes: {vec1_bytes}")
+    memmap.write(data_vec_bytes)
     memmap.seek(0)
-    print(f"memmap read: {bytes_to_int(memmap.read(4*18))}")
 
     await Timer(20, "ns")
-    # main.m_ap_start.value = 1
-    axi_ram_read.hexdump(0x0000, 4 * 18, prefix="RAM")
+    # axi_ram_read.hexdump(0x0000, mmap_size, prefix="RAM")
 
-    await Timer(1000, "ns")
-    print(f"vec1_data: {main.vec1_data.mem.value}")
-    print(f"func call: {cocotb_mem_to_ints(main.vec1_data)}")
-    assert cocotb_mem_to_ints(main.vec1_data) == vec1, "Axi channel failed"
+    await Timer(500, "ns")
+    assert (
+        cocotb_mem_to_ints(module.vec1_data) == expected
+    ), f"main.vec1_data: {cocotb_mem_to_ints(module.vec1_data)} does not contain the data in expected: {expected}."
 
 
 # TODO(nathanielnrn): Decide between these and xilinx cocotb tests, refactor out
@@ -75,7 +159,8 @@ def bytes_to_int(bytes, byteorder="little"):
         return ints[0]
     return ints
 
-#Returns format used by Struct, assuming we are interested in integers (so 4 bytes)
+
+# Returns format used by Struct, assuming we are interested in integers (so 4 bytes)
 def get_format(byteorder: Union[Literal["little"], Literal["big"]], input_list):
     frmt = ""
     if byteorder == "little":
@@ -94,12 +179,10 @@ def get_format(byteorder: Union[Literal["little"], Literal["big"]], input_list):
     frmt += "I"
     return frmt
 
-#Takes in top level cocotb memory structure and returns integers of bytes contained in it.
 
+# Takes in top level cocotb memory structure and returns integers of bytes contained in it.
 def cocotb_mem_to_ints(memory) -> List[int]:
-    integers = list(map(lambda e : e.integer, memory.mem.value))
-    #Cocotb mem.value seems to store integers in reverse order? So memory cell 0 is
-    #at index -1 and memory cell n-1 is at index 0
+    integers = list(map(lambda e: e.integer, memory.mem.value))
+    # Cocotb mem.value seems to store integers in reverse order? So memory cell 0 is
+    # at index -1 and memory cell n-1 is at index 0
     return integers[::-1]
-    
-
