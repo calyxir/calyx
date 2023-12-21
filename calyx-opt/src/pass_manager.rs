@@ -48,8 +48,15 @@ impl PassManager {
         });
         self.passes.insert(name.clone(), pass_closure);
         let mut help = format!("- {}: {}", name, Pass::description());
-        for (opt, desc) in Pass::opts() {
-            write!(&mut help, "\n  * {}: {}", opt, desc).unwrap();
+        for opt in Pass::opts() {
+            write!(
+                &mut help,
+                "\n  * {}: {} (default: {})",
+                opt.name(),
+                opt.description(),
+                opt.default()
+            )
+            .unwrap();
         }
         self.help.insert(name, help);
         Ok(())
@@ -86,10 +93,24 @@ impl PassManager {
         Ok(())
     }
 
+    /// Return the help string for a specific pass.
+    pub fn specific_help(&self, pass: &str) -> Option<String> {
+        self.help.get(pass).cloned().or_else(|| {
+            self.aliases.get(pass).map(|passes| {
+                let pass_str = passes
+                    .iter()
+                    .map(|p| format!("- {p}"))
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                format!("`{pass}' is an alias for pass pipeline:\n{}", pass_str)
+            })
+        })
+    }
+
     /// Return a string representation to show all available passes and aliases.
     /// Appropriate for help text.
-    pub fn show_names(&self) -> String {
-        let mut ret = String::with_capacity(100);
+    pub fn complete_help(&self) -> String {
+        let mut ret = String::with_capacity(1000);
 
         // Push all passes.
         let mut pass_names = self.passes.keys().collect::<Vec<_>>();
@@ -145,7 +166,7 @@ impl PassManager {
         passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
             if !self.passes.contains_key(pass) {
                 Err(Error::misc(format!(
-                    "Unknown pass: {pass}. Run compiler with --list-passes to view registered passes."
+                    "Unknown pass: {pass}. Run compiler with pass-help subcommand to view registered passes."
                 )))
             } else {
                 Ok(())

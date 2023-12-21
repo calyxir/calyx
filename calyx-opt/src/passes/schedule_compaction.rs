@@ -20,7 +20,7 @@ impl Named for ScheduleCompaction {
     }
 
     fn description() -> &'static str {
-        "Aggressively compact schedule for static seqs which were promoted from generic seqs"
+        "compact execution scheduled for reschedulable static programs"
     }
 }
 
