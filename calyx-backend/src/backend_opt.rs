@@ -13,6 +13,7 @@ pub enum BackendOpt {
     Resources,
     Sexp,
     Yxi,
+    Firrtl,
     None,
 }
 
@@ -28,6 +29,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("resources", BackendOpt::Resources),
         ("sexp", BackendOpt::Sexp),
         ("yxi", BackendOpt::Yxi),
+        ("firrtl", BackendOpt::Firrtl),
         ("none", BackendOpt::None),
     ]
 }
@@ -71,6 +73,7 @@ impl ToString for BackendOpt {
             Self::XilinxXml => "xilinx-xml",
             Self::Yxi => "yxi",
             Self::Calyx => "calyx",
+            Self::Firrtl => "firrtl",
             Self::None => "none",
         }
         .to_string()
