@@ -4,7 +4,7 @@ from cocotbext.axi import AxiReadBus, AxiRamRead
 from cocotb.triggers import Timer, ClockCycles
 import mmap
 import struct
-from typing import Union, Literal
+from typing import Union, Literal, List
 
 # TODO(nathanielnrn): If optional signals like WSTRB are not recognized,
 # install cocotb-bus directly from github, as 0.2.1 has a bug
@@ -34,10 +34,11 @@ async def read_channels_tests(main):
         mem=memmap,
     )
 
-    vec1 = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 4294967295]
+    vec1 = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
     vec1_bytes = int_to_bytes(vec1)
     memmap.seek(0)
     memmap.write(vec1_bytes)
+    print(f"vec1 bytes: {vec1_bytes}")
     memmap.seek(0)
     print(f"memmap read: {bytes_to_int(memmap.read(4*18))}")
 
@@ -47,7 +48,8 @@ async def read_channels_tests(main):
 
     await Timer(1000, "ns")
     print(f"vec1_data: {main.vec1_data.mem.value}")
-    assert main.vec1_data.mem[0] == b"s", "Axi channel failed"
+    print(f"func call: {cocotb_mem_to_ints(main.vec1_data)}")
+    assert cocotb_mem_to_ints(main.vec1_data) == vec1, "Axi channel failed"
 
 
 # TODO(nathanielnrn): Decide between these and xilinx cocotb tests, refactor out
@@ -73,7 +75,7 @@ def bytes_to_int(bytes, byteorder="little"):
         return ints[0]
     return ints
 
-
+#Returns format used by Struct, assuming we are interested in integers (so 4 bytes)
 def get_format(byteorder: Union[Literal["little"], Literal["big"]], input_list):
     frmt = ""
     if byteorder == "little":
@@ -91,3 +93,13 @@ def get_format(byteorder: Union[Literal["little"], Literal["big"]], input_list):
 
     frmt += "I"
     return frmt
+
+#Takes in top level cocotb memory structure and returns integers of bytes contained in it.
+
+def cocotb_mem_to_ints(memory) -> List[int]:
+    integers = list(map(lambda e : e.integer, memory.mem.value))
+    #Cocotb mem.value seems to store integers in reverse order? So memory cell 0 is
+    #at index -1 and memory cell n-1 is at index 0
+    return integers[::-1]
+    
+
