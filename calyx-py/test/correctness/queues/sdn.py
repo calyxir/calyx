@@ -1,4 +1,5 @@
 # pylint: disable=import-error
+import sys
 import fifo
 import pifo
 import calyx.builder as cb
@@ -93,71 +94,14 @@ def insert_controller(prog, name, stats_component):
     return controller
 
 
-def insert_main(prog, dataplane, controller, stats_component):
-    """Inserts the component `main` into the program.
-    It triggers the dataplane and controller components.
-    """
-
-    main: cb.ComponentBuilder = prog.component("main")
-
-    stats = main.cell("stats_main", stats_component)
-    dataplane = main.cell("dataplane", dataplane)
-    controller = main.cell("controller", controller)
-
-    has_ans = main.reg("has_ans", 1)
-    dataplane_ans = main.reg("dataplane_ans", 32)
-    dataplane_err = main.reg("dataplane_err", 1)
-
-    commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
-    values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
-    ans_mem = main.seq_mem_d1("ans_mem", 32, queue_util.MAX_CMDS, 32, is_external=True)
-
-    ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
-
-    j = main.reg("j", 32)  # The index on the answer-list we'll write to
-    incr_j = main.incr(j)  # j++
-    write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
-    # ans_mem[j] = dataplane_ans
-    lower_has_ans = main.reg_store(has_ans, 0, "lower_has_ans")  # has_ans := 0
-
-    not_err = main.not_use(dataplane_err.out)
-
-    main.control += cb.while_with(
-        # We will run the dataplane and controller components in parallel,
-        # in a while loop. The loop will terminate when the dataplane component
-        # raises `dataplane_err`.
-        not_err,  # While the dataplane component has not errored out.
-        [
-            lower_has_ans,  # Lower the has-ans flag.
-            cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                ref_commands=commands,
-                ref_values=values,
-                ref_has_ans=has_ans,
-                ref_component_ans=dataplane_ans,
-                ref_component_err=dataplane_err,
-                ref_stats_runner=stats,
-            ),
-            # If the dataplane component has a nonzero answer,
-            # write it to the answer-list and increment the index `j`.
-            cb.if_(
-                has_ans.out,
-                cb.if_with(ans_neq_0, [write_ans, incr_j]),
-            ),
-            cb.invoke(  # Invoke the controller component.
-                controller,
-                ref_stats_controller=stats,
-            ),
-        ],
-    )
-
-
 def build(static=False):
     """Top-level function to build the program.
     The `static` flag determines whether the program is static or dynamic.
     """
     prog = cb.Builder()
     stats_component = insert_stats(prog, "stats", static)
+    controller = insert_controller(prog, "controller", stats_component)
+
     fifo_purple = fifo.insert_fifo(prog, "fifo_purple")
     fifo_tangerine = fifo.insert_fifo(prog, "fifo_tangerine")
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
@@ -166,11 +110,12 @@ def build(static=False):
         prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component, static
     )
     # The root PIFO will take a stats component by reference.
-    dataplane = queue_call.insert_runner(prog, pifo_root, "dataplane", stats_component)
-    controller = insert_controller(prog, "controller", stats_component)
-    insert_main(prog, dataplane, controller, stats_component)
+
+    queue_call.insert_main(prog, pifo_root, controller, stats_component)
     return prog.program
 
 
+# We will have a command line argument to determine whether the program is static.
 if __name__ == "__main__":
-    build().emit()
+    static = sys.argv[1] == "--static" if len(sys.argv) > 1 else False
+    build(static=static).emit()
