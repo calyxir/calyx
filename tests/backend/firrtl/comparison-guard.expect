@@ -1,6 +1,9 @@
 circuit main:
     module main:
         input in: UInt<32>
+        input var: UInt<32>
+        input var2: UInt<32>
+        input cond3: UInt<1>
         output out: UInt<32>
         input go: UInt<1>
         input clk: Clock
@@ -8,6 +11,8 @@ circuit main:
         output done: UInt<1>
         ; COMPONENT START: main
         done <= UInt(1)
-        out <= in
+        out is invalid ; default initialization
+        when and(leq(var, var2), cond3):
+            out <= in
         ; COMPONENT END: main
 
