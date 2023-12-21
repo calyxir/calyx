@@ -130,48 +130,53 @@ python3 {} |\
 """
 
 [[tests]]
-name = "[calyx-py] sdn static correctness"
-paths = ["calyx-py/test/correctness/queues/static/*.futil"]
-cmd = """
-name=$(basename {} .futil) &&
-dir=$(dirname {}) &&
-cat {} |\
- fud e --from calyx --to jq \
-       --through verilog \
-       --through dat \
-       -s verilog.data "$dir/$name.data" \
-       -s calyx.flags "-d well-formed" \
-       -s jq.expr ".memories" \
-       -q
-"""
-
-[[tests]]
 name = "[calyx-py] sdn no-promote correctness"
-paths = ["calyx-py/test/correctness/queues/no-promote/*.futil"]
+paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
-name=$(basename {} .futil) &&
+name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-cat {} |\
+python3 {} |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
        -s verilog.data "$dir/$name.data" \
-       -s calyx.flags "-d static-promotion" \
+       -s calyx.flags ' -d static-promotion' \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+# A stanza for "non-static with promotion" is unnecessary.
+# Such a stanza would have invoked `sdn.py` with no special flags.
+# The catch-all queues stanza captures that case.
+
+[[tests]]
+name = "[calyx-py] sdn static no promote correctness"
+paths = ["calyx-py/test/correctness/queues/sdn.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} --static |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d well-formed -d static-promotion' \
        -s jq.expr ".memories" \
        -q
 """
 
 [[tests]]
-name = "[calyx-py] sdn promote correctness"
-paths = ["calyx-py/test/correctness/queues/promote/*.futil"]
+name = "[calyx-py] sdn static promote correctness"
+paths = ["calyx-py/test/correctness/queues/sdn.py"]
 cmd = """
-name=$(basename {} .futil) &&
+name=$(basename {} .py) &&
 dir=$(dirname {}) &&
-cat {} |\
+python3 {} --static |\
  fud e --from calyx --to jq \
        --through verilog \
        --through dat \
        -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d well-formed' \
        -s jq.expr ".memories" \
        -q
 """
