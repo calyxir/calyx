@@ -22,41 +22,39 @@ component m_arread_channel(
   ARREADY: 1
 ) -> (
   ARVALID: 1,
-  //This needs to be 64, see link below `m_axi` section.
+  // This needs to be 64, see link below `m_axi` section.
   ARADDR: 64,
-  //2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
-  //are doing I believe), should match width of data bus (to shell?, so 32 wide? This
+  // 2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
+  // are doing I believe), should match width of data bus (to shell?, so 32 wide? This
   // is 3'b010)
-  //see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
+  // see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
   // for restrictions
   ARSIZE: 3,
-
-  ARLEN : 8, //in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
-  
-  // 00 for fixed, 01 for incrementing, 2 for wrap, needs to be incr)
+  // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
+  ARLEN : 8, 
+  // 00 for fixed, 01 for incrementing, 2 for wrap,
+  // needs to be incr for RTL kernels (can't use wrapped of fixed
   ARBURST : 2) {
   cells{
       is_arvalid = std_reg(1);
 
-      //gets set high with ARVALID and remains high
+      // gets set high with ARVALID and remains high
       arvalid_was_high = std_reg(1);
-      //todo(nathanielnrn): we get this from `s_axi_control`. Need to check 
-      //how we known actual address
-      //should probably live in `s_axi_control` but for now will live here
+      // TODO(nathanielnrn): should arguably eventually live in `s_axi_control`
+      // but for now will live here.
       ref base_addr = std_reg(64);
-      //also need to figure out how to calculate this. Prob from yxi.
-      //this is sent to shell as opposed to txn_n below which is internal
+      
+      // number of trasfers in a transaction. This is sent to subordinate
       txn_len = std_reg(8);
 
-      //number of txns we wants to occur before entire m_arread_channel is done
-      //TODO(nathanielnrn): We want this txn_n to be passed by reference, but this is not feasible for a const. Later can use a reg.
+      // number of txns we want to occur before entire m_arread_channel is done
+      // this is internal to the channel (unlike txn_len)
       txn_n = std_const(32,1);
       txn_count = std_reg(32);
       perform_reads = std_neq(32);
       txn_adder = std_add(32);
 
-      block_transfer_done_and = std_and(1);
-      //need to put and out into a reg to avoid combinational loops
+      //"block_transfer" register. need to put into a reg to avoid combinational loops
       bt_reg = std_reg(1);
 
 
@@ -66,27 +64,11 @@ component m_arread_channel(
 
       ARVALID = is_arvalid.out;
 
-      //prob not needed, see do_ar_transfer
-      //group assert_val {
-      //    is_arvalid.in = 1'b1;
-      //    is_arvalid.write_en = 1'b1;
-      //    assert_val[done] = is_arvalid.done;
-      //}
-      
       group deassert_val {
           is_arvalid.in = 1'b0;
           is_arvalid.write_en = 1'b1;
           deassert_val[done] = is_arvalid.done;
       }
-
-      //TODO: prob not needed, delete, see do_ar_transfer
-      //group block_transfer{
-      //    block_transfer_done_and.left = ARREADY;
-      //    block_transfer_done_and.right = is_arvalid.out;
-      //    bt_reg.in = block_transfer_done_and.out;
-      //    bt_reg.write_en = 1'b1;
-      //    block_transfer[done] = bt_reg.out;
-      //}
 
       group reset_bt {
           bt_reg.in = 1'b0;
@@ -94,14 +76,18 @@ component m_arread_channel(
           reset_bt[done] = bt_reg.done;
       }
 
-      //this asserts valid and defines all inputs correctly
-      //because valid should not be deasseretd until handshake occurrs
-      // should be all one group
-      //this contains blocking logic previously in its own group
+      // this asserts valid and defines all inputs correctly
+      // because valid should not be deasserted until handshake occurs
+      // this all needs to be one group
+      // this contains blocking logic previously in its own group
       group do_ar_transfer {
           //assert ARVALID
           is_arvalid.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
-          //TODO: should be able to get rid of &arvalid_was_high
+          
+          // TODO(nathanielnrn): in theory should be able to get rid of arvalid_was_high
+          // but for now we will be explicit and reduce this in generation maybe. Not sure
+          // it even matters.
+          // This makes ARVALID go low after a single cycle. Without it it stays high for 2.
           is_arvalid.in = is_arvalid.out & ARREADY & arvalid_was_high.out ? 1'b0;
           is_arvalid.write_en = 1'b1;
 
@@ -109,23 +95,21 @@ component m_arread_channel(
           arvalid_was_high.write_en = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
 
 
-          //drive output signals for transfer
+        // drive output signals for transfer  
           ARADDR = base_addr.out;
-          ARSIZE = 3'b010; //see link above, needs to match data width to host.
-          //For now this can be taken from .yxi, as size of mem.
-          //If we want to use bigger mems need to be able to update base addr and
-          //make multiple calls.
+          // see link above, needs to match data width to host.
+          // In this case 2^2 = 4 bytes = 32 bits = width of our data_bus.
+          ARSIZE = 3'b010; 
+          // For now this can be taken from .yxi, as size of mem, because we are assuming
+          // data_bus width that matches size of memory cells
+          // If we want to use bigger mems need to be able to update base addr
           ARLEN = txn_len.out;
           ARBURST = 2'b01; //incr
 
 
-          //done when ARREADY and arvalid.out is high.
-          //TODO(nathanielnrn) is this okay? Will this keep everything high for a single cycle?
-          block_transfer_done_and.left = ARREADY;
-          block_transfer_done_and.right = is_arvalid.out;
-          //TODO(nathanielnrn): Can we get rid of bt_reg? this was used before for
-          //parrallel assignment which we fixed? Maybe? Not sure
-          bt_reg.in = block_transfer_done_and.out;
+          //done when one cycle after handshake (handshake happens for a single cycle)
+          bt_reg.in = ARREADY & is_arvalid.out ? 1'b1;
+          bt_reg.in = !(ARREADY & is_arvalid.out) ? 1'b0;
           bt_reg.write_en = 1'b1;
           do_ar_transfer[done] = bt_reg.out;
       }
@@ -141,9 +125,8 @@ component m_arread_channel(
       }
 
       group txn_len_init {
-          //TODO(nathanielnrn): For dot product this should be 1 if data  bus width is 512
-          //otherwise should be appropriately set. 15 is good for word wide data bus. We'd
-          //expect 16 transfers? Length is ARLEN + 1
+          //TODO(nathanielnrn): 15 is good for word wide data bus. We'd
+          //expect 16 transfers. Number of transfers that occur is ARLEN + 1
           txn_len.in = 8'd15;
           txn_len.write_en = 1'b1;
           txn_len_init[done] = txn_len.done;
@@ -165,16 +148,13 @@ component m_arread_channel(
   }
 
   control{
-      //probably for now just want a counter and done of m_read_channel_check.
-      //Question: Is there a way offering more flexibility than just a counter?
+      //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
       seq{
           txn_count_init;
           txn_len_init;
           while perform_reads.out with check_reads_done{
               seq{
                   reset_bt;
-                  //assert_val;
-                  //block_transfer;
                   do_ar_transfer;
                   deassert_val;
                   txn_incr;
@@ -191,36 +171,33 @@ component m_read_channel(
   ARESET : 1,
   RVALID : 1,
   RLAST  : 1,
-  RDATA  : 32, //TODO(nathanielnrn): figure out where we want to shrink to 32
-  RRESP :  2,  //Note: This is generated in subordinate! had this backwards in earlier version
+  RDATA  : 32, 
+  RRESP :  2,  // Note: This is generated in subordinate! had this backwards in earlier version
 ) -> (
+  // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
+  // because (IIRC) it helps avoid combinational loops between READY and VALID.
   RREADY : 1,
 ) {
   cells {
-      //16 is due to dot-product vector length assumption
+      // 16 is due to dot-product vector length assumption
+      // For this manual implementation we are just writing into this data based
+      // on the data we read from cocotb
       ref data_received = seq_mem_d1(32, 16, 64);
       is_rdy = std_reg(1);
-      ref curr_addr = std_reg(64); //TODO(nathanielnrn): not used in axi, only internal
+      ref curr_addr = std_reg(64); 
       
+      // registered because RLAST is high with last transfer, not after
+      // before this was registered we were terminating immediately with
+      // last transfer and not servicing it
       n_RLAST = std_reg(1);
-      //TODO: ew. Can we get rid of this? This is needed because RLAST is set high
-      // while we are servicing the previous request. Which is kinda weird if you think about it
-      // but makes sense cause RDATA changes and is considered valid
-      n_RLAST_delayed = std_reg(1);
 
-      //TODO: get this width from yxi
+      // TODO: get this width from yxi
       read_data_reg = std_reg(32);
 
-
-      //TODO(nathanielnrn): This is a hack to allow things to compile with bit widths.
-      //Still need to figure out how we actually want to be shrinking from 512 to 32
-      //NOTE: this takes [31:0] by definition
-      //rdata_slice = std_slice(512,32);
+      //address of seq_d1_mem we are writing to
       curr_addr_adder = std_add(64);
 
-
-
-      block_transfer_done_and = std_and(1);
+      // block_transfer reg to avoid combinational loops
       bt_reg = std_reg(1);
 
   }
@@ -228,26 +205,6 @@ component m_read_channel(
 
       RREADY = is_rdy.out;
       data_received.read_en = 1'b0;
-      //comb group not_rlast{
-      //    n_RLAST.in = RLAST;
-      //}
-
-      //note RREADY must be registered.
-      //Want this to always be running for life of program. So how do we determine doneness?
-      //This should want to look at done signal of entire program, which will depend on this group being done.
-      //Don't think we can just wrap this as a top level par block for that reason.
-
-      //group assert_rdy{
-      //    is_rdy.in = 1'b1;
-      //    is_rdy.write_en = 1'b1;
-      //    assert_rdy[done] = is_rdy.done;
-      //}
-
-      //group deassert_rdy{
-      //    is_rdy.in = 1'b0;
-      //    is_rdy.write_en = 1'b1;
-      //    deassert_rdy[done] = is_rdy.done;
-      //}
 
       group init_n_RLAST {
           n_RLAST.in = 1'b1;
@@ -255,13 +212,7 @@ component m_read_channel(
           init_n_RLAST[done] = n_RLAST.done;
       }
 
-      //group init_n_RLAST_delayed {
-      //    n_RLAST_delayed.in = 1'b1;
-      //    n_RLAST_delayed.write_en = 1'b1;
-      //    init_n_RLAST_delayed[done] = n_RLAST_delayed.done;
-      //}
-
-
+      //Used to block any servicing until handshake occurs. 
       group reset_bt {
           bt_reg.in = 1'b0;
           bt_reg.write_en = 1'b1;
@@ -273,18 +224,18 @@ component m_read_channel(
       //and group will be done by bt_reg.out
       group block_transfer {
         //set RREADY high
-        //TODO: tehcnically we can make RREADY depend on on RVALID (but not vice versa).
+        //TODO (nathanielnrn): technically we can make RREADY depend on on RVALID (but not vice versa).
         //Could we simplify this we just making things ready when we are in
         //block_transfer && RVALID?
 
         //NOTE: is_rdy.in = 1'b1; does not work, it leaves RREADY high for 2 cycles
+        // this both asserts and deasserts one cycle later
         is_rdy.in = !(RVALID & is_rdy.out) ? 1'b1;
         is_rdy.in = RVALID & is_rdy.out ? 1'b0;
         is_rdy.write_en = 1'b1;
 
 
         //store the data we want to write
-        //rdata_slice.in = RDATA;
         read_data_reg.in = RDATA;
         read_data_reg.write_en = is_rdy.out;
 
@@ -294,31 +245,24 @@ component m_read_channel(
         n_RLAST.write_en = 1'b1;
         
 
-        //we want this to be continuous assignment to is_rdy.in, but thats not possible
-        block_transfer_done_and.left = is_rdy.out;
-        block_transfer_done_and.right = RVALID;
-        bt_reg.in = block_transfer_done_and.out;
+        // we are done after handshake
+        bt_reg.in = is_rdy.out & RVALID ? 1'b1;
+        bt_reg.in = !(is_rdy.out & RVALID) ? 1'b0;
         bt_reg.write_en = 1'b1;
         block_transfer[done] = bt_reg.out;
-        //block_transfer[done] = !(is_rdy.out & RVALID) ? 1'b0; //good to be explicit and not rely on undefined behavior
       }
 
       group receive_r_transfer{
-          //set RREADY low;
+          // keep RREADY low;
           is_rdy.in = 1'b0;
           is_rdy.write_en = 1'b1;
 
-
-          //TODO(nathanielnrn): get addr from register in ARCHANNEL?
+          //write the data we received during transfer to seq_d1_mem
           data_received.addr0 = curr_addr.out;
           data_received.write_en = 1'b1;
           data_received.write_data = read_data_reg.out;
           receive_r_transfer[done] = data_received.write_done;
 
-
-
-          n_RLAST_delayed.in = n_RLAST.out;
-          n_RLAST_delayed.write_en = 1'b1;
       }
 
       group incr_curr_addr{
@@ -331,14 +275,10 @@ component m_read_channel(
   }
   control{
       init_n_RLAST;
-      //init_n_RLAST_delayed;
-      //XXX(nathanielnrn): is this it? Do we need any other conditions?
       while n_RLAST.out{
           seq{
               reset_bt;
-              //assert_rdy;
               block_transfer;
-              //deassert_rdy;
               receive_r_transfer;
               incr_curr_addr;
           }
@@ -347,6 +287,7 @@ component m_read_channel(
 }
 
 //TODO(nathanielnrn): this is axi_wrapper, prefer to use @toplevel attribute but its not working
+// See individual channel components for explanations of signals
 component main(
     m_ARESET : 1,
     m_ARREADY : 1,
@@ -359,30 +300,20 @@ component main(
     m_RID : 1,
 ) -> (
     m_ARVALID : 1,
-    //This needs to be 64, see link below `m_axi` section.
     m_ARADDR: 64,
-    //2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
-    //are doing I believe), should match width of data bus (to shell?, so 512 wide?
-    //which is 3'b110?)
-    //see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
-    // for restrictions
     m_ARSIZE: 3,
-
-    m_ARLEN : 8, //in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
-
-   // 00 for fixed, 01 for incrementing, 2 for wrap, needs to be incr
+    m_ARLEN : 8, 
     m_ARBURST : 2,
+
     m_RREADY : 1,
     //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
     m_ARID : 1
 ) {
     cells{
         vec1_data = seq_mem_d1(32,16,64);
-        // Not used currently
-        //vec2_data = seq_mem_d1(32,16,4); 
         output_data = seq_mem_d1(32,1,0);
 
-        curr_addr = std_reg(64); //TODO(nathanielnrn): figure out where this comes from, see generated toplevel and kernel interface requirements below.
+        curr_addr = std_reg(64);
         base_addr = std_reg(64);
 
         read_channel = m_read_channel();
@@ -400,13 +331,8 @@ component main(
             set_curr_to_base_addr[done] = curr_addr.done;
         }
     }
-
     control{
         seq{
-            //TODO(nathanielnrn): find out what inputs we need to hook up to properly interface. Can probably see here:
-            //see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
-            //and also base off of https://github.com/cucapra/calyx/blob/master/tests/xilinx/gen-verilog/dot-product.expect
-            //which probably works? Needs to be tested
             invoke arread_channel[base_addr = base_addr]
             (
             ARESET = m_ARESET,
@@ -419,7 +345,9 @@ component main(
             ARLEN = m_ARLEN,
             ARBURST = m_ARBURST
             );
+
             set_curr_to_base_addr;
+
             invoke read_channel[data_received = vec1_data, curr_addr = curr_addr]
             (
             ARESET = m_ARESET,
