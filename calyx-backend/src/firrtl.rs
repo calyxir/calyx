@@ -49,29 +49,25 @@ impl Backend for FirrtlBackend {
             for cell in comp.cells.iter() {
                 let cell_borrowed = cell.as_ref().borrow();
                 if cell_borrowed.type_name().is_some() {
-                    match &cell_borrowed.prototype {
-                        ir::CellType::Primitive {
-                            name,
-                            param_binding,
-                            is_comb: _,
-                            latency: _,
-                        } => {
-                            let curr_module_name = get_primitive_module_name(
-                                &name,
-                                &param_binding,
-                            );
-                            if !extmodule_set.contains(&curr_module_name) {
-                                emit_primitive_extmodule(
-                                    &curr_module_name,
-                                    &name,
-                                    &param_binding,
-                                    out,
-                                )?;
-                                extmodule_set.insert(curr_module_name);
-                            }
+                    if let ir::CellType::Primitive {
+                        name,
+                        param_binding,
+                        is_comb: _,
+                        latency: _,
+                    } = &cell_borrowed.prototype
+                    {
+                        let curr_module_name =
+                            get_primitive_module_name(name, param_binding);
+                        if !extmodule_set.contains(&curr_module_name) {
+                            emit_primitive_extmodule(
+                                &curr_module_name,
+                                name,
+                                param_binding,
+                                out,
+                            )?;
+                            extmodule_set.insert(curr_module_name);
                         }
-                        _ => (),
-                    }
+                    };
                 }
             }
         }
@@ -198,7 +194,7 @@ fn emit_primitive_extmodule<F: io::Write>(
     param_binding: &Binding,
     f: &mut F,
 ) -> io::Result<()> {
-    writeln!(f, "{}extmodule {}:", SPACING.repeat(1), curr_module_name)?;
+    writeln!(f, "{}extmodule {}:", SPACING, curr_module_name)?;
     writeln!(f, "{}defname = {}", SPACING.repeat(2), name)?;
     for (id, size) in param_binding.as_ref().iter() {
         writeln!(f, "{}parameter {} = {}", SPACING.repeat(2), id, size)?;
