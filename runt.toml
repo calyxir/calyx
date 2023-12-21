@@ -115,8 +115,8 @@ python3 {} |\
 """
 
 [[tests]]
-name = "[calyx-py] static correctness"
-paths = ["calyx-py/test/correctness/static/*.py"]
+name = "[calyx-py] queues correctness"
+paths = ["calyx-py/test/correctness/queues/*.py"]
 cmd = """
 name=$(basename {} .py) &&
 dir=$(dirname {}) &&
@@ -125,7 +125,58 @@ python3 {} |\
        --through verilog \
        --through dat \
        -s verilog.data "$dir/$name.data" \
-       -s calyx.flags "-d well-formed" \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
+name = "[calyx-py] sdn no-promote correctness"
+paths = ["calyx-py/test/correctness/queues/sdn.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d static-promotion' \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+# A stanza for "non-static with promotion" is unnecessary.
+# Such a stanza would have invoked `sdn.py` with no special flags.
+# The catch-all queues stanza captures that case.
+
+[[tests]]
+name = "[calyx-py] sdn static no promote correctness"
+paths = ["calyx-py/test/correctness/queues/sdn.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} --static |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d well-formed -d static-promotion' \
+       -s jq.expr ".memories" \
+       -q
+"""
+
+[[tests]]
+name = "[calyx-py] sdn static promote correctness"
+paths = ["calyx-py/test/correctness/queues/sdn.py"]
+cmd = """
+name=$(basename {} .py) &&
+dir=$(dirname {}) &&
+python3 {} --static |\
+ fud e --from calyx --to jq \
+       --through verilog \
+       --through dat \
+       -s verilog.data "$dir/$name.data" \
+       -s calyx.flags ' -d well-formed' \
        -s jq.expr ".memories" \
        -q
 """
