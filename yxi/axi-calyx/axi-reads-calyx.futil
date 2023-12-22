@@ -93,7 +93,8 @@ component m_arread_channel(
           is_arvalid.in = is_arvalid.out & ARREADY & arvalid_was_high.out ? 1'b0;
           is_arvalid.write_en = 1'b1;
 
-          arvalid_was_high.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+
+          arvalid_was_high.in = 1'b1;
           arvalid_was_high.write_en = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
 
 
