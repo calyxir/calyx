@@ -227,7 +227,7 @@ Guards can use the following constructs:
 - `guard || guard`: Disjunction between two guards
 - `guard && guard`: Conjunction of two guards
 
-In the context of guards, a port can also be a literal (i.e `counter.out == 3'd2` is a valid guard). 
+In the context of guards, a port can also be a literal (i.e., `counter.out == 3'd2` is a valid guard). 
 
 > **Well-formedness**: For each input port on the LHS, only one guard should be active in any given cycle during the execution of a Calyx program.
 
