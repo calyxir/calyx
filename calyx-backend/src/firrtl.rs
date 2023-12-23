@@ -35,14 +35,7 @@ impl Backend for FirrtlBackend {
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
-        let mut top_level_component = String::from("main");
-        // Quick pass to check whether there exists a top-level component that we should replace main with.
-        for comp in ctx.components.iter() {
-            if comp.attributes.has(ir::BoolAttr::TopLevel) {
-                top_level_component = comp.name.to_string().clone();
-            }
-        }
-        writeln!(out, "circuit {}:", top_level_component)?;
+        writeln!(out, "circuit {}:", ctx.entrypoint)?;
         // Pass to output any necessary extmodule statements (for primitive calls)
         let mut extmodule_set: HashSet<String> = HashSet::new();
         for comp in ctx.components.iter() {
@@ -71,7 +64,7 @@ impl Backend for FirrtlBackend {
                 }
             }
         }
-        // Pass to output all of the
+        // Pass to output all of theStashed changes
         for comp in ctx.components.iter() {
             emit_component(comp, out)?
         }
@@ -146,7 +139,7 @@ fn emit_component<F: io::Write>(
         }
     }
 
-    let mut dst_set: HashSet<String> = HashSet::new();
+    let mut dst_set: HashSet<ir::Canonical> = HashSet::new();
     // Emit assignments
     for asgn in &comp.continuous_assignments {
         match asgn.guard.as_ref() {
@@ -155,19 +148,18 @@ fn emit_component<F: io::Write>(
                 let _ = write_assignment(asgn, f, 2);
             }
             _ => {
-                let dst_canonical = &asgn.dst.as_ref().borrow().canonical();
-                let dst_canonical_str = dst_canonical.to_string();
-                if !dst_set.contains(&dst_canonical_str) {
+                let dst_canonical = asgn.dst.as_ref().borrow().canonical();
+                if !dst_set.contains(&dst_canonical) {
                     // if we don't have a "is invalid" statement yet, then we have to write one.
                     // an alternative "eager" approach would be to instantiate all possible ports
                     // (our output ports + all children's input ports) up front.
-                    let _ = write_invalid_initialization(&asgn.dst, f);
-                    dst_set.insert(dst_canonical_str);
+                    write_invalid_initialization(&asgn.dst, f)?;
+                    dst_set.insert(dst_canonical);
                 }
                 // need to write out the guard.
                 let guard_string = get_guard_string(asgn.guard.as_ref());
                 writeln!(f, "{}when {}:", SPACING.repeat(2), guard_string)?;
-                let _ = write_assignment(asgn, f, 3);
+                write_assignment(asgn, f, 3)?;
             }
         }
     }
@@ -236,7 +228,7 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
             };
             format!("{}({}, {})", op_str, l_str, r_str)
         }
-        ir::Guard::Port(port) => get_port_string(&port.borrow().clone(), false),
+        ir::Guard::Port(port) => get_port_string(&port.borrow(), false),
         ir::Guard::Info(_) => {
             panic!("guard should not have info")
         }
@@ -274,7 +266,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
 fn write_invalid_initialization<F: io::Write>(
     port: &RRC<ir::Port>,
     f: &mut F,
-) -> CalyxResult<()> {
+) -> io::Result<()> {
     let default_initialization_str = "; default initialization";
     let dst_string = get_port_string(&port.borrow(), true);
     if port.borrow().attributes.has(ir::BoolAttr::Control) {
@@ -284,7 +276,7 @@ fn write_invalid_initialization<F: io::Write>(
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
-        )?;
+        )
     } else {
         writeln!(
             f,
@@ -292,9 +284,8 @@ fn write_invalid_initialization<F: io::Write>(
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
-        )?;
+        )
     }
-    Ok(())
 }
 
 // Writes a FIRRTL assignment
@@ -302,7 +293,7 @@ fn write_assignment<F: io::Write>(
     asgn: &ir::Assignment<ir::Nothing>,
     f: &mut F,
     num_indent: usize,
-) -> CalyxResult<()> {
+) -> io::Result<()> {
     let dest_port = asgn.dst.borrow();
     let dest_string = get_port_string(&dest_port, true);
     let source_port = asgn.src.borrow();
