@@ -216,21 +216,61 @@ component m_write_channel(
       curr_addr_adder = std_add(64);
       curr_trnsfr_count_adder = std_add(8);
 
+
       // block_transfer reg to avoid combinational loops
       bt_reg = std_reg(1);
+
+
+
+     //write init stuff TODO: delete this
+     n_init_done = std_reg(1);
+     curr_addr_slice = std_slice(64,32);
 
   }
   wires{
 
       WVALID = wvalid.out;
-      internal_mem.write_en = 1'b0;
+      //internal_mem.write_en = 1'b0;
 
 
-      //group init_wlast {
-      //    wlast.in = 1'b0;
-      //    wlast.write_en = 1'b1;
-      //    init_WLAST[done] = wlast.done;
-      //}
+
+      //stuff for initialization
+      group reset_curr_addr{
+          curr_addr.in = 64'b0;
+          curr_addr.write_en = 1'b1;
+          reset_curr_addr[done] = curr_addr.done;
+      }
+
+      group write_to_internal{
+          internal_mem.read_en = 1'b0;
+          internal_mem.write_en = 1'b1;
+          internal_mem.addr0 = curr_addr.out;
+
+          curr_addr_slice.in = curr_addr.out;
+          internal_mem.write_data = curr_addr_slice.out;
+          write_to_internal[done] = internal_mem.write_done;
+      }
+
+      group check_if_writes_done{
+          n_init_done.in = curr_addr.out == 64'd16 ? 1'b0;
+          n_init_done.in = !(curr_addr.out == 64'd16) ? 1'b1;
+          n_init_done.write_en = 1'b1;
+          check_if_writes_done[done] = n_init_done.done;
+      }
+
+      group init_done{
+          n_init_done.in = 1'b1;
+          n_init_done.write_en = 1'b1;
+          init_done[done] = n_init_done.done;
+      }
+      //end stuff for initialization
+
+
+      group init_n_finished_last_trnsfr {
+          n_finished_last_trnsfr.in = 1'b1;
+          n_finished_last_trnsfr.write_en = 1'b1;
+          init_n_finished_last_trnsfr[done] = n_finished_last_trnsfr.done;
+      }
 
       //Used to block any servicing until handshake occurs. 
       group reset_bt {
@@ -250,7 +290,7 @@ component m_write_channel(
 
         //NOTE: is_rdy.in = 1'b1; does not work, it leaves RREADY high for 2 cycles
         // this both asserts and deasserts one cycle later
-        wvalid.in = !(wvalid.out & WREADY) & !wvalid_was_high.out ? 1'b1;
+        wvalid.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
         // TODO(nathanielnrn): Can prob get rid of wvalid_was_high
         wvalid.in = wvalid.out & WREADY & wvalid_was_high.out ? 1'b0;
         wvalid.write_en = 1'b1;
@@ -300,7 +340,22 @@ component m_write_channel(
 
   }
   control{
-      while n_finished_last_trnsfr.out{
+      seq{
+
+        //done for writing to internal mem
+        init_done;
+        reset_curr_addr;
+        while n_init_done.out {
+            seq{
+              write_to_internal;
+              incr_curr_addr;
+              check_if_writes_done;
+            }
+        }
+        //end writing to internal mem
+        reset_curr_addr;
+        init_n_finished_last_trnsfr;
+        while n_finished_last_trnsfr.out{
           seq{
               reset_bt;
               do_write_transfer;
@@ -310,6 +365,7 @@ component m_write_channel(
               }
           }
       }
+    }
   }
 }
 
@@ -320,7 +376,7 @@ component m_bresp_channel(
   ARESET : 1,
   BVALID : 1,
   // We assume all writes are valid.
-  // BRESP : 3,
+  //BRESP : 2,
 ) -> (
   // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
   // because (IIRC) it helps avoid combinational loops between READY and VALID.
@@ -332,6 +388,7 @@ component m_bresp_channel(
 
   }
   wires{
+      BREADY = bready.out;
       group reset_bt_reg{
           bt_reg.in = 1'b0;
           bt_reg.write_en = 1'b1;
@@ -372,6 +429,9 @@ component main(
     m_WREADY : 1,
 
     m_BVALID : 1,
+    // Used only for waveform tracing. Not sent anywhere
+    // Note this AXI4 has this at 2 bits, while latest has it at 3.
+    m_BRESP : 2,
 ) -> (
 
     m_AWVALID : 1,
