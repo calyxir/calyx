@@ -18,7 +18,7 @@ The easiest way is to use the [Calyx Docker image][calyx-docker] that provides a
 The following commands will fetch the Docker image and start a container with an interactive shell:
 
 ```sh
-docker run -it --rm ghcr.io/cucapra/calyx:latest
+docker run -it --rm ghcr.io/calyxir/calyx:latest
 ```
 
 The `--rm` flag will remove the container after you exit the shell. If you want to keep the container around, remove the flag.
