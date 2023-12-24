@@ -46,13 +46,13 @@ The following commands enable remote usage of `vivado` and `vivado-hls` by defau
 
 The server must have `vivado` and `vivado_hls` available on the remote machine's path. (If you need the executable names to be something else, please file an issue.)
 
-To tell if this has been set up correctly, run `ssh <username>@<xilinx.tool.server>` and ensure that you are not prompted for a password. The `ssh-copy-id` command will let you setup your server to authenticate without a password. Note that after you SSH into the server, the Vivado command should work without needing to run any source command. 
+To tell if this has been set up correctly, run `ssh <username>@<xilinx.tool.server>` and ensure that you are not prompted for a password. The `ssh-copy-id` command will let you setup your server to authenticate without a password. Note that after you SSH into the server, the Vivado command should work without needing to run any source command.
 
 Here's how you would ssh into Havarti:
 
     ssh user@havarti.cs.cornell.edu
     user@havarti:~$ vivado
-    
+
     ****** Vivado v2020.2 (64-bit)
 
 
@@ -253,7 +253,7 @@ It sets up the necessary input files and constructs a command line that looks mu
 [axi]: https://en.wikipedia.org/wiki/Advanced_eXtensible_Interface
 [xrt]: https://xilinx.github.io/XRT/
 [xclbin]: https://xilinx.github.io/XRT/2021.2/html/formats.html#xclbin
-[gen_xo]: https://github.com/cucapra/calyx/blob/master/fud/bitstream/gen_xo.tcl
+[gen_xo]: https://github.com/calyxir/calyx/blob/master/fud/bitstream/gen_xo.tcl
 [u50]: https://www.xilinx.com/products/boards-and-kits/alveo/u50.html
 [wdb]: https://support.xilinx.com/s/article/64000?language=en_US
 [vitis_tutorial]: https://github.com/Xilinx/Vitis-Tutorials/blob/2021.2/Getting_Started/Vitis/Part2.md

@@ -30,7 +30,7 @@ Our [toplevel][toplevel] is generated through files in `src/backend/xilinx/`.
 ### AXI memory controller
 Here, the [toplevel][toplevel] component of a Calyx program is queried and
 memories marked [`@external`][external] are turned into AXI buses.
-To note, separate AXI interfaces are created for each memory 
+To note, separate AXI interfaces are created for each memory
 (meaning, there is no shared bus between memories). Each memory has its own
 (single port) BRAM which writes data taken from an `mi_axi_RDATA` wire where `i` is the index of
 the memory. Eventually the BRAMs are read and fed into the
@@ -74,10 +74,10 @@ allow this.
 
 [pynq]: https://github.com/Xilinx/PYNQ
 [xclbin]: https://xilinx.github.io/XRT/2021.2/html/formats.html#xclbin
-[xilinx_tools]: https://github.com/cucapra/calyx/blob/master/docs/fud/xilinx.md
+[xilinx_tools]: https://github.com/calyxir/calyx/blob/master/docs/fud/xilinx.md
 [kernel_xml]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/RTL-Kernel-XML-File
 [external]: https://docs.calyxir.org/lang/attributes.html?highlight=external#external
-[issues]: https://github.com/cucapra/calyx/issues
+[issues]: https://github.com/calyxir/calyx/issues
 [signals]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Signal-Descriptions?lang=en
 [bursting]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Single-Interface-Requirements/Transaction-structure/Address-structure?lang=en
 [access_protection]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Transaction-Attributes/Access-permissions?lang=en
