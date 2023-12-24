@@ -69,6 +69,8 @@ jobs:
     name: Test Interpreter
     needs: [docker, hash]
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     container: ghcr.io/calyxir/calyx:${{ needs.hash.outputs.hash }}
     steps:
     - name: Copy fud configuration
@@ -120,6 +122,8 @@ jobs:
     name: Test Compiler
     needs: [docker, hash]
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     container: ghcr.io/calyxir/calyx:${{ needs.hash.outputs.hash }}
     steps:
     - name: Copy fud configuration
@@ -179,6 +183,8 @@ jobs:
     name: Polybench Integration
     needs: [docker, hash]
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     container: ghcr.io/calyxir/calyx:${{ needs.hash.outputs.hash }}
     steps:
     - name: Copy and clean up fud configuration
