@@ -53,7 +53,7 @@ jobs:
         with:
           images: ghcr.io/calyxir/calyx
           tags: |
-            type=semver,pattern={{version}}
+            type=raw,value=${{ needs.hash.outputs.hash }},enable=true
             type=raw,value=latest,enable={{is_default_branch}}
           flavor: latest=false
       - uses: depot/setup-action@v1
