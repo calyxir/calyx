@@ -9,7 +9,7 @@ You'll also need `calyx-frontend` and `calyx-utils` if you're parsing frontend c
 
 ## Building the `calyx` Binary
 
-The [`calyx` binary][calyx-crate] is published using Rust's crates.io repository. It provides the [compiler interface](./compiler.md) which can be used without requiring the user to build the compiler from source. The `calyx` binary also ships all its [primitives library][prims-lib] which is done through a somewhat complex bootstrapping process (see [#1678](https://github.com/cucapra/calyx/pull/1678))
+The [`calyx` binary][calyx-crate] is published using Rust's crates.io repository. It provides the [compiler interface](./compiler.md) which can be used without requiring the user to build the compiler from source. The `calyx` binary also ships all its [primitives library][prims-lib] which is done through a somewhat complex bootstrapping process (see [#1678](https://github.com/calyxir/calyx/pull/1678))
 
 1. The [`calyx-stdlib`][calyx-stdlib] package pulls in the sources of all the primitives using the Rust `include_str!` macro.
 2. The `calyx` binary defines a build script that depends on `calyx-stdlib` as a build dependency.

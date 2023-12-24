@@ -14,7 +14,7 @@ To disable the passes, add the flag `-p no-opt` to compiler invocation:
 If the output is still incorrect then one of the core compilation passes is incorrect.
 Our best bet at this point is to reduce the test file such that the output from the
 interpreter and the Calyx compiler still disagree and [report the
-bug](https://github.com/cucapra/calyx/issues/new). We can use the [waveform
+bug](https://github.com/calyxir/calyx/issues/new). We can use the [waveform
 debugging](#waveform-debugging) to figure out which part of the compilation pipeline generates the
 incorrect result.
 
@@ -115,7 +115,7 @@ In this debugging strategy, we'll do the following:
 3. Open the waveform viewer and find clock cycles where the FSM takes the corresponding
 values and identify other signals that we care about.
 
-Consider the control section from [examples/futil/dot-product.futil](https://github.com/cucapra/calyx/blob/master/examples/futil/dot-product.futil):
+Consider the control section from [examples/futil/dot-product.futil](https://github.com/calyxir/calyx/blob/master/examples/futil/dot-product.futil):
 ```
 {{#include ../../examples/futil/dot-product.futil:control}}
 ```
@@ -170,5 +170,5 @@ the `fsm` register has the value 1 and check to see if the assignments in
 
 [gtkwave]: http://gtkwave.sourceforge.net/
 [wavetrace]: https://marketplace.visualstudio.com/items?itemName=wavetrace.wavetrace
-[flag-cmp]: https://github.com/cucapra/calyx/blob/master/tools/flag-compare.sh
+[flag-cmp]: https://github.com/calyxir/calyx/blob/master/tools/flag-compare.sh
 [dgr]: https://docs.rs/calyx-opt/latest/calyx_opt/passes/struct.DeadGroupRemoval.html
