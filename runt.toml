@@ -207,8 +207,11 @@ timeout = 120
 
 [[tests]]
 name = "correctness static timing"
-paths = ["tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil",
-"tests/correctness/static-interface/*.futil" ]
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/static-interface/*.futil",
+]
 cmd = """
 fud exec --from calyx --to jq \
          --through verilog \
@@ -239,7 +242,7 @@ fud exec --from calyx --to jq \
 timeout = 120
 
 # Tests to ensure that static compilation maintains its guarantees
-# See: https://github.com/cucapra/calyx/discussions/1331
+# See: https://github.com/calyxir/calyx/discussions/1331
 [[tests]]
 name = "correctness static scheduling"
 paths = ["tests/correctness/static/*.futil"]
@@ -256,7 +259,7 @@ fud exec --from calyx --to jq \
 timeout = 120
 
 # Tests to ensure that static compilation maintains its guarantees
-# See: https://github.com/cucapra/calyx/discussions/1331 & https://github.com/cucapra/calyx/issues/1344
+# See: https://github.com/calyxir/calyx/discussions/1331 & https://github.com/calyxir/calyx/issues/1344
 [[tests]]
 name = "correctness static control"
 paths = [
@@ -332,9 +335,7 @@ fud e --from systolic --to jq \
 
 [[tests]]
 name = "[frontend] systolic array mmult static correctness"
-paths = [
-  "tests/correctness/systolic/mmult-inputs/*.data"
-]
+paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -345,13 +346,11 @@ fud e --from systolic --to jq \
       -s jq.expr ".memories" \
       {}_static.systolic -q
 """
-expect_dir="tests/correctness/systolic/mmult-expect"
+expect_dir = "tests/correctness/systolic/mmult-expect"
 
 [[tests]]
 name = "[frontend] systolic array mmult dynamic correctness"
-paths = [
-  "tests/correctness/systolic/mmult-inputs/*.data"
-]
+paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -362,13 +361,11 @@ fud e --from systolic --to jq \
       -s jq.expr ".memories" \
       {}_dynamic.systolic -q
 """
-expect_dir="tests/correctness/systolic/mmult-expect"
+expect_dir = "tests/correctness/systolic/mmult-expect"
 
 [[tests]]
 name = "[frontend] systolic array relu static correctness"
-paths = [
-  "tests/correctness/systolic/relu-inputs/*.data"
-]
+paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -379,13 +376,11 @@ fud e --from systolic --to jq \
       -s jq.expr ".memories" \
       {}_static.systolic -q
 """
-expect_dir="tests/correctness/systolic/relu-expect"
+expect_dir = "tests/correctness/systolic/relu-expect"
 
 [[tests]]
 name = "[frontend] systolic array relu dynamic correctness"
-paths = [
-  "tests/correctness/systolic/relu-inputs/*.data"
-]
+paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -396,13 +391,11 @@ fud e --from systolic --to jq \
       -s jq.expr ".memories" \
       {}_dynamic.systolic -q
 """
-expect_dir="tests/correctness/systolic/relu-expect"
+expect_dir = "tests/correctness/systolic/relu-expect"
 
 [[tests]]
 name = "[frontend] systolic array leaky relu correctness"
-paths = [
-  "tests/correctness/systolic/leaky-relu/*.systolic",
-]
+paths = ["tests/correctness/systolic/leaky-relu/*.systolic"]
 cmd = """
 fud e --from systolic --to dat \
       --through verilog \

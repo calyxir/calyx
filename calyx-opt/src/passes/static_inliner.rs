@@ -75,7 +75,7 @@ impl StaticInliner {
     // this means that all of the tru branch assigns can get the cond_wire ? in front of them,
     // and all false branch assigns can get !cond_wire ? in front of them
     // makes the following assignments:
-    // read more here: https://github.com/cucapra/calyx/issues/1344 (specifically
+    // read more here: https://github.com/calyxir/calyx/issues/1344 (specifically
     // the section "Conditionl")
     fn make_cond_assigns(
         cond: ir::RRC<ir::Cell>,

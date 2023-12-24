@@ -118,7 +118,7 @@ def dropout(fd: DahliaFuncDef) -> str:
     return emit_dahlia_definition(fd, emit_dahlia_loop(res, loop_body))
 
 
-# https://github.com/cucapra/calyx/issues/401
+# https://github.com/calyxir/calyx/issues/401
 # Please read the issue above before trying
 # to lower this using `relay.fromtext`.
 def expand_dims(fd: DahliaFuncDef) -> str:
@@ -344,9 +344,9 @@ def dense(fd: DahliaFuncDef, save_mem=True) -> str:
     """
     tvm.apache.org/docs/api/python/relay/nn.html#tvm.relay.nn.dense
     If save_mem=True, instead of actually building the transpose of the weight matrix,
-    we just access W[j][i] everytime we would have accessed W^T[i][j]. It seems 
-    to be a better way (in terms of resource usage) to calculate dense, which 
-    is why it has been save_mem is the default setting. 
+    we just access W[j][i] everytime we would have accessed W^T[i][j]. It seems
+    to be a better way (in terms of resource usage) to calculate dense, which
+    is why it has been save_mem is the default setting.
     """
     a, b, res = fd.args[0], fd.args[1], fd.dest
     type = fd.data_type
@@ -495,7 +495,7 @@ def reshape(fd: DahliaFuncDef) -> str:
         E.g.
         let  %x: Tensor[(1, 2, 2, 2), float32] = ...;
         let %x1: Tensor[(1, 8), float32] = reshape(%x, newshape[-1, 8]);
-        
+
         Or supports reshape when the first dimension of the new size is 1
 
         Or supports reshape when all you are going from a 4d to 2d array, but the
@@ -781,7 +781,7 @@ def lrn(fd: DahliaFuncDef) -> str:
                   }}
                 }}
                 let __divisor: {data_type} = fp_pow_full((({bias} as {data_type}) + (({alpha} as {data_type}) * __sum)), ({beta} as {data_type}));
-                {res.id.name}[__n][__c][__h][__w] := {data.id.name}[__n][__c][__h][__w] / __divisor; 
+                {res.id.name}[__n][__c][__h][__w] := {data.id.name}[__n][__c][__h][__w] / __divisor;
               }}
             }}
           }}
