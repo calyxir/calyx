@@ -31,7 +31,7 @@ function createToggle(pass) {
     button.classList.add("toggle");
     button.classList.add("off");
     button.innerHTML = pass.title;
-    button.onclick = function() {
+    button.onclick = function () {
         buttonSet(pass, !pass.active);
         compile();
     };
@@ -60,7 +60,7 @@ function selectPasses(item) {
     }
 }
 
-document.getElementById("compile").onclick = function() {
+document.getElementById("compile").onclick = function () {
     compile();
 };
 
@@ -109,7 +109,7 @@ async function getLibrary(library, root) {
 }
 
 async function fetchLibs(names, root) {
-    let proms = names.map(async function(lib) {
+    let proms = names.map(async function (lib) {
         let code = await getLibrary(lib, root);
         return { name: lib, code: code };
     });
@@ -117,7 +117,7 @@ async function fetchLibs(names, root) {
 }
 
 const input = document.getElementById("input");
-input.oninput = function() {
+input.oninput = function () {
     CURRENT_CODE.code = input.innerText;
 };
 
@@ -126,10 +126,10 @@ input.oninput = function() {
 // Add examples for the selector
 const examples_select = document.getElementById("examples-select");
 for (let item of config.examples) {
-  let option = document.createElement('option');
-  option.text = item.name;
-  option.value = JSON.stringify(item);
-  examples_select.add(option);
+    let option = document.createElement('option');
+    option.text = item.name;
+    option.value = JSON.stringify(item);
+    examples_select.add(option);
 }
 
 // Load example from the github repository
@@ -148,7 +148,7 @@ async function getExample(name, root) {
 }
 
 // Define onchange method for example selector.
-examples_select.onchange = function() {
+examples_select.onchange = function () {
     const input = document.getElementById("input");
     const output = document.getElementById("output");
     input.innerHTML = "loading...";
@@ -157,10 +157,10 @@ examples_select.onchange = function() {
     getExample(value.file, value.root)
         .then(t => CURRENT_CODE = t)
         .then(() => {
-          input.innerHTML = CURRENT_CODE.code;
-          const editor = document.getElementById("diffEditor");
-          const srcDiv = editor.querySelector("#input");
-          Prism.highlightElement(srcDiv);
+            input.innerHTML = CURRENT_CODE.code;
+            const editor = document.getElementById("diffEditor");
+            const srcDiv = editor.querySelector("#input");
+            Prism.highlightElement(srcDiv);
         })
         .then(() => selectPasses(value));
 };
@@ -173,7 +173,7 @@ examples_select.onchange()
 const ver_div = document.getElementById("calyx-version");
 const git_link = document.createElement('a');
 git_link.appendChild(document.createTextNode(calyx_info.version.slice(0, 8)));
-git_link.href = "https://github.com/cucapra/calyx/tree/" + calyx_info.version;
+git_link.href = "https://github.com/calyxir/calyx/tree/" + calyx_info.version;
 ver_div.appendChild(document.createTextNode("Built with Calyx version "));
 ver_div.appendChild(git_link);
 

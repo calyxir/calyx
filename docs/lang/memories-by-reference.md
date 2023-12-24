@@ -226,4 +226,4 @@ Here is an example of a memory copy (referred to as `mem_cpy` in the C language)
 {{#include ../../tests/correctness/invoke-memory.futil}}
 ```
 
-[arbiter_6.futil]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/arbiter_6.futil
+[arbiter_6.futil]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/arbiter_6.futil
