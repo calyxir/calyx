@@ -20,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          repository: cucapra/filament
+          repository: calyxir/calyx
           ref: ${{ github.sha }}
           fetch-depth: 0
       - name: Get hash
@@ -28,7 +28,7 @@ jobs:
         run: git log -s -n 1 --pretty=format:"%H" -- Dockerfile | echo "hash=$(cat)" >> "$GITHUB_OUTPUT"
       - name: Check if image exists
         id: exists
-        run: (docker buildx imagetools inspect ghcr.io/cucapra/filament:${{ steps.hash.outputs.hash }} &> /dev/null && echo "exists=true" || echo "exists=false") >> "$GITHUB_OUTPUT"
+        run: (docker buildx imagetools inspect ghcr.io/calyxir/calyx:${{ steps.hash.outputs.hash }} &> /dev/null && echo "exists=true" || echo "exists=false") >> "$GITHUB_OUTPUT"
 
   # Build a docker image for this commit if needed
   docker:
