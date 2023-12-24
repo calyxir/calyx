@@ -118,6 +118,7 @@ jobs:
 
   compiler:
     name: Test Compiler
+    needs: [docker, hash]
     runs-on: ubuntu-latest
     container: ghcr.io/calyxir/calyx:${{ needs.hash.outputs.hash }}
     steps:
@@ -176,6 +177,7 @@ jobs:
 
   evaluation:
     name: Polybench Integration
+    needs: [docker, hash]
     runs-on: ubuntu-latest
     container: ghcr.io/calyxir/calyx:${{ needs.hash.outputs.hash }}
     steps:
