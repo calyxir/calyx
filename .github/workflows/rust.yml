@@ -87,6 +87,8 @@ jobs:
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
+        pwd
+        ls
         git fetch --all
         git checkout $GITHUB_SHA
 
