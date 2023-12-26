@@ -350,7 +350,6 @@ pub enum Control {
 #[derive(Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum StaticControl {
-    /// Essentially a Static While Loop
     Repeat(StaticRepeat),
     Enable(StaticEnable),
     Par(StaticPar),
@@ -597,7 +596,7 @@ impl Control {
     pub fn take_static_control(&mut self) -> StaticControl {
         let empty = Control::empty();
         let control = std::mem::replace(self, empty);
-        let Control::Static(static_control) = control  else {
+        let Control::Static(static_control) = control else {
             unreachable!("Called take_static_control on non-static control")
         };
         static_control
