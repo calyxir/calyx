@@ -37,7 +37,11 @@ class SystolicConfiguration:
         )
         parser.add_argument(
             "--fixed-dim",
-            help="systolic array that only processes fixed dimension matrices. By default, generated array can process matrices with any contraction dimension",
+            help=(
+                "systolic array that only processes fixed dimension matrices."
+                " By default, generated array can process matrices "
+                " with any contraction dimension"
+            ),
             action="store_true",
         )
 
