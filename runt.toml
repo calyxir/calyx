@@ -39,7 +39,7 @@ paths = [
   "tests/errors/parser/*.futil",
 ]
 cmd = """
-./target/debug/calyx {} -p well-formed -p papercut -p synthesis-papercut -l .
+./target/debug/calyx {} -p well-formed -p papercut -p synthesis-papercut -l . -m file
 """
 
 [[tests]]
