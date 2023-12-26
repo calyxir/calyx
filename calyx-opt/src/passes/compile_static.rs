@@ -31,7 +31,7 @@ impl Named for CompileStatic {
     }
 
     fn description() -> &'static str {
-        "Compiles Static Islands"
+        "compiles static sub-programs into a dynamic group"
     }
 }
 
