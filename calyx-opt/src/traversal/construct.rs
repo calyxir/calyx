@@ -3,6 +3,7 @@ use calyx_ir as ir;
 use calyx_utils::{CalyxResult, OutputFile};
 use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
+use std::iter;
 
 #[derive(Clone)]
 /// The value returned from parsing an option.
@@ -10,7 +11,7 @@ pub enum ParseVal {
     /// A boolean option.
     Bool(bool),
     /// A number option.
-    Num(usize),
+    Num(i64),
     /// A list of values.
     List(Vec<ParseVal>),
     /// An output stream (stdout, stderr, file name)
@@ -25,20 +26,45 @@ impl ParseVal {
         *b
     }
 
-    pub fn num(&self) -> usize {
+    pub fn num(&self) -> i64 {
         let ParseVal::Num(n) = self else {
             panic!("Expected number, got {self}");
         };
         *n
     }
 
-    pub fn num_list(&self) -> Vec<usize> {
+    pub fn pos_num(&self) -> Option<u64> {
+        let n = self.num();
+        if n < 0 {
+            None
+        } else {
+            Some(n as u64)
+        }
+    }
+
+    pub fn num_list(&self) -> Vec<i64> {
         match self {
             ParseVal::List(l) => {
                 l.iter().map(ParseVal::num).collect::<Vec<_>>()
             }
             _ => panic!("Expected list of numbers, got {self}"),
         }
+    }
+
+    /// Parse a list that should have exactly N elements. If elements are missing, then add None
+    /// to the end of the list.
+    pub fn num_list_exact<const N: usize>(&self) -> [Option<i64>; N] {
+        let list = self.num_list();
+        let len = list.len();
+        if len > N {
+            panic!("Expected list of {N} numbers, got {len}");
+        }
+        list.into_iter()
+            .map(Some)
+            .chain(iter::repeat(None).take(N - len))
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
     }
 
     /// Returns an output stream if it is not the null stream
@@ -137,7 +163,7 @@ impl PassOpt {
 
     /// Parse a number from a string.
     pub fn parse_num(s: &str) -> Option<ParseVal> {
-        s.parse::<usize>().ok().map(ParseVal::Num)
+        s.parse::<i64>().ok().map(ParseVal::Num)
     }
 
     /// Parse a list of numbers from a string.

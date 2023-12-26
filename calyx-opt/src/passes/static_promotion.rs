@@ -1,12 +1,13 @@
 use crate::analysis::{GraphAnalysis, ReadWriteSet};
 use crate::traversal::{
-    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
+    Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
+    Visitor,
 };
 use calyx_ir::{self as ir, LibrarySignatures, RRC};
 use calyx_utils::{CalyxResult, Error};
 use ir::GetAttributes;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::rc::Rc;
 
@@ -177,13 +178,13 @@ impl ConstructVisitor for StaticPromotion {
             }
             latency_data.insert(prim.name, GoDone::new(go_ports));
         }
-        let (threshold, cycle_limit) = Self::get_threshold(ctx);
+        let opts = Self::get_opts(ctx);
         Ok(StaticPromotion {
             latency_data,
             static_group_name: HashMap::new(),
             static_component_latencies: HashMap::new(),
-            threshold,
-            cycle_limit,
+            threshold: opts["threshold"].pos_num().unwrap(),
+            cycle_limit: opts["cycle-limit"].pos_num(),
         })
     }
 
@@ -199,71 +200,28 @@ impl Named for StaticPromotion {
     }
 
     fn description() -> &'static str {
-        "promote groups and controls whose latency can be inferred to static groups and controls"
+        "promote dynamic control programs to static when possible"
+    }
+
+    fn opts() -> Vec<PassOpt> {
+        vec![
+            PassOpt::new(
+                "threshold",
+                "minimum number of groups needed to promote a dynamic control program to static",
+                ParseVal::Num(1),
+                PassOpt::parse_num,
+            ),
+            PassOpt::new(
+                "cycle-limit",
+                "maximum number of cycles to promote a dynamic control program to static",
+                ParseVal::Num(33554432),
+                PassOpt::parse_num,
+            )
+        ]
     }
 }
 
 impl StaticPromotion {
-    // Looks through ctx to get the given command line threshold.
-    // Default threshold = 1
-    fn get_threshold(ctx: &ir::Context) -> (u64, Option<u64>)
-    where
-        Self: Named,
-    {
-        let n = Self::name();
-
-        // getting the given opts for -x cell-share:__
-        let given_opts: HashSet<_> = ctx
-            .extra_opts
-            .iter()
-            .filter_map(|opt| {
-                let mut splits = opt.split(':');
-                if splits.next() == Some(n) {
-                    splits.next()
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        // searching for "-x static-promotion:cycle-limit=200" and getting back "200"
-        let cycle_limit_str: Option<&str> = given_opts.iter().find_map(|arg| {
-            let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.first() {
-                if str == &"cycle-limit" {
-                    return Some(split[1]);
-                }
-            }
-            None
-        });
-
-        // Default to None. There may be a more idiomatic way to do this.
-        let cycle_limit = match cycle_limit_str.unwrap_or("None").parse::<u64>()
-        {
-            Ok(n) => Some(n),
-            Err(_) => None,
-        };
-
-        // searching for "-x static-promotion:threshold=1" and getting back "1"
-        let threshold: Option<&str> = given_opts.iter().find_map(|arg| {
-            let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.first() {
-                if str == &"threshold" {
-                    return Some(split[1]);
-                }
-            }
-            None
-        });
-
-        // Need to convert string argument into int argument
-        // Always default to threshold=1
-        // Default cycle limit = 2^25 = 33554432
-        (
-            threshold.unwrap_or("1").parse::<u64>().unwrap_or(1),
-            cycle_limit,
-        )
-    }
-
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
     ///   - `src` is an "out" port of a constant, and `dst` is a "go" port
     ///   - `src` is a "done" port, and `dst` is a "go" port
@@ -496,7 +454,8 @@ impl StaticPromotion {
     /// Will raise an error if neither of these is true.
     fn get_inferred_latency(c: &ir::Control) -> u64 {
         let ir::Control::Static(sc) = c else {
-            let Some(latency) = c.get_attribute(ir::NumAttr::PromoteStatic) else {
+            let Some(latency) = c.get_attribute(ir::NumAttr::PromoteStatic)
+            else {
                 unreachable!("Called get_latency on control that is neither static nor promotable")
             };
             return latency;
