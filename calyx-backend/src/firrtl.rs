@@ -64,7 +64,6 @@ impl Backend for FirrtlBackend {
                 }
             }
         }
-        // Pass to output all of theStashed changes
         for comp in ctx.components.iter() {
             emit_component(comp, out)?
         }
