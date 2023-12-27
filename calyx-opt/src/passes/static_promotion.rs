@@ -223,7 +223,7 @@ impl Named for StaticPromotion {
             PassOpt::new(
                 "if-diff-limit",
                 "the maximum difference between if branches that we tolerate for promotion",
-                ParseVal::Num(0),
+                ParseVal::Num(1),
                 PassOpt::parse_num,
             )
         ]
@@ -493,7 +493,7 @@ impl StaticPromotion {
         if self.if_diff_limit.is_none() {
             return true;
         }
-        diff < self.if_diff_limit.unwrap()
+        diff <= self.if_diff_limit.unwrap()
     }
 
     /// If we've already constructed the static group then use the already existing
