@@ -1,4 +1,4 @@
-// -p well-formed -p static-promotion -p dead-group-removal
+// -p well-formed -p static-promotion -x static-promotion:if-diff-limit=3
 
 import "primitives/core.futil";
 
@@ -18,7 +18,7 @@ component main() -> () {
 
   control {
     if cond.out {
-      A;
+      seq {A; A; A; A; A;}
     }
   }
 }
