@@ -20,14 +20,30 @@ class SystolicConfiguration:
         """
 
         # Arg parsing
-        parser = argparse.ArgumentParser(description="Process some integers.")
+        parser = argparse.ArgumentParser(
+            description="Generate an output-stationary systolic array in Calyx."
+        )
         parser.add_argument("file", nargs="?", type=str)
         parser.add_argument("-tl", "--top-length", type=int)
         parser.add_argument("-td", "--top-depth", type=int)
         parser.add_argument("-ll", "--left-length", type=int)
         parser.add_argument("-ld", "--left-depth", type=int)
-        parser.add_argument("-p", "--post-op", type=str, default=None)
-        parser.add_argument("-s", "--static", action="store_true")
+        parser.add_argument(
+            "-p",
+            "--post-op",
+            help="post operation to be performed on the matrix-multiply result",
+            type=str,
+            default=None,
+        )
+        parser.add_argument(
+            "--fixed-dim",
+            help=(
+                "systolic array that only processes fixed dimension matrices."
+                " By default, generated array can process matrices "
+                " with any contraction dimension"
+            ),
+            action="store_true",
+        )
 
         args = parser.parse_args()
 
@@ -38,7 +54,7 @@ class SystolicConfiguration:
             self.left_length = args.left_length
             self.left_depth = args.left_depth
             self.post_op = args.post_op
-            self.static = args.static
+            self.static = args.fixed_dim
         elif args.file is not None:
             with open(args.file, "r") as f:
                 spec = json.load(f)
