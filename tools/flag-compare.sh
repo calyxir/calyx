@@ -6,7 +6,7 @@
 set -uf -o pipefail
 
 flag1=' -p dead-group-removal -p all'
-flag2=' -p dead-group-removal -p all -d tdst'
+flag2=' -p dead-group-removal -p all'
 file="$1"
 data="$2"
 out_stage=${3:-dat}

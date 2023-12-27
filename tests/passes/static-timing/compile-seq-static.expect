@@ -1,9 +1,0 @@
-======== main:tdst =========
-0:
-  A[go] = 1'd1;
-1:
-  B[go] = 1'd1;
-2:
-  C[go] = 1'd1;
-Unconditional runs:
-  (0, 3)
