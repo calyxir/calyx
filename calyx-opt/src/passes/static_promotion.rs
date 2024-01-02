@@ -143,6 +143,8 @@ pub struct StaticPromotion {
     static_component_latencies: HashMap<ir::Id, NonZeroU64>,
     /// Threshold for promotion
     threshold: u64,
+    /// Threshold for difference in latency for if statements
+    if_diff_limit: Option<u64>,
     /// Whether we should stop promoting when we see a loop.
     cycle_limit: Option<u64>,
 }
@@ -184,6 +186,7 @@ impl ConstructVisitor for StaticPromotion {
             static_group_name: HashMap::new(),
             static_component_latencies: HashMap::new(),
             threshold: opts["threshold"].pos_num().unwrap(),
+            if_diff_limit: opts["if-diff-limit"].pos_num(),
             cycle_limit: opts["cycle-limit"].pos_num(),
         })
     }
@@ -215,6 +218,12 @@ impl Named for StaticPromotion {
                 "cycle-limit",
                 "maximum number of cycles to promote a dynamic control program to static",
                 ParseVal::Num(33554432),
+                PassOpt::parse_num,
+            ),
+            PassOpt::new(
+                "if-diff-limit",
+                "the maximum difference between if branches that we tolerate for promotion",
+                ParseVal::Num(1),
                 PassOpt::parse_num,
             )
         ]
@@ -478,6 +487,13 @@ impl StaticPromotion {
             return true;
         }
         latency < self.cycle_limit.unwrap()
+    }
+
+    fn within_if_diff_limit(&self, diff: u64) -> bool {
+        if self.if_diff_limit.is_none() {
+            return true;
+        }
+        diff <= self.if_diff_limit.unwrap()
     }
 
     /// If we've already constructed the static group then use the already existing
@@ -869,6 +885,17 @@ impl Visitor for StaticPromotion {
         Ok(Action::Continue)
     }
 
+    fn empty(
+        &mut self,
+        s: &mut ir::Empty,
+        _comp: &mut ir::Component,
+        _sigs: &LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> VisResult {
+        s.attributes.insert(ir::NumAttr::PromoteStatic, 0);
+        Ok(Action::Continue)
+    }
+
     fn enable(
         &mut self,
         s: &mut ir::Enable,
@@ -1049,7 +1076,7 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         if Self::can_be_promoted(&s.tbranch)
-            && Self::can_be_promoted(&s.fbranch)
+            && (Self::can_be_promoted(&s.fbranch))
         {
             // Both branches can be promoted
             let approx_size_if = Self::approx_size(&s.tbranch)
@@ -1059,8 +1086,11 @@ impl Visitor for StaticPromotion {
                 Self::get_inferred_latency(&s.tbranch),
                 Self::get_inferred_latency(&s.fbranch),
             );
+            let branch_diff = Self::get_inferred_latency(&s.tbranch)
+                .abs_diff(Self::get_inferred_latency(&s.fbranch));
             if approx_size_if > self.threshold
                 && self.within_cycle_limit(latency)
+                && self.within_if_diff_limit(branch_diff)
             {
                 // Meets size threshold so promote to static
                 let static_tbranch =
