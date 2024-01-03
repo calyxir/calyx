@@ -48,7 +48,7 @@ impl Backend for FirrtlBackend {
                 {
                     let curr_module_name =
                         get_primitive_module_name(name, param_binding);
-                    if !extmodule_set.insert(curr_module_name.clone()) {
+                    if extmodule_set.insert(curr_module_name.clone()) {
                         emit_primitive_extmodule(
                             &curr_module_name,
                             name,
