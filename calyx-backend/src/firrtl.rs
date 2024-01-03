@@ -4,9 +4,8 @@
 //! valid FIRRTL program.
 
 use crate::{traits::Backend, VerilogBackend};
-use calyx_ir::{self as ir, RRC};
+use calyx_ir::{self as ir, Binding, RRC};
 use calyx_utils::{CalyxResult, Id, OutputFile};
-use ir::Binding;
 use std::collections::HashSet;
 use std::io;
 
@@ -38,30 +37,26 @@ impl Backend for FirrtlBackend {
         writeln!(out, "circuit {}:", ctx.entrypoint)?;
         // Pass to output any necessary extmodule statements (for primitive calls)
         let mut extmodule_set: HashSet<String> = HashSet::new();
-        for comp in ctx.components.iter() {
+        for comp in &ctx.components {
             for cell in comp.cells.iter() {
                 let cell_borrowed = cell.as_ref().borrow();
-                if cell_borrowed.type_name().is_some() {
-                    if let ir::CellType::Primitive {
-                        name,
-                        param_binding,
-                        is_comb: _,
-                        latency: _,
-                    } = &cell_borrowed.prototype
-                    {
-                        let curr_module_name =
-                            get_primitive_module_name(name, param_binding);
-                        if !extmodule_set.contains(&curr_module_name) {
-                            emit_primitive_extmodule(
-                                &curr_module_name,
-                                name,
-                                param_binding,
-                                out,
-                            )?;
-                            extmodule_set.insert(curr_module_name);
-                        }
-                    };
-                }
+                if let ir::CellType::Primitive {
+                    name,
+                    param_binding,
+                    ..
+                } = &cell_borrowed.prototype
+                {
+                    let curr_module_name =
+                        get_primitive_module_name(name, param_binding);
+                    if !extmodule_set.insert(curr_module_name.clone()) {
+                        emit_primitive_extmodule(
+                            &curr_module_name,
+                            name,
+                            param_binding,
+                            out,
+                        )?;
+                    }
+                };
             }
         }
         for comp in ctx.components.iter() {
