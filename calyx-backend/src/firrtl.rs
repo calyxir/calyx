@@ -6,6 +6,8 @@
 use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, Binding, RRC};
 use calyx_utils::{CalyxResult, Id, OutputFile};
+use ir::Port;
+use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::io;
 
@@ -50,6 +52,7 @@ impl Backend for FirrtlBackend {
                         get_primitive_module_name(name, param_binding);
                     if extmodule_set.insert(curr_module_name.clone()) {
                         emit_primitive_extmodule(
+                            cell.borrow().ports(),
                             &curr_module_name,
                             name,
                             param_binding,
@@ -175,12 +178,39 @@ fn get_primitive_module_name(name: &Id, param_binding: &Binding) -> String {
 }
 
 fn emit_primitive_extmodule<F: io::Write>(
+    ports: &SmallVec<[RRC<Port>; 10]>,
     curr_module_name: &String,
     name: &Id,
     param_binding: &Binding,
     f: &mut F,
 ) -> io::Result<()> {
     writeln!(f, "{}extmodule {}:", SPACING, curr_module_name)?;
+    for port in ports {
+        let port_borrowed = port.borrow();
+        let direction_string = match port_borrowed.direction {
+            calyx_frontend::Direction::Input => "input",
+            calyx_frontend::Direction::Output => "output",
+            calyx_frontend::Direction::Inout => todo!(),
+        };
+        if port_borrowed.has_attribute(ir::BoolAttr::Clk) {
+            writeln!(
+                f,
+                "{}{} {}: Clock",
+                SPACING.repeat(2),
+                direction_string,
+                port_borrowed.name
+            )?;
+        } else {
+            writeln!(
+                f,
+                "{}{} {}: UInt<{}>",
+                SPACING.repeat(2),
+                direction_string,
+                port_borrowed.name,
+                port_borrowed.width
+            )?;
+        }
+    }
     writeln!(f, "{}defname = {}", SPACING.repeat(2), name)?;
     for (id, size) in param_binding.as_ref().iter() {
         writeln!(f, "{}parameter {} = {}", SPACING.repeat(2), id, size)?;
