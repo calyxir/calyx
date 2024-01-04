@@ -172,11 +172,11 @@ fn emit_primitive_extmodule<F: io::Write>(
 }
 
 fn emit_port<F: io::Write>(
-    port_borrowed: std::cell::Ref<'_, Port>,
+    port: std::cell::Ref<'_, Port>,
     reverse_direction: bool,
     f: &mut F,
 ) -> Result<(), io::Error> {
-    let direction_string = match port_borrowed.direction {
+    let direction_string = match port.direction {
         calyx_frontend::Direction::Input => {
             if reverse_direction {
                 "output"
@@ -191,15 +191,17 @@ fn emit_port<F: io::Write>(
                 "output"
             }
         }
-        calyx_frontend::Direction::Inout => todo!(),
+        calyx_frontend::Direction::Inout => {
+            panic!("Unexpected Inout port on Component: {}", port.name)
+        }
     };
-    if port_borrowed.has_attribute(ir::BoolAttr::Clk) {
+    if port.has_attribute(ir::BoolAttr::Clk) {
         writeln!(
             f,
             "{}{} {}: Clock",
             SPACING.repeat(2),
             direction_string,
-            port_borrowed.name
+            port.name
         )?;
     } else {
         writeln!(
@@ -207,8 +209,8 @@ fn emit_port<F: io::Write>(
             "{}{} {}: UInt<{}>",
             SPACING.repeat(2),
             direction_string,
-            port_borrowed.name,
-            port_borrowed.width
+            port.name,
+            port.width
         )?;
     };
     Ok(())
