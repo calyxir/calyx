@@ -193,7 +193,7 @@ fn emit_port<F: io::Write>(
         }
         calyx_frontend::Direction::Inout => todo!(),
     };
-    Ok(if port_borrowed.has_attribute(ir::BoolAttr::Clk) {
+    if port_borrowed.has_attribute(ir::BoolAttr::Clk) {
         writeln!(
             f,
             "{}{} {}: Clock",
@@ -210,7 +210,8 @@ fn emit_port<F: io::Write>(
             port_borrowed.name,
             port_borrowed.width
         )?;
-    })
+    };
+    Ok(())
 }
 
 // fn create_primitive_extmodule() {}
