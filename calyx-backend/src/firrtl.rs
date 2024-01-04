@@ -80,33 +80,7 @@ fn emit_component<F: io::Write>(
     let sig = comp.signature.borrow();
     for (_idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
-        let direction_string =
-        // NOTE: The signature port definitions are reversed inside the component.
-        match port.direction {
-            ir::Direction::Input => {"output"}
-            ir::Direction::Output => {"input"}
-            ir::Direction::Inout => {
-                panic!("Unexpected Inout port on Component: {}", port.name)
-            }
-        };
-        if port.has_attribute(ir::BoolAttr::Clk) {
-            writeln!(
-                f,
-                "{}{} {}: Clock",
-                SPACING.repeat(2),
-                direction_string,
-                port.name
-            )?;
-        } else {
-            writeln!(
-                f,
-                "{}{} {}: UInt<{}>",
-                SPACING.repeat(2),
-                direction_string,
-                port.name,
-                port.width
-            )?;
-        }
+        emit_port(port, true, f)?;
     }
 
     // Add a COMPONENT START: <name> anchor before any code in the component
@@ -187,29 +161,7 @@ fn emit_primitive_extmodule<F: io::Write>(
     writeln!(f, "{}extmodule {}:", SPACING, curr_module_name)?;
     for port in ports {
         let port_borrowed = port.borrow();
-        let direction_string = match port_borrowed.direction {
-            calyx_frontend::Direction::Input => "input",
-            calyx_frontend::Direction::Output => "output",
-            calyx_frontend::Direction::Inout => todo!(),
-        };
-        if port_borrowed.has_attribute(ir::BoolAttr::Clk) {
-            writeln!(
-                f,
-                "{}{} {}: Clock",
-                SPACING.repeat(2),
-                direction_string,
-                port_borrowed.name
-            )?;
-        } else {
-            writeln!(
-                f,
-                "{}{} {}: UInt<{}>",
-                SPACING.repeat(2),
-                direction_string,
-                port_borrowed.name,
-                port_borrowed.width
-            )?;
-        }
+        emit_port(port_borrowed, false, f)?;
     }
     writeln!(f, "{}defname = {}", SPACING.repeat(2), name)?;
     for (id, size) in param_binding.as_ref().iter() {
@@ -217,6 +169,48 @@ fn emit_primitive_extmodule<F: io::Write>(
     }
     writeln!(f)?;
     Ok(())
+}
+
+fn emit_port<F: io::Write>(
+    port_borrowed: std::cell::Ref<'_, Port>,
+    reverse_direction: bool,
+    f: &mut F,
+) -> Result<(), io::Error> {
+    let direction_string = match port_borrowed.direction {
+        calyx_frontend::Direction::Input => {
+            if reverse_direction {
+                "output"
+            } else {
+                "input"
+            }
+        }
+        calyx_frontend::Direction::Output => {
+            if reverse_direction {
+                "input"
+            } else {
+                "output"
+            }
+        }
+        calyx_frontend::Direction::Inout => todo!(),
+    };
+    Ok(if port_borrowed.has_attribute(ir::BoolAttr::Clk) {
+        writeln!(
+            f,
+            "{}{} {}: Clock",
+            SPACING.repeat(2),
+            direction_string,
+            port_borrowed.name
+        )?;
+    } else {
+        writeln!(
+            f,
+            "{}{} {}: UInt<{}>",
+            SPACING.repeat(2),
+            direction_string,
+            port_borrowed.name,
+            port_borrowed.width
+        )?;
+    })
 }
 
 // fn create_primitive_extmodule() {}
