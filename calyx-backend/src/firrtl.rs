@@ -7,7 +7,6 @@ use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, Binding, RRC};
 use calyx_utils::{CalyxResult, Id, OutputFile};
 use ir::Port;
-use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::io;
 
@@ -152,7 +151,7 @@ fn get_primitive_module_name(name: &Id, param_binding: &Binding) -> String {
 }
 
 fn emit_primitive_extmodule<F: io::Write>(
-    ports: &SmallVec<[RRC<Port>; 10]>,
+    ports: &[RRC<Port>],
     curr_module_name: &String,
     name: &Id,
     param_binding: &Binding,
