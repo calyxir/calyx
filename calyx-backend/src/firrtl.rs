@@ -6,6 +6,7 @@
 use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, Binding, RRC};
 use calyx_utils::{CalyxResult, Id, OutputFile};
+use ir::Port;
 use std::collections::HashSet;
 use std::io;
 
@@ -50,6 +51,7 @@ impl Backend for FirrtlBackend {
                         get_primitive_module_name(name, param_binding);
                     if extmodule_set.insert(curr_module_name.clone()) {
                         emit_primitive_extmodule(
+                            cell.borrow().ports(),
                             &curr_module_name,
                             name,
                             param_binding,
@@ -77,33 +79,7 @@ fn emit_component<F: io::Write>(
     let sig = comp.signature.borrow();
     for (_idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
-        let direction_string =
-        // NOTE: The signature port definitions are reversed inside the component.
-        match port.direction {
-            ir::Direction::Input => {"output"}
-            ir::Direction::Output => {"input"}
-            ir::Direction::Inout => {
-                panic!("Unexpected Inout port on Component: {}", port.name)
-            }
-        };
-        if port.has_attribute(ir::BoolAttr::Clk) {
-            writeln!(
-                f,
-                "{}{} {}: Clock",
-                SPACING.repeat(2),
-                direction_string,
-                port.name
-            )?;
-        } else {
-            writeln!(
-                f,
-                "{}{} {}: UInt<{}>",
-                SPACING.repeat(2),
-                direction_string,
-                port.name,
-                port.width
-            )?;
-        }
+        emit_port(port, true, f)?;
     }
 
     // Add a COMPONENT START: <name> anchor before any code in the component
@@ -175,17 +151,67 @@ fn get_primitive_module_name(name: &Id, param_binding: &Binding) -> String {
 }
 
 fn emit_primitive_extmodule<F: io::Write>(
+    ports: &[RRC<Port>],
     curr_module_name: &String,
     name: &Id,
     param_binding: &Binding,
     f: &mut F,
 ) -> io::Result<()> {
     writeln!(f, "{}extmodule {}:", SPACING, curr_module_name)?;
+    for port in ports {
+        let port_borrowed = port.borrow();
+        emit_port(port_borrowed, false, f)?;
+    }
     writeln!(f, "{}defname = {}", SPACING.repeat(2), name)?;
     for (id, size) in param_binding.as_ref().iter() {
         writeln!(f, "{}parameter {} = {}", SPACING.repeat(2), id, size)?;
     }
     writeln!(f)?;
+    Ok(())
+}
+
+fn emit_port<F: io::Write>(
+    port: std::cell::Ref<'_, Port>,
+    reverse_direction: bool,
+    f: &mut F,
+) -> Result<(), io::Error> {
+    let direction_string = match port.direction {
+        calyx_frontend::Direction::Input => {
+            if reverse_direction {
+                "output"
+            } else {
+                "input"
+            }
+        }
+        calyx_frontend::Direction::Output => {
+            if reverse_direction {
+                "input"
+            } else {
+                "output"
+            }
+        }
+        calyx_frontend::Direction::Inout => {
+            panic!("Unexpected Inout port on Component: {}", port.name)
+        }
+    };
+    if port.has_attribute(ir::BoolAttr::Clk) {
+        writeln!(
+            f,
+            "{}{} {}: Clock",
+            SPACING.repeat(2),
+            direction_string,
+            port.name
+        )?;
+    } else {
+        writeln!(
+            f,
+            "{}{} {}: UInt<{}>",
+            SPACING.repeat(2),
+            direction_string,
+            port.name,
+            port.width
+        )?;
+    };
     Ok(())
 }
 
