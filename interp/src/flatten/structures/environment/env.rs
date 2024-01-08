@@ -7,14 +7,14 @@ use super::super::{
     context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
 };
 use crate::{
-    errors::InterpreterResult,
+    errors::{InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
             prelude::{
-                AssignmentIdx, BaseIndices, ComponentIdx, ControlIdx,
-                ControlMap, ControlNode, GlobalCellIdx, GlobalPortIdx,
-                GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx,
-                PortRef,
+                AssignedValue, AssignmentIdx, AssignmentWinner, BaseIndices,
+                ComponentIdx, ControlIdx, ControlMap, ControlNode,
+                GlobalCellIdx, GlobalPortIdx, GlobalPortRef, GlobalRefCellIdx,
+                GlobalRefPortIdx, GuardIdx, PortRef,
             },
             wires::guards::Guard,
         },
@@ -32,19 +32,31 @@ use crate::{
 };
 use std::{collections::VecDeque, fmt::Debug};
 
-pub type PortMap = IndexedMap<GlobalPortIdx, Value>;
+pub type PortMap = IndexedMap<GlobalPortIdx, Option<AssignedValue>>;
 
 impl PortMap {
     pub fn insert_val(
         &mut self,
         target: GlobalPortIdx,
-        val: Value,
-    ) -> UpdateStatus {
-        if self[target] != val {
-            self[target] = val;
-            UpdateStatus::Changed
-        } else {
-            UpdateStatus::Unchanged
+        val: AssignedValue,
+    ) -> InterpreterResult<UpdateStatus> {
+        match &self[target] {
+            // unchanged
+            Some(t) if *t == val => Ok(UpdateStatus::Unchanged),
+            // conflict
+            // TODO: Fix to make the error more helpful
+            Some(t) if t.has_conflict_with(&val) => InterpreterResult::Err(
+                InterpreterError::FlatConflictingAssignments {
+                    a1: t.clone(),
+                    a2: val,
+                }
+                .into(),
+            ),
+            // changed
+            Some(_) | None => {
+                self[target] = Some(val);
+                Ok(UpdateStatus::Changed)
+            }
         }
     }
 }

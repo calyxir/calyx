@@ -3,8 +3,11 @@ use std::{
     ops::{Add, Sub},
 };
 
-use crate::flatten::structures::index_trait::{
-    impl_index, impl_index_nonzero, IndexRange, IndexRef,
+use crate::{
+    flatten::structures::index_trait::{
+        impl_index, impl_index_nonzero, IndexRange, IndexRef,
+    },
+    values::Value,
 };
 
 use super::{cell_prototype::CellPrototype, prelude::Identifier};
@@ -251,6 +254,45 @@ impl From<LocalCellOffset> for CellRef {
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]
 pub struct AssignmentIdx(u32);
 impl_index!(AssignmentIdx);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AssignmentWinner {
+    Cell,
+    Assign(AssignmentIdx),
+}
+
+impl From<AssignmentIdx> for AssignmentWinner {
+    fn from(v: AssignmentIdx) -> Self {
+        Self::Assign(v)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AssignedValue {
+    val: Value,
+    winner: AssignmentWinner,
+}
+
+impl std::fmt::Display for AssignedValue {
+    // TODO: replace with something more reasonable
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl AssignedValue {
+    pub fn new<T: Into<AssignmentWinner>>(val: Value, winner: T) -> Self {
+        Self {
+            val,
+            winner: winner.into(),
+        }
+    }
+
+    /// Returns true if the two AssignedValues do not have the same winner
+    pub fn has_conflict_with(&self, other: &Self) -> bool {
+        self.winner != other.winner
+    }
+}
 
 /// A global index for standard groups in the IR
 #[derive(Debug, Eq, Copy, Clone, PartialEq, Hash, PartialOrd, Ord)]

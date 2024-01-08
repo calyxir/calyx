@@ -35,6 +35,16 @@ pub enum UpdateStatus {
     Changed,
 }
 
+impl From<bool> for UpdateStatus {
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Changed
+        } else {
+            Self::Unchanged
+        }
+    }
+}
+
 impl UpdateStatus {
     #[inline]
     /// If the status is unchanged and other is changed, updates the status of
