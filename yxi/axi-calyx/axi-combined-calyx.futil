@@ -102,7 +102,10 @@ component m_arread_channel(
           // TODO(nathanielnrn): in theory should be able to get rid of arvalid_was_high
           // but for now we will be explicit and reduce this in generation maybe. Not sure
           // it even matters.
-          // This makes ARVALID go low after a single cycle. Without it it stays high for 2.
+
+          // This makes ARVALID go low after a single cycle.
+          // Without it it stays high for 2 cycles
+          // See issue #1828: https://github.com/calyxir/calyx/issues/1828
           is_arvalid.in = is_arvalid.out & ARREADY & arvalid_was_high.out ? 1'b0;
           is_arvalid.write_en = 1'b1;
 
@@ -252,6 +255,8 @@ component m_read_channel(
 
         //NOTE: is_rdy.in = 1'b1; does not work, it leaves RREADY high for 2 cycles
         // this both asserts and deasserts one cycle later
+        // See issue #1828: https://github.com/calyxir/calyx/issues/1828
+
         // TODO(nathanielnrn): Spec recommends defaulting xREADY high as it
         // can get rid of extra cycle. Maybe doing so here would be useful?
         // as opposed to waiting for RVALID
