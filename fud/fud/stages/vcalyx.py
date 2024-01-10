@@ -18,9 +18,9 @@ class VCalyxStage(Stage):
 
     def __init__(
         self,
-        flags,
-        debugger_flags,
-        desc,
+        flags="",
+        debugger_flags="",
+        desc="Run the VCalyx interpreter",
         output_type=SourceType.Stream,
         output_name="vcalyx-out",
     ):
@@ -94,3 +94,13 @@ class VCalyxStage(Stage):
         data_path = get_verilog_data()
 
         return interpret(input_data, data_path)
+
+    @staticmethod
+    def pre_install():
+        pass
+
+    @staticmethod
+    def defaults():
+        return {}
+
+__STAGES__ = [VCalyxStage]

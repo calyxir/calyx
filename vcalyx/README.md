@@ -10,17 +10,13 @@ In the `fud` directory, run:
 
     flit install --symlink
 
-Register the external VCalyx stage:
-
-    fud register vcalyx -p fud/fud/stages/vcalyx.py
-
 Finally, run the `fud` command:
 
-    fud e <path/to/futil> --to vcx 
+    fud e <path/to/futil> --to vcalyx
 
 To obtain the S-expression form of a Calyx program, run:
 
-    fud e <path/to/futil> --to vcalyx 
+    fud e <path/to/futil> --to vcalyx-sexp 
 
 ## Running the test suite
 
@@ -28,6 +24,6 @@ Install runt:
 
     cargo install runt
 
-In the `vcalyx` directory, run:
+In the root directory of the repo, run:
 
-    runt
+    runt -d vcalyx

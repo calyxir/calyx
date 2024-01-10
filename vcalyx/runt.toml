@@ -8,6 +8,7 @@ ver = "0.4.1"
   fud exec --to jq \
            --through vcalyx-out \
            -s verilog.data {}.data \
+           -s calyx.exec '../target/debug/calyx' \
            {} -q
   """
   timeout = 3

@@ -16,7 +16,6 @@ from .stages import (
     systolic,
     vcdump,
     jq,
-    sexp,
     vcalyx,
     verilator,
     vivado,

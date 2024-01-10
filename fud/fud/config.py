@@ -38,7 +38,7 @@ DEFAULT_CONFIGURATION = {
             "round_float_to_fixed": True,
         },
         "vcalyx": {
-            "exec": "dune exec --root=./vcalyx -- vcx interp",
+            "exec": "_build/default/ocaml/vcx.exe interp",
             "flags": None,
             "data": None,
             "round_float_to_fixed": True,
