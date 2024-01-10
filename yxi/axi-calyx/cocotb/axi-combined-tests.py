@@ -10,17 +10,22 @@ from typing import Union, Literal, List
 # install cocotb-bus directly from github, as 0.2.1 has a bug
 
 
-# Reads 8 elements from mmap of 16*4 bytes. Writes these elements to 16 cells in calyx defined seq_d1 mem.
+
+debug = False
+
+# Reads 8 elements from mmap of 8*4 bytes. Writes these elements to 8 cells in calyx defined seq_d1 mem.
 @cocotb.test()
 async def read_channels_happy_path(main):
     A0_in = [1, 2, 4, 8, 16, 32, 64, 128]
-    B0_in = [127, 63, 31, 15, 7, 3, 1, 0]
+    B0_in = [126, 62, 30, 14, 6, 2, 0, 1]
     expected_sum = [A0_in[i] + B0_in[i] for i in range(len(B0_in))]
-    await read_axi_test_helper(main, A0_in, B0_in, A0_in, B0_in)
-    await assert_sum(main, expected_sum)
+    await run_module(main, A0_in, B0_in, expected_sum) #checks cocotb axi rams
+    await assert_mem_content(main.A0, A0_in)  # checks in module, as opposed to axiram
+    await assert_mem_content(main.B0, B0_in)
+    await assert_mem_content(main.Sum0, expected_sum)
 
 
-# Adding extra data to backing mmap does not ruin reading of 16 elements and writing them correctly.
+# Adding extra data to backing mmap does not ruin reading of 8 elements and writing them correctly.
 @cocotb.test()
 async def read_channels_extra_mmap_data(main):
     A0_in = [
@@ -37,44 +42,48 @@ async def read_channels_extra_mmap_data(main):
     B0_in = [127, 63, 31, 15, 7, 3, 1, 0, 2**32 - 1]
     expected_sum = [A0_in[i] + B0_in[i] for i in range(len(B0_in))]
 
-    await read_axi_test_helper(
-        main, A0_in, B0_in, A0_in[0:8], B0_in[0:8]
-    )
-    await assert_sum(main, expected_sum[0:8]) 
+    await run_module(main, A0_in, B0_in, expected_sum)
+    await assert_mem_content(main.Sum0, expected_sum[0:8])
+    await assert_mem_content(main.A0, A0_in[0:8])
+    await assert_mem_content(main.B0, B0_in[0:8])
 
 
-# Using a small mmap will have the AXI read loop back around
-# NOTE: From what I can tell, this is not part of AXI spec, but rather behavior of cocotb AXI.
-# Still think it is useful to test for to see if anything breaks with this
-# @cocotb.test()
-# async def read_channels_small_mmap_data(main):
-#    small_data_vec = [1, 2, 2**32 - 1]
-#    expected_data_vec = [
-#        1,
-#        2,
-#        2**32 - 1,
-#        1,
-#        2,
-#        2**32 - 1,
-#        1,
-#        2,
-#    ]
-#    await read_axi_test_helper(main, small_data_vec, expected_data_vec)
 
 
-async def assert_sum(module, expected: List[int]):
-    """Checks that `Sum0` matches expected"""
+##################
+#Helper functions#
+##################
+
+async def assert_mem_content(mem, expected: List[int]):
+    """Checks that `mem` content inside the verilog module (as opposed to
+    cocotb axi-ram matches expected
+    """
+    if debug:
+        print(f"DEBUG: assert_mem_content: {cocotb_mem_to_ints(mem)}")
     assert (
-        cocotb_mem_to_ints(module.Sum0) == expected
-    ), f"main.Sum0: {cocotb_mem_to_ints(module.Sum0)} does not contain the data in expected: {expected}."
+        cocotb_mem_to_ints(mem) == expected
+    ), f":mem {cocotb_mem_to_ints(mem)} does not contain the data in expected: {expected}."
 
 
-async def read_axi_test_helper(
+async def assert_axi_ram_content(
+        axi_ram, expected: List[int], length=8*4, address=0x0000
+):
+    """Checks that `mem` content inside the cocotb (as opposed to
+    verilog module matches expected
+    """
+    if debug:
+        print(f"DEBUG: axi_ram.read: {axi_ram.read(address,length)}")
+        print(f"DEBUG: assert_axi_ram_content: {bytes_to_int(axi_ram.read(address,length))}")
+    assert (
+        bytes_to_int(axi_ram.read(address, length)) == expected
+    ), f"The axi_ram {axi_ram} contained {bytes_to_int(axi_ram.read(address,length))} not {expected}."
+
+
+async def run_module(
     module,
     A0_data: List[int],
     B0_data: List[int],
-    A0_expected: List[int],
-    B0_expected: List[int],
+    Sum0_expected: List[int],
 ):
     """Create an mmap with data of `data_vec` and use this to initialize
     a cocotb-axi-ram (read only) with this data. Assert that the data that
@@ -97,9 +106,12 @@ async def read_axi_test_helper(
     # 4 bytes per integer
     A0_size = len(A0_data) * 4
     B0_size = len(B0_data) * 4
+    Sum0_size = 8 * 4  # hardcoded
     # anonymous mmep for now to back axiram
     A0_memmap = mmap.mmap(-1, A0_size)
     B0_memmap = mmap.mmap(-1, B0_size)
+    Sum0_memmap = mmap.mmap(-1, Sum0_size)
+
     A0 = AxiRam(
         # NOTE: prefix should not contain the final "_"
         AxiBus.from_prefix(module, "m0"),
@@ -120,6 +132,16 @@ async def read_axi_test_helper(
         mem=B0_memmap,
     )
 
+    Sum0 = AxiRam(
+        # NOTE: prefix should not contain the final "_"
+        AxiBus.from_prefix(module, "m2"),
+        module.clk,
+        module.reset,
+        # size in bytes
+        size=Sum0_size,
+        mem=Sum0_memmap,
+    )
+
     A0_bytes = int_to_bytes(A0_data)
     B0_bytes = int_to_bytes(B0_data)
 
@@ -131,25 +153,29 @@ async def read_axi_test_helper(
     B0_memmap.write(B0_bytes)
     B0_memmap.seek(0)
 
+    Sum0_memmap.seek(0)
+
     await Timer(20, "ns")
-    A0.hexdump(0x0000, A0_size, prefix="A0 RAM")
-    B0.hexdump(0x0000, B0_size, prefix="B0 RAM")
+    if debug:
+        A0.hexdump(0x0000, A0_size, prefix="A0 RAM")
+        B0.hexdump(0x0000, B0_size, prefix="B0 RAM")
+        Sum0.hexdump(0x0000, Sum0_size, prefix="Sum0 RAM")
 
-    debug = True
 
-    await Timer(500, "ns")
+    await Timer(1000, "ns")
+    if debug:
+        A0.hexdump(0x0000, A0_size, prefix="A0 RAM post")
+        B0.hexdump(0x0000, B0_size, prefix="B0 RAM post")
+        Sum0.hexdump(0x0000, Sum0_size, prefix="Sum0 RAM post")
+
+    await assert_axi_ram_content(A0, A0_data[0:8])
+    await assert_axi_ram_content(B0, B0_data[0:8])
+    await assert_axi_ram_content(Sum0, Sum0_expected[0:8])
 
     if debug:
         print(f"A0 is: {module.A0.mem.value}")
         print(f"B0 is: {module.B0.mem.value}")
         print(f"Sum0 is: {module.Sum0.mem.value}")
-
-    assert (
-        cocotb_mem_to_ints(module.A0) == A0_expected
-    ), f"main.A0: {cocotb_mem_to_ints(module.A0)} does not contain the data in expected: {A0_expected}."
-    assert (
-        cocotb_mem_to_ints(module.B0) == B0_expected
-    ), f"main.B0: {cocotb_mem_to_ints(module.B0)} does not contain the data in expected: {B0_expected}."
 
 
 # TODO(nathanielnrn): Decide between these and xilinx cocotb tests, refactor out
@@ -173,7 +199,7 @@ def bytes_to_int(bytes, byteorder="little"):
     ints = struct.unpack(frmt, bytes)
     if len(ints) == 1:
         return ints[0]
-    return ints
+    return list(ints)
 
 
 # Returns format used by Struct, assuming we are interested in integers (so 4 bytes)
