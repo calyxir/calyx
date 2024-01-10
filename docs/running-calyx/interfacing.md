@@ -60,5 +60,5 @@ module.go.value = 1
 ```
 
 
-[go-done]: ../../lang/ref.md#the-go-done-interface
+[go-done]: ../lang/ref.md#the-go-done-interface
 [cocotb]: https://www.cocotb.org/
