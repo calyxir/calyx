@@ -10,8 +10,8 @@ from typing import Union, Literal, List
 # install cocotb-bus directly from github, as 0.2.1 has a bug
 
 
-
 debug = False
+
 
 # Reads 8 elements from mmap of 8*4 bytes. Writes these elements to 8 cells in calyx defined seq_d1 mem.
 @cocotb.test()
@@ -19,7 +19,7 @@ async def read_channels_happy_path(main):
     A0_in = [1, 2, 4, 8, 16, 32, 64, 128]
     B0_in = [126, 62, 30, 14, 6, 2, 0, 1]
     expected_sum = [A0_in[i] + B0_in[i] for i in range(len(B0_in))]
-    await run_module(main, A0_in, B0_in, expected_sum) #checks cocotb axi rams
+    await run_module(main, A0_in, B0_in, expected_sum)  # checks cocotb axi rams
     await assert_mem_content(main.A0, A0_in)  # checks in module, as opposed to axiram
     await assert_mem_content(main.B0, B0_in)
     await assert_mem_content(main.Sum0, expected_sum)
@@ -48,11 +48,10 @@ async def read_channels_extra_mmap_data(main):
     await assert_mem_content(main.B0, B0_in[0:8])
 
 
-
-
 ##################
-#Helper functions#
+# Helper functions#
 ##################
+
 
 async def assert_mem_content(mem, expected: List[int]):
     """Checks that `mem` content inside the verilog module (as opposed to
@@ -66,14 +65,16 @@ async def assert_mem_content(mem, expected: List[int]):
 
 
 async def assert_axi_ram_content(
-        axi_ram, expected: List[int], length=8*4, address=0x0000
+    axi_ram, expected: List[int], length=8 * 4, address=0x0000
 ):
     """Checks that `mem` content inside the cocotb (as opposed to
     verilog module matches expected
     """
     if debug:
         print(f"DEBUG: axi_ram.read: {axi_ram.read(address,length)}")
-        print(f"DEBUG: assert_axi_ram_content: {bytes_to_int(axi_ram.read(address,length))}")
+        print(
+            f"DEBUG: assert_axi_ram_content: {bytes_to_int(axi_ram.read(address,length))}"
+        )
     assert (
         bytes_to_int(axi_ram.read(address, length)) == expected
     ), f"The axi_ram {axi_ram} contained {bytes_to_int(axi_ram.read(address,length))} not {expected}."
@@ -160,7 +161,6 @@ async def run_module(
         A0.hexdump(0x0000, A0_size, prefix="A0 RAM")
         B0.hexdump(0x0000, B0_size, prefix="B0 RAM")
         Sum0.hexdump(0x0000, Sum0_size, prefix="Sum0 RAM")
-
 
     await Timer(1000, "ns")
     if debug:
