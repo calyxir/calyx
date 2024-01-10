@@ -5,7 +5,7 @@ import "primitives/pipelined.futil";
 /**
 * Checks to see if the FSM generated for seq activates a component for
 * exactly the right amount of time.
-* Regression: https://github.com/cucapra/calyx/pull/446
+* Regression: https://github.com/calyxir/calyx/pull/446
 */
 
 component main() -> () {

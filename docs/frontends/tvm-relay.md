@@ -33,8 +33,8 @@ intermediate representation.
         cd ../python && python3 setup.py bdist_wheel
         pip3 install --user dist/tvm-*.whl
 
-   > If you get an error with `shutil`, try deleting the `python/` directory, restoring it, and rerunning the above command: `cd .. && rm -rf python && git checkout -- python`     
-   > If you are on MacOS - Big Sur and are getting an error similar to "(wheel).whl is not a supported wheel on this platform", try changing part of the wheel's filename from 11_0 to 10_9. See this github [issue](https://github.com/apple/tensorflow_macos/issues/46) for more information. 
+   > If you get an error with `shutil`, try deleting the `python/` directory, restoring it, and rerunning the above command: `cd .. && rm -rf python && git checkout -- python`
+   > If you are on MacOS - Big Sur and are getting an error similar to "(wheel).whl is not a supported wheel on this platform", try changing part of the wheel's filename from 11_0 to 10_9. See this github [issue](https://github.com/apple/tensorflow_macos/issues/46) for more information.
 
 6. Install ANTLR v4.7.2 (required for the Relay text format parser):
 
@@ -89,12 +89,12 @@ determine what preprocessing should be done on the image. e.g. `"mnist"` or `"im
     2. `relay`: Output a file with the corresponding Relay program. `<net_name>.relay`
     3. `calyx`: Output a `.data` file and Calyx program for simulation. `<net_name>.futil`, `<net_name>.data`
     4. `all`: All the above.
-- `-s`: This is an optional boolean argument that signifies `save_mem`, and is set to true by default. If this flag is set to true, then it will produce a Calyx 
-design that requires less internal memory usage compared to the design that is produced when this flag is false. 
+- `-s`: This is an optional boolean argument that signifies `save_mem`, and is set to true by default. If this flag is set to true, then it will produce a Calyx
+design that requires less internal memory usage compared to the design that is produced when this flag is false.
 
 
 [lenet]: https://github.com/ekut-es/pico-cnn/blob/master/data/lenet/lenet.onnx
-[relay-lang]: https://github.com/cucapra/calyx/tree/master/frontends/relay
+[relay-lang]: https://github.com/calyxir/calyx/tree/master/frontends/relay
 [roesch-etal]: https://arxiv.org/abs/1904.08368
 [vgg net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/vgg.py
 [mlp net]: https://github.com/apache/incubator-tvm/blob/main/python/tvm/relay/testing/mlp.py

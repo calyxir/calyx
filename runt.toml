@@ -39,14 +39,14 @@ paths = [
   "tests/errors/parser/*.futil",
 ]
 cmd = """
-./target/debug/calyx {} -p well-formed -p papercut -p synthesis-papercut -l .
+./target/debug/calyx {} -p well-formed -p papercut -p synthesis-papercut -l . -m file
 """
 
 [[tests]]
 name = "[core] futil examples"
 paths = ["examples/futil/*.futil"]
 cmd = """
-./target/debug/calyx {} -m file -d tdst -l .
+./target/debug/calyx {} -m file -l .
 """
 
 ##### Backend Tests #####
@@ -198,7 +198,6 @@ fud exec --from calyx --to jq \
          --through dat \
          -s verilog.data {}.data \
          -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags ' -d tdst' \
          -s verilog.cycle_limit 500 \
          -s jq.expr ".memories" \
          {} -q
@@ -207,8 +206,11 @@ timeout = 120
 
 [[tests]]
 name = "correctness static timing"
-paths = ["tests/correctness/*.futil", "tests/correctness/ref-cells/*.futil",
-"tests/correctness/static-interface/*.futil" ]
+paths = [
+  "tests/correctness/*.futil",
+  "tests/correctness/ref-cells/*.futil",
+  "tests/correctness/static-interface/*.futil",
+]
 cmd = """
 fud exec --from calyx --to jq \
          --through verilog \
@@ -239,24 +241,7 @@ fud exec --from calyx --to jq \
 timeout = 120
 
 # Tests to ensure that static compilation maintains its guarantees
-# See: https://github.com/cucapra/calyx/discussions/1331
-[[tests]]
-name = "correctness static scheduling"
-paths = ["tests/correctness/static/*.futil"]
-cmd = """
-fud exec --from calyx --to jq \
-         --through verilog \
-         --through dat \
-         -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags ' -x tdst:force -p all -d group2invoke' \
-         -s verilog.cycle_limit 500 \
-         -s verilog.data {}.data \
-         {} -q
-"""
-timeout = 120
-
-# Tests to ensure that static compilation maintains its guarantees
-# See: https://github.com/cucapra/calyx/discussions/1331 & https://github.com/cucapra/calyx/issues/1344
+# See: https://github.com/calyxir/calyx/discussions/1331 & https://github.com/calyxir/calyx/issues/1344
 [[tests]]
 name = "correctness static control"
 paths = [
@@ -268,7 +253,7 @@ fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d tdst -d group2invoke' \
+         -s calyx.flags '-p all -d group2invoke' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q
@@ -332,9 +317,7 @@ fud e --from systolic --to jq \
 
 [[tests]]
 name = "[frontend] systolic array mmult static correctness"
-paths = [
-  "tests/correctness/systolic/mmult-inputs/*.data"
-]
+paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -345,13 +328,11 @@ fud e --from systolic --to jq \
       -s jq.expr ".memories" \
       {}_static.systolic -q
 """
-expect_dir="tests/correctness/systolic/mmult-expect"
+expect_dir = "tests/correctness/systolic/mmult-expect"
 
 [[tests]]
 name = "[frontend] systolic array mmult dynamic correctness"
-paths = [
-  "tests/correctness/systolic/mmult-inputs/*.data"
-]
+paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -362,13 +343,11 @@ fud e --from systolic --to jq \
       -s jq.expr ".memories" \
       {}_dynamic.systolic -q
 """
-expect_dir="tests/correctness/systolic/mmult-expect"
+expect_dir = "tests/correctness/systolic/mmult-expect"
 
 [[tests]]
 name = "[frontend] systolic array relu static correctness"
-paths = [
-  "tests/correctness/systolic/relu-inputs/*.data"
-]
+paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -379,13 +358,11 @@ fud e --from systolic --to jq \
       -s jq.expr ".memories" \
       {}_static.systolic -q
 """
-expect_dir="tests/correctness/systolic/relu-expect"
+expect_dir = "tests/correctness/systolic/relu-expect"
 
 [[tests]]
 name = "[frontend] systolic array relu dynamic correctness"
-paths = [
-  "tests/correctness/systolic/relu-inputs/*.data"
-]
+paths = ["tests/correctness/systolic/relu-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
       --through verilog \
@@ -396,13 +373,11 @@ fud e --from systolic --to jq \
       -s jq.expr ".memories" \
       {}_dynamic.systolic -q
 """
-expect_dir="tests/correctness/systolic/relu-expect"
+expect_dir = "tests/correctness/systolic/relu-expect"
 
 [[tests]]
 name = "[frontend] systolic array leaky relu correctness"
-paths = [
-  "tests/correctness/systolic/leaky-relu/*.systolic",
-]
+paths = ["tests/correctness/systolic/leaky-relu/*.systolic"]
 cmd = """
 fud e --from systolic --to dat \
       --through verilog \
@@ -471,7 +446,6 @@ name = "[examples] language tutorial"
 paths = ["examples/tutorial/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data examples/tutorial/data.json \
          --from calyx --to dat -q
@@ -482,7 +456,6 @@ name = "[examples] sync primitives"
 paths = ["examples/sync/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
          --from calyx --to dat -q
@@ -493,7 +466,6 @@ name = "[examples] memory by reference tutorial"
 paths = ["examples/futil/memory-by-reference/*.futil"]
 cmd = """
 fud e {} -s verilog.cycle_limit 500 \
-         -s calyx.flags ' -d tdst' \
          --through verilog \
          -s verilog.data {}.data \
          --from calyx --to dat -q

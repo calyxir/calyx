@@ -9,7 +9,7 @@ use ir::build_assignments;
 /// and makes it the top-level component.
 /// This is useful because a lot of our tools rely on the name `main` being the design under test (DUT).
 ///
-/// For more information, see https://github.com/cucapra/calyx/issues/1376
+/// For more information, see https://github.com/calyxir/calyx/issues/1376
 pub struct WrapMain;
 
 impl Named for WrapMain {

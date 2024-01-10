@@ -2,7 +2,7 @@
 FROM rust:1.70
 
 # Connect to the Calux repository.
-LABEL org.opencontainers.image.source https://github.com/cucapra/calyx
+LABEL org.opencontainers.image.source https://github.com/calyxir/calyx
 
 # Install apt dependencies
 RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/apt/sources.list.d/sbt.list && \

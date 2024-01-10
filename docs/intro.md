@@ -18,7 +18,7 @@ The easiest way is to use the [Calyx Docker image][calyx-docker] that provides a
 The following commands will fetch the Docker image and start a container with an interactive shell:
 
 ```sh
-docker run -it --rm ghcr.io/cucapra/calyx:latest
+docker run -it --rm ghcr.io/calyxir/calyx:latest
 ```
 
 The `--rm` flag will remove the container after you exit the shell. If you want to keep the container around, remove the flag.
@@ -34,7 +34,7 @@ If you want just to play with the compiler, install the [`calyx` crate][calyx-cr
 ```
 cargo install calyx
 ```
-This will install the `calyx` binary which can optimize and compile Calyx programs. You will still need the [`primitives/core.futil`][core-lib] and [its accompanying Verilog file](https://github.com/cucapra/calyx/blob/master/primitives/core.sv) library to compile most programs.
+This will install the `calyx` binary which can optimize and compile Calyx programs. You will still need the [`primitives/core.futil`][core-lib] and [its accompanying Verilog file](https://github.com/calyxir/calyx/blob/master/primitives/core.sv) library to compile most programs.
 
 ### Installing from Source (to use and extend Calyx)
 
@@ -43,7 +43,7 @@ This should automatically install `cargo`.
 
 Clone the repository:
 ```
-git clone https://github.com/cucapra/calyx.git
+git clone https://github.com/calyxir/calyx.git
 ```
 Then build the compiler:
 ```
@@ -172,6 +172,6 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [fud-verilator]: ./fud/index.md#verilator
 [icarus-install-source]: https://iverilog.fandom.com/wiki/Installation_Guide#Installation_From_Source
 [calyx-crate]: https://crates.io/crates/calyx
-[core-lib]: https://github.com/cucapra/calyx/blob/master/primitives/core.futil
-[calyx-docker]: https://github.com/cucapra/calyx/pkgs/container/calyx
+[core-lib]: https://github.com/calyxir/calyx/blob/master/primitives/core.futil
+[calyx-docker]: https://github.com/calyxir/calyx/pkgs/container/calyx
 [hw-design]: ./intro.md#running-a-hardware-design

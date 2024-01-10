@@ -43,7 +43,7 @@ where
 
         // If we do not eliminate the @clk and @reset ports, we may
         // get signals conflicting the original @clk and @reset signals of
-        // the component, see https://github.com/cucapra/calyx/issues/1034
+        // the component, see https://github.com/calyxir/calyx/issues/1034
         let ports_inline = cell
             .ports
             .iter()

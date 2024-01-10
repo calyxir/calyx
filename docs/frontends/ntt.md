@@ -63,4 +63,4 @@ pipeline.
 - `--parallel_reduction`: Decreases fan-out by reducing the number of groups executed in parallel by this factor.
 
 [longa-etal-ntt]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/05/RLWE-1.pdf
-[ntt]: https://github.com/cucapra/calyx/tree/master/frontends/ntt-pipeline
+[ntt]: https://github.com/calyxir/calyx/tree/master/frontends/ntt-pipeline

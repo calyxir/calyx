@@ -1,0 +1,1239 @@
+// ###
+// This program wraps an element wise vector addition component
+// With components that implement an AXI interface.
+// As of Jan 2024 this works correctly with cocotb-axi extension
+
+// This wrapper assumes vectors of length 8. It uses two input (A0, B0) memories
+// and one output memory (Sum0).
+// It assumes a bus data width of 32.
+
+// This hardcoded work will be used to guide generation work of AXI moving forward.
+// it is somewhat messy and is hopefully destined to be removed from the repo eventually. 
+// ###
+
+import "primitives/core.futil";
+import "primitives/compile.futil";
+import "primitives/math.futil";
+import "primitives/memories.futil";
+
+
+// #############################
+// #########Reads Start#########
+// #############################
+
+
+//this goes m->s unlike read channel
+component m_arread_channel(
+  ARESET: 1,
+  ARREADY: 1
+) -> (
+  ARVALID: 1,
+  // This needs to be 64, see link below `m_axi` section.
+  ARADDR: 64,
+  // 2^ARSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
+  // are doing I believe), should match width of data bus (to shell?, so 32 wide? This
+  // is 3'b010)
+  // see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
+  // for restrictions
+  ARSIZE: 3,
+  // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
+  ARLEN : 8, 
+  // 00 for fixed, 01 for incrementing, 2 for wrap,
+  // needs to be incr for RTL kernels (can't use wrapped of fixed
+  ARBURST : 2,
+  // required by spec. We hardwire this to priviliged access, non secure, data access.
+  ARPROT : 3) {
+  cells{
+      is_arvalid = std_reg(1);
+
+      // gets set high with ARVALID and remains high
+      arvalid_was_high = std_reg(1);
+      // TODO(nathanielnrn): should arguably eventually live in `s_axi_control`
+      // but for now will live here.
+      ref base_addr = std_reg(64);
+      
+      // number of trasfers in a transaction. This is sent to subordinate
+      txn_len = std_reg(8);
+
+      // number of txns we want to occur before entire m_arread_channel is done
+      // this is internal to the channel (unlike txn_len)
+      txn_n = std_const(32,1);
+      txn_count = std_reg(32);
+      perform_reads = std_neq(32);
+      txn_adder = std_add(32);
+
+      //"block_transfer" register. need to put into a reg to avoid combinational loops
+      bt_reg = std_reg(1);
+
+
+  }
+
+  wires{
+
+      ARVALID = is_arvalid.out;
+
+      group deassert_val {
+          is_arvalid.in = 1'b0;
+          is_arvalid.write_en = 1'b1;
+          deassert_val[done] = is_arvalid.done;
+      }
+
+      group reset_bt {
+          bt_reg.in = 1'b0;
+          bt_reg.write_en = 1'b1;
+          reset_bt[done] = bt_reg.done;
+      }
+
+      group reset_was_high {
+          arvalid_was_high.in = 1'b0;
+          arvalid_was_high.write_en = 1'b1;
+          reset_was_high[done] = arvalid_was_high.done;
+      }
+
+      // this asserts valid and defines all inputs correctly
+      // because valid should not be deasserted until handshake occurs
+      // this all needs to be one group
+      // this contains blocking logic previously in its own group
+      group do_ar_transfer {
+          //assert ARVALID
+
+          is_arvalid.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+          
+          // TODO(nathanielnrn): in theory should be able to get rid of arvalid_was_high
+          // but for now we will be explicit and reduce this in generation maybe. Not sure
+          // it even matters.
+          // This makes ARVALID go low after a single cycle. Without it it stays high for 2.
+          is_arvalid.in = is_arvalid.out & ARREADY & arvalid_was_high.out ? 1'b0;
+          is_arvalid.write_en = 1'b1;
+
+          arvalid_was_high.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+          arvalid_was_high.write_en = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+
+
+          // drive output signals for transfer  
+          ARADDR = base_addr.out;
+          // see link above, needs to match data width to host.
+          // In this case 2^2 = 4 bytes = 32 bits = width of our data_bus.
+          ARSIZE = 3'b010; 
+          // For now this can be taken from .yxi, as size of mem, because we are assuming
+          // data_bus width that matches size of memory cells
+          // If we want to use bigger mems need to be able to update base addr
+          ARLEN = txn_len.out;
+          ARBURST = 2'b01; //incr
+          // privileged, non-secure, instruction access
+          ARPROT = 3'b110;
+
+
+          //done when one cycle after handshake (handshake happens for a single cycle)
+          bt_reg.in = ARREADY & is_arvalid.out ? 1'b1;
+          bt_reg.in = !(ARREADY & is_arvalid.out) ? 1'b0;
+          bt_reg.write_en = 1'b1;
+          do_ar_transfer[done] = bt_reg.out;
+      }
+
+
+      //txn bookkeeping.
+      //We are done performing reads when txn_count == txn_n
+      group txn_count_init {
+          txn_count.in = 32'b0;
+          txn_count.write_en = 1'b1;
+          txn_count_init[done] = txn_count.done;
+          
+      }
+
+      group txn_len_init {
+          // TODO(nathanielnrn):Parametrize this.
+          // 7 is good for word wide data bus and 8 element vec_add We'd
+          // expect 8 transfers. Number of transfers that occur is ARLEN + 1
+          txn_len.in = 8'd7;
+          txn_len.write_en = 1'b1;
+          txn_len_init[done] = txn_len.done;
+      }
+
+      group txn_incr {
+          txn_adder.left = txn_count.out;
+          txn_adder.right = 32'b1;
+          txn_count.in = txn_adder.out;
+          txn_count.write_en = 1'b1;
+          txn_incr[done] = txn_count.done;
+
+      }
+
+      //txn_count == txn_n
+      comb group check_reads_done {
+          perform_reads.left = txn_count.out;
+          perform_reads.right = txn_n.out;
+      }
+  }
+
+  control{
+      //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
+      seq{
+          txn_count_init;
+          txn_len_init;
+          while perform_reads.out with check_reads_done{
+              seq{
+                  par {
+                      reset_bt;
+                      reset_was_high;
+                  }
+                  do_ar_transfer;
+                  deassert_val;
+                  txn_incr;
+              }
+          }
+      }
+  }
+}
+
+
+
+
+component m_read_channel(
+  ARESET : 1,
+  RVALID : 1,
+  RLAST  : 1,
+  RDATA  : 32, 
+  RRESP :  2,  // Note: This is generated in subordinate! had this backwards in earlier version
+) -> (
+  // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
+  // because (IIRC) it helps avoid combinational loops between READY and VALID.
+  RREADY : 1,
+) {
+  cells {
+      // 16 is due to dot-product vector length assumption
+      // For this manual implementation we are just writing into this data based
+      // on the data we read from cocotb
+      ref data_received = seq_mem_d1(32, 8, 64);
+      is_rdy = std_reg(1);
+      ref curr_addr = std_reg(64); 
+      
+      // registered because RLAST is high with last transfer, not after
+      // before this was registered we were terminating immediately with
+      // last transfer and not servicing it
+      n_RLAST = std_reg(1);
+
+      // TODO: get this width from yxi
+      read_data_reg = std_reg(32);
+
+      //address of seq_d1_mem we are writing to
+      curr_addr_adder = std_add(64);
+
+      // block_transfer reg to avoid combinational loops
+      bt_reg = std_reg(1);
+
+  }
+  wires{
+
+      RREADY = is_rdy.out;
+      data_received.read_en = 1'b0;
+
+      group init_n_RLAST {
+          n_RLAST.in = 1'b1;
+          n_RLAST.write_en = 1'b1;
+          init_n_RLAST[done] = n_RLAST.done;
+      }
+
+      // Used to block any servicing until handshake occurs. 
+      group reset_bt {
+          bt_reg.in = 1'b0;
+          bt_reg.write_en = 1'b1;
+          reset_bt[done] = bt_reg.done;
+      }
+
+      // NOTE: xVALID signals must be high until xREADY is high as well, so this works
+      // because if xREADY is high (is_rdy.out) then RVALID being high makes 1 flip
+      // and group will be done by bt_reg.out
+      group block_transfer {
+        // set RREADY high
+        // TODO (nathanielnrn): technically we can make RREADY depend on on RVALID (but not vice versa).
+        // Could we simplify this we just making things ready when we are in
+        // block_transfer && RVALID?
+
+        //NOTE: is_rdy.in = 1'b1; does not work, it leaves RREADY high for 2 cycles
+        // this both asserts and deasserts one cycle later
+        // TODO(nathanielnrn): Spec recommends defaulting xREADY high as it
+        // can get rid of extra cycle. Maybe doing so here would be useful?
+        // as opposed to waiting for RVALID
+        is_rdy.in = !(RVALID & is_rdy.out) ? 1'b1;
+        is_rdy.in = RVALID & is_rdy.out ? 1'b0;
+        is_rdy.write_en = 1'b1;
+
+
+        //store the data we want to write
+        read_data_reg.in = RDATA;
+        read_data_reg.write_en = is_rdy.out;
+
+        //update n_RLAST reg
+        n_RLAST.in = RLAST ? 1'b0;
+        n_RLAST.in = !RLAST ? 1'b1;
+        n_RLAST.write_en = 1'b1;
+        
+
+        // we are done after handshake
+        bt_reg.in = is_rdy.out & RVALID ? 1'b1;
+        bt_reg.in = !(is_rdy.out & RVALID) ? 1'b0;
+        bt_reg.write_en = 1'b1;
+        block_transfer[done] = bt_reg.out;
+      }
+
+      group receive_r_transfer{
+          // keep RREADY low;
+          is_rdy.in = 1'b0;
+          is_rdy.write_en = 1'b1;
+
+          //write the data we received during transfer to seq_d1_mem
+          data_received.addr0 = curr_addr.out;
+          data_received.write_en = 1'b1;
+          data_received.write_data = read_data_reg.out;
+          receive_r_transfer[done] = data_received.write_done;
+
+      }
+
+      group incr_curr_addr{
+          curr_addr_adder.left = 64'd1 ;
+          curr_addr_adder.right = curr_addr.out;
+          curr_addr.in = curr_addr_adder.out;
+          curr_addr.write_en = 1'b1;
+          incr_curr_addr[done] = curr_addr.done;
+      }
+  }
+  control{
+      init_n_RLAST;
+      while n_RLAST.out{
+          seq{
+              reset_bt;
+              block_transfer;
+              receive_r_transfer;
+              incr_curr_addr;
+          }
+      }
+  }
+}
+
+
+// #############################
+// ##########Reads End##########
+// #############################
+
+// ##################################################################################
+
+// #############################
+// ########Vec Add Start########
+// #############################
+
+
+
+component vec_add() -> () {
+  cells {
+    //Modified to 64 width address because XRT expects 64 bit memory addresses
+    ref A0 = seq_mem_d1(32,8,64);
+    A_read0_0 = std_reg(32);
+    ref B0 = seq_mem_d1(32,8,64);
+    B_read0_0 = std_reg(32);
+    ref Sum0 = seq_mem_d1(32,8,64);
+    add0 = std_add(32);
+    add1 = std_add(64);
+    const0 = std_const(64,0);
+    const1 = std_const(64,7);
+    const2 = std_const(64,1);
+    i0 = std_reg(64);
+    le0 = std_le(64);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    //modified upd0 and upd1 to use seq_mem correctly
+    group upd0<"static"=2> {
+      A_read0_0.write_en = A0.read_done;
+      A0.addr0 = i0.out;
+      A0.read_en = 1'b1;
+      A_read0_0.in = 1'd1 ? A0.read_data;
+      upd0[done] = A_read0_0.done ? 1'd1;
+    }
+    //see comment for upd0
+    group upd1<"static"=2> {
+      B_read0_0.write_en = B0.read_done;
+      B0.addr0 = i0.out;
+      B0.read_en = 1'b1;
+      B_read0_0.in = 1'd1 ? B0.read_data;
+      upd1[done] = B_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      Sum0.addr0 = i0.out;
+      Sum0.write_en = 1'd1;
+      add0.left = A_read0_0.out;
+      add0.right = B_read0_0.out;
+      Sum0.write_data = 1'd1 ? add0.out;
+      upd2[done] = Sum0.write_done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const2.out;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            upd0;
+            upd1;
+          }
+          upd2;
+          upd3;
+        }
+      }
+    }
+  }
+}
+
+
+// #############################
+// #########Vec Add End#########
+// #############################
+
+
+// ##################################################################################
+
+// ##############################
+// #########Writes Start#########
+// ##############################
+
+
+
+//this goes m->s
+component m_awwrite_channel(
+  ARESET: 1,
+  AWREADY: 1
+) -> (
+  AWVALID: 1,
+  // This needs to be 64, see link below `m_axi` section.
+  AWADDR: 64,
+  // 2^AWSIZE is bytes used in transfer. For memory-mapped AXI (which is what we
+  // are doing I believe), should match width of data bus (to shell?, so 32 wide? This
+  // is 3'b010)
+  // see https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements
+  // for restrictions
+  AWSIZE: 3,
+  // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
+  AWLEN : 8, 
+  // 00 for fixed, 01 for incrementing, 2 for wrap,
+  // needs to be incr for RTL kernels (can't use wrapped or fixed)
+  AWBURST : 2,
+  // required according to spec. We hardcode this
+  AWPROT : 3) {
+  cells{
+      is_awvalid = std_reg(1);
+
+      // gets set high with AWVALID and remains high
+      awvalid_was_high = std_reg(1);
+      // TODO(nathanielnrn): should arguably eventually live in `s_axi_control`
+      // but for now will live here.
+      ref base_addr = std_reg(64);
+
+      //we write to this here and read from it in m_write_channel
+      ref max_trnsfrs = std_reg(8);
+      
+      // number of transfers in a transaction. This is sent to subordinate
+      txn_len = std_reg(8);
+
+      // number of txns we want to occur before entire m_awwrite_channel is done
+      // this is internal to the channel (unlike txn_len)
+      txn_n = std_const(32,1);
+      txn_count = std_reg(32);
+      perform_write_txns = std_neq(32);
+      txn_adder = std_add(32);
+
+      //"block_transfer" register. need to put into a reg to avoid combinational loops
+      bt_reg = std_reg(1);
+
+
+  }
+
+  wires{
+
+      AWVALID = is_awvalid.out;
+
+      group deassert_val {
+          is_awvalid.in = 1'b0;
+          is_awvalid.write_en = 1'b1;
+          deassert_val[done] = is_awvalid.done;
+      }
+
+      group reset_bt {
+          bt_reg.in = 1'b0;
+          bt_reg.write_en = 1'b1;
+          reset_bt[done] = bt_reg.done;
+      }
+
+
+      group reset_was_high {
+          awvalid_was_high.in = 1'b0;
+          awvalid_was_high.write_en = 1'b1;
+          reset_was_high[done] = awvalid_was_high.done;
+      }
+
+      // this asserts valid and defines all inputs correctly
+      // because valid should not be deasserted until handshake occurs
+      // this all needs to be one group
+      // this contains blocking logic previously in its own group
+      group do_aw_transfer {
+          //assert AWVALID
+          is_awvalid.in = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
+          
+          // TODO(nathanielnrn): in theory should be able to get rid of awvalid_was_high
+          // but for now we will be explicit and reduce this in generation maybe. Not sure
+          // it even matters.
+          // This makes AWVALID go low after a single cycle. Without it it stays high for 2.
+          is_awvalid.in = is_awvalid.out & AWREADY & awvalid_was_high.out ? 1'b0;
+          is_awvalid.write_en = 1'b1;
+
+          awvalid_was_high.in = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
+          awvalid_was_high.write_en = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
+
+
+          // drive output signals for transfer  
+          AWADDR = base_addr.out;
+          // see link above, needs to match data width to host.
+          // In this case 2^2 = 4 bytes = 32 bits = width of our data_bus.
+          AWSIZE = 3'b010; 
+          // For now this can be taken from .yxi, as size of mem, because we are assuming
+          // data_bus width that matches size of memory cells
+          // If we want to use bigger mems need to be able to update base addr
+          AWLEN = txn_len.out;
+          AWBURST = 2'b01; //incr
+          // 3'b110 is [privileged access] [Non-secure access] [Data access]]
+          AWPROT = 3'b110;
+
+
+          // TODO(nathanielnrn): This is used to tell write_channel how many transfers to do
+          // we eventually want this to correspond to AWLEN
+          // (need a case statement or mux or something)
+          // for now hardcoding to 15 for 16 transfers 
+          max_trnsfrs.in = 8'd7;
+          max_trnsfrs.write_en = 1'b1;
+
+          //done when one cycle after handshake (handshake happens for a single cycle)
+          bt_reg.in = AWREADY & is_awvalid.out ? 1'b1;
+          bt_reg.in = !(AWREADY & is_awvalid.out) ? 1'b0;
+          bt_reg.write_en = 1'b1;
+          do_aw_transfer[done] = bt_reg.out;
+      }
+
+
+      //txn bookkeeping.
+      //We are done performing reads when txn_count == txn_n
+      group txn_count_init {
+          txn_count.in = 32'b0;
+          txn_count.write_en = 1'b1;
+          txn_count_init[done] = txn_count.done;
+          
+      }
+
+      group txn_len_init {
+          //TODO(nathanielnrn): 15 is good for word wide data bus. We'd
+          //expect 16 transfers. Number of transfers that occur is AWLEN + 1
+          txn_len.in = 8'd7;
+          txn_len.write_en = 1'b1;
+          txn_len_init[done] = txn_len.done;
+      }
+
+      group txn_incr {
+          txn_adder.left = txn_count.out;
+          txn_adder.right = 32'b1;
+          txn_count.in = txn_adder.out;
+          txn_count.write_en = 1'b1;
+          txn_incr[done] = txn_count.done;
+
+      }
+
+      comb group check_writes_done {
+          perform_write_txns.left = txn_count.out;
+          perform_write_txns.right = txn_n.out;
+      }
+  }
+
+  control{
+      //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
+      seq{
+          txn_count_init;
+          txn_len_init;
+          while perform_write_txns.out with check_writes_done{
+              seq{
+                  par {
+                      reset_bt;
+                      reset_was_high;
+                  }
+                  do_aw_transfer;
+                  deassert_val;
+                  txn_incr;
+              }
+          }
+      }
+  }
+}
+
+
+component m_write_channel(
+  ARESET : 1,
+  WREADY : 1,
+) -> (
+  WVALID : 1,
+  WLAST  : 1,
+  WDATA  : 32, 
+) {
+  cells {
+      // 16 is due to dot-product vector length assumption
+      // For this manual implementation we are just writing into this data based
+      // on the data we read from cocotb
+      ref internal_mem = seq_mem_d1(32, 8, 64);
+      wvalid = std_reg(1);
+      wvalid_was_high = std_reg(1);
+      // used internally to access our seq_mem_d1
+      ref curr_addr = std_reg(64); 
+      
+      //this increments
+      curr_trnsfr_count = std_reg(8); //between 0 and 255, add +1 for transfer count
+      //this is number of transfer we want to do
+      ref max_trnsfrs = std_reg(8);
+
+      // registered because wlast is high with last transfer, not after
+      // before this was registered we were terminating immediately with
+      // last transfer and not servicing it. This is for while loop in control group
+      n_finished_last_trnsfr = std_reg(1);
+
+      //used for address of seq_d1_mem we are reading from
+      curr_addr_adder = std_add(64);
+      curr_trnsfr_count_adder = std_add(8);
+
+
+      // block_transfer reg to avoid combinational loops
+      bt_reg = std_reg(1);
+
+
+
+     curr_addr_slice = std_slice(64,32);
+
+  }
+  wires{
+
+      WVALID = wvalid.out;
+
+      group reset_curr_addr{
+          curr_addr.in = 64'b0;
+          curr_addr.write_en = 1'b1;
+          reset_curr_addr[done] = curr_addr.done;
+      }
+
+      group init_n_finished_last_trnsfr {
+          n_finished_last_trnsfr.in = 1'b1;
+          n_finished_last_trnsfr.write_en = 1'b1;
+          init_n_finished_last_trnsfr[done] = n_finished_last_trnsfr.done;
+      }
+
+      //Used to block any servicing until handshake occurs. 
+      group reset_bt {
+          bt_reg.in = 1'b0;
+          bt_reg.write_en = 1'b1;
+          reset_bt[done] = bt_reg.done;
+      }
+
+      //NOTE: xVALID signals must be high until xREADY is high as well, so this works
+      //because if xREADY is high (is_rdy.out) then RVALID being high makes 1 flip
+      //and group will be done by bt_reg.out
+      group do_write_transfer {
+        //set RREADY high
+        //TODO (nathanielnrn): technically we can make RREADY depend on on RVALID (but not vice versa).
+        //Could we simplify this we just making things ready when we are in
+        //block_transfer && RVALID?
+
+        //NOTE: wvalid.in = 1'b1; does not work, it leaves RREADY high for 2 cycles
+        // this both asserts and deasserts one cycle later
+        wvalid.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
+        // TODO(nathanielnrn): Can prob get rid of wvalid_was_high
+        wvalid.in = wvalid.out & WREADY & wvalid_was_high.out ? 1'b0;
+        wvalid.write_en = 1'b1;
+
+        //set to 1 after valid has been high even once
+        wvalid_was_high.in = 1'b1;
+        wvalid_was_high.write_en = !(wvalid.out & WREADY) & !wvalid_was_high.out ? 1'b1;
+
+     
+        // set data output based on curr_addr register
+        internal_mem.addr0 = curr_addr.out;
+        internal_mem.read_en = 1'b1;
+        WDATA = internal_mem.read_data;
+        
+        //set wlast
+        WLAST = max_trnsfrs.out == curr_trnsfr_count.out ? 1'b1;
+        WLAST = max_trnsfrs.out == curr_trnsfr_count.out ? 1'b1;
+        
+        //set high only when WLAST is high and a handshake occurs. 
+        n_finished_last_trnsfr.in = (max_trnsfrs.out == curr_trnsfr_count.out) & wvalid.out & WREADY ? 1'b0;
+        n_finished_last_trnsfr.write_en = (max_trnsfrs.out == curr_trnsfr_count.out) & wvalid.out & WREADY ? 1'b1;
+
+
+
+        // we are done after handshake
+        bt_reg.in = wvalid.out & WREADY ? 1'b1;
+        bt_reg.in = !(wvalid.out & WREADY) ? 1'b0;
+        bt_reg.write_en = 1'b1;
+        do_write_transfer[done] = bt_reg.out;
+      }
+
+      group incr_curr_addr{
+          curr_addr_adder.left = 64'd1 ;
+          curr_addr_adder.right = curr_addr.out;
+          curr_addr.in = curr_addr_adder.out;
+          curr_addr.write_en = 1'b1;
+          incr_curr_addr[done] = curr_addr.done;
+      }
+
+      group incr_curr_trnsfr_count {
+          curr_trnsfr_count_adder.left = 8'd1;
+          curr_trnsfr_count_adder.right = curr_trnsfr_count.out;
+          curr_trnsfr_count.in = curr_trnsfr_count_adder.out;
+          curr_trnsfr_count.write_en = 1'b1;
+          incr_curr_trnsfr_count[done] = curr_trnsfr_count.done;
+      }
+
+  }
+  control{
+      seq{
+
+        reset_curr_addr;
+        //end writing to internal mem
+        init_n_finished_last_trnsfr;
+        while n_finished_last_trnsfr.out{
+          seq{
+              reset_bt;
+              do_write_transfer;
+              par{
+                incr_curr_addr;
+                incr_curr_trnsfr_count;
+              }
+          }
+        }
+      }
+  }
+}
+
+
+//We assume that all responses are OKAY because we dont have any error handling.
+//So basically this just sets BREADY high then lowers it
+component m_bresp_channel(
+  ARESET : 1,
+  BVALID : 1,
+  // We assume all writes are valid.
+  //BRESP : 2,
+) -> (
+  // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
+  // because (IIRC) it helps avoid combinational loops between READY and VALID.
+  BREADY : 1,
+) {
+  cells{
+      bready = std_reg(1);
+      bt_reg = std_reg(1);
+
+  }
+  wires{
+      BREADY = bready.out;
+      group reset_bt_reg{
+          bt_reg.in = 1'b0;
+          bt_reg.write_en = 1'b1;
+          reset_bt_reg[done] = bt_reg.done;
+      }
+
+      // TODO(nathanielnrn): This is probably very unoptimal and takes multiple
+      // cycles to simply do a handshake. Can probably be much better
+      group block_transfer{
+          bready.in = !(BVALID & bready.out) ? 1'b1;
+          bready.in = BVALID & bready.out ? 1'b0;
+          bready.write_en = 1'b1;
+
+          bt_reg.in = bready.out & BVALID ? 1'b1;
+          bt_reg.in = !(bready.out & BVALID) ? 1'b0;
+          bt_reg.write_en = 1'b1;
+          block_transfer[done] = bt_reg.out;
+      }
+
+  }
+  control{
+      seq{
+          reset_bt_reg;
+          block_transfer;
+      }
+  }
+}
+
+
+
+//TODO(nathanielnrn): this is axi_wrapper, prefer to use @toplevel attribute but its not working
+// See individual channel components for explanations of signals
+component main(
+    m0_ARESET : 1,
+
+    m0_ARREADY : 1,
+
+    m0_RVALID : 1,
+    m0_RLAST : 1,
+    m0_RDATA : 32,
+    m0_RRESP : 2,
+
+    m0_AWREADY : 1,
+
+    m0_WRESP : 2,
+    m0_WREADY : 1,
+
+    m0_BVALID : 1,
+    // Used only for waveform tracing. Not sent anywhere
+    // Note AXI4 has this at 2 bits, while latest has it at 3.
+    m0_BRESP : 2,
+    
+    //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
+    m0_RID : 1,
+    
+    m1_ARESET : 1,
+
+    m1_ARREADY : 1,
+
+    m1_RVALID : 1,
+    m1_RLAST : 1,
+    m1_RDATA : 32,
+    m1_RRESP : 2,
+
+    m1_AWREADY : 1,
+
+    m1_WRESP : 2,
+    m1_WREADY : 1,
+
+    m1_BVALID : 1,
+    // Used only for waveform tracing. Not sent anywhere
+    // Note AXI4 has this at 2 bits, while latest has it at 3.
+    m1_BRESP : 2,
+    
+    //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
+    m1_RID : 1,
+
+
+    m2_ARESET : 1,
+
+    m2_ARREADY : 1,
+
+    m2_RVALID : 1,
+    m2_RLAST : 1,
+    m2_RDATA : 32,
+    m2_RRESP : 2,
+
+    m2_AWREADY : 1,
+
+    m2_WRESP : 2,
+    m2_WREADY : 1,
+
+    m2_BVALID : 1,
+    // Used only for waveform tracing. Not sent anywhere
+    // Note AXI4 has this at 2 bits, while latest has it at 3.
+    m2_BRESP : 2,
+    
+    //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
+    m2_RID : 1
+) -> (
+    m0_ARVALID : 1,
+    m0_ARADDR  : 64,
+    m0_ARSIZE  : 3,
+    m0_ARLEN   : 8, 
+    m0_ARBURST : 2,
+
+    m0_RREADY  : 1,
+
+    m0_AWVALID : 1,
+    m0_AWADDR  : 64,
+    m0_AWSIZE  : 3,
+    m0_AWLEN   : 8, 
+    m0_AWBURST : 2,
+    m0_AWPROT  : 3,
+
+    m0_WVALID : 1,
+    m0_WLAST  : 1,
+    m0_WDATA  : 32,
+
+    m0_BREADY : 1,
+    
+    //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
+    m0_ARID : 1,
+    m0_AWID : 1,
+    m0_WID : 1,
+    m0_BID : 1,
+    
+    m1_ARVALID : 1,
+    m1_ARADDR  : 64,
+    m1_ARSIZE  : 3,
+    m1_ARLEN   : 8, 
+    m1_ARBURST : 2,
+
+    m1_RREADY  : 1,
+
+    m1_AWVALID : 1,
+    m1_AWADDR  : 64,
+    m1_AWSIZE  : 3,
+    m1_AWLEN   : 8, 
+    m1_AWBURST : 2,
+    m1_AWPROT  : 3,
+
+    m1_WVALID : 1,
+    m1_WLAST  : 1,
+    m1_WDATA  : 32,
+
+    m1_BREADY : 1,
+    
+    //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
+    m1_ARID : 1,
+    m1_AWID : 1,
+    m1_WID : 1,
+    m1_BID : 1,
+
+
+    m2_ARVALID : 1,
+    m2_ARADDR  : 64,
+    m2_ARSIZE  : 3,
+    m2_ARLEN   : 8, 
+    m2_ARBURST : 2,
+
+    m2_RREADY  : 1,
+
+    m2_AWVALID : 1,
+    m2_AWADDR  : 64,
+    m2_AWSIZE  : 3,
+    m2_AWLEN   : 8, 
+    m2_AWBURST : 2,
+    m2_AWPROT  : 3,
+
+    m2_WVALID : 1,
+    m2_WLAST  : 1,
+    m2_WDATA  : 32,
+
+    m2_BREADY : 1,
+    
+    //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
+    m2_ARID : 1,
+    m2_AWID : 1,
+    m2_WID : 1,
+    m2_BID : 1
+) {
+    cells{
+
+
+        //original read stuff
+
+        curr_addr_A0 = std_reg(64);
+        base_addr_A0 = std_reg(64);
+        curr_addr_B0 = std_reg(64);
+        base_addr_B0 = std_reg(64);
+        curr_addr_Sum0 = std_reg(64);
+        base_addr_Sum0 = std_reg(64);
+
+        A0_read_channel = m_read_channel();
+        A0_arread_channel = m_arread_channel();
+        B0_read_channel = m_read_channel();
+        B0_arread_channel = m_arread_channel();
+        Sum0_read_channel = m_read_channel();
+        Sum0_arread_channel = m_arread_channel();
+        //end read stuff
+
+
+        // TODO(nathanielnrn):Do we need to mark these extrenal? they were in
+        // original vec_add and we raised them to top level.
+        A0 = seq_mem_d1(32,8,64);
+        B0 = seq_mem_d1(32,8,64);
+        Sum0 = seq_mem_d1(32,8,64); 
+
+        vec_add_cell = vec_add();//end vec add stuff
+        
+
+        //original write stuff
+        max_trnsfrs = std_reg(8);
+
+        A0_awwrite_channel = m_awwrite_channel();
+        A0_write_channel = m_write_channel();
+        A0_bresp_channel = m_bresp_channel();
+
+        B0_awwrite_channel = m_awwrite_channel();
+        B0_write_channel = m_write_channel();
+        B0_bresp_channel = m_bresp_channel();
+
+        Sum0_awwrite_channel = m_awwrite_channel();
+        Sum0_write_channel = m_write_channel();
+        Sum0_bresp_channel = m_bresp_channel();
+        //end original write stuff
+
+    }
+
+    wires{
+        //these are tied low because cocotb expects them, not actually required for
+        // axi spec AFAIK
+        m0_ARID = 1'b0;
+        m0_AWID = 1'b0;
+        m0_WID = 1'b0;
+        m0_BID = 1'b0;
+        m1_ARID = 1'b0;
+        m1_AWID = 1'b0;
+        m1_WID = 1'b0;
+        m1_BID = 1'b0;
+        m2_ARID = 1'b0;
+        m2_AWID = 1'b0;
+        m2_WID = 1'b0;
+        m2_BID = 1'b0;
+
+        group set_curr_to_base_addr_A0{
+            curr_addr_A0.in = base_addr_A0.out;
+            curr_addr_A0.write_en = 1'b1;
+            set_curr_to_base_addr_A0[done] = curr_addr_A0.done;
+        }
+
+        group init_base_addr_A0{
+            base_addr_A0.in = 64'b0;
+            base_addr_A0.write_en = 1'b1;
+            init_base_addr_A0[done] = base_addr_A0.done;
+        }
+        
+        group set_curr_to_base_addr_B0{
+            curr_addr_B0.in = base_addr_B0.out;
+            curr_addr_B0.write_en = 1'b1;
+            set_curr_to_base_addr_B0[done] = curr_addr_B0.done;
+        }
+
+        group init_base_addr_B0{
+            base_addr_B0.in = 64'b0;
+            base_addr_B0.write_en = 1'b1;
+            init_base_addr_B0[done] = base_addr_B0.done;
+        }
+        
+        group set_curr_to_base_addr_Sum0{
+            curr_addr_Sum0.in = base_addr_Sum0.out;
+            curr_addr_Sum0.write_en = 1'b1;
+            set_curr_to_base_addr_Sum0[done] = curr_addr_Sum0.done;
+        }
+
+        group init_base_addr_Sum0{
+            base_addr_Sum0.in = 64'b0;
+            base_addr_Sum0.write_en = 1'b1;
+            init_base_addr_Sum0[done] = base_addr_Sum0.done;
+        }
+    }
+    control{
+        seq{
+            //read stuff
+            par{
+                init_base_addr_A0;
+                init_base_addr_B0;
+                init_base_addr_Sum0;
+            }
+            par{
+              seq{
+                //A0 reads
+                invoke A0_arread_channel[base_addr = base_addr_A0]
+                (
+                ARESET = m0_ARESET,
+                ARREADY = m0_ARREADY
+                )
+                (
+                ARVALID = m0_ARVALID,
+                ARADDR = m0_ARADDR,
+                ARSIZE = m0_ARSIZE,
+                ARLEN = m0_ARLEN,
+                ARBURST = m0_ARBURST
+                );
+
+                set_curr_to_base_addr_A0;
+
+                invoke A0_read_channel[data_received = A0, curr_addr = curr_addr_A0]
+                (
+                ARESET = m0_ARESET,
+                RVALID = m0_RVALID,
+                RLAST = m0_RLAST,
+                RDATA = m0_RDATA,
+                RRESP = m0_RRESP
+                )
+                (
+                RREADY = m0_RREADY
+                );
+              }
+
+
+              seq{ //B0 reads
+                invoke B0_arread_channel[base_addr = base_addr_B0]
+                (
+                ARESET = m1_ARESET,
+                ARREADY = m1_ARREADY
+                )
+                (
+                ARVALID = m1_ARVALID,
+                ARADDR = m1_ARADDR,
+                ARSIZE = m1_ARSIZE,
+                ARLEN = m1_ARLEN,
+                ARBURST = m1_ARBURST
+                );
+
+                set_curr_to_base_addr_B0;
+
+                invoke B0_read_channel[data_received = B0, curr_addr = curr_addr_B0]
+                (
+                ARESET = m1_ARESET,
+                RVALID = m1_RVALID,
+                RLAST = m1_RLAST,
+                RDATA = m1_RDATA,
+                RRESP = m1_RRESP
+                )
+                (
+                RREADY = m1_RREADY
+                );
+              }
+              seq{ //Sum0 reads
+                invoke Sum0_arread_channel[base_addr = base_addr_Sum0]
+                (
+                ARESET = m2_ARESET,
+                ARREADY = m2_ARREADY
+                )
+                (
+                ARVALID = m2_ARVALID,
+                ARADDR = m2_ARADDR,
+                ARSIZE = m2_ARSIZE,
+                ARLEN = m2_ARLEN,
+                ARBURST = m2_ARBURST
+                );
+
+                set_curr_to_base_addr_Sum0;
+
+                invoke Sum0_read_channel[data_received = Sum0, curr_addr = curr_addr_Sum0]
+                (
+                ARESET = m2_ARESET,
+                RVALID = m2_RVALID,
+                RLAST = m2_RLAST,
+                RDATA = m2_RDATA,
+                RRESP = m2_RRESP
+                )
+                (
+                RREADY = m2_RREADY
+                );
+              }
+            } //end read stuff
+
+
+
+            //compute stuff
+            invoke vec_add_cell[A0 = A0, B0 = B0, Sum0 = Sum0]()();
+            //end comput stuff
+
+
+
+            //write stuff
+            par {
+                seq { //A0 writes
+                    invoke A0_awwrite_channel[base_addr = base_addr_A0, max_trnsfrs = max_trnsfrs]
+                    (
+                    ARESET = m0_ARESET,
+                    AWREADY = m0_AWREADY
+                    )
+                    (
+                    AWVALID = m0_AWVALID,
+                    AWADDR = m0_AWADDR,
+                    AWSIZE = m0_AWSIZE,
+                    AWLEN = m0_AWLEN,
+                    AWBURST = m0_AWBURST,
+                    AWPROT = m0_AWPROT
+                    );
+
+                    set_curr_to_base_addr_A0;
+
+                    invoke A0_write_channel[internal_mem = A0, curr_addr = curr_addr_A0, max_trnsfrs = max_trnsfrs]
+                    (
+                    ARESET = m0_ARESET,
+                    WREADY = m0_WREADY
+                    )
+                    (
+                    WVALID = m0_WVALID,
+                    WLAST = m0_WLAST,
+                    WDATA = m0_WDATA
+                    );
+
+                    invoke A0_bresp_channel(BVALID = m0_BVALID)(BREADY = m0_BREADY);
+                }
+                seq { //B0 writes
+                    invoke B0_awwrite_channel[base_addr = base_addr_B0, max_trnsfrs = max_trnsfrs]
+                    (
+                    ARESET = m1_ARESET,
+                    AWREADY = m1_AWREADY
+                    )
+                    (
+                    AWVALID = m1_AWVALID,
+                    AWADDR = m1_AWADDR,
+                    AWSIZE = m1_AWSIZE,
+                    AWLEN = m1_AWLEN,
+                    AWBURST = m1_AWBURST,
+                    AWPROT = m1_AWPROT
+                    );
+
+                    set_curr_to_base_addr_B0;
+
+                    invoke B0_write_channel[internal_mem = B0, curr_addr = curr_addr_B0, max_trnsfrs = max_trnsfrs]
+                    (
+                    ARESET = m1_ARESET,
+                    WREADY = m1_WREADY
+                    )
+                    (
+                    WVALID = m1_WVALID,
+                    WLAST = m1_WLAST,
+                    WDATA = m1_WDATA
+                    );
+
+                    invoke B0_bresp_channel(BVALID = m1_BVALID)(BREADY = m1_BREADY);
+                }
+
+                seq { //Sum0 writes
+                    invoke Sum0_awwrite_channel[base_addr = base_addr_Sum0, max_trnsfrs = max_trnsfrs]
+                    (
+                    ARESET = m2_ARESET,
+                    AWREADY = m2_AWREADY
+                    )
+                    (
+                    AWVALID = m2_AWVALID,
+                    AWADDR = m2_AWADDR,
+                    AWSIZE = m2_AWSIZE,
+                    AWLEN = m2_AWLEN,
+                    AWBURST = m2_AWBURST,
+                    AWPROT = m2_AWPROT
+                    );
+
+                    set_curr_to_base_addr_Sum0;
+
+                    invoke Sum0_write_channel[internal_mem = Sum0, curr_addr = curr_addr_Sum0, max_trnsfrs = max_trnsfrs]
+                    (
+                    ARESET = m2_ARESET,
+                    WREADY = m2_WREADY
+                    )
+                    (
+                    WVALID = m2_WVALID,
+                    WLAST = m2_WLAST,
+                    WDATA = m2_WDATA
+                    );
+
+                    invoke Sum0_bresp_channel(BVALID = m2_BVALID)(BREADY = m2_BREADY);
+                }
+            }
+        }
+    }
+}
+
+

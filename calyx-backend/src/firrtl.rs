@@ -4,8 +4,9 @@
 //! valid FIRRTL program.
 
 use crate::{traits::Backend, VerilogBackend};
-use calyx_ir::{self as ir, RRC};
-use calyx_utils::{CalyxResult, OutputFile};
+use calyx_ir::{self as ir, Binding, RRC};
+use calyx_utils::{CalyxResult, Id, OutputFile};
+use ir::Port;
 use std::collections::HashSet;
 use std::io;
 
@@ -34,14 +35,32 @@ impl Backend for FirrtlBackend {
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
-        let mut top_level_component = String::from("main");
-        // Quick pass to check whether there exists a top-level component that we should replace main with.
-        for comp in ctx.components.iter() {
-            if comp.attributes.has(ir::BoolAttr::TopLevel) {
-                top_level_component = comp.name.to_string().clone();
+        writeln!(out, "circuit {}:", ctx.entrypoint)?;
+        // Pass to output any necessary extmodule statements (for primitive calls)
+        let mut extmodule_set: HashSet<String> = HashSet::new();
+        for comp in &ctx.components {
+            for cell in comp.cells.iter() {
+                let cell_borrowed = cell.as_ref().borrow();
+                if let ir::CellType::Primitive {
+                    name,
+                    param_binding,
+                    ..
+                } = &cell_borrowed.prototype
+                {
+                    let curr_module_name =
+                        get_primitive_module_name(name, param_binding);
+                    if extmodule_set.insert(curr_module_name.clone()) {
+                        emit_primitive_extmodule(
+                            cell.borrow().ports(),
+                            &curr_module_name,
+                            name,
+                            param_binding,
+                            out,
+                        )?;
+                    }
+                };
             }
         }
-        writeln!(out, "circuit {}:", top_level_component)?;
         for comp in ctx.components.iter() {
             emit_component(comp, out)?
         }
@@ -60,33 +79,7 @@ fn emit_component<F: io::Write>(
     let sig = comp.signature.borrow();
     for (_idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
-        let direction_string =
-        // NOTE: The signature port definitions are reversed inside the component.
-        match port.direction {
-            ir::Direction::Input => {"output"}
-            ir::Direction::Output => {"input"}
-            ir::Direction::Inout => {
-                panic!("Unexpected Inout port on Component: {}", port.name)
-            }
-        };
-        if port.has_attribute(ir::BoolAttr::Clk) {
-            writeln!(
-                f,
-                "{}{} {}: Clock",
-                SPACING.repeat(2),
-                direction_string,
-                port.name
-            )?;
-        } else {
-            writeln!(
-                f,
-                "{}{} {}: UInt<{}>",
-                SPACING.repeat(2),
-                direction_string,
-                port.name,
-                port.width
-            )?;
-        }
+        emit_port(port, true, f)?;
     }
 
     // Add a COMPONENT START: <name> anchor before any code in the component
@@ -96,37 +89,27 @@ fn emit_component<F: io::Write>(
     for cell in comp.cells.iter() {
         let cell_borrowed = cell.as_ref().borrow();
         if cell_borrowed.type_name().is_some() {
-            match cell_borrowed.prototype {
+            let module_name = match &cell_borrowed.prototype {
                 ir::CellType::Primitive {
-                    name: _,
-                    param_binding: _,
+                    name,
+                    param_binding,
                     is_comb: _,
                     latency: _,
-                } => {
-                    // TODO: use extmodules
-                    writeln!(
-                        f,
-                        "{}; FIXME: attempting to instantiate primitive cell {}",
-                        SPACING.repeat(2),
-                        cell_borrowed.name()
-                    )?;
-                }
-                ir::CellType::Component { name } => {
-                    writeln!(
-                        f,
-                        "{}inst {} of {}",
-                        SPACING.repeat(2),
-                        cell_borrowed.name(),
-                        name
-                    )?;
-                }
-                ir::CellType::ThisComponent => unreachable!(),
-                ir::CellType::Constant { val: _, width: _ } => unreachable!(),
-            }
+                } => get_primitive_module_name(name, param_binding),
+                ir::CellType::Component { name } => name.to_string(),
+                _ => unreachable!(),
+            };
+            writeln!(
+                f,
+                "{}inst {} of {}",
+                SPACING.repeat(2),
+                cell_borrowed.name(),
+                module_name
+            )?;
         }
     }
 
-    let mut dst_set: HashSet<String> = HashSet::new();
+    let mut dst_set: HashSet<ir::Canonical> = HashSet::new();
     // Emit assignments
     for asgn in &comp.continuous_assignments {
         match asgn.guard.as_ref() {
@@ -135,19 +118,18 @@ fn emit_component<F: io::Write>(
                 let _ = write_assignment(asgn, f, 2);
             }
             _ => {
-                let dst_canonical = &asgn.dst.as_ref().borrow().canonical();
-                let dst_canonical_str = dst_canonical.to_string();
-                if !dst_set.contains(&dst_canonical_str) {
+                let dst_canonical = asgn.dst.as_ref().borrow().canonical();
+                if !dst_set.contains(&dst_canonical) {
                     // if we don't have a "is invalid" statement yet, then we have to write one.
                     // an alternative "eager" approach would be to instantiate all possible ports
                     // (our output ports + all children's input ports) up front.
-                    let _ = write_invalid_initialization(&asgn.dst, f);
-                    dst_set.insert(dst_canonical_str);
+                    write_invalid_initialization(&asgn.dst, f)?;
+                    dst_set.insert(dst_canonical);
                 }
                 // need to write out the guard.
                 let guard_string = get_guard_string(asgn.guard.as_ref());
                 writeln!(f, "{}when {}:", SPACING.repeat(2), guard_string)?;
-                let _ = write_assignment(asgn, f, 3);
+                write_assignment(asgn, f, 3)?;
             }
         }
     }
@@ -157,6 +139,83 @@ fn emit_component<F: io::Write>(
 
     Ok(())
 }
+
+// creates a FIRRTL module name given the internal information of a primitive.
+fn get_primitive_module_name(name: &Id, param_binding: &Binding) -> String {
+    let mut primitive_string = name.to_string();
+    for (_, size) in param_binding.as_ref().iter() {
+        primitive_string.push('_');
+        primitive_string.push_str(&size.to_string());
+    }
+    primitive_string
+}
+
+fn emit_primitive_extmodule<F: io::Write>(
+    ports: &[RRC<Port>],
+    curr_module_name: &String,
+    name: &Id,
+    param_binding: &Binding,
+    f: &mut F,
+) -> io::Result<()> {
+    writeln!(f, "{}extmodule {}:", SPACING, curr_module_name)?;
+    for port in ports {
+        let port_borrowed = port.borrow();
+        emit_port(port_borrowed, false, f)?;
+    }
+    writeln!(f, "{}defname = {}", SPACING.repeat(2), name)?;
+    for (id, size) in param_binding.as_ref().iter() {
+        writeln!(f, "{}parameter {} = {}", SPACING.repeat(2), id, size)?;
+    }
+    writeln!(f)?;
+    Ok(())
+}
+
+fn emit_port<F: io::Write>(
+    port: std::cell::Ref<'_, Port>,
+    reverse_direction: bool,
+    f: &mut F,
+) -> Result<(), io::Error> {
+    let direction_string = match port.direction {
+        calyx_frontend::Direction::Input => {
+            if reverse_direction {
+                "output"
+            } else {
+                "input"
+            }
+        }
+        calyx_frontend::Direction::Output => {
+            if reverse_direction {
+                "input"
+            } else {
+                "output"
+            }
+        }
+        calyx_frontend::Direction::Inout => {
+            panic!("Unexpected Inout port on Component: {}", port.name)
+        }
+    };
+    if port.has_attribute(ir::BoolAttr::Clk) {
+        writeln!(
+            f,
+            "{}{} {}: Clock",
+            SPACING.repeat(2),
+            direction_string,
+            port.name
+        )?;
+    } else {
+        writeln!(
+            f,
+            "{}{} {}: UInt<{}>",
+            SPACING.repeat(2),
+            direction_string,
+            port.name,
+            port.width
+        )?;
+    };
+    Ok(())
+}
+
+// fn create_primitive_extmodule() {}
 
 // recursive function that writes the FIRRTL representation for a guard.
 fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
@@ -189,7 +248,7 @@ fn get_guard_string(guard: &ir::Guard<ir::Nothing>) -> String {
             };
             format!("{}({}, {})", op_str, l_str, r_str)
         }
-        ir::Guard::Port(port) => get_port_string(&port.borrow().clone(), false),
+        ir::Guard::Port(port) => get_port_string(&port.borrow(), false),
         ir::Guard::Info(_) => {
             panic!("guard should not have info")
         }
@@ -227,7 +286,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
 fn write_invalid_initialization<F: io::Write>(
     port: &RRC<ir::Port>,
     f: &mut F,
-) -> CalyxResult<()> {
+) -> io::Result<()> {
     let default_initialization_str = "; default initialization";
     let dst_string = get_port_string(&port.borrow(), true);
     if port.borrow().attributes.has(ir::BoolAttr::Control) {
@@ -237,7 +296,7 @@ fn write_invalid_initialization<F: io::Write>(
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
-        )?;
+        )
     } else {
         writeln!(
             f,
@@ -245,9 +304,8 @@ fn write_invalid_initialization<F: io::Write>(
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
-        )?;
+        )
     }
-    Ok(())
 }
 
 // Writes a FIRRTL assignment
@@ -255,7 +313,7 @@ fn write_assignment<F: io::Write>(
     asgn: &ir::Assignment<ir::Nothing>,
     f: &mut F,
     num_indent: usize,
-) -> CalyxResult<()> {
+) -> io::Result<()> {
     let dest_port = asgn.dst.borrow();
     let dest_string = get_port_string(&dest_port, true);
     let source_port = asgn.src.borrow();
