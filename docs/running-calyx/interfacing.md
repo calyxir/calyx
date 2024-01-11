@@ -1,7 +1,9 @@
 # Interfacing with Calyx Programs
 
-In order to run RTL designs created from Calyx programs, toplevel `reset` and `go`
+In order to run RTL designs created from Calyx programs, toplevel `reset`, `go`, and `done`
 signals must be interfaced with correctly.
+Interfacing with RTL designs in this way becomes relevant when writing harnesses/testbenches
+to execute programs created with Calyx.
 
 Namely:
 1. The `reset` signal must be asserted then deasserted, to initialize the state inside
@@ -13,9 +15,6 @@ the `go` signal before a component's `done` signal is asserted will lead to
 Asserting the `reset` and `go` signals in this order is important. Otherwise the toplevel
 component will begin running with garbage data inside of control registers.
 
-
-Interfacing with RTL designs in this way becomes relevant when writing harnesses/testbenches
-to execute programs created with Calyx.
 
 ## Cocotb
 
@@ -51,14 +50,15 @@ cocotb.start_soon(Clock(module.clk, 2, units="ns").start())
 
 # Reset Calyx-generated control registers
 main.reset.value = 1
-aways ClockCycles(main.clk, 5) #wait a bit
+await ClockCycles(main.clk, 5) #wait a bit
 module.reset.value = 0
 
 # Start execution of control sequence
 module.go.value = 1
 
+#At this point our Calyx program is done
+await RisingEdge(main.done)
 ```
-
 
 [go-done]: ../lang/ref.md#the-go-done-interface
 [cocotb]: https://www.cocotb.org/
