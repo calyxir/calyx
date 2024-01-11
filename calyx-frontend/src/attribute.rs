@@ -61,6 +61,9 @@ pub enum BoolAttr {
     #[strum(serialize = "inline")]
     /// Inline this subcomponent
     Inline,
+    #[strum(serialize = "promoted")]
+    /// denotes a static component promoted from dynamic
+    Promoted,
 }
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {
@@ -103,6 +106,9 @@ pub enum NumAttr {
     #[strum(serialize = "promote_static")]
     /// Promote the group or control to static with the annotated latency
     PromoteStatic,
+    #[strum(serialize = "compactable")]
+    /// suggest that the current static seq block is compactable
+    Compactable,
 }
 impl From<NumAttr> for Attribute {
     fn from(attr: NumAttr) -> Self {

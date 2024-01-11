@@ -13,6 +13,8 @@ Here is a list of all the people who have worked on Calyx:
 - Nathaniel Navarro
 - Caleb Kim
 - Andrew Butt
+- [Anshuman Mohan](https://www.cs.cornell.edu/~amohan/)
+- [Ayaka Yorihiro](https://ayakayorihiro.github.io/)
 
 **Previous Contributors**
 
@@ -28,5 +30,6 @@ Here is a list of all the people who have worked on Calyx:
 - YoungSeok Na
 - [Jan-Paul Ramos](https://jpramos.me)
 - Jiaxuan (Crystal) Hu
+- [Priya Srikumar](https://priyasrikumar.com/)
 
-If you're missing from this list, please [add yourself](https://github.com/cucapra/calyx/edit/master/docs/contributors.md)!
+If you're missing from this list, please [add yourself](https://github.com/calyxir/calyx/edit/master/docs/contributors.md)!

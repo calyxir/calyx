@@ -4,7 +4,7 @@ use crate::traversal::{
 use calyx_ir::structure;
 use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
-use ir::{RRC, WRC};
+use ir::{Assignment, RRC, WRC};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -128,11 +128,11 @@ impl CompileInvoke {
     ///
     /// Since this pass eliminates all ref cells in post order, we expect that
     /// invoked component already had all of its ref cells removed.
-    fn ref_cells_to_ports(
+    fn ref_cells_to_ports<T>(
         &mut self,
         inv_cell: RRC<ir::Cell>,
         ref_cells: impl Iterator<Item = (ir::Id, ir::RRC<ir::Cell>)>,
-    ) -> Vec<ir::Assignment<ir::Nothing>> {
+    ) -> Vec<ir::Assignment<T>> {
         let inv_comp = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
         for (ref_cell_name, cell) in ref_cells {
@@ -361,6 +361,10 @@ impl Visitor for CompileInvoke {
 
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
 
+        invoke_group.borrow_mut().assignments.extend(
+            self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
+        );
+
         // comp.go = 1'd1;
         structure!(builder;
             let one = constant(1, 1);
@@ -369,13 +373,12 @@ impl Visitor for CompileInvoke {
         // Get the go port
         let go_port = get_go_port(Rc::clone(&s.comp))?;
 
+        // define first cycle guard
+        let first_cycle = ir::Guard::Info(ir::StaticTiming::new((0, 1)));
+
         // Build assignemnts
         let go_assign: ir::Assignment<ir::StaticTiming> = builder
-            .build_assignment(
-                go_port,
-                one.borrow().get("out"),
-                ir::Guard::True,
-            );
+            .build_assignment(go_port, one.borrow().get("out"), first_cycle);
         invoke_group.borrow_mut().assignments.push(go_assign);
 
         // Generate argument assignments
@@ -387,6 +390,17 @@ impl Visitor for CompileInvoke {
             cell,
         );
         invoke_group.borrow_mut().assignments.extend(assigns);
+
+        if let Some(cgr) = &s.comb_group {
+            let cg = &*cgr.borrow();
+            invoke_group.borrow_mut().assignments.extend(
+                cg.assignments
+                    .iter()
+                    .cloned()
+                    .map(Assignment::from)
+                    .collect_vec(),
+            );
+        }
 
         let en = ir::StaticEnable {
             group: invoke_group,

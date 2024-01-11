@@ -165,11 +165,30 @@ impl ReadWriteSet {
             ir::StaticControl::Invoke(ir::StaticInvoke {
                 inputs,
                 outputs,
+                ref_cells,
                 ..
             }) => {
-                let inps = inputs.iter().map(|(_, p)| p).cloned();
-                let outs = outputs.iter().map(|(_, p)| p).cloned();
-                (inps.collect(), outs.collect())
+                let mut inps: Vec<RRC<ir::Port>> =
+                    inputs.iter().map(|(_, p)| p).cloned().collect();
+                let mut outs: Vec<RRC<ir::Port>> =
+                    outputs.iter().map(|(_, p)| p).cloned().collect();
+                for (_, cell) in ref_cells.iter() {
+                    for port in cell.borrow().ports.iter() {
+                        match port.borrow().direction {
+                            ir::Direction::Input => {
+                                outs.push(Rc::clone(port));
+                            }
+                            ir::Direction::Output => {
+                                inps.push(Rc::clone(port));
+                            }
+                            _ => {
+                                outs.push(Rc::clone(port));
+                                inps.push(Rc::clone(port));
+                            }
+                        }
+                    }
+                }
+                (inps, outs)
             }
         }
     }
@@ -190,22 +209,39 @@ impl ReadWriteSet {
                 inputs,
                 outputs,
                 comb_group,
+                ref_cells,
                 ..
             }) => {
                 let inps = inputs.iter().map(|(_, p)| p).cloned();
                 let outs = outputs.iter().map(|(_, p)| p).cloned();
+                let mut r: Vec<RRC<ir::Port>> = inps.collect();
+                let mut w: Vec<RRC<ir::Port>> = outs.collect();
+
+                for (_, cell) in ref_cells {
+                    for port in cell.borrow().ports.iter() {
+                        match port.borrow().direction {
+                            ir::Direction::Input => {
+                                w.push(Rc::clone(port));
+                            }
+                            ir::Direction::Output => {
+                                r.push(Rc::clone(port));
+                            }
+                            _ => {
+                                w.push(Rc::clone(port));
+                                r.push(Rc::clone(port));
+                            }
+                        }
+                    }
+                }
                 match comb_group {
                     Some(cgr) => {
                         let cg = cgr.borrow();
                         let assigns = cg.assignments.iter();
                         let reads = Self::port_read_set(assigns.clone());
                         let writes = Self::port_write_set(assigns);
-                        (
-                            reads.chain(inps).collect(),
-                            writes.chain(outs).collect(),
-                        )
+                        (reads.chain(r).collect(), writes.chain(w).collect())
                     }
-                    None => (inps.collect(), outs.collect()),
+                    None => (r, w),
                 }
             }
             ir::Control::Seq(ir::Seq { stmts, .. })

@@ -1,8 +1,8 @@
-// -p infer-share -x infer-share:print-static-analysis
+// -p infer-share -x infer-share:print-static-analysis=<err>
 import "primitives/core.futil";
 component example() -> () {
   cells {
-    lt = std_lt(4); 
+    lt = std_lt(4);
   }
   wires {
     static<4> group A {
@@ -37,8 +37,8 @@ component example() -> () {
   control {
     static par {
       static seq {
-        A; 
-        B; 
+        A;
+        B;
         static if lt.out {
           static par {
             static seq { G; H; }
@@ -46,9 +46,9 @@ component example() -> () {
           }
         }
         else {
-          Z; 
+          Z;
         }
-        J; 
+        J;
       }
       static seq {C; D; E; F;}
     }
@@ -65,6 +65,6 @@ component main() -> () {
   }
 
   control {
-    invoke e()(); 
+    invoke e()();
   }
 }

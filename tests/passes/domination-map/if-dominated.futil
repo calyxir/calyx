@@ -1,8 +1,8 @@
-// -p infer-share -x infer-share:print-dmap
+// -p infer-share -x infer-share:print-dmap=<err>
 import "primitives/core.futil";
 component example() -> () {
   cells {
-    lt = std_lt(4); 
+    lt = std_lt(4);
   }
   wires {
     static<4> group A{
@@ -15,10 +15,10 @@ component example() -> () {
   control {
     static par {
       static seq {
-        A; 
+        A;
         static if lt.out {B;}
       }
-      C; 
+      C;
     }
   }
 }
@@ -33,7 +33,7 @@ component main() -> () {
   }
 
   control {
-    invoke e() (); 
+    invoke e() ();
   }
-  
+
 }

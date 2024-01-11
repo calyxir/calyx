@@ -200,6 +200,6 @@ in = out;
 Since the value `'x` can be replaced with anything.
 
 
-[datapath-components]: https://github.com/cucapra/calyx/issues/1169
+[datapath-components]: https://github.com/calyxir/calyx/issues/1169
 [builder]: https://docs.rs/calyx-ir/latest/calyx_ir/struct.Builder.html
 [externalize]: https://docs.rs/calyx-opt/latest/calyx_opt/passes/struct.Externalize.html

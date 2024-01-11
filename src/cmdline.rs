@@ -4,7 +4,8 @@ use argh::FromArgs;
 use calyx_backend::SexpBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
-    Backend, BackendOpt, MlirBackend, ResourcesBackend, VerilogBackend,
+    Backend, BackendOpt, FirrtlBackend, MlirBackend, ResourcesBackend,
+    VerilogBackend, YxiBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
@@ -12,15 +13,35 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+/// help information about passes
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "pass-help")]
+pub struct Help {
+    /// alias or pass name to get help for
+    #[argh(positional)]
+    pub name: Option<String>,
+}
+
+/// supported subcommands
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand)]
+pub enum Subcommand {
+    /// Help mode
+    Help(Help),
+}
+
 #[derive(FromArgs)]
 /// Options passed to the Calyx compiler.
 pub struct Opts {
+    #[argh(subcommand)]
+    pub sub: Option<Subcommand>,
+
     /// input calyx program
     #[argh(positional, from_str_fn(read_path))]
     pub file: Option<PathBuf>,
 
     /// output file
-    #[argh(option, short = 'o', default = "OutputFile::default()")]
+    #[argh(option, short = 'o', default = "OutputFile::Stdout")]
     pub output: OutputFile,
 
     /// path to the primitives library
@@ -62,10 +83,6 @@ pub struct Opts {
     /// extra options passed to the context
     #[argh(option, short = 'x', long = "extra-opt")]
     pub extra_opts: Vec<String>,
-
-    /// list all avaliable pass options
-    #[argh(switch, long = "list-passes")]
-    pub list_passes: bool,
 
     /// enable verbose printing
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
@@ -143,6 +160,14 @@ impl Opts {
             }
             BackendOpt::XilinxXml => {
                 let backend = XilinxXmlBackend;
+                backend.run(context, self.output)
+            }
+            BackendOpt::Yxi => {
+                let backend = YxiBackend;
+                backend.run(context, self.output)
+            }
+            BackendOpt::Firrtl => {
+                let backend = FirrtlBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {

@@ -143,6 +143,8 @@ def register_stages(registry):
     registry.register(vivado.VivadoExtractStage())
     registry.register(vivado.VivadoHLSStage())
     registry.register(vivado.VivadoHLSExtractStage())
+    registry.register(vivado.VivadoHLSPlaceAndRouteStage())
+    registry.register(vivado.VivadoHLSPlaceAndRouteExtractStage())
 
     # Vcdump
     registry.register(vcdump.VcdumpStage())

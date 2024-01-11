@@ -39,7 +39,10 @@ __pycache__
 !.vscode/launch.json
 !.vscode/tasks.json
 
+# cocotb artifacts
 tests/xilinx/cocotb/**/hdl
+sim_build/
+results.xml
 
 .vscode/settings.json
 
@@ -83,3 +86,5 @@ nra.cache
 
 # vim temporary files
 *.sw?
+
+!cider-dap/calyxDebug/package.json
