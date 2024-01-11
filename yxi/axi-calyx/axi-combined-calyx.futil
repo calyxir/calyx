@@ -95,9 +95,8 @@ component m_arread_channel(
       // this all needs to be one group
       // this contains blocking logic previously in its own group
       group do_ar_transfer {
-          //assert ARVALID
-
-          is_arvalid.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+          //assert ARVALID as long as this is the first time we are asserting it
+          is_arvalid.in = !arvalid_was_high.out ? 1'b1;
           
           // TODO(nathanielnrn): in theory should be able to get rid of arvalid_was_high
           // but for now we will be explicit and reduce this in generation maybe. Not sure
@@ -496,7 +495,7 @@ component m_awwrite_channel(
       // this contains blocking logic previously in its own group
       group do_aw_transfer {
           //assert AWVALID
-          is_awvalid.in = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
+          is_awvalid.in = !awvalid_was_high.out ? 1'b1;
           
           // TODO(nathanielnrn): in theory should be able to get rid of awvalid_was_high
           // but for now we will be explicit and reduce this in generation maybe. Not sure
@@ -662,9 +661,9 @@ component m_write_channel(
         //set RREADY high
         //TODO (nathanielnrn): technically we can make RREADY depend on on RVALID (but not vice versa).
         //Could we simplify this we just making things ready when we are in
-        //block_transfer && RVALID?
+        //block_transfer && WREADY?
 
-        //NOTE: wvalid.in = 1'b1; does not work, it leaves RREADY high for 2 cycles
+        //NOTE: wvalid.in = 1'b1; does not work, it leaves WVALID high for 2 cycles
         // this both asserts and deasserts one cycle later
         wvalid.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
         // TODO(nathanielnrn): Can prob get rid of wvalid_was_high
@@ -673,7 +672,7 @@ component m_write_channel(
 
         //set to 1 after valid has been high even once
         wvalid_was_high.in = 1'b1;
-        wvalid_was_high.write_en = !(wvalid.out & WREADY) & !wvalid_was_high.out ? 1'b1;
+        wvalid_was_high.write_en = !(wvalid.out & WREADY & !wvalid_was_high.out) ? 1'b1;
 
      
         // set data output based on curr_addr register
