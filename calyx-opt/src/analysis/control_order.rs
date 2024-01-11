@@ -162,8 +162,10 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         latency_map: &mut HashMap<NodeIndex, u64>,
     ) -> DiGraph<Option<ir::StaticControl>, ()> {
         // The names of the cells that are read/written in continuous assignments
-        let mut cont_read_cell_names = Self::filter_out_constants(cont_reads);
-        let mut cont_write_cell_names = Self::filter_out_constants(cont_writes);
+        let cont_read_cell_names =
+            Self::filter_out_constants(cont_reads).collect_vec();
+        let cont_write_cell_names =
+            Self::filter_out_constants(cont_writes).collect_vec();
 
         // Directed graph where edges means that a control program must be run before.
         let mut gr: DiGraph<Option<ir::StaticControl>, ()> = DiGraph::new();
