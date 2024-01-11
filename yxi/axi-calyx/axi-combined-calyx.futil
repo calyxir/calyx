@@ -72,23 +72,23 @@ component m_arread_channel(
 
       ARVALID = is_arvalid.out;
 
-      group deassert_val {
-          is_arvalid.in = 1'b0;
-          is_arvalid.write_en = 1'b1;
-          deassert_val[done] = is_arvalid.done;
-      }
+      //group deassert_val {
+      //    is_arvalid.in = 1'b0;
+      //    is_arvalid.write_en = 1'b1;
+      //    deassert_val[done] = is_arvalid.done;
+      //}
 
-      group reset_bt {
-          bt_reg.in = 1'b0;
-          bt_reg.write_en = 1'b1;
-          reset_bt[done] = bt_reg.done;
-      }
+      //group reset_bt {
+      //    bt_reg.in = 1'b0;
+      //    bt_reg.write_en = 1'b1;
+      //    reset_bt[done] = bt_reg.done;
+      //}
 
-      group reset_was_high {
-          arvalid_was_high.in = 1'b0;
-          arvalid_was_high.write_en = 1'b1;
-          reset_was_high[done] = arvalid_was_high.done;
-      }
+      //group reset_was_high {
+      //    arvalid_was_high.in = 1'b0;
+      //    arvalid_was_high.write_en = 1'b1;
+      //    reset_was_high[done] = arvalid_was_high.done;
+      //}
 
       // this asserts valid and defines all inputs correctly
       // because valid should not be deasserted until handshake occurs
@@ -176,11 +176,14 @@ component m_arread_channel(
           while perform_reads.out with check_reads_done{
               seq{
                   par {
-                      reset_bt;
-                      reset_was_high;
+                      //reset_bt;
+                      invoke bt_reg(in=1'b0)();
+                      //reset_was_high;
+                      invoke arvalid_was_high(in=1'b0)();
                   }
                   do_ar_transfer;
-                  deassert_val;
+                  invoke is_arvalid(in=1'b0)();
+                  //deassert_val;
                   txn_incr;
               }
           }
