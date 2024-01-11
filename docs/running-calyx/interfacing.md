@@ -1,6 +1,6 @@
 # Interfacing with Calyx Programs
 
-In order to run RTL designs created from Calyx programs, toplevel `reset` and `go`
+To run RTL designs created from Calyx programs, top-level `reset` and `go`
 signals must be interfaced with correctly.
 
 Namely:
