@@ -1,18 +1,19 @@
 # Interfacing with Calyx Programs
 
-In order to run RTL designs created from Calyx programs, toplevel `reset`, `go`, and `done`
+To run RTL designs created from Calyx programs, top-level `reset`, `go`, and `done`
 signals must be interfaced with correctly.
 Interfacing with RTL designs in this way becomes relevant when writing harnesses/testbenches
 to execute programs created with Calyx.
 
-Namely:
-1. The `reset` signal must be asserted then deasserted, to initialize the state inside
+Namely, the client for a Calyx top-level module must:
+1. Assert the `reset` signal and then deassert it, to initialize the state inside
 control registers correctly.
-2. The `go` signal must be asserted for as long as the module is running. Deasserting
-the `go` signal before a component's `done` signal is asserted will lead to
+2. Assert the `go` signal, and keep it asserted as long as the module is running.
+3. Wait for the `done` signal to be asserted while keeping `go` high. Deasserting
+the `go` signal before a component deasserts its `done` signal will lead to
 [undefined behavior][go-done].
 
-Asserting the `reset` and `go` signals in this order is important. Otherwise the toplevel
+Asserting the `reset` and `go` signals in this order is important. Otherwise the top-level
 component will begin running with garbage data inside of control registers.
 
 
