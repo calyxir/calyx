@@ -194,6 +194,23 @@ impl ReadWriteSet {
         }
     }
 
+    pub fn control_read_write_set_static(
+        scon: &ir::StaticControl,
+    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
+        let (port_reads, port_writes) =
+            Self::control_port_read_write_set_static(&scon);
+        (
+            port_reads
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+            port_writes
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+        )
+    }
+
     /// Returns the ports that are read and written, respectively,
     /// by the given control program.
     pub fn control_port_read_write_set(
@@ -306,6 +323,22 @@ impl ReadWriteSet {
                 Self::control_port_read_write_set_static(sc)
             }
         }
+    }
+
+    pub fn control_read_write_set(
+        con: &ir::Control,
+    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
+        let (port_reads, port_writes) = Self::control_port_read_write_set(&con);
+        (
+            port_reads
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+            port_writes
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+        )
     }
 
     /// Returns the ports that are read and written, respectively,

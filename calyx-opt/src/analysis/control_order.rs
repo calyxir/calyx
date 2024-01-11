@@ -42,27 +42,11 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             .unique()
     }
 
-    fn get_cells_static_seq(
-        ports: Vec<RRC<ir::Port>>,
+    // Filters out the constants from `cells`, while mapping the remaining `ir:Cell`s
+    // to their cell name.
+    fn filter_out_constants(
+        cells: Vec<RRC<ir::Cell>>,
     ) -> impl Iterator<Item = ir::Id> {
-        ports
-            .into_iter()
-            .filter_map(|p| {
-                let cr = p.borrow().cell_parent();
-                let cell = cr.borrow();
-                match cell.prototype {
-                    ir::CellType::Constant { .. } => None,
-                    // XXX(Caleb): Why can't this be cell.name(), like the others?
-                    ir::CellType::ThisComponent => {
-                        Some(ir::Id::new("this_comp"))
-                    }
-                    _ => Some(cell.name()),
-                }
-            })
-            .unique()
-    }
-
-    fn filter_out_constants(cells: Vec<RRC<ir::Cell>>) -> Vec<ir::Id> {
         cells
             .into_iter()
             .filter_map(|cell| match cell.borrow().prototype {
@@ -74,7 +58,6 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                 }
             })
             .unique()
-            .collect_vec()
     }
 
     /// Return a total order for the control programs.
@@ -166,9 +149,9 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     // 3. subsequent program reads from cells that previous program writes to
     // Furthermore, we need to take into account continuous assignments as well
     // 4. If a program writes or reads from a cell that a continuous assignment
-    // writes to, then it depends on all previous control programs
+    // writes to, then it depends on all previous control programs in the original order
     // 5. If a program writes to a cell that a continuous assignment reads from,
-    // then it depends on all previous control programs
+    // then it depends on all previous control programs in the original order
     pub fn get_dependency_graph_static_seq(
         stmts: impl Iterator<Item = ir::StaticControl>,
         (cont_reads, cont_writes): (
@@ -178,6 +161,10 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         dependency: &mut HashMap<NodeIndex, Vec<NodeIndex>>,
         latency_map: &mut HashMap<NodeIndex, u64>,
     ) -> DiGraph<Option<ir::StaticControl>, ()> {
+        // The names of the cells that are read/written in continuous assignments
+        let mut cont_read_cell_names = Self::filter_out_constants(cont_reads);
+        let mut cont_write_cell_names = Self::filter_out_constants(cont_writes);
+
         // Directed graph where edges means that a control program must be run before.
         let mut gr: DiGraph<Option<ir::StaticControl>, ()> = DiGraph::new();
 
@@ -185,24 +172,20 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         let mut reads: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
         let mut writes: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
 
-        // The names of the cells that are read/written in continuous assignments
-        let cont_read_cell_names = Self::filter_out_constants(cont_reads);
-        let cont_write_cell_names = Self::filter_out_constants(cont_writes);
-
         // Stores the current nodes (i.e., control stmts) we have iterated
         let mut cur_indices: Vec<NodeIndex> = Vec::new();
 
         for c in stmts {
-            let (port_reads, port_writes) =
-                ReadWriteSet::control_port_read_write_set_static(&c);
-            let r_cells = Self::get_cells_static_seq(port_reads);
-            let w_cells = Self::get_cells_static_seq(port_writes);
+            let (cell_reads, cell_writes) =
+                ReadWriteSet::control_read_write_set_static(&c);
+            let r_cell_names = Self::filter_out_constants(cell_reads);
+            let w_cell_names = Self::filter_out_constants(cell_writes);
             let latency = c.get_latency();
             let idx = gr.add_node(Some(c));
             dependency.insert(idx, Vec::new());
             latency_map.insert(idx, latency);
 
-            for cell in r_cells {
+            for cell in r_cell_names {
                 // Checking: 3. subsequent program reads from cells that previous program writes to
                 if let Some(wr_idxs) = writes.get(&cell) {
                     for wr_idx in wr_idxs {
@@ -224,7 +207,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                 reads.entry(cell).or_default().push(idx);
             }
 
-            for cell in w_cells {
+            for cell in w_cell_names {
                 // Checking: 2. subsequent program writes to cells that previous program writes to
                 if let Some(wr_idxs) = writes.get(&cell) {
                     for wr_idx in wr_idxs {
