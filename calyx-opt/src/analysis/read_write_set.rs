@@ -121,7 +121,7 @@ impl ReadWriteSet {
 
 impl ReadWriteSet {
     /// Returns the ports that are read and written, respectively,
-    /// by the given control program.
+    /// by the given static control program.
     pub fn control_port_read_write_set_static(
         scon: &ir::StaticControl,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
@@ -194,6 +194,8 @@ impl ReadWriteSet {
         }
     }
 
+    /// Returns the cells that are read and written, respectively,
+    /// by the given static control program.
     pub fn control_read_write_set_static(
         scon: &ir::StaticControl,
     ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
@@ -325,6 +327,8 @@ impl ReadWriteSet {
         }
     }
 
+    /// Returns the cells that are read and written, respectively,
+    /// by the given control program.
     pub fn control_read_write_set(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
