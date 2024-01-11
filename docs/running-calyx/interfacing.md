@@ -11,7 +11,7 @@ control registers correctly.
 the `go` signal before a component deasserts its `done` signal will lead to
 [undefined behavior][go-done].
 
-Asserting the `reset` and `go` signals in this order is important. Otherwise the toplevel
+Asserting the `reset` and `go` signals in this order is important. Otherwise the top-level
 component will begin running with garbage data inside of control registers.
 
 
