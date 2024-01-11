@@ -39,7 +39,7 @@ component m_arread_channel(
   // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
   ARLEN : 8, 
   // 00 for fixed, 01 for incrementing, 2 for wrap,
-  // needs to be incr for RTL kernels (can't use wrapped of fixed
+  // needs to be incr for RTL kernels (can't use wrapped or fixed)
   ARBURST : 2,
   // required by spec. We hardwire this to priviliged access, non secure, data access.
   ARPROT : 3) {
