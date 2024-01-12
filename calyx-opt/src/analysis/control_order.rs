@@ -7,7 +7,7 @@ use petgraph::{
     algo,
     graph::{DiGraph, NodeIndex},
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
 /// Extract the dependency order of a list of control programs.
@@ -147,11 +147,12 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     // 1. subsequent program writes to cells that previous program reads from
     // 2. subsequent program writes to cells that previous program writes to
     // 3. subsequent program reads from cells that previous program writes to
-    // Furthermore, we need to take into account continuous assignments as well
-    // 4. If a program writes or reads from a cell that a continuous assignment
-    // writes to, then it depends on all previous control programs in the original order
-    // 5. If a program writes to a cell that a continuous assignment reads from,
-    // then it depends on all previous control programs in the original order
+    // Furthermore, we add dependencies due to continuous assignments as well. If:
+    // 4. Program writes to cell that a continuous assignment writes to or reads from.
+    // 5. Program reads from a cell that a continuous assignment writes to.
+    // Then the program "touches" the continuous assignments, and therefore depends
+    // on all previous programs that "touched" continuous assignments as well.
+    // In short, we treat continuous assignments as one big cell.
     pub fn get_dependency_graph_static_seq(
         stmts: impl Iterator<Item = ir::StaticControl>,
         (cont_reads, cont_writes): (
@@ -174,8 +175,9 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         let mut reads: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
         let mut writes: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
 
-        // Stores the current nodes (i.e., control stmts) we have iterated
-        let mut cur_indices: Vec<NodeIndex> = Vec::new();
+        // Stores the nodes (i.e., control stmts) that are affected by continuous
+        // assignments
+        let mut continuous_idxs: HashSet<NodeIndex> = HashSet::new();
 
         for c in stmts {
             let (cell_reads, cell_writes) =
@@ -198,13 +200,15 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                     }
                 }
 
-                // Checking: 5. If a program writes to a cell that a continuous assignment reads from,
-                // then it depends on all previous control programs
+                // 5. Program reads from a cell that a continuous assignment writes to.
                 if cont_write_cell_names.contains(&cell) {
-                    for cur_idx in cur_indices.iter() {
-                        gr.add_edge(*cur_idx, idx, ());
-                        dependency.entry(idx).or_default().push(*cur_idx);
+                    for cur_idx in continuous_idxs.iter() {
+                        if !cur_idx.eq(&idx) {
+                            gr.add_edge(*cur_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*cur_idx);
+                        }
                     }
+                    continuous_idxs.insert(idx);
                 }
                 reads.entry(cell).or_default().push(idx);
             }
@@ -230,20 +234,22 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                     }
                 }
 
-                // Checking: 4. If a program writes or reads from a cell that a continuous assignment
-                // writes to, then it depends on all previous control programs
+                // 4. Program writes to cell that a continuous assignment
+                // writes to or reads from.
                 if cont_write_cell_names.contains(&cell)
                     || cont_read_cell_names.contains(&cell)
                 {
-                    for cur_idx in cur_indices.iter() {
-                        gr.add_edge(*cur_idx, idx, ());
-                        dependency.entry(idx).or_default().push(*cur_idx);
+                    for cur_idx in continuous_idxs.iter() {
+                        if !cur_idx.eq(&idx) {
+                            gr.add_edge(*cur_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*cur_idx);
+                        }
                     }
+                    continuous_idxs.insert(idx);
                 }
 
                 writes.entry(cell).or_default().push(idx);
             }
-            cur_indices.push(idx);
         }
         gr
     }
