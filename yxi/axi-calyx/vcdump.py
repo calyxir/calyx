@@ -2,7 +2,8 @@
 import sys
 
 
-#Usage: `./vcdump.py <path-to-file>` will add dump lines required to get icarus to create vcds
+# Usage: `./vcdump.py <path-to-file>` will add dump lines required to get icarus to create vcds
+
 
 def replace_line(file_path, old_line, new_line):
     try:
