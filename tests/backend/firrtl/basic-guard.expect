@@ -10,6 +10,7 @@ circuit main:
         ; COMPONENT START: main
         done <= UInt(1)
         out is invalid ; default initialization
+        out <= UInt(0)
         when cond:
             out <= in
         ; COMPONENT END: main
