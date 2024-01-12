@@ -1,0 +1,46 @@
+// -p validate -p schedule-compaction
+
+import "primitives/core.futil";
+
+component main() -> (out: 8) {
+  cells {
+    r0 = std_reg(8);
+    r1 = std_reg(8);
+    r2 = std_reg(8);
+    add = std_add(8);
+    add1 = std_add(8);
+  }
+  wires {
+    static<1> group write_r0 {
+      r0.write_en = 1'd1;
+      r0.in = 8'd1;
+    }
+    static<1> group write_r1 {
+      r1.write_en = 1'd1;
+      r1.in = add.out;
+    }
+    static<1> group write_add1 {
+      add1.left = 8'd1;
+      add1.right = 8'd4;
+    }
+    r2.in = add1.out;
+    add.left = r0.out;
+    add.right = 8'd1;
+    out = r1.out;
+  }
+  control {
+    seq {
+      @compactable static seq {
+        write_r0;
+        // Continuous assignments to add.left and add.right prevent compation.
+        write_r1;
+      }
+      @compactable static seq {
+        write_r0;
+        // Continuous assignment r2.in = add1.out prevents compaction.
+        // This is overly conservative.
+        write_add1;
+      }
+    }
+  }
+}
