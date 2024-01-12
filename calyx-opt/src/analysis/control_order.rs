@@ -200,7 +200,8 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                     }
                 }
 
-                // 5. Program reads from a cell that a continuous assignment writes to.
+                // Checking: 5. Program reads from a cell that a continuous
+                // assignment writes to.
                 if cont_write_cell_names.contains(&cell) {
                     for cur_idx in continuous_idxs.iter() {
                         if !cur_idx.eq(&idx) {
@@ -234,7 +235,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                     }
                 }
 
-                // 4. Program writes to cell that a continuous assignment
+                // Checking: 4. Program writes to cell that a continuous assignment
                 // writes to or reads from.
                 if cont_write_cell_names.contains(&cell)
                     || cont_read_cell_names.contains(&cell)
