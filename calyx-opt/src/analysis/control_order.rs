@@ -7,7 +7,7 @@ use petgraph::{
     algo,
     graph::{DiGraph, NodeIndex},
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
 /// Extract the dependency order of a list of control programs.
@@ -42,21 +42,19 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             .unique()
     }
 
-    fn get_cells_static_seq(
-        ports: Vec<RRC<ir::Port>>,
+    // Filters out the constants from `cells`, while mapping the remaining `ir:Cell`s
+    // to their cell name.
+    fn filter_out_constants(
+        cells: Vec<RRC<ir::Cell>>,
     ) -> impl Iterator<Item = ir::Id> {
-        ports
+        cells
             .into_iter()
-            .filter_map(|p| {
-                let cr = p.borrow().cell_parent();
-                let cell = cr.borrow();
-                match cell.prototype {
-                    // Ignore constants and _this
-                    ir::CellType::Constant { .. } => None,
-                    ir::CellType::ThisComponent => {
-                        Some(ir::Id::new("this_comp"))
-                    }
-                    _ => Some(cell.name()),
+            .filter_map(|cell| match cell.borrow().prototype {
+                ir::CellType::Constant { .. } => None,
+                ir::CellType::Component { .. }
+                | ir::CellType::Primitive { .. }
+                | ir::CellType::ThisComponent { .. } => {
+                    Some(cell.borrow().name())
                 }
             })
             .unique()
@@ -144,16 +142,32 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         }
     }
 
-    // returns a graph of dependency for input programs
-    // input control programs are considered to have data dependency if:
+    // Returns a graph of dependency for input programs.
+    // Input control programs are considered to have data dependency if:
     // 1. subsequent program writes to cells that previous program reads from
     // 2. subsequent program writes to cells that previous program writes to
     // 3. subsequent program reads from cells that previous program writes to
+    // Furthermore, we add dependencies due to continuous assignments as well. If:
+    // 4. Program writes to cell that a continuous assignment writes to or reads from.
+    // 5. Program reads from a cell that a continuous assignment writes to.
+    // Then the program "touches" the continuous assignments, and therefore depends
+    // on all previous programs that "touched" continuous assignments as well.
+    // In short, we treat continuous assignments as one big cell.
     pub fn get_dependency_graph_static_seq(
         stmts: impl Iterator<Item = ir::StaticControl>,
+        (cont_reads, cont_writes): (
+            Vec<ir::RRC<ir::Cell>>,
+            Vec<ir::RRC<ir::Cell>>,
+        ),
         dependency: &mut HashMap<NodeIndex, Vec<NodeIndex>>,
         latency_map: &mut HashMap<NodeIndex, u64>,
     ) -> DiGraph<Option<ir::StaticControl>, ()> {
+        // The names of the cells that are read/written in continuous assignments
+        let cont_read_cell_names =
+            Self::filter_out_constants(cont_reads).collect_vec();
+        let cont_write_cell_names =
+            Self::filter_out_constants(cont_writes).collect_vec();
+
         // Directed graph where edges means that a control program must be run before.
         let mut gr: DiGraph<Option<ir::StaticControl>, ()> = DiGraph::new();
 
@@ -161,17 +175,22 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         let mut reads: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
         let mut writes: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
 
+        // Stores the nodes (i.e., control stmts) that are affected by continuous
+        // assignments
+        let mut continuous_idxs: HashSet<NodeIndex> = HashSet::new();
+
         for c in stmts {
-            let (port_reads, port_writes) =
-                ReadWriteSet::control_port_read_write_set_static(&c);
-            let r_cells = Self::get_cells_static_seq(port_reads);
-            let w_cells = Self::get_cells_static_seq(port_writes);
+            let (cell_reads, cell_writes) =
+                ReadWriteSet::control_read_write_set_static(&c);
+            let r_cell_names = Self::filter_out_constants(cell_reads);
+            let w_cell_names = Self::filter_out_constants(cell_writes);
             let latency = c.get_latency();
             let idx = gr.add_node(Some(c));
             dependency.insert(idx, Vec::new());
             latency_map.insert(idx, latency);
 
-            for cell in r_cells {
+            for cell in r_cell_names {
+                // Checking: 3. subsequent program reads from cells that previous program writes to
                 if let Some(wr_idxs) = writes.get(&cell) {
                     for wr_idx in wr_idxs {
                         if !wr_idx.eq(&idx) {
@@ -179,11 +198,24 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                             dependency.entry(idx).or_default().push(*wr_idx);
                         }
                     }
+                }
+
+                // Checking: 5. Program reads from a cell that a continuous
+                // assignment writes to.
+                if cont_write_cell_names.contains(&cell) {
+                    for cur_idx in continuous_idxs.iter() {
+                        if !cur_idx.eq(&idx) {
+                            gr.add_edge(*cur_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*cur_idx);
+                        }
+                    }
+                    continuous_idxs.insert(idx);
                 }
                 reads.entry(cell).or_default().push(idx);
             }
 
-            for cell in w_cells {
+            for cell in w_cell_names {
+                // Checking: 2. subsequent program writes to cells that previous program writes to
                 if let Some(wr_idxs) = writes.get(&cell) {
                     for wr_idx in wr_idxs {
                         if !wr_idx.eq(&idx) {
@@ -193,6 +225,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                     }
                 }
 
+                // Checking: 1. subsequent program writes to cells that previous program reads from
                 if let Some(r_idxs) = reads.get(&cell) {
                     for r_idx in r_idxs {
                         if !r_idx.eq(&idx) {
@@ -200,6 +233,20 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                             dependency.entry(idx).or_default().push(*r_idx);
                         }
                     }
+                }
+
+                // Checking: 4. Program writes to cell that a continuous assignment
+                // writes to or reads from.
+                if cont_write_cell_names.contains(&cell)
+                    || cont_read_cell_names.contains(&cell)
+                {
+                    for cur_idx in continuous_idxs.iter() {
+                        if !cur_idx.eq(&idx) {
+                            gr.add_edge(*cur_idx, idx, ());
+                            dependency.entry(idx).or_default().push(*cur_idx);
+                        }
+                    }
+                    continuous_idxs.insert(idx);
                 }
 
                 writes.entry(cell).or_default().push(idx);

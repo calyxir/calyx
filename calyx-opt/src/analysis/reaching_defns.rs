@@ -143,8 +143,8 @@ impl DefSet {
             set: self
                 .set
                 .iter()
+                .filter(|&(name, _)| !killset.contains(name))
                 .cloned()
-                .filter(|(name, _)| !killset.contains(name))
                 .collect(),
         }
     }

@@ -72,24 +72,6 @@ component m_arread_channel(
 
       ARVALID = is_arvalid.out;
 
-      //group deassert_val {
-      //    is_arvalid.in = 1'b0;
-      //    is_arvalid.write_en = 1'b1;
-      //    deassert_val[done] = is_arvalid.done;
-      //}
-
-      //group reset_bt {
-      //    bt_reg.in = 1'b0;
-      //    bt_reg.write_en = 1'b1;
-      //    reset_bt[done] = bt_reg.done;
-      //}
-
-      //group reset_was_high {
-      //    arvalid_was_high.in = 1'b0;
-      //    arvalid_was_high.write_en = 1'b1;
-      //    reset_was_high[done] = arvalid_was_high.done;
-      //}
-
       // this asserts valid and defines all inputs correctly
       // because valid should not be deasserted until handshake occurs
       // this all needs to be one group
@@ -133,25 +115,6 @@ component m_arread_channel(
           do_ar_transfer[done] = bt_reg.out;
       }
 
-
-      //txn bookkeeping.
-      //We are done performing reads when txn_count == txn_n
-      group txn_count_init {
-          txn_count.in = 32'b0;
-          txn_count.write_en = 1'b1;
-          txn_count_init[done] = txn_count.done;
-          
-      }
-
-      group txn_len_init {
-          // TODO(nathanielnrn):Parametrize this.
-          // 7 is good for word wide data bus and 8 element vec_add We'd
-          // expect 8 transfers. Number of transfers that occur is ARLEN + 1
-          txn_len.in = 8'd7;
-          txn_len.write_en = 1'b1;
-          txn_len_init[done] = txn_len.done;
-      }
-
       group txn_incr {
           txn_adder.left = txn_count.out;
           txn_adder.right = 32'b1;
@@ -171,19 +134,19 @@ component m_arread_channel(
   control{
       //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
       seq{
-          txn_count_init;
-          txn_len_init;
+	  invoke txn_count(in=32'b0)();
+          // TODO(nathanielnrn):Parametrize this.
+          // 7 is good for word wide data bus and 8 element vec_add We'd
+          // expect 8 transfers. Number of transfers that occur is ARLEN + 1
+	  invoke txn_len(in=8'd7)();
           while perform_reads.out with check_reads_done{
               seq{
                   par {
-                      //reset_bt;
                       invoke bt_reg(in=1'b0)();
-                      //reset_was_high;
                       invoke arvalid_was_high(in=1'b0)();
                   }
                   do_ar_transfer;
                   invoke is_arvalid(in=1'b0)();
-                  //deassert_val;
                   txn_incr;
               }
           }
@@ -225,6 +188,7 @@ component m_read_channel(
       curr_addr_adder = std_add(64);
 
       // block_transfer reg to avoid combinational loops
+      // Used to block any servicing until handshake occurs. 
       bt_reg = std_reg(1);
 
   }
@@ -232,19 +196,6 @@ component m_read_channel(
 
       RREADY = is_rdy.out;
       data_received.read_en = 1'b0;
-
-      group init_n_RLAST {
-          n_RLAST.in = 1'b1;
-          n_RLAST.write_en = 1'b1;
-          init_n_RLAST[done] = n_RLAST.done;
-      }
-
-      // Used to block any servicing until handshake occurs. 
-      group reset_bt {
-          bt_reg.in = 1'b0;
-          bt_reg.write_en = 1'b1;
-          reset_bt[done] = bt_reg.done;
-      }
 
       // NOTE: xVALID signals must be high until xREADY is high as well, so this works
       // because if xREADY is high (is_rdy.out) then RVALID being high makes 1 flip
@@ -306,10 +257,10 @@ component m_read_channel(
       }
   }
   control{
-      init_n_RLAST;
+      invoke n_RLAST(in=1'b1)(); //init n_RLAST
       while n_RLAST.out{
           seq{
-              reset_bt;
+	      invoke bt_reg(in=1'b0)(); //reset bt_reg
               block_transfer;
               receive_r_transfer;
               incr_curr_addr;
@@ -473,25 +424,6 @@ component m_awwrite_channel(
 
       AWVALID = is_awvalid.out;
 
-      group deassert_val {
-          is_awvalid.in = 1'b0;
-          is_awvalid.write_en = 1'b1;
-          deassert_val[done] = is_awvalid.done;
-      }
-
-      group reset_bt {
-          bt_reg.in = 1'b0;
-          bt_reg.write_en = 1'b1;
-          reset_bt[done] = bt_reg.done;
-      }
-
-
-      group reset_was_high {
-          awvalid_was_high.in = 1'b0;
-          awvalid_was_high.write_en = 1'b1;
-          reset_was_high[done] = awvalid_was_high.done;
-      }
-
       // this asserts valid and defines all inputs correctly
       // because valid should not be deasserted until handshake occurs
       // this all needs to be one group
@@ -540,22 +472,6 @@ component m_awwrite_channel(
       }
 
 
-      //txn bookkeeping.
-      //We are done performing reads when txn_count == txn_n
-      group txn_count_init {
-          txn_count.in = 32'b0;
-          txn_count.write_en = 1'b1;
-          txn_count_init[done] = txn_count.done;
-          
-      }
-
-      group txn_len_init {
-          //TODO(nathanielnrn): 15 is good for word wide data bus. We'd
-          //expect 16 transfers. Number of transfers that occur is AWLEN + 1
-          txn_len.in = 8'd7;
-          txn_len.write_en = 1'b1;
-          txn_len_init[done] = txn_len.done;
-      }
 
       group txn_incr {
           txn_adder.left = txn_count.out;
@@ -575,16 +491,17 @@ component m_awwrite_channel(
   control{
       //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
       seq{
-          txn_count_init;
-          txn_len_init;
+	  invoke txn_count(in=32'b0)();
+	  //TODO(nathanielnrn):parameterize this number. 7(+1) gives us 8 elements
+	  invoke txn_len(in=8'd7)();
           while perform_write_txns.out with check_writes_done{
               seq{
                   par {
-                      reset_bt;
-                      reset_was_high;
+		      invoke bt_reg(in=1'b0)();
+		      invoke awvalid_was_high(in=1'b0)();
                   }
                   do_aw_transfer;
-                  deassert_val;
+		  invoke is_awvalid(in=1'b0)();
                   txn_incr;
               }
           }
@@ -638,25 +555,6 @@ component m_write_channel(
 
       WVALID = wvalid.out;
 
-      group reset_curr_addr{
-          curr_addr.in = 64'b0;
-          curr_addr.write_en = 1'b1;
-          reset_curr_addr[done] = curr_addr.done;
-      }
-
-      group init_n_finished_last_trnsfr {
-          n_finished_last_trnsfr.in = 1'b1;
-          n_finished_last_trnsfr.write_en = 1'b1;
-          init_n_finished_last_trnsfr[done] = n_finished_last_trnsfr.done;
-      }
-
-      //Used to block any servicing until handshake occurs. 
-      group reset_bt {
-          bt_reg.in = 1'b0;
-          bt_reg.write_en = 1'b1;
-          reset_bt[done] = bt_reg.done;
-      }
-
       //NOTE: xVALID signals must be high until xREADY is high as well, so this works
       //because if xREADY is high (is_rdy.out) then RVALID being high makes 1 flip
       //and group will be done by bt_reg.out
@@ -664,7 +562,6 @@ component m_write_channel(
         //set RREADY high
         //TODO (nathanielnrn): technically we can make RREADY depend on on RVALID (but not vice versa).
         //Could we simplify this we just making things ready when we are in
-        //block_transfer && WREADY?
 
         //NOTE: wvalid.in = 1'b1; does not work, it leaves WVALID high for 2 cycles
         // this both asserts and deasserts one cycle later
@@ -720,12 +617,11 @@ component m_write_channel(
   control{
       seq{
 
-        reset_curr_addr;
-        //end writing to internal mem
-        init_n_finished_last_trnsfr;
+        invoke curr_addr(in=64'b0)(); //reset curr_addr
+	invoke n_finished_last_trnsfr(in=1'b1)(); //init reg
         while n_finished_last_trnsfr.out{
           seq{
-              reset_bt;
+	      invoke bt_reg(in=1'b0)();
               do_write_transfer;
               par{
                 incr_curr_addr;
@@ -757,11 +653,6 @@ component m_bresp_channel(
   }
   wires{
       BREADY = bready.out;
-      group reset_bt_reg{
-          bt_reg.in = 1'b0;
-          bt_reg.write_en = 1'b1;
-          reset_bt_reg[done] = bt_reg.done;
-      }
 
       // TODO(nathanielnrn): This is probably very unoptimal and takes multiple
       // cycles to simply do a handshake. Can probably be much better
@@ -779,7 +670,7 @@ component m_bresp_channel(
   }
   control{
       seq{
-          reset_bt_reg;
+          invoke bt_reg(in=1'b0)();
           block_transfer;
       }
   }
