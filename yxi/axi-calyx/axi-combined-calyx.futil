@@ -562,7 +562,6 @@ component m_write_channel(
         //set RREADY high
         //TODO (nathanielnrn): technically we can make RREADY depend on on RVALID (but not vice versa).
         //Could we simplify this we just making things ready when we are in
-        //block_transfer && WREADY?
 
         //NOTE: wvalid.in = 1'b1; does not work, it leaves WVALID high for 2 cycles
         // this both asserts and deasserts one cycle later

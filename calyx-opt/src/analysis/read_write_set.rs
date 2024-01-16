@@ -120,7 +120,8 @@ impl ReadWriteSet {
 }
 
 impl ReadWriteSet {
-    /// Returns the ports that are read by the given control program.
+    /// Returns the ports that are read and written, respectively,
+    /// by the given static control program.
     pub fn control_port_read_write_set_static(
         scon: &ir::StaticControl,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
@@ -193,7 +194,27 @@ impl ReadWriteSet {
         }
     }
 
-    /// Returns the ports that are read by the given control program.
+    /// Returns the cells that are read and written, respectively,
+    /// by the given static control program.
+    pub fn control_read_write_set_static(
+        scon: &ir::StaticControl,
+    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
+        let (port_reads, port_writes) =
+            Self::control_port_read_write_set_static(scon);
+        (
+            port_reads
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+            port_writes
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+        )
+    }
+
+    /// Returns the ports that are read and written, respectively,
+    /// by the given control program.
     pub fn control_port_read_write_set(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
@@ -304,5 +325,45 @@ impl ReadWriteSet {
                 Self::control_port_read_write_set_static(sc)
             }
         }
+    }
+
+    /// Returns the cells that are read and written, respectively,
+    /// by the given control program.
+    pub fn control_read_write_set(
+        con: &ir::Control,
+    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
+        let (port_reads, port_writes) = Self::control_port_read_write_set(con);
+        (
+            port_reads
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+            port_writes
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+        )
+    }
+
+    /// Returns the ports that are read and written, respectively,
+    /// in the continuous assignments of the given component.
+    pub fn cont_ports_read_write_set(
+        comp: &mut calyx_ir::Component,
+    ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
+        (
+            Self::port_read_set(comp.continuous_assignments.iter()).collect(),
+            Self::port_write_set(comp.continuous_assignments.iter()).collect(),
+        )
+    }
+
+    /// Returns the cells that are read and written, respectively,
+    /// in the continuous assignments of the given component.
+    pub fn cont_read_write_set(
+        comp: &mut calyx_ir::Component,
+    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
+        (
+            Self::read_set(comp.continuous_assignments.iter()).collect(),
+            Self::write_set(comp.continuous_assignments.iter()).collect(),
+        )
     }
 }
