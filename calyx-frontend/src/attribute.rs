@@ -106,6 +106,9 @@ pub enum NumAttr {
     #[strum(serialize = "promote_static")]
     /// Promote the group or control to static with the annotated latency
     PromoteStatic,
+    #[strum(serialize = "latency")]
+    /// Provides latency information
+    Latency,
     #[strum(serialize = "compactable")]
     /// suggest that the current static seq block is compactable
     Compactable,
@@ -177,6 +180,9 @@ impl FromStr for Attribute {
             if s.to_uppercase() == s {
                 return Err(Error::misc(format!("Invalid attribute: {}. All caps attributes are reserved for internal use.", s)));
             }
+            if s == "static" {
+                log::warn!("The @static attribute has been deprecated. It will be ignored by the compiler");
+            };
             Ok(Attribute::Unknown(s.into()))
         }
     }
