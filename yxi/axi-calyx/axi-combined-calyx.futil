@@ -134,11 +134,11 @@ component m_arread_channel(
   control{
       //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
       seq{
-	  invoke txn_count(in=32'b0)();
+	      invoke txn_count(in=32'b0)();
           // TODO(nathanielnrn):Parametrize this.
           // 7 is good for word wide data bus and 8 element vec_add We'd
           // expect 8 transfers. Number of transfers that occur is ARLEN + 1
-	  invoke txn_len(in=8'd7)();
+	      invoke txn_len(in=8'd7)();
           while perform_reads.out with check_reads_done{
               seq{
                   par {
@@ -491,17 +491,17 @@ component m_awwrite_channel(
   control{
       //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
       seq{
-	  invoke txn_count(in=32'b0)();
-	  //TODO(nathanielnrn):parameterize this number. 7(+1) gives us 8 elements
-	  invoke txn_len(in=8'd7)();
+	      invoke txn_count(in=32'b0)();
+	      //TODO(nathanielnrn):parameterize this number. 7(+1) gives us 8 elements
+	      invoke txn_len(in=8'd7)();
           while perform_write_txns.out with check_writes_done{
               seq{
                   par {
-		      invoke bt_reg(in=1'b0)();
-		      invoke awvalid_was_high(in=1'b0)();
+		            invoke bt_reg(in=1'b0)();
+		            invoke awvalid_was_high(in=1'b0)();
                   }
                   do_aw_transfer;
-		  invoke is_awvalid(in=1'b0)();
+		          invoke is_awvalid(in=1'b0)();
                   txn_incr;
               }
           }
@@ -618,10 +618,10 @@ component m_write_channel(
       seq{
 
         invoke curr_addr(in=64'b0)(); //reset curr_addr
-	invoke n_finished_last_trnsfr(in=1'b1)(); //init reg
+	    invoke n_finished_last_trnsfr(in=1'b1)(); //init reg
         while n_finished_last_trnsfr.out{
           seq{
-	      invoke bt_reg(in=1'b0)();
+	          invoke bt_reg(in=1'b0)();
               do_write_transfer;
               par{
                 incr_curr_addr;
