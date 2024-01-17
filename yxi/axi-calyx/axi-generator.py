@@ -100,7 +100,6 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         m_to_s_address_channel.this()[f"{x}VALID"] = xvalid.out
 
     # Groups
-
     # Responsible for asserting ARVALID, and deasserting it a cycle after the handshake.
     # This is necesarry because of the way transitions between groups work. See #1828 https://github.com/calyxir/calyx/issues/1828
     with m_to_s_address_channel.group(f"do_{lc_x}_transfer") as do_x_transfer:
@@ -170,15 +169,74 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     return m_to_s_address_channel
 
 
+def add_read_channel(prog, mem):
+    # Inputs/Outputs
+    read_channel = prog.component("m_read_channel")
+    # TODO(nathanielnrn): We currently assume RDATA is the same width as the memory. This limits throughput,
+    # Many AXI data busses are much wider, i.e., 512 bits.
+    channel_inputs = [
+        ("ARESETn", 1),
+        ("RVALID", 1),
+        ("RLAST", 1),
+        ("RDATA", mem["width"]),
+        ("RRESP", 2),
+    ]
+    channel_outputs = [("RREADY", 1)]
+    add_comp_params(read_channel, channel_inputs, channel_outputs)
+
+    # Cells
+
+    # We assume idx_size is exactly clog2(len). See comment in #1751
+    # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
+    mem_ref = read_channel.seq_mem_d1(
+        name="mem_ref",
+        bitwidth=mem["width"],
+        len=mem["size"],
+        idx_size=clog2(mem["size"], is_external=False, is_ref=True),
+    )
+    rready = read_channel.reg("rready", 1)
+    curr_addr = read_channel.reg("curr_addr", 64, is_ref=True)
+    # Registed because RLAST is high with laster transfer, not after
+    # before this we were terminating immediately with last transfer and not servicing it asidfuhausdih asdiufhdusaif sadfiuhsdafiuhdsauif dsiufhadsuhfidsauhf asidufhdusaihf
+    n_RLAST = read_channel.reg("n_RLAST", 1)
+    # Stores data we want to write to our memory at end of block_transfer group
+    read_data_reg = read_channel.reg("read_data_reg", mem["width"])
+    curr_addr_adder = read_channel.add(64, "curr_addr_adder")
+
+    bt_reg = read_channel.reg("bt_reg", 1)
+
+    # Groups
+    with read_channel.continuous:
+        read_channel.this()["RREADY"] = rready.out
+        # Tie this low as we are only ever writing to seq_mem
+        mem_ref.read_en = 0
+
+    # Wait for handshake. Ensure that when this is done we are ready to write (i.e., read_data_reg.write_en = is_rdy.out)
+    # xVALID signals must be high until xREADY is high too, this works because
+    # if xREADY is high, then xVALID being high makes 1 flip and group
+    # is done by bt_reg.out
+    with read_channel.group(block_transfer) as block_transfer:
+        RVALID = read_channel.this()["RVALID"]
+        RDATA = read_channel.this()["RDATA"]
+        # TODO(nathanielnrn): We are allowed to have RREADY depend on RVALID.
+        # Can we simplify to just RVALID?
+
+        # rready.in = 1 does not work because it leaves RREADY high for 2 cycles.
+        # The way it is below leaves it high for only 1 cycle.  See #1828
+        # https://github.com/calyxir/calyx/issues/1828
+
+        # TODO(nathanielnrn): Spec recommends defaulting xREADY high to get rid
+        # of extra cycles.  Can we do this as opposed to waiting for RVALID?
+        rready.in_ = ~(rready.out & RVALID) @ 1
+        rready.in_ = rready.out & RVALID @ 0
+        rready.write_en = 1
+
+        # Store data we want to write
+        read_data_reg.in_ = RDATA
+        read_data_reg.write_en = rready.out
 
 
-def build():
-    prog = Builder()
-    # add_arread_channel(prog, mems[0])
-    add_awwrite_channel(prog, mems[0])
-    return prog.program
-
-
+# Helper functions
 def width_in_bytes(width: int):
     assert width % 8 == 0, "Width must be a multiple of 8."
     return width // 8
@@ -188,6 +246,20 @@ def width_arsize(width: int):
     log = log2(width_in_bytes(width))
     assert log.is_integer(), "Width must be a power of 2."
     return int(log)
+
+
+def clog2(x):
+    """Ceiling log2"""
+    if x <= 0:
+        raise ValueError("x must be positive")
+    return (x - 1).bit_length()
+
+
+def build():
+    prog = Builder()
+    # add_arread_channel(prog, mems[0])
+    add_awwrite_channel(prog, mems[0])
+    return prog.program
 
 
 if __name__ == "__main__":
