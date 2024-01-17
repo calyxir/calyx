@@ -309,10 +309,8 @@ See the language reference for [`invoke`][invoke].
 
 ```python
 # invoke(cell, **kwargs)
-my_invoke = invoke(my_cell, in_arg1=my_cell_arg1_reg.out, in_arg2=my_cell_arg2_reg.out)
+my_invoke = invoke(my_cell, in_arg1=my_cell_arg1_reg.out, in_arg2=1)
 
-# Invoke a cell while passing in integer literals by using `const(<width>, <value>)`
-my_invoke2 = invoke(my_cell, in_arg1=const(1,0), in_arg2=my_cell_arg2_reg.out)
 ```
 
 ## Miscellaneous Tips + Tricks
