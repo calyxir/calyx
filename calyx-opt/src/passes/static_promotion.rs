@@ -459,6 +459,8 @@ impl StaticPromotion {
         sc.get_latency()
     }
 
+    fn get_component_latency(c: &ir::Cell) {}
+
     fn check_latencies_match(actual: u64, inferred: u64) {
         assert_eq!(actual, inferred, "Inferred and Annotated Latencies do not match. Latency: {}. Inferred: {}", actual, inferred);
     }
@@ -660,7 +662,6 @@ impl StaticPromotion {
                     "Shouldn't Promote to Static if there is a Comb Group",
                 );
                 attributes.remove(ir::NumAttr::PromoteStatic);
-                dbg!(&self.static_component_latencies);
                 Self::check_latencies_match(self.static_component_latencies.get(
                     &comp.borrow().type_name().unwrap_or_else(|| {
                         unreachable!(
