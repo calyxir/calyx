@@ -1,4 +1,12 @@
-from calyx.builder import Builder, const, add_comp_params, invoke, while_with, par
+from calyx.builder import (
+    Builder,
+    const,
+    add_comp_params,
+    invoke,
+    while_with,
+    par,
+    while_,
+)
 from calyx import py_ast as ast
 from typing import Literal
 from math import log2
@@ -131,8 +139,6 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         bt_reg.write_en = 1
         do_x_transfer.done = bt_reg.out
 
-        # TODO(nathanielnrn): Continue adding cells. Beforehand need to make sure the calyx wrapper can interface with XRT shell.
-
     with m_to_s_address_channel.group("incr_txn_count") as incr_txn_count:
         txn_adder.left = txn_count.out
         txn_adder.right = 1
@@ -140,6 +146,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         txn_count.write_en = 1
         incr_txn_count.done = txn_count.done
 
+    # Control
     # check if txn_count == txn_n
     cellname = "perform_reads" if prefix == "AR" else "perform_writes"
     check_transactions_done = m_to_s_address_channel.neq_use(
@@ -192,8 +199,15 @@ def add_read_channel(prog, mem):
         name="mem_ref",
         bitwidth=mem["width"],
         len=mem["size"],
-        idx_size=clog2(mem["size"], is_external=False, is_ref=True),
+        #TODO(nathanielnrn): Should this be 64bits or clog2(x) bits? Probably the latter
+        #We probably need to convert between base address and curr address but that seams heavy handed
+        #See #1853 https://github.com/calyxir/calyx/issues/1853
+        idx_size=clog2(mem["size"]),
+        is_external=False,
+        is_ref=True,
     )
+
+    # according to zipcpu, rready should be registered
     rready = read_channel.reg("rready", 1)
     curr_addr = read_channel.reg("curr_addr", 64, is_ref=True)
     # Registed because RLAST is high with laster transfer, not after
@@ -215,9 +229,10 @@ def add_read_channel(prog, mem):
     # xVALID signals must be high until xREADY is high too, this works because
     # if xREADY is high, then xVALID being high makes 1 flip and group
     # is done by bt_reg.out
-    with read_channel.group(block_transfer) as block_transfer:
+    with read_channel.group("block_transfer") as block_transfer:
         RVALID = read_channel.this()["RVALID"]
         RDATA = read_channel.this()["RDATA"]
+        RLAST = read_channel.this()["RLAST"]
         # TODO(nathanielnrn): We are allowed to have RREADY depend on RVALID.
         # Can we simplify to just RVALID?
 
@@ -228,12 +243,49 @@ def add_read_channel(prog, mem):
         # TODO(nathanielnrn): Spec recommends defaulting xREADY high to get rid
         # of extra cycles.  Can we do this as opposed to waiting for RVALID?
         rready.in_ = ~(rready.out & RVALID) @ 1
-        rready.in_ = rready.out & RVALID @ 0
+        rready.in_ = (rready.out & RVALID) @ 0
         rready.write_en = 1
 
         # Store data we want to write
         read_data_reg.in_ = RDATA
-        read_data_reg.write_en = rready.out
+        read_data_reg.write_en = (rready.out & RVALID) @ 1
+        read_data_reg.write_en = ~(rready.out & RVALID) @ 0
+
+        n_RLAST.in_ = RLAST @ 0
+        n_RLAST.in_ = ~RLAST @ 1
+        n_RLAST.write_en = 1
+
+        # We are done after handshake
+        bt_reg.in_ = (rready.out & RVALID) @ 1
+        bt_reg.in_ = ~(rready.out & RVALID) @ 0
+        bt_reg.write_en = 1
+        block_transfer.done = bt_reg.out
+
+    with read_channel.group("service_read_transfer") as service_read_transfer:
+        # not ready till done servicing
+        rready.in_ = 0
+        rready.write_en = 1
+
+        # write data we received to mem_ref
+        mem_ref.addr0 = curr_addr.out
+        mem_ref.write_data = read_data_reg.out
+        mem_ref.write_en = 1
+        service_read_transfer.done = mem_ref.done
+
+    with read_channel.group("incr_curr_addr") as incr_curr_addr:
+        curr_addr_adder.left = curr_addr.out
+        curr_addr_adder.right = 1
+        curr_addr.in_ = curr_addr_adder.out
+        curr_addr.write_en = 1
+        incr_curr_addr.done = curr_addr.done
+
+    # Control
+    invoke_n_RLAST = invoke(n_RLAST, in_in=1)
+    invoke_bt_reg = invoke(bt_reg, in_in=0)
+    while_body = [invoke_bt_reg, block_transfer, service_read_transfer, incr_curr_addr]
+    while_n_RLAST = while_(n_RLAST.out, while_body)
+
+    read_channel.control += [invoke_n_RLAST, while_n_RLAST]
 
 
 # Helper functions
@@ -258,7 +310,8 @@ def clog2(x):
 def build():
     prog = Builder()
     # add_arread_channel(prog, mems[0])
-    add_awwrite_channel(prog, mems[0])
+    # add_awwrite_channel(prog, mems[0])
+    add_read_channel(prog, mems[0])
     return prog.program
 
 
