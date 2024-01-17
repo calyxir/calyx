@@ -95,7 +95,6 @@ impl PassManager {
                 CellShare,       // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
                 CompileInvoke,   // creates dead comb groups
-                AttributePromotion,
                 StaticPromotion,
                 ScheduleCompaction,
                 CompileRepeat,

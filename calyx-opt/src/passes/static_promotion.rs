@@ -63,10 +63,10 @@ impl From<&ir::Primitive> for GoDone {
         let go_ports = prim
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
-                pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
+                pd.attributes.get(ir::NumAttr::Latency).and_then(|lat| {
                     done_ports
                         .get(&pd.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (pd.name(), *done_port, st))
+                        .map(|done_port| (pd.name(), *done_port, lat))
                 })
             })
             .collect_vec();
@@ -88,10 +88,10 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get(ir::NumAttr::Static).and_then(|st| {
+                port.attributes.get(ir::NumAttr::Latency).and_then(|lat| {
                     done_ports
                         .get(&port.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (port.name, *done_port, st))
+                        .map(|done_port| (port.name, *done_port, lat))
                 })
             })
             .collect_vec();
@@ -141,11 +141,11 @@ pub struct StaticPromotion {
     static_group_name: HashMap<ir::Id, ir::Id>,
     /// Maps static component names to their latencies
     static_component_latencies: HashMap<ir::Id, NonZeroU64>,
-    /// Threshold for promotion
+    /// Size threshold for promotion of static islands
     threshold: u64,
     /// Threshold for difference in latency for if statements
     if_diff_limit: Option<u64>,
-    /// Whether we should stop promoting when we see a loop.
+    /// Maximum number of cycles a static island can have if we want to promote it
     cycle_limit: Option<u64>,
 }
 
@@ -157,28 +157,15 @@ impl ConstructVisitor for StaticPromotion {
         //let mut comp_latency = HashMap::new();
         // Construct latency_data for each primitive
         for prim in ctx.lib.signatures() {
-            let done_ports: HashMap<_, _> = prim
-                .find_all_with_attr(ir::NumAttr::Done)
-                .map(|pd| (pd.attributes.get(ir::NumAttr::Done), pd.name()))
-                .collect();
-
-            let go_ports = prim
-                .find_all_with_attr(ir::NumAttr::Go)
-                .filter_map(|pd| {
-                    pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
-                        done_ports
-                            .get(&pd.attributes.get(ir::NumAttr::Go))
-                            .map(|done_port| (pd.name(), *done_port, st))
-                    })
-                })
-                .collect_vec();
-
             // If this primitive has exactly one (go, done, static) pair, we
             // can infer the latency of its invokes.
-            if go_ports.len() == 1 {
-                //comp_latency.insert(prim.name, go_ports[0].2);
-            }
-            latency_data.insert(prim.name, GoDone::new(go_ports));
+            // if go_ports.len() == 1 {
+            //     // XXX(Caleb): The following line was commented out ... does this
+            //     // mean we can get rid of the if statement? I commented out
+            //     // the if statement
+            //     //comp_latency.insert(prim.name, go_ports[0].2);
+            // }
+            latency_data.insert(prim.name, GoDone::from(prim));
         }
         let opts = Self::get_opts(ctx);
         Ok(StaticPromotion {
@@ -512,11 +499,13 @@ impl StaticPromotion {
             self.static_group_name
                 .insert(group.borrow().name(), sg.borrow().name());
             for assignment in group.borrow().assignments.iter() {
+                // Ignore assignment to `group[done]`.
                 if !(assignment.dst.borrow().is_hole()
                     && assignment.dst.borrow().name == "done")
                 {
-                    let static_s = ir::Assignment::from(assignment.clone());
-                    sg.borrow_mut().assignments.push(static_s);
+                    sg.borrow_mut()
+                        .assignments
+                        .push(ir::Assignment::from(assignment.clone()));
                 }
             }
             Rc::clone(&sg)
@@ -565,6 +554,7 @@ impl StaticPromotion {
                 // Removing the `promote_static` attribute bc we don't need it anymore
                 attributes.remove(ir::NumAttr::PromoteStatic);
                 // The resulting static seq should be compactable.
+                // XXX(Caleb): I think @compactable can be a bool attribute.
                 attributes.insert(ir::NumAttr::Compactable, 1);
                 let static_stmts =
                     self.convert_vec_to_static(builder, std::mem::take(stmts));
@@ -663,11 +653,14 @@ impl StaticPromotion {
                 comb_group,
                 ref_cells,
             }) => {
+                // XXX(Caleb): Seems like, in theory, we should be able to
+                // promote to static for invoke with comb group.
                 assert!(
                     comb_group.is_none(),
                     "Shouldn't Promote to Static if there is a Comb Group",
                 );
                 attributes.remove(ir::NumAttr::PromoteStatic);
+                dbg!(&self.static_component_latencies);
                 Self::check_latencies_match(self.static_component_latencies.get(
                     &comp.borrow().type_name().unwrap_or_else(|| {
                         unreachable!(
@@ -850,30 +843,33 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let builder = ir::Builder::new(comp, sigs);
-        let mut latency_result: Option<u64>;
         for group in builder.component.get_groups() {
-            if let Some(latency) = self.infer_latency(&group.borrow()) {
-                let grp = group.borrow();
-                if let Some(curr_lat) = grp.attributes.get(ir::NumAttr::Static)
-                {
-                    // Inferred latency is not the same as the provided latency annotation.
-                    if curr_lat != latency {
-                        let msg1 = format!("Annotated latency: {}", curr_lat);
-                        let msg2 = format!("Inferred latency: {}", latency);
-                        let msg = format!(
+            let latency_result = {
+                if let Some(latency) = self.infer_latency(&group.borrow()) {
+                    let grp = group.borrow();
+                    if let Some(curr_lat) =
+                        grp.attributes.get(ir::NumAttr::PromoteStatic)
+                    {
+                        // Inferred latency is not the same as the provided latency annotation.
+                        if curr_lat != latency {
+                            let msg1 =
+                                format!("Annotated latency: {}", curr_lat);
+                            let msg2 = format!("Inferred latency: {}", latency);
+                            let msg = format!(
                             "Invalid \"static\" latency annotation for group {}.\n{}\n{}",
                             grp.name(),
                             msg1,
                             msg2
                         );
-                        return Err(Error::malformed_structure(msg)
-                            .with_pos(&grp.attributes));
+                            return Err(Error::malformed_structure(msg)
+                                .with_pos(&grp.attributes));
+                        }
                     }
+                    Some(latency)
+                } else {
+                    None
                 }
-                latency_result = Some(latency);
-            } else {
-                latency_result = None;
-            }
+            };
 
             if let Some(latency) = latency_result {
                 group
