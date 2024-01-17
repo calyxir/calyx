@@ -181,7 +181,7 @@ impl FromStr for Attribute {
                 return Err(Error::misc(format!("Invalid attribute: {}. All caps attributes are reserved for internal use.", s)));
             }
             if s == "static" {
-                log::warn!("The @static attribute has been deprecated. It will be ignored by the compiler");
+                log::warn!("The @static attribute has been deprecated. It will be ignored by the compiler.");
             };
             Ok(Attribute::Unknown(s.into()))
         }
