@@ -1,5 +1,6 @@
 from calyx.builder import Builder, const, add_comp_params, invoke, while_with, par
 from calyx import py_ast as ast
+from typing import Literal
 from math import log2
 import json
 
@@ -33,76 +34,107 @@ mems = yxi["memories"]
 
 
 def add_arread_channel(prog, mem):
+    _add_m_to_s_address_channel(prog, mem, "AR")
+
+
+def add_awwrite_channel(prog, mem):
+    awwrite_channel = _add_m_to_s_address_channel(prog, mem, "AW")
+    max_transfers = awwrite_channel.reg("max_transfers", 8, is_ref=True)
+
+    # TODO(nathanielnrn): We eventually want to move beyond
+    # the implicit 1 transaction that is the size of the memory
+    # How should we store this?
+    # Recall this goes to write channel as number of transfers it expectes to do before
+    # setting WLAST high
+    with awwrite_channel.get_group("do_aw_transfer") as do_awwrite_transfer:
+        max_transfers.in_ = mem["size"] - 1
+        max_transfers.write_en = 1
+
+
+def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
+    """Adds a manager to subordinate
+    channel to the program. Uses `prefix` to name the channels
+    appropriately. Expected to be either "AW" or "AR."
+    Contains all of the channels shared between AW and AR channels.
+
+    Returns a component builder in case there are additional
+    cells/wires/groups that need to be added to the component.
+    """
+
+    assert prefix in ["AW", "AR"], "Prefix must be either AW or AR."
+
+    # Following Arm's notation of denoting `xVALID` and `xREADY` signals
+    # `x` stands for the prefix of the channel, i.e. `AW` or `AR`
+    lc_x = prefix.lower()
+    x = prefix
     # Inputs/outputs
-    arread_channel = prog.component("m_arread_channel")
-    arread_inputs = [("ARESETn", 1), ("ARREADY", 1)]
-    arread_outputs = [
-        ("ARVALID", 1),
-        ("ARADDR", 64),
-        ("ARSIZE", 3),  # bytes used in transfer
-        ("ARLEN", 8),  # number of transfers in transaction
-        ("ARBURST", 2),  # for XRT should be tied to 2'b01 for WRAP burst
-        ("ARPROT", 3),  # tied to be priviliged, nonsecure, data access request
+    m_to_s_address_channel = prog.component(f"m_{lc_x}_channel")
+    channel_inputs = [("ARESETn", 1), (f"{x}READY", 1)]
+    channel_outputs = [
+        (f"{x}VALID", 1),
+        (f"{x}ADDR", 64),
+        (f"{x}SIZE", 3),  # bytes used in transfer
+        (f"{x}LEN", 8),  # number of transfers in transaction
+        (f"{x}BURST", 2),  # for XRT should be tied to 2'b01 for WRAP burst
+        (f"{x}PROT", 3),  # tied to be priviliged, nonsecure, data access request
     ]
-    add_comp_params(arread_channel, arread_inputs, arread_outputs)
+    add_comp_params(m_to_s_address_channel, channel_inputs, channel_outputs)
 
     # Cells
-    arvalid = arread_channel.reg("arvalid", 1)
-    arvalid_was_high = arread_channel.reg("arvalid_was_high", 1)
-    base_addr = arread_channel.reg("base_addr", 64, is_ref=True)
-    arlen = arread_channel.reg("arlen", 8)
+    xvalid = m_to_s_address_channel.reg(f"{lc_x}valid", 1)
+    xvalid_was_high = m_to_s_address_channel.reg(f"{lc_x}valid_was_high", 1)
+    base_addr = m_to_s_address_channel.reg("base_addr", 64, is_ref=True)
+    xlen = m_to_s_address_channel.reg(f"{lc_x}len", 8)
 
     # Number of txns we want to occur before m_arread_channel is done
     # TODO: parameterize
-    txn_n = arread_channel.const("txn_n", 32, 1)
-    txn_count = arread_channel.reg("txn_count", 32)
-    txn_adder = arread_channel.add(32, "txn_adder")
+    txn_n = m_to_s_address_channel.const("txn_n", 32, 1)
+    txn_count = m_to_s_address_channel.reg("txn_count", 32)
+    txn_adder = m_to_s_address_channel.add(32, "txn_adder")
 
     # Need to put block_transfer register here to avoid combinational loops
-    bt_reg = arread_channel.reg("bt_reg", 1)
+    bt_reg = m_to_s_address_channel.reg("bt_reg", 1)
 
     # Wires
-    with arread_channel.continuous:
-        arread_channel.this().ARVALID = arvalid.out
+    with m_to_s_address_channel.continuous:
+        m_to_s_address_channel.this()[f"{x}VALID"] = xvalid.out
 
     # Groups
 
     # Responsible for asserting ARVALID, and deasserting it a cycle after the handshake.
     # This is necesarry because of the way transitions between groups work. See #1828 https://github.com/calyxir/calyx/issues/1828
-    with arread_channel.group("do_ar_transfer") as do_ar_transfer:
-        ARREADY = arread_channel.this().ARREADY
+    with m_to_s_address_channel.group(f"do_{lc_x}_transfer") as do_x_transfer:
+        xREADY = m_to_s_address_channel.this()[f"{x}READY"]
         # TODO: Can we simplify this? See comments #1846 https://github.com/calyxir/calyx/pull/1846
         # Assert arvalid if it was not previously high
-        arvalid.in_ = ~arvalid_was_high.out @ 1
+        xvalid.in_ = ~xvalid_was_high.out @ 1
         # Deassert in the next cycle once it is high
-        arvalid.in_ = (arvalid.out & ARREADY & arvalid_was_high.out) @ 0
-        arvalid.write_en = 1
+        xvalid.in_ = (xvalid.out & xREADY & xvalid_was_high.out) @ 0
+        xvalid.write_en = 1
 
-        arvalid_was_high.in_ = (~(arvalid.out & ARREADY) & ~arvalid_was_high.out) @ 1
-        arvalid_was_high.write_en = (
-            ~(arvalid.out & ARREADY) & ~arvalid_was_high.out
-        ) @ 1
+        xvalid_was_high.in_ = (~(xvalid.out & xREADY) & ~xvalid_was_high.out) @ 1
+        xvalid_was_high.write_en = (~(xvalid.out & xREADY) & ~xvalid_was_high.out) @ 1
 
         # Drive output signals for transfer
-        arread_channel.this().ARADDR = base_addr.out
+        m_to_s_address_channel.this()[f"{x}ADDR"] = base_addr.out
         # This is taken from mem size, we assume the databus width is the size of our memory cell
         # TODO(nathanielnrn): convert to binary instead of decimal
-        arread_channel.this().ARSIZE = width_arsize(mem["width"])
+        m_to_s_address_channel.this()[f"{x}SIZE"] = width_arsize(mem["width"])
         # TODO(nathanielnrn): Figure our how to set arlen. For now set to size of mem. A
-        arread_channel.this().ARLEN = arlen.out
-        arread_channel.this().ARBURST = 1  # Must be INCR for XRT
+        m_to_s_address_channel.this()[f"{x}LEN"] = xlen.out
+        m_to_s_address_channel.this()[f"{x}BURST"] = 1  # Must be INCR for XRT
         # Required by spec, we hardcode to privileged, non-secure, data access
-        arread_channel.this().ARPROT = 0b110
+        m_to_s_address_channel.this()[f"{x}PROT"] = 0b110
 
         # control block_transfer reg to go low after one cycle
-        bt_reg.in_ = (ARREADY & arvalid.out) @ 1
-        bt_reg.in_ = ~(ARREADY & arvalid.out) @ 0
+        bt_reg.in_ = (xREADY & xvalid.out) @ 1
+        bt_reg.in_ = ~(xREADY & xvalid.out) @ 0
         bt_reg.write_en = 1
-        do_ar_transfer.done = bt_reg.out
+        do_x_transfer.done = bt_reg.out
 
         # TODO(nathanielnrn): Continue adding cells. Beforehand need to make sure the calyx wrapper can interface with XRT shell.
 
-    with arread_channel.group("incr_txn_count") as incr_txn_count:
+    with m_to_s_address_channel.group("incr_txn_count") as incr_txn_count:
         txn_adder.left = txn_count.out
         txn_adder.right = 1
         txn_count.in_ = txn_adder.out
@@ -110,9 +142,9 @@ def add_arread_channel(prog, mem):
         incr_txn_count.done = txn_count.done
 
     # check if txn_count == txn_n
-
-    check_reads_done = arread_channel.neq_use(
-        txn_count.out, txn_n.out, signed=False, cellname="perform_reads", width=32
+    cellname = "perform_reads" if prefix == "AR" else "perform_writes"
+    check_transactions_done = m_to_s_address_channel.neq_use(
+        txn_count.out, txn_n.out, signed=False, cellname=cellname, width=32
     )
     # with arread_channel.comb_group("check_reads_done") as check_reads_done:
     #     perform_reads.left = txn_count.out
@@ -121,25 +153,29 @@ def add_arread_channel(prog, mem):
     invoke_txn_count = invoke(txn_count, in_in=0)
     # ARLEN must be between 0-255, make sure to subtract 1 from yxi size when assigning to ARLEN
     assert mem["size"] < 256, "Memory size must be less than 256"
-    invoke_arlen = invoke(arlen, in_in=mem["size"] - 1)
+    invoke_xlen = invoke(xlen, in_in=mem["size"] - 1)
 
     while_body = [
         par(
             invoke(bt_reg, in_in=0),
-            invoke(arvalid_was_high, in_in=0),
+            invoke(xvalid_was_high, in_in=0),
         ),
-        do_ar_transfer,
-        invoke(arvalid, in_in=0),
+        do_x_transfer,
+        invoke(xvalid, in_in=0),
         incr_txn_count,
     ]
 
-    while_loop = while_with(check_reads_done, while_body)
-    arread_channel.control += [invoke_txn_count, invoke_arlen, while_loop]
+    while_loop = while_with(check_transactions_done, while_body)
+    m_to_s_address_channel.control += [invoke_txn_count, invoke_xlen, while_loop]
+    return m_to_s_address_channel
+
+
 
 
 def build():
     prog = Builder()
-    add_arread_channel(prog, mems[0])
+    # add_arread_channel(prog, mems[0])
+    add_awwrite_channel(prog, mems[0])
     return prog.program
 
 
