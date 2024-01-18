@@ -925,6 +925,7 @@ component main(
             //read stuff
             par{
                 //init base_addresses
+                //TODO: get this from kernel.xml
                 invoke base_addr_A0(in = 64'x1000)();
                 invoke base_addr_B0(in = 64'x1000)();
                 invoke base_addr_Sum0(in = 64'x1000)();
