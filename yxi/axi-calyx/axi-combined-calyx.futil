@@ -896,49 +896,15 @@ component main(
         m2_WID = 1'b0;
         m2_BID = 1'b0;
 
-        group set_curr_to_base_addr_A0{
-            curr_addr_A0.in = base_addr_A0.out;
-            curr_addr_A0.write_en = 1'b1;
-            set_curr_to_base_addr_A0[done] = curr_addr_A0.done;
-        }
-
-        group init_base_addr_A0{
-            base_addr_A0.in = 64'b0;
-            base_addr_A0.write_en = 1'b1;
-            init_base_addr_A0[done] = base_addr_A0.done;
-        }
-        
-        group set_curr_to_base_addr_B0{
-            curr_addr_B0.in = base_addr_B0.out;
-            curr_addr_B0.write_en = 1'b1;
-            set_curr_to_base_addr_B0[done] = curr_addr_B0.done;
-        }
-
-        group init_base_addr_B0{
-            base_addr_B0.in = 64'b0;
-            base_addr_B0.write_en = 1'b1;
-            init_base_addr_B0[done] = base_addr_B0.done;
-        }
-        
-        group set_curr_to_base_addr_Sum0{
-            curr_addr_Sum0.in = base_addr_Sum0.out;
-            curr_addr_Sum0.write_en = 1'b1;
-            set_curr_to_base_addr_Sum0[done] = curr_addr_Sum0.done;
-        }
-
-        group init_base_addr_Sum0{
-            base_addr_Sum0.in = 64'b0;
-            base_addr_Sum0.write_en = 1'b1;
-            init_base_addr_Sum0[done] = base_addr_Sum0.done;
-        }
     }
     control{
         seq{
             //read stuff
             par{
-                init_base_addr_A0;
-                init_base_addr_B0;
-                init_base_addr_Sum0;
+                //init base_addresses
+                invoke base_addr_A0(in = 64'b0)();
+                invoke base_addr_B0(in = 64'b0)();
+                invoke base_addr_Sum0(in = 64'b0)();
             }
             par{
               seq{
@@ -956,7 +922,7 @@ component main(
                 ARBURST = m0_ARBURST
                 );
 
-                set_curr_to_base_addr_A0;
+                invoke curr_addr_A0(in = base_addr_A0.out)(); //set curr_addr to base_address
 
                 invoke A0_read_channel[data_received = A0, curr_addr = curr_addr_A0]
                 (
@@ -986,7 +952,7 @@ component main(
                 ARBURST = m1_ARBURST
                 );
 
-                set_curr_to_base_addr_B0;
+                invoke curr_addr_B0(in = base_addr_B0.out)(); //set curr_addr to base_address
 
                 invoke B0_read_channel[data_received = B0, curr_addr = curr_addr_B0]
                 (
@@ -1014,7 +980,7 @@ component main(
                 ARBURST = m2_ARBURST
                 );
 
-                set_curr_to_base_addr_Sum0;
+                invoke curr_addr_Sum0(in = base_addr_Sum0.out)(); //set curr_addr to base_address
 
                 invoke Sum0_read_channel[data_received = Sum0, curr_addr = curr_addr_Sum0]
                 (
@@ -1055,7 +1021,7 @@ component main(
                     AWPROT = m0_AWPROT
                     );
 
-                    set_curr_to_base_addr_A0;
+                    invoke curr_addr_A0(in = base_addr_A0.out)(); //set curr_addr to base_address
 
                     invoke A0_write_channel[internal_mem = A0, curr_addr = curr_addr_A0, max_trnsfrs = max_trnsfrs]
                     (
@@ -1085,7 +1051,7 @@ component main(
                     AWPROT = m1_AWPROT
                     );
 
-                    set_curr_to_base_addr_B0;
+                    invoke curr_addr_B0(in = base_addr_B0.out)(); //set curr_addr to base_address
 
                     invoke B0_write_channel[internal_mem = B0, curr_addr = curr_addr_B0, max_trnsfrs = max_trnsfrs]
                     (
@@ -1116,7 +1082,7 @@ component main(
                     AWPROT = m2_AWPROT
                     );
 
-                    set_curr_to_base_addr_Sum0;
+                    invoke curr_addr_Sum0(in = base_addr_Sum0.out)(); //set curr_addr to base_address
 
                     invoke Sum0_write_channel[internal_mem = Sum0, curr_addr = curr_addr_Sum0, max_trnsfrs = max_trnsfrs]
                     (
