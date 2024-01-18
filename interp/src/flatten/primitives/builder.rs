@@ -24,7 +24,8 @@ pub fn build_primitive(
             c_type: _,
         } => {
             let v = Value::from(*val, *width);
-            env.ports[base_port] = v.clone();
+            // TODO griffin: see if it is worth putting the initialization back
+            // env.ports[base_port] = v.clone();
             Box::new(StdConst::new(v, base_port))
         }
 

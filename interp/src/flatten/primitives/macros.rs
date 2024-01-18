@@ -80,7 +80,7 @@ macro_rules! comb_primitive {
 
 
                 #[allow(non_snake_case)]
-                let exec_func = |$($($param: u32,)+)? $($port: &$crate::values::Value),+| ->$crate::errors::InterpreterResult<$crate::values::Value>  {
+                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::InterpreterResult<$crate::flatten::flat_ir::prelude::PortValue>  {
                     $execute
                 };
 
@@ -91,7 +91,7 @@ macro_rules! comb_primitive {
 
                 )?;
 
-                Ok(if port_map[$out_port] != out {
+                Ok(if port_map[$out_port].val() != out.val() {
                     port_map[$out_port] = out;
                     $crate::flatten::primitives::prim_trait::UpdateStatus::Changed
                 } else {

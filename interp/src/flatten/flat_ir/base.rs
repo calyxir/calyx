@@ -257,7 +257,14 @@ impl_index!(AssignmentIdx);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AssignmentWinner {
+    /// Indicates that the "winning" assignment for this port was produced by a
+    /// cell computation rather than an assignment. Since cells cannot share
+    /// ports, there is no way for multiple cells to write the same output port,
+    /// thus we don't need to record the cell that assigned it.
     Cell,
+    /// A concrete value produced by the control program
+    Implicit,
+    /// The assignment that produced this value.
     Assign(AssignmentIdx),
 }
 
@@ -291,6 +298,89 @@ impl AssignedValue {
     /// Returns true if the two AssignedValues do not have the same winner
     pub fn has_conflict_with(&self, other: &Self) -> bool {
         self.winner != other.winner
+    }
+
+    pub fn val(&self) -> &Value {
+        &self.val
+    }
+
+    pub fn winner(&self) -> &AssignmentWinner {
+        &self.winner
+    }
+
+    pub fn implicit_bit_high() -> Self {
+        Self {
+            val: Value::bit_high(),
+            winner: AssignmentWinner::Implicit,
+        }
+    }
+
+    #[inline]
+    pub fn cell_value(val: Value) -> Self {
+        Self {
+            val,
+            winner: AssignmentWinner::Cell,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+/// A wrapper struct around an option of an [AssignedValue]
+pub struct PortValue(Option<AssignedValue>);
+
+impl std::fmt::Display for PortValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
+impl PortValue {
+    pub fn is_undef(&self) -> bool {
+        self.0.is_none()
+    }
+
+    pub fn is_def(&self) -> bool {
+        self.0.is_some()
+    }
+
+    pub fn as_option(&self) -> Option<&AssignedValue> {
+        self.0.as_ref()
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        self.0.as_ref().map(|x| x.val().as_bool())
+    }
+
+    pub fn val(&self) -> Option<&Value> {
+        self.0.as_ref().map(|x| &x.val)
+    }
+
+    pub fn winner(&self) -> Option<&AssignmentWinner> {
+        self.0.as_ref().map(|x| &x.winner)
+    }
+
+    pub fn new<T: Into<Self>>(val: T) -> Self {
+        val.into()
+    }
+
+    pub fn new_undef() -> Self {
+        Self(None)
+    }
+
+    pub fn new_cell_assigned(val: Value) -> Self {
+        Self(Some(AssignedValue::cell_value(val)))
+    }
+}
+
+impl From<Option<AssignedValue>> for PortValue {
+    fn from(value: Option<AssignedValue>) -> Self {
+        Self(value)
+    }
+}
+
+impl From<AssignedValue> for PortValue {
+    fn from(value: AssignedValue) -> Self {
+        Self(Some(value))
     }
 }
 

@@ -14,7 +14,7 @@ use crate::{
                 AssignedValue, AssignmentIdx, AssignmentWinner, BaseIndices,
                 ComponentIdx, ControlIdx, ControlMap, ControlNode,
                 GlobalCellIdx, GlobalPortIdx, GlobalPortRef, GlobalRefCellIdx,
-                GlobalRefPortIdx, GuardIdx, PortRef,
+                GlobalRefPortIdx, GuardIdx, PortRef, PortValue,
             },
             wires::guards::Guard,
         },
@@ -32,7 +32,7 @@ use crate::{
 };
 use std::{collections::VecDeque, fmt::Debug};
 
-pub type PortMap = IndexedMap<GlobalPortIdx, Option<AssignedValue>>;
+pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
 impl PortMap {
     pub fn insert_val(
@@ -40,7 +40,7 @@ impl PortMap {
         target: GlobalPortIdx,
         val: AssignedValue,
     ) -> InterpreterResult<UpdateStatus> {
-        match &self[target] {
+        match self[target].as_option() {
             // unchanged
             Some(t) if *t == val => Ok(UpdateStatus::Unchanged),
             // conflict
@@ -54,7 +54,7 @@ impl PortMap {
             ),
             // changed
             Some(_) | None => {
-                self[target] = Some(val);
+                self[target] = PortValue::new(val);
                 Ok(UpdateStatus::Changed)
             }
         }
@@ -202,16 +202,16 @@ impl<'a> Environment<'a> {
         // first layout the signature
         for sig_port in comp_aux.signature.iter() {
             let width = self.ctx.lookup_port_def(&comp_id, sig_port).width;
-            let idx = self.ports.push(Value::zeroes(width));
+            let idx = self.ports.push(PortValue::new_undef());
             debug_assert_eq!(index_bases + sig_port, idx);
         }
         // second group ports
         for group_idx in comp_aux.definitions.groups() {
             //go
-            let go = self.ports.push(Value::bit_low());
+            let go = self.ports.push(PortValue::new_undef());
 
             //done
-            let done = self.ports.push(Value::bit_low());
+            let done = self.ports.push(PortValue::new_undef());
 
             // quick sanity check asserts
             let go_actual = index_bases + self.ctx.primary[group_idx].go;
@@ -238,7 +238,7 @@ impl<'a> Environment<'a> {
                 let port_base = self.ports.peek_next_idx();
                 for port in info.ports.iter() {
                     let width = self.ctx.lookup_port_def(&comp_id, port).width;
-                    let idx = self.ports.push(Value::zeroes(width));
+                    let idx = self.ports.push(PortValue::new_undef());
                     debug_assert_eq!(
                         &self.cells[comp].as_comp().unwrap().index_bases + port,
                         idx
@@ -420,7 +420,7 @@ impl<'a> Simulator<'a> {
     }
 
     #[inline]
-    fn get_value(&self, port: &PortRef, comp: GlobalCellIdx) -> &Value {
+    fn get_value(&self, port: &PortRef, comp: GlobalCellIdx) -> &PortValue {
         let port_idx = self.get_global_idx(port, comp);
         &self.env.ports[port_idx]
     }
@@ -545,10 +545,14 @@ impl<'a> Simulator<'a> {
                     );
 
                     let result = match target {
-                        GlobalPortRef::Port(p) => self.env.ports[p].as_bool(),
+                        GlobalPortRef::Port(p) => self.env.ports[p]
+                            .as_bool()
+                            .expect("if condition is undefined"),
                         GlobalPortRef::Ref(r) => {
                             let index = self.env.ref_ports[r].unwrap();
-                            self.env.ports[index].as_bool()
+                            self.env.ports[index]
+                                .as_bool()
+                                .expect("if condition is undefined")
                         }
                     };
 
@@ -567,10 +571,14 @@ impl<'a> Simulator<'a> {
                     );
 
                     let result = match target {
-                        GlobalPortRef::Port(p) => self.env.ports[p].as_bool(),
+                        GlobalPortRef::Port(p) => self.env.ports[p]
+                            .as_bool()
+                            .expect("while condition is undefined"),
                         GlobalPortRef::Ref(r) => {
                             let index = self.env.ref_ports[r].unwrap();
-                            self.env.ports[index].as_bool()
+                            self.env.ports[index]
+                                .as_bool()
+                                .expect("while condition is undefined")
                         }
                     };
 
@@ -620,25 +628,33 @@ impl<'a> Simulator<'a> {
         Ok(())
     }
 
-    fn evaluate_guard(&self, guard: GuardIdx, comp: GlobalCellIdx) -> bool {
+    fn evaluate_guard(
+        &self,
+        guard: GuardIdx,
+        comp: GlobalCellIdx,
+    ) -> Option<bool> {
         let guard = &self.ctx().primary[guard];
         match guard {
-            Guard::True => true,
+            Guard::True => Some(true),
             Guard::Or(a, b) => {
-                self.evaluate_guard(*a, comp) || self.evaluate_guard(*b, comp)
+                let g1 = self.evaluate_guard(*a, comp)?;
+                let g2 = self.evaluate_guard(*b, comp)?;
+                Some(g1 || g2)
             }
             Guard::And(a, b) => {
-                self.evaluate_guard(*a, comp) || self.evaluate_guard(*b, comp)
+                let g1 = self.evaluate_guard(*a, comp)?;
+                let g2 = self.evaluate_guard(*b, comp)?;
+                Some(g1 && g2)
             }
-            Guard::Not(n) => !self.evaluate_guard(*n, comp),
+            Guard::Not(n) => Some(!self.evaluate_guard(*n, comp)?),
             Guard::Comp(c, a, b) => {
                 let comp_v = self.env.cells[comp].unwrap_comp();
 
                 let a = self.lookup_global_port_id(comp_v.convert_to_global(a));
                 let b = self.lookup_global_port_id(comp_v.convert_to_global(b));
 
-                let a_val = &self.env.ports[a];
-                let b_val = &self.env.ports[b];
+                let a_val = self.env.ports[a].val()?;
+                let b_val = self.env.ports[b].val()?;
                 match c {
                     calyx_ir::PortComp::Eq => a_val == b_val,
                     calyx_ir::PortComp::Neq => a_val != b_val,
@@ -647,6 +663,7 @@ impl<'a> Simulator<'a> {
                     calyx_ir::PortComp::Geq => a_val >= b_val,
                     calyx_ir::PortComp::Leq => a_val <= b_val,
                 }
+                .into()
             }
             Guard::Port(p) => {
                 let comp_v = self.env.cells[comp].unwrap_comp();
@@ -680,14 +697,23 @@ impl<'a> Simulator<'a> {
 
             // evaluate all the assignments and make updates
             for (cell, assigns) in assigns_bundle.iter() {
-                for assign in assigns {
-                    let assign = &self.env.ctx.primary[assign];
-                    if self.evaluate_guard(assign.guard, *cell) {
+                for assign_idx in assigns {
+                    let assign = &self.env.ctx.primary[assign_idx];
+
+                    // TODO griffin: Come back to this unwrap default later
+                    // since we may want to do something different if the guard
+                    // does not have a defined value
+                    if self.evaluate_guard(assign.guard, *cell).unwrap_or(false)
+                    {
                         let val = self.get_value(&assign.src, *cell);
                         let dest = self.get_global_idx(&assign.dst, *cell);
-                        if &self.env.ports[dest] != val {
-                            has_changed = true;
-                            self.env.ports[dest] = val.clone();
+                        if let Some(v) = val.as_option() {
+                            self.env.ports.insert_val(
+                                dest,
+                                AssignedValue::new(v.val().clone(), assign_idx),
+                            );
+                        } else if self.env.ports[dest].is_def() {
+                            todo!("Raise an error here since this assignment is undefining things")
                         }
                     }
                 }

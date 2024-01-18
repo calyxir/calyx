@@ -1,7 +1,7 @@
 use crate::{
     errors::InterpreterResult,
     flatten::{
-        flat_ir::prelude::GlobalPortIdx,
+        flat_ir::prelude::{AssignedValue, GlobalPortIdx},
         primitives::{
             declare_ports, make_getters, output, ports,
             prim_trait::{UpdateResult, UpdateStatus},
@@ -40,14 +40,17 @@ impl Primitive for StdReg {
             done: Self::DONE
         ];
 
-        let done_port = if port_map[reset].as_bool() {
+        let done_port = if port_map[reset].as_bool().unwrap_or_default() {
             self.internal_state = Value::zeroes(self.internal_state.width());
-            port_map.insert_val(done, Value::bit_low())
-        } else if port_map[write_en].as_bool() {
+            port_map
+                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))
+        } else if port_map[write_en].as_bool().unwrap_or_default() {
             self.internal_state = port_map[input].clone();
-            port_map.insert_val(done, Value::bit_high())
+            port_map
+                .insert_val(done, AssignedValue::cell_value(Value::bit_high()))
         } else {
-            port_map.insert_val(done, Value::bit_low())
+            port_map
+                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))
         };
 
         Ok(done_port
