@@ -276,8 +276,10 @@ component m_read_channel(
 	      invoke bt_reg(in=1'b0)(); //reset bt_reg
               block_transfer;
               receive_r_transfer;
-              incr_curr_addr;
-              incr_base_addr;
+              par{
+                  incr_curr_addr;
+                  incr_base_addr;
+              }
           }
       }
   }
