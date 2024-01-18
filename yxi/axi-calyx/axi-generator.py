@@ -9,7 +9,7 @@ from calyx.builder import (
 )
 from calyx import py_ast as ast
 from typing import Literal
-from math import log2
+from math import log2, ceil
 import json
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
@@ -124,10 +124,11 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
 
         # Drive output signals for transfer
         m_to_s_address_channel.this()[f"{x}ADDR"] = base_addr.out
-        # This is taken from mem size, we assume the databus width is the size of our memory cell
+        # This is taken from mem size, we assume the databus width is the size
+        # of our memory cell and that width is a power of 2
         # TODO(nathanielnrn): convert to binary instead of decimal
-        m_to_s_address_channel.this()[f"{x}SIZE"] = width_arsize(mem["width"])
-        # TODO(nathanielnrn): Figure our how to set arlen. For now set to size of mem. A
+        m_to_s_address_channel.this()[f"{x}SIZE"] = width_xsize(mem["width"])
+        # TODO(nathanielnrn): Figure our how to set arlen. For now set to size of mem.
         m_to_s_address_channel.this()[f"{x}LEN"] = xlen.out
         m_to_s_address_channel.this()[f"{x}BURST"] = 1  # Must be INCR for XRT
         # Required by spec, we hardcode to privileged, non-secure, data access
@@ -199,9 +200,9 @@ def add_read_channel(prog, mem):
         name="mem_ref",
         bitwidth=mem["width"],
         len=mem["size"],
-        #TODO(nathanielnrn): Should this be 64bits or clog2(x) bits? Probably the latter
-        #We probably need to convert between base address and curr address but that seams heavy handed
-        #See #1853 https://github.com/calyxir/calyx/issues/1853
+        # TODO(nathanielnrn): Should this be 64bits or clog2(x) bits? Probably the latter
+        # We probably need to convert between base address and curr address but that seams heavy handed
+        # See #1853 https://github.com/calyxir/calyx/issues/1853
         idx_size=clog2(mem["size"]),
         is_external=False,
         is_ref=True,
@@ -209,13 +210,13 @@ def add_read_channel(prog, mem):
 
     # according to zipcpu, rready should be registered
     rready = read_channel.reg("rready", 1)
-    curr_addr = read_channel.reg("curr_addr", 64, is_ref=True)
+    curr_addr = read_channel.reg("curr_addr", clog2(mem["size"]), is_ref=True)
+    base_addr = read_channel.reg("base_addr", 64, is_ref=True)
     # Registed because RLAST is high with laster transfer, not after
     # before this we were terminating immediately with last transfer and not servicing it asidfuhausdih asdiufhdusaif sadfiuhsdafiuhdsauif dsiufhadsuhfidsauhf asidufhdusaihf
     n_RLAST = read_channel.reg("n_RLAST", 1)
     # Stores data we want to write to our memory at end of block_transfer group
     read_data_reg = read_channel.reg("read_data_reg", mem["width"])
-    curr_addr_adder = read_channel.add(64, "curr_addr_adder")
 
     bt_reg = read_channel.reg("bt_reg", 1)
 
@@ -272,17 +273,23 @@ def add_read_channel(prog, mem):
         mem_ref.write_en = 1
         service_read_transfer.done = mem_ref.done
 
-    with read_channel.group("incr_curr_addr") as incr_curr_addr:
-        curr_addr_adder.left = curr_addr.out
-        curr_addr_adder.right = 1
-        curr_addr.in_ = curr_addr_adder.out
-        curr_addr.write_en = 1
-        incr_curr_addr.done = curr_addr.done
+    # creates group that increments curr_addr by 1. Creates adder and wires up correctly
+    curr_addr_incr = read_channel.incr(curr_addr, 1)
+    # TODO(nathanielnrn): Currently we assume that width is a power of 2.
+    # In the future we should allow for non-power of 2 widths, will need some
+    # splicing for this.
+    # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93
+    base_addr_incr = read_channel.incr(base_addr, ceil(mem["width"] / 8))
 
     # Control
     invoke_n_RLAST = invoke(n_RLAST, in_in=1)
     invoke_bt_reg = invoke(bt_reg, in_in=0)
-    while_body = [invoke_bt_reg, block_transfer, service_read_transfer, incr_curr_addr]
+    while_body = [
+        invoke_bt_reg,
+        block_transfer,
+        service_read_transfer,
+        par(curr_addr_incr, base_addr_incr),
+    ]
     while_n_RLAST = while_(n_RLAST.out, while_body)
 
     read_channel.control += [invoke_n_RLAST, while_n_RLAST]
@@ -294,7 +301,7 @@ def width_in_bytes(width: int):
     return width // 8
 
 
-def width_arsize(width: int):
+def width_xsize(width: int):
     log = log2(width_in_bytes(width))
     assert log.is_integer(), "Width must be a power of 2."
     return int(log)
