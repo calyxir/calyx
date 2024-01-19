@@ -4,9 +4,10 @@ from calyx.builder import (
     invoke,
     while_with,
     par,
+    while_,
 )
 from typing import Literal
-from math import log2
+from math import log2, ceil
 import json
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
@@ -177,6 +178,124 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     return m_to_s_address_channel
 
 
+def add_read_channel(prog, mem):
+    # Inputs/Outputs
+    read_channel = prog.component("m_read_channel")
+    # TODO(nathanielnrn): We currently assume RDATA is the same width as the
+    # memory. This limits throughput many AXI data busses are much wider
+    # i.e., 512 bits.
+    channel_inputs = [
+        ("ARESETn", 1),
+        ("RVALID", 1),
+        ("RLAST", 1),
+        ("RDATA", mem["width"]),
+        ("RRESP", 2),
+    ]
+    channel_outputs = [("RREADY", 1)]
+    add_comp_params(read_channel, channel_inputs, channel_outputs)
+
+    # Cells
+
+    # We assume idx_size is exactly clog2(len). See comment in #1751
+    # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
+    mem_ref = read_channel.seq_mem_d1(
+        name="mem_ref",
+        bitwidth=mem["width"],
+        len=mem["size"],
+        idx_size=clog2(mem["size"]),
+        is_external=False,
+        is_ref=True,
+    )
+
+    # according to zipcpu, rready should be registered
+    rready = read_channel.reg("rready", 1)
+    curr_addr = read_channel.reg("curr_addr", clog2(mem["size"]), is_ref=True)
+    base_addr = read_channel.reg("base_addr", 64, is_ref=True)
+    # Registed because RLAST is high with laster transfer, not after
+    # before this we were terminating immediately with
+    # last transfer and not servicing it
+    n_RLAST = read_channel.reg("n_RLAST", 1)
+    # Stores data we want to write to our memory at end of block_transfer group
+    read_data_reg = read_channel.reg("read_data_reg", mem["width"])
+
+    bt_reg = read_channel.reg("bt_reg", 1)
+
+    # Groups
+    with read_channel.continuous:
+        read_channel.this()["RREADY"] = rready.out
+        # Tie this low as we are only ever writing to seq_mem
+        mem_ref.read_en = 0
+
+    # Wait for handshake. Ensure that when this is done we are ready to write
+    # (i.e., read_data_reg.write_en = is_rdy.out)
+    # xVALID signals must be high until xREADY is high too, this works because
+    # if xREADY is high, then xVALID being high makes 1 flip and group
+    # is done by bt_reg.out
+    with read_channel.group("block_transfer") as block_transfer:
+        RVALID = read_channel.this()["RVALID"]
+        RDATA = read_channel.this()["RDATA"]
+        RLAST = read_channel.this()["RLAST"]
+        # TODO(nathanielnrn): We are allowed to have RREADY depend on RVALID.
+        # Can we simplify to just RVALID?
+
+        # rready.in = 1 does not work because it leaves RREADY high for 2 cycles.
+        # The way it is below leaves it high for only 1 cycle.  See #1828
+        # https://github.com/calyxir/calyx/issues/1828
+
+        # TODO(nathanielnrn): Spec recommends defaulting xREADY high to get rid
+        # of extra cycles.  Can we do this as opposed to waiting for RVALID?
+        rready.in_ = ~(rready.out & RVALID) @ 1
+        rready.in_ = (rready.out & RVALID) @ 0
+        rready.write_en = 1
+
+        # Store data we want to write
+        read_data_reg.in_ = RDATA
+        read_data_reg.write_en = (rready.out & RVALID) @ 1
+        read_data_reg.write_en = ~(rready.out & RVALID) @ 0
+
+        n_RLAST.in_ = RLAST @ 0
+        n_RLAST.in_ = ~RLAST @ 1
+        n_RLAST.write_en = 1
+
+        # We are done after handshake
+        bt_reg.in_ = (rready.out & RVALID) @ 1
+        bt_reg.in_ = ~(rready.out & RVALID) @ 0
+        bt_reg.write_en = 1
+        block_transfer.done = bt_reg.out
+
+    with read_channel.group("service_read_transfer") as service_read_transfer:
+        # not ready till done servicing
+        rready.in_ = 0
+        rready.write_en = 1
+
+        # write data we received to mem_ref
+        mem_ref.addr0 = curr_addr.out
+        mem_ref.write_data = read_data_reg.out
+        mem_ref.write_en = 1
+        service_read_transfer.done = mem_ref.done
+
+    # creates group that increments curr_addr by 1. Creates adder and wires up correctly
+    curr_addr_incr = read_channel.incr(curr_addr, 1)
+    # TODO(nathanielnrn): Currently we assume that width is a power of 2.
+    # In the future we should allow for non-power of 2 widths, will need some
+    # splicing for this.
+    # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
+    base_addr_incr = read_channel.incr(base_addr, ceil(mem["width"] / 8))
+
+    # Control
+    invoke_n_RLAST = invoke(n_RLAST, in_in=1)
+    invoke_bt_reg = invoke(bt_reg, in_in=0)
+    while_body = [
+        invoke_bt_reg,
+        block_transfer,
+        service_read_transfer,
+        par(curr_addr_incr, base_addr_incr),
+    ]
+    while_n_RLAST = while_(n_RLAST.out, while_body)
+
+    read_channel.control += [invoke_n_RLAST, while_n_RLAST]
+
+
 # Helper functions
 def width_in_bytes(width: int):
     assert width % 8 == 0, "Width must be a multiple of 8."
@@ -198,9 +317,9 @@ def clog2(x):
 
 def build():
     prog = Builder()
-    # add_arread_channel(prog, mems[0])
+    add_arread_channel(prog, mems[0])
     add_awwrite_channel(prog, mems[0])
-    # add_read_channel(prog, mems[0])
+    add_read_channel(prog, mems[0])
     return prog.program
 
 
