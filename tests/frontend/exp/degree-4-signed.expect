@@ -56,7 +56,7 @@ component exp(x: 16) -> (out: 16) {
       frac_x.write_en = 1'd1;
       int_x.in = rsh.out;
       frac_x.in = and1.out;
-      split_bits[done] = int_x.done & frac_x.done ? 1'd1;
+      split_bits[done] = (int_x.done & frac_x.done) ? 1'd1;
     }
     group negate {
       mult_pipe1.left = exponent_value.out;
@@ -207,7 +207,7 @@ component fp_pow(base: 16, integer_exp: 16) -> (out: 16) {
       pow.write_en = 1'd1;
       count.in = 16'd0;
       count.write_en = 1'd1;
-      init[done] = pow.done & count.done ? 1'd1;
+      init[done] = (pow.done & count.done) ? 1'd1;
     }
     group execute_mul {
       mul.left = base;
