@@ -1,7 +1,10 @@
-//! Primitive listing backend for the Calyx compiler.
+//! Primitive instantiations backend for the Calyx compiler.
+//!
 //! Transforms an [`ir::Context`](crate::ir::Context) into a JSON file that
 //! records the unique primitive instantiations in a program.
-//! Adapted from resources.rs backend.
+//! Usage: -b primitive-inst [-o <OUTPUT_FILE>]
+//! Adapted from resources.rs.
+
 use std::{collections::BTreeMap, collections::HashSet, io};
 
 use crate::traits::Backend;
