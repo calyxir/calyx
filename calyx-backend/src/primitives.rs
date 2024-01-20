@@ -2,7 +2,7 @@
 //! Transforms an [`ir::Context`](crate::ir::Context) into a JSON file that
 //! records the unique primitive instantiations in a program.
 //! Adapted from resources.rs backend.
-use std::{collections::HashSet, io};
+use std::{collections::BTreeMap, collections::HashSet, io};
 
 use crate::traits::Backend;
 use calyx_ir as ir;
@@ -37,8 +37,7 @@ impl Backend for PrimitiveInstBackend {
             .find(|comp| comp.name == ctx.entrypoint)
             .unwrap();
 
-        let primitive_set: &mut HashSet<PrimitiveInstantiation> =
-            &mut HashSet::new();
+        let primitive_set: &mut HashSet<PrimitiveInst> = &mut HashSet::new();
 
         gen_primitive_set(ctx, main_comp, primitive_set);
 
@@ -49,9 +48,9 @@ impl Backend for PrimitiveInstBackend {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
-struct PrimitiveInstantiation {
+struct PrimitiveInst {
     name: String,
-    params: Vec<u64>,
+    params: Vec<BTreeMap<String, u64>>,
 }
 
 /// Counts the number of each primitive with a given set of parameters
@@ -59,7 +58,7 @@ struct PrimitiveInstantiation {
 fn gen_primitive_set(
     ctx: &ir::Context,
     main_comp: &ir::Component,
-    primitive_set: &mut HashSet<PrimitiveInstantiation>,
+    primitive_set: &mut HashSet<PrimitiveInst>,
 ) {
     for cell in main_comp.cells.iter() {
         let cell_ref = cell.borrow();
@@ -70,10 +69,13 @@ fn gen_primitive_set(
                 ..
             } => {
                 let mut curr_params = Vec::new();
-                for (_, size) in param_binding.iter() {
-                    curr_params.push(size.clone());
+                for (param_name, param_size) in param_binding.iter() {
+                    let mut param_binding = BTreeMap::new();
+                    param_binding
+                        .insert(param_name.to_string(), param_size.clone());
+                    curr_params.push(param_binding);
                 }
-                let curr_primitive = PrimitiveInstantiation {
+                let curr_primitive = PrimitiveInst {
                     name: name.to_string(),
                     params: curr_params,
                 };
@@ -93,11 +95,10 @@ fn gen_primitive_set(
 }
 
 fn write_json(
-    primitive_set: HashSet<PrimitiveInstantiation>,
+    primitive_set: HashSet<PrimitiveInst>,
     file: &mut OutputFile,
 ) -> Result<(), io::Error> {
-    let created_vec: Vec<PrimitiveInstantiation> =
-        primitive_set.into_iter().collect();
+    let created_vec: Vec<PrimitiveInst> = primitive_set.into_iter().collect();
     serde_json::to_writer_pretty(file.get_write(), &created_vec)?;
     Ok(())
 }
