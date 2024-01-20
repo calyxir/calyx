@@ -56,7 +56,7 @@ struct PrimitiveInst {
     params: Vec<BTreeMap<String, u64>>,
 }
 
-/// Counts the number of each primitive with a given set of parameters
+/// Accumulates a set with each primitive with a given set of parameters
 /// in the program with entrypoint `main_comp`.
 fn gen_primitive_set(
     ctx: &ir::Context,
@@ -96,6 +96,7 @@ fn gen_primitive_set(
     }
 }
 
+/// Write the collected set of primitive instantiations to a JSON file.
 fn write_json(
     primitive_set: HashSet<PrimitiveInst>,
     file: &mut OutputFile,
