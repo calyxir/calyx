@@ -71,8 +71,7 @@ fn gen_primitive_set(
                 let mut curr_params = Vec::new();
                 for (param_name, param_size) in param_binding.iter() {
                     let mut param_binding = BTreeMap::new();
-                    param_binding
-                        .insert(param_name.to_string(), param_size.clone());
+                    param_binding.insert(param_name.to_string(), *param_size);
                     curr_params.push(param_binding);
                 }
                 let curr_primitive = PrimitiveInst {
