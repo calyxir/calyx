@@ -1,12 +1,14 @@
 //! Backends for the Calyx compiler.
 mod backend_opt;
 mod firrtl;
+mod primitives;
 mod traits;
 mod verilog;
 mod yxi;
 
 pub use backend_opt::BackendOpt;
 pub use firrtl::FirrtlBackend;
+pub use primitives::PrimitiveInstBackend;
 pub use traits::Backend;
 pub use verilog::VerilogBackend;
 pub use yxi::YxiBackend;
