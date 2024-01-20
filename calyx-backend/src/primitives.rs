@@ -98,6 +98,6 @@ fn write_json(
 ) -> Result<(), io::Error> {
     let created_vec: Vec<PrimitiveInstantiation> =
         primitive_set.into_iter().collect();
-    serde_json::to_writer(file.get_write(), &created_vec)?;
+    serde_json::to_writer_pretty(file.get_write(), &created_vec)?;
     Ok(())
 }
