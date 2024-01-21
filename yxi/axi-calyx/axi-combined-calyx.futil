@@ -565,9 +565,6 @@ component m_write_channel(
       bt_reg = std_reg(1);
 
 
-
-     curr_addr_slice = std_slice(64,32);
-
   }
   wires{
 
@@ -585,12 +582,12 @@ component m_write_channel(
         // this both asserts and deasserts one cycle later
         wvalid.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
         // TODO(nathanielnrn): Can prob get rid of wvalid_was_high
-        wvalid.in = wvalid.out & WREADY & wvalid_was_high.out ? 1'b0;
+        wvalid.in = (wvalid.out & WREADY) & wvalid_was_high.out ? 1'b0;
         wvalid.write_en = 1'b1;
 
         //set to 1 after valid has been high even once
-        wvalid_was_high.in = 1'b1;
-        wvalid_was_high.write_en = !(wvalid.out & WREADY & !wvalid_was_high.out) ? 1'b1;
+        wvalid_was_high.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
+        wvalid_was_high.write_en = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
 
      
         // set data output based on curr_addr register
