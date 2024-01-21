@@ -174,7 +174,9 @@ component m_read_channel(
       // on the data we read from cocotb
       ref data_received = seq_mem_d1(32, 8, 64);
       is_rdy = std_reg(1);
-      ref curr_addr = std_reg(64); 
+      ref curr_addr = std_reg(64);
+      //need to increment this
+      ref base_addr = std_reg(64);
       
       // registered because RLAST is high with last transfer, not after
       // before this was registered we were terminating immediately with
@@ -186,6 +188,7 @@ component m_read_channel(
 
       //address of seq_d1_mem we are writing to
       curr_addr_adder = std_add(64);
+      base_addr_adder = std_add(64);
 
       // block_transfer reg to avoid combinational loops
       // Used to block any servicing until handshake occurs. 
@@ -257,6 +260,14 @@ component m_read_channel(
           curr_addr.write_en = 1'b1;
           incr_curr_addr[done] = curr_addr.done;
       }
+
+      group incr_base_addr{
+          base_addr_adder.left = 64'd4; //32-bit/8. TODO:parameterize via mem width
+          base_addr_adder.right = base_addr.out;
+          base_addr.in = base_addr_adder.out;
+          base_addr.write_en= 1'b1;
+          incr_base_addr[done] = base_addr.done;
+      }
   }
   control{
       invoke n_RLAST(in=1'b1)(); //init n_RLAST
@@ -265,7 +276,10 @@ component m_read_channel(
 	      invoke bt_reg(in=1'b0)(); //reset bt_reg
               block_transfer;
               receive_r_transfer;
-              incr_curr_addr;
+              par{
+                  incr_curr_addr;
+                  incr_base_addr;
+              }
           }
       }
   }
@@ -528,7 +542,8 @@ component m_write_channel(
       wvalid = std_reg(1);
       wvalid_was_high = std_reg(1);
       // used internally to access our seq_mem_d1
-      ref curr_addr = std_reg(64); 
+      ref curr_addr = std_reg(64);
+      ref base_addr = std_reg(64);
       
       //this increments
       curr_trnsfr_count = std_reg(8); //between 0 and 255, add +1 for transfer count
@@ -542,15 +557,13 @@ component m_write_channel(
 
       //used for address of seq_d1_mem we are reading from
       curr_addr_adder = std_add(64);
+      base_addr_adder = std_add(64);
       curr_trnsfr_count_adder = std_add(8);
 
 
       // block_transfer reg to avoid combinational loops
       bt_reg = std_reg(1);
 
-
-
-     curr_addr_slice = std_slice(64,32);
 
   }
   wires{
@@ -569,12 +582,12 @@ component m_write_channel(
         // this both asserts and deasserts one cycle later
         wvalid.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
         // TODO(nathanielnrn): Can prob get rid of wvalid_was_high
-        wvalid.in = wvalid.out & WREADY & wvalid_was_high.out ? 1'b0;
+        wvalid.in = (wvalid.out & WREADY) & wvalid_was_high.out ? 1'b0;
         wvalid.write_en = 1'b1;
 
         //set to 1 after valid has been high even once
-        wvalid_was_high.in = 1'b1;
-        wvalid_was_high.write_en = !(wvalid.out & WREADY & !wvalid_was_high.out) ? 1'b1;
+        wvalid_was_high.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
+        wvalid_was_high.write_en = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
 
      
         // set data output based on curr_addr register
@@ -606,6 +619,14 @@ component m_write_channel(
           curr_addr.write_en = 1'b1;
           incr_curr_addr[done] = curr_addr.done;
       }
+      
+      group incr_base_addr{
+          base_addr_adder.left = 64'd4; //32-bit/8. TODO:parameterize via mem width
+          base_addr_adder.right = base_addr.out;
+          base_addr.in = base_addr_adder.out;
+          base_addr.write_en= 1'b1;
+          incr_base_addr[done] = base_addr.done;
+      }
 
       group incr_curr_trnsfr_count {
           curr_trnsfr_count_adder.left = 8'd1;
@@ -628,6 +649,7 @@ component m_write_channel(
               par{
                 incr_curr_addr;
                 incr_curr_trnsfr_count;
+                incr_base_addr;
               }
           }
         }
@@ -902,9 +924,13 @@ component main(
             //read stuff
             par{
                 //init base_addresses
-                invoke base_addr_A0(in = 64'b0)();
-                invoke base_addr_B0(in = 64'b0)();
-                invoke base_addr_Sum0(in = 64'b0)();
+                //TODO: get this from kernel.xml
+                invoke base_addr_A0(in = 64'x1000)();
+                invoke base_addr_B0(in = 64'x1000)();
+                invoke base_addr_Sum0(in = 64'x1000)();
+                invoke curr_addr_A0(in = 64'x0000)();
+                invoke curr_addr_B0(in = 64'x0000)();
+                invoke curr_addr_Sum0(in = 64'x0000)();
             }
             par{
               seq{
@@ -922,9 +948,9 @@ component main(
                 ARBURST = m0_ARBURST
                 );
 
-                invoke curr_addr_A0(in = base_addr_A0.out)(); //set curr_addr to base_address
+                //invoke curr_addr_A0(in = base_addr_A0.out)(); //set curr_addr to base_address
 
-                invoke A0_read_channel[data_received = A0, curr_addr = curr_addr_A0]
+                invoke A0_read_channel[data_received = A0, curr_addr = curr_addr_A0, base_addr = base_addr_A0]
                 (
                 ARESET = m0_ARESET,
                 RVALID = m0_RVALID,
@@ -952,9 +978,9 @@ component main(
                 ARBURST = m1_ARBURST
                 );
 
-                invoke curr_addr_B0(in = base_addr_B0.out)(); //set curr_addr to base_address
+                //invoke curr_addr_B0(in = base_addr_B0.out)(); //set curr_addr to base_address
 
-                invoke B0_read_channel[data_received = B0, curr_addr = curr_addr_B0]
+                invoke B0_read_channel[data_received = B0, curr_addr = curr_addr_B0, base_addr = base_addr_B0]
                 (
                 ARESET = m1_ARESET,
                 RVALID = m1_RVALID,
@@ -980,9 +1006,9 @@ component main(
                 ARBURST = m2_ARBURST
                 );
 
-                invoke curr_addr_Sum0(in = base_addr_Sum0.out)(); //set curr_addr to base_address
+                //invoke curr_addr_Sum0(in = base_addr_Sum0.out)(); //set curr_addr to base_address
 
-                invoke Sum0_read_channel[data_received = Sum0, curr_addr = curr_addr_Sum0]
+                invoke Sum0_read_channel[data_received = Sum0, curr_addr = curr_addr_Sum0, base_addr = base_addr_Sum0]
                 (
                 ARESET = m2_ARESET,
                 RVALID = m2_RVALID,
@@ -1000,10 +1026,14 @@ component main(
 
             //compute stuff
             invoke vec_add_cell[A0 = A0, B0 = B0, Sum0 = Sum0]()();
-            //end comput stuff
+            //end compute stuff
 
-
-
+            //reset base_addr registers before writing
+            par{
+                invoke base_addr_A0(in = 64'x1000)();
+                invoke base_addr_B0(in = 64'x1000)();
+                invoke base_addr_Sum0(in = 64'x1000)();
+            }
             //write stuff
             par {
                 seq { //A0 writes
@@ -1021,9 +1051,9 @@ component main(
                     AWPROT = m0_AWPROT
                     );
 
-                    invoke curr_addr_A0(in = base_addr_A0.out)(); //set curr_addr to base_address
+                    //invoke curr_addr_A0(in = base_addr_A0.out)(); //set curr_addr to base_address
 
-                    invoke A0_write_channel[internal_mem = A0, curr_addr = curr_addr_A0, max_trnsfrs = max_trnsfrs]
+                    invoke A0_write_channel[internal_mem = A0, curr_addr = curr_addr_A0, max_trnsfrs = max_trnsfrs, base_addr = base_addr_A0]
                     (
                     ARESET = m0_ARESET,
                     WREADY = m0_WREADY
@@ -1051,9 +1081,9 @@ component main(
                     AWPROT = m1_AWPROT
                     );
 
-                    invoke curr_addr_B0(in = base_addr_B0.out)(); //set curr_addr to base_address
+                    //invoke curr_addr_B0(in = base_addr_B0.out)(); //set curr_addr to base_address
 
-                    invoke B0_write_channel[internal_mem = B0, curr_addr = curr_addr_B0, max_trnsfrs = max_trnsfrs]
+                    invoke B0_write_channel[internal_mem = B0, curr_addr = curr_addr_B0, max_trnsfrs = max_trnsfrs, base_addr = base_addr_B0]
                     (
                     ARESET = m1_ARESET,
                     WREADY = m1_WREADY
@@ -1082,9 +1112,9 @@ component main(
                     AWPROT = m2_AWPROT
                     );
 
-                    invoke curr_addr_Sum0(in = base_addr_Sum0.out)(); //set curr_addr to base_address
+                    //invoke curr_addr_Sum0(in = base_addr_Sum0.out)(); //set curr_addr to base_address
 
-                    invoke Sum0_write_channel[internal_mem = Sum0, curr_addr = curr_addr_Sum0, max_trnsfrs = max_trnsfrs]
+                    invoke Sum0_write_channel[internal_mem = Sum0, curr_addr = curr_addr_Sum0, max_trnsfrs = max_trnsfrs, base_addr = base_addr_Sum0]
                     (
                     ARESET = m2_ARESET,
                     WREADY = m2_WREADY
