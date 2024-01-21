@@ -5,7 +5,7 @@
 //! Usage: -b primitive-inst [-o <OUTPUT_FILE>]
 //! Adapted from resources.rs.
 
-use std::{collections::BTreeMap, collections::HashSet, io};
+use std::{collections::HashSet, io};
 
 use crate::traits::Backend;
 use calyx_ir as ir;
@@ -53,7 +53,13 @@ impl Backend for PrimitiveInstBackend {
 #[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 struct PrimitiveInst {
     name: String,
-    params: Vec<BTreeMap<String, u64>>,
+    params: Vec<PrimitiveParam>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+struct PrimitiveParam {
+    param_name: String,
+    param_value: u64,
 }
 
 /// Accumulates a set with each primitive with a given set of parameters
@@ -73,9 +79,11 @@ fn gen_primitive_set(
             } => {
                 let mut curr_params = Vec::new();
                 for (param_name, param_size) in param_binding.iter() {
-                    let mut param_binding = BTreeMap::new();
-                    param_binding.insert(param_name.to_string(), *param_size);
-                    curr_params.push(param_binding);
+                    let param = PrimitiveParam {
+                        param_name: param_name.to_string(),
+                        param_value: param_size.clone(),
+                    };
+                    curr_params.push(param);
                 }
                 let curr_primitive = PrimitiveInst {
                     name: name.to_string(),
