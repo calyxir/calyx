@@ -81,7 +81,7 @@ fn gen_primitive_set(
                 for (param_name, param_size) in param_binding.iter() {
                     let param = PrimitiveParam {
                         param_name: param_name.to_string(),
-                        param_value: param_size.clone(),
+                        param_value: *param_size,
                     };
                     curr_params.push(param);
                 }
