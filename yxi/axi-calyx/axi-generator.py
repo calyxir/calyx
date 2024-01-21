@@ -343,45 +343,45 @@ def add_write_channel(prog, mem):
     with write_channel.continuous:
         write_channel.this()["WVALID"] = wvalid.out
 
-        with write_channel.group("service_write_transfer") as service_write_transfer:
-            WREADY = write_channel.this()["WREADY"]
+    with write_channel.group("service_write_transfer") as service_write_transfer:
+        WREADY = write_channel.this()["WREADY"]
 
-            # Assert then deassert. Can maybe getgit right of wvalid_was_high in guard
-            wvalid.in_ = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
-            wvalid.in_ = (wvalid.out & WREADY & wvalid_was_high.out) @ 0
-            wvalid.write_en = 1
+        # Assert then deassert. Can maybe getgit right of wvalid_was_high in guard
+        wvalid.in_ = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
+        wvalid.in_ = (wvalid.out & WREADY & wvalid_was_high.out) @ 0
+        wvalid.write_en = 1
 
-            # Set high when wvalid is high even once
-            # This is just wavlid.in_ guard from above
-            # TODO: confirm this is correct?
-            wvalid_was_high.in_ = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
-            wvalid_was_high.write_en = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
+        # Set high when wvalid is high even once
+        # This is just wavlid.in_ guard from above
+        # TODO: confirm this is correct?
+        wvalid_was_high.in_ = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
+        wvalid_was_high.write_en = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
 
-            # Set data output based on intermal memory output
-            mem_ref.addr0 = curr_addr.out
-            mem_ref.read_en = 1
-            write_channel.this()["WDATA"] = mem_ref.read_data
+        # Set data output based on intermal memory output
+        mem_ref.addr0 = curr_addr.out
+        mem_ref.read_en = 1
+        write_channel.this()["WDATA"] = mem_ref.read_data
 
-            write_channel.this()["WLAST"] = (
-                max_trnsfrs.out == curr_trsnfr_count.out
-            ) @ 1
-            write_channel.this()["WLAST"] = (
-                max_trnsfrs.out != curr_trsnfr_count.out
-            ) @ 0
+        write_channel.this()["WLAST"] = (
+            max_trnsfrs.out == curr_trsnfr_count.out
+        ) @ 1
+        write_channel.this()["WLAST"] = (
+            max_trnsfrs.out != curr_trsnfr_count.out
+        ) @ 0
 
-            # set high when WLAST is high and a handshake occurs
-            n_finished_last_trnsfr.in_ = (
-                (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
-            ) @ 0
-            n_finished_last_trnsfr.write_en = (
-                (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
-            ) @ 1
+        # set high when WLAST is high and a handshake occurs
+        n_finished_last_trnsfr.in_ = (
+            (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+        ) @ 0
+        n_finished_last_trnsfr.write_en = (
+            (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+        ) @ 1
 
-            # done after handshake
-            bt_reg.in_ = (wvalid.out & WREADY) @ 1
-            bt_reg.in_ = ~(wvalid.out & WREADY) @ 0
-            bt_reg.write_en = 1
-            service_write_transfer.done = bt_reg.out
+        # done after handshake
+        bt_reg.in_ = (wvalid.out & WREADY) @ 1
+        bt_reg.in_ = ~(wvalid.out & WREADY) @ 0
+        bt_reg.write_en = 1
+        service_write_transfer.done = bt_reg.out
 
         # creates group that increments curr_addr by 1.
         # Creates adder and wires up correctly
@@ -395,7 +395,7 @@ def add_write_channel(prog, mem):
 
         # Control
         init_curr_addr = invoke(curr_addr, in_in=0)
-        init_n_finished_last_trnsfr = invoke(n_finished_last_trnsfr, in_in=0)
+        init_n_finished_last_trnsfr = invoke(n_finished_last_trnsfr, in_in=1)
         while_n_finished_last_trnsfr_body = [
             invoke(bt_reg, in_in=0),
             service_write_transfer,
