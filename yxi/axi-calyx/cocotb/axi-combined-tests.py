@@ -20,7 +20,7 @@ async def read_channels_happy_path(main):
     B0_in = [126, 62, 30, 14, 6, 2, 0, 1]
     expected_sum = [A0_in[i] + B0_in[i] for i in range(len(B0_in))]
     await run_module(main, A0_in, B0_in, expected_sum)  # checks cocotb axi rams
-    await assert_mem_content(main.A0, A0_in)  # checks in module, as opposed to axiram
+    await assert_mem_content(main.A0, A0_in)  # checks in verilog module, as opposed to axiram
     await assert_mem_content(main.B0, B0_in)
     await assert_mem_content(main.Sum0, expected_sum)
 
@@ -65,10 +65,10 @@ async def assert_mem_content(mem, expected: List[int]):
 
 
 async def assert_axi_ram_content(
-    axi_ram, expected: List[int], length=8 * 4, address=0x0000
+    axi_ram, expected: List[int], address=0x0000, length=8 * 4
 ):
     """Checks that `mem` content inside the cocotb (as opposed to
-    verilog module matches expected
+    verilog module matches expected starting at address for length bytes
     """
     if debug:
         print(f"DEBUG: axi_ram.read: {axi_ram.read(address,length)}")
@@ -104,10 +104,12 @@ async def run_module(
     # Start the execution
     module.go.value = 1
 
+    #Used to test byte-addressable to calyx-width-addressable 
+    base_address = 0x1000
     # 4 bytes per integer
-    A0_size = len(A0_data) * 4
-    B0_size = len(B0_data) * 4
-    Sum0_size = 8 * 4  # hardcoded
+    A0_size = len(A0_data) * 4 + base_address
+    B0_size = len(B0_data) * 4 + base_address
+    Sum0_size = 8 * 4  + base_address # hardcoded because we dont pass in any sum data
     # anonymous mmep for now to back axiram
     A0_memmap = mmap.mmap(-1, A0_size)
     B0_memmap = mmap.mmap(-1, B0_size)
@@ -146,31 +148,32 @@ async def run_module(
     A0_bytes = int_to_bytes(A0_data)
     B0_bytes = int_to_bytes(B0_data)
 
-    A0_memmap.seek(0)
+    A0_memmap.seek(base_address)
     A0_memmap.write(A0_bytes)
     A0_memmap.seek(0)
 
-    B0_memmap.seek(0)
+    B0_memmap.seek(base_address)
     B0_memmap.write(B0_bytes)
     B0_memmap.seek(0)
 
-    Sum0_memmap.seek(0)
+    Sum0_memmap.seek(base_address)
 
     await Timer(20, "ns")
     if debug:
-        A0.hexdump(0x0000, A0_size, prefix="A0 RAM")
-        B0.hexdump(0x0000, B0_size, prefix="B0 RAM")
-        Sum0.hexdump(0x0000, Sum0_size, prefix="Sum0 RAM")
+        A0.hexdump(base_address, A0_size - base_address , prefix="A0 RAM")
+        B0.hexdump(base_address, B0_size - base_address, prefix="B0 RAM")
+        Sum0.hexdump(base_address, Sum0_size - base_address, prefix="Sum0 RAM")
 
     await Timer(1000, "ns")
     if debug:
-        A0.hexdump(0x0000, A0_size, prefix="A0 RAM post")
-        B0.hexdump(0x0000, B0_size, prefix="B0 RAM post")
-        Sum0.hexdump(0x0000, Sum0_size, prefix="Sum0 RAM post")
+        A0.hexdump(base_address, A0_size - base_address, prefix="A0 RAM post")
+        B0.hexdump(base_address, B0_size - base_address, prefix="B0 RAM post")
+        Sum0.hexdump(base_address, Sum0_size - base_address, prefix="Sum0 RAM post")
 
-    await assert_axi_ram_content(A0, A0_data[0:8])
-    await assert_axi_ram_content(B0, B0_data[0:8])
-    await assert_axi_ram_content(Sum0, Sum0_expected[0:8])
+    #TODO(nathanielnrn): dynamically pass in `length` currently uses default 8*4 for vec_add test
+    await assert_axi_ram_content(A0, A0_data[0:8], base_address)
+    await assert_axi_ram_content(B0, B0_data[0:8], base_address)
+    await assert_axi_ram_content(Sum0, Sum0_expected[0:8], base_address)
 
     if debug:
         print(f"A0 is: {module.A0.mem.value}")
