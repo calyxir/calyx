@@ -45,7 +45,7 @@ component main() -> () {
       r0.in = a.read_data;
       phi0.write_en = 1'd1;
       phi0.in = phis.read_data;
-      preamble_0[done] = r0.done & phi0.done ? 1'd1;
+      preamble_0[done] = (r0.done & phi0.done) ? 1'd1;
     }
     group preamble_1 {
       a.addr0 = 3'd1;
@@ -54,7 +54,7 @@ component main() -> () {
       r1.in = a.read_data;
       phi1.write_en = 1'd1;
       phi1.in = phis.read_data;
-      preamble_1[done] = r1.done & phi1.done ? 1'd1;
+      preamble_1[done] = (r1.done & phi1.done) ? 1'd1;
     }
     group preamble_2 {
       a.addr0 = 3'd2;
@@ -63,7 +63,7 @@ component main() -> () {
       r2.in = a.read_data;
       phi2.write_en = 1'd1;
       phi2.in = phis.read_data;
-      preamble_2[done] = r2.done & phi2.done ? 1'd1;
+      preamble_2[done] = (r2.done & phi2.done) ? 1'd1;
     }
     group preamble_3 {
       a.addr0 = 3'd3;
@@ -72,7 +72,7 @@ component main() -> () {
       r3.in = a.read_data;
       phi3.write_en = 1'd1;
       phi3.in = phis.read_data;
-      preamble_3[done] = r3.done & phi3.done ? 1'd1;
+      preamble_3[done] = (r3.done & phi3.done) ? 1'd1;
     }
     group precursor_0 {
       r0.in = A0.out;

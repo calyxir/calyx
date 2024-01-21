@@ -134,11 +134,11 @@ component m_arread_channel(
   control{
       //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
       seq{
-	  invoke txn_count(in=32'b0)();
+	      invoke txn_count(in=32'b0)();
           // TODO(nathanielnrn):Parametrize this.
           // 7 is good for word wide data bus and 8 element vec_add We'd
           // expect 8 transfers. Number of transfers that occur is ARLEN + 1
-	  invoke txn_len(in=8'd7)();
+	      invoke txn_len(in=8'd7)();
           while perform_reads.out with check_reads_done{
               seq{
                   par {
@@ -493,17 +493,17 @@ component m_awwrite_channel(
   control{
       //XXX(nathanielnrn): What is best way to offer more flexiblity beyond just a counter?
       seq{
-	  invoke txn_count(in=32'b0)();
-	  //TODO(nathanielnrn):parameterize this number. 7(+1) gives us 8 elements
-	  invoke txn_len(in=8'd7)();
+	      invoke txn_count(in=32'b0)();
+	      //TODO(nathanielnrn):parameterize this number. 7(+1) gives us 8 elements
+	      invoke txn_len(in=8'd7)();
           while perform_write_txns.out with check_writes_done{
               seq{
                   par {
-		      invoke bt_reg(in=1'b0)();
-		      invoke awvalid_was_high(in=1'b0)();
+		            invoke bt_reg(in=1'b0)();
+		            invoke awvalid_was_high(in=1'b0)();
                   }
                   do_aw_transfer;
-		  invoke is_awvalid(in=1'b0)();
+		          invoke is_awvalid(in=1'b0)();
                   txn_incr;
               }
           }
@@ -620,10 +620,10 @@ component m_write_channel(
       seq{
 
         invoke curr_addr(in=64'b0)(); //reset curr_addr
-	invoke n_finished_last_trnsfr(in=1'b1)(); //init reg
+	    invoke n_finished_last_trnsfr(in=1'b1)(); //init reg
         while n_finished_last_trnsfr.out{
           seq{
-	      invoke bt_reg(in=1'b0)();
+	          invoke bt_reg(in=1'b0)();
               do_write_transfer;
               par{
                 incr_curr_addr;
@@ -896,49 +896,15 @@ component main(
         m2_WID = 1'b0;
         m2_BID = 1'b0;
 
-        group set_curr_to_base_addr_A0{
-            curr_addr_A0.in = base_addr_A0.out;
-            curr_addr_A0.write_en = 1'b1;
-            set_curr_to_base_addr_A0[done] = curr_addr_A0.done;
-        }
-
-        group init_base_addr_A0{
-            base_addr_A0.in = 64'b0;
-            base_addr_A0.write_en = 1'b1;
-            init_base_addr_A0[done] = base_addr_A0.done;
-        }
-        
-        group set_curr_to_base_addr_B0{
-            curr_addr_B0.in = base_addr_B0.out;
-            curr_addr_B0.write_en = 1'b1;
-            set_curr_to_base_addr_B0[done] = curr_addr_B0.done;
-        }
-
-        group init_base_addr_B0{
-            base_addr_B0.in = 64'b0;
-            base_addr_B0.write_en = 1'b1;
-            init_base_addr_B0[done] = base_addr_B0.done;
-        }
-        
-        group set_curr_to_base_addr_Sum0{
-            curr_addr_Sum0.in = base_addr_Sum0.out;
-            curr_addr_Sum0.write_en = 1'b1;
-            set_curr_to_base_addr_Sum0[done] = curr_addr_Sum0.done;
-        }
-
-        group init_base_addr_Sum0{
-            base_addr_Sum0.in = 64'b0;
-            base_addr_Sum0.write_en = 1'b1;
-            init_base_addr_Sum0[done] = base_addr_Sum0.done;
-        }
     }
     control{
         seq{
             //read stuff
             par{
-                init_base_addr_A0;
-                init_base_addr_B0;
-                init_base_addr_Sum0;
+                //init base_addresses
+                invoke base_addr_A0(in = 64'b0)();
+                invoke base_addr_B0(in = 64'b0)();
+                invoke base_addr_Sum0(in = 64'b0)();
             }
             par{
               seq{
@@ -956,7 +922,7 @@ component main(
                 ARBURST = m0_ARBURST
                 );
 
-                set_curr_to_base_addr_A0;
+                invoke curr_addr_A0(in = base_addr_A0.out)(); //set curr_addr to base_address
 
                 invoke A0_read_channel[data_received = A0, curr_addr = curr_addr_A0]
                 (
@@ -986,7 +952,7 @@ component main(
                 ARBURST = m1_ARBURST
                 );
 
-                set_curr_to_base_addr_B0;
+                invoke curr_addr_B0(in = base_addr_B0.out)(); //set curr_addr to base_address
 
                 invoke B0_read_channel[data_received = B0, curr_addr = curr_addr_B0]
                 (
@@ -1014,7 +980,7 @@ component main(
                 ARBURST = m2_ARBURST
                 );
 
-                set_curr_to_base_addr_Sum0;
+                invoke curr_addr_Sum0(in = base_addr_Sum0.out)(); //set curr_addr to base_address
 
                 invoke Sum0_read_channel[data_received = Sum0, curr_addr = curr_addr_Sum0]
                 (
@@ -1055,7 +1021,7 @@ component main(
                     AWPROT = m0_AWPROT
                     );
 
-                    set_curr_to_base_addr_A0;
+                    invoke curr_addr_A0(in = base_addr_A0.out)(); //set curr_addr to base_address
 
                     invoke A0_write_channel[internal_mem = A0, curr_addr = curr_addr_A0, max_trnsfrs = max_trnsfrs]
                     (
@@ -1085,7 +1051,7 @@ component main(
                     AWPROT = m1_AWPROT
                     );
 
-                    set_curr_to_base_addr_B0;
+                    invoke curr_addr_B0(in = base_addr_B0.out)(); //set curr_addr to base_address
 
                     invoke B0_write_channel[internal_mem = B0, curr_addr = curr_addr_B0, max_trnsfrs = max_trnsfrs]
                     (
@@ -1116,7 +1082,7 @@ component main(
                     AWPROT = m2_AWPROT
                     );
 
-                    set_curr_to_base_addr_Sum0;
+                    invoke curr_addr_Sum0(in = base_addr_Sum0.out)(); //set curr_addr to base_address
 
                     invoke Sum0_write_channel[internal_mem = Sum0, curr_addr = curr_addr_Sum0, max_trnsfrs = max_trnsfrs]
                     (

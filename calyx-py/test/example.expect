@@ -13,7 +13,7 @@ component main() -> () {
       rhs.in = 32'd41;
       lhs.write_en = 1'd1;
       rhs.write_en = 1'd1;
-      update_operands[done] = lhs.done & rhs.done ? 1'd1;
+      update_operands[done] = (lhs.done & rhs.done) ? 1'd1;
     }
     group compute_sum {
       add.left = lhs.out;
