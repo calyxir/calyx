@@ -19,12 +19,11 @@ def generate_m4_arguments(inst):
 
     args.append(f"-DMODULE_NAME={module_name_value}")
 
-    # get the filename
+    # retrieve the appropriate template file for the primitive
     firrtl_file_path = os.path.join(sys.path[0], "templates", inst['name'] + ".fir")
     args.append(firrtl_file_path)
 
     return args
-
 
 def main():
     in_file = open(sys.argv[1])
@@ -35,7 +34,6 @@ def main():
         # execute the subprocess containing m4
         subprocess.run(m4_args)
         print()
-
 
 if __name__ == '__main__':
     main()
