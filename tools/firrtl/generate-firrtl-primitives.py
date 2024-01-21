@@ -5,10 +5,11 @@ import sys
 
 # Generates the arguments for m4 based on the JSON data
 def generate_m4_arguments(inst):
+    primitive_name = inst["name"]
     args = []
     # hack to replace the module name with the corresponding parameterized version
     # FIXME: figure out a way to do substring replacement in m4
-    module_name_value = inst["name"]
+    module_name_value = primitive_name
     # get the parameters for the primitive
     for param in inst["params"]:
         key = param["param_name"]
