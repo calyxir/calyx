@@ -362,16 +362,20 @@ def add_write_channel(prog, mem):
             mem_ref.read_en = 1
             write_channel.this()["WDATA"] = mem_ref.read_data
 
-            write_channel.this()["WLAST"] = (max_trnsfrs.out == curr_trsnfr_count.out) @ 1
-            write_channel.this()["WLAST"] = (max_trnsfrs.out != curr_trsnfr_count.out) @ 0
+            write_channel.this()["WLAST"] = (
+                max_trnsfrs.out == curr_trsnfr_count.out
+            ) @ 1
+            write_channel.this()["WLAST"] = (
+                max_trnsfrs.out != curr_trsnfr_count.out
+            ) @ 0
 
             # set high when WLAST is high and a handshake occurs
-            n_finished_last_trnsfr.in_ = ((max_trnsfrs.out == curr_trsnfr_count.out) & (
-                wvalid.out & WREADY
-            )) @ 0
-            n_finished_last_trnsfr.write_en = ((
-                max_trnsfrs.out == curr_trsnfr_count.out
-            ) & (wvalid.out & WREADY)) @ 1
+            n_finished_last_trnsfr.in_ = (
+                (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+            ) @ 0
+            n_finished_last_trnsfr.write_en = (
+                (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+            ) @ 1
 
             # done after handshake
             bt_reg.in_ = (wvalid.out & WREADY) @ 1
@@ -379,7 +383,8 @@ def add_write_channel(prog, mem):
             bt_reg.write_en = 1
             service_write_transfer.done = bt_reg.out
 
-        # creates group that increments curr_addr by 1. Creates adder and wires up correctly
+        # creates group that increments curr_addr by 1.
+        # Creates adder and wires up correctly
         curr_addr_incr = write_channel.incr(curr_addr, 1)
         # TODO(nathanielnrn): Currently we assume that width is a power of 2.
         # In the future we should allow for non-power of 2 widths, will need some
@@ -388,7 +393,7 @@ def add_write_channel(prog, mem):
         base_addr_incr = write_channel.incr(base_addr, ceil(mem["width"] / 8))
         curr_trsnfr_count_incr = write_channel.incr(curr_trsnfr_count, 1)
 
-        #Control
+        # Control
         init_curr_addr = invoke(curr_addr, in_in=0)
         init_n_finished_last_trnsfr = invoke(n_finished_last_trnsfr, in_in=0)
         while_n_finished_last_trnsfr_body = [
@@ -404,7 +409,6 @@ def add_write_channel(prog, mem):
             init_n_finished_last_trnsfr,
             while_n_finished_last_trnsfr,
         ]
-        
 
 
 # Helper functions
