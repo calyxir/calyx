@@ -836,7 +836,16 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     return ast.Invoke(
         cell._cell.id,
         [
-            (k[3:], ExprBuilder.unwrap(v))
+            (
+                k[3:],
+                (
+                    (
+                        const(cell.infer_width(k[3:]), v).expr
+                        if isinstance(v, int)
+                        else ExprBuilder.unwrap(v)
+                    )
+                ),
+            )
             for (k, v) in kwargs.items()
             if k.startswith("in_")
         ],
