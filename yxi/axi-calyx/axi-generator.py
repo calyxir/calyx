@@ -362,16 +362,16 @@ def add_write_channel(prog, mem):
             mem_ref.read_en = 1
             write_channel.this()["WDATA"] = mem_ref.read_data
 
-            write_channel.this()["WLAST"] = max_trnsfrs.out == curr_trsnfr_count.out @ 1
-            write_channel.this()["WLAST"] = max_trnsfrs.out != curr_trsnfr_count.out @ 0
+            write_channel.this()["WLAST"] = (max_trnsfrs.out == curr_trsnfr_count.out) @ 1
+            write_channel.this()["WLAST"] = (max_trnsfrs.out != curr_trsnfr_count.out) @ 0
 
             # set high when WLAST is high and a handshake occurs
-            n_finished_last_trnsfr.in_ = (max_trnsfrs.out == curr_trsnfr_count.out) & (
+            n_finished_last_trnsfr.in_ = ((max_trnsfrs.out == curr_trsnfr_count.out) & (
                 wvalid.out & WREADY
-            ) @ 0
-            n_finished_last_trnsfr.write_en = (
+            )) @ 0
+            n_finished_last_trnsfr.write_en = ((
                 max_trnsfrs.out == curr_trsnfr_count.out
-            ) & (wvalid.out & WREADY) @ 1
+            ) & (wvalid.out & WREADY)) @ 1
 
             # done after handshake
             bt_reg.in_ = (wvalid.out & WREADY) @ 1
@@ -404,7 +404,6 @@ def add_write_channel(prog, mem):
             init_n_finished_last_trnsfr,
             while_n_finished_last_trnsfr,
         ]
-
         
 
 
@@ -429,9 +428,10 @@ def clog2(x):
 
 def build():
     prog = Builder()
-    add_arread_channel(prog, mems[0])
-    add_awwrite_channel(prog, mems[0])
-    add_read_channel(prog, mems[0])
+    # add_arread_channel(prog, mems[0])
+    # add_awwrite_channel(prog, mems[0])
+    # add_read_channel(prog, mems[0])
+    add_write_channel(prog, mems[0])
     return prog.program
 
 
