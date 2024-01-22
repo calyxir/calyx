@@ -22,7 +22,7 @@ intend to have them merged into it.
 
 ### CI Behavior
 The CI runs a number of tests including ensuring that Rust and Python code has
-been formatted. For Python we use the `black` formatter and for Rust we use the
+been formatted. For Python we use the [Black](https://github.com/psf/black) formatter and for Rust we use the
 standard `cargo fmt`.
 
 For Rust further linting is done via [`clippy`][clippy] to ensure that there are
