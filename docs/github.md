@@ -10,7 +10,7 @@ checkout main -> develop code -> open PR -> revise -> merge PR
 
 For legibility of commits, we squash all commits in a PR down to a single commit
 and merge the composite commit to the main branch. This helps keep the commit
-count of the main branch lower than it would otherwise be, however it can make
+count of the main branch lower than it would otherwise be; however, it can make
 using commands like `git bisect` more challenging for large branches. For that
 reason we tend to recommend more frequent PRs to avoid large deltas.
 
