@@ -31,7 +31,7 @@ only part way through development, you can opt to add `#[allow]` annotations
 within Rust to suppress the lint.
 
 If changes are made to the `Dockerfile` then the CI will automatically rebuild
-the docker image and run your tests on it.
+the Docker image and run your tests on it.
 
 
 [calyx_repo]: https://github.com/calyxir/calyx
