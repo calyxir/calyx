@@ -1,0 +1,40 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 1) {
+  cells {
+    r0 = std_reg(8);
+    r1 = std_reg(8);
+    r2 = std_reg(8);
+    add = std_add(8);
+    add1 = std_add(8);
+  }
+  wires {
+    static<1> group write_r0 {
+      r0.in = 8'd1;
+      r0.write_en = 1'd1;
+    }
+    static<1> group write_r1 {
+      r1.in = add.out;
+      r1.write_en = 1'd1;
+    }
+    static<1> group write_add1 {
+      add1.right = 8'd4;
+      add1.left = 8'd1;
+    }
+    out = r1.out;
+    add.right = 8'd1;
+    add.left = r0.out;
+    r2.in = add1.out;
+  }
+  control {
+    seq {
+      static<2> seq  {
+        write_r0;
+        write_r1;
+      }
+      static<2> seq  {
+        write_r0;
+        write_add1;
+      }
+    }
+  }
+}

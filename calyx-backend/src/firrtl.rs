@@ -304,7 +304,8 @@ fn write_invalid_initialization<F: io::Write>(
             SPACING.repeat(2),
             dst_string,
             default_initialization_str
-        )
+        )?;
+        writeln!(f, "{}{} <= UInt(0)", SPACING.repeat(2), dst_string)
     }
 }
 

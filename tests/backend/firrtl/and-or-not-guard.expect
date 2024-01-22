@@ -12,6 +12,7 @@ circuit main:
         ; COMPONENT START: main
         done <= UInt(1)
         out is invalid ; default initialization
+        out <= UInt(0)
         when and(or(not(cond), cond2), cond3):
             out <= in
         ; COMPONENT END: main

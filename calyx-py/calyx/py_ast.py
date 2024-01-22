@@ -276,7 +276,7 @@ class And(GuardExpr):
     right: GuardExpr
 
     def doc(self) -> str:
-        return f"{self.left.doc()} & {self.right.doc()}"
+        return f"({self.left.doc()} & {self.right.doc()})"
 
 
 @dataclass
@@ -285,7 +285,7 @@ class Or(GuardExpr):
     right: GuardExpr
 
     def doc(self) -> str:
-        return f"{self.left.doc()} | {self.right.doc()}"
+        return f"({self.left.doc()} | {self.right.doc()})"
 
 
 @dataclass
@@ -294,7 +294,7 @@ class Eq(GuardExpr):
     right: GuardExpr
 
     def doc(self) -> str:
-        return f"{self.left.doc()} == {self.right.doc()}"
+        return f"({self.left.doc()} == {self.right.doc()})"
 
 
 @dataclass
@@ -303,7 +303,7 @@ class Neq(GuardExpr):
     right: GuardExpr
 
     def doc(self) -> str:
-        return f"{self.left.doc()} != {self.right.doc()}"
+        return f"({self.left.doc()} != {self.right.doc()})"
 
 
 # Control

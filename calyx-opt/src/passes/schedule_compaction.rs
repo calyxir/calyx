@@ -1,3 +1,4 @@
+use crate::analysis::ReadWriteSet;
 use crate::traversal::Action;
 use crate::{
     analysis,
@@ -8,10 +9,10 @@ use petgraph::{algo, graph::NodeIndex};
 use std::collections::HashMap;
 
 #[derive(Default)]
-/// for static seqs that are statically promoted by the compiler,
-/// aggressively compacts the execution schedule so that the execution
+/// For static seqs that are statically promoted by the compiler.
+/// Aggressively compacts the execution schedule so that the execution
 /// order of control operators still respects data dependency
-/// Example: see tests/passes/schedule-compaction/schedule-compaction.rs
+/// Example: see tests/passes/schedule-compaction/schedule-compaction.futil
 pub struct ScheduleCompaction;
 
 impl Named for ScheduleCompaction {
@@ -47,11 +48,14 @@ impl Visitor for ScheduleCompaction {
         // records the scheduled start time of corresponding control operator for each node index
         let mut schedule: HashMap<NodeIndex, u64> = HashMap::new();
 
+        let (cont_reads, cont_writes) = ReadWriteSet::cont_read_write_set(comp);
+
         let mut builder = ir::Builder::new(comp, sigs);
 
         let mut total_order =
             analysis::ControlOrder::<false>::get_dependency_graph_static_seq(
                 s.stmts.drain(..),
+                (cont_reads, cont_writes),
                 &mut dependency,
                 &mut latency_map,
             );
@@ -60,7 +64,6 @@ impl Visitor for ScheduleCompaction {
             let mut total_time: u64 = 0;
 
             // First we build the schedule.
-
             for i in order {
                 // Start time is when the latest dependency finishes
                 let start = dependency
