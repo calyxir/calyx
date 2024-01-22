@@ -77,14 +77,13 @@ fn gen_primitive_set(
                 param_binding,
                 ..
             } => {
-                let mut curr_params = Vec::new();
-                for (param_name, param_size) in param_binding.iter() {
-                    let param = PrimitiveParam {
+                let curr_params = param_binding
+                    .iter()
+                    .map(|(param_name, param_size)| PrimitiveParam {
                         param_name: param_name.to_string(),
                         param_value: *param_size,
-                    };
-                    curr_params.push(param);
-                }
+                    })
+                    .collect();
                 let curr_primitive = PrimitiveUse {
                     name: name.to_string(),
                     params: curr_params,
