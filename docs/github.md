@@ -14,7 +14,7 @@ count of the main branch lower than it would otherwise be; however, it can make
 using commands like `git bisect` more challenging for large branches. For that
 reason we tend to recommend more frequent PRs to avoid large deltas.
 
-Once your PR has been merged, be sure to ***checkout from the updated main branch***
+Once your PR has been merged, be sure to ***check out the updated main branch***
 for future changes. If you branch off the merged branch or continue with it,
 there will be extensive merge conflicts due to the squash and merge tactic. For
 this reason we always recommend creating branches off of the main branch if you
