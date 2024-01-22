@@ -4,7 +4,7 @@ use argh::FromArgs;
 use calyx_backend::SexpBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
-    Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveInstBackend,
+    Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveUsesBackend,
     ResourcesBackend, VerilogBackend, YxiBackend,
 };
 use calyx_ir as ir;
@@ -170,8 +170,8 @@ impl Opts {
                 let backend = FirrtlBackend;
                 backend.run(context, self.output)
             }
-            BackendOpt::PrimitiveInst => {
-                let backend = PrimitiveInstBackend;
+            BackendOpt::PrimitiveUses => {
+                let backend = PrimitiveUsesBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Calyx => {

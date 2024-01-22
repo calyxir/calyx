@@ -13,11 +13,11 @@ use calyx_utils::{CalyxResult, OutputFile};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default)]
-pub struct PrimitiveInstBackend;
+pub struct PrimitiveUsesBackend;
 
-impl Backend for PrimitiveInstBackend {
+impl Backend for PrimitiveUsesBackend {
     fn name(&self) -> &'static str {
-        "resources"
+        "primitive_uses"
     }
 
     /// OK to run this analysis on any Calyx program
@@ -40,7 +40,7 @@ impl Backend for PrimitiveInstBackend {
             .find(|comp| comp.name == ctx.entrypoint)
             .unwrap();
 
-        let primitive_set: &mut HashSet<PrimitiveInst> = &mut HashSet::new();
+        let primitive_set: &mut HashSet<PrimitiveUse> = &mut HashSet::new();
 
         gen_primitive_set(ctx, main_comp, primitive_set);
 
@@ -51,7 +51,7 @@ impl Backend for PrimitiveInstBackend {
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
-struct PrimitiveInst {
+struct PrimitiveUse {
     name: String,
     params: Vec<PrimitiveParam>,
 }
@@ -67,7 +67,7 @@ struct PrimitiveParam {
 fn gen_primitive_set(
     ctx: &ir::Context,
     main_comp: &ir::Component,
-    primitive_set: &mut HashSet<PrimitiveInst>,
+    primitive_set: &mut HashSet<PrimitiveUse>,
 ) {
     for cell in main_comp.cells.iter() {
         let cell_ref = cell.borrow();
@@ -77,15 +77,14 @@ fn gen_primitive_set(
                 param_binding,
                 ..
             } => {
-                let mut curr_params = Vec::new();
-                for (param_name, param_size) in param_binding.iter() {
-                    let param = PrimitiveParam {
+                let curr_params = param_binding
+                    .iter()
+                    .map(|(param_name, param_size)| PrimitiveParam {
                         param_name: param_name.to_string(),
                         param_value: *param_size,
-                    };
-                    curr_params.push(param);
-                }
-                let curr_primitive = PrimitiveInst {
+                    })
+                    .collect();
+                let curr_primitive = PrimitiveUse {
                     name: name.to_string(),
                     params: curr_params,
                 };
@@ -106,10 +105,10 @@ fn gen_primitive_set(
 
 /// Write the collected set of primitive instantiations to a JSON file.
 fn write_json(
-    primitive_set: HashSet<PrimitiveInst>,
+    primitive_set: HashSet<PrimitiveUse>,
     file: &mut OutputFile,
 ) -> Result<(), io::Error> {
-    let created_vec: Vec<PrimitiveInst> = primitive_set.into_iter().collect();
+    let created_vec: Vec<PrimitiveUse> = primitive_set.into_iter().collect();
     serde_json::to_writer_pretty(file.get_write(), &created_vec)?;
     Ok(())
 }
