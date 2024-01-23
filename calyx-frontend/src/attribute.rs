@@ -106,9 +106,9 @@ pub enum NumAttr {
     #[strum(serialize = "promote_static")]
     /// Promote the group or control to static with the annotated latency
     PromoteStatic,
-    #[strum(serialize = "latency")]
-    /// Provides latency information
-    Latency,
+    #[strum(serialize = "interval")]
+    /// Provides interval information
+    Interval,
     #[strum(serialize = "compactable")]
     /// suggest that the current static seq block is compactable
     Compactable,

@@ -63,11 +63,13 @@ impl From<&ir::Primitive> for GoDone {
         let go_ports = prim
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
-                pd.attributes.get(ir::NumAttr::Latency).and_then(|lat| {
-                    done_ports
-                        .get(&pd.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (pd.name(), *done_port, lat))
-                })
+                pd.attributes
+                    .get(ir::NumAttr::Interval)
+                    .and_then(|interval| {
+                        done_ports
+                            .get(&pd.attributes.get(ir::NumAttr::Go))
+                            .map(|done_port| (pd.name(), *done_port, interval))
+                    })
             })
             .collect_vec();
         GoDone::new(go_ports)
@@ -88,11 +90,13 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get(ir::NumAttr::Latency).and_then(|lat| {
-                    done_ports
-                        .get(&port.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (port.name, *done_port, lat))
-                })
+                port.attributes.get(ir::NumAttr::Interval).and_then(
+                    |interval| {
+                        done_ports
+                            .get(&port.attributes.get(ir::NumAttr::Go))
+                            .map(|done_port| (port.name, *done_port, interval))
+                    },
+                )
             })
             .collect_vec();
         GoDone::new(go_ports)
