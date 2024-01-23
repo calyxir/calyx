@@ -411,6 +411,43 @@ def add_write_channel(prog, mem):
         ]
 
 
+# For now we assume all responses are OKAY because we don't have any error
+# handling logic. So basically this sets BREADY high then lowers it on
+# handshake.
+def add_bresp_channel(prog, mem):
+    # Inputs/Outputs
+    bresp_channel = prog.component("m_bresp_channel")
+    # No BRESP because it is ignored, i.e we assume it is tied OKAY
+    channel_inputs = [("ARESETn", 1), ("BVALID", 1)]
+    channel_outputs = [("BREADY", 1)]
+    add_comp_params(bresp_channel, channel_inputs, channel_outputs)
+
+    # Cells
+    bready = bresp_channel.reg("bready", 1)
+    bt_reg = bresp_channel.reg("bt_reg", 1)
+
+    # Groups
+    with bresp_channel.continuous:
+        bresp_channel.this()["BREADY"] = bready.out
+
+    # TODO(nathanielnrn): This is probably unoptimal and takes multiple
+    # cycles to do a simple handshake which we basically ignore. Can
+    # probably be much better.
+    with bresp_channel.group("block_transfer") as block_transfer:
+        BVALID = bresp_channel.this()["BVALID"]
+        bready.in_ = ~(bready.out & BVALID) @ 1
+        bready.in_ = (bready.out & BVALID) @ 0
+        bready.write_en = 1
+
+        bt_reg.in_ = (bready.out & BVALID) @ 1
+        bt_reg.in_ = ~(bready.out & BVALID) @ 0
+        bt_reg.write_en = 1
+        block_transfer.done = bt_reg.out
+
+    # Control
+    bresp_channel.control += [invoke(bt_reg, in_in=0), block_transfer]
+
+
 # Helper functions
 def width_in_bytes(width: int):
     assert width % 8 == 0, "Width must be a multiple of 8."
@@ -435,7 +472,8 @@ def build():
     # add_arread_channel(prog, mems[0])
     # add_awwrite_channel(prog, mems[0])
     # add_read_channel(prog, mems[0])
-    add_write_channel(prog, mems[0])
+    # add_write_channel(prog, mems[0])
+    add_bresp_channel(prog, mems[0])
     return prog.program
 
 
