@@ -811,6 +811,8 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         if comp.name != "main" && comp.control.borrow().is_static() {
             if let Some(lat) = comp.control.borrow().get_latency() {
+                // XXX(Caleb): shouldn't set latency in comp.
+                // Should just set latency attribute on all go-done ports.
                 if !comp.is_static() {
                     comp.attributes.insert(ir::BoolAttr::Promoted, 1);
                 }
@@ -921,6 +923,7 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         // Shouldn't promote to static invoke if we have a comb group
         if s.comp.borrow().is_component() {
+            // XXX(Caleb): This doesn't handle primitives with known latencies.
             if let Some(latency) = self
                 .static_component_latencies
                 .get(&s.comp.borrow().type_name().unwrap())
