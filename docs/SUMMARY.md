@@ -35,6 +35,7 @@
 - [Debugging](./debug/index.md)
   - [Logical Bugs](./debug/cider.md)
   - [Compilation Bugs](./debug/debug.md)
+- [Contributing to Calyx](./github.md)
 
 # Generating Calyx
 
