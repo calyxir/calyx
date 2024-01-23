@@ -309,7 +309,8 @@ See the language reference for [`invoke`][invoke].
 
 ```python
 # invoke(cell, **kwargs)
-my_invoke = invoke(my_cell, in_arg1=my_cell_arg1_reg.out, in_arg2=my_cell_arg2_reg.out)
+my_invoke = invoke(my_cell, in_arg1=my_cell_arg1_reg.out, in_arg2=1)
+
 ```
 
 ## Miscellaneous Tips + Tricks

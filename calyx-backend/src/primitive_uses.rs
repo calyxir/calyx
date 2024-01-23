@@ -34,15 +34,11 @@ impl Backend for PrimitiveUsesBackend {
     }
 
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
-        let main_comp = ctx
-            .components
-            .iter()
-            .find(|comp| comp.name == ctx.entrypoint)
-            .unwrap();
+        let main_comp = ctx.entrypoint();
 
-        let primitive_set: &mut HashSet<PrimitiveUse> = &mut HashSet::new();
+        let mut primitive_set: HashSet<PrimitiveUse> = HashSet::new();
 
-        gen_primitive_set(ctx, main_comp, primitive_set);
+        gen_primitive_set(ctx, main_comp, &mut primitive_set);
 
         write_json(primitive_set.clone(), file)?;
 
