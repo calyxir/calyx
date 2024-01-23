@@ -153,9 +153,6 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     check_transactions_done = m_to_s_address_channel.neq_use(
         txn_count.out, txn_n.out, signed=False, cellname=cellname, width=32
     )
-    # with arread_channel.comb_group("check_reads_done") as check_reads_done:
-    #     perform_reads.left = txn_count.out
-    #     perform_reads.right = txn_n.out
 
     invoke_txn_count = invoke(txn_count, in_in=0)
     # ARLEN must be between 0-255, make sure to subtract 1 from yxi
@@ -296,6 +293,161 @@ def add_read_channel(prog, mem):
     read_channel.control += [invoke_n_RLAST, while_n_RLAST]
 
 
+def add_write_channel(prog, mem):
+    # Inputs/Outputs
+    write_channel = prog.component("m_write_channel")
+    # We assume idx_size is exactly clog2(len). See comment in #1751
+    # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
+    channel_inputs = [("ARESETn", 1), ("WREADY", 1)]
+    # TODO(nathanielnrn): We currently assume WDATA is the same width as the
+    # memory. This limits throughput many AXI data busses are much wider
+    # i.e., 512 bits.
+    channel_outputs = [
+        ("WVALID", 1),
+        ("WLAST", 1),
+        ("WDATA", mem["width"]),
+    ]
+    add_comp_params(write_channel, channel_inputs, channel_outputs)
+
+    # Cells
+    # We assume idx_size is exactly clog2(len). See comment in #1751
+    # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
+    mem_ref = write_channel.seq_mem_d1(
+        name="mem_ref",
+        bitwidth=mem["width"],
+        len=mem["size"],
+        idx_size=clog2(mem["size"]),
+        is_external=False,
+        is_ref=True,
+    )
+
+    # according to zipcpu, rready should be registered
+    wvalid = write_channel.reg("wvalid", 1)
+    wvalid_was_high = write_channel.reg("wvalid_was_high", 1)
+    # internal calyx memory indexing
+    curr_addr = write_channel.reg("curr_addr", clog2(mem["size"]), is_ref=True)
+    # host indexing, must be 64 bits
+    base_addr = write_channel.reg("base_addr", 64, is_ref=True)
+
+    curr_trsnfr_count = write_channel.reg("curr_trsnfr_count", 8)
+    # Number of transfers we want to do in current txn
+    max_trnsfrs = write_channel.reg("max_trnsfrs", 8, is_ref=True)
+
+    # Register because w last is high with last transfer. Before this
+    # We were terminating immediately with last transfer and not servicing it.
+    n_finished_last_trnsfr = write_channel.reg("n_finished_last_trnsfr", 1)
+
+    bt_reg = write_channel.reg("bt_reg", 1)
+
+    # Groups
+    with write_channel.continuous:
+        write_channel.this()["WVALID"] = wvalid.out
+
+    with write_channel.group("service_write_transfer") as service_write_transfer:
+        WREADY = write_channel.this()["WREADY"]
+
+        # Assert then deassert. Can maybe getgit right of wvalid_was_high in guard
+        wvalid.in_ = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
+        wvalid.in_ = (wvalid.out & WREADY & wvalid_was_high.out) @ 0
+        wvalid.write_en = 1
+
+        # Set high when wvalid is high even once
+        # This is just wavlid.in_ guard from above
+        # TODO: confirm this is correct?
+        wvalid_was_high.in_ = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
+        wvalid_was_high.write_en = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
+
+        # Set data output based on intermal memory output
+        mem_ref.addr0 = curr_addr.out
+        mem_ref.read_en = 1
+        write_channel.this()["WDATA"] = mem_ref.read_data
+
+        write_channel.this()["WLAST"] = (
+            max_trnsfrs.out == curr_trsnfr_count.out
+        ) @ 1
+        write_channel.this()["WLAST"] = (
+            max_trnsfrs.out != curr_trsnfr_count.out
+        ) @ 0
+
+        # set high when WLAST is high and a handshake occurs
+        n_finished_last_trnsfr.in_ = (
+            (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+        ) @ 0
+        n_finished_last_trnsfr.write_en = (
+            (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+        ) @ 1
+
+        # done after handshake
+        bt_reg.in_ = (wvalid.out & WREADY) @ 1
+        bt_reg.in_ = ~(wvalid.out & WREADY) @ 0
+        bt_reg.write_en = 1
+        service_write_transfer.done = bt_reg.out
+
+        # creates group that increments curr_addr by 1.
+        # Creates adder and wires up correctly
+        curr_addr_incr = write_channel.incr(curr_addr, 1)
+        # TODO(nathanielnrn): Currently we assume that width is a power of 2.
+        # In the future we should allow for non-power of 2 widths, will need some
+        # splicing for this.
+        # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
+        base_addr_incr = write_channel.incr(base_addr, ceil(mem["width"] / 8))
+        curr_trsnfr_count_incr = write_channel.incr(curr_trsnfr_count, 1)
+
+        # Control
+        init_curr_addr = invoke(curr_addr, in_in=0)
+        init_n_finished_last_trnsfr = invoke(n_finished_last_trnsfr, in_in=1)
+        while_n_finished_last_trnsfr_body = [
+            invoke(bt_reg, in_in=0),
+            service_write_transfer,
+            par(curr_addr_incr, curr_trsnfr_count_incr, base_addr_incr),
+        ]
+        while_n_finished_last_trnsfr = while_(
+            n_finished_last_trnsfr.out, while_n_finished_last_trnsfr_body
+        )
+        write_channel.control += [
+            init_curr_addr,
+            init_n_finished_last_trnsfr,
+            while_n_finished_last_trnsfr,
+        ]
+
+
+# For now we assume all responses are OKAY because we don't have any error
+# handling logic. So basically this sets BREADY high then lowers it on
+# handshake.
+def add_bresp_channel(prog, mem):
+    # Inputs/Outputs
+    bresp_channel = prog.component("m_bresp_channel")
+    # No BRESP because it is ignored, i.e we assume it is tied OKAY
+    channel_inputs = [("ARESETn", 1), ("BVALID", 1)]
+    channel_outputs = [("BREADY", 1)]
+    add_comp_params(bresp_channel, channel_inputs, channel_outputs)
+
+    # Cells
+    bready = bresp_channel.reg("bready", 1)
+    bt_reg = bresp_channel.reg("bt_reg", 1)
+
+    # Groups
+    with bresp_channel.continuous:
+        bresp_channel.this()["BREADY"] = bready.out
+
+    # TODO(nathanielnrn): This is probably unoptimal and takes multiple
+    # cycles to do a simple handshake which we basically ignore. Can
+    # probably be much better.
+    with bresp_channel.group("block_transfer") as block_transfer:
+        BVALID = bresp_channel.this()["BVALID"]
+        bready.in_ = ~(bready.out & BVALID) @ 1
+        bready.in_ = (bready.out & BVALID) @ 0
+        bready.write_en = 1
+
+        bt_reg.in_ = (bready.out & BVALID) @ 1
+        bt_reg.in_ = ~(bready.out & BVALID) @ 0
+        bt_reg.write_en = 1
+        block_transfer.done = bt_reg.out
+
+    # Control
+    bresp_channel.control += [invoke(bt_reg, in_in=0), block_transfer]
+
+
 # Helper functions
 def width_in_bytes(width: int):
     assert width % 8 == 0, "Width must be a multiple of 8."
@@ -317,9 +469,11 @@ def clog2(x):
 
 def build():
     prog = Builder()
-    add_arread_channel(prog, mems[0])
-    add_awwrite_channel(prog, mems[0])
-    add_read_channel(prog, mems[0])
+    # add_arread_channel(prog, mems[0])
+    # add_awwrite_channel(prog, mems[0])
+    # add_read_channel(prog, mems[0])
+    # add_write_channel(prog, mems[0])
+    add_bresp_channel(prog, mems[0])
     return prog.program
 
 
