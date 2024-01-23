@@ -54,7 +54,7 @@ fn emit_extmodules<F: io::Write>(
     out: &mut F,
 ) -> Result<(), calyx_utils::Error> {
     let mut extmodule_set: HashSet<String> = HashSet::new();
-    Ok(for comp in &ctx.components {
+    for comp in &ctx.components {
         for cell in comp.cells.iter() {
             let cell_borrowed = cell.as_ref().borrow();
             if let ir::CellType::Primitive {
@@ -76,7 +76,8 @@ fn emit_extmodules<F: io::Write>(
                 }
             };
         }
-    })
+    }
+    Ok(())
 }
 
 // TODO: Ask about the other backend configurations in verilog.rs and see if I need any of it
