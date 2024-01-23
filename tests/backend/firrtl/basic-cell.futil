@@ -1,4 +1,4 @@
-// -b firrtl
+// -b firrtl -x firrtl-extmodule-primitives
 import "primitives/core.futil";
 component identity(in : 32) -> (out : 32) {
   cells {}
