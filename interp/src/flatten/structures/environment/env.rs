@@ -1,4 +1,4 @@
-use ahash::{HashSet, HashSetExt};
+use ahash::HashSet;
 use itertools::Itertools;
 
 use super::{assignments::AssignmentBundle, program_counter::ProgramCounter};
@@ -11,30 +11,45 @@ use crate::{
     flatten::{
         flat_ir::{
             prelude::{
-                AssignedValue, AssignmentIdx, AssignmentWinner, BaseIndices,
-                ComponentIdx, ControlIdx, ControlMap, ControlNode,
-                GlobalCellIdx, GlobalPortIdx, GlobalPortRef, GlobalRefCellIdx,
-                GlobalRefPortIdx, GuardIdx, PortRef, PortValue,
+                AssignedValue, AssignmentIdx, BaseIndices, ComponentIdx,
+                ControlIdx, ControlNode, GlobalCellIdx, GlobalPortIdx,
+                GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx,
+                PortRef, PortValue,
             },
             wires::guards::Guard,
         },
-        primitives::{
-            self,
-            prim_trait::{AssignResult, UpdateStatus},
-            Primitive,
-        },
+        primitives::{self, prim_trait::UpdateStatus, Primitive},
         structures::{
             environment::program_counter::{ControlPoint, SearchPath},
             index_trait::IndexRef,
         },
     },
-    values::Value,
 };
 use std::{collections::VecDeque, fmt::Debug};
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
 impl PortMap {
+    /// Essentially asserts that the port given is undefined, it errors out if
+    /// the port is defined and otherwise does nothing
+    pub fn write_undef(
+        &mut self,
+        target: GlobalPortIdx,
+    ) -> InterpreterResult<()> {
+        if self[target].is_def() {
+            todo!("raise error")
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Sets the given index to undefined without checking whether or not it was
+    /// already defined
+    #[inline]
+    pub fn write_undef_unchecked(&mut self, target: GlobalPortIdx) {
+        self[target] = PortValue::new_undef();
+    }
+
     pub fn insert_val(
         &mut self,
         target: GlobalPortIdx,
@@ -197,11 +212,8 @@ impl<'a> Environment<'a> {
             .expect("Called layout component with a non-component cell.");
         let comp_aux = &self.ctx.secondary[*comp_id];
 
-        let comp_id = *comp_id;
-
         // first layout the signature
         for sig_port in comp_aux.signature.iter() {
-            let width = self.ctx.lookup_port_def(&comp_id, sig_port).width;
             let idx = self.ports.push(PortValue::new_undef());
             debug_assert_eq!(index_bases + sig_port, idx);
         }
@@ -237,15 +249,13 @@ impl<'a> Environment<'a> {
             if !info.prototype.is_component() {
                 let port_base = self.ports.peek_next_idx();
                 for port in info.ports.iter() {
-                    let width = self.ctx.lookup_port_def(&comp_id, port).width;
                     let idx = self.ports.push(PortValue::new_undef());
                     debug_assert_eq!(
                         &self.cells[comp].as_comp().unwrap().index_bases + port,
                         idx
                     );
                 }
-                let cell_dyn =
-                    primitives::build_primitive(self, info, port_base);
+                let cell_dyn = primitives::build_primitive(info, port_base);
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
 
                 debug_assert_eq!(
@@ -711,7 +721,7 @@ impl<'a> Simulator<'a> {
                             self.env.ports.insert_val(
                                 dest,
                                 AssignedValue::new(v.val().clone(), assign_idx),
-                            );
+                            )?;
                         } else if self.env.ports[dest].is_def() {
                             todo!("Raise an error here since this assignment is undefining things")
                         }
@@ -743,8 +753,6 @@ impl<'a> Simulator<'a> {
         for _x in self.env.pc.iter() {
             // println!("{:?} next {:?}", x, self.find_next_control_point(x))
         }
-        self.step();
-        self.step();
         self.env.print_pc();
         self.print_env();
         // println!("{:?}", self.get_assignments())

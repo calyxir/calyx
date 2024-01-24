@@ -168,6 +168,14 @@ pub enum InterpreterError {
 
     #[error(transparent)]
     IOError(#[from] std::io::Error),
+
+    //TODO Griffin: Make this more descriptive
+    #[error("Attempted to write an undefined value to register or memory")]
+    UndefinedWrite,
+
+    //TODO Griffin: Make this more descriptive
+    #[error("Attempted to write an undefined memory address")]
+    UndefinedWriteAddr,
 }
 
 impl InterpreterError {

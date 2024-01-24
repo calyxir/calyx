@@ -322,6 +322,24 @@ impl AssignedValue {
             winner: AssignmentWinner::Cell,
         }
     }
+
+    #[inline]
+    pub fn implicit_value(val: Value) -> Self {
+        Self {
+            val,
+            winner: AssignmentWinner::Implicit,
+        }
+    }
+
+    #[inline]
+    pub fn cell_b_high() -> Self {
+        Self::cell_value(Value::bit_high())
+    }
+
+    #[inline]
+    pub fn cell_b_low() -> Self {
+        Self::cell_value(Value::bit_low())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -351,6 +369,10 @@ impl PortValue {
         self.0.as_ref().map(|x| x.val().as_bool())
     }
 
+    pub fn as_usize(&self) -> Option<usize> {
+        self.0.as_ref().map(|x| x.val().as_usize())
+    }
+
     pub fn val(&self) -> Option<&Value> {
         self.0.as_ref().map(|x| &x.val)
     }
@@ -367,8 +389,14 @@ impl PortValue {
         Self(None)
     }
 
-    pub fn new_cell_assigned(val: Value) -> Self {
+    /// Creates a [PortValue] that has the "winner" as a cell
+    pub fn new_cell(val: Value) -> Self {
         Self(Some(AssignedValue::cell_value(val)))
+    }
+
+    /// Creates a [PortValue] that has the "winner" as implicit
+    pub fn new_implicit(val: Value) -> Self {
+        Self(Some(AssignedValue::implicit_value(val)))
     }
 }
 

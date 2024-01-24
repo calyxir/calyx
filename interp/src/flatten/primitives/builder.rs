@@ -1,10 +1,7 @@
 use crate::{
-    flatten::{
-        flat_ir::{
-            cell_prototype::{CellPrototype, MemType, PrimType1},
-            prelude::{CellInfo, GlobalPortIdx},
-        },
-        structures::environment::Environment,
+    flatten::flat_ir::{
+        cell_prototype::{CellPrototype, MemType, PrimType1},
+        prelude::{CellInfo, GlobalPortIdx},
     },
     values::Value,
 };
@@ -13,7 +10,6 @@ use super::{combinational::*, Primitive};
 use super::{prim_trait::DummyPrimitive, stateful::*};
 
 pub fn build_primitive(
-    env: &mut Environment,
     prim: &CellInfo,
     base_port: GlobalPortIdx,
 ) -> Box<dyn Primitive> {

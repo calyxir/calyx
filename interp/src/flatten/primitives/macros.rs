@@ -14,12 +14,6 @@ macro_rules! declare_ports {
     }
 }
 
-macro_rules! output {
-    ( $( $port:ident : $value:expr ),+ $(,)? ) => {
-        vec![$( ($port, $value).into(),)+]
-    }
-}
-
 macro_rules! make_getters {
     ($base:ident; $( $port:ident : $offset:expr ),+ ) => {
         $(
@@ -34,7 +28,7 @@ macro_rules! make_getters {
 
 pub(crate) use declare_ports;
 pub(crate) use make_getters;
-pub(crate) use output;
+
 pub(crate) use ports;
 
 macro_rules! comb_primitive {
@@ -80,23 +74,28 @@ macro_rules! comb_primitive {
 
 
                 #[allow(non_snake_case)]
-                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::InterpreterResult<$crate::flatten::flat_ir::prelude::PortValue>  {
+                let exec_func = |$($($param: u32,)+)? $($port: &$crate::flatten::flat_ir::prelude::PortValue),+| ->$crate::errors::InterpreterResult<Option<$crate::values::Value>>  {
                     $execute
                 };
 
 
-                let out = exec_func(
+                let output = exec_func(
                     $($(self.$param,)*)?
                     $(&port_map[$port],)+
 
                 )?;
 
-                Ok(if port_map[$out_port].val() != out.val() {
-                    port_map[$out_port] = out;
-                    $crate::flatten::primitives::prim_trait::UpdateStatus::Changed
+                if let Some(val) = output {
+                    if port_map[$out_port].val().is_some() && *port_map[$out_port].val().unwrap() == val {
+                        Ok($crate::flatten::primitives::prim_trait::UpdateStatus::Unchanged)
+                    } else {
+                        port_map[$out_port] = $crate::flatten::flat_ir::prelude::PortValue::new_cell(val);
+                        Ok($crate::flatten::primitives::prim_trait::UpdateStatus::Changed)
+                    }
                 } else {
-                    $crate::flatten::primitives::prim_trait::UpdateStatus::Unchanged
-                })
+                    port_map.write_undef($out_port)?;
+                    Ok($crate::flatten::primitives::prim_trait::UpdateStatus::Unchanged)
+                }
             }
 
             fn has_stateful(&self) -> bool {
@@ -112,4 +111,16 @@ macro_rules! comb_primitive {
 
 }
 
+macro_rules! all_defined {
+    ($($port_name:ident),+) => {
+        #[allow(unused_parens)]
+        let ($($port_name),+) = if [$($port_name),+].iter().all(|x|x.is_def()) {
+            ($($port_name.val().unwrap()),+)
+        } else {
+            return Ok(None);
+        };
+    };
+}
+
+pub(crate) use all_defined;
 pub(crate) use comb_primitive;
