@@ -9,11 +9,11 @@ use slog::{Drain, Level};
 
 static ROOT_LOGGER: OnceCell<Logger> = OnceCell::new();
 
-pub fn initialze_default_logger() {
-    initialze_logger(false);
+pub fn initialize_default_logger() {
+    initialize_logger(false);
 }
 
-pub fn initialze_logger(quiet: bool) {
+pub fn initialize_logger(quiet: bool) {
     let decorator = slog_term::TermDecorator::new().stderr().build();
     let drain = slog_term::FullFormat::new(decorator).build();
     let filter_level = if quiet { Level::Error } else { Level::Trace };
@@ -31,13 +31,13 @@ pub fn initialze_logger(quiet: bool) {
 
 pub fn root() -> &'static Logger {
     ROOT_LOGGER.get().unwrap_or_else(|| {
-        initialze_default_logger();
+        initialize_default_logger();
         ROOT_LOGGER.get().unwrap()
     })
 }
 
 /// Utility method for creating subloggers for components/primitives/etc. This
-/// is the prefered method for getting a logger. Initializes the source key with
+/// is the preferred method for getting a logger. Initializes the source key with
 /// the supplied name.
 pub fn new_sublogger<S: AsRef<str>>(source_name: S) -> Logger {
     root().new(o!("source" => String::from(source_name.as_ref())))
