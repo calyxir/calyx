@@ -1,10 +1,4 @@
 circuit main:
-    extmodule std_wire_1:
-        input in: UInt<1>
-        output out: UInt<1>
-        defname = std_wire
-        parameter WIDTH = 1
-
     module identity:
         input in: UInt<32>
         output out: UInt<32>

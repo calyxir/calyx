@@ -36,10 +36,7 @@ impl Backend for FirrtlBackend {
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
         writeln!(out, "circuit {}:", ctx.entrypoint)?;
-        if ctx
-            .extra_opts
-            .contains(&String::from("firrtl-extmodule-primitives"))
-        {
+        if ctx.bc.emit_primitive_extmodules {
             emit_extmodules(ctx, out)?;
         }
         for comp in ctx.components.iter() {
