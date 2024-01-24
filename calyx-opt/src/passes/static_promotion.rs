@@ -360,37 +360,7 @@ impl StaticPromotion {
                 )
             }
             ir::Control::Static(_) => c.take_static_control(),
-            ir::Control::Invoke(ir::Invoke {
-                comp,
-                inputs,
-                outputs,
-                attributes,
-                comb_group,
-                ref_cells,
-            }) => {
-                assert!(
-                    comb_group.is_none(),
-                    "Shouldn't Promote to Static if there is a Comb Group",
-                );
-                attributes.remove(ir::NumAttr::PromoteStatic);
-                Self::check_latencies_match(*self.static_info.static_component_latencies.get(
-                    &comp.borrow().type_name().unwrap_or_else(|| {
-                        unreachable!(
-                            "Already checked that comp is component"
-                        )
-                    }),
-                ).unwrap_or_else(|| unreachable!("Called convert_to_static for static invoke that does not have a static component")), inferred_latency);
-                let s_inv = ir::StaticInvoke {
-                    comp: Rc::clone(comp),
-                    inputs: std::mem::take(inputs),
-                    outputs: std::mem::take(outputs),
-                    latency: inferred_latency,
-                    attributes: std::mem::take(attributes),
-                    ref_cells: std::mem::take(ref_cells),
-                    comb_group: std::mem::take(comb_group),
-                };
-                ir::StaticControl::Invoke(s_inv)
-            }
+            ir::Control::Invoke(s) => self.convert_invoke_to_static(s),
         }
     }
 
