@@ -1,8 +1,10 @@
 use crate::{
+    errors::{InterpreterError, InterpreterResult},
     flatten::{
-        flat_ir::prelude::GlobalPortId,
+        flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
         primitives::{
-            declare_ports, make_getters, output, ports, prim_trait::Results,
+            declare_ports, make_getters, ports,
+            prim_trait::{UpdateResult, UpdateStatus},
             Primitive,
         },
         structures::environment::PortMap,
@@ -12,14 +14,14 @@ use crate::{
 };
 
 pub struct StdReg {
-    base_port: GlobalPortId,
+    base_port: GlobalPortIdx,
     internal_state: Value,
 }
 
 impl StdReg {
     declare_ports![IN: 0, WRITE_EN: 1, CLK: 2, RESET: 3, OUT: 4, DONE: 5];
 
-    pub fn new(base_port: GlobalPortId, width: u32) -> Self {
+    pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
         let internal_state = Value::zeroes(width);
         Self {
             base_port,
@@ -29,35 +31,52 @@ impl StdReg {
 }
 
 impl Primitive for StdReg {
-    fn exec_cycle(&mut self, port_map: &PortMap) -> Results {
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port;
             input: Self::IN,
             write_en: Self::WRITE_EN,
             reset: Self::RESET,
-            out: Self::OUT,
+            out_idx: Self::OUT,
             done: Self::DONE
         ];
 
-        let out = if port_map[reset].as_bool() {
+        let done_port = if port_map[reset].as_bool().unwrap_or_default() {
             self.internal_state = Value::zeroes(self.internal_state.width());
-            output![ out: self.internal_state.clone(), done: Value::bit_low() ]
-        } else if port_map[write_en].as_bool() {
-            self.internal_state = port_map[input].clone();
-            output![ out: self.internal_state.clone(), done: Value::bit_high() ]
+            port_map
+                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))
+        } else if port_map[write_en].as_bool().unwrap_or_default() {
+            self.internal_state = port_map[input]
+                .as_option()
+                .ok_or(InterpreterError::UndefinedWrite)?
+                .val()
+                .clone();
+
+            port_map
+                .insert_val(done, AssignedValue::cell_value(Value::bit_high()))
         } else {
-            output![ out: self.internal_state.clone(), done: Value::bit_high() ]
-        };
+            port_map
+                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))
+        }?;
 
-        Ok(out)
+        Ok(done_port
+            | port_map.insert_val(
+                out_idx,
+                AssignedValue::cell_value(self.internal_state.clone()),
+            )?)
     }
 
-    fn reset(&mut self, _: &PortMap) -> Results {
+    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
         ports![&self.base_port; done: Self::DONE];
-        Ok(output![done: Value::bit_low()])
+        port_map[done] = PortValue::new_cell(Value::bit_low());
+        Ok(())
     }
 
-    fn has_comb(&self) -> bool {
-        false
+    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+        ports![&self.base_port; out_idx: Self::OUT];
+        port_map.insert_val(
+            out_idx,
+            AssignedValue::cell_value(self.internal_state.clone()),
+        )
     }
 
     fn serialize(
@@ -81,8 +100,8 @@ pub trait MemAddresser {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
-    ) -> usize;
+        base_port: GlobalPortIdx,
+    ) -> Option<usize>;
 }
 
 pub struct MemD1<const SEQ: bool>;
@@ -91,8 +110,8 @@ impl<const SEQ: bool> MemAddresser for MemD1<SEQ> {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
-    ) -> usize {
+        base_port: GlobalPortIdx,
+    ) -> Option<usize> {
         let addr0 = if SEQ {
             ports![&base_port; addr0: Self::SEQ_ADDR0];
             addr0
@@ -127,8 +146,8 @@ impl<const SEQ: bool> MemAddresser for MemD2<SEQ> {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
-    ) -> usize {
+        base_port: GlobalPortIdx,
+    ) -> Option<usize> {
         let (addr0, addr1) = if SEQ {
             ports![&base_port;
                 addr0: Self::SEQ_ADDR0,
@@ -141,10 +160,10 @@ impl<const SEQ: bool> MemAddresser for MemD2<SEQ> {
             (addr0, addr1)
         };
 
-        let a0 = port_map[addr0].as_usize();
-        let a1 = port_map[addr1].as_usize();
+        let a0 = port_map[addr0].as_usize()?;
+        let a1 = port_map[addr1].as_usize()?;
 
-        a0 * self.d1_size + a1
+        Some(a0 * self.d1_size + a1)
     }
 
     const NON_ADDRESS_BASE: usize = if SEQ {
@@ -169,8 +188,8 @@ impl<const SEQ: bool> MemAddresser for MemD3<SEQ> {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
-    ) -> usize {
+        base_port: GlobalPortIdx,
+    ) -> Option<usize> {
         let (addr0, addr1, addr2) = if SEQ {
             ports![&base_port;
                 addr0: Self::SEQ_ADDR0,
@@ -188,11 +207,11 @@ impl<const SEQ: bool> MemAddresser for MemD3<SEQ> {
             (addr0, addr1, addr2)
         };
 
-        let a0 = port_map[addr0].as_usize();
-        let a1 = port_map[addr1].as_usize();
-        let a2 = port_map[addr2].as_usize();
+        let a0 = port_map[addr0].as_usize()?;
+        let a1 = port_map[addr1].as_usize()?;
+        let a2 = port_map[addr2].as_usize()?;
 
-        a0 * (self.d1_size * self.d2_size) + a1 * self.d2_size + a2
+        Some(a0 * (self.d1_size * self.d2_size) + a1 * self.d2_size + a2)
     }
 
     const NON_ADDRESS_BASE: usize = if SEQ {
@@ -221,8 +240,8 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
     fn calculate_addr(
         &self,
         port_map: &PortMap,
-        base_port: GlobalPortId,
-    ) -> usize {
+        base_port: GlobalPortIdx,
+    ) -> Option<usize> {
         let (addr0, addr1, addr2, addr3) = if SEQ {
             ports![&base_port;
                 addr0: Self::SEQ_ADDR0,
@@ -242,15 +261,17 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
             (addr0, addr1, addr2, addr3)
         };
 
-        let a0 = port_map[addr0].as_usize();
-        let a1 = port_map[addr1].as_usize();
-        let a2 = port_map[addr2].as_usize();
-        let a3 = port_map[addr3].as_usize();
+        let a0 = port_map[addr0].as_usize()?;
+        let a1 = port_map[addr1].as_usize()?;
+        let a2 = port_map[addr2].as_usize()?;
+        let a3 = port_map[addr3].as_usize()?;
 
-        a0 * (self.d1_size * self.d2_size * self.d3_size)
-            + a1 * (self.d2_size * self.d3_size)
-            + a2 * self.d3_size
-            + a3
+        Some(
+            a0 * (self.d1_size * self.d2_size * self.d3_size)
+                + a1 * (self.d2_size * self.d3_size)
+                + a2 * self.d3_size
+                + a3,
+        )
     }
 
     const NON_ADDRESS_BASE: usize = if SEQ {
@@ -261,7 +282,7 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
 }
 
 pub struct StdMem<M: MemAddresser> {
-    base_port: GlobalPortId,
+    base_port: GlobalPortIdx,
     internal_state: Vec<Value>,
     allow_invalid_access: bool,
     width: u32,
@@ -288,41 +309,63 @@ impl<M: MemAddresser> StdMem<M> {
 }
 
 impl<M: MemAddresser> Primitive for StdMem<M> {
-    fn exec_comb(&self, port_map: &PortMap) -> Results {
+    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         let addr = self.addresser.calculate_addr(port_map, self.base_port);
         let read_data = self.read_data();
-        if addr < self.internal_state.len() {
-            Ok(output![read_data: self.internal_state[addr].clone()])
-        } else {
+
+        if addr.is_some() && addr.unwrap() < self.internal_state.len() {
+            Ok(port_map.insert_val(
+                read_data,
+                AssignedValue::cell_value(
+                    self.internal_state[addr.unwrap()].clone(),
+                ),
+            )?)
+        }
+        // either the address is undefined or it is outside the range of valid addresses
+        else {
             // throw error on cycle boundary rather than here
-            Ok(output![read_data: Value::zeroes(self.width)])
+            port_map.write_undef(read_data)?;
+            Ok(UpdateStatus::Unchanged)
         }
     }
 
-    fn exec_cycle(&mut self, port_map: &PortMap) -> Results {
-        let reset = port_map[self.reset_port()].as_bool();
-        let write_en = port_map[self.write_en()].as_bool();
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+        // These two behave like false when undefined
+        let reset = port_map[self.reset_port()].as_bool().unwrap_or_default();
+        let write_en = port_map[self.write_en()].as_bool().unwrap_or_default();
+
         let addr = self.addresser.calculate_addr(port_map, self.base_port);
         let (read_data, done) = (self.read_data(), self.done());
 
-        if write_en && !reset {
-            let write_data = port_map[self.write_data()].clone();
-            self.internal_state[addr] = write_data;
-            Ok(
-                output![read_data: self.internal_state[addr].clone(), done: Value::bit_high()],
-            )
+        let done = if write_en && !reset {
+            let addr = addr.ok_or(InterpreterError::UndefinedWriteAddr)?;
+
+            let write_data = port_map[self.write_data()]
+                .as_option()
+                .ok_or(InterpreterError::UndefinedWrite)?;
+            self.internal_state[addr] = write_data.val().clone();
+            port_map.insert_val(done, AssignedValue::cell_b_high())?
         } else {
-            Ok(
-                output![read_data: self.internal_state[addr].clone(), done: Value::bit_low()],
-            )
+            port_map.insert_val(done, AssignedValue::cell_b_low())?
+        };
+
+        if let Some(addr) = addr {
+            Ok(port_map.insert_val(
+                read_data,
+                AssignedValue::cell_value(self.internal_state[addr].clone()),
+            )? | done)
+        } else {
+            Ok(done)
         }
     }
 
-    fn reset(&mut self, _port_map: &PortMap) -> Results {
+    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
         let (read_data, done) = (self.read_data(), self.done());
-        Ok(
-            output![read_data: Value::zeroes(self.width), done: Value::bit_low()],
-        )
+
+        port_map.write_undef_unchecked(read_data);
+        port_map[done] = PortValue::new_cell(Value::bit_low());
+
+        Ok(())
     }
 
     fn serialize(
@@ -345,7 +388,7 @@ pub type StdMemD4 = StdMem<MemD4<false>>;
 
 impl StdMemD1 {
     pub fn new(
-        base: GlobalPortId,
+        base: GlobalPortIdx,
         width: u32,
         allow_invalid: bool,
         size: usize,
@@ -364,7 +407,7 @@ impl StdMemD1 {
 
 impl StdMemD2 {
     pub fn new(
-        base: GlobalPortId,
+        base: GlobalPortIdx,
         width: u32,
         allow_invalid: bool,
         size: (usize, usize),
@@ -383,7 +426,7 @@ impl StdMemD2 {
 
 impl StdMemD3 {
     pub fn new(
-        base: GlobalPortId,
+        base: GlobalPortIdx,
         width: u32,
         allow_invalid: bool,
         size: (usize, usize, usize),
@@ -406,7 +449,7 @@ impl StdMemD3 {
 
 impl StdMemD4 {
     pub fn new(
-        base: GlobalPortId,
+        base: GlobalPortIdx,
         width: u32,
         allow_invalid: bool,
         size: (usize, usize, usize, usize),

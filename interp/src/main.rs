@@ -135,7 +135,7 @@ fn main() -> InterpreterResult<()> {
         .allow_par_conflicts(opts.allow_par_conflicts)
         .build();
 
-    interp::logging::initialze_logger(config.quiet);
+    interp::logging::initialize_logger(config.quiet);
 
     let log = interp::logging::root();
 

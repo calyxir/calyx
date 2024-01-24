@@ -48,6 +48,14 @@ impl Seq {
     pub fn stms(&self) -> &[ControlIdx] {
         &self.0
     }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 /// Parallel compositions of control nodes
@@ -64,6 +72,14 @@ impl Par {
 
     pub fn stms(&self) -> &[ControlIdx] {
         &self.0
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -199,6 +215,20 @@ pub enum ControlNode {
     If(If),
     While(While),
     Invoke(Invoke),
+}
+
+impl ControlNode {
+    pub fn is_leaf(&self) -> bool {
+        match self {
+            ControlNode::While(_)
+            | ControlNode::Seq(_)
+            | ControlNode::Par(_)
+            | ControlNode::If(_) => false,
+            ControlNode::Enable(_)
+            | ControlNode::Invoke(_)
+            | ControlNode::Empty(_) => true,
+        }
+    }
 }
 
 // ---------------------
