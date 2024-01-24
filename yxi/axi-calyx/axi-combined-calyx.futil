@@ -47,7 +47,7 @@ component m_arread_channel(
       is_arvalid = std_reg(1);
 
       // gets set high with ARVALID and remains high
-      arvalid_was_high = std_reg(1);
+      ar_handshake_occurred = std_reg(1);
       // TODO(nathanielnrn): should arguably eventually live in `s_axi_control`
       // but for now will live here.
       ref base_addr = std_reg(64);
@@ -78,20 +78,17 @@ component m_arread_channel(
       // this contains blocking logic previously in its own group
       group do_ar_transfer {
           //assert ARVALID as long as this is the first time we are asserting it
-          is_arvalid.in = !arvalid_was_high.out ? 1'b1;
+          is_arvalid.in = !ar_handshake_occurred.out ? 1'b1;
           
-          // TODO(nathanielnrn): in theory should be able to get rid of arvalid_was_high
-          // but for now we will be explicit and reduce this in generation maybe. Not sure
-          // it even matters.
 
           // This makes ARVALID go low after a single cycle.
           // Without it it stays high for 2 cycles
           // See issue #1828: https://github.com/calyxir/calyx/issues/1828
-          is_arvalid.in = is_arvalid.out & ARREADY & arvalid_was_high.out ? 1'b0;
+          is_arvalid.in = is_arvalid.out & ARREADY & ar_handshake_occurred.out ? 1'b0;
           is_arvalid.write_en = 1'b1;
 
-          arvalid_was_high.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
-          arvalid_was_high.write_en = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
+          ar_handshake_occurred.in = !(is_arvalid.out & ARREADY) & !ar_handshake_occurred.out ? 1'b1;
+          ar_handshake_occurred.write_en = !(is_arvalid.out & ARREADY) & !ar_handshake_occurred.out ? 1'b1;
 
 
           // drive output signals for transfer  
@@ -143,7 +140,7 @@ component m_arread_channel(
               seq{
                   par {
                       invoke bt_reg(in=1'b0)();
-                      invoke arvalid_was_high(in=1'b0)();
+                      invoke ar_handshake_occurred(in=1'b0)();
                   }
                   do_ar_transfer;
                   invoke is_arvalid(in=1'b0)();
@@ -412,7 +409,7 @@ component m_awwrite_channel(
       is_awvalid = std_reg(1);
 
       // gets set high with AWVALID and remains high
-      awvalid_was_high = std_reg(1);
+      aw_handshake_occurred = std_reg(1);
       // TODO(nathanielnrn): should arguably eventually live in `s_axi_control`
       // but for now will live here.
       ref base_addr = std_reg(64);
@@ -446,17 +443,17 @@ component m_awwrite_channel(
       // this contains blocking logic previously in its own group
       group do_aw_transfer {
           //assert AWVALID
-          is_awvalid.in = !awvalid_was_high.out ? 1'b1;
+          is_awvalid.in = !(is_awvalid.out & AWREADY) & !aw_handshake_occurred.out ? 1'b1;
           
-          // TODO(nathanielnrn): in theory should be able to get rid of awvalid_was_high
+          // TODO(nathanielnrn): in theory should be able to get rid of aw_handshake_occurred
           // but for now we will be explicit and reduce this in generation maybe. Not sure
           // it even matters.
           // This makes AWVALID go low after a single cycle. Without it it stays high for 2.
-          is_awvalid.in = is_awvalid.out & AWREADY & awvalid_was_high.out ? 1'b0;
+          is_awvalid.in = (is_awvalid.out & AWREADY) | aw_handshake_occurred.out ? 1'b0;
           is_awvalid.write_en = 1'b1;
 
-          awvalid_was_high.in = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
-          awvalid_was_high.write_en = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
+          aw_handshake_occurred.in = is_awvalid.out & AWREADY ? 1'b1;
+          aw_handshake_occurred.write_en = !aw_handshake_occurred.out ? 1'b1;
 
 
           // drive output signals for transfer  
@@ -514,7 +511,7 @@ component m_awwrite_channel(
               seq{
                   par {
 		            invoke bt_reg(in=1'b0)();
-		            invoke awvalid_was_high(in=1'b0)();
+		            invoke aw_handshake_occurred(in=1'b0)();
                   }
                   do_aw_transfer;
 		          invoke is_awvalid(in=1'b0)();
@@ -540,7 +537,7 @@ component m_write_channel(
       // on the data we read from cocotb
       ref internal_mem = seq_mem_d1(32, 8, 64);
       wvalid = std_reg(1);
-      wvalid_was_high = std_reg(1);
+      w_handshake_occurred = std_reg(1);
       // used internally to access our seq_mem_d1
       ref curr_addr = std_reg(64);
       ref base_addr = std_reg(64);
@@ -580,14 +577,14 @@ component m_write_channel(
 
         //NOTE: wvalid.in = 1'b1; does not work, it leaves WVALID high for 2 cycles
         // this both asserts and deasserts one cycle later
-        wvalid.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
-        // TODO(nathanielnrn): Can prob get rid of wvalid_was_high
-        wvalid.in = (wvalid.out & WREADY) & wvalid_was_high.out ? 1'b0;
+        wvalid.in = !(wvalid.out & WREADY) & !w_handshake_occurred.out ? 1'b1;
+        // TODO(nathanielnrn): Can prob get rid of w_handshake_occurred
+        wvalid.in = (wvalid.out & WREADY) | w_handshake_occurred.out ? 1'b0;
         wvalid.write_en = 1'b1;
 
         //set to 1 after valid has been high even once
-        wvalid_was_high.in = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
-        wvalid_was_high.write_en = !(wvalid.out & WREADY & wvalid_was_high.out) ? 1'b1;
+        w_handshake_occurred.in = wvalid.out & WREADY ? 1'b1;
+        w_handshake_occurred.write_en = !w_handshake_occurred.out ? 1'b1;
 
      
         // set data output based on curr_addr register
@@ -650,6 +647,7 @@ component m_write_channel(
                 incr_curr_addr;
                 incr_curr_trnsfr_count;
                 incr_base_addr;
+                invoke w_handshake_occurred(in=1'b0)();
               }
           }
         }
