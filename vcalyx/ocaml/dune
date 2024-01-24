@@ -1,0 +1,30 @@
+(menhir
+ (modules parser)
+ ;(flags --trace)
+ )
+
+;(ocamllex
+; (modules lexer))
+(rule
+ (target lexer.ml)
+ (deps   lexer.mll)
+ (action (chdir %{workspace_root}
+          (run %{bin:ocamllex} -ml -q -o %{target} %{deps}))))
+
+(library
+ (name vcalyx)
+ (public_name vcalyx)
+ (modules parser lexer)
+ (libraries extr core yojson))
+
+(executable
+ (name vcx)
+ (public_name vcx)
+ (modules vcx)
+ (libraries core core_unix.command_unix extr vcalyx yojson)
+ (preprocess
+  (pps ppx_let ppx_deriving.show)))
+
+(test
+ (name test)
+ (modules test))

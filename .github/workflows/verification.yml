@@ -1,10 +1,6 @@
 name: Verification
 
-# Right now, we should only run this check on the vcalyx branch
-on:  
-  push:
-    branches:
-      - vcalyx
+on: [push]
 
 # Ensures that only the latest commit of a PR can execute the actions.
 # Useful for cancelling job when a sequence of commits are quickly added.
@@ -19,19 +15,15 @@ jobs:
     container: ghcr.io/cucapra/calyx:latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Get bwrap for opam
       run: |
         apt-get update -y
         apt-get install -y bubblewrap
-    - name: Set up opam and OCaml 4.13.1
+    - name: Set up opam and OCaml
       uses: ocaml/setup-ocaml@v2
       with:
-          ocaml-compiler: 4.13.1
-    - name: Checkout commit that triggered run
-      run: |
-        git fetch --all
-        git checkout $GITHUB_SHA
+          ocaml-compiler: 4.14.1
     - name: Install dependencies
       run: |
         cd vcalyx
@@ -39,7 +31,19 @@ jobs:
         opam repo add coq-released https://coq.inria.fr/opam/released
         opam install . --deps-only 
         opam install coq yojson core core_unix ppx_deriving coq-stdpp coq-ceres
-    - name: Build with dune
+
+    - name: Build Rust
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --features serialize --all --manifest-path /home/calyx/interp/Cargo.toml
+
+    - name: Build Coq and OCaml
       run: |
         cd vcalyx
         opam exec -- dune build
+
+    - name: Coq Interpreter Runt Tests
+      run: |
+        cd vcalyx
+        runt --diff --only fail
