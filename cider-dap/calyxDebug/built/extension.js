@@ -162,6 +162,7 @@ function activate(context) {
     logToPanel("Extension activated!");
     var factory;
     // Get session type (multi or single) from package.json configuration
+    logToPanel("setting up with configuration '" + vscode.workspace.getConfiguration("cider-dap").sessionType + "'. You will need to reload after changing the settings if a different mode is desired.");
     switch (vscode.workspace.getConfiguration("cider-dap").sessionType) {
         case "Multi-Session":
             factory = new CiderDebugAdapterDescriptorFactoryServer(vscode.workspace.getConfiguration("cider-dap").path, vscode.workspace.rootPath, outputChannel);
