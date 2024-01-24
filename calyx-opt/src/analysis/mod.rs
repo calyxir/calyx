@@ -35,5 +35,7 @@ pub use port_interface::PortInterface;
 pub use read_write_set::ReadWriteSet;
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
+pub use static_info::FixUp;
+pub use static_info::GoDone;
 pub use static_par_timing::StaticParTiming;
 pub use variable_detection::VariableDetection;

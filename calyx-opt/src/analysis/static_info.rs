@@ -13,7 +13,7 @@ use std::num::NonZeroU64;
 
 /// Struct to store information about the go-done interfaces defined by a primitive.
 #[derive(Default, Debug)]
-struct GoDone {
+pub struct GoDone {
     ports: Vec<(ir::Id, ir::Id, u64)>,
 }
 
@@ -46,6 +46,16 @@ impl GoDone {
     /// Iterate over the defined ports
     pub fn iter(&self) -> impl Iterator<Item = &(ir::Id, ir::Id, u64)> {
         self.ports.iter()
+    }
+
+    /// Iterate over the defined ports
+    pub fn len(&self) -> usize {
+        self.ports.len()
+    }
+
+    /// Iterate over the defined ports
+    pub fn get_ports(&self) -> &Vec<(ir::Id, ir::Id, u64)> {
+        &self.ports
     }
 }
 
@@ -95,17 +105,73 @@ impl From<&ir::Cell> for GoDone {
     }
 }
 
-fn do_nothing(c: &mut ir::Control) {
-    ()
-}
-struct FixUp {
+#[derive(Default, Debug)]
+pub struct FixUp {
     /// component name -> vec<(go signal, done signal, latency)>
-    latency_data: HashMap<ir::Id, GoDone>,
+    pub latency_data: HashMap<ir::Id, GoDone>,
     /// Maps static component names to their latencies
-    static_component_latencies: HashMap<ir::Id, NonZeroU64>,
+    pub static_component_latencies: HashMap<ir::Id, u64>,
 }
 
 impl FixUp {
+    // Builds FixUp from a ctx
+    pub fn from_ctx(ctx: &ir::Context) -> Self {
+        let mut latency_data = HashMap::new();
+        let mut static_component_latencies = HashMap::new();
+        // Construct latency_data for each primitive
+        for prim in ctx.lib.signatures() {
+            let prim_go_done = GoDone::from(prim);
+            if prim_go_done.len() == 1 {
+                static_component_latencies
+                    .insert(prim.name, prim_go_done.get_ports()[0].2);
+            }
+            latency_data.insert(prim.name, GoDone::from(prim));
+        }
+        for comp in &ctx.components {
+            let comp_sig = comp.signature.borrow();
+
+            let done_ports: HashMap<_, _> = comp_sig
+                .find_all_with_attr(ir::NumAttr::Done)
+                .map(|pd| {
+                    (
+                        pd.borrow().attributes.get(ir::NumAttr::Done),
+                        pd.borrow().name,
+                    )
+                })
+                .collect();
+
+            let go_ports = comp_sig
+                .find_all_with_attr(ir::NumAttr::Go)
+                .filter_map(|pd| {
+                    pd.borrow().attributes.get(ir::NumAttr::Static).and_then(
+                        |st| {
+                            done_ports
+                                .get(
+                                    &pd.borrow()
+                                        .attributes
+                                        .get(ir::NumAttr::Go),
+                                )
+                                .map(|done_port| {
+                                    (pd.borrow().name, *done_port, st)
+                                })
+                        },
+                    )
+                })
+                .collect_vec();
+
+            let go_done_comp = GoDone::new(go_ports);
+
+            if go_done_comp.len() == 1 {
+                static_component_latencies
+                    .insert(comp.name, go_done_comp.get_ports()[0].2);
+            }
+            latency_data.insert(comp.name, go_done_comp);
+        }
+        FixUp {
+            latency_data,
+            static_component_latencies,
+        }
+    }
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
     ///   - `src` is an "out" port of a constant, and `dst` is a "go" port
     ///   - `src` is a "done" port, and `dst` is a "go" port
@@ -335,18 +401,17 @@ impl FixUp {
 
     /// Returns Some(latency) if a control statement has a latency, because
     /// it is static or is has the @promotable attribute
-    fn get_possible_latency(c: &ir::Control) -> Option<u64> {
+    pub fn get_possible_latency(c: &ir::Control) -> Option<u64> {
         match c {
             ir::Control::Static(sc) => Some(sc.get_latency()),
             _ => c.get_attribute(ir::NumAttr::PromoteStatic),
         }
     }
 
-    fn fixup_timing(
+    pub fn fixup_timing(
         &self,
         comp: &mut ir::Component,
-        latency_info: &HashMap<ir::Id, u64>,
-        updated_components: HashMap<ir::Id, Option<u64>>,
+        updated_components: &HashMap<ir::Id, Option<u64>>,
     ) {
         // Removing @promotable annotations for any groups that write to an updated_component.
         for group in comp.groups.iter() {
@@ -378,6 +443,8 @@ impl FixUp {
         }
 
         // Propogate control information.
-        comp.control.borrow_mut().update_static(latency_info);
+        comp.control
+            .borrow_mut()
+            .update_static(&self.static_component_latencies);
     }
 }
