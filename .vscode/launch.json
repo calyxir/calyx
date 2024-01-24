@@ -32,7 +32,9 @@
       "program": "${workspaceFolder}/target/debug/calyx",
       "cwd": "${workspaceFolder}",
       "stopOnEntry": false,
-      "sourceLanguages": ["rust"],
+      "sourceLanguages": [
+        "rust"
+      ],
       "preLaunchTask": "Cargo Build",
       "console": "integratedTerminal"
     },
@@ -40,27 +42,39 @@
       "type": "lldb",
       "request": "launch",
       "name": "Debug Interpreter",
-      "args": ["${input:target}", "-l", "${workspaceFolder}"],
+      "args": [
+        "${input:target}",
+        "-l",
+        "${workspaceFolder}"
+      ],
       "program": "${workspaceFolder}/target/debug/cider",
       "windows": {
         "program": "${workspaceFolder}/target/debug/cider.exe"
       },
       "cwd": "${workspaceFolder}",
       "stopOnEntry": false,
-      "sourceLanguages": ["rust"]
+      "sourceLanguages": [
+        "rust"
+      ]
     },
     {
       "type": "lldb",
       "request": "launch",
       "name": "Debug Interpreter on current file",
-      "args": ["${file}", "-l", "${workspaceFolder}"],
+      "args": [
+        "${file}",
+        "-l",
+        "${workspaceFolder}"
+      ],
       "program": "${workspaceFolder}/target/debug/cider",
       "windows": {
         "program": "${workspaceFolder}/target/debug/cider.exe"
       },
       "cwd": "${workspaceFolder}",
       "stopOnEntry": false,
-      "sourceLanguages": ["rust"]
+      "sourceLanguages": [
+        "rust"
+      ]
     }
   ],
   "inputs": [
@@ -79,7 +93,10 @@
       "id": "backend",
       "type": "pickString",
       "description": "Backend to be used by the compiler",
-      "options": ["verilog", "calyx"]
+      "options": [
+        "verilog",
+        "calyx"
+      ]
     }
   ]
 }

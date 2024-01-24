@@ -46,3 +46,4 @@ results.xml
 
 
 !cider-dap/calyxDebug/package.json
+!cider-dap/calyxDebug/tsconfig.json
