@@ -17,6 +17,7 @@ pub mod reaching_defns;
 mod read_write_set;
 mod schedule_conflicts;
 mod share_set;
+mod static_info;
 mod static_par_timing;
 mod variable_detection;
 

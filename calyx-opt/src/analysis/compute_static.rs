@@ -1,5 +1,6 @@
 use calyx_ir::{self as ir, GetAttributes};
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::rc::Rc;
 
 /// Trait to propagate and extra "static" attributes through [ir::Control].
@@ -24,7 +25,8 @@ where
     /// **Ensures**: All sub-programs of the type will also be updated.
     fn update_static(&mut self, extra: &Self::Info) -> Option<u64> {
         if let Some(time) = self.compute_static(extra) {
-            self.get_mut_attributes().insert(ir::NumAttr::Static, time);
+            self.get_mut_attributes()
+                .insert(ir::NumAttr::PromoteStatic, time);
             Some(time)
         } else {
             None
@@ -56,30 +58,24 @@ impl WithStatic for ir::Control {
     }
 }
 
-impl WithStatic for ir::StaticEnable {
-    type Info = ();
-    fn compute_static(&mut self, _: &Self::Info) -> Option<u64> {
-        // Attempt to get the latency from the attribute on the enable first, or
-        // failing that, from the group.
-        Some(self.group.borrow().get_latency())
-    }
-}
-
 impl WithStatic for ir::Enable {
     type Info = ();
     fn compute_static(&mut self, _: &Self::Info) -> Option<u64> {
         // Attempt to get the latency from the attribute on the enable first, or
         // failing that, from the group.
-        self.attributes
-            .get(ir::NumAttr::Static)
-            .or_else(|| self.group.borrow().attributes.get(ir::NumAttr::Static))
+        self.attributes.get(ir::NumAttr::PromoteStatic).or_else(|| {
+            self.group
+                .borrow()
+                .attributes
+                .get(ir::NumAttr::PromoteStatic)
+        })
     }
 }
 
 impl WithStatic for ir::Invoke {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.attributes.get(ir::NumAttr::Static).or_else(|| {
+        self.attributes.get(ir::NumAttr::PromoteStatic).or_else(|| {
             let comp = self.comp.borrow().type_name()?;
             extra.get(&comp).cloned()
         })
