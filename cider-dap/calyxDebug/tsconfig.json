@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "outDir": "calyxDebug/built",
+        "outDir": "built",
         "allowJs": true,
         "target": "es5"
     },
