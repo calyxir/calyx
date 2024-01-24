@@ -1,4 +1,17 @@
 circuit main:
+    extmodule std_add_32:
+        input left: UInt<32>
+        input right: UInt<32>
+        output out: UInt<32>
+        defname = std_add
+        parameter WIDTH = 32
+
+    extmodule std_wire_1:
+        input in: UInt<1>
+        output out: UInt<1>
+        defname = std_wire
+        parameter WIDTH = 1
+
     module plus_one:
         input in: UInt<32>
         output out: UInt<32>

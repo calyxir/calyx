@@ -1,4 +1,4 @@
-// -b firrtl -x firrtl-extmodule-primitives
+// -b firrtl --emit-primitive-extmodules
 import "primitives/core.futil";
 component identity(in : 32) -> (out : 32) {
   cells {}
