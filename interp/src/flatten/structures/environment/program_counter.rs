@@ -4,7 +4,7 @@ use ahash::{HashMap, HashMapExt};
 
 use super::super::context::Context;
 use crate::flatten::{
-    flat_ir::prelude::{ControlIdx, ControlNode, GlobalCellId},
+    flat_ir::prelude::{ControlIdx, ControlMap, ControlNode, GlobalCellIdx},
     structures::index_trait::{impl_index_nonzero, IndexRef},
 };
 
@@ -12,29 +12,28 @@ use itertools::{FoldWhile, Itertools};
 
 /// Simple struct containing both the component instance and the active leaf
 /// node in the component
-#[derive(Debug, Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ControlPoint {
-    pub comp: GlobalCellId,
-    pub control_leaf: ControlIdx,
+    pub comp: GlobalCellIdx,
+    pub control_node: ControlIdx,
 }
 
 impl ControlPoint {
-    pub fn new(comp: GlobalCellId, control_leaf: ControlIdx) -> Self {
-        Self { comp, control_leaf }
+    pub fn new(comp: GlobalCellIdx, control_leaf: ControlIdx) -> Self {
+        Self {
+            comp,
+            control_node: control_leaf,
+        }
     }
-}
 
-#[derive(Debug)]
-enum NextControlPoint {
-    /// no
-    None,
-    /// This is the node to run next. The nice friendly singular case
-    Next(ControlPoint),
-    /// We just finished the child of this par block and need to decrement its
-    /// count
-    FinishedParChild(ControlPoint),
-    /// We passed through one or more par nodes to reach this leaf (or leaves)
-    StartedParChild(Vec<ControlPoint>, Vec<(ControlPoint, u32)>),
+    /// Constructs a new [ControlPoint] from an existing one by copying over the
+    /// component identifier but changing the leaf node
+    pub fn new_w_comp(&self, target: ControlIdx) -> Self {
+        Self {
+            comp: self.comp,
+            control_node: target,
+        }
+    }
 }
 
 /// An index for searching up and down a tree. This is used to index into
@@ -89,6 +88,73 @@ impl SearchPath {
 
     pub fn is_empty(&self) -> bool {
         self.path.is_empty()
+    }
+
+    /// Assuming the current node (i.e. the end of this path) has finished
+    /// executing, this ascends the path to the parent node and then proceeds to
+    /// it's next child, if no such child exists, it ascends again and repeats
+    /// the process. If no next node is found, it returns None, indicating that
+    /// there is nothing new to evaluate on the path.
+    pub fn next_node(&self, control_map: &ControlMap) -> Option<ControlIdx> {
+        // Case A: Path is empty? Or has exactly 1 node, so there is no next
+        if self.len() < 2 {
+            None
+        }
+        // Case B: We have an actual search to do
+        else {
+            // minus 2 gets us the second to last node index
+            for search_head in (0..=self.len() - 2).rev() {
+                let SearchNode { node, search_index } = &self.path[search_head];
+                match &control_map[*node] {
+                    ControlNode::Seq(s) => {
+                        let current_child = search_index.expect(
+                            "search index should be present in active seq",
+                        );
+                        // We still have children to iterate through in this composition
+                        if current_child.index() < (s.stms().len() - 1) {
+                            let next_child =
+                                s.stms()[current_child.index() + 1];
+                            return Some(next_child);
+                        }
+                        // we finished this seq node and need to ascend further
+                        else {
+                            continue;
+                        }
+                    }
+                    ControlNode::Par(_) => {
+                        // the challenge here is that we currently don't know if
+                        // the par is done executing. probably this means we
+                        // should return None and wait until the entire par is
+                        // done? or return a third value indicating that the
+                        // par's child count should be decremented. The latter
+                        // seems more promising but I need to think on it more
+
+                        todo!("need to deal with par")
+                    }
+                    ControlNode::If(_) => {
+                        // there is nothing to do when ascending to an if as it
+                        // is already done once the body is done
+                        continue;
+                    }
+                    ControlNode::While(_) => {
+                        // we need to re-check the conditional, so this is our
+                        // next node
+                        return Some(*node);
+                    }
+
+                    // none of these three should be possible as a non-leaf node
+                    // which is what we are currently searching through on the
+                    // path, so this is definitely an error
+                    ControlNode::Invoke(_)
+                    | ControlNode::Empty(_)
+                    | ControlNode::Enable(_) => {
+                        unreachable!("SearchPath is malformed. This is an error and should be reported")
+                    }
+                }
+            }
+
+            None
+        }
     }
 
     pub fn find_path_to_node(
@@ -174,6 +240,8 @@ impl SearchPath {
         current_path
     }
 
+    /// find a path to the target node from the root of it's control tree. This
+    /// automatically finds the root node and invokes [find_path_to_node].
     pub fn find_path_from_root(target: ControlIdx, context: &Context) -> Self {
         let root = context
             .primary
@@ -219,66 +287,25 @@ impl ProgramCounter {
         let root = ctx.entry_point;
         // this relies on the fact that we construct the root cell-ledger
         // as the first possible cell in the program. If that changes this will break.
-        let root_cell = GlobalCellId::new(0);
-        let mut par_map: HashMap<ControlPoint, ChildCount> = HashMap::new();
+        let root_cell = GlobalCellIdx::new(0);
 
         let mut vec = Vec::with_capacity(CONTROL_POINT_PREALLOCATE);
-        if let Some(current) = ctx.primary[root].control {
-            let mut work_queue: Vec<ControlIdx> = Vec::from([current]);
-            let mut backtrack_map = HashMap::new();
 
-            while let Some(current) = work_queue.pop() {
-                match &ctx.primary[current] {
-                    ControlNode::Empty(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Enable(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Seq(s) => match s
-                        .stms()
-                        .iter()
-                        .find(|&x| !backtrack_map.contains_key(x))
-                    {
-                        Some(n) => {
-                            backtrack_map.insert(*n, current);
-                            work_queue.push(*n);
-                        }
-                        None => {
-                            if let Some(b) = backtrack_map.get(&current) {
-                                work_queue.push(*b)
-                            }
-                        }
-                    },
-                    ControlNode::Par(p) => {
-                        par_map.insert(
-                            ControlPoint::new(root_cell, current),
-                            p.stms().len().try_into().expect(
-                                "number of par arms does not fit into the default size value. Please let us know so that we can adjust the datatype accordingly",
-                            ),
-                        );
-                        for node in p.stms() {
-                            work_queue.push(*node);
-                        }
-                    }
-                    ControlNode::If(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::While(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                    ControlNode::Invoke(_) => {
-                        vec.push(ControlPoint::new(root_cell, current))
-                    }
-                }
-            }
+        if let Some(current) = ctx.primary[root].control {
+            vec.push(ControlPoint {
+                comp: root_cell,
+                control_node: current,
+            })
         } else {
             todo!(
                 "Flat interpreter does not support control-less components yet"
             )
         }
 
-        Self { vec, par_map }
+        Self {
+            vec,
+            par_map: HashMap::new(),
+        }
     }
 
     pub fn iter(&self) -> std::slice::Iter<'_, ControlPoint> {
@@ -287,6 +314,14 @@ impl ProgramCounter {
 
     pub fn is_done(&self) -> bool {
         self.vec.is_empty()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
+        self.vec.iter_mut()
+    }
+
+    pub(crate) fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
+        &mut self.vec
     }
 }
 

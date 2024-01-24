@@ -1,10 +1,7 @@
 use crate::{
-    flatten::{
-        flat_ir::{
-            cell_prototype::{CellPrototype, MemType, PrimType1},
-            prelude::{CellInfo, GlobalPortId},
-        },
-        structures::environment::Environment,
+    flatten::flat_ir::{
+        cell_prototype::{CellPrototype, MemType, PrimType1},
+        prelude::{CellInfo, GlobalPortIdx},
     },
     values::Value,
 };
@@ -13,9 +10,8 @@ use super::{combinational::*, Primitive};
 use super::{prim_trait::DummyPrimitive, stateful::*};
 
 pub fn build_primitive(
-    env: &mut Environment,
     prim: &CellInfo,
-    base_port: GlobalPortId,
+    base_port: GlobalPortIdx,
 ) -> Box<dyn Primitive> {
     match &prim.prototype {
         CellPrototype::Constant {
@@ -24,7 +20,8 @@ pub fn build_primitive(
             c_type: _,
         } => {
             let v = Value::from(*val, *width);
-            env.ports[base_port] = v.clone();
+            // TODO griffin: see if it is worth putting the initialization back
+            // env.ports[base_port] = v.clone();
             Box::new(StdConst::new(v, base_port))
         }
 

@@ -1,48 +1,113 @@
 use crate::{
     debugger::PrintCode,
     errors::InterpreterResult,
-    flatten::{flat_ir::base::GlobalPortId, structures::environment::PortMap},
+    flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
     primitives::Serializable,
     values::Value,
 };
 
 pub struct AssignResult {
-    pub destination: GlobalPortId,
+    pub destination: GlobalPortIdx,
     pub value: Value,
 }
 
 impl AssignResult {
-    pub fn new(destination: GlobalPortId, value: Value) -> Self {
+    pub fn new(destination: GlobalPortIdx, value: Value) -> Self {
         Self { destination, value }
     }
 }
 
-impl From<(GlobalPortId, Value)> for AssignResult {
-    fn from(value: (GlobalPortId, Value)) -> Self {
+impl From<(GlobalPortIdx, Value)> for AssignResult {
+    fn from(value: (GlobalPortIdx, Value)) -> Self {
         Self::new(value.0, value.1)
     }
 }
 
-impl From<(Value, GlobalPortId)> for AssignResult {
-    fn from(value: (Value, GlobalPortId)) -> Self {
+impl From<(Value, GlobalPortIdx)> for AssignResult {
+    fn from(value: (Value, GlobalPortIdx)) -> Self {
         Self::new(value.1, value.0)
     }
 }
 
-/// The return value for evaluating the results of a primitive
-pub type Results = InterpreterResult<Vec<AssignResult>>;
+/// An enum used to denote whether or not committed updates changed the state
+pub enum UpdateStatus {
+    Unchanged,
+    Changed,
+}
+
+impl From<bool> for UpdateStatus {
+    fn from(value: bool) -> Self {
+        if value {
+            Self::Changed
+        } else {
+            Self::Unchanged
+        }
+    }
+}
+
+impl UpdateStatus {
+    #[inline]
+    /// If the status is unchanged and other is changed, updates the status of
+    /// self to changed, otherwise does nothing
+    pub fn update(&mut self, other: Self) {
+        if !self.is_changed() && other.is_changed() {
+            *self = UpdateStatus::Changed;
+        }
+    }
+
+    #[inline]
+    /// Returns `true` if the update status is [`Changed`].
+    ///
+    /// [`Changed`]: UpdateStatus::Changed
+    #[must_use]
+    pub fn is_changed(&self) -> bool {
+        matches!(self, Self::Changed)
+    }
+}
+
+impl std::ops::BitOr for UpdateStatus {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        if self.is_changed() || rhs.is_changed() {
+            UpdateStatus::Changed
+        } else {
+            UpdateStatus::Unchanged
+        }
+    }
+}
+
+impl std::ops::BitOr for &UpdateStatus {
+    type Output = UpdateStatus;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        if self.is_changed() || rhs.is_changed() {
+            UpdateStatus::Changed
+        } else {
+            UpdateStatus::Unchanged
+        }
+    }
+}
+
+impl std::ops::BitOrAssign for UpdateStatus {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.update(rhs)
+    }
+}
+
+pub type UpdateResult = InterpreterResult<UpdateStatus>;
 
 pub trait Primitive {
-    fn exec_comb(&self, _port_map: &PortMap) -> Results {
-        Ok(vec![])
+    fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
+        Ok(UpdateStatus::Unchanged)
     }
 
-    fn exec_cycle(&mut self, _port_map: &PortMap) -> Results {
-        Ok(vec![])
+    fn exec_cycle(&mut self, _port_map: &mut PortMap) -> UpdateResult {
+        Ok(UpdateStatus::Unchanged)
     }
 
-    fn reset(&mut self, _port_map: &PortMap) -> Results {
-        Ok(vec![])
+    fn reset(&mut self, _port_map: &mut PortMap) -> InterpreterResult<()> {
+        Ok(())
     }
 
     fn has_comb(&self) -> bool {
