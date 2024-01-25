@@ -12,7 +12,7 @@ component write_one<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) ->
     out = x.out;
   }
   control {
-    @promote_static invoke0;
+    invoke0;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
@@ -50,9 +50,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     seq {
       invoke0;
       invoke1;
-      @promote_static invoke2;
+      invoke2;
       invoke3;
-      @promote_static invoke4;
+      invoke4;
     }
   }
 }

@@ -56,11 +56,6 @@ impl Visitor for StaticInference {
             if let Some(val) =
                 FixUp::get_possible_latency(&comp.control.borrow())
             {
-                assert_ne!(
-                    0, val,
-                    "Component {} has an inferred latency of 0",
-                    comp.name
-                );
                 let comp_sig = comp.signature.borrow();
                 let mut go_ports: Vec<_> =
                     comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
