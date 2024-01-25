@@ -412,7 +412,13 @@ impl StaticPromotion {
         builder: &mut ir::Builder,
         mut control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
-        if Self::approx_control_vec_size(&control_vec) <= self.threshold {
+        if control_vec.is_empty() {
+            // Base case
+            return vec![];
+        } else if control_vec.len() == 1 {
+            return vec![control_vec.pop().unwrap()];
+        } else if Self::approx_control_vec_size(&control_vec) <= self.threshold
+        {
             // Too small to be promoted, return as is
             return control_vec;
         } else if !self.within_cycle_limit(
@@ -420,6 +426,8 @@ impl StaticPromotion {
         ) {
             // Too large, try to break up
             let right = control_vec.split_off(control_vec.len() / 2);
+            dbg!(control_vec.len());
+            dbg!(right.len());
             let mut left_res =
                 self.promote_vec_seq_heuristic(builder, control_vec);
             let right_res = self.promote_vec_seq_heuristic(builder, right);
@@ -446,7 +454,13 @@ impl StaticPromotion {
         builder: &mut ir::Builder,
         mut control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
-        if Self::approx_control_vec_size(&control_vec) <= self.threshold {
+        if control_vec.is_empty() {
+            // Base case
+            return vec![];
+        } else if control_vec.len() == 1 {
+            return vec![control_vec.pop().unwrap()];
+        } else if Self::approx_control_vec_size(&control_vec) <= self.threshold
+        {
             // Too small to be promoted, return as is
             return control_vec;
         } else if !self.within_cycle_limit(
@@ -457,24 +471,17 @@ impl StaticPromotion {
                 .unwrap_or_else(|| unreachable!("Empty Par Block")),
         ) {
             // Too large to be promoted, take out largest thread and try to promote rest.
-            if let Some(max_index) = control_vec
+            // Can safely unwrap bc we already checked for an empty vector.
+            let (index, _) = control_vec
                 .iter()
                 .enumerate()
                 .max_by_key(|&(_, c)| Self::approx_size(c))
-            {
-                let (index, _) = max_index;
-
-                // Pop the largest element from the vector
-                let largest_thread = control_vec.remove(index);
-
-                let mut left =
-                    self.promote_vec_par_heuristic(builder, control_vec);
-                left.push(largest_thread);
-                return left;
-            } else {
-                // Vector is empty, return
-                return vec![];
-            }
+                .unwrap();
+            // Pop the largest element from the vector
+            let largest_thread = control_vec.remove(index);
+            let mut left = self.promote_vec_par_heuristic(builder, control_vec);
+            left.push(largest_thread);
+            return left;
         }
         // Convert vec to static par
         let s_par_stmts = self.convert_vec_to_static(builder, control_vec);
@@ -603,12 +610,13 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
+        // Checking if entire seq is promotable
         if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
-            // Entire seq is promotable
-            if Self::approx_control_vec_size(&s.stmts) > self.threshold
-                && self.within_cycle_limit(latency)
-            {
-                // Promote entire seq
+            // If seq is too small, then continue without doing anything.
+            if Self::approx_control_vec_size(&s.stmts) <= self.threshold {
+                return Ok(Action::Continue);
+            } else if self.within_cycle_limit(latency) {
+                // We promote entire seq.
                 let mut sseq = ir::Control::Static(ir::StaticControl::seq(
                     self.convert_vec_to_static(
                         &mut builder,
@@ -621,8 +629,9 @@ impl Visitor for StaticPromotion {
                 return Ok(Action::change(sseq));
             }
         }
-        // Do not promote the entire seq into a static seq, but can try to
-        // promote parts of it.
+        // The seq either a) takes too many cylces to promote entirely or
+        // b) has dynamic stmts in it. Either way, the solution is to
+        // break it up into smaller static seqs.
         let old_stmts = std::mem::take(&mut s.stmts);
         let mut new_stmts: Vec<ir::Control> = Vec::new();
         let mut cur_vec: Vec<ir::Control> = Vec::new();
@@ -656,11 +665,13 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
+        // Check if entire par is promotable
         if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
-            // Entire par is promotable
             let approx_size: u64 = s.stmts.iter().map(Self::approx_size).sum();
-            if approx_size > self.threshold && self.within_cycle_limit(latency)
-            {
+            if approx_size <= self.threshold {
+                // Par is too small to promote, continue.
+                return Ok(Action::Continue);
+            } else if self.within_cycle_limit(latency) {
                 // Promote entire par
                 let spar = ir::Control::Static(ir::StaticControl::par(
                     self.convert_vec_to_static(
@@ -673,7 +684,10 @@ impl Visitor for StaticPromotion {
             }
         }
         let mut new_stmts: Vec<ir::Control> = Vec::new();
-        // Split the par into static and dynamic stmtsl, and use heuristics
+        // The par either a) takes too many cylces to promote entirely or
+        // b) has dynamic stmts in it. Either way, the solution is to
+        // break it up.
+        // Split the par into static and dynamic stmts, and use heuristics
         // to choose whether to promote the static ones.
         let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
             s.stmts.drain(..).partition(|c| Self::can_be_promoted(&c));
@@ -718,6 +732,14 @@ impl Visitor for StaticPromotion {
                     ),
                 )));
             }
+            // If this takes too many cycles, then we will
+            // never promote this if statement, meaning we will never promote any
+            // of its parents. We can therefore safely remove the `@promotable` attribute.
+            // This isn't strictly necessary, but it is helpful for parent control
+            // programs applying heuristics.
+            if !(self.within_cycle_limit(latency)) {
+                s.attributes.remove(ir::NumAttr::PromoteStatic);
+            }
         }
         Ok(Action::Continue)
     }
@@ -753,6 +775,14 @@ impl Visitor for StaticPromotion {
                     static_repeat,
                 ))));
             }
+            // If this takes too many cycles, then we will
+            // never promote this if statement, meaning we will never promote any
+            // of its parents. We can therefore safely remove the `@promotable` attribute.
+            // This isn't strictly necessary, but it is helpful for parent control
+            // programs applying heuristics.
+            if !(self.within_cycle_limit(latency)) {
+                s.attributes.remove(ir::NumAttr::PromoteStatic);
+            }
         }
         Ok(Action::Continue)
     }
@@ -781,6 +811,14 @@ impl Visitor for StaticPromotion {
                 return Ok(Action::Change(Box::new(ir::Control::Static(
                     static_repeat,
                 ))));
+            }
+            // If this takes too many cycles, then we will
+            // never promote this if statement, meaning we will never promote any
+            // of its parents. We can therefore safely remove the `@promotable` attribute.
+            // This isn't strictly necessary, but it is helpful for parent control
+            // programs applying heuristics.
+            if !(self.within_cycle_limit(latency)) {
+                s.attributes.remove(ir::NumAttr::PromoteStatic);
             }
         }
         Ok(Action::Continue)
