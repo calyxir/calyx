@@ -1,4 +1,4 @@
-use crate::analysis::FixUp;
+use crate::analysis::InferenceAnalysis;
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
@@ -28,11 +28,8 @@ const APPROX_WHILE_REPEAT_SIZE: u64 = 3;
 /// that we can tolerate to promote it.
 ///
 pub struct StaticPromotion {
-    /// Components whose timing information has been changed by this pass.
-    /// For StaticPromotion, this is when we decide not to promote certain components.
-    updated_components: HashMap<ir::Id, Option<u64>>,
     // XXX(Caleb): To do;
-    static_info: FixUp,
+    inference_analysis: InferenceAnalysis,
     /// dynamic group Id -> promoted static group Id
     static_group_name: HashMap<ir::Id, ir::Id>,
     /// Threshold for promotion
@@ -49,8 +46,7 @@ impl ConstructVisitor for StaticPromotion {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let opts = Self::get_opts(ctx);
         Ok(StaticPromotion {
-            updated_components: HashMap::new(),
-            static_info: FixUp::from_ctx(ctx),
+            inference_analysis: InferenceAnalysis::from_ctx(ctx),
             static_group_name: HashMap::new(),
             threshold: opts["threshold"].pos_num().unwrap(),
             if_diff_limit: opts["if-diff-limit"].pos_num(),
@@ -198,7 +194,7 @@ impl StaticPromotion {
             "Shouldn't Promote to Static if there is a Comb Group",
         );
         s.attributes.remove(ir::NumAttr::PromoteStatic);
-        let latency = *self.static_info.static_component_latencies.get(
+        let latency = *self.inference_analysis.static_component_latencies.get(
             &s.comp.borrow().type_name().unwrap_or_else(|| {
                 unreachable!(
                     "Already checked that comp is component"
@@ -512,12 +508,8 @@ impl Visitor for StaticPromotion {
                     // We decided not to promote, so we need to update data structures
                     // and remove @static attribute from the signature.
 
-                    // Updating `latency_data`, `component_latencies`, and `updated_components`.
-                    self.static_info.latency_data.remove(&comp.name);
-                    self.static_info
-                        .static_component_latencies
-                        .remove(&comp.name);
-                    self.updated_components.insert(comp.name, None);
+                    // Updating `static_info`.
+                    self.inference_analysis.remove_component(comp.name);
                     // Removing `@static` from the go ports.
                     for go_port in go_ports {
                         go_port
@@ -531,7 +523,9 @@ impl Visitor for StaticPromotion {
         // Remove @promotable (i.e., @promote_static) attribute from control.
         // Probably not necessary, since we'll ignore it anyways, but makes for
         // cleaner code.
-        FixUp::remove_promotable_attribute(&mut comp.control.borrow_mut());
+        InferenceAnalysis::remove_promotable_attribute(
+            &mut comp.control.borrow_mut(),
+        );
         Ok(Action::Continue)
     }
 
@@ -543,8 +537,7 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         // Re-infer static timing based on the components we have updated in
         // this pass.
-        self.static_info
-            .fixup_timing(comp, &self.updated_components);
+        self.inference_analysis.fixup_timing(comp);
         Ok(Action::Continue)
     }
 

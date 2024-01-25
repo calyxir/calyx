@@ -4,7 +4,7 @@ use crate::analysis::{
 use calyx_ir::{self as ir, GetAttributes, RRC};
 use ir::CellType;
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Struct to store information about the go-done interfaces defined by a primitive.
 /// There is no default implementation because it will almost certainly be very
@@ -107,8 +107,10 @@ impl From<&ir::Cell> for GoDone {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct FixUp {
+#[derive(Debug)]
+/// Default implemnetation is not provided, since it is almost certainly more helpful
+/// to use `from_ctx` instead.
+pub struct InferenceAnalysis {
     /// component name -> vec<(go signal, done signal, latency)>
     pub latency_data: HashMap<ir::Id, GoDone>,
     /// Maps static component names to their latencies, but there can only
@@ -116,9 +118,11 @@ pub struct FixUp {
     /// given by latency_data), and is helpful for inferring invokes.
     /// Perhaps someday we should get rid of it and only make it one field.
     pub static_component_latencies: HashMap<ir::Id, u64>,
+
+    updated_components: HashSet<ir::Id>,
 }
 
-impl FixUp {
+impl InferenceAnalysis {
     /// Builds FixUp struct from a ctx. Looks at all primitives and component
     /// signatures to get latency information.
     pub fn from_ctx(ctx: &ir::Context) -> Self {
@@ -164,10 +168,47 @@ impl FixUp {
             }
             latency_data.insert(comp.name, go_done_comp);
         }
-        FixUp {
+        InferenceAnalysis {
             latency_data,
             static_component_latencies,
+            updated_components: HashSet::new(),
         }
+    }
+
+    /// Updates the component, given a component name and a new latency and GoDone object.
+    pub fn add_component(
+        &mut self,
+        (comp_name, latency, go_done): (ir::Id, u64, GoDone),
+    ) {
+        self.latency_data.insert(comp_name, go_done);
+        self.static_component_latencies.insert(comp_name, latency);
+    }
+
+    /// Updates the component, given a component name and a new latency.
+    /// Note that this expects that the component already is accounted for
+    /// in self.latency_data and self.static_component_latencies.
+    pub fn remove_component(&mut self, comp_name: ir::Id) {
+        self.updated_components.insert(comp_name);
+        self.latency_data.remove(&comp_name);
+        self.static_component_latencies.remove(&comp_name);
+    }
+
+    /// Updates the component, given a component name and a new latency.
+    /// Note that this expects that the component already is accounted for
+    /// in self.latency_data and self.static_component_latencies.
+    pub fn adjust_component(
+        &mut self,
+        (comp_name, adjusted_latency): (ir::Id, u64),
+    ) {
+        self.updated_components.insert(comp_name);
+        self.latency_data.entry(comp_name).and_modify(|go_done| {
+            for (_, _, cur_latency) in &mut go_done.ports {
+                // Updating components with latency data.
+                *cur_latency = adjusted_latency;
+            }
+        });
+        self.static_component_latencies
+            .insert(comp_name, adjusted_latency);
     }
 
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
@@ -436,16 +477,13 @@ impl FixUp {
 
     /// "Fixes Up" the component. In particular:
     /// 1. Removes @promotable annotations for any groups that write to any
-    /// `updated_components`. We then try to re-infer these groups' latencies.
-    /// 2. Removes @promotable annotation from the control program.
-    /// 3. Re-infers the @promotable annotations for any groups or control.
-    /// Note that this only fixes up the component's ``internals*''.
+    /// `updated_components`.
+    /// 2. Try to re-infer groups' latencies.
+    /// 3. Removes all @promotable annotation from the control program.
+    /// 4. Re-infers the @promotable annotations for any groups or control.
+    /// Note that this only fixes up the component's ``internals''.
     /// It does *not* fix the component's signature.
-    pub fn fixup_timing(
-        &self,
-        comp: &mut ir::Component,
-        updated_components: &HashMap<ir::Id, Option<u64>>,
-    ) {
+    pub fn fixup_timing(&self, comp: &mut ir::Component) {
         // Removing @promotable annotations for any groups that write to an updated_component,
         // then try to re-infer the latency.
         for group in comp.groups.iter() {
@@ -455,7 +493,7 @@ impl FixUp {
             if ReadWriteSet::write_set(group.borrow_mut().assignments.iter())
                 .any(|cell| match cell.borrow().prototype {
                     CellType::Component { name } => {
-                        updated_components.keys().contains(&name)
+                        self.updated_components.contains(&name)
                     }
                     _ => false,
                 })

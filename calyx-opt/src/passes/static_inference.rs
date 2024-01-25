@@ -1,18 +1,17 @@
-use crate::analysis::{FixUp, GoDone};
+use crate::analysis::{GoDone, InferenceAnalysis};
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use itertools::Itertools;
-use std::collections::HashMap;
 
 /// Infer "promote_static" (potentially to be renamed @promotable) annotation
 /// for groups and control.
 /// Inference occurs whenever possible.
 pub struct StaticInference {
     /// Takes static information.
-    static_info: FixUp,
+    inference_analysis: InferenceAnalysis,
 }
 
 // Override constructor to build latency_data information from the primitives
@@ -20,7 +19,7 @@ pub struct StaticInference {
 impl ConstructVisitor for StaticInference {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         Ok(StaticInference {
-            static_info: FixUp::from_ctx(ctx),
+            inference_analysis: InferenceAnalysis::from_ctx(ctx),
         })
     }
 
@@ -54,7 +53,7 @@ impl Visitor for StaticInference {
         if comp.name != "main" {
             // If the entire component's control is promotable.
             if let Some(val) =
-                FixUp::get_possible_latency(&comp.control.borrow())
+                InferenceAnalysis::get_possible_latency(&comp.control.borrow())
             {
                 let comp_sig = comp.signature.borrow();
                 let mut go_ports: Vec<_> =
@@ -68,12 +67,6 @@ impl Visitor for StaticInference {
                 }
                 let mut done_ports: Vec<_> =
                     comp_sig.find_all_with_attr(ir::NumAttr::Done).collect();
-                // Updating `static_component_latencies`.
-                if done_ports.len() == 1 && go_ports.len() == 1 {
-                    self.static_info
-                        .static_component_latencies
-                        .insert(comp.name, val);
-                }
                 // Update `latency_data`.
                 go_ports.sort_by_key(|port| {
                     port.borrow().attributes.get(ir::NumAttr::Go).unwrap()
@@ -89,8 +82,11 @@ impl Visitor for StaticInference {
                         (go_port.borrow().name, done_port.borrow().name, val)
                     })
                     .collect_vec();
-                let go_done = GoDone::new(go_done_ports);
-                self.static_info.latency_data.insert(comp.name, go_done);
+                self.inference_analysis.add_component((
+                    comp.name,
+                    val,
+                    GoDone::new(go_done_ports),
+                ));
             }
         }
         Ok(Action::Continue)
@@ -104,7 +100,7 @@ impl Visitor for StaticInference {
     ) -> VisResult {
         // ``Fix up the timing'', but with the updated_components argument as
         // and empty HashMap. This just performs inference.
-        self.static_info.fixup_timing(comp, &HashMap::new());
+        self.inference_analysis.fixup_timing(comp);
         Ok(Action::Continue)
     }
 }
