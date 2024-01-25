@@ -79,7 +79,7 @@ impl SearchPath {
     }
 
     pub fn source_node(&self) -> Option<&SearchNode> {
-        self.path.get(0)
+        self.path.first()
     }
 
     pub fn len(&self) -> usize {
