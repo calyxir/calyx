@@ -1,11 +1,11 @@
-use crate::analysis::{FixUp, GoDone};
+use crate::analysis::FixUp;
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
 };
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
-use ir::{GetAttributes, NumAttr};
+use ir::GetAttributes;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::rc::Rc;
@@ -227,13 +227,6 @@ impl StaticPromotion {
                 )
             }),
         ).unwrap_or_else(|| unreachable!("Called convert_to_static for static invoke that does not have a static component"));
-        // Self::check_latencies_match(*self.static_info.static_component_latencies.get(
-        //     &s.comp.borrow().type_name().unwrap_or_else(|| {
-        //         unreachable!(
-        //             "Already checked that comp is component"
-        //         )
-        //     }),
-        // ).unwrap_or_else(|| unreachable!("Called convert_to_static for static invoke that does not have a static component")), inferred_latency);
         let s_inv = ir::StaticInvoke {
             comp: Rc::clone(&s.comp),
             inputs: std::mem::take(&mut s.inputs),
@@ -413,27 +406,27 @@ impl StaticPromotion {
         v.iter().map(Self::approx_size).sum()
     }
 
-    /// First checks if the vec of control statements satsifies the threshold
-    /// and cycle count threshold
-    /// (That is, whether the combined approx_size of the static_vec is greater)
-    /// than the threshold and cycle count is less than cycle limit).
-    /// If so, converts vec of control to a static seq, and returns a vec containing
-    /// the static seq.
-    /// Otherwise, just returns the vec without changing it.
-    fn convert_vec_seq_if_sat(
+    /// Converts the control_vec (i..e, the stmts of the seq) using heuristics.
+    fn promote_vec_seq_heuristic(
         &mut self,
         builder: &mut ir::Builder,
-        control_vec: Vec<ir::Control>,
+        mut control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
-        if Self::approx_control_vec_size(&control_vec) <= self.threshold
-            || !self.within_cycle_limit(
-                control_vec.iter().map(Self::get_inferred_latency).sum(),
-            )
-        {
-            // Return unchanged vec
+        if Self::approx_control_vec_size(&control_vec) <= self.threshold {
+            // Too small to be promoted, return as is
             return control_vec;
+        } else if !self.within_cycle_limit(
+            control_vec.iter().map(Self::get_inferred_latency).sum(),
+        ) {
+            // Too large, try to break up
+            let right = control_vec.split_off(control_vec.len() / 2);
+            let mut left_res =
+                self.promote_vec_seq_heuristic(builder, control_vec);
+            let right_res = self.promote_vec_seq_heuristic(builder, right);
+            left_res.extend(right_res);
+            return left_res;
         }
-        // Convert vec to static seq
+        // Correct size, convert the entire vec
         let s_seq_stmts = self.convert_vec_to_static(builder, control_vec);
         let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
         let mut sseq =
@@ -448,24 +441,42 @@ impl StaticPromotion {
     /// If so, converts vec of control to a static par, and returns a vec containing
     /// the static par.
     /// Otherwise, just returns the vec without changing it.
-    fn convert_vec_par_if_sat(
+    fn promote_vec_par_heuristic(
         &mut self,
         builder: &mut ir::Builder,
-        control_vec: Vec<ir::Control>,
+        mut control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
-        if Self::approx_control_vec_size(&control_vec) <= self.threshold
-            || !self.within_cycle_limit(
-                control_vec
-                    .iter()
-                    .map(Self::get_inferred_latency)
-                    .max()
-                    .unwrap_or_else(|| unreachable!("Empty Par Block")),
-            )
-        {
-            // Return unchanged vec
+        if Self::approx_control_vec_size(&control_vec) <= self.threshold {
+            // Too small to be promoted, return as is
             return control_vec;
+        } else if !self.within_cycle_limit(
+            control_vec
+                .iter()
+                .map(Self::get_inferred_latency)
+                .max()
+                .unwrap_or_else(|| unreachable!("Empty Par Block")),
+        ) {
+            // Too large to be promoted, take out largest thread and try to promote rest.
+            if let Some(max_index) = control_vec
+                .iter()
+                .enumerate()
+                .max_by_key(|&(_, c)| Self::approx_size(c))
+            {
+                let (index, _) = max_index;
+
+                // Pop the largest element from the vector
+                let largest_thread = control_vec.remove(index);
+
+                let mut left =
+                    self.promote_vec_par_heuristic(builder, control_vec);
+                left.push(largest_thread);
+                return left;
+            } else {
+                // Vector is empty, return
+                return vec![];
+            }
         }
-        // Convert vec to static seq
+        // Convert vec to static par
         let s_par_stmts = self.convert_vec_to_static(builder, control_vec);
         let latency = s_par_stmts
             .iter()
@@ -592,6 +603,26 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
+        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+            // Entire seq is promotable
+            if Self::approx_control_vec_size(&s.stmts) > self.threshold
+                && self.within_cycle_limit(latency)
+            {
+                // Promote entire seq
+                let mut sseq = ir::Control::Static(ir::StaticControl::seq(
+                    self.convert_vec_to_static(
+                        &mut builder,
+                        std::mem::take(&mut s.stmts),
+                    ),
+                    latency,
+                ));
+                sseq.get_mut_attributes()
+                    .insert(ir::NumAttr::Compactable, 1);
+                return Ok(Action::change(sseq));
+            }
+        }
+        // Do not promote the entire seq into a static seq, but can try to
+        // promote parts of it.
         let old_stmts = std::mem::take(&mut s.stmts);
         let mut new_stmts: Vec<ir::Control> = Vec::new();
         let mut cur_vec: Vec<ir::Control> = Vec::new();
@@ -599,9 +630,9 @@ impl Visitor for StaticPromotion {
             if Self::can_be_promoted(&stmt) {
                 cur_vec.push(stmt);
             } else {
-                // Accumualte cur_vec into a static seq if it meets threshold
+                // Use heuristics to decide how to promote this cur_vec of promotable stmts.
                 let possibly_promoted_stmts =
-                    self.convert_vec_seq_if_sat(&mut builder, cur_vec);
+                    self.promote_vec_seq_heuristic(&mut builder, cur_vec);
                 new_stmts.extend(possibly_promoted_stmts);
                 // Add the current (non-promotable) stmt
                 new_stmts.push(stmt);
@@ -609,32 +640,7 @@ impl Visitor for StaticPromotion {
                 cur_vec = Vec::new();
             }
         }
-        if new_stmts.is_empty() {
-            // The entire seq can be promoted
-            let approx_size: u64 = cur_vec.iter().map(Self::approx_size).sum();
-            if approx_size > self.threshold
-                && self.within_cycle_limit(
-                    cur_vec.iter().map(Self::get_inferred_latency).sum(),
-                )
-            {
-                // Promote entire seq to a static seq
-                let s_seq_stmts =
-                    self.convert_vec_to_static(&mut builder, cur_vec);
-                let latency =
-                    s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
-                let mut sseq = ir::Control::Static(ir::StaticControl::seq(
-                    s_seq_stmts,
-                    latency,
-                ));
-                sseq.get_mut_attributes()
-                    .insert(ir::NumAttr::Compactable, 1);
-                return Ok(Action::change(sseq));
-            } else {
-                return Ok(Action::Continue);
-            }
-        }
-        // Entire seq is not static, so we're only (possibly) promoting the cur_vec
-        new_stmts.extend(self.convert_vec_seq_if_sat(&mut builder, cur_vec));
+        new_stmts.extend(self.promote_vec_seq_heuristic(&mut builder, cur_vec));
         let new_seq = ir::Control::Seq(ir::Seq {
             stmts: new_stmts,
             attributes: ir::Attributes::default(),
@@ -650,38 +656,28 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        let mut new_stmts: Vec<ir::Control> = Vec::new();
-        // Split the par into static and dynamic stmts
-        let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
-            s.stmts.drain(..).partition(|c| Self::can_be_promoted(&c));
-        if d_stmts.is_empty() {
-            // Entire par block can be promoted to static
-            if Self::approx_control_vec_size(&s_stmts) > self.threshold
-                && self.within_cycle_limit(
-                    s_stmts
-                        .iter()
-                        .map(Self::get_inferred_latency)
-                        .max()
-                        .unwrap_or_else(|| unreachable!("Empty Par Block")),
-                )
+        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+            // Entire par is promotable
+            let approx_size: u64 = s.stmts.iter().map(Self::approx_size).sum();
+            if approx_size > self.threshold && self.within_cycle_limit(latency)
             {
-                // Promote entire par block to static
-                let static_par_stmts =
-                    self.convert_vec_to_static(&mut builder, s_stmts);
-                let latency = static_par_stmts
-                    .iter()
-                    .map(|sc| sc.get_latency())
-                    .max()
-                    .unwrap_or_else(|| unreachable!("empty par block"));
-                return Ok(Action::change(ir::Control::Static(
-                    ir::StaticControl::par(static_par_stmts, latency),
-                )));
-            } else {
-                return Ok(Action::Continue);
+                // Promote entire par
+                let spar = ir::Control::Static(ir::StaticControl::par(
+                    self.convert_vec_to_static(
+                        &mut builder,
+                        std::mem::take(&mut s.stmts),
+                    ),
+                    latency,
+                ));
+                return Ok(Action::change(spar));
             }
         }
-        // Otherwise just promote the par threads that we can into a static par
-        new_stmts.extend(self.convert_vec_par_if_sat(&mut builder, s_stmts));
+        let mut new_stmts: Vec<ir::Control> = Vec::new();
+        // Split the par into static and dynamic stmtsl, and use heuristics
+        // to choose whether to promote the static ones.
+        let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
+            s.stmts.drain(..).partition(|c| Self::can_be_promoted(&c));
+        new_stmts.extend(self.promote_vec_par_heuristic(&mut builder, s_stmts));
         new_stmts.extend(d_stmts);
         let new_par = ir::Control::Par(ir::Par {
             stmts: new_stmts,
@@ -737,10 +733,9 @@ impl Visitor for StaticPromotion {
         let mut builder = ir::Builder::new(comp, sigs);
         // First check that while loop is promotable
         if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
-            // Then check that body is static/promotable
             let approx_size =
                 Self::approx_size(&s.body) + APPROX_WHILE_REPEAT_SIZE;
-            // Then check that it reaches the threshold
+            // Then check that it fits the heuristics
             if approx_size > self.threshold && self.within_cycle_limit(latency)
             {
                 // Turn repeat into static repeat
@@ -772,7 +767,6 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
-            // Body can be promoted
             let approx_size =
                 Self::approx_size(&s.body) + APPROX_WHILE_REPEAT_SIZE;
             if approx_size > self.threshold && self.within_cycle_limit(latency)

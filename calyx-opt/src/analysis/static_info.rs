@@ -1,15 +1,10 @@
 use crate::analysis::{
     compute_static::WithStatic, GraphAnalysis, ReadWriteSet,
 };
-use crate::traversal::{
-    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
-};
-use calyx_ir::{self as ir, LibrarySignatures, RRC};
-use calyx_utils::{CalyxResult, Error};
-use ir::{CellType, GetAttributes};
+use calyx_ir::{self as ir, RRC};
+use ir::CellType;
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::num::NonZeroU64;
 
 /// Struct to store information about the go-done interfaces defined by a primitive.
 #[derive(Default, Debug)]
@@ -133,29 +128,20 @@ impl FixUp {
             let done_ports: HashMap<_, _> = comp_sig
                 .find_all_with_attr(ir::NumAttr::Done)
                 .map(|pd| {
-                    (
-                        pd.borrow().attributes.get(ir::NumAttr::Done),
-                        pd.borrow().name,
-                    )
+                    let pd_ref = pd.borrow();
+                    (pd_ref.attributes.get(ir::NumAttr::Done), pd_ref.name)
                 })
                 .collect();
 
             let go_ports = comp_sig
                 .find_all_with_attr(ir::NumAttr::Go)
                 .filter_map(|pd| {
-                    pd.borrow().attributes.get(ir::NumAttr::Static).and_then(
-                        |st| {
-                            done_ports
-                                .get(
-                                    &pd.borrow()
-                                        .attributes
-                                        .get(ir::NumAttr::Go),
-                                )
-                                .map(|done_port| {
-                                    (pd.borrow().name, *done_port, st)
-                                })
-                        },
-                    )
+                    let pd_ref = pd.borrow();
+                    pd_ref.attributes.get(ir::NumAttr::Static).and_then(|st| {
+                        done_ports
+                            .get(&pd_ref.attributes.get(ir::NumAttr::Go))
+                            .map(|done_port| (pd_ref.name, *done_port, st))
+                    })
                 })
                 .collect_vec();
 
@@ -417,7 +403,8 @@ impl FixUp {
         for group in comp.groups.iter() {
             // XXX(Caleb): can switch this to only writing to go ports instead.
             // What we have is fine but it's overly conservative.
-            if ReadWriteSet::write_set(group.borrow().assignments.iter()).any(
+            let mut group_ref = group.borrow_mut();
+            if ReadWriteSet::write_set(group_ref.assignments.iter()).any(
                 |cell| match cell.borrow().prototype {
                     CellType::Component { name } => {
                         updated_components.keys().contains(&name)
@@ -425,16 +412,15 @@ impl FixUp {
                     _ => false,
                 },
             ) {
-                group
-                    .borrow_mut()
-                    .attributes
-                    .remove(ir::NumAttr::PromoteStatic);
+                group_ref.attributes.remove(ir::NumAttr::PromoteStatic);
             }
         }
 
         // Re-infering the latency of all the groups
         for group in comp.get_groups() {
-            if let Some(latency) = self.infer_latency(&group.borrow()) {
+            let latency_result = self.infer_latency(&group.borrow());
+            // A little bit weird to do it this way, but it avoids borrow errors.
+            if let Some(latency) = latency_result {
                 group
                     .borrow_mut()
                     .attributes

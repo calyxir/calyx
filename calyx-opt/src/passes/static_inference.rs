@@ -5,7 +5,6 @@ use crate::traversal::{
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use std::collections::HashMap;
-use std::num::NonZeroU64;
 
 /// Infer "promote_static" annotation for groups and promote control to static when
 /// (conservatively) possible.
@@ -86,13 +85,19 @@ impl Visitor for StaticInference {
         if comp.name != "main" {
             match FixUp::get_possible_latency(&comp.control.borrow()) {
                 Some(val) => {
-                    comp.latency = Some(NonZeroU64::new(val).unwrap());
                     let comp_sig = comp.signature.borrow();
                     let mut done_ports: Vec<_> = comp_sig
                         .find_all_with_attr(ir::NumAttr::Done)
                         .collect();
                     let mut go_ports: Vec<_> =
                         comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
+                    // Insert @static attribute on the go ports.
+                    for go_port in &mut go_ports {
+                        go_port
+                            .borrow_mut()
+                            .attributes
+                            .insert(ir::NumAttr::Static, val);
+                    }
                     // XXX(Caleb): Not sure why they have to be one port.
                     if done_ports.len() == 1 && go_ports.len() == 1 {
                         let go_done = GoDone::new(vec![(
@@ -104,13 +109,7 @@ impl Visitor for StaticInference {
                             .latency_data
                             .insert(comp.name, go_done);
                     }
-                    // Insert @static attribute on the go ports.
-                    for go_port in go_ports {
-                        go_port
-                            .borrow_mut()
-                            .attributes
-                            .insert(ir::NumAttr::Static, val);
-                    }
+
                     assert_ne!(
                         0, val,
                         "Component {} has an inferred latency of 0",
@@ -123,7 +122,6 @@ impl Visitor for StaticInference {
                 None => (),
             }
         }
-
         Ok(Action::Continue)
     }
 

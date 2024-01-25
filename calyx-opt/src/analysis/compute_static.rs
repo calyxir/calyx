@@ -1,6 +1,5 @@
 use calyx_ir::{self as ir, GetAttributes};
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::Rc;
 
 /// Trait to propagate and extra "static" attributes through [ir::Control].
@@ -85,36 +84,45 @@ impl WithStatic for ir::Invoke {
 impl WithStatic for ir::Seq {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        let mut sum = 0;
-        for stmt in &mut self.stmts {
-            sum += stmt.update_static(extra)?;
-        }
-        Some(sum)
+        self.stmts.iter_mut().fold(Some(0), |acc, stmt| {
+            match (acc, stmt.update_static(extra)) {
+                (Some(cur_latency), Some(stmt_latency)) => {
+                    Some(cur_latency + stmt_latency)
+                }
+                (_, _) => None,
+            }
+        })
     }
 }
 
 impl WithStatic for ir::Par {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        let mut max = 0;
-        for stmt in &mut self.stmts {
-            max = std::cmp::max(max, stmt.update_static(extra)?);
-        }
-        Some(max)
+        self.stmts.iter_mut().fold(Some(0), |acc, stmt| {
+            match (acc, stmt.update_static(extra)) {
+                (Some(cur_latency), Some(stmt_latency)) => {
+                    Some(std::cmp::max(cur_latency, stmt_latency))
+                }
+                (_, _) => None,
+            }
+        })
     }
 }
 
 impl WithStatic for ir::If {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        let t = self.tbranch.update_static(extra)?;
-        let f = self.fbranch.update_static(extra)?;
         // Cannot compute latency information for `if`-`with`
+        let t_latency = self.tbranch.update_static(extra);
+        let f_latency = self.fbranch.update_static(extra);
         if self.cond.is_some() {
             log::debug!("Cannot compute latency for while-with");
             return None;
         }
-        Some(std::cmp::max(t, f))
+        match (t_latency, f_latency) {
+            (Some(t), Some(f)) => Some(std::cmp::max(t, f)),
+            (_, _) => None,
+        }
     }
 }
 

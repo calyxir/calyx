@@ -1,4 +1,4 @@
-// -p well-formed -p static-promotion -p dead-group-removal -x static-promotion:threshold=4
+// -p well-formed -p static-inference -p static-promotion -p dead-group-removal -x static-promotion:threshold=4
 
 import "primitives/core.futil";
 
