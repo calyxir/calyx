@@ -694,9 +694,14 @@ impl<'a> Simulator<'a> {
         let parent_cells: HashSet<GlobalCellIdx> = assigns_bundle
             .iter()
             .flat_map(|(cell, assigns)| {
-                assigns.iter().map(|x| {
+                assigns.iter().flat_map(|x| {
                     let assign = &self.env.ctx.primary[x];
-                    self.get_parent_cell(assign.dst, *cell)
+
+                    [
+                        self.get_parent_cell(assign.dst, *cell),
+                        self.get_parent_cell(assign.src, *cell),
+                    ]
+                    .into_iter()
                 })
             })
             .flatten()
@@ -738,9 +743,10 @@ impl<'a> Simulator<'a> {
                     }
                     CellLedger::Component(_) => todo!(),
                 })
-                .fold_ok(false, |has_changed, update| {
-                    has_changed | update.is_changed()
-                })?;
+                .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
+                    has_changed | update
+                })?
+                .as_bool();
 
             has_changed |= changed;
         }
@@ -753,6 +759,9 @@ impl<'a> Simulator<'a> {
         for _x in self.env.pc.iter() {
             // println!("{:?} next {:?}", x, self.find_next_control_point(x))
         }
+        self.step();
+        self.step();
+
         self.env.print_pc();
         self.print_env();
         // println!("{:?}", self.get_assignments())
