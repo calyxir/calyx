@@ -97,6 +97,7 @@ impl PassManager {
                 SimplifyWithControl, // Must run before compile-invoke
                 CompileInvoke,   // creates dead comb groups
                 AttributePromotion,
+                StaticInference,
                 StaticPromotion,
                 ScheduleCompaction,
                 CompileRepeat,
