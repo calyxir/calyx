@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-component foo(base: 32, exp: 4, @go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component foo(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r1 = std_reg(32);
     r2 = std_reg(32);
@@ -17,9 +17,9 @@ component foo(base: 32, exp: 4, @go @static(2) go: 1, @clk clk: 1, @reset reset:
     }
   }
   control {
-    @promote_static(2) seq {
-      @promote_static upd1;
-      @promote_static upd2;
+    seq {
+      upd1;
+      upd2;
     }
   }
 }

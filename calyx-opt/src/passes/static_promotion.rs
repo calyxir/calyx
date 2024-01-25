@@ -6,6 +6,7 @@ use crate::traversal::{
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use ir::GetAttributes;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::rc::Rc;
@@ -488,8 +489,9 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         if comp.name != "main" {
             let comp_sig = comp.signature.borrow();
-            let mut go_ports = comp_sig.find_all_with_attr(ir::NumAttr::Go);
-            if go_ports.any(|go_port| {
+            let go_ports =
+                comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
+            if go_ports.iter().any(|go_port| {
                 go_port.borrow_mut().attributes.has(ir::NumAttr::Static)
             }) {
                 if comp.control.borrow().is_static() {
