@@ -83,43 +83,39 @@ impl Visitor for StaticInference {
         _comps: &[ir::Component],
     ) -> VisResult {
         if comp.name != "main" {
-            match FixUp::get_possible_latency(&comp.control.borrow()) {
-                Some(val) => {
-                    let comp_sig = comp.signature.borrow();
-                    let mut done_ports: Vec<_> = comp_sig
-                        .find_all_with_attr(ir::NumAttr::Done)
-                        .collect();
-                    let mut go_ports: Vec<_> =
-                        comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
-                    // Insert @static attribute on the go ports.
-                    for go_port in &mut go_ports {
-                        go_port
-                            .borrow_mut()
-                            .attributes
-                            .insert(ir::NumAttr::Static, val);
-                    }
-                    // XXX(Caleb): Not sure why they have to be one port.
-                    if done_ports.len() == 1 && go_ports.len() == 1 {
-                        let go_done = GoDone::new(vec![(
-                            go_ports.pop().unwrap().borrow().name,
-                            done_ports.pop().unwrap().borrow().name,
-                            val,
-                        )]);
-                        self.static_info
-                            .latency_data
-                            .insert(comp.name, go_done);
-                    }
-
-                    assert_ne!(
-                        0, val,
-                        "Component {} has an inferred latency of 0",
-                        comp.name
-                    );
-                    self.static_info
-                        .static_component_latencies
-                        .insert(comp.name, val);
+            if let Some(val) =
+                FixUp::get_possible_latency(&comp.control.borrow())
+            {
+                let comp_sig = comp.signature.borrow();
+                let mut done_ports: Vec<_> =
+                    comp_sig.find_all_with_attr(ir::NumAttr::Done).collect();
+                let mut go_ports: Vec<_> =
+                    comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
+                // Insert @static attribute on the go ports.
+                for go_port in &mut go_ports {
+                    go_port
+                        .borrow_mut()
+                        .attributes
+                        .insert(ir::NumAttr::Static, val);
                 }
-                None => (),
+                // XXX(Caleb): Not sure why they have to be one port.
+                if done_ports.len() == 1 && go_ports.len() == 1 {
+                    let go_done = GoDone::new(vec![(
+                        go_ports.pop().unwrap().borrow().name,
+                        done_ports.pop().unwrap().borrow().name,
+                        val,
+                    )]);
+                    self.static_info.latency_data.insert(comp.name, go_done);
+                }
+
+                assert_ne!(
+                    0, val,
+                    "Component {} has an inferred latency of 0",
+                    comp.name
+                );
+                self.static_info
+                    .static_component_latencies
+                    .insert(comp.name, val);
             }
         }
         Ok(Action::Continue)

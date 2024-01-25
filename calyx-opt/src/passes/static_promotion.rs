@@ -686,7 +686,7 @@ impl Visitor for StaticPromotion {
         // Split the par into static and dynamic stmts, and use heuristics
         // to choose whether to promote the static ones.
         let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
-            s.stmts.drain(..).partition(|c| Self::can_be_promoted(&c));
+            s.stmts.drain(..).partition(Self::can_be_promoted);
         new_stmts.extend(self.promote_vec_par_heuristic(&mut builder, s_stmts));
         new_stmts.extend(d_stmts);
         let new_par = ir::Control::Par(ir::Par {

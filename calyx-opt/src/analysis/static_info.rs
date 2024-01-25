@@ -44,6 +44,11 @@ impl GoDone {
     }
 
     /// Iterate over the defined ports
+    pub fn is_empty(&self) -> bool {
+        self.ports.is_empty()
+    }
+
+    /// Iterate over the defined ports
     pub fn len(&self) -> usize {
         self.ports.len()
     }
