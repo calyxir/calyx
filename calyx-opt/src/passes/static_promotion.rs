@@ -28,7 +28,8 @@ const APPROX_WHILE_REPEAT_SIZE: u64 = 3;
 /// that we can tolerate to promote it.
 ///
 pub struct StaticPromotion {
-    // XXX(Caleb): To do;
+    /// An InferenceAnalysis object so that we can re-infer the latencies of
+    /// certain components.
     inference_analysis: InferenceAnalysis,
     /// dynamic group Id -> promoted static group Id
     static_group_name: HashMap<ir::Id, ir::Id>,

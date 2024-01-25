@@ -487,7 +487,7 @@ impl InferenceAnalysis {
         // Removing @promotable annotations for any groups that write to an updated_component,
         // then try to re-infer the latency.
         for group in comp.groups.iter() {
-            // XXX(Caleb): This checks any group that writes to the component:
+            // This checks any group that writes to the component:
             // We can probably switch this to any group that writes to the component's
             // `go` port to be more precise analysis.
             if ReadWriteSet::write_set(group.borrow_mut().assignments.iter())
