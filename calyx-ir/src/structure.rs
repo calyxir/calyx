@@ -503,6 +503,15 @@ impl<T> Assignment<T> {
         }
     }
 
+    pub fn iter_ports<F>(&self, mut f: F)
+    where
+        F: FnMut(&RRC<Port>),
+    {
+        f(&self.src);
+        f(&self.dst);
+        self.guard.all_ports().iter().for_each(f);
+    }
+
     /// Apply function `f` to each port contained within the assignment and
     /// replace the port with the generated value if not None.
     pub fn for_each_port<F>(&mut self, mut f: F)

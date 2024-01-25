@@ -33,6 +33,7 @@ mod simplify_static_guards;
 mod static_inliner;
 mod static_promotion;
 mod sync;
+mod unused_port_removal;
 // mod simplify_guards;
 mod add_guard;
 mod compile_static_interface;
