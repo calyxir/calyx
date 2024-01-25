@@ -274,10 +274,19 @@ impl From<AssignmentIdx> for AssignmentWinner {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct AssignedValue {
     val: Value,
     winner: AssignmentWinner,
+}
+
+impl std::fmt::Debug for AssignedValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AssignedValue")
+            .field("val", &format!("{}", &self.val))
+            .field("winner", &self.winner)
+            .finish()
+    }
 }
 
 impl std::fmt::Display for AssignedValue {
