@@ -1,7 +1,7 @@
 use crate::analysis::{
     compute_static::WithStatic, GraphAnalysis, ReadWriteSet,
 };
-use calyx_ir::{self as ir, RRC};
+use calyx_ir::{self as ir, GetAttributes, RRC};
 use ir::CellType;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -394,6 +394,36 @@ impl FixUp {
         }
     }
 
+    /// Removes the @promotable attribute.
+    fn remove_promotable_attribute(c: &mut ir::Control) {
+        c.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
+        match c {
+            ir::Control::Empty(_)
+            | ir::Control::Invoke(_)
+            | ir::Control::Enable(_)
+            | ir::Control::Static(_) => (),
+            ir::Control::While(ir::While { body, .. })
+            | ir::Control::Repeat(ir::Repeat { body, .. }) => {
+                Self::remove_promotable_attribute(body);
+            }
+            ir::Control::If(ir::If {
+                tbranch, fbranch, ..
+            }) => {
+                Self::remove_promotable_attribute(tbranch);
+                Self::remove_promotable_attribute(fbranch);
+            }
+            ir::Control::Seq(ir::Seq { stmts, .. })
+            | ir::Control::Par(ir::Par { stmts, .. }) => {
+                for stmt in stmts {
+                    Self::remove_promotable_attribute(stmt);
+                }
+            }
+        }
+    }
+
+    // "Fixes Up" the component.
+    // Note that this only fixes up the components' *internals*. It does *not* fix
+    // up the component's signature.
     pub fn fixup_timing(
         &self,
         comp: &mut ir::Component,
@@ -416,6 +446,9 @@ impl FixUp {
             }
         }
 
+        // Removing @promotable annotations for the entire control flow.
+        Self::remove_promotable_attribute(&mut comp.control.borrow_mut());
+
         // Re-infering the latency of all the groups
         for group in comp.get_groups() {
             let latency_result = self.infer_latency(&group.borrow());
@@ -428,7 +461,7 @@ impl FixUp {
             }
         }
 
-        // Propogate control information.
+        // Re-infer control.
         comp.control
             .borrow_mut()
             .update_static(&self.static_component_latencies);

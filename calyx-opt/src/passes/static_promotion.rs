@@ -541,10 +541,6 @@ impl Visitor for StaticPromotion {
                 }
             }
         }
-        // if comp.is_static() {
-        //     self.static_component_latencies
-        //         .insert(comp.name, comp.latency.unwrap());
-        // }
         Ok(Action::Continue)
     }
 
