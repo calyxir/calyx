@@ -1,5 +1,7 @@
-use crate::utils::assignment_to_string;
 use crate::values::Value;
+use crate::{
+    flatten::flat_ir::prelude::AssignedValue, utils::assignment_to_string,
+};
 use calyx_ir::{self as ir, Assignment, Id};
 use calyx_utils::Error as CalyxError;
 use rustyline::error::ReadlineError;
@@ -99,6 +101,17 @@ pub enum InterpreterError {
         a2: String,
     },
 
+    #[error(
+        "conflicting assigns
+        1. {a1}
+        2. {a2}
+    "
+    )]
+    FlatConflictingAssignments {
+        a1: AssignedValue,
+        a2: AssignedValue,
+    },
+
     #[error("unable to find component named \"{0}\"")]
     UnknownComponent(String),
 
@@ -155,6 +168,14 @@ pub enum InterpreterError {
 
     #[error(transparent)]
     IOError(#[from] std::io::Error),
+
+    //TODO Griffin: Make this more descriptive
+    #[error("Attempted to write an undefined value to register or memory")]
+    UndefinedWrite,
+
+    //TODO Griffin: Make this more descriptive
+    #[error("Attempted to write an undefined memory address")]
+    UndefinedWriteAddr,
 }
 
 impl InterpreterError {

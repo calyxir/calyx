@@ -65,5 +65,9 @@
   ],
   "scripts": {
     "vscode:prepublish": "npx tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.6",
+    "@types/vscode": "^1.54.0"
   }
 }
