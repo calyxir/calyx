@@ -4,43 +4,12 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
+use itertools::Itertools;
 use std::collections::HashMap;
 
-/// Infer "promote_static" annotation for groups and promote control to static when
-/// (conservatively) possible.
-///
-/// Promotion follows the current policies:
-/// 1. if multiple groups enables aligned inside a seq are marked with the "promote_static"
-///     attribute, then promote all promotable enables to static enables, meanwhile,
-///     wrap them into a static seq
-///     for example:
-/// ```
-///     seq {
-///         a1;
-///         @promote_static a2; @promote_static a3; }
-/// ```
-///     becomes
-/// ```
-///     seq {
-///         a1;
-///         static seq {a2; a3;}}
-/// ```
-/// 2. if all control statements under seq are either static statements or group enables
-///     with `promote_static` annotation, then promote all group enables and turn
-///     seq into static seq
-/// 3. Under a par control op, all group enables marked with `promote_static` will be promoted.
-///     all control statements that are either static or group enables with `promote_static` annotation
-///     are wrapped inside a static par.
-/// ```
-/// par {@promote_static a1; a2; @promote_static a3;}
-/// ```
-/// becomes
-/// ```
-/// par {
-/// static par { a1; a3; }
-/// a2;
-/// }
-/// ```
+/// Infer "promote_static" (potentially to be renamed @promotable) annotation
+/// for groups and control.
+/// Inference occurs whenever possible.
 pub struct StaticInference {
     /// Takes static information.
     static_info: FixUp,
@@ -83,12 +52,16 @@ impl Visitor for StaticInference {
         _comps: &[ir::Component],
     ) -> VisResult {
         if comp.name != "main" {
+            // If the entire component's control is promotable.
             if let Some(val) =
                 FixUp::get_possible_latency(&comp.control.borrow())
             {
+                assert_ne!(
+                    0, val,
+                    "Component {} has an inferred latency of 0",
+                    comp.name
+                );
                 let comp_sig = comp.signature.borrow();
-                let mut done_ports: Vec<_> =
-                    comp_sig.find_all_with_attr(ir::NumAttr::Done).collect();
                 let mut go_ports: Vec<_> =
                     comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
                 // Insert @static attribute on the go ports.
@@ -98,24 +71,31 @@ impl Visitor for StaticInference {
                         .attributes
                         .insert(ir::NumAttr::Static, val);
                 }
-                // XXX(Caleb): Not sure why they have to be one port.
+                let mut done_ports: Vec<_> =
+                    comp_sig.find_all_with_attr(ir::NumAttr::Done).collect();
+                // Updating `static_component_latencies`.
                 if done_ports.len() == 1 && go_ports.len() == 1 {
-                    let go_done = GoDone::new(vec![(
-                        go_ports.pop().unwrap().borrow().name,
-                        done_ports.pop().unwrap().borrow().name,
-                        val,
-                    )]);
-                    self.static_info.latency_data.insert(comp.name, go_done);
+                    self.static_info
+                        .static_component_latencies
+                        .insert(comp.name, val);
                 }
-
-                assert_ne!(
-                    0, val,
-                    "Component {} has an inferred latency of 0",
-                    comp.name
-                );
-                self.static_info
-                    .static_component_latencies
-                    .insert(comp.name, val);
+                // Update `latency_data`.
+                go_ports.sort_by_key(|port| {
+                    port.borrow().attributes.get(ir::NumAttr::Go).unwrap()
+                });
+                done_ports.sort_by_key(|port| {
+                    port.borrow().attributes.get(ir::NumAttr::Done).unwrap()
+                });
+                let zipped: Vec<_> =
+                    go_ports.iter().zip(done_ports.iter()).collect();
+                let go_done_ports = zipped
+                    .into_iter()
+                    .map(|(go_port, done_port)| {
+                        (go_port.borrow().name, done_port.borrow().name, val)
+                    })
+                    .collect_vec();
+                let go_done = GoDone::new(go_done_ports);
+                self.static_info.latency_data.insert(comp.name, go_done);
             }
         }
         Ok(Action::Continue)
@@ -127,7 +107,8 @@ impl Visitor for StaticInference {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Updated components is empty
+        // ``Fix up the timing'', but with the updated_components argument as
+        // and empty HashMap. This just performs inference.
         self.static_info.fixup_timing(comp, &HashMap::new());
         Ok(Action::Continue)
     }

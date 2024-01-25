@@ -109,12 +109,16 @@ impl From<&ir::Cell> for GoDone {
 pub struct FixUp {
     /// component name -> vec<(go signal, done signal, latency)>
     pub latency_data: HashMap<ir::Id, GoDone>,
-    /// Maps static component names to their latencies
+    /// Maps static component names to their latencies, but there can only
+    /// be one go port on the component. (This is a subset of the information
+    /// given by latency_data), and is helpful for inferring invokes.
+    /// Perhaps someday we should get rid of it and only make it one field.
     pub static_component_latencies: HashMap<ir::Id, u64>,
 }
 
 impl FixUp {
-    // Builds FixUp from a ctx
+    /// Builds FixUp struct from a ctx. Looks at all primitives and component
+    /// signatures to get latency information.
     pub fn from_ctx(ctx: &ir::Context) -> Self {
         let mut latency_data = HashMap::new();
         let mut static_component_latencies = HashMap::new();
@@ -163,6 +167,7 @@ impl FixUp {
             static_component_latencies,
         }
     }
+
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
     ///   - `src` is an "out" port of a constant, and `dst` is a "go" port
     ///   - `src` is a "done" port, and `dst` is a "go" port
@@ -399,7 +404,8 @@ impl FixUp {
         }
     }
 
-    /// Removes the @promotable attribute.
+    /// Removes the @promotable attribute from the control program.
+    /// Recursively visits the children of the control.
     fn remove_promotable_attribute(c: &mut ir::Control) {
         c.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
         match c {
@@ -426,38 +432,43 @@ impl FixUp {
         }
     }
 
-    // "Fixes Up" the component.
-    // Note that this only fixes up the components' *internals*. It does *not* fix
-    // up the component's signature.
+    /// "Fixes Up" the component. In particular:
+    /// 1. Removes @promotable annotations for any groups that write to any
+    /// `updated_components`. We then try to re-infer these groups' latencies.
+    /// 2. Removes @promotable annotation from the control program.
+    /// 3. Re-infers the @promotable annotations for any groups or control.
+    /// Note that this only fixes up the component's ``internals*''.
+    /// It does *not* fix the component's signature.
     pub fn fixup_timing(
         &self,
         comp: &mut ir::Component,
         updated_components: &HashMap<ir::Id, Option<u64>>,
     ) {
-        // Removing @promotable annotations for any groups that write to an updated_component.
+        // Removing @promotable annotations for any groups that write to an updated_component,
+        // then try to re-infer the latency.
         for group in comp.groups.iter() {
-            // XXX(Caleb): can switch this to only writing to go ports instead.
-            // What we have is fine but it's overly conservative.
-            let mut group_ref = group.borrow_mut();
-            if ReadWriteSet::write_set(group_ref.assignments.iter()).any(
-                |cell| match cell.borrow().prototype {
+            // XXX(Caleb): This checks any group that writes to the component:
+            // We can probably switch this to any group that writes to the component's
+            // `go` port to be more precise analysis.
+            if ReadWriteSet::write_set(group.borrow_mut().assignments.iter())
+                .any(|cell| match cell.borrow().prototype {
                     CellType::Component { name } => {
                         updated_components.keys().contains(&name)
                     }
                     _ => false,
-                },
-            ) {
-                group_ref.attributes.remove(ir::NumAttr::PromoteStatic);
+                })
+            {
+                // Remove attribute from group.
+                group
+                    .borrow_mut()
+                    .attributes
+                    .remove(ir::NumAttr::PromoteStatic);
             }
         }
 
-        // Removing @promotable annotations for the entire control flow.
-        Self::remove_promotable_attribute(&mut comp.control.borrow_mut());
-
-        // Re-infering the latency of all the groups
-        for group in comp.get_groups() {
+        for group in &mut comp.groups.iter() {
+            // Immediately try to re-infer the latency of the group.
             let latency_result = self.infer_latency(&group.borrow());
-            // A little bit weird to do it this way, but it avoids borrow errors.
             if let Some(latency) = latency_result {
                 group
                     .borrow_mut()
@@ -466,7 +477,9 @@ impl FixUp {
             }
         }
 
-        // Re-infer control.
+        // Removing @promotable annotations for the control flow, then trying
+        // to re-infer them.
+        Self::remove_promotable_attribute(&mut comp.control.borrow_mut());
         comp.control
             .borrow_mut()
             .update_static(&self.static_component_latencies);

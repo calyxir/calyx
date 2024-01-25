@@ -84,12 +84,13 @@ impl WithStatic for ir::Invoke {
 impl WithStatic for ir::Seq {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.stmts.iter_mut().try_fold(0, |acc, stmt| {
+        // Go through each stmt in the seq, and try to calculate the latency.
+        self.stmts.iter_mut().fold(Some(0), |acc, stmt| {
             match (acc, stmt.update_static(extra)) {
-                (cur_latency, Some(stmt_latency)) => {
+                (Some(cur_latency), Some(stmt_latency)) => {
                     Some(cur_latency + stmt_latency)
                 }
-                (_, None) => None,
+                (_, _) => None,
             }
         })
     }
@@ -98,12 +99,13 @@ impl WithStatic for ir::Seq {
 impl WithStatic for ir::Par {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.stmts.iter_mut().try_fold(0, |acc, stmt| {
+        // Go through each stmt in the par, and try to calculate the latency.
+        self.stmts.iter_mut().fold(Some(0), |acc, stmt| {
             match (acc, stmt.update_static(extra)) {
-                (cur_latency, Some(stmt_latency)) => {
+                (Some(cur_latency), Some(stmt_latency)) => {
                     Some(std::cmp::max(cur_latency, stmt_latency))
                 }
-                (_, None) => None,
+                (_, _) => None,
             }
         })
     }

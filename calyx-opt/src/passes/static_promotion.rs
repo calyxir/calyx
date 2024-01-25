@@ -14,41 +14,18 @@ const APPROX_ENABLE_SIZE: u64 = 1;
 const APPROX_IF_SIZE: u64 = 3;
 const APPROX_WHILE_REPEAT_SIZE: u64 = 3;
 
-/// Infer "promote_static" annotation for groups and promote control to static when
-/// (conservatively) possible.
+/// Promote control to static when (conservatively) possible, using @promote_static
+/// annotations from `infer_static`.
 ///
-/// Promotion follows the current policies:
-/// 1. if multiple groups enables aligned inside a seq are marked with the "promote_static"
-///     attribute, then promote all promotable enables to static enables, meanwhile,
-///     wrap them into a static seq
-///     for example:
-/// ```
-///     seq {
-///         a1;
-///         @promote_static a2; @promote_static a3; }
-/// ```
-///     becomes
-/// ```
-///     seq {
-///         a1;
-///         static seq {a2; a3;}}
-/// ```
-/// 2. if all control statements under seq are either static statements or group enables
-///     with `promote_static` annotation, then promote all group enables and turn
-///     seq into static seq
-/// 3. Under a par control op, all group enables marked with `promote_static` will be promoted.
-///     all control statements that are either static or group enables with `promote_static` annotation
-///     are wrapped inside a static par.
-/// ```
-/// par {@promote_static a1; a2; @promote_static a3;}
-/// ```
-/// becomes
-/// ```
-/// par {
-/// static par { a1; a3; }
-/// a2;
-/// }
-/// ```
+/// Promotion occurs the following policies:
+/// 1. ``Threshold'': How large the island must be. We have three const
+/// defined as heuristics to measure approximately how big each control program
+/// is. It must be larger than that threshold.
+/// 2. ``Cycle limit": The maximum number of cycles the island can be when we
+/// promote it.
+/// 3. ``If Diff Limit": The maximum difference in latency between if statments
+/// that we can tolerate to promote it.
+///
 pub struct StaticPromotion {
     /// Components whose timing information has been changed by this pass.
     /// For StaticPromotion, this is when we decide not to promote certain components.
@@ -516,15 +493,19 @@ impl Visitor for StaticPromotion {
                     // It has a known latency but also produces a done signal.
                     comp.attributes.insert(ir::BoolAttr::Promoted, 1);
                 }
-                // This makes the component static.
+                // This makes the component appear as a static<n> component.
                 comp.latency = Some(NonZeroU64::new(lat).unwrap());
             } else {
                 // If we ended up not deciding to promote, we need to update static_info
                 // and remove @static attribute from the signature.
+
+                // Updating `latency_data`, `component_latencies`, and `updated_components`.
                 self.static_info.latency_data.remove(&comp.name);
                 self.static_info
                     .static_component_latencies
                     .remove(&comp.name);
+                self.updated_components.insert(comp.name, None);
+                // Updating component's signature.
                 let comp_sig = comp.signature.borrow();
                 let go_ports = comp_sig.find_all_with_attr(ir::NumAttr::Go);
                 for go_port in go_ports {
@@ -534,9 +515,6 @@ impl Visitor for StaticPromotion {
                             .borrow_mut()
                             .attributes
                             .remove(ir::NumAttr::Static);
-                        // Insert comp.name into updated component to signify the
-                        // component now has an unknown latency.
-                        self.updated_components.insert(comp.name, None);
                     }
                 }
             }
@@ -566,7 +544,8 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
-            // Convert to static if within cycle limit and size is below threshold.
+            // Convert to static if enable is
+            // within cycle limit and size is above threshold.
             if self.within_cycle_limit(latency)
                 && (APPROX_ENABLE_SIZE > self.threshold)
             {
@@ -586,7 +565,7 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
-            // Convert to static if within cycle limit and size is below threshold.
+            // Convert to static if within cycle limit and size is above threshold.
             if self.within_cycle_limit(latency)
                 && (APPROX_ENABLE_SIZE > self.threshold)
             {
@@ -608,7 +587,7 @@ impl Visitor for StaticPromotion {
         let mut builder = ir::Builder::new(comp, sigs);
         // Checking if entire seq is promotable
         if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
-            // If seq is too small, then continue without doing anything.
+            // If seq is too small to promote, then continue without doing anything.
             if Self::approx_control_vec_size(&s.stmts) <= self.threshold {
                 return Ok(Action::Continue);
             } else if self.within_cycle_limit(latency) {
@@ -628,6 +607,11 @@ impl Visitor for StaticPromotion {
         // The seq either a) takes too many cylces to promote entirely or
         // b) has dynamic stmts in it. Either way, the solution is to
         // break it up into smaller static seqs.
+        // We know that this seq will *never* be promoted. Therefore, we can
+        // safely replace it with a standard `seq` that does not have an `@promotable`
+        // attribute. This temporarily messes up  its parents' `@promotable`
+        // attribute, but this is fine since we know its parent will never try
+        // to promote it.
         let old_stmts = std::mem::take(&mut s.stmts);
         let mut new_stmts: Vec<ir::Control> = Vec::new();
         let mut cur_vec: Vec<ir::Control> = Vec::new();
@@ -684,7 +668,11 @@ impl Visitor for StaticPromotion {
         // b) has dynamic stmts in it. Either way, the solution is to
         // break it up.
         // Split the par into static and dynamic stmts, and use heuristics
-        // to choose whether to promote the static ones.
+        // to choose whether to promote the static ones. This replacement will
+        // not have a `@promotable` attribute.
+        // This temporarily messes up  its parents' `@promotable`
+        // attribute, but this is fine since we know its parent will never try
+        // to promote it.
         let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
             s.stmts.drain(..).partition(Self::can_be_promoted);
         new_stmts.extend(self.promote_vec_par_heuristic(&mut builder, s_stmts));
