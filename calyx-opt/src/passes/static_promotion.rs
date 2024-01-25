@@ -486,39 +486,50 @@ impl Visitor for StaticPromotion {
         _lib: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if comp.name != "main" && comp.control.borrow().is_static() {
-            if let Some(lat) = comp.control.borrow().get_latency() {
-                if !comp.is_static() {
-                    // Need this attribute for a weird, in-between state.
-                    // It has a known latency but also produces a done signal.
-                    comp.attributes.insert(ir::BoolAttr::Promoted, 1);
-                }
-                // This makes the component appear as a static<n> component.
-                comp.latency = Some(NonZeroU64::new(lat).unwrap());
-            } else {
-                // If we ended up not deciding to promote, we need to update static_info
-                // and remove @static attribute from the signature.
+        if comp.name != "main" {
+            let comp_sig = comp.signature.borrow();
+            let mut go_ports = comp_sig.find_all_with_attr(ir::NumAttr::Go);
+            if go_ports.any(|go_port| {
+                go_port.borrow_mut().attributes.has(ir::NumAttr::Static)
+            }) {
+                if comp.control.borrow().is_static() {
+                    // We ended up promoting it
+                    if !comp.is_static() {
+                        // Need this attribute for a weird, in-between state.
+                        // It has a known latency but also produces a done signal.
+                        comp.attributes.insert(ir::BoolAttr::Promoted, 1);
+                    }
+                    // This makes the component appear as a static<n> component.
+                    comp.latency = Some(
+                        NonZeroU64::new(
+                            comp.control.borrow().get_latency().unwrap(),
+                        )
+                        .unwrap(),
+                    );
+                } else {
+                    // We decided not to promote, so we need to update data structures
+                    // and remove @static attribute from the signature.
 
-                // Updating `latency_data`, `component_latencies`, and `updated_components`.
-                self.static_info.latency_data.remove(&comp.name);
-                self.static_info
-                    .static_component_latencies
-                    .remove(&comp.name);
-                self.updated_components.insert(comp.name, None);
-                // Updating component's signature.
-                let comp_sig = comp.signature.borrow();
-                let go_ports = comp_sig.find_all_with_attr(ir::NumAttr::Go);
-                for go_port in go_ports {
-                    if go_port.borrow_mut().attributes.has(ir::NumAttr::Static)
-                    {
+                    // Updating `latency_data`, `component_latencies`, and `updated_components`.
+                    self.static_info.latency_data.remove(&comp.name);
+                    self.static_info
+                        .static_component_latencies
+                        .remove(&comp.name);
+                    self.updated_components.insert(comp.name, None);
+                    // Removing `@static` from the go ports.
+                    for go_port in go_ports {
                         go_port
                             .borrow_mut()
                             .attributes
                             .remove(ir::NumAttr::Static);
                     }
                 }
-            }
+            };
         }
+        // Remove @promotable (i.e., @promote_static) attribute from control.
+        // Probably not necessary, since we'll ignore it anyways, but makes for
+        // cleaner code.
+        FixUp::remove_promotable_attribute(&mut comp.control.borrow_mut());
         Ok(Action::Continue)
     }
 

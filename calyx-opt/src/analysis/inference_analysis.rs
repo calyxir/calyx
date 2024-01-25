@@ -7,7 +7,9 @@ use itertools::Itertools;
 use std::collections::HashMap;
 
 /// Struct to store information about the go-done interfaces defined by a primitive.
-#[derive(Default, Debug)]
+/// There is no default implementation because it will almost certainly be very
+/// unhelpful: you will want to use `from_ctx`.
+#[derive(Debug)]
 pub struct GoDone {
     ports: Vec<(ir::Id, ir::Id, u64)>,
 }
@@ -406,7 +408,7 @@ impl FixUp {
 
     /// Removes the @promotable attribute from the control program.
     /// Recursively visits the children of the control.
-    fn remove_promotable_attribute(c: &mut ir::Control) {
+    pub fn remove_promotable_attribute(c: &mut ir::Control) {
         c.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
         match c {
             ir::Control::Empty(_)
