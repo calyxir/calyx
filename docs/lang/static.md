@@ -1,7 +1,7 @@
 # Static Timing
 
 By default, Calyx programs use a *latency-insensitive* model of computation.
-This means that the compiler does not track the number of cycles it takes to perform a computation or run a control operator
+This means that the compiler does not track the number of cycles it takes to perform a computation or run a control operator.
 In general, latency-insensitivity makes it easier to compose programs together and gives the compiler freedom to schedule operators however it wants.
 However, the generated hardware to schedule the execution may not be efficient–especially if the program can take advantage of the *latency* information.
 
@@ -24,7 +24,7 @@ seq {
 }
 ```
 
-A simple trick to achieve this is adding an empty group with `@static(n)` attribute on it:
+A simple way to achieve this is adding an empty group with `@static(n)` attribute on it:
 ```
 cell {
   r = @std_reg(0);
@@ -39,4 +39,5 @@ seq {
 }
 ```
 
-The static compilation pass `tdst` will never attempt to use the `delay_9`'s `done` condition and since there are no assignments in the group, it'll not generate any additional hardware.
+The static compilation pass `tdst` will never attempt to use the `delay_9`'s `done` condition.
+Further, since there are no assignments in the group, it will not generate any additional hardware.
