@@ -458,42 +458,24 @@ endmodule
 `default_nettype wire
 
 module std_bit_slice #(
-    parameter IN_WIDTH  = 32,
-    parameter OUT_WIDTH = 32,
-    parameter IDX_WIDTH = $clog2(IN_WIDTH)
+    parameter WIDTH = 32,
+    parameter START_IDX = 0,
+    parameter END_IDX = 0
 )(
-   input wire logic [IN_WIDTH-1:0] in,
-   input logic [IDX_WIDTH-1:0] begin_index,
-   input logic [IDX_WIDTH-1:0] end_index,
-
-   output logic [OUT_WIDTH-1:0] out
+   input wire logic [WIDTH-1:0] in,
+   output logic [WIDTH-1:0] out
 );
-    assign out = (in >> begin_index) & 2 ** (end_index - begin_index) - 1;
+    assign out = in[START_IDX:END_IDX];
 
   `ifdef VERILATOR
     always_comb begin
-      if (IN_WIDTH < OUT_WIDTH)
+      if (START_IDX < 0 || END_IDX > WIDTH-1)
         $error(
-          "std_bit_slice: Input width less than output width\n",
-          "IN_WIDTH: %0d", IN_WIDTH,
-          "OUT_WIDTH: %0d", OUT_WIDTH
+          "std_bit_slice: Slice range out of bounds\n",
+          "WIDTH: %0d", WIDTH,
+          "START_IDX: %0d", START_IDX,
+          "END_IDX: %0d", END_IDX,
         );
-
-      if(begin_index < 0 || begin_index > 2**IDX_WIDTH-1)
-        $error(
-          "std_bit_slice: begin_index is out of bounds\n",
-          "begin_index: %0d", begin_index,
-          "min bound: %0d", 0,
-          "max bound: %0d", 2**IDX_WIDTH-1
-        );
-
-        if(end_index < 0 || end_index > 2**IDX_WIDTH-1)
-          $error(
-            "std_bit_slice: end_index is out of bounds\n",
-            "end_index: %0d", end_index,
-            "min bound: %0d", 0,
-            "max bound: %0d", 2**IDX_WIDTH-1
-          );
     end
   `endif
 

@@ -4,7 +4,7 @@ component main(@go go: 1) -> (@done done: 1) {
   // ANCHOR: cells
   cells {
     @external mem = std_mem_d1(32, 1, 1);
-    slice = std_bit_slice(32, 32, 5);
+    slice = std_bit_slice(32, 14, 10);
   }
   // ANCHOR_END: cells
 
@@ -12,8 +12,6 @@ component main(@go go: 1) -> (@done done: 1) {
   wires {
     group bit_slice {
       slice.in = 32'd206256;
-      slice.begin_index = 5'd10;
-      slice.end_index = 5'd14;
 
       mem.addr0 = 1'b0;
       mem.write_data = slice.out;

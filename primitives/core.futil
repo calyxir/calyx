@@ -5,7 +5,7 @@ extern "core.sv" {
   comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
   comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
   comb primitive std_cat<"share"=1>[LEFT_WIDTH, RIGHT_WIDTH, OUT_WIDTH](@data left: LEFT_WIDTH, @data right: RIGHT_WIDTH) -> (out: OUT_WIDTH);
-  comb primitive std_bit_slice<"share"=1>[IN_WIDTH, OUT_WIDTH, IDX_WIDTH](@data in: IN_WIDTH, @data begin_index: IDX_WIDTH, @data end_index: IDX_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_bit_slice<"share"=1>[WIDTH, START_IDX, END_IDX](@data in: WIDTH) -> (out: WIDTH);
 
   /// Logical operators
   comb primitive std_not<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH);
