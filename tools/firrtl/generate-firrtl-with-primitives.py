@@ -43,18 +43,18 @@ def main():
     # Display the primitive definitions.
     primitive_insts = json.load(primitive_uses_file)
     if len(primitive_insts) != 0 :
-        tmp_file = "m4-tmp.fir"
+        tmp_file_name = "m4-tmp.fir"
         for inst in primitive_insts:
             m4_args = ["m4"]
             m4_args += generate_m4_arguments(inst)
             # hack to make the prints (for the start and end of the file) and the subprocess output produced sequentially
-            tmp_file = open(tmp_file, "w")
+            tmp_file = open(tmp_file_name, "w")
             # execute the subprocess containing m4
             subprocess.run(m4_args, stdout=tmp_file)
-            for line in open(tmp_file, "r"):
+            for line in open(tmp_file_name, "r"):
                 print(line.rstrip())
             print()
-        os.remove(tmp_file)
+        os.remove(tmp_file_name)
     # Display the rest of the FIRRTL program.
     for line in firrtl_file.readlines():
         print(line.rstrip())
