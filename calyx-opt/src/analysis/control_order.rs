@@ -45,10 +45,10 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     // Filters out the constants from `cells`, while mapping the remaining `ir:Cell`s
     // to their cell name.
     fn filter_out_constants(
-        cells: Vec<RRC<ir::Cell>>,
-    ) -> impl Iterator<Item = ir::Id> {
+        cells: &Vec<RRC<ir::Cell>>,
+    ) -> impl Iterator<Item = ir::Id> + '_ {
         cells
-            .into_iter()
+            .iter()
             .filter_map(|cell| match cell.borrow().prototype {
                 ir::CellType::Constant { .. } => None,
                 ir::CellType::Component { .. }
@@ -145,6 +145,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     }
 
     // Returns a graph of dependency for input programs.
+    // IMPORTANT: we ignore assignments to done ports.
     // Input control programs are considered to have data dependency if:
     // 1. subsequent program writes to cells that previous program reads from
     // 2. subsequent program writes to cells that previous program writes to
@@ -158,8 +159,8 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     pub fn get_dependency_graph_seq(
         stmts: impl Iterator<Item = ir::Control>,
         (cont_reads, cont_writes): (
-            Vec<ir::RRC<ir::Cell>>,
-            Vec<ir::RRC<ir::Cell>>,
+            &Vec<ir::RRC<ir::Cell>>,
+            &Vec<ir::RRC<ir::Cell>>,
         ),
         dependency: &mut HashMap<NodeIndex, Vec<NodeIndex>>,
         latency_map: &mut HashMap<NodeIndex, u64>,
@@ -184,8 +185,8 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         for c in stmts {
             let (cell_reads, cell_writes) =
                 ReadWriteSet::control_read_write_set::<false>(&c);
-            let r_cell_names = Self::filter_out_constants(cell_reads);
-            let w_cell_names = Self::filter_out_constants(cell_writes);
+            let r_cell_names = Self::filter_out_constants(&cell_reads);
+            let w_cell_names = Self::filter_out_constants(&cell_writes);
             let latency = PromotionAnalysis::get_inferred_latency(&c);
             let idx = gr.add_node(Some(c));
             dependency.insert(idx, Vec::new());

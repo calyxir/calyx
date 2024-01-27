@@ -46,15 +46,53 @@ impl Named for ScheduleCompaction {
 }
 
 impl ScheduleCompaction {
-    // Takes a vec of ctrl stmts and turns it into a compacted schedule.
-    fn compact_control_vec(
-        stmts: Vec<ir::Control>,
+    fn append_and_compact(
+        &mut self,
         (cont_reads, cont_writes): (
-            Vec<ir::RRC<ir::Cell>>,
-            Vec<ir::RRC<ir::Cell>>,
+            &Vec<ir::RRC<ir::Cell>>,
+            &Vec<ir::RRC<ir::Cell>>,
         ),
         builder: &mut ir::Builder,
-    ) -> (Vec<(Vec<ir::Control>, u64)>, u64) {
+        cur_stmts: Vec<ir::Control>,
+        new_stmts: &mut Vec<ir::Control>,
+    ) {
+        let og_latency = cur_stmts
+            .iter()
+            .map(PromotionAnalysis::get_inferred_latency)
+            .sum();
+        // Non promotable statement. Try to compact cur_stmts.
+        let possibly_compacted_stmt = self.compact_control_vec(
+            cur_stmts,
+            (cont_reads, cont_writes),
+            builder,
+            og_latency,
+            ir::Attributes::default(),
+        );
+        new_stmts.push(possibly_compacted_stmt);
+    }
+    fn recover_seq(
+        mut total_order: petgraph::graph::DiGraph<Option<ir::Control>, ()>,
+        sorted_schedule: Vec<(NodeIndex, u64)>,
+        attributes: ir::Attributes,
+    ) -> ir::Control {
+        let stmts = sorted_schedule
+            .into_iter()
+            .map(|(i, _)| total_order[i].take().unwrap())
+            .collect_vec();
+        ir::Control::Seq(ir::Seq { stmts, attributes })
+    }
+    // Takes a vec of ctrl stmts and turns it into a compacted schedule.
+    fn compact_control_vec(
+        &mut self,
+        stmts: Vec<ir::Control>,
+        (cont_reads, cont_writes): (
+            &Vec<ir::RRC<ir::Cell>>,
+            &Vec<ir::RRC<ir::Cell>>,
+        ),
+        builder: &mut ir::Builder,
+        og_latency: u64,
+        attributes: ir::Attributes,
+    ) -> ir::Control {
         // Records the corresponding node indices that each control program
         // has data dependency on.
         let mut dependency: HashMap<NodeIndex, Vec<NodeIndex>> = HashMap::new();
@@ -95,6 +133,17 @@ impl ScheduleCompaction {
                 schedule.into_iter().collect();
             sorted_schedule
                 .sort_by(|(k1, v1), (k2, v2)| (v1, k1).cmp(&(v2, k2)));
+
+            if total_time == og_latency {
+                // If we can't comapct at all, then just recover the and return
+                // the original seq.
+                return Self::recover_seq(
+                    total_order,
+                    sorted_schedule,
+                    attributes,
+                );
+            }
+
             // Threads for the static par, where each entry is (thread, thread_latency)
             let mut par_threads: Vec<(Vec<ir::Control>, u64)> = Vec::new();
 
@@ -124,7 +173,6 @@ impl ScheduleCompaction {
                     }
                 }
                 // We must create a new par thread.
-
                 if start > 0 {
                     // If start > 0, then we must add a delay to the start of the
                     // group.
@@ -143,7 +191,39 @@ impl ScheduleCompaction {
                     par_threads.push((vec![control], latency_map[&i]));
                 }
             }
-            return (par_threads, total_time);
+            // Turn Vec<ir::StaticControl> -> StaticSeq
+            let mut par_control_threads: Vec<ir::StaticControl> = Vec::new();
+            for (thread, thread_latency) in par_threads {
+                par_control_threads.push(ir::StaticControl::Seq(
+                    ir::StaticSeq {
+                        stmts: thread
+                            .into_iter()
+                            .map(|mut stmt| {
+                                self.promotion_analysis
+                                    .convert_to_static(&mut stmt, builder)
+                            })
+                            .collect_vec(),
+                        attributes: ir::Attributes::default(),
+                        latency: thread_latency,
+                    },
+                ));
+            }
+            // Double checking that we have built the static par correctly.
+            let max: Option<u64> =
+                par_control_threads.iter().map(|c| c.get_latency()).max();
+            assert!(max.unwrap() == total_time, "The schedule expects latency {}. The static par that was built has latency {}", total_time, max.unwrap());
+
+            if par_control_threads.len() == 1 {
+                let c = Vec::pop(&mut par_control_threads).unwrap();
+                ir::Control::Static(c)
+            } else {
+                let s_par = ir::StaticControl::Par(ir::StaticPar {
+                    stmts: par_control_threads,
+                    attributes: ir::Attributes::default(),
+                    latency: total_time,
+                });
+                ir::Control::Static(s_par)
+            }
         } else {
             panic!(
                 "Error when producing topo sort. Dependency graph has a cycle."
@@ -167,51 +247,51 @@ impl Visitor for ScheduleCompaction {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
-        if !(s.attributes.has(ir::NumAttr::PromoteStatic)) {
-            return Ok(Action::Continue);
-        }
-
         let (cont_reads, cont_writes) = ReadWriteSet::cont_read_write_set(comp);
 
         let mut builder = ir::Builder::new(comp, sigs);
 
-        let (par_threads, total_time) = Self::compact_control_vec(
-            std::mem::take(&mut s.stmts),
-            (cont_reads, cont_writes),
+        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+            // If entire seq is promotable, then we can compact entire thing
+            // and replace it with a static<n> construct.
+            return Ok(Action::Change(Box::new(self.compact_control_vec(
+                std::mem::take(&mut s.stmts),
+                (&cont_reads, &cont_writes),
+                &mut builder,
+                latency,
+                std::mem::take(&mut s.attributes),
+            ))));
+        }
+
+        // We have to break up the seq into portions that we can compact.
+        let old_stmts = std::mem::take(&mut s.stmts);
+        let mut new_stmts: Vec<ir::Control> = Vec::new();
+        let mut cur_stmts: Vec<ir::Control> = Vec::new();
+
+        for stmt in old_stmts {
+            if PromotionAnalysis::can_be_promoted(&stmt) {
+                cur_stmts.push(stmt);
+            } else {
+                self.append_and_compact(
+                    (&cont_reads, &cont_writes),
+                    &mut builder,
+                    cur_stmts,
+                    &mut new_stmts,
+                );
+                // New cur_vec
+                cur_stmts = Vec::new();
+            }
+        }
+        self.append_and_compact(
+            (&cont_reads, &cont_writes),
             &mut builder,
+            cur_stmts,
+            &mut new_stmts,
         );
-
-        // Turn Vec<ir::StaticControl> -> StaticSeq
-        let mut par_control_threads: Vec<ir::StaticControl> = Vec::new();
-        for (thread, thread_latency) in par_threads {
-            par_control_threads.push(ir::StaticControl::Seq(ir::StaticSeq {
-                stmts: thread
-                    .into_iter()
-                    .map(|mut stmt| {
-                        self.promotion_analysis
-                            .convert_to_static(&mut stmt, &mut builder)
-                    })
-                    .collect_vec(),
-                attributes: ir::Attributes::default(),
-                latency: thread_latency,
-            }));
-        }
-        // Double checking that we have built the static par correctly.
-        let max: Option<u64> =
-            par_control_threads.iter().map(|c| c.get_latency()).max();
-        assert!(max.unwrap() == total_time, "The schedule expects latency {}. The static par that was built has latency {}", total_time, max.unwrap());
-
-        if par_control_threads.len() == 1 {
-            let c = Vec::pop(&mut par_control_threads).unwrap();
-            Ok(Action::Change(Box::new(ir::Control::Static(c))))
-        } else {
-            let s_par = ir::StaticControl::Par(ir::StaticPar {
-                stmts: par_control_threads,
-                attributes: ir::Attributes::default(),
-                latency: total_time,
-            });
-            Ok(Action::Change(Box::new(ir::Control::Static(s_par))))
-        }
+        Ok(Action::change(ir::Control::Seq(ir::Seq {
+            stmts: new_stmts,
+            attributes: ir::Attributes::default(),
+        })))
     }
 
     fn finish(

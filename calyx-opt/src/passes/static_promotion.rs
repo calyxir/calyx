@@ -95,12 +95,6 @@ impl Named for StaticPromotion {
 }
 
 impl StaticPromotion {
-    /// Returns true if a control statement is already static, or has the static
-    /// attributes
-    fn can_be_promoted(c: &ir::Control) -> bool {
-        c.is_static() || c.has_attribute(ir::NumAttr::PromoteStatic)
-    }
-
     fn within_cycle_limit(&self, latency: u64) -> bool {
         if self.cycle_limit.is_none() {
             return true;
@@ -401,7 +395,7 @@ impl Visitor for StaticPromotion {
         let mut new_stmts: Vec<ir::Control> = Vec::new();
         let mut cur_vec: Vec<ir::Control> = Vec::new();
         for stmt in old_stmts {
-            if Self::can_be_promoted(&stmt) {
+            if PromotionAnalysis::can_be_promoted(&stmt) {
                 cur_vec.push(stmt);
             } else {
                 // Use heuristics to decide how to promote this cur_vec of promotable stmts.
@@ -458,8 +452,10 @@ impl Visitor for StaticPromotion {
         // This temporarily messes up  its parents' `@promotable`
         // attribute, but this is fine since we know its parent will never try
         // to promote it.
-        let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
-            s.stmts.drain(..).partition(Self::can_be_promoted);
+        let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) = s
+            .stmts
+            .drain(..)
+            .partition(PromotionAnalysis::can_be_promoted);
         new_stmts.extend(self.promote_vec_par_heuristic(&mut builder, s_stmts));
         new_stmts.extend(d_stmts);
         let new_par = ir::Control::Par(ir::Par {

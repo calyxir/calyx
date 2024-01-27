@@ -24,6 +24,12 @@ impl PromotionAnalysis {
         sc.get_latency()
     }
 
+    /// Returns true if a control statement is already static, or has the static
+    /// attributes
+    pub fn can_be_promoted(c: &ir::Control) -> bool {
+        c.is_static() || c.has_attribute(ir::NumAttr::PromoteStatic)
+    }
+
     /// If we've already constructed the static group then use the already existing
     /// group. Otherwise construct `static group` and then return that.
     fn construct_static_group(
