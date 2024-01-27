@@ -56,20 +56,23 @@ impl ScheduleCompaction {
         cur_stmts: Vec<ir::Control>,
         new_stmts: &mut Vec<ir::Control>,
     ) {
-        let og_latency = cur_stmts
-            .iter()
-            .map(PromotionAnalysis::get_inferred_latency)
-            .sum();
-        // Non promotable statement. Try to compact cur_stmts.
-        let possibly_compacted_stmt = self.compact_control_vec(
-            cur_stmts,
-            (cont_reads, cont_writes),
-            builder,
-            og_latency,
-            ir::Attributes::default(),
-        );
-        new_stmts.push(possibly_compacted_stmt);
+        if cur_stmts.len() != 0 {
+            let og_latency = cur_stmts
+                .iter()
+                .map(PromotionAnalysis::get_inferred_latency)
+                .sum();
+            // Non promotable statement. Try to compact cur_stmts.
+            let possibly_compacted_stmt = self.compact_control_vec(
+                cur_stmts,
+                (cont_reads, cont_writes),
+                builder,
+                og_latency,
+                ir::Attributes::default(),
+            );
+            new_stmts.push(possibly_compacted_stmt);
+        }
     }
+
     fn recover_seq(
         mut total_order: petgraph::graph::DiGraph<Option<ir::Control>, ()>,
         sorted_schedule: Vec<(NodeIndex, u64)>,

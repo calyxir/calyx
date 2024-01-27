@@ -181,10 +181,10 @@ impl StaticPromotion {
             .promotion_analysis
             .convert_vec_to_static(builder, control_vec);
         let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
-        let mut sseq =
+        let sseq =
             ir::Control::Static(ir::StaticControl::seq(s_seq_stmts, latency));
-        sseq.get_mut_attributes()
-            .insert(ir::NumAttr::Compactable, 1);
+        // sseq.get_mut_attributes()
+        //     .insert(ir::NumAttr::Compactable, 1);
         vec![sseq]
     }
 
@@ -371,15 +371,15 @@ impl Visitor for StaticPromotion {
                 return Ok(Action::Continue);
             } else if self.within_cycle_limit(latency) {
                 // We promote entire seq.
-                let mut sseq = ir::Control::Static(ir::StaticControl::seq(
+                let sseq = ir::Control::Static(ir::StaticControl::seq(
                     self.promotion_analysis.convert_vec_to_static(
                         &mut builder,
                         std::mem::take(&mut s.stmts),
                     ),
                     latency,
                 ));
-                sseq.get_mut_attributes()
-                    .insert(ir::NumAttr::Compactable, 1);
+                // sseq.get_mut_attributes()
+                //     .insert(ir::NumAttr::Compactable, 1);
                 return Ok(Action::change(sseq));
             }
         }

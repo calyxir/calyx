@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d attr-promotion -d static-promotion -d post-opt -d group2invoke -d lower -b none
+// -x tdcc:dump-fsm -d attr-promotion -d schedule-compaction -d static-promotion -d post-opt -d group2invoke -d lower -b none
 
 import "primitives/core.futil";
 
@@ -66,28 +66,28 @@ component main() -> () {
 
   control {
     seq {
-      A; 
+      A;
       @new_fsm while r.out {
         seq{
           true;
           @new_fsm if lt.out with cond {
             seq{
-              B; 
+              B;
               @new_fsm seq {
-                A; 
+                A;
                 B;
               }
-              D; 
+              D;
             }
           }
           else{
-            E; 
+            E;
           }
           false;
         }
       }
-      C; 
+      C;
     }
-    
+
   }
 }
