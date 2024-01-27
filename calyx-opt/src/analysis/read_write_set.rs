@@ -215,16 +215,24 @@ impl ReadWriteSet {
 
     /// Returns the ports that are read and written, respectively,
     /// by the given control program.
-    pub fn control_port_read_write_set(
+    pub fn control_port_read_write_set<const INCLUDE_HOLE_ASSIGNS: bool>(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
         match con {
             ir::Control::Empty(_) => (vec![], vec![]),
             ir::Control::Enable(ir::Enable { group, .. }) => (
-                Self::port_read_set(group.borrow().assignments.iter())
-                    .collect(),
-                Self::port_write_set(group.borrow().assignments.iter())
-                    .collect(),
+                Self::port_read_set(group.borrow().assignments.iter().filter(
+                    |assign| {
+                        INCLUDE_HOLE_ASSIGNS || !assign.dst.borrow().is_hole()
+                    },
+                ))
+                .collect(),
+                Self::port_write_set(group.borrow().assignments.iter().filter(
+                    |assign| {
+                        INCLUDE_HOLE_ASSIGNS || !assign.dst.borrow().is_hole()
+                    },
+                ))
+                .collect(),
             ),
             ir::Control::Invoke(ir::Invoke {
                 inputs,
@@ -270,7 +278,7 @@ impl ReadWriteSet {
                 let (mut reads, mut writes) = (vec![], vec![]);
                 for stmt in stmts {
                     let (mut read, mut write) =
-                        Self::control_port_read_write_set(stmt);
+                        Self::control_port_read_write_set::<true>(stmt);
                     reads.append(&mut read);
                     writes.append(&mut write);
                 }
@@ -284,9 +292,9 @@ impl ReadWriteSet {
                 ..
             }) => {
                 let (mut treads, mut twrites) =
-                    Self::control_port_read_write_set(tbranch);
+                    Self::control_port_read_write_set::<true>(tbranch);
                 let (mut freads, mut fwrites) =
-                    Self::control_port_read_write_set(fbranch);
+                    Self::control_port_read_write_set::<true>(fbranch);
                 treads.append(&mut freads);
                 treads.push(Rc::clone(port));
                 twrites.append(&mut fwrites);
@@ -305,7 +313,7 @@ impl ReadWriteSet {
                 port, cond, body, ..
             }) => {
                 let (mut reads, mut writes) =
-                    Self::control_port_read_write_set(body);
+                    Self::control_port_read_write_set::<true>(body);
                 reads.push(Rc::clone(port));
 
                 if let Some(cg) = cond {
@@ -319,7 +327,7 @@ impl ReadWriteSet {
                 (reads, writes)
             }
             ir::Control::Repeat(ir::Repeat { body, .. }) => {
-                Self::control_port_read_write_set(body)
+                Self::control_port_read_write_set::<true>(body)
             }
             ir::Control::Static(sc) => {
                 Self::control_port_read_write_set_static(sc)
@@ -329,10 +337,11 @@ impl ReadWriteSet {
 
     /// Returns the cells that are read and written, respectively,
     /// by the given control program.
-    pub fn control_read_write_set(
+    pub fn control_read_write_set<const INCLUDE_HOLE_ASSIGNS: bool>(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
-        let (port_reads, port_writes) = Self::control_port_read_write_set(con);
+        let (port_reads, port_writes) =
+            Self::control_port_read_write_set::<INCLUDE_HOLE_ASSIGNS>(con);
         (
             port_reads
                 .into_iter()

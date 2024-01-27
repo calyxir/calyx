@@ -107,9 +107,9 @@ impl From<&ir::Cell> for GoDone {
     }
 }
 
-#[derive(Debug)]
-/// Default implemnetation is not provided, since it is almost certainly more helpful
-/// to use `from_ctx` instead.
+#[derive(Debug, Default)]
+/// Default implemnetation is almost certainly not helpful.
+/// You should probably use `from_ctx` instead.
 pub struct InferenceAnalysis {
     /// component name -> vec<(go signal, done signal, latency)>
     pub latency_data: HashMap<ir::Id, GoDone>,
