@@ -54,7 +54,7 @@ impl PromotionAnalysis {
     }
 
     // Converts dynamic enable to static
-    fn convert_enable_to_static(
+    pub fn convert_enable_to_static(
         &mut self,
         s: &mut ir::Enable,
         builder: &mut ir::Builder,
@@ -77,7 +77,7 @@ impl PromotionAnalysis {
     }
 
     // Converts dynamic invoke to static
-    fn convert_invoke_to_static(
+    pub fn convert_invoke_to_static(
         &mut self,
         s: &mut ir::Invoke,
     ) -> ir::StaticControl {
@@ -226,7 +226,7 @@ impl PromotionAnalysis {
 
     /// Converts vec of control to vec of static control.
     /// All control statements in the vec must be promotable or already static.
-    fn convert_vec_to_static(
+    pub fn convert_vec_to_static(
         &mut self,
         builder: &mut ir::Builder,
         control_vec: Vec<ir::Control>,
