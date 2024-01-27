@@ -6,17 +6,18 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 
     r2 = std_reg(8);
     add = std_add(8);
     add1 = std_add(8);
+    ud = undef(1);
   }
   wires {
-    static<1> group write_r0 {
+    static<1> group write_r00 {
       r0.in = 8'd1;
       r0.write_en = 1'd1;
     }
-    static<1> group write_r1 {
+    static<1> group write_r10 {
       r1.in = add.out;
       r1.write_en = 1'd1;
     }
-    static<1> group write_add1 {
+    static<1> group write_add10 {
       add1.right = 8'd4;
       add1.left = 8'd1;
     }
@@ -26,14 +27,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 
     r2.in = add1.out;
   }
   control {
-    seq {
+    @promote_static(4) static<4> seq  {
       static<2> seq  {
-        write_r0;
-        write_r1;
+        write_r00;
+        write_r10;
       }
       static<2> seq  {
-        write_r0;
-        write_add1;
+        write_r00;
+        write_add10;
       }
     }
   }
