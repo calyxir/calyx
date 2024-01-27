@@ -257,4 +257,14 @@ impl Visitor for ScheduleCompaction {
         }
         Ok(Action::Continue)
     }
+
+    fn start(
+        &mut self,
+        comp: &mut ir::Component,
+        _sigs: &ir::LibrarySignatures,
+        _comps: &[ir::Component],
+    ) -> crate::traversal::VisResult {
+        self.inference_analysis.fixup_timing(comp);
+        Ok(Action::Continue)
+    }
 }

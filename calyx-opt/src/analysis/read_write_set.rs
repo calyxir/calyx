@@ -167,12 +167,25 @@ impl ReadWriteSet {
                 inputs,
                 outputs,
                 ref_cells,
+                comp,
                 ..
             }) => {
                 let mut inps: Vec<RRC<ir::Port>> =
                     inputs.iter().map(|(_, p)| p).cloned().collect();
                 let mut outs: Vec<RRC<ir::Port>> =
                     outputs.iter().map(|(_, p)| p).cloned().collect();
+                // Adding comp.go to input ports
+                inps.push(
+                    comp.borrow()
+                        .find_all_with_attr(ir::NumAttr::Go)
+                        .next()
+                        .unwrap_or_else(|| {
+                            unreachable!(
+                                "No @go port for component {}",
+                                comp.borrow().name()
+                            )
+                        }),
+                );
                 for (_, cell) in ref_cells.iter() {
                     for port in cell.borrow().ports.iter() {
                         match port.borrow().direction {
@@ -239,12 +252,26 @@ impl ReadWriteSet {
                 outputs,
                 comb_group,
                 ref_cells,
+                comp,
                 ..
             }) => {
+                // XXX(Caleb): Maybe check that there is one @go port.
                 let inps = inputs.iter().map(|(_, p)| p).cloned();
                 let outs = outputs.iter().map(|(_, p)| p).cloned();
                 let mut r: Vec<RRC<ir::Port>> = inps.collect();
                 let mut w: Vec<RRC<ir::Port>> = outs.collect();
+                // Adding comp.go to the write set
+                w.push(
+                    comp.borrow()
+                        .find_all_with_attr(ir::NumAttr::Go)
+                        .next()
+                        .unwrap_or_else(|| {
+                            unreachable!(
+                                "No @go port for component {}",
+                                comp.borrow().name()
+                            )
+                        }),
+                );
 
                 for (_, cell) in ref_cells {
                     for port in cell.borrow().ports.iter() {
