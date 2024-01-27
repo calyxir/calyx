@@ -9,16 +9,12 @@ component example(@go @static go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @
   }
   control {
     @promote_static static<1> par {
-      static<1> seq  {
-        static<1> invoke r0(
-          in = 8'd1
-        )();
-      }
-      static<1> seq  {
-        static<1> invoke r1(
-          in = 8'd2
-        )();
-      }
+      static<1> invoke r0(
+        in = 8'd1
+      )();
+      static<1> invoke r1(
+        in = 8'd2
+      )();
     }
   }
 }
@@ -29,9 +25,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {}
   control {
-    @promote_static(2) static<2> seq  {
-      static<1> invoke ex()();
-      static<1> invoke mem(
+    @promote_static(2) seq {
+      @promote_static invoke ex()();
+      @promote_static invoke mem(
         addr0 = 1'd0,
         write_data = ex.out
       )();

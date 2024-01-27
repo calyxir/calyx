@@ -34,12 +34,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 
         write_r00;
         write_r10;
       }
-      static<1> seq  {
-        write_r20;
-      }
-      static<1> seq  {
-        write_r30;
-      }
+      write_r20;
+      write_r30;
     }
   }
 }

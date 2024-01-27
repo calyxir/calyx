@@ -194,19 +194,25 @@ impl ScheduleCompaction {
             // Turn Vec<ir::StaticControl> -> StaticSeq
             let mut par_control_threads: Vec<ir::StaticControl> = Vec::new();
             for (thread, thread_latency) in par_threads {
-                par_control_threads.push(ir::StaticControl::Seq(
-                    ir::StaticSeq {
-                        stmts: thread
-                            .into_iter()
-                            .map(|mut stmt| {
-                                self.promotion_analysis
-                                    .convert_to_static(&mut stmt, builder)
-                            })
-                            .collect_vec(),
-                        attributes: ir::Attributes::default(),
-                        latency: thread_latency,
-                    },
-                ));
+                let mut promoted_stmts = thread
+                    .into_iter()
+                    .map(|mut stmt| {
+                        self.promotion_analysis
+                            .convert_to_static(&mut stmt, builder)
+                    })
+                    .collect_vec();
+                if promoted_stmts.len() == 1 {
+                    // Don't wrap in static seq if we don't need to.
+                    par_control_threads.push(promoted_stmts.pop().unwrap());
+                } else {
+                    par_control_threads.push(ir::StaticControl::Seq(
+                        ir::StaticSeq {
+                            stmts: promoted_stmts,
+                            attributes: ir::Attributes::default(),
+                            latency: thread_latency,
+                        },
+                    ));
+                }
             }
             // Double checking that we have built the static par correctly.
             let max: Option<u64> =
@@ -278,6 +284,8 @@ impl Visitor for ScheduleCompaction {
                     cur_stmts,
                     &mut new_stmts,
                 );
+                // Appending the non-promotable statement.
+                new_stmts.push(stmt);
                 // New cur_vec
                 cur_stmts = Vec::new();
             }
