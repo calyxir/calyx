@@ -20,7 +20,7 @@ Install it using your OS package manager or by downloading a binary.
 Create a configuration file at `~/.config/fud2.toml`, using the path to your checkout of the Calyx git repository:
 
 ```toml
-data = ".../calyx/fud2/data"
+rsrc = ".../calyx/fud2/rsrc"
 
 [calyx]
 base = ".../calyx"

@@ -65,13 +65,13 @@ fn build_driver() -> Driver {
         e.config_var_or("python", "python", "python3")?;
         e.var(
             "json_dat",
-            &format!("$python {}/json-dat.py", e.config_val("data")?),
+            &format!("$python {}/json-dat.py", e.config_val("rsrc")?),
         )?;
         e.rule("hex-data", "$json_dat --from-json $in $out")?;
         e.rule("json-data", "$json_dat --to-json $out $in")?;
 
         // The Verilog testbench.
-        e.var("testbench", &format!("{}/tb.sv", e.config_val("data")?))?;
+        e.var("testbench", &format!("{}/tb.sv", e.config_val("rsrc")?))?;
 
         // The input data file. `sim.data` is required.
         let data_name = e.config_val("sim.data")?;
@@ -170,7 +170,7 @@ fn build_driver() -> Driver {
 
         e.var(
             "primitives-for-firrtl",
-            &format!("{}/primitives-for-firrtl.sv", e.config_val("data")?),
+            &format!("{}/primitives-for-firrtl.sv", e.config_val("rsrc")?),
         )?;
         e.rule("add-firrtl-prims", "cat $primitives-for-firrtl $in > $out")?;
 
@@ -256,7 +256,7 @@ fn build_driver() -> Driver {
         e.arg("pool", "console")?;
 
         // TODO Can we reduce the duplication around `rsrc_dir` and `$python`?
-        let rsrc_dir = e.config_val("data")?;
+        let rsrc_dir = e.config_val("rsrc")?;
         e.var("interp-dat", &format!("{}/interp-dat.py", rsrc_dir))?;
         e.config_var_or("python", "python", "python3")?;
         e.rule("dat-to-interp", "$python $interp-dat --to-interp $in")?;
@@ -304,7 +304,7 @@ fn build_driver() -> Driver {
         e.config_var("vitis-dir", "xilinx.vitis")?;
 
         // Package a Verilog program as an `.xo` file.
-        let rsrc_dir = e.config_val("data")?;
+        let rsrc_dir = e.config_val("rsrc")?;
         e.var("gen-xo-tcl", &format!("{}/gen_xo.tcl", rsrc_dir))?;
         e.var("get-ports", &format!("{}/get-ports.py", rsrc_dir))?;
         e.config_var_or("python", "python", "python3")?;
@@ -384,7 +384,7 @@ fn build_driver() -> Driver {
                 &[input, "$sim_data"],
                 &["emconfig.json"],
             )?;
-            let rsrc_dir = e.config_val("data")?;
+            let rsrc_dir = e.config_val("rsrc")?;
             e.arg("xrt_ini", &format!("{}/xrt.ini", rsrc_dir))?;
             Ok(())
         },
@@ -401,7 +401,7 @@ fn build_driver() -> Driver {
                 &[input, "$sim_data"],
                 &["emconfig.json", "pre_sim.tcl", "post_sim.tcl"],
             )?;
-            let rsrc_dir = e.config_val("data")?;
+            let rsrc_dir = e.config_val("rsrc")?;
             e.arg("xrt_ini", &format!("{}/xrt_trace.ini", rsrc_dir))?;
             Ok(())
         },
