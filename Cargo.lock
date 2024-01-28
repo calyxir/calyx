@@ -200,6 +200,7 @@ version = "0.6.1"
 dependencies = [
  "calyx-frontend",
  "calyx-ir",
+ "calyx-stdlib",
  "calyx-utils",
  "csv",
  "itertools 0.11.0",

@@ -48,6 +48,7 @@ calyx-ir = { path = "calyx-ir", version = "0.6.1" }
 calyx-frontend = { path = "calyx-frontend", version = "0.6.1" }
 calyx-opt = { path = "calyx-opt", version = "0.6.1" }
 calyx-backend = { path = "calyx-backend", version = "0.6.1" }
+calyx-stdlib = { path = "calyx-stdlib", version = "0.6.1" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
