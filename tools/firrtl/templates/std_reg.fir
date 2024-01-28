@@ -1,4 +1,4 @@
-    module MODULE_NAME :
+    module std_reg_WIDTH :
         input in : UInt<WIDTH>
         input write_en : UInt<1>
         input clk : Clock

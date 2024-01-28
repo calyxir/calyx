@@ -1,5 +1,4 @@
-define(`DIFF', eval(IN_WIDTH - OUT_WIDTH))dnl
-    module MODULE_NAME:
+    module std_slice_IN_WIDTH_OUT_WIDTH:
         input in : UInt<IN_WIDTH>
         output out : UInt<OUT_WIDTH>
 

@@ -1,4 +1,4 @@
-    module MODULE_NAME :
+    module std_wire_WIDTH :
         input in : UInt<WIDTH>
         output out : UInt<WIDTH>
 

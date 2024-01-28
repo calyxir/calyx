@@ -1,4 +1,4 @@
-    module MODULE_NAME :
+    module std_mem_d1_WIDTH_SIZE_IDX_SIZE :
         input add0 : UInt<IDX_SIZE>
         input write_data : UInt<WIDTH>
         input write_en : UInt<1>

@@ -1,5 +1,4 @@
-define(`DIFF', eval(OUT_WIDTH - IN_WIDTH))dnl
-    module MODULE_NAME:
+    module std_pad_IN_WIDTH_OUT_WIDTH:
         input in : UInt<IN_WIDTH>
         output out : UInt<OUT_WIDTH>
 

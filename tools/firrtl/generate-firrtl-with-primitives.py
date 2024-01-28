@@ -3,31 +3,41 @@ import os
 import subprocess
 import sys
 
-# Generates the arguments for m4 based on the JSON data
-def generate_m4_arguments(inst):
-    primitive_name = inst["name"]
-    args = []
-    # hack to replace the module name with the corresponding parameterized version
-    # FIXME: figure out a way to do substring replacement in m4
-    module_name_value = primitive_name
-    # get the parameters for the primitive
+# Generates a map where `key` should be replaced with `value`
+def generate_replacement_map(inst):
+    replacement_map = {}
     for param in inst["params"]:
-        key = param["param_name"]
-        value = param["param_value"]
-        args.append(f"-D{key}={value}")
-        module_name_value += "_" + str(value)
+        replacement_map[param["param_name"]] = param["param_value"]
 
-    args.append(f"-DMODULE_NAME={module_name_value}")
+    # Special primitives that have a value dependent on their parameters.
+    if inst["name"] == "std_pad":
+        replacement_map["DIFF"] = replacement_map["OUT_WIDTH"] - replacement_map["IN_WIDTH"]
+    elif inst["name"] == "std_slice":
+        replacement_map["DIFF"] = replacement_map["IN_WIDTH"] - replacement_map["OUT_WIDTH"]
 
-    # retrieve the appropriate template file for the primitive
+    return replacement_map
+
+# Retrieves the appropriate template file for the given primitive
+def retrieve_firrtl_template(primitive_name):
     firrtl_file_path = os.path.join(sys.path[0], "templates", primitive_name + ".fir")
     if not(os.path.isfile(firrtl_file_path)):
         print(f"{sys.argv[0]}: FIRRTL template file for primitive {primitive_name} does not exist! Exiting...")
         sys.exit(1)
-    args.append(firrtl_file_path)
+    return firrtl_file_path
 
-    return args
+# Generates a primitive definition from the provided JSON data of a unique primitive use
+def generate_primitive_definition(inst):
+    template_filename = retrieve_firrtl_template(inst["name"])
+    replacement_map = generate_replacement_map(inst)
 
+    with open(template_filename, "r") as template_file:
+        for line in template_file:
+            for key in replacement_map:
+                line = line.replace(key, str(replacement_map[key]))
+            print(line.rstrip())
+    print() # whitespace to buffer between modules
+
+# Generates a complete FIRRTL program with primitives.
 def generate(firrtl_filename, primitive_uses_filename):
     firrtl_file = open(firrtl_filename)
     primitive_uses_file = open(primitive_uses_filename)
@@ -37,14 +47,10 @@ def generate(firrtl_filename, primitive_uses_filename):
     primitive_insts = json.load(primitive_uses_file)
     if primitive_insts:
         for inst in primitive_insts:
-            m4_args = ["m4"]
-            m4_args += generate_m4_arguments(inst)
-            p = subprocess.run(m4_args, capture_output=True)
-            print(str(p.stdout.decode()))
+            generate_primitive_definition(inst)
     # Display the rest of the FIRRTL program.
     for line in firrtl_file.readlines():
         print(line.rstrip())
-
 
 def main():
     if len(sys.argv) != 3:
