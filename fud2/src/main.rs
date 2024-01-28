@@ -12,7 +12,11 @@ fn build_driver() -> Driver {
     let verilog = bld.state("verilog", &["sv", "v"]);
     let calyx_setup = bld.setup("Calyx compiler", |e| {
         e.config_var("calyx_base", "calyx.base")?;
-        e.config_var_or("calyx_exe", "calyx.exe", "$calyx_base/target/debug/calyx")?;
+        e.config_var_or(
+            "calyx_exe",
+            "calyx.exe",
+            "$calyx_base/target/debug/calyx",
+        )?;
         e.rule(
             "calyx",
             "$calyx_exe -l $calyx_base -b $backend $args $in > $out",
@@ -103,7 +107,12 @@ fn build_driver() -> Driver {
         },
     );
     bld.op("trace", &[sim_setup], simulator, vcd, |e, input, output| {
-        e.build_cmd(&["sim.log", output], "sim-run", &[input, "$datadir"], &[])?;
+        e.build_cmd(
+            &["sim.log", output],
+            "sim-run",
+            &[input, "$datadir"],
+            &[],
+        )?;
         e.arg("bin", input)?;
         e.arg("args", &format!("+NOTRACE=0 +OUT={}", output))?;
         Ok(())
@@ -167,7 +176,11 @@ fn build_driver() -> Driver {
 
         Ok(())
     });
-    fn firrtl_compile(e: &mut Emitter, input: &str, output: &str) -> EmitResult {
+    fn firrtl_compile(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
         let tmp_verilog = "partial.sv";
         e.build_cmd(&[tmp_verilog], "firrtl", &[input], &[])?;
         e.build_cmd(&[output], "add-firrtl-prims", &[tmp_verilog], &[])?;
@@ -227,7 +240,11 @@ fn build_driver() -> Driver {
     // Interpreter.
     let debug = bld.state("debug", &[]); // A pseudo-state.
     let cider_setup = bld.setup("Cider interpreter", |e| {
-        e.config_var_or("cider", "cider.exe", "$calyx_base/target/debug/cider")?;
+        e.config_var_or(
+            "cider",
+            "cider.exe",
+            "$calyx_base/target/debug/cider",
+        )?;
         e.rule(
             "cider",
             "$cider -l $calyx_base --raw --data data.json $in > $out",
@@ -258,7 +275,12 @@ fn build_driver() -> Driver {
         |e, input, output| {
             let out_file = "interp_out.json";
             e.build_cmd(&[out_file], "cider", &[input], &["data.json"])?;
-            e.build_cmd(&[output], "interp-to-dat", &[out_file], &["$sim_data"])?;
+            e.build_cmd(
+                &[output],
+                "interp-to-dat",
+                &[out_file],
+                &["$sim_data"],
+            )?;
             Ok(())
         },
     );
