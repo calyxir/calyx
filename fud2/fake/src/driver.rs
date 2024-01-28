@@ -89,7 +89,11 @@ pub struct Driver {
 impl Driver {
     /// Find a chain of Operations from the `start` state to the `end`, which may be a state or the
     /// final operation in the chain.
-    fn find_path_segment(&self, start: StateRef, end: Destination) -> Option<Vec<OpRef>> {
+    fn find_path_segment(
+        &self,
+        start: StateRef,
+        end: Destination,
+    ) -> Option<Vec<OpRef>> {
         // Our start state is the input.
         let mut visited = SecondaryMap::<StateRef, bool>::new();
         visited[start] = true;
@@ -158,13 +162,15 @@ impl Driver {
 
         // Build path segments through each through required operation.
         for op in through {
-            let segment = self.find_path_segment(cur_state, Destination::Op(*op))?;
+            let segment =
+                self.find_path_segment(cur_state, Destination::Op(*op))?;
             op_path.extend(segment);
             cur_state = self.ops[*op].output;
         }
 
         // Build the final path segment to the destination state.
-        let segment = self.find_path_segment(cur_state, Destination::State(end))?;
+        let segment =
+            self.find_path_segment(cur_state, Destination::State(end))?;
         op_path.extend(segment);
 
         Some(op_path)
@@ -183,7 +189,8 @@ impl Driver {
 
     pub fn plan(&self, req: Request) -> Option<Plan> {
         // Find a path through the states.
-        let path = self.find_path(req.start_state, req.end_state, &req.through)?;
+        let path =
+            self.find_path(req.start_state, req.end_state, &req.through)?;
 
         let mut steps: Vec<(OpRef, Utf8PathBuf)> = vec![];
 
@@ -289,7 +296,11 @@ impl DriverBuilder {
         })
     }
 
-    pub fn add_setup<T: run::EmitSetup + 'static>(&mut self, name: &str, emit: T) -> SetupRef {
+    pub fn add_setup<T: run::EmitSetup + 'static>(
+        &mut self,
+        name: &str,
+        emit: T,
+    ) -> SetupRef {
         self.setups.push(Setup {
             name: name.into(),
             emit: Box::new(emit),

@@ -22,7 +22,9 @@ impl std::fmt::Display for EmitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
             EmitError::Io(e) => write!(f, "{}", e),
-            EmitError::MissingConfig(s) => write!(f, "missing required config key: {}", s),
+            EmitError::MissingConfig(s) => {
+                write!(f, "missing required config key: {}", s)
+            }
         }
     }
 }
@@ -33,13 +35,23 @@ pub type EmitResult = std::result::Result<(), EmitError>;
 
 /// Code to emit a Ninja `build` command.
 pub trait EmitBuild {
-    fn build(&self, emitter: &mut Emitter, input: &str, output: &str) -> EmitResult;
+    fn build(
+        &self,
+        emitter: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult;
 }
 
 pub type EmitBuildFn = fn(&mut Emitter, &str, &str) -> EmitResult;
 
 impl EmitBuild for EmitBuildFn {
-    fn build(&self, emitter: &mut Emitter, input: &str, output: &str) -> EmitResult {
+    fn build(
+        &self,
+        emitter: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
         self(emitter, input, output)
     }
 }
@@ -51,7 +63,12 @@ pub struct EmitRuleBuild {
 }
 
 impl EmitBuild for EmitRuleBuild {
-    fn build(&self, emitter: &mut Emitter, input: &str, output: &str) -> EmitResult {
+    fn build(
+        &self,
+        emitter: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
         emitter.build(&self.rule_name, input, output)?;
         Ok(())
     }
@@ -115,7 +132,10 @@ impl<'a> Run<'a> {
         let mut states: HashMap<StateRef, String> = HashMap::new();
         let mut ops: HashSet<OpRef> = HashSet::new();
         let first_op = self.plan.steps[0].0;
-        states.insert(self.driver.ops[first_op].input, self.plan.start.to_string());
+        states.insert(
+            self.driver.ops[first_op].input,
+            self.plan.start.to_string(),
+        );
         for (op, file) in &self.plan.steps {
             states.insert(self.driver.ops[*op].output, file.to_string());
             ops.insert(*op);
@@ -169,7 +189,9 @@ impl<'a> Run<'a> {
 
         // Capture stdin.
         if self.plan.stdin {
-            let stdin_file = std::fs::File::create(self.plan.workdir.join(&self.plan.start))?;
+            let stdin_file = std::fs::File::create(
+                self.plan.workdir.join(&self.plan.start),
+            )?;
             std::io::copy(
                 &mut std::io::stdin(),
                 &mut std::io::BufWriter::new(stdin_file),
@@ -187,7 +209,8 @@ impl<'a> Run<'a> {
 
         // Emit stdout.
         if self.plan.stdout {
-            let stdout_file = std::fs::File::open(self.plan.workdir.join(self.plan.end()))?;
+            let stdout_file =
+                std::fs::File::open(self.plan.workdir.join(self.plan.end()))?;
             std::io::copy(
                 &mut std::io::BufReader::new(stdout_file),
                 &mut std::io::stdout(),
@@ -203,7 +226,11 @@ impl<'a> Run<'a> {
     }
 
     fn emit<T: Write + 'static>(&self, out: T) -> EmitResult {
-        let mut emitter = Emitter::new(out, self.config_data.clone(), self.plan.workdir.clone());
+        let mut emitter = Emitter::new(
+            out,
+            self.config_data.clone(),
+            self.plan.workdir.clone(),
+        );
 
         // Emit the setup for each operation used in the plan, only once.
         let mut done_setups = HashSet::<SetupRef>::new();
@@ -223,8 +250,11 @@ impl<'a> Run<'a> {
         let mut last_file = &self.plan.start;
         for (op, out_file) in &self.plan.steps {
             let op = &self.driver.ops[*op];
-            op.emit
-                .build(&mut emitter, last_file.as_str(), out_file.as_str())?;
+            op.emit.build(
+                &mut emitter,
+                last_file.as_str(),
+                out_file.as_str(),
+            )?;
             last_file = out_file;
         }
         writeln!(emitter.out)?;
@@ -277,7 +307,12 @@ impl Emitter {
 
     /// Emit a Ninja variable declaration for `name` based on the configured value for `key`, or a
     /// default value if it's missing.
-    pub fn config_var_or(&mut self, name: &str, key: &str, default: &str) -> std::io::Result<()> {
+    pub fn config_var_or(
+        &mut self,
+        name: &str,
+        key: &str,
+        default: &str,
+    ) -> std::io::Result<()> {
         self.var(name, &self.config_or(key, default))
     }
 
@@ -293,7 +328,12 @@ impl Emitter {
     }
 
     /// Emit a simple Ninja build command with one dependency.
-    pub fn build(&mut self, rule: &str, input: &str, output: &str) -> std::io::Result<()> {
+    pub fn build(
+        &mut self,
+        rule: &str,
+        input: &str,
+        output: &str,
+    ) -> std::io::Result<()> {
         self.build_cmd(&[output], rule, &[input], &[])
     }
 

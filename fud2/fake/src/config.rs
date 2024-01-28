@@ -37,5 +37,6 @@ pub(crate) fn load_config(name: &str) -> Figment {
     let config_path = Path::new(&config_base).join(name).with_extension("toml");
 
     // Use our defaults, overridden by the TOML config file.
-    Figment::from(Serialized::defaults(GlobalConfig::default())).merge(Toml::file(config_path))
+    Figment::from(Serialized::defaults(GlobalConfig::default()))
+        .merge(Toml::file(config_path))
 }

@@ -101,7 +101,9 @@ fn from_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
 
 fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
     match &args.to {
-        Some(name) => driver.get_state(name).ok_or(anyhow!("unknown --to state")),
+        Some(name) => {
+            driver.get_state(name).ok_or(anyhow!("unknown --to state"))
+        }
         None => match &args.output {
             Some(out) => driver
                 .guess_state(out)
