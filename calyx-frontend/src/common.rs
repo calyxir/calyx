@@ -45,7 +45,7 @@ impl Primitive {
     ) -> CalyxResult<(SmallVec<[(Id, u64); 5]>, Vec<PortDef<u64>>)> {
         if self.params.len() != parameters.len() {
             let msg = format!(
-               "Invalid parameter binding for primitive `{}`. Requires {} parameters but provided with {}.",
+               "primitive `{}` requires {} parameters but instantiation provides {} parameters",
                self.name.clone(),
                self.params.len(),
                parameters.len(),
