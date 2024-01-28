@@ -6,7 +6,8 @@
         output out : UInt<WIDTH>
         output done : UInt<1>
 
-        reg internal_reg : UInt, clk
+        reg internal_reg : UInt<WIDTH>, clk
+        out <= UInt(0)
         when eq(write_en, UInt(1)):
             out <= in
             done <= UInt(1)

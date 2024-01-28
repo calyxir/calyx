@@ -28,6 +28,24 @@ def generate_m4_arguments(inst):
 
     return args
 
+def generate(firrtl_filename, primitive_uses_filename):
+    firrtl_file = open(firrtl_filename)
+    primitive_uses_file = open(primitive_uses_filename)
+    # The first line contains the circuit name, which needs to come before the primitives.
+    print(firrtl_file.readline().rstrip())
+    # Display the primitive definitions.
+    primitive_insts = json.load(primitive_uses_file)
+    if primitive_insts:
+        for inst in primitive_insts:
+            m4_args = ["m4"]
+            m4_args += generate_m4_arguments(inst)
+            p = subprocess.run(m4_args, capture_output=True)
+            print(str(p.stdout.decode()))
+    # Display the rest of the FIRRTL program.
+    for line in firrtl_file.readlines():
+        print(line.rstrip())
+
+
 def main():
     if len(sys.argv) != 3:
         args_desc = [                                                                                                                                                                   
@@ -36,28 +54,7 @@ def main():
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")                                                                                                                           
         return 1
-    firrtl_file = open(sys.argv[1])
-    primitive_uses_file = open(sys.argv[2])
-    # The first line contains the circuit name, which needs to come before the primitives.
-    print(firrtl_file.readline().rstrip())
-    # Display the primitive definitions.
-    primitive_insts = json.load(primitive_uses_file)
-    if len(primitive_insts) != 0 :
-        tmp_file_name = "m4-tmp.fir"
-        for inst in primitive_insts:
-            m4_args = ["m4"]
-            m4_args += generate_m4_arguments(inst)
-            # hack to make the prints (for the start and end of the file) and the subprocess output produced sequentially
-            tmp_file = open(tmp_file_name, "w")
-            # execute the subprocess containing m4
-            subprocess.run(m4_args, stdout=tmp_file)
-            for line in open(tmp_file_name, "r"):
-                print(line.rstrip())
-            print()
-        os.remove(tmp_file_name)
-    # Display the rest of the FIRRTL program.
-    for line in firrtl_file.readlines():
-        print(line.rstrip())
+    generate(sys.argv[1], sys.argv[2])
 
 if __name__ == '__main__':
         main()
