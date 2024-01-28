@@ -11,6 +11,8 @@ members = [
     "web/rust",
     "tools/data_gen",
     "cider-dap",
+    "fud2",
+    "fud2/fake",
 ]
 exclude = ["site"]
 
@@ -43,6 +45,7 @@ pest = "2"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
+anyhow = "1"
 calyx-utils = { path = "calyx-utils", version = "0.6.1" }
 calyx-ir = { path = "calyx-ir", version = "0.6.1" }
 calyx-frontend = { path = "calyx-frontend", version = "0.6.1" }
