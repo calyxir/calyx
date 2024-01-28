@@ -447,6 +447,11 @@ impl InferenceAnalysis {
         }
     }
 
+    pub fn remove_promotable_from_seq(seq: &mut ir::Seq) {
+        for stmt in &mut seq.stmts {
+            Self::remove_promotable_attribute(stmt);
+        }
+    }
     /// Removes the @promotable attribute from the control program.
     /// Recursively visits the children of the control.
     pub fn remove_promotable_attribute(c: &mut ir::Control) {
@@ -473,6 +478,10 @@ impl InferenceAnalysis {
                 }
             }
         }
+    }
+
+    pub fn fixup_seq(&self, seq: &mut ir::Seq) {
+        seq.update_static(&self.static_component_latencies);
     }
 
     /// "Fixes Up" the component. In particular:

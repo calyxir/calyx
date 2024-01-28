@@ -257,6 +257,8 @@ impl Visitor for ScheduleCompaction {
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
         let (cont_reads, cont_writes) = ReadWriteSet::cont_read_write_set(comp);
+        InferenceAnalysis::remove_promotable_from_seq(s);
+        self.inference_analysis.fixup_seq(s);
 
         let mut builder = ir::Builder::new(comp, sigs);
 
