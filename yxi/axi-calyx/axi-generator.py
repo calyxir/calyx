@@ -44,15 +44,15 @@ def add_arread_channel(prog, mem):
 
 
 def add_awwrite_channel(prog, mem):
-    awwrite_channel = _add_m_to_s_address_channel(prog, mem, "AW")
-    max_transfers = awwrite_channel.reg("max_transfers", 8, is_ref=True)
+    aw_channel = _add_m_to_s_address_channel(prog, mem, "AW")
+    max_transfers = aw_channel.reg("max_transfers", 8, is_ref=True)
 
     # TODO(nathanielnrn): We eventually want to move beyond
     # the implicit 1 transaction that is the size of the memory
     # How should we store this?
     # Recall this goes to write channel as number of transfers it expectes to do before
     # setting WLAST high
-    with awwrite_channel.get_group("do_aw_transfer"):
+    with aw_channel.get_group("do_aw_transfer"):
         max_transfers.in_ = mem["size"] - 1
         max_transfers.write_en = 1
 
@@ -117,7 +117,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         xvalid.write_en = 1
 
         xhandshake_occurred.in_ = (xvalid.out & xREADY) @ 1
-        xhandshake_occurred.write_en =  (~xhandshake_occurred.out) @ 1
+        xhandshake_occurred.write_en = (~xhandshake_occurred.out) @ 1
 
         # Drive output signals for transfer
         m_to_s_address_channel.this()[f"{x}ADDR"] = curr_addr_axi.out
@@ -203,7 +203,9 @@ def add_read_channel(prog, mem):
 
     # according to zipcpu, rready should be registered
     rready = read_channel.reg("rready", 1)
-    curr_addr_internal_mem = read_channel.reg("curr_addr_internal_mem", clog2(mem["size"]), is_ref=True)
+    curr_addr_internal_mem = read_channel.reg(
+        "curr_addr_internal_mem", clog2(mem["size"]), is_ref=True
+    )
     curr_addr_axi = read_channel.reg("curr_addr_axi", 64, is_ref=True)
     # Registed because RLAST is high with laster transfer, not after
     # before this we were terminating immediately with
@@ -320,7 +322,9 @@ def add_write_channel(prog, mem):
     wvalid = write_channel.reg("wvalid", 1)
     w_handshake_occurred = write_channel.reg("w_handshake_occurred", 1)
     # internal calyx memory indexing
-    curr_addr_internal_mem = write_channel.reg("curr_addr_internal_mem", clog2(mem["size"]), is_ref=True)
+    curr_addr_internal_mem = write_channel.reg(
+        "curr_addr_internal_mem", clog2(mem["size"]), is_ref=True
+    )
     # host indexing, must be 64 bits
     curr_addr_axi = write_channel.reg("curr_addr_axi", 64, is_ref=True)
 
@@ -357,12 +361,8 @@ def add_write_channel(prog, mem):
         mem_ref.read_en = 1
         write_channel.this()["WDATA"] = mem_ref.read_data
 
-        write_channel.this()["WLAST"] = (
-            max_trnsfrs.out == curr_trsnfr_count.out
-        ) @ 1
-        write_channel.this()["WLAST"] = (
-            max_trnsfrs.out != curr_trsnfr_count.out
-        ) @ 0
+        write_channel.this()["WLAST"] = (max_trnsfrs.out == curr_trsnfr_count.out) @ 1
+        write_channel.this()["WLAST"] = (max_trnsfrs.out != curr_trsnfr_count.out) @ 0
 
         # set high when WLAST is high and a handshake occurs
         n_finished_last_trnsfr.in_ = (
@@ -393,7 +393,12 @@ def add_write_channel(prog, mem):
         while_n_finished_last_trnsfr_body = [
             invoke(bt_reg, in_in=0),
             service_write_transfer,
-            par(curr_addr_internal_mem_incr, curr_trsnfr_count_incr, curr_addr_axi_incr, invoke(w_handshake_occurred, in_in=0)),
+            par(
+                curr_addr_internal_mem_incr,
+                curr_trsnfr_count_incr,
+                curr_addr_axi_incr,
+                invoke(w_handshake_occurred, in_in=0),
+            ),
         ]
         while_n_finished_last_trnsfr = while_(
             n_finished_last_trnsfr.out, while_n_finished_last_trnsfr_body
@@ -442,6 +447,115 @@ def add_bresp_channel(prog, mem):
     bresp_channel.control += [invoke(bt_reg, in_in=0), block_transfer]
 
 
+# NOTE: Unlike the channel functions, this can expect multiple mems
+def add_main_comp(prog, mems):
+    main_comp = prog.component("main")
+    # Get handles to be used later
+    read_channel = prog.get_component("m_read_channel")
+    write_channel = prog.get_component("m_write_channel")
+    ar_channel = prog.get_component("m_ar_channel")
+    aw_channel = prog.get_component("m_aw_channel")
+    bresp_channel = prog.get_component("m_bresp_channel")
+
+    # Inputs/Outputs
+    main_inputs = []
+    main_outputs = []
+    for mem in mems:
+        mem_name = mem["name"]
+        main_inputs.append(
+            [
+                (f"{mem_name}_ARESETn", 1),
+                (f"{mem_name}_ARREADY", 1),
+                (f"{mem_name}_RVALID", 1),
+                (f"{mem_name}_RLAST", 1),
+                (f"{mem_name}_RDATA", mem["width"]),
+                (f"{mem_name}_RRESP", 2),
+                (f"{mem_name}_AWREADY", 1),
+                (f"{mem_name}_WRESP", 2),
+                (f"{mem_name}_WREADY", 1),
+                (f"{mem_name}_BVALID", 1),
+                # Only used for waveform tracing, not sent anywhere
+                (f"{mem_name}_BRESP", 2),
+                # Only needed for coctb compatability, tied low
+                (f"{mem_name}_RID", 1),
+            ]
+        )
+        main_outputs.append(
+            [
+                (f"{mem_name}_ARVALID", 1),
+                (f"{mem_name}_ARADDR", 64),
+                (f"{mem_name}_ARSIZE", 3),
+                (f"{mem_name}_ARLEN", 8),
+                (f"{mem_name}_ARBURST", 2),
+                (f"{mem_name}_RREADY", 1),
+                (f"{mem_name}_AWVALID", 1),
+                (f"{mem_name}_AWADDR", 64),
+                (f"{mem_name}_AWSIZE", 3),
+                (f"{mem_name}_AWLEN", 8),
+                (f"{mem_name}_AWBURST", 2),
+                (f"{mem_name}_AWPROT", 3),
+                (f"{mem_name}_WVALID", 1),
+                (f"{mem_name}_WLAST", 1),
+                (f"{mem_name}_WDATA", mem["width"]),
+                (f"{mem_name}_BREADY", 1),
+                # ID signals are needed for coco compatability, tied low
+                (f"{mem_name}_ARID", 1),
+                (f"{mem_name}_AWID", 1),
+                (f"{mem_name}_WID", 1),
+                (f"{mem_name}_BID", 1),
+            ]
+        )
+
+        add_comp_params(main_comp, main_inputs, main_outputs)
+
+        # Cells
+        # Read stuff
+        curr_addr_internal_mem = main_comp.reg(
+            f"curr_addr_internal_mem_{mem_name}", clog2(mem["size"])
+        )
+        curr_addr_axi = main_comp.reg(f"curr_addr_axi_{mem_name}", 64)
+
+        main_comp.cell(f"ar_channel_{mem_name}", ar_channel)
+        main_comp.cell(f"read_channel_{mem_name}", read_channel)
+
+        # TODO: Don't think these need to be marked external, but we
+        # we need to raise them at some point form original calyx program
+        internal_mem = main_comp.seq_mem_d1(
+            name=f"internal_mem_{mem_name}",
+            bitwidth=mem["width"],
+            len=mem["size"],
+            idx_size=clog2(mem["size"]),
+        )
+
+        # TODO!!!: Add vec_add / computation kernel here
+
+        # Write stuff
+        max_transfers = main_comp.reg(f"max_transfers_{mem_name}", 8)
+        main_comp.cell(f"aw_channel_{mem_name}", aw_channel)
+        main_comp.cell(f"write_channel_{mem_name}", write_channel)
+        main_comp.cel(f"bresp_channel_{mem_name}", bresp_channel)
+
+        # Wires
+
+        # Tie IDs low, needed for cocotb compatability. Not used anywhere
+        ARID = main_comp.this()[f"{mem_name}_ARID"]
+        AWID = main_comp.this()[f"{mem_name}_AWID"]
+        WID = main_comp.this()[f"{mem_name}_WID"]
+        BID = main_comp.this()[f"{mem_name}_BID"]
+
+        ARID = 0
+        AWID = 0
+        WID = 0
+        BID = 0
+
+        # No groups needed!
+
+    # Control
+    init_par = par()
+    # TODO!!!: Move par of seqs outside of for loop
+    # look at how to append to par blocks
+
+
 # Helper functions
 def width_in_bytes(width: int):
     assert width % 8 == 0, "Width must be a multiple of 8."
@@ -471,12 +585,18 @@ def build():
     add_bresp_channel(prog, mems[0])
     return prog.program
 
+
 def check_mems_welformed(mems):
     """Checks if memories from yxi are well formed. Returns true if they are, false otherwise."""
     for mem in mems:
-        assert mem["width"] % 8 == 0, "Width must be a multiple of 8 to alow byte addressing to host"
-        assert log2(mem["width"]).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
+        assert (
+            mem["width"] % 8 == 0
+        ), "Width must be a multiple of 8 to alow byte addressing to host"
+        assert log2(
+            mem["width"]
+        ).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
         assert mem["size"] > 0, "Memory size must be greater than 0"
+
 
 if __name__ == "__main__":
     build().emit()
