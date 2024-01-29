@@ -1,3 +1,4 @@
+use crate::config;
 use crate::driver::{Driver, Request, StateRef};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
@@ -41,9 +42,29 @@ impl Display for Mode {
     }
 }
 
+/// edit the configuration file
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "edit-config")]
+pub struct EditConfig {
+    /// the editor to use
+    #[argh(option, short = 'e')]
+    pub editor: Option<String>,
+}
+
+/// supported subcommands
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand)]
+pub enum Subcommand {
+    /// edit the configuration file
+    EditConfig(EditConfig),
+}
+
 #[derive(FromArgs)]
 /// A generic compiler driver.
 struct FakeArgs {
+    #[argh(subcommand)]
+    pub sub: Option<Subcommand>,
+
     /// the input file
     #[argh(positional)]
     input: Option<Utf8PathBuf>,
@@ -155,6 +176,26 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
         .filter_level(args.log_level)
         .target(env_logger::Target::Stderr)
         .init();
+
+    // edit the configuration file
+    if let Some(Subcommand::EditConfig(EditConfig { editor })) = args.sub {
+        let editor =
+            if let Some(e) = editor.or_else(|| std::env::var("EDITOR").ok()) {
+                e
+            } else {
+                bail!("$EDITOR not specified. Use -e")
+            };
+        let config_path = config::config_path(&driver.name);
+        log::info!("Editing config at {}", config_path.display());
+        let status = std::process::Command::new(editor)
+            .arg(config_path)
+            .status()
+            .expect("failed to execute editor");
+        if !status.success() {
+            bail!("editor exited with status {}", status);
+        }
+        return Ok(());
+    }
 
     // Make a plan.
     let req = get_request(driver, &args)?;
