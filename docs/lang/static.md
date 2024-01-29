@@ -65,12 +65,12 @@ cycle `j` of the group’s execution.
 Calyx provides static variants of each of its control operators.
 While dynamic commands may contain both static and dynamic children, static commands must only have static children.
 
-- `static_seq` is a static version of `seq`; its latency is the sum of the latencies of its children.
-- `static_par` is a static version of `par`; its latency is the maximum of the latencies of its children.
-- `static_if` is a static version of `if`; its latency is the maximum of the latencies of its children.
+- `static seq` is a static version of `seq`; its latency is the sum of the latencies of its children.
+- `static par` is a static version of `par`; its latency is the maximum of the latencies of its children.
+- `static if` is a static version of `if`; its latency is the maximum of the latencies of its children.
 - Calyx's `while` loop is unbouded, so it does not have a static variant.
-- `static_repeat` is a static version of `repeat`; its latency is the product of the number of iterations and the latency of its child.
-- `static_invoke` is a static version of `invoke`; its latency is the latency of the invoked cell.
+- `static repeat` is a static version of `repeat`; its latency is the product of the number of iterations and the latency of its child.
+- `static invoke` is a static version of `invoke`; its latency is the latency of the invoked cell.
 
 ## Guarantees
 
