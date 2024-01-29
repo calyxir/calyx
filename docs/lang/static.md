@@ -70,11 +70,8 @@ We have used it in this case to ensure that the last two assignments execute onl
 Calyx provides static variants of each of its control operators.
 While dynamic commands may contain both static and dynamic children, static commands must only have static children.
 
-- `static seq` is a static version of `seq`.
-A child of `static seq` is guaranteed to begin executing exactly one cycle after the previous child has finished.
-The latency of `static seq` is therefore the sum of the latencies of its children.
-- `static par` is a static version of `par`.
-All of its children begin executing at the same time, and its latency is therefore maximum of the latencies of its children.
+- `static seq` is a static version of `seq`; its latency is the sum of the latencies of its children.
+- `static par` is a static version of `par`; its latency is the maximum of the latencies of its children.
 - `static if` is a static version of `if`; its latency is the maximum of the latencies of its children.
 - Calyx's `while` loop is unbouded, so it does not have a static variant.
 - `static repeat` is a static version of `repeat`; its latency is the product of the number of iterations and the latency of its child.
@@ -85,3 +82,8 @@ All of its children begin executing at the same time, and its latency is therefo
 The `static` keyword is a promise to the compiler that the component or group will take exactly the specified number of cycles to execute.
 The compiler is free to take advantage of this promise to generate more efficient hardware.
 In return, the compiler must access out-ports of static components only after the specified number of cycles have passed, or risk receiving incorrect results.
+
+There are other guarantees associated with individual static constructs:
+- A child of `static seq` is guaranteed to begin executing exactly one cycle after the previous child has finished.
+- All the children of a `static par` are guaranteed to begin executing at the same time.
+- The body of a `static repeat` is guaranteed to begin executing exactly one cycle after the previous iteration has finished.
