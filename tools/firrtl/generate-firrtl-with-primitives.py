@@ -1,6 +1,5 @@
 import json
 import os
-import subprocess
 import sys
 
 # Generates a map where `key` should be replaced with `value`
