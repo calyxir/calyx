@@ -14,9 +14,9 @@ this prevents the use of black-box hardware designs.
 
 To address these issues, Calyx provides a `static` keyword that modifies components and groups, along with static variants of other control operators.
 
-## Static support in the Calyx IL
+## Static Support in the Calyx IL
 
-### Static components
+### Static Components
 
 Say we have a multiplier component, `std_mult`, which multiplies the values `left` and `right` and puts the result in `out`.
 Its latency is 3 cycles.
@@ -37,7 +37,7 @@ In contrast, a client of the multiplier must pass two inputs and raise the `go` 
 It can simply and safely assume that the result will be available after 3 cycles.
 
 
-### Static groups and relative timing guards
+### Static Groups and Relative Timing Guards
 
 Much like components, groups can be declared as static.
 Since groups are just unordered sets of assignments, it pays to have a little more control over the scheduling of the assignments within a group.
@@ -60,7 +60,7 @@ The guard `%3`, which we see thereafter, is syntactic sugar for `%[3:4]`.
 In general, a guard `%[i:j]` is true in the half-open interval from cycle `i` to
 cycle `j` of the group’s execution.
 
-### Static control operators
+### Static Control Operators
 
 Calyx provides static variants of each of its control operators.
 While dynamic commands may contain both static and dynamic children, static commands must only have static children.
