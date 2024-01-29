@@ -1,15 +1,15 @@
 use fud::{
     cli,
+    exec::{SetupRef, StateRef},
     run::{EmitResult, Emitter},
     Driver, DriverBuilder,
 };
 
-fn build_driver() -> Driver {
-    let mut bld = DriverBuilder::new("fud2");
-
-    // Calyx.
+fn setup_calyx(
+    bld: &mut DriverBuilder,
+    verilog: StateRef,
+) -> (StateRef, SetupRef) {
     let calyx = bld.state("calyx", &["futil"]);
-    let verilog = bld.state("verilog", &["sv", "v"]);
     let calyx_setup = bld.setup("Calyx compiler", |e| {
         e.config_var("calyx-base", "calyx.base")?;
         e.config_var_or(
@@ -34,8 +34,13 @@ fn build_driver() -> Driver {
             Ok(())
         },
     );
+    (calyx, calyx_setup)
+}
 
-    // Dahlia.
+fn setup_dahlia(
+    bld: &mut DriverBuilder,
+    calyx: StateRef,
+) -> (StateRef, SetupRef) {
     let dahlia = bld.state("dahlia", &["fuse"]);
     let dahlia_setup = bld.setup("Dahlia compiler", |e| {
         e.config_var("dahlia-exe", "dahlia")?;
@@ -46,8 +51,13 @@ fn build_driver() -> Driver {
         Ok(())
     });
     bld.rule(&[dahlia_setup], dahlia, calyx, "dahlia-to-calyx");
+    (dahlia, dahlia_setup)
+}
 
-    // MrXL.
+fn setup_mrxl(
+    bld: &mut DriverBuilder,
+    calyx: StateRef,
+) -> (StateRef, SetupRef) {
     let mrxl = bld.state("mrxl", &["mrxl"]);
     let mrxl_setup = bld.setup("MrXL compiler", |e| {
         e.var("mrxl-exe", "mrxl")?;
@@ -55,6 +65,20 @@ fn build_driver() -> Driver {
         Ok(())
     });
     bld.rule(&[mrxl_setup], mrxl, calyx, "mrxl-to-calyx");
+    (mrxl, mrxl_setup)
+}
+
+fn build_driver() -> Driver {
+    let mut bld = DriverBuilder::new("fud2");
+
+    // The verilog state
+    let verilog = bld.state("verilog", &["sv", "v"]);
+    // Calyx.
+    let (calyx, calyx_setup) = setup_calyx(&mut bld, verilog);
+    // Dahlia.
+    setup_dahlia(&mut bld, calyx);
+    // MrXL.
+    setup_mrxl(&mut bld, calyx);
 
     // Shared machinery for RTL simulators.
     let dat = bld.state("dat", &["json"]);
