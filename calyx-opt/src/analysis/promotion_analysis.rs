@@ -93,13 +93,6 @@ impl PromotionAnalysis {
         );
         let latency = s.attributes.get(ir::NumAttr::PromoteStatic).unwrap();
         s.attributes.remove(ir::NumAttr::PromoteStatic);
-        // let latency = *self.inference_analysis.static_component_latencies.get(
-        //     &s.comp.borrow().type_name().unwrap_or_else(|| {
-        //         unreachable!(
-        //             "Already checked that comp is component"
-        //         )
-        //     }),
-        // ).unwrap_or_else(|| unreachable!("Called convert_to_static for static invoke that does not have a static component"));
         let s_inv = ir::StaticInvoke {
             comp: Rc::clone(&s.comp),
             inputs: std::mem::take(&mut s.inputs),

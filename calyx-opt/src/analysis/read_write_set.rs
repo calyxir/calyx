@@ -228,6 +228,9 @@ impl ReadWriteSet {
 
     /// Returns the ports that are read and written, respectively,
     /// by the given control program.
+    /// INCLUDE_HOLE_ASSIGNS: in either case, we will ignore done holes.
+    /// However, if INCLUDE_HOLE_ASSIGNS is true, we ignore all assignments
+    /// that write to holes, even if the src of that assignment is a cell's port.
     pub fn control_port_read_write_set<const INCLUDE_HOLE_ASSIGNS: bool>(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
@@ -364,6 +367,9 @@ impl ReadWriteSet {
 
     /// Returns the cells that are read and written, respectively,
     /// by the given control program.
+    /// INCLUDE_HOLE_ASSIGNS: in either case, we will ignore done holes themselves.
+    /// However, if INCLUDE_HOLE_ASSIGNS is true, we ignore all assignments
+    /// that write to holes, even if the src of that assignment is a cell's port.
     pub fn control_read_write_set<const INCLUDE_HOLE_ASSIGNS: bool>(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {

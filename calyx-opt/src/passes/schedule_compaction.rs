@@ -46,6 +46,7 @@ impl Named for ScheduleCompaction {
 }
 
 impl ScheduleCompaction {
+    // Compacts `cur_stmts`, and appends the result to `new_stmts`.
     fn append_and_compact(
         &mut self,
         (cont_reads, cont_writes): (
@@ -73,6 +74,10 @@ impl ScheduleCompaction {
         }
     }
 
+    // Given a total_order and sorted schedule, builds a seq based on the original
+    // schedule.
+    // Note that this function assumes the `total_order`` and `sorted_schedule`
+    // represent a completely sequential schedule.
     fn recover_seq(
         mut total_order: petgraph::graph::DiGraph<Option<ir::Control>, ()>,
         sorted_schedule: Vec<(NodeIndex, u64)>,
@@ -84,7 +89,10 @@ impl ScheduleCompaction {
             .collect_vec();
         ir::Control::Seq(ir::Seq { stmts, attributes })
     }
-    // Takes a vec of ctrl stmts and turns it into a compacted schedule.
+
+    // Takes a vec of ctrl stmts and turns it into a compacted schedule (a static par).
+    // If it can't compact at all, then it just returns a `seq` in the `stmts`
+    // original order.
     fn compact_control_vec(
         &mut self,
         stmts: Vec<ir::Control>,
@@ -313,8 +321,10 @@ impl Visitor for ScheduleCompaction {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> crate::traversal::VisResult {
+        // Re-infer component's latency.
         self.inference_analysis.fixup_timing(comp);
         if comp.name != "main" {
+            // Fixup components to show the new latency.
             let comp_sig = comp.signature.borrow();
             let go_ports: Vec<_> =
                 comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
