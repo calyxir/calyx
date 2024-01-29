@@ -107,7 +107,6 @@ impl From<&ir::Cell> for GoDone {
     }
 }
 
-#[derive(Debug, Default)]
 /// Default implemnetation is almost certainly not helpful.
 /// You should probably use `from_ctx` instead.
 pub struct InferenceAnalysis {
@@ -452,6 +451,7 @@ impl InferenceAnalysis {
             Self::remove_promotable_attribute(stmt);
         }
     }
+
     /// Removes the @promotable attribute from the control program.
     /// Recursively visits the children of the control.
     pub fn remove_promotable_attribute(c: &mut ir::Control) {

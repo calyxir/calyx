@@ -100,6 +100,7 @@ impl PassManager {
                 StaticInference,
                 ScheduleCompaction,
                 StaticPromotion,
+                StaticPromotion,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
                 CollapseControl,

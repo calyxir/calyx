@@ -88,8 +88,8 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
 
     # Cells
     xvalid = m_to_s_address_channel.reg(f"{lc_x}valid", 1)
-    xvalid_was_high = m_to_s_address_channel.reg(f"{lc_x}valid_was_high", 1)
-    base_addr = m_to_s_address_channel.reg("base_addr", 64, is_ref=True)
+    xhandshake_occurred = m_to_s_address_channel.reg(f"{lc_x}_handshake_occurred", 1)
+    curr_addr_axi = m_to_s_address_channel.reg("curr_addr_axi", 64, is_ref=True)
     xlen = m_to_s_address_channel.reg(f"{lc_x}len", 8)
 
     # Number of txns we want to occur before m_arread_channel is done
@@ -111,19 +111,16 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     # See #1828 https://github.com/calyxir/calyx/issues/1828
     with m_to_s_address_channel.group(f"do_{lc_x}_transfer") as do_x_transfer:
         xREADY = m_to_s_address_channel.this()[f"{x}READY"]
-        # TODO: Can we simplify this?
-        # See comments #1846 https://github.com/calyxir/calyx/pull/1846
-        # Assert arvalid if it was not previously high
-        xvalid.in_ = ~xvalid_was_high.out @ 1
+        xvalid.in_ = (~(xvalid.out & xREADY) & ~xhandshake_occurred.out) @ 1
         # Deassert in the next cycle once it is high
-        xvalid.in_ = (xvalid.out & xREADY & xvalid_was_high.out) @ 0
+        xvalid.in_ = ((xvalid.out & xREADY) | xhandshake_occurred.out) @ 0
         xvalid.write_en = 1
 
-        xvalid_was_high.in_ = (~(xvalid.out & xREADY) & ~xvalid_was_high.out) @ 1
-        xvalid_was_high.write_en = (~(xvalid.out & xREADY) & ~xvalid_was_high.out) @ 1
+        xhandshake_occurred.in_ = (xvalid.out & xREADY) @ 1
+        xhandshake_occurred.write_en =  (~xhandshake_occurred.out) @ 1
 
         # Drive output signals for transfer
-        m_to_s_address_channel.this()[f"{x}ADDR"] = base_addr.out
+        m_to_s_address_channel.this()[f"{x}ADDR"] = curr_addr_axi.out
         # This is taken from mem size, we assume the databus width is the size
         # of our memory cell and that width is a power of 2
         # TODO(nathanielnrn): convert to binary instead of decimal
@@ -163,7 +160,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     while_body = [
         par(
             invoke(bt_reg, in_in=0),
-            invoke(xvalid_was_high, in_in=0),
+            invoke(xhandshake_occurred, in_in=0),
         ),
         do_x_transfer,
         invoke(xvalid, in_in=0),
@@ -206,8 +203,8 @@ def add_read_channel(prog, mem):
 
     # according to zipcpu, rready should be registered
     rready = read_channel.reg("rready", 1)
-    curr_addr = read_channel.reg("curr_addr", clog2(mem["size"]), is_ref=True)
-    base_addr = read_channel.reg("base_addr", 64, is_ref=True)
+    curr_addr_internal_mem = read_channel.reg("curr_addr_internal_mem", clog2(mem["size"]), is_ref=True)
+    curr_addr_axi = read_channel.reg("curr_addr_axi", 64, is_ref=True)
     # Registed because RLAST is high with laster transfer, not after
     # before this we were terminating immediately with
     # last transfer and not servicing it
@@ -266,18 +263,18 @@ def add_read_channel(prog, mem):
         rready.write_en = 1
 
         # write data we received to mem_ref
-        mem_ref.addr0 = curr_addr.out
+        mem_ref.addr0 = curr_addr_internal_mem.out
         mem_ref.write_data = read_data_reg.out
         mem_ref.write_en = 1
         service_read_transfer.done = mem_ref.done
 
-    # creates group that increments curr_addr by 1. Creates adder and wires up correctly
-    curr_addr_incr = read_channel.incr(curr_addr, 1)
-    # TODO(nathanielnrn): Currently we assume that width is a power of 2.
+    # creates group that increments curr_addr_internal_mem by 1. Creates adder and wires up correctly
+    curr_addr_internal_mem_incr = read_channel.incr(curr_addr_internal_mem, 1)
+    # TODO(nathanielnrn): Currently we assume that width is a power of 2 due to xSIZE.
     # In the future we should allow for non-power of 2 widths, will need some
     # splicing for this.
     # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
-    base_addr_incr = read_channel.incr(base_addr, ceil(mem["width"] / 8))
+    curr_addr_axi_incr = read_channel.incr(curr_addr_axi, width_in_bytes(mem["width"]))
 
     # Control
     invoke_n_RLAST = invoke(n_RLAST, in_in=1)
@@ -286,7 +283,7 @@ def add_read_channel(prog, mem):
         invoke_bt_reg,
         block_transfer,
         service_read_transfer,
-        par(curr_addr_incr, base_addr_incr),
+        par(curr_addr_internal_mem_incr, curr_addr_axi_incr),
     ]
     while_n_RLAST = while_(n_RLAST.out, while_body)
 
@@ -296,8 +293,6 @@ def add_read_channel(prog, mem):
 def add_write_channel(prog, mem):
     # Inputs/Outputs
     write_channel = prog.component("m_write_channel")
-    # We assume idx_size is exactly clog2(len). See comment in #1751
-    # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
     channel_inputs = [("ARESETn", 1), ("WREADY", 1)]
     # TODO(nathanielnrn): We currently assume WDATA is the same width as the
     # memory. This limits throughput many AXI data busses are much wider
@@ -323,11 +318,11 @@ def add_write_channel(prog, mem):
 
     # according to zipcpu, rready should be registered
     wvalid = write_channel.reg("wvalid", 1)
-    wvalid_was_high = write_channel.reg("wvalid_was_high", 1)
+    w_handshake_occurred = write_channel.reg("w_handshake_occurred", 1)
     # internal calyx memory indexing
-    curr_addr = write_channel.reg("curr_addr", clog2(mem["size"]), is_ref=True)
+    curr_addr_internal_mem = write_channel.reg("curr_addr_internal_mem", clog2(mem["size"]), is_ref=True)
     # host indexing, must be 64 bits
-    base_addr = write_channel.reg("base_addr", 64, is_ref=True)
+    curr_addr_axi = write_channel.reg("curr_addr_axi", 64, is_ref=True)
 
     curr_trsnfr_count = write_channel.reg("curr_trsnfr_count", 8)
     # Number of transfers we want to do in current txn
@@ -346,19 +341,19 @@ def add_write_channel(prog, mem):
     with write_channel.group("service_write_transfer") as service_write_transfer:
         WREADY = write_channel.this()["WREADY"]
 
-        # Assert then deassert. Can maybe getgit right of wvalid_was_high in guard
-        wvalid.in_ = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
-        wvalid.in_ = (wvalid.out & WREADY & wvalid_was_high.out) @ 0
+        # Assert then deassert. Can maybe getgit right of w_handshake_occurred in guard
+        wvalid.in_ = (~(wvalid.out & WREADY) & ~w_handshake_occurred.out) @ 1
+        wvalid.in_ = ((wvalid.out & WREADY) | w_handshake_occurred.out) @ 0
         wvalid.write_en = 1
 
         # Set high when wvalid is high even once
         # This is just wavlid.in_ guard from above
         # TODO: confirm this is correct?
-        wvalid_was_high.in_ = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
-        wvalid_was_high.write_en = ~(wvalid.out & WREADY & wvalid_was_high.out) @ 1
+        w_handshake_occurred.in_ = (wvalid.out & WREADY) @ 1
+        w_handshake_occurred.write_en = (~w_handshake_occurred.out) @ 1
 
         # Set data output based on intermal memory output
-        mem_ref.addr0 = curr_addr.out
+        mem_ref.addr0 = curr_addr_internal_mem.out
         mem_ref.read_en = 1
         write_channel.this()["WDATA"] = mem_ref.read_data
 
@@ -383,29 +378,28 @@ def add_write_channel(prog, mem):
         bt_reg.write_en = 1
         service_write_transfer.done = bt_reg.out
 
-        # creates group that increments curr_addr by 1.
         # Creates adder and wires up correctly
-        curr_addr_incr = write_channel.incr(curr_addr, 1)
+        curr_addr_internal_mem_incr = write_channel.incr(curr_addr_internal_mem, 1)
         # TODO(nathanielnrn): Currently we assume that width is a power of 2.
         # In the future we should allow for non-power of 2 widths, will need some
         # splicing for this.
         # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
-        base_addr_incr = write_channel.incr(base_addr, ceil(mem["width"] / 8))
+        curr_addr_axi_incr = write_channel.incr(curr_addr_axi, ceil(mem["width"] / 8))
         curr_trsnfr_count_incr = write_channel.incr(curr_trsnfr_count, 1)
 
         # Control
-        init_curr_addr = invoke(curr_addr, in_in=0)
+        init_curr_addr_internal_mem = invoke(curr_addr_internal_mem, in_in=0)
         init_n_finished_last_trnsfr = invoke(n_finished_last_trnsfr, in_in=1)
         while_n_finished_last_trnsfr_body = [
             invoke(bt_reg, in_in=0),
             service_write_transfer,
-            par(curr_addr_incr, curr_trsnfr_count_incr, base_addr_incr),
+            par(curr_addr_internal_mem_incr, curr_trsnfr_count_incr, curr_addr_axi_incr, invoke(w_handshake_occurred, in_in=0)),
         ]
         while_n_finished_last_trnsfr = while_(
             n_finished_last_trnsfr.out, while_n_finished_last_trnsfr_body
         )
         write_channel.control += [
-            init_curr_addr,
+            init_curr_addr_internal_mem,
             init_n_finished_last_trnsfr,
             while_n_finished_last_trnsfr,
         ]
@@ -469,13 +463,20 @@ def clog2(x):
 
 def build():
     prog = Builder()
-    # add_arread_channel(prog, mems[0])
-    # add_awwrite_channel(prog, mems[0])
-    # add_read_channel(prog, mems[0])
-    # add_write_channel(prog, mems[0])
+    check_mems_welformed(mems)
+    add_arread_channel(prog, mems[0])
+    add_awwrite_channel(prog, mems[0])
+    add_read_channel(prog, mems[0])
+    add_write_channel(prog, mems[0])
     add_bresp_channel(prog, mems[0])
     return prog.program
 
+def check_mems_welformed(mems):
+    """Checks if memories from yxi are well formed. Returns true if they are, false otherwise."""
+    for mem in mems:
+        assert mem["width"] % 8 == 0, "Width must be a multiple of 8 to alow byte addressing to host"
+        assert log2(mem["width"]).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
+        assert mem["size"] > 0, "Memory size must be greater than 0"
 
 if __name__ == "__main__":
     build().emit()
