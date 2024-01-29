@@ -8,9 +8,9 @@ use crate::passes::{
     Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
     InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
     RegisterUnsharing, RemoveIds, ResetInsertion, ScheduleCompaction,
-    SimplifyStaticGuards, SimplifyWithControl, StaticInliner, StaticPromotion,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    SimplifyStaticGuards, SimplifyWithControl, StaticInference, StaticInliner,
+    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -38,6 +38,7 @@ impl PassManager {
         pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
         pm.register_pass::<ScheduleCompaction>()?;
+        pm.register_pass::<StaticInference>()?;
         pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<AttributePromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
@@ -96,6 +97,7 @@ impl PassManager {
                 SimplifyWithControl, // Must run before compile-invoke
                 CompileInvoke,   // creates dead comb groups
                 AttributePromotion,
+                StaticInference,
                 StaticPromotion,
                 ScheduleCompaction,
                 CompileRepeat,

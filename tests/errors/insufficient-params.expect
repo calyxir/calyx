@@ -1,5 +1,6 @@
 ---CODE---
-101
+1
 ---STDERR---
-thread 'main' panicked at 'Failed to add primitive.: Malformed Structure: Invalid parameter binding for primitive `std_fp_div_pipe`. Requires 3 parameters but provided with 1.', calyx-ir/src/builder.rs:224:14
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+Error: tests/errors/insufficient-params.futil
+5 |    d = std_fp_div_pipe(32);
+  |    ^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: primitive `std_fp_div_pipe` requires 3 parameters but instantiation provides 1 parameters
