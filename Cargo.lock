@@ -742,7 +742,9 @@ dependencies = [
  "argh",
  "camino",
  "cranelift-entity",
+ "env_logger",
  "figment",
+ "log",
  "pathdiff",
  "serde",
 ]
