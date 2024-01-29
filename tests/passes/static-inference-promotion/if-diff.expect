@@ -16,7 +16,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
   control {
-    @promote_static(5) if cond.out {
+    if cond.out {
       @compactable static<5> seq  {
         A0;
         A0;

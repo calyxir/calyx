@@ -12,7 +12,7 @@ component my_reg<"state_share"=1>(@data in: 32, @go go: 1, @clk clk: 1, @reset r
     out = r.out;
   }
   control {
-    @promote_static invoke0;
+    invoke0;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {

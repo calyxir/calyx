@@ -1,4 +1,5 @@
-// -p well-formed -p static-promotion -p dead-group-removal
+// -p well-formed -p static-inference
+
 import "primitives/core.futil";
 
 component main(go: 1, clk: 1) -> (done: 1) {
@@ -30,14 +31,11 @@ component main(go: 1, clk: 1) -> (done: 1) {
   }
 
   control {
-    seq {
+    par {
       one_cycle;
       two_cycles;
+      mult_wrts_to_done;
       mem_wrt_to_done;
-      mult_wrts_to_done;
-      one_cycle;
-      mult_wrts_to_done;
-      two_cycles;
     }
   }
 }
