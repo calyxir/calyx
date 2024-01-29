@@ -35,6 +35,7 @@ pub(crate) fn load_config(name: &str) -> Figment {
         home + "/.config"
     });
     let config_path = Path::new(&config_base).join(name).with_extension("toml");
+    log::info!("Loading config from {}", config_path.display());
 
     // Use our defaults, overridden by the TOML config file.
     Figment::from(Serialized::defaults(GlobalConfig::default()))

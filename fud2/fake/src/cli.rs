@@ -83,6 +83,10 @@ struct FakeArgs {
     /// verbose ouput
     #[argh(switch, short = 'v')]
     verbose: Option<bool>,
+
+    /// log level for debugging fud internal
+    #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
+    pub log_level: log::LevelFilter,
 }
 
 fn from_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
@@ -144,6 +148,13 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
 
 pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
+
+    // enable tracing
+    env_logger::Builder::new()
+        .format_timestamp(None)
+        .filter_level(args.log_level)
+        .target(env_logger::Target::Stderr)
+        .init();
 
     // Make a plan.
     let req = get_request(driver, &args)?;
