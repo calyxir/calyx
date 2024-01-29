@@ -27,8 +27,8 @@ impl Default for GlobalConfig {
     }
 }
 
-/// Load configuration data from the standard config file location.
-pub(crate) fn load_config(name: &str) -> Figment {
+/// Location of the configuration file
+pub(crate) fn config_path(name: &str) -> std::path::PathBuf {
     // The configuration is usually at `~/.config/driver_name.toml`.
     let config_base = env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
         let home = env::var("HOME").expect("$HOME not set");
@@ -36,6 +36,12 @@ pub(crate) fn load_config(name: &str) -> Figment {
     });
     let config_path = Path::new(&config_base).join(name).with_extension("toml");
     log::info!("Loading config from {}", config_path.display());
+    config_path
+}
+
+/// Load configuration data from the standard config file location.
+pub(crate) fn load_config(name: &str) -> Figment {
+    let config_path = config_path(name);
 
     // Use our defaults, overridden by the TOML config file.
     Figment::from(Serialized::defaults(GlobalConfig::default()))
