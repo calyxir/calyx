@@ -1,4 +1,4 @@
-// -p well-formed -p static-promotion -p dead-group-removal -x static-promotion:threshold=4
+// -p well-formed -p static-inference
 
 import "primitives/core.futil";
 
@@ -30,7 +30,14 @@ component main() -> () {
   }
 
   control {
-    // No promotion because size must be *greater* than the threshold
-    seq { A; B; C; C;}
+    seq {
+      repeat 10 {
+        seq { A; B; C; C;}
+      }
+      par {
+        seq {A; B;}
+        seq {C; C; C;}
+      }
+    }
   }
 }

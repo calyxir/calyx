@@ -40,9 +40,9 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
         mem_wrt_to_done0;
       }
       mult_wrts_to_done;
-      @promote_static one_cycle;
+      one_cycle;
       mult_wrts_to_done;
-      @promote_static(2) two_cycles;
+      two_cycles;
     }
   }
 }

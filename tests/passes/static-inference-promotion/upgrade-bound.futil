@@ -1,4 +1,4 @@
-// -p well-formed -p static-promotion -p dead-group-removal -x static-promotion:cycle-limit=25
+// -p well-formed -p static-inference -p static-promotion -p dead-group-removal
 
 import "primitives/core.futil";
 
@@ -7,6 +7,7 @@ component main() -> () {
     a = std_reg(2);
     b = std_reg(2);
     c = std_reg(2);
+    cond_reg = std_reg(1);
   }
 
   wires {
@@ -30,13 +31,8 @@ component main() -> () {
   }
 
   control {
-    seq {
-      repeat 10 {
-        seq { A; B; C; C;}
-      }
-      A;
-      B;
-      C;
+    @bound(5) while cond_reg.out {
+      seq { A; B; C; }
     }
   }
 }

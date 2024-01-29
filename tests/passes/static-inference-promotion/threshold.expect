@@ -23,11 +23,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
   control {
-    @promote_static(4) seq {
-      @promote_static A;
-      @promote_static B;
-      @promote_static C;
-      @promote_static C;
+    seq {
+      A;
+      B;
+      C;
+      C;
     }
   }
 }
