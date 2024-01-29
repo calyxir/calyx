@@ -77,35 +77,3 @@ While dynamic commands may contain both static and dynamic children, static comm
 The `static` keyword is a promise to the compiler that the component or group will take exactly the specified number of cycles to execute.
 The compiler is free to take advantage of this promise to generate more efficient hardware.
 In return, the compiler must access out-ports of static components only after the specified number of cycles have passed, or risk receiving incorrect results.
-
-
-## Tricks & Tips
-
-### Delay by `n` cycles
-
-Sometimes it can be useful to delay the execution of a group by `n` cycles:
-```
-seq {
-  @static(1) a; // Run in first cycle
-  ???
-  @static(2) b; // Run in the 10th cycle
-}
-```
-
-A simple way to achieve this is adding an empty group with `@static(n)` attribute on it:
-```
-cell {
-  r = @std_reg(0);
-}
-@static(9) group delay_9 {
-  delay_9[done] = r.out; // Don't use r.done here
-}
-seq {
-    @static(1) a; // Run in first cycle
-    @static(9) delay_9;
-    @static(2) b; // Run in the 10th cycle
-}
-```
-
-The static compilation pass `tdst` will never attempt to use the `delay_9`'s `done` condition.
-Further, since there are no assignments in the group, it will not generate any additional hardware.
