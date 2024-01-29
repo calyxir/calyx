@@ -5,7 +5,6 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
-use ir::GetAttributes;
 use itertools::Itertools;
 use std::num::NonZeroU64;
 use std::rc::Rc;

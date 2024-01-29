@@ -45,7 +45,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     // Filters out the constants from `cells`, while mapping the remaining `ir:Cell`s
     // to their cell name.
     fn filter_out_constants(
-        cells: &Vec<RRC<ir::Cell>>,
+        cells: &[RRC<ir::Cell>],
     ) -> impl Iterator<Item = ir::Id> + '_ {
         cells
             .iter()

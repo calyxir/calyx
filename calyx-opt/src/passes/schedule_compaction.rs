@@ -56,7 +56,7 @@ impl ScheduleCompaction {
         cur_stmts: Vec<ir::Control>,
         new_stmts: &mut Vec<ir::Control>,
     ) {
-        if cur_stmts.len() != 0 {
+        if !cur_stmts.is_empty() {
             let og_latency = cur_stmts
                 .iter()
                 .map(PromotionAnalysis::get_inferred_latency)
