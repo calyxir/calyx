@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 
 keywords = ["build-tool"]
-readme = "fud2/README.md"
+readme = "README.md"
 categories = ["build-tool"]
 description = "Compiler driver for the Calyx infrastructure"
 
