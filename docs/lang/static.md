@@ -6,15 +6,16 @@ This is in contrast to a *latency-sensitive*, or *static*, model of computation,
 
 In general, latency-insensitivity makes it easier to compose programs.
 It grants the compiler freedom to schedule operators however it wants, as long as it meets the program's dataflow constraints.
+It also prevents code from implicitly depending on the state of other code running in parallel.
 
 However, there are two drawbacks to this approach.
 First, the generated hardware may not be efficient: if the compiler does not know how long computations take, it must schedule them conservatively.
 Second, it is impossible for *latency-insensitive* programs to interact with *latency-sensitive* hardware implemented in RTL;
-this prevents the use of black-box hardware designs.
+this means that the use of black-box hardware designs requires costly handshaking logic at the interface.
 
-To address these issues, Calyx provides a `static` keyword that modifies components and groups, along with static variants of other control operators.
+To address these issues, Calyx provides a `static` qualifier that modifies components and groups, along with static variants of other control operators.
 
-## Static Support in the Calyx IL
+## Static Constructs in the Calyx IL
 
 ### Static Components
 
@@ -29,7 +30,7 @@ Compare this to the divider component `std_div`, whose latency is unknown:
 primitive std_div[W](go: 1, left: W, right: W) -> (out: W, done: 1)
 ```
 The key differences are:
-- The `static` keyword is used to declare the component as static and to specify its latency.
+- The `static` qualifier is used to declare the component as static and to specify its latency.
 - The `done` port is not present in the static component.
 
 A client of the divider must pass two inputs, raise the `go` signal, and wait for the component itself to raise its `done` signal.
@@ -41,6 +42,8 @@ It can simply and safely assume that the result will be available after 3 cycles
 
 Much like components, groups can be declared as static.
 Since groups are just unordered sets of assignments, it pays to have a little more control over the scheduling of the assignments within a group.
+To this end, static groups have a unique feature that ordinary dynamic groups do not: *relative timing guards*.
+
 Consider this group, which performs `ans := 6 * 7`:
 ```
 static<4> group mult_and_store {
@@ -52,21 +55,26 @@ static<4> group mult_and_store {
 }
 ```
 The `static<4>` keyword specifies that the group should take 4 cycles to execute.
-However, we cannot just let all the assignments execute in any order, as we could with a dynamic group.
 
-The first three assignments are guarded (using the standard `?` operator) by the *relative timing guard* `%[0:3]`.
-That is, they execute only in the first three cycles of the group's execution.
+The first three assignments are guarded (using the standard `?` separator) by the relative timing guard `%[0:3]`.
+In general, a relative timing guard `%[i:j]` is *true* in the half-open interval from cycle `i` to
+cycle `j` of the group’s execution and *false* otherwise.
+
+In our case, the first three assignments execute only in the first three cycles of the group's execution.
 The guard `%3`, which we see thereafter, is syntactic sugar for `%[3:4]`.
-In general, a guard `%[i:j]` is true in the half-open interval from cycle `i` to
-cycle `j` of the group’s execution.
+We have used it in this case to ensure that the last two assignments execute only in the last cycle of the group's execution.
+
 
 ### Static Control Operators
 
 Calyx provides static variants of each of its control operators.
 While dynamic commands may contain both static and dynamic children, static commands must only have static children.
 
-- `static seq` is a static version of `seq`; its latency is the sum of the latencies of its children.
-- `static par` is a static version of `par`; its latency is the maximum of the latencies of its children.
+- `static seq` is a static version of `seq`.
+A child of `static seq` is guaranteed to begin executing exactly one cycle after the previous child has finished.
+The latency of `static seq` is therefore the sum of the latencies of its children.
+- `static par` is a static version of `par`.
+All of its children begin executing at the same time, and its latency is therefore maximum of the latencies of its children.
 - `static if` is a static version of `if`; its latency is the maximum of the latencies of its children.
 - Calyx's `while` loop is unbouded, so it does not have a static variant.
 - `static repeat` is a static version of `repeat`; its latency is the product of the number of iterations and the latency of its child.
