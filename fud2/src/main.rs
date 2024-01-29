@@ -412,5 +412,6 @@ fn build_driver() -> Driver {
 
 fn main() -> anyhow::Result<()> {
     let driver = build_driver();
+
     cli::cli(&driver)
 }
