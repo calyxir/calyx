@@ -1,4 +1,4 @@
-use fake::{
+use fud::{
     cli,
     run::{EmitResult, Emitter},
     Driver, DriverBuilder,

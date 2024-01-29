@@ -735,21 +735,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fake"
-version = "0.6.1"
-dependencies = [
- "anyhow",
- "argh",
- "camino",
- "cranelift-entity",
- "env_logger",
- "figment",
- "log",
- "pathdiff",
- "serde",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -804,11 +789,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "fud2"
-version = "0.6.1"
+name = "fud"
+version = "0.0.1"
 dependencies = [
  "anyhow",
- "fake",
+ "argh",
+ "camino",
+ "cranelift-entity",
+ "env_logger",
+ "figment",
+ "log",
+ "pathdiff",
+ "serde",
 ]
 
 [[package]]

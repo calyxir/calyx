@@ -1,8 +1,19 @@
 [package]
-name = "fud2"
-version.workspace = true
+name = "fud"
+version = "0.0.1"
 edition.workspace = true
 
 [dependencies]
-fake = { path = "fake" }
+argh.workspace = true
+cranelift-entity = "0.103.0"
+serde.workspace = true
+figment = { version = "0.10.12", features = ["toml"] }
+pathdiff = { version = "0.2.1", features = ["camino"] }
+camino = "1.1.6"
 anyhow.workspace = true
+log.workspace = true
+env_logger.workspace = true
+
+[[bin]]
+name = "fud2"
+path = "src/main.rs"
