@@ -450,6 +450,7 @@ impl InferenceAnalysis {
         for stmt in &mut seq.stmts {
             Self::remove_promotable_attribute(stmt);
         }
+        seq.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
     }
 
     /// Removes the @promotable attribute from the control program.
