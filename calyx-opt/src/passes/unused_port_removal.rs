@@ -2,8 +2,8 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use calyx_ir::{
-    Assignment, CellType, Component, Context, Id, LibrarySignatures, Nothing,
-    Port, PortParent, RRC,
+    Assignment, BoolAttr, CellType, Component, Context, Id, LibrarySignatures,
+    Nothing, Port, PortParent, RRC,
 };
 use calyx_utils::CalyxResult;
 
@@ -12,7 +12,6 @@ use std::collections::{HashMap, HashSet};
 // Infers @internal annotations for component ports
 
 pub struct UnusedPortRemoval {
-    unused_ports: HashMap<Id, HashSet<Id>>,
     used_ports: HashMap<Id, HashSet<Id>>,
 }
 
@@ -34,14 +33,13 @@ impl ConstructVisitor for UnusedPortRemoval {
         // create and return an instance of an
         // UnusedPortRemoval pass over a single component (?)
         let u_p_r = UnusedPortRemoval {
-            unused_ports: HashMap::new(),
             used_ports: HashMap::new(),
         };
 
         Ok(u_p_r)
     }
 
-    // what is this for?
+    // what is this for? clear data after visiting every component?
     fn clear_data(&mut self) {}
 }
 
@@ -58,37 +56,12 @@ impl Visitor for UnusedPortRemoval {
         _sigs: &LibrarySignatures,
         _comps: &[Component],
     ) -> VisResult {
-        // by the time we get to analyze the current component, all the ports of this
+        // By the time we get to analyze the current component, all the ports of this
         // component that have been used are the only ones that are ever going to be used,
         // so we can compare against the complete set of ports defined in the component
         // signature to figure out which ones are not used by any external component <-- verify claim
-        // for sig_port in comp.signature.borrow().ports().iter() {
-        //     match self.used_ports.get(&comp.name) {
-        //         // if the component name has no bindings, then it's a primitive; disregard
-        //         None => (),
 
-        //         // if the component name is bound to a hashset, then determine whether
-        //         // the port from the signature is inside the hashset or not
-        //         Some(set) => {
-        //             match set.get(&sig_port.borrow().name) {
-        //                 // if the signature port is not in the hashset, then it is unused
-        //                 None => {
-        //                     self.unused_ports
-        //                         .entry(comp.name)
-        //                         .or_default()
-        //                         .insert(sig_port.borrow().name);
-
-        //                     // how do you get a mutable reference to the port from
-        //                     // the signature so we can add an attribute to it?
-        //                 }
-
-        //                 // if the signature port is in the set, then it is used
-        //                 Some(_) => (),
-        //             }
-        //         }
-        //     }
-        // }
-
+        // get a list of all ports instantiated in the component signature
         let all_ports: HashSet<Id> = comp
             .signature
             .borrow()
@@ -97,18 +70,34 @@ impl Visitor for UnusedPortRemoval {
             .map(|port| port.borrow().name)
             .collect();
 
+        // know these these signature-instantiated ports are a super set of ports
+        // that are instantiated by other components, all of which we have access
+        // to based on our pre-order traversal :)
         let unused_ports: HashSet<Id> = match self.used_ports.get(&comp.name) {
-            None => panic!("bruh"),
+            None => panic!(
+                "Would not get here, since, otherwise, the fact that this 
+            component is not in used_ports ==> no assignments to a port in this 
+            component ever existed in previous component ==> this component 
+            would never even be a part of the pre-order traversal"
+            ),
             Some(used_set) => {
                 all_ports.difference(used_set).map(|item: &Id| *item)
             }
         }
         .collect();
 
-        // remove assignments that assign to dead ports
-        // comp.continuous_assignments
-        //     .retain(|&elt| elt.iter_ports(|port| {}));
+        // if port from signature is an unused port, add an attribute @internal
+        for port in comp.signature.borrow_mut().ports.iter_mut() {
+            match unused_ports.get(&port.borrow().name) {
+                None => (),
+                Some(_) => {
+                    port.borrow_mut().attributes.insert(BoolAttr::Internal, 1);
+                }
+            }
+        }
 
+        // insert a mapping from each of this component's children components to
+        // the ports that each child uses
         comp.iter_assignments(|assign: &Assignment<Nothing>| {
             assign.iter_ports(|port: &RRC<Port>| {
                 match port.borrow().parent {

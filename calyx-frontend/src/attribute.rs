@@ -43,6 +43,9 @@ pub enum BoolAttr {
     #[strum(serialize = "data")]
     /// This is a data path instance
     Data,
+    #[strum(serialize = "internal")]
+    /// This is an internal port instance
+    Internal,
     #[strum(serialize = "control")]
     /// This is a control path instance
     Control,
