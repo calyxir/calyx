@@ -1,0 +1,8 @@
+[package]
+name = "fud2"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+fake = { path = "fake" }
+anyhow.workspace = true

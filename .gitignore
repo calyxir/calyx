@@ -44,5 +44,9 @@ tests/xilinx/cocotb/**/hdl
 sim_build/
 results.xml
 
+# Ignore .fud2 cache
+.fud2/
+
 
 !cider-dap/calyxDebug/package.json
+!cider-dap/calyxDebug/tsconfig.json
