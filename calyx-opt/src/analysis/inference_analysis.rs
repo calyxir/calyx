@@ -107,9 +107,8 @@ impl From<&ir::Cell> for GoDone {
     }
 }
 
-#[derive(Debug)]
-/// Default implemnetation is not provided, since it is almost certainly more helpful
-/// to use `from_ctx` instead.
+/// Default implemnetation is almost certainly not helpful.
+/// You should probably use `from_ctx` instead.
 pub struct InferenceAnalysis {
     /// component name -> vec<(go signal, done signal, latency)>
     pub latency_data: HashMap<ir::Id, GoDone>,
@@ -447,6 +446,13 @@ impl InferenceAnalysis {
         }
     }
 
+    pub fn remove_promotable_from_seq(seq: &mut ir::Seq) {
+        for stmt in &mut seq.stmts {
+            Self::remove_promotable_attribute(stmt);
+        }
+        seq.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
+    }
+
     /// Removes the @promotable attribute from the control program.
     /// Recursively visits the children of the control.
     pub fn remove_promotable_attribute(c: &mut ir::Control) {
@@ -473,6 +479,10 @@ impl InferenceAnalysis {
                 }
             }
         }
+    }
+
+    pub fn fixup_seq(&self, seq: &mut ir::Seq) {
+        seq.update_static(&self.static_component_latencies);
     }
 
     /// "Fixes Up" the component. In particular:

@@ -1,4 +1,4 @@
-use crate::analysis::InferenceAnalysis;
+use crate::analysis::{InferenceAnalysis, PromotionAnalysis};
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
@@ -7,7 +7,6 @@ use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use ir::GetAttributes;
 use itertools::Itertools;
-use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::rc::Rc;
 
@@ -31,8 +30,9 @@ pub struct StaticPromotion {
     /// An InferenceAnalysis object so that we can re-infer the latencies of
     /// certain components.
     inference_analysis: InferenceAnalysis,
-    /// dynamic group Id -> promoted static group Id
-    static_group_name: HashMap<ir::Id, ir::Id>,
+    /// PromotionAnalysis object so that we can easily infer control, and keep
+    /// track of which groups were promoted.
+    promotion_analysis: PromotionAnalysis,
     /// Threshold for promotion
     threshold: u64,
     /// Threshold for difference in latency for if statements
@@ -48,7 +48,7 @@ impl ConstructVisitor for StaticPromotion {
         let opts = Self::get_opts(ctx);
         Ok(StaticPromotion {
             inference_analysis: InferenceAnalysis::from_ctx(ctx),
-            static_group_name: HashMap::new(),
+            promotion_analysis: PromotionAnalysis::default(),
             threshold: opts["threshold"].pos_num().unwrap(),
             if_diff_limit: opts["if-diff-limit"].pos_num(),
             cycle_limit: opts["cycle-limit"].pos_num(),
@@ -57,7 +57,7 @@ impl ConstructVisitor for StaticPromotion {
 
     // This pass shared information between components
     fn clear_data(&mut self) {
-        self.static_group_name = HashMap::new();
+        self.promotion_analysis = PromotionAnalysis::default();
     }
 }
 
@@ -95,30 +95,6 @@ impl Named for StaticPromotion {
 }
 
 impl StaticPromotion {
-    /// Gets the inferred latency, which should either be from being a static
-    /// control operator or the promote_static attribute.
-    /// Will raise an error if neither of these is true.
-    fn get_inferred_latency(c: &ir::Control) -> u64 {
-        let ir::Control::Static(sc) = c else {
-            let Some(latency) = c.get_attribute(ir::NumAttr::PromoteStatic)
-            else {
-                unreachable!("Called get_latency on control that is neither static nor promotable")
-            };
-            return latency;
-        };
-        sc.get_latency()
-    }
-
-    fn check_latencies_match(actual: u64, inferred: u64) {
-        assert_eq!(actual, inferred, "Inferred and Annotated Latencies do not match. Latency: {}. Inferred: {}", actual, inferred);
-    }
-
-    /// Returns true if a control statement is already static, or has the static
-    /// attributes
-    fn can_be_promoted(c: &ir::Control) -> bool {
-        c.is_static() || c.has_attribute(ir::NumAttr::PromoteStatic)
-    }
-
     fn within_cycle_limit(&self, latency: u64) -> bool {
         if self.cycle_limit.is_none() {
             return true;
@@ -133,216 +109,31 @@ impl StaticPromotion {
         diff <= self.if_diff_limit.unwrap()
     }
 
-    /// If we've already constructed the static group then use the already existing
-    /// group. Otherwise construct `static group` and then return that.
-    fn construct_static_group(
-        &mut self,
-        builder: &mut ir::Builder,
-        group: ir::RRC<ir::Group>,
-        latency: u64,
-    ) -> ir::RRC<ir::StaticGroup> {
-        if let Some(s_name) = self.static_group_name.get(&group.borrow().name())
-        {
-            builder.component.find_static_group(*s_name).unwrap()
-        } else {
-            let sg = builder.add_static_group(group.borrow().name(), latency);
-            self.static_group_name
-                .insert(group.borrow().name(), sg.borrow().name());
-            for assignment in group.borrow().assignments.iter() {
-                // Don't need to include assignment to done hole.
-                if !(assignment.dst.borrow().is_hole()
-                    && assignment.dst.borrow().name == "done")
-                {
-                    sg.borrow_mut()
-                        .assignments
-                        .push(ir::Assignment::from(assignment.clone()));
-                }
-            }
-            Rc::clone(&sg)
+    fn approx_size_static(sc: &ir::StaticControl, promoted: bool) -> u64 {
+        if !(sc.get_attributes().has(ir::BoolAttr::Promoted) || promoted) {
+            return APPROX_ENABLE_SIZE;
         }
-    }
-
-    // Converts dynamic enable to static
-    fn convert_enable_to_static(
-        &mut self,
-        s: &mut ir::Enable,
-        builder: &mut ir::Builder,
-    ) -> ir::StaticControl {
-        s.attributes.remove(ir::NumAttr::PromoteStatic);
-        ir::StaticControl::Enable(ir::StaticEnable {
-            // upgrading group to static group
-            group: self.construct_static_group(
-                builder,
-                Rc::clone(&s.group),
-                s.group
-                    .borrow()
-                    .get_attributes()
-                    .unwrap()
-                    .get(ir::NumAttr::PromoteStatic)
-                    .unwrap(),
-            ),
-            attributes: std::mem::take(&mut s.attributes),
-        })
-    }
-
-    // Converts dynamic invoke to static
-    fn convert_invoke_to_static(
-        &mut self,
-        s: &mut ir::Invoke,
-    ) -> ir::StaticControl {
-        assert!(
-            s.comb_group.is_none(),
-            "Shouldn't Promote to Static if there is a Comb Group",
-        );
-        s.attributes.remove(ir::NumAttr::PromoteStatic);
-        let latency = *self.inference_analysis.static_component_latencies.get(
-            &s.comp.borrow().type_name().unwrap_or_else(|| {
-                unreachable!(
-                    "Already checked that comp is component"
-                )
-            }),
-        ).unwrap_or_else(|| unreachable!("Called convert_to_static for static invoke that does not have a static component"));
-        let s_inv = ir::StaticInvoke {
-            comp: Rc::clone(&s.comp),
-            inputs: std::mem::take(&mut s.inputs),
-            outputs: std::mem::take(&mut s.outputs),
-            latency,
-            attributes: std::mem::take(&mut s.attributes),
-            ref_cells: std::mem::take(&mut s.ref_cells),
-            comb_group: std::mem::take(&mut s.comb_group),
-        };
-        ir::StaticControl::Invoke(s_inv)
-    }
-
-    /// Converts control to static control.
-    /// Control must already be static or have the `promote_static` attribute.
-    fn convert_to_static(
-        &mut self,
-        c: &mut ir::Control,
-        builder: &mut ir::Builder,
-    ) -> ir::StaticControl {
-        assert!(
-            c.has_attribute(ir::NumAttr::PromoteStatic) || c.is_static(),
-            "Called convert_to_static control that is neither static nor promotable"
-        );
-        // Need to get bound_attribute here, because we cannot borrow `c` within the
-        // pattern match.
-        let bound_attribute = c.get_attribute(ir::NumAttr::Bound);
-        // Inferred latency of entire control block. Used to double check our
-        // function is correct.
-        let inferred_latency = Self::get_inferred_latency(c);
-        match c {
-            ir::Control::Empty(_) => ir::StaticControl::empty(),
-            ir::Control::Enable(s) => self.convert_enable_to_static(s, builder),
-            ir::Control::Seq(ir::Seq { stmts, attributes }) => {
-                // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
-                // The resulting static seq should be compactable.
-                attributes.insert(ir::NumAttr::Compactable, 1);
-                let static_stmts =
-                    self.convert_vec_to_static(builder, std::mem::take(stmts));
-                let latency =
-                    static_stmts.iter().map(|s| s.get_latency()).sum();
-                Self::check_latencies_match(latency, inferred_latency);
-                ir::StaticControl::Seq(ir::StaticSeq {
-                    stmts: static_stmts,
-                    attributes: std::mem::take(attributes),
-                    latency,
-                })
+        match sc {
+            ir::StaticControl::Empty(_) => 0,
+            ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
+                APPROX_ENABLE_SIZE
             }
-            ir::Control::Par(ir::Par { stmts, attributes }) => {
-                // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
-                // Convert stmts to static
-                let static_stmts =
-                    self.convert_vec_to_static(builder, std::mem::take(stmts));
-                // Calculate latency
-                let latency = static_stmts
-                    .iter()
-                    .map(|s| s.get_latency())
-                    .max()
-                    .unwrap_or_else(|| unreachable!("Empty Par Block"));
-                Self::check_latencies_match(latency, inferred_latency);
-                ir::StaticControl::Par(ir::StaticPar {
-                    stmts: static_stmts,
-                    attributes: ir::Attributes::default(),
-                    latency,
-                })
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                Self::approx_size_static(body, true) + APPROX_WHILE_REPEAT_SIZE
             }
-            ir::Control::Repeat(ir::Repeat {
-                body,
-                num_repeats,
-                attributes,
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch, fbranch, ..
             }) => {
-                // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
-                let sc = self.convert_to_static(body, builder);
-                let latency = (*num_repeats) * sc.get_latency();
-                Self::check_latencies_match(latency, inferred_latency);
-                ir::StaticControl::Repeat(ir::StaticRepeat {
-                    attributes: std::mem::take(attributes),
-                    body: Box::new(sc),
-                    num_repeats: *num_repeats,
-                    latency,
-                })
+                Self::approx_size_static(tbranch, true)
+                    + Self::approx_size_static(fbranch, true)
+                    + APPROX_IF_SIZE
             }
-            ir::Control::While(ir::While {
-                body, attributes, ..
-            }) => {
-                // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
-                // Removing the `bound` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::Bound);
-                let sc = self.convert_to_static(body, builder);
-                let num_repeats = bound_attribute.unwrap_or_else(|| unreachable!("Called convert_to_static on a while loop without a bound"));
-                let latency = num_repeats * sc.get_latency();
-                Self::check_latencies_match(latency, inferred_latency);
-                ir::StaticControl::Repeat(ir::StaticRepeat {
-                    attributes: std::mem::take(attributes),
-                    body: Box::new(sc),
-                    num_repeats,
-                    latency,
-                })
-            }
-            ir::Control::If(ir::If {
-                port,
-                tbranch,
-                fbranch,
-                attributes,
-                ..
-            }) => {
-                // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
-                let static_tbranch = self.convert_to_static(tbranch, builder);
-                let static_fbranch = self.convert_to_static(fbranch, builder);
-                let latency = std::cmp::max(
-                    static_tbranch.get_latency(),
-                    static_fbranch.get_latency(),
-                );
-                Self::check_latencies_match(latency, inferred_latency);
-                ir::StaticControl::static_if(
-                    Rc::clone(port),
-                    Box::new(static_tbranch),
-                    Box::new(static_fbranch),
-                    latency,
-                )
-            }
-            ir::Control::Static(_) => c.take_static_control(),
-            ir::Control::Invoke(s) => self.convert_invoke_to_static(s),
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. })
+            | ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
+                .iter()
+                .map(|stmt| Self::approx_size_static(stmt, true))
+                .sum(),
         }
-    }
-
-    /// Converts vec of control to vec of static control.
-    /// All control statements in the vec must be promotable or already static.
-    fn convert_vec_to_static(
-        &mut self,
-        builder: &mut ir::Builder,
-        control_vec: Vec<ir::Control>,
-    ) -> Vec<ir::StaticControl> {
-        control_vec
-            .into_iter()
-            .map(|mut c| self.convert_to_static(&mut c, builder))
-            .collect()
     }
 
     /// Calculates the approximate "size" of the control statements.
@@ -350,7 +141,9 @@ impl StaticPromotion {
     fn approx_size(c: &ir::Control) -> u64 {
         match c {
             ir::Control::Empty(_) => 0,
-            ir::Control::Enable(_) => APPROX_ENABLE_SIZE,
+            ir::Control::Enable(_) | ir::Control::Invoke(_) => {
+                APPROX_ENABLE_SIZE
+            }
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 stmts.iter().map(Self::approx_size).sum()
@@ -366,12 +159,7 @@ impl StaticPromotion {
                     + Self::approx_size(fbranch)
                     + APPROX_IF_SIZE
             }
-            ir::Control::Static(_) => {
-                // static control appears as one big group to the dynamic FSM
-                1
-            }
-            // Invokes are same size as enables.
-            ir::Control::Invoke(_) => APPROX_ENABLE_SIZE,
+            ir::Control::Static(sc) => Self::approx_size_static(sc, false),
         }
     }
 
@@ -397,7 +185,10 @@ impl StaticPromotion {
             // Too small to be promoted, return as is
             return control_vec;
         } else if !self.within_cycle_limit(
-            control_vec.iter().map(Self::get_inferred_latency).sum(),
+            control_vec
+                .iter()
+                .map(PromotionAnalysis::get_inferred_latency)
+                .sum(),
         ) {
             // Too large, try to break up
             let right = control_vec.split_off(control_vec.len() / 2);
@@ -410,12 +201,14 @@ impl StaticPromotion {
             return left_res;
         }
         // Correct size, convert the entire vec
-        let s_seq_stmts = self.convert_vec_to_static(builder, control_vec);
+        let s_seq_stmts = self
+            .promotion_analysis
+            .convert_vec_to_static(builder, control_vec);
         let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
-        let mut sseq =
+        let sseq =
             ir::Control::Static(ir::StaticControl::seq(s_seq_stmts, latency));
-        sseq.get_mut_attributes()
-            .insert(ir::NumAttr::Compactable, 1);
+        // sseq.get_mut_attributes()
+        //     .insert(ir::NumAttr::Compactable, 1);
         vec![sseq]
     }
 
@@ -441,7 +234,7 @@ impl StaticPromotion {
         } else if !self.within_cycle_limit(
             control_vec
                 .iter()
-                .map(Self::get_inferred_latency)
+                .map(PromotionAnalysis::get_inferred_latency)
                 .max()
                 .unwrap_or_else(|| unreachable!("Empty Par Block")),
         ) {
@@ -459,7 +252,9 @@ impl StaticPromotion {
             return left;
         }
         // Convert vec to static par
-        let s_par_stmts = self.convert_vec_to_static(builder, control_vec);
+        let s_par_stmts = self
+            .promotion_analysis
+            .convert_vec_to_static(builder, control_vec);
         let latency = s_par_stmts
             .iter()
             .map(|sc| sc.get_latency())
@@ -557,7 +352,8 @@ impl Visitor for StaticPromotion {
                 && (APPROX_ENABLE_SIZE > self.threshold)
             {
                 return Ok(Action::change(ir::Control::Static(
-                    self.convert_enable_to_static(s, &mut builder),
+                    self.promotion_analysis
+                        .convert_enable_to_static(s, &mut builder),
                 )));
             }
         }
@@ -577,7 +373,7 @@ impl Visitor for StaticPromotion {
                 && (APPROX_ENABLE_SIZE > self.threshold)
             {
                 return Ok(Action::change(ir::Control::Static(
-                    self.convert_invoke_to_static(s),
+                    self.promotion_analysis.convert_invoke_to_static(s),
                 )));
             }
         }
@@ -599,15 +395,15 @@ impl Visitor for StaticPromotion {
                 return Ok(Action::Continue);
             } else if self.within_cycle_limit(latency) {
                 // We promote entire seq.
-                let mut sseq = ir::Control::Static(ir::StaticControl::seq(
-                    self.convert_vec_to_static(
+                let sseq = ir::Control::Static(ir::StaticControl::seq(
+                    self.promotion_analysis.convert_vec_to_static(
                         &mut builder,
                         std::mem::take(&mut s.stmts),
                     ),
                     latency,
                 ));
-                sseq.get_mut_attributes()
-                    .insert(ir::NumAttr::Compactable, 1);
+                // sseq.get_mut_attributes()
+                //     .insert(ir::NumAttr::Compactable, 1);
                 return Ok(Action::change(sseq));
             }
         }
@@ -623,7 +419,7 @@ impl Visitor for StaticPromotion {
         let mut new_stmts: Vec<ir::Control> = Vec::new();
         let mut cur_vec: Vec<ir::Control> = Vec::new();
         for stmt in old_stmts {
-            if Self::can_be_promoted(&stmt) {
+            if PromotionAnalysis::can_be_promoted(&stmt) {
                 cur_vec.push(stmt);
             } else {
                 // Use heuristics to decide how to promote this cur_vec of promotable stmts.
@@ -661,7 +457,7 @@ impl Visitor for StaticPromotion {
             } else if self.within_cycle_limit(latency) {
                 // Promote entire par
                 let spar = ir::Control::Static(ir::StaticControl::par(
-                    self.convert_vec_to_static(
+                    self.promotion_analysis.convert_vec_to_static(
                         &mut builder,
                         std::mem::take(&mut s.stmts),
                     ),
@@ -680,8 +476,10 @@ impl Visitor for StaticPromotion {
         // This temporarily messes up  its parents' `@promotable`
         // attribute, but this is fine since we know its parent will never try
         // to promote it.
-        let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) =
-            s.stmts.drain(..).partition(Self::can_be_promoted);
+        let (s_stmts, d_stmts): (Vec<ir::Control>, Vec<ir::Control>) = s
+            .stmts
+            .drain(..)
+            .partition(PromotionAnalysis::can_be_promoted);
         new_stmts.extend(self.promote_vec_par_heuristic(&mut builder, s_stmts));
         new_stmts.extend(d_stmts);
         let new_par = ir::Control::Par(ir::Par {
@@ -703,17 +501,21 @@ impl Visitor for StaticPromotion {
             let approx_size_if = Self::approx_size(&s.tbranch)
                 + Self::approx_size(&s.fbranch)
                 + APPROX_IF_SIZE;
-            let branch_diff = Self::get_inferred_latency(&s.tbranch)
-                .abs_diff(Self::get_inferred_latency(&s.fbranch));
+            let branch_diff = PromotionAnalysis::get_inferred_latency(
+                &s.tbranch,
+            )
+            .abs_diff(PromotionAnalysis::get_inferred_latency(&s.fbranch));
             if approx_size_if > self.threshold
                 && self.within_cycle_limit(latency)
                 && self.within_if_diff_limit(branch_diff)
             {
                 // Meets size threshold so promote to static
-                let static_tbranch =
-                    self.convert_to_static(&mut s.tbranch, &mut builder);
-                let static_fbranch =
-                    self.convert_to_static(&mut s.fbranch, &mut builder);
+                let static_tbranch = self
+                    .promotion_analysis
+                    .convert_to_static(&mut s.tbranch, &mut builder);
+                let static_fbranch = self
+                    .promotion_analysis
+                    .convert_to_static(&mut s.fbranch, &mut builder);
                 return Ok(Action::change(ir::Control::Static(
                     ir::StaticControl::static_if(
                         Rc::clone(&s.port),
@@ -752,7 +554,9 @@ impl Visitor for StaticPromotion {
             if approx_size > self.threshold && self.within_cycle_limit(latency)
             {
                 // Turn repeat into static repeat
-                let sc = self.convert_to_static(&mut s.body, &mut builder);
+                let sc = self
+                    .promotion_analysis
+                    .convert_to_static(&mut s.body, &mut builder);
                 let static_repeat = ir::StaticControl::repeat(
                     s.attributes.get(ir::NumAttr::Bound).unwrap_or_else(|| {
                         unreachable!(
@@ -793,7 +597,9 @@ impl Visitor for StaticPromotion {
             if approx_size > self.threshold && self.within_cycle_limit(latency)
             {
                 // Meets size threshold, so turn repeat into static repeat
-                let sc = self.convert_to_static(&mut s.body, &mut builder);
+                let sc = self
+                    .promotion_analysis
+                    .convert_to_static(&mut s.body, &mut builder);
                 let static_repeat = ir::StaticControl::repeat(
                     s.num_repeats,
                     latency,
