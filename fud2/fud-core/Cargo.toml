@@ -3,6 +3,11 @@ name = "fud-core"
 version = "0.0.2"
 edition.workspace = true
 
+keywords = ["build-tool"]
+readme = "../README.md"
+categories = ["build-tool"]
+description = "Library for building declarative build tools"
+
 [dependencies]
 argh.workspace = true
 cranelift-entity = "0.103.0"
