@@ -20,7 +20,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
   control {
-    @compactable static<3> seq  {
+    static<3> seq  {
       A0;
       B0;
       C0;

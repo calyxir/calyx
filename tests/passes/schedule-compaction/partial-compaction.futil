@@ -24,6 +24,8 @@ component main () -> () {
     b_reg = std_reg(32);
     c_reg = std_reg(32);
     d_reg = std_reg(32);
+    e_reg = std_reg(32);
+    f_reg = std_reg(32);
     a = std_add(32);
     ud = undef(1);
   }
@@ -35,7 +37,7 @@ component main () -> () {
       A[done] = a_reg.done;
     }
 
-    group C<"promote_static"=10> {
+    group C {
       c_reg.in = 32'd10;
       c_reg.write_en = 1'd1;
       C[done] = ud.out;
@@ -49,19 +51,33 @@ component main () -> () {
       B[done] = b_reg.done;
     }
 
-    group D<"promote_static"=10> {
+    group D<"promote_static"=1> {
       d_reg.in = a_reg.out;
       d_reg.write_en = 1'd1;
       D[done] = ud.out;
     }
+
+    group E<"promote_static"=1> {
+      e_reg.in = 32'd4;
+      e_reg.write_en = 1'd1;
+      E[done] = e_reg.done;
+    }
+
+    group F<"promote_static"=1> {
+      f_reg.in = 32'd4;
+      f_reg.write_en = 1'd1;
+      F[done] = f_reg.done;
+    }
   }
 
   control {
-    @promote_static(22) seq {
+    seq {
       @promote_static A;
-      @promote_static(10) C;
       @promote_static B;
-      @promote_static(10) D;
+      C;
+      @promote_static D;
+      @promote_static E;
+      @promote_static F;
     }
   }
 }

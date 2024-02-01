@@ -1,4 +1,4 @@
-// -p validate -p schedule-compaction
+// -p validate -p schedule-compaction -p dead-group-removal
 
 import "primitives/core.futil";
 
@@ -11,35 +11,37 @@ component main() -> (out: 8) {
     add = std_add(8);
   }
   wires {
-    static<1> group write_r0 {
+    group write_r0<"promote_static"=1> {
       r0.write_en = 1'd1;
       r0.in = 8'd1;
+      write_r0[done] = r0.done;
     }
-    static<1> group write_r1 {
+    group write_r1<"promote_static"=1> {
       r1.write_en = 1'd1;
       r1.in = add.out;
+      write_r1[done] = r1.done;
     }
-    static<1> group write_r2 {
+    group write_r2<"promote_static"=1> {
       r2.write_en = 1'd1;
       r2.in = 8'd3;
+      write_r2[done] = r2.done;
     }
-    static<1> group write_r3 {
+    group write_r3<"promote_static"=1> {
       r3.write_en = 1'd1;
       r3.in = 8'd3;
+      write_r3[done] = r3.done;
     }
     add.left = r0.out;
     add.right = 8'd1;
     out = r1.out;
   }
   control {
-    seq {
-      @compactable static seq {
-        write_r0;
-        // Continuous assignments to add.left and add.right prevent compation.
-        write_r1;
-        write_r2;
-        write_r3;
-      }
+    @promote_static(4) seq {
+      @promote_static write_r0;
+      // Continuous assignments to add.left and add.right prevent compation.
+      @promote_static write_r1;
+      @promote_static write_r2;
+      @promote_static write_r3;
     }
   }
 }
