@@ -94,19 +94,8 @@ impl ConstructVisitor for WellFormed {
         let reserved_names =
             RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
-        for prim in ctx.lib.signatures() {
-            if prim.attributes.has(ir::NumAttr::Static) {
-                return Err(Error::malformed_structure(format!("Primitive `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", prim.name)));
-            }
-        }
-
         let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
-            // Defining @static on the component is meaningless
-            if comp.attributes.has(ir::NumAttr::Static) {
-                return Err(Error::malformed_structure(format!("Component `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", comp.name)));
-            }
-
             // Main component cannot use `ref` cells
             if comp.name == ctx.entrypoint {
                 for cell in comp.cells.iter() {
@@ -467,11 +456,11 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get(ir::NumAttr::Static)
+            .get(ir::NumAttr::Promotable)
             .map(|v| v == 0)
             .unwrap_or(false)
         {
-            return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
+            return Err(Error::malformed_structure("Group with annotation \"promotable\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
         }
 
         // Check if the group has obviously conflicting assignments with the continuous assignments and the active combinational groups

@@ -1,16 +1,16 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    AddGuard, AttributePromotion, Canonicalize, CellShare, ClkInsertion,
-    CollapseControl, CombProp, CompileEmpty, CompileInvoke, CompileRepeat,
-    CompileStatic, CompileStaticInterface, CompileSync,
-    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
-    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
-    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
-    InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
-    RegisterUnsharing, RemoveIds, ResetInsertion, ScheduleCompaction,
-    SimplifyStaticGuards, SimplifyWithControl, StaticInference, StaticInliner,
-    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
-    WellFormed, WireInliner, WrapMain,
+    AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
+    CompileEmpty, CompileInvoke, CompileRepeat, CompileStatic,
+    CompileStaticInterface, CompileSync, CompileSyncWithoutSyncReg,
+    ComponentInliner, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
+    DeadGroupRemoval, DiscoverExternal, Externalize, GoInsertion,
+    GroupToInvoke, GroupToSeq, HoleInliner, InferShare, LowerGuards,
+    MergeAssign, Papercut, ParToSeq, RegisterUnsharing, RemoveIds,
+    ResetInsertion, ScheduleCompaction, SimplifyStaticGuards,
+    SimplifyWithControl, StaticInference, StaticInliner, StaticPromotion,
+    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
+    WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -40,7 +40,6 @@ impl PassManager {
         pm.register_pass::<ScheduleCompaction>()?;
         pm.register_pass::<StaticInference>()?;
         pm.register_pass::<StaticPromotion>()?;
-        pm.register_pass::<AttributePromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<DataPathInfer>()?;
 
@@ -96,7 +95,6 @@ impl PassManager {
                 CellShare,       // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
                 CompileInvoke,   // creates dead comb groups
-                AttributePromotion,
                 StaticInference,
                 ScheduleCompaction,
                 StaticPromotion,

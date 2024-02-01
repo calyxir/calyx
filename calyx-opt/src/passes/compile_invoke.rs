@@ -332,19 +332,19 @@ impl Visitor for CompileInvoke {
         }
 
         // Copy "static" annotation from the `invoke` statement if present
-        if let Some(time) = s.attributes.get(ir::NumAttr::Static) {
+        if let Some(time) = s.attributes.get(ir::NumAttr::Promotable) {
             invoke_group
                 .borrow_mut()
                 .attributes
-                .insert(ir::NumAttr::Static, time);
+                .insert(ir::NumAttr::Promotable, time);
         }
 
         let mut en = ir::Enable {
             group: invoke_group,
             attributes: Attributes::default(),
         };
-        if let Some(time) = s.attributes.get(ir::NumAttr::Static) {
-            en.attributes.insert(ir::NumAttr::Static, time);
+        if let Some(time) = s.attributes.get(ir::NumAttr::Promotable) {
+            en.attributes.insert(ir::NumAttr::Promotable, time);
         }
 
         Ok(Action::change(ir::Control::Enable(en)))

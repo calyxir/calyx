@@ -4,7 +4,7 @@ use strum::EnumCount;
 use strum_macros::{AsRefStr, EnumCount, EnumString, FromRepr};
 
 /// Attributes that have been deprecated.
-pub const DEPRECATED_ATTRIBUTES: &[&str] = &[];
+pub const DEPRECATED_ATTRIBUTES: &[&str] = &["static"];
 
 #[derive(
     EnumCount,
@@ -97,9 +97,6 @@ pub enum NumAttr {
     #[strum(serialize = "bound")]
     /// The bound of a while loop
     Bound,
-    #[strum(serialize = "static")]
-    /// Latency information
-    Static,
     #[strum(serialize = "pos")]
     /// Source location position for this node
     Pos,
@@ -178,6 +175,9 @@ impl FromStr for Attribute {
         } else if let Ok(n) = NumAttr::from_str(s) {
             Ok(Attribute::Num(n))
         } else {
+            if DEPRECATED_ATTRIBUTES.contains(&s) {
+                log::warn!("The attribute @{s} is deprecated and will be ignored by the compiler.");
+            }
             // Reject attributes that all caps since those are reserved for internal attributes
             if s.to_uppercase() == s {
                 return Err(Error::misc(format!("Invalid attribute: {}. All caps attributes are reserved for internal use.", s)));
