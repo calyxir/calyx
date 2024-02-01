@@ -793,6 +793,14 @@ name = "fud"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "fud-core",
+]
+
+[[package]]
+name = "fud-core"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
  "argh",
  "camino",
  "cranelift-entity",

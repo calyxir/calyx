@@ -1,4 +1,4 @@
-use fud::{
+use fud_core::{
     cli,
     exec::{SetupRef, StateRef},
     run::{EmitResult, Emitter},
