@@ -23,7 +23,7 @@ component exp(x: 32) -> (out: 32) {
     pow2 = fp_pow();
   }
   wires {
-    group init<"static"=1> {
+    group init<"promotable"=1> {
       exponent_value.write_en = 1'd1;
       exponent_value.in = x;
       init[done] = exponent_value.done;
@@ -41,7 +41,7 @@ component exp(x: 32) -> (out: 32) {
       frac_x.in = and1.out;
       split_bits[done] = (int_x.done & frac_x.done) ? 1'd1;
     }
-    group consume_pow2<"static"=1> {
+    group consume_pow2<"promotable"=1> {
       p2.write_en = 1'd1;
       p2.in = pow2.out;
       consume_pow2[done] = p2.done ? 1'd1;
@@ -54,14 +54,14 @@ component exp(x: 32) -> (out: 32) {
       product2.in = mult_pipe2.out;
       mult_by_reciprocal_factorial2[done] = product2.done;
     }
-    group sum_round1_1<"static"=1> {
+    group sum_round1_1<"promotable"=1> {
       add1.left = frac_x.out;
       add1.right = product2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round1_1[done] = sum1.done;
     }
-    group add_degree_zero<"static"=1> {
+    group add_degree_zero<"promotable"=1> {
       add1.left = sum1.out;
       add1.right = one.out;
       sum1.write_en = 1'd1;
