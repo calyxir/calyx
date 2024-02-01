@@ -6,6 +6,7 @@ use crate::{
 };
 use calyx_ir as ir;
 use calyx_utils::CalyxResult;
+use ir::GetAttributes;
 use itertools::Itertools;
 use petgraph::{algo, graph::NodeIndex};
 use std::collections::HashMap;
@@ -230,17 +231,13 @@ impl ScheduleCompaction {
                 par_control_threads.iter().map(|c| c.get_latency()).max();
             assert!(max.unwrap() == total_time, "The schedule expects latency {}. The static par that was built has latency {}", total_time, max.unwrap());
 
-            if par_control_threads.len() == 1 {
-                let c = Vec::pop(&mut par_control_threads).unwrap();
-                ir::Control::Static(c)
-            } else {
-                let s_par = ir::StaticControl::Par(ir::StaticPar {
-                    stmts: par_control_threads,
-                    attributes: ir::Attributes::default(),
-                    latency: total_time,
-                });
-                ir::Control::Static(s_par)
-            }
+            let mut s_par = ir::StaticControl::Par(ir::StaticPar {
+                stmts: par_control_threads,
+                attributes: ir::Attributes::default(),
+                latency: total_time,
+            });
+            s_par.get_mut_attributes().insert(ir::BoolAttr::Promoted, 1);
+            ir::Control::Static(s_par)
         } else {
             panic!(
                 "Error when producing topo sort. Dependency graph has a cycle."

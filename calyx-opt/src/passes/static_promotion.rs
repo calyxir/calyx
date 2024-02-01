@@ -5,6 +5,7 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
+use ir::GetAttributes;
 use itertools::Itertools;
 use std::num::NonZeroU64;
 use std::rc::Rc;
@@ -108,12 +109,41 @@ impl StaticPromotion {
         diff <= self.if_diff_limit.unwrap()
     }
 
+    fn approx_size_static(sc: &ir::StaticControl, promoted: bool) -> u64 {
+        if !(sc.get_attributes().has(ir::BoolAttr::Promoted) || promoted) {
+            return APPROX_ENABLE_SIZE;
+        }
+        match sc {
+            ir::StaticControl::Empty(_) => 0,
+            ir::StaticControl::Enable(_) | ir::StaticControl::Invoke(_) => {
+                APPROX_ENABLE_SIZE
+            }
+            ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
+                Self::approx_size_static(body, true) + APPROX_WHILE_REPEAT_SIZE
+            }
+            ir::StaticControl::If(ir::StaticIf {
+                tbranch, fbranch, ..
+            }) => {
+                Self::approx_size_static(tbranch, true)
+                    + Self::approx_size_static(fbranch, true)
+                    + APPROX_IF_SIZE
+            }
+            ir::StaticControl::Par(ir::StaticPar { stmts, .. })
+            | ir::StaticControl::Seq(ir::StaticSeq { stmts, .. }) => stmts
+                .iter()
+                .map(|stmt| Self::approx_size_static(stmt, true))
+                .sum(),
+        }
+    }
+
     /// Calculates the approximate "size" of the control statements.
     /// Tries to approximate the number of dynamic FSM transitions that will occur
     fn approx_size(c: &ir::Control) -> u64 {
         match c {
             ir::Control::Empty(_) => 0,
-            ir::Control::Enable(_) => APPROX_ENABLE_SIZE,
+            ir::Control::Enable(_) | ir::Control::Invoke(_) => {
+                APPROX_ENABLE_SIZE
+            }
             ir::Control::Seq(ir::Seq { stmts, .. })
             | ir::Control::Par(ir::Par { stmts, .. }) => {
                 stmts.iter().map(Self::approx_size).sum()
@@ -129,12 +159,7 @@ impl StaticPromotion {
                     + Self::approx_size(fbranch)
                     + APPROX_IF_SIZE
             }
-            ir::Control::Static(_) => {
-                // static control appears as one big group to the dynamic FSM
-                1
-            }
-            // Invokes are same size as enables.
-            ir::Control::Invoke(_) => APPROX_ENABLE_SIZE,
+            ir::Control::Static(sc) => Self::approx_size_static(sc, false),
         }
     }
 
