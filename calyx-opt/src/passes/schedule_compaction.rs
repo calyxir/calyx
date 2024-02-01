@@ -267,7 +267,7 @@ impl Visitor for ScheduleCompaction {
 
         let mut builder = ir::Builder::new(comp, sigs);
 
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             // If entire seq is promotable, then we can compact entire thing
             // and replace it with a static<n> construct.
             return Ok(Action::Change(Box::new(self.compact_control_vec(

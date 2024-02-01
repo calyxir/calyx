@@ -19,14 +19,14 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       r2.write_en = 1'd1;
       write_r2[done] = r2.done;
     }
-    group init_repeat<"promote_static"=1> {
+    group init_repeat<"promotable"=1> {
       idx.write_en = 1'd1;
       idx.in = 3'd0;
       cond_reg.write_en = 1'd1;
       cond_reg.in = 1'd1;
       init_repeat[done] = cond_reg.done & idx.done ? 1'd1;
     }
-    group incr_repeat<"promote_static"=1> {
+    group incr_repeat<"promotable"=1> {
       adder.left = idx.out;
       adder.right = 3'd1;
       lt.left = adder.out;

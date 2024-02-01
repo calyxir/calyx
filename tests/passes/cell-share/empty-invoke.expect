@@ -4,7 +4,7 @@ component write_one<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) ->
     @data x = std_reg(32);
   }
   wires {
-    group invoke0<"promote_static"=1> {
+    group invoke0<"promotable"=1> {
       x.write_en = 1'd1;
       invoke0[done] = x.done;
       x.in = 32'd1;
@@ -29,7 +29,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       x.go = 1'd1;
       invoke1[done] = x.done;
     }
-    group invoke2<"promote_static"=1> {
+    group invoke2<"promotable"=1> {
       mem.write_en = 1'd1;
       invoke2[done] = mem.done;
       mem.addr0 = 1'd0;
@@ -39,7 +39,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       x.go = 1'd1;
       invoke3[done] = x.done;
     }
-    group invoke4<"promote_static"=1> {
+    group invoke4<"promotable"=1> {
       mem.write_en = 1'd1;
       invoke4[done] = mem.done;
       mem.addr0 = 1'd1;

@@ -11,22 +11,22 @@ component main() -> (out: 8) {
     add = std_add(8);
   }
   wires {
-    group write_r0<"promote_static"=1> {
+    group write_r0<"promotable"=1> {
       r0.write_en = 1'd1;
       r0.in = 8'd1;
       write_r0[done] = r0.done;
     }
-    group write_r1<"promote_static"=1> {
+    group write_r1<"promotable"=1> {
       r1.write_en = 1'd1;
       r1.in = add.out;
       write_r1[done] = r1.done;
     }
-    group write_r2<"promote_static"=1> {
+    group write_r2<"promotable"=1> {
       r2.write_en = 1'd1;
       r2.in = 8'd3;
       write_r2[done] = r2.done;
     }
-    group write_r3<"promote_static"=1> {
+    group write_r3<"promotable"=1> {
       r3.write_en = 1'd1;
       r3.in = 8'd3;
       write_r3[done] = r3.done;
@@ -36,12 +36,12 @@ component main() -> (out: 8) {
     out = r1.out;
   }
   control {
-    @promote_static(4) seq {
-      @promote_static write_r0;
+    @promotable(4) seq {
+      @promotable write_r0;
       // Continuous assignments to add.left and add.right prevent compation.
-      @promote_static write_r1;
-      @promote_static write_r2;
-      @promote_static write_r3;
+      @promotable write_r1;
+      @promotable write_r2;
+      @promotable write_r3;
     }
   }
 }

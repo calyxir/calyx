@@ -347,7 +347,7 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             // Convert to static if enable is
             // within cycle limit and size is above threshold.
             if self.within_cycle_limit(latency)
@@ -369,7 +369,7 @@ impl Visitor for StaticPromotion {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             // Convert to static if within cycle limit and size is above threshold.
             if self.within_cycle_limit(latency)
                 && (APPROX_ENABLE_SIZE > self.threshold)
@@ -391,7 +391,7 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         // Checking if entire seq is promotable
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             // If seq is too small to promote, then continue without doing anything.
             if Self::approx_control_vec_size(&s.stmts) <= self.threshold {
                 return Ok(Action::Continue);
@@ -451,7 +451,7 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         // Check if entire par is promotable
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             let approx_size: u64 = s.stmts.iter().map(Self::approx_size).sum();
             if approx_size <= self.threshold {
                 // Par is too small to promote, continue.
@@ -499,7 +499,7 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             let approx_size_if = Self::approx_size(&s.tbranch)
                 + Self::approx_size(&s.fbranch)
                 + APPROX_IF_SIZE;
@@ -533,7 +533,7 @@ impl Visitor for StaticPromotion {
             // This isn't strictly necessary, but it is helpful for parent control
             // programs applying heuristics.
             if !(self.within_cycle_limit(latency)) {
-                s.attributes.remove(ir::NumAttr::PromoteStatic);
+                s.attributes.remove(ir::NumAttr::Promotable);
             }
         }
         Ok(Action::Continue)
@@ -549,7 +549,7 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
         // First check that while loop is promotable
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             let approx_size =
                 Self::approx_size(&s.body) + APPROX_WHILE_REPEAT_SIZE;
             // Then check that it fits the heuristics
@@ -578,7 +578,7 @@ impl Visitor for StaticPromotion {
             // This isn't strictly necessary, but it is helpful for parent control
             // programs applying heuristics.
             if !(self.within_cycle_limit(latency)) {
-                s.attributes.remove(ir::NumAttr::PromoteStatic);
+                s.attributes.remove(ir::NumAttr::Promotable);
             }
         }
         Ok(Action::Continue)
@@ -593,7 +593,7 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, sigs);
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             let approx_size =
                 Self::approx_size(&s.body) + APPROX_WHILE_REPEAT_SIZE;
             if approx_size > self.threshold && self.within_cycle_limit(latency)
@@ -617,7 +617,7 @@ impl Visitor for StaticPromotion {
             // This isn't strictly necessary, but it is helpful for parent control
             // programs applying heuristics.
             if !(self.within_cycle_limit(latency)) {
-                s.attributes.remove(ir::NumAttr::PromoteStatic);
+                s.attributes.remove(ir::NumAttr::Promotable);
             }
         }
         Ok(Action::Continue)

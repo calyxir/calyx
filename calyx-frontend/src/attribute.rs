@@ -103,9 +103,9 @@ pub enum NumAttr {
     #[strum(serialize = "pos")]
     /// Source location position for this node
     Pos,
-    #[strum(serialize = "promote_static")]
+    #[strum(serialize = "promotable")]
     /// Promote the group or control to static with the annotated latency
-    PromoteStatic,
+    Promotable,
     #[strum(serialize = "compactable")]
     /// suggest that the current static seq block is compactable
     Compactable,

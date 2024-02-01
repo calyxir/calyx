@@ -8,7 +8,7 @@ component example(@go @interval go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8,
     out = r1.out;
   }
   control {
-    @promote_static @promoted static<1> par {
+    @promotable @promoted static<1> par {
       static<1> invoke r0(
         in = 8'd1
       )();
@@ -25,9 +25,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {}
   control {
-    @promote_static(2) seq {
-      @promote_static invoke ex()();
-      @promote_static invoke mem(
+    @promotable(2) seq {
+      @promotable invoke ex()();
+      @promotable invoke mem(
         addr0 = 1'd0,
         write_data = ex.out
       )();

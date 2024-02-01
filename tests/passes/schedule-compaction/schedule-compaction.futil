@@ -29,19 +29,19 @@ component main () -> () {
   }
 
   wires {
-    group A<"promote_static"=1> {
+    group A<"promotable"=1> {
       a_reg.in = 32'd5;
       a_reg.write_en = 1'd1;
       A[done] = a_reg.done;
     }
 
-    group C<"promote_static"=10> {
+    group C<"promotable"=10> {
       c_reg.in = 32'd10;
       c_reg.write_en = 1'd1;
       C[done] = ud.out;
     }
 
-    group B<"promote_static"=1> {
+    group B<"promotable"=1> {
       a.left = a_reg.out;
       a.right = c_reg.out;
       b_reg.in = a.out;
@@ -49,7 +49,7 @@ component main () -> () {
       B[done] = b_reg.done;
     }
 
-    group D<"promote_static"=10> {
+    group D<"promotable"=10> {
       d_reg.in = a_reg.out;
       d_reg.write_en = 1'd1;
       D[done] = ud.out;
@@ -57,11 +57,11 @@ component main () -> () {
   }
 
   control {
-    @promote_static(22) seq {
-      @promote_static A;
-      @promote_static(10) C;
-      @promote_static B;
-      @promote_static(10) D;
+    @promotable(22) seq {
+      @promotable A;
+      @promotable(10) C;
+      @promotable B;
+      @promotable(10) D;
     }
   }
 }
