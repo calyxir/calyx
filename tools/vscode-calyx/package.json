@@ -28,7 +28,19 @@
         "command": "calyx.helloWorld",
         "title": "Hello World"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Calyx",
+      "properties": {
+        "calyx.libraryPaths": {
+          "scope": "resource",
+          "type": "array",
+          "default": ["~/.calyx"],
+          "description": "Specifies the locations that Calyx libraries are installed."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

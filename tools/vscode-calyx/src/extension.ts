@@ -13,7 +13,7 @@ import {
 export function activate(context: vscode.ExtensionContext) {
 
   const serverOptions: ServerOptions = {
-    command: '/Users/sgt/Research/calyx-lsp/target/debug/calyx-lsp',
+    command: 'calyx-lsp',
     args: []
   }
 
@@ -26,6 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
     ],
   };
 
+  // start the language client
   const client = new LanguageClient('calyx-lsp', serverOptions, clientOptions);
   client.start();
 
