@@ -306,15 +306,17 @@ impl Visitor for StaticPromotion {
 
                     // Updating `static_info`.
                     self.inference_analysis.remove_component(comp.name);
-                    // Removing `@static` from the go ports.
-                    for go_port in go_ports {
-                        go_port
-                            .borrow_mut()
-                            .attributes
-                            .remove(ir::NumAttr::Interval);
-                    }
                 }
             };
+            // Either we have upgraded component to static<n> or we have decided
+            // not to promote component at all. Either way, we should remove the
+            // @interval attribute.
+            for go_port in go_ports {
+                go_port
+                    .borrow_mut()
+                    .attributes
+                    .remove(ir::NumAttr::Interval);
+            }
         }
         // Remove @promotable (i.e., @promote_static) attribute from control.
         // Probably not necessary, since we'll ignore it anyways, but makes for
