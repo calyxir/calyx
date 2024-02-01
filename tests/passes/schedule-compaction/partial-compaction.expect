@@ -48,7 +48,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
         @promote_static B;
       }
       C;
-      @promote_static static<1> par {
+      @promote_static @promoted static<1> par {
         D0;
         E0;
         F0;

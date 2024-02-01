@@ -8,7 +8,7 @@ component example(@go @static go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @
     out = r1.out;
   }
   control {
-    @promote_static static<1> par {
+    @promote_static @promoted static<1> par {
       static<1> invoke r0(
         in = 8'd1
       )();

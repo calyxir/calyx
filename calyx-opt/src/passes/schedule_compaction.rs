@@ -63,7 +63,7 @@ impl ScheduleCompaction {
                 .iter()
                 .map(PromotionAnalysis::get_inferred_latency)
                 .sum();
-            // Non promotable statement. Try to compact cur_stmts.
+            // Try to compact cur_stmts.
             let possibly_compacted_stmt = self.compact_control_vec(
                 cur_stmts,
                 (cont_reads, cont_writes),

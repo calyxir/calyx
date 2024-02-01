@@ -1,0 +1,32 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a_reg = std_reg(32);
+    b_reg = std_reg(32);
+    d_reg = std_reg(32);
+  }
+  wires {
+    group A<"promote_static"=1> {
+      a_reg.write_en = 1'd1;
+      a_reg.in = 32'd5;
+      A[done] = a_reg.done;
+    }
+    group B<"promote_static"=1> {
+      b_reg.write_en = 1'd1;
+      b_reg.in = a_reg.out;
+      B[done] = b_reg.done;
+    }
+    group D<"promote_static"=1> {
+      d_reg.write_en = 1'd1;
+      d_reg.in = b_reg.out;
+      D[done] = d_reg.done;
+    }
+  }
+  control {
+    @promote_static(3) seq {
+      @promote_static A;
+      @promote_static B;
+      @promote_static D;
+    }
+  }
+}
