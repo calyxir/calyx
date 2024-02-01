@@ -62,7 +62,7 @@ pub enum BoolAttr {
     /// Inline this subcomponent
     Inline,
     #[strum(serialize = "promoted")]
-    /// denotes a static component promoted from dynamic
+    /// denotes a static component or control promoted from dynamic
     Promoted,
 }
 impl From<BoolAttr> for Attribute {
@@ -109,6 +109,11 @@ pub enum NumAttr {
     #[strum(serialize = "compactable")]
     /// suggest that the current static seq block is compactable
     Compactable,
+    #[strum(serialize = "interval")]
+    /// Placed on @go ports of components to denote the II of a component, which
+    /// is the same as the latency foor non pipelined components.
+    /// Is used on dynamic components that have known latency.
+    Interval,
 }
 impl From<NumAttr> for Attribute {
     fn from(attr: NumAttr) -> Self {

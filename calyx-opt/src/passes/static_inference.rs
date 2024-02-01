@@ -63,7 +63,7 @@ impl Visitor for StaticInference {
                     go_port
                         .borrow_mut()
                         .attributes
-                        .insert(ir::NumAttr::Static, val);
+                        .insert(ir::NumAttr::Interval, val);
                 }
                 let mut done_ports: Vec<_> =
                     comp_sig.find_all_with_attr(ir::NumAttr::Done).collect();

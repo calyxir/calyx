@@ -71,7 +71,7 @@ impl From<&ir::Primitive> for GoDone {
         let go_ports = prim
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
-                pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
+                pd.attributes.get(ir::NumAttr::Interval).and_then(|st| {
                     done_ports
                         .get(&pd.attributes.get(ir::NumAttr::Go))
                         .map(|done_port| (pd.name(), *done_port, st))
@@ -96,7 +96,7 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get(ir::NumAttr::Static).and_then(|st| {
+                port.attributes.get(ir::NumAttr::Interval).and_then(|st| {
                     done_ports
                         .get(&port.attributes.get(ir::NumAttr::Go))
                         .map(|done_port| (port.name, *done_port, st))
@@ -151,11 +151,13 @@ impl InferenceAnalysis {
                 .find_all_with_attr(ir::NumAttr::Go)
                 .filter_map(|pd| {
                     let pd_ref = pd.borrow();
-                    pd_ref.attributes.get(ir::NumAttr::Static).and_then(|st| {
-                        done_ports
-                            .get(&pd_ref.attributes.get(ir::NumAttr::Go))
-                            .map(|done_port| (pd_ref.name, *done_port, st))
-                    })
+                    pd_ref.attributes.get(ir::NumAttr::Interval).and_then(
+                        |st| {
+                            done_ports
+                                .get(&pd_ref.attributes.get(ir::NumAttr::Go))
+                                .map(|done_port| (pd_ref.name, *done_port, st))
+                        },
+                    )
                 })
                 .collect_vec();
 

@@ -326,13 +326,16 @@ impl Visitor for ScheduleCompaction {
             let go_ports: Vec<_> =
                 comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
             if go_ports.iter().any(|go_port| {
-                go_port.borrow_mut().attributes.has(ir::NumAttr::Static)
+                go_port.borrow_mut().attributes.has(ir::NumAttr::Interval)
             }) {
                 // Getting current latency
                 let cur_latency = go_ports
                     .iter()
                     .filter_map(|go_port| {
-                        go_port.borrow_mut().attributes.get(ir::NumAttr::Static)
+                        go_port
+                            .borrow_mut()
+                            .attributes
+                            .get(ir::NumAttr::Interval)
                     })
                     .next()
                     .unwrap();
@@ -350,7 +353,7 @@ impl Visitor for ScheduleCompaction {
                         go_port
                             .borrow_mut()
                             .attributes
-                            .insert(ir::NumAttr::Static, new_latency);
+                            .insert(ir::NumAttr::Interval, new_latency);
                     }
                 }
             };

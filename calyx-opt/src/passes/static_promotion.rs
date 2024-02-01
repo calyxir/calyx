@@ -284,7 +284,7 @@ impl Visitor for StaticPromotion {
             let go_ports =
                 comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
             if go_ports.iter().any(|go_port| {
-                go_port.borrow_mut().attributes.has(ir::NumAttr::Static)
+                go_port.borrow_mut().attributes.has(ir::NumAttr::Interval)
             }) {
                 if comp.control.borrow().is_static() {
                     // We ended up promoting it
@@ -311,7 +311,7 @@ impl Visitor for StaticPromotion {
                         go_port
                             .borrow_mut()
                             .attributes
-                            .remove(ir::NumAttr::Static);
+                            .remove(ir::NumAttr::Interval);
                     }
                 }
             };
