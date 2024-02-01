@@ -13,7 +13,7 @@ categories = ["build-tool"]
 description = "Compiler driver for the Calyx infrastructure"
 
 [dependencies]
-fud-core = { path = "fud-core", version = "0.0.1" }
+fud-core = { path = "fud-core", version = "0.0.2" }
 anyhow.workspace = true
 
 [[bin]]
