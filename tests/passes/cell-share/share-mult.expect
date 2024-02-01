@@ -31,7 +31,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       A_read0_0.write_en = 1'd1;
       let0[done] = A_read0_0.done;
     }
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       B_read0_0.in = A_read0_0.out;
       B_read0_0.write_en = 1'd1;
       let1[done] = B_read0_0.done;
@@ -47,30 +47,30 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       A_read0_0.write_en = 1'd1;
       let2[done] = A_read0_0.done;
     }
-    group let3<"static"=1> {
+    group let3<"promotable"=1> {
       B_read0_0.in = A_read0_0.out;
       B_read0_0.write_en = 1'd1;
       let3[done] = B_read0_0.done;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
       A_read0_0.write_en = 1'd1;
       A0.addr0 = const0.out;
       A_read0_0.in = A0.read_data;
       upd0[done] = A_read0_0.done;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       B_read0_0.write_en = 1'd1;
       B0.addr0 = const1.out;
       B_read0_0.in = B0.read_data;
       upd1[done] = B_read0_0.done;
     }
-    group upd2<"static"=1> {
+    group upd2<"promotable"=1> {
       A_read0_0.write_en = 1'd1;
       A0.addr0 = const0.out;
       A_read0_0.in = A0.read_data;
       upd2[done] = A_read0_0.done;
     }
-    group upd3<"static"=1> {
+    group upd3<"promotable"=1> {
       B_read0_0.write_en = 1'd1;
       B0.addr0 = const1.out;
       B_read0_0.in = B0.read_data;

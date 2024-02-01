@@ -10,7 +10,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       r.write_en = 1'd1;
       do_incr[done] = r.done;
     }
-    group _empty<"static"=1> {
+    group _empty<"promotable"=1> {
       empty_reg.write_en = 1'd1;
       empty_reg.in = 1'd1;
       _empty[done] = empty_reg.done;

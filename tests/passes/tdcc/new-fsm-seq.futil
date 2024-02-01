@@ -1,4 +1,4 @@
-// -x tdcc:dump-fsm -d attr-promotion -d static-promotion -d post-opt -d group2invoke -d lower -b none
+// -x tdcc:dump-fsm -d static-promotion -d post-opt -d group2invoke -d lower -b none
 
 import "primitives/core.futil";
 
@@ -49,6 +49,6 @@ component main() -> () {
       A;
       @new_fsm seq {C; D; E;}
       B;
-    } 
+    }
   }
 }

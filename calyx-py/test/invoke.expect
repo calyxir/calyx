@@ -5,7 +5,7 @@ component foo(a: 32) -> (out: 32) {
     temp = std_reg(32);
   }
   wires {
-    group let<"static"=1> {
+    group let<"promotable"=1> {
       temp.in = a;
       temp.write_en = 1'd1;
       let[done] = temp.done;
