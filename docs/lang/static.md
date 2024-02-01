@@ -32,6 +32,7 @@ primitive std_div[W](go: 1, left: W, right: W) -> (out: W, done: 1);
 ```
 A client of the divider must pass two inputs, raise the `go` signal, and wait for the component itself to raise its `done` signal.
 The client can then read the result from the `out` port.
+That is, it obeys the [go-done interface][go-done-interface].
 
 Compare this to a multiplier component, `std_mult`, which has a similar signature but whose latency is known to be three cycles.
 We declare it as follows:
@@ -68,7 +69,7 @@ static<4> group mult_and_store {
 ```
 The `static<4>` qualifier specifies that the group should take 4 cycles to execute.
 
-The first three assignments are guarded (using the standard `?` separator) by the relative timing guard `%[0:3]`.
+The first three assignments are guarded (using the [standard `?` separator][guard-sep]) by the relative timing guard `%[0:3]`.
 In general, a relative timing guard `%[i:j]` is *true* in the half-open interval from cycle `i` to
 cycle `j` of the group’s execution and *false* otherwise.
 
@@ -79,23 +80,41 @@ We have used it in this case to ensure that the last two assignments execute onl
 
 ### Static Control Operators
 
-Calyx provides static variants of each of its control operators.
+Calyx provides static variants of each of its [control operators][].
 While dynamic commands may contain both static and dynamic children, static commands must only have static children.
 In the examples below, assume that `A5`, `B6`, `C7`, and `D8` are static groups with latencies 5, 6, 7, and 8, respectively.
 
-- `static seq` is a static version of `seq`.
+#### `static seq`, a static version of [`seq`][seq]
 If we have `static seq { A5; B6; C7; D8; }`, we can guarantee that the latency of the entire operation is the sum of the latencies of its children: 5 + 6 + 7 + 8 = 26 cycles in this case.
 We can also guarantee that, each child will begin executing exactly one cycle after the previous child has finished.
 In our case, for example, `B6` will begin executing exactly one cycle after `A5` has finished.
-- `static par` is a static version of `par`.
+
+#### `static par`, a static version of [`par`][par]
 If we have `static par { A5; B6; C7; D8; }`, we can guarantee that the latency of the entire operation is the maximum of the latencies of its children: 8 cycles in this case.
 Further, all the children of a `static par` are guaranteed to begin executing at the same time.
 The children can rely on this "lockstep" behavior and can communicate with each other.
-Such communication is undefined behavior in a dynamic `par`.
-- `static if` is a static version of `if`; its latency is the maximum of the latencies of its children.
-For example, `static if { A5; B6; }` has a latency of 6 cycles.
-- Calyx's `while` loop is unbouded and so it does not have a static variant.
-- `static repeat` is a static version of `repeat`; its latency is the product of the number of iterations and the latency of its child.
-For example, `static repeat 7 { B6; }` has a latency of 42 cycles.
+Such communication is undefined behavior in a standard, dynamic, `par`.
+
+#### `static if`, a static version of [`if`][if]
+If we have `static if { A5; B6; }`, we can guarantee that the latency of the entire operation is the maximum of the latencies of its children: 6 cycles in this case.
+
+
+#### `static repeat`, a static version of [`repeat`][repeat]
+
+> Calyx's `while` loop is unbouded and so it does not have a static variant.
+
+If we have `static repeat 7 { B6; }`, we can guarantee that the latency of the entire operation is the product of the number of iterations and the latency of its child: 7 × 6 = 42 cycles in this case.
 The body of a `static repeat` is guaranteed to begin executing exactly one cycle after the previous iteration has finished.
-- `static invoke` is a static version of `invoke`; its latency is the latency of the invoked cell.
+
+#### `static invoke`, a static version of [`invoke`][invoke]
+
+Its latency is the latency of the invoked cell.
+
+[guard-sep]: ./ref.md#guarded-assignments
+[go-done-interface]: ./ref.md#the-go-done-interface
+[control operators]: ./ref.md#the-control-operators
+[seq]: ./ref.md#seq
+[par]: ./ref.md#par
+[if]: ./ref.md#if
+[repeat]: ./ref.md#repeat
+[invoke]: ./ref.md#invoke
