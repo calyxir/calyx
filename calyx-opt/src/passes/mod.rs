@@ -1,5 +1,4 @@
 //! Passes for the Calyx compiler.
-mod attribute_promotion;
 mod canonical;
 mod cell_share;
 mod clk_insertion;
@@ -47,7 +46,6 @@ mod well_formed;
 mod wire_inliner;
 mod wrap_main;
 
-pub use attribute_promotion::AttributePromotion;
 pub use canonical::Canonicalize;
 pub use cell_share::CellShare;
 pub use clk_insertion::ClkInsertion;
