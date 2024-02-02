@@ -19,17 +19,17 @@ yxi_input = """
     {
       "name": "A0",
       "width": 32,
-      "size": 8
+      "size": 16
     },
     {
       "name": "B0",
       "width": 32,
-      "size": 8
+      "size": 16
     },
     {
-      "name": "v0",
+      "name": "Sum0",
       "width": 32,
-      "size": 1
+      "size": 16
     }
   ]
 }
@@ -458,12 +458,10 @@ def add_main_comp(prog, mems):
     bresp_channel = prog.get_component("m_bresp_channel")
 
     # Inputs/Outputs
-    main_inputs = []
-    main_outputs = []
+    main_control = []
     for mem in mems:
         mem_name = mem["name"]
-        main_inputs.append(
-            [
+        main_inputs = [
                 (f"{mem_name}_ARESETn", 1),
                 (f"{mem_name}_ARREADY", 1),
                 (f"{mem_name}_RVALID", 1),
@@ -479,9 +477,8 @@ def add_main_comp(prog, mems):
                 # Only needed for coctb compatability, tied low
                 (f"{mem_name}_RID", 1),
             ]
-        )
-        main_outputs.append(
-            [
+        
+        main_outputs = [
                 (f"{mem_name}_ARVALID", 1),
                 (f"{mem_name}_ARADDR", 64),
                 (f"{mem_name}_ARSIZE", 3),
@@ -504,7 +501,7 @@ def add_main_comp(prog, mems):
                 (f"{mem_name}_WID", 1),
                 (f"{mem_name}_BID", 1),
             ]
-        )
+        
 
         add_comp_params(main_comp, main_inputs, main_outputs)
 
@@ -515,7 +512,7 @@ def add_main_comp(prog, mems):
         )
         curr_addr_axi = main_comp.reg(f"curr_addr_axi_{mem_name}", 64)
 
-        main_comp.cell(f"ar_channel_{mem_name}", ar_channel)
+        ar_channel_cell = main_comp.cell(f"ar_channel_{mem_name}", ar_channel)
         main_comp.cell(f"read_channel_{mem_name}", read_channel)
 
         # TODO: Don't think these need to be marked external, but we
@@ -533,7 +530,7 @@ def add_main_comp(prog, mems):
         max_transfers = main_comp.reg(f"max_transfers_{mem_name}", 8)
         main_comp.cell(f"aw_channel_{mem_name}", aw_channel)
         main_comp.cell(f"write_channel_{mem_name}", write_channel)
-        main_comp.cel(f"bresp_channel_{mem_name}", bresp_channel)
+        main_comp.cell(f"bresp_channel_{mem_name}", bresp_channel)
 
         # Wires
 
@@ -550,8 +547,41 @@ def add_main_comp(prog, mems):
 
         # No groups needed!
 
+        # set up internal control blocks
+        #TODO: turn these into parts of a par block
+        this_component = main_comp.this()
+        ar_channel_invoke = invoke(
+                # main_comp.get_cell(f"ar_channel_{mem_name}"),
+                main_comp.get_cell(f"ar_channel_{mem_name}"),
+                ref_curr_addr_axi=curr_addr_axi,
+                in_ARESETn=this_component[f"{mem_name}_ARESETn"],
+                in_ARREADY=this_component[f"{mem_name}_ARREADY"],
+                out_AVALID=this_component[f"{mem_name}_ARVALID"],
+                out_ARADDR=this_component[f"{mem_name}_ARADDR"],
+                out_ARSIZE=this_component[f"{mem_name}_ARSIZE"],
+                out_ARLEN=this_component[f"{mem_name}_ARLEN"],
+                out_ARBURST=this_component[f"{mem_name}_ARBURST"],
+            )
+        read_channel_invoke = invoke(
+            main_comp.get_cell(f"read_channel_{mem_name}"),
+            ref_mem_ref = internal_mem,
+            ref_curr_addr_internal_mem = curr_addr_internal_mem,
+            ref_curr_addr_axi = curr_addr_axi,
+            in_ARESETn = this_component[f"{mem_name}_ARESETn"],
+            in_RVALID = this_component[f"{mem_name}_RVALID"],
+            in_RLAST = this_component[f"{mem_name}_RLAST"],
+            in_RDATA = this_component[f"{mem_name}_RDATA"],
+            #TODO: Do we need this? Don't think this goes anywhere
+            in_RRESP = this_component[f"{mem_name}_RRESP"],
+            out_RREADY = this_component[f"{mem_name}_RREADY"]
+        )
+        #TODO: We want to have a par block of 3 sequences.
+        #The below creates a seq of 3 par blocks of sequences
+        par_block = par([ar_channel_invoke, read_channel_invoke])
+        main_comp.control += [par_block]
+
     # Control
-    init_par = par()
+    # init_par = par()
     # TODO!!!: Move par of seqs outside of for loop
     # look at how to append to par blocks
 
@@ -583,6 +613,7 @@ def build():
     add_read_channel(prog, mems[0])
     add_write_channel(prog, mems[0])
     add_bresp_channel(prog, mems[0])
+    add_main_comp(prog, mems)
     return prog.program
 
 
