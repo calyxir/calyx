@@ -297,6 +297,71 @@ impl Visitor for WellFormed {
             );
         }
 
+        // Checking that @interval annotations are placed correctly.
+        // 1. If on @go port has @interval(n) annotation, all @go ports
+        // must have @interval(n) annotation.
+        // 2. Control must have a static<n> latency.
+        let comp_sig = &comp.signature.borrow();
+        let go_ports =
+            comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
+        if go_ports.iter().any(|go_port| {
+            go_port.borrow().attributes.has(ir::NumAttr::Interval)
+        }) {
+            // Getting "reference value" should be the same for all go ports and
+            // the control.
+            let reference_val = match go_ports[0]
+                .borrow()
+                .attributes
+                .get(ir::NumAttr::Interval)
+            {
+                Some(val) => val,
+                None => {
+                    return Err(Error::malformed_structure(format!(
+                        "@go port expected @interval(n) attribute",
+                    ))
+                    .with_pos(&go_ports[0].borrow().attributes))
+                }
+            };
+            // Checking go ports.
+            for go_port in &go_ports {
+                let go_port_val = match go_port
+                    .borrow()
+                    .attributes
+                    .get(ir::NumAttr::Interval)
+                {
+                    Some(val) => val,
+                    None => {
+                        return Err(Error::malformed_structure(format!(
+                            "@go port expected @interval(n) attribute",
+                        ))
+                        .with_pos(&go_port.borrow().attributes))
+                    }
+                };
+                if go_port_val != reference_val {
+                    return Err(Error::malformed_structure(format!(
+                        "@go port expected latency {reference_val}, got latency {go_port_val}",
+                    ))
+                    .with_pos(&go_port.borrow().attributes));
+                }
+                // Checking control latency
+                match comp.control.borrow().get_latency() {
+                    None => {
+                        return Err(Error::malformed_structure(format!(
+                            "to have @interval annotations, you need static control",
+                        )).with_pos(&comp.attributes))
+                    }
+                    Some(control_latency) => {
+                        if control_latency != reference_val {
+                            return Err(Error::malformed_structure(format!(
+                                "component {} expected latency {reference_val}, got latency {control_latency}", comp.name,
+                            ))
+                            .with_pos(&comp.attributes));
+                        }
+                    }
+                }
+            }
+        }
+
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
         for gr in comp.get_groups().iter() {
