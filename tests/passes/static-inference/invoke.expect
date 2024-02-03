@@ -21,7 +21,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
 }
-component exponent(base: 32, exp: 32, @go @interval(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component exponent(base: 32, exp: 32, @go @promotable(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r1 = std_reg(32);
     r2 = std_reg(32);
