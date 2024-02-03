@@ -96,11 +96,17 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get(ir::NumAttr::Interval).and_then(|st| {
-                    done_ports
+                // Get static interval thru either @interval or @promotable.
+                let st = match port.attributes.get(ir::NumAttr::Interval) {
+                    Some(st) => Some(st),
+                    None => port.attributes.get(ir::NumAttr::Promotable),
+                };
+                if st.is_some() {
+                    return done_ports
                         .get(&port.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (port.name, *done_port, st))
-                })
+                        .map(|done_port| (port.name, *done_port, st.unwrap()));
+                }
+                None
             })
             .collect_vec();
         GoDone::new(go_ports)
@@ -151,13 +157,20 @@ impl InferenceAnalysis {
                 .find_all_with_attr(ir::NumAttr::Go)
                 .filter_map(|pd| {
                     let pd_ref = pd.borrow();
-                    pd_ref.attributes.get(ir::NumAttr::Interval).and_then(
-                        |st| {
-                            done_ports
-                                .get(&pd_ref.attributes.get(ir::NumAttr::Go))
-                                .map(|done_port| (pd_ref.name, *done_port, st))
-                        },
-                    )
+                    // Get static interval thru either @interval or @promotable.
+                    let st = match pd_ref.attributes.get(ir::NumAttr::Interval)
+                    {
+                        Some(st) => Some(st),
+                        None => pd_ref.attributes.get(ir::NumAttr::Promotable),
+                    };
+                    if st.is_some() {
+                        return done_ports
+                            .get(&pd_ref.attributes.get(ir::NumAttr::Go))
+                            .map(|done_port| {
+                                (pd_ref.name, *done_port, st.unwrap())
+                            });
+                    }
+                    None
                 })
                 .collect_vec();
 

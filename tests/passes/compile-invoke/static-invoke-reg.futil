@@ -1,0 +1,13 @@
+// -p validate -p compile-invoke -p dead-group-removal
+import "primitives/core.futil";
+
+component main() -> () {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+  }
+  control {
+    static invoke r(in = 32'd2)();
+  }
+}

@@ -325,8 +325,13 @@ impl Visitor for ScheduleCompaction {
             let comp_sig = comp.signature.borrow();
             let go_ports: Vec<_> =
                 comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
+            // We only need to check for the @promotable attribute.
+            // The @interval attribute means the component's control is entirely
+            // static, meaning it's interval/latency is already locked in, so
+            // we know we can't change its control, so no need to change its
+            // signature.
             if go_ports.iter().any(|go_port| {
-                go_port.borrow_mut().attributes.has(ir::NumAttr::Interval)
+                go_port.borrow_mut().attributes.has(ir::NumAttr::Promotable)
             }) {
                 // Getting current latency
                 let cur_latency = go_ports
@@ -335,7 +340,7 @@ impl Visitor for ScheduleCompaction {
                         go_port
                             .borrow_mut()
                             .attributes
-                            .get(ir::NumAttr::Interval)
+                            .get(ir::NumAttr::Promotable)
                     })
                     .next()
                     .unwrap();
@@ -353,7 +358,7 @@ impl Visitor for ScheduleCompaction {
                         go_port
                             .borrow_mut()
                             .attributes
-                            .insert(ir::NumAttr::Interval, new_latency);
+                            .insert(ir::NumAttr::Promotable, new_latency);
                     }
                 }
             };

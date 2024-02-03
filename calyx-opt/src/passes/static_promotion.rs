@@ -283,8 +283,10 @@ impl Visitor for StaticPromotion {
             let comp_sig = comp.signature.borrow();
             let go_ports =
                 comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
+            //
             if go_ports.iter().any(|go_port| {
-                go_port.borrow_mut().attributes.has(ir::NumAttr::Interval)
+                let go_ref = go_port.borrow_mut();
+                go_ref.attributes.has(ir::NumAttr::Promotable)
             }) {
                 if comp.control.borrow().is_static() {
                     // We ended up promoting it
@@ -301,21 +303,18 @@ impl Visitor for StaticPromotion {
                         .unwrap(),
                     );
                 } else {
-                    // We decided not to promote, so we need to update data structures
-                    // and remove @static attribute from the signature.
-
-                    // Updating `static_info`.
+                    // We decided not to promote, so we need to update data structures.
                     self.inference_analysis.remove_component(comp.name);
                 }
             };
             // Either we have upgraded component to static<n> or we have decided
-            // not to promote component at all. Either way, we should remove the
-            // @interval attribute.
+            // not to promote component at all. Either way, we can remove the
+            // @promotable attribute.
             for go_port in go_ports {
                 go_port
                     .borrow_mut()
                     .attributes
-                    .remove(ir::NumAttr::Interval);
+                    .remove(ir::NumAttr::Promotable);
             }
         }
         // Remove @promotable (i.e., @promote_static) attribute from control.

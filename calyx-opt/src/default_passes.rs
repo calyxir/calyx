@@ -1,16 +1,15 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
-    CompileEmpty, CompileInvoke, CompileRepeat, CompileStatic,
-    CompileStaticInterface, CompileSync, CompileSyncWithoutSyncReg,
-    ComponentInliner, DataPathInfer, DeadAssignmentRemoval, DeadCellRemoval,
-    DeadGroupRemoval, DiscoverExternal, Externalize, GoInsertion,
-    GroupToInvoke, GroupToSeq, HoleInliner, InferShare, LowerGuards,
-    MergeAssign, Papercut, ParToSeq, RegisterUnsharing, RemoveIds,
-    ResetInsertion, ScheduleCompaction, SimplifyStaticGuards,
-    SimplifyWithControl, StaticInference, StaticInliner, StaticPromotion,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    CompileInvoke, CompileRepeat, CompileStatic, CompileStaticInterface,
+    CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
+    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
+    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
+    InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
+    RegisterUnsharing, RemoveIds, ResetInsertion, ScheduleCompaction,
+    SimplifyStaticGuards, SimplifyWithControl, StaticInference, StaticInliner,
+    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -30,7 +29,6 @@ impl PassManager {
         pm.register_pass::<CombProp>()?;
         pm.register_pass::<ComponentInliner>()?;
         pm.register_pass::<CollapseControl>()?;
-        pm.register_pass::<CompileEmpty>()?;
         pm.register_pass::<DeadAssignmentRemoval>()?;
         pm.register_pass::<DeadCellRemoval>()?;
         pm.register_pass::<DeadGroupRemoval>()?;

@@ -101,15 +101,18 @@ pub enum NumAttr {
     /// Source location position for this node
     Pos,
     #[strum(serialize = "promotable")]
-    /// Promote the group or control to static with the annotated latency
+    /// Can promote the group, control, or @go port of the component to static
+    /// with the annotated latency
     Promotable,
     #[strum(serialize = "compactable")]
     /// suggest that the current static seq block is compactable
     Compactable,
     #[strum(serialize = "interval")]
     /// Placed on @go ports of components to denote the II of a component, which
-    /// is the same as the latency foor non pipelined components.
-    /// Is used on dynamic components that have known latency.
+    /// is the same as the latency for non pipelined components.
+    /// Can only be placed if we can *guarantee* the interval of the component.
+    /// (e.g., Calyx components must have `static<n>` control` if they have
+    /// the @interval(n) annotation on the `go` port.)
     Interval,
 }
 impl From<NumAttr> for Attribute {

@@ -331,7 +331,7 @@ impl Visitor for CompileInvoke {
                 .extend(cg.assignments.iter().cloned())
         }
 
-        // Copy "static" annotation from the `invoke` statement if present
+        // Copy "promotable" annotation from the `invoke` statement if present
         if let Some(time) = s.attributes.get(ir::NumAttr::Promotable) {
             invoke_group
                 .borrow_mut()
