@@ -374,13 +374,19 @@ impl Visitor for CompileInvoke {
         let go_port = get_go_port(Rc::clone(&s.comp))?;
 
         // Checks whether compe is a static<n> component or an @interval(n) component.
-        let go_guard = if builder.component.latency.is_some() {
-            // For static<n> components, we guard the comp.go with %[0:1]
-            ir::Guard::Info(ir::StaticTiming::new((0, 1)))
-        } else {
+        let go_guard = if s
+            .comp
+            .borrow()
+            .ports
+            .iter()
+            .any(|port| port.borrow().attributes.has(ir::NumAttr::Interval))
+        {
             // For @interval(n) components, we do not guard the comp.go
             // We trigger the go signal for the entire interval.
             ir::Guard::True
+        } else {
+            // For static<n> components, we guard the comp.go with %[0:1]
+            ir::Guard::Info(ir::StaticTiming::new((0, 1)))
         };
 
         // Build assignemnts
