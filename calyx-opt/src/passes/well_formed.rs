@@ -317,9 +317,10 @@ impl Visitor for WellFormed {
                 Some(val) => val,
                 None => {
                     return Err(Error::malformed_structure(format!(
-                        "@go port expected @interval(n) attribute",
+                        "@go port expected @interval(n) attribute on all ports \
+                        since there is an @interval(n) annotation on at least one port",
                     ))
-                    .with_pos(&go_ports[0].borrow().attributes))
+                    .with_pos(&comp.attributes))
                 }
             };
             // Checking go ports.
@@ -332,9 +333,10 @@ impl Visitor for WellFormed {
                     Some(val) => val,
                     None => {
                         return Err(Error::malformed_structure(format!(
-                            "@go port expected @interval(n) attribute",
+                            "@go port expected @interval({reference_val}) attribute on all ports \
+                            since there is an @interval({reference_val}) annotation on at least one port",
                         ))
-                        .with_pos(&go_port.borrow().attributes))
+                        .with_pos(&comp.attributes))
                     }
                 };
                 if go_port_val != reference_val {
