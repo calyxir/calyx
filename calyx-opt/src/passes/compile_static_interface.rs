@@ -208,18 +208,19 @@ impl CompileStaticInterface {
           let first_state = constant(0, fsm_size);
         );
         let go_guard = guard!(comp_sig["go"]);
-        let done_guard = guard!(comp_sig["done"]);
-        let done_and_not_go = !go_guard & done_guard;
+        let not_go_guard = !guard!(comp_sig["go"]);
         let first_state_guard = guard!(fsm["out"] == first_state["out"]);
         let signal_on_guard = guard!(sig_reg["out"]);
         let comp_done_guard = first_state_guard & signal_on_guard;
         let assigns = build_assignments!(builder;
-          // set signal_reg high any time go is asserted
+          // only set sig_reg when fsm == 0
+          sig_reg["write_en"] = first_state_guard ? one["out"];
+          // if fsm == 0 and comp.go is high, then we set signal_reg to high,
+          // because it means we are starting an execution.
           sig_reg["in"] = go_guard ? one["out"];
-          sig_reg["write_en"] = go_guard ? one["out"];
+          // otherwise set signal_reg low.
+          sig_reg["in"] = not_go_guard ? zero["out"];
           // set signal_reg low once the component is finished executing.
-          sig_reg["in"] = done_and_not_go ? zero["out"];
-          sig_reg["write_en"] = done_and_not_go ? one["out"];
           comp_sig["done"] = comp_done_guard ? one["out"];
         );
         assigns.to_vec()
