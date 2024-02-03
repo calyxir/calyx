@@ -161,16 +161,16 @@ impl CompileStaticInterface {
             let adder = prim std_add(fsm_size);
             let const_one = constant(1, fsm_size);
             let first_state = constant(0, fsm_size);
-            let penultimate_state = constant(latency-1, fsm_size);
+            let final_state = constant(latency-1, fsm_size);
         );
         let g1: Guard<Nothing> = guard!(this["go"]);
         let g2: Guard<Nothing> = guard!(fsm["out"] == first_state["out"]);
         let trigger_guard = ir::Guard::and(g1, g2);
         let g3: Guard<Nothing> = guard!(fsm["out"] != first_state["out"]);
-        let g4: Guard<Nothing> = guard!(fsm["out"] != penultimate_state["out"]);
+        let g4: Guard<Nothing> = guard!(fsm["out"] != final_state["out"]);
         let incr_guard = ir::Guard::and(g3, g4);
         let stop_guard: Guard<Nothing> =
-            guard!(fsm["out"] == penultimate_state["out"]);
+            guard!(fsm["out"] == final_state["out"]);
         let fsm_incr_assigns = build_assignments!(
           builder;
           // increments the fsm
@@ -209,17 +209,18 @@ impl CompileStaticInterface {
         );
         let go_guard = guard!(comp_sig["go"]);
         let done_guard = guard!(comp_sig["done"]);
-        let on_guard = go_guard & !done_guard;
+        let done_and_not_go = !go_guard & done_guard;
         let first_state_guard = guard!(fsm["out"] == first_state["out"]);
         let signal_on_guard = guard!(sig_reg["out"]);
         let comp_done_guard = first_state_guard & signal_on_guard;
-        let done_guard_2 = guard!(comp_sig["done"]);
         let assigns = build_assignments!(builder;
-          sig_reg["in"] = on_guard ? one["out"];
-          sig_reg["write_en"] = on_guard ? one["out"];
+          // set signal_reg high any time go is asserted
+          sig_reg["in"] = go_guard ? one["out"];
+          sig_reg["write_en"] = go_guard ? one["out"];
+          // set signal_reg low once the component is finished executing.
+          sig_reg["in"] = done_and_not_go ? zero["out"];
+          sig_reg["write_en"] = done_and_not_go ? one["out"];
           comp_sig["done"] = comp_done_guard ? one["out"];
-          sig_reg["in"] = done_guard_2 ? zero["out"];
-          sig_reg["write_en"] = done_guard_2 ? one["out"];
         );
         assigns.to_vec()
     }
@@ -235,16 +236,14 @@ impl CompileStaticInterface {
           let zero = constant(0, 1);
         );
         let go_guard = guard!(comp_sig["go"]);
-        let done_guard = guard!(comp_sig["done"]);
-        let on_guard = go_guard & !done_guard;
+        let not_go = !go_guard;
         let signal_on_guard = guard!(sig_reg["out"]);
-        let done_guard_2 = guard!(comp_sig["done"]);
         let assigns = build_assignments!(builder;
-          sig_reg["in"] = on_guard ? one["out"];
-          sig_reg["write_en"] = on_guard ? one["out"];
+          // comp.done is just whatever comp.go was on the previous cycle.
+          sig_reg["in"] = go_guard ? one["out"];
+          sig_reg["in"] = not_go ? zero["out"];
+          sig_reg["write_en"] = ? one["out"];
           comp_sig["done"] = signal_on_guard ? one["out"];
-          sig_reg["in"] = done_guard_2 ? zero["out"];
-          sig_reg["write_en"] = done_guard_2 ? one["out"];
         );
         assigns.to_vec()
     }
