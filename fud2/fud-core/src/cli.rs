@@ -1,5 +1,5 @@
 use crate::config;
-use crate::driver::{Driver, Request, StateRef};
+use crate::exec::{Driver, Request, StateRef};
 use crate::run::Run;
 use anyhow::{anyhow, bail};
 use argh::FromArgs;

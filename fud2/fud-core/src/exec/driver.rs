@@ -1,75 +1,7 @@
-use crate::run;
+use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
+use crate::{run, utils};
 use camino::{Utf8Path, Utf8PathBuf};
-use cranelift_entity::{entity_impl, PrimaryMap, SecondaryMap};
-use pathdiff::diff_utf8_paths;
-
-/// A State is a type of file that Operations produce or consume.
-pub struct State {
-    /// The name of the state, for the UI.
-    pub name: String,
-
-    /// The file extensions that this state can be represented by.
-    ///
-    /// The first extension in the list is used when generating a new filename for the state. If
-    /// the list is empty, this is a "pseudo-state" that doesn't correspond to an actual file.
-    /// Pseudo-states can only be final outputs; they are appropraite for representing actions that
-    /// interact directly with the user, for example.
-    pub extensions: Vec<String>,
-}
-
-/// A reference to a State.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct StateRef(u32);
-entity_impl!(StateRef, "state");
-
-/// An Operation transforms files from one State to another.
-pub struct Operation {
-    pub name: String,
-    pub input: StateRef,
-    pub output: StateRef,
-    pub setups: Vec<SetupRef>,
-    pub emit: Box<dyn run::EmitBuild>,
-}
-
-/// A reference to an Operation.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct OpRef(u32);
-entity_impl!(OpRef, "op");
-
-/// A Setup runs at configuration time and produces Ninja machinery for Operations.
-pub struct Setup {
-    pub name: String,
-    pub emit: Box<dyn run::EmitSetup>,
-}
-
-/// A reference to a Setup.
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
-pub struct SetupRef(u32);
-entity_impl!(SetupRef, "setup");
-
-impl State {
-    /// Check whether a filename extension indicates this state.
-    fn ext_matches(&self, ext: &str) -> bool {
-        self.extensions.iter().any(|e| e == ext)
-    }
-
-    /// Is this a "pseudo-state": doesn't correspond to an actual file, and must be an output state?
-    fn is_pseudo(&self) -> bool {
-        self.extensions.is_empty()
-    }
-}
-
-/// Get a version of `path` that works when the working directory is `base`. This is
-/// opportunistically a relative path, but we can always fall back to an absolute path to make sure
-/// the path still works.
-pub fn relative_path(path: &Utf8Path, base: &Utf8Path) -> Utf8PathBuf {
-    match diff_utf8_paths(path, base) {
-        Some(p) => p,
-        None => path
-            .canonicalize_utf8()
-            .expect("could not get absolute path"),
-    }
-}
+use cranelift_entity::{PrimaryMap, SecondaryMap};
 
 #[derive(PartialEq)]
 enum Destination {
@@ -196,7 +128,7 @@ impl Driver {
 
         // Get the initial input filename and the stem to use to generate all intermediate filenames.
         let (stdin, start_file) = match req.start_file {
-            Some(path) => (false, relative_path(&path, &req.workdir)),
+            Some(path) => (false, utils::relative_path(&path, &req.workdir)),
             None => (true, "stdin".into()),
         };
         let stem = start_file.file_stem().unwrap();
@@ -211,7 +143,7 @@ impl Driver {
         let stdout = if let Some(end_file) = req.end_file {
             // TODO Can we just avoid generating the unused filename in the first place?
             let last_step = steps.last_mut().expect("no steps");
-            last_step.1 = relative_path(&end_file, &req.workdir);
+            last_step.1 = utils::relative_path(&end_file, &req.workdir);
             false
         } else {
             // Print to stdout if the last state is a real (non-pseudo) state.
@@ -348,28 +280,6 @@ impl DriverBuilder {
             ops: self.ops,
         }
     }
-}
-
-/// A request to the Driver directing it what to build.
-#[derive(Debug)]
-pub struct Request {
-    /// The input format.
-    pub start_state: StateRef,
-
-    /// The output format to produce.
-    pub end_state: StateRef,
-
-    /// The filename to read the input from, or None to read from stdin.
-    pub start_file: Option<Utf8PathBuf>,
-
-    /// The filename to write the output to, or None to print to stdout.
-    pub end_file: Option<Utf8PathBuf>,
-
-    /// A sequence of operators to route the conversion through.
-    pub through: Vec<OpRef>,
-
-    /// The working directory for the build.
-    pub workdir: Utf8PathBuf,
 }
 
 #[derive(Debug)]
