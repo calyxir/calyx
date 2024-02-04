@@ -1,28 +1,26 @@
 import "primitives/core.futil";
 
 component main(@go go: 1) -> (@done done: 1) {
-  // ANCHOR: cells
   cells {
     @external mem = std_mem_d1(32, 1, 1);
-    slice = std_bit_slice(32, 14, 10);
+    slice = std_bit_slice(32, 14, 10, 4);
+    pad = std_pad(4, 32);
   }
-  // ANCHOR_END: cells
 
-  // ANCHOR: wires
   wires {
     group bit_slice {
       slice.in = 32'd206256;
 
+      pad.in = slice.out;
+
       mem.addr0 = 1'b0;
-      mem.write_data = slice.out;
+      mem.write_data = pad.out;
       mem.write_en = 1'b1;
 
       bit_slice[done] = mem.done;
     }
-
   }
 
-  // ANCHOR_END: wires
   control {
     bit_slice;
   }
