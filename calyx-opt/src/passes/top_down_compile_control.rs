@@ -1,6 +1,8 @@
 use super::math_utilities::get_bit_width_from;
 use crate::passes;
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, Printer, RRC};
 use calyx_ir::{build_assignments, guard, structure};
 use calyx_utils::CalyxResult;
@@ -780,8 +782,8 @@ impl ConstructVisitor for TopDownCompileControl {
         let opts = Self::get_opts(ctx);
 
         Ok(TopDownCompileControl {
-            dump_fsm: opts[0],
-            early_transitions: opts[1],
+            dump_fsm: opts[&"dump-fsm"].bool(),
+            early_transitions: opts[&"early-transitions"].bool(),
         })
     }
 
@@ -799,15 +801,19 @@ impl Named for TopDownCompileControl {
         "Top-down compilation for removing control constructs"
     }
 
-    fn opts() -> &'static [(&'static str, &'static str)] {
-        &[
-            (
+    fn opts() -> Vec<PassOpt> {
+        vec![
+            PassOpt::new(
                 "dump-fsm",
                 "Print out the state machine implementing the schedule",
+                ParseVal::Bool(false),
+                PassOpt::parse_bool,
             ),
-            (
+            PassOpt::new(
                 "early-transitions",
                 "Experimental: Enable early transitions for group enables",
+                ParseVal::Bool(false),
+                PassOpt::parse_bool,
             ),
         ]
     }

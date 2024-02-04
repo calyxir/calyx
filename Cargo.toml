@@ -11,6 +11,8 @@ members = [
     "web/rust",
     "tools/data_gen",
     "cider-dap",
+    "fud2",
+    "fud2/fud-core",
 ]
 exclude = ["site"]
 
@@ -18,13 +20,13 @@ exclude = ["site"]
 authors = ["The Calyx Team"]
 license-file = "LICENSE"
 keywords = ["ir", "compiler"]
-repository = "https://github.com/cucapra/calyx"
+repository = "https://github.com/calyxir/calyx"
 readme = "README.md"
 description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
-version = "0.6.0"
+version = "0.6.1"
 rust-version = "1.67"
 
 [workspace.dependencies]
@@ -36,22 +38,30 @@ lazy_static = "1"
 linked-hash-map = "0.5"
 smallvec = "1"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 serde_sexpr = "0.1.0"
 serde_with = "3"
 pest = "2"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
-calyx-utils = { path = "calyx-utils", version = "0.6.0" }
-calyx-ir = { path = "calyx-ir", version = "0.6.0" }
-calyx-frontend = { path = "calyx-frontend", version = "0.6.0" }
-calyx-opt = { path = "calyx-opt", version = "0.6.0" }
-calyx-backend = { path = "calyx-backend", version = "0.6.0" }
+anyhow = "1"
+calyx-utils = { path = "calyx-utils", version = "0.6.1" }
+calyx-ir = { path = "calyx-ir", version = "0.6.1" }
+calyx-frontend = { path = "calyx-frontend", version = "0.6.1" }
+calyx-opt = { path = "calyx-opt", version = "0.6.1" }
+calyx-backend = { path = "calyx-backend", version = "0.6.1" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
 default-features = false
 features = ["matrix_graph"]
+
+[workspace.dependencies.env_logger]
+version = "0.9.0"
+features = ["termcolor", "atty"]
+default-features = false
+
 
 # =========== Package configuration ===========
 
@@ -80,7 +90,7 @@ default = []
 serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
 
 [build-dependencies]
-calyx-stdlib = { path = "calyx-stdlib", version = "0.6.0" }
+calyx-stdlib = { path = "calyx-stdlib", version = "0.6.1" }
 
 [dependencies]
 atty.workspace = true
@@ -88,6 +98,7 @@ itertools.workspace = true
 log.workspace = true
 serde.workspace = true
 argh.workspace = true
+env_logger.workspace = true
 
 calyx-utils.workspace = true
 calyx-ir.workspace = true
@@ -97,11 +108,6 @@ calyx-opt.workspace = true
 [dependencies.calyx-backend]
 workspace = true
 features = ["mlir", "resources", "xilinx"]
-
-[dependencies.env_logger]
-version = "0.9.0"
-features = ["termcolor", "atty"]
-default-features = false
 
 [profile.release]
 lto = "thin"

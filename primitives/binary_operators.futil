@@ -86,7 +86,6 @@ extern "binary_operators.sv" {
   /// =================== Unsigned, Bitnum =========================
   /// Other unsigned bitnum primitives are found in the core library,
   /// since they're required for FSM encoding.
-
   primitive std_mult_pipe<"state_share"=1>[WIDTH](
     @clk clk: 1,
     @reset reset: 1,
@@ -145,5 +144,5 @@ extern "binary_operators.sv" {
   comb primitive std_sle<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
   comb primitive std_slsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_srsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
-
+  comb primitive std_signext<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
 }

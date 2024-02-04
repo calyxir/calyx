@@ -418,6 +418,22 @@ class ComponentBuilder:
             ast.Stdlib.fixed_point_op(op_name, width, int_width, frac_width, True),
         )
 
+    def unary_use(self, input, cell, groupname=None):
+        """Accepts a cell that performs some computation on value `input`.
+        Creates a combinational group that wires up the cell with this port.
+        Returns the cell and the combintational group.
+
+        comb group `groupname` {
+            `cell.name`.in = `input`;
+        }
+
+        Returns handles to the cell and the combinational group.
+        """
+        groupname = groupname or f"{cell.name}_group"
+        with self.comb_group(groupname) as comb_group:
+            cell.in_ = input
+        return CellAndGroup(cell, comb_group)
+
     def binary_use(self, left, right, cell, groupname=None):
         """Accepts a cell that performs some computation on values `left` and `right`.
         Creates a combinational group that wires up the cell with these ports.
@@ -488,6 +504,11 @@ class ComponentBuilder:
         width = self.try_infer_width(width, left, right)
         return self.binary_use(left, right, self.sub(width, cellname, signed))
 
+    def not_use(self, input, cellname=None, width=None):
+        """Inserts wiring into `self` to compute `not input`."""
+        width = self.try_infer_width(width, input, input)
+        return self.unary_use(input, self.not_(width, cellname))
+
     def bitwise_flip_reg(self, reg, cellname=None):
         """Inserts wiring into `self` to bitwise-flip the contents of `reg`
         and put the result back into `reg`.
@@ -502,17 +523,23 @@ class ComponentBuilder:
             not_group.done = reg.done
         return not_group
 
-    def incr(self, reg, val=1, signed=False, cellname=None):
+    def incr(self, reg, val=1, signed=False, cellname=None, static=False):
         """Inserts wiring into `self` to perform `reg := reg + val`."""
         cellname = cellname or f"{reg.name}_incr"
         width = reg.infer_width_reg()
         add_cell = self.add(width, cellname, signed)
-        with self.group(f"{cellname}_group") as incr_group:
+        group = (
+            self.static_group(f"{cellname}_group", 1)
+            if static
+            else self.group(f"{cellname}_group")
+        )
+        with group as incr_group:
             add_cell.left = reg.out
             add_cell.right = const(width, val)
             reg.write_en = 1
             reg.in_ = add_cell.out
-            incr_group.done = reg.done
+            if not static:
+                incr_group.done = reg.done
         return incr_group
 
     def decr(self, reg, val=1, signed=False, cellname=None):
@@ -729,7 +756,7 @@ def as_control(obj):
             "Python sets are not supported in control programs. For a parallel"
             " composition use `Builder.par` instead."
         )
-    if obj is None:
+    if obj is None or obj == ast.Empty:
         return ast.Empty()
     else:
         assert False, f"unsupported control type {type(obj)}"
@@ -807,6 +834,41 @@ def invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     `*` is the name of an input port, output port, or ref cell on the invoked cell.
     """
     return ast.Invoke(
+        cell._cell.id,
+        [
+            (
+                k[3:],
+                (
+                    (
+                        const(cell.infer_width(k[3:]), v).expr
+                        if isinstance(v, int)
+                        else ExprBuilder.unwrap(v)
+                    )
+                ),
+            )
+            for (k, v) in kwargs.items()
+            if k.startswith("in_")
+        ],
+        [
+            (k[4:], ExprBuilder.unwrap(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("out_")
+        ],
+        [
+            (k[4:], CellBuilder.unwrap_id(v))
+            for (k, v) in kwargs.items()
+            if k.startswith("ref_")
+        ],
+    )
+
+
+def static_invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
+    """Build a `static invoke` control statement.
+
+    The keyword arguments should have the form `in_*`, `out_*`, or `ref_*`, where
+    `*` is the name of an input port, output port, or ref cell on the invoked cell.
+    """
+    return ast.StaticInvoke(
         cell._cell.id,
         [
             (k[3:], ExprBuilder.unwrap(v))
@@ -1235,6 +1297,15 @@ def par(*args) -> ast.ParComp:
     return ast.ParComp([as_control(x) for x in args])
 
 
+def static_par(*args) -> ast.StaticParComp:
+    """Build a static parallel composition of control expressions.
+
+    Each argument will become its own parallel arm in the resulting composition.
+    So `par([a,b])` becomes `par {seq {a; b;}}` while `par(a, b)` becomes `par {a; b;}`.
+    """
+    return ast.StaticParComp([as_control(x) for x in args])
+
+
 def seq(*args) -> ast.SeqComp:
     """Build a sequential composition of control expressions.
 
@@ -1245,6 +1316,71 @@ def seq(*args) -> ast.SeqComp:
     {a; b; c;}`.
     """
     return ast.SeqComp([as_control(x) for x in args])
+
+
+def static_seq(*args) -> ast.StaticSeqComp:
+    """Build a static sequential composition of control expressions.
+
+    Prefer use of python list syntax over this function. Use only when not directly
+    modifying the control program with the `+=` operator.
+    Each argument will become its own sequential arm in the resulting composition.
+    So `seq([a,b], c)` becomes `seq { seq {a; b;} c }` while `seq(a, b, c)` becomes `seq
+    {a; b; c;}`.
+    """
+    return ast.StaticSeqComp([as_control(x) for x in args])
+
+
+def add_comp_params(comp: ComponentBuilder, input_ports: List, output_ports: List):
+    """
+    Adds `input_ports`/`output_ports` as inputs/outputs to comp.
+    `input_ports`/`output_ports` should contain an (input_name, input_width) pair.
+    """
+    for name, width in input_ports:
+        comp.input(name, width)
+    for name, width in output_ports:
+        comp.output(name, width)
+
+
+def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
+    """
+    Add parameters to component `comp` if we want to read from a mem named
+    `name` with address width of `addr_width` and data width of `data_width`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_read_data", data_width)],
+        output_ports=[(f"{name}_addr0", addr_width)],
+    )
+
+
+def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
+    """
+    Add arguments to component `comp` if we want to write to a mem named
+    `name` with address width of `addr_width` and data width of `data_width`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_done", 1)],
+        output_ports=[
+            (f"{name}_addr0", addr_width),
+            (f"{name}_write_data", data_width),
+            (f"{name}_write_en", 1),
+        ],
+    )
+
+
+def add_register_params(comp: ComponentBuilder, name, width):
+    """
+    Add params to component `comp` if we want to use a register named `name`.
+    """
+    add_comp_params(
+        comp,
+        input_ports=[(f"{name}_done", 1), (f"{name}_out", width)],
+        output_ports=[
+            (f"{name}_in", width),
+            (f"{name}_write_en", 1),
+        ],
+    )
 
 
 def build_connections(
@@ -1258,10 +1394,12 @@ def build_connections(
     """
     Intended for wiring together two cells whose ports have similar names.
     For each `name` in `forward_port_names`, adds the following connection:
-    `(cell1.root1_name,cell2.root2_name)`
-    For `backwards_port_names`, adds the following connection:
-    `(cell2.root2_name,cell1.root1_name)`
-    Returns a list of the resulting connections.
+    `(cell1.root1name, cell2.root2name)`
+    For each `name` in `backwards_port_names`, adds the following connection:
+    `(cell2.root2name, cell1.root1name)`
+    `root1name` refers to the string formed by `root1 + name` (i.e., no underscore
+    between root1 and name)
+    Returns a list of the resulting connections
     """
     res = []
     for port in forward_ports:

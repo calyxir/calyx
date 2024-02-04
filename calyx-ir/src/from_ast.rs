@@ -5,15 +5,13 @@ use super::{
     RESERVED_NAMES, RRC,
 };
 use crate::{Nothing, PortComp, StaticTiming};
-use calyx_frontend::{ast, ast::Atom, BoolAttr, Workspace};
+use calyx_frontend::{ast, BoolAttr, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, WithPos};
 use itertools::Itertools;
 
 use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU64;
 use std::rc::Rc;
-
-type InvokePortMap = Vec<(Id, Atom)>;
 
 /// Context to store the signature information for all defined primitives and
 /// components.
@@ -271,7 +269,7 @@ fn build_component(
     // required information.
     comp.cells
         .into_iter()
-        .for_each(|cell| add_cell(cell, sig_ctx, &mut builder));
+        .try_for_each(|cell| add_cell(cell, sig_ctx, &mut builder))?;
 
     comp.groups
         .into_iter()
@@ -303,15 +301,17 @@ fn build_component(
 
 ///////////////// Cell Construction /////////////////////////
 
-fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
+fn add_cell(
+    cell: ast::Cell,
+    sig_ctx: &SigCtx,
+    builder: &mut Builder,
+) -> CalyxResult<()> {
     let proto_name = cell.prototype.name;
 
     let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
-        let c = builder.add_primitive(
-            cell.name,
-            proto_name,
-            &cell.prototype.params,
-        );
+        let c = builder
+            .try_add_primitive(cell.name, proto_name, &cell.prototype.params)
+            .map_err(|e| e.with_pos(&cell.attributes))?;
         c.borrow_mut().set_reference(cell.reference);
         c
     } else {
@@ -330,6 +330,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
     // Add attributes to the built cell
     res.borrow_mut().attributes = cell.attributes;
+
+    Ok(())
 }
 
 ///////////////// Group Construction /////////////////////////
@@ -696,82 +698,6 @@ fn build_static_if(
     Ok(con)
 }
 
-// builds a static invoke from the given information
-fn build_static_invoke(
-    builder: &mut Builder,
-    component: Id,
-    (inputs, outputs): (InvokePortMap, InvokePortMap),
-    attributes: Attributes,
-    ref_cells: Vec<(Id, Id)>,
-    given_latency: Option<std::num::NonZeroU64>,
-    sig_ctx: &SigCtx,
-) -> CalyxResult<StaticControl> {
-    let cell = Rc::clone(&builder.component.find_cell(component).ok_or_else(
-        || {
-            Error::undefined(component, "cell".to_string())
-                .with_pos(&attributes)
-        },
-    )?);
-    let comp_name = cell
-        .borrow()
-        .type_name()
-        .unwrap_or_else(|| unreachable!("invoked component without a name"));
-    let latency = get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?;
-    let unwrapped_latency = if let Some(v) = latency {
-        v
-    } else {
-        return Err(Error::malformed_control(format!(
-            "non-static component {} is statically invoked",
-            comp_name
-        ))
-        .with_pos(&attributes));
-    };
-    assert_latencies_eq(given_latency, unwrapped_latency.into());
-
-    let inputs = inputs
-        .into_iter()
-        .map(|(id, port)| {
-            // checking that comp_name.id exists on comp's signature
-            check_valid_port(Rc::clone(&cell), &id, &attributes, sig_ctx)?;
-            atom_to_port(port, builder)
-                .and_then(|pr| ensure_direction(pr, Direction::Output))
-                .map(|p| (id, p))
-        })
-        .collect::<Result<_, _>>()?;
-    let outputs = outputs
-        .into_iter()
-        .map(|(id, port)| {
-            // checking that comp_name.id exists on comp's signature
-            check_valid_port(Rc::clone(&cell), &id, &attributes, sig_ctx)?;
-            atom_to_port(port, builder)
-                .and_then(|pr| ensure_direction(pr, Direction::Input))
-                .map(|p| (id, p))
-        })
-        .collect::<Result<_, _>>()?;
-    let mut inv = StaticInvoke {
-        comp: cell,
-        inputs,
-        outputs,
-        attributes: Attributes::default(),
-        ref_cells: Vec::new(),
-        latency: unwrapped_latency.into(),
-    };
-    if !ref_cells.is_empty() {
-        let mut ext_cell_tuples = Vec::new();
-        for (outcell, incell) in ref_cells {
-            let ext_cell_ref = builder
-                .component
-                .find_cell(incell)
-                .ok_or_else(|| Error::undefined(incell, "cell".to_string()))?;
-            ext_cell_tuples.push((outcell, ext_cell_ref));
-        }
-        inv.ref_cells = ext_cell_tuples;
-    }
-    let mut con = StaticControl::Invoke(inv);
-    *con.get_mut_attributes() = attributes;
-    Ok(con)
-}
-
 fn build_static_repeat(
     num_repeats: u64,
     body: ast::Control,
@@ -823,16 +749,91 @@ fn build_static_control(
             attributes,
             ref_cells,
             latency,
+            comb_group,
         } => {
-            return build_static_invoke(
-                builder,
-                comp,
-                (inputs, outputs),
-                attributes,
-                ref_cells,
-                latency,
-                sig_ctx,
+            let cell = Rc::clone(
+                &builder.component.find_cell(comp).ok_or_else(|| {
+                    Error::undefined(comp, "cell".to_string())
+                        .with_pos(&attributes)
+                })?,
             );
+            let comp_name = cell.borrow().type_name().unwrap_or_else(|| {
+                unreachable!("invoked component without a name")
+            });
+            let c_latency =
+                get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?;
+            let unwrapped_latency = if let Some(v) = c_latency {
+                v
+            } else {
+                return Err(Error::malformed_control(format!(
+                    "non-static component {} is statically invoked",
+                    comp_name
+                ))
+                .with_pos(&attributes));
+            };
+            assert_latencies_eq(latency, unwrapped_latency.into());
+
+            let inputs = inputs
+                .into_iter()
+                .map(|(id, port)| {
+                    // checking that comp_name.id exists on comp's signature
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
+                    atom_to_port(port, builder)
+                        .and_then(|pr| ensure_direction(pr, Direction::Output))
+                        .map(|p| (id, p))
+                })
+                .collect::<Result<_, _>>()?;
+            let outputs = outputs
+                .into_iter()
+                .map(|(id, port)| {
+                    // checking that comp_name.id exists on comp's signature
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
+                    atom_to_port(port, builder)
+                        .and_then(|pr| ensure_direction(pr, Direction::Input))
+                        .map(|p| (id, p))
+                })
+                .collect::<Result<_, _>>()?;
+            let mut inv = StaticInvoke {
+                comp: cell,
+                inputs,
+                outputs,
+                attributes: Attributes::default(),
+                ref_cells: Vec::new(),
+                latency: unwrapped_latency.into(),
+                comb_group: None,
+            };
+            if !ref_cells.is_empty() {
+                let mut ext_cell_tuples = Vec::new();
+                for (outcell, incell) in ref_cells {
+                    let ext_cell_ref =
+                        builder.component.find_cell(incell).ok_or_else(
+                            || Error::undefined(incell, "cell".to_string()),
+                        )?;
+                    ext_cell_tuples.push((outcell, ext_cell_ref));
+                }
+                inv.ref_cells = ext_cell_tuples;
+            }
+            if let Some(cg) = comb_group {
+                let cg_ref =
+                    builder.component.find_comb_group(cg).ok_or_else(|| {
+                        Error::undefined(cg, "combinational group".to_string())
+                            .with_pos(&inv.attributes)
+                    })?;
+                inv.comb_group = Some(cg_ref);
+            }
+            let mut con = StaticControl::Invoke(inv);
+            *con.get_mut_attributes() = attributes;
+            return Ok(con);
         }
         ast::Control::StaticSeq {
             stmts,
@@ -933,17 +934,91 @@ fn build_control(
             attributes,
             ref_cells,
             latency,
+            comb_group,
         } => {
-            let i = build_static_invoke(
-                builder,
-                comp,
-                (inputs, outputs),
-                attributes,
-                ref_cells,
-                latency,
-                sig_ctx,
+            let cell = Rc::clone(
+                &builder.component.find_cell(comp).ok_or_else(|| {
+                    Error::undefined(comp, "cell".to_string())
+                        .with_pos(&attributes)
+                })?,
             );
-            Control::Static(i?)
+            let comp_name = cell.borrow().type_name().unwrap_or_else(|| {
+                unreachable!("invoked component without a name")
+            });
+            let c_latency =
+                get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?;
+            let unwrapped_latency = if let Some(v) = c_latency {
+                v
+            } else {
+                return Err(Error::malformed_control(format!(
+                    "non-static component {} is statically invoked",
+                    comp_name
+                ))
+                .with_pos(&attributes));
+            };
+            assert_latencies_eq(latency, unwrapped_latency.into());
+
+            let inputs = inputs
+                .into_iter()
+                .map(|(id, port)| {
+                    // checking that comp_name.id exists on comp's signature
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
+                    atom_to_port(port, builder)
+                        .and_then(|pr| ensure_direction(pr, Direction::Output))
+                        .map(|p| (id, p))
+                })
+                .collect::<Result<_, _>>()?;
+            let outputs = outputs
+                .into_iter()
+                .map(|(id, port)| {
+                    // checking that comp_name.id exists on comp's signature
+                    check_valid_port(
+                        Rc::clone(&cell),
+                        &id,
+                        &attributes,
+                        sig_ctx,
+                    )?;
+                    atom_to_port(port, builder)
+                        .and_then(|pr| ensure_direction(pr, Direction::Input))
+                        .map(|p| (id, p))
+                })
+                .collect::<Result<_, _>>()?;
+            let mut inv = StaticInvoke {
+                comp: cell,
+                inputs,
+                outputs,
+                attributes: Attributes::default(),
+                ref_cells: Vec::new(),
+                latency: unwrapped_latency.into(),
+                comb_group: None,
+            };
+            if !ref_cells.is_empty() {
+                let mut ext_cell_tuples = Vec::new();
+                for (outcell, incell) in ref_cells {
+                    let ext_cell_ref =
+                        builder.component.find_cell(incell).ok_or_else(
+                            || Error::undefined(incell, "cell".to_string()),
+                        )?;
+                    ext_cell_tuples.push((outcell, ext_cell_ref));
+                }
+                inv.ref_cells = ext_cell_tuples;
+            }
+            if let Some(cg) = comb_group {
+                let cg_ref =
+                    builder.component.find_comb_group(cg).ok_or_else(|| {
+                        Error::undefined(cg, "combinational group".to_string())
+                            .with_pos(&inv.attributes)
+                    })?;
+                inv.comb_group = Some(cg_ref);
+            }
+            let mut con = StaticControl::Invoke(inv);
+            *con.get_mut_attributes() = attributes;
+            Control::Static(con)
         }
         ast::Control::Invoke {
             comp: component,

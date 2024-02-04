@@ -1,9 +1,10 @@
 use crate::analysis::{DominatorMap, ShareSet};
 use crate::traversal::{
-    Action, ConstructVisitor, Named, Order, VisResult, Visitor,
+    Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
+    Visitor,
 };
 use calyx_ir as ir;
-use calyx_utils::CalyxResult;
+use calyx_utils::{CalyxResult, OutputFile};
 
 /// This pass checks if components are (state) shareable. Here is the process it
 /// goes through: if a component uses any ref cells, or non-shareable cells then it
@@ -11,8 +12,8 @@ use calyx_utils::CalyxResult;
 /// cell is guaranteed to be dominated by a write to the same cell-- we check this
 /// by building a domination map. If so, component is state shareable.
 pub struct InferShare {
-    print_dmap: bool,
-    print_static_analysis: bool,
+    print_dmap: Option<OutputFile>,
+    print_static_analysis: Option<OutputFile>,
     state_shareable: ShareSet,
     shareable: ShareSet,
     //name of main (so we can skip it)
@@ -28,12 +29,19 @@ impl Named for InferShare {
         "Infer User Defined Components as Shareable"
     }
 
-    fn opts() -> &'static [(&'static str, &'static str)] {
-        &[
-            ("print-dmap", "Print the domination map"),
-            (
+    fn opts() -> Vec<PassOpt> {
+        vec![
+            PassOpt::new(
+                "print-dmap",
+                "Print the domination map",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream,
+            ),
+            PassOpt::new(
                 "print-static-analysis",
                 "Prints the domination analysis for static dmaps",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream,
             ),
         ]
     }
@@ -50,8 +58,9 @@ impl ConstructVisitor for InferShare {
         let shareable = ShareSet::from_context::<false>(ctx);
 
         Ok(InferShare {
-            print_dmap: opts[0],
-            print_static_analysis: opts[1],
+            print_dmap: opts[&"print-dmap"].not_null_outstream(),
+            print_static_analysis: opts[&"print-static-analysis"]
+                .not_null_outstream(),
             state_shareable,
             shareable,
             main: ctx.entrypoint,
@@ -104,11 +113,11 @@ impl Visitor for InferShare {
             DominatorMap::new(&mut comp.control.borrow_mut(), comp.name);
 
         // print the domination map if command line argument says so
-        if self.print_dmap {
-            println!("{dmap:?}");
+        if let Some(s) = &self.print_dmap {
+            write!(s.get_write(), "{dmap:?}").unwrap();
         }
-        if self.print_static_analysis {
-            println!("{:?}", dmap.static_par_domination);
+        if let Some(s) = &self.print_static_analysis {
+            write!(s.get_write(), "{:?}", dmap.static_par_domination).unwrap();
         }
 
         for (node, dominators) in dmap.map.iter_mut() {

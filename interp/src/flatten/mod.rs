@@ -3,7 +3,7 @@ pub mod primitives;
 mod structures;
 pub(crate) mod text_utils;
 
-use structures::environment::Environment;
+use structures::environment::{Environment, Simulator};
 
 pub fn flat_main(ctx: &calyx_ir::Context) {
     let i_ctx = flat_ir::control::translator::translate(ctx);
@@ -11,7 +11,6 @@ pub fn flat_main(ctx: &calyx_ir::Context) {
     i_ctx.printer().print_program();
 
     let env = Environment::new(&i_ctx);
-    env.print_env_stats();
-    env.print_env();
-    env.print_pc()
+    let mut sim = Simulator::new(env);
+    sim._main_test()
 }

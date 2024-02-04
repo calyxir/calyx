@@ -1,5 +1,5 @@
-// -p cell-share -x cell-share:calyx_2020 -x cell-share:print-share-freqs=stdout -p dead-cell-removal -p remove-ids
-// share adders twice, registers 3 times, and mults 4 times 
+// -p cell-share -x cell-share:calyx-2020 -x cell-share:print-share-freqs=<err> -p dead-cell-removal -p remove-ids
+// share adders twice, registers 3 times, and mults 4 times
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
@@ -67,40 +67,40 @@ component main() -> () {
       let5[done] = f.done;
     }
     group m0{
-      mult0.go = 1'd1; 
-      mult0.left = 32'd1; 
-      mult0.right = 32'd2; 
-      m0[done] = mult0.done; 
+      mult0.go = 1'd1;
+      mult0.left = 32'd1;
+      mult0.right = 32'd2;
+      m0[done] = mult0.done;
     }
     group m1{
-      mult1.go = 1'd1; 
-      mult1.left = 32'd1; 
-      mult1.right = 32'd2; 
-      m1[done] = mult1.done; 
+      mult1.go = 1'd1;
+      mult1.left = 32'd1;
+      mult1.right = 32'd2;
+      m1[done] = mult1.done;
     }
     group m2{
-      mult2.go = 1'd1; 
-      mult2.left = 32'd1; 
-      mult2.right = 32'd2; 
-      m2[done] = mult2.done; 
+      mult2.go = 1'd1;
+      mult2.left = 32'd1;
+      mult2.right = 32'd2;
+      m2[done] = mult2.done;
     }
     group m3{
-      mult3.go = 1'd1; 
-      mult3.left = 32'd1; 
-      mult3.right = 32'd2; 
-      m3[done] = mult3.done; 
+      mult3.go = 1'd1;
+      mult3.left = 32'd1;
+      mult3.right = 32'd2;
+      m3[done] = mult3.done;
     }
     group m4{
-      mult4.go = 1'd1; 
-      mult4.left = 32'd1; 
-      mult4.right = 32'd2; 
-      m4[done] = mult4.done; 
+      mult4.go = 1'd1;
+      mult4.left = 32'd1;
+      mult4.right = 32'd2;
+      m4[done] = mult4.done;
     }
     group m5{
-      mult5.go = 1'd1; 
-      mult5.left = 32'd1; 
-      mult5.right = 32'd2; 
-      m5[done] = mult5.done; 
+      mult5.go = 1'd1;
+      mult5.left = 32'd1;
+      mult5.right = 32'd2;
+      m5[done] = mult5.done;
     }
   }
   control {

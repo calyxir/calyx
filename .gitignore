@@ -39,6 +39,14 @@ __pycache__
 !.vscode/launch.json
 !.vscode/tasks.json
 
+# cocotb artifacts
 tests/xilinx/cocotb/**/hdl
+sim_build/
+results.xml
 
-.vscode/settings.json
+# Ignore .fud2 cache
+.fud2/
+
+
+!cider-dap/calyxDebug/package.json
+!cider-dap/calyxDebug/tsconfig.json

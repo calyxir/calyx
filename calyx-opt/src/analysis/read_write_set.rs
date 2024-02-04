@@ -120,7 +120,8 @@ impl ReadWriteSet {
 }
 
 impl ReadWriteSet {
-    /// Returns the ports that are read by the given control program.
+    /// Returns the ports that are read and written, respectively,
+    /// by the given static control program.
     pub fn control_port_read_write_set_static(
         scon: &ir::StaticControl,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
@@ -165,47 +166,141 @@ impl ReadWriteSet {
             ir::StaticControl::Invoke(ir::StaticInvoke {
                 inputs,
                 outputs,
+                ref_cells,
+                comp,
                 ..
             }) => {
-                let inps = inputs.iter().map(|(_, p)| p).cloned();
-                let outs = outputs.iter().map(|(_, p)| p).cloned();
-                (inps.collect(), outs.collect())
+                let mut inps: Vec<RRC<ir::Port>> =
+                    inputs.iter().map(|(_, p)| p).cloned().collect();
+                let mut outs: Vec<RRC<ir::Port>> =
+                    outputs.iter().map(|(_, p)| p).cloned().collect();
+                // Adding comp.go to input ports
+                inps.push(
+                    comp.borrow()
+                        .find_all_with_attr(ir::NumAttr::Go)
+                        .next()
+                        .unwrap_or_else(|| {
+                            unreachable!(
+                                "No @go port for component {}",
+                                comp.borrow().name()
+                            )
+                        }),
+                );
+                for (_, cell) in ref_cells.iter() {
+                    for port in cell.borrow().ports.iter() {
+                        match port.borrow().direction {
+                            ir::Direction::Input => {
+                                outs.push(Rc::clone(port));
+                            }
+                            ir::Direction::Output => {
+                                inps.push(Rc::clone(port));
+                            }
+                            _ => {
+                                outs.push(Rc::clone(port));
+                                inps.push(Rc::clone(port));
+                            }
+                        }
+                    }
+                }
+                (inps, outs)
             }
         }
     }
 
-    /// Returns the ports that are read by the given control program.
-    pub fn control_port_read_write_set(
+    /// Returns the cells that are read and written, respectively,
+    /// by the given static control program.
+    pub fn control_read_write_set_static(
+        scon: &ir::StaticControl,
+    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
+        let (port_reads, port_writes) =
+            Self::control_port_read_write_set_static(scon);
+        (
+            port_reads
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+            port_writes
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+        )
+    }
+
+    /// Returns the ports that are read and written, respectively,
+    /// by the given control program.
+    /// INCLUDE_HOLE_ASSIGNS: in either case, we will ignore done holes.
+    /// However, if INCLUDE_HOLE_ASSIGNS is false, we ignore all *assignments*
+    /// that write to holes, even if the src of that assignment is a cell's port.
+    pub fn control_port_read_write_set<const INCLUDE_HOLE_ASSIGNS: bool>(
         con: &ir::Control,
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
         match con {
             ir::Control::Empty(_) => (vec![], vec![]),
             ir::Control::Enable(ir::Enable { group, .. }) => (
-                Self::port_read_set(group.borrow().assignments.iter())
-                    .collect(),
-                Self::port_write_set(group.borrow().assignments.iter())
-                    .collect(),
+                Self::port_read_set(group.borrow().assignments.iter().filter(
+                    |assign| {
+                        INCLUDE_HOLE_ASSIGNS || !assign.dst.borrow().is_hole()
+                    },
+                ))
+                .collect(),
+                Self::port_write_set(group.borrow().assignments.iter().filter(
+                    |assign| {
+                        INCLUDE_HOLE_ASSIGNS || !assign.dst.borrow().is_hole()
+                    },
+                ))
+                .collect(),
             ),
             ir::Control::Invoke(ir::Invoke {
                 inputs,
                 outputs,
                 comb_group,
+                ref_cells,
+                comp,
                 ..
             }) => {
+                // XXX(Caleb): Maybe check that there is one @go port.
                 let inps = inputs.iter().map(|(_, p)| p).cloned();
                 let outs = outputs.iter().map(|(_, p)| p).cloned();
+                let mut r: Vec<RRC<ir::Port>> = inps.collect();
+                let mut w: Vec<RRC<ir::Port>> = outs.collect();
+                // Adding comp.go to the write set
+                w.push(
+                    comp.borrow()
+                        .find_all_with_attr(ir::NumAttr::Go)
+                        .next()
+                        .unwrap_or_else(|| {
+                            unreachable!(
+                                "No @go port for component {}",
+                                comp.borrow().name()
+                            )
+                        }),
+                );
+
+                for (_, cell) in ref_cells {
+                    for port in cell.borrow().ports.iter() {
+                        match port.borrow().direction {
+                            ir::Direction::Input => {
+                                w.push(Rc::clone(port));
+                            }
+                            ir::Direction::Output => {
+                                r.push(Rc::clone(port));
+                            }
+                            _ => {
+                                w.push(Rc::clone(port));
+                                r.push(Rc::clone(port));
+                            }
+                        }
+                    }
+                }
                 match comb_group {
                     Some(cgr) => {
                         let cg = cgr.borrow();
                         let assigns = cg.assignments.iter();
                         let reads = Self::port_read_set(assigns.clone());
                         let writes = Self::port_write_set(assigns);
-                        (
-                            reads.chain(inps).collect(),
-                            writes.chain(outs).collect(),
-                        )
+                        (reads.chain(r).collect(), writes.chain(w).collect())
                     }
-                    None => (inps.collect(), outs.collect()),
+                    None => (r, w),
                 }
             }
             ir::Control::Seq(ir::Seq { stmts, .. })
@@ -213,7 +308,7 @@ impl ReadWriteSet {
                 let (mut reads, mut writes) = (vec![], vec![]);
                 for stmt in stmts {
                     let (mut read, mut write) =
-                        Self::control_port_read_write_set(stmt);
+                        Self::control_port_read_write_set::<true>(stmt);
                     reads.append(&mut read);
                     writes.append(&mut write);
                 }
@@ -227,9 +322,9 @@ impl ReadWriteSet {
                 ..
             }) => {
                 let (mut treads, mut twrites) =
-                    Self::control_port_read_write_set(tbranch);
+                    Self::control_port_read_write_set::<true>(tbranch);
                 let (mut freads, mut fwrites) =
-                    Self::control_port_read_write_set(fbranch);
+                    Self::control_port_read_write_set::<true>(fbranch);
                 treads.append(&mut freads);
                 treads.push(Rc::clone(port));
                 twrites.append(&mut fwrites);
@@ -248,7 +343,7 @@ impl ReadWriteSet {
                 port, cond, body, ..
             }) => {
                 let (mut reads, mut writes) =
-                    Self::control_port_read_write_set(body);
+                    Self::control_port_read_write_set::<true>(body);
                 reads.push(Rc::clone(port));
 
                 if let Some(cg) = cond {
@@ -262,11 +357,55 @@ impl ReadWriteSet {
                 (reads, writes)
             }
             ir::Control::Repeat(ir::Repeat { body, .. }) => {
-                Self::control_port_read_write_set(body)
+                Self::control_port_read_write_set::<true>(body)
             }
             ir::Control::Static(sc) => {
                 Self::control_port_read_write_set_static(sc)
             }
         }
+    }
+
+    /// Returns the cells that are read and written, respectively,
+    /// by the given control program.
+    /// INCLUDE_HOLE_ASSIGNS: in either case, we will ignore done holes themselves.
+    /// However, if INCLUDE_HOLE_ASSIGNS is true, we ignore all assignments
+    /// that write to holes, even if the src of that assignment is a cell's port.
+    pub fn control_read_write_set<const INCLUDE_HOLE_ASSIGNS: bool>(
+        con: &ir::Control,
+    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
+        let (port_reads, port_writes) =
+            Self::control_port_read_write_set::<INCLUDE_HOLE_ASSIGNS>(con);
+        (
+            port_reads
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+            port_writes
+                .into_iter()
+                .map(|p| p.borrow().cell_parent())
+                .collect(),
+        )
+    }
+
+    /// Returns the ports that are read and written, respectively,
+    /// in the continuous assignments of the given component.
+    pub fn cont_ports_read_write_set(
+        comp: &mut calyx_ir::Component,
+    ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
+        (
+            Self::port_read_set(comp.continuous_assignments.iter()).collect(),
+            Self::port_write_set(comp.continuous_assignments.iter()).collect(),
+        )
+    }
+
+    /// Returns the cells that are read and written, respectively,
+    /// in the continuous assignments of the given component.
+    pub fn cont_read_write_set(
+        comp: &mut calyx_ir::Component,
+    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
+        (
+            Self::read_set(comp.continuous_assignments.iter()).collect(),
+            Self::write_set(comp.continuous_assignments.iter()).collect(),
+        )
     }
 }

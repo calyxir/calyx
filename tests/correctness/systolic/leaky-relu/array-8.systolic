@@ -3,5 +3,5 @@
   "top_depth": 8,
   "left_length": 8,
   "left_depth": 8,
-  "leaky_relu": true
+  "post_op": "leaky-relu"
 }

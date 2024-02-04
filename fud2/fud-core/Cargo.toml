@@ -1,0 +1,21 @@
+[package]
+name = "fud-core"
+version = "0.0.2"
+edition.workspace = true
+license-file.workspace = true
+
+keywords = ["build-tool"]
+readme = "../README.md"
+categories = ["build-tool"]
+description = "Library for building declarative build tools"
+
+[dependencies]
+argh.workspace = true
+cranelift-entity = "0.103.0"
+serde.workspace = true
+figment = { version = "0.10.12", features = ["toml"] }
+pathdiff = { version = "0.2.1", features = ["camino"] }
+camino = "1.1.6"
+anyhow.workspace = true
+log.workspace = true
+env_logger.workspace = true

@@ -2,7 +2,8 @@
 //! representation.
 use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
 use calyx_frontend::BoolAttr;
-use std::rc::Rc;
+use calyx_utils::CalyxResult;
+use std::{cmp, rc::Rc};
 
 use super::{CellType, PortDef};
 
@@ -162,7 +163,12 @@ impl<'a> Builder<'a> {
     pub fn add_constant(&mut self, val: u64, width: u64) -> RRC<ir::Cell> {
         // Ensure that the value can fit within the width
         assert!(
-            val < (1 << width),
+            val < match width.cmp(&64) {
+                cmp::Ordering::Less => 1 << width,
+                cmp::Ordering::Equal => u64::MAX,
+                cmp::Ordering::Greater =>
+                    panic!("Widths greater than 64 are not supported."),
+            },
             "Constant value {} cannot fit in {} bits",
             val,
             width
@@ -212,11 +218,24 @@ impl<'a> Builder<'a> {
         Pre: Into<ir::Id> + ToString + Clone,
         Prim: Into<ir::Id>,
     {
+        self.try_add_primitive(prefix, primitive, param_values)
+            .expect("failed to add primitive:")
+    }
+
+    /// Result variant of [[ir::Builder::add_primitive()]].
+    pub fn try_add_primitive<Pre, Prim>(
+        &mut self,
+        prefix: Pre,
+        primitive: Prim,
+        param_values: &[u64],
+    ) -> CalyxResult<RRC<ir::Cell>>
+    where
+        Pre: Into<ir::Id> + ToString + Clone,
+        Prim: Into<ir::Id>,
+    {
         let prim_id = primitive.into();
         let prim = &self.lib.get_primitive(prim_id);
-        let (param_binding, ports) = prim
-            .resolve(param_values)
-            .expect("Failed to add primitive.");
+        let (param_binding, ports) = prim.resolve(param_values)?;
 
         let name = self.component.generate_name(prefix);
         let cell = Self::cell_from_signature(
@@ -233,7 +252,7 @@ impl<'a> Builder<'a> {
             cell.borrow_mut().add_attribute(BoolAttr::Generated, 1);
         }
         self.component.cells.add(Rc::clone(&cell));
-        cell
+        Ok(cell)
     }
 
     /// Add a component instance to this component using its name and port

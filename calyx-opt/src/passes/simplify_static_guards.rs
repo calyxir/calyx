@@ -35,11 +35,6 @@ impl SimplifyStaticGuards {
         cur_anded_intervals: &mut Vec<(u64, u64)>,
     ) -> Option<ir::Guard<ir::StaticTiming>> {
         match g {
-            ir::Guard::Not(_)
-            | ir::Guard::Or(_, _)
-            | ir::Guard::True
-            | ir::Guard::CompOp(_, _, _)
-            | ir::Guard::Port(_) => Some(g),
             ir::Guard::And(g1, g2) => {
                 // recursively call separate_anded_intervals on g1 and g2
                 let rest_g1 =
@@ -65,6 +60,11 @@ impl SimplifyStaticGuards {
                 cur_anded_intervals.push(static_timing_info.get_interval());
                 None
             }
+            ir::Guard::True
+            | ir::Guard::CompOp(_, _, _)
+            | ir::Guard::Not(_)
+            | ir::Guard::Or(_, _)
+            | ir::Guard::Port(_) => Some(g),
         }
     }
 
@@ -75,7 +75,7 @@ impl SimplifyStaticGuards {
     /// For example: (port.out | !port1.out) & (port2.out == port3.out) & %[2:8] & %[5:10] ?
     /// becomes (port.out | !port1.out) & (port2.out == port3.out) & %[5:8] ?
     /// by "combining: %[2:8] & %[5:10]
-    fn simplify_guard(
+    fn simplify_anded_guards(
         guard: ir::Guard<ir::StaticTiming>,
         group_latency: u64,
     ) -> ir::Guard<ir::StaticTiming> {
@@ -119,6 +119,30 @@ impl SimplifyStaticGuards {
             (None, None) => ir::Guard::True,
             (None, Some(g)) | (Some(g), None) => g,
             (Some(rg), Some(ig)) => ir::Guard::And(Box::new(rg), Box::new(ig)),
+        }
+    }
+
+    fn simplify_guard(
+        guard: ir::Guard<ir::StaticTiming>,
+        group_latency: u64,
+    ) -> ir::Guard<ir::StaticTiming> {
+        match guard {
+            ir::Guard::Not(g) => ir::Guard::Not(Box::new(
+                Self::simplify_guard(*g, group_latency),
+            )),
+            ir::Guard::Or(g1, g2) => ir::Guard::Or(
+                Box::new(Self::simplify_guard(*g1, group_latency)),
+                Box::new(Self::simplify_guard(*g2, group_latency)),
+            ),
+            ir::Guard::And(_, _) => {
+                Self::simplify_anded_guards(guard, group_latency)
+            }
+            ir::Guard::Info(_) => {
+                Self::simplify_anded_guards(guard, group_latency)
+            }
+            ir::Guard::Port(_)
+            | ir::Guard::True
+            | ir::Guard::CompOp(_, _, _) => guard,
         }
     }
 }

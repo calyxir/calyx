@@ -1,15 +1,16 @@
 //! Defines the default passes available to [PassManager].
 use crate::passes::{
-    AttributePromotion, Canonicalize, CellShare, ClkInsertion, CollapseControl,
-    CombProp, CompileEmpty, CompileInvoke, CompileRepeat, CompileStatic,
-    CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
+    AddGuard, AttributePromotion, Canonicalize, CellShare, ClkInsertion,
+    CollapseControl, CombProp, CompileEmpty, CompileInvoke, CompileRepeat,
+    CompileStatic, CompileStaticInterface, CompileSync,
+    CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
     Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
     InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
-    RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticInliner, StaticPromotion, SynthesisPapercut,
-    TopDownCompileControl, TopDownStaticTiming, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    RegisterUnsharing, RemoveIds, ResetInsertion, ScheduleCompaction,
+    SimplifyStaticGuards, SimplifyWithControl, StaticInference, StaticInliner,
+    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -36,6 +37,8 @@ impl PassManager {
         pm.register_pass::<GroupToSeq>()?;
         pm.register_pass::<InferShare>()?;
         pm.register_pass::<CellShare>()?;
+        pm.register_pass::<ScheduleCompaction>()?;
+        pm.register_pass::<StaticInference>()?;
         pm.register_pass::<StaticPromotion>()?;
         pm.register_pass::<AttributePromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
@@ -47,10 +50,11 @@ impl PassManager {
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<CompileRepeat>()?;
         pm.register_pass::<SimplifyWithControl>()?;
-        pm.register_pass::<TopDownStaticTiming>()?;
         pm.register_pass::<TopDownCompileControl>()?;
         pm.register_pass::<CompileSync>()?;
         pm.register_pass::<CompileSyncWithoutSyncReg>()?;
+        pm.register_pass::<AddGuard>()?;
+        pm.register_pass::<CompileStaticInterface>()?;
 
         // Lowering passes
         pm.register_pass::<GoInsertion>()?;
@@ -88,10 +92,14 @@ impl PassManager {
                 InferShare,
                 ComponentInliner,
                 CombProp,
-                CellShare, // LiveRangeAnalaysis should handle comb groups
+                DeadCellRemoval, // Clean up dead wires left by CombProp
+                CellShare,       // LiveRangeAnalaysis should handle comb groups
                 SimplifyWithControl, // Must run before compile-invoke
-                CompileInvoke, // creates dead comb groups
+                CompileInvoke,   // creates dead comb groups
                 AttributePromotion,
+                StaticInference,
+                ScheduleCompaction,
+                StaticPromotion,
                 StaticPromotion,
                 CompileRepeat,
                 DeadGroupRemoval, // Since previous passes potentially create dead groups
@@ -106,8 +114,10 @@ impl PassManager {
                 MergeAssign, // Static inliner generates lots of assigns
                 DeadGroupRemoval, // Static inliner generates lots of dead groups
                 SimplifyStaticGuards,
+                AddGuard,
+                CompileStaticInterface,
+                DeadGroupRemoval,
                 CompileStatic,
-                TopDownStaticTiming,
                 TopDownCompileControl
             ]
         );

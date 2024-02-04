@@ -14,15 +14,17 @@
 
 # Running Calyx Programs
 
-- [`fud`: The Calyx Driver](./fud/index.md)
-  - [Examples](./fud/examples.md)
-  - [Xilinx Tools](./fud/xilinx.md)
-    - [AXI Generation](./fud/axi-gen.md)
-  - [External Stages](./fud/external.md)
-  - [Multiple Paths](./fud/multiple-paths.md)
-  - [CIRCT](./fud/circt.md)
-  - [Resource Estimation](./fud/resource-estimation.md)
-- [The Calyx Interpreter](./interpreter.md)
+- [fud: The Calyx Driver](./running-calyx/fud/index.md)
+  - [Examples](./running-calyx/fud/examples.md)
+  - [Xilinx Tools](./running-calyx/fud/xilinx.md)
+    - [AXI Generation](./running-calyx/fud/axi-gen.md)
+  - [External Stages](./running-calyx/fud/external.md)
+  - [Multiple Paths](./running-calyx/fud/multiple-paths.md)
+  - [CIRCT](./running-calyx/fud/circt.md)
+  - [Resource Estimation](./running-calyx/fud/resource-estimation.md)
+- [fud2: Experimental Driver](./running-calyx/fud2.md)
+- [Interfacing with Calyx RTL](./running-calyx/interfacing.md)
+- [The Calyx Interpreter](./running-calyx/interpreter.md)
 
 # Compiler Development Guide
 
@@ -34,6 +36,7 @@
 - [Debugging](./debug/index.md)
   - [Logical Bugs](./debug/cider.md)
   - [Compilation Bugs](./debug/debug.md)
+- [Contributing to Calyx](./github.md)
 
 # Generating Calyx
 

@@ -1,0 +1,17 @@
+circuit main:
+    module main:
+        input in: UInt<32>
+        input cond: UInt<1>
+        output out: UInt<32>
+        input go: UInt<1>
+        input clk: Clock
+        input reset: UInt<1>
+        output done: UInt<1>
+        ; COMPONENT START: main
+        done <= UInt(1)
+        out is invalid ; default initialization
+        out <= UInt(0)
+        when cond:
+            out <= in
+        ; COMPONENT END: main
+

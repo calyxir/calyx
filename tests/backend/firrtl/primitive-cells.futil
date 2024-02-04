@@ -1,0 +1,30 @@
+// -b firrtl --emit-primitive-extmodules
+import "primitives/core.futil";
+component plus_one(in : 32) -> (out : 32) {
+  cells {
+        add = std_add(32);
+  }
+  wires {
+    add.left = 32'd1;
+    add.right = in;
+    out = add.out;
+    done = 1'd1;
+  }
+  control {}
+}
+
+component main() -> () {
+  cells {
+    po = plus_one();
+  }
+  wires {
+    group run_po {
+      po.in = 32'd5;
+      po.go = 1'd1;
+      run_po[done] = po.done;
+    }
+  }
+  control {
+    seq { run_po; }
+  }
+}

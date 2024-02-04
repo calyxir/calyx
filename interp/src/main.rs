@@ -30,7 +30,7 @@ pub struct Opts {
         option,
         short = 'o',
         long = "output",
-        default = "OutputFile::default()"
+        default = "OutputFile::Stdout"
     )]
     pub output: OutputFile,
 
@@ -135,7 +135,7 @@ fn main() -> InterpreterResult<()> {
         .allow_par_conflicts(opts.allow_par_conflicts)
         .build();
 
-    interp::logging::initialze_logger(config.quiet);
+    interp::logging::initialize_logger(config.quiet);
 
     let log = interp::logging::root();
 

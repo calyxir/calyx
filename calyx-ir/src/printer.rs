@@ -503,6 +503,7 @@ impl Printer {
                 outputs,
                 attributes,
                 ref_cells,
+                comb_group,
             }) => {
                 write!(f, "{}", Self::format_at_attributes(attributes))?;
                 write!(
@@ -554,6 +555,9 @@ impl Printer {
                     write!(f, ")")?;
                 } else {
                     write!(f, "\n{})", " ".repeat(indent_level))?;
+                }
+                if let Some(group) = comb_group {
+                    write!(f, " with {}", group.borrow().name)?;
                 }
                 writeln!(f, ";")
             }

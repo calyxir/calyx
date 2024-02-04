@@ -1,0 +1,67 @@
+// -p validate -p schedule-compaction -p dead-group-removal
+// for control operators under static seq,
+// we consider the subsequent control operator B to have data dependency on
+// prior operator A in the following three cases:
+// 1. B writes to a cell A reads from
+// 2. B reads from a cell A writes to
+// 3. B writes to a cell A writes to
+// As such, we can draw the following dependency graph for the control program:
+//    A       C
+//   | \      /
+//   |  \    /
+//   |   \  /
+//   |    \
+//   |   / \
+//   |  /   \
+//   | /     \
+//   B        D
+// So we can compact the execution schedule to respect this data dependency
+import "primitives/core.futil";
+
+component main () -> () {
+  cells {
+    a_reg = std_reg(32);
+    b_reg = std_reg(32);
+    c_reg = std_reg(32);
+    d_reg = std_reg(32);
+    a = std_add(32);
+    ud = undef(1);
+  }
+
+  wires {
+    group A<"promote_static"=1> {
+      a_reg.in = 32'd5;
+      a_reg.write_en = 1'd1;
+      A[done] = a_reg.done;
+    }
+
+    group C<"promote_static"=10> {
+      c_reg.in = 32'd10;
+      c_reg.write_en = 1'd1;
+      C[done] = ud.out;
+    }
+
+    group B<"promote_static"=1> {
+      a.left = a_reg.out;
+      a.right = c_reg.out;
+      b_reg.in = a.out;
+      b_reg.write_en = 1'd1;
+      B[done] = b_reg.done;
+    }
+
+    group D<"promote_static"=10> {
+      d_reg.in = a_reg.out;
+      d_reg.write_en = 1'd1;
+      D[done] = ud.out;
+    }
+  }
+
+  control {
+    @promote_static(22) seq {
+      @promote_static A;
+      @promote_static(10) C;
+      @promote_static B;
+      @promote_static(10) D;
+    }
+  }
+}

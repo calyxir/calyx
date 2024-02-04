@@ -117,9 +117,9 @@ python calyx-py/test/builder_example.py
 Other examples using the builder can also be found in the `calyx-py` [test directory][test]. All of our frontends were also written using this library, in case you'd like even more examples!
 
 [cont]: ../lang/ref.md#continuous-assignments
-[example]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/builder_example.py
+[example]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/builder_example.py
 [flit]: https://flit.readthedocs.io/en/latest/
 [godone]: ..lang/ref.md#the-go-done-interface
 [guarded]: ../lang/ref.md#guarded-assignments
 [ref]: ref.md
-[test]: https://github.com/cucapra/calyx/tree/master/calyx-py/test/
+[test]: https://github.com/calyxir/calyx/tree/master/calyx-py/test/

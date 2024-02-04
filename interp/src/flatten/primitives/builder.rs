@@ -1,21 +1,17 @@
 use crate::{
-    flatten::{
-        flat_ir::{
-            cell_prototype::{CellPrototype, PrimType1},
-            prelude::{CellInfo, GlobalPortId},
-        },
-        structures::environment::Environment,
+    flatten::flat_ir::{
+        cell_prototype::{CellPrototype, MemType, PrimType1},
+        prelude::{CellInfo, GlobalPortIdx},
     },
     values::Value,
 };
 
-use super::stateful::*;
 use super::{combinational::*, Primitive};
+use super::{prim_trait::DummyPrimitive, stateful::*};
 
 pub fn build_primitive(
-    env: &mut Environment,
     prim: &CellInfo,
-    base_port: GlobalPortId,
+    base_port: GlobalPortIdx,
 ) -> Box<dyn Primitive> {
     match &prim.prototype {
         CellPrototype::Constant {
@@ -24,7 +20,8 @@ pub fn build_primitive(
             c_type: _,
         } => {
             let v = Value::from(*val, *width);
-            env.ports[base_port] = v.clone();
+            // TODO griffin: see if it is worth putting the initialization back
+            // env.ports[base_port] = v.clone();
             Box::new(StdConst::new(v, base_port))
         }
 
@@ -59,7 +56,7 @@ pub fn build_primitive(
             PrimType1::SignedLe => Box::new(StdSle::new(base_port)),
             PrimType1::SignedLsh => Box::new(StdSlsh::new(base_port)),
             PrimType1::SignedRsh => Box::new(StdSrsh::new(base_port)),
-            PrimType1::MultPipe => todo!(),
+            PrimType1::MultPipe => Box::new(DummyPrimitive),
             PrimType1::SignedMultPipe => todo!(),
             PrimType1::DivPipe => todo!(),
             PrimType1::SignedDivPipe => todo!(),
@@ -103,41 +100,53 @@ pub fn build_primitive(
             out: _,
         } => todo!(),
         CellPrototype::MemD1 {
-            mem_type: _,
-            width: _,
-            size: _,
+            mem_type,
+            width,
+            size,
             idx_size: _,
-        } => todo!(),
+        } => match mem_type {
+            MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
+            MemType::Std => Box::new(StdMemD1::new(base_port, *width, false, *size as usize))
+        },
         CellPrototype::MemD2 {
-            mem_type: _,
-            width: _,
-            d0_size: _,
-            d1_size: _,
+            mem_type,
+            width,
+            d0_size,
+            d1_size,
             d0_idx_size: _,
             d1_idx_size: _,
-        } => todo!(),
+        } => match mem_type {
+            MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
+            MemType::Std => Box::new(StdMemD2::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize))),
+        },
         CellPrototype::MemD3 {
-            mem_type: _,
-            width: _,
-            d0_size: _,
-            d1_size: _,
-            d2_size: _,
+            mem_type,
+            width,
+            d0_size,
+            d1_size,
+            d2_size,
             d0_idx_size: _,
             d1_idx_size: _,
             d2_idx_size: _,
-        } => todo!(),
+        }  => match mem_type {
+            MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
+            MemType::Std => Box::new(StdMemD3::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize))),
+        },
         CellPrototype::MemD4 {
-            mem_type: _,
-            width: _,
-            d0_size: _,
-            d1_size: _,
-            d2_size: _,
-            d3_size: _,
+            mem_type,
+            width,
+            d0_size,
+            d1_size,
+            d2_size,
+            d3_size,
             d0_idx_size: _,
             d1_idx_size: _,
             d2_idx_size: _,
             d3_idx_size: _,
-        } => todo!(),
+        }=> match mem_type {
+            MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
+            MemType::Std => Box::new(StdMemD4::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize, *d3_size as usize))),
+        },
         CellPrototype::Unknown(_, _) => todo!(),
     }
 }

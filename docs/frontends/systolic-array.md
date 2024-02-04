@@ -27,6 +27,8 @@ can be configured.
 
 - `--top-length`, `--left-length`: The length of top and left sides of the systolic array.
 - `--top-depth`, `--left-depth`: The length of the input streams from top and left sides of the array.
+- `--post-op`: Specify the post operation to be performed on the result of the matrix-multiply.
+- `--fixed-dim`: Generate systolic array that only processes matrices with the given sizes. The default strategy supports matrices with any contraction dimension.
 
 [kung-systolic]: http://www.eecs.harvard.edu/~htk/publication/1982-kung-why-systolic-architecture.pdf
-[systolic-lang]: https://github.com/cucapra/calyx/tree/master/frontends/systolic-lang
+[systolic-lang]: https://github.com/calyxir/calyx/tree/master/frontends/systolic-lang

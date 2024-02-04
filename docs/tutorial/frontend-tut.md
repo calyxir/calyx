@@ -445,13 +445,13 @@ mrxl frontends/mrxl/test/squares.mrxl --data frontends/mrxl/test/squares.mrxl.da
 
 This transformation is achieved using a [`fud`][fud] pass that converts MrXL-native data files into Calyx-native data files.
 
-[astcode]: https://github.com/cucapra/calyx/blob/mrxl/mrxl/mrxl/ast.py
+[astcode]: https://github.com/calyxir/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
 [fud]: ../fud/index.md
 [fud-data]: ../lang/data-format.md
 [json]: https://www.json.org/json-en.html
 [calyx-tut]: ./language-tut.md
-[mrxl-ast]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/ast.py
+[mrxl-ast]: https://github.com/calyxir/calyx/blob/master/frontends/mrxl/mrxl/ast.py
 [lf-cells]: ../lang/ref.md#cells
 [lf-wires]: ../lang/ref.md#the-wires-section
 [lf-groups]: ../lang/ref.md#group-definitions
@@ -459,22 +459,22 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 [lf-while]: ../lang/ref.md#while
 [lf-comb-group]: ../lang/ref.md#comb-group-definitions
 [lf-par]: ../lang/ref.md#par
-[impl]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py
+[impl]: https://github.com/calyxir/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py
 [reduc-trees]: http://www.cs.ucr.edu/~nael/217-f15/lectures/217-lec10.pdf
-[builder-arb]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/arbiter_6.py
-[builder-red-tree]: https://github.com/cucapra/calyx/blob/master/calyx-py/test/reduction_tree.py
+[builder-arb]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/arbiter_6.py
+[builder-red-tree]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/reduction_tree.py
 [flit]: https://flit.readthedocs.io/en/latest/index.html
 [calyx-py-lib]: ../calyx-py.md
 [python dataclasses]: https://docs.python.org/3/library/dataclasses.html
-[reg-calyx]: https://github.com/cucapra/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/primitives/compile.futil#L22
-[reg-verilog]: https://github.com/cucapra/calyx/blob/master/primitives/compile.futil#L31
-[mem-calyx]: https://github.com/cucapra/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/primitives/compile.futil#L22
-[mem-verilog]: https://github.com/cucapra/calyx/blob/master/primitives/core.sv#L220
-[compute-par]: https://github.com/cucapra/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/frontends/mrxl/mrxl/gen_calyx.py#L312
+[reg-calyx]: https://github.com/calyxir/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/primitives/compile.futil#L22
+[reg-verilog]: https://github.com/calyxir/calyx/blob/master/primitives/compile.futil#L31
+[mem-calyx]: https://github.com/calyxir/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/primitives/compile.futil#L22
+[mem-verilog]: https://github.com/calyxir/calyx/blob/master/primitives/core.sv#L220
+[compute-par]: https://github.com/calyxir/calyx/blob/45075345ae2858b23a599d65d94b0ed7bf949a61/frontends/mrxl/mrxl/gen_calyx.py#L312
 [par-undef]: ../lang/ref.md#par
-[binary-mult]: https://github.com/cucapra/calyx/blob/master/primitives/binary_operators.sv#L27-L45
+[binary-mult]: https://github.com/calyxir/calyx/blob/master/primitives/binary_operators.sv#L27-L45
 [verilator]: https://www.veripool.org/wiki/verilator
-[docker]: https://github.com/cucapra/calyx/pkgs/container/calyx
+[docker]: https://github.com/calyxir/calyx/pkgs/container/calyx
 [running-mrxl-example]: #running-mrxl
-[mymap-stub]: https://github.com/cucapra/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py#L171-L191
+[mymap-stub]: https://github.com/calyxir/calyx/blob/master/frontends/mrxl/mrxl/gen_calyx.py#L171-L191
 [banking-need]: #memory-banking

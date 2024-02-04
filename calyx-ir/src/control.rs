@@ -302,6 +302,8 @@ pub struct StaticInvoke {
     pub attributes: Attributes,
     /// Mapping from name of external cell in 'comp' to the cell connected to it.
     pub ref_cells: CellMap,
+    /// Optional combinational group that is active when the invoke is active.
+    pub comb_group: Option<RRC<CombGroup>>,
 }
 impl GetAttributes for StaticInvoke {
     fn get_attributes(&self) -> &Attributes {
@@ -348,7 +350,6 @@ pub enum Control {
 #[derive(Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub enum StaticControl {
-    /// Essentially a Static While Loop
     Repeat(StaticRepeat),
     Enable(StaticEnable),
     Par(StaticPar),
@@ -589,6 +590,17 @@ impl Control {
         let empty = Control::empty();
         std::mem::replace(self, empty)
     }
+
+    /// Replaces &mut self with an empty control statement, and returns StaticControl
+    /// of self. Note that this only works on Control that is static
+    pub fn take_static_control(&mut self) -> StaticControl {
+        let empty = Control::empty();
+        let control = std::mem::replace(self, empty);
+        let Control::Static(static_control) = control else {
+            unreachable!("Called take_static_control on non-static control")
+        };
+        static_control
+    }
 }
 
 impl StaticControl {
@@ -807,6 +819,7 @@ impl Cloner {
             outputs: i.outputs.clone(),
             attributes: i.attributes.clone(),
             ref_cells: i.ref_cells.clone(),
+            comb_group: i.comb_group.clone(),
         }
     }
 

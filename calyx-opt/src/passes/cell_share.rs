@@ -1,14 +1,15 @@
 use crate::analysis::{
     GraphColoring, LiveRangeAnalysis, ReadWriteSet, ShareSet, StaticParTiming,
 };
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::rewriter;
 use calyx_ir::{self as ir};
-use calyx_utils::CalyxResult;
+use calyx_utils::{CalyxResult, OutputFile};
 use itertools::Itertools;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
-use std::fs;
 
 // function to turn cell types to string when we are building the json for
 // share_freqs
@@ -94,25 +95,27 @@ pub struct CellShare {
     /// Cell active in continuous assignments, or ref cells (we want to ignore both)
     cont_ref_cells: HashSet<ir::Id>,
 
-    /// The number of times a given class of cell can be shared. bounds should be
-    /// length 3 to hold the 3 classes: comb cells, registers, and everything else
-    bounds: Vec<Option<i64>>,
+    /// Maps cell types to the corresponding pdf. Each pdf is a hashmap which maps
+    /// the number of times a given cell name reused (i.e., shared) to the
+    /// number of cells that have been shared that many times times.
+    share_freqs: HashMap<ir::Id, HashMap<ir::CellType, HashMap<i64, i64>>>,
 
     /// maps the ids of groups to a set of tuples (i,j), the clock cycles (relative
     /// to the start of the par) that group is live
     par_timing_map: StaticParTiming,
 
-    print_par_timing: bool,
+    // ========= Pass Options ============
+    /// The number of times a given class of cell can be shared. bounds should be
+    /// length 3 to hold the 3 classes: comb cells, registers, and everything else
+    bounds: [Option<i64>; 3],
+
     /// executes cell share pass using Calyx 2020 benchmarks: no component
     /// sharing, and only sharing registers and combinational components
     calyx_2020: bool,
 
-    /// Maps cell types to the corresponding pdf. Each pdf is a hashmap which maps
-    /// the number of times a given cell name reused (i.e., shared) to the
-    /// number of cells that have been shared that many times times.
-    share_freqs: HashMap<ir::Id, HashMap<ir::CellType, HashMap<i64, i64>>>,
     /// whether or not to print the share_freqs
-    print_share_freqs: Option<String>,
+    print_share_freqs: Option<OutputFile>,
+    print_par_timing: Option<OutputFile>,
 }
 
 impl Named for CellShare {
@@ -122,14 +125,42 @@ impl Named for CellShare {
     fn description() -> &'static str {
         "use the fewest possible cells"
     }
+
+    fn opts() -> Vec<PassOpt> {
+        vec![
+            PassOpt::new(
+                "print-share-freqs",
+                "print sharing frequencies",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream
+            ),
+            PassOpt::new(
+                "bounds",
+                "maximum amount of sharing for combinational components, registers, and other components. Negative valye means no bound",
+                ParseVal::List(vec![]),
+                PassOpt::parse_num_list
+            ),
+            PassOpt::new(
+                "print-par-timing",
+                "print timing information for `par` blocks",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream
+            ),
+            PassOpt::new(
+                "calyx-2020",
+                "share using the Calyx 2020 settings: no component sharing, only share registers/combinational components",
+                ParseVal::Bool(false),
+                PassOpt::parse_bool
+            )
+        ]
+    }
 }
 
 impl ConstructVisitor for CellShare {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let state_shareable = ShareSet::from_context::<true>(ctx);
         let shareable = ShareSet::from_context::<false>(ctx);
-        let (print_share_freqs, bounds, print_par_timing, calyx_2020) =
-            Self::parse_args(ctx);
+        let opts = Self::get_opts(ctx);
 
         Ok(CellShare {
             live: LiveRangeAnalysis::default(),
@@ -137,12 +168,12 @@ impl ConstructVisitor for CellShare {
             cont_ref_cells: HashSet::new(),
             state_shareable,
             shareable,
-            bounds,
             par_timing_map: StaticParTiming::default(),
-            print_par_timing,
-            calyx_2020,
             share_freqs: HashMap::new(),
-            print_share_freqs,
+            calyx_2020: opts["calyx-2020"].bool(),
+            bounds: opts["bounds"].num_list_exact::<3>(),
+            print_par_timing: opts["print-par-timing"].not_null_outstream(),
+            print_share_freqs: opts["print-share-freqs"].not_null_outstream(),
         })
     }
 
@@ -185,8 +216,8 @@ impl CellShare {
             comp.name,
             &self.live,
         );
-        if self.print_par_timing {
-            println!("{:?}", self.par_timing_map);
+        if let Some(stream) = &self.print_par_timing {
+            write!(stream.get_write(), "{:?}", self.par_timing_map).unwrap();
         }
     }
 
@@ -199,110 +230,6 @@ impl CellShare {
             self.state_shareable.contains(name) || self.shareable.contains(name)
         } else {
             false
-        }
-    }
-
-    // given a ctx, gets the
-    // 1) file to write the sharing frequencies. for example, if "-x cell-share:print-share-freqs=a.json",
-    // we would return Some(a.json).
-    // 2) gets the bounds. For example, if "-x cell-share:bounds=2,3,4" is passed
-    // we would return [Some(2),Some(3),Some(4)].
-    // 3) whether to print the par timing map. For exampe, if "-x cell-share:print_par_timing"
-    ///4) whether to run sharing with Calyx 2020 settings: no component sharing,
-    /// only share registers/combinational components (e.g., "-x cell-share:calyx_2020")
-    /// 5) whether to share across static par threads (e.g., "-x cell-share:share_static_par")
-    // is passed, then we would return true.
-    fn parse_args(
-        ctx: &ir::Context,
-    ) -> (Option<String>, Vec<Option<i64>>, bool, bool)
-    where
-        Self: Named,
-    {
-        let n = Self::name();
-
-        // getting the given opts for -x cell-share:__
-        let given_opts: HashSet<_> = ctx
-            .extra_opts
-            .iter()
-            .filter_map(|opt| {
-                let mut splits = opt.split(':');
-                if splits.next() == Some(n) {
-                    splits.next()
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        // searching for "-x cell-share:bounds=x,y,z" and getting back "x,y,z"
-        let bounds_arg = given_opts.iter().find_map(|arg| {
-            let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.first() {
-                if str == &"bounds" && split.len() == 2 {
-                    return Some(split[1]);
-                }
-            }
-            None
-        });
-
-        let (mut print_par_timing, mut calyx_2020) = (false, false);
-        // these we know what the exact flags will be so we don't have to pars,e
-        // just check if they're there
-        given_opts.iter().for_each(|arg| {
-            if *arg == "print_par_timing" {
-                print_par_timing = true
-            } else if *arg == "calyx_2020" {
-                calyx_2020 = true
-            }
-        });
-
-        // searching for "-x cell-share:print-share-freqs=file_name" and getting Some(file_name) back
-        let print_pdf_arg = given_opts.iter().find_map(|arg| {
-            let split: Vec<&str> = arg.split('=').collect();
-            if let Some(str) = split.first() {
-                if str == &"print-share-freqs" && split.len() == 2 {
-                    return Some(split[1].to_string());
-                }
-            }
-            None
-        });
-
-        let mut bounds = Vec::new();
-        let mut set_default = false;
-
-        // if bounds_arg = "x,y,z", set bounds to [Some(x),Some(y),Some(z)]
-        // a -1 argument means no bound since that means we always want to share
-        if let Some(s) = bounds_arg {
-            bounds = s
-                .split(',')
-                .map(|s| {
-                    let val = s.parse::<i64>().unwrap_or(-2);
-                    if val == -1 {
-                        None
-                    } else {
-                        Some(val)
-                    }
-                })
-                .collect();
-        } else {
-            set_default = true;
-        }
-
-        if bounds.len() != 3 || bounds.contains(&Some(-2)) {
-            set_default = true;
-        }
-
-        if set_default {
-            // could possibly put vec![x,y,z] where x,y, and z are deliberately
-            // chosen numbers here instead
-            (
-                print_pdf_arg,
-                vec![None, None, None],
-                print_par_timing,
-                calyx_2020,
-            )
-        } else {
-            (print_pdf_arg, bounds, print_par_timing, calyx_2020)
         }
     }
 
@@ -325,15 +252,7 @@ impl CellShare {
                     })
                     .collect();
             let json_share_freqs: Value = json!(printable_share_freqs);
-            if file == "stdout" {
-                println!("{json_share_freqs}");
-            } else if file == "stderr" {
-                eprintln!("{json_share_freqs}");
-                std::process::exit(1);
-            } else {
-                fs::write(file, format!("{}", json_share_freqs))
-                    .expect("unable to write file");
-            }
+            write!(file.get_write(), "{}", json_share_freqs).unwrap()
         }
     }
 }
