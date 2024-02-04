@@ -120,6 +120,20 @@ Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes
 
 ---
 
+### `std_bit_slice<IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH>`
+Extract the bit-string starting at `START_IDX` and ending at `END_IDX - 1` from `in`. 
+This is computed as `in[END_IDX:START_IDX]`.`OUT_WIDTH` must be specified to 
+be `END_WIDTH - START_WITH` wide when instantiating the module.
+
+
+**Inputs:**
+- `in: IN_WIDTH` - An IN_WIDTH-bit value
+  
+**Outputs:**
+
+- `out: OUT_WIDTH` - The value of the bit-string `in[START_IDX:END_IDX]`
+---
+
 ### `std_pad<IN_WIDTH, OUT_WIDTH>`
 
 Given an IN_WIDTH-bit input, zero pad from the left to an output of
