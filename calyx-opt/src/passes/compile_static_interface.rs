@@ -241,6 +241,8 @@ impl CompileStaticInterface {
         let signal_on_guard = guard!(sig_reg["out"]);
         let assigns = build_assignments!(builder;
           // comp.done is just whatever comp.go was on the previous cycle.
+          // (i.e., signal_reg serves as a forwarding register that delays
+          // the signal for one cycle).
           sig_reg["in"] = go_guard ? one["out"];
           sig_reg["in"] = not_go ? zero["out"];
           sig_reg["write_en"] = ? one["out"];
