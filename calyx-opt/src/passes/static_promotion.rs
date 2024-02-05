@@ -283,10 +283,10 @@ impl Visitor for StaticPromotion {
             let comp_sig = comp.signature.borrow();
             let go_ports =
                 comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
-            //
             if go_ports.iter().any(|go_port| {
                 let go_ref = go_port.borrow_mut();
                 go_ref.attributes.has(ir::NumAttr::Promotable)
+                    || go_ref.attributes.has(ir::NumAttr::Interval)
             }) {
                 if comp.control.borrow().is_static() {
                     // We ended up promoting it
@@ -304,6 +304,8 @@ impl Visitor for StaticPromotion {
                     );
                 } else {
                     // We decided not to promote, so we need to update data structures.
+                    // This case should only happen on @promotable components
+                    // (i.e., it shouldn't happen with @interval components).
                     self.inference_analysis.remove_component(comp.name);
                 }
             };
