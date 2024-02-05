@@ -316,10 +316,10 @@ impl Visitor for WellFormed {
             {
                 Some(val) => val,
                 None => {
-                    return Err(Error::malformed_structure(format!(
-                        "@go port expected @interval(n) attribute on all ports \
+                    return Err(Error::malformed_structure(
+                    "@interval(n) attribute on all @go ports \
                         since there is an @interval(n) annotation on at least one port",
-                    ))
+                    )
                     .with_pos(&comp.attributes))
                 }
             };
@@ -348,9 +348,9 @@ impl Visitor for WellFormed {
                 // Checking control latency
                 match comp.control.borrow().get_latency() {
                     None => {
-                        return Err(Error::malformed_structure(format!(
+                        return Err(Error::malformed_structure(
                             "to have @interval annotations, you need static control",
-                        )).with_pos(&comp.attributes))
+                        ).with_pos(&comp.attributes))
                     }
                     Some(control_latency) => {
                         if control_latency != reference_val {
