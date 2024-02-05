@@ -21,7 +21,7 @@ Install it using your OS package manager or by downloading a binary.
 
 Run the following command to edit `fud2`'s configuration file (usually `~/.config/fud2.toml`):
 ```
-fud edit-config
+fud2 edit-config
 ```
 
 Add the following fields:
