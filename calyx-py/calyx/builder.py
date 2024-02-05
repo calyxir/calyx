@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Dict, Union, Optional, List
+from typing import Dict, Union, Optional, List, Type
 from dataclasses import dataclass
 from . import py_ast as ast
 
@@ -897,22 +897,38 @@ class ControlBuilder:
     def __add__(self, other):
         """Build sequential composition."""
         other_stmt = as_control(other)
+        return self._flatten_comp(self.stmt, other_stmt, ast.SeqComp)
 
+    def __mul__(self, other):
+        """Build parallel composition."""
+        other_stmt = as_control(other)
+        return self._flatten_comp(self.stmt, other_stmt, ast.ParComp)
+
+    def _flatten_comp(
+        self,
+        self_stmt: Union[ast.SeqComp, ast.ParComp],
+        other_stmt: Union[ast.SeqComp, ast.ParComp],
+        return_type: Type[Union[ast.SeqComp, ast.ParComp]],
+    ):
+        """Keeps `seq`s and `par`s flat if types match.
+        So something like `seq{seq{A,B}}` remains `seq{A;B}`.
+        `return_type` should be the class name we are interested in flattening.
+        """
+        # One side empty
         if isinstance(self.stmt, ast.Empty):
-            # Special cases for when one side is empty.
             return ControlBuilder(other_stmt)
         elif isinstance(other_stmt, ast.Empty):
             return self
-        elif isinstance(self.stmt, ast.SeqComp) and isinstance(other_stmt, ast.SeqComp):
-            # Special cases for when we already have at least one seq.
-            return ControlBuilder(ast.SeqComp(self.stmt.stmts + other_stmt.stmts))
-        elif isinstance(self.stmt, ast.SeqComp):
-            return ControlBuilder(ast.SeqComp(self.stmt.stmts + [other_stmt]))
-        elif isinstance(other_stmt, ast.SeqComp):
-            return ControlBuilder(ast.SeqComp([self.stmt] + other_stmt.stmts))
+        # At least one side is of type `return_type`
+        elif isinstance(self.stmt, return_type) and isinstance(other_stmt, return_type):
+            return ControlBuilder(return_type(self.stmt.stmts + other_stmt.stmts))
+        elif isinstance(self.stmt, return_type):
+            return ControlBuilder(return_type(self.stmt.stmts + [other_stmt]))
+        elif isinstance(other_stmt, return_type):
+            return ControlBuilder(return_type([self.stmt] + other_stmt.stmts))
+        # General case
         else:
-            # General case.
-            return ControlBuilder(ast.SeqComp([self.stmt, as_control(other)]))
+            return ControlBuilder(return_type([self.stmt, other_stmt]))
 
 
 class ExprBuilder:
