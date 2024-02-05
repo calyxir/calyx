@@ -7,22 +7,22 @@ component main() -> () {
   }
 
   wires {
-    comb group cond<"static"=0> {
+    comb group cond<"promotable"=0> {
       //b/c lt is used in this distinctly not-last group,
       //by end of execution all its ports are 0/X/not asserted.
       lt.left = 32'd9;
       lt.right = 32'd16;
     }
 
-    group true<"static"=1> {
+    group true<"promotable"=1> {
       mem.write_en = 1'd1;
       mem.addr0 = 1'd0;
       mem.write_data = 32'd4;
       true[done] = mem.done;
     }
 
-    group false<"static"=1> {
-      //since this isn't a single group 
+    group false<"promotable"=1> {
+      //since this isn't a single group
       //execution, mem also has a done of 0
       mem.write_en = 1'd1;
       mem.addr0 = 1'd0;
@@ -33,7 +33,7 @@ component main() -> () {
 
   control {
     //you can't really check
-    //contents of [mem] at end, 
+    //contents of [mem] at end,
     //cuz our serializiation doesn't
     //support that currently
     if lt.out with cond { //reg0 should have a done of 0 at the end of main execution
