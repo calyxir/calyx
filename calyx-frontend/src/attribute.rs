@@ -110,7 +110,9 @@ pub enum NumAttr {
     #[strum(serialize = "interval")]
     /// Placed on @go ports of components to denote the II of a component, which
     /// is the same as the latency for non pipelined components.
-    /// Can only be placed if we can *guarantee* the interval of the component.
+    /// This indicates the component can serve ``double-duty'' as both static and
+    /// dynamic.
+    /// Therefore, we only place if we can *guarantee* the interval of the component.
     /// (e.g., Calyx components must have `static<n>` control` if they have
     /// the @interval(n) annotation on the `go` port.)
     Interval,
