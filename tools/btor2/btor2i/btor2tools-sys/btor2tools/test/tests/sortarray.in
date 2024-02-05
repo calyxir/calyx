@@ -1,0 +1,5 @@
+1 sort bitvec 3
+2 sort bitvec 4
+3 sort array 1 2
+4 sort array 1 1
+5 sort array 2 2

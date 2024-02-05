@@ -1,0 +1,15 @@
+1 sort bitvec 1
+2 input 1 enable
+3 input 1 reset
+4 sort bitvec 4
+5 zero 4
+6 state 4 counter
+7 init 4 6 5
+8 one 4
+9 add 4 6 8
+10 ite 4 2 9 6
+11 ite 4 3 5 10
+12 next 4 6 11
+13 ones 4
+14 eq 1 6 13
+15 bad 14

@@ -1,0 +1,4 @@
+4 sort bitvec 32
+7 sort bitvec 1
+2 zero 4
+1 zero 7

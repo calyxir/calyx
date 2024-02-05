@@ -1,0 +1,19 @@
+[package]
+name          = "btor2tools"
+description   = "High-level bindings for the btor2tools package"
+authors       = ["Christian Mösl <christian.moesl@live.at>"]
+license       = "MIT"
+categories    = ["api-bindings"]
+keywords      = ["ffi", "btor2", "parser"]
+documentation = "https://docs.rs/btor2tools"
+repository    = "https://github.com/ChristianMoesl/btor2tools.rs"
+homepage      = "https://github.com/ChristianMoesl/btor2tools.rs"
+edition       = "2018"
+version       ="1.1.0"
+
+[dependencies]
+thiserror = "~1.0.22"
+
+[dependencies.btor2tools-sys]
+version = "~1.0.0"
+path = "../btor2tools-sys"

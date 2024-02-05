@@ -1,0 +1,13 @@
+extract = 'total_lines: (\d+)'
+benchmarks = 'tests/*.txt'
+timeout = 5
+
+[runs.count_stdin]
+pipeline = [
+    "python prog_1.py {file_path} {args}",
+]
+
+[runs.count_in_file]
+pipeline = [
+    "python prog_2.py {file_path} {args}",
+]

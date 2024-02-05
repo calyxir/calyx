@@ -1,0 +1,78 @@
+; many XORs followed by splitting the output into chunks
+; ARGS: input0=0b01111010000100111001100100010000 input1=0b01001111110011010111110111100000 input2=0b01011011011110110110111010001110 input3=0b01011001010100100001010111110111 input4=0b01100000000000010110100000100000 input5=0b11001010100001010000100010011000 input6=0b10001000101110111110110110011111 input7=0b01111100011011101000000011100111
+1 sort bitvec 32
+2 sort bitvec 64
+3 sort bitvec 128
+4 sort bitvec 256
+5 sort bitvec 512
+6 input 1 input0
+7 input 1 input1
+8 input 1 input2
+9 input 1 input3
+10 input 1 input4
+11 input 1 input5
+12 input 1 input6
+13 input 1 input7
+14 xor 1 7 11
+15 xor 1 7 11
+16 xor 1 7 11
+17 xor 1 6 11
+18 xor 1 7 6
+19 xor 1 6 7
+20 xor 1 10 8
+21 xor 1 7 13
+22 xor 1 8 12
+23 xor 1 12 10
+24 xor 1 12 13
+25 xor 1 8 7
+26 xor 1 13 8
+27 xor 1 12 10
+28 xor 1 10 12
+29 xor 1 7 6
+30 xor 1 23 19
+31 xor 1 21 20
+32 xor 1 29 18
+33 xor 1 15 14
+34 xor 1 23 21
+35 xor 1 19 26
+36 xor 1 25 18
+37 xor 1 28 20
+38 xor 1 15 25
+39 xor 1 19 18
+40 xor 1 16 27
+41 xor 1 18 25
+42 xor 1 20 16
+43 xor 1 28 29
+44 xor 1 27 21
+45 xor 1 23 23
+46 concat 2 30 31
+47 concat 2 32 33
+48 concat 2 34 35
+49 concat 2 36 37
+50 concat 2 38 39
+51 concat 2 40 41
+52 concat 2 42 43
+53 concat 2 44 45
+54 concat 3 46 47
+55 concat 3 48 49
+56 concat 3 50 51
+57 concat 3 52 53
+58 concat 4 54 55
+59 concat 4 56 57
+60 concat 5 58 59
+61 slice 1 60 31 0
+62 slice 1 60 63 32
+63 slice 1 60 95 64
+64 slice 1 60 127 96
+65 slice 1 60 159 128
+66 slice 1 60 191 160
+67 slice 1 60 223 192
+68 slice 1 60 255 224
+69 output 61 output0
+70 output 62 output1
+71 output 63 output2
+72 output 64 output3
+73 output 65 output4
+74 output 66 output5
+75 output 67 output6
+76 output 68 output7

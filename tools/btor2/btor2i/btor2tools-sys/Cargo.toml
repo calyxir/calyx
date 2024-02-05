@@ -1,0 +1,21 @@
+[package]
+name          = "btor2tools-sys"
+description   = "Low-level bindings for the btor2tools package"
+authors       = ["Christian Mösl <christian.moesl@live.at>"]
+license       = "MIT"
+categories    = ["external-ffi-bindings"]
+keywords      = ["ffi", "btor2", "parser"]
+documentation = "https://docs.rs/btor2tools-sys"
+repository    = "https://github.com/ChristianMoesl/btor2tools-sys"
+homepage      = "https://github.com/ChristianMoesl/btor2tools-sys"
+links         = "btor2parser"
+edition       = "2018"
+version       ="1.0.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+bindgen = "~0.68.0"
+copy_dir = "~0.1.2"
+
+[dependencies]

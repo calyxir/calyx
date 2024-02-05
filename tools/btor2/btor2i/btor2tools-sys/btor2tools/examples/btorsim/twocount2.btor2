@@ -1,0 +1,20 @@
+1 sort bitvec 1
+2 sort bitvec 2
+3 input 1 turn
+4 zero 2
+5 state 2 a
+6 state 2 b
+7 init 2 5 4
+8 init 2 6 4
+9 one 2
+10 add 2 5 9
+11 add 2 6 9
+12 ite 2 3 5 10
+13 ite 2 -3 6 11
+14 next 2 5 12
+15 next 2 6 13
+16 ones 2
+17 eq 1 5 16
+18 eq 1 6 16
+19 and 1 17 18
+20 bad 19
