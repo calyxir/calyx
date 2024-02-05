@@ -1,5 +1,6 @@
 use crate::config;
-use crate::driver::{relative_path, Driver, OpRef, Plan, SetupRef, StateRef};
+use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
+use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
