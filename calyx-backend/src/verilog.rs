@@ -5,6 +5,7 @@
 
 use crate::traits::Backend;
 use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
+use calyx_stdlib as primitives;
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
@@ -17,21 +18,6 @@ use vast::v17::ast as v;
 /// and no groups.
 #[derive(Default)]
 pub struct VerilogBackend;
-
-// input string should be the cell type name of a memory cell. In other words one
-// of "seq/std_mem_d_1/2/3/4". Becase we define seq_mem_d2/3/4 in terms of seq_mem_d1
-// we need another layer of memory access to get the actual memory array in verilog
-// for these mem types.
-// In other words, for memories not defined in terms of another memory, we can just use
-// "mem" to access them. But for memories defined in terms of another memory,
-// which are seq_mem_d2/3/4, we need "mem.mem" to access them.
-fn get_mem_str(mem_type: &str) -> &str {
-    if mem_type.contains("d1") || mem_type.contains("std_mem") {
-        "mem"
-    } else {
-        "mem.mem"
-    }
-}
 
 /// Checks to make sure that there are no holes being
 /// used in a guard.
@@ -778,22 +764,29 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         .cells
         .iter()
         .filter_map(|cell| {
-            let is_external = cell.borrow().get_attribute(ir::BoolAttr::External).is_some();
-            if is_external
-                && cell
-                    .borrow()
-                    .type_name()
-                    // HACK: Check if the name of the primitive contains the string "mem"
-                    .map(|proto| proto.id.as_str().contains("mem"))
-                    .unwrap_or_default()
-            {
-                Some((
-                    cell.borrow().name().id,
-                    cell.borrow().type_name().unwrap_or_else(|| unreachable!("tried to add a memory cell but there was no type name")),
-                ))
-            } else {
-                None
+            let cell = cell.borrow();
+            if !cell.has_attribute(ir::BoolAttr::External) {
+                return None;
             }
+            let loadable = cell
+                .type_name()
+                .map(|n| primitives::is_loadable(n.id.as_str()))
+                .unwrap_or_default();
+            if !loadable {
+                log::warn!(
+                    "Cell {} is marked as external but is not loadable",
+                    cell.name().id
+                );
+                return None;
+            }
+            Some((
+                cell.name().id,
+                cell.type_name().unwrap_or_else(|| {
+                    unreachable!(
+                        "tried to add a memory cell but there was no type name"
+                    )
+                }),
+            ))
         })
         .collect_vec();
 
@@ -827,7 +820,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
         )));
 
     memories.iter().for_each(|(name, mem_type)| {
-        let mem_access_str = get_mem_str(mem_type.id.as_str());
+        let mem_access_str = primitives::load_path(mem_type.id.as_str());
         initial_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$readmemh",
             vec![
@@ -844,7 +837,7 @@ fn memory_read_write(comp: &ir::Component) -> Vec<v::Stmt> {
 
     let mut final_block = v::ParallelProcess::new_final();
     memories.iter().for_each(|(name, mem_type)| {
-        let mem_access_str = get_mem_str(mem_type.id.as_str());
+        let mem_access_str = primitives::load_path(mem_type.id.as_str());
 
         final_block.add_seq(v::Sequential::new_seqexpr(v::Expr::new_call(
             "$writememh",

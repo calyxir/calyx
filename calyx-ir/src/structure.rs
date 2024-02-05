@@ -422,6 +422,11 @@ impl Cell {
         self.attributes.get(attr.into())
     }
 
+    /// Return true if this cell has the given attribute.
+    pub fn has_attribute<A: Into<Attribute>>(&self, attr: A) -> bool {
+        self.attributes.has(attr.into())
+    }
+
     /// Add a new attribute to the group.
     pub fn add_attribute<A: Into<Attribute>>(&mut self, attr: A, value: u64) {
         self.attributes.insert(attr.into(), value);

@@ -31,12 +31,14 @@ primitive std_reg<"state_share"=1>[WIDTH](
 )
 // ANCHOR_END: std_reg_def
 {
+  logic [WIDTH-1:0] mem;
+  assign out = mem;
   always_ff @(posedge clk) begin
     if (reset) begin
-       out <= 0;
+       mem <= 0;
        done <= 0;
     end else if (write_en) begin
-      out <= in;
+      mem <= in;
       done <= 1'd1;
     end else done <= 1'd0;
   end
