@@ -108,7 +108,7 @@ impl ConstructVisitor for WellFormed {
             }
 
             // Main component cannot use `ref` cells
-            if comp.name == ctx.entrypoint {
+            if ctx.bc.emit_primitive_extmodules && comp.name == ctx.entrypoint {
                 for cell in comp.cells.iter() {
                     if cell.borrow().is_reference() {
                         return Err(Error::malformed_structure(

@@ -183,6 +183,51 @@ fn build_driver() -> Driver {
         |e, input, output| {
             e.build_cmd(&[output], "calyx", &[input], &[])?;
             e.arg("backend", "firrtl")?;
+            e.arg("args", "--emit-primitive-extmodules")?;
+            Ok(())
+        },
+    );
+
+    let firrtl_primitives_setup = bld.setup("FIRRTL with primitives", |e| {
+        e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
+        e.var(
+            "gen-firrtl-primitives-script",
+            "$calyx-base/tools/firrtl/generate-firrtl-with-primitives.py",
+        )?;
+        e.rule(
+            "generate-firrtl-with-primitives",
+            "python3 $gen-firrtl-primitives-script $in > $out",
+        )?;
+        Ok(())
+    });
+
+    // Generates FIRRTL with FIRRTL definition of primitives
+    bld.op(
+        "firrtl-with-primitives",
+        &[calyx_setup, firrtl_primitives_setup],
+        calyx,
+        firrtl,
+        |e, input, output| {
+            let tmp_calyx = "partial.futil";
+            let tmp_firrtl = "partial.fir";
+            let tmp_json = "primitive-uses.json";
+            // replace extmodule with ref
+            e.build_cmd(&[tmp_calyx], "external-to-ref", &[input], &[])?;
+            // get original firrtl
+            e.build_cmd(&[tmp_firrtl], "calyx", &[tmp_calyx], &[])?;
+            e.arg("backend", "firrtl")?;
+            // get primitive uses json
+            e.build_cmd(&[tmp_json], "calyx", &[input], &[])?;
+            e.arg("backend", "primitive-uses")?;
+            // avoid generating std_mem_d* FIRRTL definitions
+            e.arg("args", "-p external")?;
+            // output whole FIRRTL program
+            e.build_cmd(
+                &[output],
+                "generate-firrtl-with-primitives",
+                &[tmp_firrtl, tmp_json],
+                &[],
+            )?;
             Ok(())
         },
     );
