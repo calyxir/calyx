@@ -84,7 +84,7 @@ fn build_driver() -> Driver {
     let dat = bld.state("dat", &["json"]);
     let vcd = bld.state("vcd", &["vcd"]);
     let simulator = bld.state("sim", &["exe"]);
-    let sim_setup = bld.setup("RTL simulation", |e| {
+    let sim_common_setup = bld.setup("RTL simulation", |e| {
         // Data conversion to and from JSON.
         e.config_var_or("python", "python", "python3")?;
         e.var(
@@ -93,9 +93,6 @@ fn build_driver() -> Driver {
         )?;
         e.rule("hex-data", "$json_dat --from-json $in $out")?;
         e.rule("json-data", "$json_dat --to-json $out $in")?;
-
-        // The Verilog testbench.
-        e.var("testbench", &format!("{}/tb.sv", e.config_val("rsrc")?))?;
 
         // The input data file. `sim.data` is required.
         let data_name = e.config_val("sim.data")?;
@@ -117,30 +114,63 @@ fn build_driver() -> Driver {
 
         Ok(())
     });
+    let sim_normal_setup = bld.setup("Normal Testbench Setup", |e| {
+        // The Verilog testbench.
+        e.var("testbench", &format!("{}/tb.sv", e.config_val("rsrc")?))?;
+        Ok(())
+    });
+    let sim_mem_externalized_setup =
+        bld.setup("Externalized Memories Testbench Setup", |e| {
+            // Supply the special testbench and std_mem_d1 implementation.
+            e.var(
+                "testbench",
+                &format!(
+                    "{}/externalized_mem_tb.sv {}/std_mem_d1.sv",
+                    e.config_val("rsrc")?,
+                    e.config_val("rsrc")?
+                ),
+            )?;
+            Ok(())
+        });
+    fn sim_build(e: &mut Emitter, input: &str, output: &str) -> EmitResult {
+        e.build_cmd(&["sim.log"], "sim-run", &[input, "$datadir"], &[])?;
+        e.arg("bin", input)?;
+        e.arg("args", "+NOTRACE=1")?;
+        e.build_cmd(&[output], "json-data", &["$datadir", "sim.log"], &[])?;
+        Ok(())
+    }
     bld.op(
         "simulate",
-        &[sim_setup],
+        &[sim_common_setup, sim_normal_setup],
         simulator,
         dat,
+        sim_build,
+    );
+    // the only difference between "simulate" and "simulate-externalized-memory" is
+    bld.op(
+        "simulate-externalized-memory",
+        &[sim_common_setup, sim_mem_externalized_setup],
+        simulator,
+        dat,
+        sim_build,
+    );
+    bld.op(
+        "trace",
+        &[sim_common_setup, sim_normal_setup],
+        simulator,
+        vcd,
         |e, input, output| {
-            e.build_cmd(&["sim.log"], "sim-run", &[input, "$datadir"], &[])?;
+            e.build_cmd(
+                &["sim.log", output],
+                "sim-run",
+                &[input, "$datadir"],
+                &[],
+            )?;
             e.arg("bin", input)?;
-            e.arg("args", "+NOTRACE=1")?;
-            e.build_cmd(&[output], "json-data", &["$datadir", "sim.log"], &[])?;
+            e.arg("args", &format!("+NOTRACE=0 +OUT={}", output))?;
             Ok(())
         },
     );
-    bld.op("trace", &[sim_setup], simulator, vcd, |e, input, output| {
-        e.build_cmd(
-            &["sim.log", output],
-            "sim-run",
-            &[input, "$datadir"],
-            &[],
-        )?;
-        e.arg("bin", input)?;
-        e.arg("args", &format!("+NOTRACE=0 +OUT={}", output))?;
-        Ok(())
-    });
 
     // Icarus Verilog.
     let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
@@ -164,7 +194,7 @@ fn build_driver() -> Driver {
     );
     bld.op(
         "icarus",
-        &[sim_setup, icarus_setup],
+        &[sim_common_setup, sim_normal_setup, icarus_setup],
         verilog_noverify,
         simulator,
         |e, input, output| {
@@ -265,6 +295,13 @@ fn build_driver() -> Driver {
         verilog_noverify,
         firrtl_compile,
     );
+    bld.op(
+        "firrtl-with-primitives-noverify",
+        &[firrtl_setup],
+        firrtl,
+        verilog_noverify,
+        firrtl_compile,
+    );
 
     // primitive-uses backend
     let primitive_uses_json = bld.state("primitive-uses-json", &["json"]);
@@ -293,7 +330,7 @@ fn build_driver() -> Driver {
     });
     bld.op(
         "verilator",
-        &[sim_setup, verilator_setup],
+        &[sim_common_setup, sim_normal_setup, verilator_setup],
         verilog,
         simulator,
         |e, input, output| {
@@ -338,7 +375,7 @@ fn build_driver() -> Driver {
     });
     bld.op(
         "interp",
-        &[sim_setup, calyx_setup, cider_setup],
+        &[sim_common_setup, sim_normal_setup, calyx_setup, cider_setup],
         calyx,
         dat,
         |e, input, output| {
@@ -355,7 +392,7 @@ fn build_driver() -> Driver {
     );
     bld.op(
         "debug",
-        &[sim_setup, calyx_setup, cider_setup],
+        &[sim_common_setup, sim_normal_setup, calyx_setup, cider_setup],
         calyx,
         debug,
         |e, input, output| {
@@ -443,7 +480,7 @@ fn build_driver() -> Driver {
     });
     bld.op(
         "xrt",
-        &[xilinx_setup, sim_setup, xrt_setup],
+        &[xilinx_setup, sim_common_setup, sim_normal_setup, xrt_setup],
         xclbin,
         dat,
         |e, input, output| {
@@ -460,7 +497,7 @@ fn build_driver() -> Driver {
     );
     bld.op(
         "xrt-trace",
-        &[xilinx_setup, sim_setup, xrt_setup],
+        &[xilinx_setup, sim_common_setup, sim_normal_setup, xrt_setup],
         xclbin,
         vcd,
         |e, input, output| {
