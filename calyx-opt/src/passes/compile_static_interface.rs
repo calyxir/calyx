@@ -210,8 +210,8 @@ impl CompileStaticInterface {
         let go_guard = guard!(comp_sig["go"]);
         let not_go_guard = !guard!(comp_sig["go"]);
         let first_state_guard = guard!(fsm["out"] == first_state["out"]);
-        let signal_on_guard = guard!(sig_reg["out"]);
-        let comp_done_guard = first_state_guard & signal_on_guard;
+        let comp_done_guard =
+            guard!(fsm["out"] == first_state["out"]) & guard!(sig_reg["out"]);
         let assigns = build_assignments!(builder;
           // only set sig_reg when fsm == 0
           sig_reg["write_en"] = first_state_guard ? one["out"];
@@ -237,7 +237,7 @@ impl CompileStaticInterface {
           let zero = constant(0, 1);
         );
         let go_guard = guard!(comp_sig["go"]);
-        let not_go = !go_guard;
+        let not_go = !guard!(comp_sig["go"]);
         let signal_on_guard = guard!(sig_reg["out"]);
         let assigns = build_assignments!(builder;
           // comp.done is just whatever comp.go was on the previous cycle.

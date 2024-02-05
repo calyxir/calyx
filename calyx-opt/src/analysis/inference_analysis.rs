@@ -101,10 +101,12 @@ impl From<&ir::Cell> for GoDone {
                     Some(st) => Some(st),
                     None => port.attributes.get(ir::NumAttr::Promotable),
                 };
-                if st.is_some() {
+                if let Some(static_latency) = st {
                     return done_ports
                         .get(&port.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (port.name, *done_port, st.unwrap()));
+                        .map(|done_port| {
+                            (port.name, *done_port, static_latency)
+                        });
                 }
                 None
             })

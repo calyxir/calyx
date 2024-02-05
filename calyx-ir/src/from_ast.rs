@@ -51,7 +51,7 @@ fn get_comp_latency(
                     });
                 // Annoying thing we have to do bc NonZeroU64.
                 match interval_value {
-                    Some(lat) => Ok(Some(NonZeroU64::new(lat)).unwrap()),
+                    Some(lat) => Ok(NonZeroU64::new(lat)),
                     None => Ok(None),
                 }
             }
@@ -71,7 +71,7 @@ fn get_comp_latency(
                     });
                 // Annoying thing we have to do bc NonZeroU64.
                 match interval_value {
-                    Some(lat) => Ok(Some(NonZeroU64::new(lat)).unwrap()),
+                    Some(lat) => Ok(NonZeroU64::new(lat)),
                     None => Ok(None),
                 }
             }
