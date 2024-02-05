@@ -659,6 +659,26 @@ impl<'a> Simulator<'a> {
             }
         }
 
+        // need to cleanup the finished groups
+        for (mut node, _) in done_groups {
+            if get_next(&mut node, self.env.ctx) {
+                self.env.pc.insert_node(node)
+            }
+        }
+
+        Ok(())
+    }
+
+    fn is_done(&self) -> bool {
+        // TODO griffin: need to handle structural components
+        self.env.pc.is_done()
+    }
+
+    /// Evaluate the entire program
+    pub fn run_program(&mut self) -> InterpreterResult<()> {
+        while !self.is_done() {
+            self.step()?
+        }
         Ok(())
     }
 
@@ -721,22 +741,6 @@ impl<'a> Simulator<'a> {
         let assigns_bundle = self.get_assignments(control_points);
         let mut has_changed = true;
 
-        // let parent_cells: HashSet<GlobalCellIdx> = assigns_bundle
-        //     .iter()
-        //     .flat_map(|(cell, assigns)| {
-        //         assigns.iter().flat_map(|x| {
-        //             let assign = &self.env.ctx.primary[x];
-
-        //             [
-        //                 self.get_parent_cell(assign.dst, *cell),
-        //                 self.get_parent_cell(assign.src, *cell),
-        //             ]
-        //             .into_iter()
-        //         })
-        //     })
-        //     .flatten()
-        //     .collect();
-
         while has_changed {
             has_changed = false;
 
@@ -792,11 +796,8 @@ impl<'a> Simulator<'a> {
         for _x in self.env.pc.iter() {
             // println!("{:?} next {:?}", x, self.find_next_control_point(x))
         }
-        self.step();
-        self.step();
-        self.step();
-        self.step();
-        self.step();
+
+        self.run_program();
 
         self.env.print_pc();
         self.print_env();
