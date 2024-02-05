@@ -84,13 +84,6 @@ impl Primitive for StdMux {
         }
     }
 
-    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
-        ports![&self.base; out: Self::OUT];
-        port_map.write_undef_unchecked(out);
-
-        Ok(())
-    }
-
     fn has_stateful(&self) -> bool {
         false
     }

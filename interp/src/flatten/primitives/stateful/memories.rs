@@ -16,6 +16,7 @@ use crate::{
 pub struct StdReg {
     base_port: GlobalPortIdx,
     internal_state: Value,
+    done_is_high: bool,
 }
 
 impl StdReg {
@@ -26,6 +27,7 @@ impl StdReg {
         Self {
             base_port,
             internal_state,
+            done_is_high: false,
         }
     }
 }
@@ -43,7 +45,7 @@ impl Primitive for StdReg {
         let done_port = if port_map[reset].as_bool().unwrap_or_default() {
             self.internal_state = Value::zeroes(self.internal_state.width());
             port_map
-                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))
+                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))?
         } else if port_map[write_en].as_bool().unwrap_or_default() {
             self.internal_state = port_map[input]
                 .as_option()
@@ -51,12 +53,20 @@ impl Primitive for StdReg {
                 .val()
                 .clone();
 
-            port_map
-                .insert_val(done, AssignedValue::cell_value(Value::bit_high()))
+            self.done_is_high = true;
+
+            port_map.insert_val(
+                done,
+                AssignedValue::cell_value(Value::bit_high()),
+            )? | port_map.insert_val(
+                out_idx,
+                AssignedValue::cell_value(self.internal_state.clone()),
+            )?
         } else {
+            self.done_is_high = false;
             port_map
-                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))
-        }?;
+                .insert_val(done, AssignedValue::cell_value(Value::bit_low()))?
+        };
 
         Ok(done_port
             | port_map.insert_val(
@@ -65,18 +75,24 @@ impl Primitive for StdReg {
             )?)
     }
 
-    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
-        ports![&self.base_port; done: Self::DONE];
-        port_map[done] = PortValue::new_cell(Value::bit_low());
-        Ok(())
-    }
-
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
-        ports![&self.base_port; out_idx: Self::OUT];
-        port_map.insert_val(
+        ports![&self.base_port;
+            done: Self::DONE,
+            out_idx: Self::OUT];
+        let out_signal = port_map.insert_val(
             out_idx,
             AssignedValue::cell_value(self.internal_state.clone()),
-        )
+        )?;
+        let done_signal = port_map.insert_val(
+            done,
+            AssignedValue::cell_value(if self.done_is_high {
+                Value::bit_high()
+            } else {
+                Value::bit_low()
+            }),
+        )?;
+
+        Ok(out_signal | done_signal)
     }
 
     fn serialize(
@@ -357,15 +373,6 @@ impl<M: MemAddresser> Primitive for StdMem<M> {
         } else {
             Ok(done)
         }
-    }
-
-    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
-        let (read_data, done) = (self.read_data(), self.done());
-
-        port_map.write_undef_unchecked(read_data);
-        port_map[done] = PortValue::new_cell(Value::bit_low());
-
-        Ok(())
     }
 
     fn serialize(

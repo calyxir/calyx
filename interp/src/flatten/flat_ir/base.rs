@@ -351,7 +351,7 @@ impl AssignedValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 /// A wrapper struct around an option of an [AssignedValue]
 pub struct PortValue(Option<AssignedValue>);
 
@@ -407,6 +407,12 @@ impl PortValue {
     pub fn new_implicit(val: Value) -> Self {
         Self(Some(AssignedValue::implicit_value(val)))
     }
+
+    /// Sets the value to undefined and returns the former value if present.
+    /// This is equivalent to [Option::take]
+    pub fn set_undef(&mut self) -> Option<AssignedValue> {
+        self.0.take()
+    }
 }
 
 impl From<Option<AssignedValue>> for PortValue {
@@ -418,6 +424,12 @@ impl From<Option<AssignedValue>> for PortValue {
 impl From<AssignedValue> for PortValue {
     fn from(value: AssignedValue) -> Self {
         Self(Some(value))
+    }
+}
+
+impl From<PortValue> for Option<AssignedValue> {
+    fn from(value: PortValue) -> Self {
+        value.0
     }
 }
 

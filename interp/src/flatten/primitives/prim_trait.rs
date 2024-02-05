@@ -107,10 +107,6 @@ pub trait Primitive {
         Ok(UpdateStatus::Unchanged)
     }
 
-    fn reset(&mut self, _port_map: &mut PortMap) -> InterpreterResult<()> {
-        Ok(())
-    }
-
     fn has_comb(&self) -> bool {
         true
     }

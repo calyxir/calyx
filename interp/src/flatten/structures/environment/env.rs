@@ -530,6 +530,7 @@ impl<'a> Simulator<'a> {
         // this step. These are indices into the program counter
 
         let mut leaf_nodes = vec![];
+        let mut done_groups = vec![];
 
         self.env.pc.vec_mut().retain_mut(|node| {
             // just considering a single node case for the moment
@@ -604,34 +605,57 @@ impl<'a> Simulator<'a> {
 
                 // ===== leaf nodes =====
                 ControlNode::Empty(_) => get_next(node, self.env.ctx),
-                ControlNode::Enable(_) => {
-                    leaf_nodes.push(node.clone());
-                    true
+                ControlNode::Enable(e) => {
+                    let done_local = self.env.ctx.primary[e.group()].done;
+                    let done_idx = &self.env.cells[node.comp]
+                        .as_comp()
+                        .unwrap()
+                        .index_bases
+                        + done_local;
+
+                    if !self.env.ports[done_idx].as_bool().unwrap_or_default() {
+                        leaf_nodes.push(node.clone());
+                        true
+                    } else {
+                        done_groups.push((
+                            node.clone(),
+                            self.env.ports[done_idx].clone(),
+                        ));
+                        // remove from the list now
+                        false
+                    }
                 }
                 ControlNode::Invoke(_) => todo!("invokes not implemented yet"),
             }
         });
 
+        self.undef_all_ports();
+        for (node, val) in &done_groups {
+            match &self.env.ctx.primary[node.control_node] {
+                ControlNode::Enable(e) => {
+                    let done_local = self.env.ctx.primary[e.group()].done;
+                    let done_idx = &self.env.cells[node.comp]
+                        .as_comp()
+                        .unwrap()
+                        .index_bases
+                        + done_local;
+                    self.env.ports[done_idx] = val.clone();
+                }
+                ControlNode::Invoke(_) => todo!(),
+                _ => {
+                    unreachable!("non-leaf node included in list of done nodes. This should never happen, please report it.")
+                }
+            }
+        }
+
         self.simulate_combinational(&leaf_nodes)?;
 
-        let parent_cells: HashSet<GlobalCellIdx> = self
-            .get_assignments(&leaf_nodes)
-            .iter()
-            .flat_map(|(cell, assigns)| {
-                assigns.iter().map(|x| {
-                    let assign = &self.env.ctx.primary[x];
-                    self.get_parent_cell(assign.dst, *cell)
-                })
-            })
-            .flatten()
-            .collect();
-
-        for cell in parent_cells {
-            match &mut self.env.cells[cell] {
+        for cell in self.env.cells.values_mut() {
+            match cell {
                 CellLedger::Primitive { cell_dyn } => {
                     cell_dyn.exec_cycle(&mut self.env.ports)?;
                 }
-                CellLedger::Component(_) => todo!(),
+                CellLedger::Component(_) => {}
             }
         }
 
@@ -684,6 +708,12 @@ impl<'a> Simulator<'a> {
         }
     }
 
+    fn undef_all_ports(&mut self) {
+        for (_idx, port_val) in self.env.ports.iter_mut() {
+            port_val.set_undef();
+        }
+    }
+
     fn simulate_combinational(
         &mut self,
         control_points: &[ControlPoint],
@@ -691,21 +721,21 @@ impl<'a> Simulator<'a> {
         let assigns_bundle = self.get_assignments(control_points);
         let mut has_changed = true;
 
-        let parent_cells: HashSet<GlobalCellIdx> = assigns_bundle
-            .iter()
-            .flat_map(|(cell, assigns)| {
-                assigns.iter().flat_map(|x| {
-                    let assign = &self.env.ctx.primary[x];
+        // let parent_cells: HashSet<GlobalCellIdx> = assigns_bundle
+        //     .iter()
+        //     .flat_map(|(cell, assigns)| {
+        //         assigns.iter().flat_map(|x| {
+        //             let assign = &self.env.ctx.primary[x];
 
-                    [
-                        self.get_parent_cell(assign.dst, *cell),
-                        self.get_parent_cell(assign.src, *cell),
-                    ]
-                    .into_iter()
-                })
-            })
-            .flatten()
-            .collect();
+        //             [
+        //                 self.get_parent_cell(assign.dst, *cell),
+        //                 self.get_parent_cell(assign.src, *cell),
+        //             ]
+        //             .into_iter()
+        //         })
+        //     })
+        //     .flatten()
+        //     .collect();
 
         while has_changed {
             has_changed = false;
@@ -735,13 +765,16 @@ impl<'a> Simulator<'a> {
             }
 
             // Run all the primitives
-            let changed: bool = parent_cells
+            let changed: bool = self
+                .env
+                .cells
+                .range()
                 .iter()
-                .map(|x| match &mut self.env.cells[*x] {
+                .filter_map(|x| match &mut self.env.cells[x] {
                     CellLedger::Primitive { cell_dyn } => {
-                        cell_dyn.exec_comb(&mut self.env.ports)
+                        Some(cell_dyn.exec_comb(&mut self.env.ports))
                     }
-                    CellLedger::Component(_) => todo!(),
+                    CellLedger::Component(_) => None,
                 })
                 .fold_ok(UpdateStatus::Unchanged, |has_changed, update| {
                     has_changed | update
@@ -759,6 +792,9 @@ impl<'a> Simulator<'a> {
         for _x in self.env.pc.iter() {
             // println!("{:?} next {:?}", x, self.find_next_control_point(x))
         }
+        self.step();
+        self.step();
+        self.step();
         self.step();
         self.step();
 
