@@ -47,9 +47,10 @@ RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/tvm-*.whl
 
 # Install Dahlia
 WORKDIR /home
-RUN git clone https://github.com/cucapra/dahlia.git && \
-    git checkout a352e60
+RUN git clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
+## Checkout specific version
+RUN git checkout a352e60
 RUN sbt "; getHeaders; assembly"
 
 # Add the Calyx source code from the build context
