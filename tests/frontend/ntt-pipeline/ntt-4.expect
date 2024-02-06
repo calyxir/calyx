@@ -8,6 +8,7 @@
 // +---+-----------------------+-----------------------+
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
     @external a = comb_mem_d1(32, 4, 3);
