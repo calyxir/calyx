@@ -1,5 +1,6 @@
 // -p validate -p unroll-bound
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {

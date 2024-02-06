@@ -1,6 +1,7 @@
 // -p well-formed -p static-promotion -x static-promotion:threshold=5 -p dead-group-removal
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component foo(base: 32, exp: 4, @go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {

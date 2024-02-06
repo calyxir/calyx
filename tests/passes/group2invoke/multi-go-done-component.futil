@@ -1,6 +1,7 @@
 // -p group2invoke
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 extern "./multi-go-done-component.futil" {
   primitive real_mem(

@@ -1,5 +1,6 @@
 // -p validate -p comb-prop
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main(in: 32) -> (out: 32) {
   cells {
     wire1 = std_wire(32);

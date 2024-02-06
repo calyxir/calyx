@@ -1,7 +1,8 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
-    @external(1) mem0 = std_mem_d1(4, 1, 1);
+    @external(1) mem0 = comb_mem_d1(4, 1, 1);
   }
   wires {
     group identity {

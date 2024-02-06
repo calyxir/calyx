@@ -1,6 +1,7 @@
-// -p well-formed -p static-inline -p compile-static -p dead-group-removal -p remove-ids 
+// -p well-formed -p static-inline -p compile-static -p dead-group-removal -p remove-ids
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/pipelined.futil";
 
 component main () -> () {
@@ -17,14 +18,14 @@ component main () -> () {
       incr.right = 3'd1;
       p.in = incr.out;
       p.write_en = %0 ? 1'd1;
-    } 
+    }
     static<1> group B {
       l.left = p.out;
       l.right = 3'd6;
       r.in = l.out;
       r.write_en = 1'd1;
     }
-    
+
   }
 
   control {

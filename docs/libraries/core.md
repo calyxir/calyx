@@ -290,7 +290,7 @@ Less than or equal. This component is combinational.
 
 ## Memories
 
-### `std_mem_d1`
+### `comb_mem_d1`
 
 A one-dimensional memory.
 
@@ -313,7 +313,7 @@ A one-dimensional memory.
 
 ---
 
-### `std_mem_d2`
+### `comb_mem_d2`
 
 A two-dimensional memory.
 
@@ -339,7 +339,7 @@ A two-dimensional memory.
 
 ---
 
-### `std_mem_d3`
+### `comb_mem_d3`
 
 A three-dimensional memory.
 
@@ -368,7 +368,7 @@ A three-dimensional memory.
 
 ---
 
-### `std_mem_d4`
+### `comb_mem_d4`
 
 A four-dimensional memory.
 
