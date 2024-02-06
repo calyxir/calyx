@@ -46,7 +46,7 @@ def create_mem_connections(
     If `read_mem` == False, then connects memory ports such that
     `component_builder` can write to memory.
     """
-    mem = main.mem_d1(
+    mem = main.comb_mem_d1(
         mem_name,
         BITWIDTH,
         mem_size,

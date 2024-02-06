@@ -1,5 +1,6 @@
 // -p infer-share -x infer-share:print-static-analysis=<err>
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component example() -> () {
   cells {
     lt = std_lt(4);

@@ -2,6 +2,7 @@
 // Compaction should promote the body, promotion should promote the loop.
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {

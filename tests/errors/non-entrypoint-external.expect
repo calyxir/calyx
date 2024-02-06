@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: tests/errors/non-entrypoint-external.futil
-5 |    @external r = std_reg(32);
+6 |    @external r = std_reg(32);
   |    ^^^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: Cell cannot be marked `@external` in non-entrypoint component

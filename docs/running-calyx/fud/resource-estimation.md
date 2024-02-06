@@ -1,6 +1,6 @@
 # Resource Estimation Backend
 
-The resources estimation backend aims to provide a size estimation for the hardware that Calyx generates. Currently, it only supports estimation for `std_reg`, `std_mem_*`, and `seq_mem_*` primitives, but more primitives will be added.
+The resources estimation backend aims to provide a size estimation for the hardware that Calyx generates. Currently, it only supports estimation for `std_reg`, `comb_mem_*`, and `seq_mem_*` primitives, but more primitives will be added.
 
 ## Running the resource estimation backend
 

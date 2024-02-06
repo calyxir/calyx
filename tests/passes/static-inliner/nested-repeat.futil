@@ -1,6 +1,7 @@
 // -p well-formed -p static-inline -p simplify-static-guards -p remove-ids -p dead-group-removal
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
@@ -21,6 +22,6 @@ component main() -> () {
         }
       }
     }
-    
+
   }
 }

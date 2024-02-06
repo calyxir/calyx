@@ -61,7 +61,7 @@ def write_calyx(relay_ir, filename: str, save_mem=True):
             Import("primitives/core.futil"),
             Import("primitives/binary_operators.futil"),
             Import("primitives/math.futil"),
-            Import("primitives/memories.futil"),
+            Import("primitives/memories/seq.futil"),
         ]
         for imp in imports:
             file.writelines(imp.doc())
@@ -178,7 +178,11 @@ if __name__ == "__main__":
 
     # Determines whether you want to save memory or not since save_mem is
     # an optional argument, we want default setting of save_mem to be true
-    save_mem = args["save_mem"] is None or args["save_mem"] == "True" or args["save_mem"] == "true"
+    save_mem = (
+        args["save_mem"] is None
+        or args["save_mem"] == "True"
+        or args["save_mem"] == "true"
+    )
 
     # Runs the net and prints the classification output.
     run_net(net_name, data, onnx_model_path, output, save_mem)
