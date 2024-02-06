@@ -74,7 +74,11 @@ impl Debugger {
 
     // probably want a different return type
     pub fn step(&mut self, n: u64) -> InterpreterResult<()> {
-        todo!()
+        for _ in 0..n {
+            self.interpreter.step()?;
+        }
+        self.interpreter.converge()?;
+        Ok(())
     }
 
     /// continue the execution until a breakpoint is hit, needs a different
@@ -82,7 +86,51 @@ impl Debugger {
     /// with the adapter. The latter might be more ergonomic, though potentially
     /// less efficient
     pub fn cont(&mut self) -> InterpreterResult<()> {
-        todo!()
+        self.debugging_ctx
+            .set_current_time(self.interpreter.currently_executing_group());
+
+        let mut ctx = std::mem::replace(
+            &mut self.debugging_ctx,
+            DebuggingContext::new(&self._context, &self.main_component.name),
+        );
+
+        let mut breakpoints: Vec<CompGroupName> = vec![];
+
+        while breakpoints.is_empty() && !self.interpreter.is_done() {
+            self.interpreter.step()?;
+            let current_exec = self.interpreter.currently_executing_group();
+
+            ctx.advance_time(current_exec);
+
+            for watch in ctx.process_watchpoints() {
+                for target in watch.target() {
+                    if let Ok(msg) = Self::do_print(
+                        self.main_component.name,
+                        target,
+                        watch.print_code(),
+                        self.interpreter.get_env(),
+                        watch.print_mode(),
+                    ) {
+                        println!("{}", msg.on_black().yellow().bold());
+                    }
+                }
+            }
+
+            breakpoints = ctx.hit_breakpoints().into_iter().cloned().collect();
+        }
+
+        self.debugging_ctx = ctx;
+
+        if !self.interpreter.is_done() {
+            for breakpoint in breakpoints {
+                println!(
+                    "Hit breakpoint: {}",
+                    breakpoint.bright_purple().underline()
+                );
+            }
+            self.interpreter.converge()?;
+        };
+        Ok(())
     }
 
     // so on and so forth
