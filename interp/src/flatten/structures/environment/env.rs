@@ -511,21 +511,6 @@ impl<'a> Simulator<'a> {
     }
 
     pub fn step(&mut self) -> InterpreterResult<()> {
-        /// attempts to get the next node for the given control point, if found
-        /// it replaces the given node. Returns true if the node was found and
-        /// replaced, returns false otherwise
-        fn get_next(node: &mut ControlPoint, ctx: &Context) -> bool {
-            let path = SearchPath::find_path_from_root(node.control_node, ctx);
-            let next = path.next_node(&ctx.primary.control);
-            if let Some(next) = next {
-                *node = node.new_w_comp(next);
-                true
-            } else {
-                //need to remove the node from the list now
-                false
-            }
-        }
-
         // place to keep track of what groups we need to conclude at the end of
         // this step. These are indices into the program counter
 
@@ -538,10 +523,10 @@ impl<'a> Simulator<'a> {
                 ControlNode::Seq(seq) => {
                     if !seq.is_empty() {
                         let next = seq.stms()[0];
-                        *node = node.new_w_comp(next);
+                        *node = node.new_retain_comp(next);
                         true
                     } else {
-                        get_next(node, self.env.ctx)
+                        node.mutate_into_next(self.env.ctx)
                     }
                 }
                 ControlNode::Par(_par) => todo!("not ready for par yet"),
@@ -568,7 +553,7 @@ impl<'a> Simulator<'a> {
                     };
 
                     let target = if result { i.tbranch() } else { i.fbranch() };
-                    *node = node.new_w_comp(target);
+                    *node = node.new_retain_comp(target);
                     true
                 }
                 ControlNode::While(w) => {
@@ -595,16 +580,16 @@ impl<'a> Simulator<'a> {
 
                     if result {
                         // enter the body
-                        *node = node.new_w_comp(w.body());
+                        *node = node.new_retain_comp(w.body());
                         true
                     } else {
                         // ascend the tree
-                        get_next(node, self.env.ctx)
+                        node.mutate_into_next(self.env.ctx)
                     }
                 }
 
                 // ===== leaf nodes =====
-                ControlNode::Empty(_) => get_next(node, self.env.ctx),
+                ControlNode::Empty(_) => node.mutate_into_next(self.env.ctx),
                 ControlNode::Enable(e) => {
                     let done_local = self.env.ctx.primary[e.group()].done;
                     let done_idx = &self.env.cells[node.comp]
@@ -660,9 +645,9 @@ impl<'a> Simulator<'a> {
         }
 
         // need to cleanup the finished groups
-        for (mut node, _) in done_groups {
-            if get_next(&mut node, self.env.ctx) {
-                self.env.pc.insert_node(node)
+        for (node, _) in done_groups {
+            if let Some(next) = ControlPoint::get_next(&node, self.env.ctx) {
+                self.env.pc.insert_node(next)
             }
         }
 

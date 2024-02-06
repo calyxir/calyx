@@ -28,10 +28,28 @@ impl ControlPoint {
 
     /// Constructs a new [ControlPoint] from an existing one by copying over the
     /// component identifier but changing the leaf node
-    pub fn new_w_comp(&self, target: ControlIdx) -> Self {
+    pub fn new_retain_comp(&self, target: ControlIdx) -> Self {
         Self {
             comp: self.comp,
             control_node: target,
+        }
+    }
+
+    pub fn get_next(node: &Self, ctx: &Context) -> Option<Self> {
+        let path = SearchPath::find_path_from_root(node.control_node, ctx);
+        let next = path.next_node(&ctx.primary.control);
+        next.map(|x| node.new_retain_comp(x))
+    }
+
+    /// Attempts to get the next node for the given control point, if found
+    /// it replaces the given node. Returns true if the node was found and
+    /// replaced, returns false otherwise
+    pub fn mutate_into_next(&mut self, ctx: &Context) -> bool {
+        if let Some(next) = Self::get_next(self, ctx) {
+            *self = next;
+            true
+        } else {
+            false
         }
     }
 }
