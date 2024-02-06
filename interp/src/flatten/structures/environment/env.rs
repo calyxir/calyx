@@ -482,7 +482,7 @@ impl<'a> Simulator<'a> {
         control_points
             .iter()
             .map(|node| {
-                match &self.ctx().primary[node.control_node] {
+                match &self.ctx().primary[node.control_node_idx] {
                     ControlNode::Enable(e) => {
                         (node.comp, self.ctx().primary[e.group()].assignments)
                     }
@@ -519,7 +519,7 @@ impl<'a> Simulator<'a> {
 
         self.env.pc.vec_mut().retain_mut(|node| {
             // just considering a single node case for the moment
-            match &self.env.ctx.primary[node.control_node] {
+            match &self.env.ctx.primary[node.control_node_idx] {
                 ControlNode::Seq(seq) => {
                     if !seq.is_empty() {
                         let next = seq.stms()[0];
@@ -616,7 +616,7 @@ impl<'a> Simulator<'a> {
 
         self.undef_all_ports();
         for (node, val) in &done_groups {
-            match &self.env.ctx.primary[node.control_node] {
+            match &self.env.ctx.primary[node.control_node_idx] {
                 ControlNode::Enable(e) => {
                     let done_local = self.env.ctx.primary[e.group()].done;
                     let done_idx = &self.env.cells[node.comp]

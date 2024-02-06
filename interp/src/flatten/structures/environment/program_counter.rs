@@ -11,18 +11,19 @@ use crate::flatten::{
 use itertools::{FoldWhile, Itertools};
 
 /// Simple struct containing both the component instance and the active leaf
-/// node in the component
+/// node in the component. This is used to represent an active execution of some
+/// portion of the control tree
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ControlPoint {
     pub comp: GlobalCellIdx,
-    pub control_node: ControlIdx,
+    pub control_node_idx: ControlIdx,
 }
 
 impl ControlPoint {
     pub fn new(comp: GlobalCellIdx, control_leaf: ControlIdx) -> Self {
         Self {
             comp,
-            control_node: control_leaf,
+            control_node_idx: control_leaf,
         }
     }
 
@@ -31,12 +32,12 @@ impl ControlPoint {
     pub fn new_retain_comp(&self, target: ControlIdx) -> Self {
         Self {
             comp: self.comp,
-            control_node: target,
+            control_node_idx: target,
         }
     }
 
     pub fn get_next(node: &Self, ctx: &Context) -> Option<Self> {
-        let path = SearchPath::find_path_from_root(node.control_node, ctx);
+        let path = SearchPath::find_path_from_root(node.control_node_idx, ctx);
         let next = path.next_node(&ctx.primary.control);
         next.map(|x| node.new_retain_comp(x))
     }
@@ -312,7 +313,7 @@ impl ProgramCounter {
         if let Some(current) = ctx.primary[root].control {
             vec.push(ControlPoint {
                 comp: root_cell,
-                control_node: current,
+                control_node_idx: current,
             })
         } else {
             todo!(
