@@ -68,6 +68,11 @@ pub struct Opts {
     #[argh(switch, long = "nested")]
     pub nested_assign: bool,
 
+    /// emit extmodules to use with SystemVerilog implementations
+    /// of primitives (only relevant to the FIRRTL backend)
+    #[argh(switch, long = "emit-primitive-extmodules")]
+    pub emit_primitive_extmodules: bool,
+
     /// select a backend
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,

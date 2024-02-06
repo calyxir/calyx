@@ -1,0 +1,55 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    cond_reg = std_reg(1);
+    r0 = std_reg(2);
+  }
+  wires {
+    group no_upgrade {
+      r0.write_en = 1'd1;
+      no_upgrade[done] = r0.done ? 1'd1;
+    }
+    static<1> group A0 {
+      a.in = 2'd0;
+      a.write_en = 1'd1;
+    }
+    static<1> group B0 {
+      b.in = 2'd1;
+      b.write_en = 1'd1;
+    }
+    static<1> group C0 {
+      c.in = 2'd2;
+      c.write_en = 1'd1;
+    }
+  }
+  control {
+    seq {
+      static<4> seq  {
+        static<1> par {
+          A0;
+          B0;
+        }
+        @compactable static<2> seq  {
+          C0;
+          C0;
+        }
+        static<1> par {
+          A0;
+          B0;
+        }
+      }
+      no_upgrade;
+      static repeat 2 {
+        @compactable static<3> seq  {
+          A0;
+          B0;
+          C0;
+        }
+      }
+    }
+  }
+}

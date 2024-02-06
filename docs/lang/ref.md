@@ -227,7 +227,7 @@ Guards can use the following constructs:
 - `guard || guard`: Disjunction between two guards
 - `guard && guard`: Conjunction of two guards
 
-In the context of guards, a port can also be a literal (i.e., `counter.out == 3'd2` is a valid guard). 
+In the context of guards, a port can also be a literal (i.e., `counter.out == 3'd2` is a valid guard).
 
 > **Well-formedness**: For each input port on the LHS, only one guard should be active in any given cycle during the execution of a Calyx program.
 
@@ -415,7 +415,7 @@ repeat <num_repeats> {
 }
 ```
 
-Repeatedly executes the control program `body_c` `num_repeat` times in a row. 
+Repeatedly executes the control program `body_c` `num_repeat` times in a row.
 
 
 ## The `go`-`done` Interface
@@ -456,7 +456,7 @@ Calyx components can specify that a cell needs to be passed "by reference":
 // Component that performs mem[0] += 1;
 component update_memory() -> () {
   cells {
-    ref mem = std_mem_d1(...)
+    ref mem = comb_mem_d1(...)
   }
   wires { ... }
   control { ... }
@@ -468,8 +468,8 @@ When invoking such a component, the calling component must provide a binding for
 component main() -> () {
   cells {
     upd = update_memory();
-    m1 = std_mem_d1(...);
-    m2 = std_mem_d2(...);
+    m1 = comb_mem_d1(...);
+    m2 = comb_mem_d2(...);
   }
   wires { ... }
   control {

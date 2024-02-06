@@ -11,6 +11,8 @@ members = [
     "web/rust",
     "tools/data_gen",
     "cider-dap",
+    "fud2",
+    "fud2/fud-core",
 ]
 exclude = ["site"]
 
@@ -43,6 +45,7 @@ pest = "2"
 pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
+anyhow = "1"
 calyx-utils = { path = "calyx-utils", version = "0.6.1" }
 calyx-ir = { path = "calyx-ir", version = "0.6.1" }
 calyx-frontend = { path = "calyx-frontend", version = "0.6.1" }
@@ -53,6 +56,12 @@ calyx-backend = { path = "calyx-backend", version = "0.6.1" }
 version = "0.6"
 default-features = false
 features = ["matrix_graph"]
+
+[workspace.dependencies.env_logger]
+version = "0.9.0"
+features = ["termcolor", "atty"]
+default-features = false
+
 
 # =========== Package configuration ===========
 
@@ -89,6 +98,7 @@ itertools.workspace = true
 log.workspace = true
 serde.workspace = true
 argh.workspace = true
+env_logger.workspace = true
 
 calyx-utils.workspace = true
 calyx-ir.workspace = true
@@ -98,11 +108,6 @@ calyx-opt.workspace = true
 [dependencies.calyx-backend]
 workspace = true
 features = ["mlir", "resources", "xilinx"]
-
-[dependencies.env_logger]
-version = "0.9.0"
-features = ["termcolor", "atty"]
-default-features = false
 
 [profile.release]
 lto = "thin"

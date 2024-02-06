@@ -24,7 +24,8 @@ where
     /// **Ensures**: All sub-programs of the type will also be updated.
     fn update_static(&mut self, extra: &Self::Info) -> Option<u64> {
         if let Some(time) = self.compute_static(extra) {
-            self.get_mut_attributes().insert(ir::NumAttr::Static, time);
+            self.get_mut_attributes()
+                .insert(ir::NumAttr::PromoteStatic, time);
             Some(time)
         } else {
             None
@@ -56,30 +57,24 @@ impl WithStatic for ir::Control {
     }
 }
 
-impl WithStatic for ir::StaticEnable {
-    type Info = ();
-    fn compute_static(&mut self, _: &Self::Info) -> Option<u64> {
-        // Attempt to get the latency from the attribute on the enable first, or
-        // failing that, from the group.
-        Some(self.group.borrow().get_latency())
-    }
-}
-
 impl WithStatic for ir::Enable {
     type Info = ();
     fn compute_static(&mut self, _: &Self::Info) -> Option<u64> {
         // Attempt to get the latency from the attribute on the enable first, or
         // failing that, from the group.
-        self.attributes
-            .get(ir::NumAttr::Static)
-            .or_else(|| self.group.borrow().attributes.get(ir::NumAttr::Static))
+        self.attributes.get(ir::NumAttr::PromoteStatic).or_else(|| {
+            self.group
+                .borrow()
+                .attributes
+                .get(ir::NumAttr::PromoteStatic)
+        })
     }
 }
 
 impl WithStatic for ir::Invoke {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.attributes.get(ir::NumAttr::Static).or_else(|| {
+        self.attributes.get(ir::NumAttr::PromoteStatic).or_else(|| {
             let comp = self.comp.borrow().type_name()?;
             extra.get(&comp).cloned()
         })
@@ -89,36 +84,47 @@ impl WithStatic for ir::Invoke {
 impl WithStatic for ir::Seq {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        let mut sum = 0;
-        for stmt in &mut self.stmts {
-            sum += stmt.update_static(extra)?;
-        }
-        Some(sum)
+        // Go through each stmt in the seq, and try to calculate the latency.
+        self.stmts.iter_mut().fold(Some(0), |acc, stmt| {
+            match (acc, stmt.update_static(extra)) {
+                (Some(cur_latency), Some(stmt_latency)) => {
+                    Some(cur_latency + stmt_latency)
+                }
+                (_, _) => None,
+            }
+        })
     }
 }
 
 impl WithStatic for ir::Par {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        let mut max = 0;
-        for stmt in &mut self.stmts {
-            max = std::cmp::max(max, stmt.update_static(extra)?);
-        }
-        Some(max)
+        // Go through each stmt in the par, and try to calculate the latency.
+        self.stmts.iter_mut().fold(Some(0), |acc, stmt| {
+            match (acc, stmt.update_static(extra)) {
+                (Some(cur_latency), Some(stmt_latency)) => {
+                    Some(std::cmp::max(cur_latency, stmt_latency))
+                }
+                (_, _) => None,
+            }
+        })
     }
 }
 
 impl WithStatic for ir::If {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        let t = self.tbranch.update_static(extra)?;
-        let f = self.fbranch.update_static(extra)?;
         // Cannot compute latency information for `if`-`with`
+        let t_latency = self.tbranch.update_static(extra);
+        let f_latency = self.fbranch.update_static(extra);
         if self.cond.is_some() {
             log::debug!("Cannot compute latency for while-with");
             return None;
         }
-        Some(std::cmp::max(t, f))
+        match (t_latency, f_latency) {
+            (Some(t), Some(f)) => Some(std::cmp::max(t, f)),
+            (_, _) => None,
+        }
     }
 }
 

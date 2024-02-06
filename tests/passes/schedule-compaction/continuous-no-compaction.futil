@@ -1,6 +1,7 @@
-// -p validate -p schedule-compaction
+// -p validate -p schedule-compaction -p dead-group-removal
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> (out: 8) {
   cells {
@@ -9,19 +10,23 @@ component main() -> (out: 8) {
     r2 = std_reg(8);
     add = std_add(8);
     add1 = std_add(8);
+    ud = undef(1);
   }
   wires {
-    static<1> group write_r0 {
+    group write_r0<"promote_static"=1> {
       r0.write_en = 1'd1;
       r0.in = 8'd1;
+      write_r0[done] = r0.done;
     }
-    static<1> group write_r1 {
+    group write_r1<"promote_static"=1> {
       r1.write_en = 1'd1;
       r1.in = add.out;
+      write_r1[done] = r1.done;
     }
-    static<1> group write_add1 {
+    group write_add1<"promote_static"=1> {
       add1.left = 8'd1;
       add1.right = 8'd4;
+      write_add1[done] = ud.out;
     }
     r2.in = add1.out;
     add.left = r0.out;
@@ -29,17 +34,17 @@ component main() -> (out: 8) {
     out = r1.out;
   }
   control {
-    seq {
-      @compactable static seq {
-        write_r0;
+    @promote_static(4) seq {
+      @promote_static(2) seq {
+        @promote_static write_r0;
         // Continuous assignments to add.left and add.right prevent compation.
-        write_r1;
+        @promote_static write_r1;
       }
-      @compactable static seq {
-        write_r0;
+      @promote_static(2) seq {
+        @promote_static write_r0;
         // Continuous assignment r2.in = add1.out prevents compaction.
         // This is overly conservative.
-        write_add1;
+        @promote_static write_add1;
       }
     }
   }

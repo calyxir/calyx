@@ -1,5 +1,6 @@
-// -b firrtl
+// -b firrtl --emit-primitive-extmodules
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component plus_one(in : 32) -> (out : 32) {
   cells {
         add = std_add(32);

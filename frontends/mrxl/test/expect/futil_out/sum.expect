@@ -2,8 +2,8 @@ import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external avec_b0 = std_mem_d1(32, 16, 32);
-    @external out = std_mem_d1(32, 1, 32);
+    @external avec_b0 = comb_mem_d1(32, 16, 32);
+    @external out = comb_mem_d1(32, 1, 32);
     out_reg = std_reg(32);
     idx0 = std_reg(32);
     incr_0 = std_add(32);

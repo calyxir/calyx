@@ -1,0 +1,36 @@
+// -p well-formed -p static-inference
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+  }
+
+  wires {
+    group A {
+      a.in = 2'd0;
+      a.write_en = 1'b1;
+      A[done] = a.done;
+    }
+
+    group B {
+      b.in = 2'd1;
+      b.write_en = 1'b1;
+      B[done] = b.done;
+    }
+
+    group C {
+      c.in = 2'd2;
+      c.write_en = 1'b1;
+      C[done] = c.done;
+    }
+  }
+
+  control {
+    seq { A; B; C; }
+  }
+}

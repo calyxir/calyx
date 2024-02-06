@@ -1,6 +1,7 @@
 // -p infer-share -x infer-share:print-dmap=<err>
 // should ignore `repeat 0` stmts in domination map
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component example() -> () {
   cells {
     lt = std_lt(4);

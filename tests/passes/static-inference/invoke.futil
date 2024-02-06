@@ -1,0 +1,53 @@
+// -p well-formed -p static-inference
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+/**
+* Tests the infer-static-timing pass. `exponent` is intentionally placed
+* after main to test post-order iteration of components.
+*/
+component main() -> () {
+  cells {
+    r = std_reg(32);
+    exp0 = exponent();
+  }
+  wires {
+    group upd0 {
+      r.in = 32'd1;
+      r.write_en = 1'd1;
+      upd0[done] = r.done;
+    }
+  }
+  control {
+    seq {
+      upd0;
+      invoke exp0(base = r.out, exp = r.out)();
+    }
+  }
+}
+
+component exponent(base: 32, exp: 32) -> (out: 32) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+  }
+  wires {
+    group upd2 {
+      r2.in = 32'd1;
+      r2.write_en = 1'd1;
+      upd2[done] = r2.done;
+    }
+    group upd1 {
+      r1.in = 32'd1;
+      r1.write_en = 1'd1;
+      upd1[done] = r1.done;
+    }
+  }
+  control {
+    seq {
+      upd1;
+      upd2;
+    }
+  }
+}
+

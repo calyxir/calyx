@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component my_reg<"state_share"=1>(@data in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: 32, @done done: 1) {
   cells {
     @data r = std_reg(32);
@@ -12,12 +13,12 @@ component my_reg<"state_share"=1>(@data in: 32, @go go: 1, @clk clk: 1, @reset r
     out = r.out;
   }
   control {
-    @promote_static invoke0;
+    invoke0;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    @external @data mem = std_mem_d1(32, 2, 1);
+    @external @data mem = comb_mem_d1(32, 2, 1);
     @generated r = std_reg(32);
   }
   wires {

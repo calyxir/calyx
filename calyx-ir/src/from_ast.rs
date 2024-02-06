@@ -269,7 +269,7 @@ fn build_component(
     // required information.
     comp.cells
         .into_iter()
-        .for_each(|cell| add_cell(cell, sig_ctx, &mut builder));
+        .try_for_each(|cell| add_cell(cell, sig_ctx, &mut builder))?;
 
     comp.groups
         .into_iter()
@@ -301,15 +301,17 @@ fn build_component(
 
 ///////////////// Cell Construction /////////////////////////
 
-fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
+fn add_cell(
+    cell: ast::Cell,
+    sig_ctx: &SigCtx,
+    builder: &mut Builder,
+) -> CalyxResult<()> {
     let proto_name = cell.prototype.name;
 
     let res = if sig_ctx.lib.find_primitive(proto_name).is_some() {
-        let c = builder.add_primitive(
-            cell.name,
-            proto_name,
-            &cell.prototype.params,
-        );
+        let c = builder
+            .try_add_primitive(cell.name, proto_name, &cell.prototype.params)
+            .map_err(|e| e.with_pos(&cell.attributes))?;
         c.borrow_mut().set_reference(cell.reference);
         c
     } else {
@@ -328,6 +330,8 @@ fn add_cell(cell: ast::Cell, sig_ctx: &SigCtx, builder: &mut Builder) {
 
     // Add attributes to the built cell
     res.borrow_mut().attributes = cell.attributes;
+
+    Ok(())
 }
 
 ///////////////// Group Construction /////////////////////////

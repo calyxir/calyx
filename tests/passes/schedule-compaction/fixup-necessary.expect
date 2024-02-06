@@ -1,0 +1,37 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component example(@go @static go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 1) {
+  cells {
+    r0 = std_reg(8);
+    r1 = std_reg(8);
+  }
+  wires {
+    out = r1.out;
+  }
+  control {
+    @promote_static @promoted static<1> par {
+      static<1> invoke r0(
+        in = 8'd1
+      )();
+      static<1> invoke r1(
+        in = 8'd2
+      )();
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external mem = comb_mem_d1(8, 1, 1);
+    ex = example();
+  }
+  wires {}
+  control {
+    @promote_static(2) seq {
+      @promote_static invoke ex()();
+      @promote_static invoke mem(
+        addr0 = 1'd0,
+        write_data = ex.out
+      )();
+    }
+  }
+}

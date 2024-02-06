@@ -1,5 +1,6 @@
 // -p cell-share -p remove-ids
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
     add0 = std_add(32);
