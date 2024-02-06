@@ -1,6 +1,7 @@
 //-p cell-share -p remove-ids
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 component main() -> () {
@@ -27,7 +28,7 @@ component main() -> () {
       mult_pipe0.left = A_read0_0.out;
       mult_pipe0.right = B_read0_0.out;
       mult_pipe0.go = 1'd1;
-      prelet0[done] = mult_pipe0.done; 
+      prelet0[done] = mult_pipe0.done;
     }
     group let0{
       bin_read0_0.in = mult_pipe0.out;
@@ -43,7 +44,7 @@ component main() -> () {
       mult_pipe1.left = A_read1_0.out;
       mult_pipe1.right = B_read1_0.out;
       mult_pipe1.go = 1'd1;
-      prelet2[done] = mult_pipe1.done; 
+      prelet2[done] = mult_pipe1.done;
     }
     group let2{
       bin_read1_0.in = mult_pipe1.out;

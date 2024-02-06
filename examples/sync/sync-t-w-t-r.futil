@@ -1,9 +1,10 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 // Sum up values of same indices from two arrays of equal length.
 // Expected resolution order for arbitration:
-// below we denote 1 is written to the synchronized register by writer_0 as 1W0, and 
+// below we denote 1 is written to the synchronized register by writer_0 as 1W0, and
 // 6 is read from the synchronized register by reader_1 as 6R1.
 // 1W0 1R0 6W1 6R1 5W1 5R1 2W0 2R0 3W0 3R0 4W1 4R1 3W1 3R1 4W0 4R0 5W0 5R0 2W1 2R1 1W0 1R0 6W1 6R1
 component main() -> () {
@@ -32,7 +33,7 @@ component main() -> () {
       in_0.addr0 = idx.out;
       write_imm_0[done] = imm.write_done_0;
     }
-    
+
     group write_imm_1 {
       imm.write_en_1 = 1'd1;
       imm.in_1 = in_1.read_data;

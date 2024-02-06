@@ -1,5 +1,6 @@
 // -d dead-cell-removal -b verilog
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
     m0 = std_mem_d1(32, 4, 4);

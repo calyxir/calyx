@@ -1,5 +1,6 @@
 // -p well-formed -p lower-guards -b mlir
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component A(in: 8, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, flag: 1, @done done: 1) {
   cells {
   }
@@ -33,9 +34,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
   }
   wires {
     group write_c1_res {
-      c1_res.write_en = 1'd1; 
-      c1_res.in = c1.out; 
-      write_c1_res[done] = c1_res.done; 
+      c1_res.write_en = 1'd1;
+      c1_res.in = c1.out;
+      write_c1_res[done] = c1_res.done;
     }
     group Group1 {
       s0.in = a0.out;

@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 //confirm slice of length 1 from any # is LSB
 component main() -> () {

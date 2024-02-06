@@ -1,11 +1,12 @@
 // tests for having two barriers
 // expected resolution order:
 // thread 1:
-// no_op; sync; r(1);  w(2);    sync; 
+// no_op; sync; r(1);  w(2);    sync;
 // thread 2:
 // w(1);  sync;        no-op;   sync; r(2);
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 component main() -> () {
@@ -55,7 +56,7 @@ component main() -> () {
           @sync(2);
         }
 
-      //thread 2  
+      //thread 2
         seq {
           incr_val;
           @sync(1);

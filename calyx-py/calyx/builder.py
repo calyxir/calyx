@@ -290,6 +290,7 @@ class ComponentBuilder:
         is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a StdMemD1 cell."""
+        self.prog.import_("primitives/memories/comb.futil")
         return self.cell(
             name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
@@ -304,7 +305,7 @@ class ComponentBuilder:
         is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a SeqMemD1 cell."""
-        self.prog.import_("primitives/memories.futil")
+        self.prog.import_("primitives/memories/seq.futil")
         return self.cell(
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )

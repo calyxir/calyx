@@ -1,9 +1,10 @@
 //-p infer-share
 
-// no_share uses std_mem so it should not be shared. 
-// uses_no_share uses no_share so it should not be shared. 
+// no_share uses std_mem so it should not be shared.
+// uses_no_share uses no_share so it should not be shared.
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 component no_share(in: 32) -> (out: 32) {
@@ -25,9 +26,9 @@ component uses_no_share(in: 32) -> (out: 32) {
   }
   wires {
     group A {
-      c.go = 1'd1; 
-      c.in = 32'd10; 
-      A[done] = c.done; 
+      c.go = 1'd1;
+      c.in = 32'd10;
+      A[done] = c.done;
     }
     out = c.out;
   }

@@ -1,5 +1,6 @@
 // -p pre-opt -p post-opt
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component write_one() -> (out: 32) {
   cells {

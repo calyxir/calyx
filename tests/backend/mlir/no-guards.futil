@@ -1,5 +1,6 @@
 // -p well-formed -b mlir
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component A(in: 8, go: 1, clk: 1, reset: 1) -> (out: 8, done: 1) {
   cells {
   }

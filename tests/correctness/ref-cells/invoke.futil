@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
@@ -15,7 +16,7 @@ component main() -> () {
 }
 component add_one() -> () {
   cells {
-    ref mem = std_mem_d1(32, 1, 1);  
+    ref mem = std_mem_d1(32, 1, 1);
     adder = std_add(32);
     r = std_reg(32);
   }

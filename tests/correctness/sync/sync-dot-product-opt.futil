@@ -4,6 +4,7 @@
 // the other vector
 // thread B is in charge of doing the multiplication and addition
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 import "primitives/binary_operators.futil";
 

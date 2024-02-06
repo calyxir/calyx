@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
@@ -22,7 +23,7 @@ component main() -> () {
     }
 
     group false<"static"=1> {
-      //since this isn't a single group 
+      //since this isn't a single group
       //execution, mem also has a done of 0
       mem.write_en = 1'd1;
       mem.addr0 = 1'd0;
@@ -33,7 +34,7 @@ component main() -> () {
 
   control {
     //you can't really check
-    //contents of [mem] at end, 
+    //contents of [mem] at end,
     //cuz our serializiation doesn't
     //support that currently
     if lt.out with cond { //reg0 should have a done of 0 at the end of main execution

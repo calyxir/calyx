@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
@@ -29,7 +30,7 @@ component main() -> () {
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
-     
+
   }
   control {
     seq {

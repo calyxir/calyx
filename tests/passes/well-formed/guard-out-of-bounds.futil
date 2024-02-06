@@ -1,5 +1,6 @@
 //-p well-formed
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
@@ -7,7 +8,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   wires {
     static<2> group A {
-      r1.write_en = %2 ? 1'd1; 
+      r1.write_en = %2 ? 1'd1;
       r1.in = 32'd2;
     }
   }

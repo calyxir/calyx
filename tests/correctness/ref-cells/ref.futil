@@ -1,5 +1,6 @@
 // -p well-formed -p compile-external
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 component add_one() -> () {

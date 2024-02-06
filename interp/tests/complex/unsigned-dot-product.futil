@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 //
@@ -92,7 +93,7 @@ component main() -> () {
       mult.right = mem1.read_data;
       mult.go = !mult.done ? 1'd1;
       t.write_en = mult.done;
-      //isn't a dot product the sum of the individual entries? make it so 
+      //isn't a dot product the sum of the individual entries? make it so
       add1.left = t.out;
       add1.right = mult.out;
       t.in = add1.out;

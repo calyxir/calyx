@@ -1,6 +1,7 @@
 // -p cell-share -x cell-share:calyx-2020 -x cell-share:print-share-freqs=<err> -p dead-cell-removal -p remove-ids
 // share adders twice, registers 3 times, and mults 4 times
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {

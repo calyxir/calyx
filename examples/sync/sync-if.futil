@@ -4,6 +4,7 @@
 // thread 2:
 // no-op; sync; r(1); sync; r(4); sync; r(5); sync; r(8); sync; r(9);  sync; r(12);
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 component main () -> () {

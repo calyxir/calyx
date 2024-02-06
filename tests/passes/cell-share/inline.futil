@@ -1,5 +1,6 @@
 // -p pre-opt -p post-opt
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component my_reg<"state_share"=1>(@data in: 32) -> (@stable out: 32) {
   cells {

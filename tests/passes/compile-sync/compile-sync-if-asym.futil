@@ -1,6 +1,7 @@
 // -p validate -p compile-sync
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 component main () -> () {

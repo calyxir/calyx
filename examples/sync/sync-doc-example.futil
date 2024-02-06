@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 component main () -> () {
@@ -45,7 +46,7 @@ component main () -> () {
   }
 
   control {
-    /// ANCHOR: control 
+    /// ANCHOR: control
     par {
       // thread A
       while lt.out with comp {

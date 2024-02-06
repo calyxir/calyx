@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/pipelined.futil";
 
 component main() -> () {
@@ -41,4 +42,3 @@ component main() -> () {
   }
 }
 
- 

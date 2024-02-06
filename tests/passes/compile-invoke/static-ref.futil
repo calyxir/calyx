@@ -1,5 +1,6 @@
 // -p well-formed -p compile-invoke
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 static<2> component add_one() -> () {
   cells {

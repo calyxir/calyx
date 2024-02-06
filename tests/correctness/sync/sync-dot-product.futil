@@ -9,6 +9,7 @@
 //     means that we have a sparse vector of length 17, and has non-zero values
 //     4 at index 4, 5 at index 6, 9 at index 10
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 import "primitives/binary_operators.futil";
 

@@ -1,6 +1,7 @@
 // -p canonicalize
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> (out: 1) {
   cells {
     r = std_reg(1);

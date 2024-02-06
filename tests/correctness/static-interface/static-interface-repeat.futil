@@ -1,5 +1,6 @@
 // -p validate -p compile-invoke -p static-inline -p add-guard -p simplify-static-guards -p compile-static-interface
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 static<6> component do_add(left: 32, right: 32) -> (out: 32) {
   cells {
