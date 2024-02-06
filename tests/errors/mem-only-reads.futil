@@ -2,7 +2,7 @@ import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
-    mem = std_mem_d1(32, 4, 4);
+    mem = comb_mem_d1(32, 4, 4);
     r = std_reg(32);
   }
   wires {

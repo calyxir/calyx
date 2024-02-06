@@ -42,7 +42,7 @@ component foo(in: 1) -> (out: 32) {
 component main() -> () {
   cells {
     foo_inst = foo();
-    @external m = std_mem_d1(32, 1, 1);
+    @external m = comb_mem_d1(32, 1, 1);
   }
 
   wires {

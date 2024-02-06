@@ -22,8 +22,8 @@ component main(go: 1, clk: 1, reset: 1) -> (done: 1) {
     c0 = A();
     c1 = B();
     r = std_reg(8);
-    m0 = std_mem_d1(32, 1, 1);
-    m1 = std_mem_d2(8, 64, 64, 6, 6);
+    m0 = comb_mem_d1(32, 1, 1);
+    m1 = comb_mem_d2(8, 64, 64, 6, 6);
     add = std_add(8);
     lt = std_lt(8);
   }

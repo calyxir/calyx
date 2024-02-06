@@ -3,9 +3,9 @@ import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) A0 = std_mem_d1(32,8,4);
+    @external(1) A0 = comb_mem_d1(32,8,4);
     A_read0_0 = std_reg(32);
-    @external(1) B0 = std_mem_d1(32,8,4);
+    @external(1) B0 = comb_mem_d1(32,8,4);
     B_read0_0 = std_reg(32);
     add0 = std_add(32);
     add1 = std_add(4);
@@ -16,7 +16,7 @@ component main() -> () {
     i0 = std_reg(4);
     le0 = std_le(4);
     mult_pipe0 = std_mult_pipe(32);
-    @external(1) v0 = std_mem_d1(32,1,1);
+    @external(1) v0 = comb_mem_d1(32,1,1);
     inpar = in_par();
     afterpar = after_par();
   }
@@ -50,8 +50,8 @@ component in_par() -> () {
   cells {
     ref A_read = std_reg(32);
     ref B_read = std_reg(32);
-    ref A = std_mem_d1(32,8,4);
-    ref B = std_mem_d1(32,8,4);
+    ref A = comb_mem_d1(32,8,4);
+    ref B = comb_mem_d1(32,8,4);
     ref i0 = std_reg(4);
     ref bin_read = std_reg(32);
     ref mult_pipe = std_mult_pipe(32);
@@ -94,7 +94,7 @@ component in_par() -> () {
 component after_par() -> () {
   cells {
     ref dot = std_reg(32);
-    ref v = std_mem_d1(32,1,1);
+    ref v = comb_mem_d1(32,1,1);
     ref adder0 = std_add(32);
     ref i = std_reg(4);
     ref adder1 = std_add(4);

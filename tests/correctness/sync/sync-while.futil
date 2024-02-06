@@ -4,7 +4,7 @@ import "primitives/sync.futil";
 
 component main() -> () {
   cells {
-    @external out = std_mem_d1(32, 6, 3);
+    @external out = comb_mem_d1(32, 6, 3);
     val = std_reg(32);
     add_0 = std_add(32);
     addr = std_reg(3);

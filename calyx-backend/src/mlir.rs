@@ -160,14 +160,14 @@ impl MlirBackend {
                     "std_reg" => {
                         write!(f, "calyx.register @{cell_name}")?
                     }
-                    "std_mem_d1" => write!(
+                    "comb_mem_d1" => write!(
                         f,
                         "calyx.memory @{cell_name} <[{}] x {}> [{}]",
                         bind["SIZE"],
                         bind["WIDTH"],
                         bind["IDX_SIZE"]
                     )?,
-                    "std_mem_d2" => write!(
+                    "comb_mem_d2" => write!(
                         f,
                         "calyx.memory @{cell_name} <[{}, {}] x {}> [{}, {}]",
                         bind["D0_SIZE"],
@@ -176,7 +176,7 @@ impl MlirBackend {
                         bind["D0_IDX_SIZE"],
                         bind["D1_IDX_SIZE"]
                     )?,
-                    "std_mem_d3" => write!(
+                    "comb_mem_d3" => write!(
                         f,
                         "calyx.memory @{cell_name} <[{}, {}, {}] x {}> [{}, {}, {}]",
                         bind["D0_SIZE"],
@@ -187,7 +187,7 @@ impl MlirBackend {
                         bind["D1_IDX_SIZE"],
                         bind["D2_IDX_SIZE"]
                     )?,
-                    "std_mem_d4" => write!(
+                    "comb_mem_d4" => write!(
                         f,
                         "calyx.memory @{cell_name} <[{}, {}, {}, {}] x {}> [{}, {}, {}, {}]",
                         bind["D0_SIZE"],

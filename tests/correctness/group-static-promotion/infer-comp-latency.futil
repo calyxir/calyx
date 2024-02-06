@@ -42,7 +42,7 @@ component add_5_mult_3(in: 32) -> (out: 32) {
 component main() -> () {
   cells {
     my_comp = add_5_mult_3();
-    @external mem = std_mem_d1(32,1,1);
+    @external mem = comb_mem_d1(32,1,1);
   }
   wires {
     group write_mem {

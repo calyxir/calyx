@@ -4,7 +4,7 @@ import "primitives/pipelined.futil";
 
 component main () -> () {
   cells {
-    @external p = std_mem_d1(3,1,1);
+    @external p = comb_mem_d1(3,1,1);
     incr = std_add(3);
     l = std_lt(3);
     r = std_reg(3);

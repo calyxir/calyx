@@ -3,7 +3,7 @@ import "primitives/memories/comb.futil";
 
 component main() -> () {
     cells {
-      @external m = std_mem_d1(32, 1, 1);
+      @external m = comb_mem_d1(32, 1, 1);
       r1 = std_reg(32);
       r2 = std_reg(32);
       add1 = std_add(32);

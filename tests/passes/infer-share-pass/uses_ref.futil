@@ -4,7 +4,7 @@ import "primitives/memories/comb.futil";
 
 component uses_ref(i: 3, j:3) -> (out: 32) {
   cells {
-    ref mem = std_mem_d2(32, 5,5, 3,3);
+    ref mem = comb_mem_d2(32, 5,5, 3,3);
     r = std_reg(32);
   }
   wires {

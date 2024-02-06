@@ -10,9 +10,9 @@ import "primitives/binary_operators.futil";
 
 component main () -> () {
   cells {
-    @external in_0 = std_mem_d1(32, 18, 32);
-    @external in_1 = std_mem_d1(32, 18, 32);
-    @external out = std_mem_d1(32, 1, 32);
+    @external in_0 = comb_mem_d1(32, 18, 32);
+    @external in_1 = comb_mem_d1(32, 18, 32);
+    @external out = comb_mem_d1(32, 1, 32);
     idx_0 = std_reg(32);
     idx_1 = std_reg(32);
     point_0 = std_reg(32);

@@ -98,11 +98,11 @@ component pipelined_mac(
 component main() -> () {
   cells {
     // Input memories
-    @external a = std_mem_d1(32, 10, 4);
-    @external b = std_mem_d1(32, 10, 4);
+    @external a = comb_mem_d1(32, 10, 4);
+    @external b = comb_mem_d1(32, 10, 4);
 
     // Output memory: Expected output 31178
-    @external out = std_mem_d1(32, 1, 1);
+    @external out = comb_mem_d1(32, 1, 1);
 
     // Registers to save value at current memory index
     read_a = std_reg(32);

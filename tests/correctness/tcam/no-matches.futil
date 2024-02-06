@@ -5,7 +5,7 @@ import "primitives/tcam.futil";
 component main() -> () {
   cells {
     tcam = TCAM_IPv4();
-    @external(1) index = std_mem_d1(5, 1, 1);
+    @external(1) index = comb_mem_d1(5, 1, 1);
   }
 
   wires {

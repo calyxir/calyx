@@ -457,14 +457,14 @@ impl CellPrototype {
                         out: out_width.try_into().unwrap(),
                     }
                 }
-                n @ ("std_mem_d1" | "seq_mem_d1") => {
+                n @ ("comb_mem_d1" | "seq_mem_d1") => {
                     get_params![params;
                         width: "WIDTH",
                         size: "SIZE",
                         idx_size: "IDX_SIZE"
                     ];
                     Self::MemD1 {
-                        mem_type: if n == "std_mem_d1" {
+                        mem_type: if n == "comb_mem_d1" {
                             MemType::Std
                         } else {
                             MemType::Seq
@@ -474,7 +474,7 @@ impl CellPrototype {
                         idx_size: idx_size.try_into().unwrap(),
                     }
                 }
-                n @ ("std_mem_d2" | "seq_mem_d2") => {
+                n @ ("comb_mem_d2" | "seq_mem_d2") => {
                     get_params![params;
                         width: "WIDTH",
                         d0_size: "D0_SIZE",
@@ -483,7 +483,7 @@ impl CellPrototype {
                         d1_idx_size: "D1_IDX_SIZE"
                     ];
                     Self::MemD2 {
-                        mem_type: if n == "std_mem_d2" {
+                        mem_type: if n == "comb_mem_d2" {
                             MemType::Std
                         } else {
                             MemType::Seq
@@ -495,7 +495,7 @@ impl CellPrototype {
                         d1_idx_size: d1_idx_size.try_into().unwrap(),
                     }
                 }
-                n @ ("std_mem_d3" | "seq_mem_d3") => {
+                n @ ("comb_mem_d3" | "seq_mem_d3") => {
                     get_params![params;
                         width: "WIDTH",
                         d0_size: "D0_SIZE",
@@ -506,7 +506,7 @@ impl CellPrototype {
                         d2_idx_size: "D2_IDX_SIZE"
                     ];
                     Self::MemD3 {
-                        mem_type: if n == "std_mem_d3" {
+                        mem_type: if n == "comb_mem_d3" {
                             MemType::Std
                         } else {
                             MemType::Seq
@@ -520,7 +520,7 @@ impl CellPrototype {
                         d2_idx_size: d2_idx_size.try_into().unwrap(),
                     }
                 }
-                n @ ("std_mem_d4" | "seq_mem_d4") => {
+                n @ ("comb_mem_d4" | "seq_mem_d4") => {
                     get_params![params;
                         width: "WIDTH",
                         d0_size: "D0_SIZE",
@@ -534,7 +534,7 @@ impl CellPrototype {
                     ];
 
                     Self::MemD4 {
-                        mem_type: if n == "std_mem_d4" {
+                        mem_type: if n == "comb_mem_d4" {
                             MemType::Std
                         } else {
                             MemType::Seq

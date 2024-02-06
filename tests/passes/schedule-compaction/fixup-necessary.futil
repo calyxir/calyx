@@ -21,7 +21,7 @@ component example() -> (out: 8) {
 
 component main() -> () {
   cells {
-    @external mem = std_mem_d1(8, 1, 1);
+    @external mem = comb_mem_d1(8, 1, 1);
     ex = example();
   }
   wires {}

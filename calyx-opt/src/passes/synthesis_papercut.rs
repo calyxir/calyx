@@ -17,10 +17,11 @@ pub struct SynthesisPapercut {
 
 impl Default for SynthesisPapercut {
     fn default() -> Self {
-        let memories = ["std_mem_d1", "std_mem_d2", "std_mem_d3", "std_mem_d4"]
-            .iter()
-            .map(|&mem| mem.into())
-            .collect();
+        let memories =
+            ["comb_mem_d1", "comb_mem_d2", "comb_mem_d3", "comb_mem_d4"]
+                .iter()
+                .map(|&mem| mem.into())
+                .collect();
         SynthesisPapercut { memories }
     }
 }

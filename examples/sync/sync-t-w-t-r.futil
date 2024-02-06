@@ -9,9 +9,9 @@ import "primitives/sync.futil";
 // 1W0 1R0 6W1 6R1 5W1 5R1 2W0 2R0 3W0 3R0 4W1 4R1 3W1 3R1 4W0 4R0 5W0 5R0 2W1 2R1 1W0 1R0 6W1 6R1
 component main() -> () {
   cells {
-    @external in_0 = std_mem_d1(32, 6, 3);
-    @external in_1 = std_mem_d1(32, 6, 3);
-    @external out = std_mem_d1(32, 6, 3);
+    @external in_0 = comb_mem_d1(32, 6, 3);
+    @external in_1 = comb_mem_d1(32, 6, 3);
+    @external out = comb_mem_d1(32, 6, 3);
     lt = std_lt(3);
     sum = std_add(32);
     add = std_add(3);

@@ -1,4 +1,4 @@
-module std_mem_d1 #(
+module comb_mem_d1 #(
     parameter WIDTH = 32,
     parameter SIZE = 16,
     parameter IDX_SIZE = 4
@@ -36,7 +36,7 @@ module std_mem_d1 #(
     always_comb begin
       if (addr0 >= SIZE)
         $error(
-          "std_mem_d1: Out of bounds access\n",
+          "comb_mem_d1: Out of bounds access\n",
           "addr0: %0d\n", addr0,
           "SIZE: %0d", SIZE
         );
@@ -44,7 +44,7 @@ module std_mem_d1 #(
   `endif
 endmodule
 
-module std_mem_d2 #(
+module comb_mem_d2 #(
     parameter WIDTH = 32,
     parameter D0_SIZE = 16,
     parameter D1_SIZE = 16,
@@ -85,13 +85,13 @@ module std_mem_d2 #(
     always_comb begin
       if (addr0 >= D0_SIZE)
         $error(
-          "std_mem_d2: Out of bounds access\n",
+          "comb_mem_d2: Out of bounds access\n",
           "addr0: %0d\n", addr0,
           "D0_SIZE: %0d", D0_SIZE
         );
       if (addr1 >= D1_SIZE)
         $error(
-          "std_mem_d2: Out of bounds access\n",
+          "comb_mem_d2: Out of bounds access\n",
           "addr1: %0d\n", addr1,
           "D1_SIZE: %0d", D1_SIZE
         );
@@ -99,7 +99,7 @@ module std_mem_d2 #(
   `endif
 endmodule
 
-module std_mem_d3 #(
+module comb_mem_d3 #(
     parameter WIDTH = 32,
     parameter D0_SIZE = 16,
     parameter D1_SIZE = 16,
@@ -143,19 +143,19 @@ module std_mem_d3 #(
     always_comb begin
       if (addr0 >= D0_SIZE)
         $error(
-          "std_mem_d3: Out of bounds access\n",
+          "comb_mem_d3: Out of bounds access\n",
           "addr0: %0d\n", addr0,
           "D0_SIZE: %0d", D0_SIZE
         );
       if (addr1 >= D1_SIZE)
         $error(
-          "std_mem_d3: Out of bounds access\n",
+          "comb_mem_d3: Out of bounds access\n",
           "addr1: %0d\n", addr1,
           "D1_SIZE: %0d", D1_SIZE
         );
       if (addr2 >= D2_SIZE)
         $error(
-          "std_mem_d3: Out of bounds access\n",
+          "comb_mem_d3: Out of bounds access\n",
           "addr2: %0d\n", addr2,
           "D2_SIZE: %0d", D2_SIZE
         );
@@ -163,7 +163,7 @@ module std_mem_d3 #(
   `endif
 endmodule
 
-module std_mem_d4 #(
+module comb_mem_d4 #(
     parameter WIDTH = 32,
     parameter D0_SIZE = 16,
     parameter D1_SIZE = 16,
@@ -210,25 +210,25 @@ module std_mem_d4 #(
     always_comb begin
       if (addr0 >= D0_SIZE)
         $error(
-          "std_mem_d4: Out of bounds access\n",
+          "comb_mem_d4: Out of bounds access\n",
           "addr0: %0d\n", addr0,
           "D0_SIZE: %0d", D0_SIZE
         );
       if (addr1 >= D1_SIZE)
         $error(
-          "std_mem_d4: Out of bounds access\n",
+          "comb_mem_d4: Out of bounds access\n",
           "addr1: %0d\n", addr1,
           "D1_SIZE: %0d", D1_SIZE
         );
       if (addr2 >= D2_SIZE)
         $error(
-          "std_mem_d4: Out of bounds access\n",
+          "comb_mem_d4: Out of bounds access\n",
           "addr2: %0d\n", addr2,
           "D2_SIZE: %0d", D2_SIZE
         );
       if (addr3 >= D3_SIZE)
         $error(
-          "std_mem_d4: Out of bounds access\n",
+          "comb_mem_d4: Out of bounds access\n",
           "addr3: %0d\n", addr3,
           "D3_SIZE: %0d", D3_SIZE
         );

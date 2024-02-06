@@ -11,9 +11,9 @@ import "primitives/pipelined.futil";
 
 component main() -> () {
   cells {
-    @external(1) x = std_mem_d1(32, 1, 1);
-    @external(1) y = std_mem_d1(32, 1, 1);
-    @external(1) z = std_mem_d1(32, 1, 1);
+    @external(1) x = comb_mem_d1(32, 1, 1);
+    @external(1) y = comb_mem_d1(32, 1, 1);
+    @external(1) z = comb_mem_d1(32, 1, 1);
     mult_pipe0 = std_mult_pipe(32);
   }
   wires {

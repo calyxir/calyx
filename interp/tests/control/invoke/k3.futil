@@ -3,9 +3,9 @@ import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) depth_output = std_mem_d1(3, 1, 1);
+    @external(1) depth_output = comb_mem_d1(3, 1, 1);
     @eternal(1) depth = std_reg(3);
-    @external(1) path_ids1 = std_mem_d1(3, 1, 1);
+    @external(1) path_ids1 = comb_mem_d1(3, 1, 1);
     pe1 = node_depth_pe();
   }
   wires {

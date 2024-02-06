@@ -1,4 +1,4 @@
-module std_mem_d1 #(
+module comb_mem_d1 #(
     parameter WIDTH = 32,
     parameter SIZE = 16,
     parameter IDX_SIZE = 4
@@ -43,7 +43,7 @@ module std_mem_d1 #(
     always_comb begin
       if (addr0 >= SIZE)
         $error(
-          "std_mem_d1: Out of bounds access\n",
+          "comb_mem_d1: Out of bounds access\n",
           "addr0: %0d\n", addr0,
           "SIZE: %0d", SIZE
         );

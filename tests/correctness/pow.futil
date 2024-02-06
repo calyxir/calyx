@@ -4,9 +4,9 @@ import "primitives/math.futil";
 
 component main() -> () {
   cells {
-    @external(1) out = std_mem_d1(32, 1, 1);
-    @external(1) base = std_mem_d1(32, 1, 1);
-    @external(1) exp = std_mem_d1(32, 1, 1);
+    @external(1) out = comb_mem_d1(32, 1, 1);
+    @external(1) base = comb_mem_d1(32, 1, 1);
+    @external(1) exp = comb_mem_d1(32, 1, 1);
     base_reg = std_reg(32);
     exp_reg = std_reg(32);
     p = pow();

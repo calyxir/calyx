@@ -4,11 +4,11 @@ import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
-    @external(1) radicand_31 = std_mem_d1(31, 1, 1);
-    @external(1) root_31 = std_mem_d1(31, 1, 1);
+    @external(1) radicand_31 = comb_mem_d1(31, 1, 1);
+    @external(1) root_31 = comb_mem_d1(31, 1, 1);
 
-    @external(1) radicand_32 = std_mem_d1(32, 1, 1);
-    @external(1) root_32 = std_mem_d1(32, 1, 1);
+    @external(1) radicand_32 = comb_mem_d1(32, 1, 1);
+    @external(1) root_32 = comb_mem_d1(32, 1, 1);
 
     t_31 = std_reg(31);
     t_32 = std_reg(32);

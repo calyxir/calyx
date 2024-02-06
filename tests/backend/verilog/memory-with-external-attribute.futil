@@ -3,8 +3,8 @@ import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
-    m0 = std_mem_d1(32, 4, 4);
-    @external(1) m1 = std_mem_d1(32, 4, 4);
+    m0 = comb_mem_d1(32, 4, 4);
+    @external(1) m1 = comb_mem_d1(32, 4, 4);
   }
   wires {
     done = m1.done;

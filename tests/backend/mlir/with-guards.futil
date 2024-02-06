@@ -25,9 +25,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 
     r1 = std_reg(8);
     r2 = std_reg(1);
 
-    m0 = std_mem_d1(32, 1, 1);
-    m1 = std_mem_d2(8, 64, 64, 6, 6);
-    m2 = std_mem_d3(1, 8, 8, 8, 3, 3, 3);
+    m0 = comb_mem_d1(32, 1, 1);
+    m1 = comb_mem_d2(8, 64, 64, 6, 6);
+    m2 = comb_mem_d3(1, 8, 8, 8, 3, 3, 3);
     a0 = std_add(32);
     s0 = std_slice(32, 8);
     add = std_add(8);

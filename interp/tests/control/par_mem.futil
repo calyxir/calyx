@@ -3,9 +3,9 @@ import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
-    @external a = std_mem_d1(32, 1, 1);
-    @external b = std_mem_d1(32, 1, 1);
-    @external c = std_mem_d1(32, 1, 1);
+    @external a = comb_mem_d1(32, 1, 1);
+    @external b = comb_mem_d1(32, 1, 1);
+    @external c = comb_mem_d1(32, 1, 1);
   }
 
   wires {
