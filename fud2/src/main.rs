@@ -84,7 +84,7 @@ fn build_driver() -> Driver {
     let dat = bld.state("dat", &["json"]);
     let vcd = bld.state("vcd", &["vcd"]);
     let simulator = bld.state("sim", &["exe"]);
-    let sim_common_setup = bld.setup("RTL simulation", |e| {
+    let sim_setup = bld.setup("RTL simulation", |e| {
         // Data conversion to and from JSON.
         e.config_var_or("python", "python", "python3")?;
         e.var(
@@ -114,12 +114,12 @@ fn build_driver() -> Driver {
 
         Ok(())
     });
-    let sim_normal_setup = bld.setup("Normal Testbench Setup", |e| {
+    let testbench_normal_setup = bld.setup("Normal Testbench Setup", |e| {
         // The Verilog testbench.
         e.var("testbench", &format!("{}/tb.sv", e.config_val("rsrc")?))?;
         Ok(())
     });
-    let sim_mem_externalized_setup =
+    let testbench_mem_externalized_setup =
         bld.setup("Externalized Memories Testbench Setup", |e| {
             // Supply the special testbench and std_mem_d1 implementation.
             e.var(
@@ -139,41 +139,24 @@ fn build_driver() -> Driver {
         e.build_cmd(&[output], "json-data", &["$datadir", "sim.log"], &[])?;
         Ok(())
     }
-    bld.op(
-        "simulate",
-        &[sim_common_setup, sim_normal_setup],
-        simulator,
-        dat,
-        sim_build,
-    );
-    // the only difference between "simulate" and "simulate-externalized-memory" is
-    bld.op(
-        "simulate-externalized-memory",
-        &[sim_common_setup, sim_mem_externalized_setup],
-        simulator,
-        dat,
-        sim_build,
-    );
-    bld.op(
-        "trace",
-        &[sim_common_setup, sim_normal_setup],
-        simulator,
-        vcd,
-        |e, input, output| {
-            e.build_cmd(
-                &["sim.log", output],
-                "sim-run",
-                &[input, "$datadir"],
-                &[],
-            )?;
-            e.arg("bin", input)?;
-            e.arg("args", &format!("+NOTRACE=0 +OUT={}", output))?;
-            Ok(())
-        },
-    );
+    bld.op("simulate", &[sim_setup], simulator, dat, sim_build);
+    bld.op("trace", &[sim_setup], simulator, vcd, |e, input, output| {
+        e.build_cmd(
+            &["sim.log", output],
+            "sim-run",
+            &[input, "$datadir"],
+            &[],
+        )?;
+        e.arg("bin", input)?;
+        e.arg("args", &format!("+NOTRACE=0 +OUT={}", output))?;
+        Ok(())
+    });
 
     // Icarus Verilog.
     let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
+    let verilog_mem_external = bld.state("verilog-mem-external", &["sv"]);
+    let verilog_noverify_mem_external =
+        bld.state("verilog-noverify-mem-external", &["sv"]); // Need to use alternative testbench.
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
         e.rule("icarus-compile", "$iverilog -g2012 -o $out $testbench $in")?;
@@ -194,8 +177,18 @@ fn build_driver() -> Driver {
     );
     bld.op(
         "icarus",
-        &[sim_common_setup, sim_normal_setup, icarus_setup],
+        &[sim_setup, testbench_normal_setup, icarus_setup],
         verilog_noverify,
+        simulator,
+        |e, input, output| {
+            e.build("icarus-compile", input, output)?;
+            Ok(())
+        },
+    );
+    bld.op(
+        "icarus-mem-external",
+        &[sim_setup, testbench_mem_externalized_setup, icarus_setup],
+        verilog_noverify_mem_external,
         simulator,
         |e, input, output| {
             e.build("icarus-compile", input, output)?;
@@ -205,6 +198,7 @@ fn build_driver() -> Driver {
 
     // Calyx to FIRRTL.
     let firrtl = bld.state("firrtl", &["fir"]);
+    let firrtl_with_primitives = bld.state("firrtl-with-primitives", &["fir"]);
     bld.op(
         "calyx-to-firrtl",
         &[calyx_setup],
@@ -236,7 +230,7 @@ fn build_driver() -> Driver {
         "firrtl-with-primitives",
         &[calyx_setup, firrtl_primitives_setup],
         calyx,
-        firrtl,
+        firrtl_with_primitives,
         |e, input, output| {
             let tmp_calyx = "partial.futil";
             let tmp_firrtl = "partial.fir";
@@ -285,7 +279,22 @@ fn build_driver() -> Driver {
         e.build_cmd(&[output], "add-firrtl-prims", &[tmp_verilog], &[])?;
         Ok(())
     }
+    fn firrtl_with_primitives_compile(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
+        e.build_cmd(&[output], "firrtl", &[input], &[])?;
+        Ok(())
+    }
     bld.op("firrtl", &[firrtl_setup], firrtl, verilog, firrtl_compile);
+    bld.op(
+        "firrtl-with-primitives-compile",
+        &[firrtl_setup],
+        firrtl_with_primitives,
+        verilog_mem_external,
+        firrtl_with_primitives_compile,
+    );
     // This is a bit of a hack, but the Icarus-friendly "noverify" state is identical for this path
     // (since FIRRTL compilation doesn't come with verification).
     bld.op(
@@ -298,9 +307,9 @@ fn build_driver() -> Driver {
     bld.op(
         "firrtl-with-primitives-noverify",
         &[firrtl_setup],
-        firrtl,
-        verilog_noverify,
-        firrtl_compile,
+        firrtl_with_primitives,
+        verilog_noverify_mem_external,
+        firrtl_with_primitives_compile,
     );
 
     // primitive-uses backend
@@ -328,19 +337,31 @@ fn build_driver() -> Driver {
         e.rule("cp", "cp $in $out")?;
         Ok(())
     });
+    fn verilator_build(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
+        let out_dir = "verilator-out";
+        let sim_bin = format!("{}/VTOP", out_dir);
+        e.build("verilator-compile", input, &sim_bin)?;
+        e.arg("out-dir", out_dir)?;
+        e.build("cp", &sim_bin, output)?;
+        Ok(())
+    }
     bld.op(
         "verilator",
-        &[sim_common_setup, sim_normal_setup, verilator_setup],
+        &[sim_setup, testbench_normal_setup, verilator_setup],
         verilog,
         simulator,
-        |e, input, output| {
-            let out_dir = "verilator-out";
-            let sim_bin = format!("{}/VTOP", out_dir);
-            e.build("verilator-compile", input, &sim_bin)?;
-            e.arg("out-dir", out_dir)?;
-            e.build("cp", &sim_bin, output)?;
-            Ok(())
-        },
+        verilator_build,
+    );
+    bld.op(
+        "verilator-mem-external",
+        &[sim_setup, testbench_mem_externalized_setup, verilator_setup],
+        verilog_mem_external,
+        simulator,
+        verilator_build,
     );
 
     // Interpreter.
@@ -375,7 +396,7 @@ fn build_driver() -> Driver {
     });
     bld.op(
         "interp",
-        &[sim_common_setup, sim_normal_setup, calyx_setup, cider_setup],
+        &[sim_setup, testbench_normal_setup, calyx_setup, cider_setup],
         calyx,
         dat,
         |e, input, output| {
@@ -392,7 +413,7 @@ fn build_driver() -> Driver {
     );
     bld.op(
         "debug",
-        &[sim_common_setup, sim_normal_setup, calyx_setup, cider_setup],
+        &[sim_setup, testbench_normal_setup, calyx_setup, cider_setup],
         calyx,
         debug,
         |e, input, output| {
@@ -480,7 +501,7 @@ fn build_driver() -> Driver {
     });
     bld.op(
         "xrt",
-        &[xilinx_setup, sim_common_setup, sim_normal_setup, xrt_setup],
+        &[xilinx_setup, sim_setup, testbench_normal_setup, xrt_setup],
         xclbin,
         dat,
         |e, input, output| {
@@ -497,7 +518,7 @@ fn build_driver() -> Driver {
     );
     bld.op(
         "xrt-trace",
-        &[xilinx_setup, sim_common_setup, sim_normal_setup, xrt_setup],
+        &[xilinx_setup, sim_setup, testbench_normal_setup, xrt_setup],
         xclbin,
         vcd,
         |e, input, output| {
