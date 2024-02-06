@@ -655,6 +655,10 @@ impl<'a> Simulator<'a> {
     }
 
     fn is_done(&self) -> bool {
+        assert!(
+            self.ctx().primary[self.ctx().entry_point].control.is_some(),
+            "flat interpreter doesn't handle a fully structural entrypoint program yet"
+        );
         // TODO griffin: need to handle structural components
         self.env.pc.is_done()
     }
