@@ -66,6 +66,8 @@ int NOTRACE;
 longint CYCLE_LIMIT;
 // Dummy variable to track value returned by $value$plusargs
 int CODE;
+// Directory to read/write memory
+string DATA;
 
 initial begin
   CODE = $value$plusargs("DATA=%s", DATA);
