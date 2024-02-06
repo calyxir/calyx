@@ -38,6 +38,11 @@ def generate_primitive_definition(inst):
             for key in replacement_map:
                 line = line.replace(key, str(replacement_map[key]))
             print(line.rstrip())
+
+    indent = "        ";
+    if inst["name"] == "file_read_mem":
+        for key in replacement_map:
+            print(f"{indent}parameter {key} = {replacement_map[key]}")
     print() # whitespace to buffer between modules
 
 # Generates a complete FIRRTL program with primitives.
