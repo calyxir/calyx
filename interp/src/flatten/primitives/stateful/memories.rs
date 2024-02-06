@@ -297,7 +297,7 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
     };
 }
 
-pub struct StdMem<M: MemAddresser> {
+pub struct CombMem<M: MemAddresser> {
     base_port: GlobalPortIdx,
     internal_state: Vec<Value>,
     allow_invalid_access: bool,
@@ -305,7 +305,7 @@ pub struct StdMem<M: MemAddresser> {
     addresser: M,
 }
 
-impl<M: MemAddresser> StdMem<M> {
+impl<M: MemAddresser> CombMem<M> {
     declare_ports![
         WRITE_DATA: M::NON_ADDRESS_BASE + 1,
         WRITE_EN: M::NON_ADDRESS_BASE + 2,
@@ -324,7 +324,7 @@ impl<M: MemAddresser> StdMem<M> {
     ];
 }
 
-impl<M: MemAddresser> Primitive for StdMem<M> {
+impl<M: MemAddresser> Primitive for CombMem<M> {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         let addr = self.addresser.calculate_addr(port_map, self.base_port);
         let read_data = self.read_data();
@@ -388,12 +388,12 @@ impl<M: MemAddresser> Primitive for StdMem<M> {
 }
 
 // type aliases
-pub type StdMemD1 = StdMem<MemD1<false>>;
-pub type StdMemD2 = StdMem<MemD2<false>>;
-pub type StdMemD3 = StdMem<MemD3<false>>;
-pub type StdMemD4 = StdMem<MemD4<false>>;
+pub type CombMemD1 = CombMem<MemD1<false>>;
+pub type CombMemD2 = CombMem<MemD2<false>>;
+pub type CombMemD3 = CombMem<MemD3<false>>;
+pub type CombMemD4 = CombMem<MemD4<false>>;
 
-impl StdMemD1 {
+impl CombMemD1 {
     pub fn new(
         base: GlobalPortIdx,
         width: u32,
@@ -412,7 +412,7 @@ impl StdMemD1 {
     }
 }
 
-impl StdMemD2 {
+impl CombMemD2 {
     pub fn new(
         base: GlobalPortIdx,
         width: u32,
@@ -431,7 +431,7 @@ impl StdMemD2 {
     }
 }
 
-impl StdMemD3 {
+impl CombMemD3 {
     pub fn new(
         base: GlobalPortIdx,
         width: u32,
@@ -454,7 +454,7 @@ impl StdMemD3 {
     }
 }
 
-impl StdMemD4 {
+impl CombMemD4 {
     pub fn new(
         base: GlobalPortIdx,
         width: u32,
