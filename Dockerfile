@@ -47,7 +47,8 @@ RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/tvm-*.whl
 
 # Install Dahlia
 WORKDIR /home
-RUN git clone https://github.com/cucapra/dahlia.git
+RUN git clone https://github.com/cucapra/dahlia.git && \
+    git checkout a352e60
 WORKDIR /home/dahlia
 RUN sbt "; getHeaders; assembly"
 
