@@ -1,11 +1,12 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    @external @data A0 = std_mem_d1(32, 8, 4);
+    @external @data A0 = comb_mem_d1(32, 8, 4);
     @data A_read0_0 = std_reg(32);
-    @external @data B0 = std_mem_d1(32, 8, 4);
+    @external @data B0 = comb_mem_d1(32, 8, 4);
     @data B_read0_0 = std_reg(32);
-    @external @data Sum0 = std_mem_d1(32, 8, 4);
+    @external @data Sum0 = comb_mem_d1(32, 8, 4);
     @data add0 = std_add(32);
     @data add1 = std_add(4);
     @data const0 = std_const(4, 0);

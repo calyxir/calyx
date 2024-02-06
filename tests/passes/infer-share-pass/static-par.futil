@@ -3,6 +3,7 @@
 //
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 
@@ -14,24 +15,24 @@ component example(in: 32) -> (out: 32) {
   }
   wires {
     static<1> group A {
-      a.in = 32'd2; 
-      a.write_en = 1'd1; 
+      a.in = 32'd2;
+      a.write_en = 1'd1;
     }
     static<1> group B {
-      b.write_en = 1'd1; 
-      b.in = 32'd7; 
+      b.write_en = 1'd1;
+      b.in = 32'd7;
     }
     static<1> group read_A {
-      adder.left = a.out; 
-      adder.right = 32'd2; 
-      a.in = adder.out; 
-      a.write_en = 1'd1; 
+      adder.left = a.out;
+      adder.right = 32'd2;
+      a.in = adder.out;
+      a.write_en = 1'd1;
     }
     out = a.out;
   }
   control {
     static par {
-      A; 
+      A;
       static seq {B; read_A; }
     }
   }

@@ -233,8 +233,12 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         input = CompVar("a")
         phis = CompVar("phis")
         memories = [
-            Cell(input, Stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
-            Cell(phis, Stdlib.mem_d1(input_bitwidth, n, bitwidth), is_external=True),
+            Cell(
+                input, Stdlib.comb_mem_d1(input_bitwidth, n, bitwidth), is_external=True
+            ),
+            Cell(
+                phis, Stdlib.comb_mem_d1(input_bitwidth, n, bitwidth), is_external=True
+            ),
         ]
         r_regs = [
             Cell(CompVar(f"r{r}"), Stdlib.register(input_bitwidth)) for r in range(n)
@@ -322,6 +326,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
     pp_table(operations, multiplies, n, num_stages)
     prog = cb.Builder()
     prog.import_("primitives/binary_operators.futil")
+    prog.import_("primitives/memories/comb.futil")
     main = prog.component("main", cells())
     wires(main)
     main.component.controls = control()

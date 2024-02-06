@@ -1,5 +1,6 @@
 // -p pre-opt -p post-opt
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component my_reg<"state_share"=1>(@data in: 32) -> (@stable out: 32) {
   cells {
@@ -15,7 +16,7 @@ component my_reg<"state_share"=1>(@data in: 32) -> (@stable out: 32) {
 
 component main() -> () {
   cells {
-    @external mem = std_mem_d1(32, 2, 1);
+    @external mem = comb_mem_d1(32, 2, 1);
     // the two `std_reg` created after inlining should be shared
     @inline r0 = my_reg();
     @inline r1 = my_reg();
