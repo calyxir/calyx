@@ -134,6 +134,15 @@ impl CellLedger {
         self.as_comp()
             .expect("Unwrapped cell ledger as component but received primitive")
     }
+
+    #[must_use]
+    pub(crate) fn as_primitive(&self) -> Option<&Box<dyn Primitive>> {
+        if let Self::Primitive { cell_dyn } = self {
+            Some(cell_dyn)
+        } else {
+            None
+        }
+    }
 }
 
 impl Debug for CellLedger {
@@ -354,9 +363,25 @@ impl<'a> Environment<'a> {
                 );
             }
 
+            let cell_idx = &info.index_bases + cell_off;
+
             if definition.prototype.is_component() {
-                let child_target = &info.index_bases + cell_off;
-                self.print_component(child_target, hierarchy);
+                self.print_component(cell_idx, hierarchy);
+            } else if self.cells[cell_idx]
+                .as_primitive()
+                .unwrap()
+                .has_serializable_state()
+            {
+                println!(
+                    "    INTERNAL_DATA: {}",
+                    serde_json::to_string_pretty(
+                        &self.cells[cell_idx]
+                            .as_primitive()
+                            .unwrap()
+                            .serialize(None)
+                    )
+                    .unwrap()
+                )
             }
         }
 
@@ -377,7 +402,8 @@ impl<'a> Environment<'a> {
 }
 
 /// A wrapper struct for the environment that provides the functions used to
-/// simulate the actual program
+/// simulate the actual program. This is just to keep the simulation logic under
+/// a different namespace than the environment to avoid confusion
 pub struct Simulator<'a> {
     env: Environment<'a>,
 }
