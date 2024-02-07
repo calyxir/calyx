@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: tests/errors/papercut/cell-as-group.futil
-9 |    save;
-  |    ^^^^^ Undefined group name: save
+10 |    save;
+   |    ^^^^^ Undefined group name: save

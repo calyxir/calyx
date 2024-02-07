@@ -1,8 +1,21 @@
 [package]
-name = "fud2"
-version.workspace = true
+name = "fud"
+version = "0.0.2"
 edition.workspace = true
+authors.workspace = true
+license-file.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+keywords = ["build-tool"]
+readme = "README.md"
+categories = ["build-tool"]
+description = "Compiler driver for the Calyx infrastructure"
 
 [dependencies]
-fake = { path = "fake" }
+fud-core = { path = "fud-core", version = "0.0.2" }
 anyhow.workspace = true
+
+[[bin]]
+name = "fud2"
+path = "src/main.rs"

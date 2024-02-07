@@ -1,18 +1,19 @@
 // -p well-formed -p simplify-with-control -p cell-share -p dead-cell-removal -p remove-ids
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
-    @external(1) a_src0 = std_mem_d1(32,8,4);
+    @external(1) a_src0 = comb_mem_d1(32,8,4);
     a_src_read0_0 = std_reg(32);
-    @external(1) a_tar0 = std_mem_d1(32,8,4);
+    @external(1) a_tar0 = comb_mem_d1(32,8,4);
     add0 = std_add(4);
     add1 = std_add(4);
     add2 = std_add(4);
-    @external(1) b_src0 = std_mem_d1(32,8,4);
+    @external(1) b_src0 = comb_mem_d1(32,8,4);
     b_src_read0_0 = std_reg(32);
-    @external(1) b_tar0 = std_mem_d1(32,8,4);
-    @external(1) c_src0 = std_mem_d1(32,8,4);
-    @external(1) c_tar0 = std_mem_d1(32,8,4);
+    @external(1) b_tar0 = comb_mem_d1(32,8,4);
+    @external(1) c_src0 = comb_mem_d1(32,8,4);
+    @external(1) c_tar0 = comb_mem_d1(32,8,4);
     c_tar_read0_0 = std_reg(32);
     const0 = std_const(4,0);
     const1 = std_const(4,7);

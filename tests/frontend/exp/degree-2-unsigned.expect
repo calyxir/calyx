@@ -1,5 +1,6 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
+import "primitives/memories/comb.futil";
 component exp(x: 32) -> (out: 32) {
   cells {
     exponent_value = std_reg(32);
@@ -152,8 +153,8 @@ component fp_pow(base: 32, integer_exp: 32) -> (out: 32) {
 component main() -> () {
   cells {
     t = std_reg(32);
-    @external x = std_mem_d1(32, 1, 1);
-    @external ret = std_mem_d1(32, 1, 1);
+    @external x = comb_mem_d1(32, 1, 1);
+    @external ret = comb_mem_d1(32, 1, 1);
     e = exp();
   }
   wires {

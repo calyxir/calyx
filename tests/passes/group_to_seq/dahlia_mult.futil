@@ -1,13 +1,14 @@
 // -p validate -p group2seq
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) A0 = std_mem_d1(32,2,2);
+    @external(1) A0 = comb_mem_d1(32,2,2);
     A_read0_0 = std_reg(32);
     A_read1_0 = std_reg(32);
-    @external(1) B0 = std_mem_d1(32,2,2);
+    @external(1) B0 = comb_mem_d1(32,2,2);
     B_read0_0 = std_reg(32);
     B_read1_0 = std_reg(32);
     bin_read0_0 = std_reg(32);

@@ -1,5 +1,6 @@
 // -p validate -p inline -x inline:always
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component check(left: 4, right: 4) -> (out: 1) {
   cells {

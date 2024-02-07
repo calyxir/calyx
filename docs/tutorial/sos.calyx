@@ -2,10 +2,10 @@ import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external avec_b0 = std_mem_d1(32, 4, 32);
-    @external sos = std_mem_d1(32, 1, 32);
+    @external avec_b0 = comb_mem_d1(32, 4, 32);
+    @external sos = comb_mem_d1(32, 1, 32);
     sos_reg = std_reg(32);
-    squares_b0 = std_mem_d1(32, 4, 32);
+    squares_b0 = comb_mem_d1(32, 4, 32);
     idx_b0_0 = std_reg(32);
     incr_b0_0 = std_add(32);
     lt_b0_0 = std_lt(32);

@@ -1,5 +1,6 @@
 // -p well-formed -p group2invoke
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 extern "./multi-go-done.futil" {
   primitive real_mem(

@@ -1,0 +1,22 @@
+// -p compile-empty
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    r = std_reg(1);
+  }
+  wires {
+    comb group cond {}
+    group do_incr {
+      r.in = 1'd1;
+      r.write_en = 1'd1;
+      do_incr[done] = r.done;
+    }
+  }
+  control {
+    if r.out with cond {
+      do_incr;
+    }
+  }
+}

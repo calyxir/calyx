@@ -1,5 +1,6 @@
 import "primitives/core.futil";
-component example(@go @promotable go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 1) {
+import "primitives/memories/comb.futil";
+component example(@go @static go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 1) {
   cells {
     r0 = std_reg(8);
     r1 = std_reg(8);
@@ -20,7 +21,7 @@ component example(@go @promotable go: 1, @clk clk: 1, @reset reset: 1) -> (out: 
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    @external mem = std_mem_d1(8, 1, 1);
+    @external mem = comb_mem_d1(8, 1, 1);
     ex = example();
   }
   wires {}

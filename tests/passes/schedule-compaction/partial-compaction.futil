@@ -17,6 +17,7 @@
 //   B        D
 // So we can compact the execution schedule to respect this data dependency
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main () -> () {
   cells {

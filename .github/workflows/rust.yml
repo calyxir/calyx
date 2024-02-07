@@ -79,12 +79,6 @@ jobs:
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
 
-    - name: Update Dahlia
-      working-directory: /home/dahlia
-      run: |
-        git pull
-        sbt "; assembly"
-
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
@@ -136,12 +130,6 @@ jobs:
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
 
-    - name: Update Dahlia
-      working-directory: /home/dahlia
-      run: |
-        git pull
-        sbt "; assembly"
-
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
@@ -185,7 +173,7 @@ jobs:
 
     - name: Run Python Tests
       working-directory: /home/calyx
-      run: pytest fud/fud/stages/verilator/tests/numeric_types.py
+      run: pytest calyx-py/test/numeric_types.py
 
   evaluation:
     name: Polybench Integration
@@ -200,12 +188,6 @@ jobs:
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
-
-    - name: Update Dahlia
-      working-directory: /home/dahlia
-      run: |
-        git pull
-        sbt "; assembly"
 
     - name: Checkout commit that triggered run
       working-directory: /home/calyx

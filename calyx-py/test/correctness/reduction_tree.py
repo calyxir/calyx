@@ -97,9 +97,10 @@ def add_main(prog, tree):
     main = prog.component("main")
     # Four memories, each of length 4.
     [mem_a, mem_b, mem_c, mem_d] = [
-        main.mem_d1(name, 32, 4, 32, is_external=True) for name in ["A", "B", "C", "D"]
+        main.comb_mem_d1(name, 32, 4, 32, is_external=True)
+        for name in ["A", "B", "C", "D"]
     ]
-    mem_ans = main.mem_d1("ans", 32, 1, 1, is_external=True)
+    mem_ans = main.comb_mem_d1("ans", 32, 1, 1, is_external=True)
     # Four answer registers.
     [sum_col0, sum_col1, sum_col2, sum_col3] = [
         main.reg(f"sum_col{i}", 32) for i in range(4)

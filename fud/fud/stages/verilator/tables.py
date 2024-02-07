@@ -1,6 +1,6 @@
 from itertools import product
 from decimal import Decimal
-from fud.stages.verilator.numeric_types import FixedPoint
+from calyx.numeric_types import FixedPoint
 
 
 def compute_exp_frac_table(frac_width: int):

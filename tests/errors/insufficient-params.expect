@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: tests/errors/insufficient-params.futil
-5 |    d = std_fp_div_pipe(32);
+6 |    d = std_fp_div_pipe(32);
   |    ^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: primitive `std_fp_div_pipe` requires 3 parameters but instantiation provides 1 parameters

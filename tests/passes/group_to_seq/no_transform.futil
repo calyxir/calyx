@@ -1,6 +1,7 @@
 //-p validate -p group2seq
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main<"state_share"=1>(in:32) -> () {
   cells {
@@ -11,14 +12,14 @@ component main<"state_share"=1>(in:32) -> () {
     x_0 = std_reg(32);
   }
   wires {
-    // no A.go = B.done (or vice versa), and group's done is not in correct form 
+    // no A.go = B.done (or vice versa), and group's done is not in correct form
     group writeAB{
-      A.write_en = 1'd1; 
-      A.in = 32'd5; 
-      B.write_en = 1'd1; 
-      B.in = 32'd7; 
+      A.write_en = 1'd1;
+      A.in = 32'd5;
+      B.write_en = 1'd1;
+      B.in = 32'd7;
       writeAB[done]= A.done & B.done? 1'd1;
-    } 
+    }
   }
   control {
     seq{

@@ -1,20 +1,21 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/unsynthesizable.futil";
 component main() -> () {
   cells {
     t0_idx = std_reg(2);
     t0_add = std_add(2);
-    @external(1) t0 = std_mem_d1(32, 3, 2);
+    @external(1) t0 = comb_mem_d1(32, 3, 2);
     t1_idx = std_reg(2);
     t1_add = std_add(2);
-    @external(1) t1 = std_mem_d1(32, 3, 2);
+    @external(1) t1 = comb_mem_d1(32, 3, 2);
     l0_idx = std_reg(2);
     l0_add = std_add(2);
-    @external(1) l0 = std_mem_d1(32, 3, 2);
+    @external(1) l0 = comb_mem_d1(32, 3, 2);
     l1_idx = std_reg(2);
     l1_add = std_add(2);
-    @external(1) l1 = std_mem_d1(32, 3, 2);
-    @external(1) out_mem = std_mem_d1(32, 4, 3);
+    @external(1) l1 = comb_mem_d1(32, 3, 2);
+    @external(1) out_mem = comb_mem_d1(32, 4, 3);
     top_0_0 = std_reg(32);
     left_0_0 = std_reg(32);
     top_0_1 = std_reg(32);
