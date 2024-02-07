@@ -10,7 +10,7 @@ impl Named for AddGuard {
     }
 
     fn description() -> &'static str {
-        "add guard %[0: n] where n is latency of static component for each assignment in the static enable of static component."
+        "Add guard %[0: n] where n is latency of static component for each assignment in the static enable of static component."
     }
 }
 
