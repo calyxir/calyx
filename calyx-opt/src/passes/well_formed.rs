@@ -298,66 +298,74 @@ impl Visitor for WellFormed {
         }
 
         // Checking that @interval annotations are placed correctly.
-        // 1. If on @go port has @interval(n) annotation, all @go ports
-        // must have @interval(n) annotation.
-        // 2. Control must have a static<n> latency.
+        // There are two options for @interval annotations:
+        // 1. You have written only continuous assignments (this is similar
+        // to primitives written in Verilog).
+        // 2. You are using static<n> control.
         let comp_sig = &comp.signature.borrow();
         let go_ports =
             comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
         if go_ports.iter().any(|go_port| {
             go_port.borrow().attributes.has(ir::NumAttr::Interval)
         }) {
-            // Getting "reference value" should be the same for all go ports and
-            // the control.
-            let reference_val = match go_ports[0]
-                .borrow()
-                .attributes
-                .get(ir::NumAttr::Interval)
-            {
-                Some(val) => val,
-                None => {
-                    return Err(Error::malformed_structure(
-                    "@interval(n) attribute on all @go ports \
-                        since there is an @interval(n) annotation on at least one port",
+            match &*comp.control.borrow() {
+                ir::Control::Static(_) | ir::Control::Empty(_) => (),
+                _ => return Err(Error::malformed_structure(
+                    format!("component {} has dynamic control but has @interval annotations", comp.name),
                     )
-                    .with_pos(&comp.attributes))
-                }
+                    .with_pos(&comp.attributes)),
             };
-            // Checking go ports.
-            for go_port in &go_ports {
-                let go_port_val = match go_port
+            if !comp.control.borrow().is_empty() {
+                // Getting "reference value" should be the same for all go ports and
+                // the control.
+                let reference_val = match go_ports[0]
                     .borrow()
                     .attributes
                     .get(ir::NumAttr::Interval)
                 {
                     Some(val) => val,
                     None => {
-                        return Err(Error::malformed_structure(format!(
-                            "@go port expected @interval({reference_val}) attribute on all ports \
-                            since there is an @interval({reference_val}) annotation on at least one port",
-                        ))
+                        return Err(Error::malformed_structure(
+                        "@interval(n) attribute on all @go ports \
+                            since there is an @interval(n) annotation on at least one port",
+                        )
                         .with_pos(&comp.attributes))
                     }
                 };
-                if go_port_val != reference_val {
-                    return Err(Error::malformed_structure(format!(
-                        "@go port expected latency {reference_val}, got latency {go_port_val}",
-                    ))
-                    .with_pos(&go_port.borrow().attributes));
-                }
-                // Checking control latency
-                match comp.control.borrow().get_latency() {
-                    None => {
-                        return Err(Error::malformed_structure(
-                            "to have @interval annotations, you need static control",
-                        ).with_pos(&comp.attributes))
-                    }
-                    Some(control_latency) => {
-                        if control_latency != reference_val {
+                // Checking go ports.
+                for go_port in &go_ports {
+                    let go_port_val = match go_port
+                        .borrow()
+                        .attributes
+                        .get(ir::NumAttr::Interval)
+                    {
+                        Some(val) => val,
+                        None => {
                             return Err(Error::malformed_structure(format!(
-                                "component {} expected latency {reference_val}, got latency {control_latency}", comp.name,
+                                "@go port expected @interval({reference_val}) attribute on all ports \
+                                since the component has static<n> control",
                             ))
-                            .with_pos(&comp.attributes));
+                            .with_pos(&comp.attributes))
+                        }
+                    };
+                    if go_port_val != reference_val {
+                        return Err(Error::malformed_structure(format!(
+                            "@go port expected @interval {reference_val}, got @interval {go_port_val}",
+                        ))
+                        .with_pos(&go_port.borrow().attributes));
+                    }
+                    // Checking control latency
+                    match comp.control.borrow().get_latency() {
+                        None => {
+                            unreachable!("already checked control is static")
+                        }
+                        Some(control_latency) => {
+                            if control_latency != reference_val {
+                                return Err(Error::malformed_structure(format!(
+                                    "component {} expected @interval {reference_val}, got @interval {control_latency}", comp.name,
+                                ))
+                                .with_pos(&comp.attributes));
+                            }
                         }
                     }
                 }

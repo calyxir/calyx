@@ -71,6 +71,7 @@ impl From<&ir::Primitive> for GoDone {
         let go_ports = prim
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
+                // Primitives only have @interval.
                 pd.attributes.get(ir::NumAttr::Interval).and_then(|st| {
                     done_ports
                         .get(&pd.attributes.get(ir::NumAttr::Go))
