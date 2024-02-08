@@ -6,7 +6,7 @@ use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use itertools::Itertools;
 
-/// Infer "promote_static" (potentially to be renamed @promotable) annotation
+/// Infer @promotable annotation
 /// for groups and control.
 /// Inference occurs whenever possible.
 pub struct StaticInference {
