@@ -113,8 +113,6 @@ pub enum NumAttr {
     /// This indicates the component can serve ``double-duty'' as both static and
     /// dynamic.
     /// Therefore, we only place if we can *guarantee* the interval of the component.
-    /// (e.g., Calyx components must have `static<n>` control` if they have
-    /// the @interval(n) annotation on the `go` port.)
     Interval,
 }
 impl From<NumAttr> for Attribute {
