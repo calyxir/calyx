@@ -326,8 +326,7 @@ impl Visitor for WellFormed {
                     Some(val) => val,
                     None => {
                         return Err(Error::malformed_structure(
-                        "@interval(n) attribute on all @go ports \
-                            since there is an @interval(n) annotation on at least one port",
+                        "@interval(n) attribute on all @go ports since there is static<n> control",
                         )
                         .with_pos(&comp.attributes))
                     }
