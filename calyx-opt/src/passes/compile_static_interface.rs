@@ -23,6 +23,7 @@ impl Named for CompileStaticInterface {
     }
 }
 
+// Looks recursively thru guard to %[0:n] into %0 | %[1:n].
 fn separate_first_cycle(
     guard: ir::Guard<StaticTiming>,
 ) -> ir::Guard<StaticTiming> {
@@ -56,6 +57,7 @@ fn separate_first_cycle(
     }
 }
 
+// Looks recursively thru assignment's guard to %[0:n] into %0 | %[1:n].
 fn separate_first_cycle_assign(
     assign: ir::Assignment<StaticTiming>,
 ) -> ir::Assignment<StaticTiming> {
@@ -67,6 +69,8 @@ fn separate_first_cycle_assign(
     }
 }
 
+// Used for guards in a one cycle static component.
+// Replaces %0 with comp.go.
 fn make_guard_dyn_one_cycle_static_comp(
     guard: ir::Guard<StaticTiming>,
     comp_sig: RRC<ir::Cell>,
@@ -92,12 +96,10 @@ fn make_guard_dyn_one_cycle_static_comp(
             ir::Guard::Not(Box::new(f))
         }
         ir::Guard::Info(t) => {
-            let (beg, end) = t.get_interval();
-            if beg != 0 || end != 1 {
-                unreachable!("This function is implemented for 1 cycle static components, only %0 can exist as timing guard")
-            } else {
-                let g = guard!(comp_sig["go"]);
-                g
+            match t.get_interval() {
+                (0, 1) => guard!(comp_sig["go"]),
+                _ => unreachable!("This function is implemented for 1 cycle static components, only %0 can exist as timing guard"),
+
             }
         }
         ir::Guard::CompOp(op, l, r) => ir::Guard::CompOp(op, l, r),
@@ -106,6 +108,8 @@ fn make_guard_dyn_one_cycle_static_comp(
     }
 }
 
+// Used for assignments in a one cycle static component.
+// Replaces %0 with comp.go in the assignment's guard.
 fn make_assign_dyn_one_cycle_static_comp(
     assign: ir::Assignment<StaticTiming>,
     comp_sig: RRC<ir::Cell>,
@@ -122,6 +126,9 @@ fn make_assign_dyn_one_cycle_static_comp(
 }
 
 impl CompileStaticInterface {
+    // Takes the assignments within a static component, and instantiates
+    // an FSM (i.e., counter) to convert %[i:j] into i<= fsm < j.
+    // Also includes logic to make fsm reset to 0 once it gets to n-1.
     fn make_early_reset_assigns_static_component(
         &mut self,
         sgroup_assigns: &mut Vec<ir::Assignment<ir::StaticTiming>>,
@@ -173,20 +180,27 @@ impl CompileStaticInterface {
             guard!(fsm["out"] == final_state["out"]);
         let fsm_incr_assigns = build_assignments!(
           builder;
-          // increments the fsm
+          // Incrementsthe fsm
           adder["left"] = ? fsm["out"];
           adder["right"] = ? const_one["out"];
+          // Always write into fsm.
           fsm["write_en"] = ? signal_on["out"];
+          // If fsm == 0 and comp.go is high, then we start an execution.
           fsm["in"] = trigger_guard ? const_one["out"];
+          // If 1 < fsm < n - 1, then we unconditionally increment the fsm.
           fsm["in"] = incr_guard ? adder["out"];
-           // resets the fsm early
+          // If fsm == n -1 , then we reset the FSM.
           fsm["in"] = stop_guard ? first_state["out"];
+          // Otherwise the FSM is not assigned to, so it defaults to 0.
+          // If we want, we could add an explicit assignment here that sets it
+          // to zero.
         );
         dyn_assigns.extend(fsm_incr_assigns);
 
         dyn_assigns
     }
 
+    // Makes `done` signal for promoted static<n> component.
     fn make_done_signal_for_promoted_component(
         &mut self,
         fsm: ir::RRC<ir::Cell>,
@@ -213,14 +227,16 @@ impl CompileStaticInterface {
         let comp_done_guard =
             guard!(fsm["out"] == first_state["out"]) & guard!(sig_reg["out"]);
         let assigns = build_assignments!(builder;
-          // only set sig_reg when fsm == 0
+          // Only write to sig_reg when fsm == 0
           sig_reg["write_en"] = first_state_guard ? one["out"];
-          // if fsm == 0 and comp.go is high, then we set signal_reg to high,
-          // because it means we are starting an execution.
+          // If fsm == 0 and comp.go is high, it means we are starting an execution,
+          // so we set signal_reg to high. Note that this happens regardless of
+          // whether comp.done is high.
           sig_reg["in"] = go_guard ? one["out"];
-          // otherwise set signal_reg low.
+          // Otherwise, we set `sig_reg` to low.
           sig_reg["in"] = not_go_guard ? zero["out"];
-          // set signal_reg low once the component is finished executing.
+          // comp.done is high when FSM == 0 and sig_reg is high,
+          // since that means we have just finished an execution.
           comp_sig["done"] = comp_done_guard ? one["out"];
         );
         assigns.to_vec()
@@ -240,9 +256,10 @@ impl CompileStaticInterface {
         let not_go = !guard!(comp_sig["go"]);
         let signal_on_guard = guard!(sig_reg["out"]);
         let assigns = build_assignments!(builder;
-          // comp.done is just whatever comp.go was on the previous cycle.
-          // (i.e., signal_reg serves as a forwarding register that delays
-          // the signal for one cycle).
+          // For one cycle components, comp.done is just whatever comp.go
+          // was during the previous cycle.
+          // signal_reg serves as a forwarding register that delays
+          // the `go` signal for one cycle.
           sig_reg["in"] = go_guard ? one["out"];
           sig_reg["in"] = not_go ? zero["out"];
           sig_reg["write_en"] = ? one["out"];
@@ -261,6 +278,7 @@ impl Visitor for CompileStaticInterface {
         _comps: &[ir::Component],
     ) -> VisResult {
         if comp.is_static() && s.get_latency() > 1 {
+            // Handle components with latency > 1.
             let latency = s.get_latency();
             if let ir::StaticControl::Enable(sen) = s {
                 let mut builder = ir::Builder::new(comp, sigs);
@@ -294,6 +312,7 @@ impl Visitor for CompileStaticInterface {
                 }
             }
         } else if comp.is_static() && s.get_latency() == 1 {
+            // Handle components with latency == 1.
             if let ir::StaticControl::Enable(sen) = s {
                 let assignments =
                     std::mem::take(&mut sen.group.borrow_mut().assignments);
@@ -327,8 +346,8 @@ impl Visitor for CompileStaticInterface {
         _sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Remove the control.
         if comp.is_static() {
-            //let _c = std::mem::replace(&mut comp.control, Rc::new(RefCell::new(ir::Control::Static(ir::StaticControl::Empty(ir::Empty{attributes:Attributes::default()})))));
             let _c = std::mem::replace(
                 &mut comp.control,
                 Rc::new(RefCell::new(ir::Control::Empty(ir::Empty {
