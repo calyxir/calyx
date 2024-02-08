@@ -538,6 +538,10 @@ comb_primitive!(StdPad[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) 
     Ok(r#in.ext(OUT_WIDTH as usize))
 });
 
+comb_primitive!(StdBitSlice[IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) {
+    Ok(r#in.slice_out(END_IDX as usize, START_IDX as usize))
+});
+
 // ===================== Unsynthesizeable Operations ======================
 comb_primitive!(StdUnsynMult[WIDTH](left: WIDTH, right: WIDTH) -> (out: WIDTH) {
     Ok(Value::from(left.as_unsigned() * right.as_unsigned(), WIDTH))
