@@ -94,10 +94,20 @@ impl Visitor for UnusedPortRemoval {
                     }
                 }
             }
-        }
 
-        //
-        // comp.for_each_assignment(|assign: &mut Assignment<Nothing>| {});
+            comp.continuous_assignments.retain(|assign| {
+                // decides whether an assignment assigns to an unused port
+                // if so, removes assignment
+                let mut assigns_to_unused = false;
+                assign.iter_ports(|port| {
+                    match unused_ports.get(&port.borrow().name) {
+                        None => (),
+                        Some(_) => assigns_to_unused = true,
+                    }
+                });
+                !(assigns_to_unused)
+            });
+        }
 
         // insert a mapping from each of this component's children components to
         // the ports that each child uses

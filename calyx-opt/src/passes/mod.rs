@@ -89,6 +89,7 @@ pub use compile_static_interface::CompileStaticInterface;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
 pub use unroll_bound::UnrollBounded;
+pub use unused_port_removal::UnusedPortRemoval;
 pub use well_formed::WellFormed;
 pub use wire_inliner::WireInliner;
 pub use wrap_main::WrapMain;
