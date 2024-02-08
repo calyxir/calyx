@@ -74,27 +74,30 @@ impl Visitor for UnusedPortRemoval {
         // that are instantiated by other components, all of which we have access
         // to based on our pre-order traversal :)
         let unused_ports: HashSet<Id> = match self.used_ports.get(&comp.name) {
-            None => panic!(
-                "Would not get here, since, otherwise, the fact that this 
-            component is not in used_ports ==> no assignments to a port in this 
-            component ever existed in previous component ==> this component 
-            would never even be a part of the pre-order traversal"
-            ),
-            Some(used_set) => {
-                all_ports.difference(used_set).map(|item: &Id| *item)
-            }
-        }
-        .collect();
+            None => all_ports,
+            Some(used_set) => all_ports
+                .difference(used_set)
+                .map(|item: &Id| *item)
+                .collect(),
+        };
 
+        // runt -i tests/passes/unused-port-removal/simple -d
         // if port from signature is an unused port, add an attribute @internal
-        for port in comp.signature.borrow_mut().ports.iter_mut() {
-            match unused_ports.get(&port.borrow().name) {
-                None => (),
-                Some(_) => {
-                    port.borrow_mut().attributes.insert(BoolAttr::Internal, 1);
+        if comp.name != "main" {
+            for port in comp.signature.borrow_mut().ports.iter_mut() {
+                let mut port_ref = port.borrow_mut();
+                let name = port_ref.name;
+                match unused_ports.get(&name) {
+                    None => (),
+                    Some(_) => {
+                        port_ref.attributes.insert(BoolAttr::Internal, 1);
+                    }
                 }
             }
         }
+
+        //
+        // comp.for_each_assignment(|assign: &mut Assignment<Nothing>| {});
 
         // insert a mapping from each of this component's children components to
         // the ports that each child uses
