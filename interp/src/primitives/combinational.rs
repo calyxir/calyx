@@ -539,7 +539,7 @@ comb_primitive!(StdPad[IN_WIDTH, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) 
 });
 
 comb_primitive!(StdBitSlice[IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH](r#in: IN_WIDTH) -> (out: OUT_WIDTH) {
-    Ok(r#in.slice_out(END_IDX as usize, START_IDX as usize))
+    Ok(r#in.slice(END_IDX as usize, START_IDX as usize))
 });
 
 // ===================== Unsynthesizeable Operations ======================

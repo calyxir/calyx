@@ -639,7 +639,7 @@ impl Value {
     }
 
     /// Returns a value containing the sliced region \[lower,upper\]
-    pub fn slice(self, upper_idx: usize, lower_idx: usize) -> Self {
+    pub fn slice(&self, upper_idx: usize, lower_idx: usize) -> Self {
         assert!(upper_idx >= lower_idx);
         assert!(upper_idx < self.vec.len());
 
