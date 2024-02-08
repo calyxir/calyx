@@ -130,6 +130,12 @@ jobs:
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
 
+    - name: Update Dahlia
+      working-directory: /home/dahlia
+      run: |
+        git pull
+        sbt "; assembly"
+
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
@@ -188,6 +194,12 @@ jobs:
       run: |
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
+
+    - name: Update Dahlia
+      working-directory: /home/dahlia
+      run: |
+        git pull
+        sbt "; assembly"
 
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
