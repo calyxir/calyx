@@ -47,7 +47,8 @@ RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/tvm-*.whl
 
 # Install Dahlia
 WORKDIR /home
-RUN git clone https://github.com/cucapra/dahlia.git
+ARG CACHEBUST=1
+RUN git clone https://github.com/cucapra/dahlia.git?nocache=${CACHEBUST}
 WORKDIR /home/dahlia
 ## Checkout specific version
 RUN git checkout 51954e7
