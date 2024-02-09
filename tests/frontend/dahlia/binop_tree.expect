@@ -22,32 +22,32 @@ component main() -> () {
     x_0 = std_reg(32);
   }
   wires {
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       a_0.in = const0.out;
       a_0.write_en = 1'd1;
       let0[done] = a_0.done;
     }
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       b_0.in = const1.out;
       b_0.write_en = 1'd1;
       let1[done] = b_0.done;
     }
-    group let2<"static"=1> {
+    group let2<"promotable"=1> {
       c_0.in = const2.out;
       c_0.write_en = 1'd1;
       let2[done] = c_0.done;
     }
-    group let3<"static"=1> {
+    group let3<"promotable"=1> {
       d_0.in = const3.out;
       d_0.write_en = 1'd1;
       let3[done] = d_0.done;
     }
-    group let4<"static"=1> {
+    group let4<"promotable"=1> {
       e_0.in = const4.out;
       e_0.write_en = 1'd1;
       let4[done] = e_0.done;
     }
-    group let5<"static"=4> {
+    group let5<"promotable"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let5[done] = bin_read0_0.done;
@@ -63,7 +63,7 @@ component main() -> () {
       div_pipe0.right = e_0.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
-    group let7<"static"=1> {
+    group let7<"promotable"=1> {
       x_0.in = add1.out;
       x_0.write_en = 1'd1;
       let7[done] = x_0.done;
