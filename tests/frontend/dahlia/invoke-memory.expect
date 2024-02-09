@@ -15,19 +15,19 @@ component mem_copy(length: 3) -> () {
       lt0.left = i_0.out;
       lt0.right = length;
     }
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       i_0.in = const0.out;
       i_0.write_en = 1'd1;
       let0[done] = i_0.done;
     }
-    group let1<"static"=2> {
+    group let1<"promotable"=2> {
       src_read0_0.in = src.read_data;
       src_read0_0.write_en = src.read_done;
       let1[done] = src_read0_0.done;
       src.addr0 = i_0.out;
       src.read_en = 1'd1;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
       dest.addr0 = i_0.out;
       dest.write_en = 1'd1;
       dest.write_data = src_read0_0.out;
@@ -55,7 +55,7 @@ component main() -> () {
     @external(1) s = seq_mem_d1(32,5,3);
   }
   wires {
-    group let2<"static"=1> {
+    group let2<"promotable"=1> {
       len_0.in = const1.out;
       len_0.write_en = 1'd1;
       let2[done] = len_0.done;

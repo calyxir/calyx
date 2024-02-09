@@ -205,7 +205,7 @@ class Group(Structure):
 
     def doc(self) -> str:
         static_delay_attr = (
-            "" if self.static_delay is None else f'<"static"={self.static_delay}>'
+            "" if self.static_delay is None else f'<"promotable"={self.static_delay}>'
         )
         return block(
             f"group {self.id.doc()}{static_delay_attr}",

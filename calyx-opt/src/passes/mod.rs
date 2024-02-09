@@ -1,11 +1,9 @@
 //! Passes for the Calyx compiler.
-mod attribute_promotion;
 mod canonical;
 mod cell_share;
 mod clk_insertion;
 mod collapse_control;
 mod comb_prop;
-mod compile_empty;
 mod compile_invoke;
 mod compile_repeat;
 mod compile_static;
@@ -47,13 +45,11 @@ mod well_formed;
 mod wire_inliner;
 mod wrap_main;
 
-pub use attribute_promotion::AttributePromotion;
 pub use canonical::Canonicalize;
 pub use cell_share::CellShare;
 pub use clk_insertion::ClkInsertion;
 pub use collapse_control::CollapseControl;
 pub use comb_prop::CombProp;
-pub use compile_empty::CompileEmpty;
 pub use compile_invoke::CompileInvoke;
 pub use compile_repeat::CompileRepeat;
 pub use compile_static::CompileStatic;

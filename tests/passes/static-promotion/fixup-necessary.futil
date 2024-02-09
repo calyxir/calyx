@@ -3,27 +3,27 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
-component foo(base: 32, exp: 4, @go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component foo(base: 32, exp: 4, @go @promotable(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r1 = std_reg(32);
     r2 = std_reg(32);
   }
   wires {
-    group upd2<"promote_static"=1> {
+    group upd2<"promotable"=1> {
       r2.in = 32'd1;
       r2.write_en = 1'd1;
       upd2[done] = r2.done;
     }
-    group upd1<"promote_static"=1> {
+    group upd1<"promotable"=1> {
       r1.in = 32'd1;
       r1.write_en = 1'd1;
       upd1[done] = r1.done;
     }
   }
   control {
-    @promote_static(2) seq {
-      @promote_static upd1;
-      @promote_static upd2;
+    @promotable(2) seq {
+      @promotable upd1;
+      @promotable upd2;
     }
   }
 }
@@ -34,32 +34,32 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     foo_inst = foo();
   }
   wires {
-    group A<"promote_static"=1> {
+    group A<"promotable"=1> {
       a.in = 2'd0;
       a.write_en = 1'd1;
       A[done] = a.done;
     }
-    group B<"promote_static"=1> {
+    group B<"promotable"=1> {
       b.in = 2'd1;
       b.write_en = 1'd1;
       B[done] = b.done;
     }
-    group F<"promote_static"=2> {
+    group F<"promotable"=2> {
       foo_inst.go = 1'd1;
       F[done] = foo_inst.done;
     }
   }
   control {
-    @promote_static(10) seq {
-      @promote_static A;
-      @promote_static A;
-      @promote_static A;
-      @promote_static A;
-      @promote_static B;
-      @promote_static B;
-      @promote_static B;
-      @promote_static B;
-      @promote_static(2) F;
+    @promotable(10) seq {
+      @promotable A;
+      @promotable A;
+      @promotable A;
+      @promotable A;
+      @promotable B;
+      @promotable B;
+      @promotable B;
+      @promotable B;
+      @promotable(2) F;
     }
   }
 }

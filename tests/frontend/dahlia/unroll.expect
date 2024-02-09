@@ -32,12 +32,12 @@ component main() -> () {
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       i0.in = const0.out;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
-    group upd0<"static"=2> {
+    group upd0<"promotable"=2> {
       acc_00.write_en = A0.read_done;
       A0.addr0 = slice0.out;
       slice0.in = i0.out;
@@ -45,7 +45,7 @@ component main() -> () {
       acc_00.in = A0.read_data;
       upd0[done] = acc_00.done;
     }
-    group upd1<"static"=2> {
+    group upd1<"promotable"=2> {
       acc_10.write_en = A1.read_done;
       A1.addr0 = slice1.out;
       slice1.in = i0.out;
@@ -53,7 +53,7 @@ component main() -> () {
       acc_10.in = A1.read_data;
       upd1[done] = acc_10.done;
     }
-    group upd2<"static"=2> {
+    group upd2<"promotable"=2> {
       acc_20.write_en = A2.read_done;
       A2.addr0 = slice2.out;
       slice2.in = i0.out;
@@ -61,7 +61,7 @@ component main() -> () {
       acc_20.in = A2.read_data;
       upd2[done] = acc_20.done;
     }
-    group upd3<"static"=2> {
+    group upd3<"promotable"=2> {
       acc_30.write_en = A3.read_done;
       A3.addr0 = slice3.out;
       slice3.in = i0.out;
@@ -69,7 +69,7 @@ component main() -> () {
       acc_30.in = A3.read_data;
       upd3[done] = acc_30.done;
     }
-    group upd4<"static"=1> {
+    group upd4<"promotable"=1> {
       res_0.write_en = 1'd1;
       add3.left = res_0.out;
       add3.right = add2.out;
@@ -82,7 +82,7 @@ component main() -> () {
       res_0.in = add3.out;
       upd4[done] = res_0.done;
     }
-    group upd5<"static"=1> {
+    group upd5<"promotable"=1> {
       i0.write_en = 1'd1;
       add4.left = i0.out;
       add4.right = const2.out;

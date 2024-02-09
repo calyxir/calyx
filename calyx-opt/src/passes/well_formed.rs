@@ -94,19 +94,8 @@ impl ConstructVisitor for WellFormed {
         let reserved_names =
             RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
-        for prim in ctx.lib.signatures() {
-            if prim.attributes.has(ir::NumAttr::Static) {
-                return Err(Error::malformed_structure(format!("Primitive `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", prim.name)));
-            }
-        }
-
         let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
-            // Defining @static on the component is meaningless
-            if comp.attributes.has(ir::NumAttr::Static) {
-                return Err(Error::malformed_structure(format!("Component `{}`: Defining @static attributes on components is deprecated. Place the @static attribute on the port marked as @go", comp.name)));
-            }
-
             // Main component cannot use `ref` cells
             if comp.name == ctx.entrypoint {
                 for cell in comp.cells.iter() {
@@ -308,6 +297,80 @@ impl Visitor for WellFormed {
             );
         }
 
+        // Checking that @interval annotations are placed correctly.
+        // There are two options for @interval annotations:
+        // 1. You have written only continuous assignments (this is similar
+        // to primitives written in Verilog).
+        // 2. You are using static<n> control.
+        let comp_sig = &comp.signature.borrow();
+        let go_ports =
+            comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
+        if go_ports.iter().any(|go_port| {
+            go_port.borrow().attributes.has(ir::NumAttr::Interval)
+        }) {
+            match &*comp.control.borrow() {
+                ir::Control::Static(_) | ir::Control::Empty(_) => (),
+                _ => return Err(Error::malformed_structure(
+                    format!("component {} has dynamic control but has @interval annotations", comp.name),
+                    )
+                    .with_pos(&comp.attributes)),
+            };
+            if !comp.control.borrow().is_empty() {
+                // Getting "reference value" should be the same for all go ports and
+                // the control.
+                let reference_val = match go_ports[0]
+                    .borrow()
+                    .attributes
+                    .get(ir::NumAttr::Interval)
+                {
+                    Some(val) => val,
+                    None => {
+                        return Err(Error::malformed_structure(
+                        "@interval(n) attribute on all @go ports since there is static<n> control",
+                        )
+                        .with_pos(&comp.attributes))
+                    }
+                };
+                // Checking go ports.
+                for go_port in &go_ports {
+                    let go_port_val = match go_port
+                        .borrow()
+                        .attributes
+                        .get(ir::NumAttr::Interval)
+                    {
+                        Some(val) => val,
+                        None => {
+                            return Err(Error::malformed_structure(format!(
+                                "@go port expected @interval({reference_val}) attribute on all ports \
+                                since the component has static<n> control",
+                            ))
+                            .with_pos(&comp.attributes))
+                        }
+                    };
+                    if go_port_val != reference_val {
+                        return Err(Error::malformed_structure(format!(
+                            "@go port expected @interval {reference_val}, got @interval {go_port_val}",
+                        ))
+                        .with_pos(&go_port.borrow().attributes));
+                    }
+                    // Checking control latency
+                    match comp.control.borrow().get_latency() {
+                        None => {
+                            unreachable!("already checked control is static")
+                        }
+                        Some(control_latency) => {
+                            if control_latency != reference_val {
+                                return Err(Error::malformed_structure(format!(
+                                    "component {} expected @interval {reference_val}, got @interval {control_latency}", comp.name,
+                                ))
+                                .with_pos(&comp.attributes));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // For each non-combinational group, check if there is at least one write to the done
         // signal of that group and that the write is to the group's done signal.
         for gr in comp.get_groups().iter() {
@@ -467,11 +530,11 @@ impl Visitor for WellFormed {
         // A group with "static"=0 annotation
         if group
             .attributes
-            .get(ir::NumAttr::Static)
+            .get(ir::NumAttr::Promotable)
             .map(|v| v == 0)
             .unwrap_or(false)
         {
-            return Err(Error::malformed_structure("Group with annotation \"static\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
+            return Err(Error::malformed_structure("Group with annotation \"promotable\"=0 is invalid. Use `comb group` instead to define a combinational group or if the group's done condition is not constant, provide the correct \"static\" annotation.").with_pos(&group.attributes));
         }
 
         // Check if the group has obviously conflicting assignments with the continuous assignments and the active combinational groups

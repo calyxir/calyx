@@ -6,12 +6,12 @@ component foo(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out
     r2 = std_reg(32);
   }
   wires {
-    group upd2<"promote_static"=1> {
+    group upd2<"promotable"=1> {
       r2.in = 32'd1;
       r2.write_en = 1'd1;
       upd2[done] = r2.done;
     }
-    group upd1<"promote_static"=1> {
+    group upd1<"promotable"=1> {
       r1.in = 32'd1;
       r1.write_en = 1'd1;
       upd1[done] = r1.done;

@@ -1,0 +1,76 @@
+// -p well-formed
+
+// You can use @interval to specify timing of primitive-like Calyx components.
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+comb component layout_hw0(reform_port_addr0: 4, reform_port_addr1: 4) -> (flat_port_addr0: 8) {
+  cells {
+    add_0 = std_add(8);
+    d1_times_16 = std_lsh(8);
+    pad_reform_port_addr1 = std_pad(4, 8);
+    pad_reform_port_addr0 = std_pad(4, 8);
+  }
+  wires {
+    flat_port_addr0 = add_0.out;
+    add_0.left = pad_reform_port_addr0.out;
+    add_0.right = d1_times_16.out;
+    d1_times_16.left = pad_reform_port_addr1.out;
+    d1_times_16.right = 8'd4;
+    pad_reform_port_addr1.in = reform_port_addr1;
+    pad_reform_port_addr0.in = reform_port_addr0;
+  }
+}
+comb component layout_hw1(reform_port_addr0: 4, reform_port_addr1: 4) -> (flat_port_addr0: 8) {
+  cells {
+    add_0 = std_add(8);
+    d1_times_16 = std_lsh(8);
+    pad_reform_port_addr1 = std_pad(4, 8);
+    pad_reform_port_addr0 = std_pad(4, 8);
+  }
+  wires {
+    flat_port_addr0 = add_0.out;
+    add_0.left = pad_reform_port_addr0.out;
+    add_0.right = d1_times_16.out;
+    d1_times_16.left = pad_reform_port_addr1.out;
+    d1_times_16.right = 8'd4;
+    pad_reform_port_addr1.in = reform_port_addr1;
+    pad_reform_port_addr0.in = reform_port_addr0;
+  }
+}
+component amcMemory0(@clk clk: 1, port0_addr0: 4, port0_addr1: 4, port0_write_data: 32, @go @interval(1) port0_write_en: 1, port1_addr0: 4, port1_addr1: 4, @go(3) @interval(1) port1_read_en: 1, port1_write_data: 32, @go(2) @interval(1) port1_write_en: 1, @reset reset: 1) -> (@done port0_write_done: 1, @stable port1_read_data: 32, @done(3) port1_read_done: 1, @done(2) port1_write_done: 1) {
+  cells {
+    layout_hw_inst1 = layout_hw1();
+    layout_hw_inst0 = layout_hw0();
+    my_reg = std_reg(32);
+  }
+  wires {
+    my_reg.clk = clk;
+    layout_hw_inst1.reform_port_addr0 = port1_addr0;
+    layout_hw_inst1.reform_port_addr1 = port1_addr1;
+    layout_hw_inst0.reform_port_addr0 = port0_addr0;
+    layout_hw_inst0.reform_port_addr1 = port0_addr1;
+    my_reg.in = port0_write_data;
+    my_reg.write_en = port0_write_en;
+    port0_write_done = my_reg.done;
+    port1_write_done = my_reg.done;
+    port1_read_data = my_reg.out;
+    port1_read_done = my_reg.done;
+  }
+  control {
+  }
+}
+
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    f = amcMemory0();
+  }
+  wires {
+  }
+
+  control {
+    seq {
+      invoke f()();
+    }
+  }
+}

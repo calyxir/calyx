@@ -28,17 +28,17 @@ component main() -> () {
       le0.left = i0.out;
       le0.right = const2.out;
     }
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       res_0.in = const0.out;
       res_0.write_en = 1'd1;
       let0[done] = res_0.done;
     }
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       i0.in = const1.out;
       i0.write_en = 1'd1;
       let1[done] = i0.done;
     }
-    group let2<"static"=2> {
+    group let2<"promotable"=2> {
       a0_read0_0.in = a0.read_data;
       a0_read0_0.write_en = a0.read_done;
       let2[done] = a0_read0_0.done;
@@ -46,7 +46,7 @@ component main() -> () {
       slice0.in = i0.out;
       a0.read_en = 1'd1;
     }
-    group let3<"static"=2> {
+    group let3<"promotable"=2> {
       b0_read0_0.in = b0.read_data;
       b0_read0_0.write_en = b0.read_done;
       let3[done] = b0_read0_0.done;
@@ -54,7 +54,7 @@ component main() -> () {
       slice1.in = i0.out;
       b0.read_en = 1'd1;
     }
-    group let4<"static"=4> {
+    group let4<"promotable"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let4[done] = bin_read0_0.done;
@@ -62,26 +62,26 @@ component main() -> () {
       mult_pipe0.right = b0_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group let5<"static"=1> {
+    group let5<"promotable"=1> {
       v_0.in = bin_read0_0.out;
       v_0.write_en = 1'd1;
       let5[done] = v_0.done;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
       res_0.write_en = 1'd1;
       add0.left = res_0.out;
       add0.right = v_0.out;
       res_0.in = add0.out;
       upd0[done] = res_0.done;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       i0.write_en = 1'd1;
       add1.left = i0.out;
       add1.right = const3.out;
       i0.in = add1.out;
       upd1[done] = i0.done;
     }
-    group upd2<"static"=1> {
+    group upd2<"promotable"=1> {
       result.write_en = 1'd1;
       result.in = res_0.out;
       upd2[done] = result.done;
