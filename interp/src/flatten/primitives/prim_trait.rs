@@ -2,7 +2,7 @@ use crate::{
     debugger::PrintCode,
     errors::InterpreterResult,
     flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
-    primitives::Serializable,
+    serialization::Serializable,
     values::Value,
 };
 

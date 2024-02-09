@@ -357,9 +357,10 @@ impl<'a> Environment<'a> {
                 let definition =
                     &self.ctx.secondary[comp.port_offset_map[port]];
                 println!(
-                    "    {}: {}",
+                    "    {}: {} ({:?})",
                     self.ctx.secondary[definition.name],
-                    self.ports[&info.index_bases + port]
+                    self.ports[&info.index_bases + port],
+                    &info.index_bases + port
                 );
             }
 
@@ -692,6 +693,9 @@ impl<'a> Simulator<'a> {
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
+            dbg!("calling step");
+            // self.env.print_pc();
+            self.print_env();
             self.step()?
         }
         Ok(())
@@ -812,8 +816,14 @@ impl<'a> Simulator<'a> {
             // println!("{:?} next {:?}", x, self.find_next_control_point(x))
         }
 
-        self.run_program();
+        // for _ in 0..15 {
+        //     self.step();
+        //     println!();
+        //     self.env.print_pc();
+        //     println!();
+        // }
 
+        self.run_program();
         self.env.print_pc();
         self.print_env();
         // println!("{:?}", self.get_assignments())

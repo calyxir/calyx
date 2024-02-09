@@ -251,8 +251,37 @@ impl SearchPath {
                         search_index: None,
                     })
                 }
-                ControlNode::If(_) => todo!(),
-                ControlNode::While(_) => todo!(),
+                ControlNode::If(i) => {
+                    if let Some(idx) = &mut node.search_index {
+                        if idx.is_true_branch() {
+                            *idx = SearchIndex::new(SearchIndex::FALSE_BRANCH);
+                            current_path.path.push(SearchNode {
+                                node: i.fbranch(),
+                                search_index: None,
+                            })
+                        } else {
+                            current_path.path.pop();
+                        }
+                    } else {
+                        node.search_index =
+                            Some(SearchIndex::new(SearchIndex::TRUE_BRANCH));
+                        current_path.path.push(SearchNode {
+                            node: i.tbranch(),
+                            search_index: None,
+                        })
+                    }
+                }
+                ControlNode::While(w) => {
+                    if node.search_index.is_some() {
+                        current_path.path.pop();
+                    } else {
+                        node.search_index = Some(SearchIndex::new(0));
+                        current_path.path.push(SearchNode {
+                            node: w.body(),
+                            search_index: None,
+                        })
+                    }
+                }
             }
         }
 

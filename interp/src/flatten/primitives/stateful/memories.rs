@@ -9,7 +9,7 @@ use crate::{
         },
         structures::environment::PortMap,
     },
-    primitives::{Entry, Serializable},
+    serialization::{Entry, Serializable, Shape},
     values::Value,
 };
 
@@ -118,9 +118,13 @@ pub trait MemAddresser {
         port_map: &PortMap,
         base_port: GlobalPortIdx,
     ) -> Option<usize>;
+
+    fn get_dimensions(&self) -> Shape;
 }
 
-pub struct MemD1<const SEQ: bool>;
+pub struct MemD1<const SEQ: bool> {
+    d0_size: usize,
+}
 
 impl<const SEQ: bool> MemAddresser for MemD1<SEQ> {
     fn calculate_addr(
@@ -144,6 +148,10 @@ impl<const SEQ: bool> MemAddresser for MemD1<SEQ> {
     } else {
         Self::COMB_ADDR0 + 1
     };
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D1((self.d0_size,))
+    }
 }
 
 impl<const SEQ: bool> MemD1<SEQ> {
@@ -151,6 +159,7 @@ impl<const SEQ: bool> MemD1<SEQ> {
 }
 
 pub struct MemD2<const SEQ: bool> {
+    d0_size: usize,
     d1_size: usize,
 }
 
@@ -187,9 +196,14 @@ impl<const SEQ: bool> MemAddresser for MemD2<SEQ> {
     } else {
         Self::COMB_ADDR1 + 1
     };
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D2((self.d0_size, self.d1_size))
+    }
 }
 
 pub struct MemD3<const SEQ: bool> {
+    d0_size: usize,
     d1_size: usize,
     d2_size: usize,
 }
@@ -235,9 +249,14 @@ impl<const SEQ: bool> MemAddresser for MemD3<SEQ> {
     } else {
         Self::COMB_ADDR2 + 1
     };
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D3((self.d0_size, self.d1_size, self.d2_size))
+    }
 }
 
 pub struct MemD4<const SEQ: bool> {
+    d0_size: usize,
     d1_size: usize,
     d2_size: usize,
     d3_size: usize,
@@ -295,6 +314,10 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
     } else {
         Self::COMB_ADDR3 + 1
     };
+
+    fn get_dimensions(&self) -> Shape {
+        Shape::D4((self.d0_size, self.d1_size, self.d2_size, self.d3_size))
+    }
 }
 
 pub struct CombMem<M: MemAddresser> {
@@ -303,16 +326,17 @@ pub struct CombMem<M: MemAddresser> {
     allow_invalid_access: bool,
     width: u32,
     addresser: M,
+    done_is_high: bool,
 }
 
 impl<M: MemAddresser> CombMem<M> {
     declare_ports![
-        WRITE_DATA: M::NON_ADDRESS_BASE + 1,
-        WRITE_EN: M::NON_ADDRESS_BASE + 2,
-        CLK: M::NON_ADDRESS_BASE + 3,
-        RESET: M::NON_ADDRESS_BASE + 4,
-        READ_DATA: M::NON_ADDRESS_BASE + 5,
-        DONE: M::NON_ADDRESS_BASE + 6
+        WRITE_DATA: M::NON_ADDRESS_BASE,
+        WRITE_EN: M::NON_ADDRESS_BASE + 1,
+        CLK: M::NON_ADDRESS_BASE + 2,
+        RESET: M::NON_ADDRESS_BASE + 3,
+        READ_DATA: M::NON_ADDRESS_BASE + 4,
+        DONE: M::NON_ADDRESS_BASE + 5
     ];
 
     make_getters![base_port;
@@ -329,20 +353,31 @@ impl<M: MemAddresser> Primitive for CombMem<M> {
         let addr = self.addresser.calculate_addr(port_map, self.base_port);
         let read_data = self.read_data();
 
-        if addr.is_some() && addr.unwrap() < self.internal_state.len() {
-            Ok(port_map.insert_val(
-                read_data,
-                AssignedValue::cell_value(
-                    self.internal_state[addr.unwrap()].clone(),
-                ),
-            )?)
-        }
-        // either the address is undefined or it is outside the range of valid addresses
-        else {
-            // throw error on cycle boundary rather than here
-            port_map.write_undef(read_data)?;
-            Ok(UpdateStatus::Unchanged)
-        }
+        let read =
+            if addr.is_some() && addr.unwrap() < self.internal_state.len() {
+                port_map.insert_val(
+                    read_data,
+                    AssignedValue::cell_value(
+                        self.internal_state[addr.unwrap()].clone(),
+                    ),
+                )?
+            }
+            // either the address is undefined or it is outside the range of valid addresses
+            else {
+                // throw error on cycle boundary rather than here
+                port_map.write_undef(read_data)?;
+                UpdateStatus::Unchanged
+            };
+
+        let done_signal = port_map.insert_val(
+            self.done(),
+            AssignedValue::cell_value(if self.done_is_high {
+                Value::bit_high()
+            } else {
+                Value::bit_low()
+            }),
+        )?;
+        Ok(done_signal | read)
     }
 
     fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
@@ -360,8 +395,10 @@ impl<M: MemAddresser> Primitive for CombMem<M> {
                 .as_option()
                 .ok_or(InterpreterError::UndefinedWrite)?;
             self.internal_state[addr] = write_data.val().clone();
+            self.done_is_high = true;
             port_map.insert_val(done, AssignedValue::cell_b_high())?
         } else {
+            self.done_is_high = false;
             port_map.insert_val(done, AssignedValue::cell_b_low())?
         };
 
@@ -371,15 +408,24 @@ impl<M: MemAddresser> Primitive for CombMem<M> {
                 AssignedValue::cell_value(self.internal_state[addr].clone()),
             )? | done)
         } else {
+            port_map.write_undef(read_data);
             Ok(done)
         }
     }
 
     fn serialize(
         &self,
-        _code: Option<crate::debugger::PrintCode>,
+        code: Option<crate::debugger::PrintCode>,
     ) -> Serializable {
-        todo!("StdMemD1::serialize")
+        let code = code.unwrap_or_default();
+
+        Serializable::Array(
+            self.internal_state
+                .iter()
+                .map(|x| Entry::from_val_code(x, &code))
+                .collect(),
+            self.addresser.get_dimensions(),
+        )
     }
 
     fn has_serializable_state(&self) -> bool {
@@ -407,7 +453,8 @@ impl CombMemD1 {
             internal_state,
             allow_invalid_access: allow_invalid,
             width,
-            addresser: MemD1::<false>,
+            addresser: MemD1::<false> { d0_size: size },
+            done_is_high: false,
         }
     }
 }
@@ -426,7 +473,11 @@ impl CombMemD2 {
             internal_state,
             allow_invalid_access: allow_invalid,
             width,
-            addresser: MemD2::<false> { d1_size: size.1 },
+            addresser: MemD2::<false> {
+                d0_size: size.0,
+                d1_size: size.1,
+            },
+            done_is_high: false,
         }
     }
 }
@@ -447,9 +498,11 @@ impl CombMemD3 {
             allow_invalid_access: allow_invalid,
             width,
             addresser: MemD3::<false> {
+                d0_size: size.0,
                 d1_size: size.1,
                 d2_size: size.2,
             },
+            done_is_high: false,
         }
     }
 }
@@ -470,10 +523,12 @@ impl CombMemD4 {
             allow_invalid_access: allow_invalid,
             width,
             addresser: MemD4::<false> {
+                d0_size: size.0,
                 d1_size: size.1,
                 d2_size: size.2,
                 d3_size: size.3,
             },
+            done_is_high: false,
         }
     }
 }
