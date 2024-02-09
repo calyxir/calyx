@@ -50,7 +50,7 @@ WORKDIR /home
 RUN git clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
 ## Checkout specific version
-RUN git checkout 63ee22b
+RUN git checkout 3bd2573
 RUN sbt "; getHeaders; assembly"
 
 # Add the Calyx source code from the build context
