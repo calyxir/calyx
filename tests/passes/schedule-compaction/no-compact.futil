@@ -1,0 +1,39 @@
+// -p validate -p static-inference -p schedule-compaction -p dead-group-removal
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component main() -> () {
+  cells {
+    a_reg = std_reg(32);
+    b_reg = std_reg(32);
+    d_reg = std_reg(32);
+  }
+  wires {
+    group A<"promote_static"=1> {
+      a_reg.in = 32'd5;
+      a_reg.write_en = 1'd1;
+      A[done] = a_reg.done;
+    }
+
+    group B<"promote_static"=1> {
+      b_reg.in = a_reg.out;
+      b_reg.write_en = 1'd1;
+      B[done] = b_reg.done;
+    }
+
+    group D<"promote_static"=1> {
+      d_reg.in = b_reg.out;
+      d_reg.write_en = 1'd1;
+      D[done] = d_reg.done;
+    }
+
+  }
+  control {
+    seq {
+      A;
+      B;
+      D;
+    }
+  }
+}

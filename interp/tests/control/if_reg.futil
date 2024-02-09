@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
@@ -33,8 +34,8 @@ component main() -> () {
 
   control {
     //similar to [if.futil],
-    //b/c this isn't just 1 group prog, 
-    //reg1 should have [done] low 
+    //b/c this isn't just 1 group prog,
+    //reg1 should have [done] low
     //at the end of execution (tho prog. ends when reg1.done is high)
     seq {
       cond;

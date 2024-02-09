@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component write_one<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     @data x = std_reg(32);
@@ -12,12 +13,12 @@ component write_one<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1) ->
     out = x.out;
   }
   control {
-    @promote_static invoke0;
+    invoke0;
   }
 }
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    @external @data mem = std_mem_d1(32, 2, 1);
+    @external @data mem = comb_mem_d1(32, 2, 1);
     @data x = write_one();
   }
   wires {
@@ -50,9 +51,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     seq {
       invoke0;
       invoke1;
-      @promote_static invoke2;
+      invoke2;
       invoke3;
-      @promote_static invoke4;
+      invoke4;
     }
   }
 }

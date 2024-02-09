@@ -1,0 +1,19 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    cond = std_reg(1);
+  }
+  wires {
+    static<1> group A0 {
+      a.in = 2'd0;
+      a.write_en = 1'd1;
+    }
+  }
+  control {
+    static<1> if  cond.out {
+      A0;
+    }
+  }
+}

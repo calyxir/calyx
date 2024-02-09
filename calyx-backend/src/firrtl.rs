@@ -36,36 +36,45 @@ impl Backend for FirrtlBackend {
     fn emit(ctx: &ir::Context, file: &mut OutputFile) -> CalyxResult<()> {
         let out = &mut file.get_write();
         writeln!(out, "circuit {}:", ctx.entrypoint)?;
-        // Pass to output any necessary extmodule statements (for primitive calls)
-        let mut extmodule_set: HashSet<String> = HashSet::new();
-        for comp in &ctx.components {
-            for cell in comp.cells.iter() {
-                let cell_borrowed = cell.as_ref().borrow();
-                if let ir::CellType::Primitive {
-                    name,
-                    param_binding,
-                    ..
-                } = &cell_borrowed.prototype
-                {
-                    let curr_module_name =
-                        get_primitive_module_name(name, param_binding);
-                    if extmodule_set.insert(curr_module_name.clone()) {
-                        emit_primitive_extmodule(
-                            cell.borrow().ports(),
-                            &curr_module_name,
-                            name,
-                            param_binding,
-                            out,
-                        )?;
-                    }
-                };
-            }
+        if ctx.bc.emit_primitive_extmodules {
+            emit_extmodules(ctx, out)?;
         }
         for comp in ctx.components.iter() {
             emit_component(comp, out)?
         }
         Ok(())
     }
+}
+
+fn emit_extmodules<F: io::Write>(
+    ctx: &ir::Context,
+    out: &mut F,
+) -> Result<(), calyx_utils::Error> {
+    let mut extmodule_set: HashSet<String> = HashSet::new();
+    for comp in &ctx.components {
+        for cell in comp.cells.iter() {
+            let cell_borrowed = cell.as_ref().borrow();
+            if let ir::CellType::Primitive {
+                name,
+                param_binding,
+                ..
+            } = &cell_borrowed.prototype
+            {
+                let curr_module_name =
+                    get_primitive_module_name(name, param_binding);
+                if extmodule_set.insert(curr_module_name.clone()) {
+                    emit_primitive_extmodule(
+                        cell.borrow().ports(),
+                        &curr_module_name,
+                        name,
+                        param_binding,
+                        out,
+                    )?;
+                }
+            };
+        }
+    }
+    Ok(())
 }
 
 // TODO: Ask about the other backend configurations in verilog.rs and see if I need any of it

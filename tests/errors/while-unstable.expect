@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     r1 = std_reg(32);
@@ -20,5 +21,5 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
 }
 ---STDERR---
 [WARN  calyx_opt::passes::well_formed] tests/errors/while-unstable.futil
-    19 |    while lt.out {
+    20 |    while lt.out {
        |    ^^^^^^^^^^^^^^ While loop has no comb group and its condition port lt.out is unstable

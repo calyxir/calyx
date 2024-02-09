@@ -1,0 +1,37 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (done: 1, @done done0: 1) {
+  cells {
+    r0 = std_reg(1);
+    r1 = std_reg(1);
+    m0 = comb_mem_d1(32, 1, 1);
+  }
+  wires {
+    group mult_wrts_to_done {
+      r0.write_en = 1'd1;
+      mult_wrts_to_done[done] = r0.done ? 1'd1;
+    }
+    static<1> group one_cycle0 {
+      r0.write_en = 1'd1;
+    }
+    static<2> group two_cycles0 {
+      r0.write_en = 1'd1;
+      r1.write_en = r0.done;
+    }
+    static<1> group mem_wrt_to_done0 {
+      m0.addr0 = 1'd0;
+      m0.write_data = 32'd5;
+      m0.write_en = 1'd1;
+    }
+  }
+  control {
+    par {
+      static<2> par {
+        one_cycle0;
+        two_cycles0;
+        mem_wrt_to_done0;
+      }
+      mult_wrts_to_done;
+    }
+  }
+}

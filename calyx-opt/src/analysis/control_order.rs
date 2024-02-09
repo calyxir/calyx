@@ -1,4 +1,4 @@
-use crate::analysis::ReadWriteSet;
+use crate::analysis::{PromotionAnalysis, ReadWriteSet};
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error};
 use ir::RRC;
@@ -45,10 +45,10 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     // Filters out the constants from `cells`, while mapping the remaining `ir:Cell`s
     // to their cell name.
     fn filter_out_constants(
-        cells: Vec<RRC<ir::Cell>>,
-    ) -> impl Iterator<Item = ir::Id> {
+        cells: &[RRC<ir::Cell>],
+    ) -> impl Iterator<Item = ir::Id> + '_ {
         cells
-            .into_iter()
+            .iter()
             .filter_map(|cell| match cell.borrow().prototype {
                 ir::CellType::Constant { .. } => None,
                 ir::CellType::Component { .. }
@@ -85,7 +85,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
         // Compute read/write sets and add them to the maps
         for c in stmts {
             let (port_reads, port_writes) =
-                ReadWriteSet::control_port_read_write_set(&c);
+                ReadWriteSet::control_port_read_write_set::<true>(&c);
             let idx = gr.add_node(Some(c));
             add_cells(idx, port_reads, &mut reads);
             add_cells(idx, port_writes, &mut writes);
@@ -122,7 +122,9 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
                         let con = gr[*idx].as_ref().unwrap();
                         let mut msg = ir::Printer::control_to_str(con);
                         let (port_reads, port_writes) =
-                            ReadWriteSet::control_port_read_write_set(con);
+                            ReadWriteSet::control_port_read_write_set::<true>(
+                                con,
+                            );
                         write!(
                             msg,
                             "  which reads: {}\n  and writes: {}",
@@ -143,6 +145,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     }
 
     // Returns a graph of dependency for input programs.
+    // IMPORTANT: we ignore assignments to done ports.
     // Input control programs are considered to have data dependency if:
     // 1. subsequent program writes to cells that previous program reads from
     // 2. subsequent program writes to cells that previous program writes to
@@ -153,15 +156,15 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
     // Then the program "touches" the continuous assignments, and therefore depends
     // on all previous programs that "touched" continuous assignments as well.
     // In short, we treat continuous assignments as one big cell.
-    pub fn get_dependency_graph_static_seq(
-        stmts: impl Iterator<Item = ir::StaticControl>,
+    pub fn get_dependency_graph_seq(
+        stmts: impl Iterator<Item = ir::Control>,
         (cont_reads, cont_writes): (
-            Vec<ir::RRC<ir::Cell>>,
-            Vec<ir::RRC<ir::Cell>>,
+            &Vec<ir::RRC<ir::Cell>>,
+            &Vec<ir::RRC<ir::Cell>>,
         ),
         dependency: &mut HashMap<NodeIndex, Vec<NodeIndex>>,
         latency_map: &mut HashMap<NodeIndex, u64>,
-    ) -> DiGraph<Option<ir::StaticControl>, ()> {
+    ) -> DiGraph<Option<ir::Control>, ()> {
         // The names of the cells that are read/written in continuous assignments
         let cont_read_cell_names =
             Self::filter_out_constants(cont_reads).collect_vec();
@@ -169,7 +172,7 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
             Self::filter_out_constants(cont_writes).collect_vec();
 
         // Directed graph where edges means that a control program must be run before.
-        let mut gr: DiGraph<Option<ir::StaticControl>, ()> = DiGraph::new();
+        let mut gr: DiGraph<Option<ir::Control>, ()> = DiGraph::new();
 
         // Mapping name of cell to all the indices that read or write to it.
         let mut reads: HashMap<ir::Id, Vec<NodeIndex>> = HashMap::default();
@@ -181,10 +184,10 @@ impl<const BETTER_ERR: bool> ControlOrder<BETTER_ERR> {
 
         for c in stmts {
             let (cell_reads, cell_writes) =
-                ReadWriteSet::control_read_write_set_static(&c);
-            let r_cell_names = Self::filter_out_constants(cell_reads);
-            let w_cell_names = Self::filter_out_constants(cell_writes);
-            let latency = c.get_latency();
+                ReadWriteSet::control_read_write_set::<false>(&c);
+            let r_cell_names = Self::filter_out_constants(&cell_reads);
+            let w_cell_names = Self::filter_out_constants(&cell_writes);
+            let latency = PromotionAnalysis::get_inferred_latency(&c);
             let idx = gr.add_node(Some(c));
             dependency.insert(idx, Vec::new());
             latency_map.insert(idx, latency);

@@ -8,9 +8,8 @@ from calyx.py_ast import (
 )
 from calyx.utils import float_to_fixed_point
 from math import factorial, log2
-from fud.stages.verilator import numeric_types
+from calyx.numeric_types import FixedPoint
 from calyx.gen_ln import generate_ln
-
 from calyx.builder import (
     Builder,
     ComponentBuilder,
@@ -19,7 +18,6 @@ from calyx.builder import (
     if_with,
     invoke,
     CellBuilder,
-    ExprBuilder,
     const,
     HI,
     par,
@@ -52,7 +50,7 @@ def generate_fp_pow_component(
 
     # groups
     with comp.group("init") as init:
-        pow.in_ = numeric_types.FixedPoint(
+        pow.in_ = FixedPoint(
             "1.0", width, int_width, is_signed=is_signed
         ).unsigned_integer()
         pow.write_en = 1
@@ -105,14 +103,12 @@ def generate_cells(
     comp.const(
         "one",
         width,
-        numeric_types.FixedPoint(
-            "1.0", width, int_width, is_signed=is_signed
-        ).unsigned_integer(),
+        FixedPoint("1.0", width, int_width, is_signed=is_signed).unsigned_integer(),
     )
     comp.const(
         "e",
         width,
-        numeric_types.FixedPoint(
+        FixedPoint(
             str(float_to_fixed_point(2.7182818284, frac_width)),
             width,
             int_width,
@@ -124,7 +120,7 @@ def generate_cells(
         comp.const(
             "negative_one",
             width,
-            numeric_types.FixedPoint(
+            FixedPoint(
                 "-1.0", width, int_width, is_signed=is_signed
             ).unsigned_integer(),
         )
@@ -168,7 +164,7 @@ def generate_cells(
     # reciprocal factorials
     for i in range(2, degree + 1):
         fixed_point_value = float_to_fixed_point(1.0 / factorial(i), frac_width)
-        value = numeric_types.FixedPoint(
+        value = FixedPoint(
             str(fixed_point_value), width, int_width, is_signed=is_signed
         ).unsigned_integer()
         comp.const(f"reciprocal_factorial{i}", width, value)
@@ -423,15 +419,17 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
         x
         for x in (
             init,
-            if_with(
-                CellAndGroup(
-                    lt,
-                    comp.get_group("is_negative"),
-                ),
-                comp.get_group("negate"),
-            )
-            if is_signed
-            else [],
+            (
+                if_with(
+                    CellAndGroup(
+                        lt,
+                        comp.get_group("is_negative"),
+                    ),
+                    comp.get_group("negate"),
+                )
+                if is_signed
+                else []
+            ),
             split_bits,
             pow_invokes,
             consume_pow,
@@ -439,15 +437,17 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
             *divide_and_conquer,
             comp.get_group("add_degree_zero"),
             comp.get_group("final_multiply"),
-            if_with(
-                CellAndGroup(
-                    lt,
-                    comp.get_group("is_negative"),
-                ),
-                comp.get_group("reciprocal"),
-            )
-            if is_signed
-            else [],
+            (
+                if_with(
+                    CellAndGroup(
+                        lt,
+                        comp.get_group("is_negative"),
+                    ),
+                    comp.get_group("reciprocal"),
+                )
+                if is_signed
+                else []
+            ),
         )
         if x != []
     ]
@@ -540,9 +540,7 @@ def gen_constant_cell(
     return comp.const(
         name,
         width,
-        numeric_types.FixedPoint(
-            value, width, int_width, is_signed=is_signed
-        ).unsigned_integer(),
+        FixedPoint(value, width, int_width, is_signed=is_signed).unsigned_integer(),
     )
 
 
@@ -571,16 +569,12 @@ def generate_fp_pow_full(
     const_one = comp.const(
         "one",
         width,
-        numeric_types.FixedPoint(
-            "1.0", width, int_width, is_signed=is_signed
-        ).unsigned_integer(),
+        FixedPoint("1.0", width, int_width, is_signed=is_signed).unsigned_integer(),
     )
     const_zero = comp.const(
         "zero",
         width,
-        numeric_types.FixedPoint(
-            "0.0", width, int_width, is_signed=is_signed
-        ).unsigned_integer(),
+        FixedPoint("0.0", width, int_width, is_signed=is_signed).unsigned_integer(),
     )
     mult = comp.cell(
         "mult",
@@ -597,7 +591,7 @@ def generate_fp_pow_full(
         const_neg_one = comp.const(
             "neg_one",
             width,
-            numeric_types.FixedPoint(
+            FixedPoint(
                 "-1.0", width, int_width, is_signed=is_signed
             ).unsigned_integer(),
         )
@@ -701,9 +695,9 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     main = builder.component("main")
     base_reg = main.reg("base_reg", width)
     exp_reg = main.reg("exp_reg", width)
-    x = main.mem_d1("x", width, 1, 1, is_external=True)
-    b = main.mem_d1("b", width, 1, 1, is_external=True)
-    ret = main.mem_d1("ret", width, 1, 1, is_external=True)
+    x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
+    b = main.comb_mem_d1("b", width, 1, 1, is_external=True)
+    ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
     f = main.comp_instance("f", "fp_pow_full")
 
     read_base = main.mem_load_std_d1(b, 0, base_reg, "read_base")
@@ -737,8 +731,8 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
     main = builder.component("main")
 
     t = main.reg("t", width)
-    x = main.mem_d1("x", width, 1, 1, is_external=True)
-    ret = main.mem_d1("ret", width, 1, 1, is_external=True)
+    x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
+    ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
     e = main.comp_instance("e", "exp")
 
     with main.group("init") as init:

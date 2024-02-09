@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 //// ANCHOR: component
 //// ANCHOR: component_ports
@@ -40,7 +41,7 @@ component add_one(x_done: 1, x_read_data: 32) ->
 component main() -> () {
   cells {
     add_one0 = add_one();
-    @external(1) x = std_mem_d1(32, 1, 1);
+    @external(1) x = comb_mem_d1(32, 1, 1);
   }
   wires {
   }

@@ -1,0 +1,34 @@
+// -p validate -p static-inference -p schedule-compaction -p dead-group-removal
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component example() -> (out: 8) {
+  cells {
+    r0 = std_reg(8);
+    r1 = std_reg(8);
+  }
+  wires {
+    out = r1.out;
+  }
+  control {
+    seq {
+      invoke r0(in = 8'd1)();
+      invoke r1(in = 8'd2)();
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    @external mem = comb_mem_d1(8, 1, 1);
+    ex = example();
+  }
+  wires {}
+  control {
+    seq {
+      invoke ex()();
+      invoke mem(addr0 = 1'd0, write_data = ex.out)();
+    }
+  }
+}

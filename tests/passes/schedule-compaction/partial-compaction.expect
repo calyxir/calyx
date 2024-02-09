@@ -1,0 +1,59 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a_reg = std_reg(32);
+    b_reg = std_reg(32);
+    c_reg = std_reg(32);
+    d_reg = std_reg(32);
+    e_reg = std_reg(32);
+    f_reg = std_reg(32);
+    a = std_add(32);
+    ud = undef(1);
+  }
+  wires {
+    group A<"promote_static"=1> {
+      a_reg.write_en = 1'd1;
+      a_reg.in = 32'd5;
+      A[done] = a_reg.done;
+    }
+    group C {
+      c_reg.write_en = 1'd1;
+      c_reg.in = 32'd10;
+      C[done] = ud.out;
+    }
+    group B<"promote_static"=1> {
+      b_reg.write_en = 1'd1;
+      a.right = c_reg.out;
+      a.left = a_reg.out;
+      b_reg.in = a.out;
+      B[done] = b_reg.done;
+    }
+    static<1> group D0 {
+      d_reg.write_en = 1'd1;
+      d_reg.in = a_reg.out;
+    }
+    static<1> group E0 {
+      e_reg.write_en = 1'd1;
+      e_reg.in = 32'd4;
+    }
+    static<1> group F0 {
+      f_reg.write_en = 1'd1;
+      f_reg.in = 32'd4;
+    }
+  }
+  control {
+    seq {
+      @promote_static(2) seq {
+        @promote_static A;
+        @promote_static B;
+      }
+      C;
+      @promote_static @promoted static<1> par {
+        D0;
+        E0;
+        F0;
+      }
+    }
+  }
+}

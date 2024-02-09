@@ -17,13 +17,19 @@ You might then want to do something like ``ln -s `pwd`/target/debug/fud2 ~/.loca
 fud2 depends on [Ninja][].
 Install it using your OS package manager or by downloading a binary.
 
-Create a configuration file at `~/.config/fud2.toml`, using the path to your checkout of the Calyx git repository:
+### Configuration
 
+Run the following command to edit `fud2`'s configuration file (usually `~/.config/fud2.toml`):
+```
+fud2 edit-config
+```
+
+Add the following fields:
 ```toml
-data = ".../calyx/fud2/data"
+rsrc = "<path to calyx checkout>/fud2/rsrc"
 
 [calyx]
-base = ".../calyx"
+base = "<path to calyx checkout>"
 ```
 
 Now you're ready to use fud2.

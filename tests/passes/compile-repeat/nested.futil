@@ -1,5 +1,6 @@
 // -p compile-repeat
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
@@ -7,15 +8,15 @@ component main() -> () {
   }
   wires {
     group write_r1 {
-      r1.in = 32'd2; 
-      r1.write_en = 1'd1; 
-      write_r1[done] = r1.done; 
+      r1.in = 32'd2;
+      r1.write_en = 1'd1;
+      write_r1[done] = r1.done;
     }
   }
   control {
     repeat 4 {
       repeat 2 {
-        write_r1; 
+        write_r1;
       }
     }
   }
