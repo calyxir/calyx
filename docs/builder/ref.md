@@ -266,6 +266,20 @@ my_component.control += [A, B, C]
 ```
 It's worth nothing that sequential usage of `+=` will not nest `seq` blocks unless necessary.
 
+```python
+my_component.control += [A]
+my_component.control += [B]
+```
+
+results in
+
+```
+seq{
+  A;
+  B;
+}
+```
+
 ### `par`
 
 For [parallel compositions][par] of control programs, use the `par()` function. Here's how to compose control programs `A` and `B` in parallel, and then sequence their composition with the control program `C`.
@@ -274,18 +288,14 @@ For [parallel compositions][par] of control programs, use the `par()` function. 
 my_component.control += [par(A, B), C]
 ```
 
-Alternatively, we can construct `par` blocks by using `*=`. To compose the same control program as above, with `A` and `B` in parallel and sequencing this composition before `C` we could write:
+Alternatively, we can construct `par` blocks by using `*=`. Here we compose the same control program as above:
 
 ```python
 my_component.control *= par(A,B)
 my_component.control += C
 ```
 
-### Chaining `seq` and `par`
-
-It is possible to chain together sequential usage of `+=` and `*=` to construct a control program ``sequentially''.
-In this way, the control program's construction in the builder will look similar to the control program in the output Calyx. For example,
-the previous python example in the `par` section will produce a par block of `A` and `B`, which is sequenced before `C`:
+Both of these examples produce the control sequence:
 
 ```
 seq{
@@ -295,8 +305,23 @@ seq{
   }
   C;
 }
-
 ```
+
+### Chaining `seq` and `par`
+
+It is possible to chain together sequential usage of `+=` and `*=` to construct programs parts at a time.
+If we want to generate Calyx dynamically, we can use these in-place operators to iteratively
+grow the outermost control block.
+
+TODO
+
+```python
+for mem in mems:
+    generate_calyx_from_mem(mem)
+
+In this way, the control program's construction in the builder will look similar to the control program in the output Calyx. For example,
+the previous Python example in the `par` section will produce a par block of `A` and `B`, which is sequenced before `C`:
+end TODO
 
 ### `if`
 

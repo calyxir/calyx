@@ -375,7 +375,7 @@ class Invoke(Control):
             try:
                 rcs = ", ".join([f"{n}={arg.doc()}" for (n, arg) in self.ref_cells])
             except AttributeError as e:
-                raise AttributeError(f"`ref_` arguments must be a cell, but a {type(arg)} was passed in.")
+                raise AttributeError(f"`ref_` arguments must be passed a cell. Was a port passed instead?")
             inv += f"[{rcs}]"
 
         # Inputs and outputs
