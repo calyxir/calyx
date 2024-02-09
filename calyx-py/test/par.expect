@@ -1,0 +1,38 @@
+import "primitives/core.futil";
+component my_comp() -> () {
+  cells {
+
+  }
+  wires {
+    group my_group {
+
+    }
+    group my_group2 {
+
+    }
+    group my_group3 {
+
+    }
+  }
+  control {
+    par {
+      seq {
+        par {
+          my_group;
+          my_group2;
+          my_group3;
+          my_group2;
+          my_group3;
+        }
+        my_group;
+        my_group2;
+        my_group;
+        my_group3;
+      }
+      seq {
+        my_group2;
+        my_group3;
+      }
+    }
+  }
+}
