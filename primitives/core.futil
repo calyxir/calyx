@@ -23,5 +23,4 @@ extern "core.sv" {
   comb primitive std_lsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_rsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
   comb primitive std_mux<"share"=1>[WIDTH](@data cond: 1, @data tru: WIDTH, @data fal: WIDTH) -> (out: WIDTH);
-
 }

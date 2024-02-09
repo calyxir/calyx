@@ -1,0 +1,15 @@
+import "primitives/core.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    r = std_reg(32);
+  }
+  wires {
+    static<1> group static_invoke {
+      r.write_en = 1'd1;
+      r.in = 32'd2;
+    }
+  }
+  control {
+    static_invoke;
+  }
+}

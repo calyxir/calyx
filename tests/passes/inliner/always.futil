@@ -30,7 +30,7 @@ component counter(start: 4, end: 4) -> (out: 4) {
     comp = check();
   }
   wires {
-    group init<"static"=1> {
+    group init<"promotable"=1> {
       count.in = start;
       count.write_en = 1'd1;
       init[done] = count.done;
@@ -60,7 +60,7 @@ component main() -> (out: 4) {
     lt = std_lt(4);
   }
   wires {
-    group init<"static"=1> {
+    group init<"promotable"=1> {
       count.in = 4'd0;
       count.write_en = 1'd1;
       init[done] = count.done;

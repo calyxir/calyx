@@ -13,17 +13,17 @@ component main() -> (out: 8) {
     ud = undef(1);
   }
   wires {
-    group write_r0<"promote_static"=1> {
+    group write_r0<"promotable"=1> {
       r0.write_en = 1'd1;
       r0.in = 8'd1;
       write_r0[done] = r0.done;
     }
-    group write_r1<"promote_static"=1> {
+    group write_r1<"promotable"=1> {
       r1.write_en = 1'd1;
       r1.in = add.out;
       write_r1[done] = r1.done;
     }
-    group write_add1<"promote_static"=1> {
+    group write_add1<"promotable"=1> {
       add1.left = 8'd1;
       add1.right = 8'd4;
       write_add1[done] = ud.out;
@@ -34,17 +34,17 @@ component main() -> (out: 8) {
     out = r1.out;
   }
   control {
-    @promote_static(4) seq {
-      @promote_static(2) seq {
-        @promote_static write_r0;
+    @promotable(4) seq {
+      @promotable(2) seq {
+        @promotable write_r0;
         // Continuous assignments to add.left and add.right prevent compation.
-        @promote_static write_r1;
+        @promotable write_r1;
       }
-      @promote_static(2) seq {
-        @promote_static write_r0;
+      @promotable(2) seq {
+        @promotable write_r0;
         // Continuous assignment r2.in = add1.out prevents compaction.
         // This is overly conservative.
-        @promote_static write_add1;
+        @promotable write_add1;
       }
     }
   }

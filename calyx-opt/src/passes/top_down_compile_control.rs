@@ -454,7 +454,7 @@ impl Schedule<'_, '_> {
         ir::Control::Par(_) => unreachable!(),
         ir::Control::Repeat(_) => unreachable!("`repeat` statements should have been compiled away. Run `{}` before this pass.", passes::CompileRepeat::name()),
         ir::Control::Invoke(_) => unreachable!("`invoke` statements should have been compiled away. Run `{}` before this pass.", passes::CompileInvoke::name()),
-        ir::Control::Empty(_) => unreachable!("`empty` statements should have been compiled away. Run `{}` before this pass.", passes::CompileEmpty::name()),
+        ir::Control::Empty(_) => unreachable!("`calculate_states_recur` should not see an `empty` control."),
         ir::Control::Static(_) => unreachable!("static control should have been compiled away. Run the static compilation passes before this pass")
     }
     }

@@ -30,7 +30,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 8, @done done: 
     add.left = r0.out;
   }
   control {
-    @promote_static(2) @promoted static<2> par {
+    @promotable(2) @promoted static<2> par {
       static<2> seq  {
         write_r00;
         write_r10;
