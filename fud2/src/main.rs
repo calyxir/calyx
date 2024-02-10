@@ -96,7 +96,7 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.rule("json-data", "$json_dat --to-json $out $in")?;
 
         // The Verilog testbench.
-        e.build_cmd(&["tb.sv"], "get-rsrc", &[], &[])?; // TODO Shortcut for this!
+        e.rsrc("tb.sv")?;
 
         // The input data file. `sim.data` is required.
         let data_name = e.config_val("sim.data")?;

@@ -400,4 +400,9 @@ impl Emitter {
         writeln!(self.out, "  {} = {}", name, value)?;
         Ok(())
     }
+
+    /// Add a build command to extract a resource file into the build directory.
+    pub fn rsrc(&mut self, filename: &str) -> std::io::Result<()> {
+        self.build_cmd(&[filename], "get-rsrc", &[], &[])
+    }
 }
