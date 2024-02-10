@@ -97,7 +97,7 @@ impl ConstructVisitor for WellFormed {
         let mut ref_cell_types = HashMap::new();
         for comp in ctx.components.iter() {
             // Main component cannot use `ref` cells
-            if ctx.bc.emit_primitive_extmodules && comp.name == ctx.entrypoint {
+            if !ctx.bc.synthesis_mode && comp.name == ctx.entrypoint {
                 for cell in comp.cells.iter() {
                     if cell.borrow().is_reference() {
                         return Err(Error::malformed_structure(

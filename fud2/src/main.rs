@@ -125,21 +125,20 @@ fn build_driver() -> Driver {
             e.var(
                 "testbench",
                 &format!(
-                    "{}/externalized_mem_tb.sv {}/std_mem_d1.sv",
+                    "{}/externalized_mem_tb.sv {}/comb_mem_d1.sv",
                     e.config_val("rsrc")?,
                     e.config_val("rsrc")?
                 ),
             )?;
             Ok(())
         });
-    fn sim_build(e: &mut Emitter, input: &str, output: &str) -> EmitResult {
+    bld.op("simulate", &[sim_setup], simulator, dat, |e, input, output| {
         e.build_cmd(&["sim.log"], "sim-run", &[input, "$datadir"], &[])?;
         e.arg("bin", input)?;
         e.arg("args", "+NOTRACE=1")?;
         e.build_cmd(&[output], "json-data", &["$datadir", "sim.log"], &[])?;
         Ok(())
-    }
-    bld.op("simulate", &[sim_setup], simulator, dat, sim_build);
+    });
     bld.op("trace", &[sim_setup], simulator, vcd, |e, input, output| {
         e.build_cmd(
             &["sim.log", output],
@@ -159,7 +158,10 @@ fn build_driver() -> Driver {
         bld.state("verilog-noverify-mem-external", &["sv"]); // Need to use alternative testbench.
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
-        e.rule("icarus-compile", "$iverilog -g2012 -o $out $testbench $in")?;
+        e.rule(
+            "icarus-compile",
+            "$iverilog -g2012 -o $out $testbench $additional_input $in",
+        )?;
         Ok(())
     });
     bld.op(
@@ -217,6 +219,17 @@ fn build_driver() -> Driver {
         e.var(
             "gen-firrtl-primitives-script",
             "$calyx-base/tools/firrtl/generate-firrtl-with-primitives.py",
+        )?;
+        e.var(
+            "gen-testbench-script",
+            "$calyx-base/tools/firrtl/generate-testbench.py"
+        )?;
+        // e.var(
+        //     "testbench",
+            
+        // );
+        e.rule("generate-testbench",
+        "python3 $gen-testbench-script $in > $out"
         )?;
         e.rule(
             "generate-firrtl-with-primitives",
