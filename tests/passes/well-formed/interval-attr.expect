@@ -1,0 +1,4 @@
+---STDERR---
+Error: tests/passes/well-formed/interval-attr.futil
+4 |component foo(@interval @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: component foo expected @interval 1, got @interval 2

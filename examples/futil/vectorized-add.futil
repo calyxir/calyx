@@ -20,24 +20,24 @@ component main() -> () {
       le0.left = i0.out;
       le0.right = const1.out;
     }
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       i0.in = const0.out;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
       A_read0_0.write_en = 1'd1;
       A0.addr0 = i0.out;
       A_read0_0.in = 1'd1 ? A0.read_data;
       upd0[done] = A_read0_0.done ? 1'd1;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       B_read0_0.write_en = 1'd1;
       B0.addr0 = i0.out;
       B_read0_0.in = 1'd1 ? B0.read_data;
       upd1[done] = B_read0_0.done ? 1'd1;
     }
-    group upd2<"static"=1> {
+    group upd2<"promotable"=1> {
       Sum0.addr0 = i0.out;
       Sum0.write_en = 1'd1;
       add0.left = A_read0_0.out;
@@ -45,7 +45,7 @@ component main() -> () {
       Sum0.write_data = 1'd1 ? add0.out;
       upd2[done] = Sum0.done ? 1'd1;
     }
-    group upd3<"static"=1> {
+    group upd3<"promotable"=1> {
       i0.write_en = 1'd1;
       add1.left = i0.out;
       add1.right = const2.out;

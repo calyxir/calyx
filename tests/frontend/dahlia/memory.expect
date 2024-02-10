@@ -17,20 +17,20 @@ component main() -> () {
     const8 = std_const(4,0);
   }
   wires {
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
       A.addr0 = const1.out;
       A.write_en = 1'd1;
       A.write_data = const0.out;
       upd0[done] = A.write_done;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       B.addr1 = const4.out;
       B.addr0 = const3.out;
       B.write_en = 1'd1;
       B.write_data = const2.out;
       upd1[done] = B.write_done;
     }
-    group upd2<"static"=1> {
+    group upd2<"promotable"=1> {
       C.addr2 = const8.out;
       C.addr1 = const7.out;
       C.addr0 = const6.out;

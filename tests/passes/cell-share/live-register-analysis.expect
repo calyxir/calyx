@@ -13,60 +13,60 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated comb_reg = std_reg(1);
   }
   wires {
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       i0.in = 6'd0;
       i0.write_en = 1'd1;
       let0[done] = i0.done;
     }
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       i0.in = 6'd0;
       i0.write_en = 1'd1;
       let1[done] = i0.done;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
       A_read0_0.write_en = 1'd1;
       A0.addr0 = i0.out;
       A_read0_0.in = A0.read_data;
       upd0[done] = A_read0_0.done;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       C0.addr0 = i0.out;
       C0.write_en = 1'd1;
       C0.write_data = A_read0_0.out;
       upd1[done] = C0.done;
     }
-    group upd2<"static"=1> {
+    group upd2<"promotable"=1> {
       B_read0_0.write_en = 1'd1;
       B0.addr0 = i0.out;
       B_read0_0.in = B0.read_data;
       upd2[done] = B_read0_0.done;
     }
-    group upd3<"static"=1> {
+    group upd3<"promotable"=1> {
       A0.addr0 = i0.out;
       A0.write_en = 1'd1;
       A0.write_data = B_read0_0.out;
       upd3[done] = A0.done;
     }
-    group upd4<"static"=1> {
+    group upd4<"promotable"=1> {
       i0.write_en = 1'd1;
       add0.left = i0.out;
       add0.right = 6'd1;
       i0.in = add0.out;
       upd4[done] = i0.done;
     }
-    group upd5<"static"=1> {
+    group upd5<"promotable"=1> {
       A_read0_0.write_en = 1'd1;
       C0.addr0 = i0.out;
       A_read0_0.in = C0.read_data;
       upd5[done] = A_read0_0.done;
     }
-    group upd6<"static"=1> {
+    group upd6<"promotable"=1> {
       B0.addr0 = i0.out;
       B0.write_en = 1'd1;
       B0.write_data = A_read0_0.out;
       upd6[done] = B0.done;
     }
-    group upd7<"static"=1> {
+    group upd7<"promotable"=1> {
       i0.write_en = 1'd1;
       add0.left = i0.out;
       add0.right = 6'd1;

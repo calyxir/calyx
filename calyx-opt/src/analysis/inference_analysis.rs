@@ -71,7 +71,8 @@ impl From<&ir::Primitive> for GoDone {
         let go_ports = prim
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
-                pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
+                // Primitives only have @interval.
+                pd.attributes.get(ir::NumAttr::Interval).and_then(|st| {
                     done_ports
                         .get(&pd.attributes.get(ir::NumAttr::Go))
                         .map(|done_port| (pd.name(), *done_port, st))
@@ -96,11 +97,19 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get(ir::NumAttr::Static).and_then(|st| {
-                    done_ports
+                // Get static interval thru either @interval or @promotable.
+                let st = match port.attributes.get(ir::NumAttr::Interval) {
+                    Some(st) => Some(st),
+                    None => port.attributes.get(ir::NumAttr::Promotable),
+                };
+                if let Some(static_latency) = st {
+                    return done_ports
                         .get(&port.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (port.name, *done_port, st))
-                })
+                        .map(|done_port| {
+                            (port.name, *done_port, static_latency)
+                        });
+                }
+                None
             })
             .collect_vec();
         GoDone::new(go_ports)
@@ -151,11 +160,20 @@ impl InferenceAnalysis {
                 .find_all_with_attr(ir::NumAttr::Go)
                 .filter_map(|pd| {
                     let pd_ref = pd.borrow();
-                    pd_ref.attributes.get(ir::NumAttr::Static).and_then(|st| {
-                        done_ports
+                    // Get static interval thru either @interval or @promotable.
+                    let st = match pd_ref.attributes.get(ir::NumAttr::Interval)
+                    {
+                        Some(st) => Some(st),
+                        None => pd_ref.attributes.get(ir::NumAttr::Promotable),
+                    };
+                    if let Some(static_latency) = st {
+                        return done_ports
                             .get(&pd_ref.attributes.get(ir::NumAttr::Go))
-                            .map(|done_port| (pd_ref.name, *done_port, st))
-                    })
+                            .map(|done_port| {
+                                (pd_ref.name, *done_port, static_latency)
+                            });
+                    }
+                    None
                 })
                 .collect_vec();
 
@@ -442,7 +460,7 @@ impl InferenceAnalysis {
     pub fn get_possible_latency(c: &ir::Control) -> Option<u64> {
         match c {
             ir::Control::Static(sc) => Some(sc.get_latency()),
-            _ => c.get_attribute(ir::NumAttr::PromoteStatic),
+            _ => c.get_attribute(ir::NumAttr::Promotable),
         }
     }
 
@@ -450,13 +468,13 @@ impl InferenceAnalysis {
         for stmt in &mut seq.stmts {
             Self::remove_promotable_attribute(stmt);
         }
-        seq.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
+        seq.get_mut_attributes().remove(ir::NumAttr::Promotable);
     }
 
     /// Removes the @promotable attribute from the control program.
     /// Recursively visits the children of the control.
     pub fn remove_promotable_attribute(c: &mut ir::Control) {
-        c.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
+        c.get_mut_attributes().remove(ir::NumAttr::Promotable);
         match c {
             ir::Control::Empty(_)
             | ir::Control::Invoke(_)
@@ -512,7 +530,7 @@ impl InferenceAnalysis {
                 group
                     .borrow_mut()
                     .attributes
-                    .remove(ir::NumAttr::PromoteStatic);
+                    .remove(ir::NumAttr::Promotable);
             }
         }
 
@@ -523,7 +541,7 @@ impl InferenceAnalysis {
                 group
                     .borrow_mut()
                     .attributes
-                    .insert(ir::NumAttr::PromoteStatic, latency);
+                    .insert(ir::NumAttr::Promotable, latency);
             }
         }
 
