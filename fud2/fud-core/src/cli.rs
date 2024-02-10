@@ -57,7 +57,7 @@ pub struct EditConfig {
 pub struct GetResource {
     /// the filename to extract
     #[argh(positional)]
-    filename: String,
+    filename: Utf8PathBuf,
 
     /// destination for the resource file
     #[argh(option, short = 'o')]
@@ -199,30 +199,32 @@ fn edit_config(driver: &Driver, cmd: EditConfig) -> anyhow::Result<()> {
     if !status.success() {
         bail!("editor exited with status {}", status);
     }
-    return Ok(());
+    Ok(())
 }
 
 fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     if let Some(rsrc_dir) = &driver.rsrc_dir {
-        dbg!(&rsrc_dir);
-        todo!("copy the file")
+        let from_path = rsrc_dir.join(&cmd.filename);
+        let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
+        log::info!("extracting {} to {}", cmd.filename, to_path);
+        std::fs::copy(from_path, to_path)?;
+        Ok(())
     } else {
         todo!("extract the file")
     }
-    Ok(())
 }
 
 pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
 
-    // enable tracing
+    // Configure logging.
     env_logger::Builder::new()
         .format_timestamp(None)
         .filter_level(args.log_level)
         .target(env_logger::Target::Stderr)
         .init();
 
-    // Edit the configuration file.
+    // Special commands that bypass the normal behavior.
     match args.sub {
         Some(Subcommand::EditConfig(cmd)) => {
             return edit_config(driver, cmd);
