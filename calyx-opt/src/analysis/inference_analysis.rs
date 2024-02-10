@@ -73,6 +73,13 @@ impl From<&ir::Primitive> for GoDone {
             .filter_map(|pd| {
                 // Primitives only have @interval.
                 pd.attributes.get(ir::NumAttr::Interval).and_then(|st| {
+                    assert_ne!(
+                        st,
+                        0,
+                        "@interval attribute for {}.{} is 0",
+                        prim.name,
+                        pd.name()
+                    );
                     done_ports
                         .get(&pd.attributes.get(ir::NumAttr::Go))
                         .map(|done_port| (pd.name(), *done_port, st))
@@ -103,6 +110,13 @@ impl From<&ir::Cell> for GoDone {
                     None => port.attributes.get(ir::NumAttr::Promotable),
                 };
                 if let Some(static_latency) = st {
+                    assert_ne!(
+                        static_latency,
+                        0,
+                        "either @interval or @promotable attribute for {:?}.{} is 0",
+                        cell.prototype.get_name(),
+                        port.name
+                    );
                     return done_ports
                         .get(&port.attributes.get(ir::NumAttr::Go))
                         .map(|done_port| {
@@ -167,6 +181,13 @@ impl InferenceAnalysis {
                         None => pd_ref.attributes.get(ir::NumAttr::Promotable),
                     };
                     if let Some(static_latency) = st {
+                        assert_ne!(
+                            static_latency,
+                            0,
+                            "either @interval or @promotable attribute for {:?}.{} is 0",
+                            comp_sig.prototype.get_name(),
+                            pd_ref.name
+                        );
                         return done_ports
                             .get(&pd_ref.attributes.get(ir::NumAttr::Go))
                             .map(|done_port| {
@@ -450,6 +471,13 @@ impl InferenceAnalysis {
                 }
             }
         }
+
+        assert_ne!(
+            latency_sum,
+            0,
+            "Group {} was inferred to have latency of 0",
+            group.name(),
+        );
 
         log::debug!("SUCCESS: Latency = {}", latency_sum);
         Some(latency_sum)
