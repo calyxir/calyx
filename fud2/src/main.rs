@@ -96,7 +96,7 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.rule("json-data", "$json_dat --to-json $out $in")?;
 
         // The Verilog testbench.
-        e.var("testbench", &format!("{}/tb.sv", e.config_val("rsrc")?))?;
+        e.build_cmd(&["tb.sv"], "get-rsrc", &[], &[])?; // TODO Shortcut for this!
 
         // The input data file. `sim.data` is required.
         let data_name = e.config_val("sim.data")?;
@@ -147,7 +147,7 @@ fn build_driver(bld: &mut DriverBuilder) {
     let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
-        e.rule("icarus-compile", "$iverilog -g2012 -o $out $testbench $in")?;
+        e.rule("icarus-compile", "$iverilog -g2012 -o $out tb.sv $in")?;
         Ok(())
     });
     bld.op(
@@ -169,7 +169,7 @@ fn build_driver(bld: &mut DriverBuilder) {
         verilog_noverify,
         simulator,
         |e, input, output| {
-            e.build("icarus-compile", input, output)?;
+            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
             Ok(())
         },
     );
@@ -242,7 +242,7 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile",
-            "$verilator $in $testbench --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
@@ -255,7 +255,12 @@ fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             let out_dir = "verilator-out";
             let sim_bin = format!("{}/VTOP", out_dir);
-            e.build("verilator-compile", input, &sim_bin)?;
+            e.build_cmd(
+                &[&sim_bin],
+                "verilator-compile",
+                &[input],
+                &["tb.sv"],
+            )?;
             e.arg("out-dir", out_dir)?;
             e.build("cp", &sim_bin, output)?;
             Ok(())
