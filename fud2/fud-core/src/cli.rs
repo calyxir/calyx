@@ -51,12 +51,28 @@ pub struct EditConfig {
     pub editor: Option<String>,
 }
 
+/// extract a resource file
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "get-rsrc")]
+pub struct GetResource {
+    /// the filename to extract
+    #[argh(positional)]
+    input: Option<String>,
+
+    /// destination for the resource file
+    #[argh(option, short = 'o')]
+    output: Option<Utf8PathBuf>,
+}
+
 /// supported subcommands
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
 pub enum Subcommand {
     /// edit the configuration file
     EditConfig(EditConfig),
+
+    /// extract a resource file
+    GetResource(GetResource),
 }
 
 #[derive(FromArgs)]
@@ -167,6 +183,30 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
     })
 }
 
+fn edit_config(driver: &Driver, cmd: EditConfig) -> anyhow::Result<()> {
+    let editor =
+        if let Some(e) = cmd.editor.or_else(|| std::env::var("EDITOR").ok()) {
+            e
+        } else {
+            bail!("$EDITOR not specified. Use -e")
+        };
+    let config_path = config::config_path(&driver.name);
+    log::info!("Editing config at {}", config_path.display());
+    let status = std::process::Command::new(editor)
+        .arg(config_path)
+        .status()
+        .expect("failed to execute editor");
+    if !status.success() {
+        bail!("editor exited with status {}", status);
+    }
+    return Ok(());
+}
+
+fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
+    println!("hello!");
+    Ok(())
+}
+
 pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
 
@@ -177,24 +217,15 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
         .target(env_logger::Target::Stderr)
         .init();
 
-    // edit the configuration file
-    if let Some(Subcommand::EditConfig(EditConfig { editor })) = args.sub {
-        let editor =
-            if let Some(e) = editor.or_else(|| std::env::var("EDITOR").ok()) {
-                e
-            } else {
-                bail!("$EDITOR not specified. Use -e")
-            };
-        let config_path = config::config_path(&driver.name);
-        log::info!("Editing config at {}", config_path.display());
-        let status = std::process::Command::new(editor)
-            .arg(config_path)
-            .status()
-            .expect("failed to execute editor");
-        if !status.success() {
-            bail!("editor exited with status {}", status);
+    // Edit the configuration file.
+    match args.sub {
+        Some(Subcommand::EditConfig(cmd)) => {
+            return edit_config(driver, cmd);
         }
-        return Ok(());
+        Some(Subcommand::GetResource(cmd)) => {
+            return get_resource(driver, cmd);
+        }
+        None => {}
     }
 
     // Make a plan.
