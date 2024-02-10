@@ -2,8 +2,11 @@ use fud_core::{
     cli,
     exec::{SetupRef, StateRef},
     run::{EmitResult, Emitter},
-    Driver, DriverBuilder,
+    DriverBuilder,
 };
+
+#[cfg(debug_assertions)]
+const RSRC_DIR: &str = manifest_dir_macros::directory_path!("rsrc");
 
 fn setup_calyx(
     bld: &mut DriverBuilder,
@@ -68,17 +71,15 @@ fn setup_mrxl(
     (mrxl, mrxl_setup)
 }
 
-fn build_driver() -> Driver {
-    let mut bld = DriverBuilder::new("fud2");
-
+fn build_driver(bld: &mut DriverBuilder) {
     // The verilog state
     let verilog = bld.state("verilog", &["sv", "v"]);
     // Calyx.
-    let (calyx, calyx_setup) = setup_calyx(&mut bld, verilog);
+    let (calyx, calyx_setup) = setup_calyx(bld, verilog);
     // Dahlia.
-    setup_dahlia(&mut bld, calyx);
+    setup_dahlia(bld, calyx);
     // MrXL.
-    setup_mrxl(&mut bld, calyx);
+    setup_mrxl(bld, calyx);
 
     // Shared machinery for RTL simulators.
     let dat = bld.state("dat", &["json"]);
@@ -430,12 +431,15 @@ fn build_driver() -> Driver {
             Ok(())
         },
     );
-
-    bld.build()
 }
 
 fn main() -> anyhow::Result<()> {
-    let driver = build_driver();
+    let mut bld = DriverBuilder::new("fud2");
+    build_driver(&mut bld);
 
+    #[cfg(debug_assertions)]
+    bld.rsrc_dir(RSRC_DIR);
+
+    let driver = bld.build();
     cli::cli(&driver)
 }

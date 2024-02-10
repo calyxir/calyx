@@ -16,6 +16,7 @@ pub struct Driver {
     pub setups: PrimaryMap<SetupRef, Setup>,
     pub states: PrimaryMap<StateRef, State>,
     pub ops: PrimaryMap<OpRef, Operation>,
+    pub rsrc_dir: Option<Utf8PathBuf>,
 }
 
 impl Driver {
@@ -192,6 +193,7 @@ pub struct DriverBuilder {
     setups: PrimaryMap<SetupRef, Setup>,
     states: PrimaryMap<StateRef, State>,
     ops: PrimaryMap<OpRef, Operation>,
+    rsrc_dir: Option<Utf8PathBuf>,
 }
 
 impl DriverBuilder {
@@ -201,6 +203,7 @@ impl DriverBuilder {
             setups: Default::default(),
             states: Default::default(),
             ops: Default::default(),
+            rsrc_dir: None,
         }
     }
 
@@ -272,12 +275,17 @@ impl DriverBuilder {
         )
     }
 
+    pub fn rsrc_dir(&mut self, path: &str) {
+        self.rsrc_dir = Some(path.into());
+    }
+
     pub fn build(self) -> Driver {
         Driver {
             name: self.name,
             setups: self.setups,
             states: self.states,
             ops: self.ops,
+            rsrc_dir: self.rsrc_dir,
         }
     }
 }

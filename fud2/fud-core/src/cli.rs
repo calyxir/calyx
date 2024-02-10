@@ -57,7 +57,7 @@ pub struct EditConfig {
 pub struct GetResource {
     /// the filename to extract
     #[argh(positional)]
-    input: Option<String>,
+    filename: String,
 
     /// destination for the resource file
     #[argh(option, short = 'o')]
@@ -203,7 +203,12 @@ fn edit_config(driver: &Driver, cmd: EditConfig) -> anyhow::Result<()> {
 }
 
 fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
-    println!("hello!");
+    if let Some(rsrc_dir) = &driver.rsrc_dir {
+        dbg!(&rsrc_dir);
+        todo!("copy the file")
+    } else {
+        todo!("extract the file")
+    }
     Ok(())
 }
 
