@@ -217,6 +217,9 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
     // Try copying a resource file from the resource directory.
     if let Some(rsrc_dir) = &driver.rsrc_dir {
         let from_path = rsrc_dir.join(&cmd.filename);
+        if !from_path.exists() {
+            bail!("resource file not found: {}", cmd.filename);
+        }
         log::info!("copying {} to {}", cmd.filename, to_path);
         std::fs::copy(from_path, to_path)?;
         return Ok(());
