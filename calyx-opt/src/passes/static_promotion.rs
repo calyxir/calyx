@@ -1,4 +1,6 @@
-use crate::analysis::{InferenceAnalysis, PromotionAnalysis};
+use crate::analysis::{
+    CompactionAnalysis, InferenceAnalysis, PromotionAnalysis,
+};
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
     Visitor,
@@ -33,12 +35,16 @@ pub struct StaticPromotion {
     /// PromotionAnalysis object so that we can easily infer control, and keep
     /// track of which groups were promoted.
     promotion_analysis: PromotionAnalysis,
+    /// CompactionAnalysis object so that we can easily perform compaction
+    compaction_analysis: CompactionAnalysis,
     /// Threshold for promotion
     threshold: u64,
     /// Threshold for difference in latency for if statements
     if_diff_limit: Option<u64>,
     /// Whether we should stop promoting when we see a loop.
     cycle_limit: Option<u64>,
+    /// Set no_compaction = true to disable compaction
+    no_compaction: bool,
 }
 
 // Override constructor to build latency_data information from the primitives
@@ -49,9 +55,11 @@ impl ConstructVisitor for StaticPromotion {
         Ok(StaticPromotion {
             inference_analysis: InferenceAnalysis::from_ctx(ctx),
             promotion_analysis: PromotionAnalysis::default(),
+            compaction_analysis: CompactionAnalysis::default(),
             threshold: opts["threshold"].pos_num().unwrap(),
             if_diff_limit: opts["if-diff-limit"].pos_num(),
             cycle_limit: opts["cycle-limit"].pos_num(),
+            no_compaction: opts["no-compaction"].pos_num().is_some(),
         })
     }
 
@@ -192,8 +200,6 @@ impl StaticPromotion {
         ) {
             // Too large, try to break up
             let right = control_vec.split_off(control_vec.len() / 2);
-            dbg!(control_vec.len());
-            dbg!(right.len());
             let mut left_res =
                 self.promote_vec_seq_heuristic(builder, control_vec);
             let right_res = self.promote_vec_seq_heuristic(builder, right);
@@ -207,8 +213,6 @@ impl StaticPromotion {
         let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
         let sseq =
             ir::Control::Static(ir::StaticControl::seq(s_seq_stmts, latency));
-        // sseq.get_mut_attributes()
-        //     .insert(ir::NumAttr::Compactable, 1);
         vec![sseq]
     }
 
