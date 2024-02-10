@@ -2,12 +2,15 @@ use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{run, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
+use std::collections::HashMap;
 
 #[derive(PartialEq)]
 enum Destination {
     State(StateRef),
     Op(OpRef),
 }
+
+type FileData = HashMap<&'static str, &'static [u8]>;
 
 /// A Driver encapsulates a set of States and the Operations that can transform between them. It
 /// contains all the machinery to perform builds in a given ecosystem.
@@ -17,6 +20,7 @@ pub struct Driver {
     pub states: PrimaryMap<StateRef, State>,
     pub ops: PrimaryMap<OpRef, Operation>,
     pub rsrc_dir: Option<Utf8PathBuf>,
+    pub rsrc_files: Option<FileData>,
 }
 
 impl Driver {
@@ -194,6 +198,7 @@ pub struct DriverBuilder {
     states: PrimaryMap<StateRef, State>,
     ops: PrimaryMap<OpRef, Operation>,
     rsrc_dir: Option<Utf8PathBuf>,
+    rsrc_files: Option<FileData>,
 }
 
 impl DriverBuilder {
@@ -204,6 +209,7 @@ impl DriverBuilder {
             states: Default::default(),
             ops: Default::default(),
             rsrc_dir: None,
+            rsrc_files: None,
         }
     }
 
@@ -279,6 +285,10 @@ impl DriverBuilder {
         self.rsrc_dir = Some(path.into());
     }
 
+    pub fn rsrc_files(&mut self, files: FileData) {
+        self.rsrc_files = Some(files);
+    }
+
     pub fn build(self) -> Driver {
         Driver {
             name: self.name,
@@ -286,6 +296,7 @@ impl DriverBuilder {
             states: self.states,
             ops: self.ops,
             rsrc_dir: self.rsrc_dir,
+            rsrc_files: self.rsrc_files,
         }
     }
 }

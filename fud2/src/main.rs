@@ -8,6 +8,10 @@ use fud_core::{
 #[cfg(debug_assertions)]
 const RSRC_DIR: &str = manifest_dir_macros::directory_path!("rsrc");
 
+#[cfg(not(debug_assertions))]
+const RSRC_FILES: include_dir::Dir =
+    include_dir::include_dir!("$CARGO_MANIFEST_DIR/rsrc");
+
 fn setup_calyx(
     bld: &mut DriverBuilder,
     verilog: StateRef,
@@ -470,6 +474,15 @@ fn main() -> anyhow::Result<()> {
 
     #[cfg(debug_assertions)]
     bld.rsrc_dir(RSRC_DIR);
+
+    #[cfg(not(debug_assertions))]
+    {
+        let rsrc_data: std::collections::HashMap<_, _> = RSRC_FILES
+            .files()
+            .map(|file| (file.path().to_str().unwrap(), file.contents()))
+            .collect();
+        bld.rsrc_files(rsrc_data);
+    }
 
     let driver = bld.build();
     cli::cli(&driver)

@@ -203,15 +203,26 @@ fn edit_config(driver: &Driver, cmd: EditConfig) -> anyhow::Result<()> {
 }
 
 fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
+    let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
+
+    // Try extracting embedded resource data.
+    if let Some(rsrc_files) = &driver.rsrc_files {
+        if let Some(data) = rsrc_files.get(cmd.filename.as_str()) {
+            log::info!("extracting {} to {}", cmd.filename, to_path);
+            std::fs::write(to_path, data)?;
+            return Ok(());
+        }
+    }
+
+    // Try copying a resource file from the resource directory.
     if let Some(rsrc_dir) = &driver.rsrc_dir {
         let from_path = rsrc_dir.join(&cmd.filename);
-        let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
-        log::info!("extracting {} to {}", cmd.filename, to_path);
+        log::info!("copying {} to {}", cmd.filename, to_path);
         std::fs::copy(from_path, to_path)?;
-        Ok(())
-    } else {
-        todo!("extract the file")
+        return Ok(());
     }
+
+    bail!("unknown resource file {}", cmd.filename);
 }
 
 pub fn cli(driver: &Driver) -> anyhow::Result<()> {
