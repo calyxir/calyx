@@ -210,7 +210,7 @@ fn build_driver() -> Driver {
     let firrtl_primitives_setup = bld.setup("FIRRTL with primitives", |e| {
         // Convert all @external cells to ref cells.
         e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
-        
+
         // Produce FIRRTL with FIRRTL-defined primitives.
         e.var(
             "gen-firrtl-primitives-script",
@@ -234,7 +234,7 @@ fn build_driver() -> Driver {
         )?;
 
         e.rule("dummy", "cat $in $out")?;
-        
+
         Ok(())
     });
 
@@ -252,7 +252,12 @@ fn build_driver() -> Driver {
             // replace extmodule with ref
             e.build_cmd(&[tmp_calyx], "external-to-ref", &[input], &[])?;
             // generate the testbench
-            e.build_cmd(&[dummy_testbench], "generate-refmem-testbench", &[tmp_calyx], &[])?;
+            e.build_cmd(
+                &[dummy_testbench],
+                "generate-refmem-testbench",
+                &[tmp_calyx],
+                &[],
+            )?;
             // get original firrtl
             e.build_cmd(&[tmp_firrtl], "calyx", &[tmp_calyx], &[])?;
             e.arg("backend", "firrtl")?;
