@@ -3,21 +3,6 @@
     // the whole project. For all other things use your own local settings.
     "[rust]": {
         "editor.defaultFormatter": "rust-lang.rust-analyzer",
-        "editor.formatOnSave": true,
-    },
-    "rust-analyzer.linkedProjects": [
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml",
-        "./tools/btor2/btor2i/Cargo.toml"
-    ],
-    "rust-analyzer.showUnlinkedFileNotification": false,
+        "editor.formatOnSave": true
+    }
 }

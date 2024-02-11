@@ -3,7 +3,8 @@ use std::{env::current_dir, fs::read_dir};
 
 #[test]
 fn parse_btor2_examples() {
-    let examples_dir = current_dir().unwrap().join("btor2tools/examples/btorsim");
+    let examples_dir =
+        current_dir().unwrap().join("btor2tools/examples/btorsim");
 
     read_dir(&examples_dir)
         .unwrap()
@@ -26,7 +27,8 @@ fn parse_btor2_examples() {
 
 #[test]
 fn parser_does_not_crash_if_file_does_not_exist() {
-    let random_file_name = current_dir().unwrap().join("sakdfjaoisdfewhoiajofjds");
+    let random_file_name =
+        current_dir().unwrap().join("sakdfjaoisdfewhoiajofjds");
 
     let mut parser = Btor2Parser::new();
 

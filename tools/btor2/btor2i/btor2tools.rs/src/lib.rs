@@ -21,10 +21,11 @@
 //! ```
 
 use btor2tools_sys::{
-    btor2parser_delete, btor2parser_error, btor2parser_iter_init, btor2parser_iter_next,
-    btor2parser_new, btor2parser_read_lines, fclose, fopen, Btor2Line as CBtor2Line,
-    Btor2LineIterator as CBtor2LineIterator, Btor2Parser as CBtor2Parser,
-    Btor2SortTag as CBtor2SortTag, Btor2Tag as CBtor2Tag,
+    btor2parser_delete, btor2parser_error, btor2parser_iter_init,
+    btor2parser_iter_next, btor2parser_new, btor2parser_read_lines, fclose,
+    fopen, Btor2Line as CBtor2Line, Btor2LineIterator as CBtor2LineIterator,
+    Btor2Parser as CBtor2Parser, Btor2SortTag as CBtor2SortTag,
+    Btor2Tag as CBtor2Tag,
 };
 use std::{
     convert::From,
@@ -50,7 +51,10 @@ impl Btor2Parser {
 
     /// Parses a Btor2 file and returns an iterator to all every formatted line on success.
     /// On failure, the error includes the line number, where the error occured.
-    pub fn read_lines<P>(&mut self, file: P) -> Result<Btor2LineIterator, Btor2ParserError>
+    pub fn read_lines<P>(
+        &mut self,
+        file: P,
+    ) -> Result<Btor2LineIterator, Btor2ParserError>
     where
         P: AsRef<Path>,
     {
@@ -58,9 +62,9 @@ impl Btor2Parser {
             let file_path = if let Some(p) = file.as_ref().to_str() {
                 p
             } else {
-                return Err(Btor2ParserError::InvalidPathEncoding(String::from(
-                    "Path is not UTF-8 encoded",
-                )));
+                return Err(Btor2ParserError::InvalidPathEncoding(
+                    String::from("Path is not UTF-8 encoded"),
+                ));
             };
 
             let c_file_path = CString::new(file_path).map_err(|_| {
@@ -81,7 +85,8 @@ impl Btor2Parser {
                 fclose(file);
 
                 if result == 0 {
-                    let c_msg = CStr::from_ptr(btor2parser_error(self.internal));
+                    let c_msg =
+                        CStr::from_ptr(btor2parser_error(self.internal));
 
                     Err(Btor2ParserError::SyntaxError(
                         c_msg
@@ -215,7 +220,12 @@ impl<'parser> Btor2Line<'parser> {
 
     // non zero ids
     pub fn args(&self) -> &[i64] {
-        unsafe { slice::from_raw_parts((*self.internal).args, (*self.internal).margs as usize) }
+        unsafe {
+            slice::from_raw_parts(
+                (*self.internal).args,
+                (*self.internal).margs as usize,
+            )
+        }
     }
 }
 
@@ -260,7 +270,11 @@ impl<'line, 'parser> Btor2Sort<'line, 'parser> {
             match self.tag() {
                 Btor2SortTag::Array => Btor2SortContent::Array {
                     index: (*self.internal).sort.__bindgen_anon_1.array.index,
-                    element: (*self.internal).sort.__bindgen_anon_1.array.element,
+                    element: (*self.internal)
+                        .sort
+                        .__bindgen_anon_1
+                        .array
+                        .element,
                 },
                 Btor2SortTag::Bitvec => Btor2SortContent::Bitvec {
                     width: (*self.internal).sort.__bindgen_anon_1.bitvec.width,

@@ -10,9 +10,11 @@ const EXPORTED_HEADERS: [&str; 1] = ["src/btor2parser/btor2parser.h"];
 fn main() {
     // we are not allowed to modify files outside of OUT_DIR,
     // so we have to copy everything to OUT_DIR before we can build it
-    let immutable_source_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("btor2tools");
+    let immutable_source_dir =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("btor2tools");
 
-    let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR not set"));
+    let out_dir =
+        PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR not set"));
     let source_dir = out_dir.join("btor2tools-src");
 
     if !source_dir.exists() {

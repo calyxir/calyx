@@ -17,6 +17,3 @@ num-integer = "0.1.45"
 
 [dependencies.btor2tools]
 path = "btor2tools.rs"
-
-[profile.release]
-debug = true
