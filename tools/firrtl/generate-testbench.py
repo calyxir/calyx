@@ -46,14 +46,17 @@ def generate_main_decl(memory_cell_dicts):
   .clk(clk),
   .reset(reset),
   .done(done)'''
+     # Documentation: Need to connect to the wires we initialized above (ex. {name}_addr0)
+     # and not the ports of the memory (ex. {name},addr0) because verilator would error
+     # out due to some of the memory ports being input ports.
      for memory_cell_dict in memory_cell_dicts:
           name = memory_cell_dict["cell-name"]
           out_str += ",\n"
-          out_str += f'''  .{name}_addr0({name}.addr0),
-  .{name}_write_data({name}.write_data),
-  .{name}_write_en({name}.write_en),
-  .{name}_read_data({name}.read_data),
-  .{name}_done({name}.done)
+          out_str += f'''  .{name}_addr0({name}_addr0),
+  .{name}_write_data({name}_write_data),
+  .{name}_write_en({name}_write_en),
+  .{name}_read_data({name}_read_data),
+  .{name}_done({name}_done)
 '''
      out_str += "\n);"
      return out_str
@@ -79,12 +82,12 @@ def get_memory_cells(calyx_program):
      memory_cell_dicts = []
      with open(calyx_program) as f:
           for line in f:
-               if ("ref" in line) and "comb_mem_d1" in line:
+               if "comb_mem_d1" in line:
                     memory_cell_dict = {}
                     # parse line that contains a ref cell
                     memory_cell_dict["cell-name"] = line.lstrip().split()[1]
                     # we're assuming that comb_mem_d1 for now
-                    args = line.split("(")[1].split(")")[0].split(",")
+                    args = line.split("comb_mem_d1(")[1].split(")")[0].split(",")
                     memory_cell_dict["WIDTH"] = int(args[0])
                     memory_cell_dict["SIZE"] = int(args[1])
                     memory_cell_dict["IDX_SIZE"] = int(args[2])
