@@ -257,14 +257,11 @@ my_component.control += my_component.get_group("my_group")
 
 ### `seq`
 
-Control statements are [sequenced][seq] in the order that they appear in a component's
-control program, represented by a Python list.
-Let's say we want to sequence the control statements `A`, `B`, and `C`.
+Control statements are [sequenced][seq] in the order that they appear in a component's control program, represented by a Python list. Let's say we want to sequence the control statements `A`, `B`, and `C`.
 
 ```python
 my_component.control += [A, B, C]
 ```
-It's worth nothing that sequential usage of `+=` will not nest `seq` blocks unless necessary.
 
 ### `par`
 
@@ -272,30 +269,6 @@ For [parallel compositions][par] of control programs, use the `par()` function. 
 
 ```python
 my_component.control += [par(A, B), C]
-```
-
-Alternatively, we can construct `par` blocks by using `*=`. To compose the same control program as above, with `A` and `B` in parallel and sequencing this composition before `C` we could write:
-
-```python
-my_component.control *= par(A,B)
-my_component.control += C
-```
-
-### Chaining `seq` and `par`
-
-It is possible to chain together sequential usage of `+=` and `*=` to construct a control program ``sequentially''.
-In this way, the control program's construction in the builder will look similar to the control program in the output Calyx. For example,
-the previous python example in the `par` section will produce a par block of `A` and `B`, which is sequenced before `C`:
-
-```
-seq{
-  par{
-    A;
-    B;
-  }
-  C;
-}
-
 ```
 
 ### `if`

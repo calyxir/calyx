@@ -371,11 +371,7 @@ class Invoke(Control):
 
         # Add ref cells if present
         if len(self.ref_cells) > 0:
-            rcs = ""
-            try:
-                rcs = ", ".join([f"{n}={arg.doc()}" for (n, arg) in self.ref_cells])
-            except AttributeError as e:
-                raise AttributeError(f"`ref_` arguments must be a cell, but a {type(arg)} was passed in.")
+            rcs = ", ".join([f"{n}={arg.doc()}" for (n, arg) in self.ref_cells])
             inv += f"[{rcs}]"
 
         # Inputs and outputs
