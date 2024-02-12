@@ -29,7 +29,7 @@ cells {
 
 #### **Group Attributes**
 ```
-group cond<"static"=1> {
+group cond<"promotable"=1> {
   ...
 }
 ```
@@ -37,9 +37,9 @@ group cond<"static"=1> {
 #### **Control Attributes**
 ```
 control {
-  @static(3) seq {
-    @static(1) A;
-    @static(2) B;
+  @promotable(3) seq {
+    @promotable(1) A;
+    @promotable(2) B;
   }
 }
 ```
@@ -69,15 +69,20 @@ It has two meanings:
    assignments to the use the ports. See the documentation on [externalize][] for more information.
 2. If the cell is a memory and has an `external` attribute on it, the Verilog backend (`-b verilog`) generates code to read `<cell_name>.dat` to initialize the memory state and dumps out its final value after execution.
 
-### `static(n)`
-Can be attached to components, groups, and control statements. They indicate how
-many cycles a component, group, or control statement will take to run and are used
-by `-p static-timing` to generate more efficient control FSMs.
+### `promotable(n)`
+Can be attached to groups, control, and `@go` ports of components.
+This tells the compiler how long the group/control would take if it were promoted
+to static.
+This is just a hint, and is free to be ignored by the compiler.
+However, the compiler may use it in the `static-promotion` pass to upgrade dynamic
+constructs to `static<n>` ones.
 
-The `go` and `done` attributes are, in particular, used by the `infer-static-timing` pass to configure which ports are used like
-`go` and `done` signals.
-Along with the `static(n)` attribute, this allows the pass to calculate when
-a particular done signal of a primitive will be high.
+### `interval(n)`
+This can be attached to the `@go` ports of dynamic components (both primitives or
+Calyx-defined components).
+This tells the compiler that if you assert the `@go` port for cycles `[0,n)`, then
+the done signal will be asserted on cycle `n`.
+This is different from `@promotable` since it provides a guarantee rather than a hint.
 
 ### `inline`
 Used by the `inline` pass on cell definitions. Instructs the pass to completely
