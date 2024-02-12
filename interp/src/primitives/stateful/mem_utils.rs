@@ -2,10 +2,8 @@ use calyx_ir as ir;
 
 use crate::{
     errors::{InterpreterError, InterpreterResult},
-    primitives::{
-        prim_utils::{get_inputs, get_params},
-        primitive_traits::Shape,
-    },
+    primitives::prim_utils::{get_inputs, get_params},
+    serialization::Shape,
     validate_friendly,
     values::Value,
 };

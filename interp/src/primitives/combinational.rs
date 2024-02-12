@@ -5,9 +5,12 @@ use super::{
     primitive_traits::Named,
     Primitive,
 };
-use crate::logging::warn;
 use crate::values::Value;
 use crate::{comb_primitive, errors::InterpreterError};
+use crate::{
+    logging::warn,
+    serialization::{Entry, Serializable},
+};
 use bitvec::vec::BitVec;
 use calyx_ir as ir;
 use std::ops::Not;
@@ -77,12 +80,9 @@ impl Primitive for StdConst {
     fn serialize(
         &self,
         code: Option<crate::debugger::PrintCode>,
-    ) -> super::Serializable {
+    ) -> Serializable {
         let code = code.unwrap_or(crate::debugger::PrintCode::Unsigned);
-        super::Serializable::Val(super::Entry::from_val_code(
-            &self.value,
-            &code,
-        ))
+        Serializable::Val(Entry::from_val_code(&self.value, &code))
     }
 }
 

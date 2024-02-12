@@ -3,7 +3,6 @@ use std::ops::Not;
 use bitvec::vec::BitVec;
 
 use crate::{
-    errors::InterpreterResult,
     flatten::{
         flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
         primitives::{
@@ -82,13 +81,6 @@ impl Primitive for StdMux {
             port_map.write_undef(out)?;
             Ok(UpdateStatus::Unchanged)
         }
-    }
-
-    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
-        ports![&self.base; out: Self::OUT];
-        port_map.write_undef_unchecked(out);
-
-        Ok(())
     }
 
     fn has_stateful(&self) -> bool {

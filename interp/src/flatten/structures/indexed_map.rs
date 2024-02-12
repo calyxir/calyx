@@ -1,4 +1,4 @@
-use super::index_trait::{IndexRangeIterator, IndexRef};
+use super::index_trait::{IndexRange, IndexRangeIterator, IndexRef};
 use std::{
     marker::PhantomData,
     ops::{self, Index},
@@ -11,6 +11,18 @@ where
 {
     data: Vec<D>,
     phantom: PhantomData<K>,
+}
+
+impl<K, D> IndexedMap<K, D>
+where
+    K: IndexRef + PartialOrd,
+{
+    /// Produces a range containing all the keys in the input map. This is
+    /// similar to [IndexedMap::keys] but has an independent lifetime from the
+    /// map
+    pub fn range(&self) -> IndexRange<K> {
+        IndexRange::new(K::new(0), K::new(self.len()))
+    }
 }
 
 impl<K> IndexedMap<K, ()>
@@ -96,6 +108,17 @@ where
 
     pub fn iter(&self) -> impl Iterator<Item = (K, &D)> {
         self.data.iter().enumerate().map(|(i, v)| (K::new(i), v))
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (K, &mut D)> {
+        self.data
+            .iter_mut()
+            .enumerate()
+            .map(|(i, v)| (K::new(i), v))
+    }
+
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut D> {
+        self.data.iter_mut()
     }
 
     pub fn keys(&self) -> impl Iterator<Item = K> + '_ {
