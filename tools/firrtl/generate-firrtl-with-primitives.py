@@ -17,6 +17,13 @@ def generate_replacement_map(inst):
     elif inst["name"] == "std_lsh":
         width = replacement_map["WIDTH"]
         replacement_map["BITS"] = math.ceil(math.log(width, 2)) + 1
+    elif inst["name"] == "std_mult_pipe":
+        width = replacement_map["WIDTH"]
+        replacement_map["W_SHIFTED_ONE"] = width << 1 # FIXME
+        # out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
+        replacement_map["HIGH"] = width - 1
+        replacement_map["LOW"] = 0
+
 
     return replacement_map
 
