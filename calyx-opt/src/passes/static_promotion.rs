@@ -111,13 +111,10 @@ impl Named for StaticPromotion {
 
 impl StaticPromotion {
     fn remove_large_promotables(&self, c: &mut ir::Control) {
-        match c.get_attribute(ir::NumAttr::Promotable) {
-            Some(pr) => {
-                if !self.within_cycle_limit(pr) {
-                    c.get_mut_attributes().remove(ir::NumAttr::Promotable)
-                }
+        if let Some(pr) = c.get_attribute(ir::NumAttr::Promotable) {
+            if !self.within_cycle_limit(pr) {
+                c.get_mut_attributes().remove(ir::NumAttr::Promotable)
             }
-            _ => (),
         }
     }
 
@@ -208,18 +205,18 @@ impl StaticPromotion {
     ) -> Vec<ir::Control> {
         if control_vec.is_empty() {
             // Base case len == 0
-            return vec![];
+            vec![]
         } else if control_vec.len() == 1 {
             // Base case len == 1.
             // Promote if it fits the promotion heuristics.
             let mut stmt = control_vec.pop().unwrap();
             if self.fits_heuristics(&stmt) {
-                return vec![ir::Control::Static(
+                vec![ir::Control::Static(
                     self.promotion_analysis
                         .convert_to_static(&mut stmt, builder),
-                )];
+                )]
             } else {
-                return vec![stmt];
+                vec![stmt]
             }
         } else {
             let mut possibly_compacted_ctrl = if self.compaction {

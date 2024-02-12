@@ -27,11 +27,10 @@ impl CompactionAnalysis {
         mut total_order: petgraph::graph::DiGraph<Option<ir::Control>, ()>,
         sorted_schedule: Vec<(NodeIndex, u64)>,
     ) -> Vec<ir::Control> {
-        let stmts = sorted_schedule
+        sorted_schedule
             .into_iter()
             .map(|(i, _)| total_order[i].take().unwrap())
-            .collect_vec();
-        stmts
+            .collect_vec()
     }
 
     // Takes a vec of ctrl stmts and turns it into a compacted schedule (a static par).
@@ -55,7 +54,7 @@ impl CompactionAnalysis {
 
         let og_latency: u64 = stmts
             .iter()
-            .map(|stmt| PromotionAnalysis::get_inferred_latency(stmt))
+            .map(PromotionAnalysis::get_inferred_latency)
             .sum();
 
         let mut total_order = ControlOrder::<false>::get_dependency_graph_seq(
@@ -174,7 +173,7 @@ impl CompactionAnalysis {
                 latency: total_time,
             });
             s_par.get_mut_attributes().insert(ir::BoolAttr::Promoted, 1);
-            return vec![ir::Control::Static(s_par)];
+            vec![ir::Control::Static(s_par)]
         } else {
             panic!(
                 "Error when producing topo sort. Dependency graph has a cycle."
