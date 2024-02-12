@@ -110,6 +110,9 @@ impl Named for StaticPromotion {
 }
 
 impl StaticPromotion {
+    // Remove @promotable(n) attribute if n is above the cycle limit, since
+    // we know we will never promote such a control.
+    // This can be helpful to the pass when applying the heuristics.
     fn remove_large_promotables(&self, c: &mut ir::Control) {
         if let Some(pr) = c.get_attribute(ir::NumAttr::Promotable) {
             if !self.within_cycle_limit(pr) {
@@ -231,7 +234,9 @@ impl StaticPromotion {
                 control_vec
             };
             // If length == 1 this means we have a vec[compacted_static_par],
-            // so we can return
+            // so we can return.
+            // (Note that the og control_vec must be of length >=2, since we
+            // have already checked for two base cases.)
             if possibly_compacted_ctrl.len() == 1 {
                 return possibly_compacted_ctrl;
             }

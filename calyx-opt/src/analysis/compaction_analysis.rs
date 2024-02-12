@@ -7,6 +7,9 @@ use std::collections::HashMap;
 
 use super::ReadWriteSet;
 
+/// Struct to perform compaction on `seqs`.
+/// It will only work if you update_cont_read_writes for each component that
+/// you run it on.
 #[derive(Debug, Default)]
 pub struct CompactionAnalysis {
     cont_reads: Vec<ir::RRC<ir::Cell>>,
@@ -14,13 +17,14 @@ pub struct CompactionAnalysis {
 }
 
 impl CompactionAnalysis {
+    /// Updates self so that compaction will take continuous assignments into account
     pub fn update_cont_read_writes(&mut self, comp: &mut ir::Component) {
         let (cont_reads, cont_writes) = ReadWriteSet::cont_read_write_set(comp);
         self.cont_reads = cont_reads;
         self.cont_writes = cont_writes;
     }
-    // Given a total_order and sorted schedule, builds a seq based on the original
-    // schedule.
+
+    // Given a total_order and sorted schedule, builds a vec of the original seq.
     // Note that this function assumes the `total_order`` and `sorted_schedule`
     // represent a completely sequential schedule.
     fn recover_seq(
@@ -33,9 +37,11 @@ impl CompactionAnalysis {
             .collect_vec()
     }
 
-    // Takes a vec of ctrl stmts and turns it into a compacted schedule (a static par).
-    // If it can't compact at all, then it just returns a `seq` in the `stmts`
-    // original order.
+    /// Takes a vec of ctrl stmts and turns it into a compacted schedule.
+    /// If compaction doesn't lead to any latency decreases, it just returns
+    /// a vec of stmts in the original order.
+    /// If it can compact, then it returns a vec with one
+    /// element: a compacted static par.
     pub fn compact_control_vec(
         &mut self,
         stmts: Vec<ir::Control>,
