@@ -344,37 +344,34 @@ impl Visitor for StaticPromotion {
     ) -> VisResult {
         if comp.name != "main" {
             let comp_sig = comp.signature.borrow();
+            if comp.control.borrow().is_static() {
+                // We ended up promoting it
+                if !comp.is_static() {
+                    // Need this attribute for a weird, in-between state.
+                    // It has a known latency but also produces a done signal.
+                    comp.attributes.insert(ir::BoolAttr::Promoted, 1);
+                }
+                // (Possibly) new latency because of compaction
+                let new_latency = NonZeroU64::new(
+                    comp.control.borrow().get_latency().unwrap(),
+                )
+                .unwrap();
+                // This makes the component appear as a static<n> component.
+                comp.latency = Some(new_latency);
+                // Adjust inference analysis to account for this new latency.
+                self.inference_analysis
+                    .adjust_component((comp.name, new_latency.into()));
+            } else if !comp.control.borrow().is_empty() {
+                // This is for the case where we didn't end up promoting, so
+                // we remove it from our inference_analysis.
+                // Note that sometimes you can have components with only continuous
+                // assignments with @interval annotations: in that case,
+                // we don't want to remove our inference analysis.
+                self.inference_analysis.remove_component(comp.name);
+            };
+
             let go_ports =
                 comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
-            if go_ports.iter().any(|go_port| {
-                let go_ref = go_port.borrow_mut();
-                go_ref.attributes.has(ir::NumAttr::Promotable)
-                    || go_ref.attributes.has(ir::NumAttr::Interval)
-            }) {
-                if comp.control.borrow().is_static() {
-                    // We ended up promoting it
-                    if !comp.is_static() {
-                        // Need this attribute for a weird, in-between state.
-                        // It has a known latency but also produces a done signal.
-                        comp.attributes.insert(ir::BoolAttr::Promoted, 1);
-                    }
-                    // (Possibly) new latency because of compaction
-                    let new_latency = NonZeroU64::new(
-                        comp.control.borrow().get_latency().unwrap(),
-                    )
-                    .unwrap();
-                    // This makes the component appear as a static<n> component.
-                    comp.latency = Some(new_latency);
-                    // Adjust inference analysis to account for this new latency.
-                    self.inference_analysis
-                        .adjust_component((comp.name, new_latency.into()));
-                } else {
-                    // We decided not to promote, so we need to update data structures.
-                    // This case should only happen on @promotable components
-                    // (i.e., it shouldn't happen with @interval components).
-                    self.inference_analysis.remove_component(comp.name);
-                }
-            };
             // Either we have upgraded component to static<n> or we have decided
             // not to promote component at all. Either way, we can remove the
             // @promotable attribute.
