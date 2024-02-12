@@ -11,9 +11,10 @@
 // ###
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/compile.futil";
 import "primitives/math.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 
 
 //this goes m->s
@@ -31,7 +32,7 @@ component m_awwrite_channel(
   // for restrictions
   AWSIZE: 3,
   // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
-  AWLEN : 8, 
+  AWLEN : 8,
   // 00 for fixed, 01 for incrementing, 2 for wrap,
   // needs to be incr for RTL kernels (can't use wrapped or fixed)
   AWBURST : 2,
@@ -48,7 +49,7 @@ component m_awwrite_channel(
 
       //we write to this here and read from it in m_write_channel
       ref max_trnsfrs = std_reg(8);
-      
+
       // number of trasfers in a transaction. This is sent to subordinate
       txn_len = std_reg(8);
 
@@ -88,7 +89,7 @@ component m_awwrite_channel(
       group do_aw_transfer {
           //assert AWVALID
           is_awvalid.in = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
-          
+
           // TODO(nathanielnrn): in theory should be able to get rid of awvalid_was_high
           // but for now we will be explicit and reduce this in generation maybe. Not sure
           // it even matters.
@@ -100,11 +101,11 @@ component m_awwrite_channel(
           awvalid_was_high.write_en = !(is_awvalid.out & AWREADY) & !awvalid_was_high.out ? 1'b1;
 
 
-        // drive output signals for transfer  
+        // drive output signals for transfer
           AWADDR = base_addr.out;
           // see link above, needs to match data width to host.
           // In this case 2^2 = 4 bytes = 32 bits = width of our data_bus.
-          AWSIZE = 3'b010; 
+          AWSIZE = 3'b010;
           // For now this can be taken from .yxi, as size of mem, because we are assuming
           // data_bus width that matches size of memory cells
           // If we want to use bigger mems need to be able to update base addr
@@ -117,7 +118,7 @@ component m_awwrite_channel(
           // TODO(nathanielnrn): This is used to tell write_channel how many transfers to do
           // we eventually want this to correspond to AWLEN
           // (need a case statement or mux or something)
-          // for now hardcoding to 15 for 16 transfers 
+          // for now hardcoding to 15 for 16 transfers
           max_trnsfrs.in = 8'd15;
           max_trnsfrs.write_en = 1'b1;
 
@@ -135,7 +136,7 @@ component m_awwrite_channel(
           txn_count.in = 32'b0;
           txn_count.write_en = 1'b1;
           txn_count_init[done] = txn_count.done;
-          
+
       }
 
       group txn_len_init {
@@ -187,7 +188,7 @@ component m_write_channel(
 ) -> (
   WVALID : 1,
   WLAST  : 1,
-  WDATA  : 32, 
+  WDATA  : 32,
 ) {
   cells {
       // 16 is due to dot-product vector length assumption
@@ -197,8 +198,8 @@ component m_write_channel(
       wvalid = std_reg(1);
       wvalid_was_high = std_reg(1);
       // used internally to access our seq_mem_d1
-      ref curr_addr = std_reg(64); 
-      
+      ref curr_addr = std_reg(64);
+
       //this increments
       curr_trnsfr_count = std_reg(8); //between 0 and 255, add +1 for transfer count
       //this is number of transfer we want to do
@@ -272,7 +273,7 @@ component m_write_channel(
           init_n_finished_last_trnsfr[done] = n_finished_last_trnsfr.done;
       }
 
-      //Used to block any servicing until handshake occurs. 
+      //Used to block any servicing until handshake occurs.
       group reset_bt {
           bt_reg.in = 1'b0;
           bt_reg.write_en = 1'b1;
@@ -299,17 +300,17 @@ component m_write_channel(
         wvalid_was_high.in = 1'b1;
         wvalid_was_high.write_en = !(wvalid.out & WREADY) & !wvalid_was_high.out ? 1'b1;
 
-     
+
         // set data output based on curr_addr register
         internal_mem.addr0 = curr_addr.out;
         internal_mem.read_en = 1'b1;
         WDATA = internal_mem.read_data;
-        
+
         //set wlast
         WLAST = max_trnsfrs.out == curr_trnsfr_count.out ? 1'b1;
         WLAST = max_trnsfrs.out == curr_trnsfr_count.out ? 1'b1;
-        
-        //set high only when WLAST is high and a handshake occurs. 
+
+        //set high only when WLAST is high and a handshake occurs.
         n_finished_last_trnsfr.in = (max_trnsfrs.out == curr_trnsfr_count.out) & wvalid.out & WREADY ? 1'b0;
         n_finished_last_trnsfr.write_en = (max_trnsfrs.out == curr_trnsfr_count.out) & wvalid.out & WREADY ? 1'b1;
 
@@ -437,7 +438,7 @@ component main(
     m_AWVALID : 1,
     m_AWADDR: 64,
     m_AWSIZE: 3,
-    m_AWLEN : 8, 
+    m_AWLEN : 8,
     m_AWBURST : 2,
     m_AWPROT : 3,
 

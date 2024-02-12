@@ -578,6 +578,11 @@ impl Control {
         matches!(self, Control::Static(_))
     }
 
+    pub fn is_empty(&self) -> bool {
+        matches!(self, Control::Static(StaticControl::Empty(_)))
+            || matches!(self, Control::Empty(_))
+    }
+
     pub fn get_latency(&self) -> Option<StaticLatency> {
         match self {
             Control::Static(sc) => Some(sc.get_latency()),

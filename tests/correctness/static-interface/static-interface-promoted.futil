@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component do_add(left: 32, right: 32) -> (out: 32) {
   cells {
@@ -30,7 +31,7 @@ component do_add(left: 32, right: 32) -> (out: 32) {
 component main () -> () {
   cells {
     a = do_add();
-    @external out = std_mem_d1(32, 1, 1);
+    @external out = comb_mem_d1(32, 1, 1);
   }
   wires {
     group inv_a {

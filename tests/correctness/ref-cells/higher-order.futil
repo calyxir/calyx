@@ -1,5 +1,6 @@
 import "primitives/core.futil";
-import "primitives/memories.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
 
 /// The function we can map over the array.
 /// This function increments in input by 10 and tracks the number of elements

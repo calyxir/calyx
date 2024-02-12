@@ -1,12 +1,13 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 // Move data from one array to another with the index as a synchronized
 // register.
 component main() -> () {
   cells {
-    @external in = std_mem_d1(32, 5, 3);
-    @external out = std_mem_d1(32, 5, 3);
+    @external in = comb_mem_d1(32, 5, 3);
+    @external out = comb_mem_d1(32, 5, 3);
     lt = std_lt(3);
     add = std_add(3);
 

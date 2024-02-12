@@ -1,9 +1,10 @@
 //-p infer-share
 
-// add_5 checks for a situation when r is written but never read. 
-// count checks for situation when a read and write occur in the same group 
+// add_5 checks for a situation when r is written but never read.
+// count checks for situation when a read and write occur in the same group
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 
@@ -14,8 +15,8 @@ component add_5(in: 32) -> (out: 32) {
   }
   wires {
     group A {
-      add_32.left = in; 
-      add_32.right = 32'd5; 
+      add_32.left = in;
+      add_32.right = 32'd5;
       r.in = add_32.out;
       r.write_en = 1'd1;
       A[done] = r.done;
@@ -34,8 +35,8 @@ component count(in: 32) -> (out: 32) {
   }
   wires {
     group A {
-      add_32.left = r.out; 
-      add_32.right = 32'd1; 
+      add_32.left = r.out;
+      add_32.right = 32'd1;
       r.in = add_32.out;
       r.write_en = 1'd1;
       A[done] = r.done;

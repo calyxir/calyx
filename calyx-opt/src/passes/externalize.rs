@@ -13,7 +13,7 @@ use calyx_utils::CalyxResult;
 ///     cells {
 ///         // Inputs: addr0, write_data, write_en
 ///         // Outputs: read_data, done
-///         @external(1) m1 = prim std_mem_d1(32, 10, 4);
+///         @external(1) m1 = prim comb_mem_d1(32, 10, 4);
 ///     }
 ///     wires {
 ///         m1.addr0 = 1'd1;

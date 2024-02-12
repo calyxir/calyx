@@ -1,15 +1,16 @@
 // -p validate -p inline
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
-// just some component 
+// just some component
 component foo(in: 32) ->  (out: 32) {
   cells {
     f_reg = std_reg(32);
   }
   wires {
     group foo_group {
-      f_reg.in = in; 
-      f_reg.write_en = 1'd1; 
+      f_reg.in = in;
+      f_reg.write_en = 1'd1;
       foo_group[done] = f_reg.done;
     }
     out= f_reg.out;

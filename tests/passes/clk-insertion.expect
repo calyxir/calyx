@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 comb component layout_hw0() -> (flat_port_addr0: 4) {
   cells {
     add_0 = std_add(4);

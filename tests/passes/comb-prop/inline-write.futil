@@ -1,5 +1,6 @@
 // -p well-formed -p comb-prop
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
     w1 = std_wire(32);

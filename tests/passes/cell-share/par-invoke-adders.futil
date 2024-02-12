@@ -1,5 +1,6 @@
 //-p well-formed -p cell-share -p remove-ids
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component dbg<"state_share"=1>(in: 32) -> (out1: 32, out2: 32) {
   cells {
@@ -7,12 +8,12 @@ component dbg<"state_share"=1>(in: 32) -> (out1: 32, out2: 32) {
   }
   wires {
     group A {
-      r.write_en = 1'd1; 
+      r.write_en = 1'd1;
       r.in = in;
       A[done] = r.done;
     }
     out1 = r.out;
-    out2 = r.out; 
+    out2 = r.out;
   }
 
   control {

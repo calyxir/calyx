@@ -1,10 +1,11 @@
 // -p well-formed -p group2invoke
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 extern "./multi-go-done.futil" {
   primitive real_mem(
-    @static(1) @go(1) read_en: 1,
-    @static(2) @go(2) write_en: 1
+    @interval(1) @go(1) read_en: 1,
+    @interval(2) @go(2) write_en: 1
   ) -> (
     @done(1) read_done: 1,
     @done(2) write_done: 1

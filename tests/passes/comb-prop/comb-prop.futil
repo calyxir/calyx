@@ -1,5 +1,6 @@
 // -p validate -p comb-prop
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main(a: 4, b: 4, c: 1) -> () {
   cells {
     w1 = std_wire(4);
@@ -21,9 +22,9 @@ component main(a: 4, b: 4, c: 1) -> () {
       lt.right = r.out;
     }
     comb group cond1 {
-      // w4 should be replaced by c 
-      lt1.left = w4.out; 
-      lt1.right = 1'd1; 
+      // w4 should be replaced by c
+      lt1.left = w4.out;
+      lt1.right = 1'd1;
     }
 
     w1.in = a;

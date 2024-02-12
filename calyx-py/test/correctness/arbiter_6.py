@@ -22,8 +22,8 @@ def add_wrap2(prog):
     j = wrap.input("j", 32)
 
     # Six memory cells, plus an answer cell.
-    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(6)]
-    ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
+    mems = [wrap.comb_mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(6)]
+    ans = wrap.comb_mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j % 4, so we'll store it in a cell.
     j_mod_4 = wrap.reg("j_mod_4", 32)
@@ -105,8 +105,8 @@ def add_wrap3(prog):
     j = wrap.input("j", 32)
 
     # Six memory cells, plus an answer cell.
-    mems = [wrap.mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(6)]
-    ans = wrap.mem_d1("ans", 32, 1, 32, is_ref=True)
+    mems = [wrap.comb_mem_d1(f"mem{i}", 32, 4, 32, is_ref=True) for i in range(6)]
+    ans = wrap.comb_mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j % 4, so we'll store it in a cell.
     j_mod_4 = wrap.reg("j_mod_4", 32)
@@ -161,11 +161,11 @@ def add_main(prog, wrap2, wrap3):
     # Six memory cells, plus an two answer cells.
 
     [mem_a, mem_b, mem_c, mem_d, mem_e, mem_f] = [
-        main.mem_d1(name, 32, 4, 32, is_external=True)
+        main.comb_mem_d1(name, 32, 4, 32, is_external=True)
         for name in ["A", "B", "C", "D", "E", "F"]
     ]
-    out2 = main.mem_d1("out2", 32, 1, 32, is_external=True)
-    out3 = main.mem_d1("out3", 32, 1, 32, is_external=True)
+    out2 = main.comb_mem_d1("out2", 32, 1, 32, is_external=True)
+    out3 = main.comb_mem_d1("out3", 32, 1, 32, is_external=True)
 
     together2 = main.cell("together2", wrap2)
     together3 = main.cell("together3", wrap3)

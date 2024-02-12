@@ -5,7 +5,7 @@ use super::{
     RESERVED_NAMES, RRC,
 };
 use crate::{Nothing, PortComp, StaticTiming};
-use calyx_frontend::{ast, BoolAttr, Workspace};
+use calyx_frontend::{ast, BoolAttr, NumAttr, Workspace};
 use calyx_utils::{CalyxResult, Error, GPosIdx, WithPos};
 use itertools::Itertools;
 
@@ -24,9 +24,70 @@ struct SigCtx {
     lib: LibrarySignatures,
 }
 
-// assumes cell has a name (i.e., not a constant/ThisComponent)
-// uses sig_ctx to check the latency of comp_name (if not static, then None)
+// Assumes cell has a name (i.e., not a constant/ThisComponent)
+// uses sig_ctx to check the latency of comp_name, either thru static<n> or
+// @interval(n)
 fn get_comp_latency(
+    sig_ctx: &SigCtx,
+    cell: RRC<Cell>,
+    attrs: &Attributes,
+) -> CalyxResult<Option<NonZeroU64>> {
+    let comp_name = cell
+        .borrow()
+        .type_name()
+        .unwrap_or_else(|| unreachable!("invoked component without a name"));
+    if let Some(prim) = sig_ctx.lib.find_primitive(comp_name) {
+        match prim.latency {
+            Some(val) => Ok(Some(val)),
+            None => {
+                let prim_sig = &prim.signature;
+                // We can just look at any go port, since if there is an
+                // @interval(n), it must be the same for all ports.
+                let interval_value = prim_sig
+                    .iter()
+                    .find(|port_def| port_def.attributes.has(NumAttr::Go))
+                    .and_then(|go_port| {
+                        go_port.attributes.get(NumAttr::Interval)
+                    });
+                // Annoying thing we have to do bc NonZeroU64.
+                match interval_value {
+                    Some(lat) => Ok(NonZeroU64::new(lat)),
+                    None => Ok(None),
+                }
+            }
+        }
+    } else if let Some((comp_sig, latency)) = sig_ctx.comp_sigs.get(&comp_name)
+    {
+        match latency {
+            Some(val) => Ok(Some(*val)),
+            None => {
+                // We can just look at any go port, since if there is an
+                // @interval(n), it must be the same for all ports.
+                let interval_value = comp_sig
+                    .iter()
+                    .find(|port_def| port_def.attributes.has(NumAttr::Go))
+                    .and_then(|go_port| {
+                        go_port.attributes.get(NumAttr::Interval)
+                    });
+                // Annoying thing we have to do bc NonZeroU64.
+                match interval_value {
+                    Some(lat) => Ok(NonZeroU64::new(lat)),
+                    None => Ok(None),
+                }
+            }
+        }
+    } else {
+        return Err(Error::undefined(
+            comp_name,
+            "primitive or component".to_string(),
+        )
+        .with_pos(attrs));
+    }
+}
+
+// Assumes cell has a name (i.e., not a constant/ThisComponent)
+// uses sig_ctx to check the latency of comp_name, but only checks static<n> latency
+fn get_static_latency(
     sig_ctx: &SigCtx,
     cell: RRC<Cell>,
     attrs: &Attributes,
@@ -766,7 +827,7 @@ fn build_static_control(
                 v
             } else {
                 return Err(Error::malformed_control(format!(
-                    "non-static component {} is statically invoked",
+                    "component {} is statically invoked, but is neither static nor does it have @interval attribute its @go port",
                     comp_name
                 ))
                 .with_pos(&attributes));
@@ -951,7 +1012,7 @@ fn build_control(
                 v
             } else {
                 return Err(Error::malformed_control(format!(
-                    "non-static component {} is statically invoked",
+                    "component {} is statically invoked, but is neither static nor does it have @interval attribute its @go port",
                     comp_name
                 ))
                 .with_pos(&attributes));
@@ -1040,7 +1101,7 @@ fn build_control(
             });
 
             // Error to dynamically invoke static component
-            if get_comp_latency(sig_ctx, Rc::clone(&cell), &attributes)?
+            if get_static_latency(sig_ctx, Rc::clone(&cell), &attributes)?
                 .is_some()
             {
                 return Err(Error::malformed_control(format!(

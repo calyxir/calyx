@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 component exponent(base: 32, exp: 4) -> (out: 32) {
@@ -52,7 +53,7 @@ component exponent(base: 32, exp: 4) -> (out: 32) {
 
 component main() -> () {
   cells {
-    @external(1) a0 = std_mem_d1(32,10,4);
+    @external(1) a0 = comb_mem_d1(32,10,4);
     a_read0_0 = std_reg(32);
     add0 = std_add(4);
     const0 = std_const(4,0);

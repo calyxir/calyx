@@ -1,6 +1,7 @@
 // -p validate -p static-inference -p schedule-compaction -p dead-group-removal
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component example() -> (out: 8) {
   cells {
@@ -20,7 +21,7 @@ component example() -> (out: 8) {
 
 component main() -> () {
   cells {
-    @external mem = std_mem_d1(8, 1, 1);
+    @external mem = comb_mem_d1(8, 1, 1);
     ex = example();
   }
   wires {}

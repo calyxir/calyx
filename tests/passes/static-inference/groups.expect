@@ -1,21 +1,22 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (done: 1, @done done0: 1) {
   cells {
     r0 = std_reg(1);
     r1 = std_reg(1);
-    m0 = std_mem_d1(32, 1, 1);
+    m0 = comb_mem_d1(32, 1, 1);
   }
   wires {
-    group one_cycle<"promote_static"=1> {
+    group one_cycle<"promotable"=1> {
       r0.write_en = 1'd1;
       one_cycle[done] = r0.done;
     }
-    group two_cycles<"promote_static"=2> {
+    group two_cycles<"promotable"=2> {
       r0.write_en = 1'd1;
       r1.write_en = r0.done;
       two_cycles[done] = r1.done;
     }
-    group mem_wrt_to_done<"promote_static"=1> {
+    group mem_wrt_to_done<"promotable"=1> {
       m0.addr0 = 1'd0;
       m0.write_data = 32'd5;
       m0.write_en = 1'd1;
@@ -28,13 +29,13 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
   }
   control {
     seq {
-      @promote_static one_cycle;
-      @promote_static(2) two_cycles;
-      @promote_static mem_wrt_to_done;
+      @promotable one_cycle;
+      @promotable(2) two_cycles;
+      @promotable mem_wrt_to_done;
       mult_wrts_to_done;
-      @promote_static one_cycle;
+      @promotable one_cycle;
       mult_wrts_to_done;
-      @promote_static(2) two_cycles;
+      @promotable(2) two_cycles;
     }
   }
 }

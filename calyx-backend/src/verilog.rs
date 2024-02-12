@@ -19,14 +19,14 @@ use vast::v17::ast as v;
 pub struct VerilogBackend;
 
 // input string should be the cell type name of a memory cell. In other words one
-// of "seq/std_mem_d_1/2/3/4". Becase we define seq_mem_d2/3/4 in terms of seq_mem_d1
+// of "seq/comb_mem_d_1/2/3/4". Becase we define seq_mem_d2/3/4 in terms of seq_mem_d1
 // we need another layer of memory access to get the actual memory array in verilog
 // for these mem types.
 // In other words, for memories not defined in terms of another memory, we can just use
 // "mem" to access them. But for memories defined in terms of another memory,
 // which are seq_mem_d2/3/4, we need "mem.mem" to access them.
 fn get_mem_str(mem_type: &str) -> &str {
-    if mem_type.contains("d1") || mem_type.contains("std_mem") {
+    if mem_type.contains("d1") || mem_type.contains("comb_mem") {
         "mem"
     } else {
         "mem.mem"

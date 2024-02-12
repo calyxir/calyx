@@ -1,5 +1,6 @@
 // -p validate -p canonicalize
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 extern "dummy.sv" {
   // Component with two disjoint combinational paths.

@@ -1,10 +1,11 @@
-// -p well-formed -p compile-static -p dead-group-removal -p remove-ids 
+// -p well-formed -p compile-static -p dead-group-removal -p remove-ids
 
-// in addition to turning A and run_A_thrice into dynamic groups using fsms, the 
+// in addition to turning A and run_A_thrice into dynamic groups using fsms, the
 // pass should also rewrite the assignment A[go] to early_reset_A[go]
 // and create a wrapper group for run_A_thrice (no wrapper necessary for A)
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/pipelined.futil";
 
 component main() -> () {
@@ -16,17 +17,17 @@ component main() -> () {
 
   wires {
     // dynamic groups simply here to demonstrate compiling static "islands"
-    // within dynamic control 
+    // within dynamic control
     group dyn_B {
-      b.write_en = 1'd1; 
-      b.in = 2'd1; 
-      dyn_B[done] = b.done; 
+      b.write_en = 1'd1;
+      b.in = 2'd1;
+      dyn_B[done] = b.done;
     }
-    
+
     group dyn_C {
-      c.write_en = 1'd1; 
-      c.in = 2'd1; 
-      dyn_C[done] = c.done; 
+      c.write_en = 1'd1;
+      c.in = 2'd1;
+      dyn_C[done] = c.done;
     }
 
     static<2> group A{
@@ -37,14 +38,14 @@ component main() -> () {
     }
 
     static<6> group run_A_thrice{
-      A[go] = 1'd1; 
+      A[go] = 1'd1;
     }
   }
 
   control {
     seq {
-      dyn_B; 
-      dyn_C; 
+      dyn_B;
+      dyn_C;
       run_A_thrice;
     }
   }

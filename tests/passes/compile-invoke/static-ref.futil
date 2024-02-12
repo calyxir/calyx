@@ -1,11 +1,12 @@
 // -p well-formed -p compile-invoke
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 static<2> component add_one() -> () {
   cells {
     add = std_add(32);
     r = std_reg(32);
-    ref out = std_mem_d1(32, 1, 1);
+    ref out = comb_mem_d1(32, 1, 1);
   }
 
   wires {
@@ -33,7 +34,7 @@ static<2> component add_one() -> () {
 component main() -> () {
   cells {
     adder = add_one();
-    @external mem = std_mem_d1(32, 1, 1);
+    @external mem = comb_mem_d1(32, 1, 1);
     add = std_add(32);
     r = std_reg(32);
   }

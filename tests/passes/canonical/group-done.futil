@@ -1,6 +1,7 @@
 // -p canonicalize
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> (out: 1) {
   cells {
     r = std_reg(1);
@@ -10,16 +11,16 @@ component main() -> (out: 1) {
     group a {
       r.in = 1'd1;
       r.write_en = 1'd1;
-      q.in = 1'd1; 
-      q.write_en = 1'd1; 
+      q.in = 1'd1;
+      q.write_en = 1'd1;
       a[done] = r.done & q.done ? 1'd1;
     }
     group b {
-      r.in = 1'd1; 
-      r.write_en = 1'd1; 
-      b[done] = r.done ? 1'd1; 
+      r.in = 1'd1;
+      r.write_en = 1'd1;
+      b[done] = r.done ? 1'd1;
     }
-    
+
   }
   control { }
 }

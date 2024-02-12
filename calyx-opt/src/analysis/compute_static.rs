@@ -25,7 +25,7 @@ where
     fn update_static(&mut self, extra: &Self::Info) -> Option<u64> {
         if let Some(time) = self.compute_static(extra) {
             self.get_mut_attributes()
-                .insert(ir::NumAttr::PromoteStatic, time);
+                .insert(ir::NumAttr::Promotable, time);
             Some(time)
         } else {
             None
@@ -62,11 +62,8 @@ impl WithStatic for ir::Enable {
     fn compute_static(&mut self, _: &Self::Info) -> Option<u64> {
         // Attempt to get the latency from the attribute on the enable first, or
         // failing that, from the group.
-        self.attributes.get(ir::NumAttr::PromoteStatic).or_else(|| {
-            self.group
-                .borrow()
-                .attributes
-                .get(ir::NumAttr::PromoteStatic)
+        self.attributes.get(ir::NumAttr::Promotable).or_else(|| {
+            self.group.borrow().attributes.get(ir::NumAttr::Promotable)
         })
     }
 }
@@ -74,7 +71,7 @@ impl WithStatic for ir::Enable {
 impl WithStatic for ir::Invoke {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.attributes.get(ir::NumAttr::PromoteStatic).or_else(|| {
+        self.attributes.get(ir::NumAttr::Promotable).or_else(|| {
             let comp = self.comp.borrow().type_name()?;
             extra.get(&comp).cloned()
         })

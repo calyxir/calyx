@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: tests/errors/comb-component.futil
-4 |    mem = std_mem_d1(32, 2048, 11);
-  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: Component `custom_lt` is marked combinational but contains non-combinational cell `mem`
+5 |    mem = comb_mem_d1(32, 2048, 11);
+  |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: Component `custom_lt` is marked combinational but contains non-combinational cell `mem`

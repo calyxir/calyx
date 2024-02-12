@@ -1,5 +1,6 @@
-// -p well-formed 
+// -p well-formed
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component foo(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {

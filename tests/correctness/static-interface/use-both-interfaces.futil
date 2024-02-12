@@ -1,0 +1,81 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component triple_mac(in: 32) -> (out: 32) {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    static<1> group a {
+      add.left = r.out;
+      add.right = in;
+      r.in = add.out;
+      r.write_en = 1'd1;
+    }
+    out = r.out;
+  }
+  control {
+    static seq {
+      a;
+      a;
+      a;
+    }
+  }
+}
+
+component main () -> () {
+  cells {
+    my_mac = triple_mac();
+    acc = std_reg(32);
+    adder = std_add(32);
+    counter = std_reg(32);
+    my_lt = std_lt(32);
+    @external out = comb_mem_d1(32, 1, 1);
+
+    dummy = std_reg(32);
+  }
+  wires {
+    group mac_five {
+      my_mac.go = 1'd1;
+      my_mac.in = 32'd5;
+      mac_five[done] = my_mac.done;
+    }
+    group write_mem {
+      out.write_data = my_mac.out;
+      out.addr0 = 1'd0;
+      out.write_en = 1'd1;
+      write_mem[done] = out.done;
+    }
+    group incr_counter {
+      // Very dumb, but we don't want to infer this as promotable
+      // and this effects the promotion heuristics ... bottom line,
+      // we need to check both static and dynamic contexts
+      dummy.in = 32'd2;
+      dummy.write_en = 1'd1;
+
+      adder.left = 32'd1;
+      adder.right = counter.out;
+      counter.in = adder.out;
+      counter.write_en = 1'd1;
+      incr_counter[done] = counter.done & dummy.done ? 1'd1;
+    }
+    my_lt.left = counter.out;
+    my_lt.right = 32'd10;
+  }
+
+  control {
+    repeat 10 {
+      // Should be promoted to static
+      mac_five;
+    }
+    while my_lt.out {
+      seq {
+        // Should not be promoted to static
+        mac_five;
+        incr_counter;
+      }
+    }
+    write_mem;
+  }
+}

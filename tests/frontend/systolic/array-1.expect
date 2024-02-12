@@ -1,6 +1,7 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
 import "primitives/pipelined.futil";
+import "primitives/memories/comb.futil";
 static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
   cells {
     acc = std_reg(32);
@@ -163,9 +164,9 @@ component main() -> () {
   cells {
     systolic_array_component = systolic_array_comp();
     post_op_component = default_post_op();
-    @external t0 = std_mem_d1(32, 3, 2);
-    @external l0 = std_mem_d1(32, 3, 2);
-    @external out_mem_0 = std_mem_d1(32, 1, 1);
+    @external t0 = comb_mem_d1(32, 3, 2);
+    @external l0 = comb_mem_d1(32, 3, 2);
+    @external out_mem_0 = comb_mem_d1(32, 1, 1);
     systolic_done = std_reg(1);
     systolic_done_wire = std_wire(1);
   }

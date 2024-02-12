@@ -1,9 +1,10 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/pipelined.futil";
 
 component main () -> () {
   cells {
-    @external p = std_mem_d1(3,1,1);
+    @external p = comb_mem_d1(3,1,1);
     incr = std_add(3);
     l = std_lt(3);
     r = std_reg(3);
@@ -28,7 +29,7 @@ component main () -> () {
       r_cond.write_en = 1'd1;
     }
 
-    
+
     group B {
       p.write_data = 3'd0;
       p.write_en = 1'd1;
@@ -43,7 +44,7 @@ component main () -> () {
       r.write_en = 1'd1;
       C[done] = r.done;
     }
-     
+
     comb group comp {
       l2.left = r.out;
       l2.right = 3'd3;
@@ -60,7 +61,7 @@ component main () -> () {
           static seq { A; A2; }
         }
         C;
-      }  
+      }
     }
   }
 }

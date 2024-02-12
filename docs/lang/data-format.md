@@ -9,8 +9,8 @@ First, a Calyx program must mark memories using the [`@external` attribute][ext-
 ```
 component main() {
     cells {
-        @external ext = std_mem_d1(...);
-        internal = std_mem_d1(...);
+        @external ext = comb_mem_d1(...);
+        internal = comb_mem_d1(...);
     }
 }
 ```
@@ -30,7 +30,7 @@ The JSON-based data format allows us to provide inputs for a memory and specify 
 {{#include ../../examples/tutorial/data.json}}
 ```
 
-The `data` field represents the initial data for the memory and can use mutlidimensional arrays to describe it. For example, the following is the initial data for a two-dimensional (`std_mem_d2`) memory:
+The `data` field represents the initial data for the memory and can use mutlidimensional arrays to describe it. For example, the following is the initial data for a two-dimensional (`comb_mem_d2`) memory:
 
 ```json
 {

@@ -32,7 +32,7 @@ Calyx uses the `ref` keyword to describe cells that are passed by reference:
 ```
 component add_one() -> () {
   cells {
-    ref mem = std_mem_d1(32, 4, 3); // A memory passed by reference.
+    ref mem = comb_mem_d1(32, 4, 3); // A memory passed by reference.
     ...
   }
   ...
@@ -47,7 +47,7 @@ Next, to pass the memory to the component, we use the `invoke` syntax:
 component add_one() -> () { ... }
 component main() -> () {
   cells {
-    A = std_mem_d1(32, 4, 3); // A memory passed by reference.
+    A = comb_mem_d1(32, 4, 3); // A memory passed by reference.
     one = add_one();
     ...
   }
@@ -77,11 +77,11 @@ We will do up two components that are designed to receive memories by reference:
 component wrap2(i: 32, j: 32) -> () {
   cells {
     // Six memories that will be passed by reference.
-    ref mem1 = std_mem_d1(32, 4, 32);
+    ref mem1 = comb_mem_d1(32, 4, 32);
     // ...
-    ref mem6 = std_mem_d1(32, 4, 32);
+    ref mem6 = comb_mem_d1(32, 4, 32);
     // An answer cell, also passed by reference.
-    ref ans = std_mem_d1(32, 1, 32);
+    ref ans = comb_mem_d1(32, 1, 32);
   }
   wires { ... }
   control { ... }
@@ -92,11 +92,11 @@ and
 component wrap3(i: 32, j: 32) -> () {
   cells {
     // Six memories that will be passed by reference.
-    ref mem1 = std_mem_d1(32, 4, 32);
+    ref mem1 = comb_mem_d1(32, 4, 32);
     // ...
-    ref mem6 = std_mem_d1(32, 4, 32);
+    ref mem6 = comb_mem_d1(32, 4, 32);
     // An answer cell, also passed by reference.
-    ref ans = std_mem_d1(32, 1, 32);
+    ref ans = comb_mem_d1(32, 1, 32);
   }
   wires { ... }
   control { ... }
@@ -113,13 +113,13 @@ By passing these memories to the components above, the invoker is able to wrap t
 component main() -> () {
   cells {
     // Six memories that will pass by reference.
-    @external A = std_mem_d1(32, 4, 32);
+    @external A = comb_mem_d1(32, 4, 32);
     //...
-    @external F = std_mem_d1(32, 4, 32);
+    @external F = comb_mem_d1(32, 4, 32);
 
     // Two answer cells that we will also pass.
-    @external out2 = std_mem_d1(32, 1, 32);
-    @external out3 = std_mem_d1(32, 1, 32);
+    @external out2 = comb_mem_d1(32, 1, 32);
+    @external out3 = comb_mem_d1(32, 1, 32);
 
     // Preparing to invoke the components above.
     together2 = wrap2();

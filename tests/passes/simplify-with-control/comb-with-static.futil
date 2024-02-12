@@ -1,5 +1,6 @@
 // -p simplify-with-control
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 static<1> component main(@go go: 1, in: 32) -> (@done done: 1) {
   cells {
     e0 = std_eq(32);

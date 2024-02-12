@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 extern "./redefine-external.futil" { // This extern is not defined that in that file.
   primitive exp() -> ();

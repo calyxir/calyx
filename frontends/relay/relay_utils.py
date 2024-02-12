@@ -49,7 +49,7 @@ def get_dimension_sizes(c: CompInst) -> List[int]:
     """Given a cell `c`, returns the corresponding
     memory sizes.
     Example:
-    std_mem_d1(32, 8, 3) returns [8]."""
+    comb_mem_d1(32, 8, 3) returns [8]."""
     dims = get_dims(c)
     return [c.args[i] for i in range(1, dims + 1)]
 
@@ -110,7 +110,7 @@ def emit_invoke_control(
             args
         ), "we are reusing a dahlia function but the args are different lengths"
         assert old_dest is not None, "if using old_args must provide an old_dest too"
-        for (cell1, cell2) in zip(args, old_args):
+        for cell1, cell2 in zip(args, old_args):
             add_arg2(cell1, cell2)
         add_arg2(dest, old_dest)
 

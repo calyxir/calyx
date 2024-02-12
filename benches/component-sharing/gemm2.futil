@@ -1,29 +1,30 @@
 // git.status = clean, build.date = Mon Mar 22 14:26:22 EDT 2021, git.hash = 8dd37e4
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    A0_0 = std_mem_d2(32,1,2,1,2);
-    A1_0 = std_mem_d2(32,1,2,1,2);
-    @external(1) A_int0_0 = std_mem_d2(32,2,2,2,2);
+    A0_0 = comb_mem_d2(32,1,2,1,2);
+    A1_0 = comb_mem_d2(32,1,2,1,2);
+    @external(1) A_int0_0 = comb_mem_d2(32,2,2,2,2);
     A_int_read0_0 = std_reg(32);
     A_read0_0_00 = std_reg(32);
     A_read0_0_10 = std_reg(32);
     A_read0_1_00 = std_reg(32);
     A_read0_1_10 = std_reg(32);
-    B0_0 = std_mem_d2(32,2,1,2,1);
-    B0_1 = std_mem_d2(32,2,1,2,1);
-    @external(1) B_int0_0 = std_mem_d2(32,2,2,2,2);
+    B0_0 = comb_mem_d2(32,2,1,2,1);
+    B0_1 = comb_mem_d2(32,2,1,2,1);
+    @external(1) B_int0_0 = comb_mem_d2(32,2,2,2,2);
     B_int_read0_0 = std_reg(32);
     B_read0_0_00 = std_reg(32);
     B_read0_0_10 = std_reg(32);
     B_read0_1_00 = std_reg(32);
     B_read0_1_10 = std_reg(32);
-    C0_0 = std_mem_d2(32,1,1,1,1);
-    C0_1 = std_mem_d2(32,1,1,1,1);
-    C1_0 = std_mem_d2(32,1,1,1,1);
-    C1_1 = std_mem_d2(32,1,1,1,1);
-    @external(1) C_int0_0 = std_mem_d2(32,2,2,2,2);
+    C0_0 = comb_mem_d2(32,1,1,1,1);
+    C0_1 = comb_mem_d2(32,1,1,1,1);
+    C1_0 = comb_mem_d2(32,1,1,1,1);
+    C1_1 = comb_mem_d2(32,1,1,1,1);
+    @external(1) C_int0_0 = comb_mem_d2(32,2,2,2,2);
     C_int_read0_0 = std_reg(32);
     C_sh_read0_0 = std_reg(32);
     add0 = std_add(4);

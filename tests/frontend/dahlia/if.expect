@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
@@ -16,12 +16,12 @@ component main() -> () {
       lt0.left = const0.out;
       lt0.right = const1.out;
     }
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       x_0.in = const2.out;
       x_0.write_en = 1'd1;
       let0[done] = x_0.done;
     }
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       y_0.in = const3.out;
       y_0.write_en = 1'd1;
       let1[done] = y_0.done;

@@ -1,10 +1,11 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component no_share(in: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r = std_reg(32);
     add_32 = std_add(32);
-    @external B = std_mem_d2(32, 2, 2, 4, 4);
+    @external B = comb_mem_d2(32, 2, 2, 4, 4);
   }
   wires {
     out = r.out;

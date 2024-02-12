@@ -1,6 +1,7 @@
 // -p go-insertion -p hole-inliner
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {

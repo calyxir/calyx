@@ -1,5 +1,6 @@
 // -p all -d static-promotion -d well-formed -d papercut -d cell-share -d group2invoke
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {

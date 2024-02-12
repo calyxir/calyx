@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (done: 1, @done done0: 1) {
   cells {
@@ -9,8 +10,8 @@ component main(go: 1, clk: 1, @go go0: 1, @clk clk0: 1, @reset reset: 1) -> (don
     counter = std_reg(3);
     r_2 = std_reg(32);
     lt0 = std_lt(3);
-    mem0 = std_mem_d2(32, 4, 4, 3, 3);
-    mem1 = std_mem_d2(32, 4, 4, 3, 3);
+    mem0 = comb_mem_d2(32, 4, 4, 3, 3);
+    mem1 = comb_mem_d2(32, 4, 4, 3, 3);
     add1 = std_add(32);
     sadd = std_sadd(32);
     fsm = std_reg(2);

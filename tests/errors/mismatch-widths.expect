@@ -2,5 +2,5 @@
 1
 ---STDERR---
 Error: tests/errors/mismatch-widths.futil
-8 |    add.left = x.out;
+9 |    add.left = x.out;
   |    ^^^^^^^^^^^^^^^^^ Malformed Structure: Mismatched port widths. Source has size 16 while destination requires 32.

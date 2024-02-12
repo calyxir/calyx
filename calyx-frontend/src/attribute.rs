@@ -4,7 +4,7 @@ use strum::EnumCount;
 use strum_macros::{AsRefStr, EnumCount, EnumString, FromRepr};
 
 /// Attributes that have been deprecated.
-pub const DEPRECATED_ATTRIBUTES: &[&str] = &[];
+pub const DEPRECATED_ATTRIBUTES: &[&str] = &["static"];
 
 #[derive(
     EnumCount,
@@ -62,7 +62,7 @@ pub enum BoolAttr {
     /// Inline this subcomponent
     Inline,
     #[strum(serialize = "promoted")]
-    /// denotes a static component promoted from dynamic
+    /// denotes a static component or control promoted from dynamic
     Promoted,
 }
 impl From<BoolAttr> for Attribute {
@@ -97,18 +97,23 @@ pub enum NumAttr {
     #[strum(serialize = "bound")]
     /// The bound of a while loop
     Bound,
-    #[strum(serialize = "static")]
-    /// Latency information
-    Static,
     #[strum(serialize = "pos")]
     /// Source location position for this node
     Pos,
-    #[strum(serialize = "promote_static")]
-    /// Promote the group or control to static with the annotated latency
-    PromoteStatic,
+    #[strum(serialize = "promotable")]
+    /// Can promote the group, control, or @go port of the component to static
+    /// with the annotated latency
+    Promotable,
     #[strum(serialize = "compactable")]
     /// suggest that the current static seq block is compactable
     Compactable,
+    #[strum(serialize = "interval")]
+    /// Placed on @go ports of components to denote the II of a component, which
+    /// is the same as the latency for non pipelined components.
+    /// This indicates the component can serve ``double-duty'' as both static and
+    /// dynamic.
+    /// Therefore, we only place if we can *guarantee* the interval of the component.
+    Interval,
 }
 impl From<NumAttr> for Attribute {
     fn from(attr: NumAttr) -> Self {
@@ -173,6 +178,9 @@ impl FromStr for Attribute {
         } else if let Ok(n) = NumAttr::from_str(s) {
             Ok(Attribute::Num(n))
         } else {
+            if DEPRECATED_ATTRIBUTES.contains(&s) {
+                log::warn!("The attribute @{s} is deprecated and will be ignored by the compiler.");
+            }
             // Reject attributes that all caps since those are reserved for internal attributes
             if s.to_uppercase() == s {
                 return Err(Error::misc(format!("Invalid attribute: {}. All caps attributes are reserved for internal use.", s)));

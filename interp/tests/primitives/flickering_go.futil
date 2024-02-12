@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 
@@ -12,8 +13,8 @@ component main() -> () {
   cells {
     @external reg0 = std_reg(32);
     @external reg1 = std_reg(32);
-    add0 = std_add(1); 
-    @external mult0 = std_mult_pipe(32);    
+    add0 = std_add(1);
+    @external mult0 = std_mult_pipe(32);
     @external mult1 = std_mult_pipe(32);
     @external mult_reg0 = std_reg(32);
     @external mult_reg1 = std_reg(32);
@@ -26,20 +27,20 @@ component main() -> () {
 
         reg0.in = 32'd12;
         add0.left = 1'd1;
-        add0.right = 1'd0; 
+        add0.right = 1'd0;
 
         reg1.in = 32'd12;
 
-        exec_reg[done] = reg0.done | reg1.done ? 1'd1; 
+        exec_reg[done] = reg0.done | reg1.done ? 1'd1;
     }
     group exec_mult {
         mult0.go = add0.out == 1'd0 ? 1'd1; //mult_reg0 should have a 0 written to it
         mult1.go = add0.out;
 
-        mult0.left = 32'd1; 
+        mult0.left = 32'd1;
         mult0.right = 32'd32;
 
-        mult1.left = 32'd1; 
+        mult1.left = 32'd1;
         mult1.right = 32'd32;
 
         mult_reg0.write_en = mult1.done; //not a typo
@@ -49,11 +50,11 @@ component main() -> () {
         mult_reg1.in = mult1.out;
 
         add0.left = 1'd1;
-        add0.right = 1'd0; 
+        add0.right = 1'd0;
 
-        
 
-        exec_mult[done] = mult_reg0.done | mult_reg1.done ? 1'd1; 
+
+        exec_mult[done] = mult_reg0.done | mult_reg1.done ? 1'd1;
     }
   }
 

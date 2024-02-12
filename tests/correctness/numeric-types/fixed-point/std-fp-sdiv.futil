@@ -1,12 +1,13 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 component main() -> () {
   cells {
-    @external left = std_mem_d1(32, 4, 3);
-    @external right = std_mem_d1(32, 4, 3);
-    @external out_rem = std_mem_d1(32, 4, 3);
-    @external out_quot = std_mem_d1(32, 4, 3);
+    @external left = comb_mem_d1(32, 4, 3);
+    @external right = comb_mem_d1(32, 4, 3);
+    @external out_rem = comb_mem_d1(32, 4, 3);
+    @external out_quot = comb_mem_d1(32, 4, 3);
     div = std_fp_sdiv_pipe(32, 24, 8);
 
     add = std_add(3);

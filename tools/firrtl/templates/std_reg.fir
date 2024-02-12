@@ -7,13 +7,17 @@
         output done : UInt<1>
 
         reg internal_reg : UInt<WIDTH>, clk
-        out <= UInt(0)
-        when eq(write_en, UInt(1)):
-            out <= in
-            done <= UInt(1)
+        reg done_reg : UInt<1>, clk
+
+        when eq(reset, UInt(1)):
+            internal_reg <= UInt(0)
+            done_reg <= UInt(0)
         else:
-            when eq(reset, UInt(1)):
-                done <= UInt(0)
-                out <= UInt(0)
+            when eq(write_en, UInt(1)):
+                internal_reg <= in
+                done_reg <= UInt(1)
             else:
-                done <= UInt(0)
+                done_reg <= UInt(0)
+
+        out <= internal_reg
+        done <= done_reg

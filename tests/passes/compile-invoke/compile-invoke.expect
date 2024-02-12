@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component exponent(base: 32, exp: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     pow = std_reg(32);
@@ -20,13 +21,13 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     w = std_wire(32);
   }
   wires {
-    group invoke0<"static"=4> {
+    group invoke0<"promotable"=4> {
       exp0.go = 1'd1;
       invoke0[done] = exp0.done;
       exp0.base = r.out;
       exp0.exp = 4'd3;
     }
-    group invoke1<"static"=4> {
+    group invoke1<"promotable"=4> {
       exp0.go = 1'd1;
       invoke1[done] = exp0.done;
       exp0.base = w.out;
@@ -36,8 +37,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   control {
     seq {
-      @static(4) invoke0;
-      @static(4) invoke1;
+      @promotable(4) invoke0;
+      @promotable(4) invoke1;
     }
   }
 }

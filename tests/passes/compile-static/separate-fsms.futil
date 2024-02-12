@@ -1,8 +1,9 @@
-// -p well-formed -p compile-static -p dead-group-removal -p remove-ids 
+// -p well-formed -p compile-static -p dead-group-removal -p remove-ids
 
-// Test that we need separate FSMS: a) across par blocks and b) when a group 
-// triggers the "go" hole of another group 
+// Test that we need separate FSMS: a) across par blocks and b) when a group
+// triggers the "go" hole of another group
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/pipelined.futil";
 
 component main() -> () {
@@ -31,15 +32,15 @@ component main() -> () {
       d.write_en = %0 ? 1'd1;
     }
     static<6> group run_A_and_D{
-      A[go] = %[0:4] ? 1'd1; 
-      D[go] = %[4:6] ? 1'd1; 
+      A[go] = %[0:4] ? 1'd1;
+      D[go] = %[4:6] ? 1'd1;
     }
   }
 
   control {
     par {
       par {run_A_and_D; B;}
-      C; 
+      C;
     }
   }
 }

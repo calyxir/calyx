@@ -1,5 +1,6 @@
 // -p validate -p par-to-seq
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
     r1 = std_reg(32);

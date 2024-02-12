@@ -51,7 +51,7 @@ def use_tree_ports_provided(comp, group, port0, port1, port2, port3, tree, ans_m
         tree.leaf1 = port1
         tree.leaf2 = port2
         tree.leaf3 = port3
-        tree.go = cb.HI
+        tree.go = ~tree.done @ cb.HI
         ans_mem.addr0 = tree.done @ 0
         ans_mem.write_data = tree.done @ tree.sum
         ans_mem.write_en = tree.done @ 1
@@ -79,7 +79,7 @@ def use_tree_ports_calculated(
         tree.leaf1 = mem_b.read_data
         tree.leaf2 = mem_c.read_data
         tree.leaf3 = mem_d.read_data
-        tree.go = cb.HI
+        tree.go = ~tree.done @ cb.HI
         ans_reg.write_en = tree.done @ 1
         ans_reg.in_ = tree.done @ tree.sum
         tree_use.done = ans_reg.done
@@ -97,9 +97,10 @@ def add_main(prog, tree):
     main = prog.component("main")
     # Four memories, each of length 4.
     [mem_a, mem_b, mem_c, mem_d] = [
-        main.mem_d1(name, 32, 4, 32, is_external=True) for name in ["A", "B", "C", "D"]
+        main.comb_mem_d1(name, 32, 4, 32, is_external=True)
+        for name in ["A", "B", "C", "D"]
     ]
-    mem_ans = main.mem_d1("ans", 32, 1, 1, is_external=True)
+    mem_ans = main.comb_mem_d1("ans", 32, 1, 1, is_external=True)
     # Four answer registers.
     [sum_col0, sum_col1, sum_col2, sum_col3] = [
         main.reg(f"sum_col{i}", 32) for i in range(4)

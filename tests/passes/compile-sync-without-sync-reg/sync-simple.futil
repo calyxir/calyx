@@ -1,11 +1,12 @@
 // -p validate -p compile-sync-without-sync-reg
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 component main() -> () {
   cells {
-    out = std_mem_d1(32, 1, 3);
+    out = comb_mem_d1(32, 1, 3);
     val = std_reg(32);
     add_0 = std_add(32);
     no_use = std_reg(32);

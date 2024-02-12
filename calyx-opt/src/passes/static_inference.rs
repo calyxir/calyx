@@ -6,7 +6,7 @@ use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 use itertools::Itertools;
 
-/// Infer "promote_static" (potentially to be renamed @promotable) annotation
+/// Infer @promotable annotation
 /// for groups and control.
 /// Inference occurs whenever possible.
 pub struct StaticInference {
@@ -58,12 +58,12 @@ impl Visitor for StaticInference {
                 let comp_sig = comp.signature.borrow();
                 let mut go_ports: Vec<_> =
                     comp_sig.find_all_with_attr(ir::NumAttr::Go).collect();
-                // Insert @static attribute on the go ports.
+                // Insert @promotable attribute on the go ports.
                 for go_port in &mut go_ports {
                     go_port
                         .borrow_mut()
                         .attributes
-                        .insert(ir::NumAttr::Static, val);
+                        .insert(ir::NumAttr::Promotable, val);
                 }
                 let mut done_ports: Vec<_> =
                     comp_sig.find_all_with_attr(ir::NumAttr::Done).collect();

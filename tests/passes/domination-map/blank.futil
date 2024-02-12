@@ -1,5 +1,6 @@
 // -p infer-share -x infer-share:print-dmap=<err>
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component example() -> () {
   cells {
   }

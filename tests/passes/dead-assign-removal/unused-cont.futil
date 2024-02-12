@@ -1,5 +1,6 @@
 // -p validate -p dead-assign-removal
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main(x: 16) -> (out: 8) {
   cells {

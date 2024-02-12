@@ -1,5 +1,6 @@
 // -p well-formed
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
     r = std_reg(32);

@@ -1,12 +1,13 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/pipelined.futil";
 
 component main() -> () {
     cells {
         mul = pipelined_mult(32);
-        @external left = std_mem_d1(32, 10, 4);
-        @external right = std_mem_d1(32, 10, 4);
-        @external out = std_mem_d1(32, 10, 4);
+        @external left = comb_mem_d1(32, 10, 4);
+        @external right = comb_mem_d1(32, 10, 4);
+        @external out = comb_mem_d1(32, 10, 4);
         idx = std_reg(4);
         add = std_add(4);
         sub = std_sub(4);

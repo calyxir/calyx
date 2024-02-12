@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 //// ANCHOR: component
 component identity(in: 32) -> (out: 32) {

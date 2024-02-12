@@ -1,4 +1,4 @@
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 component mem_0_comp<"toplevel"=1>(addr0: 3, @go read_en: 1, write_data: 32, @go(2) write_en: 1, @clk clk: 1, @reset reset: 1) -> (read_data: 32, @done read_done: 1, @done(2) write_done: 1) {
   cells {
     mem_0 = seq_mem_d1(32, 6, 3);

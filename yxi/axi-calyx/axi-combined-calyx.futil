@@ -8,13 +8,14 @@
 // It assumes a bus data width of 32.
 
 // This hardcoded work will be used to guide generation work of AXI moving forward.
-// it is somewhat messy and is hopefully destined to be removed from the repo eventually. 
+// it is somewhat messy and is hopefully destined to be removed from the repo eventually.
 // ###
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/compile.futil";
 import "primitives/math.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 
 
 // #############################
@@ -37,7 +38,7 @@ component m_arread_channel(
   // for restrictions
   ARSIZE: 3,
   // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
-  ARLEN : 8, 
+  ARLEN : 8,
   // 00 for fixed, 01 for incrementing, 2 for wrap,
   // needs to be incr for RTL kernels (can't use wrapped or fixed)
   ARBURST : 2,
@@ -51,7 +52,7 @@ component m_arread_channel(
       // TODO(nathanielnrn): should arguably eventually live in `s_axi_control`
       // but for now will live here.
       ref curr_addr_axi = std_reg(64);
-      
+
       // number of trasfers in a transaction. This is sent to subordinate
       txn_len = std_reg(8);
 
@@ -79,7 +80,7 @@ component m_arread_channel(
       group do_ar_transfer {
           //assert ARVALID as long as this is the first time we are asserting it
           is_arvalid.in = !ar_handshake_occurred.out ? 1'b1;
-          
+
 
           // This makes ARVALID go low after a single cycle.
           // Without it it stays high for 2 cycles
@@ -91,11 +92,11 @@ component m_arread_channel(
           ar_handshake_occurred.write_en = !(is_arvalid.out & ARREADY) & !ar_handshake_occurred.out ? 1'b1;
 
 
-          // drive output signals for transfer  
+          // drive output signals for transfer
           ARADDR = curr_addr_axi.out;
           // see link above, needs to match data width to host.
           // In this case 2^2 = 4 bytes = 32 bits = width of our data_bus.
-          ARSIZE = 3'b010; 
+          ARSIZE = 3'b010;
           // For now this can be taken from .yxi, as size of mem, because we are assuming
           // data_bus width that matches size of memory cells
           // If we want to use bigger mems need to be able to update base addr
@@ -158,7 +159,7 @@ component m_read_channel(
   ARESET : 1,
   RVALID : 1,
   RLAST  : 1,
-  RDATA  : 32, 
+  RDATA  : 32,
   RRESP :  2,  // Note: This is generated in subordinate! had this backwards in earlier version
 ) -> (
   // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
@@ -174,7 +175,7 @@ component m_read_channel(
       ref curr_addr_internal_mem = std_reg(64);
       //need to increment this
       ref curr_addr_axi = std_reg(64);
-      
+
       // registered because RLAST is high with last transfer, not after
       // before this was registered we were terminating immediately with
       // last transfer and not servicing it
@@ -188,7 +189,7 @@ component m_read_channel(
       curr_addr_axi_adder = std_add(64);
 
       // block_transfer reg to avoid combinational loops
-      // Used to block any servicing until handshake occurs. 
+      // Used to block any servicing until handshake occurs.
       bt_reg = std_reg(1);
 
   }
@@ -228,7 +229,7 @@ component m_read_channel(
         n_RLAST.in = RLAST ? 1'b0;
         n_RLAST.in = !RLAST ? 1'b1;
         n_RLAST.write_en = 1'b1;
-        
+
 
         // we are done after handshake
         bt_reg.in = is_rdy.out & RVALID ? 1'b1;
@@ -399,7 +400,7 @@ component m_awwrite_channel(
   // for restrictions
   AWSIZE: 3,
   // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
-  AWLEN : 8, 
+  AWLEN : 8,
   // 00 for fixed, 01 for incrementing, 2 for wrap,
   // needs to be incr for RTL kernels (can't use wrapped or fixed)
   AWBURST : 2,
@@ -416,7 +417,7 @@ component m_awwrite_channel(
 
       //we write to this here and read from it in m_write_channel
       ref max_trnsfrs = std_reg(8);
-      
+
       // number of transfers in a transaction. This is sent to subordinate
       txn_len = std_reg(8);
 
@@ -444,7 +445,7 @@ component m_awwrite_channel(
       group do_aw_transfer {
           //assert AWVALID
           is_awvalid.in = !(is_awvalid.out & AWREADY) & !aw_handshake_occurred.out ? 1'b1;
-          
+
           // TODO(nathanielnrn): in theory should be able to get rid of aw_handshake_occurred
           // but for now we will be explicit and reduce this in generation maybe. Not sure
           // it even matters.
@@ -456,11 +457,11 @@ component m_awwrite_channel(
           aw_handshake_occurred.write_en = !aw_handshake_occurred.out ? 1'b1;
 
 
-          // drive output signals for transfer  
+          // drive output signals for transfer
           AWADDR = curr_addr_axi.out;
           // see link above, needs to match data width to host.
           // In this case 2^2 = 4 bytes = 32 bits = width of our data_bus.
-          AWSIZE = 3'b010; 
+          AWSIZE = 3'b010;
           // For now this can be taken from .yxi, as size of mem, because we are assuming
           // data_bus width that matches size of memory cells
           // If we want to use bigger mems need to be able to update base addr
@@ -473,7 +474,7 @@ component m_awwrite_channel(
           // TODO(nathanielnrn): This is used to tell write_channel how many transfers to do
           // we eventually want this to correspond to AWLEN
           // (need a case statement or mux or something)
-          // for now hardcoding to 15 for 16 transfers 
+          // for now hardcoding to 15 for 16 transfers
           max_trnsfrs.in = 8'd7;
           max_trnsfrs.write_en = 1'b1;
 
@@ -529,7 +530,7 @@ component m_write_channel(
 ) -> (
   WVALID : 1,
   WLAST  : 1,
-  WDATA  : 32, 
+  WDATA  : 32,
 ) {
   cells {
       // 16 is due to dot-product vector length assumption
@@ -541,7 +542,7 @@ component m_write_channel(
       // used internally to access our seq_mem_d1
       ref curr_addr_internal_mem = std_reg(64);
       ref curr_addr_axi = std_reg(64);
-      
+
       //this increments
       curr_trnsfr_count = std_reg(8); //between 0 and 255, add +1 for transfer count
       //this is number of transfer we want to do
@@ -586,17 +587,17 @@ component m_write_channel(
         w_handshake_occurred.in = wvalid.out & WREADY ? 1'b1;
         w_handshake_occurred.write_en = !w_handshake_occurred.out ? 1'b1;
 
-     
+
         // set data output based on curr_addr_internal_mem register
         internal_mem.addr0 = curr_addr_internal_mem.out;
         internal_mem.read_en = 1'b1;
         WDATA = internal_mem.read_data;
-        
+
         //set wlast
         WLAST = max_trnsfrs.out == curr_trnsfr_count.out ? 1'b1;
         WLAST = max_trnsfrs.out == curr_trnsfr_count.out ? 1'b1;
-        
-        //set high only when WLAST is high and a handshake occurs. 
+
+        //set high only when WLAST is high and a handshake occurs.
         n_finished_last_trnsfr.in = (max_trnsfrs.out == curr_trnsfr_count.out) & wvalid.out & WREADY ? 1'b0;
         n_finished_last_trnsfr.write_en = (max_trnsfrs.out == curr_trnsfr_count.out) & wvalid.out & WREADY ? 1'b1;
 
@@ -616,7 +617,7 @@ component m_write_channel(
           curr_addr_internal_mem.write_en = 1'b1;
           incr_curr_addr_internal_mem[done] = curr_addr_internal_mem.done;
       }
-      
+
       group incr_curr_addr_axi{
           curr_addr_axi_adder.left = 64'd4; //32-bit/8. TODO:parameterize via mem width
           curr_addr_axi_adder.right = curr_addr_axi.out;
@@ -721,10 +722,10 @@ component main(
     // Used only for waveform tracing. Not sent anywhere
     // Note AXI4 has this at 2 bits, while latest has it at 3.
     m0_BRESP : 2,
-    
+
     //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
     m0_RID : 1,
-    
+
     m1_ARESET : 1,
 
     m1_ARREADY : 1,
@@ -743,7 +744,7 @@ component main(
     // Used only for waveform tracing. Not sent anywhere
     // Note AXI4 has this at 2 bits, while latest has it at 3.
     m1_BRESP : 2,
-    
+
     //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
     m1_RID : 1,
 
@@ -766,14 +767,14 @@ component main(
     // Used only for waveform tracing. Not sent anywhere
     // Note AXI4 has this at 2 bits, while latest has it at 3.
     m2_BRESP : 2,
-    
+
     //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
     m2_RID : 1
 ) -> (
     m0_ARVALID : 1,
     m0_ARADDR  : 64,
     m0_ARSIZE  : 3,
-    m0_ARLEN   : 8, 
+    m0_ARLEN   : 8,
     m0_ARBURST : 2,
 
     m0_RREADY  : 1,
@@ -781,7 +782,7 @@ component main(
     m0_AWVALID : 1,
     m0_AWADDR  : 64,
     m0_AWSIZE  : 3,
-    m0_AWLEN   : 8, 
+    m0_AWLEN   : 8,
     m0_AWBURST : 2,
     m0_AWPROT  : 3,
 
@@ -790,17 +791,17 @@ component main(
     m0_WDATA  : 32,
 
     m0_BREADY : 1,
-    
+
     //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
     m0_ARID : 1,
     m0_AWID : 1,
     m0_WID : 1,
     m0_BID : 1,
-    
+
     m1_ARVALID : 1,
     m1_ARADDR  : 64,
     m1_ARSIZE  : 3,
-    m1_ARLEN   : 8, 
+    m1_ARLEN   : 8,
     m1_ARBURST : 2,
 
     m1_RREADY  : 1,
@@ -808,7 +809,7 @@ component main(
     m1_AWVALID : 1,
     m1_AWADDR  : 64,
     m1_AWSIZE  : 3,
-    m1_AWLEN   : 8, 
+    m1_AWLEN   : 8,
     m1_AWBURST : 2,
     m1_AWPROT  : 3,
 
@@ -817,7 +818,7 @@ component main(
     m1_WDATA  : 32,
 
     m1_BREADY : 1,
-    
+
     //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
     m1_ARID : 1,
     m1_AWID : 1,
@@ -828,7 +829,7 @@ component main(
     m2_ARVALID : 1,
     m2_ARADDR  : 64,
     m2_ARSIZE  : 3,
-    m2_ARLEN   : 8, 
+    m2_ARLEN   : 8,
     m2_ARBURST : 2,
 
     m2_RREADY  : 1,
@@ -836,7 +837,7 @@ component main(
     m2_AWVALID : 1,
     m2_AWADDR  : 64,
     m2_AWSIZE  : 3,
-    m2_AWLEN   : 8, 
+    m2_AWLEN   : 8,
     m2_AWBURST : 2,
     m2_AWPROT  : 3,
 
@@ -845,7 +846,7 @@ component main(
     m2_WDATA  : 32,
 
     m2_BREADY : 1,
-    
+
     //NOTE: Only used for cocotb compatability, doesn't do anything within the wrapper itself currently.
     m2_ARID : 1,
     m2_AWID : 1,
@@ -877,10 +878,10 @@ component main(
         // original vec_add and we raised them to top level.
         A0 = seq_mem_d1(32,8,64);
         B0 = seq_mem_d1(32,8,64);
-        Sum0 = seq_mem_d1(32,8,64); 
+        Sum0 = seq_mem_d1(32,8,64);
 
         vec_add_cell = vec_add();//end vec add stuff
-        
+
 
         //original write stuff
         max_trnsfrs = std_reg(8);

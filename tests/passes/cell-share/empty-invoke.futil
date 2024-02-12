@@ -1,5 +1,6 @@
 // -p pre-opt -p post-opt
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component write_one() -> (out: 32) {
   cells {
@@ -15,7 +16,7 @@ component write_one() -> (out: 32) {
 
 component main() -> () {
   cells {
-    @external mem = std_mem_d1(32, 2, 1);
+    @external mem = comb_mem_d1(32, 2, 1);
     // these should be shared
     x = write_one();
     y = write_one();

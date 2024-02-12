@@ -1,5 +1,6 @@
 // -p validate -p lower-guards
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
