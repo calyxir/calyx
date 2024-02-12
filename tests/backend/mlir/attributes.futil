@@ -1,7 +1,8 @@
 // -p well-formed -b mlir
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
-component main<"state_share"=1>(@foo(32) in: 32, @static(10) @go go: 1, @clk clk: 1, @reset reset: 1) -> (@static(0) out: 32, @done done: 1) {
+component main<"state_share"=1>(@foo(32) in: 32, @promotable(10) @go go: 1, @clk clk: 1, @reset reset: 1) -> (@promotable(0) out: 32, @done done: 1) {
   cells {
     @precious r = std_reg(32);
     @bar(32) le = std_le(32);
@@ -10,12 +11,12 @@ component main<"state_share"=1>(@foo(32) in: 32, @static(10) @go go: 1, @clk clk
     group upd<"stable"=1> {
       upd[done] = r.done;
     }
-    comb group cond<"static"=0> {
+    comb group cond<"promotable"=0> {
     }
   }
   control {
     @bound(32) while le.out with cond {
-      @static(2) upd;
+      @promotable(2) upd;
     }
   }
 }

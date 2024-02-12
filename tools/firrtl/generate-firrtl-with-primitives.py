@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import sys
 
@@ -13,6 +14,9 @@ def generate_replacement_map(inst):
         replacement_map["DIFF"] = replacement_map["OUT_WIDTH"] - replacement_map["IN_WIDTH"]
     elif inst["name"] == "std_slice":
         replacement_map["DIFF"] = replacement_map["IN_WIDTH"] - replacement_map["OUT_WIDTH"]
+    elif inst["name"] == "std_lsh":
+        width = replacement_map["WIDTH"]
+        replacement_map["BITS"] = math.ceil(math.log(width, 2)) + 1
 
     return replacement_map
 

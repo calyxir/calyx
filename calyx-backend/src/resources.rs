@@ -152,7 +152,7 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                     params[0].1
                 )
             }
-            "std_mem_d1" => {
+            "comb_mem_d1" => {
                 add_size(
                     is_external,
                     count as u64,
@@ -164,7 +164,7 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                     count, externalize_name(name, is_external),
                     params[1].1, params[0].1);
             }
-            "std_mem_d2" => {
+            "comb_mem_d2" => {
                 add_size(
                     is_external,
                     count as u64,
@@ -176,7 +176,7 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                     count, externalize_name(name, is_external),
                     (params[1].1 * params[2].1), params[0].1);
             }
-            "std_mem_d3" => {
+            "comb_mem_d3" => {
                 add_size(
                     is_external,
                     count as u64,
@@ -188,7 +188,7 @@ fn estimated_size(count_map: HashMap<(ir::Id, ir::Binding, bool), u32>) {
                     count, externalize_name(name, is_external),
                     (params[1].1 * params[2].1 * params[3].1), params[0].1);
             }
-            "std_mem_d4" => {
+            "comb_mem_d4" => {
                 add_size(
                     is_external,
                     count as u64,

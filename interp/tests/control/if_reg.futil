@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
@@ -10,7 +11,7 @@ component main() -> () {
   }
 
   wires {
-    group cond<"static"=1> {
+    group cond<"promotable"=1> {
       reg0.write_en = 1'd1;
       lt0.left = const0.out;
       lt0.right = const1.out;
@@ -18,13 +19,13 @@ component main() -> () {
       cond[done] =  reg0.done;
     }
 
-    group true<"static"=1> {
+    group true<"promotable"=1> {
       reg1.write_en = 1'd1;
       reg1.in = 32'd15;
       true[done] = reg1.done;
     }
 
-    group false<"static"=1> {
+    group false<"promotable"=1> {
       reg1.write_en = 1'd1;
       reg1.in = 32'd10;
       false[done] = reg1.done;
@@ -33,8 +34,8 @@ component main() -> () {
 
   control {
     //similar to [if.futil],
-    //b/c this isn't just 1 group prog, 
-    //reg1 should have [done] low 
+    //b/c this isn't just 1 group prog,
+    //reg1 should have [done] low
     //at the end of execution (tho prog. ends when reg1.done is high)
     seq {
       cond;

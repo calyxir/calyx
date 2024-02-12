@@ -44,22 +44,22 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                   let mut idx_sizes: Vec<u64> = Vec::new();
                   let idx_count: u64;
                   match mem.prototype.get_name().unwrap().as_ref() {
-                      "std_mem_d1" | "seq_mem_d1" => {
+                      "comb_mem_d1" | "seq_mem_d1" => {
                         mem_size = mem.get_parameter("SIZE").unwrap();
                         idx_count = 1;
                       }
-                      "std_mem_d2" | "seq_mem_d2" => {
+                      "comb_mem_d2" | "seq_mem_d2" => {
                         mem_size = mem.get_parameter("D0_SIZE").unwrap()
                               * mem.get_parameter("D1_SIZE").unwrap();
                         idx_count = 2;
                     }
-                    "std_mem_d3" | "seq_mem_d3" => {
+                    "comb_mem_d3" | "seq_mem_d3" => {
                         mem_size = mem.get_parameter("D0_SIZE").unwrap()
                         * mem.get_parameter("D1_SIZE").unwrap()
                         * mem.get_parameter("D2_SIZE").unwrap();
                         idx_count = 3;
                     }
-                    "std_mem_d4" | "seq_mem_d4" => {
+                    "comb_mem_d4" | "seq_mem_d4" => {
                         mem_size = mem.get_parameter("D0_SIZE").unwrap()
                         * mem.get_parameter("D1_SIZE").unwrap()
                         * mem.get_parameter("D2_SIZE").unwrap()

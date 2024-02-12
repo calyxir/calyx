@@ -1,11 +1,12 @@
 //-p infer-share
 
-// noshare should not be shared since the if statement means that 
-// the write to b may not dominate the read from b 
-// share should be shared. It makes sure that it treats pars as "definitely" 
-// occuring, so that it sees par {wrB wrC} and knows both will occur. 
+// noshare should not be shared since the if statement means that
+// the write to b may not dominate the read from b
+// share should be shared. It makes sure that it treats pars as "definitely"
+// occuring, so that it sees par {wrB wrC} and knows both will occur.
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 component noshare(in:32) -> (out: 32) {
@@ -18,39 +19,39 @@ component noshare(in:32) -> (out: 32) {
   }
   wires {
     group wrR {
-      r.write_en = 1'd1; 
-      r.in = 32'd4; 
-      wrR[done] = r.done; 
+      r.write_en = 1'd1;
+      r.in = 32'd4;
+      wrR[done] = r.done;
     }
     comb group rlt10{
-      lt.left = r.out; 
+      lt.left = r.out;
       lt.right = 32'd5;
     }
     group readB{
-      a.write_en = 1'd1; 
-      a.in = b.out; 
-      readB[done] = a.done; 
+      a.write_en = 1'd1;
+      a.in = b.out;
+      readB[done] = a.done;
     }
     group wrB{
-      b.write_en = 1'd1; 
-      b.in = 32'd2; 
-      wrB[done] = b.done; 
+      b.write_en = 1'd1;
+      b.in = 32'd2;
+      wrB[done] = b.done;
     }
     group wrC{
-      c.write_en = 1'd1; 
-      c.in = 32'd2; 
-      wrC[done] = c.done; 
+      c.write_en = 1'd1;
+      c.in = 32'd2;
+      wrC[done] = c.done;
     }
     group readC{
-      a.write_en = 1'd1; 
-      a.in = c.out; 
-      wrC[done] = a.done; 
+      a.write_en = 1'd1;
+      a.in = c.out;
+      wrC[done] = a.done;
     }
     out = a.out;
   }
   control {
     seq{
-      wrR; 
+      wrR;
       if lt.out with rlt10{
         wrB;
       }
@@ -70,50 +71,50 @@ component share(in:32) -> (out: 32) {
   }
   wires {
     group wrR {
-      r.write_en = 1'd1; 
-      r.in = 32'd4; 
-      wrR[done] = r.done; 
+      r.write_en = 1'd1;
+      r.in = 32'd4;
+      wrR[done] = r.done;
     }
     comb group rlt10{
-      lt.left = r.out; 
+      lt.left = r.out;
       lt.right = 32'd5;
     }
     group readB{
-      a.write_en = 1'd1; 
-      a.in = b.out; 
-      readB[done] = a.done; 
+      a.write_en = 1'd1;
+      a.in = b.out;
+      readB[done] = a.done;
     }
     group wrB{
-      b.write_en = 1'd1; 
-      b.in = 32'd2; 
-      wrB[done] = b.done; 
+      b.write_en = 1'd1;
+      b.in = 32'd2;
+      wrB[done] = b.done;
     }
     group wrC{
-      c.write_en = 1'd1; 
-      c.in = 32'd2; 
-      wrC[done] = c.done; 
+      c.write_en = 1'd1;
+      c.in = 32'd2;
+      wrC[done] = c.done;
     }
     group rdR{
-      a.write_en = 1'd1; 
-      a.in = r.out; 
-      wrC[done] = a.done; 
+      a.write_en = 1'd1;
+      a.in = r.out;
+      wrC[done] = a.done;
     }
     group readC{
-      a.write_en = 1'd1; 
-      a.in = c.out; 
-      wrC[done] = a.done; 
+      a.write_en = 1'd1;
+      a.in = c.out;
+      wrC[done] = a.done;
     }
     out = a.out;
   }
   control {
     seq{
-      wrR; 
+      wrR;
       if lt.out with rlt10{
         seq{
           par {wrB; wrC;}
           readB;
           readC;
-        }     
+        }
       }
       rdR;
     }

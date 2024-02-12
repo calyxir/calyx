@@ -50,8 +50,10 @@ RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/tvm-*.whl
 
 # Install Dahlia
 WORKDIR /home
-RUN git clone https://github.com/cucapra/dahlia.git
+RUN git  clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
+## Checkout specific version
+RUN git checkout 51954e7
 RUN sbt "; getHeaders; assembly"
 
 # Add the Calyx source code from the build context
@@ -70,6 +72,10 @@ RUN mkdir -p /root/.config
 ENV PATH=$PATH:/root/.local/bin
 ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
 
+# Install calyx-py
+WORKDIR /home/calyx/calyx-py
+RUN FLIT_ROOT_INSTALL=1 flit install --symlink
+
 # Setup fud
 RUN fud config --create global.root /home/calyx && \
     fud config stages.dahlia.exec '/home/dahlia/fuse' && \
@@ -78,10 +84,6 @@ RUN fud config --create global.root /home/calyx && \
     fud register ntt -p '/home/calyx/frontends/ntt-pipeline/fud/ntt.py' && \
     fud register mrxl -p '/home/calyx/frontends/mrxl/fud/mrxl.py' && \
     fud register icarus-verilog -p '/home/calyx/fud/icarus/icarus.py'
-
-# Install calyx-py
-WORKDIR /home/calyx/calyx-py
-RUN FLIT_ROOT_INSTALL=1 flit install --symlink
 
 # Install MrXL
 WORKDIR /home/calyx/frontends/mrxl

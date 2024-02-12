@@ -21,7 +21,7 @@ component main<"static"=10>(@go go: 1) -> (@done done: 1) {
 #### **Cell Attributes**
 ```
 cells {
-  @external mem = std_mem_d1(32, 8, 4);
+  @external mem = comb_mem_d1(32, 8, 4);
   reg = std_reg(32);
   ...
 }
@@ -147,7 +147,7 @@ Marks the special clock signal inserted by the `clk-insertion` pass, which helps
 Used by the `papercut` pass.
 Defines a group `n` of signals that all must be driven together:
 ```
-primitive std_mem_d2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+primitive comb_mem_d2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
   @write_together(2) addr0: D0_IDX_SIZE,
   @write_together(2) addr1: D1_IDX_SIZE,
   @write_together(1) write_data: WIDTH,
@@ -169,7 +169,7 @@ Used by `papercut` and `canonicalize`.
 Defines a combinational path `n` between a set of an input ports and an output
 port.
 ```
-primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
+primitive comb_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
   @read_together(1) addr0: IDX_SIZE, ...
 ) -> (
   @read_together(1) read_data: WIDTH, ...

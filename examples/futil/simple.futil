@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 // *NOTE*: This was hand-written, and does not demonstrate the capabilities of Calyx.
@@ -18,7 +19,7 @@ component main() -> () {
   }
 
   wires {
-    group add_constants<"static"=1> {       // This group will finish in 1 cycle.
+    group add_constants<"promotable"=1> {       // This group will finish in 1 cycle.
       add.left = const0.out;                // 4
       add.right = const1.out;               // 5
       reg0.in = add.out;                    // 4 + 5 = 9

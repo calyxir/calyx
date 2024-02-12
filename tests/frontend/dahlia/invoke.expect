@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 component add(a: 32, b: 32) -> (@stable(1) out: 32) {
   cells {
@@ -7,7 +7,7 @@ component add(a: 32, b: 32) -> (@stable(1) out: 32) {
     tmp_0 = std_reg(32);
   }
   wires {
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       tmp_0.in = add0.out;
       tmp_0.write_en = 1'd1;
       let0[done] = tmp_0.done;
@@ -30,12 +30,12 @@ component main() -> () {
     sum_0 = std_reg(32);
   }
   wires {
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       lhs_0.in = const0.out;
       lhs_0.write_en = 1'd1;
       let1[done] = lhs_0.done;
     }
-    group let2<"static"=1> {
+    group let2<"promotable"=1> {
       rhs_0.in = const1.out;
       rhs_0.write_en = 1'd1;
       let2[done] = rhs_0.done;

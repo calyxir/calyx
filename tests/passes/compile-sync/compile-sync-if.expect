@@ -1,10 +1,11 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    in_0 = std_mem_d1(32, 6, 3);
-    in_1 = std_mem_d1(32, 6, 3);
-    out = std_mem_d1(32, 6, 3);
+    in_0 = comb_mem_d1(32, 6, 3);
+    in_1 = comb_mem_d1(32, 6, 3);
+    out = comb_mem_d1(32, 6, 3);
     idx = std_reg(3);
     prod = std_reg(32);
     st = std_reg(1);

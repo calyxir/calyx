@@ -11,9 +11,10 @@
 // ###
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/compile.futil";
 import "primitives/math.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 
 
 //this goes m->s unlike read channel
@@ -31,7 +32,7 @@ component m_arread_channel(
   // for restrictions
   ARSIZE: 3,
   // in AXI4 this is 8 bits, 1-256 transfers in requested transaction.
-  ARLEN : 8, 
+  ARLEN : 8,
   // 00 for fixed, 01 for incrementing, 2 for wrap,
   // needs to be incr for RTL kernels (can't use wrapped of fixed
   ARBURST : 2,
@@ -45,7 +46,7 @@ component m_arread_channel(
       // TODO(nathanielnrn): should arguably eventually live in `s_axi_control`
       // but for now will live here.
       ref base_addr = std_reg(64);
-      
+
       // number of trasfers in a transaction. This is sent to subordinate
       txn_len = std_reg(8);
 
@@ -85,7 +86,7 @@ component m_arread_channel(
       group do_ar_transfer {
           //assert ARVALID
           is_arvalid.in = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
-          
+
           // TODO(nathanielnrn): in theory should be able to get rid of arvalid_was_high
           // but for now we will be explicit and reduce this in generation maybe. Not sure
           // it even matters.
@@ -97,11 +98,11 @@ component m_arread_channel(
           arvalid_was_high.write_en = !(is_arvalid.out & ARREADY) & !arvalid_was_high.out ? 1'b1;
 
 
-        // drive output signals for transfer  
+        // drive output signals for transfer
           ARADDR = base_addr.out;
           // see link above, needs to match data width to host.
           // In this case 2^2 = 4 bytes = 32 bits = width of our data_bus.
-          ARSIZE = 3'b010; 
+          ARSIZE = 3'b010;
           // For now this can be taken from .yxi, as size of mem, because we are assuming
           // data_bus width that matches size of memory cells
           // If we want to use bigger mems need to be able to update base addr
@@ -125,7 +126,7 @@ component m_arread_channel(
           txn_count.in = 32'b0;
           txn_count.write_en = 1'b1;
           txn_count_init[done] = txn_count.done;
-          
+
       }
 
       group txn_len_init {
@@ -175,7 +176,7 @@ component m_read_channel(
   ARESET : 1,
   RVALID : 1,
   RLAST  : 1,
-  RDATA  : 32, 
+  RDATA  : 32,
   RRESP :  2,  // Note: This is generated in subordinate! had this backwards in earlier version
 ) -> (
   // NOTE: In general, according to ZipCPU we want xREADY signals to be registered
@@ -188,8 +189,8 @@ component m_read_channel(
       // on the data we read from cocotb
       ref data_received = seq_mem_d1(32, 16, 64);
       is_rdy = std_reg(1);
-      ref curr_addr = std_reg(64); 
-      
+      ref curr_addr = std_reg(64);
+
       // registered because RLAST is high with last transfer, not after
       // before this was registered we were terminating immediately with
       // last transfer and not servicing it
@@ -216,7 +217,7 @@ component m_read_channel(
           init_n_RLAST[done] = n_RLAST.done;
       }
 
-      // Used to block any servicing until handshake occurs. 
+      // Used to block any servicing until handshake occurs.
       group reset_bt {
           bt_reg.in = 1'b0;
           bt_reg.write_en = 1'b1;
@@ -250,7 +251,7 @@ component m_read_channel(
         n_RLAST.in = RLAST ? 1'b0;
         n_RLAST.in = !RLAST ? 1'b1;
         n_RLAST.write_en = 1'b1;
-        
+
 
         // we are done after handshake
         bt_reg.in = is_rdy.out & RVALID ? 1'b1;
@@ -309,7 +310,7 @@ component main(
     m_ARVALID : 1,
     m_ARADDR: 64,
     m_ARSIZE: 3,
-    m_ARLEN : 8, 
+    m_ARLEN : 8,
     m_ARBURST : 2,
 
     m_RREADY : 1,

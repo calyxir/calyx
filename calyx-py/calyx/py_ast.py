@@ -205,7 +205,7 @@ class Group(Structure):
 
     def doc(self) -> str:
         static_delay_attr = (
-            "" if self.static_delay is None else f'<"static"={self.static_delay}>'
+            "" if self.static_delay is None else f'<"promotable"={self.static_delay}>'
         )
         return block(
             f"group {self.id.doc()}{static_delay_attr}",
@@ -522,25 +522,17 @@ class Stdlib:
         return CompInst("std_pad", [in_, out])
 
     @staticmethod
-    def mem_d1(bitwidth: int, size: int, idx_size: int):
-        return CompInst("std_mem_d1", [bitwidth, size, idx_size])
+    def comb_mem_d1(bitwidth: int, size: int, idx_size: int):
+        return CompInst("comb_mem_d1", [bitwidth, size, idx_size])
 
     @staticmethod
-    def seq_mem_d1(bitwidth: int, size: int, idx_size: int):
-        return CompInst("seq_mem_d1", [bitwidth, size, idx_size])
-
-    @staticmethod
-    def mem_d2(bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int):
-        return CompInst("std_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
-
-    @staticmethod
-    def seq_mem_d2(
+    def comb_mem_d2(
         bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int
     ):
-        return CompInst("seq_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
+        return CompInst("comb_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
 
     @staticmethod
-    def mem_d3(
+    def comb_mem_d3(
         bitwidth: int,
         size0: int,
         size1: int,
@@ -550,9 +542,46 @@ class Stdlib:
         idx_size2: int,
     ):
         return CompInst(
-            "std_mem_d3",
+            "comb_mem_d3",
             [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
         )
+
+    @staticmethod
+    def comb_mem_d4(
+        bitwidth: int,
+        size0: int,
+        size1: int,
+        size2: int,
+        size3: int,
+        idx_size0: int,
+        idx_size1: int,
+        idx_size2: int,
+        idx_size3: int,
+    ):
+        return CompInst(
+            "comb_mem_d4",
+            [
+                bitwidth,
+                size0,
+                size1,
+                size2,
+                size3,
+                idx_size0,
+                idx_size1,
+                idx_size2,
+                idx_size3,
+            ],
+        )
+
+    @staticmethod
+    def seq_mem_d1(bitwidth: int, size: int, idx_size: int):
+        return CompInst("seq_mem_d1", [bitwidth, size, idx_size])
+
+    @staticmethod
+    def seq_mem_d2(
+        bitwidth: int, size0: int, size1: int, idx_size0: int, idx_size1: int
+    ):
+        return CompInst("seq_mem_d2", [bitwidth, size0, size1, idx_size0, idx_size1])
 
     @staticmethod
     def seq_mem_d3(
@@ -567,33 +596,6 @@ class Stdlib:
         return CompInst(
             "seq_mem_d3",
             [bitwidth, size0, size1, size2, idx_size0, idx_size1, idx_size2],
-        )
-
-    @staticmethod
-    def mem_d4(
-        bitwidth: int,
-        size0: int,
-        size1: int,
-        size2: int,
-        size3: int,
-        idx_size0: int,
-        idx_size1: int,
-        idx_size2: int,
-        idx_size3: int,
-    ):
-        return CompInst(
-            "std_mem_d4",
-            [
-                bitwidth,
-                size0,
-                size1,
-                size2,
-                size3,
-                idx_size0,
-                idx_size1,
-                idx_size2,
-                idx_size3,
-            ],
         )
 
     @staticmethod

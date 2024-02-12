@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
@@ -8,19 +9,19 @@ component main() -> () {
   }
 
   wires {
-    group wr_a<"static"=1> {
+    group wr_a<"promotable"=1> {
       a.in = 32'd1;
       a.write_en = 1'd1;
       wr_a[done] = a.done;
     }
 
-    group wr_b<"static"=1> {
+    group wr_b<"promotable"=1> {
       b.in = 32'd1;
       b.write_en = 1'd1;
       wr_b[done] = b.done;
     }
 
-    group wr_c<"static"=1> {
+    group wr_c<"promotable"=1> {
       c.in = 32'd1;
       c.write_en = 1'd1;
       wr_c[done] = c.done;

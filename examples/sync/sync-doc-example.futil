@@ -1,9 +1,10 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 component main () -> () {
   cells {
-    @external accm = std_mem_d1(32, 1, 1);
+    @external accm = comb_mem_d1(32, 1, 1);
     add1 = std_add(32);
     add2 = std_add(32);
     r = std_reg(32);
@@ -45,7 +46,7 @@ component main () -> () {
   }
 
   control {
-    /// ANCHOR: control 
+    /// ANCHOR: control
     par {
       // thread A
       while lt.out with comp {

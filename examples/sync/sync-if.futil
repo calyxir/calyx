@@ -4,13 +4,14 @@
 // thread 2:
 // no-op; sync; r(1); sync; r(4); sync; r(5); sync; r(8); sync; r(9);  sync; r(12);
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/sync.futil";
 
 component main () -> () {
   cells {
-    @external in_0 = std_mem_d1(32, 6, 3);
-    @external in_1 = std_mem_d1(32, 6, 3);
-    @external out = std_mem_d1(32, 6, 3);
+    @external in_0 = comb_mem_d1(32, 6, 3);
+    @external in_1 = comb_mem_d1(32, 6, 3);
+    @external out = comb_mem_d1(32, 6, 3);
     idx = std_reg(3);
     prod = std_reg(32);
     st = std_reg(1);

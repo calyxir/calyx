@@ -1,5 +1,6 @@
 // -p cell-share -x cell-share:print-par-timing=<err>
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component comp(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     lt = std_lt(32);

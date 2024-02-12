@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
 // A MAC pipelined MAC that performs an add in the first cycle and multiply

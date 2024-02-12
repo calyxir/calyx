@@ -1,0 +1,4 @@
+---STDERR---
+Error: tests/passes/well-formed/interval-attr3.futil
+4 |component foo(@interval @go go: 1, @go(2) go2: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1, @done(2) done2: 1) {
+  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: @go port expected @interval(1) attribute on all ports since the component has static<n> control

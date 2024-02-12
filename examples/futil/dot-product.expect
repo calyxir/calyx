@@ -1,10 +1,11 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
-    @external @data A0 = std_mem_d1(32, 8, 4);
+    @external @data A0 = comb_mem_d1(32, 8, 4);
     @data A_read0_0 = std_reg(32);
-    @external @data B0 = std_mem_d1(32, 8, 4);
+    @external @data B0 = comb_mem_d1(32, 8, 4);
     @data B_read0_0 = std_reg(32);
     @data add0 = std_add(32);
     @data add1 = std_add(4);
@@ -15,7 +16,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @data i0 = std_reg(4);
     @control le0 = std_le(4);
     @data mult_pipe0 = std_mult_pipe(32);
-    @external @data v0 = std_mem_d1(32, 1, 1);
+    @external @data v0 = comb_mem_d1(32, 1, 1);
     @generated comb_reg = std_reg(1);
     @generated fsm = std_reg(4);
     @generated ud = undef(1);
