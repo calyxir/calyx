@@ -6,38 +6,39 @@ use petgraph::{algo, graph::NodeIndex};
 use std::collections::HashMap;
 
 #[derive(Debug, Default)]
-pub struct CompactionAnalysis;
+pub struct CompactionAnalysis {
+    cont_reads: Vec<ir::RRC<ir::Cell>>,
+    cont_writes: Vec<ir::RRC<ir::Cell>>,
+}
 
 impl CompactionAnalysis {
     // Compacts `cur_stmts`, and appends the result to `new_stmts`.
-    pub fn append_and_compact(
-        &mut self,
-        (cont_reads, cont_writes): (
-            &Vec<ir::RRC<ir::Cell>>,
-            &Vec<ir::RRC<ir::Cell>>,
-        ),
-        promotion_analysis: &mut PromotionAnalysis,
-        builder: &mut ir::Builder,
-        cur_stmts: Vec<ir::Control>,
-        new_stmts: &mut Vec<ir::Control>,
-    ) {
-        if !cur_stmts.is_empty() {
-            let og_latency = cur_stmts
-                .iter()
-                .map(PromotionAnalysis::get_inferred_latency)
-                .sum();
-            // Try to compact cur_stmts.
-            let possibly_compacted_stmt = self.compact_control_vec(
-                cur_stmts,
-                (cont_reads, cont_writes),
-                promotion_analysis,
-                builder,
-                og_latency,
-                ir::Attributes::default(),
-            );
-            new_stmts.push(possibly_compacted_stmt);
-        }
-    }
+    // pub fn append_and_compact(
+    //     &mut self,
+    //     (cont_reads, cont_writes): (
+    //         &Vec<ir::RRC<ir::Cell>>,
+    //         &Vec<ir::RRC<ir::Cell>>,
+    //     ),
+    //     promotion_analysis: &mut PromotionAnalysis,
+    //     builder: &mut ir::Builder,
+    //     cur_stmts: Vec<ir::Control>,
+    //     new_stmts: &mut Vec<ir::Control>,
+    // ) {
+    //     if !cur_stmts.is_empty() {
+    //         let og_latency = cur_stmts
+    //             .iter()
+    //             .map(PromotionAnalysis::get_inferred_latency)
+    //             .sum();
+    //         // Try to compact cur_stmts.
+    //         let possibly_compacted_stmt = self.compact_control_vec(
+    //             cur_stmts,
+    //             (cont_reads, cont_writes),
+    //             promotion_analysis,
+    //             builder,
+    //         );
+    //         new_stmts.push(possibly_compacted_stmt);
+    //     }
+    // }
 
     // Given a total_order and sorted schedule, builds a seq based on the original
     // schedule.
@@ -46,13 +47,12 @@ impl CompactionAnalysis {
     fn recover_seq(
         mut total_order: petgraph::graph::DiGraph<Option<ir::Control>, ()>,
         sorted_schedule: Vec<(NodeIndex, u64)>,
-        attributes: ir::Attributes,
-    ) -> ir::Control {
+    ) -> Vec<ir::Control> {
         let stmts = sorted_schedule
             .into_iter()
             .map(|(i, _)| total_order[i].take().unwrap())
             .collect_vec();
-        ir::Control::Seq(ir::Seq { stmts, attributes })
+        stmts
     }
 
     // Takes a vec of ctrl stmts and turns it into a compacted schedule (a static par).
@@ -67,9 +67,7 @@ impl CompactionAnalysis {
         ),
         promotion_analysis: &mut PromotionAnalysis,
         builder: &mut ir::Builder,
-        og_latency: u64,
-        attributes: ir::Attributes,
-    ) -> ir::Control {
+    ) -> Vec<ir::Control> {
         // Records the corresponding node indices that each control program
         // has data dependency on.
         let mut dependency: HashMap<NodeIndex, Vec<NodeIndex>> = HashMap::new();
@@ -79,6 +77,11 @@ impl CompactionAnalysis {
         // Records the scheduled start time of corresponding control operator
         // for each node index.
         let mut schedule: HashMap<NodeIndex, u64> = HashMap::new();
+
+        let og_latency: u64 = stmts
+            .iter()
+            .map(|stmt| PromotionAnalysis::get_inferred_latency(stmt))
+            .sum();
 
         let mut total_order = ControlOrder::<false>::get_dependency_graph_seq(
             stmts.into_iter(),
@@ -113,11 +116,7 @@ impl CompactionAnalysis {
             if total_time == og_latency {
                 // If we can't comapct at all, then just recover the and return
                 // the original seq.
-                return Self::recover_seq(
-                    total_order,
-                    sorted_schedule,
-                    attributes,
-                );
+                return Self::recover_seq(total_order, sorted_schedule);
             }
 
             // Threads for the static par, where each entry is (thread, thread_latency)
@@ -194,13 +193,10 @@ impl CompactionAnalysis {
                 par_control_threads.iter().map(|c| c.get_latency()).max();
             assert!(max.unwrap() == total_time, "The schedule expects latency {}. The static par that was built has latency {}", total_time, max.unwrap());
 
-            let mut s_par = ir::StaticControl::Par(ir::StaticPar {
-                stmts: par_control_threads,
-                attributes: ir::Attributes::default(),
-                latency: total_time,
-            });
-            s_par.get_mut_attributes().insert(ir::BoolAttr::Promoted, 1);
-            ir::Control::Static(s_par)
+            par_control_threads
+                .into_iter()
+                .map(|sc| ir::Control::Static(sc))
+                .collect()
         } else {
             panic!(
                 "Error when producing topo sort. Dependency graph has a cycle."

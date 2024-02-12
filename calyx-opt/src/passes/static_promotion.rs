@@ -117,6 +117,12 @@ impl StaticPromotion {
         diff <= self.if_diff_limit.unwrap()
     }
 
+    fn fits_heuristics(&self, c: &ir::Control) -> bool {
+        let approx_size = Self::approx_size(c);
+        let latency = PromotionAnalysis::get_inferred_latency(c);
+        self.within_cycle_limit(latency) && approx_size > self.threshold
+    }
+
     fn approx_size_static(sc: &ir::StaticControl, promoted: bool) -> u64 {
         if !(sc.get_attributes().has(ir::BoolAttr::Promoted) || promoted) {
             return APPROX_ENABLE_SIZE;
@@ -175,6 +181,60 @@ impl StaticPromotion {
     /// in the given vector
     fn approx_control_vec_size(v: &[ir::Control]) -> u64 {
         v.iter().map(Self::approx_size).sum()
+    }
+
+    fn promote_seq_heuristic(
+        &mut self,
+        builder: &mut ir::Builder,
+        mut control_vec: Vec<ir::Control>,
+    ) -> Vec<ir::Control> {
+        if control_vec.is_empty() {
+            // Base case
+            return vec![];
+        } else if control_vec.len() == 1 {
+            // Base case. Promote if
+            // self.promotion_analysis.
+            let mut stmt = control_vec.pop().unwrap();
+            if self.fits_heuristics(&stmt) {
+                return vec![ir::Control::Static(
+                    self.promotion_analysis
+                        .convert_to_static(&mut stmt, builder),
+                )];
+            } else {
+                return vec![stmt];
+            }
+        } else {
+            if true {
+            } else if Self::approx_control_vec_size(&control_vec)
+                <= self.threshold
+            {
+                // Too small to be promoted, return as is
+                return control_vec;
+            } else if !self.within_cycle_limit(
+                control_vec
+                    .iter()
+                    .map(PromotionAnalysis::get_inferred_latency)
+                    .sum(),
+            ) {
+                // Too large, try to break up
+                let right = control_vec.split_off(control_vec.len() / 2);
+                let mut left_res =
+                    self.promote_vec_seq_heuristic(builder, control_vec);
+                let right_res = self.promote_vec_seq_heuristic(builder, right);
+                left_res.extend(right_res);
+                return left_res;
+            }
+            // Correct size, convert the entire vec
+            let s_seq_stmts = self
+                .promotion_analysis
+                .convert_vec_to_static(builder, control_vec);
+            let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
+            let sseq = ir::Control::Static(ir::StaticControl::seq(
+                s_seq_stmts,
+                latency,
+            ));
+            vec![sseq]
+        }
     }
 
     /// Converts the control_vec (i..e, the stmts of the seq) using heuristics.
