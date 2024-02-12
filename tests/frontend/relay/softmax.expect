@@ -83,7 +83,7 @@ component softmax_1x10() -> () {
       le4.left = __k0.out;
       le4.right = const14.out;
     }
-    group let0<"static"=2> {
+    group let0<"promotable"=2> {
       __max_0.in = x.read_data;
       __max_0.write_en = x.read_done;
       let0[done] = __max_0.done;
@@ -91,7 +91,7 @@ component softmax_1x10() -> () {
       x.addr0 = const0.out;
       x.read_en = 1'd1;
     }
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       __i0.in = const2.out;
       __i0.write_en = 1'd1;
       let1[done] = __i0.done;
@@ -101,12 +101,12 @@ component softmax_1x10() -> () {
       __t1_0.write_en = 1'd1;
       let10[done] = __t1_0.done;
     }
-    group let11<"static"=1> {
+    group let11<"promotable"=1> {
       __k0.in = const13.out;
       __k0.write_en = 1'd1;
       let11[done] = __k0.done;
     }
-    group let12<"static"=2> {
+    group let12<"promotable"=2> {
       x_read3_0.in = x.read_data;
       x_read3_0.write_en = x.read_done;
       let12[done] = x_read3_0.done;
@@ -114,7 +114,7 @@ component softmax_1x10() -> () {
       x.addr0 = __i1.out;
       x.read_en = 1'd1;
     }
-    group let13<"static"=1> {
+    group let13<"promotable"=1> {
       __t2_0.in = sub1.out;
       __t2_0.write_en = 1'd1;
       let13[done] = __t2_0.done;
@@ -134,12 +134,12 @@ component softmax_1x10() -> () {
       div_pipe0.right = __exp_sum_0.out;
       div_pipe0.go = !div_pipe0.done ? 1'd1;
     }
-    group let2<"static"=1> {
+    group let2<"promotable"=1> {
       __j0.in = const4.out;
       __j0.write_en = 1'd1;
       let2[done] = __j0.done;
     }
-    group let3<"static"=2> {
+    group let3<"promotable"=2> {
       x_read0_0.in = x.read_data;
       x_read0_0.write_en = x.read_done;
       let3[done] = x_read0_0.done;
@@ -147,7 +147,7 @@ component softmax_1x10() -> () {
       x.addr0 = __i0.out;
       x.read_en = 1'd1;
     }
-    group let4<"static"=2> {
+    group let4<"promotable"=2> {
       x_read1_0.in = x.read_data;
       x_read1_0.write_en = x.read_done;
       let4[done] = x_read1_0.done;
@@ -155,22 +155,22 @@ component softmax_1x10() -> () {
       x.addr0 = __i0.out;
       x.read_en = 1'd1;
     }
-    group let5<"static"=1> {
+    group let5<"promotable"=1> {
       __i1.in = const8.out;
       __i1.write_en = 1'd1;
       let5[done] = __i1.done;
     }
-    group let6<"static"=1> {
+    group let6<"promotable"=1> {
       __exp_sum_0.in = fp_const0.out;
       __exp_sum_0.write_en = 1'd1;
       let6[done] = __exp_sum_0.done;
     }
-    group let7<"static"=1> {
+    group let7<"promotable"=1> {
       __j1.in = const10.out;
       __j1.write_en = 1'd1;
       let7[done] = __j1.done;
     }
-    group let8<"static"=2> {
+    group let8<"promotable"=2> {
       x_read2_0.in = x.read_data;
       x_read2_0.write_en = x.read_done;
       let8[done] = x_read2_0.done;
@@ -178,61 +178,61 @@ component softmax_1x10() -> () {
       x.addr0 = __i1.out;
       x.read_en = 1'd1;
     }
-    group let9<"static"=1> {
+    group let9<"promotable"=1> {
       __t0_0.in = sub0.out;
       __t0_0.write_en = 1'd1;
       let9[done] = __t0_0.done;
       sub0.left = x_read2_0.out;
       sub0.right = __max_0.out;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
       __max_0.write_en = 1'd1;
       __max_0.in = x_read1_0.out;
       upd0[done] = __max_0.done;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       __j0.write_en = 1'd1;
       add0.left = __j0.out;
       add0.right = const6.out;
       __j0.in = add0.out;
       upd1[done] = __j0.done;
     }
-    group upd2<"static"=1> {
+    group upd2<"promotable"=1> {
       __i0.write_en = 1'd1;
       add1.left = __i0.out;
       add1.right = const7.out;
       __i0.in = add1.out;
       upd2[done] = __i0.done;
     }
-    group upd3<"static"=1> {
+    group upd3<"promotable"=1> {
       __exp_sum_0.write_en = 1'd1;
       add2.left = __exp_sum_0.out;
       add2.right = __t1_0.out;
       __exp_sum_0.in = add2.out;
       upd3[done] = __exp_sum_0.done;
     }
-    group upd4<"static"=1> {
+    group upd4<"promotable"=1> {
       __j1.write_en = 1'd1;
       add3.left = __j1.out;
       add3.right = const12.out;
       __j1.in = add3.out;
       upd4[done] = __j1.done;
     }
-    group upd5<"static"=1> {
+    group upd5<"promotable"=1> {
       x1.addr1 = __k0.out;
       x1.addr0 = __i1.out;
       x1.write_en = 1'd1;
       x1.write_data = bin_read0_0.out;
       upd5[done] = x1.write_done;
     }
-    group upd6<"static"=1> {
+    group upd6<"promotable"=1> {
       __k0.write_en = 1'd1;
       add4.left = __k0.out;
       add4.right = const15.out;
       __k0.in = add4.out;
       upd6[done] = __k0.done;
     }
-    group upd7<"static"=1> {
+    group upd7<"promotable"=1> {
       __i1.write_en = 1'd1;
       add5.left = __i1.out;
       add5.right = const16.out;
@@ -363,7 +363,7 @@ component exp(x: 32) -> (out: 32) {
     pow8 = fp_pow();
   }
   wires {
-    group init<"static"=1> {
+    group init<"promotable"=1> {
       exponent_value.write_en = 1'd1;
       exponent_value.in = x;
       init[done] = exponent_value.done;
@@ -401,37 +401,37 @@ component exp(x: 32) -> (out: 32) {
       m.in = div_pipe.out_quotient;
       reciprocal[done] = m.done;
     }
-    group consume_pow2<"static"=1> {
+    group consume_pow2<"promotable"=1> {
       p2.write_en = 1'd1;
       p2.in = pow2.out;
       consume_pow2[done] = p2.done ? 1'd1;
     }
-    group consume_pow3<"static"=1> {
+    group consume_pow3<"promotable"=1> {
       p3.write_en = 1'd1;
       p3.in = pow3.out;
       consume_pow3[done] = p3.done ? 1'd1;
     }
-    group consume_pow4<"static"=1> {
+    group consume_pow4<"promotable"=1> {
       p4.write_en = 1'd1;
       p4.in = pow4.out;
       consume_pow4[done] = p4.done ? 1'd1;
     }
-    group consume_pow5<"static"=1> {
+    group consume_pow5<"promotable"=1> {
       p5.write_en = 1'd1;
       p5.in = pow5.out;
       consume_pow5[done] = p5.done ? 1'd1;
     }
-    group consume_pow6<"static"=1> {
+    group consume_pow6<"promotable"=1> {
       p6.write_en = 1'd1;
       p6.in = pow6.out;
       consume_pow6[done] = p6.done ? 1'd1;
     }
-    group consume_pow7<"static"=1> {
+    group consume_pow7<"promotable"=1> {
       p7.write_en = 1'd1;
       p7.in = pow7.out;
       consume_pow7[done] = p7.done ? 1'd1;
     }
-    group consume_pow8<"static"=1> {
+    group consume_pow8<"promotable"=1> {
       p8.write_en = 1'd1;
       p8.in = pow8.out;
       consume_pow8[done] = p8.done ? 1'd1;
@@ -492,56 +492,56 @@ component exp(x: 32) -> (out: 32) {
       product8.in = mult_pipe8.out;
       mult_by_reciprocal_factorial8[done] = product8.done;
     }
-    group sum_round1_1<"static"=1> {
+    group sum_round1_1<"promotable"=1> {
       add1.left = frac_x.out;
       add1.right = product2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round1_1[done] = sum1.done;
     }
-    group sum_round1_2<"static"=1> {
+    group sum_round1_2<"promotable"=1> {
       add2.left = product3.out;
       add2.right = product4.out;
       sum2.write_en = 1'd1;
       sum2.in = add2.out;
       sum_round1_2[done] = sum2.done;
     }
-    group sum_round1_3<"static"=1> {
+    group sum_round1_3<"promotable"=1> {
       add3.left = product5.out;
       add3.right = product6.out;
       sum3.write_en = 1'd1;
       sum3.in = add3.out;
       sum_round1_3[done] = sum3.done;
     }
-    group sum_round1_4<"static"=1> {
+    group sum_round1_4<"promotable"=1> {
       add4.left = product7.out;
       add4.right = product8.out;
       sum4.write_en = 1'd1;
       sum4.in = add4.out;
       sum_round1_4[done] = sum4.done;
     }
-    group sum_round2_1<"static"=1> {
+    group sum_round2_1<"promotable"=1> {
       add1.left = sum1.out;
       add1.right = sum2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round2_1[done] = sum1.done;
     }
-    group sum_round2_2<"static"=1> {
+    group sum_round2_2<"promotable"=1> {
       add2.left = sum3.out;
       add2.right = sum4.out;
       sum2.write_en = 1'd1;
       sum2.in = add2.out;
       sum_round2_2[done] = sum2.done;
     }
-    group sum_round3_1<"static"=1> {
+    group sum_round3_1<"promotable"=1> {
       add1.left = sum1.out;
       add1.right = sum2.out;
       sum1.write_en = 1'd1;
       sum1.in = add1.out;
       sum_round3_1[done] = sum1.done;
     }
-    group add_degree_zero<"static"=1> {
+    group add_degree_zero<"promotable"=1> {
       add1.left = sum1.out;
       add1.right = one.out;
       sum1.write_en = 1'd1;
