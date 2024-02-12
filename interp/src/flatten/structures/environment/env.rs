@@ -24,6 +24,7 @@ use crate::{
             index_trait::IndexRef,
         },
     },
+    values::Value,
 };
 use std::{collections::VecDeque, fmt::Debug};
 
@@ -541,6 +542,9 @@ impl<'a> Simulator<'a> {
         // place to keep track of what groups we need to conclude at the end of
         // this step. These are indices into the program counter
 
+        // In the future it may be worthwhile to preallocate some space to these
+        // buffers. Can pick anything from zero to the number of nodes in the
+        // program counter as the size
         let mut leaf_nodes = vec![];
         let mut done_groups = vec![];
 
@@ -645,17 +649,44 @@ impl<'a> Simulator<'a> {
         for (node, val) in &done_groups {
             match &self.env.ctx.primary[node.control_node_idx] {
                 ControlNode::Enable(e) => {
+                    let go_local = self.env.ctx.primary[e.group()].go;
                     let done_local = self.env.ctx.primary[e.group()].done;
-                    let done_idx = &self.env.cells[node.comp]
+                    let index_bases = &self.env.cells[node.comp]
                         .as_comp()
                         .unwrap()
-                        .index_bases
-                        + done_local;
+                        .index_bases;
+                    let done_idx = index_bases + done_local;
+                    let go_idx = index_bases + go_local;
+
+                    // retain done condition from before
                     self.env.ports[done_idx] = val.clone();
+                    self.env.ports[go_idx] =
+                        PortValue::new_implicit(Value::bit_high());
                 }
                 ControlNode::Invoke(_) => todo!(),
                 _ => {
                     unreachable!("non-leaf node included in list of done nodes. This should never happen, please report it.")
+                }
+            }
+        }
+
+        for node in &leaf_nodes {
+            match &self.env.ctx.primary[node.control_node_idx] {
+                ControlNode::Enable(e) => {
+                    let go_local = self.env.ctx.primary[e.group()].go;
+                    let index_bases = &self.env.cells[node.comp]
+                        .as_comp()
+                        .unwrap()
+                        .index_bases;
+
+                    // set go high
+                    let go_idx = index_bases + go_local;
+                    self.env.ports[go_idx] =
+                        PortValue::new_implicit(Value::bit_high());
+                }
+                ControlNode::Invoke(_) => todo!(),
+                non_leaf => {
+                    unreachable!("non-leaf node {:?} included in list of leaf nodes. This should never happen, please report it.", non_leaf)
                 }
             }
         }
