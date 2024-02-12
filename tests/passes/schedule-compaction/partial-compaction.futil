@@ -1,21 +1,4 @@
-// -p validate -p schedule-compaction -p dead-group-removal
-// for control operators under static seq,
-// we consider the subsequent control operator B to have data dependency on
-// prior operator A in the following three cases:
-// 1. B writes to a cell A reads from
-// 2. B reads from a cell A writes to
-// 3. B writes to a cell A writes to
-// As such, we can draw the following dependency graph for the control program:
-//    A       C
-//   | \      /
-//   |  \    /
-//   |   \  /
-//   |    \
-//   |   / \
-//   |  /   \
-//   | /     \
-//   B        D
-// So we can compact the execution schedule to respect this data dependency
+// -p validate -p static-promotion -x static-promotion:threshold=5 -p dead-group-removal
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 

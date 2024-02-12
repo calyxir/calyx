@@ -24,10 +24,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
   control {
-    @promotable(3) seq {
-      @promotable A;
-      @promotable B;
-      @promotable D;
+    seq {
+      A;
+      B;
+      D;
     }
   }
 }

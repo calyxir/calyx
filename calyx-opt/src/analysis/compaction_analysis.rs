@@ -5,6 +5,8 @@ use itertools::Itertools;
 use petgraph::{algo, graph::NodeIndex};
 use std::collections::HashMap;
 
+use super::ReadWriteSet;
+
 #[derive(Debug, Default)]
 pub struct CompactionAnalysis {
     cont_reads: Vec<ir::RRC<ir::Cell>>,
@@ -12,34 +14,11 @@ pub struct CompactionAnalysis {
 }
 
 impl CompactionAnalysis {
-    // Compacts `cur_stmts`, and appends the result to `new_stmts`.
-    // pub fn append_and_compact(
-    //     &mut self,
-    //     (cont_reads, cont_writes): (
-    //         &Vec<ir::RRC<ir::Cell>>,
-    //         &Vec<ir::RRC<ir::Cell>>,
-    //     ),
-    //     promotion_analysis: &mut PromotionAnalysis,
-    //     builder: &mut ir::Builder,
-    //     cur_stmts: Vec<ir::Control>,
-    //     new_stmts: &mut Vec<ir::Control>,
-    // ) {
-    //     if !cur_stmts.is_empty() {
-    //         let og_latency = cur_stmts
-    //             .iter()
-    //             .map(PromotionAnalysis::get_inferred_latency)
-    //             .sum();
-    //         // Try to compact cur_stmts.
-    //         let possibly_compacted_stmt = self.compact_control_vec(
-    //             cur_stmts,
-    //             (cont_reads, cont_writes),
-    //             promotion_analysis,
-    //             builder,
-    //         );
-    //         new_stmts.push(possibly_compacted_stmt);
-    //     }
-    // }
-
+    pub fn update_cont_read_writes(&mut self, comp: &mut ir::Component) {
+        let (cont_reads, cont_writes) = ReadWriteSet::cont_read_write_set(comp);
+        self.cont_reads = cont_reads;
+        self.cont_writes = cont_writes;
+    }
     // Given a total_order and sorted schedule, builds a seq based on the original
     // schedule.
     // Note that this function assumes the `total_order`` and `sorted_schedule`

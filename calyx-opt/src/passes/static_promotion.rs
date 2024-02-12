@@ -1,5 +1,5 @@
 use crate::analysis::{
-    CompactionAnalysis, InferenceAnalysis, PromotionAnalysis, WithStatic,
+    CompactionAnalysis, InferenceAnalysis, PromotionAnalysis,
 };
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
@@ -43,8 +43,8 @@ pub struct StaticPromotion {
     if_diff_limit: Option<u64>,
     /// Whether we should stop promoting when we see a loop.
     cycle_limit: Option<u64>,
-    /// Set no_compaction = true to disable compaction
-    no_compaction: bool,
+    /// Whether to perform compaction. True by default
+    compaction: bool,
 }
 
 // Override constructor to build latency_data information from the primitives
@@ -59,13 +59,14 @@ impl ConstructVisitor for StaticPromotion {
             threshold: opts["threshold"].pos_num().unwrap(),
             if_diff_limit: opts["if-diff-limit"].pos_num(),
             cycle_limit: opts["cycle-limit"].pos_num(),
-            no_compaction: opts["no-compaction"].pos_num().is_some(),
+            compaction: opts["compaction"].bool(),
         })
     }
 
     // This pass shared information between components
     fn clear_data(&mut self) {
         self.promotion_analysis = PromotionAnalysis::default();
+        self.compaction_analysis = CompactionAnalysis::default();
     }
 }
 
@@ -97,12 +98,29 @@ impl Named for StaticPromotion {
                 "the maximum difference between if branches that we tolerate for promotion",
                 ParseVal::Num(1),
                 PassOpt::parse_num,
+            ),
+            PassOpt::new(
+                "compaction",
+                "Whether to perform compaction.  True by Default ",
+                ParseVal::Bool(true),
+                PassOpt::parse_bool,
             )
         ]
     }
 }
 
 impl StaticPromotion {
+    fn remove_large_promotables(&self, c: &mut ir::Control) {
+        match c.get_attribute(ir::NumAttr::Promotable) {
+            Some(pr) => {
+                if !self.within_cycle_limit(pr) {
+                    c.get_mut_attributes().remove(ir::NumAttr::Promotable)
+                }
+            }
+            _ => (),
+        }
+    }
+
     fn within_cycle_limit(&self, latency: u64) -> bool {
         if self.cycle_limit.is_none() {
             return true;
@@ -204,12 +222,17 @@ impl StaticPromotion {
                 return vec![stmt];
             }
         } else {
-            let mut possibly_compacted_ctrl =
+            let mut possibly_compacted_ctrl = if self.compaction {
+                // If compaction is turned on, then we possibly compact
                 self.compaction_analysis.compact_control_vec(
                     control_vec,
                     &mut self.promotion_analysis,
                     builder,
-                );
+                )
+            } else {
+                // Otherwise it's just the og control vec
+                control_vec
+            };
             // If length == 1 this means we have a vec[compacted_static_par],
             // so we can return
             if possibly_compacted_ctrl.len() == 1 {
@@ -231,11 +254,9 @@ impl StaticPromotion {
                 // Too large, try to break up
                 let right = possibly_compacted_ctrl
                     .split_off(possibly_compacted_ctrl.len() / 2);
-                let mut left_res = self.promote_vec_seq_heuristic(
-                    builder,
-                    possibly_compacted_ctrl,
-                );
-                let right_res = self.promote_vec_seq_heuristic(builder, right);
+                let mut left_res = self
+                    .promote_seq_heuristic(builder, possibly_compacted_ctrl);
+                let right_res = self.promote_seq_heuristic(builder, right);
                 left_res.extend(right_res);
                 return left_res;
             }
@@ -250,45 +271,6 @@ impl StaticPromotion {
             ));
             vec![sseq]
         }
-    }
-
-    /// Converts the control_vec (i..e, the stmts of the seq) using heuristics.
-    fn promote_vec_seq_heuristic(
-        &mut self,
-        builder: &mut ir::Builder,
-        mut control_vec: Vec<ir::Control>,
-    ) -> Vec<ir::Control> {
-        if control_vec.is_empty() {
-            // Base case
-            return vec![];
-        } else if control_vec.len() == 1 {
-            return vec![control_vec.pop().unwrap()];
-        } else if Self::approx_control_vec_size(&control_vec) <= self.threshold
-        {
-            // Too small to be promoted, return as is
-            return control_vec;
-        } else if !self.within_cycle_limit(
-            control_vec
-                .iter()
-                .map(PromotionAnalysis::get_inferred_latency)
-                .sum(),
-        ) {
-            // Too large, try to break up
-            let right = control_vec.split_off(control_vec.len() / 2);
-            let mut left_res =
-                self.promote_vec_seq_heuristic(builder, control_vec);
-            let right_res = self.promote_vec_seq_heuristic(builder, right);
-            left_res.extend(right_res);
-            return left_res;
-        }
-        // Correct size, convert the entire vec
-        let s_seq_stmts = self
-            .promotion_analysis
-            .convert_vec_to_static(builder, control_vec);
-        let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
-        let sseq =
-            ir::Control::Static(ir::StaticControl::seq(s_seq_stmts, latency));
-        vec![sseq]
     }
 
     /// First checks if the vec of control statements meets the self.threshold
@@ -419,6 +401,8 @@ impl Visitor for StaticPromotion {
         // Re-infer static timing based on the components we have updated in
         // this pass.
         self.inference_analysis.fixup_timing(comp);
+        // Update the continuous reads and writes
+        self.compaction_analysis.update_cont_read_writes(comp);
         Ok(Action::Continue)
     }
 
@@ -473,6 +457,11 @@ impl Visitor for StaticPromotion {
         _comps: &[ir::Component],
     ) -> VisResult {
         self.inference_analysis.fixup_seq(s);
+        // Remove @promotable attributes that are too large to be promoted.
+        // This helps the promotion heuristic make smarter decisions
+        s.stmts
+            .iter_mut()
+            .for_each(|c| self.remove_large_promotables(c));
 
         let mut builder = ir::Builder::new(comp, sigs);
         let old_stmts = std::mem::take(&mut s.stmts);
