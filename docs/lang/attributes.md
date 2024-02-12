@@ -69,6 +69,10 @@ It has two meanings:
    assignments to the use the ports. See the documentation on [externalize][] for more information.
 2. If the cell is a memory and has an `external` attribute on it, the Verilog backend (`-b verilog`) generates code to read `<cell_name>.dat` to initialize the memory state and dumps out its final value after execution.
 
+### `static(n)`
+This is now deprecated. See the [promotable][promotable] and [interval][interval]
+attributes.
+
 ### `promotable(n)`
 Can be attached to groups, control, and `@go` ports of components.
 This tells the compiler how long the group/control would take if it were promoted
@@ -211,3 +215,5 @@ Since the value `'x` can be replaced with anything.
 [datapath-components]: https://github.com/calyxir/calyx/issues/1169
 [builder]: https://docs.rs/calyx-ir/latest/calyx_ir/struct.Builder.html
 [externalize]: https://docs.rs/calyx-opt/latest/calyx_opt/passes/struct.Externalize.html
+[promotable]: #promotable(n)
+[interval]: #interval(n)
