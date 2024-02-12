@@ -1,8 +1,9 @@
 use super::super::prim_utils::{get_inputs, get_param, ShiftBuffer};
 use super::super::primitive_traits::Named;
-use super::super::{Entry, Primitive, Serializable};
+use super::super::Primitive;
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::logging::{self, warn};
+use crate::serialization::{Entry, Serializable};
 use crate::utils::PrintCode;
 use crate::validate;
 use crate::values::Value;
