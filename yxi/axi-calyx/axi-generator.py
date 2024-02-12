@@ -268,7 +268,7 @@ def add_read_channel(prog, mem):
         mem_ref.addr0 = curr_addr_internal_mem.out
         mem_ref.write_data = read_data_reg.out
         mem_ref.write_en = 1
-        service_read_transfer.done = mem_ref.done
+        service_read_transfer.done = mem_ref.write_done
 
     # creates group that increments curr_addr_internal_mem by 1. Creates adder and wires up correctly
     curr_addr_internal_mem_incr = read_channel.incr(curr_addr_internal_mem, 1)
@@ -330,7 +330,7 @@ def add_write_channel(prog, mem):
 
     curr_trsnfr_count = write_channel.reg("curr_trsnfr_count", 8)
     # Number of transfers we want to do in current txn
-    max_trnsfrs = write_channel.reg("max_trnsfrs", 8, is_ref=True)
+    max_transfers = write_channel.reg("max_transfers", 8, is_ref=True)
 
     # Register because w last is high with last transfer. Before this
     # We were terminating immediately with last transfer and not servicing it.
@@ -361,15 +361,15 @@ def add_write_channel(prog, mem):
         mem_ref.read_en = 1
         write_channel.this()["WDATA"] = mem_ref.read_data
 
-        write_channel.this()["WLAST"] = (max_trnsfrs.out == curr_trsnfr_count.out) @ 1
-        write_channel.this()["WLAST"] = (max_trnsfrs.out != curr_trsnfr_count.out) @ 0
+        write_channel.this()["WLAST"] = (max_transfers.out == curr_trsnfr_count.out) @ 1
+        write_channel.this()["WLAST"] = (max_transfers.out != curr_trsnfr_count.out) @ 0
 
         # set high when WLAST is high and a handshake occurs
         n_finished_last_trnsfr.in_ = (
-            (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+            (max_transfers.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
         ) @ 0
         n_finished_last_trnsfr.write_en = (
-            (max_trnsfrs.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+            (max_transfers.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
         ) @ 1
 
         # done after handshake
@@ -457,10 +457,13 @@ def add_main_comp(prog, mems):
     aw_channel = prog.get_component("m_aw_channel")
     bresp_channel = prog.get_component("m_bresp_channel")
 
-    # Inputs/Outputs
-    main_control = []
+    curr_addr_axi_par = []
+    curr_addr_internal_par = []
+    reads_par = []
+    writes_par = []
     for mem in mems:
         mem_name = mem["name"]
+        # Inputs/Outputs
         main_inputs = [
                 (f"{mem_name}_ARESETn", 1),
                 (f"{mem_name}_ARREADY", 1),
@@ -550,18 +553,20 @@ def add_main_comp(prog, mems):
         # set up internal control blocks
         #TODO: turn these into parts of a par block
         this_component = main_comp.this()
+
         ar_channel_invoke = invoke(
-                # main_comp.get_cell(f"ar_channel_{mem_name}"),
-                main_comp.get_cell(f"ar_channel_{mem_name}"),
-                ref_curr_addr_axi=curr_addr_axi,
-                in_ARESETn=this_component[f"{mem_name}_ARESETn"],
-                in_ARREADY=this_component[f"{mem_name}_ARREADY"],
-                out_AVALID=this_component[f"{mem_name}_ARVALID"],
-                out_ARADDR=this_component[f"{mem_name}_ARADDR"],
-                out_ARSIZE=this_component[f"{mem_name}_ARSIZE"],
-                out_ARLEN=this_component[f"{mem_name}_ARLEN"],
-                out_ARBURST=this_component[f"{mem_name}_ARBURST"],
-            )
+            # main_comp.get_cell(f"ar_channel_{mem_name}"),
+            main_comp.get_cell(f"ar_channel_{mem_name}"),
+            ref_curr_addr_axi=curr_addr_axi,
+            in_ARESETn=this_component[f"{mem_name}_ARESETn"],
+            in_ARREADY=this_component[f"{mem_name}_ARREADY"],
+            out_ARVALID=this_component[f"{mem_name}_ARVALID"],
+            out_ARADDR=this_component[f"{mem_name}_ARADDR"],
+            out_ARSIZE=this_component[f"{mem_name}_ARSIZE"],
+            out_ARLEN=this_component[f"{mem_name}_ARLEN"],
+            out_ARBURST=this_component[f"{mem_name}_ARBURST"]
+        )
+
         read_channel_invoke = invoke(
             main_comp.get_cell(f"read_channel_{mem_name}"),
             ref_mem_ref = internal_mem,
@@ -575,11 +580,63 @@ def add_main_comp(prog, mems):
             in_RRESP = this_component[f"{mem_name}_RRESP"],
             out_RREADY = this_component[f"{mem_name}_RREADY"]
         )
-        #TODO: We want to have a par block of 3 sequences.
-        #The below creates a seq of 3 par blocks of sequences
-        par_block = par([ar_channel_invoke, read_channel_invoke])
-        main_comp.control += [par_block]
 
+        aw_channel_invoke = invoke(
+            main_comp.get_cell(f"aw_channel_{mem_name}"),
+            ref_curr_addr_axi = curr_addr_axi,
+            ref_max_transfers = max_transfers,
+            in_ARESETn = this_component[f"{mem_name}_ARESETn"],
+            in_AWREADY = this_component[f"{mem_name}_AWREADY"],
+            out_AWVALID = this_component[f"{mem_name}_AWVALID"],
+            out_AWADDR = this_component[f"{mem_name}_AWADDR"],
+            out_AWSIZE = this_component[f"{mem_name}_AWSIZE"],
+            out_AWLEN = this_component[f"{mem_name}_AWLEN"],
+            out_AWBURST = this_component[f"{mem_name}_AWBURST"],
+            out_AWPROT = this_component[f"{mem_name}_AWPROT"]
+        )
+
+        write_channel_invoke = invoke(
+            main_comp.get_cell(f"write_channel_{mem_name}"),
+            ref_mem_ref = internal_mem,
+            ref_curr_addr_internal_mem = curr_addr_internal_mem,
+            ref_curr_addr_axi = curr_addr_axi,
+            ref_max_transfers = max_transfers,
+            in_ARESETn = this_component[f"{mem_name}_ARESETn"],
+            in_WREADY = this_component[f"{mem_name}_WREADY"],
+            out_WVALID = this_component[f"{mem_name}_WVALID"],
+            out_WLAST = this_component[f"{mem_name}_WLAST"],
+            out_WDATA = this_component[f"{mem_name}_WDATA"],
+        )
+
+        bresp_channel_invoke = invoke(
+            main_comp.get_cell(f"bresp_channel_{mem_name}"),
+            in_BVALID = this_component[f"{mem_name}_BVALID"],
+            out_BREADY = this_component[f"{mem_name}_BREADY"]
+        )
+
+        curr_addr_axi_invoke = invoke(
+            curr_addr_axi, in_in=0x1000
+        )
+        curr_addr_internal_invoke = invoke(
+            curr_addr_internal_mem, in_in=0x0000
+        )
+
+        curr_addr_axi_par.append(curr_addr_axi_invoke)
+        curr_addr_internal_par.append(curr_addr_internal_invoke)
+        reads_par.append([ar_channel_invoke, read_channel_invoke])
+        writes_par.append([aw_channel_invoke, write_channel_invoke, bresp_channel_invoke])
+
+    #Compiler should reschedule these 2 seqs to be in parallel right?
+    main_comp.control += par(*curr_addr_axi_par)
+    main_comp.control += par(*curr_addr_internal_par)
+
+    main_comp.control += par(*reads_par)
+    # main_comp.control += TODO: vec_add_cell_invoke
+    # Reset axi adress to 0
+    main_comp.control += par(*curr_addr_axi_par)
+    main_comp.control += par(*writes_par)
+
+    
     # Control
     # init_par = par()
     # TODO!!!: Move par of seqs outside of for loop
