@@ -128,7 +128,7 @@ impl ScheduleCompaction {
 
             // First we build the schedule.
             for i in order {
-                // Start time is when the latest dependency finishes
+                // Start time is when the latest depexndency finishes
                 let start = dependency
                     .get(&i)
                     .unwrap()

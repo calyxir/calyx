@@ -503,6 +503,26 @@ impl InferenceAnalysis {
         seq.update_static(&self.static_component_latencies);
     }
 
+    pub fn fixup_par(&self, par: &mut ir::Par) {
+        par.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_if(&self, _if: &mut ir::If) {
+        _if.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_while(&self, _while: &mut ir::While) {
+        _while.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_repeat(&self, repeat: &mut ir::Repeat) {
+        repeat.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_ctrl(&self, ctrl: &mut ir::Control) {
+        ctrl.update_static(&self.static_component_latencies);
+    }
+
     /// "Fixes Up" the component. In particular:
     /// 1. Removes @promotable annotations for any groups that write to any
     /// `updated_components`.

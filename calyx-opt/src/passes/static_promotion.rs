@@ -1,5 +1,5 @@
 use crate::analysis::{
-    CompactionAnalysis, InferenceAnalysis, PromotionAnalysis,
+    CompactionAnalysis, InferenceAnalysis, PromotionAnalysis, WithStatic,
 };
 use crate::traversal::{
     Action, ConstructVisitor, Named, Order, ParseVal, PassOpt, VisResult,
@@ -374,13 +374,16 @@ impl Visitor for StaticPromotion {
                         // It has a known latency but also produces a done signal.
                         comp.attributes.insert(ir::BoolAttr::Promoted, 1);
                     }
+                    // (Possibly) new latency because of compaction
+                    let new_latency = NonZeroU64::new(
+                        comp.control.borrow().get_latency().unwrap(),
+                    )
+                    .unwrap();
                     // This makes the component appear as a static<n> component.
-                    comp.latency = Some(
-                        NonZeroU64::new(
-                            comp.control.borrow().get_latency().unwrap(),
-                        )
-                        .unwrap(),
-                    );
+                    comp.latency = Some(new_latency);
+                    // Adjust inference analysis to account for this new latency.
+                    self.inference_analysis
+                        .adjust_component((comp.name, new_latency.into()));
                 } else {
                     // We decided not to promote, so we need to update data structures.
                     // This case should only happen on @promotable components
@@ -398,7 +401,7 @@ impl Visitor for StaticPromotion {
                     .remove(ir::NumAttr::Promotable);
             }
         }
-        // Remove @promotable (i.e., @promote_static) attribute from control.
+        // Remove @promotable attribute from control.
         // Probably not necessary, since we'll ignore it anyways, but makes for
         // cleaner code.
         InferenceAnalysis::remove_promotable_attribute(
@@ -469,34 +472,9 @@ impl Visitor for StaticPromotion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        self.inference_analysis.fixup_seq(s);
+
         let mut builder = ir::Builder::new(comp, sigs);
-        // Checking if entire seq is promotable
-        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
-            // If seq is too small to promote, then continue without doing anything.
-            if Self::approx_control_vec_size(&s.stmts) <= self.threshold {
-                return Ok(Action::Continue);
-            } else if self.within_cycle_limit(latency) {
-                // We promote entire seq.
-                let sseq = ir::Control::Static(ir::StaticControl::seq(
-                    self.promotion_analysis.convert_vec_to_static(
-                        &mut builder,
-                        std::mem::take(&mut s.stmts),
-                    ),
-                    latency,
-                ));
-                // sseq.get_mut_attributes()
-                //     .insert(ir::NumAttr::Compactable, 1);
-                return Ok(Action::change(sseq));
-            }
-        }
-        // The seq either a) takes too many cylces to promote entirely or
-        // b) has dynamic stmts in it. Either way, the solution is to
-        // break it up into smaller static seqs.
-        // We know that this seq will *never* be promoted. Therefore, we can
-        // safely replace it with a standard `seq` that does not have an `@promotable`
-        // attribute. This temporarily messes up  its parents' `@promotable`
-        // attribute, but this is fine since we know its parent will never try
-        // to promote it.
         let old_stmts = std::mem::take(&mut s.stmts);
         let mut new_stmts: Vec<ir::Control> = Vec::new();
         let mut cur_vec: Vec<ir::Control> = Vec::new();
@@ -506,7 +484,7 @@ impl Visitor for StaticPromotion {
             } else {
                 // Use heuristics to decide how to promote this cur_vec of promotable stmts.
                 let possibly_promoted_stmts =
-                    self.promote_vec_seq_heuristic(&mut builder, cur_vec);
+                    self.promote_seq_heuristic(&mut builder, cur_vec);
                 new_stmts.extend(possibly_promoted_stmts);
                 // Add the current (non-promotable) stmt
                 new_stmts.push(stmt);
@@ -514,12 +492,17 @@ impl Visitor for StaticPromotion {
                 cur_vec = Vec::new();
             }
         }
-        new_stmts.extend(self.promote_vec_seq_heuristic(&mut builder, cur_vec));
-        let new_seq = ir::Control::Seq(ir::Seq {
-            stmts: new_stmts,
-            attributes: ir::Attributes::default(),
-        });
-        Ok(Action::change(new_seq))
+        new_stmts.extend(self.promote_seq_heuristic(&mut builder, cur_vec));
+        let mut new_ctrl = if new_stmts.len() == 1 {
+            new_stmts.pop().unwrap()
+        } else {
+            ir::Control::Seq(ir::Seq {
+                stmts: new_stmts,
+                attributes: ir::Attributes::default(),
+            })
+        };
+        self.inference_analysis.fixup_ctrl(&mut new_ctrl);
+        Ok(Action::change(new_ctrl))
     }
 
     fn finish_par(
@@ -529,6 +512,8 @@ impl Visitor for StaticPromotion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        self.inference_analysis.fixup_par(s);
+
         let mut builder = ir::Builder::new(comp, sigs);
         // Check if entire par is promotable
         if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
@@ -578,6 +563,7 @@ impl Visitor for StaticPromotion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        self.inference_analysis.fixup_if(s);
         let mut builder = ir::Builder::new(comp, sigs);
         if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             let approx_size_if = Self::approx_size(&s.tbranch)
@@ -627,6 +613,8 @@ impl Visitor for StaticPromotion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        self.inference_analysis.fixup_while(s);
+
         let mut builder = ir::Builder::new(comp, sigs);
         // First check that while loop is promotable
         if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
@@ -672,6 +660,8 @@ impl Visitor for StaticPromotion {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        self.inference_analysis.fixup_repeat(s);
+
         let mut builder = ir::Builder::new(comp, sigs);
         if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             let approx_size =
