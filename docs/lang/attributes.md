@@ -83,6 +83,9 @@ Calyx-defined components).
 This tells the compiler that if you assert the `@go` port for cycles `[0,n)`, then
 the done signal will be asserted on cycle `n`.
 This is different from `@promotable` since it provides a guarantee rather than a hint.
+Attach `@interval` to `@go` ports essentially means that the component can serve
+"double duty": it can be used in both static and dynamic contexts.
+This is common for things like registers.
 
 ### `inline`
 Used by the `inline` pass on cell definitions. Instructs the pass to completely
