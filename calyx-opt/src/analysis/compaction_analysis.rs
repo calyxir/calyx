@@ -61,10 +61,6 @@ impl CompactionAnalysis {
     pub fn compact_control_vec(
         &mut self,
         stmts: Vec<ir::Control>,
-        (cont_reads, cont_writes): (
-            &Vec<ir::RRC<ir::Cell>>,
-            &Vec<ir::RRC<ir::Cell>>,
-        ),
         promotion_analysis: &mut PromotionAnalysis,
         builder: &mut ir::Builder,
     ) -> Vec<ir::Control> {
@@ -85,7 +81,7 @@ impl CompactionAnalysis {
 
         let mut total_order = ControlOrder::<false>::get_dependency_graph_seq(
             stmts.into_iter(),
-            (cont_reads, cont_writes),
+            (&self.cont_reads, &self.cont_writes),
             &mut dependency,
             &mut latency_map,
         );
@@ -193,10 +189,13 @@ impl CompactionAnalysis {
                 par_control_threads.iter().map(|c| c.get_latency()).max();
             assert!(max.unwrap() == total_time, "The schedule expects latency {}. The static par that was built has latency {}", total_time, max.unwrap());
 
-            par_control_threads
-                .into_iter()
-                .map(|sc| ir::Control::Static(sc))
-                .collect()
+            let mut s_par = ir::StaticControl::Par(ir::StaticPar {
+                stmts: par_control_threads,
+                attributes: ir::Attributes::default(),
+                latency: total_time,
+            });
+            s_par.get_mut_attributes().insert(ir::BoolAttr::Promoted, 1);
+            return vec![ir::Control::Static(s_par)];
         } else {
             panic!(
                 "Error when producing topo sort. Dependency graph has a cycle."

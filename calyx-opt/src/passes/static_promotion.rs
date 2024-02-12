@@ -189,11 +189,11 @@ impl StaticPromotion {
         mut control_vec: Vec<ir::Control>,
     ) -> Vec<ir::Control> {
         if control_vec.is_empty() {
-            // Base case
+            // Base case len == 0
             return vec![];
         } else if control_vec.len() == 1 {
-            // Base case. Promote if
-            // self.promotion_analysis.
+            // Base case len == 1.
+            // Promote if it fits the promotion heuristics.
             let mut stmt = control_vec.pop().unwrap();
             if self.fits_heuristics(&stmt) {
                 return vec![ir::Control::Static(
@@ -204,22 +204,37 @@ impl StaticPromotion {
                 return vec![stmt];
             }
         } else {
-            if true {
-            } else if Self::approx_control_vec_size(&control_vec)
+            let mut possibly_compacted_ctrl =
+                self.compaction_analysis.compact_control_vec(
+                    control_vec,
+                    &mut self.promotion_analysis,
+                    builder,
+                );
+            // If length == 1 this means we have a vec[compacted_static_par],
+            // so we can return
+            if possibly_compacted_ctrl.len() == 1 {
+                return possibly_compacted_ctrl;
+            }
+            // Otherwise we cannot compact at all,
+            // so go through normal promotion heuristic analysis.
+            if Self::approx_control_vec_size(&possibly_compacted_ctrl)
                 <= self.threshold
             {
                 // Too small to be promoted, return as is
-                return control_vec;
+                return possibly_compacted_ctrl;
             } else if !self.within_cycle_limit(
-                control_vec
+                possibly_compacted_ctrl
                     .iter()
                     .map(PromotionAnalysis::get_inferred_latency)
                     .sum(),
             ) {
                 // Too large, try to break up
-                let right = control_vec.split_off(control_vec.len() / 2);
-                let mut left_res =
-                    self.promote_vec_seq_heuristic(builder, control_vec);
+                let right = possibly_compacted_ctrl
+                    .split_off(possibly_compacted_ctrl.len() / 2);
+                let mut left_res = self.promote_vec_seq_heuristic(
+                    builder,
+                    possibly_compacted_ctrl,
+                );
                 let right_res = self.promote_vec_seq_heuristic(builder, right);
                 left_res.extend(right_res);
                 return left_res;
@@ -227,7 +242,7 @@ impl StaticPromotion {
             // Correct size, convert the entire vec
             let s_seq_stmts = self
                 .promotion_analysis
-                .convert_vec_to_static(builder, control_vec);
+                .convert_vec_to_static(builder, possibly_compacted_ctrl);
             let latency = s_seq_stmts.iter().map(|sc| sc.get_latency()).sum();
             let sseq = ir::Control::Static(ir::StaticControl::seq(
                 s_seq_stmts,
