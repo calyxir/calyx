@@ -3,7 +3,6 @@ use std::ops::Not;
 use bitvec::vec::BitVec;
 
 use crate::{
-    errors::InterpreterResult,
     flatten::{
         flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
         primitives::{

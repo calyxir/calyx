@@ -1,4 +1,3 @@
-use ahash::HashSet;
 use itertools::Itertools;
 
 use super::{assignments::AssignmentBundle, program_counter::ProgramCounter};
@@ -20,8 +19,7 @@ use crate::{
         },
         primitives::{self, prim_trait::UpdateStatus, Primitive},
         structures::{
-            environment::program_counter::{ControlPoint, SearchPath},
-            index_trait::IndexRef,
+            environment::program_counter::ControlPoint, index_trait::IndexRef,
         },
     },
     values::Value,
@@ -137,9 +135,9 @@ impl CellLedger {
     }
 
     #[must_use]
-    pub(crate) fn as_primitive(&self) -> Option<&Box<dyn Primitive>> {
+    pub(crate) fn as_primitive(&self) -> Option<&dyn Primitive> {
         if let Self::Primitive { cell_dyn } = self {
-            Some(cell_dyn)
+            Some(&**cell_dyn)
         } else {
             None
         }
@@ -843,20 +841,8 @@ impl<'a> Simulator<'a> {
 
     pub fn _main_test(&mut self) {
         self.env.print_pc();
-        for _x in self.env.pc.iter() {
-            // println!("{:?} next {:?}", x, self.find_next_control_point(x))
-        }
-
-        // for _ in 0..15 {
-        //     self.step();
-        //     println!();
-        //     self.env.print_pc();
-        //     println!();
-        // }
-
-        self.run_program();
+        let _ = self.run_program();
         self.env.print_pc();
         self.print_env();
-        // println!("{:?}", self.get_assignments())
     }
 }

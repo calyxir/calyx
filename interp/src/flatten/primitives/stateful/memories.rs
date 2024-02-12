@@ -1,7 +1,7 @@
 use crate::{
-    errors::{InterpreterError, InterpreterResult},
+    errors::InterpreterError,
     flatten::{
-        flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
+        flat_ir::prelude::{AssignedValue, GlobalPortIdx},
         primitives::{
             declare_ports, make_getters, ports,
             prim_trait::{UpdateResult, UpdateStatus},
@@ -408,7 +408,7 @@ impl<M: MemAddresser> Primitive for CombMem<M> {
                 AssignedValue::cell_value(self.internal_state[addr].clone()),
             )? | done)
         } else {
-            port_map.write_undef(read_data);
+            port_map.write_undef(read_data)?;
             Ok(done)
         }
     }

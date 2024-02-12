@@ -1,19 +1,10 @@
 use crate::{
-    errors::InterpreterResult,
-    interpreter::ComponentInterpreter,
-    serialization::Serializable,
-    structures::state_views::{FullySerialize, StateView},
-    utils::PrintCode,
-    values::Value,
+    errors::InterpreterResult, interpreter::ComponentInterpreter,
+    serialization::Serializable, structures::state_views::StateView,
+    utils::PrintCode, values::Value,
 };
 
 use calyx_ir as ir;
-use fraction::Fraction;
-
-use itertools::Itertools;
-use serde::Serialize;
-use std::fmt::Debug;
-use std::fmt::Display;
 
 /// A trait indicating that the thing has a name
 pub trait Named {
