@@ -419,15 +419,17 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
         x
         for x in (
             init,
-            if_with(
-                CellAndGroup(
-                    lt,
-                    comp.get_group("is_negative"),
-                ),
-                comp.get_group("negate"),
-            )
-            if is_signed
-            else [],
+            (
+                if_with(
+                    CellAndGroup(
+                        lt,
+                        comp.get_group("is_negative"),
+                    ),
+                    comp.get_group("negate"),
+                )
+                if is_signed
+                else []
+            ),
             split_bits,
             pow_invokes,
             consume_pow,
@@ -435,15 +437,17 @@ def generate_control(comp: ComponentBuilder, degree: int, is_signed: bool):
             *divide_and_conquer,
             comp.get_group("add_degree_zero"),
             comp.get_group("final_multiply"),
-            if_with(
-                CellAndGroup(
-                    lt,
-                    comp.get_group("is_negative"),
-                ),
-                comp.get_group("reciprocal"),
-            )
-            if is_signed
-            else [],
+            (
+                if_with(
+                    CellAndGroup(
+                        lt,
+                        comp.get_group("is_negative"),
+                    ),
+                    comp.get_group("reciprocal"),
+                )
+                if is_signed
+                else []
+            ),
         )
         if x != []
     ]
@@ -691,9 +695,9 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     main = builder.component("main")
     base_reg = main.reg("base_reg", width)
     exp_reg = main.reg("exp_reg", width)
-    x = main.mem_d1("x", width, 1, 1, is_external=True)
-    b = main.mem_d1("b", width, 1, 1, is_external=True)
-    ret = main.mem_d1("ret", width, 1, 1, is_external=True)
+    x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
+    b = main.comb_mem_d1("b", width, 1, 1, is_external=True)
+    ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
     f = main.comp_instance("f", "fp_pow_full")
 
     read_base = main.mem_load_std_d1(b, 0, base_reg, "read_base")
@@ -727,8 +731,8 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
     main = builder.component("main")
 
     t = main.reg("t", width)
-    x = main.mem_d1("x", width, 1, 1, is_external=True)
-    ret = main.mem_d1("ret", width, 1, 1, is_external=True)
+    x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
+    ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
     e = main.comp_instance("e", "exp")
 
     with main.group("init") as init:

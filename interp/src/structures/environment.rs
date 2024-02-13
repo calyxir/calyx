@@ -260,7 +260,7 @@ impl InterpreterState {
             "std_pad" => Box::new(combinational::StdPad::new(params, cell_qin)),
             // State components
             "std_reg" => Box::new(stateful::mem::StdReg::new(params, cell_qin)),
-            "std_mem_d1" => {
+            "comb_mem_d1" => {
                 let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
@@ -279,7 +279,7 @@ impl InterpreterState {
                     )),
                 }
             }
-            "std_mem_d2" => {
+            "comb_mem_d2" => {
                 let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
@@ -298,7 +298,7 @@ impl InterpreterState {
                     )),
                 }
             }
-            "std_mem_d3" => {
+            "comb_mem_d3" => {
                 let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {
@@ -317,7 +317,7 @@ impl InterpreterState {
                     )),
                 }
             }
-            "std_mem_d4" => {
+            "comb_mem_d4" => {
                 let init = mems.as_mut().and_then(|x| x.remove(&cell_name));
 
                 match init {

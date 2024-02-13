@@ -394,8 +394,8 @@ if __name__ == "__main__":
     # main component for testing purposes
     main = builder.component("main")
     x = main.reg("x", width)
-    in_ = main.mem_d1("in", width, 1, 1, is_external=True)
-    out = main.mem_d1("out", width, 1, 1, is_external=True)
+    in_ = main.comb_mem_d1("in", width, 1, 1, is_external=True)
+    out = main.comb_mem_d1("out", width, 1, 1, is_external=True)
     ln = main.comp_instance("l", "ln")
 
     with main.group("read_in_mem") as read_in_mem:

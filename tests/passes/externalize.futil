@@ -1,11 +1,12 @@
 // -p externalize
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
-    @external(1) A = std_mem_d1(32, 16, 4);
-    B = std_mem_d1(32, 16, 4);
+    @external(1) A = comb_mem_d1(32, 16, 4);
+    B = comb_mem_d1(32, 16, 4);
     state = std_reg(32);
   }
   wires {

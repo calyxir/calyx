@@ -1,5 +1,6 @@
 // -p compile-empty
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {

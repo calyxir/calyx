@@ -359,11 +359,13 @@ def emit(prog: ast.Prog, use_my_map_impl: bool = False):
             par = par_factor[name]
             # ANCHOR: collect-decls
             for i in range(par):
-                main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32, is_external=True)
+                main.comb_mem_d1(
+                    f"{name}_b{i}", 32, arr_size // par, 32, is_external=True
+                )
             # ANCHOR_END: collect-decls
         else:  # A register
             name = decl.name
-            mem = main.mem_d1(name, 32, 1, 32, is_external=True)
+            mem = main.comb_mem_d1(name, 32, 1, 32, is_external=True)
             reg = main.reg(f"{name}_reg", 32)
             if not decl.input:
                 reg_to_mem.append(Enable(reg_to_mem_group(main, name, reg, mem)))
@@ -380,7 +382,7 @@ def emit(prog: ast.Prog, use_my_map_impl: bool = False):
                 name = stmt.dst
                 par = par_factor[name]
                 for i in range(par):
-                    main.mem_d1(f"{name}_b{i}", 32, arr_size // par, 32)
+                    main.comb_mem_d1(f"{name}_b{i}", 32, arr_size // par, 32)
             else:
                 raise NotImplementedError("Generating register declarations")
                 #  cells.append(emit_reg_decl(stmt.dest, 32))

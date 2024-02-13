@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component check(left: 4, right: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 1, @done done: 1) {
   cells {
     lt = std_lt(4);

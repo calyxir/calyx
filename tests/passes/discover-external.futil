@@ -1,5 +1,6 @@
 // -p validate -p discover-external -p validate -x discover-external:default=16 -x discover-external:strip-suffix=_
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component mlir_funcSYCL_class_vector_addition<"toplevel"=1>(
   ext_mem0_read_data: 32,
   ext_mem0_done: 1,

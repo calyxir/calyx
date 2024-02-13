@@ -1,5 +1,6 @@
 // -p well-formed -p simplify-with-control -p cell-share -p dead-cell-removal -p remove-ids
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component main() -> () {
   cells {
     r = std_reg(32);

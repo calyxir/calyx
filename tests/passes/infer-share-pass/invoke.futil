@@ -1,16 +1,17 @@
 //-p infer-share
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 
-// share is just some user defined component that should be shareable 
-// share1 makes sure that invoke component(..)(..) counts as a write to component. 
-// share2 is making sure that invoke component(..)(out = a.in) counts a write to a. 
-// share3 is making sure that for invoke component()(), if outputs are empty, it 
+// share is just some user defined component that should be shareable
+// share1 makes sure that invoke component(..)(..) counts as a write to component.
+// share2 is making sure that invoke component(..)(out = a.in) counts a write to a.
+// share3 is making sure that for invoke component()(), if outputs are empty, it
 // *doesn't* count as a read of component.
-// non_share makes sure that invoke component(in = a.out .. )(..), it counts as a read of a. 
-// non_share2 is making sure that for invoke component(..)(out = ..) counts as a 
-// read of component, since outputs are nonemtpy. 
+// non_share makes sure that invoke component(in = a.out .. )(..), it counts as a read of a.
+// non_share2 is making sure that for invoke component(..)(out = ..) counts as a
+// read of component, since outputs are nonemtpy.
 
 component share(in: 32) -> (out: 32) {
   cells {
@@ -19,8 +20,8 @@ component share(in: 32) -> (out: 32) {
   }
   wires {
     group A {
-      add_32.left = in; 
-      add_32.right = 32'd5; 
+      add_32.left = in;
+      add_32.right = 32'd5;
       r.in = add_32.out;
       r.write_en = 1'd1;
       A[done] = r.done;
@@ -39,11 +40,11 @@ component share1(in: 32) -> (out: 32) {
   }
   wires {
     group readS {
-      r.write_en = 1'd1; 
-      r.in = s.out; 
-      readS[done] = r.done; 
+      r.write_en = 1'd1;
+      r.in = s.out;
+      readS[done] = r.done;
     }
-    out = r.out; 
+    out = r.out;
   }
   control {
     seq{
@@ -61,20 +62,20 @@ component share2(in: 32) -> (out: 32) {
   }
   wires {
     group readR{
-      q.write_en = 1'd1; 
-      q.in = r.out; 
-      readR[done] = q.done; 
+      q.write_en = 1'd1;
+      q.in = r.out;
+      readR[done] = q.done;
     }
     group wrS{
-      s.go = 1'd1; 
-      s.in = 32'd5; 
-      wrS[done] = s.done; 
+      s.go = 1'd1;
+      s.in = 32'd5;
+      wrS[done] = s.done;
     }
-    out = q.out; 
+    out = q.out;
   }
   control {
     seq{
-      wrS; 
+      wrS;
       invoke s(in = in)(out = r.in);
       readR;
     }
@@ -119,7 +120,7 @@ component non_share2(in: 32) -> (out: 32) {
     r = std_reg(32);
   }
   wires {
-    out = s.out; 
+    out = s.out;
   }
   control {
     seq{
