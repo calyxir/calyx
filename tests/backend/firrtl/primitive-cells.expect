@@ -19,6 +19,10 @@ circuit main:
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
+        out is invalid ; invalidate all output ports.
+        out <= UInt(0)
+        done is invalid ; invalidate all output ports.
+        done <= UInt(0)
         ; COMPONENT START: plus_one
         inst add of std_add_32
         done <= UInt(1)
@@ -32,12 +36,12 @@ circuit main:
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
+        done is invalid ; invalidate all output ports.
+        done <= UInt(0)
         ; COMPONENT START: main
         inst po of plus_one
         inst invoke0_go of std_wire_1
         inst invoke0_done of std_wire_1
-        done is invalid ; default initialization
-        done <= UInt(0)
         when invoke0_done.out:
             done <= UInt(1)
         invoke0_go.in <= go
