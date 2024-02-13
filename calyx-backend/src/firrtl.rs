@@ -82,6 +82,8 @@ fn emit_component<F: io::Write>(
     comp: &ir::Component,
     f: &mut F,
 ) -> io::Result<()> {
+    let mut dst_set: HashSet<ir::Canonical> = HashSet::new();
+
     writeln!(f, "{}module {}:", SPACING, comp.name)?;
 
     // Inputs and Outputs
@@ -89,6 +91,25 @@ fn emit_component<F: io::Write>(
     for (_idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
         emit_port(port, true, f)?;
+    }
+
+    // write invalid statements for all output ports.
+    // FIXME: very hacky and code-cloney. I just need to get something to work for the deadline...
+    for (_idx, port_ref) in sig.ports.iter().enumerate() {
+        let port = port_ref.borrow();
+        match port.direction {
+            // hack to prevent FIRRTL to not get angry about non-initialized output ports.
+            calyx_frontend::Direction::Input => {
+                writeln!(
+                    f,
+                    "{}{} is invalid ; invalidate all output ports.",
+                    SPACING.repeat(2),
+                    port.name
+                )?;
+                dst_set.insert(port.canonical());
+            }
+            _ => {}
+        }
     }
 
     // Add a COMPONENT START: <name> anchor before any code in the component
@@ -118,7 +139,6 @@ fn emit_component<F: io::Write>(
         }
     }
 
-    let mut dst_set: HashSet<ir::Canonical> = HashSet::new();
     // Emit assignments
     for asgn in &comp.continuous_assignments {
         match asgn.guard.as_ref() {
