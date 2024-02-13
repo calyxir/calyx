@@ -97,18 +97,15 @@ fn emit_component<F: io::Write>(
     // FIXME: very hacky and code-cloney. I just need to get something to work for the deadline...
     for (_idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
-        match port.direction {
-            // hack to prevent FIRRTL to not get angry about non-initialized output ports.
-            calyx_frontend::Direction::Input => {
-                writeln!(
-                    f,
-                    "{}{} is invalid ; invalidate all output ports.",
-                    SPACING.repeat(2),
-                    port.name
-                )?;
-                dst_set.insert(port.canonical());
-            }
-            _ => {}
+        // hack to prevent FIRRTL to not get angry about non-initialized output ports.
+        if port.direction == calyx_frontend::Direction::Input {
+            writeln!(
+                f,
+                "{}{} is invalid ; invalidate all output ports.",
+                SPACING.repeat(2),
+                port.name
+            )?;
+            dst_set.insert(port.canonical());
         }
     }
 
