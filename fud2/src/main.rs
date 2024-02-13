@@ -227,7 +227,7 @@ fn build_driver() -> Driver {
             "gen-testbench-script",
             "$calyx-base/tools/firrtl/generate-testbench.py"
         )?;
-        e.var("additional_input", &format!("{}/comb_mem_d1.sv", e.config_val("rsrc")?))?;
+        e.var("additional_input", &format!("{}/memories.sv", e.config_val("rsrc")?))?;
 
         e.rule("generate-refmem-testbench",
         "python3 $gen-testbench-script $in | tee $testbench $out"

@@ -14,30 +14,42 @@ def generate_fields(memory_cell_dicts):
          else:
               out_str += f"wire {name}_addr0;\n"
          out_str += f"wire [{width-1}:0] {name}_write_data;\n"
-         out_str += f"wire {name}_write_en;\n"
          out_str += f"wire [{width-1}:0] {name}_read_data;\n"
-         out_str += f"wire {name}_done;\n\n"
+         out_str += f"wire {name}_write_en;\n"
+         if "comb_mem_d1" == memory_cell_dict['module-name']:
+              out_str += f"wire {name}_done;\n\n"
+         else: # seq_mem_d1 has more ports.
+              out_str += f'''wire {name}_read_en;
+wire {name}_write_done;
+wire {name}_read_done;\n\n'''
 
     return out_str
 
 def generate_memory_dec(memory_cell_dicts):
      out_str = ""
      for memory_cell_dict in memory_cell_dicts:
+          module_name = memory_cell_dict['module-name']
           name = memory_cell_dict['cell-name']
-          out_str += f'''comb_mem_d1 # (
+          out_str += f'''{module_name} # (
     .IDX_SIZE({memory_cell_dict["IDX_SIZE"]}),
     .SIZE({memory_cell_dict["SIZE"]}),
     .WIDTH({memory_cell_dict["WIDTH"]})
 ) {name} (
     .addr0({name}_addr0),
     .clk(clk),
-    .done({name}_done),
     .read_data({name}_read_data),
     .reset(reset),
     .write_data({name}_write_data),
-    .write_en({name}_write_en)
-);
+    .write_en({name}_write_en),
 '''
+          if "comb_mem_d1" == memory_cell_dict['module-name']:
+               out_str += f"    .done({name}_done)\n"
+          else:
+               out_str += f'''    .read_en({name}_read_en),
+    .read_done({name}_read_done),
+    .write_done({name}_write_done)
+'''
+          out_str += ");\n\n"
      return out_str
 
 def generate_main_decl(memory_cell_dicts):
@@ -54,10 +66,15 @@ def generate_main_decl(memory_cell_dicts):
           out_str += ",\n"
           out_str += f'''  .{name}_addr0({name}_addr0),
   .{name}_write_data({name}_write_data),
-  .{name}_write_en({name}_write_en),
   .{name}_read_data({name}_read_data),
-  .{name}_done({name}_done)
+  .{name}_write_en({name}_write_en),
 '''
+          if "comb_mem_d1" == memory_cell_dict["module-name"]:
+               out_str += f"  .{name}_done({name}_done)"
+          else:
+               out_str += f'''  .{name}_read_en({name}_read_en),
+  .{name}_write_done({name}_write_done),
+  .{name}_read_done({name}_read_done)'''
      out_str += "\n);"
      return out_str
 
@@ -77,23 +94,34 @@ def generate_writememh(memory_cell_dicts):
                out_str += f"    $writememh({{DATA, \"/{name}.out\"}}, {name}.mem);\n"
           out_str += "end"
      return out_str
-         
+
+def create_memory_cell_dict(line, module_name):
+     memory_cell_dict = {}
+     # parse line that contains a ref cell
+     memory_cell_dict["cell-name"] = line.lstrip().split()[1]
+     memory_cell_dict["module-name"] = module_name
+     # we're assuming that comb_mem_d1 for now
+     args = line.split(f"{module_name}(")[1].split(")")[0].split(",")
+     memory_cell_dict["WIDTH"] = int(args[0])
+     memory_cell_dict["SIZE"] = int(args[1])
+     memory_cell_dict["IDX_SIZE"] = int(args[2])
+     return memory_cell_dict
+
 def get_memory_cells(calyx_program):
      memory_cell_dicts = []
      with open(calyx_program) as f:
           for line in f:
                if "comb_mem_d1" in line:
-                    memory_cell_dict = {}
-                    # parse line that contains a ref cell
-                    memory_cell_dict["cell-name"] = line.lstrip().split()[1]
-                    # we're assuming that comb_mem_d1 for now
-                    args = line.split("comb_mem_d1(")[1].split(")")[0].split(",")
-                    memory_cell_dict["WIDTH"] = int(args[0])
-                    memory_cell_dict["SIZE"] = int(args[1])
-                    memory_cell_dict["IDX_SIZE"] = int(args[2])
+                    memory_cell_dict = create_memory_cell_dict(line, "comb_mem_d1")
                     memory_cell_dicts.append(memory_cell_dict)
-
+               elif "seq_mem_d1" in line:
+                    memory_cell_dict = create_memory_cell_dict(line, "seq_mem_d1")
+                    memory_cell_dicts.append(memory_cell_dict)
                elif "comb_mem_d" in line:
+                    print(f"Multidimensional memory found: {line}")
+                    print("Aborting.")
+                    sys.exit(1)
+               elif "seq_mem_d" in line:
                     print(f"Multidimensional memory found: {line}")
                     print("Aborting.")
                     sys.exit(1)
