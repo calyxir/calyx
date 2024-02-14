@@ -449,7 +449,7 @@ def add_bresp_channel(prog, mem):
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
 def add_main_comp(prog, mems):
-    main_comp = prog.component("main")
+    wrapper_comp = prog.component("wrapper")
     # Get handles to be used later
     read_channel = prog.get_component("m_read_channel")
     write_channel = prog.get_component("m_write_channel")
@@ -461,10 +461,15 @@ def add_main_comp(prog, mems):
     curr_addr_internal_par = []
     reads_par = []
     writes_par = []
+    ref_mem_kwargs = {}
+
+    #Create single main cell
+    main_compute = wrapper_comp.comp_instance("main_compute", "main", check_undeclared=False)
+
     for mem in mems:
         mem_name = mem["name"]
         # Inputs/Outputs
-        main_inputs = [
+        wrapper_inputs = [
                 (f"{mem_name}_ARESETn", 1),
                 (f"{mem_name}_ARREADY", 1),
                 (f"{mem_name}_RVALID", 1),
@@ -481,7 +486,7 @@ def add_main_comp(prog, mems):
                 (f"{mem_name}_RID", 1),
             ]
         
-        main_outputs = [
+        wrapper_outputs = [
                 (f"{mem_name}_ARVALID", 1),
                 (f"{mem_name}_ARADDR", 64),
                 (f"{mem_name}_ARSIZE", 3),
@@ -506,42 +511,41 @@ def add_main_comp(prog, mems):
             ]
         
 
-        add_comp_params(main_comp, main_inputs, main_outputs)
+        add_comp_params(wrapper_comp, wrapper_inputs, wrapper_outputs)
 
         # Cells
         # Read stuff
-        curr_addr_internal_mem = main_comp.reg(
+        curr_addr_internal_mem = wrapper_comp.reg(
             f"curr_addr_internal_mem_{mem_name}", clog2(mem["size"])
         )
-        curr_addr_axi = main_comp.reg(f"curr_addr_axi_{mem_name}", 64)
+        curr_addr_axi = wrapper_comp.reg(f"curr_addr_axi_{mem_name}", 64)
 
-        ar_channel_cell = main_comp.cell(f"ar_channel_{mem_name}", ar_channel)
-        main_comp.cell(f"read_channel_{mem_name}", read_channel)
+        wrapper_comp.cell(f"ar_channel_{mem_name}", ar_channel)
+        wrapper_comp.cell(f"read_channel_{mem_name}", read_channel)
 
         # TODO: Don't think these need to be marked external, but we
         # we need to raise them at some point form original calyx program
-        internal_mem = main_comp.seq_mem_d1(
+        internal_mem = wrapper_comp.seq_mem_d1(
             name=f"internal_mem_{mem_name}",
             bitwidth=mem["width"],
             len=mem["size"],
             idx_size=clog2(mem["size"]),
         )
 
-        # TODO!!!: Add vec_add / computation kernel here
 
         # Write stuff
-        max_transfers = main_comp.reg(f"max_transfers_{mem_name}", 8)
-        main_comp.cell(f"aw_channel_{mem_name}", aw_channel)
-        main_comp.cell(f"write_channel_{mem_name}", write_channel)
-        main_comp.cell(f"bresp_channel_{mem_name}", bresp_channel)
+        max_transfers = wrapper_comp.reg(f"max_transfers_{mem_name}", 8)
+        wrapper_comp.cell(f"aw_channel_{mem_name}", aw_channel)
+        wrapper_comp.cell(f"write_channel_{mem_name}", write_channel)
+        wrapper_comp.cell(f"bresp_channel_{mem_name}", bresp_channel)
 
         # Wires
 
         # Tie IDs low, needed for cocotb compatability. Not used anywhere
-        ARID = main_comp.this()[f"{mem_name}_ARID"]
-        AWID = main_comp.this()[f"{mem_name}_AWID"]
-        WID = main_comp.this()[f"{mem_name}_WID"]
-        BID = main_comp.this()[f"{mem_name}_BID"]
+        ARID = wrapper_comp.this()[f"{mem_name}_ARID"]
+        AWID = wrapper_comp.this()[f"{mem_name}_AWID"]
+        WID = wrapper_comp.this()[f"{mem_name}_WID"]
+        BID = wrapper_comp.this()[f"{mem_name}_BID"]
 
         ARID = 0
         AWID = 0
@@ -552,11 +556,11 @@ def add_main_comp(prog, mems):
 
         # set up internal control blocks
         #TODO: turn these into parts of a par block
-        this_component = main_comp.this()
+        this_component = wrapper_comp.this()
 
         ar_channel_invoke = invoke(
             # main_comp.get_cell(f"ar_channel_{mem_name}"),
-            main_comp.get_cell(f"ar_channel_{mem_name}"),
+            wrapper_comp.get_cell(f"ar_channel_{mem_name}"),
             ref_curr_addr_axi=curr_addr_axi,
             in_ARESETn=this_component[f"{mem_name}_ARESETn"],
             in_ARREADY=this_component[f"{mem_name}_ARREADY"],
@@ -568,7 +572,7 @@ def add_main_comp(prog, mems):
         )
 
         read_channel_invoke = invoke(
-            main_comp.get_cell(f"read_channel_{mem_name}"),
+            wrapper_comp.get_cell(f"read_channel_{mem_name}"),
             ref_mem_ref = internal_mem,
             ref_curr_addr_internal_mem = curr_addr_internal_mem,
             ref_curr_addr_axi = curr_addr_axi,
@@ -582,7 +586,7 @@ def add_main_comp(prog, mems):
         )
 
         aw_channel_invoke = invoke(
-            main_comp.get_cell(f"aw_channel_{mem_name}"),
+            wrapper_comp.get_cell(f"aw_channel_{mem_name}"),
             ref_curr_addr_axi = curr_addr_axi,
             ref_max_transfers = max_transfers,
             in_ARESETn = this_component[f"{mem_name}_ARESETn"],
@@ -596,7 +600,7 @@ def add_main_comp(prog, mems):
         )
 
         write_channel_invoke = invoke(
-            main_comp.get_cell(f"write_channel_{mem_name}"),
+            wrapper_comp.get_cell(f"write_channel_{mem_name}"),
             ref_mem_ref = internal_mem,
             ref_curr_addr_internal_mem = curr_addr_internal_mem,
             ref_curr_addr_axi = curr_addr_axi,
@@ -609,7 +613,7 @@ def add_main_comp(prog, mems):
         )
 
         bresp_channel_invoke = invoke(
-            main_comp.get_cell(f"bresp_channel_{mem_name}"),
+            wrapper_comp.get_cell(f"bresp_channel_{mem_name}"),
             in_BVALID = this_component[f"{mem_name}_BVALID"],
             out_BREADY = this_component[f"{mem_name}_BREADY"]
         )
@@ -625,22 +629,31 @@ def add_main_comp(prog, mems):
         curr_addr_internal_par.append(curr_addr_internal_invoke)
         reads_par.append([ar_channel_invoke, read_channel_invoke])
         writes_par.append([aw_channel_invoke, write_channel_invoke, bresp_channel_invoke])
+        #Creates `<mem_name> = internal_mem_<mem_name>` as refs in invocation of `main_compute`
+        ref_mem_kwargs[f"ref_{mem_name}"] = internal_mem
+
+
+    #Compute invoke
+    #Assumes refs should be of form `<mem_name> = internal_mem_<mem_name>`
+    main_compute_invoke = invoke(
+        wrapper_comp.get_cell("main_compute"),
+        **ref_mem_kwargs
+    )
+
 
     #Compiler should reschedule these 2 seqs to be in parallel right?
-    main_comp.control += par(*curr_addr_axi_par)
-    main_comp.control += par(*curr_addr_internal_par)
+    wrapper_comp.control += par(*curr_addr_axi_par)
+    wrapper_comp.control += par(*curr_addr_internal_par)
 
-    main_comp.control += par(*reads_par)
-    # main_comp.control += TODO: vec_add_cell_invoke
+    wrapper_comp.control += par(*reads_par)
+    wrapper_comp.control += main_compute_invoke
     # Reset axi adress to 0
-    main_comp.control += par(*curr_addr_axi_par)
-    main_comp.control += par(*writes_par)
+    wrapper_comp.control += par(*curr_addr_axi_par)
+    wrapper_comp.control += par(*writes_par)
 
     
-    # Control
-    # init_par = par()
-    # TODO!!!: Move par of seqs outside of for loop
-    # look at how to append to par blocks
+
+
 
 
 # Helper functions
