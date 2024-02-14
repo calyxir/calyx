@@ -31,8 +31,7 @@ impl fmt::Display for SharedEnvironment {
                     "{} : {}",
                     i,
                     SharedEnvironment::slice_to_usize(
-                        &self.shared_bits
-                            [self.offsets[i]..self.offsets[i + 1]]
+                        &self.shared_bits[self.offsets[i]..self.offsets[i + 1]]
                     )
                 )?;
             }
