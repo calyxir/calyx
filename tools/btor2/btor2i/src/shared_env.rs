@@ -21,22 +21,20 @@ impl fmt::Display for SharedEnvironment {
         for i in 0..self.offsets.len() - 1 {
             if self.offsets[i] == self.offsets[i + 1] {
                 writeln!(f, "{} : _", i)?;
+            } else if self.offsets[i + 1] - self.offsets[i]
+                > (usize::BITS).try_into().unwrap()
+            {
+                writeln!(f, "{} : too large to display", i)?;
             } else {
-                if self.offsets[i + 1] - self.offsets[i]
-                    > (usize::BITS).try_into().unwrap()
-                {
-                    writeln!(f, "{} : too large to display", i)?;
-                } else {
-                    writeln!(
-                        f,
-                        "{} : {}",
-                        i,
-                        SharedEnvironment::slice_to_usize(
-                            &self.shared_bits
-                                [self.offsets[i]..self.offsets[i + 1]]
-                        )
-                    )?;
-                }
+                writeln!(
+                    f,
+                    "{} : {}",
+                    i,
+                    SharedEnvironment::slice_to_usize(
+                        &self.shared_bits
+                            [self.offsets[i]..self.offsets[i + 1]]
+                    )
+                )?;
             }
         }
 
