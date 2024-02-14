@@ -1,5 +1,0 @@
-1 sort bitvec 8
-2 sort bitvec 32
-3 sort array 1 2
-4 array 2
-5 array 2 another-thirty-two-bit-memory

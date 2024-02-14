@@ -1,3 +1,0 @@
-1 sort bitvec 32
-2 zero 1
-4 implies 1 2 3
