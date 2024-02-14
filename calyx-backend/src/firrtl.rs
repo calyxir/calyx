@@ -134,6 +134,31 @@ fn emit_component<F: io::Write>(
                 cell_borrowed.name(),
                 module_name
             )?;
+            // write invalid statements for all output ports of all cells.
+            // FIXME: very hacky and code-cloney. Fix post-deadline...
+            // for (_idx, port_ref) in cell_borrowed.ports().iter().enumerate() {
+            //     let port = port_ref.borrow();
+            //     // hack to prevent FIRRTL to not get angry about non-initialized output ports.
+            //     if port.direction == calyx_frontend::Direction::Input {
+            //         writeln!(
+            //             f,
+            //             "{}{}.{} is invalid ; invalidate all output ports of all cells.",
+            //             SPACING.repeat(2),
+            //             cell_borrowed.name(),
+            //             port.name
+            //         )?;
+            //         if port.name != "clk" {
+            //             writeln!(
+            //                 f,
+            //                 "{}{}.{} <= UInt(0)",
+            //                 SPACING.repeat(2),
+            //                 cell_borrowed.name(),
+            //                 port.name
+            //             )?;
+            //         }
+            //         dst_set.insert(port.canonical());
+            //     }
+            // }
         }
     }
 

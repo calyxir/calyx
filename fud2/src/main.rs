@@ -193,24 +193,37 @@ fn build_driver() -> Driver {
 
     // Calyx to FIRRTL.
     let firrtl = bld.state("firrtl", &["fir"]);
-    let firrtl_with_primitives = bld.state("firrtl-with-primitives", &["fir"]);
-    bld.op(
-        "calyx-to-firrtl",
-        &[calyx_setup],
-        calyx,
-        firrtl,
-        |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
-            e.arg("backend", "firrtl")?;
-            e.arg("args", "--emit-primitive-extmodules")?;
-            Ok(())
-        },
-    );
 
-    let firrtl_primitives_setup = bld.setup("FIRRTL with primitives", |e| {
+    // setup for custom testbench to be used with FIRRTL backend
+    let firrtl_testbench_setup = bld.setup("FIRRTL testbench setup", |e| {
         // Convert all @external cells to ref cells.
         e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
 
+        // Produce a custom testbench that handles memory reading and writing.
+        e.var("testbench", "refmem_tb.sv")?;
+        e.var(
+            "gen-testbench-script",
+            "$calyx-base/tools/firrtl/generate-testbench.py",
+        )?;
+        e.var(
+            "additional_input",
+            &format!("{}/memories.sv", e.config_val("rsrc")?),
+        )?;
+
+        e.rule(
+            "generate-refmem-testbench",
+            "python3 $gen-testbench-script $in | tee $testbench $out",
+        )?;
+
+        // dummy rule to force ninja to build the testbench
+        e.var("dummy-script", &format!("{}/dummy.sh", e.config_val("rsrc")?))?;
+        e.rule("dummy", "bash $dummy-script $in > $out")?;
+
+        Ok(())
+    });
+
+    // setup for FIRRTL-implemented primitives
+    let firrtl_primitives_setup = bld.setup("FIRRTL with primitives", |e| {
         // Produce FIRRTL with FIRRTL-defined primitives.
         e.var(
             "gen-firrtl-primitives-script",
@@ -221,27 +234,39 @@ fn build_driver() -> Driver {
             "python3 $gen-firrtl-primitives-script $in > $out",
         )?;
 
-        // Produce a custom testbench that handles memory reading and writing.
-        e.var("testbench", "refmem_tb.sv")?;
-        e.var(
-            "gen-testbench-script",
-            "$calyx-base/tools/firrtl/generate-testbench.py"
-        )?;
-        e.var("additional_input", &format!("{}/memories.sv", e.config_val("rsrc")?))?;
-
-        e.rule("generate-refmem-testbench",
-        "python3 $gen-testbench-script $in | tee $testbench $out"
-        )?;
-
-        e.rule("dummy", "cat $in $out")?;
-
         Ok(())
     });
+
+    let firrtl_with_primitives = bld.state("firrtl-with-primitives", &["fir"]);
+    bld.op(
+        "calyx-to-firrtl",
+        &[calyx_setup, firrtl_testbench_setup],
+        calyx,
+        firrtl,
+        |e, input, output| {
+            let tmp_calyx = "partial.futil";
+            let dummy_testbench = "refmem-tb-copy.sv";
+            let tmp_out = "dummy-out.fir";
+            e.build_cmd(&[tmp_calyx], "external-to-ref", &[input], &[])?;
+            // generate the testbench
+            e.build_cmd(
+                &[dummy_testbench],
+                "generate-refmem-testbench",
+                &[tmp_calyx],
+                &[],
+            )?;
+            e.build_cmd(&[tmp_out], "calyx", &[tmp_calyx], &[])?;
+            e.arg("backend", "firrtl")?;
+            e.arg("args", "--emit-primitive-extmodules --synthesis")?;
+            e.build_cmd(&[output], "dummy", &[tmp_out, dummy_testbench], &[])?;
+            Ok(())
+        },
+    );
 
     // Generates FIRRTL with FIRRTL definition of primitives
     bld.op(
         "firrtl-with-primitives",
-        &[calyx_setup, firrtl_primitives_setup],
+        &[calyx_setup, firrtl_primitives_setup, firrtl_testbench_setup],
         calyx,
         firrtl_with_primitives,
         |e, input, output| {
@@ -290,6 +315,7 @@ fn build_driver() -> Driver {
 
         Ok(())
     });
+
     fn firrtl_compile(
         e: &mut Emitter,
         input: &str,
@@ -308,7 +334,13 @@ fn build_driver() -> Driver {
         e.build_cmd(&[output], "firrtl", &[input], &[])?;
         Ok(())
     }
-    bld.op("firrtl", &[firrtl_setup], firrtl, verilog, firrtl_compile);
+    bld.op(
+        "firrtl",
+        &[firrtl_setup],
+        firrtl,
+        verilog_refmem,
+        firrtl_compile,
+    );
     bld.op(
         "firrtl-with-primitives-compile",
         &[firrtl_setup],
@@ -322,7 +354,7 @@ fn build_driver() -> Driver {
         "firrtl-noverify",
         &[firrtl_setup],
         firrtl,
-        verilog_noverify,
+        verilog_noverify_refmem,
         firrtl_compile,
     );
     bld.op(

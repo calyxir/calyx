@@ -1,56 +1,3 @@
-module comb_mem_d1 #(
-    parameter WIDTH = 32,
-    parameter SIZE = 16,
-    parameter IDX_SIZE = 4
-) (
-   input wire                logic [IDX_SIZE-1:0] addr0,
-   input wire                logic [ WIDTH-1:0] write_data,
-   input wire                logic write_en,
-   input wire                logic clk,
-   input wire                logic reset,
-   output logic [ WIDTH-1:0] read_data,
-   output logic              done
-);
-
-   logic [WIDTH-1:0]         mem[SIZE-1:0];
-
-   initial begin
-      $readmemh({"sim_data/mem.dat"}, mem);
-   end
-   final begin
-      $writememh({"sim_data/mem.out"}, mem);
-   end
-
-  /* verilator lint_off WIDTH */
-  assign read_data = mem[addr0];
-
-  always_ff @(posedge clk) begin
-    if (reset)
-      done <= '0;
-    else if (write_en)
-      done <= '1;
-    else
-      done <= '0;
-  end
-
-  always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0] <= write_data;
-  end
-
-  // Check for out of bounds access
-  `ifdef VERILATOR
-    always_comb begin
-      if (addr0 >= SIZE)
-        $error(
-          "comb_mem_d1: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "SIZE: %0d", SIZE
-        );
-    end
-  `endif
-endmodule
-
 /**
  * Core primitives for Calyx.
  * Implements core primitives used by the compiler.
@@ -329,394 +276,573 @@ always_ff @(posedge clk) begin
   end
 endmodule
 
-module comb_mem_d2 #(
+/* verilator lint_off MULTITOP */
+/// =================== Unsigned, Fixed Point =========================
+module std_fp_add #(
     parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
 ) (
-   input wire                logic [D0_IDX_SIZE-1:0] addr0,
-   input wire                logic [D1_IDX_SIZE-1:0] addr1,
-   input wire                logic [ WIDTH-1:0] write_data,
-   input wire                logic write_en,
-   input wire                logic clk,
-   input wire                logic reset,
-   output logic [ WIDTH-1:0] read_data,
-   output logic              done
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out
 );
-
-  /* verilator lint_off WIDTH */
-  logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0];
-
-  assign read_data = mem[addr0][addr1];
-
-  always_ff @(posedge clk) begin
-    if (reset)
-      done <= '0;
-    else if (write_en)
-      done <= '1;
-    else
-      done <= '0;
-  end
-
-  always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0][addr1] <= write_data;
-  end
-
-  // Check for out of bounds access
-  `ifdef VERILATOR
-    always_comb begin
-      if (addr0 >= D0_SIZE)
-        $error(
-          "comb_mem_d2: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "D0_SIZE: %0d", D0_SIZE
-        );
-      if (addr1 >= D1_SIZE)
-        $error(
-          "comb_mem_d2: Out of bounds access\n",
-          "addr1: %0d\n", addr1,
-          "D1_SIZE: %0d", D1_SIZE
-        );
-    end
-  `endif
+  assign out = left + right;
 endmodule
 
-module comb_mem_d3 #(
+module std_fp_sub #(
     parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D2_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4,
-    parameter D2_IDX_SIZE = 4
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
 ) (
-   input wire                logic [D0_IDX_SIZE-1:0] addr0,
-   input wire                logic [D1_IDX_SIZE-1:0] addr1,
-   input wire                logic [D2_IDX_SIZE-1:0] addr2,
-   input wire                logic [ WIDTH-1:0] write_data,
-   input wire                logic write_en,
-   input wire                logic clk,
-   input wire                logic reset,
-   output logic [ WIDTH-1:0] read_data,
-   output logic              done
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out
 );
-
-  /* verilator lint_off WIDTH */
-  logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0][D2_SIZE-1:0];
-
-  assign read_data = mem[addr0][addr1][addr2];
-
-  always_ff @(posedge clk) begin
-    if (reset)
-      done <= '0;
-    else if (write_en)
-      done <= '1;
-    else
-      done <= '0;
-  end
-
-  always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0][addr1][addr2] <= write_data;
-  end
-
-  // Check for out of bounds access
-  `ifdef VERILATOR
-    always_comb begin
-      if (addr0 >= D0_SIZE)
-        $error(
-          "comb_mem_d3: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "D0_SIZE: %0d", D0_SIZE
-        );
-      if (addr1 >= D1_SIZE)
-        $error(
-          "comb_mem_d3: Out of bounds access\n",
-          "addr1: %0d\n", addr1,
-          "D1_SIZE: %0d", D1_SIZE
-        );
-      if (addr2 >= D2_SIZE)
-        $error(
-          "comb_mem_d3: Out of bounds access\n",
-          "addr2: %0d\n", addr2,
-          "D2_SIZE: %0d", D2_SIZE
-        );
-    end
-  `endif
+  assign out = left - right;
 endmodule
 
-module comb_mem_d4 #(
+module std_fp_mult_pipe #(
     parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D2_SIZE = 16,
-    parameter D3_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4,
-    parameter D2_IDX_SIZE = 4,
-    parameter D3_IDX_SIZE = 4
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16,
+    parameter SIGNED = 0
 ) (
-   input wire                logic [D0_IDX_SIZE-1:0] addr0,
-   input wire                logic [D1_IDX_SIZE-1:0] addr1,
-   input wire                logic [D2_IDX_SIZE-1:0] addr2,
-   input wire                logic [D3_IDX_SIZE-1:0] addr3,
-   input wire                logic [ WIDTH-1:0] write_data,
-   input wire                logic write_en,
-   input wire                logic clk,
-   input wire                logic reset,
-   output logic [ WIDTH-1:0] read_data,
-   output logic              done
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    input  logic             go,
+    input  logic             clk,
+    input  logic             reset,
+    output logic [WIDTH-1:0] out,
+    output logic             done
 );
+  logic [WIDTH-1:0]          rtmp;
+  logic [WIDTH-1:0]          ltmp;
+  logic [(WIDTH << 1) - 1:0] out_tmp;
+  // Buffer used to walk through the 3 cycles of the pipeline.
+  logic done_buf[1:0];
 
-  /* verilator lint_off WIDTH */
-  logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0][D2_SIZE-1:0][D3_SIZE-1:0];
+  assign done = done_buf[1];
 
-  assign read_data = mem[addr0][addr1][addr2][addr3];
+  assign out = out_tmp[(WIDTH << 1) - INT_WIDTH - 1 : WIDTH - INT_WIDTH];
 
+  // If the done buffer is completely empty and go is high then execution
+  // just started.
+  logic start;
+  assign start = go;
+
+  // Start sending the done signal.
   always_ff @(posedge clk) begin
-    if (reset)
-      done <= '0;
-    else if (write_en)
-      done <= '1;
+    if (start)
+      done_buf[0] <= 1;
     else
-      done <= '0;
+      done_buf[0] <= 0;
   end
 
+  // Push the done signal through the pipeline.
   always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0][addr1][addr2][addr3] <= write_data;
+    if (go) begin
+      done_buf[1] <= done_buf[0];
+    end else begin
+      done_buf[1] <= 0;
+    end
   end
 
-  // Check for out of bounds access
-  `ifdef VERILATOR
-    always_comb begin
-      if (addr0 >= D0_SIZE)
-        $error(
-          "comb_mem_d4: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "D0_SIZE: %0d", D0_SIZE
-        );
-      if (addr1 >= D1_SIZE)
-        $error(
-          "comb_mem_d4: Out of bounds access\n",
-          "addr1: %0d\n", addr1,
-          "D1_SIZE: %0d", D1_SIZE
-        );
-      if (addr2 >= D2_SIZE)
-        $error(
-          "comb_mem_d4: Out of bounds access\n",
-          "addr2: %0d\n", addr2,
-          "D2_SIZE: %0d", D2_SIZE
-        );
-      if (addr3 >= D3_SIZE)
-        $error(
-          "comb_mem_d4: Out of bounds access\n",
-          "addr3: %0d\n", addr3,
-          "D3_SIZE: %0d", D3_SIZE
-        );
-    end
-  `endif
-endmodule
-
-/**
-Implements a memory with sequential reads and writes.
-- Both reads and writes take one cycle to perform.
-- Attempting to read and write at the same time is an error.
-- The out signal is registered to the last value requested by the read_en signal.
-- The out signal is undefined once write_en is asserted.
-*/
-module seq_mem_d1 #(
-    parameter WIDTH = 32,
-    parameter SIZE = 16,
-    parameter IDX_SIZE = 4
-) (
-   // Common signals
-   input wire logic clk,
-   input wire logic reset,
-   input wire logic [IDX_SIZE-1:0] addr0,
-
-   // Read signal
-   input wire logic read_en,
-   output logic [ WIDTH-1:0] read_data,
-   output logic read_done,
-
-   // Write signals
-   input wire logic [ WIDTH-1:0] write_data,
-   input wire logic write_en,
-   output logic write_done
-);
-  // Internal memory
-  (* ram_style = "ultra" *)  logic [WIDTH-1:0] mem[SIZE-1:0];
-
-  // Register for the read output
-  logic [WIDTH-1:0] read_out;
-  assign read_data = read_out;
-
-  // Read value from the memory
+  // Register the inputs
   always_ff @(posedge clk) begin
     if (reset) begin
-      read_out <= '0;
-    end else if (read_en) begin
-      /* verilator lint_off WIDTH */
-      read_out <= mem[addr0];
-    end else if (write_en) begin
-      // Explicitly clobber the read output when a write is performed
-      read_out <= 'x;
+      rtmp <= 0;
+      ltmp <= 0;
+    end else if (go) begin
+      if (SIGNED) begin
+        rtmp <= $signed(right);
+        ltmp <= $signed(left);
+      end else begin
+        rtmp <= right;
+        ltmp <= left;
+      end
     end else begin
-      read_out <= read_out;
+      rtmp <= 0;
+      ltmp <= 0;
     end
+
   end
 
-  // Propagate the read_done signal
+  // Compute the output and save it into out_tmp
   always_ff @(posedge clk) begin
     if (reset) begin
-      read_done <= '0;
-    end else if (read_en) begin
-      read_done <= '1;
+      out_tmp <= 0;
+    end else if (go) begin
+      if (SIGNED) begin
+        // In the first cycle, this performs an invalid computation because
+        // ltmp and rtmp only get their actual values in cycle 1
+        out_tmp <= $signed(
+          { {WIDTH{ltmp[WIDTH-1]}}, ltmp} *
+          { {WIDTH{rtmp[WIDTH-1]}}, rtmp}
+        );
+      end else begin
+        out_tmp <= ltmp * rtmp;
+      end
     end else begin
-      read_done <= '0;
+      out_tmp <= out_tmp;
+    end
+  end
+endmodule
+
+/* verilator lint_off WIDTH */
+module std_fp_div_pipe #(
+  parameter WIDTH = 32,
+  parameter INT_WIDTH = 16,
+  parameter FRAC_WIDTH = 16
+) (
+    input  logic             go,
+    input  logic             clk,
+    input  logic             reset,
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out_remainder,
+    output logic [WIDTH-1:0] out_quotient,
+    output logic             done
+);
+    localparam ITERATIONS = WIDTH + FRAC_WIDTH;
+
+    logic [WIDTH-1:0] quotient, quotient_next;
+    logic [WIDTH:0] acc, acc_next;
+    logic [$clog2(ITERATIONS)-1:0] idx;
+    logic start, running, finished, dividend_is_zero;
+
+    assign start = go && !running;
+    assign dividend_is_zero = start && left == 0;
+    assign finished = idx == ITERATIONS - 1 && running;
+
+    always_ff @(posedge clk) begin
+      if (reset || finished || dividend_is_zero)
+        running <= 0;
+      else if (start)
+        running <= 1;
+      else
+        running <= running;
+    end
+
+    always_comb begin
+      if (acc >= {1'b0, right}) begin
+        acc_next = acc - right;
+        {acc_next, quotient_next} = {acc_next[WIDTH-1:0], quotient, 1'b1};
+      end else begin
+        {acc_next, quotient_next} = {acc, quotient} << 1;
+      end
+    end
+
+    // `done` signaling
+    always_ff @(posedge clk) begin
+      if (dividend_is_zero || finished)
+        done <= 1;
+      else
+        done <= 0;
+    end
+
+    always_ff @(posedge clk) begin
+      if (running)
+        idx <= idx + 1;
+      else
+        idx <= 0;
+    end
+
+    always_ff @(posedge clk) begin
+      if (reset) begin
+        out_quotient <= 0;
+        out_remainder <= 0;
+      end else if (start) begin
+        out_quotient <= 0;
+        out_remainder <= left;
+      end else if (go == 0) begin
+        out_quotient <= out_quotient;
+        out_remainder <= out_remainder;
+      end else if (dividend_is_zero) begin
+        out_quotient <= 0;
+        out_remainder <= 0;
+      end else if (finished) begin
+        out_quotient <= quotient_next;
+        out_remainder <= out_remainder;
+      end else begin
+        out_quotient <= out_quotient;
+        if (right <= out_remainder)
+          out_remainder <= out_remainder - right;
+        else
+          out_remainder <= out_remainder;
+      end
+    end
+
+    always_ff @(posedge clk) begin
+      if (reset) begin
+        acc <= 0;
+        quotient <= 0;
+      end else if (start) begin
+        {acc, quotient} <= {{WIDTH{1'b0}}, left, 1'b0};
+      end else begin
+        acc <= acc_next;
+        quotient <= quotient_next;
+      end
+    end
+endmodule
+
+module std_fp_gt #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    output logic             out
+);
+  assign out = left > right;
+endmodule
+
+/// =================== Signed, Fixed Point =========================
+module std_fp_sadd #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+    input  signed [WIDTH-1:0] left,
+    input  signed [WIDTH-1:0] right,
+    output signed [WIDTH-1:0] out
+);
+  assign out = $signed(left + right);
+endmodule
+
+module std_fp_ssub #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+    input  signed [WIDTH-1:0] left,
+    input  signed [WIDTH-1:0] right,
+    output signed [WIDTH-1:0] out
+);
+
+  assign out = $signed(left - right);
+endmodule
+
+module std_fp_smult_pipe #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+    input  [WIDTH-1:0]              left,
+    input  [WIDTH-1:0]              right,
+    input  logic                    reset,
+    input  logic                    go,
+    input  logic                    clk,
+    output logic [WIDTH-1:0]        out,
+    output logic                    done
+);
+  std_fp_mult_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(INT_WIDTH),
+    .FRAC_WIDTH(FRAC_WIDTH),
+    .SIGNED(1)
+  ) comp (
+    .clk(clk),
+    .done(done),
+    .reset(reset),
+    .go(go),
+    .left(left),
+    .right(right),
+    .out(out)
+  );
+endmodule
+
+module std_fp_sdiv_pipe #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+    input                     clk,
+    input                     go,
+    input                     reset,
+    input  signed [WIDTH-1:0] left,
+    input  signed [WIDTH-1:0] right,
+    output signed [WIDTH-1:0] out_quotient,
+    output signed [WIDTH-1:0] out_remainder,
+    output logic              done
+);
+
+  logic signed [WIDTH-1:0] left_abs, right_abs, comp_out_q, comp_out_r, right_save, out_rem_intermediate;
+
+  // Registers to figure out how to transform outputs.
+  logic different_signs, left_sign, right_sign;
+
+  // Latch the value of control registers so that their available after
+  // go signal becomes low.
+  always_ff @(posedge clk) begin
+    if (go) begin
+      right_save <= right_abs;
+      left_sign <= left[WIDTH-1];
+      right_sign <= right[WIDTH-1];
+    end else begin
+      left_sign <= left_sign;
+      right_save <= right_save;
+      right_sign <= right_sign;
     end
   end
 
-  // Write value to the memory
+  assign right_abs = right[WIDTH-1] ? -right : right;
+  assign left_abs = left[WIDTH-1] ? -left : left;
+
+  assign different_signs = left_sign ^ right_sign;
+  assign out_quotient = different_signs ? -comp_out_q : comp_out_q;
+
+  // Remainder is computed as:
+  //  t0 = |left| % |right|
+  //  t1 = if left * right < 0 and t0 != 0 then |right| - t0 else t0
+  //  rem = if right < 0 then -t1 else t1
+  assign out_rem_intermediate = different_signs & |comp_out_r ? $signed(right_save - comp_out_r) : comp_out_r;
+  assign out_remainder = right_sign ? -out_rem_intermediate : out_rem_intermediate;
+
+  std_fp_div_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(INT_WIDTH),
+    .FRAC_WIDTH(FRAC_WIDTH)
+  ) comp (
+    .reset(reset),
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left_abs),
+    .right(right_abs),
+    .out_quotient(comp_out_q),
+    .out_remainder(comp_out_r)
+  );
+endmodule
+
+module std_fp_sgt #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+    input  logic signed [WIDTH-1:0] left,
+    input  logic signed [WIDTH-1:0] right,
+    output logic signed             out
+);
+  assign out = $signed(left > right);
+endmodule
+
+module std_fp_slt #(
+    parameter WIDTH = 32,
+    parameter INT_WIDTH = 16,
+    parameter FRAC_WIDTH = 16
+) (
+   input logic signed [WIDTH-1:0] left,
+   input logic signed [WIDTH-1:0] right,
+   output logic signed            out
+);
+  assign out = $signed(left < right);
+endmodule
+
+/// =================== Unsigned, Bitnum =========================
+module std_mult_pipe #(
+    parameter WIDTH = 32
+) (
+    input  logic [WIDTH-1:0] left,
+    input  logic [WIDTH-1:0] right,
+    input  logic             reset,
+    input  logic             go,
+    input  logic             clk,
+    output logic [WIDTH-1:0] out,
+    output logic             done
+);
+  std_fp_mult_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(WIDTH),
+    .FRAC_WIDTH(0),
+    .SIGNED(0)
+  ) comp (
+    .reset(reset),
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left),
+    .right(right),
+    .out(out)
+  );
+endmodule
+
+module std_div_pipe #(
+    parameter WIDTH = 32
+) (
+    input                    reset,
+    input                    clk,
+    input                    go,
+    input        [WIDTH-1:0] left,
+    input        [WIDTH-1:0] right,
+    output logic [WIDTH-1:0] out_remainder,
+    output logic [WIDTH-1:0] out_quotient,
+    output logic             done
+);
+
+  logic [WIDTH-1:0] dividend;
+  logic [(WIDTH-1)*2:0] divisor;
+  logic [WIDTH-1:0] quotient;
+  logic [WIDTH-1:0] quotient_msk;
+  logic start, running, finished, dividend_is_zero;
+
+  assign start = go && !running;
+  assign finished = quotient_msk == 0 && running;
+  assign dividend_is_zero = start && left == 0;
+
   always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0] <= write_data;
+    // Early return if the divisor is zero.
+    if (finished || dividend_is_zero)
+      done <= 1;
+    else
+      done <= 0;
   end
 
-  // Propagate the write_done signal
   always_ff @(posedge clk) begin
-    if (reset) begin
-      write_done <= '0;
-    end else if (write_en) begin
-      write_done <= 1'd1;
+    if (reset || finished || dividend_is_zero)
+      running <= 0;
+    else if (start)
+      running <= 1;
+    else
+      running <= running;
+  end
+
+  // Outputs
+  always_ff @(posedge clk) begin
+    if (dividend_is_zero || start) begin
+      out_quotient <= 0;
+      out_remainder <= 0;
+    end else if (finished) begin
+      out_quotient <= quotient;
+      out_remainder <= dividend;
     end else begin
-      write_done <= '0;
+      // Otherwise, explicitly latch the values.
+      out_quotient <= out_quotient;
+      out_remainder <= out_remainder;
     end
   end
 
-  // Check for out of bounds access
+  // Calculate the quotient mask.
+  always_ff @(posedge clk) begin
+    if (start)
+      quotient_msk <= 1 << WIDTH - 1;
+    else if (running)
+      quotient_msk <= quotient_msk >> 1;
+    else
+      quotient_msk <= quotient_msk;
+  end
+
+  // Calculate the quotient.
+  always_ff @(posedge clk) begin
+    if (start)
+      quotient <= 0;
+    else if (divisor <= dividend)
+      quotient <= quotient | quotient_msk;
+    else
+      quotient <= quotient;
+  end
+
+  // Calculate the dividend.
+  always_ff @(posedge clk) begin
+    if (start)
+      dividend <= left;
+    else if (divisor <= dividend)
+      dividend <= dividend - divisor;
+    else
+      dividend <= dividend;
+  end
+
+  always_ff @(posedge clk) begin
+    if (start) begin
+      divisor <= right << WIDTH - 1;
+    end else if (finished) begin
+      divisor <= 0;
+    end else begin
+      divisor <= divisor >> 1;
+    end
+  end
+
+  // Simulation self test against unsynthesizable implementation.
   `ifdef VERILATOR
-    always_comb begin
-      if (read_en)
-        if (addr0 >= SIZE)
-          $error(
-            "comb_mem_d1: Out of bounds access\n",
-            "addr0: %0d\n", addr0,
-            "SIZE: %0d", SIZE
-          );
+    logic [WIDTH-1:0] l, r;
+    always_ff @(posedge clk) begin
+      if (go) begin
+        l <= left;
+        r <= right;
+      end else begin
+        l <= l;
+        r <= r;
+      end
     end
-    always_comb begin
-      if (read_en && write_en)
-        $error("Simultaneous read and write attempted\n");
+
+    always @(posedge clk) begin
+      if (done && $unsigned(out_remainder) != $unsigned(l % r))
+        $error(
+          "\nstd_div_pipe (Remainder): Computed and golden outputs do not match!\n",
+          "left: %0d", $unsigned(l),
+          "  right: %0d\n", $unsigned(r),
+          "expected: %0d", $unsigned(l % r),
+          "  computed: %0d", $unsigned(out_remainder)
+        );
+
+      if (done && $unsigned(out_quotient) != $unsigned(l / r))
+        $error(
+          "\nstd_div_pipe (Quotient): Computed and golden outputs do not match!\n",
+          "left: %0d", $unsigned(l),
+          "  right: %0d\n", $unsigned(r),
+          "expected: %0d", $unsigned(l / r),
+          "  computed: %0d", $unsigned(out_quotient)
+        );
     end
   `endif
 endmodule
 
-module seq_mem_d2 #(
-    parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4
+/// =================== Signed, Bitnum =========================
+module std_sadd #(
+    parameter WIDTH = 32
 ) (
-   // Common signals
-   input wire logic clk,
-   input wire logic reset,
-   input wire logic [D0_IDX_SIZE-1:0] addr0,
-   input wire logic [D1_IDX_SIZE-1:0] addr1,
-
-   // Read signal
-   input wire logic read_en,
-   output logic [WIDTH-1:0] read_data,
-   output logic read_done,
-
-   // Write signals
-   input wire logic write_en,
-   input wire logic [ WIDTH-1:0] write_data,
-   output logic write_done
+    input  signed [WIDTH-1:0] left,
+    input  signed [WIDTH-1:0] right,
+    output signed [WIDTH-1:0] out
 );
-  wire [D0_IDX_SIZE+D1_IDX_SIZE-1:0] addr;
-  assign addr = addr0 * D1_SIZE + addr1;
-
-  seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr),
-    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en),
-    .write_done(write_done));
+  assign out = $signed(left + right);
 endmodule
 
-module seq_mem_d3 #(
-    parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D2_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4,
-    parameter D2_IDX_SIZE = 4
+module std_ssub #(
+    parameter WIDTH = 32
 ) (
-   // Common signals
-   input wire logic clk,
-   input wire logic reset,
-   input wire logic [D0_IDX_SIZE-1:0] addr0,
-   input wire logic [D1_IDX_SIZE-1:0] addr1,
-   input wire logic [D2_IDX_SIZE-1:0] addr2,
-
-   // Read signal
-   input wire logic read_en,
-   output logic [WIDTH-1:0] read_data,
-   output logic read_done,
-
-   // Write signals
-   input wire logic write_en,
-   input wire logic [ WIDTH-1:0] write_data,
-   output logic write_done
+    input  signed [WIDTH-1:0] left,
+    input  signed [WIDTH-1:0] right,
+    output signed [WIDTH-1:0] out
 );
-  wire [D0_IDX_SIZE+D1_IDX_SIZE+D2_IDX_SIZE-1:0] addr;
-  assign addr = addr0 * (D1_SIZE * D2_SIZE) + addr1 * (D2_SIZE) + addr2;
-
-  seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE * D2_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE+D2_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr),
-    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en),
-    .write_done(write_done));
+  assign out = $signed(left - right);
 endmodule
 
-module seq_mem_d4 #(
-    parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D2_SIZE = 16,
-    parameter D3_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4,
-    parameter D2_IDX_SIZE = 4,
-    parameter D3_IDX_SIZE = 4
+module std_smult_pipe #(
+    parameter WIDTH = 32
 ) (
-   // Common signals
-   input wire logic clk,
-   input wire logic reset,
-   input wire logic [D0_IDX_SIZE-1:0] addr0,
-   input wire logic [D1_IDX_SIZE-1:0] addr1,
-   input wire logic [D2_IDX_SIZE-1:0] addr2,
-   input wire logic [D3_IDX_SIZE-1:0] addr3,
-
-   // Read signal
-   input wire logic read_en,
-   output logic [WIDTH-1:0] read_data,
-   output logic read_done,
-
-   // Write signals
-   input wire logic write_en,
-   input wire logic [ WIDTH-1:0] write_data,
-   output logic write_done
+    input  logic                    reset,
+    input  logic                    go,
+    input  logic                    clk,
+    input  signed       [WIDTH-1:0] left,
+    input  signed       [WIDTH-1:0] right,
+    output logic signed [WIDTH-1:0] out,
+    output logic                    done
 );
-  wire [D0_IDX_SIZE+D1_IDX_SIZE+D2_IDX_SIZE+D3_IDX_SIZE-1:0] addr;
-  assign addr = addr0 * (D1_SIZE * D2_SIZE * D3_SIZE) + addr1 * (D2_SIZE * D3_SIZE) + addr2 * (D3_SIZE) + addr3;
-
-  seq_mem_d1 #(.WIDTH(WIDTH), .SIZE(D0_SIZE * D1_SIZE * D2_SIZE * D3_SIZE), .IDX_SIZE(D0_IDX_SIZE+D1_IDX_SIZE+D2_IDX_SIZE+D3_IDX_SIZE)) mem
-     (.clk(clk), .reset(reset), .addr0(addr),
-    .read_en(read_en), .read_data(read_data), .read_done(read_done), .write_data(write_data), .write_en(write_en),
-    .write_done(write_done));
+  std_fp_mult_pipe #(
+    .WIDTH(WIDTH),
+    .INT_WIDTH(WIDTH),
+    .FRAC_WIDTH(0),
+    .SIGNED(1)
+  ) comp (
+    .reset(reset),
+    .clk(clk),
+    .done(done),
+    .go(go),
+    .left(left),
+    .right(right),
+    .out(out)
+  );
 endmodule
+
