@@ -473,7 +473,7 @@ module std_bit_slice #(
           "std_bit_slice: Slice range out of bounds\n",
           "IN_WIDTH: %0d", IN_WIDTH,
           "START_IDX: %0d", START_IDX,
-          "END_IDX: `defa`default_nettype wireult_nettype wire%0d", END_IDX,
+          "END_IDX: %0d", END_IDX,
         );
     end
   `endif
