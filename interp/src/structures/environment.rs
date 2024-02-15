@@ -251,6 +251,9 @@ impl InterpreterState {
                 Box::new(combinational::StdFpSlt::new(params, cell_qin))
             }
             // Resizing ops
+            "std_bit_slice" => {
+                Box::new(combinational::StdBitSlice::new(params, cell_qin))
+            }
             "std_slice" => {
                 Box::new(combinational::StdSlice::new(params, cell_qin))
             }
