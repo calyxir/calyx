@@ -10,7 +10,7 @@ component main(@go go: 1) -> (@done done: 1) {
 
   wires {
     group bit_slice {
-      slice.in = 32'd206256;
+      slice.in = 32'b00000000000000110010010110110000;
 
       pad.in = slice.out;
 
