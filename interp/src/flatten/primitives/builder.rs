@@ -87,18 +87,20 @@ pub fn build_primitive(
             frac_width: _,
         } => todo!(),
         CellPrototype::Slice {
-            in_width: _,
-            out_width: _,
-        } => todo!(),
+            in_width: _, // Not actually needed, should probably remove
+            out_width,
+        } => Box::new(StdSlice::new(base_port, *out_width)),
         CellPrototype::Pad {
-            in_width: _,
-            out_width: _,
-        } => todo!(),
+            in_width: _, // Not actually needed, should probably remove
+            out_width,
+        } => Box::new(StdPad::new(base_port, *out_width)),
         CellPrototype::Cat {
+            // Turns out under the assumption that the primitive is well formed,
+            // none of these parameter values are actually needed
             left: _,
             right: _,
             out: _,
-        } => todo!(),
+        } => Box::new(StdCat::new(base_port)),
         CellPrototype::MemD1 {
             mem_type,
             width,

@@ -504,6 +504,12 @@ comb_primitive!(StdPad[OUT_WIDTH](input [0]) -> (out [1]) {
     Ok( Some(input.ext(OUT_WIDTH as usize)))
 });
 
+comb_primitive!(StdCat(left [0], right [1]) -> (out [2]) {
+    all_defined!(left, right);
+
+    Ok(Some(Value::concat(left, right)))
+});
+
 // ===================== Unsynthesizeable Operations ======================
 comb_primitive!(StdUnsynMult[WIDTH](left [0], right [1]) -> (out [2]) {
     all_defined!(left, right);
