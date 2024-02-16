@@ -86,7 +86,7 @@ fn emit_component<F: io::Write>(
 
     // Inputs and Outputs
     let sig = comp.signature.borrow();
-    for port_ref in &sig.ports {
+    for (_idx, port_ref) in sig.ports.iter().enumerate() {
         let port = port_ref.borrow();
         emit_port(port, true, f)?;
     }
