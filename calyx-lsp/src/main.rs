@@ -132,33 +132,37 @@ impl Backend {
     }
 
     async fn publish_diagnostics(&self, url: &lspt::Url) {
-        let lib_path: PathBuf = self.config.read().unwrap().calyx_lsp.library_paths[0]
-            .to_string()
-            .into();
+        let lib_path: PathBuf =
+            self.config.read().unwrap().calyx_lsp.library_paths[0]
+                .to_string()
+                .into();
         let diags = self
             .read_document(url, |doc| {
                 Some(
-                    Diagnostic::did_save(&url.to_file_path().unwrap(), &lib_path)
-                        .into_iter()
-                        .filter_map(|diag| {
-                            doc.byte_to_point(diag.pos_start).and_then(|s| {
-                                doc.byte_to_point(diag.pos_end)
-                                    .map(|e| (Range::new(s, e), diag.msg))
-                            })
+                    Diagnostic::did_save(
+                        &url.to_file_path().unwrap(),
+                        &lib_path,
+                    )
+                    .into_iter()
+                    .filter_map(|diag| {
+                        doc.byte_to_point(diag.pos_start).and_then(|s| {
+                            doc.byte_to_point(diag.pos_end)
+                                .map(|e| (Range::new(s, e), diag.msg))
                         })
-                        .map(|(range, message)| lspt::Diagnostic {
-                            range: range.into(),
-                            severity: Some(lspt::DiagnosticSeverity::ERROR),
-                            code: None,
-                            code_description: None,
-                            source: Some("calyx".to_string()),
-                            message,
-                            related_information: None,
-                            tags: None,
-                            data: None,
-                        })
-                        .inspect(|diag| log::stdout!("{diag:#?}"))
-                        .collect(),
+                    })
+                    .map(|(range, message)| lspt::Diagnostic {
+                        range: range.into(),
+                        severity: Some(lspt::DiagnosticSeverity::ERROR),
+                        code: None,
+                        code_description: None,
+                        source: Some("calyx".to_string()),
+                        message,
+                        related_information: None,
+                        tags: None,
+                        data: None,
+                    })
+                    .inspect(|diag| log::stdout!("{diag:#?}"))
+                    .collect(),
                 )
             })
             .unwrap_or(vec![]);
@@ -196,24 +200,35 @@ impl LanguageServer for Backend {
             server_info: None,
             capabilities: lspt::ServerCapabilities {
                 // TODO: switch to incremental parsing
-                text_document_sync: Some(lspt::TextDocumentSyncCapability::Options(
-                    lspt::TextDocumentSyncOptions {
-                        open_close: Some(true),
-                        change: Some(lspt::TextDocumentSyncKind::FULL),
-                        will_save: None,
-                        will_save_wait_until: None,
-                        save: Some(lspt::TextDocumentSyncSaveOptions::Supported(true)),
-                    },
-                )),
+                text_document_sync: Some(
+                    lspt::TextDocumentSyncCapability::Options(
+                        lspt::TextDocumentSyncOptions {
+                            open_close: Some(true),
+                            change: Some(lspt::TextDocumentSyncKind::FULL),
+                            will_save: None,
+                            will_save_wait_until: None,
+                            save: Some(
+                                lspt::TextDocumentSyncSaveOptions::Supported(
+                                    true,
+                                ),
+                            ),
+                        },
+                    ),
+                ),
                 definition_provider: Some(lspt::OneOf::Left(true)),
                 completion_provider: Some(lspt::CompletionOptions {
                     resolve_provider: Some(false),
-                    trigger_characters: Some(vec![".".to_string(), "[".to_string()]),
+                    trigger_characters: Some(vec![
+                        ".".to_string(),
+                        "[".to_string(),
+                    ]),
                     all_commit_characters: None,
                     work_done_progress_options: Default::default(),
                     completion_item: None,
                 }),
-                hover_provider: Some(lspt::HoverProviderCapability::Simple(false)),
+                hover_provider: Some(lspt::HoverProviderCapability::Simple(
+                    false,
+                )),
                 ..Default::default()
             },
             ..Default::default()
@@ -231,12 +246,16 @@ impl LanguageServer for Backend {
         self.publish_diagnostics(&params.text_document.uri).await;
     }
 
-    async fn did_change_configuration(&self, params: lspt::DidChangeConfigurationParams) {
+    async fn did_change_configuration(
+        &self,
+        params: lspt::DidChangeConfigurationParams,
+    ) {
         let config: Config = serde_json::from_value(params.settings).unwrap();
         *self.config.write().unwrap() = config;
 
         // update the diagnostics on all open documents
-        let open_docs: Vec<_> = self.open_docs.read().unwrap().keys().cloned().collect();
+        let open_docs: Vec<_> =
+            self.open_docs.read().unwrap().keys().cloned().collect();
         for x in open_docs {
             self.publish_diagnostics(&x).await;
         }
@@ -265,8 +284,10 @@ impl LanguageServer for Backend {
         let config = &self.config.read().unwrap();
         Ok(self
             .read_document(url, |doc| {
-                doc.thing_at_point(params.text_document_position_params.position.into())
-                    .and_then(|thing| doc.find_thing(config, url.clone(), thing))
+                doc.thing_at_point(
+                    params.text_document_position_params.position.into(),
+                )
+                .and_then(|thing| doc.find_thing(config, url.clone(), thing))
             })
             .and_then(|gdr| {
                 gdr.resolve(|gdr, path| {
@@ -295,7 +316,9 @@ impl LanguageServer for Backend {
                     .filter_map(|res| {
                         res.resolve(|res, path| {
                             let url = lspt::Url::from_file_path(path).unwrap();
-                            self.read_and_open(&url, |doc| res.resume(&config, doc))
+                            self.read_and_open(&url, |doc| {
+                                res.resume(&config, doc)
+                            })
                         })
                     })
                     .flatten()

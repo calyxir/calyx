@@ -93,7 +93,10 @@ impl Document {
         self.text = text.to_string();
         self.tree = self.parser.parse(text, None);
         self.update_component_map();
-        log::Debug::update("tree", self.tree.as_ref().unwrap().root_node().to_sexp())
+        log::Debug::update(
+            "tree",
+            self.tree.as_ref().unwrap().root_node().to_sexp(),
+        )
     }
 
     pub fn root_node(&self) -> Option<ts::Node> {
@@ -142,7 +145,9 @@ impl Document {
         for qmatch in cursor.matches(&query, node, self.text.as_bytes()) {
             for capture in qmatch.captures {
                 map.entry(capture_names[capture.index as usize].to_string())
-                    .and_modify(|e: &mut Vec<ts::Node>| e.extend(&[capture.node]))
+                    .and_modify(|e: &mut Vec<ts::Node>| {
+                        e.extend(&[capture.node])
+                    })
                     .or_insert(vec![capture.node]);
             }
         }
@@ -210,17 +215,25 @@ impl Document {
 
     pub fn components<'a>(&'a self) -> impl Iterator<Item = ts::Node<'a>> {
         self.root_node().into_iter().flat_map(|root| {
-            self.captures(root, "(component (ident) @comp) (primitive (ident) @comp)")["comp"]
+            self.captures(
+                root,
+                "(component (ident) @comp) (primitive (ident) @comp)",
+            )["comp"]
                 .clone()
         })
     }
 
-    pub fn enclosing_cells<'a>(&'a self, node: ts::Node<'a>) -> impl Iterator<Item = ts::Node<'a>> {
+    pub fn enclosing_cells<'a>(
+        &'a self,
+        node: ts::Node<'a>,
+    ) -> impl Iterator<Item = ts::Node<'a>> {
         node.parent_until(|n| n.kind() == "component")
             .into_iter()
             .flat_map(|comp_node| {
                 // XXX: should be able to avoid this clone somehow
-                self.captures(comp_node, "(cell_assignment (ident) @cell)")["cell"].clone()
+                self.captures(comp_node, "(cell_assignment (ident) @cell)")
+                    ["cell"]
+                    .clone()
             })
     }
 
@@ -231,7 +244,8 @@ impl Document {
         node.parent_until(|n| n.kind() == "component")
             .into_iter()
             .flat_map(|comp_node| {
-                self.captures(comp_node, "(group (ident) @group)")["group"].clone()
+                self.captures(comp_node, "(group (ident) @group)")["group"]
+                    .clone()
             })
     }
 
@@ -242,7 +256,8 @@ impl Document {
         node.parent_until(|n| n.kind() == "component")
             .into_iter()
             .flat_map(|comp_node| {
-                self.captures(comp_node, "(io_port (ident) @port)")["port"].clone()
+                self.captures(comp_node, "(io_port (ident) @port)")["port"]
+                    .clone()
             })
     }
 
@@ -260,7 +275,10 @@ impl Document {
         self.tree
             .as_ref()
             .iter()
-            .flat_map(|t| self.captures(t.root_node(), "(import (string) @file)")["file"].clone())
+            .flat_map(|t| {
+                self.captures(t.root_node(), "(import (string) @file)")["file"]
+                    .clone()
+            })
             // the nodes have quotes in them, so we have to remove them
             .map(|n| self.node_text(&n).to_string().replace('"', ""))
             .collect()
@@ -285,11 +303,15 @@ impl Document {
                     .into_iter()
                     .chain(lib_paths.into_iter().map(|p| PathBuf::from(p))),
             )
-            .map(|(base_path, lib_path)| lib_path.join(base_path).resolve().into_owned())
+            .map(|(base_path, lib_path)| {
+                lib_path.join(base_path).resolve().into_owned()
+            })
             .filter(|p| p.exists())
     }
 
-    pub fn signatures(&self) -> impl Iterator<Item = (String, ComponentSig)> + '_ {
+    pub fn signatures(
+        &self,
+    ) -> impl Iterator<Item = (String, ComponentSig)> + '_ {
         self.components()
             .filter_map(|comp_node| {
                 comp_node
@@ -325,7 +347,10 @@ impl Document {
 
     pub fn node_at_point(&self, point: &Point) -> Option<ts::Node> {
         self.root_node().and_then(|root| {
-            root.descendant_for_point_range(point.clone().into(), point.clone().into())
+            root.descendant_for_point_range(
+                point.clone().into(),
+                point.clone().into(),
+            )
         })
     }
 
@@ -364,7 +389,8 @@ impl Document {
                     node.clone(),
                     self.node_text(&node).to_string(),
                 ))
-            } else if node.parent().is_some_and(|p| p.kind() == "instantiation") {
+            } else if node.parent().is_some_and(|p| p.kind() == "instantiation")
+            {
                 Some(Things::Component(self.node_text(&node).to_string()))
             } else if node.parent().is_some_and(|p| p.kind() == "import") {
                 Some(Things::Import(

@@ -17,9 +17,9 @@ pub trait QueryResult2: Sized + std::fmt::Debug {
         // if self.found() has data, then return that
         // else search for the first path where f returns something
         self.found().or_else(|| {
-            self.paths()
-                .iter()
-                .find_map(|p| f(&self, &p).and_then(|res| res.resolve(f.clone())))
+            self.paths().iter().find_map(|p| {
+                f(&self, &p).and_then(|res| res.resolve(f.clone()))
+            })
         })
     }
 }

@@ -99,7 +99,10 @@ impl<'a> From<ts::Node<'a>> for Range {
 
 impl Into<lspt::Range> for Range {
     fn into(self) -> lspt::Range {
-        lspt::Range::new(Point::from(self.start).into(), Point::from(self.end).into())
+        lspt::Range::new(
+            Point::from(self.start).into(),
+            Point::from(self.end).into(),
+        )
     }
 }
 

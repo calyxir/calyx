@@ -52,23 +52,8 @@ impl Into<lspt::CompletionItem> for CompletionItem {
                 detail: Some(self.detail),
                 insert_text: self.snippet,
                 insert_text_format: Some(lspt::InsertTextFormat::SNIPPET),
-                ..Default::default() // label_details: todo!(),
-                                     // kind: todo!(),
-                                     // documentation: todo!(),
-                                     // deprecated: todo!(),
-                                     // preselect: todo!(),
-                                     // sort_text: todo!(),
-                                     // filter_text: todo!(),
-                                     // insert_text: todo!(),
-                                     // insert_text_mode: todo!(),
-                                     // text_edit: todo!(),
-                                     // additional_text_edits: todo!(),
-                                     // command: todo!(),
-                                     // commit_characters: todo!(),
-                                     // data: todo!(),
-                                     // tags: todo!(),
+                ..Default::default()
             }
-            // lspt::CompletionItem::new_simple(name.to_string(), descr.to_string())
         }
     }
 }
@@ -87,7 +72,8 @@ impl QueryResult2 for CompletionRes {
     fn found(&self) -> Option<Self::Data> {
         match self {
             CompletionRes::Found(data) => Some(data.clone()),
-            CompletionRes::ContinuePort(..) | CompletionRes::ContinueComponent(..) => None,
+            CompletionRes::ContinuePort(..)
+            | CompletionRes::ContinueComponent(..) => None,
         }
     }
 
@@ -110,8 +96,12 @@ impl QueryResult2 for CompletionRes {
                         sig.inputs
                             .iter()
                             .map(|inp| (inp, "input"))
-                            .chain(sig.outputs.iter().map(|out| (out, "output")))
-                            .map(|(name, descr)| CompletionItem::simple(name, descr))
+                            .chain(
+                                sig.outputs.iter().map(|out| (out, "output")),
+                            )
+                            .map(|(name, descr)| {
+                                CompletionItem::simple(name, descr)
+                            })
                             .collect(),
                     )
                 })
@@ -122,14 +112,18 @@ impl QueryResult2 for CompletionRes {
                     ))
                 }),
             CompletionRes::ContinueComponent(paths, compls) => {
-                let mut imports = doc.resolved_imports(config).collect::<Vec<_>>();
+                let mut imports =
+                    doc.resolved_imports(config).collect::<Vec<_>>();
                 let paths = &paths[1..];
                 let comps_here = doc
                     .root_node()
                     .map(|root| {
-                        let prims =
-                            doc.captures(root, "(primitive (ident) @name (params (ident) @param))");
-                        let comps = doc.captures(root, "(component (ident) @name)");
+                        let prims = doc.captures(
+                            root,
+                            "(primitive (ident) @name (params (ident) @param))",
+                        );
+                        let comps =
+                            doc.captures(root, "(component (ident) @name)");
                         multizip((prims["name"].iter(), prims["param"].iter()))
                             .map(|(n, p)| (doc.node_text(n), doc.node_text(p)))
                             .group_by(|(n, _)| n.to_string())
@@ -141,15 +135,27 @@ impl QueryResult2 for CompletionRes {
                                     format!(
                                         "{n}({});",
                                         p.enumerate()
-                                            .map(|(i, (_, y))| format!("${{{}:{y}}}", i + 1))
+                                            .map(|(i, (_, y))| format!(
+                                                "${{{}:{y}}}",
+                                                i + 1
+                                            ))
                                             .join(", ")
                                     ),
                                 )
                             })
                             .chain(compls.clone().into_iter())
-                            .chain(comps["name"].iter().map(|n| doc.node_text(n)).map(|n| {
-                                CompletionItem::snippet(n, "component", format!("{n}();"))
-                            }))
+                            .chain(
+                                comps["name"]
+                                    .iter()
+                                    .map(|n| doc.node_text(n))
+                                    .map(|n| {
+                                        CompletionItem::snippet(
+                                            n,
+                                            "component",
+                                            format!("{n}();"),
+                                        )
+                                    }),
+                            )
                             .collect()
                     })
                     .unwrap_or(vec![]);
