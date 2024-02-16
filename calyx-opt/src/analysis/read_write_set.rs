@@ -47,7 +47,13 @@ where
         self,
     ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
         PortIterator::new(self.flat_map(|assign| {
-            iter::once(Rc::clone(&assign.src)).chain(assign.guard.all_ports())
+            assign
+                .guard
+                .all_ports()
+                .into_iter()
+                .chain(iter::once(Rc::clone(&assign.dst)))
+                .chain(iter::once(Rc::clone(&assign.src)))
+                .filter(|port| !port.borrow().is_hole())
         }))
     }
 
