@@ -441,7 +441,7 @@ impl InferenceAnalysis {
             log::debug!("FAIL: No path between @go and @done port");
             return None;
         }
-        let first_path = paths.get(0).unwrap();
+        let first_path = paths.first().unwrap();
 
         // Sum the latencies of each primitive along the path.
         let mut latency_sum = 0;
