@@ -1,8 +1,11 @@
 //! Calculate the reaching definitions in a control program.
 use crate::analysis::ReadWriteSet;
 use calyx_ir as ir;
+use ir::RRC;
+use itertools::Itertools;
 use std::cmp::Ordering;
 use std::cmp::{Ord, PartialOrd};
+use std::rc::Rc;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     ops::BitOr,
@@ -304,6 +307,34 @@ fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
         .collect();
 }
 
+/// Returns the register cells whose out port is read anywhere in the given
+/// assignments
+fn register_reads<T>(assigns: &[ir::Assignment<T>]) -> BTreeSet<ir::Id> {
+    assigns
+        .iter()
+        .analysis()
+        .reads()
+        .filter_map(|p| {
+            let port = p.borrow();
+            let ir::PortParent::Cell(cell_wref) = &port.parent else {
+                unreachable!("Port not part of a cell");
+            };
+            // Skip this if the port is not an output
+            if &port.name != "out" {
+                return None;
+            };
+            let cr = cell_wref.upgrade();
+            let cell = cr.borrow();
+            if cell.is_primitive(Some("std_reg")) {
+                Some(cr.borrow().name())
+            } else {
+                None
+            }
+        })
+        .unique()
+        .collect()
+}
+
 // handles `build_reaching_defns` for the enable/static_enables case.
 // asgns are the assignments in the group (either static or dynamic)
 fn handle_reaching_def_enables<T>(
@@ -324,9 +355,8 @@ fn handle_reaching_def_enables<T>(
         .map(|x| x.borrow().name())
         .collect::<BTreeSet<_>>();
 
-    let read_set = ReadWriteSet::register_reads(asgns.iter())
-        .map(|x| x.borrow().name())
-        .collect::<BTreeSet<_>>();
+    let read_set = register_reads(asgns);
+
     // only kill a def if the value is not read.
     let (mut cur_reach, killed) =
         reach.kill_from_writeread(&write_set, &read_set);

@@ -168,34 +168,6 @@ impl ReadWriteSet {
         )
     }
 
-    /// Returns the register cells whose out port is read anywhere in the given
-    /// assignments
-    pub fn register_reads<'a, T: 'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
-        assigns
-            .analysis()
-            .reads()
-            .filter_map(|p| {
-                let port = p.borrow();
-                let ir::PortParent::Cell(cell_wref) = &port.parent else {
-                    unreachable!("Port not part of a cell");
-                };
-                // Skip this if the port is not an output
-                if &port.name != "out" {
-                    return None;
-                };
-                let cr = cell_wref.upgrade();
-                let cell = cr.borrow();
-                if cell.is_primitive(Some("std_reg")) {
-                    Some(Rc::clone(&cr))
-                } else {
-                    None
-                }
-            })
-            .unique_by(|c| c.borrow().name())
-    }
-
     /// Return the name of the cells that these assignments write to for writes
     /// that are guarded by true.
     /// **Ignores** writes to group holes.
