@@ -36,7 +36,7 @@ pub use inference_analysis::InferenceAnalysis;
 pub use live_range_analysis::LiveRangeAnalysis;
 pub use port_interface::PortInterface;
 pub use promotion_analysis::PromotionAnalysis;
-pub use read_write_set::ReadWriteSet;
+pub use read_write_set::{AssignmentAnalysis, ReadWriteSet};
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
 pub use static_par_timing::StaticParTiming;

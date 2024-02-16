@@ -1,4 +1,4 @@
-use crate::analysis::ReadWriteSet;
+use crate::analysis::AssignmentAnalysis;
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir};
 use calyx_ir::{GetAttributes, RRC};
@@ -237,8 +237,10 @@ impl GroupToInvoke {
         assigns: &[ir::Assignment<Nothing>],
         group_done_port: &ir::RRC<ir::Port>,
     ) {
-        let mut writes = ReadWriteSet::port_write_set(assigns.iter())
-            .cells()
+        let mut writes = assigns
+            .iter()
+            .analysis()
+            .cell_writes()
             .filter(|cell| match cell.borrow().prototype {
                 ir::CellType::Primitive { is_comb, .. } => !is_comb,
                 _ => true,

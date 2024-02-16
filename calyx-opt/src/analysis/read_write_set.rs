@@ -2,6 +2,106 @@ use calyx_ir::{self as ir, RRC};
 use itertools::Itertools;
 use std::{collections::HashMap, iter, rc::Rc};
 
+#[derive(Clone)]
+pub struct AssignmentIterator<'a, T: 'a, I>
+where
+    I: Iterator<Item = &'a ir::Assignment<T>>,
+{
+    iter: I,
+}
+
+impl<'a, T: 'a, I> Iterator for AssignmentIterator<'a, T, I>
+where
+    I: Iterator<Item = &'a ir::Assignment<T>>,
+{
+    type Item = &'a ir::Assignment<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<'a, T: 'a, I: 'a> AssignmentIterator<'a, T, I>
+where
+    I: Iterator<Item = &'a ir::Assignment<T>>,
+{
+    /// Returns [ir::Port] which are read from in the assignments.
+    pub fn reads(
+        self,
+    ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
+        PortIterator::new(self.flat_map(ReadWriteSet::port_reads))
+    }
+
+    /// Returns [ir::Port] which are written to in the assignments.
+    pub fn writes(
+        self,
+    ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
+        PortIterator::new(
+            self.map(|assign| Rc::clone(&assign.dst))
+                .filter(|port| !port.borrow().is_hole()),
+        )
+    }
+
+    /// Returns the ports mentioned in this set of assignments.
+    pub fn uses(
+        self,
+    ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
+        PortIterator::new(self.flat_map(|assign| {
+            iter::once(Rc::clone(&assign.src)).chain(assign.guard.all_ports())
+        }))
+    }
+
+    // Convinience Methods
+
+    /// Returns the cells read from in this set of assignments
+    pub fn cell_reads(self) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
+        self.reads().cells()
+    }
+
+    /// Returns the cells written to in this set of assignments
+    pub fn cell_writes(self) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
+        self.writes().cells()
+    }
+
+    /// Returns the cells used in this set of assignments
+    pub fn cell_uses(self) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
+        self.uses().cells()
+    }
+}
+
+impl<'a, T: 'a, I: 'a> AssignmentIterator<'a, T, I>
+where
+    I: Iterator<Item = &'a ir::Assignment<T>>,
+    I: Clone,
+    T: Clone,
+{
+    /// Separately returns the read and write sets for the given assignments.
+    pub fn reads_and_writes(
+        self,
+    ) -> (
+        PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a>,
+        PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a>,
+    ) {
+        (self.clone().reads(), self.writes())
+    }
+}
+
+/// Analyzes that can be performed on a set of assignments.
+pub trait AssignmentAnalysis<'a, T: 'a>:
+    Iterator<Item = &'a ir::Assignment<T>>
+where
+    Self: Sized,
+{
+    fn analysis(self) -> AssignmentIterator<'a, T, Self> {
+        AssignmentIterator { iter: self }
+    }
+}
+
+impl<'a, T: 'a, I: 'a> AssignmentAnalysis<'a, T> for I where
+    I: Iterator<Item = &'a ir::Assignment<T>>
+{
+}
+
 /// Calcuate the reads-from and writes-to set for a given set of assignments.
 pub struct ReadWriteSet;
 
@@ -62,24 +162,6 @@ impl ReadWriteSet {
         )
     }
 
-    /// Returns [ir::Port] which are read from in the assignments.
-    pub fn port_read_set<'a, T: 'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
-    ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>>> {
-        PortIterator::new(assigns.flat_map(Self::port_reads))
-    }
-
-    /// Returns [ir::Port] which are written to in the assignments.
-    pub fn port_write_set<'a, T: 'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
-    ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
-        PortIterator::new(
-            assigns
-                .map(|assign| Rc::clone(&assign.dst))
-                .filter(|port| !port.borrow().is_hole()),
-        )
-    }
-
     /// Returns the register cells whose out port is read anywhere in the given
     /// assignments
     pub fn register_reads<'a, T: 'a>(
@@ -132,17 +214,6 @@ impl ReadWriteSet {
             })
             .unique_by(|cell| cell.borrow().name())
     }
-
-    /// Returns all uses of cells in this group. Uses constitute both reads and
-    /// writes to cells.
-    pub fn uses<'a, T: 'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
-        let reads = Self::port_read_set(assigns.clone()).cells();
-        reads
-            .chain(Self::port_write_set(assigns).cells())
-            .unique_by(|cell| cell.borrow().name())
-    }
 }
 
 impl ReadWriteSet {
@@ -153,12 +224,11 @@ impl ReadWriteSet {
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
         match scon {
             ir::StaticControl::Empty(_) => (vec![], vec![]),
-            ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => (
-                Self::port_read_set(group.borrow().assignments.iter())
-                    .collect(),
-                Self::port_write_set(group.borrow().assignments.iter())
-                    .collect(),
-            ),
+            ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+                let g = group.borrow();
+                let (r, w) = g.assignments.iter().analysis().reads_and_writes();
+                (r.collect(), w.collect())
+            }
             ir::StaticControl::Repeat(ir::StaticRepeat { body, .. }) => {
                 Self::control_port_read_write_set_static(body)
             }
@@ -262,20 +332,23 @@ impl ReadWriteSet {
     ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
         match con {
             ir::Control::Empty(_) => (vec![], vec![]),
-            ir::Control::Enable(ir::Enable { group, .. }) => (
-                Self::port_read_set(group.borrow().assignments.iter().filter(
-                    |assign| {
-                        INCLUDE_HOLE_ASSIGNS || !assign.dst.borrow().is_hole()
-                    },
-                ))
-                .collect(),
-                Self::port_write_set(group.borrow().assignments.iter().filter(
-                    |assign| {
-                        INCLUDE_HOLE_ASSIGNS || !assign.dst.borrow().is_hole()
-                    },
-                ))
-                .collect(),
-            ),
+            ir::Control::Enable(ir::Enable { group, .. }) => {
+                let group = group.borrow();
+                let (reads, writes) =
+                    group.assignments.iter().analysis().reads_and_writes();
+                (
+                    reads
+                        .filter(|p| {
+                            INCLUDE_HOLE_ASSIGNS || !p.borrow().is_hole()
+                        })
+                        .collect(),
+                    writes
+                        .filter(|p| {
+                            INCLUDE_HOLE_ASSIGNS || !p.borrow().is_hole()
+                        })
+                        .collect(),
+                )
+            }
             ir::Control::Invoke(ir::Invoke {
                 inputs,
                 outputs,
@@ -321,10 +394,12 @@ impl ReadWriteSet {
                 match comb_group {
                     Some(cgr) => {
                         let cg = cgr.borrow();
-                        let assigns = cg.assignments.iter();
-                        let reads = Self::port_read_set(assigns.clone());
-                        let writes = Self::port_write_set(assigns);
-                        (reads.chain(r).collect(), writes.chain(w).collect())
+                        let (reads, writes) =
+                            cg.assignments.iter().analysis().reads_and_writes();
+                        (
+                            reads.into_iter().chain(r).collect(),
+                            writes.into_iter().chain(w).collect(),
+                        )
                     }
                     None => (r, w),
                 }
@@ -356,12 +431,11 @@ impl ReadWriteSet {
                 twrites.append(&mut fwrites);
 
                 if let Some(cg) = cond {
-                    treads.extend(Self::port_read_set(
-                        cg.borrow().assignments.iter(),
-                    ));
-                    twrites.extend(Self::port_write_set(
-                        cg.borrow().assignments.iter(),
-                    ));
+                    let cg = cg.borrow();
+                    let (reads, writes) =
+                        cg.assignments.iter().analysis().reads_and_writes();
+                    treads.extend(reads);
+                    twrites.extend(writes);
                 }
                 (treads, twrites)
             }
@@ -373,12 +447,11 @@ impl ReadWriteSet {
                 reads.push(Rc::clone(port));
 
                 if let Some(cg) = cond {
-                    reads.extend(Self::port_read_set(
-                        cg.borrow().assignments.iter(),
-                    ));
-                    writes.extend(Self::port_write_set(
-                        cg.borrow().assignments.iter(),
-                    ));
+                    let cg = cg.borrow();
+                    let (r, w) =
+                        cg.assignments.iter().analysis().reads_and_writes();
+                    reads.extend(r);
+                    writes.extend(w);
                 }
                 (reads, writes)
             }
@@ -409,32 +482,6 @@ impl ReadWriteSet {
             port_writes
                 .into_iter()
                 .map(|p| p.borrow().cell_parent())
-                .collect(),
-        )
-    }
-
-    /// Returns the ports that are read and written, respectively,
-    /// in the continuous assignments of the given component.
-    pub fn cont_ports_read_write_set(
-        comp: &mut calyx_ir::Component,
-    ) -> (Vec<RRC<ir::Port>>, Vec<RRC<ir::Port>>) {
-        (
-            Self::port_read_set(comp.continuous_assignments.iter()).collect(),
-            Self::port_write_set(comp.continuous_assignments.iter()).collect(),
-        )
-    }
-
-    /// Returns the cells that are read and written, respectively,
-    /// in the continuous assignments of the given component.
-    pub fn cont_read_write_set(
-        comp: &mut calyx_ir::Component,
-    ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
-        (
-            Self::port_read_set(comp.continuous_assignments.iter())
-                .cells()
-                .collect(),
-            Self::port_write_set(comp.continuous_assignments.iter())
-                .cells()
                 .collect(),
         )
     }

@@ -8,6 +8,8 @@ use std::{
     ops::BitOr,
 };
 
+use super::read_write_set::AssignmentAnalysis;
+
 const INVOKE_PREFIX: &str = "__invoke_";
 
 type GroupName = ir::Id;
@@ -219,18 +221,19 @@ impl ReachingDefinitionAnalysis {
     where
         I: Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
     {
-        let continuous_regs: Vec<ir::Id> =
-            ReadWriteSet::uses(continuous_assignments)
-                .filter_map(|cell| {
-                    let cell_ref = cell.borrow();
-                    if let Some(name) = cell_ref.type_name() {
-                        if name == "std_reg" {
-                            return Some(cell_ref.name());
-                        }
+        let continuous_regs: Vec<ir::Id> = continuous_assignments
+            .analysis()
+            .cell_uses()
+            .filter_map(|cell| {
+                let cell_ref = cell.borrow();
+                if let Some(name) = cell_ref.type_name() {
+                    if name == "std_reg" {
+                        return Some(cell_ref.name());
                     }
-                    None
-                })
-                .collect();
+                }
+                None
+            })
+            .collect();
 
         let mut overlap_map: BTreeMap<
             ir::Id,
