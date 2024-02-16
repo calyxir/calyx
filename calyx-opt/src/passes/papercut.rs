@@ -124,9 +124,10 @@ impl Visitor for Papercut {
         }
 
         // Compute all cells that are driven in by the continuous assignments0
-        self.cont_cells = analysis::ReadWriteSet::write_set(
+        self.cont_cells = analysis::ReadWriteSet::port_write_set(
             comp.continuous_assignments.iter(),
         )
+        .cells()
         .map(|cr| cr.borrow().name())
         .collect();
 
