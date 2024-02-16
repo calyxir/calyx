@@ -5,7 +5,7 @@ use itertools::Itertools;
 use petgraph::{algo, graph::NodeIndex};
 use std::collections::HashMap;
 
-use super::ReadWriteSet;
+use super::read_write_set::AssignmentAnalysis;
 
 /// Struct to perform compaction on `seqs`.
 /// It will only work if you update_cont_read_writes for each component that
@@ -19,7 +19,18 @@ pub struct CompactionAnalysis {
 impl CompactionAnalysis {
     /// Updates self so that compaction will take continuous assignments into account
     pub fn update_cont_read_writes(&mut self, comp: &mut ir::Component) {
-        let (cont_reads, cont_writes) = ReadWriteSet::cont_read_write_set(comp);
+        let (cont_reads, cont_writes) = (
+            comp.continuous_assignments
+                .iter()
+                .analysis()
+                .cell_reads()
+                .collect(),
+            comp.continuous_assignments
+                .iter()
+                .analysis()
+                .cell_writes()
+                .collect(),
+        );
         self.cont_reads = cont_reads;
         self.cont_writes = cont_writes;
     }
