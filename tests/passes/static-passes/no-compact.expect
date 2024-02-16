@@ -1,29 +1,33 @@
-// -p well-formed -p static-promotion -x static-promotion:threshold=5 -x static-promotion:compaction=false -p dead-group-removal
-
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
-
-component foo(base: 32, exp: 4, @go @promotable(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component foo(base: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r1 = std_reg(32);
     r2 = std_reg(32);
+    r3 = std_reg(32);
   }
   wires {
+    group upd3<"promotable"=1> {
+      r3.in = base;
+      r3.write_en = 1'd1;
+      upd3[done] = r3.done;
+    }
     group upd2<"promotable"=1> {
-      r2.in = 32'd1;
+      r2.in = r3.out;
       r2.write_en = 1'd1;
       upd2[done] = r2.done;
     }
     group upd1<"promotable"=1> {
-      r1.in = 32'd1;
+      r1.in = r2.out;
       r1.write_en = 1'd1;
       upd1[done] = r1.done;
     }
   }
   control {
-    @promotable(2) seq {
-      @promotable upd1;
-      @promotable upd2;
+    seq {
+      upd3;
+      upd2;
+      upd1;
     }
   }
 }
@@ -44,22 +48,16 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       b.write_en = 1'd1;
       B[done] = b.done;
     }
-    group F<"promotable"=2> {
+    group F {
       foo_inst.go = 1'd1;
       F[done] = foo_inst.done;
     }
   }
   control {
-    @promotable(10) seq {
-      @promotable A;
-      @promotable A;
-      @promotable A;
-      @promotable A;
-      @promotable B;
-      @promotable B;
-      @promotable B;
-      @promotable B;
-      @promotable(2) F;
+    seq {
+      A;
+      F;
+      B;
     }
   }
 }
