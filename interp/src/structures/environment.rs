@@ -690,7 +690,7 @@ impl InterpreterState {
                 if val.len() != 1 {
                     let can = p.borrow().canonical();
                     return Err(InterpreterError::InvalidBoolCast(
-                        (can.0, can.1),
+                        (can.cell, can.port),
                         p.borrow().width,
                     )
                     .into());
