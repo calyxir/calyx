@@ -42,6 +42,21 @@ where
         )
     }
 
+    /// Return the name of the cells that these assignments write to for writes
+    /// that are guarded by true.
+    /// **Ignores** writes to group holes.
+    pub fn must_writes(
+        self,
+    ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
+        PortIterator::new(self.filter_map(|assignment| {
+            if assignment.guard.is_true() {
+                Some(Rc::clone(&assignment.dst))
+            } else {
+                None
+            }
+        }))
+    }
+
     /// Returns the ports mentioned in this set of assignments.
     pub fn uses(
         self,
@@ -108,9 +123,6 @@ impl<'a, T: 'a, I: 'a> AssignmentAnalysis<'a, T> for I where
 {
 }
 
-/// Calcuate the reads-from and writes-to set for a given set of assignments.
-pub struct ReadWriteSet;
-
 /// An iterator over ports
 pub struct PortIterator<I>
 where
@@ -153,6 +165,9 @@ where
     }
 }
 
+/// Calcuate the reads-from and writes-to set for a given set of assignments.
+pub struct ReadWriteSet;
+
 impl ReadWriteSet {
     /// Returns [ir::Port] that are read from in the given Assignment.
     pub fn port_reads<T>(
@@ -166,25 +181,6 @@ impl ReadWriteSet {
                 .chain(iter::once(Rc::clone(&assign.src)))
                 .filter(|port| !port.borrow().is_hole()),
         )
-    }
-
-    /// Return the name of the cells that these assignments write to for writes
-    /// that are guarded by true.
-    /// **Ignores** writes to group holes.
-    pub fn must_write_set<'a, T: 'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
-        assigns
-            .filter_map(|assignment| {
-                if assignment.guard.is_true() {
-                    let dst_ref = assignment.dst.borrow();
-                    if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
-                        return Some(Rc::clone(&cell_wref.upgrade()));
-                    }
-                }
-                None
-            })
-            .unique_by(|cell| cell.borrow().name())
     }
 }
 

@@ -1,11 +1,8 @@
 //! Calculate the reaching definitions in a control program.
-use crate::analysis::ReadWriteSet;
 use calyx_ir as ir;
-use ir::RRC;
 use itertools::Itertools;
 use std::cmp::Ordering;
 use std::cmp::{Ord, PartialOrd};
-use std::rc::Rc;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     ops::BitOr,
@@ -343,7 +340,7 @@ fn handle_reaching_def_enables<T>(
     rd: &mut ReachingDefinitionAnalysis,
     group_name: ir::Id,
 ) -> (DefSet, KilledSet) {
-    let writes = ReadWriteSet::must_write_set(asgns.iter());
+    let writes = asgns.iter().analysis().must_writes().cells();
     // for each write:
     // Killing all other reaching defns for that var
     // generating a new defn (Id, GROUP)

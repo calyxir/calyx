@@ -118,11 +118,7 @@ impl DataflowOrder {
                     .collect_vec();
                 let ws = {
                     let dst = assign.dst.borrow();
-                    let dst_parent = matches!(
-                        dst.cell_parent().borrow().prototype,
-                        ir::CellType::Primitive { .. }
-                    );
-                    if dst_parent {
+                    if dst.cell_parent().borrow().is_primitive::<&str>(None) {
                         Some(dst.canonical())
                     } else {
                         None
