@@ -167,33 +167,27 @@ impl ReadWriteSet {
     pub fn register_reads<'a, T: 'a>(
         assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
     ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
-        fn is_register_out(port_ref: RRC<ir::Port>) -> Option<RRC<ir::Cell>> {
-            let port = port_ref.borrow();
-            if let ir::PortParent::Cell(cell_wref) = &port.parent {
-                if &port.name == "out" {
-                    return Some(Rc::clone(&cell_wref.upgrade()));
-                }
-            }
-            None
-        }
-        let guard_ports = assigns.clone().flat_map(|assign| {
-            assign
-                .guard
-                .all_ports()
-                .into_iter()
-                .filter_map(is_register_out)
-        });
         assigns
-            .filter_map(|assign| is_register_out(Rc::clone(&assign.src)))
-            .chain(guard_ports)
-            .filter(|x| {
-                if let Some(name) = x.borrow().type_name() {
-                    name == "std_reg"
+            .analysis()
+            .reads()
+            .filter_map(|p| {
+                let port = p.borrow();
+                let ir::PortParent::Cell(cell_wref) = &port.parent else {
+                    unreachable!("Port not part of a cell");
+                };
+                // Skip this if the port is not an output
+                if &port.name != "out" {
+                    return None;
+                };
+                let cr = cell_wref.upgrade();
+                let cell = cr.borrow();
+                if cell.is_primitive(Some("std_reg")) {
+                    Some(Rc::clone(&cr))
                 } else {
-                    false
+                    None
                 }
             })
-            .unique_by(|cell| cell.borrow().name())
+            .unique_by(|c| c.borrow().name())
     }
 
     /// Return the name of the cells that these assignments write to for writes
