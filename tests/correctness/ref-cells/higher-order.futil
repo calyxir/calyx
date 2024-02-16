@@ -79,6 +79,7 @@ component map_f() -> () {
             write_r[done] = r.done;
         }
         group write_out {
+            out.content_en = 1'd1;
             out.write_en = 1'd1;
             out.addr0 = idx.out;
             out.write_data = r.out;
@@ -111,12 +112,14 @@ component main() -> () {
     wires {
         group f1_stats {
             stats.addr0 = 2'd0;
+            stats.content_en = 1'd1;
             stats.write_data = f1.processed;
             stats.write_en = 1'd1;
             f1_stats[done] = stats.done;
         }
         group f2_stats {
             stats.addr0 = 2'd1;
+            stats.content_en = 1'd1;
             stats.write_data = f2.processed;
             stats.write_en = 1'd1;
             f2_stats[done] = stats.done;
