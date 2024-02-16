@@ -12,7 +12,6 @@ use error::MyAdapterError;
 use dap::prelude::*;
 use error::AdapterResult;
 use slog::{info, Drain};
-use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
@@ -135,10 +134,10 @@ where
     };
 
     // Open file using the extracted program path
-    let file = File::open(program_path)?;
+    // let file = File::open(program_path)?;
 
     // Construct the adapter
-    let mut adapter = MyAdapter::new(file);
+    let mut adapter = MyAdapter::new(program_path).unwrap();
 
     //Make two threads to make threads visible on call stack, subject to change.
     let thread = &adapter.create_thread(String::from("Main"));
@@ -171,7 +170,7 @@ fn run_server<R: Read, W: Write>(
             Some(req) => req,
             None => return Err(MyAdapterError::MissingCommandError),
         };
-        match &req.command {
+        match dbg!(&req.command) {
             Command::Launch(_) => {
                 let rsp = req.success(ResponseBody::Launch);
                 server.respond(rsp)?;
@@ -223,8 +222,8 @@ fn run_server<R: Read, W: Write>(
             Command::StackTrace(_args) => {
                 let rsp =
                     req.success(ResponseBody::StackTrace(StackTraceResponse {
-                        stack_frames: vec![],
-                        total_frames: None,
+                        stack_frames: adapter.create_stack(),
+                        total_frames: Some(0),
                     }));
                 server.respond(rsp)?;
             }
@@ -283,6 +282,13 @@ fn run_server<R: Read, W: Write>(
                     create_stopped(String::from("Paused on step"), thread_id);
                 server.send_event(stopped)?;
             }
+            // Command::Source(_) => {
+            //     let rsp = req.success(ResponseBody::Source(SourceResponse {
+            //         content: String::from("random"),
+            //         mime_type: None,
+            //     }));
+            //     server.respond(rsp)?;
+            // }
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),

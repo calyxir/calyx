@@ -1,5 +1,8 @@
-use dap::types::{Breakpoint, Source, SourceBreakpoint, Thread};
+use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
 use std::fs::File;
+
+use crate::error::AdapterResult;
+
 pub struct MyAdapter {
     #[allow(dead_code)]
     file: File,
@@ -7,19 +10,24 @@ pub struct MyAdapter {
     break_count: Counter,
     thread_count: Counter,
     threads: Vec<Thread>, //This field is a placeholder
+    source: String,
 }
 
 impl MyAdapter {
-    pub fn new(file: File) -> Self {
-        MyAdapter {
-            file,
+    // Look at Rust File implementation
+    // Pass in path, easier
+    // Change to take in the file path
+    // Create open file function
+    pub fn new(path: &str) -> AdapterResult<Self> {
+        Ok(MyAdapter {
+            file: File::open(path)?,
             breakpoints: Vec::new(),
             break_count: Counter::new(),
             thread_count: Counter::new(),
             threads: Vec::new(),
-        }
+            source: path.to_string(),
+        })
     }
-
     ///Set breakpoints for adapter
     pub fn set_breakpoint(
         &mut self,
@@ -37,6 +45,7 @@ impl MyAdapter {
                 self.break_count.increment().into(),
                 true,
                 Some(path.clone()),
+                Some(source_point.line),
             );
 
             out_vec.push(breakpoint);
@@ -58,6 +67,35 @@ impl MyAdapter {
     /// Clone threads
     pub fn clone_threads(&self) -> Vec<Thread> {
         self.threads.clone()
+    }
+
+    //Returns a dummy stack frame, set to change.
+    pub fn create_stack(&self) -> Vec<StackFrame> {
+        let mut out_vec: Vec<StackFrame> = vec![];
+        let frame = StackFrame {
+            id: 1,
+            name: String::from("Hewwo"),
+            source: Some(Source {
+                name: None,
+                path: Some(self.source.clone()),
+                source_reference: None,
+                presentation_hint: None,
+                origin: None,
+                sources: None,
+                adapter_data: None,
+                checksums: None,
+            }),
+            line: 86,
+            column: 0,
+            end_line: None,
+            end_column: None,
+            can_restart: None,
+            instruction_pointer_reference: None,
+            module_id: None,
+            presentation_hint: None,
+        };
+        out_vec.push(frame);
+        out_vec
     }
 }
 
@@ -87,13 +125,14 @@ pub fn make_breakpoint(
     id: Option<i64>,
     verified: bool,
     source: Option<Source>,
+    line: Option<i64>,
 ) -> Breakpoint {
     Breakpoint {
         id,
         verified,
         message: None,
         source,
-        line: None,
+        line,
         column: None,
         end_line: None,
         end_column: None,
