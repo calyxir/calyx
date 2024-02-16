@@ -77,11 +77,11 @@ fn add_assignment_reads<T>(
     share: &ShareSet,
     assignments: &[ir::Assignment<T>],
 ) {
-    for cell in ReadWriteSet::read_set(
-        assignments
-            .iter()
-            .filter(|assign| !reads_only_dones(assign)),
-    ) {
+    let assigns = assignments
+        .iter()
+        .filter(|assign| !reads_only_dones(assign));
+
+    for cell in ReadWriteSet::port_read_set(assigns).cells() {
         if share.is_shareable_component(&cell) && !cell.borrow().is_reference()
         {
             reads.insert(cell.borrow().name());

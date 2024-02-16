@@ -18,7 +18,8 @@ impl VariableDetection {
     ) -> Option<(ir::CellType, ir::Id)> {
         let group = group_ref.borrow();
 
-        let writes = ReadWriteSet::write_set(group.assignments.iter())
+        let writes = ReadWriteSet::port_write_set(group.assignments.iter())
+            .cells()
             .filter(|cell| state_share.is_shareable_component(cell))
             .collect::<Vec<_>>();
 

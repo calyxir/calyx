@@ -736,7 +736,8 @@ impl LiveRangeAnalysis {
                 });
 
             // calculate reads, but ignore `variable`. we've already dealt with that
-            let reads: HashSet<_> = ReadWriteSet::read_set(assignments)
+            let reads: HashSet<_> = ReadWriteSet::port_read_set(assignments)
+                .cells()
                 .filter(|c| sc_clone.is_shareable_component(c))
                 .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
                 .collect();
@@ -761,7 +762,8 @@ impl LiveRangeAnalysis {
                 .collect::<Vec<_>>();
 
             let writes: HashSet<_> =
-                ReadWriteSet::write_set(assignments.iter())
+                ReadWriteSet::port_write_set(assignments.iter())
+                    .cells()
                     .filter(|c| sc_clone.is_shareable_component(c))
                     .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
                     .collect();
@@ -792,10 +794,12 @@ impl LiveRangeAnalysis {
             .cloned()
             .collect::<Vec<_>>();
 
-        let writes: HashSet<_> = ReadWriteSet::write_set(assignments.iter())
-            .filter(|c| sc_clone.is_shareable_component(c))
-            .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
-            .collect();
+        let writes: HashSet<_> =
+            ReadWriteSet::port_write_set(assignments.iter())
+                .cells()
+                .filter(|c| sc_clone.is_shareable_component(c))
+                .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
+                .collect();
 
         (reads, writes)
     }
@@ -822,7 +826,8 @@ impl LiveRangeAnalysis {
             .filter(|cell| shareable.is_shareable_component(cell))
             .map(|cell| (cell.borrow().prototype.clone(), cell.borrow().name()))
             .collect::<HashSet<_>>();
-        let state_reads = ReadWriteSet::read_set(group.assignments.iter())
+        let state_reads = ReadWriteSet::port_read_set(group.assignments.iter())
+            .cells()
             .filter(|cell| state_shareable.is_shareable_component(cell))
             .map(|cell| (cell.borrow().prototype.clone(), cell.borrow().name()))
             .collect::<HashSet<_>>();
@@ -887,13 +892,16 @@ impl LiveRangeAnalysis {
 
         if let Some(comb_group) = comb_group_info {
             read_set.extend(
-                ReadWriteSet::read_set(comb_group.borrow().assignments.iter())
-                    .filter(|cell| {
-                        shareable_components.is_shareable_component(cell)
-                    })
-                    .map(|cell| {
-                        (cell.borrow().prototype.clone(), cell.borrow().name())
-                    }),
+                ReadWriteSet::port_read_set(
+                    comb_group.borrow().assignments.iter(),
+                )
+                .cells()
+                .filter(|cell| {
+                    shareable_components.is_shareable_component(cell)
+                })
+                .map(|cell| {
+                    (cell.borrow().prototype.clone(), cell.borrow().name())
+                }),
             );
         }
 

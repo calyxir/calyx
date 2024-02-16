@@ -518,14 +518,16 @@ impl InferenceAnalysis {
             // This checks any group that writes to the component:
             // We can probably switch this to any group that writes to the component's
             // `go` port to be more precise analysis.
-            if ReadWriteSet::write_set(group.borrow_mut().assignments.iter())
-                .any(|cell| match cell.borrow().prototype {
-                    CellType::Component { name } => {
-                        self.updated_components.contains(&name)
-                    }
-                    _ => false,
-                })
-            {
+            if ReadWriteSet::port_write_set(
+                group.borrow_mut().assignments.iter(),
+            )
+            .cells()
+            .any(|cell| match cell.borrow().prototype {
+                CellType::Component { name } => {
+                    self.updated_components.contains(&name)
+                }
+                _ => false,
+            }) {
                 // Remove attribute from group.
                 group
                     .borrow_mut()

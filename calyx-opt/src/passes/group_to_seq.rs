@@ -150,7 +150,9 @@ fn comp_or_non_comb(cell: &ir::RRC<ir::Cell>) -> bool {
 //If asmt is a write to a cell named name returns Some(name).
 //If asmt is a write to a group port, returns None.
 fn writes_to_cell<T>(asmt: &ir::Assignment<T>) -> Option<ir::RRC<ir::Cell>> {
-    ReadWriteSet::write_set(std::iter::once(asmt)).next()
+    ReadWriteSet::port_write_set(std::iter::once(asmt))
+        .cells()
+        .next()
 }
 
 ///Primarily used to help determine the order cells are executed within
@@ -307,7 +309,8 @@ where
         asmts: &[ir::Assignment<T>],
     ) -> Option<(ir::Id, ir::Id)> {
         let stateful_writes: Vec<ir::Id> =
-            ReadWriteSet::write_set(asmts.iter())
+            ReadWriteSet::port_write_set(asmts.iter())
+                .cells()
                 .filter_map(|cell| {
                     if cell.borrow().is_comb_cell() {
                         None

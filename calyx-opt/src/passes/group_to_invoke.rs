@@ -237,7 +237,8 @@ impl GroupToInvoke {
         assigns: &[ir::Assignment<Nothing>],
         group_done_port: &ir::RRC<ir::Port>,
     ) {
-        let mut writes = ReadWriteSet::write_set(assigns.iter())
+        let mut writes = ReadWriteSet::port_write_set(assigns.iter())
+            .cells()
             .filter(|cell| match cell.borrow().prototype {
                 ir::CellType::Primitive { is_comb, .. } => !is_comb,
                 _ => true,
