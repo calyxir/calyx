@@ -1,5 +1,5 @@
 # Use the official rust image as a parent image.
-FROM rust:1.70
+FROM rust:latest
 
 # Connect to the Calux repository.
 LABEL org.opencontainers.image.source https://github.com/calyxir/calyx
