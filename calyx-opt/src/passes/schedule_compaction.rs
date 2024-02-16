@@ -1,4 +1,6 @@
-use crate::analysis::{InferenceAnalysis, PromotionAnalysis, ReadWriteSet};
+use crate::analysis::{
+    AssignmentAnalysis, InferenceAnalysis, PromotionAnalysis,
+};
 use crate::traversal::{Action, ConstructVisitor};
 use crate::{
     analysis,
@@ -261,7 +263,13 @@ impl Visitor for ScheduleCompaction {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
-        let (cont_reads, cont_writes) = ReadWriteSet::cont_read_write_set(comp);
+        let (cont_reads, cont_writes) = comp
+            .continuous_assignments
+            .iter()
+            .analysis()
+            .reads_and_writes();
+        let (cont_reads, cont_writes) =
+            (cont_reads.cells().collect(), cont_writes.cells().collect());
         InferenceAnalysis::remove_promotable_from_seq(s);
         self.inference_analysis.fixup_seq(s);
 

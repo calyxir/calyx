@@ -1,4 +1,6 @@
-use crate::analysis::{DominatorMap, ReadWriteSet, ShareSet};
+use crate::analysis::{
+    AssignmentAnalysis, DominatorMap, ReadWriteSet, ShareSet,
+};
 use calyx_ir as ir;
 use std::collections::HashSet;
 
@@ -81,7 +83,7 @@ fn add_assignment_reads<T>(
         .iter()
         .filter(|assign| !reads_only_dones(assign));
 
-    for cell in ReadWriteSet::port_read_set(assigns).cells() {
+    for cell in assigns.analysis().cell_reads() {
         if share.is_shareable_component(&cell) && !cell.borrow().is_reference()
         {
             reads.insert(cell.borrow().name());

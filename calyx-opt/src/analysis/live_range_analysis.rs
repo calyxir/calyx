@@ -1,4 +1,6 @@
-use crate::analysis::{ControlId, ReadWriteSet, ShareSet, VariableDetection};
+use crate::analysis::{
+    AssignmentAnalysis, ControlId, ReadWriteSet, ShareSet, VariableDetection,
+};
 use calyx_ir::{self as ir, Id, RRC};
 use itertools::Itertools;
 use std::{
@@ -40,11 +42,12 @@ pub fn meaningful_port_read_set<'a, T: 'a>(
     assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
 ) -> impl Iterator<Item = RRC<ir::Port>> + 'a {
     // go_writes = all cells which are guaranteed to have their go port written to in assigns
-    let go_writes: Vec<RRC<ir::Cell>> =
-        ReadWriteSet::port_write_set(assigns.clone().filter(|asgn| {
+    let go_writes: Vec<RRC<ir::Cell>> = assigns
+        .clone()
+        .filter(|asgn| {
             // to be included in go_writes, one of the following must hold:
             // a) guard is true
-            // b) cell.go = !cell.done ? 1'd1
+            // b cell.go = !cell.done ? 1'd1
             if asgn.guard.is_true() {
                 return true;
             }
@@ -55,7 +58,9 @@ pub fn meaningful_port_read_set<'a, T: 'a>(
                     &asgn.dst.borrow().cell_parent().borrow().name(),
                 )
                 && asgn.src.borrow().is_constant(1, 1)
-        }))
+        })
+        .analysis()
+        .writes()
         .filter(|port| port.borrow().attributes.has(ir::NumAttr::Go))
         .map(|port| Rc::clone(&port.borrow().cell_parent()))
         .collect();
@@ -736,8 +741,9 @@ impl LiveRangeAnalysis {
                 });
 
             // calculate reads, but ignore `variable`. we've already dealt with that
-            let reads: HashSet<_> = ReadWriteSet::port_read_set(assignments)
-                .cells()
+            let reads: HashSet<_> = assignments
+                .analysis()
+                .cell_reads()
                 .filter(|c| sc_clone.is_shareable_component(c))
                 .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
                 .collect();
@@ -761,12 +767,13 @@ impl LiveRangeAnalysis {
                 .cloned()
                 .collect::<Vec<_>>();
 
-            let writes: HashSet<_> =
-                ReadWriteSet::port_write_set(assignments.iter())
-                    .cells()
-                    .filter(|c| sc_clone.is_shareable_component(c))
-                    .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
-                    .collect();
+            let writes: HashSet<_> = assignments
+                .iter()
+                .analysis()
+                .cell_writes()
+                .filter(|c| sc_clone.is_shareable_component(c))
+                .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
+                .collect();
 
             (reads, writes)
         }
@@ -794,12 +801,13 @@ impl LiveRangeAnalysis {
             .cloned()
             .collect::<Vec<_>>();
 
-        let writes: HashSet<_> =
-            ReadWriteSet::port_write_set(assignments.iter())
-                .cells()
-                .filter(|c| sc_clone.is_shareable_component(c))
-                .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
-                .collect();
+        let writes: HashSet<_> = assignments
+            .iter()
+            .analysis()
+            .cell_writes()
+            .filter(|c| sc_clone.is_shareable_component(c))
+            .map(|c| (c.borrow().prototype.clone(), c.borrow().name()))
+            .collect();
 
         (reads, writes)
     }
@@ -808,7 +816,10 @@ impl LiveRangeAnalysis {
         assigns: &[ir::Assignment<T>],
         shareable_components: &ShareSet,
     ) -> TypeNameSet {
-        ReadWriteSet::uses(assigns.iter())
+        assigns
+            .iter()
+            .analysis()
+            .cell_uses()
             .filter(|cell| shareable_components.is_shareable_component(cell))
             .map(|cell| (cell.borrow().prototype.clone(), cell.borrow().name()))
             .collect::<HashSet<_>>()
@@ -822,11 +833,19 @@ impl LiveRangeAnalysis {
         state_shareable: &ShareSet,
     ) -> (TypeNameSet, TypeNameSet) {
         let group = group_ref.borrow();
-        let share_uses = ReadWriteSet::uses(group.assignments.iter())
+        let share_uses = group
+            .assignments
+            .iter()
+            .analysis()
+            .cell_uses()
             .filter(|cell| shareable.is_shareable_component(cell))
             .map(|cell| (cell.borrow().prototype.clone(), cell.borrow().name()))
             .collect::<HashSet<_>>();
-        let state_reads = ReadWriteSet::port_read_set(group.assignments.iter())
+        let state_reads = group
+            .assignments
+            .iter()
+            .analysis()
+            .reads()
             .cells()
             .filter(|cell| state_shareable.is_shareable_component(cell))
             .map(|cell| (cell.borrow().prototype.clone(), cell.borrow().name()))
@@ -892,16 +911,19 @@ impl LiveRangeAnalysis {
 
         if let Some(comb_group) = comb_group_info {
             read_set.extend(
-                ReadWriteSet::port_read_set(
-                    comb_group.borrow().assignments.iter(),
-                )
-                .cells()
-                .filter(|cell| {
-                    shareable_components.is_shareable_component(cell)
-                })
-                .map(|cell| {
-                    (cell.borrow().prototype.clone(), cell.borrow().name())
-                }),
+                comb_group
+                    .borrow()
+                    .assignments
+                    .iter()
+                    .analysis()
+                    .reads()
+                    .cells()
+                    .filter(|cell| {
+                        shareable_components.is_shareable_component(cell)
+                    })
+                    .map(|cell| {
+                        (cell.borrow().prototype.clone(), cell.borrow().name())
+                    }),
             );
         }
 
@@ -928,7 +950,12 @@ impl LiveRangeAnalysis {
         // uses of shareable components in the comb group (if it exists)
         if let Some(comb_group) = &comb_group_info {
             uses.extend(
-                ReadWriteSet::uses(comb_group.borrow().assignments.iter())
+                comb_group
+                    .borrow()
+                    .assignments
+                    .iter()
+                    .analysis()
+                    .cell_uses()
                     .filter(|cell| {
                         shareable_components.is_shareable_component(cell)
                     })
