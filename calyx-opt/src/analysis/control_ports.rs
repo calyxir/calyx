@@ -1,3 +1,4 @@
+use super::AssignmentAnalysis;
 use calyx_ir::{self as ir, RRC};
 use itertools::Itertools;
 use std::{
@@ -66,10 +67,15 @@ impl<const INVOKE_MAP: bool> ControlPorts<INVOKE_MAP> {
         comb_group: &Option<ir::RRC<ir::CombGroup>>,
     ) {
         if let Some(c) = comb_group {
-            let cells =
-                super::ReadWriteSet::uses(c.borrow().assignments.iter())
-                    .map(|cell| cell.borrow().name())
-                    .collect::<HashSet<_>>();
+            let cells = c
+                .borrow()
+                .assignments
+                .iter()
+                .analysis()
+                .cell_uses()
+                .map(|cell| cell.borrow().name())
+                .collect::<HashSet<_>>();
+
             // Only add ports that come from cells used in this comb group.
             let ports =
                 inputs
