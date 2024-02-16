@@ -36,6 +36,7 @@ mod sync;
 mod add_guard;
 mod compile_static_interface;
 mod data_path_infer;
+mod default_assigns;
 mod discover_external;
 mod simplify_with_control;
 mod synthesis_papercut;
