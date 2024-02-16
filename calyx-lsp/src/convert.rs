@@ -28,9 +28,9 @@ impl Point {
     }
 }
 
-impl Into<ts::Point> for Point {
-    fn into(self) -> ts::Point {
-        self.0
+impl From<Point> for ts::Point {
+    fn from(value: Point) -> Self {
+        value.0
     }
 }
 
@@ -40,9 +40,9 @@ impl From<ts::Point> for Point {
     }
 }
 
-impl Into<lspt::Position> for Point {
-    fn into(self) -> lspt::Position {
-        lspt::Position::new(self.0.row as u32, self.0.column as u32)
+impl From<Point> for lspt::Position {
+    fn from(value: Point) -> Self {
+        lspt::Position::new(value.0.row as u32, value.0.column as u32)
     }
 }
 
@@ -57,12 +57,12 @@ impl From<lspt::Position> for Point {
 
 impl PartialOrd<Point> for Point {
     fn partial_cmp(&self, other: &Point) -> Option<std::cmp::Ordering> {
-        if self.row() < other.row() {
-            Some(std::cmp::Ordering::Less)
-        } else if self.row() == other.row() {
-            self.column().partial_cmp(&other.column())
-        } else {
-            Some(std::cmp::Ordering::Greater)
+        match self.row().cmp(&other.row()) {
+            x @ std::cmp::Ordering::Less => Some(x),
+            std::cmp::Ordering::Equal => {
+                self.column().partial_cmp(&other.column())
+            }
+            x @ std::cmp::Ordering::Greater => Some(x),
         }
     }
 }
@@ -97,12 +97,9 @@ impl<'a> From<ts::Node<'a>> for Range {
     }
 }
 
-impl Into<lspt::Range> for Range {
-    fn into(self) -> lspt::Range {
-        lspt::Range::new(
-            Point::from(self.start).into(),
-            Point::from(self.end).into(),
-        )
+impl From<Range> for lspt::Range {
+    fn from(val: Range) -> Self {
+        lspt::Range::new(val.start.into(), val.end.into())
     }
 }
 

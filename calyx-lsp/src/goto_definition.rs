@@ -6,7 +6,7 @@ use tree_sitter as ts;
 use crate::{
     convert::Range,
     document::{Document, Things},
-    query_result::QueryResult2,
+    query_result::QueryResult,
     Config,
 };
 #[derive(Clone, Debug)]
@@ -15,7 +15,7 @@ pub enum DefRes {
     Continue(Vec<PathBuf>, String),
 }
 
-impl QueryResult2 for DefRes {
+impl QueryResult for DefRes {
     type Data = lspt::Location;
     type Needle = String;
 

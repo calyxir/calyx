@@ -16,7 +16,7 @@ use convert::{Point, Range};
 use diagnostic::Diagnostic;
 use document::{ComponentSig, Document};
 use goto_definition::DefinitionProvider;
-use query_result::QueryResult2;
+use query_result::QueryResult;
 use serde::Deserialize;
 use tower_lsp::lsp_types as lspt;
 use tower_lsp::{jsonrpc, Client, LanguageServer, LspService, Server};
@@ -73,9 +73,9 @@ impl Backend {
     }
 
     fn open_path(&self, uri: lspt::Url) {
-        fs::read_to_string(uri.to_file_path().unwrap())
-            .ok()
-            .map(|text| self.open(uri.clone(), text));
+        if let Ok(text) = fs::read_to_string(uri.to_file_path().unwrap()) {
+            self.open(uri.clone(), text)
+        }
     }
 
     fn exists(&self, uri: &lspt::Url) -> bool {
@@ -96,17 +96,17 @@ impl Backend {
         F: FnMut(&Document) -> Option<T>,
     {
         // if the file doesnt exist, read it's contents and create a doc for it
-        if !self.exists(&uri) {
+        if !self.exists(uri) {
             self.open_path(uri.clone());
-            self.update_symbols(&uri);
+            self.update_symbols(uri);
         }
 
-        self.read_document(&uri, reader)
+        self.read_document(uri, reader)
     }
 
     fn update<F>(&self, uri: &lspt::Url, updater: F)
     where
-        F: FnMut(&mut Document) -> (),
+        F: FnMut(&mut Document),
     {
         let mut map = self.open_docs.write().unwrap();
         map.get_mut(uri).map(updater);
@@ -165,7 +165,7 @@ impl Backend {
                     .collect(),
                 )
             })
-            .unwrap_or(vec![]);
+            .unwrap_or_default();
         self.client
             .publish_diagnostics(url.clone(), diags, None)
             .await;
@@ -231,7 +231,6 @@ impl LanguageServer for Backend {
                 )),
                 ..Default::default()
             },
-            ..Default::default()
         })
     }
 
@@ -295,7 +294,7 @@ impl LanguageServer for Backend {
                     self.read_and_open(&url, |doc| gdr.resume(config, doc))
                 })
             })
-            .map(|loc| lspt::GotoDefinitionResponse::Scalar(loc)))
+            .map(lspt::GotoDefinitionResponse::Scalar))
     }
 
     async fn completion(

@@ -66,7 +66,7 @@ pub enum Context {
 
 pub trait NodeRangesIter<'a>: Iterator<Item = ts::Node<'a>> + Sized {
     fn ranges(self) -> impl Iterator<Item = Range> {
-        self.map(|n| Range::from(n))
+        self.map(Range::from)
     }
 }
 
@@ -213,7 +213,7 @@ impl Document {
             .collect();
     }
 
-    pub fn components<'a>(&'a self) -> impl Iterator<Item = ts::Node<'a>> {
+    pub fn components(&self) -> impl Iterator<Item = ts::Node> {
         self.root_node().into_iter().flat_map(|root| {
             self.captures(
                 root,
@@ -301,7 +301,7 @@ impl Document {
             .cartesian_product(
                 vec![cur_dir]
                     .into_iter()
-                    .chain(lib_paths.into_iter().map(|p| PathBuf::from(p))),
+                    .chain(lib_paths.iter().map(PathBuf::from)),
             )
             .map(|(base_path, lib_path)| {
                 lib_path.join(base_path).resolve().into_owned()
@@ -358,43 +358,31 @@ impl Document {
         self.node_at_point(&point).and_then(|node| {
             if node.parent().is_some_and(|p| p.kind() == "port") {
                 if node.next_sibling().is_some() {
-                    Some(Things::Cell(
-                        node.clone(),
-                        self.node_text(&node).to_string(),
-                    ))
+                    Some(Things::Cell(node, self.node_text(&node).to_string()))
                 } else if node.prev_sibling().is_none() {
                     Some(Things::SelfPort(
-                        node.clone(),
+                        node,
                         self.node_text(&node).to_string(),
                     ))
                 } else {
                     None
                 }
             } else if node.parent().is_some_and(|p| p.kind() == "enable") {
-                Some(Things::Group(
-                    node.clone(),
-                    self.node_text(&node).to_string(),
-                ))
+                Some(Things::Group(node, self.node_text(&node).to_string()))
             } else if node.parent().is_some_and(|p| p.kind() == "hole") {
                 if node.next_sibling().is_some() {
-                    Some(Things::Group(
-                        node.clone(),
-                        self.node_text(&node).to_string(),
-                    ))
+                    Some(Things::Group(node, self.node_text(&node).to_string()))
                 } else {
                     None
                 }
             } else if node.parent().is_some_and(|p| p.kind() == "port_with") {
-                Some(Things::Group(
-                    node.clone(),
-                    self.node_text(&node).to_string(),
-                ))
+                Some(Things::Group(node, self.node_text(&node).to_string()))
             } else if node.parent().is_some_and(|p| p.kind() == "instantiation")
             {
                 Some(Things::Component(self.node_text(&node).to_string()))
             } else if node.parent().is_some_and(|p| p.kind() == "import") {
                 Some(Things::Import(
-                    node.clone(),
+                    node,
                     self.node_text(&node).to_string().replace('"', ""),
                 ))
             } else {
@@ -404,7 +392,7 @@ impl Document {
     }
 
     pub fn context_at_point(&self, point: &Point) -> Context {
-        self.node_at_point(&point)
+        self.node_at_point(point)
             .and_then(|n| {
                 if n.kind() == "component" {
                     Some(n)

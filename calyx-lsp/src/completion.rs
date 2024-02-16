@@ -6,7 +6,7 @@ use tower_lsp::lsp_types as lspt;
 use crate::{
     convert::Point,
     document::{Context, Document},
-    query_result::QueryResult2,
+    query_result::QueryResult,
     Config,
 };
 
@@ -44,16 +44,14 @@ impl CompletionItem {
     }
 }
 
-impl Into<lspt::CompletionItem> for CompletionItem {
-    fn into(self) -> lspt::CompletionItem {
-        {
-            lspt::CompletionItem {
-                label: self.label,
-                detail: Some(self.detail),
-                insert_text: self.snippet,
-                insert_text_format: Some(lspt::InsertTextFormat::SNIPPET),
-                ..Default::default()
-            }
+impl From<CompletionItem> for lspt::CompletionItem {
+    fn from(value: CompletionItem) -> Self {
+        lspt::CompletionItem {
+            label: value.label,
+            detail: Some(value.detail),
+            insert_text: value.snippet,
+            insert_text_format: Some(lspt::InsertTextFormat::SNIPPET),
+            ..Default::default()
         }
     }
 }
@@ -65,7 +63,7 @@ pub enum CompletionRes {
     ContinueComponent(Vec<PathBuf>, Vec<CompletionItem>),
 }
 
-impl QueryResult2 for CompletionRes {
+impl QueryResult for CompletionRes {
     type Data = Vec<CompletionItem>;
     type Needle = String;
 
@@ -143,7 +141,7 @@ impl QueryResult2 for CompletionRes {
                                     ),
                                 )
                             })
-                            .chain(compls.clone().into_iter())
+                            .chain(compls.clone())
                             .chain(
                                 comps["name"]
                                     .iter()
@@ -158,11 +156,11 @@ impl QueryResult2 for CompletionRes {
                             )
                             .collect()
                     })
-                    .unwrap_or(vec![]);
+                    .unwrap_or_default();
                 Some(if paths.is_empty() && imports.is_empty() {
                     Self::Found(comps_here)
                 } else {
-                    imports.extend_from_slice(&paths);
+                    imports.extend_from_slice(paths);
                     Self::ContinueComponent(imports, comps_here)
                 })
             }
@@ -187,8 +185,8 @@ impl CompletionProvider for Document {
         config: &Config,
     ) -> Option<Vec<CompletionRes>> {
         self.last_word_from_point(point).and_then(|word| {
-            self.node_at_point(&point).and_then(|node| {
-                match (self.context_at_point(&point), trigger_char.as_deref()) {
+            self.node_at_point(point).and_then(|node| {
+                match (self.context_at_point(point), trigger_char) {
                     (Context::Toplevel, _) => {
                         Some(vec![CompletionRes::Found(vec![CompletionItem::snippet(
                             "component",

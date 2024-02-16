@@ -28,8 +28,6 @@ impl ParentUntil for Node<'_> {
     where
         S: AsRef<str>,
     {
-        self.parent_until(|p| {
-            names.iter().find(|n| p.kind() == n.as_ref()).is_some()
-        })
+        self.parent_until(|p| names.iter().any(|n| p.kind() == n.as_ref()))
     }
 }
