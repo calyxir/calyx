@@ -1,6 +1,5 @@
-use crate::analysis::{
-    compute_static::WithStatic, GraphAnalysis, ReadWriteSet,
-};
+use super::AssignmentAnalysis;
+use crate::analysis::{compute_static::WithStatic, GraphAnalysis};
 use calyx_ir::{self as ir, GetAttributes, RRC};
 use ir::CellType;
 use itertools::Itertools;
@@ -292,7 +291,7 @@ impl InferenceAnalysis {
         &self,
         group: &ir::Group,
     ) -> Vec<(RRC<ir::Port>, RRC<ir::Port>)> {
-        let rw_set = ReadWriteSet::uses(group.assignments.iter());
+        let rw_set = group.assignments.iter().analysis().cell_uses();
         let mut go_done_edges: Vec<(RRC<ir::Port>, RRC<ir::Port>)> = Vec::new();
 
         for cell_ref in rw_set {
@@ -549,7 +548,12 @@ impl InferenceAnalysis {
             // This checks any group that writes to the component:
             // We can probably switch this to any group that writes to the component's
             // `go` port to be more precise analysis.
-            if ReadWriteSet::write_set(group.borrow_mut().assignments.iter())
+            if group
+                .borrow_mut()
+                .assignments
+                .iter()
+                .analysis()
+                .cell_writes()
                 .any(|cell| match cell.borrow().prototype {
                     CellType::Component { name } => {
                         self.updated_components.contains(&name)
