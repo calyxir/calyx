@@ -1,6 +1,6 @@
 use super::{
-    Assignment, Attributes, BackendConf, Builder, Canonical, Cell, CellType,
-    Component, Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
+    Assignment, Attributes, BackendConf, Builder, Cell, CellType, Component,
+    Context, Control, Direction, GetAttributes, Guard, Id, Invoke,
     LibrarySignatures, Port, PortDef, StaticControl, StaticInvoke,
     RESERVED_NAMES, RRC,
 };
@@ -490,17 +490,15 @@ fn ensure_direction(pr: RRC<Port>, dir: Direction) -> CalyxResult<RRC<Port>> {
     let port_dir = pr.borrow().direction.clone();
     match (dir, port_dir) {
         (Direction::Input, Direction::Output) => {
-            let Canonical(c, p) = pr.borrow().canonical();
+            let name = pr.borrow().canonical();
             Err(Error::malformed_structure(format!(
-                "Port `{}.{}` occurs in write position but is an output port",
-                c, p
+                "Port `{name}` occurs in write position but is an output port",
             )))
         }
         (Direction::Output, Direction::Input) => {
-            let Canonical(c, p) = pr.borrow().canonical();
+            let name = pr.borrow().canonical();
             Err(Error::malformed_structure(format!(
-                "Port `{}.{}` occurs in write position but is an output port",
-                c, p
+                "Port `{name}` occurs in write position but is an output port",
             )))
         }
         _ => Ok(pr),

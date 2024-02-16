@@ -140,7 +140,7 @@ impl DataflowOrder {
         // XXX(rachit): This probably adds a bunch of duplicate edges and in the
         // worst case makes this pass much slower than it needs to be.
         for (r_idx, (comp, canonical_port)) in reads {
-            let ir::Canonical(inst, port) = canonical_port;
+            let ir::Canonical { cell: inst, port } = canonical_port;
             let dep_ports = self
                 .write_map
                 .get(&comp)
@@ -159,7 +159,7 @@ impl DataflowOrder {
             dep_ports
                 .iter()
                 .cloned()
-                .flat_map(|port| writes.get(&ir::Canonical(inst, port)))
+                .flat_map(|port| writes.get(&ir::Canonical::new(inst, port)))
                 .flatten()
                 .try_for_each(|w_idx| {
                     if *w_idx == r_idx {
