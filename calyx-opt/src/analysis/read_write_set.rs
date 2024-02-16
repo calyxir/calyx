@@ -49,7 +49,8 @@ where
         self,
     ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
         PortIterator::new(self.filter_map(|assignment| {
-            if assignment.guard.is_true() {
+            if assignment.guard.is_true() && !assignment.dst.borrow().is_hole()
+            {
                 Some(Rc::clone(&assignment.dst))
             } else {
                 None
