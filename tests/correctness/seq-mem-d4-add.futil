@@ -70,24 +70,22 @@ component main() -> () {
       lt4.left = l.out;
       lt4.right = 3'd4;
     }
-    group read_in1{
+    group read_in1 {
       in1.addr0 = i.out;
       in1.addr1 = j.out;
       in1.addr2 = k.out;
       in1.addr3 = l.out;
       in1.content_en = 1'd1;
-      in1.write_en = 1'd0;
       in1_reg.write_en = in1.done;
       in1_reg.in = in1.read_data;
       read_in1[done] = in1_reg.done;
     }
-    group read_in2{
+    group read_in2 {
       in2.addr0 = i.out;
       in2.addr1 = j.out;
       in2.addr2 = k.out;
       in2.addr3 = l.out;
       in2.content_en = 1'd1;
-      in2.write_en = 1'd0;
       in2_reg.write_en = in2.done;
       in2_reg.in = in2.read_data;
       read_in2[done] = in2_reg.done;
@@ -102,7 +100,7 @@ component main() -> () {
       out.content_en = 1'd1;
       out.write_en = 1'd1;
       out.write_data = add.out;
-      update_val[done] = out.write_done;
+      update_val[done] = out.done;
     }
     group incr_i {
       add_i.left = i.out;
