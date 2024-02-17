@@ -76,6 +76,7 @@ class ComponentBuilder:
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
+            attributes = [],
             inputs=[],
             outputs=[],
             structs=cells,
@@ -111,6 +112,11 @@ class ComponentBuilder:
         """
         self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
         return self.this()[name]
+
+    def attribute(self, name: str, value: int) -> None:
+        """Declare an attribute on the component.
+        """
+        self.component.attributes.append(ast.CompAttribute(name, value))
 
     def this(self) -> ThisBuilder:
         """Get a handle to the component's `this` cell.
