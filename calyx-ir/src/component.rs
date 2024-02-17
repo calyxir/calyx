@@ -324,7 +324,7 @@ impl Component {
 #[derive(Debug)]
 pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
 
-/// Simple into-iter impl delegating to the [`Values`](linked_hash_map::Values).
+/// Simple iter impl delegating to the [`Values`](linked_hash_map::Values).
 impl<'a, T: GetName> IntoIterator for &'a IdList<T> {
     type Item = &'a RRC<T>;
 

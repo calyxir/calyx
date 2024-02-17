@@ -82,6 +82,7 @@ pub use sync::CompileSyncWithoutSyncReg;
 // pub use simplify_guards::SimplifyGuards;
 pub use add_guard::AddGuard;
 pub use compile_static_interface::CompileStaticInterface;
+pub use default_assigns::DefaultAssigns;
 pub use synthesis_papercut::SynthesisPapercut;
 pub use top_down_compile_control::TopDownCompileControl;
 pub use unroll_bound::UnrollBounded;
