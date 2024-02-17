@@ -93,6 +93,21 @@ def add_my_component(prog):
 
 Note that it's possible to [create a handle][hndl] to input and output ports.
 
+### Defining Component Attributes
+
+Components can be given attributes. Similar to ports, just specify the name of the attribute and its value.
+Note that `attribute(name, value)` does not create a handle to the attribute.
+
+```python
+my_component.attribute("my_attribute", 1)
+```
+
+Will create a component that looks like:
+
+```
+component my_component<"my_attribute"=1>(...) -> (...) {
+```
+
 ### Multi-Component Designs
 
 Calyx supports [multi-component designs][multi]. The [top-level example][top] demonstrates how to construct multi-component designs using the library.

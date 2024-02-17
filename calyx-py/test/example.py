@@ -63,7 +63,12 @@ controls = SeqComp([Enable(update_operands), Enable(compute_sum)])
 
 # Create the component.
 main_component = Component(
-    name="main", inputs=[], outputs=[], structs=cells + wires, controls=controls
+    name="main",
+    attributes=[],
+    inputs=[],
+    outputs=[],
+    structs=cells + wires,
+    controls=controls,
 )
 
 # Create the Calyx program.

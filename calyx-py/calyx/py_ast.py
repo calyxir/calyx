@@ -88,10 +88,11 @@ class Component:
     def doc(self) -> str:
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
-        if(self.latency):
-            self.attributes.append(CompAttribute("static",self.latency))
-        attribute_annotation = ", ".join(f"<{a.doc}>" for a in self.attributes)
-        signature = f"{attribute_annotation}component {self.name}({ins}) -> ({outs})"
+        latency_annotation = (
+            f"static<{self.latency}>" if self.latency is not None else ""
+        )
+        attribute_annotation = f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>" if self.attributes else ""
+        signature = f"{latency_annotation}component {self.name}{attribute_annotation}({ins}) -> ({outs})"
         cells = block("cells", [c.doc() for c in self.cells])
         wires = block("wires", [w.doc() for w in self.wires])
         controls = block("control", [self.controls.doc()])
