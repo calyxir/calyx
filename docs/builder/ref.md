@@ -96,7 +96,7 @@ Note that it's possible to [create a handle][hndl] to input and output ports.
 ### Defining Component Attributes
 
 Components can be given attributes. Similar to ports, just specify the name of the attribute and its value.
-Note that `attribute(name, value)` does not create a handle to the attribute.
+Note that `attribute(name, value)` does not return a handle to the attribute.
 
 ```python
 my_component.attribute("my_attribute", 1)
