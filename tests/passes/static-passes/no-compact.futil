@@ -1,29 +1,36 @@
-// -p well-formed -p static-promotion -x static-promotion:threshold=5 -x static-promotion:compaction=false -p dead-group-removal
+// -p well-formed -p static-inference -p static-promotion -x static-promotion:threshold=5 -p dead-group-removal
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
-component foo(base: 32, exp: 4, @go @promotable(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component foo(base: 32) -> (out: 32) {
   cells {
     r1 = std_reg(32);
     r2 = std_reg(32);
+    r3 = std_reg(32);
   }
   wires {
-    group upd2<"promotable"=1> {
-      r2.in = 32'd1;
+    group upd3 {
+      r3.in = base;
+      r3.write_en = 1'd1;
+      upd3[done] = r3.done;
+    }
+    group upd2 {
+      r2.in = r3.out;
       r2.write_en = 1'd1;
       upd2[done] = r2.done;
     }
-    group upd1<"promotable"=1> {
-      r1.in = 32'd1;
+    group upd1 {
+      r1.in = r2.out;
       r1.write_en = 1'd1;
       upd1[done] = r1.done;
     }
   }
   control {
-    @promotable(2) seq {
-      @promotable upd1;
-      @promotable upd2;
+    seq {
+      upd3;
+      upd2;
+      upd1;
     }
   }
 }
@@ -50,16 +57,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
   control {
-    @promotable(10) seq {
-      @promotable A;
-      @promotable A;
-      @promotable A;
-      @promotable A;
-      @promotable B;
-      @promotable B;
-      @promotable B;
-      @promotable B;
-      @promotable(2) F;
+    seq {
+      A;
+      F;
+      B;
     }
   }
 }

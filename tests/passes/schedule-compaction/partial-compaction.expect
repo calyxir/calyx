@@ -44,12 +44,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   control {
     seq {
-      @promotable(2) seq {
-        @promotable A;
-        @promotable B;
-      }
+      A;
+      B;
       C;
-      @promotable @promoted static<1> par {
+      @promoted static<1> par {
         D0;
         E0;
         F0;

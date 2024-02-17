@@ -1,4 +1,4 @@
-// -p well-formed -p static-inference -p schedule-compaction -p static-promotion -x static-promotion:threshold=5
+// -p well-formed -p static-inference -p static-promotion -x static-promotion:threshold=5
 // Compaction should promote the body, promotion should promote the loop.
 
 import "primitives/core.futil";

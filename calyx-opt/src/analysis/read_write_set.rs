@@ -42,12 +42,34 @@ where
         )
     }
 
+    /// Return the name of the cells that these assignments write to for writes
+    /// that are guarded by true.
+    /// **Ignores** writes to group holes.
+    pub fn must_writes(
+        self,
+    ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
+        PortIterator::new(self.filter_map(|assignment| {
+            if assignment.guard.is_true() && !assignment.dst.borrow().is_hole()
+            {
+                Some(Rc::clone(&assignment.dst))
+            } else {
+                None
+            }
+        }))
+    }
+
     /// Returns the ports mentioned in this set of assignments.
     pub fn uses(
         self,
     ) -> PortIterator<impl Iterator<Item = RRC<ir::Port>> + 'a> {
         PortIterator::new(self.flat_map(|assign| {
-            iter::once(Rc::clone(&assign.src)).chain(assign.guard.all_ports())
+            assign
+                .guard
+                .all_ports()
+                .into_iter()
+                .chain(iter::once(Rc::clone(&assign.dst)))
+                .chain(iter::once(Rc::clone(&assign.src)))
+                .filter(|port| !port.borrow().is_hole())
         }))
     }
 
@@ -102,9 +124,6 @@ impl<'a, T: 'a, I: 'a> AssignmentAnalysis<'a, T> for I where
 {
 }
 
-/// Calcuate the reads-from and writes-to set for a given set of assignments.
-pub struct ReadWriteSet;
-
 /// An iterator over ports
 pub struct PortIterator<I>
 where
@@ -147,6 +166,9 @@ where
     }
 }
 
+/// Calcuate the reads-from and writes-to set for a given set of assignments.
+pub struct ReadWriteSet;
+
 impl ReadWriteSet {
     /// Returns [ir::Port] that are read from in the given Assignment.
     pub fn port_reads<T>(
@@ -160,59 +182,6 @@ impl ReadWriteSet {
                 .chain(iter::once(Rc::clone(&assign.src)))
                 .filter(|port| !port.borrow().is_hole()),
         )
-    }
-
-    /// Returns the register cells whose out port is read anywhere in the given
-    /// assignments
-    pub fn register_reads<'a, T: 'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
-        fn is_register_out(port_ref: RRC<ir::Port>) -> Option<RRC<ir::Cell>> {
-            let port = port_ref.borrow();
-            if let ir::PortParent::Cell(cell_wref) = &port.parent {
-                if &port.name == "out" {
-                    return Some(Rc::clone(&cell_wref.upgrade()));
-                }
-            }
-            None
-        }
-        let guard_ports = assigns.clone().flat_map(|assign| {
-            assign
-                .guard
-                .all_ports()
-                .into_iter()
-                .filter_map(is_register_out)
-        });
-        assigns
-            .filter_map(|assign| is_register_out(Rc::clone(&assign.src)))
-            .chain(guard_ports)
-            .filter(|x| {
-                if let Some(name) = x.borrow().type_name() {
-                    name == "std_reg"
-                } else {
-                    false
-                }
-            })
-            .unique_by(|cell| cell.borrow().name())
-    }
-
-    /// Return the name of the cells that these assignments write to for writes
-    /// that are guarded by true.
-    /// **Ignores** writes to group holes.
-    pub fn must_write_set<'a, T: 'a>(
-        assigns: impl Iterator<Item = &'a ir::Assignment<T>> + 'a,
-    ) -> impl Iterator<Item = RRC<ir::Cell>> + 'a {
-        assigns
-            .filter_map(|assignment| {
-                if assignment.guard.is_true() {
-                    let dst_ref = assignment.dst.borrow();
-                    if let ir::PortParent::Cell(cell_wref) = &dst_ref.parent {
-                        return Some(Rc::clone(&cell_wref.upgrade()));
-                    }
-                }
-                None
-            })
-            .unique_by(|cell| cell.borrow().name())
     }
 }
 
