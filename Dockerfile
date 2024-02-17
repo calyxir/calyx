@@ -1,5 +1,5 @@
 # Use the official rust image as a parent image.
-FROM rust:latest
+FROM rust:1.76
 
 # Connect to the Calux repository.
 LABEL org.opencontainers.image.source https://github.com/calyxir/calyx
@@ -12,6 +12,7 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     apt-get install -y jq python3.10 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
 
 # Install python dependencies
+RUN rm /usr/lib/python3.11/EXTERNALLY-MANAGED
 RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
 # Current cocotb-bus has a bug that is fixed in more up to date repo
 RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
