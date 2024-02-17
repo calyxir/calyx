@@ -5,7 +5,7 @@ component my_reg<"state_share"=1>(@data in: 32, @go go: 1, @clk clk: 1, @reset r
     @data r = std_reg(32);
   }
   wires {
-    group invoke0<"promote_static"=1> {
+    group invoke0<"promotable"=1> {
       r.write_en = 1'd1;
       invoke0[done] = r.done;
       r.in = in;

@@ -1,0 +1,4 @@
+---STDERR---
+Error: tests/passes/well-formed/interval-attr2.futil
+4 |component foo(@interval @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  |^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Malformed Structure: component foo has dynamic control but has @interval annotations

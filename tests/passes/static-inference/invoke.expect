@@ -6,43 +6,43 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     exp0 = exponent();
   }
   wires {
-    group upd0<"promote_static"=1> {
+    group upd0<"promotable"=1> {
       r.in = 32'd1;
       r.write_en = 1'd1;
       upd0[done] = r.done;
     }
   }
   control {
-    @promote_static(3) seq {
-      @promote_static upd0;
-      @promote_static(2) invoke exp0(
+    @promotable(3) seq {
+      @promotable upd0;
+      @promotable(2) invoke exp0(
         base = r.out,
         exp = r.out
       )();
     }
   }
 }
-component exponent(base: 32, exp: 32, @go @static(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+component exponent(base: 32, exp: 32, @go @promotable(2) go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
     r1 = std_reg(32);
     r2 = std_reg(32);
   }
   wires {
-    group upd2<"promote_static"=1> {
+    group upd2<"promotable"=1> {
       r2.in = 32'd1;
       r2.write_en = 1'd1;
       upd2[done] = r2.done;
     }
-    group upd1<"promote_static"=1> {
+    group upd1<"promotable"=1> {
       r1.in = 32'd1;
       r1.write_en = 1'd1;
       upd1[done] = r1.done;
     }
   }
   control {
-    @promote_static(2) seq {
-      @promote_static upd1;
-      @promote_static upd2;
+    @promotable(2) seq {
+      @promotable upd1;
+      @promotable upd2;
     }
   }
 }

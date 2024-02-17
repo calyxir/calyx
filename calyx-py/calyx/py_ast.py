@@ -45,6 +45,7 @@ class Program(Emittable):
 @dataclass
 class Component:
     name: str
+    attributes : list[Attribute]
     inputs: list[PortDef]
     outputs: list[PortDef]
     wires: list[Structure]
@@ -55,15 +56,17 @@ class Component:
     def __init__(
         self,
         name: str,
+        attributes: list[CompAttribute],
         inputs: list[PortDef],
         outputs: list[PortDef],
         structs: list[Structure],
         controls: Control,
         latency: Optional[int] = None,
     ):
+        self.name = name
+        self.attributes = attributes
         self.inputs = inputs
         self.outputs = outputs
-        self.name = name
         self.controls = controls
         self.latency = latency
 
@@ -86,13 +89,28 @@ class Component:
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
         latency_annotation = (
-            f"static<{self.latency}> " if self.latency is not None else ""
+            f"static<{self.latency}>" if self.latency is not None else ""
         )
-        signature = f"{latency_annotation}component {self.name}({ins}) -> ({outs})"
+        attribute_annotation = f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>" if self.attributes else ""
+        signature = f"{latency_annotation}component {self.name}{attribute_annotation}({ins}) -> ({outs})"
         cells = block("cells", [c.doc() for c in self.cells])
         wires = block("wires", [w.doc() for w in self.wires])
         controls = block("control", [self.controls.doc()])
         return block(signature, [cells, wires, controls])
+
+
+#Attribute
+@dataclass
+class Attribute(Emittable):
+    pass
+
+@dataclass
+class CompAttribute(Attribute):
+    name: str
+    value: int
+
+    def doc(self) -> str:
+        return f"\"{self.name}\"={self.value}"
 
 
 # Ports
@@ -205,7 +223,7 @@ class Group(Structure):
 
     def doc(self) -> str:
         static_delay_attr = (
-            "" if self.static_delay is None else f'<"static"={self.static_delay}>'
+            "" if self.static_delay is None else f'<"promotable"={self.static_delay}>'
         )
         return block(
             f"group {self.id.doc()}{static_delay_attr}",

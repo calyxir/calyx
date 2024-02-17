@@ -12,7 +12,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     ud = undef(1);
   }
   wires {
-    group A<"promote_static"=1> {
+    group A<"promotable"=1> {
       a_reg.write_en = 1'd1;
       a_reg.in = 32'd5;
       A[done] = a_reg.done;
@@ -22,7 +22,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       c_reg.in = 32'd10;
       C[done] = ud.out;
     }
-    group B<"promote_static"=1> {
+    group B<"promotable"=1> {
       b_reg.write_en = 1'd1;
       a.right = c_reg.out;
       a.left = a_reg.out;
@@ -44,12 +44,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   }
   control {
     seq {
-      @promote_static(2) seq {
-        @promote_static A;
-        @promote_static B;
-      }
+      A;
+      B;
       C;
-      @promote_static @promoted static<1> par {
+      @promoted static<1> par {
         D0;
         E0;
         F0;

@@ -30,7 +30,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
   control {
-    @promote_static(11) @promoted static<11> par {
+    @promoted static<11> par {
       static<11> seq  {
         A0;
         D0;

@@ -7,22 +7,22 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @external read_x = std_add(4);
   }
   wires {
-    group wr_before<"static"=1> {
+    group wr_before<"promotable"=1> {
       before.in = 4'd1;
       before.write_en = 1'd1;
       wr_before[done] = before.done;
     }
-    group wr_x<"static"=1> {
+    group wr_x<"promotable"=1> {
       before.in = 4'd1;
       before.write_en = 1'd1;
       wr_x[done] = before.done;
     }
-    group wr_b<"static"=1> {
+    group wr_b<"promotable"=1> {
       b.in = 32'd1;
       b.write_en = 1'd1;
       wr_b[done] = b.done;
     }
-    group rd_x<"static"=1> {
+    group rd_x<"promotable"=1> {
       read_x.right = before.out;
       read_x.left = before.out;
       rd_x[done] = before.done;

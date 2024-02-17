@@ -1,4 +1,4 @@
-use crate::analysis;
+use crate::analysis::{self, AssignmentAnalysis};
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
@@ -124,11 +124,13 @@ impl Visitor for Papercut {
         }
 
         // Compute all cells that are driven in by the continuous assignments0
-        self.cont_cells = analysis::ReadWriteSet::write_set(
-            comp.continuous_assignments.iter(),
-        )
-        .map(|cr| cr.borrow().name())
-        .collect();
+        self.cont_cells = comp
+            .continuous_assignments
+            .iter()
+            .analysis()
+            .cell_writes()
+            .map(|cr| cr.borrow().name())
+            .collect();
 
         Ok(Action::Continue)
     }
@@ -200,11 +202,17 @@ impl Visitor for Papercut {
 
 impl Papercut {
     fn check_specs<T>(&mut self, assigns: &[ir::Assignment<T>]) -> VisResult {
-        let all_writes = analysis::ReadWriteSet::port_write_set(assigns.iter())
+        let all_writes = assigns
+            .iter()
+            .analysis()
+            .writes()
             .filter_map(port_information)
             .into_grouping_map()
             .collect::<HashSet<_>>();
-        let all_reads = analysis::ReadWriteSet::port_read_set(assigns.iter())
+        let all_reads = assigns
+            .iter()
+            .analysis()
+            .reads()
             .filter_map(port_information)
             .into_grouping_map()
             .collect::<HashSet<_>>();

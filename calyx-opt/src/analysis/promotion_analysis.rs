@@ -15,8 +15,7 @@ impl PromotionAnalysis {
 
     pub fn get_inferred_latency(c: &ir::Control) -> u64 {
         let ir::Control::Static(sc) = c else {
-            let Some(latency) = c.get_attribute(ir::NumAttr::PromoteStatic)
-            else {
+            let Some(latency) = c.get_attribute(ir::NumAttr::Promotable) else {
                 unreachable!("Called get_latency on control that is neither static nor promotable")
             };
             return latency;
@@ -27,7 +26,7 @@ impl PromotionAnalysis {
     /// Returns true if a control statement is already static, or has the static
     /// attributes
     pub fn can_be_promoted(c: &ir::Control) -> bool {
-        c.is_static() || c.has_attribute(ir::NumAttr::PromoteStatic)
+        c.is_static() || c.has_attribute(ir::NumAttr::Promotable)
     }
 
     /// If we've already constructed the static group then use the already existing
@@ -65,7 +64,7 @@ impl PromotionAnalysis {
         s: &mut ir::Enable,
         builder: &mut ir::Builder,
     ) -> ir::StaticControl {
-        s.attributes.remove(ir::NumAttr::PromoteStatic);
+        s.attributes.remove(ir::NumAttr::Promotable);
         ir::StaticControl::Enable(ir::StaticEnable {
             // upgrading group to static group
             group: self.construct_static_group(
@@ -75,7 +74,7 @@ impl PromotionAnalysis {
                     .borrow()
                     .get_attributes()
                     .unwrap()
-                    .get(ir::NumAttr::PromoteStatic)
+                    .get(ir::NumAttr::Promotable)
                     .unwrap(),
             ),
             attributes: std::mem::take(&mut s.attributes),
@@ -91,8 +90,8 @@ impl PromotionAnalysis {
             s.comb_group.is_none(),
             "Shouldn't Promote to Static if there is a Comb Group",
         );
-        let latency = s.attributes.get(ir::NumAttr::PromoteStatic).unwrap();
-        s.attributes.remove(ir::NumAttr::PromoteStatic);
+        let latency = s.attributes.get(ir::NumAttr::Promotable).unwrap();
+        s.attributes.remove(ir::NumAttr::Promotable);
         let s_inv = ir::StaticInvoke {
             comp: Rc::clone(&s.comp),
             inputs: std::mem::take(&mut s.inputs),
@@ -113,7 +112,7 @@ impl PromotionAnalysis {
         builder: &mut ir::Builder,
     ) -> ir::StaticControl {
         assert!(
-            c.has_attribute(ir::NumAttr::PromoteStatic) || c.is_static(),
+            c.has_attribute(ir::NumAttr::Promotable) || c.is_static(),
             "Called convert_to_static control that is neither static nor promotable"
         );
         // Need to get bound_attribute here, because we cannot borrow `c` within the
@@ -127,7 +126,7 @@ impl PromotionAnalysis {
             ir::Control::Enable(s) => self.convert_enable_to_static(s, builder),
             ir::Control::Seq(ir::Seq { stmts, attributes }) => {
                 // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
+                attributes.remove(ir::NumAttr::Promotable);
                 // The resulting static seq should be compactable.
                 attributes.insert(ir::NumAttr::Compactable, 1);
                 let static_stmts =
@@ -143,7 +142,7 @@ impl PromotionAnalysis {
             }
             ir::Control::Par(ir::Par { stmts, attributes }) => {
                 // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
+                attributes.remove(ir::NumAttr::Promotable);
                 // Convert stmts to static
                 let static_stmts =
                     self.convert_vec_to_static(builder, std::mem::take(stmts));
@@ -166,7 +165,7 @@ impl PromotionAnalysis {
                 attributes,
             }) => {
                 // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
+                attributes.remove(ir::NumAttr::Promotable);
                 let sc = self.convert_to_static(body, builder);
                 let latency = (*num_repeats) * sc.get_latency();
                 Self::check_latencies_match(latency, inferred_latency);
@@ -181,7 +180,7 @@ impl PromotionAnalysis {
                 body, attributes, ..
             }) => {
                 // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
+                attributes.remove(ir::NumAttr::Promotable);
                 // Removing the `bound` attribute bc we don't need it anymore
                 attributes.remove(ir::NumAttr::Bound);
                 let sc = self.convert_to_static(body, builder);
@@ -203,7 +202,7 @@ impl PromotionAnalysis {
                 ..
             }) => {
                 // Removing the `promote_static` attribute bc we don't need it anymore
-                attributes.remove(ir::NumAttr::PromoteStatic);
+                attributes.remove(ir::NumAttr::Promotable);
                 let static_tbranch = self.convert_to_static(tbranch, builder);
                 let static_fbranch = self.convert_to_static(fbranch, builder);
                 let latency = std::cmp::max(

@@ -34,7 +34,7 @@ component counter(start: 4, end: 4, @go go: 1, @clk clk: 1, @reset reset: 1) -> 
     @generated comp_done = std_wire(1);
   }
   wires {
-    group init<"static"=1> {
+    group init<"promotable"=1> {
       count.write_en = 1'd1;
       count.in = start;
       init[done] = count.done;
@@ -88,12 +88,12 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 4, @done done: 
     @generated c_done = std_wire(1);
   }
   wires {
-    group init<"static"=1> {
+    group init<"promotable"=1> {
       count.write_en = 1'd1;
       count.in = 4'd0;
       init[done] = count.done;
     }
-    group init0<"static"=1> {
+    group init0<"promotable"=1> {
       count0.write_en = 1'd1;
       count0.in = c_start.out;
       init0[done] = count0.done;

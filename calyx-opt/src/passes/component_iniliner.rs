@@ -341,14 +341,17 @@ impl ComponentInliner {
         // Return as an iterator because it's immediately merged into the global rewrite map.
         let rev_interface_map =
             rewrite.port_map.into_iter().map(move |(cp, pr)| {
-                let ir::Canonical(_, p) = cp;
+                let ir::Canonical { port: p, .. } = cp;
                 let port = pr.borrow();
                 let np = match port.name.id.as_str() {
                     "in" => "out",
                     "out" => "in",
                     _ => unreachable!(),
                 };
-                (ir::Canonical(name, p), port.cell_parent().borrow().get(np))
+                (
+                    ir::Canonical::new(name, p),
+                    port.cell_parent().borrow().get(np),
+                )
             });
 
         (con, rev_interface_map)
@@ -528,7 +531,8 @@ impl Visitor for ComponentInliner {
                 })
                 .map(|(name, param)| {
                     let port = Rc::clone(
-                        &interface_rewrites[&ir::Canonical(instance, name)],
+                        &interface_rewrites
+                            [&ir::Canonical::new(instance, name)],
                     );
                     // The parameter can refer to port on a cell that has been
                     // inlined.

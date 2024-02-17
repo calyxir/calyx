@@ -1,6 +1,5 @@
-use crate::analysis::{
-    compute_static::WithStatic, GraphAnalysis, ReadWriteSet,
-};
+use super::AssignmentAnalysis;
+use crate::analysis::{compute_static::WithStatic, GraphAnalysis};
 use calyx_ir::{self as ir, GetAttributes, RRC};
 use ir::CellType;
 use itertools::Itertools;
@@ -71,7 +70,8 @@ impl From<&ir::Primitive> for GoDone {
         let go_ports = prim
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pd| {
-                pd.attributes.get(ir::NumAttr::Static).and_then(|st| {
+                // Primitives only have @interval.
+                pd.attributes.get(ir::NumAttr::Interval).and_then(|st| {
                     done_ports
                         .get(&pd.attributes.get(ir::NumAttr::Go))
                         .map(|done_port| (pd.name(), *done_port, st))
@@ -96,11 +96,19 @@ impl From<&ir::Cell> for GoDone {
             .find_all_with_attr(ir::NumAttr::Go)
             .filter_map(|pr| {
                 let port = pr.borrow();
-                port.attributes.get(ir::NumAttr::Static).and_then(|st| {
-                    done_ports
+                // Get static interval thru either @interval or @promotable.
+                let st = match port.attributes.get(ir::NumAttr::Interval) {
+                    Some(st) => Some(st),
+                    None => port.attributes.get(ir::NumAttr::Promotable),
+                };
+                if let Some(static_latency) = st {
+                    return done_ports
                         .get(&port.attributes.get(ir::NumAttr::Go))
-                        .map(|done_port| (port.name, *done_port, st))
-                })
+                        .map(|done_port| {
+                            (port.name, *done_port, static_latency)
+                        });
+                }
+                None
             })
             .collect_vec();
         GoDone::new(go_ports)
@@ -151,11 +159,20 @@ impl InferenceAnalysis {
                 .find_all_with_attr(ir::NumAttr::Go)
                 .filter_map(|pd| {
                     let pd_ref = pd.borrow();
-                    pd_ref.attributes.get(ir::NumAttr::Static).and_then(|st| {
-                        done_ports
+                    // Get static interval thru either @interval or @promotable.
+                    let st = match pd_ref.attributes.get(ir::NumAttr::Interval)
+                    {
+                        Some(st) => Some(st),
+                        None => pd_ref.attributes.get(ir::NumAttr::Promotable),
+                    };
+                    if let Some(static_latency) = st {
+                        return done_ports
                             .get(&pd_ref.attributes.get(ir::NumAttr::Go))
-                            .map(|done_port| (pd_ref.name, *done_port, st))
-                    })
+                            .map(|done_port| {
+                                (pd_ref.name, *done_port, static_latency)
+                            });
+                    }
+                    None
                 })
                 .collect_vec();
 
@@ -187,7 +204,11 @@ impl InferenceAnalysis {
     /// Note that this expects that the component already is accounted for
     /// in self.latency_data and self.static_component_latencies.
     pub fn remove_component(&mut self, comp_name: ir::Id) {
-        self.updated_components.insert(comp_name);
+        if self.latency_data.contains_key(&comp_name) {
+            // To make inference as strong as possible, only update updated_components
+            // if we actually updated it.
+            self.updated_components.insert(comp_name);
+        }
         self.latency_data.remove(&comp_name);
         self.static_component_latencies.remove(&comp_name);
     }
@@ -199,15 +220,22 @@ impl InferenceAnalysis {
         &mut self,
         (comp_name, adjusted_latency): (ir::Id, u64),
     ) {
-        self.updated_components.insert(comp_name);
+        // Check whether we actually updated the component's latency.
+        let mut updated = false;
         self.latency_data.entry(comp_name).and_modify(|go_done| {
             for (_, _, cur_latency) in &mut go_done.ports {
                 // Updating components with latency data.
-                *cur_latency = adjusted_latency;
+                if *cur_latency != adjusted_latency {
+                    *cur_latency = adjusted_latency;
+                    updated = true;
+                }
             }
         });
         self.static_component_latencies
             .insert(comp_name, adjusted_latency);
+        if updated {
+            self.updated_components.insert(comp_name);
+        }
     }
 
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
@@ -263,7 +291,7 @@ impl InferenceAnalysis {
         &self,
         group: &ir::Group,
     ) -> Vec<(RRC<ir::Port>, RRC<ir::Port>)> {
-        let rw_set = ReadWriteSet::uses(group.assignments.iter());
+        let rw_set = group.assignments.iter().analysis().cell_uses();
         let mut go_done_edges: Vec<(RRC<ir::Port>, RRC<ir::Port>)> = Vec::new();
 
         for cell_ref in rw_set {
@@ -442,7 +470,7 @@ impl InferenceAnalysis {
     pub fn get_possible_latency(c: &ir::Control) -> Option<u64> {
         match c {
             ir::Control::Static(sc) => Some(sc.get_latency()),
-            _ => c.get_attribute(ir::NumAttr::PromoteStatic),
+            _ => c.get_attribute(ir::NumAttr::Promotable),
         }
     }
 
@@ -450,13 +478,13 @@ impl InferenceAnalysis {
         for stmt in &mut seq.stmts {
             Self::remove_promotable_attribute(stmt);
         }
-        seq.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
+        seq.get_mut_attributes().remove(ir::NumAttr::Promotable);
     }
 
     /// Removes the @promotable attribute from the control program.
     /// Recursively visits the children of the control.
     pub fn remove_promotable_attribute(c: &mut ir::Control) {
-        c.get_mut_attributes().remove(ir::NumAttr::PromoteStatic);
+        c.get_mut_attributes().remove(ir::NumAttr::Promotable);
         match c {
             ir::Control::Empty(_)
             | ir::Control::Invoke(_)
@@ -485,6 +513,26 @@ impl InferenceAnalysis {
         seq.update_static(&self.static_component_latencies);
     }
 
+    pub fn fixup_par(&self, par: &mut ir::Par) {
+        par.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_if(&self, _if: &mut ir::If) {
+        _if.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_while(&self, _while: &mut ir::While) {
+        _while.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_repeat(&self, repeat: &mut ir::Repeat) {
+        repeat.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_ctrl(&self, ctrl: &mut ir::Control) {
+        ctrl.update_static(&self.static_component_latencies);
+    }
+
     /// "Fixes Up" the component. In particular:
     /// 1. Removes @promotable annotations for any groups that write to any
     /// `updated_components`.
@@ -500,7 +548,12 @@ impl InferenceAnalysis {
             // This checks any group that writes to the component:
             // We can probably switch this to any group that writes to the component's
             // `go` port to be more precise analysis.
-            if ReadWriteSet::write_set(group.borrow_mut().assignments.iter())
+            if group
+                .borrow_mut()
+                .assignments
+                .iter()
+                .analysis()
+                .cell_writes()
                 .any(|cell| match cell.borrow().prototype {
                     CellType::Component { name } => {
                         self.updated_components.contains(&name)
@@ -512,7 +565,7 @@ impl InferenceAnalysis {
                 group
                     .borrow_mut()
                     .attributes
-                    .remove(ir::NumAttr::PromoteStatic);
+                    .remove(ir::NumAttr::Promotable);
             }
         }
 
@@ -523,7 +576,7 @@ impl InferenceAnalysis {
                 group
                     .borrow_mut()
                     .attributes
-                    .insert(ir::NumAttr::PromoteStatic, latency);
+                    .insert(ir::NumAttr::Promotable, latency);
             }
         }
 

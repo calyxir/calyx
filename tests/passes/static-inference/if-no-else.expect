@@ -6,15 +6,15 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     cond = std_reg(1);
   }
   wires {
-    group A<"promote_static"=1> {
+    group A<"promotable"=1> {
       a.in = 2'd0;
       a.write_en = 1'd1;
       A[done] = a.done;
     }
   }
   control {
-    @promote_static if cond.out {
-      @promote_static A;
+    @promotable if cond.out {
+      @promotable A;
     }
   }
 }

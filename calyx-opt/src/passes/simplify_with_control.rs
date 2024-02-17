@@ -224,10 +224,9 @@ impl Visitor for SimplifyWithControl {
         let (port_ref, cond_ref) =
             self.port_rewrite.get(&key).unwrap_or_else(|| {
                 panic!(
-                    "{}: Port `{}.{}` in group `{}` doesn't have a rewrite",
+                    "{}: Port `{}` in group `{}` doesn't have a rewrite",
                     Self::name(),
-                    key.1 .0,
-                    key.1 .1,
+                    key.1,
                     key.0
                 )
             });

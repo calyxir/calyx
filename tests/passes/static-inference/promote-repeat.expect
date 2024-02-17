@@ -7,41 +7,41 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     c = std_reg(2);
   }
   wires {
-    group A<"promote_static"=1> {
+    group A<"promotable"=1> {
       a.in = 2'd0;
       a.write_en = 1'd1;
       A[done] = a.done;
     }
-    group B<"promote_static"=1> {
+    group B<"promotable"=1> {
       b.in = 2'd1;
       b.write_en = 1'd1;
       B[done] = b.done;
     }
-    group C<"promote_static"=1> {
+    group C<"promotable"=1> {
       c.in = 2'd2;
       c.write_en = 1'd1;
       C[done] = c.done;
     }
   }
   control {
-    @promote_static(43) seq {
-      @promote_static(40) repeat 10 {
-        @promote_static(4) seq {
-          @promote_static A;
-          @promote_static B;
-          @promote_static C;
-          @promote_static C;
+    @promotable(43) seq {
+      @promotable(40) repeat 10 {
+        @promotable(4) seq {
+          @promotable A;
+          @promotable B;
+          @promotable C;
+          @promotable C;
         }
       }
-      @promote_static(3) par {
-        @promote_static(2) seq {
-          @promote_static A;
-          @promote_static B;
+      @promotable(3) par {
+        @promotable(2) seq {
+          @promotable A;
+          @promotable B;
         }
-        @promote_static(3) seq {
-          @promote_static C;
-          @promote_static C;
-          @promote_static C;
+        @promotable(3) seq {
+          @promotable C;
+          @promotable C;
+          @promotable C;
         }
       }
     }

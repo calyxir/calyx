@@ -102,10 +102,6 @@ macro_rules! comb_primitive {
                 false
             }
 
-            fn reset(&mut self, map:&mut $crate::flatten::structures::environment::PortMap) -> $crate::errors::InterpreterResult<()> {
-                self.exec_comb(map)?;
-                Ok(())
-            }
         }
     };
 

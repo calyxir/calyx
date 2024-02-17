@@ -4,8 +4,9 @@ use crate::{
     errors::{InterpreterError, InterpreterResult},
     primitives::{
         prim_utils::{get_inputs, get_param, output},
-        Entry, Named, Primitive, Serializable,
+        Named, Primitive,
     },
+    serialization::{Entry, Serializable},
     utils::construct_bindings,
     validate, validate_friendly,
     values::Value,

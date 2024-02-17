@@ -25,7 +25,7 @@ component main() -> () {
     }
   }
   control {
-    @static(4) invoke exp0(base = r.out, exp = 4'd3)();
-    @static(4) invoke exp0(base = w.out, exp = 4'd3)() with foo;
+    @promotable(4) invoke exp0(base = r.out, exp = 4'd3)();
+    @promotable(4) invoke exp0(base = w.out, exp = 4'd3)() with foo;
   }
 }

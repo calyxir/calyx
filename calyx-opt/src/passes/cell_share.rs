@@ -1,5 +1,6 @@
 use crate::analysis::{
-    GraphColoring, LiveRangeAnalysis, ReadWriteSet, ShareSet, StaticParTiming,
+    AssignmentAnalysis, GraphColoring, LiveRangeAnalysis, ShareSet,
+    StaticParTiming,
 };
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
@@ -191,10 +192,13 @@ impl CellShare {
         _sigs: &ir::LibrarySignatures,
     ) {
         //add cont cells
-        self.cont_ref_cells =
-            ReadWriteSet::uses(comp.continuous_assignments.iter())
-                .map(|cr| cr.borrow().name())
-                .collect();
+        self.cont_ref_cells = comp
+            .continuous_assignments
+            .iter()
+            .analysis()
+            .cell_uses()
+            .map(|cr| cr.borrow().name())
+            .collect();
         //add ref cells
         self.cont_ref_cells.extend(
             comp.cells

@@ -1,21 +1,4 @@
-// -p validate -p schedule-compaction -p dead-group-removal
-// for control operators under static seq,
-// we consider the subsequent control operator B to have data dependency on
-// prior operator A in the following three cases:
-// 1. B writes to a cell A reads from
-// 2. B reads from a cell A writes to
-// 3. B writes to a cell A writes to
-// As such, we can draw the following dependency graph for the control program:
-//    A       C
-//   | \      /
-//   |  \    /
-//   |   \  /
-//   |    \
-//   |   / \
-//   |  /   \
-//   | /     \
-//   B        D
-// So we can compact the execution schedule to respect this data dependency
+// -p validate -p static-promotion -x static-promotion:threshold=5 -p dead-group-removal
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
@@ -32,7 +15,7 @@ component main () -> () {
   }
 
   wires {
-    group A<"promote_static"=1> {
+    group A<"promotable"=1> {
       a_reg.in = 32'd5;
       a_reg.write_en = 1'd1;
       A[done] = a_reg.done;
@@ -44,7 +27,7 @@ component main () -> () {
       C[done] = ud.out;
     }
 
-    group B<"promote_static"=1> {
+    group B<"promotable"=1> {
       a.left = a_reg.out;
       a.right = c_reg.out;
       b_reg.in = a.out;
@@ -52,19 +35,19 @@ component main () -> () {
       B[done] = b_reg.done;
     }
 
-    group D<"promote_static"=1> {
+    group D<"promotable"=1> {
       d_reg.in = a_reg.out;
       d_reg.write_en = 1'd1;
       D[done] = ud.out;
     }
 
-    group E<"promote_static"=1> {
+    group E<"promotable"=1> {
       e_reg.in = 32'd4;
       e_reg.write_en = 1'd1;
       E[done] = e_reg.done;
     }
 
-    group F<"promote_static"=1> {
+    group F<"promotable"=1> {
       f_reg.in = 32'd4;
       f_reg.write_en = 1'd1;
       F[done] = f_reg.done;
@@ -73,12 +56,12 @@ component main () -> () {
 
   control {
     seq {
-      @promote_static A;
-      @promote_static B;
+      @promotable A;
+      @promotable B;
       C;
-      @promote_static D;
-      @promote_static E;
-      @promote_static F;
+      @promotable D;
+      @promotable E;
+      @promotable F;
     }
   }
 }

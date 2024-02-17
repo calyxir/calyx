@@ -11,7 +11,7 @@ use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
-use crate::{interpreter_ir as iir, primitives::Serializable};
+use crate::{interpreter_ir as iir, serialization::Serializable};
 
 use calyx_ir::{self as ir, Id, RRC};
 
