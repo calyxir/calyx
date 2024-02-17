@@ -7,7 +7,7 @@ TOPLEVEL_LANG ?= verilog
 
 #Needed to extract desired test from runt invocation
 
-VERILOG_SOURCES += $(PWD)/../outputs/axi-combined.v
+VERILOG_SOURCES += $(PWD)/../outputs/generated-axi-with-vec-add.v
 
 #Defines build directory, if left to default only a single computation is run
 SIM_BUILD=sim_build/axi-combined
