@@ -19,17 +19,17 @@ yxi_input = """
     {
       "name": "A0",
       "width": 32,
-      "size": 16
+      "size": 8
     },
     {
       "name": "B0",
       "width": 32,
-      "size": 16
+      "size": 8
     },
     {
       "name": "Sum0",
       "width": 32,
-      "size": 16
+      "size": 8
     }
   ]
 }
