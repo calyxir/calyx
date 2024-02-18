@@ -9,10 +9,13 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee /etc/apt/sources.list.d/sbt_old.list && \
     curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | apt-key add && \
     apt-get update -y && \
-    apt-get install -y jq python3.10 python3-pip sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
+    apt-get install -y jq python3.10 python3-pip python3-venv sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
+
+# Setup python venv to install python dependencies. Python no longer supports installing packages globally into your system
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Install python dependencies
-RUN rm /usr/lib/python3.11/EXTERNALLY-MANAGED
 RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simplejson cocotb==1.6.2
 # Current cocotb-bus has a bug that is fixed in more up to date repo
 RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
@@ -26,7 +29,7 @@ RUN autoconf && ./configure && make && make install
 
 # Install Icarus verilog
 WORKDIR /home
-RUN git clone --depth 1 --branch v11_0 https://github.com/steveicarus/iverilog
+RUN git clone --depth 1 --branch v12_0 https://github.com/steveicarus/iverilog
 WORKDIR /home/iverilog
 RUN sh autoconf.sh && ./configure && make && make install
 
@@ -44,7 +47,7 @@ RUN cp ../cmake/config.cmake . && \
     cmake -G Ninja .. && ninja && \
     python3 -m pip install -Iv antlr4-python3-runtime==4.7.2
 WORKDIR /home/tvm/python
-RUN python3 setup.py bdist_wheel && python3 -m pip install --user dist/tvm-*.whl
+RUN python3 setup.py bdist_wheel && python3 -m pip install dist/tvm-*.whl
 
 # Install Dahlia
 WORKDIR /home
