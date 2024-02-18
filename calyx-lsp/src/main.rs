@@ -18,7 +18,7 @@ use document::{ComponentSig, Document};
 use goto_definition::DefinitionProvider;
 use query_result::QueryResult;
 use serde::Deserialize;
-use tower_lsp::lsp_types as lspt;
+use tower_lsp::lsp_types::{self as lspt, Url};
 use tower_lsp::{jsonrpc, Client, LanguageServer, LspService, Server};
 use tree_sitter as ts;
 
@@ -31,13 +31,13 @@ extern "C" {
 
 #[derive(Debug, Deserialize, Default)]
 struct Config {
-    #[serde(rename = "calyx-lsp")]
+    #[serde(rename = "calyxLsp")]
     calyx_lsp: CalyxLspConfig,
 }
 
 #[derive(Debug, Deserialize)]
 struct CalyxLspConfig {
-    #[serde(rename = "library-paths")]
+    #[serde(rename = "libraryPaths")]
     library_paths: Vec<String>,
 }
 
@@ -235,6 +235,29 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _ip: lspt::InitializedParams) {
+        // get library paths option
+        let values = self
+            .client
+            .configuration(vec![lspt::ConfigurationItem {
+                scope_uri: Some(Url::parse("file:///libraryPaths").unwrap()),
+                section: Some("calyx".to_string()),
+            }])
+            .await;
+
+        // if we have a value, parse it and update our config
+        if let Ok(val) = values {
+            let config: CalyxLspConfig =
+                serde_json::from_value(val[0].clone()).unwrap();
+            self.config.write().unwrap().calyx_lsp = config;
+        }
+
+        // update the diagnostics on all open documents
+        let open_docs: Vec<_> =
+            self.open_docs.read().unwrap().keys().cloned().collect();
+        for x in open_docs {
+            self.publish_diagnostics(&x).await;
+        }
+
         self.client
             .log_message(lspt::MessageType::INFO, "server initialized!")
             .await;
@@ -249,6 +272,7 @@ impl LanguageServer for Backend {
         &self,
         params: lspt::DidChangeConfigurationParams,
     ) {
+        log::stdout!("document/didConfigurationChange");
         let config: Config = serde_json::from_value(params.settings).unwrap();
         *self.config.write().unwrap() = config;
 

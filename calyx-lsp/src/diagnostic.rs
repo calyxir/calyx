@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use resolve_path::PathResolveExt;
+
 pub struct Diagnostic;
 
 #[derive(Debug)]
@@ -15,7 +17,7 @@ impl Diagnostic {
     pub fn did_save(path: &Path, lib_path: &Path) -> Vec<CalyxError> {
         calyx_frontend::Workspace::construct(
             &Some(path.to_path_buf()),
-            lib_path,
+            lib_path.resolve().as_ref(),
         )
         .and_then(calyx_ir::from_ast::ast_to_ir)
         .map(|_| vec![])
