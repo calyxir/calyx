@@ -78,25 +78,37 @@ impl WithStatic for ir::Invoke {
     }
 }
 
+/// Walk over a set of control statements and call `update_static` on each of them.
+/// Use a merge function to merge the results of the `update_static` calls.
+fn walk_static<T, F>(stmts: &mut [T], extra: &T::Info, merge: F) -> Option<u64>
+where
+    T: WithStatic,
+    F: Fn(u64, u64) -> u64,
+{
+    let mut latency = Some(0);
+    // This is implemented as a loop because we want to call `update_static` on
+    // each statement even if we cannot compute a total latency anymore.
+    for stmt in stmts.iter_mut() {
+        let stmt_latency = stmt.update_static(extra);
+        latency = match (latency, stmt_latency) {
+            (Some(l), Some(s)) => Some(merge(l, s)),
+            (_, _) => None,
+        }
+    }
+    latency
+}
+
 impl WithStatic for ir::Seq {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        // Go through each stmt in the seq, and try to calculate the latency.
-        self.stmts.iter_mut().try_fold(0, |cur_latency, stmt| {
-            stmt.update_static(extra)
-                .map(|stmt_latency| cur_latency + stmt_latency)
-        })
+        walk_static(&mut self.stmts, extra, |x, y| x + y)
     }
 }
 
 impl WithStatic for ir::Par {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        // Go through each stmt in the par, and try to calculate the latency.
-        self.stmts.iter_mut().try_fold(0, |cur_latency, stmt| {
-            stmt.update_static(extra)
-                .map(|stmt_latency| std::cmp::max(cur_latency, stmt_latency))
-        })
+        walk_static(&mut self.stmts, extra, std::cmp::max)
     }
 }
 
