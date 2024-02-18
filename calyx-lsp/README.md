@@ -6,5 +6,5 @@ Build the repo with `cargo build`. This uses `build.rs` to build and link the tr
 
 ```bash
 cd ~/.local/bin
-ln -s $calyx_lsp_repo/target/debug/calyx-lsp calyx-lsp
+ln -s $calyx_repo/target/debug/calyx-lsp calyx-lsp
 ```

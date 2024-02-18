@@ -13,7 +13,7 @@ categories.workspace = true
 [features]
 diagnostics = []
 log = []
-# default = ["diagnostics", "log"]
+default = ["diagnostics"]
 
 [dependencies]
 calyx-frontend.workspace = true
