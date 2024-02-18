@@ -26,10 +26,10 @@ component main() -> () {
     }
     group let1<"promotable"=2> {
       acc_0.in = A.read_data;
-      acc_0.write_en = A.read_done;
+      acc_0.write_en = A.done;
       let1[done] = acc_0.done;
+      A.content_en = 1'd1;
       A.addr0 = i0.out;
-      A.read_en = 1'd1;
     }
     group upd0<"promotable"=1> {
       res_0.write_en = 1'd1;
