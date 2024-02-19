@@ -11,6 +11,12 @@ pub struct Btor2Program<'a> {
     lines: Option<Vec<Btor2Line<'a>>>,
 }
 
+impl<'a> Default for Btor2Program<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> Btor2Program<'a> {
     pub fn new() -> Self {
         Btor2Program {
@@ -22,15 +28,15 @@ impl<'a> Btor2Program<'a> {
     pub fn load(&'a mut self, input_file: &str) -> Result<(), &str> {
         // Parse and store the btor2 file as Vec<Btor2Line>
         let input_path = Path::new(input_file);
-        let btor2_lines_opt = self.parser.read_lines(&input_path);
+        let btor2_lines_opt = self.parser.read_lines(input_path);
         match btor2_lines_opt {
             Err(e) => {
                 eprintln!("{}", e);
-                return Err("Input file not found.");
+                Err("Input file not found.")
             }
             Ok(btor2_lines) => {
                 self.lines = Option::Some(btor2_lines.collect::<Vec<_>>());
-                return Ok(());
+                Ok(())
             }
         }
     }
@@ -61,7 +67,7 @@ impl<'a> Btor2Program<'a> {
         let mut s_env = shared_env::SharedEnvironment::new(node_sorts);
 
         // Parse inputs
-        match interp::parse_inputs(&mut s_env, &btor2_lines, &inputs_vec) {
+        match interp::parse_inputs(&mut s_env, btor2_lines, &inputs_vec) {
             Ok(()) => {}
             Err(e) => {
                 eprintln!("{}", e);
@@ -92,6 +98,6 @@ impl<'a> Btor2Program<'a> {
             }
         });
 
-        return Ok(output_map);
+        Ok(output_map)
     }
 }
