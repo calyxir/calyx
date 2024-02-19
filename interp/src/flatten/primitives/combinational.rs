@@ -53,13 +53,12 @@ impl Primitive for StdConst {
 
 pub struct StdMux {
     base: GlobalPortIdx,
-    width: u32,
 }
 
 impl StdMux {
     declare_ports![ COND: 0, TRU: 1, FAL:2, OUT: 3];
-    pub fn new(base: GlobalPortIdx, width: u32) -> Self {
-        Self { base, width }
+    pub fn new(base: GlobalPortIdx) -> Self {
+        Self { base }
     }
 }
 

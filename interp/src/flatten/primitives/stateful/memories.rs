@@ -20,7 +20,7 @@ pub struct StdReg {
 }
 
 impl StdReg {
-    declare_ports![IN: 0, WRITE_EN: 1, CLK: 2, RESET: 3, OUT: 4, DONE: 5];
+    declare_ports![IN: 0, WRITE_EN: 1, _CLK: 2, RESET: 3, OUT: 4, DONE: 5];
 
     pub fn new(base_port: GlobalPortIdx, width: u32) -> Self {
         let internal_state = Value::zeroes(width);
@@ -323,8 +323,10 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
 pub struct CombMem<M: MemAddresser> {
     base_port: GlobalPortIdx,
     internal_state: Vec<Value>,
-    allow_invalid_access: bool,
-    width: u32,
+    // TODO griffin: This bool is unused in the actual struct and should either
+    // be removed or
+    _allow_invalid_access: bool,
+    _width: u32,
     addresser: M,
     done_is_high: bool,
 }
@@ -333,7 +335,7 @@ impl<M: MemAddresser> CombMem<M> {
     declare_ports![
         WRITE_DATA: M::NON_ADDRESS_BASE,
         WRITE_EN: M::NON_ADDRESS_BASE + 1,
-        CLK: M::NON_ADDRESS_BASE + 2,
+        _CLK: M::NON_ADDRESS_BASE + 2,
         RESET: M::NON_ADDRESS_BASE + 3,
         READ_DATA: M::NON_ADDRESS_BASE + 4,
         DONE: M::NON_ADDRESS_BASE + 5
@@ -451,8 +453,8 @@ impl CombMemD1 {
         Self {
             base_port: base,
             internal_state,
-            allow_invalid_access: allow_invalid,
-            width,
+            _allow_invalid_access: allow_invalid,
+            _width: width,
             addresser: MemD1::<false> { d0_size: size },
             done_is_high: false,
         }
@@ -471,8 +473,8 @@ impl CombMemD2 {
         Self {
             base_port: base,
             internal_state,
-            allow_invalid_access: allow_invalid,
-            width,
+            _allow_invalid_access: allow_invalid,
+            _width: width,
             addresser: MemD2::<false> {
                 d0_size: size.0,
                 d1_size: size.1,
@@ -495,8 +497,8 @@ impl CombMemD3 {
         Self {
             base_port: base,
             internal_state,
-            allow_invalid_access: allow_invalid,
-            width,
+            _allow_invalid_access: allow_invalid,
+            _width: width,
             addresser: MemD3::<false> {
                 d0_size: size.0,
                 d1_size: size.1,
@@ -520,8 +522,8 @@ impl CombMemD4 {
         Self {
             base_port: base,
             internal_state,
-            allow_invalid_access: allow_invalid,
-            width,
+            _allow_invalid_access: allow_invalid,
+            _width: width,
             addresser: MemD4::<false> {
                 d0_size: size.0,
                 d1_size: size.1,

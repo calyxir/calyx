@@ -44,7 +44,7 @@ pub fn build_primitive(
             PrimType1::Le => Box::new(StdLe::new(base_port)),
             PrimType1::Lsh => Box::new(StdLsh::new(base_port, *width)),
             PrimType1::Rsh => Box::new(StdRsh::new(base_port, *width)),
-            PrimType1::Mux => Box::new(StdMux::new(base_port, *width)),
+            PrimType1::Mux => Box::new(StdMux::new(base_port)),
             PrimType1::Wire => Box::new(StdWire::new(base_port)),
             PrimType1::SignedAdd => Box::new(StdAdd::new(base_port)),
             PrimType1::SignedSub => Box::new(StdSub::new(base_port)),
