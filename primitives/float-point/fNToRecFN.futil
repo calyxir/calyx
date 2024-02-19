@@ -1,0 +1,14 @@
+/// ======================================================================
+// Wrapper for HardFloat's standard-to-recoded-format module
+/// ======================================================================
+
+extern "fNToRecFN.sv" {
+  // Convert from standard to recoded floating-point
+  primitive fNToRecFN[
+    expWidth, sigWidth, inputWidth, outputWidth
+  ](
+    in_: inputWidth
+  ) -> (
+    @stable out: outputWidth
+  );
+}
