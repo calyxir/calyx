@@ -15,16 +15,16 @@ def add_par_thing(prog):
 
     my_par = par(my_group2, my_group3)
 
-    my_comp.control *= my_group
+    my_par.add(my_group)
     # Make sure that an ast.ParComp and CompBuilder par get flattened.
-    my_comp.control *= my_par
-    my_comp.control *= par(my_group2, my_group3)
+    my_par.add(par(my_group2, my_group3))
     # Turn into seq of par group then [my_group, my_group2]
     my_comp.control += [my_group, my_group2]
     my_comp.control += my_group
     my_comp.control += [my_group3]
     # Check going from seq to par block
-    my_comp.control *= [my_group2, my_group3]
+    my_par.add([my_group2, my_group3])
+    my_comp.control += my_par
 
 
 def build():

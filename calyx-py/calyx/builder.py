@@ -121,13 +121,13 @@ class ComponentBuilder:
         return ThisBuilder()
 
     @property
-    def control(self) -> ControlBuilder:
+    def control(self) -> SeqBuilder:
         """Access the component's control program."""
-        return ControlBuilder(self.component.controls)
+        return SeqBuilder(self.component.controls)
 
     @control.setter
-    def control(self, builder: Union[ast.Control, ControlBuilder]):
-        if isinstance(builder, ControlBuilder):
+    def control(self, builder: Union[ast.Control, SeqBuilder]):
+        if isinstance(builder, SeqBuilder):
             self.component.controls = builder.stmt
         else:
             self.component.controls = builder
@@ -752,6 +752,10 @@ def as_control(obj):
         return ast.Enable(gl.id.name)
     if isinstance(obj, list):
         return ast.SeqComp([as_control(o) for o in obj])
+    if isinstance(obj, SeqBuilder):
+        return obj.stmt
+    if isinstance(obj, ParBuilder):
+        return obj.stmt
     if isinstance(obj, set):
         raise TypeError(
             "Python sets are not supported in control programs. For a parallel"
@@ -889,21 +893,8 @@ def static_invoke(cell: CellBuilder, **kwargs) -> ast.Invoke:
     )
 
 
+
 class ControlBuilder:
-    """Wraps control statements for convenient construction."""
-
-    def __init__(self, stmt=None):
-        self.stmt = as_control(stmt)
-
-    def __add__(self, other):
-        """Build sequential composition."""
-        other_stmt = as_control(other)
-        return self._flatten_comp(self.stmt, other_stmt, ast.SeqComp)
-
-    def __mul__(self, other):
-        """Build parallel composition."""
-        other_stmt = as_control(other)
-        return self._flatten_comp(self.stmt, other_stmt, ast.ParComp)
 
     def _flatten_comp(
         self,
@@ -915,21 +906,49 @@ class ControlBuilder:
         So something like `seq{seq{A,B}}` remains `seq{A;B}`.
         `return_type` should be the class name we are interested in flattening.
         """
+        #assert isinstance(return_type, ast.SeqComp) or isinstance(return_type, ast.ParComp), f"Expected to have return_type of ast.SeqComp or ast.ParComp. Instead was {type(return_type)}"
+        control_builder_type = SeqBuilder if isinstance(return_type, ast.SeqComp) else ParBuilder
+        ast_type = retur?????? What to do here
+        
         # One side empty
         if isinstance(self.stmt, ast.Empty):
-            return ControlBuilder(other_stmt)
+            return control_builder_type(other_stmt)
         elif isinstance(other_stmt, ast.Empty):
             return self
         # At least one side is of type `return_type`
-        elif isinstance(self.stmt, return_type) and isinstance(other_stmt, return_type):
-            return ControlBuilder(return_type(self.stmt.stmts + other_stmt.stmts))
-        elif isinstance(self.stmt, return_type):
-            return ControlBuilder(return_type(self.stmt.stmts + [other_stmt]))
-        elif isinstance(other_stmt, return_type):
-            return ControlBuilder(return_type([self.stmt] + other_stmt.stmts))
+        elif isinstance(self.stmt, control_builder_type) and isinstance(other_stmt, control_builder_type):
+            return control_builder_type(control_builder_type(self.stmt.stmts + other_stmt.stmts))
+        elif isinstance(self.stmt, control_builder_type):
+            return control_builder_type(control_builder_type(self.stmt.stmts + [other_stmt]))
+        elif isinstance(other_stmt, control_builder_type):
+            return control_builder_type(control_builder_type([self.stmt] + other_stmt.stmts))
         # General case
         else:
-            return ControlBuilder(return_type([self.stmt, other_stmt]))
+            return control_builder_type(control_builder_type([self.stmt, other_stmt]))
+
+class SeqBuilder(ControlBuilder):
+    """Wraps control statements for convenient construction."""
+
+    def __init__(self, stmt=None):
+        self.stmt = as_control(stmt)
+
+    def __add__(self, other):
+        """Build sequential composition."""
+        other_stmt = as_control(other)
+        return super()._flatten_comp(self.stmt, other_stmt, ast.SeqComp)
+
+
+class ParBuilder(ControlBuilder):
+    """Wraps par threads for convenient construction."""
+    def __init__(self, stmt=None):
+        self.stmt = as_control(stmt)
+
+    def add(self, other):
+        other_stmt = as_control(other)
+        return super()._flatten_comp(self.stmt, other_stmt, ast.ParComp)
+
+    
+
 
 
 class ExprBuilder:
@@ -1305,13 +1324,13 @@ LO = const(1, 0)  # A one bit low signal
 HI = const(1, 1)  # A one bit high signal
 
 
-def par(*args) -> ast.ParComp:
+def par(*args) -> ParBuilder:
     """Build a parallel composition of control expressions.
 
     Each argument will become its own parallel arm in the resulting composition.
     So `par([a,b])` becomes `par {seq {a; b;}}` while `par(a, b)` becomes `par {a; b;}`.
     """
-    return ast.ParComp([as_control(x) for x in args])
+    return ParBuilder(ast.ParComp([as_control(x) for x in args]))
 
 
 def static_par(*args) -> ast.StaticParComp:
