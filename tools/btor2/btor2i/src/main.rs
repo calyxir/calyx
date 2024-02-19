@@ -1,9 +1,12 @@
-use btor2i::cli;
-use btor2i::error::InterpResult;
-use btor2i::interp;
-use btor2i::shared_env;
+pub mod bvec;
+pub mod cli;
+pub mod error;
+pub mod interp;
+pub mod shared_env;
+
 use btor2tools::Btor2Parser;
 use clap::Parser;
+use error::InterpResult;
 use std::io;
 use std::path::Path;
 use std::time::Instant;

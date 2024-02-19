@@ -48,6 +48,8 @@ calyx-utils = { path = "../calyx-utils", features = ["serialize"] }
 calyx-opt = { path = "../calyx-opt" }
 calyx-frontend = { path = "../calyx-frontend" }
 
+btor2i = { path = "../tools/btor2/btor2i" }
+
 [dev-dependencies]
 proptest = "1.0.0"
 

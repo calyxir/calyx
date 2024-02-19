@@ -6,6 +6,8 @@ use crate::{
     values::Value,
 };
 
+use btor2i::program::Btor2Program;
+
 pub struct AssignResult {
     pub destination: GlobalPortIdx,
     pub value: Value,
@@ -98,7 +100,18 @@ impl std::ops::BitOrAssign for UpdateStatus {
 pub type UpdateResult = InterpreterResult<UpdateStatus>;
 
 pub trait Primitive {
+    fn load_program(&mut self, path: &str) -> Result<(), &str> {
+        let mut program = Btor2Program::new();
+        let result = program.load(path);
+        // somehow add a field in the primitives with the program?????
+        match result {
+            Ok(()) => Ok(()),
+            Err(_e) => Err("file not found"),
+        }
+    }
+
     fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
+        // find some way to convert the port map into a map from strings to strings?
         Ok(UpdateStatus::Unchanged)
     }
 
