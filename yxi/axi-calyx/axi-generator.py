@@ -544,15 +544,11 @@ def add_main_comp(prog, mems):
         # Wires
 
         # Tie IDs low, needed for cocotb compatability. Not used anywhere
-        ARID = wrapper_comp.this()[f"{mem_name}_ARID"]
-        AWID = wrapper_comp.this()[f"{mem_name}_AWID"]
-        WID = wrapper_comp.this()[f"{mem_name}_WID"]
-        BID = wrapper_comp.this()[f"{mem_name}_BID"]
-
-        ARID = 0
-        AWID = 0
-        WID = 0
-        BID = 0
+        with wrapper_comp.continuous:
+            wrapper_comp.this()[f"{mem_name}_ARID"] = 0
+            wrapper_comp.this()[f"{mem_name}_AWID"] = 0
+            wrapper_comp.this()[f"{mem_name}_WID"] = 0
+            wrapper_comp.this()[f"{mem_name}_BID"] = 0
 
         # No groups needed!
 

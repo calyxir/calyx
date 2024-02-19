@@ -326,7 +326,18 @@ component wrapper<"toplevel"=1>(A0_ARESETn: 1, A0_ARREADY: 1, A0_RVALID: 1, A0_R
     bresp_channel_Sum0 = m_bresp_channel();
   }
   wires {
-
+    A0_ARID = 1'd0;
+    A0_AWID = 1'd0;
+    A0_WID = 1'd0;
+    A0_BID = 1'd0;
+    B0_ARID = 1'd0;
+    B0_AWID = 1'd0;
+    B0_WID = 1'd0;
+    B0_BID = 1'd0;
+    Sum0_ARID = 1'd0;
+    Sum0_AWID = 1'd0;
+    Sum0_WID = 1'd0;
+    Sum0_BID = 1'd0;
   }
   control {
     seq {
@@ -380,7 +391,6 @@ component wrapper<"toplevel"=1>(A0_ARESETn: 1, A0_ARREADY: 1, A0_RVALID: 1, A0_R
     }
   }
 }
-
 component main() -> () {                                                                                                                                                                                 
   cells {                                                                                                                                                                                                   
     //Modified to 64 width address because XRT expects 64 bit memory addresses                                                                                                                              

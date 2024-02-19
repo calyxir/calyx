@@ -13,7 +13,7 @@ VERILOG_SOURCES += $(PWD)/../outputs/generated-axi-with-vec-add.v
 SIM_BUILD=sim_build/axi-combined
 
 # TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
-TOPLEVEL = main
+TOPLEVEL = wrapper
 
 # MODULE is the basename of the Python test file
 MODULE = axi-combined-tests

@@ -117,7 +117,7 @@ async def run_module(
 
     A0 = AxiRam(
         # NOTE: prefix should not contain the final "_"
-        AxiBus.from_prefix(module, "m0"),
+        AxiBus.from_prefix(module, "A0"),
         module.clk,
         module.reset,
         # size in bytes
@@ -127,7 +127,7 @@ async def run_module(
 
     B0 = AxiRam(
         # NOTE: prefix should not contain the final "_"
-        AxiBus.from_prefix(module, "m1"),
+        AxiBus.from_prefix(module, "B0"),
         module.clk,
         module.reset,
         # size in bytes
@@ -137,7 +137,7 @@ async def run_module(
 
     Sum0 = AxiRam(
         # NOTE: prefix should not contain the final "_"
-        AxiBus.from_prefix(module, "m2"),
+        AxiBus.from_prefix(module, "Sum0"),
         module.clk,
         module.reset,
         # size in bytes
