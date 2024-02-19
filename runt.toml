@@ -557,6 +557,21 @@ fud exec -s calyx.exec './target/debug/calyx' \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
 
+[[tests]]
+name = "correctness floating-point"
+paths = ["tests/correctness/float-point/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through icarus-verilog \
+         --through dat \
+         -s verilog.data {}.data \
+         -s calyx.exec './target/debug/calyx' \
+         -s verilog.cycle_limit 500 \
+         {} -q
+"""
+expect_dir = "tests/correctness/float-point/"
+timeout = 10
+
 ##### Examples #####
 
 [[tests]]
