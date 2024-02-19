@@ -42,7 +42,12 @@ wires = [
 controls = If(CompPort(lt, "out"), cond, Enable(true), Enable(false))
 
 main_component = Component(
-    name="main", inputs=[], outputs=[], structs=cells + wires, controls=controls
+    name="main",
+    attributes=[],
+    inputs=[],
+    outputs=[],
+    structs=cells + wires,
+    controls=controls,
 )
 
 # Create the Calyx program.

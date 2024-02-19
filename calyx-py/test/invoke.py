@@ -37,6 +37,7 @@ foo_wires = [
 
 foo_component = Component(
     name="foo",
+    attributes=[],
     inputs=[PortDef(CompVar("a"), 32)],
     outputs=[PortDef(CompVar("out"), 32)],
     structs=foo_cells + foo_wires,
@@ -83,6 +84,7 @@ controls = [
 
 main_component = Component(
     name="main",
+    attributes=[],
     inputs=[],
     outputs=[],
     structs=cells + wires,
