@@ -437,6 +437,15 @@ impl Cell {
         &self.ports
     }
 
+    /// Returns a mutable reference to the first port attached to this cell, if
+    /// it exists
+    pub fn first_port(&mut self) -> Option<&mut RRC<Port>> {
+        match &self.ports.len() {
+            0 => None,
+            _ => self.ports.first_mut(),
+        }
+    }
+
     // Get the signature of this cell as a vector. Each element corresponds to a port in the Cell.
     pub fn get_signature(&self) -> Vec<PortDef<u64>> {
         self.ports

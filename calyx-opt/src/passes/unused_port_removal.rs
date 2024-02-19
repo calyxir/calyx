@@ -9,8 +9,6 @@ use calyx_utils::CalyxResult;
 
 use std::collections::{HashMap, HashSet};
 
-// Infers @internal annotations for component ports
-
 pub struct UnusedPortRemoval {
     used_ports: HashMap<Id, HashSet<Id>>,
 }
@@ -48,8 +46,6 @@ impl Visitor for UnusedPortRemoval {
         Order::Pre
     }
 
-    // before any control logic is processed, add attribute @internal
-    // to every unused port
     fn start(
         &mut self,
         comp: &mut Component,
@@ -87,26 +83,32 @@ impl Visitor for UnusedPortRemoval {
             for port in comp.signature.borrow_mut().ports.iter_mut() {
                 let mut port_ref = port.borrow_mut();
                 let name = port_ref.name;
-                match unused_ports.get(&name) {
-                    None => (),
-                    Some(_) => {
+                match unused_ports.contains(&name) {
+                    false => (),
+                    true => {
                         port_ref.attributes.insert(BoolAttr::Internal, 1);
                     }
                 }
             }
 
+            // if either the source or a destination of an assignment are unused,
+            // drop that assignment (meaning we don't care about those guards)
             comp.continuous_assignments.retain(|assign| {
-                // decides whether an assignment assigns to an unused port
-                // if so, removes assignment
-                let mut assigns_to_unused = false;
-                assign.iter_ports(|port| {
-                    match unused_ports.get(&port.borrow().name) {
-                        None => (),
-                        Some(_) => assigns_to_unused = true,
-                    }
-                });
-                !(assigns_to_unused)
+                let source_not_used =
+                    unused_ports.contains(&assign.src.borrow().name);
+                let destination_not_used =
+                    unused_ports.contains(&assign.dst.borrow().name);
+                !(source_not_used || destination_not_used)
             });
+
+            // now, we're simply left with assignments that assign to both used source
+            // and destination ports; for assignments, it's possible that the guard of an assignment
+            // uses an unused port; if this is the case, replace with n'b0 signal.
+            comp.for_each_assignment(|assign| {
+                // deference to get rid of Box pointer
+                let _guard = (&mut assign.guard).as_mut();
+                // guard.collapse_unused_mut(comp, sigs, &unused_ports);
+            })
         }
 
         // insert a mapping from each of this component's children components to
