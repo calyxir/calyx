@@ -9,6 +9,13 @@ autocmd("FileType", {
             name = 'calyx-lsp',
             cmd = { 'calyx-lsp' },
             root_dir = root_dir,
+            settings = {
+               calyxLsp = {
+                  libraryPaths = {
+                     "~/.calyx"
+                  }
+               }
+            }
         })
         vim.lsp.buf_attach_client(0, client)
     end

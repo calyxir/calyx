@@ -240,7 +240,7 @@ impl LanguageServer for Backend {
             .client
             .configuration(vec![lspt::ConfigurationItem {
                 scope_uri: Some(Url::parse("file:///libraryPaths").unwrap()),
-                section: Some("calyx".to_string()),
+                section: Some("calyxLsp".to_string()),
             }])
             .await;
 

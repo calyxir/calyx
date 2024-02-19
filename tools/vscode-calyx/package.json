@@ -33,7 +33,7 @@
       "type": "object",
       "title": "Calyx",
       "properties": {
-        "calyx.libraryPaths": {
+        "calyxLsp.libraryPaths": {
           "scope": "resource",
           "type": "array",
           "default": ["~/.calyx"],
