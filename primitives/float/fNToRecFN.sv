@@ -1,7 +1,7 @@
 `ifndef __HARDFLOAT_DIVSQRTRECFN_V__
 `define __HARDFLOAT_DIVSQRTRECFN_V__
 
-`include "primitives/float-point/HardFloat_primitives.sv"
+`include "primitives/float/HardFloat_primitives.sv"
 
 module
   fNToRecFN #(
@@ -13,7 +13,7 @@ module
     input [inputWidth-1:0] in_,
     output [outputWidth-1:0] out
 );
-`include "primitives/float-point/HardFloat_localFuncs.vi"
+`include "primitives/float/HardFloat_localFuncs.vi"
 
   /*------------------------------------------------------------------------
   *------------------------------------------------------------------------*/
