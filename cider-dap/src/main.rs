@@ -4,8 +4,8 @@ mod error;
 use adapter::MyAdapter;
 use dap::events::{ExitedEventBody, StoppedEventBody, ThreadEventBody};
 use dap::responses::{
-    ContinueResponse, SetBreakpointsResponse, SetExceptionBreakpointsResponse,
-    StackTraceResponse, ThreadsResponse,
+    ContinueResponse, ScopesResponse, SetBreakpointsResponse,
+    SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
 };
 use error::MyAdapterError;
 
@@ -97,6 +97,8 @@ where
         Command::Initialize(_) => {
             let rsp =
                 req.success(ResponseBody::Initialize(types::Capabilities {
+                    // Not sure if we need it
+                    supports_stepping_granularity: Some(true),
                     ..Default::default()
                 }));
             server.respond(rsp)?;
@@ -220,9 +222,15 @@ fn run_server<R: Read, W: Write>(
             }
             // Send StackTrace, may be useful to make it more robust in the future
             Command::StackTrace(_args) => {
+                // Create new frame if empty, SUBJECT TO CHANGE
+                let frames = if adapter.clone_stack().len() == 0 {
+                    adapter.create_stack()
+                } else {
+                    adapter.clone_stack()
+                };
                 let rsp =
                     req.success(ResponseBody::StackTrace(StackTraceResponse {
-                        stack_frames: adapter.create_stack(),
+                        stack_frames: frames,
                         total_frames: Some(0),
                     }));
                 server.respond(rsp)?;
@@ -281,6 +289,13 @@ fn run_server<R: Read, W: Write>(
                 let stopped =
                     create_stopped(String::from("Paused on step"), thread_id);
                 server.send_event(stopped)?;
+            }
+            Command::Scopes(_) => {
+                let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
+                    // TODO: Understand vectors
+                    scopes: vec![],
+                }));
+                server.respond(rsp)?;
             }
             // Command::Source(_) => {
             //     let rsp = req.success(ResponseBody::Source(SourceResponse {

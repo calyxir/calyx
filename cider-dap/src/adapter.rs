@@ -6,10 +6,12 @@ use crate::error::AdapterResult;
 pub struct MyAdapter {
     #[allow(dead_code)]
     file: File,
-    breakpoints: Vec<(Source, i64)>, //This field is a placeholder
     break_count: Counter,
     thread_count: Counter,
-    threads: Vec<Thread>, //This field is a placeholder
+    stack_count: Counter,
+    breakpoints: Vec<(Source, i64)>, // This field is a placeholder
+    stack_frames: Vec<StackFrame>,   // This field is a placeholder
+    threads: Vec<Thread>,            // This field is a placeholder
     source: String,
 }
 
@@ -21,9 +23,11 @@ impl MyAdapter {
     pub fn new(path: &str) -> AdapterResult<Self> {
         Ok(MyAdapter {
             file: File::open(path)?,
-            breakpoints: Vec::new(),
             break_count: Counter::new(),
             thread_count: Counter::new(),
+            stack_count: Counter::new(),
+            breakpoints: Vec::new(),
+            stack_frames: Vec::new(),
             threads: Vec::new(),
             source: path.to_string(),
         })
@@ -70,10 +74,10 @@ impl MyAdapter {
     }
 
     //Returns a dummy stack frame, set to change.
-    pub fn create_stack(&self) -> Vec<StackFrame> {
-        let mut out_vec: Vec<StackFrame> = vec![];
+    pub fn create_stack(&mut self) -> Vec<StackFrame> {
         let frame = StackFrame {
-            id: 1,
+            id: self.stack_count.increment(),
+            // TODO: edit name field
             name: String::from("Hewwo"),
             source: Some(Source {
                 name: None,
@@ -85,7 +89,7 @@ impl MyAdapter {
                 adapter_data: None,
                 checksums: None,
             }),
-            line: 86,
+            line: 1,
             column: 0,
             end_line: None,
             end_column: None,
@@ -94,8 +98,13 @@ impl MyAdapter {
             module_id: None,
             presentation_hint: None,
         };
-        out_vec.push(frame);
-        out_vec
+        self.stack_frames.push(frame);
+        // Return all stack frames
+        self.stack_frames.clone()
+    }
+
+    pub fn clone_stack(&self) -> Vec<StackFrame> {
+        self.stack_frames.clone()
     }
 }
 
