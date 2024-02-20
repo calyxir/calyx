@@ -1,7 +1,7 @@
-use super::{Builder, Id, LibrarySignatures, NumAttr, Port, RRC};
+use super::{Builder, Cell, Id, LibrarySignatures, NumAttr, Port, RRC};
 use crate::{Component, Printer};
 use calyx_utils::Error;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::mem;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
@@ -217,6 +217,79 @@ impl<T> Guard<T> {
         let _ = mem::replace(self, new_guard);
     }
 
+    pub fn collapse_unused(
+        &mut self,
+        low_comps: &mut HashMap<u64, RRC<Cell>>,
+        unused_ports: &HashSet<Id>,
+    ) {
+        match self {
+            Guard::Info(..) | Guard::True => (),
+            Guard::Port(p) => {
+                let port_name = p.borrow().name;
+                match unused_ports.contains(&port_name) {
+                    false => (),
+                    true => {
+                        self.replace_guard(Guard::Not(Box::new(Guard::True)));
+                    }
+                }
+            }
+            Guard::And(l, r) | Guard::Or(l, r) => {
+                l.as_mut().collapse_unused(low_comps, unused_ports);
+                r.as_mut().collapse_unused(low_comps, unused_ports);
+            }
+            Guard::Not(g) => {
+                g.as_mut().collapse_unused(low_comps, unused_ports);
+            }
+            Guard::CompOp(op, p1, p2) => {
+                let p1_unused = unused_ports.contains(&p1.borrow().name);
+                let p2_unused = unused_ports.contains(&p2.borrow().name);
+                match (p1_unused, p2_unused) {
+                    // both used; do nothing
+                    (false, false) => (),
+                    // only second used; replace first
+                    (true, false) => {
+                        let p1_width = p1.borrow().width;
+                        // get constant cell for this specific width and
+                        // replace its port with p1 in the guard
+                        match low_comps.get(&p1_width) {
+                            None => panic!("no corresponding low constant cell for this port width"),
+                            Some(cell) => {
+                                match cell.borrow_mut().first_port() {
+                                    None => panic!(
+                                        "constant cell doesn't seem to have any ports"
+                                    ),
+                                    Some(low_port) => {
+                                        // swapped out low port with p1,
+                                        // where low is a port corresponding to perpetually n-bit low cell
+                                        std::mem::swap(p1, low_port);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // only first used; replace second by deferring to branch w/ p1 unused p2 used
+                    (false, true) => {
+                        std::mem::swap(p1, p2);
+                        self.collapse_unused(low_comps, unused_ports);
+                    }
+                    // both unused
+                    (true, true) => {
+                        // both are low
+                        let collapsed: Guard<T> = match op {
+                            PortComp::Eq => Guard::True,
+                            PortComp::Geq => Guard::True,
+                            PortComp::Leq => Guard::True,
+                            PortComp::Neq => Guard::Not(Box::new(Guard::True)),
+                            PortComp::Gt => Guard::Not(Box::new(Guard::True)),
+                            PortComp::Lt => Guard::Not(Box::new(Guard::True)),
+                        };
+                        self.replace_guard(collapsed)
+                    }
+                }
+            }
+        }
+    }
+
     pub fn collapse_unused_mut(
         &mut self,
         comp: &mut Component,
@@ -224,7 +297,7 @@ impl<T> Guard<T> {
         unused_ports: &HashSet<Id>,
     ) {
         match self {
-            Guard::Info(_) | Guard::True => (),
+            Guard::Info(..) | Guard::True => (),
             Guard::Port(p) => {
                 let port_name = p.borrow().name;
                 match unused_ports.contains(&port_name) {
@@ -261,13 +334,13 @@ impl<T> Guard<T> {
                             Some(low_port) => {
                                 // swapped out low port with p1,
                                 // where low is a port corresponding to perpetually n-bit low cell
-                                mem::swap(p1, low_port);
+                                std::mem::swap(p1, low_port);
                             }
                         }
                     }
                     // only first used; replace second by deferring to branch w/ p1 unused p2 used
                     (false, true) => {
-                        mem::swap(p1, p2);
+                        std::mem::swap(p1, p2);
                         self.collapse_unused_mut(comp, sigs, unused_ports)
                     }
                     // both unused
@@ -282,64 +355,6 @@ impl<T> Guard<T> {
                             PortComp::Lt => Guard::Not(Box::new(Guard::True)),
                         };
                         self.replace_guard(collapsed)
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn collapse_unused_ref(
-        &mut self,
-        _comp: &mut Component,
-        _sigs: &LibrarySignatures,
-        _unused_ports: &HashSet<Id>,
-    ) -> &mut Guard<T> {
-        self
-    }
-
-    pub fn collapse_unused(
-        self,
-        comp: &mut Component,
-        sigs: &LibrarySignatures,
-        unused_ports: &HashSet<Id>,
-    ) -> Self {
-        match self {
-            Guard::Info(_) | Guard::True => self,
-            Guard::Port(p) => {
-                let port_name = p.borrow().name;
-                match unused_ports.contains(&port_name) {
-                    false => Guard::Port(p),
-                    // do we want to alter this if it's unused?
-                    // maybe make it always true because these are typically
-                    // done ports and if it's unused port it is always "done"?
-                    true => Guard::Not(Box::new(Guard::True)),
-                }
-            }
-            Guard::And(l, r) => Guard::And(
-                Box::new(l.collapse_unused(comp, sigs, unused_ports)),
-                Box::new(r.collapse_unused(comp, sigs, unused_ports)),
-            ),
-            Guard::Or(l, r) => Guard::Or(
-                Box::new(l.collapse_unused(comp, sigs, unused_ports)),
-                Box::new(r.collapse_unused(comp, sigs, unused_ports)),
-            ),
-            Guard::Not(g) => Guard::Not(Box::new(g.collapse_unused(
-                comp,
-                sigs,
-                unused_ports,
-            ))),
-            Guard::CompOp(op, p1, p2) => {
-                let port_name = p1.borrow().name;
-                match unused_ports.contains(&port_name) {
-                    false => Guard::CompOp(op, p1, p2),
-                    true => {
-                        let p1_width = p1.borrow().width;
-                        let mut builder = Builder::new(comp, sigs);
-                        // structure!(builder; let signal_off = constant(0, p1_width););
-
-                        let _const_cell = builder.add_constant(0, p1_width);
-
-                        Guard::CompOp(op, p1, p2)
                     }
                 }
             }
