@@ -559,7 +559,7 @@ fud exec -s calyx.exec './target/debug/calyx' \
 
 [[tests]]
 name = "correctness floating-point"
-paths = ["tests/correctness/float-point/*.futil"]
+paths = ["tests/correctness/float/*.futil"]
 cmd = """
 fud exec --from calyx --to jq \
          --through icarus-verilog \
@@ -569,7 +569,7 @@ fud exec --from calyx --to jq \
          -s verilog.cycle_limit 500 \
          {} -q
 """
-expect_dir = "tests/correctness/float-point/"
+expect_dir = "tests/correctness/float/"
 timeout = 10
 
 ##### Examples #####
