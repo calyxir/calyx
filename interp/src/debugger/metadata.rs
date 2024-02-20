@@ -2,7 +2,8 @@
 pub struct MetaData {
     // This is the next line that will be 'executed'
     _current_line: i64,
-
+    // The next instruction that will be 'executed'
+    _current_instruction: DisassembledInstruction,
     //Do we need to recreate these?
     _breakpoints: (),
     //Thread States(?)

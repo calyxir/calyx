@@ -1,11 +1,12 @@
 use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
-use std::fs::File;
+use interp::debugger::Debugger;
+use std::path::PathBuf;
 
 use crate::error::AdapterResult;
 
 pub struct MyAdapter {
     #[allow(dead_code)]
-    file: File,
+    debugger: Debugger,
     break_count: Counter,
     thread_count: Counter,
     stack_count: Counter,
@@ -22,7 +23,11 @@ impl MyAdapter {
     // Create open file function
     pub fn new(path: &str) -> AdapterResult<Self> {
         Ok(MyAdapter {
-            file: File::open(path)?,
+            debugger: Debugger::from_file(
+                &PathBuf::from(path),
+                &PathBuf::from("/home/elias/calyx/calyx-stdlib"),
+            )
+            .unwrap(),
             break_count: Counter::new(),
             thread_count: Counter::new(),
             stack_count: Counter::new(),
@@ -105,6 +110,11 @@ impl MyAdapter {
 
     pub fn clone_stack(&self) -> Vec<StackFrame> {
         self.stack_frames.clone()
+    }
+
+    pub fn next_line(&mut self, _thread: i64) -> () {
+        let number = self.debugger.step(1).unwrap();
+        self.stack_frames[0].line += number;
     }
 }
 

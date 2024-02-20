@@ -4,17 +4,22 @@ use super::{
     interactive_errors::DebuggerError,
     io_utils::Input,
 };
-use crate::debugger::source::SourceMap;
-use crate::environment::{InterpreterState, PrimitiveMap};
 use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::structures::state_views::StateView;
 use crate::utils::AsRaw;
+use crate::{configuration, debugger::source::SourceMap};
+use crate::{
+    environment::{InterpreterState, PrimitiveMap},
+    MemoryMap,
+};
 use crate::{interpreter_ir as iir, primitives::Serializable};
 
+use calyx_frontend::Workspace;
 use calyx_ir::{self as ir, Id, RRC};
 
+use calyx_opt::pass_manager::PassManager;
 use owo_colors::OwoColorize;
 use std::{cell::Ref, collections::HashMap, rc::Rc};
 use std::{
@@ -44,7 +49,47 @@ impl Debugger {
         // create a workspace using the file and lib_path, run the standard
         // passes (see main.rs). Construct the initial environment then use that
         // to create a new debugger instance with new
-        todo!()
+
+        let builder = configuration::ConfigBuilder::new();
+
+        let config = builder
+            .quiet(false)
+            .allow_invalid_memory_access(false)
+            .error_on_overflow(false)
+            .allow_par_conflicts(false)
+            .build();
+
+        let ws = Workspace::construct(&Some(file.clone()), lib_path)?;
+        let mut ctx = ir::from_ast::ast_to_ir(ws)?;
+        let pm = PassManager::default_passes()?;
+
+        // if !opts.skip_verification
+        pm.execute_plan(&mut ctx, &["validate".to_string()], &[], false)?;
+
+        let entry_point = ctx.entrypoint;
+
+        let components: iir::ComponentCtx = Rc::new(
+            ctx.components
+                .into_iter()
+                .map(|x| Rc::new(x.into()))
+                .collect(),
+        );
+
+        let main_component = components
+            .iter()
+            .find(|&cm| cm.name == entry_point)
+            .ok_or(InterpreterError::MissingMainComponent)?;
+
+        let mut mems = MemoryMap::inflate_map(&None)?;
+
+        let env = InterpreterState::init_top_level(
+            &components,
+            main_component,
+            &mut mems,
+            &config,
+        )?;
+
+        Debugger::new(&components, main_component, None, env)
     }
 
     pub fn new(
@@ -73,12 +118,12 @@ impl Debugger {
     }
 
     // probably want a different return type
-    pub fn step(&mut self, n: u64) -> InterpreterResult<()> {
+    pub fn step(&mut self, n: u64) -> InterpreterResult<i64> {
         for _ in 0..n {
             self.interpreter.step()?;
         }
         self.interpreter.converge()?;
-        Ok(())
+        Ok(1)
     }
 
     /// continue the execution until a breakpoint is hit, needs a different

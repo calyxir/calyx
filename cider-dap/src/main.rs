@@ -15,6 +15,7 @@ use slog::{info, Drain};
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
+use std::vec;
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
@@ -98,6 +99,7 @@ where
             let rsp =
                 req.success(ResponseBody::Initialize(types::Capabilities {
                     // Not sure if we need it
+                    // Make VSCode send disassemble request
                     supports_stepping_granularity: Some(true),
                     ..Default::default()
                 }));
@@ -256,6 +258,12 @@ fn run_server<R: Read, W: Write>(
             }
             // Step over
             Command::Next(args) => {
+                // Move stack frame
+                match args.granularity {
+                    None => adapter.next_line(args.thread_id),
+                    _ => {}
+                }
+
                 // Get ID before rsp takes ownership
                 let thread_id = args.thread_id;
                 let rsp = req.success(ResponseBody::Next);

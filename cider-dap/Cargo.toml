@@ -16,6 +16,8 @@ slog = "2.7.0"
 slog-term = "2.8.0"
 slog-async = "2.7.0"
 
+interp = { path = "../interp" }
+
 [[bin]]
 name = "cider-dap"
 path = "src/main.rs"
