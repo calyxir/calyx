@@ -45,28 +45,29 @@ component add_2x4() -> () {
     }
     group let2<"promotable"=2> {
       x_read0_0.in = x.read_data;
-      x_read0_0.write_en = x.read_done;
+      x_read0_0.write_en = x.done;
       let2[done] = x_read0_0.done;
+      x.content_en = 1'd1;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
-      x.read_en = 1'd1;
     }
     group let3<"promotable"=2> {
       y_read0_0.in = y.read_data;
-      y_read0_0.write_en = y.read_done;
+      y_read0_0.write_en = y.done;
       let3[done] = y_read0_0.done;
+      y.content_en = 1'd1;
       y.addr1 = const4.out;
       y.addr0 = __i0.out;
-      y.read_en = 1'd1;
     }
     group upd0<"promotable"=1> {
+      x1.content_en = 1'd1;
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
       add0.left = x_read0_0.out;
       add0.right = y_read0_0.out;
       x1.write_data = add0.out;
-      upd0[done] = x1.write_done;
+      upd0[done] = x1.done;
     }
     group upd1<"promotable"=1> {
       __j0.write_en = 1'd1;

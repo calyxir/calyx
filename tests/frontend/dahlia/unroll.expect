@@ -38,34 +38,34 @@ component main() -> () {
       let0[done] = i0.done;
     }
     group upd0<"promotable"=2> {
-      acc_00.write_en = A0.read_done;
+      acc_00.write_en = A0.done;
+      A0.content_en = 1'd1;
       A0.addr0 = slice0.out;
       slice0.in = i0.out;
-      A0.read_en = 1'd1;
       acc_00.in = A0.read_data;
       upd0[done] = acc_00.done;
     }
     group upd1<"promotable"=2> {
-      acc_10.write_en = A1.read_done;
+      acc_10.write_en = A1.done;
+      A1.content_en = 1'd1;
       A1.addr0 = slice1.out;
       slice1.in = i0.out;
-      A1.read_en = 1'd1;
       acc_10.in = A1.read_data;
       upd1[done] = acc_10.done;
     }
     group upd2<"promotable"=2> {
-      acc_20.write_en = A2.read_done;
+      acc_20.write_en = A2.done;
+      A2.content_en = 1'd1;
       A2.addr0 = slice2.out;
       slice2.in = i0.out;
-      A2.read_en = 1'd1;
       acc_20.in = A2.read_data;
       upd2[done] = acc_20.done;
     }
     group upd3<"promotable"=2> {
-      acc_30.write_en = A3.read_done;
+      acc_30.write_en = A3.done;
+      A3.content_en = 1'd1;
       A3.addr0 = slice3.out;
       slice3.in = i0.out;
-      A3.read_en = 1'd1;
       acc_30.in = A3.read_data;
       upd3[done] = acc_30.done;
     }
