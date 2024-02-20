@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
-import "primitives/float-point/fNToRecFN.futil";
+import "primitives/float/fNToRecFN.futil";
 
 component main(@go go: 1) -> (@done done: 1) {
     cells {
