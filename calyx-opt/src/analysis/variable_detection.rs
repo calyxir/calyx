@@ -1,4 +1,4 @@
-use super::{GraphAnalysis, ReadWriteSet};
+use super::{read_write_set::AssignmentAnalysis, GraphAnalysis};
 use crate::analysis::ShareSet;
 use calyx_ir::{self as ir, RRC};
 
@@ -18,7 +18,11 @@ impl VariableDetection {
     ) -> Option<(ir::CellType, ir::Id)> {
         let group = group_ref.borrow();
 
-        let writes = ReadWriteSet::write_set(group.assignments.iter())
+        let writes = group
+            .assignments
+            .iter()
+            .analysis()
+            .cell_writes()
             .filter(|cell| state_share.is_shareable_component(cell))
             .collect::<Vec<_>>();
 

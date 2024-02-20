@@ -1,5 +1,6 @@
 use crate::analysis::{
-    GraphColoring, LiveRangeAnalysis, ReadWriteSet, ShareSet, StaticParTiming,
+    AssignmentAnalysis, GraphColoring, LiveRangeAnalysis, ShareSet,
+    StaticParTiming,
 };
 use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
@@ -191,10 +192,13 @@ impl CellShare {
         _sigs: &ir::LibrarySignatures,
     ) {
         //add cont cells
-        self.cont_ref_cells =
-            ReadWriteSet::uses(comp.continuous_assignments.iter())
-                .map(|cr| cr.borrow().name())
-                .collect();
+        self.cont_ref_cells = comp
+            .continuous_assignments
+            .iter()
+            .analysis()
+            .cell_uses()
+            .map(|cr| cr.borrow().name())
+            .collect();
         //add ref cells
         self.cont_ref_cells.extend(
             comp.cells
@@ -383,9 +387,7 @@ impl Visitor for CellShare {
         let mut coloring: rewriter::RewriteMap<ir::Cell> = HashMap::new();
         let mut comp_share_freqs: HashMap<ir::CellType, HashMap<i64, i64>> =
             HashMap::new();
-        let comb_bound = self.bounds.get(0).unwrap_or(&None);
-        let reg_bound = self.bounds.get(1).unwrap_or(&None);
-        let other_bound = self.bounds.get(2).unwrap_or(&None);
+        let [comb_bound, reg_bound, other_bound] = &self.bounds;
         for (cell_type, mut graph) in graphs_by_type {
             // getting bound, based on self.bounds and cell_type
             let bound = {

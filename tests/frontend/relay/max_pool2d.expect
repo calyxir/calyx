@@ -130,8 +130,9 @@ component max_pool2d_2x2x2x2() -> () {
     }
     group let13<"promotable"=2> {
       __current_0.in = data.read_data;
-      __current_0.write_en = data.read_done;
+      __current_0.write_en = data.done;
       let13[done] = __current_0.done;
+      data.content_en = 1'd1;
       data.addr3 = slice7.out;
       slice7.in = __pool_x_0.out;
       data.addr2 = slice6.out;
@@ -140,7 +141,6 @@ component max_pool2d_2x2x2x2() -> () {
       slice5.in = __c0.out;
       data.addr0 = slice4.out;
       slice4.in = __b0.out;
-      data.read_en = 1'd1;
     }
     group let2<"promotable"=1> {
       __y0.in = const4.out;
@@ -180,8 +180,9 @@ component max_pool2d_2x2x2x2() -> () {
     }
     group let8<"promotable"=2> {
       __max_0.in = data.read_data;
-      __max_0.write_en = data.read_done;
+      __max_0.write_en = data.done;
       let8[done] = __max_0.done;
+      data.content_en = 1'd1;
       data.addr3 = slice3.out;
       slice3.in = __stride_x_0.out;
       data.addr2 = slice2.out;
@@ -190,7 +191,6 @@ component max_pool2d_2x2x2x2() -> () {
       slice1.in = __c0.out;
       data.addr0 = slice0.out;
       slice0.in = __b0.out;
-      data.read_en = 1'd1;
     }
     group let9<"promotable"=1> {
       __m0.in = const10.out;
@@ -217,6 +217,7 @@ component max_pool2d_2x2x2x2() -> () {
       upd2[done] = __m0.done;
     }
     group upd3<"promotable"=1> {
+      result.content_en = 1'd1;
       result.addr3 = slice11.out;
       slice11.in = __x0.out;
       result.addr2 = slice10.out;
@@ -227,7 +228,7 @@ component max_pool2d_2x2x2x2() -> () {
       slice8.in = __b0.out;
       result.write_en = 1'd1;
       result.write_data = __max_0.out;
-      upd3[done] = result.write_done;
+      upd3[done] = result.done;
     }
     group upd4<"promotable"=1> {
       __x0.write_en = 1'd1;

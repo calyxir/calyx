@@ -173,14 +173,21 @@ impl<'a> Printer<'a> {
         match &self.ctx.primary[control] {
             ControlNode::Empty(_) => String::new(),
             ControlNode::Enable(e) => text_utils::indent(
-                self.ctx.secondary[self.ctx.primary[e.group()].name()].clone()
-                    + ";",
+                format!(
+                    "{};     ({:?})",
+                    self.ctx.secondary[self.ctx.primary[e.group()].name()]
+                        .clone(),
+                    control
+                ),
                 indent,
             ),
 
             // TODO Griffin: refactor into shared function rather than copy-paste?
             ControlNode::Seq(s) => {
-                let mut seq = text_utils::indent("seq {\n", indent);
+                let mut seq = text_utils::indent(
+                    format!("seq {{  ({:?})\n", control),
+                    indent,
+                );
                 for stmt in s.stms() {
                     let child = self.format_control(parent, *stmt, indent + 1);
                     seq += &child;

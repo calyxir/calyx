@@ -158,12 +158,12 @@ impl CompileInvoke {
                     continue;
                 }
 
-                let canon = ir::Canonical(ref_cell_name, port.name);
+                let canon = ir::Canonical::new(ref_cell_name, port.name);
                 let Some(comp_port) = comp_ports.get(&canon) else {
                     unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
                         canon,
                         inv_comp,
-                        comp_ports.keys().map(|c| c.1.as_ref()).collect_vec().join(", ")
+                        comp_ports.keys().map(|c| c.port.as_ref()).collect_vec().join(", ")
                     )
                 };
                 // Get the port on the new cell with the same name as ref_port

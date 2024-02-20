@@ -731,7 +731,7 @@ impl Visitor for CompileStatic {
             // technically could do this w/ early_reset_map but is easier w/
             // group_rewrite, which is explicitly of type `PortRewriterMap`
             self.group_rewrite.insert(
-                ir::Canonical(sgroup_name, ir::Id::from("go")),
+                ir::Canonical::new(sgroup_name, ir::Id::from("go")),
                 g.borrow().find("go").unwrap_or_else(|| {
                     unreachable!("group {} has no go port", g.borrow().name())
                 }),

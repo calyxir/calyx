@@ -251,6 +251,9 @@ impl InterpreterState {
                 Box::new(combinational::StdFpSlt::new(params, cell_qin))
             }
             // Resizing ops
+            "std_bit_slice" => {
+                Box::new(combinational::StdBitSlice::new(params, cell_qin))
+            }
             "std_slice" => {
                 Box::new(combinational::StdSlice::new(params, cell_qin))
             }
@@ -687,7 +690,7 @@ impl InterpreterState {
                 if val.len() != 1 {
                     let can = p.borrow().canonical();
                     return Err(InterpreterError::InvalidBoolCast(
-                        (can.0, can.1),
+                        (can.cell, can.port),
                         p.borrow().width,
                     )
                     .into());
