@@ -48,11 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *----------------------------------------------------------------------------*/
 
 module
-  recFNToFN#(
-    parameter expWidth = 3, 
-    parameter sigWidth = 3,
-    parameter inputWidth = 7,
-    parameter outputWidth = 6
+  recFNToFN#(parameter expWidth = 3, parameter sigWidth = 3
 ) (
     input [(expWidth + sigWidth):0] in_,
     output [(expWidth + sigWidth - 1):0] out

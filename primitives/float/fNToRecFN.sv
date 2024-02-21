@@ -4,12 +4,7 @@
 `include "primitives/float/HardFloat_primitives.sv"
 
 module
-  fNToRecFN #(
-    parameter expWidth = 3, 
-    parameter sigWidth = 3,
-    parameter inputWidth = 6,
-    parameter outputWidth = 7
-) (
+  fNToRecFN #(parameter expWidth = 3, parameter sigWidth = 3) (
     input [(expWidth + sigWidth - 1):0] in_,
     output [(expWidth + sigWidth):0] out
 );
