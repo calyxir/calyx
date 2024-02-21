@@ -44,13 +44,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *----------------------------------------------------------------------------*/
 
 module
-    addRecFNToRaw#(
-        parameter expWidth = 3, 
-        parameter sigWidth = 3,
-        parameter operandsWidth = 7,
-        parameter outSExpWidth = 5,
-        parameter outSigWidth = 6
-) (
+    addRecFNToRaw#(parameter expWidth = 3, parameter sigWidth = 3) (
         input [(`floatControlWidth - 1):0] control,
         input subOp,
         input [(expWidth + sigWidth):0] a,
@@ -211,11 +205,7 @@ endmodule
 *----------------------------------------------------------------------------*/
 
 module
-    addRecFN#(
-        parameter expWidth = 3, 
-        parameter sigWidth = 3,
-        parameter numWidth = 7
-) (
+    addRecFN#(parameter expWidth = 3, parameter sigWidth = 3) (
         input [(`floatControlWidth - 1):0] control,
         input subOp,
         input [(expWidth + sigWidth):0] a,
