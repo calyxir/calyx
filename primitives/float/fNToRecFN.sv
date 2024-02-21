@@ -10,8 +10,8 @@ module
     parameter inputWidth = 6,
     parameter outputWidth = 7
 ) (
-    input [inputWidth-1:0] in_,
-    output [outputWidth-1:0] out
+    input [(expWidth + sigWidth - 1):0] in_,
+    output [(expWidth + sigWidth):0] out
 );
 `include "primitives/float/HardFloat_localFuncs.vi"
 
