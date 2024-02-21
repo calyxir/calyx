@@ -1,0 +1,42 @@
+/// ======================================================================
+// Wrapper for HardFloat's floating-point addition/subtraction modules
+/// ======================================================================
+
+extern "addRecFN.sv" {
+  primitive addRecFNToRaw[
+    expWidth, 
+    sigWidth, 
+    operandsWidth,
+    outSExpWidth,
+    outSigWidth
+  ](
+    control: 1,
+    subOp: 1,
+    a: operandsWidth,
+    b: operandsWidth,
+    roundingMode: 3
+  ) -> (
+    invalidExc: 1,
+    out_isNaN: 1,
+    out_isInf: 1,
+    out_isZero: 1,
+    out_sign: 1,
+    out_sExp: outSExpWidth,
+    out_sig: outSigWidth
+  );
+
+  primitive addRecFN[
+    expWidth,
+    sigWidth,
+    numWidth
+  ](
+    control: 1,
+    subOp: 1,
+    a: numWidth,
+    b: numWidth,
+    roundingMode: 3
+  ) -> (
+    out: numWidth,
+    exceptionFlags: 5
+  );
+}
