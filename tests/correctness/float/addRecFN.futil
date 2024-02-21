@@ -1,0 +1,41 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/float/fNToRecFN.futil";
+import "primitives/float/recFNToFN.futil";
+import "primitives/float/addRecFN.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+    cells {
+        @external mem = comb_mem_d1(32, 1, 1);
+        fNToRecFN0 = fNToRecFN(8, 24, 32, 33);
+        fNToRecFN1 = fNToRecFN(8, 24, 32, 33);
+        addRecFN0 = addRecFN(8, 24, 33);
+        recFNToFN0 = recFNToFN(8, 24, 33, 32);
+    }
+
+    wires {
+        group add_recoded_write_std {
+            addRecFN0.control = 1'b0;
+            addRecFN0.subOp = 1'b0;
+            addRecFN0.roundingMode = 3'b100;
+
+            fNToRecFN0.in_ = 32'b01000001110100100110011001100110; // = 26.3
+            fNToRecFN1.in_ = 32'b01000001010110110011001100110011; // = 13.7
+
+            addRecFN0.a = fNToRecFN0.out;
+            addRecFN0.b = fNToRecFN1.out;
+
+            recFNToFN0.in_ = addRecFN0.out;
+
+            mem.addr0 = 1'b0;
+            mem.write_data = recFNToFN0.out;
+            mem.write_en = 1'd1;
+
+            add_recoded_write_std[done] = mem.done;
+        }
+    }
+
+    control {
+        add_recoded_write_std;
+    }
+}
