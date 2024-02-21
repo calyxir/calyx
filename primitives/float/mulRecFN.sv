@@ -195,10 +195,7 @@ endmodule
 *----------------------------------------------------------------------------*/
 
 module
-    mulRecFN#(
-        parameter expWidth = 3, 
-        parameter sigWidth = 3,
-        parameter numWidth = 7
+    mulRecFN#(parameter expWidth = 3, parameter sigWidth = 3
     ) (
         input [(`floatControlWidth - 1):0] control,
         input [(expWidth + sigWidth):0] a,
