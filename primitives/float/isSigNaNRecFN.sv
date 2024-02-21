@@ -1,7 +1,5 @@
-`ifndef __HARDFLOAT_RECFNTOFN_V__
-`define __HARDFLOAT_RECFNTOFN_V__
-
-`include "primitives/float/HardFloat_rawFN.sv"
+`ifndef __HARDFLOAT_ISSIGNANRECFN_V__
+`define __HARDFLOAT_ISSIGNANRECFN_V__
 
 /*============================================================================
 
@@ -38,49 +36,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =============================================================================*/
 
-/* ============= Added section to include some files ================== */
-// verilator lint_off MODDUP
-//`include "includeFile.v"
-// verilator lint_on MODDUP
-/* ============================================================== */
-
 /*----------------------------------------------------------------------------
 *----------------------------------------------------------------------------*/
 
 module
-  recFNToFN#(
-    parameter expWidth = 3, 
-    parameter sigWidth = 3,
-    parameter inputWidth = 7,
-    parameter outputWidth = 6
-) (
-    input [(expWidth + sigWidth):0] in_,
-    output [(expWidth + sigWidth - 1):0] out
-  );
-`include "primitives/float/HardFloat_localFuncs.vi"
+    isSigNaNRecFN#(parameter expWidth = 3, parameter sigWidth = 3) (
+        input [(expWidth + sigWidth):0] in, output isSigNaN
+    );
 
-  /*------------------------------------------------------------------------
-  *------------------------------------------------------------------------*/
-  localparam [expWidth:0] minNormExp = (1<<(expWidth - 1)) + 2;
-  localparam normDistWidth = clog2(sigWidth);
-  /*------------------------------------------------------------------------
-  *------------------------------------------------------------------------*/
-  wire isNaN, isInf, isZero, sign;
-  wire signed [(expWidth + 1):0] sExp;
-  wire [sigWidth:0] sig;
-  recFNToRawFN#(expWidth, sigWidth)
-      recFNToRawFN(in_, isNaN, isInf, isZero, sign, sExp, sig);
-  wire isSubnormal = (sExp < minNormExp);
-  /*------------------------------------------------------------------------
-  *------------------------------------------------------------------------*/
-  wire [(normDistWidth - 1):0] denormShiftDist = minNormExp - 1 - sExp;
-  wire [(expWidth - 1):0] expOut =
-      (isSubnormal ? 0 : sExp - minNormExp + 1)
-          | (isNaN || isInf ? {expWidth{1'b1}} : 0);
-  wire [(sigWidth - 2):0] fractOut =
-      isSubnormal ? (sig>>1)>>denormShiftDist : isInf ? 0 : sig;
-  assign out = {sign, expOut, fractOut};
+    wire isNaN =
+        (in[(expWidth + sigWidth - 1):(expWidth + sigWidth - 3)] == 'b111);
+    assign isSigNaN = isNaN && !in[sigWidth - 2];
 
 endmodule
 
-`endif /* __HARDFLOAT_RECFNTOFN_V__ */
+`endif /* __HARDFLOAT_ISSIGNANRECFN_V__ */
