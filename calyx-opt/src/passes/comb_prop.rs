@@ -308,10 +308,10 @@ impl CombProp {
 
     fn replace_wire_guard(
         &self,
-        guard: Box<ir::Guard<ir::Nothing>>,
+        guard: ir::Guard<ir::Nothing>,
     ) -> Box<ir::Guard<ir::Nothing>> {
         {
-            match *guard {
+            match guard {
                 ir::Guard::Port(ref p) => {
                     if Self::parent_is_wire(&p.borrow().parent) {
                         if let Some(g) =
@@ -321,26 +321,23 @@ impl CombProp {
                             return g_clone;
                         }
                     }
-                    drop(p);
-                    Box::new(*guard)
+                    Box::new(guard)
                 }
                 ir::Guard::And(l, r) => {
-                    let new_l = self.replace_wire_guard(l);
-                    let new_r = self.replace_wire_guard(r);
-                    return Box::new(ir::Guard::And(new_l, new_r));
+                    let new_l = self.replace_wire_guard(*l);
+                    let new_r = self.replace_wire_guard(*r);
+                    Box::new(ir::Guard::And(new_l, new_r))
                 }
                 ir::Guard::Or(l, r) => {
-                    let new_l = self.replace_wire_guard(l);
-                    let new_r = self.replace_wire_guard(r);
-                    return Box::new(ir::Guard::Or(new_l, new_r));
+                    let new_l = self.replace_wire_guard(*l);
+                    let new_r = self.replace_wire_guard(*r);
+                    Box::new(ir::Guard::Or(new_l, new_r))
                 }
                 ir::Guard::Not(g) => {
-                    let new_g = self.replace_wire_guard(g);
-                    return Box::new(ir::Guard::Not(new_g));
+                    let new_g = self.replace_wire_guard(*g);
+                    Box::new(ir::Guard::Not(new_g))
                 }
-                _ => {
-                    return Box::new(*guard);
-                }
+                _ => Box::new(guard),
             }
         }
     }
@@ -395,7 +392,7 @@ impl Visitor for CombProp {
             // if wire.in = ** guard ** ? 1'd1;
             // and if a = wire.out ? b;
             // then replace wire.out with ** guard **
-            let n_guard = self.replace_wire_guard(assign.guard.clone());
+            let n_guard = self.replace_wire_guard(*assign.guard.clone());
             assign.guard = n_guard;
         }
 
