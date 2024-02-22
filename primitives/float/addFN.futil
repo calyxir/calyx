@@ -1,0 +1,16 @@
+extern "addFN.sv" {
+  primitive addFN[
+    expWidth, 
+    sigWidth, 
+    numWidth
+  ](
+    control: 1,
+    subOp: 1,
+    a: numWidth,
+    b: numWidth,
+    roundingMode: 3
+  ) -> (
+    out: numWidth,
+    exceptionFlags: 5
+  );
+}
