@@ -11,6 +11,7 @@ pub trait ParentUntil: Sized {
 }
 
 impl ParentUntil for Node<'_> {
+    /// Search parents of `self` until `pred` returns true.
     fn parent_until<F>(&self, pred: F) -> Option<Self>
     where
         F: Fn(&Self) -> bool,
@@ -24,6 +25,7 @@ impl ParentUntil for Node<'_> {
         })
     }
 
+    /// Search parents of `self` until it's name is included in `names`.
     fn parent_until_names<S>(&self, names: &[S]) -> Option<Self>
     where
         S: AsRef<str>,

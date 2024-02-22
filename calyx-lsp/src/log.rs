@@ -8,6 +8,7 @@ use std::io::Write;
 pub struct Debug;
 
 impl Debug {
+    /// Write log message to `/tmp/calyx-lsp-debug.log`
     #[allow(unused)]
     pub fn stdout<S: AsRef<str>>(msg: S) {
         #[cfg(feature = "log")]
@@ -21,6 +22,9 @@ impl Debug {
         }
     }
 
+    /// Initialize the `/tmp/calyx-lsp-debug.log` file.
+    /// Create the file if it doesn't exist. Truncate the file
+    /// if it does exist.
     #[allow(unused)]
     pub fn init<S: AsRef<str>>(msg: S) {
         #[cfg(feature = "log")]
@@ -36,6 +40,9 @@ impl Debug {
         }
     }
 
+    /// Write some `msg` to a debug log file called `/tmp/calyx-lsp-debug-{name}.log`.
+    /// This method truncates the file before writing. This is useful to recording the
+    /// current state of something.
     #[allow(unused)]
     pub fn update<S: AsRef<str>>(name: &str, msg: S) {
         #[cfg(feature = "log")]

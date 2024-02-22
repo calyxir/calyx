@@ -20,16 +20,7 @@ pub struct Document {
     tree: Option<ts::Tree>,
     parser: ts::Parser,
     /// Map the stores information about every component defined in this file.
-    pub components: HashMap<String, PrivateComponentInfo>,
-}
-
-/// File-private information about each component
-#[derive(Debug)]
-pub struct PrivateComponentInfo {
-    pub inputs: Vec<String>,
-    pub outputs: Vec<String>,
-    pub cells: HashMap<String, String>,
-    pub groups: Vec<String>,
+    pub components: HashMap<String, ComponentInfo>,
 }
 
 /// Public information about a component
@@ -37,6 +28,17 @@ pub struct PrivateComponentInfo {
 pub struct ComponentSig {
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
+}
+
+/// File-private information about each component
+#[derive(Debug)]
+pub struct ComponentInfo {
+    /// the signature of this component
+    pub signature: ComponentSig,
+    /// map from cell names to component names
+    pub cells: HashMap<String, String>,
+    /// the names of groups in this component
+    pub groups: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -64,6 +66,7 @@ pub enum Context {
     Control,
 }
 
+/// Transform an iterator of `treesit::Node` to `Range`.
 pub trait NodeRangesIter<'a>: Iterator<Item = ts::Node<'a>> + Sized {
     fn ranges(self) -> impl Iterator<Item = Range> {
         self.map(Range::from)
@@ -71,6 +74,7 @@ pub trait NodeRangesIter<'a>: Iterator<Item = ts::Node<'a>> + Sized {
 }
 
 impl Document {
+    /// Create an empty document for `url`.
     pub fn new(url: lspt::Url) -> Self {
         let mut parser = ts::Parser::new();
         parser.set_language(unsafe { tree_sitter_calyx() }).unwrap();
@@ -83,12 +87,14 @@ impl Document {
         }
     }
 
+    /// Create a new document with `text` for `url`.
     pub fn new_with_text(url: lspt::Url, text: &str) -> Self {
         let mut doc = Self::new(url);
         doc.parse_whole_text(text);
         doc
     }
 
+    /// Update the document with a with entirely new text.
     pub fn parse_whole_text(&mut self, text: &str) {
         self.text = text.to_string();
         self.tree = self.parser.parse(text, None);
@@ -99,10 +105,12 @@ impl Document {
         )
     }
 
+    /// Returns the root `treesit` node.
     pub fn root_node(&self) -> Option<ts::Node> {
         self.tree.as_ref().map(|t| t.root_node())
     }
 
+    /// Translate a `byte_offset` into a `Point`.
     pub fn byte_to_point(&self, byte_offset: usize) -> Option<Point> {
         if byte_offset == 0 {
             Some(Point::zero())
@@ -118,6 +126,8 @@ impl Document {
         }
     }
 
+    /// Compile `pattern` into a treesit query, run the query,
+    /// and return a map of capture names to captured nodes.
     pub fn captures<'a, 'node: 'a>(
         &'a self,
         node: ts::Node<'node>,
@@ -154,12 +164,14 @@ impl Document {
         map
     }
 
-    // TODO: big messy function. clean this up or at least comment it
+    /// Update the component map for this document.
     fn update_component_map(&mut self) {
         self.components = self
             .root_node()
             .into_iter()
             .flat_map(|root| {
+                // capture relevant sections of every component
+                // in this file
                 let map = self.captures(
                     root,
                     r#"(component (ident) @comp
@@ -168,6 +180,10 @@ impl Document {
                          (cells) @cells
                          (wires) @wires)"#,
                 );
+
+                // create an iterator over all the captured nodes.
+                // we are guaranteed that there will be the same
+                // number of each of these
                 multizip((
                     map["comp"].iter(),
                     map["inputs"].iter(),
@@ -177,16 +193,20 @@ impl Document {
                 ))
                 .map(|(comp, inputs, outputs, cells, wires)| {
                     (
+                        // the name of the component
                         self.node_text(comp).to_string(),
-                        PrivateComponentInfo {
-                            inputs: self.captures(*inputs, "(ident) @id")["id"]
-                                .iter()
-                                .map(|n| self.node_text(n).to_string())
-                                .collect(),
-                            outputs: self.captures(*outputs, "(ident) @id")["id"]
-                                .iter()
-                                .map(|n| self.node_text(n).to_string())
-                                .collect(),
+                        // construct the component info from captured nodes
+                        ComponentInfo {
+                            signature: ComponentSig {
+                                inputs: self.captures(*inputs, "(ident) @id")["id"]
+                                    .iter()
+                                    .map(|n| self.node_text(n).to_string())
+                                    .collect(),
+                                outputs: self.captures(*outputs, "(ident) @id")["id"]
+                                    .iter()
+                                    .map(|n| self.node_text(n).to_string())
+                                    .collect(),
+                            },
                             cells: {
                                 let cells = self.captures(
                                     *cells,
@@ -213,6 +233,7 @@ impl Document {
             .collect();
     }
 
+    /// Return an iterator over components or primitives
     pub fn components(&self) -> impl Iterator<Item = ts::Node> {
         self.root_node().into_iter().flat_map(|root| {
             self.captures(
@@ -223,6 +244,7 @@ impl Document {
         })
     }
 
+    /// Find all the names of cells for the component that contains `node`
     pub fn enclosing_cells<'a>(
         &'a self,
         node: ts::Node<'a>,
@@ -237,6 +259,7 @@ impl Document {
             })
     }
 
+    /// Find all group names for the component that contains `node`
     pub fn enclosing_groups<'a>(
         &'a self,
         node: ts::Node<'a>,
@@ -249,6 +272,7 @@ impl Document {
             })
     }
 
+    /// Find all input/output ports for the component that contains `node`
     pub fn enclosing_component_ports<'a>(
         &'a self,
         node: ts::Node<'a>,
@@ -261,6 +285,7 @@ impl Document {
             })
     }
 
+    /// Find the name of the component that contains `node`
     pub fn enclosing_component_name(&self, node: ts::Node) -> Option<String> {
         node.parent_until(|n| n.kind() == "component")
             .and_then(|comp_node| {
@@ -284,6 +309,7 @@ impl Document {
             .collect()
     }
 
+    /// Resolve the imports into full paths
     pub fn resolved_imports<'a>(
         &'a self,
         config: &'a Config,
@@ -309,6 +335,7 @@ impl Document {
             .filter(|p| p.exists())
     }
 
+    /// Return signatures for all components
     pub fn signatures(
         &self,
     ) -> impl Iterator<Item = (String, ComponentSig)> + '_ {
@@ -345,6 +372,7 @@ impl Document {
             })
     }
 
+    /// Find the treesit node at `point`
     pub fn node_at_point(&self, point: &Point) -> Option<ts::Node> {
         self.root_node().and_then(|root| {
             root.descendant_for_point_range(
@@ -354,9 +382,13 @@ impl Document {
         })
     }
 
+    /// Find the semantic thing that is under `point`
     pub fn thing_at_point(&self, point: Point) -> Option<Things> {
         self.node_at_point(&point).and_then(|node| {
             if node.parent().is_some_and(|p| p.kind() == "port") {
+                // when our parent is a port and we have a next sibling
+                // we are looking at a cell. if we don't have a next
+                // sibling, we are looking at a port on our current component
                 if node.next_sibling().is_some() {
                     Some(Things::Cell(node, self.node_text(&node).to_string()))
                 } else if node.prev_sibling().is_none() {
@@ -368,19 +400,26 @@ impl Document {
                     None
                 }
             } else if node.parent().is_some_and(|p| p.kind() == "enable") {
+                // if we are in an enable control statement, we are looking
+                // at a group
                 Some(Things::Group(node, self.node_text(&node).to_string()))
             } else if node.parent().is_some_and(|p| p.kind() == "hole") {
+                // if we are looking at the first part of a hole, we are looking
+                // at a group name
                 if node.next_sibling().is_some() {
                     Some(Things::Group(node, self.node_text(&node).to_string()))
                 } else {
                     None
                 }
             } else if node.parent().is_some_and(|p| p.kind() == "port_with") {
+                // inside a control `with` statement, we are looking at a group
                 Some(Things::Group(node, self.node_text(&node).to_string()))
             } else if node.parent().is_some_and(|p| p.kind() == "instantiation")
             {
+                // inside a cell instantiation, we are looking at a component
                 Some(Things::Component(self.node_text(&node).to_string()))
             } else if node.parent().is_some_and(|p| p.kind() == "import") {
+                // inside an import, we are ofc looking at an import
                 Some(Things::Import(
                     node,
                     self.node_text(&node).to_string().replace('"', ""),
@@ -391,9 +430,18 @@ impl Document {
         })
     }
 
+    /// Find the context of the thing at point
     pub fn context_at_point(&self, point: &Point) -> Context {
+        // to find the context at point, we can't just find the node and
+        // infer context based on a relevant parent because incomplete
+        // parse trees will sometimes place error nodes outside the
+        // context we expect. for this reason, we find ranges for
+        // relevant sections, and check if they contain the point
         self.node_at_point(point)
             .and_then(|n| {
+                // if `n` is a component. we want to capture things
+                // from `n`. otherwise, we find the parent component,
+                // and capture things from there
                 if n.kind() == "component" {
                     Some(n)
                 } else {
@@ -422,6 +470,7 @@ impl Document {
             .unwrap_or(Context::Toplevel)
     }
 
+    /// Find the last complete word ending at `point`
     pub fn last_word_from_point(&self, point: &Point) -> Option<String> {
         let re = Regex::new(r"\b\w+\b").unwrap();
         self.text.lines().nth(point.row()).and_then(|cur_line| {
@@ -434,108 +483,8 @@ impl Document {
         })
     }
 
+    /// Return text string for `node`.
     pub fn node_text(&self, node: &ts::Node) -> &str {
         node.utf8_text(self.text.as_bytes()).unwrap()
     }
 }
-
-// Maybe useful functions for some point later
-// -------
-// fn apply_line_bytes_edit(&self, event: &lspt::TextDocumentContentChangeEvent) {
-//     let mut lbs = self.line_bytes.write().unwrap();
-//     if let Some(range) = event.range {
-//         // take all the lines in the range, and replace them with the lines in event.text
-//         // the number of newlines more than the line span is the number of new lines we need
-//         // to include
-
-//         let mut new_region = newline_split(&event.text)
-//             .iter()
-//             .map(|line| line.len())
-//             .collect::<Vec<_>>();
-
-//         if (range.start.line as usize) < lbs.len() {
-//             // TODO: use a more efficient data structure than a Vec
-//             // first we split off the vector at the beginning of the range
-//             let mut specified_region = lbs.split_off(range.start.line as usize);
-//             let second_half =
-//                 specified_region.split_off((range.end.line - range.start.line) as usize);
-
-//             // we have to correct the new region.
-//             // example:
-//             //          ↓ n_bytes_before
-//             // xxxxxxxxxx-----------
-//             // -----------
-//             // -----------xxx
-//             //            ↑ n_bytes_after
-//             let n_bytes_before = range.start.character as usize;
-//             let n_bytes_after = second_half[0] - range.end.character as usize;
-
-//             // correct the line counts for the start and end of the new region
-//             new_region.first_mut().map(|el| *el += n_bytes_before);
-//             new_region.last_mut().map(|el| *el += n_bytes_after);
-
-//             // then we insert the new region inbetween
-//             lbs.append(&mut new_region);
-//             lbs.extend_from_slice(&second_half[1..]);
-//         } else {
-//             lbs.append(&mut new_region);
-//         }
-//     } else {
-//         todo!("Not sure what it means if we have no range.")
-//     }
-// }
-
-// fn update_parse_tree(&self, event: &lspt::TextDocumentContentChangeEvent) {
-//     let mut parser = self.parser.write().unwrap();
-//     let mut tree = self.tree.write().unwrap();
-
-//     if let Some(range) = event.range {
-//         let lines = event.text.split('\n').collect::<Vec<_>>();
-//         let start_position = range.start.point();
-//         let old_end_position = range.end.point();
-//         let new_end_position = if lines.len() == 1 {
-//             Point::new(
-//                 range.start.line as usize,
-//                 (range.start.character as usize) + event.text.len(),
-//             )
-//         } else {
-//             Point::new(
-//                 (range.start.line as usize) + (lines.len() - 1),
-//                 lines.last().unwrap().len(),
-//             )
-//         };
-//         let start_byte = self.point_to_byte_offset(&start_position);
-//         let old_end_byte = self.point_to_byte_offset(&old_end_position);
-//         let new_end_byte = start_byte + event.text.len();
-
-//         let input_edit = InputEdit {
-//             start_byte,
-//             old_end_byte,
-//             new_end_byte,
-//             start_position,
-//             old_end_position,
-//             new_end_position,
-//         };
-//         // debug
-//         self.debug_log("stdout", &format!("{input_edit:#?}"));
-//         let d = tree
-//             .as_ref()
-//             .unwrap()
-//             .root_node()
-//             .descendant_for_byte_range(start_byte, old_end_byte)
-//             .unwrap()
-//             .to_sexp();
-//         self.debug_log("stdout", &format!("{d}"));
-
-//         let new_tree = tree.as_mut().and_then(|t| {
-//             t.edit(&input_edit);
-//             parser.parse(&event.text, Some(t))
-//         });
-//         *tree = new_tree;
-//     }
-// }
-
-// fn point_to_byte_offset(&self, point: &Point) -> usize {
-//     let lbs = self.line_bytes.read().unwrap();
-//     lbs[0..point.row].iter().sum::<usize>() + point.column
-// }

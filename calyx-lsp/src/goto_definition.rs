@@ -9,9 +9,12 @@ use crate::{
     query_result::QueryResult,
     Config,
 };
+
 #[derive(Clone, Debug)]
 pub enum DefRes {
+    /// We have found the location that we are looking for
     Found(lspt::Location),
+    /// Continue searching with these paths, looking for String
     Continue(Vec<PathBuf>, String),
 }
 

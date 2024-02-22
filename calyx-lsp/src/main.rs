@@ -14,7 +14,7 @@ use std::sync::RwLock;
 
 use convert::{Point, Range};
 use diagnostic::Diagnostic;
-use document::{ComponentSig, Document};
+use document::Document;
 use goto_definition::DefinitionProvider;
 use query_result::QueryResult;
 use serde::Deserialize;
@@ -26,6 +26,7 @@ use crate::completion::CompletionProvider;
 use crate::log::Debug;
 
 extern "C" {
+    /// Bind the tree-sitter parser to something that we can use in Rust
     fn tree_sitter_calyx() -> ts::Language;
 }
 
@@ -49,12 +50,14 @@ impl Default for CalyxLspConfig {
     }
 }
 
+/// Data for the Calyx Language Server
 struct Backend {
+    /// Connection to the client that is used for sending data
     client: Client,
+    /// Currently open documents
     open_docs: RwLock<HashMap<lspt::Url, document::Document>>,
+    /// Server configuration
     config: RwLock<Config>,
-    /// A map from each open file, to the components defined in that file
-    symbols: RwLock<HashMap<lspt::Url, HashMap<String, ComponentSig>>>,
 }
 
 impl Backend {
@@ -63,75 +66,68 @@ impl Backend {
             client,
             open_docs: RwLock::new(HashMap::default()),
             config: RwLock::new(Config::default()),
-            symbols: RwLock::new(HashMap::default()),
         }
     }
 
-    fn open(&self, uri: lspt::Url, text: String) {
+    /// Open a new document located at `url` with contents `text`.
+    fn open(&self, url: lspt::Url, text: String) {
         let mut map = self.open_docs.write().unwrap();
-        map.insert(uri.clone(), Document::new_with_text(uri, &text));
+        map.insert(url.clone(), Document::new_with_text(url, &text));
     }
 
-    fn open_path(&self, uri: lspt::Url) {
-        if let Ok(text) = fs::read_to_string(uri.to_file_path().unwrap()) {
-            self.open(uri.clone(), text)
+    /// Open a new document located at `url` with contents read
+    /// from that path on the system.
+    fn open_path(&self, url: lspt::Url) {
+        if let Ok(text) = fs::read_to_string(url.to_file_path().unwrap()) {
+            self.open(url.clone(), text)
         }
     }
 
-    fn exists(&self, uri: &lspt::Url) -> bool {
+    /// Check if a path is currently opened.
+    fn exists(&self, url: &lspt::Url) -> bool {
         let map = self.open_docs.read().unwrap();
-        map.contains_key(uri)
+        map.contains_key(url)
     }
 
-    fn read_document<F, T>(&self, uri: &lspt::Url, reader: F) -> Option<T>
+    /// Read the contents of `url` using function `reader`.
+    fn read_document<F, T>(&self, url: &lspt::Url, reader: F) -> Option<T>
     where
         F: FnMut(&Document) -> Option<T>,
     {
-        let map = self.open_docs.read().unwrap();
-        map.get(uri).and_then(reader)
+        self.open_docs
+            .read()
+            .ok()
+            .and_then(|map| map.get(url).and_then(reader))
     }
 
-    fn read_and_open<F, T>(&self, uri: &lspt::Url, reader: F) -> Option<T>
+    /// Read the contents of `url` using function `reader`.
+    /// If the document isn't already open, then open it first.
+    fn read_and_open<F, T>(&self, url: &lspt::Url, reader: F) -> Option<T>
     where
         F: FnMut(&Document) -> Option<T>,
     {
         // if the file doesnt exist, read it's contents and create a doc for it
-        if !self.exists(uri) {
-            self.open_path(uri.clone());
-            self.update_symbols(uri);
+        if !self.exists(url) {
+            self.open_path(url.clone());
         }
 
-        self.read_document(uri, reader)
+        self.read_document(url, reader)
     }
 
-    fn update<F>(&self, uri: &lspt::Url, updater: F)
+    /// Update the document at `url` using function `updater`.
+    fn update<F>(&self, url: &lspt::Url, updater: F)
     where
         F: FnMut(&mut Document),
     {
-        let mut map = self.open_docs.write().unwrap();
-        map.get_mut(uri).map(updater);
-    }
-
-    fn update_symbols(&self, url: &lspt::Url) {
-        self.symbols
+        self.open_docs
             .write()
-            .unwrap()
-            .entry(url.clone())
-            .and_modify(|map| {
-                self.read_document(url, |doc| {
-                    for (name, sig) in doc.signatures() {
-                        map.insert(name, sig);
-                    }
-                    Some(())
-                });
-            })
-            .or_insert_with(|| {
-                self.read_document(url, |doc| Some(doc.signatures().collect()))
-                    .unwrap()
-            });
+            .ok()
+            .map(|mut map| map.get_mut(url).map(updater));
     }
 
+    /// Publish diagnostics for document `url`.
     async fn publish_diagnostics(&self, url: &lspt::Url) {
+        // TODO: factor the bulk of this method somewhere else
         let lib_path: PathBuf =
             self.config.read().unwrap().calyx_lsp.library_paths[0]
                 .to_string()
@@ -170,6 +166,15 @@ impl Backend {
             .publish_diagnostics(url.clone(), diags, None)
             .await;
     }
+
+    /// Publish diagnostics for every open file.
+    async fn publish_all_diagnostics(&self) {
+        let open_docs: Vec<_> =
+            self.open_docs.read().unwrap().keys().cloned().collect();
+        for x in open_docs {
+            self.publish_diagnostics(&x).await;
+        }
+    }
 }
 
 /// TODO: turn this into a trait
@@ -190,6 +195,7 @@ fn newline_split(data: &str) -> Vec<String> {
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
+    /// LSP method: 'initialize'
     async fn initialize(
         &self,
         _ip: lspt::InitializeParams,
@@ -234,6 +240,10 @@ impl LanguageServer for Backend {
         })
     }
 
+    /// LSP method: 'initialized'
+    /// Guaranteed to be the first method called after the initialization
+    /// process has completed. Here we pull the configuration that we need
+    /// from the client.
     async fn initialized(&self, _ip: lspt::InitializedParams) {
         // get library paths option
         let values = self
@@ -251,23 +261,30 @@ impl LanguageServer for Backend {
             self.config.write().unwrap().calyx_lsp = config;
         }
 
-        // update the diagnostics on all open documents
-        let open_docs: Vec<_> =
-            self.open_docs.read().unwrap().keys().cloned().collect();
-        for x in open_docs {
-            self.publish_diagnostics(&x).await;
-        }
+        // force update of diagnostics because the configuration
+        // can update the library-paths which might affect which
+        // primitives are in scope, thus affecting diagnostics
+        // TODO: does this do anything? have any documents been opened yet?
+        self.publish_all_diagnostics().await;
 
         self.client
             .log_message(lspt::MessageType::INFO, "server initialized!")
             .await;
     }
 
+    /// LSP method: 'textDocument/didOpen'
+    /// Called when the client opens a new document. We get the entire
+    /// text of the document.
     async fn did_open(&self, params: lspt::DidOpenTextDocumentParams) {
         self.open(params.text_document.uri.clone(), params.text_document.text);
         self.publish_diagnostics(&params.text_document.uri).await;
     }
 
+    /// LSP method: 'workspace/didChangeConfiguration'
+    /// Called when the client notifies us that some configuration has changed.
+    /// It passes us the entire configuration.
+    /// Unfortunately, we can't count on this always being called. VSCode for
+    /// example, no longer sends this notification.
     async fn did_change_configuration(
         &self,
         params: lspt::DidChangeConfigurationParams,
@@ -276,29 +293,36 @@ impl LanguageServer for Backend {
         let config: Config = serde_json::from_value(params.settings).unwrap();
         *self.config.write().unwrap() = config;
 
-        // update the diagnostics on all open documents
-        let open_docs: Vec<_> =
-            self.open_docs.read().unwrap().keys().cloned().collect();
-        for x in open_docs {
-            self.publish_diagnostics(&x).await;
-        }
+        // force update of diagnostics because the configuration
+        // can update the library-paths which might affect which
+        // primitives are in scope, thus affecting diagnostics
+        self.publish_all_diagnostics().await;
     }
 
+    /// LSP method: 'textDocument/didChange'
+    /// Called when the client updates a text document. Here we process all
+    /// the text_update events in the order that they are defined in `params`.
+    /// Because we are using the `Full` sync-mode, this should be a single
+    /// event containing the entire updated source.
     async fn did_change(&self, params: lspt::DidChangeTextDocumentParams) {
         self.update(&params.text_document.uri, |doc| {
             for event in &params.content_changes {
                 doc.parse_whole_text(&event.text);
             }
         });
-        self.update_symbols(&params.text_document.uri);
     }
 
+    /// LSP method: 'textDocument/didSave'
+    /// Called when the document was just saved. We use to this update the
+    /// diagnostics for the saved file.
     #[cfg(feature = "diagnostics")]
     async fn did_save(&self, params: lspt::DidSaveTextDocumentParams) {
         let url = &params.text_document.uri;
         self.publish_diagnostics(url).await;
     }
 
+    /// LSP method: 'textDocument/definition'
+    /// Called when the client requests that we go to a definition.
     async fn goto_definition(
         &self,
         params: lspt::GotoDefinitionParams,
@@ -321,6 +345,8 @@ impl LanguageServer for Backend {
             .map(lspt::GotoDefinitionResponse::Scalar))
     }
 
+    /// LSP method: 'textDocument/completion'
+    /// Called when the client requests completion for a point in the file.
     async fn completion(
         &self,
         params: lspt::CompletionParams,
@@ -354,6 +380,7 @@ impl LanguageServer for Backend {
             }))
     }
 
+    /// LSP method: 'shutdown'
     async fn shutdown(&self) -> jsonrpc::Result<()> {
         log::stdout!("shutdown");
         Ok(())

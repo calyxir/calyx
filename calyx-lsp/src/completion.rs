@@ -216,11 +216,11 @@ impl CompletionProvider for Document {
                                 .get(cell_name)
                                 .map(|ci| {
                                     vec![CompletionRes::Found(
-                                        ci.inputs
+                                        ci.signature.inputs
                                             .iter()
                                             .map(|i| CompletionItem::simple(i, "input"))
                                             .chain(
-                                                ci.outputs
+                                                ci.signature.outputs
                                                     .iter()
                                                     .map(|o| CompletionItem::simple(o, "output")),
                                             )
