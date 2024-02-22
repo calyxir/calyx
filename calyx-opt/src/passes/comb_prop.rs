@@ -375,6 +375,8 @@ impl Visitor for CombProp {
     ) -> VisResult {
         let mut rewrites = WireRewriter::default();
 
+        let mut assigns: Vec<ir::Assignment<ir::Nothing>> = Vec::new();
+
         for assign in &mut comp.continuous_assignments {
             let dst = assign.dst.borrow();
             let dst_name = dst.get_parent_name();
@@ -382,10 +384,12 @@ impl Visitor for CombProp {
                 if Self::parent_is_one_bit_one(&assign.src.borrow().parent) {
                     self.guard_map.insert(dst_name, assign.guard.clone());
                 }
+            } else {
+                assigns.push(assign.clone());
             }
         }
 
-        println!("length:{}", self.guard_map.len());
+        comp.continuous_assignments = assigns;
 
         for assign in &mut comp.continuous_assignments {
             // if wire.in = ** guard ** ? 1'd1;
