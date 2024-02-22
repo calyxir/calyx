@@ -1,0 +1,29 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/float/addFN.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+    cells {
+        @external mem = comb_mem_d1(32, 1, 1);
+        addFN0 = addFN(8, 24, 32);
+    }
+
+    wires {
+        group add_std_format {
+            addFN0.a = 32'b01000000100001100110011001100110; // = 4.2
+            addFN0.b = 32'b01000000011000000000000000000000; // = 3.5
+
+            addFN0.control = 1'b0;
+            addFN0.roundingMode = 3'b0;
+
+            mem.addr0 = 1'b0;
+            mem.write_data = addFN0.out;
+            mem.write_en = 1'd1;
+            mul_recoded[done] = mem.done;
+        }
+    }
+
+    control {
+        add_std_format;
+    }
+}
