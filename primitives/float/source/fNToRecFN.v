@@ -1,14 +1,14 @@
 `ifndef __HARDFLOAT_DIVSQRTRECFN_V__
 `define __HARDFLOAT_DIVSQRTRECFN_V__
 
-`include "primitives/float/HardFloat_primitives.sv"
+`include "primitives/float/source/HardFloat_primitives.v"
 
 module
   fNToRecFN #(parameter expWidth = 3, parameter sigWidth = 3) (
     input [(expWidth + sigWidth - 1):0] in_,
     output [(expWidth + sigWidth):0] out
 );
-`include "primitives/float/HardFloat_localFuncs.vi"
+`include "primitives/float/source/HardFloat_localFuncs.vi"
 
   /*------------------------------------------------------------------------
   *------------------------------------------------------------------------*/

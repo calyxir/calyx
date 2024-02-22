@@ -1,7 +1,7 @@
 `ifndef __HARDFLOAT_RECFNTOFN_V__
 `define __HARDFLOAT_RECFNTOFN_V__
 
-`include "primitives/float/HardFloat_rawFN.sv"
+`include "primitives/float/source/HardFloat_rawFN.v"
 
 /*============================================================================
 
@@ -53,7 +53,7 @@ module
     input [(expWidth + sigWidth):0] in_,
     output [(expWidth + sigWidth - 1):0] out
   );
-`include "primitives/float/HardFloat_localFuncs.vi"
+`include "primitives/float/source/HardFloat_localFuncs.vi"
 
   /*------------------------------------------------------------------------
   *------------------------------------------------------------------------*/
