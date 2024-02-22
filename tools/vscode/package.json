@@ -2,7 +2,15 @@
   "name": "calyx",
   "displayName": "Calyx",
   "description": "Provides language support for Calyx",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/calyxir/calyx",
+  "publisher": "Calyx Team",
+  "icon": "logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calyxir/calyx.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -10,19 +18,28 @@
     "Programming Languages"
   ],
   "activationEvents": [],
-  "main": "./out/extension.js",
+  "main": "./out/main.js",
   "contributes": {
-    "languages": [{
-      "id": "calyx",
-      "aliases": ["Calyx", "calyx"],
-      "extensions": [".futil"],
-      "configuration": "./language-configuration.json"
-    }],
-    "grammars": [{
-      "language": "calyx",
-      "scopeName": "source.calyx",
-      "path": "./syntaxes/calyx.tmLanguage.json"
-    }],
+    "languages": [
+      {
+        "id": "calyx",
+        "aliases": [
+          "Calyx",
+          "calyx"
+        ],
+        "extensions": [
+          ".futil"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "calyx",
+        "scopeName": "source.calyx",
+        "path": "./syntaxes/calyx.tmLanguage.json"
+      }
+    ],
     "commands": [],
     "configuration": {
       "type": "object",
@@ -31,14 +48,19 @@
         "calyxLsp.libraryPaths": {
           "scope": "resource",
           "type": "array",
-          "default": ["~/.calyx"],
+          "default": [
+            "~/.calyx"
+          ],
           "description": "Specifies the locations that Calyx libraries are installed."
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
@@ -53,6 +75,7 @@
     "@typescript-eslint/parser": "^6.19.1",
     "@vscode/test-cli": "^0.0.4",
     "@vscode/test-electron": "^2.3.9",
+    "esbuild": "^0.20.1",
     "eslint": "^8.56.0",
     "typescript": "^5.3.3"
   },

@@ -1,11 +1,23 @@
 # Calyx README
 
-Calyx VSCode Extension. I've separated this from the previous one for now, just because it was easier to generate from scratch from the `yo` tool and I don't know how these things work.
+Calyx VSCode Extension that adds basic syntax highlighting and integrates the Calyx LSP server for jump to definition, and autocomplete.
 
-I'm experimenting integrating the Calyx language server with this extension. At the moment, jump to definition works.
+## Installation
 
-## Trying this out
+You can install the extension from the VSCode store by searching for Calyx. Alternatively, you can link this directory directly into your vscode extensions folder:
 
-You need to clone and build the language server: https://github.com/calyxir/calyx-lsp
+```bash
+cd $HOME/.vscode/extensions
+ln -s <calyx root directory>/tools/vscode calyx.calyx-1.0.0
+```
 
-And then you need to edit the language server path in `src/extension.ts` and then build the extension with `npm run compile`. You can test out the extension with `code --extensionDevelopmentPath=$PWD` from the extension directory. Reloading it, picks up future changes.
+Then reload VSCode.
+
+## LSP Integration
+
+For the LSP integration, you also need `calyx-lsp` installed. You can build it with `cargo build --all` from the Calyx root directory. Then link the executable to your path:
+
+```bash
+cd $HOME/.local/bin
+ln -s <calyx root directory>/target/debug/calyx-lsp calyx-lsp
+```
