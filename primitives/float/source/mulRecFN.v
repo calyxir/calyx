@@ -36,9 +36,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =============================================================================*/
 
-`include "primitives/float/HardFloat_consts.vi"
-`include "primitives/float/HardFloat_specialize.vi"
-`include "primitives/float/isSigNaNRecFN.sv"
+`include "primitives/float/source/HardFloat_consts.vi"
+`include "primitives/float/source/HardFloat_specialize.vi"
+`include "primitives/float/source/isSigNaNRecFN.v"
 
 /*----------------------------------------------------------------------------
 *----------------------------------------------------------------------------*/
