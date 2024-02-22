@@ -3,7 +3,7 @@ use crate::traversal::{
 };
 use calyx_ir::{self as ir, RRC};
 use itertools::Itertools;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 /// A data structure to track rewrites of ports with added functionality to declare
 /// two wires to be "equal" when they are connected together.
@@ -193,6 +193,7 @@ pub struct CombProp {
     /// them with @dead.
     /// NOTE: if this is enabled, the pass will not remove obviously conflicting assignments.
     no_eliminate: bool,
+    guard_map: HashMap<ir::Id, Box<ir::Guard<ir::Nothing>>>,
 }
 
 impl ConstructVisitor for CombProp {
@@ -203,6 +204,7 @@ impl ConstructVisitor for CombProp {
         let opts = Self::get_opts(ctx);
         Ok(CombProp {
             no_eliminate: opts[&"no-eliminate"].bool(),
+            guard_map: HashMap::new(),
         })
     }
 
@@ -288,6 +290,61 @@ impl CombProp {
         }
     }
 
+    fn parent_is_one_bit_one(parent: &ir::PortParent) -> bool {
+        match parent {
+            ir::PortParent::Cell(cell_wref) => {
+                let cr = cell_wref.upgrade();
+                let cell = cr.borrow();
+                match cell.prototype {
+                    ir::CellType::Constant { val, width } => {
+                        val == 1 && width == 1
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        }
+    }
+
+    fn replace_wire_guard(
+        &self,
+        guard: Box<ir::Guard<ir::Nothing>>,
+    ) -> Box<ir::Guard<ir::Nothing>> {
+        {
+            match *guard {
+                ir::Guard::Port(ref p) => {
+                    if Self::parent_is_wire(&p.borrow().parent) {
+                        if let Some(g) =
+                            self.guard_map.get(&p.borrow().get_parent_name())
+                        {
+                            let g_clone = g.clone();
+                            return g_clone;
+                        }
+                    }
+                    drop(p);
+                    Box::new(*guard)
+                }
+                ir::Guard::And(l, r) => {
+                    let new_l = self.replace_wire_guard(l);
+                    let new_r = self.replace_wire_guard(r);
+                    return Box::new(ir::Guard::And(new_l, new_r));
+                }
+                ir::Guard::Or(l, r) => {
+                    let new_l = self.replace_wire_guard(l);
+                    let new_r = self.replace_wire_guard(r);
+                    return Box::new(ir::Guard::Or(new_l, new_r));
+                }
+                ir::Guard::Not(g) => {
+                    let new_g = self.replace_wire_guard(g);
+                    return Box::new(ir::Guard::Not(new_g));
+                }
+                _ => {
+                    return Box::new(*guard);
+                }
+            }
+        }
+    }
+
     fn disable_rewrite<T>(
         assign: &mut ir::Assignment<T>,
         rewrites: &mut WireRewriter,
@@ -317,6 +374,26 @@ impl Visitor for CombProp {
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut rewrites = WireRewriter::default();
+
+        for assign in &mut comp.continuous_assignments {
+            let dst = assign.dst.borrow();
+            let dst_name = dst.get_parent_name();
+            if Self::parent_is_wire(&dst.parent) {
+                if Self::parent_is_one_bit_one(&assign.src.borrow().parent) {
+                    self.guard_map.insert(dst_name, assign.guard.clone());
+                }
+            }
+        }
+
+        println!("length:{}", self.guard_map.len());
+
+        for assign in &mut comp.continuous_assignments {
+            // if wire.in = ** guard ** ? 1'd1;
+            // and if a = wire.out ? b;
+            // then replace wire.out with ** guard **
+            let n_guard = self.replace_wire_guard(assign.guard.clone());
+            assign.guard = n_guard;
+        }
 
         for assign in &mut comp.continuous_assignments {
             // Cannot add rewrites for conditional statements
