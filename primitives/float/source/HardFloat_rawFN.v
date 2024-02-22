@@ -1,10 +1,10 @@
 `ifndef __HARDFLOAT_RAWFN_VI__
 `define __HARDFLOAT_RAWFN_VI__
 
-`include "primitives/float/HardFloat_primitives.sv"
-`include "primitives/float/HardFloat_specialize.vi"
-`include "primitives/float/HardFloat_consts.vi"
-`include "primitives/float/RISCV/HardFloat_specialize.vi"
+`include "primitives/float/source/HardFloat_primitives.v"
+`include "primitives/float/source/HardFloat_specialize.vi"
+`include "primitives/float/source/HardFloat_consts.vi"
+`include "primitives/float/source/RISCV/HardFloat_specialize.vi"
 
 /*============================================================================
 
@@ -41,8 +41,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =============================================================================*/
 
-`include "primitives/float/HardFloat_consts.vi"
-`include "primitives/float/HardFloat_specialize.vi"
+`include "primitives/float/source/HardFloat_consts.vi"
+`include "primitives/float/source/HardFloat_specialize.vi"
 
 /* ===================== Adding some extra include files ================ */
 /*`include "RISCV/HardFloat_specialize.vi"
