@@ -3,9 +3,9 @@ use crate::passes::{
     AddGuard, Canonicalize, CellShare, ClkInsertion, CollapseControl, CombProp,
     CompileInvoke, CompileRepeat, CompileStatic, CompileStaticInterface,
     CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
-    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DiscoverExternal,
-    Externalize, GoInsertion, GroupToInvoke, GroupToSeq, HoleInliner,
-    InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
+    DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns,
+    DiscoverExternal, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
+    HoleInliner, InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
     RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
     SimplifyWithControl, StaticInference, StaticInliner, StaticPromotion,
     SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
@@ -59,6 +59,7 @@ impl PassManager {
         pm.register_pass::<ResetInsertion>()?;
         pm.register_pass::<MergeAssign>()?;
         pm.register_pass::<WrapMain>()?;
+        pm.register_pass::<DefaultAssigns>()?;
 
         // Enabled in the synthesis compilation flow
         pm.register_pass::<SynthesisPapercut>()?;
@@ -134,6 +135,7 @@ impl PassManager {
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,
+                DefaultAssigns,
             ]
         );
 

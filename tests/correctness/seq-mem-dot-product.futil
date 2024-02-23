@@ -39,14 +39,14 @@ component main() -> () {
 
     // Prime memories for reading
     group prime_in1 {
-      in1.read_en = 1'd1;
+      in1.content_en = 1'd1;
       in1.addr0 = idx.out;
-      prime_in1[done] = in1.read_done;
+      prime_in1[done] = in1.done;
     }
     group prime_in2 {
-      in2.read_en = 1'd1;
+      in2.content_en = 1'd1;
       in2.addr0 = idx.out;
-      prime_in2[done] = in2.read_done;
+      prime_in2[done] = in2.done;
     }
 
     // Computation
@@ -66,9 +66,10 @@ component main() -> () {
     // Write to output
     group write {
       out.addr0 = 1'd0;
+      out.content_en = 1'd1;
       out.write_en = 1'd1;
       out.write_data = tmp.out;
-      write[done] = out.write_done;
+      write[done] = out.done;
     }
   }
   control {

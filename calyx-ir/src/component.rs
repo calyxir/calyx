@@ -231,6 +231,14 @@ impl Component {
         self.namegen.gen_name(prefix)
     }
 
+    /// Check whether this component is purely structural, i.e. has no groups or control
+    pub fn is_structural(&self) -> bool {
+        self.groups.is_empty()
+            && self.comb_groups.is_empty()
+            && self.static_groups.is_empty()
+            && self.control.borrow().is_empty()
+    }
+
     /// Check whether this is a static component.
     /// A static component is a component which has a latency field.
     pub fn is_static(&self) -> bool {
@@ -316,7 +324,7 @@ impl Component {
 #[derive(Debug)]
 pub struct IdList<T: GetName>(LinkedHashMap<Id, RRC<T>>);
 
-/// Simple into-iter impl delegating to the [`Values`](linked_hash_map::Values).
+/// Simple iter impl delegating to the [`Values`](linked_hash_map::Values).
 impl<'a, T: GetName> IntoIterator for &'a IdList<T> {
     type Item = &'a RRC<T>;
 

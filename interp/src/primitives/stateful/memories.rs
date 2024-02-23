@@ -446,7 +446,6 @@ enum SeqMemAction<T> {
     Read(T),
     Write(T, Value),
     Reset,
-    Error,
 }
 
 impl<T> Default for SeqMemAction<T> {
@@ -556,10 +555,10 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
 
     fn validate(&self, inputs: &[(ir::Id, &Value)]) {
         validate![inputs;
-            read_en: 1,
+            content_en: 1,
             write_en: 1,
             reset: 1,
-            r#in: self.width
+            write_data: self.width
         ];
         self.mem_binder.validate(inputs);
     }
@@ -569,7 +568,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
         inputs: &[(ir::Id, &Value)],
     ) -> InterpreterResult<Vec<(ir::Id, Value)>> {
         get_inputs![inputs;
-            read_en [bool]: "read_en",
+            content_en [bool]: "content_en",
             write_en [bool]: "write_en",
             reset [bool]: "reset",
             input: "write_data"
@@ -581,11 +580,9 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
 
         self.update = if reset {
             SeqMemAction::Reset
-        } else if write_en && read_en {
-            SeqMemAction::Error
-        } else if write_en {
+        } else if write_en && content_en {
             SeqMemAction::Write(idx, input.clone())
-        } else if read_en {
+        } else if content_en {
             SeqMemAction::Read(idx)
         } else {
             SeqMemAction::None
@@ -607,8 +604,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
 
                 Ok(vec![
                     ("read_data".into(), self.read_out.clone()),
-                    ("read_done".into(), Value::bit_high()),
-                    ("write_done".into(), Value::bit_low()),
+                    ("done".into(), Value::bit_high()),
                 ])
             }
             SeqMemAction::Write(idx, v) => {
@@ -621,24 +617,20 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
 
                 Ok(vec![
                     ("read_data".into(), self.read_out.clone()),
-                    ("read_done".into(), Value::bit_low()),
-                    ("write_done".into(), Value::bit_high()),
+                    ("done".into(), Value::bit_high()),
                 ])
             }
             SeqMemAction::Reset => {
                 self.read_out = Value::zeroes(self.width);
                 Ok(vec![
                     ("read_data".into(), self.read_out.clone()),
-                    ("read_done".into(), Value::bit_low()),
-                    ("write_done".into(), Value::bit_low()),
+                    ("done".into(), Value::bit_low()),
                 ])
             }
             SeqMemAction::None => Ok(vec![
                 ("read_data".into(), self.read_out.clone()),
-                ("read_done".into(), Value::bit_low()),
-                ("write_done".into(), Value::bit_low()),
+                ("done".into(), Value::bit_low()),
             ]),
-            SeqMemAction::Error => Err(InterpreterError::SeqMemoryError.into()),
         }
     }
 
@@ -650,8 +642,7 @@ impl<T: MemBinder> Primitive for SeqMem<T> {
 
         Ok(vec![
             ("read_data".into(), self.read_out.clone()),
-            ("read_done".into(), Value::bit_low()),
-            ("write_done".into(), Value::bit_low()),
+            ("done".into(), Value::bit_low()),
         ])
     }
 

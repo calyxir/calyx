@@ -173,8 +173,9 @@ component conv2d_5x512x14x14() -> () {
     }
     group let13<"promotable"=2> {
       data_read0_0.in = data.read_data;
-      data_read0_0.write_en = data.read_done;
+      data_read0_0.write_en = data.done;
       let13[done] = data_read0_0.done;
+      data.content_en = 1'd1;
       data.addr3 = slice3.out;
       slice3.in = sub1.out;
       sub1.left = __kernel_x_0.out;
@@ -187,12 +188,12 @@ component conv2d_5x512x14x14() -> () {
       slice1.in = __k0.out;
       data.addr0 = slice0.out;
       slice0.in = __b0.out;
-      data.read_en = 1'd1;
     }
     group let14<"promotable"=2> {
       weight_read0_0.in = weight.read_data;
-      weight_read0_0.write_en = weight.read_done;
+      weight_read0_0.write_en = weight.done;
       let14[done] = weight_read0_0.done;
+      weight.content_en = 1'd1;
       weight.addr3 = slice7.out;
       slice7.in = __dx0.out;
       weight.addr2 = slice6.out;
@@ -201,7 +202,6 @@ component conv2d_5x512x14x14() -> () {
       slice5.in = __k0.out;
       weight.addr0 = slice4.out;
       slice4.in = __c0.out;
-      weight.read_en = 1'd1;
     }
     group let15<"promotable"=4> {
       bin_read2_0.in = mult_pipe2.out;
@@ -290,6 +290,7 @@ component conv2d_5x512x14x14() -> () {
       upd4[done] = __k0.done;
     }
     group upd5<"promotable"=1> {
+      x.content_en = 1'd1;
       x.addr3 = slice11.out;
       slice11.in = __x0.out;
       x.addr2 = slice10.out;
@@ -300,7 +301,7 @@ component conv2d_5x512x14x14() -> () {
       slice8.in = __b0.out;
       x.write_en = 1'd1;
       x.write_data = __sum_0.out;
-      upd5[done] = x.write_done;
+      upd5[done] = x.done;
     }
     group upd6<"promotable"=1> {
       __x0.write_en = 1'd1;
