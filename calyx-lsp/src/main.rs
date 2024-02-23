@@ -177,22 +177,6 @@ impl Backend {
     }
 }
 
-/// TODO: turn this into a trait
-fn newline_split(data: &str) -> Vec<String> {
-    let mut res = vec![];
-    let mut curr_string = String::new();
-    for c in data.chars() {
-        if c == '\n' {
-            res.push(curr_string);
-            curr_string = String::new();
-        } else {
-            curr_string.push(c);
-        }
-    }
-    res.push(curr_string);
-    res
-}
-
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     /// LSP method: 'initialize'
@@ -201,7 +185,6 @@ impl LanguageServer for Backend {
         _ip: lspt::InitializeParams,
     ) -> jsonrpc::Result<lspt::InitializeResult> {
         Debug::init("init");
-        assert_eq!(newline_split("\n").len(), 2);
         Ok(lspt::InitializeResult {
             server_info: None,
             capabilities: lspt::ServerCapabilities {
