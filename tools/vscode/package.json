@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "license": "SEE LICENSE IN LICENSE",
   "homepage": "https://github.com/calyxir/calyx",
-  "publisher": "Calyx Team",
+  "publisher": "calyxir",
   "icon": "logo.png",
   "repository": {
     "type": "git",
