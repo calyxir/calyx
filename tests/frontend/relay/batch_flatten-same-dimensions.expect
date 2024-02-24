@@ -50,18 +50,19 @@ component batch_flatten_2x4096() -> () {
     }
     group let3<"promotable"=2> {
       x_read0_0.in = x.read_data;
-      x_read0_0.write_en = x.read_done;
+      x_read0_0.write_en = x.done;
       let3[done] = x_read0_0.done;
+      x.content_en = 1'd1;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
-      x.read_en = 1'd1;
     }
     group upd0<"promotable"=1> {
+      x1.content_en = 1'd1;
       x1.addr1 = __k_0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
       x1.write_data = x_read0_0.out;
-      upd0[done] = x1.write_done;
+      upd0[done] = x1.done;
     }
     group upd1<"promotable"=1> {
       __k_0.write_en = 1'd1;

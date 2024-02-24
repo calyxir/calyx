@@ -28,6 +28,30 @@ pub struct Papercut {
     cont_cells: HashSet<ir::Id>,
 }
 
+impl Papercut {
+    #[allow(unused)]
+    /// String representation of the write together and read together specifications.
+    /// Used for debugging. Should not be relied upon by external users.
+    fn fmt_write_together_spec(&self) -> String {
+        self.write_together
+            .iter()
+            .map(|(prim, writes)| {
+                let writes = writes
+                    .iter()
+                    .map(|write| {
+                        write
+                            .iter()
+                            .sorted()
+                            .map(|port| format!("{port}"))
+                            .join(", ")
+                    })
+                    .join("; ");
+                format!("{}: [{}]", prim, writes)
+            })
+            .join("\n")
+    }
+}
+
 impl ConstructVisitor for Papercut {
     fn from(ctx: &ir::Context) -> CalyxResult<Self> {
         let write_together =
@@ -232,7 +256,7 @@ impl Papercut {
                             .join(", ");
                         let msg =
                             format!("Required signal not driven inside the group.\
-                                        \nWhen read the port `{}.{}', the ports [{}] must be written to.\
+                                        \nWhen reading the port `{}.{}', the ports [{}] must be written to.\
                                         \nThe primitive type `{}' requires this invariant.",
                                     inst,
                                     read,
@@ -245,30 +269,35 @@ impl Papercut {
         }
         for ((inst, comp_type), writes) in all_writes {
             if let Some(spec) = self.write_together.get(&comp_type) {
+                // For each write together spec.
                 for required in spec {
                     // It should either be the case that:
                     // 1. `writes` contains no writes that overlap with `required`
                     //     In which case `required - writes` == `required`.
                     // 2. `writes` contains writes that overlap with `required`
                     //     In which case `required - writes == {}`
-                    let mut diff = required - &writes;
-                    if !diff.is_empty() && diff != *required {
-                        let first = writes.iter().sorted().next().unwrap();
-                        let missing = diff
-                            .drain()
-                            .sorted()
-                            .map(|port| format!("{}.{}", inst, port))
-                            .join(", ");
-                        let msg =
-                            format!("Required signal not driven inside the group.\
-                                        \nWhen writing to the port `{}.{}', the ports [{}] must also be written to.\
-                                        \nThe primitive type `{}' requires this invariant.",
-                                    inst,
-                                    first,
-                                    missing,
-                                    comp_type);
-                        return Err(Error::papercut(msg));
+                    let mut diff: HashSet<_> =
+                        required.difference(&writes).copied().collect();
+                    if diff.is_empty() || diff == *required {
+                        continue;
                     }
+
+                    let first =
+                        writes.intersection(required).sorted().next().unwrap();
+                    let missing = diff
+                        .drain()
+                        .sorted()
+                        .map(|port| format!("{}.{}", inst, port))
+                        .join(", ");
+                    let msg =
+                        format!("Required signal not driven inside the group. \
+                                 When writing to the port `{}.{}', the ports [{}] must also be written to. \
+                                 The primitive type `{}' specifies this using a @write_together spec.",
+                                inst,
+                                first,
+                                missing,
+                                comp_type);
+                    return Err(Error::papercut(msg));
                 }
             }
         }

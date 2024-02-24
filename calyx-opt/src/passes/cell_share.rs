@@ -387,9 +387,7 @@ impl Visitor for CellShare {
         let mut coloring: rewriter::RewriteMap<ir::Cell> = HashMap::new();
         let mut comp_share_freqs: HashMap<ir::CellType, HashMap<i64, i64>> =
             HashMap::new();
-        let comb_bound = self.bounds.get(0).unwrap_or(&None);
-        let reg_bound = self.bounds.get(1).unwrap_or(&None);
-        let other_bound = self.bounds.get(2).unwrap_or(&None);
+        let [comb_bound, reg_bound, other_bound] = &self.bounds;
         for (cell_type, mut graph) in graphs_by_type {
             // getting bound, based on self.bounds and cell_type
             let bound = {

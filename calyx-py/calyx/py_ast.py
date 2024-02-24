@@ -61,6 +61,7 @@ class Component:
         outputs: list[PortDef],
         structs: list[Structure],
         controls: Control,
+        attributes: Optional[list[CompAttribute]] = None,
         latency: Optional[int] = None,
     ):
         self.name = name
