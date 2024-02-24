@@ -20,9 +20,9 @@ async def read_channels_happy_path(main):
     B0_in = [126, 62, 30, 14, 6, 2, 0, 1]
     expected_sum = [A0_in[i] + B0_in[i] for i in range(len(B0_in))]
     await run_module(main, A0_in, B0_in, expected_sum)  # checks cocotb axi rams
-    await assert_mem_content(main.A0, A0_in)  # checks in verilog module, as opposed to axiram
-    await assert_mem_content(main.B0, B0_in)
-    await assert_mem_content(main.Sum0, expected_sum)
+    await assert_mem_content(main.internal_mem_A0, A0_in)  # checks in verilog module, as opposed to axiram
+    await assert_mem_content(main.internal_mem_B0, B0_in)
+    await assert_mem_content(main.internal_mem_Sum0, expected_sum)
 
 
 # Adding extra data to backing mmap does not ruin reading of 8 elements and writing them correctly.
@@ -43,9 +43,9 @@ async def read_channels_extra_mmap_data(main):
     expected_sum = [A0_in[i] + B0_in[i] for i in range(len(B0_in))]
 
     await run_module(main, A0_in, B0_in, expected_sum)
-    await assert_mem_content(main.Sum0, expected_sum[0:8])
-    await assert_mem_content(main.A0, A0_in[0:8])
-    await assert_mem_content(main.B0, B0_in[0:8])
+    await assert_mem_content(main.internal_mem_Sum0, expected_sum[0:8])
+    await assert_mem_content(main.internal_mem_A0, A0_in[0:8])
+    await assert_mem_content(main.internal_mem_B0, B0_in[0:8])
 
 
 ##################
@@ -176,9 +176,9 @@ async def run_module(
     await assert_axi_ram_content(Sum0, Sum0_expected[0:8], base_address)
 
     if debug:
-        print(f"A0 is: {module.A0.mem.value}")
-        print(f"B0 is: {module.B0.mem.value}")
-        print(f"Sum0 is: {module.Sum0.mem.value}")
+        print(f"A0 is: {module.internal_mem_A0.mem.value}")
+        print(f"B0 is: {module.internal_mem_B0.mem.value}")
+        print(f"Sum0 is: {module.internal_mem_Sum0.mem.value}")
 
 
 # TODO(nathanielnrn): Decide between these and xilinx cocotb tests, refactor out
