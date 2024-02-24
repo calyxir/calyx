@@ -56,7 +56,6 @@ class Component:
     def __init__(
         self,
         name: str,
-        attributes: list[CompAttribute],
         inputs: list[PortDef],
         outputs: list[PortDef],
         structs: list[Structure],
