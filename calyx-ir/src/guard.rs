@@ -1,5 +1,5 @@
-use super::{Builder, Cell, Id, LibrarySignatures, NumAttr, Port, RRC};
-use crate::{Component, Printer};
+use super::{Cell, Id, NumAttr, Port, RRC};
+use crate::Printer;
 use calyx_utils::Error;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -217,6 +217,8 @@ impl<T> Guard<T> {
         let _ = mem::replace(self, new_guard);
     }
 
+    /// parses guard tree and simplifies unused ports
+    /// [low_comps] maps port widths to constant cells emitting n-bit 0's
     pub fn collapse_unused(
         &mut self,
         low_comps: &mut HashMap<u64, RRC<Cell>>,
@@ -271,77 +273,6 @@ impl<T> Guard<T> {
                     (false, true) => {
                         std::mem::swap(p1, p2);
                         self.collapse_unused(low_comps, unused_ports);
-                    }
-                    // both unused
-                    (true, true) => {
-                        // both are low
-                        let collapsed: Guard<T> = match op {
-                            PortComp::Eq => Guard::True,
-                            PortComp::Geq => Guard::True,
-                            PortComp::Leq => Guard::True,
-                            PortComp::Neq => Guard::Not(Box::new(Guard::True)),
-                            PortComp::Gt => Guard::Not(Box::new(Guard::True)),
-                            PortComp::Lt => Guard::Not(Box::new(Guard::True)),
-                        };
-                        self.replace_guard(collapsed)
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn collapse_unused_mut(
-        &mut self,
-        comp: &mut Component,
-        sigs: &LibrarySignatures,
-        unused_ports: &HashSet<Id>,
-    ) {
-        match self {
-            Guard::Info(..) | Guard::True => (),
-            Guard::Port(p) => {
-                let port_name = p.borrow().name;
-                match unused_ports.contains(&port_name) {
-                    false => (),
-                    true => {
-                        self.replace_guard(Guard::Not(Box::new(Guard::True)));
-                    }
-                }
-            }
-            Guard::And(l, r) | Guard::Or(l, r) => {
-                l.as_mut().collapse_unused_mut(comp, sigs, unused_ports);
-                r.as_mut().collapse_unused_mut(comp, sigs, unused_ports);
-            }
-            Guard::Not(g) => {
-                g.as_mut().collapse_unused_mut(comp, sigs, unused_ports);
-            }
-            Guard::CompOp(op, p1, p2) => {
-                let p1_unused = unused_ports.contains(&p1.borrow().name);
-                let p2_unused = unused_ports.contains(&p2.borrow().name);
-                match (p1_unused, p2_unused) {
-                    // both used; do nothing
-                    (false, false) => (),
-                    // only second used; replace first
-                    (true, false) => {
-                        let p1_width = p1.borrow().width;
-                        let mut builder = Builder::new(comp, sigs);
-                        let low_const_cell = builder.add_constant(0, p1_width);
-                        let mut low_cell_borrowed = low_const_cell.borrow_mut();
-                        let low_port_opt = low_cell_borrowed.first_port();
-                        match low_port_opt {
-                            None => panic!(
-                                "constant cell doesn't seem to have any ports"
-                            ),
-                            Some(low_port) => {
-                                // swapped out low port with p1,
-                                // where low is a port corresponding to perpetually n-bit low cell
-                                std::mem::swap(p1, low_port);
-                            }
-                        }
-                    }
-                    // only first used; replace second by deferring to branch w/ p1 unused p2 used
-                    (false, true) => {
-                        std::mem::swap(p1, p2);
-                        self.collapse_unused_mut(comp, sigs, unused_ports)
                     }
                     // both unused
                     (true, true) => {

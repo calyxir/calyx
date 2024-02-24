@@ -1,0 +1,123 @@
+//-p unused-port-removal
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component C(in: 32) -> (out: 32) {
+  cells {
+    r = std_reg(32);
+    comp_B = B();
+  }
+  wires {
+    group write_reg{
+      r.write_en = 1'd1; 
+      r.in = in; 
+      write_reg[done] = r.done; 
+    }
+
+    group through_B {
+      comp_B.go = 1'd1;
+      comp_B.in1 = r.out;
+      through_B[done] = comp_B.done;
+    }
+    out = comp_B.out;
+  }
+  control {
+    write_reg;
+    through_B;
+  }
+}
+
+component B(in1: 32, in2: 32) -> (out: 32) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+    comp_A = A();
+  }
+  wires {
+    group write_reg {
+      r1.write_en = 1'd1;
+      r2.write_en = 1'd1;
+      r1.in = in1;
+      r2.in = in2;
+      write_reg[done] = r2.done; 
+    }
+
+    group through_A {
+      comp_A.go = 1'd1;
+      comp_A.in1 = r1.out;
+      comp_A.in2 = r2.out;
+      through_A[done] = comp_A.done;
+    }
+    out = comp_A.out1; 
+  }
+  control {
+    seq{
+      write_reg;
+      through_A;
+    }
+  }
+}
+
+component A(in1: 32, in2: 32) -> (out1: 32, out2: 32) {
+  cells {
+    r1 = std_reg(32);
+    r2 = std_reg(32);
+
+  }
+  wires {
+    group put_r1{
+      r1.write_en = 1'd1; 
+      r1.in = in1; 
+      put_r1[done] = r1.done; 
+    }
+    group put_r2{
+      r2.write_en = 1'd1; 
+      r2.in = in2; 
+      put_r2[done] = r2.done; 
+    }
+    out1 = r1.out; 
+    out2 = r2.out;
+  }
+  control {
+    par{
+      put_r1;
+      put_r2;
+    }
+  }
+}
+
+component main() -> () {
+  cells {
+    @external(1) mem = std_mem_d1(32, 2, 1);
+    val = std_reg(32);
+    comp_C = C();
+  }
+  wires {
+    group assign_register{
+      mem.addr0 = 1'b1;
+      val.in = mem.read_data;
+      val.write_en = 1'd1;
+      assign_register[done] = val.done;
+    }
+    group through_C {
+      comp_C.in = val.out;
+      val.write_en = 1'b1;
+      val.in = comp_C.out;
+      through_C[done] = val.done;
+    }
+    group assign_mem{
+      mem.addr0 = 1'b1;
+      mem.write_data = val.out;
+      mem.write_en = 1'b1;
+      assign_mem[done] = mem.done;
+    }
+  }
+  control {
+    seq{
+      assign_register;
+      through_C;
+      assign_mem;
+    }
+  }
+}

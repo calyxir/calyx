@@ -512,6 +512,36 @@ impl<T> Assignment<T> {
         }
     }
 
+    /// pushes unique widths of unused ports within guard to the set [port_widths]
+    pub fn push_guard_port_widths(
+        &mut self,
+        port_widths: &mut std::collections::HashSet<u64>,
+        unused_ports: &std::collections::HashSet<Id>,
+    ) {
+        (self.guard).as_mut().all_ports().iter().for_each(|port| {
+            let name = port.borrow().name;
+
+            match unused_ports.get(&name) {
+                None => (),
+                Some(..) => {
+                    port_widths.insert(port.borrow().width);
+                }
+            }
+        })
+    }
+
+    /// Evalutes to false if at least one of dest/source is unused, true if both are used,
+    /// where the set [unused_ports] defines Id's of ports that are unused
+    pub fn is_used(
+        &self,
+        unused_ports: &std::collections::HashSet<Id>,
+    ) -> bool {
+        let source_not_used = unused_ports.contains(&self.src.borrow().name);
+        let destination_not_used =
+            unused_ports.contains(&self.dst.borrow().name);
+        !(source_not_used || destination_not_used)
+    }
+
     pub fn iter_ports<F>(&self, mut f: F)
     where
         F: FnMut(&RRC<Port>),

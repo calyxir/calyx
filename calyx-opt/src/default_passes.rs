@@ -9,8 +9,8 @@ use crate::passes::{
     InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
     RegisterUnsharing, RemoveIds, ResetInsertion, ScheduleCompaction,
     SimplifyStaticGuards, SimplifyWithControl, StaticInliner, StaticPromotion,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    SynthesisPapercut, TopDownCompileControl, UnrollBounded, UnusedPortRemoval,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -42,6 +42,7 @@ impl PassManager {
         pm.register_pass::<AttributePromotion>()?;
         pm.register_pass::<SimplifyStaticGuards>()?;
         pm.register_pass::<DataPathInfer>()?;
+        pm.register_pass::<UnusedPortRemoval>()?;
 
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
@@ -83,6 +84,7 @@ impl PassManager {
             "pre-opt",
             [
                 DataPathInfer,
+                UnusedPortRemoval,
                 CollapseControl, // Run it twice: once at beginning of pre-opt, once at end.
                 CompileSyncWithoutSyncReg,
                 GroupToSeq,

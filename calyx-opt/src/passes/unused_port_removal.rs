@@ -80,6 +80,7 @@ impl Visitor for UnusedPortRemoval {
         // runt -i tests/passes/unused-port-removal/simple -d
         // if port from signature is an unused port, add an attribute @internal
         if comp.name != "main" {
+            // adds @internal attribute to (up-till-now) unused ports
             for port in comp.signature.borrow_mut().ports.iter_mut() {
                 let mut port_ref = port.borrow_mut();
                 let name = port_ref.name;
@@ -90,51 +91,68 @@ impl Visitor for UnusedPortRemoval {
                     }
                 }
             }
+            // gets rid of all ports from the signature that have the @internal attribute
+            comp.signature.borrow_mut().ports.retain(|port| {
+                !(port.borrow().has_attribute(BoolAttr::Internal))
+            });
 
             // if either the source or a destination of an assignment are unused,
             // drop that assignment (meaning we don't care about those guards)
-            comp.continuous_assignments.retain(|assign| {
-                let source_not_used =
-                    unused_ports.contains(&assign.src.borrow().name);
-                let destination_not_used =
-                    unused_ports.contains(&assign.dst.borrow().name);
-                !(source_not_used || destination_not_used)
+            comp.continuous_assignments
+                .retain(|assign| assign.is_used(&unused_ports));
+
+            // for a given group, keep only those assignments with both dest / source used
+            // retain used assignments for regular groups
+            comp.get_groups_mut().iter_mut().for_each(|group| {
+                group
+                    .borrow_mut()
+                    .assignments
+                    .retain(|assign| assign.is_used(&unused_ports))
             });
 
-            // initialize builder to construct constant cells
+            // retain used assignments for static groups
+            comp.get_static_groups_mut()
+                .iter_mut()
+                .for_each(|static_group| {
+                    static_group
+                        .borrow_mut()
+                        .assignments
+                        .retain(|assign| assign.is_used(&unused_ports))
+                });
+
+            // retain used assigments for combinational groups
+            comp.get_comb_groups_mut()
+                .iter_mut()
+                .for_each(|comb_group| {
+                    comb_group
+                        .borrow_mut()
+                        .assignments
+                        .retain(|assign| assign.is_used(&unused_ports))
+                });
 
             // get widths of the unused ports within the guards of each assignment
-            let mut port_widths: Vec<u64> = Vec::new();
-            comp.for_each_assignment(|assign| {
-                for port in (assign.guard).as_mut().all_ports().iter() {
-                    let name = port.borrow().name;
+            let mut port_widths: HashSet<u64> = HashSet::new();
 
-                    match unused_ports.get(&name) {
-                        None => (),
-                        Some(..) => {
-                            (&mut port_widths).push(port.borrow().width)
-                        }
-                    }
-                }
+            // push port widths of non-static assignments
+            comp.for_each_assignment(|assign| {
+                assign.push_guard_port_widths(&mut port_widths, &unused_ports);
+            });
+            // push port widths of static assignments
+            comp.for_each_static_assignment(|assign| {
+                assign.push_guard_port_widths(&mut port_widths, &unused_ports);
             });
 
             // initialize map from port widths to cells
             let mut width_to_cell: HashMap<u64, RRC<Cell>> = HashMap::new();
 
-            // from list of ports unused in guard, fill in hash mapping widths to Id's of
+            // from set of ports-widths unused in guard, fill in hash mapping widths to Id's of
             // new instatiated constant cells in component
             let mut builder = Builder::new(comp, sigs);
-            for port_width in port_widths.iter() {
-                match width_to_cell.get(port_width) {
-                    Some(..) => (),
-                    None => {
-                        let low_const_cell =
-                            builder.add_constant(0, port_width.to_owned());
-                        width_to_cell
-                            .insert(port_width.to_owned(), low_const_cell);
-                    }
-                }
-            }
+            port_widths.iter().for_each(|port_width| {
+                let low_const_cell =
+                    builder.add_constant(0, port_width.clone());
+                width_to_cell.insert(port_width.clone(), low_const_cell);
+            });
 
             // now, we're simply left with assignments that assign to both used source
             // and destination ports; for assignments, it's possible that the guard of an assignment
@@ -144,9 +162,16 @@ impl Visitor for UnusedPortRemoval {
                 let guard = (assign.guard).as_mut();
                 guard.collapse_unused(&mut width_to_cell, &unused_ports);
                 // guard.collapse_unused_mut(comp, sigs, &unused_ports);
+            });
+
+            // replace unused ports in static assignment guards with n'b0 signals too
+            comp.for_each_static_assignment(|assign| {
+                let guard = (assign.guard).as_mut();
+                guard.collapse_unused(&mut width_to_cell, &unused_ports);
             })
         }
 
+        // main way to indicate unused ports:
         // insert a mapping from each of this component's children components to
         // the ports that each child uses
         comp.iter_assignments(|assign: &Assignment<Nothing>| {

@@ -163,9 +163,14 @@ impl Component {
         &mut self.groups
     }
 
-    /// gets the component's groups
+    /// gets the component's static groups
     pub fn get_static_groups_mut(&mut self) -> &mut IdList<StaticGroup> {
         &mut self.static_groups
+    }
+
+    /// gets the components combinational groups
+    pub fn get_comb_groups_mut(&mut self) -> &mut IdList<CombGroup> {
+        &mut self.comb_groups
     }
 
     /// gets the component's groups
