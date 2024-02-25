@@ -2,6 +2,7 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{self as ir, RRC};
+use ir::structure;
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
 
@@ -290,22 +291,6 @@ impl CombProp {
         }
     }
 
-    fn parent_is_one_bit_one(parent: &ir::PortParent) -> bool {
-        match parent {
-            ir::PortParent::Cell(cell_wref) => {
-                let cr = cell_wref.upgrade();
-                let cell = cr.borrow();
-                match cell.prototype {
-                    ir::CellType::Constant { val, width } => {
-                        val == 1 && width == 1
-                    }
-                    _ => false,
-                }
-            }
-            _ => false,
-        }
-    }
-
     fn replace_wire_guard(
         &self,
         guard: ir::Guard<ir::Nothing>,
@@ -342,6 +327,21 @@ impl CombProp {
         }
     }
 
+    fn replace_src_port(
+        &self,
+        assign: &mut ir::Assignment<ir::Nothing>,
+    ) -> bool {
+        if Self::parent_is_wire(&assign.src.borrow().parent) {
+            if let Some(g) =
+                self.guard_map.get(&assign.src.borrow().get_parent_name())
+            {
+                assign.guard.update(|guard| guard & *g.clone());
+                return true;
+            }
+        }
+        false
+    }
+
     fn disable_rewrite<T>(
         assign: &mut ir::Assignment<T>,
         rewrites: &mut WireRewriter,
@@ -367,33 +367,41 @@ impl Visitor for CombProp {
     fn start(
         &mut self,
         comp: &mut ir::Component,
-        _sigs: &ir::LibrarySignatures,
+        sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
         let mut rewrites = WireRewriter::default();
 
         let mut assigns: Vec<ir::Assignment<ir::Nothing>> = Vec::new();
 
-        for assign in &mut comp.continuous_assignments {
+        let mut builder: ir::Builder = ir::Builder::new(comp, sigs);
+        structure!(builder;
+        let cst = constant(1, 1););
+
+        for assign in &mut builder.component.continuous_assignments {
             let dst = assign.dst.borrow();
             let dst_name = dst.get_parent_name();
             if Self::parent_is_wire(&dst.parent) {
-                if Self::parent_is_one_bit_one(&assign.src.borrow().parent) {
+                if assign.src.borrow().is_constant(1, 1) {
                     self.guard_map.insert(dst_name, assign.guard.clone());
+                    break;
                 }
-            } else {
-                assigns.push(assign.clone());
             }
+            assigns.push(assign.clone());
         }
 
-        comp.continuous_assignments = assigns;
+        builder.component.continuous_assignments = assigns;
 
-        for assign in &mut comp.continuous_assignments {
+        for assign in &mut builder.component.continuous_assignments {
             // if wire.in = ** guard ** ? 1'd1;
             // and if a = wire.out ? b;
             // then replace wire.out with ** guard **
-            let n_guard = self.replace_wire_guard(*assign.guard.clone());
-            assign.guard = n_guard;
+            assign.guard.update(|guard| *self.replace_wire_guard(guard));
+            let replace = self.replace_src_port(assign);
+            if replace {
+                let one_bit_one = cst.borrow().get("out");
+                assign.src = one_bit_one;
+            }
         }
 
         for assign in &mut comp.continuous_assignments {
