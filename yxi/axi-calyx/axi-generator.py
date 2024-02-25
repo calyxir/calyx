@@ -220,7 +220,7 @@ def add_read_channel(prog, mem):
     with read_channel.continuous:
         read_channel.this()["RREADY"] = rready.out
         # Tie this low as we are only ever writing to seq_mem
-        mem_ref.read_en = 0
+        mem_ref.content_en = 0
 
     # Wait for handshake. Ensure that when this is done we are ready to write
     # (i.e., read_data_reg.write_en = is_rdy.out)
@@ -358,7 +358,7 @@ def add_write_channel(prog, mem):
 
         # Set data output based on intermal memory output
         mem_ref.addr0 = curr_addr_internal_mem.out
-        mem_ref.read_en = 1
+        mem_ref.content_en = 1
         write_channel.this()["WDATA"] = mem_ref.read_data
 
         write_channel.this()["WLAST"] = (max_transfers.out == curr_trsnfr_count.out) @ 1
