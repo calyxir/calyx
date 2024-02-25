@@ -19,7 +19,7 @@ component main(@go go: 1) -> (@done done: 1) {
             mem.addr0 = 1'b0;
             mem.write_data = addFN0.out;
             mem.write_en = 1'd1;
-            mul_recoded[done] = mem.done;
+            add_std_format[done] = mem.done;
         }
     }
 
