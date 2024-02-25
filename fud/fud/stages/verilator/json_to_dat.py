@@ -133,14 +133,14 @@ def convert2dat(output_dir, data, extension, round: bool):
         numeric_type = format["numeric_type"]
         is_signed = format["is_signed"]
 
-        if numeric_type not in {"bitnum", "fixed_point"}:
-            raise InvalidNumericType('Fud only supports "fixed_point" and "bitnum".')
+        if numeric_type not in {"bitnum", "fixed_point", "float_point"}:
+            raise InvalidNumericType('Fud only supports "fixed_point", "bitnum", and "float_point".')
 
         is_fp = numeric_type == "fixed_point"
         if is_fp:
             width, int_width = parse_fp_widths(format)
         else:
-            # `Bitnum`s only have a bit width.
+            # `Bitnum`s and `FloatPoint`s only have a bit width
             width = format["width"]
             int_width = None
 
