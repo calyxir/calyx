@@ -1,6 +1,3 @@
-
-/// This is mostly used for testing the static guarantees currently.
-/// A realistic implementation would probably take four cycles.
 module stallable_mult #(
     parameter WIDTH = 32
 ) (
