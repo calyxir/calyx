@@ -1,0 +1,275 @@
+//-p unused-port-removal
+
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component C(in1: 32, in2: 32) -> (out1: 32, out2: 32, out3: 32) {
+  cells {
+    comp_B = B();
+
+    used1 = std_reg(32);
+    used2 = std_reg(32);
+
+  }
+  wires {
+    group store_inputs{
+      used1.in = in1; 
+      used2.in = in2; 
+      used1.write_en = 1'b1; 
+      used2.write_en = 1'b1;
+      store_inputs[done] = used2.done; 
+    }
+
+    group through_B {
+      comp_B.go = 1'd1;
+      //error not here
+      comp_B.in1 = used1.out;
+      comp_B.in2 = used2.out;
+      through_B[done] = comp_B.done;
+    }
+
+    // error not here
+    out1 = comp_B.out_A;
+    out2 = comp_B.out_one_unused;
+    out3 = comp_B.out_both_unused;
+  }
+  control {
+    seq{
+      store_inputs;
+      through_B;
+    }
+  }
+}
+
+component B(in1: 32, in2: 32, in3: 32, in4: 32) -> (out_A: 32, out_one_unused : 32, out_both_unused : 32) {
+  cells {
+
+    // instantiate A
+    comp_A = A();
+
+    // outputs of comparators
+    both_unused = std_reg(32);  
+    one_unused = std_reg(32);
+
+    // output of A
+    output_A = std_reg(32);
+  }
+  wires {
+
+    group write_both_unused {
+      both_unused.in = (in3 <= in4) ? 32'd1; // expect 1 since both ports are low
+      both_unused.write_en = 1'b1;
+      write_both_unused[done] = both_unused.done;
+    }
+
+    group write_one_unused {
+      one_unused.in = !(!(in3 > in2)) ? 32'd1; // expect 0
+      one_unused.write_en = 1'b1;
+      write_one_unused[done] = one_unused.done;
+    }
+
+    group through_A {
+      comp_A.in1 = in1;
+      comp_A.go = 1'b1;
+      through_A[done] = comp_A.done;
+    }
+
+    group store_A {
+      output_A.in = comp_A.out;
+      output_A.write_en = 1'b1;
+      store_A[done] = output_A.done;
+    }
+
+    out_A = output_A.out; 
+    out_one_unused = one_unused.out;
+    out_both_unused = both_unused.out;
+  }
+  control {
+    seq{
+      // store_inputs;
+      par {
+        write_both_unused;
+        write_one_unused;
+        through_A;
+      }
+      store_A;
+    }
+  }
+}
+
+
+// component B(in1: 32, in2: 32, in3: 32, in4: 32) -> (out_A: 32, out_one_unused : 32, out_both_unused : 32) {
+//   cells {
+
+//     // store inputs
+//     used1 = std_reg(32);
+//     used2 = std_reg(32);
+//     unused1 = std_reg(32);
+//     unused2 = std_reg(32);
+
+//     // instantiate A
+//     comp_A = A();
+
+//     // outputs of comparators
+//     both_unused = std_reg(32);  
+//     one_unused = std_reg(32);
+
+//     // output of A
+//     output_A = std_reg(32);
+//   }
+//   wires {
+
+//     group store_inputs {
+//       used1.in = in1; // contains 45
+//       used2.in = in2; // contains 36
+//       unused1.in = in3;
+//       unused2.in = in4;
+//       used1.write_en = 1'b1;
+//       used2.write_en = 1'b1;
+//       unused1.write_en = 1'b1;
+//       unused2.write_en = 1'b1;
+//       store_inputs[done] = unused2.done;
+//     }
+
+//     group write_both_unused {
+//       both_unused.in = (unused1.out <= unused2.out) ? 32'd1; // expect 1
+//       // both_unused.in = !(unused1.out <= unused2.out) ? 32'd0; // expect 1
+//       // both_unused.in = !(used1.out <= used2.out) ? 32'd1; // expect 1
+//       // both_unused.in = (used1.out <= used2.out) ? 32'd0; // expect 1
+//       // both_unused.in = 32'd451;
+//       both_unused.write_en = 1'b1;
+//       write_both_unused[done] = both_unused.done;
+//     }
+
+//     group write_one_unused {
+//       // one_unused.in = (unused1.out > used2.out) ? 32'd1; // expect 0
+//       one_unused.in = 32'd452;
+//       one_unused.write_en = 1'b1;
+//       write_one_unused[done] = one_unused.done;
+//     }
+
+//     group through_A {
+//       comp_A.in1 = used1.out;
+//       comp_A.go = 1'b1;
+//       through_A[done] = comp_A.done;
+//     }
+
+//     group store_A {
+//       output_A.in = comp_A.out;
+//       output_A.write_en = 1'b1;
+//       store_A[done] = output_A.done;
+//     }
+
+//     out_A = output_A.out; 
+//     out_one_unused = one_unused.out;
+//     out_both_unused = both_unused.out;
+//   }
+//   control {
+//     seq{
+//       store_inputs;
+//       par {
+//         write_both_unused;
+//         write_one_unused;
+//         through_A;
+//       }
+//       store_A;
+//     }
+//   }
+// }
+
+component A(in1: 32, in2: 32) -> (out: 32) {
+  cells {
+    store_val = std_reg(32);
+  }
+  wires {
+    group store{
+      store_val.in = in1;
+      store_val.write_en = 1'b1;
+      store[done] = store_val.done;
+    }
+    out = store_val.out;
+  }
+  control {store;}
+}
+
+component main() -> () {
+  cells {
+    @external(1) mem = std_mem_d1(32, 3, 2);
+
+    reg1 = std_reg(32);
+    reg2 = std_reg(32);
+    // val = std_reg(32);
+    comp_C = C();
+
+    output_C1 = std_reg(32);
+    output_C2 = std_reg(32);
+    output_C3 = std_reg(32);
+
+  }
+  wires {
+
+    group put1 {
+      mem.addr0 = 2'b0;
+      reg1.in = mem.read_data;
+      reg1.write_en = 1'b1;
+      put1[done] = reg1.done;
+    }
+
+    group put2 {
+      mem.addr0 = 2'b1;
+      reg2.in = mem.read_data;
+      reg2.write_en = 1'b1;
+      put2[done] = reg2.done;
+    }
+
+    group through_C {
+      comp_C.in1 = reg1.out;
+      comp_C.in2 = reg2.out;
+      comp_C.go = 1'b1;
+      through_C[done] = comp_C.done;
+    }
+
+    group store_output_C {
+      output_C1.write_en = 1'b1;
+      output_C2.write_en = 1'b1;
+      output_C3.write_en = 1'b1;
+      output_C1.in = comp_C.out1;
+      output_C2.in = comp_C.out2;
+      output_C3.in = comp_C.out3;
+      store_output_C[done] = output_C3.done;
+    }
+
+    group to_mem_standard {
+      mem.addr0 = 2'd2;
+      mem.write_data = output_C1.out;
+      mem.write_en = 1'b1;
+      to_mem_standard[done] = mem.done;
+    }
+
+    group to_mem_both_unused {
+      mem.addr0 = 2'd1;
+      mem.write_data = output_C3.out;
+      mem.write_en = 1'b1;
+      to_mem_both_unused[done] = mem.done;
+    }
+
+    group to_mem_one_unused {
+      mem.addr0 = 2'd0;
+      mem.write_data = output_C2.out;
+      mem.write_en = 1'b1;
+      to_mem_one_unused[done] = mem.done;
+    }
+
+  }
+  control {
+    seq{
+      put1;
+      put2;
+      through_C;
+      store_output_C;
+      to_mem_standard;
+      to_mem_both_unused;
+      to_mem_one_unused;
+    }
+  }
+}

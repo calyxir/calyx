@@ -2,8 +2,8 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, Order, VisResult, Visitor,
 };
 use calyx_ir::{
-    Assignment, BoolAttr, Builder, Cell, CellType, Component, Context, Id,
-    LibrarySignatures, Nothing, Port, PortParent, RRC,
+    BoolAttr, Builder, Cell, CellType, Component, Context, Id,
+    LibrarySignatures, PortParent, RRC,
 };
 use calyx_utils::CalyxResult;
 
@@ -81,20 +81,17 @@ impl Visitor for UnusedPortRemoval {
         // if port from signature is an unused port, add an attribute @internal
         if comp.name != "main" {
             // adds @internal attribute to (up-till-now) unused ports
-            for port in comp.signature.borrow_mut().ports.iter_mut() {
-                let mut port_ref = port.borrow_mut();
-                let name = port_ref.name;
-                match unused_ports.contains(&name) {
-                    false => (),
-                    true => {
+            comp.signature
+                .borrow_mut()
+                .ports
+                .iter_mut()
+                .for_each(|port| {
+                    let mut port_ref = port.borrow_mut();
+                    let name = port_ref.name;
+                    if unused_ports.contains(&name) {
                         port_ref.attributes.insert(BoolAttr::Internal, 1);
                     }
-                }
-            }
-            // gets rid of all ports from the signature that have the @internal attribute
-            comp.signature.borrow_mut().ports.retain(|port| {
-                !(port.borrow().has_attribute(BoolAttr::Internal))
-            });
+                });
 
             // if either the source or a destination of an assignment are unused,
             // drop that assignment (meaning we don't care about those guards)
@@ -161,21 +158,25 @@ impl Visitor for UnusedPortRemoval {
                 // deference to get rid of Box pointer
                 let guard = (assign.guard).as_mut();
                 guard.collapse_unused(&mut width_to_cell, &unused_ports);
-                // guard.collapse_unused_mut(comp, sigs, &unused_ports);
             });
 
             // replace unused ports in static assignment guards with n'b0 signals too
             comp.for_each_static_assignment(|assign| {
                 let guard = (assign.guard).as_mut();
                 guard.collapse_unused(&mut width_to_cell, &unused_ports);
-            })
+            });
+
+            // gets rid of all ports from all unused ports in the component signature
+            // comp.signature.borrow_mut().ports.retain(|port| {
+            //     !(port.borrow().has_attribute(BoolAttr::Internal))
+            // });
         }
 
         // main way to indicate unused ports:
         // insert a mapping from each of this component's children components to
         // the ports that each child uses
-        comp.iter_assignments(|assign: &Assignment<Nothing>| {
-            assign.iter_ports(|port: &RRC<Port>| {
+        comp.iter_assignments(|assign| {
+            assign.iter_ports(|port| {
                 match port.borrow().parent {
                     // only care about ports belonging to cells, not groups/static groups
                     PortParent::Cell(_) => {

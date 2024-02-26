@@ -1,0 +1,94 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+
+component Q(in1: 32, in2: 32) -> (out: 32) {
+
+  cells {
+    unused1 = std_reg(32);
+    unused2 = std_reg(32);
+
+    guard_output = std_reg(32);
+  }
+
+  wires {
+    group store_inputs {
+      unused1.in = in1;
+      unused2.in = in2;
+      unused1.write_en = 1'b1;
+      unused2.write_en = 1'b1;
+      store_inputs[done] = unused2.done;
+    }
+
+    group simulate_guard_output {
+      
+      // guard_output.in = (unused1.out <= unused2.out) ? 32'd1; // expect 1
+      // doesn't work ^^
+
+      // does work
+      guard_output.in = (in1 <= in2) ? 32'd1;
+      guard_output.write_en = 1'b1;
+      simulate_guard[done] = guard_output.done;
+    }
+    out = guard_output.out;
+  }
+
+  control {
+    seq {store_inputs; simulate_guard_output;}
+  }
+}
+
+component main() -> () {
+  cells {
+    @external(1) mem = std_mem_d1(32, 3, 2);
+    reg1 = std_reg(32);
+    reg2 = std_reg(32);
+    comp_Q = Q();
+    output_Q1 = std_reg(32);
+  }
+  wires {
+
+    group put1 {
+      mem.addr0 = 2'b0;
+      reg1.in = mem.read_data;
+      reg1.write_en = 1'b1;
+      put1[done] = reg1.done;
+    }
+
+    group put2 {
+      mem.addr0 = 2'b1;
+      reg2.in = mem.read_data;
+      reg2.write_en = 1'b1;
+      put2[done] = reg2.done;
+    }
+
+    group through_Q {
+      // doesnt use either input of Q
+      comp_Q.go = 1'b1;
+      through_Q[done] = comp_Q.done;
+    }
+
+    group store_output_Q {
+      output_Q1.write_en = 1'b1;
+      output_Q1.in = comp_Q.out;
+      store_output_Q[done] = output_Q1.done;
+    }
+
+    group output_Q_to_mem {
+      mem.addr0 = 2'd2;
+      mem.write_data = output_Q1.out;
+      mem.write_en = 1'b1;
+      output_Q_to_mem[done] = mem.done;
+    }
+
+  }
+  control {
+    seq{
+      put1;
+      put2;
+      through_Q;
+      store_output_Q;
+      output_Q_to_mem;
+    }
+  }
+}
+
