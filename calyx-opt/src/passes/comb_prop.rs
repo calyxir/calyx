@@ -381,11 +381,11 @@ impl Visitor for CombProp {
         for assign in &mut builder.component.continuous_assignments {
             let dst = assign.dst.borrow();
             let dst_name = dst.get_parent_name();
-            if Self::parent_is_wire(&dst.parent) {
-                if assign.src.borrow().is_constant(1, 1) {
-                    self.guard_map.insert(dst_name, assign.guard.clone());
-                    break;
-                }
+            if Self::parent_is_wire(&dst.parent)
+                & assign.src.borrow().is_constant(1, 1)
+            {
+                self.guard_map.insert(dst_name, assign.guard.clone());
+                break;
             }
             assigns.push(assign.clone());
         }
