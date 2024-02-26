@@ -385,9 +385,9 @@ impl Visitor for CombProp {
                 & assign.src.borrow().is_constant(1, 1)
             {
                 self.guard_map.insert(dst_name, assign.guard.clone());
-                break;
+            } else {
+                assigns.push(assign.clone());
             }
-            assigns.push(assign.clone());
         }
 
         builder.component.continuous_assignments = assigns;
