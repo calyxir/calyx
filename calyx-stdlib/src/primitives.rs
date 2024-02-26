@@ -32,7 +32,7 @@ load_prims! { SYNC, "sync.futil", "sync.sv" }
 pub const COMPILE_LIB: (&str, &str) =
     ("compile.futil", include_str!("../primitives/compile.futil"));
 
-pub const KNOWN_LIBS: [(&str, [(&str, &str); 2]); 7] = [
+pub const KNOWN_LIBS: [(&str, [(&str, &str); 2]); 8] = [
     ("core", CORE),
     ("binary_operators", BINARY_OPERATORS),
     ("math", MATH),
