@@ -22,7 +22,10 @@ def generate_replacement_map(inst):
         replacement_map["W_SHIFTED_ONE"] = width << 1
         replacement_map["HIGH"] = width - 1
         replacement_map["LOW"] = 0
-
+    elif inst["name"] == "std_div_pipe":
+        width = replacement_map["WIDTH"]
+        replacement_map["W_MINUS_ONE"] = width - 1
+        replacement_map["W_TIMES_TWO"] = width * 2
 
     return replacement_map
 

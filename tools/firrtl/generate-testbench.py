@@ -123,7 +123,7 @@ def generate_writememh(memory_cell_dicts):
           out_str += "end"
      return out_str
 
-def create_memory_cell_dict(line, module_name):
+def create_memory_cell_dict(line, module_name): # TODO: Use YXI generated data
      memory_cell_dict = {}
      # parse line that contains a ref cell
      memory_cell_dict["cell-name"] = line.lstrip().split()[1]

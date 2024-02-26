@@ -32,23 +32,54 @@
             else:
                 running <= running
 
+        out_quotient is invalid
+        out_remainder is invalid
         ; Outputs 
         when or(dividend_is_zero, start):
             out_quotient <= UInt(0)
             out_remainder <= UInt(0)
         else:
-            when eq(finished, UInt(1)):
-                out_quotient <= quotient
-                out_remainder <= dividend
-            else:
+            ; when eq(finished, UInt(1)):
+            out_quotient <= quotient
+            out_remainder <= dividend
+            ; else:
                 ; Otherwise, explicitly latch the values.
-                out_quotient <= out_quotient
-                out_remainder <= out_remainder
+                ; out_quotient <= out_quotient
+                ; out_remainder <= out_remainder
 
         ; Calculate the quotient mask.
         when eq(start, UInt(1)):
+            quotient_msk <= shl(UInt(1), W_MINUS_ONE)
+        else:
+            when eq(running, UInt(1)):
+                quotient_msk <= shr(quotient_msk, 1)
+            else:
+                quotient_msk <= quotient_msk
             
+        ; Calculate the quotient.
+        when eq(start, UInt(1)):
+            quotient <= UInt(0)
+        else:
+            when leq(divisor, dividend):
+                quotient <= or(quotient, quotient_msk)
+            else:
+                quotient <= quotient
 
+        ; Calculate the dividend.
+        when eq(start, UInt(1)):
+            dividend <= left
+        else:
+            when leq(divisor, dividend):
+                dividend <= sub(dividend, divisor)
+            else:
+                dividend <= dividend
 
+        when eq(start, UInt(1)):
+            divisor <= shl(right, W_MINUS_ONE)
+        else:
+            when eq(finished, UInt(1)):
+                divisor <= UInt(0)
+            else:
+                divisor <= shr(divisor, 1)
 
         done <= done_reg
