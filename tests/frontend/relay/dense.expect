@@ -63,19 +63,19 @@ component dense_1x10() -> () {
     }
     group let3<"promotable"=2> {
       x_read0_0.in = x.read_data;
-      x_read0_0.write_en = x.done;
+      x_read0_0.write_en = x.read_done;
       let3[done] = x_read0_0.done;
-      x.content_en = 1'd1;
       x.addr1 = __k0.out;
       x.addr0 = __i0.out;
+      x.read_en = 1'd1;
     }
     group let4<"promotable"=2> {
       y_read0_0.in = y.read_data;
-      y_read0_0.write_en = y.done;
+      y_read0_0.write_en = y.read_done;
       let4[done] = y_read0_0.done;
-      y.content_en = 1'd1;
       y.addr1 = __k0.out;
       y.addr0 = __j0.out;
+      y.read_en = 1'd1;
     }
     group let5<"promotable"=4> {
       bin_read0_0.in = mult_pipe0.out;
@@ -92,21 +92,20 @@ component dense_1x10() -> () {
     }
     group let7<"promotable"=2> {
       red_read00.in = x1.read_data;
-      red_read00.write_en = x1.done;
+      red_read00.write_en = x1.read_done;
       let7[done] = red_read00.done;
-      x1.content_en = 1'd1;
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
+      x1.read_en = 1'd1;
     }
     group upd0<"promotable"=1> {
-      x1.content_en = 1'd1;
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
       add0.left = red_read00.out;
       add0.right = __product_0.out;
       x1.write_data = add0.out;
-      upd0[done] = x1.done;
+      upd0[done] = x1.write_done;
     }
     group upd1<"promotable"=1> {
       __k0.write_en = 1'd1;

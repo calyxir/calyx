@@ -69,9 +69,9 @@ component map_f() -> () {
             incr[done] = idx.done;
         }
         group read_in {
-            in.content_en = 1'd1;
+            in.read_en = 1'd1;
             in.addr0 = idx.out;
-            read_in[done] = in.done;
+            read_in[done] = in.read_done;
         }
         group write_r {
             r.write_en = 1'd1;
@@ -79,11 +79,10 @@ component map_f() -> () {
             write_r[done] = r.done;
         }
         group write_out {
-            out.content_en = 1'd1;
             out.write_en = 1'd1;
             out.addr0 = idx.out;
             out.write_data = r.out;
-            write_out[done] = out.done;
+            write_out[done] = out.write_done;
         }
     }
     control {
@@ -112,17 +111,15 @@ component main() -> () {
     wires {
         group f1_stats {
             stats.addr0 = 2'd0;
-            stats.content_en = 1'd1;
             stats.write_data = f1.processed;
             stats.write_en = 1'd1;
-            f1_stats[done] = stats.done;
+            f1_stats[done] = stats.write_done;
         }
         group f2_stats {
             stats.addr0 = 2'd1;
-            stats.content_en = 1'd1;
             stats.write_data = f2.processed;
             stats.write_en = 1'd1;
-            f2_stats[done] = stats.done;
+            f2_stats[done] = stats.write_done;
         }
     }
     control {

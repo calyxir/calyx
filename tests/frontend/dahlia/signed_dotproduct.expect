@@ -40,19 +40,19 @@ component main() -> () {
     }
     group let2<"promotable"=2> {
       a0_read0_0.in = a0.read_data;
-      a0_read0_0.write_en = a0.done;
+      a0_read0_0.write_en = a0.read_done;
       let2[done] = a0_read0_0.done;
-      a0.content_en = 1'd1;
       a0.addr0 = slice0.out;
       slice0.in = i0.out;
+      a0.read_en = 1'd1;
     }
     group let3<"promotable"=2> {
       b0_read0_0.in = b0.read_data;
-      b0_read0_0.write_en = b0.done;
+      b0_read0_0.write_en = b0.read_done;
       let3[done] = b0_read0_0.done;
-      b0.content_en = 1'd1;
       b0.addr0 = slice1.out;
       slice1.in = i0.out;
+      b0.read_en = 1'd1;
     }
     group let4<"promotable"=4> {
       bin_read0_0.in = mult_pipe0.out;

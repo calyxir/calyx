@@ -605,8 +605,8 @@ class ComponentBuilder:
         groupname = groupname or f"read_from_{mem.name()}"
         with self.group(groupname) as read_grp:
             mem.addr0 = i
-            mem.content_en = 1
-            read_grp.done = mem.done
+            mem.read_en = 1
+            read_grp.done = mem.read_done
         return read_grp
 
     def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
@@ -631,8 +631,7 @@ class ComponentBuilder:
             mem.addr0 = i
             mem.write_en = 1
             mem.write_data = val
-            mem.content_en = 1
-            store_grp.done = mem.done
+            store_grp.done = mem.write_done
         return store_grp
 
     def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
@@ -1100,7 +1099,7 @@ class CellBuilder(CellLikeBuilder):
                 return inst.args[2]
             if port_name == "in":
                 return inst.args[0]
-            if prim == "seq_mem_d1" and port_name == "content_en":
+            if prim == "seq_mem_d1" and port_name == "read_en":
                 return 1
         if prim in (
             "std_mult_pipe",

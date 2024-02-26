@@ -32,9 +32,9 @@ impl<T: GetName> WRC<T> {
     pub fn upgrade(&self) -> RRC<T> {
         let Some(r) = self.internal.upgrade() else {
             #[cfg(debug_assertions)]
-            unreachable!("weak reference points to a dropped value. Original object's name: `{}'", self.debug_name);
+            unreachable!("weak reference points to a dropped. Original object's name: `{}'", self.debug_name);
             #[cfg(not(debug_assertions))]
-            unreachable!("weak reference points to a dropped value.");
+            unreachable!("weak reference points to a dropped.");
         };
         r
     }

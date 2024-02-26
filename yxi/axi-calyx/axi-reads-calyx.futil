@@ -209,7 +209,7 @@ component m_read_channel(
   wires{
 
       RREADY = is_rdy.out;
-      data_received.content_en = 1'b0;
+      data_received.read_en = 1'b0;
 
       group init_n_RLAST {
           n_RLAST.in = 1'b1;
@@ -269,7 +269,7 @@ component m_read_channel(
           data_received.addr0 = curr_addr.out;
           data_received.write_en = 1'b1;
           data_received.write_data = read_data_reg.out;
-          receive_r_transfer[done] = data_received.done;
+          receive_r_transfer[done] = data_received.write_done;
 
       }
 

@@ -43,29 +43,28 @@ component main() -> () {
     }
     group let2<"promotable"=2> {
       a0_0_read0_0.in = a0_0.read_data;
-      a0_0_read0_0.write_en = a0_0.done;
+      a0_0_read0_0.write_en = a0_0.read_done;
       let2[done] = a0_0_read0_0.done;
-      a0_0.content_en = 1'd1;
       a0_0.addr1 = j0.out;
       a0_0.addr0 = i0.out;
+      a0_0.read_en = 1'd1;
     }
     group let3<"promotable"=2> {
       b0_0_read0_0.in = b0_0.read_data;
-      b0_0_read0_0.write_en = b0_0.done;
+      b0_0_read0_0.write_en = b0_0.read_done;
       let3[done] = b0_0_read0_0.done;
-      b0_0.content_en = 1'd1;
       b0_0.addr1 = j0.out;
       b0_0.addr0 = i0.out;
+      b0_0.read_en = 1'd1;
     }
     group upd0<"promotable"=1> {
-      result0_0.content_en = 1'd1;
       result0_0.addr1 = j0.out;
       result0_0.addr0 = i0.out;
       result0_0.write_en = 1'd1;
       add0.left = a0_0_read0_0.out;
       add0.right = b0_0_read0_0.out;
       result0_0.write_data = add0.out;
-      upd0[done] = result0_0.done;
+      upd0[done] = result0_0.write_done;
     }
     group upd1<"promotable"=1> {
       j0.write_en = 1'd1;

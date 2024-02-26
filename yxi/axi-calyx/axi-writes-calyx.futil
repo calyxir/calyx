@@ -243,13 +243,13 @@ component m_write_channel(
       }
 
       group write_to_internal{
-          internal_mem.content_en = 1'b0;
+          internal_mem.read_en = 1'b0;
           internal_mem.write_en = 1'b1;
           internal_mem.addr0 = curr_addr.out;
 
           curr_addr_slice.in = curr_addr.out;
           internal_mem.write_data = curr_addr_slice.out;
-          write_to_internal[done] = internal_mem.done;
+          write_to_internal[done] = internal_mem.write_done;
       }
 
       group check_if_writes_done{
@@ -303,7 +303,7 @@ component m_write_channel(
 
         // set data output based on curr_addr register
         internal_mem.addr0 = curr_addr.out;
-        internal_mem.content_en = 1'b1;
+        internal_mem.read_en = 1'b1;
         WDATA = internal_mem.read_data;
 
         //set wlast
