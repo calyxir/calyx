@@ -392,8 +392,6 @@ impl Visitor for CombProp {
 
         builder.component.continuous_assignments = assigns;
 
-        println!("size: {}", builder.component.continuous_assignments.len());
-
         for assign in &mut builder.component.continuous_assignments {
             // if wire.in = ** guard ** ? 1'd1;
             // and if a = wire.out ? b;
