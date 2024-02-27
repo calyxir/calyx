@@ -315,15 +315,15 @@ impl CombProp {
         {
             match guard {
                 ir::Guard::Port(ref p) => {
-                    if Self::parent_is_wire(&p.borrow().parent) {
-                        if self
+                    if Self::parent_is_wire(&p.borrow().parent)
+                        && self
                             .guard_map
                             .get(&p.borrow().get_parent_name())
                             .is_some()
-                        {
-                            return self.find_propagated_guard(Box::new(guard));
-                        }
+                    {
+                        return self.find_propagated_guard(Box::new(guard));
                     }
+
                     Box::new(guard)
                 }
                 ir::Guard::And(l, r) => {
