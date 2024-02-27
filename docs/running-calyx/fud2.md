@@ -20,11 +20,11 @@ Install it using your OS package manager or by downloading a binary.
 ### Configuration
 
 Run the following command to edit `fud2`'s configuration file (usually `~/.config/fud2.toml`):
-```
-fud2 edit-config
-```
+
+    $ fud2 edit-config
 
 Add these lines:
+
 ```toml
 [calyx]
 base = "<path to calyx checkout>"
@@ -66,6 +66,7 @@ Use `--set key=value` to override any such option.
 
 ## Advanced Options
 
+Use `fud2 --help` for an overview of the command-line interface.
 Here are some options you might need:
 
 * By default, fud2 runs the build in a directory called `.fud2` within the working directory. It automatically deletes this directory when the build is done.
@@ -78,5 +79,11 @@ Here are some options you might need:
     * `emit`: Just print the Ninja build file to stdout. The `gen` mode is therefore approximately `fud2 -m emit > .fud2/build.ninja`.
     * `plan`: Print a brief description of the plan, i.e., the sequence of operations that the build would run.
     * `dot`: Print a [GraphViz][] depiction of the plan. Try `fud2 -m dot | dot -Tpdf > graph.pdf` and take a look.
+
+There are also some subcommands for doing things other than building stuff:
+
+* `fud2 edit-config`: Open the fud2 configuration file in `$EDITOR`.
+* `fud2 list`: Print out all the available states and operations.
+* `fud2 get-rsrc FILE`: Fetch a *resource file* and place it in the working directory. You typically do not need to use this interactively; it is used during builds to obtain files included with fud2 that are necessary for a given build.
 
 [graphviz]: https://graphviz.org
