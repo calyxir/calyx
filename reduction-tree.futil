@@ -1,321 +1,775 @@
-import "primitives/core.futil";
-import "primitives/memories/seq.futil";
-import "primitives/binary_operators.futil";
-component fifo(cmd: 2, value: 32) -> () {
-  cells {
-    mem = seq_mem_d1(32, 10, 32);
-    next_write = std_reg(32);
-    next_read = std_reg(32);
-    ref ans = std_reg(32);
-    ref err = std_reg(1);
-    len = std_reg(32);
-    eq_1 = std_eq(2);
-    eq_2 = std_eq(2);
-    eq_3 = std_eq(2);
-    eq_4 = std_eq(32);
-    eq_5 = std_eq(32);
-    eq_6 = std_eq(32);
-    eq_7 = std_eq(32);
-    next_write_incr = std_add(32);
-    next_read_incr = std_add(32);
-    len_incr = std_add(32);
-    len_decr = std_sub(32);
-  }
-  wires {
-    comb group eq_1_group {
-      eq_1.left = cmd;
-      eq_1.right = 2'd0;
-    }
-    comb group eq_2_group {
-      eq_2.left = cmd;
-      eq_2.right = 2'd1;
-    }
-    comb group eq_3_group {
-      eq_3.left = cmd;
-      eq_3.right = 2'd2;
-    }
-    comb group eq_4_group {
-      eq_4.left = next_write.out;
-      eq_4.right = 32'd10;
-    }
-    comb group eq_5_group {
-      eq_5.left = next_read.out;
-      eq_5.right = 32'd10;
-    }
-    comb group eq_6_group {
-      eq_6.left = len.out;
-      eq_6.right = 32'd0;
-    }
-    comb group eq_7_group {
-      eq_7.left = len.out;
-      eq_7.right = 32'd10;
-    }
-    group next_write_incr_group {
-      next_write_incr.left = next_write.out;
-      next_write_incr.right = 32'd1;
-      next_write.write_en = 1'd1;
-      next_write.in = next_write_incr.out;
-      next_write_incr_group[done] = next_write.done;
-    }
-    group next_read_incr_group {
-      next_read_incr.left = next_read.out;
-      next_read_incr.right = 32'd1;
-      next_read.write_en = 1'd1;
-      next_read.in = next_read_incr.out;
-      next_read_incr_group[done] = next_read.done;
-    }
-    group len_incr_group {
-      len_incr.left = len.out;
-      len_incr.right = 32'd1;
-      len.write_en = 1'd1;
-      len.in = len_incr.out;
-      len_incr_group[done] = len.done;
-    }
-    group len_decr_group {
-      len_decr.left = len.out;
-      len_decr.right = 32'd1;
-      len.write_en = 1'd1;
-      len.in = len_decr.out;
-      len_decr_group[done] = len.done;
-    }
-    group flash_write {
-      next_write.in = 32'd0;
-      next_write.write_en = 1'd1;
-      flash_write[done] = next_write.done;
-    }
-    group flash_read {
-      next_read.in = 32'd0;
-      next_read.write_en = 1'd1;
-      flash_read[done] = next_read.done;
-    }
-    group raise_err {
-      err.in = 1'd1;
-      err.write_en = 1'd1;
-      raise_err[done] = err.done;
-    }
-    group flash_ans {
-      ans.in = 32'd0;
-      ans.write_en = 1'd1;
-      flash_ans[done] = ans.done;
-    }
-    group write_payload_to_mem {
-      mem.addr0 = next_write.out;
-      mem.write_en = 1'd1;
-      mem.write_data = value;
-      mem.content_en = 1'd1;
-      write_payload_to_mem[done] = mem.done;
-    }
-    group read_payload_from_mem_phase1 {
-      mem.addr0 = next_read.out;
-      mem.content_en = 1'd1;
-      read_payload_from_mem_phase1[done] = mem.done;
-    }
-    group read_payload_from_mem_phase2 {
-      ans.write_en = 1'd1;
-      ans.in = mem.read_data;
-      read_payload_from_mem_phase2[done] = ans.done;
-    }
-  }
-  control {
-    par {
-      if eq_1.out with eq_1_group {
-        if eq_6.out with eq_6_group {
-          par {
-            raise_err;
-            flash_ans;
-          }
-        } else {
-          seq {
-            read_payload_from_mem_phase1;
-            read_payload_from_mem_phase2;
-            next_read_incr_group;
-            if eq_5.out with eq_5_group {
-              flash_read;
-            }
-            len_decr_group;
-          }
-        }
-      }
-      if eq_2.out with eq_2_group {
-        if eq_6.out with eq_6_group {
-          par {
-            raise_err;
-            flash_ans;
-          }
-        } else {
-          seq {
-            read_payload_from_mem_phase1;
-            read_payload_from_mem_phase2;
-          }
-        }
-      }
-      if eq_3.out with eq_3_group {
-        if eq_7.out with eq_7_group {
-          par {
-            raise_err;
-            flash_ans;
-          }
-        } else {
-          seq {
-            write_payload_to_mem;
-            next_write_incr_group;
-            if eq_4.out with eq_4_group {
-              flash_write;
-            }
-            len_incr_group;
-          }
-        }
-      }
-    }
-  }
+extern "/Users/paili/Desktop/calyx/primitives/binary_operators.sv" {
+  comb primitive std_fp_add<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_fp_sub<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  primitive std_fp_mult_pipe<"state_share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@clk clk: 1, @reset reset: 1, @write_together @interval(3) @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out: WIDTH, @done done: 1);
+  primitive std_fp_div_pipe<"state_share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@clk clk: 1, @reset reset: 1, @write_together @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out_remainder: WIDTH, @stable out_quotient: WIDTH, @done done: 1);
+  comb primitive std_fp_gt<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_fp_sadd<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_fp_ssub<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  primitive std_fp_smult_pipe<"state_share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@clk clk: 1, @reset reset: 1, @write_together @interval(3) @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out: WIDTH, @done done: 1);
+  primitive std_fp_sdiv_pipe<"state_share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@clk clk: 1, @reset reset: 1, @write_together @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out_remainder: WIDTH, @stable out_quotient: WIDTH, @done done: 1);
+  comb primitive std_fp_sgt<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_fp_slt<"share"=1>[WIDTH, INT_WIDTH, FRAC_WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  primitive std_mult_pipe<"state_share"=1>[WIDTH](@clk clk: 1, @reset reset: 1, @write_together @interval(3) @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out: WIDTH, @done done: 1);
+  primitive std_div_pipe<"state_share"=1>[WIDTH](@clk clk: 1, @reset reset: 1, @write_together @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out_quotient: WIDTH, @stable out_remainder: WIDTH, @done done: 1);
+  comb primitive std_sadd<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_ssub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  primitive std_smult_pipe<"state_share"=1>[WIDTH](@clk clk: 1, @reset reset: 1, @write_together @interval(3) @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (@stable out: WIDTH, @done done: 1);
+  primitive std_sdiv_pipe[WIDTH](@clk clk: 1, @reset reset: 1, @write_together @go go: 1, @write_together @data left: WIDTH, @write_together @data right: WIDTH) -> (out_quotient: WIDTH, out_remainder: WIDTH, @done done: 1);
+  comb primitive std_sgt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_slt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_seq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sneq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sge<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_sle<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_slsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_srsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_signext<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
 }
-component main() -> () {
-  cells {
-    dataplane = dataplane();
-    has_ans = std_reg(1);
-    dataplane_ans = std_reg(32);
-    dataplane_err = std_reg(1);
-    @external commands = seq_mem_d1(2, 20000, 32);
-    @external values = seq_mem_d1(32, 20000, 32);
-    @external ans_mem = seq_mem_d1(32, 20000, 32);
-    neq_1 = std_neq(32);
-    j = std_reg(32);
-    j_incr = std_add(32);
-    not_2 = std_not(1);
-  }
-  wires {
-    comb group neq_1_group {
-      neq_1.left = dataplane_ans.out;
-      neq_1.right = 32'd0;
-    }
-    group j_incr_group {
-      j_incr.left = j.out;
-      j_incr.right = 32'd1;
-      j.write_en = 1'd1;
-      j.in = j_incr.out;
-      j_incr_group[done] = j.done;
-    }
-    group write_ans {
-      ans_mem.addr0 = j.out;
-      ans_mem.write_en = 1'd1;
-      ans_mem.write_data = dataplane_ans.out;
-      ans_mem.content_en = 1'd1;
-      write_ans[done] = ans_mem.done;
-    }
-    group lower_has_ans {
-      has_ans.in = 1'd0;
-      has_ans.write_en = 1'd1;
-      lower_has_ans[done] = has_ans.done;
-    }
-    comb group not_2_group {
-      not_2.in = dataplane_err.out;
-    }
-  }
-  control {
-    while not_2.out with not_2_group {
-      seq {
-        lower_has_ans;
-        invoke dataplane[commands=commands, values=values, has_ans=has_ans, component_ans=dataplane_ans, component_err=dataplane_err]()();
-        if has_ans.out {
-          if neq_1.out with neq_1_group {
-            seq {
-              write_ans;
-              j_incr_group;
-            }
-          }
-        }
-
-      }
-    }
-  }
+extern "/Users/paili/Desktop/calyx/primitives/memories/seq.sv" {
+  primitive seq_mem_d1[WIDTH, SIZE, IDX_SIZE](@clk clk: 1, @reset reset: 1, @write_together @data addr0: IDX_SIZE, @write_together @interval @go content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: WIDTH) -> (@stable read_data: WIDTH, @done done: 1);
+  primitive seq_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](@clk clk: 1, @reset reset: 1, @write_together @data addr0: D0_IDX_SIZE, @write_together @data addr1: D1_IDX_SIZE, @write_together @interval @go content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: WIDTH) -> (@stable read_data: WIDTH, @done done: 1);
+  primitive seq_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](@clk clk: 1, @reset reset: 1, @write_together @data addr0: D0_IDX_SIZE, @write_together @data addr1: D1_IDX_SIZE, @write_together @data addr2: D2_IDX_SIZE, @write_together @interval @go content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: WIDTH) -> (@stable read_data: WIDTH, @done done: 1);
+  primitive seq_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](@clk clk: 1, @reset reset: 1, @write_together @data addr0: D0_IDX_SIZE, @write_together @data addr1: D1_IDX_SIZE, @write_together @data addr2: D2_IDX_SIZE, @write_together @data addr3: D3_IDX_SIZE, @write_together @interval @go content_en: 1, @write_together(2) write_en: 1, @write_together(2) @data write_data: WIDTH) -> (@stable read_data: WIDTH, @done done: 1);
 }
-component dataplane() -> () {
+extern "/Users/paili/Desktop/calyx/primitives/core.sv" {
+  comb primitive std_slice<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_pad<"share"=1>[IN_WIDTH, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_cat<"share"=1>[LEFT_WIDTH, RIGHT_WIDTH, OUT_WIDTH](@data left: LEFT_WIDTH, @data right: RIGHT_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_bit_slice<"share"=1>[IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH](@data in: IN_WIDTH) -> (out: OUT_WIDTH);
+  comb primitive std_not<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH);
+  comb primitive std_and<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_or<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_xor<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_sub<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_gt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_lt<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_eq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_neq<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_ge<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_le<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: 1);
+  comb primitive std_lsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_rsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH);
+  comb primitive std_mux<"share"=1>[WIDTH](@data cond: 1, @data tru: WIDTH, @data fal: WIDTH) -> (out: WIDTH);
+}
+primitive undef<"share"=1>[WIDTH]() -> (out: WIDTH) {
+  assign out = 'x;
+}
+comb primitive std_const<"share"=1>[WIDTH, VALUE]() -> (out: WIDTH) {
+  assign out = VALUE;
+}
+comb primitive std_wire<"share"=1>[WIDTH](@data in: WIDTH) -> (out: WIDTH) {
+  assign out = in;
+}
+comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+  assign out = left + right;
+}
+primitive std_reg<"state_share"=1>[WIDTH](@write_together @data in: WIDTH, @write_together @interval @go write_en: 1, @clk clk: 1, @reset reset: 1) -> (@stable out: WIDTH, @done done: 1) {
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 0;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
+component fifo(cmd: 2, value: 32, @go go: 1, @clk clk: 1, @reset reset: 1, ans_out: 32, ans_done: 1, err_out: 1, err_done: 1) -> (@done done: 1, ans_in: 32, ans_write_en: 1, err_in: 1, err_write_en: 1) {
   cells {
-    myqueue = fifo();
-    ref commands = seq_mem_d1(2, 20000, 32);
-    ref values = seq_mem_d1(32, 20000, 32);
-    ref has_ans = std_reg(1);
-    ref component_ans = std_reg(32);
-    ref component_err = std_reg(1);
-    i = std_reg(32);
-    command = std_reg(2);
-    value = std_reg(32);
-    i_incr = std_add(32);
-    le_1 = std_le(2);
-    not_2 = std_not(1);
-    i_eq_MAX_CMDS = std_eq(32);
+    @data mem = seq_mem_d1(32, 10, 32);
+    @data next_write = std_reg(32);
+    @data next_read = std_reg(32);
+    @data len = std_reg(32);
+    @control eq_1 = std_eq(2);
+    @control eq_2 = std_eq(2);
+    @control eq_3 = std_eq(2);
+    @control eq_4 = std_eq(32);
+    @control eq_5 = std_eq(32);
+    @control eq_6 = std_eq(32);
+    @data next_write_incr = std_add(32);
+    @data next_read_incr = std_add(32);
+    @data len_decr = std_sub(32);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(1);
+    @generated comb_reg1 = std_reg(1);
+    @generated comb_reg2 = std_reg(1);
+    @generated comb_reg3 = std_reg(1);
+    @generated comb_reg4 = std_reg(1);
+    @generated comb_reg5 = std_reg(1);
+    @generated fsm = std_reg(2);
+    @generated fsm0 = std_reg(3);
+    @generated fsm1 = std_reg(1);
+    @generated fsm2 = std_reg(1);
+    @generated ud = undef(1);
+    @generated adder = std_add(2);
+    @generated ud0 = undef(1);
+    @generated adder0 = std_add(1);
+    @generated ud1 = undef(1);
+    @generated adder1 = std_add(3);
+    @generated ud2 = undef(1);
+    @generated adder2 = std_add(1);
+    @generated ud3 = undef(1);
+    @generated adder3 = std_add(3);
+    @generated ud4 = undef(1);
+    @generated adder4 = std_add(2);
+    @generated ud5 = undef(1);
+    @generated adder5 = std_add(3);
+    @generated signal_reg = std_reg(1);
+    @generated signal_reg0 = std_reg(1);
+    @generated signal_reg1 = std_reg(1);
+    @generated signal_reg2 = std_reg(1);
+    @generated pd = std_reg(1);
+    @generated pd0 = std_reg(1);
+    @generated pd1 = std_reg(1);
+    @generated pd2 = std_reg(1);
+    @generated pd3 = std_reg(1);
+    @generated pd4 = std_reg(1);
+    @generated fsm3 = std_reg(3);
+    @generated pd5 = std_reg(1);
+    @generated fsm4 = std_reg(3);
+    @generated pd6 = std_reg(1);
+    @generated fsm5 = std_reg(3);
+    @generated pd7 = std_reg(1);
+    @generated fsm6 = std_reg(1);
+    @generated raise_err_go = std_wire(1);
+    @generated raise_err_done = std_wire(1);
+    @generated flash_ans_go = std_wire(1);
+    @generated flash_ans_done = std_wire(1);
+    @generated read_payload_from_mem_phase2_go = std_wire(1);
+    @generated read_payload_from_mem_phase2_done = std_wire(1);
+    @generated invoke0_go = std_wire(1);
+    @generated invoke0_done = std_wire(1);
+    @generated invoke4_go = std_wire(1);
+    @generated invoke4_done = std_wire(1);
+    @generated early_reset_eq_1_group0_go = std_wire(1);
+    @generated early_reset_eq_1_group0_done = std_wire(1);
+    @generated early_reset_eq_2_group0_go = std_wire(1);
+    @generated early_reset_eq_2_group0_done = std_wire(1);
+    @generated early_reset_eq_3_group0_go = std_wire(1);
+    @generated early_reset_eq_3_group0_done = std_wire(1);
+    @generated early_reset_eq_6_group0_go = std_wire(1);
+    @generated early_reset_eq_6_group0_done = std_wire(1);
+    @generated early_reset_eq_7_group0_go = std_wire(1);
+    @generated early_reset_eq_7_group0_done = std_wire(1);
+    @generated early_reset_static_par_go = std_wire(1);
+    @generated early_reset_static_par_done = std_wire(1);
+    @generated early_reset_static_par0_go = std_wire(1);
+    @generated early_reset_static_par0_done = std_wire(1);
+    @generated wrapper_early_reset_eq_1_group0_go = std_wire(1);
+    @generated wrapper_early_reset_eq_1_group0_done = std_wire(1);
+    @generated wrapper_early_reset_eq_6_group0_go = std_wire(1);
+    @generated wrapper_early_reset_eq_6_group0_done = std_wire(1);
+    @generated wrapper_early_reset_static_par_go = std_wire(1);
+    @generated wrapper_early_reset_static_par_done = std_wire(1);
+    @generated wrapper_early_reset_eq_2_group0_go = std_wire(1);
+    @generated wrapper_early_reset_eq_2_group0_done = std_wire(1);
+    @generated wrapper_early_reset_eq_3_group0_go = std_wire(1);
+    @generated wrapper_early_reset_eq_3_group0_done = std_wire(1);
+    @generated wrapper_early_reset_eq_7_group0_go = std_wire(1);
+    @generated wrapper_early_reset_eq_7_group0_done = std_wire(1);
+    @generated wrapper_early_reset_static_par0_go = std_wire(1);
+    @generated wrapper_early_reset_static_par0_done = std_wire(1);
+    @generated par0_go = std_wire(1);
+    @generated par0_done = std_wire(1);
+    @generated par1_go = std_wire(1);
+    @generated par1_done = std_wire(1);
+    @generated par2_go = std_wire(1);
+    @generated par2_done = std_wire(1);
+    @generated par3_go = std_wire(1);
+    @generated par3_done = std_wire(1);
+    @generated tdcc_go = std_wire(1);
+    @generated tdcc_done = std_wire(1);
+    @generated tdcc0_go = std_wire(1);
+    @generated tdcc0_done = std_wire(1);
+    @generated tdcc1_go = std_wire(1);
+    @generated tdcc1_done = std_wire(1);
+    @generated tdcc2_go = std_wire(1);
+    @generated tdcc2_done = std_wire(1);
   }
   wires {
-    group i_incr_group {
-      i_incr.left = i.out;
-      i_incr.right = 32'd1;
-      i.write_en = 1'd1;
-      i.in = i_incr.out;
-      i_incr_group[done] = i.done;
-    }
-    comb group le_1_group {
-      le_1.left = command.out;
-      le_1.right = 2'd1;
-    }
-    group read_cmd_phase1 {
-      commands.addr0 = i.out;
-      commands.content_en = 1'd1;
-      read_cmd_phase1[done] = commands.done;
-    }
-    group write_cmd_phase2 {
-      command.write_en = 1'd1;
-      command.in = commands.read_data;
-      write_cmd_phase2[done] = command.done;
-    }
-    group read_value {
-      values.addr0 = i.out;
-      values.content_en = 1'd1;
-      read_value[done] = values.done;
-    }
-    group write_value_to_reg {
-      value.write_en = 1'd1;
-      value.in = values.read_data;
-      write_value_to_reg[done] = value.done;
-    }
-    group raise_has_ans {
-      has_ans.in = 1'd1;
-      has_ans.write_en = 1'd1;
-      raise_has_ans[done] = has_ans.done;
-    }
-    group lower_has_ans {
-      has_ans.in = 1'd0;
-      has_ans.write_en = 1'd1;
-      lower_has_ans[done] = has_ans.done;
-    }
-    comb group not_2_group {
-      not_2.in = component_err.out;
-    }
-    group i_eq_MAX_CMDS_group {
-      i_eq_MAX_CMDS.left = i.out;
-      i_eq_MAX_CMDS.right = 32'd20000;
-      component_err.write_en = 1'd1;
-      component_err.in = i_eq_MAX_CMDS.out;
-      i_eq_MAX_CMDS_group[done] = component_err.done;
-    }
+    adder1.left = early_reset_eq_3_group0_go.out ? fsm0.out;
+    adder1.right = early_reset_eq_3_group0_go.out ? 3'd1;
+    signal_reg1.write_en = fsm2.out == 1'd0 & signal_reg1.out | fsm2.out == 1'd0 & !signal_reg1.out & wrapper_early_reset_eq_2_group0_go.out ? 1'd1;
+    signal_reg1.clk = clk;
+    signal_reg1.reset = reset;
+    signal_reg1.in = fsm2.out == 1'd0 & !signal_reg1.out & wrapper_early_reset_eq_2_group0_go.out ? 1'd1;
+    signal_reg1.in = fsm2.out == 1'd0 & signal_reg1.out ? 1'd0;
+    tdcc2_done.in = fsm6.out == 1'd1 ? 1'd1;
+    eq_3.left = early_reset_eq_3_group0_go.out ? cmd;
+    eq_3.right = early_reset_eq_3_group0_go.out ? 2'd2;
+    done = tdcc2_done.out ? 1'd1;
+    ans_write_en = flash_ans_go.out | read_payload_from_mem_phase2_go.out ? 1'd1;
+    err_write_en = raise_err_go.out ? 1'd1;
+    ans_in = flash_ans_go.out ? 32'd0;
+    ans_in = read_payload_from_mem_phase2_go.out ? mem.read_data;
+    err_in = raise_err_go.out ? 1'd1;
+    fsm.write_en = early_reset_eq_1_group0_go.out | early_reset_static_par_go.out ? 1'd1;
+    fsm.clk = clk;
+    fsm.reset = reset;
+    fsm.in = fsm.out != 2'd0 & early_reset_eq_1_group0_go.out ? adder.out;
+    fsm.in = fsm.out != 2'd2 & early_reset_static_par_go.out ? adder4.out;
+    fsm.in = fsm.out == 2'd0 & early_reset_eq_1_group0_go.out | fsm.out == 2'd2 & early_reset_static_par_go.out ? 2'd0;
+    adder.left = early_reset_eq_1_group0_go.out ? fsm.out;
+    adder.right = early_reset_eq_1_group0_go.out ? 2'd1;
+    fsm6.write_en = fsm6.out == 1'd1 | fsm6.out == 1'd0 & par3_done.out & tdcc2_go.out ? 1'd1;
+    fsm6.clk = clk;
+    fsm6.reset = reset;
+    fsm6.in = fsm6.out == 1'd0 & par3_done.out & tdcc2_go.out ? 1'd1;
+    fsm6.in = fsm6.out == 1'd1 ? 1'd0;
+    read_payload_from_mem_phase2_done.in = ans_done;
+    invoke4_go.in = !invoke4_done.out & fsm4.out == 3'd3 & tdcc0_go.out ? 1'd1;
+    early_reset_eq_1_group0_go.in = wrapper_early_reset_eq_1_group0_go.out ? 1'd1;
+    early_reset_eq_1_group0_done.in = ud.out;
+    early_reset_static_par0_go.in = wrapper_early_reset_static_par0_go.out ? 1'd1;
+    tdcc2_go.in = go;
+    adder4.left = early_reset_static_par_go.out ? fsm.out;
+    adder4.right = early_reset_static_par_go.out ? 2'd1;
+    signal_reg0.write_en = fsm1.out == 1'd0 & signal_reg0.out | fsm1.out == 1'd0 & !signal_reg0.out & wrapper_early_reset_eq_6_group0_go.out ? 1'd1;
+    signal_reg0.clk = clk;
+    signal_reg0.reset = reset;
+    signal_reg0.in = fsm1.out == 1'd0 & !signal_reg0.out & wrapper_early_reset_eq_6_group0_go.out ? 1'd1;
+    signal_reg0.in = fsm1.out == 1'd0 & signal_reg0.out ? 1'd0;
+    fsm3.write_en = fsm3.out == 3'd6 | fsm3.out == 3'd0 & wrapper_early_reset_eq_1_group0_done.out & comb_reg.out & tdcc_go.out | fsm3.out == 3'd1 & wrapper_early_reset_eq_6_group0_done.out & comb_reg4.out & tdcc_go.out | fsm3.out == 3'd1 & wrapper_early_reset_eq_6_group0_done.out & !comb_reg4.out & tdcc_go.out | fsm3.out == 3'd3 & invoke0_done.out & tdcc_go.out | fsm3.out == 3'd4 & read_payload_from_mem_phase2_done.out & tdcc_go.out | fsm3.out == 3'd2 & par0_done.out & tdcc_go.out | fsm3.out == 3'd5 & wrapper_early_reset_static_par_done.out & tdcc_go.out | fsm3.out == 3'd0 & wrapper_early_reset_eq_1_group0_done.out & !comb_reg.out & tdcc_go.out ? 1'd1;
+    fsm3.clk = clk;
+    fsm3.reset = reset;
+    fsm3.in = fsm3.out == 3'd2 & par0_done.out & tdcc_go.out | fsm3.out == 3'd5 & wrapper_early_reset_static_par_done.out & tdcc_go.out | fsm3.out == 3'd0 & wrapper_early_reset_eq_1_group0_done.out & !comb_reg.out & tdcc_go.out ? 3'd6;
+    fsm3.in = fsm3.out == 3'd4 & read_payload_from_mem_phase2_done.out & tdcc_go.out ? 3'd5;
+    fsm3.in = fsm3.out == 3'd1 & wrapper_early_reset_eq_6_group0_done.out & comb_reg4.out & tdcc_go.out ? 3'd2;
+    fsm3.in = fsm3.out == 3'd3 & invoke0_done.out & tdcc_go.out ? 3'd4;
+    fsm3.in = fsm3.out == 3'd0 & wrapper_early_reset_eq_1_group0_done.out & comb_reg.out & tdcc_go.out ? 3'd1;
+    fsm3.in = fsm3.out == 3'd6 ? 3'd0;
+    fsm3.in = fsm3.out == 3'd1 & wrapper_early_reset_eq_6_group0_done.out & !comb_reg4.out & tdcc_go.out ? 3'd3;
+    pd5.write_en = pd5.out & pd6.out & pd7.out | tdcc_done.out & par3_go.out ? 1'd1;
+    pd5.clk = clk;
+    pd5.reset = reset;
+    pd5.in = tdcc_done.out & par3_go.out ? 1'd1;
+    pd5.in = pd5.out & pd6.out & pd7.out ? 1'd0;
+    fsm5.write_en = fsm5.out == 3'd4 | fsm5.out == 3'd0 & wrapper_early_reset_eq_3_group0_done.out & comb_reg1.out & tdcc1_go.out | fsm5.out == 3'd1 & wrapper_early_reset_eq_7_group0_done.out & comb_reg5.out & tdcc1_go.out | fsm5.out == 3'd1 & wrapper_early_reset_eq_7_group0_done.out & !comb_reg5.out & tdcc1_go.out | fsm5.out == 3'd2 & par2_done.out & tdcc1_go.out | fsm5.out == 3'd3 & wrapper_early_reset_static_par0_done.out & tdcc1_go.out | fsm5.out == 3'd0 & wrapper_early_reset_eq_3_group0_done.out & !comb_reg1.out & tdcc1_go.out ? 1'd1;
+    fsm5.clk = clk;
+    fsm5.reset = reset;
+    fsm5.in = fsm5.out == 3'd1 & wrapper_early_reset_eq_7_group0_done.out & comb_reg5.out & tdcc1_go.out ? 3'd2;
+    fsm5.in = fsm5.out == 3'd2 & par2_done.out & tdcc1_go.out | fsm5.out == 3'd3 & wrapper_early_reset_static_par0_done.out & tdcc1_go.out | fsm5.out == 3'd0 & wrapper_early_reset_eq_3_group0_done.out & !comb_reg1.out & tdcc1_go.out ? 3'd4;
+    fsm5.in = fsm5.out == 3'd0 & wrapper_early_reset_eq_3_group0_done.out & comb_reg1.out & tdcc1_go.out ? 3'd1;
+    fsm5.in = fsm5.out == 3'd4 ? 3'd0;
+    fsm5.in = fsm5.out == 3'd1 & wrapper_early_reset_eq_7_group0_done.out & !comb_reg5.out & tdcc1_go.out ? 3'd3;
+    raise_err_done.in = err_done;
+    early_reset_eq_3_group0_go.in = wrapper_early_reset_eq_3_group0_go.out ? 1'd1;
+    early_reset_eq_6_group0_done.in = ud2.out;
+    wrapper_early_reset_eq_7_group0_go.in = !wrapper_early_reset_eq_7_group0_done.out & fsm5.out == 3'd1 & tdcc1_go.out ? 1'd1;
+    par3_done.in = pd5.out & pd6.out & pd7.out ? 1'd1;
+    tdcc0_done.in = fsm4.out == 3'd5 ? 1'd1;
+    len.write_en = fsm.out == 2'd0 & early_reset_static_par_go.out | fsm0.out == 3'd2 & early_reset_static_par0_go.out ? 1'd1;
+    len.clk = clk;
+    len.reset = reset;
+    len.in = fsm.out == 2'd0 & early_reset_static_par_go.out ? len_decr.out;
+    len.in = fsm0.out == 3'd2 & early_reset_static_par0_go.out ? next_write_incr.out;
+    comb_reg.write_en = early_reset_eq_1_group0_go.out ? 1'd1;
+    comb_reg.clk = clk;
+    comb_reg.reset = reset;
+    comb_reg.in = early_reset_eq_1_group0_go.out ? eq_1.out;
+    wrapper_early_reset_eq_2_group0_go.in = !wrapper_early_reset_eq_2_group0_done.out & fsm4.out == 3'd0 & tdcc0_go.out ? 1'd1;
+    wrapper_early_reset_eq_7_group0_done.in = fsm0.out == 3'd0 & signal_reg2.out ? 1'd1;
+    read_payload_from_mem_phase2_go.in = !read_payload_from_mem_phase2_done.out & fsm3.out == 3'd4 & tdcc_go.out | !read_payload_from_mem_phase2_done.out & fsm4.out == 3'd4 & tdcc0_go.out ? 1'd1;
+    early_reset_eq_3_group0_done.in = ud1.out;
+    wrapper_early_reset_eq_1_group0_done.in = fsm.out == 2'd0 & signal_reg.out ? 1'd1;
+    wrapper_early_reset_eq_3_group0_go.in = !wrapper_early_reset_eq_3_group0_done.out & fsm5.out == 3'd0 & tdcc1_go.out ? 1'd1;
+    par2_done.in = pd3.out & pd4.out ? 1'd1;
+    par3_go.in = !par3_done.out & fsm6.out == 1'd0 & tdcc2_go.out ? 1'd1;
+    len_decr.left = fsm.out == 2'd0 & early_reset_static_par_go.out ? len.out;
+    len_decr.right = fsm.out == 2'd0 & early_reset_static_par_go.out ? 32'd1;
+    comb_reg1.write_en = early_reset_eq_3_group0_go.out ? 1'd1;
+    comb_reg1.clk = clk;
+    comb_reg1.reset = reset;
+    comb_reg1.in = early_reset_eq_3_group0_go.out ? eq_3.out;
+    fsm1.write_en = early_reset_eq_6_group0_go.out ? 1'd1;
+    fsm1.clk = clk;
+    fsm1.reset = reset;
+    fsm1.in = fsm1.out != 1'd0 & early_reset_eq_6_group0_go.out ? adder2.out;
+    fsm1.in = fsm1.out == 1'd0 & early_reset_eq_6_group0_go.out ? 1'd0;
+    fsm4.write_en = fsm4.out == 3'd5 | fsm4.out == 3'd0 & wrapper_early_reset_eq_2_group0_done.out & comb_reg0.out & tdcc0_go.out | fsm4.out == 3'd1 & wrapper_early_reset_eq_6_group0_done.out & comb_reg4.out & tdcc0_go.out | fsm4.out == 3'd1 & wrapper_early_reset_eq_6_group0_done.out & !comb_reg4.out & tdcc0_go.out | fsm4.out == 3'd3 & invoke4_done.out & tdcc0_go.out | fsm4.out == 3'd2 & par1_done.out & tdcc0_go.out | fsm4.out == 3'd4 & read_payload_from_mem_phase2_done.out & tdcc0_go.out | fsm4.out == 3'd0 & wrapper_early_reset_eq_2_group0_done.out & !comb_reg0.out & tdcc0_go.out ? 1'd1;
+    fsm4.clk = clk;
+    fsm4.reset = reset;
+    fsm4.in = fsm4.out == 3'd2 & par1_done.out & tdcc0_go.out | fsm4.out == 3'd4 & read_payload_from_mem_phase2_done.out & tdcc0_go.out | fsm4.out == 3'd0 & wrapper_early_reset_eq_2_group0_done.out & !comb_reg0.out & tdcc0_go.out ? 3'd5;
+    fsm4.in = fsm4.out == 3'd1 & wrapper_early_reset_eq_6_group0_done.out & comb_reg4.out & tdcc0_go.out ? 3'd2;
+    fsm4.in = fsm4.out == 3'd3 & invoke4_done.out & tdcc0_go.out ? 3'd4;
+    fsm4.in = fsm4.out == 3'd0 & wrapper_early_reset_eq_2_group0_done.out & comb_reg0.out & tdcc0_go.out ? 3'd1;
+    fsm4.in = fsm4.out == 3'd5 ? 3'd0;
+    fsm4.in = fsm4.out == 3'd1 & wrapper_early_reset_eq_6_group0_done.out & !comb_reg4.out & tdcc0_go.out ? 3'd3;
+    pd7.write_en = pd5.out & pd6.out & pd7.out | tdcc1_done.out & par3_go.out ? 1'd1;
+    pd7.clk = clk;
+    pd7.reset = reset;
+    pd7.in = tdcc1_done.out & par3_go.out ? 1'd1;
+    pd7.in = pd5.out & pd6.out & pd7.out ? 1'd0;
+    wrapper_early_reset_static_par_go.in = !wrapper_early_reset_static_par_done.out & fsm3.out == 3'd5 & tdcc_go.out ? 1'd1;
+    par1_go.in = !par1_done.out & fsm4.out == 3'd2 & tdcc0_go.out ? 1'd1;
+    comb_reg0.write_en = early_reset_eq_2_group0_go.out ? 1'd1;
+    comb_reg0.clk = clk;
+    comb_reg0.reset = reset;
+    comb_reg0.in = early_reset_eq_2_group0_go.out ? eq_2.out;
+    pd1.write_en = pd1.out & pd2.out | raise_err_done.out & par1_go.out ? 1'd1;
+    pd1.clk = clk;
+    pd1.reset = reset;
+    pd1.in = raise_err_done.out & par1_go.out ? 1'd1;
+    pd1.in = pd1.out & pd2.out ? 1'd0;
+    invoke0_go.in = !invoke0_done.out & fsm3.out == 3'd3 & tdcc_go.out ? 1'd1;
+    early_reset_eq_6_group0_go.in = wrapper_early_reset_eq_6_group0_go.out ? 1'd1;
+    early_reset_static_par0_done.in = ud5.out;
+    wrapper_early_reset_static_par_done.in = fsm.out == 2'd0 & signal_reg.out ? 1'd1;
+    tdcc_go.in = !(pd5.out | tdcc_done.out) & par3_go.out ? 1'd1;
+    eq_4.left = early_reset_eq_7_group0_go.out ? len.out;
+    eq_4.left = fsm0.out == 3'd2 & early_reset_static_par0_go.out ? next_write.out;
+    eq_4.right = early_reset_eq_7_group0_go.out | fsm0.out == 3'd2 & early_reset_static_par0_go.out ? 32'd10;
+    comb_reg2.write_en = fsm0.out == 3'd2 & early_reset_static_par0_go.out ? 1'd1;
+    comb_reg2.clk = clk;
+    comb_reg2.reset = reset;
+    comb_reg2.in = fsm0.out == 3'd2 & early_reset_static_par0_go.out ? eq_4.out;
+    fsm0.write_en = early_reset_eq_3_group0_go.out | early_reset_eq_7_group0_go.out | early_reset_static_par0_go.out ? 1'd1;
+    fsm0.clk = clk;
+    fsm0.reset = reset;
+    fsm0.in = fsm0.out != 3'd0 & early_reset_eq_3_group0_go.out ? adder1.out;
+    fsm0.in = fsm0.out != 3'd0 & early_reset_eq_7_group0_go.out ? adder3.out;
+    fsm0.in = fsm0.out != 3'd3 & early_reset_static_par0_go.out ? adder5.out;
+    fsm0.in = fsm0.out == 3'd0 & early_reset_eq_3_group0_go.out | fsm0.out == 3'd0 & early_reset_eq_7_group0_go.out | fsm0.out == 3'd3 & early_reset_static_par0_go.out ? 3'd0;
+    fsm2.write_en = early_reset_eq_2_group0_go.out ? 1'd1;
+    fsm2.clk = clk;
+    fsm2.reset = reset;
+    fsm2.in = fsm2.out == 1'd0 & early_reset_eq_2_group0_go.out ? 1'd0;
+    fsm2.in = fsm2.out != 1'd0 & early_reset_eq_2_group0_go.out ? adder0.out;
+    adder2.left = early_reset_eq_6_group0_go.out ? fsm1.out;
+    adder2.right = early_reset_eq_6_group0_go.out ? 1'd1;
+    wrapper_early_reset_eq_3_group0_done.in = fsm0.out == 3'd0 & signal_reg2.out ? 1'd1;
+    tdcc0_go.in = !(pd6.out | tdcc0_done.out) & par3_go.out ? 1'd1;
+    adder3.left = early_reset_eq_7_group0_go.out ? fsm0.out;
+    adder3.right = early_reset_eq_7_group0_go.out ? 3'd1;
+    adder5.left = early_reset_static_par0_go.out ? fsm0.out;
+    adder5.right = early_reset_static_par0_go.out ? 3'd1;
+    par0_done.in = pd.out & pd0.out ? 1'd1;
+    next_read.write_en = (fsm.out == 2'd0 | comb_reg3.out & fsm.out == 2'd2) & early_reset_static_par_go.out ? 1'd1;
+    next_read.clk = clk;
+    next_read.reset = reset;
+    next_read.in = comb_reg3.out & fsm.out == 2'd2 & early_reset_static_par_go.out ? 32'd0;
+    next_read.in = fsm.out == 2'd0 & early_reset_static_par_go.out ? next_read_incr.out;
+    next_read_incr.left = fsm.out == 2'd0 & early_reset_static_par_go.out ? next_read.out;
+    next_read_incr.right = fsm.out == 2'd0 & early_reset_static_par_go.out ? 32'd1;
+    comb_reg5.write_en = early_reset_eq_7_group0_go.out ? 1'd1;
+    comb_reg5.clk = clk;
+    comb_reg5.reset = reset;
+    comb_reg5.in = early_reset_eq_7_group0_go.out ? eq_4.out;
+    adder0.left = early_reset_eq_2_group0_go.out ? fsm2.out;
+    adder0.right = early_reset_eq_2_group0_go.out ? 1'd1;
+    signal_reg2.write_en = fsm0.out == 3'd0 & signal_reg2.out | fsm0.out == 3'd0 & !signal_reg2.out & wrapper_early_reset_eq_3_group0_go.out | fsm0.out == 3'd0 & !signal_reg2.out & wrapper_early_reset_eq_7_group0_go.out | fsm0.out == 3'd0 & !signal_reg2.out & wrapper_early_reset_static_par0_go.out ? 1'd1;
+    signal_reg2.clk = clk;
+    signal_reg2.reset = reset;
+    signal_reg2.in = fsm0.out == 3'd0 & !signal_reg2.out & wrapper_early_reset_eq_3_group0_go.out | fsm0.out == 3'd0 & !signal_reg2.out & wrapper_early_reset_eq_7_group0_go.out | fsm0.out == 3'd0 & !signal_reg2.out & wrapper_early_reset_static_par0_go.out ? 1'd1;
+    signal_reg2.in = fsm0.out == 3'd0 & signal_reg2.out ? 1'd0;
+    pd2.write_en = pd1.out & pd2.out | flash_ans_done.out & par1_go.out ? 1'd1;
+    pd2.clk = clk;
+    pd2.reset = reset;
+    pd2.in = flash_ans_done.out & par1_go.out ? 1'd1;
+    pd2.in = pd1.out & pd2.out ? 1'd0;
+    pd6.write_en = pd5.out & pd6.out & pd7.out | tdcc0_done.out & par3_go.out ? 1'd1;
+    pd6.clk = clk;
+    pd6.reset = reset;
+    pd6.in = tdcc0_done.out & par3_go.out ? 1'd1;
+    pd6.in = pd5.out & pd6.out & pd7.out ? 1'd0;
+    invoke0_done.in = mem.done;
+    early_reset_eq_2_group0_done.in = ud0.out;
+    early_reset_static_par_done.in = ud4.out;
+    wrapper_early_reset_eq_2_group0_done.in = fsm2.out == 1'd0 & signal_reg1.out ? 1'd1;
+    next_write.write_en = (fsm0.out == 3'd1 | comb_reg2.out & fsm0.out == 3'd3) & early_reset_static_par0_go.out ? 1'd1;
+    next_write.clk = clk;
+    next_write.reset = reset;
+    next_write.in = comb_reg2.out & fsm0.out == 3'd3 & early_reset_static_par0_go.out ? 32'd0;
+    next_write.in = fsm0.out == 3'd1 & early_reset_static_par0_go.out ? next_write_incr.out;
+    next_write_incr.left = fsm0.out == 3'd2 & early_reset_static_par0_go.out ? len.out;
+    next_write_incr.left = fsm0.out == 3'd1 & early_reset_static_par0_go.out ? next_write.out;
+    next_write_incr.right = (fsm0.out == 3'd1 | fsm0.out == 3'd2) & early_reset_static_par0_go.out ? 32'd1;
+    comb_reg3.write_en = fsm.out == 2'd1 & early_reset_static_par_go.out ? 1'd1;
+    comb_reg3.clk = clk;
+    comb_reg3.reset = reset;
+    comb_reg3.in = fsm.out == 2'd1 & early_reset_static_par_go.out ? eq_5.out;
+    signal_reg.write_en = fsm.out == 2'd0 & signal_reg.out | fsm.out == 2'd0 & !signal_reg.out & wrapper_early_reset_eq_1_group0_go.out | fsm.out == 2'd0 & !signal_reg.out & wrapper_early_reset_static_par_go.out ? 1'd1;
+    signal_reg.clk = clk;
+    signal_reg.reset = reset;
+    signal_reg.in = fsm.out == 2'd0 & !signal_reg.out & wrapper_early_reset_eq_1_group0_go.out | fsm.out == 2'd0 & !signal_reg.out & wrapper_early_reset_static_par_go.out ? 1'd1;
+    signal_reg.in = fsm.out == 2'd0 & signal_reg.out ? 1'd0;
+    par1_done.in = pd1.out & pd2.out ? 1'd1;
+    tdcc1_done.in = fsm5.out == 3'd4 ? 1'd1;
+    eq_1.left = early_reset_eq_1_group0_go.out ? cmd;
+    eq_1.right = early_reset_eq_1_group0_go.out ? 2'd0;
+    pd.write_en = pd.out & pd0.out | raise_err_done.out & par0_go.out ? 1'd1;
+    pd.clk = clk;
+    pd.reset = reset;
+    pd.in = raise_err_done.out & par0_go.out ? 1'd1;
+    pd.in = pd.out & pd0.out ? 1'd0;
+    pd0.write_en = pd.out & pd0.out | flash_ans_done.out & par0_go.out ? 1'd1;
+    pd0.clk = clk;
+    pd0.reset = reset;
+    pd0.in = flash_ans_done.out & par0_go.out ? 1'd1;
+    pd0.in = pd.out & pd0.out ? 1'd0;
+    pd4.write_en = pd3.out & pd4.out | flash_ans_done.out & par2_go.out ? 1'd1;
+    pd4.clk = clk;
+    pd4.reset = reset;
+    pd4.in = flash_ans_done.out & par2_go.out ? 1'd1;
+    pd4.in = pd3.out & pd4.out ? 1'd0;
+    early_reset_eq_7_group0_go.in = wrapper_early_reset_eq_7_group0_go.out ? 1'd1;
+    par2_go.in = !par2_done.out & fsm5.out == 3'd2 & tdcc1_go.out ? 1'd1;
+    eq_5.left = fsm.out == 2'd1 & early_reset_static_par_go.out ? next_read.out;
+    eq_5.right = fsm.out == 2'd1 & early_reset_static_par_go.out ? 32'd10;
+    eq_6.left = early_reset_eq_6_group0_go.out ? len.out;
+    eq_6.right = early_reset_eq_6_group0_go.out ? 32'd0;
+    comb_reg4.write_en = early_reset_eq_6_group0_go.out ? 1'd1;
+    comb_reg4.clk = clk;
+    comb_reg4.reset = reset;
+    comb_reg4.in = early_reset_eq_6_group0_go.out ? eq_6.out;
+    wrapper_early_reset_eq_6_group0_go.in = !wrapper_early_reset_eq_6_group0_done.out & fsm3.out == 3'd1 & tdcc_go.out | !wrapper_early_reset_eq_6_group0_done.out & fsm4.out == 3'd1 & tdcc0_go.out ? 1'd1;
+    wrapper_early_reset_static_par0_go.in = !wrapper_early_reset_static_par0_done.out & fsm5.out == 3'd3 & tdcc1_go.out ? 1'd1;
+    wrapper_early_reset_static_par0_done.in = fsm0.out == 3'd0 & signal_reg2.out ? 1'd1;
+    tdcc_done.in = fsm3.out == 3'd6 ? 1'd1;
+    mem.write_en = fsm0.out == 3'd0 & early_reset_static_par0_go.out ? 1'd1;
+    mem.clk = clk;
+    mem.addr0 = invoke0_go.out | invoke4_go.out ? next_read.out;
+    mem.addr0 = fsm0.out == 3'd0 & early_reset_static_par0_go.out ? next_write.out;
+    mem.content_en = invoke0_go.out | invoke4_go.out | fsm0.out == 3'd0 & early_reset_static_par0_go.out ? 1'd1;
+    mem.reset = reset;
+    mem.write_data = fsm0.out == 3'd0 & early_reset_static_par0_go.out ? value;
+    eq_2.left = early_reset_eq_2_group0_go.out ? cmd;
+    eq_2.right = early_reset_eq_2_group0_go.out ? 2'd1;
+    pd3.write_en = pd3.out & pd4.out | raise_err_done.out & par2_go.out ? 1'd1;
+    pd3.clk = clk;
+    pd3.reset = reset;
+    pd3.in = raise_err_done.out & par2_go.out ? 1'd1;
+    pd3.in = pd3.out & pd4.out ? 1'd0;
+    raise_err_go.in = !(pd.out | raise_err_done.out) & par0_go.out | !(pd1.out | raise_err_done.out) & par1_go.out | !(pd3.out | raise_err_done.out) & par2_go.out ? 1'd1;
+    flash_ans_done.in = ans_done;
+    invoke4_done.in = mem.done;
+    early_reset_static_par_go.in = wrapper_early_reset_static_par_go.out ? 1'd1;
+    flash_ans_go.in = !(pd0.out | flash_ans_done.out) & par0_go.out | !(pd2.out | flash_ans_done.out) & par1_go.out | !(pd4.out | flash_ans_done.out) & par2_go.out ? 1'd1;
+    early_reset_eq_7_group0_done.in = ud3.out;
+    wrapper_early_reset_eq_6_group0_done.in = fsm1.out == 1'd0 & signal_reg0.out ? 1'd1;
+    tdcc1_go.in = !(pd7.out | tdcc1_done.out) & par3_go.out ? 1'd1;
+    early_reset_eq_2_group0_go.in = wrapper_early_reset_eq_2_group0_go.out ? 1'd1;
+    wrapper_early_reset_eq_1_group0_go.in = !wrapper_early_reset_eq_1_group0_done.out & fsm3.out == 3'd0 & tdcc_go.out ? 1'd1;
+    par0_go.in = !par0_done.out & fsm3.out == 3'd2 & tdcc_go.out ? 1'd1;
   }
-  control {
-    seq {
-      read_cmd_phase1;
-      write_cmd_phase2;
-      read_value;
-      write_value_to_reg;
-      invoke myqueue[ans=component_ans, err=component_err](cmd=command.out, value=value.out)();
-      if not_2.out with not_2_group {
-        seq {
-          if le_1.out with le_1_group {
-            raise_has_ans;
-          } else {
-            lower_has_ans;
-          }
-        }
-      }
-      i_incr_group;
-      i_eq_MAX_CMDS_group;
-    }
+  control {}
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @data dataplane = dataplane();
+    @data has_ans = std_reg(1);
+    @data dataplane_ans = std_reg(32);
+    @data dataplane_err = std_reg(1);
+    @external @data commands = seq_mem_d1(2, 20000, 32);
+    @external @data values = seq_mem_d1(32, 20000, 32);
+    @external @data ans_mem = seq_mem_d1(32, 20000, 32);
+    @control neq_1 = std_neq(32);
+    @data j = std_reg(32);
+    @data j_incr = std_add(32);
+    @control not_2 = std_not(1);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(1);
+    @generated cond = std_reg(1);
+    @generated cond_wire = std_wire(1);
+    @generated cond0 = std_reg(1);
+    @generated cond_wire0 = std_wire(1);
+    @generated fsm = std_reg(2);
+    @generated ud = undef(1);
+    @generated adder = std_add(2);
+    @generated ud0 = undef(1);
+    @generated adder0 = std_add(2);
+    @generated signal_reg = std_reg(1);
+    @generated fsm0 = std_reg(3);
+    @generated invoke0_go = std_wire(1);
+    @generated invoke0_done = std_wire(1);
+    @generated invoke1_go = std_wire(1);
+    @generated invoke1_done = std_wire(1);
+    @generated early_reset_not_2_group0_go = std_wire(1);
+    @generated early_reset_not_2_group0_done = std_wire(1);
+    @generated early_reset_static_if0_go = std_wire(1);
+    @generated early_reset_static_if0_done = std_wire(1);
+    @generated wrapper_early_reset_not_2_group0_go = std_wire(1);
+    @generated wrapper_early_reset_not_2_group0_done = std_wire(1);
+    @generated wrapper_early_reset_static_if0_go = std_wire(1);
+    @generated wrapper_early_reset_static_if0_done = std_wire(1);
+    @generated tdcc_go = std_wire(1);
+    @generated tdcc_done = std_wire(1);
   }
+  wires {
+    values.write_en = invoke1_go.out ? dataplane.values_write_en;
+    values.clk = clk;
+    values.addr0 = invoke1_go.out ? dataplane.values_addr0;
+    values.content_en = invoke1_go.out ? dataplane.values_content_en;
+    values.reset = reset;
+    values.write_data = invoke1_go.out ? dataplane.values_write_data;
+    j.write_en = cond_wire.out & cond_wire0.out & fsm.out == 2'd2 & early_reset_static_if0_go.out ? 1'd1;
+    j.clk = clk;
+    j.reset = reset;
+    j.in = cond_wire.out & cond_wire0.out & fsm.out == 2'd2 & early_reset_static_if0_go.out ? j_incr.out;
+    done = tdcc_done.out ? 1'd1;
+    cond_wire0.in = fsm.out == 2'd0 & early_reset_static_if0_go.out ? has_ans.out;
+    cond_wire0.in = fsm.out >= 2'd1 & fsm.out < 2'd3 & early_reset_static_if0_go.out ? cond0.out;
+    fsm.write_en = early_reset_not_2_group0_go.out | early_reset_static_if0_go.out ? 1'd1;
+    fsm.clk = clk;
+    fsm.reset = reset;
+    fsm.in = fsm.out != 2'd0 & early_reset_not_2_group0_go.out ? adder.out;
+    fsm.in = fsm.out == 2'd0 & early_reset_not_2_group0_go.out | fsm.out == 2'd2 & early_reset_static_if0_go.out ? 2'd0;
+    fsm.in = fsm.out != 2'd2 & early_reset_static_if0_go.out ? adder0.out;
+    adder.left = early_reset_not_2_group0_go.out ? fsm.out;
+    adder.right = early_reset_not_2_group0_go.out ? 2'd1;
+    early_reset_not_2_group0_done.in = ud.out;
+    cond.write_en = cond_wire0.out & fsm.out == 2'd1 & early_reset_static_if0_go.out ? 1'd1;
+    cond.clk = clk;
+    cond.reset = reset;
+    cond.in = cond_wire0.out & fsm.out >= 2'd1 & fsm.out < 2'd3 & early_reset_static_if0_go.out ? comb_reg.out;
+    comb_reg.write_en = cond_wire0.out & fsm.out == 2'd0 & early_reset_static_if0_go.out ? 1'd1;
+    comb_reg.clk = clk;
+    comb_reg.reset = reset;
+    comb_reg.in = cond_wire0.out & fsm.out == 2'd0 & early_reset_static_if0_go.out ? neq_1.out;
+    wrapper_early_reset_static_if0_done.in = fsm.out == 2'd0 & signal_reg.out ? 1'd1;
+    early_reset_not_2_group0_go.in = wrapper_early_reset_not_2_group0_go.out ? 1'd1;
+    early_reset_static_if0_go.in = wrapper_early_reset_static_if0_go.out ? 1'd1;
+    early_reset_static_if0_done.in = ud0.out;
+    j_incr.left = cond_wire.out & cond_wire0.out & fsm.out == 2'd2 & early_reset_static_if0_go.out ? j.out;
+    j_incr.right = cond_wire.out & cond_wire0.out & fsm.out == 2'd2 & early_reset_static_if0_go.out ? 32'd1;
+    comb_reg0.write_en = early_reset_not_2_group0_go.out ? 1'd1;
+    comb_reg0.clk = clk;
+    comb_reg0.reset = reset;
+    comb_reg0.in = early_reset_not_2_group0_go.out ? not_2.out;
+    invoke0_go.in = !invoke0_done.out & fsm0.out == 3'd1 & tdcc_go.out ? 1'd1;
+    tdcc_go.in = go;
+    wrapper_early_reset_not_2_group0_done.in = fsm.out == 2'd0 & signal_reg.out ? 1'd1;
+    neq_1.left = cond_wire0.out & fsm.out == 2'd0 & early_reset_static_if0_go.out ? dataplane_ans.out;
+    neq_1.right = cond_wire0.out & fsm.out == 2'd0 & early_reset_static_if0_go.out ? 32'd0;
+    fsm0.write_en = fsm0.out == 3'd5 | fsm0.out == 3'd0 & wrapper_early_reset_not_2_group0_done.out & comb_reg0.out & tdcc_go.out | fsm0.out == 3'd4 & wrapper_early_reset_not_2_group0_done.out & comb_reg0.out & tdcc_go.out | fsm0.out == 3'd1 & invoke0_done.out & tdcc_go.out | fsm0.out == 3'd2 & invoke1_done.out & tdcc_go.out | fsm0.out == 3'd3 & wrapper_early_reset_static_if0_done.out & tdcc_go.out | fsm0.out == 3'd0 & wrapper_early_reset_not_2_group0_done.out & !comb_reg0.out & tdcc_go.out | fsm0.out == 3'd4 & wrapper_early_reset_not_2_group0_done.out & !comb_reg0.out & tdcc_go.out ? 1'd1;
+    fsm0.clk = clk;
+    fsm0.reset = reset;
+    fsm0.in = fsm0.out == 3'd0 & wrapper_early_reset_not_2_group0_done.out & !comb_reg0.out & tdcc_go.out | fsm0.out == 3'd4 & wrapper_early_reset_not_2_group0_done.out & !comb_reg0.out & tdcc_go.out ? 3'd5;
+    fsm0.in = fsm0.out == 3'd1 & invoke0_done.out & tdcc_go.out ? 3'd2;
+    fsm0.in = fsm0.out == 3'd3 & wrapper_early_reset_static_if0_done.out & tdcc_go.out ? 3'd4;
+    fsm0.in = fsm0.out == 3'd0 & wrapper_early_reset_not_2_group0_done.out & comb_reg0.out & tdcc_go.out | fsm0.out == 3'd4 & wrapper_early_reset_not_2_group0_done.out & comb_reg0.out & tdcc_go.out ? 3'd1;
+    fsm0.in = fsm0.out == 3'd5 ? 3'd0;
+    fsm0.in = fsm0.out == 3'd2 & invoke1_done.out & tdcc_go.out ? 3'd3;
+    has_ans.write_en = invoke0_go.out ? 1'd1;
+    has_ans.write_en = invoke1_go.out ? dataplane.has_ans_write_en;
+    has_ans.clk = clk;
+    has_ans.reset = reset;
+    has_ans.in = invoke0_go.out ? 1'd0;
+    has_ans.in = invoke1_go.out ? dataplane.has_ans_in;
+    not_2.in = early_reset_not_2_group0_go.out ? dataplane_err.out;
+    adder0.left = early_reset_static_if0_go.out ? fsm.out;
+    adder0.right = early_reset_static_if0_go.out ? 2'd1;
+    invoke0_done.in = has_ans.done;
+    invoke1_go.in = !invoke1_done.out & fsm0.out == 3'd2 & tdcc_go.out ? 1'd1;
+    dataplane_err.write_en = invoke1_go.out ? dataplane.component_err_write_en;
+    dataplane_err.clk = clk;
+    dataplane_err.reset = reset;
+    dataplane_err.in = invoke1_go.out ? dataplane.component_err_in;
+    signal_reg.write_en = fsm.out == 2'd0 & signal_reg.out | fsm.out == 2'd0 & !signal_reg.out & wrapper_early_reset_not_2_group0_go.out | fsm.out == 2'd0 & !signal_reg.out & wrapper_early_reset_static_if0_go.out ? 1'd1;
+    signal_reg.clk = clk;
+    signal_reg.reset = reset;
+    signal_reg.in = fsm.out == 2'd0 & !signal_reg.out & wrapper_early_reset_not_2_group0_go.out | fsm.out == 2'd0 & !signal_reg.out & wrapper_early_reset_static_if0_go.out ? 1'd1;
+    signal_reg.in = fsm.out == 2'd0 & signal_reg.out ? 1'd0;
+    dataplane_ans.write_en = invoke1_go.out ? dataplane.component_ans_write_en;
+    dataplane_ans.clk = clk;
+    dataplane_ans.reset = reset;
+    dataplane_ans.in = invoke1_go.out ? dataplane.component_ans_in;
+    cond_wire.in = cond_wire0.out & fsm.out == 2'd2 & early_reset_static_if0_go.out ? cond.out;
+    cond_wire.in = cond_wire0.out & fsm.out == 2'd1 & early_reset_static_if0_go.out ? comb_reg.out;
+    cond0.write_en = fsm.out == 2'd0 & early_reset_static_if0_go.out ? 1'd1;
+    cond0.clk = clk;
+    cond0.reset = reset;
+    cond0.in = early_reset_static_if0_go.out ? has_ans.out;
+    tdcc_done.in = fsm0.out == 3'd5 ? 1'd1;
+    wrapper_early_reset_not_2_group0_go.in = !wrapper_early_reset_not_2_group0_done.out & fsm0.out == 3'd0 & tdcc_go.out | !wrapper_early_reset_not_2_group0_done.out & fsm0.out == 3'd4 & tdcc_go.out ? 1'd1;
+    dataplane.commands_done = invoke1_go.out ? commands.done;
+    dataplane.values_done = invoke1_go.out ? values.done;
+    dataplane.clk = clk;
+    dataplane.commands_read_data = invoke1_go.out ? commands.read_data;
+    dataplane.component_err_done = invoke1_go.out ? dataplane_err.done;
+    dataplane.component_ans_done = invoke1_go.out ? dataplane_ans.done;
+    dataplane.values_read_data = invoke1_go.out ? values.read_data;
+    dataplane.has_ans_out = invoke1_go.out ? has_ans.out;
+    dataplane.reset = reset;
+    dataplane.go = invoke1_go.out ? 1'd1;
+    dataplane.component_ans_out = invoke1_go.out ? dataplane_ans.out;
+    dataplane.has_ans_done = invoke1_go.out ? has_ans.done;
+    dataplane.component_err_out = invoke1_go.out ? dataplane_err.out;
+    ans_mem.write_en = cond_wire.out & cond_wire0.out & fsm.out == 2'd1 & early_reset_static_if0_go.out ? 1'd1;
+    ans_mem.clk = clk;
+    ans_mem.addr0 = cond_wire.out & cond_wire0.out & fsm.out == 2'd1 & early_reset_static_if0_go.out ? j.out;
+    ans_mem.content_en = cond_wire.out & cond_wire0.out & fsm.out == 2'd1 & early_reset_static_if0_go.out ? 1'd1;
+    ans_mem.reset = reset;
+    ans_mem.write_data = cond_wire.out & cond_wire0.out & fsm.out == 2'd1 & early_reset_static_if0_go.out ? dataplane_ans.out;
+    wrapper_early_reset_static_if0_go.in = !wrapper_early_reset_static_if0_done.out & fsm0.out == 3'd3 & tdcc_go.out ? 1'd1;
+    invoke1_done.in = dataplane.done;
+    commands.write_en = invoke1_go.out ? dataplane.commands_write_en;
+    commands.clk = clk;
+    commands.addr0 = invoke1_go.out ? dataplane.commands_addr0;
+    commands.content_en = invoke1_go.out ? dataplane.commands_content_en;
+    commands.reset = reset;
+    commands.write_data = invoke1_go.out ? dataplane.commands_write_data;
+  }
+  control {}
+}
+component dataplane(@go go: 1, @clk clk: 1, @reset reset: 1, commands_read_data: 2, commands_done: 1, values_read_data: 32, values_done: 1, has_ans_out: 1, has_ans_done: 1, component_ans_out: 32, component_ans_done: 1, component_err_out: 1, component_err_done: 1) -> (@done done: 1, commands_addr0: 32, commands_content_en: 1, commands_write_en: 1, commands_write_data: 2, values_addr0: 32, values_content_en: 1, values_write_en: 1, values_write_data: 32, has_ans_in: 1, has_ans_write_en: 1, component_ans_in: 32, component_ans_write_en: 1, component_err_in: 1, component_err_write_en: 1) {
+  cells {
+    @data myqueue = fifo();
+    @data i = std_reg(32);
+    @data command = std_reg(2);
+    @data value = std_reg(32);
+    @data i_incr = std_add(32);
+    @control le_1 = std_le(2);
+    @control not_2 = std_not(1);
+    @data i_eq_MAX_CMDS = std_eq(32);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(1);
+    @generated fsm = std_reg(1);
+    @generated ud = undef(1);
+    @generated adder = std_add(1);
+    @generated ud0 = undef(1);
+    @generated adder0 = std_add(1);
+    @generated signal_reg = std_reg(1);
+    @generated fsm0 = std_reg(4);
+    @generated read_cmd_phase1_go = std_wire(1);
+    @generated read_cmd_phase1_done = std_wire(1);
+    @generated read_value_go = std_wire(1);
+    @generated read_value_done = std_wire(1);
+    @generated raise_has_ans_go = std_wire(1);
+    @generated raise_has_ans_done = std_wire(1);
+    @generated lower_has_ans_go = std_wire(1);
+    @generated lower_has_ans_done = std_wire(1);
+    @generated i_eq_MAX_CMDS_group_go = std_wire(1);
+    @generated i_eq_MAX_CMDS_group_done = std_wire(1);
+    @generated invoke0_go = std_wire(1);
+    @generated invoke0_done = std_wire(1);
+    @generated invoke1_go = std_wire(1);
+    @generated invoke1_done = std_wire(1);
+    @generated invoke2_go = std_wire(1);
+    @generated invoke2_done = std_wire(1);
+    @generated invoke3_go = std_wire(1);
+    @generated invoke3_done = std_wire(1);
+    @generated early_reset_le_1_group0_go = std_wire(1);
+    @generated early_reset_le_1_group0_done = std_wire(1);
+    @generated early_reset_not_2_group0_go = std_wire(1);
+    @generated early_reset_not_2_group0_done = std_wire(1);
+    @generated wrapper_early_reset_not_2_group0_go = std_wire(1);
+    @generated wrapper_early_reset_not_2_group0_done = std_wire(1);
+    @generated wrapper_early_reset_le_1_group0_go = std_wire(1);
+    @generated wrapper_early_reset_le_1_group0_done = std_wire(1);
+    @generated tdcc_go = std_wire(1);
+    @generated tdcc_done = std_wire(1);
+  }
+  wires {
+    myqueue.ans_out = invoke2_go.out ? component_ans_out;
+    myqueue.clk = clk;
+    myqueue.cmd = invoke2_go.out ? command.out;
+    myqueue.err_done = invoke2_go.out ? component_err_done;
+    myqueue.reset = reset;
+    myqueue.go = invoke2_go.out ? 1'd1;
+    myqueue.ans_done = invoke2_go.out ? component_ans_done;
+    myqueue.value = invoke2_go.out ? value.out;
+    myqueue.err_out = invoke2_go.out ? component_err_out;
+    read_value_go.in = !read_value_done.out & fsm0.out == 4'd2 & tdcc_go.out ? 1'd1;
+    done = tdcc_done.out ? 1'd1;
+    values_addr0 = read_value_go.out ? i.out;
+    commands_content_en = read_cmd_phase1_go.out ? 1'd1;
+    component_err_write_en = invoke2_go.out ? myqueue.err_write_en;
+    component_err_write_en = i_eq_MAX_CMDS_group_go.out ? 1'd1;
+    values_content_en = read_value_go.out ? 1'd1;
+    component_err_in = invoke2_go.out ? myqueue.err_in;
+    component_err_in = i_eq_MAX_CMDS_group_go.out ? i_eq_MAX_CMDS.out;
+    has_ans_in = raise_has_ans_go.out ? 1'd1;
+    has_ans_in = lower_has_ans_go.out ? 1'd0;
+    component_ans_in = invoke2_go.out ? myqueue.ans_in;
+    component_ans_write_en = invoke2_go.out ? myqueue.ans_write_en;
+    has_ans_write_en = raise_has_ans_go.out | lower_has_ans_go.out ? 1'd1;
+    commands_addr0 = read_cmd_phase1_go.out ? i.out;
+    fsm.write_en = early_reset_le_1_group0_go.out | early_reset_not_2_group0_go.out ? 1'd1;
+    fsm.clk = clk;
+    fsm.reset = reset;
+    fsm.in = fsm.out != 1'd0 & early_reset_le_1_group0_go.out ? adder.out;
+    fsm.in = fsm.out == 1'd0 & early_reset_le_1_group0_go.out | fsm.out == 1'd0 & early_reset_not_2_group0_go.out ? 1'd0;
+    fsm.in = fsm.out != 1'd0 & early_reset_not_2_group0_go.out ? adder0.out;
+    adder.left = early_reset_le_1_group0_go.out ? fsm.out;
+    adder.right = early_reset_le_1_group0_go.out ? 1'd1;
+    read_value_done.in = values_done;
+    early_reset_not_2_group0_done.in = ud0.out;
+    invoke2_go.in = !invoke2_done.out & fsm0.out == 4'd4 & tdcc_go.out ? 1'd1;
+    comb_reg.write_en = early_reset_le_1_group0_go.out ? 1'd1;
+    comb_reg.clk = clk;
+    comb_reg.reset = reset;
+    comb_reg.in = early_reset_le_1_group0_go.out ? le_1.out;
+    i_eq_MAX_CMDS_group_go.in = !i_eq_MAX_CMDS_group_done.out & fsm0.out == 4'd10 & tdcc_go.out ? 1'd1;
+    early_reset_le_1_group0_go.in = wrapper_early_reset_le_1_group0_go.out ? 1'd1;
+    early_reset_not_2_group0_go.in = wrapper_early_reset_not_2_group0_go.out ? 1'd1;
+    i_eq_MAX_CMDS.left = i_eq_MAX_CMDS_group_go.out ? i.out;
+    i_eq_MAX_CMDS.right = i_eq_MAX_CMDS_group_go.out ? 32'd20000;
+    command.write_en = invoke0_go.out ? 1'd1;
+    command.clk = clk;
+    command.reset = reset;
+    command.in = invoke0_go.out ? commands_read_data;
+    comb_reg0.write_en = early_reset_not_2_group0_go.out ? 1'd1;
+    comb_reg0.clk = clk;
+    comb_reg0.reset = reset;
+    comb_reg0.in = early_reset_not_2_group0_go.out ? not_2.out;
+    invoke0_go.in = !invoke0_done.out & fsm0.out == 4'd1 & tdcc_go.out ? 1'd1;
+    tdcc_go.in = go;
+    wrapper_early_reset_not_2_group0_done.in = fsm.out == 1'd0 & signal_reg.out ? 1'd1;
+    raise_has_ans_done.in = has_ans_done;
+    fsm0.write_en = fsm0.out == 4'd11 | fsm0.out == 4'd0 & read_cmd_phase1_done.out & tdcc_go.out | fsm0.out == 4'd1 & invoke0_done.out & tdcc_go.out | fsm0.out == 4'd2 & read_value_done.out & tdcc_go.out | fsm0.out == 4'd3 & invoke1_done.out & tdcc_go.out | fsm0.out == 4'd4 & invoke2_done.out & tdcc_go.out | fsm0.out == 4'd5 & wrapper_early_reset_not_2_group0_done.out & comb_reg0.out & tdcc_go.out | fsm0.out == 4'd6 & wrapper_early_reset_le_1_group0_done.out & comb_reg.out & tdcc_go.out | fsm0.out == 4'd6 & wrapper_early_reset_le_1_group0_done.out & !comb_reg.out & tdcc_go.out | fsm0.out == 4'd7 & raise_has_ans_done.out & tdcc_go.out | fsm0.out == 4'd8 & lower_has_ans_done.out & tdcc_go.out | fsm0.out == 4'd5 & wrapper_early_reset_not_2_group0_done.out & !comb_reg0.out & tdcc_go.out | fsm0.out == 4'd9 & invoke3_done.out & tdcc_go.out | fsm0.out == 4'd10 & i_eq_MAX_CMDS_group_done.out & tdcc_go.out ? 1'd1;
+    fsm0.clk = clk;
+    fsm0.reset = reset;
+    fsm0.in = fsm0.out == 4'd2 & read_value_done.out & tdcc_go.out ? 4'd3;
+    fsm0.in = fsm0.out == 4'd4 & invoke2_done.out & tdcc_go.out ? 4'd5;
+    fsm0.in = fsm0.out == 4'd3 & invoke1_done.out & tdcc_go.out ? 4'd4;
+    fsm0.in = fsm0.out == 4'd7 & raise_has_ans_done.out & tdcc_go.out | fsm0.out == 4'd8 & lower_has_ans_done.out & tdcc_go.out | fsm0.out == 4'd5 & wrapper_early_reset_not_2_group0_done.out & !comb_reg0.out & tdcc_go.out ? 4'd9;
+    fsm0.in = fsm0.out == 4'd9 & invoke3_done.out & tdcc_go.out ? 4'd10;
+    fsm0.in = fsm0.out == 4'd11 ? 4'd0;
+    fsm0.in = fsm0.out == 4'd6 & wrapper_early_reset_le_1_group0_done.out & comb_reg.out & tdcc_go.out ? 4'd7;
+    fsm0.in = fsm0.out == 4'd1 & invoke0_done.out & tdcc_go.out ? 4'd2;
+    fsm0.in = fsm0.out == 4'd5 & wrapper_early_reset_not_2_group0_done.out & comb_reg0.out & tdcc_go.out ? 4'd6;
+    fsm0.in = fsm0.out == 4'd6 & wrapper_early_reset_le_1_group0_done.out & !comb_reg.out & tdcc_go.out ? 4'd8;
+    fsm0.in = fsm0.out == 4'd0 & read_cmd_phase1_done.out & tdcc_go.out ? 4'd1;
+    fsm0.in = fsm0.out == 4'd10 & i_eq_MAX_CMDS_group_done.out & tdcc_go.out ? 4'd11;
+    invoke3_done.in = i.done;
+    wrapper_early_reset_le_1_group0_go.in = !wrapper_early_reset_le_1_group0_done.out & fsm0.out == 4'd6 & tdcc_go.out ? 1'd1;
+    wrapper_early_reset_le_1_group0_done.in = fsm.out == 1'd0 & signal_reg.out ? 1'd1;
+    early_reset_le_1_group0_done.in = ud.out;
+    not_2.in = early_reset_not_2_group0_go.out ? component_err_out;
+    adder0.left = early_reset_not_2_group0_go.out ? fsm.out;
+    adder0.right = early_reset_not_2_group0_go.out ? 1'd1;
+    invoke0_done.in = command.done;
+    invoke1_go.in = !invoke1_done.out & fsm0.out == 4'd3 & tdcc_go.out ? 1'd1;
+    i.write_en = invoke3_go.out ? 1'd1;
+    i.clk = clk;
+    i.reset = reset;
+    i.in = invoke3_go.out ? i_incr.out;
+    signal_reg.write_en = fsm.out == 1'd0 & signal_reg.out | fsm.out == 1'd0 & !signal_reg.out & wrapper_early_reset_not_2_group0_go.out | fsm.out == 1'd0 & !signal_reg.out & wrapper_early_reset_le_1_group0_go.out ? 1'd1;
+    signal_reg.clk = clk;
+    signal_reg.reset = reset;
+    signal_reg.in = fsm.out == 1'd0 & !signal_reg.out & wrapper_early_reset_not_2_group0_go.out | fsm.out == 1'd0 & !signal_reg.out & wrapper_early_reset_le_1_group0_go.out ? 1'd1;
+    signal_reg.in = fsm.out == 1'd0 & signal_reg.out ? 1'd0;
+    invoke2_done.in = myqueue.done;
+    read_cmd_phase1_done.in = commands_done;
+    lower_has_ans_go.in = !lower_has_ans_done.out & fsm0.out == 4'd8 & tdcc_go.out ? 1'd1;
+    value.write_en = invoke1_go.out ? 1'd1;
+    value.clk = clk;
+    value.reset = reset;
+    value.in = invoke1_go.out ? values_read_data;
+    le_1.left = early_reset_le_1_group0_go.out ? command.out;
+    le_1.right = early_reset_le_1_group0_go.out ? 2'd1;
+    tdcc_done.in = fsm0.out == 4'd11 ? 1'd1;
+    wrapper_early_reset_not_2_group0_go.in = !wrapper_early_reset_not_2_group0_done.out & fsm0.out == 4'd5 & tdcc_go.out ? 1'd1;
+    lower_has_ans_done.in = has_ans_done;
+    i_eq_MAX_CMDS_group_done.in = component_err_done;
+    read_cmd_phase1_go.in = !read_cmd_phase1_done.out & fsm0.out == 4'd0 & tdcc_go.out ? 1'd1;
+    raise_has_ans_go.in = !raise_has_ans_done.out & fsm0.out == 4'd7 & tdcc_go.out ? 1'd1;
+    invoke3_go.in = !invoke3_done.out & fsm0.out == 4'd9 & tdcc_go.out ? 1'd1;
+    i_incr.left = invoke3_go.out ? i.out;
+    i_incr.right = invoke3_go.out ? 32'd1;
+    invoke1_done.in = value.done;
+  }
+  control {}
 }
