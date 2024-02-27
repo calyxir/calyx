@@ -1,7 +1,13 @@
 {
-  "cycles": 1,
+  "cycles": 4,
   "memories": {
-    "mem": [
+    "mem_read_a": [
+      1082549862
+    ],
+    "mem_read_b": [
+      1080033280
+    ],
+    "mem_write": [
       1089889894
     ]
   }
