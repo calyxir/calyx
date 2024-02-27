@@ -4,26 +4,36 @@ import "primitives/float/addFN.futil";
 
 component main(@go go: 1) -> (@done done: 1) {
     cells {
-        @external mem = comb_mem_d1(32, 1, 1);
+        @external mem_read_a = comb_mem_d1(32, 1, 1);
+        @external mem_read_b = comb_mem_d1(32, 1, 1);
+        @external mem_write = comb_mem_d1(32, 1, 1);
         addFN0 = addFN(8, 24, 32);
     }
 
     wires {
         group add_std_format {
-            addFN0.a = 32'b01000000100001100110011001100110; // = 4.2
-            addFN0.b = 32'b01000000011000000000000000000000; // = 3.5
+            mem_read_a.addr0 = 1'b0;
+            addFN0.a = mem_read_a.read_data;
+            
+            mem_read_b.addr0 = 1'b0;
+            addFN0.b = mem_read_b.read_data;
+
+            addFN0.val = 1'b1;
 
             addFN0.control = 1'b0;
             addFN0.roundingMode = 3'b0;
 
-            mem.addr0 = 1'b0;
-            mem.write_data = addFN0.out;
-            mem.write_en = 1'd1;
-            add_std_format[done] = mem.done;
+            mem_write.addr0 = 1'b0;
+            mem_write.write_data = addFN0.out;
+            mem_write.write_en = 1'b1;
+
+            add_std_format[done] = (mem_write.done & addFN0.done) ? 1'd1;
         }
     }
 
     control {
-        add_std_format;
+        seq {
+            add_std_format;
+        }
     }
 }
