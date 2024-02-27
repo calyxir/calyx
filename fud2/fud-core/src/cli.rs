@@ -64,6 +64,11 @@ pub struct GetResource {
     output: Option<Utf8PathBuf>,
 }
 
+/// list the available states and ops
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "list")]
+pub struct ListCommand {}
+
 /// supported subcommands
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
@@ -73,6 +78,9 @@ pub enum Subcommand {
 
     /// extract a resource file
     GetResource(GetResource),
+
+    /// list the available states and ops
+    List(ListCommand),
 }
 
 #[derive(FromArgs)]
@@ -245,6 +253,10 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
         }
         Some(Subcommand::GetResource(cmd)) => {
             return get_resource(driver, cmd);
+        }
+        Some(Subcommand::List(_)) => {
+            driver.print_info();
+            return Ok(());
         }
         None => {}
     }
