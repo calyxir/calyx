@@ -390,8 +390,6 @@ impl Visitor for CombProp {
     ) -> VisResult {
         let mut rewrites = WireRewriter::default();
 
-        let mut assigns: Vec<ir::Assignment<ir::Nothing>> = Vec::new();
-
         let mut builder: ir::Builder = ir::Builder::new(comp, sigs);
         structure!(builder;
         let cst = constant(1, 1););
@@ -403,12 +401,8 @@ impl Visitor for CombProp {
                 & assign.src.borrow().is_constant(1, 1)
             {
                 self.guard_map.insert(dst_name, assign.guard.clone());
-            } else {
-                assigns.push(assign.clone());
             }
         }
-
-        builder.component.continuous_assignments = assigns;
 
         for assign in &mut builder.component.continuous_assignments {
             // if wire.in = ** guard ** ? 1'd1;
