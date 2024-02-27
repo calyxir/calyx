@@ -1,0 +1,28 @@
+// -p validate -p comb-prop -p dead-cell-removal
+
+import "primitives/core.futil";
+
+component main (@go go: 1) -> () {
+  cells {
+    a = std_wire(1);
+    b = std_wire(1);
+    c = std_wire(32);
+    r = std_reg(32);
+  }
+
+  wires {
+    group c_to_r {
+      r.in = c.out;
+      r.write_en = 1'd1;
+      c_to_r[done] = r.done;
+    }
+
+    a.in = go ? 1'd1;
+    b.in = a.out ? 1'd1;
+    c.in = b.out ? 32'd2; 
+  }
+
+  control {
+    c_to_r;
+  }
+}

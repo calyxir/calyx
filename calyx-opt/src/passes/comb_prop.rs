@@ -210,7 +210,7 @@ impl ConstructVisitor for CombProp {
     }
 
     fn clear_data(&mut self) {
-        /* do nothing */
+        self.guard_map = HashMap::new();
     }
 }
 
@@ -291,6 +291,23 @@ impl CombProp {
         }
     }
 
+    fn find_propagated_guard(
+        &self,
+        guard: Box<ir::Guard<ir::Nothing>>,
+    ) -> Box<ir::Guard<ir::Nothing>> {
+        match *guard {
+            ir::Guard::Port(ref p) => {
+                if let Some(g) =
+                    self.guard_map.get(&p.borrow().get_parent_name())
+                {
+                    return self.find_propagated_guard(Box::clone(g));
+                }
+                guard
+            }
+            _ => guard,
+        }
+    }
+
     fn replace_wire_guard(
         &self,
         guard: ir::Guard<ir::Nothing>,
@@ -299,11 +316,12 @@ impl CombProp {
             match guard {
                 ir::Guard::Port(ref p) => {
                     if Self::parent_is_wire(&p.borrow().parent) {
-                        if let Some(g) =
-                            self.guard_map.get(&p.borrow().get_parent_name())
+                        if self
+                            .guard_map
+                            .get(&p.borrow().get_parent_name())
+                            .is_some()
                         {
-                            let g_clone = g.clone();
-                            return g_clone;
+                            return self.find_propagated_guard(Box::new(guard));
                         }
                     }
                     Box::new(guard)

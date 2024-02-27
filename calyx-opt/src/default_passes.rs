@@ -133,6 +133,7 @@ impl PassManager {
                 GoInsertion,
                 WireInliner,
                 CombProp,
+                DeadCellRemoval,
                 ClkInsertion,
                 ResetInsertion,
                 MergeAssign,
