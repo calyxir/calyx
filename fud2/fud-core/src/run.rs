@@ -233,6 +233,17 @@ impl<'a> Run<'a> {
             self.plan.workdir.clone(),
         );
 
+        // Emit preamble.
+        emitter.var(
+            "build-tool",
+            std::env::current_exe()
+                .expect("executable path unknown")
+                .to_str()
+                .expect("invalid executable name"),
+        )?;
+        emitter.rule("get-rsrc", "$build-tool get-rsrc $out")?;
+        writeln!(emitter.out)?;
+
         // Emit the setup for each operation used in the plan, only once.
         let mut done_setups = HashSet::<SetupRef>::new();
         for (op, _) in &self.plan.steps {
@@ -388,5 +399,10 @@ impl Emitter {
     pub fn arg(&mut self, name: &str, value: &str) -> std::io::Result<()> {
         writeln!(self.out, "  {} = {}", name, value)?;
         Ok(())
+    }
+
+    /// Add a build command to extract a resource file into the build directory.
+    pub fn rsrc(&mut self, filename: &str) -> std::io::Result<()> {
+        self.build_cmd(&[filename], "get-rsrc", &[], &[])
     }
 }
