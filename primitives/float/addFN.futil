@@ -4,6 +4,9 @@ extern "addFN.sv" {
     sigWidth, 
     numWidth
   ](
+    @clk clk: 1,
+    @reset reset: 1,
+    val: 1,
     control: 1,
     subOp: 1,
     a: numWidth,
@@ -11,6 +14,7 @@ extern "addFN.sv" {
     roundingMode: 3
   ) -> (
     out: numWidth,
-    exceptionFlags: 5
+    exceptionFlags: 5,
+    done: 1
   );
 }
