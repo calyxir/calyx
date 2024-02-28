@@ -1,0 +1,19 @@
+extern "mulFN.sv" {
+  primitive mulFN[
+    expWidth,
+    sigWidth,
+    numWidth
+  ](
+    @clk clk: 1,
+    @reset reset: 1,
+    val: 1,
+    control: 1,
+    a: numWidth,
+    b: numWidth,
+    roundingMode: 3
+  ) -> (
+    out: numWidth,
+    exceptionFlags: 5,
+    done: 1
+  );
+}

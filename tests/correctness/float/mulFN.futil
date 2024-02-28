@@ -1,0 +1,39 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/float/mulFN.futil";
+
+component main(@go go: 1) -> (@done done: 1) {
+    cells {
+        @external mem_read_a = comb_mem_d1(32, 1, 1);
+        @external mem_read_b = comb_mem_d1(32, 1, 1);
+        @external mem_write = comb_mem_d1(32, 1, 1);
+        mulFN0 = mulFN(8, 24, 32);
+    }
+
+    wires {
+        group mul_std_format {
+            mem_read_a.addr0 = 1'b0;
+            mulFN0.a = mem_read_a.read_data;
+            
+            mem_read_b.addr0 = 1'b0;
+            mulFN0.b = mem_read_b.read_data;
+
+            mulFN0.val = 1'b1;
+
+            mulFN0.control = 1'b0;
+            mulFN0.roundingMode = 3'b0;
+
+            mem_write.addr0 = 1'b0;
+            mem_write.write_data = mulFN0.out;
+            mem_write.write_en = 1'b1;
+
+            mul_std_format[done] = (mem_write.done & mulFN0.done) ? 1'd1;
+        }
+    }
+
+    control {
+        seq {
+            mul_std_format;
+        }
+    }
+}
