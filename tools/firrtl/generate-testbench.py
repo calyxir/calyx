@@ -7,11 +7,15 @@ def generate_fields(memory_cell_dicts):
     out_str = ""
     for memory_cell_dict in memory_cell_dicts:
          name = memory_cell_dict['cell-name']
-         width = memory_cell_dict['WIDTH'] - 1
-         out_str += f"wire {name}_addr0;\n"
-         out_str += f"wire [{width}:0] {name}_write_data;\n"
+         width = memory_cell_dict['WIDTH']
+         idx_size = memory_cell_dict['IDX_SIZE']
+         if (idx_size > 1):
+              out_str += f"wire [{idx_size-1}:0] {name}_addr0;\n"
+         else:
+              out_str += f"wire {name}_addr0;\n"
+         out_str += f"wire [{width-1}:0] {name}_write_data;\n"
          out_str += f"wire {name}_write_en;\n"
-         out_str += f"wire [{width}:0] {name}_read_data;\n"
+         out_str += f"wire [{width-1}:0] {name}_read_data;\n"
          out_str += f"wire {name}_done;\n\n"
 
     return out_str
@@ -75,7 +79,7 @@ def get_memory_cells(calyx_program):
      memory_cell_dicts = []
      with open(calyx_program) as f:
           for line in f:
-               if "ref" in line and "comb_mem_d1" in line:
+               if ("ref" in line) and "comb_mem_d1" in line:
                     memory_cell_dict = {}
                     # parse line that contains a ref cell
                     memory_cell_dict["cell-name"] = line.lstrip().split()[1]
