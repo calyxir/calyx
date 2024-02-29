@@ -124,6 +124,10 @@ impl Driver {
         }
     }
 
+    /// Concot a plan to carry out the requested build.
+    ///
+    /// This works by searching for a path through the available operations from the input state
+    /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: Request) -> Option<Plan> {
         // Find a path through the states.
         let path =
@@ -164,6 +168,9 @@ impl Driver {
         })
     }
 
+    /// Infer the state of a file based on its extension.
+    ///
+    /// Multiple states can use the same extension. The first state registered "wins."
     pub fn guess_state(&self, path: &Utf8Path) -> Option<StateRef> {
         let ext = path.extension()?;
         self.states
@@ -172,6 +179,7 @@ impl Driver {
             .map(|(state, _)| state)
     }
 
+    /// Look up a state by its name.
     pub fn get_state(&self, name: &str) -> Option<StateRef> {
         self.states
             .iter()
@@ -179,6 +187,7 @@ impl Driver {
             .map(|(state, _)| state)
     }
 
+    /// Look an operation by its name.
     pub fn get_op(&self, name: &str) -> Option<OpRef> {
         self.ops
             .iter()
@@ -189,6 +198,29 @@ impl Driver {
     /// The working directory to use when running a build.
     pub fn default_workdir(&self) -> Utf8PathBuf {
         format!(".{}", &self.name).into()
+    }
+
+    /// Print a list of registered states and operations to stdout.
+    pub fn print_info(&self) {
+        println!("States:");
+        for (_, state) in self.states.iter() {
+            print!("  {}:", state.name);
+            for ext in &state.extensions {
+                print!(" .{}", ext);
+            }
+            println!();
+        }
+
+        println!();
+        println!("Operations:");
+        for (_, op) in self.ops.iter() {
+            println!(
+                "  {}: {} -> {}",
+                op.name,
+                self.states[op.input].name,
+                self.states[op.output].name
+            );
+        }
     }
 }
 
