@@ -251,7 +251,7 @@ checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 
 [[package]]
 name = "calyx"
-version = "0.6.1"
+version = "0.7.1"
 dependencies = [
  "argh",
  "atty",
@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-backend"
-version = "0.6.1"
+version = "0.7.1"
 dependencies = [
  "calyx-frontend",
  "calyx-ir",
@@ -292,7 +292,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-frontend"
-version = "0.6.1"
+version = "0.7.1"
 dependencies = [
  "atty",
  "calyx-utils",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-ir"
-version = "0.6.1"
+version = "0.7.1"
 dependencies = [
  "calyx-frontend",
  "calyx-utils",
@@ -328,7 +328,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-lsp"
-version = "0.6.1"
+version = "0.7.1"
 dependencies = [
  "calyx-frontend",
  "calyx-ir",
@@ -349,7 +349,7 @@ dependencies = [
 
 [[package]]
 name = "calyx-opt"
-version = "0.6.1"
+version = "0.7.1"
 dependencies = [
  "calyx-ir",
  "calyx-utils",
@@ -365,11 +365,11 @@ dependencies = [
 
 [[package]]
 name = "calyx-stdlib"
-version = "0.6.1"
+version = "0.7.1"
 
 [[package]]
 name = "calyx-utils"
-version = "0.6.1"
+version = "0.7.1"
 dependencies = [
  "atty",
  "itertools 0.11.0",
