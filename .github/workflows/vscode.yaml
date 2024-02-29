@@ -12,10 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        working-directory: ./tools/vscode
         with:
           node-version: 21
-      - run: npm ci
+      - name: Node Clean Install
+        working-directory: ./tools/vscode
+        run: npm ci
       - name: Publish to Visual Studio Marketplace
+        working-directory: ./tools/vscode
         uses: HaaLeo/publish-vscode-extension@v1
         with:
           pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
