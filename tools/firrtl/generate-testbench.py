@@ -59,7 +59,7 @@ def generate_memory_dec(memory_cell_dicts):
     .write_data({name}_write_data),
     .write_en({name}_write_en),
 '''
-          if "comb" == module_name:
+          if "comb" in module_name:
                out_str += f"    .done({name}_done)\n"
           else:
                out_str += f'''    .read_en({name}_read_en),
@@ -89,7 +89,7 @@ def generate_main_decl(memory_cell_dicts):
   .{name}_read_data({name}_read_data),
   .{name}_write_en({name}_write_en),
 '''
-          if "comb" == module_name:
+          if "comb" in module_name:
                out_str += f"  .{name}_done({name}_done)"
           else:
                out_str += f'''  .{name}_read_en({name}_read_en),
