@@ -105,6 +105,7 @@ fn emit_component<F: io::Write>(
                 SPACING.repeat(2),
                 port.name
             )?;
+            writeln!(f, "{}{} <= UInt(0)", SPACING.repeat(2), port.name)?;
             dst_set.insert(port.canonical());
         }
     }
