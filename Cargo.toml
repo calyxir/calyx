@@ -91,7 +91,7 @@ default = []
 serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
 
 [build-dependencies]
-calyx-stdlib = { path = "calyx-stdlib", version = "0.6.1" }
+calyx-stdlib = { path = "calyx-stdlib", version = "0.7.1" }
 
 [dependencies]
 atty.workspace = true
