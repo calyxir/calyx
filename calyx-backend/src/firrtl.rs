@@ -95,7 +95,7 @@ fn emit_component<F: io::Write>(
     }
 
     // write invalid statements for all output ports.
-    for (_idx, port_ref) in sig.ports.iter().enumerate() {
+    for port_ref in sig.ports.iter() {
         let port = port_ref.as_ref();
         if port.borrow().direction == calyx_frontend::Direction::Input {
             write_invalid_initialization(port, f)?;
