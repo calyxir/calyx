@@ -129,9 +129,9 @@ Aside from declaring the source and destination states,
 operations generate chunks of [Ninja][] code.
 So to implement an operation, you write a Rust function with this signature:
 
-    fn build(emitter: &mut Emitter, input: &str, output: &str) -> EmitResult
+    fn build(emitter: &mut Emitter, input: &str, output: &str)
 
-Here, `emitter` is a utility object that has a bunch of useful functions for printing out lines of Ninja code.
+Here, `emitter` is a wrapper around an output stream with a bunch of utility functions for printing out lines of Ninja code.
 `input` and `output` are filenames.
 So your job in this function is to print (at least) a Ninja `build` command that produces `output` as a target and uses `input` as a dependency.
 For example, the Calyx-to-Verilog compiler operation might emit this chunk of Ninja code:
@@ -139,7 +139,7 @@ For example, the Calyx-to-Verilog compiler operation might emit this chunk of Ni
     build bar.sv: calyx foo.futil
       backend = verilog
 
-when the `input` argument above is `foo.futil` and the `output` is `bar.sv`.
+when the `input` argument above is `"foo.futil"` and the `output` is `"bar.sv"`.
 (The FudCore library will conjure these filenames for you; your job in this operation is just to use them as is.)
 
 Notice here that the generated Ninja chunk is using a build rule called `calyx`.
@@ -153,7 +153,7 @@ For example, our setup for Calyx compilation generates code like this:
     rule calyx
       command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
 
-That is, it defines two Ninja variables and one Ninja rule---the one that our build command above uses.
+That is, it defines two Ninja variables and one Ninja rule—the one that our build command above uses.
 We *could* have designed FudCore without a separation between setups and operations, so this rule would get declared right next to the `build` command above.
 But that would end up duplicating a lot of setup code that really only needs to appear once.
 So that's why setups exist: to share a single stanza of Ninja scaffolding code between multiple operations.
