@@ -18,9 +18,9 @@ jobs:
         working-directory: ./tools/vscode
         run: npm ci
       - name: Publish to Visual Studio Marketplace
-        working-directory: ./tools/vscode
         uses: HaaLeo/publish-vscode-extension@v1
         with:
           pat: ${{ secrets.VS_MARKETPLACE_TOKEN }}
+          packagePath: ./tools/vscode
           registryUrl: https://marketplace.visualstudio.com
           skipDuplicate: true
