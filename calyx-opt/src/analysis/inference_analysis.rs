@@ -204,7 +204,11 @@ impl InferenceAnalysis {
     /// Note that this expects that the component already is accounted for
     /// in self.latency_data and self.static_component_latencies.
     pub fn remove_component(&mut self, comp_name: ir::Id) {
-        self.updated_components.insert(comp_name);
+        if self.latency_data.contains_key(&comp_name) {
+            // To make inference as strong as possible, only update updated_components
+            // if we actually updated it.
+            self.updated_components.insert(comp_name);
+        }
         self.latency_data.remove(&comp_name);
         self.static_component_latencies.remove(&comp_name);
     }
@@ -216,15 +220,22 @@ impl InferenceAnalysis {
         &mut self,
         (comp_name, adjusted_latency): (ir::Id, u64),
     ) {
-        self.updated_components.insert(comp_name);
+        // Check whether we actually updated the component's latency.
+        let mut updated = false;
         self.latency_data.entry(comp_name).and_modify(|go_done| {
             for (_, _, cur_latency) in &mut go_done.ports {
                 // Updating components with latency data.
-                *cur_latency = adjusted_latency;
+                if *cur_latency != adjusted_latency {
+                    *cur_latency = adjusted_latency;
+                    updated = true;
+                }
             }
         });
         self.static_component_latencies
             .insert(comp_name, adjusted_latency);
+        if updated {
+            self.updated_components.insert(comp_name);
+        }
     }
 
     /// Return true if the edge (`src`, `dst`) meet one these criteria, and false otherwise:
@@ -430,7 +441,7 @@ impl InferenceAnalysis {
             log::debug!("FAIL: No path between @go and @done port");
             return None;
         }
-        let first_path = paths.get(0).unwrap();
+        let first_path = paths.first().unwrap();
 
         // Sum the latencies of each primitive along the path.
         let mut latency_sum = 0;
@@ -500,6 +511,26 @@ impl InferenceAnalysis {
 
     pub fn fixup_seq(&self, seq: &mut ir::Seq) {
         seq.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_par(&self, par: &mut ir::Par) {
+        par.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_if(&self, _if: &mut ir::If) {
+        _if.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_while(&self, _while: &mut ir::While) {
+        _while.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_repeat(&self, repeat: &mut ir::Repeat) {
+        repeat.update_static(&self.static_component_latencies);
+    }
+
+    pub fn fixup_ctrl(&self, ctrl: &mut ir::Control) {
+        ctrl.update_static(&self.static_component_latencies);
     }
 
     /// "Fixes Up" the component. In particular:

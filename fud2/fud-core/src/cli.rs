@@ -51,12 +51,36 @@ pub struct EditConfig {
     pub editor: Option<String>,
 }
 
+/// extract a resource file
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "get-rsrc")]
+pub struct GetResource {
+    /// the filename to extract
+    #[argh(positional)]
+    filename: Utf8PathBuf,
+
+    /// destination for the resource file
+    #[argh(option, short = 'o')]
+    output: Option<Utf8PathBuf>,
+}
+
+/// list the available states and ops
+#[derive(FromArgs, PartialEq, Debug)]
+#[argh(subcommand, name = "list")]
+pub struct ListCommand {}
+
 /// supported subcommands
 #[derive(FromArgs, PartialEq, Debug)]
 #[argh(subcommand)]
 pub enum Subcommand {
     /// edit the configuration file
     EditConfig(EditConfig),
+
+    /// extract a resource file
+    GetResource(GetResource),
+
+    /// list the available states and ops
+    List(ListCommand),
 }
 
 #[derive(FromArgs)]
@@ -167,34 +191,74 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
     })
 }
 
+fn edit_config(driver: &Driver, cmd: EditConfig) -> anyhow::Result<()> {
+    let editor =
+        if let Some(e) = cmd.editor.or_else(|| std::env::var("EDITOR").ok()) {
+            e
+        } else {
+            bail!("$EDITOR not specified. Use -e")
+        };
+    let config_path = config::config_path(&driver.name);
+    log::info!("Editing config at {}", config_path.display());
+    let status = std::process::Command::new(editor)
+        .arg(config_path)
+        .status()
+        .expect("failed to execute editor");
+    if !status.success() {
+        bail!("editor exited with status {}", status);
+    }
+    Ok(())
+}
+
+fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
+    let to_path = cmd.output.as_deref().unwrap_or(&cmd.filename);
+
+    // Try extracting embedded resource data.
+    if let Some(rsrc_files) = &driver.rsrc_files {
+        if let Some(data) = rsrc_files.get(cmd.filename.as_str()) {
+            log::info!("extracting {} to {}", cmd.filename, to_path);
+            std::fs::write(to_path, data)?;
+            return Ok(());
+        }
+    }
+
+    // Try copying a resource file from the resource directory.
+    if let Some(rsrc_dir) = &driver.rsrc_dir {
+        let from_path = rsrc_dir.join(&cmd.filename);
+        if !from_path.exists() {
+            bail!("resource file not found: {}", cmd.filename);
+        }
+        log::info!("copying {} to {}", cmd.filename, to_path);
+        std::fs::copy(from_path, to_path)?;
+        return Ok(());
+    }
+
+    bail!("unknown resource file {}", cmd.filename);
+}
+
 pub fn cli(driver: &Driver) -> anyhow::Result<()> {
     let args: FakeArgs = argh::from_env();
 
-    // enable tracing
+    // Configure logging.
     env_logger::Builder::new()
         .format_timestamp(None)
         .filter_level(args.log_level)
         .target(env_logger::Target::Stderr)
         .init();
 
-    // edit the configuration file
-    if let Some(Subcommand::EditConfig(EditConfig { editor })) = args.sub {
-        let editor =
-            if let Some(e) = editor.or_else(|| std::env::var("EDITOR").ok()) {
-                e
-            } else {
-                bail!("$EDITOR not specified. Use -e")
-            };
-        let config_path = config::config_path(&driver.name);
-        log::info!("Editing config at {}", config_path.display());
-        let status = std::process::Command::new(editor)
-            .arg(config_path)
-            .status()
-            .expect("failed to execute editor");
-        if !status.success() {
-            bail!("editor exited with status {}", status);
+    // Special commands that bypass the normal behavior.
+    match args.sub {
+        Some(Subcommand::EditConfig(cmd)) => {
+            return edit_config(driver, cmd);
         }
-        return Ok(());
+        Some(Subcommand::GetResource(cmd)) => {
+            return get_resource(driver, cmd);
+        }
+        Some(Subcommand::List(_)) => {
+            driver.print_info();
+            return Ok(());
+        }
+        None => {}
     }
 
     // Make a plan.

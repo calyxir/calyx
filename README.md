@@ -49,5 +49,5 @@ You can also use the Calyx compiler as a library and implement your own optimiza
 [`calyx-ir`]: https://crates.io/crates/calyx-ir
 [`calyx-opt`]: https://crates.io/crates/calyx-opt
 [`calyx`]: https://crates.io/crates/calyx
-[circt]: https://docs.calyxir.org/fud/circt.html
+[circt]: https://docs.calyxir.org/running-calyx/fud/circt.html
 [opt-example]: https://docs.rs/calyx-opt/0.2.1/calyx_opt/

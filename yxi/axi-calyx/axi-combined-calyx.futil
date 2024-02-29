@@ -196,7 +196,7 @@ component m_read_channel(
   wires{
 
       RREADY = is_rdy.out;
-      data_received.read_en = 1'b0;
+      data_received.content_en = 1'b0;
 
       // NOTE: xVALID signals must be high until xREADY is high as well, so this works
       // because if xREADY is high (is_rdy.out) then RVALID being high makes 1 flip
@@ -247,7 +247,7 @@ component m_read_channel(
           data_received.addr0 = curr_addr_internal_mem.out;
           data_received.write_en = 1'b1;
           data_received.write_data = read_data_reg.out;
-          receive_r_transfer[done] = data_received.write_done;
+          receive_r_transfer[done] = data_received.done;
 
       }
 
@@ -324,17 +324,17 @@ component vec_add() -> () {
     }
     //modified upd0 and upd1 to use seq_mem correctly
     group upd0<"static"=2> {
-      A_read0_0.write_en = A0.read_done;
+      A_read0_0.write_en = A0.done;
       A0.addr0 = i0.out;
-      A0.read_en = 1'b1;
+      A0.content_en = 1'b1;
       A_read0_0.in = 1'd1 ? A0.read_data;
       upd0[done] = A_read0_0.done ? 1'd1;
     }
     //see comment for upd0
     group upd1<"static"=2> {
-      B_read0_0.write_en = B0.read_done;
+      B_read0_0.write_en = B0.done;
       B0.addr0 = i0.out;
-      B0.read_en = 1'b1;
+      B0.content_en = 1'b1;
       B_read0_0.in = 1'd1 ? B0.read_data;
       upd1[done] = B_read0_0.done ? 1'd1;
     }
@@ -344,7 +344,7 @@ component vec_add() -> () {
       add0.left = A_read0_0.out;
       add0.right = B_read0_0.out;
       Sum0.write_data = 1'd1 ? add0.out;
-      upd2[done] = Sum0.write_done ? 1'd1;
+      upd2[done] = Sum0.done ? 1'd1;
     }
     group upd3<"static"=1> {
       i0.write_en = 1'd1;
@@ -590,7 +590,7 @@ component m_write_channel(
 
         // set data output based on curr_addr_internal_mem register
         internal_mem.addr0 = curr_addr_internal_mem.out;
-        internal_mem.read_en = 1'b1;
+        internal_mem.content_en = 1'b1;
         WDATA = internal_mem.read_data;
 
         //set wlast
