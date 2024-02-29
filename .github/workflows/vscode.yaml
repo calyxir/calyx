@@ -1,7 +1,7 @@
 on:
   push:
     branches:
-      - vscode_publish
+      - main
     tags:
       - "*"
 
