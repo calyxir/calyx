@@ -149,11 +149,8 @@ fn build_driver(bld: &mut DriverBuilder) {
 
     // Icarus Verilog.
     let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
-<<<<<<< HEAD
-=======
     let verilog_refmem = bld.state("verilog-refmem", &["sv"]);
     let verilog_noverify_refmem = bld.state("verilog-noverify-refmem", &["sv"]); // Need to use alternative testbench.
->>>>>>> 77297942... Fix fud2 to produce custom testbench. This is a bit hacky
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
         e.rule("icarus-compile", "$iverilog -g2012 -o $out tb.sv $in")?;
@@ -178,9 +175,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         verilog_noverify,
         simulator,
         |e, input, output| {
-<<<<<<< HEAD
-            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
-=======
             e.build("icarus-compile", input, output)?;
             Ok(())
         },
@@ -192,7 +186,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         |e, input, output| {
             e.build("icarus-compile", input, output)?;
->>>>>>> 77297942... Fix fud2 to produce custom testbench. This is a bit hacky
             Ok(())
         },
     );
@@ -241,7 +234,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         )?;
 
         e.rule("dummy", "cat $in $out")?;
-        
         Ok(())
     });
 
@@ -275,7 +267,6 @@ fn build_driver(bld: &mut DriverBuilder) {
                 &[tmp_firrtl, tmp_json, dummy_testbench],
                 &[],
             )?;
->>>>>>> 77297942... Fix fud2 to produce custom testbench. This is a bit hacky
             Ok(())
         },
     );
@@ -309,8 +300,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     }
     bld.op("firrtl", &[firrtl_setup], firrtl, verilog, firrtl_compile);
-<<<<<<< HEAD
-=======
     bld.op(
         "firrtl-with-primitives-compile",
         &[firrtl_setup],
@@ -318,7 +307,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         verilog_refmem,
         firrtl_with_primitives_compile,
     );
->>>>>>> 77297942... Fix fud2 to produce custom testbench. This is a bit hacky
     // This is a bit of a hack, but the Icarus-friendly "noverify" state is identical for this path
     // (since FIRRTL compilation doesn't come with verification).
     bld.op(
@@ -328,8 +316,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         verilog_noverify,
         firrtl_compile,
     );
-<<<<<<< HEAD
-=======
     bld.op(
         "firrtl-with-primitives-noverify",
         &[firrtl_setup],
@@ -337,7 +323,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         verilog_noverify_refmem,
         firrtl_with_primitives_compile,
     );
->>>>>>> 77297942... Fix fud2 to produce custom testbench. This is a bit hacky
 
     // primitive-uses backend
     let primitive_uses_json = bld.state("primitive-uses-json", &["json"]);
@@ -359,11 +344,7 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile",
-<<<<<<< HEAD
-            "$verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
-=======
             "$verilator $in $testbench $additional_input --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
->>>>>>> 77297942... Fix fud2 to produce custom testbench. This is a bit hacky
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
@@ -373,21 +354,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         &[sim_setup, verilator_setup],
         verilog,
         simulator,
-<<<<<<< HEAD
-        |e, input, output| {
-            let out_dir = "verilator-out";
-            let sim_bin = format!("{}/VTOP", out_dir);
-            e.build_cmd(
-                &[&sim_bin],
-                "verilator-compile",
-                &[input],
-                &["tb.sv"],
-            )?;
-            e.arg("out-dir", out_dir)?;
-            e.build("cp", &sim_bin, output)?;
-            Ok(())
-        },
-=======
         verilator_build,
     );
     bld.op(
@@ -396,7 +362,6 @@ fn build_driver(bld: &mut DriverBuilder) {
         verilog_refmem,
         simulator,
         verilator_build,
->>>>>>> 77297942... Fix fud2 to produce custom testbench. This is a bit hacky
     );
 
     // Interpreter.
