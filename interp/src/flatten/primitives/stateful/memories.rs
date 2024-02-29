@@ -110,169 +110,28 @@ impl Primitive for StdReg {
     }
 }
 
-pub trait MemAddresser {
-    const NON_ADDRESS_BASE: usize;
-
-    fn calculate_addr(
-        &self,
-        port_map: &PortMap,
-        base_port: GlobalPortIdx,
-    ) -> Option<usize>;
-
-    fn get_dimensions(&self) -> Shape;
+pub struct MemDx<const SEQ: bool> {
+    shape: Shape,
 }
 
-pub struct MemD1<const SEQ: bool> {
-    d0_size: usize,
-}
-
-impl<const SEQ: bool> MemAddresser for MemD1<SEQ> {
-    fn calculate_addr(
-        &self,
-        port_map: &PortMap,
-        base_port: GlobalPortIdx,
-    ) -> Option<usize> {
-        let addr0 = if SEQ {
-            ports![&base_port; addr0: Self::SEQ_ADDR0];
-            addr0
-        } else {
-            ports![&base_port; addr0: Self::COMB_ADDR0];
-            addr0
-        };
-
-        port_map[addr0].as_usize()
+impl<const SEQ: bool> MemDx<SEQ> {
+    pub fn new<T>(shape: T) -> Self
+    where
+        T: Into<Shape>,
+    {
+        Self {
+            shape: shape.into(),
+        }
     }
 
-    const NON_ADDRESS_BASE: usize = if SEQ {
-        Self::SEQ_ADDR0 + 1
-    } else {
-        Self::COMB_ADDR0 + 1
-    };
-
-    fn get_dimensions(&self) -> Shape {
-        Shape::D1((self.d0_size,))
-    }
-}
-
-impl<const SEQ: bool> MemD1<SEQ> {
-    declare_ports![SEQ_ADDR0: 2, COMB_ADDR0: 0];
-}
-
-pub struct MemD2<const SEQ: bool> {
-    d0_size: usize,
-    d1_size: usize,
-}
-
-impl<const SEQ: bool> MemD2<SEQ> {
-    declare_ports![SEQ_ADDR0: 2, COMB_ADDR0: 0, SEQ_ADDR1: 3, COMB_ADDR1: 1];
-}
-
-impl<const SEQ: bool> MemAddresser for MemD2<SEQ> {
-    fn calculate_addr(
-        &self,
-        port_map: &PortMap,
-        base_port: GlobalPortIdx,
-    ) -> Option<usize> {
-        let (addr0, addr1) = if SEQ {
-            ports![&base_port;
-                addr0: Self::SEQ_ADDR0,
-                addr1: Self::SEQ_ADDR1];
-            (addr0, addr1)
-        } else {
-            ports![&base_port;
-                addr0: Self::COMB_ADDR0,
-                addr1: Self::COMB_ADDR1];
-            (addr0, addr1)
-        };
-
-        let a0 = port_map[addr0].as_usize()?;
-        let a1 = port_map[addr1].as_usize()?;
-
-        Some(a0 * self.d1_size + a1)
-    }
-
-    const NON_ADDRESS_BASE: usize = if SEQ {
-        Self::SEQ_ADDR1 + 1
-    } else {
-        Self::COMB_ADDR1 + 1
-    };
-
-    fn get_dimensions(&self) -> Shape {
-        Shape::D2((self.d0_size, self.d1_size))
-    }
-}
-
-pub struct MemD3<const SEQ: bool> {
-    d0_size: usize,
-    d1_size: usize,
-    d2_size: usize,
-}
-
-impl<const SEQ: bool> MemD3<SEQ> {
-    declare_ports![SEQ_ADDR0: 2, COMB_ADDR0: 0,
-                   SEQ_ADDR1: 3, COMB_ADDR1: 1,
-                   SEQ_ADDR2: 4, COMB_ADDR2: 2];
-}
-
-impl<const SEQ: bool> MemAddresser for MemD3<SEQ> {
-    fn calculate_addr(
-        &self,
-        port_map: &PortMap,
-        base_port: GlobalPortIdx,
-    ) -> Option<usize> {
-        let (addr0, addr1, addr2) = if SEQ {
-            ports![&base_port;
-                addr0: Self::SEQ_ADDR0,
-                addr1: Self::SEQ_ADDR1,
-                addr2: Self::SEQ_ADDR2
-            ];
-            (addr0, addr1, addr2)
-        } else {
-            ports![&base_port;
-                addr0: Self::COMB_ADDR0,
-                addr1: Self::COMB_ADDR1,
-                addr2: Self::COMB_ADDR2
-            ];
-
-            (addr0, addr1, addr2)
-        };
-
-        let a0 = port_map[addr0].as_usize()?;
-        let a1 = port_map[addr1].as_usize()?;
-        let a2 = port_map[addr2].as_usize()?;
-
-        Some(a0 * (self.d1_size * self.d2_size) + a1 * self.d2_size + a2)
-    }
-
-    const NON_ADDRESS_BASE: usize = if SEQ {
-        Self::SEQ_ADDR2 + 1
-    } else {
-        Self::COMB_ADDR2 + 1
-    };
-
-    fn get_dimensions(&self) -> Shape {
-        Shape::D3((self.d0_size, self.d1_size, self.d2_size))
-    }
-}
-
-pub struct MemD4<const SEQ: bool> {
-    d0_size: usize,
-    d1_size: usize,
-    d2_size: usize,
-    d3_size: usize,
-}
-
-impl<const SEQ: bool> MemD4<SEQ> {
     declare_ports![
         SEQ_ADDR0: 2, COMB_ADDR0: 0,
         SEQ_ADDR1: 3, COMB_ADDR1: 1,
         SEQ_ADDR2: 4, COMB_ADDR2: 2,
         SEQ_ADDR3: 5, COMB_ADDR3: 3
     ];
-}
 
-impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
-    fn calculate_addr(
+    pub fn calculate_addr(
         &self,
         port_map: &PortMap,
         base_port: GlobalPortIdx,
@@ -296,49 +155,78 @@ impl<const SEQ: bool> MemAddresser for MemD4<SEQ> {
             (addr0, addr1, addr2, addr3)
         };
 
-        let a0 = port_map[addr0].as_usize()?;
-        let a1 = port_map[addr1].as_usize()?;
-        let a2 = port_map[addr2].as_usize()?;
-        let a3 = port_map[addr3].as_usize()?;
+        match self.shape {
+            Shape::D1(_d0_size) => port_map[addr0].as_usize(),
+            Shape::D2(_d0_size, d1_size) => {
+                let a0 = port_map[addr0].as_usize()?;
+                let a1 = port_map[addr1].as_usize()?;
 
-        Some(
-            a0 * (self.d1_size * self.d2_size * self.d3_size)
-                + a1 * (self.d2_size * self.d3_size)
-                + a2 * self.d3_size
-                + a3,
-        )
+                Some(a0 * d1_size + a1)
+            }
+            Shape::D3(_d0_size, d1_size, d2_size) => {
+                let a0 = port_map[addr0].as_usize()?;
+                let a1 = port_map[addr1].as_usize()?;
+                let a2 = port_map[addr2].as_usize()?;
+
+                Some(a0 * (d1_size * d2_size) + a1 * d2_size + a2)
+            }
+            Shape::D4(_d0_size, d1_size, d2_size, d3_size) => {
+                let a0 = port_map[addr0].as_usize()?;
+                let a1 = port_map[addr1].as_usize()?;
+                let a2 = port_map[addr2].as_usize()?;
+                let a3 = port_map[addr3].as_usize()?;
+
+                Some(
+                    a0 * (d1_size * d2_size * d3_size)
+                        + a1 * (d2_size * d3_size)
+                        + a2 * d3_size
+                        + a3,
+                )
+            }
+        }
     }
 
-    const NON_ADDRESS_BASE: usize = if SEQ {
-        Self::SEQ_ADDR3 + 1
-    } else {
-        Self::COMB_ADDR3 + 1
-    };
+    pub fn non_address_base(&self) -> usize {
+        if SEQ {
+            match self.shape {
+                Shape::D1(_) => Self::SEQ_ADDR0 + 1,
+                Shape::D2(_, _) => Self::SEQ_ADDR1 + 1,
+                Shape::D3(_, _, _) => Self::SEQ_ADDR2 + 1,
+                Shape::D4(_, _, _, _) => Self::SEQ_ADDR3 + 1,
+            }
+        } else {
+            match self.shape {
+                Shape::D1(_) => Self::COMB_ADDR0 + 1,
+                Shape::D2(_, _) => Self::COMB_ADDR1 + 1,
+                Shape::D3(_, _, _) => Self::COMB_ADDR2 + 1,
+                Shape::D4(_, _, _, _) => Self::COMB_ADDR3 + 1,
+            }
+        }
+    }
 
-    fn get_dimensions(&self) -> Shape {
-        Shape::D4((self.d0_size, self.d1_size, self.d2_size, self.d3_size))
+    pub fn get_dimensions(&self) -> Shape {
+        self.shape.clone()
     }
 }
 
-pub struct CombMem<M: MemAddresser> {
+pub struct CombMem {
     base_port: GlobalPortIdx,
     internal_state: Vec<Value>,
     // TODO griffin: This bool is unused in the actual struct and should either
     // be removed or
     _allow_invalid_access: bool,
     _width: u32,
-    addresser: M,
+    addresser: MemDx<false>,
     done_is_high: bool,
 }
-
-impl<M: MemAddresser> CombMem<M> {
+impl CombMem {
     declare_ports![
-        WRITE_DATA: M::NON_ADDRESS_BASE,
-        WRITE_EN: M::NON_ADDRESS_BASE + 1,
-        _CLK: M::NON_ADDRESS_BASE + 2,
-        RESET: M::NON_ADDRESS_BASE + 3,
-        READ_DATA: M::NON_ADDRESS_BASE + 4,
-        DONE: M::NON_ADDRESS_BASE + 5
+        WRITE_DATA:0,
+        WRITE_EN: 1,
+        _CLK: 2,
+        RESET: 3,
+        READ_DATA: 4,
+        DONE: 5
     ];
 
     make_getters![base_port;
@@ -348,9 +236,31 @@ impl<M: MemAddresser> CombMem<M> {
         read_data: Self::READ_DATA,
         done: Self::DONE
     ];
+
+    pub fn new<T>(
+        base: GlobalPortIdx,
+        width: u32,
+        allow_invalid: bool,
+        size: T,
+    ) -> Self
+    where
+        T: Into<Shape>,
+    {
+        let shape = size.into();
+        let internal_state = vec![Value::zeroes(width); shape.len()];
+
+        Self {
+            base_port: base,
+            internal_state,
+            _allow_invalid_access: allow_invalid,
+            _width: width,
+            addresser: MemDx::new(shape),
+            done_is_high: false,
+        }
+    }
 }
 
-impl<M: MemAddresser> Primitive for CombMem<M> {
+impl Primitive for CombMem {
     fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         let addr = self.addresser.calculate_addr(port_map, self.base_port);
         let read_data = self.read_data();
@@ -435,102 +345,19 @@ impl<M: MemAddresser> Primitive for CombMem<M> {
     }
 }
 
+pub struct SeqMem {
+    base_port: GlobalPortIdx,
+    internal_state: Vec<Value>,
+    // TODO griffin: This bool is unused in the actual struct and should either
+    // be removed or
+    _allow_invalid_access: bool,
+    _width: u32,
+    addresser: MemDx<true>,
+    done_is_high: bool,
+}
+
 // type aliases
-pub type CombMemD1 = CombMem<MemD1<false>>;
-pub type CombMemD2 = CombMem<MemD2<false>>;
-pub type CombMemD3 = CombMem<MemD3<false>>;
-pub type CombMemD4 = CombMem<MemD4<false>>;
-
-impl CombMemD1 {
-    pub fn new(
-        base: GlobalPortIdx,
-        width: u32,
-        allow_invalid: bool,
-        size: usize,
-    ) -> Self {
-        let internal_state = vec![Value::zeroes(width); size];
-
-        Self {
-            base_port: base,
-            internal_state,
-            _allow_invalid_access: allow_invalid,
-            _width: width,
-            addresser: MemD1::<false> { d0_size: size },
-            done_is_high: false,
-        }
-    }
-}
-
-impl CombMemD2 {
-    pub fn new(
-        base: GlobalPortIdx,
-        width: u32,
-        allow_invalid: bool,
-        size: (usize, usize),
-    ) -> Self {
-        let internal_state = vec![Value::zeroes(width); size.0 * size.1];
-
-        Self {
-            base_port: base,
-            internal_state,
-            _allow_invalid_access: allow_invalid,
-            _width: width,
-            addresser: MemD2::<false> {
-                d0_size: size.0,
-                d1_size: size.1,
-            },
-            done_is_high: false,
-        }
-    }
-}
-
-impl CombMemD3 {
-    pub fn new(
-        base: GlobalPortIdx,
-        width: u32,
-        allow_invalid: bool,
-        size: (usize, usize, usize),
-    ) -> Self {
-        let internal_state =
-            vec![Value::zeroes(width); size.0 * size.1 * size.2];
-
-        Self {
-            base_port: base,
-            internal_state,
-            _allow_invalid_access: allow_invalid,
-            _width: width,
-            addresser: MemD3::<false> {
-                d0_size: size.0,
-                d1_size: size.1,
-                d2_size: size.2,
-            },
-            done_is_high: false,
-        }
-    }
-}
-
-impl CombMemD4 {
-    pub fn new(
-        base: GlobalPortIdx,
-        width: u32,
-        allow_invalid: bool,
-        size: (usize, usize, usize, usize),
-    ) -> Self {
-        let internal_state =
-            vec![Value::zeroes(width); size.0 * size.1 * size.2 * size.3];
-
-        Self {
-            base_port: base,
-            internal_state,
-            _allow_invalid_access: allow_invalid,
-            _width: width,
-            addresser: MemD4::<false> {
-                d0_size: size.0,
-                d1_size: size.1,
-                d2_size: size.2,
-                d3_size: size.3,
-            },
-            done_is_high: false,
-        }
-    }
-}
+pub type CombMemD1 = CombMem;
+pub type CombMemD2 = CombMem;
+pub type CombMemD3 = CombMem;
+pub type CombMemD4 = CombMem;
