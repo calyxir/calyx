@@ -481,6 +481,13 @@ fud e {} -s verilog.cycle_limit 500 \
          --to dat -q
 """
 
+[[tests]]
+name = "calyx-py AXI wrapper generation"
+paths = ["yxi/axi-calyx/axi-generator.py"]
+cmd = """
+python3 {}
+"""
+
 ##### Xilinx Tests ######
 [[tests]]
 name = "AXI wrapper generation"
