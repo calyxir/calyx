@@ -1,5 +1,11 @@
 # Editor Highlighting
 
+## Language Server
+
+There is a Calyx language server that provides jump-to-definition and completion support. Instructions for intsalling it are [here](./language-server.md).
+
+If you are using any of the `unsyn-*` primitives, you will need to tell the language server to use the Calyx repo as the library location instead of the default `~/.calyx`. Below, there are instructions on how to do this for each editor.
+
 ## Vim
 
 The vim extension highlights files with the extension `.futil`.
@@ -17,36 +23,43 @@ And run:
 :PlugInstall
 ```
 
+If you use lazy.nvim, you can add the following block:
+
+```lua
+{
+  dir = "<path-to-calyx>/tools/vim/futil",
+  config = function()
+    require("futil").setup({
+      -- optionally specify a custom library location
+      calyxLsp = {
+        libraryPaths = {
+          "<path-to-calyx>"
+        }
+      }
+    })
+  end
+}
+```
+
 ## Emacs
 
-`futil-mode` is implements highlighting for `.futil` files in emacs.
-It is located in `<repo>/tools/emacs/futil-mode`.
+`calyx-mode` is implements tree-sitter based highlighting for `.futil` files in emacs. It's located [here](calyx-mode).
 
-The `highlight-numbers` package is required as part of `futil-mode`, install it:
+You can install it with `straight.el` or `elpaca` like so:
+
+```lisp
+(use-package calyx-mode
+  :<elpaca|straight> (calyx-mode :host github :repo "sgpthomas/calyx-mode")
+  :config
+  (setq-default eglot-workspace-configuration
+                '(:calyx-lsp (:library-paths ["<path-to-calyx>"]))))
 ```
-M-x package-install RET highlight-numbers RET
-```
-
-Clone the repository, add the above path to your [load path][], and require
-`futil-mode` in your `.emacs` file:
-```elisp
-(push "~/.emacs.d/private/local/futil-mode" load-path)
-(require 'futil-mode)
-```
-
-If you use [Spacemacs][], you would add this to `dotspacemacs/user-config`
-in your `.spacemacs`.
-
 
 ## Visual Studio Code
 
-Add a link to the Calyx VSCode extension directory to your VSCode extensions directory.
-```
-cd $HOME/.vscode/extensions
-ln -s <calyx root directory>/tools/vscode calyx.calyx-0.0.1
-```
-Restart VSCode.
+You can install the Calyx extension from the extension store. To specify a custom library location, go to the Calyx extension settings, and edit the `calyxLsp.libraryPaths` key to point to the root Calyx repository.
 
 [vim-plug]: https://github.com/junegunn/vim-plug
 [spacemacs]: https://www.spacemacs.org/
 [load path]: http://www.emacswiki.org/emacs/LoadPath
+[calyx-mode]: https://github.com/sgpthomas/calyx-mode
