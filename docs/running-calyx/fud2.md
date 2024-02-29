@@ -101,10 +101,10 @@ No need to read any farther if all you want is to *use* fud2.
 
 fud2 consists of two pieces, which are two separate Rust crates:
 
-* `fud-core` is a *generic compiler driver* library. This library is not specific to Calyx and could hypothetically be used to build a fud2-like driver for any compiler ecosystem. Clients of the `fud-core` library work by constructing a `Driver` object that encapsulates a set of *states* and *operations* that define the driver's behavior.
-* `fud2` is a program that uses the `fud-core` library. All of the Calyx-specific logic lives in `fud2`. For the most part, all of the code in the `fud2` crate consists of declaring a bunch of states and operations. The `main` function does little more than dispatch to the resulting `Driver` object's generic command-line interface.
+* FudCore (the `fud-core` crate): is a *generic compiler driver* library. This library is not specific to Calyx and could hypothetically be used to build a fud2-like driver for any compiler ecosystem. Clients of the `fud-core` library work by constructing a `Driver` object that encapsulates a set of *states* and *operations* that define the driver's behavior.
+* fud2 itself is a program that uses the FudCore library. All of the Calyx-specific logic lives in `fud2`. For the most part, all of the code in the `fud2` crate consists of declaring a bunch of states and operations. The `main` function does little more than dispatch to the resulting `Driver` object's generic command-line interface.
 
-The central design philosophy of `fud-core` (and by extension, fud2 itself) is that its sole job is to orchestrate external functionality.
+The central design philosophy of FudCore (and by extension, fud2 itself) is that its sole job is to orchestrate external functionality.
 All that functionality must be available as separate tools that can be invoked via the command line.
 This is an important goal because it means the driver has a clear, discrete goal: *all it does* is decide on a list of commands to execute to perform a build.
 All the "interesting work" must be delegated to separate tools outside of the driver.
@@ -119,7 +119,7 @@ Then "all you need to do" is teach fud2 to execute those commands.
 
 ### States, Operations, and Setups
 
-You can think of a `fud-core` driver as a graph, where the vertices are *states* and the edges are *operations*.
+You can think of a FudCore driver as a graph, where the vertices are *states* and the edges are *operations*.
 (In fact, this is literally the graph you can visualize with `-m dot`.)
 Any build is a transformation from one state to another, traversing a path through this graph.
 The operations (edges) along this path are the commands that must be executed to transform a file from the initial state to the final state.
@@ -140,11 +140,11 @@ For example, the Calyx-to-Verilog compiler operation might emit this chunk of Ni
       backend = verilog
 
 when the `input` argument above is `foo.futil` and the `output` is `bar.sv`.
-(The `fud-core` library will conjure these filenames for you; your job in this operation is just to use them as is.)
+(The FudCore library will conjure these filenames for you; your job in this operation is just to use them as is.)
 
 Notice here that the generated Ninja chunk is using a build rule called `calyx`.
 This also needs to be defined.
-To set up things like variables and build rules that operations can use, `fud-core` has a separate concept called *setups*.
+To set up things like variables and build rules that operations can use, FudCore has a separate concept called *setups*.
 A setup is a function that generates some Ninja code that might be shared among multiple operations (or multiple instances of the same operation).
 For example, our setup for Calyx compilation generates code like this:
 
@@ -154,6 +154,6 @@ For example, our setup for Calyx compilation generates code like this:
       command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
 
 That is, it defines two Ninja variables and one Ninja rule---the one that our build command above uses.
-We *could* have designed `fud-core` without a separation between setups and operations, so this rule would get declared right next to the `build` command above.
+We *could* have designed FudCore without a separation between setups and operations, so this rule would get declared right next to the `build` command above.
 But that would end up duplicating a lot of setup code that really only needs to appear once.
 So that's why setups exist: to share a single stanza of Ninja scaffolding code between multiple operations.
