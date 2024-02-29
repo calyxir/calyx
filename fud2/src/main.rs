@@ -2,7 +2,7 @@ use fud_core::{
     cli,
     exec::{SetupRef, StateRef},
     run::{EmitResult, Emitter},
-    DriverBuilder,
+    Driver, DriverBuilder,
 };
 
 fn setup_calyx(
@@ -68,15 +68,17 @@ fn setup_mrxl(
     (mrxl, mrxl_setup)
 }
 
-fn build_driver(bld: &mut DriverBuilder) {
+fn build_driver() -> Driver {
+    let mut bld = DriverBuilder::new("fud2");
+
     // The verilog state
     let verilog = bld.state("verilog", &["sv", "v"]);
     // Calyx.
-    let (calyx, calyx_setup) = setup_calyx(bld, verilog);
+    let (calyx, calyx_setup) = setup_calyx(&mut bld, verilog);
     // Dahlia.
-    setup_dahlia(bld, calyx);
+    setup_dahlia(&mut bld, calyx);
     // MrXL.
-    setup_mrxl(bld, calyx);
+    setup_mrxl(&mut bld, calyx);
 
     // Shared machinery for RTL simulators.
     let dat = bld.state("dat", &["json"]);
@@ -85,12 +87,12 @@ fn build_driver(bld: &mut DriverBuilder) {
     let sim_setup = bld.setup("RTL simulation", |e| {
         // Data conversion to and from JSON.
         e.config_var_or("python", "python", "python3")?;
-        e.rsrc("json-dat.py")?;
-        e.rule("hex-data", "$python json-dat.py --from-json $in $out")?;
-        e.rule("json-data", "$python json-dat.py --to-json $out $in")?;
-
-        // The Verilog testbench.
-        e.rsrc("tb.sv")?;
+        e.var(
+            "json_dat",
+            &format!("$python {}/json-dat.py", e.config_val("rsrc")?),
+        )?;
+        e.rule("hex-data", "$json_dat --from-json $in $out")?;
+        e.rule("json-data", "$json_dat --to-json $out $in")?;
 
         // The input data file. `sim.data` is required.
         let data_name = e.config_val("sim.data")?;
@@ -99,12 +101,7 @@ fn build_driver(bld: &mut DriverBuilder) {
 
         // Produce the data directory.
         e.var("datadir", "sim_data")?;
-        e.build_cmd(
-            &["$datadir"],
-            "hex-data",
-            &["$sim_data"],
-            &["json-dat.py"],
-        )?;
+        e.build("hex-data", "$sim_data", "$datadir")?;
 
         // Rule for simulation execution.
         e.rule(
@@ -117,6 +114,12 @@ fn build_driver(bld: &mut DriverBuilder) {
 
         Ok(())
     });
+    // If we pass through firrtl-with-primitives, it will set its own custom refmem testbench.
+    let testbench_normal_setup = bld.setup("Normal Testbench Setup", |e| {
+        // The Verilog testbench.
+        e.var("testbench", &format!("{}/tb.sv", e.config_val("rsrc")?))?;
+        Ok(())
+    });
     bld.op(
         "simulate",
         &[sim_setup],
@@ -126,12 +129,7 @@ fn build_driver(bld: &mut DriverBuilder) {
             e.build_cmd(&["sim.log"], "sim-run", &[input, "$datadir"], &[])?;
             e.arg("bin", input)?;
             e.arg("args", "+NOTRACE=1")?;
-            e.build_cmd(
-                &[output],
-                "json-data",
-                &["$datadir", "sim.log"],
-                &["json-dat.py"],
-            )?;
+            e.build_cmd(&[output], "json-data", &["$datadir", "sim.log"], &[])?;
             Ok(())
         },
     );
@@ -153,7 +151,10 @@ fn build_driver(bld: &mut DriverBuilder) {
     let verilog_noverify_refmem = bld.state("verilog-noverify-refmem", &["sv"]); // Need to use alternative testbench.
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
-        e.rule("icarus-compile", "$iverilog -g2012 -o $out tb.sv $in")?;
+        e.rule(
+            "icarus-compile",
+            "$iverilog -g2012 -o $out $testbench $additional_input $in",
+        )?;
         Ok(())
     });
     bld.op(
@@ -171,7 +172,7 @@ fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "icarus",
-        &[sim_setup, icarus_setup],
+        &[sim_setup, testbench_normal_setup, icarus_setup],
         verilog_noverify,
         simulator,
         |e, input, output| {
@@ -192,25 +193,37 @@ fn build_driver(bld: &mut DriverBuilder) {
 
     // Calyx to FIRRTL.
     let firrtl = bld.state("firrtl", &["fir"]);
-    bld.op(
-        "calyx-to-firrtl",
-        &[calyx_setup],
-        calyx,
-        firrtl,
-        |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
-            e.arg("backend", "firrtl")?;
-<<<<<<< HEAD
-=======
-            e.arg("args", "--emit-primitive-extmodules")?;
-            Ok(())
-        },
-    );
 
-    let firrtl_primitives_setup = bld.setup("FIRRTL with primitives", |e| {
+    // setup for custom testbench to be used with FIRRTL backend
+    let firrtl_testbench_setup = bld.setup("FIRRTL testbench setup", |e| {
         // Convert all @external cells to ref cells.
         e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
-        
+
+        // Produce a custom testbench that handles memory reading and writing.
+        e.var("testbench", "refmem_tb.sv")?;
+        e.var(
+            "gen-testbench-script",
+            "$calyx-base/tools/firrtl/generate-testbench.py",
+        )?;
+        e.var(
+            "additional_input",
+            &format!("{}/memories.sv", e.config_val("rsrc")?),
+        )?;
+
+        e.rule(
+            "generate-refmem-testbench",
+            "python3 $gen-testbench-script $in | tee $testbench $out",
+        )?;
+
+        // dummy rule to force ninja to build the testbench
+        e.var("dummy-script", &format!("{}/dummy.sh", e.config_val("rsrc")?))?;
+        e.rule("dummy", "bash $dummy-script $in > $out")?;
+
+        Ok(())
+    });
+
+    // setup for FIRRTL-implemented primitives
+    let firrtl_primitives_setup = bld.setup("FIRRTL with primitives", |e| {
         // Produce FIRRTL with FIRRTL-defined primitives.
         e.var(
             "gen-firrtl-primitives-script",
@@ -221,26 +234,39 @@ fn build_driver(bld: &mut DriverBuilder) {
             "python3 $gen-firrtl-primitives-script $in > $out",
         )?;
 
-        // Produce a custom testbench that handles memory reading and writing.
-        e.var("testbench", "refmem_tb.sv")?;
-        e.var(
-            "gen-testbench-script",
-            "$calyx-base/tools/firrtl/generate-testbench.py"
-        )?;
-        e.var("additional_input", &format!("{}/memories.sv", e.config_val("rsrc")?))?;
-
-        e.rule("generate-refmem-testbench",
-        "python3 $gen-testbench-script $in | tee $testbench $out"
-        )?;
-
-        e.rule("dummy", "cat $in $out")?;
         Ok(())
     });
+
+    let firrtl_with_primitives = bld.state("firrtl-with-primitives", &["fir"]);
+    bld.op(
+        "calyx-to-firrtl",
+        &[calyx_setup, firrtl_testbench_setup],
+        calyx,
+        firrtl,
+        |e, input, output| {
+            let tmp_calyx = "partial.futil";
+            let dummy_testbench = "refmem-tb-copy.sv";
+            let tmp_out = "dummy-out.fir";
+            e.build_cmd(&[tmp_calyx], "external-to-ref", &[input], &[])?;
+            // generate the testbench
+            e.build_cmd(
+                &[dummy_testbench],
+                "generate-refmem-testbench",
+                &[tmp_calyx],
+                &[],
+            )?;
+            e.build_cmd(&[tmp_out], "calyx", &[tmp_calyx], &[])?;
+            e.arg("backend", "firrtl")?;
+            e.arg("args", "--emit-primitive-extmodules --synthesis")?;
+            e.build_cmd(&[output], "dummy", &[tmp_out, dummy_testbench], &[])?;
+            Ok(())
+        },
+    );
 
     // Generates FIRRTL with FIRRTL definition of primitives
     bld.op(
         "firrtl-with-primitives",
-        &[calyx_setup, firrtl_primitives_setup],
+        &[calyx_setup, firrtl_primitives_setup, firrtl_testbench_setup],
         calyx,
         firrtl_with_primitives,
         |e, input, output| {
@@ -251,7 +277,12 @@ fn build_driver(bld: &mut DriverBuilder) {
             // replace extmodule with ref
             e.build_cmd(&[tmp_calyx], "external-to-ref", &[input], &[])?;
             // generate the testbench
-            e.build_cmd(&[dummy_testbench], "generate-refmem-testbench", &[tmp_calyx], &[])?;
+            e.build_cmd(
+                &[dummy_testbench],
+                "generate-refmem-testbench",
+                &[tmp_calyx],
+                &[],
+            )?;
             // get original firrtl
             e.build_cmd(&[tmp_firrtl], "calyx", &[tmp_calyx], &[])?;
             e.arg("backend", "firrtl")?;
@@ -276,14 +307,15 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.config_var("firrtl-exe", "firrtl.exe")?;
         e.rule("firrtl", "$firrtl-exe -i $in -o $out -X sverilog")?;
 
-        e.rsrc("primitives-for-firrtl.sv")?;
-        e.rule(
-            "add-firrtl-prims",
-            "cat primitives-for-firrtl.sv $in > $out",
+        e.var(
+            "primitives-for-firrtl",
+            &format!("{}/primitives-for-firrtl.sv", e.config_val("rsrc")?),
         )?;
+        e.rule("add-firrtl-prims", "cat $primitives-for-firrtl $in > $out")?;
 
         Ok(())
     });
+
     fn firrtl_compile(
         e: &mut Emitter,
         input: &str,
@@ -291,15 +323,24 @@ fn build_driver(bld: &mut DriverBuilder) {
     ) -> EmitResult {
         let tmp_verilog = "partial.sv";
         e.build_cmd(&[tmp_verilog], "firrtl", &[input], &[])?;
-        e.build_cmd(
-            &[output],
-            "add-firrtl-prims",
-            &[tmp_verilog],
-            &["primitives-for-firrtl.sv"],
-        )?;
+        e.build_cmd(&[output], "add-firrtl-prims", &[tmp_verilog], &[])?;
         Ok(())
     }
-    bld.op("firrtl", &[firrtl_setup], firrtl, verilog, firrtl_compile);
+    fn firrtl_with_primitives_compile(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
+        e.build_cmd(&[output], "firrtl", &[input], &[])?;
+        Ok(())
+    }
+    bld.op(
+        "firrtl",
+        &[firrtl_setup],
+        firrtl,
+        verilog_refmem,
+        firrtl_compile,
+    );
     bld.op(
         "firrtl-with-primitives-compile",
         &[firrtl_setup],
@@ -313,7 +354,7 @@ fn build_driver(bld: &mut DriverBuilder) {
         "firrtl-noverify",
         &[firrtl_setup],
         firrtl,
-        verilog_noverify,
+        verilog_noverify_refmem,
         firrtl_compile,
     );
     bld.op(
@@ -349,9 +390,21 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.rule("cp", "cp $in $out")?;
         Ok(())
     });
+    fn verilator_build(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
+        let out_dir = "verilator-out";
+        let sim_bin = format!("{}/VTOP", out_dir);
+        e.build("verilator-compile", input, &sim_bin)?;
+        e.arg("out-dir", out_dir)?;
+        e.build("cp", &sim_bin, output)?;
+        Ok(())
+    }
     bld.op(
         "verilator",
-        &[sim_setup, verilator_setup],
+        &[sim_setup, testbench_normal_setup, verilator_setup],
         verilog,
         simulator,
         verilator_build,
@@ -382,25 +435,21 @@ fn build_driver(bld: &mut DriverBuilder) {
         )?;
         e.arg("pool", "console")?;
 
-        // TODO Can we reduce the duplication around and `$python`?
-        e.rsrc("interp-dat.py")?;
+        // TODO Can we reduce the duplication around `rsrc_dir` and `$python`?
+        let rsrc_dir = e.config_val("rsrc")?;
+        e.var("interp-dat", &format!("{}/interp-dat.py", rsrc_dir))?;
         e.config_var_or("python", "python", "python3")?;
-        e.rule("dat-to-interp", "$python interp-dat.py --to-interp $in")?;
+        e.rule("dat-to-interp", "$python $interp-dat --to-interp $in")?;
         e.rule(
             "interp-to-dat",
-            "$python interp-dat.py --from-interp $in $sim_data > $out",
+            "$python $interp-dat --from-interp $in $sim_data > $out",
         )?;
-        e.build_cmd(
-            &["data.json"],
-            "dat-to-interp",
-            &["$sim_data"],
-            &["interp-dat.py"],
-        )?;
+        e.build_cmd(&["data.json"], "dat-to-interp", &["$sim_data"], &[])?;
         Ok(())
     });
     bld.op(
         "interp",
-        &[sim_setup, calyx_setup, cider_setup],
+        &[sim_setup, testbench_normal_setup, calyx_setup, cider_setup],
         calyx,
         dat,
         |e, input, output| {
@@ -410,14 +459,14 @@ fn build_driver(bld: &mut DriverBuilder) {
                 &[output],
                 "interp-to-dat",
                 &[out_file],
-                &["$sim_data", "interp-dat.py"],
+                &["$sim_data"],
             )?;
             Ok(())
         },
     );
     bld.op(
         "debug",
-        &[sim_setup, calyx_setup, cider_setup],
+        &[sim_setup, testbench_normal_setup, calyx_setup, cider_setup],
         calyx,
         debug,
         |e, input, output| {
@@ -435,10 +484,11 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.config_var("vitis-dir", "xilinx.vitis")?;
 
         // Package a Verilog program as an `.xo` file.
-        e.rsrc("gen_xo.tcl")?;
-        e.rsrc("get-ports.py")?;
+        let rsrc_dir = e.config_val("rsrc")?;
+        e.var("gen-xo-tcl", &format!("{}/gen_xo.tcl", rsrc_dir))?;
+        e.var("get-ports", &format!("{}/get-ports.py", rsrc_dir))?;
         e.config_var_or("python", "python", "python3")?;
-        e.rule("gen-xo", "$vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`")?;
+        e.rule("gen-xo", "$vivado-dir/bin/vivado -mode batch -source $gen-xo-tcl -tclargs $out `$python $get-ports kernel.xml`")?;
         e.arg("pool", "console")?;  // Lets Ninja stream the tool output "live."
 
         // Compile an `.xo` file to an `.xclbin` file, which is where the actual EDA work occurs.
@@ -471,13 +521,7 @@ fn build_driver(bld: &mut DriverBuilder) {
                 &[output],
                 "gen-xo",
                 &[],
-                &[
-                    "main.sv",
-                    "toplevel.v",
-                    "kernel.xml",
-                    "gen_xo.tcl",
-                    "get-ports.py",
-                ],
+                &["main.sv", "toplevel.v", "kernel.xml"],
             )?;
             Ok(())
         },
@@ -510,63 +554,44 @@ fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "xrt",
-        &[xilinx_setup, sim_setup, xrt_setup],
+        &[xilinx_setup, sim_setup, testbench_normal_setup, xrt_setup],
         xclbin,
         dat,
         |e, input, output| {
-            e.rsrc("xrt.ini")?;
             e.build_cmd(
                 &[output],
                 "xclrun",
                 &[input, "$sim_data"],
-                &["emconfig.json", "xrt.ini"],
+                &["emconfig.json"],
             )?;
-            e.arg("xrt_ini", "xrt.ini")?;
+            let rsrc_dir = e.config_val("rsrc")?;
+            e.arg("xrt_ini", &format!("{}/xrt.ini", rsrc_dir))?;
             Ok(())
         },
     );
     bld.op(
         "xrt-trace",
-        &[xilinx_setup, sim_setup, xrt_setup],
+        &[xilinx_setup, sim_setup, testbench_normal_setup, xrt_setup],
         xclbin,
         vcd,
         |e, input, output| {
-            e.rsrc("xrt_trace.ini")?;
             e.build_cmd(
                 &[output], // TODO not the VCD, yet...
                 "xclrun",
                 &[input, "$sim_data"],
-                &[
-                    "emconfig.json",
-                    "pre_sim.tcl",
-                    "post_sim.tcl",
-                    "xrt_trace.ini",
-                ],
+                &["emconfig.json", "pre_sim.tcl", "post_sim.tcl"],
             )?;
-            e.arg("xrt_ini", "xrt_trace.ini")?;
+            let rsrc_dir = e.config_val("rsrc")?;
+            e.arg("xrt_ini", &format!("{}/xrt_trace.ini", rsrc_dir))?;
             Ok(())
         },
     );
+
+    bld.build()
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut bld = DriverBuilder::new("fud2");
-    build_driver(&mut bld);
+    let driver = build_driver();
 
-    // In debug mode, get resources from the source directory.
-    #[cfg(debug_assertions)]
-    bld.rsrc_dir(manifest_dir_macros::directory_path!("rsrc"));
-
-    // In release mode, embed resources into the binary.
-    #[cfg(not(debug_assertions))]
-    bld.rsrc_files({
-        const DIR: include_dir::Dir =
-            include_dir::include_dir!("$CARGO_MANIFEST_DIR/rsrc");
-        DIR.files()
-            .map(|file| (file.path().to_str().unwrap(), file.contents()))
-            .collect()
-    });
-
-    let driver = bld.build();
     cli::cli(&driver)
 }
