@@ -56,7 +56,7 @@ def generate(firrtl_filename, primitive_uses_filename):
         print(line.rstrip())
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) < 3: # hack for preserving testbench in ninja...
         args_desc = [                                                                                                                                                                   
             "FIRRTL_FILE",
             "PRIMITIVE_USES_JSON"
