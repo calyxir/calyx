@@ -7,6 +7,7 @@ use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, Binding, RRC};
 use calyx_utils::{CalyxResult, Id, OutputFile};
 use ir::Port;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::io;
 
@@ -94,19 +95,11 @@ fn emit_component<F: io::Write>(
     }
 
     // write invalid statements for all output ports.
-    // FIXME: very hacky and code-cloney. I just need to get something to work for the deadline...
     for (_idx, port_ref) in sig.ports.iter().enumerate() {
-        let port = port_ref.borrow();
-        // hack to prevent FIRRTL to not get angry about non-initialized output ports.
-        if port.direction == calyx_frontend::Direction::Input {
-            writeln!(
-                f,
-                "{}{} is invalid ; invalidate all output ports.",
-                SPACING.repeat(2),
-                port.name
-            )?;
-            writeln!(f, "{}{} <= UInt(0)", SPACING.repeat(2), port.name)?;
-            dst_set.insert(port.canonical());
+        let port = port_ref.as_ref();
+        if port.borrow().direction == calyx_frontend::Direction::Input {
+            write_invalid_initialization(port, f)?;
+            dst_set.insert(port.borrow().canonical());
         }
     }
 
@@ -311,7 +304,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
 
 // variables that get set in assignments should get initialized to avoid the FIRRTL compiler from erroring.
 fn write_invalid_initialization<F: io::Write>(
-    port: &RRC<ir::Port>,
+    port: &RefCell<ir::Port>,
     f: &mut F,
 ) -> io::Result<()> {
     let default_initialization_str = "; default initialization";
