@@ -83,6 +83,7 @@ impl Workspace {
 
     // Get the absolute path to an extern. Extern can only exist on paths
     // relative to the parent.
+    #[cfg(not(target_arch= "wasm32"))]
     fn canonicalize_extern<S>(
         extern_path: S,
         parent: &Path,
@@ -186,7 +187,14 @@ impl Workspace {
         for (path, exts) in ns.externs {
             match path {
                 Some(p) => {
+                    #[cfg(not(target_arch = "wasm32"))]
                     let abs_path = Self::canonicalize_extern(p, parent)?;
+                    // in case of wasm, we cannot use fs::cannonicalize when running in browser
+                    // also as wasm does not yet support importing, we resolve the imports
+                    // in the js code calling this. Thus we can simply do this instead.
+                    #[cfg(target_arch = "wasm32")]
+                    let abs_path = p.into();
+
                     let p = self.lib.add_extern(abs_path, exts);
                     if is_source {
                         p.set_source();
@@ -210,7 +218,6 @@ impl Workspace {
         } else {
             self.components.extend(&mut ns.components.into_iter());
         }
-
         // Return the canonical location of import paths
         let deps = ns
             .imports
