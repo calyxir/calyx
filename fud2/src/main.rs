@@ -2,7 +2,7 @@ use fud_core::{
     cli,
     exec::{SetupRef, StateRef},
     run::{EmitResult, Emitter},
-    Driver, DriverBuilder,
+    DriverBuilder,
 };
 
 fn setup_calyx(
@@ -68,17 +68,15 @@ fn setup_mrxl(
     (mrxl, mrxl_setup)
 }
 
-fn build_driver() -> Driver {
-    let mut bld = DriverBuilder::new("fud2");
-
+fn build_driver(bld: &mut DriverBuilder) {
     // The verilog state
     let verilog = bld.state("verilog", &["sv", "v"]);
     // Calyx.
-    let (calyx, calyx_setup) = setup_calyx(&mut bld, verilog);
+    let (calyx, calyx_setup) = setup_calyx(bld, verilog);
     // Dahlia.
-    setup_dahlia(&mut bld, calyx);
+    setup_dahlia(bld, calyx);
     // MrXL.
-    setup_mrxl(&mut bld, calyx);
+    setup_mrxl(bld, calyx);
 
     // Shared machinery for RTL simulators.
     let dat = bld.state("dat", &["json"]);
@@ -87,12 +85,9 @@ fn build_driver() -> Driver {
     let sim_setup = bld.setup("RTL simulation", |e| {
         // Data conversion to and from JSON.
         e.config_var_or("python", "python", "python3")?;
-        e.var(
-            "json_dat",
-            &format!("$python {}/json-dat.py", e.config_val("rsrc")?),
-        )?;
-        e.rule("hex-data", "$json_dat --from-json $in $out")?;
-        e.rule("json-data", "$json_dat --to-json $out $in")?;
+        e.rsrc("json-dat.py")?;
+        e.rule("hex-data", "$python json-dat.py --from-json $in $out")?;
+        e.rule("json-data", "$python json-dat.py --to-json $out $in")?;
 
         // The input data file. `sim.data` is required.
         let data_name = e.config_val("sim.data")?;
@@ -101,7 +96,12 @@ fn build_driver() -> Driver {
 
         // Produce the data directory.
         e.var("datadir", "sim_data")?;
-        e.build("hex-data", "$sim_data", "$datadir")?;
+        e.build_cmd(
+            &["$datadir"],
+            "hex-data",
+            &["$sim_data"],
+            &["json-dat.py"],
+        )?;
 
         // Rule for simulation execution.
         e.rule(
@@ -129,7 +129,12 @@ fn build_driver() -> Driver {
             e.build_cmd(&["sim.log"], "sim-run", &[input, "$datadir"], &[])?;
             e.arg("bin", input)?;
             e.arg("args", "+NOTRACE=1")?;
-            e.build_cmd(&[output], "json-data", &["$datadir", "sim.log"], &[])?;
+            e.build_cmd(
+                &[output],
+                "json-data",
+                &["$datadir", "sim.log"],
+                &["json-dat.py"],
+            )?;
             Ok(())
         },
     );
@@ -151,10 +156,7 @@ fn build_driver() -> Driver {
     let verilog_noverify_refmem = bld.state("verilog-noverify-refmem", &["sv"]); // Need to use alternative testbench.
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
-        e.rule(
-            "icarus-compile",
-            "$iverilog -g2012 -o $out $testbench $additional_input $in",
-        )?;
+        e.rule("icarus-compile", "$iverilog -g2012 -o $out $testbench $in")?;
         Ok(())
     });
     bld.op(
@@ -595,12 +597,26 @@ fn build_driver() -> Driver {
             Ok(())
         },
     );
-
-    bld.build()
 }
 
 fn main() -> anyhow::Result<()> {
-    let driver = build_driver();
+    let mut bld = DriverBuilder::new("fud2");
+    build_driver(&mut bld);
 
+    // In debug mode, get resources from the source directory.
+    #[cfg(debug_assertions)]
+    bld.rsrc_dir(manifest_dir_macros::directory_path!("rsrc"));
+
+    // In release mode, embed resources into the binary.
+    #[cfg(not(debug_assertions))]
+    bld.rsrc_files({
+        const DIR: include_dir::Dir =
+            include_dir::include_dir!("$CARGO_MANIFEST_DIR/rsrc");
+        DIR.files()
+            .map(|file| (file.path().to_str().unwrap(), file.contents()))
+            .collect()
+    });
+
+    let driver = bld.build();
     cli::cli(&driver)
 }
