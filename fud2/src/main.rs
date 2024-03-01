@@ -205,10 +205,6 @@ fn build_driver() -> Driver {
             "gen-testbench-script",
             "$calyx-base/tools/firrtl/generate-testbench.py",
         )?;
-        e.var(
-            "additional_input",
-            &format!("{}/memories.sv", e.config_val("rsrc")?),
-        )?;
 
         e.rule(
             "generate-refmem-testbench",
@@ -307,11 +303,22 @@ fn build_driver() -> Driver {
         e.config_var("firrtl-exe", "firrtl.exe")?;
         e.rule("firrtl", "$firrtl-exe -i $in -o $out -X sverilog")?;
 
+        // this rule is for using FIRRTL implementations of primitives
+        e.var(
+            "memory-primitives",
+            &format!("{}/memories.sv", e.config_val("rsrc")?),
+        )?;
+        e.rule("add-memory-prims", "cat $memory-primitives $in > $out")?;
+
+        // this rule is for using SystemVerilog implementations of primitives (via FIRRTL extmodule)
         e.var(
             "primitives-for-firrtl",
             &format!("{}/primitives-for-firrtl.sv", e.config_val("rsrc")?),
         )?;
-        e.rule("add-firrtl-prims", "cat $primitives-for-firrtl $in > $out")?;
+        e.rule(
+            "add-firrtl-prims",
+            "cat $memory-primitives $primitives-for-firrtl $in > $out",
+        )?;
 
         Ok(())
     });
@@ -331,7 +338,9 @@ fn build_driver() -> Driver {
         input: &str,
         output: &str,
     ) -> EmitResult {
-        e.build_cmd(&[output], "firrtl", &[input], &[])?;
+        let tmp_verilog = "partial.sv";
+        e.build_cmd(&[tmp_verilog], "firrtl", &[input], &[])?;
+        e.build_cmd(&[output], "add-memory-prims", &[tmp_verilog], &[])?;
         Ok(())
     }
     bld.op(
@@ -385,7 +394,7 @@ fn build_driver() -> Driver {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile",
-            "$verilator $in $testbench $additional_input --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in $testbench --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
