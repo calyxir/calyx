@@ -332,6 +332,7 @@ version = "0.7.1"
 dependencies = [
  "calyx-frontend",
  "calyx-ir",
+ "calyx-opt",
  "calyx-utils",
  "cc",
  "chrono",
