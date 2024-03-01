@@ -306,20 +306,14 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.rule("firrtl", "$firrtl-exe -i $in -o $out -X sverilog")?;
 
         // this rule is for using FIRRTL implementations of primitives
-        e.var(
-            "memory-primitives",
-            &format!("{}/memories.sv", e.config_val("rsrc")?),
-        )?;
-        e.rule("add-memory-prims", "cat $memory-primitives $in > $out")?;
+        e.rsrc("memories.sv")?;
+        e.rule("add-memory-prims", "cat memories.sv $in > $out")?;
 
         // this rule is for using SystemVerilog implementations of primitives (via FIRRTL extmodule)
-        e.var(
-            "primitives-for-firrtl",
-            &format!("{}/primitives-for-firrtl.sv", e.config_val("rsrc")?),
-        )?;
+        e.rsrc("primitives-for-firrtl.sv")?;
         e.rule(
             "add-firrtl-prims",
-            "cat $memory-primitives $primitives-for-firrtl $in > $out",
+            "cat memories.sv primitives-for-firrtl.sv $in > $out",
         )?;
 
         Ok(())
@@ -332,7 +326,12 @@ fn build_driver(bld: &mut DriverBuilder) {
     ) -> EmitResult {
         let tmp_verilog = "partial.sv";
         e.build_cmd(&[tmp_verilog], "firrtl", &[input], &[])?;
-        e.build_cmd(&[output], "add-firrtl-prims", &[tmp_verilog], &[])?;
+        e.build_cmd(
+            &[output],
+            "add-firrtl-prims",
+            &[tmp_verilog],
+            &["primitives-for-firrtl.sv"],
+        )?;
         Ok(())
     }
     fn firrtl_with_primitives_compile(
@@ -342,7 +341,12 @@ fn build_driver(bld: &mut DriverBuilder) {
     ) -> EmitResult {
         let tmp_verilog = "partial.sv";
         e.build_cmd(&[tmp_verilog], "firrtl", &[input], &[])?;
-        e.build_cmd(&[output], "add-memory-prims", &[tmp_verilog], &[])?;
+        e.build_cmd(
+            &[output],
+            "add-memory-prims",
+            &[tmp_verilog],
+            &["memories.sv", "primitives-for-firrtl.sv"],
+        )?;
         Ok(())
     }
     bld.op(
@@ -446,16 +450,20 @@ fn build_driver(bld: &mut DriverBuilder) {
         )?;
         e.arg("pool", "console")?;
 
-        // TODO Can we reduce the duplication around `rsrc_dir` and `$python`?
-        let rsrc_dir = e.config_val("rsrc")?;
-        e.var("interp-dat", &format!("{}/interp-dat.py", rsrc_dir))?;
+        // TODO Can we reduce the duplication around `$python`?
+        e.rsrc("interp-dat.py")?;
         e.config_var_or("python", "python", "python3")?;
-        e.rule("dat-to-interp", "$python $interp-dat --to-interp $in")?;
+        e.rule("dat-to-interp", "$python interp-dat.py --to-interp $in")?;
         e.rule(
             "interp-to-dat",
-            "$python $interp-dat --from-interp $in $sim_data > $out",
+            "$python interp-dat.py --from-interp $in $sim_data > $out",
         )?;
-        e.build_cmd(&["data.json"], "dat-to-interp", &["$sim_data"], &[])?;
+        e.build_cmd(
+            &["data.json"],
+            "dat-to-interp",
+            &["$sim_data"],
+            &["interp-dat.py"],
+        )?;
         Ok(())
     });
     bld.op(
@@ -470,7 +478,7 @@ fn build_driver(bld: &mut DriverBuilder) {
                 &[output],
                 "interp-to-dat",
                 &[out_file],
-                &["$sim_data"],
+                &["$sim_data", "interp-dat.py"],
             )?;
             Ok(())
         },
@@ -495,11 +503,10 @@ fn build_driver(bld: &mut DriverBuilder) {
         e.config_var("vitis-dir", "xilinx.vitis")?;
 
         // Package a Verilog program as an `.xo` file.
-        let rsrc_dir = e.config_val("rsrc")?;
-        e.var("gen-xo-tcl", &format!("{}/gen_xo.tcl", rsrc_dir))?;
-        e.var("get-ports", &format!("{}/get-ports.py", rsrc_dir))?;
+        e.rsrc("gen_xo.tcl")?;
+        e.rsrc("get-ports.py")?;
         e.config_var_or("python", "python", "python3")?;
-        e.rule("gen-xo", "$vivado-dir/bin/vivado -mode batch -source $gen-xo-tcl -tclargs $out `$python $get-ports kernel.xml`")?;
+        e.rule("gen-xo", "$vivado-dir/bin/vivado -mode batch -source gen_xo.tcl -tclargs $out `$python get-ports.py kernel.xml`")?;
         e.arg("pool", "console")?;  // Lets Ninja stream the tool output "live."
 
         // Compile an `.xo` file to an `.xclbin` file, which is where the actual EDA work occurs.
@@ -532,7 +539,13 @@ fn build_driver(bld: &mut DriverBuilder) {
                 &[output],
                 "gen-xo",
                 &[],
-                &["main.sv", "toplevel.v", "kernel.xml"],
+                &[
+                    "main.sv",
+                    "toplevel.v",
+                    "kernel.xml",
+                    "gen_xo.tcl",
+                    "get-ports.py",
+                ],
             )?;
             Ok(())
         },
@@ -573,7 +586,7 @@ fn build_driver(bld: &mut DriverBuilder) {
                 &[output],
                 "xclrun",
                 &[input, "$sim_data"],
-                &["emconfig.json"],
+                &["emconfig.json", "xrt.ini"],
             )?;
             let rsrc_dir = e.config_val("rsrc")?;
             e.arg("xrt_ini", &format!("{}/xrt.ini", rsrc_dir))?;
@@ -586,14 +599,19 @@ fn build_driver(bld: &mut DriverBuilder) {
         xclbin,
         vcd,
         |e, input, output| {
+            e.rsrc("xrt_trace.ini")?;
             e.build_cmd(
                 &[output], // TODO not the VCD, yet...
                 "xclrun",
                 &[input, "$sim_data"],
-                &["emconfig.json", "pre_sim.tcl", "post_sim.tcl"],
+                &[
+                    "emconfig.json",
+                    "pre_sim.tcl",
+                    "post_sim.tcl",
+                    "xrt_trace.ini",
+                ],
             )?;
-            let rsrc_dir = e.config_val("rsrc")?;
-            e.arg("xrt_ini", &format!("{}/xrt_trace.ini", rsrc_dir))?;
+            e.arg("xrt_ini", "xrt_trace.ini")?;
             Ok(())
         },
     );
