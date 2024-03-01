@@ -21,10 +21,25 @@ fn move_primitives() -> Result<PrimState> {
     };
     let mut prims = base.clone();
     prims.push("primitives");
+
+    // If there is already a primitives directory, move it to `old_primitves`.
     let old_prims = if prims.exists() {
         let mut old_prims = base.clone();
         old_prims.push("old_primitives");
-        fs::rename(&prims, &old_prims)?;
+        // If old_primitives already exists, remove it first.
+        if old_prims.exists() {
+            fs::remove_dir_all(&old_prims)?;
+        }
+
+        match fs::rename(&prims, &old_prims) {
+            Ok(_) => (),
+            Err(e) => {
+                println!(
+                    "cargo:warning=Failed to move primitives directory: {e}"
+                );
+                return Err(e);
+            }
+        };
         Some(old_prims)
     } else {
         None
@@ -49,7 +64,17 @@ fn write_primitive(prims: &path::Path) -> Result<()> {
     {
         let mut path = prims.to_owned().clone();
         path.push(loc);
-        fs::write(path, src)?;
+        // Make sure the parent of the file exists
+        fs::create_dir_all(path.parent().unwrap())?;
+        match fs::write(path, src) {
+            Ok(_) => (),
+            Err(e) => {
+                println!(
+                    "cargo:warning=Failed to write primitive: {loc}. Error: {e}"
+                );
+                return Err(e);
+            }
+        }
     }
     Ok(())
 }
@@ -68,7 +93,7 @@ fn create_primitives() -> Result<path::PathBuf> {
         }
         Err(e) => {
             // Move the old primitives back
-            println!("cargo:warning=Failed to write primitives directory. Restoring old directory");
+            println!("cargo:warning=Failed to write primitives directory. Restoring old directory: {e}");
             if let Some(old) = old_prims {
                 fs::rename(old, &prims)?;
             }
