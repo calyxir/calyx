@@ -8,6 +8,8 @@ component main() -> () {
     @external(1) A = seq_mem_d1(32, 16, 4);
     B = seq_mem_d1(32, 16, 4);
     @external(1) state = std_reg(32);
+    @external(1) my_module = module();
+
   }
   wires {
     group wr_A {
@@ -36,4 +38,19 @@ component main() -> () {
           read_A;
       }
   }
+}
+
+component module() -> () {
+    cells {
+        @external(1) C = seq_mem_d1(32,16,4);
+    }
+    wires {
+        group wr_C {
+            C.write_en = 1'b1;
+            C.content_en = 1'b1;
+            C.write_data= 32'd6;
+            wr_C[done] = C.done;
+        }
+    }
+    control {}
 }

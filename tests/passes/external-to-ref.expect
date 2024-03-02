@@ -5,6 +5,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     ref A = seq_mem_d1(32, 16, 4);
     B = seq_mem_d1(32, 16, 4);
     ref state = std_reg(32);
+    ref my_module = module();
   }
   wires {
     group wr_A {
@@ -34,4 +35,18 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       read_A;
     }
   }
+}
+component module(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    ref C = seq_mem_d1(32, 16, 4);
+  }
+  wires {
+    group wr_C {
+      C.write_en = 1'd1;
+      C.content_en = 1'd1;
+      C.write_data = 32'd6;
+      wr_C[done] = C.done;
+    }
+  }
+  control {}
 }
