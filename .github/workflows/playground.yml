@@ -3,7 +3,7 @@ name: Playground Deployment
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   playground:
