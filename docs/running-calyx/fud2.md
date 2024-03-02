@@ -24,10 +24,8 @@ Run the following command to edit `fud2`'s configuration file (usually `~/.confi
 fud2 edit-config
 ```
 
-Add the following fields:
+Add these lines:
 ```toml
-rsrc = "<path to calyx checkout>/fud2/rsrc"
-
 [calyx]
 base = "<path to calyx checkout>"
 ```
