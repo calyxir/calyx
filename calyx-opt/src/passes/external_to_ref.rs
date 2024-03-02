@@ -3,7 +3,7 @@ use calyx_ir::{self as ir, GetAttributes, LibrarySignatures};
 use calyx_utils::CalyxResult;
 
 //Turns memory cell primitives with the `@external(1)` attribute into
-// `ref` memory cells without(? tbd) the `@external` attribute.
+// `ref` memory cells without the `@external` attribute.
 pub struct ExternalToRef;
 
 impl Named for ExternalToRef {
@@ -16,10 +16,6 @@ impl Named for ExternalToRef {
     }
 }
 
-// fn has_external_attribute(cr: &RRC<ir::Cell>) -> bool {
-//   let cell = cr.borrow();
-//   cell.get_attribute(ir::BoolAttr::External).is_some()
-// }
 
 //TODO: Is this right? Not sure this is what we want
 impl ConstructVisitor for ExternalToRef {
