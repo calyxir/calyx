@@ -16,7 +16,6 @@ impl Named for ExternalToRef {
     }
 }
 
-
 //TODO: Is this right? Not sure this is what we want
 impl ConstructVisitor for ExternalToRef {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
