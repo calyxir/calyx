@@ -83,7 +83,7 @@ impl Workspace {
 
     // Get the absolute path to an extern. Extern can only exist on paths
     // relative to the parent.
-    #[cfg(not(target_arch= "wasm32"))]
+    #[cfg(not(target_arch = "wasm32"))]
     fn canonicalize_extern<S>(
         extern_path: S,
         parent: &Path,
@@ -189,9 +189,11 @@ impl Workspace {
                 Some(p) => {
                     #[cfg(not(target_arch = "wasm32"))]
                     let abs_path = Self::canonicalize_extern(p, parent)?;
-                    // in case of wasm, we cannot use fs::cannonicalize when running in browser
-                    // also as wasm does not yet support importing, we resolve the imports
-                    // in the js code calling this. Thus we can simply do this instead.
+
+                    // For the WebAssembly target, we avoid depending on the filesystem to
+                    // canonicalize paths to imported files. (This canonicalization is not
+                    // necessary because imports for the WebAssembly target work differently
+                    // anyway.)
                     #[cfg(target_arch = "wasm32")]
                     let abs_path = p.into();
 
