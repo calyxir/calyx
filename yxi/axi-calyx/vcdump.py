@@ -31,7 +31,7 @@ if __name__ == "__main__":
 `ifdef COCOTB_SIM
   initial begin
     $dumpfile ("out.vcd");
-    $dumpvars (0, main);
+    $dumpvars (0, wrapper);
     #1;
   end
 `endif

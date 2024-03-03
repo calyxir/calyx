@@ -116,6 +116,12 @@ impl Error {
             post_msg: None,
         }
     }
+    pub fn location(&self) -> (&str, usize, usize) {
+        self.pos.get_location()
+    }
+    pub fn message(&self) -> String {
+        self.kind.to_string()
+    }
 }
 
 /// Standard error type for Calyx errors.

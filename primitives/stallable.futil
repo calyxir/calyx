@@ -1,0 +1,14 @@
+extern "stallable.sv" {
+    // A latency-sensitive multiplier that takes 4 cycles to compute its result.
+    // If stall is set to a value of 1, the multiplier will stall until the value is
+    // set back to 0.
+    static<4> primitive stallable_mult[WIDTH] (
+        @clk clk: 1,
+        @reset reset: 1,
+        stall: 1,
+        left: WIDTH,
+        right: WIDTH
+    ) -> (
+        out: WIDTH
+    );
+}

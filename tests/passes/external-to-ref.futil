@@ -1,0 +1,56 @@
+// -p external-to-ref
+
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+
+component main() -> () {
+  cells {
+    @external(1) A = seq_mem_d1(32, 16, 4);
+    B = seq_mem_d1(32, 16, 4);
+    @external(1) state = std_reg(32);
+    @external(1) my_module = module();
+
+  }
+  wires {
+    group wr_A {
+      A.write_en = 1'b1;
+      A.content_en = 1'b1;
+      A.write_data = 32'd5;
+      wr_A[done] = A.done;
+    }
+
+    group wr_B {
+      B.write_en = 1'b1;
+      B.content_en=1'b1;
+      B.write_data = 32'd4;
+      wr_B[done] = B.done;
+    }
+
+    group read_A {
+        A.content_en = 1'b1;
+        A.write_en = 1'b0;
+        read_A[done] = A.done;
+    }
+  }
+  control {
+      seq{
+          par{wr_A; wr_B;}
+          read_A;
+      }
+  }
+}
+
+component module() -> () {
+    cells {
+        @external(1) C = seq_mem_d1(32,16,4);
+    }
+    wires {
+        group wr_C {
+            C.write_en = 1'b1;
+            C.content_en = 1'b1;
+            C.write_data= 32'd6;
+            wr_C[done] = C.done;
+        }
+    }
+    control {}
+}

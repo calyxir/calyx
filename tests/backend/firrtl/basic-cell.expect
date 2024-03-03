@@ -12,6 +12,10 @@ circuit main:
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
+        out is invalid ; default initialization
+        out <= UInt(0)
+        done is invalid ; default initialization
+        done <= UInt(0)
         ; COMPONENT START: identity
         done <= UInt(1)
         out <= in
@@ -22,12 +26,12 @@ circuit main:
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
+        done is invalid ; default initialization
+        done <= UInt(0)
         ; COMPONENT START: main
         inst id of identity
         inst invoke0_go of std_wire_1
         inst invoke0_done of std_wire_1
-        done is invalid ; default initialization
-        done <= UInt(0)
         when invoke0_done.out:
             done <= UInt(1)
         id.clk <= clk

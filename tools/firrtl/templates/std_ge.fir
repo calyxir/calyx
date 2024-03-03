@@ -3,4 +3,4 @@
         input right : UInt<WIDTH>
         output out : UInt<1>
 
-        out <= ge(left, right)
+        out <= geq(left, right)

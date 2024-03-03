@@ -89,7 +89,7 @@ class Component:
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
         latency_annotation = (
-                f"static<{self.latency}> " if self.latency is not None else ""
+            f"static<{self.latency}> " if self.latency is not None else ""
         )
         attribute_annotation = f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>" if self.attributes else ""
         signature = f"{latency_annotation}component {self.name}{attribute_annotation}({ins}) -> ({outs})"

@@ -3,18 +3,23 @@
     "version": "0.1.0",
     "license": "MIT",
     "scripts": {
-        "start": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json && WASM_PACK_PROFILE=dev parcel index.html",
-        "build": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json && WASM_PACK_PROFILE=dev parcel build --public-url . index.html --log-level 4 && cp -R static/* dist/",
+        "start": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json && npm run wasm-dev && vite .",
+        "wasm-release": "cd rust && wasm-pack build",
+        "wasm-dev": "cd rust && wasm-pack build --debug",
+        "build": "printf '{ \"version\": \"%s\" }' `git rev-parse HEAD` > calyx_hash.json && npm run wasm-release && vite build --base ./ && cp -R static/* dist/",
+        "preview": "vite preview",
         "clean": "rm -rf dist rust/pkg; cd rust; cargo clean"
     },
     "dependencies": {
+        "calyx": "file:./rust/pkg",
         "codejar": "^3.2.3",
         "diff": "^5.0.0",
         "diff2html": "^3.1.18",
         "prismjs": "^1.27.0"
     },
     "devDependencies": {
-        "parcel-bundler": "^1.12.4",
-        "parcel-plugin-wasm.rs": "^1.3.0"
+        "vite": "^5.1.4",
+        "vite-plugin-top-level-await": "^1.4.1",
+        "vite-plugin-wasm": "^3.3.0"
     }
 }

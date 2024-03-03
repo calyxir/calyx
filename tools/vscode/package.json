@@ -1,25 +1,85 @@
 {
-    "name": "calyx",
-    "displayName": "Calyx",
-    "description": "Provides syntax highlighting for Calyx",
-    "version": "0.0.1",
-    "engines": {
-        "vscode": "^1.54.0"
-    },
-    "categories": [
-        "Programming Languages"
+  "name": "calyx",
+  "displayName": "Calyx",
+  "description": "Provides language support for Calyx",
+  "version": "1.0.0",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/calyxir/calyx",
+  "publisher": "calyxir",
+  "icon": "logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/calyxir/calyx.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [],
+  "main": "./out/main.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "calyx",
+        "aliases": [
+          "Calyx",
+          "calyx"
+        ],
+        "extensions": [
+          ".futil"
+        ],
+        "configuration": "./language-configuration.json"
+      }
     ],
-    "contributes": {
-        "languages": [{
-            "id": "calyx",
-            "aliases": ["Calyx", "calyx"],
-            "extensions": [".futil"],
-            "configuration": "./language-configuration.json"
-        }],
-        "grammars": [{
-            "language": "calyx",
-            "scopeName": "source.calyx",
-            "path": "./syntaxes/calyx.tmLanguage.json"
-        }]
+    "grammars": [
+      {
+        "language": "calyx",
+        "scopeName": "source.calyx",
+        "path": "./syntaxes/calyx.tmLanguage.json"
+      }
+    ],
+    "commands": [],
+    "configuration": {
+      "type": "object",
+      "title": "Calyx",
+      "properties": {
+        "calyxLsp.libraryPaths": {
+          "scope": "resource",
+          "type": "array",
+          "default": [
+            "~/.calyx"
+          ],
+          "description": "Specifies the locations that Calyx libraries are installed."
+        }
+      }
     }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.9",
+    "esbuild": "^0.20.1",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
 }

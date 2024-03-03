@@ -56,6 +56,7 @@
 - [Data Gen](./tools/data-gen.md)
 - [`exp` Generator](./tools/exp-generator.md)
 - [Editor Highlighting](./tools/editor-highlighting.md)
+- [Language Server](./tools/language-server.md)
 
 ----
 [Contributors](./contributors.md)
