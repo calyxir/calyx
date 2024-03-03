@@ -483,25 +483,53 @@ fn main() -> anyhow::Result<()> {
     cli::cli(&driver)
 }
 
-#[test]
-fn test_something() {
-    let mut bld = DriverBuilder::new("fud2");
-    build_driver(&mut bld);
-    let driver = bld.build();
+#[cfg(test)]
+mod test {
+    use crate::build_driver;
+    use fud_core::{exec::Request, run::Run, Driver, DriverBuilder};
 
-    let req = fud_core::exec::Request {
-        start_file: None,
-        start_state: driver.get_state("calyx").unwrap(),
-        end_file: None,
-        end_state: driver.get_state("verilog").unwrap(),
-        through: vec![],
-        workdir: ".".into(),
-    };
-    let plan = driver.plan(req).unwrap();
-    let run = fud_core::run::Run::new(&driver, plan);
-    let mut buf = vec![];
-    run.emit(&mut buf).unwrap();
-    let ninja = String::from_utf8(buf).unwrap();
+    fn test_driver() -> Driver {
+        let mut bld = DriverBuilder::new("fud2");
+        build_driver(&mut bld);
+        bld.build()
+    }
 
-    insta::assert_snapshot!(ninja);
+    fn request(
+        driver: &Driver,
+        start: &str,
+        end: &str,
+        through: &[&str],
+    ) -> Request {
+        fud_core::exec::Request {
+            start_file: None,
+            start_state: driver.get_state(start).unwrap(),
+            end_file: None,
+            end_state: driver.get_state(end).unwrap(),
+            through: through
+                .iter()
+                .map(|s| driver.get_op(s).unwrap())
+                .collect(),
+            workdir: ".".into(),
+        }
+    }
+
+    fn emit_ninja(driver: &Driver, req: Request) -> String {
+        let plan = driver.plan(req).unwrap();
+        let run = Run::new(driver, plan);
+        let mut buf = vec![];
+        run.emit(&mut buf).unwrap();
+        String::from_utf8(buf).unwrap()
+    }
+
+    fn test_emit(start: &str, end: &str, through: &[&str]) -> String {
+        let driver = test_driver();
+        let req = request(&driver, start, end, through);
+        emit_ninja(&driver, req)
+    }
+
+    #[test]
+    fn test_something() {
+        let ninja = test_emit("calyx", "verilog", &[]);
+        insta::assert_snapshot!(ninja);
+    }
 }
