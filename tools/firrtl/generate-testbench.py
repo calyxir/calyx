@@ -21,15 +21,13 @@ def generate_fields(memory_cell_dicts):
               out_str += generate_addr_field(memory_cell_dict['D0_IDX_SIZE'], name, 0)
               out_str += generate_addr_field(memory_cell_dict['D1_IDX_SIZE'], name, 1)
          
-         out_str += f"wire [{width-1}:0] {name}_write_data;\n"
-         out_str += f"wire [{width-1}:0] {name}_read_data;\n"
-         out_str += f"wire {name}_write_en;\n"
-         if "comb" in module_name:
-              out_str += f"wire {name}_done;\n\n"
-         else: # seq has more ports.
-              out_str += f'''wire {name}_read_en;
-wire {name}_write_done;
-wire {name}_read_done;\n\n'''
+         out_str += f'''wire [{width-1}:0] {name}_write_data;
+wire [{width-1}:0] {name}_read_data;
+wire {name}_write_en;
+wire {name}_done;
+'''
+         if "seq" in module_name:
+              out_str += f"wire {name}_content_en;\n\n"
 
     return out_str
 
@@ -58,14 +56,10 @@ def generate_memory_dec(memory_cell_dicts):
     .reset(reset),
     .write_data({name}_write_data),
     .write_en({name}_write_en),
-'''
-          if "comb" in module_name:
-               out_str += f"    .done({name}_done)\n"
-          else:
-               out_str += f'''    .read_en({name}_read_en),
-    .read_done({name}_read_done),
-    .write_done({name}_write_done)
-'''
+    .done({name}_done)'''
+          if "seq" in module_name:
+               out_str += ",\n"
+               out_str += f"    .content_en({name}_content_en)\n"
           out_str += ");\n\n"
      return out_str
 
@@ -88,13 +82,10 @@ def generate_main_decl(memory_cell_dicts):
   .{name}_write_data({name}_write_data),
   .{name}_read_data({name}_read_data),
   .{name}_write_en({name}_write_en),
-'''
-          if "comb" in module_name:
-               out_str += f"  .{name}_done({name}_done)"
-          else:
-               out_str += f'''  .{name}_read_en({name}_read_en),
-  .{name}_write_done({name}_write_done),
-  .{name}_read_done({name}_read_done)'''
+  .{name}_done({name}_done)'''
+          if "seq" in module_name:
+               out_str += ",\n"
+               out_str += f"  .{name}_content_en({name}_content_en)"
      out_str += "\n);"
      return out_str
 
