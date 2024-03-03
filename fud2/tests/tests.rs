@@ -37,23 +37,29 @@ fn emit_ninja(driver: &Driver, req: Request) -> String {
     String::from_utf8(buf).unwrap()
 }
 
-fn test_emit(driver: &Driver, req: Request) {
-    let mut req_desc = format!(
+fn req_desc(driver: &Driver, req: &Request) -> String {
+    let mut desc = format!(
         "emit {} -> {}",
         driver.states[req.start_state].name, driver.states[req.end_state].name
     );
     if !req.through.is_empty() {
-        req_desc.push_str(" through");
+        desc.push_str(" through");
         for op in &req.through {
-            req_desc.push_str(" ");
-            req_desc.push_str(&driver.ops[*op].name);
+            desc.push_str(" ");
+            desc.push_str(&driver.ops[*op].name);
         }
     }
+    desc
+}
 
+#[test]
+fn calyx_to_verilog() {
+    let driver = test_driver();
+    let req = request(&driver, "calyx", "verilog", &[]);
+    let desc = req_desc(&driver, &req);
     let ninja = emit_ninja(&driver, req);
-
     insta::with_settings!({
-        description => req_desc,
+        description => desc,
         omit_expression => true,
     }, {
         insta::assert_snapshot!(ninja);
@@ -61,15 +67,15 @@ fn test_emit(driver: &Driver, req: Request) {
 }
 
 #[test]
-fn calyx_to_verilog() {
-    let driver = test_driver();
-    let req = request(&driver, "calyx", "verilog", &[]);
-    test_emit(&driver, req);
-}
-
-#[test]
 fn calyx_via_firrtl() {
     let driver = test_driver();
     let req = request(&driver, "calyx", "verilog", &["firrtl"]);
-    test_emit(&driver, req);
+    let desc = req_desc(&driver, &req);
+    let ninja = emit_ninja(&driver, req);
+    insta::with_settings!({
+        description => desc,
+        omit_expression => true,
+    }, {
+        insta::assert_snapshot!(ninja);
+    });
 }
