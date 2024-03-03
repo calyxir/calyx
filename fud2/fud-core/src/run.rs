@@ -98,6 +98,14 @@ pub struct Run<'a> {
 impl<'a> Run<'a> {
     pub fn new(driver: &'a Driver, plan: Plan) -> Self {
         let config_data = config::load_config(&driver.name);
+        Self::with_config(driver, plan, config_data)
+    }
+
+    pub fn with_config(
+        driver: &'a Driver,
+        plan: Plan,
+        config_data: figment::Figment,
+    ) -> Self {
         let global_config: config::GlobalConfig =
             config_data.extract().expect("failed to load config");
         Self {

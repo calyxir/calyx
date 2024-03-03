@@ -486,7 +486,9 @@ fn main() -> anyhow::Result<()> {
 #[cfg(test)]
 mod test {
     use crate::build_driver;
-    use fud_core::{exec::Request, run::Run, Driver, DriverBuilder};
+    use fud_core::{
+        config::default_config, exec::Request, run::Run, Driver, DriverBuilder,
+    };
 
     fn test_driver() -> Driver {
         let mut bld = DriverBuilder::new("fud2");
@@ -515,7 +517,8 @@ mod test {
 
     fn emit_ninja(driver: &Driver, req: Request) -> String {
         let plan = driver.plan(req).unwrap();
-        let run = Run::new(driver, plan);
+        let config = default_config().merge(("calyx.base", "/test/calyx"));
+        let run = Run::with_config(driver, plan, config);
         let mut buf = vec![];
         run.emit(&mut buf).unwrap();
         String::from_utf8(buf).unwrap()
