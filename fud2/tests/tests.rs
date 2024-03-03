@@ -37,6 +37,7 @@ fn emit_ninja(driver: &Driver, req: Request) -> String {
     String::from_utf8(buf).unwrap()
 }
 
+/// Get a human-readable description of a request.
 fn req_desc(driver: &Driver, req: &Request) -> String {
     let mut desc = format!(
         "emit {} -> {}",
@@ -52,30 +53,41 @@ fn req_desc(driver: &Driver, req: &Request) -> String {
     desc
 }
 
-#[test]
-fn calyx_to_verilog() {
-    let driver = test_driver();
-    let req = request(&driver, "calyx", "verilog", &[]);
+/// Get a short string uniquely identifying a request.
+fn req_slug(driver: &Driver, req: &Request) -> String {
+    let mut desc = driver.states[req.start_state].name.to_string();
+    for op in &req.through {
+        desc.push_str("_");
+        desc.push_str(&driver.ops[*op].name);
+    }
+    desc.push_str("_");
+    desc.push_str(&driver.states[req.end_state].name);
+    desc
+}
+
+fn test_emit(driver: Driver, req: Request) {
     let desc = req_desc(&driver, &req);
+    let slug = req_slug(&driver, &req);
     let ninja = emit_ninja(&driver, req);
     insta::with_settings!({
         description => desc,
         omit_expression => true,
+        snapshot_suffix => slug,
     }, {
         insta::assert_snapshot!(ninja);
     });
 }
 
 #[test]
+fn calyx_to_verilog() {
+    let driver = test_driver();
+    let req = request(&driver, "calyx", "verilog", &[]);
+    test_emit(driver, req);
+}
+
+#[test]
 fn calyx_via_firrtl() {
     let driver = test_driver();
     let req = request(&driver, "calyx", "verilog", &["firrtl"]);
-    let desc = req_desc(&driver, &req);
-    let ninja = emit_ninja(&driver, req);
-    insta::with_settings!({
-        description => desc,
-        omit_expression => true,
-    }, {
-        insta::assert_snapshot!(ninja);
-    });
+    test_emit(driver, req);
 }
