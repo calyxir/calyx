@@ -2,8 +2,8 @@ use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{self as ir, GetAttributes, LibrarySignatures};
 use calyx_utils::CalyxResult;
 
-//Turns memory cell primitives with the `@external(1)` attribute into
-// `ref` memory cells without the `@external` attribute.
+/// Turns memory cell primitives with the `@external(1)` attribute into
+/// `ref` memory cells without the `@external` attribute.
 pub struct ExternalToRef;
 
 impl Named for ExternalToRef {
@@ -16,7 +16,6 @@ impl Named for ExternalToRef {
     }
 }
 
-//TODO: Is this right? Not sure this is what we want
 impl ConstructVisitor for ExternalToRef {
     fn from(_ctx: &ir::Context) -> CalyxResult<Self>
     where
@@ -26,9 +25,7 @@ impl ConstructVisitor for ExternalToRef {
         Ok(external_to_ref)
     }
 
-    fn clear_data(&mut self) {
-        //TODO: do we need this?
-    }
+    fn clear_data(&mut self) {}
 }
 
 impl Visitor for ExternalToRef {
