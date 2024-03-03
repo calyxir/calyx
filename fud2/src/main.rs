@@ -357,7 +357,7 @@ fn build_driver(bld: &mut DriverBuilder) {
             &[output],
             "add-firrtl-prims",
             &[tmp_verilog],
-            &["primitives-for-firrtl.sv"],
+            &["primitives-for-firrtl.sv", "memories.sv"],
         )?;
         Ok(())
     }
