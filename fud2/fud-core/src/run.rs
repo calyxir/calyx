@@ -242,13 +242,7 @@ impl<'a> Run<'a> {
         );
 
         // Emit preamble.
-        emitter.var(
-            "build-tool",
-            std::env::current_exe()
-                .expect("executable path unknown")
-                .to_str()
-                .expect("invalid executable name"),
-        )?;
+        emitter.var("build-tool", &self.global_config.exec)?;
         emitter.rule("get-rsrc", "$build-tool get-rsrc $out")?;
         writeln!(emitter.out)?;
 

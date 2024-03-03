@@ -517,7 +517,9 @@ mod test {
 
     fn emit_ninja(driver: &Driver, req: Request) -> String {
         let plan = driver.plan(req).unwrap();
-        let config = default_config().merge(("calyx.base", "/test/calyx"));
+        let config = default_config()
+            .merge(("exec", "fud2"))
+            .merge(("calyx.base", "/test/calyx"));
         let run = Run::with_config(driver, plan, config);
         let mut buf = vec![];
         run.emit(&mut buf).unwrap();
