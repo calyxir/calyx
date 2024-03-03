@@ -46,7 +46,7 @@ fn req_desc(driver: &Driver, req: &Request) -> String {
     if !req.through.is_empty() {
         desc.push_str(" through");
         for op in &req.through {
-            desc.push_str(" ");
+            desc.push(' ');
             desc.push_str(&driver.ops[*op].name);
         }
     }
@@ -57,10 +57,10 @@ fn req_desc(driver: &Driver, req: &Request) -> String {
 fn req_slug(driver: &Driver, req: &Request) -> String {
     let mut desc = driver.states[req.start_state].name.to_string();
     for op in &req.through {
-        desc.push_str("_");
+        desc.push('_');
         desc.push_str(&driver.ops[*op].name);
     }
-    desc.push_str("_");
+    desc.push('_');
     desc.push_str(&driver.states[req.end_state].name);
     desc
 }
