@@ -482,3 +482,26 @@ fn main() -> anyhow::Result<()> {
     let driver = bld.build();
     cli::cli(&driver)
 }
+
+#[test]
+fn test_something() {
+    let mut bld = DriverBuilder::new("fud2");
+    build_driver(&mut bld);
+    let driver = bld.build();
+
+    let req = fud_core::exec::Request {
+        start_file: None,
+        start_state: driver.get_state("calyx").unwrap(),
+        end_file: None,
+        end_state: driver.get_state("verilog").unwrap(),
+        through: vec![],
+        workdir: ".".into(),
+    };
+    let plan = driver.plan(req).unwrap();
+    let run = fud_core::run::Run::new(&driver, plan);
+    let mut buf = vec![];
+    run.emit(&mut buf).unwrap();
+    let ninja = String::from_utf8(buf).unwrap();
+
+    insta::assert_snapshot!(ninja);
+}

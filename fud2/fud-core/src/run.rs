@@ -226,7 +226,7 @@ impl<'a> Run<'a> {
         Ok(())
     }
 
-    fn emit<T: Write + 'static>(&self, out: T) -> EmitResult {
+    pub fn emit<T: Write + 'a>(&self, out: T) -> EmitResult {
         let mut emitter = Emitter::new(
             out,
             self.config_data.clone(),
@@ -278,14 +278,14 @@ impl<'a> Run<'a> {
     }
 }
 
-pub struct Emitter {
-    pub out: Box<dyn Write>,
+pub struct Emitter<'a> {
+    pub out: Box<dyn Write + 'a>,
     pub config_data: figment::Figment,
     pub workdir: Utf8PathBuf,
 }
 
-impl Emitter {
-    fn new<T: Write + 'static>(
+impl<'a> Emitter<'a> {
+    fn new<T: Write + 'a>(
         out: T,
         config_data: figment::Figment,
         workdir: Utf8PathBuf,
