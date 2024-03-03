@@ -4,12 +4,12 @@ use crate::passes::{
     CompileInvoke, CompileRepeat, CompileStatic, CompileStaticInterface,
     CompileSync, CompileSyncWithoutSyncReg, ComponentInliner, DataPathInfer,
     DeadAssignmentRemoval, DeadCellRemoval, DeadGroupRemoval, DefaultAssigns,
-    DiscoverExternal, Externalize, GoInsertion, GroupToInvoke, GroupToSeq,
-    HoleInliner, InferShare, LowerGuards, MergeAssign, Papercut, ParToSeq,
-    RegisterUnsharing, RemoveIds, ResetInsertion, SimplifyStaticGuards,
-    SimplifyWithControl, StaticInference, StaticInliner, StaticPromotion,
-    SynthesisPapercut, TopDownCompileControl, UnrollBounded, WellFormed,
-    WireInliner, WrapMain,
+    DiscoverExternal, ExternalToRef, Externalize, GoInsertion, GroupToInvoke,
+    GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Papercut,
+    ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
+    SimplifyStaticGuards, SimplifyWithControl, StaticInference, StaticInliner,
+    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
+    WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -74,6 +74,7 @@ impl PassManager {
         pm.register_pass::<LowerGuards>()?;
         pm.register_pass::<HoleInliner>()?;
         pm.register_pass::<RemoveIds>()?;
+        pm.register_pass::<ExternalToRef>()?;
 
         register_alias!(pm, "validate", [WellFormed, Papercut, Canonicalize]);
         register_alias!(
