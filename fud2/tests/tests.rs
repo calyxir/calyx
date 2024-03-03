@@ -29,7 +29,8 @@ fn emit_ninja(driver: &Driver, req: Request) -> String {
     let plan = driver.plan(req).unwrap();
     let config = default_config()
         .merge(("exec", "fud2"))
-        .merge(("calyx.base", "/test/calyx"));
+        .merge(("calyx.base", "/test/calyx"))
+        .merge(("firrtl.exe", "/test/bin/firrtl"));
     let run = Run::with_config(driver, plan, config);
     let mut buf = vec![];
     run.emit(&mut buf).unwrap();
@@ -63,5 +64,12 @@ fn test_emit(driver: &Driver, req: Request) {
 fn calyx_to_verilog() {
     let driver = test_driver();
     let req = request(&driver, "calyx", "verilog", &[]);
+    test_emit(&driver, req);
+}
+
+#[test]
+fn calyx_via_firrtl() {
+    let driver = test_driver();
+    let req = request(&driver, "calyx", "verilog", &["firrtl"]);
     test_emit(&driver, req);
 }
