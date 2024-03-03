@@ -347,8 +347,8 @@ def add_write_channel(prog, mem):
         WREADY = write_channel.this()["WREADY"]
 
         # Assert then deassert. Can maybe getgit right of w_handshake_occurred in guard
-        wvalid.in_ = (~(wvalid.out & WREADY) & ~w_handshake_occurred.out & mem_ref.done) @ 1
-        wvalid.in_ = ((wvalid.out & WREADY) | w_handshake_occurred.out | ~mem_ref.done) @ 0
+        wvalid.in_ = (~(wvalid.out & WREADY) & ~w_handshake_occurred.out) @ 1
+        wvalid.in_ = ((wvalid.out & WREADY) | w_handshake_occurred.out) @ 0
         wvalid.write_en = 1
 
         # Set high when wvalid is high even once
