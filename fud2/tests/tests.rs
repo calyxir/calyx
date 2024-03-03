@@ -37,10 +37,17 @@ fn emit_ninja(driver: &Driver, req: Request) -> String {
 }
 
 fn test_emit(driver: &Driver, req: Request) {
-    let req_desc = format!(
+    let mut req_desc = format!(
         "emit {} -> {}",
         driver.states[req.start_state].name, driver.states[req.end_state].name
     );
+    if !req.through.is_empty() {
+        req_desc.push_str(" through");
+        for op in &req.through {
+            req_desc.push_str(" ");
+            req_desc.push_str(&driver.ops[*op].name);
+        }
+    }
 
     let ninja = emit_ninja(&driver, req);
 
