@@ -196,8 +196,8 @@ fn build_driver(bld: &mut DriverBuilder) {
     // Calyx to FIRRTL.
     let firrtl = bld.state("firrtl", &["fir"]);
 
-    // setup for custom testbench to be used with FIRRTL backend
-    let firrtl_testbench_setup = bld.setup("FIRRTL testbench setup", |e| {
+    // setup for custom testbench to be used with externalized memories
+    let refmem_testbench_setup = bld.setup("Refmem testbench setup", |e| {
         // Convert all @external cells to ref cells.
         e.rule(
             "external-to-ref",
@@ -226,6 +226,41 @@ fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     });
 
+    fn setup_refmem_testbench(
+        e: &mut Emitter,
+        input: &str,
+        tmp_calyx: &str,
+        dummy_testbench: &str,
+    ) -> EmitResult {
+        // replace extmodule with ref
+        e.build_cmd(&[tmp_calyx], "external-to-ref", &[input], &[])?;
+        // generate the testbench
+        e.build_cmd(
+            &[dummy_testbench],
+            "generate-refmem-testbench",
+            &[tmp_calyx],
+            &[],
+        )?;
+        Ok(())
+    }
+
+    bld.op(
+        "calyx-to-verilog-refmem",
+        &[calyx_setup, refmem_testbench_setup],
+        calyx,
+        verilog_refmem,
+        |e, input, output| {
+            let tmp_calyx = "partial.futil";
+            let dummy_testbench = "refmem-tb-copy.sv";
+            let tmp_out = "partial.sv";
+            setup_refmem_testbench(e, input, tmp_calyx, dummy_testbench)?;
+            e.build_cmd(&[tmp_out], "calyx", &[tmp_calyx], &[])?;
+            e.arg("backend", "verilog")?;
+            e.build_cmd(&[output], "dummy", &[tmp_out, dummy_testbench], &[])?;
+            Ok(())
+        },
+    );
+
     // setup for FIRRTL-implemented primitives
     let firrtl_primitives_setup = bld.setup("FIRRTL with primitives", |e| {
         // Produce FIRRTL with FIRRTL-defined primitives.
@@ -244,21 +279,14 @@ fn build_driver(bld: &mut DriverBuilder) {
     let firrtl_with_primitives = bld.state("firrtl-with-primitives", &["fir"]);
     bld.op(
         "calyx-to-firrtl",
-        &[calyx_setup, firrtl_testbench_setup],
+        &[calyx_setup, refmem_testbench_setup],
         calyx,
         firrtl,
         |e, input, output| {
             let tmp_calyx = "partial.futil";
             let dummy_testbench = "refmem-tb-copy.sv";
             let tmp_out = "dummy-out.fir";
-            e.build_cmd(&[tmp_calyx], "external-to-ref", &[input], &[])?;
-            // generate the testbench
-            e.build_cmd(
-                &[dummy_testbench],
-                "generate-refmem-testbench",
-                &[tmp_calyx],
-                &[],
-            )?;
+            setup_refmem_testbench(e, input, tmp_calyx, dummy_testbench)?;
             e.build_cmd(&[tmp_out], "calyx", &[tmp_calyx], &[])?;
             e.arg("backend", "firrtl")?;
             e.arg("args", "--emit-primitive-extmodules --synthesis")?;
@@ -270,7 +298,7 @@ fn build_driver(bld: &mut DriverBuilder) {
     // Generates FIRRTL with FIRRTL definition of primitives
     bld.op(
         "firrtl-with-primitives",
-        &[calyx_setup, firrtl_primitives_setup, firrtl_testbench_setup],
+        &[calyx_setup, firrtl_primitives_setup, refmem_testbench_setup],
         calyx,
         firrtl_with_primitives,
         |e, input, output| {
@@ -278,15 +306,8 @@ fn build_driver(bld: &mut DriverBuilder) {
             let tmp_firrtl = "partial.fir";
             let tmp_json = "primitive-uses.json";
             let dummy_testbench = "refmem-tb-copy.sv";
-            // replace extmodule with ref
-            e.build_cmd(&[tmp_calyx], "external-to-ref", &[input], &[])?;
-            // generate the testbench
-            e.build_cmd(
-                &[dummy_testbench],
-                "generate-refmem-testbench",
-                &[tmp_calyx],
-                &[],
-            )?;
+            // generate testbench
+            setup_refmem_testbench(e, input, tmp_calyx, dummy_testbench)?;
             // get original firrtl
             e.build_cmd(&[tmp_firrtl], "calyx", &[tmp_calyx], &[])?;
             e.arg("backend", "firrtl")?;
