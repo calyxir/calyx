@@ -199,7 +199,10 @@ fn build_driver(bld: &mut DriverBuilder) {
     // setup for custom testbench to be used with FIRRTL backend
     let firrtl_testbench_setup = bld.setup("FIRRTL testbench setup", |e| {
         // Convert all @external cells to ref cells.
-        e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
+        e.rule(
+            "external-to-ref",
+            "$calyx-exe -p external-to-ref $in > $out",
+        )?;
 
         // Produce a custom testbench that handles memory reading and writing.
         e.var("testbench", "refmem_tb.sv")?;
@@ -214,7 +217,10 @@ fn build_driver(bld: &mut DriverBuilder) {
         )?;
 
         // dummy rule to force ninja to build the testbench
-        e.var("dummy-script", &format!("{}/dummy.sh", e.config_val("rsrc")?))?;
+        e.var(
+            "dummy-script",
+            &format!("{}/dummy.sh", e.config_val("rsrc")?),
+        )?;
         e.rule("dummy", "bash $dummy-script $in > $out")?;
 
         Ok(())
