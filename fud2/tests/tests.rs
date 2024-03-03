@@ -28,7 +28,7 @@ fn request(
 fn emit_ninja(driver: &Driver, req: Request) -> String {
     let plan = driver.plan(req).unwrap();
     let config = default_config()
-        .merge(("exec", "fud2"))
+        .merge(("exe", "fud2"))
         .merge(("calyx.base", "/test/calyx"))
         .merge(("firrtl.exe", "/test/bin/firrtl"));
     let run = Run::with_config(driver, plan, config);

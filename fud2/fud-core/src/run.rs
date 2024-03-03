@@ -242,7 +242,7 @@ impl<'a> Run<'a> {
         );
 
         // Emit preamble.
-        emitter.var("build-tool", &self.global_config.exec)?;
+        emitter.var("build-tool", &self.global_config.exe)?;
         emitter.rule("get-rsrc", "$build-tool get-rsrc $out")?;
         writeln!(emitter.out)?;
 

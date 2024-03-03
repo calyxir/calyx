@@ -17,7 +17,7 @@ pub struct GlobalConfig {
     pub verbose: bool,
 
     /// The path to the build tool executable.
-    pub exec: String,
+    pub exe: String,
 }
 
 impl Default for GlobalConfig {
@@ -26,7 +26,7 @@ impl Default for GlobalConfig {
             ninja: "ninja".to_string(),
             keep_build_dir: false,
             verbose: false,
-            exec: std::env::current_exe()
+            exe: std::env::current_exe()
                 .expect("executable path unknown")
                 .to_str()
                 .expect("invalid executable name")
