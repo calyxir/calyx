@@ -287,7 +287,7 @@ impl Cell {
     }
 
     ///Set the external field
-    pub(super) fn set_reference(&mut self, reference: bool) -> bool {
+    pub fn set_reference(&mut self, reference: bool) -> bool {
         self.reference = reference;
         self.reference
     }
