@@ -26,16 +26,16 @@ pub struct BTOR2Prim<'a> {
 pub struct MyBtor2Add<'a> {
     program: Btor2Program<'a>,
     base_port: GlobalPortIdx,
-    width: u32, // do stuff
+    width: usize, // do stuff
 }
 
 impl<'a> MyBtor2Add<'a> {
     declare_ports![ LEFT:0, RIGHT:1, OUT:2 ];
-    pub fn new(base: GlobalPortIdx, width: u32) -> Self {
+    pub fn new(base: GlobalPortIdx, width: usize) -> Self {
         Self {
             program: Btor2Program::new(),
             base_port: base,
-            width: width,
+            width,
         }
     }
 
