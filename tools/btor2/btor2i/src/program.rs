@@ -6,6 +6,20 @@ use btor2tools::Btor2Parser;
 use std::collections::HashMap;
 use std::path::Path;
 
+use bitvec::prelude::*;
+
+pub type BitString = BitVec<usize, Lsb0>;
+
+fn slice_to_usize(slice: &BitSlice) -> usize {
+    let mut ans: usize = 0;
+    for i in 0..slice.len() {
+        if slice[i] {
+            ans += 1 << i;
+        }
+    }
+    ans
+}
+
 pub struct Btor2Program<'a> {
     parser: Btor2Parser,
     lines: Option<Vec<Btor2Line<'a>>>,
@@ -44,8 +58,8 @@ impl<'a> Btor2Program<'a> {
     pub fn run(
         &'a self,
         inputs: HashMap<String, String>,
-    ) -> Result<HashMap<String, String>, &str> {
-        let btor2_lines = self.lines.as_ref().unwrap();
+    ) -> Result<HashMap<String, usize>, &str> {
+        let btor2_lines: &Vec<Btor2Line<'_>> = self.lines.as_ref().unwrap();
         let mut inputs_vec = Vec::new();
         for (name, val) in &inputs {
             inputs_vec.push(format!("{}={} ", name, val));
@@ -94,7 +108,7 @@ impl<'a> Btor2Program<'a> {
                 let src_node_idx = line.args()[0] as usize;
                 let output_val = s_env.get(src_node_idx);
 
-                output_map.insert(output_name, output_val.to_string());
+                output_map.insert(output_name, slice_to_usize(output_val));
             }
         });
 
