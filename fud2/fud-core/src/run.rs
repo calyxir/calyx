@@ -98,6 +98,14 @@ pub struct Run<'a> {
 impl<'a> Run<'a> {
     pub fn new(driver: &'a Driver, plan: Plan) -> Self {
         let config_data = config::load_config(&driver.name);
+        Self::with_config(driver, plan, config_data)
+    }
+
+    pub fn with_config(
+        driver: &'a Driver,
+        plan: Plan,
+        config_data: figment::Figment,
+    ) -> Self {
         let global_config: config::GlobalConfig =
             config_data.extract().expect("failed to load config");
         Self {
@@ -226,7 +234,7 @@ impl<'a> Run<'a> {
         Ok(())
     }
 
-    fn emit<T: Write + 'static>(&self, out: T) -> EmitResult {
+    pub fn emit<T: Write + 'a>(&self, out: T) -> EmitResult {
         let mut emitter = Emitter::new(
             out,
             self.config_data.clone(),
@@ -234,13 +242,7 @@ impl<'a> Run<'a> {
         );
 
         // Emit preamble.
-        emitter.var(
-            "build-tool",
-            std::env::current_exe()
-                .expect("executable path unknown")
-                .to_str()
-                .expect("invalid executable name"),
-        )?;
+        emitter.var("build-tool", &self.global_config.exe)?;
         emitter.rule("get-rsrc", "$build-tool get-rsrc $out")?;
         writeln!(emitter.out)?;
 
@@ -278,14 +280,14 @@ impl<'a> Run<'a> {
     }
 }
 
-pub struct Emitter {
-    pub out: Box<dyn Write>,
+pub struct Emitter<'a> {
+    pub out: Box<dyn Write + 'a>,
     pub config_data: figment::Figment,
     pub workdir: Utf8PathBuf,
 }
 
-impl Emitter {
-    fn new<T: Write + 'static>(
+impl<'a> Emitter<'a> {
+    fn new<T: Write + 'a>(
         out: T,
         config_data: figment::Figment,
         workdir: Utf8PathBuf,
