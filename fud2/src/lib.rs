@@ -476,7 +476,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         "AXI-wrapped Caly generation",
         &[calyx_setup, yxi_setup],
         calyx,
-        axi_verilog,
+        axi_calyx,
         |e, input, output| {
             // Generate the YXI file.
             e.build_cmd(&["yxi.json"], "calyx", &[input], &[])?;
