@@ -1,6 +1,6 @@
 use crate::traits::Backend;
 use calyx_ir as ir;
-use calyx_ir::utils::GetMemInfo;
+use calyx_ir::utils::{GetMemInfo, MemoryType};
 use calyx_utils::CalyxResult;
 use serde::Serialize;
 /// Backend that generates the YXI Interface Definition Language.
@@ -18,8 +18,12 @@ struct ProgramInterface<'a> {
 #[derive(Serialize)]
 struct Memory<'a> {
     name: &'a str,
-    width: u64,
-    size: u64, //number of cells in memory
+    memory_type: MemoryType,
+    data_width: u64,
+    dimensions: u64,
+    dimension_sizes: Vec<u64>,
+    idx_sizes: Vec<u64>,
+    total_size: u64, //number of cells in memory
 }
 
 impl Backend for YxiBackend {
@@ -56,8 +60,12 @@ impl Backend for YxiBackend {
             .zip(mem_infos.iter())
             .map(|(memory_name, mem_info)| Memory {
                 name: memory_name,
-                width: mem_info.width,
-                size: mem_info.size,
+                memory_type: mem_info.memory_type,
+                data_width: mem_info.data_width,
+                dimensions: mem_info.dimensions,
+                dimension_sizes: mem_info.dimension_sizes.clone(),
+                idx_sizes: mem_info.idx_sizes.clone(),
+                total_size: mem_info.dimension_sizes.iter().product()
             })
             .collect();
 

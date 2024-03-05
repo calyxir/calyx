@@ -51,7 +51,7 @@ impl Backend for XilinxInterfaceBackend {
         for (i, mem) in mem_info.iter().enumerate() {
             modules.push(bram(
                 &format!("SINGLE_PORT_BRAM_{}", i),
-                mem.width,
+                mem.data_width,
                 mem.size,
                 mem.idx_sizes[0],
             ))
@@ -70,7 +70,7 @@ impl Backend for XilinxInterfaceBackend {
                 &format!("Memory_controller_axi_{}", i),
                 512,
                 64,
-                mem.width,
+                mem.data_width,
                 mem.size,
                 mem.idx_sizes[0],
             ))
@@ -190,7 +190,7 @@ fn top_level(toplevel: &ir::Component) -> v::Module {
         let addr0 = format!("{}_addr0", mem);
         let write_en = format!("{}_write_en", mem);
         let done = format!("{}_done", mem);
-        let width = mem_info[idx].width;
+        let width = mem_info[idx].data_width;
         module.add_decl(v::Decl::new_wire(&write_data, width));
         module.add_decl(v::Decl::new_wire(&read_data, width));
         module.add_decl(v::Decl::new_wire(&addr0, mem_info[idx].idx_sizes[0]));
