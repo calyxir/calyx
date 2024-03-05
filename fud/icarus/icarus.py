@@ -98,10 +98,12 @@ class IcarusBaseStage(Stage):
             [
                 cmd,
                 "-g2012",
+                "-grelative-include",
                 "-o",
                 "{exec_path}",
                 testbench,
                 "{input_path}",
+                "{include_path}",
             ]
         )
 
@@ -113,6 +115,7 @@ class IcarusBaseStage(Stage):
                 cmd.format(
                     input_path=str(input_path),
                     exec_path=f"{tmpdir.name}/{self.object_name}",
+                    include_path="-I " + config["include"],
                 ),
                 stdout_as_debug=True,
             )
