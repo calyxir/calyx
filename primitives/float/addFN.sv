@@ -1,9 +1,8 @@
 `ifndef __ADDFN_V__
 `define __ADDFN_V__
 
-`include "primitives/float/source/fNToRecFN.v"
-`include "primitives/float/source/addRecFN.v"
-`include "primitives/float/source/recFNToFN.v"
+`include "primitives/float/includeFile.sv"
+`include "primitives/float/HardFloat-1/source/addRecFN.v"
 
 module addFN #(parameter expWidth = 3, parameter sigWidth = 3, parameter numWidth = 6) (
     input clk,
@@ -24,12 +23,12 @@ module addFN #(parameter expWidth = 3, parameter sigWidth = 3, parameter numWidt
 
     // Convert 'a' and 'b' from standard to recoded format
     fNToRecFN #(expWidth, sigWidth) convert_a(
-        .in_(a),
+        .in(a),
         .out(a_recoded)
     );
 
     fNToRecFN #(expWidth, sigWidth) convert_b(
-        .in_(b),
+        .in(b),
         .out(b_recoded)
     );
 
@@ -52,7 +51,7 @@ module addFN #(parameter expWidth = 3, parameter sigWidth = 3, parameter numWidt
 
     // Convert the result back to standard format
     recFNToFN #(expWidth, sigWidth) convert_res(
-        .in_(res_recoded),
+        .in(res_recoded),
         .out(res_std)
     );
 
