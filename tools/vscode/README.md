@@ -1,26 +1,23 @@
 # Calyx README
 
-This is a simple extension that adds basic syntax highlighting for Calyx and to provide a basis for adding
-fancier features if anybody is ever interested in it.
+Calyx VSCode Extension that adds basic syntax highlighting and integrates the Calyx LSP server for jump to definition, and autocomplete.
 
 ## Installation
-Add a link to the Calyx VSCode extension directory to your VSCode extensions directory.
-```
+
+You can install the extension from the VSCode store by searching for Calyx. Alternatively, you can link this directory directly into your vscode extensions folder:
+
+```bash
 cd $HOME/.vscode/extensions
-ln -s <calyx root directory>/tools/vscode calyx.calyx-0.0.1
+ln -s <calyx root directory>/tools/vscode calyx.calyx-1.0.0
 ```
-Restart VSCode.
 
-<!-- ## Features -->
+Then reload VSCode.
 
-<!-- ## Requirements -->
+## LSP Integration
 
-<!-- If you have any requirements or dependencies, add a section describing those and how to install and configure them. -->
+For the LSP integration, you also need `calyx-lsp` installed. You can build it with `cargo build --all` from the Calyx root directory. Then link the executable to your path:
 
-<!-- ## Extension Settings -->
-
-## Release Notes
-
-### 0.0.1
-
-Initial release of Calyx VSCode extension. This adds the bare minimum to have syntax highlighting in VSCode.
+```bash
+cd $HOME/.local/bin
+ln -s <calyx root directory>/target/debug/calyx-lsp calyx-lsp
+```

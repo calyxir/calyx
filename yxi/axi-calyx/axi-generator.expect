@@ -1,0 +1,395 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/memories/seq.futil";
+component m_ar_channel(ARESETn: 1, ARREADY: 1) -> (ARVALID: 1, ARADDR: 64, ARSIZE: 3, ARLEN: 8, ARBURST: 2, ARPROT: 3) {
+  cells {
+    arvalid = std_reg(1);
+    ar_handshake_occurred = std_reg(1);
+    ref curr_addr_axi = std_reg(64);
+    arlen = std_reg(8);
+    txn_n = std_const(32, 1);
+    txn_count = std_reg(32);
+    txn_adder = std_add(32);
+    bt_reg = std_reg(1);
+    perform_reads = std_neq(32);
+  }
+  wires {
+    ARVALID = arvalid.out;
+    group do_ar_transfer {
+      arvalid.in = (!(arvalid.out & ARREADY) & !ar_handshake_occurred.out) ? 1'd1;
+      arvalid.in = ((arvalid.out & ARREADY) | ar_handshake_occurred.out) ? 1'd0;
+      arvalid.write_en = 1'd1;
+      ar_handshake_occurred.in = (arvalid.out & ARREADY) ? 1'd1;
+      ar_handshake_occurred.write_en = !ar_handshake_occurred.out ? 1'd1;
+      ARADDR = curr_addr_axi.out;
+      ARSIZE = 3'd2;
+      ARLEN = arlen.out;
+      ARBURST = 2'd1;
+      ARPROT = 3'd6;
+      bt_reg.in = (ARREADY & arvalid.out) ? 1'd1;
+      bt_reg.in = !(ARREADY & arvalid.out) ? 1'd0;
+      bt_reg.write_en = 1'd1;
+      do_ar_transfer[done] = bt_reg.out;
+    }
+    group incr_txn_count {
+      txn_adder.left = txn_count.out;
+      txn_adder.right = 32'd1;
+      txn_count.in = txn_adder.out;
+      txn_count.write_en = 1'd1;
+      incr_txn_count[done] = txn_count.done;
+    }
+    comb group perform_reads_group {
+      perform_reads.left = txn_count.out;
+      perform_reads.right = txn_n.out;
+    }
+  }
+  control {
+    seq {
+      invoke txn_count(in=32'd0)();
+      invoke arlen(in=8'd7)();
+      while perform_reads.out with perform_reads_group {
+        seq {
+          par {
+            invoke bt_reg(in=1'd0)();
+            invoke ar_handshake_occurred(in=1'd0)();
+          }
+          do_ar_transfer;
+          invoke arvalid(in=1'd0)();
+          incr_txn_count;
+        }
+      }
+    }
+  }
+}
+component m_aw_channel(ARESETn: 1, AWREADY: 1) -> (AWVALID: 1, AWADDR: 64, AWSIZE: 3, AWLEN: 8, AWBURST: 2, AWPROT: 3) {
+  cells {
+    awvalid = std_reg(1);
+    aw_handshake_occurred = std_reg(1);
+    ref curr_addr_axi = std_reg(64);
+    awlen = std_reg(8);
+    txn_n = std_const(32, 1);
+    txn_count = std_reg(32);
+    txn_adder = std_add(32);
+    bt_reg = std_reg(1);
+    perform_writes = std_neq(32);
+    ref max_transfers = std_reg(8);
+  }
+  wires {
+    AWVALID = awvalid.out;
+    group do_aw_transfer {
+      awvalid.in = (!(awvalid.out & AWREADY) & !aw_handshake_occurred.out) ? 1'd1;
+      awvalid.in = ((awvalid.out & AWREADY) | aw_handshake_occurred.out) ? 1'd0;
+      awvalid.write_en = 1'd1;
+      aw_handshake_occurred.in = (awvalid.out & AWREADY) ? 1'd1;
+      aw_handshake_occurred.write_en = !aw_handshake_occurred.out ? 1'd1;
+      AWADDR = curr_addr_axi.out;
+      AWSIZE = 3'd2;
+      AWLEN = awlen.out;
+      AWBURST = 2'd1;
+      AWPROT = 3'd6;
+      bt_reg.in = (AWREADY & awvalid.out) ? 1'd1;
+      bt_reg.in = !(AWREADY & awvalid.out) ? 1'd0;
+      bt_reg.write_en = 1'd1;
+      do_aw_transfer[done] = bt_reg.out;
+      max_transfers.in = 8'd7;
+      max_transfers.write_en = 1'd1;
+    }
+    group incr_txn_count {
+      txn_adder.left = txn_count.out;
+      txn_adder.right = 32'd1;
+      txn_count.in = txn_adder.out;
+      txn_count.write_en = 1'd1;
+      incr_txn_count[done] = txn_count.done;
+    }
+    comb group perform_writes_group {
+      perform_writes.left = txn_count.out;
+      perform_writes.right = txn_n.out;
+    }
+  }
+  control {
+    seq {
+      invoke txn_count(in=32'd0)();
+      invoke awlen(in=8'd7)();
+      while perform_writes.out with perform_writes_group {
+        seq {
+          par {
+            invoke bt_reg(in=1'd0)();
+            invoke aw_handshake_occurred(in=1'd0)();
+          }
+          do_aw_transfer;
+          invoke awvalid(in=1'd0)();
+          incr_txn_count;
+        }
+      }
+    }
+  }
+}
+component m_read_channel(ARESETn: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -> (RREADY: 1) {
+  cells {
+    ref mem_ref = seq_mem_d1(32, 8, 3);
+    rready = std_reg(1);
+    ref curr_addr_internal_mem = std_reg(3);
+    ref curr_addr_axi = std_reg(64);
+    n_RLAST = std_reg(1);
+    read_data_reg = std_reg(32);
+    bt_reg = std_reg(1);
+    curr_addr_internal_mem_incr = std_add(3);
+    curr_addr_axi_incr = std_add(64);
+  }
+  wires {
+    RREADY = rready.out;
+    group block_transfer {
+      rready.in = !(rready.out & RVALID) ? 1'd1;
+      rready.in = (rready.out & RVALID) ? 1'd0;
+      rready.write_en = 1'd1;
+      read_data_reg.in = RDATA;
+      read_data_reg.write_en = (rready.out & RVALID) ? 1'd1;
+      read_data_reg.write_en = !(rready.out & RVALID) ? 1'd0;
+      n_RLAST.in = RLAST ? 1'd0;
+      n_RLAST.in = !RLAST ? 1'd1;
+      n_RLAST.write_en = 1'd1;
+      bt_reg.in = (rready.out & RVALID) ? 1'd1;
+      bt_reg.in = !(rready.out & RVALID) ? 1'd0;
+      bt_reg.write_en = 1'd1;
+      block_transfer[done] = bt_reg.out;
+    }
+    group service_read_transfer {
+      rready.in = 1'd0;
+      rready.write_en = 1'd1;
+      mem_ref.addr0 = curr_addr_internal_mem.out;
+      mem_ref.write_data = read_data_reg.out;
+      mem_ref.write_en = 1'd1;
+      mem_ref.content_en = 1'd1;
+      service_read_transfer[done] = mem_ref.done;
+    }
+    group curr_addr_internal_mem_incr_group {
+      curr_addr_internal_mem_incr.left = curr_addr_internal_mem.out;
+      curr_addr_internal_mem_incr.right = 3'd1;
+      curr_addr_internal_mem.write_en = 1'd1;
+      curr_addr_internal_mem.in = curr_addr_internal_mem_incr.out;
+      curr_addr_internal_mem_incr_group[done] = curr_addr_internal_mem.done;
+    }
+    group curr_addr_axi_incr_group {
+      curr_addr_axi_incr.left = curr_addr_axi.out;
+      curr_addr_axi_incr.right = 64'd4;
+      curr_addr_axi.write_en = 1'd1;
+      curr_addr_axi.in = curr_addr_axi_incr.out;
+      curr_addr_axi_incr_group[done] = curr_addr_axi.done;
+    }
+  }
+  control {
+    seq {
+      invoke n_RLAST(in=1'd1)();
+      while n_RLAST.out {
+        seq {
+          invoke bt_reg(in=1'd0)();
+          block_transfer;
+          service_read_transfer;
+          par {
+            curr_addr_internal_mem_incr_group;
+            curr_addr_axi_incr_group;
+          }
+        }
+      }
+    }
+  }
+}
+component m_write_channel(ARESETn: 1, WREADY: 1) -> (WVALID: 1, WLAST: 1, WDATA: 32) {
+  cells {
+    ref mem_ref = seq_mem_d1(32, 8, 3);
+    wvalid = std_reg(1);
+    w_handshake_occurred = std_reg(1);
+    ref curr_addr_internal_mem = std_reg(3);
+    ref curr_addr_axi = std_reg(64);
+    curr_transfer_count = std_reg(8);
+    ref max_transfers = std_reg(8);
+    n_finished_last_transfer = std_reg(1);
+    bt_reg = std_reg(1);
+    curr_addr_internal_mem_incr = std_add(3);
+    curr_addr_axi_incr = std_add(64);
+    curr_transfer_count_incr = std_add(8);
+  }
+  wires {
+    WVALID = wvalid.out;
+    mem_ref.write_en = 1'd0;
+    group service_write_transfer {
+      wvalid.in = (!(wvalid.out & WREADY) & !w_handshake_occurred.out) ? 1'd1;
+      wvalid.in = ((wvalid.out & WREADY) | w_handshake_occurred.out) ? 1'd0;
+      wvalid.write_en = 1'd1;
+      w_handshake_occurred.in = (wvalid.out & WREADY) ? 1'd1;
+      w_handshake_occurred.in = !(wvalid.out & WREADY) ? 1'd0;
+      w_handshake_occurred.write_en = !w_handshake_occurred.out ? 1'd1;
+      mem_ref.addr0 = curr_addr_internal_mem.out;
+      mem_ref.content_en = 1'd1;
+      WDATA = mem_ref.read_data;
+      WLAST = (max_transfers.out == curr_transfer_count.out) ? 1'd1;
+      WLAST = (max_transfers.out != curr_transfer_count.out) ? 1'd0;
+      n_finished_last_transfer.in = ((max_transfers.out == curr_transfer_count.out) & (wvalid.out & WREADY)) ? 1'd0;
+      n_finished_last_transfer.write_en = ((max_transfers.out == curr_transfer_count.out) & (wvalid.out & WREADY)) ? 1'd1;
+      bt_reg.in = (wvalid.out & WREADY) ? 1'd1;
+      bt_reg.in = !(wvalid.out & WREADY) ? 1'd0;
+      bt_reg.write_en = 1'd1;
+      service_write_transfer[done] = bt_reg.out;
+    }
+    group curr_addr_internal_mem_incr_group {
+      curr_addr_internal_mem_incr.left = curr_addr_internal_mem.out;
+      curr_addr_internal_mem_incr.right = 3'd1;
+      curr_addr_internal_mem.write_en = 1'd1;
+      curr_addr_internal_mem.in = curr_addr_internal_mem_incr.out;
+      curr_addr_internal_mem_incr_group[done] = curr_addr_internal_mem.done;
+    }
+    group curr_addr_axi_incr_group {
+      curr_addr_axi_incr.left = curr_addr_axi.out;
+      curr_addr_axi_incr.right = 64'd4;
+      curr_addr_axi.write_en = 1'd1;
+      curr_addr_axi.in = curr_addr_axi_incr.out;
+      curr_addr_axi_incr_group[done] = curr_addr_axi.done;
+    }
+    group curr_transfer_count_incr_group {
+      curr_transfer_count_incr.left = curr_transfer_count.out;
+      curr_transfer_count_incr.right = 8'd1;
+      curr_transfer_count.write_en = 1'd1;
+      curr_transfer_count.in = curr_transfer_count_incr.out;
+      curr_transfer_count_incr_group[done] = curr_transfer_count.done;
+    }
+  }
+  control {
+    seq {
+      invoke curr_addr_internal_mem(in=3'd0)();
+      invoke n_finished_last_transfer(in=1'd1)();
+      while n_finished_last_transfer.out {
+        seq {
+          invoke bt_reg(in=1'd0)();
+          service_write_transfer;
+          par {
+            curr_addr_internal_mem_incr_group;
+            curr_transfer_count_incr_group;
+            curr_addr_axi_incr_group;
+            invoke w_handshake_occurred(in=1'd0)();
+          }
+        }
+      }
+    }
+  }
+}
+component m_bresp_channel(ARESETn: 1, BVALID: 1) -> (BREADY: 1) {
+  cells {
+    bready = std_reg(1);
+    bt_reg = std_reg(1);
+  }
+  wires {
+    BREADY = bready.out;
+    group block_transfer {
+      bready.in = !(bready.out & BVALID) ? 1'd1;
+      bready.in = (bready.out & BVALID) ? 1'd0;
+      bready.write_en = 1'd1;
+      bt_reg.in = (bready.out & BVALID) ? 1'd1;
+      bt_reg.in = !(bready.out & BVALID) ? 1'd0;
+      bt_reg.write_en = 1'd1;
+      block_transfer[done] = bt_reg.out;
+    }
+  }
+  control {
+    seq {
+      invoke bt_reg(in=1'd0)();
+      block_transfer;
+    }
+  }
+}
+component wrapper<"toplevel"=1>(A0_ARESETn: 1, A0_ARREADY: 1, A0_RVALID: 1, A0_RLAST: 1, A0_RDATA: 32, A0_RRESP: 2, A0_AWREADY: 1, A0_WRESP: 2, A0_WREADY: 1, A0_BVALID: 1, A0_BRESP: 2, A0_RID: 1, B0_ARESETn: 1, B0_ARREADY: 1, B0_RVALID: 1, B0_RLAST: 1, B0_RDATA: 32, B0_RRESP: 2, B0_AWREADY: 1, B0_WRESP: 2, B0_WREADY: 1, B0_BVALID: 1, B0_BRESP: 2, B0_RID: 1, Sum0_ARESETn: 1, Sum0_ARREADY: 1, Sum0_RVALID: 1, Sum0_RLAST: 1, Sum0_RDATA: 32, Sum0_RRESP: 2, Sum0_AWREADY: 1, Sum0_WRESP: 2, Sum0_WREADY: 1, Sum0_BVALID: 1, Sum0_BRESP: 2, Sum0_RID: 1) -> (A0_ARVALID: 1, A0_ARADDR: 64, A0_ARSIZE: 3, A0_ARLEN: 8, A0_ARBURST: 2, A0_RREADY: 1, A0_AWVALID: 1, A0_AWADDR: 64, A0_AWSIZE: 3, A0_AWLEN: 8, A0_AWBURST: 2, A0_AWPROT: 3, A0_WVALID: 1, A0_WLAST: 1, A0_WDATA: 32, A0_BREADY: 1, A0_ARID: 1, A0_AWID: 1, A0_WID: 1, A0_BID: 1, B0_ARVALID: 1, B0_ARADDR: 64, B0_ARSIZE: 3, B0_ARLEN: 8, B0_ARBURST: 2, B0_RREADY: 1, B0_AWVALID: 1, B0_AWADDR: 64, B0_AWSIZE: 3, B0_AWLEN: 8, B0_AWBURST: 2, B0_AWPROT: 3, B0_WVALID: 1, B0_WLAST: 1, B0_WDATA: 32, B0_BREADY: 1, B0_ARID: 1, B0_AWID: 1, B0_WID: 1, B0_BID: 1, Sum0_ARVALID: 1, Sum0_ARADDR: 64, Sum0_ARSIZE: 3, Sum0_ARLEN: 8, Sum0_ARBURST: 2, Sum0_RREADY: 1, Sum0_AWVALID: 1, Sum0_AWADDR: 64, Sum0_AWSIZE: 3, Sum0_AWLEN: 8, Sum0_AWBURST: 2, Sum0_AWPROT: 3, Sum0_WVALID: 1, Sum0_WLAST: 1, Sum0_WDATA: 32, Sum0_BREADY: 1, Sum0_ARID: 1, Sum0_AWID: 1, Sum0_WID: 1, Sum0_BID: 1) {
+  cells {
+    main_compute = main();
+    curr_addr_internal_mem_A0 = std_reg(3);
+    curr_addr_axi_A0 = std_reg(64);
+    ar_channel_A0 = m_ar_channel();
+    read_channel_A0 = m_read_channel();
+    internal_mem_A0 = seq_mem_d1(32, 8, 3);
+    max_transfers_A0 = std_reg(8);
+    aw_channel_A0 = m_aw_channel();
+    write_channel_A0 = m_write_channel();
+    bresp_channel_A0 = m_bresp_channel();
+    curr_addr_internal_mem_B0 = std_reg(3);
+    curr_addr_axi_B0 = std_reg(64);
+    ar_channel_B0 = m_ar_channel();
+    read_channel_B0 = m_read_channel();
+    internal_mem_B0 = seq_mem_d1(32, 8, 3);
+    max_transfers_B0 = std_reg(8);
+    aw_channel_B0 = m_aw_channel();
+    write_channel_B0 = m_write_channel();
+    bresp_channel_B0 = m_bresp_channel();
+    curr_addr_internal_mem_Sum0 = std_reg(3);
+    curr_addr_axi_Sum0 = std_reg(64);
+    ar_channel_Sum0 = m_ar_channel();
+    read_channel_Sum0 = m_read_channel();
+    internal_mem_Sum0 = seq_mem_d1(32, 8, 3);
+    max_transfers_Sum0 = std_reg(8);
+    aw_channel_Sum0 = m_aw_channel();
+    write_channel_Sum0 = m_write_channel();
+    bresp_channel_Sum0 = m_bresp_channel();
+  }
+  wires {
+    A0_ARID = 1'd0;
+    A0_AWID = 1'd0;
+    A0_WID = 1'd0;
+    A0_BID = 1'd0;
+    B0_ARID = 1'd0;
+    B0_AWID = 1'd0;
+    B0_WID = 1'd0;
+    B0_BID = 1'd0;
+    Sum0_ARID = 1'd0;
+    Sum0_AWID = 1'd0;
+    Sum0_WID = 1'd0;
+    Sum0_BID = 1'd0;
+  }
+  control {
+    seq {
+      par {
+        invoke curr_addr_axi_A0(in=64'd4096)();
+        invoke curr_addr_axi_B0(in=64'd4096)();
+        invoke curr_addr_axi_Sum0(in=64'd4096)();
+      }
+      par {
+        invoke curr_addr_internal_mem_A0(in=3'd0)();
+        invoke curr_addr_internal_mem_B0(in=3'd0)();
+        invoke curr_addr_internal_mem_Sum0(in=3'd0)();
+      }
+      par {
+        seq {
+          invoke ar_channel_A0[curr_addr_axi=curr_addr_axi_A0](ARESETn=A0_ARESETn, ARREADY=A0_ARREADY)(ARVALID=A0_ARVALID, ARADDR=A0_ARADDR, ARSIZE=A0_ARSIZE, ARLEN=A0_ARLEN, ARBURST=A0_ARBURST);
+          invoke read_channel_A0[mem_ref=internal_mem_A0, curr_addr_internal_mem=curr_addr_internal_mem_A0, curr_addr_axi=curr_addr_axi_A0](ARESETn=A0_ARESETn, RVALID=A0_RVALID, RLAST=A0_RLAST, RDATA=A0_RDATA, RRESP=A0_RRESP)(RREADY=A0_RREADY);
+        }
+        seq {
+          invoke ar_channel_B0[curr_addr_axi=curr_addr_axi_B0](ARESETn=B0_ARESETn, ARREADY=B0_ARREADY)(ARVALID=B0_ARVALID, ARADDR=B0_ARADDR, ARSIZE=B0_ARSIZE, ARLEN=B0_ARLEN, ARBURST=B0_ARBURST);
+          invoke read_channel_B0[mem_ref=internal_mem_B0, curr_addr_internal_mem=curr_addr_internal_mem_B0, curr_addr_axi=curr_addr_axi_B0](ARESETn=B0_ARESETn, RVALID=B0_RVALID, RLAST=B0_RLAST, RDATA=B0_RDATA, RRESP=B0_RRESP)(RREADY=B0_RREADY);
+        }
+        seq {
+          invoke ar_channel_Sum0[curr_addr_axi=curr_addr_axi_Sum0](ARESETn=Sum0_ARESETn, ARREADY=Sum0_ARREADY)(ARVALID=Sum0_ARVALID, ARADDR=Sum0_ARADDR, ARSIZE=Sum0_ARSIZE, ARLEN=Sum0_ARLEN, ARBURST=Sum0_ARBURST);
+          invoke read_channel_Sum0[mem_ref=internal_mem_Sum0, curr_addr_internal_mem=curr_addr_internal_mem_Sum0, curr_addr_axi=curr_addr_axi_Sum0](ARESETn=Sum0_ARESETn, RVALID=Sum0_RVALID, RLAST=Sum0_RLAST, RDATA=Sum0_RDATA, RRESP=Sum0_RRESP)(RREADY=Sum0_RREADY);
+        }
+      }
+      invoke main_compute[A0=internal_mem_A0, B0=internal_mem_B0, Sum0=internal_mem_Sum0]()();
+      par {
+        invoke curr_addr_axi_A0(in=64'd4096)();
+        invoke curr_addr_axi_B0(in=64'd4096)();
+        invoke curr_addr_axi_Sum0(in=64'd4096)();
+      }
+      par {
+        seq {
+          invoke aw_channel_A0[curr_addr_axi=curr_addr_axi_A0, max_transfers=max_transfers_A0](ARESETn=A0_ARESETn, AWREADY=A0_AWREADY)(AWVALID=A0_AWVALID, AWADDR=A0_AWADDR, AWSIZE=A0_AWSIZE, AWLEN=A0_AWLEN, AWBURST=A0_AWBURST, AWPROT=A0_AWPROT);
+          invoke write_channel_A0[mem_ref=internal_mem_A0, curr_addr_internal_mem=curr_addr_internal_mem_A0, curr_addr_axi=curr_addr_axi_A0, max_transfers=max_transfers_A0](ARESETn=A0_ARESETn, WREADY=A0_WREADY)(WVALID=A0_WVALID, WLAST=A0_WLAST, WDATA=A0_WDATA);
+          invoke bresp_channel_A0(BVALID=A0_BVALID)(BREADY=A0_BREADY);
+        }
+        seq {
+          invoke aw_channel_B0[curr_addr_axi=curr_addr_axi_B0, max_transfers=max_transfers_B0](ARESETn=B0_ARESETn, AWREADY=B0_AWREADY)(AWVALID=B0_AWVALID, AWADDR=B0_AWADDR, AWSIZE=B0_AWSIZE, AWLEN=B0_AWLEN, AWBURST=B0_AWBURST, AWPROT=B0_AWPROT);
+          invoke write_channel_B0[mem_ref=internal_mem_B0, curr_addr_internal_mem=curr_addr_internal_mem_B0, curr_addr_axi=curr_addr_axi_B0, max_transfers=max_transfers_B0](ARESETn=B0_ARESETn, WREADY=B0_WREADY)(WVALID=B0_WVALID, WLAST=B0_WLAST, WDATA=B0_WDATA);
+          invoke bresp_channel_B0(BVALID=B0_BVALID)(BREADY=B0_BREADY);
+        }
+        seq {
+          invoke aw_channel_Sum0[curr_addr_axi=curr_addr_axi_Sum0, max_transfers=max_transfers_Sum0](ARESETn=Sum0_ARESETn, AWREADY=Sum0_AWREADY)(AWVALID=Sum0_AWVALID, AWADDR=Sum0_AWADDR, AWSIZE=Sum0_AWSIZE, AWLEN=Sum0_AWLEN, AWBURST=Sum0_AWBURST, AWPROT=Sum0_AWPROT);
+          invoke write_channel_Sum0[mem_ref=internal_mem_Sum0, curr_addr_internal_mem=curr_addr_internal_mem_Sum0, curr_addr_axi=curr_addr_axi_Sum0, max_transfers=max_transfers_Sum0](ARESETn=Sum0_ARESETn, WREADY=Sum0_WREADY)(WVALID=Sum0_WVALID, WLAST=Sum0_WLAST, WDATA=Sum0_WDATA);
+          invoke bresp_channel_Sum0(BVALID=Sum0_BVALID)(BREADY=Sum0_BREADY);
+        }
+      }
+    }
+  }
+}
