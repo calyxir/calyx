@@ -12,6 +12,7 @@ use crate::flatten::structures::environment::PortMap;
 
 use crate::values::Value;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 pub struct BTOR2Prim<'a> {
@@ -24,29 +25,30 @@ pub struct BTOR2Prim<'a> {
 }
 
 pub struct MyBtor2Add<'a> {
-    program: Btor2Program<'a>,
+    program: RefCell<Btor2Program<'a>>,
     base_port: GlobalPortIdx,
     width: usize, // do stuff
+    loaded: bool,
 }
 
 impl<'a> MyBtor2Add<'a> {
     declare_ports![ LEFT:0, RIGHT:1, OUT:2 ];
     pub fn new(base: GlobalPortIdx, width: usize) -> Self {
         Self {
-            program: Btor2Program::new(),
+            program: RefCell::new(Btor2Program::new(
+                "tools/btor2/core/std_add.btor",
+            )),
             base_port: base,
             width,
+            loaded: false,
         }
-    }
-
-    pub fn load_file(&'a mut self, input_file: &str) -> Result<(), &str> {
-        self.program.load(input_file)
     }
 }
 
 impl<'a> Primitive for MyBtor2Add<'a> {
     fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port; left: Self::LEFT, right: Self::RIGHT, out: Self::OUT];
+        // let mut program_mut = RefCell::new(self.program);
         // construct a hashmap from the names to the inputs
         let input_map = HashMap::from([
             (
@@ -58,10 +60,13 @@ impl<'a> Primitive for MyBtor2Add<'a> {
                 _port_map[right].as_usize().unwrap().to_string(),
             ),
         ]);
-        match self.program.run(input_map) {
+        match self.program.borrow_mut().run(input_map) {
             Ok(output_map) => Ok(_port_map.insert_val(
                 out,
-                AssignedValue::cell_value(Value::from(output_map["out"], 64)),
+                AssignedValue::cell_value(Value::from(
+                    output_map["out"],
+                    self.width,
+                )),
             )?),
             Err(_msg) => {
                 _port_map.write_undef(out)?;

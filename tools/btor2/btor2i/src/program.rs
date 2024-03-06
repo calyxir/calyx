@@ -20,46 +20,53 @@ fn slice_to_usize(slice: &BitSlice) -> usize {
     ans
 }
 
+// crappy thing that makes it work: no longer store lines, instead pass in reference to file path
 pub struct Btor2Program<'a> {
     parser: Btor2Parser,
-    lines: Option<Vec<Btor2Line<'a>>>,
+    path: &'a Path,
+    // lines: Option<Vec<Btor2Line<'a>>>,
 }
 
-impl<'a> Default for Btor2Program<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// impl Default for Btor2Program {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
 impl<'a> Btor2Program<'a> {
-    pub fn new() -> Self {
+    pub fn new(path: &'a str) -> Self {
         Btor2Program {
             parser: Btor2Parser::new(),
-            lines: None,
+            path: Path::new(path),
         }
     }
 
-    pub fn load(&'a mut self, input_file: &str) -> Result<(), &str> {
-        // Parse and store the btor2 file as Vec<Btor2Line>
-        let input_path = Path::new(input_file);
-        let btor2_lines_opt = self.parser.read_lines(input_path);
-        match btor2_lines_opt {
-            Err(e) => {
-                eprintln!("{}", e);
-                Err("Input file not found.")
-            }
-            Ok(btor2_lines) => {
-                self.lines = Option::Some(btor2_lines.collect::<Vec<_>>());
-                Ok(())
-            }
-        }
-    }
+    // pub fn load(&mut self, input_file: &str) -> Result<(), &str> {
+    //     // Parse and store the btor2 file as Vec<Btor2Line>
+    //     let input_path = Path::new(input_file);
+    //     let btor2_lines_opt = self.parser.read_lines(input_path);
+    //     match btor2_lines_opt {
+    //         Err(e) => {
+    //             eprintln!("{}", e);
+    //             Err("Input file not found.")
+    //         }
+    //         Ok(btor2_lines) => {
+    //             // self.lines = Option::Some(btor2_lines.collect::<Vec<_>>());
+    //             Ok(())
+    //         }
+    //     }
+    // }
 
     pub fn run(
-        &'a self,
+        &mut self,
         inputs: HashMap<String, String>,
     ) -> Result<HashMap<String, usize>, &str> {
-        let btor2_lines: &Vec<Btor2Line<'_>> = self.lines.as_ref().unwrap();
+        let btor2_lines: &Vec<Btor2Line<'_>> = &self
+            .parser
+            .read_lines(self.path)
+            .as_ref()
+            .unwrap()
+            .collect::<Vec<_>>();
         let mut inputs_vec = Vec::new();
         for (name, val) in &inputs {
             inputs_vec.push(format!("{}={} ", name, val));

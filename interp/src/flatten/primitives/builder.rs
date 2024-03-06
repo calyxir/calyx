@@ -6,7 +6,7 @@ use crate::{
     values::Value,
 };
 
-use super::{combinational::*, Primitive};
+use super::{btor2_prim::MyBtor2Add, combinational::*, Primitive};
 use super::{prim_trait::DummyPrimitive, stateful::*};
 
 pub fn build_primitive(
@@ -147,6 +147,8 @@ pub fn build_primitive(
             MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
             MemType::Std => Box::new(StdMemD4::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize, *d3_size as usize))),
         },
-        CellPrototype::Unknown(_, _) => todo!(),
+        CellPrototype::Unknown(_, _) => {
+            Box::new(MyBtor2Add::new(base_port, 32))
+        }
     }
 }

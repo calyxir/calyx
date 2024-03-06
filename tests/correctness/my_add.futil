@@ -1,0 +1,17 @@
+component add(left: 32, right: 32) -> (out: 32) {
+  cells {
+    add = my_btor2_add(32);
+  }
+  wires {
+    group do_add{
+      add.left = left;
+      add.right = right;
+      add.out = out;
+    }
+  }
+  control {
+    seq {
+      do_add;
+    }
+  }
+}
