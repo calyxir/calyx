@@ -138,7 +138,6 @@ component m_read_channel(ARESETn: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -
   }
   wires {
     RREADY = rready.out;
-    mem_ref.content_en = 1'd0;
     group block_transfer {
       rready.in = !(rready.out & RVALID) ? 1'd1;
       rready.in = (rready.out & RVALID) ? 1'd0;
@@ -160,7 +159,8 @@ component m_read_channel(ARESETn: 1, RVALID: 1, RLAST: 1, RDATA: 32, RRESP: 2) -
       mem_ref.addr0 = curr_addr_internal_mem.out;
       mem_ref.write_data = read_data_reg.out;
       mem_ref.write_en = 1'd1;
-      service_read_transfer[done] = mem_ref.write_done;
+      mem_ref.content_en = 1'd1;
+      service_read_transfer[done] = mem_ref.done;
     }
     group curr_addr_internal_mem_incr_group {
       curr_addr_internal_mem_incr.left = curr_addr_internal_mem.out;
@@ -201,29 +201,31 @@ component m_write_channel(ARESETn: 1, WREADY: 1) -> (WVALID: 1, WLAST: 1, WDATA:
     w_handshake_occurred = std_reg(1);
     ref curr_addr_internal_mem = std_reg(3);
     ref curr_addr_axi = std_reg(64);
-    curr_trsnfr_count = std_reg(8);
+    curr_transfer_count = std_reg(8);
     ref max_transfers = std_reg(8);
-    n_finished_last_trnsfr = std_reg(1);
+    n_finished_last_transfer = std_reg(1);
     bt_reg = std_reg(1);
     curr_addr_internal_mem_incr = std_add(3);
     curr_addr_axi_incr = std_add(64);
-    curr_trsnfr_count_incr = std_add(8);
+    curr_transfer_count_incr = std_add(8);
   }
   wires {
     WVALID = wvalid.out;
+    mem_ref.write_en = 1'd0;
     group service_write_transfer {
       wvalid.in = (!(wvalid.out & WREADY) & !w_handshake_occurred.out) ? 1'd1;
       wvalid.in = ((wvalid.out & WREADY) | w_handshake_occurred.out) ? 1'd0;
       wvalid.write_en = 1'd1;
       w_handshake_occurred.in = (wvalid.out & WREADY) ? 1'd1;
+      w_handshake_occurred.in = !(wvalid.out & WREADY) ? 1'd0;
       w_handshake_occurred.write_en = !w_handshake_occurred.out ? 1'd1;
       mem_ref.addr0 = curr_addr_internal_mem.out;
       mem_ref.content_en = 1'd1;
       WDATA = mem_ref.read_data;
-      WLAST = (max_transfers.out == curr_trsnfr_count.out) ? 1'd1;
-      WLAST = (max_transfers.out != curr_trsnfr_count.out) ? 1'd0;
-      n_finished_last_trnsfr.in = ((max_transfers.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)) ? 1'd0;
-      n_finished_last_trnsfr.write_en = ((max_transfers.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)) ? 1'd1;
+      WLAST = (max_transfers.out == curr_transfer_count.out) ? 1'd1;
+      WLAST = (max_transfers.out != curr_transfer_count.out) ? 1'd0;
+      n_finished_last_transfer.in = ((max_transfers.out == curr_transfer_count.out) & (wvalid.out & WREADY)) ? 1'd0;
+      n_finished_last_transfer.write_en = ((max_transfers.out == curr_transfer_count.out) & (wvalid.out & WREADY)) ? 1'd1;
       bt_reg.in = (wvalid.out & WREADY) ? 1'd1;
       bt_reg.in = !(wvalid.out & WREADY) ? 1'd0;
       bt_reg.write_en = 1'd1;
@@ -243,25 +245,25 @@ component m_write_channel(ARESETn: 1, WREADY: 1) -> (WVALID: 1, WLAST: 1, WDATA:
       curr_addr_axi.in = curr_addr_axi_incr.out;
       curr_addr_axi_incr_group[done] = curr_addr_axi.done;
     }
-    group curr_trsnfr_count_incr_group {
-      curr_trsnfr_count_incr.left = curr_trsnfr_count.out;
-      curr_trsnfr_count_incr.right = 8'd1;
-      curr_trsnfr_count.write_en = 1'd1;
-      curr_trsnfr_count.in = curr_trsnfr_count_incr.out;
-      curr_trsnfr_count_incr_group[done] = curr_trsnfr_count.done;
+    group curr_transfer_count_incr_group {
+      curr_transfer_count_incr.left = curr_transfer_count.out;
+      curr_transfer_count_incr.right = 8'd1;
+      curr_transfer_count.write_en = 1'd1;
+      curr_transfer_count.in = curr_transfer_count_incr.out;
+      curr_transfer_count_incr_group[done] = curr_transfer_count.done;
     }
   }
   control {
     seq {
       invoke curr_addr_internal_mem(in=3'd0)();
-      invoke n_finished_last_trnsfr(in=1'd1)();
-      while n_finished_last_trnsfr.out {
+      invoke n_finished_last_transfer(in=1'd1)();
+      while n_finished_last_transfer.out {
         seq {
           invoke bt_reg(in=1'd0)();
           service_write_transfer;
           par {
             curr_addr_internal_mem_incr_group;
-            curr_trsnfr_count_incr_group;
+            curr_transfer_count_incr_group;
             curr_addr_axi_incr_group;
             invoke w_handshake_occurred(in=1'd0)();
           }
