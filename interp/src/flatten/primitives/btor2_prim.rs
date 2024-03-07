@@ -1,6 +1,5 @@
 use btor2i::program::Btor2Program;
 
-use crate::errors::InterpreterResult;
 use crate::flatten::flat_ir::prelude::AssignedValue;
 use crate::flatten::flat_ir::prelude::GlobalPortIdx;
 use crate::flatten::primitives::declare_ports;
@@ -73,10 +72,6 @@ impl<'a> Primitive for MyBtor2Add<'a> {
                 Ok(UpdateStatus::Unchanged)
             }
         }
-    }
-
-    fn reset(&mut self, _port_map: &mut PortMap) -> InterpreterResult<()> {
-        Ok(())
     }
 
     fn has_stateful(&self) -> bool {

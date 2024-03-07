@@ -100,7 +100,6 @@ pub type UpdateResult = InterpreterResult<UpdateStatus>;
 
 pub trait Primitive {
     fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
-        // find some way to convert the port map into a map from strings to strings?
         Ok(UpdateStatus::Unchanged)
     }
 
