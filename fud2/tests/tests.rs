@@ -82,15 +82,13 @@ fn test_emit(driver: &Driver, req: Request) {
 #[test]
 fn calyx_to_verilog() {
     let driver = test_driver();
-    let req = request(&driver, "calyx", "verilog", &[]);
-    test_emit(&driver, req);
+    test_emit(&driver, request(&driver, "calyx", "verilog", &[]));
 }
 
 #[test]
 fn calyx_via_firrtl() {
     let driver = test_driver();
-    let req = request(&driver, "calyx", "verilog", &["firrtl"]);
-    test_emit(&driver, req);
+    test_emit(&driver, request(&driver, "calyx", "verilog", &["firrtl"]));
 }
 
 #[test]
@@ -98,8 +96,7 @@ fn sim_tests() {
     let driver = test_driver();
     for dest in &["dat", "vcd"] {
         for sim in &["icarus", "verilator"] {
-            let req = request(&driver, "calyx", dest, &[sim]);
-            test_emit(&driver, req);
+            test_emit(&driver, request(&driver, "calyx", dest, &[sim]));
         }
     }
 }
