@@ -31,7 +31,11 @@ fn emit_ninja(driver: &Driver, req: Request) -> String {
         .merge(("exe", "fud2"))
         .merge(("calyx.base", "/test/calyx"))
         .merge(("firrtl.exe", "/test/bin/firrtl"))
-        .merge(("sim.data", "/test/data.json"));
+        .merge(("sim.data", "/test/data.json"))
+        .merge(("xilinx.vivado", "/test/xilinx/vivado"))
+        .merge(("xilinx.vitis", "/test/xilinx/vitis"))
+        .merge(("xilinx.xrt", "/test/xilinx/xrt"))
+        .merge(("dahlia", "/test/bin/dahlia"));
     let run = Run::with_config(driver, plan, config);
     let mut buf = vec![];
     run.emit(&mut buf).unwrap();
@@ -98,5 +102,27 @@ fn sim_tests() {
         for sim in &["icarus", "verilator"] {
             test_emit(&driver, request(&driver, "calyx", dest, &[sim]));
         }
+    }
+}
+
+#[test]
+fn cider_tests() {
+    let driver = test_driver();
+    test_emit(&driver, request(&driver, "calyx", "dat", &["interp"]));
+    test_emit(&driver, request(&driver, "calyx", "debug", &[]));
+}
+
+#[test]
+fn xrt_tests() {
+    let driver = test_driver();
+    test_emit(&driver, request(&driver, "calyx", "dat", &["xrt"]));
+    test_emit(&driver, request(&driver, "calyx", "vcd", &["xrt-trace"]));
+}
+
+#[test]
+fn frontend_tests() {
+    let driver = test_driver();
+    for frontend in &["dahlia", "mrxl"] {
+        test_emit(&driver, request(&driver, frontend, "calyx", &[]));
     }
 }
