@@ -1,0 +1,46 @@
+[package]
+name = "calyx-lsp"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+
+include = [
+  "build.rs",
+  "src/*",
+  "tree-sitter-calyx/grammar.js",
+  "tree-sitter-calyx/queries/*",
+  "tree-sitter-calyx/src/*",
+]
+
+[features]
+diagnostics = []
+log = []
+default = ["diagnostics"]
+
+[dependencies]
+calyx-frontend.workspace = true
+calyx-ir.workspace = true
+calyx-utils.workspace = true
+chrono = "0.4.33"
+itertools.workspace = true
+regex = "1.10.3"
+resolve-path = "0.1.0"
+serde.workspace = true
+serde_json.workspace = true
+tower-lsp = "0.20"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+tree-sitter = "0.20"
+
+[dependencies.tokio]
+version = "1"
+features = ["io-util", "io-std", "macros", "rt-multi-thread", "net"]
+
+[build-dependencies]
+cc = "1.0"

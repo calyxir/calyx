@@ -15,7 +15,16 @@ description = "Compiler driver for the Calyx infrastructure"
 [dependencies]
 fud-core = { path = "fud-core", version = "0.0.2" }
 anyhow.workspace = true
+manifest-dir-macros = "0.1"
+include_dir = "0.7"
+
+[lib]
+name = "fud2"
+path = "src/lib.rs"
 
 [[bin]]
 name = "fud2"
 path = "src/main.rs"
+
+[dev-dependencies]
+insta = "1.36.0"

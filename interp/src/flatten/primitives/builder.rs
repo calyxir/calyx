@@ -106,7 +106,7 @@ pub fn build_primitive(
             idx_size: _,
         } => match mem_type {
             MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
-            MemType::Std => Box::new(StdMemD1::new(base_port, *width, false, *size as usize))
+            MemType::Std => Box::new(CombMemD1::new(base_port, *width, false, *size as usize))
         },
         CellPrototype::MemD2 {
             mem_type,
@@ -117,7 +117,7 @@ pub fn build_primitive(
             d1_idx_size: _,
         } => match mem_type {
             MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
-            MemType::Std => Box::new(StdMemD2::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize))),
+            MemType::Std => Box::new(CombMemD2::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize))),
         },
         CellPrototype::MemD3 {
             mem_type,
@@ -130,7 +130,7 @@ pub fn build_primitive(
             d2_idx_size: _,
         }  => match mem_type {
             MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
-            MemType::Std => Box::new(StdMemD3::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize))),
+            MemType::Std => Box::new(CombMemD3::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize))),
         },
         CellPrototype::MemD4 {
             mem_type,
@@ -145,7 +145,7 @@ pub fn build_primitive(
             d3_idx_size: _,
         }=> match mem_type {
             MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
-            MemType::Std => Box::new(StdMemD4::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize, *d3_size as usize))),
+            MemType::Std => Box::new(CombMemD4::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize, *d3_size as usize))),
         },
         CellPrototype::Unknown(_, _) => {
             Box::new(MyBtor2Add::new(base_port, 32))

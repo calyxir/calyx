@@ -478,7 +478,7 @@ fn emit_guard_disjoint_check(
     let mut check = v::SequentialIfElse::new(not_onehot0);
 
     // Generated error message
-    let ir::Canonical(cell, port) = dst.borrow().canonical();
+    let ir::Canonical { cell, port } = dst.borrow().canonical();
     let msg = format!("Multiple assignment to port `{}.{}'.", cell, port);
     let err = v::Sequential::new_seqexpr(v::Expr::new_call(
         "$fatal",

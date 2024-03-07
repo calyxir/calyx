@@ -22,16 +22,17 @@ component mem_copy(length: 3) -> () {
     }
     group let1<"promotable"=2> {
       src_read0_0.in = src.read_data;
-      src_read0_0.write_en = src.read_done;
+      src_read0_0.write_en = src.done;
       let1[done] = src_read0_0.done;
+      src.content_en = 1'd1;
       src.addr0 = i_0.out;
-      src.read_en = 1'd1;
     }
     group upd0<"promotable"=1> {
+      dest.content_en = 1'd1;
       dest.addr0 = i_0.out;
       dest.write_en = 1'd1;
       dest.write_data = src_read0_0.out;
-      upd0[done] = dest.write_done;
+      upd0[done] = dest.done;
     }
   }
   control {

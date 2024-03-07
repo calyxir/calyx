@@ -13,7 +13,8 @@ use crate::{
     environment::{InterpreterState, PrimitiveMap},
     interpreter::ConstCell,
     interpreter_ir as iir,
-    primitives::{Entry, Primitive, Serializable},
+    primitives::Primitive,
+    serialization::{Entry, Serializable},
     utils::AsRaw,
     values::Value,
 };

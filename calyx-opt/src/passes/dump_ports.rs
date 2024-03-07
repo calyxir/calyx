@@ -15,7 +15,7 @@ pub struct DumpResults {
 
 /// Formats name of a port given the id of the cell and the port
 pub(super) fn format_port_name(canon: &ir::Canonical) -> ir::Id {
-    format!("{}_{}", canon.0, canon.1).into()
+    format!("{}_{}", canon.cell, canon.port).into()
 }
 
 /// Remove all the cells matching the given criterion (f evaluates to true) from

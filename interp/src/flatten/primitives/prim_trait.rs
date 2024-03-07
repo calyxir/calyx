@@ -2,7 +2,7 @@ use crate::{
     debugger::PrintCode,
     errors::InterpreterResult,
     flatten::{flat_ir::base::GlobalPortIdx, structures::environment::PortMap},
-    primitives::Serializable,
+    serialization::Serializable,
     values::Value,
 };
 
@@ -30,6 +30,7 @@ impl From<(Value, GlobalPortIdx)> for AssignResult {
 }
 
 /// An enum used to denote whether or not committed updates changed the state
+#[derive(Debug)]
 pub enum UpdateStatus {
     Unchanged,
     Changed,
@@ -50,7 +51,7 @@ impl UpdateStatus {
     /// If the status is unchanged and other is changed, updates the status of
     /// self to changed, otherwise does nothing
     pub fn update(&mut self, other: Self) {
-        if !self.is_changed() && other.is_changed() {
+        if !self.as_bool() && other.as_bool() {
             *self = UpdateStatus::Changed;
         }
     }
@@ -60,7 +61,7 @@ impl UpdateStatus {
     ///
     /// [`Changed`]: UpdateStatus::Changed
     #[must_use]
-    pub fn is_changed(&self) -> bool {
+    pub fn as_bool(&self) -> bool {
         matches!(self, Self::Changed)
     }
 }
@@ -69,7 +70,7 @@ impl std::ops::BitOr for UpdateStatus {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        if self.is_changed() || rhs.is_changed() {
+        if self.as_bool() || rhs.as_bool() {
             UpdateStatus::Changed
         } else {
             UpdateStatus::Unchanged
@@ -81,7 +82,7 @@ impl std::ops::BitOr for &UpdateStatus {
     type Output = UpdateStatus;
 
     fn bitor(self, rhs: Self) -> Self::Output {
-        if self.is_changed() || rhs.is_changed() {
+        if self.as_bool() || rhs.as_bool() {
             UpdateStatus::Changed
         } else {
             UpdateStatus::Unchanged
@@ -105,10 +106,6 @@ pub trait Primitive {
 
     fn exec_cycle(&mut self, _port_map: &mut PortMap) -> UpdateResult {
         Ok(UpdateStatus::Unchanged)
-    }
-
-    fn reset(&mut self, _port_map: &mut PortMap) -> InterpreterResult<()> {
-        Ok(())
     }
 
     fn has_comb(&self) -> bool {

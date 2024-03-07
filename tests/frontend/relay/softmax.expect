@@ -85,11 +85,11 @@ component softmax_1x10() -> () {
     }
     group let0<"promotable"=2> {
       __max_0.in = x.read_data;
-      __max_0.write_en = x.read_done;
+      __max_0.write_en = x.done;
       let0[done] = __max_0.done;
+      x.content_en = 1'd1;
       x.addr1 = const1.out;
       x.addr0 = const0.out;
-      x.read_en = 1'd1;
     }
     group let1<"promotable"=1> {
       __i0.in = const2.out;
@@ -108,11 +108,11 @@ component softmax_1x10() -> () {
     }
     group let12<"promotable"=2> {
       x_read3_0.in = x.read_data;
-      x_read3_0.write_en = x.read_done;
+      x_read3_0.write_en = x.done;
       let12[done] = x_read3_0.done;
+      x.content_en = 1'd1;
       x.addr1 = __k0.out;
       x.addr0 = __i1.out;
-      x.read_en = 1'd1;
     }
     group let13<"promotable"=1> {
       __t2_0.in = sub1.out;
@@ -141,19 +141,19 @@ component softmax_1x10() -> () {
     }
     group let3<"promotable"=2> {
       x_read0_0.in = x.read_data;
-      x_read0_0.write_en = x.read_done;
+      x_read0_0.write_en = x.done;
       let3[done] = x_read0_0.done;
+      x.content_en = 1'd1;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
-      x.read_en = 1'd1;
     }
     group let4<"promotable"=2> {
       x_read1_0.in = x.read_data;
-      x_read1_0.write_en = x.read_done;
+      x_read1_0.write_en = x.done;
       let4[done] = x_read1_0.done;
+      x.content_en = 1'd1;
       x.addr1 = __j0.out;
       x.addr0 = __i0.out;
-      x.read_en = 1'd1;
     }
     group let5<"promotable"=1> {
       __i1.in = const8.out;
@@ -172,11 +172,11 @@ component softmax_1x10() -> () {
     }
     group let8<"promotable"=2> {
       x_read2_0.in = x.read_data;
-      x_read2_0.write_en = x.read_done;
+      x_read2_0.write_en = x.done;
       let8[done] = x_read2_0.done;
+      x.content_en = 1'd1;
       x.addr1 = __j1.out;
       x.addr0 = __i1.out;
-      x.read_en = 1'd1;
     }
     group let9<"promotable"=1> {
       __t0_0.in = sub0.out;
@@ -219,11 +219,12 @@ component softmax_1x10() -> () {
       upd4[done] = __j1.done;
     }
     group upd5<"promotable"=1> {
+      x1.content_en = 1'd1;
       x1.addr1 = __k0.out;
       x1.addr0 = __i1.out;
       x1.write_en = 1'd1;
       x1.write_data = bin_read0_0.out;
-      upd5[done] = x1.write_done;
+      upd5[done] = x1.done;
     }
     group upd6<"promotable"=1> {
       __k0.write_en = 1'd1;

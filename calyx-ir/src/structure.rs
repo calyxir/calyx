@@ -39,11 +39,20 @@ pub struct Port {
 
 /// Canonical name of a Port
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Canonical(pub Id, pub Id);
+pub struct Canonical {
+    pub cell: Id,
+    pub port: Id,
+}
+
+impl Canonical {
+    pub const fn new(cell: Id, port: Id) -> Self {
+        Self { cell, port }
+    }
+}
 
 impl std::fmt::Display for Canonical {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.0, self.1)
+        write!(f, "{}.{}", self.cell, self.port)
     }
 }
 
@@ -96,7 +105,10 @@ impl Port {
 
     /// Get the canonical representation for this Port.
     pub fn canonical(&self) -> Canonical {
-        Canonical(self.get_parent_name(), self.name)
+        Canonical {
+            cell: self.get_parent_name(),
+            port: self.name,
+        }
     }
 
     /// Returns the value of an attribute if present
@@ -275,7 +287,7 @@ impl Cell {
     }
 
     ///Set the external field
-    pub(super) fn set_reference(&mut self, reference: bool) -> bool {
+    pub fn set_reference(&mut self, reference: bool) -> bool {
         self.reference = reference;
         self.reference
     }

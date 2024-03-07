@@ -1,0 +1,52 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    ref A = seq_mem_d1(32, 16, 4);
+    B = seq_mem_d1(32, 16, 4);
+    ref state = std_reg(32);
+    ref my_module = module();
+  }
+  wires {
+    group wr_A {
+      A.write_en = 1'd1;
+      A.content_en = 1'd1;
+      A.write_data = 32'd5;
+      wr_A[done] = A.done;
+    }
+    group wr_B {
+      B.write_en = 1'd1;
+      B.content_en = 1'd1;
+      B.write_data = 32'd4;
+      wr_B[done] = B.done;
+    }
+    group read_A {
+      A.content_en = 1'd1;
+      A.write_en = 1'd0;
+      read_A[done] = A.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        wr_A;
+        wr_B;
+      }
+      read_A;
+    }
+  }
+}
+component module(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    ref C = seq_mem_d1(32, 16, 4);
+  }
+  wires {
+    group wr_C {
+      C.write_en = 1'd1;
+      C.content_en = 1'd1;
+      C.write_data = 32'd6;
+      wr_C[done] = C.done;
+    }
+  }
+  control {}
+}

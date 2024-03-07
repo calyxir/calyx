@@ -1,4 +1,4 @@
-// -p validate -p static-inference -p schedule-compaction -p dead-group-removal
+// -p validate -p static-inference -p static-promotion -x static-promotion:threshold=2 -p dead-group-removal
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";

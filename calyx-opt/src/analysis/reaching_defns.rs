@@ -1,12 +1,14 @@
 //! Calculate the reaching definitions in a control program.
-use crate::analysis::ReadWriteSet;
 use calyx_ir as ir;
+use itertools::Itertools;
 use std::cmp::Ordering;
 use std::cmp::{Ord, PartialOrd};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     ops::BitOr,
 };
+
+use super::read_write_set::AssignmentAnalysis;
 
 const INVOKE_PREFIX: &str = "__invoke_";
 
@@ -219,18 +221,19 @@ impl ReachingDefinitionAnalysis {
     where
         I: Iterator<Item = &'a ir::Assignment<T>> + Clone + 'a,
     {
-        let continuous_regs: Vec<ir::Id> =
-            ReadWriteSet::uses(continuous_assignments)
-                .filter_map(|cell| {
-                    let cell_ref = cell.borrow();
-                    if let Some(name) = cell_ref.type_name() {
-                        if name == "std_reg" {
-                            return Some(cell_ref.name());
-                        }
+        let continuous_regs: Vec<ir::Id> = continuous_assignments
+            .analysis()
+            .cell_uses()
+            .filter_map(|cell| {
+                let cell_ref = cell.borrow();
+                if let Some(name) = cell_ref.type_name() {
+                    if name == "std_reg" {
+                        return Some(cell_ref.name());
                     }
-                    None
-                })
-                .collect();
+                }
+                None
+            })
+            .collect();
 
         let mut overlap_map: BTreeMap<
             ir::Id,
@@ -301,6 +304,34 @@ fn remove_entries_defined_by(set: &mut KilledSet, defs: &DefSet) {
         .collect();
 }
 
+/// Returns the register cells whose out port is read anywhere in the given
+/// assignments
+fn register_reads<T>(assigns: &[ir::Assignment<T>]) -> BTreeSet<ir::Id> {
+    assigns
+        .iter()
+        .analysis()
+        .reads()
+        .filter_map(|p| {
+            let port = p.borrow();
+            let ir::PortParent::Cell(cell_wref) = &port.parent else {
+                unreachable!("Port not part of a cell");
+            };
+            // Skip this if the port is not an output
+            if &port.name != "out" {
+                return None;
+            };
+            let cr = cell_wref.upgrade();
+            let cell = cr.borrow();
+            if cell.is_primitive(Some("std_reg")) {
+                Some(cr.borrow().name())
+            } else {
+                None
+            }
+        })
+        .unique()
+        .collect()
+}
+
 // handles `build_reaching_defns` for the enable/static_enables case.
 // asgns are the assignments in the group (either static or dynamic)
 fn handle_reaching_def_enables<T>(
@@ -309,7 +340,7 @@ fn handle_reaching_def_enables<T>(
     rd: &mut ReachingDefinitionAnalysis,
     group_name: ir::Id,
 ) -> (DefSet, KilledSet) {
-    let writes = ReadWriteSet::must_write_set(asgns.iter());
+    let writes = asgns.iter().analysis().must_writes().cells();
     // for each write:
     // Killing all other reaching defns for that var
     // generating a new defn (Id, GROUP)
@@ -321,9 +352,8 @@ fn handle_reaching_def_enables<T>(
         .map(|x| x.borrow().name())
         .collect::<BTreeSet<_>>();
 
-    let read_set = ReadWriteSet::register_reads(asgns.iter())
-        .map(|x| x.borrow().name())
-        .collect::<BTreeSet<_>>();
+    let read_set = register_reads(asgns);
+
     // only kill a def if the value is not read.
     let (mut cur_reach, killed) =
         reach.kill_from_writeread(&write_set, &read_set);

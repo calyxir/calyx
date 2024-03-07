@@ -1,4 +1,4 @@
-// -p validate -p schedule-compaction -p dead-group-removal
+// -p validate -p static-promotion -p dead-group-removal
 // for control operators under static seq,
 // we consider the subsequent control operator B to have data dependency on
 // prior operator A in the following three cases:

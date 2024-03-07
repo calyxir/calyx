@@ -2,12 +2,15 @@ use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{run, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
+use std::collections::HashMap;
 
 #[derive(PartialEq)]
 enum Destination {
     State(StateRef),
     Op(OpRef),
 }
+
+type FileData = HashMap<&'static str, &'static [u8]>;
 
 /// A Driver encapsulates a set of States and the Operations that can transform between them. It
 /// contains all the machinery to perform builds in a given ecosystem.
@@ -16,6 +19,8 @@ pub struct Driver {
     pub setups: PrimaryMap<SetupRef, Setup>,
     pub states: PrimaryMap<StateRef, State>,
     pub ops: PrimaryMap<OpRef, Operation>,
+    pub rsrc_dir: Option<Utf8PathBuf>,
+    pub rsrc_files: Option<FileData>,
 }
 
 impl Driver {
@@ -119,6 +124,10 @@ impl Driver {
         }
     }
 
+    /// Concot a plan to carry out the requested build.
+    ///
+    /// This works by searching for a path through the available operations from the input state
+    /// to the output state. If no such path exists in the operation graph, we return None.
     pub fn plan(&self, req: Request) -> Option<Plan> {
         // Find a path through the states.
         let path =
@@ -159,6 +168,9 @@ impl Driver {
         })
     }
 
+    /// Infer the state of a file based on its extension.
+    ///
+    /// Multiple states can use the same extension. The first state registered "wins."
     pub fn guess_state(&self, path: &Utf8Path) -> Option<StateRef> {
         let ext = path.extension()?;
         self.states
@@ -167,6 +179,7 @@ impl Driver {
             .map(|(state, _)| state)
     }
 
+    /// Look up a state by its name.
     pub fn get_state(&self, name: &str) -> Option<StateRef> {
         self.states
             .iter()
@@ -174,6 +187,7 @@ impl Driver {
             .map(|(state, _)| state)
     }
 
+    /// Look an operation by its name.
     pub fn get_op(&self, name: &str) -> Option<OpRef> {
         self.ops
             .iter()
@@ -185,6 +199,29 @@ impl Driver {
     pub fn default_workdir(&self) -> Utf8PathBuf {
         format!(".{}", &self.name).into()
     }
+
+    /// Print a list of registered states and operations to stdout.
+    pub fn print_info(&self) {
+        println!("States:");
+        for (_, state) in self.states.iter() {
+            print!("  {}:", state.name);
+            for ext in &state.extensions {
+                print!(" .{}", ext);
+            }
+            println!();
+        }
+
+        println!();
+        println!("Operations:");
+        for (_, op) in self.ops.iter() {
+            println!(
+                "  {}: {} -> {}",
+                op.name,
+                self.states[op.input].name,
+                self.states[op.output].name
+            );
+        }
+    }
 }
 
 pub struct DriverBuilder {
@@ -192,6 +229,8 @@ pub struct DriverBuilder {
     setups: PrimaryMap<SetupRef, Setup>,
     states: PrimaryMap<StateRef, State>,
     ops: PrimaryMap<OpRef, Operation>,
+    rsrc_dir: Option<Utf8PathBuf>,
+    rsrc_files: Option<FileData>,
 }
 
 impl DriverBuilder {
@@ -201,6 +240,8 @@ impl DriverBuilder {
             setups: Default::default(),
             states: Default::default(),
             ops: Default::default(),
+            rsrc_dir: None,
+            rsrc_files: None,
         }
     }
 
@@ -272,12 +313,22 @@ impl DriverBuilder {
         )
     }
 
+    pub fn rsrc_dir(&mut self, path: &str) {
+        self.rsrc_dir = Some(path.into());
+    }
+
+    pub fn rsrc_files(&mut self, files: FileData) {
+        self.rsrc_files = Some(files);
+    }
+
     pub fn build(self) -> Driver {
         Driver {
             name: self.name,
             setups: self.setups,
             states: self.states,
             ops: self.ops,
+            rsrc_dir: self.rsrc_dir,
+            rsrc_files: self.rsrc_files,
         }
     }
 }
