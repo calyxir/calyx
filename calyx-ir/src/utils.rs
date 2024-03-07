@@ -1,29 +1,30 @@
 //! Helpers used to examine calyx programs. Used in Xilinx and Yxi backends among others.
 use super::{BoolAttr, Cell, Component, RRC};
+#[cfg(feature = "serialize")]
 use serde::Serialize;
 
 // Returns Vec<String> of memory names
 pub fn external_memories_names(comp: &Component) -> Vec<String> {
     external_memories_cells(comp)
-    .iter()
-    .map(|cell_ref| cell_ref.borrow().name().to_string())
-    .collect()
+        .iter()
+        .map(|cell_ref| cell_ref.borrow().name().to_string())
+        .collect()
 }
 
 // Gets all memory cells in top level marked external.
 pub fn external_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
     comp.cells
-    .iter()
-    // find external memories
-    .filter(|cell_ref| {
-        let cell = cell_ref.borrow();
-        cell.attributes.has(BoolAttr::External) || cell.is_reference()
-    })
-    .cloned()
-    .collect()
+        .iter()
+        // find external memories
+        .filter(|cell_ref| {
+            let cell = cell_ref.borrow();
+            cell.attributes.has(BoolAttr::External) || cell.is_reference()
+        })
+        .cloned()
+        .collect()
 }
 
-#[cfg_attr(feature="serialize", derive(Serialize))]
+#[cfg_attr(feature = "serialize", derive(Serialize))]
 pub enum MemoryType {
     Combinational,
     Sequential,
@@ -74,7 +75,7 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                 //     "seq" => MemoryType::Sequential,
                 //     _ => panic!("cell `{}' is neither a combinational nor sequential memory.", mem.name())
                 //   };
-                
+
 
                   match mem.prototype.get_name().unwrap().as_ref() {
                       "comb_mem_d1" | "seq_mem_d1" => {

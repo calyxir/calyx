@@ -52,7 +52,7 @@ impl Backend for XilinxInterfaceBackend {
             modules.push(bram(
                 &format!("SINGLE_PORT_BRAM_{}", i),
                 mem.data_width,
-                mem.size,
+                mem.dimensions,
                 mem.idx_sizes[0],
             ))
         }
@@ -71,7 +71,7 @@ impl Backend for XilinxInterfaceBackend {
                 512,
                 64,
                 mem.data_width,
-                mem.size,
+                mem.dimensions,
                 mem.idx_sizes[0],
             ))
         }

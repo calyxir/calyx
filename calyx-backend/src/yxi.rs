@@ -65,7 +65,7 @@ impl Backend for YxiBackend {
                 dimensions: mem_info.dimensions,
                 dimension_sizes: mem_info.dimension_sizes.clone(),
                 idx_sizes: mem_info.idx_sizes.clone(),
-                total_size: mem_info.dimension_sizes.iter().product()
+                total_size: mem_info.dimension_sizes.iter().product(),
             })
             .collect();
 
