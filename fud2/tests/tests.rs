@@ -30,7 +30,8 @@ fn emit_ninja(driver: &Driver, req: Request) -> String {
     let config = default_config()
         .merge(("exe", "fud2"))
         .merge(("calyx.base", "/test/calyx"))
-        .merge(("firrtl.exe", "/test/bin/firrtl"));
+        .merge(("firrtl.exe", "/test/bin/firrtl"))
+        .merge(("sim.data", "/test/data.json"));
     let run = Run::with_config(driver, plan, config);
     let mut buf = vec![];
     run.emit(&mut buf).unwrap();
@@ -65,10 +66,10 @@ fn req_slug(driver: &Driver, req: &Request) -> String {
     desc
 }
 
-fn test_emit(driver: Driver, req: Request) {
-    let desc = req_desc(&driver, &req);
-    let slug = req_slug(&driver, &req);
-    let ninja = emit_ninja(&driver, req);
+fn test_emit(driver: &Driver, req: Request) {
+    let desc = req_desc(driver, &req);
+    let slug = req_slug(driver, &req);
+    let ninja = emit_ninja(driver, req);
     insta::with_settings!({
         description => desc,
         omit_expression => true,
@@ -82,12 +83,23 @@ fn test_emit(driver: Driver, req: Request) {
 fn calyx_to_verilog() {
     let driver = test_driver();
     let req = request(&driver, "calyx", "verilog", &[]);
-    test_emit(driver, req);
+    test_emit(&driver, req);
 }
 
 #[test]
 fn calyx_via_firrtl() {
     let driver = test_driver();
     let req = request(&driver, "calyx", "verilog", &["firrtl"]);
-    test_emit(driver, req);
+    test_emit(&driver, req);
+}
+
+#[test]
+fn sim_tests() {
+    let driver = test_driver();
+    for dest in &["dat", "vcd"] {
+        for sim in &["icarus", "verilator"] {
+            let req = request(&driver, "calyx", dest, &[sim]);
+            test_emit(&driver, req);
+        }
+    }
 }
