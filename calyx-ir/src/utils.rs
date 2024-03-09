@@ -25,6 +25,7 @@ pub fn external_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
 }
 
 #[cfg_attr(feature = "serialize", derive(Serialize))]
+#[derive(Clone, Copy)]
 pub enum MemoryType {
     Combinational,
     Sequential,
@@ -107,7 +108,7 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                   if dimensions == 1 {
                     idx_sizes.push(mem.get_parameter("IDX_SIZE").unwrap());
                   } else {
-                    for i in 1..dimensions {
+                    for i in 0..dimensions {
                         idx_sizes.push(mem.get_parameter(format!("D{}_IDX_SIZE",i)).unwrap());
                     }
                   }
