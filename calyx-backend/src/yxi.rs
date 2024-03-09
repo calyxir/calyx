@@ -52,7 +52,7 @@ impl Backend for YxiBackend {
             .find(|comp| comp.name == prog.entrypoint)
             .unwrap();
 
-        let memory_names = ir::utils::external_memories_names(toplevel);
+        let memory_names = ir::utils::external_and_ref_memories_names(toplevel);
         let mem_infos = toplevel.get_mem_info();
 
         let memories: Vec<Memory> = memory_names

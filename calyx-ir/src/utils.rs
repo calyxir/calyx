@@ -3,19 +3,19 @@ use super::{BoolAttr, Cell, Component, RRC};
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
-// Returns Vec<String> of memory names
-pub fn external_memories_names(comp: &Component) -> Vec<String> {
-    external_memories_cells(comp)
+// Returns Vec<String> of `@external` or `ref` memory names
+pub fn external_and_ref_memories_names(comp: &Component) -> Vec<String> {
+    external_and_ref_memories_cells(comp)
         .iter()
         .map(|cell_ref| cell_ref.borrow().name().to_string())
         .collect()
 }
 
-// Gets all memory cells in top level marked external.
-pub fn external_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
+/// Gets all memory cells in top level marked `@external` or `ref`.
+pub fn external_and_ref_memories_cells(comp: &Component) -> Vec<RRC<Cell>> {
     comp.cells
         .iter()
-        // find external memories
+        // find external and ref memories
         .filter(|cell_ref| {
             let cell = cell_ref.borrow();
             cell.attributes.has(BoolAttr::External) || cell.is_reference()
@@ -42,7 +42,7 @@ pub struct MemInfo {
     pub idx_sizes: Vec<u64>,
 }
 
-// Returns a vector of tuples containing external memory info of [comp] of form:
+// Returns a vector of tuples containing memory info of [comp] of form:
 // [(WIDTH, SIZE, IDX_SIZE)]
 pub trait GetMemInfo {
     fn get_mem_info(&self) -> Vec<MemInfo>;
@@ -62,21 +62,6 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                   } else {
                     MemoryType::Sequential
                   };
-
-                //   if mem_cell_type.as_ref().starts_with("comb") {
-                //     MemoryType::Combinational
-                //   } else if mem_cell_type.as_ref().starts_with("seq"){
-                //     MemoryType::Sequential
-                //   } else {
-                //     panic!("cell `{}' is neither a combinational nor sequential memory.", mem.name());
-                //   };
-
-                //   match mem_cell_type[0 .. 4].as_ref() {
-                //     "comb" => MemoryType::Combinational,
-                //     "seq" => MemoryType::Sequential,
-                //     _ => panic!("cell `{}' is neither a combinational nor sequential memory.", mem.name())
-                //   };
-
 
                   match mem.prototype.get_name().unwrap().as_ref() {
                       "comb_mem_d1" | "seq_mem_d1" => {
@@ -126,6 +111,6 @@ impl GetMemInfo for Vec<RRC<Cell>> {
 
 impl GetMemInfo for Component {
     fn get_mem_info(&self) -> Vec<MemInfo> {
-        external_memories_cells(self).get_mem_info()
+        external_and_ref_memories_cells(self).get_mem_info()
     }
 }
