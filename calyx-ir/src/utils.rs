@@ -100,9 +100,9 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                   MemInfo {
                       memory_type: mem_type,
                       data_width: mem.get_parameter("WIDTH").unwrap(),
-                      dimensions: dimensions,
-                      dimension_sizes: dimension_sizes,
-                      idx_sizes : idx_sizes
+                      dimensions,
+                      dimension_sizes,
+                      idx_sizes
                   }
               })
               .collect()
