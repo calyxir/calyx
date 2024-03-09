@@ -3,18 +3,42 @@
   "memories": [
     {
       "name": "A0",
-      "width": 32,
-      "size": 8
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 1,
+      "dimension_sizes": [
+        8
+      ],
+      "idx_sizes": [
+        4
+      ],
+      "total_size": 8
     },
     {
       "name": "B0",
-      "width": 32,
-      "size": 8
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 1,
+      "dimension_sizes": [
+        8
+      ],
+      "idx_sizes": [
+        4
+      ],
+      "total_size": 8
     },
     {
       "name": "v0",
-      "width": 32,
-      "size": 1
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 1,
+      "dimension_sizes": [
+        1
+      ],
+      "idx_sizes": [
+        1
+      ],
+      "total_size": 1
     }
   ]
 }
