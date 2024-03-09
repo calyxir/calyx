@@ -458,4 +458,36 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             Ok(())
         },
     );
+
+    // Example operation!
+    let axi_calyx = bld.state("axi_calyx", &["futil"]);
+    let yxi_setup = bld.setup("YXI and AXI generation", |e| {
+        // Define a `gen-axi` rule that invokes our Python code generator program. Maybe the
+        // real thing would want to use a configuration option (or a resource file) to point
+        // to the Python script?
+        e.rule("gen-axi", "python gen_axi.py $in")?;
+
+        // Define a simple `combine` rule that just concatenates any numer of files.
+        e.rule("combine", "cat $in > $out")?;
+
+        Ok(())
+    });
+    bld.op(
+        "AXI-wrapped Caly generation",
+        &[calyx_setup, yxi_setup],
+        calyx,
+        axi_calyx,
+        |e, input, output| {
+            // Generate the YXI file.
+            e.build_cmd(&["yxi.json"], "calyx", &[input], &[])?;
+            e.arg("backend", "yxi")?;
+
+            // Generate the AXI wrapper.
+            e.build_cmd(&["axiwrap.futil"], "gen-axi", &["yxi.json"], &[])?;
+
+            // Combine the original Calyx and the wrapper.
+            e.build_cmd(&[output], "combine", &[input, "axiwrap.futil"], &[])?;
+            Ok(())
+        },
+    );
 }
