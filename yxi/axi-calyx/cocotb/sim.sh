@@ -3,7 +3,7 @@
 # Intended to convert from calyx to synthesizable verilog, enable waveform tracing and run tests defined in Makefile
 #expects an outputs/ dir one level up from here
 cd ../ \
-    && python3 axi-generator.py > generated-axi.futil \
+    && python3 axi-generator.py input.yxi > generated-axi.futil \
     && cp generated-axi.futil generated-axi-with-vec-add.futil \
     && cat fixed-vec-add.futil >> generated-axi-with-vec-add.futil \
     && cd cocotb \
