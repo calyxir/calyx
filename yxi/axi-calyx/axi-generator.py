@@ -9,33 +9,40 @@ from calyx.builder import (
 from typing import Literal
 from math import log2, ceil
 import json
+import sys
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
 
-yxi_input = """
-{
-  "toplevel": "main",
-  "memories": [
-    {
-      "name": "A0",
-      "width": 32,
-      "size": 8
-    },
-    {
-      "name": "B0",
-      "width": 32,
-      "size": 8
-    },
-    {
-      "name": "Sum0",
-      "width": 32,
-      "size": 8
-    }
-  ]
-}
-"""
-
-yxi = json.loads(yxi_input)
+# yxi_input = """
+# {
+#   "toplevel": "main",
+#   "memories": [
+#     {
+#       "name": "A0",
+#       "width": 32,
+#       "size": 8
+#     },
+#     {
+#       "name": "B0",
+#       "width": 32,
+#       "size": 8
+#     },
+#     {
+#       "name": "Sum0",
+#       "width": 32,
+#       "size": 8
+#     }
+#   ]
+# }
+# """
+yxifilename=""
+print(sys.argv)
+if len(sys.argv) > 2:
+    raise Exception("axi generator takes 1 yxi file name as argument")
+else:
+    yxifilename = sys.argv[1]
+yxifile = open(yxifilename)
+yxi = json.load(yxifile)
 mems = yxi["memories"]
 
 
