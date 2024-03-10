@@ -44,7 +44,7 @@ else:
         if not yxifilename.endswith('.yxi'):
             raise Exception("axi generator requires an yxi file")
     except:
-        pass
+        pass # no arg passed
         
 yxifile = open(yxifilename)
 yxi = json.load(yxifile)
