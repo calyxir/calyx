@@ -35,13 +35,17 @@ import sys
 #   ]
 # }
 # """
-yxifilename=""
+yxifilename="input.yxi" #default
 if len(sys.argv) > 2:
     raise Exception("axi generator takes 1 yxi file name as argument")
 else:
-    yxifilename = sys.argv[1]
-    if not yxifilename.endswith('.yxi'):
-        raise Exception("axi generator requires an yxi file")
+    try:
+        yxifilename = sys.argv[1]
+        if not yxifilename.endswith('.yxi'):
+            raise Exception("axi generator requires an yxi file")
+    except:
+        pass
+        
 yxifile = open(yxifilename)
 yxi = json.load(yxifile)
 mems = yxi["memories"]
