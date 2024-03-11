@@ -107,8 +107,18 @@ pub fn build_primitive(
             size,
             idx_size: _,
         } => match mem_type {
-            MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
-            MemType::Std => Box::new(CombMemD1::new(base_port, *width, false, *size as usize))
+            MemType::Seq => Box::new(SeqMemD1::new(
+                base_port,
+                *width,
+                false,
+                *size as usize,
+            )),
+            MemType::Std => Box::new(CombMemD1::new(
+                base_port,
+                *width,
+                false,
+                *size as usize,
+            )),
         },
         CellPrototype::MemD2 {
             mem_type,
@@ -118,8 +128,18 @@ pub fn build_primitive(
             d0_idx_size: _,
             d1_idx_size: _,
         } => match mem_type {
-            MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
-            MemType::Std => Box::new(CombMemD2::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize))),
+            MemType::Seq => Box::new(SeqMemD2::new(
+                base_port,
+                *width,
+                false,
+                (*d0_size as usize, *d1_size as usize),
+            )),
+            MemType::Std => Box::new(CombMemD2::new(
+                base_port,
+                *width,
+                false,
+                (*d0_size as usize, *d1_size as usize),
+            )),
         },
         CellPrototype::MemD3 {
             mem_type,
@@ -130,9 +150,19 @@ pub fn build_primitive(
             d0_idx_size: _,
             d1_idx_size: _,
             d2_idx_size: _,
-        }  => match mem_type {
-            MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
-            MemType::Std => Box::new(CombMemD3::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize))),
+        } => match mem_type {
+            MemType::Seq => Box::new(SeqMemD3::new(
+                base_port,
+                *width,
+                false,
+                (*d0_size as usize, *d1_size as usize, *d2_size as usize),
+            )),
+            MemType::Std => Box::new(CombMemD3::new(
+                base_port,
+                *width,
+                false,
+                (*d0_size as usize, *d1_size as usize, *d2_size as usize),
+            )),
         },
         CellPrototype::MemD4 {
             mem_type,
@@ -145,9 +175,29 @@ pub fn build_primitive(
             d1_idx_size: _,
             d2_idx_size: _,
             d3_idx_size: _,
-        }=> match mem_type {
-            MemType::Seq => todo!("SeqMem primitives are not currently defined in the flat interpreter"),
-            MemType::Std => Box::new(CombMemD4::new(base_port, *width, false, (*d0_size as usize, *d1_size as usize, *d2_size as usize, *d3_size as usize))),
+        } => match mem_type {
+            MemType::Seq => Box::new(SeqMemD4::new(
+                base_port,
+                *width,
+                false,
+                (
+                    *d0_size as usize,
+                    *d1_size as usize,
+                    *d2_size as usize,
+                    *d3_size as usize,
+                ),
+            )),
+            MemType::Std => Box::new(CombMemD4::new(
+                base_port,
+                *width,
+                false,
+                (
+                    *d0_size as usize,
+                    *d1_size as usize,
+                    *d2_size as usize,
+                    *d3_size as usize,
+                ),
+            )),
         },
         CellPrototype::Unknown(_, _) => todo!(),
     }

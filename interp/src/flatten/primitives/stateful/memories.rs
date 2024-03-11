@@ -1,13 +1,13 @@
 use crate::{
     errors::InterpreterError,
     flatten::{
-        flat_ir::prelude::{AssignedValue, GlobalPortIdx},
+        flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
         primitives::{
             declare_ports, make_getters, ports,
             prim_trait::{UpdateResult, UpdateStatus},
             Primitive,
         },
-        structures::environment::PortMap,
+        structures::{environment::PortMap, index_trait::IndexRef},
     },
     serialization::{Entry, Serializable, Shape},
     values::Value,
@@ -354,10 +354,163 @@ pub struct SeqMem {
     _width: u32,
     addresser: MemDx<true>,
     done_is_high: bool,
+    read_out: PortValue,
 }
 
-// type aliases
+impl SeqMem {
+    pub fn new<T: Into<Shape>>(
+        base: GlobalPortIdx,
+        width: u32,
+        allow_invalid: bool,
+        size: T,
+    ) -> Self {
+        let shape = size.into();
+        let internal_state = vec![Value::zeroes(width); shape.len()];
+
+        Self {
+            base_port: base,
+            internal_state,
+            _allow_invalid_access: allow_invalid,
+            _width: width,
+            addresser: MemDx::new(shape),
+            done_is_high: false,
+            read_out: PortValue::new_undef(),
+        }
+    }
+
+    declare_ports![
+        _CLK: 0,
+        RESET: 1,
+    ];
+
+    // these port offsets are placed after the address ports and so need the end
+    // of the address base to work correctly.
+    declare_ports![
+        CONTENT_ENABLE: 0,
+        WRITE_ENABLE: 1,
+        WRITE_DATA: 2,
+        READ_DATA: 3,
+        DONE: 4
+    ];
+
+    make_getters![base_port;
+          content_enable: Self::CONTENT_ENABLE,
+          write_enable: Self::WRITE_ENABLE,
+          write_data: Self::WRITE_DATA,
+          read_data: Self::READ_DATA,
+          done: Self::DONE
+    ];
+
+    pub fn _clk(&self) -> GlobalPortIdx {
+        (self.base_port.index() + Self::_CLK).into()
+    }
+
+    pub fn reset(&self) -> GlobalPortIdx {
+        (self.base_port.index() + Self::RESET).into()
+    }
+}
+
+impl Primitive for SeqMem {
+    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
+        let done_signal = port_map.insert_val(
+            self.done(),
+            AssignedValue::cell_value(if self.done_is_high {
+                Value::bit_high()
+            } else {
+                Value::bit_low()
+            }),
+        )?;
+
+        let out_signal = if port_map[self.read_data()].is_undef()
+            && self.read_out.is_def()
+        {
+            port_map.insert_val(
+                self.read_data(),
+                self.read_out.as_option().unwrap().clone(),
+            )?
+        } else {
+            UpdateStatus::Unchanged
+        };
+
+        Ok(done_signal | out_signal)
+    }
+
+    fn exec_cycle(&mut self, port_map: &mut PortMap) -> UpdateResult {
+        let reset = port_map[self.reset()].as_bool().unwrap_or_default();
+        let write_en =
+            port_map[self.write_enable()].as_bool().unwrap_or_default();
+        let content_en = port_map[self.content_enable()]
+            .as_bool()
+            .unwrap_or_default();
+        let addr = self.addresser.calculate_addr(port_map, self.base_port);
+
+        if reset {
+            self.done_is_high = false;
+            self.read_out = PortValue::new_cell(Value::zeroes(self._width));
+        } else if content_en && write_en {
+            self.done_is_high = true;
+            self.read_out = PortValue::new_undef();
+            let addr_actual =
+                addr.ok_or(InterpreterError::UndefinedWriteAddr)?;
+            let write_data = port_map[self.write_data()]
+                .as_option()
+                .ok_or(InterpreterError::UndefinedWrite)?;
+            self.internal_state[addr_actual] = write_data.val().clone();
+        } else if content_en {
+            self.done_is_high = true;
+            let addr_actual =
+                addr.ok_or(InterpreterError::UndefinedReadAddr)?;
+            self.read_out =
+                PortValue::new_cell(self.internal_state[addr_actual].clone());
+        } else {
+            self.done_is_high = false;
+        }
+
+        let done_changed = port_map.insert_val(
+            self.done(),
+            AssignedValue::cell_value(if self.done_is_high {
+                Value::bit_high()
+            } else {
+                Value::bit_low()
+            }),
+        );
+        Ok(done_changed?
+            | port_map
+                .write_exact_unchecked(self.read_data(), self.read_out.clone()))
+    }
+
+    fn has_comb(&self) -> bool {
+        false
+    }
+
+    fn has_stateful(&self) -> bool {
+        true
+    }
+
+    fn serialize(&self, code: Option<crate::utils::PrintCode>) -> Serializable {
+        let code = code.unwrap_or_default();
+
+        Serializable::Array(
+            self.internal_state
+                .iter()
+                .map(|x| Entry::from_val_code(x, &code))
+                .collect(),
+            self.addresser.get_dimensions(),
+        )
+    }
+
+    fn has_serializable_state(&self) -> bool {
+        true
+    }
+}
+// type aliases, this is kinda stupid and should probably be changed. or maybe
+// it's fine, I really don't know.
 pub type CombMemD1 = CombMem;
 pub type CombMemD2 = CombMem;
 pub type CombMemD3 = CombMem;
 pub type CombMemD4 = CombMem;
+
+pub type SeqMemD1 = SeqMem;
+pub type SeqMemD2 = SeqMem;
+pub type SeqMemD3 = SeqMem;
+pub type SeqMemD4 = SeqMem;

@@ -42,6 +42,24 @@ impl PortMap {
         }
     }
 
+    /// Sets the given index to the given value without checking whether or not
+    /// the assignment would conflict with an existing assignment. Should only
+    /// be used by cells to set values that may be undefined
+    pub fn write_exact_unchecked(
+        &mut self,
+        target: GlobalPortIdx,
+        val: PortValue,
+    ) -> UpdateStatus {
+        if self[target].is_undef() && val.is_undef()
+            || self[target].as_option() == val.as_option()
+        {
+            UpdateStatus::Unchanged
+        } else {
+            self[target] = val;
+            UpdateStatus::Changed
+        }
+    }
+
     /// Sets the given index to undefined without checking whether or not it was
     /// already defined
     #[inline]
