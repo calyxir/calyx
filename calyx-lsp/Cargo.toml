@@ -10,6 +10,14 @@ repository.workspace = true
 homepage.workspace = true
 categories.workspace = true
 
+include = [
+  "build.rs",
+  "src/*",
+  "tree-sitter-calyx/grammar.js",
+  "tree-sitter-calyx/queries/*",
+  "tree-sitter-calyx/src/*",
+]
+
 [features]
 diagnostics = []
 log = []
@@ -36,4 +44,3 @@ features = ["io-util", "io-std", "macros", "rt-multi-thread", "net"]
 
 [build-dependencies]
 cc = "1.0"
-

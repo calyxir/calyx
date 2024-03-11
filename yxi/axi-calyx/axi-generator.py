@@ -219,8 +219,6 @@ def add_read_channel(prog, mem):
     # Groups
     with read_channel.continuous:
         read_channel.this()["RREADY"] = rready.out
-        # Tie this low as we are only ever writing to seq_mem
-        mem_ref.content_en = 0
 
     # Wait for handshake. Ensure that when this is done we are ready to write
     # (i.e., read_data_reg.write_en = is_rdy.out)
@@ -268,7 +266,8 @@ def add_read_channel(prog, mem):
         mem_ref.addr0 = curr_addr_internal_mem.out
         mem_ref.write_data = read_data_reg.out
         mem_ref.write_en = 1
-        service_read_transfer.done = mem_ref.write_done
+        mem_ref.content_en = 1
+        service_read_transfer.done = mem_ref.done
 
     # creates group that increments curr_addr_internal_mem by 1. Creates adder and wires up correctly
     curr_addr_internal_mem_incr = read_channel.incr(curr_addr_internal_mem, 1)
@@ -328,19 +327,21 @@ def add_write_channel(prog, mem):
     # host indexing, must be 64 bits
     curr_addr_axi = write_channel.reg("curr_addr_axi", 64, is_ref=True)
 
-    curr_trsnfr_count = write_channel.reg("curr_trsnfr_count", 8)
+    curr_transfer_count = write_channel.reg("curr_transfer_count", 8)
     # Number of transfers we want to do in current txn
     max_transfers = write_channel.reg("max_transfers", 8, is_ref=True)
 
     # Register because w last is high with last transfer. Before this
     # We were terminating immediately with last transfer and not servicing it.
-    n_finished_last_trnsfr = write_channel.reg("n_finished_last_trnsfr", 1)
+    n_finished_last_transfer = write_channel.reg("n_finished_last_transfer", 1)
 
     bt_reg = write_channel.reg("bt_reg", 1)
 
     # Groups
     with write_channel.continuous:
         write_channel.this()["WVALID"] = wvalid.out
+        #Needed due to default assignment bug #1930
+        mem_ref.write_en = 0
 
     with write_channel.group("service_write_transfer") as service_write_transfer:
         WREADY = write_channel.this()["WREADY"]
@@ -354,6 +355,7 @@ def add_write_channel(prog, mem):
         # This is just wavlid.in_ guard from above
         # TODO: confirm this is correct?
         w_handshake_occurred.in_ = (wvalid.out & WREADY) @ 1
+        w_handshake_occurred.in_ = ~(wvalid.out & WREADY) @ 0
         w_handshake_occurred.write_en = (~w_handshake_occurred.out) @ 1
 
         # Set data output based on intermal memory output
@@ -361,15 +363,15 @@ def add_write_channel(prog, mem):
         mem_ref.content_en = 1
         write_channel.this()["WDATA"] = mem_ref.read_data
 
-        write_channel.this()["WLAST"] = (max_transfers.out == curr_trsnfr_count.out) @ 1
-        write_channel.this()["WLAST"] = (max_transfers.out != curr_trsnfr_count.out) @ 0
+        write_channel.this()["WLAST"] = (max_transfers.out == curr_transfer_count.out) @ 1
+        write_channel.this()["WLAST"] = (max_transfers.out != curr_transfer_count.out) @ 0
 
         # set high when WLAST is high and a handshake occurs
-        n_finished_last_trnsfr.in_ = (
-            (max_transfers.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+        n_finished_last_transfer.in_ = (
+            (max_transfers.out == curr_transfer_count.out) & (wvalid.out & WREADY)
         ) @ 0
-        n_finished_last_trnsfr.write_en = (
-            (max_transfers.out == curr_trsnfr_count.out) & (wvalid.out & WREADY)
+        n_finished_last_transfer.write_en = (
+            (max_transfers.out == curr_transfer_count.out) & (wvalid.out & WREADY)
         ) @ 1
 
         # done after handshake
@@ -385,28 +387,28 @@ def add_write_channel(prog, mem):
         # splicing for this.
         # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
         curr_addr_axi_incr = write_channel.incr(curr_addr_axi, ceil(mem["width"] / 8))
-        curr_trsnfr_count_incr = write_channel.incr(curr_trsnfr_count, 1)
+        curr_transfer_count_incr = write_channel.incr(curr_transfer_count, 1)
 
         # Control
         init_curr_addr_internal_mem = invoke(curr_addr_internal_mem, in_in=0)
-        init_n_finished_last_trnsfr = invoke(n_finished_last_trnsfr, in_in=1)
-        while_n_finished_last_trnsfr_body = [
+        init_n_finished_last_transfer = invoke(n_finished_last_transfer, in_in=1)
+        while_n_finished_last_transfer_body = [
             invoke(bt_reg, in_in=0),
             service_write_transfer,
             par(
                 curr_addr_internal_mem_incr,
-                curr_trsnfr_count_incr,
+                curr_transfer_count_incr,
                 curr_addr_axi_incr,
                 invoke(w_handshake_occurred, in_in=0),
             ),
         ]
-        while_n_finished_last_trnsfr = while_(
-            n_finished_last_trnsfr.out, while_n_finished_last_trnsfr_body
+        while_n_finished_last_transfer = while_(
+            n_finished_last_transfer.out, while_n_finished_last_transfer_body
         )
         write_channel.control += [
             init_curr_addr_internal_mem,
-            init_n_finished_last_trnsfr,
-            while_n_finished_last_trnsfr,
+            init_n_finished_last_transfer,
+            while_n_finished_last_transfer,
         ]
 
 

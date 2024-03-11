@@ -7,6 +7,7 @@ use crate::{traits::Backend, VerilogBackend};
 use calyx_ir::{self as ir, Binding, RRC};
 use calyx_utils::{CalyxResult, Id, OutputFile};
 use ir::Port;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::io;
 
@@ -82,6 +83,8 @@ fn emit_component<F: io::Write>(
     comp: &ir::Component,
     f: &mut F,
 ) -> io::Result<()> {
+    let mut dst_set: HashSet<ir::Canonical> = HashSet::new();
+
     writeln!(f, "{}module {}:", SPACING, comp.name)?;
 
     // Inputs and Outputs
@@ -89,6 +92,15 @@ fn emit_component<F: io::Write>(
     for port_ref in &sig.ports {
         let port = port_ref.borrow();
         emit_port(port, true, f)?;
+    }
+
+    // write invalid statements for all output ports.
+    for port_ref in sig.ports.iter() {
+        let port = port_ref.as_ref();
+        if port.borrow().direction == calyx_frontend::Direction::Input {
+            write_invalid_initialization(port, f)?;
+            dst_set.insert(port.borrow().canonical());
+        }
     }
 
     // Add a COMPONENT START: <name> anchor before any code in the component
@@ -118,7 +130,6 @@ fn emit_component<F: io::Write>(
         }
     }
 
-    let mut dst_set: HashSet<ir::Canonical> = HashSet::new();
     // Emit assignments
     for asgn in &comp.continuous_assignments {
         match asgn.guard.as_ref() {
@@ -293,7 +304,7 @@ fn get_port_string(port: &calyx_ir::Port, is_dst: bool) -> String {
 
 // variables that get set in assignments should get initialized to avoid the FIRRTL compiler from erroring.
 fn write_invalid_initialization<F: io::Write>(
-    port: &RRC<ir::Port>,
+    port: &RefCell<ir::Port>,
     f: &mut F,
 ) -> io::Result<()> {
     let default_initialization_str = "; default initialization";
