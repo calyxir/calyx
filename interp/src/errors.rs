@@ -176,6 +176,10 @@ pub enum InterpreterError {
     //TODO Griffin: Make this more descriptive
     #[error("Attempted to write an undefined memory address")]
     UndefinedWriteAddr,
+
+    // TODO Griffin: Make this more descriptive
+    #[error("Attempted to read an undefined memory address")]
+    UndefinedReadAddr,
 }
 
 impl InterpreterError {

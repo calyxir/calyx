@@ -11,9 +11,9 @@ use crate::{
         flat_ir::{
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices, ComponentIdx,
-                ControlIdx, ControlNode, GlobalCellIdx, GlobalPortIdx,
-                GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx,
-                PortRef, PortValue,
+                ControlNode, GlobalCellIdx, GlobalPortIdx, GlobalPortRef,
+                GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx, PortRef,
+                PortValue,
             },
             wires::guards::Guard,
         },
@@ -24,7 +24,7 @@ use crate::{
     },
     values::Value,
 };
-use std::{collections::VecDeque, fmt::Debug};
+use std::fmt::Debug;
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -39,6 +39,24 @@ impl PortMap {
             todo!("raise error")
         } else {
             Ok(())
+        }
+    }
+
+    /// Sets the given index to the given value without checking whether or not
+    /// the assignment would conflict with an existing assignment. Should only
+    /// be used by cells to set values that may be undefined
+    pub fn write_exact_unchecked(
+        &mut self,
+        target: GlobalPortIdx,
+        val: PortValue,
+    ) -> UpdateStatus {
+        if self[target].is_undef() && val.is_undef()
+            || self[target].as_option() == val.as_option()
+        {
+            UpdateStatus::Unchanged
+        } else {
+            self[target] = val;
+            UpdateStatus::Changed
         }
     }
 
@@ -388,7 +406,7 @@ impl<'a> Environment<'a> {
         hierarchy.pop();
     }
 
-    pub fn print_env_stats(&self) {
+    pub fn _print_env_stats(&self) {
         println!("Environment Stats:");
         println!("  Ports: {}", self.ports.len());
         println!("  Cells: {}", self.cells.len());
@@ -424,17 +442,6 @@ impl<'a> Simulator<'a> {
 
 // =========================== simulation functions ===========================
 impl<'a> Simulator<'a> {
-    /// pull out the next nodes to search when
-    fn extract_next_search(&self, idx: ControlIdx) -> VecDeque<ControlIdx> {
-        match &self.env.ctx.primary[idx] {
-            ControlNode::Seq(s) => s.stms().iter().copied().collect(),
-            ControlNode::Par(p) => p.stms().iter().copied().collect(),
-            ControlNode::If(i) => vec![i.tbranch(), i.fbranch()].into(),
-            ControlNode::While(w) => vec![w.body()].into(),
-            _ => VecDeque::new(),
-        }
-    }
-
     #[inline]
     fn lookup_global_port_id(&self, port: GlobalPortRef) -> GlobalPortIdx {
         match port {
@@ -463,7 +470,7 @@ impl<'a> Simulator<'a> {
 
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
-    fn get_parent_cell(
+    fn _get_parent_cell(
         &self,
         port: PortRef,
         comp: GlobalCellIdx,

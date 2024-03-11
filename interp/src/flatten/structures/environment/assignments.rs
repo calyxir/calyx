@@ -12,6 +12,8 @@ pub(crate) struct AssignmentBundle {
     assigns: Vec<(GlobalCellIdx, AssignmentRange)>,
 }
 
+// TODO griffin: remove the dead stuff later
+#[allow(dead_code)]
 impl AssignmentBundle {
     pub fn new() -> Self {
         Self {
