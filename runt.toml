@@ -122,7 +122,7 @@ name=$(basename {} .py) &&
 dir=$(dirname {}) &&
 python3 {} |\
  fud e --from calyx --to jq \
-       --through verilog \
+       --through icarus-verilog \
        --through dat \
        -s verilog.data "$dir/$name.data" \
        -s jq.expr ".memories" \
