@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 // TODO:
-// 1) Update return type to be program status struct, just hashset from currently executing
-// 2) Hardcoded meta deta table (hashmap mapping ids to line numbers, if.futil)
-// 2.5) Use SourceMap
-// 3) Use progam status to map id
+// 1) Update SourceMap
+// 2) Replace Generic param in ProgramStatus
+// 3) add getter for id, get_suffix
+// 4) New fields for program: hashmap, bool
 
 pub struct MyAdapter {
     #[allow(dead_code)]
