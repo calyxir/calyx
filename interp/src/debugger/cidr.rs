@@ -15,6 +15,7 @@ use crate::{
     MemoryMap,
 };
 use crate::{interpreter_ir as iir, primitives::Serializable};
+use std::collections::HashSet;
 
 use calyx_frontend::Workspace;
 use calyx_ir::{self as ir, Id, RRC};
@@ -28,6 +29,21 @@ use std::{
 };
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
+
+/// ProgramStatus returns the status of the program, helpful for metadeta
+pub struct ProgramStatus<T> {
+    status: T,
+}
+
+impl<T> ProgramStatus<T> {
+    pub fn new(status: T) -> Self {
+        ProgramStatus { status }
+    }
+
+    pub fn get_status(&self) -> &T {
+        &self.status
+    }
+}
 
 /// The interactive Calyx debugger. The debugger itself is run with the
 /// [Debugger::main_loop] function while this struct holds auxilliary
@@ -118,12 +134,23 @@ impl Debugger {
     }
 
     // probably want a different return type
-    pub fn step(&mut self, n: u64) -> InterpreterResult<i64> {
+    // Return InterpreterResult of Program Status, new struct
+    pub fn step(
+        &mut self,
+        n: u64,
+    ) -> InterpreterResult<ProgramStatus<HashSet<Id>>> {
         for _ in 0..n {
             self.interpreter.step()?;
         }
         self.interpreter.converge()?;
-        Ok(1)
+
+        // Create new HashSet with Ids
+        let mut set: HashSet<Id> = HashSet::new();
+        for item in self.interpreter.currently_executing_group() {
+            set.insert(item.as_id());
+        }
+
+        Ok(ProgramStatus::new(set))
     }
 
     /// continue the execution until a breakpoint is hit, needs a different

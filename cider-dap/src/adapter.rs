@@ -1,8 +1,15 @@
+use crate::error::AdapterResult;
 use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
+use interp::debugger::source::{NamedTag, SourceMap};
 use interp::debugger::Debugger;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::error::AdapterResult;
+// TODO:
+// 1) Update return type to be program status struct, just hashset from currently executing
+// 2) Hardcoded meta deta table (hashmap mapping ids to line numbers, if.futil)
+// 2.5) Use SourceMap
+// 3) Use progam status to map id
 
 pub struct MyAdapter {
     #[allow(dead_code)]
@@ -14,6 +21,7 @@ pub struct MyAdapter {
     stack_frames: Vec<StackFrame>,   // This field is a placeholder
     threads: Vec<Thread>,            // This field is a placeholder
     source: String,
+    ids: SourceMap,
 }
 
 impl MyAdapter {
@@ -35,6 +43,7 @@ impl MyAdapter {
             stack_frames: Vec::new(),
             threads: Vec::new(),
             source: path.to_string(),
+            ids: create_map(),
         })
     }
     ///Set breakpoints for adapter
@@ -83,7 +92,7 @@ impl MyAdapter {
         let frame = StackFrame {
             id: self.stack_count.increment(),
             // TODO: edit name field
-            name: String::from("Hewwo"),
+            name: String::from("Hi"),
             source: Some(Source {
                 name: None,
                 path: Some(self.source.clone()),
@@ -113,8 +122,19 @@ impl MyAdapter {
     }
 
     pub fn next_line(&mut self, _thread: i64) -> () {
-        let number = self.debugger.step(1).unwrap();
-        self.stack_frames[0].line += number;
+        let status = self.debugger.step(1).unwrap();
+        let map = status.get_status().clone();
+        // Declare line number beforehand
+        let mut line_number = 0;
+        for id in map {
+            let value = (self.ids.lookup((0, id.to_string()))).unwrap();
+            let num = match value.parse() {
+                Ok(int) => int,
+                _ => 0,
+            };
+            line_number = num;
+        }
+        self.stack_frames[0].line = line_number;
     }
 }
 
@@ -158,4 +178,19 @@ pub fn make_breakpoint(
         instruction_reference: None,
         offset: None,
     }
+}
+
+// Hardcode mapping for now
+fn create_map() -> SourceMap {
+    let mut hashmap = HashMap::new();
+    // Hardcode
+    hashmap.insert(
+        NamedTag::from((0, String::from("main.wr_reg0"))),
+        String::from("9"),
+    );
+    hashmap.insert(
+        NamedTag::from((0, String::from("main.wr_reg1"))),
+        String::from("14"),
+    );
+    SourceMap::from(hashmap)
 }

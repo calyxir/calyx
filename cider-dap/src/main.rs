@@ -174,7 +174,7 @@ fn run_server<R: Read, W: Write>(
             Some(req) => req,
             None => return Err(MyAdapterError::MissingCommandError),
         };
-        match dbg!(&req.command) {
+        match &req.command {
             Command::Launch(_) => {
                 let rsp = req.success(ResponseBody::Launch);
                 server.respond(rsp)?;
