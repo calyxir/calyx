@@ -9,6 +9,8 @@ use crate::flatten::primitives::prim_trait::UpdateResult;
 use crate::flatten::primitives::prim_trait::UpdateStatus;
 use crate::flatten::structures::environment::PortMap;
 
+use crate::flatten::structures::index_trait::IndexRef;
+
 use crate::values::Value;
 
 use std::cell::RefCell;
@@ -49,6 +51,7 @@ impl<'a> Primitive for MyBtor2Add<'a> {
         ports![&self.base_port; left: Self::LEFT, right: Self::RIGHT, out: Self::OUT];
         // let mut program_mut = RefCell::new(self.program);
         // construct a hashmap from the names to the inputs
+        // println!("{}", _port_map[left]);
         let input_map = HashMap::from([
             (
                 "left".to_string(),
