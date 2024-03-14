@@ -163,12 +163,7 @@ impl<'a> Builder<'a> {
     pub fn add_constant(&mut self, val: u64, width: u64) -> RRC<ir::Cell> {
         // Ensure that the value can fit within the width
         assert!(
-            val < match width.cmp(&64) {
-                cmp::Ordering::Less => 1 << width,
-                cmp::Ordering::Equal => u64::MAX,
-                cmp::Ordering::Greater =>
-                    panic!("Widths greater than 64 are not supported."),
-            },
+            (64 - val.leading_zeros()) as u64 <= width,
             "Constant value {} cannot fit in {} bits",
             val,
             width
