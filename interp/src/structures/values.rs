@@ -391,6 +391,15 @@ impl Value {
         self.vec.truncate(new_size);
     }
 
+    /// returns a value which consists of all the bits from left as the upper
+    /// bits and all the bits from right as the lower bits of a value whose
+    /// width is the sum of the widths of left and right
+    pub fn concat(left: &Self, right: &Self) -> Self {
+        Value {
+            vec: left.vec.iter().chain(right.vec.iter()).collect(),
+        }
+    }
+
     /// Zero-extend the vector to length ext.
     ///
     /// # Example:
