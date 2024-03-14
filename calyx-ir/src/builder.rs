@@ -3,7 +3,7 @@
 use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
 use calyx_frontend::BoolAttr;
 use calyx_utils::CalyxResult;
-use std::{cmp, rc::Rc};
+use std::rc::Rc;
 
 use super::{CellType, PortDef};
 
