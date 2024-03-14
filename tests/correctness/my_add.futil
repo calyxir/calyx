@@ -1,23 +1,43 @@
-// fud ... --to interpreter-out
+import "primitives/memories/comb.futil";
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
 
-comb primitive my_btor2_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
-  assign out = left + right;
-}
+// comb primitive my_btor2_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH) {
+//   assign out = left + right;
+// }
 
-component add(left: 32, right: 32) -> (out: 32) {
+component main(@go go: 1) -> (@done done: 1) {
   cells {
-    add = my_btor2_add(32);
+    @external(1) mem = comb_mem_d1(32, 1, 1);
+    val = std_reg(32);
+    add = std_add(32);
   }
   wires {
-    group do_add {
-      add.left = left;
-      add.right = right;
-      add.out = out;
+    group write {
+      mem.addr0 = 1'b0;
+      mem.write_en = 1'b1;
+      mem.write_data = val.out;
+      write[done] = mem.done;
+    }
+    group read {
+      mem.addr0 = 1'b0;
+      val.in = mem.read_data;
+      val.write_en = 1'b1;
+      read[done] = val.done;
+    }
+    group upd {
+      add.left = val.out;
+      add.right = 32'd1;
+      val.in = add.out;
+      val.write_en = 1'b1;
+      upd[done] = val.done;
     }
   }
   control {
     seq {
-      do_add;
+      read;
+      upd;
+      write;
     }
   }
 }
