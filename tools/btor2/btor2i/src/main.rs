@@ -33,6 +33,8 @@ fn main() -> InterpResult<()> {
     let btor2_lines =
         parser.read_lines(&btor2_file).unwrap().collect::<Vec<_>>();
 
+    // take the btor2lines and convert them into normal lines
+
     for _ in 0..args.num_repeat {
         // Collect node sorts
         let node_sorts = btor2_lines

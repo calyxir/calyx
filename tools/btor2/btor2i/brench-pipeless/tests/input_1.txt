@@ -1,3 +1,0 @@
-# ARGS: 12 34
-input number one
-input number onee
