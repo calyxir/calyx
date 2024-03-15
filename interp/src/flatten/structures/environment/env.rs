@@ -1,7 +1,7 @@
 use itertools::Itertools;
 
 use super::{
-    assignments::{AssignmentBundle, GroupInterfacePorts},
+    assignments::{GroupInterfacePorts, ScheduledAssignments},
     program_counter::ProgramCounter,
 };
 
@@ -514,7 +514,7 @@ impl<'a> Simulator<'a> {
     fn get_assignments(
         &self,
         control_points: &[ControlPoint],
-    ) -> AssignmentBundle {
+    ) -> Vec<ScheduledAssignments> {
         control_points
             .iter()
             .map(|node| {
@@ -522,7 +522,7 @@ impl<'a> Simulator<'a> {
                     ControlNode::Enable(e) => {
                         let group = &self.ctx().primary[e.group()];
 
-                        (
+                        ScheduledAssignments::new(
                             node.comp,
                             group.assignments,
                             Some(GroupInterfacePorts {
@@ -774,8 +774,12 @@ impl<'a> Simulator<'a> {
         let done_ports: Vec<_> = assigns_bundle
             .iter()
             .filter_map(|x| {
-                x.2.as_ref().map(|y| {
-                    &self.env.cells[x.0].as_comp().unwrap().index_bases + y.done
+                x.interface_ports.as_ref().map(|y| {
+                    &self.env.cells[x.active_cell]
+                        .as_comp()
+                        .unwrap()
+                        .index_bases
+                        + y.done
                 })
             })
             .collect();
@@ -784,8 +788,13 @@ impl<'a> Simulator<'a> {
             has_changed = false;
 
             // evaluate all the assignments and make updates
-            for (cell, assigns, interface_ports) in assigns_bundle.iter() {
-                let ledger = self.env.cells[*cell].as_comp().unwrap();
+            for ScheduledAssignments {
+                active_cell,
+                assignments,
+                interface_ports,
+            } in assigns_bundle.iter()
+            {
+                let ledger = self.env.cells[*active_cell].as_comp().unwrap();
                 let go = interface_ports
                     .as_ref()
                     .map(|x| &ledger.index_bases + x.go);
@@ -793,14 +802,14 @@ impl<'a> Simulator<'a> {
                     .as_ref()
                     .map(|x| &ledger.index_bases + x.done);
 
-                for assign_idx in assigns {
+                for assign_idx in assignments {
                     let assign = &self.env.ctx.primary[assign_idx];
 
                     // TODO griffin: Come back to this unwrap default later
                     // since we may want to do something different if the guard
                     // does not have a defined value
                     if self
-                        .evaluate_guard(assign.guard, *cell)
+                        .evaluate_guard(assign.guard, *active_cell)
                         .unwrap_or_default()
                     // the go for the group is high
                     && go
@@ -810,8 +819,9 @@ impl<'a> Simulator<'a> {
                         // assignment
                         .unwrap_or(true)
                     {
-                        let val = self.get_value(&assign.src, *cell);
-                        let dest = self.get_global_idx(&assign.dst, *cell);
+                        let val = self.get_value(&assign.src, *active_cell);
+                        let dest =
+                            self.get_global_idx(&assign.dst, *active_cell);
 
                         if let Some(done) = done {
                             if dest != done {
