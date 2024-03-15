@@ -706,10 +706,6 @@ impl<'a> Simulator<'a> {
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
-            // dbg!(&self.env.pc);
-            // dbg!("calling step");
-            // self.env.print_pc();
-            // self.print_env();
             self.step()?
         }
         Ok(())
@@ -862,7 +858,9 @@ impl<'a> Simulator<'a> {
 
             has_changed |= changed;
 
-            // check for undefined done ports
+            // check for undefined done ports. If any remain after we've
+            // converged then they should be set to zero and we should continue
+            // convergence
             if !has_changed {
                 for &done_port in &done_ports {
                     if self.env.ports[done_port].is_undef() {
@@ -880,7 +878,6 @@ impl<'a> Simulator<'a> {
     pub fn _main_test(&mut self) {
         self.env.print_pc();
         let _ = self.run_program();
-        self.env.print_pc();
         self.print_env();
     }
 }

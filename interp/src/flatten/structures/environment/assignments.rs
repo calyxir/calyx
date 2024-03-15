@@ -1,9 +1,4 @@
-use crate::flatten::{
-    flat_ir::prelude::{
-        Assignment, AssignmentIdx, GlobalCellIdx, LocalPortOffset,
-    },
-    structures::context::Context,
-};
+use crate::flatten::flat_ir::prelude::{GlobalCellIdx, LocalPortOffset};
 
 use super::env::AssignmentRange;
 
