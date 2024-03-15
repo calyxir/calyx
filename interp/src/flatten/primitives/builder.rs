@@ -200,7 +200,7 @@ pub fn build_primitive(
             )),
         },
         CellPrototype::Unknown(_, _) => {
-            Box::new(MyBtor2Add::new(base_port, 32))
+            todo!()
         }
     }
 }

@@ -13,6 +13,8 @@ use crate::flatten::structures::index_trait::IndexRef;
 
 use crate::values::Value;
 
+// use std::env;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -37,7 +39,7 @@ impl<'a> MyBtor2Add<'a> {
     pub fn new(base: GlobalPortIdx, width: usize) -> Self {
         Self {
             program: RefCell::new(Btor2Program::new(
-                "tools/btor2/core/std_add.btor",
+                "../tools/btor2/core/std_add.btor",
             )),
             base_port: base,
             width,
@@ -47,23 +49,27 @@ impl<'a> MyBtor2Add<'a> {
 }
 
 impl<'a> Primitive for MyBtor2Add<'a> {
-    fn exec_comb(&self, _port_map: &mut PortMap) -> UpdateResult {
+    fn exec_comb(&self, port_map: &mut PortMap) -> UpdateResult {
         ports![&self.base_port; left: Self::LEFT, right: Self::RIGHT, out: Self::OUT];
         // let mut program_mut = RefCell::new(self.program);
         // construct a hashmap from the names to the inputs
-        // println!("{}", _port_map[left]);
+        // println!("{:?}", port_map.iter_mut().collect::<Vec<_>>());
+        // println!("{:?}", left);
+        // println!("{:?}", port_map.get(left));
+        // println!("{}", right.index());
+        // println!("Current directory is {}", env::current_dir()?.display());
         let input_map = HashMap::from([
             (
                 "left".to_string(),
-                _port_map[left].as_usize().unwrap().to_string(),
+                port_map[left].as_usize().unwrap_or(0).to_string(),
             ),
             (
                 "right".to_string(),
-                _port_map[right].as_usize().unwrap().to_string(),
+                port_map[right].as_usize().unwrap_or(0).to_string(),
             ),
         ]);
         match self.program.borrow_mut().run(input_map) {
-            Ok(output_map) => Ok(_port_map.insert_val(
+            Ok(output_map) => Ok(port_map.insert_val(
                 out,
                 AssignedValue::cell_value(Value::from(
                     output_map["out"],
@@ -71,7 +77,7 @@ impl<'a> Primitive for MyBtor2Add<'a> {
                 )),
             )?),
             Err(_msg) => {
-                _port_map.write_undef(out)?;
+                port_map.write_undef(out)?;
                 Ok(UpdateStatus::Unchanged)
             }
         }
