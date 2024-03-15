@@ -368,10 +368,6 @@ impl ProgramCounter {
     pub(crate) fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
         &mut self.vec
     }
-
-    pub(crate) fn insert_node(&mut self, node: ControlPoint) {
-        self.vec.push(node)
-    }
 }
 
 impl<'a> IntoIterator for &'a ProgramCounter {
