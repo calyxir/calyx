@@ -6,7 +6,7 @@ use crate::{
     values::Value,
 };
 
-use super::{btor2_prim::MyBtor2Add, combinational::*, Primitive};
+use super::{combinational::*, Primitive};
 use super::{prim_trait::DummyPrimitive, stateful::*};
 
 pub fn build_primitive(

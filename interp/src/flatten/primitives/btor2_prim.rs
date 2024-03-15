@@ -9,8 +9,6 @@ use crate::flatten::primitives::prim_trait::UpdateResult;
 use crate::flatten::primitives::prim_trait::UpdateStatus;
 use crate::flatten::structures::environment::PortMap;
 
-use crate::flatten::structures::index_trait::IndexRef;
-
 use crate::values::Value;
 
 // use std::env;
@@ -18,20 +16,10 @@ use crate::values::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-pub struct BTOR2Prim<'a> {
-    program: Btor2Program<'a>,
-    base_port: GlobalPortIdx, // stuff to add: input ports, output ports
-                              // use the declare_ports! macro
-                              // declare ports programatically
-                              // input names gathered from names of ports in BTOR2 primitive; assigned programatically
-                              // start by pre-hardcoding ports, only hand offsets to names.
-}
-
 pub struct MyBtor2Add<'a> {
     program: RefCell<Btor2Program<'a>>,
     base_port: GlobalPortIdx,
     width: usize, // do stuff
-    loaded: bool,
 }
 
 impl<'a> MyBtor2Add<'a> {
@@ -43,7 +31,6 @@ impl<'a> MyBtor2Add<'a> {
             )),
             base_port: base,
             width,
-            loaded: false,
         }
     }
 }
