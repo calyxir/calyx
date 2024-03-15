@@ -650,6 +650,10 @@ impl<'a> Simulator<'a> {
                         true
                     } else {
                         // This group has finished running and may be removed
+                        // this is somewhat dubious at the moment since it
+                        // relies on the fact that the group done port will
+                        // still be high since convergence hasn't propagated the
+                        // low done signal yet.
                         node.mutate_into_next(self.env.ctx)
                     }
                 }
