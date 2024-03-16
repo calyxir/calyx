@@ -42,7 +42,7 @@ class IcarusBaseStage(Stage):
         }
 
     def known_opts(self):
-        return ["exec", "testbench", "round_float_to_fixed"]
+        return ["exec", "testbench", "round_float_to_fixed", "include"]
 
     def _define_steps(self, input_data, builder, config):
         testbench = config["stages", self.name, "testbench"]
@@ -103,7 +103,7 @@ class IcarusBaseStage(Stage):
                 "{exec_path}",
                 testbench,
                 "{input_path}",
-                "{include_path}",
+                "-I {include_path}",
             ]
         )
 
@@ -115,7 +115,7 @@ class IcarusBaseStage(Stage):
                 cmd.format(
                     input_path=str(input_path),
                     exec_path=f"{tmpdir.name}/{self.object_name}",
-                    include_path="-I " + config["include"],
+                    include_path=config["stages", self.name, "include"],
                 ),
                 stdout_as_debug=True,
             )
