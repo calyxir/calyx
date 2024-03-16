@@ -22,8 +22,8 @@ struct Memory<'a> {
     data_width: u64,
     dimensions: u64,
     dimension_sizes: Vec<u64>,
-    idx_sizes: Vec<u64>,
     total_size: u64, //number of cells in memory
+    idx_sizes: Vec<u64>,
 }
 
 impl Backend for YxiBackend {
@@ -64,8 +64,8 @@ impl Backend for YxiBackend {
                 data_width: mem_info.data_width,
                 dimensions: mem_info.dimensions,
                 dimension_sizes: mem_info.dimension_sizes.clone(),
+                total_size: mem_info.total_size,
                 idx_sizes: mem_info.idx_sizes.clone(),
-                total_size: mem_info.dimension_sizes.iter().product(),
             })
             .collect();
 

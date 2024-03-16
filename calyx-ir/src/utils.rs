@@ -38,6 +38,7 @@ pub struct MemInfo {
     pub dimensions: u64,
     //dimension sizes in order: d1, d2, etc.
     pub dimension_sizes: Vec<u64>,
+    pub total_size: u64,
     //idx port width, in case size is ambiguous
     pub idx_sizes: Vec<u64>,
 }
@@ -97,11 +98,13 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                         idx_sizes.push(mem.get_parameter(format!("D{}_IDX_SIZE",i)).unwrap());
                     }
                   }
+                  let total_size = dimension_sizes.clone().iter().product();
                   MemInfo {
                       memory_type: mem_type,
                       data_width: mem.get_parameter("WIDTH").unwrap(),
                       dimensions,
                       dimension_sizes,
+                      total_size,
                       idx_sizes
                   }
               })

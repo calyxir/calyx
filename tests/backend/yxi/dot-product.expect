@@ -9,10 +9,10 @@
       "dimension_sizes": [
         8
       ],
+      "total_size": 8,
       "idx_sizes": [
         4
-      ],
-      "total_size": 8
+      ]
     },
     {
       "name": "B0",
@@ -22,10 +22,10 @@
       "dimension_sizes": [
         8
       ],
+      "total_size": 8,
       "idx_sizes": [
         4
-      ],
-      "total_size": 8
+      ]
     },
     {
       "name": "v0",
@@ -35,10 +35,10 @@
       "dimension_sizes": [
         1
       ],
+      "total_size": 1,
       "idx_sizes": [
         1
-      ],
-      "total_size": 1
+      ]
     }
   ]
 }
