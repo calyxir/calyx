@@ -561,11 +561,13 @@ fud exec -s calyx.exec './target/debug/calyx' \
 name = "correctness floating-point"
 paths = ["tests/correctness/float/*.futil"]
 cmd = """
+cd primitives/float && ./get_hardfloat.sh > /dev/null 2>&1 && cd ../../ &&
 fud exec --from calyx --to jq \
          --through icarus-verilog \
          --through dat \
          -s verilog.data {}.data \
          -s calyx.exec './target/debug/calyx' \
+         -i primitives/float/HardFloat-1/source/RISCV/ \
          -s verilog.cycle_limit 500 \
          {} -q
 """
