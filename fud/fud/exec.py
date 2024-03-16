@@ -20,7 +20,6 @@ class RunConf:
     # Run configuration
     source: str
     dest: str
-    include: str
     through: List[str]
     # Input/output configuration
     input_file: Optional[str]
@@ -37,7 +36,6 @@ class RunConf:
         return cls(
             args.source,
             args.dest,
-            args.include,
             args.through,
             args.input_file,
             args.output_file,
@@ -53,7 +51,6 @@ class RunConf:
         return cls(
             dic["source"],
             dic["dest"],
-            dic["include"],
             dic.get("through", []),
             dic.get("input_file", None),
             dic.get("output_file", None),
@@ -123,12 +120,6 @@ def get_fud_output(args: RunConf, config: Configuration):
     if args.output_file is None:
         if path[-1].output_type == SourceType.Directory:
             raise errors.NeedOutputSpecified(path[-1])
-    
-    # check if we have include directory
-    if args.include:
-        include_dir = Path(args.include)
-        if not include_dir.exists():
-            raise FileNotFoundError(include_dir)
 
     staged = chain_stages(path, config)
 

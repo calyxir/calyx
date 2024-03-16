@@ -567,7 +567,6 @@ fud exec --from calyx --to jq \
          --through dat \
          -s verilog.data {}.data \
          -s calyx.exec './target/debug/calyx' \
-         -i primitives/float/HardFloat-1/source/RISCV/ \
          -s verilog.cycle_limit 500 \
          {} -q
 """

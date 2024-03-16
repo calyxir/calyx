@@ -311,9 +311,6 @@ def main():
             # Hide all unused keys
             override = override["stages"]
             cfg.update_all({"stages": override})
-        # update the include directory
-        if "include" in args and args.include:
-            cfg["include"] = args.include
 
         # Build the registry if stage information is going to be used.
         if args.command in ("exec", "info"):
@@ -411,7 +408,6 @@ def config_run(parser):
     )
     parser.add_argument("-q", "--quiet", action="store_true")
     parser.add_argument("input_file", help="Path to the input file", nargs="?")
-    parser.add_argument("-i", "--include", dest="include")
     parser.set_defaults(command="exec")
 
     return parser
