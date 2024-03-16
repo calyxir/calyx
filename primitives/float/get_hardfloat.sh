@@ -6,6 +6,8 @@ HARDFLOAT_URL="http://www.jhauser.us/arithmetic/HardFloat-1.zip"
 
 ZIP_FILE="HardFloat-1.zip"
 
+rm -rf "${HARDFLOAT_DIR}/HardFloat-1"
+
 mkdir -p "${HARDFLOAT_DIR}"
 
 cd "${HARDFLOAT_DIR}"
