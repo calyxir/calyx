@@ -309,7 +309,6 @@ fn insert_cell(
 pub struct Layout {
     port_map: PortMapper,
     cell_map: CellMapper,
-    component_map: ComponentMapper,
 }
 
 fn compute_local_layout(

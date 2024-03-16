@@ -179,7 +179,7 @@ fn emit_prim_inline<F: io::Write>(
         // NOTE: The signature port definitions are reversed inside the component.
         match port.direction {
             ir::Direction::Input => {
-                write!(f, "   input")?;
+                write!(f, "   input wire")?;
             }
             ir::Direction::Output => {
                 write!(f, "   output")?;

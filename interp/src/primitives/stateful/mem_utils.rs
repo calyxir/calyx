@@ -73,7 +73,7 @@ impl MemBinder for MemD1 {
     }
 
     fn get_dimensions(&self) -> Shape {
-        Shape::D1((self.size as usize,))
+        Shape::D1(self.size as usize)
     }
 
     fn get_array_length(&self) -> usize {
@@ -140,7 +140,7 @@ impl MemBinder for MemD2 {
     }
 
     fn get_dimensions(&self) -> Shape {
-        Shape::D2((self.d0_size as usize, self.d1_size as usize))
+        (self.d0_size as usize, self.d1_size as usize).into()
     }
 
     fn get_array_length(&self) -> usize {
@@ -216,11 +216,12 @@ impl MemBinder for MemD3 {
     }
 
     fn get_dimensions(&self) -> Shape {
-        Shape::D3((
+        (
             self.d0_size as usize,
             self.d1_size as usize,
             self.d2_size as usize,
-        ))
+        )
+            .into()
     }
 
     fn get_array_length(&self) -> usize {
@@ -312,12 +313,13 @@ impl MemBinder for MemD4 {
     }
 
     fn get_dimensions(&self) -> Shape {
-        Shape::D4((
+        (
             self.d0_size as usize,
             self.d1_size as usize,
             self.d2_size as usize,
             self.d3_size as usize,
-        ))
+        )
+            .into()
     }
 
     fn get_array_length(&self) -> usize {
