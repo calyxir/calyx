@@ -7,7 +7,7 @@ use calyx_backend::YxiBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
     Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveUsesBackend,
-    ResourcesBackend, VerilogBackend
+    ResourcesBackend, VerilogBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
