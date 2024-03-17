@@ -92,7 +92,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all --manifest-path /home/calyx/interp/Cargo.toml
+        args: --all --all-features --manifest-path /home/calyx/interp/Cargo.toml
 
     - name: Set location of cider binary
       run: |
@@ -152,7 +152,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --manifest-path /home/calyx/Cargo.toml
+        args: --all-features --manifest-path /home/calyx/Cargo.toml
 
 #    - name: Source code doc tests
 #      uses: actions-rs/cargo@v1
