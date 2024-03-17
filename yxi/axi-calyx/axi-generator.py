@@ -196,7 +196,7 @@ def add_read_channel(prog, mem):
         name="mem_ref",
         bitwidth=mem["width"],
         len=mem["size"],
-        idx_size=clog2(mem["size"]),
+        idx_size=clog2_or_1(mem["size"]),
         is_external=False,
         is_ref=True,
     )
@@ -204,7 +204,7 @@ def add_read_channel(prog, mem):
     # according to zipcpu, rready should be registered
     rready = read_channel.reg("rready", 1)
     curr_addr_internal_mem = read_channel.reg(
-        "curr_addr_internal_mem", clog2(mem["size"]), is_ref=True
+        "curr_addr_internal_mem", clog2_or_1(mem["size"]), is_ref=True
     )
     curr_addr_axi = read_channel.reg("curr_addr_axi", 64, is_ref=True)
     # Registed because RLAST is high with laster transfer, not after
@@ -312,7 +312,7 @@ def add_write_channel(prog, mem):
         name="mem_ref",
         bitwidth=mem["width"],
         len=mem["size"],
-        idx_size=clog2(mem["size"]),
+        idx_size=clog2_or_1(mem["size"]),
         is_external=False,
         is_ref=True,
     )
@@ -322,7 +322,7 @@ def add_write_channel(prog, mem):
     w_handshake_occurred = write_channel.reg("w_handshake_occurred", 1)
     # internal calyx memory indexing
     curr_addr_internal_mem = write_channel.reg(
-        "curr_addr_internal_mem", clog2(mem["size"]), is_ref=True
+        "curr_addr_internal_mem", clog2_or_1(mem["size"]), is_ref=True
     )
     # host indexing, must be 64 bits
     curr_addr_axi = write_channel.reg("curr_addr_axi", 64, is_ref=True)
@@ -520,7 +520,7 @@ def add_main_comp(prog, mems):
         # Cells
         # Read stuff
         curr_addr_internal_mem = wrapper_comp.reg(
-            f"curr_addr_internal_mem_{mem_name}", clog2(mem["size"])
+            f"curr_addr_internal_mem_{mem_name}", clog2_or_1(mem["size"])
         )
         curr_addr_axi = wrapper_comp.reg(f"curr_addr_axi_{mem_name}", 64)
 
@@ -533,7 +533,7 @@ def add_main_comp(prog, mems):
             name=f"internal_mem_{mem_name}",
             bitwidth=mem["width"],
             len=mem["size"],
-            idx_size=clog2(mem["size"]),
+            idx_size=clog2_or_1(mem["size"]),
         )
 
 
@@ -673,6 +673,10 @@ def clog2(x):
     if x <= 0:
         raise ValueError("x must be positive")
     return (x - 1).bit_length()
+
+def clog2_or_1(x):
+    """Ceiling log2 or 1 if clog2(x) == 0"""
+    return max(1, clog2(x))
 
 
 def build():
