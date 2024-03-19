@@ -88,6 +88,7 @@ jobs:
         git init
         git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 
@@ -139,6 +140,7 @@ jobs:
         git init
         git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 
@@ -198,6 +200,7 @@ jobs:
         git init
         git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 
