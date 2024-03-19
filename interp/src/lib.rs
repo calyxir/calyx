@@ -1,6 +1,6 @@
 pub mod interpreter;
 pub mod primitives;
-mod serialization;
+pub mod serialization;
 pub use utils::MemoryMap;
 pub mod configuration;
 pub mod debugger;
