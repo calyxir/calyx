@@ -5,19 +5,19 @@ const config = require("./data/config.json");
 const passes = require("./data/passes.json").passes.map((p) => p.name);
 const examples = config.examples;
 
-const PASS_OUTPUT_PREFIX = "- all:";
-
 // we assume that we have a debug build of calyx ready
 const _spawned = childProcess.spawnSync(
   path.join(__dirname, "..", "target/debug/calyx"),
   ["pass-help"],
 );
 const op = new String(_spawned.stdout);
-const compileAliases = op.split("Aliases:\n")[1];
-const allPasses = compileAliases
+const passList = op.split("Aliases:\n")[0];
+const allPasses = passList
   .split("\n")
-  .filter((s) => s.startsWith(PASS_OUTPUT_PREFIX))[0]
-  .replace(PASS_OUTPUT_PREFIX, "");
+  .filter((s) => s.startsWith("-")) // each pass in the list starts with - , eg: - tdcc: something-about-tdcc
+  .map((s)=>s.split(":")[0]) // split by : to get the pass name and skip desc, eg : - tdcc
+  .map((s)=>s.replace("-","").trim()) // replcae the initial -  and trim. Note this will not replace - from pass names, only the leading one
+  .join(",");
 
 const errors = [];
 
