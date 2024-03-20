@@ -1,3 +1,4 @@
+pub mod btor2_prim;
 mod builder;
 pub mod combinational;
 pub(crate) mod macros;
