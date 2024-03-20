@@ -1,15 +1,9 @@
 use crate::error::AdapterResult;
 use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
-use interp::debugger::source::{NamedTag, SourceMap};
+use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::Debugger;
 use std::collections::HashMap;
 use std::path::PathBuf;
-
-// TODO:
-// 1) Update SourceMap
-// 2) Replace Generic param in ProgramStatus
-// 3) add getter for id, get_suffix
-// 4) New fields for program: hashmap, bool
 
 pub struct MyAdapter {
     #[allow(dead_code)]
@@ -21,8 +15,10 @@ pub struct MyAdapter {
     stack_frames: Vec<StackFrame>,   // This field is a placeholder
     threads: Vec<Thread>,            // This field is a placeholder
     source: String,
-    ids: SourceMap,
+    ids: NewSourceMap,
 }
+
+// New metadata in interp/debugger
 
 impl MyAdapter {
     // Look at Rust File implementation
@@ -33,6 +29,7 @@ impl MyAdapter {
         Ok(MyAdapter {
             debugger: Debugger::from_file(
                 &PathBuf::from(path),
+                // Hard code for now, change path as necessary
                 &PathBuf::from("/home/elias/calyx/calyx-stdlib"),
             )
             .unwrap(),
@@ -121,20 +118,31 @@ impl MyAdapter {
         self.stack_frames.clone()
     }
 
-    pub fn next_line(&mut self, _thread: i64) -> () {
+    pub fn next_line(&mut self, _thread: i64) -> bool {
         let status = self.debugger.step(1).unwrap();
-        let map = status.get_status().clone();
-        // Declare line number beforehand
-        let mut line_number = 0;
-        for id in map {
-            let value = (self.ids.lookup((0, id.to_string()))).unwrap();
-            let num = match value.parse() {
-                Ok(int) => int,
-                _ => 0,
-            };
-            line_number = num;
+
+        // Check if done:
+        if status.get_done().clone() {
+            true
+        } else {
+            let map = status.get_status().clone();
+            // Declare line number beforehand
+            let mut line_number = 0;
+            // Return -1 should a lookup not be found. This really shouldn't
+            // happen though
+            for id in map {
+                let value = match self.ids.lookup(id.to_string()) {
+                    Some(val) => val,
+                    None => &(-1),
+                };
+                line_number = value.clone();
+
+                // Only get first Id for now
+                break;
+            }
+            self.stack_frames[0].line = line_number;
+            false
         }
-        self.stack_frames[0].line = line_number;
     }
 }
 
@@ -180,17 +188,11 @@ pub fn make_breakpoint(
     }
 }
 
-// Hardcode mapping for now
-fn create_map() -> SourceMap {
+// Hardcode mapping for now, this mapping is for reg_seq.futil
+fn create_map() -> NewSourceMap {
     let mut hashmap = HashMap::new();
     // Hardcode
-    hashmap.insert(
-        NamedTag::from((0, String::from("main.wr_reg0"))),
-        String::from("9"),
-    );
-    hashmap.insert(
-        NamedTag::from((0, String::from("main.wr_reg1"))),
-        String::from("14"),
-    );
-    SourceMap::from(hashmap)
+    hashmap.insert(String::from("wr_reg0"), 9);
+    hashmap.insert(String::from("wr_reg1"), 14);
+    NewSourceMap::from(hashmap)
 }

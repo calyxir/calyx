@@ -260,7 +260,21 @@ fn run_server<R: Read, W: Write>(
             Command::Next(args) => {
                 // Move stack frame
                 match args.granularity {
-                    None => adapter.next_line(args.thread_id),
+                    None => {
+                        // If done then disconnect
+                        if adapter.next_line(args.thread_id) {
+                            let rsp =
+                                req.clone().success(ResponseBody::Disconnect);
+                            server.send_event(Event::Exited(
+                                ExitedEventBody { exit_code: 0 },
+                            ))?;
+                            server.respond(rsp)?;
+
+                            //Exit
+                            info!(logger, "exited debugger");
+                            return Ok(());
+                        }
+                    }
                     _ => {}
                 }
 
