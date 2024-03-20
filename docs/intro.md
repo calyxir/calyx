@@ -81,7 +81,7 @@ tests.
 
 ## Installing the Command-Line Driver
 
-[The Calyx driver](./fud) wraps the various compiler frontends and
+[The Calyx driver](./running-calyx/fud) wraps the various compiler frontends and
 backends to simplify running Calyx programs.
 
 Install [Flit][]:
@@ -146,8 +146,8 @@ Congratulations! You've simulated your first hardware design with Calyx.
 
 - [How can I setup syntax highlighting in my editor?](./tools/editor-highlighting.md)
 - [How does the language work?](./tutorial/language-tut.md)
-- [How do I install Calyx frontends?](./fud/index.html#dahlia-fronted)
-- [Where can I see further examples with `fud`?](./fud/examples.md)
+- [How do I install Calyx frontends?](./running-calyx/fud/index.html#dahlia-fronted)
+- [Where can I see further examples with `fud`?](./running-calyx/fud/examples.md)
 - [How do I write a frontend for Calyx?](./tutorial/frontend-tut.md)
 
 
@@ -168,8 +168,8 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [sbt]: https://www.scala-sbt.org/download.html
 [interpreter]: ./interpreter.md
 [homebrew]: https://brew.sh
-[fud-icarus]: ./fud/index.md#icarus-verilog
-[fud-verilator]: ./fud/index.md#verilator
+[fud-icarus]: ./running-calyx/fud/index.md#icarus-verilog
+[fud-verilator]: ./running-calyx/fud/index.md#verilator
 [icarus-install-source]: https://iverilog.fandom.com/wiki/Installation_Guide#Installation_From_Source
 [calyx-crate]: https://crates.io/crates/calyx
 [core-lib]: https://github.com/calyxir/calyx/blob/master/primitives/core.futil

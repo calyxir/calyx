@@ -7,7 +7,7 @@ fud2 is an experiment in building a new driver that works like fud that adds som
 Someday, fud2 may supplant fud, but it needs more work before it is ready to do that.
 Until then, fud remains your first choice for all your build-related needs.
 
-[fud]: ./fud/index.md
+[fud]: ./running-calyx/fud/index.md
 
 ## Set Up
 
