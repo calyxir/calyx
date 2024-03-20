@@ -14,7 +14,6 @@ members = [
     "cider-dap",
     "fud2",
     "fud2/fud-core",
-    "tools/btor2/btor2i"
 ]
 exclude = ["site"]
 

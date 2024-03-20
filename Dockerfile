@@ -20,9 +20,6 @@ RUN python3 -m pip install numpy flit prettytable wheel hypothesis pytest simple
 # Current cocotb-bus has a bug that is fixed in more up to date repo
 RUN python3 -m pip install git+https://github.com/cocotb/cocotb-bus.git cocotbext-axi
 
-# Install clang
-RUN apt-get install -y clang
-
 # Install Verilator
 WORKDIR /home
 ## TODO(rachit): Don't hardcode the version here

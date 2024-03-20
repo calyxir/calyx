@@ -50,6 +50,3 @@ results.xml
 
 !cider-dap/calyxDebug/package.json
 !cider-dap/calyxDebug/tsconfig.json
-
-# btor2i ignore
-tools/btor2/btor2i/build/

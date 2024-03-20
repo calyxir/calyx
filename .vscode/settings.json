@@ -3,6 +3,6 @@
     // the whole project. For all other things use your own local settings.
     "[rust]": {
         "editor.defaultFormatter": "rust-lang.rust-analyzer",
-        "editor.formatOnSave": true
-    }
+        "editor.formatOnSave": true,
+    },
 }
