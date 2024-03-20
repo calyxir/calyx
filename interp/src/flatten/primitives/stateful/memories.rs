@@ -247,7 +247,7 @@ impl CombMem {
         T: Into<Shape>,
     {
         let shape = size.into();
-        let internal_state = vec![Value::zeroes(width); shape.len()];
+        let internal_state = vec![Value::zeroes(width); shape.size()];
 
         Self {
             base_port: base,
@@ -365,7 +365,7 @@ impl SeqMem {
         size: T,
     ) -> Self {
         let shape = size.into();
-        let internal_state = vec![Value::zeroes(width); shape.len()];
+        let internal_state = vec![Value::zeroes(width); shape.size()];
 
         Self {
             base_port: base,
