@@ -199,6 +199,8 @@ pub fn build_primitive(
                 ),
             )),
         },
-        CellPrototype::Unknown(_, _) => todo!(),
+        CellPrototype::Unknown(_, _) => {
+            todo!()
+        }
     }
 }

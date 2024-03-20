@@ -1,0 +1,37 @@
+extract = 'Time elapsed: (\d+) µs'
+timeout = 60
+benchmarks = 'test/core/combo/*.btor2'
+
+[runs.baseline]
+pipeline = [
+    "cargo run -r -- -p -f {file_path} {args}",
+]
+[runs.10] 
+pipeline = [
+    "cargo run -r -- -p -n 10 -f {file_path} {args}",
+]
+
+[runs.100] 
+pipeline = [
+    "cargo run -r -- -p -n 100 -f {file_path} {args}",
+]
+
+[runs.1000]
+pipeline = [
+    "cargo run -r -- -p -n 1000 -f {file_path} {args}",
+]
+
+[runs.10000]
+pipeline = [
+    "cargo run -r -- -p -n 10000 -f {file_path} {args}",
+]
+
+[runs.100000]
+pipeline = [
+    "cargo run -r -- -p -n 100000 -f {file_path} {args}",
+]
+
+[runs.1000000]
+pipeline = [
+    "cargo run -r -- -p -n 1000000 -f {file_path} {args}",
+]
