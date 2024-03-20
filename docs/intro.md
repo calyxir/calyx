@@ -166,7 +166,7 @@ Congratulations! You've simulated your first hardware design with Calyx.
 [dahlia]: https://github.com/cucapra/dahlia
 [dahlia-install]: https://github.com/cucapra/dahlia#set-it-up
 [sbt]: https://www.scala-sbt.org/download.html
-[interpreter]: ./interpreter.md
+[interpreter]: ./running-calyx/interpreter.md
 [homebrew]: https://brew.sh
 [fud-icarus]: ./running-calyx/fud/index.md#icarus-verilog
 [fud-verilator]: ./running-calyx/fud/index.md#verilator
