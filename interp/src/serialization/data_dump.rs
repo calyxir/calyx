@@ -46,6 +46,7 @@ pub struct DataDump {
 }
 
 impl DataDump {
+    // TODO Griffin: handle the errors properly
     pub fn serialize(&self, writer: &mut dyn std::io::Write) {
         let header_str = serde_json::to_string(&self.header).unwrap();
         let len_bytes = header_str.len();
@@ -57,6 +58,7 @@ impl DataDump {
         assert_eq!(written, self.data.len());
     }
 
+    /// TODO Griffin: handle the errors properly
     pub fn deserialize(reader: &mut dyn std::io::Read) -> Self {
         let mut raw_header_len = [0u8; 8];
         reader.read_exact(&mut raw_header_len).unwrap();
@@ -68,6 +70,8 @@ impl DataDump {
         let header: DataHeader = serde_json::from_str(&header_str).unwrap();
         let mut data: Vec<u8> = Vec::with_capacity(header.data_size());
 
+        // we could do a read_exact here instead but I opted for read_to_end
+        // instead to avoid allowing incorrect/malformed data files
         let amount_read = reader.read_to_end(&mut data).unwrap();
         assert_eq!(amount_read, header.data_size());
 
@@ -91,6 +95,7 @@ mod tests {
             ],
         };
 
+        // This was generated from random.org
         let data = vec![
             230, 165, 232, 82, 9, 111, 146, 146, 243, 18, 26, 100, 23, 45, 22,
             34, 229, 70, 32, 185, 21, 160, 237, 107, 227, 253, 174, 96, 238,
@@ -148,7 +153,6 @@ mod tests {
         fn prop_roundtrip(dump in arb_data_dump()) {
             let mut buf = Vec::new();
             dump.serialize(&mut buf);
-
 
             let reparsed_dump = DataDump::deserialize(&mut buf.as_slice());
             prop_assert_eq!(dump, reparsed_dump)
