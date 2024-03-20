@@ -18,6 +18,23 @@ impl From<(u64, String)> for NamedTag {
     }
 }
 #[derive(Debug, Clone)]
+/// NewSourceMap contains the group name as the key and the line it lies on as
+/// its value
+pub struct NewSourceMap(HashMap<String, i64>);
+
+impl NewSourceMap {
+    /// look up group name, if not present, return None
+    pub fn lookup(&self, key: String) -> Option<&i64> {
+        self.0.get(&key)
+    }
+}
+
+impl From<HashMap<String, i64>> for NewSourceMap {
+    fn from(i: HashMap<String, i64>) -> Self {
+        Self(i)
+    }
+}
+
 pub struct SourceMap(HashMap<NamedTag, String>);
 
 impl SourceMap {

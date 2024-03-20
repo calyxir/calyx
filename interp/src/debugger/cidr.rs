@@ -4,7 +4,6 @@ use super::{
     interactive_errors::DebuggerError,
     io_utils::Input,
 };
-use crate::errors::{InterpreterError, InterpreterResult};
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
 use crate::structures::state_views::StateView;
@@ -13,6 +12,10 @@ use crate::{configuration, debugger::source::SourceMap};
 use crate::{
     environment::{InterpreterState, PrimitiveMap},
     MemoryMap,
+};
+use crate::{
+    errors::{InterpreterError, InterpreterResult},
+    structures::names::GroupQIN,
 };
 use crate::{interpreter_ir as iir, primitives::Serializable};
 use std::collections::HashSet;
@@ -30,18 +33,36 @@ use std::{
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
 
-/// ProgramStatus returns the status of the program, helpful for metadeta
-pub struct ProgramStatus<T> {
-    status: T,
+/// ProgramStatus returns the status of the program, helpful
+/// status contains the set of running groups, done states if the program
+/// is finished or not
+pub struct ProgramStatus {
+    status: HashSet<Id>, // all groups currently running
+    done: bool,          // states whether the program has finished
 }
 
-impl<T> ProgramStatus<T> {
-    pub fn new(status: T) -> Self {
-        ProgramStatus { status }
+impl ProgramStatus {
+    /// Create a new program status on the fly
+    pub fn generate(current_groups: HashSet<GroupQIN>, is_done: bool) -> Self {
+        let mut set: HashSet<Id> = HashSet::new();
+        for item in current_groups {
+            set.insert(item.get_suffix());
+        }
+
+        ProgramStatus {
+            status: set,
+            done: is_done,
+        }
     }
 
-    pub fn get_status(&self) -> &T {
+    /// get status
+    pub fn get_status(&self) -> &HashSet<Id> {
         &self.status
+    }
+
+    /// see if program is done
+    pub fn get_done(&self) -> &bool {
+        &self.done
     }
 }
 
@@ -135,22 +156,17 @@ impl Debugger {
 
     // probably want a different return type
     // Return InterpreterResult of Program Status, new struct
-    pub fn step(
-        &mut self,
-        n: u64,
-    ) -> InterpreterResult<ProgramStatus<HashSet<Id>>> {
+    pub fn step(&mut self, n: u64) -> InterpreterResult<ProgramStatus> {
         for _ in 0..n {
             self.interpreter.step()?;
         }
         self.interpreter.converge()?;
 
         // Create new HashSet with Ids
-        let mut set: HashSet<Id> = HashSet::new();
-        for item in self.interpreter.currently_executing_group() {
-            set.insert(item.as_id());
-        }
-
-        Ok(ProgramStatus::new(set))
+        Ok(ProgramStatus::generate(
+            self.interpreter.currently_executing_group(),
+            self.interpreter.is_done(),
+        ))
     }
 
     /// continue the execution until a breakpoint is hit, needs a different
