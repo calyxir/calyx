@@ -1,6 +1,9 @@
 name: Test
 
-on: [push]
+on:
+  push:
+  pull_request:
+    branches: [main]
 
 # Ensures that only the latest commit of a PR can execute the actions.
 # Useful for cancelling job when a sequence of commits are quickly added.
@@ -18,7 +21,7 @@ jobs:
       exists: ${{ steps.exists.outputs.exists }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: calyxir/calyx
           ref: ${{ github.sha }}
@@ -83,8 +86,9 @@ jobs:
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin https://github.com/calyxir/calyx.git
+        git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 
@@ -134,8 +138,9 @@ jobs:
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin https://github.com/calyxir/calyx.git
+        git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 
@@ -193,8 +198,9 @@ jobs:
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin https://github.com/calyxir/calyx.git
+        git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 

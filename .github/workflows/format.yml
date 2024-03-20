@@ -1,6 +1,9 @@
 name: Format
 
-on: [push]
+on:
+  push: # allow for all branches, so forks can also validate on their own
+  pull_request:
+    branches: [main]
 
 jobs:
   format:
@@ -8,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Install stable
       uses: actions-rs/toolchain@v1
       with:
@@ -37,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Fud Formatting check
         uses: psf/black@stable
         with:
