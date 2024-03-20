@@ -447,7 +447,7 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 
 [astcode]: https://github.com/calyxir/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
-[fud]: ../fud/index.md
+[fud]: ../running-calyx/fud/index.md
 [fud-data]: ../lang/data-format.md
 [json]: https://www.json.org/json-en.html
 [calyx-tut]: ./language-tut.md

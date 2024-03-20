@@ -134,7 +134,7 @@ fud c stages.verilog.priority 1
 ## Dahlia Frontend
 
 In order to use the Dahlia frontend with Fud, first [install
-Dahlia](../frontends/dahlia.md).
+Dahlia](../../frontends/dahlia.md).
 Once Dahlia is compiled, point `fud` to the Dahlia compiler binary:
 ```bash
 fud config stages.dahlia.exec <full path to dahlia repo>/fuse
@@ -146,20 +146,20 @@ You need [flit][] to install our Python frontends.
 pip3 install flit
 ```
 
-Our Python [frontends](../frontends) use a Calyx ast library written in Python. Install with:
+Our Python [frontends](../../frontends) use a Calyx ast library written in Python. Install with:
 ```
 cd calyx-py && flit install -s
 ```
 
 Frontend specific instructions:
- - [Systolic array](../frontends/systolic-array.md): Nothing else needed.
- - [NTT](../frontends/ntt.md):
+ - [Systolic array](../../frontends/systolic-array.md): Nothing else needed.
+ - [NTT](../../frontends/ntt.md):
    - Install dependencies: `pip3 install prettytable`
    - Install external `fud` stage: `fud register ntt -p frontends/ntt-pipeline/fud/ntt.py`
- - [MrXL](../frontends/mrxl.md):
+ - [MrXL](../../frontends/mrxl.md):
    - Install `mrxl` binary: `cd frontends/mrxl && flit install -s`
    - Install `mrxl` [external stage][] for `fud`: `fud register mrxl -p frontends/mrxl/fud/mrxl.py`
- - [TVM Relay](../frontends/tvm-relay.md): See instructions.
+ - [TVM Relay](../../frontends/tvm-relay.md): See instructions.
 
 
 ## Adding Synthesis Backends
@@ -244,7 +244,7 @@ simulate                        0.161
 
 Lastly, the `-csv` flag will provide the profiling information in CSV format.
 
-[frontends]: ../frontends/index.md
+[frontends]: ../../frontends/index.md
 [calyx-py]: ./calyx-py.md
 [flit]: https://flit.readthedocs.io/en/latest/
 [verilator]: https://www.veripool.org/wiki/verilator
