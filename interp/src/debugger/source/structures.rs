@@ -18,8 +18,8 @@ impl From<(u64, String)> for NamedTag {
     }
 }
 #[derive(Debug, Clone)]
-/// NewSourceMap contains the group name as the key and the line it lies on as
-/// its value
+/// NewSourceMap contains the group name as the key and the line it lies on with
+///  as respect to its corresponding .futil file
 pub struct NewSourceMap(HashMap<String, i64>);
 
 impl NewSourceMap {
