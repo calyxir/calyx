@@ -1,4 +1,4 @@
-ver = "0.4.0"
+ver = "0.4.1"
 
 ##### Compilation Tests ######
 ## Test each pass in isolation. Gets the pass flags from a comment on the first line of the file
@@ -438,6 +438,22 @@ fud exec -s calyx.exec './target/debug/calyx' \
          {} --from calyx --to dat -q 2>&1 | \
          grep '%Error' | sed 's/%Error: [^:]*:[^:]*:/%Error:/'
 """
+
+[[tests]]
+name = "correctness floating-point"
+paths = ["tests/correctness/float/*.futil"]
+cmd = """
+cd primitives/float && ./get_hardfloat.sh > /dev/null 2>&1 && cd ../../ &&
+fud exec --from calyx --to jq \
+         --through icarus-verilog \
+         --through dat \
+         -s verilog.data {}.data \
+         -s calyx.exec './target/debug/calyx' \
+         -s verilog.cycle_limit 500 \
+         {} -q
+"""
+expect_dir = "tests/correctness/float/"
+timeout = 10
 
 ##### Examples #####
 

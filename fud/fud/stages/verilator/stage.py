@@ -108,6 +108,7 @@ class VerilatorStage(Stage):
             "round_float_to_fixed",
             "cycle_limit",
             "file_extensions",
+            "include",
         ]
 
     def _define_steps(self, input_data, builder, config):
@@ -171,6 +172,8 @@ class VerilatorStage(Stage):
                 "--Mdir",
                 "{tmpdir_name}",
                 "-fno-inline",
+                "-relative-includes",
+                "-I{include_path}",
             ]
         )
 
@@ -179,7 +182,11 @@ class VerilatorStage(Stage):
             input_path: SourceType.Path, tmpdir: SourceType.Directory
         ) -> SourceType.Stream:
             return shell(
-                cmd.format(input_path=str(input_path), tmpdir_name=tmpdir.name),
+                cmd.format(
+                    input_path=str(input_path),
+                    tmpdir_name=tmpdir.name,
+                    include_path=config["stages", self.name, "include"],
+                ),
                 stdout_as_debug=True,
             )
 
