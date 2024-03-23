@@ -29,7 +29,7 @@
     },
     {
       "name": "Invoke (call)",
-      "file": "tests/passes/compile-invoke.futil",
+      "file": "tests/passes/compile-invoke/compile-invoke.futil",
       "root": "/",
       "passes": [
         "compile-invoke"
@@ -52,37 +52,18 @@
       ]
     },
     {
-      "name": "Infer Static Timing",
-      "file": "tests/passes/infer-static/component.futil",
-      "root": "/",
-      "passes": [
-        "infer-static-timing"
-      ]
-    },
-    {
       "name": "Minimize Regs Simple",
-      "file": "tests/passes/minimize-regs/simple-liveness.futil",
+      "file": "tests/passes/cell-share/simple-liveness.futil",
       "root": "/",
       "passes": [
-        "minimize-regs",
         "dead-cell-removal"
       ]
     },
     {
       "name": "Minimize Regs (Nested Par)",
-      "file": "tests/passes/minimize-regs/nested-par.futil",
+      "file": "tests/passes/cell-share/nested-par.futil",
       "root": "/",
       "passes": [
-        "minimize-regs",
-        "dead-cell-removal"
-      ]
-    },
-    {
-      "name": "Resource Sharing",
-      "file": "tests/passes/resource-sharing/share.futil",
-      "root": "/",
-      "passes": [
-        "resource-sharing",
         "dead-cell-removal"
       ]
     }

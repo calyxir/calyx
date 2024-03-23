@@ -47,4 +47,4 @@ The override order for stage configuration is:
 2. Configuration value in the fud config.
 3. Default value provided by `Stage.defaults()`
 
-[MrXL]: ../frontends/mrxl.md
+[MrXL]: ../../frontends/mrxl.md
