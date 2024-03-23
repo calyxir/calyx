@@ -54,7 +54,7 @@ WORKDIR /home
 RUN git  clone https://github.com/cucapra/dahlia.git
 WORKDIR /home/dahlia
 ## Checkout specific version. Fetch before checkout because clone might be cached.
-RUN git fetch --all && git checkout master
+RUN git fetch --all && git checkout 88e05e5
 RUN sbt "; getHeaders; assembly"
 
 # Add the Calyx source code from the build context
