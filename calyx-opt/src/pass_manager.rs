@@ -50,9 +50,9 @@ impl PassManager {
             + traversal::Named
             + traversal::DiagnosticPass,
     {
-        self.register_generic_pass::<Pass>(Box::new(|mut ir| {
-            let mut visitor = Pass::from(&*ir)?;
-            visitor.do_pass(&mut ir)?;
+        self.register_generic_pass::<Pass>(Box::new(|ir| {
+            let mut visitor = Pass::from(ir)?;
+            visitor.do_pass(ir)?;
             // if Pass::name() == "synthesis-papercut" {
             //     println!("{visitor:#?}");
             // }
