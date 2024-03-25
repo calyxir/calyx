@@ -35,6 +35,47 @@ impl PassManager {
         Pass:
             traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
     {
+        self.register_generic_pass::<Pass>(Box::new(|ir| {
+            Pass::do_pass_default(ir)?;
+            Ok(())
+        }))
+    }
+
+    /// Registers a diagnostic pass as a normal pass. If there is an error,
+    /// this will report the first error gathered by the pass.
+    pub fn register_diagnostic<Pass>(&mut self) -> CalyxResult<()>
+    where
+        Pass: traversal::Visitor
+            + traversal::ConstructVisitor
+            + traversal::Named
+            + traversal::DiagnosticPass,
+    {
+        self.register_generic_pass::<Pass>(Box::new(|mut ir| {
+            let mut visitor = Pass::from(&*ir)?;
+            visitor.do_pass(&mut ir)?;
+            // if Pass::name() == "synthesis-papercut" {
+            //     println!("{visitor:#?}");
+            // }
+            let diags = visitor.diagnostics().collect::<Vec<_>>();
+            // if Pass::name() == "synthesis-papercut" {
+            //     println!("{} {diags:#?}", Pass::name());
+            // }
+            if let Some(first_error) = diags.into_iter().next() {
+                Err(first_error)
+            } else {
+                Ok(())
+            }
+        }))
+    }
+
+    fn register_generic_pass<Pass>(
+        &mut self,
+        pass_closure: PassClosure,
+    ) -> CalyxResult<()>
+    where
+        Pass:
+            traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
+    {
         let name = Pass::name().to_string();
         if self.passes.contains_key(&name) {
             return Err(Error::misc(format!(
@@ -42,10 +83,6 @@ impl PassManager {
                 name
             )));
         }
-        let pass_closure: PassClosure = Box::new(|ir| {
-            Pass::do_pass_default(ir)?;
-            Ok(())
-        });
         self.passes.insert(name.clone(), pass_closure);
         let mut help = format!("- {}: {}", name, Pass::description());
         for opt in Pass::opts() {

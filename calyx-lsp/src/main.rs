@@ -157,7 +157,6 @@ impl Backend {
                         tags: None,
                         data: None,
                     })
-                    .inspect(|diag| log::stdout!("{diag:#?}"))
                     .collect(),
                 )
             })

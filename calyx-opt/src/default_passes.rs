@@ -21,8 +21,8 @@ impl PassManager {
         let mut pm = PassManager::default();
 
         // Validation passes
-        pm.register_pass::<WellFormed>()?;
-        pm.register_pass::<Papercut>()?;
+        pm.register_diagnostic::<WellFormed>()?;
+        pm.register_diagnostic::<Papercut>()?;
         pm.register_pass::<Canonicalize>()?;
 
         // Optimization passes
@@ -62,7 +62,7 @@ impl PassManager {
         pm.register_pass::<DefaultAssigns>()?;
 
         // Enabled in the synthesis compilation flow
-        pm.register_pass::<SynthesisPapercut>()?;
+        pm.register_diagnostic::<SynthesisPapercut>()?;
         pm.register_pass::<Externalize>()?;
 
         // Disabled by default
