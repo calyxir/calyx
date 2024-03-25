@@ -20,6 +20,10 @@ fn setup_calyx(
             "calyx",
             "$calyx-exe -l $calyx-base -b $backend $args $in > $out",
         )?;
+        e.rule(
+            "calyx-pass",
+            "$calyx-exe -l $calyx-base -p $pass $args $in > $out",
+        )?;
         Ok(())
     });
     bld.op(
@@ -473,33 +477,61 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
 
     // Example operation!
-    let axi_calyx = bld.state("axi_calyx", &["futil"]);
-    let yxi_setup = bld.setup("YXI and AXI generation", |e| {
+    let wrapper_setup = bld.setup("YXI and AXI generation", |e| {
         // Define a `gen-axi` rule that invokes our Python code generator program. Maybe the
         // real thing would want to use a configuration option (or a resource file) to point
         // to the Python script?
-        e.rule("gen-axi", "python gen_axi.py $in")?;
+        e.config_var_or(
+            "axi-generator",
+            "axi.generator",
+            "$calyx-base/yxi/axi-calyx/axi-generator.py",
+        )?;
+        e.config_var_or("python", "python", "python3")?;
+        //TODO do we want this rsrc call?
+        //e.rsrc("$axi-generator")?;
+        e.rule("gen-axi", "$python $axi-generator $in")?;
 
         // Define a simple `combine` rule that just concatenates any numer of files.
         e.rule("combine", "cat $in > $out")?;
 
+        e.rule(
+            "remove-imports",
+            "sed '/import/d' $in > $out"
+        )?;
         Ok(())
     });
     bld.op(
-        "AXI-wrapped Calyx generation",
-        &[calyx_setup, yxi_setup],
+        "axi-wrapped",
+        &[calyx_setup, wrapper_setup],
         calyx,
-        axi_calyx,
+        calyx,
         |e, input, output| {
             // Generate the YXI file.
-            e.build_cmd(&["yxi.json"], "calyx", &[input], &[])?;
-            e.arg("backend", "yxi")?;
+            //no extension
+            let file_name = input.rsplit_once('/').unwrap().1.rsplit_once('.').unwrap().0;
+            let tmp_yxi = format!("{}.yxi", file_name);
 
+            //Get yxi file from main compute
+            //TODO(nate): Can this use the `yxi` operation instead of hardcoding the build cmd calyx rule with arguments?
+            e.build_cmd(&[&tmp_yxi], "calyx", &[input], &[])?;
+            e.arg("backend", "yxi")?;
+            
             // Generate the AXI wrapper.
-            e.build_cmd(&["axiwrap.futil"], "gen-axi", &["yxi.json"], &[])?;
+            let refified_calyx = format!("refified_{}.futil", file_name);
+            e.build_cmd(&[&refified_calyx], "calyx-pass", &[input], &[])?;
+            e.arg("pass", "external-to-ref")?;
+            
+            let axi_wrapper = "axi_wrapper.futil";
+            e.build_cmd(&[axi_wrapper], "gen-axi", &[&tmp_yxi], &[])?;
+            
+            // Generate no-imports version of the refified calyx.
+            let no_imports_calyx = format!("no_imports_{}", refified_calyx);
+            e.build_cmd(
+                &[&no_imports_calyx], "remove-imports", &[&refified_calyx], &[]
+            )?;
 
             // Combine the original Calyx and the wrapper.
-            e.build_cmd(&[output], "combine", &[input, "axiwrap.futil"], &[])?;
+            e.build_cmd(&[output], "combine", &[axi_wrapper, &no_imports_calyx], &[])?;
             Ok(())
         },
     );
