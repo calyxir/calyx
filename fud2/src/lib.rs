@@ -459,6 +459,19 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
 
+    let yxi = bld.state("yxi", &["yxi"]);
+    bld.op(
+        "calyx-to-yxi",
+        &[calyx_setup],
+        calyx,
+        yxi,
+        |e, input, output| {
+            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            e.arg("backend", "yxi")?;
+            Ok(())
+        },
+    );
+
     // Example operation!
     let axi_calyx = bld.state("axi_calyx", &["futil"]);
     let yxi_setup = bld.setup("YXI and AXI generation", |e| {
@@ -473,7 +486,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     });
     bld.op(
-        "AXI-wrapped Caly generation",
+        "AXI-wrapped Calyx generation",
         &[calyx_setup, yxi_setup],
         calyx,
         axi_calyx,
