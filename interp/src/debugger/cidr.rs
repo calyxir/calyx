@@ -26,10 +26,7 @@ use calyx_ir::{self as ir, Id, RRC};
 use calyx_opt::pass_manager::PassManager;
 use owo_colors::OwoColorize;
 use std::{cell::Ref, collections::HashMap, rc::Rc};
-use std::{
-    fmt::Write,
-    path::{Path, PathBuf},
-};
+use std::{fmt::Write, path::Path};
 /// Constant amount of space used for debugger messages
 pub(super) const SPACING: &str = "    ";
 
@@ -79,10 +76,7 @@ pub struct Debugger {
 
 impl Debugger {
     /// construct a debugger instance from the target calyx file
-    pub fn from_file(
-        file: &PathBuf,
-        lib_path: &Path,
-    ) -> InterpreterResult<Self> {
+    pub fn from_file(file: &Path, lib_path: &Path) -> InterpreterResult<Self> {
         // create a workspace using the file and lib_path, run the standard
         // passes (see main.rs). Construct the initial environment then use that
         // to create a new debugger instance with new
@@ -96,7 +90,7 @@ impl Debugger {
             .allow_par_conflicts(false)
             .build();
 
-        let ws = Workspace::construct(&Some(file.clone()), lib_path)?;
+        let ws = Workspace::construct(&Some(file.to_path_buf()), lib_path)?;
         let mut ctx = ir::from_ast::ast_to_ir(ws)?;
         let pm = PassManager::default_passes()?;
 

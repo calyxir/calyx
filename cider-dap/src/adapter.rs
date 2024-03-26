@@ -192,7 +192,7 @@ pub fn make_breakpoint(
 fn create_map() -> NewSourceMap {
     let mut hashmap = HashMap::new();
     // Hardcode
-    hashmap.insert(String::from("wr_reg0"), 9);
-    hashmap.insert(String::from("wr_reg1"), 14);
+    hashmap.insert(String::from("wr_reg0"), 10);
+    hashmap.insert(String::from("wr_reg1"), 15);
     NewSourceMap::from(hashmap)
 }
