@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component negative_4() -> () {
@@ -21,27 +21,28 @@ component negative_4() -> () {
       le0.left = __i0.out;
       le0.right = const1.out;
     }
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       __i0.in = const0.out;
       __i0.write_en = 1'd1;
       let0[done] = __i0.done;
     }
-    group let1<"static"=2> {
+    group let1<"promotable"=2> {
       x_read0_0.in = x.read_data;
-      x_read0_0.write_en = x.read_done;
+      x_read0_0.write_en = x.done;
       let1[done] = x_read0_0.done;
+      x.content_en = 1'd1;
       x.addr0 = __i0.out;
-      x.read_en = 1'd1;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
+      x1.content_en = 1'd1;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
       sub0.left = const2.out;
       sub0.right = x_read0_0.out;
       x1.write_data = sub0.out;
-      upd0[done] = x1.write_done;
+      upd0[done] = x1.done;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       __i0.write_en = 1'd1;
       add0.left = __i0.out;
       add0.right = const3.out;

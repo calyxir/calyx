@@ -17,7 +17,7 @@ use crate::{
     errors::{InterpreterError, InterpreterResult},
     structures::names::GroupQIN,
 };
-use crate::{interpreter_ir as iir, primitives::Serializable};
+use crate::{interpreter_ir as iir, serialization::Serializable};
 use std::collections::HashSet;
 
 use calyx_frontend::Workspace;

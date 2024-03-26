@@ -158,12 +158,12 @@ impl CompileInvoke {
                     continue;
                 }
 
-                let canon = ir::Canonical(ref_cell_name, port.name);
+                let canon = ir::Canonical::new(ref_cell_name, port.name);
                 let Some(comp_port) = comp_ports.get(&canon) else {
                     unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
                         canon,
                         inv_comp,
-                        comp_ports.keys().map(|c| c.1.as_ref()).collect_vec().join(", ")
+                        comp_ports.keys().map(|c| c.port.as_ref()).collect_vec().join(", ")
                     )
                 };
                 // Get the port on the new cell with the same name as ref_port
@@ -331,20 +331,20 @@ impl Visitor for CompileInvoke {
                 .extend(cg.assignments.iter().cloned())
         }
 
-        // Copy "static" annotation from the `invoke` statement if present
-        if let Some(time) = s.attributes.get(ir::NumAttr::Static) {
+        // Copy "promotable" annotation from the `invoke` statement if present
+        if let Some(time) = s.attributes.get(ir::NumAttr::Promotable) {
             invoke_group
                 .borrow_mut()
                 .attributes
-                .insert(ir::NumAttr::Static, time);
+                .insert(ir::NumAttr::Promotable, time);
         }
 
         let mut en = ir::Enable {
             group: invoke_group,
             attributes: Attributes::default(),
         };
-        if let Some(time) = s.attributes.get(ir::NumAttr::Static) {
-            en.attributes.insert(ir::NumAttr::Static, time);
+        if let Some(time) = s.attributes.get(ir::NumAttr::Promotable) {
+            en.attributes.insert(ir::NumAttr::Promotable, time);
         }
 
         Ok(Action::change(ir::Control::Enable(en)))
@@ -373,12 +373,25 @@ impl Visitor for CompileInvoke {
         // Get the go port
         let go_port = get_go_port(Rc::clone(&s.comp))?;
 
-        // define first cycle guard
-        let first_cycle = ir::Guard::Info(ir::StaticTiming::new((0, 1)));
+        // Checks whether compe is a static<n> component or an @interval(n) component.
+        let go_guard = if s
+            .comp
+            .borrow()
+            .ports
+            .iter()
+            .any(|port| port.borrow().attributes.has(ir::NumAttr::Interval))
+        {
+            // For @interval(n) components, we do not guard the comp.go
+            // We trigger the go signal for the entire interval.
+            ir::Guard::True
+        } else {
+            // For static<n> components, we guard the comp.go with %[0:1]
+            ir::Guard::Info(ir::StaticTiming::new((0, 1)))
+        };
 
         // Build assignemnts
         let go_assign: ir::Assignment<ir::StaticTiming> = builder
-            .build_assignment(go_port, one.borrow().get("out"), first_cycle);
+            .build_assignment(go_port, one.borrow().get("out"), go_guard);
         invoke_group.borrow_mut().assignments.push(go_assign);
 
         // Generate argument assignments

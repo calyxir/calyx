@@ -1,0 +1,60 @@
+// Singe-ported memories with one-cycle read and one-cycle write latencies.
+extern "seq.sv" {
+  primitive seq_mem_d1[WIDTH, SIZE, IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @data addr0: IDX_SIZE,
+    @write_together(1) @interval(1) @go(1) content_en: 1,
+    // Write ports
+    @write_together(2) write_en: 1,
+    @write_together(2) @data write_data: WIDTH
+  ) -> (
+    @stable read_data: WIDTH,
+    @done(1) done: 1
+  );
+
+  primitive seq_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @data addr0: D0_IDX_SIZE,
+    @write_together(1) @data addr1: D1_IDX_SIZE,
+    @write_together(1) @interval(1) @go(1) content_en: 1,
+    // Write ports
+    @write_together(2) write_en: 1,
+    @write_together(2) @data write_data: WIDTH
+  ) -> (
+    @stable read_data: WIDTH,
+    @done(1) done: 1
+  );
+
+  primitive seq_mem_d3[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @data addr0: D0_IDX_SIZE,
+    @write_together(1) @data addr1: D1_IDX_SIZE,
+    @write_together(1) @data addr2: D2_IDX_SIZE,
+    @write_together(1) @interval(1) @go(1) content_en: 1,
+    // Write ports
+    @write_together(2) write_en: 1,
+    @write_together(2) @data write_data: WIDTH
+  ) -> (
+    @stable read_data: WIDTH,
+    @done(1) done: 1
+  );
+
+  primitive seq_mem_d4[WIDTH, D0_SIZE, D1_SIZE, D2_SIZE, D3_SIZE, D0_IDX_SIZE, D1_IDX_SIZE, D2_IDX_SIZE, D3_IDX_SIZE](
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @data addr0: D0_IDX_SIZE,
+    @write_together(1) @data addr1: D1_IDX_SIZE,
+    @write_together(1) @data addr2: D2_IDX_SIZE,
+    @write_together(1) @data addr3: D3_IDX_SIZE,
+    @write_together(1) @interval(1) @go(1) content_en: 1,
+    // Write ports
+    @write_together(2) write_en: 1,
+    @write_together(2) @data write_data: WIDTH
+  ) -> (
+    @stable read_data: WIDTH,
+    @done(1) done: 1
+  );
+}

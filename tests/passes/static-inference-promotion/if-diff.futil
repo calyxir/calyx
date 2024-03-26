@@ -1,6 +1,7 @@
-// -p well-formed -p static-inference -p static-promotion -x static-promotion:if-diff-limit=3
+// -p well-formed -p static-inference -p static-promotion -x static-promotion:compaction=false -x static-promotion:if-diff-limit=3
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {

@@ -1,5 +1,6 @@
-// -p well-formed -p static-inference -p static-promotion -p dead-group-removal
+// -p well-formed -p static-inference -p static-promotion -p dead-group-removal -x static-promotion:compaction=false
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 /**
 * Tests the infer-static-timing pass. `exponent` is intentionally placed

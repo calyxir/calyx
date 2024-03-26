@@ -1,5 +1,29 @@
 ## Current
 
+## 0.7.0
+
+### Language
+- Added `static` abstractions for expression latency-sensitive computations.
+- Deprecated `@static` attribute (#1896)
+  - `@interval` attribute is used to express how quickly a component can re-execute.
+
+### Primitives
+- Reorganized `std_mem` and `seq_mem`
+- `std_mem` is now called `comb_mem` and generally not preferred for use in real designs because of combinational reads
+- Added new `stallable` and `pipelined` primitives. Currently, only multipliers are supported.
+
+### Passes
+- `compaction`: Pass to automatically compact control-programs based on read-write dependencies.
+- `default-assigns`: New pass to add assignments for ports that have no source-level assignments.
+
+### Tools
+- `calyx-lsp`: Language server protocol implementation based on Treesitter.
+- `calyx pass-help`: New command line option to provide help on passes and pass options.
+
+### Internal
+- `ReadWriteSet`: Changed to provide methods on assignments and enable chaining (#1921).
+
+
 ## 0.6.1
 - Fix checking for large constants (#1743)
 - Better static inlining for single cycle `if` (#1734)

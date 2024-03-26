@@ -530,7 +530,7 @@ if __name__ == "__main__":
 
     imports = [
         Import("primitives/core.futil"),
-        Import("primitives/memories.futil"),
+        Import("primitives/memories/seq.futil"),
         Import("primitives/binary_operators.futil"),
         Import("primitives/math.futil"),
     ]

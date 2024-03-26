@@ -1,22 +1,23 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
-    @external(1) slhs = std_mem_d1(4, 1, 1);
-    @external(1) srhs = std_mem_d1(4, 1, 1);
-    @external(1) signed_add = std_mem_d1(4, 1, 1);
-    @external(1) signed_sub = std_mem_d1(4, 1, 1);
-    @external(1) signed_mul = std_mem_d1(4, 1, 1);
-    @external(1) signed_div = std_mem_d1(4, 1, 1);
-    @external(1) signed_mod = std_mem_d1(4, 1, 1);
+    @external(1) slhs = comb_mem_d1(4, 1, 1);
+    @external(1) srhs = comb_mem_d1(4, 1, 1);
+    @external(1) signed_add = comb_mem_d1(4, 1, 1);
+    @external(1) signed_sub = comb_mem_d1(4, 1, 1);
+    @external(1) signed_mul = comb_mem_d1(4, 1, 1);
+    @external(1) signed_div = comb_mem_d1(4, 1, 1);
+    @external(1) signed_mod = comb_mem_d1(4, 1, 1);
 
-    @external(1) lhs = std_mem_d1(32, 1, 1);
-    @external(1) rhs = std_mem_d1(32, 1, 1);
-    @external(1) unsigned_add = std_mem_d1(32, 1, 1);
-    @external(1) unsigned_sub = std_mem_d1(32, 1, 1);
-    @external(1) unsigned_mul = std_mem_d1(32, 1, 1);
-    @external(1) unsigned_div = std_mem_d1(32, 1, 1);
-    @external(1) unsigned_mod = std_mem_d1(32, 1, 1);
+    @external(1) lhs = comb_mem_d1(32, 1, 1);
+    @external(1) rhs = comb_mem_d1(32, 1, 1);
+    @external(1) unsigned_add = comb_mem_d1(32, 1, 1);
+    @external(1) unsigned_sub = comb_mem_d1(32, 1, 1);
+    @external(1) unsigned_mul = comb_mem_d1(32, 1, 1);
+    @external(1) unsigned_div = comb_mem_d1(32, 1, 1);
+    @external(1) unsigned_mod = comb_mem_d1(32, 1, 1);
 
     sadd = std_fp_sadd(4,2,2);
     ssub = std_fp_ssub(4,2,2);

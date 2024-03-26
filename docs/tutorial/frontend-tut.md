@@ -170,14 +170,14 @@ main = prog.component("main") # Create a component named "main"
 
 `Decl` nodes instantiate new memories and registers.
 We need these to be instantiated in the `cells` section of our Calyx output.
-We use Calyx's [`std_reg`][reg-calyx] and [`std_mem_d1`][mem-calyx] primitives to represent [registers][reg-verilog] and [memories][mem-verilog]:
+We use Calyx's [`std_reg`][reg-calyx] and [`comb_mem_d1`][mem-calyx] primitives to represent [registers][reg-verilog] and [memories][mem-verilog]:
 ```C
 import "primitives/core.futil"; // Import standard library
 
 component main() -> () {
   cells {
     // A memory with 4 32-bit elements. Indexed using a 6-bit value.
-    avec = std_mem_d1(32, 4, 6);
+    avec = comb_mem_d1(32, 4, 6);
     // A register that contains a 32-bit value
     sos = std_reg(32);
   }
@@ -306,7 +306,7 @@ The noteworthy change is the parallelism factor of the `map` operation.
 The parallelism factor `2` specifies that two copies of the loop bodies should be executed in parallel.
 
 Translating this into a hardware implementation has a couple of associated challenges:
-1. Our memories (`std_mem_d1`) are *extremely* primitive and do not support parallel accesses; a program may only read or write to one memory location every cycle. In order to support parallel accesses, we need to create *multiple physical banks* that represent one logical memory and contain distinct elements.
+1. Our memories (`comb_mem_d1`) are *extremely* primitive and do not support parallel accesses; a program may only read or write to one memory location every cycle. In order to support parallel accesses, we need to create *multiple physical banks* that represent one logical memory and contain distinct elements.
 2. We need to generate *multiple copies* of the hardware we generated above because, again, adders and multipliers are physical resources and can only support one computation at a time.
 
 To produce the full Calyx program for the above example, run the following from the root of the Calyx repository:
@@ -447,7 +447,7 @@ This transformation is achieved using a [`fud`][fud] pass that converts MrXL-nat
 
 [astcode]: https://github.com/calyxir/calyx/blob/mrxl/mrxl/mrxl/ast.py
 [mrxldocs-install]: https://docs.calyxir.org/frontends/mrxl.html#install
-[fud]: ../fud/index.md
+[fud]: ../running-calyx/fud/index.md
 [fud-data]: ../lang/data-format.md
 [json]: https://www.json.org/json-en.html
 [calyx-tut]: ./language-tut.md

@@ -1,7 +1,8 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 component uses_ref<"state_share"=1>(i: 3, j: 3, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
   cells {
-    ref mem = std_mem_d2(32, 5, 5, 3, 3);
+    ref mem = comb_mem_d2(32, 5, 5, 3, 3);
     r = std_reg(32);
   }
   wires {

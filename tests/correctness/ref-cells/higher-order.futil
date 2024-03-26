@@ -1,5 +1,6 @@
 import "primitives/core.futil";
-import "primitives/memories.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
 
 /// The function we can map over the array.
 /// This function increments in input by 10 and tracks the number of elements
@@ -68,9 +69,9 @@ component map_f() -> () {
             incr[done] = idx.done;
         }
         group read_in {
-            in.read_en = 1'd1;
+            in.content_en = 1'd1;
             in.addr0 = idx.out;
-            read_in[done] = in.read_done;
+            read_in[done] = in.done;
         }
         group write_r {
             r.write_en = 1'd1;
@@ -78,10 +79,11 @@ component map_f() -> () {
             write_r[done] = r.done;
         }
         group write_out {
+            out.content_en = 1'd1;
             out.write_en = 1'd1;
             out.addr0 = idx.out;
             out.write_data = r.out;
-            write_out[done] = out.write_done;
+            write_out[done] = out.done;
         }
     }
     control {
@@ -110,15 +112,17 @@ component main() -> () {
     wires {
         group f1_stats {
             stats.addr0 = 2'd0;
+            stats.content_en = 1'd1;
             stats.write_data = f1.processed;
             stats.write_en = 1'd1;
-            f1_stats[done] = stats.write_done;
+            f1_stats[done] = stats.done;
         }
         group f2_stats {
             stats.addr0 = 2'd1;
+            stats.content_en = 1'd1;
             stats.write_data = f2.processed;
             stats.write_en = 1'd1;
-            f2_stats[done] = stats.write_done;
+            f2_stats[done] = stats.done;
         }
     }
     control {

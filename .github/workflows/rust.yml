@@ -1,6 +1,9 @@
 name: Test
 
-on: [push]
+on:
+  push:
+  pull_request:
+    branches: [main]
 
 # Ensures that only the latest commit of a PR can execute the actions.
 # Useful for cancelling job when a sequence of commits are quickly added.
@@ -9,6 +12,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-playground-config:
+    name: Validate playground config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+            toolchain: stable
+      - name: Build calyx dev
+        run: cargo build
+      - name: Check calyx build
+        run: ./target/debug/calyx --version
+      - name: validate playground config
+        run: node web/validate-data.js 
+
   # Get the hash of the Dockerfile
   hash:
     name: Get Docker Hash
@@ -18,7 +38,7 @@ jobs:
       exists: ${{ steps.exists.outputs.exists }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: calyxir/calyx
           ref: ${{ github.sha }}
@@ -79,18 +99,13 @@ jobs:
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
 
-    - name: Update Dahlia
-      working-directory: /home/dahlia
-      run: |
-        git pull
-        sbt "; assembly"
-
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin https://github.com/calyxir/calyx.git
+        git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 
@@ -98,7 +113,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all --manifest-path /home/calyx/interp/Cargo.toml
+        args: --all --all-features --manifest-path /home/calyx/interp/Cargo.toml
 
     - name: Set location of cider binary
       run: |
@@ -136,18 +151,13 @@ jobs:
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
 
-    - name: Update Dahlia
-      working-directory: /home/dahlia
-      run: |
-        git pull
-        sbt "; assembly"
-
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin https://github.com/calyxir/calyx.git
+        git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 
@@ -164,7 +174,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --manifest-path /home/calyx/Cargo.toml
+        args: --all-features --manifest-path /home/calyx/Cargo.toml
 
 #    - name: Source code doc tests
 #      uses: actions-rs/cargo@v1
@@ -201,18 +211,13 @@ jobs:
         mkdir -p $HOME/.config
         cp -r /root/.config/* $HOME/.config
 
-    - name: Update Dahlia
-      working-directory: /home/dahlia
-      run: |
-        git pull
-        sbt "; assembly"
-
     - name: Checkout commit that triggered run
       working-directory: /home/calyx
       run: |
         git init
-        git remote add origin https://github.com/calyxir/calyx.git
+        git remote add origin https://github.com/${{ github.repository }}.git
         git fetch --all
+        git fetch origin $GITHUB_REF
         git checkout -f $GITHUB_SHA
         git clean -fd
 

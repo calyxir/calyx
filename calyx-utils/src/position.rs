@@ -215,6 +215,13 @@ impl GPosIdx {
         buf
     }
 
+    pub fn get_location(&self) -> (&str, usize, usize) {
+        let table = GlobalPositionTable::as_ref();
+        let pos_d = table.get_pos(self.0);
+        let name = &table.get_file_data(pos_d.file).name;
+        (name, pos_d.start, pos_d.end)
+    }
+
     /// Visualizes the span without any message or mkaring
     pub fn show(&self) -> String {
         let (lines, _, linum) = self.get_lines();

@@ -3,6 +3,7 @@
 //! The analyses construct data-structures that make answering certain queries
 //! about Calyx programs easier.
 
+mod compaction_analysis;
 mod compute_static;
 mod control_id;
 mod control_order;
@@ -22,6 +23,7 @@ mod share_set;
 mod static_par_timing;
 mod variable_detection;
 
+pub use compaction_analysis::CompactionAnalysis;
 pub use compute_static::IntoStatic;
 pub use compute_static::WithStatic;
 pub use control_id::ControlId;
@@ -36,7 +38,7 @@ pub use inference_analysis::InferenceAnalysis;
 pub use live_range_analysis::LiveRangeAnalysis;
 pub use port_interface::PortInterface;
 pub use promotion_analysis::PromotionAnalysis;
-pub use read_write_set::ReadWriteSet;
+pub use read_write_set::{AssignmentAnalysis, ReadWriteSet};
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
 pub use static_par_timing::StaticParTiming;

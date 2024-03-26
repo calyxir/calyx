@@ -1,5 +1,6 @@
-// -x tdcc:dump-fsm -d post-opt -d static-promotion -d attr-promotion -d group2invoke -d lower -b none
+// -x tdcc:dump-fsm -d post-opt -d static-promotion -d group2invoke -d lower -b none
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
     cells {

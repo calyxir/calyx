@@ -3,7 +3,6 @@ use std::ops::Not;
 use bitvec::vec::BitVec;
 
 use crate::{
-    errors::InterpreterResult,
     flatten::{
         flat_ir::prelude::{AssignedValue, GlobalPortIdx, PortValue},
         primitives::{
@@ -54,13 +53,12 @@ impl Primitive for StdConst {
 
 pub struct StdMux {
     base: GlobalPortIdx,
-    width: u32,
 }
 
 impl StdMux {
     declare_ports![ COND: 0, TRU: 1, FAL:2, OUT: 3];
-    pub fn new(base: GlobalPortIdx, width: u32) -> Self {
-        Self { base, width }
+    pub fn new(base: GlobalPortIdx) -> Self {
+        Self { base }
     }
 }
 
@@ -82,13 +80,6 @@ impl Primitive for StdMux {
             port_map.write_undef(out)?;
             Ok(UpdateStatus::Unchanged)
         }
-    }
-
-    fn reset(&mut self, port_map: &mut PortMap) -> InterpreterResult<()> {
-        ports![&self.base; out: Self::OUT];
-        port_map.write_undef_unchecked(out);
-
-        Ok(())
     }
 
     fn has_stateful(&self) -> bool {
@@ -510,6 +501,12 @@ comb_primitive!(StdPad[OUT_WIDTH](input [0]) -> (out [1]) {
     all_defined!(input);
 
     Ok( Some(input.ext(OUT_WIDTH as usize)))
+});
+
+comb_primitive!(StdCat(left [0], right [1]) -> (out [2]) {
+    all_defined!(left, right);
+
+    Ok(Some(Value::concat(left, right)))
 });
 
 // ===================== Unsynthesizeable Operations ======================

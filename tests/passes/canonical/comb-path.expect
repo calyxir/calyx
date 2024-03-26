@@ -1,4 +1,5 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 extern "<ROOT>/calyx/tests/passes/canonical/dummy.sv" {
   primitive multi_comb[WIDTH](@read_together addr_a: WIDTH, @read_together(2) addr_b: WIDTH) -> (@read_together out_a: WIDTH, @read_together(2) out_b: WIDTH);
 }

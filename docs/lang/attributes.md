@@ -21,7 +21,7 @@ component main<"static"=10>(@go go: 1) -> (@done done: 1) {
 #### **Cell Attributes**
 ```
 cells {
-  @external mem = std_mem_d1(32, 8, 4);
+  @external mem = comb_mem_d1(32, 8, 4);
   reg = std_reg(32);
   ...
 }
@@ -29,7 +29,7 @@ cells {
 
 #### **Group Attributes**
 ```
-group cond<"static"=1> {
+group cond<"promotable"=1> {
   ...
 }
 ```
@@ -37,9 +37,9 @@ group cond<"static"=1> {
 #### **Control Attributes**
 ```
 control {
-  @static(3) seq {
-    @static(1) A;
-    @static(2) B;
+  @promotable(3) seq {
+    @promotable(1) A;
+    @promotable(2) B;
   }
 }
 ```
@@ -70,14 +70,26 @@ It has two meanings:
 2. If the cell is a memory and has an `external` attribute on it, the Verilog backend (`-b verilog`) generates code to read `<cell_name>.dat` to initialize the memory state and dumps out its final value after execution.
 
 ### `static(n)`
-Can be attached to components, groups, and control statements. They indicate how
-many cycles a component, group, or control statement will take to run and are used
-by `-p static-timing` to generate more efficient control FSMs.
+This is now deprecated. See the [promotable][promotable] and [interval][interval]
+attributes.
 
-The `go` and `done` attributes are, in particular, used by the `infer-static-timing` pass to configure which ports are used like
-`go` and `done` signals.
-Along with the `static(n)` attribute, this allows the pass to calculate when
-a particular done signal of a primitive will be high.
+### `promotable(n)`
+Can be attached to groups, control, and `@go` ports of components.
+This tells the compiler how long the group/control would take if it were promoted
+to static.
+This is just a hint, and is free to be ignored by the compiler.
+However, the compiler may use it in the `static-promotion` pass to upgrade dynamic
+constructs to `static<n>` ones.
+
+### `interval(n)`
+This can be attached to the `@go` ports of dynamic components (both primitives or
+Calyx-defined components).
+This tells the compiler that if you assert the `@go` port for cycles `[0,n)`, then
+the done signal will be asserted on cycle `n`.
+This is different from `@promotable` since it provides a guarantee rather than a hint.
+Attach `@interval` to `@go` ports essentially means that the component can serve
+"double duty": it can be used in both static and dynamic contexts.
+This is common for things like registers.
 
 ### `inline`
 Used by the `inline` pass on cell definitions. Instructs the pass to completely
@@ -147,7 +159,7 @@ Marks the special clock signal inserted by the `clk-insertion` pass, which helps
 Used by the `papercut` pass.
 Defines a group `n` of signals that all must be driven together:
 ```
-primitive std_mem_d2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+primitive comb_mem_d2<"static"=1>[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
   @write_together(2) addr0: D0_IDX_SIZE,
   @write_together(2) addr1: D1_IDX_SIZE,
   @write_together(1) write_data: WIDTH,
@@ -169,7 +181,7 @@ Used by `papercut` and `canonicalize`.
 Defines a combinational path `n` between a set of an input ports and an output
 port.
 ```
-primitive std_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
+primitive comb_mem_d1<"static"=1>[WIDTH, SIZE, IDX_SIZE](
   @read_together(1) addr0: IDX_SIZE, ...
 ) -> (
   @read_together(1) read_data: WIDTH, ...
@@ -203,3 +215,5 @@ Since the value `'x` can be replaced with anything.
 [datapath-components]: https://github.com/calyxir/calyx/issues/1169
 [builder]: https://docs.rs/calyx-ir/latest/calyx_ir/struct.Builder.html
 [externalize]: https://docs.rs/calyx-opt/latest/calyx_opt/passes/struct.Externalize.html
+[promotable]: #promotable(n)
+[interval]: #interval(n)

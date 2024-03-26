@@ -76,6 +76,7 @@ class ComponentBuilder:
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
+            attributes = [],
             inputs=[],
             outputs=[],
             structs=cells,
@@ -111,6 +112,11 @@ class ComponentBuilder:
         """
         self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
         return self.this()[name]
+
+    def attribute(self, name: str, value: int) -> None:
+        """Declare an attribute on the component.
+        """
+        self.component.attributes.append(ast.CompAttribute(name, value))
 
     def this(self) -> ThisBuilder:
         """Get a handle to the component's `this` cell.
@@ -280,7 +286,7 @@ class ComponentBuilder:
         """Generate a StdConstant cell."""
         return self.cell(name, ast.Stdlib.constant(width, value))
 
-    def mem_d1(
+    def comb_mem_d1(
         self,
         name: str,
         bitwidth: int,
@@ -290,8 +296,9 @@ class ComponentBuilder:
         is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a StdMemD1 cell."""
+        self.prog.import_("primitives/memories/comb.futil")
         return self.cell(
-            name, ast.Stdlib.mem_d1(bitwidth, len, idx_size), is_external, is_ref
+            name, ast.Stdlib.comb_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
 
     def seq_mem_d1(
@@ -304,7 +311,7 @@ class ComponentBuilder:
         is_ref: bool = False,
     ) -> CellBuilder:
         """Generate a SeqMemD1 cell."""
-        self.prog.import_("primitives/memories.futil")
+        self.prog.import_("primitives/memories/seq.futil")
         return self.cell(
             name, ast.Stdlib.seq_mem_d1(bitwidth, len, idx_size), is_external, is_ref
         )
@@ -568,7 +575,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to perform `reg := mem[i]`,
         where `mem` is a std_d1 memory.
         """
-        assert mem.is_std_mem_d1()
+        assert mem.is_comb_mem_d1()
         groupname = groupname or f"{mem.name()}_load_to_reg"
         with self.group(groupname) as load_grp:
             mem.addr0 = i
@@ -580,7 +587,7 @@ class ComponentBuilder:
     def mem_store_std_d1(self, mem, i, val, groupname=None):
         """Inserts wiring into `self` to perform `mem[i] := val`,
         where `mem` is a std_d1 memory."""
-        assert mem.is_std_mem_d1()
+        assert mem.is_comb_mem_d1()
         groupname = groupname or f"store_into_{mem.name()}"
         with self.group(groupname) as store_grp:
             mem.addr0 = i
@@ -598,8 +605,8 @@ class ComponentBuilder:
         groupname = groupname or f"read_from_{mem.name()}"
         with self.group(groupname) as read_grp:
             mem.addr0 = i
-            mem.read_en = 1
-            read_grp.done = mem.read_done
+            mem.content_en = 1
+            read_grp.done = mem.done
         return read_grp
 
     def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
@@ -624,14 +631,15 @@ class ComponentBuilder:
             mem.addr0 = i
             mem.write_en = 1
             mem.write_data = val
-            store_grp.done = mem.write_done
+            mem.content_en = 1
+            store_grp.done = mem.done
         return store_grp
 
     def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
         """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
         where `mem` and `ans` are both std_d1 memories.
         """
-        assert mem.is_std_mem_d1() and ans.is_std_mem_d1()
+        assert mem.is_comb_mem_d1() and ans.is_comb_mem_d1()
         groupname = groupname or f"{mem.name()}_load_to_mem"
         with self.group(groupname) as load_grp:
             mem.addr0 = i
@@ -1045,9 +1053,9 @@ class CellBuilder(CellLikeBuilder):
             and self._cell.comp.id == prim_name
         )
 
-    def is_std_mem_d1(self) -> bool:
+    def is_comb_mem_d1(self) -> bool:
         """Check if the cell is a StdMemD1 cell."""
-        return self.is_primitive("std_mem_d1")
+        return self.is_primitive("comb_mem_d1")
 
     def is_seq_mem_d1(self) -> bool:
         """Check if the cell is a SeqMemD1 cell."""
@@ -1085,14 +1093,14 @@ class CellBuilder(CellLikeBuilder):
         ):
             if port_name in ("left", "right"):
                 return inst.args[0]
-        if prim in ("std_mem_d1", "seq_mem_d1"):
+        if prim in ("comb_mem_d1", "seq_mem_d1"):
             if port_name == "write_en":
                 return 1
             if port_name == "addr0":
                 return inst.args[2]
             if port_name == "in":
                 return inst.args[0]
-            if prim == "seq_mem_d1" and port_name == "read_en":
+            if prim == "seq_mem_d1" and port_name == "content_en":
                 return 1
         if prim in (
             "std_mult_pipe",

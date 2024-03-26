@@ -25,7 +25,7 @@ where
     fn update_static(&mut self, extra: &Self::Info) -> Option<u64> {
         if let Some(time) = self.compute_static(extra) {
             self.get_mut_attributes()
-                .insert(ir::NumAttr::PromoteStatic, time);
+                .insert(ir::NumAttr::Promotable, time);
             Some(time)
         } else {
             None
@@ -62,11 +62,8 @@ impl WithStatic for ir::Enable {
     fn compute_static(&mut self, _: &Self::Info) -> Option<u64> {
         // Attempt to get the latency from the attribute on the enable first, or
         // failing that, from the group.
-        self.attributes.get(ir::NumAttr::PromoteStatic).or_else(|| {
-            self.group
-                .borrow()
-                .attributes
-                .get(ir::NumAttr::PromoteStatic)
+        self.attributes.get(ir::NumAttr::Promotable).or_else(|| {
+            self.group.borrow().attributes.get(ir::NumAttr::Promotable)
         })
     }
 }
@@ -74,40 +71,44 @@ impl WithStatic for ir::Enable {
 impl WithStatic for ir::Invoke {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        self.attributes.get(ir::NumAttr::PromoteStatic).or_else(|| {
+        self.attributes.get(ir::NumAttr::Promotable).or_else(|| {
             let comp = self.comp.borrow().type_name()?;
             extra.get(&comp).cloned()
         })
     }
 }
 
+/// Walk over a set of control statements and call `update_static` on each of them.
+/// Use a merge function to merge the results of the `update_static` calls.
+fn walk_static<T, F>(stmts: &mut [T], extra: &T::Info, merge: F) -> Option<u64>
+where
+    T: WithStatic,
+    F: Fn(u64, u64) -> u64,
+{
+    let mut latency = Some(0);
+    // This is implemented as a loop because we want to call `update_static` on
+    // each statement even if we cannot compute a total latency anymore.
+    for stmt in stmts.iter_mut() {
+        let stmt_latency = stmt.update_static(extra);
+        latency = match (latency, stmt_latency) {
+            (Some(l), Some(s)) => Some(merge(l, s)),
+            (_, _) => None,
+        }
+    }
+    latency
+}
+
 impl WithStatic for ir::Seq {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        // Go through each stmt in the seq, and try to calculate the latency.
-        self.stmts.iter_mut().fold(Some(0), |acc, stmt| {
-            match (acc, stmt.update_static(extra)) {
-                (Some(cur_latency), Some(stmt_latency)) => {
-                    Some(cur_latency + stmt_latency)
-                }
-                (_, _) => None,
-            }
-        })
+        walk_static(&mut self.stmts, extra, |x, y| x + y)
     }
 }
 
 impl WithStatic for ir::Par {
     type Info = CompTime;
     fn compute_static(&mut self, extra: &Self::Info) -> Option<u64> {
-        // Go through each stmt in the par, and try to calculate the latency.
-        self.stmts.iter_mut().fold(Some(0), |acc, stmt| {
-            match (acc, stmt.update_static(extra)) {
-                (Some(cur_latency), Some(stmt_latency)) => {
-                    Some(std::cmp::max(cur_latency, stmt_latency))
-                }
-                (_, _) => None,
-            }
-        })
+        walk_static(&mut self.stmts, extra, std::cmp::max)
     }
 }
 

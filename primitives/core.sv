@@ -6,7 +6,6 @@
  * - All parameter names must be SNAKE_CASE and all caps.
  * - Port names must be snake_case, no caps.
  */
-`default_nettype none
 
 module std_slice #(
     parameter IN_WIDTH  = 32,
@@ -217,242 +216,27 @@ module std_mux #(
   assign out = cond ? tru : fal;
 endmodule
 
-module std_mem_d1 #(
-    parameter WIDTH = 32,
-    parameter SIZE = 16,
-    parameter IDX_SIZE = 4
-) (
-   input wire                logic [IDX_SIZE-1:0] addr0,
-   input wire                logic [ WIDTH-1:0] write_data,
-   input wire                logic write_en,
-   input wire                logic clk,
-   input wire                logic reset,
-   output logic [ WIDTH-1:0] read_data,
-   output logic              done
+module std_bit_slice #(
+    parameter IN_WIDTH = 32,
+    parameter START_IDX = 0,
+    parameter END_IDX = 31,
+    parameter OUT_WIDTH = 32
+)(
+   input wire logic [IN_WIDTH-1:0] in,
+   output logic [OUT_WIDTH-1:0] out
 );
+    assign out = in[END_IDX:START_IDX];
 
-  logic [WIDTH-1:0] mem[SIZE-1:0];
-
-  /* verilator lint_off WIDTH */
-  assign read_data = mem[addr0];
-
-  always_ff @(posedge clk) begin
-    if (reset)
-      done <= '0;
-    else if (write_en)
-      done <= '1;
-    else
-      done <= '0;
-  end
-
-  always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0] <= write_data;
-  end
-
-  // Check for out of bounds access
   `ifdef VERILATOR
     always_comb begin
-      if (addr0 >= SIZE)
+      if (START_IDX < 0 || END_IDX > IN_WIDTH-1)
         $error(
-          "std_mem_d1: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "SIZE: %0d", SIZE
+          "std_bit_slice: Slice range out of bounds\n",
+          "IN_WIDTH: %0d", IN_WIDTH,
+          "START_IDX: %0d", START_IDX,
+          "END_IDX: %0d", END_IDX,
         );
     end
   `endif
+
 endmodule
-
-module std_mem_d2 #(
-    parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4
-) (
-   input wire                logic [D0_IDX_SIZE-1:0] addr0,
-   input wire                logic [D1_IDX_SIZE-1:0] addr1,
-   input wire                logic [ WIDTH-1:0] write_data,
-   input wire                logic write_en,
-   input wire                logic clk,
-   input wire                logic reset,
-   output logic [ WIDTH-1:0] read_data,
-   output logic              done
-);
-
-  /* verilator lint_off WIDTH */
-  logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0];
-
-  assign read_data = mem[addr0][addr1];
-
-  always_ff @(posedge clk) begin
-    if (reset)
-      done <= '0;
-    else if (write_en)
-      done <= '1;
-    else
-      done <= '0;
-  end
-
-  always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0][addr1] <= write_data;
-  end
-
-  // Check for out of bounds access
-  `ifdef VERILATOR
-    always_comb begin
-      if (addr0 >= D0_SIZE)
-        $error(
-          "std_mem_d2: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "D0_SIZE: %0d", D0_SIZE
-        );
-      if (addr1 >= D1_SIZE)
-        $error(
-          "std_mem_d2: Out of bounds access\n",
-          "addr1: %0d\n", addr1,
-          "D1_SIZE: %0d", D1_SIZE
-        );
-    end
-  `endif
-endmodule
-
-module std_mem_d3 #(
-    parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D2_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4,
-    parameter D2_IDX_SIZE = 4
-) (
-   input wire                logic [D0_IDX_SIZE-1:0] addr0,
-   input wire                logic [D1_IDX_SIZE-1:0] addr1,
-   input wire                logic [D2_IDX_SIZE-1:0] addr2,
-   input wire                logic [ WIDTH-1:0] write_data,
-   input wire                logic write_en,
-   input wire                logic clk,
-   input wire                logic reset,
-   output logic [ WIDTH-1:0] read_data,
-   output logic              done
-);
-
-  /* verilator lint_off WIDTH */
-  logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0][D2_SIZE-1:0];
-
-  assign read_data = mem[addr0][addr1][addr2];
-
-  always_ff @(posedge clk) begin
-    if (reset)
-      done <= '0;
-    else if (write_en)
-      done <= '1;
-    else
-      done <= '0;
-  end
-
-  always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0][addr1][addr2] <= write_data;
-  end
-
-  // Check for out of bounds access
-  `ifdef VERILATOR
-    always_comb begin
-      if (addr0 >= D0_SIZE)
-        $error(
-          "std_mem_d3: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "D0_SIZE: %0d", D0_SIZE
-        );
-      if (addr1 >= D1_SIZE)
-        $error(
-          "std_mem_d3: Out of bounds access\n",
-          "addr1: %0d\n", addr1,
-          "D1_SIZE: %0d", D1_SIZE
-        );
-      if (addr2 >= D2_SIZE)
-        $error(
-          "std_mem_d3: Out of bounds access\n",
-          "addr2: %0d\n", addr2,
-          "D2_SIZE: %0d", D2_SIZE
-        );
-    end
-  `endif
-endmodule
-
-module std_mem_d4 #(
-    parameter WIDTH = 32,
-    parameter D0_SIZE = 16,
-    parameter D1_SIZE = 16,
-    parameter D2_SIZE = 16,
-    parameter D3_SIZE = 16,
-    parameter D0_IDX_SIZE = 4,
-    parameter D1_IDX_SIZE = 4,
-    parameter D2_IDX_SIZE = 4,
-    parameter D3_IDX_SIZE = 4
-) (
-   input wire                logic [D0_IDX_SIZE-1:0] addr0,
-   input wire                logic [D1_IDX_SIZE-1:0] addr1,
-   input wire                logic [D2_IDX_SIZE-1:0] addr2,
-   input wire                logic [D3_IDX_SIZE-1:0] addr3,
-   input wire                logic [ WIDTH-1:0] write_data,
-   input wire                logic write_en,
-   input wire                logic clk,
-   input wire                logic reset,
-   output logic [ WIDTH-1:0] read_data,
-   output logic              done
-);
-
-  /* verilator lint_off WIDTH */
-  logic [WIDTH-1:0] mem[D0_SIZE-1:0][D1_SIZE-1:0][D2_SIZE-1:0][D3_SIZE-1:0];
-
-  assign read_data = mem[addr0][addr1][addr2][addr3];
-
-  always_ff @(posedge clk) begin
-    if (reset)
-      done <= '0;
-    else if (write_en)
-      done <= '1;
-    else
-      done <= '0;
-  end
-
-  always_ff @(posedge clk) begin
-    if (!reset && write_en)
-      mem[addr0][addr1][addr2][addr3] <= write_data;
-  end
-
-  // Check for out of bounds access
-  `ifdef VERILATOR
-    always_comb begin
-      if (addr0 >= D0_SIZE)
-        $error(
-          "std_mem_d4: Out of bounds access\n",
-          "addr0: %0d\n", addr0,
-          "D0_SIZE: %0d", D0_SIZE
-        );
-      if (addr1 >= D1_SIZE)
-        $error(
-          "std_mem_d4: Out of bounds access\n",
-          "addr1: %0d\n", addr1,
-          "D1_SIZE: %0d", D1_SIZE
-        );
-      if (addr2 >= D2_SIZE)
-        $error(
-          "std_mem_d4: Out of bounds access\n",
-          "addr2: %0d\n", addr2,
-          "D2_SIZE: %0d", D2_SIZE
-        );
-      if (addr3 >= D3_SIZE)
-        $error(
-          "std_mem_d4: Out of bounds access\n",
-          "addr3: %0d\n", addr3,
-          "D3_SIZE: %0d", D3_SIZE
-        );
-    end
-  `endif
-endmodule
-
-`default_nettype wire

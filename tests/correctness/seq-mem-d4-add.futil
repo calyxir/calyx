@@ -1,6 +1,7 @@
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 import "primitives/binary_operators.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 
 component main() -> () {
   cells {
@@ -69,64 +70,65 @@ component main() -> () {
       lt4.left = l.out;
       lt4.right = 3'd4;
     }
-    group read_in1{
-      in1.addr0 = i.out; 
-      in1.addr1 = j.out; 
-      in1.addr2 = k.out; 
-      in1.addr3 = l.out; 
-      in1.read_en = 1'd1; 
-      in1_reg.write_en = in1.read_done; 
+    group read_in1 {
+      in1.addr0 = i.out;
+      in1.addr1 = j.out;
+      in1.addr2 = k.out;
+      in1.addr3 = l.out;
+      in1.content_en = 1'd1;
+      in1_reg.write_en = in1.done;
       in1_reg.in = in1.read_data;
-      read_in1[done] = in1_reg.done; 
+      read_in1[done] = in1_reg.done;
     }
-    group read_in2{
-      in2.addr0 = i.out; 
-      in2.addr1 = j.out; 
-      in2.addr2 = k.out; 
-      in2.addr3 = l.out; 
-      in2.read_en = 1'd1;
-      in2_reg.write_en = in2.read_done; 
+    group read_in2 {
+      in2.addr0 = i.out;
+      in2.addr1 = j.out;
+      in2.addr2 = k.out;
+      in2.addr3 = l.out;
+      in2.content_en = 1'd1;
+      in2_reg.write_en = in2.done;
       in2_reg.in = in2.read_data;
-      read_in2[done] = in2_reg.done; 
+      read_in2[done] = in2_reg.done;
     }
     group update_val {
-      add.left = in1_reg.out; 
-      add.right = in2_reg.out; 
-      out.addr0 = i.out; 
+      add.left = in1_reg.out;
+      add.right = in2_reg.out;
+      out.addr0 = i.out;
       out.addr1 = j.out;
       out.addr2 = k.out;
       out.addr3 = l.out;
-      out.write_en = 1'd1; 
+      out.content_en = 1'd1;
+      out.write_en = 1'd1;
       out.write_data = add.out;
-      update_val[done] = out.write_done;
+      update_val[done] = out.done;
     }
     group incr_i {
-      add_i.left = i.out; 
+      add_i.left = i.out;
       add_i.right = 2'd1;
-      i.write_en = 1'd1; 
+      i.write_en = 1'd1;
       i.in = add_i.out;
-      incr_i[done] = i.done; 
+      incr_i[done] = i.done;
     }
     group incr_j {
-      add_j.left = j.out; 
+      add_j.left = j.out;
       add_j.right = 2'd1;
-      j.write_en = 1'd1; 
+      j.write_en = 1'd1;
       j.in = add_j.out;
-      incr_j[done] = j.done; 
+      incr_j[done] = j.done;
     }
     group incr_k {
-      add_k.left = k.out; 
+      add_k.left = k.out;
       add_k.right = 1'd1;
-      k.write_en = 1'd1; 
+      k.write_en = 1'd1;
       k.in = add_k.out;
-      incr_k[done] = k.done; 
+      incr_k[done] = k.done;
     }
     group incr_l {
-      add_l.left = l.out; 
+      add_l.left = l.out;
       add_l.right = 3'd1;
-      l.write_en = 1'd1; 
+      l.write_en = 1'd1;
       l.in = add_l.out;
-      incr_l[done] = l.done; 
+      incr_l[done] = l.done;
     }
   }
   control {
@@ -137,17 +139,17 @@ component main() -> () {
           init_j;
           while lt2.out with j_lt{
             seq{
-              init_k; 
+              init_k;
               while lt3.out with k_lt{
                 seq{
                   init_l;
                   while lt4.out with l_lt{
                     seq{
                       par{
-                        read_in1; 
+                        read_in1;
                         read_in2;
                       }
-                      update_val; 
+                      update_val;
                       incr_l;
                     }
                   }

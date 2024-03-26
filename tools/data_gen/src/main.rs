@@ -23,11 +23,11 @@ lazy_static::lazy_static! {
                 "seq_mem_d4",
                 vec!["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"],
             ),
-            ("std_mem_d1", vec!["SIZE"]),
-            ("std_mem_d2", vec!["D0_SIZE", "D1_SIZE"]),
-            ("std_mem_d3", vec!["D0_SIZE", "D1_SIZE", "D2_SIZE"]),
+            ("comb_mem_d1", vec!["SIZE"]),
+            ("comb_mem_d2", vec!["D0_SIZE", "D1_SIZE"]),
+            ("comb_mem_d3", vec!["D0_SIZE", "D1_SIZE", "D2_SIZE"]),
             (
-                "std_mem_d4",
+                "comb_mem_d4",
                 vec!["D0_SIZE", "D1_SIZE", "D2_SIZE", "D3_SIZE"],
             ),
         ]
@@ -38,7 +38,7 @@ lazy_static::lazy_static! {
 
 /// Holds data for std_mem cells, including name of cell, width, and sizes
 /// Name is the name of cell itself, not its type. Sizes is a vector
-/// that holds the dimensions of the cell (ex: for a 2 x 3 std_mem_d2 cell it would be [2,3])
+/// that holds the dimensions of the cell (ex: for a 2 x 3 comb_mem_d2 cell it would be [2,3])
 struct CellData {
     name: String,
     width: u64,

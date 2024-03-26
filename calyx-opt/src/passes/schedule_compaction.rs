@@ -1,4 +1,6 @@
-use crate::analysis::{InferenceAnalysis, PromotionAnalysis, ReadWriteSet};
+use crate::analysis::{
+    AssignmentAnalysis, InferenceAnalysis, PromotionAnalysis,
+};
 use crate::traversal::{Action, ConstructVisitor};
 use crate::{
     analysis,
@@ -261,13 +263,19 @@ impl Visitor for ScheduleCompaction {
         sigs: &calyx_ir::LibrarySignatures,
         _comps: &[calyx_ir::Component],
     ) -> crate::traversal::VisResult {
-        let (cont_reads, cont_writes) = ReadWriteSet::cont_read_write_set(comp);
+        let (cont_reads, cont_writes) = comp
+            .continuous_assignments
+            .iter()
+            .analysis()
+            .reads_and_writes();
+        let (cont_reads, cont_writes) =
+            (cont_reads.cells().collect(), cont_writes.cells().collect());
         InferenceAnalysis::remove_promotable_from_seq(s);
         self.inference_analysis.fixup_seq(s);
 
         let mut builder = ir::Builder::new(comp, sigs);
 
-        if let Some(latency) = s.attributes.get(ir::NumAttr::PromoteStatic) {
+        if let Some(latency) = s.attributes.get(ir::NumAttr::Promotable) {
             // If entire seq is promotable, then we can compact entire thing
             // and replace it with a static<n> construct.
             return Ok(Action::Change(Box::new(self.compact_control_vec(
@@ -325,14 +333,22 @@ impl Visitor for ScheduleCompaction {
             let comp_sig = comp.signature.borrow();
             let go_ports: Vec<_> =
                 comp_sig.find_all_with_attr(ir::NumAttr::Go).collect_vec();
+            // We only need to check for the @promotable attribute.
+            // The @interval attribute means the component's control is entirely
+            // static, meaning it's interval/latency is already locked in, so
+            // we know we can't change its control, so no need to change its
+            // signature.
             if go_ports.iter().any(|go_port| {
-                go_port.borrow_mut().attributes.has(ir::NumAttr::Static)
+                go_port.borrow_mut().attributes.has(ir::NumAttr::Promotable)
             }) {
                 // Getting current latency
                 let cur_latency = go_ports
                     .iter()
                     .filter_map(|go_port| {
-                        go_port.borrow_mut().attributes.get(ir::NumAttr::Static)
+                        go_port
+                            .borrow_mut()
+                            .attributes
+                            .get(ir::NumAttr::Promotable)
                     })
                     .next()
                     .unwrap();
@@ -350,7 +366,7 @@ impl Visitor for ScheduleCompaction {
                         go_port
                             .borrow_mut()
                             .attributes
-                            .insert(ir::NumAttr::Static, new_latency);
+                            .insert(ir::NumAttr::Promotable, new_latency);
                     }
                 }
             };

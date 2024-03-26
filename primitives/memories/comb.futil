@@ -1,0 +1,73 @@
+// Memories with combinational reads and single-cycle writes.
+// These cannot be mapped to URAMs (see: https://github.com/orgs/calyxir/discussions/1221).
+// These are only defined for compatability and will be removed in the future.
+// Prefer using `seq_mem` variants instead.
+extern "comb.sv" {
+  /// Memories
+  primitive comb_mem_d1[WIDTH, SIZE, IDX_SIZE](
+    @read_together(1) addr0: IDX_SIZE,
+    @write_together(1) @data write_data: WIDTH,
+    @write_together(1) @interval(1) @go write_en: 1,
+    @clk clk: 1,
+    @reset reset: 1
+  ) -> (
+    @read_together(1) read_data: WIDTH,
+    @done done: 1
+  );
+
+  primitive comb_mem_d2[WIDTH, D0_SIZE, D1_SIZE, D0_IDX_SIZE, D1_IDX_SIZE](
+    @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
+    @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
+    @write_together(1) @data write_data: WIDTH,
+    @write_together(1) @interval(1) @go write_en: 1,
+    @clk clk: 1,
+    @reset reset: 1
+  ) -> (
+    @read_together(1) read_data: WIDTH,
+    @done done: 1
+  );
+
+  primitive comb_mem_d3[
+      WIDTH,
+      D0_SIZE,
+      D1_SIZE,
+      D2_SIZE,
+      D0_IDX_SIZE,
+      D1_IDX_SIZE,
+      D2_IDX_SIZE
+  ] (
+    @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
+    @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
+    @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
+    @write_together(1) @data write_data: WIDTH,
+    @write_together(1) @interval(1) @go write_en: 1,
+    @clk clk: 1,
+    @reset reset: 1
+  ) -> (
+    @read_together(1) read_data: WIDTH,
+    @done done: 1
+  );
+
+  primitive comb_mem_d4[
+      WIDTH,
+      D0_SIZE,
+      D1_SIZE,
+      D2_SIZE,
+      D3_SIZE,
+      D0_IDX_SIZE,
+      D1_IDX_SIZE,
+      D2_IDX_SIZE,
+      D3_IDX_SIZE
+  ] (
+    @read_together(1) @write_together(2) addr0: D0_IDX_SIZE,
+    @read_together(1) @write_together(2) addr1: D1_IDX_SIZE,
+    @read_together(1) @write_together(2) addr2: D2_IDX_SIZE,
+    @read_together(1) @write_together(2) addr3: D3_IDX_SIZE,
+    @write_together(1) @data write_data: WIDTH,
+    @write_together(1) @interval(1) @go write_en: 1,
+    @clk clk: 1
+  ) -> (
+    @read_together(1) read_data: WIDTH,
+    @done done: 1
+  );
+}

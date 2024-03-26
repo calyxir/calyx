@@ -11,27 +11,46 @@ use crate::flatten::{
 use itertools::{FoldWhile, Itertools};
 
 /// Simple struct containing both the component instance and the active leaf
-/// node in the component
+/// node in the component. This is used to represent an active execution of some
+/// portion of the control tree
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct ControlPoint {
     pub comp: GlobalCellIdx,
-    pub control_node: ControlIdx,
+    pub control_node_idx: ControlIdx,
 }
 
 impl ControlPoint {
     pub fn new(comp: GlobalCellIdx, control_leaf: ControlIdx) -> Self {
         Self {
             comp,
-            control_node: control_leaf,
+            control_node_idx: control_leaf,
         }
     }
 
     /// Constructs a new [ControlPoint] from an existing one by copying over the
     /// component identifier but changing the leaf node
-    pub fn new_w_comp(&self, target: ControlIdx) -> Self {
+    pub fn new_retain_comp(&self, target: ControlIdx) -> Self {
         Self {
             comp: self.comp,
-            control_node: target,
+            control_node_idx: target,
+        }
+    }
+
+    pub fn get_next(node: &Self, ctx: &Context) -> Option<Self> {
+        let path = SearchPath::find_path_from_root(node.control_node_idx, ctx);
+        let next = path.next_node(&ctx.primary.control);
+        next.map(|x| node.new_retain_comp(x))
+    }
+
+    /// Attempts to get the next node for the given control point, if found
+    /// it replaces the given node. Returns true if the node was found and
+    /// replaced, returns false otherwise
+    pub fn mutate_into_next(&mut self, ctx: &Context) -> bool {
+        if let Some(next) = Self::get_next(self, ctx) {
+            *self = next;
+            true
+        } else {
+            false
         }
     }
 }
@@ -63,7 +82,7 @@ impl SearchIndex {
         self.index() == Self::TRUE_BRANCH
     }
 
-    fn is_false_branch(&self) -> bool {
+    fn _is_false_branch(&self) -> bool {
         self.index() == Self::FALSE_BRANCH
     }
 }
@@ -78,15 +97,15 @@ impl SearchPath {
         SearchPath { path: vec![] }
     }
 
-    pub fn source_node(&self) -> Option<&SearchNode> {
-        self.path.get(0)
+    pub fn _source_node(&self) -> Option<&SearchNode> {
+        self.path.first()
     }
 
     pub fn len(&self) -> usize {
         self.path.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub fn _is_empty(&self) -> bool {
         self.path.is_empty()
     }
 
@@ -117,9 +136,6 @@ impl SearchPath {
                             return Some(next_child);
                         }
                         // we finished this seq node and need to ascend further
-                        else {
-                            continue;
-                        }
                     }
                     ControlNode::Par(_) => {
                         // the challenge here is that we currently don't know if
@@ -232,8 +248,37 @@ impl SearchPath {
                         search_index: None,
                     })
                 }
-                ControlNode::If(_) => todo!(),
-                ControlNode::While(_) => todo!(),
+                ControlNode::If(i) => {
+                    if let Some(idx) = &mut node.search_index {
+                        if idx.is_true_branch() {
+                            *idx = SearchIndex::new(SearchIndex::FALSE_BRANCH);
+                            current_path.path.push(SearchNode {
+                                node: i.fbranch(),
+                                search_index: None,
+                            })
+                        } else {
+                            current_path.path.pop();
+                        }
+                    } else {
+                        node.search_index =
+                            Some(SearchIndex::new(SearchIndex::TRUE_BRANCH));
+                        current_path.path.push(SearchNode {
+                            node: i.tbranch(),
+                            search_index: None,
+                        })
+                    }
+                }
+                ControlNode::While(w) => {
+                    if node.search_index.is_some() {
+                        current_path.path.pop();
+                    } else {
+                        node.search_index = Some(SearchIndex::new(0));
+                        current_path.path.push(SearchNode {
+                            node: w.body(),
+                            search_index: None,
+                        })
+                    }
+                }
             }
         }
 
@@ -277,7 +322,7 @@ pub type ChildCount = u16;
 #[derive(Debug, Default)]
 pub(crate) struct ProgramCounter {
     vec: Vec<ControlPoint>,
-    par_map: HashMap<ControlPoint, ChildCount>,
+    _par_map: HashMap<ControlPoint, ChildCount>,
 }
 
 // we need a few things from the program counter
@@ -294,7 +339,7 @@ impl ProgramCounter {
         if let Some(current) = ctx.primary[root].control {
             vec.push(ControlPoint {
                 comp: root_cell,
-                control_node: current,
+                control_node_idx: current,
             })
         } else {
             todo!(
@@ -304,7 +349,7 @@ impl ProgramCounter {
 
         Self {
             vec,
-            par_map: HashMap::new(),
+            _par_map: HashMap::new(),
         }
     }
 
@@ -316,7 +361,7 @@ impl ProgramCounter {
         self.vec.is_empty()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
+    pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
         self.vec.iter_mut()
     }
 

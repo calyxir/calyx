@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component conv2d_5x512x14x14() -> () {
@@ -141,17 +141,17 @@ component conv2d_5x512x14x14() -> () {
       lt1.left = __kernel_x_0.out;
       lt1.right = const21.out;
     }
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       __b0.in = const0.out;
       __b0.write_en = 1'd1;
       let0[done] = __b0.done;
     }
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       __c0.in = const2.out;
       __c0.write_en = 1'd1;
       let1[done] = __c0.done;
     }
-    group let10<"static"=4> {
+    group let10<"promotable"=4> {
       bin_read1_0.in = mult_pipe1.out;
       bin_read1_0.write_en = mult_pipe1.done;
       let10[done] = bin_read1_0.done;
@@ -159,22 +159,23 @@ component conv2d_5x512x14x14() -> () {
       mult_pipe1.right = __x0.out;
       mult_pipe1.go = !mult_pipe1.done ? 1'd1;
     }
-    group let11<"static"=1> {
+    group let11<"promotable"=1> {
       __kernel_x_0.in = add1.out;
       __kernel_x_0.write_en = 1'd1;
       let11[done] = __kernel_x_0.done;
       add1.left = bin_read1_0.out;
       add1.right = __dx0.out;
     }
-    group let12<"static"=1> {
+    group let12<"promotable"=1> {
       __padded_tensor_val_0.in = const17.out;
       __padded_tensor_val_0.write_en = 1'd1;
       let12[done] = __padded_tensor_val_0.done;
     }
-    group let13<"static"=2> {
+    group let13<"promotable"=2> {
       data_read0_0.in = data.read_data;
-      data_read0_0.write_en = data.read_done;
+      data_read0_0.write_en = data.done;
       let13[done] = data_read0_0.done;
+      data.content_en = 1'd1;
       data.addr3 = slice3.out;
       slice3.in = sub1.out;
       sub1.left = __kernel_x_0.out;
@@ -187,12 +188,12 @@ component conv2d_5x512x14x14() -> () {
       slice1.in = __k0.out;
       data.addr0 = slice0.out;
       slice0.in = __b0.out;
-      data.read_en = 1'd1;
     }
-    group let14<"static"=2> {
+    group let14<"promotable"=2> {
       weight_read0_0.in = weight.read_data;
-      weight_read0_0.write_en = weight.read_done;
+      weight_read0_0.write_en = weight.done;
       let14[done] = weight_read0_0.done;
+      weight.content_en = 1'd1;
       weight.addr3 = slice7.out;
       slice7.in = __dx0.out;
       weight.addr2 = slice6.out;
@@ -201,9 +202,8 @@ component conv2d_5x512x14x14() -> () {
       slice5.in = __k0.out;
       weight.addr0 = slice4.out;
       slice4.in = __c0.out;
-      weight.read_en = 1'd1;
     }
-    group let15<"static"=4> {
+    group let15<"promotable"=4> {
       bin_read2_0.in = mult_pipe2.out;
       bin_read2_0.write_en = mult_pipe2.done;
       let15[done] = bin_read2_0.done;
@@ -211,37 +211,37 @@ component conv2d_5x512x14x14() -> () {
       mult_pipe2.right = weight_read0_0.out;
       mult_pipe2.go = !mult_pipe2.done ? 1'd1;
     }
-    group let2<"static"=1> {
+    group let2<"promotable"=1> {
       __y0.in = const4.out;
       __y0.write_en = 1'd1;
       let2[done] = __y0.done;
     }
-    group let3<"static"=1> {
+    group let3<"promotable"=1> {
       __x0.in = const6.out;
       __x0.write_en = 1'd1;
       let3[done] = __x0.done;
     }
-    group let4<"static"=1> {
+    group let4<"promotable"=1> {
       __sum_0.in = const8.out;
       __sum_0.write_en = 1'd1;
       let4[done] = __sum_0.done;
     }
-    group let5<"static"=1> {
+    group let5<"promotable"=1> {
       __k0.in = const9.out;
       __k0.write_en = 1'd1;
       let5[done] = __k0.done;
     }
-    group let6<"static"=1> {
+    group let6<"promotable"=1> {
       __dy0.in = const11.out;
       __dy0.write_en = 1'd1;
       let6[done] = __dy0.done;
     }
-    group let7<"static"=1> {
+    group let7<"promotable"=1> {
       __dx0.in = const13.out;
       __dx0.write_en = 1'd1;
       let7[done] = __dx0.done;
     }
-    group let8<"static"=4> {
+    group let8<"promotable"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let8[done] = bin_read0_0.done;
@@ -249,47 +249,48 @@ component conv2d_5x512x14x14() -> () {
       mult_pipe0.right = __y0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group let9<"static"=1> {
+    group let9<"promotable"=1> {
       __kernel_y_0.in = add0.out;
       __kernel_y_0.write_en = 1'd1;
       let9[done] = __kernel_y_0.done;
       add0.left = bin_read0_0.out;
       add0.right = __dy0.out;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
       __padded_tensor_val_0.write_en = 1'd1;
       __padded_tensor_val_0.in = data_read0_0.out;
       upd0[done] = __padded_tensor_val_0.done;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       __sum_0.write_en = 1'd1;
       add2.left = __sum_0.out;
       add2.right = bin_read2_0.out;
       __sum_0.in = add2.out;
       upd1[done] = __sum_0.done;
     }
-    group upd2<"static"=1> {
+    group upd2<"promotable"=1> {
       __dx0.write_en = 1'd1;
       add3.left = __dx0.out;
       add3.right = const24.out;
       __dx0.in = add3.out;
       upd2[done] = __dx0.done;
     }
-    group upd3<"static"=1> {
+    group upd3<"promotable"=1> {
       __dy0.write_en = 1'd1;
       add4.left = __dy0.out;
       add4.right = const25.out;
       __dy0.in = add4.out;
       upd3[done] = __dy0.done;
     }
-    group upd4<"static"=1> {
+    group upd4<"promotable"=1> {
       __k0.write_en = 1'd1;
       add5.left = __k0.out;
       add5.right = const26.out;
       __k0.in = add5.out;
       upd4[done] = __k0.done;
     }
-    group upd5<"static"=1> {
+    group upd5<"promotable"=1> {
+      x.content_en = 1'd1;
       x.addr3 = slice11.out;
       slice11.in = __x0.out;
       x.addr2 = slice10.out;
@@ -300,30 +301,30 @@ component conv2d_5x512x14x14() -> () {
       slice8.in = __b0.out;
       x.write_en = 1'd1;
       x.write_data = __sum_0.out;
-      upd5[done] = x.write_done;
+      upd5[done] = x.done;
     }
-    group upd6<"static"=1> {
+    group upd6<"promotable"=1> {
       __x0.write_en = 1'd1;
       add6.left = __x0.out;
       add6.right = const27.out;
       __x0.in = add6.out;
       upd6[done] = __x0.done;
     }
-    group upd7<"static"=1> {
+    group upd7<"promotable"=1> {
       __y0.write_en = 1'd1;
       add7.left = __y0.out;
       add7.right = const28.out;
       __y0.in = add7.out;
       upd7[done] = __y0.done;
     }
-    group upd8<"static"=1> {
+    group upd8<"promotable"=1> {
       __c0.write_en = 1'd1;
       add8.left = __c0.out;
       add8.right = const29.out;
       __c0.in = add8.out;
       upd8[done] = __c0.done;
     }
-    group upd9<"static"=1> {
+    group upd9<"promotable"=1> {
       __b0.write_en = 1'd1;
       add9.left = __b0.out;
       add9.right = const30.out;

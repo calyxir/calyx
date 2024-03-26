@@ -1,5 +1,5 @@
 import "primitives/core.futil";
-import "primitives/memories.futil";
+import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 import "primitives/math.futil";
 component dense_1x10() -> () {
@@ -46,38 +46,38 @@ component dense_1x10() -> () {
       le2.left = __k0.out;
       le2.right = const5.out;
     }
-    group let0<"static"=1> {
+    group let0<"promotable"=1> {
       __i0.in = const0.out;
       __i0.write_en = 1'd1;
       let0[done] = __i0.done;
     }
-    group let1<"static"=1> {
+    group let1<"promotable"=1> {
       __j0.in = const2.out;
       __j0.write_en = 1'd1;
       let1[done] = __j0.done;
     }
-    group let2<"static"=1> {
+    group let2<"promotable"=1> {
       __k0.in = const4.out;
       __k0.write_en = 1'd1;
       let2[done] = __k0.done;
     }
-    group let3<"static"=2> {
+    group let3<"promotable"=2> {
       x_read0_0.in = x.read_data;
-      x_read0_0.write_en = x.read_done;
+      x_read0_0.write_en = x.done;
       let3[done] = x_read0_0.done;
+      x.content_en = 1'd1;
       x.addr1 = __k0.out;
       x.addr0 = __i0.out;
-      x.read_en = 1'd1;
     }
-    group let4<"static"=2> {
+    group let4<"promotable"=2> {
       y_read0_0.in = y.read_data;
-      y_read0_0.write_en = y.read_done;
+      y_read0_0.write_en = y.done;
       let4[done] = y_read0_0.done;
+      y.content_en = 1'd1;
       y.addr1 = __k0.out;
       y.addr0 = __j0.out;
-      y.read_en = 1'd1;
     }
-    group let5<"static"=4> {
+    group let5<"promotable"=4> {
       bin_read0_0.in = mult_pipe0.out;
       bin_read0_0.write_en = mult_pipe0.done;
       let5[done] = bin_read0_0.done;
@@ -85,43 +85,44 @@ component dense_1x10() -> () {
       mult_pipe0.right = y_read0_0.out;
       mult_pipe0.go = !mult_pipe0.done ? 1'd1;
     }
-    group let6<"static"=1> {
+    group let6<"promotable"=1> {
       __product_0.in = bin_read0_0.out;
       __product_0.write_en = 1'd1;
       let6[done] = __product_0.done;
     }
-    group let7<"static"=2> {
+    group let7<"promotable"=2> {
       red_read00.in = x1.read_data;
-      red_read00.write_en = x1.read_done;
+      red_read00.write_en = x1.done;
       let7[done] = red_read00.done;
+      x1.content_en = 1'd1;
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
-      x1.read_en = 1'd1;
     }
-    group upd0<"static"=1> {
+    group upd0<"promotable"=1> {
+      x1.content_en = 1'd1;
       x1.addr1 = __j0.out;
       x1.addr0 = __i0.out;
       x1.write_en = 1'd1;
       add0.left = red_read00.out;
       add0.right = __product_0.out;
       x1.write_data = add0.out;
-      upd0[done] = x1.write_done;
+      upd0[done] = x1.done;
     }
-    group upd1<"static"=1> {
+    group upd1<"promotable"=1> {
       __k0.write_en = 1'd1;
       add1.left = __k0.out;
       add1.right = const6.out;
       __k0.in = add1.out;
       upd1[done] = __k0.done;
     }
-    group upd2<"static"=1> {
+    group upd2<"promotable"=1> {
       __j0.write_en = 1'd1;
       add2.left = __j0.out;
       add2.right = const7.out;
       __j0.in = add2.out;
       upd2[done] = __j0.done;
     }
-    group upd3<"static"=1> {
+    group upd3<"promotable"=1> {
       __i0.write_en = 1'd1;
       add3.left = __i0.out;
       add3.right = const8.out;

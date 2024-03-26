@@ -1,9 +1,8 @@
-import * as calyx from "../rust/Cargo.toml";
+import * as calyx from 'calyx';
 import config from "../data/config.json";
 import passes from "../data/passes.json";
 import calyx_info from "../calyx_hash.json";
 import { updateDiffEditor } from './diffEditor.js';
-import 'regenerator-runtime/runtime';
 
 import Prism from 'prismjs';
 import './prism-futil.js';
@@ -33,7 +32,6 @@ function createToggle(pass) {
     button.innerHTML = pass.title;
     button.onclick = function () {
         buttonSet(pass, !pass.active);
-        compile();
     };
     return button;
 }
@@ -99,6 +97,8 @@ async function getLibrary(library, root) {
             let prefix = library.split('/').slice(0, -1).join("/");
             let names = Array.from(code.matchAll(/import "(.*)";/g)).map(x => x[1]);
             let res = await fetchLibs(names, `${root}/${prefix}/`);
+            let importRegex = /import "(.*)";/g;
+            code = code.replaceAll(importRegex, "");
             for (let r of res) {
                 code += r.code;
             }

@@ -46,8 +46,8 @@ We'll start by adding a memory component to the cells:
 {{#include ../../examples/tutorial/language-tutorial-mem.futil:cells}}
 ```
 
-This new line declares a new cell called `mem` and the primitive component `std_mem_d1` represents a 1D memory.
-You can see the definition of `std_mem_d1`, and all the other standard components, in the `primitives/core.futil` library we imported.
+This new line declares a new cell called `mem` and the primitive component `comb_mem_d1` represents a 1D memory.
+You can see the definition of `comb_mem_d1`, and all the other standard components, in the `primitives/core.futil` library we imported.
 
 This one has three parameters:
 the data width (here, 32 bits),
@@ -267,6 +267,6 @@ Take a look at the [full language reference][lang-ref] for details on the comple
 [verilator]: https://www.veripool.org/wiki/verilator
 [tutorial]: https://github.com/calyxir/calyx/tree/master/examples/tutorial
 [icarus verilog]: http://iverilog.icarus.com
-[fud]: ../fud/index.md
+[fud]: ../running-calyx/fud/index.md
 [data-format]: ../lang/data-format.md
 [lang-ref]: ../lang/ref.md

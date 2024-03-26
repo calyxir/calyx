@@ -1,6 +1,7 @@
 // -p well-formed -p static-inference
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {

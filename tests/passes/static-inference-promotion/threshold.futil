@@ -1,6 +1,7 @@
-// -p well-formed -p static-inference -p static-promotion -p dead-group-removal -x static-promotion:threshold=4
+// -p well-formed -p static-inference -p static-promotion -p dead-group-removal -x static-promotion:threshold=4 -x static-promotion:compaction=false
 
 import "primitives/core.futil";
+import "primitives/memories/comb.futil";
 
 component main() -> () {
   cells {
