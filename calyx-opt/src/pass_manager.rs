@@ -53,16 +53,15 @@ impl PassManager {
         self.register_generic_pass::<Pass>(Box::new(|ir| {
             let mut visitor = Pass::from(ir)?;
             visitor.do_pass(ir)?;
-            // if Pass::name() == "synthesis-papercut" {
-            //     println!("{visitor:#?}");
-            // }
-            let diags = visitor.diagnostics().collect::<Vec<_>>();
-            // if Pass::name() == "synthesis-papercut" {
-            //     println!("{} {diags:#?}", Pass::name());
-            // }
-            if let Some(first_error) = diags.into_iter().next() {
-                Err(first_error)
+
+            let mut errors = visitor.diagnostics().errors_iter();
+            if let Some(first_error) = errors.next() {
+                Err(first_error.clone())
             } else {
+                // only show warnings, if there are no errors
+                visitor.diagnostics().warning_iter().for_each(
+                    |warning| log::warn!(target: Pass::name(), "{warning}"),
+                );
                 Ok(())
             }
         }))

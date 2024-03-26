@@ -1,18 +1,29 @@
-use std::vec;
-
 use calyx_utils::{CalyxResult, Error};
 
 use super::{Action, VisResult};
+
+/// A pass that implements reporting Diagnostics
+pub trait DiagnosticPass {
+    /// Return an iterator of the diagnostics gathered by this pass.
+    fn diagnostics(&self) -> &DiagnosticContext;
+}
 
 /// A type for accumulating multiple errors
 #[derive(Default, Debug)]
 pub struct DiagnosticContext {
     errors: Vec<Error>,
+    warnings: Vec<String>,
 }
 
 impl DiagnosticContext {
+    /// Report an `error`
     pub fn err(&mut self, error: Error) {
         self.errors.push(error);
+    }
+
+    /// Report a `warning`
+    pub fn warning<S: ToString>(&mut self, warning: S) {
+        self.warnings.push(warning.to_string())
     }
 
     /// Accumulates `error` into the context, and returns `Ok(Action::Continue)`.
@@ -22,23 +33,19 @@ impl DiagnosticContext {
         self.err(error);
         Ok(Action::Continue)
     }
-}
 
-impl IntoIterator for DiagnosticContext {
-    type Item = Error;
-    type IntoIter = vec::IntoIter<Error>;
+    pub fn warning_iter(&self) -> impl Iterator<Item = &str> {
+        self.warnings.iter().map(|x| x.as_str())
+    }
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.errors.into_iter()
+    pub fn errors_iter(&self) -> impl Iterator<Item = &Error> {
+        self.errors.iter()
     }
 }
 
+/// Accumuate the error in a [`Result`] type into the [`DiagnosticContext`].
 pub trait DiagnosticResult {
     fn accumulate_err(self, diag: &mut DiagnosticContext) -> Self;
-}
-
-pub trait DiagnosticPass {
-    fn diagnostics(self) -> impl Iterator<Item = Error>;
 }
 
 impl<T> DiagnosticResult for CalyxResult<T>

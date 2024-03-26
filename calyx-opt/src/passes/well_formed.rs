@@ -173,8 +173,8 @@ impl Named for WellFormed {
 }
 
 impl DiagnosticPass for WellFormed {
-    fn diagnostics(self) -> impl Iterator<Item = Error> {
-        self.diag.into_iter()
+    fn diagnostics(&self) -> &DiagnosticContext {
+        &self.diag
     }
 }
 
@@ -725,7 +725,7 @@ impl Visitor for WellFormed {
                     "If statement has no comb group and its condition port {} is unstable",
                     s.port.borrow().canonical()
                 ));
-            log::warn!("{msg}");
+            self.diag.warning(msg);
         }
         Ok(Action::Continue)
     }
@@ -742,7 +742,7 @@ impl Visitor for WellFormed {
                 "static if statement's condition port {} is unstable",
                 s.port.borrow().canonical()
             ));
-            log::warn!("{msg}");
+            self.diag.warning(msg);
         }
         Ok(Action::Continue)
     }
@@ -793,7 +793,7 @@ impl Visitor for WellFormed {
                     "While loop has no comb group and its condition port {} is unstable",
                     s.port.borrow().canonical()
                 ));
-            log::warn!("{msg}");
+            self.diag.warning(msg);
         }
         Ok(Action::Continue)
     }

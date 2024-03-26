@@ -39,8 +39,10 @@ impl Diagnostic {
 
             Ok(wellformed
                 .diagnostics()
-                .chain(diag_papercut.diagnostics())
-                .chain(synth_papercut.diagnostics())
+                .errors_iter()
+                .chain(diag_papercut.diagnostics().errors_iter())
+                .chain(synth_papercut.diagnostics().errors_iter())
+                .cloned()
                 .collect::<Vec<_>>())
         })
         .map(|errors| {
@@ -59,7 +61,5 @@ impl Diagnostic {
                 .collect()
         })
         .unwrap_or_default()
-        // .unwrap_or_else(|e| {
-        // })
     }
 }

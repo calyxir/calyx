@@ -62,8 +62,8 @@ impl Named for SynthesisPapercut {
 }
 
 impl DiagnosticPass for SynthesisPapercut {
-    fn diagnostics(self) -> impl Iterator<Item = Error> {
-        self.diag.into_iter()
+    fn diagnostics(&self) -> &DiagnosticContext {
+        &self.diag
     }
 }
 

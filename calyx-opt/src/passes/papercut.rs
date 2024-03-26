@@ -105,8 +105,8 @@ fn port_information(
 }
 
 impl DiagnosticPass for Papercut {
-    fn diagnostics(self) -> impl Iterator<Item = Error> {
-        self.diag.into_iter()
+    fn diagnostics(&self) -> &DiagnosticContext {
+        &self.diag
     }
 }
 
