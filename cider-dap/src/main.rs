@@ -225,7 +225,7 @@ fn run_server<R: Read, W: Write>(
             // Send StackTrace, may be useful to make it more robust in the future
             Command::StackTrace(_args) => {
                 // Create new frame if empty, SUBJECT TO CHANGE
-                let frames = if adapter.clone_stack().len() == 0 {
+                let frames = if adapter.clone_stack().is_empty() {
                     adapter.create_stack()
                 } else {
                     adapter.clone_stack()
@@ -259,23 +259,17 @@ fn run_server<R: Read, W: Write>(
             // Step over
             Command::Next(args) => {
                 // Move stack frame
-                match args.granularity {
-                    None => {
-                        // If done then disconnect
-                        if adapter.next_line(args.thread_id) {
-                            let rsp =
-                                req.clone().success(ResponseBody::Disconnect);
-                            server.send_event(Event::Exited(
-                                ExitedEventBody { exit_code: 0 },
-                            ))?;
-                            server.respond(rsp)?;
+                // If done then disconnect
+                if adapter.next_line(args.thread_id) {
+                    let rsp = req.clone().success(ResponseBody::Disconnect);
+                    server.send_event(Event::Exited(ExitedEventBody {
+                        exit_code: 0,
+                    }))?;
+                    server.respond(rsp)?;
 
-                            //Exit
-                            info!(logger, "exited debugger");
-                            return Ok(());
-                        }
-                    }
-                    _ => {}
+                    // Exit
+                    info!(logger, "exited debugger");
+                    return Ok(());
                 }
 
                 // Get ID before rsp takes ownership

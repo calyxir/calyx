@@ -58,8 +58,8 @@ impl ProgramStatus {
     }
 
     /// see if program is done
-    pub fn get_done(&self) -> &bool {
-        &self.done
+    pub fn get_done(&self) -> bool {
+        self.done
     }
 }
 

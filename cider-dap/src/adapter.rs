@@ -122,7 +122,7 @@ impl MyAdapter {
         let status = self.debugger.step(1).unwrap();
 
         // Check if done:
-        if status.get_done().clone() {
+        if status.get_done() {
             true
         } else {
             let map = status.get_status().clone();
@@ -131,14 +131,8 @@ impl MyAdapter {
             // Return -1 should a lookup not be found. This really shouldn't
             // happen though
             for id in map {
-                let value = match self.ids.lookup(id.to_string()) {
-                    Some(val) => val,
-                    None => &(-1),
-                };
-                line_number = value.clone();
-
-                // Only get first Id for now
-                break;
+                let value = *self.ids.lookup(id.to_string()).unwrap_or(&-1);
+                line_number = value;
             }
             self.stack_frames[0].line = line_number;
             false
