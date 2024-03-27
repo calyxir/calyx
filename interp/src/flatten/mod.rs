@@ -1,6 +1,6 @@
 pub(crate) mod flat_ir;
 pub mod primitives;
-mod structures;
+pub(crate) mod structures;
 pub(crate) mod text_utils;
 
 use structures::environment::{Environment, Simulator};

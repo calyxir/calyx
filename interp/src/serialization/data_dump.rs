@@ -1,15 +1,25 @@
+use std::num::NonZeroUsize;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Debug, Deserialize, PartialEq, Clone)]
 pub struct MemoryDeclaration {
     pub name: String,
-    pub width: usize,
-    pub size: usize,
+    pub width: NonZeroUsize,
+    pub size: NonZeroUsize,
 }
 
 impl MemoryDeclaration {
     pub fn new(name: String, width: usize, size: usize) -> Self {
-        Self { name, width, size }
+        Self {
+            name,
+            width: NonZeroUsize::new(width).expect("width must be non-zero"),
+            size: NonZeroUsize::new(size).expect("size must be non-zero"),
+        }
+    }
+
+    pub fn byte_count(&self) -> usize {
+        self.width.get().div_ceil(8) * self.size.get()
     }
 }
 
@@ -28,14 +38,9 @@ impl DataHeader {
     }
 
     pub fn data_size(&self) -> usize {
-        let mut size = 0;
-
-        for mem in &self.memories {
-            let width_bytes = mem.width.div_ceil(8);
-            size += width_bytes * mem.size;
-        }
-
-        size
+        self.memories
+            .iter()
+            .fold(0, |acc, mem| acc + mem.byte_count())
     }
 }
 
@@ -77,6 +82,21 @@ impl DataDump {
 
         DataDump { header, data }
     }
+
+    // TODO Griffin: Replace the panic with a proper error and the standard
+    // handling
+    pub fn get_data(&self, mem_name: &str) -> &[u8] {
+        let mut current_base = 0_usize;
+        for mem in &self.header.memories {
+            if mem.name == mem_name {
+                let end = current_base + mem.byte_count();
+                return &self.data[current_base..end];
+            } else {
+                current_base += mem.byte_count();
+            }
+        }
+        panic!("Memory not found")
+    }
 }
 
 #[cfg(test)]
@@ -117,7 +137,7 @@ mod tests {
     use proptest::prelude::*;
 
     prop_compose! {
-        fn arb_memory_declaration()(name in any::<String>(), width in 1_usize..=128, size in 1_usize..=1024) -> MemoryDeclaration {
+        fn arb_memory_declaration()(name in any::<String>(), width in 1_usize..=256, size in 1_usize..=500) -> MemoryDeclaration {
             MemoryDeclaration::new(name.to_string(), width, size)
         }
     }
@@ -125,8 +145,13 @@ mod tests {
     prop_compose! {
         fn arb_data_header()(
             top_level in any::<String>(),
-            memories in prop::collection::vec(arb_memory_declaration(), 1..5)
+            mut memories in prop::collection::vec(arb_memory_declaration(), 1..3)
         ) -> DataHeader {
+            // This is a silly hack to force unique names for the memories
+            for (i, memory) in memories.iter_mut().enumerate() {
+                memory.name = format!("{}_{i}", memory.name);
+            }
+
             DataHeader { top_level, memories }
         }
     }
@@ -145,7 +170,35 @@ mod tests {
             (Just(header), data)
         });
 
-        data.prop_map(|(header, data)| DataDump { header, data })
+        data.prop_map(|(header, mut header_data)| {
+            let mut cursor = 0_usize;
+            // Need to go through the upper byte of each value in the memory to
+            // remove any 1s in the padding region since that causes the memory
+            // produced from the memory primitive to not match the one
+            // serialized into it in the first place
+            for mem in &header.memories {
+                let bytes_per_val = mem.width.get().div_ceil(8);
+                let rem = mem.width.get() % 8;
+                let mask = if rem != 0 { 255u8 >> (8 - rem) } else { 255_u8 };
+
+                for bytes in &mut header_data[cursor..cursor + mem.byte_count()]
+                    .chunks_exact_mut(bytes_per_val)
+                {
+                    *bytes.last_mut().unwrap() &= mask;
+                }
+
+                assert!(header_data[cursor..cursor + mem.byte_count()]
+                    .chunks_exact(bytes_per_val)
+                    .remainder()
+                    .is_empty());
+                cursor += mem.byte_count();
+            }
+
+            DataDump {
+                header,
+                data: header_data,
+            }
+        })
     }
 
     proptest! {
@@ -157,6 +210,32 @@ mod tests {
             let reparsed_dump = DataDump::deserialize(&mut buf.as_slice());
             prop_assert_eq!(dump, reparsed_dump)
 
+        }
+    }
+
+    use crate::flatten::{
+        flat_ir::prelude::GlobalPortIdx,
+        primitives::stateful::{CombMemD1, SeqMemD1},
+        structures::index_trait::IndexRef,
+    };
+
+    proptest! {
+        #[test]
+        fn comb_roundtrip(dump in arb_data_dump()) {
+            for mem in &dump.header.memories {
+                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dbg!(dump.get_data(&mem.name)));
+                let data = memory_prim.dump_data();
+                prop_assert_eq!(dump.get_data(&mem.name), data);
+            }
+        }
+
+        #[test]
+        fn seq_roundtrip(dump in arb_data_dump()) {
+            for mem in &dump.header.memories {
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dbg!(dump.get_data(&mem.name)));
+                let data = memory_prim.dump_data();
+                prop_assert_eq!(dump.get_data(&mem.name), data);
+            }
         }
     }
 }
