@@ -68,15 +68,20 @@ fn convert(
     );
 }
 
-/// Formats [binary_of_float] properly
-fn format_binary(binary_of_float: u32) -> String {
-    let binary_str = format!("{:032b}", binary_of_float);
+/// Formats [to_format] properly
+fn format_binary(to_format: u32) -> String {
+    let binary_str = format!("{:032b}", to_format);
     format!(
         "{} {} {}",
         &binary_str[0..1], // Sign bit
         &binary_str[1..9], // Exponent
         &binary_str[9..]   // Significand
     )
+}
+
+fn format_hex(to_format: u32) -> String {
+    let formatted_hex_str = format!("{:X}", to_format);
+    format!("0x{}", &formatted_hex_str)
 }
 
 /// Converts [binary_string] to binary and appends to [filepath_send]
@@ -135,8 +140,7 @@ fn binary_to_hex(
         }
     };
 
-    // Format the integer as a hexadecimal string
-    let formatted_hex_str = format!("{:X}", hex_of_binary);
+    let formatted_hex_str = format_hex(hex_of_binary);
 
     filepath_send.write(formatted_hex_str.as_bytes())?;
     filepath_send.write_all(b"\n")?;
