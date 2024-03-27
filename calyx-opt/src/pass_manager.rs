@@ -35,6 +35,46 @@ impl PassManager {
         Pass:
             traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
     {
+        self.register_generic_pass::<Pass>(Box::new(|ir| {
+            Pass::do_pass_default(ir)?;
+            Ok(())
+        }))
+    }
+
+    /// Registers a diagnostic pass as a normal pass. If there is an error,
+    /// this will report the first error gathered by the pass.
+    pub fn register_diagnostic<Pass>(&mut self) -> CalyxResult<()>
+    where
+        Pass: traversal::Visitor
+            + traversal::ConstructVisitor
+            + traversal::Named
+            + traversal::DiagnosticPass,
+    {
+        self.register_generic_pass::<Pass>(Box::new(|ir| {
+            let mut visitor = Pass::from(ir)?;
+            visitor.do_pass(ir)?;
+
+            let mut errors = visitor.diagnostics().errors_iter();
+            if let Some(first_error) = errors.next() {
+                Err(first_error.clone())
+            } else {
+                // only show warnings, if there are no errors
+                visitor.diagnostics().warning_iter().for_each(
+                    |warning| log::warn!(target: Pass::name(), "{warning}"),
+                );
+                Ok(())
+            }
+        }))
+    }
+
+    fn register_generic_pass<Pass>(
+        &mut self,
+        pass_closure: PassClosure,
+    ) -> CalyxResult<()>
+    where
+        Pass:
+            traversal::Visitor + traversal::ConstructVisitor + traversal::Named,
+    {
         let name = Pass::name().to_string();
         if self.passes.contains_key(&name) {
             return Err(Error::misc(format!(
@@ -42,10 +82,6 @@ impl PassManager {
                 name
             )));
         }
-        let pass_closure: PassClosure = Box::new(|ir| {
-            Pass::do_pass_default(ir)?;
-            Ok(())
-        });
         self.passes.insert(name.clone(), pass_closure);
         let mut help = format!("- {}: {}", name, Pass::description());
         for opt in Pass::opts() {

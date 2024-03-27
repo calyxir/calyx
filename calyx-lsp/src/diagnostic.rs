@@ -1,5 +1,9 @@
 use std::path::Path;
 
+use calyx_opt::{
+    passes::{Papercut, SynthesisPapercut, WellFormed},
+    traversal::{ConstructVisitor, DiagnosticPass, Visitor},
+};
 use resolve_path::PathResolveExt;
 
 pub struct Diagnostic;
@@ -22,17 +26,40 @@ impl Diagnostic {
             lib_path.resolve().as_ref(),
         )
         .and_then(calyx_ir::from_ast::ast_to_ir)
-        // TODO: call well-formed pass
-        .map(|_| vec![])
-        .unwrap_or_else(|e| {
-            let (file_name, pos_start, pos_end) = e.location();
-            let msg = e.message();
-            vec![CalyxError {
-                file_name: file_name.to_string(),
-                pos_start,
-                pos_end,
-                msg,
-            }]
+        .and_then(|mut ctx| {
+            let mut wellformed = <WellFormed as ConstructVisitor>::from(&ctx)?;
+            wellformed.do_pass(&mut ctx)?;
+
+            let mut diag_papercut = <Papercut as ConstructVisitor>::from(&ctx)?;
+            diag_papercut.do_pass(&mut ctx)?;
+
+            let mut synth_papercut =
+                <SynthesisPapercut as ConstructVisitor>::from(&ctx)?;
+            synth_papercut.do_pass(&mut ctx)?;
+
+            Ok(wellformed
+                .diagnostics()
+                .errors_iter()
+                .chain(diag_papercut.diagnostics().errors_iter())
+                .chain(synth_papercut.diagnostics().errors_iter())
+                .cloned()
+                .collect::<Vec<_>>())
         })
+        .map(|errors| {
+            errors
+                .into_iter()
+                .map(|e| {
+                    let (file_name, pos_start, pos_end) = e.location();
+                    let msg = e.message();
+                    CalyxError {
+                        file_name: file_name.to_string(),
+                        pos_start,
+                        pos_end,
+                        msg,
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default()
     }
 }
