@@ -100,6 +100,10 @@ impl QualifiedInstanceName {
         string_vec.join(".").into()
     }
 
+    pub fn get_suffix(&self) -> Id {
+        self.name
+    }
+
     pub fn new(prefix: &ComponentQualifiedInstanceName, name: Id) -> Self {
         Self {
             prefix: prefix.clone(),

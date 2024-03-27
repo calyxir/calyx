@@ -4,18 +4,18 @@ mod error;
 use adapter::MyAdapter;
 use dap::events::{ExitedEventBody, StoppedEventBody, ThreadEventBody};
 use dap::responses::{
-    ContinueResponse, SetBreakpointsResponse, SetExceptionBreakpointsResponse,
-    StackTraceResponse, ThreadsResponse,
+    ContinueResponse, ScopesResponse, SetBreakpointsResponse,
+    SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
 };
 use error::MyAdapterError;
 
 use dap::prelude::*;
 use error::AdapterResult;
 use slog::{info, Drain};
-use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
+use std::vec;
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
@@ -98,6 +98,9 @@ where
         Command::Initialize(_) => {
             let rsp =
                 req.success(ResponseBody::Initialize(types::Capabilities {
+                    // Not sure if we need it
+                    // Make VSCode send disassemble request
+                    supports_stepping_granularity: Some(true),
                     ..Default::default()
                 }));
             server.respond(rsp)?;
@@ -135,10 +138,10 @@ where
     };
 
     // Open file using the extracted program path
-    let file = File::open(program_path)?;
+    // let file = File::open(program_path)?;
 
     // Construct the adapter
-    let mut adapter = MyAdapter::new(file);
+    let mut adapter = MyAdapter::new(program_path).unwrap();
 
     //Make two threads to make threads visible on call stack, subject to change.
     let thread = &adapter.create_thread(String::from("Main"));
@@ -221,10 +224,16 @@ fn run_server<R: Read, W: Write>(
             }
             // Send StackTrace, may be useful to make it more robust in the future
             Command::StackTrace(_args) => {
+                // Create new frame if empty, SUBJECT TO CHANGE
+                let frames = if adapter.clone_stack().is_empty() {
+                    adapter.create_stack()
+                } else {
+                    adapter.clone_stack()
+                };
                 let rsp =
                     req.success(ResponseBody::StackTrace(StackTraceResponse {
-                        stack_frames: vec![],
-                        total_frames: None,
+                        stack_frames: frames,
+                        total_frames: Some(0),
                     }));
                 server.respond(rsp)?;
             }
@@ -249,6 +258,20 @@ fn run_server<R: Read, W: Write>(
             }
             // Step over
             Command::Next(args) => {
+                // Move stack frame
+                // If done then disconnect
+                if adapter.next_line(args.thread_id) {
+                    let rsp = req.clone().success(ResponseBody::Disconnect);
+                    server.send_event(Event::Exited(ExitedEventBody {
+                        exit_code: 0,
+                    }))?;
+                    server.respond(rsp)?;
+
+                    // Exit
+                    info!(logger, "exited debugger");
+                    return Ok(());
+                }
+
                 // Get ID before rsp takes ownership
                 let thread_id = args.thread_id;
                 let rsp = req.success(ResponseBody::Next);
@@ -283,6 +306,20 @@ fn run_server<R: Read, W: Write>(
                     create_stopped(String::from("Paused on step"), thread_id);
                 server.send_event(stopped)?;
             }
+            Command::Scopes(_) => {
+                let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
+                    // TODO: Understand vectors
+                    scopes: vec![],
+                }));
+                server.respond(rsp)?;
+            }
+            // Command::Source(_) => {
+            //     let rsp = req.success(ResponseBody::Source(SourceResponse {
+            //         content: String::from("random"),
+            //         mime_type: None,
+            //     }));
+            //     server.respond(rsp)?;
+            // }
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),

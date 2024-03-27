@@ -9,3 +9,4 @@ pub mod source;
 pub use commands::PrintCode;
 
 pub use cidr::Debugger;
+pub use cidr::ProgramStatus;
