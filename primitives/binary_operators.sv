@@ -763,3 +763,13 @@ module std_signext #(
     end
   `endif
 endmodule
+
+module std_mult #(
+    parameter WIDTH = 32
+) (
+    input  signed [WIDTH-1:0] left,
+    input  signed [WIDTH-1:0] right,
+    output signed [WIDTH-1:0] out
+);
+  assign out = left * right;
+endmodule
