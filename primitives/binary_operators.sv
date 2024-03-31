@@ -764,12 +764,12 @@ module std_signext #(
   `endif
 endmodule
 
-module std_mult #(
-    parameter WIDTH = 32
+module std_const_mult #(
+    parameter WIDTH = 32,
+    parameter VALUE = 1
 ) (
-    input  signed [WIDTH-1:0] left,
-    input  signed [WIDTH-1:0] right,
+    input  signed [WIDTH-1:0] in,
     output signed [WIDTH-1:0] out
 );
-  assign out = left * right;
+  assign out = in * VALUE;
 endmodule
