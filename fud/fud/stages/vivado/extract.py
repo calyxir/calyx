@@ -211,3 +211,29 @@ def hls_extract(directory: Path, top: str):
         )
     except FileNotFoundError as e:
         raise errors.MissingFile(e.filename)
+
+
+def hls_extract_cycles(directory: Path, top: str):
+    # Search for directory named benchmark.prj
+    for root, dirs, _ in os.walk(directory):
+        for d in dirs:
+            if d == "benchmark.prj":
+                directory = Path(os.path.join(root, d))
+                break
+
+    directory = directory / "solution1"
+
+    try:
+        solution_data = json.load((directory / "solution1_data.json").open())
+        latency = solution_data["ModuleInfo"]["Metrics"][top]["Latency"]
+
+        return json.dumps(
+            {
+                "avg_latency": to_int(latency.get("LatencyAvg", -1)),
+                "best_latency": to_int(latency["LatencyBest"]),
+                "worst_latency": to_int(latency["LatencyWorst"]),
+            },
+            indent=2,
+        )
+    except FileNotFoundError as e:
+        raise errors.MissingFile(e.filename)
