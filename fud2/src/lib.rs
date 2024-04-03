@@ -489,14 +489,14 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("python", "python", "python3")?;
         //TODO do we want this rsrc call?
         //e.rsrc("$axi-generator")?;
-        e.rule("gen-axi", "$python $axi-generator $in")?;
+        e.rule("gen-axi", "$python $axi-generator $in > $out")?;
 
         // Define a simple `combine` rule that just concatenates any numer of files.
         e.rule("combine", "cat $in > $out")?;
 
         e.rule(
             "remove-imports",
-            "sed '/import/d' $in > $out"
+            "sed '1,/component main/{/component main/!d}' $in > $out"
         )?;
         Ok(())
     });
