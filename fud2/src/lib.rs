@@ -496,7 +496,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
         e.rule(
             "remove-imports",
-            "sed '1,/component main/{/component main/!d}' $in > $out"
+            "sed '1,/component main/{/component main/!d}' $in > $out",
         )?;
         Ok(())
     });
@@ -508,30 +508,44 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             // Generate the YXI file.
             //no extension
-            let file_name = input.rsplit_once('/').unwrap().1.rsplit_once('.').unwrap().0;
+            let file_name = input
+                .rsplit_once('/')
+                .unwrap()
+                .1
+                .rsplit_once('.')
+                .unwrap()
+                .0;
             let tmp_yxi = format!("{}.yxi", file_name);
 
             //Get yxi file from main compute
             //TODO(nate): Can this use the `yxi` operation instead of hardcoding the build cmd calyx rule with arguments?
             e.build_cmd(&[&tmp_yxi], "calyx", &[input], &[])?;
             e.arg("backend", "yxi")?;
-            
+
             // Generate the AXI wrapper.
             let refified_calyx = format!("refified_{}.futil", file_name);
             e.build_cmd(&[&refified_calyx], "calyx-pass", &[input], &[])?;
             e.arg("pass", "external-to-ref")?;
-            
+
             let axi_wrapper = "axi_wrapper.futil";
             e.build_cmd(&[axi_wrapper], "gen-axi", &[&tmp_yxi], &[])?;
-            
+
             // Generate no-imports version of the refified calyx.
             let no_imports_calyx = format!("no_imports_{}", refified_calyx);
             e.build_cmd(
-                &[&no_imports_calyx], "remove-imports", &[&refified_calyx], &[]
+                &[&no_imports_calyx],
+                "remove-imports",
+                &[&refified_calyx],
+                &[],
             )?;
 
             // Combine the original Calyx and the wrapper.
-            e.build_cmd(&[output], "combine", &[axi_wrapper, &no_imports_calyx], &[])?;
+            e.build_cmd(
+                &[output],
+                "combine",
+                &[axi_wrapper, &no_imports_calyx],
+                &[],
+            )?;
             Ok(())
         },
     );
