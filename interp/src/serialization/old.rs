@@ -34,7 +34,7 @@ impl Shape {
 
     /// returns the total number of entries in the memory, i.e. it's size based
     /// on the dimensions of it.
-    pub fn len(&self) -> usize {
+    pub fn size(&self) -> usize {
         match self {
             Shape::D1(d0) => *d0,
             Shape::D2(d0, d1) => d0 * d1,

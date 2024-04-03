@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::{
     errors::InterpreterError,
     flatten::{
@@ -247,7 +249,7 @@ impl CombMem {
         T: Into<Shape>,
     {
         let shape = size.into();
-        let internal_state = vec![Value::zeroes(width); shape.len()];
+        let internal_state = vec![Value::zeroes(width); shape.size()];
 
         Self {
             base_port: base,
@@ -257,6 +259,47 @@ impl CombMem {
             addresser: MemDx::new(shape),
             done_is_high: false,
         }
+    }
+
+    pub fn new_with_init<T>(
+        base_port: GlobalPortIdx,
+        width: u32,
+        allow_invalid: bool,
+        size: T,
+        data: &[u8],
+    ) -> Self
+    where
+        T: Into<Shape>,
+    {
+        let byte_count = width.div_ceil(8);
+        let size = size.into();
+
+        let internal_state = data
+            .chunks_exact(byte_count as usize)
+            .map(|x| Value::from_bytes_le(x, width as usize))
+            .collect_vec();
+
+        assert_eq!(internal_state.len(), size.size());
+        assert!(data
+            .chunks_exact(byte_count as usize)
+            .remainder()
+            .is_empty());
+
+        Self {
+            base_port,
+            internal_state,
+            _allow_invalid_access: allow_invalid,
+            _width: width,
+            addresser: MemDx::new(size),
+            done_is_high: false,
+        }
+    }
+
+    pub fn dump_data(&self) -> Vec<u8> {
+        self.internal_state
+            .iter()
+            .flat_map(|x| x.to_bytes())
+            .collect()
     }
 }
 
@@ -365,7 +408,7 @@ impl SeqMem {
         size: T,
     ) -> Self {
         let shape = size.into();
-        let internal_state = vec![Value::zeroes(width); shape.len()];
+        let internal_state = vec![Value::zeroes(width); shape.size()];
 
         Self {
             base_port: base,
@@ -373,6 +416,41 @@ impl SeqMem {
             _allow_invalid_access: allow_invalid,
             _width: width,
             addresser: MemDx::new(shape),
+            done_is_high: false,
+            read_out: PortValue::new_undef(),
+        }
+    }
+
+    pub fn new_with_init<T>(
+        base_port: GlobalPortIdx,
+        width: u32,
+        allow_invalid: bool,
+        size: T,
+        data: &[u8],
+    ) -> Self
+    where
+        T: Into<Shape>,
+    {
+        let byte_count = width.div_ceil(8);
+        let size = size.into();
+
+        let internal_state = data
+            .chunks_exact(byte_count as usize)
+            .map(|x| Value::from_bytes_le(x, width as usize))
+            .collect_vec();
+
+        assert_eq!(internal_state.len(), size.size());
+        assert!(data
+            .chunks_exact(byte_count as usize)
+            .remainder()
+            .is_empty());
+
+        Self {
+            base_port,
+            internal_state,
+            _allow_invalid_access: allow_invalid,
+            _width: width,
+            addresser: MemDx::new(size),
             done_is_high: false,
             read_out: PortValue::new_undef(),
         }
@@ -407,6 +485,13 @@ impl SeqMem {
 
     pub fn reset(&self) -> GlobalPortIdx {
         (self.base_port.index() + Self::RESET).into()
+    }
+
+    pub fn dump_data(&self) -> Vec<u8> {
+        self.internal_state
+            .iter()
+            .flat_map(|x| x.to_bytes())
+            .collect()
     }
 }
 
