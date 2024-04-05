@@ -1,26 +1,51 @@
-use std::env;
+//use std::env;
 use std::fs::read_to_string;
 use std::fs::File;
 use std::io::{self, Write};
+use argh::FromArgs;
 
 fn main() {
-    let types: Vec<&str> = vec!["binary", "float", "hex"];
-    let args: Vec<String> = env::args().collect();
+    #[derive(FromArgs)]
+    /// get arguments to convert
+    struct Arguments {
+
+        /// file to convert from 
+        #[argh(option)]
+        from: String,
+    
+        /// file to convery to 
+        #[argh(option)]
+        to: String,
+    
+        /// type to convert from 
+        #[argh(option)]
+        ftype: String,
+    
+        /// type to convert to 
+        #[argh(option)]
+        totype: String,
+    }
+
+    let args: Arguments = argh::from_env();
+
+    let types: Vec<String> = vec!["binary".to_string(), "float".to_string(), "hex".to_string()];
     let mut valid = true;
-    if !types.contains(&args[3].as_str()) {
-        eprintln!("{} is not a valid type to convert from", &args[3]);
+
+    if !types.contains(&args.ftype) {
+        eprintln!("{} is not a valid type to convert from", args.from);
         valid = false;
     }
-    if !types.contains(&args[4].as_str()) {
-        eprintln!("{} is not a valid type to convert from", &args[4]);
+    if !types.contains(&args.totype) {
+        eprintln!("{} is not a valid type to convert from", args.to);
         valid = false;
     }
     if valid {
-        convert(&args[1], &args[2], &args[3], &args[4]);
+        convert(&args.from, &args.to, &args.ftype, &args.totype);
     }
 }
 
-/// Converts [filepath_get] from type [convert_from] to [convert_to] in [filepath_send]
+/// Converts [filepath_get] from type [convert_from] to type 
+/// [convert_to] in [filepath_send]
 fn convert(
     filepath_get: &String,
     filepath_send: &String,
@@ -139,7 +164,7 @@ fn binary_to_hex(
             return Err(io::Error::new(io::ErrorKind::InvalidData, err))
         }
     };
-
+    
     let formatted_hex_str = format_hex(hex_of_binary);
 
     filepath_send.write(formatted_hex_str.as_bytes())?;
@@ -169,3 +194,11 @@ fn binary_to_float(
 
     Ok(())
 }
+
+// fn fixed_to_binary (
+//     fixed_string: &str,
+//     filepath_send: &mut File,
+//     scale: int,
+// ) -> io::Result<()> {
+
+//     }
