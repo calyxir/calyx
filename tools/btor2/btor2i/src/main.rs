@@ -77,11 +77,13 @@ fn main() -> InterpResult<()> {
 
             // Extract outputs
             ir_lines.iter().for_each(|line| {
-                if let Btor2InstrContents::Output { name, arg1 } = &line.contents
+                if let Btor2InstrContents::Output { name, arg1 } =
+                    &line.contents
                 {
                     let output_name = name.clone();
                     let src_node_idx = *arg1;
-                    let output_val = s_env.get(src_node_idx.try_into().unwrap());
+                    let output_val =
+                        s_env.get(src_node_idx.try_into().unwrap());
 
                     println!("{}: {}", output_name, output_val);
                 }

@@ -366,9 +366,7 @@ impl From<&Btor2Line<'_>> for Btor2Instr {
     }
 }
 
-pub fn convert_to_ir(
-    btor2_lines: Vec<Btor2Line<'_>>,
-) -> Vec<Btor2Instr> {
+pub fn convert_to_ir(btor2_lines: Vec<Btor2Line<'_>>) -> Vec<Btor2Instr> {
     btor2_lines.iter().map(Btor2Instr::from).collect()
 }
 
