@@ -1,5 +1,7 @@
 # Static Timing
 
+> The features discussed below have been available since Calyx version 0.2.1.
+
 By default, Calyx programs use a *latency-insensitive*, or *dynamic*, model of computation.
 This means that the compiler does not know, track, or guarantee the number of cycles it takes to perform a computation or run a control operator.
 This is in contrast to a *latency-sensitive*, or *static*, model of computation, where the number of cycles a component needs is known to, and honored by, the compiler.
@@ -15,7 +17,7 @@ this means that the use of black-box hardware designs requires costly handshakin
 
 To address these issues, Calyx provides a `static` qualifier that modifies components and groups, along with static variants of other control operators.
 
-Broadly, the `static` qualifier is a promise to the compiler that the component or group will take exactly the specified number of cycles to execute.
+Broadly, the `static` qualifier is a promise to the compiler that the specifed component or group will take exactly the specified number of cycles to execute.
 The compiler is free to take advantage of this promise to generate more efficient hardware.
 In return, the compiler must access out-ports of static components only after the specified number of cycles have passed, or risk receiving incorrect results.
 
@@ -30,7 +32,7 @@ This component is dynamic; its latency is unknown.
 ```
 primitive std_div[W](go: 1, left: W, right: W) -> (out: W, done: 1);
 ```
-A client of the divider must pass two inputs, raise the `go` signal, and wait for the component itself to raise its `done` signal.
+A client of the divider must pass two inputs `left` and `right`, raise the `go` signal, and wait for the component itself to raise its `done` signal.
 The client can then read the result from the `out` port.
 That is, it obeys the [go-done interface][go-done-interface].
 
@@ -41,8 +43,8 @@ static<3> primitive std_mult[W](go: 1, left: W, right: W) -> (out: W);
 ```
 
 The key differences are:
-- The `static` qualifier is used to declare the component as static and to specify its latency.
-- The `done` port is not present in the static component.
+- The `static` qualifier is used to declare the component as static and to specify its latency (3 cycles).
+- The `done` port is absent.
 
 A client of the multiplier must pass two inputs and raise the `go` signal as before.
 However, the client need not then wait for the component to indicate completion.
@@ -86,14 +88,14 @@ In the examples below, assume that `A5`, `B6`, `C7`, and `D8` are static groups 
 
 #### `static seq`, a static version of [`seq`][seq]
 If we have `static seq { A5; B6; C7; D8; }`, we can guarantee that the latency of the entire operation is the sum of the latencies of its children: 5 + 6 + 7 + 8 = 26 cycles in this case.
-We can also guarantee that, each child will begin executing exactly one cycle after the previous child has finished.
+We can also guarantee that each child will begin executing exactly one cycle after the previous child has finished.
 In our case, for example, `B6` will begin executing exactly one cycle after `A5` has finished.
 
 #### `static par`, a static version of [`par`][par]
 If we have `static par { A5; B6; C7; D8; }`, we can guarantee that the latency of the entire operation is the maximum of the latencies of its children: 8 cycles in this case.
 Further, all the children of a `static par` are guaranteed to begin executing at the same time.
 The children can rely on this "lockstep" behavior and can communicate with each other.
-Such communication is undefined behavior in a standard, dynamic, `par`.
+Inter-thread communication of this sort is undefined behavior in a standard, dynamic, `par`.
 
 #### `static if`, a static version of [`if`][if]
 If we have `static if { A5; B6; }`, we can guarantee that the latency of the entire operation is the maximum of the latencies of its children: 6 cycles in this case.
@@ -101,10 +103,10 @@ If we have `static if { A5; B6; }`, we can guarantee that the latency of the ent
 
 #### `static repeat`, a static version of [`repeat`][repeat]
 
-> Calyx's `while` loop is unbouded and so it does not have a static variant.
-
 If we have `static repeat 7 { B6; }`, we can guarantee that the latency of the entire operation is the product of the number of iterations and the latency of its child: 7 × 6 = 42 cycles in this case.
 The body of a `static repeat` is guaranteed to begin executing exactly one cycle after the previous iteration has finished.
+
+Calyx's [`while`][while] loop is unbouded and so it does not have a static variant.
 
 #### `static invoke`, a static version of [`invoke`][invoke]
 
@@ -118,3 +120,4 @@ Its latency is the latency of the invoked cell.
 [if]: ./ref.md#if
 [repeat]: ./ref.md#repeat
 [invoke]: ./ref.md#invoke
+[while]: ./ref.md#while
