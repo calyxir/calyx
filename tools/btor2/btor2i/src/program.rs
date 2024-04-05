@@ -1,6 +1,8 @@
 use crate::interp;
 use crate::shared_env;
 
+use crate::ir::Btor2InstrContents;
+use crate::ir::{self, SortType};
 use btor2tools::Btor2Line;
 use btor2tools::Btor2Parser;
 use std::collections::HashMap;
@@ -61,7 +63,7 @@ impl<'a> Btor2Program<'a> {
         &mut self,
         inputs: HashMap<String, String>,
     ) -> Result<HashMap<String, usize>, &str> {
-        let btor2_lines: &Vec<Btor2Line<'_>> = &self
+        let btor2_lines: Vec<Btor2Line<'_>> = self
             .parser
             .read_lines(self.path)
             .as_ref()
@@ -72,15 +74,18 @@ impl<'a> Btor2Program<'a> {
             inputs_vec.push(format!("{}={} ", name, val));
         }
 
-        let node_sorts = btor2_lines
+        let ir_lines = ir::convert_to_ir(btor2_lines);
+
+        let node_sorts = ir_lines
             .iter()
-            .map(|line| match line.tag() {
-                btor2tools::Btor2Tag::Sort | btor2tools::Btor2Tag::Output => 0,
-                _ => match line.sort().content() {
-                    btor2tools::Btor2SortContent::Bitvec { width } => {
+            .map(|line| match line.contents {
+                Btor2InstrContents::Sort
+                | Btor2InstrContents::Output { .. } => 0,
+                _ => match line.sort {
+                    SortType::Bitvec { width } => {
                         usize::try_from(width).unwrap()
                     }
-                    btor2tools::Btor2SortContent::Array { .. } => 0, // TODO: handle arrays
+                    SortType::Array { .. } => 0, // TODO: handle arrays
                 },
             })
             .collect::<Vec<_>>();
@@ -88,7 +93,7 @@ impl<'a> Btor2Program<'a> {
         let mut s_env = shared_env::SharedEnvironment::new(node_sorts);
 
         // Parse inputs
-        match interp::parse_inputs(&mut s_env, btor2_lines, &inputs_vec) {
+        match interp::parse_inputs(&mut s_env, &ir_lines, &inputs_vec) {
             Ok(()) => {}
             Err(e) => {
                 eprintln!("{}", e);
@@ -97,7 +102,7 @@ impl<'a> Btor2Program<'a> {
         };
 
         // Main interpreter loop
-        let result = interp::interpret(btor2_lines.iter(), &mut s_env);
+        let result = interp::interpret(ir_lines.iter(), &mut s_env);
         match result {
             Ok(()) => {}
             Err(e) => {
@@ -108,12 +113,11 @@ impl<'a> Btor2Program<'a> {
 
         let mut output_map = HashMap::new();
 
-        btor2_lines.iter().for_each(|line| {
-            if let btor2tools::Btor2Tag::Output = line.tag() {
-                let output_name =
-                    line.symbol().unwrap().to_string_lossy().into_owned();
-                let src_node_idx = line.args()[0] as usize;
-                let output_val = s_env.get(src_node_idx);
+        ir_lines.iter().for_each(|line| {
+            if let Btor2InstrContents::Output { name, arg1 } = &line.contents {
+                let output_name = name.clone();
+                let src_node_idx = *arg1;
+                let output_val = s_env.get(src_node_idx.try_into().unwrap());
 
                 output_map.insert(output_name, slice_to_usize(output_val));
             }

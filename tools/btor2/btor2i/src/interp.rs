@@ -1,6 +1,13 @@
 use crate::bvec::BitVector;
 use crate::error;
 use crate::error::InterpError;
+use crate::ir::BinOpType;
+use crate::ir::Btor2Instr;
+use crate::ir::Btor2InstrContents;
+use crate::ir::ConstantType;
+use crate::ir::LiteralType;
+use crate::ir::SortType;
+use crate::ir::UnOpType;
 use crate::shared_env::SharedEnvironment;
 use btor2tools::Btor2Line;
 use btor2tools::Btor2SortContent;
@@ -99,209 +106,127 @@ impl fmt::Display for Value {
 }
 
 pub fn interpret(
-    mut prog_iterator: Iter<Btor2Line>,
+    mut prog_iterator: Iter<Btor2Instr>,
     env: &mut SharedEnvironment,
 ) -> Result<(), InterpError> {
-    prog_iterator.try_for_each(|line| {
-        match line.tag() {
-            // core
-            btor2tools::Btor2Tag::Sort => Ok(()), // skip - sort information is handled by the parser
-            btor2tools::Btor2Tag::Const => eval_const_op(env, line, 2),
-            btor2tools::Btor2Tag::Constd => eval_const_op(env, line, 10),
-            btor2tools::Btor2Tag::Consth => eval_const_op(env, line, 16),
-            btor2tools::Btor2Tag::Input => Ok(()), // handled in parse_inputs
-            btor2tools::Btor2Tag::Output => Ok(()), // handled in extract_output
-            btor2tools::Btor2Tag::One => {
-                eval_literals_op(env, line, SharedEnvironment::one)
-            }
-            btor2tools::Btor2Tag::Ones => {
-                eval_literals_op(env, line, SharedEnvironment::ones)
-            }
-            btor2tools::Btor2Tag::Zero => {
-                eval_literals_op(env, line, SharedEnvironment::zero)
-            }
-
-            // indexed
-            btor2tools::Btor2Tag::Sext => {
-                eval_unary_op(env, line, SharedEnvironment::sext)
-            }
-            btor2tools::Btor2Tag::Uext => {
-                eval_unary_op(env, line, SharedEnvironment::uext)
-            }
-            btor2tools::Btor2Tag::Slice => eval_slice_op(env, line),
-
-            // unary
-            btor2tools::Btor2Tag::Not => {
-                eval_unary_op(env, line, SharedEnvironment::not)
-            }
-            btor2tools::Btor2Tag::Inc => {
-                eval_unary_op(env, line, SharedEnvironment::inc)
-            }
-            btor2tools::Btor2Tag::Dec => {
-                eval_unary_op(env, line, SharedEnvironment::dec)
-            }
-            btor2tools::Btor2Tag::Neg => {
-                eval_unary_op(env, line, SharedEnvironment::neg)
-            }
-            btor2tools::Btor2Tag::Redand => {
-                eval_unary_op(env, line, SharedEnvironment::redand)
-            }
-            btor2tools::Btor2Tag::Redor => {
-                eval_unary_op(env, line, SharedEnvironment::redor)
-            }
-            btor2tools::Btor2Tag::Redxor => {
-                eval_unary_op(env, line, SharedEnvironment::redxor)
-            }
-
-            // binary - boolean
-            btor2tools::Btor2Tag::Iff => {
-                eval_binary_op(env, line, SharedEnvironment::iff)
-            }
-            btor2tools::Btor2Tag::Implies => {
-                eval_binary_op(env, line, SharedEnvironment::implies)
-            }
-            btor2tools::Btor2Tag::Eq => {
-                eval_binary_op(env, line, SharedEnvironment::eq)
-            }
-            btor2tools::Btor2Tag::Neq => {
-                eval_binary_op(env, line, SharedEnvironment::neq)
-            }
-
-            // binary - (un)signed inequality
-            btor2tools::Btor2Tag::Sgt => {
-                eval_binary_op(env, line, SharedEnvironment::sgt)
-            }
-            btor2tools::Btor2Tag::Sgte => {
-                eval_binary_op(env, line, SharedEnvironment::sgte)
-            }
-            btor2tools::Btor2Tag::Slt => {
-                eval_binary_op(env, line, SharedEnvironment::slt)
-            }
-            btor2tools::Btor2Tag::Slte => {
-                eval_binary_op(env, line, SharedEnvironment::slte)
-            }
-            btor2tools::Btor2Tag::Ugt => {
-                eval_binary_op(env, line, SharedEnvironment::ugt)
-            }
-            btor2tools::Btor2Tag::Ugte => {
-                eval_binary_op(env, line, SharedEnvironment::ugte)
-            }
-            btor2tools::Btor2Tag::Ult => {
-                eval_binary_op(env, line, SharedEnvironment::ult)
-            }
-            btor2tools::Btor2Tag::Ulte => {
-                eval_binary_op(env, line, SharedEnvironment::ulte)
-            }
-
-            // binary - bit-wise
-            btor2tools::Btor2Tag::And => {
-                eval_binary_op(env, line, SharedEnvironment::and)
-            }
-            btor2tools::Btor2Tag::Nand => {
-                eval_binary_op(env, line, SharedEnvironment::nand)
-            }
-            btor2tools::Btor2Tag::Nor => {
-                eval_binary_op(env, line, SharedEnvironment::nor)
-            }
-            btor2tools::Btor2Tag::Or => {
-                eval_binary_op(env, line, SharedEnvironment::or)
-            }
-            btor2tools::Btor2Tag::Xnor => {
-                eval_binary_op(env, line, SharedEnvironment::xnor)
-            }
-            btor2tools::Btor2Tag::Xor => {
-                eval_binary_op(env, line, SharedEnvironment::xor)
-            }
-
-            // binary - rotate, shift
-            btor2tools::Btor2Tag::Rol => {
-                eval_binary_op(env, line, SharedEnvironment::rol)
-            }
-            btor2tools::Btor2Tag::Ror => {
-                eval_binary_op(env, line, SharedEnvironment::ror)
-            }
-            btor2tools::Btor2Tag::Sll => {
-                eval_binary_op(env, line, SharedEnvironment::sll)
-            }
-            btor2tools::Btor2Tag::Sra => {
-                eval_binary_op(env, line, SharedEnvironment::sra)
-            }
-            btor2tools::Btor2Tag::Srl => {
-                eval_binary_op(env, line, SharedEnvironment::srl)
-            }
-
-            // binary - arithmetic
-            btor2tools::Btor2Tag::Add => {
-                eval_binary_op(env, line, SharedEnvironment::add)
-            }
-            btor2tools::Btor2Tag::Mul => {
-                eval_binary_op(env, line, SharedEnvironment::mul)
-            }
-            btor2tools::Btor2Tag::Sdiv => {
-                eval_binary_op(env, line, SharedEnvironment::sdiv)
-            }
-            btor2tools::Btor2Tag::Udiv => {
-                eval_binary_op(env, line, SharedEnvironment::udiv)
-            }
-            btor2tools::Btor2Tag::Smod => {
-                eval_binary_op(env, line, SharedEnvironment::smod)
-            }
-            btor2tools::Btor2Tag::Srem => {
-                eval_binary_op(env, line, SharedEnvironment::srem)
-            }
-            btor2tools::Btor2Tag::Urem => {
-                eval_binary_op(env, line, SharedEnvironment::urem)
-            }
-            btor2tools::Btor2Tag::Sub => {
-                eval_binary_op(env, line, SharedEnvironment::sub)
-            }
-
-            // binary - overflow
-            btor2tools::Btor2Tag::Saddo => {
-                eval_binary_op(env, line, SharedEnvironment::saddo)
-            }
-            btor2tools::Btor2Tag::Uaddo => {
-                eval_binary_op(env, line, SharedEnvironment::uaddo)
-            }
-            btor2tools::Btor2Tag::Sdivo => {
-                eval_binary_op(env, line, SharedEnvironment::sdivo)
-            }
-            // btor2tools::Btor2Tag::Udivo => Ok(()),    Unsigned division never overflows :D
-            btor2tools::Btor2Tag::Smulo => {
-                eval_binary_op(env, line, SharedEnvironment::smulo)
-            }
-            btor2tools::Btor2Tag::Umulo => {
-                eval_binary_op(env, line, SharedEnvironment::umulo)
-            }
-            btor2tools::Btor2Tag::Ssubo => {
-                eval_binary_op(env, line, SharedEnvironment::ssubo)
-            }
-            btor2tools::Btor2Tag::Usubo => {
-                eval_binary_op(env, line, SharedEnvironment::usubo)
-            }
-
-            // binary - concat
-            btor2tools::Btor2Tag::Concat => {
+    prog_iterator.try_for_each(|line| match &line.contents {
+        Btor2InstrContents::BinOp { arg1, arg2, kind } => match kind {
+            BinOpType::Add => eval_binary_op(env, line, SharedEnvironment::add),
+            BinOpType::And => eval_binary_op(env, line, SharedEnvironment::and),
+            BinOpType::Concat => {
                 eval_binary_op(env, line, SharedEnvironment::concat)
             }
-
-            // ternary - conditional
-            btor2tools::Btor2Tag::Ite => {
-                eval_ternary_op(env, line, SharedEnvironment::ite)
+            BinOpType::Eq => eval_binary_op(env, line, SharedEnvironment::eq),
+            BinOpType::Iff => eval_binary_op(env, line, SharedEnvironment::iff),
+            BinOpType::Implies => {
+                eval_binary_op(env, line, SharedEnvironment::implies)
             }
-
-            // Unsupported: arrays, state, assertions
-            btor2tools::Btor2Tag::Bad
-            | btor2tools::Btor2Tag::Constraint
-            | btor2tools::Btor2Tag::Fair
-            | btor2tools::Btor2Tag::Init
-            | btor2tools::Btor2Tag::Justice
-            | btor2tools::Btor2Tag::Next
-            | btor2tools::Btor2Tag::State
-            | btor2tools::Btor2Tag::Read
-            | btor2tools::Btor2Tag::Write => Err(
-                error::InterpError::Unsupported(format!("{:?}", line.tag())),
-            ),
+            BinOpType::Mul => eval_binary_op(env, line, SharedEnvironment::mul),
+            BinOpType::Nand => {
+                eval_binary_op(env, line, SharedEnvironment::nand)
+            }
+            BinOpType::Neq => eval_binary_op(env, line, SharedEnvironment::neq),
+            BinOpType::Nor => eval_binary_op(env, line, SharedEnvironment::nor),
+            BinOpType::Or => eval_binary_op(env, line, SharedEnvironment::or),
+            BinOpType::Rol => eval_binary_op(env, line, SharedEnvironment::rol),
+            BinOpType::Ror => eval_binary_op(env, line, SharedEnvironment::ror),
+            BinOpType::Saddo => {
+                eval_binary_op(env, line, SharedEnvironment::saddo)
+            }
+            BinOpType::Sdiv => {
+                eval_binary_op(env, line, SharedEnvironment::sdiv)
+            }
+            BinOpType::Sdivo => {
+                eval_binary_op(env, line, SharedEnvironment::sdivo)
+            }
+            BinOpType::Sgt => eval_binary_op(env, line, SharedEnvironment::sgt),
+            BinOpType::Sgte => {
+                eval_binary_op(env, line, SharedEnvironment::sgte)
+            }
+            BinOpType::Sll => eval_binary_op(env, line, SharedEnvironment::sll),
+            BinOpType::Slt => eval_binary_op(env, line, SharedEnvironment::slt),
+            BinOpType::Slte => {
+                eval_binary_op(env, line, SharedEnvironment::slte)
+            }
+            BinOpType::Smod => {
+                eval_binary_op(env, line, SharedEnvironment::smod)
+            }
+            BinOpType::Smulo => {
+                eval_binary_op(env, line, SharedEnvironment::smulo)
+            }
+            BinOpType::Sra => eval_binary_op(env, line, SharedEnvironment::sra),
+            BinOpType::Srem => {
+                eval_binary_op(env, line, SharedEnvironment::srem)
+            }
+            BinOpType::Srl => eval_binary_op(env, line, SharedEnvironment::srl),
+            BinOpType::Sub => eval_binary_op(env, line, SharedEnvironment::sub),
+            BinOpType::Uaddo => {
+                eval_binary_op(env, line, SharedEnvironment::uaddo)
+            }
+            BinOpType::Udiv => {
+                eval_binary_op(env, line, SharedEnvironment::udiv)
+            }
+            BinOpType::Ugt => eval_binary_op(env, line, SharedEnvironment::ugt),
+            BinOpType::Ugte => {
+                eval_binary_op(env, line, SharedEnvironment::ugte)
+            }
+            BinOpType::Ult => eval_binary_op(env, line, SharedEnvironment::ult),
+            BinOpType::Ulte => {
+                eval_binary_op(env, line, SharedEnvironment::ulte)
+            }
+            BinOpType::Umulo => {
+                eval_binary_op(env, line, SharedEnvironment::umulo)
+            }
+            BinOpType::Urem => {
+                eval_binary_op(env, line, SharedEnvironment::urem)
+            }
+            BinOpType::Xnor => {
+                eval_binary_op(env, line, SharedEnvironment::xnor)
+            }
+            BinOpType::Xor => eval_binary_op(env, line, SharedEnvironment::xor),
+        },
+        Btor2InstrContents::Conditional { arg1, arg2, arg3 } => {
+            eval_ternary_op(env, line, SharedEnvironment::ite)
+        }
+        Btor2InstrContents::Constant { constant, kind } => match kind {
+            ConstantType::Constd => eval_const_op(env, line, 10),
+            ConstantType::Consth => eval_const_op(env, line, 16),
+            ConstantType::Const => eval_const_op(env, line, 2),
+        },
+        Btor2InstrContents::Input { name } => Ok(()),
+        Btor2InstrContents::Literal { kind } => match kind {
+            LiteralType::One => {
+                eval_literals_op(env, line, SharedEnvironment::one)
+            }
+            LiteralType::Ones => {
+                eval_literals_op(env, line, SharedEnvironment::ones)
+            }
+            LiteralType::Zero => {
+                eval_literals_op(env, line, SharedEnvironment::zero)
+            }
+        },
+        Btor2InstrContents::Output { name, arg1 } => Ok(()),
+        Btor2InstrContents::Slice { arg1, u, l } => eval_slice_op(env, line),
+        Btor2InstrContents::Sort => Ok(()),
+        Btor2InstrContents::UnOp { arg1, kind } => match kind {
+            UnOpType::Dec => eval_unary_op(env, line, SharedEnvironment::dec),
+            UnOpType::Inc => eval_unary_op(env, line, SharedEnvironment::inc),
+            UnOpType::Neg => eval_unary_op(env, line, SharedEnvironment::neg),
+            UnOpType::Not => eval_unary_op(env, line, SharedEnvironment::not),
+            UnOpType::Redand => {
+                eval_unary_op(env, line, SharedEnvironment::redand)
+            }
+            UnOpType::Redor => {
+                eval_unary_op(env, line, SharedEnvironment::redor)
+            }
+            UnOpType::Redxor => {
+                eval_unary_op(env, line, SharedEnvironment::redxor)
+            }
+            UnOpType::Sext => eval_unary_op(env, line, SharedEnvironment::sext),
+            UnOpType::Uext => eval_unary_op(env, line, SharedEnvironment::uext),
+        },
+        Btor2InstrContents::Unknown => {
+            Err(error::InterpError::Unsupported("".to_string()))
         }
     })
 }
@@ -309,179 +234,177 @@ pub fn interpret(
 /// Handles the `const`, `constd`, and `consth` statements.
 fn eval_const_op(
     env: &mut SharedEnvironment,
-    line: &btor2tools::Btor2Line,
+    line: &Btor2Instr,
     radix: u32,
 ) -> Result<(), error::InterpError> {
-    match line.constant() {
-        Some(cstr) => match cstr.to_str() {
-            Ok(str) => {
+    if let Btor2InstrContents::Constant { constant, kind } = &line.contents {
+        match constant {
+            Some(str) => {
                 let nstring = str.to_string();
                 let intval = BigInt::from_str_radix(&nstring, radix).unwrap();
 
-                match line.sort().tag() {
-                    Btor2SortTag::Bitvec => {
-                        if let Btor2SortContent::Bitvec { width } =
-                            line.sort().content()
-                        {
-                            let bool_vec = (0..width)
-                                .map(|i| intval.bit(i as u64))
-                                .collect::<Vec<_>>();
+                match line.sort {
+                    SortType::Bitvec { width } => {
+                        let bool_vec = (0..width)
+                            .map(|i| intval.bit(i as u64))
+                            .collect::<Vec<_>>();
 
-                            env.const_(line.id().try_into().unwrap(), bool_vec);
-                        }
+                        env.const_(line.id.try_into().unwrap(), bool_vec);
                         Ok(())
                     }
-                    Btor2SortTag::Array => {
-                        Err(error::InterpError::Unsupported(format!(
-                            "{:?}",
-                            line.sort().tag()
-                        )))
-                    }
+                    SortType::Array { index, element } => Err(
+                        error::InterpError::Unsupported("Array".to_string()),
+                    ),
                 }
             }
-            Err(_e) => Err(error::InterpError::BadFuncArgType(
-                "Bad value in constant".to_string(),
+            None => Err(error::InterpError::BadFuncArgType(
+                "No value in constant".to_string(),
             )),
-        },
-        None => Err(error::InterpError::BadFuncArgType(
-            "No value in constant".to_string(),
-        )),
+        }
+    } else {
+        Err(error::InterpError::Unsupported("".to_string()))
     }
 }
 
 /// Handle the `one`, `ones` and `zero` statements.
 fn eval_literals_op(
     env: &mut SharedEnvironment,
-    line: &btor2tools::Btor2Line,
+    line: &Btor2Instr,
     literal_init: fn(&mut SharedEnvironment, i1: usize),
 ) -> Result<(), error::InterpError> {
-    match line.sort().tag() {
-        Btor2SortTag::Bitvec => {
-            literal_init(env, line.id().try_into().unwrap());
-            Ok(())
+    if let Btor2InstrContents::Literal { kind } = &line.contents {
+        match line.sort {
+            SortType::Bitvec { width } => {
+                literal_init(env, line.id.try_into().unwrap());
+                Ok(())
+            }
+            SortType::Array { index, element } => {
+                Err(error::InterpError::Unsupported(format!("Array",)))
+            }
         }
-        Btor2SortTag::Array => Err(error::InterpError::Unsupported(format!(
-            "{:?}",
-            line.sort().tag()
-        ))),
+    } else {
+        Err(error::InterpError::Unsupported("".to_string()))
     }
 }
 
 /// Handles the `slice` statements.
 fn eval_slice_op(
     env: &mut SharedEnvironment,
-    line: &btor2tools::Btor2Line,
+    line: &Btor2Instr,
 ) -> Result<(), error::InterpError> {
-    let sort = line.sort();
-    match sort.tag() {
-        Btor2SortTag::Bitvec => {
-            assert_eq!(line.args().len(), 3);
-            let arg1_line = line.args()[0] as usize;
-            let u = line.args()[1] as usize;
-            let l = line.args()[2] as usize;
-            if let Btor2SortContent::Bitvec { width } = line.sort().content() {
-                if (u - l) + 1 != width as usize {
+    if let Btor2InstrContents::Slice { arg1, u, l } = line.contents {
+        match line.sort {
+            SortType::Bitvec { width } => {
+                if (u - l) + 1 != width.into() {
                     return Err(error::InterpError::Unsupported(format!(
                         "Slicing of {:?} is not supported",
-                        arg1_line
+                        arg1
                     )));
                 }
-                env.slice(u, l, arg1_line, line.id().try_into().unwrap());
+                env.slice(
+                    u.try_into().unwrap(),
+                    l.try_into().unwrap(),
+                    arg1.try_into().unwrap(),
+                    line.id.try_into().unwrap(),
+                );
                 Ok(())
-            } else {
-                Err(error::InterpError::Unsupported(format!(
-                    "Slicing of {:?} is not supported",
-                    arg1_line
-                )))
+            }
+            SortType::Array { index, element } => {
+                Err(error::InterpError::Unsupported(format!("Array",)))
             }
         }
-        Btor2SortTag::Array => Err(error::InterpError::Unsupported(format!(
-            "{:?}",
-            line.sort().tag()
-        ))),
+    } else {
+        Err(error::InterpError::Unsupported("".to_string()))
     }
 }
 
 /// Handle all the unary operators.
 fn eval_unary_op(
     env: &mut SharedEnvironment,
-    line: &btor2tools::Btor2Line,
+    line: &Btor2Instr,
     unary_fn: fn(&mut SharedEnvironment, usize, usize),
 ) -> Result<(), error::InterpError> {
-    let sort = line.sort();
-    match sort.tag() {
-        Btor2SortTag::Bitvec => {
-            assert_eq!(line.args().len(), 1);
-            let arg1_line = line.args()[0] as usize;
-            unary_fn(env, arg1_line, line.id().try_into().unwrap());
-            Ok(())
+    if let Btor2InstrContents::UnOp { arg1, kind } = &line.contents {
+        match line.sort {
+            SortType::Bitvec { width } => {
+                unary_fn(
+                    env,
+                    (*arg1).try_into().unwrap(),
+                    line.id.try_into().unwrap(),
+                );
+                Ok(())
+            }
+            SortType::Array { index, element } => {
+                Err(error::InterpError::Unsupported(format!("Array",)))
+            }
         }
-        Btor2SortTag::Array => Err(error::InterpError::Unsupported(format!(
-            "{:?}",
-            line.sort().tag()
-        ))),
+    } else {
+        Err(error::InterpError::Unsupported("".to_string()))
     }
 }
 
 /// Handles all the binary operators.
 fn eval_binary_op(
     env: &mut SharedEnvironment,
-    line: &btor2tools::Btor2Line,
+    line: &Btor2Instr,
     binary_fn: fn(&mut SharedEnvironment, usize, usize, usize),
 ) -> Result<(), error::InterpError> {
-    let sort = line.sort();
-    match sort.tag() {
-        Btor2SortTag::Bitvec => {
-            assert_eq!(line.args().len(), 2);
-            let arg1_line = line.args()[0] as usize;
-            let arg2_line = line.args()[1] as usize;
-
-            binary_fn(env, arg1_line, arg2_line, line.id().try_into().unwrap());
-            Ok(())
+    if let Btor2InstrContents::BinOp { arg1, arg2, kind } = &line.contents {
+        match line.sort {
+            SortType::Bitvec { width } => {
+                binary_fn(
+                    env,
+                    (*arg1).try_into().unwrap(),
+                    (*arg2).try_into().unwrap(),
+                    line.id.try_into().unwrap(),
+                );
+                Ok(())
+            }
+            SortType::Array { index, element } => {
+                Err(error::InterpError::Unsupported(format!("Array",)))
+            }
         }
-        Btor2SortTag::Array => Err(error::InterpError::Unsupported(format!(
-            "{:?}",
-            line.sort().tag()
-        ))),
+    } else {
+        Err(error::InterpError::Unsupported("".to_string()))
     }
 }
 
 fn eval_ternary_op(
     env: &mut SharedEnvironment,
-    line: &btor2tools::Btor2Line,
+    line: &Btor2Instr,
     ternary_fn: fn(&mut SharedEnvironment, usize, usize, usize, usize),
 ) -> Result<(), error::InterpError> {
-    assert_eq!(line.args().len(), 3);
-    let arg1_line = line.args()[0] as usize;
-    let arg2_line = line.args()[1] as usize;
-    let arg3_line = line.args()[2] as usize;
-    ternary_fn(
-        env,
-        arg1_line,
-        arg2_line,
-        arg3_line,
-        line.id().try_into().unwrap(),
-    );
-    Ok(())
+    if let Btor2InstrContents::Conditional { arg1, arg2, arg3 } = line.contents
+    {
+        ternary_fn(
+            env,
+            arg1.try_into().unwrap(),
+            arg2.try_into().unwrap(),
+            arg3.try_into().unwrap(),
+            line.id.try_into().unwrap(),
+        );
+        Ok(())
+    } else {
+        Err(error::InterpError::Unsupported("".to_string()))
+    }
 }
 
 // TODO: eventually remove pub and make a seperate pub function as a main entry point to the interpreter, for now this is main.rs
 pub fn parse_inputs(
     env: &mut SharedEnvironment,
-    lines: &[Btor2Line],
+    lines: &[Btor2Instr],
     inputs: &[String],
 ) -> Result<(), InterpError> {
     // create input name to line no. and sort map
     let mut input_map = HashMap::new();
     lines.iter().for_each(|line| {
-        if let btor2tools::Btor2Tag::Input = line.tag() {
-            let input_name =
-                line.symbol().unwrap().to_string_lossy().into_owned();
-            if let Btor2SortContent::Bitvec { width } = line.sort().content() {
+        if let Btor2InstrContents::Input { name } = &line.contents {
+            let input_name = name.clone();
+            if let SortType::Bitvec { width } = line.sort {
                 input_map.insert(
                     input_name,
                     (
-                        usize::try_from(line.id()).unwrap(),
+                        usize::try_from(line.id).unwrap(),
                         usize::try_from(width).unwrap(),
                     ),
                 );
