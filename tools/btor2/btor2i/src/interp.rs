@@ -9,9 +9,7 @@ use crate::ir::LiteralType;
 use crate::ir::SortType;
 use crate::ir::UnOpType;
 use crate::shared_env::SharedEnvironment;
-use btor2tools::Btor2Line;
-use btor2tools::Btor2SortContent;
-use btor2tools::Btor2SortTag;
+
 use num_bigint::BigInt;
 use num_traits::Num;
 use std::collections::HashMap;
@@ -110,7 +108,11 @@ pub fn interpret(
     env: &mut SharedEnvironment,
 ) -> Result<(), InterpError> {
     prog_iterator.try_for_each(|line| match &line.contents {
-        Btor2InstrContents::BinOp { arg1, arg2, kind } => match kind {
+        Btor2InstrContents::BinOp {
+            arg1: _,
+            arg2: _,
+            kind,
+        } => match kind {
             BinOpType::Add => eval_binary_op(env, line, SharedEnvironment::add),
             BinOpType::And => eval_binary_op(env, line, SharedEnvironment::and),
             BinOpType::Concat => {
@@ -185,15 +187,17 @@ pub fn interpret(
             }
             BinOpType::Xor => eval_binary_op(env, line, SharedEnvironment::xor),
         },
-        Btor2InstrContents::Conditional { arg1, arg2, arg3 } => {
-            eval_ternary_op(env, line, SharedEnvironment::ite)
-        }
-        Btor2InstrContents::Constant { constant, kind } => match kind {
+        Btor2InstrContents::Conditional {
+            arg1: _,
+            arg2: _,
+            arg3: _,
+        } => eval_ternary_op(env, line, SharedEnvironment::ite),
+        Btor2InstrContents::Constant { constant: _, kind } => match kind {
             ConstantType::Constd => eval_const_op(env, line, 10),
             ConstantType::Consth => eval_const_op(env, line, 16),
             ConstantType::Const => eval_const_op(env, line, 2),
         },
-        Btor2InstrContents::Input { name } => Ok(()),
+        Btor2InstrContents::Input { name: _ } => Ok(()),
         Btor2InstrContents::Literal { kind } => match kind {
             LiteralType::One => {
                 eval_literals_op(env, line, SharedEnvironment::one)
@@ -205,10 +209,14 @@ pub fn interpret(
                 eval_literals_op(env, line, SharedEnvironment::zero)
             }
         },
-        Btor2InstrContents::Output { name, arg1 } => Ok(()),
-        Btor2InstrContents::Slice { arg1, u, l } => eval_slice_op(env, line),
+        Btor2InstrContents::Output { name: _, arg1: _ } => Ok(()),
+        Btor2InstrContents::Slice {
+            arg1: _,
+            u: _,
+            l: _,
+        } => eval_slice_op(env, line),
         Btor2InstrContents::Sort => Ok(()),
-        Btor2InstrContents::UnOp { arg1, kind } => match kind {
+        Btor2InstrContents::UnOp { arg1: _, kind } => match kind {
             UnOpType::Dec => eval_unary_op(env, line, SharedEnvironment::dec),
             UnOpType::Inc => eval_unary_op(env, line, SharedEnvironment::inc),
             UnOpType::Neg => eval_unary_op(env, line, SharedEnvironment::neg),
@@ -237,7 +245,7 @@ fn eval_const_op(
     line: &Btor2Instr,
     radix: u32,
 ) -> Result<(), error::InterpError> {
-    if let Btor2InstrContents::Constant { constant, kind } = &line.contents {
+    if let Btor2InstrContents::Constant { constant, kind: _ } = &line.contents {
         match constant {
             Some(str) => {
                 let nstring = str.to_string();
@@ -252,9 +260,12 @@ fn eval_const_op(
                         env.const_(line.id.try_into().unwrap(), bool_vec);
                         Ok(())
                     }
-                    SortType::Array { index, element } => Err(
-                        error::InterpError::Unsupported("Array".to_string()),
-                    ),
+                    SortType::Array {
+                        index: _,
+                        element: _,
+                    } => Err(error::InterpError::Unsupported(
+                        "Array".to_string(),
+                    )),
                 }
             }
             None => Err(error::InterpError::BadFuncArgType(
@@ -272,15 +283,16 @@ fn eval_literals_op(
     line: &Btor2Instr,
     literal_init: fn(&mut SharedEnvironment, i1: usize),
 ) -> Result<(), error::InterpError> {
-    if let Btor2InstrContents::Literal { kind } = &line.contents {
+    if let Btor2InstrContents::Literal { kind: _ } = &line.contents {
         match line.sort {
-            SortType::Bitvec { width } => {
+            SortType::Bitvec { width: _ } => {
                 literal_init(env, line.id.try_into().unwrap());
                 Ok(())
             }
-            SortType::Array { index, element } => {
-                Err(error::InterpError::Unsupported(format!("Array",)))
-            }
+            SortType::Array {
+                index: _,
+                element: _,
+            } => Err(error::InterpError::Unsupported("Array".to_string())),
         }
     } else {
         Err(error::InterpError::Unsupported("".to_string()))
@@ -309,9 +321,10 @@ fn eval_slice_op(
                 );
                 Ok(())
             }
-            SortType::Array { index, element } => {
-                Err(error::InterpError::Unsupported(format!("Array",)))
-            }
+            SortType::Array {
+                index: _,
+                element: _,
+            } => Err(error::InterpError::Unsupported("Array".to_string())),
         }
     } else {
         Err(error::InterpError::Unsupported("".to_string()))
@@ -324,9 +337,9 @@ fn eval_unary_op(
     line: &Btor2Instr,
     unary_fn: fn(&mut SharedEnvironment, usize, usize),
 ) -> Result<(), error::InterpError> {
-    if let Btor2InstrContents::UnOp { arg1, kind } = &line.contents {
+    if let Btor2InstrContents::UnOp { arg1, kind: _ } = &line.contents {
         match line.sort {
-            SortType::Bitvec { width } => {
+            SortType::Bitvec { width: _ } => {
                 unary_fn(
                     env,
                     (*arg1).try_into().unwrap(),
@@ -334,9 +347,10 @@ fn eval_unary_op(
                 );
                 Ok(())
             }
-            SortType::Array { index, element } => {
-                Err(error::InterpError::Unsupported(format!("Array",)))
-            }
+            SortType::Array {
+                index: _,
+                element: _,
+            } => Err(error::InterpError::Unsupported("Array".to_string())),
         }
     } else {
         Err(error::InterpError::Unsupported("".to_string()))
@@ -349,9 +363,14 @@ fn eval_binary_op(
     line: &Btor2Instr,
     binary_fn: fn(&mut SharedEnvironment, usize, usize, usize),
 ) -> Result<(), error::InterpError> {
-    if let Btor2InstrContents::BinOp { arg1, arg2, kind } = &line.contents {
+    if let Btor2InstrContents::BinOp {
+        arg1,
+        arg2,
+        kind: _,
+    } = &line.contents
+    {
         match line.sort {
-            SortType::Bitvec { width } => {
+            SortType::Bitvec { width: _ } => {
                 binary_fn(
                     env,
                     (*arg1).try_into().unwrap(),
@@ -360,9 +379,10 @@ fn eval_binary_op(
                 );
                 Ok(())
             }
-            SortType::Array { index, element } => {
-                Err(error::InterpError::Unsupported(format!("Array",)))
-            }
+            SortType::Array {
+                index: _,
+                element: _,
+            } => Err(error::InterpError::Unsupported("Array".to_string())),
         }
     } else {
         Err(error::InterpError::Unsupported("".to_string()))

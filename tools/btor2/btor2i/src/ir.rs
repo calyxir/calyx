@@ -1,7 +1,5 @@
 use btor2tools::{Btor2Line, Btor2SortContent, Btor2Tag};
 
-use std::slice::Iter;
-
 //make our own sort
 
 // make an enum entry for each instruction: for all instructions
