@@ -476,19 +476,15 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         },
     );
 
-    // Example operation!
     let wrapper_setup = bld.setup("YXI and AXI generation", |e| {
-        // Define a `gen-axi` rule that invokes our Python code generator program. Maybe the
-        // real thing would want to use a configuration option (or a resource file) to point
-        // to the Python script?
+        // Define a `gen-axi` rule that invokes our Python code generator program.
+        // For now point to standalone axi-generator.py. Can maybe turn this into a rsrc file?
         e.config_var_or(
             "axi-generator",
             "axi.generator",
             "$calyx-base/yxi/axi-calyx/axi-generator.py",
         )?;
         e.config_var_or("python", "python", "python3")?;
-        //TODO do we want this rsrc call?
-        //e.rsrc("$axi-generator")?;
         e.rule("gen-axi", "$python $axi-generator $in > $out")?;
 
         // Define a simple `combine` rule that just concatenates any numer of files.
@@ -517,7 +513,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
                 .0;
             let tmp_yxi = format!("{}.yxi", file_name);
 
-            //Get yxi file from main compute
+            //Get yxi file from main compute program.
             //TODO(nate): Can this use the `yxi` operation instead of hardcoding the build cmd calyx rule with arguments?
             e.build_cmd(&[&tmp_yxi], "calyx", &[input], &[])?;
             e.arg("backend", "yxi")?;
