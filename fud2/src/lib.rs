@@ -151,7 +151,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
 
     // Icarus Verilog.
-    let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
+    let verilog_noverify = bld.state("verilog-noverify", &["sv", "v"]);
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
         e.rule("icarus-compile", "$iverilog -g2012 -o $out tb.sv $in")?;
@@ -545,5 +545,36 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             Ok(())
         },
     );
-    let coctb_axi = bld.state("coctb-axi", &[]);
+
+    let cocotb_setup = bld.setup("cocotb", |e| {
+        // For some reason cocotb is unhappy hwne invoking from a different directory via `make -C` so lets copy the file
+        //TODO: Need a way to copy this file to the cocotb directory? Or have a way to find external paths of the data file and the verilog path, but relative to the makefile.
+        e.config_var_or("cocotb-makefile-dir", "cocotb.makefile-dir", "$calyx-base/yxi/axi-calyx/cocotb/")?;
+
+        // The input data file. `sim.data` is required.
+        // TODO (nate): this is duplicated from the sim_setup above. Can this be shared?
+        let data_name = e.config_val("sim.data")?;
+        let data_path = e.external_path(data_name.as_ref());
+        e.var("sim_data", data_path.as_str())?;
+
+        e.rule("make", "make -C $cocotb-makefile DATA_PATH=$sim_data VERILOG_SOURCE=$in COCOTB_LOG_LEVEL=CRITICAL > $out"   )?;
+
+        e.rule("cleanup-cocotb", r"sed -n '/Output:/,/make\[1\]/{/Output:/d;/make\[1\]/d;p}' $in > $out")?;
+        Ok(())
+    });
+
+    let cocotb_axi = bld.state("cocotb-axi", &["dat"]);
+    bld.op(
+        "calyx-to-cocotb-axi",
+        &[calyx_setup, cocotb_setup],
+        verilog_noverify,
+        cocotb_axi,
+        |e, input, output| {
+        e.build_cmd(&["tmp.dat"], "make", &[input], &["$cocotb-makefile"])?;
+
+        e.build_cmd(&[output], "cleanup-cocotb", &["tmp.dat"], &[])?;
+        
+        Ok(())
+        },
+    );
 }
