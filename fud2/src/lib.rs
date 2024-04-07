@@ -545,4 +545,5 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             Ok(())
         },
     );
+    let coctb_axi = bld.state("coctb-axi", &[]);
 }

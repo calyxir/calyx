@@ -34,7 +34,7 @@ class KernelTB:
             # and ports assigned within that for guidance.
             # In general, the index of `m<idx>_axi` just
             # increments by 1 in fud axi generation
-            print(f"mem is: {mem}")
+            #print(f"mem is: {mem}")
             rams[mem] = AxiRam(
                 AxiBus.from_prefix(self.toplevel, f"{mem}"),
                 self.toplevel.clk,
@@ -69,7 +69,7 @@ async def run_kernel_test(toplevel, data_path: str):
         f.close()
     assert data_map is not None
     await tb.setup_rams(data_map)
-    print(data_map)
+    #print(data_map)
 
     
     # set up clock of 2ns period, simulator default timestep is 1ps
@@ -98,7 +98,7 @@ async def run_kernel_test(toplevel, data_path: str):
         post[mem]["format"] = data_map[mem]["format"]
     # post = {"memories": post}
 
-    print("Output:" + json.dumps(post, indent = 2))
+    print("Output:\n" + json.dumps(post, indent = 2))
 
 
 def mem_size_in_bytes(mem: str, data):
