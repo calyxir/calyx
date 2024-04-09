@@ -1,0 +1,30 @@
+WHITESPACE   = _{ " " | "\t" }
+dot          = _{ "." }
+open_brack   = _{ "{" }
+closed_brack = _{ "}" }
+colon        = _{ ":" }
+ident_syms   = _{ "_" | "-" | "'" }
+quote        = _{ "\"" }
+num          = @{ ASCII_DIGIT+ }
+header       = _{ quote ~ "main" ~ quote ~ colon ~ WHITE_SPACE ~ open_brack ~ NEWLINE }
+group_name   = @{ (ASCII_ALPHA | ASCII_DIGIT)+ }
+
+id_string = @{ ("_" | ASCII_ALPHA)+ ~ (ident_syms | ASCII_ALPHA | ASCII_DIGIT | "::" | ".")* }
+
+named_tag = { "(" ~ num ~ "," ~ id_string ~ ")" }
+
+tag = { named_tag | num }
+
+escaped_newline = @{ "\\" ~ NEWLINE }
+string_char     = ${ !(NEWLINE | EOI) ~ ANY }
+source_char     =  { escaped_newline | string_char }
+
+inner_position_string = ${ source_char* }
+
+position_string = { inner_position_string ~ (NEWLINE | &EOI) }
+
+entry = @{ (quote ~ group_name ~ quote ~ colon ~ WHITE_SPACE ~ num) ~ (",")* ~ NEWLINE }
+
+metadata = {
+    SOI ~ header ~ entry* ~ closed_brack ~ EOI
+}
