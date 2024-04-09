@@ -15,7 +15,6 @@ use slog::{info, Drain};
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
-use std::vec;
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
@@ -137,11 +136,8 @@ where
         panic!("second request was not a launch");
     };
 
-    // Open file using the extracted program path
-    // let file = File::open(program_path)?;
-
     // Construct the adapter
-    let mut adapter = MyAdapter::new(program_path).unwrap();
+    let mut adapter = MyAdapter::new(program_path)?;
 
     //Make two threads to make threads visible on call stack, subject to change.
     let thread = &adapter.create_thread(String::from("Main"));
@@ -313,13 +309,7 @@ fn run_server<R: Read, W: Write>(
                 }));
                 server.respond(rsp)?;
             }
-            // Command::Source(_) => {
-            //     let rsp = req.success(ResponseBody::Source(SourceResponse {
-            //         content: String::from("random"),
-            //         mime_type: None,
-            //     }));
-            //     server.respond(rsp)?;
-            // }
+
             unknown_command => {
                 return Err(MyAdapterError::UnhandledCommandError(
                     unknown_command.clone(),

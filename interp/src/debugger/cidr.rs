@@ -34,8 +34,10 @@ pub(super) const SPACING: &str = "    ";
 /// status contains the set of running groups, done states if the program
 /// is finished or not. If program is done then the debugger is exited
 pub struct ProgramStatus {
-    status: HashSet<Id>, // all groups currently running
-    done: bool,          // states whether the program has finished
+    /// all groups currently running
+    status: HashSet<Id>,
+    /// states whether the program has finished
+    done: bool,
 }
 
 impl ProgramStatus {
