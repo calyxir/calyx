@@ -25,12 +25,12 @@ impl MyAdapter {
     // Pass in path, easier
     // Change to take in the file path
     // Create open file function
-    pub fn new(path: &str) -> AdapterResult<Self> {
+    pub fn new(path: &str, std_path: PathBuf) -> AdapterResult<Self> {
         Ok(MyAdapter {
             debugger: Debugger::from_file(
                 &PathBuf::from(path),
                 // Hard code for now, change path as necessary
-                &PathBuf::from("/home/elias/calyx/calyx-stdlib"),
+                &std_path,
             )
             .unwrap(),
             break_count: Counter::new(),

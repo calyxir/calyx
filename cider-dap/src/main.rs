@@ -15,6 +15,7 @@ use slog::{info, Drain};
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};
 use std::net::TcpListener;
+use std::path::{Path, PathBuf};
 
 #[derive(argh::FromArgs)]
 /// Positional arguments for file path
@@ -25,6 +26,13 @@ struct Opts {
     #[argh(option, short = 'p', long = "port", default = "8080")]
     /// port for the TCP server
     port: u16,
+    #[argh(
+        option,
+        short = 'l',
+        default = "Path::new(option_env!(\"CALYX_PRIMITIVES_DIR\").unwrap_or(\".\")).into()"
+    )]
+    /// std_lib path
+    path: PathBuf,
 }
 
 fn main() -> Result<(), MyAdapterError> {
@@ -64,7 +72,7 @@ fn main() -> Result<(), MyAdapterError> {
         let mut server = Server::new(read_stream, write_stream);
 
         // Get the adapter from the init function
-        let adapter = multi_session_init(&mut server, &logger)?;
+        let adapter = multi_session_init(&mut server, &logger, opts.path)?;
 
         // Run the server using the adapter
         run_server(&mut server, adapter, &logger)?;
@@ -73,7 +81,7 @@ fn main() -> Result<(), MyAdapterError> {
         let write = BufWriter::new(stdout());
         let read = BufReader::new(stdin());
         let mut server = Server::new(read, write);
-        let adapter = multi_session_init(&mut server, &logger)?;
+        let adapter = multi_session_init(&mut server, &logger, opts.path)?;
         run_server(&mut server, adapter, &logger)?;
     }
     info!(logger, "exited run_Server");
@@ -83,6 +91,7 @@ fn main() -> Result<(), MyAdapterError> {
 fn multi_session_init<R, W>(
     server: &mut Server<R, W>,
     logger: &slog::Logger,
+    std_path: PathBuf,
 ) -> AdapterResult<MyAdapter>
 where
     R: Read,
@@ -137,7 +146,7 @@ where
     };
 
     // Construct the adapter
-    let mut adapter = MyAdapter::new(program_path)?;
+    let mut adapter = MyAdapter::new(program_path, std_path)?;
 
     //Make two threads to make threads visible on call stack, subject to change.
     let thread = &adapter.create_thread(String::from("Main"));
