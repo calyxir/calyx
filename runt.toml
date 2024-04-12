@@ -58,6 +58,14 @@ flags=$(head -n 1 {} | cut -c 3-)
 ./target/debug/calyx {} $flags -l .
 """
 
+#yxi is not part of [core]
+[[tests]]
+name = "yxi backend"
+paths = ["yxi/tests/backend/*.futil"]
+cmd = """
+./target/debug/calyx {} -b yxi
+"""
+
 ##### Frontend Tests #####
 [[tests]]
 name = "[frontend] dahlia"
