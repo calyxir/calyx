@@ -1,14 +1,9 @@
 `ifndef __MULFN_V__
 `define __MULFN_V__
 
-/* verilator lint_off WIDTHTRUNC */
-/* verilator lint_off WIDTHEXPAND */
-`include "primitives/float/includeFile.sv"
-`include "primitives/float/HardFloat-1/source/mulRecFN.v"
-/* verilator lint_on WIDTHEXPAND */
-/* verilator lint_on WIDTHTRUNC */
+`include "mulRecFN.v"
 
-module mulFN #(parameter expWidth = 3, parameter sigWidth = 3, parameter numWidth = 6) (
+module mulFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWidth = 32) (
     input clk,
     input reset,
     input val,

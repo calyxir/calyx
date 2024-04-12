@@ -1,14 +1,9 @@
 `ifndef __ADDFN_V__
 `define __ADDFN_V__
 
-/* verilator lint_off WIDTHTRUNC */
-/* verilator lint_off WIDTHEXPAND */
-`include "primitives/float/includeFile.sv"
-`include "primitives/float/HardFloat-1/source/addRecFN.v"
-/* verilator lint_on WIDTHEXPAND */
-/* verilator lint_on WIDTHTRUNC */
+`include "addRecFN.v"
 
-module addFN #(parameter expWidth = 3, parameter sigWidth = 3, parameter numWidth = 6) (
+module addFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWidth = 32) (
     input clk,
     input reset,
     input val,

@@ -1,5 +1,0 @@
-`include "primitives/float/HardFloat-1/source/HardFloat_rawFN.v"
-`include "primitives/float/HardFloat-1/source/HardFloat_primitives.v"
-`include "primitives/float/HardFloat-1/source/isSigNaNRecFN.v"
-`include "primitives/float/HardFloat-1/source/fNToRecFN.v"
-`include "primitives/float/HardFloat-1/source/recFNToFN.v"
