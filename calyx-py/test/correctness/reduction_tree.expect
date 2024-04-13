@@ -1,140 +1,28 @@
-import "primitives/core.futil";
-import "primitives/binary_operators.futil";
-import "primitives/memories/comb.futil";
-component tree(leaf0: 32, leaf1: 32, leaf2: 32, leaf3: 32) -> (sum: 32) {
-  cells {
-    add_l0_l1 = std_add(32);
-    reg_add_l0_l1 = std_reg(32);
-    add_l2_l3 = std_add(32);
-    reg_add_l2_l3 = std_reg(32);
-    add_l_r = std_add(32);
-    reg_add_l_r = std_reg(32);
-  }
-  wires {
-    group add_l0_l1_group {
-      add_l0_l1.left = leaf0;
-      add_l0_l1.right = leaf1;
-      reg_add_l0_l1.write_en = 1'd1;
-      reg_add_l0_l1.in = add_l0_l1.out;
-      add_l0_l1_group[done] = reg_add_l0_l1.done;
-    }
-    group add_l2_l3_group {
-      add_l2_l3.left = leaf2;
-      add_l2_l3.right = leaf3;
-      reg_add_l2_l3.write_en = 1'd1;
-      reg_add_l2_l3.in = add_l2_l3.out;
-      add_l2_l3_group[done] = reg_add_l2_l3.done;
-    }
-    group add_l_r_group {
-      add_l_r.left = reg_add_l0_l1.out;
-      add_l_r.right = reg_add_l2_l3.out;
-      reg_add_l_r.write_en = 1'd1;
-      reg_add_l_r.in = add_l_r.out;
-      add_l_r_group[done] = reg_add_l_r.done;
-    }
-    sum = reg_add_l_r.out;
-  }
-  control {
-    seq {
-      par {
-        add_l0_l1_group;
-        add_l2_l3_group;
-      }
-      add_l_r_group;
-    }
-  }
-}
-component main() -> () {
-  cells {
-    @external A = comb_mem_d1(32, 4, 32);
-    @external B = comb_mem_d1(32, 4, 32);
-    @external C = comb_mem_d1(32, 4, 32);
-    @external D = comb_mem_d1(32, 4, 32);
-    @external ans = comb_mem_d1(32, 1, 1);
-    sum_col0 = std_reg(32);
-    sum_col1 = std_reg(32);
-    sum_col2 = std_reg(32);
-    sum_col3 = std_reg(32);
-    tree = tree();
-  }
-  wires {
-    group add_col0 {
-      A.addr0 = 32'd0;
-      B.addr0 = 32'd0;
-      C.addr0 = 32'd0;
-      D.addr0 = 32'd0;
-      tree.leaf0 = A.read_data;
-      tree.leaf1 = B.read_data;
-      tree.leaf2 = C.read_data;
-      tree.leaf3 = D.read_data;
-      tree.go = !tree.done ? 1'd1;
-      sum_col0.write_en = tree.done ? 1'd1;
-      sum_col0.in = tree.done ? tree.sum;
-      add_col0[done] = sum_col0.done;
-    }
-    group add_col1 {
-      A.addr0 = 32'd1;
-      B.addr0 = 32'd1;
-      C.addr0 = 32'd1;
-      D.addr0 = 32'd1;
-      tree.leaf0 = A.read_data;
-      tree.leaf1 = B.read_data;
-      tree.leaf2 = C.read_data;
-      tree.leaf3 = D.read_data;
-      tree.go = !tree.done ? 1'd1;
-      sum_col1.write_en = tree.done ? 1'd1;
-      sum_col1.in = tree.done ? tree.sum;
-      add_col1[done] = sum_col1.done;
-    }
-    group add_col2 {
-      A.addr0 = 32'd2;
-      B.addr0 = 32'd2;
-      C.addr0 = 32'd2;
-      D.addr0 = 32'd2;
-      tree.leaf0 = A.read_data;
-      tree.leaf1 = B.read_data;
-      tree.leaf2 = C.read_data;
-      tree.leaf3 = D.read_data;
-      tree.go = !tree.done ? 1'd1;
-      sum_col2.write_en = tree.done ? 1'd1;
-      sum_col2.in = tree.done ? tree.sum;
-      add_col2[done] = sum_col2.done;
-    }
-    group add_col3 {
-      A.addr0 = 32'd3;
-      B.addr0 = 32'd3;
-      C.addr0 = 32'd3;
-      D.addr0 = 32'd3;
-      tree.leaf0 = A.read_data;
-      tree.leaf1 = B.read_data;
-      tree.leaf2 = C.read_data;
-      tree.leaf3 = D.read_data;
-      tree.go = !tree.done ? 1'd1;
-      sum_col3.write_en = tree.done ? 1'd1;
-      sum_col3.in = tree.done ? tree.sum;
-      add_col3[done] = sum_col3.done;
-    }
-    group add_intermediates {
-      tree.leaf0 = sum_col0.out;
-      tree.leaf1 = sum_col1.out;
-      tree.leaf2 = sum_col2.out;
-      tree.leaf3 = sum_col3.out;
-      tree.go = !tree.done ? 1'd1;
-      ans.addr0 = tree.done ? 1'd0;
-      ans.write_data = tree.done ? tree.sum;
-      ans.write_en = tree.done ? 1'd1;
-      add_intermediates[done] = ans.done;
-    }
-  }
-  control {
-    seq {
-      par {
-        add_col0;
-        add_col1;
-        add_col2;
-        add_col3;
-      }
-      add_intermediates;
-    }
-  }
-}
+{
+  "A": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "B": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "C": [
+    8,
+    9,
+    10,
+    11
+  ],
+  "D": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "ans": [
+    120
+  ]
