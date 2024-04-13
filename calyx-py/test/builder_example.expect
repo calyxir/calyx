@@ -19,3 +19,83 @@ component adder(val1: 32, val2: 32) -> (out: 32) {
     compute_sum;
   }
 }
+component abs_diff(val1: 32, val2: 32) -> (out: 32) {
+  cells {
+    diff = std_reg(32);
+    ge = std_ge(32);
+    ge_reg = std_reg(1);
+    sub_1 = std_sub(32);
+    sub_2 = std_sub(32);
+  }
+  wires {
+    group sub_1_group {
+      sub_1.left = val1;
+      sub_1.right = val2;
+      diff.write_en = 1'd1;
+      diff.in = sub_1.out;
+      sub_1_group[done] = diff.done;
+    }
+    group sub_2_group {
+      sub_2.left = val2;
+      sub_2.right = val1;
+      diff.write_en = 1'd1;
+      diff.in = sub_2.out;
+      sub_2_group[done] = diff.done;
+    }
+    group val1_ge_val2 {
+      ge.left = val1;
+      ge.right = val2;
+      ge_reg.write_en = 1'd1;
+      ge_reg.in = ge.out;
+      val1_ge_val2[done] = ge_reg.done;
+    }
+    out = diff.out;
+  }
+  control {
+    seq {
+      val1_ge_val2;
+      if ge_reg.out {
+        sub_1_group;
+      } else {
+        sub_2_group;
+      }
+    }
+  }
+}
+component mux(val1: 32, val2: 32, sel: 1) -> (out: 32) {
+  cells {
+    mux = std_reg(32);
+    eq_1 = std_eq(1);
+    add_2 = std_add(32);
+    abs_diff = abs_diff();
+  }
+  wires {
+    comb group eq_1_group {
+      eq_1.left = sel;
+      eq_1.right = 1'd0;
+    }
+    group add_2_group {
+      add_2.left = val1;
+      add_2.right = val2;
+      mux.write_en = 1'd1;
+      mux.in = add_2.out;
+      add_2_group[done] = mux.done;
+    }
+    group compute_diff {
+      abs_diff.val1 = val1;
+      abs_diff.val2 = val2;
+      abs_diff.go = 1'd1;
+      mux.write_en = abs_diff.done;
+      mux.in = abs_diff.out;
+      compute_diff[done] = mux.done;
+    }
+    out = mux.out;
+  }
+  control {
+    if eq_1.out with eq_1_group {
+      add_2_group;
+    } else {
+      compute_diff;
+    }
+  }
+}
