@@ -50,11 +50,49 @@ def insert_adder_component(prog):
     # ANCHOR_END: return
 
 
-def insert_mux_component(prog):
+def insert_abs_diff_component(prog):
+    """Insert an absolute difference component into the program.
+    It takes two values and outputs the absolute difference between them.
+    """
+    comp = prog.component("abs_diff")
+
+    val1 = comp.input("val1", 32)
+    val2 = comp.input("val2", 32)
+    comp.output("out", 32)
+
+    diff = comp.reg("diff", 32)
+    ge = comp.ge(32, "ge")
+    ge_reg = comp.reg("ge_reg", 1)
+
+    # ANCHOR: sub_and_store
+    diff_group_1, _ = comp.sub_store_in_reg(val1, val2, diff)
+    # ANCHOR_END: sub_and_store
+    diff_group_2, _ = comp.sub_store_in_reg(val2, val1, diff)
+
+    with comp.group("val1_ge_val2") as val1_ge_val2:
+        ge.left = val1
+        ge.right = val2
+        ge_reg.write_en = cb.HI
+        ge_reg.in_ = ge.out
+        val1_ge_val2.done = ge_reg.done
+
+    with comp.continuous:
+        comp.this().out = diff.out
+
+    comp.control += [
+        val1_ge_val2,
+        cb.if_(ge_reg.out, diff_group_1, diff_group_2),
+    ]
+
+    return comp
+
+
+def insert_mux_component(prog, diff_comp=None):
     """Insert a multiplexer component into the program.
     The user provides two values and a select signal.
     If the select signal is high, the component outputs the sum of the two values.
-    If the select signal is low, the component outputs the difference of the two values.
+    If the select signal is low, the component outputs the
+    absolute difference of the two values.
     """
     comp = prog.component("mux")
 
@@ -68,9 +106,7 @@ def insert_mux_component(prog):
     sel_eq_0 = comp.eq_use(sel, 0)
     # ANCHOR_END: eq_use
 
-    # ANCHOR: add_and_store
     sum_group, _ = comp.add_store_in_reg(val1, val2, mux)
-    # ANCHOR_END: adder_group_and_reg
     diff_group, _ = comp.sub_store_in_reg(val1, val2, mux)
 
     with comp.continuous:
@@ -87,6 +123,7 @@ def insert_mux_component(prog):
 def build():
     prog = cb.Builder()
     insert_adder_component(prog)
+    insert_abs_diff_component(prog)
     insert_mux_component(prog)
     return prog.program
     # ANCHOR_END: build
