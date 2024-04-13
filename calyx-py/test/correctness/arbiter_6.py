@@ -38,8 +38,8 @@ def add_wrap2(prog):
     unchanged = wrap.reg_store(j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and j-8. Either of these will store the result in `j_mod_4`.
-    j_minus_4, j_mod_4 = wrap.sub_store_in_reg(j, 4, "j_minus_4", ans_reg=j_mod_4)
-    j_minus_8, j_mod_4 = wrap.sub_store_in_reg(j, 8, "j_minus_8", ans_reg=j_mod_4)
+    j_minus_4, j_mod_4 = wrap.sub_store_in_reg(j, 4, ans_reg=j_mod_4)
+    j_minus_8, j_mod_4 = wrap.sub_store_in_reg(j, 8, ans_reg=j_mod_4)
 
     load_from_mems = [
         # Add wiring to load the value `j_mod_4` from all of the memory cells.
@@ -121,7 +121,7 @@ def add_wrap3(prog):
     unchanged = wrap.reg_store(j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and store the result in `j_mod_4`.
-    subcell, j_mod_4 = wrap.sub_store_in_reg(j, 4, "j_minus_4", ans_reg=j_mod_4)
+    subcell, j_mod_4 = wrap.sub_store_in_reg(j, 4, ans_reg=j_mod_4)
 
     emit_from_mems = [
         wrap.mem_load_to_mem(mems[i], j_mod_4.out, ans, 0, f"load_from_mem{i}")
