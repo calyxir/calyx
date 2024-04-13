@@ -1,81 +1,57 @@
-from calyx.builder import Builder, const
-from calyx import py_ast as ast
+import calyx.builder as cb
 
 
-# ANCHOR: init
-def add_main_component(prog):
-    main = prog.component("main")
-    main.input("in", 32)
-    main.output("out", 32)
-    # ANCHOR_END: init
+def add_adder_component(prog):
+    # ANCHOR: component
+    comp = prog.component("adder")
+    # ANCHOR_END: component
+
+    # ANCHOR: ports
+    val1 = comp.input("val1", 32)
+    val2 = comp.input("val2", 32)
+    comp.output("out", 32)
+    # ANCHOR_END: ports
 
     # ANCHOR: cells
-    lhs = main.reg("lhs", 32)
-    rhs = main.reg("rhs", 32)
-    sum = main.reg("sum", 32)
-    add = main.add(32, "add")
+    sum = comp.reg("sum", 32)
+    add = comp.add(32, "add")
     # ANCHOR_END: cells
 
-    # ANCHOR: bare
-    # Bare name of the cell
-    add_out = ast.CompPort(ast.CompVar("add"), "out")
-    # ANCHOR_END: bare
-
     # ANCHOR: group_def
-    with main.group("update_operands") as update_operands:
+    with comp.group("compute_sum") as compute_sum:
         # ANCHOR_END: group_def
-        # ANCHOR: assigns
-        # Directly index cell ports using dot notation
-        lhs.write_en = 1
-        # Builder attempts to infer the bitwidth of the constant
-        rhs.write_en = 1
+        # ANCHOR: dot_notation
+        add.left = val1
+        add.right = val2
+        # ANCHOR_END: dot_notation
+        # ANCHOR: high_signal
+        sum.write_en = cb.HI
+        # ANCHOR_END: high_signal
         # `in` is a reserved keyword, so we use `in_` instead
-        lhs.in_ = 1
-        # ANCHOR_END: assigns
-        # ANCHOR: const
-        # Explicilty sized constants when bitwidth inference may not work
-        rhs.in_ = const(32, 41)
-        # ANCHOR_END: const
-        # ANCHOR: done
-        # Guards are specified using the `@` syntax
-        update_operands.done = (lhs.done & rhs.done) @ 1
-        # ANCHOR_END: done
-
-    with main.group("compute_sum") as compute_sum:
-        add.left = lhs.out
-        add.right = rhs.out
-        sum.write_en = 1
-        # Directly use the ast.CompPort object `add_out`.
-        # This is useful HACK when we haven't defined the cell yet but still want
-        # to use its ports.
-        # ANCHOR: bare_use
-        sum.in_ = add_out
-        # ANCHOR_END: bare_use
+        sum.in_ = add.out
         compute_sum.done = sum.done
 
-    # ANCHOR: this
+    # ANCHOR: this_continuous
     # Use `this()` method to access the ports on the current component
-    this = main.this()
-    # ANCHOR_END: this
-    # ANCHOR: continuous
-    with main.continuous:
-        this.out = sum.out
-    # ANCHOR_END: continuous
+    with comp.continuous:
+        comp.this().out = sum.out
+    # ANCHOR_END: this_continuous
 
     # ANCHOR: control
-    main.control += [
-        update_operands,
-        compute_sum,
-    ]
+    comp.control += compute_sum
     # ANCHOR_END: control
 
-
-# ANCHOR: return
-def build():
-    prog = Builder()
-    add_main_component(prog)
-    return prog.program
+    # ANCHOR: return
+    return comp
     # ANCHOR_END: return
+
+
+# ANCHOR: build
+def build():
+    prog = cb.Builder()
+    add_adder_component(prog)
+    return prog.program
+    # ANCHOR_END: build
 
 
 # ANCHOR: emit

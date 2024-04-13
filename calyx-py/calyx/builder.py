@@ -76,7 +76,7 @@ class ComponentBuilder:
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
-            attributes = [],
+            attributes=[],
             inputs=[],
             outputs=[],
             structs=cells,
@@ -114,8 +114,7 @@ class ComponentBuilder:
         return self.this()[name]
 
     def attribute(self, name: str, value: int) -> None:
-        """Declare an attribute on the component.
-        """
+        """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
 
     def this(self) -> ThisBuilder:
@@ -662,6 +661,7 @@ class ComponentBuilder:
             op_group.done = ans_reg.done
         return op_group, ans_reg
 
+    # TODO: cellname, width can be made optional.
     def add_store_in_reg(
         self, left, right, cellname, width, ans_reg=None, signed=False
     ):
