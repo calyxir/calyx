@@ -83,7 +83,7 @@ def insert_runner(prog, queue, name, stats_component=None):
 
     # Wiring that raises `err` iff `i = MAX_CMDS`.
     check_if_out_of_cmds, _ = runner.eq_store_in_reg(
-        i.out, cb.const(32, queue_util.MAX_CMDS), ans_reg=err
+        i.out, cb.const(32, queue_util.MAX_CMDS), err
     )
 
     runner.control += [

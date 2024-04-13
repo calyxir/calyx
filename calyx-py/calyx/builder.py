@@ -673,9 +673,9 @@ class ComponentBuilder:
         self,
         left,
         right,
+        ans_reg=None,
         cellname=None,
         width=None,
-        ans_reg=None,
         signed=False,
     ):
         """Inserts wiring into `self` to perform `reg := left + right`."""
@@ -687,9 +687,9 @@ class ComponentBuilder:
         self,
         left,
         right,
+        ans_reg=None,
         cellname=None,
         width=None,
-        ans_reg=None,
         signed=False,
     ):
         """Inserts wiring into `self` to perform `reg := left - right`."""
@@ -701,9 +701,9 @@ class ComponentBuilder:
         self,
         left,
         right,
+        ans_reg=None,
         cellname=None,
         width=None,
-        ans_reg=None,
         signed=False,
     ):
         """Inserts wiring into `self` to perform `reg := left == right`."""
@@ -715,9 +715,9 @@ class ComponentBuilder:
         self,
         left,
         right,
+        ans_reg=None,
         cellname=None,
         width=None,
-        ans_reg=None,
         signed=False,
     ):
         """Inserts wiring into `self` to perform `reg := left != right`."""
