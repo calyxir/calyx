@@ -1,20 +1,20 @@
 extern "addFN.sv" {
-  primitive addFN[
+  primitive std_addFN[
     expWidth, 
     sigWidth, 
     numWidth
   ](
     @clk clk: 1,
     @reset reset: 1,
-    val: 1,
+    @go go: 1,
     control: 1,
-    subOp: 1,
-    a: numWidth,
-    b: numWidth,
+    @write_together(1) subOp: 1,
+    @write_together(1) left: numWidth,
+    @write_together(1) right: numWidth,
     roundingMode: 3
   ) -> (
     out: numWidth,
     exceptionFlags: 5,
-    done: 1
+    @done done: 1
   );
 }

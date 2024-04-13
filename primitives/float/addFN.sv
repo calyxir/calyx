@@ -6,11 +6,11 @@
 module addFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWidth = 32) (
     input clk,
     input reset,
-    input val,
+    input go,
     input [(`floatControlWidth - 1):0] control,
     input subOp,
-    input [(expWidth + sigWidth - 1):0] a,
-    input [(expWidth + sigWidth - 1):0] b,
+    input [(expWidth + sigWidth - 1):0] left,
+    input [(expWidth + sigWidth - 1):0] right,
     input [2:0] roundingMode,
     output logic [(expWidth + sigWidth - 1):0] out,
     output logic [4:0] exceptionFlags,
@@ -18,17 +18,17 @@ module addFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWid
 );
 
     // Intermediate signals for recoded formats
-    wire [(expWidth + sigWidth):0] a_recoded, b_recoded;
+    wire [(expWidth + sigWidth):0] l_recoded, r_recoded;
 
     // Convert 'a' and 'b' from standard to recoded format
-    fNToRecFN #(expWidth, sigWidth) convert_a(
-        .in(a),
-        .out(a_recoded)
+    fNToRecFN #(expWidth, sigWidth) convert_l(
+        .in(left),
+        .out(l_recoded)
     );
 
-    fNToRecFN #(expWidth, sigWidth) convert_b(
-        .in(b),
-        .out(b_recoded)
+    fNToRecFN #(expWidth, sigWidth) convert_r(
+        .in(right),
+        .out(r_recoded)
     );
 
     // Intermediate signals after the adder
@@ -36,11 +36,11 @@ module addFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWid
     wire [4:0] except_flag;
 
     // Compute recoded numbers
-    addRecFN #(expWidth, sigWidth) adder(
+    addRecFN #(expWidth, sigWidth adder(
         .control(control),
         .subOp(subOp),
-        .a(a_recoded),
-        .b(b_recoded),
+        .left(l_recoded),
+        .right(r_recoded),
         .roundingMode(roundingMode),
         .out(res_recoded),
         .exceptionFlags(except_flag)
@@ -83,7 +83,7 @@ module addFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWid
     if (reset) begin
         valid_shift_reg <= 4'b0000;
     end else begin
-        valid_shift_reg <= {valid_shift_reg[2:0], val};
+        valid_shift_reg <= {valid_shift_reg[2:0], go};
     end
     end
 
@@ -93,3 +93,4 @@ endmodule
 
 
 `endif /* __ADDFN_V__ */
+
