@@ -108,7 +108,7 @@ def add_main(prog, tree):
 
     tree = main.cell("tree", tree)
 
-    adder_groups: List[cb.GroupBuilder] = [
+    init_adder_groups: List[cb.GroupBuilder] = [
         # Fill each of our answer registers will the sum of the corresponding column.
         # The tree will be used four times, once for each column.
         # Each time, we will receive a handle to the group that does the work.
@@ -119,7 +119,7 @@ def add_main(prog, tree):
         for i, ans_reg in enumerate([sum_col0, sum_col1, sum_col2, sum_col3])
     ]
 
-    adder_groups.append(
+    final_adder_group = (
         # We also create and stash a further group:
         # this one does the work of adding the four columns.
         use_tree_ports_provided(
@@ -134,8 +134,10 @@ def add_main(prog, tree):
         )
     )
 
-    # Control is straightforward: just run all the groups in `adder_groups` in sequence.
-    main.control += adder_groups
+    # Control is straightforward:
+    # Run the initial adder groups in parallel,
+    # then run the final adder group.
+    main.control += [cb.par(*init_adder_groups), final_adder_group]
 
 
 def build():
