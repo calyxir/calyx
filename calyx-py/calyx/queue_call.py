@@ -82,30 +82,30 @@ def insert_runner(prog, queue, name, stats_component=None):
     not_err = runner.not_use(err.out)
 
     # Wiring that raises `err` iff `i = MAX_CMDS`.
-    check_if_out_of_cmds, _ = runner.eq_store_in_reg(
-        i.out, cb.const(32, queue_util.MAX_CMDS), "i_eq_MAX_CMDS", 32, err
-    )
+    check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, queue_util.MAX_CMDS, err)
 
     runner.control += [
         read_cmd,
         write_cmd_to_reg,  # `cmd := commands[i]`
         read_value,
         write_value_to_reg,  # `value := values[i]`
-        cb.invoke(  # Invoke the queue.
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            ref_ans=ans,
-            ref_err=err,
-            ref_stats=stats,
-        )
-        if stats_component
-        else cb.invoke(  # Invoke the queue.
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            ref_ans=ans,
-            ref_err=err,
+        (
+            cb.invoke(  # Invoke the queue.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                ref_ans=ans,
+                ref_err=err,
+                ref_stats=stats,
+            )
+            if stats_component
+            else cb.invoke(  # Invoke the queue.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                ref_ans=ans,
+                ref_err=err,
+            )
         ),
         # We're back from the invoke, and it's time for some post-mortem analysis.
         cb.if_with(
@@ -162,23 +162,25 @@ def insert_main(prog, queue, controller=None, stats_component=None):
         not_err,  # While the dataplane component has not errored out.
         [
             lower_has_ans,  # Lower the has-ans flag.
-            cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                ref_commands=commands,
-                ref_values=values,
-                ref_has_ans=has_ans,
-                ref_component_ans=dataplane_ans,
-                ref_component_err=dataplane_err,
-                ref_stats_runner=stats,
-            )
-            if stats_component
-            else cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                ref_commands=commands,
-                ref_values=values,
-                ref_has_ans=has_ans,
-                ref_component_ans=dataplane_ans,
-                ref_component_err=dataplane_err,
+            (
+                cb.invoke(  # Invoke the dataplane component.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                    ref_stats_runner=stats,
+                )
+                if stats_component
+                else cb.invoke(  # Invoke the dataplane component.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                )
             ),
             # If the dataplane component has a nonzero answer,
             # write it to the answer-list and increment the index `j`.
@@ -186,11 +188,13 @@ def insert_main(prog, queue, controller=None, stats_component=None):
                 has_ans.out,
                 cb.if_with(ans_neq_0, [write_ans, incr_j]),
             ),
-            cb.invoke(  # Invoke the controller component.
-                controller,
-                ref_stats_controller=stats,
-            )
-            if controller
-            else ast.Empty,
+            (
+                cb.invoke(  # Invoke the controller component.
+                    controller,
+                    ref_stats_controller=stats,
+                )
+                if controller
+                else ast.Empty
+            ),
         ],
     )
