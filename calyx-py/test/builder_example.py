@@ -87,7 +87,7 @@ def insert_abs_diff_component(prog):
     return comp
 
 
-def insert_mux_component(prog, diff_comp=None):
+def insert_mux_component(prog, diff_comp):
     """Insert a multiplexer component into the program.
     The user provides two values and a select signal.
     If the select signal is high, the component outputs the sum of the two values.
@@ -106,8 +106,21 @@ def insert_mux_component(prog, diff_comp=None):
     sel_eq_0 = comp.eq_use(sel, 0)
     # ANCHOR_END: eq_use
 
+    # ANCHOR: sum_group_oneliner
     sum_group, _ = comp.add_store_in_reg(val1, val2, mux)
-    diff_group, _ = comp.sub_store_in_reg(val1, val2, mux)
+    # ANCHOR_END: sum_group_oneliner
+
+    # ANCHOR: multi-component
+    abs_diff = comp.cell("abs_diff", diff_comp)
+    with comp.group("compute_diff") as diff_group:
+        # We will use the `diff_comp` component.
+        abs_diff.val1 = val1
+        abs_diff.val2 = val2
+        abs_diff.go = cb.HI
+        mux.write_en = abs_diff.done
+        mux.in_ = abs_diff.out
+        diff_group.done = mux.done
+    # ANCHOR_END: multi-component
 
     with comp.continuous:
         comp.this().out = mux.out
@@ -123,8 +136,8 @@ def insert_mux_component(prog, diff_comp=None):
 def build():
     prog = cb.Builder()
     insert_adder_component(prog)
-    insert_abs_diff_component(prog)
-    insert_mux_component(prog)
+    diff_comp = insert_abs_diff_component(prog)
+    insert_mux_component(prog, diff_comp)
     return prog.program
     # ANCHOR_END: build
 
