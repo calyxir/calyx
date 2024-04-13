@@ -82,9 +82,7 @@ def insert_runner(prog, queue, name, stats_component=None):
     not_err = runner.not_use(err.out)
 
     # Wiring that raises `err` iff `i = MAX_CMDS`.
-    check_if_out_of_cmds, _ = runner.eq_store_in_reg(
-        i.out, cb.const(32, queue_util.MAX_CMDS), err
-    )
+    check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, queue_util.MAX_CMDS, err)
 
     runner.control += [
         read_cmd,
