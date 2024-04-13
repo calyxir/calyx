@@ -1,7 +1,7 @@
 import calyx.builder as cb
 
 
-def add_adder_component(prog):
+def insert_adder_component(prog):
     """Insert an adder component into the program.
     This is a contrived example:
     the component basically just wraps the adder primitive.
@@ -50,7 +50,7 @@ def add_adder_component(prog):
     # ANCHOR_END: return
 
 
-def add_mux_component(prog):
+def insert_mux_component(prog):
     """Insert a multiplexer component into the program.
     The user provides two values and a select signal.
     If the select signal is high, the component outputs the sum of the two values.
@@ -62,20 +62,23 @@ def add_mux_component(prog):
     val2 = comp.input("val2", 32)
     sel = comp.input("sel", 1)
     comp.output("out", 32)
-
     mux = comp.reg("mux", 32)
 
+    # ANCHOR: eq_use
     sel_eq_0 = comp.eq_use(sel, 0)
+    # ANCHOR_END: eq_use
 
-    # ANCHOR: adder_group_and_reg
-    sum_group, _ = comp.add_store_in_reg(val1, val2, ans_reg=mux)
+    # ANCHOR: add_and_store
+    sum_group, _ = comp.add_store_in_reg(val1, val2, mux)
     # ANCHOR_END: adder_group_and_reg
-    diff_group, _ = comp.sub_store_in_reg(val1, val2, ans_reg=mux)
+    diff_group, _ = comp.sub_store_in_reg(val1, val2, mux)
 
     with comp.continuous:
         comp.this().out = mux.out
 
+    # ANCHOR: if_with
     comp.control += cb.if_with(sel_eq_0, sum_group, diff_group)
+    # ANCHOR_END: if_with
 
     return comp
 
@@ -83,8 +86,8 @@ def add_mux_component(prog):
 # ANCHOR: build
 def build():
     prog = cb.Builder()
-    add_adder_component(prog)
-    add_mux_component(prog)
+    insert_adder_component(prog)
+    insert_mux_component(prog)
     return prog.program
     # ANCHOR_END: build
 
