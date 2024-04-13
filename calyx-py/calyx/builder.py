@@ -76,7 +76,7 @@ class ComponentBuilder:
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
-            attributes = [],
+            attributes=[],
             inputs=[],
             outputs=[],
             structs=cells,
@@ -114,8 +114,7 @@ class ComponentBuilder:
         return self.this()[name]
 
     def attribute(self, name: str, value: int) -> None:
-        """Declare an attribute on the component.
-        """
+        """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
 
     def this(self) -> ThisBuilder:
@@ -649,10 +648,11 @@ class ComponentBuilder:
             load_grp.done = ans.done
         return load_grp
 
-    def op_store_in_reg(self, op_cell, left, right, cellname, width, ans_reg=None):
+    def op_store_in_reg(self, op_cell, left, right, cellname, width=None, ans_reg=None):
         """Inserts wiring into `self` to perform `reg := left op right`,
         where `op_cell`, a Cell that performs some `op`, is provided.
         """
+        width = width or self.try_infer_width(width, left, right)
         ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
@@ -663,31 +663,37 @@ class ComponentBuilder:
         return op_group, ans_reg
 
     def add_store_in_reg(
-        self, left, right, cellname, width, ans_reg=None, signed=False
+        self, left, right, cellname, width=None, ans_reg=None, signed=False
     ):
         """Inserts wiring into `self` to perform `reg := left + right`."""
+        width = width or self.try_infer_width(width, left, right)
         return self.op_store_in_reg(
             self.add(width, cellname, signed), left, right, cellname, width, ans_reg
         )
 
     def sub_store_in_reg(
-        self, left, right, cellname, width, ans_reg=None, signed=False
+        self, left, right, cellname, width=None, ans_reg=None, signed=False
     ):
         """Inserts wiring into `self` to perform `reg := left - right`."""
+        width = width or self.try_infer_width(width, left, right)
         return self.op_store_in_reg(
             self.sub(width, cellname, signed), left, right, cellname, width, ans_reg
         )
 
-    def eq_store_in_reg(self, left, right, cellname, width, ans_reg=None, signed=False):
+    def eq_store_in_reg(
+        self, left, right, cellname, width=None, ans_reg=None, signed=False
+    ):
         """Inserts wiring into `self` to perform `reg := left == right`."""
+        width = width or self.try_infer_width(width, left, right)
         return self.op_store_in_reg(
             self.eq(width, cellname, signed), left, right, cellname, 1, ans_reg
         )
 
     def neq_store_in_reg(
-        self, left, right, cellname, width, ans_reg=None, signed=False
+        self, left, right, cellname, width=None, ans_reg=None, signed=False
     ):
         """Inserts wiring into `self` to perform `reg := left != right`."""
+        width = width or self.try_infer_width(width, left, right)
         return self.op_store_in_reg(
             self.neq(width, cellname, signed), left, right, cellname, 1, ans_reg
         )
