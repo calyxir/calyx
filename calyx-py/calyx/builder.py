@@ -669,7 +669,6 @@ class ComponentBuilder:
             op_group.done = ans_reg.done
         return op_group, ans_reg
 
-    # TODO: cellname, width can be made optional.
     def add_store_in_reg(
         self,
         left,
