@@ -76,13 +76,23 @@ def insert_abs_diff_component(prog):
         ge_reg.in_ = ge.out
         val1_ge_val2.done = ge_reg.done
 
+    # ANCHOR: lt_use_oneliner
+    val2_lt_val1 = comp.lt_use(val2, val1)
+    # ANCHOR_END: lt_use_oneliner
+
     with comp.continuous:
         comp.this().out = diff.out
 
-    comp.control += [
-        val1_ge_val2,
-        cb.if_(ge_reg.out, diff_group_1, diff_group_2),
-    ]
+    # ANCHOR: par_if_ifwith
+    comp.control += cb.par(
+        [
+            val1_ge_val2,
+            cb.if_(ge_reg.out, diff_group_1, diff_group_2),
+        ],
+        cb.if_with(val2_lt_val1, diff_group_2, diff_group_1),
+    )
+    # This is contrived; either of the `par` branches would have sufficed.
+    # ANCHOR_END: par_if_ifwith
 
     return comp
 
