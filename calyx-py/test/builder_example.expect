@@ -112,7 +112,7 @@ component mux(val1: 32, val2: 32, sel: 1) -> (out: 32) {
     }
   }
 }
-component map() -> () {
+component map(v: 32) -> () {
   cells {
     ref mem = comb_mem_d1(32, 10, 32);
     i = std_reg(8);
@@ -135,7 +135,7 @@ component map() -> () {
     group add_at_position_i {
       mem.addr0 = i.out;
       add_1.left = mem.read_data;
-      add_1.right = 32'd42;
+      add_1.right = v;
       mem.write_en = add_1.done ? 1'd1;
       mem.write_data = add_1.out;
       add_at_position_i[done] = mem.done;
@@ -153,14 +153,14 @@ component map() -> () {
 component main() -> () {
   cells {
     map = map();
-    @external mem = comb_mem_d1(32, 10, 32);
+    @external mymem = comb_mem_d1(32, 10, 32);
   }
   wires {
 
   }
   control {
     seq {
-      invoke map[mem=mem]()();
+      invoke map[mem=mymem](v=32'd42)();
     }
   }
 }
