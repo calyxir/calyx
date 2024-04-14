@@ -12,6 +12,7 @@ pub enum BackendOpt {
     Mlir,
     Resources,
     Sexp,
+    #[cfg(feature = "yxi")]
     Yxi,
     Firrtl,
     PrimitiveUses,
@@ -29,6 +30,7 @@ fn backends() -> Vec<(&'static str, BackendOpt)> {
         ("mlir", BackendOpt::Mlir),
         ("resources", BackendOpt::Resources),
         ("sexp", BackendOpt::Sexp),
+        #[cfg(feature = "yxi")]
         ("yxi", BackendOpt::Yxi),
         ("firrtl", BackendOpt::Firrtl),
         ("primitive-uses", BackendOpt::PrimitiveUses),
@@ -73,6 +75,7 @@ impl ToString for BackendOpt {
             Self::Verilog => "verilog",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
+            #[cfg(feature = "yxi")]
             Self::Yxi => "yxi",
             Self::Calyx => "calyx",
             Self::Firrtl => "firrtl",

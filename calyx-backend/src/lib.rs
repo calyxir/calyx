@@ -4,13 +4,16 @@ mod firrtl;
 mod primitive_uses;
 mod traits;
 mod verilog;
-mod yxi;
 
 pub use backend_opt::BackendOpt;
 pub use firrtl::FirrtlBackend;
 pub use primitive_uses::PrimitiveUsesBackend;
 pub use traits::Backend;
 pub use verilog::VerilogBackend;
+
+#[cfg(feature = "yxi")]
+mod yxi;
+#[cfg(feature = "yxi")]
 pub use yxi::YxiBackend;
 
 #[cfg(feature = "mlir")]

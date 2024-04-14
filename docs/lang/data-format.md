@@ -81,8 +81,8 @@ Often times, it can be useful to automatically generate random values for a larg
 
 [toplevel-attr]: attributes.md#toplevel
 [ext-attr]: attributes.md#external
-[fud]: ../fud/index.md
+[fud]: ../running-calyx/fud/index.md
 [data-gen]: ../tools/data-gen.md
-[iv]: ../fud/index.md#icarus-verilog
-[verilator]: ../fud/index.md#verilator
+[iv]: ../running-calyx/fud/index.md#icarus-verilog
+[verilator]: ../running-calyx/fud/index.md#verilator
 [interpreter]: ../interpreter.md
