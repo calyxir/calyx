@@ -141,7 +141,9 @@ def insert_map_component(prog):
     We add 42 to each element in the memory.
     """
     comp = prog.component("map")
+    # ANCHOR: comb_mem_d1_ref
     mem = comp.comb_mem_d1("mem", 32, 10, 32, is_ref=True)
+    # ANCHOR_END: comb_mem_d1_ref
 
     i = comp.reg("i", 8)
     # ANCHOR: incr_oneliner
@@ -149,17 +151,25 @@ def insert_map_component(prog):
     # ANCHOR_END: incr_oneliner
     add = comp.add(32)
 
+    # ANCHOR: width_inf_1
     i_lt_10 = comp.lt_use(i.out, 10)
+    # ANCHOR_END: width_inf_1
 
     with comp.group("add_at_position_i") as add_at_position_i:
         mem.addr0 = i.out
         add.left = mem.read_data
+        # ANCHOR: width_inf_2
         add.right = 42
+        # ANCHOR_END: width_inf_2
+        # ANCHOR: guarded_assignment
         mem.write_en = add.done @ cb.HI
+        # ANCHOR_END: guarded_assignment
         mem.write_data = add.out
         add_at_position_i.done = mem.done
 
+    # ANCHOR: while_with
     comp.control += cb.while_with(i_lt_10, [add_at_position_i, incr_i])
+    # ANCHOR_END: while_with
 
     return comp
 
@@ -171,11 +181,14 @@ def insert_main_component(prog, map):
 
     comp = prog.component("main")
     map = comp.cell("map", map)
-
+    # ANCHOR: ext_mem
     mymem = comp.comb_mem_d1("mem", 32, 10, 32, is_external=True)
+    # ANCHOR_END: ext_mem
 
     comp.control += [
-        cb.invoke(map, ref_mem=mymem),
+        # ANCHOR: invoke
+        cb.invoke(map, ref_mem=mymem)
+        # ANCHOR_END: invoke
     ]
 
 
