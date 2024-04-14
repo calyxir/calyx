@@ -150,3 +150,17 @@ component map() -> () {
     }
   }
 }
+component main() -> () {
+  cells {
+    map = map();
+    @external mem = comb_mem_d1(32, 10, 32);
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke map[mem=mem]()();
+    }
+  }
+}

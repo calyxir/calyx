@@ -161,6 +161,23 @@ def insert_map_component(prog):
 
     comp.control += cb.while_with(i_lt_10, [add_at_position_i, incr_i])
 
+    return comp
+
+
+def insert_main_component(prog, map):
+    """Insert the main component into the program.
+    This component will invoke the `adder`, `abs_diff`, `mux`, and `map` components.
+    """
+
+    comp = prog.component("main")
+    map = comp.cell("map", map)
+
+    mymem = comp.comb_mem_d1("mem", 32, 10, 32, is_external=True)
+
+    comp.control += [
+        cb.invoke(map, ref_mem=mymem),
+    ]
+
 
 # ANCHOR: build
 def build():
@@ -168,7 +185,8 @@ def build():
     insert_adder_component(prog)
     diff_comp = insert_abs_diff_component(prog)
     insert_mux_component(prog, diff_comp)
-    insert_map_component(prog)
+    map_comp = insert_map_component(prog)
+    insert_main_component(prog, map_comp)
     return prog.program
     # ANCHOR_END: build
 
