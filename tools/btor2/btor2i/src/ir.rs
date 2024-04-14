@@ -239,6 +239,7 @@ impl From<&Btor2Line<'_>> for Btor2Instr {
     fn from(line: &Btor2Line) -> Btor2Instr {
         let id = line.id();
         let sort = SortType::from(line.sort().content());
+        // eprintln!("{:?}", line);
         match line.tag() {
             // core
             btor2tools::Btor2Tag::Sort => Btor2Instr {
@@ -270,10 +271,10 @@ impl From<&Btor2Line<'_>> for Btor2Instr {
             btor2tools::Btor2Tag::Redxor => convert_unary_op(line),
 
             // binary - boolean
-            btor2tools::Btor2Tag::Iff => convert_unary_op(line),
-            btor2tools::Btor2Tag::Implies => convert_unary_op(line),
-            btor2tools::Btor2Tag::Eq => convert_unary_op(line),
-            btor2tools::Btor2Tag::Neq => convert_unary_op(line),
+            btor2tools::Btor2Tag::Iff => convert_binary_op(line),
+            btor2tools::Btor2Tag::Implies => convert_binary_op(line),
+            btor2tools::Btor2Tag::Eq => convert_binary_op(line),
+            btor2tools::Btor2Tag::Neq => convert_binary_op(line),
 
             // binary - (un)signed inequality
             btor2tools::Btor2Tag::Sgt => convert_binary_op(line),
@@ -397,6 +398,7 @@ fn convert_literal_op(line: &Btor2Line) -> Btor2Instr {
 }
 
 fn convert_unary_op(line: &Btor2Line) -> Btor2Instr {
+    // eprintln!("{:?}", line);
     assert_eq!(line.args().len(), 1);
     Btor2Instr {
         id: line.id(),
@@ -435,6 +437,7 @@ fn convert_conditional_op(line: &Btor2Line) -> Btor2Instr {
 }
 
 fn convert_slice_op(line: &Btor2Line) -> Btor2Instr {
+    // eprintln!("{:?}", line);
     assert_eq!(line.args().len(), 3);
     Btor2Instr {
         id: line.id(),
