@@ -18,7 +18,7 @@ def insert_adder_component(prog):
 
     # ANCHOR: cells
     sum = comp.reg("sum", 32)
-    add = comp.add(32, "add")
+    add = comp.add(32)
     # ANCHOR_END: cells
 
     # ANCHOR: group_def
@@ -112,18 +112,13 @@ def insert_mux_component(prog, diff_comp):
     comp.output("out", 32)
     mux = comp.reg("mux", 32)
 
-    # ANCHOR: eq_use
     sel_eq_0 = comp.eq_use(sel, 0)
-    # ANCHOR_END: eq_use
-
-    # ANCHOR: sum_group_oneliner
     sum_group, _ = comp.add_store_in_reg(val1, val2, mux)
-    # ANCHOR_END: sum_group_oneliner
 
     # ANCHOR: multi-component
     abs_diff = comp.cell("abs_diff", diff_comp)
     with comp.group("compute_diff") as diff_group:
-        # We will use the `diff_comp` component.
+        # We will use the `diff_comp` component to compute the absolute difference.
         abs_diff.val1 = val1
         abs_diff.val2 = val2
         abs_diff.go = cb.HI
@@ -135,11 +130,36 @@ def insert_mux_component(prog, diff_comp):
     with comp.continuous:
         comp.this().out = mux.out
 
-    # ANCHOR: if_with
     comp.control += cb.if_with(sel_eq_0, sum_group, diff_group)
-    # ANCHOR_END: if_with
 
     return comp
+
+
+def insert_map_component(prog):
+    """Insert a map component into the program.
+    The user provides a 1-d memory of length 10, by reference.
+    We add 42 to each element in the memory.
+    """
+    comp = prog.component("map")
+    mem = comp.comb_mem_d1("mem", 32, 10, 32, is_ref=True)
+
+    i = comp.reg("i", 8)
+    # ANCHOR: incr_oneliner
+    incr_i = comp.incr(i)
+    # ANCHOR_END: incr_oneliner
+    add = comp.add(32)
+
+    i_lt_10 = comp.lt_use(i.out, 10)
+
+    with comp.group("add_at_position_i") as add_at_position_i:
+        mem.addr0 = i.out
+        add.left = mem.read_data
+        add.right = 42
+        mem.write_en = add.done @ cb.HI
+        mem.write_data = add.out
+        add_at_position_i.done = mem.done
+
+    comp.control += cb.while_with(i_lt_10, [add_at_position_i, incr_i])
 
 
 # ANCHOR: build
@@ -148,6 +168,7 @@ def build():
     insert_adder_component(prog)
     diff_comp = insert_abs_diff_component(prog)
     insert_mux_component(prog, diff_comp)
+    insert_map_component(prog)
     return prog.program
     # ANCHOR_END: build
 

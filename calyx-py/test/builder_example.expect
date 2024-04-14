@@ -1,16 +1,17 @@
 import "primitives/core.futil";
 import "primitives/binary_operators.futil";
+import "primitives/memories/comb.futil";
 component adder(val1: 32, val2: 32) -> (out: 32) {
   cells {
     sum = std_reg(32);
-    add = std_add(32);
+    add_1 = std_add(32);
   }
   wires {
     group compute_sum {
-      add.left = val1;
-      add.right = val2;
+      add_1.left = val1;
+      add_1.right = val2;
       sum.write_en = 1'd1;
-      sum.in = add.out;
+      sum.in = add_1.out;
       compute_sum[done] = sum.done;
     }
     out = sum.out;
@@ -108,6 +109,44 @@ component mux(val1: 32, val2: 32, sel: 1) -> (out: 32) {
       add_2_group;
     } else {
       compute_diff;
+    }
+  }
+}
+component map() -> () {
+  cells {
+    ref mem = comb_mem_d1(32, 10, 32);
+    i = std_reg(8);
+    i_incr = std_add(8);
+    add_1 = std_add(32);
+    lt_2 = std_lt(8);
+  }
+  wires {
+    group i_incr_group {
+      i_incr.left = i.out;
+      i_incr.right = 8'd1;
+      i.write_en = 1'd1;
+      i.in = i_incr.out;
+      i_incr_group[done] = i.done;
+    }
+    comb group lt_2_group {
+      lt_2.left = i.out;
+      lt_2.right = 8'd10;
+    }
+    group add_at_position_i {
+      mem.addr0 = i.out;
+      add_1.left = mem.read_data;
+      add_1.right = 32'd42;
+      mem.write_en = add_1.done ? 1'd1;
+      mem.write_data = add_1.out;
+      add_at_position_i[done] = mem.done;
+    }
+  }
+  control {
+    while lt_2.out with lt_2_group {
+      seq {
+        add_at_position_i;
+        i_incr_group;
+      }
     }
   }
 }
