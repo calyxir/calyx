@@ -21,18 +21,10 @@ pub struct MyAdapter {
 // New metadata in interp/debugger
 
 impl MyAdapter {
-    // Look at Rust File implementation
-    // Pass in path, easier
-    // Change to take in the file path
-    // Create open file function
     pub fn new(path: &str, std_path: PathBuf) -> AdapterResult<Self> {
         Ok(MyAdapter {
-            debugger: Debugger::from_file(
-                &PathBuf::from(path),
-                // Hard code for now, change path as necessary
-                &std_path,
-            )
-            .unwrap(),
+            debugger: Debugger::from_file(&PathBuf::from(path), &std_path)
+                .unwrap(),
             break_count: Counter::new(),
             thread_count: Counter::new(),
             stack_count: Counter::new(),
