@@ -198,8 +198,8 @@ fn main() -> InterpreterResult<()> {
             } else {
                 None
             };
-            let mut cidb = Debugger::new(&components, main_component, map);
-            cidb.main_loop(env)
+            let cidb = Debugger::new(&components, main_component, map, env)?;
+            cidb.main_loop()
         }
         Command::Flat(_) => {
             todo!("The flat interpreter cannot yet interpret programs")
