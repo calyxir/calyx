@@ -51,6 +51,31 @@ pub struct DataDump {
 }
 
 impl DataDump {
+    /// returns an empty data dump
+    pub fn new_empty() -> Self {
+        Self {
+            header: DataHeader {
+                top_level: String::new(),
+                memories: vec![],
+            },
+            data: vec![],
+        }
+    }
+
+    /// pushes a new memory into the data dump. This does not do any fancy
+    /// conversion so the data must already be configured into a byte iterator.
+    pub fn push_memory<T: IntoIterator<Item = u8>>(
+        &mut self,
+        name: String,
+        width: usize,
+        size: usize,
+        data: T,
+    ) {
+        let declaration = MemoryDeclaration::new(name, width, size);
+        self.header.memories.push(declaration);
+        self.data.extend(data);
+    }
+
     // TODO Griffin: handle the errors properly
     pub fn serialize(&self, writer: &mut dyn std::io::Write) {
         let header_str = serde_json::to_string(&self.header).unwrap();
@@ -63,7 +88,7 @@ impl DataDump {
         assert_eq!(written, self.data.len());
     }
 
-    /// TODO Griffin: handle the errors properly
+    // TODO Griffin: handle the errors properly
     pub fn deserialize(reader: &mut dyn std::io::Read) -> Self {
         let mut raw_header_len = [0u8; 8];
         reader.read_exact(&mut raw_header_len).unwrap();
