@@ -8,7 +8,7 @@ Currently, there are two parameters you can specify: 1) whether the data should 
 This tool can only generate fixed point values that have 16 bits for the fraction.
 
 ## How to Run
-The following command can be run to generate unsigned, 32-bit zeroes:
+The following command can be run to generate unsigned integer zeroes:
 `cargo run -p data_gen -- <calyx file>`
 
 To generate random fixed point numbers, run:
