@@ -75,8 +75,7 @@ fn main() -> InterpResult<()> {
         if !args.profile {
             println!("{}", s_env);
 
-            // Extract outputs
-            ir_lines.iter().for_each(|line| {
+            for line in ir_lines.iter() {
                 if let Btor2InstrContents::Output { name, arg1 } =
                     &line.contents
                 {
@@ -87,7 +86,7 @@ fn main() -> InterpResult<()> {
 
                     println!("{}: {}", output_name, output_val);
                 }
-            });
+            }
         }
     }
 
