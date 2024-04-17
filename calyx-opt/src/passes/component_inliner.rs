@@ -24,7 +24,7 @@ use std::rc::Rc;
 pub struct ComponentInliner {
     /// Force inlining of all components. Parsed from the command line.
     always_inline: bool,
-    /// Generate new_fsms for the componnent we generate. Helpful if you don't
+    /// Generate new_fsms for the component we generate. Helpful if you don't
     /// want the fsms to get too many states
     new_fsms: bool,
     /// Map from the name of an instance to its associated control program.
