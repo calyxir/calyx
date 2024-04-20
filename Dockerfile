@@ -69,6 +69,10 @@ RUN cargo build --all && \
     cargo install vcdump && \
     cargo install runt --version 0.4.1
 
+# Link fud2
+RUN ln -s `pwd`/target/debug/fud2 ~/.local/bin
+RUN echo -e "[calyx]\nbase = `pwd`" >> ~/.config/fud2.toml
+
 # Install fud
 WORKDIR /home/calyx/fud
 RUN FLIT_ROOT_INSTALL=1 flit install --symlink --deps production
