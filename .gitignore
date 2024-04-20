@@ -53,3 +53,4 @@ results.xml
 
 # btor2i ignore
 tools/btor2/btor2i/build/
+!tools/btor2/btor2i/test/**/*.out
