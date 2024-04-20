@@ -1,4 +1,4 @@
-ver = "0.4.0"
+ver = "0.4.1"
 
 ##### Compilation Tests ######
 ## Test each pass in isolation. Gets the pass flags from a comment on the first line of the file

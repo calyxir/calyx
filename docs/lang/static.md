@@ -97,6 +97,20 @@ Further, all the children of a `static par` are guaranteed to begin executing at
 The children can rely on this "lockstep" behavior and can communicate with each other.
 Inter-thread communication of this sort is undefined behavior in a standard, dynamic, `par`.
 
+As a corollary, consider this useful trick in the case when we need `A5` and `D8` to run in parallel, but we do not want them to start at the same time.
+Instead, in order to support some inter-thread communication, we want `A5` to start three cycles after `D8`.
+
+```
+static<3> group dummy_group { }
+
+static par {
+  static seq { dummy_group; A5; }
+  D8;
+}
+```
+We have not elided the body of `dummy_group`; it can literally be left blank.
+During compilation, no hardware will be generated for `dummy_group`. It is simply a placeholder to delay the start of `A5` by three cycles.
+
 #### `static if`, a static version of [`if`][if]
 If we have `static if { A5; B6; }`, we can guarantee that the latency of the entire operation is the maximum of the latencies of its children: 6 cycles in this case.
 
