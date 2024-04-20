@@ -47,9 +47,7 @@ fn main() -> InterpResult<()> {
                 Btor2InstrContents::Sort
                 | Btor2InstrContents::Output { .. } => 0,
                 _ => match line.sort {
-                    SortType::Bitvec { width } => {
-                        usize::try_from(width).unwrap()
-                    }
+                    SortType::Bitvec { width } => width,
                     SortType::Array { .. } => 0, // TODO: handle arrays
                 },
             })
@@ -81,8 +79,7 @@ fn main() -> InterpResult<()> {
                 {
                     let output_name = name.clone();
                     let src_node_idx = *arg1;
-                    let output_val =
-                        s_env.get(src_node_idx.try_into().unwrap());
+                    let output_val = s_env.get(src_node_idx);
 
                     println!("{}: {}", output_name, output_val);
                 }

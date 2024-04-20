@@ -167,11 +167,11 @@ fn get_literal_fn(kind: &LiteralType) -> fn(&mut SharedEnvironment, usize) {
 }
 
 pub fn interpret(
-    mut prog_iterator: Iter<Btor2Instr>,
+    prog_iterator: Iter<Btor2Instr>,
     env: &mut SharedEnvironment,
 ) -> Result<(), InterpError> {
     for line in prog_iterator {
-        let result = match &line.contents {
+        match &line.contents {
             Btor2InstrContents::BinOp { kind, .. } => {
                 eval_binary_op(env, line, get_binary_fn(kind))
             }
@@ -296,7 +296,7 @@ fn eval_slice_op(
     if let Btor2InstrContents::Slice { arg1, u, l } = line.contents {
         match line.sort {
             SortType::Bitvec { width } => {
-                if (u - l) + 1 != width.into() {
+                if (u - l) + 1 != width {
                     return Err(error::InterpError::Unsupported(format!(
                         "Slicing of {:?} is not supported",
                         arg1
@@ -324,7 +324,7 @@ fn eval_unary_op(
     if let Btor2InstrContents::UnOp { arg1, kind: _ } = &line.contents {
         match line.sort {
             SortType::Bitvec { width: _ } => {
-                unary_fn(env, (*arg1), line.id);
+                unary_fn(env, *arg1, line.id);
                 Ok(())
             }
             SortType::Array {
@@ -351,7 +351,7 @@ fn eval_binary_op(
     {
         match line.sort {
             SortType::Bitvec { width: _ } => {
-                binary_fn(env, (*arg1), (*arg2), line.id);
+                binary_fn(env, *arg1, *arg2, line.id);
                 Ok(())
             }
             SortType::Array {
@@ -390,13 +390,7 @@ pub fn parse_inputs(
         if let Btor2InstrContents::Input { name } = &line.contents {
             let input_name = name.clone();
             if let SortType::Bitvec { width } = line.sort {
-                input_map.insert(
-                    input_name,
-                    (
-                        usize::try_from(line.id).unwrap(),
-                        usize::try_from(width).unwrap(),
-                    ),
-                );
+                input_map.insert(input_name, (line.id, width));
             }
         }
     });
