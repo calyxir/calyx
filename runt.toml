@@ -488,12 +488,19 @@ fud e {} -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          --to dat -q
 """
-
+##### Cayx AXI tests #####
 [[tests]]
 name = "calyx-py AXI wrapper generation"
 paths = ["yxi/tests/*.yxi"]
 cmd = """
 python3 yxi/axi-calyx/axi-generator.py {}
+"""
+
+[[tests]]
+name = "fud2 axi-wrapper invocation"
+paths = ["yxi/tests/fud2/*.futil"]
+cmd = """
+fud2 {} --to calyx --through axi-wrapped
 """
 
 ##### Xilinx Tests ######
