@@ -1,13 +1,10 @@
 use crate::bvec::BitVector;
 use crate::error;
 use crate::error::InterpError;
-use crate::ir::BinOpType;
-use crate::ir::Btor2Instr;
-use crate::ir::Btor2InstrContents;
-use crate::ir::ConstantType;
-use crate::ir::LiteralType;
-use crate::ir::SortType;
-use crate::ir::UnOpType;
+use crate::ir::{
+    BinOpType, Btor2Instr, Btor2InstrContents, ConstantType, LiteralType,
+    SortType, UnOpType,
+};
 use crate::shared_env::SharedEnvironment;
 
 use num_bigint::BigInt;
@@ -103,140 +100,132 @@ impl fmt::Display for Value {
     }
 }
 
+fn get_binary_fn(
+    kind: &BinOpType,
+) -> fn(&mut SharedEnvironment, usize, usize, usize) {
+    match kind {
+        BinOpType::Add => SharedEnvironment::add,
+        BinOpType::And => SharedEnvironment::and,
+        BinOpType::Concat => SharedEnvironment::concat,
+        BinOpType::Eq => SharedEnvironment::eq,
+        BinOpType::Iff => SharedEnvironment::iff,
+        BinOpType::Implies => SharedEnvironment::implies,
+        BinOpType::Mul => SharedEnvironment::mul,
+        BinOpType::Nand => SharedEnvironment::nand,
+        BinOpType::Neq => SharedEnvironment::neq,
+        BinOpType::Nor => SharedEnvironment::nor,
+        BinOpType::Or => SharedEnvironment::or,
+        BinOpType::Rol => SharedEnvironment::rol,
+        BinOpType::Ror => SharedEnvironment::ror,
+        BinOpType::Saddo => SharedEnvironment::saddo,
+        BinOpType::Sdiv => SharedEnvironment::sdiv,
+        BinOpType::Sdivo => SharedEnvironment::sdivo,
+        BinOpType::Sgt => SharedEnvironment::sgt,
+        BinOpType::Sgte => SharedEnvironment::sgte,
+        BinOpType::Sll => SharedEnvironment::sll,
+        BinOpType::Slt => SharedEnvironment::slt,
+        BinOpType::Slte => SharedEnvironment::slte,
+        BinOpType::Smod => SharedEnvironment::smod,
+        BinOpType::Smulo => SharedEnvironment::smulo,
+        BinOpType::Sra => SharedEnvironment::sra,
+        BinOpType::Srem => SharedEnvironment::srem,
+        BinOpType::Srl => SharedEnvironment::srl,
+        BinOpType::Sub => SharedEnvironment::sub,
+        BinOpType::Uaddo => SharedEnvironment::uaddo,
+        BinOpType::Udiv => SharedEnvironment::udiv,
+        BinOpType::Ugt => SharedEnvironment::ugt,
+        BinOpType::Ugte => SharedEnvironment::ugte,
+        BinOpType::Ult => SharedEnvironment::ult,
+        BinOpType::Ulte => SharedEnvironment::ulte,
+        BinOpType::Umulo => SharedEnvironment::umulo,
+        BinOpType::Urem => SharedEnvironment::urem,
+        BinOpType::Xnor => SharedEnvironment::xnor,
+        BinOpType::Xor => SharedEnvironment::xor,
+    }
+}
+
+fn get_unary_fn(kind: &UnOpType) -> fn(&mut SharedEnvironment, usize, usize) {
+    match kind {
+        UnOpType::Dec => SharedEnvironment::dec,
+        UnOpType::Inc => SharedEnvironment::inc,
+        UnOpType::Neg => SharedEnvironment::neg,
+        UnOpType::Not => SharedEnvironment::not,
+        UnOpType::Redand => SharedEnvironment::redand,
+        UnOpType::Redor => SharedEnvironment::redor,
+        UnOpType::Redxor => SharedEnvironment::redxor,
+        UnOpType::Sext => SharedEnvironment::sext,
+        UnOpType::Uext => SharedEnvironment::uext,
+    }
+}
+
+fn get_literal_fn(kind: &LiteralType) -> fn(&mut SharedEnvironment, usize) {
+    match kind {
+        LiteralType::One => SharedEnvironment::one,
+        LiteralType::Ones => SharedEnvironment::ones,
+        LiteralType::Zero => SharedEnvironment::zero,
+    }
+}
+
 pub fn interpret(
     mut prog_iterator: Iter<Btor2Instr>,
     env: &mut SharedEnvironment,
 ) -> Result<(), InterpError> {
-    prog_iterator.try_for_each(|line| match &line.contents {
-        Btor2InstrContents::BinOp {
-            arg1: _,
-            arg2: _,
-            kind,
-        } => match kind {
-            BinOpType::Add => eval_binary_op(env, line, SharedEnvironment::add),
-            BinOpType::And => eval_binary_op(env, line, SharedEnvironment::and),
-            BinOpType::Concat => {
-                eval_binary_op(env, line, SharedEnvironment::concat)
+    for line in prog_iterator {
+        let result = match &line.contents {
+            Btor2InstrContents::BinOp { kind, .. } => {
+                eval_binary_op(env, line, get_binary_fn(kind))
             }
-            BinOpType::Eq => eval_binary_op(env, line, SharedEnvironment::eq),
-            BinOpType::Iff => eval_binary_op(env, line, SharedEnvironment::iff),
-            BinOpType::Implies => {
-                eval_binary_op(env, line, SharedEnvironment::implies)
+            Btor2InstrContents::Conditional { .. } => {
+                eval_ternary_op(env, line, SharedEnvironment::ite)
             }
-            BinOpType::Mul => eval_binary_op(env, line, SharedEnvironment::mul),
-            BinOpType::Nand => {
-                eval_binary_op(env, line, SharedEnvironment::nand)
+            Btor2InstrContents::Constant { kind, .. } => match kind {
+                ConstantType::Constd => eval_const_op(env, line, 10),
+                ConstantType::Consth => eval_const_op(env, line, 16),
+                ConstantType::Const => eval_const_op(env, line, 2),
+            },
+            Btor2InstrContents::Input { .. } => Ok(()),
+            Btor2InstrContents::Literal { kind } => {
+                eval_literals_op(env, line, get_literal_fn(kind))
             }
-            BinOpType::Neq => eval_binary_op(env, line, SharedEnvironment::neq),
-            BinOpType::Nor => eval_binary_op(env, line, SharedEnvironment::nor),
-            BinOpType::Or => eval_binary_op(env, line, SharedEnvironment::or),
-            BinOpType::Rol => eval_binary_op(env, line, SharedEnvironment::rol),
-            BinOpType::Ror => eval_binary_op(env, line, SharedEnvironment::ror),
-            BinOpType::Saddo => {
-                eval_binary_op(env, line, SharedEnvironment::saddo)
+            Btor2InstrContents::Output { .. } => Ok(()),
+            Btor2InstrContents::Slice { .. } => eval_slice_op(env, line),
+            Btor2InstrContents::Sort => Ok(()),
+            Btor2InstrContents::UnOp { kind, .. } => {
+                eval_unary_op(env, line, get_unary_fn(kind))
             }
-            BinOpType::Sdiv => {
-                eval_binary_op(env, line, SharedEnvironment::sdiv)
+            Btor2InstrContents::Unknown => {
+                Err(error::InterpError::Unsupported("".to_string()))
             }
-            BinOpType::Sdivo => {
-                eval_binary_op(env, line, SharedEnvironment::sdivo)
-            }
-            BinOpType::Sgt => eval_binary_op(env, line, SharedEnvironment::sgt),
-            BinOpType::Sgte => {
-                eval_binary_op(env, line, SharedEnvironment::sgte)
-            }
-            BinOpType::Sll => eval_binary_op(env, line, SharedEnvironment::sll),
-            BinOpType::Slt => eval_binary_op(env, line, SharedEnvironment::slt),
-            BinOpType::Slte => {
-                eval_binary_op(env, line, SharedEnvironment::slte)
-            }
-            BinOpType::Smod => {
-                eval_binary_op(env, line, SharedEnvironment::smod)
-            }
-            BinOpType::Smulo => {
-                eval_binary_op(env, line, SharedEnvironment::smulo)
-            }
-            BinOpType::Sra => eval_binary_op(env, line, SharedEnvironment::sra),
-            BinOpType::Srem => {
-                eval_binary_op(env, line, SharedEnvironment::srem)
-            }
-            BinOpType::Srl => eval_binary_op(env, line, SharedEnvironment::srl),
-            BinOpType::Sub => eval_binary_op(env, line, SharedEnvironment::sub),
-            BinOpType::Uaddo => {
-                eval_binary_op(env, line, SharedEnvironment::uaddo)
-            }
-            BinOpType::Udiv => {
-                eval_binary_op(env, line, SharedEnvironment::udiv)
-            }
-            BinOpType::Ugt => eval_binary_op(env, line, SharedEnvironment::ugt),
-            BinOpType::Ugte => {
-                eval_binary_op(env, line, SharedEnvironment::ugte)
-            }
-            BinOpType::Ult => eval_binary_op(env, line, SharedEnvironment::ult),
-            BinOpType::Ulte => {
-                eval_binary_op(env, line, SharedEnvironment::ulte)
-            }
-            BinOpType::Umulo => {
-                eval_binary_op(env, line, SharedEnvironment::umulo)
-            }
-            BinOpType::Urem => {
-                eval_binary_op(env, line, SharedEnvironment::urem)
-            }
-            BinOpType::Xnor => {
-                eval_binary_op(env, line, SharedEnvironment::xnor)
-            }
-            BinOpType::Xor => eval_binary_op(env, line, SharedEnvironment::xor),
-        },
-        Btor2InstrContents::Conditional {
-            arg1: _,
-            arg2: _,
-            arg3: _,
-        } => eval_ternary_op(env, line, SharedEnvironment::ite),
-        Btor2InstrContents::Constant { constant: _, kind } => match kind {
-            ConstantType::Constd => eval_const_op(env, line, 10),
-            ConstantType::Consth => eval_const_op(env, line, 16),
-            ConstantType::Const => eval_const_op(env, line, 2),
-        },
-        Btor2InstrContents::Input { name: _ } => Ok(()),
-        Btor2InstrContents::Literal { kind } => match kind {
-            LiteralType::One => {
-                eval_literals_op(env, line, SharedEnvironment::one)
-            }
-            LiteralType::Ones => {
-                eval_literals_op(env, line, SharedEnvironment::ones)
-            }
-            LiteralType::Zero => {
-                eval_literals_op(env, line, SharedEnvironment::zero)
-            }
-        },
-        Btor2InstrContents::Output { name: _, arg1: _ } => Ok(()),
-        Btor2InstrContents::Slice {
-            arg1: _,
-            u: _,
-            l: _,
-        } => eval_slice_op(env, line),
-        Btor2InstrContents::Sort => Ok(()),
-        Btor2InstrContents::UnOp { arg1: _, kind } => match kind {
-            UnOpType::Dec => eval_unary_op(env, line, SharedEnvironment::dec),
-            UnOpType::Inc => eval_unary_op(env, line, SharedEnvironment::inc),
-            UnOpType::Neg => eval_unary_op(env, line, SharedEnvironment::neg),
-            UnOpType::Not => eval_unary_op(env, line, SharedEnvironment::not),
-            UnOpType::Redand => {
-                eval_unary_op(env, line, SharedEnvironment::redand)
-            }
-            UnOpType::Redor => {
-                eval_unary_op(env, line, SharedEnvironment::redor)
-            }
-            UnOpType::Redxor => {
-                eval_unary_op(env, line, SharedEnvironment::redxor)
-            }
-            UnOpType::Sext => eval_unary_op(env, line, SharedEnvironment::sext),
-            UnOpType::Uext => eval_unary_op(env, line, SharedEnvironment::uext),
-        },
-        Btor2InstrContents::Unknown => {
-            Err(error::InterpError::Unsupported("".to_string()))
-        }
-    })
+        }?;
+    }
+
+    Ok(())
+
+    // prog_iterator.try_for_each(|line| match &line.contents {
+    //     Btor2InstrContents::BinOp {
+    //         kind, ..
+    //     } => eval_binary_op(env, line, get_binary_fn(kind)),
+    //     Btor2InstrContents::Conditional {
+    //         ..
+    //     } => eval_ternary_op(env, line, SharedEnvironment::ite),
+    //     Btor2InstrContents::Constant { kind, .. } => match kind {
+    //         ConstantType::Constd => eval_const_op(env, line, 10),
+    //         ConstantType::Consth => eval_const_op(env, line, 16),
+    //         ConstantType::Const => eval_const_op(env, line, 2),
+    //     },
+    //     Btor2InstrContents::Input { .. } => Ok(()),
+    //     Btor2InstrContents::Literal { kind }
+    //     => eval_literals_op(env, line, get_literal_fn(kind)),
+    //     Btor2InstrContents::Output { .. } => Ok(()),
+    //     Btor2InstrContents::Slice {
+    //         ..
+    //     } => eval_slice_op(env, line),
+    //     Btor2InstrContents::Sort => Ok(()),
+    //     Btor2InstrContents::UnOp { kind, .. } => eval_unary_op(env, line, get_unary_fn(kind)),
+    //     Btor2InstrContents::Unknown => {
+    //         Err(error::InterpError::Unsupported("".to_string()))
+    //     }
+    // })
 }
 
 /// Handles the `const`, `constd`, and `consth` statements.
@@ -257,7 +246,7 @@ fn eval_const_op(
                             .map(|i| intval.bit(i as u64))
                             .collect::<Vec<_>>();
 
-                        env.const_(line.id.try_into().unwrap(), bool_vec);
+                        env.const_(line.id, bool_vec);
                         Ok(())
                     }
                     SortType::Array {
@@ -286,7 +275,7 @@ fn eval_literals_op(
     if let Btor2InstrContents::Literal { kind: _ } = &line.contents {
         match line.sort {
             SortType::Bitvec { width: _ } => {
-                literal_init(env, line.id.try_into().unwrap());
+                literal_init(env, line.id);
                 Ok(())
             }
             SortType::Array {
@@ -313,12 +302,7 @@ fn eval_slice_op(
                         arg1
                     )));
                 }
-                env.slice(
-                    u.try_into().unwrap(),
-                    l.try_into().unwrap(),
-                    arg1.try_into().unwrap(),
-                    line.id.try_into().unwrap(),
-                );
+                env.slice(u, l, arg1, line.id);
                 Ok(())
             }
             SortType::Array {
@@ -340,11 +324,7 @@ fn eval_unary_op(
     if let Btor2InstrContents::UnOp { arg1, kind: _ } = &line.contents {
         match line.sort {
             SortType::Bitvec { width: _ } => {
-                unary_fn(
-                    env,
-                    (*arg1).try_into().unwrap(),
-                    line.id.try_into().unwrap(),
-                );
+                unary_fn(env, (*arg1), line.id);
                 Ok(())
             }
             SortType::Array {
@@ -371,12 +351,7 @@ fn eval_binary_op(
     {
         match line.sort {
             SortType::Bitvec { width: _ } => {
-                binary_fn(
-                    env,
-                    (*arg1).try_into().unwrap(),
-                    (*arg2).try_into().unwrap(),
-                    line.id.try_into().unwrap(),
-                );
+                binary_fn(env, (*arg1), (*arg2), line.id);
                 Ok(())
             }
             SortType::Array {
@@ -396,13 +371,7 @@ fn eval_ternary_op(
 ) -> Result<(), error::InterpError> {
     if let Btor2InstrContents::Conditional { arg1, arg2, arg3 } = line.contents
     {
-        ternary_fn(
-            env,
-            arg1.try_into().unwrap(),
-            arg2.try_into().unwrap(),
-            arg3.try_into().unwrap(),
-            line.id.try_into().unwrap(),
-        );
+        ternary_fn(env, arg1, arg2, arg3, line.id);
         Ok(())
     } else {
         Err(error::InterpError::Unsupported("".to_string()))

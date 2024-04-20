@@ -7,17 +7,20 @@ use btor2tools::{Btor2Line, Btor2SortContent, Btor2Tag};
 // check out cell_prototype.rs for an example.
 
 pub enum SortType {
-    Array { index: i64, element: i64 },
-    Bitvec { width: u32 },
+    Array { index: usize, element: usize },
+    Bitvec { width: usize },
 }
 
 impl From<Btor2SortContent> for SortType {
     fn from(content: Btor2SortContent) -> SortType {
         match content {
-            Btor2SortContent::Array { index, element } => {
-                SortType::Array { index, element }
-            }
-            Btor2SortContent::Bitvec { width } => SortType::Bitvec { width },
+            Btor2SortContent::Array { index, element } => SortType::Array {
+                index: index.try_into().unwrap(),
+                element: element.try_into().unwrap(),
+            },
+            Btor2SortContent::Bitvec { width } => SortType::Bitvec {
+                width: width.try_into().unwrap(),
+            },
         }
     }
 }
@@ -170,27 +173,6 @@ impl From<Btor2Tag> for BinOpType {
     }
 }
 
-// pub struct Btor2InstrSort {
-//     pub id: i64,
-//     pub tag: Btor2SortTag,
-//     pub name: String,
-// }
-
-// pub struct Btor2Instr {
-//     pub id: i64,
-//     pub linenum: u64,
-//     pub name: String,
-//     pub tag: Btor2Tag,
-//     pub sort: Btor2InstrSort,
-//     pub init: i64,
-//     pub next: u64,
-//     pub constant: String,
-//     pub symbol: String,
-//     pub nargs: u32,
-//     pub margs: u32,
-//     pub args: Vec<i64>,
-// }
-
 pub enum Btor2InstrContents {
     Constant {
         constant: Option<String>,
@@ -200,44 +182,44 @@ pub enum Btor2InstrContents {
         kind: LiteralType,
     },
     UnOp {
-        arg1: i64,
+        arg1: usize,
         kind: UnOpType,
     },
     BinOp {
-        arg1: i64,
-        arg2: i64,
+        arg1: usize,
+        arg2: usize,
         kind: BinOpType,
     },
     Conditional {
-        arg1: i64,
-        arg2: i64,
-        arg3: i64,
+        arg1: usize,
+        arg2: usize,
+        arg3: usize,
     },
     Slice {
-        arg1: i64,
-        u: i64,
-        l: i64,
+        arg1: usize,
+        u: usize,
+        l: usize,
     },
     Input {
         name: String,
     },
     Output {
         name: String,
-        arg1: i64,
+        arg1: usize,
     },
     Sort,
     Unknown, // TODO: this is very janky but will remove once we add interpreter support for state
 }
 
 pub struct Btor2Instr {
-    pub id: i64,
+    pub id: usize,
     pub sort: SortType,
     pub contents: Btor2InstrContents,
 }
 
 impl From<&Btor2Line<'_>> for Btor2Instr {
     fn from(line: &Btor2Line) -> Btor2Instr {
-        let id = line.id();
+        let id = line.id().try_into().unwrap();
         let sort = SortType::from(line.sort().content());
         // eprintln!("{:?}", line);
         match line.tag() {
@@ -247,99 +229,101 @@ impl From<&Btor2Line<'_>> for Btor2Instr {
                 sort,
                 contents: Btor2InstrContents::Sort,
             }, // skip - sort information is handled by the parser
-            btor2tools::Btor2Tag::Const => convert_const_op(line),
-            btor2tools::Btor2Tag::Constd => convert_const_op(line),
+            btor2tools::Btor2Tag::Const |
+            btor2tools::Btor2Tag::Constd |
             btor2tools::Btor2Tag::Consth => convert_const_op(line),
             btor2tools::Btor2Tag::Input => convert_input(line), // handled in parse_inputs
             btor2tools::Btor2Tag::Output => convert_output(line), // handled in extract_output
-            btor2tools::Btor2Tag::One => convert_literal_op(line),
-            btor2tools::Btor2Tag::Ones => convert_literal_op(line),
+            btor2tools::Btor2Tag::One |
+            btor2tools::Btor2Tag::Ones |
             btor2tools::Btor2Tag::Zero => convert_literal_op(line),
 
             // indexed
-            btor2tools::Btor2Tag::Sext => convert_unary_op(line),
-            btor2tools::Btor2Tag::Uext => convert_unary_op(line),
-            btor2tools::Btor2Tag::Slice => convert_slice_op(line),
+            btor2tools::Btor2Tag::Sext |
+            btor2tools::Btor2Tag::Uext |
 
             // unary
-            btor2tools::Btor2Tag::Not => convert_unary_op(line),
-            btor2tools::Btor2Tag::Inc => convert_unary_op(line),
-            btor2tools::Btor2Tag::Dec => convert_unary_op(line),
-            btor2tools::Btor2Tag::Neg => convert_unary_op(line),
-            btor2tools::Btor2Tag::Redand => convert_unary_op(line),
-            btor2tools::Btor2Tag::Redor => convert_unary_op(line),
+            btor2tools::Btor2Tag::Not |
+            btor2tools::Btor2Tag::Inc |
+            btor2tools::Btor2Tag::Dec |
+            btor2tools::Btor2Tag::Neg |
+            btor2tools::Btor2Tag::Redand |
+            btor2tools::Btor2Tag::Redor |
             btor2tools::Btor2Tag::Redxor => convert_unary_op(line),
 
+            // slice
+            btor2tools::Btor2Tag::Slice => convert_slice_op(line),
+
             // binary - boolean
-            btor2tools::Btor2Tag::Iff => convert_binary_op(line),
-            btor2tools::Btor2Tag::Implies => convert_binary_op(line),
-            btor2tools::Btor2Tag::Eq => convert_binary_op(line),
-            btor2tools::Btor2Tag::Neq => convert_binary_op(line),
+            btor2tools::Btor2Tag::Iff |
+            btor2tools::Btor2Tag::Implies |
+            btor2tools::Btor2Tag::Eq |
+            btor2tools::Btor2Tag::Neq |
 
             // binary - (un)signed inequality
-            btor2tools::Btor2Tag::Sgt => convert_binary_op(line),
-            btor2tools::Btor2Tag::Sgte => convert_binary_op(line),
-            btor2tools::Btor2Tag::Slt => convert_binary_op(line),
-            btor2tools::Btor2Tag::Slte => convert_binary_op(line),
-            btor2tools::Btor2Tag::Ugt => convert_binary_op(line),
-            btor2tools::Btor2Tag::Ugte => convert_binary_op(line),
-            btor2tools::Btor2Tag::Ult => convert_binary_op(line),
-            btor2tools::Btor2Tag::Ulte => convert_binary_op(line),
+            btor2tools::Btor2Tag::Sgt |
+            btor2tools::Btor2Tag::Sgte |
+            btor2tools::Btor2Tag::Slt |
+            btor2tools::Btor2Tag::Slte |
+            btor2tools::Btor2Tag::Ugt |
+            btor2tools::Btor2Tag::Ugte |
+            btor2tools::Btor2Tag::Ult |
+            btor2tools::Btor2Tag::Ulte |
 
             // binary - bit-wise
-            btor2tools::Btor2Tag::And => convert_binary_op(line),
-            btor2tools::Btor2Tag::Nand => convert_binary_op(line),
-            btor2tools::Btor2Tag::Nor => convert_binary_op(line),
+            btor2tools::Btor2Tag::And |
+            btor2tools::Btor2Tag::Nand |
+            btor2tools::Btor2Tag::Nor |
 
-            btor2tools::Btor2Tag::Or => convert_binary_op(line),
+            btor2tools::Btor2Tag::Or |
 
-            btor2tools::Btor2Tag::Xnor => convert_binary_op(line),
+            btor2tools::Btor2Tag::Xnor |
 
-            btor2tools::Btor2Tag::Xor => convert_binary_op(line),
+            btor2tools::Btor2Tag::Xor |
 
             // binary - rotate, shift
-            btor2tools::Btor2Tag::Rol => convert_binary_op(line),
+            btor2tools::Btor2Tag::Rol |
 
-            btor2tools::Btor2Tag::Ror => convert_binary_op(line),
+            btor2tools::Btor2Tag::Ror |
 
-            btor2tools::Btor2Tag::Sll => convert_binary_op(line),
+            btor2tools::Btor2Tag::Sll |
 
-            btor2tools::Btor2Tag::Sra => convert_binary_op(line),
+            btor2tools::Btor2Tag::Sra |
 
-            btor2tools::Btor2Tag::Srl => convert_binary_op(line),
+            btor2tools::Btor2Tag::Srl |
 
             // binary - arithmetic
-            btor2tools::Btor2Tag::Add => convert_binary_op(line),
+            btor2tools::Btor2Tag::Add |
 
-            btor2tools::Btor2Tag::Mul => convert_binary_op(line),
+            btor2tools::Btor2Tag::Mul |
 
-            btor2tools::Btor2Tag::Sdiv => convert_binary_op(line),
+            btor2tools::Btor2Tag::Sdiv |
 
-            btor2tools::Btor2Tag::Udiv => convert_binary_op(line),
+            btor2tools::Btor2Tag::Udiv |
 
-            btor2tools::Btor2Tag::Smod => convert_binary_op(line),
+            btor2tools::Btor2Tag::Smod |
 
-            btor2tools::Btor2Tag::Srem => convert_binary_op(line),
+            btor2tools::Btor2Tag::Srem |
 
-            btor2tools::Btor2Tag::Urem => convert_binary_op(line),
+            btor2tools::Btor2Tag::Urem |
 
-            btor2tools::Btor2Tag::Sub => convert_binary_op(line),
+            btor2tools::Btor2Tag::Sub |
 
             // binary - overflow
-            btor2tools::Btor2Tag::Saddo => convert_binary_op(line),
+            btor2tools::Btor2Tag::Saddo |
 
-            btor2tools::Btor2Tag::Uaddo => convert_binary_op(line),
+            btor2tools::Btor2Tag::Uaddo |
 
-            btor2tools::Btor2Tag::Sdivo => convert_binary_op(line),
+            btor2tools::Btor2Tag::Sdivo |
 
             // btor2tools::Btor2Tag::Udivo => Ok(()),    Unsigned division never overflows :D
-            btor2tools::Btor2Tag::Smulo => convert_binary_op(line),
+            btor2tools::Btor2Tag::Smulo |
 
-            btor2tools::Btor2Tag::Umulo => convert_binary_op(line),
+            btor2tools::Btor2Tag::Umulo |
 
-            btor2tools::Btor2Tag::Ssubo => convert_binary_op(line),
+            btor2tools::Btor2Tag::Ssubo |
 
-            btor2tools::Btor2Tag::Usubo => convert_binary_op(line),
+            btor2tools::Btor2Tag::Usubo |
 
             // binary - concat
             btor2tools::Btor2Tag::Concat => convert_binary_op(line),
@@ -378,7 +362,7 @@ fn convert_const_op(line: &Btor2Line) -> Btor2Instr {
         },
     };
     Btor2Instr {
-        id: line.id(),
+        id: line.id().try_into().unwrap(),
         sort: SortType::from(line.sort().content()),
         contents: Btor2InstrContents::Constant {
             constant: nstr,
@@ -389,7 +373,7 @@ fn convert_const_op(line: &Btor2Line) -> Btor2Instr {
 
 fn convert_literal_op(line: &Btor2Line) -> Btor2Instr {
     Btor2Instr {
-        id: line.id(),
+        id: line.id().try_into().unwrap(),
         sort: SortType::from(line.sort().content()),
         contents: Btor2InstrContents::Literal {
             kind: LiteralType::from(line.tag()),
@@ -401,10 +385,10 @@ fn convert_unary_op(line: &Btor2Line) -> Btor2Instr {
     // eprintln!("{:?}", line);
     assert_eq!(line.args().len(), 1);
     Btor2Instr {
-        id: line.id(),
+        id: line.id().try_into().unwrap(),
         sort: SortType::from(line.sort().content()),
         contents: Btor2InstrContents::UnOp {
-            arg1: line.args()[0],
+            arg1: line.args()[0].try_into().unwrap(),
             kind: UnOpType::from(line.tag()),
         },
     }
@@ -413,11 +397,11 @@ fn convert_unary_op(line: &Btor2Line) -> Btor2Instr {
 fn convert_binary_op(line: &Btor2Line) -> Btor2Instr {
     assert_eq!(line.args().len(), 2);
     Btor2Instr {
-        id: line.id(),
+        id: line.id().try_into().unwrap(),
         sort: SortType::from(line.sort().content()),
         contents: Btor2InstrContents::BinOp {
-            arg1: line.args()[0],
-            arg2: line.args()[1],
+            arg1: line.args()[0].try_into().unwrap(),
+            arg2: line.args()[1].try_into().unwrap(),
             kind: BinOpType::from(line.tag()),
         },
     }
@@ -426,12 +410,12 @@ fn convert_binary_op(line: &Btor2Line) -> Btor2Instr {
 fn convert_conditional_op(line: &Btor2Line) -> Btor2Instr {
     assert_eq!(line.args().len(), 3);
     Btor2Instr {
-        id: line.id(),
+        id: line.id().try_into().unwrap(),
         sort: SortType::from(line.sort().content()),
         contents: Btor2InstrContents::Conditional {
-            arg1: line.args()[0],
-            arg2: line.args()[1],
-            arg3: line.args()[2],
+            arg1: line.args()[0].try_into().unwrap(),
+            arg2: line.args()[1].try_into().unwrap(),
+            arg3: line.args()[2].try_into().unwrap(),
         },
     }
 }
@@ -440,19 +424,19 @@ fn convert_slice_op(line: &Btor2Line) -> Btor2Instr {
     // eprintln!("{:?}", line);
     assert_eq!(line.args().len(), 3);
     Btor2Instr {
-        id: line.id(),
+        id: line.id().try_into().unwrap(),
         sort: SortType::from(line.sort().content()),
         contents: Btor2InstrContents::Slice {
-            arg1: line.args()[0],
-            u: line.args()[1],
-            l: line.args()[2],
+            arg1: line.args()[0].try_into().unwrap(),
+            u: line.args()[1].try_into().unwrap(),
+            l: line.args()[2].try_into().unwrap(),
         },
     }
 }
 
 fn convert_input(line: &Btor2Line) -> Btor2Instr {
     Btor2Instr {
-        id: line.id(),
+        id: line.id().try_into().unwrap(),
         sort: SortType::from(line.sort().content()),
         contents: Btor2InstrContents::Input {
             name: line.symbol().unwrap().to_string_lossy().into_owned(),
@@ -463,11 +447,11 @@ fn convert_input(line: &Btor2Line) -> Btor2Instr {
 fn convert_output(line: &Btor2Line) -> Btor2Instr {
     assert_eq!(line.args().len(), 1);
     Btor2Instr {
-        id: line.id(),
+        id: line.id().try_into().unwrap(),
         sort: SortType::from(line.sort().content()),
         contents: Btor2InstrContents::Output {
             name: line.symbol().unwrap().to_string_lossy().into_owned(),
-            arg1: line.args()[0],
+            arg1: line.args()[0].try_into().unwrap(),
         },
     }
 }
