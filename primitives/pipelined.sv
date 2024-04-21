@@ -13,22 +13,24 @@ module pipelined_mult #(
     output wire [WIDTH-1:0] out
 );
 
-logic [WIDTH-1:0] buff0, buff1, buff2, buff3, tmp_prod;
+logic [WIDTH-1:0] buff0, buff1, buff2, tmp_left, tmp_right, tmp_prod;
 
-assign out = buff3;
-assign tmp_prod = left * right;
+assign out = buff2;
+assign tmp_prod = tmp_left * tmp_right;
 
 always_ff @(posedge clk) begin
     if (reset) begin
         buff0 <= 0;
         buff1 <= 0;
         buff2 <= 0;
-        buff3 <= 0;
+        tmp_left <= 0;
+        tmp_right <= 0;
     end else begin
+        tmp_left <= left;
+        tmp_right <= right;
         buff0 <= tmp_prod;
         buff1 <= buff0;
         buff2 <= buff1;
-        buff3 <= buff2;
     end
 end
 
