@@ -1,118 +1,123 @@
 # Emitting Calyx from Python
 
-The `calyx` builder library can be used to generate Calyx code in Python.
+The `calyx` builder library provisions an embedded domain-specific language (eDSL) that can be used to generate Calyx code.
+The DSL is embedded in Python.
+
 ## Installation
 
-To install the library, run the following from the repository root (requires
-[flit][] installation):
+To install the library, run the following from the repository root.
+The command requires [flit][], which you can install with `pip install flit`.
 
 ```
 cd calyx-py && flit install -s
 ```
 
-## Using the `calyx` builder
+## Hello, Calyx World!
 
-The `calyx` library provides a builder to generate Calyx code. The [library reference][ref] documents most builder methods and constructs.
-
-We will also walk through the file [`builder_example.py`][example] to demonstrate how the builder library is used. This Calyx program initializes two registers with the numbers 1 and 41, adds them together, and stores the result in a register.
-
-The `add_main_component(prog)` method will, as the name suggests, add a main component to our program. We can define components for our Calyx program `prog` with `prog.component`. Here's a defininition of a `main` component with a 32-bit input `in` and output `out`:
+We will start by using the `calyx` library to generate a simple Calyx program.
+Glance through the Python code below, which is also available at [`builder_helloworld.py`][helloworld].
 
 ```python
-{{#include ../../calyx-py/test/builder_example.py:init}}
+{{#include ../../calyx-py/test/builder_helloworld.py}}
+```
+Running this Python code, with
+```python
+python calyx-py/test/builder_helloworld.py
+```
+will generate the following Calyx code.
+As you may have inferred, we are have simply created a 32-bit adder in a contrived manner.
+
+```calyx
+{{#include ../../calyx-py/test/builder_helloworld.expect}}
 ```
 
-Technically, we didn't need to assign `prog.component("main")` to a variable; the component `main` would have been added to `prog` regardless. However, it will often prove useful to store handles to components, registers, or other objects you'd like to use later.
+## Walkthrough
 
-We then instantiate our cells: three 32-bit registers and one 32-bit adder.
+So far, it does not look like using our eDSL has bought us much.
+We have essentially written Calyx, line by line, in Python.
+However, it is useful to go through the process of generating a simple program to understand the syntax and semantics of the builder library.
+
+For each item discussed below, we encourage you to refer to both the Python code and the generated Calyx code.
+
+We add the component `adder` to our program with the following line:
+
+```python
+{{#include ../../calyx-py/test/builder_example.py:component}}
+```
+
+We then specify the names and bitwidths of any ports that we want the component to have.
+
+```python
+{{#include ../../calyx-py/test/builder_example.py:ports}}
+```
+
+We also add two cells to the component: a 32-bit adder and a 32-bit register.
 
 ```python
 {{#include ../../calyx-py/test/builder_example.py:cells}}
 ```
 
-As with adding components to a program, we don't need to assign `main.reg(...)` to a variable, but it'll be useful to be able to quickly refer to these cells.
-
-Next, we'll define our groups of assignments. The syntax for defining a group looks like `with {component}.group("group_name") as group_variable`, as we do below:
+The heart of the component is a group of assignments.
+We begin the group with:
 
 ```python
 {{#include ../../calyx-py/test/builder_example.py:group_def}}
 ```
 
-Now, we'll initialize our registers. You can access cell ports using dot notation. Notably, port names that are also reserved keywords in Python such as `in` are followed by an underscore.
+We know that we have instantiated a `std_add` cell, and that such a cell has input ports `left` and `right`.
+We need to assign values to these ports, and we do so using straightforward dot-notated access.
+The values `val1` and `val2` exactly the inputs of the component.
 
 ```python
-{{#include ../../calyx-py/test/builder_example.py:assigns}}
+{{#include ../../calyx-py/test/builder_example.py:dot_notation}}
 ```
 
-As mentioned in the comments above, the Calyx builder will try to infer the bitwidth of constants. In case this doesn't work and you run into problems with this, you can provide the constant's size like so:
-
+Now we would like to write the output of the adder to a register.
+We know that registers have input ports `write_en` and `in`.
+We assert the high signal on `write_en` with:
 ```python
-{{#include ../../calyx-py/test/builder_example.py:const}}
+{{#include ../../calyx-py/test/builder_example.py:high_signal}}
 ```
+We specify the value to be written to the register with:
+```python
+{{#include ../../calyx-py/test/builder_example.py:in_}}
+```
+Although the port is named `in`, we must use `in_` to avoid a clash with Python's `in` keyword.
+Observe that we have used dot-notated access to both _read_ the `out` port of the adder and _write_ to the `in` port of the register.
 
-Calyx groups use a [latency-insensitive go/done interface][godone]. When the `done` signal of a component is `1`, it signals that the component has finished executing. Oftentimes, computing this signal is conditional. We use [guarded assignements][guarded] to a group's done signal in order to express this. Writing a group's done condition with the builder is pretty similar to doing so in Calyx, except that the `?` used for guarded assignments is now `@` (due to conflicting usage of `?` in Python).
+Since `compute_sum` is a group of assignments, we must specify when it is done. We do this with:
 
 ```python
 {{#include ../../calyx-py/test/builder_example.py:done}}
 ```
+That is, the group is done when the register we are writing into asserts _its_ `done` signal.
 
-In order to use the ports of cells in our `main` component within the code for our component, we'll expose the adder's output port by explicitly constructing it using the `calyx-py` AST.
-
-```python
-{{#include ../../calyx-py/test/builder_example.py:bare}}
-```
-
-Now, when we want to use the output port of our adder, we can do so easily:
+In order to add a [continuous assignment][cont] to our program, we use the construct `with {component}.continuous:`.
+To access the ports of a component while defining it, we use the `this()` method.
 
 ```python
-{{#include ../../calyx-py/test/builder_example.py:bare_use}}
+{{#include ../../calyx-py/test/builder_example.py:this_continuous}}
 ```
+That is, we want this component's `out` port to be continuously assigned the value of the `sum`'s `out` port.
 
-In order to add [continuous assignments][cont] to your program, use the construct `with {component}.continuous:`.
-
-```python
-{{#include ../../calyx-py/test/builder_example.py:continuous}}
-```
-
-To access a component's ports while defining it, like we did above, we use the method `this()`.
-
-```python
-{{#include ../../calyx-py/test/builder_example.py:this}}
-```
-
-Lastly, we'll construct the control portion of this Calyx program. It's pretty simple; we're running two groups in sequence. Sequences of groups are just Python lists:
+Finally, we construct the control portion of this Calyx program:
 
 ```python
 {{#include ../../calyx-py/test/builder_example.py:control}}
 ```
 
-You can also use the builder to generate parallel control blocks. To do this, use the `par` keyword. For instance, the above code with some parallel groups in it might look like
-
+We have some boilerplate code that creates an instance of the builder, adds to it the component that we have just studied, and emits Calyx code.
 ```python
-    main.control += [
-        update_operands,
-        compute_sum,
-        par(A, B, C)
-    ]
+if __name__ == "__main__":
+    prog = cb.Builder()
+    insert_adder_component(prog)
+    prog.program.emit()
 ```
+Further, the builder library is able to infer which Calyx libraries are needed in order to support the generated Calyx code, and adds the necessary `import` directives to the generated code.
 
-After making our modifications to the `main` component, we'll build the program using the `build()` method. We use the `Builder` object to construct `prog`, and then return the generated program.
+## Further Reading
 
-```python
-{{#include ../../calyx-py/test/builder_example.py:return}}
-```
-
-Finally, we can emit the program we built.
-
-```python
-{{#include ../../calyx-py/test/builder_example.py:emit}}
-```
-
-That's about it for getting started with the `calyx-py` builder library! You can inspect the generated Calyx code yourself by running:
-
-```python
-python calyx-py/test/builder_example.py
-```
+The [builder library reference][ref] contains a detailed description of the constructs available in the builder library.
 
 Other examples using the builder can also be found in the `calyx-py` [test directory][test]. All of our frontends were also written using this library, in case you'd like even more examples!
 
@@ -123,3 +128,4 @@ Other examples using the builder can also be found in the `calyx-py` [test direc
 [guarded]: ../lang/ref.md#guarded-assignments
 [ref]: ref.md
 [test]: https://github.com/calyxir/calyx/tree/master/calyx-py/test/
+[helloworld]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/builder_helloworld.py

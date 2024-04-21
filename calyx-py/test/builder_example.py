@@ -32,11 +32,15 @@ def insert_adder_component(prog):
         sum.write_en = cb.HI
         # ANCHOR_END: high_signal
         # `in` is a reserved keyword, so we use `in_` instead
+        # ANCHOR: in_
         sum.in_ = add.out
+        # ANCHOR_END: in_
+        # ANCHOR: done
         compute_sum.done = sum.done
+        # ANCHOR_END: done
 
-    # ANCHOR: this_continuous
     # Use `this()` method to access the ports on the current component
+    # ANCHOR: this_continuous
     with comp.continuous:
         comp.this().out = sum.out
     # ANCHOR_END: this_continuous
