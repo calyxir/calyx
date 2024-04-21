@@ -14,7 +14,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     function verb(n) { return function (v) { return step([n, v]); }; }
     function step(op) {
         if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+        while (_) try {
             if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
             if (y = 0, t) op = [op[0] & 2, t.value];
             switch (op[0]) {
@@ -76,9 +76,10 @@ function getProgramName() {
 }
 // Factory for multi-session
 var CiderDebugAdapterDescriptorFactoryServer = /** @class */ (function () {
-    function CiderDebugAdapterDescriptorFactoryServer(adapterPath, workspace, outputChannel) {
+    function CiderDebugAdapterDescriptorFactoryServer(adapterPath, stdPath, workspace, outputChannel) {
         logToPanel("inside constructor");
-        this.adapter = new CiderDebugAdapter(adapterPath, workspace, outputChannel);
+        this.adapter = new CiderDebugAdapter(adapterPath, stdPath, workspace, outputChannel);
+        this.stdPath = stdPath;
         this.adapterPath = adapterPath;
         this.workspace = workspace;
         this.outputChannel = outputChannel;
@@ -103,9 +104,10 @@ var CiderDebugAdapterDescriptorFactoryServer = /** @class */ (function () {
     return CiderDebugAdapterDescriptorFactoryServer;
 }());
 var CiderDebugAdapter = /** @class */ (function () {
-    function CiderDebugAdapter(adapterPath, cwd, outputChannel) {
+    function CiderDebugAdapter(adapterPath, stdPath, cwd, outputChannel) {
         logToPanel("inside CiderDebugAdapter");
         this.adapterPath = adapterPath;
+        this.stdPath = stdPath;
         this.cwd = cwd;
         this.outputChannel = outputChannel;
         this.adapterProcess = null;
@@ -120,7 +122,7 @@ var CiderDebugAdapter = /** @class */ (function () {
         logToPanel("beginning of start");
         // Spawn a new child process for the debug adapter
         // Include the port as a command line argument
-        this.adapterProcess = cp.spawn(this.adapterPath, ["--port", port, "--tcp"], { cwd: this.cwd });
+        this.adapterProcess = cp.spawn(this.adapterPath, ["--port", port, "--tcp", "-l", this.stdPath], { cwd: this.cwd });
         // Attach event listener to capture standard output of the adapter process and log it to the output channel
         this.adapterProcess.stdout.on("data", function (data) {
             logToPanel(data.toString());
@@ -165,7 +167,7 @@ function activate(context) {
     logToPanel("setting up with configuration '" + vscode.workspace.getConfiguration("cider-dap").sessionType + "'. You will need to reload after changing the settings if a different mode is desired.");
     switch (vscode.workspace.getConfiguration("cider-dap").sessionType) {
         case "Multi-Session":
-            factory = new CiderDebugAdapterDescriptorFactoryServer(vscode.workspace.getConfiguration("cider-dap").path, vscode.workspace.rootPath, outputChannel);
+            factory = new CiderDebugAdapterDescriptorFactoryServer(vscode.workspace.getConfiguration("cider-dap").path, vscode.workspace.getConfiguration("cider-dap").std_lib, vscode.workspace.rootPath, outputChannel);
             break;
         case "Single-Session":
         default:
