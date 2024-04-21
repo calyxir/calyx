@@ -5,7 +5,6 @@ module pipelined_mult #(
     parameter WIDTH = 32
 ) (
     input wire clk,
-    input wire reset,
     // inputs
     input wire [WIDTH-1:0] left,
     input wire [WIDTH-1:0] right,
