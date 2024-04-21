@@ -61,7 +61,7 @@ def insert_runner(prog, queue, name, stats_component=None):
     ans = runner.reg(32, "component_ans", is_ref=True)
     err = runner.reg(1, "component_err", is_ref=True)
 
-    i = runner.reg(32, "i")  # The index of the command we're currently processing
+    i = runner.reg(32)  # The index of the command we're currently processing
     cmd = runner.reg(2)  # The command we're currently processing
     value = runner.reg(32)  # The value we're currently processing
 
@@ -147,10 +147,10 @@ def insert_main(prog, queue, controller=None, stats_component=None):
 
     ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
 
-    j = main.reg(32, "j")  # The index on the answer-list we'll write to
+    j = main.reg(32)  # The index on the answer-list we'll write to
     incr_j = main.incr(j)  # j++
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
-    # ans_mem[j] = dataplane_an
+    # ans_mem[j] = dataplane_ans
     lower_has_ans = main.reg_store(has_ans, 0, "lower_has_ans")  # has_ans := 0
 
     not_err = main.not_use(dataplane_err.out)
