@@ -23,15 +23,25 @@ address_width_key = "idx_sizes"
 
 def add_address_translator(prog, mem):
     address_width = mem[address_width_key][0]
+    data_width = mem[width_key]
+    name = mem[name_key]
     #Inputs/Outputs
-    address_translator = prog.component("address_translator")
+    address_translator = prog.component(f"{name}_address_translator")
     translator_inputs = [("calyx_mem_addr", address_width)]
     translator_output = [("axi_address", 64)]
     add_comp_params(address_translator, translator_inputs, translator_output)
 
     #Cells
-    address_translator.const("addr_width", address_width, 64)
-    address_translator.pipelined_mult("mul", 64)
+    #XRT expects 64 bit address.
+    assert data_width
+    address_mult = address_translator.const_mult(64, width_in_bytes(data_width), f"{name}_mul")
+    my_reg = address_translator.reg("my_reg", 64)
+
+
+    #Assignment
+    with address_translator.continuous:
+        address_mult._in = address_translator.this()["calyx_mem_addr"]
+        address_translator.this()["axi_address"] = address_mult.out
 
 
 def add_arread_channel(prog, mem):
@@ -160,9 +170,9 @@ def add_read_channel(prog, mem):
     # last transfer and not servicing it
     n_RLAST = read_channel.reg("n_RLAST", 1)
     # Stores data we want to write to our memory at end of block_transfer group
-    read_data_reg = read_channel.reg("read_data_reg", mem[width_key])
+    # read_data_reg = read_channel.reg("read_data_reg", mem[width_key])
 
-    bt_reg = read_channel.reg("bt_reg", 1)
+    # bt_reg = read_channel.reg("bt_reg", 1)
 
     # Groups
     with read_channel.continuous:
@@ -191,29 +201,29 @@ def add_read_channel(prog, mem):
         rready.write_en = 1
 
         # Store data we want to write
-        read_data_reg.in_ = RDATA
-        read_data_reg.write_en = (rready.out & RVALID) @ 1
-        read_data_reg.write_en = ~(rready.out & RVALID) @ 0
+        read_reg.in_ = RDATA
+        read_reg.write_en = (rready.out & RVALID) @ 1
+        read_reg.write_en = ~(rready.out & RVALID) @ 0
 
         n_RLAST.in_ = RLAST @ 0
         n_RLAST.in_ = ~RLAST @ 1
         n_RLAST.write_en = 1
 
         # We are done after handshake
-        bt_reg.in_ = (rready.out & RVALID) @ 1
-        bt_reg.in_ = ~(rready.out & RVALID) @ 0
-        bt_reg.write_en = 1
-        block_transfer.done = bt_reg.out
+        # bt_reg.in_ = (rready.out & RVALID) @ 1
+        # bt_reg.in_ = ~(rready.out & RVALID) @ 0
+        # bt_reg.write_en = 1
+        block_transfer.done = read_reg.done
 
     # creates group that increments curr_addr_internal_mem by 1. Creates adder and wires up correctly
     # Control
     invoke_n_RLAST = invoke(n_RLAST, in_in=1)
-    invoke_bt_reg = invoke(bt_reg, in_in=0)
+    # invoke_bt_reg = invoke(bt_reg, in_in=0)
     # Could arguably get rid of this while loop for the dynamic verison, but this
     # matches nicely with non dynamic version and conforms to spec,
     # and will be easier to exten to variable length dynamic transfers in the future
     while_body = [
-        invoke_bt_reg,
+        # invoke_bt_reg,
         block_transfer,
     ]
     while_n_RLAST = while_(n_RLAST.out, while_body)
@@ -222,9 +232,11 @@ def add_read_channel(prog, mem):
 
 
 def add_write_channel(prog, mem):
+    data_width = mem[width_key]
+    address_width = mem[address_width_key][0]
     # Inputs/Outputs
     write_channel = prog.component("m_write_channel")
-    channel_inputs = [("ARESETn", 1), ("WREADY", 1)]
+    channel_inputs = [("ARESETn", 1), ("WREADY", 1), ("write_data", data_width), ("addr0", address_width ) ]
     # TODO(nathanielnrn): We currently assume WDATA is the same width as the
     # memory. This limits throughput many AXI data busses are much wider
     # i.e., 512 bits.
@@ -237,28 +249,10 @@ def add_write_channel(prog, mem):
 
     # Cells
     # We assume idx_size is exactly clog2(len). See comment in #1751
-    # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
-    mem_ref = write_channel.seq_mem_d1(
-        name="mem_ref",
-        bitwidth=mem[width_key],
-        len=mem[size_key],
-        idx_size=clog2_or_1(mem[size_key]),
-        is_external=False,
-        is_ref=True,
-    )
 
     # according to zipcpu, rready should be registered
     wvalid = write_channel.reg("wvalid", 1)
     w_handshake_occurred = write_channel.reg("w_handshake_occurred", 1)
-    # internal calyx memory indexing
-    curr_addr_internal_mem = write_channel.reg(
-        "curr_addr_internal_mem", clog2_or_1(mem[size_key]), is_ref=True
-    )
-    # host indexing, must be 64 bits
-    curr_addr_axi = write_channel.reg("curr_addr_axi", 64, is_ref=True)
-
-    curr_transfer_count = write_channel.reg("curr_transfer_count", 8)
-    # Number of transfers we want to do in current txn
 
     # Register because w last is high with last transfer. Before this
     # We were terminating immediately with last transfer and not servicing it.
@@ -268,8 +262,6 @@ def add_write_channel(prog, mem):
     # Groups
     with write_channel.continuous:
         write_channel.this()["WVALID"] = wvalid.out
-        # Needed due to default assignment bug #1930
-        mem_ref.write_en = 0
 
     with write_channel.group("service_write_transfer") as service_write_transfer:
         WREADY = write_channel.this()["WREADY"]
@@ -286,43 +278,27 @@ def add_write_channel(prog, mem):
         w_handshake_occurred.in_ = ~(wvalid.out & WREADY) @ 0
         w_handshake_occurred.write_en = (~w_handshake_occurred.out) @ 1
 
-        # Set data output based on intermal memory output
-        mem_ref.addr0 = curr_addr_internal_mem.out
-        mem_ref.content_en = 1
-        write_channel.this()["WDATA"] = mem_ref.read_data
-
+        write_channel.this()["WDATA"] = write_channel.this()["write_data"]
         write_channel.this()["WLAST"] = 1
 
         # done after handshake
+        #TODO(nathanielnrn): Perhaps we can combine between handshake_occurred and bt_reg
         bt_reg.in_ = (wvalid.out & WREADY) @ 1
         bt_reg.in_ = ~(wvalid.out & WREADY) @ 0
         bt_reg.write_en = 1
         service_write_transfer.done = bt_reg.out
 
-        # Creates adder and wires up correctly
-        curr_addr_internal_mem_incr = write_channel.incr(curr_addr_internal_mem, 1)
-        # TODO(nathanielnrn): Currently we assume that width is a power of 2.
-        # In the future we should allow for non-power of 2 widths, will need some
-        # splicing for this.
-        # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
-        curr_addr_axi_incr = write_channel.incr(curr_addr_axi, ceil(mem[width_key] / 8))
-        curr_transfer_count_incr = write_channel.incr(curr_transfer_count, 1)
+    # TODO(nathanielnrn): Currently we assume that width is a power of 2.
+    # In the future we should allow for non-power of 2 widths, will need some
+    # splicing for this.
+    # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
 
-        # Control
-        init_curr_addr_internal_mem = invoke(curr_addr_internal_mem, in_in=0)
-        write_channel.control += [
-            init_curr_addr_internal_mem,
-        ]
-        write_channel.control += [
-            invoke(bt_reg, in_in=0),
-            service_write_transfer,
-            par(
-                curr_addr_internal_mem_incr,
-                curr_transfer_count_incr,
-                curr_addr_axi_incr,
-                invoke(w_handshake_occurred, in_in=0),
-            ),
-        ]
+    # Control
+    write_channel.control += [
+        invoke(bt_reg, in_in=0),
+        invoke(w_handshake_occurred, in_in=0),
+        service_write_transfer,
+    ]
 
 
 # For now we assume all responses are OKAY because we don't have any error
@@ -586,6 +562,8 @@ def clog2_or_1(x):
 def build():
     prog = Builder()
     check_mems_welformed(mems)
+    for mem in mems:
+        add_address_translator(prog, mem)
     add_arread_channel(prog, mems[0])
     add_awwrite_channel(prog, mems[0])
     add_read_channel(prog, mems[0])
