@@ -14,7 +14,7 @@ def insert_stats(prog, name, static=False):
     - One input port, the index of a flow (0 or 1).
     - Two output ports, `count_0` and `count_1`.
 
-    It also maintains two internal registers, `count_0_sto` and `count_1_sto`.
+    It maintains two internal registers, `count_0_sto` and `count_1_sto`.
 
     The component continously outputs the values of the two registers into the
     two output ports.
