@@ -10,9 +10,9 @@ def add_main_component(prog):
     # ANCHOR_END: init
 
     # ANCHOR: cells
-    lhs = main.reg("lhs", 32)
-    rhs = main.reg("rhs", 32)
-    sum = main.reg("sum", 32)
+    lhs = main.reg(32, "lhs")
+    rhs = main.reg(32, "rhs")
+    sum = main.reg(32, "sum")
     add = main.add(32, "add")
     # ANCHOR_END: cells
 

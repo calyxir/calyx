@@ -26,7 +26,7 @@ def add_wrap2(prog):
     ans = wrap.comb_mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j % 4, so we'll store it in a cell.
-    j_mod_4 = wrap.reg("j_mod_4", 32)
+    j_mod_4 = wrap.reg(32, "j_mod_4")
 
     # Additional cells and groups to compute equality and lt
     i_eq_0 = wrap.eq_use(i, 0)
@@ -109,7 +109,7 @@ def add_wrap3(prog):
     ans = wrap.comb_mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j % 4, so we'll store it in a cell.
-    j_mod_4 = wrap.reg("j_mod_4", 32)
+    j_mod_4 = wrap.reg(32, "j_mod_4")
 
     # Additional cells to compute equality, and lt
     i_eq_0 = wrap.eq_use(i, 0)

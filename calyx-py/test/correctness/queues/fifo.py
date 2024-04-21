@@ -22,18 +22,18 @@ def insert_fifo(prog, name):
     value = fifo.input("value", 32)  # The value to push to the queue
 
     mem = fifo.seq_mem_d1("mem", 32, MAX_QUEUE_LEN, 32)
-    write = fifo.reg("next_write", 32)  # The next address to write to
-    read = fifo.reg("next_read", 32)  # The next address to read from
+    write = fifo.reg(32, "next_write")  # The next address to write to
+    read = fifo.reg(32, "next_read")  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size MAX_QUEUE_LEN.
 
-    ans = fifo.reg("ans", 32, is_ref=True)
+    ans = fifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
 
-    err = fifo.reg("err", 1, is_ref=True)
+    err = fifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    len = fifo.reg("len", 32)  # The length of the FIFO.
+    len = fifo.reg(32)  # The length of the FIFO.
 
     # Cells and groups to compute equality
     cmd_eq_0 = fifo.eq_use(cmd, 0)

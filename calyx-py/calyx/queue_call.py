@@ -57,13 +57,13 @@ def insert_runner(prog, queue, name, stats_component=None):
     # Our memories and registers, all of which are passed to us by reference.
     commands = runner.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_ref=True)
-    has_ans = runner.reg("has_ans", 1, is_ref=True)
-    ans = runner.reg("component_ans", 32, is_ref=True)
-    err = runner.reg("component_err", 1, is_ref=True)
+    has_ans = runner.reg(1, "has_ans", is_ref=True)
+    ans = runner.reg(32, "component_ans", is_ref=True)
+    err = runner.reg(1, "component_err", is_ref=True)
 
-    i = runner.reg("i", 32)  # The index of the command we're currently processing
-    cmd = runner.reg("command", 2)  # The command we're currently processing
-    value = runner.reg("value", 32)  # The value we're currently processing
+    i = runner.reg(32, "i")  # The index of the command we're currently processing
+    cmd = runner.reg(2)  # The command we're currently processing
+    value = runner.reg(32)  # The value we're currently processing
 
     incr_i = runner.incr(i)  # i++
     cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1, meaning cmd is pop or peek
@@ -137,9 +137,9 @@ def insert_main(prog, queue, controller=None, stats_component=None):
     dataplane = insert_runner(prog, queue, "dataplane", stats_component)
     dataplane = main.cell("dataplane", dataplane)
 
-    has_ans = main.reg("has_ans", 1)
-    dataplane_ans = main.reg("dataplane_ans", 32)
-    dataplane_err = main.reg("dataplane_err", 1)
+    has_ans = main.reg(1)
+    dataplane_ans = main.reg(32)
+    dataplane_err = main.reg(1)
 
     commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
@@ -147,10 +147,10 @@ def insert_main(prog, queue, controller=None, stats_component=None):
 
     ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
 
-    j = main.reg("j", 32)  # The index on the answer-list we'll write to
+    j = main.reg(32, "j")  # The index on the answer-list we'll write to
     incr_j = main.incr(j)  # j++
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
-    # ans_mem[j] = dataplane_ans
+    # ans_mem[j] = dataplane_an
     lower_has_ans = main.reg_store(has_ans, 0, "lower_has_ans")  # has_ans := 0
 
     not_err = main.not_use(dataplane_err.out)
