@@ -532,6 +532,10 @@ class Stdlib:
         return CompInst(f'std_{"s" if signed else ""}{op}', [bitwidth])
 
     @staticmethod
+    def const_mult(bitwidth: int, const: int):
+        return CompInst("std_const_mult", [bitwidth, const])
+
+    @staticmethod
     def slice(in_: int, out: int):
         return CompInst("std_slice", [in_, out])
 

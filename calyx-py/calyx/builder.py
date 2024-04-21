@@ -380,6 +380,11 @@ class ComponentBuilder:
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
 
+    def const_mult(self, size: int, const: int, name: Optional[str] = None):
+        """Generate a StdConstMult cell."""
+        name = name or self.generate_name("const_mult")
+        return self.cell(name, ast.Stdlib.const_mult(size, const))
+
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
         self.prog.import_("primitives/pipelined.futil")
