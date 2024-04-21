@@ -95,8 +95,8 @@ def insert_abs_diff_component(prog):
         ],
         cb.if_with(val2_lt_val1, diff_group_2, diff_group_1),
     )
-    # This is contrived; either of the `par` branches would have sufficed.
     # ANCHOR_END: par_if_ifwith
+    # This is contrived; either of the `par` branches would have sufficed.
 
     return comp
 
@@ -119,10 +119,10 @@ def insert_mux_component(prog, diff_comp):
     sel_eq_0 = comp.eq_use(sel, 0)
     sum_group, _ = comp.add_store_in_reg(val1, val2, mux)
 
+    # We will use the `diff_comp` component to compute the absolute difference.
     # ANCHOR: multi-component
     abs_diff = comp.cell("abs_diff", diff_comp)
     with comp.group("compute_diff") as diff_group:
-        # We will use the `diff_comp` component to compute the absolute difference.
         abs_diff.val1 = val1
         abs_diff.val2 = val2
         abs_diff.go = cb.HI

@@ -122,7 +122,6 @@ The [builder library walkthrough][walkthrough] contains a detailed description o
 Other examples using the builder can also be found in the `calyx-py` [test directory][test]. All of our frontends were also written using this library, in case you'd like even more examples!
 
 [cont]: ../lang/ref.md#continuous-assignments
-[example]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.py
 [flit]: https://flit.readthedocs.io/en/latest/
 [godone]: ..lang/ref.md#the-go-done-interface
 [guarded]: ../lang/ref.md#guarded-assignments

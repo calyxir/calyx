@@ -4,7 +4,223 @@ This is an extended walkthough of all the features of the Calyx builder library.
 
 This page seeks to demonstrate all the features of the builder library. For a quick start, we refer you to the [hello world example][helloworld].
 
-We will make continuous references to the example program
+We will make repeated references to the example program [`walkthrough.py`][walkthrough], which emits the Calyx code[`walkthrough.expect`][walkthrough_expect] when run. We recommend that you refer to these files as you work through this document.
+
+## Components
+
+We add a component to our program as follows:
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:component}}
+```
+
+## Ports of Components
+
+We specify the names and bitwidths of any ports that we want a component to have as follows:
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:ports}}
+```
+Observe that we have saved handles to the input ports by assigning them to Python variables, but have not done the same with the output port.
+We will show shortly how to create a handle to a port after its definition.
+
+## Cells
+
+We add cells to the component as follows.
+The standard cells are all supported.
+Bitwidths must be passed as arguments, while names are optional.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:cells}}
+```
+The adder defined above is unsigned; we would define a signed variant as:
+```python
+    add = comp.add(32, signed=True)
+```
+
+## Groups
+
+We begin a group with:
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:group_def}}
+```
+
+We add wires within a group by staying within the indentation of the `with` block.
+
+[Combinational groups][comb] are written similarly, but with `comb_group` instead of `group`:
+
+```python
+    with comp.comb_group("compute_sum") as compute_sum:
+
+```
+
+## Ports of Cells
+
+We access ports of cells using dot notation.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:dot_notation}}
+```
+
+### Special Case: `in_`
+
+We specify the value to be written to a register with:
+```python
+{{#include ../../calyx-py/test/walkthrough.py:in_}}
+```
+Although the Calyx port is named `in`, we must write `in_` in the eDSL to avoid a clash with Python's `in` keyword.
+
+## HI and LO Signals
+
+The builder library provides shorthand for high and low signals.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:high_signal}}
+```
+There is a corresponding `LO` signal.
+These are just one-bit values `1` and `0`, respectively.
+
+
+
+## Group `done` Signals
+
+Groups that are not [combinational][comb] must raise a `done` signal.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:done}}
+```
+
+## Accessing Output Ports of Components
+
+We can create a handle to a port after its definition.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:this_continuous}}
+```
+That is, `comp.this().out` is a handle to the port named "out" on the component whose handle is `comp`.
+
+Accessing ports in this way may feel silly, since we have already shown that we can save handles to ports by assigning them to Python variables. This does work for input ports, but not for output ports.
+
+Say we had saved a handle to the output port of the adder component:
+```
+out = comp.output("out", 32)
+```
+
+Now say we wanted to say that the output port gets the value of the sum's output port:
+```python
+out = sum.out
+```
+
+Python will get in our way because it will think that `out` is a variable that is written to (twice!) but never read from.
+
+To avoid this, we use the `this()` method to access the output ports of a component.
+
+## Continuous Assignments
+[Continuous assignments][cont] are added using `with {component}.continuous:`.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:this_continuous}}
+```
+
+## Simple Control Program
+
+A simple control program is added to the component as follows:
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:control}}
+```
+
+## Binary Operation and Store
+
+The library provides a shorthand for the common pattern of performing a binary operation and writing the result to a register.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:sub_and_store}}
+```
+
+Here `diff` is a handle to a register that we have defined earlier. This single line of Python adds lines to the `cells` and the `wires` sections of the Calyx code:
+```
+  cells {
+    sub_1 = std_sub(32);
+  }
+  wires {
+    group sub_1_group {
+      sub_1.left = val1;
+      sub_1.right = val2;
+      diff.write_en = 1'd1;
+      diff.in = sub_1.out;
+      sub_1_group[done] = diff.done;
+    }
+  }
+```
+In Python, its return value is a handle to the group that it has created, and a handle to the register is has written to. In the line of Python above, we have saved the handle to the group (as `diff_group_1`) but have discarded the handle to the register using a `_` variable name since we already have a handle to the register, `diff`.
+
+This construct can also be called without passing a register, in which case it will create a register and return it. It is useful in that case to save the handle to the register.
+
+## Operation-Use
+
+The library provides a shorthand for the common pattern of performing a binary operation and using the result combinationally.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:lt_use_oneliner}}
+```
+
+This line of Python adds lines to the `cells` and the `wires` sections of the Calyx code:
+```
+cells {
+    lt_3 = std_lt(32);
+  }
+  wires {
+    comb group lt_3_group {
+      lt_3.left = val2;
+      lt_3.right = val1;
+    }
+  }
+```
+
+Note that the group is combinational, and so does not need a `done` signal.
+
+The value returned by this function, which we have saved above as `val2_lt_val1` is in fact a tuple of handles: a handle to the group that it has created and a handle to the cell that that group uses. We shall see shortly how to use this tuple.
+
+## Complex Control: `par`, `seq`, `if`
+
+Let us work through a slightly more complex control program.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:par_if_ifwith}}
+```
+
+We run control operators in sequence by making them elements of a list. This is why the group `val1_ge_val2` runs before the if check written on the next line.
+
+We run control operators in parallel by passing them to the `par` function.
+
+The `if_` function (named with the underscore to avoid clashing with Python's `if` keyword) is a straightforward `if` check. It takes a condition, a body, and an optional else body.
+
+The `if_with` function is a slightly more complex `if` check. It takes a (`cell`, `comb_group`) tuple, a body, and an optional else body.
+It generates a combinational if check, of the form
+```
+if cell.out with comb_group ...
+```
+It is especially useful in concert with the `Operation-Use` construct, which returns exactly such a tuple of a cell and a group.
+
+## Multi-Component Designs
+
+Using one component in another is straightforward.
+
+We must first define the called component as a cell of the calling component, and then we can use the cell as usual.
+
+Say we have a handle, `diff_comp`, to the component that we wish to call. Say also that we know that the component has input ports `val1` and `val2`, and an output port `out`.
+
+We can write:
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:multi-component}}
+```
+Although the called component did not have explicit `go` and `done` ports, the builder library has added them for us.
+We use these ports to guide the execution of the group.
+We assert the `go` signal to the called component with `diff_comp.go = HI`, and then, by writing `mux.write_en = abs_diff.done`, we make the write to the register `mux` conditional on the `done` signal of the called component.
+
 
 ## Top-Level Program Structure
 
@@ -411,3 +627,5 @@ HI = const(1, 1)
 [top]: ref.md#top-level-program-structure
 [while]: ../lang/ref.md#while
 [helloworld]: helloworld.md
+[walkthrough]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.py
+[walkthrough_expect]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.expect
