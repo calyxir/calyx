@@ -1,4 +1,10 @@
-# Builder Library Reference
+# Builder Library Walkthrough
+
+This is an extended walkthough of all the features of the Calyx builder library. The builder library is an embedded DSL, embedded in Python, that allows users to generate Calyx code programmatically.
+
+This page seeks to demonstrate all the features of the builder library. For a quick start, we refer you to the [hello world example][helloworld].
+
+We will make continuous references to the example program
 
 ## Top-Level Program Structure
 
@@ -15,19 +21,19 @@ def add_second_comp(prog):
 
 
 # method for defining `my_component` and adding it to a program
-def add_my_component(prog, second_comp): 
+def add_my_component(prog, second_comp):
     # add the component to the program
     my_component = prog.component("my_component")
 
     # Adding an instance of `second_comp` as a cell of `my_component`
     my_second_comp = my_component.cell("my_second_comp", second_comp)
 
-    # adding a register cell (or other cells) to the component 
+    # adding a register cell (or other cells) to the component
     my_reg = my_component.reg("my_reg", 32)
 
     # define a `my_component` group
     with my_component.group("my_group") as my_group:
-      # assignments here 
+      # assignments here
       my_reg.write_en = 1
 
     # add the group to `my_component`'s control program
@@ -67,7 +73,7 @@ To reference a component without an existing [handle][hndl] to it, use the `Buil
 ```python
 prog = cb.Builder()
 prog.component("my_component")
-# a few lines later 
+# a few lines later
 my_component = prog.get_component("my_component")
 ```
 
@@ -126,7 +132,7 @@ my_component.reg("my_reg", 32)
 my_component.const("my_reg", 32, 42)
 
 # Adders/Subtractors: [add|sub](name, size, signed=False)
-# a signed adder 
+# a signed adder
 my_component.add("my_add", 32, signed=True)
 # a subtractor
 my_component.sub("my_sub", 32)
@@ -141,7 +147,7 @@ my_component.neq("my_neq", 32)
 my_component.ge("my_ge", 32)
 my_component.le("my_le", 32)
 
-# 1-D memory: 
+# 1-D memory:
 # mem_d1(name, bitwidth, len, idx_size, is_external=False, is_ref=False)
 my_component.mem_d1("my_mem", 32, 4, 32)
 # An external memory
@@ -160,7 +166,7 @@ In order to reference a cell without a [handle][hndl], use the `Builder().get_ce
 # defining a register cell
 my_component.reg("my_reg", 32)
 
-# a few lines later 
+# a few lines later
 my_reg = prog.get_cell("my_reg")
 ```
 
@@ -204,7 +210,7 @@ with my_component.group("my_group") as my_group:
     # assignments here
 
 # a group with a static delay
-with my_component.group("my_static_group", static_delay=1): 
+with my_component.group("my_static_group", static_delay=1):
 
 ```
 
@@ -404,3 +410,4 @@ HI = const(1, 1)
 [static]: ../lang/static.md#delay-by-n-cycles
 [top]: ref.md#top-level-program-structure
 [while]: ../lang/ref.md#while
+[helloworld]: helloworld.md
