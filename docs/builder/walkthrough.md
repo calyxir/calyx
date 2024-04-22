@@ -222,6 +222,115 @@ We use these ports to guide the execution of the group.
 We assert the `go` signal to the called component with `diff_comp.go = HI`, and then, by writing `mux.write_en = abs_diff.done`, we make the write to the register `mux` conditional on the `done` signal of the called component.
 
 
+## Memories
+
+We can define memories in a component as follows:
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:comb_mem_d1_ref}}
+```
+
+This is a 1-D memory with ten 32-bit entries, each 32 bits wide. We have additionally declared that this memory will be passed to the component by reference. We shall see how shortly.
+
+
+## Miscellaneous Higher-Level Constructors
+
+As patterns of use emerge, we can add further constructors to the builder library to support common use-cases.
+For example, we can add a constructor that increments a register by a constant value.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:incr_oneliner}}
+```
+
+That line of Python adds lines to the `cells` and the `wires` sections of the Calyx code:
+```
+  cells {
+    i_incr = std_add(8);
+  }
+  wires {
+    group i_incr_group {
+      i_incr.left = i.out;
+      i_incr.right = 8'd1;
+      i.write_en = 1'd1;
+      i.in = i_incr.out;
+      i_incr_group[done] = i.done;
+    }
+  }
+```
+
+The Python return value, `incr_i`, is a handle to the group that performs the incrementing. The method defaults to incrementing by 1, but can be passed any value.
+
+## Guarded Assignments
+
+Consider the group that adds value `v` to a memory at the cell pointed to by register `i`.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:add_at_position_i}}
+```
+
+The first few lines are straightforward; we are setting the cell to be read from with `addr0`, reading from that cell and driving the value to the adder's left port, and setting the right port of the adder to the value `v`.
+
+Now we wish to write the result to the memory at the cell pointed to by register `i`, but only once we know that the adder has finished its work. We do this with a guarded assignment, using the `@` operator:
+```python
+        mem.write_en = add.done @ cb.HI
+```
+In Calyx, we would have written this guarded assignment with a question mark:
+```
+        mem.write_en = add.done ? 1'd1;
+```
+We use the `@` operator in the builder library to avoid clashing with Python's ternary operator.
+
+## Complex Control: `while`
+
+The builder library supports `while` loops and also the higher-level `while_with` constructor.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:while_with}}
+```
+
+Here `i_lt_10` is a tuple of two handles, exactly as returned by the `Operation-Use` constructor. The `while_with` constructor takes this tuple and a body.
+
+## External Memories
+
+We can define external memories in a component, typically the `main` component, as follows:
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:ext_mem}}
+```
+
+## Invoking Components
+
+We can invoke components as follows:
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:invoke}}
+```
+
+That is, we have a Python-level handle to some component `map` that has one memory called `mem` that it expects to be passed by reference, and one input port called `v`.
+We must prepend `ref_` to the names of any memories, and `in_` to the names of any input ports.
+
+## Building the Program
+
+Finally, we build the program.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:build}}
+```
+
+Note that all of our component-inserting helpers have been _returning_ the components that they have created. This is so that we can build complex programs where components either call each other as cells or invoke each other.
+
+This is why we save a Python-level handle to the `diff_comp` component that we have defined, and then pass it to the `insert_mux_component` function. As we have seen, the `mux` uses `diff_comp` as a cell.
+
+We also save a Python-level handle to the `map` component that we have defined, and then pass it to the `insert_main_component` function. As we have seen, `map` is invoked by `main`.
+
+## Emitting the Program
+
+Finally, we emit Calyx.
+
+```python
+{{#include ../../calyx-py/test/walkthrough.py:emit}}
+```
+
 ## Top-Level Program Structure
 
 Here's the general structure of a program that uses the builder to generate Calyx code.

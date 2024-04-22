@@ -161,15 +161,15 @@ def insert_map_component(prog):
     i_lt_10 = comp.lt_use(i.out, 10)
     # ANCHOR_END: width_inf
 
+    # ANCHOR: add_at_position_i
     with comp.group("add_at_position_i") as add_at_position_i:
         mem.addr0 = i.out
         add.left = mem.read_data
         add.right = v
-        # ANCHOR: guarded_assignment
         mem.write_en = add.done @ cb.HI
-        # ANCHOR_END: guarded_assignment
         mem.write_data = add.out
         add_at_position_i.done = mem.done
+    # ANCHOR_END: add_at_position_i
 
     # ANCHOR: while_with
     comp.control += cb.while_with(i_lt_10, [add_at_position_i, incr_i])
