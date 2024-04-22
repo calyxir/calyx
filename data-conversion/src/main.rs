@@ -1,41 +1,50 @@
 //use std::env;
+use argh::FromArgs;
 use std::fs::read_to_string;
 use std::fs::File;
 use std::io::{self, Write};
-use argh::FromArgs;
 
 fn main() {
     #[derive(FromArgs)]
     /// get arguments to convert
     struct Arguments {
-
-        /// file to convert from 
+        /// file to convert from
         #[argh(option)]
         from: String,
-    
-        /// file to convery to 
+
+        /// file to convery to
         #[argh(option)]
         to: String,
-    
-        /// type to convert from 
+
+        /// type to convert from
         #[argh(option)]
         ftype: String,
-    
-        /// type to convert to 
+
+        /// type to convert to
         #[argh(option)]
         totype: String,
     }
 
     let args: Arguments = argh::from_env();
 
-    let types: Vec<String> = vec!["binary".to_string(), "float".to_string(), "hex".to_string()];
+    // Array of all possible options to convert from
+    let from_types: Vec<String> = vec![
+        "binary".to_string(),
+        "float".to_string(),
+        "hex".to_string(),
+        "fixed".to_string(),
+    ];
+    // Array of all possible options to convert to
+    let to_types: Vec<String> =
+        vec!["binary".to_string(), "float".to_string(), "hex".to_string()];
+
     let mut valid = true;
 
-    if !types.contains(&args.ftype) {
+    if !from_types.contains(&args.ftype) {
         eprintln!("{} is not a valid type to convert from", args.from);
         valid = false;
     }
-    if !types.contains(&args.totype) {
+    if !to_types.contains(&args.totype) {
         eprintln!("{} is not a valid type to convert from", args.to);
         valid = false;
     }
@@ -44,7 +53,7 @@ fn main() {
     }
 }
 
-/// Converts [filepath_get] from type [convert_from] to type 
+/// Converts [filepath_get] from type [convert_from] to type
 /// [convert_to] in [filepath_send]
 fn convert(
     filepath_get: &String,
@@ -66,6 +75,11 @@ fn convert(
         } else if convert_from == "float" {
             for line in read_to_string(filepath_get).unwrap().lines() {
                 float_to_binary(line, &mut converted)
+                    .expect("Failed to write binary to file");
+            }
+        } else if convert_from == "fixed" {
+            for line in read_to_string(filepath_get).unwrap().lines() {
+                fixed_to_binary(line, &mut converted)
                     .expect("Failed to write binary to file");
             }
         }
@@ -93,7 +107,7 @@ fn convert(
     );
 }
 
-/// Formats [to_format] properly
+/// Formats [to_format] properly for float values
 fn format_binary(to_format: u32) -> String {
     let binary_str = format!("{:032b}", to_format);
     format!(
@@ -109,14 +123,14 @@ fn format_hex(to_format: u32) -> String {
     format!("0x{}", &formatted_hex_str)
 }
 
-/// Converts [binary_string] to binary and appends to [filepath_send]
+/// Converts [float_string] to binary and appends to [filepath_send]
 fn float_to_binary(
-    binary_string: &str,
+    float_string: &str,
     filepath_send: &mut File,
 ) -> std::io::Result<()> {
     let float_of_string: f32;
     // Convert string to float
-    match binary_string.parse::<f32>() {
+    match float_string.parse::<f32>() {
         Ok(parsed_num) => float_of_string = parsed_num,
         Err(_) => {
             panic!("Failed to parse float from string")
@@ -164,7 +178,7 @@ fn binary_to_hex(
             return Err(io::Error::new(io::ErrorKind::InvalidData, err))
         }
     };
-    
+
     let formatted_hex_str = format_hex(hex_of_binary);
 
     filepath_send.write(formatted_hex_str.as_bytes())?;
@@ -195,10 +209,53 @@ fn binary_to_float(
     Ok(())
 }
 
-// fn fixed_to_binary (
-//     fixed_string: &str,
-//     filepath_send: &mut File,
-//     scale: int,
-// ) -> io::Result<()> {
+fn fixed_to_binary(
+    fixed_string: &str,
+    filepath_send: &mut File,
+    // scale: usize,
+) -> io::Result<()> {
+    let fixed_str;
+    let exp_str;
+    let words: Vec<&str>;
 
-//     }
+    // Create an array with the elements of fixed_string delinieated by spaces
+    if fixed_string.contains(' ') {
+        // Split the input string into individual words
+        words = fixed_string.split_whitespace().collect();
+        fixed_str = words.get(0).unwrap_or(&"");
+        exp_str = words.get(1).unwrap_or(&"");
+    } else {
+        panic!("Input string does not contain a space.");
+    }
+    // Convert fixed value from string to int
+    print!("{} ", fixed_str);
+    let fixed_value: f32;
+    match fixed_str.parse::<f32>() {
+        Ok(parsed_num) => fixed_value = parsed_num,
+        Err(_) => {
+            panic!("Bad fixed value input")
+        }
+    }
+    // Convert exponent from string to float
+    print!("{} ", exp_str);
+    let exponent: f32;
+    match exp_str.parse::<f32>() {
+        Ok(parsed_num) => exponent = parsed_num,
+        Err(_) => {
+            panic!("Bad fixed value input")
+        }
+    }
+    let multiplied_fixed = fixed_value * 2_f32.powf(-exponent);
+    print!("{} ", 2_f32.powf(exponent));
+    print!("{} ", multiplied_fixed);
+
+    // let binary_of_fixed = multiplied_fixed.to_bits();
+    let binary_of_fixed = format!("{:b}", multiplied_fixed as u8);
+    print!("{}\n", binary_of_fixed);
+
+    // Write binary string to the file
+    filepath_send.write_all(binary_of_fixed.as_bytes())?;
+    filepath_send.write_all(b"\n")?;
+
+    Ok(())
+}
