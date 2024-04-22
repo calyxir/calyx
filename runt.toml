@@ -488,7 +488,7 @@ fud e {} -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          --to dat -q
 """
-##### Cayx AXI tests #####
+##### Calyx AXI tests #####
 [[tests]]
 name = "calyx-py AXI wrapper generation"
 paths = ["yxi/tests/*.yxi"]
@@ -498,11 +498,32 @@ python3 yxi/axi-calyx/axi-generator.py {}
 
 [[tests]]
 name = "fud2 axi-wrapper invocation"
-paths = ["yxi/tests/fud2/*.futil"]
+paths = ["yxi/tests/fud2/seq-mem-vec-add.futil"]
 cmd = """
 fud2 {} --to calyx --through axi-wrapped
 """
 
+#[[tests]]
+#name = "fud2 axi-wrapper invocation"
+#paths = ["yxi/tests/fud2/seq-mem-vec-add.futil"]
+#cmd = """
+#fud2 {} --to calyx --through axi-wrapped > tmp.futil && fud2 tmp.futil --from calyx --to verilog-noverify
+#"""
+#
+#[[tests]]
+#name = "fud2 axi-wrapper invocation"
+#paths = ["yxi/tests/fud2/seq-mem-vec-add.futil"]
+#cmd = """
+#fud2 {} --to calyx --through axi-wrapped > tmp.futil \
+#&& fud2 tmp.futil --from calyx --to verilog-noverify \
+#&& fud2
+"""
+[[tests]]
+name = "fud2 axi-wrapped to verilog"
+paths = ["yxi/tests/fud2/seq-mem-vec-add-axi-wrapped.futil"]
+cmd = """
+fud2 {} --from calyx --to verilog-noverify 
+"""
 ##### Xilinx Tests ######
 [[tests]]
 name = "AXI wrapper generation"
