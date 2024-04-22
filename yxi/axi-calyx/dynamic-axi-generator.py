@@ -25,17 +25,15 @@ def add_address_translator(prog, mem):
     address_width = mem[address_width_key][0]
     data_width = mem[width_key]
     name = mem[name_key]
-    #Inputs/Outputs
-    address_translator = prog.component(f"{name}_address_translator")
+    # Inputs/Outputs
+    address_translator = prog.component(f"address_translator_{name}")
     translator_inputs = [("calyx_mem_addr", address_width)]
     translator_output = [("axi_address", 64)]
     add_comp_params(address_translator, translator_inputs, translator_output)
 
     #Cells
     #XRT expects 64 bit address.
-    assert data_width
-    address_mult = address_translator.const_mult(64, width_in_bytes(data_width), f"{name}_mul")
-    my_reg = address_translator.reg("my_reg", 64)
+    address_mult = address_translator.const_mult(64, width_in_bytes(data_width), f"mul_{name}")
 
 
     #Assignment
@@ -70,7 +68,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     x = prefix
     # Inputs/outputs
     m_to_s_address_channel = prog.component(f"m_{lc_x}_channel")
-    channel_inputs = [("ARESETn", 1), (f"{x}READY", 1), ("axi_addr", 64)]
+    channel_inputs = [("ARESETn", 1), (f"{x}READY", 1), ("axi_address", 64)]
     channel_outputs = [
         (f"{x}VALID", 1),
         (f"{x}ADDR", 64),
@@ -236,7 +234,11 @@ def add_write_channel(prog, mem):
     address_width = mem[address_width_key][0]
     # Inputs/Outputs
     write_channel = prog.component("m_write_channel")
-    channel_inputs = [("ARESETn", 1), ("WREADY", 1), ("write_data", data_width), ("addr0", address_width ) ]
+    channel_inputs = [
+        ("ARESETn", 1),
+        ("WREADY", 1),
+        ("write_data", data_width)
+    ]
     # TODO(nathanielnrn): We currently assume WDATA is the same width as the
     # memory. This limits throughput many AXI data busses are much wider
     # i.e., 512 bits.
@@ -336,6 +338,190 @@ def add_bresp_channel(prog, mem):
 
     # Control
     bresp_channel.control += [invoke(bt_reg, in_in=0), block_transfer]
+
+def add_read_controller(prog, mem):
+    data_width = mem[width_key]
+    name = mem[name_key]
+
+    read_controller = prog.component(f"read_controller_{name}")
+    # Inputs/Outputs
+    read_controller_inputs = [
+        ("axi_address", 64),
+        (f"ARESETn", 1),
+        (f"ARREADY", 1),
+        (f"RVALID", 1),
+        (f"RLAST", 1),
+        (f"RDATA", data_width),
+        (f"RRESP", 2),
+    ]
+
+    read_controller_outputs = [
+        (f"ARVALID", 1),
+        (f"ARADDR", 64),
+        (f"ARSIZE", 3),
+        (f"ARLEN", 8),
+        (f"ARBURST", 2),
+        (f"RREADY", 1),
+        #sent out to axi_seq_mem
+        (f"read_data", data_width),
+    ]
+
+    add_comp_params(read_controller, read_controller_inputs, read_controller_outputs)
+
+    #Cells
+    simple_ar_channel = read_controller.cell(f"ar_channel_{name}", prog.get_component("m_ar_channel"))
+    simple_read_channel = read_controller.cell(f"read_channel_{name}", prog.get_component("m_read_channel"))
+    # No groups necesarry
+
+
+    # Control
+    #   Invokes
+    simple_ar_invoke = invoke(
+        simple_ar_channel,
+        in_axi_address=read_controller.this()["axi_address"],
+        in_ARESETn=read_controller.this()["ARESETn"],
+        in_ARREADY=read_controller.this()["ARREADY"],
+        out_ARVALID=read_controller.this()["ARVALID"],
+        out_ARADDR=read_controller.this()["ARADDR"],
+        out_ARSIZE=read_controller.this()["ARSIZE"],
+        out_ARLEN=read_controller.this()["ARLEN"],
+        out_ARBURST=read_controller.this()["ARBURST"],
+    )
+    simple_read_invoke = invoke(
+        simple_read_channel,
+        in_ARESETn=read_controller.this()["ARESETn"],
+        in_RVALID=read_controller.this()["RVALID"],
+        in_RLAST=read_controller.this()["RLAST"],
+        in_RDATA=read_controller.this()["RDATA"],
+        in_RRESP=read_controller.this()["RRESP"],
+        out_RREADY=read_controller.this()["RREADY"],
+        out_read_data=read_controller.this()["read_data"],
+    )
+    read_controller.control += [
+        simple_ar_invoke,
+        simple_read_invoke,
+    ]
+
+def add_write_controller(prog, mem):
+    data_width = mem[width_key]
+    name = mem[name_key]
+
+    write_controller = prog.component(f"write_controller_{name}")
+    # Inputs/Outputs
+    write_controller_inputs = [
+        ("axi_address", 64),
+        ("write_data", data_width),
+        (f"ARESETn", 1),
+        (f"AWREADY", 1),
+        (f"WREADY", 1),
+        (f"BVALID", 1),
+    ]
+
+    write_controller_outputs = [
+        (f"AWVALID", 1),
+        (f"AWADDR", 64),
+        (f"AWSIZE", 3),
+        (f"AWLEN", 8),
+        (f"AWBURST", 2),
+        (f"WVALID", 1),
+        (f"WLAST", 1),
+        (f"WDATA", data_width),
+        (f"BREADY", data_width),
+    ]
+
+    add_comp_params(write_controller, write_controller_inputs, write_controller_outputs)
+
+    #Cells
+    simple_aw_channel = write_controller.cell(f"aw_channel_{name}", prog.get_component("m_ar_channel"))
+    simple_write_channel = write_controller.cell(f"write_channel_{name}", prog.get_component("m_read_channel"))
+    simple_bresp_channel = write_controller.cell(f"bresp_channel_{name}", prog.get_component("m_bresp_channel"))
+    # No groups necesarry
+
+
+    # Control
+    #   Invokes
+    simple_aw_invoke = invoke(
+        simple_aw_channel,
+        in_axi_address=write_controller.this()["axi_address"],
+        in_ARESETn=write_controller.this()["ARESETn"],
+        in_AWREADY=write_controller.this()["AWREADY"],
+        out_AWVALID=write_controller.this()["AWVALID"],
+        out_AWADDR=write_controller.this()["AWADDR"],
+        out_AWSIZE=write_controller.this()["AWSIZE"],
+        out_AWLEN=write_controller.this()["AWLEN"],
+        out_AWBURST=write_controller.this()["AWBURST"],
+    )
+    simple_write_invoke = invoke(
+        simple_write_channel,
+        in_write_data=write_controller.this()["write_data"],
+        in_ARESETn=write_controller.this()["ARESETn"],
+        in_WREADY=write_controller.this()["WREADY"],
+        out_WVALID=write_controller.this()["WVALID"],
+        out_WLAST=write_controller.this()["WLAST"],
+        out_WDATA=write_controller.this()["WDATA"],
+    )
+
+    simple_bresp_invoke = invoke(
+        simple_bresp_channel,
+        in_BRESP=write_controller.this()["BRESP"],
+        out_BREADY=write_controller.this()["BREADY"],
+    )
+
+    write_controller.control += [
+        simple_aw_invoke,
+        simple_write_invoke,
+        simple_bresp_invoke,
+    ]
+
+def add_axi_seq_mem(prog, mem):
+    address_width = mem[address_width_key][0]
+    data_width = mem[width_key]
+    name = mem[name_key]
+
+    axi_seq_mem = prog.component(f"axi_seq_mem_{name}")
+    # Inputs/Outputs
+    seq_mem_inputs =[
+        ("addr0", address_width),
+        ("content_en", 1),
+        ("write_en", 1),
+        ("write_data", data_width),
+        (f"ARESETn", 1),
+        (f"ARREADY", 1),
+        (f"RVALID", 1),
+        (f"RLAST", 1),
+        (f"RDATA", mem[width_key]),
+        (f"RRESP", 2),
+        (f"AWREADY", 1),
+        (f"WRESP", 2),
+        (f"WREADY", 1),
+        (f"BVALID", 1),
+        # Only used for waveform tracing, not sent anywhere
+        (f"BRESP", 2),
+    ]
+    seq_mem_outputs = [
+        ("read_data", data_width),
+        (f"ARVALID", 1),
+        (f"ARADDR", 64),
+        (f"ARSIZE", 3),
+        (f"ARLEN", 8),
+        (f"ARBURST", 2),
+        (f"RREADY", 1),
+        (f"AWVALID", 1),
+        (f"AWADDR", 64),
+        (f"AWSIZE", 3),
+        (f"AWLEN", 8),
+        (f"AWBURST", 2),
+        (f"AWPROT", 3),
+        (f"WVALID", 1),
+        (f"WLAST", 1),
+        (f"WDATA", mem[width_key]),
+        (f"BREADY", 1),
+    ]
+    add_comp_params(axi_seq_mem, seq_mem_inputs, seq_mem_outputs)
+
+    # Cells
+    axi_seq_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
+
 
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
@@ -569,6 +755,7 @@ def build():
     add_read_channel(prog, mems[0])
     add_write_channel(prog, mems[0])
     add_bresp_channel(prog, mems[0])
+    add_read_controller(prog, mems[0])
     add_main_comp(prog, mems)
     return prog.program
 
