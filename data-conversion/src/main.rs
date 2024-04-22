@@ -38,19 +38,14 @@ fn main() {
     let to_types: Vec<String> =
         vec!["binary".to_string(), "float".to_string(), "hex".to_string()];
 
-    let mut valid = true;
-
     if !from_types.contains(&args.ftype) {
-        eprintln!("{} is not a valid type to convert from", args.from);
-        valid = false;
+        panic!("{} is not a valid type to convert from", args.from);
     }
     if !to_types.contains(&args.totype) {
-        eprintln!("{} is not a valid type to convert from", args.to);
-        valid = false;
+        panic!("{} is not a valid type to convert to", args.to);
     }
-    if valid {
-        convert(&args.from, &args.to, &args.ftype, &args.totype);
-    }
+
+    convert(&args.from, &args.to, &args.ftype, &args.totype);
 }
 
 /// Converts [filepath_get] from type [convert_from] to type
@@ -119,8 +114,7 @@ fn format_binary(to_format: u32) -> String {
 }
 
 fn format_hex(to_format: u32) -> String {
-    let formatted_hex_str = format!("{:X}", to_format);
-    format!("0x{}", &formatted_hex_str)
+    format!("0x{:X}", to_format)
 }
 
 /// Converts [float_string] to binary and appends to [filepath_send]
@@ -199,7 +193,7 @@ fn binary_to_float(
     };
 
     // Interpret the integer as the binary representation of a floating-point number
-    let float_value = unsafe { std::mem::transmute::<u32, f32>(binary_value) };
+    let float_value = f32::from_bits(binary_value);
 
     let formated_float_str = format!("{:?}", float_value);
 
@@ -222,8 +216,10 @@ fn fixed_to_binary(
     if fixed_string.contains(' ') {
         // Split the input string into individual words
         words = fixed_string.split_whitespace().collect();
-        fixed_str = words.get(0).unwrap_or(&"");
-        exp_str = words.get(1).unwrap_or(&"");
+        fixed_str = words
+            .get(0)
+            .unwrap_or_else(|| &"There is not a fixed number");
+        exp_str = words.get(1).unwrap_or_else(|| &"There is no exponent");
     } else {
         panic!("Input string does not contain a space.");
     }
