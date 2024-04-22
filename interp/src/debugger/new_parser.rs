@@ -1,18 +1,15 @@
-use std::collections::HashMap;
-
-use pest_consume::{match_nodes, Error, Parser};
-
-use super::structures::{NamedTag, SourceMap};
+use super::source::structures::{GroupContents, NewSourceMap};
 use crate::errors::InterpreterResult;
-
+use pest_consume::{match_nodes, Error, Parser};
+use std::collections::HashMap;
 type ParseResult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = pest_consume::Node<'i, Rule, ()>;
 
 // include the grammar file so that Cargo knows to rebuild this file on grammar changes
-const _GRAMMAR: &str = include_str!("metadata.pest");
+const _GRAMMAR: &str = include_str!("new_metadata.pest");
 
 #[derive(Parser)]
-#[grammar = "debugger/source/metadata.pest"]
+#[grammar = "debugger/new_metadata.pest"]
 pub struct MetadataParser;
 
 #[pest_consume::parser]
@@ -20,11 +17,11 @@ impl MetadataParser {
     fn EOI(_input: Node) -> ParseResult<()> {
         Ok(())
     }
-    fn num(input: Node) -> ParseResult<u64> {
+    pub fn num(input: Node) -> ParseResult<u64> {
         input
             .as_str()
             .parse::<u64>()
-            .map_err(|_| input.error("Expected non-negative number"))
+            .map_err(|_| input.error("Expected number"))
     }
     fn group_name(input: Node) -> ParseResult<String> {
         input
@@ -32,26 +29,71 @@ impl MetadataParser {
             .parse::<String>()
             .map_err(|_| input.error("Expected character"))
     }
-    fn escaped_newline(_input: Node) -> ParseResult<char> {
-        Ok('\n')
+
+    fn path(input: Node) -> ParseResult<String> {
+        input
+            .as_str()
+            .parse::<String>()
+            .map_err(|_| input.error("Expected valid path"))
     }
-    fn entry(input: Node) -> ParseResult<(String, i64)> {
+
+    fn entry(input: Node) -> ParseResult<(String, GroupContents)> {
         Ok(match_nodes!(input.into_children();
-            [group_name(g), num(n)] => (g, n)
+            [group_name(g), path(p),num(n)] => (g,GroupContents {path:p, line: n})
         ))
     }
-    // Do we need to do all fields????????? Like Header
+
     fn metadata(input: Node) -> ParseResult<NewSourceMap> {
         Ok(match_nodes!(input.into_children();
             [entry(e).., EOI(_)] => {
-                let map: HashMap<String, i64> = e.collect();
+                let map: HashMap<String, GroupContents> = e.collect();
                 map.into()
             }
         ))
     }
 }
+
 pub fn parse_metadata(input_str: &str) -> InterpreterResult<NewSourceMap> {
     let inputs = MetadataParser::parse(Rule::metadata, input_str)?;
     let input = inputs.single()?;
     Ok(MetadataParser::metadata(input)?)
+}
+
+#[cfg(test)]
+#[test]
+fn one_entry() {
+    let entry = parse_metadata("hello: your/mom 5").unwrap();
+    let tup = entry.lookup(String::from("hello"));
+    assert_eq!(
+        tup.unwrap().clone(),
+        GroupContents {
+            path: String::from("your/mom"),
+            line: 5
+        }
+    )
+}
+
+#[test]
+fn mult_entires() {
+    let entry = parse_metadata(
+        "wr_reg0: calyx/interp/test/control/reg_seq.futil 10,
+        wr_reg1: calyx/interp/test/control/reg_seq.futil 15",
+    )
+    .unwrap();
+    let tup = entry.lookup(String::from("wr_reg0"));
+    let tup2 = entry.lookup(String::from("wr_reg1"));
+    assert_eq!(
+        tup.unwrap().clone(),
+        GroupContents {
+            path: String::from("calyx/interp/test/control/reg_seq.futil"),
+            line: 10
+        }
+    );
+    assert_eq!(
+        tup2.unwrap().clone(),
+        GroupContents {
+            path: String::from("calyx/interp/test/control/reg_seq.futil"),
+            line: 15
+        }
+    )
 }

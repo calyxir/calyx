@@ -1,24 +1,13 @@
-WHITESPACE   = _{ " " | "\t" }
-dot          = _{ "." }
-open_brack   = _{ "{" }
-closed_brack = _{ "}" }
-colon        = _{ ":" }
-ident_syms   = _{ "_" | "-" | "'" }
-num          = @{ ASCII_DIGIT+ }
-header       = @{ "main" ~ colon ~ WHITE_SPACE ~ open_brack ~ NEWLINE }
-group_name   = @{ (ASCII_ALPHA | ASCII_DIGIT)+ }
+WHITE_SPACE = _{ " " | "\t" | NEWLINE }
+dot         = _{ "." }
+colon       = _{ ":" }
+ident_syms  = _{ "_" | "-" | "'" }
+num         = @{ ASCII_DIGIT+ }
+group_name  = @{ (ASCII_ALPHA | ASCII_DIGIT | ident_syms | dot)+ }
+path        = @{ (ASCII_ALPHA | ASCII_DIGIT | ident_syms | dot | "/")+ }
 
-escaped_newline = @{ "\\" ~ NEWLINE }
-string_char     = ${ !(NEWLINE | EOI) ~ ANY }
-source_char     =  { escaped_newline | string_char }
-
-inner_position_string = ${ source_char* }
-
-position_string = { inner_position_string ~ (NEWLINE | &EOI) }
-
-entry = @{ group_name ~ colon ~ WHITE_SPACE ~ num ~ (",")* ~ NEWLINE }
+entry = { group_name ~ colon ~ WHITE_SPACE ~ path ~ WHITE_SPACE ~ num ~ (",")* ~ WHITE_SPACE* }
 
 metadata = {
-    SOI ~ header ~ entry* ~ closed_brack ~ EOI
+    SOI ~ entry* ~ EOI
 }
-// WHY QUOTES AROUND MAIN AND GROUP NAME DONT WORK??

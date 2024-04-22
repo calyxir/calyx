@@ -1,6 +1,6 @@
 use crate::error::AdapterResult;
 use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
-use interp::debugger::source::structures::NewSourceMap;
+use interp::debugger::source::structures::{GroupContents, NewSourceMap};
 use interp::debugger::Debugger;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -120,13 +120,13 @@ impl MyAdapter {
             let map = status.get_status().clone();
             // Declare line number beforehand
             let mut line_number = 0;
-            // Return -1 should a lookup not be found. This really shouldn't
+            // Return 0 should a lookup not be found. This really shouldn't
             // happen though
             for id in map {
-                let value = *self.ids.lookup(id.to_string()).unwrap_or(&-1);
+                let value = self.ids.lookup(id.to_string()).unwrap().line;
                 line_number = value;
             }
-            self.stack_frames[0].line = line_number;
+            self.stack_frames[0].line = line_number as i64;
             false
         }
     }
@@ -178,7 +178,19 @@ pub fn make_breakpoint(
 fn create_map() -> NewSourceMap {
     let mut hashmap = HashMap::new();
     // Hardcode
-    hashmap.insert(String::from("wr_reg0"), 10);
-    hashmap.insert(String::from("wr_reg1"), 15);
+    hashmap.insert(
+        String::from("wr_reg0"),
+        GroupContents {
+            path: String::from(""),
+            line: 10,
+        },
+    );
+    hashmap.insert(
+        String::from("wr_reg1"),
+        GroupContents {
+            path: String::from(""),
+            line: 15,
+        },
+    );
     NewSourceMap::from(hashmap)
 }
