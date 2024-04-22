@@ -5,7 +5,6 @@ module pipelined_mult #(
     parameter WIDTH = 32
 ) (
     input wire clk,
-    input wire reset,
     // inputs
     input wire [WIDTH-1:0] left,
     input wire [WIDTH-1:0] right,
@@ -19,19 +18,11 @@ assign out = buff2;
 assign tmp_prod = tmp_left * tmp_right;
 
 always_ff @(posedge clk) begin
-    if (reset) begin
-        buff0 <= 0;
-        buff1 <= 0;
-        buff2 <= 0;
-        tmp_left <= 0;
-        tmp_right <= 0;
-    end else begin
-        tmp_left <= left;
-        tmp_right <= right;
-        buff0 <= tmp_prod;
-        buff1 <= buff0;
-        buff2 <= buff1;
-    end
+    tmp_left <= left;
+    tmp_right <= right;
+    buff0 <= tmp_prod;
+    buff1 <= buff0;
+    buff2 <= buff1;
 end
 
 endmodule 
