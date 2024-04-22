@@ -98,6 +98,14 @@ pub struct Run<'a> {
 impl<'a> Run<'a> {
     pub fn new(driver: &'a Driver, plan: Plan) -> Self {
         let config_data = config::load_config(&driver.name);
+        Self::with_config(driver, plan, config_data)
+    }
+
+    pub fn with_config(
+        driver: &'a Driver,
+        plan: Plan,
+        config_data: figment::Figment,
+    ) -> Self {
         let global_config: config::GlobalConfig =
             config_data.extract().expect("failed to load config");
         Self {
@@ -226,12 +234,17 @@ impl<'a> Run<'a> {
         Ok(())
     }
 
-    fn emit<T: Write + 'static>(&self, out: T) -> EmitResult {
+    pub fn emit<T: Write + 'a>(&self, out: T) -> EmitResult {
         let mut emitter = Emitter::new(
             out,
             self.config_data.clone(),
             self.plan.workdir.clone(),
         );
+
+        // Emit preamble.
+        emitter.var("build-tool", &self.global_config.exe)?;
+        emitter.rule("get-rsrc", "$build-tool get-rsrc $out")?;
+        writeln!(emitter.out)?;
 
         // Emit the setup for each operation used in the plan, only once.
         let mut done_setups = HashSet::<SetupRef>::new();
@@ -267,14 +280,14 @@ impl<'a> Run<'a> {
     }
 }
 
-pub struct Emitter {
-    pub out: Box<dyn Write>,
+pub struct Emitter<'a> {
+    pub out: Box<dyn Write + 'a>,
     pub config_data: figment::Figment,
     pub workdir: Utf8PathBuf,
 }
 
-impl Emitter {
-    fn new<T: Write + 'static>(
+impl<'a> Emitter<'a> {
+    fn new<T: Write + 'a>(
         out: T,
         config_data: figment::Figment,
         workdir: Utf8PathBuf,
@@ -388,5 +401,10 @@ impl Emitter {
     pub fn arg(&mut self, name: &str, value: &str) -> std::io::Result<()> {
         writeln!(self.out, "  {} = {}", name, value)?;
         Ok(())
+    }
+
+    /// Add a build command to extract a resource file into the build directory.
+    pub fn rsrc(&mut self, filename: &str) -> std::io::Result<()> {
+        self.build_cmd(&[filename], "get-rsrc", &[], &[])
     }
 }

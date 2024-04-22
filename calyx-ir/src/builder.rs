@@ -3,7 +3,7 @@
 use crate::{self as ir, LibrarySignatures, Nothing, RRC, WRC};
 use calyx_frontend::BoolAttr;
 use calyx_utils::CalyxResult;
-use std::{cmp, rc::Rc};
+use std::rc::Rc;
 
 use super::{CellType, PortDef};
 
@@ -163,12 +163,11 @@ impl<'a> Builder<'a> {
     pub fn add_constant(&mut self, val: u64, width: u64) -> RRC<ir::Cell> {
         // Ensure that the value can fit within the width
         assert!(
-            val < match width.cmp(&64) {
-                cmp::Ordering::Less => 1 << width,
-                cmp::Ordering::Equal => u64::MAX,
-                cmp::Ordering::Greater =>
-                    panic!("Widths greater than 64 are not supported."),
-            },
+            // This calculates the position of the most significant 1 bit which
+            // tells us the minimum number of bits required to represent the
+            // constant. Note that this will not work for constants that require
+            // more than 64 bits as those currently cannot be parsed
+            (64 - val.leading_zeros()) as u64 <= width,
             "Constant value {} cannot fit in {} bits",
             val,
             width

@@ -1,0 +1,92 @@
+// -b yxi
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    @external(1) A0 = comb_mem_d1(32,8,4);
+    A_read0_0 = std_reg(32);
+    @external(1) B0 = comb_mem_d1(32,8,4);
+    B_read0_0 = std_reg(32);
+    add0 = std_add(32);
+    add1 = std_add(4);
+    bin_read0_0 = std_reg(32);
+    const0 = std_const(4,0);
+    const1 = std_const(4,7);
+    const2 = std_const(1,0);
+    const3 = std_const(4,1);
+    dot_0 = std_reg(32);
+    i0 = std_reg(4);
+    le0 = std_le(4);
+    mult_pipe0 = std_mult_pipe(32);
+    @external(1) v0 = comb_mem_d1(32,1,1);
+  }
+  wires {
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"promotable"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    group let1<"promotable"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let1[done] = bin_read0_0.done;
+      mult_pipe0.left = A_read0_0.out;
+      mult_pipe0.right = B_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let2<"promotable"=1> {
+      dot_0.in = bin_read0_0.out;
+      dot_0.write_en = 1'd1;
+      let2[done] = dot_0.done;
+    }
+    group upd0<"promotable"=1> {
+      A_read0_0.write_en = 1'd1;
+      A0.addr0 = i0.out;
+      A_read0_0.in = 1'd1 ? A0.read_data;
+      upd0[done] = A_read0_0.done ? 1'd1;
+    }
+    group upd1<"promotable"=1> {
+      B_read0_0.write_en = 1'd1;
+      B0.addr0 = i0.out;
+      B_read0_0.in = 1'd1 ? B0.read_data;
+      upd1[done] = B_read0_0.done ? 1'd1;
+    }
+    group upd2<"promotable"=1> {
+      v0.write_en = 1'd1;
+      add0.left = v0.read_data;
+      add0.right = dot_0.out;
+      v0.addr0 = const2.out;
+      v0.write_data = 1'd1 ? add0.out;
+      upd2[done] = v0.done ? 1'd1;
+    }
+    group upd3<"promotable"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const3.out;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            upd0;
+            upd1;
+          }
+          let1;
+          let2;
+          upd2;
+          upd3;
+        }
+      }
+    }
+  }
+}

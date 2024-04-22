@@ -10,7 +10,7 @@ use slog::{Drain, Level};
 static ROOT_LOGGER: OnceCell<Logger> = OnceCell::new();
 
 pub fn initialize_default_logger() {
-    initialize_logger(false);
+    initialize_logger(true);
 }
 
 pub fn initialize_logger(quiet: bool) {

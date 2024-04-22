@@ -1,6 +1,9 @@
 use itertools::Itertools;
 
-use super::{assignments::AssignmentBundle, program_counter::ProgramCounter};
+use super::{
+    assignments::{GroupInterfacePorts, ScheduledAssignments},
+    program_counter::ProgramCounter,
+};
 
 use super::super::{
     context::Context, index_trait::IndexRange, indexed_map::IndexedMap,
@@ -11,9 +14,9 @@ use crate::{
         flat_ir::{
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices, ComponentIdx,
-                ControlIdx, ControlNode, GlobalCellIdx, GlobalPortIdx,
-                GlobalPortRef, GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx,
-                PortRef, PortValue,
+                ControlNode, GlobalCellIdx, GlobalPortIdx, GlobalPortRef,
+                GlobalRefCellIdx, GlobalRefPortIdx, GuardIdx, PortRef,
+                PortValue,
             },
             wires::guards::Guard,
         },
@@ -24,7 +27,7 @@ use crate::{
     },
     values::Value,
 };
-use std::{collections::VecDeque, fmt::Debug};
+use std::fmt::Debug;
 
 pub type PortMap = IndexedMap<GlobalPortIdx, PortValue>;
 
@@ -39,6 +42,24 @@ impl PortMap {
             todo!("raise error")
         } else {
             Ok(())
+        }
+    }
+
+    /// Sets the given index to the given value without checking whether or not
+    /// the assignment would conflict with an existing assignment. Should only
+    /// be used by cells to set values that may be undefined
+    pub fn write_exact_unchecked(
+        &mut self,
+        target: GlobalPortIdx,
+        val: PortValue,
+    ) -> UpdateStatus {
+        if self[target].is_undef() && val.is_undef()
+            || self[target].as_option() == val.as_option()
+        {
+            UpdateStatus::Unchanged
+        } else {
+            self[target] = val;
+            UpdateStatus::Changed
         }
     }
 
@@ -388,7 +409,7 @@ impl<'a> Environment<'a> {
         hierarchy.pop();
     }
 
-    pub fn print_env_stats(&self) {
+    pub fn _print_env_stats(&self) {
         println!("Environment Stats:");
         println!("  Ports: {}", self.ports.len());
         println!("  Cells: {}", self.cells.len());
@@ -424,17 +445,6 @@ impl<'a> Simulator<'a> {
 
 // =========================== simulation functions ===========================
 impl<'a> Simulator<'a> {
-    /// pull out the next nodes to search when
-    fn extract_next_search(&self, idx: ControlIdx) -> VecDeque<ControlIdx> {
-        match &self.env.ctx.primary[idx] {
-            ControlNode::Seq(s) => s.stms().iter().copied().collect(),
-            ControlNode::Par(p) => p.stms().iter().copied().collect(),
-            ControlNode::If(i) => vec![i.tbranch(), i.fbranch()].into(),
-            ControlNode::While(w) => vec![w.body()].into(),
-            _ => VecDeque::new(),
-        }
-    }
-
     #[inline]
     fn lookup_global_port_id(&self, port: GlobalPortRef) -> GlobalPortIdx {
         match port {
@@ -463,7 +473,7 @@ impl<'a> Simulator<'a> {
 
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
-    fn get_parent_cell(
+    fn _get_parent_cell(
         &self,
         port: PortRef,
         comp: GlobalCellIdx,
@@ -504,13 +514,22 @@ impl<'a> Simulator<'a> {
     fn get_assignments(
         &self,
         control_points: &[ControlPoint],
-    ) -> AssignmentBundle {
+    ) -> Vec<ScheduledAssignments> {
         control_points
             .iter()
             .map(|node| {
                 match &self.ctx().primary[node.control_node_idx] {
                     ControlNode::Enable(e) => {
-                        (node.comp, self.ctx().primary[e.group()].assignments)
+                        let group = &self.ctx().primary[e.group()];
+
+                        ScheduledAssignments::new(
+                            node.comp,
+                            group.assignments,
+                            Some(GroupInterfacePorts {
+                                go: group.go,
+                                done: group.done,
+                            }),
+                        )
                     }
 
                     ControlNode::Invoke(_) => {
@@ -544,7 +563,6 @@ impl<'a> Simulator<'a> {
         // buffers. Can pick anything from zero to the number of nodes in the
         // program counter as the size
         let mut leaf_nodes = vec![];
-        let mut done_groups = vec![];
 
         self.env.pc.vec_mut().retain_mut(|node| {
             // just considering a single node case for the moment
@@ -631,12 +649,12 @@ impl<'a> Simulator<'a> {
                         leaf_nodes.push(node.clone());
                         true
                     } else {
-                        done_groups.push((
-                            node.clone(),
-                            self.env.ports[done_idx].clone(),
-                        ));
-                        // remove from the list now
-                        false
+                        // This group has finished running and may be removed
+                        // this is somewhat dubious at the moment since it
+                        // relies on the fact that the group done port will
+                        // still be high since convergence hasn't propagated the
+                        // low done signal yet.
+                        node.mutate_into_next(self.env.ctx)
                     }
                 }
                 ControlNode::Invoke(_) => todo!("invokes not implemented yet"),
@@ -644,29 +662,6 @@ impl<'a> Simulator<'a> {
         });
 
         self.undef_all_ports();
-        for (node, val) in &done_groups {
-            match &self.env.ctx.primary[node.control_node_idx] {
-                ControlNode::Enable(e) => {
-                    let go_local = self.env.ctx.primary[e.group()].go;
-                    let done_local = self.env.ctx.primary[e.group()].done;
-                    let index_bases = &self.env.cells[node.comp]
-                        .as_comp()
-                        .unwrap()
-                        .index_bases;
-                    let done_idx = index_bases + done_local;
-                    let go_idx = index_bases + go_local;
-
-                    // retain done condition from before
-                    self.env.ports[done_idx] = val.clone();
-                    self.env.ports[go_idx] =
-                        PortValue::new_implicit(Value::bit_high());
-                }
-                ControlNode::Invoke(_) => todo!(),
-                _ => {
-                    unreachable!("non-leaf node included in list of done nodes. This should never happen, please report it.")
-                }
-            }
-        }
 
         for node in &leaf_nodes {
             match &self.env.ctx.primary[node.control_node_idx] {
@@ -700,13 +695,6 @@ impl<'a> Simulator<'a> {
             }
         }
 
-        // need to cleanup the finished groups
-        for (node, _) in done_groups {
-            if let Some(next) = ControlPoint::get_next(&node, self.env.ctx) {
-                self.env.pc.insert_node(next)
-            }
-        }
-
         Ok(())
     }
 
@@ -722,9 +710,6 @@ impl<'a> Simulator<'a> {
     /// Evaluate the entire program
     pub fn run_program(&mut self) -> InterpreterResult<()> {
         while !self.is_done() {
-            dbg!("calling step");
-            // self.env.print_pc();
-            self.print_env();
             self.step()?
         }
         Ok(())
@@ -789,26 +774,78 @@ impl<'a> Simulator<'a> {
         let assigns_bundle = self.get_assignments(control_points);
         let mut has_changed = true;
 
+        // TODO griffin: rewrite this so that someone can actually read it
+        let done_ports: Vec<_> = assigns_bundle
+            .iter()
+            .filter_map(|x| {
+                x.interface_ports.as_ref().map(|y| {
+                    &self.env.cells[x.active_cell]
+                        .as_comp()
+                        .unwrap()
+                        .index_bases
+                        + y.done
+                })
+            })
+            .collect();
+
         while has_changed {
             has_changed = false;
 
             // evaluate all the assignments and make updates
-            for (cell, assigns) in assigns_bundle.iter() {
-                for assign_idx in assigns {
+            for ScheduledAssignments {
+                active_cell,
+                assignments,
+                interface_ports,
+            } in assigns_bundle.iter()
+            {
+                let ledger = self.env.cells[*active_cell].as_comp().unwrap();
+                let go = interface_ports
+                    .as_ref()
+                    .map(|x| &ledger.index_bases + x.go);
+                let done = interface_ports
+                    .as_ref()
+                    .map(|x| &ledger.index_bases + x.done);
+
+                for assign_idx in assignments {
                     let assign = &self.env.ctx.primary[assign_idx];
 
                     // TODO griffin: Come back to this unwrap default later
                     // since we may want to do something different if the guard
                     // does not have a defined value
-                    if self.evaluate_guard(assign.guard, *cell).unwrap_or(false)
+                    if self
+                        .evaluate_guard(assign.guard, *active_cell)
+                        .unwrap_or_default()
+                    // the go for the group is high
+                    && go
+                        .as_ref()
+                        .map(|g| self.env.ports[*g].as_bool().unwrap_or_default())
+                        // if there is no go signal, then we want to run the
+                        // assignment
+                        .unwrap_or(true)
                     {
-                        let val = self.get_value(&assign.src, *cell);
-                        let dest = self.get_global_idx(&assign.dst, *cell);
+                        let val = self.get_value(&assign.src, *active_cell);
+                        let dest =
+                            self.get_global_idx(&assign.dst, *active_cell);
+
+                        if let Some(done) = done {
+                            if dest != done {
+                                let done_val = &self.env.ports[done];
+
+                                if done_val.as_bool().unwrap_or(true) {
+                                    // skip this assignment when we are done or
+                                    // or the done signal is undefined
+                                    continue;
+                                }
+                            }
+                        }
+
                         if let Some(v) = val.as_option() {
-                            self.env.ports.insert_val(
+                            let changed = self.env.ports.insert_val(
                                 dest,
                                 AssignedValue::new(v.val().clone(), assign_idx),
                             )?;
+
+                            has_changed |= changed.as_bool();
                         } else if self.env.ports[dest].is_def() {
                             todo!("Raise an error here since this assignment is undefining things")
                         }
@@ -834,6 +871,19 @@ impl<'a> Simulator<'a> {
                 .as_bool();
 
             has_changed |= changed;
+
+            // check for undefined done ports. If any remain after we've
+            // converged then they should be set to zero and we should continue
+            // convergence
+            if !has_changed {
+                for &done_port in &done_ports {
+                    if self.env.ports[done_port].is_undef() {
+                        self.env.ports[done_port] =
+                            PortValue::new_implicit(Value::bit_low());
+                        has_changed = true;
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -842,7 +892,6 @@ impl<'a> Simulator<'a> {
     pub fn _main_test(&mut self) {
         self.env.print_pc();
         let _ = self.run_program();
-        self.env.print_pc();
         self.print_env();
     }
 }

@@ -39,12 +39,14 @@ async function getProgramName() {
 class CiderDebugAdapterDescriptorFactoryServer {
   adapter: CiderDebugAdapter;
   adapterPath: string;
+  stdPath: string;
   workspace: string;
   outputChannel: object;
 
-  constructor(adapterPath, workspace, outputChannel) {
+  constructor(adapterPath, stdPath, workspace, outputChannel) {
     logToPanel("inside constructor");
-    this.adapter = new CiderDebugAdapter(adapterPath, workspace, outputChannel);
+    this.adapter = new CiderDebugAdapter(adapterPath, stdPath, workspace, outputChannel);
+    this.stdPath = stdPath;
     this.adapterPath = adapterPath;
     this.workspace = workspace;
     this.outputChannel = outputChannel;
@@ -73,14 +75,16 @@ class CiderDebugAdapterDescriptorFactoryServer {
 }
 class CiderDebugAdapter {
   adapterPath: string;
+  stdPath: string;
   outputChannel: object;
   cwd: string;
   adapterProcess: cp.ChildProcessWithoutNullStreams | null;
   isRunning: boolean;
 
-  constructor(adapterPath, cwd, outputChannel) {
+  constructor(adapterPath, stdPath, cwd, outputChannel) {
     logToPanel("inside CiderDebugAdapter");
     this.adapterPath = adapterPath;
+    this.stdPath = stdPath;
     this.cwd = cwd;
     this.outputChannel = outputChannel;
     this.adapterProcess = null;
@@ -98,7 +102,7 @@ class CiderDebugAdapter {
     // Include the port as a command line argument
     this.adapterProcess = cp.spawn(
       this.adapterPath,
-      ["--port", port, "--tcp"],
+      ["--port", port, "--tcp", "-l", this.stdPath],
       { cwd: this.cwd }
     );
 
@@ -157,6 +161,7 @@ function activate(context) {
     case "Multi-Session":
       factory = new CiderDebugAdapterDescriptorFactoryServer(
         vscode.workspace.getConfiguration("cider-dap").path,
+        vscode.workspace.getConfiguration("cider-dap").std_lib,
         vscode.workspace.rootPath,
         outputChannel
       );

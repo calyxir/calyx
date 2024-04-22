@@ -1,4 +1,4 @@
-ver = "0.4.0"
+ver = "0.4.1"
 
 ##### Compilation Tests ######
 ## Test each pass in isolation. Gets the pass flags from a comment on the first line of the file
@@ -56,6 +56,14 @@ paths = ["tests/backend/**/*.futil"]
 cmd = """
 flags=$(head -n 1 {} | cut -c 3-)
 ./target/debug/calyx {} $flags -l .
+"""
+
+#yxi is not part of [core]
+[[tests]]
+name = "yxi backend"
+paths = ["yxi/tests/backend/*.futil"]
+cmd = """
+./target/debug/calyx {} -b yxi
 """
 
 ##### Frontend Tests #####
@@ -479,6 +487,13 @@ fud e {} -s verilog.cycle_limit 500 \
          --through verilog \
          -s verilog.data {}.data \
          --to dat -q
+"""
+
+[[tests]]
+name = "calyx-py AXI wrapper generation"
+paths = ["yxi/axi-calyx/axi-generator.py"]
+cmd = """
+python3 {}
 """
 
 ##### Xilinx Tests ######

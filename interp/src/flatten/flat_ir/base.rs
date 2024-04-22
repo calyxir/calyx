@@ -172,7 +172,7 @@ impl From<GlobalPortIdx> for GlobalPortRef {
 
 impl GlobalPortRef {
     #[must_use]
-    pub fn as_port(&self) -> Option<&GlobalPortIdx> {
+    pub fn _as_port(&self) -> Option<&GlobalPortIdx> {
         if let Self::Port(v) = self {
             Some(v)
         } else {
@@ -181,7 +181,7 @@ impl GlobalPortRef {
     }
 
     #[must_use]
-    pub fn as_ref(&self) -> Option<&GlobalRefPortIdx> {
+    pub fn _as_ref(&self) -> Option<&GlobalRefPortIdx> {
         if let Self::Ref(v) = self {
             Some(v)
         } else {

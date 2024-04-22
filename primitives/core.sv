@@ -6,7 +6,6 @@
  * - All parameter names must be SNAKE_CASE and all caps.
  * - Port names must be snake_case, no caps.
  */
-`default_nettype none
 
 module std_slice #(
     parameter IN_WIDTH  = 32,

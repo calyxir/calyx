@@ -19,7 +19,7 @@ macro_rules! make_getters {
         $(
             #[inline]
             fn $port(&self) -> $crate::flatten::flat_ir::prelude::GlobalPortIdx {
-                ($crate::flatten::structures::index_trait::IndexRef::index(&self.$base) + $offset).into()
+                ($crate::flatten::structures::index_trait::IndexRef::index(&self.$base) + &self.addresser.non_address_base() + $offset).into()
             }
         )+
 

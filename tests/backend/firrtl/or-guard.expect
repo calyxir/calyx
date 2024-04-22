@@ -8,10 +8,12 @@ circuit main:
         input clk: Clock
         input reset: UInt<1>
         output done: UInt<1>
-        ; COMPONENT START: main
-        done <= UInt(1)
         out is invalid ; default initialization
         out <= UInt(0)
+        done is invalid ; default initialization
+        done <= UInt(0)
+        ; COMPONENT START: main
+        done <= UInt(1)
         when or(cond, cond2):
             out <= in
         ; COMPONENT END: main

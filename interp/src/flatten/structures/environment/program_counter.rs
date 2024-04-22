@@ -82,7 +82,7 @@ impl SearchIndex {
         self.index() == Self::TRUE_BRANCH
     }
 
-    fn is_false_branch(&self) -> bool {
+    fn _is_false_branch(&self) -> bool {
         self.index() == Self::FALSE_BRANCH
     }
 }
@@ -97,7 +97,7 @@ impl SearchPath {
         SearchPath { path: vec![] }
     }
 
-    pub fn source_node(&self) -> Option<&SearchNode> {
+    pub fn _source_node(&self) -> Option<&SearchNode> {
         self.path.first()
     }
 
@@ -105,7 +105,7 @@ impl SearchPath {
         self.path.len()
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub fn _is_empty(&self) -> bool {
         self.path.is_empty()
     }
 
@@ -136,9 +136,6 @@ impl SearchPath {
                             return Some(next_child);
                         }
                         // we finished this seq node and need to ascend further
-                        else {
-                            continue;
-                        }
                     }
                     ControlNode::Par(_) => {
                         // the challenge here is that we currently don't know if
@@ -325,7 +322,7 @@ pub type ChildCount = u16;
 #[derive(Debug, Default)]
 pub(crate) struct ProgramCounter {
     vec: Vec<ControlPoint>,
-    par_map: HashMap<ControlPoint, ChildCount>,
+    _par_map: HashMap<ControlPoint, ChildCount>,
 }
 
 // we need a few things from the program counter
@@ -352,7 +349,7 @@ impl ProgramCounter {
 
         Self {
             vec,
-            par_map: HashMap::new(),
+            _par_map: HashMap::new(),
         }
     }
 
@@ -364,16 +361,12 @@ impl ProgramCounter {
         self.vec.is_empty()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
+    pub fn _iter_mut(&mut self) -> impl Iterator<Item = &mut ControlPoint> {
         self.vec.iter_mut()
     }
 
     pub(crate) fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
         &mut self.vec
-    }
-
-    pub(crate) fn insert_node(&mut self, node: ControlPoint) {
-        self.vec.push(node)
     }
 }
 

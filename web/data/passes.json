@@ -26,26 +26,6 @@
             "description": "collapse-control"
         },
         {
-            "name": "infer-static-timing",
-            "title": "Infer Static Timing",
-            "description": "infer-static-timing"
-        },
-        {
-            "name": "resource-sharing",
-            "title": "Resource Sharing",
-            "description": "resource-sharing"
-        },
-        {
-            "name": "minimize-regs",
-            "title": "Minimize Regs",
-            "description": "minimize-regs"
-        },
-        {
-            "name": "compile-empty",
-            "title": "Compile Empty",
-            "description": "compile-empty"
-        },
-        {
             "name": "simplify-with-control",
             "title": "Remove combinational groups",
             "description": "tdcc"
@@ -69,11 +49,6 @@
             "name": "go-insertion",
             "title": "Go Insertion",
             "description": "go-insertion"
-        },
-        {
-            "name": "component-interface-inserter",
-            "title": "Component Interface Inserter",
-            "description": "component-interface-inserter"
         },
         {
             "name": "hole-inliner",

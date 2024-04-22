@@ -7,6 +7,7 @@ members = [
     "calyx-frontend",
     "calyx-stdlib",
     "calyx-backend",
+    "calyx-lsp",
     "interp",
     "web/rust",
     "tools/data_gen",
@@ -14,6 +15,7 @@ members = [
     "fud2",
     "fud2/fud-core", 
     "data-conversion",
+    "tools/btor2/btor2i"
 ]
 exclude = ["site"]
 
@@ -27,7 +29,7 @@ description = "Compiler Infrastructure for Hardware Accelerator Generation"
 categories = ["compilers"]
 homepage = "https://calyxir.org"
 edition = "2021"
-version = "0.6.1"
+version = "0.7.1"
 rust-version = "1.67"
 
 [workspace.dependencies]
@@ -47,11 +49,11 @@ pest_derive = "2"
 pest_consume = "1"
 argh = "0.1"
 anyhow = "1"
-calyx-utils = { path = "calyx-utils", version = "0.6.1" }
-calyx-ir = { path = "calyx-ir", version = "0.6.1" }
-calyx-frontend = { path = "calyx-frontend", version = "0.6.1" }
-calyx-opt = { path = "calyx-opt", version = "0.6.1" }
-calyx-backend = { path = "calyx-backend", version = "0.6.1" }
+calyx-utils = { path = "calyx-utils", version = "0.7.1" }
+calyx-ir = { path = "calyx-ir", version = "0.7.1" }
+calyx-frontend = { path = "calyx-frontend", version = "0.7.1" }
+calyx-opt = { path = "calyx-opt", version = "0.7.1" }
+calyx-backend = { path = "calyx-backend", version = "0.7.1" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
@@ -89,9 +91,10 @@ path = "src/main.rs"
 [features]
 default = []
 serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
+yxi = ["serialize", "calyx-backend/yxi", "calyx-ir/yxi"]
 
 [build-dependencies]
-calyx-stdlib = { path = "calyx-stdlib", version = "0.6.1" }
+calyx-stdlib = { path = "calyx-stdlib", version = "0.7.1" }
 
 [dependencies]
 atty.workspace = true
