@@ -268,6 +268,8 @@ class ComponentBuilder:
         assert isinstance(size, int), f"size {size} is not an int"
         if name:
             assert isinstance(name, str), f"name {name} is not a string"
+        if is_ref and not name:
+            raise ValueError("A register that will be passed by reference must have a name.")
         name = name or self.generate_name("reg")
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
