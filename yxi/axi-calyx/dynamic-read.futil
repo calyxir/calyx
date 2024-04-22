@@ -1,0 +1,71 @@
+component dynamic_mem_d1[WIDTH, SIZE, IDX_SIZE](
+                                //size is not used in seq_mem - delete?
+    //inputs
+    @clk clk: 1,
+    @reset reset: 1,
+    @write_together(1) @data addr0: IDX_SIZE,
+    @write_together(1) @interval(1) @go(1) content_en: 1,
+    // Write ports
+    @write_together(2) write_en: 1,
+    @write_together(2) @data write_data: WIDTH
+) -> ( //outputs
+    @stable read_data: WIDTH,
+    @done(1) done: 1
+){
+    cells {
+        addr_trans = addr_translate(IDX_SIZE);
+        axi_addr = std_reg(IDX_SIZE);
+        read_control = read_controller(WIDTH, IDX_SIZE)
+    }
+    wires {
+        group translate{
+            addr_trans.in = addr0;
+            axi_addr.in = addr_trans.out;
+            axi_addr.write_en = 1'd1;
+            translate[done] = axi_addr.done;
+        }
+        group read {
+
+        }
+        group write {
+
+        }
+    }
+    control {
+        seq {
+            translate;
+            // if content_en & !write_en 
+            //     read;
+            // if write_en
+            //     write;
+        }
+    }
+
+}
+
+component addr_translate[IDX_SIZE](in: IDX_SIZE) -> (out: IDX_SIZE) {
+  assign out = in; // do translation here
+}
+
+component read_controller[WIDTH, IDX_SIZE](
+    //inputs
+    axi_addr: IDX_SIZE,
+)->( // outputs
+    ARVALID: 1,
+    ARADDR: IDX_SIZE,
+    ARSIZE: IDX_SIZE, //can be smaller? contains log of idx_size
+    ARLEN: 2,
+    ARBURST: 2,
+    ARPORT: 3,
+    RREADY: 1
+    RDATA: WIDTH
+){
+    //continuous assignments
+    ARADDR = axi_addr;
+    ARLEN = 2'b0;
+    ARBURST = 2'b1;
+    ARPROT = 3'b110;
+}
+
+
+
