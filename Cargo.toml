@@ -12,7 +12,8 @@ members = [
     "tools/data_gen",
     "cider-dap",
     "fud2",
-    "fud2/fud-core",
+    "fud2/fud-core", 
+    "data-conversion",
 ]
 exclude = ["site"]
 
