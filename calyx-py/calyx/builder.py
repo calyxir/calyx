@@ -265,6 +265,9 @@ class ComponentBuilder:
 
     def reg(self, size: int, name: str = None, is_ref: bool = False) -> CellBuilder:
         """Generate a StdReg cell."""
+        assert isinstance(size, int), f"size {size} is not an int"
+        if name:
+            assert isinstance(name, str), f"name {name} is not a string"
         name = name or self.generate_name("reg")
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
