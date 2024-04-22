@@ -245,12 +245,16 @@ fn fixed_to_binary(
             panic!("Bad fixed value input")
         }
     }
+
     let multiplied_fixed = fixed_value * 2_f32.powf(-exponent);
-    print!("{} ", 2_f32.powf(exponent));
     print!("{} ", multiplied_fixed);
 
-    // let binary_of_fixed = multiplied_fixed.to_bits();
-    let binary_of_fixed = format!("{:b}", multiplied_fixed as u8);
+    // Convert to a 32-bit integer
+    let multiplied_fixed_as_i32 = multiplied_fixed as i32;
+    print!("{} ", multiplied_fixed_as_i32);
+
+    // Convert to a binary string with 32 bits
+    let binary_of_fixed = format!("{:032b}", multiplied_fixed_as_i32);
     print!("{}\n", binary_of_fixed);
 
     // Write binary string to the file
