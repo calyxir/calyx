@@ -96,7 +96,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     # TODO: parameterize
     txn_n = m_to_s_address_channel.const("txn_n", 32, 1)
     txn_count = m_to_s_address_channel.reg(32, "txn_count")
-    txn_adder = m_to_s_address_channel.add("txn_adder", 32)
+    txn_adder = m_to_s_address_channel.add(32, "txn_adder")
 
     # Need to put block_transfer register here to avoid combinational loops
     bt_reg = m_to_s_address_channel.reg(1, "bt_reg")
