@@ -1,5 +1,5 @@
 import "primitives/compile.futil";
-component foo(@go go: 1, @clk clk: 1, @reset reset: 1, @stable m_out: 32, m_done: 1) -> (@done done: 1, @write_together @data m_in: 32, @write_together m_write_en: 1) {
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1, @externalized m_out: 32, @externalized m_done: 1) -> (@done done: 1, @externalized m_in: 32, @externalized m_write_en: 1) {
   cells {
     r = std_reg(32);
   }
