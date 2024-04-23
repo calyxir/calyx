@@ -62,12 +62,17 @@ where
         for port_ref in ports_inline {
             let canon = port_ref.borrow().canonical();
             let port = port_ref.borrow();
+            // Have to remove @interval and @promotable since they will no longer
+            // be true.
+            let mut filtered_attributes = port.attributes.clone();
+            filtered_attributes.remove(ir::NumAttr::Interval);
+            filtered_attributes.remove(ir::NumAttr::Promotable);
             let new_port = ir::rrc(ir::Port {
                 name: component.generate_name(format_port_name(&canon)),
                 width: port.width,
                 direction: port.direction.clone(),
                 parent: ir::PortParent::Cell(WRC::from(&component.signature)),
-                attributes: port.attributes.clone(),
+                attributes: filtered_attributes,
             });
             component
                 .signature

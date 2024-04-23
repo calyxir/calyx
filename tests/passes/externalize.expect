@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
-component main(@go go: 1, @clk clk: 1, @reset reset: 1, @read_together A_read_data: 32, @done A_done: 1) -> (@done done: 1, @read_together A_addr0: 4, @write_together @data A_write_data: 32, @write_together @interval @go A_write_en: 1, @clk A_clk: 1, @reset A_reset: 1) {
+component main(@go go: 1, @clk clk: 1, @reset reset: 1, @read_together A_read_data: 32, @done A_done: 1) -> (@done done: 1, @read_together A_addr0: 4, @write_together @data A_write_data: 32, @write_together @go A_write_en: 1, @clk A_clk: 1, @reset A_reset: 1) {
   cells {
     B = comb_mem_d1(32, 16, 4);
     state = std_reg(32);

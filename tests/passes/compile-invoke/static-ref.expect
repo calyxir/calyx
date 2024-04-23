@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
-static<2> component add_one(@go go: 1, @clk clk: 1, @reset reset: 1, @read_together out_read_data: 32, @done out_done: 1) -> (@done done: 1, @read_together out_addr0: 1, @write_together @data out_write_data: 32, @write_together @interval @go out_write_en: 1) {
+static<2> component add_one(@go go: 1, @clk clk: 1, @reset reset: 1, @read_together out_read_data: 32, @done out_done: 1) -> (@done done: 1, @read_together out_addr0: 1, @write_together @data out_write_data: 32, @write_together @go out_write_en: 1) {
   cells {
     add = std_add(32);
     r = std_reg(32);
