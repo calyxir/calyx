@@ -63,7 +63,7 @@ where
             let canon = port_ref.borrow().canonical();
             let port = port_ref.borrow();
             // Have to remove @interval and @promotable since they will no longer
-            // be true.
+            // be true. Same for @go, @done, @clk, and @reset.
             let mut filtered_attributes = port.attributes.clone();
             let non_transferrable_num_attributes = vec![
                 ir::NumAttr::Interval,
