@@ -503,27 +503,20 @@ cmd = """
 fud2 {} --to calyx --through axi-wrapped
 """
 
-#[[tests]]
-#name = "fud2 axi-wrapper invocation"
-#paths = ["yxi/tests/fud2/seq-mem-vec-add.futil"]
-#cmd = """
-#fud2 {} --to calyx --through axi-wrapped > tmp.futil && fud2 tmp.futil --from calyx --to verilog-noverify
-#"""
-#
-#[[tests]]
-#name = "fud2 axi-wrapper invocation"
-#paths = ["yxi/tests/fud2/seq-mem-vec-add.futil"]
-#cmd = """
-#fud2 {} --to calyx --through axi-wrapped > tmp.futil \
-#&& fud2 tmp.futil --from calyx --to verilog-noverify \
-#&& fud2
-"""
 [[tests]]
 name = "fud2 axi-wrapped to verilog"
 paths = ["yxi/tests/fud2/seq-mem-vec-add-axi-wrapped.futil"]
 cmd = """
 fud2 {} --from calyx --to verilog-noverify 
 """
+
+[[tests]]
+name = "fud2 cocotb execution"
+paths = ["yxi/tests/fud2/seq-mem-vec-add-verilog.v"]
+cmd = """
+fud2 {} --from verilog-noverify --to cocotb-axi --set sim.data=yxi/tests/fud2/vectorized-add.data
+"""
+
 ##### Xilinx Tests ######
 [[tests]]
 name = "AXI wrapper generation"
