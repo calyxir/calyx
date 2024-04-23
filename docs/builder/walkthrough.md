@@ -51,8 +51,14 @@ We add wires within a group by staying within the indentation of the `with` bloc
 [Combinational groups][comb] are written similarly, but with `comb_group` instead of `group`:
 
 ```python
-    with comp.comb_group("compute_sum") as compute_sum:
+    with comp.comb_group("update_register") as update_register:
 
+```
+
+Static groups are written with `static_group`, and must specify a latency. The group below will take 3 cycles to execute:
+
+```python
+    with comp.static_group("multiply", 3) as compute_sum:
 ```
 
 ## Ports of Cells
@@ -71,7 +77,7 @@ We specify the value to be written to a register with:
 ```
 Although the Calyx port is named `in`, we must write `in_` in the eDSL to avoid a clash with Python's `in` keyword.
 
-## HI and LO Signals
+## `HI` and `LO` Signals
 
 The builder library provides shorthand for high and low signals.
 
@@ -329,7 +335,7 @@ Finally, we emit Calyx.
 {{#include ../../calyx-py/test/walkthrough.py:emit}}
 ```
 
-### Retrieving Items by Name
+## Retrieving Items by Name
 
 In the discussion so far, we have guided you towards a pattern of defining an item (a cell, a group, a component, etc.) and then saving a handle to it as a Python variable. This is a good pattern to follow, but it is not the only one.
 
@@ -370,7 +376,7 @@ my_group = prog.get_group("my_group")
 
 ```
 
-### Defining Component Attributes
+## Defining Component Attributes
 
 Components can be given attributes. Similar to ports, just specify the name of the attribute and its value.
 Note that `attribute(name, value)` does not return a handle to the attribute.
@@ -394,13 +400,29 @@ prog = cb.Builder()
 prog.import_("primitives/binary_operators.futil")
 ```
 
-## Explictly Stating Widths `const`
+## Explictly Stating Widths
 
 Usually, the builder library can automatically infer the widths of constants. In cases where it cannot, it will complain at Python compilation. Use the `const(width, value)` expression to explicitly state the width of a constant.
 
 ```python
 my_cell.my_port = const(32, 1)
 ```
+
+## Components with Known Latency
+
+You can declare a component to be `static` by stating its latency when declaring it.
+For instance, our contrived adder from above could be declared as static with a latency of one cycle as follows:
+
+```python
+comp = prog.component("adder", latency=1)
+```
+
+As a reminder,  the regular version is just:
+
+```python
+comp = prog.component("adder")
+```
+
 
 [comb]: ../lang/ref.md#comb-group-definitions
 [cont]: ../lang/ref.md#continuous-assignments
