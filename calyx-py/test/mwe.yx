@@ -1,0 +1,12 @@
+import "primitives/core.futil";
+component dummy(go: 1) -> (done: 1) {
+  cells {
+
+  }
+  wires {
+    flamingo = 1'd1;
+  }
+  control {
+
+  }
+}
