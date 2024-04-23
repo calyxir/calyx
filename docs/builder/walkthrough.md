@@ -735,6 +735,6 @@ HI = const(1, 1)
 [static]: ../lang/static.md#delay-by-n-cycles
 [top]: ref.md#top-level-program-structure
 [while]: ../lang/ref.md#while
-[helloworld]: helloworld.md
+[helloworld]: calyx-py.md
 [walkthrough]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.py
 [walkthrough_expect]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.expect

@@ -40,7 +40,7 @@
 
 # Generating Calyx
 
-- [Emitting Calyx from Python](./builder/helloworld.md)
+- [Emitting Calyx from Python](./builder/calyx-py.md)
   - [Builder Library Walkthrough](./builder/walkthrough.md)
 - [Frontend Tutorial](./tutorial/frontend-tut.md)
 - [Frontend Compilers](./frontends/index.md)
