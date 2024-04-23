@@ -20,7 +20,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
 }
-component incr(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_done: 1) -> (@done done: 1, value_in: 32, value_write_en: 1) {
+component incr(@go go: 1, @clk clk: 1, @reset reset: 1, @stable value_out: 32, @done value_done: 1) -> (@done done: 1, @write_together @data value_in: 32, @write_together @interval @go value_write_en: 1) {
   cells {
     ih = incr_helper();
   }
@@ -40,7 +40,7 @@ component incr(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_don
     }
   }
 }
-component incr_helper(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_done: 1) -> (@done done: 1, value_in: 32, value_write_en: 1) {
+component incr_helper(@go go: 1, @clk clk: 1, @reset reset: 1, @stable value_out: 32, @done value_done: 1) -> (@done done: 1, @write_together @data value_in: 32, @write_together @interval @go value_write_en: 1) {
   cells {
     incr_value = std_add(32);
   }
