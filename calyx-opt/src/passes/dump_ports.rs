@@ -65,8 +65,20 @@ where
             // Have to remove @interval and @promotable since they will no longer
             // be true.
             let mut filtered_attributes = port.attributes.clone();
-            filtered_attributes.remove(ir::NumAttr::Interval);
-            filtered_attributes.remove(ir::NumAttr::Promotable);
+            let non_transferrable_num_attributes = vec![
+                ir::NumAttr::Interval,
+                ir::NumAttr::Promotable,
+                ir::NumAttr::Go,
+                ir::NumAttr::Done,
+            ];
+            let non_transferrable_bool_attributes =
+                vec![ir::BoolAttr::Clk, ir::BoolAttr::Reset];
+            for num_attr in non_transferrable_num_attributes {
+                filtered_attributes.remove(num_attr);
+            }
+            for bool_attr in non_transferrable_bool_attributes {
+                filtered_attributes.remove(bool_attr);
+            }
             let new_port = ir::rrc(ir::Port {
                 name: component.generate_name(format_port_name(&canon)),
                 width: port.width,
