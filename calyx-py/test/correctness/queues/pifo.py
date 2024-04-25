@@ -137,7 +137,7 @@ def insert_pifo(
     flip_hot = pifo.bitwise_flip_reg(hot)
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
-    flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
+    # flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
     len_incr = pifo.incr(len)  # len++
     len_decr = pifo.decr(len)  # len--
@@ -151,7 +151,7 @@ def insert_pifo(
             cb.if_with(
                 # Yes, the user called pop. But is the queue empty?
                 len_eq_0,
-                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
@@ -204,7 +204,7 @@ def insert_pifo(
             cb.if_with(
                 # Yes, the user called peek. But is the queue empty?
                 len_eq_0,
-                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
@@ -247,7 +247,7 @@ def insert_pifo(
             cb.if_with(
                 # Yes, the user called push. But is the queue full?
                 len_eq_max_queue_len,
-                cb.par(raise_err, flash_ans),  # The queue is full: overflow.
+                raise_err,  # The queue is full: overflow.
                 [  # The queue is not full. Proceed.
                     lower_err,
                     # We need to check which flow this value should be pushed to.
