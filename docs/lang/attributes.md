@@ -212,11 +212,14 @@ wires {
 ```
 into:
 ```
+// cells are same as before
 wires {
   cell.in = out;
 }
 ```
 Since the value `'x` can be replaced with anything.
+(Note this optimization happens when translating from Calyx to Verilog.
+At some point we may want to make this optimization happen during a Calyx pass.)
 
 `@data` can also appear on the output ports of a Calyx component.
 This represents when we want to optimize assignments to the port _within a Calyx component_.

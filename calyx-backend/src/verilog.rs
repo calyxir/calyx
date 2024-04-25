@@ -502,7 +502,7 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
         let cell = cr.borrow();
         // For cell.is_this() ports that were externalized, we already checked
         // that the parent cell had the `@data` attribute.
-        if cell.attributes.has(ir::BoolAttr::Data) || (cell.is_this()) {
+        if cell.attributes.has(ir::BoolAttr::Data) || cell.is_this() {
             return true;
         }
     }
