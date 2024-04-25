@@ -218,7 +218,9 @@ wires {
 }
 ```
 Since the value `'x` can be replaced with anything.
-(Note this optimization happens when translating from Calyx to Verilog.
+(Currently Calyx does not support assignments of the form `rhs = guard ? lhs1: lhs2`,
+so the syntax isn't 100% accurate.
+This optimization happens when translating from Calyx to Verilog.
 At some point we may want to make this optimization happen during a Calyx pass.)
 
 `@data` can also appear on the output ports of a Calyx component.
