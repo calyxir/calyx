@@ -1,5 +1,5 @@
 import "primitives/compile.futil";
-component foo(@go go: 1, @clk clk: 1, @reset reset: 1, r_out: 32, r_done: 1) -> (@done done: 1, r_in: 32, r_write_en: 1) {
+component foo(@go go: 1, @clk clk: 1, @reset reset: 1, @externalized r_out: 32, @externalized r_done: 1) -> (@done done: 1, @externalized r_in: 32, @externalized r_write_en: 1) {
   cells {
   }
   wires {

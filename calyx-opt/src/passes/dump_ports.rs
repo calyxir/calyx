@@ -40,6 +40,9 @@ where
     for cell_ref in &ext_cells {
         let cell = cell_ref.borrow();
         log::debug!("cell `{}' removed", cell.name());
+        // We need this information because we might want to attach the `@data`
+        // attribute to some of the ports.
+        let is_data_cell = cell.attributes.has(ir::BoolAttr::Data);
 
         // If we do not eliminate the @clk and @reset ports, we may
         // get signals conflicting the original @clk and @reset signals of
@@ -62,12 +65,23 @@ where
         for port_ref in ports_inline {
             let canon = port_ref.borrow().canonical();
             let port = port_ref.borrow();
+            // We might want to insert
+            let mut new_port_attrs =
+                if is_data_cell & port.attributes.has(ir::BoolAttr::Data) {
+                    let mut attrs = ir::Attributes::default();
+                    attrs.insert(ir::BoolAttr::Data, 1);
+                    attrs
+                } else {
+                    ir::Attributes::default()
+                };
+            new_port_attrs.insert(ir::BoolAttr::Externalized, 1);
+
             let new_port = ir::rrc(ir::Port {
                 name: component.generate_name(format_port_name(&canon)),
                 width: port.width,
                 direction: port.direction.clone(),
                 parent: ir::PortParent::Cell(WRC::from(&component.signature)),
-                attributes: ir::Attributes::default(),
+                attributes: new_port_attrs,
             });
             component
                 .signature
