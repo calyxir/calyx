@@ -69,6 +69,7 @@ fn main() -> CalyxResult<()> {
         enable_verification: !opts.disable_verify,
         flat_assign: !opts.nested_assign,
         emit_primitive_extmodules: opts.emit_primitive_extmodules,
+        emit_muxes: opts.emit_muxes,
     };
     // Extra options for the passes
     ctx.extra_opts = opts.extra_opts.drain(..).collect();

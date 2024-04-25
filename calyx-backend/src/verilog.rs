@@ -140,6 +140,7 @@ impl Backend for VerilogBackend {
                 ctx.bc.synthesis_mode,
                 ctx.bc.enable_verification,
                 ctx.bc.flat_assign,
+                ctx.bc.emit_muxes,
                 out,
             );
             log::info!("Generated `{}` in {:?}", comp.name, time.elapsed());
@@ -228,6 +229,7 @@ fn emit_component<F: io::Write>(
     synthesis_mode: bool,
     enable_verification: bool,
     flat_assign: bool,
+    emit_muxes: bool,
     f: &mut F,
 ) -> io::Result<()> {
     writeln!(f, "module {}(", comp.name)?;
@@ -323,7 +325,7 @@ fn emit_component<F: io::Write>(
 
         // Emit assignments using these guards.
         for (dst, asgns) in &grouped_asgns {
-            emit_assignment_flat(dst, asgns, f)?;
+            emit_assignment_flat(dst, asgns, emit_muxes, f)?;
 
             if enable_verification {
                 if let Some(check) =
@@ -341,8 +343,9 @@ fn emit_component<F: io::Write>(
 
         // Emit nested assignments.
         for (dst, asgns) in grouped_asgns {
-            let stmt =
-                v::Stmt::new_parallel(emit_assignment(dst, &asgns, &pool));
+            let stmt = v::Stmt::new_parallel(emit_assignment(
+                dst, &asgns, &pool, emit_muxes,
+            ));
             writeln!(f, "{stmt}")?;
 
             if enable_verification {
@@ -529,9 +532,12 @@ fn emit_assignment(
     dst: &RRC<ir::Port>,
     assignments: &[(RRC<ir::Port>, GuardRef)],
     pool: &ir::GuardPool,
+    emit_mux: bool,
 ) -> v::Parallel {
+    let width = dst.borrow().width;
+
     // Mux over the assignment with the given default value.
-    let fold_assigns = |init: v::Expr| -> v::Expr {
+    let muxed_assigns = |init: v::Expr| -> v::Expr {
         assignments.iter().rfold(init, |acc, (src, gr)| {
             let guard = pool.get(*gr);
             let asgn = port_to_ref(src);
@@ -539,8 +545,21 @@ fn emit_assignment(
         })
     };
 
-    // If this is a data port
-    let rhs: v::Expr = if is_data_port(dst) {
+    // Assume that the assignments are disjoint. Allows us to generate:
+    // in = g0 ? o0 : g1 ? o1 : ... => in = (g0 & o0) | (g1 & o1) | ...
+    // When generating these expressions, we cannot generate 'x values.
+    let ored_assigns = |init: v::Expr| -> v::Expr {
+        assignments.iter().rfold(init, |acc, (src, gr)| {
+            let guard = pool.get(*gr);
+            let asgn = port_to_ref(src);
+            // Extend the guard value:
+            let ext_guard =
+                v::Expr::new_repeat(width, guard_to_expr(guard, pool));
+            v::Expr::new_bit_or(v::Expr::new_bit_and(ext_guard, asgn), acc)
+        })
+    };
+    // If this is a data port and we're not generating unique assignments, we can use 'x.
+    let rhs = if emit_mux && is_data_port(dst) {
         if assignments.len() == 1 {
             // If there is exactly one guard, generate a continuous assignment.
             // This encodes the rewrite:
@@ -550,11 +569,10 @@ fn emit_assignment(
             port_to_ref(dst)
         } else {
             // Produce an assignment with 'x as the default case.
-            fold_assigns(v::Expr::X)
+            muxed_assigns(v::Expr::X)
         }
     } else {
-        let init =
-            v::Expr::new_ulit_dec(dst.borrow().width as u32, &0.to_string());
+        let init = v::Expr::new_ulit_dec(width as u32, &0.to_string());
 
         // Flatten the mux expression if there is exactly one assignment with a true guard.
         if assignments.len() == 1 {
@@ -572,8 +590,10 @@ fn emit_assignment(
                     init,
                 )
             }
+        } else if emit_mux {
+            muxed_assigns(init)
         } else {
-            fold_assigns(init)
+            ored_assigns(init)
         }
     };
     v::Parallel::ParAssign(port_to_ref(dst), rhs)
@@ -582,6 +602,7 @@ fn emit_assignment(
 fn emit_assignment_flat<F: io::Write>(
     dst: &RRC<ir::Port>,
     assignments: &[(RRC<ir::Port>, GuardRef)],
+    emit_mux: bool,
     f: &mut F,
 ) -> io::Result<()> {
     let data = is_data_port(dst);
@@ -618,19 +639,30 @@ fn emit_assignment_flat<F: io::Write>(
         }
     }
 
+    let width = dst.borrow().width;
     // Use a cascade of ternary expressions to assign the right RHS to dst.
     writeln!(f, "assign {} =", VerilogPortRef(dst))?;
     for (src, guard) in assignments {
-        writeln!(
-            f,
-            "  {} ? {} :",
-            VerilogGuardRef(*guard),
-            VerilogPortRef(src)
-        )?;
+        if emit_mux {
+            writeln!(
+                f,
+                "  {} ? {} :",
+                VerilogGuardRef(*guard),
+                VerilogPortRef(src)
+            )?;
+        } else {
+            let guard_str = if width > 1 {
+                format!("{{{width}{{{}}}}}", VerilogGuardRef(*guard))
+            } else {
+                VerilogGuardRef(*guard).to_string()
+            };
+            writeln!(f, "  ({} & {}) |", guard_str, VerilogPortRef(src))?;
+        };
     }
 
-    // The default value depends on whether we are assigning to a data or control port.
-    if data {
+    // The default value depends on whether we are assigning to a data or
+    // control port. We only generate 'x when we are emitting muxes.
+    if data && emit_mux {
         writeln!(f, "  'x;")
     } else {
         writeln!(f, "  {}'d0;", dst.borrow().width)

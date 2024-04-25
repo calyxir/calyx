@@ -58,36 +58,34 @@ pub struct Opts {
     #[argh(option, short = 'm', default = "CompileMode::default()")]
     pub compile_mode: CompileMode,
 
-    /// enable synthesis mode
+    // ========== Backend Options =========== //
+    /// select a backend
+    #[argh(option, short = 'b', default = "BackendOpt::default()")]
+    pub backend: BackendOpt,
+    /// disable generation of verification checks and `initial` and `final` blocks for memories. Implies `--disable-verify=0`
     #[argh(switch, long = "synthesis")]
     pub enable_synthesis: bool,
-
     /// disable verification checks emitted by backends
     #[argh(switch)]
     pub disable_verify: bool,
-
-    /// emit nested assignments (only relevant to the Verilog backend)
+    /// emit nested assignments (Verilog backend)
     #[argh(switch, long = "nested")]
     pub nested_assign: bool,
-
+    /// emit muxes instead of or trees (Verilog backend)
+    #[argh(switch, long = "emit-muxes")]
+    pub emit_muxes: bool,
     /// emit extmodules to use with SystemVerilog implementations
     /// of primitives (only relevant to the FIRRTL backend)
     #[argh(switch, long = "emit-primitive-extmodules")]
     pub emit_primitive_extmodules: bool,
 
-    /// select a backend
-    #[argh(option, short = 'b', default = "BackendOpt::default()")]
-    pub backend: BackendOpt,
-
     /// run this pass during execution
     #[argh(option, short = 'p')]
     pub pass: Vec<String>,
-
     /// disable pass during execution
     #[argh(option, short = 'd', long = "disable-pass")]
     pub disable_pass: Vec<String>,
-
-    /// extra options passed to the context
+    /// extra options for passes. Use `pass-help` to get more information
     #[argh(option, short = 'x', long = "extra-opt")]
     pub extra_opts: Vec<String>,
 
