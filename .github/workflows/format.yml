@@ -1,7 +1,8 @@
 name: Format
 
 on:
-  push: # allow for all branches, so forks can also validate on their own
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
