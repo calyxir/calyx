@@ -2,7 +2,7 @@
 import calyx.builder as cb
 import calyx.queue_call as qc
 
-QUEUE_LEN = 10
+QUEUE_LEN = 16
 
 
 def insert_fifo(prog, name, length=QUEUE_LEN):

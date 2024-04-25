@@ -3,8 +3,6 @@ import fifo
 import calyx.builder as cb
 import calyx.queue_call as qc
 
-QUEUE_LEN = 10
-
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
     """The flow is needed when the command is a push.
@@ -50,7 +48,7 @@ def insert_pifo(
     queue_l,
     queue_r,
     boundary,
-    length=QUEUE_LEN,
+    length=fifo.QUEUE_LEN,
     stats=None,
     static=False,
 ):
