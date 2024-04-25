@@ -1,8 +1,7 @@
 use crate::error::AdapterResult;
 use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
-use interp::debugger::source::structures::{GroupContents, NewSourceMap};
+use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::Debugger;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub struct MyAdapter {
@@ -18,13 +17,12 @@ pub struct MyAdapter {
     ids: NewSourceMap,
 }
 
-// New metadata in interp/debugger
-
 impl MyAdapter {
     pub fn new(path: &str, std_path: PathBuf) -> AdapterResult<Self> {
+        let (debugger, metadata) =
+            Debugger::from_file(&PathBuf::from(path), &std_path).unwrap();
         Ok(MyAdapter {
-            debugger: Debugger::from_file(&PathBuf::from(path), &std_path)
-                .unwrap(),
+            debugger: debugger,
             break_count: Counter::new(),
             thread_count: Counter::new(),
             stack_count: Counter::new(),
@@ -32,7 +30,7 @@ impl MyAdapter {
             stack_frames: Vec::new(),
             threads: Vec::new(),
             source: path.to_string(),
-            ids: create_map(),
+            ids: metadata,
         })
     }
     ///Set breakpoints for adapter
@@ -120,8 +118,10 @@ impl MyAdapter {
             let map = status.get_status().clone();
             // Declare line number beforehand
             let mut line_number = 0;
-            // Return 0 should a lookup not be found. This really shouldn't
-            // happen though
+            // Return 0 should a lookup not be found. This really shouldn't happen though.
+            // Implemented for loop for when more than 1 group is running,
+            // the code for now goes to the last group running in the map, should deal
+            // with this in the future.
             for id in map {
                 let value = self.ids.lookup(id.to_string()).unwrap().line;
                 line_number = value;
@@ -172,25 +172,4 @@ pub fn make_breakpoint(
         instruction_reference: None,
         offset: None,
     }
-}
-
-// Hardcode mapping for now, this mapping is for reg_seq.futil
-fn create_map() -> NewSourceMap {
-    let mut hashmap = HashMap::new();
-    // Hardcode
-    hashmap.insert(
-        String::from("wr_reg0"),
-        GroupContents {
-            path: String::from(""),
-            line: 10,
-        },
-    );
-    hashmap.insert(
-        String::from("wr_reg1"),
-        GroupContents {
-            path: String::from(""),
-            line: 15,
-        },
-    );
-    NewSourceMap::from(hashmap)
 }

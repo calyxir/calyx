@@ -198,7 +198,8 @@ fn main() -> InterpreterResult<()> {
             } else {
                 None
             };
-            let cidb = Debugger::new(&components, main_component, map, env)?;
+            let (cidb, _) =
+                Debugger::new(&components, main_component, map, env, None)?;
             cidb.main_loop()
         }
         Command::Flat(_) => {

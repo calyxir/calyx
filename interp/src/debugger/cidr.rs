@@ -3,6 +3,8 @@ use super::{
     context::DebuggingContext,
     interactive_errors::DebuggerError,
     io_utils::Input,
+    new_parser::parse_metadata,
+    source::structures::NewSourceMap,
 };
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
@@ -78,7 +80,10 @@ pub struct Debugger {
 
 impl Debugger {
     /// construct a debugger instance from the target calyx file
-    pub fn from_file(file: &Path, lib_path: &Path) -> InterpreterResult<Self> {
+    pub fn from_file(
+        file: &Path,
+        lib_path: &Path,
+    ) -> InterpreterResult<(Self, NewSourceMap)> {
         // create a workspace using the file and lib_path, run the standard
         // passes (see main.rs). Construct the initial environment then use that
         // to create a new debugger instance with new
@@ -95,6 +100,10 @@ impl Debugger {
         let ws = Workspace::construct(&Some(file.to_path_buf()), lib_path)?;
         let mut ctx = ir::from_ast::ast_to_ir(ws)?;
         let pm = PassManager::default_passes()?;
+
+        // Metadata stuff
+        let metadata = ctx.metadata.clone().unwrap();
+        let mapping = parse_metadata(&metadata).unwrap();
 
         // if !opts.skip_verification
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[], false)?;
@@ -122,7 +131,7 @@ impl Debugger {
             &config,
         )?;
 
-        Debugger::new(&components, main_component, None, env)
+        Debugger::new(&components, main_component, None, env, Some(mapping))
     }
 
     pub fn new(
@@ -130,7 +139,8 @@ impl Debugger {
         main_component: &Rc<iir::Component>,
         source_map: Option<SourceMap>,
         env: InterpreterState,
-    ) -> InterpreterResult<Self> {
+        metadata: Option<NewSourceMap>,
+    ) -> InterpreterResult<(Self, NewSourceMap)> {
         let qin = ComponentQualifiedInstanceName::new_single(
             main_component,
             main_component.name,
@@ -141,13 +151,19 @@ impl Debugger {
 
         component_interpreter.converge()?;
 
-        Ok(Self {
-            _context: Rc::clone(context),
-            main_component: Rc::clone(main_component),
-            debugging_ctx: DebuggingContext::new(context, &main_component.name),
-            source_map,
-            interpreter: component_interpreter,
-        })
+        Ok((
+            Self {
+                _context: Rc::clone(context),
+                main_component: Rc::clone(main_component),
+                debugging_ctx: DebuggingContext::new(
+                    context,
+                    &main_component.name,
+                ),
+                source_map,
+                interpreter: component_interpreter,
+            },
+            metadata.unwrap(),
+        ))
     }
 
     // probably want a different return type
