@@ -75,9 +75,12 @@ impl RefPortMap {
     /// Get all of the newly added ports associated with a component that had
     /// ref cells
     fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>> {
-        self.0
-            .get(comp_name)
-            .map(|map| map.values().cloned().collect())
+        self.0.get(comp_name).map(|map| {
+            map.values()
+                .cloned()
+                .sorted_by(|a, b| a.borrow().name.cmp(&b.borrow().name))
+                .collect()
+        })
     }
 }
 
