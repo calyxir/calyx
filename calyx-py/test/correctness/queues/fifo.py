@@ -55,7 +55,6 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     flash_write = fifo.reg_store(write, 0, "flash_write")  # write := 0
     flash_read = fifo.reg_store(read, 0, "flash_read")  # read := 0
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
-    flash_ans = fifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
     # Load and store into an arbitary slot in memory
     write_to_mem = fifo.mem_store_seq_d1(mem, write.out, value, "write_payload_to_mem")
@@ -72,7 +71,7 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
             cb.if_with(
                 # Yes, the user called pop. But is the queue empty?
                 len_eq_0,
-                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     read_from_mem,  # Read from the queue.
                     write_to_ans,  # Write the answer to the answer register.
@@ -91,7 +90,7 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
             cmd_eq_1,
             cb.if_with(  # Yes, the user called peek. But is the queue empty?
                 len_eq_0,
-                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     read_from_mem,  # Read from the queue.
                     write_to_ans,  # Write the answer to the answer register.
@@ -105,7 +104,7 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
             cb.if_with(
                 # Yes, the user called push. But is the queue full?
                 len_eq_max_queue_len,
-                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                raise_err,  # The queue is empty: underflow.
                 [  # The queue is not full. Proceed.
                     write_to_mem,  # Write `value` to the queue.
                     write_incr,  # Increment the write pointer.
