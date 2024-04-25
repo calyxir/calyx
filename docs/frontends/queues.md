@@ -80,6 +80,7 @@ Internally, our PIFO tree is implemented by leveraging the PIFO frontend.
 The PIFO frontend seeks to orchestrate two queues, which in the simple case will just be two FIFOs.
 However, it is easy to generalize those two queues: instead of being FIFOs, they can be PIFOs or even PIFO trees.
 
+
 [builder]: ../builder/calyx-py.md
 [fifo.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/fifo.py
 [pifo.py]: https://github.com/calyxir/calyx/blob/main/calyx-py/test/correctness/queues/pifo.py
