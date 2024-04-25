@@ -22,7 +22,7 @@ impl MyAdapter {
         let (debugger, metadata) =
             Debugger::from_file(&PathBuf::from(path), &std_path).unwrap();
         Ok(MyAdapter {
-            debugger: debugger,
+            debugger,
             break_count: Counter::new(),
             thread_count: Counter::new(),
             stack_count: Counter::new(),
