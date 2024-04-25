@@ -203,14 +203,33 @@ The backend generate `'x` as the default value for the assignment to the port in
 
 This represents the optimization:
 ```
-in = g ? out : 'x
+cell.in = g ? out : 'x
 ```
 into:
 ```
-in = out;
+cell.in = out;
 ```
 Since the value `'x` can be replaced with anything.
 
+`@data` can also appear on the output ports of a Calyx component.
+This represents when we want to optimize assignments to the port _within a Calyx component_.
+Consider the following example:
+```
+component main() ->(...@data out_write_data: 32....) {
+  ...
+  wires {
+    out_write_data = g ? out : 'x // we want to optimize to out_write_data = out
+  }
+}
+```
+Note that we are trying to perform this optimization _within the component_, i.e.,
+`out_write_data` is a port on the signature of the component itself, not an instance.
+Also note that in this case, `@data` appears on the _output_ port of the component's signature.
+When `@data` appears on an output port of a Calyx component, it means that assignments
+to this port _within_ the component will get optimized to a continuous assignment
+if the port has exactly one assignment.
+Note that since there is no requirement of having the "cell instance is marked as `@data`",
+as before.
 
 [datapath-components]: https://github.com/calyxir/calyx/issues/1169
 [builder]: https://docs.rs/calyx-ir/latest/calyx_ir/struct.Builder.html
