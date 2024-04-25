@@ -3,9 +3,9 @@ import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
 component fifo(cmd: 2, value: 32) -> () {
   cells {
-    mem = seq_mem_d1(32, 16, 32);
-    next_write = std_reg(32);
-    next_read = std_reg(32);
+    mem = seq_mem_d1(32, 16, 4);
+    next_write = std_reg(4);
+    next_read = std_reg(4);
     ref ans = std_reg(32);
     ref err = std_reg(1);
     len = std_reg(32);
@@ -14,10 +14,8 @@ component fifo(cmd: 2, value: 32) -> () {
     eq_3 = std_eq(2);
     eq_4 = std_eq(32);
     eq_5 = std_eq(32);
-    eq_6 = std_eq(32);
-    eq_7 = std_eq(32);
-    next_write_incr = std_add(32);
-    next_read_incr = std_add(32);
+    next_write_incr = std_add(4);
+    next_read_incr = std_add(4);
     len_incr = std_add(32);
     len_decr = std_sub(32);
   }
@@ -35,31 +33,23 @@ component fifo(cmd: 2, value: 32) -> () {
       eq_3.right = 2'd2;
     }
     comb group eq_4_group {
-      eq_4.left = next_write.out;
-      eq_4.right = 32'd16;
+      eq_4.left = len.out;
+      eq_4.right = 32'd0;
     }
     comb group eq_5_group {
-      eq_5.left = next_read.out;
+      eq_5.left = len.out;
       eq_5.right = 32'd16;
-    }
-    comb group eq_6_group {
-      eq_6.left = len.out;
-      eq_6.right = 32'd0;
-    }
-    comb group eq_7_group {
-      eq_7.left = len.out;
-      eq_7.right = 32'd16;
     }
     group next_write_incr_group {
       next_write_incr.left = next_write.out;
-      next_write_incr.right = 32'd1;
+      next_write_incr.right = 4'd1;
       next_write.write_en = 1'd1;
       next_write.in = next_write_incr.out;
       next_write_incr_group[done] = next_write.done;
     }
     group next_read_incr_group {
       next_read_incr.left = next_read.out;
-      next_read_incr.right = 32'd1;
+      next_read_incr.right = 4'd1;
       next_read.write_en = 1'd1;
       next_read.in = next_read_incr.out;
       next_read_incr_group[done] = next_read.done;
@@ -77,16 +67,6 @@ component fifo(cmd: 2, value: 32) -> () {
       len.write_en = 1'd1;
       len.in = len_decr.out;
       len_decr_group[done] = len.done;
-    }
-    group flash_write {
-      next_write.in = 32'd0;
-      next_write.write_en = 1'd1;
-      flash_write[done] = next_write.done;
-    }
-    group flash_read {
-      next_read.in = 32'd0;
-      next_read.write_en = 1'd1;
-      flash_read[done] = next_read.done;
     }
     group raise_err {
       err.in = 1'd1;
@@ -114,7 +94,7 @@ component fifo(cmd: 2, value: 32) -> () {
   control {
     par {
       if lt_2.out with lt_2_group {
-        if eq_6.out with eq_6_group {
+        if eq_4.out with eq_4_group {
           raise_err;
         } else {
           seq {
@@ -123,9 +103,6 @@ component fifo(cmd: 2, value: 32) -> () {
             if eq_1.out with eq_1_group {
               seq {
                 next_read_incr_group;
-                if eq_5.out with eq_5_group {
-                  flash_read;
-                }
                 len_decr_group;
               }
             }
@@ -133,15 +110,12 @@ component fifo(cmd: 2, value: 32) -> () {
         }
       }
       if eq_3.out with eq_3_group {
-        if eq_7.out with eq_7_group {
+        if eq_5.out with eq_5_group {
           raise_err;
         } else {
           seq {
             write_payload_to_mem;
             next_write_incr_group;
-            if eq_4.out with eq_4_group {
-              flash_write;
-            }
             len_incr_group;
           }
         }

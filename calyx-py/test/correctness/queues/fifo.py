@@ -22,9 +22,9 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     # If it is 2, we push `value` to the queue.
     value = fifo.input("value", 32)  # The value to push to the queue
 
-    mem = fifo.seq_mem_d1("mem", 32, length, 32)
-    write = fifo.reg("next_write", 32)  # The next address to write to
-    read = fifo.reg("next_read", 32)  # The next address to read from
+    mem = fifo.seq_mem_d1("mem", 32, length, 4)
+    write = fifo.reg("next_write", 4)  # The next address to write to
+    read = fifo.reg("next_read", 4)  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size length.
 
@@ -41,8 +41,6 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     cmd_lt_2 = fifo.lt_use(cmd, 2)
     cmd_eq_2 = fifo.eq_use(cmd, 2)
 
-    write_eq_max_queue_len = fifo.eq_use(write.out, length)
-    read_eq_max_queue_len = fifo.eq_use(read.out, length)
     len_eq_0 = fifo.eq_use(len.out, 0)
     len_eq_max_queue_len = fifo.eq_use(len.out, length)
 
@@ -52,9 +50,6 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     len_incr = fifo.incr(len)  # len++
     len_decr = fifo.decr(len)  # len--
 
-    # Cells and groups to modify flags, which are registers
-    flash_write = fifo.reg_store(write, 0, "flash_write")  # write := 0
-    flash_read = fifo.reg_store(read, 0, "flash_read")  # read := 0
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
     # Load and store into an arbitary slot in memory
@@ -81,11 +76,6 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
                         cmd_eq_0,  # Did the user call pop?
                         [  # Yes, so we have some work to do besides peeking.
                             read_incr,  # Increment the read pointer.
-                            cb.if_with(
-                                # Wrap around if necessary.
-                                read_eq_max_queue_len,
-                                flash_read,
-                            ),
                             len_decr,  # Decrement the length.
                         ],
                     ),
@@ -102,11 +92,6 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
                 [  # The queue is not full. Proceed.
                     write_to_mem,  # Write `value` to the queue.
                     write_incr,  # Increment the write pointer.
-                    cb.if_with(
-                        # Wrap around if necessary.
-                        write_eq_max_queue_len,
-                        flash_write,
-                    ),
                     len_incr,  # Increment the length.
                 ],
             ),
