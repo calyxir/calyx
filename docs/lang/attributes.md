@@ -199,15 +199,22 @@ When we have following two conditions:
 1. An input port is marked with `@data` in the component definitions, and
 2. The cell instance is marked as `@data`
 
-The backend generate `'x` as the default value for the assignment to the port instead of `'0`. Additionally, if the port has exactly one assignment, the backend removes the guard entirely and produces a continuous assignment.
+The backend generates `'x` as the default value for the assignment to the port instead of `'0`. Additionally, if the port has exactly one assignment, the backend removes the guard entirely and produces a continuous assignment.
 
 This represents the optimization:
 ```
-cell.in = g ? out : 'x
+cells {
+  @data cell = cell_component();
+}
+wires {
+  cell.in = g ? out : 'x
+}
 ```
 into:
 ```
-cell.in = out;
+wires {
+  cell.in = out;
+}
 ```
 Since the value `'x` can be replaced with anything.
 
@@ -226,9 +233,8 @@ Note that we are trying to perform this optimization _within the component_, i.e
 `out_write_data` is a port on the signature of the component itself, not an instance.
 Also note that in this case, `@data` appears on the _output_ port of the component's signature.
 When `@data` appears on an output port of a Calyx component, it means that assignments
-to this port _within_ the component will get optimized to a continuous assignment
-if the port has exactly one assignment.
-Note that since there is no requirement of having the "cell instance is marked as `@data`",
+to this port _within_ the component will get the "default to `'x`" semantics and optimizations.
+Note that there is no requirement of having the "cell instance is marked as `@data`",
 as before.
 
 [datapath-components]: https://github.com/calyxir/calyx/issues/1169
