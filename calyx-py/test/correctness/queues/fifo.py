@@ -17,7 +17,8 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
 
     fifo: cb.ComponentBuilder = prog.component(name)
     cmd = fifo.input("cmd", 2)
-    # If this is 0, we pop. If it is 1, we peek.
+    # If it is 0, we pop.
+    # If it is 1, we peek.
     # If it is 2, we push `value` to the queue.
     value = fifo.input("value", 32)  # The value to push to the queue
 
@@ -35,9 +36,9 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
 
     len = fifo.reg("len", 32)  # The length of the FIFO.
 
-    # Cells and groups to compute equality
+    # Cells and groups to check which command we got.
     cmd_eq_0 = fifo.eq_use(cmd, 0)
-    cmd_eq_1 = fifo.eq_use(cmd, 1)
+    cmd_lt_2 = fifo.lt_use(cmd, 2)
     cmd_eq_2 = fifo.eq_use(cmd, 2)
 
     write_eq_max_queue_len = fifo.eq_use(write.out, length)
@@ -64,37 +65,30 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     )
 
     fifo.control += cb.par(
-        # Was it a pop or a push? We can do both cases in parallel.
+        # Was it a (pop/peek), or a push? We can do those two cases in parallel.
+        # The logic is shared for pops and peeks, with just a few differences.
         cb.if_with(
-            # Did the user call pop?
-            cmd_eq_0,
+            # Did the user call pop/peek?
+            cmd_lt_2,
             cb.if_with(
-                # Yes, the user called pop. But is the queue empty?
+                # Yes, the user called pop/peek. But is the queue empty?
                 len_eq_0,
                 raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     read_from_mem,  # Read from the queue.
                     write_to_ans,  # Write the answer to the answer register.
-                    read_incr,  # Increment the read pointer.
                     cb.if_with(
-                        # Wrap around if necessary.
-                        read_eq_max_queue_len,
-                        flash_read,
+                        cmd_eq_0,  # Did the user call pop?
+                        [  # Yes, so we have some work to do besides peeking.
+                            read_incr,  # Increment the read pointer.
+                            cb.if_with(
+                                # Wrap around if necessary.
+                                read_eq_max_queue_len,
+                                flash_read,
+                            ),
+                            len_decr,  # Decrement the length.
+                        ],
                     ),
-                    len_decr,  # Decrement the length.
-                ],
-            ),
-        ),
-        cb.if_with(
-            # Did the user call peek?
-            cmd_eq_1,
-            cb.if_with(  # Yes, the user called peek. But is the queue empty?
-                len_eq_0,
-                raise_err,  # The queue is empty: underflow.
-                [  # The queue is not empty. Proceed.
-                    read_from_mem,  # Read from the queue.
-                    write_to_ans,  # Write the answer to the answer register.
-                    # But don't increment the read pointer or change the length.
                 ],
             ),
         ),
