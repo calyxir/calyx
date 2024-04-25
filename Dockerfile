@@ -67,7 +67,7 @@ ADD . calyx
 WORKDIR /home/calyx
 RUN cargo build --all && \
     cargo install vcdump && \
-    cargo install runt --version 0.4.0
+    cargo install runt --version 0.4.1
 
 # Install fud
 WORKDIR /home/calyx/fud
@@ -75,6 +75,12 @@ RUN FLIT_ROOT_INSTALL=1 flit install --symlink --deps production
 RUN mkdir -p /root/.config
 ENV PATH=$PATH:/root/.local/bin
 ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
+
+# Link fud2
+WORKDIR /home/calyx
+run mkdir -p ~/.local/bin
+RUN ln -s /home/calyx/target/debug/fud2 ~/.local/bin/
+RUN printf "[calyx]\nbase = \"/home/calyx\"" >> ~/.config/fud2.toml
 
 # Install calyx-py
 WORKDIR /home/calyx/calyx-py
