@@ -3,7 +3,7 @@ import fifo
 import calyx.builder as cb
 import calyx.queue_call as qc
 
-MAX_QUEUE_LEN = 10
+QUEUE_LEN = 10
 
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
@@ -44,7 +44,16 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
     )
 
 
-def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False):
+def insert_pifo(
+    prog,
+    name,
+    queue_l,
+    queue_r,
+    boundary,
+    length=QUEUE_LEN,
+    stats=None,
+    static=False,
+):
     """Inserts the component `pifo` into the program.
 
     The PIFO achieves a 50/50 split between two "flows" or "kinds".
@@ -56,15 +65,15 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     violation of the 50/50 rule) until the silent flow starts transmitting again.
     At that point we go back to 50/50.
 
-    The PIFO's maximum capacity is MAX_QUEUE_LEN.
+    The PIFO's maximum capacity is `length`.
     Let's say the two flows are called `0` and `1`.
     We orchestrate two sub-queues, `queue_l` and `queue_r`,
-    each of capacity MAX_QUEUE_LEN.
+    each of capacity `length`.
     We maintain a register that points to which of these sub-queues is "hot".
     Start off with `hot` pointing to `queue_l` (arbitrarily).
 
     - `push(v, PIFO)`:
-       + If len(PIFO) = MAX_QUEUE_LEN, raise an "overflow" err and exit.
+       + If len(PIFO) = `length`, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`.
          * Find out which flow `f` the value `v` should go to;
          `f` better be either `0` or `1`.
@@ -110,7 +119,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     err = pifo.reg("err", 1, is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    len = pifo.reg("len", 32)  # The length of the PIFO.
+    len = pifo.reg("len", 32)  # The active length of the PIFO.
 
     # A register that marks the next sub-queue to `pop` from.
     hot = pifo.reg("hot", 1)
@@ -118,7 +127,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     # Some equality checks.
     hot_eq_0 = pifo.eq_use(hot.out, 0)
     len_eq_0 = pifo.eq_use(len.out, 0)
-    len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN)
+    len_eq_max_queue_len = pifo.eq_use(len.out, length)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
     cmd_eq_1 = pifo.eq_use(cmd, 1)
     cmd_eq_2 = pifo.eq_use(cmd, 2)
@@ -164,7 +173,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                                 ],
                                 # `queue_l` succeeded.
                                 # Its answer is our answer.
-                                flip_hot
+                                flip_hot,
                                 # We'll just make `hot` point
                                 # to the other sub-queue.
                             ),
@@ -254,18 +263,20 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                         err_eq_0,
                         # If no stats component is provided,
                         # just increment the length.
-                        len_incr
-                        if not stats
-                        else cb.par(
-                            # If a stats component is provided,
-                            # Increment the length and also
-                            # tell the stats component what flow we pushed.
-                            len_incr,
-                            (
-                                cb.static_invoke(stats, in_flow=flow.out)
-                                if static
-                                else cb.invoke(stats, in_flow=flow.out)
-                            ),
+                        (
+                            len_incr
+                            if not stats
+                            else cb.par(
+                                # If a stats component is provided,
+                                # Increment the length and also
+                                # tell the stats component what flow we pushed.
+                                len_incr,
+                                (
+                                    cb.static_invoke(stats, in_flow=flow.out)
+                                    if static
+                                    else cb.invoke(stats, in_flow=flow.out)
+                                ),
+                            )
                         ),
                     ),
                 ],

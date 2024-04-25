@@ -107,7 +107,13 @@ def build(static=False):
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
     pifo_root = pifo.insert_pifo(
-        prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component, static
+        prog,
+        "pifo_root",
+        pifo_red,
+        fifo_blue,
+        200,
+        stats=stats_component,
+        static=static,
     )
     # The root PIFO will take a stats component by reference.
 
