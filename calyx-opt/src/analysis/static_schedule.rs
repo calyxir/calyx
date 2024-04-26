@@ -12,7 +12,8 @@ use std::collections::HashMap;
 pub struct StaticSchedule {
     num_states: u64,
     queries: HashMap<(u64, u64), u64>,
-    static_groups: Vec<ir::RRC<ir::StaticGroup>>,
+    pub static_groups: Vec<ir::RRC<ir::StaticGroup>>,
+    pub static_group_names: Vec<ir::Id>,
 }
 
 impl StaticSchedule {
@@ -35,7 +36,7 @@ impl StaticSchedule {
             }
         }
     }
-    fn gather_info(&mut self) {
+    pub fn gather_info(&mut self) {
         self.num_states = 0;
         for static_group in &self.static_groups {
             // Getting self.queries
@@ -52,11 +53,8 @@ impl StaticSchedule {
             );
         }
     }
-    fn update_num_states(&mut self, c: &ir::StaticControl) {
-        self.num_states = c.get_latency();
-    }
 
-    fn realize_schedule(
+    pub fn realize_schedule(
         &mut self,
         builder: &mut ir::Builder,
     ) -> (

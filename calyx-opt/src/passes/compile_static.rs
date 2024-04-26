@@ -6,6 +6,7 @@ use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
 use ir::{build_assignments, Nothing, StaticTiming, RRC};
 use itertools::Itertools;
+use petgraph::algo::matching;
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
@@ -451,11 +452,11 @@ impl CompileStatic {
     // Given a "coloring" of static group names -> their "colors",
     // instantiate one fsm per color and return a hashmap that maps
     // fsm names -> groups that it handles
-    fn build_fsm_mapping(
+    fn build_schedule_objects(
         coloring: HashMap<ir::Id, ir::Id>,
-        static_groups: &[ir::RRC<ir::StaticGroup>],
+        mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
         builder: &mut ir::Builder,
-    ) -> HashMap<ir::Id, HashSet<ir::Id>> {
+    ) -> Vec<StaticSchedule> {
         // "reverse" the coloring to map colors -> static group_names
         let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
             HashMap::new();
@@ -467,26 +468,22 @@ impl CompileStatic {
             color_to_groups.into_iter().collect();
         vec_color_to_groups
             .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
-        vec_color_to_groups.into_iter().map(|(color, group_names)| {
-            // For each color, build an FSM that has the number of bits required
-            // for the largest latency in `group_names`
-            let max_latency = group_names
-                .iter()
-                .map(|g| {
-                    find_static_group(g, static_groups).borrow()
-                        .latency
-                })
-                .max().unwrap_or_else(|| unreachable!("group {color} had no corresponding groups in its coloring map")
-                );
-            let fsm_size = get_bit_width_from(
-                max_latency + 1, /* represent 0..latency */
-            );
-            structure!( builder;
-                let fsm = prim std_reg(fsm_size);
-            );
-            let fsm_name = fsm.borrow().name();
-            (fsm_name, group_names)
-        }).collect()
+        vec_color_to_groups
+            .into_iter()
+            .map(|(color, group_names)| {
+                // For each color, build an FSM that has the number of bits required
+                // for the largest latency in `group_names`
+                let mut sch = StaticSchedule::default();
+                let (matching_groups, other_groups) =
+                    static_groups.drain(..).partition(|group| {
+                        group_names.contains(&group.borrow().name())
+                    });
+                sch.static_groups = matching_groups;
+                sch.gather_info();
+                static_groups = other_groups;
+                sch
+            })
+            .collect()
     }
 
     // helper to `build_sgroup_uses_map`
@@ -575,46 +572,39 @@ impl Visitor for CompileStatic {
         let coloring = conflict_graph.color_greedy(None, true);
         let mut builder = ir::Builder::new(comp, sigs);
         // build Mappings of fsm names -> set of groups that it can handle.
-        let fsm_mappings =
-            Self::build_fsm_mapping(coloring, &sgroups, &mut builder);
-        let mut groups_to_fsms = HashMap::new();
-        // "Reverses" fsm_mappings to map group names -> fsm cells
-        for (fsm_name, group_names) in fsm_mappings {
-            let fsm = builder.component.find_guaranteed_cell(fsm_name);
-            for group_name in group_names {
-                groups_to_fsms.insert(group_name, Rc::clone(&fsm));
-            }
-        }
+        let schedule_objects =
+            Self::build_schedule_objects(coloring, sgroups, &mut builder);
 
-        // create "early reset" dynamic groups that never reach set their done hole
-        for sgroup in sgroups.iter() {
-            let mut sgroup_ref = sgroup.borrow_mut();
-            let sgroup_name = sgroup_ref.name();
-            let sgroup_latency = sgroup_ref.get_latency();
-            let sgroup_attributes = sgroup_ref.attributes.clone();
-            let sgroup_assigns = &mut sgroup_ref.assignments;
-            let g = self.make_early_reset_group(
-                sgroup_assigns,
-                sgroup_name,
-                sgroup_latency,
-                sgroup_attributes,
-                Rc::clone(groups_to_fsms.get(&sgroup_name).unwrap_or_else(
-                    || unreachable!("{sgroup_name} has no corresponding fsm"),
-                )),
-                &mut builder,
-            );
-            // map the static group name -> early reset group name
-            // helpful for rewriting control
-            self.reset_early_map.insert(sgroup_name, g.borrow().name());
-            // group_rewrite_map helps write static_group[go] to early_reset_group[go]
-            // technically could do this w/ early_reset_map but is easier w/
-            // group_rewrite, which is explicitly of type `PortRewriterMap`
-            self.group_rewrite.insert(
-                ir::Canonical::new(sgroup_name, ir::Id::from("go")),
-                g.borrow().find("go").unwrap_or_else(|| {
-                    unreachable!("group {} has no go port", g.borrow().name())
-                }),
-            );
+        for mut sch in schedule_objects {
+            let (mut static_group_assigns, fsm_assigns) =
+                sch.realize_schedule(&mut builder);
+            for static_group in sch.static_groups.iter() {
+                let static_group_name = static_group.borrow().name();
+                let early_reset_group = builder.add_group(static_group_name);
+                let mut early_reset_group_ref = early_reset_group.borrow_mut();
+                early_reset_group_ref.assignments =
+                    static_group_assigns.pop().unwrap();
+                early_reset_group_ref.attributes =
+                    static_group.borrow().attributes.clone();
+                // map the static group name -> early reset group name
+                // helpful for rewriting control
+                self.reset_early_map
+                    .insert(static_group_name, early_reset_group_ref.name());
+                // group_rewrite_map helps write static_group[go] to early_reset_group[go]
+                // technically could do this w/ early_reset_map but is easier w/
+                // group_rewrite, which is explicitly of type `PortRewriterMap`
+                self.group_rewrite.insert(
+                    ir::Canonical::new(static_group_name, ir::Id::from("go")),
+                    early_reset_group.borrow().find("go").unwrap_or_else(
+                        || {
+                            unreachable!(
+                                "group {} has no go port",
+                                early_reset_group.borrow().name()
+                            )
+                        },
+                    ),
+                );
+            }
         }
 
         // rewrite static_group[go] to early_reset_group[go]
@@ -628,7 +618,7 @@ impl Visitor for CompileStatic {
             })
         });
 
-        comp.get_static_groups_mut().append(sgroups.into_iter());
+        // comp.get_static_groups_mut().append(sgroups.into_iter());
 
         Ok(Action::Continue)
     }
