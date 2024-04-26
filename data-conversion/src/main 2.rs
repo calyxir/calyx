@@ -175,7 +175,7 @@ fn binary_to_hex(
 
     let formatted_hex_str = format_hex(hex_of_binary);
 
-    filepath_send.write_all(formatted_hex_str.as_bytes())?;
+    filepath_send.write(formatted_hex_str.as_bytes())?;
     filepath_send.write_all(b"\n")?;
 
     Ok(())
@@ -216,12 +216,15 @@ fn fixed_to_binary(
     if fixed_string.contains(' ') {
         // Split the input string into individual words
         words = fixed_string.split_whitespace().collect();
-        fixed_str = words.first().unwrap_or(&"There is not a fixed number");
-        exp_str = words.get(1).unwrap_or(&"There is no exponent");
+        fixed_str = words
+            .get(0)
+            .unwrap_or_else(|| &"There is not a fixed number");
+        exp_str = words.get(1).unwrap_or_else(|| &"There is no exponent");
     } else {
         panic!("Input string does not contain a space.");
     }
     // Convert fixed value from string to int
+    print!("{} ", fixed_str);
     let fixed_value: f32;
     match fixed_str.parse::<f32>() {
         Ok(parsed_num) => fixed_value = parsed_num,
@@ -230,6 +233,7 @@ fn fixed_to_binary(
         }
     }
     // Convert exponent from string to float
+    print!("{} ", exp_str);
     let exponent: f32;
     match exp_str.parse::<f32>() {
         Ok(parsed_num) => exponent = parsed_num,
@@ -239,12 +243,15 @@ fn fixed_to_binary(
     }
 
     let multiplied_fixed = fixed_value * 2_f32.powf(-exponent);
+    print!("{} ", multiplied_fixed);
 
     // Convert to a 32-bit integer
     let multiplied_fixed_as_i32 = multiplied_fixed as i32;
+    print!("{} ", multiplied_fixed_as_i32);
 
     // Convert to a binary string with 32 bits
     let binary_of_fixed = format!("{:032b}", multiplied_fixed_as_i32);
+    print!("{}\n", binary_of_fixed);
 
     // Write binary string to the file
     filepath_send.write_all(binary_of_fixed.as_bytes())?;
