@@ -3,7 +3,6 @@
 # defaults
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
-vfile ?= ../outputs/generated-axi-with-vec-add.v
 
 
 #Needed to extract desired test from runt invocation
