@@ -1,5 +1,5 @@
 use super::math_utilities::get_bit_width_from;
-use crate::analysis::GraphColoring;
+use crate::analysis::{GraphColoring, StaticSchedule};
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
@@ -32,129 +32,6 @@ impl Named for CompileStatic {
 
     fn description() -> &'static str {
         "compiles static sub-programs into a dynamic group"
-    }
-}
-
-// Takes in a static guard `guard`, and returns equivalent dynamic guard
-// The only thing that actually changes is the Guard::Info case
-// We need to turn static_timing to dynamic guards using `fsm`.
-// E.g.: %[2:3] gets turned into fsm.out >= 2 & fsm.out < 3
-pub(super) fn make_guard_dyn(
-    guard: ir::Guard<StaticTiming>,
-    fsm: &ir::RRC<ir::Cell>,
-    fsm_size: u64,
-    builder: &mut ir::Builder,
-    is_static_comp: bool,
-    comp_sig: Option<RRC<ir::Cell>>,
-) -> Box<ir::Guard<Nothing>> {
-    match guard {
-        ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-            make_guard_dyn(
-                *l,
-                fsm,
-                fsm_size,
-                builder,
-                is_static_comp,
-                comp_sig.clone(),
-            ),
-            make_guard_dyn(
-                *r,
-                fsm,
-                fsm_size,
-                builder,
-                is_static_comp,
-                comp_sig,
-            ),
-        )),
-        ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-            make_guard_dyn(
-                *l,
-                fsm,
-                fsm_size,
-                builder,
-                is_static_comp,
-                comp_sig.clone(),
-            ),
-            make_guard_dyn(
-                *r,
-                fsm,
-                fsm_size,
-                builder,
-                is_static_comp,
-                comp_sig,
-            ),
-        )),
-        ir::Guard::Not(g) => Box::new(ir::Guard::Not(make_guard_dyn(
-            *g,
-            fsm,
-            fsm_size,
-            builder,
-            is_static_comp,
-            comp_sig,
-        ))),
-        ir::Guard::CompOp(op, l, r) => Box::new(ir::Guard::CompOp(op, l, r)),
-        ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
-        ir::Guard::True => Box::new(ir::Guard::True),
-        ir::Guard::Info(static_timing) => {
-            let (beg, end) = static_timing.get_interval();
-            if is_static_comp && beg == 0 && end == 1 {
-                let interval_const = builder.add_constant(0, fsm_size);
-                let sig = comp_sig.unwrap();
-                let g1 = guard!(sig["go"]);
-                let g2 = guard!(fsm["out"] == interval_const["out"]);
-                let g = ir::Guard::And(Box::new(g1), Box::new(g2));
-                return Box::new(g);
-            }
-            if beg + 1 == end {
-                // if beg + 1 == end then we only need to check if fsm == beg
-                let interval_const = builder.add_constant(beg, fsm_size);
-                let g = guard!(fsm["out"] == interval_const["out"]);
-                Box::new(g)
-            } else if beg == 0 {
-                // if beg == 0, then we only need to check if fsm < end
-                let end_const = builder.add_constant(end, fsm_size);
-                let lt: ir::Guard<Nothing> =
-                    guard!(fsm["out"] < end_const["out"]);
-                Box::new(lt)
-            } else {
-                // otherwise, check if fsm >= beg & fsm < end
-                let beg_const = builder.add_constant(beg, fsm_size);
-                let end_const = builder.add_constant(end, fsm_size);
-                let beg_guard: ir::Guard<Nothing> =
-                    guard!(fsm["out"] >= beg_const["out"]);
-                let end_guard: ir::Guard<Nothing> =
-                    guard!(fsm["out"] < end_const["out"]);
-                Box::new(ir::Guard::And(
-                    Box::new(beg_guard),
-                    Box::new(end_guard),
-                ))
-            }
-        }
-    }
-}
-
-// Takes in static assignment `assign` and returns a dynamic assignments
-// Mainly transforms the guards such that fsm.out >= 2 & fsm.out <= 3
-pub(super) fn make_assign_dyn(
-    assign: ir::Assignment<StaticTiming>,
-    fsm: &ir::RRC<ir::Cell>,
-    fsm_size: u64,
-    builder: &mut ir::Builder,
-    is_static_comp: bool,
-    comp_sig: Option<RRC<ir::Cell>>,
-) -> ir::Assignment<Nothing> {
-    ir::Assignment {
-        src: assign.src,
-        dst: assign.dst,
-        attributes: assign.attributes,
-        guard: make_guard_dyn(
-            *assign.guard,
-            fsm,
-            fsm_size,
-            builder,
-            is_static_comp,
-            comp_sig,
-        ),
     }
 }
 
@@ -230,7 +107,9 @@ impl CompileStatic {
         let mut assigns = sgroup_assigns
             .drain(..)
             .map(|assign| {
-                make_assign_dyn(assign, &fsm, fsm_size, builder, false, None)
+                StaticSchedule::make_assign_dyn(
+                    assign, &fsm, fsm_size, builder, false, None,
+                )
             })
             .collect_vec();
         // assignments to increment the fsm

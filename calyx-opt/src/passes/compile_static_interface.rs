@@ -1,4 +1,4 @@
-use super::compile_static::make_assign_dyn;
+use crate::analysis::StaticSchedule;
 use crate::passes::math_utilities::get_bit_width_from;
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
@@ -151,7 +151,7 @@ impl CompileStaticInterface {
         let mut dyn_assigns = assigns
             .drain(..)
             .map(|assign| {
-                make_assign_dyn(
+                StaticSchedule::make_assign_dyn(
                     assign,
                     &fsm,
                     fsm_size,
