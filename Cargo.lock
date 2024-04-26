@@ -565,7 +565,10 @@ dependencies = [
 name = "cider-data-converter"
 version = "0.1.0"
 dependencies = [
+ "argh",
  "interp",
+ "itertools 0.11.0",
+ "proptest",
  "serde",
  "serde_json",
 ]

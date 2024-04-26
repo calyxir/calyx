@@ -3,18 +3,72 @@ use std::num::NonZeroUsize;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Debug, Deserialize, PartialEq, Clone)]
+pub enum Dimensions {
+    D1(usize),
+    D2(usize, usize),
+    D3(usize, usize, usize),
+    D4(usize, usize, usize, usize),
+}
+
+impl Dimensions {
+    pub fn size(&self) -> usize {
+        match self {
+            Dimensions::D1(d0) => *d0,
+            Dimensions::D2(d0, d1) => d0 * d1,
+            Dimensions::D3(d0, d1, d2) => d0 * d1 * d2,
+            Dimensions::D4(d0, d1, d2, d3) => d0 * d1 * d2 * d3,
+        }
+    }
+}
+
+impl From<usize> for Dimensions {
+    fn from(v: usize) -> Self {
+        Self::D1(v)
+    }
+}
+
+impl From<(usize, usize)> for Dimensions {
+    fn from(v: (usize, usize)) -> Self {
+        Self::D2(v.0, v.1)
+    }
+}
+
+impl From<(usize, usize, usize)> for Dimensions {
+    fn from(v: (usize, usize, usize)) -> Self {
+        Self::D3(v.0, v.1, v.2)
+    }
+}
+
+impl From<(usize, usize, usize, usize)> for Dimensions {
+    fn from(v: (usize, usize, usize, usize)) -> Self {
+        Self::D4(v.0, v.1, v.2, v.3)
+    }
+}
+
+#[derive(Serialize, Debug, Deserialize, PartialEq, Clone)]
 pub struct MemoryDeclaration {
     pub name: String,
     pub width: NonZeroUsize,
     pub size: NonZeroUsize,
+    pub dimensions: Dimensions,
 }
 
 impl MemoryDeclaration {
-    pub fn new(name: String, width: usize, size: usize) -> Self {
+    pub fn new(
+        name: String,
+        width: usize,
+        size: usize,
+        dimensions: Dimensions,
+    ) -> Self {
+        assert!(
+            size == dimensions.size(),
+            "mismatch between stated size and the dimensions"
+        );
         Self {
             name,
             width: NonZeroUsize::new(width).expect("width must be non-zero"),
             size: NonZeroUsize::new(size).expect("size must be non-zero"),
+            dimensions,
         }
     }
 
@@ -69,9 +123,10 @@ impl DataDump {
         name: String,
         width: usize,
         size: usize,
+        dimensions: Dimensions,
         data: T,
     ) {
-        let declaration = MemoryDeclaration::new(name, width, size);
+        let declaration = MemoryDeclaration::new(name, width, size, dimensions);
         self.header.memories.push(declaration);
         self.data.extend(data);
     }
@@ -133,10 +188,25 @@ mod tests {
         let header = DataHeader {
             top_level: "test".to_string(),
             memories: vec![
-                MemoryDeclaration::new("mem0".to_string(), 32, 16), // 64 bytes
-                MemoryDeclaration::new("mem1".to_string(), 4, 17),  // 17 bytes
-                MemoryDeclaration::new("mem2".to_string(), 3, 2),   // 2 bytes
-                                                                    // 83 bytes
+                MemoryDeclaration::new(
+                    "mem0".to_string(),
+                    32,
+                    16,
+                    Dimensions::D1(16),
+                ), // 64 bytes
+                MemoryDeclaration::new(
+                    "mem1".to_string(),
+                    4,
+                    17,
+                    Dimensions::D1(17),
+                ), // 17 bytes
+                MemoryDeclaration::new(
+                    "mem2".to_string(),
+                    3,
+                    2,
+                    Dimensions::D1(2),
+                ), // 2 bytes
+                   // 83 bytes
             ],
         };
 
@@ -163,7 +233,7 @@ mod tests {
 
     prop_compose! {
         fn arb_memory_declaration()(name in any::<String>(), width in 1_usize..=256, size in 1_usize..=500) -> MemoryDeclaration {
-            MemoryDeclaration::new(name.to_string(), width, size)
+            MemoryDeclaration::new(name.to_string(), width, size, Dimensions::D1(size))
         }
     }
 
@@ -248,7 +318,7 @@ mod tests {
         #[test]
         fn comb_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dbg!(dump.get_data(&mem.name)));
+                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dump.get_data(&mem.name));
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name), data);
             }
@@ -257,7 +327,7 @@ mod tests {
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dbg!(dump.get_data(&mem.name)));
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dump.get_data(&mem.name));
                 let data = memory_prim.dump_data();
                 prop_assert_eq!(dump.get_data(&mem.name), data);
             }

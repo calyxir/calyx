@@ -11,3 +11,8 @@ version = "0.1.0"
 interp = { path = "../../interp" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+itertools = { workspace = true }
+argh = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.0.0"
