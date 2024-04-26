@@ -507,20 +507,19 @@ impl Visitor for CompileStatic {
         // Build mappings one StaticSchedule object per color
         let mut schedule_objects =
             Self::build_schedule_objects(coloring, sgroups, &mut builder);
-        structure!( builder; let ud = prim undef(1););
 
-        for mut sch in &mut schedule_objects {
+        for sch in &mut schedule_objects {
             let mut static_group_assigns = sch.realize_schedule(&mut builder);
             for static_group in sch.static_groups.iter() {
                 // create the dynamic group we will use to replace the static group
-                let mut early_reset_name =
-                    static_group.borrow().name().to_string();
-                early_reset_name.insert_str(0, "early_reset_");
                 let static_group_name = static_group.borrow().name();
+                let mut early_reset_name = static_group_name.to_string();
+                early_reset_name.insert_str(0, "early_reset_");
 
                 let early_reset_group = builder.add_group(early_reset_name);
-                let mut assigns = static_group_assigns.pop().unwrap();
+                let mut assigns = static_group_assigns.remove(0);
 
+                structure!( builder; let ud = prim undef(1););
                 let early_reset_done_assign = build_assignments!(
                   builder;
                   early_reset_group["done"] = ? ud["out"];

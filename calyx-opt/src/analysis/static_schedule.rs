@@ -60,29 +60,11 @@ impl StaticSchedule {
         &mut self,
         builder: &mut ir::Builder,
     ) -> Vec<Vec<ir::Assignment<Nothing>>> {
-        dbg!("Realizing Schedule");
         let fsm_size = get_bit_width_from(
             self.num_states + 1, /* represent 0..latency */
         );
         // BC of borrowing nonsense.
-        let mut latency_constants = vec![];
-        for static_group in &self.static_groups {
-            latency_constants.push(
-                builder.add_constant(
-                    static_group.borrow().get_latency(),
-                    fsm_size,
-                ),
-            );
-        }
-        structure!( builder;
-            let fsm = prim std_reg(fsm_size);
-            let signal_on = constant(1,1);
-            let adder = prim std_add(fsm_size);
-            let const_one = constant(1, fsm_size);
-            let first_state = constant(0, fsm_size);
-            // let final_state = constant(self.num_states - 1, fsm_size);
-        );
-
+        let fsm = builder.add_primitive("fsm", "std_reg", &[fsm_size]);
         self.fsm_name = fsm.borrow().name();
         self.fsm_size = fsm_size;
         let mut res = vec![];
@@ -102,7 +84,14 @@ impl StaticSchedule {
                     )
                 })
                 .collect();
-            let final_state = latency_constants.pop().unwrap();
+
+            structure!( builder;
+                let signal_on = constant(1,1);
+                let adder = prim std_add(fsm_size);
+                let const_one = constant(1, fsm_size);
+                let first_state = constant(0, fsm_size);
+                let final_state = constant(static_group_ref.get_latency() - 1, fsm_size);
+            );
             let not_final_state_guard: ir::Guard<ir::Nothing> =
                 guard!(fsm["out"] != final_state["out"]);
             let final_state_guard: ir::Guard<ir::Nothing> =
