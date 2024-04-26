@@ -70,79 +70,6 @@ fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
 }
 
 impl CompileStatic {
-    // returns an "early reset" group based on the information given
-    // in the arguments.
-    // sgroup_assigns are the static assignments of the group (they need to be
-    // changed to dynamic by instantiating an fsm, i.e., %[0,2] -> fsm.out < 2)
-    // name of early reset group has prefix "early_reset_{sgroup_name}"
-    fn make_early_reset_group(
-        &mut self,
-        sgroup_assigns: &mut Vec<ir::Assignment<ir::StaticTiming>>,
-        sgroup_name: ir::Id,
-        latency: u64,
-        attributes: ir::Attributes,
-        fsm: ir::RRC<ir::Cell>,
-        builder: &mut ir::Builder,
-    ) -> ir::RRC<ir::Group> {
-        let fsm_name = fsm.borrow().name();
-        let fsm_size = fsm
-            .borrow()
-            .find("out")
-            .unwrap_or_else(|| unreachable!("no `out` port on {fsm_name}"))
-            .borrow()
-            .width;
-        structure!( builder;
-            // done hole will be undefined bc of early reset
-            let ud = prim undef(1);
-            let signal_on = constant(1,1);
-            let adder = prim std_add(fsm_size);
-            let const_one = constant(1, fsm_size);
-            let first_state = constant(0, fsm_size);
-            let penultimate_state = constant(latency-1, fsm_size);
-        );
-        // create the dynamic group we will use to replace the static group
-        let mut early_reset_name = sgroup_name.to_string();
-        early_reset_name.insert_str(0, "early_reset_");
-        let g = builder.add_group(early_reset_name);
-        // converting static assignments to dynamic assignments
-        let mut assigns = sgroup_assigns
-            .drain(..)
-            .map(|assign| {
-                StaticSchedule::make_assign_dyn(
-                    assign, &fsm, fsm_size, builder, false, None,
-                )
-            })
-            .collect_vec();
-        // assignments to increment the fsm
-        let not_penultimate_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"] != penultimate_state["out"]);
-        let penultimate_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"] == penultimate_state["out"]);
-        let fsm_incr_assigns = build_assignments!(
-          builder;
-          // increments the fsm
-          adder["left"] = ? fsm["out"];
-          adder["right"] = ? const_one["out"];
-          fsm["write_en"] = ? signal_on["out"];
-          fsm["in"] = not_penultimate_state_guard ? adder["out"];
-           // resets the fsm early
-          fsm["in"] = penultimate_state_guard ? first_state["out"];
-          // will never reach this guard since we are resetting when we get to
-          // the penultimate state
-          g["done"] = ? ud["out"];
-        );
-        assigns.extend(fsm_incr_assigns.to_vec());
-        // maps the "early reset" group name to the "fsm name" that it borrows.
-        // this is helpful when we build the "wrapper group"
-        self.fsm_info_map
-            .insert(g.borrow().name(), (fsm.borrow().name(), fsm_size));
-        // adding the assignments to the new dynamic group and creating a
-        // new (dynamic) enable
-        g.borrow_mut().assignments = assigns;
-        g.borrow_mut().attributes = attributes;
-        g
-    }
-
     fn build_wrapper_group(
         fsm_name: &ir::Id,
         fsm_width: u64,
@@ -580,6 +507,7 @@ impl Visitor for CompileStatic {
         // Build mappings one StaticSchedule object per color
         let mut schedule_objects =
             Self::build_schedule_objects(coloring, sgroups, &mut builder);
+        structure!( builder; let ud = prim undef(1););
 
         for mut sch in &mut schedule_objects {
             let mut static_group_assigns = sch.realize_schedule(&mut builder);
@@ -589,30 +517,42 @@ impl Visitor for CompileStatic {
                     static_group.borrow().name().to_string();
                 early_reset_name.insert_str(0, "early_reset_");
                 let static_group_name = static_group.borrow().name();
+
                 let early_reset_group = builder.add_group(early_reset_name);
-                let mut early_reset_group_ref = early_reset_group.borrow_mut();
-                early_reset_group_ref.assignments =
-                    static_group_assigns.pop().unwrap();
-                early_reset_group_ref.attributes =
+                let mut assigns = static_group_assigns.pop().unwrap();
+
+                let early_reset_done_assign = build_assignments!(
+                  builder;
+                  early_reset_group["done"] = ? ud["out"];
+                );
+                assigns.extend(early_reset_done_assign);
+
+                early_reset_group.borrow_mut().assignments = assigns;
+                early_reset_group.borrow_mut().attributes =
                     static_group.borrow().attributes.clone();
+
                 // Map the static group name -> early reset group name.
                 // This is helpful for rewriting control
-                self.reset_early_map
-                    .insert(static_group_name, early_reset_group_ref.name());
+                self.reset_early_map.insert(
+                    static_group_name,
+                    early_reset_group.borrow().name(),
+                );
                 // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
                 // Technically we could do this w/ early_reset_map but is easier w/
                 // group_rewrite, which is explicitly of type `PortRewriterMap`
                 self.group_rewrite.insert(
                     ir::Canonical::new(static_group_name, ir::Id::from("go")),
-                    early_reset_group_ref.find("go").unwrap_or_else(|| {
-                        unreachable!(
-                            "group {} has no go port",
-                            early_reset_group.borrow().name()
-                        )
-                    }),
+                    early_reset_group.borrow().find("go").unwrap_or_else(
+                        || {
+                            unreachable!(
+                                "group {} has no go port",
+                                early_reset_group.borrow().name()
+                            )
+                        },
+                    ),
                 );
                 self.fsm_info_map.insert(
-                    early_reset_group_ref.name(),
+                    early_reset_group.borrow().name(),
                     (sch.fsm_name, sch.fsm_size),
                 );
             }

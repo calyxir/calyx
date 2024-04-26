@@ -64,20 +64,29 @@ impl StaticSchedule {
         let fsm_size = get_bit_width_from(
             self.num_states + 1, /* represent 0..latency */
         );
+        // BC of borrowing nonsense.
+        let mut latency_constants = vec![];
+        for static_group in &self.static_groups {
+            latency_constants.push(
+                builder.add_constant(
+                    static_group.borrow().get_latency(),
+                    fsm_size,
+                ),
+            );
+        }
         structure!( builder;
             let fsm = prim std_reg(fsm_size);
             let signal_on = constant(1,1);
             let adder = prim std_add(fsm_size);
             let const_one = constant(1, fsm_size);
             let first_state = constant(0, fsm_size);
-            // let final_state = constant(static_group.borrow().get_latency() - 1, fsm_size);
-            let final_state = constant(self.num_states-1, fsm_size);
+            // let final_state = constant(self.num_states - 1, fsm_size);
         );
+
         self.fsm_name = fsm.borrow().name();
         self.fsm_size = fsm_size;
         let mut res = vec![];
         for static_group in &mut self.static_groups {
-            dbg!(static_group.borrow().name());
             let mut static_group_ref = static_group.borrow_mut();
             let mut assigns: Vec<ir::Assignment<Nothing>> = static_group_ref
                 .assignments
@@ -93,6 +102,7 @@ impl StaticSchedule {
                     )
                 })
                 .collect();
+            let final_state = latency_constants.pop().unwrap();
             let not_final_state_guard: ir::Guard<ir::Nothing> =
                 guard!(fsm["out"] != final_state["out"]);
             let final_state_guard: ir::Guard<ir::Nothing> =
@@ -103,9 +113,9 @@ impl StaticSchedule {
               adder["left"] = ? fsm["out"];
               adder["right"] = ? const_one["out"];
               fsm["write_en"] = ? signal_on["out"];
-              fsm["in"] = final_state_guard ? adder["out"];
+              fsm["in"] =  not_final_state_guard ? adder["out"];
                // resets the fsm early
-              fsm["in"] = not_final_state_guard ? first_state["out"];
+              fsm["in"] = final_state_guard ? first_state["out"];
             );
             assigns.extend(fsm_incr_assigns);
             res.push(assigns);
