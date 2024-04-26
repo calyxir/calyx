@@ -12,6 +12,8 @@ use std::collections::HashMap;
 pub struct StaticSchedule {
     num_states: u64,
     queries: HashMap<(u64, u64), u64>,
+    pub fsm_name: ir::Id,
+    pub fsm_size: u64,
     pub static_groups: Vec<ir::RRC<ir::StaticGroup>>,
     pub static_group_names: Vec<ir::Id>,
 }
@@ -57,10 +59,8 @@ impl StaticSchedule {
     pub fn realize_schedule(
         &mut self,
         builder: &mut ir::Builder,
-    ) -> (
-        Vec<Vec<ir::Assignment<Nothing>>>,
-        Vec<ir::Assignment<Nothing>>,
-    ) {
+    ) -> Vec<Vec<ir::Assignment<Nothing>>> {
+        dbg!("Realizing Schedule");
         let fsm_size = get_bit_width_from(
             self.num_states + 1, /* represent 0..latency */
         );
@@ -68,28 +68,18 @@ impl StaticSchedule {
             let fsm = prim std_reg(fsm_size);
             let signal_on = constant(1,1);
             let adder = prim std_add(fsm_size);
-            let final_state = constant(self.num_states-1, fsm_size);
             let const_one = constant(1, fsm_size);
-          let first_state = constant(0, fsm_size);
+            let first_state = constant(0, fsm_size);
+            // let final_state = constant(static_group.borrow().get_latency() - 1, fsm_size);
+            let final_state = constant(self.num_states-1, fsm_size);
         );
-        let not_final_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"] != final_state["out"]);
-        let final_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"] == final_state["out"]);
-        let fsm_incr_assigns = build_assignments!(
-          builder;
-          // increments the fsm
-          adder["left"] = ? fsm["out"];
-          adder["right"] = ? const_one["out"];
-          fsm["write_en"] = ? signal_on["out"];
-          fsm["in"] = final_state_guard ? adder["out"];
-           // resets the fsm early
-          fsm["in"] = not_final_state_guard ? first_state["out"];
-        );
+        self.fsm_name = fsm.borrow().name();
+        self.fsm_size = fsm_size;
         let mut res = vec![];
         for static_group in &mut self.static_groups {
+            dbg!(static_group.borrow().name());
             let mut static_group_ref = static_group.borrow_mut();
-            let assigns = static_group_ref
+            let mut assigns: Vec<ir::Assignment<Nothing>> = static_group_ref
                 .assignments
                 .drain(..)
                 .map(|static_assign| {
@@ -103,9 +93,24 @@ impl StaticSchedule {
                     )
                 })
                 .collect();
+            let not_final_state_guard: ir::Guard<ir::Nothing> =
+                guard!(fsm["out"] != final_state["out"]);
+            let final_state_guard: ir::Guard<ir::Nothing> =
+                guard!(fsm["out"] == final_state["out"]);
+            let fsm_incr_assigns = build_assignments!(
+              builder;
+              // increments the fsm
+              adder["left"] = ? fsm["out"];
+              adder["right"] = ? const_one["out"];
+              fsm["write_en"] = ? signal_on["out"];
+              fsm["in"] = final_state_guard ? adder["out"];
+               // resets the fsm early
+              fsm["in"] = not_final_state_guard ? first_state["out"];
+            );
+            assigns.extend(fsm_incr_assigns);
             res.push(assigns);
         }
-        (res, fsm_incr_assigns.to_vec())
+        res
     }
 
     // Takes in a static guard `guard`, and returns equivalent dynamic guard

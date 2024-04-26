@@ -450,8 +450,7 @@ impl CompileStatic {
     }
 
     // Given a "coloring" of static group names -> their "colors",
-    // instantiate one fsm per color and return a hashmap that maps
-    // fsm names -> groups that it handles
+    // instantiate one StaticSchedule obejct per color and Vec of these objects.
     fn build_schedule_objects(
         coloring: HashMap<ir::Id, ir::Id>,
         mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
@@ -470,7 +469,7 @@ impl CompileStatic {
             .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
         vec_color_to_groups
             .into_iter()
-            .map(|(color, group_names)| {
+            .map(|(_, group_names)| {
                 // For each color, build an FSM that has the number of bits required
                 // for the largest latency in `group_names`
                 let mut sch = StaticSchedule::default();
@@ -555,8 +554,14 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Drain static groups of component
         let sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
+
+        // We first assign FSMs -> static islands. We sometimes assign the
+        // same FSM to different static islands to reduce register usage.
+        // We do this by getting a coloring.
+
         // `sgroup_uses_map` builds a mapping of static groups -> groups that
         // it (even indirectly) triggers the `go` port of.
         let sgroup_uses_map = Self::build_sgroup_uses_map(&sgroups);
@@ -570,44 +575,50 @@ impl Visitor for CompileStatic {
         );
         Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
         let coloring = conflict_graph.color_greedy(None, true);
+
         let mut builder = ir::Builder::new(comp, sigs);
-        // build Mappings of fsm names -> set of groups that it can handle.
-        let schedule_objects =
+        // Build mappings one StaticSchedule object per color
+        let mut schedule_objects =
             Self::build_schedule_objects(coloring, sgroups, &mut builder);
 
-        for mut sch in schedule_objects {
-            let (mut static_group_assigns, fsm_assigns) =
-                sch.realize_schedule(&mut builder);
+        for mut sch in &mut schedule_objects {
+            let mut static_group_assigns = sch.realize_schedule(&mut builder);
             for static_group in sch.static_groups.iter() {
+                // create the dynamic group we will use to replace the static group
+                let mut early_reset_name =
+                    static_group.borrow().name().to_string();
+                early_reset_name.insert_str(0, "early_reset_");
                 let static_group_name = static_group.borrow().name();
-                let early_reset_group = builder.add_group(static_group_name);
+                let early_reset_group = builder.add_group(early_reset_name);
                 let mut early_reset_group_ref = early_reset_group.borrow_mut();
                 early_reset_group_ref.assignments =
                     static_group_assigns.pop().unwrap();
                 early_reset_group_ref.attributes =
                     static_group.borrow().attributes.clone();
-                // map the static group name -> early reset group name
-                // helpful for rewriting control
+                // Map the static group name -> early reset group name.
+                // This is helpful for rewriting control
                 self.reset_early_map
                     .insert(static_group_name, early_reset_group_ref.name());
-                // group_rewrite_map helps write static_group[go] to early_reset_group[go]
-                // technically could do this w/ early_reset_map but is easier w/
+                // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
+                // Technically we could do this w/ early_reset_map but is easier w/
                 // group_rewrite, which is explicitly of type `PortRewriterMap`
                 self.group_rewrite.insert(
                     ir::Canonical::new(static_group_name, ir::Id::from("go")),
-                    early_reset_group.borrow().find("go").unwrap_or_else(
-                        || {
-                            unreachable!(
-                                "group {} has no go port",
-                                early_reset_group.borrow().name()
-                            )
-                        },
-                    ),
+                    early_reset_group_ref.find("go").unwrap_or_else(|| {
+                        unreachable!(
+                            "group {} has no go port",
+                            early_reset_group.borrow().name()
+                        )
+                    }),
+                );
+                self.fsm_info_map.insert(
+                    early_reset_group_ref.name(),
+                    (sch.fsm_name, sch.fsm_size),
                 );
             }
         }
 
-        // rewrite static_group[go] to early_reset_group[go]
+        // Rewrite static_group[go] to early_reset_group[go]
         // don't have to worry about writing static_group[done] b/c static
         // groups don't have done holes.
         comp.for_each_assignment(|assign| {
@@ -618,7 +629,10 @@ impl Visitor for CompileStatic {
             })
         });
 
-        // comp.get_static_groups_mut().append(sgroups.into_iter());
+        for schedule in schedule_objects {
+            comp.get_static_groups_mut()
+                .append(schedule.static_groups.into_iter());
+        }
 
         Ok(Action::Continue)
     }
@@ -709,7 +723,7 @@ impl Visitor for CompileStatic {
         Ok(Action::Change(Box::new(e)))
     }
 
-    /// if while body is static, then we want to make sure that the while
+    /// If while body is static, then we want to make sure that the while
     /// body does not take the extra cycle incurred by the done condition
     /// So we replace the while loop with `enable` of a wrapper group
     /// that sets the go signal of the static group in the while loop body high
