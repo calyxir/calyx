@@ -2,7 +2,6 @@ use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
-use ir::Cell;
 use std::collections::HashMap;
 
 /// Represents a static schedule.

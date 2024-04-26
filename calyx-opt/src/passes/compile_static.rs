@@ -1,12 +1,10 @@
-use super::math_utilities::get_bit_width_from;
 use crate::analysis::{GraphColoring, StaticSchedule};
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
-use ir::{build_assignments, Nothing, StaticTiming, RRC};
+use ir::{build_assignments, RRC};
 use itertools::Itertools;
-use petgraph::algo::matching;
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
@@ -381,7 +379,7 @@ impl CompileStatic {
     fn build_schedule_objects(
         coloring: HashMap<ir::Id, ir::Id>,
         mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
-        builder: &mut ir::Builder,
+        _builder: &mut ir::Builder,
     ) -> Vec<StaticSchedule> {
         // "reverse" the coloring to map colors -> static group_names
         let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
