@@ -67,6 +67,16 @@ fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
     uses
 }
 
+fn get_fsm_width(fsm: ir::RRC<ir::Cell>) -> u64 {
+    fsm.borrow()
+        .ports
+        .iter()
+        .find(|port| port.borrow().name == "out")
+        .unwrap()
+        .borrow()
+        .width
+}
+
 impl CompileStatic {
     fn build_wrapper_group(
         fsm_name: &ir::Id,
@@ -509,7 +519,7 @@ impl Visitor for CompileStatic {
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
 
         for sch in &mut schedule_objects {
-            let (mut static_group_assigns, fsm_info) =
+            let (mut static_group_assigns, fsm) =
                 sch.realize_schedule(&mut builder);
             for static_group in sch.static_groups.iter() {
                 // Create the dynamic "early reset group" that will replace the static group.
@@ -554,8 +564,10 @@ impl Visitor for CompileStatic {
                         },
                     ),
                 );
-                self.fsm_info_map
-                    .insert(early_reset_group.borrow().name(), fsm_info);
+                self.fsm_info_map.insert(
+                    early_reset_group.borrow().name(),
+                    (fsm.borrow().name(), get_fsm_width(Rc::clone(&fsm))),
+                );
             }
         }
 

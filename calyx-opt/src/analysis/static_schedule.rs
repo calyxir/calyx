@@ -3,6 +3,7 @@ use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
 use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 
 /// Represents a static schedule.
 /// A static schedule does not need transitions--it will unconditionally increment
@@ -73,13 +74,13 @@ impl StaticSchedule {
     pub fn realize_schedule(
         &mut self,
         builder: &mut ir::Builder,
-    ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, (ir::Id, u64)) {
+    ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, ir::RRC<ir::Cell>) {
         let fsm_size = get_bit_width_from(
             self.num_states + 1, /* represent 0..latency */
         );
+        let is_static_comp = builder.component.is_static();
         // First build the fsm we will use for each static group
         let fsm = builder.add_primitive("fsm", "std_reg", &[fsm_size]);
-        let fsm_name = fsm.borrow().name();
         let mut res = VecDeque::new();
         for static_group in &mut self.static_groups {
             let mut static_group_ref = static_group.borrow_mut();
@@ -92,37 +93,83 @@ impl StaticSchedule {
                         &fsm,
                         fsm_size,
                         builder,
-                        false,
-                        None,
+                        is_static_comp,
+                        Some(Rc::clone(&builder.component.signature.clone())),
                     )
                 })
                 .collect();
 
-            structure!( builder;
-                let signal_on = constant(1,1);
-                let adder = prim std_add(fsm_size);
-                let const_one = constant(1, fsm_size);
-                let first_state = constant(0, fsm_size);
-                let final_state = constant(static_group_ref.get_latency() - 1, fsm_size);
-            );
-            let not_final_state_guard: ir::Guard<ir::Nothing> =
-                guard!(fsm["out"] != final_state["out"]);
-            let final_state_guard: ir::Guard<ir::Nothing> =
-                guard!(fsm["out"] == final_state["out"]);
-            let fsm_incr_assigns = build_assignments!(
-              builder;
-              // increments the fsm
-              adder["left"] = ? fsm["out"];
-              adder["right"] = ? const_one["out"];
-              fsm["write_en"] = ? signal_on["out"];
-              fsm["in"] =  not_final_state_guard ? adder["out"];
-               // resets the fsm early
-              fsm["in"] = final_state_guard ? first_state["out"];
-            );
+            let final_state_u64 = static_group_ref.get_latency() - 1;
+            let fsm_incr_assigns = if is_static_comp {
+                let this = Rc::clone(&builder.component.signature.clone());
+                structure!( builder;
+                    // done hole will be undefined bc of early reset
+                    let signal_on = constant(1,1);
+                    let adder = prim std_add(fsm_size);
+                    let const_one = constant(1, fsm_size);
+                    let first_state = constant(0, fsm_size);
+                    let final_state = constant(final_state_u64, fsm_size);
+                );
+                let g1: ir::Guard<Nothing> = guard!(this["go"]);
+                let g2: ir::Guard<Nothing> =
+                    guard!(fsm["out"] == first_state["out"]);
+                let trigger_guard = ir::Guard::and(g1, g2);
+                let g3: ir::Guard<Nothing> =
+                    guard!(fsm["out"] != first_state["out"]);
+                let g4: ir::Guard<Nothing> =
+                    guard!(fsm["out"] != final_state["out"]);
+                let incr_guard = ir::Guard::and(g3, g4);
+                let stop_guard: ir::Guard<Nothing> =
+                    guard!(fsm["out"] == final_state["out"]);
+                let x = build_assignments!(
+                  builder;
+                  // Incrementsthe fsm
+                  adder["left"] = ? fsm["out"];
+                  adder["right"] = ? const_one["out"];
+                  // Always write into fsm.
+                  fsm["write_en"] = ? signal_on["out"];
+                  // If fsm == 0 and comp.go is high, then we start an execution.
+                  fsm["in"] = trigger_guard ? const_one["out"];
+                  // If 1 < fsm < n - 1, then we unconditionally increment the fsm.
+                  fsm["in"] = incr_guard ? adder["out"];
+                  // If fsm == n -1 , then we reset the FSM.
+                  fsm["in"] = stop_guard ? first_state["out"];
+                  // Otherwise the FSM is not assigned to, so it defaults to 0.
+                  // If we want, we could add an explicit assignment here that sets it
+                  // to zero.
+                )
+                .to_vec();
+                x
+            } else {
+                structure!( builder;
+                    let signal_on = constant(1,1);
+                    let adder = prim std_add(fsm_size);
+                    let const_one = constant(1, fsm_size);
+                    let first_state = constant(0, fsm_size);
+                    let final_state = constant(final_state_u64, fsm_size);
+                );
+                let not_final_state_guard: ir::Guard<ir::Nothing> =
+                    guard!(fsm["out"] != final_state["out"]);
+                let final_state_guard: ir::Guard<ir::Nothing> =
+                    guard!(fsm["out"] == final_state["out"]);
+                let x = build_assignments!(
+                  builder;
+                  // increments the fsm
+                  adder["left"] = ? fsm["out"];
+                  adder["right"] = ? const_one["out"];
+                  fsm["write_en"] = ? signal_on["out"];
+                  fsm["in"] =  not_final_state_guard ? adder["out"];
+                   // resets the fsm early
+                  fsm["in"] = final_state_guard ? first_state["out"];
+                )
+                .to_vec();
+                x
+            };
+
             assigns.extend(fsm_incr_assigns);
             res.push_back(assigns);
         }
-        (res, (fsm_name, fsm_size))
+        (res, fsm)
     }
 
     // Takes in a static guard `guard`, and returns equivalent dynamic guard

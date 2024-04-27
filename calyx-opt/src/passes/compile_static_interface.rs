@@ -281,29 +281,20 @@ impl Visitor for CompileStaticInterface {
             // Handle components with latency > 1.
             let latency = s.get_latency();
             if let ir::StaticControl::Enable(sen) = s {
+                let mut sch = StaticSchedule::from(vec![Rc::clone(&sen.group)]);
                 let mut builder = ir::Builder::new(comp, sigs);
-                let fsm_size = get_bit_width_from(latency + 1);
-                structure!( builder;
-                    let fsm = prim std_reg(fsm_size);
-                );
-                let mut assignments =
-                    std::mem::take(&mut sen.group.borrow_mut().assignments);
+                let (mut assigns, fsm) = sch.realize_schedule(&mut builder);
+                builder
+                    .component
+                    .continuous_assignments
+                    .extend(assigns.pop_front().unwrap());
                 let comp_sig = Rc::clone(&builder.component.signature);
-                let dyn_assigns = self
-                    .make_early_reset_assigns_static_component(
-                        &mut assignments,
-                        s.get_latency(),
-                        Rc::clone(&fsm),
-                        &mut builder,
-                        Rc::clone(&comp_sig),
-                    );
-                builder.component.continuous_assignments.extend(dyn_assigns);
                 if builder.component.attributes.has(ir::BoolAttr::Promoted) {
                     let done_assigns = self
                         .make_done_signal_for_promoted_component(
                             Rc::clone(&fsm),
                             &mut builder,
-                            Rc::clone(&comp_sig),
+                            comp_sig,
                         );
                     builder
                         .component
