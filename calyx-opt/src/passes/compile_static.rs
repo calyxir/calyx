@@ -505,7 +505,7 @@ impl Visitor for CompileStatic {
         let mut schedule_objects =
             Self::build_schedule_objects(coloring, sgroups, &mut builder);
 
-        // Should rewrite `static_group[go]` to `early_reset[go]`
+        // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
 
         for sch in &mut schedule_objects {
@@ -586,8 +586,8 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // assume that there are only static enables left.
-        // if there are any other type of static control, then error out.
+        // Assume that there are only static enables left.
+        // If there are any other type of static control, then error out.
         let ir::StaticControl::Enable(s) = sc else {
             return Err(Error::malformed_control(format!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name())));
         };
@@ -599,7 +599,7 @@ impl Visitor for CompileStatic {
         let early_reset_name =
             self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
                 unreachable!(
-                    "group {} early reset has not been created",
+                    "{}'s early reset group has not been created",
                     sgroup_name
                 )
             });
