@@ -2,22 +2,52 @@ use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// Represents a static schedule.
 /// A static schedule does not need transitions--it will unconditionally increment
 /// by one each time.
 #[derive(Debug, Default)]
 pub struct StaticSchedule {
+    /// Number of states for the FSM (this is just the latency)
     num_states: u64,
+    /// The queries that the FSM supports, mapped to the number of times that
+    /// query occurs.
+    /// (e.g., lhs = %[2:3] ? rhs) means that the (2,3) entry in the map increases
+    /// by one).
     queries: HashMap<(u64, u64), u64>,
-    pub fsm_name: ir::Id,
-    pub fsm_size: u64,
+    /// The static groups the FSM will schedule. It is a vec because sometimes
+    /// the same FSM will handle two different static islands.
     pub static_groups: Vec<ir::RRC<ir::StaticGroup>>,
     pub static_group_names: Vec<ir::Id>,
 }
 
+impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
+    fn from(static_groups: Vec<ir::RRC<ir::StaticGroup>>) -> Self {
+        let mut schedule = Self::default();
+        schedule.static_groups = static_groups;
+        schedule.num_states = 0;
+        for static_group in &schedule.static_groups {
+            // Getting self.queries
+            for static_assign in &static_group.borrow().assignments {
+                for query in Self::queries_from_guard(&static_assign.guard) {
+                    let count = schedule.queries.entry(query).or_insert(0);
+                    *count += 1;
+                }
+            }
+            // Getting self.num_states
+            schedule.num_states = std::cmp::max(
+                schedule.num_states,
+                static_group.borrow().get_latency(),
+            );
+        }
+        schedule
+    }
+}
+
 impl StaticSchedule {
+    /// Given a guard, returns the queries that the static "FSM" (which is
+    /// really just a counter) will make.
     fn queries_from_guard(
         guard: &ir::Guard<ir::StaticTiming>,
     ) -> Vec<(u64, u64)> {
@@ -37,36 +67,18 @@ impl StaticSchedule {
             }
         }
     }
-    pub fn gather_info(&mut self) {
-        self.num_states = 0;
-        for static_group in &self.static_groups {
-            // Getting self.queries
-            for static_assign in &static_group.borrow().assignments {
-                for query in Self::queries_from_guard(&static_assign.guard) {
-                    let count = self.queries.entry(query).or_insert(0);
-                    *count += 1;
-                }
-            }
-            // Getting self.num_states
-            self.num_states = std::cmp::max(
-                self.num_states,
-                static_group.borrow().get_latency(),
-            );
-        }
-    }
 
     pub fn realize_schedule(
         &mut self,
         builder: &mut ir::Builder,
-    ) -> Vec<Vec<ir::Assignment<Nothing>>> {
+    ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, (ir::Id, u64)) {
         let fsm_size = get_bit_width_from(
             self.num_states + 1, /* represent 0..latency */
         );
-        // BC of borrowing nonsense.
+        // First build the fsm we will use for each static group
         let fsm = builder.add_primitive("fsm", "std_reg", &[fsm_size]);
-        self.fsm_name = fsm.borrow().name();
-        self.fsm_size = fsm_size;
-        let mut res = vec![];
+        let fsm_name = fsm.borrow().name();
+        let mut res = VecDeque::new();
         for static_group in &mut self.static_groups {
             let mut static_group_ref = static_group.borrow_mut();
             let mut assigns: Vec<ir::Assignment<Nothing>> = static_group_ref
@@ -106,9 +118,9 @@ impl StaticSchedule {
               fsm["in"] = final_state_guard ? first_state["out"];
             );
             assigns.extend(fsm_incr_assigns);
-            res.push(assigns);
+            res.push_back(assigns);
         }
-        res
+        (res, (fsm_name, fsm_size))
     }
 
     // Takes in a static guard `guard`, and returns equivalent dynamic guard

@@ -20,8 +20,8 @@ pub struct CompileStatic {
     signal_reg_map: HashMap<ir::Id, ir::Id>,
     /// maps reset_early_group names to (fsm name, fsm_width)
     fsm_info_map: HashMap<ir::Id, (ir::Id, u64)>,
-    /// rewrites `static_group[go]` to `dynamic_group[go]`
-    group_rewrite: ir::rewriter::PortRewriteMap,
+    // /// rewrites `static_group[go]` to `dynamic_group[go]`
+    // group_rewrite: ir::rewriter::PortRewriteMap,
 }
 
 impl Named for CompileStatic {
@@ -374,8 +374,8 @@ impl CompileStatic {
         }
     }
 
-    // Given a "coloring" of static group names -> their "colors",
-    // instantiate one StaticSchedule obejct per color and Vec of these objects.
+    // Given a `coloring` and a set of `static_groups`, builds one StaticSchedule
+    // per object.
     fn build_schedule_objects(
         coloring: HashMap<ir::Id, ir::Id>,
         mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
@@ -395,15 +395,14 @@ impl CompileStatic {
         vec_color_to_groups
             .into_iter()
             .map(|(_, group_names)| {
-                // For each color, build an FSM that has the number of bits required
-                // for the largest latency in `group_names`
-                let mut sch = StaticSchedule::default();
+                // For each color, build a StaticSchedule object.
+                // We first have to figure out out which groups we need to
+                // build the static_schedule object for.
                 let (matching_groups, other_groups) =
                     static_groups.drain(..).partition(|group| {
                         group_names.contains(&group.borrow().name())
                     });
-                sch.static_groups = matching_groups;
-                sch.gather_info();
+                let sch = StaticSchedule::from(matching_groups);
                 static_groups = other_groups;
                 sch
             })
@@ -483,9 +482,9 @@ impl Visitor for CompileStatic {
         let sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
 
-        // We first assign FSMs -> static islands. We sometimes assign the
-        // same FSM to different static islands to reduce register usage.
-        // We do this by getting a coloring.
+        // The first thing is to assign FSMs -> static islands.
+        // We sometimes assign the same FSM to different static islands
+        // to reduce register usage. We do this by getting a coloring.
 
         // `sgroup_uses_map` builds a mapping of static groups -> groups that
         // it (even indirectly) triggers the `go` port of.
@@ -502,21 +501,25 @@ impl Visitor for CompileStatic {
         let coloring = conflict_graph.color_greedy(None, true);
 
         let mut builder = ir::Builder::new(comp, sigs);
-        // Build mappings one StaticSchedule object per color
+        // Build one StaticSchedule object per color
         let mut schedule_objects =
             Self::build_schedule_objects(coloring, sgroups, &mut builder);
 
+        // Should rewrite `static_group[go]` to `early_reset[go]`
+        let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
+
         for sch in &mut schedule_objects {
-            let mut static_group_assigns = sch.realize_schedule(&mut builder);
+            let (mut static_group_assigns, fsm_info) =
+                sch.realize_schedule(&mut builder);
             for static_group in sch.static_groups.iter() {
-                // create the dynamic group we will use to replace the static group
+                // Create the dynamic "early reset group" that will replace the static group.
                 let static_group_name = static_group.borrow().name();
                 let mut early_reset_name = static_group_name.to_string();
                 early_reset_name.insert_str(0, "early_reset_");
-
                 let early_reset_group = builder.add_group(early_reset_name);
-                let mut assigns = static_group_assigns.remove(0);
+                let mut assigns = static_group_assigns.pop_front().unwrap();
 
+                // Add assignment `group[done] = ud.out`` to the new group.
                 structure!( builder; let ud = prim undef(1););
                 let early_reset_done_assign = build_assignments!(
                   builder;
@@ -528,6 +531,9 @@ impl Visitor for CompileStatic {
                 early_reset_group.borrow_mut().attributes =
                     static_group.borrow().attributes.clone();
 
+                // Now we have to update the fields with a bunch of information.
+                // This makes it easier when we have to build wrappers, rewrite ports, etc.
+
                 // Map the static group name -> early reset group name.
                 // This is helpful for rewriting control
                 self.reset_early_map.insert(
@@ -537,7 +543,7 @@ impl Visitor for CompileStatic {
                 // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
                 // Technically we could do this w/ early_reset_map but is easier w/
                 // group_rewrite, which is explicitly of type `PortRewriterMap`
-                self.group_rewrite.insert(
+                group_rewrites.insert(
                     ir::Canonical::new(static_group_name, ir::Id::from("go")),
                     early_reset_group.borrow().find("go").unwrap_or_else(
                         || {
@@ -548,10 +554,8 @@ impl Visitor for CompileStatic {
                         },
                     ),
                 );
-                self.fsm_info_map.insert(
-                    early_reset_group.borrow().name(),
-                    (sch.fsm_name, sch.fsm_size),
-                );
+                self.fsm_info_map
+                    .insert(early_reset_group.borrow().name(), fsm_info);
             }
         }
 
@@ -560,7 +564,7 @@ impl Visitor for CompileStatic {
         // groups don't have done holes.
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
-                self.group_rewrite
+                group_rewrites
                     .get(&port.borrow().canonical())
                     .map(Rc::clone)
             })
