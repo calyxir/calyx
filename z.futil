@@ -1,0 +1,341 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/pipelined.futil";
+import "primitives/memories/comb.futil";
+static<1> component mac_pe(top: 32, left: 32, mul_ready: 1) -> (out: 32) {
+  cells {
+    acc = std_reg(32);
+    adder = std_fp_sadd(32, 16, 16);
+    mul = pipelined_fp_smult(32, 16, 16);
+  }
+  wires {
+    static<1> group do_add {
+      adder.left = acc.out;
+      adder.right = mul.out;
+      acc.in = adder.out;
+      acc.write_en = mul_ready;
+    }
+    static<1> group do_mul {
+      mul.left = top;
+      mul.right = left;
+    }
+    out = acc.out;
+  }
+  control {
+    static par {
+      do_add;
+      do_mul;
+    }
+  }
+}
+component systolic_array_comp(depth: 32, t0_read_data: 32, t1_read_data: 32, l0_read_data: 32, l1_read_data: 32) -> (t0_addr0: 2, t1_addr0: 2, l0_addr0: 2, l1_addr0: 2, r0_valid: 1, r0_value: 32, r0_idx: 2, r1_valid: 1, r1_value: 32, r1_idx: 2) {
+  cells {
+    idx = std_reg(32);
+    idx_add = std_add(32);
+    index_eq_7 = std_eq(32);
+    index_eq_8 = std_eq(32);
+    index_eq_9 = std_eq(32);
+    index_ge_1 = std_ge(32);
+    index_ge_2 = std_ge(32);
+    index_ge_3 = std_ge(32);
+    index_ge_5 = std_ge(32);
+    index_ge_6 = std_ge(32);
+    index_ge_7 = std_ge(32);
+    index_lt_2 = std_lt(32);
+    index_lt_3 = std_lt(32);
+    index_lt_4 = std_lt(32);
+    index_lt_7 = std_lt(32);
+    index_lt_8 = std_lt(32);
+    index_lt_9 = std_lt(32);
+    idx_between_0_2_comb = std_wire(1);
+    idx_between_1_3_comb = std_and(1);
+    idx_between_2_4_comb = std_and(1);
+    idx_between_1_7_comb = std_and(1);
+    idx_between_2_8_comb = std_and(1);
+    idx_between_3_9_comb = std_and(1);
+    pe_0_0 = mac_pe();
+    top_0_0 = std_reg(32);
+    left_0_0 = std_reg(32);
+    pe_0_1 = mac_pe();
+    top_0_1 = std_reg(32);
+    left_0_1 = std_reg(32);
+    pe_1_0 = mac_pe();
+    top_1_0 = std_reg(32);
+    left_1_0 = std_reg(32);
+    pe_1_1 = mac_pe();
+    top_1_1 = std_reg(32);
+    left_1_1 = std_reg(32);
+    idx_minus_0 = std_sub(32);
+    idx_minus_0_res = std_slice(32, 2);
+    idx_minus_1 = std_sub(32);
+    idx_minus_1_res = std_slice(32, 2);
+  }
+  wires {
+    static<1> group init_idx {
+      idx.in = 32'd0;
+      idx.write_en = 1'd1;
+    }
+    static<1> group incr_idx {
+      idx_add.left = idx.out;
+      idx_add.right = 32'd1;
+      idx.in = idx_add.out;
+      idx.write_en = 1'd1;
+    }
+    index_eq_7.left = idx.out;
+    index_eq_7.right = 32'd7;
+    index_eq_8.left = idx.out;
+    index_eq_8.right = 32'd8;
+    index_eq_9.left = idx.out;
+    index_eq_9.right = 32'd9;
+    index_ge_1.left = idx.out;
+    index_ge_1.right = 32'd1;
+    index_ge_2.left = idx.out;
+    index_ge_2.right = 32'd2;
+    index_ge_3.left = idx.out;
+    index_ge_3.right = 32'd3;
+    index_ge_5.left = idx.out;
+    index_ge_5.right = 32'd5;
+    index_ge_6.left = idx.out;
+    index_ge_6.right = 32'd6;
+    index_ge_7.left = idx.out;
+    index_ge_7.right = 32'd7;
+    index_lt_2.left = idx.out;
+    index_lt_2.right = 32'd2;
+    index_lt_3.left = idx.out;
+    index_lt_3.right = 32'd3;
+    index_lt_4.left = idx.out;
+    index_lt_4.right = 32'd4;
+    index_lt_7.left = idx.out;
+    index_lt_7.right = 32'd7;
+    index_lt_8.left = idx.out;
+    index_lt_8.right = 32'd8;
+    index_lt_9.left = idx.out;
+    index_lt_9.right = 32'd9;
+    idx_between_0_2_comb.in = index_lt_2.out;
+    idx_between_1_3_comb.right = index_lt_3.out;
+    idx_between_1_3_comb.left = index_ge_1.out;
+    idx_between_2_4_comb.right = index_lt_4.out;
+    idx_between_2_4_comb.left = index_ge_2.out;
+    idx_between_1_7_comb.right = index_lt_7.out;
+    idx_between_1_7_comb.left = index_ge_1.out;
+    idx_between_2_8_comb.right = index_lt_8.out;
+    idx_between_2_8_comb.left = index_ge_2.out;
+    idx_between_3_9_comb.right = index_lt_9.out;
+    idx_between_3_9_comb.left = index_ge_3.out;
+    idx_minus_0.left = idx.out;
+    idx_minus_0.right = 32'd0;
+    idx_minus_0_res.in = idx_minus_0.out;
+    static<1> group t0_move {
+      t0_addr0 = idx_minus_0_res.out;
+      top_0_0.in = t0_read_data;
+      top_0_0.write_en = 1'd1;
+    }
+    idx_minus_1.left = idx.out;
+    idx_minus_1.right = 32'd1;
+    idx_minus_1_res.in = idx_minus_1.out;
+    static<1> group t1_move {
+      t1_addr0 = idx_minus_1_res.out;
+      top_0_1.in = t1_read_data;
+      top_0_1.write_en = 1'd1;
+    }
+    static<1> group l0_move {
+      l0_addr0 = idx_minus_0_res.out;
+      left_0_0.in = l0_read_data;
+      left_0_0.write_en = 1'd1;
+    }
+    static<1> group l1_move {
+      l1_addr0 = idx_minus_1_res.out;
+      left_1_0.in = l1_read_data;
+      left_1_0.write_en = 1'd1;
+    }
+    left_0_1.in = left_0_0.out;
+    left_0_1.write_en = 1'd1;
+    top_1_0.in = top_0_0.out;
+    top_1_0.write_en = 1'd1;
+    static<1> group pe_0_0_out_write {
+      r0_valid = 1'd1;
+      r0_value = pe_0_0.out;
+      r0_idx = 2'd0;
+    }
+    top_1_1.in = top_0_1.out;
+    top_1_1.write_en = 1'd1;
+    static<1> group pe_0_1_out_write {
+      r0_valid = 1'd1;
+      r0_value = pe_0_1.out;
+      r0_idx = 2'd1;
+    }
+    left_1_1.in = left_1_0.out;
+    left_1_1.write_en = 1'd1;
+    static<1> group pe_1_0_out_write {
+      r1_valid = 1'd1;
+      r1_value = pe_1_0.out;
+      r1_idx = 2'd0;
+    }
+    static<1> group pe_1_1_out_write {
+      r1_valid = 1'd1;
+      r1_value = pe_1_1.out;
+      r1_idx = 2'd1;
+    }
+  }
+  control {
+    static seq {
+      static par {
+        init_idx;
+      }
+      static repeat 10 {
+        static par {
+          incr_idx;
+          static par {
+            static if idx_between_0_2_comb.out {
+              static par {
+                l0_move;
+                t0_move;
+              }
+            }
+            static if idx_between_1_7_comb.out {
+              static par {
+                static invoke pe_0_0(top=top_0_0.out, left=left_0_0.out, mul_ready=index_ge_5.out)();
+              }
+            }
+            static if index_eq_7.out {
+              static par {
+                pe_0_0_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_1_3_comb.out {
+              static par {
+                t1_move;
+              }
+            }
+            static if idx_between_2_8_comb.out {
+              static par {
+                static invoke pe_0_1(top=top_0_1.out, left=left_0_1.out, mul_ready=index_ge_6.out)();
+              }
+            }
+            static if index_eq_8.out {
+              static par {
+                pe_0_1_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_1_3_comb.out {
+              static par {
+                l1_move;
+              }
+            }
+            static if idx_between_2_8_comb.out {
+              static par {
+                static invoke pe_1_0(top=top_1_0.out, left=left_1_0.out, mul_ready=index_ge_6.out)();
+              }
+            }
+            static if index_eq_8.out {
+              static par {
+                pe_1_0_out_write;
+              }
+            }
+          }
+          static par {
+            static if idx_between_3_9_comb.out {
+              static par {
+                static invoke pe_1_1(top=top_1_1.out, left=left_1_1.out, mul_ready=index_ge_7.out)();
+              }
+            }
+            static if index_eq_9.out {
+              static par {
+                pe_1_1_out_write;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+component default_post_op(out_mem_0_done: 1, r0_valid: 1, r0_value: 32, r0_idx: 2, out_mem_1_done: 1, r1_valid: 1, r1_value: 32, r1_idx: 2) -> (computation_done: 1, out_mem_0_addr0: 2, out_mem_0_write_data: 32, out_mem_0_write_en: 1, out_mem_1_addr0: 2, out_mem_1_write_data: 32, out_mem_1_write_en: 1) {
+  cells {
+    delay_reg = std_reg(1);
+  }
+  wires {
+    static<1> group write_r0 {
+      out_mem_0_write_en = r0_valid;
+      out_mem_0_write_data = r0_value;
+      out_mem_0_addr0 = r0_idx;
+    }
+    static<1> group write_r1 {
+      out_mem_1_write_en = r1_valid;
+      out_mem_1_write_data = r1_value;
+      out_mem_1_addr0 = r1_idx;
+    }
+    static<1> group write_done_cond {
+      delay_reg.in = 1'd1;
+      delay_reg.write_en = (r1_valid & (r1_idx == 2'd1)) ? 1'd1;
+      computation_done = delay_reg.done ? 1'd1;
+    }
+  }
+  control {
+    static par {
+      write_done_cond;
+      write_r0;
+      write_r1;
+    }
+  }
+}
+component main() -> () {
+  cells {
+    systolic_array_component = systolic_array_comp();
+    post_op_component = default_post_op();
+    @external t0 = comb_mem_d1(32, 2, 2);
+    @external t1 = comb_mem_d1(32, 2, 2);
+    @external l0 = comb_mem_d1(32, 2, 2);
+    @external l1 = comb_mem_d1(32, 2, 2);
+    @external out_mem_0 = comb_mem_d1(32, 2, 2);
+    @external out_mem_1 = comb_mem_d1(32, 2, 2);
+    systolic_done = std_reg(1);
+    systolic_done_wire = std_wire(1);
+  }
+  wires {
+    group perform_computation {
+      t0.addr0 = systolic_array_component.t0_addr0;
+      systolic_array_component.t0_read_data = t0.read_data;
+      t1.addr0 = systolic_array_component.t1_addr0;
+      systolic_array_component.t1_read_data = t1.read_data;
+      l0.addr0 = systolic_array_component.l0_addr0;
+      systolic_array_component.l0_read_data = l0.read_data;
+      l1.addr0 = systolic_array_component.l1_addr0;
+      systolic_array_component.l1_read_data = l1.read_data;
+      out_mem_0.write_data = post_op_component.out_mem_0_write_data;
+      out_mem_0.write_en = post_op_component.out_mem_0_write_en;
+      out_mem_0.addr0 = post_op_component.out_mem_0_addr0;
+      post_op_component.out_mem_0_done = out_mem_0.done;
+      post_op_component.r0_valid = systolic_array_component.r0_valid;
+      post_op_component.r0_value = systolic_array_component.r0_value;
+      post_op_component.r0_idx = systolic_array_component.r0_idx;
+      out_mem_1.write_data = post_op_component.out_mem_1_write_data;
+      out_mem_1.write_en = post_op_component.out_mem_1_write_en;
+      out_mem_1.addr0 = post_op_component.out_mem_1_addr0;
+      post_op_component.out_mem_1_done = out_mem_1.done;
+      post_op_component.r1_valid = systolic_array_component.r1_valid;
+      post_op_component.r1_value = systolic_array_component.r1_value;
+      post_op_component.r1_idx = systolic_array_component.r1_idx;
+      systolic_done.write_en = systolic_array_component.done ? 1'd1;
+      systolic_done.in = systolic_array_component.done ? 1'd1;
+      systolic_done_wire.in = (systolic_array_component.done | systolic_done.out) ? 1'd1;
+      systolic_array_component.go = !systolic_done_wire.out ? 1'd1;
+      systolic_array_component.depth = 32'd2;
+      post_op_component.go = 1'd1;
+      perform_computation[done] = post_op_component.computation_done;
+    }
+  }
+  control {
+    perform_computation;
+  }
+}
+metadata #{
+0: pe_0_0: Feeding Boundary PE: [0,2) || Invoking PE: [1, 7) || Writing PE Result: 7
+1: pe_0_1: Feeding Boundary PE: [1,3) || Invoking PE: [2, 8) || Writing PE Result: 8
+2: pe_1_0: Feeding Boundary PE: [1,3) || Invoking PE: [2, 8) || Writing PE Result: 8
+3: pe_1_1: Invoking PE: [3, 9) || Writing PE Result: 9
+}#
