@@ -24,8 +24,10 @@ pub struct StaticSchedule {
 
 impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
     fn from(static_groups: Vec<ir::RRC<ir::StaticGroup>>) -> Self {
-        let mut schedule = Self::default();
-        schedule.static_groups = static_groups;
+        let mut schedule = StaticSchedule {
+            static_groups,
+            ..Default::default()
+        };
         schedule.num_states = 0;
         for static_group in &schedule.static_groups {
             // Getting self.queries
@@ -127,6 +129,7 @@ impl StaticSchedule {
     // The only thing that actually changes is the Guard::Info case
     // We need to turn static_timing to dynamic guards using `fsm`.
     // E.g.: %[2:3] gets turned into fsm.out >= 2 & fsm.out < 3
+    // is_static_comp is necessary becasue it ...
     fn make_guard_dyn(
         guard: ir::Guard<ir::StaticTiming>,
         fsm: &ir::RRC<ir::Cell>,
