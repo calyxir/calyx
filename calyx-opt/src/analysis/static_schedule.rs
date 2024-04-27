@@ -226,7 +226,7 @@ impl StaticSchedule {
     }
 
     // Takes in static assignment `assign` and returns a dynamic assignments
-    // Mainly transforms the guards such that fsm.out >= 2 & fsm.out <= 3
+    // Mainly transforms the guards from %[2:3] -> fsm.out >= 2 & fsm.out <= 3
     pub fn make_assign_dyn(
         assign: ir::Assignment<ir::StaticTiming>,
         fsm: &ir::RRC<ir::Cell>,
