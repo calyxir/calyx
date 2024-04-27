@@ -87,6 +87,13 @@ impl StaticSchedule {
             let mut assigns: Vec<ir::Assignment<Nothing>> = static_group_ref
                 .assignments
                 .drain(..)
+                .map(|assign| {
+                    if is_static_comp {
+                        Self::separate_first_cycle_assign(assign)
+                    } else {
+                        assign
+                    }
+                })
                 .map(|static_assign| {
                     Self::make_assign_dyn(
                         static_assign,
@@ -297,6 +304,53 @@ impl StaticSchedule {
                 is_static_comp,
                 comp_sig,
             ),
+        }
+    }
+
+    // Looks recursively thru guard to %[0:n] into %0 | %[1:n].
+    fn separate_first_cycle(
+        guard: ir::Guard<ir::StaticTiming>,
+    ) -> ir::Guard<ir::StaticTiming> {
+        match guard {
+            ir::Guard::Info(st) => {
+                let (beg, end) = st.get_interval();
+                if beg == 0 && end != 1 {
+                    let first_cycle =
+                        ir::Guard::Info(ir::StaticTiming::new((0, 1)));
+                    let after =
+                        ir::Guard::Info(ir::StaticTiming::new((1, end)));
+                    let cong = ir::Guard::or(first_cycle, after);
+                    return cong;
+                }
+                guard
+            }
+            ir::Guard::And(l, r) => {
+                let left = Self::separate_first_cycle(*l);
+                let right = Self::separate_first_cycle(*r);
+                ir::Guard::and(left, right)
+            }
+            ir::Guard::Or(l, r) => {
+                let left = Self::separate_first_cycle(*l);
+                let right = Self::separate_first_cycle(*r);
+                ir::Guard::or(left, right)
+            }
+            ir::Guard::Not(g) => {
+                let a = Self::separate_first_cycle(*g);
+                ir::Guard::Not(Box::new(a))
+            }
+            _ => guard,
+        }
+    }
+
+    // Looks recursively thru assignment's guard to %[0:n] into %0 | %[1:n].
+    fn separate_first_cycle_assign(
+        assign: ir::Assignment<ir::StaticTiming>,
+    ) -> ir::Assignment<ir::StaticTiming> {
+        ir::Assignment {
+            src: assign.src,
+            dst: assign.dst,
+            attributes: assign.attributes,
+            guard: Box::new(Self::separate_first_cycle(*assign.guard)),
         }
     }
 }
