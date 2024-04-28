@@ -158,7 +158,8 @@ impl Visitor for CompileStaticInterface {
             if let ir::StaticControl::Enable(sen) = s {
                 let mut sch = StaticSchedule::from(vec![Rc::clone(&sen.group)]);
                 let mut builder = ir::Builder::new(comp, sigs);
-                let (mut assigns, fsm) = sch.realize_schedule(&mut builder);
+                let (mut assigns, fsm) =
+                    sch.realize_schedule(&mut builder, true);
                 builder
                     .component
                     .continuous_assignments

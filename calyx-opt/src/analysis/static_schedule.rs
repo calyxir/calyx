@@ -74,13 +74,11 @@ impl StaticSchedule {
     pub fn realize_schedule(
         &mut self,
         builder: &mut ir::Builder,
+        is_static_comp: bool,
     ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, ir::RRC<ir::Cell>) {
         let fsm_size = get_bit_width_from(
             self.num_states + 1, /* represent 0..latency */
         );
-        let is_static_comp = builder.component.is_static();
-        dbg!(&builder.component.name);
-        dbg!(&is_static_comp);
         // First build the fsm we will use for each static group
         let fsm = builder.add_primitive("fsm", "std_reg", &[fsm_size]);
         let mut res = VecDeque::new();

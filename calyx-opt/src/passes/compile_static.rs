@@ -520,7 +520,7 @@ impl Visitor for CompileStatic {
 
         for sch in &mut schedule_objects {
             let (mut static_group_assigns, fsm) =
-                sch.realize_schedule(&mut builder);
+                sch.realize_schedule(&mut builder, false);
             for static_group in sch.static_groups.iter() {
                 // Create the dynamic "early reset group" that will replace the static group.
                 let static_group_name = static_group.borrow().name();
