@@ -156,6 +156,8 @@ impl Visitor for CompileStaticInterface {
     ) -> VisResult {
         if comp.is_static() && s.get_latency() > 1 {
             if let ir::StaticControl::Enable(sen) = s {
+                // Build a StaticSchedule object, realize it and add assignments
+                // as continuous assignments.
                 let mut sch = StaticSchedule::from(vec![Rc::clone(&sen.group)]);
                 let mut builder = ir::Builder::new(comp, sigs);
                 let (mut assigns, fsm) =
@@ -166,6 +168,7 @@ impl Visitor for CompileStaticInterface {
                     .extend(assigns.pop_front().unwrap());
                 let comp_sig = Rc::clone(&builder.component.signature);
                 if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                    // If necessary, add the logic to produce a done signal.
                     let done_assigns = self
                         .make_done_signal_for_promoted_component(
                             Rc::clone(&fsm),
@@ -180,6 +183,8 @@ impl Visitor for CompileStaticInterface {
             }
         } else if comp.is_static() && s.get_latency() == 1 {
             // Handle components with latency == 1.
+            // In this case, we don't need an FSM; we just guard the assignments
+            // with comp.go.
             if let ir::StaticControl::Enable(sen) = s {
                 let assignments =
                     std::mem::take(&mut sen.group.borrow_mut().assignments);
