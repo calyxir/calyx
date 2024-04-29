@@ -2,7 +2,7 @@ use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 
 /// Represents a static schedule.
@@ -10,20 +10,19 @@ use std::rc::Rc;
 /// by one each time.
 #[derive(Debug, Default)]
 pub struct StaticSchedule {
-    /// Number of states for the FSM (this is just the latency)
+    /// Number of states for the FSM (this is just the latency of the static island)
     num_states: u64,
-    /// The queries that the FSM supports, mapped to the number of times that
-    /// query occurs.
-    /// (e.g., lhs = %[2:3] ? rhs) means that the (2,3) entry in the map increases
-    /// by one).
-    queries: HashMap<(u64, u64), u64>,
+    /// The queries that the FSM needs to support,
+    /// mapped to the number of times that query occurs.
+    /// E.g., lhs = %[2:3] ? rhs corresponds to (2,3).
+    queries: HashSet<(u64, u64)>,
     /// The static groups the FSM will schedule. It is a vec because sometimes
     /// the same FSM will handle two different static islands.
     pub static_groups: Vec<ir::RRC<ir::StaticGroup>>,
-    pub static_group_names: Vec<ir::Id>,
 }
 
 impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
+    /// Builds a StaticSchedule object from a vec of static groups.
     fn from(static_groups: Vec<ir::RRC<ir::StaticGroup>>) -> Self {
         let mut schedule = StaticSchedule {
             static_groups,
@@ -34,8 +33,7 @@ impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
             // Getting self.queries
             for static_assign in &static_group.borrow().assignments {
                 for query in Self::queries_from_guard(&static_assign.guard) {
-                    let count = schedule.queries.entry(query).or_insert(0);
-                    *count += 1;
+                    schedule.queries.insert(query);
                 }
             }
             // Getting self.num_states
@@ -49,8 +47,8 @@ impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
 }
 
 impl StaticSchedule {
-    /// Given a guard, returns the queries that the static "FSM" (which is
-    /// really just a counter) will make.
+    /// Given a guard, returns the queries that the static FSM (i.e., counter)
+    /// will make.
     fn queries_from_guard(
         guard: &ir::Guard<ir::StaticTiming>,
     ) -> Vec<(u64, u64)> {
@@ -71,24 +69,41 @@ impl StaticSchedule {
         }
     }
 
+    /// Realizes a StaticSchedule (i.e., instantiates the FSMs)
+    /// If self.static_groups = vec![group1, group2, group3, ...]
+    /// Then `realize_schedule()` returns vecdeque![a1, a2, a3]
+    /// Where a1 are the assignments for group1, a2 are the assignments
+    /// to group2, etc.
+    /// It also returns the FSM in the for mfo an RRC<Cell>.
+    ///
+    /// We also have a bool argument `static_component_interface`.
+    /// If you are the entire control of a static component, it is slightly different,
+    /// because we need to separate the first cycle (%[0:n] -> %0 | [%1:n]) and
+    /// replace %0 with `comp.go & %0`. (We do `comp.go & %0` rather than `%0` bc
+    /// we want the clients to be able to assert `go` for n cycles and the
+    /// component still works as expected).
     pub fn realize_schedule(
         &mut self,
         builder: &mut ir::Builder,
-        is_static_comp: bool,
+        static_component_interface: bool,
     ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, ir::RRC<ir::Cell>) {
+        // First build the fsm we will use for each static group
         let fsm_size = get_bit_width_from(
             self.num_states + 1, /* represent 0..latency */
         );
-        // First build the fsm we will use for each static group
         let fsm = builder.add_primitive("fsm", "std_reg", &[fsm_size]);
+
+        // Instantiate the vecdeque.
         let mut res = VecDeque::new();
         for static_group in &mut self.static_groups {
             let mut static_group_ref = static_group.borrow_mut();
+            // Separate the first cycle (if necessary) and then realize the
+            // static timing guards (e.g., %[2:3] -> 2 <= fsm < 3).
             let mut assigns: Vec<ir::Assignment<Nothing>> = static_group_ref
                 .assignments
                 .drain(..)
                 .map(|assign| {
-                    if is_static_comp {
+                    if static_component_interface {
                         Self::separate_first_cycle_assign(assign)
                     } else {
                         assign
@@ -100,35 +115,39 @@ impl StaticSchedule {
                         &fsm,
                         fsm_size,
                         builder,
-                        is_static_comp,
+                        static_component_interface,
                         Some(Rc::clone(&builder.component.signature.clone())),
                     )
                 })
                 .collect();
 
+            // Add assignments to increment the fsm by one unconditionally.
             let final_state_u64 = static_group_ref.get_latency() - 1;
-            let fsm_incr_assigns = if is_static_comp {
-                let this = Rc::clone(&builder.component.signature.clone());
-                structure!( builder;
-                    // done hole will be undefined bc of early reset
-                    let signal_on = constant(1,1);
-                    let adder = prim std_add(fsm_size);
-                    let const_one = constant(1, fsm_size);
-                    let first_state = constant(0, fsm_size);
-                    let final_state = constant(final_state_u64, fsm_size);
-                );
-                let g1: ir::Guard<Nothing> = guard!(this["go"]);
-                let g2: ir::Guard<Nothing> =
+            structure!( builder;
+                // done hole will be undefined bc of early reset
+                let signal_on = constant(1,1);
+                let adder = prim std_add(fsm_size);
+                let const_one = constant(1, fsm_size);
+                let first_state = constant(0, fsm_size);
+                let final_state = constant(final_state_u64, fsm_size);
+            );
+            let fsm_incr_assigns = if static_component_interface {
+                let this: Rc<std::cell::RefCell<ir::Cell>> =
+                    Rc::clone(&builder.component.signature.clone());
+                let this_go: ir::Guard<Nothing> = guard!(this["go"]);
+                let first_state_guard: ir::Guard<Nothing> =
                     guard!(fsm["out"] == first_state["out"]);
-                let trigger_guard = ir::Guard::and(g1, g2);
-                let g3: ir::Guard<Nothing> =
+                let go_and_first_state =
+                    ir::Guard::and(this_go, first_state_guard);
+                let not_first_state: ir::Guard<Nothing> =
                     guard!(fsm["out"] != first_state["out"]);
-                let g4: ir::Guard<Nothing> =
+                let not_last_state: ir::Guard<Nothing> =
                     guard!(fsm["out"] != final_state["out"]);
-                let incr_guard = ir::Guard::and(g3, g4);
-                let stop_guard: ir::Guard<Nothing> =
+                let in_between_guard =
+                    ir::Guard::and(not_first_state, not_last_state);
+                let final_state_guard: ir::Guard<Nothing> =
                     guard!(fsm["out"] == final_state["out"]);
-                let x = build_assignments!(
+                build_assignments!(
                   builder;
                   // Incrementsthe fsm
                   adder["left"] = ? fsm["out"];
@@ -136,30 +155,22 @@ impl StaticSchedule {
                   // Always write into fsm.
                   fsm["write_en"] = ? signal_on["out"];
                   // If fsm == 0 and comp.go is high, then we start an execution.
-                  fsm["in"] = trigger_guard ? const_one["out"];
+                  fsm["in"] = go_and_first_state ? const_one["out"];
                   // If 1 < fsm < n - 1, then we unconditionally increment the fsm.
-                  fsm["in"] = incr_guard ? adder["out"];
+                  fsm["in"] = in_between_guard ? adder["out"];
                   // If fsm == n -1 , then we reset the FSM.
-                  fsm["in"] = stop_guard ? first_state["out"];
+                  fsm["in"] = final_state_guard ? first_state["out"];
                   // Otherwise the FSM is not assigned to, so it defaults to 0.
                   // If we want, we could add an explicit assignment here that sets it
                   // to zero.
                 )
-                .to_vec();
-                x
+                .to_vec()
             } else {
-                structure!( builder;
-                    let signal_on = constant(1,1);
-                    let adder = prim std_add(fsm_size);
-                    let const_one = constant(1, fsm_size);
-                    let first_state = constant(0, fsm_size);
-                    let final_state = constant(final_state_u64, fsm_size);
-                );
                 let not_final_state_guard: ir::Guard<ir::Nothing> =
                     guard!(fsm["out"] != final_state["out"]);
                 let final_state_guard: ir::Guard<ir::Nothing> =
                     guard!(fsm["out"] == final_state["out"]);
-                let x = build_assignments!(
+                build_assignments!(
                   builder;
                   // increments the fsm
                   adder["left"] = ? fsm["out"];
@@ -169,11 +180,10 @@ impl StaticSchedule {
                    // resets the fsm early
                   fsm["in"] = final_state_guard ? first_state["out"];
                 )
-                .to_vec();
-                x
+                .to_vec()
             };
-
             assigns.extend(fsm_incr_assigns);
+
             res.push_back(assigns);
         }
         (res, fsm)
@@ -307,7 +317,7 @@ impl StaticSchedule {
         }
     }
 
-    // Looks recursively thru guard to %[0:n] into %0 | %[1:n].
+    // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
     fn separate_first_cycle(
         guard: ir::Guard<ir::StaticTiming>,
     ) -> ir::Guard<ir::StaticTiming> {
