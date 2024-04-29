@@ -86,10 +86,6 @@ impl PromotionAnalysis {
         &mut self,
         s: &mut ir::Invoke,
     ) -> ir::StaticControl {
-        assert!(
-            s.comb_group.is_none(),
-            "Shouldn't Promote to Static if there is a Comb Group",
-        );
         let latency = s.attributes.get(ir::NumAttr::Promotable).unwrap();
         s.attributes.remove(ir::NumAttr::Promotable);
         let s_inv = ir::StaticInvoke {
