@@ -12,10 +12,10 @@ use crate::{
 /// array
 #[derive(Clone)]
 pub enum Shape {
-    D1((usize,)),
-    D2((usize, usize)),
-    D3((usize, usize, usize)),
-    D4((usize, usize, usize, usize)),
+    D1(usize),
+    D2(usize, usize),
+    D3(usize, usize, usize),
+    D4(usize, usize, usize, usize),
 }
 
 impl Shape {
@@ -26,37 +26,48 @@ impl Shape {
     pub(crate) fn dim_str(&self) -> String {
         match self {
             Shape::D1(_) => String::from("1D"),
-            Shape::D2(_) => String::from("2D"),
-            Shape::D3(_) => String::from("3D"),
-            Shape::D4(_) => String::from("4D"),
+            Shape::D2(_, _) => String::from("2D"),
+            Shape::D3(_, _, _) => String::from("3D"),
+            Shape::D4(_, _, _, _) => String::from("4D"),
+        }
+    }
+
+    /// returns the total number of entries in the memory, i.e. it's size based
+    /// on the dimensions of it.
+    pub fn size(&self) -> usize {
+        match self {
+            Shape::D1(d0) => *d0,
+            Shape::D2(d0, d1) => d0 * d1,
+            Shape::D3(d0, d1, d2) => d0 * d1 * d2,
+            Shape::D4(d0, d1, d2, d3) => d0 * d1 * d2 * d3,
         }
     }
 }
 impl From<usize> for Shape {
     fn from(u: usize) -> Self {
-        Shape::D1((u,))
+        Shape::D1(u)
     }
 }
 impl From<(usize,)> for Shape {
     fn from(u: (usize,)) -> Self {
-        Shape::D1(u)
+        Shape::D1(u.0)
     }
 }
 impl From<(usize, usize)> for Shape {
     fn from(u: (usize, usize)) -> Self {
-        Shape::D2(u)
+        Shape::D2(u.0, u.1)
     }
 }
 
 impl From<(usize, usize, usize)> for Shape {
     fn from(u: (usize, usize, usize)) -> Self {
-        Shape::D3(u)
+        Shape::D3(u.0, u.1, u.2)
     }
 }
 
 impl From<(usize, usize, usize, usize)> for Shape {
     fn from(u: (usize, usize, usize, usize)) -> Self {
-        Shape::D4(u)
+        Shape::D4(u.0, u.1, u.2, u.3)
     }
 }
 
@@ -163,23 +174,23 @@ impl Serialize for Serializable {
                 }
                 // there's probably a better way to write this
                 match shape {
-                    Shape::D2(shape) => {
+                    Shape::D2(_d0, d1) => {
                         let mem = arr
                             .iter()
-                            .chunks(shape.1)
+                            .chunks(*d1)
                             .into_iter()
                             .map(|x| x.into_iter().collect::<Vec<_>>())
                             .collect::<Vec<_>>();
                         mem.serialize(serializer)
                     }
-                    Shape::D3(shape) => {
+                    Shape::D3(_d0, d1, d2) => {
                         let mem = arr
                             .iter()
-                            .chunks(shape.1 * shape.2)
+                            .chunks(d1 * d2)
                             .into_iter()
                             .map(|x| {
                                 x.into_iter()
-                                    .chunks(shape.2)
+                                    .chunks(*d2)
                                     .into_iter()
                                     .map(|y| y.into_iter().collect::<Vec<_>>())
                                     .collect::<Vec<_>>()
@@ -187,18 +198,18 @@ impl Serialize for Serializable {
                             .collect::<Vec<_>>();
                         mem.serialize(serializer)
                     }
-                    Shape::D4(shape) => {
+                    Shape::D4(_d0, d1, d2, d3) => {
                         let mem = arr
                             .iter()
-                            .chunks(shape.2 * shape.1 * shape.3)
+                            .chunks(d2 * d1 * d3)
                             .into_iter()
                             .map(|x| {
                                 x.into_iter()
-                                    .chunks(shape.2 * shape.3)
+                                    .chunks(d2 * d3)
                                     .into_iter()
                                     .map(|y| {
                                         y.into_iter()
-                                            .chunks(shape.3)
+                                            .chunks(*d3)
                                             .into_iter()
                                             .map(|z| {
                                                 z.into_iter()
@@ -230,23 +241,23 @@ impl Serialize for dyn Primitive {
 
 fn format_array(arr: &[Entry], shape: &Shape) -> String {
     match shape {
-        Shape::D2(shape) => {
+        Shape::D2(_d0, d1) => {
             let mem = arr
                 .iter()
-                .chunks(shape.1)
+                .chunks(*d1)
                 .into_iter()
                 .map(|x| x.into_iter().collect::<Vec<_>>())
                 .collect::<Vec<_>>();
             format!("{:?}", mem)
         }
-        Shape::D3(shape) => {
+        Shape::D3(_d0, d1, d2) => {
             let mem = arr
                 .iter()
-                .chunks(shape.1 * shape.0)
+                .chunks(d1 * d2)
                 .into_iter()
                 .map(|x| {
                     x.into_iter()
-                        .chunks(shape.2)
+                        .chunks(*d2)
                         .into_iter()
                         .map(|y| y.into_iter().collect::<Vec<_>>())
                         .collect::<Vec<_>>()
@@ -254,18 +265,18 @@ fn format_array(arr: &[Entry], shape: &Shape) -> String {
                 .collect::<Vec<_>>();
             format!("{:?}", mem)
         }
-        Shape::D4(shape) => {
+        Shape::D4(_d0, d1, d2, d3) => {
             let mem = arr
                 .iter()
-                .chunks(shape.2 * shape.1 * shape.3)
+                .chunks(d2 * d1 * d3)
                 .into_iter()
                 .map(|x| {
                     x.into_iter()
-                        .chunks(shape.2 * shape.3)
+                        .chunks(d2 * d3)
                         .into_iter()
                         .map(|y| {
                             y.into_iter()
-                                .chunks(shape.3)
+                                .chunks(*d3)
                                 .into_iter()
                                 .map(|z| z.into_iter().collect::<Vec<_>>())
                                 .collect::<Vec<_>>()

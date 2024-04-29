@@ -1,0 +1,62 @@
+{
+  "toplevel": "main",
+  "memories": [
+    {
+      "name": "in1",
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 4,
+      "dimension_sizes": [
+        3,
+        2,
+        1,
+        4
+      ],
+      "total_size": 24,
+      "idx_sizes": [
+        2,
+        2,
+        1,
+        3
+      ]
+    },
+    {
+      "name": "in2",
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 4,
+      "dimension_sizes": [
+        3,
+        2,
+        1,
+        4
+      ],
+      "total_size": 24,
+      "idx_sizes": [
+        2,
+        2,
+        1,
+        3
+      ]
+    },
+    {
+      "name": "out",
+      "memory_type": "Sequential",
+      "data_width": 32,
+      "dimensions": 4,
+      "dimension_sizes": [
+        3,
+        2,
+        1,
+        4
+      ],
+      "total_size": 24,
+      "idx_sizes": [
+        2,
+        2,
+        1,
+        3
+      ]
+    }
+  ]
+}

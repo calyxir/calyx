@@ -1,6 +1,6 @@
 pub mod interpreter;
 pub mod primitives;
-mod serialization;
+pub mod serialization;
 pub use utils::MemoryMap;
 pub mod configuration;
 pub mod debugger;
@@ -12,7 +12,6 @@ mod structures;
 mod tests;
 mod utils;
 
-#[allow(dead_code)]
 pub mod flatten;
 
 pub use structures::{environment, stk_env, values};

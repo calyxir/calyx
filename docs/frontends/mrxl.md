@@ -26,7 +26,7 @@ following after changing your directory to `frontend/mrxl`:
 
 This creates a symbolic link to the present directory and installs the `mrxl` command line tool.
 
-By default, [fud](../fud) looks for the `mrxl` executable to enable
+By default, [fud](../running-calyx/fud) looks for the `mrxl` executable to enable
 the `mrxl` compilation stage.
 Type `fud check` to make sure `fud` reports that the `mrxl` compiler has been
 found. If it does not, run the following while still in `frontend/mrxl`.

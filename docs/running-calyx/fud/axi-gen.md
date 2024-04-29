@@ -82,5 +82,5 @@ allow this.
 [bursting]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Single-Interface-Requirements/Transaction-structure/Address-structure?lang=en
 [access_protection]: https://developer.arm.com/documentation/ihi0022/e/AMBA-AXI3-and-AXI4-Protocol-Specification/Transaction-Attributes/Access-permissions?lang=en
 [toplevel]: https://docs.calyxir.org/lang/attributes.html?highlight=toplevel#toplevel
-[xilinx_how]: https://docs.calyxir.org/fud/xilinx.html?highlight=synthesis#how-it-works
+[xilinx_how]: https://docs.calyxir.org/running-calyx/fud/xilinx.html?highlight=synthesis#how-it-works
 [kernel_requirements]: https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Kernel-Interface-Requirements

@@ -768,3 +768,13 @@ module std_signext #(
     end
   `endif
 endmodule
+
+module std_const_mult #(
+    parameter WIDTH = 32,
+    parameter VALUE = 1
+) (
+    input  signed [WIDTH-1:0] in,
+    output signed [WIDTH-1:0] out
+);
+  assign out = in * VALUE;
+endmodule

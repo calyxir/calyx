@@ -13,7 +13,8 @@ readme.workspace = true
 
 [features]
 default = []
-serialize = ["serde/derive", "dep:serde_with", "calyx-utils/serialize", "calyx-frontend/serialize", "smallvec/serde"]
+serialize = ["serde/derive", "dep:serde_with", "calyx-utils/serialize", "calyx-frontend/serialize", "smallvec/serde", "serde/rc"]
+yxi = ["serde/derive"]
 
 [dependencies]
 log.workspace = true
