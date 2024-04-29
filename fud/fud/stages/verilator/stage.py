@@ -163,6 +163,7 @@ class VerilatorStage(Stage):
             [
                 config["stages", self.name, "exec"],
                 "--trace",
+                "--Wno-UNOPTFLAT",
                 "{input_path}",
                 testbench_sv,
                 "--binary",
