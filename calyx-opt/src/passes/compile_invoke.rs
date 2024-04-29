@@ -4,7 +4,7 @@ use crate::traversal::{
 use calyx_ir::structure;
 use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
-use ir::{Assignment, RRC, WRC};
+use ir::{build_assignments, guard, Assignment, Guard, RRC, WRC};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -288,18 +288,33 @@ impl Visitor for CompileInvoke {
 
         // comp.go = 1'd1;
         // invoke[done] = comp.done;
+        // change the go signal to be high for only one cycle
+        // initiate new register trigger
+        // trigger = std_reg(1)
+        // comp.go = trigger.out==1'd0 ? 1'd1;
+        // trigger.in = 1'd1;
+        // trigger.write_en = 1'd1;
+        // then add continuous assignment
+        // trigger.in = !invoke[go] ? 1'd0;
+        // trigger.write_en = !invoke[go] ? 1'd1;
         structure!(builder;
             let one = constant(1, 1);
+            let zero = constant(0, 1);
+            let trigger = prim std_reg(1);
         );
         let cell = s.comp.borrow();
         let go_port = get_go_port(Rc::clone(&s.comp))?;
         let done_port = cell.find_unique_with_attr(ir::NumAttr::Done)?.unwrap();
+        let invoke_go_guard: Guard<ir::Nothing> =
+            guard!(trigger["out"] == zero["out"]);
+        let invoke_group_go = invoke_group.borrow().get("go");
+        let group_finish = !Guard::port(invoke_group_go);
 
         // Build assignemnts
         let go_assign = builder.build_assignment(
             go_port,
             one.borrow().get("out"),
-            ir::Guard::True,
+            invoke_go_guard,
         );
         let done_assign = builder.build_assignment(
             invoke_group.borrow().get("done"),
@@ -307,10 +322,28 @@ impl Visitor for CompileInvoke {
             ir::Guard::True,
         );
 
+        let assigns_t: Vec<ir::Assignment<ir::Nothing>> =
+            build_assignments!(builder;
+            trigger["in"]= ? one["out"];
+            trigger["write_en"]= ? one["out"];)
+            .to_vec();
+
         invoke_group
             .borrow_mut()
             .assignments
             .extend(vec![go_assign, done_assign]);
+        invoke_group.borrow_mut().assignments.extend(assigns_t);
+
+        let assign_restore: Vec<ir::Assignment<ir::Nothing>> =
+            build_assignments!(builder;
+            trigger["in"]= group_finish ? zero["out"];
+            trigger["write_en"]= group_finish ? one["out"]; )
+            .to_vec();
+
+        builder
+            .component
+            .continuous_assignments
+            .extend(assign_restore);
 
         // Generate argument assignments
         let cell = &*s.comp.borrow();

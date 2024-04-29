@@ -41,6 +41,7 @@ module std_fp_mult_pipe #(
   logic [WIDTH-1:0]          rtmp;
   logic [WIDTH-1:0]          ltmp;
   logic [(WIDTH << 1) - 1:0] out_tmp;
+  logic                      go_buf;
   // Buffer used to walk through the 3 cycles of the pipeline.
   logic done_buf[1:0];
 
@@ -63,12 +64,16 @@ module std_fp_mult_pipe #(
 
   // Push the done signal through the pipeline.
   always_ff @(posedge clk) begin
-    if (go) begin
       done_buf[1] <= done_buf[0];
-    end else begin
-      done_buf[1] <= 0;
-    end
   end
+
+  // push the go signal into go_buf
+  always_ff @(posedge clk) begin
+    if (go) 
+      go_buf <= 1;
+    else 
+      go_buf <= 0;
+  end 
 
   // Register the inputs
   always_ff @(posedge clk) begin
@@ -94,7 +99,7 @@ module std_fp_mult_pipe #(
   always_ff @(posedge clk) begin
     if (reset) begin
       out_tmp <= 0;
-    end else if (go) begin
+    end else if (go_buf) begin
       if (SIGNED) begin
         // In the first cycle, this performs an invalid computation because
         // ltmp and rtmp only get their actual values in cycle 1

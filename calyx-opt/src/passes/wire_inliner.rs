@@ -1,6 +1,6 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use ir::{build_assignments, guard, structure, LibrarySignatures};
+use ir::{build_assignments, guard, structure, Guard, LibrarySignatures};
 use ir::{Nothing, RRC};
 use itertools::Itertools;
 use std::{collections::HashMap, rc::Rc};
@@ -64,13 +64,41 @@ impl Visitor for WireInliner {
                 let mut builder = ir::Builder::new(comp, sigs);
                 let group = &data.group;
 
+                // replace the continuously high go signal with a one-cycle go signal
+                // add one-bit register r
+                // ```
+                // r.in = go & r.out == 0 ? 1'd1;
+                // r.write_en = go & r.out == 0 ? 1'd1;
+                // r.in = !go & done & r.out == 1 ? 1'd0;
+                // r.write_en = !go & done & r.out == 1 ? 1'd1;
+                // ```
+
+                // replace group.go = go
+                //  with
+                // ```
+                // group.go = go | r.out & !done ? 1'd1;
+                // ```
+
                 structure!(builder;
                     let one = constant(1, 1);
+                    let zero = constant(0, 1);
+                    let r = prim std_reg(1);
                 );
                 let group_done = guard!(group["done"]);
+                let t_guard: Guard<ir::Nothing> =
+                    guard!(this["go"]) & guard!(r["out"] == zero["out"]);
+                let f_guard: Guard<ir::Nothing> = !guard!(this["go"])
+                    & guard!(this["done"])
+                    & guard!(r["out"] == one["out"]);
+                let go_guard: Guard<ir::Nothing> = guard!(this["go"])
+                    | guard!(r["out"]) & !guard!(this["done"]);
                 let assigns = build_assignments!(builder;
-                    group["go"] = ? this["go"];
+                    group["go"] = go_guard ? one["out"];
                     this["done"] = group_done ? one["out"];
+                    r["in"] = t_guard ? one["out"];
+                    r["write_en"] = t_guard ? one["out"];
+                    r["in"] = f_guard ? zero["out"];
+                    r["write_en"] = f_guard ? one["out"];
                 );
                 comp.continuous_assignments.extend(assigns);
             }
