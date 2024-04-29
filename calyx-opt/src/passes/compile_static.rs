@@ -67,6 +67,7 @@ fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
     uses
 }
 
+// Finds the width of the FSM's output port given an ir::RRC<ir::Cell>
 fn get_fsm_width(fsm: ir::RRC<ir::Cell>) -> u64 {
     fsm.borrow()
         .ports
@@ -78,15 +79,21 @@ fn get_fsm_width(fsm: ir::RRC<ir::Cell>) -> u64 {
 }
 
 impl CompileStatic {
+    /// Builds a wrapper group for group named group_name using fsm named
+    /// fsm_name, and a signal_reg.
+    /// Both the group and FSM (and the signal_reg) should already exist.
+    /// `add_resetting_logic` is a bool; since the same FSM/signal_reg pairing
+    /// may be used for multiple static islands, and we only add resetting logic
+    /// for the signal_reg once.
     fn build_wrapper_group(
         fsm_name: &ir::Id,
         fsm_width: u64,
         group_name: &ir::Id,
         signal_reg: ir::RRC<ir::Cell>,
         builder: &mut ir::Builder,
-        add_continuous_assigns: bool,
+        add_reseting_logic: bool,
     ) -> ir::RRC<ir::Group> {
-        // get the groups/fsm necessary to build the wrapper group
+        // Get the group and fsm necessary to build the wrapper group.
         let early_reset_group = builder
             .component
             .get_groups()
@@ -110,18 +117,18 @@ impl CompileStatic {
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
         );
-        // make guards
-        // fsm.out == 0 ?
+        // Making the guards:
+        // fsm.out == 0
         let first_state: ir::Guard<ir::Nothing> =
             guard!(early_reset_fsm["out"] == state_zero["out"]);
-        // signal_reg.out ?
+        // signal_reg.out
         let signal_reg_guard: ir::Guard<ir::Nothing> =
             guard!(signal_reg["out"]);
-        // !signal_reg.out ?
+        // !signal_reg.outxw
         let not_signal_reg = signal_reg_guard.clone().not();
-        // fsm.out == 0 & signal_reg.out ?
+        // fsm.out == 0 & signal_reg.outxw
         let first_state_and_signal = first_state.clone() & signal_reg_guard;
-        // fsm.out == 0 & ! signal_reg.out ?
+        // fsm.out == 0 & ! signal_reg.out
         let first_state_and_not_signal = first_state & not_signal_reg;
         // create the wrapper group for early_reset_group
         let mut wrapper_name = group_name.clone().to_string();
@@ -137,7 +144,7 @@ impl CompileStatic {
           // group[done] = fsm.out == 0 & signal_reg.out ? 1'd1
           g["done"] = first_state_and_signal ? signal_on["out"];
         );
-        if add_continuous_assigns {
+        if add_reseting_logic {
             // continuous assignments to reset signal_reg back to 0 when the wrapper is done
             let continuous_assigns = build_assignments!(
                 builder;
@@ -384,41 +391,6 @@ impl CompileStatic {
         }
     }
 
-    // Given a `coloring` and a set of `static_groups`, builds one StaticSchedule
-    // per object.
-    fn build_schedule_objects(
-        coloring: HashMap<ir::Id, ir::Id>,
-        mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
-        _builder: &mut ir::Builder,
-    ) -> Vec<StaticSchedule> {
-        // "reverse" the coloring to map colors -> static group_names
-        let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
-            HashMap::new();
-        for (group, color) in coloring {
-            color_to_groups.entry(color).or_default().insert(group);
-        }
-        // Need deterministic ordering for testing.
-        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
-            color_to_groups.into_iter().collect();
-        vec_color_to_groups
-            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
-        vec_color_to_groups
-            .into_iter()
-            .map(|(_, group_names)| {
-                // For each color, build a StaticSchedule object.
-                // We first have to figure out out which groups we need to
-                // build the static_schedule object for.
-                let (matching_groups, other_groups) =
-                    static_groups.drain(..).partition(|group| {
-                        group_names.contains(&group.borrow().name())
-                    });
-                let sch = StaticSchedule::from(matching_groups);
-                static_groups = other_groups;
-                sch
-            })
-            .collect()
-    }
-
     // helper to `build_sgroup_uses_map`
     // `parent_group` is the group that we are "currently" analyzing
     // `full_group_ancestry` is the "ancestry of the group we are analyzing"
@@ -479,6 +451,41 @@ impl CompileStatic {
         }
         cur_mapping
     }
+
+    // Given a `coloring` and a set of `static_groups`, builds one StaticSchedule
+    // per object.
+    fn build_schedule_objects(
+        coloring: HashMap<ir::Id, ir::Id>,
+        mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
+        _builder: &mut ir::Builder,
+    ) -> Vec<StaticSchedule> {
+        // "reverse" the coloring to map colors -> static group_names
+        let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
+            HashMap::new();
+        for (group, color) in coloring {
+            color_to_groups.entry(color).or_default().insert(group);
+        }
+        // Need deterministic ordering for testing.
+        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
+            color_to_groups.into_iter().collect();
+        vec_color_to_groups
+            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
+        vec_color_to_groups
+            .into_iter()
+            .map(|(_, group_names)| {
+                // For each color, build a StaticSchedule object.
+                // We first have to figure out out which groups we need to
+                // build the static_schedule object for.
+                let (matching_groups, other_groups) =
+                    static_groups.drain(..).partition(|group| {
+                        group_names.contains(&group.borrow().name())
+                    });
+                let sch = StaticSchedule::from(matching_groups);
+                static_groups = other_groups;
+                sch
+            })
+            .collect()
+    }
 }
 
 impl Visitor for CompileStatic {
@@ -518,6 +525,7 @@ impl Visitor for CompileStatic {
         // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
         let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
 
+        // Realize an fsm for each StaticSchedule object.
         for sch in &mut schedule_objects {
             let (mut static_group_assigns, fsm) =
                 sch.realize_schedule(&mut builder, false);
@@ -582,6 +590,7 @@ impl Visitor for CompileStatic {
             })
         });
 
+        // Add the static groups back to the component.
         for schedule in schedule_objects {
             comp.get_static_groups_mut()
                 .append(schedule.static_groups.into_iter());
