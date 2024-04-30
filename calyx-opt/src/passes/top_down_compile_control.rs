@@ -293,8 +293,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
     /// Print out the current schedule in JSON format
     fn display_json(&self, group: String) {
-        // let out = &mut std::io::stdout();
-
         let mut curr_states: HashSet<FSMStateInfo> = HashSet::new();
         self.enables
             .iter()
@@ -306,8 +304,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 assigns.iter().for_each(|assign| {
                     curr_states.insert(
                         FSMStateInfo {
-                            id: state.clone(),
-                            // FIXME: hack assuming that the assingment destination would be
+                            id: *state,
+                            // FIXME: hack assuming that the assingment destination would be "group[go]"
                             group: assign.dst.borrow().name.to_string(),
                         }
                         .to_owned(),
@@ -318,8 +316,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
             name: group,
             states: curr_states.into_iter().collect_vec(),
         };
-        print!("{}\n", serde_json::json!(fsm))
-        // print!("{}", serde_json::to_string_pretty(&fsm)?);
+        println!("{}", serde_json::json!(fsm))
     }
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
