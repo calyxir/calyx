@@ -2,7 +2,7 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
-// Checking that compaction respects dependency.
+// Checking that compaction respects dependency. Keep this as a static invoke.
 
 component main () -> () {
   cells {
