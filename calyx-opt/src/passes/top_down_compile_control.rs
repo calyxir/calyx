@@ -277,14 +277,49 @@ impl<'b, 'a> Schedule<'b, 'a> {
             });
     }
 
+    /// Print out the current schedule in JSON format
+    fn display_json(&self, group: String) {
+        let out = &mut std::io::stdout();
+        writeln!(out, "======== {} =========", group).unwrap();
+        self.enables
+            .iter()
+            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+            .for_each(|(state, assigns)| {
+                writeln!(out, "{}:", state).unwrap();
+                assigns.iter().for_each(|assign| {
+                    Printer::write_assignment(assign, 2, out).unwrap();
+                    writeln!(out).unwrap();
+                })
+            });
+        writeln!(out, "{}:\n  <end>", self.last_state()).unwrap();
+        writeln!(out, "transitions:").unwrap();
+        self.transitions
+            .iter()
+            .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
+            .for_each(|(i, f, g)| {
+                writeln!(out, "  ({}, {}): {}", i, f, Printer::guard_str(g))
+                    .unwrap();
+            });
+    }
+
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
     /// implements it.
-    fn realize_schedule(self, dump_fsm: bool) -> RRC<ir::Group> {
+    fn realize_schedule(
+        self,
+        dump_fsm: bool,
+        dump_fsm_json: bool,
+    ) -> RRC<ir::Group> {
         self.validate();
 
         let group = self.builder.add_group("tdcc");
         if dump_fsm {
             self.display(format!(
+                "{}:{}",
+                self.builder.component.name,
+                group.borrow().name()
+            ));
+        } else if dump_fsm_json {
+            self.display_json(format!(
                 "{}:{}",
                 self.builder.component.name,
                 group.borrow().name()
@@ -770,6 +805,9 @@ impl Schedule<'_, '_> {
 pub struct TopDownCompileControl {
     /// Print out the FSM representation to STDOUT
     dump_fsm: bool,
+    /// Print out a JSON FSM representation to STDOUT
+    /// FIXME: Probably better to put in a file rather than STDOUT
+    dump_fsm_json: bool,
     /// Enable early transitions
     early_transitions: bool,
 }
@@ -783,6 +821,7 @@ impl ConstructVisitor for TopDownCompileControl {
 
         Ok(TopDownCompileControl {
             dump_fsm: opts[&"dump-fsm"].bool(),
+            dump_fsm_json: opts[&"dump-fsm-json"].bool(),
             early_transitions: opts[&"early-transitions"].bool(),
         })
     }
@@ -806,6 +845,12 @@ impl Named for TopDownCompileControl {
             PassOpt::new(
                 "dump-fsm",
                 "Print out the state machine implementing the schedule",
+                ParseVal::Bool(false),
+                PassOpt::parse_bool,
+            ),
+            PassOpt::new(
+                "dump-fsm-json",
+                "Print out the state machine implementing the schedule in JSON format",
                 ParseVal::Bool(false),
                 PassOpt::parse_bool,
             ),
@@ -855,7 +900,7 @@ impl Visitor for TopDownCompileControl {
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
         // Compile schedule and return the group.
-        let seq_group = sch.realize_schedule(self.dump_fsm);
+        let seq_group = sch.realize_schedule(self.dump_fsm, self.dump_fsm_json);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
@@ -881,7 +926,7 @@ impl Visitor for TopDownCompileControl {
 
         // Compile schedule and return the group.
         sch.calculate_states_if(i, self.early_transitions)?;
-        let if_group = sch.realize_schedule(self.dump_fsm);
+        let if_group = sch.realize_schedule(self.dump_fsm, self.dump_fsm_json);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -907,7 +952,7 @@ impl Visitor for TopDownCompileControl {
         sch.calculate_states_while(w, self.early_transitions)?;
 
         // Compile schedule and return the group.
-        let if_group = sch.realize_schedule(self.dump_fsm);
+        let if_group = sch.realize_schedule(self.dump_fsm, self.dump_fsm_json);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -949,7 +994,7 @@ impl Visitor for TopDownCompileControl {
                 _ => {
                     let mut sch = Schedule::from(&mut builder);
                     sch.calculate_states(con, self.early_transitions)?;
-                    sch.realize_schedule(self.dump_fsm)
+                    sch.realize_schedule(self.dump_fsm, self.dump_fsm_json)
                 }
             };
 
@@ -1020,7 +1065,8 @@ impl Visitor for TopDownCompileControl {
         let mut sch = Schedule::from(&mut builder);
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
-        let comp_group = sch.realize_schedule(self.dump_fsm);
+        let comp_group =
+            sch.realize_schedule(self.dump_fsm, self.dump_fsm_json);
 
         Ok(Action::change(ir::Control::enable(comp_group)))
     }
