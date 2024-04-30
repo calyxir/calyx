@@ -240,7 +240,7 @@ impl ReadWriteSet {
                 let mut outs: Vec<RRC<ir::Port>> =
                     outputs.iter().map(|(_, p)| p).cloned().collect();
                 // Adding comp.go to input ports
-                inps.push(
+                outs.push(
                     comp.borrow()
                         .find_all_with_attr(ir::NumAttr::Go)
                         .next()

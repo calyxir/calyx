@@ -1,0 +1,57 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+static<2> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    static<1> group a {
+      r.write_en = 1'd1;
+      add.right = right;
+      add.left = left;
+      r.in = add.out;
+    }
+    static<1> group b {
+      r.write_en = 1'd1;
+      add.right = right;
+      add.left = r.out;
+      r.in = add.out;
+    }
+    out = r.out;
+  }
+  control {
+    static<2> seq  {
+      a;
+      b;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = do_add();
+    @external out = comb_mem_d1(32, 1, 1);
+  }
+  wires {
+    group a_to_out<"promotable"=1> {
+      out.addr0 = 1'd0;
+      out.write_en = 1'd1;
+      out.write_data = a.out;
+      a_to_out[done] = out.done;
+    }
+    static<1> group a_to_out0 {
+      out.addr0 = 1'd0;
+      out.write_en = 1'd1;
+      out.write_data = a.out;
+    }
+  }
+  control {
+    static<3> seq  {
+      @promotable(2) static<2> invoke a(
+        left = 32'd5,
+        right = 32'd6
+      )();
+      a_to_out0;
+    }
+  }
+}
