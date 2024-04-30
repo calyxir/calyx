@@ -10,7 +10,8 @@ use calyx_utils::Error;
 use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::rc::Rc;
 
@@ -219,6 +220,19 @@ struct Schedule<'b, 'a: 'b> {
     pub builder: &'b mut ir::Builder<'a>,
 }
 
+// FIXME: Probably shouldn't have this separated from the Schedule struct? Not a fan of what I have right now
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+struct FSMInfo {
+    pub name: String,
+    pub states: Vec<FSMStateInfo>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+struct FSMStateInfo {
+    id: u64,
+    group: String,
+}
+
 impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
     fn from(builder: &'b mut ir::Builder<'a>) -> Self {
         Schedule {
@@ -279,27 +293,33 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
     /// Print out the current schedule in JSON format
     fn display_json(&self, group: String) {
-        let out = &mut std::io::stdout();
-        writeln!(out, "======== {} =========", group).unwrap();
+        // let out = &mut std::io::stdout();
+
+        let mut curr_states: HashSet<FSMStateInfo> = HashSet::new();
         self.enables
             .iter()
             .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
             .for_each(|(state, assigns)| {
-                writeln!(out, "{}:", state).unwrap();
+                if assigns.len() > 1 {
+                    panic!("There are more than one enable in the FSM state?");
+                }
                 assigns.iter().for_each(|assign| {
-                    Printer::write_assignment(assign, 2, out).unwrap();
-                    writeln!(out).unwrap();
-                })
+                    curr_states.insert(
+                        FSMStateInfo {
+                            id: state.clone(),
+                            // FIXME: hack assuming that the assingment destination would be
+                            group: assign.dst.borrow().name.to_string(),
+                        }
+                        .to_owned(),
+                    );
+                });
             });
-        writeln!(out, "{}:\n  <end>", self.last_state()).unwrap();
-        writeln!(out, "transitions:").unwrap();
-        self.transitions
-            .iter()
-            .sorted_by(|(k1, _, _), (k2, _, _)| k1.cmp(k2))
-            .for_each(|(i, f, g)| {
-                writeln!(out, "  ({}, {}): {}", i, f, Printer::guard_str(g))
-                    .unwrap();
-            });
+        let fsm = FSMInfo {
+            name: group,
+            states: curr_states.into_iter().collect_vec(),
+        };
+        print!("{}\n", serde_json::json!(fsm))
+        // print!("{}", serde_json::to_string_pretty(&fsm)?);
     }
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
