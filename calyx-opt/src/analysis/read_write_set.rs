@@ -1,4 +1,6 @@
 use calyx_ir::{self as ir, RRC};
+use itertools::Itertools;
+use std::{collections::HashMap, iter, rc::Rc};
 
 #[derive(Clone)]
 pub struct AssignmentIterator<'a, T: 'a, I>
@@ -233,13 +235,12 @@ impl ReadWriteSet {
                 comp,
                 ..
             }) => {
-                println!("we are here");
                 let mut inps: Vec<RRC<ir::Port>> =
                     inputs.iter().map(|(_, p)| p).cloned().collect();
                 let mut outs: Vec<RRC<ir::Port>> =
                     outputs.iter().map(|(_, p)| p).cloned().collect();
                 // Adding comp.go to input ports
-                inps.push(
+                outs.push(
                     comp.borrow()
                         .find_all_with_attr(ir::NumAttr::Go)
                         .next()
@@ -325,7 +326,6 @@ impl ReadWriteSet {
                 comp,
                 ..
             }) => {
-                println!("we are here2");
                 // XXX(Caleb): Maybe check that there is one @go port.
                 let inps = inputs.iter().map(|(_, p)| p).cloned();
                 let outs = outputs.iter().map(|(_, p)| p).cloned();
@@ -443,12 +443,6 @@ impl ReadWriteSet {
     ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
         let (port_reads, port_writes) =
             Self::control_port_read_write_set::<INCLUDE_HOLE_ASSIGNS>(con);
-        for p in &port_reads {
-            println!("{}", p.borrow().parent.borrow());
-        }
-        for p in &port_writes {
-            println!("{}", p.borrow().name);
-        }
 
         (
             port_reads
