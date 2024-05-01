@@ -1,6 +1,7 @@
 use std::num::NonZeroUsize;
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Serialize, Debug, Deserialize, PartialEq, Clone)]
 pub enum Dimensions {
@@ -132,35 +133,41 @@ impl DataDump {
     }
 
     // TODO Griffin: handle the errors properly
-    pub fn serialize(&self, writer: &mut dyn std::io::Write) {
+    pub fn serialize(
+        &self,
+        writer: &mut dyn std::io::Write,
+    ) -> std::io::Result<()> {
         let header_str = serde_json::to_string(&self.header).unwrap();
         let len_bytes = header_str.len();
         let written = writer.write(&len_bytes.to_le_bytes()).unwrap();
         assert_eq!(written, 8);
         write!(writer, "{}", header_str).unwrap();
 
-        let written = writer.write(&self.data).unwrap();
+        let written = writer.write(&self.data)?;
         assert_eq!(written, self.data.len());
+        Ok(())
     }
 
     // TODO Griffin: handle the errors properly
-    pub fn deserialize(reader: &mut dyn std::io::Read) -> Self {
+    pub fn deserialize(
+        reader: &mut dyn std::io::Read,
+    ) -> Result<Self, SerializationError> {
         let mut raw_header_len = [0u8; 8];
         reader.read_exact(&mut raw_header_len).unwrap();
         let header_len = usize::from_le_bytes(raw_header_len);
 
         let mut raw_header = vec![0u8; header_len];
-        reader.read_exact(&mut raw_header).unwrap();
-        let header_str = String::from_utf8(raw_header).unwrap();
-        let header: DataHeader = serde_json::from_str(&header_str).unwrap();
+        reader.read_exact(&mut raw_header)?;
+        let header_str = String::from_utf8(raw_header)?;
+        let header: DataHeader = serde_json::from_str(&header_str)?;
         let mut data: Vec<u8> = Vec::with_capacity(header.data_size());
 
         // we could do a read_exact here instead but I opted for read_to_end
         // instead to avoid allowing incorrect/malformed data files
-        let amount_read = reader.read_to_end(&mut data).unwrap();
+        let amount_read = reader.read_to_end(&mut data)?;
         assert_eq!(amount_read, header.data_size());
 
-        DataDump { header, data }
+        Ok(DataDump { header, data })
     }
 
     // TODO Griffin: Replace the panic with a proper error and the standard
@@ -179,12 +186,25 @@ impl DataDump {
     }
 }
 
+/// An error struct to handle any errors generated during the deserialization process
+#[derive(Debug, Error)]
+pub enum SerializationError {
+    #[error(transparent)]
+    SerdeError(#[from] serde_json::Error),
+
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+
+    #[error(transparent)]
+    FromUtf8Error(#[from] std::string::FromUtf8Error),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_data_dump() {
+    fn test_data_dump() -> Result<(), SerializationError> {
         let header = DataHeader {
             top_level: "test".to_string(),
             memories: vec![
@@ -224,9 +244,10 @@ mod tests {
 
         let mut buf = Vec::new();
 
-        dump.serialize(&mut buf);
-        let reparsed_dump = DataDump::deserialize(&mut buf.as_slice());
+        dump.serialize(&mut buf)?;
+        let reparsed_dump = DataDump::deserialize(&mut buf.as_slice())?;
         assert_eq!(reparsed_dump, dump);
+        Ok(())
     }
 
     use proptest::prelude::*;
@@ -300,9 +321,9 @@ mod tests {
         #[test]
         fn prop_roundtrip(dump in arb_data_dump()) {
             let mut buf = Vec::new();
-            dump.serialize(&mut buf);
+            dump.serialize(&mut buf)?;
 
-            let reparsed_dump = DataDump::deserialize(&mut buf.as_slice());
+            let reparsed_dump = DataDump::deserialize(&mut buf.as_slice())?;
             prop_assert_eq!(dump, reparsed_dump)
 
         }

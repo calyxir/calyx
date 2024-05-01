@@ -13,6 +13,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 itertools = { workspace = true }
 argh = { workspace = true }
+thiserror = "1.0.59"
+
 
 [dev-dependencies]
 proptest = "1.0.0"

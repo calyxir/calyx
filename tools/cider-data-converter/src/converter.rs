@@ -109,7 +109,7 @@ fn format_data(dimension: &Dimensions, data: &[u8], width: usize) -> DataVec {
     }
 }
 
-fn convert_from_data_dump(dump: &DataDump) -> JsonPrintDump {
+pub fn convert_from_data_dump(dump: &DataDump) -> JsonPrintDump {
     let mut map = HashMap::new();
     for declaration in &dump.header.memories {
         let data = dump.get_data(&declaration.name);
