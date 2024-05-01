@@ -181,12 +181,14 @@ fn main() -> InterpreterResult<()> {
             if matches!(comm, Command::Interpret(_)) {
                 ComponentInterpreter::interpret_program(env, main_component)
             } else {
-                let map = metadata.map(SourceMap::from_string);
-                let map = if let Some(map_res) = map {
+                let map = if let Some(map_res) =
+                    metadata.map(SourceMap::from_string)
+                {
                     Some(map_res?)
                 } else {
                     None
                 };
+
                 let mut cidb = Debugger::new(&components, main_component, map);
                 cidb.main_loop(env)
             }
