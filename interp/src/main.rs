@@ -126,9 +126,7 @@ fn print_res(
 fn main() -> InterpreterResult<()> {
     let opts: Opts = argh::from_env();
 
-    let builder = configuration::ConfigBuilder::new();
-
-    let config = builder
+    let config = configuration::ConfigBuilder::new()
         .quiet(opts.quiet)
         .allow_invalid_memory_access(opts.allow_invalid_memory_access)
         .error_on_overflow(opts.error_on_overflow)
@@ -154,54 +152,48 @@ fn main() -> InterpreterResult<()> {
 
     let command = opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}));
 
-    // up here temporarily
-    if let Command::Flat(_) = &command {
-        // this is stupid but will work for testing purposes. This should be
-        // fixed later
-        interp::flatten::flat_main(&ctx);
-        todo!("The flat interpreter cannot yet interpret programs")
-    }
-
-    let entry_point = ctx.entrypoint;
-
-    let metadata = ctx.metadata;
-
-    let components: iir::ComponentCtx = Rc::new(
-        ctx.components
-            .into_iter()
-            .map(|x| Rc::new(x.into()))
-            .collect(),
-    );
-
-    let main_component = components
-        .iter()
-        .find(|&cm| cm.name == entry_point)
-        .ok_or(InterpreterError::MissingMainComponent)?;
-
-    let mut mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
-
-    let env = InterpreterState::init_top_level(
-        &components,
-        main_component,
-        &mut mems,
-        &config,
-    )?;
-
     let res = match &command {
-        Command::Interpret(_) => {
-            ComponentInterpreter::interpret_program(env, main_component)
-        }
-        Command::Debug(CommandDebug {}) => {
-            let map = metadata.map(SourceMap::from_string);
-            let map = if let Some(map_res) = map {
-                Some(map_res?)
+        comm @ (Command::Interpret(_) | Command::Debug(_)) => {
+            let entry_point = ctx.entrypoint;
+            let metadata = ctx.metadata;
+
+            let components: iir::ComponentCtx = Rc::new(
+                ctx.components
+                    .into_iter()
+                    .map(|x| Rc::new(x.into()))
+                    .collect(),
+            );
+
+            let main_component = components
+                .iter()
+                .find(|&cm| cm.name == entry_point)
+                .ok_or(InterpreterError::MissingMainComponent)?;
+
+            let mut mems = interp::MemoryMap::inflate_map(&opts.data_file)?;
+
+            let env = InterpreterState::init_top_level(
+                &components,
+                main_component,
+                &mut mems,
+                &config,
+            )?;
+
+            if matches!(comm, Command::Interpret(_)) {
+                ComponentInterpreter::interpret_program(env, main_component)
             } else {
-                None
-            };
-            let mut cidb = Debugger::new(&components, main_component, map);
-            cidb.main_loop(env)
+                let map = metadata.map(SourceMap::from_string);
+                let map = if let Some(map_res) = map {
+                    Some(map_res?)
+                } else {
+                    None
+                };
+                let mut cidb = Debugger::new(&components, main_component, map);
+                cidb.main_loop(env)
+            }
         }
         Command::Flat(_) => {
+            interp::flatten::flat_main(&ctx);
+
             todo!("The flat interpreter cannot yet interpret programs")
         }
     };
