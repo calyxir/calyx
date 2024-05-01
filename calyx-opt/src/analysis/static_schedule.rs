@@ -10,11 +10,12 @@ use std::rc::Rc;
 /// by one each time.
 #[derive(Debug, Default)]
 pub struct StaticSchedule {
-    /// Number of states for the FSM (this is just the latency of the static island)
+    /// Number of states for the FSM
+    /// (this is just the latency of the static island-- or that of the largest
+    /// static island, if there are multiple islands)
     num_states: u64,
-    /// The queries that the FSM needs to support,
-    /// mapped to the number of times that query occurs.
-    /// E.g., lhs = %[2:3] ? rhs corresponds to (2,3).
+    /// The queries that the FSM needs to support.
+    /// E.g., `lhs = %[2:3] ? rhs` corresponds to (2,3).
     queries: HashSet<(u64, u64)>,
     /// The static groups the FSM will schedule. It is a vec because sometimes
     /// the same FSM will handle two different static islands.
@@ -74,7 +75,7 @@ impl StaticSchedule {
     /// Then `realize_schedule()` returns vecdeque![a1, a2, a3]
     /// Where a1 are the assignments for group1, a2 are the assignments
     /// to group2, etc.
-    /// It also returns the FSM in the for mfo an RRC<Cell>.
+    /// It also returns the FSM in the for of an RRC<Cell>.
     ///
     /// We also have a bool argument `static_component_interface`.
     /// If you are the entire control of a static component, it is slightly different,
@@ -87,7 +88,7 @@ impl StaticSchedule {
         builder: &mut ir::Builder,
         static_component_interface: bool,
     ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, ir::RRC<ir::Cell>) {
-        // First build the fsm we will use for each static group
+        // First build the fsm we will use to realize the schedule.
         let fsm_size = get_bit_width_from(
             self.num_states + 1, /* represent 0..latency */
         );
@@ -116,22 +117,30 @@ impl StaticSchedule {
                         fsm_size,
                         builder,
                         static_component_interface,
-                        Some(Rc::clone(&builder.component.signature.clone())),
+                        Some(Rc::clone(&builder.component.signature)),
                     )
                 })
                 .collect();
 
             // Add assignments to increment the fsm by one unconditionally.
-            let final_state_u64 = static_group_ref.get_latency() - 1;
             structure!( builder;
                 // done hole will be undefined bc of early reset
                 let signal_on = constant(1,1);
                 let adder = prim std_add(fsm_size);
                 let const_one = constant(1, fsm_size);
                 let first_state = constant(0, fsm_size);
-                let final_state = constant(final_state_u64, fsm_size);
+                let final_state = constant(static_group_ref.get_latency() - 1, fsm_size);
             );
+            let final_state_guard: ir::Guard<Nothing> =
+                guard!(fsm["out"] == final_state["out"]);
             let fsm_incr_assigns = if static_component_interface {
+                // The requirements for components that need support the static
+                // interface are slightly different.
+                // We need to guard the FSM 0->1 transition with (fsm == 0 & comp.go)
+                // The reason why we can't just gaurd with `comp.go` is because
+                // we want clients to be able to assert `go` while the component
+                // is executing without messing things up,
+                // (even if asserting `go` is unnecessary.)
                 let this: Rc<std::cell::RefCell<ir::Cell>> =
                     Rc::clone(&builder.component.signature.clone());
                 let this_go: ir::Guard<Nothing> = guard!(this["go"]);
@@ -145,8 +154,6 @@ impl StaticSchedule {
                     guard!(fsm["out"] != final_state["out"]);
                 let in_between_guard =
                     ir::Guard::and(not_first_state, not_last_state);
-                let final_state_guard: ir::Guard<Nothing> =
-                    guard!(fsm["out"] == final_state["out"]);
                 build_assignments!(
                   builder;
                   // Incrementsthe fsm
@@ -166,10 +173,9 @@ impl StaticSchedule {
                 )
                 .to_vec()
             } else {
+                // "Normal" logic to increment FSM by one.
                 let not_final_state_guard: ir::Guard<ir::Nothing> =
                     guard!(fsm["out"] != final_state["out"]);
-                let final_state_guard: ir::Guard<ir::Nothing> =
-                    guard!(fsm["out"] == final_state["out"]);
                 build_assignments!(
                   builder;
                   // increments the fsm
@@ -199,7 +205,7 @@ impl StaticSchedule {
         fsm: &ir::RRC<ir::Cell>,
         fsm_size: u64,
         builder: &mut ir::Builder,
-        is_static_comp: bool,
+        static_component_interface: bool,
         comp_sig: Option<ir::RRC<ir::Cell>>,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
@@ -209,7 +215,7 @@ impl StaticSchedule {
                     fsm,
                     fsm_size,
                     builder,
-                    is_static_comp,
+                    static_component_interface,
                     comp_sig.clone(),
                 ),
                 Self::make_guard_dyn(
@@ -217,7 +223,7 @@ impl StaticSchedule {
                     fsm,
                     fsm_size,
                     builder,
-                    is_static_comp,
+                    static_component_interface,
                     comp_sig,
                 ),
             )),
@@ -227,7 +233,7 @@ impl StaticSchedule {
                     fsm,
                     fsm_size,
                     builder,
-                    is_static_comp,
+                    static_component_interface,
                     comp_sig.clone(),
                 ),
                 Self::make_guard_dyn(
@@ -235,7 +241,7 @@ impl StaticSchedule {
                     fsm,
                     fsm_size,
                     builder,
-                    is_static_comp,
+                    static_component_interface,
                     comp_sig,
                 ),
             )),
@@ -245,7 +251,7 @@ impl StaticSchedule {
                     fsm,
                     fsm_size,
                     builder,
-                    is_static_comp,
+                    static_component_interface,
                     comp_sig,
                 )))
             }
@@ -256,7 +262,12 @@ impl StaticSchedule {
             ir::Guard::True => Box::new(ir::Guard::True),
             ir::Guard::Info(static_timing) => {
                 let (beg, end) = static_timing.get_interval();
-                if is_static_comp && beg == 0 && end == 1 {
+                if static_component_interface && beg == 0 && end == 1 {
+                    // Replace `%0`` with `fsm == 0 & comp.go`.
+                    // The reason why we can't just gaurd with `comp.go` is because
+                    // we want clients to be able to assert `go` while the component
+                    // is executing without messing things up,
+                    // (even if asserting `go` is unnecessary.)
                     let interval_const = builder.add_constant(0, fsm_size);
                     let sig = comp_sig.unwrap();
                     let g1 = guard!(sig["go"]);
@@ -294,12 +305,12 @@ impl StaticSchedule {
 
     // Takes in static assignment `assign` and returns a dynamic assignments
     // Mainly transforms the guards from %[2:3] -> fsm.out >= 2 & fsm.out <= 3
-    pub fn make_assign_dyn(
+    fn make_assign_dyn(
         assign: ir::Assignment<ir::StaticTiming>,
         fsm: &ir::RRC<ir::Cell>,
         fsm_size: u64,
         builder: &mut ir::Builder,
-        is_static_comp: bool,
+        static_component_interface: bool,
         comp_sig: Option<ir::RRC<ir::Cell>>,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
@@ -311,7 +322,7 @@ impl StaticSchedule {
                 fsm,
                 fsm_size,
                 builder,
-                is_static_comp,
+                static_component_interface,
                 comp_sig,
             ),
         }

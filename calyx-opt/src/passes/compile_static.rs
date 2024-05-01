@@ -124,9 +124,9 @@ impl CompileStatic {
         // signal_reg.out
         let signal_reg_guard: ir::Guard<ir::Nothing> =
             guard!(signal_reg["out"]);
-        // !signal_reg.outxw
+        // !signal_reg.out
         let not_signal_reg = signal_reg_guard.clone().not();
-        // fsm.out == 0 & signal_reg.outxw
+        // fsm.out == 0 & signal_reg.out
         let first_state_and_signal = first_state.clone() & signal_reg_guard;
         // fsm.out == 0 & ! signal_reg.out
         let first_state_and_not_signal = first_state & not_signal_reg;
@@ -452,8 +452,8 @@ impl CompileStatic {
         cur_mapping
     }
 
-    // Given a `coloring` and a set of `static_groups`, builds one StaticSchedule
-    // per object.
+    // Given a `coloring` of static group names, along with the actual `static_groups`,
+    // it builds one StaticSchedule per color.
     fn build_schedule_objects(
         coloring: HashMap<ir::Id, ir::Id>,
         mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
