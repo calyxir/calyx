@@ -233,6 +233,7 @@ impl ReadWriteSet {
                 outputs,
                 ref_cells,
                 comp,
+                comb_group,
                 ..
             }) => {
                 let mut inps: Vec<RRC<ir::Port>> =
@@ -267,7 +268,18 @@ impl ReadWriteSet {
                         }
                     }
                 }
-                (inps, outs)
+                match comb_group {
+                    Some(cgr) => {
+                        let cg = cgr.borrow();
+                        let (reads, writes) =
+                            cg.assignments.iter().analysis().reads_and_writes();
+                        (
+                            reads.into_iter().chain(inps).collect(),
+                            writes.into_iter().chain(outs).collect(),
+                        )
+                    }
+                    None => (inps, outs),
+                }
             }
         }
     }
@@ -443,6 +455,16 @@ impl ReadWriteSet {
     ) -> (Vec<RRC<ir::Cell>>, Vec<RRC<ir::Cell>>) {
         let (port_reads, port_writes) =
             Self::control_port_read_write_set::<INCLUDE_HOLE_ASSIGNS>(con);
+
+        println!("read");
+        for p in &port_reads {
+            println!("{}", p.borrow().get_parent_name());
+        }
+        println!("write");
+        for p in &port_writes {
+            println!("{}", p.borrow().get_parent_name());
+        }
+        println!("\n");
 
         (
             port_reads

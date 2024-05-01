@@ -95,10 +95,10 @@ impl PassManager {
                 SimplifyWithControl, // Must run before compile-invoke
                 StaticInference,
                 StaticPromotion,
-                CompileInvoke, // creates dead comb groups
-                CompileRepeat,
-                DeadGroupRemoval, // Since previous passes potentially create dead groups
-                CollapseControl,
+                // CompileInvoke, // creates dead comb groups
+                // CompileRepeat,
+                // DeadGroupRemoval, // Since previous passes potentially create dead groups
+                // CollapseControl,
             ]
         );
         register_alias!(
