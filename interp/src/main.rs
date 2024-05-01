@@ -152,7 +152,7 @@ fn main() -> InterpreterResult<()> {
 
     let command = opts.comm.unwrap_or(Command::Interpret(CommandInterpret {}));
 
-    let res = match &command {
+    match &command {
         comm @ (Command::Interpret(_) | Command::Debug(_)) => {
             let entry_point = ctx.entrypoint;
             let metadata = ctx.metadata;
@@ -178,7 +178,7 @@ fn main() -> InterpreterResult<()> {
                 &config,
             )?;
 
-            if matches!(comm, Command::Interpret(_)) {
+            let res = if matches!(comm, Command::Interpret(_)) {
                 ComponentInterpreter::interpret_program(env, main_component)
             } else {
                 let map = if let Some(map_res) =
@@ -191,14 +191,10 @@ fn main() -> InterpreterResult<()> {
 
                 let mut cidb = Debugger::new(&components, main_component, map);
                 cidb.main_loop(env)
-            }
-        }
-        Command::Flat(_) => {
-            interp::flatten::flat_main(&ctx);
+            };
 
-            todo!("The flat interpreter cannot yet interpret programs")
+            print_res(res, opts.raw)
         }
-    };
-
-    print_res(res, opts.raw)
+        Command::Flat(_) => interp::flatten::flat_main(&ctx),
+    }
 }

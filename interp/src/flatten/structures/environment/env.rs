@@ -888,10 +888,4 @@ impl<'a> Simulator<'a> {
 
         Ok(())
     }
-
-    pub fn _main_test(&mut self) {
-        self.env.print_pc();
-        let _ = self.run_program();
-        self.print_env();
-    }
 }
