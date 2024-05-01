@@ -1,6 +1,8 @@
 use crate::analysis;
 use crate::traversal::{Action, Named, VisResult, Visitor};
-use calyx_ir::{self as ir, structure, GetAttributes, LibrarySignatures, RRC};
+use calyx_ir::{
+    self as ir, guard, structure, GetAttributes, LibrarySignatures, RRC,
+};
 use calyx_utils::{CalyxResult, Error};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -33,7 +35,7 @@ use std::rc::Rc;
 /// ```
 /// into:
 /// ```
-/// group comb_cond<"static"=1> {
+/// group comb_cond<"promotable"=1> {
 ///     lt.right = 32'd10;
 ///     lt.left = 32'd1;
 ///     eq.right = r.out;
@@ -61,8 +63,8 @@ use std::rc::Rc;
 /// }
 /// ```
 pub struct SimplifyWithControl {
-    // Mapping from (group_name, (cell_name, port_name)) -> (port, static_group).
-    port_rewrite: HashMap<PortInGroup, (RRC<ir::Port>, RRC<ir::StaticGroup>)>,
+    // Mapping from (group_name, (cell_name, port_name)) -> (port, group).
+    port_rewrite: HashMap<PortInGroup, (RRC<ir::Port>, RRC<ir::Group>)>,
 }
 
 /// Represents (group_name, (cell_name, port_name))
@@ -111,8 +113,9 @@ impl Visitor for SimplifyWithControl {
                 })?;
 
                 // Group generated to replace this comb group.
-                let group_ref = builder.add_static_group(name, 1);
+                let group_ref = builder.add_group(name);
                 let mut group = group_ref.borrow_mut();
+                group.attributes.insert(ir::NumAttr::Promotable, 1);
                 // Attach assignmens from comb group
                 group.assignments = cg_ref
                     .borrow_mut()
@@ -156,7 +159,24 @@ impl Visitor for SimplifyWithControl {
                     save_regs.push(comb_reg);
                 }
 
-                // No need for a done condition
+                structure!(builder;
+                    let signal_on = constant(1, 1);
+                );
+                // Create a done condition
+                let done_guard = save_regs
+                    .drain(..)
+                    .map(|reg| guard!(reg["done"]))
+                    .fold(ir::Guard::True, ir::Guard::and);
+                let done_assign = builder.build_assignment(
+                    group.get("done"),
+                    signal_on.borrow().get("out"),
+                    done_guard,
+                );
+                group.assignments.push(done_assign);
+
+                // Add a "promotable" attribute
+                group.attributes.insert(ir::NumAttr::Promotable, 1);
+
                 drop(group);
 
                 Ok(group_ref)
@@ -164,7 +184,7 @@ impl Visitor for SimplifyWithControl {
             .collect::<CalyxResult<Vec<_>>>()?;
 
         for group in groups {
-            comp.get_static_groups_mut().add(group)
+            comp.get_groups_mut().add(group)
         }
 
         // Restore the combinational groups
@@ -190,14 +210,14 @@ impl Visitor for SimplifyWithControl {
             s.port.borrow().canonical(),
         );
         let (port_ref, cond_ref) = self.port_rewrite.get(&key).unwrap();
-        let cond_in_body = ir::Control::static_enable(Rc::clone(cond_ref));
+        let cond_in_body = ir::Control::enable(Rc::clone(cond_ref));
         let body = std::mem::replace(s.body.as_mut(), ir::Control::empty());
         let new_body = ir::Control::seq(vec![body, cond_in_body]);
         let mut while_ =
             ir::Control::while_(Rc::clone(port_ref), None, Box::new(new_body));
         let attrs = while_.get_mut_attributes();
         *attrs = std::mem::take(&mut s.attributes);
-        let cond_before_body = ir::Control::static_enable(Rc::clone(cond_ref));
+        let cond_before_body = ir::Control::enable(Rc::clone(cond_ref));
         Ok(Action::change(ir::Control::seq(vec![
             cond_before_body,
             while_,
@@ -242,7 +262,7 @@ impl Visitor for SimplifyWithControl {
         );
         let attrs = if_.get_mut_attributes();
         *attrs = std::mem::take(&mut s.attributes);
-        let cond = ir::Control::static_enable(Rc::clone(cond_ref));
+        let cond = ir::Control::enable(Rc::clone(cond_ref));
         Ok(Action::change(ir::Control::seq(vec![cond, if_])))
     }
 
