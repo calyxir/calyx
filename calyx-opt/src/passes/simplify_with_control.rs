@@ -122,7 +122,6 @@ impl Visitor for SimplifyWithControl {
                     .assignments
                     .clone()
                     .into_iter()
-                    .map(|x| x.into())
                     .collect();
 
                 // Registers to save value for the group
