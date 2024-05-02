@@ -2,6 +2,7 @@ use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
+use itertools::Itertools;
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 
@@ -127,24 +128,11 @@ impl StaticFSM {
         &self,
         builder: &mut ir::Builder,
         query: (u64, u64),
-        comp_sig: ir::RRC<ir::Cell>,
     ) -> Box<ir::Guard<Nothing>> {
         // Only support Binary encoding currently.
         assert!(matches!(self._encoding, FSMEncoding::Binary));
         let (beg, end) = query;
         let fsm_cell = Rc::clone(&self.cell);
-        if self.static_component_interface && beg == 0 && end == 1 {
-            // Replace `%0`` with `fsm == 0 & comp.go`.
-            // The reason why we can't just gaurd with `comp.go` is because
-            // we want clients to be able to assert `go` while the component
-            // is executing without messing things up,
-            // (even if asserting `go` is unnecessary.)
-            let interval_const = builder.add_constant(0, self.bitwidth);
-            let g1 = guard!(comp_sig["go"]);
-            let g2 = guard!(fsm_cell["out"] == interval_const["out"]);
-            let g = ir::Guard::And(Box::new(g1), Box::new(g2));
-            return Box::new(g);
-        }
         if beg + 1 == end {
             // if beg + 1 == end then we only need to check if fsm == beg
             let interval_const = builder.add_constant(beg, self.bitwidth);
@@ -282,23 +270,29 @@ impl StaticSchedule {
             let mut static_group_ref = static_group.borrow_mut();
             // Separate the first cycle (if necessary) and then realize the
             // static timing guards (e.g., %[2:3] -> 2 <= fsm < 3).
-            let mut assigns: Vec<ir::Assignment<Nothing>> = static_group_ref
-                .assignments
-                .drain(..)
-                .map(|assign| {
-                    if static_component_interface {
-                        Self::separate_first_cycle_assign(assign)
-                    } else {
-                        assign
-                    }
-                })
+            let group_assigns =
+                std::mem::take(&mut static_group_ref.assignments);
+            let static_assigns = if static_component_interface {
+                group_assigns
+                    .into_iter()
+                    .map(|assign| {
+                        if static_component_interface {
+                            Self::handle_static_interface(
+                                assign,
+                                Rc::clone(&builder.component.signature),
+                            )
+                        } else {
+                            assign
+                        }
+                    })
+                    .collect_vec()
+            } else {
+                group_assigns
+            };
+            let mut assigns: Vec<ir::Assignment<Nothing>> = static_assigns
+                .into_iter()
                 .map(|static_assign| {
-                    Self::make_assign_dyn(
-                        static_assign,
-                        &fsm_object,
-                        builder,
-                        Rc::clone(&builder.component.signature),
-                    )
+                    Self::make_assign_dyn(static_assign, &fsm_object, builder)
                 })
                 .collect();
             // We need to add assignments that makes the FSM count to n.
@@ -321,30 +315,27 @@ impl StaticSchedule {
         guard: ir::Guard<ir::StaticTiming>,
         fsm_object: &StaticFSM,
         builder: &mut ir::Builder,
-        comp_sig: ir::RRC<ir::Cell>,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
             ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-                Self::make_guard_dyn(*l, fsm_object, builder, comp_sig.clone()),
-                Self::make_guard_dyn(*r, fsm_object, builder, comp_sig),
+                Self::make_guard_dyn(*l, fsm_object, builder),
+                Self::make_guard_dyn(*r, fsm_object, builder),
             )),
             ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-                Self::make_guard_dyn(*l, fsm_object, builder, comp_sig.clone()),
-                Self::make_guard_dyn(*r, fsm_object, builder, comp_sig),
+                Self::make_guard_dyn(*l, fsm_object, builder),
+                Self::make_guard_dyn(*r, fsm_object, builder),
             )),
             ir::Guard::Not(g) => Box::new(ir::Guard::Not(
-                Self::make_guard_dyn(*g, fsm_object, builder, comp_sig),
+                Self::make_guard_dyn(*g, fsm_object, builder),
             )),
             ir::Guard::CompOp(op, l, r) => {
                 Box::new(ir::Guard::CompOp(op, l, r))
             }
             ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
             ir::Guard::True => Box::new(ir::Guard::True),
-            ir::Guard::Info(static_timing) => fsm_object.query_between(
-                builder,
-                static_timing.get_interval(),
-                comp_sig,
-            ),
+            ir::Guard::Info(static_timing) => {
+                fsm_object.query_between(builder, static_timing.get_interval())
+            }
         }
     }
 
@@ -354,50 +345,61 @@ impl StaticSchedule {
         assign: ir::Assignment<ir::StaticTiming>,
         fsm_object: &StaticFSM,
         builder: &mut ir::Builder,
-        comp_sig: ir::RRC<ir::Cell>,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
             src: assign.src,
             dst: assign.dst,
             attributes: assign.attributes,
-            guard: Self::make_guard_dyn(
-                *assign.guard,
-                fsm_object,
-                builder,
-                comp_sig,
-            ),
+            guard: Self::make_guard_dyn(*assign.guard, fsm_object, builder),
         }
     }
 
     // Looks recursively thru guard to transform %[0:n] into %0 | %[1:n].
-    fn separate_first_cycle(
+    fn handle_static_interface_guard(
         guard: ir::Guard<ir::StaticTiming>,
+        comp_sig: ir::RRC<ir::Cell>,
     ) -> ir::Guard<ir::StaticTiming> {
         match guard {
             ir::Guard::Info(st) => {
                 let (beg, end) = st.get_interval();
-                if beg == 0 && end != 1 {
+                if beg == 0 {
+                    // Replace %[0:n] -> (%0 & comp.go) | %[1:n]
+                    // Cannot just do comp.go | %[1:n] because we want
+                    // clients to be able to assert `comp.go` even after the first
+                    // cycle w/o affecting correctness.
                     let first_cycle =
                         ir::Guard::Info(ir::StaticTiming::new((0, 1)));
-                    let after =
-                        ir::Guard::Info(ir::StaticTiming::new((1, end)));
-                    let cong = ir::Guard::or(first_cycle, after);
-                    return cong;
+                    let comp_go = guard!(comp_sig["go"]);
+                    let first_and_go = ir::Guard::and(comp_go, first_cycle);
+                    if end == 1 {
+                        return first_and_go;
+                    } else {
+                        let after =
+                            ir::Guard::Info(ir::StaticTiming::new((1, end)));
+                        let cong = ir::Guard::or(first_and_go, after);
+                        return cong;
+                    }
                 }
                 guard
             }
             ir::Guard::And(l, r) => {
-                let left = Self::separate_first_cycle(*l);
-                let right = Self::separate_first_cycle(*r);
+                let left = Self::handle_static_interface_guard(
+                    *l,
+                    Rc::clone(&comp_sig),
+                );
+                let right = Self::handle_static_interface_guard(*r, comp_sig);
                 ir::Guard::and(left, right)
             }
             ir::Guard::Or(l, r) => {
-                let left = Self::separate_first_cycle(*l);
-                let right = Self::separate_first_cycle(*r);
+                let left = Self::handle_static_interface_guard(
+                    *l,
+                    Rc::clone(&comp_sig),
+                );
+                let right = Self::handle_static_interface_guard(*r, comp_sig);
                 ir::Guard::or(left, right)
             }
             ir::Guard::Not(g) => {
-                let a = Self::separate_first_cycle(*g);
+                let a = Self::handle_static_interface_guard(*g, comp_sig);
                 ir::Guard::Not(Box::new(a))
             }
             _ => guard,
@@ -405,14 +407,18 @@ impl StaticSchedule {
     }
 
     // Looks recursively thru assignment's guard to %[0:n] into %0 | %[1:n].
-    fn separate_first_cycle_assign(
+    fn handle_static_interface(
         assign: ir::Assignment<ir::StaticTiming>,
+        comp_sig: ir::RRC<ir::Cell>,
     ) -> ir::Assignment<ir::StaticTiming> {
         ir::Assignment {
             src: assign.src,
             dst: assign.dst,
             attributes: assign.attributes,
-            guard: Box::new(Self::separate_first_cycle(*assign.guard)),
+            guard: Box::new(Self::handle_static_interface_guard(
+                *assign.guard,
+                comp_sig,
+            )),
         }
     }
 }
