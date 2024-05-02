@@ -635,7 +635,7 @@ impl Visitor for CompileStatic {
                                 unreachable!("signal reg {reg_name} found")
                             });
                         Self::build_wrapper_group(
-                            Rc::clone(&fsm_object),
+                            Rc::clone(fsm_object),
                             early_reset_name,
                             signal_reg,
                             &mut builder,
