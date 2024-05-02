@@ -29,6 +29,8 @@ impl StaticFSM {
         static_component_interface: bool,
         builder: &mut ir::Builder,
     ) -> Self {
+        // Only support Binary encoding currently.
+        assert!(matches!(encoding, FSMEncoding::Binary));
         // First build the fsm we will use to realize the schedule.
         let fsm_size =
             get_bit_width_from(num_states + 1 /* represent 0..latency */);
@@ -127,6 +129,8 @@ impl StaticFSM {
         query: (u64, u64),
         comp_sig: Option<ir::RRC<ir::Cell>>,
     ) -> Box<ir::Guard<Nothing>> {
+        // Only support Binary encoding currently.
+        assert!(matches!(self._encoding, FSMEncoding::Binary));
         let (beg, end) = query;
         let fsm_cell = Rc::clone(&self.cell);
         if self.static_component_interface && beg == 0 && end == 1 {
