@@ -21,6 +21,8 @@ struct StaticFSM {
     cell: ir::RRC<ir::Cell>,
 }
 impl StaticFSM {
+    // Builds a static_fsm from: num_states, encoding type, and whether it
+    // should have a static component interface.
     pub fn from_basic_info(
         num_states: u64,
         encoding: FSMEncoding,
@@ -40,6 +42,8 @@ impl StaticFSM {
         }
     }
 
+    // Returns assignments that make the current fsm unconditionally count to n
+    // and then reset back to 0.
     pub fn count_to_n(
         &self,
         builder: &mut ir::Builder,
@@ -115,6 +119,8 @@ impl StaticFSM {
         }
     }
 
+    // Returns a guard that takes a (beg, end) `query`, and returns the equivalent
+    // guard to `beg <= fsm.out < end`.
     pub fn query_between(
         &self,
         builder: &mut ir::Builder,
@@ -159,6 +165,7 @@ impl StaticFSM {
         }
     }
 
+    // Return an `ir::RRC<ir::Cell>`` of the fsm object.
     pub fn get_cell(&self) -> ir::RRC<ir::Cell> {
         Rc::clone(&self.cell)
     }
@@ -276,11 +283,11 @@ impl StaticSchedule {
                         static_assign,
                         &fsm_object,
                         builder,
-                        static_component_interface,
                         Some(Rc::clone(&builder.component.signature)),
                     )
                 })
                 .collect();
+            // We need to add assignments that makes the FSM count to n.
             assigns.extend(
                 fsm_object
                     .count_to_n(builder, static_group_ref.get_latency() - 1),
@@ -300,51 +307,20 @@ impl StaticSchedule {
         guard: ir::Guard<ir::StaticTiming>,
         fsm_object: &StaticFSM,
         builder: &mut ir::Builder,
-        static_component_interface: bool,
         comp_sig: Option<ir::RRC<ir::Cell>>,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
             ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-                Self::make_guard_dyn(
-                    *l,
-                    fsm_object,
-                    builder,
-                    static_component_interface,
-                    comp_sig.clone(),
-                ),
-                Self::make_guard_dyn(
-                    *r,
-                    fsm_object,
-                    builder,
-                    static_component_interface,
-                    comp_sig,
-                ),
+                Self::make_guard_dyn(*l, fsm_object, builder, comp_sig.clone()),
+                Self::make_guard_dyn(*r, fsm_object, builder, comp_sig),
             )),
             ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-                Self::make_guard_dyn(
-                    *l,
-                    fsm_object,
-                    builder,
-                    static_component_interface,
-                    comp_sig.clone(),
-                ),
-                Self::make_guard_dyn(
-                    *r,
-                    fsm_object,
-                    builder,
-                    static_component_interface,
-                    comp_sig,
-                ),
+                Self::make_guard_dyn(*l, fsm_object, builder, comp_sig.clone()),
+                Self::make_guard_dyn(*r, fsm_object, builder, comp_sig),
             )),
-            ir::Guard::Not(g) => {
-                Box::new(ir::Guard::Not(Self::make_guard_dyn(
-                    *g,
-                    fsm_object,
-                    builder,
-                    static_component_interface,
-                    comp_sig,
-                )))
-            }
+            ir::Guard::Not(g) => Box::new(ir::Guard::Not(
+                Self::make_guard_dyn(*g, fsm_object, builder, comp_sig),
+            )),
             ir::Guard::CompOp(op, l, r) => {
                 Box::new(ir::Guard::CompOp(op, l, r))
             }
@@ -364,7 +340,6 @@ impl StaticSchedule {
         assign: ir::Assignment<ir::StaticTiming>,
         fsm_object: &StaticFSM,
         builder: &mut ir::Builder,
-        static_component_interface: bool,
         comp_sig: Option<ir::RRC<ir::Cell>>,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
@@ -373,9 +348,8 @@ impl StaticSchedule {
             attributes: assign.attributes,
             guard: Self::make_guard_dyn(
                 *assign.guard,
-                &fsm_object,
+                fsm_object,
                 builder,
-                static_component_interface,
                 comp_sig,
             ),
         }
