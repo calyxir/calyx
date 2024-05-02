@@ -53,8 +53,8 @@ impl StaticFSM {
     // If it actually holds a `guard`, then we will only start counting once
     // the condition holds.
     // (NOTE: if the guard is true while we are counting up we will just
-    // ignore that guard and keep on counting-- we don't reset or anything).
-    // The guard is just there to make sure we only go from 0->1 when appropriate.
+    // ignore that guard and keep on counting-- we don't reset or anything.
+    // The guard is just there to make sure we only go from 0->1 when appropriate.)
     pub fn count_to_n(
         &self,
         builder: &mut ir::Builder,
