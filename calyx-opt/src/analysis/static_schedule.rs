@@ -9,7 +9,7 @@ use std::rc::Rc;
 // Define an enum called Fruit
 enum FSMEncoding {
     Binary,
-    OneHot,
+    _OneHot,
 }
 
 #[derive(Debug)]
@@ -173,7 +173,7 @@ impl StaticFSM {
     pub fn get_name(&self) -> ir::Id {
         self.cell.borrow().name()
     }
-    // Return an `ir::RRC<ir::Cell>`` of the fsm object.
+    // Return the bitwidth of an FSM object
     pub fn get_bitwidth(&self) -> u64 {
         self.bitwidth
     }
