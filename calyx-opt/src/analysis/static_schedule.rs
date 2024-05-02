@@ -176,6 +176,13 @@ impl StaticFSM {
     pub fn get_bitwidth(&self) -> u64 {
         self.bitwidth
     }
+
+    pub fn eq_0(&self, builder: &mut ir::Builder) -> ir::Guard<Nothing> {
+        let fsm_cell = Rc::clone(&self.cell);
+        let interval_const = builder.add_constant(0, self.bitwidth);
+        let g1 = guard!(fsm_cell["out"] == interval_const["out"]);
+        g1
+    }
 }
 
 /// Represents a static schedule.

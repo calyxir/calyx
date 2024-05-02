@@ -84,8 +84,7 @@ impl CompileStaticInterface {
         builder: &mut ir::Builder,
         comp_sig: RRC<ir::Cell>,
     ) -> Vec<ir::Assignment<Nothing>> {
-        let first_state_guard =
-            *fsm.query_between(builder, (0, 1), Rc::clone(&comp_sig));
+        let first_state_guard = fsm.eq_0(builder);
         structure!(builder;
           let sig_reg = prim std_reg(1);
           let one = constant(1, 1);
