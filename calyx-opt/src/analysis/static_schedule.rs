@@ -5,7 +5,7 @@ use calyx_ir::{guard, structure};
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 // Define an enum called Fruit
 enum FSMEncoding {
     Binary,

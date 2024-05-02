@@ -1,4 +1,4 @@
-use crate::analysis::{GraphColoring, StaticSchedule};
+use crate::analysis::{GraphColoring, StaticFSM, StaticSchedule};
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
@@ -18,8 +18,8 @@ pub struct CompileStatic {
     wrapper_map: HashMap<ir::Id, ir::Id>,
     /// maps fsm names to their corresponding signal_reg
     signal_reg_map: HashMap<ir::Id, ir::Id>,
-    /// maps reset_early_group names to (fsm name, fsm_width)
-    fsm_info_map: HashMap<ir::Id, (ir::Id, u64)>,
+    /// maps reset_early_group names to StaticFSM object
+    fsm_info_map: HashMap<ir::Id, ir::RRC<StaticFSM>>,
 }
 
 impl Named for CompileStatic {
@@ -66,15 +66,14 @@ fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
 }
 
 impl CompileStatic {
-    /// Builds a wrapper group for group named group_name using fsm named
-    /// fsm_name, and a signal_reg.
+    /// Builds a wrapper group for group named group_name using fsm and
+    /// and a signal_reg.
     /// Both the group and FSM (and the signal_reg) should already exist.
     /// `add_resetting_logic` is a bool; since the same FSM/signal_reg pairing
     /// may be used for multiple static islands, and we only add resetting logic
     /// for the signal_reg once.
     fn build_wrapper_group(
-        fsm_name: &ir::Id,
-        fsm_width: u64,
+        fsm_object: ir::RRC<StaticFSM>,
         group_name: &ir::Id,
         signal_reg: ir::RRC<ir::Cell>,
         builder: &mut ir::Builder,
@@ -91,23 +90,15 @@ impl CompileStatic {
                     group_name
                 )
             });
-        let early_reset_fsm =
-            builder.component.find_cell(*fsm_name).unwrap_or_else(|| {
-                unreachable!(
-                    "called build_wrapper_group with {}, which is not an fsm",
-                    fsm_name
-                )
-            });
 
+        // fsm.out == 0
+        let first_state: ir::Guard<ir::Nothing> =
+            fsm_object.borrow().eq_0(builder);
         structure!( builder;
-            let state_zero = constant(0, fsm_width);
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
         );
-        // Making the guards:
-        // fsm.out == 0
-        let first_state: ir::Guard<ir::Nothing> =
-            guard!(early_reset_fsm["out"] == state_zero["out"]);
+        // Making the rest of the guards guards:
         // signal_reg.out
         let signal_reg_guard: ir::Guard<ir::Nothing> =
             guard!(signal_reg["out"]);
@@ -180,8 +171,7 @@ impl CompileStatic {
     /// Note: this only works if the port for the while condition is `@stable`.
     fn build_wrapper_group_while(
         &self,
-        fsm_name: &ir::Id,
-        fsm_width: u64,
+        fsm_object: ir::RRC<StaticFSM>,
         group_name: &ir::Id,
         port: RRC<ir::Port>,
         builder: &mut ir::Builder,
@@ -195,13 +185,8 @@ impl CompileStatic {
                     group_name
                 )
             });
-        let early_reset_fsm =
-            builder.component.find_cell(*fsm_name).unwrap_or_else(|| {
-                unreachable!(
-                    "called build_wrapper_group with {}, which is not an fsm",
-                    fsm_name
-                )
-            });
+
+        let fsm_eq_0 = fsm_object.borrow().eq_0(builder);
 
         let wrapper_group =
             builder.add_group(format!("while_wrapper_{}", group_name));
@@ -209,13 +194,11 @@ impl CompileStatic {
         structure!(
             builder;
             let one = constant(1, 1);
-            let time_0 = constant(0, fsm_width);
         );
 
         let port_parent = port.borrow().cell_parent();
         let port_name = port.borrow().name;
-        let done_guard = guard!(port_parent[port_name]).not()
-            & guard!(early_reset_fsm["out"] == time_0["out"]);
+        let done_guard = guard!(port_parent[port_name]).not() & fsm_eq_0;
 
         let assignments = build_assignments!(
             builder;
@@ -516,6 +499,7 @@ impl Visitor for CompileStatic {
         for sch in &mut schedule_objects {
             let (mut static_group_assigns, fsm) =
                 sch.realize_schedule(&mut builder, false);
+            let fsm_ref = ir::rrc(fsm);
             for static_group in sch.static_groups.iter() {
                 // Create the dynamic "early reset group" that will replace the static group.
                 let static_group_name = static_group.borrow().name();
@@ -559,9 +543,10 @@ impl Visitor for CompileStatic {
                         },
                     ),
                 );
+
                 self.fsm_info_map.insert(
                     early_reset_group.borrow().name(),
-                    (fsm.get_name(), fsm.get_bitwidth()),
+                    Rc::clone(&fsm_ref),
                 );
             }
         }
@@ -617,11 +602,12 @@ impl Visitor for CompileStatic {
             None => {
                 // create the builder/cells that we need to create wrapper group
                 let mut builder = ir::Builder::new(comp, sigs);
-                let (fsm_name, fsm_width )= self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
+                let fsm_object = self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
                 // If we've already made a wrapper for a group that uses the same
                 // FSM, we can reuse the signal_reg. Otherwise, we must
                 // instantiate a new signal_reg.
-                let wrapper = match self.signal_reg_map.get(fsm_name) {
+                let fsm_name = fsm_object.borrow().get_name();
+                let wrapper = match self.signal_reg_map.get(&fsm_name) {
                     None => {
                         // Need to build the signal_reg and the continuous
                         // assignment that resets the signal_reg
@@ -629,10 +615,9 @@ impl Visitor for CompileStatic {
                             let signal_reg = prim std_reg(1);
                         );
                         self.signal_reg_map
-                            .insert(*fsm_name, signal_reg.borrow().name());
+                            .insert(fsm_name, signal_reg.borrow().name());
                         Self::build_wrapper_group(
-                            fsm_name,
-                            *fsm_width,
+                            Rc::clone(fsm_object),
                             early_reset_name,
                             signal_reg,
                             &mut builder,
@@ -650,8 +635,7 @@ impl Visitor for CompileStatic {
                                 unreachable!("signal reg {reg_name} found")
                             });
                         Self::build_wrapper_group(
-                            fsm_name,
-                            *fsm_width,
+                            Rc::clone(&fsm_object),
                             early_reset_name,
                             signal_reg,
                             &mut builder,
@@ -723,10 +707,9 @@ impl Visitor for CompileStatic {
                 let reset_group_name = self.get_reset_group_name(sc);
 
                 // Get fsm for reset_group
-                let (fsm, fsm_width) = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
+                let fsm_object = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
                 let wrapper_group = self.build_wrapper_group_while(
-                    fsm,
-                    *fsm_width,
+                    Rc::clone(fsm_object),
                     reset_group_name,
                     Rc::clone(&s.port),
                     &mut builder,
