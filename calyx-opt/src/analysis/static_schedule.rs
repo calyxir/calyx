@@ -17,18 +17,18 @@ enum FSMEncoding {
 #[derive(Debug)]
 pub struct StaticFSM {
     pub _num_states: u64,
-    pub static_component_interface: bool,
     _encoding: FSMEncoding,
+    // The fsm's bitwidth (this redundant information bc  we have `cell`)
+    // but makes it easier if we easily have access to this.
     bitwidth: u64,
+    // The actual register
     cell: ir::RRC<ir::Cell>,
 }
 impl StaticFSM {
-    // Builds a static_fsm from: num_states, encoding type, and whether it
-    // should have a static component interface.
+    // Builds a static_fsm from: num_states and encoding type.
     fn from_basic_info(
         num_states: u64,
         encoding: FSMEncoding,
-        static_component_interface: bool,
         builder: &mut ir::Builder,
     ) -> Self {
         // Only support Binary encoding currently.
@@ -40,7 +40,6 @@ impl StaticFSM {
         StaticFSM {
             _num_states: num_states,
             _encoding: encoding,
-            static_component_interface,
             bitwidth: fsm_size,
             cell: fsm,
         }
@@ -256,7 +255,6 @@ impl StaticSchedule {
         let fsm_object = StaticFSM::from_basic_info(
             self.num_states,
             FSMEncoding::Binary,
-            static_component_interface,
             builder,
         );
 
