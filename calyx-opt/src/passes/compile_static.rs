@@ -92,8 +92,7 @@ impl CompileStatic {
             });
 
         // fsm.out == 0
-        let first_state: ir::Guard<ir::Nothing> =
-            fsm_object.borrow().eq_0(builder);
+        let first_state = *fsm_object.borrow().query_between(builder, (0, 1));
         structure!( builder;
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
@@ -186,7 +185,7 @@ impl CompileStatic {
                 )
             });
 
-        let fsm_eq_0 = fsm_object.borrow().eq_0(builder);
+        let fsm_eq_0 = *fsm_object.borrow().query_between(builder, (0, 1));
 
         let wrapper_group =
             builder.add_group(format!("while_wrapper_{}", group_name));

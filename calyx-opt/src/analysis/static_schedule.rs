@@ -167,13 +167,6 @@ impl StaticFSM {
     pub fn get_bitwidth(&self) -> u64 {
         self.bitwidth
     }
-
-    pub fn eq_0(&self, builder: &mut ir::Builder) -> ir::Guard<Nothing> {
-        let fsm_cell = Rc::clone(&self.cell);
-        let interval_const = builder.add_constant(0, self.bitwidth);
-        let g1 = guard!(fsm_cell["out"] == interval_const["out"]);
-        g1
-    }
 }
 
 /// Represents a static schedule.
@@ -298,6 +291,8 @@ impl StaticSchedule {
                     Self::make_assign_dyn(static_assign, &fsm_object, builder)
                 })
                 .collect();
+            // For static components, we don't unconditionally start counting.
+            // We must only start counting when `comp.go` is high.
             let fsm_incr_condition = if static_component_interface {
                 let comp_sig = Rc::clone(&builder.component.signature);
                 let g = guard!(comp_sig["go"]);
