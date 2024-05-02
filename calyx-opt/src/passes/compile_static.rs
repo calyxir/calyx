@@ -20,8 +20,6 @@ pub struct CompileStatic {
     signal_reg_map: HashMap<ir::Id, ir::Id>,
     /// maps reset_early_group names to (fsm name, fsm_width)
     fsm_info_map: HashMap<ir::Id, (ir::Id, u64)>,
-    // /// rewrites `static_group[go]` to `dynamic_group[go]`
-    // group_rewrite: ir::rewriter::PortRewriteMap,
 }
 
 impl Named for CompileStatic {
@@ -65,17 +63,6 @@ fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
         }
     }
     uses
-}
-
-// Finds the width of the FSM's output port given an ir::RRC<ir::Cell>
-fn get_fsm_width(fsm: ir::RRC<ir::Cell>) -> u64 {
-    fsm.borrow()
-        .ports
-        .iter()
-        .find(|port| port.borrow().name == "out")
-        .unwrap()
-        .borrow()
-        .width
 }
 
 impl CompileStatic {
@@ -574,7 +561,7 @@ impl Visitor for CompileStatic {
                 );
                 self.fsm_info_map.insert(
                     early_reset_group.borrow().name(),
-                    (fsm.borrow().name(), get_fsm_width(Rc::clone(&fsm))),
+                    (fsm.get_name(), fsm.get_bitwidth()),
                 );
             }
         }

@@ -7,23 +7,23 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 // Define an enum called Fruit
-pub enum FSMEncoding {
+enum FSMEncoding {
     Binary,
     OneHot,
 }
 
 #[derive(Debug)]
-struct StaticFSM {
+pub struct StaticFSM {
     pub _num_states: u64,
-    pub _encoding: FSMEncoding,
     pub static_component_interface: bool,
+    _encoding: FSMEncoding,
     bitwidth: u64,
     cell: ir::RRC<ir::Cell>,
 }
 impl StaticFSM {
     // Builds a static_fsm from: num_states, encoding type, and whether it
     // should have a static component interface.
-    pub fn from_basic_info(
+    fn from_basic_info(
         num_states: u64,
         encoding: FSMEncoding,
         static_component_interface: bool,
@@ -170,8 +170,12 @@ impl StaticFSM {
     }
 
     // Return an `ir::RRC<ir::Cell>`` of the fsm object.
-    pub fn get_cell(&self) -> ir::RRC<ir::Cell> {
-        Rc::clone(&self.cell)
+    pub fn get_name(&self) -> ir::Id {
+        self.cell.borrow().name()
+    }
+    // Return an `ir::RRC<ir::Cell>`` of the fsm object.
+    pub fn get_bitwidth(&self) -> u64 {
+        self.bitwidth
     }
 }
 
@@ -257,7 +261,7 @@ impl StaticSchedule {
         &mut self,
         builder: &mut ir::Builder,
         static_component_interface: bool,
-    ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, ir::RRC<ir::Cell>) {
+    ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, StaticFSM) {
         // First build the fsm we will use to realize the schedule.
         let fsm_object = StaticFSM::from_basic_info(
             self.num_states,
@@ -299,7 +303,7 @@ impl StaticSchedule {
 
             res.push_back(assigns);
         }
-        (res, fsm_object.get_cell())
+        (res, fsm_object)
     }
 
     // Takes in a static guard `guard`, and returns equivalent dynamic guard

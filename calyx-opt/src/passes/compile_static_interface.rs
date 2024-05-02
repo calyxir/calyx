@@ -1,4 +1,4 @@
-use crate::analysis::StaticSchedule;
+use crate::analysis::{StaticFSM, StaticSchedule};
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
 use ir::{
@@ -80,29 +80,21 @@ impl CompileStaticInterface {
     // Makes `done` signal for promoted static<n> component.
     fn make_done_signal_for_promoted_component(
         &mut self,
-        fsm: ir::RRC<ir::Cell>,
+        fsm: &StaticFSM,
         builder: &mut ir::Builder,
         comp_sig: RRC<ir::Cell>,
     ) -> Vec<ir::Assignment<Nothing>> {
-        let fsm_size = fsm
-            .borrow()
-            .find("out")
-            .unwrap_or_else(|| {
-                unreachable!("no `out` port on {}", fsm.borrow().name())
-            })
-            .borrow()
-            .width;
+        let first_state_guard =
+            *fsm.query_between(builder, (0, 1), Some(comp_sig.clone()));
         structure!(builder;
           let sig_reg = prim std_reg(1);
           let one = constant(1, 1);
           let zero = constant(0, 1);
-          let first_state = constant(0, fsm_size);
         );
         let go_guard = guard!(comp_sig["go"]);
         let not_go_guard = !guard!(comp_sig["go"]);
-        let first_state_guard = guard!(fsm["out"] == first_state["out"]);
         let comp_done_guard =
-            guard!(fsm["out"] == first_state["out"]) & guard!(sig_reg["out"]);
+            first_state_guard.clone().and(guard!(sig_reg["out"]));
         let assigns = build_assignments!(builder;
           // Only write to sig_reg when fsm == 0
           sig_reg["write_en"] = first_state_guard ? one["out"];
@@ -171,7 +163,7 @@ impl Visitor for CompileStaticInterface {
                     // If necessary, add the logic to produce a done signal.
                     let done_assigns = self
                         .make_done_signal_for_promoted_component(
-                            Rc::clone(&fsm),
+                            &fsm,
                             &mut builder,
                             comp_sig,
                         );
