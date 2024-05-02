@@ -301,15 +301,21 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 if assigns.len() > 1 {
                     panic!("There are more than one enable in the FSM state?");
                 }
+
                 assigns.iter().for_each(|assign| {
-                    curr_states.insert(
-                        FSMStateInfo {
-                            id: *state,
-                            // FIXME: hack assuming that the assingment destination would be "group[go]"
-                            group: assign.dst.borrow().name.to_string(),
-                        }
-                        .to_owned(),
-                    );
+                    let asgn_string =
+                        Printer::port_to_str(&assign.dst.borrow());
+                    let group_string_opt = asgn_string.split("[").next();
+                    if let Some(group_string) = group_string_opt {
+                        curr_states.insert(
+                            FSMStateInfo {
+                                id: *state,
+                                // FIXME: hack assuming that the assingment destination would be "group[go]"
+                                group: String::from(group_string),
+                            }
+                            .to_owned(),
+                        );
+                    }
                 });
             });
         let fsm = FSMInfo {
