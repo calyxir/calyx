@@ -127,7 +127,7 @@ impl StaticFSM {
         &self,
         builder: &mut ir::Builder,
         query: (u64, u64),
-        comp_sig: Option<ir::RRC<ir::Cell>>,
+        comp_sig: ir::RRC<ir::Cell>,
     ) -> Box<ir::Guard<Nothing>> {
         // Only support Binary encoding currently.
         assert!(matches!(self._encoding, FSMEncoding::Binary));
@@ -140,8 +140,7 @@ impl StaticFSM {
             // is executing without messing things up,
             // (even if asserting `go` is unnecessary.)
             let interval_const = builder.add_constant(0, self.bitwidth);
-            let sig = comp_sig.unwrap();
-            let g1 = guard!(sig["go"]);
+            let g1 = guard!(comp_sig["go"]);
             let g2 = guard!(fsm_cell["out"] == interval_const["out"]);
             let g = ir::Guard::And(Box::new(g1), Box::new(g2));
             return Box::new(g);
@@ -291,7 +290,7 @@ impl StaticSchedule {
                         static_assign,
                         &fsm_object,
                         builder,
-                        Some(Rc::clone(&builder.component.signature)),
+                        Rc::clone(&builder.component.signature),
                     )
                 })
                 .collect();
@@ -315,7 +314,7 @@ impl StaticSchedule {
         guard: ir::Guard<ir::StaticTiming>,
         fsm_object: &StaticFSM,
         builder: &mut ir::Builder,
-        comp_sig: Option<ir::RRC<ir::Cell>>,
+        comp_sig: ir::RRC<ir::Cell>,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
             ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
@@ -348,7 +347,7 @@ impl StaticSchedule {
         assign: ir::Assignment<ir::StaticTiming>,
         fsm_object: &StaticFSM,
         builder: &mut ir::Builder,
-        comp_sig: Option<ir::RRC<ir::Cell>>,
+        comp_sig: ir::RRC<ir::Cell>,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
             src: assign.src,
