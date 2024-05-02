@@ -2,6 +2,7 @@ use crate::passes::math_utilities::get_bit_width_from;
 use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
+use ir::Guard;
 use itertools::Itertools;
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
@@ -45,12 +46,20 @@ impl StaticFSM {
         }
     }
 
-    // Returns assignments that make the current fsm unconditionally count to n
+    // Returns assignments that make the current fsm count to n
     // and then reset back to 0.
+    // `incr_condition`` is an optional guard: if it is none, then the fsm will
+    // unconditionally increment.
+    // If it actually holds a `guard`, then we will only start counting once
+    // the condition holds.
+    // (NOTE: if the guard is true while we are counting up we will just
+    // ignore that guard and keep on counting-- we don't reset or anything).
+    // The guard is just there to make sure we only go from 0->1 when appropriate.
     pub fn count_to_n(
         &self,
         builder: &mut ir::Builder,
         n: u64,
+        incr_condition: Option<Guard<Nothing>>,
     ) -> Vec<ir::Assignment<Nothing>> {
         // Only support Binary encoding currently.
         assert!(matches!(self._encoding, FSMEncoding::Binary));
@@ -66,59 +75,53 @@ impl StaticFSM {
         let fsm_cell = Rc::clone(&self.cell);
         let final_state_guard: ir::Guard<Nothing> =
             guard!(fsm_cell["out"] == final_state["out"]);
-        if self.static_component_interface {
-            // The requirements for components that need support the static
-            // interface are slightly different.
-            // We need to guard the FSM 0->1 transition with (fsm == 0 & comp.go)
-            // The reason why we can't just gaurd with `comp.go` is because
-            // we want clients to be able to assert `go` while the component
-            // is executing without messing things up,
-            // (even if asserting `go` is unnecessary.)
-            let this: Rc<std::cell::RefCell<ir::Cell>> =
-                Rc::clone(&builder.component.signature.clone());
-            let this_go: ir::Guard<Nothing> = guard!(this["go"]);
-            let first_state_guard: ir::Guard<Nothing> =
-                guard!(fsm_cell["out"] == first_state["out"]);
-            let go_and_first_state = ir::Guard::and(this_go, first_state_guard);
-            let not_first_state: ir::Guard<Nothing> =
-                guard!(fsm_cell["out"] != first_state["out"]);
-            let not_last_state: ir::Guard<Nothing> =
-                guard!(fsm_cell["out"] != final_state["out"]);
-            let in_between_guard =
-                ir::Guard::and(not_first_state, not_last_state);
-            build_assignments!(
-              builder;
-              // Incrementsthe fsm
-              adder["left"] = ? fsm_cell["out"];
-              adder["right"] = ? const_one["out"];
-              // Always write into fsm.
-              fsm_cell["write_en"] = ? signal_on["out"];
-              // If fsm == 0 and comp.go is high, then we start an execution.
-              fsm_cell["in"] = go_and_first_state ? const_one["out"];
-              // If 1 < fsm < n - 1, then we unconditionally increment the fsm.
-              fsm_cell["in"] = in_between_guard ? adder["out"];
-              // If fsm == n -1 , then we reset the FSM.
-              fsm_cell["in"] = final_state_guard ? first_state["out"];
-              // Otherwise the FSM is not assigned to, so it defaults to 0.
-              // If we want, we could add an explicit assignment here that sets it
-              // to zero.
-            )
-            .to_vec()
-        } else {
-            // "Normal" logic to increment FSM by one.
-            let not_final_state_guard: ir::Guard<ir::Nothing> =
-                guard!(fsm_cell["out"] != final_state["out"]);
-            build_assignments!(
-              builder;
-              // increments the fsm
-              adder["left"] = ? fsm_cell["out"];
-              adder["right"] = ? const_one["out"];
-              fsm_cell["write_en"] = ? signal_on["out"];
-              fsm_cell["in"] =  not_final_state_guard ? adder["out"];
-               // resets the fsm early
-               fsm_cell["in"] = final_state_guard ? first_state["out"];
-            )
-            .to_vec()
+        match incr_condition {
+            None => {
+                // "Normal" logic to increment FSM by one.
+                let not_final_state_guard: ir::Guard<ir::Nothing> =
+                    guard!(fsm_cell["out"] != final_state["out"]);
+                build_assignments!(
+                  builder;
+                  // increments the fsm
+                  adder["left"] = ? fsm_cell["out"];
+                  adder["right"] = ? const_one["out"];
+                  fsm_cell["write_en"] = ? signal_on["out"];
+                  fsm_cell["in"] =  not_final_state_guard ? adder["out"];
+                   // resets the fsm early
+                   fsm_cell["in"] = final_state_guard ? first_state["out"];
+                )
+                .to_vec()
+            }
+            Some(condition_guard) => {
+                let first_state_guard: ir::Guard<Nothing> =
+                    guard!(fsm_cell["out"] == first_state["out"]);
+                let cond_and_first_state =
+                    ir::Guard::and(condition_guard, first_state_guard);
+                let not_first_state: ir::Guard<Nothing> =
+                    guard!(fsm_cell["out"] != first_state["out"]);
+                let not_last_state: ir::Guard<Nothing> =
+                    guard!(fsm_cell["out"] != final_state["out"]);
+                let in_between_guard =
+                    ir::Guard::and(not_first_state, not_last_state);
+                build_assignments!(
+                  builder;
+                  // Incrementsthe fsm
+                  adder["left"] = ? fsm_cell["out"];
+                  adder["right"] = ? const_one["out"];
+                  // Always write into fsm.
+                  fsm_cell["write_en"] = ? signal_on["out"];
+                  // If fsm == 0 and cond is high, then we start an execution.
+                  fsm_cell["in"] = cond_and_first_state ? const_one["out"];
+                  // If 1 < fsm < n - 1, then we unconditionally increment the fsm.
+                  fsm_cell["in"] = in_between_guard ? adder["out"];
+                  // If fsm == n -1 , then we reset the FSM.
+                  fsm_cell["in"] = final_state_guard ? first_state["out"];
+                  // Otherwise the FSM is not assigned to, so it defaults to 0.
+                  // If we want, we could add an explicit assignment here that sets it
+                  // to zero.
+                )
+                .to_vec()
+            }
         }
     }
 
@@ -295,11 +298,19 @@ impl StaticSchedule {
                     Self::make_assign_dyn(static_assign, &fsm_object, builder)
                 })
                 .collect();
+            let fsm_incr_condition = if static_component_interface {
+                let comp_sig = Rc::clone(&builder.component.signature);
+                let g = guard!(comp_sig["go"]);
+                Some(g)
+            } else {
+                None
+            };
             // We need to add assignments that makes the FSM count to n.
-            assigns.extend(
-                fsm_object
-                    .count_to_n(builder, static_group_ref.get_latency() - 1),
-            );
+            assigns.extend(fsm_object.count_to_n(
+                builder,
+                static_group_ref.get_latency() - 1,
+                fsm_incr_condition,
+            ));
 
             res.push_back(assigns);
         }
