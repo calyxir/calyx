@@ -1,0 +1,4 @@
+# Correctness
+[envs.correctness]
+command = 'cargo run -- -f {filename} {args}'
+output.out = "-"

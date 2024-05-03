@@ -1,0 +1,27 @@
+1 sort bitvec 4
+2 sort bitvec 1
+3 const 1 1100
+4 constd 1 -1
+5 consth 1 A
+6 const 1 1100
+7 eq 2 3 6
+8 eq 2 3 4
+9 neq 2 3 6
+10 neq 2 3 5
+11 one 1
+12 ones 1
+13 zero 1
+14 sext 1 7 3
+15 uext 1 7 3
+16 slice 2 3 0 0
+17 not 2 7
+18 inc 1 6
+19 dec 1 18
+20 redand 2 7
+21 redor 2 7
+22 redxor 2 7
+23 iff 2 7 8
+24 implies 2 7 8
+25 add 1 3 5
+26 sub 1 3 5
+27 mul 1 3 5
