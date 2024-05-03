@@ -158,8 +158,8 @@ impl StaticFSM {
         }
     }
 
-    // Return the name of the of the fsm cell.
-    pub fn get_name(&self) -> ir::Id {
+    // Return the id of the of the fsm cell.
+    pub fn get_unique_id(&self) -> ir::Id {
         self.cell.borrow().name()
     }
     // Return the bitwidth of an FSM object

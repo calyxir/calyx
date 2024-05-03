@@ -605,7 +605,7 @@ impl Visitor for CompileStatic {
                 // If we've already made a wrapper for a group that uses the same
                 // FSM, we can reuse the signal_reg. Otherwise, we must
                 // instantiate a new signal_reg.
-                let fsm_name = fsm_object.borrow().get_name();
+                let fsm_name = fsm_object.borrow().get_unique_id();
                 let wrapper = match self.signal_reg_map.get(&fsm_name) {
                     None => {
                         // Need to build the signal_reg and the continuous
