@@ -306,7 +306,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 assigns.iter().for_each(|assign| {
                     let asgn_string =
                         Printer::port_to_str(&assign.dst.borrow());
-                    let group_string_opt = asgn_string.split("[").next();
+                    let group_string_opt = asgn_string.split('[').next();
                     if let Some(group_string) = group_string_opt {
                         curr_states.insert(
                             FSMStateInfo {
@@ -324,8 +324,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
             group: String::from("END"),
         });
         let fsm = FSMInfo {
-            component: component,
-            group: group,
+            component,
+            group,
             states: curr_states.into_iter().collect_vec(),
         };
         println!("{}", serde_json::json!(fsm))
