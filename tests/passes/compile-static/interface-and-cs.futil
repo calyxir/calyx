@@ -1,4 +1,4 @@
-// -p validate -p compile-invoke -p static-inline -p add-guard -p simplify-static-guards -p compile-static-interface -p compile-static -p dead-group-removal
+// -p validate -p compile-invoke -p static-inline -p dead-group-removal -p add-guard -p simplify-static-guards -p compile-static
 // This test case is needed to test how the `compile-static` pass works in tandem
 // with components that have been compiled using the static interface (i.e.,
 // components that separated %[0:n] -> %[0] | %[1:n]).

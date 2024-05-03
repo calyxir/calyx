@@ -267,7 +267,7 @@ impl StaticSchedule {
             // Separate the first cycle (if necessary) and then realize the
             // static timing guards (e.g., %[2:3] -> 2 <= fsm < 3).
             let group_assigns =
-                std::mem::take(&mut static_group_ref.assignments);
+                static_group_ref.assignments.drain(..).collect_vec();
             let static_assigns = if static_component_interface {
                 group_assigns
                     .into_iter()
