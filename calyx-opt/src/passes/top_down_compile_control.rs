@@ -223,7 +223,8 @@ struct Schedule<'b, 'a: 'b> {
 // FIXME: Probably shouldn't have this separated from the Schedule struct? Not a fan of what I have right now
 #[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 struct FSMInfo {
-    pub name: String,
+    pub component: String,
+    pub group: String,
     pub states: Vec<FSMStateInfo>,
 }
 
@@ -292,7 +293,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
     }
 
     /// Print out the current schedule in JSON format
-    fn display_json(&self, group: String) {
+    fn display_json(&self, component: String, group: String) {
         let mut curr_states: HashSet<FSMStateInfo> = HashSet::new();
         self.enables
             .iter()
@@ -318,8 +319,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     }
                 });
             });
+        curr_states.insert(FSMStateInfo {
+            id: self.last_state(),
+            group: String::from("END"),
+        });
         let fsm = FSMInfo {
-            name: group,
+            component: component,
+            group: group,
             states: curr_states.into_iter().collect_vec(),
         };
         println!("{}", serde_json::json!(fsm))
@@ -342,11 +348,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 group.borrow().name()
             ));
         } else if dump_fsm_json {
-            self.display_json(format!(
-                "{}:{}",
-                self.builder.component.name,
-                group.borrow().name()
-            ));
+            self.display_json(
+                self.builder.component.name.to_string(),
+                group.borrow().name().to_string(),
+            );
         }
 
         let final_state = self.last_state();
