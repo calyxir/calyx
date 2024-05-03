@@ -16,7 +16,7 @@ enum FSMEncoding {
 
 #[derive(Debug)]
 pub struct StaticFSM {
-    pub _num_states: u64,
+    _num_states: u64,
     _encoding: FSMEncoding,
     // The fsm's bitwidth (this redundant information bc  we have `cell`)
     // but makes it easier if we easily have access to this.
