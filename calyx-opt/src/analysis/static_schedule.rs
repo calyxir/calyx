@@ -171,8 +171,6 @@ impl StaticFSM {
 }
 
 /// Represents a static schedule.
-/// A static schedule does not need transitions--it will unconditionally increment
-/// by one each time.
 #[derive(Debug, Default)]
 pub struct StaticSchedule {
     /// Number of states for the FSM
@@ -236,11 +234,11 @@ impl StaticSchedule {
     }
 
     /// Realizes a StaticSchedule (i.e., instantiates the FSMs)
-    /// If self.static_groups = vec![group1, group2, group3, ...]
+    /// If `self.static_groups = vec![group1, group2, group3, ...]``
     /// Then `realize_schedule()` returns vecdeque![a1, a2, a3]
     /// Where a1 are the assignments for group1, a2 are the assignments
     /// to group2, etc.
-    /// It also returns the FSM in the for of an RRC<Cell>.
+    /// It also returns the StaticFSM object.
     ///
     /// We also have a bool argument `static_component_interface`.
     /// If you are the entire control of a static component, it is slightly different,

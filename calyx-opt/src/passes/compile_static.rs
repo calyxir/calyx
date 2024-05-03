@@ -52,8 +52,8 @@ fn find_static_group(
 // that it triggers through their go hole.
 // E.g., if `sgroup` has assignments that write to `sgroup1[go]` and `sgroup2[go]`
 // then return `{sgroup1, sgroup2}`
-// NOTE: assumes that static groups will only write the go holes of other static
-// groups, and never dynamic groups
+// Assumes that static groups will only write the go holes of other static
+// groups, and never dynamic groups (which seems like a reasonable assumption).
 fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
     let mut uses = HashSet::new();
     for asgn in &sgroup.borrow().assignments {
@@ -138,28 +138,6 @@ impl CompileStatic {
         g
     }
 
-    fn get_reset_group_name(&self, sc: &mut ir::StaticControl) -> &ir::Id {
-        // assume that there are only static enables left.
-        // if there are any other type of static control, then error out.
-        let ir::StaticControl::Enable(s) = sc else {
-            unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
-        };
-
-        let sgroup = s.group.borrow_mut();
-        let sgroup_name = sgroup.name();
-        // get the "early reset group". It should exist, since we made an
-        // early_reset group for every static group in the component
-        let early_reset_name =
-            self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
-                unreachable!(
-                    "group {} not in self.reset_early_map",
-                    sgroup_name
-                )
-            });
-
-        early_reset_name
-    }
-
     /// compile `while` whose body is `static` control such that at the end of each
     /// iteration, the checking of condition does not incur an extra cycle of
     /// latency.
@@ -209,6 +187,69 @@ impl CompileStatic {
 
         wrapper_group.borrow_mut().assignments.extend(assignments);
         wrapper_group
+    }
+
+    // Get early reset group name from static control (we assume the static control
+    // is an enable).
+    fn get_reset_group_name(&self, sc: &mut ir::StaticControl) -> &ir::Id {
+        // assume that there are only static enables left.
+        // if there are any other type of static control, then error out.
+        let ir::StaticControl::Enable(s) = sc else {
+            unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+        };
+
+        let sgroup = s.group.borrow_mut();
+        let sgroup_name = sgroup.name();
+        // get the "early reset group". It should exist, since we made an
+        // early_reset group for every static group in the component
+        let early_reset_name =
+            self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
+                unreachable!(
+                    "group {} not in self.reset_early_map",
+                    sgroup_name
+                )
+            });
+
+        early_reset_name
+    }
+}
+
+// These are the functions/methods used to assign FSMs to static islands
+// (Currently we use greedy coloring).
+impl CompileStatic {
+    // Given a `coloring` of static group names, along with the actual `static_groups`,
+    // it builds one StaticSchedule per color.
+    fn build_schedule_objects(
+        coloring: HashMap<ir::Id, ir::Id>,
+        mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
+        _builder: &mut ir::Builder,
+    ) -> Vec<StaticSchedule> {
+        // "reverse" the coloring to map colors -> static group_names
+        let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
+            HashMap::new();
+        for (group, color) in coloring {
+            color_to_groups.entry(color).or_default().insert(group);
+        }
+        // Need deterministic ordering for testing.
+        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
+            color_to_groups.into_iter().collect();
+        vec_color_to_groups
+            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
+        vec_color_to_groups
+            .into_iter()
+            .map(|(_, group_names)| {
+                // For each color, build a StaticSchedule object.
+                // We first have to figure out out which groups we need to
+                // build the static_schedule object for.
+                let (matching_groups, other_groups) =
+                    static_groups.drain(..).partition(|group| {
+                        group_names.contains(&group.borrow().name())
+                    });
+                let sch = StaticSchedule::from(matching_groups);
+                static_groups = other_groups;
+                sch
+            })
+            .collect()
     }
 
     // Gets all of the triggered static groups within `c`, and adds it to `cur_names`.
@@ -420,43 +461,9 @@ impl CompileStatic {
         }
         cur_mapping
     }
-
-    // Given a `coloring` of static group names, along with the actual `static_groups`,
-    // it builds one StaticSchedule per color.
-    fn build_schedule_objects(
-        coloring: HashMap<ir::Id, ir::Id>,
-        mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
-        _builder: &mut ir::Builder,
-    ) -> Vec<StaticSchedule> {
-        // "reverse" the coloring to map colors -> static group_names
-        let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
-            HashMap::new();
-        for (group, color) in coloring {
-            color_to_groups.entry(color).or_default().insert(group);
-        }
-        // Need deterministic ordering for testing.
-        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
-            color_to_groups.into_iter().collect();
-        vec_color_to_groups
-            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
-        vec_color_to_groups
-            .into_iter()
-            .map(|(_, group_names)| {
-                // For each color, build a StaticSchedule object.
-                // We first have to figure out out which groups we need to
-                // build the static_schedule object for.
-                let (matching_groups, other_groups) =
-                    static_groups.drain(..).partition(|group| {
-                        group_names.contains(&group.borrow().name())
-                    });
-                let sch = StaticSchedule::from(matching_groups);
-                static_groups = other_groups;
-                sch
-            })
-            .collect()
-    }
 }
 
+// These are the functions used to compile for the static *component* interface
 impl CompileStatic {
     // Used for guards in a one cycle static component.
     // Replaces %0 with comp.go.
@@ -542,6 +549,9 @@ impl CompileStatic {
         assigns.to_vec()
     }
 
+    // Makes a done signal for a one-cycle static component.
+    // Essentially you just have to use a one-cycle delay register that
+    // takes the `go` signal as input.
     fn make_done_signal_for_promoted_component_one_cycle(
         builder: &mut ir::Builder,
         comp_sig: RRC<ir::Cell>,
@@ -567,6 +577,9 @@ impl CompileStatic {
         assigns.to_vec()
     }
 
+    // Compiles `sgroup` according to the static component interface.
+    // The assignments are removed from `sgroup` and placed into
+    // `builder.component`'s continuous assignments.
     fn compile_static_interface(
         sgroup: ir::RRC<ir::StaticGroup>,
         builder: &mut ir::Builder,
@@ -628,8 +641,12 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // We need to compile the top_level_sgroup differently (since components/
-        // groups have different interfaces).
+        // Static components have a different interface than static groups.
+        // If we have a static component, we have to compile the top-level
+        // island (this island should be a group by now and corresponds
+        // to the the entire control of the component) differently.
+        // This island might invoke other static groups-- these static groups
+        // should still follow the group interface.
         let top_level_sgroup = if comp.is_static() {
             let comp_control = comp.control.borrow();
             match &*comp_control {
@@ -648,7 +665,7 @@ impl Visitor for CompileStatic {
 
         // The first thing is to assign FSMs -> static islands.
         // We sometimes assign the same FSM to different static islands
-        // to reduce register usage. We do this by getting a coloring.
+        // to reduce register usage. We do this by getting greedy coloring.
 
         // `sgroup_uses_map` builds a mapping of static groups -> groups that
         // it (even indirectly) triggers the `go` port of.
@@ -674,8 +691,11 @@ impl Visitor for CompileStatic {
 
         // Realize an fsm for each StaticSchedule object.
         for sch in &mut schedule_objects {
+            // Check whetehr we are compiling the top level static island.
             let static_component_interface = match top_level_sgroup {
                 None => false,
+                // For the top level group, sch.static_groups should really only
+                // have group--the top level group.
                 Some(top_level_group) => sch
                     .static_groups
                     .iter()
@@ -683,6 +703,9 @@ impl Visitor for CompileStatic {
             };
             // Static component/groups have different interfaces
             if static_component_interface {
+                // Compile top level static group differently.
+                // We know that the top level static island has its own
+                // unique FSM so we can do `.pop().unwrap()`
                 Self::compile_static_interface(
                     sch.static_groups.pop().unwrap(),
                     &mut builder,
