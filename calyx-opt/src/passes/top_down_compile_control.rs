@@ -13,7 +13,6 @@ use petgraph::graph::DiGraph;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
-use std::process::Output;
 use std::rc::Rc;
 
 const NODE_ID: ir::Attribute =
