@@ -84,6 +84,9 @@ tests.
 [The Calyx driver](./running-calyx/fud) wraps the various compiler frontends and
 backends to simplify running Calyx programs.
 
+`fud` currently has a dependency on [calyx-py](builder/calyx-py.md), which you need to install first.
+
+
 Install [Flit][]:
 ```
 pip3 install flit
