@@ -82,7 +82,7 @@ def gen_reduce_impl(
     The implementation first initializes the accumulator to `init` and then
     directly accumulates the values of the array into the accumulator.
     """
-    idx = comp.reg(f"idx{s_idx}", 32)
+    idx = comp.reg(32, f"idx_{s_idx}")
 
     # Initialize the idx register
     incr_init = incr_init_group(comp, idx, f"{s_idx}")
@@ -366,7 +366,10 @@ def emit(prog: ast.Prog, use_my_map_impl: bool = False):
         else:  # A register
             name = decl.name
             mem = main.comb_mem_d1(name, 32, 1, 32, is_external=True)
-            reg = main.reg(f"{name}_reg", 32)
+            reg = main.reg(
+                32,
+                f"{name}_reg",
+            )
             if not decl.input:
                 reg_to_mem.append(Enable(reg_to_mem_group(main, name, reg, mem)))
 

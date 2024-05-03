@@ -263,8 +263,14 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
+    def reg(self, size: int, name: str = None, is_ref: bool = False) -> CellBuilder:
         """Generate a StdReg cell."""
+        assert isinstance(size, int), f"size {size} is not an int"
+        if name:
+            assert isinstance(name, str), f"name {name} is not a string"
+        if is_ref and not name:
+            raise ValueError("A register that will be passed by reference must have a name.")
+        name = name or self.generate_name("reg")
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
     def wire(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
@@ -660,7 +666,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to perform `reg := left op right`,
         where `op_cell`, a Cell that performs some `op`, is provided.
         """
-        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
+        ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
             op_cell.right = right

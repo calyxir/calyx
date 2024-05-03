@@ -14,7 +14,7 @@ def insert_stats(prog, name, static=False):
     - One input port, the index of a flow (0 or 1).
     - Two output ports, `count_0` and `count_1`.
 
-    It also maintains two internal registers, `count_0_sto` and `count_1_sto`.
+    It maintains two internal registers, `count_0_sto` and `count_1_sto`.
 
     The component continously outputs the values of the two registers into the
     two output ports.
@@ -33,8 +33,8 @@ def insert_stats(prog, name, static=False):
     stats.output("count_1", 32)
 
     # Two registers to count the number of times we've been invoked with each flow.
-    count_0_sto = stats.reg("count_0_sto", 32)
-    count_1_sto = stats.reg("count_1_sto", 32)
+    count_0_sto = stats.reg(32)
+    count_1_sto = stats.reg(32)
 
     # Wiring to increment the appropriate register.
     count_0_incr = stats.incr(count_0_sto, static=static)
@@ -77,8 +77,8 @@ def insert_controller(prog, name, stats_component):
     controller = prog.component(name)
     stats = controller.cell("stats_controller", stats_component, is_ref=True)
 
-    count_0 = controller.reg("count_0", 32)
-    count_1 = controller.reg("count_1", 32)
+    count_0 = controller.reg(32)
+    count_1 = controller.reg(32)
 
     with controller.group("get_data_locally") as get_data_locally:
         count_0.in_ = stats.count_0

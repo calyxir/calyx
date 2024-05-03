@@ -121,7 +121,7 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
     # Use a wire and register so that we have a signal that tells us when
     # systolic array component is done. This way, we don't retrigger systolic_array_comp
     # when it has already finished.
-    systolic_done_reg = main.reg("systolic_done", 1)
+    systolic_done_reg = main.reg(1, "systolic_done")
     systolic_done_wire = main.wire("systolic_done_wire", 1)
     with main.group("perform_computation") as g:
         for i, o in connections:
