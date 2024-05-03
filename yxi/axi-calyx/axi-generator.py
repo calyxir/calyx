@@ -9,34 +9,14 @@ from calyx.builder import (
 from typing import Literal
 from math import log2, ceil
 import json
+import sys
 
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
 
-yxi_input = """
-{
-  "toplevel": "main",
-  "memories": [
-    {
-      "name": "A0",
-      "width": 32,
-      "size": 8
-    },
-    {
-      "name": "B0",
-      "width": 32,
-      "size": 8
-    },
-    {
-      "name": "Sum0",
-      "width": 32,
-      "size": 8
-    }
-  ]
-}
-"""
-
-yxi = json.loads(yxi_input)
-mems = yxi["memories"]
+# Since yxi is still young, keys and formatting change often.
+width_key = "data_width"
+size_key = "total_size"
+name_key = "name"
 
 
 def add_arread_channel(prog, mem):
@@ -53,7 +33,7 @@ def add_awwrite_channel(prog, mem):
     # Recall this goes to write channel as number of transfers it expectes to do before
     # setting WLAST high
     with aw_channel.get_group("do_aw_transfer"):
-        max_transfers.in_ = mem["size"] - 1
+        max_transfers.in_ = mem[size_key] - 1
         max_transfers.write_en = 1
 
 
@@ -123,7 +103,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         # This is taken from mem size, we assume the databus width is the size
         # of our memory cell and that width is a power of 2
         # TODO(nathanielnrn): convert to binary instead of decimal
-        m_to_s_address_channel.this()[f"{x}SIZE"] = width_xsize(mem["width"])
+        m_to_s_address_channel.this()[f"{x}SIZE"] = width_xsize(mem[width_key])
         # TODO(nathanielnrn): Figure our how to set arlen. For now set to size of mem.
         m_to_s_address_channel.this()[f"{x}LEN"] = xlen.out
         m_to_s_address_channel.this()[f"{x}BURST"] = 1  # Must be INCR for XRT
@@ -153,8 +133,8 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     invoke_txn_count = invoke(txn_count, in_in=0)
     # ARLEN must be between 0-255, make sure to subtract 1 from yxi
     # size when assigning to ARLEN
-    assert mem["size"] < 256, "Memory size must be less than 256"
-    invoke_xlen = invoke(xlen, in_in=mem["size"] - 1)
+    assert mem[size_key] < 256, "Memory size must be less than 256"
+    invoke_xlen = invoke(xlen, in_in=mem[size_key] - 1)
 
     while_body = [
         par(
@@ -181,7 +161,7 @@ def add_read_channel(prog, mem):
         ("ARESETn", 1),
         ("RVALID", 1),
         ("RLAST", 1),
-        ("RDATA", mem["width"]),
+        ("RDATA", mem[width_key]),
         ("RRESP", 2),
     ]
     channel_outputs = [("RREADY", 1)]
@@ -193,9 +173,9 @@ def add_read_channel(prog, mem):
     # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
     mem_ref = read_channel.seq_mem_d1(
         name="mem_ref",
-        bitwidth=mem["width"],
-        len=mem["size"],
-        idx_size=clog2_or_1(mem["size"]),
+        bitwidth=mem[width_key],
+        len=mem[size_key],
+        idx_size=clog2_or_1(mem[size_key]),
         is_external=False,
         is_ref=True,
     )
@@ -203,7 +183,7 @@ def add_read_channel(prog, mem):
     # according to zipcpu, rready should be registered
     rready = read_channel.reg(1, "rready")
     curr_addr_internal_mem = read_channel.reg(
-        clog2_or_1(mem["size"]), "curr_addr_internal_mem", is_ref=True
+        clog2_or_1(mem[size_key]), "curr_addr_internal_mem", is_ref=True
     )
     curr_addr_axi = read_channel.reg(64, "curr_addr_axi", is_ref=True)
     # Registed because RLAST is high with laster transfer, not after
@@ -211,7 +191,7 @@ def add_read_channel(prog, mem):
     # last transfer and not servicing it
     n_RLAST = read_channel.reg(1, "n_RLAST")
     # Stores data we want to write to our memory at end of block_transfer group
-    read_data_reg = read_channel.reg(mem["width"], "read_data_reg")
+    read_data_reg = read_channel.reg(mem[width_key], "read_data_reg")
 
     bt_reg = read_channel.reg(1, "bt_reg")
 
@@ -274,7 +254,9 @@ def add_read_channel(prog, mem):
     # In the future we should allow for non-power of 2 widths, will need some
     # splicing for this.
     # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
-    curr_addr_axi_incr = read_channel.incr(curr_addr_axi, width_in_bytes(mem["width"]))
+    curr_addr_axi_incr = read_channel.incr(
+        curr_addr_axi, width_in_bytes(mem[width_key])
+    )
 
     # Control
     invoke_n_RLAST = invoke(n_RLAST, in_in=1)
@@ -300,7 +282,7 @@ def add_write_channel(prog, mem):
     channel_outputs = [
         ("WVALID", 1),
         ("WLAST", 1),
-        ("WDATA", mem["width"]),
+        ("WDATA", mem[width_key]),
     ]
     add_comp_params(write_channel, channel_inputs, channel_outputs)
 
@@ -309,9 +291,9 @@ def add_write_channel(prog, mem):
     # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
     mem_ref = write_channel.seq_mem_d1(
         name="mem_ref",
-        bitwidth=mem["width"],
-        len=mem["size"],
-        idx_size=clog2_or_1(mem["size"]),
+        bitwidth=mem[width_key],
+        len=mem[size_key],
+        idx_size=clog2_or_1(mem[size_key]),
         is_external=False,
         is_ref=True,
     )
@@ -321,7 +303,7 @@ def add_write_channel(prog, mem):
     w_handshake_occurred = write_channel.reg(1, "w_handshake_occurred")
     # internal calyx memory indexing
     curr_addr_internal_mem = write_channel.reg(
-        clog2_or_1(mem["size"]), "curr_addr_internal_mem", is_ref=True
+        "curr_addr_internal_mem", clog2_or_1(mem[size_key]), is_ref=True
     )
     # host indexing, must be 64 bits
     curr_addr_axi = write_channel.reg(64, "curr_addr_axi", is_ref=True)
@@ -389,7 +371,7 @@ def add_write_channel(prog, mem):
         # In the future we should allow for non-power of 2 widths, will need some
         # splicing for this.
         # See https://cucapra.slack.com/archives/C05TRBNKY93/p1705587169286609?thread_ts=1705524171.974079&cid=C05TRBNKY93 # noqa: E501
-        curr_addr_axi_incr = write_channel.incr(curr_addr_axi, ceil(mem["width"] / 8))
+        curr_addr_axi_incr = write_channel.incr(curr_addr_axi, ceil(mem[width_key] / 8))
         curr_transfer_count_incr = write_channel.incr(curr_transfer_count, 1)
 
         # Control
@@ -475,14 +457,14 @@ def add_main_comp(prog, mems):
     )
 
     for mem in mems:
-        mem_name = mem["name"]
+        mem_name = mem[name_key]
         # Inputs/Outputs
         wrapper_inputs = [
             (f"{mem_name}_ARESETn", 1),
             (f"{mem_name}_ARREADY", 1),
             (f"{mem_name}_RVALID", 1),
             (f"{mem_name}_RLAST", 1),
-            (f"{mem_name}_RDATA", mem["width"]),
+            (f"{mem_name}_RDATA", mem[width_key]),
             (f"{mem_name}_RRESP", 2),
             (f"{mem_name}_AWREADY", 1),
             (f"{mem_name}_WRESP", 2),
@@ -509,7 +491,7 @@ def add_main_comp(prog, mems):
             (f"{mem_name}_AWPROT", 3),
             (f"{mem_name}_WVALID", 1),
             (f"{mem_name}_WLAST", 1),
-            (f"{mem_name}_WDATA", mem["width"]),
+            (f"{mem_name}_WDATA", mem[width_key]),
             (f"{mem_name}_BREADY", 1),
             # ID signals are needed for coco compatability, tied low
             (f"{mem_name}_ARID", 1),
@@ -523,7 +505,7 @@ def add_main_comp(prog, mems):
         # Cells
         # Read stuff
         curr_addr_internal_mem = wrapper_comp.reg(
-            clog2_or_1(mem["size"]), f"curr_addr_internal_mem_{mem_name}"
+            clog2_or_1(mem[size_key]), f"curr_addr_internal_mem_{mem_name}"
         )
         curr_addr_axi = wrapper_comp.reg(64, f"curr_addr_axi_{mem_name}")
 
@@ -534,9 +516,9 @@ def add_main_comp(prog, mems):
         # we need to raise them at some point form original calyx program
         internal_mem = wrapper_comp.seq_mem_d1(
             name=f"internal_mem_{mem_name}",
-            bitwidth=mem["width"],
-            len=mem["size"],
-            idx_size=clog2_or_1(mem["size"]),
+            bitwidth=mem[width_key],
+            len=mem[size_key],
+            idx_size=clog2_or_1(mem[size_key]),
         )
 
         # Write stuff
@@ -689,13 +671,27 @@ def check_mems_welformed(mems):
     """Checks if memories from yxi are well formed. Returns true if they are, false otherwise."""
     for mem in mems:
         assert (
-            mem["width"] % 8 == 0
+            mem[width_key] % 8 == 0
         ), "Width must be a multiple of 8 to alow byte addressing to host"
         assert log2(
-            mem["width"]
+            mem[width_key]
         ).is_integer(), "Width must be a power of 2 to be correctly described by xSIZE"
-        assert mem["size"] > 0, "Memory size must be greater than 0"
+        assert mem[size_key] > 0, "Memory size must be greater than 0"
 
 
 if __name__ == "__main__":
-    build().emit()
+    yxifilename = "input.yxi"  # default
+    if len(sys.argv) > 2:
+        raise Exception("axi generator takes 1 yxi file name as argument")
+    else:
+        try:
+            yxifilename = sys.argv[1]
+            if not yxifilename.endswith(".yxi"):
+                raise Exception("axi generator requires an yxi file")
+        except:
+            pass  # no arg passed
+    with open(yxifilename, "r", encoding="utf-8") as yxifile:
+        yxifile = open(yxifilename)
+        yxi = json.load(yxifile)
+        mems = yxi["memories"]
+        build().emit()

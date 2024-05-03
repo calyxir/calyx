@@ -492,6 +492,7 @@ fn emit_guard_disjoint_check(
 /// 1. The port is marked with `@data`
 /// 2. The port's cell parent is marked with `@data`
 fn is_data_port(pr: &RRC<ir::Port>) -> bool {
+    assert_eq!(ir::Direction::Input, pr.borrow().direction);
     let port = pr.borrow();
     if !port.attributes.has(ir::BoolAttr::Data) {
         return false;
@@ -499,7 +500,9 @@ fn is_data_port(pr: &RRC<ir::Port>) -> bool {
     if let ir::PortParent::Cell(cwr) = &port.parent {
         let cr = cwr.upgrade();
         let cell = cr.borrow();
-        if cell.attributes.has(ir::BoolAttr::Data) {
+        // For cell.is_this() ports that were externalized, we already checked
+        // that the parent cell had the `@data` attribute.
+        if cell.attributes.has(ir::BoolAttr::Data) || cell.is_this() {
             return true;
         }
     }
