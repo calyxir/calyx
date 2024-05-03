@@ -65,8 +65,10 @@ where
         for port_ref in ports_inline {
             let canon = port_ref.borrow().canonical();
             let port = port_ref.borrow();
-            // We might want to insert
-            let mut new_port_attrs =
+            // We might want to insert the @data attribute for optimization purposes.
+            // But to do this, we have to make sure that the cell is marked @data
+            // as well.
+            let new_port_attrs =
                 if is_data_cell & port.attributes.has(ir::BoolAttr::Data) {
                     let mut attrs = ir::Attributes::default();
                     attrs.insert(ir::BoolAttr::Data, 1);
@@ -74,7 +76,6 @@ where
                 } else {
                     ir::Attributes::default()
                 };
-            new_port_attrs.insert(ir::BoolAttr::Externalized, 1);
 
             let new_port = ir::rrc(ir::Port {
                 name: component.generate_name(format_port_name(&canon)),

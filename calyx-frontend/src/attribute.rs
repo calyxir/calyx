@@ -64,9 +64,6 @@ pub enum BoolAttr {
     #[strum(serialize = "promoted")]
     /// denotes a static component or control promoted from dynamic
     Promoted,
-    #[strum(serialize = "externalized")]
-    /// Denotes a port that has been externalized (i.e., dumped into signature)
-    Externalized,
 }
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {
