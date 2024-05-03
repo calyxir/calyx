@@ -303,7 +303,7 @@ def add_write_channel(prog, mem):
     w_handshake_occurred = write_channel.reg(1, "w_handshake_occurred")
     # internal calyx memory indexing
     curr_addr_internal_mem = write_channel.reg(
-        "curr_addr_internal_mem", clog2_or_1(mem[size_key]), is_ref=True
+        clog2_or_1(mem[size_key]), "curr_addr_internal_mem", is_ref=True
     )
     # host indexing, must be 64 bits
     curr_addr_axi = write_channel.reg(64, "curr_addr_axi", is_ref=True)
