@@ -19,10 +19,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @external @data v0 = comb_mem_d1(32, 1, 1);
     @generated comb_reg = std_reg(1);
     @generated fsm = std_reg(4);
-    @generated ud = undef(1);
     @generated adder = std_add(4);
-    @generated ud0 = undef(1);
     @generated adder0 = std_add(4);
+    @generated ud = undef(1);
+    @generated ud0 = undef(1);
     @generated signal_reg = std_reg(1);
     @generated fsm0 = std_reg(2);
     @generated invoke0_go = std_wire(1);
