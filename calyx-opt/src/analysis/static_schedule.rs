@@ -158,7 +158,7 @@ impl StaticFSM {
         }
     }
 
-    // Return an `ir::RRC<ir::Cell>`` of the fsm object.
+    // Return the name of the of the fsm cell.
     pub fn get_name(&self) -> ir::Id {
         self.cell.borrow().name()
     }
