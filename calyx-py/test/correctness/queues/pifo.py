@@ -119,7 +119,7 @@ def insert_pifo(
     err = pifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    len = pifo.reg("len", 32)  # The active length of the PIFO.
+    len = pifo.reg(32)  # The active length of the PIFO.
 
     # A register that marks the next sub-queue to `pop` from.
     hot = pifo.reg(1)
