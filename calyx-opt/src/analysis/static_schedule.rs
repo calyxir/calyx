@@ -8,10 +8,44 @@ use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy)]
-// Define an enum called Fruit
+// Define an FSMEncoding Enum
 enum FSMEncoding {
     Binary,
     OneHot,
+}
+
+#[derive(Debug)]
+enum FSMImplementationType {
+    Single,
+    // How many duplicates
+    _Duplicate(u64),
+    // How many times to split
+    _Split(u64),
+}
+
+#[derive(Debug)]
+// Define an enum called FSMType
+enum FSMImplementation {
+    // Default option: just a single register
+    Single(ir::RRC<ir::Cell>),
+    // Duplicate the register to reduce fanout when querying
+    // (all FSMs in this vec still have all of the states)
+    _Duplicate(Vec<ir::RRC<ir::Cell>>),
+    // Split the FSM to reduce fanout when querying.
+    // (the FSMs partition the states exactly).
+    // Each FSM has fewer bits but I suspect the logic might be more complicated.
+    _Split(Vec<ir::RRC<ir::Cell>>),
+}
+
+impl FSMImplementation {
+    fn get_single_cell(&self) -> ir::RRC<ir::Cell> {
+        match self {
+            FSMImplementation::Single(cell) => Rc::clone(cell),
+            _ => unreachable!(
+                "called function on non-single FSM implementation "
+            ),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -21,27 +55,33 @@ pub struct StaticFSM {
     // The fsm's bitwidth (this redundant information bc  we have `cell`)
     // but makes it easier if we easily have access to this.
     bitwidth: u64,
-    // The actual register
-    cell: ir::RRC<ir::Cell>,
+    // The actual register(s) used to implement the FSM
+    implementation: FSMImplementation,
 }
 impl StaticFSM {
     // Builds a static_fsm from: num_states and encoding type.
     fn from_basic_info(
         num_states: u64,
         encoding: FSMEncoding,
+        implementation: FSMImplementationType,
         builder: &mut ir::Builder,
     ) -> Self {
         // Only support Binary encoding currently.
         assert!(matches!(encoding, FSMEncoding::Binary));
+        assert!(matches!(implementation, FSMImplementationType::Single));
         // First build the fsm we will use to realize the schedule.
         let fsm_size =
             get_bit_width_from(num_states + 1 /* represent 0..latency */);
-        let fsm = builder.add_primitive("fsm", "std_reg", &[fsm_size]);
+        let fsm = FSMImplementation::Single(builder.add_primitive(
+            "fsm",
+            "std_reg",
+            &[fsm_size],
+        ));
         StaticFSM {
             _num_states: num_states,
             _encoding: encoding,
             bitwidth: fsm_size,
-            cell: fsm,
+            implementation: fsm,
         }
     }
 
@@ -62,6 +102,7 @@ impl StaticFSM {
     ) -> Vec<ir::Assignment<Nothing>> {
         // Only support Binary encoding currently.
         assert!(matches!(self._encoding, FSMEncoding::Binary));
+        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
         // Add assignments to increment the fsm by one unconditionally.
         structure!( builder;
             // done hole will be undefined bc of early reset
@@ -71,7 +112,7 @@ impl StaticFSM {
             let first_state = constant(0, self.bitwidth);
             let final_state = constant(n, self.bitwidth);
         );
-        let fsm_cell = Rc::clone(&self.cell);
+        let fsm_cell = self.implementation.get_single_cell();
         let final_state_guard: ir::Guard<Nothing> =
             guard!(fsm_cell["out"] == final_state["out"]);
         match incr_condition {
@@ -133,8 +174,9 @@ impl StaticFSM {
     ) -> Box<ir::Guard<Nothing>> {
         // Only support Binary encoding currently.
         assert!(matches!(self._encoding, FSMEncoding::Binary));
+        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
         let (beg, end) = query;
-        let fsm_cell = Rc::clone(&self.cell);
+        let fsm_cell = self.implementation.get_single_cell();
         if beg + 1 == end {
             // if beg + 1 == end then we only need to check if fsm == beg
             let interval_const = builder.add_constant(beg, self.bitwidth);
@@ -161,11 +203,13 @@ impl StaticFSM {
     // Return a unique id (i.e., get_unique_id for each FSM in the same component
     // will be different).
     pub fn get_unique_id(&self) -> ir::Id {
-        self.cell.borrow().name()
+        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
+        self.implementation.get_single_cell().borrow().name()
     }
 
     // Return the bitwidth of an FSM object
     pub fn get_bitwidth(&self) -> u64 {
+        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
         self.bitwidth
     }
 }
@@ -260,8 +304,12 @@ impl StaticSchedule {
         };
 
         // First build the fsm we will use to realize the schedule.
-        let fsm_object =
-            StaticFSM::from_basic_info(self.num_states, encoding, builder);
+        let fsm_object = StaticFSM::from_basic_info(
+            self.num_states,
+            encoding,
+            FSMImplementationType::Single,
+            builder,
+        );
 
         // Instantiate the vecdeque.
         let mut res = VecDeque::new();
