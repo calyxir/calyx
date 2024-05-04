@@ -11,7 +11,7 @@ use std::rc::Rc;
 // Define an enum called Fruit
 enum FSMEncoding {
     Binary,
-    _OneHot,
+    OneHot,
 }
 
 #[derive(Debug)]
@@ -250,13 +250,18 @@ impl StaticSchedule {
         &mut self,
         builder: &mut ir::Builder,
         static_component_interface: bool,
+        one_hot_cutoff: u64,
     ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, StaticFSM) {
+        // Choose encoding based on one-hot cutoff.
+        let encoding = if self.num_states > one_hot_cutoff {
+            FSMEncoding::Binary
+        } else {
+            FSMEncoding::OneHot
+        };
+
         // First build the fsm we will use to realize the schedule.
-        let fsm_object = StaticFSM::from_basic_info(
-            self.num_states,
-            FSMEncoding::Binary,
-            builder,
-        );
+        let fsm_object =
+            StaticFSM::from_basic_info(self.num_states, encoding, builder);
 
         // Instantiate the vecdeque.
         let mut res = VecDeque::new();

@@ -1,15 +1,16 @@
 use crate::analysis::{GraphColoring, StaticFSM, StaticSchedule};
-use crate::traversal::{Action, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
-use calyx_utils::Error;
+use calyx_utils::{CalyxResult, Error};
 use ir::{build_assignments, RRC};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
 
-#[derive(Default)]
 /// Compiles Static Islands
 pub struct CompileStatic {
     /// maps original static group names to the corresponding group that has an FSM that reset early
@@ -20,6 +21,10 @@ pub struct CompileStatic {
     signal_reg_map: HashMap<ir::Id, ir::Id>,
     /// maps reset_early_group names to StaticFSM object
     fsm_info_map: HashMap<ir::Id, ir::RRC<StaticFSM>>,
+    // ========= Pass Options ============
+    /// How many states the static FSM must have before we pick binary encoding over
+    /// one-hot
+    one_hot_cutoff: u64,
 }
 
 impl Named for CompileStatic {
@@ -29,6 +34,37 @@ impl Named for CompileStatic {
 
     fn description() -> &'static str {
         "compiles static sub-programs into a dynamic group"
+    }
+
+    fn opts() -> Vec<PassOpt> {
+        vec![PassOpt::new(
+            "one-hot-cutoff",
+            "The upper limit on the number of states the static FSM must have before we pick binary \
+            encoding over one-hot. Defaults to 0 (i.e., always choose binary encoding)",
+            ParseVal::Num(0),
+            PassOpt::parse_num,
+        )]
+    }
+}
+
+impl ConstructVisitor for CompileStatic {
+    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
+        let opts = Self::get_opts(ctx);
+
+        Ok(CompileStatic {
+            one_hot_cutoff: opts["one-hot-cutoff"].pos_num().unwrap(),
+            reset_early_map: HashMap::new(),
+            wrapper_map: HashMap::new(),
+            signal_reg_map: HashMap::new(),
+            fsm_info_map: HashMap::new(),
+        })
+    }
+
+    fn clear_data(&mut self) {
+        self.reset_early_map = HashMap::new();
+        self.wrapper_map = HashMap::new();
+        self.signal_reg_map = HashMap::new();
+        self.fsm_info_map = HashMap::new();
     }
 }
 
@@ -581,6 +617,7 @@ impl CompileStatic {
     // The assignments are removed from `sgroup` and placed into
     // `builder.component`'s continuous assignments.
     fn compile_static_interface(
+        &self,
         sgroup: ir::RRC<ir::StaticGroup>,
         builder: &mut ir::Builder,
     ) {
@@ -588,7 +625,8 @@ impl CompileStatic {
             // Build a StaticSchedule object, realize it and add assignments
             // as continuous assignments.
             let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
-            let (mut assigns, fsm) = sch.realize_schedule(builder, true);
+            let (mut assigns, fsm) =
+                sch.realize_schedule(builder, true, self.one_hot_cutoff);
             builder
                 .component
                 .continuous_assignments
@@ -706,13 +744,16 @@ impl Visitor for CompileStatic {
                 // Compile top level static group differently.
                 // We know that the top level static island has its own
                 // unique FSM so we can do `.pop().unwrap()`
-                Self::compile_static_interface(
+                self.compile_static_interface(
                     sch.static_groups.pop().unwrap(),
                     &mut builder,
                 )
             } else {
-                let (mut static_group_assigns, fsm) = sch
-                    .realize_schedule(&mut builder, static_component_interface);
+                let (mut static_group_assigns, fsm) = sch.realize_schedule(
+                    &mut builder,
+                    static_component_interface,
+                    self.one_hot_cutoff,
+                );
                 let fsm_ref = ir::rrc(fsm);
                 for static_group in sch.static_groups.iter() {
                     // Create the dynamic "early reset group" that will replace the static group.
