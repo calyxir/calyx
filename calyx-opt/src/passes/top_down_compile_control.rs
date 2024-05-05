@@ -211,6 +211,8 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 
 /// Represents the dyanmic execution schedule of a control program.
 struct Schedule<'b, 'a: 'b> {
+    /// A mapping from groups to corresponding FSM states
+    pub groups_to_states: HashMap<String, u64>,
     /// Assigments that should be enabled in a given state.
     pub enables: HashMap<u64, Vec<ir::Assignment<Nothing>>>,
     /// Transition from one state to another when the guard is true.
@@ -237,6 +239,7 @@ struct FSMStateInfo {
 impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
     fn from(builder: &'b mut ir::Builder<'a>) -> Self {
         Schedule {
+            groups_to_states: HashMap::new(),
             enables: HashMap::new(),
             transitions: Vec::new(),
             builder,
@@ -300,40 +303,17 @@ impl<'b, 'a> Schedule<'b, 'a> {
         json_out_file: &OutputFile,
     ) {
         let mut curr_states: HashSet<FSMStateInfo> = HashSet::new();
-        self.enables
-            .iter()
-            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-            .for_each(|(state, assigns)| {
-                if assigns.len() > 1 {
-                    panic!("There are more than one enable in the FSM state?");
-                }
-
-                assigns.iter().for_each(|assign| {
-                    let asgn_string =
-                        Printer::port_to_str(&assign.dst.borrow());
-                    let group_string_opt = asgn_string.split('[').next();
-                    if let Some(group_string) = group_string_opt {
-                        curr_states.insert(
-                            FSMStateInfo {
-                                id: *state,
-                                // FIXME: hack assuming that the assingment destination would be "group[go]"
-                                group: String::from(group_string),
-                            }
-                            .to_owned(),
-                        );
-                    }
-                });
+        self.groups_to_states.iter().for_each(|(group, state)| {
+            curr_states.insert(FSMStateInfo {
+                id: state.clone(),
+                group: group.clone(),
             });
-        curr_states.insert(FSMStateInfo {
-            id: self.last_state(),
-            group: String::from("END"),
         });
         let fsm = FSMInfo {
             component,
             group,
             states: curr_states.into_iter().collect_vec(),
         };
-        // println!("{}", serde_json::json!(fsm))
         let _ = serde_json::to_writer_pretty(json_out_file.get_write(), &fsm);
     }
 
@@ -467,6 +447,7 @@ impl Schedule<'_, '_> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
+
             let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
@@ -477,6 +458,9 @@ impl Schedule<'_, '_> {
             } else {
                 (cur_state, preds)
             };
+
+            // Add group to mapping in 
+            self.groups_to_states.insert(String::from(&group.borrow().name().to_string()), cur_state);
 
             let not_done = !guard!(group["done"]);
             let signal_on = self.builder.add_constant(1, 1);
