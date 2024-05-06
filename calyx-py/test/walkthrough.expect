@@ -3,18 +3,18 @@ import "primitives/binary_operators.futil";
 import "primitives/memories/comb.futil";
 component adder(val1: 32, val2: 32) -> (out: 32) {
   cells {
-    sum = std_reg(32);
-    add_1 = std_add(32);
+    reg_1 = std_reg(32);
+    add_2 = std_add(32);
   }
   wires {
     group compute_sum {
-      add_1.left = val1;
-      add_1.right = val2;
-      sum.write_en = 1'd1;
-      sum.in = add_1.out;
-      compute_sum[done] = sum.done;
+      add_2.left = val1;
+      add_2.right = val2;
+      reg_1.write_en = 1'd1;
+      reg_1.in = add_2.out;
+      compute_sum[done] = reg_1.done;
     }
-    out = sum.out;
+    out = reg_1.out;
   }
   control {
     compute_sum;
@@ -22,91 +22,91 @@ component adder(val1: 32, val2: 32) -> (out: 32) {
 }
 component abs_diff(val1: 32, val2: 32) -> (out: 32) {
   cells {
-    diff = std_reg(32);
+    reg_1 = std_reg(32);
     ge = std_ge(32);
-    ge_reg = std_reg(1);
-    sub_1 = std_sub(32);
-    sub_2 = std_sub(32);
-    lt_3 = std_lt(32);
+    reg_2 = std_reg(1);
+    sub_3 = std_sub(32);
+    sub_4 = std_sub(32);
+    lt_5 = std_lt(32);
   }
   wires {
-    group sub_1_group {
-      sub_1.left = val1;
-      sub_1.right = val2;
-      diff.write_en = 1'd1;
-      diff.in = sub_1.out;
-      sub_1_group[done] = diff.done;
+    group sub_3_group {
+      sub_3.left = val1;
+      sub_3.right = val2;
+      reg_1.write_en = 1'd1;
+      reg_1.in = sub_3.out;
+      sub_3_group[done] = reg_1.done;
     }
-    group sub_2_group {
-      sub_2.left = val2;
-      sub_2.right = val1;
-      diff.write_en = 1'd1;
-      diff.in = sub_2.out;
-      sub_2_group[done] = diff.done;
+    group sub_4_group {
+      sub_4.left = val2;
+      sub_4.right = val1;
+      reg_1.write_en = 1'd1;
+      reg_1.in = sub_4.out;
+      sub_4_group[done] = reg_1.done;
     }
     group val1_ge_val2 {
       ge.left = val1;
       ge.right = val2;
-      ge_reg.write_en = 1'd1;
-      ge_reg.in = ge.out;
-      val1_ge_val2[done] = ge_reg.done;
+      reg_2.write_en = 1'd1;
+      reg_2.in = ge.out;
+      val1_ge_val2[done] = reg_2.done;
     }
-    comb group lt_3_group {
-      lt_3.left = val2;
-      lt_3.right = val1;
+    comb group lt_5_group {
+      lt_5.left = val2;
+      lt_5.right = val1;
     }
-    out = diff.out;
+    out = reg_1.out;
   }
   control {
     par {
       seq {
         val1_ge_val2;
-        if ge_reg.out {
-          sub_1_group;
+        if reg_2.out {
+          sub_3_group;
         } else {
-          sub_2_group;
+          sub_4_group;
         }
       }
-      if lt_3.out with lt_3_group {
-        sub_2_group;
+      if lt_5.out with lt_5_group {
+        sub_4_group;
       } else {
-        sub_1_group;
+        sub_3_group;
       }
     }
   }
 }
 component mux(val1: 32, val2: 32, sel: 1) -> (out: 32) {
   cells {
-    mux = std_reg(32);
-    eq_1 = std_eq(1);
-    add_2 = std_add(32);
+    reg_1 = std_reg(32);
+    eq_2 = std_eq(1);
+    add_3 = std_add(32);
     abs_diff = abs_diff();
   }
   wires {
-    comb group eq_1_group {
-      eq_1.left = sel;
-      eq_1.right = 1'd0;
+    comb group eq_2_group {
+      eq_2.left = sel;
+      eq_2.right = 1'd0;
     }
-    group add_2_group {
-      add_2.left = val1;
-      add_2.right = val2;
-      mux.write_en = 1'd1;
-      mux.in = add_2.out;
-      add_2_group[done] = mux.done;
+    group add_3_group {
+      add_3.left = val1;
+      add_3.right = val2;
+      reg_1.write_en = 1'd1;
+      reg_1.in = add_3.out;
+      add_3_group[done] = reg_1.done;
     }
     group compute_diff {
       abs_diff.val1 = val1;
       abs_diff.val2 = val2;
       abs_diff.go = 1'd1;
-      mux.write_en = abs_diff.done;
-      mux.in = abs_diff.out;
-      compute_diff[done] = mux.done;
+      reg_1.write_en = abs_diff.done;
+      reg_1.in = abs_diff.out;
+      compute_diff[done] = reg_1.done;
     }
-    out = mux.out;
+    out = reg_1.out;
   }
   control {
-    if eq_1.out with eq_1_group {
-      add_2_group;
+    if eq_2.out with eq_2_group {
+      add_3_group;
     } else {
       compute_diff;
     }
@@ -115,37 +115,37 @@ component mux(val1: 32, val2: 32, sel: 1) -> (out: 32) {
 component map(v: 32) -> () {
   cells {
     ref mem = comb_mem_d1(32, 10, 32);
-    i = std_reg(8);
-    i_incr = std_add(8);
-    add_1 = std_add(32);
-    lt_2 = std_lt(8);
+    reg_1 = std_reg(8);
+    reg_1_incr = std_add(8);
+    add_2 = std_add(32);
+    lt_3 = std_lt(8);
   }
   wires {
-    group i_incr_group {
-      i_incr.left = i.out;
-      i_incr.right = 8'd1;
-      i.write_en = 1'd1;
-      i.in = i_incr.out;
-      i_incr_group[done] = i.done;
+    group reg_1_incr_group {
+      reg_1_incr.left = reg_1.out;
+      reg_1_incr.right = 8'd1;
+      reg_1.write_en = 1'd1;
+      reg_1.in = reg_1_incr.out;
+      reg_1_incr_group[done] = reg_1.done;
     }
-    comb group lt_2_group {
-      lt_2.left = i.out;
-      lt_2.right = 8'd10;
+    comb group lt_3_group {
+      lt_3.left = reg_1.out;
+      lt_3.right = 8'd10;
     }
     group add_at_position_i {
-      mem.addr0 = i.out;
-      add_1.left = mem.read_data;
-      add_1.right = v;
-      mem.write_en = add_1.done ? 1'd1;
-      mem.write_data = add_1.out;
+      mem.addr0 = reg_1.out;
+      add_2.left = mem.read_data;
+      add_2.right = v;
+      mem.write_en = add_2.done ? 1'd1;
+      mem.write_data = add_2.out;
       add_at_position_i[done] = mem.done;
     }
   }
   control {
-    while lt_2.out with lt_2_group {
+    while lt_3.out with lt_3_group {
       seq {
         add_at_position_i;
-        i_incr_group;
+        reg_1_incr_group;
       }
     }
   }
