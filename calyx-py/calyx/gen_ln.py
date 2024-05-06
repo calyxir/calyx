@@ -147,11 +147,12 @@ def generate_pade_cells(
         "sub1",
         Stdlib.fixed_point_op("sub", width, int_width, width - int_width, is_signed),
     )
-    comp.reg("num_reg", width)
-    comp.reg("den_reg", width)
-    comp.reg("res_reg", width)
-    comp.reg("x_reg", width)
-    comp.reg("x_sq_reg", width)
+
+    comp.reg(width, "num_reg")
+    comp.reg(width, "den_reg")
+    comp.reg(width, "res_reg")
+    comp.reg(width, "x_reg")
+    comp.reg(width, "x_sq_reg")
 
 
 def generate_pade_groups(comp: ComponentBuilder):
@@ -266,7 +267,7 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
     # this is unused for some reason
     and1 = comp.cell("and1", Stdlib.op("and", width, signed=False))
 
-    n = comp.reg("n", width)
+    n = comp.reg(width, "n")
     div_pipe = comp.cell(
         "div_pipe",
         Stdlib.fixed_point_op(
@@ -294,7 +295,7 @@ def generate_ln(width: int, int_width: int, is_signed: bool) -> List[Component]:
     pade_approx = comp.comp_instance(
         "pade_approx", "ln_pade_approx", check_undeclared=False
     )
-    res_reg = comp.reg("res_reg", width)
+    res_reg = comp.reg(width, "res_reg")
     msb = comp.comp_instance("msb", "msb_calc", check_undeclared=False)
     # these 3 appear unused, not sure why
     slice0 = comp.cell("slice0", Stdlib.slice(width, int_width))
@@ -393,7 +394,7 @@ if __name__ == "__main__":
 
     # main component for testing purposes
     main = builder.component("main")
-    x = main.reg("x", width)
+    x = main.reg(width, "x")
     in_ = main.comb_mem_d1("in", width, 1, 1, is_external=True)
     out = main.comb_mem_d1("out", width, 1, 1, is_external=True)
     ln = main.comp_instance("l", "ln")

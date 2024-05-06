@@ -48,6 +48,7 @@
   - [Systolic Array Generator](./frontends/systolic-array.md)
   - [TVM Relay](./frontends/tvm-relay.md)
   - [NTT Pipeline Generator](./frontends/ntt.md)
+  - [Queues](./frontends/queues.md)
   - [MrXL](./frontends/mrxl.md)
 
 # Tools

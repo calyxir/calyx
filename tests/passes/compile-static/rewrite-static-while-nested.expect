@@ -10,12 +10,12 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     l2 = std_lt(3);
     r_cond = std_reg(1);
     @generated fsm = std_reg(2);
-    @generated ud = undef(1);
     @generated adder = std_add(2);
-    @generated ud0 = undef(1);
     @generated adder0 = std_add(2);
-    @generated ud1 = undef(1);
     @generated adder1 = std_add(2);
+    @generated ud = undef(1);
+    @generated ud0 = undef(1);
+    @generated ud1 = undef(1);
     @generated signal_reg = std_reg(1);
   }
   wires {
