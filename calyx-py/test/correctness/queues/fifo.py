@@ -23,8 +23,8 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     value = fifo.input("value", 32)  # The value to push to the queue
 
     mem = fifo.seq_mem_d1("mem", 32, length, 4)
-    write = fifo.reg(32, "next_write")  # The next address to write to
-    read = fifo.reg(32, "next_read")  # The next address to read from
+    write = fifo.reg(4, "next_write")  # The next address to write to
+    read = fifo.reg(4, "next_read")  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
     # simulate a circular queue of size length.
 
