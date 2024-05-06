@@ -64,7 +64,7 @@ def create_immediate_done_condition(
     final_row_idx = this.port(f"r{num_rows-1}_idx")
     max_idx = num_cols - 1
     # delay_reg delays writing to this.computation_done
-    delay_reg = comp.reg("delay_reg", 1)
+    delay_reg = comp.reg(1, "delay_reg")
     final_col_idx_reached = final_row_idx == cb.ExprBuilder(
         py_ast.ConstantPort(idx_width, max_idx)
     )
@@ -285,10 +285,10 @@ def create_dynamic_post_op_groups(
         """
         this = comp.this()
         row_ready_wire = comp.wire(f"r{row}_ready_wire", 1)
-        row_ready_reg = comp.reg(f"r{row}_ready_reg", 1)
+        row_ready_reg = comp.reg(1, f"r{row}_ready_reg")
         for col in range(num_cols):
             wire_value = comp.wire(f"r{row}_c{col}_val_wire", BITWIDTH)
-            reg_value = comp.reg(f"r{row}_c{col}_val_reg", BITWIDTH)
+            reg_value = comp.reg(BITWIDTH, f"r{row}_c{col}_val_reg")
             val_ready = comp.wire(f"r{row}_c{col}_val_ready", 1)
             valid_signal = this.port(f"r{row}_valid")
             idx_signal = this.port(f"r{row}_idx")
@@ -322,7 +322,7 @@ def create_dynamic_post_op_groups(
     # Current value we are performing relu on.
     cur_val = comp.wire(f"r{row}_cur_val", BITWIDTH)
     # Current idx within the row (i.e., column) for the value we are performing relu on.
-    idx_reg = comp.reg(f"r{row}_cur_idx", addr_width)
+    idx_reg = comp.reg(addr_width, f"r{row}_cur_idx")
     # Handling logic to hold the systolic array's output values so they're available
     # for more than one cycle.
     store_output_vals(comp, row, num_cols, addr_width)

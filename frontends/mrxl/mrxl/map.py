@@ -38,7 +38,7 @@ def gen_map_impl(
     arr_size = arr_size // bank_factor
     for bank in range(bank_factor):
         suffix = f"b{bank}_{s_idx}"
-        idx = comp.reg(f"idx_{suffix}", 32)
+        idx = comp.reg(32, f"idx_{suffix}")
 
         # Increment the index
         incr = incr_group(comp, idx, suffix)

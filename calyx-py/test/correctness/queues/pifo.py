@@ -106,21 +106,21 @@ def insert_pifo(
     if stats:
         stats = pifo.cell("stats", stats, is_ref=True)
 
-    flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1.
+    flow = pifo.reg(1)  # The flow to push to: 0 or 1.
     # We will infer this using a separate component;
     # it is a function of the value being pushed.
     infer_flow = insert_flow_inference(pifo, value, flow, boundary, "infer_flow")
 
-    ans = pifo.reg("ans", 32, is_ref=True)
+    ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
 
-    err = pifo.reg("err", 1, is_ref=True)
+    err = pifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    len = pifo.reg("len", 32)  # The active length of the PIFO.
+    len = pifo.reg(32)  # The active length of the PIFO.
 
     # A register that marks the next sub-queue to `pop` from.
-    hot = pifo.reg("hot", 1)
+    hot = pifo.reg(1)
 
     # Some equality checks.
     hot_eq_0 = pifo.eq_use(hot.out, 0)

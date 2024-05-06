@@ -23,7 +23,7 @@ def pe(prog: cb.Builder):
     comp.input("left", BITWIDTH)
     comp.input("mul_ready", 1)
     comp.output("out", BITWIDTH)
-    acc = comp.reg("acc", BITWIDTH)
+    acc = comp.reg(BITWIDTH, "acc")
     add = comp.fp_sop("adder", "add", BITWIDTH, INTWIDTH, FRACWIDTH)
     mul = comp.pipelined_fp_smult("mul", BITWIDTH, INTWIDTH, FRACWIDTH)
 

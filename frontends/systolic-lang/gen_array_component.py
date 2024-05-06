@@ -92,8 +92,8 @@ def instantiate_pe(comp: cb.ComponentBuilder, row: int, col: int):
     """
     # Add all the required cells.
     comp.cell(f"pe_{row}_{col}", py_ast.CompInst(PE_NAME, []))
-    comp.reg(f"top_{row}_{col}", BITWIDTH)
-    comp.reg(f"left_{row}_{col}", BITWIDTH)
+    comp.reg(BITWIDTH, f"top_{row}_{col}")
+    comp.reg(BITWIDTH, f"left_{row}_{col}")
 
 
 def get_indexor(comp: cb.ComponentBuilder, width: int, offset: int) -> cb.CellBuilder:
@@ -203,7 +203,7 @@ def init_iter_limit(
     # Only need to initalize this group if
     if not config.static:
         partial_iter_limit = config.top_length + config.left_length + 4
-        iter_limit = comp.reg("iter_limit", BITWIDTH)
+        iter_limit = comp.reg(BITWIDTH, "iter_limit")
         iter_limit_add = comp.add(BITWIDTH, "iter_limit_add")
         with comp.static_group("init_iter_limit", 1):
             iter_limit_add.left = partial_iter_limit
@@ -218,7 +218,7 @@ def instantiate_idx_groups(comp: cb.ComponentBuilder, config: SystolicConfigurat
     Also builds groups that set cond_reg to 1 (runs before the while loop)
     and that sets cond_reg to (idx + 1 < iter_limit).
     """
-    idx = comp.reg("idx", BITWIDTH)
+    idx = comp.reg(BITWIDTH, "idx")
     add = comp.add(BITWIDTH, "idx_add")
 
     with comp.static_group("init_idx", 1):
@@ -344,13 +344,13 @@ def generate_control(
                 boundary_fill_sched = f"Feeding Boundary PE: \
 [{schedule.mappings['update_sched'][r][c].i1},\
 {schedule.mappings['update_sched'][r][c].i2}) || "
-            source_map[
-                tag
-            ] = f"pe_{r}_{c}: \
+            source_map[tag] = (
+                f"pe_{r}_{c}: \
 {boundary_fill_sched}\
 Invoking PE: [{schedule.mappings['pe_sched'][r][c].i1}, \
 {schedule.mappings['pe_sched'][r][c].i2}) || \
 Writing PE Result: {schedule.mappings['pe_write_sched'][r][c].i1}"
+            )
 
     while_body = py_ast.StaticParComp(while_body_stmts)
 
