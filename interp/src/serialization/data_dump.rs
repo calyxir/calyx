@@ -106,15 +106,20 @@ pub struct DataDump {
 }
 
 impl DataDump {
-    /// returns an empty data dump
-    pub fn new_empty() -> Self {
+    /// returns an empty data dump with a top level name
+    pub fn new_empty_with_top_level(top_level: String) -> Self {
         Self {
             header: DataHeader {
-                top_level: String::new(),
+                top_level,
                 memories: vec![],
             },
             data: vec![],
         }
+    }
+
+    /// returns an empty data dump
+    pub fn new_empty() -> Self {
+        Self::new_empty_with_top_level("".to_string())
     }
 
     /// pushes a new memory into the data dump. This does not do any fancy

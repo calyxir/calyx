@@ -1,8 +1,44 @@
+use super::context::Context;
+
 // TODO(griffin): Replace with cranelift_entity if this ends up being the same
 pub trait IndexRef: Copy + Eq {
     fn index(&self) -> usize;
     fn new(input: usize) -> Self;
 }
+
+/// A wrapper around an index/reference that also contains a reference to the object that
+/// the index is indexing into or associated with. You should use this to make
+/// working with indices easier. It should not be stored in a data structure.
+pub struct WrappedPointer<'a, Data, Pointer> {
+    data: Data,
+    wrapped_pointer: &'a Pointer,
+}
+
+impl<'a, I, T> WrappedPointer<'a, I, T> {
+    pub fn new(index: I, wrapped_pointer: &'a T) -> Self {
+        Self {
+            data: index,
+            wrapped_pointer,
+        }
+    }
+
+    pub fn data(&self) -> &I {
+        &self.data
+    }
+
+    pub fn pointer(&self) -> &T {
+        self.wrapped_pointer
+    }
+
+    pub fn map<Data2>(
+        &self,
+        f: impl FnOnce(&Self) -> Data2,
+    ) -> WrappedPointer<'a, Data2, T> {
+        WrappedPointer::new(f(self), self.wrapped_pointer)
+    }
+}
+
+pub type ContextWrappedPointer<'a, T> = WrappedPointer<'a, Context, T>;
 
 /// This macro is used to implement the IndexRef trait for a type that wraps an
 /// unsigned integer value. By default, the macro will implement the trait using

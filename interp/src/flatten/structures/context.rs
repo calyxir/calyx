@@ -19,7 +19,7 @@ use crate::flatten::flat_ir::{
 };
 
 use super::{
-    index_trait::{IndexRange, IndexRef},
+    index_trait::{IndexRange, IndexRef, WrappedPointer},
     indexed_map::{AuxillaryMap, IndexedMap},
     printer::Printer,
 };
@@ -270,6 +270,10 @@ impl Context {
     pub fn printer(&self) -> Printer {
         Printer::new(self)
     }
+
+    pub fn entry_point(&self) -> WrappedPointer<ComponentIdx, Self> {
+        WrappedPointer::new(self.entry_point, self)
+    }
 }
 
 // Internal helper functions
@@ -367,5 +371,70 @@ impl Context {
                 .expect("Port does not belong to any ref cell in the given component").into()
             },
         }
+    }
+}
+
+impl<'a> WrappedPointer<'a, ComponentIdx, Context> {
+    pub fn primary(&'a self) -> WrappedPointer<&'a ComponentCore, Context> {
+        WrappedPointer::new(
+            &self.pointer().primary[*self.data()],
+            self.pointer(),
+        )
+    }
+
+    pub fn secondary(
+        &'a self,
+    ) -> WrappedPointer<&'a AuxillaryComponentInfo, Context> {
+        WrappedPointer::new(
+            &self.pointer().secondary[*self.data()],
+            self.pointer(),
+        )
+    }
+}
+
+impl<'a> WrappedPointer<'a, &'a AuxillaryComponentInfo, Context> {
+    pub fn identifier(&'a self) -> WrappedPointer<'a, Identifier, Context> {
+        WrappedPointer::new(self.data().name, self.pointer())
+    }
+    pub fn signature(
+        &'a self,
+    ) -> WrappedPointer<'a, &'a IndexRange<LocalPortOffset>, Context> {
+        WrappedPointer::new(&self.data().signature, self.pointer())
+    }
+    pub fn definitions(
+        &'a self,
+    ) -> WrappedPointer<
+        'a,
+        &'a crate::flatten::flat_ir::component::DefinitionRanges,
+        Context,
+    > {
+        WrappedPointer::new(&self.data().definitions, self.pointer())
+    }
+    pub fn port_offset_map(
+        &'a self,
+    ) -> WrappedPointer<
+        'a,
+        &'a super::sparse_map::SparseMap<LocalPortOffset, PortDefinitionIdx>,
+        Context,
+    > {
+        WrappedPointer::new(&self.data().port_offset_map, self.pointer())
+    }
+    pub fn ref_port_offset_map(
+        &'a self,
+    ) -> WrappedPointer<
+        'a,
+        &'a super::sparse_map::SparseMap<
+            LocalRefPortOffset,
+            RefPortDefinitionIdx,
+        >,
+        Context,
+    > {
+        WrappedPointer::new(&self.data().ref_port_offset_map, self.pointer())
+    }
+}
+
+impl<'a> WrappedPointer<'a, Identifier, Context> {
+    pub fn get_string(&self) -> &String {
+        self.pointer().resolve_id(*self.data())
     }
 }

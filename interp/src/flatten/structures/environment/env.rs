@@ -25,6 +25,7 @@ use crate::{
             environment::program_counter::ControlPoint, index_trait::IndexRef,
         },
     },
+    serialization::data_dump::DataDump,
     values::Value,
 };
 use std::fmt::Debug;
@@ -438,6 +439,7 @@ impl<'a> Simulator<'a> {
         self.env.print_env()
     }
 
+    #[inline]
     pub fn ctx(&self) -> &Context {
         self.env.ctx
     }
@@ -887,5 +889,18 @@ impl<'a> Simulator<'a> {
         }
 
         Ok(())
+    }
+
+    /// Dump the current state of the environment as a DataDump
+    pub fn dump_memories(&self) -> DataDump {
+        let ctx = self.ctx();
+        let entry = ctx.entry_point().secondary().identifier().get_string();
+
+        let top_level_id = ctx.secondary[ctx.entry_point].name;
+        let top_level_string = ctx.secondary[top_level_id].clone();
+
+        let dump = DataDump::new_empty_with_top_level(top_level_string);
+
+        todo!()
     }
 }
