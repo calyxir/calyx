@@ -305,7 +305,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
         let mut curr_states: HashSet<FSMStateInfo> = HashSet::new();
         self.groups_to_states.iter().for_each(|(group, state)| {
             curr_states.insert(FSMStateInfo {
-                id: state.clone(),
+                id: *state,
                 group: group.clone(),
             });
         });
