@@ -8,7 +8,7 @@ def insert_adder_component(prog):
     val2 = comp.input("val2", 32)
     comp.output("out", 32)
 
-    sum = comp.reg("sum", 32)
+    sum = comp.reg(32)
     add = comp.add(32)
 
     with comp.group("compute_sum") as compute_sum:
