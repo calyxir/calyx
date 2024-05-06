@@ -231,6 +231,24 @@ fud exec --from calyx --to jq \
 """
 timeout = 120
 
+[[tests]]
+name = "correctness static timing one-hot encoding"
+paths = [
+  "tests/correctness/static-interface/*.futil",
+]
+cmd = """
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s calyx.exec './target/debug/calyx' \
+         -s calyx.flags '-x compile-static:one-hot-cutoff=64' \
+         -s verilog.cycle_limit 500 \
+         -s verilog.data {}.data \
+         -s jq.expr ".memories" \
+         {} -q
+"""
+timeout = 120
+
 # Variants of the above but for `--nested` (non-ANF Verilog emission) mode.
 [[tests]]
 name = "correctness nested"
@@ -269,7 +287,6 @@ fud exec --from calyx --to jq \
 timeout = 120
 
 # Tests to ensure static compilation maintains guarantees for one-hot encodings
-# See: https://github.com/calyxir/calyx/discussions/1331 & https://github.com/calyxir/calyx/issues/1344
 [[tests]]
 name = "correctness static control, one-hot fsms"
 paths = [
@@ -281,7 +298,7 @@ fud exec --from calyx --to jq \
          --through verilog \
          --through dat \
          -s calyx.exec './target/debug/calyx' \
-         -s calyx.flags '-p all -d group2invoke -x compile-static:one-hot-cutoff=32' \
+         -s calyx.flags '-p all -d group2invoke -x compile-static:one-hot-cutoff=64' \
          -s verilog.cycle_limit 500 \
          -s verilog.data {}.data \
          {} -q

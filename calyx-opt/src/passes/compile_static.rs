@@ -94,7 +94,8 @@ impl CompileStatic {
             });
 
         // fsm.out == 0
-        let first_state = *fsm_object.borrow().query_between(builder, (0, 1));
+        let first_state =
+            *fsm_object.borrow_mut().query_between(builder, (0, 1));
         structure!( builder;
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
@@ -165,7 +166,7 @@ impl CompileStatic {
                 )
             });
 
-        let fsm_eq_0 = *fsm_object.borrow().query_between(builder, (0, 1));
+        let fsm_eq_0 = *fsm_object.borrow_mut().query_between(builder, (0, 1));
 
         let wrapper_group =
             builder.add_group(format!("while_wrapper_{}", group_name));
@@ -307,7 +308,7 @@ impl CompileStatic {
 
     // Makes `done` signal for promoted static<n> component.
     fn make_done_signal_for_promoted_component(
-        fsm: &StaticFSM,
+        fsm: &mut StaticFSM,
         builder: &mut ir::Builder,
         comp_sig: RRC<ir::Cell>,
     ) -> Vec<ir::Assignment<ir::Nothing>> {
@@ -377,7 +378,7 @@ impl CompileStatic {
             // Build a StaticSchedule object, realize it and add assignments
             // as continuous assignments.
             let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
-            let (mut assigns, fsm) =
+            let (mut assigns, mut fsm) =
                 sch.realize_schedule(builder, true, self.one_hot_cutoff);
             builder
                 .component
@@ -388,7 +389,7 @@ impl CompileStatic {
                 // If necessary, add the logic to produce a done signal.
                 let done_assigns =
                     Self::make_done_signal_for_promoted_component(
-                        &fsm, builder, comp_sig,
+                        &mut fsm, builder, comp_sig,
                     );
                 builder
                     .component

@@ -1,0 +1,88 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+static<6> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+    @generated fsm = std_reg(6);
+    @generated bw_0_1 = std_wire(1);
+    @generated bw_1_6 = std_wire(1);
+    @generated slicer = std_bit_slice(6, 0, 4, 5);
+    @generated lsh = std_lsh(6);
+    @generated bw_5_6 = std_wire(1);
+    @generated slicer0 = std_bit_slice(6, 4, 4, 1);
+    @generated fsm0 = std_reg(1);
+    @generated lsh0 = std_lsh(1);
+    @generated bw_0_10 = std_wire(1);
+    @generated ud = undef(1);
+  }
+  wires {
+    group early_reset_a {
+      r.write_en = 1'd1;
+      add.right = right;
+      add.left = r.out;
+      r.in = add.out;
+      fsm0.write_en = 1'd1;
+      fsm0.in = 1'd0;
+      early_reset_a[done] = ud.out;
+    }
+    bw_0_1.in = fsm.out == 6'd0 ? 1'd1;
+    slicer.in = fsm.out;
+    bw_1_6.in = slicer.out != 5'd0 ? 1'd1;
+    slicer0.in = fsm.out;
+    bw_5_6.in = slicer0.out != 1'd0 ? 1'd1;
+    r.write_en = go & bw_0_1.out ? 1'd1;
+    add.right = go & bw_0_1.out ? right;
+    add.left = go & bw_0_1.out ? left;
+    r.in = go & bw_0_1.out ? add.out;
+    early_reset_a[go] = bw_1_6.out ? 1'd1;
+    lsh.left = fsm.out;
+    lsh.right = 6'd1;
+    fsm.write_en = 1'd1;
+    fsm.in = go & fsm.out == 6'd0 ? 6'd1;
+    fsm.in = fsm.out != 6'd0 & !bw_5_6.out ? lsh.out;
+    fsm.in = bw_5_6.out ? 6'd0;
+    bw_0_10.in = fsm0.out == 1'd0 ? 1'd1;
+  }
+  control {}
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = do_add();
+    @generated fsm = std_reg(6);
+    @generated bw_0_1 = std_wire(1);
+    @generated lsh = std_lsh(6);
+    @generated bw_5_6 = std_wire(1);
+    @generated slicer = std_bit_slice(6, 4, 4, 1);
+    @generated ud = undef(1);
+    @generated signal_reg = std_reg(1);
+  }
+  wires {
+    group early_reset_static_invoke {
+      a.go = bw_0_1.out ? 1'd1;
+      a.left = 32'd5;
+      a.right = 32'd6;
+      lsh.left = fsm.out;
+      lsh.right = 6'd1;
+      fsm.write_en = 1'd1;
+      fsm.in = fsm.out == 6'd0 ? 6'd1;
+      fsm.in = !bw_5_6.out & !(fsm.out == 6'd0) ? lsh.out;
+      fsm.in = bw_5_6.out ? 6'd0;
+      early_reset_static_invoke[done] = ud.out;
+    }
+    group wrapper_early_reset_static_invoke {
+      early_reset_static_invoke[go] = 1'd1;
+      signal_reg.write_en = bw_0_1.out & !signal_reg.out ? 1'd1;
+      signal_reg.in = bw_0_1.out & !signal_reg.out ? 1'd1;
+      wrapper_early_reset_static_invoke[done] = bw_0_1.out & signal_reg.out ? 1'd1;
+    }
+    bw_0_1.in = fsm.out == 6'd0 ? 1'd1;
+    slicer.in = fsm.out;
+    bw_5_6.in = slicer.out != 1'd0 ? 1'd1;
+    signal_reg.write_en = bw_0_1.out & signal_reg.out ? 1'd1;
+    signal_reg.in = bw_0_1.out & signal_reg.out ? 1'd0;
+  }
+  control {
+    wrapper_early_reset_static_invoke;
+  }
+}
