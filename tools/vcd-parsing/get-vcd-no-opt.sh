@@ -8,7 +8,8 @@ SCRIPT_DIR=$( cd $( dirname $0 ) && pwd )
 CALYX_DIR=$( dirname $( dirname ${SCRIPT_DIR} ) )
 TMP_DIR=${SCRIPT_DIR}/tmp
 TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
-rm -rf ${TMP_DIR} && mkdir ${TMP_DIR}
+mkdir -p ${TMP_DIR}
+rm -f ${TMP_VERILOG}            # "overwrite" existing sv file
 
 INPUT_FILE=$1
 VCD_FILE=$2

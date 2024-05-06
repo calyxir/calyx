@@ -1,0 +1,38 @@
+# Wrapper script for running TDCC, running simulation, and obtaining cycle counts information
+
+if [ $# -ne 2 ]; then
+    echo "USAGE: bash $0 INPUT_FILE SIM_DATA_JSON"
+    exit
+fi
+
+SCRIPT_DIR=$( cd $( dirname $0 ) && pwd )
+SCRIPT_NAME=$( echo "$0" | rev | cut -d/ -f1 | rev )
+CALYX_DIR=$( dirname $( dirname ${SCRIPT_DIR} ) )
+TMP_DIR=${SCRIPT_DIR}/tmp
+TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
+FSM_JSON=${TMP_DIR}/fsm.json
+VCD_FILE=${TMP_DIR}/trace-info.vcd
+
+rm -f ${TMP_VERILOG} ${FSM_JSON}
+
+INPUT_FILE=$1
+SIM_DATA_JSON=$2
+
+# Run TDCC to get the FSM info
+echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
+(
+    cd ${CALYX_DIR}
+    cargo run -- ${INPUT_FILE} -p no-opt -x tdcc:dump-fsm-json="${FSM_JSON}"
+)
+
+# Run simuation to get VCD
+echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
+(
+    bash ${SCRIPT_DIR}/get-vcd-no-opt.sh ${INPUT_FILE} ${VCD_FILE} ${SIM_DATA_JSON}
+)
+
+# Run script to get cycle level counts
+echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
+(
+    python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON}
+)
