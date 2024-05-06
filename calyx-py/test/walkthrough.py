@@ -17,7 +17,7 @@ def insert_adder_component(prog):
     # ANCHOR_END: ports
 
     # ANCHOR: cells
-    sum = comp.reg("sum", 32)
+    sum = comp.reg(32)
     add = comp.add(32)
     # ANCHOR_END: cells
 
@@ -64,9 +64,9 @@ def insert_abs_diff_component(prog):
     val2 = comp.input("val2", 32)
     comp.output("out", 32)
 
-    diff = comp.reg("diff", 32)
+    diff = comp.reg(32)
     ge = comp.ge(32, "ge")
-    ge_reg = comp.reg("ge_reg", 1)
+    ge_reg = comp.reg(1)
 
     # ANCHOR: sub_and_store
     diff_group_1, _ = comp.sub_store_in_reg(val1, val2, diff)
@@ -114,7 +114,7 @@ def insert_mux_component(prog, diff_comp):
     val2 = comp.input("val2", 32)
     sel = comp.input("sel", 1)
     comp.output("out", 32)
-    mux = comp.reg("mux", 32)
+    mux = comp.reg(32)
 
     sel_eq_0 = comp.eq_use(sel, 0)
     sum_group, _ = comp.add_store_in_reg(val1, val2, mux)
@@ -151,7 +151,7 @@ def insert_map_component(prog):
     # ANCHOR_END: comb_mem_d1_ref
     v = comp.input("v", 32)
 
-    i = comp.reg("i", 8)
+    i = comp.reg(8)
     # ANCHOR: incr_oneliner
     incr_i = comp.incr(i)
     # ANCHOR_END: incr_oneliner
