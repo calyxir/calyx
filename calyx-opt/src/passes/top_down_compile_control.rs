@@ -212,7 +212,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 /// Represents the dyanmic execution schedule of a control program.
 struct Schedule<'b, 'a: 'b> {
     /// A mapping from groups to corresponding FSM states
-    pub groups_to_states: HashMap<String, u64>,
+    pub groups_to_states: HashSet<FSMStateInfo>,
     /// Assigments that should be enabled in a given state.
     pub enables: HashMap<u64, Vec<ir::Assignment<Nothing>>>,
     /// Transition from one state to another when the guard is true.
@@ -239,7 +239,7 @@ struct FSMStateInfo {
 impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
     fn from(builder: &'b mut ir::Builder<'a>) -> Self {
         Schedule {
-            groups_to_states: HashMap::new(),
+            groups_to_states: HashSet::new(),
             enables: HashMap::new(),
             transitions: Vec::new(),
             builder,
@@ -302,17 +302,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
         group: String,
         json_out_file: &OutputFile,
     ) {
-        let mut curr_states: HashSet<FSMStateInfo> = HashSet::new();
-        self.groups_to_states.iter().for_each(|(group, state)| {
-            curr_states.insert(FSMStateInfo {
-                id: *state,
-                group: group.clone(),
-            });
-        });
         let fsm = FSMInfo {
             component,
             group,
-            states: curr_states.into_iter().collect_vec(),
+            states: self.groups_to_states.iter().cloned().collect_vec(),
         };
         let _ = serde_json::to_writer_pretty(json_out_file.get_write(), &fsm);
     }
@@ -459,8 +452,8 @@ impl Schedule<'_, '_> {
                 (cur_state, preds)
             };
 
-            // Add group to mapping in 
-            self.groups_to_states.insert(String::from(&group.borrow().name().to_string()), cur_state);
+            // Add group to mapping for emitting group JSON info
+            self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: String::from(&group.borrow().name().to_string()) });
 
             let not_done = !guard!(group["done"]);
             let signal_on = self.builder.add_constant(1, 1);
@@ -826,6 +819,7 @@ pub struct TopDownCompileControl {
     dump_fsm: bool,
     /// Output a JSON FSM representation to file if specified
     dump_fsm_json: Option<OutputFile>,
+    /// TODO: Keep track of FSMInfos here so we can produce a JSON after processing all FSMs
     /// Enable early transitions
     early_transitions: bool,
 }
@@ -889,6 +883,7 @@ impl Visitor for TopDownCompileControl {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        println!("TDCC VISITOR START");
         // Do not try to compile an enable
         if matches!(
             *comp.control.borrow(),
@@ -1078,6 +1073,7 @@ impl Visitor for TopDownCompileControl {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        println!("TDCC VISITOR FINISH START");
         let control = Rc::clone(&comp.control);
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
         let mut builder = ir::Builder::new(comp, sigs);
@@ -1087,6 +1083,7 @@ impl Visitor for TopDownCompileControl {
         let comp_group =
             sch.realize_schedule(self.dump_fsm, &self.dump_fsm_json);
 
+        println!("TDCC VISITOR FINISH END");
         Ok(Action::change(ir::Control::enable(comp_group)))
     }
 }

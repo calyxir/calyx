@@ -40,7 +40,5 @@ echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 # Run script to get cycle level counts
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
-    set -o xtrace
     python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON}
-    set +o xtrace
 ) # &> ${LOGS_DIR}/gol-process
