@@ -16,7 +16,7 @@ def main(vcd_filename, json_file):
     fsm_val_to_num_cycles = {}
     for key in vcd.references_to_ids.keys():
         if f"{component_name}.fsm_out" in key:
-            print(f"===={key}")
+            # print(f"===={key}")
             signal = vcd[key]
             fsm_value = -1
             fsm_time_start = -1

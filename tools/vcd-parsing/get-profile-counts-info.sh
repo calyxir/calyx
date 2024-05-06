@@ -12,6 +12,8 @@ TMP_DIR=${SCRIPT_DIR}/tmp
 TMP_VERILOG=${TMP_DIR}/no-opt-verilog.sv
 FSM_JSON=${TMP_DIR}/fsm.json
 VCD_FILE=${TMP_DIR}/trace-info.vcd
+LOGS_DIR=${SCRIPT_DIR}/logs
+mkdir -p ${TMP_DIR} ${LOGS_DIR}
 
 rm -f ${TMP_VERILOG} ${FSM_JSON}
 
@@ -22,17 +24,23 @@ SIM_DATA_JSON=$2
 echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
 (
     cd ${CALYX_DIR}
+    set -o xtrace
     cargo run -- ${INPUT_FILE} -p no-opt -x tdcc:dump-fsm-json="${FSM_JSON}"
-)
+    set +o xtrace
+) &> ${LOGS_DIR}/gol-tdcc
 
 # Run simuation to get VCD
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
+    set -o xtrace
     bash ${SCRIPT_DIR}/get-vcd-no-opt.sh ${INPUT_FILE} ${VCD_FILE} ${SIM_DATA_JSON}
-)
+    set +o xtrace
+) &> ${LOGS_DIR}/gol-vcd
 
 # Run script to get cycle level counts
 echo "[${SCRIPT_NAME}] Using FSM info and VCD file to obtain cycle level counts"
 (
+    set -o xtrace
     python3 ${SCRIPT_DIR}/parse-vcd.py ${VCD_FILE} ${FSM_JSON}
-)
+    set +o xtrace
+) # &> ${LOGS_DIR}/gol-process
