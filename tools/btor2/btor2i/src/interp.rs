@@ -448,3 +448,11 @@ pub fn parse_inputs(
         })
     }
 }
+
+pub fn parse_states(
+    env: &mut SharedEnvironment,
+    lines: &[Btor2Instr],
+    inputs: &[String],
+) -> Result<(), InterpError> {
+    todo!()
+}
