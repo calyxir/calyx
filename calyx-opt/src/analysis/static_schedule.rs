@@ -77,7 +77,7 @@ impl StaticFSM {
         // The wire that holds the query
         let formatted_name = format!("bw_{}_{}", lb, ub);
         let wire: ir::RRC<ir::Cell> =
-            builder.add_primitive(formatted_name, "std_wire", &vec![1]);
+            builder.add_primitive(formatted_name, "std_wire", &[1]);
         let wire_out = wire.borrow().get("out");
         let signal_on = builder.add_constant(1, 1);
 
@@ -174,7 +174,7 @@ impl StaticFSM {
                 self.queries.insert((lb, ub), Rc::clone(&port));
                 ir::Guard::port(port)
             }
-            Some(port) => ir::Guard::port(Rc::clone(&port)),
+            Some(port) => ir::Guard::port(Rc::clone(port)),
         }
     }
 
@@ -198,15 +198,13 @@ impl StaticFSM {
             &[fsm_size],
         ));
 
-        let static_fsm = StaticFSM {
+        StaticFSM {
             _num_states: num_states,
             _encoding: encoding,
             bitwidth: fsm_size,
             implementation: fsm,
             queries: HashMap::new(),
-        };
-
-        static_fsm
+        }
     }
 
     // Returns assignments that make the current fsm count to n
@@ -231,16 +229,12 @@ impl StaticFSM {
             ));
             // For a one-hot encoder, the "adder" can just be a shifter.
             let adder = match self._encoding {
-                FSMEncoding::Binary => builder.add_primitive(
-                    "adder",
-                    "std_add",
-                    &vec![self.bitwidth],
-                ),
-                FSMEncoding::OneHot => builder.add_primitive(
-                    "lsh",
-                    "std_lsh",
-                    &vec![self.bitwidth],
-                ),
+                FSMEncoding::Binary => {
+                    builder.add_primitive("adder", "std_add", &[self.bitwidth])
+                }
+                FSMEncoding::OneHot => {
+                    builder.add_primitive("lsh", "std_lsh", &[self.bitwidth])
+                }
             };
             // Add assignments to increment the fsm by one unconditionally.
             structure!( builder;
@@ -928,17 +922,12 @@ impl FSMAllocator {
     ) -> HashMap<ir::Id, ir::Id> {
         // `sgroup_uses_map` builds a mapping of static groups -> groups that
         // it (even indirectly) triggers the `go` port of.
-        let sgroup_uses_map = Self::build_sgroup_uses_map(&sgroups);
+        let sgroup_uses_map = Self::build_sgroup_uses_map(sgroups);
         // Build conflict graph and get coloring.
         let mut conflict_graph: GraphColoring<ir::Id> =
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
-        Self::add_par_conflicts(
-            &control,
-            &sgroup_uses_map,
-            &mut conflict_graph,
-        );
+        Self::add_par_conflicts(control, &sgroup_uses_map, &mut conflict_graph);
         Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
-        let coloring = conflict_graph.color_greedy(None, true);
-        coloring
+        conflict_graph.color_greedy(None, true)
     }
 }
