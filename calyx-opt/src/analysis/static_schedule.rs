@@ -117,9 +117,8 @@ impl StaticFSM {
                     let my_assigns = build_assignments!(builder;
                         slicer["in"] = ? fsm_cell["out"];
                         wire["in"] = check_either ? signal_on["out"];
-                    )
-                    .to_vec();
-                    my_assigns
+                    );
+                    my_assigns.to_vec()
                 }
             }
             (_, _) => {
@@ -144,9 +143,8 @@ impl StaticFSM {
                 let my_assigns = build_assignments!(builder;
                     slicer["in"] = ? fsm_cell["out"];
                     wire["in"] = slicer_neq_0 ? signal_on["out"];
-                )
-                .to_vec();
-                my_assigns
+                );
+                my_assigns.to_vec()
             }
         };
         builder.add_continuous_assignments(assigns);
