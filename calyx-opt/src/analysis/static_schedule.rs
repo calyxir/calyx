@@ -280,7 +280,7 @@ impl StaticFSM {
                         guard!(fsm_cell["out"] == fsm_const_0["out"]);
                     let incr_guard = not_final_state_guard
                         .and(ir::Guard::Not(Box::new(fsm_eq_0.clone())));
-                    let my_assigns = if n == 0 {
+                    if n == 0 {
                         // If we are counting to 0, then we just unconditionally
                         // write 0 in to register.
                         // XXX(Caleb): eventually we shouldn't even need a register.
@@ -306,8 +306,7 @@ impl StaticFSM {
                             fsm_cell["in"] = final_state_guard ? first_state["out"];
                           )
                           .to_vec()
-                    };
-                    my_assigns
+                    }
                 }
                 (Some(condition_guard), _) => {
                     let first_state_guard: ir::Guard<Nothing> =
