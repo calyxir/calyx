@@ -2,10 +2,12 @@
 import calyx.builder as cb
 import calyx.queue_call as qc
 
-QUEUE_LEN = 10
+# This determines the maximum possible length of the queue:
+# The max length of the queue will be 2^QUEUE_LEN_FACTOR.
+QUEUE_LEN_FACTOR = 4
 
 
-def insert_fifo(prog, name, length=QUEUE_LEN):
+def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
     """Inserts the component `fifo` into the program.
 
     It has:
@@ -22,11 +24,12 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     # If it is 2, we push `value` to the queue.
     value = fifo.input("value", 32)  # The value to push to the queue
 
-    mem = fifo.seq_mem_d1("mem", 32, length, 32)
-    write = fifo.reg(32, "next_write")  # The next address to write to
-    read = fifo.reg(32, "next_read")  # The next address to read from
+    max_queue_len = 2**queue_len_factor
+    mem = fifo.seq_mem_d1("mem", 32, max_queue_len, queue_len_factor)
+    write = fifo.reg(queue_len_factor, "next_write")  # The next address to write to
+    read = fifo.reg(queue_len_factor, "next_read")  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
-    # simulate a circular queue of size length.
+    # simulate a circular queue of size 2^queue_len_factor.
 
     ans = fifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
@@ -34,17 +37,15 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     err = fifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    len = fifo.reg(32)  # The length of the FIFO.
+    len = fifo.reg(32)  # The active length of the FIFO.
 
     # Cells and groups to check which command we got.
     cmd_eq_0 = fifo.eq_use(cmd, 0)
     cmd_lt_2 = fifo.lt_use(cmd, 2)
     cmd_eq_2 = fifo.eq_use(cmd, 2)
 
-    write_eq_max_queue_len = fifo.eq_use(write.out, length)
-    read_eq_max_queue_len = fifo.eq_use(read.out, length)
     len_eq_0 = fifo.eq_use(len.out, 0)
-    len_eq_max_queue_len = fifo.eq_use(len.out, length)
+    len_eq_max_queue_len = fifo.eq_use(len.out, max_queue_len)
 
     # Cells and groups to increment read and write registers
     write_incr = fifo.incr(write)  # write++
@@ -52,9 +53,6 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
     len_incr = fifo.incr(len)  # len++
     len_decr = fifo.decr(len)  # len--
 
-    # Cells and groups to modify flags, which are registers
-    flash_write = fifo.reg_store(write, 0, "flash_write")  # write := 0
-    flash_read = fifo.reg_store(read, 0, "flash_read")  # read := 0
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
     # Load and store into an arbitary slot in memory
@@ -81,12 +79,7 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
                         cmd_eq_0,  # Did the user call pop?
                         [  # Yes, so we have some work to do besides peeking.
                             read_incr,  # Increment the read pointer.
-                            cb.if_with(
-                                # Wrap around if necessary.
-                                read_eq_max_queue_len,
-                                flash_read,
-                            ),
-                            len_decr,  # Decrement the length.
+                            len_decr,  # Decrement the active length.
                         ],
                     ),
                 ],
@@ -102,12 +95,7 @@ def insert_fifo(prog, name, length=QUEUE_LEN):
                 [  # The queue is not full. Proceed.
                     write_to_mem,  # Write `value` to the queue.
                     write_incr,  # Increment the write pointer.
-                    cb.if_with(
-                        # Wrap around if necessary.
-                        write_eq_max_queue_len,
-                        flash_write,
-                    ),
-                    len_incr,  # Increment the length.
+                    len_incr,  # Increment the active length.
                 ],
             ),
         ),
