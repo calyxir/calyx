@@ -269,7 +269,9 @@ class ComponentBuilder:
         if name:
             assert isinstance(name, str), f"name {name} is not a string"
         if is_ref and not name:
-            raise ValueError("A register that will be passed by reference must have a name.")
+            raise ValueError(
+                "A register that will be passed by reference must have a name."
+            )
         name = name or self.generate_name("reg")
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
@@ -463,6 +465,30 @@ class ComponentBuilder:
             cell.left = left
             cell.right = right
         return CellAndGroup(cell, comb_group)
+
+    def op_use_names(self, cellname, leftname, rightname, groupname=None):
+        """Accepts the name of a cell that performs some computation on two values.
+        Accepts the names of cells that contain those two values.
+        Creates a group that wires up the cell with those values.
+        Returns the group created.
+
+        group `groupname` {
+            `cellname`.left = `leftname`.out;
+            `cellname`.right = `rightname`.out;
+            `groupname`.go = 1;
+            `groupname`.done = `cellname`.done;
+        }
+        """
+        cell = self.get_cell(cellname)
+        left = self.get_cell(leftname)
+        right = self.get_cell(rightname)
+        groupname = groupname or f"{cellname}_group"
+        with self.group(groupname) as group:
+            cell.left = left.out
+            cell.right = right.out
+            cell.go = HI
+            group.done = cell.done
+        return group
 
     def try_infer_width(self, width, left, right):
         """If `width` is None, try to infer it from `left` or `right`.

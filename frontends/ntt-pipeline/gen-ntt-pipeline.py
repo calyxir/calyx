@@ -28,7 +28,7 @@ def reduce_parallel_control_pass(component: ast.Component, N: int, input_size: i
     ...
     """
     assert (
-        N is not None and 0 < N < input_size and (not (N & (N - 1)))
+        N and 0 < N < input_size and (not (N & (N - 1)))
     ), f"""N: {N} should be a power of two within bounds (0, {input_size})."""
 
     reduced_controls = []
@@ -168,15 +168,12 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
 
     def mul_group(comp: cb.ComponentBuilder, stage, mul_tuple):
         mul_index, k, phi_index = mul_tuple
-
-        mul = comp.get_cell(f"mult_pipe{mul_index}")
-        phi = comp.get_cell(f"phi{phi_index}")
-        reg = comp.get_cell(f"r{k}")
-        with comp.group(f"s{stage}_mul{mul_index}") as g:
-            mul.left = phi.out
-            mul.right = reg.out
-            mul.go = 1
-            g.done = mul.done
+        comp.op_use_names(
+            f"mult_pipe{mul_index}",
+            f"phi{phi_index}",
+            f"r{k}",
+            f"s{stage}_mul{mul_index}",
+        )
 
     def op_mod_group(comp: cb.ComponentBuilder, stage, row, operations_tuple):
         lhs, op, mul_index = operations_tuple
