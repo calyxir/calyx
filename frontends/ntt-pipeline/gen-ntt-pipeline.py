@@ -196,12 +196,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             g.done = A.done
 
     def precursor_group(comp: cb.ComponentBuilder, row):
-        r = comp.get_cell(f"r{row}")
-        A = comp.get_cell(f"A{row}")
-        with comp.group(f"precursor_{row}") as g:
-            r.in_ = A.out
-            r.write_en = 1
-            g.done = r.done
+        comp.reg_write_names(f"r{row}", f"A{row}", f"precursor_{row}")
 
     def preamble_group(comp: cb.ComponentBuilder, row):
         reg = comp.get_cell(f"r{row}")

@@ -490,6 +490,26 @@ class ComponentBuilder:
             group.done = cell.done
         return group
 
+    def reg_write_names(self, regname, valname, groupname=None):
+        """Accepts the name of a register and the name of a cell that contains a value.
+        Creates a group that writes the value to the register.
+        Returns the group created.
+
+        group `groupname` {
+            `regname`.in = `valname`.out;
+            `regname`.write_en = 1;
+            `groupname`.done = `regname`.done;
+        }
+        """
+        reg = self.get_cell(regname)
+        val = self.get_cell(valname)
+        groupname = groupname or f"{regname}_store"
+        with self.group(groupname) as group:
+            reg.in_ = val.out
+            reg.write_en = 1
+            group.done = reg.done
+        return group
+
     def try_infer_width(self, width, left, right):
         """If `width` is None, try to infer it from `left` or `right`.
         If that fails, raise an error.
