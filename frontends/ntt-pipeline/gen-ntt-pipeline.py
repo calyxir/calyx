@@ -168,7 +168,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
 
     def mul_group(comp: cb.ComponentBuilder, stage, mul_tuple):
         mul_index, k, phi_index = mul_tuple
-        comp.op_use_names(
+        comp.binary_use_names(
             f"mult_pipe{mul_index}",
             f"phi{phi_index}",
             f"r{k}",
@@ -196,7 +196,9 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
             g.done = A.done
 
     def precursor_group(comp: cb.ComponentBuilder, row):
-        comp.reg_write_names(f"r{row}", f"A{row}", f"precursor_{row}")
+        r = comp.get_cell(f"r{row}")
+        A = comp.get_cell(f"A{row}")
+        comp.reg_store(r, A.out, f"precursor_{row}")
 
     def preamble_group(comp: cb.ComponentBuilder, row):
         reg = comp.get_cell(f"r{row}")
@@ -215,11 +217,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
     def epilogue_group(comp: cb.ComponentBuilder, row):
         input = comp.get_cell("a")
         A = comp.get_cell(f"A{row}")
-        with comp.group(f"epilogue_{row}") as epilogue:
-            input.addr0 = row
-            input.write_en = 1
-            input.write_data = A.out
-            epilogue.done = input.done
+        comp.mem_store_std_d1(input, row, A.out, f"epilogue_{row}")
 
     def cells():
         input = CompVar("a")

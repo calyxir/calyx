@@ -466,7 +466,7 @@ class ComponentBuilder:
             cell.right = right
         return CellAndGroup(cell, comb_group)
 
-    def op_use_names(self, cellname, leftname, rightname, groupname=None):
+    def binary_use_names(self, cellname, leftname, rightname, groupname=None):
         """Accepts the name of a cell that performs some computation on two values.
         Accepts the names of cells that contain those two values.
         Creates a group that wires up the cell with those values.
@@ -480,34 +480,12 @@ class ComponentBuilder:
         }
         """
         cell = self.get_cell(cellname)
-        left = self.get_cell(leftname)
-        right = self.get_cell(rightname)
         groupname = groupname or f"{cellname}_group"
         with self.group(groupname) as group:
-            cell.left = left.out
-            cell.right = right.out
+            cell.left = self.get_cell(leftname).out
+            cell.right = self.get_cell(rightname).out
             cell.go = HI
             group.done = cell.done
-        return group
-
-    def reg_write_names(self, regname, valname, groupname=None):
-        """Accepts the name of a register and the name of a cell that contains a value.
-        Creates a group that writes the value to the register.
-        Returns the group created.
-
-        group `groupname` {
-            `regname`.in = `valname`.out;
-            `regname`.write_en = 1;
-            `groupname`.done = `regname`.done;
-        }
-        """
-        reg = self.get_cell(regname)
-        val = self.get_cell(valname)
-        groupname = groupname or f"{regname}_store"
-        with self.group(groupname) as group:
-            reg.in_ = val.out
-            reg.write_en = 1
-            group.done = reg.done
         return group
 
     def try_infer_width(self, width, left, right):
