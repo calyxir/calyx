@@ -7,7 +7,7 @@ import calyx.queue_call as qc
 QUEUE_LEN_FACTOR = 4
 
 
-def insert_fifo(prog, name):
+def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
     """Inserts the component `fifo` into the program.
 
     It has:
@@ -24,12 +24,12 @@ def insert_fifo(prog, name):
     # If it is 2, we push `value` to the queue.
     value = fifo.input("value", 32)  # The value to push to the queue
 
-    max_queue_len = 2**QUEUE_LEN_FACTOR
-    mem = fifo.seq_mem_d1("mem", 32, max_queue_len, QUEUE_LEN_FACTOR)
-    write = fifo.reg(QUEUE_LEN_FACTOR, "next_write")  # The next address to write to
-    read = fifo.reg(QUEUE_LEN_FACTOR, "next_read")  # The next address to read from
+    max_queue_len = 2**queue_len_factor
+    mem = fifo.seq_mem_d1("mem", 32, max_queue_len, queue_len_factor)
+    write = fifo.reg(queue_len_factor, "next_write")  # The next address to write to
+    read = fifo.reg(queue_len_factor, "next_read")  # The next address to read from
     # We will orchestrate `mem`, along with the two pointers above, to
-    # simulate a circular queue of size 2^QUEUE_LEN_FACTOR.
+    # simulate a circular queue of size 2^queue_len_factor.
 
     ans = fifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop or peek, we will write the value to `ans`.
