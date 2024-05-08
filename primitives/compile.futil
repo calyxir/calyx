@@ -18,6 +18,12 @@ comb primitive std_add<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) 
   assign out = left + right;
 }
 
+// Shift operator.
+comb primitive std_lsh<"share"=1>[WIDTH](@data left: WIDTH, @data right: WIDTH) -> (out: WIDTH)
+{
+  assign out = left << right;
+}
+
 /// Standard register with a one-cycle latency.
 // ANCHOR: std_reg_def
 primitive std_reg<"state_share"=1>[WIDTH](
@@ -42,7 +48,7 @@ primitive std_reg<"state_share"=1>[WIDTH](
   end
 }
 
-/// Standard register with a one-cycle latency. Only difference with std_geg
+/// Standard register with a one-cycle latency. Only difference with std_reg
 // is that starts at 1 rather than 0. This helps with one-hot encoding.
 primitive init_one_reg<"state_share"=1>[WIDTH](
   @write_together(1) @data in: WIDTH,
