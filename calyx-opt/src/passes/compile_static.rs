@@ -253,179 +253,6 @@ impl CompileStatic {
     }
 }
 
-// These are the functions used to compile for the static *component* interface
-impl CompileStatic {
-    // Used for guards in a one cycle static component.
-    // Replaces %0 with comp.go.
-    fn make_guard_dyn_one_cycle_static_comp(
-        guard: ir::Guard<ir::StaticTiming>,
-        comp_sig: RRC<ir::Cell>,
-    ) -> ir::Guard<ir::Nothing> {
-        match guard {
-        ir::Guard::Or(l, r) => {
-            let left =
-                Self::make_guard_dyn_one_cycle_static_comp(*l, Rc::clone(&comp_sig));
-            let right = Self::make_guard_dyn_one_cycle_static_comp(*r, Rc::clone(&comp_sig));
-            ir::Guard::or(left, right)
-        }
-        ir::Guard::And(l, r) => {
-            let left = Self::make_guard_dyn_one_cycle_static_comp(*l, Rc::clone(&comp_sig));
-            let right = Self::make_guard_dyn_one_cycle_static_comp(*r, Rc::clone(&comp_sig));
-            ir::Guard::and(left, right)
-        }
-        ir::Guard::Not(g) => {
-            let f = Self::make_guard_dyn_one_cycle_static_comp(*g, Rc::clone(&comp_sig));
-            ir::Guard::Not(Box::new(f))
-        }
-        ir::Guard::Info(t) => {
-            match t.get_interval() {
-                (0, 1) => guard!(comp_sig["go"]),
-                _ => unreachable!("This function is implemented for 1 cycle static components, only %0 can exist as timing guard"),
-
-            }
-        }
-        ir::Guard::CompOp(op, l, r) => ir::Guard::CompOp(op, l, r),
-        ir::Guard::Port(p) => ir::Guard::Port(p),
-        ir::Guard::True => ir::Guard::True,
-    }
-    }
-
-    // Used for assignments in a one cycle static component.
-    // Replaces %0 with comp.go in the assignment's guard.
-    fn make_assign_dyn_one_cycle_static_comp(
-        assign: ir::Assignment<ir::StaticTiming>,
-        comp_sig: RRC<ir::Cell>,
-    ) -> ir::Assignment<ir::Nothing> {
-        ir::Assignment {
-            src: assign.src,
-            dst: assign.dst,
-            attributes: assign.attributes,
-            guard: Box::new(Self::make_guard_dyn_one_cycle_static_comp(
-                *assign.guard,
-                comp_sig,
-            )),
-        }
-    }
-
-    // Makes `done` signal for promoted static<n> component.
-    fn make_done_signal_for_promoted_component(
-        fsm: &mut StaticFSM,
-        builder: &mut ir::Builder,
-        comp_sig: RRC<ir::Cell>,
-    ) -> Vec<ir::Assignment<ir::Nothing>> {
-        let first_state_guard = *fsm.query_between(builder, (0, 1));
-        structure!(builder;
-          let sig_reg = prim std_reg(1);
-          let one = constant(1, 1);
-          let zero = constant(0, 1);
-        );
-        let go_guard = guard!(comp_sig["go"]);
-        let not_go_guard = !guard!(comp_sig["go"]);
-        let comp_done_guard =
-            first_state_guard.clone().and(guard!(sig_reg["out"]));
-        let assigns = build_assignments!(builder;
-          // Only write to sig_reg when fsm == 0
-          sig_reg["write_en"] = first_state_guard ? one["out"];
-          // If fsm == 0 and comp.go is high, it means we are starting an execution,
-          // so we set signal_reg to high. Note that this happens regardless of
-          // whether comp.done is high.
-          sig_reg["in"] = go_guard ? one["out"];
-          // Otherwise, we set `sig_reg` to low.
-          sig_reg["in"] = not_go_guard ? zero["out"];
-          // comp.done is high when FSM == 0 and sig_reg is high,
-          // since that means we have just finished an execution.
-          comp_sig["done"] = comp_done_guard ? one["out"];
-        );
-        assigns.to_vec()
-    }
-
-    // Makes a done signal for a one-cycle static component.
-    // Essentially you just have to use a one-cycle delay register that
-    // takes the `go` signal as input.
-    fn make_done_signal_for_promoted_component_one_cycle(
-        builder: &mut ir::Builder,
-        comp_sig: RRC<ir::Cell>,
-    ) -> Vec<ir::Assignment<ir::Nothing>> {
-        structure!(builder;
-          let sig_reg = prim std_reg(1);
-          let one = constant(1, 1);
-          let zero = constant(0, 1);
-        );
-        let go_guard = guard!(comp_sig["go"]);
-        let not_go = !guard!(comp_sig["go"]);
-        let signal_on_guard = guard!(sig_reg["out"]);
-        let assigns = build_assignments!(builder;
-          // For one cycle components, comp.done is just whatever comp.go
-          // was during the previous cycle.
-          // signal_reg serves as a forwarding register that delays
-          // the `go` signal for one cycle.
-          sig_reg["in"] = go_guard ? one["out"];
-          sig_reg["in"] = not_go ? zero["out"];
-          sig_reg["write_en"] = ? one["out"];
-          comp_sig["done"] = signal_on_guard ? one["out"];
-        );
-        assigns.to_vec()
-    }
-
-    // Compiles `sgroup` according to the static component interface.
-    // The assignments are removed from `sgroup` and placed into
-    // `builder.component`'s continuous assignments.
-    fn compile_static_interface(
-        &self,
-        sgroup: ir::RRC<ir::StaticGroup>,
-        builder: &mut ir::Builder,
-    ) {
-        if sgroup.borrow().get_latency() > 1 {
-            // Build a StaticSchedule object, realize it and add assignments
-            // as continuous assignments.
-            let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
-            let (mut assigns, mut fsm) =
-                sch.realize_schedule(builder, true, self.one_hot_cutoff);
-            builder
-                .component
-                .continuous_assignments
-                .extend(assigns.pop_front().unwrap());
-            let comp_sig = Rc::clone(&builder.component.signature);
-            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
-                // If necessary, add the logic to produce a done signal.
-                let done_assigns =
-                    Self::make_done_signal_for_promoted_component(
-                        &mut fsm, builder, comp_sig,
-                    );
-                builder
-                    .component
-                    .continuous_assignments
-                    .extend(done_assigns);
-            }
-        } else {
-            // Handle components with latency == 1.
-            // In this case, we don't need an FSM; we just guard the assignments
-            // with comp.go.
-            let assignments =
-                std::mem::take(&mut sgroup.borrow_mut().assignments);
-            for assign in assignments {
-                let comp_sig = Rc::clone(&builder.component.signature);
-                builder.component.continuous_assignments.push(
-                    Self::make_assign_dyn_one_cycle_static_comp(
-                        assign, comp_sig,
-                    ),
-                );
-            }
-            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
-                let comp_sig = Rc::clone(&builder.component.signature);
-                let done_assigns =
-                    Self::make_done_signal_for_promoted_component_one_cycle(
-                        builder, comp_sig,
-                    );
-                builder
-                    .component
-                    .continuous_assignments
-                    .extend(done_assigns);
-            }
-        }
-    }
-}
-
 // These are the functions used to allocate FSMs to static islands
 impl CompileStatic {
     // Given a list of `static_groups`, find the group named `name`.
@@ -686,6 +513,179 @@ impl CompileStatic {
         Self::add_par_conflicts(control, &sgroup_uses_map, &mut conflict_graph);
         Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
         conflict_graph.color_greedy(None, true)
+    }
+}
+
+// These are the functions used to compile for the static *component* interface
+impl CompileStatic {
+    // Used for guards in a one cycle static component.
+    // Replaces %0 with comp.go.
+    fn make_guard_dyn_one_cycle_static_comp(
+        guard: ir::Guard<ir::StaticTiming>,
+        comp_sig: RRC<ir::Cell>,
+    ) -> ir::Guard<ir::Nothing> {
+        match guard {
+        ir::Guard::Or(l, r) => {
+            let left =
+                Self::make_guard_dyn_one_cycle_static_comp(*l, Rc::clone(&comp_sig));
+            let right = Self::make_guard_dyn_one_cycle_static_comp(*r, Rc::clone(&comp_sig));
+            ir::Guard::or(left, right)
+        }
+        ir::Guard::And(l, r) => {
+            let left = Self::make_guard_dyn_one_cycle_static_comp(*l, Rc::clone(&comp_sig));
+            let right = Self::make_guard_dyn_one_cycle_static_comp(*r, Rc::clone(&comp_sig));
+            ir::Guard::and(left, right)
+        }
+        ir::Guard::Not(g) => {
+            let f = Self::make_guard_dyn_one_cycle_static_comp(*g, Rc::clone(&comp_sig));
+            ir::Guard::Not(Box::new(f))
+        }
+        ir::Guard::Info(t) => {
+            match t.get_interval() {
+                (0, 1) => guard!(comp_sig["go"]),
+                _ => unreachable!("This function is implemented for 1 cycle static components, only %0 can exist as timing guard"),
+
+            }
+        }
+        ir::Guard::CompOp(op, l, r) => ir::Guard::CompOp(op, l, r),
+        ir::Guard::Port(p) => ir::Guard::Port(p),
+        ir::Guard::True => ir::Guard::True,
+    }
+    }
+
+    // Used for assignments in a one cycle static component.
+    // Replaces %0 with comp.go in the assignment's guard.
+    fn make_assign_dyn_one_cycle_static_comp(
+        assign: ir::Assignment<ir::StaticTiming>,
+        comp_sig: RRC<ir::Cell>,
+    ) -> ir::Assignment<ir::Nothing> {
+        ir::Assignment {
+            src: assign.src,
+            dst: assign.dst,
+            attributes: assign.attributes,
+            guard: Box::new(Self::make_guard_dyn_one_cycle_static_comp(
+                *assign.guard,
+                comp_sig,
+            )),
+        }
+    }
+
+    // Makes `done` signal for promoted static<n> component.
+    fn make_done_signal_for_promoted_component(
+        fsm: &mut StaticFSM,
+        builder: &mut ir::Builder,
+        comp_sig: RRC<ir::Cell>,
+    ) -> Vec<ir::Assignment<ir::Nothing>> {
+        let first_state_guard = *fsm.query_between(builder, (0, 1));
+        structure!(builder;
+          let sig_reg = prim std_reg(1);
+          let one = constant(1, 1);
+          let zero = constant(0, 1);
+        );
+        let go_guard = guard!(comp_sig["go"]);
+        let not_go_guard = !guard!(comp_sig["go"]);
+        let comp_done_guard =
+            first_state_guard.clone().and(guard!(sig_reg["out"]));
+        let assigns = build_assignments!(builder;
+          // Only write to sig_reg when fsm == 0
+          sig_reg["write_en"] = first_state_guard ? one["out"];
+          // If fsm == 0 and comp.go is high, it means we are starting an execution,
+          // so we set signal_reg to high. Note that this happens regardless of
+          // whether comp.done is high.
+          sig_reg["in"] = go_guard ? one["out"];
+          // Otherwise, we set `sig_reg` to low.
+          sig_reg["in"] = not_go_guard ? zero["out"];
+          // comp.done is high when FSM == 0 and sig_reg is high,
+          // since that means we have just finished an execution.
+          comp_sig["done"] = comp_done_guard ? one["out"];
+        );
+        assigns.to_vec()
+    }
+
+    // Makes a done signal for a one-cycle static component.
+    // Essentially you just have to use a one-cycle delay register that
+    // takes the `go` signal as input.
+    fn make_done_signal_for_promoted_component_one_cycle(
+        builder: &mut ir::Builder,
+        comp_sig: RRC<ir::Cell>,
+    ) -> Vec<ir::Assignment<ir::Nothing>> {
+        structure!(builder;
+          let sig_reg = prim std_reg(1);
+          let one = constant(1, 1);
+          let zero = constant(0, 1);
+        );
+        let go_guard = guard!(comp_sig["go"]);
+        let not_go = !guard!(comp_sig["go"]);
+        let signal_on_guard = guard!(sig_reg["out"]);
+        let assigns = build_assignments!(builder;
+          // For one cycle components, comp.done is just whatever comp.go
+          // was during the previous cycle.
+          // signal_reg serves as a forwarding register that delays
+          // the `go` signal for one cycle.
+          sig_reg["in"] = go_guard ? one["out"];
+          sig_reg["in"] = not_go ? zero["out"];
+          sig_reg["write_en"] = ? one["out"];
+          comp_sig["done"] = signal_on_guard ? one["out"];
+        );
+        assigns.to_vec()
+    }
+
+    // Compiles `sgroup` according to the static component interface.
+    // The assignments are removed from `sgroup` and placed into
+    // `builder.component`'s continuous assignments.
+    fn compile_static_interface(
+        &self,
+        sgroup: ir::RRC<ir::StaticGroup>,
+        builder: &mut ir::Builder,
+    ) {
+        if sgroup.borrow().get_latency() > 1 {
+            // Build a StaticSchedule object, realize it and add assignments
+            // as continuous assignments.
+            let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
+            let (mut assigns, mut fsm) =
+                sch.realize_schedule(builder, true, self.one_hot_cutoff);
+            builder
+                .component
+                .continuous_assignments
+                .extend(assigns.pop_front().unwrap());
+            let comp_sig = Rc::clone(&builder.component.signature);
+            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                // If necessary, add the logic to produce a done signal.
+                let done_assigns =
+                    Self::make_done_signal_for_promoted_component(
+                        &mut fsm, builder, comp_sig,
+                    );
+                builder
+                    .component
+                    .continuous_assignments
+                    .extend(done_assigns);
+            }
+        } else {
+            // Handle components with latency == 1.
+            // In this case, we don't need an FSM; we just guard the assignments
+            // with comp.go.
+            let assignments =
+                std::mem::take(&mut sgroup.borrow_mut().assignments);
+            for assign in assignments {
+                let comp_sig = Rc::clone(&builder.component.signature);
+                builder.component.continuous_assignments.push(
+                    Self::make_assign_dyn_one_cycle_static_comp(
+                        assign, comp_sig,
+                    ),
+                );
+            }
+            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                let comp_sig = Rc::clone(&builder.component.signature);
+                let done_assigns =
+                    Self::make_done_signal_for_promoted_component_one_cycle(
+                        builder, comp_sig,
+                    );
+                builder
+                    .component
+                    .continuous_assignments
+                    .extend(done_assigns);
+            }
+        }
     }
 }
 
