@@ -1,6 +1,6 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
-static<6> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+static<6> component do_add<"promoted"=1>(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   cells {
     add = std_add(32);
     r = std_reg(32);
@@ -12,6 +12,7 @@ static<6> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset r
     @generated lsh = std_lsh(6);
     @generated bw_5_6 = std_wire(1);
     @generated slicer1 = std_bit_slice(6, 5, 5, 1);
+    @generated sig_reg = std_reg(1);
     @generated fsm0 = init_one_reg(1);
     @generated lsh0 = std_lsh(1);
     @generated bw_0_10 = std_wire(1);
@@ -45,9 +46,14 @@ static<6> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset r
     lsh.left = fsm.out;
     lsh.right = 6'd1;
     fsm.write_en = 1'd1;
-    fsm.in = go & fsm.out == 6'd1 ? 6'd1;
-    fsm.in = fsm.out != 6'd1 & !bw_5_6.out ? lsh.out;
+    fsm.in = go & bw_0_1.out ? lsh.out;
+    fsm.in = !bw_0_1.out & !bw_5_6.out ? lsh.out;
     fsm.in = bw_5_6.out ? 6'd1;
+    fsm.in = !go & bw_0_1.out ? 6'd1;
+    sig_reg.write_en = bw_0_1.out ? 1'd1;
+    sig_reg.in = go ? 1'd1;
+    sig_reg.in = !go ? 1'd0;
+    done = bw_0_1.out & sig_reg.out ? 1'd1;
     slicer2.in = fsm0.out;
     bw_0_10.in = slicer2.out != 1'd0 ? 1'd1;
   }

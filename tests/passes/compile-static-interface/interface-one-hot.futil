@@ -2,7 +2,7 @@
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
-static<6> component do_add(left: 32, right: 32) -> () {
+static<6> component do_add<"promoted"=1>(left: 32, right: 32) -> () {
   cells {
     add = std_add(32);
     r = std_reg(32);

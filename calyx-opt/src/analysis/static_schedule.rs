@@ -105,6 +105,7 @@ impl StaticFSM {
     // (NOTE: if the guard is true while we are counting up we will just
     // ignore that guard and keep on counting-- we don't reset or anything.
     // The guard is just there to make sure we only go from 0->1 when appropriate.)
+    // (IMPORTANT WEIRD PRECONDITION): if `incr_cond` is Some(_), we assume n > 0.
     pub fn count_to_n(
         &mut self,
         builder: &mut ir::Builder,
