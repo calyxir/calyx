@@ -16,7 +16,7 @@ enum FSMEncoding {
 }
 
 #[derive(Debug)]
-enum FSMImplementationType {
+enum FSMImplementationSpec {
     Single,
     // How many duplicates
     _Duplicate(u64),
@@ -43,7 +43,7 @@ impl FSMImplementation {
         match self {
             FSMImplementation::Single(cell) => Rc::clone(cell),
             _ => unreachable!(
-                "called function on non-single FSM implementation "
+                "called `get_single_cell()` on non-single FSM implementation "
             ),
         }
     }
@@ -66,16 +66,16 @@ impl StaticFSM {
     fn from_basic_info(
         num_states: u64,
         encoding: FSMEncoding,
-        _implementation: FSMImplementationType,
+        _implementation: FSMImplementationSpec,
         _queries: &HashSet<(u64, u64)>,
         builder: &mut ir::Builder,
     ) -> Self {
+        // Determine number of bits needed in the register.
         let fsm_size = match encoding {
             /* represent 0..latency */
             FSMEncoding::Binary => get_bit_width_from(num_states + 1),
             FSMEncoding::OneHot => num_states,
         };
-
         // OHE needs an initial value of 1.
         let register = match encoding {
             FSMEncoding::Binary => {
@@ -119,33 +119,27 @@ impl StaticFSM {
             ));
             let fsm_cell: Rc<std::cell::RefCell<ir::Cell>> =
                 self.implementation.get_single_cell();
-            // For a one-hot encoder, the "adder" can just be a shifter.
-            let adder = match self.encoding {
-                FSMEncoding::Binary => {
-                    builder.add_primitive("adder", "std_add", &[self.bitwidth])
-                }
-                FSMEncoding::OneHot => {
-                    builder.add_primitive("lsh", "std_lsh", &[self.bitwidth])
-                }
-            };
-            // The "first state" is 1 for OHE, 0 for binary.
-            let first_state = match self.encoding {
-                FSMEncoding::Binary => builder.add_constant(0, self.bitwidth),
-                FSMEncoding::OneHot => builder.add_constant(1, self.bitwidth),
-            };
-            // Likewise, the final state is also differnt.
-            // One advantage of OHE is that we only need to check a single bit
-            // if we're in the final state.
-            let final_state_guard = match self.encoding {
-                FSMEncoding::Binary => {
-                    let const_n = builder.add_constant(n, self.bitwidth);
-                    let g = guard!(fsm_cell["out"] == const_n["out"]);
-                    g
-                }
-                FSMEncoding::OneHot => self.get_one_hot_query(
-                    Rc::clone(&fsm_cell),
-                    (n, n + 1),
-                    builder,
+            // For OHE, the "adder" can just be a shifter.
+            // For OHE the first_state = 1 rather than 0.
+            // Final state is encoded differently for OHE vs. Binary
+            let (adder, first_state, final_state_guard) = match self.encoding {
+                FSMEncoding::Binary => (
+                    builder.add_primitive("adder", "std_add", &[self.bitwidth]),
+                    builder.add_constant(0, self.bitwidth),
+                    {
+                        let const_n = builder.add_constant(n, self.bitwidth);
+                        let g = guard!(fsm_cell["out"] == const_n["out"]);
+                        g
+                    },
+                ),
+                FSMEncoding::OneHot => (
+                    builder.add_primitive("lsh", "std_lsh", &[self.bitwidth]),
+                    builder.add_constant(1, self.bitwidth),
+                    self.get_one_hot_query(
+                        Rc::clone(&fsm_cell),
+                        (n, n + 1),
+                        builder,
+                    ),
                 ),
             };
             structure!( builder;
@@ -197,7 +191,7 @@ impl StaticFSM {
                             .and(first_state_guard);
                     let in_between_guard =
                         ir::Guard::and(not_first_state, not_final_state_guard);
-                    let x = build_assignments!(
+                    let my_assigns = build_assignments!(
                       builder;
                       // Incrementsthe fsm
                       adder["left"] = ? fsm_cell["out"];
@@ -206,14 +200,14 @@ impl StaticFSM {
                       fsm_cell["write_en"] = ? signal_on["out"];
                       // If fsm == first_state and cond is high, then we start an execution.
                       fsm_cell["in"] = cond_and_first_state ? adder["out"];
-                      // If 1 < fsm < n - 1, then we unconditionally increment the fsm.
+                      // If first_state < fsm < n - 1, then we unconditionally increment the fsm.
                       fsm_cell["in"] = in_between_guard ? adder["out"];
                       // If fsm == n -1 , then we reset the FSM.
                       fsm_cell["in"] = final_state_guard ? first_state["out"];
-                      // Otherwise we set the FSM equal to 0.
+                      // Otherwise we set the FSM equal to first_state.
                       fsm_cell["in"] = not_cond_and_first_state ? first_state["out"];
                     );
-                    x.to_vec()
+                    my_assigns.to_vec()
                 }
             }
         }
@@ -433,7 +427,7 @@ impl StaticSchedule {
         let mut fsm_object = StaticFSM::from_basic_info(
             self.num_states,
             encoding,
-            FSMImplementationType::Single,
+            FSMImplementationSpec::Single,
             &self.queries,
             builder,
         );
