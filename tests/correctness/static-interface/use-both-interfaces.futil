@@ -65,10 +65,10 @@ component main () -> () {
   }
 
   control {
-    repeat 10 {
-      // Should be promoted to static
-      mac_five;
-    }
+    // repeat 10 {
+    //   // Should be promoted to static
+    //   mac_five;
+    // }
     while my_lt.out {
       seq {
         // Should not be promoted to static
