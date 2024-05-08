@@ -871,7 +871,6 @@ impl Visitor for TopDownCompileControl {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        println!("TDCC VISITOR START");
         // Do not try to compile an enable
         if matches!(
             *comp.control.borrow(),
@@ -1063,7 +1062,6 @@ impl Visitor for TopDownCompileControl {
         sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        println!("TDCC VISITOR FINISH START");
         let control = Rc::clone(&comp.control);
         // IRPrinter::write_control(&control.borrow(), 0, &mut std::io::stderr());
         let mut builder = ir::Builder::new(comp, sigs);
@@ -1078,7 +1076,6 @@ impl Visitor for TopDownCompileControl {
                 &self.fsm_groups,
             );
         }
-        println!("TDCC VISITOR FINISH END");
         Ok(Action::change(ir::Control::enable(comp_group)))
     }
 }
