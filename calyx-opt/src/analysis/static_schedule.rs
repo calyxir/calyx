@@ -89,7 +89,7 @@ impl StaticFSM {
 
         StaticFSM {
             _num_states: num_states,
-            encoding: encoding,
+            encoding,
             bitwidth: fsm_size,
             implementation: fsm,
             queries: HashMap::new(),
