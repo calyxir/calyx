@@ -4,6 +4,7 @@ from vcdvcd import VCDVCD
 
 def remap_tdcc_json(json_file):
     tdcc_json = json.load(open(json_file))
+    tdcc_json = tdcc_json[0] # Hack for now...
     component_name = tdcc_json["component"]
     tdcc_remap = {}
     for state in tdcc_json["states"]:
