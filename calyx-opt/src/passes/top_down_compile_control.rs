@@ -313,14 +313,12 @@ impl<'b, 'a> Schedule<'b, 'a> {
             ));
         }
 
-        // Keep track of information
-        let fsm = FSMInfo {
+        // Keep track of groups to FSM state id information for dumping to json
+        fsm_groups.insert(FSMInfo {
             component: self.builder.component.name.to_string(),
-            group: String::from(group.borrow().name().to_string()),
+            group: group.borrow().name().to_string(),
             states: self.groups_to_states.iter().cloned().collect_vec(),
-        };
-
-        fsm_groups.insert(fsm);
+        });
 
         let final_state = self.last_state();
         let fsm_size = get_bit_width_from(
