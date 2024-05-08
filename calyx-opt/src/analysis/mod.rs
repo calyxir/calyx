@@ -43,5 +43,5 @@ pub use read_write_set::{AssignmentAnalysis, ReadWriteSet};
 pub use schedule_conflicts::ScheduleConflicts;
 pub use share_set::ShareSet;
 pub use static_par_timing::StaticParTiming;
-pub use static_schedule::{FSMAllocator, StaticFSM, StaticSchedule};
+pub use static_schedule::{StaticFSM, StaticSchedule};
 pub use variable_detection::VariableDetection;
