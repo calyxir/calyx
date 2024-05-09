@@ -290,7 +290,7 @@ class ComponentBuilder:
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
-        """Generate a StdConstant cell."""
+        """Generate a dic cell."""
         return self.cell(name, ast.Stdlib.constant(width, value))
 
     def comb_mem_d1(
@@ -343,6 +343,18 @@ class ComponentBuilder:
     def sub(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdSub cell."""
         return self.binary("sub", size, name, signed)
+
+    def div_pipe(
+        self, size: int, name: str = None, signed: bool = False
+    ) -> CellBuilder:
+        """Generate a Div_Pipe cell."""
+        return self.binary("div_pipe", size, name, signed)
+
+    def mult_pipe(
+        self, size: int, name: str = None, signed: bool = False
+    ) -> CellBuilder:
+        """Generate a Mult_Pipe cell."""
+        return self.binary("mult_pipe", size, name, signed)
 
     def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGt cell."""
