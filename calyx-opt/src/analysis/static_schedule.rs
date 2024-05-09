@@ -67,7 +67,6 @@ impl StaticFSM {
         num_states: u64,
         encoding: FSMEncoding,
         _implementation: FSMImplementationSpec,
-        _queries: &HashSet<(u64, u64)>,
         builder: &mut ir::Builder,
     ) -> Self {
         // Determine number of bits needed in the register.
@@ -169,11 +168,12 @@ impl StaticFSM {
                     // After that, we can unconditionally increment.
                     let first_state_guard = match self.encoding {
                         FSMEncoding::Binary => {
-                            let const_0 =
-                                builder.add_constant(0, self.bitwidth);
-                            let g = guard!(fsm_cell["out"] == const_0["out"]);
+                            let g =
+                                guard!(fsm_cell["out"] == first_state["out"]);
                             g
                         }
+                        // This is better than checking if FSM == first_state
+                        // be this is only checking a single bit.
                         FSMEncoding::OneHot => self.get_one_hot_query(
                             Rc::clone(&fsm_cell),
                             (0, 1),
@@ -200,9 +200,9 @@ impl StaticFSM {
                       fsm_cell["write_en"] = ? signal_on["out"];
                       // If fsm == first_state and cond is high, then we start an execution.
                       fsm_cell["in"] = cond_and_first_state ? adder["out"];
-                      // If first_state < fsm < n - 1, then we unconditionally increment the fsm.
+                      // If first_state < fsm < n, then we unconditionally increment the fsm.
                       fsm_cell["in"] = in_between_guard ? adder["out"];
-                      // If fsm == n -1 , then we reset the FSM.
+                      // If fsm == n, then we reset the FSM.
                       fsm_cell["in"] = final_state_guard ? first_state["out"];
                       // Otherwise we set the FSM equal to first_state.
                       fsm_cell["in"] = not_cond_and_first_state ? first_state["out"];
@@ -428,7 +428,6 @@ impl StaticSchedule {
             self.num_states,
             encoding,
             FSMImplementationSpec::Single,
-            &self.queries,
             builder,
         );
 
