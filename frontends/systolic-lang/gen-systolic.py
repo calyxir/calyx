@@ -87,7 +87,11 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
     # Connect input memories to systolic_array
     for r in range(top_length):
         connections += create_mem_connections(
-            main, systolic_array, f"t{r}", top_depth, read_mem=True
+            main,
+            systolic_array,
+            f"t{r}",
+            top_depth,
+            read_mem=True,
         )
     for c in range(left_length):
         connections += create_mem_connections(
@@ -103,7 +107,11 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
     for i in range(left_length):
         # Connect output memory to post op. want to write to this memory.
         connections += create_mem_connections(
-            main, post_op, OUT_MEM + f"_{i}", top_length, read_mem=False
+            main,
+            post_op,
+            OUT_MEM + f"_{i}",
+            top_length,
+            read_mem=False,
         )
         # Connect systolic array to post op
         connections += cb.build_connections(
@@ -131,15 +139,15 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
         systolic_done_reg.write_en = systolic_array.done @ 1
         systolic_done_reg.in_ = systolic_array.done @ 1
         systolic_done_wire.in_ = (systolic_array.done | systolic_done_reg.out) @ 1
-        systolic_array.go = ~systolic_done_wire.out @ py_ast.ConstantPort(1, 1)
-        systolic_array.depth = py_ast.ConstantPort(BITWIDTH, left_depth)
+        systolic_array.go = ~systolic_done_wire.out @ cb.HI
+        systolic_array.depth = cb.const(BITWIDTH, left_depth)
 
         # Triggering post_op component.
-        post_op.go = py_ast.ConstantPort(1, 1)
+        post_op.go = cb.HI
         # Group is done when post_op is done.
         g.done = post_op.computation_done
 
-    main.control = py_ast.Enable("perform_computation")
+    main.control += g
 
 
 if __name__ == "__main__":
