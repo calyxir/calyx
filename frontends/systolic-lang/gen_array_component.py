@@ -430,3 +430,5 @@ def create_systolic_array(prog: cb.Builder, config: SystolicConfiguration):
     control, source_map = generate_control(computational_unit, config, schedule)
     computational_unit.control = control
     prog.program.meta = source_map
+
+    return computational_unit

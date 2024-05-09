@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
 from systolic_arg_parser import SystolicConfiguration
-from calyx import py_ast
 from calyx.utils import bits_needed
 from gen_array_component import (
     create_systolic_array,
     BITWIDTH,
-    SYSTOLIC_ARRAY_COMP,
     NAME_SCHEME,
 )
 from gen_post_op import (
@@ -56,7 +54,7 @@ def create_mem_connections(
     )
 
 
-def build_main(prog, config: SystolicConfiguration, post_op_component):
+def build_main(prog, config: SystolicConfiguration, comp_unit, postop_comp):
     """
     Build the main component.
     It basically connects the ports of the systolic component and post_op component
@@ -69,10 +67,8 @@ def build_main(prog, config: SystolicConfiguration, post_op_component):
         config.left_depth,
     )
     main = prog.component("main")
-    systolic_array = main.cell(
-        "systolic_array_component", py_ast.CompInst(SYSTOLIC_ARRAY_COMP, [])
-    )
-    post_op = main.cell("post_op_component", post_op_component)
+    systolic_array = main.cell("systolic_array_component", comp_unit)
+    post_op = main.cell("post_op_component", postop_comp)
     # Connections contains the RTL-like connections between the ports of
     # systolic_array_comp and the post_op.
     # Also connects the input memories to the systolic_array_comp and
@@ -149,10 +145,10 @@ if __name__ == "__main__":
     systolic_config.parse_arguments()
     # Building the main component
     prog = cb.Builder()
-    create_systolic_array(prog, systolic_config)
+    comp_unit_inserted = create_systolic_array(prog, systolic_config)
     if systolic_config.post_op in POST_OP_DICT.keys():
         component_building_func = POST_OP_DICT[systolic_config.post_op]
-        comp_inserted = component_building_func(prog, config=systolic_config)
+        postop_comp_inserted = component_building_func(prog, config=systolic_config)
     else:
         raise ValueError(
             f"{systolic_config.post_op} not supported as a post op. \
@@ -163,6 +159,7 @@ if __name__ == "__main__":
     build_main(
         prog,
         config=systolic_config,
-        post_op_component=comp_inserted,
+        comp_unit=comp_unit_inserted,
+        postop_comp=postop_comp_inserted,
     )
     prog.program.emit()
