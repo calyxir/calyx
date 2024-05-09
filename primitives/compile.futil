@@ -41,3 +41,28 @@ primitive std_reg<"state_share"=1>[WIDTH](
     end else done <= 1'd0;
   end
 }
+
+
+primitive std_bypass_reg<"state_share"=1>[WIDTH](
+  @write_together(1) @data in: WIDTH,
+  @write_together(1) @interval(1) @go write_en: 1,
+  @clk clk: 1,
+  @reset reset: 1
+) -> (
+  @stable out: WIDTH,
+  @done done: 1
+)
+{
+  logic [WIDTH-1:0] val;
+  assign out = write_en? in : val;
+
+  always_ff @(posedge clk) begin
+    if (reset) begin
+       val <= 0;
+       done <= 0;
+    end else if (write_en) begin
+      val <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+}
