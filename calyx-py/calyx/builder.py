@@ -290,7 +290,7 @@ class ComponentBuilder:
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
-        """Generate a dic cell."""
+        """Generate a StdConstant cell."""
         return self.cell(name, ast.Stdlib.constant(width, value))
 
     def comb_mem_d1(
