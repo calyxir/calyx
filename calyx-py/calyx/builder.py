@@ -35,9 +35,9 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None, latency=None) -> ComponentBuilder:
+    def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
-        cells = cells or []
+        cells = []
         comp_builder = ComponentBuilder(self, name, cells, latency)
         self.program.components.append(comp_builder.component)
         self._index[name] = comp_builder
