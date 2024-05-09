@@ -15,19 +15,15 @@ from gen_post_op import (
     leaky_relu_post_op,
     relu_dynamic_post_op,
     OUT_MEM,
-    DEFAULT_POST_OP,
-    RELU_POST_OP,
-    LEAKY_RELU_POST_OP,
-    RELU_DYNAMIC_POST_OP,
 )
 
 # Dict that maps command line arguments (e.g., "leaky-relu") to component names
 # and function that creates them.
 POST_OP_DICT = {
-    None: (DEFAULT_POST_OP, default_post_op),
-    "leaky-relu": (LEAKY_RELU_POST_OP, leaky_relu_post_op),
-    "relu": (RELU_POST_OP, relu_post_op),
-    "relu-dynamic": (RELU_DYNAMIC_POST_OP, relu_dynamic_post_op),
+    None: default_post_op,
+    "leaky-relu": leaky_relu_post_op,
+    "relu": relu_post_op,
+    "relu-dynamic": relu_dynamic_post_op,
 }
 
 
@@ -60,7 +56,7 @@ def create_mem_connections(
     )
 
 
-def build_main(prog, config: SystolicConfiguration, post_op_component_name):
+def build_main(prog, config: SystolicConfiguration, post_op_component):
     """
     Build the main component.
     It basically connects the ports of the systolic component and post_op component
@@ -76,9 +72,7 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
     systolic_array = main.cell(
         "systolic_array_component", py_ast.CompInst(SYSTOLIC_ARRAY_COMP, [])
     )
-    post_op = main.cell(
-        "post_op_component", py_ast.CompInst(post_op_component_name, [])
-    )
+    post_op = main.cell("post_op_component", post_op_component)
     # Connections contains the RTL-like connections between the ports of
     # systolic_array_comp and the post_op.
     # Also connects the input memories to the systolic_array_comp and
@@ -157,10 +151,8 @@ if __name__ == "__main__":
     prog = cb.Builder()
     create_systolic_array(prog, systolic_config)
     if systolic_config.post_op in POST_OP_DICT.keys():
-        post_op_component_name, component_building_func = POST_OP_DICT[
-            systolic_config.post_op
-        ]
-        component_building_func(prog, config=systolic_config)
+        component_building_func = POST_OP_DICT[systolic_config.post_op]
+        comp_inserted = component_building_func(prog, config=systolic_config)
     else:
         raise ValueError(
             f"{systolic_config.post_op} not supported as a post op. \
@@ -171,6 +163,6 @@ if __name__ == "__main__":
     build_main(
         prog,
         config=systolic_config,
-        post_op_component_name=post_op_component_name,
+        post_op_component=comp_inserted,
     )
     prog.program.emit()

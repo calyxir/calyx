@@ -137,12 +137,14 @@ def imm_write_mem_post_op(
         + [py_ast.Enable(f"write_r{r}") for r in range(num_rows)]
     )
 
+    return comp
+
 
 def default_post_op(prog: cb.Builder, config: SystolicConfiguration):
     """
     Default post op that immediately writes to output memory.
     """
-    imm_write_mem_post_op(prog=prog, config=config, perform_relu=False)
+    return imm_write_mem_post_op(prog=prog, config=config, perform_relu=False)
 
 
 def relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
@@ -150,7 +152,7 @@ def relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
     Relu post op that (combinationally) performs relu before
     immediately writing the result to memory.
     """
-    imm_write_mem_post_op(prog=prog, config=config, perform_relu=True)
+    return imm_write_mem_post_op(prog=prog, config=config, perform_relu=True)
 
 
 def add_dynamic_op_params(comp: cb.ComponentBuilder, idx_width: int):
@@ -401,11 +403,13 @@ def dynamic_post_op(
 
     comp.control = py_ast.StaticParComp(all_groups)
 
+    return comp
+
 
 def leaky_relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
     _, num_cols = config.get_output_dimensions()
     leaky_relu_op_comp = leaky_relu_comp(prog, idx_width=bits_needed(num_cols))
-    dynamic_post_op(
+    return dynamic_post_op(
         prog=prog,
         config=config,
         post_op_component_name=LEAKY_RELU_POST_OP,
@@ -416,7 +420,7 @@ def leaky_relu_post_op(prog: cb.Builder, config: SystolicConfiguration):
 def relu_dynamic_post_op(prog: cb.Builder, config: SystolicConfiguration):
     _, num_cols = config.get_output_dimensions()
     relu_dynamic_op_comp = relu_dynamic_comp(prog, idx_width=bits_needed(num_cols))
-    dynamic_post_op(
+    return dynamic_post_op(
         prog=prog,
         config=config,
         post_op_component_name=RELU_DYNAMIC_POST_OP,
