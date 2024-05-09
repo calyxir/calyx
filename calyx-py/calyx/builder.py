@@ -612,9 +612,9 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_std_d1(self, mem, i, reg, groupname=None):
+    def mem_load_comb_mem_d1(self, mem, i, reg, groupname=None):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a std_d1 memory.
+        where `mem` is a comb_mem_d1 memory.
         """
         assert mem.is_comb_mem_d1()
         groupname = groupname or f"{mem.name()}_load_to_reg"
@@ -625,9 +625,9 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_std_d1(self, mem, i, val, groupname=None):
+    def mem_store_comb_mem_d1(self, mem, i, val, groupname=None):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a std_d1 memory."""
+        where `mem` is a comb_mem_d1 memory."""
         assert mem.is_comb_mem_d1()
         groupname = groupname or f"store_into_{mem.name()}"
         with self.group(groupname) as store_grp:
@@ -678,7 +678,7 @@ class ComponentBuilder:
 
     def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
         """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
-        where `mem` and `ans` are both std_d1 memories.
+        where `mem` and `ans` are both comb_mem_d1 memories.
         """
         assert mem.is_comb_mem_d1() and ans.is_comb_mem_d1()
         groupname = groupname or f"{mem.name()}_load_to_mem"
