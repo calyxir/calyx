@@ -208,7 +208,7 @@ def leaky_relu_comp(prog: cb.Builder, idx_width: int) -> cb.ComponentBuilder:
         this.out_mem_write_data = lt.out @ fp_mult.out
         g.done = this.out_mem_done
 
-    comp.control = py_ast.Enable("do_relu")
+    comp.control += g
 
     return comp
 
@@ -244,7 +244,7 @@ def relu_dynamic_comp(prog: cb.Builder, idx_width: int):
         # It takes one cycle to write to g
         g.done = this.out_mem_done
 
-    comp.control = py_ast.Enable("do_relu")
+    comp.control += g
 
     return comp
 
@@ -318,7 +318,7 @@ def create_dynamic_post_op_groups(
         comp.continuous.asgn(
             wire.port("in"),
             output_val.out,
-            register.port("out") == cb.ExprBuilder(py_ast.ConstantPort(BITWIDTH, col)),
+            register.port("out") == cb.const(BITWIDTH, col),
         )
 
     # Current value we are performing relu on.
@@ -369,7 +369,7 @@ def create_dynamic_post_op_groups(
 
         op_instance.go = (
             row_ready_wire.out & (~row_finished_wire.out) & (~op_instance.done)
-        ) @ cb.ExprBuilder(py_ast.ConstantPort(1, 1))
+        ) @ cb.HI
         # input ports for relu_instance
         op_instance.value = cur_val.out
         op_instance.idx = idx_reg.out
