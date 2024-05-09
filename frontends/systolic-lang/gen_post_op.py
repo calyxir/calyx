@@ -115,7 +115,7 @@ def imm_write_mem_groups(comp: cb.ComponentBuilder, row_num: int, perform_relu: 
 
 def imm_write_mem_post_op(
     prog: cb.Builder, config: SystolicConfiguration, perform_relu: bool
-):
+) -> cb.ComponentBuilder:
     """
     This post-op does nothing except immediately write to memory.
     If perform_relu is true, then writes 0 to memory if result < 0, and writes
