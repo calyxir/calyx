@@ -1,5 +1,4 @@
 import calyx.builder as cb
-from calyx import py_ast
 
 # Global constant for the current bitwidth.
 BITWIDTH = 32
@@ -19,28 +18,25 @@ def pe(prog: cb.Builder):
     yet.
     """
     comp = prog.component(name=PE_NAME, latency=1)
-    comp.input("top", BITWIDTH)
-    comp.input("left", BITWIDTH)
-    comp.input("mul_ready", 1)
+    top = comp.input("top", BITWIDTH)
+    left = comp.input("left", BITWIDTH)
+    mul_ready = comp.input("mul_ready", 1)
     comp.output("out", BITWIDTH)
     acc = comp.reg(BITWIDTH, "acc")
     add = comp.fp_sop("adder", "add", BITWIDTH, INTWIDTH, FRACWIDTH)
     mul = comp.pipelined_fp_smult("mul", BITWIDTH, INTWIDTH, FRACWIDTH)
 
-    this = comp.this()
-    with comp.static_group("do_add", 1):
+    with comp.static_group("do_add", 1) as do_add:
         add.left = acc.out
         add.right = mul.out
         acc.in_ = add.out
-        acc.write_en = this.mul_ready
+        acc.write_en = mul_ready
 
-    with comp.static_group("do_mul", 1):
-        mul.left = this.top
-        mul.right = this.left
-
-    par = py_ast.StaticParComp([py_ast.Enable("do_add"), py_ast.Enable("do_mul")])
+    with comp.static_group("do_mul", 1) as do_mul:
+        mul.left = top
+        mul.right = left
 
     with comp.continuous:
-        this.out = acc.out
+        comp.this().out = acc.out
 
-    comp.control += par
+    comp.control += cb.static_par(do_add, do_mul)

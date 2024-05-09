@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import calyx.builder as cb
 from systolic_arg_parser import SystolicConfiguration
-from calyx import py_ast
 from calyx.utils import bits_needed
 from gen_array_component import (
     create_systolic_array,
     BITWIDTH,
-    SYSTOLIC_ARRAY_COMP,
     NAME_SCHEME,
 )
 from gen_post_op import (
@@ -15,19 +13,15 @@ from gen_post_op import (
     leaky_relu_post_op,
     relu_dynamic_post_op,
     OUT_MEM,
-    DEFAULT_POST_OP,
-    RELU_POST_OP,
-    LEAKY_RELU_POST_OP,
-    RELU_DYNAMIC_POST_OP,
 )
 
 # Dict that maps command line arguments (e.g., "leaky-relu") to component names
 # and function that creates them.
 POST_OP_DICT = {
-    None: (DEFAULT_POST_OP, default_post_op),
-    "leaky-relu": (LEAKY_RELU_POST_OP, leaky_relu_post_op),
-    "relu": (RELU_POST_OP, relu_post_op),
-    "relu-dynamic": (RELU_DYNAMIC_POST_OP, relu_dynamic_post_op),
+    None: default_post_op,
+    "leaky-relu": leaky_relu_post_op,
+    "relu": relu_post_op,
+    "relu-dynamic": relu_dynamic_post_op,
 }
 
 
@@ -60,7 +54,7 @@ def create_mem_connections(
     )
 
 
-def build_main(prog, config: SystolicConfiguration, post_op_component_name):
+def build_main(prog, config: SystolicConfiguration, comp_unit, postop_comp):
     """
     Build the main component.
     It basically connects the ports of the systolic component and post_op component
@@ -73,12 +67,8 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
         config.left_depth,
     )
     main = prog.component("main")
-    systolic_array = main.cell(
-        "systolic_array_component", py_ast.CompInst(SYSTOLIC_ARRAY_COMP, [])
-    )
-    post_op = main.cell(
-        "post_op_component", py_ast.CompInst(post_op_component_name, [])
-    )
+    systolic_array = main.cell("systolic_array_component", comp_unit)
+    post_op = main.cell("post_op_component", postop_comp)
     # Connections contains the RTL-like connections between the ports of
     # systolic_array_comp and the post_op.
     # Also connects the input memories to the systolic_array_comp and
@@ -87,7 +77,11 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
     # Connect input memories to systolic_array
     for r in range(top_length):
         connections += create_mem_connections(
-            main, systolic_array, f"t{r}", top_depth, read_mem=True
+            main,
+            systolic_array,
+            f"t{r}",
+            top_depth,
+            read_mem=True,
         )
     for c in range(left_length):
         connections += create_mem_connections(
@@ -103,7 +97,11 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
     for i in range(left_length):
         # Connect output memory to post op. want to write to this memory.
         connections += create_mem_connections(
-            main, post_op, OUT_MEM + f"_{i}", top_length, read_mem=False
+            main,
+            post_op,
+            OUT_MEM + f"_{i}",
+            top_length,
+            read_mem=False,
         )
         # Connect systolic array to post op
         connections += cb.build_connections(
@@ -131,15 +129,15 @@ def build_main(prog, config: SystolicConfiguration, post_op_component_name):
         systolic_done_reg.write_en = systolic_array.done @ 1
         systolic_done_reg.in_ = systolic_array.done @ 1
         systolic_done_wire.in_ = (systolic_array.done | systolic_done_reg.out) @ 1
-        systolic_array.go = ~systolic_done_wire.out @ py_ast.ConstantPort(1, 1)
-        systolic_array.depth = py_ast.ConstantPort(BITWIDTH, left_depth)
+        systolic_array.go = ~systolic_done_wire.out @ cb.HI
+        systolic_array.depth = cb.const(BITWIDTH, left_depth)
 
         # Triggering post_op component.
-        post_op.go = py_ast.ConstantPort(1, 1)
+        post_op.go = cb.HI
         # Group is done when post_op is done.
         g.done = post_op.computation_done
 
-    main.control = py_ast.Enable("perform_computation")
+    main.control += g
 
 
 if __name__ == "__main__":
@@ -147,12 +145,10 @@ if __name__ == "__main__":
     systolic_config.parse_arguments()
     # Building the main component
     prog = cb.Builder()
-    create_systolic_array(prog, systolic_config)
+    comp_unit_inserted = create_systolic_array(prog, systolic_config)
     if systolic_config.post_op in POST_OP_DICT.keys():
-        post_op_component_name, component_building_func = POST_OP_DICT[
-            systolic_config.post_op
-        ]
-        component_building_func(prog, config=systolic_config)
+        component_building_func = POST_OP_DICT[systolic_config.post_op]
+        postop_comp_inserted = component_building_func(prog, config=systolic_config)
     else:
         raise ValueError(
             f"{systolic_config.post_op} not supported as a post op. \
@@ -163,6 +159,7 @@ if __name__ == "__main__":
     build_main(
         prog,
         config=systolic_config,
-        post_op_component_name=post_op_component_name,
+        comp_unit=comp_unit_inserted,
+        postop_comp=postop_comp_inserted,
     )
     prog.program.emit()
