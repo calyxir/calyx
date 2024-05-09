@@ -368,7 +368,9 @@ Writing PE Result: {schedule.mappings['pe_write_sched'][r][c].i1}"
     return py_ast.SeqComp(stmts=control), source_map
 
 
-def create_systolic_array(prog: cb.Builder, config: SystolicConfiguration):
+def create_systolic_array(
+    prog: cb.Builder, config: SystolicConfiguration
+) -> cb.ComponentBuilder:
     """
     top_length: Number of PEs in each row.
     top_depth: Number of elements processed by each PE in a row.
