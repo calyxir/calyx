@@ -7,8 +7,8 @@
 // | 3 | a[1] - a[3] * phis[1] | a[2] - a[3] * phis[3] |
 // +---+-----------------------+-----------------------+
 import "primitives/core.futil";
-import "primitives/binary_operators.futil";
 import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
 component main() -> () {
   cells {
     @external a = comb_mem_d1(32, 4, 3);
