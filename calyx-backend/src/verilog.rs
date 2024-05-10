@@ -129,8 +129,8 @@ impl Backend for VerilogBackend {
             .collect();
 
         let include_dirs_data = vec![
-            "/scratch/emw236/calyx/primitives/float/HardFloat-1/source/",
-            "/scratch/emw236/calyx/primitives/float/HardFloat-1/source/RISCV/",
+            "primitives/float/HardFloat-1/source/",
+            "primitives/float/HardFloat-1/source/RISCV/",
         ];
 
         let include_dirs: Vec<Value> = include_dirs_data
@@ -155,7 +155,7 @@ impl Backend for VerilogBackend {
             .write(true)
             .create(true)
             .truncate(true)
-            .open("/scratch/emw236/calyx/test_morty.json")?;
+            .open("test_morty.json")?;
 
         writeln!(morty, "{}", final_data.to_string())?;
         morty.flush()?;
