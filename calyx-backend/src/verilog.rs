@@ -8,9 +8,12 @@ use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
+use serde_json::{Map, Value};
 use std::io;
+use std::io::Write;
+use std::process::Command;
 use std::{collections::HashMap, rc::Rc};
-use std::{fs::File, time::Instant};
+use std::{fs::OpenOptions, time::Instant};
 use vast::v17::ast as v;
 
 /// Implements a simple Verilog backend. The backend only accepts Calyx programs with no control
@@ -110,20 +113,69 @@ impl Backend for VerilogBackend {
         ctx: &ir::Context,
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
-        let fw = &mut file.get_write();
-        for extern_path in &ctx.lib.extern_paths() {
-            // The extern file is guaranteed to exist by the frontend.
-            let mut ext = File::open(extern_path).unwrap();
-            io::copy(&mut ext, fw).map_err(|err| {
-                let std::io::Error { .. } = err;
-                Error::write_error(format!(
-                    "File not found: {}",
-                    file.as_path_string()
-                ))
-            })?;
-            // Add a newline after appending a library file
-            writeln!(fw)?;
+        // Debug log
+        let file_strings: Vec<String> = ctx
+            .lib
+            .extern_paths()
+            .into_iter()
+            .map(|pb| pb.to_string_lossy().into_owned())
+            .collect();
+
+        let contains_float = file_strings.iter().any(|s| s.contains("float"));
+
+        let file_paths: Vec<Value> = file_strings
+            .into_iter()
+            .map(|s| Value::String(s.to_string()))
+            .collect();
+
+        let include_dirs_data = vec![
+            "/scratch/emw236/calyx/primitives/float/HardFloat-1/source/",
+            "/scratch/emw236/calyx/primitives/float/HardFloat-1/source/RISCV/",
+        ];
+
+        let include_dirs: Vec<Value> = include_dirs_data
+            .into_iter()
+            .map(|s| Value::String(s.to_string()))
+            .collect();
+
+        let mut json_map = Map::new();
+        if contains_float {
+            json_map
+                .insert("include_dirs".to_string(), Value::Array(include_dirs));
+        } else {
+            json_map
+                .insert("include_dirs".to_string(), Value::Array(Vec::new()));
         }
+
+        json_map.insert("defines".to_string(), Value::Object(Map::new()));
+        json_map.insert("files".to_string(), Value::Array(file_paths));
+        let final_data = Value::Array(vec![Value::Object(json_map)]);
+
+        let mut morty = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open("/scratch/emw236/calyx/test_morty.json")?;
+
+        writeln!(morty, "{}", final_data.to_string())?;
+        morty.flush()?;
+
+        let cmd = Command::new("morty")
+            .arg("-f")
+            .arg("test_morty.json")
+            .output()
+            .expect("failed to execute command");
+
+        if cmd.status.success() {
+            let stdout = String::from_utf8_lossy(&cmd.stdout);
+            println!("{}", stdout);
+        } else {
+            let stderr = String::from_utf8_lossy(&cmd.stderr);
+            eprintln!("Error: {}", stderr);
+        }
+
+        let fw = &mut file.get_write();
+
         for (prim, _) in ctx.lib.prim_inlines() {
             emit_prim_inline(prim, fw)?;
         }
