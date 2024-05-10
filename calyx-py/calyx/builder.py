@@ -372,6 +372,10 @@ class ComponentBuilder:
         """Generate a StdRsh cell."""
         return self.binary("rsh", size, name, signed)
 
+    def lsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+        """Generate a StdLsh cell."""
+        return self.binary("lsh", size, name, signed)
+
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)

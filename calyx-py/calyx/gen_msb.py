@@ -29,16 +29,16 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
     comp.output("count", width)
     comp.output("value", width)
 
-    rsh = comp.cell("rsh", Stdlib.op("rsh", width, signed=False))
     counter = comp.reg(width, "counter")
     cur_val = comp.reg(width, "cur_val")
-    add = comp.cell("add", Stdlib.op("add", width, signed=False))
-    sub = comp.cell("sub", Stdlib.op("sub", width, signed=False))
-    neq = comp.cell("neq", Stdlib.op("neq", width, signed=False))
-    lsh = comp.cell("lsh", Stdlib.op("lsh", width, signed=False))
     count_ans = comp.reg(width, "count_ans")
     val_ans = comp.reg(width, "val_ans")
     val_build = comp.reg(width, "val_build")
+    rsh = comp.rsh(width)
+    add = comp.add(width)
+    sub = comp.sub(width)
+    neq = comp.neq(width)
+    lsh = comp.lsh(width)
 
     with comp.group("wr_cur_val") as wr_cur_val:
         rsh.left = comp.this().in_
@@ -60,12 +60,7 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
         neq.left = const(width, 0)
         neq.right = counter.out
 
-    with comp.group("incr_count") as incr_count:
-        add.left = counter.out
-        add.right = const(width, 1)
-        counter.in_ = add.out
-        counter.write_en = HI
-        incr_count.done = counter.done
+    incr_count = comp.incr(counter)
 
     with comp.group("shift_cur_val") as shift_cur_val:
         rsh.left = cur_val.out
