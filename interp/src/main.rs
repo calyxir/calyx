@@ -14,6 +14,7 @@ use interp::{
 use rustyline::error::ReadlineError;
 use slog::warn;
 use std::{
+    io::stdout,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -195,6 +196,10 @@ fn main() -> InterpreterResult<()> {
 
             print_res(res, opts.raw)
         }
-        Command::Flat(_) => interp::flatten::flat_main(&ctx),
+        Command::Flat(_) => {
+            let output = interp::flatten::flat_main(&ctx)?;
+            output.serialize(&mut stdout())?;
+            Ok(())
+        }
     }
 }

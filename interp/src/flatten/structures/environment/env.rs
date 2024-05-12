@@ -12,6 +12,7 @@ use crate::{
     errors::{InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
+            cell_prototype::CellPrototype,
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices, ComponentIdx,
                 ControlNode, GlobalCellIdx, GlobalPortIdx, GlobalPortRef,
@@ -25,7 +26,7 @@ use crate::{
             environment::program_counter::ControlPoint, index_trait::IndexRef,
         },
     },
-    serialization::data_dump::DataDump,
+    serialization::data_dump::{DataDump, Dimensions},
     values::Value,
 };
 use std::fmt::Debug;
@@ -327,13 +328,13 @@ impl<'a> Environment<'a> {
 
 // ===================== Environment print implementations =====================
 impl<'a> Environment<'a> {
-    pub fn print_env(&self) {
+    pub fn _print_env(&self) {
         let root_idx = GlobalCellIdx::new(0);
         let mut hierarchy = Vec::new();
-        self.print_component(root_idx, &mut hierarchy)
+        self._print_component(root_idx, &mut hierarchy)
     }
 
-    fn print_component(
+    fn _print_component(
         &self,
         target: GlobalCellIdx,
         hierarchy: &mut Vec<GlobalCellIdx>,
@@ -388,7 +389,7 @@ impl<'a> Environment<'a> {
             let cell_idx = &info.index_bases + cell_off;
 
             if definition.prototype.is_component() {
-                self.print_component(cell_idx, hierarchy);
+                self._print_component(cell_idx, hierarchy);
             } else if self.cells[cell_idx]
                 .as_primitive()
                 .unwrap()
@@ -418,7 +419,7 @@ impl<'a> Environment<'a> {
         println!("  Ref Ports: {}", self.ref_ports.len());
     }
 
-    pub fn print_pc(&self) {
+    pub fn _print_pc(&self) {
         println!("{:?}", self.pc)
     }
 }
@@ -435,13 +436,17 @@ impl<'a> Simulator<'a> {
         Self { env }
     }
 
-    pub fn print_env(&self) {
-        self.env.print_env()
+    pub fn _print_env(&self) {
+        self.env._print_env()
     }
 
     #[inline]
     pub fn ctx(&self) -> &Context {
         self.env.ctx
+    }
+
+    pub fn _unpack_env(self) -> Environment<'a> {
+        self.env
     }
 }
 
@@ -894,13 +899,94 @@ impl<'a> Simulator<'a> {
     /// Dump the current state of the environment as a DataDump
     pub fn dump_memories(&self) -> DataDump {
         let ctx = self.ctx();
-        let entry = ctx.entry_point().secondary().identifier().get_string();
+        let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
 
-        let top_level_id = ctx.secondary[ctx.entry_point].name;
-        let top_level_string = ctx.secondary[top_level_id].clone();
+        let mut dump = DataDump::new_empty_with_top_level(
+            ctx.secondary[entrypoint_secondary.name].clone(),
+        );
 
-        let dump = DataDump::new_empty_with_top_level(top_level_string);
+        let root = self.env.cells.first().unwrap().as_comp().unwrap();
 
-        todo!()
+        for (offset, idx) in entrypoint_secondary.cell_offset_map.iter() {
+            let cell_info = &ctx.secondary[*idx];
+            let cell_index = &root.index_bases + offset;
+            let name = ctx.secondary[cell_info.name].clone();
+            match &cell_info.prototype {
+                CellPrototype::MemD1 { width, size, .. } => dump.push_memory(
+                    name,
+                    *width as usize,
+                    *size as usize,
+                    Dimensions::D1(*size as usize),
+                    self.env.cells[cell_index]
+                        .as_primitive()
+                        .unwrap()
+                        .dump_memory_state()
+                        .unwrap(),
+                ),
+                CellPrototype::MemD2 {
+                    width,
+                    d0_size,
+                    d1_size,
+                    ..
+                } => dump.push_memory(
+                    name,
+                    *width as usize,
+                    (d0_size * d1_size) as usize,
+                    Dimensions::D2(*d0_size as usize, *d1_size as usize),
+                    self.env.cells[cell_index]
+                        .as_primitive()
+                        .unwrap()
+                        .dump_memory_state()
+                        .unwrap(),
+                ),
+                CellPrototype::MemD3 {
+                    width,
+                    d0_size,
+                    d1_size,
+                    d2_size,
+                    ..
+                } => dump.push_memory(
+                    name,
+                    *width as usize,
+                    (d0_size * d1_size * d2_size) as usize,
+                    Dimensions::D3(
+                        *d0_size as usize,
+                        *d1_size as usize,
+                        *d2_size as usize,
+                    ),
+                    self.env.cells[cell_index]
+                        .as_primitive()
+                        .unwrap()
+                        .dump_memory_state()
+                        .unwrap(),
+                ),
+                CellPrototype::MemD4 {
+                    width,
+                    d0_size,
+                    d1_size,
+                    d2_size,
+                    d3_size,
+                    ..
+                } => dump.push_memory(
+                    name,
+                    *width as usize,
+                    (d0_size * d1_size * d2_size * d3_size) as usize,
+                    Dimensions::D4(
+                        *d0_size as usize,
+                        *d1_size as usize,
+                        *d2_size as usize,
+                        *d3_size as usize,
+                    ),
+                    self.env.cells[cell_index]
+                        .as_primitive()
+                        .unwrap()
+                        .dump_memory_state()
+                        .unwrap(),
+                ),
+                _ => {}
+            }
+        }
+
+        dump
     }
 }
