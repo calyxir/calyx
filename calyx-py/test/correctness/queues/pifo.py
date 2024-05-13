@@ -3,8 +3,9 @@ import fifo
 import calyx.builder as cb
 import calyx.queue_call as qc
 
-QUEUE_LEN = 10
-
+# This determines the maximum possible length of the queue:
+# The max length of the queue will be 2^QUEUE_LEN_FACTOR.
+QUEUE_LEN_FACTOR = 4
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
     """The flow is needed when the command is a push.
@@ -50,7 +51,7 @@ def insert_pifo(
     queue_l,
     queue_r,
     boundary,
-    length=QUEUE_LEN,
+    queue_len_factor=QUEUE_LEN_FACTOR,
     stats=None,
     static=False,
 ):
@@ -65,15 +66,16 @@ def insert_pifo(
     violation of the 50/50 rule) until the silent flow starts transmitting again.
     At that point we go back to 50/50.
 
-    The PIFO's maximum capacity is `length`.
+    The PIFO's maximum capacity is determined by `queue_len_factor`:
+        max_queue_len = 2**queue_len_factor
     Let's say the two flows are called `0` and `1`.
     We orchestrate two sub-queues, `queue_l` and `queue_r`,
-    each of capacity `length`.
+    each having the same maximum capacity as the PIFO.
     We maintain a register that points to which of these sub-queues is "hot".
     Start off with `hot` pointing to `queue_l` (arbitrarily).
 
     - `push(v, PIFO)`:
-       + If len(PIFO) = `length`, raise an "overflow" err and exit.
+       + If len(PIFO) = `max_queue_len`, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`.
          * Find out which flow `f` the value `v` should go to;
          `f` better be either `0` or `1`.
@@ -124,10 +126,12 @@ def insert_pifo(
     # A register that marks the next sub-queue to `pop` from.
     hot = pifo.reg(1)
 
+    max_queue_len = 2**queue_len_factor
+
     # Some equality checks.
     hot_eq_0 = pifo.eq_use(hot.out, 0)
     len_eq_0 = pifo.eq_use(len.out, 0)
-    len_eq_max_queue_len = pifo.eq_use(len.out, length)
+    len_eq_max_queue_len = pifo.eq_use(len.out, max_queue_len)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
     cmd_eq_1 = pifo.eq_use(cmd, 1)
     cmd_eq_2 = pifo.eq_use(cmd, 2)
@@ -190,9 +194,9 @@ def insert_pifo(
                             ),
                         ],
                     ),
-                    len_decr,  # Decrement the length.
+                    len_decr,  # Decrement the active length.
                     # It is possible that an irrecoverable error was raised above,
-                    # in which case the length should _not_ in fact be decremented.
+                    # in which case the active length should _not_ in fact be decremented.
                     # However, in that case the PIFO's `err` flag would also
                     # have been raised, and no one will check this length anyway.
                 ],
@@ -262,13 +266,13 @@ def insert_pifo(
                     cb.if_with(
                         err_eq_0,
                         # If no stats component is provided,
-                        # just increment the length.
+                        # just increment the active length.
                         (
                             len_incr
                             if not stats
                             else cb.par(
                                 # If a stats component is provided,
-                                # Increment the length and also
+                                # Increment the active length and also
                                 # tell the stats component what flow we pushed.
                                 len_incr,
                                 (
@@ -290,8 +294,8 @@ def insert_pifo(
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    fifo_l = fifo.insert_fifo(prog, "fifo_l")
-    fifo_r = fifo.insert_fifo(prog, "fifo_r")
+    fifo_l = fifo.insert_fifo(prog, "fifo_l", QUEUE_LEN_FACTOR)
+    fifo_r = fifo.insert_fifo(prog, "fifo_r", QUEUE_LEN_FACTOR)
     pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
     qc.insert_main(prog, pifo)
     return prog.program
