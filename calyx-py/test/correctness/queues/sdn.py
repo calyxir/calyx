@@ -4,7 +4,6 @@ import fifo
 import pifo
 import calyx.builder as cb
 from calyx import queue_call
-from calyx import queue_util
 
 
 def insert_stats(prog, name, static=False):
