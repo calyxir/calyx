@@ -804,9 +804,9 @@ pub struct TopDownCompileControl {
     dump_fsm: bool,
     /// Output a JSON FSM representation to file if specified
     dump_fsm_json: Option<OutputFile>,
-    /// TODO: Keep track of FSMInfos here so we can produce a JSON after processing all FSMs
     /// Enable early transitions
     early_transitions: bool,
+    /// Bookkeeping for FSM ids for groups across all FSMs in the program
     fsm_groups: HashSet<FSMInfo>,
 }
 
