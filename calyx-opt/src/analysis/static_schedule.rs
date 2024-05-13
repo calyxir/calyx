@@ -1,12 +1,16 @@
 use crate::passes::math_utilities::get_bit_width_from;
+use crate::traversal::Named;
 use calyx_ir::{self as ir};
 use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
+use core::panic;
 use ir::Guard;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::ops::Not;
 use std::rc::Rc;
+
+use super::GraphColoring;
 
 #[derive(Debug, Clone, Copy)]
 // Define an FSMEncoding Enum
@@ -19,7 +23,7 @@ enum FSMEncoding {
 enum FSMImplementationSpec {
     Single,
     // How many duplicates
-    _Duplicate(u64),
+    Duplicate(u64),
     // How many times to split
     _Split(u64),
 }
@@ -51,7 +55,6 @@ impl FSMImplementation {
 
 #[derive(Debug)]
 pub struct StaticFSM {
-    _num_states: u64,
     encoding: FSMEncoding,
     // The fsm's bitwidth (this redundant information bc  we have `cell`)
     // but makes it easier if we easily have access to this.
@@ -87,7 +90,6 @@ impl StaticFSM {
         let fsm = FSMImplementation::Single(register);
 
         StaticFSM {
-            _num_states: num_states,
             encoding,
             bitwidth: fsm_size,
             implementation: fsm,
@@ -341,9 +343,6 @@ pub struct StaticSchedule {
     /// (this is just the latency of the static island-- or that of the largest
     /// static island, if there are multiple islands)
     num_states: u64,
-    /// The queries that the FSM needs to support.
-    /// E.g., `lhs = %[2:3] ? rhs` corresponds to (2,3).
-    queries: HashSet<(u64, u64)>,
     /// The static groups the FSM will schedule. It is a vec because sometimes
     /// the same FSM will handle two different static islands.
     pub static_groups: Vec<ir::RRC<ir::StaticGroup>>,
@@ -358,12 +357,6 @@ impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
         };
         schedule.num_states = 0;
         for static_group in &schedule.static_groups {
-            // Getting self.queries
-            for static_assign in &static_group.borrow().assignments {
-                for query in Self::queries_from_guard(&static_assign.guard) {
-                    schedule.queries.insert(query);
-                }
-            }
             // Getting self.num_states
             schedule.num_states = std::cmp::max(
                 schedule.num_states,
@@ -375,25 +368,37 @@ impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
 }
 
 impl StaticSchedule {
-    /// Given a guard, returns the queries that the static FSM (i.e., counter)
-    /// will make.
-    fn queries_from_guard(
-        guard: &ir::Guard<ir::StaticTiming>,
-    ) -> Vec<(u64, u64)> {
+    /// Given a guard, returns the number of queries
+    fn num_queries(guard: &ir::Guard<ir::StaticTiming>) -> u64 {
         match guard {
             ir::Guard::Or(l, r) | ir::Guard::And(l, r) => {
-                let mut lvec = Self::queries_from_guard(l);
-                let rvec = Self::queries_from_guard(r);
-                lvec.extend(rvec);
-                lvec
+                let lnum = Self::num_queries(l);
+                let rnum = Self::num_queries(r);
+                lnum + rnum
             }
-            ir::Guard::Not(g) => Self::queries_from_guard(g),
+            ir::Guard::Not(g) => Self::num_queries(g),
             ir::Guard::Port(_)
             | ir::Guard::CompOp(_, _, _)
-            | ir::Guard::True => vec![],
-            ir::Guard::Info(static_timing) => {
-                vec![static_timing.get_interval()]
-            }
+            | ir::Guard::True => 0,
+            ir::Guard::Info(_) => 1,
+        }
+    }
+
+    // Get the number of queries in the group
+    fn num_queries_group(static_group: ir::RRC<ir::StaticGroup>) -> u64 {
+        static_group
+            .borrow()
+            .assignments
+            .iter()
+            .map(|assign| Self::num_queries(&assign.guard))
+            .sum()
+    }
+
+    fn choose_encoding(num_states: u64, cutoff: u64) -> FSMEncoding {
+        if num_states > cutoff {
+            FSMEncoding::Binary
+        } else {
+            FSMEncoding::OneHot
         }
     }
 
@@ -415,76 +420,130 @@ impl StaticSchedule {
         builder: &mut ir::Builder,
         static_component_interface: bool,
         one_hot_cutoff: u64,
-    ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, StaticFSM) {
-        // Choose encoding based on one-hot cutoff.
-        let encoding = if self.num_states > one_hot_cutoff {
-            FSMEncoding::Binary
-        } else {
-            FSMEncoding::OneHot
-        };
-
-        // First build the fsm we will use to realize the schedule.
-        let mut fsm_object = StaticFSM::from_basic_info(
-            self.num_states,
-            encoding,
-            FSMImplementationSpec::Single,
-            builder,
+        max_num_queries: Option<u64>,
+    ) -> (
+        HashMap<ir::Id, Vec<ir::Assignment<Nothing>>>,
+        HashMap<ir::Id, ir::RRC<StaticFSM>>,
+    ) {
+        // Get query limit
+        // (if no query_limit, then can just set it the upper limit on the
+        // numebr of queries for all static groups).
+        let query_limit = max_num_queries.unwrap_or(
+            self.static_groups
+                .iter()
+                .map(|sgroup| Self::num_queries_group(Rc::clone(&sgroup)))
+                .sum(),
         );
 
-        // Instantiate the vecdeque.
-        let mut res = VecDeque::new();
-        for static_group in &mut self.static_groups {
-            let mut static_group_ref = static_group.borrow_mut();
-            // Separate the first cycle (if necessary) and then realize the
-            // static timing guards (e.g., %[2:3] -> 2 <= fsm < 3).
-            let group_assigns =
-                static_group_ref.assignments.drain(..).collect_vec();
-            let static_assigns = if static_component_interface {
-                group_assigns
-                    .into_iter()
-                    .map(|assign| {
-                        if static_component_interface {
-                            Self::handle_static_interface(
-                                assign,
-                                Rc::clone(&builder.component.signature),
-                            )
-                        } else {
-                            assign
-                        }
-                    })
-                    .collect_vec()
+        let mut cur_num_queries = 0;
+        let mut cur_groups = Vec::new();
+        let mut cur_max_latency = 0;
+        let mut fsm_map = Vec::new();
+        // First we decide how to instantaite the FSM registers.
+        for static_group in &self.static_groups {
+            let num_queries = Self::num_queries_group(Rc::clone(&static_group));
+            if num_queries > query_limit {
+                // If num_queries for just this group is > query_limit, then we
+                // create a implement the group using duplicate FSMs.
+                let num_states = static_group.borrow().latency;
+                let encoding =
+                    Self::choose_encoding(num_states, one_hot_cutoff);
+                let num_duplicates_needed = (num_queries / query_limit) + 1;
+                let fsm_object = StaticFSM::from_basic_info(
+                    num_states,
+                    encoding,
+                    FSMImplementationSpec::Duplicate(num_duplicates_needed),
+                    builder,
+                );
+                fsm_map.push((fsm_object, vec![Rc::clone(&static_group)]));
             } else {
-                group_assigns
-            };
-            let mut assigns: Vec<ir::Assignment<Nothing>> = static_assigns
-                .into_iter()
-                .map(|static_assign| {
-                    Self::make_assign_dyn(
-                        static_assign,
-                        &mut fsm_object,
+                if cur_num_queries + num_queries > query_limit {
+                    let num_states = cur_max_latency;
+                    let encoding =
+                        Self::choose_encoding(num_states, one_hot_cutoff);
+                    let fsm_object = StaticFSM::from_basic_info(
+                        num_states,
+                        encoding,
+                        FSMImplementationSpec::Single,
                         builder,
-                    )
-                })
-                .collect();
-            // For static components, we don't unconditionally start counting.
-            // We must only start counting when `comp.go` is high.
-            let fsm_incr_condition = if static_component_interface {
-                let comp_sig = Rc::clone(&builder.component.signature);
-                let g = guard!(comp_sig["go"]);
-                Some(g)
-            } else {
-                None
-            };
-            // We need to add assignments that makes the FSM count to n.
-            assigns.extend(fsm_object.count_to_n(
-                builder,
-                static_group_ref.get_latency() - 1,
-                fsm_incr_condition,
-            ));
-
-            res.push_back(assigns);
+                    );
+                    fsm_map.push((fsm_object, cur_groups));
+                    cur_groups = vec![Rc::clone(&static_group)];
+                    cur_max_latency = static_group.borrow().get_latency();
+                    cur_num_queries = num_queries;
+                } else {
+                    cur_groups.push(Rc::clone(&static_group));
+                    cur_max_latency = std::cmp::max(
+                        cur_max_latency,
+                        static_group.borrow().get_latency(),
+                    );
+                    cur_num_queries += num_queries;
+                }
+            }
         }
-        (res, fsm_object)
+
+        let mut res_fsm_map = HashMap::new();
+        let mut sgroup_assigns_map = HashMap::new();
+        // Then we actually build the hardware to query/count to n for the register.
+        for (fsm_object, static_groups) in fsm_map {
+            let mut fsm_object_ref = ir::rrc(fsm_object);
+            for static_group in static_groups {
+                res_fsm_map.insert(
+                    static_group.borrow().name(),
+                    Rc::clone(&fsm_object_ref),
+                );
+                let mut static_group_ref = static_group.borrow_mut();
+                // Separate the first cycle (if necessary) and then realize the
+                // static timing guards (e.g., %[2:3] -> 2 <= fsm < 3).
+                let group_assigns =
+                    static_group_ref.assignments.drain(..).collect_vec();
+                let static_assigns = if static_component_interface {
+                    group_assigns
+                        .into_iter()
+                        .map(|assign| {
+                            if static_component_interface {
+                                Self::handle_static_interface(
+                                    assign,
+                                    Rc::clone(&builder.component.signature),
+                                )
+                            } else {
+                                assign
+                            }
+                        })
+                        .collect_vec()
+                } else {
+                    group_assigns
+                };
+                let mut assigns: Vec<ir::Assignment<Nothing>> = static_assigns
+                    .into_iter()
+                    .map(|static_assign| {
+                        Self::make_assign_dyn(
+                            static_assign,
+                            &mut fsm_object_ref,
+                            builder,
+                        )
+                    })
+                    .collect();
+                // For static components, we don't unconditionally start counting.
+                // We must only start counting when `comp.go` is high.
+                let fsm_incr_condition = if static_component_interface {
+                    let comp_sig = Rc::clone(&builder.component.signature);
+                    let g = guard!(comp_sig["go"]);
+                    Some(g)
+                } else {
+                    None
+                };
+                // We need to add assignments that makes the FSM count to n.
+                assigns.extend(fsm_object_ref.borrow_mut().count_to_n(
+                    builder,
+                    static_group_ref.get_latency() - 1,
+                    fsm_incr_condition,
+                ));
+                sgroup_assigns_map
+                    .insert(static_group.borrow().name(), assigns);
+            }
+        }
+        (sgroup_assigns_map, res_fsm_map)
     }
 
     // Takes in a static guard `guard`, and returns equivalent dynamic guard
@@ -494,7 +553,7 @@ impl StaticSchedule {
     // is_static_comp is necessary becasue it ...
     fn make_guard_dyn(
         guard: ir::Guard<ir::StaticTiming>,
-        fsm_object: &mut StaticFSM,
+        fsm_object: &mut ir::RRC<StaticFSM>,
         builder: &mut ir::Builder,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
@@ -514,9 +573,9 @@ impl StaticSchedule {
             }
             ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
             ir::Guard::True => Box::new(ir::Guard::True),
-            ir::Guard::Info(static_timing) => {
-                fsm_object.query_between(builder, static_timing.get_interval())
-            }
+            ir::Guard::Info(static_timing) => fsm_object
+                .borrow_mut()
+                .query_between(builder, static_timing.get_interval()),
         }
     }
 
@@ -524,7 +583,7 @@ impl StaticSchedule {
     // Mainly transforms the guards from %[2:3] -> fsm.out >= 2 & fsm.out <= 3
     fn make_assign_dyn(
         assign: ir::Assignment<ir::StaticTiming>,
-        fsm_object: &mut StaticFSM,
+        fsm_object: &mut ir::RRC<StaticFSM>,
         builder: &mut ir::Builder,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {
@@ -601,5 +660,342 @@ impl StaticSchedule {
                 comp_sig,
             )),
         }
+    }
+}
+
+pub struct GreedyFSMAllocator;
+// These are the functions responsible for allocating FSM.
+impl GreedyFSMAllocator {
+    // Given a list of `static_groups`, find the group named `name`.
+    // If there is no such group, then there is an unreachable! error.
+    fn find_static_group(
+        name: &ir::Id,
+        static_groups: &[ir::RRC<ir::StaticGroup>],
+    ) -> ir::RRC<ir::StaticGroup> {
+        Rc::clone(
+            static_groups
+                .iter()
+                .find(|static_group| static_group.borrow().name() == name)
+                .unwrap_or_else(|| {
+                    unreachable!("couldn't find static group {name}")
+                }),
+        )
+    }
+
+    // Given an input static_group `sgroup`, finds the names of all of the groups
+    // that it triggers through their go hole.
+    // E.g., if `sgroup` has assignments that write to `sgroup1[go]` and `sgroup2[go]`
+    // then return `{sgroup1, sgroup2}`
+    // Assumes that static groups will only write the go holes of other static
+    // groups, and never dynamic groups (which seems like a reasonable assumption).
+    fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
+        let mut res = HashSet::new();
+        for asgn in &sgroup.borrow().assignments {
+            let dst = asgn.dst.borrow();
+            if dst.is_hole() && dst.name == "go" {
+                res.insert(dst.get_parent_name());
+            }
+        }
+        res
+    }
+
+    // Gets all of the triggered static groups within `c`, and adds it to `cur_names`.
+    // Relies on sgroup_uses_map to take into account groups that are triggered through
+    // their `go` hole.
+    fn get_used_sgroups(
+        c: &ir::Control,
+        cur_names: &mut HashSet<ir::Id>,
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
+    ) {
+        match c {
+            ir::Control::Empty(_)
+            | ir::Control::Enable(_)
+            | ir::Control::Invoke(_) => (),
+            ir::Control::Static(sc) => {
+                let ir::StaticControl::Enable(s) = sc else {
+                    unreachable!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name());
+                };
+                let group_name = s.group.borrow().name();
+                if let Some(sgroup_uses) = sgroup_uses_map.get(&group_name) {
+                    cur_names.extend(sgroup_uses);
+                }
+                cur_names.insert(group_name);
+            }
+            ir::Control::Par(ir::Par { stmts, .. })
+            | ir::Control::Seq(ir::Seq { stmts, .. }) => {
+                for stmt in stmts {
+                    Self::get_used_sgroups(stmt, cur_names, sgroup_uses_map);
+                }
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. })
+            | ir::Control::While(ir::While { body, .. }) => {
+                Self::get_used_sgroups(body, cur_names, sgroup_uses_map);
+            }
+            ir::Control::If(if_stmt) => {
+                Self::get_used_sgroups(
+                    &if_stmt.tbranch,
+                    cur_names,
+                    sgroup_uses_map,
+                );
+                Self::get_used_sgroups(
+                    &if_stmt.fbranch,
+                    cur_names,
+                    sgroup_uses_map,
+                );
+            }
+        }
+    }
+
+    /// Given control `c`, adds conflicts to `conflict_graph` between all
+    /// static groups that are executed in separate threads of the same par block.
+    /// `sgroup_uses_map` maps:
+    /// static group names -> all of the static groups that it triggers the go ports
+    /// of (even recursively).
+    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
+    /// Would map: A -> {B,C} and B -> {C}
+    fn add_par_conflicts(
+        c: &ir::Control,
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
+        conflict_graph: &mut GraphColoring<ir::Id>,
+    ) {
+        match c {
+            ir::Control::Empty(_)
+            | ir::Control::Enable(_)
+            | ir::Control::Invoke(_)
+            | ir::Control::Static(_) => (),
+            ir::Control::Seq(seq) => {
+                for stmt in &seq.stmts {
+                    Self::add_par_conflicts(
+                        stmt,
+                        sgroup_uses_map,
+                        conflict_graph,
+                    );
+                }
+            }
+            ir::Control::Repeat(ir::Repeat { body, .. })
+            | ir::Control::While(ir::While { body, .. }) => {
+                Self::add_par_conflicts(body, sgroup_uses_map, conflict_graph)
+            }
+            ir::Control::If(if_stmt) => {
+                Self::add_par_conflicts(
+                    &if_stmt.tbranch,
+                    sgroup_uses_map,
+                    conflict_graph,
+                );
+                Self::add_par_conflicts(
+                    &if_stmt.fbranch,
+                    sgroup_uses_map,
+                    conflict_graph,
+                );
+            }
+            ir::Control::Par(par) => {
+                // sgroup_conflict_vec is a vec of HashSets.
+                // Each entry of the vec corresponds to a par thread, and holds
+                // all of the groups executed in that thread.
+                let mut sgroup_conflict_vec = Vec::new();
+                for stmt in &par.stmts {
+                    let mut used_sgroups = HashSet::new();
+                    Self::get_used_sgroups(
+                        stmt,
+                        &mut used_sgroups,
+                        sgroup_uses_map,
+                    );
+                    sgroup_conflict_vec.push(used_sgroups);
+                }
+                for (thread1_sgroups, thread2_sgroups) in
+                    sgroup_conflict_vec.iter().tuple_combinations()
+                {
+                    for sgroup1 in thread1_sgroups {
+                        for sgroup2 in thread2_sgroups {
+                            conflict_graph.insert_conflict(sgroup1, sgroup2);
+                        }
+                    }
+                }
+                // Necessary to add conflicts between nested pars
+                for stmt in &par.stmts {
+                    Self::add_par_conflicts(
+                        stmt,
+                        sgroup_uses_map,
+                        conflict_graph,
+                    );
+                }
+            }
+        }
+    }
+
+    /// Given an `sgroup_uses_map`, which maps:
+    /// static group names -> all of the static groups that it triggers the go ports
+    /// of (even recursively).
+    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
+    /// Would map: A -> {B,C} and B -> {C}
+    /// Adds conflicts between any groups triggered at the same time based on
+    /// `go` port triggering.
+    fn add_go_port_conflicts(
+        sgroup_uses_map: &HashMap<ir::Id, HashSet<ir::Id>>,
+        conflict_graph: &mut GraphColoring<ir::Id>,
+    ) {
+        for (sgroup, sgroup_uses) in sgroup_uses_map {
+            for sgroup_use in sgroup_uses {
+                conflict_graph.insert_conflict(sgroup_use, sgroup);
+            }
+            // If multiple groups are triggered by the same group, then
+            // we conservatively add a conflict between such groups
+            for (sgroup_use1, sgroup_use2) in
+                sgroup_uses.iter().tuple_combinations()
+            {
+                conflict_graph.insert_conflict(sgroup_use1, sgroup_use2);
+            }
+        }
+    }
+
+    // Adds conflicts for each pair of static groups in sgroups for which
+    // the latency difference is greater than diff_limit.
+    fn add_latency_diff_conflicts(
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+        conflict_graph: &mut GraphColoring<ir::Id>,
+        diff_limit: u64,
+    ) {
+        for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
+            // Need i64 to do subtraction
+            let lat1 = std::cmp::max(
+                sgroup1.borrow().get_latency(),
+                sgroup2.borrow().get_latency(),
+            );
+            let lat2 = std::cmp::min(
+                sgroup1.borrow().get_latency(),
+                sgroup2.borrow().get_latency(),
+            );
+            let diff = lat1 - lat2;
+            if diff > diff_limit {
+                conflict_graph.insert_conflict(
+                    &sgroup1.borrow().name(),
+                    &sgroup2.borrow().name(),
+                );
+            }
+        }
+    }
+
+    // helper to `build_sgroup_uses_map`
+    // `parent_group` is the group that we are "currently" analyzing
+    // `full_group_ancestry` is the "ancestry of the group we are analyzing"
+    // Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}, and `parent_group`
+    // is B, then ancestry would be B and A.
+    // `cur_mapping` is the current_mapping for `sgroup_uses_map`
+    // `group_names` is a vec of group_names. Once we analyze a group, we should
+    // remove it from group_names
+    // `sgroups` is a vec of static groups.
+    fn update_sgroup_uses_map(
+        parent_group: &ir::Id,
+        full_group_ancestry: &mut HashSet<ir::Id>,
+        cur_mapping: &mut HashMap<ir::Id, HashSet<ir::Id>>,
+        group_names: &mut HashSet<ir::Id>,
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+    ) {
+        let group_uses = Self::get_go_writes(&Self::find_static_group(
+            parent_group,
+            sgroups,
+        ));
+        for group_use in group_uses {
+            for ancestor in full_group_ancestry.iter() {
+                cur_mapping.entry(*ancestor).or_default().insert(group_use);
+            }
+            full_group_ancestry.insert(group_use);
+            Self::update_sgroup_uses_map(
+                &group_use,
+                full_group_ancestry,
+                cur_mapping,
+                group_names,
+                sgroups,
+            );
+            full_group_ancestry.remove(&group_use);
+        }
+        group_names.remove(parent_group);
+    }
+
+    /// Builds an `sgroup_uses_map`, which maps:
+    /// static group names -> all of the static groups that it triggers the go ports
+    /// of (even recursively).
+    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
+    /// Would map: A -> {B,C} and B -> {C}
+    /// XXX(Caleb): a more natural data structure to use could be using trees,
+    /// since they naturally capture the structure of triggering `go` holes.
+    fn build_sgroup_uses_map(
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+    ) -> HashMap<ir::Id, HashSet<ir::Id>> {
+        let mut names: HashSet<ir::Id> = sgroups
+            .iter()
+            .map(|sgroup| sgroup.borrow().name())
+            .collect();
+        let mut cur_mapping = HashMap::new();
+        while !names.is_empty() {
+            let random_group = *names.iter().next().unwrap();
+            Self::update_sgroup_uses_map(
+                &random_group,
+                &mut HashSet::from([random_group]),
+                &mut cur_mapping,
+                &mut names,
+                sgroups,
+            )
+        }
+        cur_mapping
+    }
+
+    // Given a vec of static groups `sgroups` and a control program, builds a
+    // coloring.
+    pub fn get_coloring(
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+        control: &ir::Control,
+        max_latency_diff: Option<u64>,
+    ) -> HashMap<ir::Id, ir::Id> {
+        // `sgroup_uses_map` builds a mapping of static groups -> groups that
+        // it (even indirectly) triggers the `go` port of.
+        let sgroup_uses_map = Self::build_sgroup_uses_map(sgroups);
+        // Build conflict graph and get coloring.
+        let mut conflict_graph: GraphColoring<ir::Id> =
+            GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
+        Self::add_par_conflicts(control, &sgroup_uses_map, &mut conflict_graph);
+        Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
+        if let Some(diff_limit) = max_latency_diff {
+            Self::add_latency_diff_conflicts(
+                sgroups,
+                &mut conflict_graph,
+                diff_limit,
+            )
+        }
+        conflict_graph.color_greedy(None, true)
+    }
+
+    // Given a `coloring` of static group names, along with the actual `static_groups`,
+    // it builds one StaticSchedule per color.
+    pub fn build_schedule_objects(
+        coloring: HashMap<ir::Id, ir::Id>,
+        mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
+    ) -> Vec<StaticSchedule> {
+        // "reverse" the coloring to map colors -> static group_names
+        let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
+            HashMap::new();
+        for (group, color) in coloring {
+            color_to_groups.entry(color).or_default().insert(group);
+        }
+        // Need deterministic ordering for testing.
+        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
+            color_to_groups.into_iter().collect();
+        vec_color_to_groups
+            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
+        vec_color_to_groups
+            .into_iter()
+            .map(|(_, group_names)| {
+                // For each color, build a StaticSchedule object.
+                // We first have to figure out out which groups we need to
+                // build the static_schedule object for.
+                let (matching_groups, other_groups) =
+                    static_groups.drain(..).partition(|group| {
+                        group_names.contains(&group.borrow().name())
+                    });
+                let sch = StaticSchedule::from(matching_groups);
+                static_groups = other_groups;
+                sch
+            })
+            .collect()
     }
 }
