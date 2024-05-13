@@ -33,7 +33,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       adder.left = fsm.out;
       adder.right = 1'd1;
       fsm.write_en = 1'd1;
-      fsm.in = fsm.out != 1'd0 ? adder.out;
+      fsm.in = !(fsm.out == 1'd0) ? adder.out;
       fsm.in = fsm.out == 1'd0 ? 1'd0;
       early_reset_A[done] = ud.out;
     }
@@ -43,7 +43,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       adder0.left = fsm0.out;
       adder0.right = 1'd1;
       fsm0.write_en = 1'd1;
-      fsm0.in = fsm0.out != 1'd0 ? adder0.out;
+      fsm0.in = !(fsm0.out == 1'd0) ? adder0.out;
       fsm0.in = fsm0.out == 1'd0 ? 1'd0;
       early_reset_C[done] = ud0.out;
     }
@@ -53,7 +53,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       adder1.left = fsm1.out;
       adder1.right = 1'd1;
       fsm1.write_en = 1'd1;
-      fsm1.in = fsm1.out != 1'd0 ? adder1.out;
+      fsm1.in = !(fsm1.out == 1'd0) ? adder1.out;
       fsm1.in = fsm1.out == 1'd0 ? 1'd0;
       early_reset_D[done] = ud1.out;
     }
@@ -63,7 +63,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       adder2.left = fsm2.out;
       adder2.right = 1'd1;
       fsm2.write_en = 1'd1;
-      fsm2.in = fsm2.out != 1'd0 ? adder2.out;
+      fsm2.in = !(fsm2.out == 1'd0) ? adder2.out;
       fsm2.in = fsm2.out == 1'd0 ? 1'd0;
       early_reset_B[done] = ud2.out;
     }
@@ -73,7 +73,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       adder3.left = fsm3.out;
       adder3.right = 3'd1;
       fsm3.write_en = 1'd1;
-      fsm3.in = fsm3.out != 3'd5 ? adder3.out;
+      fsm3.in = !(fsm3.out == 3'd5) ? adder3.out;
       fsm3.in = fsm3.out == 3'd5 ? 3'd0;
       early_reset_run_A_and_D[done] = ud3.out;
     }

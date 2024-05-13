@@ -48,8 +48,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.write_en = early_reset_cond00_go.out | early_reset_static_seq_go.out ? 1'd1;
     fsm.clk = clk;
     fsm.reset = reset;
-    fsm.in = fsm.out != 3'd0 & early_reset_cond00_go.out ? adder.out;
-    fsm.in = fsm.out != 3'd3 & early_reset_static_seq_go.out ? adder0.out;
+    fsm.in = !(fsm.out == 3'd0) & early_reset_cond00_go.out ? adder.out;
+    fsm.in = !(fsm.out == 3'd3) & early_reset_static_seq_go.out ? adder0.out;
     fsm.in = fsm.out == 3'd0 & early_reset_cond00_go.out | fsm.out == 3'd3 & early_reset_static_seq_go.out ? 3'd0;
     adder.left = early_reset_cond00_go.out ? fsm.out;
     adder.right = early_reset_cond00_go.out ? 3'd1;
