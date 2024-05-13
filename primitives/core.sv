@@ -183,16 +183,6 @@ module std_le #(
   assign out = left <= right;
 endmodule
 
-module std_lsh #(
-    parameter WIDTH = 32
-) (
-   input wire               logic [WIDTH-1:0] left,
-   input wire               logic [WIDTH-1:0] right,
-   output logic [WIDTH-1:0] out
-);
-  assign out = left << right;
-endmodule
-
 module std_rsh #(
     parameter WIDTH = 32
 ) (
