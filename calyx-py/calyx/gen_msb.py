@@ -34,9 +34,7 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
     val_ans = comp.reg(width, "val_ans")
     val_build = comp.reg(width, "val_build")
     rsh = comp.rsh(width)
-    sub = comp.sub(width)
     neq = comp.neq(width)
-    lsh = comp.lsh(width)
 
     with comp.group("wr_cur_val") as wr_cur_val:
         rsh.left = in_
@@ -59,6 +57,7 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
         neq.right = counter.out
 
     incr_count = comp.incr(counter)
+    decr_count = comp.decr(counter)
 
     with comp.group("shift_cur_val") as shift_cur_val:
         rsh.left = cur_val.out
@@ -68,27 +67,8 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
         shift_cur_val.done = cur_val.done
 
     shift_val_build = comp.lsh_use(val_build.out, val_build)
-
-    with comp.group("decr_count") as decr_count:
-        sub.left = counter.out
-        sub.right = const(width, 1)
-        counter.in_ = sub.out
-        counter.write_en = HI
-        decr_count.done = counter.done
-
-    with comp.group("wr_count") as wr_count:
-        lsh.left = counter.out
-        lsh.right = const(width, width - int_width)
-        count_ans.in_ = lsh.out
-        count_ans.write_en = HI
-        wr_count.done = count_ans.done
-
-    with comp.group("wr_val") as wr_val:
-        lsh.left = val_build.out
-        lsh.right = const(width, width - int_width)
-        val_ans.in_ = lsh.out
-        val_ans.write_en = HI
-        wr_val.done = val_ans.done
+    wr_count = comp.lsh_use(counter.out, count_ans, width - int_width)
+    wr_val = comp.lsh_use(val_build.out, val_ans, width - int_width)
 
     with comp.continuous:
         comp.this().count = count_ans.out
