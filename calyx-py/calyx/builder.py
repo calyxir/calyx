@@ -585,6 +585,18 @@ class ComponentBuilder:
             lsh_group.done = ans.done
         return lsh_group
 
+    def rsh_use(self, input, ans, val=1):
+        """Inserts wiring into `self` to perform `ans := input >> val`."""
+        width = ans.infer_width_reg()
+        cell = self.rsh(width)
+        with self.group(f"{cell.name}_group") as rsh_group:
+            cell.left = input
+            cell.right = const(width, val)
+            ans.write_en = 1
+            ans.in_ = cell.out
+            rsh_group.done = ans.done
+        return rsh_group
+
     def reg_store(self, reg, val, groupname=None):
         """Inserts wiring into `self` to perform `reg := val`."""
         groupname = groupname or f"{reg.name}_store_to_reg"
