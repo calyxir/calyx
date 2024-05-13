@@ -211,7 +211,7 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 
 /// Represents the dyanmic execution schedule of a control program.
 struct Schedule<'b, 'a: 'b> {
-    /// A mapping from groups to corresponding FSM states
+    /// A mapping from groups to corresponding FSM state ids
     pub groups_to_states: HashSet<FSMStateInfo>,
     /// Assigments that should be enabled in a given state.
     pub enables: HashMap<u64, Vec<ir::Assignment<Nothing>>>,
@@ -222,7 +222,6 @@ struct Schedule<'b, 'a: 'b> {
     pub builder: &'b mut ir::Builder<'a>,
 }
 
-// FIXME: Probably shouldn't have this separated from the Schedule struct? Not a fan of what I have right now
 #[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 struct FSMInfo {
     pub component: String,

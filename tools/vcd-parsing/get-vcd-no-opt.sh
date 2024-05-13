@@ -1,6 +1,8 @@
+# Generates traces from a no-opt compiled version of the input Calyx program (Maybe I can make fud2 do this?)
+
 if [ $# -ne 3 ]; then
-    echo "USAGE: bash $0 INPUT_FILE VCD_FILE SIM_DATA_JSON"
-    echo "All files should use absolute paths"
+    echo "USAGE: bash $0 CALYX_PROGRAM OUT_VCD_FILE SIM_DATA_JSON"
+    echo "All files should use absolute paths."
     exit
 fi
 
