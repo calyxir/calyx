@@ -25,11 +25,11 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
     comp.output("count", width)
     comp.output("value", width)
 
-    counter = comp.reg(width, "counter")
-    cur_val = comp.reg(width, "cur_val")
-    count_ans = comp.reg(width, "count_ans")
-    val_ans = comp.reg(width, "val_ans")
-    val_build = comp.reg(width, "val_build")
+    counter = comp.reg(width)
+    cur_val = comp.reg(width)
+    count_ans = comp.reg(width)
+    val_ans = comp.reg(width)
+    val_build = comp.reg(width)
 
     wr_cur_val = comp.rsh_use(in_, cur_val, int_width)
     wr_val_build = comp.reg_store(val_build, 1)
