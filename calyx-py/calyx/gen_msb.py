@@ -1,11 +1,6 @@
 from typing import List
-from calyx.py_ast import (
-    Component,
-)
-from calyx.builder import (
-    Builder,
-    while_with,
-)
+from calyx.py_ast import Component
+from calyx.builder import Builder, while_with
 
 
 def gen_msb_calc(width: int, int_width: int) -> List[Component]:
