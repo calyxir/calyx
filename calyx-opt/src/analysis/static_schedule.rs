@@ -4,44 +4,94 @@ use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
 use ir::Guard;
 use itertools::Itertools;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::ops::Not;
 use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy)]
-// Define an enum called Fruit
+// Define an FSMEncoding Enum
 enum FSMEncoding {
     Binary,
-    _OneHot,
+    OneHot,
+}
+
+#[derive(Debug)]
+enum FSMImplementationSpec {
+    Single,
+    // How many duplicates
+    _Duplicate(u64),
+    // How many times to split
+    _Split(u64),
+}
+
+#[derive(Debug)]
+// Define an enum called FSMType
+enum FSMImplementation {
+    // Default option: just a single register
+    Single(ir::RRC<ir::Cell>),
+    // Duplicate the register to reduce fanout when querying
+    // (all FSMs in this vec still have all of the states)
+    _Duplicate(Vec<ir::RRC<ir::Cell>>),
+    // Split the FSM to reduce fanout when querying.
+    // (the FSMs partition the states exactly).
+    // Each FSM has fewer bits but I suspect the logic might be more complicated.
+    _Split(Vec<ir::RRC<ir::Cell>>),
+}
+
+impl FSMImplementation {
+    fn get_single_cell(&self) -> ir::RRC<ir::Cell> {
+        match self {
+            FSMImplementation::Single(cell) => Rc::clone(cell),
+            _ => unreachable!(
+                "called `get_single_cell()` on non-single FSM implementation "
+            ),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct StaticFSM {
     _num_states: u64,
-    _encoding: FSMEncoding,
+    encoding: FSMEncoding,
     // The fsm's bitwidth (this redundant information bc  we have `cell`)
     // but makes it easier if we easily have access to this.
     bitwidth: u64,
-    // The actual register
-    cell: ir::RRC<ir::Cell>,
+    // The actual register(s) used to implement the FSM
+    implementation: FSMImplementation,
+    // Mapping of queries from (u64, u64) -> Port
+    queries: HashMap<(u64, u64), ir::RRC<ir::Port>>,
 }
 impl StaticFSM {
     // Builds a static_fsm from: num_states and encoding type.
     fn from_basic_info(
         num_states: u64,
         encoding: FSMEncoding,
+        _implementation: FSMImplementationSpec,
         builder: &mut ir::Builder,
     ) -> Self {
-        // Only support Binary encoding currently.
-        assert!(matches!(encoding, FSMEncoding::Binary));
-        // First build the fsm we will use to realize the schedule.
-        let fsm_size =
-            get_bit_width_from(num_states + 1 /* represent 0..latency */);
-        let fsm = builder.add_primitive("fsm", "std_reg", &[fsm_size]);
+        // Determine number of bits needed in the register.
+        let fsm_size = match encoding {
+            /* represent 0..latency */
+            FSMEncoding::Binary => get_bit_width_from(num_states + 1),
+            FSMEncoding::OneHot => num_states,
+        };
+        // OHE needs an initial value of 1.
+        let register = match encoding {
+            FSMEncoding::Binary => {
+                builder.add_primitive("fsm", "std_reg", &[fsm_size])
+            }
+            FSMEncoding::OneHot => {
+                builder.add_primitive("fsm", "init_one_reg", &[fsm_size])
+            }
+        };
+        let fsm = FSMImplementation::Single(register);
+
         StaticFSM {
             _num_states: num_states,
-            _encoding: encoding,
+            encoding,
             bitwidth: fsm_size,
-            cell: fsm,
+            implementation: fsm,
+            queries: HashMap::new(),
         }
     }
 
@@ -54,72 +104,111 @@ impl StaticFSM {
     // (NOTE: if the guard is true while we are counting up we will just
     // ignore that guard and keep on counting-- we don't reset or anything.
     // The guard is just there to make sure we only go from 0->1 when appropriate.)
+    // (IMPORTANT WEIRD PRECONDITION): if `incr_cond` is Some(_), we assume n > 0.
     pub fn count_to_n(
-        &self,
+        &mut self,
         builder: &mut ir::Builder,
         n: u64,
         incr_condition: Option<Guard<Nothing>>,
     ) -> Vec<ir::Assignment<Nothing>> {
-        // Only support Binary encoding currently.
-        assert!(matches!(self._encoding, FSMEncoding::Binary));
-        // Add assignments to increment the fsm by one unconditionally.
-        structure!( builder;
-            // done hole will be undefined bc of early reset
-            let signal_on = constant(1,1);
-            let adder = prim std_add(self.bitwidth);
-            let const_one = constant(1, self.bitwidth);
-            let first_state = constant(0, self.bitwidth);
-            let final_state = constant(n, self.bitwidth);
-        );
-        let fsm_cell = Rc::clone(&self.cell);
-        let final_state_guard: ir::Guard<Nothing> =
-            guard!(fsm_cell["out"] == final_state["out"]);
-        match incr_condition {
-            None => {
-                // "Normal" logic to increment FSM by one.
-                let not_final_state_guard: ir::Guard<ir::Nothing> =
-                    guard!(fsm_cell["out"] != final_state["out"]);
-                build_assignments!(
-                  builder;
-                  // increments the fsm
-                  adder["left"] = ? fsm_cell["out"];
-                  adder["right"] = ? const_one["out"];
-                  fsm_cell["write_en"] = ? signal_on["out"];
-                  fsm_cell["in"] =  not_final_state_guard ? adder["out"];
-                   // resets the fsm early
-                   fsm_cell["in"] = final_state_guard ? first_state["out"];
-                )
-                .to_vec()
-            }
-            Some(condition_guard) => {
-                let first_state_guard: ir::Guard<Nothing> =
-                    guard!(fsm_cell["out"] == first_state["out"]);
-                let cond_and_first_state =
-                    ir::Guard::and(condition_guard, first_state_guard);
-                let not_first_state: ir::Guard<Nothing> =
-                    guard!(fsm_cell["out"] != first_state["out"]);
-                let not_last_state: ir::Guard<Nothing> =
-                    guard!(fsm_cell["out"] != final_state["out"]);
-                let in_between_guard =
-                    ir::Guard::and(not_first_state, not_last_state);
-                build_assignments!(
-                  builder;
-                  // Incrementsthe fsm
-                  adder["left"] = ? fsm_cell["out"];
-                  adder["right"] = ? const_one["out"];
-                  // Always write into fsm.
-                  fsm_cell["write_en"] = ? signal_on["out"];
-                  // If fsm == 0 and cond is high, then we start an execution.
-                  fsm_cell["in"] = cond_and_first_state ? const_one["out"];
-                  // If 1 < fsm < n - 1, then we unconditionally increment the fsm.
-                  fsm_cell["in"] = in_between_guard ? adder["out"];
-                  // If fsm == n -1 , then we reset the FSM.
-                  fsm_cell["in"] = final_state_guard ? first_state["out"];
-                  // Otherwise the FSM is not assigned to, so it defaults to 0.
-                  // If we want, we could add an explicit assignment here that sets it
-                  // to zero.
-                )
-                .to_vec()
+        {
+            assert!(matches!(
+                self.implementation,
+                FSMImplementation::Single(_)
+            ));
+            let fsm_cell: Rc<std::cell::RefCell<ir::Cell>> =
+                self.implementation.get_single_cell();
+            // For OHE, the "adder" can just be a shifter.
+            // For OHE the first_state = 1 rather than 0.
+            // Final state is encoded differently for OHE vs. Binary
+            let (adder, first_state, final_state_guard) = match self.encoding {
+                FSMEncoding::Binary => (
+                    builder.add_primitive("adder", "std_add", &[self.bitwidth]),
+                    builder.add_constant(0, self.bitwidth),
+                    {
+                        let const_n = builder.add_constant(n, self.bitwidth);
+                        let g = guard!(fsm_cell["out"] == const_n["out"]);
+                        g
+                    },
+                ),
+                FSMEncoding::OneHot => (
+                    builder.add_primitive("lsh", "std_lsh", &[self.bitwidth]),
+                    builder.add_constant(1, self.bitwidth),
+                    self.get_one_hot_query(
+                        Rc::clone(&fsm_cell),
+                        (n, n + 1),
+                        builder,
+                    ),
+                ),
+            };
+            structure!( builder;
+                let signal_on = constant(1,1);
+                let const_one = constant(1, self.bitwidth);
+            );
+            let not_final_state_guard =
+                ir::Guard::Not(Box::new(final_state_guard.clone()));
+            match incr_condition {
+                None => {
+                    // Unconditionally increment FSM.
+                    build_assignments!(
+                      builder;
+                      // increments the fsm
+                      adder["left"] = ? fsm_cell["out"];
+                      adder["right"] = ? const_one["out"];
+                      fsm_cell["write_en"] = ? signal_on["out"];
+                      fsm_cell["in"] =  not_final_state_guard ? adder["out"];
+                       // resets the fsm early
+                       fsm_cell["in"] = final_state_guard ? first_state["out"];
+                    )
+                    .to_vec()
+                }
+                Some(condition_guard) => {
+                    // Only start incrementing when FSM == first_state and
+                    // conditiona_guard is true.
+                    // After that, we can unconditionally increment.
+                    let first_state_guard = match self.encoding {
+                        FSMEncoding::Binary => {
+                            let g =
+                                guard!(fsm_cell["out"] == first_state["out"]);
+                            g
+                        }
+                        // This is better than checking if FSM == first_state
+                        // be this is only checking a single bit.
+                        FSMEncoding::OneHot => self.get_one_hot_query(
+                            Rc::clone(&fsm_cell),
+                            (0, 1),
+                            builder,
+                        ),
+                    };
+                    let not_first_state: ir::Guard<Nothing> =
+                        ir::Guard::Not(Box::new(first_state_guard.clone()));
+                    let cond_and_first_state = ir::Guard::and(
+                        condition_guard.clone(),
+                        first_state_guard.clone(),
+                    );
+                    let not_cond_and_first_state =
+                        ir::Guard::not(condition_guard.clone())
+                            .and(first_state_guard);
+                    let in_between_guard =
+                        ir::Guard::and(not_first_state, not_final_state_guard);
+                    let my_assigns = build_assignments!(
+                      builder;
+                      // Incrementsthe fsm
+                      adder["left"] = ? fsm_cell["out"];
+                      adder["right"] = ? const_one["out"];
+                      // Always write into fsm.
+                      fsm_cell["write_en"] = ? signal_on["out"];
+                      // If fsm == first_state and cond is high, then we start an execution.
+                      fsm_cell["in"] = cond_and_first_state ? adder["out"];
+                      // If first_state < fsm < n, then we unconditionally increment the fsm.
+                      fsm_cell["in"] = in_between_guard ? adder["out"];
+                      // If fsm == n, then we reset the FSM.
+                      fsm_cell["in"] = final_state_guard ? first_state["out"];
+                      // Otherwise we set the FSM equal to first_state.
+                      fsm_cell["in"] = not_cond_and_first_state ? first_state["out"];
+                    );
+                    my_assigns.to_vec()
+                }
             }
         }
     }
@@ -127,14 +216,21 @@ impl StaticFSM {
     // Returns a guard that takes a (beg, end) `query`, and returns the equivalent
     // guard to `beg <= fsm.out < end`.
     pub fn query_between(
-        &self,
+        &mut self,
         builder: &mut ir::Builder,
         query: (u64, u64),
     ) -> Box<ir::Guard<Nothing>> {
-        // Only support Binary encoding currently.
-        assert!(matches!(self._encoding, FSMEncoding::Binary));
+        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
+
         let (beg, end) = query;
-        let fsm_cell = Rc::clone(&self.cell);
+        if matches!(self.encoding, FSMEncoding::OneHot) {
+            // Querying OHE is easy, since we already have `self.get_one_hot_query()`
+            let fsm_cell = self.implementation.get_single_cell();
+            let g = self.get_one_hot_query(fsm_cell, (beg, end), builder);
+            return Box::new(g);
+        }
+
+        let fsm_cell = self.implementation.get_single_cell();
         if beg + 1 == end {
             // if beg + 1 == end then we only need to check if fsm == beg
             let interval_const = builder.add_constant(beg, self.bitwidth);
@@ -158,14 +254,82 @@ impl StaticFSM {
         }
     }
 
+    // Given a one-hot query, it will return a guard corresponding to that query.
+    // If it has already built the query (i.e., added the wires/continuous assigments),
+    // it just uses the same port.
+    // Otherwise it will build the query.
+    fn get_one_hot_query(
+        &mut self,
+        fsm_cell: ir::RRC<ir::Cell>,
+        (lb, ub): (u64, u64),
+        builder: &mut ir::Builder,
+    ) -> ir::Guard<Nothing> {
+        match self.queries.get(&(lb, ub)) {
+            None => {
+                let port = Self::build_one_hot_query(
+                    Rc::clone(&fsm_cell),
+                    self.bitwidth,
+                    (lb, ub),
+                    builder,
+                );
+                self.queries.insert((lb, ub), Rc::clone(&port));
+                ir::Guard::port(port)
+            }
+            Some(port) => ir::Guard::port(Rc::clone(port)),
+        }
+    }
+
+    // Given a (lb, ub) query, and an fsm (and for convenience, a bitwidth),
+    // Returns a `port`: port is a `wire.out`, where `wire` holds
+    // whether or not the query is true, i.e., whether the FSM really is
+    // between [lb, ub).
+    fn build_one_hot_query(
+        fsm_cell: ir::RRC<ir::Cell>,
+        fsm_bitwidth: u64,
+        (lb, ub): (u64, u64),
+        builder: &mut ir::Builder,
+    ) -> ir::RRC<ir::Port> {
+        // The wire that holds the query
+        let formatted_name = format!("bw_{}_{}", lb, ub);
+        let wire: ir::RRC<ir::Cell> =
+            builder.add_primitive(formatted_name, "std_wire", &[1]);
+        let wire_out = wire.borrow().get("out");
+
+        // Continuous assignments to check the FSM
+        let assigns = {
+            let in_width = fsm_bitwidth;
+            // Since 00...00 is the initial state, we need to check lb-1.
+            let start_index = lb;
+            // Since verilog slices are inclusive.
+            let end_index = ub - 1;
+            let out_width = ub - lb; // == (end_index - start_index + 1)
+            structure!(builder;
+                let slicer = prim std_bit_slice(in_width, start_index, end_index, out_width);
+                let const_slice_0 = constant(0, out_width);
+                let signal_on = constant(1,1);
+            );
+            let slicer_neq_0 = guard!(slicer["out"] != const_slice_0["out"]);
+            // Extend the continuous assignmments to include this particular query for FSM state;
+            let my_assigns = build_assignments!(builder;
+                slicer["in"] = ? fsm_cell["out"];
+                wire["in"] = slicer_neq_0 ? signal_on["out"];
+            );
+            my_assigns.to_vec()
+        };
+        builder.add_continuous_assignments(assigns);
+        wire_out
+    }
+
     // Return a unique id (i.e., get_unique_id for each FSM in the same component
     // will be different).
     pub fn get_unique_id(&self) -> ir::Id {
-        self.cell.borrow().name()
+        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
+        self.implementation.get_single_cell().borrow().name()
     }
 
     // Return the bitwidth of an FSM object
     pub fn get_bitwidth(&self) -> u64 {
+        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
         self.bitwidth
     }
 }
@@ -250,11 +414,20 @@ impl StaticSchedule {
         &mut self,
         builder: &mut ir::Builder,
         static_component_interface: bool,
+        one_hot_cutoff: u64,
     ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, StaticFSM) {
+        // Choose encoding based on one-hot cutoff.
+        let encoding = if self.num_states > one_hot_cutoff {
+            FSMEncoding::Binary
+        } else {
+            FSMEncoding::OneHot
+        };
+
         // First build the fsm we will use to realize the schedule.
-        let fsm_object = StaticFSM::from_basic_info(
+        let mut fsm_object = StaticFSM::from_basic_info(
             self.num_states,
-            FSMEncoding::Binary,
+            encoding,
+            FSMImplementationSpec::Single,
             builder,
         );
 
@@ -286,7 +459,11 @@ impl StaticSchedule {
             let mut assigns: Vec<ir::Assignment<Nothing>> = static_assigns
                 .into_iter()
                 .map(|static_assign| {
-                    Self::make_assign_dyn(static_assign, &fsm_object, builder)
+                    Self::make_assign_dyn(
+                        static_assign,
+                        &mut fsm_object,
+                        builder,
+                    )
                 })
                 .collect();
             // For static components, we don't unconditionally start counting.
@@ -317,7 +494,7 @@ impl StaticSchedule {
     // is_static_comp is necessary becasue it ...
     fn make_guard_dyn(
         guard: ir::Guard<ir::StaticTiming>,
-        fsm_object: &StaticFSM,
+        fsm_object: &mut StaticFSM,
         builder: &mut ir::Builder,
     ) -> Box<ir::Guard<Nothing>> {
         match guard {
@@ -347,7 +524,7 @@ impl StaticSchedule {
     // Mainly transforms the guards from %[2:3] -> fsm.out >= 2 & fsm.out <= 3
     fn make_assign_dyn(
         assign: ir::Assignment<ir::StaticTiming>,
-        fsm_object: &StaticFSM,
+        fsm_object: &mut StaticFSM,
         builder: &mut ir::Builder,
     ) -> ir::Assignment<Nothing> {
         ir::Assignment {

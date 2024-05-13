@@ -19,7 +19,7 @@ static<6> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset r
       adder0.left = fsm0.out;
       adder0.right = 1'd1;
       fsm0.write_en = 1'd1;
-      fsm0.in = fsm0.out != 1'd0 ? adder0.out;
+      fsm0.in = !(fsm0.out == 1'd0) ? adder0.out;
       fsm0.in = fsm0.out == 1'd0 ? 1'd0;
       early_reset_a[done] = ud.out;
     }
@@ -31,9 +31,10 @@ static<6> component do_add(left: 32, right: 32, @go go: 1, @clk clk: 1, @reset r
     adder.left = fsm.out;
     adder.right = 3'd1;
     fsm.write_en = 1'd1;
-    fsm.in = go & fsm.out == 3'd0 ? 3'd1;
-    fsm.in = fsm.out != 3'd0 & fsm.out != 3'd5 ? adder.out;
+    fsm.in = go & fsm.out == 3'd0 ? adder.out;
+    fsm.in = !(fsm.out == 3'd0) & !(fsm.out == 3'd5) ? adder.out;
     fsm.in = fsm.out == 3'd5 ? 3'd0;
+    fsm.in = !go & fsm.out == 3'd0 ? 3'd0;
   }
   control {}
 }
@@ -53,7 +54,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       adder.left = fsm.out;
       adder.right = 3'd1;
       fsm.write_en = 1'd1;
-      fsm.in = fsm.out != 3'd5 ? adder.out;
+      fsm.in = !(fsm.out == 3'd5) ? adder.out;
       fsm.in = fsm.out == 3'd5 ? 3'd0;
       early_reset_static_invoke[done] = ud.out;
     }

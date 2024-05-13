@@ -33,7 +33,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       adder.left = fsm.out;
       adder.right = 2'd1;
       fsm.write_en = 1'd1;
-      fsm.in = fsm.out != 2'd1 ? adder.out;
+      fsm.in = !(fsm.out == 2'd1) ? adder.out;
       fsm.in = fsm.out == 2'd1 ? 2'd0;
       early_reset_A[done] = ud.out;
     }
@@ -42,7 +42,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       adder0.left = fsm0.out;
       adder0.right = 3'd1;
       fsm0.write_en = 1'd1;
-      fsm0.in = fsm0.out != 3'd5 ? adder0.out;
+      fsm0.in = !(fsm0.out == 3'd5) ? adder0.out;
       fsm0.in = fsm0.out == 3'd5 ? 3'd0;
       early_reset_run_A_thrice[done] = ud0.out;
     }
