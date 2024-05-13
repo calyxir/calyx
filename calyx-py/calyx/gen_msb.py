@@ -67,12 +67,7 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
         cur_val.write_en = HI
         shift_cur_val.done = cur_val.done
 
-    with comp.group("shift_val_build") as shift_val_build:
-        lsh.left = val_build.out
-        lsh.right = const(width, 1)
-        val_build.in_ = lsh.out
-        val_build.write_en = HI
-        shift_val_build.done = val_build.done
+    shift_val_build = comp.lsh_use(val_build.out, val_build)
 
     with comp.group("decr_count") as decr_count:
         sub.left = counter.out
