@@ -1,6 +1,5 @@
 from typing import List
 from calyx.py_ast import (
-    Stdlib,
     Component,
 )
 from calyx.builder import (
@@ -19,13 +18,13 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
     that 2^n <= x. Note that this is essentially finding the index of the most
     significant bit in x. count_ans is the value for `n`, and `value_ans` is the
     value for `2^n`.
-    Essentially, the component uses a while loop, a counter register, and shifts the input
+    The component uses a while loop, a counter register, and shifts the input
     1 bit to the right at each iteration until it equals 0.
     Important note: this component doesn't work when the input is 0.
     """
     builder = Builder()
     comp = builder.component("msb_calc")
-    comp.input("in", width)
+    in_ = comp.input("in", width)
     comp.output("count", width)
     comp.output("value", width)
 
@@ -35,13 +34,12 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
     val_ans = comp.reg(width, "val_ans")
     val_build = comp.reg(width, "val_build")
     rsh = comp.rsh(width)
-    add = comp.add(width)
     sub = comp.sub(width)
     neq = comp.neq(width)
     lsh = comp.lsh(width)
 
     with comp.group("wr_cur_val") as wr_cur_val:
-        rsh.left = comp.this().in_
+        rsh.left = in_
         rsh.right = const(width, int_width)
         cur_val.in_ = rsh.out
         cur_val.write_en = HI

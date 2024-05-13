@@ -573,6 +573,17 @@ class ComponentBuilder:
             decr_group.done = reg.done
         return decr_group
 
+    def lsh_use(self, ref, val=1):
+        """Inserts wiring into `self` to perform `ref := ref << val`."""
+        cell = self.lsh(ref.infer_width_reg())
+        with self.group(f"{cell.name}_group") as lsh_group:
+            cell.left = ref.out
+            cell.right = const(ref.infer_width_reg(), val)
+            ref.write_en = 1
+            ref.in_ = cell.out
+            lsh_group.done = ref.done
+        return lsh_group
+
     def reg_store(self, reg, val, groupname=None):
         """Inserts wiring into `self` to perform `reg := val`."""
         groupname = groupname or f"{reg.name}_store_to_reg"
