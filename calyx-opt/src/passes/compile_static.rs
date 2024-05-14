@@ -24,6 +24,9 @@ pub struct CompileStatic {
     /// How many states the static FSM must have before we pick binary encoding over
     /// one-hot
     one_hot_cutoff: u64,
+    ///
+    max_num_queries: u64,
+    max_latency_diff: u64,
 }
 
 impl Named for CompileStatic {
@@ -42,6 +45,18 @@ impl Named for CompileStatic {
             encoding over one-hot. Defaults to 0 (i.e., always choose binary encoding)",
             ParseVal::Num(0),
             PassOpt::parse_num,
+        ),
+        PassOpt::new(
+            "max-num-queries",
+            "Maximum number of queries an FSM should support, before we start duplicating/splitting",
+            ParseVal::Num(2000),
+            PassOpt::parse_num,
+        ),
+        PassOpt::new(
+            "max-latency-diff",
+            "Maximum latency difference between two different static islands",
+            ParseVal::Num(3000),
+            PassOpt::parse_num,
         )]
     }
 }
@@ -52,6 +67,8 @@ impl ConstructVisitor for CompileStatic {
 
         Ok(CompileStatic {
             one_hot_cutoff: opts["one-hot-cutoff"].pos_num().unwrap(),
+            max_num_queries: opts["max-num-queries"].pos_num().unwrap(),
+            max_latency_diff: opts["max-latency-diff"].pos_num().unwrap(),
             reset_early_map: HashMap::new(),
             wrapper_map: HashMap::new(),
             signal_reg_map: HashMap::new(),
@@ -346,8 +363,12 @@ impl CompileStatic {
             // Build a StaticSchedule object, realize it and add assignments
             // as continuous assignments.
             let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
-            let (mut assigns_map, fsm_map) =
-                sch.realize_schedule(builder, true, self.one_hot_cutoff, None);
+            let (mut assigns_map, fsm_map) = sch.realize_schedule(
+                builder,
+                true,
+                self.one_hot_cutoff,
+                Some(self.max_num_queries),
+            );
             builder
                 .component
                 .continuous_assignments
@@ -430,7 +451,7 @@ impl Visitor for CompileStatic {
         let coloring = GreedyFSMAllocator::get_coloring(
             &sgroups,
             &comp.control.borrow(),
-            None,
+            Some(self.max_latency_diff),
         );
         // Build one StaticSchedule object per color
         let mut schedule_objects =
@@ -467,7 +488,7 @@ impl Visitor for CompileStatic {
                     &mut builder,
                     static_component_interface,
                     self.one_hot_cutoff,
-                    None,
+                    Some(self.max_num_queries),
                 );
                 for static_group in sch.static_groups.iter() {
                     // Create the dynamic "early reset group" that will replace the static group.

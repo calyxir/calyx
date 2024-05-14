@@ -47,14 +47,6 @@ enum FSMImplementation {
 }
 
 impl FSMImplementation {
-    fn get_single_cell(&self) -> ir::RRC<ir::Cell> {
-        match self {
-            FSMImplementation::Single(cell) => Rc::clone(cell),
-            _ => unreachable!(
-                "called `get_single_cell()` on non-single FSM implementation "
-            ),
-        }
-    }
     fn get_cells(&self) -> Vec<ir::RRC<ir::Cell>> {
         match self {
             FSMImplementation::Single(cell) => vec![Rc::clone(cell)],
@@ -408,13 +400,31 @@ impl StaticFSM {
     // Return a unique id (i.e., get_unique_id for each FSM in the same component
     // will be different).
     pub fn get_unique_id(&self) -> ir::Id {
-        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
-        self.implementation.get_single_cell().borrow().name()
+        assert!(
+            matches!(self.implementation, FSMImplementation::Single(_))
+                | matches!(
+                    self.implementation,
+                    FSMImplementation::Duplicate(_)
+                )
+        );
+        self.implementation
+            .get_cells()
+            .iter()
+            .next()
+            .unwrap()
+            .borrow()
+            .name()
     }
 
     // Return the bitwidth of an FSM object
     pub fn get_bitwidth(&self) -> u64 {
-        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
+        assert!(
+            matches!(self.implementation, FSMImplementation::Single(_))
+                | matches!(
+                    self.implementation,
+                    FSMImplementation::Duplicate(_)
+                )
+        );
         self.bitwidth
     }
 }
@@ -559,16 +569,17 @@ impl StaticSchedule {
                 cur_num_queries += num_queries;
             }
         }
-        let num_states = cur_max_latency;
-        let encoding = Self::choose_encoding(num_states, one_hot_cutoff);
-        let fsm_object = StaticFSM::from_basic_info(
-            num_states,
-            encoding,
-            FSMImplementationSpec::Single,
-            builder,
-        );
-        fsm_map.push((fsm_object, cur_groups));
-
+        if !cur_groups.is_empty() {
+            let num_states = cur_max_latency;
+            let encoding = Self::choose_encoding(num_states, one_hot_cutoff);
+            let fsm_object = StaticFSM::from_basic_info(
+                num_states,
+                encoding,
+                FSMImplementationSpec::Single,
+                builder,
+            );
+            fsm_map.push((fsm_object, cur_groups));
+        }
         let mut res_fsm_map = HashMap::new();
         let mut sgroup_assigns_map = HashMap::new();
         // Then we actually build the hardware to query/count to n for the register.
