@@ -30,15 +30,15 @@ def gen_msb_calc(width: int, int_width: int) -> List[Component]:
     comp.output("value", width)
 
     rsh = comp.cell("rsh", Stdlib.op("rsh", width, signed=False))
-    counter = comp.reg("counter", width)
-    cur_val = comp.reg("cur_val", width)
+    counter = comp.reg(width, "counter")
+    cur_val = comp.reg(width, "cur_val")
     add = comp.cell("add", Stdlib.op("add", width, signed=False))
     sub = comp.cell("sub", Stdlib.op("sub", width, signed=False))
     neq = comp.cell("neq", Stdlib.op("neq", width, signed=False))
     lsh = comp.cell("lsh", Stdlib.op("lsh", width, signed=False))
-    count_ans = comp.reg("count_ans", width)
-    val_ans = comp.reg("val_ans", width)
-    val_build = comp.reg("val_build", width)
+    count_ans = comp.reg(width, "count_ans")
+    val_ans = comp.reg(width, "val_ans")
+    val_build = comp.reg(width, "val_build")
 
     with comp.group("wr_cur_val") as wr_cur_val:
         rsh.left = comp.this().in_

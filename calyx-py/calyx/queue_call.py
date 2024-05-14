@@ -57,13 +57,13 @@ def insert_runner(prog, queue, name, stats_component=None):
     # Our memories and registers, all of which are passed to us by reference.
     commands = runner.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_ref=True)
     values = runner.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_ref=True)
-    has_ans = runner.reg("has_ans", 1, is_ref=True)
-    ans = runner.reg("component_ans", 32, is_ref=True)
-    err = runner.reg("component_err", 1, is_ref=True)
+    has_ans = runner.reg(1, "has_ans", is_ref=True)
+    ans = runner.reg(32, "component_ans", is_ref=True)
+    err = runner.reg(1, "component_err", is_ref=True)
 
-    i = runner.reg("i", 32)  # The index of the command we're currently processing
-    cmd = runner.reg("command", 2)  # The command we're currently processing
-    value = runner.reg("value", 32)  # The value we're currently processing
+    i = runner.reg(32)  # The index of the command we're currently processing
+    cmd = runner.reg(2)  # The command we're currently processing
+    value = runner.reg(32)  # The value we're currently processing
 
     incr_i = runner.incr(i)  # i++
     cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1, meaning cmd is pop or peek
@@ -82,30 +82,30 @@ def insert_runner(prog, queue, name, stats_component=None):
     not_err = runner.not_use(err.out)
 
     # Wiring that raises `err` iff `i = MAX_CMDS`.
-    check_if_out_of_cmds, _ = runner.eq_store_in_reg(
-        i.out, cb.const(32, queue_util.MAX_CMDS), "i_eq_MAX_CMDS", 32, err
-    )
+    check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, queue_util.MAX_CMDS, err)
 
     runner.control += [
         read_cmd,
         write_cmd_to_reg,  # `cmd := commands[i]`
         read_value,
         write_value_to_reg,  # `value := values[i]`
-        cb.invoke(  # Invoke the queue.
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            ref_ans=ans,
-            ref_err=err,
-            ref_stats=stats,
-        )
-        if stats_component
-        else cb.invoke(  # Invoke the queue.
-            queue,
-            in_cmd=cmd.out,
-            in_value=value.out,
-            ref_ans=ans,
-            ref_err=err,
+        (
+            cb.invoke(  # Invoke the queue.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                ref_ans=ans,
+                ref_err=err,
+                ref_stats=stats,
+            )
+            if stats_component
+            else cb.invoke(  # Invoke the queue.
+                queue,
+                in_cmd=cmd.out,
+                in_value=value.out,
+                ref_ans=ans,
+                ref_err=err,
+            )
         ),
         # We're back from the invoke, and it's time for some post-mortem analysis.
         cb.if_with(
@@ -137,9 +137,9 @@ def insert_main(prog, queue, controller=None, stats_component=None):
     dataplane = insert_runner(prog, queue, "dataplane", stats_component)
     dataplane = main.cell("dataplane", dataplane)
 
-    has_ans = main.reg("has_ans", 1)
-    dataplane_ans = main.reg("dataplane_ans", 32)
-    dataplane_err = main.reg("dataplane_err", 1)
+    has_ans = main.reg(1)
+    dataplane_ans = main.reg(32)
+    dataplane_err = main.reg(1)
 
     commands = main.seq_mem_d1("commands", 2, queue_util.MAX_CMDS, 32, is_external=True)
     values = main.seq_mem_d1("values", 32, queue_util.MAX_CMDS, 32, is_external=True)
@@ -147,7 +147,7 @@ def insert_main(prog, queue, controller=None, stats_component=None):
 
     ans_neq_0 = main.neq_use(dataplane_ans.out, 0)  # ans != 0
 
-    j = main.reg("j", 32)  # The index on the answer-list we'll write to
+    j = main.reg(32)  # The index on the answer-list we'll write to
     incr_j = main.incr(j)  # j++
     write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
     # ans_mem[j] = dataplane_ans
@@ -162,23 +162,25 @@ def insert_main(prog, queue, controller=None, stats_component=None):
         not_err,  # While the dataplane component has not errored out.
         [
             lower_has_ans,  # Lower the has-ans flag.
-            cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                ref_commands=commands,
-                ref_values=values,
-                ref_has_ans=has_ans,
-                ref_component_ans=dataplane_ans,
-                ref_component_err=dataplane_err,
-                ref_stats_runner=stats,
-            )
-            if stats_component
-            else cb.invoke(  # Invoke the dataplane component.
-                dataplane,
-                ref_commands=commands,
-                ref_values=values,
-                ref_has_ans=has_ans,
-                ref_component_ans=dataplane_ans,
-                ref_component_err=dataplane_err,
+            (
+                cb.invoke(  # Invoke the dataplane component.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                    ref_stats_runner=stats,
+                )
+                if stats_component
+                else cb.invoke(  # Invoke the dataplane component.
+                    dataplane,
+                    ref_commands=commands,
+                    ref_values=values,
+                    ref_has_ans=has_ans,
+                    ref_component_ans=dataplane_ans,
+                    ref_component_err=dataplane_err,
+                )
             ),
             # If the dataplane component has a nonzero answer,
             # write it to the answer-list and increment the index `j`.
@@ -186,11 +188,13 @@ def insert_main(prog, queue, controller=None, stats_component=None):
                 has_ans.out,
                 cb.if_with(ans_neq_0, [write_ans, incr_j]),
             ),
-            cb.invoke(  # Invoke the controller component.
-                controller,
-                ref_stats_controller=stats,
-            )
-            if controller
-            else ast.Empty,
+            (
+                cb.invoke(  # Invoke the controller component.
+                    controller,
+                    ref_stats_controller=stats,
+                )
+                if controller
+                else ast.Empty
+            ),
         ],
     )

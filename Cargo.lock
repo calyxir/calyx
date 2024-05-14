@@ -552,6 +552,7 @@ version = "0.1.0"
 dependencies = [
  "argh",
  "dap",
+ "interp",
  "owo-colors",
  "serde",
  "serde_json",
@@ -897,6 +898,13 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
+]
+
+[[package]]
+name = "data-conversion"
+version = "0.7.1"
+dependencies = [
+ "argh",
 ]
 
 [[package]]

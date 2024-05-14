@@ -189,8 +189,9 @@ fn main() -> InterpreterResult<()> {
                     None
                 };
 
-                let mut cidb = Debugger::new(&components, main_component, map);
-                cidb.main_loop(env)
+                let cidb =
+                    Debugger::new(&components, main_component, map, env)?;
+                cidb.main_loop()
             };
 
             print_res(res, opts.raw)

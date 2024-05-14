@@ -26,7 +26,7 @@ def add_wrap2(prog):
     ans = wrap.comb_mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j % 4, so we'll store it in a cell.
-    j_mod_4 = wrap.reg("j_mod_4", 32)
+    j_mod_4 = wrap.reg(32)
 
     # Additional cells and groups to compute equality and lt
     i_eq_0 = wrap.eq_use(i, 0)
@@ -38,8 +38,8 @@ def add_wrap2(prog):
     unchanged = wrap.reg_store(j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and j-8. Either of these will store the result in `j_mod_4`.
-    j_minus_4, j_mod_4 = wrap.sub_store_in_reg(j, 4, "j_minus_4", 32, j_mod_4)
-    j_minus_8, j_mod_4 = wrap.sub_store_in_reg(j, 8, "j_minus_8", 32, j_mod_4)
+    j_minus_4, j_mod_4 = wrap.sub_store_in_reg(j, 4, j_mod_4)
+    j_minus_8, j_mod_4 = wrap.sub_store_in_reg(j, 8, j_mod_4)
 
     load_from_mems = [
         # Add wiring to load the value `j_mod_4` from all of the memory cells.
@@ -109,7 +109,7 @@ def add_wrap3(prog):
     ans = wrap.comb_mem_d1("ans", 32, 1, 32, is_ref=True)
 
     # We will need j % 4, so we'll store it in a cell.
-    j_mod_4 = wrap.reg("j_mod_4", 32)
+    j_mod_4 = wrap.reg(32)
 
     # Additional cells to compute equality, and lt
     i_eq_0 = wrap.eq_use(i, 0)
@@ -121,7 +121,7 @@ def add_wrap3(prog):
     unchanged = wrap.reg_store(j_mod_4, j, "j_unchanged")
 
     # Wiring to perform j-4 and store the result in `j_mod_4`.
-    subcell, j_mod_4 = wrap.sub_store_in_reg(j, 4, "j_minus_4", 32, j_mod_4)
+    subcell, j_mod_4 = wrap.sub_store_in_reg(j, 4, j_mod_4)
 
     emit_from_mems = [
         wrap.mem_load_to_mem(mems[i], j_mod_4.out, ans, 0, f"load_from_mem{i}")
