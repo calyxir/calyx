@@ -559,6 +559,15 @@ impl StaticSchedule {
                 cur_num_queries += num_queries;
             }
         }
+        let num_states = cur_max_latency;
+        let encoding = Self::choose_encoding(num_states, one_hot_cutoff);
+        let fsm_object = StaticFSM::from_basic_info(
+            num_states,
+            encoding,
+            FSMImplementationSpec::Single,
+            builder,
+        );
+        fsm_map.push((fsm_object, cur_groups));
 
         let mut res_fsm_map = HashMap::new();
         let mut sgroup_assigns_map = HashMap::new();
@@ -617,8 +626,7 @@ impl StaticSchedule {
                     static_group_ref.get_latency() - 1,
                     fsm_incr_condition,
                 ));
-                sgroup_assigns_map
-                    .insert(static_group.borrow().name(), assigns);
+                sgroup_assigns_map.insert(static_group_ref.name(), assigns);
             }
         }
         (sgroup_assigns_map, res_fsm_map)
