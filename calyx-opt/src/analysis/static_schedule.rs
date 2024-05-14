@@ -11,6 +11,9 @@ use std::rc::Rc;
 
 use super::GraphColoring;
 
+type SgroupsToAssigns = HashMap<ir::Id, Vec<ir::Assignment<Nothing>>>;
+type SgroupsToFSMs = HashMap<ir::Id, ir::RRC<StaticFSM>>;
+
 #[derive(Debug, Clone, Copy)]
 // Define an FSMEncoding Enum
 enum FSMEncoding {
@@ -56,7 +59,7 @@ impl FSMImplementation {
         match self {
             FSMImplementation::Single(cell) => vec![Rc::clone(cell)],
             FSMImplementation::Duplicate(cells) => {
-                cells.iter().map(|(cell, _)| Rc::clone(&cell)).collect_vec()
+                cells.iter().map(|(cell, _)| Rc::clone(cell)).collect_vec()
             }
             _ => panic!("Only signle and duplicate implemented"),
         }
@@ -107,15 +110,14 @@ impl StaticFSM {
             // Determine number of bits needed in the register.
             let fsm_size = get_bitwidth(num_states, encoding);
             // OHE needs an initial value of 1.
-            let register = match encoding {
+            match encoding {
                 FSMEncoding::Binary => {
                     builder.add_primitive("fsm", "std_reg", &[fsm_size])
                 }
                 FSMEncoding::OneHot => {
                     builder.add_primitive("fsm", "init_one_reg", &[fsm_size])
                 }
-            };
-            register
+            }
         }
 
         match implementation_spec {
@@ -322,7 +324,7 @@ impl StaticFSM {
         );
 
         let fsm_cell = match &mut self.implementation {
-            FSMImplementation::Single(cell) => Rc::clone(&cell),
+            FSMImplementation::Single(cell) => Rc::clone(cell),
             FSMImplementation::Duplicate(cells) => {
                 // Choose the least queried FSM to perform the query.
                 let (fsm_cell, min_num_queries) = cells
@@ -502,17 +504,14 @@ impl StaticSchedule {
         static_component_interface: bool,
         one_hot_cutoff: u64,
         max_num_queries: Option<u64>,
-    ) -> (
-        HashMap<ir::Id, Vec<ir::Assignment<Nothing>>>,
-        HashMap<ir::Id, ir::RRC<StaticFSM>>,
-    ) {
+    ) -> (SgroupsToAssigns, SgroupsToFSMs) {
         // Get query limit
         // (if no query_limit, then can just set it the upper limit on the
         // numebr of queries for all static groups).
         let query_limit = max_num_queries.unwrap_or(
             self.static_groups
                 .iter()
-                .map(|sgroup| Self::num_queries_group(Rc::clone(&sgroup)))
+                .map(|sgroup| Self::num_queries_group(Rc::clone(sgroup)))
                 .sum(),
         );
 
@@ -522,7 +521,7 @@ impl StaticSchedule {
         let mut fsm_map = Vec::new();
         // First we decide how to instantaite the FSM registers.
         for static_group in &self.static_groups {
-            let num_queries = Self::num_queries_group(Rc::clone(&static_group));
+            let num_queries = Self::num_queries_group(Rc::clone(static_group));
             if num_queries > query_limit {
                 // If num_queries for just this group is > query_limit, then we
                 // create a implement the group using duplicate FSMs.
@@ -536,30 +535,28 @@ impl StaticSchedule {
                     FSMImplementationSpec::Duplicate(num_duplicates_needed),
                     builder,
                 );
-                fsm_map.push((fsm_object, vec![Rc::clone(&static_group)]));
+                fsm_map.push((fsm_object, vec![Rc::clone(static_group)]));
+            } else if cur_num_queries + num_queries > query_limit {
+                let num_states = cur_max_latency;
+                let encoding =
+                    Self::choose_encoding(num_states, one_hot_cutoff);
+                let fsm_object = StaticFSM::from_basic_info(
+                    num_states,
+                    encoding,
+                    FSMImplementationSpec::Single,
+                    builder,
+                );
+                fsm_map.push((fsm_object, cur_groups));
+                cur_groups = vec![Rc::clone(static_group)];
+                cur_max_latency = static_group.borrow().get_latency();
+                cur_num_queries = num_queries;
             } else {
-                if cur_num_queries + num_queries > query_limit {
-                    let num_states = cur_max_latency;
-                    let encoding =
-                        Self::choose_encoding(num_states, one_hot_cutoff);
-                    let fsm_object = StaticFSM::from_basic_info(
-                        num_states,
-                        encoding,
-                        FSMImplementationSpec::Single,
-                        builder,
-                    );
-                    fsm_map.push((fsm_object, cur_groups));
-                    cur_groups = vec![Rc::clone(&static_group)];
-                    cur_max_latency = static_group.borrow().get_latency();
-                    cur_num_queries = num_queries;
-                } else {
-                    cur_groups.push(Rc::clone(&static_group));
-                    cur_max_latency = std::cmp::max(
-                        cur_max_latency,
-                        static_group.borrow().get_latency(),
-                    );
-                    cur_num_queries += num_queries;
-                }
+                cur_groups.push(Rc::clone(static_group));
+                cur_max_latency = std::cmp::max(
+                    cur_max_latency,
+                    static_group.borrow().get_latency(),
+                );
+                cur_num_queries += num_queries;
             }
         }
 
@@ -932,7 +929,7 @@ impl GreedyFSMAllocator {
     // Adds conflicts for each pair of static groups in sgroups for which
     // the latency difference is greater than diff_limit.
     fn add_latency_diff_conflicts(
-        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+        sgroups: &[ir::RRC<ir::StaticGroup>],
         conflict_graph: &mut GraphColoring<ir::Id>,
         diff_limit: u64,
     ) {
