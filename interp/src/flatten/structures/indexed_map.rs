@@ -30,7 +30,7 @@ where
     K: IndexRef,
 {
     /// Special case for empty tuple to enable a key generator.
-    pub fn next(&mut self) -> K {
+    pub fn next_key(&mut self) -> K {
         self.push(())
     }
 }

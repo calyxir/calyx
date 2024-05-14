@@ -8,8 +8,10 @@ use interp::{
     debugger::{source::SourceMap, Debugger},
     environment::InterpreterState,
     errors::{InterpreterError, InterpreterResult},
+    flatten::structures::environment::{Environment, Simulator},
     interpreter::ComponentInterpreter,
     interpreter_ir as iir,
+    serialization::data_dump::DataDump,
 };
 use rustyline::error::ReadlineError;
 use slog::warn;
@@ -23,7 +25,7 @@ use std::{
 /// The Calyx Interpreter
 pub struct Opts {
     /// input file
-    #[argh(positional, from_str_fn(read_path))]
+    #[argh(positional)]
     pub file: Option<PathBuf>,
 
     /// output file, default is stdout
@@ -41,7 +43,7 @@ pub struct Opts {
 
     /// path to optional datafile used to initialze memories. If it is not
     /// provided memories will be initialzed with zeros
-    #[argh(option, long = "data", short = 'd', from_str_fn(read_path))]
+    #[argh(option, long = "data", short = 'd')]
     pub data_file: Option<PathBuf>,
 
     #[argh(switch, long = "no-verify")]
@@ -72,9 +74,6 @@ pub struct Opts {
     comm: Option<Command>,
 }
 
-fn read_path(path: &str) -> Result<PathBuf, String> {
-    Ok(Path::new(path).into())
-}
 #[derive(FromArgs)]
 #[argh(subcommand)]
 enum Command {
@@ -197,7 +196,22 @@ fn main() -> InterpreterResult<()> {
             print_res(res, opts.raw)
         }
         Command::Flat(_) => {
-            let output = interp::flatten::flat_main(&ctx)?;
+            let i_ctx = interp::flatten::flat_ir::translate(&ctx);
+            let data_dump = opts
+                .data_file
+                .map(|path| {
+                    let mut file = std::fs::File::open(path)?;
+                    DataDump::deserialize(&mut file)
+                })
+                // flip to a result of an option
+                .map_or(Ok(None), |res| res.map(Some))?;
+
+            let mut sim = Simulator::new(Environment::new(&i_ctx, data_dump));
+
+            sim.run_program()?;
+
+            let output = sim.dump_memories();
+
             output.serialize(&mut stdout())?;
             Ok(())
         }

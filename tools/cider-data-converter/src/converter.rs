@@ -112,7 +112,7 @@ fn format_data(dimension: &Dimensions, data: &[u8], width: usize) -> DataVec {
 pub fn convert_from_data_dump(dump: &DataDump) -> JsonPrintDump {
     let mut map = HashMap::new();
     for declaration in &dump.header.memories {
-        let data = dump.get_data(&declaration.name);
+        let data = dump.get_data(&declaration.name).unwrap();
         let formatted_data = format_data(
             &declaration.dimensions,
             data,

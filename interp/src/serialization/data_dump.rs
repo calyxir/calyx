@@ -177,17 +177,17 @@ impl DataDump {
 
     // TODO Griffin: Replace the panic with a proper error and the standard
     // handling
-    pub fn get_data(&self, mem_name: &str) -> &[u8] {
+    pub fn get_data(&self, mem_name: &str) -> Option<&[u8]> {
         let mut current_base = 0_usize;
         for mem in &self.header.memories {
             if mem.name == mem_name {
                 let end = current_base + mem.byte_count();
-                return &self.data[current_base..end];
+                return Some(&self.data[current_base..end]);
             } else {
                 current_base += mem.byte_count();
             }
         }
-        panic!("Memory not found")
+        None
     }
 }
 
@@ -344,18 +344,18 @@ mod tests {
         #[test]
         fn comb_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dump.get_data(&mem.name));
+                let memory_prim = CombMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dump.get_data(&mem.name).unwrap());
                 let data = memory_prim.dump_data();
-                prop_assert_eq!(dump.get_data(&mem.name), data);
+                prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
         }
 
         #[test]
         fn seq_roundtrip(dump in arb_data_dump()) {
             for mem in &dump.header.memories {
-                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dump.get_data(&mem.name));
+                let memory_prim = SeqMemD1::new_with_init(GlobalPortIdx::new(0), mem.width.get() as u32, false, mem.size.get(), dump.get_data(&mem.name).unwrap());
                 let data = memory_prim.dump_data();
-                prop_assert_eq!(dump.get_data(&mem.name), data);
+                prop_assert_eq!(dump.get_data(&mem.name).unwrap(), data);
             }
         }
     }
