@@ -346,7 +346,7 @@ impl CompileStatic {
             // Build a StaticSchedule object, realize it and add assignments
             // as continuous assignments.
             let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
-            let (mut assigns_map, mut fsm_map) =
+            let (mut assigns_map, fsm_map) =
                 sch.realize_schedule(builder, true, self.one_hot_cutoff, None);
             builder
                 .component
