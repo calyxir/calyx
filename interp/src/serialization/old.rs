@@ -4,8 +4,8 @@ use serde::Serialize;
 use std::fmt::{Debug, Display};
 
 use crate::{
-    primitives::Primitive, structures::state_views::FullySerialize,
-    utils::PrintCode, values::Value,
+    flatten::flat_ir::cell_prototype::MemoryDimensions, primitives::Primitive,
+    structures::state_views::FullySerialize, utils::PrintCode, values::Value,
 };
 
 /// An enum wrapping over a tuple representing the shape of a multi-dimensional
@@ -68,6 +68,41 @@ impl From<(usize, usize, usize)> for Shape {
 impl From<(usize, usize, usize, usize)> for Shape {
     fn from(u: (usize, usize, usize, usize)) -> Self {
         Shape::D4(u.0, u.1, u.2, u.3)
+    }
+}
+
+impl From<&MemoryDimensions> for Shape {
+    fn from(value: &MemoryDimensions) -> Self {
+        match value {
+            MemoryDimensions::D1 { d0_size, .. } => {
+                Shape::D1(*d0_size as usize)
+            }
+            MemoryDimensions::D2 {
+                d0_size, d1_size, ..
+            } => Shape::D2(*d0_size as usize, *d1_size as usize),
+            MemoryDimensions::D3 {
+                d0_size,
+                d1_size,
+                d2_size,
+                ..
+            } => Shape::D3(
+                *d0_size as usize,
+                *d1_size as usize,
+                *d2_size as usize,
+            ),
+            MemoryDimensions::D4 {
+                d0_size,
+                d1_size,
+                d2_size,
+                d3_size,
+                ..
+            } => Shape::D4(
+                *d0_size as usize,
+                *d1_size as usize,
+                *d2_size as usize,
+                *d3_size as usize,
+            ),
+        }
     }
 }
 

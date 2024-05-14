@@ -666,7 +666,7 @@ impl Value {
         assert!(!bytes.is_empty());
         assert!(width <= bytes.len() * 8);
         // TODO griffin: Make this sanity check even mildly comprehensible
-        let overhead = dbg!(width.div_ceil(8) * 8) - width;
+        let overhead = (width.div_ceil(8) * 8) - width;
         assert!(
             bytes.last().unwrap().leading_zeros() >= overhead as u32,
             "The upper byte of the provided value has non-zero values in the padding. Given byte is {} but the upper {} bit(s) should be zero",
