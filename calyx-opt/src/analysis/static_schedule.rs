@@ -409,8 +409,7 @@ impl StaticFSM {
         );
         self.implementation
             .get_cells()
-            .iter()
-            .next()
+            .first()
             .unwrap()
             .borrow()
             .name()
