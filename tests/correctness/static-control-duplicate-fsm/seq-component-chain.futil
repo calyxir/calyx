@@ -1,0 +1,55 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+import "primitives/pipelined.futil";
+
+/**
+* Checks to see if the FSM generated for seq activates a component for
+* exactly the right amount of time.
+* Regression: https://github.com/calyxir/calyx/pull/446
+*/
+
+component main() -> () {
+  cells {
+    @external(1) x = comb_mem_d1(32, 1, 1);
+    @external(1) y = comb_mem_d1(32, 1, 1);
+    @external(1) z = comb_mem_d1(32, 1, 1);
+    mult_pipe0 = std_mult_pipe(32);
+  }
+  wires {
+    static<4> group let1 {
+      mult_pipe0.left = 32'd10;
+      mult_pipe0.right = 32'd20;
+      mult_pipe0.go = %[0:3] ? 1'd1;
+
+      x.write_data = mult_pipe0.out;
+      x.addr0 = 1'd0;
+      x.write_en = %3 ? 1'd1;
+    }
+    static<4> group let2 {
+      mult_pipe0.left = 32'd30;
+      mult_pipe0.right = 32'd40;
+      mult_pipe0.go = %[0:3] ? 1'd1;
+
+      y.write_data = mult_pipe0.out;
+      y.addr0 = 1'd0;
+      y.write_en = %3 ? 1'd1;
+    }
+    static<4> group let3 {
+      mult_pipe0.left = 32'd50;
+      mult_pipe0.right = 32'd60;
+      mult_pipe0.go = %[0:3] ? 1'd1;
+
+      z.write_data = mult_pipe0.out;
+      z.addr0 = 1'd0;
+      z.write_en = %3 ? 1'd1;
+    }
+  }
+  control {
+    static seq {
+      let1;
+      let2;
+      let3;
+    }
+  }
+}

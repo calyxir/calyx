@@ -1,0 +1,50 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/pipelined.futil";
+
+component main() -> () {
+    cells {
+      @external m = comb_mem_d1(32, 1, 1);
+      add = std_add(32);
+      lt = std_lt(32);
+      lt_cond = std_reg(1);
+      r = std_reg(32);
+    }
+    wires {
+        group check_mem_cond {
+           m.addr0 = 1'd0;
+           lt.left = m.read_data;
+           lt.right = 32'd4;
+           lt_cond.in = lt.out;
+           lt_cond.write_en = 1'd1;
+           check_mem_cond[done] = lt_cond.done;
+        }
+        static<1> group add_five_reg {
+            add.left = r.out;
+            add.right = 32'd5;
+            r.in = add.out;
+            r.write_en = 1'd1;
+        }
+        static<1> group write_mem  {
+            m.addr0 = 1'd0;
+            add.left = m.read_data;
+            add.right = r.out;
+            m.write_data = add.out;
+            m.write_en = 1'd1;
+        }
+    }
+    control {
+        seq {
+            check_mem_cond;
+            if lt_cond.out {
+                add_five_reg;
+            }
+            static seq {
+                static repeat 15 {
+                    add_five_reg;
+                }
+                write_mem;
+            }
+        }
+    }
+}

@@ -1,0 +1,64 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+component foo(in: 1) -> (out: 32) {
+  cells {
+    r1 = std_reg(32);
+    adder = std_add(32);
+  }
+  wires {
+    out = r1.out;
+    group upd1 {
+      adder.left = 32'd1;
+      adder.right = r1.out;
+      r1.write_en = 1'd1;
+      r1.in = adder.out;
+      upd1[done] = r1.done;
+    }
+  }
+  control {
+    seq {
+      if in {
+        seq {
+          upd1;
+          upd1;
+          upd1;
+          upd1;
+          upd1;
+          upd1;
+          upd1;
+        }
+      }
+      else{
+        seq {
+          upd1;
+        }
+      }
+    }
+  }
+}
+
+
+component main() -> () {
+  cells {
+    foo_inst = foo();
+    @external m = comb_mem_d1(32, 1, 1);
+  }
+
+  wires {
+    group M {
+      m.write_data = foo_inst.out;
+      m.addr0 = 1'd0;
+      m.write_en = 1'd1;
+      M[done] = m.done;
+    }
+  }
+
+  control {
+    seq {
+      invoke foo_inst(in = 1'd0)();
+      M;
+    }
+  }
+}
+

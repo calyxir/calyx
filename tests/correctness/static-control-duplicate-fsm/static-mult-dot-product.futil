@@ -1,0 +1,75 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/pipelined.futil";
+
+component main() -> () {
+    cells {
+        mul = pipelined_mult(32);
+        @external left = comb_mem_d1(32, 10, 4);
+        @external right = comb_mem_d1(32, 10, 4);
+        @external out = comb_mem_d1(32, 10, 4);
+        idx = std_reg(4);
+        add = std_add(4);
+        sub = std_sub(4);
+
+        lt = std_lt(4);
+        lt_10 = std_reg(1);
+        ge = std_ge(4);
+        ge_4 = std_reg(1);
+    }
+    wires {
+        static<1> group init{
+            lt_10.in = 1'd1;
+            lt_10.write_en = 1'd1;
+            ge_4.in = 1'd0;
+            ge_4.write_en = 1'd1;
+        }
+
+        static<1> group incr {
+            add.left = idx.out;
+            add.right = 4'd1;
+            idx.in = add.out;
+            idx.write_en = 1'd1;
+
+            // idx < 10
+            lt.left = add.out;
+            lt.right = 4'd10;
+            lt_10.in = lt.out;
+            lt_10.write_en = 1'd1;
+
+            // idx > 4
+            ge.left = add.out;
+            ge.right = 4'd4;
+            ge_4.in = ge.out;
+            ge_4.write_en = 1'd1;
+        }
+
+        // The multiplier registers its inputs after a cycle.
+        static<1> group start_mult {
+            left.addr0 = idx.out;
+            right.addr0 = idx.out;
+            mul.left = left.read_data;
+            mul.right = right.read_data;
+        }
+
+        static<1> group do_write {
+            sub.left = idx.out;
+            sub.right = 4'd4;
+            out.addr0 = sub.out;
+            out.write_data = mul.out;
+            out.write_en = 1'd1;
+        }
+    }
+    control {
+        static seq {
+            init;
+            static repeat 14 {
+                static par {
+                    incr;
+                    static if lt_10.out { start_mult; }
+                    static if ge_4.out { do_write; }
+                }
+            }
+        }
+    }
+}

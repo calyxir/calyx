@@ -1,0 +1,67 @@
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/pipelined.futil";
+
+component main () -> () {
+  cells {
+    @external p = comb_mem_d1(3,1,1);
+    incr = std_add(3);
+    l = std_lt(3);
+    r = std_reg(3);
+    l2 = std_lt(3);
+    r_cond = std_reg(1);
+  }
+
+  wires {
+    static<1> group A {
+      incr.left = p.read_data;
+      incr.right = 3'd1;
+      p.write_data = incr.out;
+      p.write_en = %0 ? 1'd1;
+      p.addr0 = 1'd0;
+    }
+
+    static<1> group A2 {
+      l.left = p.read_data;
+      l.right = 3'd6;
+      p.addr0 = 1'd0;
+      r_cond.in = l.out;
+      r_cond.write_en = 1'd1;
+    }
+
+
+    group B {
+      p.write_data = 3'd0;
+      p.write_en = 1'd1;
+      p.addr0 = 1'd0;
+      B[done] = p.done;
+    }
+
+    group C {
+      r.in = incr.out;
+      incr.left = r.out;
+      incr.right = 3'd1;
+      r.write_en = 1'd1;
+      C[done] = r.done;
+    }
+
+    comb group comp {
+      l2.left = r.out;
+      l2.right = 3'd3;
+    }
+
+  }
+
+  control {
+    while l2.out with comp {
+      seq {
+        B;
+        A2;
+        while r_cond.out {
+          static seq { A; A2; }
+        }
+        C;
+      }
+    }
+  }
+}

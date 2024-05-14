@@ -1,0 +1,57 @@
+// -p validate -p compile-invoke -p static-inline -p add-guard -p simplify-static-guards -p compile-static-interface
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+static<6> component do_add(left: 32, right: 32) -> (out: 32) {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    static<1> group a {
+      add.left = r.out;
+      add.right = right;
+      r.in = add.out;
+      r.write_en = 1'd1;
+    }
+
+    static<1> group b {
+      add.left = left;
+      add.right = right;
+      r.in = add.out;
+      r.write_en = 1'd1;
+    }
+    out = r.out;
+  }
+  control {
+    static seq {
+      b;
+      static repeat 5 {
+        a;
+      }
+    }
+  }
+
+}
+
+component main () -> () {
+  cells {
+    a = do_add();
+    @external out = comb_mem_d1(32, 1, 1);
+  }
+  wires {
+    group a_to_out {
+      out.write_data = a.out;
+      out.write_en = 1'd1;
+      out.addr0 = 1'd0;
+      a_to_out[done] = out.done;
+    }
+  }
+
+  control {
+    seq {
+    static invoke a(left=32'd5, right=32'd6)();
+    a_to_out;
+    }
+  }
+}
