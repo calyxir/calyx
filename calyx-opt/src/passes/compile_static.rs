@@ -1,10 +1,8 @@
 use crate::analysis::{GraphColoring, StaticFSM, StaticSchedule};
-use crate::traversal::{
-    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
-};
+use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
-use calyx_utils::{CalyxResult, Error};
+use calyx_utils::Error;
 use ir::{build_assignments, RRC};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
@@ -12,6 +10,7 @@ use std::ops::Not;
 use std::rc::Rc;
 
 /// Compiles Static Islands
+#[derive(Default)]
 pub struct CompileStatic {
     /// maps original static group names to the corresponding group that has an FSM that reset early
     reset_early_map: HashMap<ir::Id, ir::Id>,
@@ -21,10 +20,6 @@ pub struct CompileStatic {
     signal_reg_map: HashMap<ir::Id, ir::Id>,
     /// maps reset_early_group names to StaticFSM object
     fsm_info_map: HashMap<ir::Id, ir::RRC<StaticFSM>>,
-    // ========= Pass Options ============
-    /// How many states the static FSM must have before we pick binary encoding over
-    /// one-hot
-    one_hot_cutoff: u64,
 }
 
 impl Named for CompileStatic {
@@ -44,27 +39,6 @@ impl Named for CompileStatic {
             ParseVal::Num(0),
             PassOpt::parse_num,
         )]
-    }
-}
-
-impl ConstructVisitor for CompileStatic {
-    fn from(ctx: &ir::Context) -> CalyxResult<Self> {
-        let opts = Self::get_opts(ctx);
-
-        Ok(CompileStatic {
-            one_hot_cutoff: opts["one-hot-cutoff"].pos_num().unwrap(),
-            reset_early_map: HashMap::new(),
-            wrapper_map: HashMap::new(),
-            signal_reg_map: HashMap::new(),
-            fsm_info_map: HashMap::new(),
-        })
-    }
-
-    fn clear_data(&mut self) {
-        self.reset_early_map = HashMap::new();
-        self.wrapper_map = HashMap::new();
-        self.signal_reg_map = HashMap::new();
-        self.fsm_info_map = HashMap::new();
     }
 }
 
@@ -437,6 +411,29 @@ impl CompileStatic {
         }
     }
 
+    /// Given an `sgroup_uses_map`, which maps:
+    /// static group names -> all of the static groups that it triggers the go ports
+    /// of (even recursively).
+    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
+    /// Would map: A -> {B,C} and B -> {C}
+    /// Adds conflicts between any groups triggered at the same time based on
+    /// `go` port triggering.
+    fn add_encoding_conflicts(
+        sgroups: &[ir::RRC<ir::StaticGroup>],
+        conflict_graph: &mut GraphColoring<ir::Id>,
+    ) {
+        for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
+            if sgroup1.borrow().attributes.has(ir::BoolAttr::OneHot)
+                != sgroup2.borrow().attributes.has(ir::BoolAttr::OneHot)
+            {
+                conflict_graph.insert_conflict(
+                    &sgroup1.borrow().name(),
+                    &sgroup2.borrow().name(),
+                );
+            }
+        }
+    }
+
     // helper to `build_sgroup_uses_map`
     // `parent_group` is the group that we are "currently" analyzing
     // `full_group_ancestry` is the "ancestry of the group we are analyzing"
@@ -512,6 +509,7 @@ impl CompileStatic {
             GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
         Self::add_par_conflicts(control, &sgroup_uses_map, &mut conflict_graph);
         Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
+        Self::add_encoding_conflicts(sgroups, &mut conflict_graph);
         conflict_graph.color_greedy(None, true)
     }
 }
@@ -642,8 +640,7 @@ impl CompileStatic {
             // Build a StaticSchedule object, realize it and add assignments
             // as continuous assignments.
             let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
-            let (mut assigns, mut fsm) =
-                sch.realize_schedule(builder, true, self.one_hot_cutoff);
+            let (mut assigns, mut fsm) = sch.realize_schedule(builder, true);
             builder
                 .component
                 .continuous_assignments
@@ -733,7 +730,7 @@ impl Visitor for CompileStatic {
 
         // Realize an fsm for each StaticSchedule object.
         for sch in &mut schedule_objects {
-            // Check whetehr we are compiling the top level static island.
+            // Check whether we are compiling the top level static island.
             let static_component_interface = match top_level_sgroup {
                 None => false,
                 // For the top level group, sch.static_groups should really only
@@ -753,11 +750,8 @@ impl Visitor for CompileStatic {
                     &mut builder,
                 )
             } else {
-                let (mut static_group_assigns, fsm) = sch.realize_schedule(
-                    &mut builder,
-                    static_component_interface,
-                    self.one_hot_cutoff,
-                );
+                let (mut static_group_assigns, fsm) = sch
+                    .realize_schedule(&mut builder, static_component_interface);
                 let fsm_ref = ir::rrc(fsm);
                 for static_group in sch.static_groups.iter() {
                     // Create the dynamic "early reset group" that will replace the static group.

@@ -15,6 +15,12 @@ enum FSMEncoding {
     OneHot,
 }
 
+impl Default for FSMEncoding {
+    fn default() -> Self {
+        FSMEncoding::Binary
+    }
+}
+
 #[derive(Debug)]
 enum FSMImplementationSpec {
     Single,
@@ -51,7 +57,6 @@ impl FSMImplementation {
 
 #[derive(Debug)]
 pub struct StaticFSM {
-    _num_states: u64,
     encoding: FSMEncoding,
     // The fsm's bitwidth (this redundant information bc  we have `cell`)
     // but makes it easier if we easily have access to this.
@@ -87,7 +92,6 @@ impl StaticFSM {
         let fsm = FSMImplementation::Single(register);
 
         StaticFSM {
-            _num_states: num_states,
             encoding,
             bitwidth: fsm_size,
             implementation: fsm,
@@ -344,6 +348,8 @@ pub struct StaticSchedule {
     /// The queries that the FSM needs to support.
     /// E.g., `lhs = %[2:3] ? rhs` corresponds to (2,3).
     queries: HashSet<(u64, u64)>,
+    /// Encoding type for the FSM
+    encoding: FSMEncoding,
     /// The static groups the FSM will schedule. It is a vec because sometimes
     /// the same FSM will handle two different static islands.
     pub static_groups: Vec<ir::RRC<ir::StaticGroup>>,
@@ -357,6 +363,14 @@ impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
             ..Default::default()
         };
         schedule.num_states = 0;
+        schedule.encoding =
+            if schedule.static_groups.iter().any(|sgroup| {
+                sgroup.borrow().attributes.has(ir::BoolAttr::OneHot)
+            }) {
+                FSMEncoding::OneHot
+            } else {
+                FSMEncoding::Binary
+            };
         for static_group in &schedule.static_groups {
             // Getting self.queries
             for static_assign in &static_group.borrow().assignments {
@@ -414,19 +428,11 @@ impl StaticSchedule {
         &mut self,
         builder: &mut ir::Builder,
         static_component_interface: bool,
-        one_hot_cutoff: u64,
     ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, StaticFSM) {
-        // Choose encoding based on one-hot cutoff.
-        let encoding = if self.num_states > one_hot_cutoff {
-            FSMEncoding::Binary
-        } else {
-            FSMEncoding::OneHot
-        };
-
         // First build the fsm we will use to realize the schedule.
         let mut fsm_object = StaticFSM::from_basic_info(
             self.num_states,
-            encoding,
+            self.encoding,
             FSMImplementationSpec::Single,
             builder,
         );
