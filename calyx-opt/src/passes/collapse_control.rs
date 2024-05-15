@@ -136,11 +136,10 @@ impl Visitor for CollapseControl {
             // Want to preserve @one_hot attribute.
             let mut replacement_ctrl = s.stmts.pop().unwrap();
             let attrs = std::mem::take(&mut s.attributes);
-            if attrs.has(ir::BoolAttr::OneHot) {
-                replacement_ctrl
-                    .get_mut_attributes()
-                    .insert(ir::BoolAttr::OneHot, 1);
-            }
+            replacement_ctrl
+                .get_mut_attributes()
+                .mirror_attributes(attrs, vec![ir::BoolAttr::OneHot]);
+
             return Ok(Action::static_change(replacement_ctrl));
         }
         let mut pars: Vec<ir::StaticControl> = vec![];
@@ -171,11 +170,9 @@ impl Visitor for CollapseControl {
             // Want to preserve @one_hot attribute.
             let mut replacement_ctrl = s.stmts.pop().unwrap();
             let attrs = std::mem::take(&mut s.attributes);
-            if attrs.has(ir::BoolAttr::OneHot) {
-                replacement_ctrl
-                    .get_mut_attributes()
-                    .insert(ir::BoolAttr::OneHot, 1);
-            }
+            replacement_ctrl
+                .get_mut_attributes()
+                .mirror_attributes(attrs, vec![ir::BoolAttr::OneHot]);
             return Ok(Action::static_change(replacement_ctrl));
         }
         let mut seqs: Vec<ir::StaticControl> = vec![];

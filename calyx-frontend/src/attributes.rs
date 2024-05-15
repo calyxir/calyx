@@ -123,6 +123,22 @@ impl Attributes {
         }
     }
 
+    /// `self` mirrors (i.e., assigns the same values) for the attributes in `other`.
+    /// However, we only mirror attributes in `keys` (i.e.. we don't mirror
+    /// all attributes in `other`, only the ones that we specify).
+    /// If a `key` is not present in `other`, then we ignore that `key`.
+    pub fn mirror_attributes<A>(&mut self, other: Self, keys: Vec<A>)
+    where
+        A: Into<Attribute> + Clone,
+    {
+        for key in keys {
+            match other.get(key.clone()) {
+                None => (),
+                Some(val) => self.insert(key, val),
+            }
+        }
+    }
+
     /// Set the span information
     pub fn add_span(mut self, span: GPosIdx) -> Self {
         self.hinfo.span = span;
