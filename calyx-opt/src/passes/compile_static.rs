@@ -411,13 +411,9 @@ impl CompileStatic {
         }
     }
 
-    /// Given an `sgroup_uses_map`, which maps:
-    /// static group names -> all of the static groups that it triggers the go ports
-    /// of (even recursively).
-    /// Example: group A {B[go] = 1;} group B {C[go] = 1} group C{}
-    /// Would map: A -> {B,C} and B -> {C}
-    /// Adds conflicts between any groups triggered at the same time based on
-    /// `go` port triggering.
+    /// Adds conflicts between static groups that require different encodings.
+    /// For example: if one group is one-hot and another is binary, then
+    /// we insert a conflict between those two groups.
     fn add_encoding_conflicts(
         sgroups: &[ir::RRC<ir::StaticGroup>],
         conflict_graph: &mut GraphColoring<ir::Id>,

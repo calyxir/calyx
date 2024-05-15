@@ -133,6 +133,7 @@ impl Visitor for CollapseControl {
             return Ok(Action::static_change(ir::StaticControl::empty()));
         }
         if s.stmts.len() == 1 {
+            // Want to preserve @one_hot attribute.
             let mut replacement_ctrl = s.stmts.pop().unwrap();
             let attrs = std::mem::take(&mut s.attributes);
             if attrs.has(ir::BoolAttr::OneHot) {
@@ -167,6 +168,7 @@ impl Visitor for CollapseControl {
             return Ok(Action::static_change(ir::StaticControl::empty()));
         }
         if s.stmts.len() == 1 {
+            // Want to preserve @one_hot attribute.
             let mut replacement_ctrl = s.stmts.pop().unwrap();
             let attrs = std::mem::take(&mut s.attributes);
             if attrs.has(ir::BoolAttr::OneHot) {

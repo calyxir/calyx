@@ -358,6 +358,8 @@ impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
             ..Default::default()
         };
         schedule.num_states = 0;
+        // iter().any() or iter().all() should both work, since our coloring
+        // algorithm inserts conflicts if the @one_hot attribute doesn't match.
         schedule.encoding =
             if schedule.static_groups.iter().any(|sgroup| {
                 sgroup.borrow().attributes.has(ir::BoolAttr::OneHot)
