@@ -1,4 +1,6 @@
-use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
+use crate::traversal::{
+    Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
+};
 use calyx_ir::{self as ir, LibrarySignatures};
 use calyx_utils::CalyxResult;
 
@@ -15,6 +17,16 @@ impl Named for StaticFSMOpts {
 
     fn description() -> &'static str {
         "Inserts attributes to optimize Static FSMs"
+    }
+
+    fn opts() -> Vec<PassOpt> {
+        vec![PassOpt::new(
+            "one-hot-cutoff",
+            "The upper limit on the number of states the static FSM must have before we pick binary \
+            encoding over one-hot. Defaults to 0 (i.e., always choose binary encoding)",
+            ParseVal::Num(0),
+            PassOpt::parse_num,
+        )]
     }
 }
 
@@ -39,6 +51,8 @@ impl Visitor for StaticFSMOpts {
     ) -> VisResult {
         comp.get_static_groups_mut().iter_mut().for_each(|sgroup| {
             let sgroup_latency = sgroup.borrow().get_latency();
+            // If static group's latency is less than the cutoff, encode as a
+            // one-hot FSM.
             if sgroup_latency < self.one_hot_cutoff {
                 sgroup
                     .borrow_mut()
