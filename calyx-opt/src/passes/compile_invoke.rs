@@ -344,7 +344,7 @@ impl Visitor for CompileInvoke {
 
         let mut en = ir::Enable {
             group: invoke_group,
-            attributes: Attributes::default(),
+            attributes: s.attributes.clone(),
         };
         if let Some(time) = s.attributes.get(ir::NumAttr::Promotable) {
             en.attributes.insert(ir::NumAttr::Promotable, time);
@@ -420,7 +420,7 @@ impl Visitor for CompileInvoke {
 
         let en = ir::StaticEnable {
             group: invoke_group,
-            attributes: Attributes::default(),
+            attributes: s.attributes.clone(),
         };
 
         Ok(Action::StaticChange(Box::new(ir::StaticControl::Enable(

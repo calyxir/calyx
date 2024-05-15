@@ -1,7 +1,7 @@
 use crate::traversal::{Action, Named, VisResult, Visitor};
 use calyx_ir as ir;
-use calyx_ir::structure;
 use calyx_ir::LibrarySignatures;
+use calyx_ir::{structure, GetAttributes};
 use ir::build_assignments;
 use std::rc::Rc;
 
@@ -384,8 +384,13 @@ impl Visitor for StaticInliner {
         let mut builder = ir::Builder::new(comp, sigs);
         let replacement_group =
             StaticInliner::inline_static_control(s, &mut builder);
+        // We want to preserve attributes like @one_hot when inlining.
+        let replacement_attributes = s.get_attributes().clone();
         Ok(Action::Change(Box::new(ir::Control::from(
-            ir::StaticControl::from(replacement_group),
+            ir::StaticControl::Enable(ir::StaticEnable {
+                group: replacement_group,
+                attributes: replacement_attributes,
+            }),
         ))))
     }
 }

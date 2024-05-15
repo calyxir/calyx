@@ -1,18 +1,18 @@
 // -p validate -p inline
 import "primitives/compile.futil";
 
-component foo() -> () {
+static<1> component foo() -> () {
     cells {
         ref r = std_reg(32);
         add = std_add(32);
     }
     wires {
-        group incr {
+        static<1> group incr {
             r.in = add.out;
             r.write_en = 1'd1;
             add.left = r.out;
             add.right = 32'd1;
-            incr[done] = r.done;
+            // incr[done] = r.done;
         }
     }
     control {
@@ -27,6 +27,6 @@ component main () -> () {
     }
     wires {}
     control {
-        invoke f[r=r0]()();
+        @one_hot static invoke f[r=r0]()();
     }
 }
