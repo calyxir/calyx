@@ -35,10 +35,9 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None, latency=None) -> ComponentBuilder:
+    def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
-        cells = cells or []
-        comp_builder = ComponentBuilder(self, name, cells, latency)
+        comp_builder = ComponentBuilder(self, name, latency)
         self.program.components.append(comp_builder.component)
         self._index[name] = comp_builder
         return comp_builder
@@ -67,25 +66,20 @@ class ComponentBuilder:
         self,
         prog: Builder,
         name: str,
-        cells: Optional[List[ast.Cell]] = None,
         latency: Optional[int] = None,
     ):
-        """Contructs a new component in the current program. If `cells` is
-        provided, the component will be initialized with those cells."""
-        cells = cells if cells else list()
+        """Contructs a new component in the current program."""
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
             attributes=[],
             inputs=[],
             outputs=[],
-            structs=cells,
+            structs=list(),
             controls=ast.Empty(),
             latency=latency,
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
-        for cell in cells:
-            self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
 
@@ -344,6 +338,18 @@ class ComponentBuilder:
         """Generate a StdSub cell."""
         return self.binary("sub", size, name, signed)
 
+    def div_pipe(
+        self, size: int, name: str = None, signed: bool = False
+    ) -> CellBuilder:
+        """Generate a Div_Pipe cell."""
+        return self.binary("div_pipe", size, name, signed)
+
+    def mult_pipe(
+        self, size: int, name: str = None, signed: bool = False
+    ) -> CellBuilder:
+        """Generate a Mult_Pipe cell."""
+        return self.binary("mult_pipe", size, name, signed)
+
     def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGt cell."""
         return self.binary("gt", size, name, signed)
@@ -465,6 +471,28 @@ class ComponentBuilder:
             cell.left = left
             cell.right = right
         return CellAndGroup(cell, comb_group)
+
+    def binary_use_names(self, cellname, leftname, rightname, groupname=None):
+        """Accepts the name of a cell that performs some computation on two values.
+        Accepts the names of cells that contain those two values.
+        Creates a group that wires up the cell with those values.
+        Returns the group created.
+
+        group `groupname` {
+            `cellname`.left = `leftname`.out;
+            `cellname`.right = `rightname`.out;
+            `groupname`.go = 1;
+            `groupname`.done = `cellname`.done;
+        }
+        """
+        cell = self.get_cell(cellname)
+        groupname = groupname or f"{cellname}_group"
+        with self.group(groupname) as group:
+            cell.left = self.get_cell(leftname).out
+            cell.right = self.get_cell(rightname).out
+            cell.go = HI
+            group.done = cell.done
+        return group
 
     def try_infer_width(self, width, left, right):
         """If `width` is None, try to infer it from `left` or `right`.

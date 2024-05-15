@@ -180,6 +180,11 @@ pub enum InterpreterError {
     // TODO Griffin: Make this more descriptive
     #[error("Attempted to read an undefined memory address")]
     UndefinedReadAddr,
+
+    #[error(transparent)]
+    SerializationError(
+        #[from] crate::serialization::data_dump::SerializationError,
+    ),
 }
 
 impl InterpreterError {
