@@ -8,17 +8,12 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::ops::Not;
 use std::rc::Rc;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 // Define an FSMEncoding Enum
 enum FSMEncoding {
+    #[default]
     Binary,
     OneHot,
-}
-
-impl Default for FSMEncoding {
-    fn default() -> Self {
-        FSMEncoding::Binary
-    }
 }
 
 #[derive(Debug)]
