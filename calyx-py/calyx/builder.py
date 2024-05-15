@@ -35,10 +35,9 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None, latency=None) -> ComponentBuilder:
+    def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
-        cells = cells or []
-        comp_builder = ComponentBuilder(self, name, cells, latency)
+        comp_builder = ComponentBuilder(self, name, latency)
         self.program.components.append(comp_builder.component)
         self._index[name] = comp_builder
         return comp_builder
@@ -67,25 +66,20 @@ class ComponentBuilder:
         self,
         prog: Builder,
         name: str,
-        cells: Optional[List[ast.Cell]] = None,
         latency: Optional[int] = None,
     ):
-        """Contructs a new component in the current program. If `cells` is
-        provided, the component will be initialized with those cells."""
-        cells = cells if cells else list()
+        """Contructs a new component in the current program."""
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
             attributes=[],
             inputs=[],
             outputs=[],
-            structs=cells,
+            structs=list(),
             controls=ast.Empty(),
             latency=latency,
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
-        for cell in cells:
-            self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
 
