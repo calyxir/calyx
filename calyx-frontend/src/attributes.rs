@@ -127,6 +127,12 @@ impl Attributes {
     /// However, we only mirror attributes in `keys` (i.e.. we don't mirror
     /// all attributes in `other`, only the ones that we specify).
     /// If a `key` is not present in `other`, then we ignore that `key`.
+    /// Example: suppose
+    /// self: A->10, B->5
+    /// other: A->15, C->5
+    /// keys: A, D
+    /// Then self gets: A->15 B->5. (D is ignored since it's not inpresent in other
+    /// and C is ignored since it's not keys.)
     pub fn mirror_attributes<A>(&mut self, other: Self, keys: Vec<A>)
     where
         A: Into<Attribute> + Clone,
