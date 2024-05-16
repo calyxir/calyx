@@ -578,10 +578,10 @@ impl<'a> Simulator<'a> {
         // program counter as the size
         let mut leaf_nodes = vec![];
 
-        let mut par_map = std::mem::take(self.env.pc.par_map_mut());
         let mut new_nodes = vec![];
+        let (vecs, par_map) = self.env.pc.mut_refs();
 
-        self.env.pc.vec_mut().retain_mut(|node| {
+        vecs.retain_mut(|node| {
             // just considering a single node case for the moment
             match &self.env.ctx.primary[node.control_node_idx] {
                 ControlNode::Seq(seq) => {
@@ -702,8 +702,6 @@ impl<'a> Simulator<'a> {
 
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
-        // return the par map to the program counter
-        *self.env.pc.par_map_mut() = par_map;
 
         self.undef_all_ports();
 
