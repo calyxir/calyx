@@ -941,7 +941,7 @@ impl<'a> Simulator<'a> {
         let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
 
         let mut dump = DataDump::new_empty_with_top_level(
-            ctx.secondary[entrypoint_secondary.name].clone(),
+            ctx.lookup_string(entrypoint_secondary.name).clone(),
         );
 
         let root = self.get_root_component();
