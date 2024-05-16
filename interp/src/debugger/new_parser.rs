@@ -24,17 +24,11 @@ impl MetadataParser {
             .map_err(|_| input.error("Expected number"))
     }
     fn group_name(input: Node) -> ParseResult<String> {
-        input
-            .as_str()
-            .parse::<String>()
-            .map_err(|_| input.error("Expected character"))
+        Ok(input.as_str().to_string())
     }
 
     fn path(input: Node) -> ParseResult<String> {
-        input
-            .as_str()
-            .parse::<String>()
-            .map_err(|_| input.error("Expected valid path"))
+        Ok(input.as_str().to_string())
     }
 
     fn entry(input: Node) -> ParseResult<(String, GroupContents)> {
@@ -59,10 +53,18 @@ pub fn parse_metadata(input_str: &str) -> InterpreterResult<NewSourceMap> {
     Ok(MetadataParser::metadata(input)?)
 }
 
+// Meta is expected as the following format, this is an example for reg_seq.futil
+
+// metadata #{
+//    wr_reg0: /path/to/file 10
+//    wr_reg1: /path/to/file 15
+//   }#
+
 #[cfg(test)]
 #[test]
 fn one_entry() {
     let entry = parse_metadata("hello: your/mom 5").unwrap();
+    dbg!(&entry);
     let tup = entry.lookup(String::from("hello"));
     assert_eq!(
         tup.unwrap().clone(),

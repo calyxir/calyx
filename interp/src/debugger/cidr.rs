@@ -101,10 +101,6 @@ impl Debugger {
         let mut ctx = ir::from_ast::ast_to_ir(ws)?;
         let pm = PassManager::default_passes()?;
 
-        // Metadata stuff
-        let metadata = ctx.metadata.clone().unwrap();
-        let mapping = parse_metadata(&metadata).unwrap();
-
         // if !opts.skip_verification
         pm.execute_plan(&mut ctx, &["validate".to_string()], &[], false)?;
 
@@ -131,7 +127,16 @@ impl Debugger {
             &config,
         )?;
 
-        Debugger::new(&components, main_component, None, env, Some(mapping))
+        // Make NewSourceMap, if we can't then we explode
+        let mapping = ctx
+            .metadata
+            .map(|metadata| parse_metadata(&metadata))
+            .unwrap_or_else(|| Err(InterpreterError::MissingMetaData.into()))?;
+
+        Ok((
+            Debugger::new(&components, main_component, None, env).unwrap(),
+            mapping,
+        ))
     }
 
     pub fn new(
@@ -139,8 +144,7 @@ impl Debugger {
         main_component: &Rc<iir::Component>,
         source_map: Option<SourceMap>,
         env: InterpreterState,
-        metadata: Option<NewSourceMap>,
-    ) -> InterpreterResult<(Self, NewSourceMap)> {
+    ) -> InterpreterResult<Self> {
         let qin = ComponentQualifiedInstanceName::new_single(
             main_component,
             main_component.name,
@@ -151,23 +155,16 @@ impl Debugger {
 
         component_interpreter.converge()?;
 
-        Ok((
-            Self {
-                _context: Rc::clone(context),
-                main_component: Rc::clone(main_component),
-                debugging_ctx: DebuggingContext::new(
-                    context,
-                    &main_component.name,
-                ),
-                source_map,
-                interpreter: component_interpreter,
-            },
-            metadata.unwrap(),
-        ))
+        Ok(Self {
+            _context: Rc::clone(context),
+            main_component: Rc::clone(main_component),
+            debugging_ctx: DebuggingContext::new(context, &main_component.name),
+            source_map,
+            interpreter: component_interpreter,
+        })
     }
 
-    // probably want a different return type
-    // Return InterpreterResult of Program Status, new struct
+    // Go to next step
     pub fn step(&mut self, n: u64) -> InterpreterResult<ProgramStatus> {
         for _ in 0..n {
             self.interpreter.step()?;
@@ -181,10 +178,6 @@ impl Debugger {
         ))
     }
 
-    /// continue the execution until a breakpoint is hit, needs a different
-    /// return type or we need a different "update status" method to communicate
-    /// with the adapter. The latter might be more ergonomic, though potentially
-    /// less efficient
     pub fn cont(&mut self) -> InterpreterResult<()> {
         self.debugging_ctx
             .set_current_time(self.interpreter.currently_executing_group());

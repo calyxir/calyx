@@ -78,8 +78,8 @@ impl MyAdapter {
     pub fn create_stack(&mut self) -> Vec<StackFrame> {
         let frame = StackFrame {
             id: self.stack_count.increment(),
-            // TODO: edit name field
-            name: String::from("Hi"),
+            // Maybe automate the name in the future?
+            name: String::from("Frame"),
             source: Some(Source {
                 name: None,
                 path: Some(self.source.clone()),
@@ -109,23 +109,24 @@ impl MyAdapter {
     }
 
     pub fn next_line(&mut self, _thread: i64) -> bool {
+        // Step through once
         let status = self.debugger.step(1).unwrap();
 
         // Check if done:
         if status.get_done() {
+            // Give bool to exit the debugger
             true
         } else {
-            let map = status.get_status().clone();
-            // Declare line number beforehand
+            let map = status.get_status();
             let mut line_number = 0;
-            // Return 0 should a lookup not be found. This really shouldn't happen though.
             // Implemented for loop for when more than 1 group is running,
-            // the code for now goes to the last group running in the map, should deal
-            // with this in the future.
+            // the code for now goes to the line of the last group running in the map, should deal
+            // with this in the future for when groups run in parallel.
             for id in map {
                 let value = self.ids.lookup(id.to_string()).unwrap().line;
                 line_number = value;
             }
+            // Set line of the stack frame and tell debugger we're not finished.
             self.stack_frames[0].line = line_number as i64;
             false
         }

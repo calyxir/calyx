@@ -70,11 +70,15 @@ pub enum InterpreterError {
         #[from]
         pest_consume::Error<crate::debugger::source::metadata_parser::Rule>,
     ),
-    // New metadata
+    // Unable to parse metadata
     #[error(transparent)]
     NewMetadataParseError(
         #[from] pest_consume::Error<crate::debugger::new_parser::Rule>,
     ),
+
+    // Missing metadata
+    #[error("missing metadata")]
+    MissingMetaData,
 
     /// Wrapper for errors coming from the interactive CLI
     #[error(transparent)]
