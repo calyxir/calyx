@@ -378,6 +378,10 @@ class ComponentBuilder:
         """Generate a StdRsh cell."""
         return self.binary("rsh", size, name, signed)
 
+    def lsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+        """Generate a StdLsh cell."""
+        return self.binary("lsh", size, name, signed)
+
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)
@@ -596,6 +600,30 @@ class ComponentBuilder:
             reg.in_ = sub_cell.out
             decr_group.done = reg.done
         return decr_group
+
+    def lsh_use(self, input, ans, val=1):
+        """Inserts wiring into `self` to perform `ans := input << val`."""
+        width = ans.infer_width_reg()
+        cell = self.lsh(width)
+        with self.group(f"{cell.name}_group") as lsh_group:
+            cell.left = input
+            cell.right = const(width, val)
+            ans.write_en = 1
+            ans.in_ = cell.out
+            lsh_group.done = ans.done
+        return lsh_group
+
+    def rsh_use(self, input, ans, val=1):
+        """Inserts wiring into `self` to perform `ans := input >> val`."""
+        width = ans.infer_width_reg()
+        cell = self.rsh(width)
+        with self.group(f"{cell.name}_group") as rsh_group:
+            cell.left = input
+            cell.right = const(width, val)
+            ans.write_en = 1
+            ans.in_ = cell.out
+            rsh_group.done = ans.done
+        return rsh_group
 
     def reg_store(self, reg, val, groupname=None):
         """Inserts wiring into `self` to perform `reg := val`."""
