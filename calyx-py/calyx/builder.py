@@ -35,10 +35,9 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None, latency=None) -> ComponentBuilder:
+    def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
-        cells = cells or []
-        comp_builder = ComponentBuilder(self, name, cells, latency)
+        comp_builder = ComponentBuilder(self, name, latency)
         self.program.components.append(comp_builder.component)
         self._index[name] = comp_builder
         return comp_builder
@@ -67,25 +66,20 @@ class ComponentBuilder:
         self,
         prog: Builder,
         name: str,
-        cells: Optional[List[ast.Cell]] = None,
         latency: Optional[int] = None,
     ):
-        """Contructs a new component in the current program. If `cells` is
-        provided, the component will be initialized with those cells."""
-        cells = cells if cells else list()
+        """Contructs a new component in the current program."""
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
             attributes=[],
             inputs=[],
             outputs=[],
-            structs=cells,
+            structs=list(),
             controls=ast.Empty(),
             latency=latency,
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
-        for cell in cells:
-            self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
 
@@ -384,6 +378,10 @@ class ComponentBuilder:
         """Generate a StdRsh cell."""
         return self.binary("rsh", size, name, signed)
 
+    def lsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+        """Generate a StdLsh cell."""
+        return self.binary("lsh", size, name, signed)
+
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)
@@ -602,6 +600,30 @@ class ComponentBuilder:
             reg.in_ = sub_cell.out
             decr_group.done = reg.done
         return decr_group
+
+    def lsh_use(self, input, ans, val=1):
+        """Inserts wiring into `self` to perform `ans := input << val`."""
+        width = ans.infer_width_reg()
+        cell = self.lsh(width)
+        with self.group(f"{cell.name}_group") as lsh_group:
+            cell.left = input
+            cell.right = const(width, val)
+            ans.write_en = 1
+            ans.in_ = cell.out
+            lsh_group.done = ans.done
+        return lsh_group
+
+    def rsh_use(self, input, ans, val=1):
+        """Inserts wiring into `self` to perform `ans := input >> val`."""
+        width = ans.infer_width_reg()
+        cell = self.rsh(width)
+        with self.group(f"{cell.name}_group") as rsh_group:
+            cell.left = input
+            cell.right = const(width, val)
+            ans.write_en = 1
+            ans.in_ = cell.out
+            rsh_group.done = ans.done
+        return rsh_group
 
     def reg_store(self, reg, val, groupname=None):
         """Inserts wiring into `self` to perform `reg := val`."""
