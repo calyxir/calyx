@@ -949,7 +949,7 @@ impl<'a> Simulator<'a> {
         for (offset, idx) in entrypoint_secondary.cell_offset_map.iter() {
             let cell_info = &ctx.secondary[*idx];
             let cell_index = &root.index_bases + offset;
-            let name = ctx.secondary[cell_info.name].clone();
+            let name = ctx.lookup_string(cell_info.name).clone();
             if let CellPrototype::Memory { width, dims, .. } =
                 &cell_info.prototype
             {
