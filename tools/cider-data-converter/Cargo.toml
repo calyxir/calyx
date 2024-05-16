@@ -1,0 +1,20 @@
+[package]
+name = "cider-data-converter"
+authors.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+interp = { path = "../../interp" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+itertools = { workspace = true }
+argh = { workspace = true }
+thiserror = "1.0.59"
+
+
+[dev-dependencies]
+proptest = "1.0.0"

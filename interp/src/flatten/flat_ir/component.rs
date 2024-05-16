@@ -75,7 +75,7 @@ pub struct AuxillaryComponentInfo {
     pub signature: IndexRange<LocalPortOffset>,
     /// the definitions created by this component
     pub definitions: DefinitionRanges,
-    // -------------------
+
     pub port_offset_map: SparseMap<LocalPortOffset, PortDefinitionIdx>,
     pub ref_port_offset_map:
         SparseMap<LocalRefPortOffset, RefPortDefinitionIdx>,
