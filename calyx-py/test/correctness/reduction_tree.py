@@ -102,10 +102,7 @@ def add_main(prog, tree):
     ]
     mem_ans = main.comb_mem_d1("ans", 32, 1, 1, is_external=True)
     # Four answer registers.
-    [sum_col0, sum_col1, sum_col2, sum_col3] = [
-        main.reg(f"sum_col{i}", 32) for i in range(4)
-    ]
-
+    [sum_col0, sum_col1, sum_col2, sum_col3] = [main.reg(32) for i in range(4)]
     tree = main.cell("tree", tree)
 
     adder_groups: List[cb.GroupBuilder] = [

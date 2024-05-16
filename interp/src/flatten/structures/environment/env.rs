@@ -12,6 +12,7 @@ use crate::{
     errors::{InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
+            cell_prototype::CellPrototype,
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices, ComponentIdx,
                 ControlNode, GlobalCellIdx, GlobalPortIdx, GlobalPortRef,
@@ -25,6 +26,7 @@ use crate::{
             environment::program_counter::ControlPoint, index_trait::IndexRef,
         },
     },
+    serialization::data_dump::DataDump,
     values::Value,
 };
 use std::fmt::Debug;
@@ -200,7 +202,7 @@ pub struct Environment<'a> {
 }
 
 impl<'a> Environment<'a> {
-    pub fn new(ctx: &'a Context) -> Self {
+    pub fn new(ctx: &'a Context, data_map: Option<DataDump>) -> Self {
         let root = ctx.entry_point;
         let aux = &ctx.secondary[root];
 
@@ -219,7 +221,7 @@ impl<'a> Environment<'a> {
 
         let root_node = CellLedger::new_comp(root, &env);
         let root = env.cells.push(root_node);
-        env.layout_component(root);
+        env.layout_component(root, data_map);
 
         env
     }
@@ -232,7 +234,11 @@ impl<'a> Environment<'a> {
     /// 3. cells + ports, primitive
     /// 4. sub-components
     /// 5. ref-cells & ports
-    fn layout_component(&mut self, comp: GlobalCellIdx) {
+    fn layout_component(
+        &mut self,
+        comp: GlobalCellIdx,
+        data_map: Option<DataDump>,
+    ) {
         let ComponentLedger {
             index_bases,
             comp_id,
@@ -284,7 +290,9 @@ impl<'a> Environment<'a> {
                         idx
                     );
                 }
-                let cell_dyn = primitives::build_primitive(info, port_base);
+                let cell_dyn = primitives::build_primitive(
+                    info, port_base, self.ctx, &data_map,
+                );
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
 
                 debug_assert_eq!(
@@ -301,7 +309,8 @@ impl<'a> Environment<'a> {
                     cell
                 );
 
-                self.layout_component(cell);
+                // layout sub-component but don't include the data map
+                self.layout_component(cell, None);
             }
         }
 
@@ -326,13 +335,13 @@ impl<'a> Environment<'a> {
 
 // ===================== Environment print implementations =====================
 impl<'a> Environment<'a> {
-    pub fn print_env(&self) {
+    pub fn _print_env(&self) {
         let root_idx = GlobalCellIdx::new(0);
         let mut hierarchy = Vec::new();
-        self.print_component(root_idx, &mut hierarchy)
+        self._print_component(root_idx, &mut hierarchy)
     }
 
-    fn print_component(
+    fn _print_component(
         &self,
         target: GlobalCellIdx,
         hierarchy: &mut Vec<GlobalCellIdx>,
@@ -387,7 +396,7 @@ impl<'a> Environment<'a> {
             let cell_idx = &info.index_bases + cell_off;
 
             if definition.prototype.is_component() {
-                self.print_component(cell_idx, hierarchy);
+                self._print_component(cell_idx, hierarchy);
             } else if self.cells[cell_idx]
                 .as_primitive()
                 .unwrap()
@@ -417,7 +426,7 @@ impl<'a> Environment<'a> {
         println!("  Ref Ports: {}", self.ref_ports.len());
     }
 
-    pub fn print_pc(&self) {
+    pub fn _print_pc(&self) {
         println!("{:?}", self.pc)
     }
 }
@@ -434,12 +443,17 @@ impl<'a> Simulator<'a> {
         Self { env }
     }
 
-    pub fn print_env(&self) {
-        self.env.print_env()
+    pub fn _print_env(&self) {
+        self.env._print_env()
     }
 
+    #[inline]
     pub fn ctx(&self) -> &Context {
         self.env.ctx
+    }
+
+    pub fn _unpack_env(self) -> Environment<'a> {
+        self.env
     }
 }
 
@@ -889,9 +903,38 @@ impl<'a> Simulator<'a> {
         Ok(())
     }
 
-    pub fn _main_test(&mut self) {
-        self.env.print_pc();
-        let _ = self.run_program();
-        self.print_env();
+    /// Dump the current state of the environment as a DataDump
+    pub fn dump_memories(&self) -> DataDump {
+        let ctx = self.ctx();
+        let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
+
+        let mut dump = DataDump::new_empty_with_top_level(
+            ctx.secondary[entrypoint_secondary.name].clone(),
+        );
+
+        let root = self.env.cells.first().unwrap().as_comp().unwrap();
+
+        for (offset, idx) in entrypoint_secondary.cell_offset_map.iter() {
+            let cell_info = &ctx.secondary[*idx];
+            let cell_index = &root.index_bases + offset;
+            let name = ctx.secondary[cell_info.name].clone();
+            if let CellPrototype::Memory { width, dims, .. } =
+                &cell_info.prototype
+            {
+                dump.push_memory(
+                    name,
+                    *width as usize,
+                    dims.size(),
+                    dims.as_serializing_dim(),
+                    self.env.cells[cell_index]
+                        .as_primitive()
+                        .unwrap()
+                        .dump_memory_state()
+                        .unwrap(),
+                )
+            }
+        }
+
+        dump
     }
 }

@@ -1,0 +1,86 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+component main() -> () {                                                                                                                                                                                 
+  cells {
+      //Modified to 64 width address because XRT expects 64 bit memory addresses
+      @external(1) A0 = seq_mem_d1(32,8,3);
+      A_read0_0 = std_reg(32);
+      @external(1) B0 = seq_mem_d1(32,8,3);
+      B_read0_0 = std_reg(32);
+      @external(1) Sum0 = seq_mem_d1(32,8,3);
+      add0 = std_add(32);
+      add1 = std_add(4);
+      const0 = std_const(4,0);
+      const1 = std_const(4,7);
+      const2 = std_const(4,1);
+      i0 = std_reg(4);
+      le0 = std_le(4);
+      bit_slice = std_bit_slice(4,0,2,3);
+  }
+  wires {
+    A0.write_en = 1'b0;
+    B0.write_en = 1'b0;
+    
+    bit_slice.in = i0.out;
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0<"static"=1> {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    //modified upd0 and upd1 to use seq_mem correctly
+    group upd0<"static"=2> {
+      A_read0_0.write_en = A0.done;
+      A0.addr0 = bit_slice.out;
+      A0.content_en = 1'b1;
+      A_read0_0.in = 1'd1 ? A0.read_data;
+      upd0[done] = A_read0_0.done ? 1'd1;
+    }
+    //see comment for upd0
+    group upd1<"static"=2> {
+      B_read0_0.write_en = B0.done;
+      B0.addr0 = bit_slice.out;
+      B0.content_en = 1'b1;
+      B_read0_0.in = 1'd1 ? B0.read_data;
+      upd1[done] = B_read0_0.done ? 1'd1;
+    }
+    group upd2<"static"=1> {
+      Sum0.addr0 = bit_slice.out;
+      Sum0.content_en = 1'd1;
+      Sum0.write_en = 1'd1;
+      B0.content_en = 1'b1;
+      B0.addr0 = bit_slice.out;
+      A0.addr0 = bit_slice.out;
+      A0.content_en = 1'b1;
+      add0.left = B_read0_0.out;
+      add0.right = A_read0_0.out;
+      Sum0.write_data = 1'd1 ? add0.out;
+      upd2[done] = Sum0.done ? 1'd1;
+    }
+    group upd3<"static"=1> {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const2.out;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            upd0;
+            upd1;
+          }
+          upd2;
+          upd3;
+        }
+      }                                  
+    }
+  }
+}

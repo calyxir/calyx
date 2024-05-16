@@ -1,17 +1,24 @@
+use super::{
+    combinational::*, prim_trait::DummyPrimitive, stateful::*, Primitive,
+};
 use crate::{
-    flatten::flat_ir::{
-        cell_prototype::{CellPrototype, MemType, PrimType1},
-        prelude::{CellInfo, GlobalPortIdx},
+    flatten::{
+        flat_ir::{
+            cell_prototype::{CellPrototype, MemType, PrimType1},
+            prelude::{CellInfo, GlobalPortIdx},
+        },
+        structures::context::Context,
     },
+    serialization::data_dump::DataDump,
     values::Value,
 };
-
-use super::{combinational::*, Primitive};
-use super::{prim_trait::DummyPrimitive, stateful::*};
 
 pub fn build_primitive(
     prim: &CellInfo,
     base_port: GlobalPortIdx,
+    // extras for memory initialization
+    ctx: &Context,
+    dump: &Option<DataDump>,
 ) -> Box<dyn Primitive> {
     match &prim.prototype {
         CellPrototype::Constant {
@@ -20,8 +27,6 @@ pub fn build_primitive(
             c_type: _,
         } => {
             let v = Value::from(*val, *width);
-            // TODO griffin: see if it is worth putting the initialization back
-            // env.ports[base_port] = v.clone();
             Box::new(StdConst::new(v, base_port))
         }
 
@@ -101,104 +106,30 @@ pub fn build_primitive(
             right: _,
             out: _,
         } => Box::new(StdCat::new(base_port)),
-        CellPrototype::MemD1 {
+        CellPrototype::Memory {
             mem_type,
             width,
-            size,
-            idx_size: _,
-        } => match mem_type {
-            MemType::Seq => Box::new(SeqMemD1::new(
-                base_port,
-                *width,
-                false,
-                *size as usize,
-            )),
-            MemType::Std => Box::new(CombMemD1::new(
-                base_port,
-                *width,
-                false,
-                *size as usize,
-            )),
-        },
-        CellPrototype::MemD2 {
-            mem_type,
-            width,
-            d0_size,
-            d1_size,
-            d0_idx_size: _,
-            d1_idx_size: _,
-        } => match mem_type {
-            MemType::Seq => Box::new(SeqMemD2::new(
-                base_port,
-                *width,
-                false,
-                (*d0_size as usize, *d1_size as usize),
-            )),
-            MemType::Std => Box::new(CombMemD2::new(
-                base_port,
-                *width,
-                false,
-                (*d0_size as usize, *d1_size as usize),
-            )),
-        },
-        CellPrototype::MemD3 {
-            mem_type,
-            width,
-            d0_size,
-            d1_size,
-            d2_size,
-            d0_idx_size: _,
-            d1_idx_size: _,
-            d2_idx_size: _,
-        } => match mem_type {
-            MemType::Seq => Box::new(SeqMemD3::new(
-                base_port,
-                *width,
-                false,
-                (*d0_size as usize, *d1_size as usize, *d2_size as usize),
-            )),
-            MemType::Std => Box::new(CombMemD3::new(
-                base_port,
-                *width,
-                false,
-                (*d0_size as usize, *d1_size as usize, *d2_size as usize),
-            )),
-        },
-        CellPrototype::MemD4 {
-            mem_type,
-            width,
-            d0_size,
-            d1_size,
-            d2_size,
-            d3_size,
-            d0_idx_size: _,
-            d1_idx_size: _,
-            d2_idx_size: _,
-            d3_idx_size: _,
-        } => match mem_type {
-            MemType::Seq => Box::new(SeqMemD4::new(
-                base_port,
-                *width,
-                false,
-                (
-                    *d0_size as usize,
-                    *d1_size as usize,
-                    *d2_size as usize,
-                    *d3_size as usize,
-                ),
-            )),
-            MemType::Std => Box::new(CombMemD4::new(
-                base_port,
-                *width,
-                false,
-                (
-                    *d0_size as usize,
-                    *d1_size as usize,
-                    *d2_size as usize,
-                    *d3_size as usize,
-                ),
-            )),
-        },
+            dims,
+        } => {
+            let data = dump.as_ref().and_then(|data| {
+                let string = ctx.lookup_string(prim.name);
+                data.get_data(string)
+            });
+
+            match mem_type {
+                MemType::Seq => Box::new(if let Some(data) = data {
+                    SeqMem::new_with_init(base_port, *width, false, dims, data)
+                } else {
+                    SeqMemD1::new(base_port, *width, false, dims)
+                }),
+                MemType::Std => Box::new(if let Some(data) = data {
+                    CombMem::new_with_init(base_port, *width, false, dims, data)
+                } else {
+                    CombMem::new(base_port, *width, false, dims)
+                }),
+            }
+        }
+
         CellPrototype::Unknown(_, _) => {
             todo!()
         }

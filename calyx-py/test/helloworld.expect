@@ -1,0 +1,21 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+component adder(val1: 32, val2: 32) -> (out: 32) {
+  cells {
+    reg_1 = std_reg(32);
+    add_2 = std_add(32);
+  }
+  wires {
+    group compute_sum {
+      add_2.left = val1;
+      add_2.right = val2;
+      reg_1.write_en = 1'd1;
+      reg_1.in = add_2.out;
+      compute_sum[done] = reg_1.done;
+    }
+    out = reg_1.out;
+  }
+  control {
+    compute_sum;
+  }
+}

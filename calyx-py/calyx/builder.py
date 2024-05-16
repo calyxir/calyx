@@ -35,10 +35,9 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None, latency=None) -> ComponentBuilder:
+    def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
-        cells = cells or []
-        comp_builder = ComponentBuilder(self, name, cells, latency)
+        comp_builder = ComponentBuilder(self, name, latency)
         self.program.components.append(comp_builder.component)
         self._index[name] = comp_builder
         return comp_builder
@@ -67,25 +66,20 @@ class ComponentBuilder:
         self,
         prog: Builder,
         name: str,
-        cells: Optional[List[ast.Cell]] = None,
         latency: Optional[int] = None,
     ):
-        """Contructs a new component in the current program. If `cells` is
-        provided, the component will be initialized with those cells."""
-        cells = cells if cells else list()
+        """Contructs a new component in the current program."""
         self.prog = prog
         self.component: ast.Component = ast.Component(
             name,
             attributes=[],
             inputs=[],
             outputs=[],
-            structs=cells,
+            structs=list(),
             controls=ast.Empty(),
             latency=latency,
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
-        for cell in cells:
-            self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
 
@@ -263,8 +257,16 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
+    def reg(self, size: int, name: str = None, is_ref: bool = False) -> CellBuilder:
         """Generate a StdReg cell."""
+        assert isinstance(size, int), f"size {size} is not an int"
+        if name:
+            assert isinstance(name, str), f"name {name} is not a string"
+        if is_ref and not name:
+            raise ValueError(
+                "A register that will be passed by reference must have a name."
+            )
+        name = name or self.generate_name("reg")
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
     def wire(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
@@ -335,6 +337,18 @@ class ComponentBuilder:
     def sub(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdSub cell."""
         return self.binary("sub", size, name, signed)
+
+    def div_pipe(
+        self, size: int, name: str = None, signed: bool = False
+    ) -> CellBuilder:
+        """Generate a Div_Pipe cell."""
+        return self.binary("div_pipe", size, name, signed)
+
+    def mult_pipe(
+        self, size: int, name: str = None, signed: bool = False
+    ) -> CellBuilder:
+        """Generate a Mult_Pipe cell."""
+        return self.binary("mult_pipe", size, name, signed)
 
     def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGt cell."""
@@ -458,6 +472,28 @@ class ComponentBuilder:
             cell.right = right
         return CellAndGroup(cell, comb_group)
 
+    def binary_use_names(self, cellname, leftname, rightname, groupname=None):
+        """Accepts the name of a cell that performs some computation on two values.
+        Accepts the names of cells that contain those two values.
+        Creates a group that wires up the cell with those values.
+        Returns the group created.
+
+        group `groupname` {
+            `cellname`.left = `leftname`.out;
+            `cellname`.right = `rightname`.out;
+            `groupname`.go = 1;
+            `groupname`.done = `cellname`.done;
+        }
+        """
+        cell = self.get_cell(cellname)
+        groupname = groupname or f"{cellname}_group"
+        with self.group(groupname) as group:
+            cell.left = self.get_cell(leftname).out
+            cell.right = self.get_cell(rightname).out
+            cell.go = HI
+            group.done = cell.done
+        return group
+
     def try_infer_width(self, width, left, right):
         """If `width` is None, try to infer it from `left` or `right`.
         If that fails, raise an error.
@@ -570,9 +606,9 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_std_d1(self, mem, i, reg, groupname=None):
+    def mem_load_comb_mem_d1(self, mem, i, reg, groupname=None):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a std_d1 memory.
+        where `mem` is a comb_mem_d1 memory.
         """
         assert mem.is_comb_mem_d1()
         groupname = groupname or f"{mem.name()}_load_to_reg"
@@ -583,9 +619,9 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_std_d1(self, mem, i, val, groupname=None):
+    def mem_store_comb_mem_d1(self, mem, i, val, groupname=None):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a std_d1 memory."""
+        where `mem` is a comb_mem_d1 memory."""
         assert mem.is_comb_mem_d1()
         groupname = groupname or f"store_into_{mem.name()}"
         with self.group(groupname) as store_grp:
@@ -636,7 +672,7 @@ class ComponentBuilder:
 
     def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
         """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
-        where `mem` and `ans` are both std_d1 memories.
+        where `mem` and `ans` are both comb_mem_d1 memories.
         """
         assert mem.is_comb_mem_d1() and ans.is_comb_mem_d1()
         groupname = groupname or f"{mem.name()}_load_to_mem"
@@ -660,7 +696,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to perform `reg := left op right`,
         where `op_cell`, a Cell that performs some `op`, is provided.
         """
-        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
+        ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
             op_cell.right = right

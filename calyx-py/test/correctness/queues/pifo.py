@@ -3,8 +3,9 @@ import fifo
 import calyx.builder as cb
 import calyx.queue_call as qc
 
-MAX_QUEUE_LEN = 10
-
+# This determines the maximum possible length of the queue:
+# The max length of the queue will be 2^QUEUE_LEN_FACTOR.
+QUEUE_LEN_FACTOR = 4
 
 def insert_flow_inference(comp: cb.ComponentBuilder, cmd, flow, boundary, group):
     """The flow is needed when the command is a push.
@@ -44,7 +45,16 @@ def invoke_subqueue(queue_cell, cmd, value, ans, err) -> cb.invoke:
     )
 
 
-def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False):
+def insert_pifo(
+    prog,
+    name,
+    queue_l,
+    queue_r,
+    boundary,
+    queue_len_factor=QUEUE_LEN_FACTOR,
+    stats=None,
+    static=False,
+):
     """Inserts the component `pifo` into the program.
 
     The PIFO achieves a 50/50 split between two "flows" or "kinds".
@@ -56,15 +66,16 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     violation of the 50/50 rule) until the silent flow starts transmitting again.
     At that point we go back to 50/50.
 
-    The PIFO's maximum capacity is MAX_QUEUE_LEN.
+    The PIFO's maximum capacity is determined by `queue_len_factor`:
+        max_queue_len = 2**queue_len_factor
     Let's say the two flows are called `0` and `1`.
     We orchestrate two sub-queues, `queue_l` and `queue_r`,
-    each of capacity MAX_QUEUE_LEN.
+    each having the same maximum capacity as the PIFO.
     We maintain a register that points to which of these sub-queues is "hot".
     Start off with `hot` pointing to `queue_l` (arbitrarily).
 
     - `push(v, PIFO)`:
-       + If len(PIFO) = MAX_QUEUE_LEN, raise an "overflow" err and exit.
+       + If len(PIFO) = `max_queue_len`, raise an "overflow" err and exit.
        + Otherwise, the charge is to enqueue value `v`.
          * Find out which flow `f` the value `v` should go to;
          `f` better be either `0` or `1`.
@@ -99,26 +110,28 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     if stats:
         stats = pifo.cell("stats", stats, is_ref=True)
 
-    flow = pifo.reg("flow", 1)  # The flow to push to: 0 or 1.
+    flow = pifo.reg(1)  # The flow to push to: 0 or 1.
     # We will infer this using a separate component;
     # it is a function of the value being pushed.
     infer_flow = insert_flow_inference(pifo, value, flow, boundary, "infer_flow")
 
-    ans = pifo.reg("ans", 32, is_ref=True)
+    ans = pifo.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
 
-    err = pifo.reg("err", 1, is_ref=True)
+    err = pifo.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    len = pifo.reg("len", 32)  # The length of the PIFO.
+    len = pifo.reg(32)  # The active length of the PIFO.
 
     # A register that marks the next sub-queue to `pop` from.
-    hot = pifo.reg("hot", 1)
+    hot = pifo.reg(1)
+
+    max_queue_len = 2**queue_len_factor
 
     # Some equality checks.
     hot_eq_0 = pifo.eq_use(hot.out, 0)
     len_eq_0 = pifo.eq_use(len.out, 0)
-    len_eq_max_queue_len = pifo.eq_use(len.out, MAX_QUEUE_LEN)
+    len_eq_max_queue_len = pifo.eq_use(len.out, max_queue_len)
     cmd_eq_0 = pifo.eq_use(cmd, 0)
     cmd_eq_1 = pifo.eq_use(cmd, 1)
     cmd_eq_2 = pifo.eq_use(cmd, 2)
@@ -128,7 +141,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
     flip_hot = pifo.bitwise_flip_reg(hot)
     raise_err = pifo.reg_store(err, 1, "raise_err")  # err := 1
     lower_err = pifo.reg_store(err, 0, "lower_err")  # err := 0
-    flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
+    # flash_ans = pifo.reg_store(ans, 0, "flash_ans")  # ans := 0
 
     len_incr = pifo.incr(len)  # len++
     len_decr = pifo.decr(len)  # len--
@@ -142,7 +155,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
             cb.if_with(
                 # Yes, the user called pop. But is the queue empty?
                 len_eq_0,
-                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
@@ -164,7 +177,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                                 ],
                                 # `queue_l` succeeded.
                                 # Its answer is our answer.
-                                flip_hot
+                                flip_hot,
                                 # We'll just make `hot` point
                                 # to the other sub-queue.
                             ),
@@ -181,9 +194,9 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                             ),
                         ],
                     ),
-                    len_decr,  # Decrement the length.
+                    len_decr,  # Decrement the active length.
                     # It is possible that an irrecoverable error was raised above,
-                    # in which case the length should _not_ in fact be decremented.
+                    # in which case the active length should _not_ in fact be decremented.
                     # However, in that case the PIFO's `err` flag would also
                     # have been raised, and no one will check this length anyway.
                 ],
@@ -195,7 +208,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
             cb.if_with(
                 # Yes, the user called peek. But is the queue empty?
                 len_eq_0,
-                cb.par(raise_err, flash_ans),  # The queue is empty: underflow.
+                raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
                     # We must check if `hot` is 0 or 1.
                     lower_err,
@@ -238,7 +251,7 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
             cb.if_with(
                 # Yes, the user called push. But is the queue full?
                 len_eq_max_queue_len,
-                cb.par(raise_err, flash_ans),  # The queue is full: overflow.
+                raise_err,  # The queue is full: overflow.
                 [  # The queue is not full. Proceed.
                     lower_err,
                     # We need to check which flow this value should be pushed to.
@@ -253,19 +266,21 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
                     cb.if_with(
                         err_eq_0,
                         # If no stats component is provided,
-                        # just increment the length.
-                        len_incr
-                        if not stats
-                        else cb.par(
-                            # If a stats component is provided,
-                            # Increment the length and also
-                            # tell the stats component what flow we pushed.
-                            len_incr,
-                            (
-                                cb.static_invoke(stats, in_flow=flow.out)
-                                if static
-                                else cb.invoke(stats, in_flow=flow.out)
-                            ),
+                        # just increment the active length.
+                        (
+                            len_incr
+                            if not stats
+                            else cb.par(
+                                # If a stats component is provided,
+                                # Increment the active length and also
+                                # tell the stats component what flow we pushed.
+                                len_incr,
+                                (
+                                    cb.static_invoke(stats, in_flow=flow.out)
+                                    if static
+                                    else cb.invoke(stats, in_flow=flow.out)
+                                ),
+                            )
                         ),
                     ),
                 ],
@@ -279,8 +294,8 @@ def insert_pifo(prog, name, queue_l, queue_r, boundary, stats=None, static=False
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    fifo_l = fifo.insert_fifo(prog, "fifo_l")
-    fifo_r = fifo.insert_fifo(prog, "fifo_r")
+    fifo_l = fifo.insert_fifo(prog, "fifo_l", QUEUE_LEN_FACTOR)
+    fifo_r = fifo.insert_fifo(prog, "fifo_r", QUEUE_LEN_FACTOR)
     pifo = insert_pifo(prog, "pifo", fifo_l, fifo_r, 200)
     qc.insert_main(prog, pifo)
     return prog.program

@@ -19,10 +19,10 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @external @data v0 = comb_mem_d1(32, 1, 1);
     @generated comb_reg = std_reg(1);
     @generated fsm = std_reg(4);
-    @generated ud = undef(1);
     @generated adder = std_add(4);
-    @generated ud0 = undef(1);
     @generated adder0 = std_add(4);
+    @generated ud = undef(1);
+    @generated ud0 = undef(1);
     @generated signal_reg = std_reg(1);
     @generated fsm0 = std_reg(2);
     @generated invoke0_go = std_wire(1);
@@ -51,9 +51,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     fsm.write_en = early_reset_cond00_go.out | early_reset_static_seq_go.out ? 1'd1;
     fsm.clk = clk;
     fsm.reset = reset;
-    fsm.in = fsm.out != 4'd0 & early_reset_cond00_go.out ? adder.out;
+    fsm.in = !(fsm.out == 4'd0) & early_reset_cond00_go.out ? adder.out;
     fsm.in = fsm.out == 4'd0 & early_reset_cond00_go.out | fsm.out == 4'd7 & early_reset_static_seq_go.out ? 4'd0;
-    fsm.in = fsm.out != 4'd7 & early_reset_static_seq_go.out ? adder0.out;
+    fsm.in = !(fsm.out == 4'd7) & early_reset_static_seq_go.out ? adder0.out;
     adder.left = early_reset_cond00_go.out ? fsm.out;
     adder.right = early_reset_cond00_go.out ? 4'd1;
     add0.left = fsm.out == 4'd6 & early_reset_static_seq_go.out ? v0.read_data;
