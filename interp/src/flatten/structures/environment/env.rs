@@ -485,6 +485,10 @@ impl<'a> Simulator<'a> {
         &self.env.ports[port_idx]
     }
 
+    pub(crate) fn get_root_component(&self) -> &ComponentLedger {
+        self.env.cells.first().unwrap().as_comp().unwrap()
+    }
+
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
     fn _get_parent_cell(
@@ -940,7 +944,7 @@ impl<'a> Simulator<'a> {
             ctx.secondary[entrypoint_secondary.name].clone(),
         );
 
-        let root = self.env.cells.first().unwrap().as_comp().unwrap();
+        let root = self.get_root_component();
 
         for (offset, idx) in entrypoint_secondary.cell_offset_map.iter() {
             let cell_info = &ctx.secondary[*idx];
