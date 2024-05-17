@@ -33,7 +33,7 @@ echo "[${SCRIPT_NAME}] Obtaining FSM info from TDCC"
 echo "[${SCRIPT_NAME}] Obtaining VCD file via simulation"
 (
     set -o xtrace
-    bash ${SCRIPT_DIR}/get-vcd-no-opt.sh ${INPUT_FILE} ${VCD_FILE} ${SIM_DATA_JSON}
+    fud2 ${INPUT_FILE} -o ${VCD_FILE} -s calyx.args='-p no-opt' -s sim.data=${SIM_DATA_JSON}
     set +o xtrace
 ) &> ${LOGS_DIR}/gol-vcd
 
