@@ -1,29 +1,34 @@
-// -p validate -p compile-invoke -p static-inline -p dead-group-removal -p add-guard -p simplify-static-guards -p compile-static
+// -p validate -p compile-invoke -p static-inline  -p dead-group-removal -p add-guard -p simplify-static-guards -p compile-static -x compile-static:one-hot-cutoff=11
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
-static<2> component do_add(left: 32, right: 32) -> () {
+static<6> component do_add<"promoted"=1>(left: 32, right: 32) -> () {
   cells {
     add = std_add(32);
     r = std_reg(32);
   }
   wires {
     static<1> group a {
-      add.left = left;
+      add.left = r.out;
       add.right = right;
       r.in = add.out;
       r.write_en = 1'd1;
     }
 
     static<1> group b {
-      add.left = r.out;
+      add.left = left;
       add.right = right;
       r.in = add.out;
       r.write_en = 1'd1;
     }
   }
   control {
-    static seq {a; b;}
+    static seq {
+      b;
+      static repeat 5 {
+        a;
+      }
+    }
   }
 
 }
@@ -35,6 +40,6 @@ component main () -> () {
   wires {}
 
   control {
-    static invoke a(left=32'd5, right=32'd6)();
+    static invoke a(left=32'd5, right = 32'd6)();
   }
 }
