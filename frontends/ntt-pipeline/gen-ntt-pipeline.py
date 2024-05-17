@@ -204,7 +204,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
         phi = comp.get_cell(f"phi{row}")
         input = comp.get_cell("a")
         phis = comp.get_cell("phis")
-        with main.group(f"preamble_{row}") as preamble:
+        with main.group(f"preamble_{row}", static_delay=1) as preamble:
             input.addr0 = row
             phis.addr0 = row
             reg.write_en = 1

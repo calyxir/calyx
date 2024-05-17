@@ -1,0 +1,3470 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/math.futil";
+import "primitives/memories/seq.futil";
+static<50022> component dense_1x10<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_23_read_data: 32, x_23_done: 1, x_24_read_data: 32, x_24_done: 1, x_25_read_data: 32, x_25_done: 1) -> (@done done: 1, @data x_23_addr0: 1, @data x_23_addr1: 9, x_23_content_en: 1, x_23_write_en: 1, @data x_23_write_data: 32, @data x_24_addr0: 4, @data x_24_addr1: 9, x_24_content_en: 1, x_24_write_en: 1, @data x_24_write_data: 32, @data x_25_addr0: 1, @data x_25_addr1: 4, x_25_content_en: 1, x_25_write_en: 1, @data x_25_write_data: 32) {
+  cells {
+    @data __i0 = std_reg(1);
+    @data __j0 = std_reg(4);
+    @data __k0 = std_reg(9);
+    @data __product_0 = std_reg(32);
+    @data add0 = std_fp_sadd(32, 16, 16);
+    @data add1 = std_add(9);
+    @data add2 = std_add(4);
+    @data add3 = std_add(1);
+    @data bin_read11_0 = std_reg(32);
+    @data const0 = std_const(1, 0);
+    @data const1 = std_const(4, 0);
+    @data const2 = std_const(9, 0);
+    @data const3 = std_const(9, 1);
+    @data const4 = std_const(4, 1);
+    @data const5 = std_const(1, 1);
+    @data mult_pipe0 = std_fp_smult_pipe(32, 16, 16);
+    @data red_read00 = std_reg(32);
+    @data x_23_read0_0 = std_reg(32);
+    @data x_24_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(9);
+    @generated comb_reg0 = std_reg(4);
+    @generated comb_reg1 = std_reg(1);
+  }
+  wires {
+    static<1> group beg_spl_let30 {
+      x_23_content_en = 1'd1;
+      x_23_addr1 = __k0.out;
+      x_23_addr0 = __i0.out;
+    }
+    static<1> group invoke30 {
+      __product_0.write_en = 1'd1;
+      __product_0.in = x_23_read_data;
+    }
+    static<1> group beg_spl_let40 {
+      x_24_content_en = 1'd1;
+      x_24_addr1 = __k0.out;
+      x_24_addr0 = __j0.out;
+    }
+    static<1> group invoke40 {
+      bin_read11_0.write_en = 1'd1;
+      bin_read11_0.in = x_24_read_data;
+    }
+    static<3> group invoke50 {
+      mult_pipe0.go = 1'd1;
+      mult_pipe0.left = __product_0.out;
+      mult_pipe0.right = bin_read11_0.out;
+    }
+    static<1> group invoke60 {
+      bin_read11_0.write_en = 1'd1;
+      bin_read11_0.in = mult_pipe0.out;
+    }
+    static<1> group beg_spl_let70 {
+      x_25_content_en = 1'd1;
+      x_25_addr1 = __j0.out;
+      x_25_addr0 = __i0.out;
+    }
+    static<1> group invoke80 {
+      bin_read11_0.write_en = 1'd1;
+      bin_read11_0.in = x_25_read_data;
+    }
+    static<2> group no-op {
+    }
+    static<1> group invoke70 {
+      __product_0.write_en = 1'd1;
+      __product_0.in = bin_read11_0.out;
+    }
+    static<1> group upd00 {
+      x_25_content_en = 1'd1;
+      x_25_addr1 = __j0.out;
+      x_25_addr0 = __i0.out;
+      x_25_write_en = 1'd1;
+      add0.left = bin_read11_0.out;
+      add0.right = __product_0.out;
+      x_25_write_data = add0.out;
+    }
+    static<1> group invoke90 {
+      __k0.write_en = 1'd1;
+      __k0.in = add1.out;
+      add1.left = __k0.out;
+      add1.right = const3.out;
+    }
+    static<1> group invoke20 {
+      __k0.write_en = 1'd1;
+      __k0.in = const2.out;
+    }
+    static<1> group invoke100 {
+      __j0.write_en = 1'd1;
+      __j0.in = add2.out;
+      add2.left = __j0.out;
+      add2.right = const4.out;
+    }
+    static<1> group invoke00 {
+      __i0.write_en = 1'd1;
+      __i0.in = const0.out;
+    }
+    static<1> group invoke110 {
+      __i0.write_en = 1'd1;
+      __i0.in = add3.out;
+      add3.left = __i0.out;
+      add3.right = const5.out;
+    }
+    static<1> group invoke101 {
+      __j0.write_en = 1'd1;
+      __j0.in = const1.out;
+    }
+  }
+  control {
+    @promoted static<50022> par {
+      static<50022> seq  {
+        invoke00;
+        @promotable(50020) static repeat 10 {
+          @promotable(5002) static<5002> seq  {
+            invoke20;
+            @promotable(5000) static repeat 500 {
+              @promotable(10) @promoted static<10> par {
+                static<10> seq  {
+                  @promotable(2) static<2> par {
+                    @promotable(2) static<2> seq  {
+                      @NODE_ID(10) beg_spl_let30;
+                      invoke30;
+                    }
+                    @promotable(2) static<2> seq  {
+                      @NODE_ID(13) beg_spl_let40;
+                      invoke40;
+                    }
+                  }
+                  invoke50;
+                  invoke60;
+                  invoke70;
+                  @NODE_ID(20) beg_spl_let70;
+                  invoke80;
+                  @NODE_ID(22) upd00;
+                }
+                static<3> seq  {
+                  no-op;
+                  invoke90;
+                }
+              }
+            }
+            invoke100;
+          }
+        }
+        invoke110;
+      }
+      invoke101;
+    }
+  }
+}
+static<4182762> component conv2d_1x20x24x24<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, data_read_data: 32, data_done: 1, x_8_read_data: 32, x_8_done: 1, x_9_read_data: 32, x_9_done: 1) -> (@done done: 1, @data data_addr0: 1, @data data_addr1: 1, @data data_addr2: 5, @data data_addr3: 5, data_content_en: 1, data_write_en: 1, @data data_write_data: 32, @data x_8_addr0: 5, @data x_8_addr1: 1, @data x_8_addr2: 3, @data x_8_addr3: 3, x_8_content_en: 1, x_8_write_en: 1, @data x_8_write_data: 32, @data x_9_addr0: 1, @data x_9_addr1: 5, @data x_9_addr2: 5, @data x_9_addr3: 5, x_9_content_en: 1, x_9_write_en: 1, @data x_9_write_data: 32) {
+  cells {
+    @data __b0 = std_reg(32);
+    @data __c0 = std_reg(32);
+    @data __dx0 = std_reg(32);
+    @data __dy0 = std_reg(32);
+    @data __k1 = std_reg(32);
+    @data __kernel_x_0 = std_reg(32);
+    @data __kernel_y_0 = std_reg(32);
+    @data __padded_tensor_val_0 = std_reg(32);
+    @data __sum_0 = std_reg(32);
+    @data __x0 = std_reg(32);
+    @data __y0 = std_reg(32);
+    @data add10 = std_add(32);
+    @data add11 = std_add(32);
+    @data add12 = std_add(32);
+    @data add13 = std_add(32);
+    @data add4 = std_add(32);
+    @data add5 = std_add(32);
+    @data add6 = std_fp_sadd(32, 16, 16);
+    @data add7 = std_add(32);
+    @data add8 = std_add(32);
+    @data add9 = std_add(32);
+    @data bin_read0_0 = std_reg(32);
+    @data bin_read1_0 = std_reg(32);
+    @data bin_read2_0 = std_reg(32);
+    @data const10 = std_const(32, 0);
+    @data const11 = std_const(32, 0);
+    @data const12 = std_const(32, 0);
+    @data const13 = std_const(32, 1);
+    @data const14 = std_const(32, 1);
+    @data const15 = std_const(32, 1);
+    @data const16 = std_const(32, 1);
+    @data const17 = std_const(32, 1);
+    @data const18 = std_const(32, 1);
+    @data const19 = std_const(32, 1);
+    @data const20 = std_const(32, 1);
+    @data const21 = std_const(32, 1);
+    @data const6 = std_const(32, 0);
+    @data const7 = std_const(32, 0);
+    @data const8 = std_const(32, 0);
+    @data const9 = std_const(32, 0);
+    @data fp_const0 = std_const(32, 0);
+    @data mult_pipe1 = std_mult_pipe(32);
+    @data mult_pipe2 = std_mult_pipe(32);
+    @data mult_pipe3 = std_fp_smult_pipe(32, 16, 16);
+    @data slice0 = std_slice(32, 1);
+    @data slice1 = std_slice(32, 1);
+    @data slice10 = std_slice(32, 5);
+    @data slice11 = std_slice(32, 5);
+    @data slice2 = std_slice(32, 5);
+    @data slice3 = std_slice(32, 5);
+    @data slice4 = std_slice(32, 5);
+    @data slice5 = std_slice(32, 1);
+    @data slice6 = std_slice(32, 3);
+    @data slice7 = std_slice(32, 3);
+    @data slice8 = std_slice(32, 1);
+    @data slice9 = std_slice(32, 5);
+    @data x_8_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(32);
+    @generated comb_reg0 = std_reg(32);
+    @generated comb_reg1 = std_reg(32);
+    @generated comb_reg2 = std_reg(32);
+    @generated comb_reg3 = std_reg(32);
+    @generated comb_reg4 = std_reg(32);
+    @generated comb_reg5 = std_reg(32);
+    @generated comb_reg6 = std_reg(32);
+    @generated comb_reg7 = std_reg(32);
+    @generated comb_reg8 = std_reg(32);
+  }
+  wires {
+    static<3> group invoke80 {
+      mult_pipe1.go = 1'd1;
+      mult_pipe1.left = const13.out;
+      mult_pipe1.right = __y0.out;
+    }
+    static<1> group invoke90 {
+      bin_read0_0.write_en = 1'd1;
+      bin_read0_0.in = mult_pipe1.out;
+    }
+    static<1> group invoke100 {
+      __kernel_y_0.write_en = 1'd1;
+      __kernel_y_0.in = add4.out;
+      add4.left = bin_read0_0.out;
+      add4.right = __dy0.out;
+    }
+    static<3> group invoke110 {
+      mult_pipe2.go = 1'd1;
+      mult_pipe2.left = const14.out;
+      mult_pipe2.right = __x0.out;
+    }
+    static<1> group invoke120 {
+      bin_read1_0.write_en = 1'd1;
+      bin_read1_0.in = mult_pipe2.out;
+    }
+    static<1> group invoke130 {
+      __kernel_x_0.write_en = 1'd1;
+      __kernel_x_0.in = add5.out;
+      add5.left = bin_read1_0.out;
+      add5.right = __dx0.out;
+    }
+    static<1> group beg_spl_let200 {
+      data_content_en = 1'd1;
+      data_addr3 = slice11.out;
+      data_addr2 = slice10.out;
+      data_addr1 = slice1.out;
+      data_addr0 = slice0.out;
+      slice11.in = __kernel_x_0.out;
+      slice10.in = __kernel_y_0.out;
+      slice1.in = __k1.out;
+      slice0.in = __b0.out;
+    }
+    static<1> group invoke140 {
+      __kernel_x_0.write_en = 1'd1;
+      __kernel_x_0.in = data_read_data;
+    }
+    static<1> group beg_spl_let210 {
+      x_8_content_en = 1'd1;
+      x_8_addr3 = slice7.out;
+      x_8_addr2 = slice6.out;
+      x_8_addr1 = slice0.out;
+      x_8_addr0 = slice10.out;
+      slice7.in = __dx0.out;
+      slice6.in = __dy0.out;
+      slice0.in = __k1.out;
+      slice10.in = __c0.out;
+    }
+    static<1> group invoke150 {
+      __kernel_y_0.write_en = 1'd1;
+      __kernel_y_0.in = x_8_read_data;
+    }
+    static<3> group invoke160 {
+      mult_pipe3.go = 1'd1;
+      mult_pipe3.left = __kernel_x_0.out;
+      mult_pipe3.right = __kernel_y_0.out;
+    }
+    static<1> group invoke170 {
+      __kernel_x_0.write_en = 1'd1;
+      __kernel_x_0.in = mult_pipe3.out;
+    }
+    static<9> group no-op {
+    }
+    static<1> group invoke180 {
+      __sum_0.write_en = 1'd1;
+      __sum_0.in = add6.out;
+      add6.left = __sum_0.out;
+      add6.right = __kernel_x_0.out;
+    }
+    static<1> group invoke190 {
+      __dx0.write_en = 1'd1;
+      __dx0.in = add4.out;
+      add4.left = __dx0.out;
+      add4.right = const13.out;
+    }
+    static<1> group invoke70 {
+      __dx0.write_en = 1'd1;
+      __dx0.in = const10.out;
+    }
+    static<1> group invoke200 {
+      __dy0.write_en = 1'd1;
+      __dy0.in = add4.out;
+      add4.left = __dy0.out;
+      add4.right = const13.out;
+    }
+    static<360> group no-op0 {
+    }
+    static<1> group invoke40 {
+      __sum_0.write_en = 1'd1;
+      __sum_0.in = const10.out;
+    }
+    static<1> group invoke210 {
+      __k1.write_en = 1'd1;
+      __k1.in = add4.out;
+      add4.left = __k1.out;
+      add4.right = const13.out;
+    }
+    static<1> group invoke220 {
+      __x0.write_en = 1'd1;
+      __x0.in = add4.out;
+      add4.left = __x0.out;
+      add4.right = const13.out;
+    }
+    static<1> group invoke50 {
+      __k1.write_en = 1'd1;
+      __k1.in = const10.out;
+    }
+    static<1> group upd80 {
+      x_9_content_en = 1'd1;
+      x_9_addr3 = slice11.out;
+      slice11.in = __x0.out;
+      x_9_addr2 = slice10.out;
+      slice10.in = __y0.out;
+      x_9_addr1 = slice9.out;
+      slice9.in = __c0.out;
+      x_9_addr0 = slice0.out;
+      slice0.in = __b0.out;
+      x_9_write_en = 1'd1;
+      x_9_write_data = __sum_0.out;
+    }
+    static<1> group invoke60 {
+      __dy0.write_en = 1'd1;
+      __dy0.in = const10.out;
+    }
+    static<1> group invoke30 {
+      __x0.write_en = 1'd1;
+      __x0.in = const10.out;
+    }
+    static<1> group invoke230 {
+      __y0.write_en = 1'd1;
+      __y0.in = add4.out;
+      add4.left = __y0.out;
+      add4.right = const13.out;
+    }
+    static<1> group invoke201 {
+      __y0.write_en = 1'd1;
+      __y0.in = const10.out;
+    }
+    static<1> group invoke240 {
+      __c0.write_en = 1'd1;
+      __c0.in = add4.out;
+      add4.left = __c0.out;
+      add4.right = const13.out;
+    }
+    static<1> group invoke00 {
+      __b0.write_en = 1'd1;
+      __b0.in = const10.out;
+    }
+    static<1> group invoke250 {
+      __b0.write_en = 1'd1;
+      __b0.in = add4.out;
+      add4.left = __b0.out;
+      add4.right = const13.out;
+    }
+    static<1> group invoke101 {
+      __c0.write_en = 1'd1;
+      __c0.in = const10.out;
+    }
+  }
+  control {
+    @promoted static<4182762> par {
+      static<4182762> seq  {
+        invoke00;
+        @promotable(4182760) static repeat 20 {
+          @promotable(209138) static<209138> seq  {
+            invoke201;
+            @promotable(209136) static repeat 24 {
+              @promotable(8714) static<8714> seq  {
+                invoke30;
+                @promotable(8712) static repeat 24 {
+                  @promotable(363) @promoted static<363> par {
+                    static<363> seq  {
+                      invoke40;
+                      @promotable(360) static repeat 5 {
+                        @promotable(72) static<72> seq  {
+                          invoke70;
+                          @promotable(70) static repeat 5 {
+                            @promotable(14) @promoted static<14> par {
+                              static<14> seq  {
+                                @promotable(5) static<5> par {
+                                  @promotable(5) static<5> seq  {
+                                    invoke80;
+                                    invoke90;
+                                    invoke100;
+                                  }
+                                  @promotable(5) static<5> seq  {
+                                    invoke110;
+                                    invoke120;
+                                    invoke130;
+                                  }
+                                }
+                                @NODE_ID(31) beg_spl_let200;
+                                invoke140;
+                                @NODE_ID(34) beg_spl_let210;
+                                invoke150;
+                                invoke160;
+                                invoke170;
+                                invoke180;
+                              }
+                              static<10> seq  {
+                                no-op;
+                                invoke190;
+                              }
+                            }
+                          }
+                          invoke200;
+                        }
+                      }
+                      invoke210;
+                      invoke220;
+                    }
+                    static<362> seq  {
+                      invoke50;
+                      no-op0;
+                      @pos(15) @NODE_ID(43) upd80;
+                    }
+                    invoke60;
+                  }
+                }
+                invoke230;
+              }
+            }
+            invoke240;
+          }
+        }
+        invoke250;
+      }
+      invoke101;
+    }
+  }
+}
+static<3702> component reshape_1x800<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_17_read_data: 32, x_17_done: 1, x_18_read_data: 32, x_18_done: 1) -> (@done done: 1, @data x_17_addr0: 1, @data x_17_addr1: 6, @data x_17_addr2: 3, @data x_17_addr3: 3, x_17_content_en: 1, x_17_write_en: 1, @data x_17_write_data: 32, @data x_18_addr0: 1, @data x_18_addr1: 10, x_18_content_en: 1, x_18_write_en: 1, @data x_18_write_data: 32) {
+  cells {
+    @data __i1 = std_reg(1);
+    @data __j1 = std_reg(6);
+    @data __k2 = std_reg(3);
+    @data __l0 = std_reg(3);
+    @data __m_0 = std_reg(10);
+    @data add14 = std_add(10);
+    @data add15 = std_add(3);
+    @data add16 = std_add(3);
+    @data add17 = std_add(6);
+    @data add18 = std_add(1);
+    @data const22 = std_const(10, 0);
+    @data const23 = std_const(1, 0);
+    @data const24 = std_const(6, 0);
+    @data const25 = std_const(3, 0);
+    @data const26 = std_const(3, 0);
+    @data const27 = std_const(1, 0);
+    @data const28 = std_const(10, 1);
+    @data const29 = std_const(3, 1);
+    @data const30 = std_const(3, 1);
+    @data const31 = std_const(6, 1);
+    @data const32 = std_const(1, 1);
+    @data x_17_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(10);
+    @generated comb_reg0 = std_reg(3);
+    @generated comb_reg1 = std_reg(3);
+    @generated comb_reg2 = std_reg(6);
+    @generated comb_reg3 = std_reg(1);
+  }
+  wires {
+    static<1> group beg_spl_let280 {
+      x_17_content_en = 1'd1;
+      x_17_addr3 = __l0.out;
+      x_17_addr2 = __k2.out;
+      x_17_addr1 = __j1.out;
+      x_17_addr0 = __i1.out;
+    }
+    static<1> group invoke50 {
+      x_17_read0_0.write_en = 1'd1;
+      x_17_read0_0.in = x_17_read_data;
+    }
+    static<2> group no-op {
+    }
+    static<1> group upd130 {
+      x_18_content_en = 1'd1;
+      x_18_addr1 = __m_0.out;
+      x_18_addr0 = const23.out;
+      x_18_write_en = 1'd1;
+      x_18_write_data = x_17_read0_0.out;
+    }
+    static<1> group invoke60 {
+      __m_0.write_en = 1'd1;
+      __m_0.in = add14.out;
+      add14.left = __m_0.out;
+      add14.right = const28.out;
+    }
+    static<1> group invoke70 {
+      __l0.write_en = 1'd1;
+      __l0.in = add15.out;
+      add15.left = __l0.out;
+      add15.right = const29.out;
+    }
+    static<1> group invoke40 {
+      __l0.write_en = 1'd1;
+      __l0.in = const25.out;
+    }
+    static<1> group invoke80 {
+      __k2.write_en = 1'd1;
+      __k2.in = add15.out;
+      add15.left = __k2.out;
+      add15.right = const29.out;
+    }
+    static<1> group invoke30 {
+      __k2.write_en = 1'd1;
+      __k2.in = const25.out;
+    }
+    static<1> group invoke90 {
+      __j1.write_en = 1'd1;
+      __j1.in = add17.out;
+      add17.left = __j1.out;
+      add17.right = const31.out;
+    }
+    static<1> group invoke00 {
+      __m_0.write_en = 1'd1;
+      __m_0.in = const22.out;
+    }
+    static<1> group invoke100 {
+      __i1.write_en = 1'd1;
+      __i1.in = add18.out;
+      add18.left = __i1.out;
+      add18.right = const32.out;
+    }
+    static<1> group invoke101 {
+      __i1.write_en = 1'd1;
+      __i1.in = const23.out;
+    }
+    static<1> group invoke20 {
+      __j1.write_en = 1'd1;
+      __j1.in = const24.out;
+    }
+  }
+  control {
+    @promoted static<3702> par {
+      static<3702> seq  {
+        invoke00;
+        @promotable(3700) static repeat 50 {
+          @promotable(74) static<74> seq  {
+            invoke30;
+            @promotable(72) static repeat 4 {
+              @promotable(18) static<18> seq  {
+                invoke40;
+                @promotable(16) static repeat 4 {
+                  @promotable(4) @promoted static<4> par {
+                    static<4> seq  {
+                      @NODE_ID(13) beg_spl_let280;
+                      invoke50;
+                      @pos(22) @NODE_ID(15) upd130;
+                      invoke60;
+                    }
+                    static<3> seq  {
+                      no-op;
+                      invoke70;
+                    }
+                  }
+                }
+                invoke80;
+              }
+            }
+            invoke90;
+          }
+        }
+        invoke100;
+      }
+      invoke101;
+      invoke20;
+    }
+  }
+}
+static<47082> component bias_add_1x20x24x24<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_9_read_data: 32, x_9_done: 1, x_10_read_data: 32, x_10_done: 1, x_11_read_data: 32, x_11_done: 1) -> (@done done: 1, @data x_9_addr0: 1, @data x_9_addr1: 5, @data x_9_addr2: 5, @data x_9_addr3: 5, x_9_content_en: 1, x_9_write_en: 1, @data x_9_write_data: 32, @data x_10_addr0: 5, x_10_content_en: 1, x_10_write_en: 1, @data x_10_write_data: 32, @data x_11_addr0: 1, @data x_11_addr1: 5, @data x_11_addr2: 5, @data x_11_addr3: 5, x_11_content_en: 1, x_11_write_en: 1, @data x_11_write_data: 32) {
+  cells {
+    @data __i2 = std_reg(1);
+    @data __j2 = std_reg(5);
+    @data __k3 = std_reg(5);
+    @data __l1 = std_reg(5);
+    @data add19 = std_fp_sadd(32, 16, 16);
+    @data add20 = std_add(5);
+    @data add21 = std_add(5);
+    @data add22 = std_add(5);
+    @data add23 = std_add(1);
+    @data const33 = std_const(1, 0);
+    @data const34 = std_const(5, 0);
+    @data const35 = std_const(5, 0);
+    @data const36 = std_const(5, 0);
+    @data const37 = std_const(5, 1);
+    @data const38 = std_const(5, 1);
+    @data const39 = std_const(5, 1);
+    @data const40 = std_const(1, 1);
+    @data x_10_read0_0 = std_reg(32);
+    @data x_9_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(5);
+    @generated comb_reg0 = std_reg(5);
+    @generated comb_reg1 = std_reg(5);
+    @generated comb_reg2 = std_reg(1);
+  }
+  wires {
+    static<1> group beg_spl_let330 {
+      x_9_content_en = 1'd1;
+      x_9_addr3 = __l1.out;
+      x_9_addr2 = __k3.out;
+      x_9_addr1 = __j2.out;
+      x_9_addr0 = __i2.out;
+    }
+    static<1> group invoke40 {
+      x_9_read0_0.write_en = 1'd1;
+      x_9_read0_0.in = x_9_read_data;
+    }
+    static<1> group beg_spl_let340 {
+      x_10_content_en = 1'd1;
+      x_10_addr0 = __j2.out;
+    }
+    static<1> group invoke50 {
+      x_10_read0_0.write_en = 1'd1;
+      x_10_read0_0.in = x_10_read_data;
+    }
+    static<1> group upd190 {
+      x_11_content_en = 1'd1;
+      x_11_addr3 = __l1.out;
+      x_11_addr2 = __k3.out;
+      x_11_addr1 = __j2.out;
+      x_11_addr0 = __i2.out;
+      x_11_write_en = 1'd1;
+      add19.left = x_9_read0_0.out;
+      add19.right = x_10_read0_0.out;
+      x_11_write_data = add19.out;
+    }
+    static<1> group invoke60 {
+      __l1.write_en = 1'd1;
+      __l1.in = add20.out;
+      add20.left = __l1.out;
+      add20.right = const37.out;
+    }
+    static<1> group invoke30 {
+      __l1.write_en = 1'd1;
+      __l1.in = const34.out;
+    }
+    static<1> group invoke70 {
+      __k3.write_en = 1'd1;
+      __k3.in = add20.out;
+      add20.left = __k3.out;
+      add20.right = const37.out;
+    }
+    static<1> group invoke20 {
+      __k3.write_en = 1'd1;
+      __k3.in = const34.out;
+    }
+    static<1> group invoke80 {
+      __j2.write_en = 1'd1;
+      __j2.in = add20.out;
+      add20.left = __j2.out;
+      add20.right = const37.out;
+    }
+    static<1> group invoke00 {
+      __i2.write_en = 1'd1;
+      __i2.in = const33.out;
+    }
+    static<1> group invoke90 {
+      __i2.write_en = 1'd1;
+      __i2.in = add23.out;
+      add23.left = __i2.out;
+      add23.right = const40.out;
+    }
+    static<1> group invoke10 {
+      __j2.write_en = 1'd1;
+      __j2.in = const34.out;
+    }
+  }
+  control {
+    @promoted static<47082> par {
+      static<47082> seq  {
+        invoke00;
+        @promotable(47080) static repeat 20 {
+          @promotable(2354) static<2354> seq  {
+            invoke20;
+            @promotable(2352) static repeat 24 {
+              @promotable(98) static<98> seq  {
+                invoke30;
+                @promotable(96) static repeat 24 {
+                  @promotable(4) static<4> seq  {
+                    @promotable(2) static<2> par {
+                      @promotable(2) static<2> seq  {
+                        @NODE_ID(13) beg_spl_let330;
+                        invoke40;
+                      }
+                      @promotable(2) static<2> seq  {
+                        @NODE_ID(16) beg_spl_let340;
+                        invoke50;
+                      }
+                    }
+                    @pos(29) @NODE_ID(18) upd190;
+                    invoke60;
+                  }
+                }
+                invoke70;
+              }
+            }
+            invoke80;
+          }
+        }
+        invoke90;
+      }
+      invoke10;
+    }
+  }
+}
+static<42> component add_1x10<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_25_read_data: 32, x_25_done: 1, x_26_read_data: 32, x_26_done: 1, x_27_read_data: 32, x_27_done: 1) -> (@done done: 1, @data x_25_addr0: 1, @data x_25_addr1: 4, x_25_content_en: 1, x_25_write_en: 1, @data x_25_write_data: 32, @data x_26_addr0: 4, x_26_content_en: 1, x_26_write_en: 1, @data x_26_write_data: 32, @data x_27_addr0: 1, @data x_27_addr1: 4, x_27_content_en: 1, x_27_write_en: 1, @data x_27_write_data: 32) {
+  cells {
+    @data __i3 = std_reg(1);
+    @data __j3 = std_reg(4);
+    @data add24 = std_fp_sadd(32, 16, 16);
+    @data add25 = std_add(4);
+    @data add26 = std_add(1);
+    @data const41 = std_const(1, 0);
+    @data const42 = std_const(4, 0);
+    @data const43 = std_const(4, 1);
+    @data const44 = std_const(1, 1);
+    @data x_25_read0_0 = std_reg(32);
+    @data x_26_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(4);
+    @generated comb_reg0 = std_reg(1);
+  }
+  wires {
+    static<1> group beg_spl_let370 {
+      x_25_content_en = 1'd1;
+      x_25_addr1 = __j3.out;
+      x_25_addr0 = __i3.out;
+    }
+    static<1> group invoke20 {
+      x_25_read0_0.write_en = 1'd1;
+      x_25_read0_0.in = x_25_read_data;
+    }
+    static<1> group beg_spl_let380 {
+      x_26_content_en = 1'd1;
+      x_26_addr0 = __j3.out;
+    }
+    static<1> group invoke30 {
+      x_26_read0_0.write_en = 1'd1;
+      x_26_read0_0.in = x_26_read_data;
+    }
+    static<1> group upd240 {
+      x_27_content_en = 1'd1;
+      x_27_addr1 = __j3.out;
+      x_27_addr0 = __i3.out;
+      x_27_write_en = 1'd1;
+      add24.left = x_25_read0_0.out;
+      add24.right = x_26_read0_0.out;
+      x_27_write_data = add24.out;
+    }
+    static<1> group invoke40 {
+      __j3.write_en = 1'd1;
+      __j3.in = add25.out;
+      add25.left = __j3.out;
+      add25.right = const43.out;
+    }
+    static<1> group invoke00 {
+      __i3.write_en = 1'd1;
+      __i3.in = const41.out;
+    }
+    static<1> group invoke50 {
+      __i3.write_en = 1'd1;
+      __i3.in = add26.out;
+      add26.left = __i3.out;
+      add26.right = const44.out;
+    }
+    static<1> group invoke10 {
+      __j3.write_en = 1'd1;
+      __j3.in = const42.out;
+    }
+  }
+  control {
+    @promoted static<42> par {
+      static<42> seq  {
+        invoke00;
+        @promotable(40) static repeat 10 {
+          @promotable(4) static<4> seq  {
+            @promotable(2) static<2> par {
+              @promotable(2) static<2> seq  {
+                @NODE_ID(7) beg_spl_let370;
+                invoke20;
+              }
+              @promotable(2) static<2> seq  {
+                @NODE_ID(10) beg_spl_let380;
+                invoke30;
+              }
+            }
+            @pos(34) @NODE_ID(12) upd240;
+            invoke40;
+          }
+        }
+        invoke50;
+      }
+      invoke10;
+    }
+  }
+}
+static<4001002> component dense_1x500<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_18_read_data: 32, x_18_done: 1, x_19_read_data: 32, x_19_done: 1, x_20_read_data: 32, x_20_done: 1) -> (@done done: 1, @data x_18_addr0: 1, @data x_18_addr1: 10, x_18_content_en: 1, x_18_write_en: 1, @data x_18_write_data: 32, @data x_19_addr0: 9, @data x_19_addr1: 10, x_19_content_en: 1, x_19_write_en: 1, @data x_19_write_data: 32, @data x_20_addr0: 1, @data x_20_addr1: 9, x_20_content_en: 1, x_20_write_en: 1, @data x_20_write_data: 32) {
+  cells {
+    @data __i4 = std_reg(1);
+    @data __j4 = std_reg(9);
+    @data __k4 = std_reg(10);
+    @data __product_1 = std_reg(32);
+    @data add27 = std_fp_sadd(32, 16, 16);
+    @data add28 = std_add(10);
+    @data add29 = std_add(9);
+    @data add30 = std_add(1);
+    @data bin_read10_0 = std_reg(32);
+    @data const45 = std_const(1, 0);
+    @data const46 = std_const(9, 0);
+    @data const47 = std_const(10, 0);
+    @data const48 = std_const(10, 1);
+    @data const49 = std_const(9, 1);
+    @data const50 = std_const(1, 1);
+    @data mult_pipe4 = std_fp_smult_pipe(32, 16, 16);
+    @data red_read10 = std_reg(32);
+    @data x_18_read0_0 = std_reg(32);
+    @data x_19_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(10);
+    @generated comb_reg0 = std_reg(9);
+    @generated comb_reg1 = std_reg(1);
+  }
+  wires {
+    static<1> group beg_spl_let420 {
+      x_18_content_en = 1'd1;
+      x_18_addr1 = __k4.out;
+      x_18_addr0 = __i4.out;
+    }
+    static<1> group invoke30 {
+      __product_1.write_en = 1'd1;
+      __product_1.in = x_18_read_data;
+    }
+    static<1> group beg_spl_let430 {
+      x_19_content_en = 1'd1;
+      x_19_addr1 = __k4.out;
+      x_19_addr0 = __j4.out;
+    }
+    static<1> group invoke40 {
+      bin_read10_0.write_en = 1'd1;
+      bin_read10_0.in = x_19_read_data;
+    }
+    static<3> group invoke50 {
+      mult_pipe4.go = 1'd1;
+      mult_pipe4.left = __product_1.out;
+      mult_pipe4.right = bin_read10_0.out;
+    }
+    static<1> group invoke60 {
+      bin_read10_0.write_en = 1'd1;
+      bin_read10_0.in = mult_pipe4.out;
+    }
+    static<1> group beg_spl_let460 {
+      x_20_content_en = 1'd1;
+      x_20_addr1 = __j4.out;
+      x_20_addr0 = __i4.out;
+    }
+    static<1> group invoke80 {
+      bin_read10_0.write_en = 1'd1;
+      bin_read10_0.in = x_20_read_data;
+    }
+    static<2> group no-op {
+    }
+    static<1> group invoke70 {
+      __product_1.write_en = 1'd1;
+      __product_1.in = bin_read10_0.out;
+    }
+    static<1> group upd270 {
+      x_20_content_en = 1'd1;
+      x_20_addr1 = __j4.out;
+      x_20_addr0 = __i4.out;
+      x_20_write_en = 1'd1;
+      add27.left = bin_read10_0.out;
+      add27.right = __product_1.out;
+      x_20_write_data = add27.out;
+    }
+    static<1> group invoke90 {
+      __k4.write_en = 1'd1;
+      __k4.in = add28.out;
+      add28.left = __k4.out;
+      add28.right = const48.out;
+    }
+    static<1> group invoke20 {
+      __k4.write_en = 1'd1;
+      __k4.in = const47.out;
+    }
+    static<1> group invoke100 {
+      __j4.write_en = 1'd1;
+      __j4.in = add29.out;
+      add29.left = __j4.out;
+      add29.right = const49.out;
+    }
+    static<1> group invoke00 {
+      __i4.write_en = 1'd1;
+      __i4.in = const45.out;
+    }
+    static<1> group invoke110 {
+      __i4.write_en = 1'd1;
+      __i4.in = add30.out;
+      add30.left = __i4.out;
+      add30.right = const50.out;
+    }
+    static<1> group invoke101 {
+      __j4.write_en = 1'd1;
+      __j4.in = const46.out;
+    }
+  }
+  control {
+    @promoted static<4001002> par {
+      static<4001002> seq  {
+        invoke00;
+        @promotable(4001000) static repeat 500 {
+          @promotable(8002) static<8002> seq  {
+            invoke20;
+            @promotable(8000) static repeat 800 {
+              @promotable(10) @promoted static<10> par {
+                static<10> seq  {
+                  @promotable(2) static<2> par {
+                    @promotable(2) static<2> seq  {
+                      @NODE_ID(10) beg_spl_let420;
+                      invoke30;
+                    }
+                    @promotable(2) static<2> seq  {
+                      @NODE_ID(13) beg_spl_let430;
+                      invoke40;
+                    }
+                  }
+                  invoke50;
+                  invoke60;
+                  invoke70;
+                  @NODE_ID(20) beg_spl_let460;
+                  invoke80;
+                  @NODE_ID(22) upd270;
+                }
+                static<3> seq  {
+                  no-op;
+                  invoke90;
+                }
+              }
+            }
+            invoke100;
+          }
+        }
+        invoke110;
+      }
+      invoke101;
+    }
+  }
+}
+static<23178502> component conv2d_1x50x8x8<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_12_read_data: 32, x_12_done: 1, x_13_read_data: 32, x_13_done: 1, x_14_read_data: 32, x_14_done: 1) -> (@done done: 1, @data x_12_addr0: 1, @data x_12_addr1: 5, @data x_12_addr2: 4, @data x_12_addr3: 4, x_12_content_en: 1, x_12_write_en: 1, @data x_12_write_data: 32, @data x_13_addr0: 6, @data x_13_addr1: 5, @data x_13_addr2: 3, @data x_13_addr3: 3, x_13_content_en: 1, x_13_write_en: 1, @data x_13_write_data: 32, @data x_14_addr0: 1, @data x_14_addr1: 6, @data x_14_addr2: 4, @data x_14_addr3: 4, x_14_content_en: 1, x_14_write_en: 1, @data x_14_write_data: 32) {
+  cells {
+    @data __b1 = std_reg(32);
+    @data __c1 = std_reg(32);
+    @data __dx1 = std_reg(32);
+    @data __dy1 = std_reg(32);
+    @data __k5 = std_reg(32);
+    @data __kernel_x_1 = std_reg(32);
+    @data __kernel_y_1 = std_reg(32);
+    @data __padded_tensor_val_1 = std_reg(32);
+    @data __sum_1 = std_reg(32);
+    @data __x1 = std_reg(32);
+    @data __y1 = std_reg(32);
+    @data add31 = std_add(32);
+    @data add32 = std_add(32);
+    @data add33 = std_fp_sadd(32, 16, 16);
+    @data add34 = std_add(32);
+    @data add35 = std_add(32);
+    @data add36 = std_add(32);
+    @data add37 = std_add(32);
+    @data add38 = std_add(32);
+    @data add39 = std_add(32);
+    @data add40 = std_add(32);
+    @data bin_read5_0 = std_reg(32);
+    @data bin_read6_0 = std_reg(32);
+    @data bin_read7_0 = std_reg(32);
+    @data const51 = std_const(32, 0);
+    @data const52 = std_const(32, 0);
+    @data const53 = std_const(32, 0);
+    @data const54 = std_const(32, 0);
+    @data const55 = std_const(32, 0);
+    @data const56 = std_const(32, 0);
+    @data const57 = std_const(32, 0);
+    @data const58 = std_const(32, 1);
+    @data const59 = std_const(32, 1);
+    @data const60 = std_const(32, 1);
+    @data const61 = std_const(32, 1);
+    @data const62 = std_const(32, 1);
+    @data const63 = std_const(32, 1);
+    @data const64 = std_const(32, 1);
+    @data const65 = std_const(32, 1);
+    @data const66 = std_const(32, 1);
+    @data fp_const1 = std_const(32, 0);
+    @data mult_pipe5 = std_mult_pipe(32);
+    @data mult_pipe6 = std_mult_pipe(32);
+    @data mult_pipe7 = std_fp_smult_pipe(32, 16, 16);
+    @data slice12 = std_slice(32, 1);
+    @data slice13 = std_slice(32, 5);
+    @data slice14 = std_slice(32, 4);
+    @data slice15 = std_slice(32, 4);
+    @data slice16 = std_slice(32, 6);
+    @data slice17 = std_slice(32, 5);
+    @data slice18 = std_slice(32, 3);
+    @data slice19 = std_slice(32, 3);
+    @data slice20 = std_slice(32, 1);
+    @data slice21 = std_slice(32, 6);
+    @data slice22 = std_slice(32, 4);
+    @data slice23 = std_slice(32, 4);
+    @data x_13_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(32);
+    @generated comb_reg0 = std_reg(32);
+    @generated comb_reg1 = std_reg(32);
+    @generated comb_reg2 = std_reg(32);
+    @generated comb_reg3 = std_reg(32);
+    @generated comb_reg4 = std_reg(32);
+    @generated comb_reg5 = std_reg(32);
+    @generated comb_reg6 = std_reg(32);
+    @generated comb_reg7 = std_reg(32);
+    @generated comb_reg8 = std_reg(32);
+  }
+  wires {
+    static<3> group invoke80 {
+      mult_pipe5.go = 1'd1;
+      mult_pipe5.left = const58.out;
+      mult_pipe5.right = __y1.out;
+    }
+    static<1> group invoke90 {
+      bin_read5_0.write_en = 1'd1;
+      bin_read5_0.in = mult_pipe5.out;
+    }
+    static<1> group invoke100 {
+      __kernel_y_1.write_en = 1'd1;
+      __kernel_y_1.in = add31.out;
+      add31.left = bin_read5_0.out;
+      add31.right = __dy1.out;
+    }
+    static<3> group invoke110 {
+      mult_pipe6.go = 1'd1;
+      mult_pipe6.left = const59.out;
+      mult_pipe6.right = __x1.out;
+    }
+    static<1> group invoke120 {
+      bin_read6_0.write_en = 1'd1;
+      bin_read6_0.in = mult_pipe6.out;
+    }
+    static<1> group invoke130 {
+      __kernel_x_1.write_en = 1'd1;
+      __kernel_x_1.in = add32.out;
+      add32.left = bin_read6_0.out;
+      add32.right = __dx1.out;
+    }
+    static<1> group beg_spl_let590 {
+      x_12_content_en = 1'd1;
+      x_12_addr3 = slice15.out;
+      x_12_addr2 = slice14.out;
+      x_12_addr1 = slice13.out;
+      x_12_addr0 = slice12.out;
+      slice15.in = __kernel_x_1.out;
+      slice14.in = __kernel_y_1.out;
+      slice13.in = __k5.out;
+      slice12.in = __b1.out;
+    }
+    static<1> group invoke140 {
+      __kernel_x_1.write_en = 1'd1;
+      __kernel_x_1.in = x_12_read_data;
+    }
+    static<1> group beg_spl_let600 {
+      x_13_content_en = 1'd1;
+      x_13_addr3 = slice19.out;
+      x_13_addr2 = slice18.out;
+      x_13_addr1 = slice13.out;
+      x_13_addr0 = slice16.out;
+      slice19.in = __dx1.out;
+      slice18.in = __dy1.out;
+      slice13.in = __k5.out;
+      slice16.in = __c1.out;
+    }
+    static<1> group invoke150 {
+      __kernel_y_1.write_en = 1'd1;
+      __kernel_y_1.in = x_13_read_data;
+    }
+    static<3> group invoke160 {
+      mult_pipe7.go = 1'd1;
+      mult_pipe7.left = __kernel_x_1.out;
+      mult_pipe7.right = __kernel_y_1.out;
+    }
+    static<1> group invoke170 {
+      __kernel_x_1.write_en = 1'd1;
+      __kernel_x_1.in = mult_pipe7.out;
+    }
+    static<9> group no-op {
+    }
+    static<1> group invoke180 {
+      __sum_1.write_en = 1'd1;
+      __sum_1.in = add33.out;
+      add33.left = __sum_1.out;
+      add33.right = __kernel_x_1.out;
+    }
+    static<1> group invoke190 {
+      __dx1.write_en = 1'd1;
+      __dx1.in = add31.out;
+      add31.left = __dx1.out;
+      add31.right = const58.out;
+    }
+    static<1> group invoke70 {
+      __dx1.write_en = 1'd1;
+      __dx1.in = const51.out;
+    }
+    static<1> group invoke200 {
+      __dy1.write_en = 1'd1;
+      __dy1.in = add31.out;
+      add31.left = __dy1.out;
+      add31.right = const58.out;
+    }
+    static<1> group invoke60 {
+      __dy1.write_en = 1'd1;
+      __dy1.in = const51.out;
+    }
+    static<1> group invoke210 {
+      __k5.write_en = 1'd1;
+      __k5.in = add31.out;
+      add31.left = __k5.out;
+      add31.right = const58.out;
+    }
+    static<1> group invoke40 {
+      __sum_1.write_en = 1'd1;
+      __sum_1.in = const51.out;
+    }
+    static<1> group upd350 {
+      x_14_content_en = 1'd1;
+      x_14_addr3 = slice15.out;
+      slice15.in = __x1.out;
+      x_14_addr2 = slice14.out;
+      slice14.in = __y1.out;
+      x_14_addr1 = slice16.out;
+      slice16.in = __c1.out;
+      x_14_addr0 = slice12.out;
+      slice12.in = __b1.out;
+      x_14_write_en = 1'd1;
+      x_14_write_data = __sum_1.out;
+    }
+    static<1> group invoke220 {
+      __x1.write_en = 1'd1;
+      __x1.in = add31.out;
+      add31.left = __x1.out;
+      add31.right = const58.out;
+    }
+    static<1> group invoke50 {
+      __k5.write_en = 1'd1;
+      __k5.in = const51.out;
+    }
+    static<1> group invoke30 {
+      __x1.write_en = 1'd1;
+      __x1.in = const51.out;
+    }
+    static<1> group invoke230 {
+      __y1.write_en = 1'd1;
+      __y1.in = add31.out;
+      add31.left = __y1.out;
+      add31.right = const58.out;
+    }
+    static<1> group invoke201 {
+      __y1.write_en = 1'd1;
+      __y1.in = const51.out;
+    }
+    static<1> group invoke240 {
+      __c1.write_en = 1'd1;
+      __c1.in = add31.out;
+      add31.left = __c1.out;
+      add31.right = const58.out;
+    }
+    static<1> group invoke00 {
+      __b1.write_en = 1'd1;
+      __b1.in = const51.out;
+    }
+    static<1> group invoke250 {
+      __b1.write_en = 1'd1;
+      __b1.in = add31.out;
+      add31.left = __b1.out;
+      add31.right = const58.out;
+    }
+    static<1> group invoke101 {
+      __c1.write_en = 1'd1;
+      __c1.in = const51.out;
+    }
+  }
+  control {
+    @promoted static<23178502> par {
+      static<23178502> seq  {
+        invoke00;
+        @promotable(23178500) static repeat 50 {
+          @promotable(463570) static<463570> seq  {
+            invoke201;
+            @promotable(463568) static repeat 8 {
+              @promotable(57946) static<57946> seq  {
+                invoke30;
+                @promotable(57944) static repeat 8 {
+                  @promotable(7243) @promoted static<7243> par {
+                    static<7243> seq  {
+                      invoke40;
+                      @promotable(7240) static repeat 20 {
+                        @promotable(362) static<362> seq  {
+                          invoke60;
+                          @promotable(360) static repeat 5 {
+                            @promotable(72) static<72> seq  {
+                              invoke70;
+                              @promotable(70) static repeat 5 {
+                                @promotable(14) @promoted static<14> par {
+                                  static<14> seq  {
+                                    @promotable(5) static<5> par {
+                                      @promotable(5) static<5> seq  {
+                                        invoke80;
+                                        invoke90;
+                                        invoke100;
+                                      }
+                                      @promotable(5) static<5> seq  {
+                                        invoke110;
+                                        invoke120;
+                                        invoke130;
+                                      }
+                                    }
+                                    @NODE_ID(33) beg_spl_let590;
+                                    invoke140;
+                                    @NODE_ID(36) beg_spl_let600;
+                                    invoke150;
+                                    invoke160;
+                                    invoke170;
+                                    invoke180;
+                                  }
+                                  static<10> seq  {
+                                    no-op;
+                                    invoke190;
+                                  }
+                                }
+                              }
+                              invoke200;
+                            }
+                          }
+                          invoke210;
+                        }
+                      }
+                      @pos(50) @NODE_ID(45) upd350;
+                      invoke220;
+                    }
+                    invoke50;
+                  }
+                }
+                invoke230;
+              }
+            }
+            invoke240;
+          }
+        }
+        invoke250;
+      }
+      invoke101;
+    }
+  }
+}
+static<13702> component bias_add_1x50x8x8<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_14_read_data: 32, x_14_done: 1, x_15_read_data: 32, x_15_done: 1, x_16_read_data: 32, x_16_done: 1) -> (@done done: 1, @data x_14_addr0: 1, @data x_14_addr1: 6, @data x_14_addr2: 4, @data x_14_addr3: 4, x_14_content_en: 1, x_14_write_en: 1, @data x_14_write_data: 32, @data x_15_addr0: 6, x_15_content_en: 1, x_15_write_en: 1, @data x_15_write_data: 32, @data x_16_addr0: 1, @data x_16_addr1: 6, @data x_16_addr2: 4, @data x_16_addr3: 4, x_16_content_en: 1, x_16_write_en: 1, @data x_16_write_data: 32) {
+  cells {
+    @data __i5 = std_reg(1);
+    @data __j5 = std_reg(6);
+    @data __k6 = std_reg(4);
+    @data __l2 = std_reg(4);
+    @data add41 = std_fp_sadd(32, 16, 16);
+    @data add42 = std_add(4);
+    @data add43 = std_add(4);
+    @data add44 = std_add(6);
+    @data add45 = std_add(1);
+    @data const67 = std_const(1, 0);
+    @data const68 = std_const(6, 0);
+    @data const69 = std_const(4, 0);
+    @data const70 = std_const(4, 0);
+    @data const71 = std_const(4, 1);
+    @data const72 = std_const(4, 1);
+    @data const73 = std_const(6, 1);
+    @data const74 = std_const(1, 1);
+    @data x_14_read0_0 = std_reg(32);
+    @data x_15_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(4);
+    @generated comb_reg0 = std_reg(4);
+    @generated comb_reg1 = std_reg(6);
+    @generated comb_reg2 = std_reg(1);
+  }
+  wires {
+    static<1> group beg_spl_let660 {
+      x_14_content_en = 1'd1;
+      x_14_addr3 = __l2.out;
+      x_14_addr2 = __k6.out;
+      x_14_addr1 = __j5.out;
+      x_14_addr0 = __i5.out;
+    }
+    static<1> group invoke40 {
+      x_14_read0_0.write_en = 1'd1;
+      x_14_read0_0.in = x_14_read_data;
+    }
+    static<1> group beg_spl_let670 {
+      x_15_content_en = 1'd1;
+      x_15_addr0 = __j5.out;
+    }
+    static<1> group invoke50 {
+      x_15_read0_0.write_en = 1'd1;
+      x_15_read0_0.in = x_15_read_data;
+    }
+    static<1> group upd400 {
+      x_16_content_en = 1'd1;
+      x_16_addr3 = __l2.out;
+      x_16_addr2 = __k6.out;
+      x_16_addr1 = __j5.out;
+      x_16_addr0 = __i5.out;
+      x_16_write_en = 1'd1;
+      add41.left = x_14_read0_0.out;
+      add41.right = x_15_read0_0.out;
+      x_16_write_data = add41.out;
+    }
+    static<1> group invoke60 {
+      __l2.write_en = 1'd1;
+      __l2.in = add42.out;
+      add42.left = __l2.out;
+      add42.right = const71.out;
+    }
+    static<1> group invoke30 {
+      __l2.write_en = 1'd1;
+      __l2.in = const69.out;
+    }
+    static<1> group invoke70 {
+      __k6.write_en = 1'd1;
+      __k6.in = add42.out;
+      add42.left = __k6.out;
+      add42.right = const71.out;
+    }
+    static<1> group invoke20 {
+      __k6.write_en = 1'd1;
+      __k6.in = const69.out;
+    }
+    static<1> group invoke80 {
+      __j5.write_en = 1'd1;
+      __j5.in = add44.out;
+      add44.left = __j5.out;
+      add44.right = const73.out;
+    }
+    static<1> group invoke00 {
+      __i5.write_en = 1'd1;
+      __i5.in = const67.out;
+    }
+    static<1> group invoke90 {
+      __i5.write_en = 1'd1;
+      __i5.in = add45.out;
+      add45.left = __i5.out;
+      add45.right = const74.out;
+    }
+    static<1> group invoke10 {
+      __j5.write_en = 1'd1;
+      __j5.in = const68.out;
+    }
+  }
+  control {
+    @promoted static<13702> par {
+      static<13702> seq  {
+        invoke00;
+        @promotable(13700) static repeat 50 {
+          @promotable(274) static<274> seq  {
+            invoke20;
+            @promotable(272) static repeat 8 {
+              @promotable(34) static<34> seq  {
+                invoke30;
+                @promotable(32) static repeat 8 {
+                  @promotable(4) static<4> seq  {
+                    @promotable(2) static<2> par {
+                      @promotable(2) static<2> seq  {
+                        @NODE_ID(13) beg_spl_let660;
+                        invoke40;
+                      }
+                      @promotable(2) static<2> seq  {
+                        @NODE_ID(16) beg_spl_let670;
+                        invoke50;
+                      }
+                    }
+                    @pos(57) @NODE_ID(18) upd400;
+                    invoke60;
+                  }
+                }
+                invoke70;
+              }
+            }
+            invoke80;
+          }
+        }
+        invoke90;
+      }
+      invoke10;
+    }
+  }
+}
+static<2002> component add_1x500<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_20_read_data: 32, x_20_done: 1, x_21_read_data: 32, x_21_done: 1, x_22_read_data: 32, x_22_done: 1) -> (@done done: 1, @data x_20_addr0: 1, @data x_20_addr1: 9, x_20_content_en: 1, x_20_write_en: 1, @data x_20_write_data: 32, @data x_21_addr0: 9, x_21_content_en: 1, x_21_write_en: 1, @data x_21_write_data: 32, @data x_22_addr0: 1, @data x_22_addr1: 9, x_22_content_en: 1, x_22_write_en: 1, @data x_22_write_data: 32) {
+  cells {
+    @data __i6 = std_reg(1);
+    @data __j6 = std_reg(9);
+    @data add46 = std_fp_sadd(32, 16, 16);
+    @data add47 = std_add(9);
+    @data add48 = std_add(1);
+    @data const75 = std_const(1, 0);
+    @data const76 = std_const(9, 0);
+    @data const77 = std_const(9, 1);
+    @data const78 = std_const(1, 1);
+    @data x_20_read0_0 = std_reg(32);
+    @data x_21_read0_0 = std_reg(32);
+    @generated comb_reg = std_reg(9);
+    @generated comb_reg0 = std_reg(1);
+  }
+  wires {
+    static<1> group beg_spl_let700 {
+      x_20_content_en = 1'd1;
+      x_20_addr1 = __j6.out;
+      x_20_addr0 = __i6.out;
+    }
+    static<1> group invoke20 {
+      x_20_read0_0.write_en = 1'd1;
+      x_20_read0_0.in = x_20_read_data;
+    }
+    static<1> group beg_spl_let710 {
+      x_21_content_en = 1'd1;
+      x_21_addr0 = __j6.out;
+    }
+    static<1> group invoke30 {
+      x_21_read0_0.write_en = 1'd1;
+      x_21_read0_0.in = x_21_read_data;
+    }
+    static<1> group upd450 {
+      x_22_content_en = 1'd1;
+      x_22_addr1 = __j6.out;
+      x_22_addr0 = __i6.out;
+      x_22_write_en = 1'd1;
+      add46.left = x_20_read0_0.out;
+      add46.right = x_21_read0_0.out;
+      x_22_write_data = add46.out;
+    }
+    static<1> group invoke40 {
+      __j6.write_en = 1'd1;
+      __j6.in = add47.out;
+      add47.left = __j6.out;
+      add47.right = const77.out;
+    }
+    static<1> group invoke00 {
+      __i6.write_en = 1'd1;
+      __i6.in = const75.out;
+    }
+    static<1> group invoke50 {
+      __i6.write_en = 1'd1;
+      __i6.in = add48.out;
+      add48.left = __i6.out;
+      add48.right = const78.out;
+    }
+    static<1> group invoke10 {
+      __j6.write_en = 1'd1;
+      __j6.in = const76.out;
+    }
+  }
+  control {
+    @promoted static<2002> par {
+      static<2002> seq  {
+        invoke00;
+        @promotable(2000) static repeat 500 {
+          @promotable(4) static<4> seq  {
+            @promotable(2) static<2> par {
+              @promotable(2) static<2> seq  {
+                @NODE_ID(7) beg_spl_let700;
+                invoke20;
+              }
+              @promotable(2) static<2> seq  {
+                @NODE_ID(10) beg_spl_let710;
+                invoke30;
+              }
+            }
+            @pos(62) @NODE_ID(12) upd450;
+            invoke40;
+          }
+        }
+        invoke50;
+      }
+      invoke10;
+    }
+  }
+}
+static<26902> component max_pool2d_1x50x4x4<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_16_read_data: 32, x_16_done: 1, x_17_read_data: 32, x_17_done: 1) -> (@done done: 1, @data x_16_addr0: 1, @data x_16_addr1: 6, @data x_16_addr2: 4, @data x_16_addr3: 4, x_16_content_en: 1, x_16_write_en: 1, @data x_16_write_data: 32, @data x_17_addr0: 1, @data x_17_addr1: 6, @data x_17_addr2: 3, @data x_17_addr3: 3, x_17_content_en: 1, x_17_write_en: 1, @data x_17_write_data: 32) {
+  cells {
+    @data __b2 = std_reg(32);
+    @data __c2 = std_reg(32);
+    @data __current_0 = std_reg(32);
+    @data __m0 = std_reg(32);
+    @data __max_0 = std_reg(32);
+    @data __n0 = std_reg(32);
+    @data __pool_x_0 = std_reg(32);
+    @data __pool_y_0 = std_reg(32);
+    @data __stride_x_0 = std_reg(32);
+    @data __stride_y_0 = std_reg(32);
+    @data __x2 = std_reg(32);
+    @data __y2 = std_reg(32);
+    @data add49 = std_add(32);
+    @data add50 = std_add(32);
+    @data add51 = std_add(32);
+    @data add52 = std_add(32);
+    @data add53 = std_add(32);
+    @data add54 = std_add(32);
+    @data add55 = std_add(32);
+    @data add56 = std_add(32);
+    @data bin_read8_0 = std_reg(32);
+    @data bin_read9_0 = std_reg(32);
+    @data const79 = std_const(32, 0);
+    @data const80 = std_const(32, 0);
+    @data const81 = std_const(32, 0);
+    @data const82 = std_const(32, 0);
+    @data const83 = std_const(32, 2);
+    @data const84 = std_const(32, 2);
+    @data const85 = std_const(32, 0);
+    @data const86 = std_const(32, 0);
+    @data const87 = std_const(32, 1);
+    @data const88 = std_const(32, 1);
+    @data const89 = std_const(32, 1);
+    @data const90 = std_const(32, 1);
+    @data const91 = std_const(32, 1);
+    @data const92 = std_const(32, 1);
+    @control gt0 = std_fp_sgt(32, 16, 16);
+    @data mult_pipe8 = std_mult_pipe(32);
+    @data mult_pipe9 = std_mult_pipe(32);
+    @data slice24 = std_slice(32, 1);
+    @data slice25 = std_slice(32, 6);
+    @data slice26 = std_slice(32, 4);
+    @data slice27 = std_slice(32, 4);
+    @data slice28 = std_slice(32, 1);
+    @data slice29 = std_slice(32, 6);
+    @data slice30 = std_slice(32, 4);
+    @data slice31 = std_slice(32, 4);
+    @data slice32 = std_slice(32, 1);
+    @data slice33 = std_slice(32, 6);
+    @data slice34 = std_slice(32, 3);
+    @data slice35 = std_slice(32, 3);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(32);
+    @generated comb_reg1 = std_reg(32);
+    @generated comb_reg2 = std_reg(32);
+    @generated comb_reg3 = std_reg(32);
+    @generated comb_reg4 = std_reg(32);
+    @generated comb_reg5 = std_reg(32);
+    @generated comb_reg6 = std_reg(32);
+    @generated comb_reg7 = std_reg(32);
+  }
+  wires {
+    static<1> group cond00 {
+      gt0.left = __current_0.out;
+      gt0.right = __max_0.out;
+      comb_reg.in = gt0.out;
+      comb_reg.write_en = 1'd1;
+    }
+    static<3> group invoke40 {
+      mult_pipe8.go = 1'd1;
+      mult_pipe8.left = __y2.out;
+      mult_pipe8.right = const83.out;
+    }
+    static<1> group invoke50 {
+      __current_0.write_en = 1'd1;
+      __current_0.in = mult_pipe8.out;
+    }
+    static<1> group invoke60 {
+      __stride_y_0.write_en = 1'd1;
+      __stride_y_0.in = __current_0.out;
+    }
+    static<3> group invoke70 {
+      mult_pipe9.go = 1'd1;
+      mult_pipe9.left = __x2.out;
+      mult_pipe9.right = const84.out;
+    }
+    static<1> group invoke80 {
+      __m0.write_en = 1'd1;
+      __m0.in = mult_pipe9.out;
+    }
+    static<1> group invoke90 {
+      __stride_x_0.write_en = 1'd1;
+      __stride_x_0.in = __m0.out;
+    }
+    static<1> group beg_spl_let800 {
+      x_16_content_en = 1'd1;
+      x_16_addr3 = slice27.out;
+      x_16_addr2 = slice26.out;
+      x_16_addr1 = slice25.out;
+      x_16_addr0 = slice24.out;
+      slice27.in = __stride_x_0.out;
+      slice26.in = __stride_y_0.out;
+      slice25.in = __c2.out;
+      slice24.in = __b2.out;
+    }
+    static<1> group invoke100 {
+      __max_0.write_en = 1'd1;
+      __max_0.in = x_16_read_data;
+    }
+    static<1> group invoke130 {
+      __pool_y_0.write_en = 1'd1;
+      __pool_y_0.in = add49.out;
+      add49.left = __stride_y_0.out;
+      add49.right = __m0.out;
+    }
+    static<1> group invoke140 {
+      __current_0.write_en = 1'd1;
+      __current_0.in = add50.out;
+      add50.left = __stride_x_0.out;
+      add50.right = __n0.out;
+    }
+    static<1> group beg_spl_let850 {
+      x_16_content_en = 1'd1;
+      x_16_addr3 = slice27.out;
+      x_16_addr2 = slice26.out;
+      x_16_addr1 = slice25.out;
+      x_16_addr0 = slice24.out;
+      slice27.in = __current_0.out;
+      slice26.in = __pool_y_0.out;
+      slice25.in = __c2.out;
+      slice24.in = __b2.out;
+    }
+    static<1> group invoke150 {
+      __current_0.write_en = 1'd1;
+      __current_0.in = x_16_read_data;
+    }
+    static<1> group invoke160 {
+      __max_0.write_en = 1'd1;
+      __max_0.in = __current_0.out;
+    }
+    static<1> group no-op {
+    }
+    static<1> group invoke170 {
+      __n0.write_en = 1'd1;
+      __n0.in = add49.out;
+      add49.left = __n0.out;
+      add49.right = const87.out;
+    }
+    static<1> group invoke120 {
+      __n0.write_en = 1'd1;
+      __n0.in = const79.out;
+    }
+    static<1> group invoke180 {
+      __m0.write_en = 1'd1;
+      __m0.in = add49.out;
+      add49.left = __m0.out;
+      add49.right = const87.out;
+    }
+    static<5> group no-op0 {
+    }
+    static<1> group upd510 {
+      x_17_content_en = 1'd1;
+      x_17_addr3 = slice35.out;
+      slice35.in = __x2.out;
+      x_17_addr2 = slice34.out;
+      slice34.in = __y2.out;
+      x_17_addr1 = slice25.out;
+      slice25.in = __c2.out;
+      x_17_addr0 = slice24.out;
+      slice24.in = __b2.out;
+      x_17_write_en = 1'd1;
+      x_17_write_data = __max_0.out;
+    }
+    static<1> group invoke190 {
+      __x2.write_en = 1'd1;
+      __x2.in = add49.out;
+      add49.left = __x2.out;
+      add49.right = const87.out;
+    }
+    static<1> group invoke110 {
+      __m0.write_en = 1'd1;
+      __m0.in = const79.out;
+    }
+    static<1> group invoke30 {
+      __x2.write_en = 1'd1;
+      __x2.in = const79.out;
+    }
+    static<1> group invoke200 {
+      __y2.write_en = 1'd1;
+      __y2.in = add49.out;
+      add49.left = __y2.out;
+      add49.right = const87.out;
+    }
+    static<1> group invoke201 {
+      __y2.write_en = 1'd1;
+      __y2.in = const79.out;
+    }
+    static<1> group invoke210 {
+      __c2.write_en = 1'd1;
+      __c2.in = add49.out;
+      add49.left = __c2.out;
+      add49.right = const87.out;
+    }
+    static<1> group invoke00 {
+      __b2.write_en = 1'd1;
+      __b2.in = const79.out;
+    }
+    static<1> group invoke220 {
+      __b2.write_en = 1'd1;
+      __b2.in = add49.out;
+      add49.left = __b2.out;
+      add49.right = const87.out;
+    }
+    static<1> group invoke101 {
+      __c2.write_en = 1'd1;
+      __c2.in = const79.out;
+    }
+  }
+  control {
+    @promoted static<26902> par {
+      static<26902> seq  {
+        invoke00;
+        @promotable(26900) static repeat 50 {
+          @promotable(538) static<538> seq  {
+            invoke201;
+            @promotable(536) static repeat 4 {
+              @promotable(134) static<134> seq  {
+                invoke30;
+                @promotable(132) static repeat 4 {
+                  @promotable(33) @promoted static<33> par {
+                    static<33> seq  {
+                      @promotable(5) static<5> par {
+                        @promotable(5) static<5> seq  {
+                          invoke40;
+                          invoke50;
+                          invoke60;
+                        }
+                        @promotable(5) static<5> seq  {
+                          invoke70;
+                          invoke80;
+                          invoke90;
+                        }
+                      }
+                      @NODE_ID(23) beg_spl_let800;
+                      invoke100;
+                      @promotable(24) static repeat 2 {
+                        @promotable(12) static<12> seq  {
+                          invoke120;
+                          @promotable(10) static repeat 2 {
+                            @promotable(5) @promoted static<5> par {
+                              static<5> seq  {
+                                @promotable static<1> par {
+                                  invoke130;
+                                  invoke140;
+                                }
+                                @NODE_ID(35) beg_spl_let850;
+                                invoke150;
+                                @promotable cond00;
+                                @promotable static<1> if  comb_reg.out {
+                                  invoke160;
+                                }
+                              }
+                              static<2> seq  {
+                                no-op;
+                                invoke170;
+                              }
+                            }
+                          }
+                          invoke180;
+                        }
+                      }
+                      @pos(74) @NODE_ID(42) upd510;
+                      invoke190;
+                    }
+                    static<6> seq  {
+                      no-op0;
+                      invoke110;
+                    }
+                  }
+                }
+                invoke200;
+              }
+            }
+            invoke210;
+          }
+        }
+        invoke220;
+      }
+      invoke101;
+    }
+  }
+}
+static<3502> component relu_1x500<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_22_read_data: 32, x_22_done: 1, x_23_read_data: 32, x_23_done: 1) -> (@done done: 1, @data x_22_addr0: 1, @data x_22_addr1: 9, x_22_content_en: 1, x_22_write_en: 1, @data x_22_write_data: 32, @data x_23_addr0: 1, @data x_23_addr1: 9, x_23_content_en: 1, x_23_write_en: 1, @data x_23_write_data: 32) {
+  cells {
+    @data __i7 = std_reg(1);
+    @data __j7 = std_reg(9);
+    @data add57 = std_add(9);
+    @data add58 = std_add(1);
+    @data const93 = std_const(1, 0);
+    @data const94 = std_const(9, 0);
+    @data const95 = std_const(9, 1);
+    @data const96 = std_const(1, 1);
+    @control fp_const2 = std_const(32, 0);
+    @data fp_const3 = std_const(32, 0);
+    @control gt1 = std_fp_sgt(32, 16, 16);
+    @data x_22_read0_0 = std_reg(32);
+    @data x_22_read1_0 = std_reg(32);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(9);
+    @generated comb_reg1 = std_reg(1);
+  }
+  wires {
+    static<1> group cond10 {
+      gt1.left = x_22_read0_0.out;
+      gt1.right = fp_const2.out;
+      comb_reg.in = gt1.out;
+      comb_reg.write_en = 1'd1;
+    }
+    static<1> group beg_spl_let880 {
+      x_22_content_en = 1'd1;
+      x_22_addr1 = __j7.out;
+      x_22_addr0 = __i7.out;
+    }
+    static<1> group invoke20 {
+      x_22_read0_0.write_en = 1'd1;
+      x_22_read0_0.in = x_22_read_data;
+    }
+    static<1> group beg_spl_let890 {
+      x_22_content_en = 1'd1;
+      x_22_addr1 = __j7.out;
+      x_22_addr0 = __i7.out;
+    }
+    static<1> group invoke30 {
+      x_22_read0_0.write_en = 1'd1;
+      x_22_read0_0.in = x_22_read_data;
+    }
+    static<1> group upd560 {
+      x_23_content_en = 1'd1;
+      x_23_addr1 = __j7.out;
+      x_23_addr0 = __i7.out;
+      x_23_write_en = 1'd1;
+      x_23_write_data = x_22_read0_0.out;
+    }
+    static<1> group upd570 {
+      x_23_content_en = 1'd1;
+      x_23_addr1 = __j7.out;
+      x_23_addr0 = __i7.out;
+      x_23_write_en = 1'd1;
+      x_23_write_data = fp_const2.out;
+    }
+    static<1> group invoke40 {
+      __j7.write_en = 1'd1;
+      __j7.in = add57.out;
+      add57.left = __j7.out;
+      add57.right = const95.out;
+    }
+    static<1> group invoke00 {
+      __i7.write_en = 1'd1;
+      __i7.in = const93.out;
+    }
+    static<1> group invoke50 {
+      __i7.write_en = 1'd1;
+      __i7.in = add58.out;
+      add58.left = __i7.out;
+      add58.right = const96.out;
+    }
+    static<1> group invoke10 {
+      __j7.write_en = 1'd1;
+      __j7.in = const94.out;
+    }
+  }
+  control {
+    @promoted static<3502> par {
+      static<3502> seq  {
+        invoke00;
+        @promotable(3500) static repeat 500 {
+          @promotable(7) static<7> seq  {
+            @NODE_ID(6) beg_spl_let880;
+            invoke20;
+            @promotable cond10;
+            static<3> if  comb_reg.out {
+              @promotable(3) static<3> seq  {
+                @NODE_ID(11) beg_spl_let890;
+                invoke30;
+                @pos(79) @NODE_ID(13) upd560;
+              }
+            } else {
+              @pos(80) @NODE_ID(14) upd570;
+            }
+            invoke40;
+          }
+        }
+        invoke50;
+      }
+      invoke10;
+    }
+  }
+}
+static<95562> component max_pool2d_1x20x12x12<"state_share"=1, "promoted"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_11_read_data: 32, x_11_done: 1, x_12_read_data: 32, x_12_done: 1) -> (@done done: 1, @data x_11_addr0: 1, @data x_11_addr1: 5, @data x_11_addr2: 5, @data x_11_addr3: 5, x_11_content_en: 1, x_11_write_en: 1, @data x_11_write_data: 32, @data x_12_addr0: 1, @data x_12_addr1: 5, @data x_12_addr2: 4, @data x_12_addr3: 4, x_12_content_en: 1, x_12_write_en: 1, @data x_12_write_data: 32) {
+  cells {
+    @data __b3 = std_reg(32);
+    @data __c3 = std_reg(32);
+    @data __current_1 = std_reg(32);
+    @data __m1 = std_reg(32);
+    @data __max_1 = std_reg(32);
+    @data __n1 = std_reg(32);
+    @data __pool_x_1 = std_reg(32);
+    @data __pool_y_1 = std_reg(32);
+    @data __stride_x_1 = std_reg(32);
+    @data __stride_y_1 = std_reg(32);
+    @data __x3 = std_reg(32);
+    @data __y3 = std_reg(32);
+    @data add59 = std_add(32);
+    @data add60 = std_add(32);
+    @data add61 = std_add(32);
+    @data add62 = std_add(32);
+    @data add63 = std_add(32);
+    @data add64 = std_add(32);
+    @data add65 = std_add(32);
+    @data add66 = std_add(32);
+    @data bin_read3_0 = std_reg(32);
+    @data bin_read4_0 = std_reg(32);
+    @data const100 = std_const(32, 0);
+    @data const101 = std_const(32, 2);
+    @data const102 = std_const(32, 2);
+    @data const103 = std_const(32, 0);
+    @data const104 = std_const(32, 0);
+    @data const105 = std_const(32, 1);
+    @data const106 = std_const(32, 1);
+    @data const107 = std_const(32, 1);
+    @data const108 = std_const(32, 1);
+    @data const109 = std_const(32, 1);
+    @data const110 = std_const(32, 1);
+    @data const97 = std_const(32, 0);
+    @data const98 = std_const(32, 0);
+    @data const99 = std_const(32, 0);
+    @control gt2 = std_fp_sgt(32, 16, 16);
+    @data mult_pipe10 = std_mult_pipe(32);
+    @data mult_pipe11 = std_mult_pipe(32);
+    @data slice36 = std_slice(32, 1);
+    @data slice37 = std_slice(32, 5);
+    @data slice38 = std_slice(32, 5);
+    @data slice39 = std_slice(32, 5);
+    @data slice40 = std_slice(32, 1);
+    @data slice41 = std_slice(32, 5);
+    @data slice42 = std_slice(32, 5);
+    @data slice43 = std_slice(32, 5);
+    @data slice44 = std_slice(32, 1);
+    @data slice45 = std_slice(32, 5);
+    @data slice46 = std_slice(32, 4);
+    @data slice47 = std_slice(32, 4);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(32);
+    @generated comb_reg1 = std_reg(32);
+    @generated comb_reg2 = std_reg(32);
+    @generated comb_reg3 = std_reg(32);
+    @generated comb_reg4 = std_reg(32);
+    @generated comb_reg5 = std_reg(32);
+    @generated comb_reg6 = std_reg(32);
+    @generated comb_reg7 = std_reg(32);
+  }
+  wires {
+    static<1> group cond20 {
+      gt2.left = __current_1.out;
+      gt2.right = __max_1.out;
+      comb_reg.in = gt2.out;
+      comb_reg.write_en = 1'd1;
+    }
+    static<3> group invoke40 {
+      mult_pipe10.go = 1'd1;
+      mult_pipe10.left = __y3.out;
+      mult_pipe10.right = const101.out;
+    }
+    static<1> group invoke50 {
+      __current_1.write_en = 1'd1;
+      __current_1.in = mult_pipe10.out;
+    }
+    static<1> group invoke60 {
+      __stride_y_1.write_en = 1'd1;
+      __stride_y_1.in = __current_1.out;
+    }
+    static<3> group invoke70 {
+      mult_pipe11.go = 1'd1;
+      mult_pipe11.left = __x3.out;
+      mult_pipe11.right = const102.out;
+    }
+    static<1> group invoke80 {
+      __m1.write_en = 1'd1;
+      __m1.in = mult_pipe11.out;
+    }
+    static<1> group invoke90 {
+      __stride_x_1.write_en = 1'd1;
+      __stride_x_1.in = __m1.out;
+    }
+    static<1> group beg_spl_let980 {
+      x_11_content_en = 1'd1;
+      x_11_addr3 = slice39.out;
+      x_11_addr2 = slice38.out;
+      x_11_addr1 = slice37.out;
+      x_11_addr0 = slice36.out;
+      slice39.in = __stride_x_1.out;
+      slice38.in = __stride_y_1.out;
+      slice37.in = __c3.out;
+      slice36.in = __b3.out;
+    }
+    static<1> group invoke100 {
+      __max_1.write_en = 1'd1;
+      __max_1.in = x_11_read_data;
+    }
+    static<1> group invoke130 {
+      __pool_y_1.write_en = 1'd1;
+      __pool_y_1.in = add59.out;
+      add59.left = __stride_y_1.out;
+      add59.right = __m1.out;
+    }
+    static<1> group invoke140 {
+      __current_1.write_en = 1'd1;
+      __current_1.in = add60.out;
+      add60.left = __stride_x_1.out;
+      add60.right = __n1.out;
+    }
+    static<1> group beg_spl_let1030 {
+      x_11_content_en = 1'd1;
+      x_11_addr3 = slice39.out;
+      x_11_addr2 = slice38.out;
+      x_11_addr1 = slice37.out;
+      x_11_addr0 = slice36.out;
+      slice39.in = __current_1.out;
+      slice38.in = __pool_y_1.out;
+      slice37.in = __c3.out;
+      slice36.in = __b3.out;
+    }
+    static<1> group invoke150 {
+      __current_1.write_en = 1'd1;
+      __current_1.in = x_11_read_data;
+    }
+    static<1> group invoke160 {
+      __max_1.write_en = 1'd1;
+      __max_1.in = __current_1.out;
+    }
+    static<1> group no-op {
+    }
+    static<1> group invoke170 {
+      __n1.write_en = 1'd1;
+      __n1.in = add59.out;
+      add59.left = __n1.out;
+      add59.right = const105.out;
+    }
+    static<1> group invoke120 {
+      __n1.write_en = 1'd1;
+      __n1.in = const100.out;
+    }
+    static<1> group invoke180 {
+      __m1.write_en = 1'd1;
+      __m1.in = add59.out;
+      add59.left = __m1.out;
+      add59.right = const105.out;
+    }
+    static<5> group no-op0 {
+    }
+    static<1> group upd630 {
+      x_12_content_en = 1'd1;
+      x_12_addr3 = slice47.out;
+      slice47.in = __x3.out;
+      x_12_addr2 = slice46.out;
+      slice46.in = __y3.out;
+      x_12_addr1 = slice37.out;
+      slice37.in = __c3.out;
+      x_12_addr0 = slice36.out;
+      slice36.in = __b3.out;
+      x_12_write_en = 1'd1;
+      x_12_write_data = __max_1.out;
+    }
+    static<1> group invoke190 {
+      __x3.write_en = 1'd1;
+      __x3.in = add59.out;
+      add59.left = __x3.out;
+      add59.right = const105.out;
+    }
+    static<1> group invoke110 {
+      __m1.write_en = 1'd1;
+      __m1.in = const100.out;
+    }
+    static<1> group invoke30 {
+      __x3.write_en = 1'd1;
+      __x3.in = const100.out;
+    }
+    static<1> group invoke200 {
+      __y3.write_en = 1'd1;
+      __y3.in = add59.out;
+      add59.left = __y3.out;
+      add59.right = const105.out;
+    }
+    static<1> group invoke201 {
+      __y3.write_en = 1'd1;
+      __y3.in = const100.out;
+    }
+    static<1> group invoke210 {
+      __c3.write_en = 1'd1;
+      __c3.in = add59.out;
+      add59.left = __c3.out;
+      add59.right = const105.out;
+    }
+    static<1> group invoke00 {
+      __b3.write_en = 1'd1;
+      __b3.in = const100.out;
+    }
+    static<1> group invoke220 {
+      __b3.write_en = 1'd1;
+      __b3.in = add59.out;
+      add59.left = __b3.out;
+      add59.right = const105.out;
+    }
+    static<1> group invoke101 {
+      __c3.write_en = 1'd1;
+      __c3.in = const100.out;
+    }
+  }
+  control {
+    @promoted static<95562> par {
+      static<95562> seq  {
+        invoke00;
+        @promotable(95560) static repeat 20 {
+          @promotable(4778) static<4778> seq  {
+            invoke201;
+            @promotable(4776) static repeat 12 {
+              @promotable(398) static<398> seq  {
+                invoke30;
+                @promotable(396) static repeat 12 {
+                  @promotable(33) @promoted static<33> par {
+                    static<33> seq  {
+                      @promotable(5) static<5> par {
+                        @promotable(5) static<5> seq  {
+                          invoke40;
+                          invoke50;
+                          invoke60;
+                        }
+                        @promotable(5) static<5> seq  {
+                          invoke70;
+                          invoke80;
+                          invoke90;
+                        }
+                      }
+                      @NODE_ID(23) beg_spl_let980;
+                      invoke100;
+                      @promotable(24) static repeat 2 {
+                        @promotable(12) static<12> seq  {
+                          invoke120;
+                          @promotable(10) static repeat 2 {
+                            @promotable(5) @promoted static<5> par {
+                              static<5> seq  {
+                                @promotable static<1> par {
+                                  invoke130;
+                                  invoke140;
+                                }
+                                @NODE_ID(35) beg_spl_let1030;
+                                invoke150;
+                                @promotable cond20;
+                                @promotable static<1> if  comb_reg.out {
+                                  invoke160;
+                                }
+                              }
+                              static<2> seq  {
+                                no-op;
+                                invoke170;
+                              }
+                            }
+                          }
+                          invoke180;
+                        }
+                      }
+                      @pos(92) @NODE_ID(42) upd630;
+                      invoke190;
+                    }
+                    static<6> seq  {
+                      no-op0;
+                      invoke110;
+                    }
+                  }
+                }
+                invoke200;
+              }
+            }
+            invoke210;
+          }
+        }
+        invoke220;
+      }
+      invoke101;
+    }
+  }
+}
+component softmax_1x10<"state_share"=1>(@go go: 1, @clk clk: 1, @reset reset: 1, x_27_read_data: 32, x_27_done: 1, x_28_read_data: 32, x_28_done: 1) -> (@done done: 1, @data x_27_addr0: 1, @data x_27_addr1: 4, x_27_content_en: 1, x_27_write_en: 1, @data x_27_write_data: 32, @data x_28_addr0: 1, @data x_28_addr1: 4, x_28_content_en: 1, x_28_write_en: 1, @data x_28_write_data: 32) {
+  cells {
+    @data __exp_sum_0 = std_reg(32);
+    @data __i8 = std_reg(1);
+    @data __i9 = std_reg(1);
+    @data __j8 = std_reg(4);
+    @data __j9 = std_reg(4);
+    @data __k7 = std_reg(4);
+    @data __max_2 = std_reg(32);
+    @data __t0_0 = std_reg(32);
+    @data __t1_0 = std_reg(32);
+    @data __t2_0 = std_reg(32);
+    @data __t3_0 = std_reg(32);
+    @data add67 = std_add(4);
+    @data add68 = std_add(1);
+    @data add69 = std_fp_sadd(32, 16, 16);
+    @data add70 = std_add(4);
+    @data add71 = std_add(4);
+    @data add72 = std_add(1);
+    @data bin_read12_0 = std_reg(32);
+    @data const111 = std_const(1, 0);
+    @data const112 = std_const(4, 0);
+    @data const113 = std_const(1, 0);
+    @data const114 = std_const(4, 0);
+    @data const115 = std_const(4, 1);
+    @data const116 = std_const(1, 1);
+    @data const117 = std_const(1, 0);
+    @data const118 = std_const(4, 0);
+    @data const119 = std_const(4, 1);
+    @data const120 = std_const(4, 0);
+    @data const121 = std_const(4, 1);
+    @data const122 = std_const(1, 1);
+    @data div_pipe0 = std_fp_sdiv_pipe(32, 16, 16);
+    @data exp0 = exp();
+    @data exp1 = exp();
+    @data fp_const4 = std_const(32, 0);
+    @control gt3 = std_fp_sgt(32, 16, 16);
+    @data sub0 = std_fp_ssub(32, 16, 16);
+    @data sub1 = std_fp_ssub(32, 16, 16);
+    @data x_27_read0_0 = std_reg(32);
+    @data x_27_read1_0 = std_reg(32);
+    @data x_27_read2_0 = std_reg(32);
+    @data x_27_read3_0 = std_reg(32);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(32);
+    @generated comb_reg1 = std_reg(32);
+    @generated comb_reg2 = std_reg(4);
+    @generated comb_reg3 = std_reg(1);
+    @generated comb_reg4 = std_reg(32);
+    @generated comb_reg5 = std_reg(4);
+    @generated comb_reg6 = std_reg(4);
+    @generated comb_reg7 = std_reg(1);
+    @generated idx = std_reg(4);
+    @generated cond_reg = std_reg(1);
+    @generated adder = std_add(4);
+    @generated lt = std_lt(4);
+    @generated idx0 = std_reg(4);
+    @generated cond_reg0 = std_reg(1);
+    @generated adder0 = std_add(4);
+    @generated lt0 = std_lt(4);
+  }
+  wires {
+    group invoke13 {
+      exp0.go = 1'd1;
+      invoke13[done] = exp0.done;
+      exp0.x = __t0_0.out;
+    }
+    group invoke17<"promotable"=1> {
+      __j8.write_en = 1'd1;
+      invoke17[done] = __j8.done;
+      __j8.in = const112.out;
+    }
+    group invoke20 {
+      exp0.go = 1'd1;
+      invoke20[done] = exp0.done;
+      exp0.x = __t0_0.out;
+    }
+    group invoke21<"promotable"=1> {
+      __t0_0.write_en = 1'd1;
+      invoke21[done] = __t0_0.done;
+      __t0_0.in = exp0.out;
+    }
+    group invoke22 {
+      div_pipe0.go = 1'd1;
+      invoke22[done] = div_pipe0.done;
+      div_pipe0.left = __t0_0.out;
+      div_pipe0.right = __exp_sum_0.out;
+    }
+    group invoke23<"promotable"=1> {
+      __t0_0.write_en = 1'd1;
+      invoke23[done] = __t0_0.done;
+      __t0_0.in = div_pipe0.out_quotient;
+    }
+    group invoke25<"promotable"=1> {
+      __i8.write_en = 1'd1;
+      invoke25[done] = __i8.done;
+      __i8.in = add68.out;
+      add68.left = __i8.out;
+      add68.right = const116.out;
+    }
+    group init_repeat<"promotable"=1> {
+      idx.write_en = 1'd1;
+      idx.in = 4'd0;
+      cond_reg.write_en = 1'd1;
+      cond_reg.in = 1'd1;
+      init_repeat[done] = cond_reg.done & idx.done ? 1'd1;
+    }
+    group incr_repeat<"promotable"=1> {
+      adder.left = idx.out;
+      adder.right = 4'd1;
+      lt.left = adder.out;
+      lt.right = 4'd10;
+      cond_reg.write_en = 1'd1;
+      cond_reg.in = lt.out;
+      idx.write_en = 1'd1;
+      idx.in = adder.out;
+      incr_repeat[done] = cond_reg.done & idx.done ? 1'd1;
+    }
+    group init_repeat0<"promotable"=1> {
+      idx0.write_en = 1'd1;
+      idx0.in = 4'd0;
+      cond_reg0.write_en = 1'd1;
+      cond_reg0.in = 1'd1;
+      init_repeat0[done] = cond_reg0.done & idx0.done ? 1'd1;
+    }
+    group incr_repeat0<"promotable"=1> {
+      adder0.left = idx0.out;
+      adder0.right = 4'd1;
+      lt0.left = adder0.out;
+      lt0.right = 4'd10;
+      cond_reg0.write_en = 1'd1;
+      cond_reg0.in = lt0.out;
+      idx0.write_en = 1'd1;
+      idx0.in = adder0.out;
+      incr_repeat0[done] = cond_reg0.done & idx0.done ? 1'd1;
+    }
+    static<1> group cond30 {
+      gt3.left = __exp_sum_0.out;
+      gt3.right = __max_2.out;
+      comb_reg.in = gt3.out;
+      comb_reg.write_en = 1'd1;
+    }
+    static<1> group beg_spl_let1040 {
+      x_27_content_en = 1'd1;
+      x_27_addr1 = const112.out;
+      x_27_addr0 = const111.out;
+    }
+    static<1> group invoke00 {
+      __max_2.write_en = 1'd1;
+      __max_2.in = x_27_read_data;
+    }
+    static<1> group beg_spl_let1070 {
+      x_27_content_en = 1'd1;
+      x_27_addr1 = __j8.out;
+      x_27_addr0 = __i8.out;
+    }
+    static<1> group invoke30 {
+      __exp_sum_0.write_en = 1'd1;
+      __exp_sum_0.in = x_27_read_data;
+    }
+    static<1> group beg_spl_let1080 {
+      x_27_content_en = 1'd1;
+      x_27_addr1 = __j8.out;
+      x_27_addr0 = __i8.out;
+    }
+    static<1> group invoke40 {
+      __exp_sum_0.write_en = 1'd1;
+      __exp_sum_0.in = x_27_read_data;
+    }
+    static<1> group invoke50 {
+      __max_2.write_en = 1'd1;
+      __max_2.in = __exp_sum_0.out;
+    }
+    static<1> group invoke60 {
+      __j8.write_en = 1'd1;
+      __j8.in = add67.out;
+      add67.left = __j8.out;
+      add67.right = const115.out;
+    }
+    static<1> group beg_spl_let1120 {
+      x_27_content_en = 1'd1;
+      x_27_addr1 = __j8.out;
+      x_27_addr0 = __i8.out;
+    }
+    static<1> group invoke110 {
+      x_27_read2_0.write_en = 1'd1;
+      x_27_read2_0.in = x_27_read_data;
+    }
+    static<1> group invoke120 {
+      __t0_0.write_en = 1'd1;
+      __t0_0.in = sub0.out;
+      sub0.left = x_27_read2_0.out;
+      sub0.right = __max_2.out;
+    }
+    static<1> group invoke140 {
+      __t0_0.write_en = 1'd1;
+      __t0_0.in = exp0.out;
+    }
+    static<1> group invoke150 {
+      __exp_sum_0.write_en = 1'd1;
+      __exp_sum_0.in = add69.out;
+      add69.left = __exp_sum_0.out;
+      add69.right = __t0_0.out;
+    }
+    static<1> group invoke160 {
+      __j8.write_en = 1'd1;
+      __j8.in = add67.out;
+      add67.left = __j8.out;
+      add67.right = const115.out;
+    }
+    static<1> group beg_spl_let1160 {
+      x_27_content_en = 1'd1;
+      x_27_addr1 = __j8.out;
+      x_27_addr0 = __i8.out;
+    }
+    static<1> group invoke180 {
+      x_27_read2_0.write_en = 1'd1;
+      x_27_read2_0.in = x_27_read_data;
+    }
+    static<1> group invoke190 {
+      __t0_0.write_en = 1'd1;
+      __t0_0.in = sub0.out;
+      sub0.left = x_27_read2_0.out;
+      sub0.right = __max_2.out;
+    }
+    static<1> group upd730 {
+      x_28_content_en = 1'd1;
+      x_28_addr1 = __j8.out;
+      x_28_addr0 = __i8.out;
+      x_28_write_en = 1'd1;
+      x_28_write_data = __t0_0.out;
+    }
+    static<1> group invoke240 {
+      __j8.write_en = 1'd1;
+      __j8.in = add67.out;
+      add67.left = __j8.out;
+      add67.right = const115.out;
+    }
+    static<71> group no-op {
+    }
+    static<71> group no-op0 {
+    }
+    static<1> group invoke70 {
+      __i8.write_en = 1'd1;
+      __i8.in = add68.out;
+      add68.left = __i8.out;
+      add68.right = const116.out;
+    }
+    static<1> group invoke80 {
+      __i8.write_en = 1'd1;
+      __i8.in = const111.out;
+    }
+    static<1> group invoke100 {
+      __i8.write_en = 1'd1;
+      __i8.in = const111.out;
+    }
+    static<1> group invoke90 {
+      __exp_sum_0.write_en = 1'd1;
+      __exp_sum_0.in = fp_const4.out;
+    }
+    static<1> group invoke200 {
+      __j8.write_en = 1'd1;
+      __j8.in = const112.out;
+    }
+    static<1> group invoke101 {
+      __j8.write_en = 1'd1;
+      __j8.in = const112.out;
+    }
+  }
+  control {
+    seq {
+      @promoted static<74> par {
+        static<74> seq  {
+          @NODE_ID(2) beg_spl_let1040;
+          invoke00;
+          @promotable(70) static repeat 10 {
+            @promotable(7) static<7> seq  {
+              @NODE_ID(9) beg_spl_let1070;
+              invoke30;
+              @promotable cond30;
+              static<3> if  comb_reg.out {
+                @promotable(3) static<3> seq  {
+                  @NODE_ID(14) beg_spl_let1080;
+                  invoke40;
+                  invoke50;
+                }
+              }
+              invoke60;
+            }
+          }
+          invoke70;
+          invoke80;
+        }
+        static<73> seq  {
+          invoke100;
+          no-op;
+          invoke90;
+        }
+        static<73> seq  {
+          invoke200;
+          no-op0;
+          invoke101;
+        }
+      }
+      init_repeat;
+      while cond_reg.out {
+        seq {
+          static<3> seq  {
+            @NODE_ID(26) beg_spl_let1120;
+            invoke110;
+            invoke120;
+          }
+          invoke13;
+          @promoted static<2> par {
+            static<2> seq  {
+              invoke140;
+              invoke150;
+            }
+            invoke160;
+          }
+          incr_repeat;
+        }
+      }
+      invoke17;
+      init_repeat0;
+      while cond_reg0.out {
+        seq {
+          static<3> seq  {
+            @NODE_ID(37) beg_spl_let1160;
+            invoke180;
+            invoke190;
+          }
+          invoke20;
+          invoke21;
+          invoke22;
+          invoke23;
+          static<2> seq  {
+            @NODE_ID(45) upd730;
+            invoke240;
+          }
+          incr_repeat0;
+        }
+      }
+      invoke25;
+    }
+  }
+}
+component exp<"state_share"=1>(x: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    @data exponent_value = std_reg(32);
+    @data int_x = std_reg(32);
+    @data frac_x = std_reg(32);
+    @data m = std_reg(32);
+    @data and0 = std_and(32);
+    @data and1 = std_and(32);
+    @data rsh = std_rsh(32);
+    @control lt = std_slt(32);
+    @data c2 = std_const(32, 2);
+    @data c3 = std_const(32, 3);
+    @data c4 = std_const(32, 4);
+    @data c5 = std_const(32, 5);
+    @data c6 = std_const(32, 6);
+    @data c7 = std_const(32, 7);
+    @data c8 = std_const(32, 8);
+    @data one = std_const(32, 65536);
+    @data e = std_const(32, 178145);
+    @data negative_one = std_const(32, 4294901760);
+    @data product2 = std_reg(32);
+    @data product3 = std_reg(32);
+    @data product4 = std_reg(32);
+    @data product5 = std_reg(32);
+    @data product6 = std_reg(32);
+    @data product7 = std_reg(32);
+    @data product8 = std_reg(32);
+    @data p2 = std_reg(32);
+    @data p3 = std_reg(32);
+    @data p4 = std_reg(32);
+    @data p5 = std_reg(32);
+    @data p6 = std_reg(32);
+    @data p7 = std_reg(32);
+    @data p8 = std_reg(32);
+    @data sum1 = std_reg(32);
+    @data sum2 = std_reg(32);
+    @data sum3 = std_reg(32);
+    @data sum4 = std_reg(32);
+    @data add1 = std_fp_sadd(32, 16, 16);
+    @data add2 = std_fp_sadd(32, 16, 16);
+    @data add3 = std_fp_sadd(32, 16, 16);
+    @data add4 = std_fp_sadd(32, 16, 16);
+    @data mult_pipe1 = std_fp_smult_pipe(32, 16, 16);
+    @data mult_pipe2 = std_fp_smult_pipe(32, 16, 16);
+    @data mult_pipe3 = std_fp_smult_pipe(32, 16, 16);
+    @data mult_pipe4 = std_fp_smult_pipe(32, 16, 16);
+    @data mult_pipe5 = std_fp_smult_pipe(32, 16, 16);
+    @data mult_pipe6 = std_fp_smult_pipe(32, 16, 16);
+    @data mult_pipe7 = std_fp_smult_pipe(32, 16, 16);
+    @data mult_pipe8 = std_fp_smult_pipe(32, 16, 16);
+    @data div_pipe = std_fp_sdiv_pipe(32, 16, 16);
+    @data reciprocal_factorial2 = std_const(32, 32768);
+    @data reciprocal_factorial3 = std_const(32, 10923);
+    @data reciprocal_factorial4 = std_const(32, 2731);
+    @data reciprocal_factorial5 = std_const(32, 546);
+    @data reciprocal_factorial6 = std_const(32, 91);
+    @data reciprocal_factorial7 = std_const(32, 13);
+    @data reciprocal_factorial8 = std_const(32, 2);
+    @data pow1 = fp_pow();
+    @data pow2 = fp_pow();
+    @data pow3 = fp_pow();
+    @data pow4 = fp_pow();
+    @data pow5 = fp_pow();
+    @data pow6 = fp_pow();
+    @data pow7 = fp_pow();
+    @data pow8 = fp_pow();
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(32);
+    @generated comb_reg1 = std_reg(32);
+    @generated comb_reg2 = std_reg(32);
+    @generated comb_reg3 = std_reg(32);
+    @generated comb_reg4 = std_reg(32);
+    @generated comb_reg5 = std_reg(32);
+    @generated comb_reg6 = std_reg(32);
+    @generated comb_reg7 = std_reg(32);
+  }
+  wires {
+    group split_bits {
+      and0.left = exponent_value.out;
+      and0.right = 32'd4294901760;
+      rsh.left = and0.out;
+      rsh.right = 32'd16;
+      and1.left = exponent_value.out;
+      and1.right = 32'd65535;
+      int_x.write_en = 1'd1;
+      frac_x.write_en = 1'd1;
+      int_x.in = rsh.out;
+      frac_x.in = and1.out;
+      split_bits[done] = int_x.done & frac_x.done ? 1'd1;
+    }
+    group invoke3 {
+      pow1.go = 1'd1;
+      invoke3[done] = pow1.done;
+      pow1.base = e.out;
+      pow1.integer_exp = int_x.out;
+    }
+    group invoke4 {
+      pow2.go = 1'd1;
+      invoke4[done] = pow2.done;
+      pow2.base = frac_x.out;
+      pow2.integer_exp = c2.out;
+    }
+    group invoke5 {
+      pow3.go = 1'd1;
+      invoke5[done] = pow3.done;
+      pow3.base = frac_x.out;
+      pow3.integer_exp = c3.out;
+    }
+    group invoke6 {
+      pow4.go = 1'd1;
+      invoke6[done] = pow4.done;
+      pow4.base = frac_x.out;
+      pow4.integer_exp = c4.out;
+    }
+    group invoke7 {
+      pow5.go = 1'd1;
+      invoke7[done] = pow5.done;
+      pow5.base = frac_x.out;
+      pow5.integer_exp = c5.out;
+    }
+    group invoke8 {
+      pow6.go = 1'd1;
+      invoke8[done] = pow6.done;
+      pow6.base = frac_x.out;
+      pow6.integer_exp = c6.out;
+    }
+    group invoke9 {
+      pow7.go = 1'd1;
+      invoke9[done] = pow7.done;
+      pow7.base = frac_x.out;
+      pow7.integer_exp = c7.out;
+    }
+    group invoke10 {
+      pow8.go = 1'd1;
+      invoke10[done] = pow8.done;
+      pow8.base = frac_x.out;
+      pow8.integer_exp = c8.out;
+    }
+    group invoke35 {
+      div_pipe.go = 1'd1;
+      invoke35[done] = div_pipe.done;
+      div_pipe.left = one.out;
+      div_pipe.right = m.out;
+    }
+    group invoke36<"promotable"=1> {
+      m.write_en = 1'd1;
+      invoke36[done] = m.done;
+      m.in = div_pipe.out_quotient;
+    }
+    static<1> group is_negative0 {
+      lt.left = x;
+      lt.right = 32'd0;
+      comb_reg.in = lt.out;
+      comb_reg.write_en = 1'd1;
+    }
+    static<3> group invoke100 {
+      mult_pipe2.go = 1'd1;
+      mult_pipe2.left = exponent_value.out;
+      mult_pipe2.right = negative_one.out;
+    }
+    static<1> group invoke200 {
+      exponent_value.write_en = 1'd1;
+      exponent_value.in = mult_pipe2.out;
+    }
+    static<1> group consume_pow20 {
+      p2.write_en = 1'd1;
+      p2.in = pow2.out;
+    }
+    static<1> group consume_pow30 {
+      p3.write_en = 1'd1;
+      p3.in = pow3.out;
+    }
+    static<1> group consume_pow40 {
+      p4.write_en = 1'd1;
+      p4.in = pow4.out;
+    }
+    static<1> group consume_pow50 {
+      p5.write_en = 1'd1;
+      p5.in = pow5.out;
+    }
+    static<1> group consume_pow60 {
+      p6.write_en = 1'd1;
+      p6.in = pow6.out;
+    }
+    static<1> group consume_pow70 {
+      p7.write_en = 1'd1;
+      p7.in = pow7.out;
+    }
+    static<1> group consume_pow80 {
+      p8.write_en = 1'd1;
+      p8.in = pow8.out;
+    }
+    static<3> group invoke110 {
+      mult_pipe2.go = 1'd1;
+      mult_pipe2.left = p2.out;
+      mult_pipe2.right = reciprocal_factorial2.out;
+    }
+    static<1> group invoke120 {
+      exponent_value.write_en = 1'd1;
+      exponent_value.in = mult_pipe2.out;
+    }
+    static<3> group invoke130 {
+      mult_pipe3.go = 1'd1;
+      mult_pipe3.left = p3.out;
+      mult_pipe3.right = reciprocal_factorial3.out;
+    }
+    static<1> group invoke140 {
+      int_x.write_en = 1'd1;
+      int_x.in = mult_pipe3.out;
+    }
+    static<3> group invoke150 {
+      mult_pipe4.go = 1'd1;
+      mult_pipe4.left = p4.out;
+      mult_pipe4.right = reciprocal_factorial4.out;
+    }
+    static<1> group invoke160 {
+      product4.write_en = 1'd1;
+      product4.in = mult_pipe4.out;
+    }
+    static<3> group invoke170 {
+      mult_pipe5.go = 1'd1;
+      mult_pipe5.left = p5.out;
+      mult_pipe5.right = reciprocal_factorial5.out;
+    }
+    static<1> group invoke180 {
+      product5.write_en = 1'd1;
+      product5.in = mult_pipe5.out;
+    }
+    static<3> group invoke190 {
+      mult_pipe6.go = 1'd1;
+      mult_pipe6.left = p6.out;
+      mult_pipe6.right = reciprocal_factorial6.out;
+    }
+    static<1> group invoke201 {
+      product6.write_en = 1'd1;
+      product6.in = mult_pipe6.out;
+    }
+    static<3> group invoke210 {
+      mult_pipe7.go = 1'd1;
+      mult_pipe7.left = p7.out;
+      mult_pipe7.right = reciprocal_factorial7.out;
+    }
+    static<1> group invoke220 {
+      product7.write_en = 1'd1;
+      product7.in = mult_pipe7.out;
+    }
+    static<3> group invoke230 {
+      mult_pipe8.go = 1'd1;
+      mult_pipe8.left = p8.out;
+      mult_pipe8.right = c2.out;
+    }
+    static<1> group invoke240 {
+      product8.write_en = 1'd1;
+      product8.in = mult_pipe8.out;
+    }
+    static<1> group invoke250 {
+      p2.write_en = 1'd1;
+      p2.in = add1.out;
+      add1.left = frac_x.out;
+      add1.right = exponent_value.out;
+    }
+    static<1> group invoke260 {
+      p3.write_en = 1'd1;
+      p3.in = add2.out;
+      add2.left = int_x.out;
+      add2.right = product4.out;
+    }
+    static<1> group invoke270 {
+      p4.write_en = 1'd1;
+      p4.in = add3.out;
+      add3.left = product5.out;
+      add3.right = product6.out;
+    }
+    static<1> group invoke280 {
+      p5.write_en = 1'd1;
+      p5.in = add4.out;
+      add4.left = product7.out;
+      add4.right = product8.out;
+    }
+    static<1> group invoke290 {
+      p2.write_en = 1'd1;
+      p2.in = add1.out;
+      add1.left = p2.out;
+      add1.right = p3.out;
+    }
+    static<1> group invoke300 {
+      p3.write_en = 1'd1;
+      p3.in = add2.out;
+      add2.left = p4.out;
+      add2.right = p5.out;
+    }
+    static<3> group invoke330 {
+      mult_pipe2.go = 1'd1;
+      mult_pipe2.left = pow1.out;
+      mult_pipe2.right = p2.out;
+    }
+    static<1> group invoke340 {
+      m.write_en = 1'd1;
+      m.in = mult_pipe2.out;
+    }
+    static<1> group invoke00 {
+      exponent_value.write_en = 1'd1;
+      exponent_value.in = x;
+    }
+    static<1> group invoke310 {
+      p2.write_en = 1'd1;
+      p2.in = add1.out;
+      add1.left = p2.out;
+      add1.right = p3.out;
+    }
+    static<1> group invoke320 {
+      p2.write_en = 1'd1;
+      p2.in = add1.out;
+      add1.left = p2.out;
+      add1.right = one.out;
+    }
+    out = m.out;
+  }
+  control {
+    seq {
+      static<6> seq  {
+        invoke00;
+        @promotable is_negative0;
+        static<4> if  comb_reg.out {
+          @promotable(4) static<4> seq  {
+            invoke100;
+            invoke200;
+          }
+        }
+      }
+      @NODE_ID(7) split_bits;
+      par {
+        invoke3;
+        invoke4;
+        invoke5;
+        invoke6;
+        invoke7;
+        invoke8;
+        invoke9;
+        invoke10;
+      }
+      static<13> seq  {
+        @promotable static<1> par {
+          @NODE_ID(18) consume_pow20;
+          @NODE_ID(19) consume_pow30;
+          @NODE_ID(20) consume_pow40;
+          @NODE_ID(21) consume_pow50;
+          @NODE_ID(22) consume_pow60;
+          @NODE_ID(23) consume_pow70;
+          @NODE_ID(24) consume_pow80;
+        }
+        @promotable(4) static<4> par {
+          @promotable(4) static<4> seq  {
+            invoke110;
+            invoke120;
+          }
+          @promotable(4) static<4> seq  {
+            invoke130;
+            invoke140;
+          }
+          @promotable(4) static<4> seq  {
+            invoke150;
+            invoke160;
+          }
+          @promotable(4) static<4> seq  {
+            invoke170;
+            invoke180;
+          }
+          @promotable(4) static<4> seq  {
+            invoke190;
+            invoke201;
+          }
+          @promotable(4) static<4> seq  {
+            invoke210;
+            invoke220;
+          }
+          @promotable(4) static<4> seq  {
+            invoke230;
+            invoke240;
+          }
+        }
+        @promotable static<1> par {
+          invoke250;
+          invoke260;
+          invoke270;
+          invoke280;
+        }
+        @promotable static<1> par {
+          invoke290;
+          invoke300;
+        }
+        invoke310;
+        invoke320;
+        invoke330;
+        invoke340;
+      }
+      is_negative0;
+      @BEGIN_ID(60) @END_ID(64) @NODE_ID(60) if comb_reg.out {
+        seq {
+          invoke35;
+          invoke36;
+        }
+      }
+    }
+  }
+}
+component fp_pow<"state_share"=1>(base: 32, integer_exp: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    @data pow = std_reg(32);
+    @data count = std_reg(32);
+    @data mul = std_fp_smult_pipe(32, 16, 16);
+    @data count_incr = std_sadd(32);
+    @control lt_1 = std_slt(32);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(32);
+  }
+  wires {
+    group init {
+      pow.in = 32'd65536;
+      pow.write_en = 1'd1;
+      count.in = 32'd0;
+      count.write_en = 1'd1;
+      init[done] = pow.done & count.done ? 1'd1;
+    }
+    static<1> group lt_1_group0 {
+      lt_1.left = count.out;
+      lt_1.right = integer_exp;
+      comb_reg.in = lt_1.out;
+      comb_reg.write_en = 1'd1;
+    }
+    static<3> group invoke00 {
+      mul.go = 1'd1;
+      mul.left = base;
+      mul.right = pow.out;
+    }
+    static<1> group invoke10 {
+      pow.write_en = 1'd1;
+      pow.in = mul.out;
+    }
+    static<1> group invoke20 {
+      count.write_en = 1'd1;
+      count.in = count_incr.out;
+      count_incr.left = count.out;
+      count_incr.right = 32'd1;
+    }
+    out = pow.out;
+  }
+  control {
+    seq {
+      @NODE_ID init;
+      lt_1_group0;
+      @NODE_ID(2) while comb_reg.out {
+        static<5> seq  {
+          @promotable(4) static<4> par {
+            @promotable(4) static<4> seq  {
+              invoke00;
+              invoke10;
+            }
+            invoke20;
+          }
+          @promotable lt_1_group0;
+        }
+      }
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    @external @data data = seq_mem_d4(32, 1, 1, 28, 28, 1, 1, 5, 5);
+    @external @data x_8 = seq_mem_d4(32, 20, 1, 5, 5, 5, 1, 3, 3);
+    @external @data x_9 = seq_mem_d4(32, 1, 20, 24, 24, 1, 5, 5, 5);
+    @data conv2d_1x20x24x24_ = conv2d_1x20x24x24();
+    @external @data x_10 = seq_mem_d1(32, 20, 5);
+    @external @data x_11 = seq_mem_d4(32, 1, 20, 24, 24, 1, 5, 5, 5);
+    @data bias_add_1x20x24x24_ = bias_add_1x20x24x24();
+    @external @data x_12 = seq_mem_d4(32, 1, 20, 12, 12, 1, 5, 4, 4);
+    @data max_pool2d_1x20x12x12_ = max_pool2d_1x20x12x12();
+    @external @data x_13 = seq_mem_d4(32, 50, 20, 5, 5, 6, 5, 3, 3);
+    @external @data x_14 = seq_mem_d4(32, 1, 50, 8, 8, 1, 6, 4, 4);
+    @data conv2d_1x50x8x8_ = conv2d_1x50x8x8();
+    @external @data x_15 = seq_mem_d1(32, 50, 6);
+    @external @data x_16 = seq_mem_d4(32, 1, 50, 8, 8, 1, 6, 4, 4);
+    @data bias_add_1x50x8x8_ = bias_add_1x50x8x8();
+    @external @data x_17 = seq_mem_d4(32, 1, 50, 4, 4, 1, 6, 3, 3);
+    @data max_pool2d_1x50x4x4_ = max_pool2d_1x50x4x4();
+    @external @data x_18 = seq_mem_d2(32, 1, 800, 1, 10);
+    @data reshape_1x800_ = reshape_1x800();
+    @external @data x_19 = seq_mem_d2(32, 500, 800, 9, 10);
+    @external @data x_20 = seq_mem_d2(32, 1, 500, 1, 9);
+    @data dense_1x500_ = dense_1x500();
+    @external @data x_21 = seq_mem_d1(32, 500, 9);
+    @external @data x_22 = seq_mem_d2(32, 1, 500, 1, 9);
+    @data add_1x500_ = add_1x500();
+    @external @data x_23 = seq_mem_d2(32, 1, 500, 1, 9);
+    @data relu_1x500_ = relu_1x500();
+    @external @data x_24 = seq_mem_d2(32, 10, 500, 4, 9);
+    @external @data x_25 = seq_mem_d2(32, 1, 10, 1, 4);
+    @data dense_1x10_ = dense_1x10();
+    @external @data x_26 = seq_mem_d1(32, 10, 4);
+    @external @data x_27 = seq_mem_d2(32, 1, 10, 1, 4);
+    @data add_1x10_ = add_1x10();
+    @external @data x_28 = seq_mem_d2(32, 1, 10, 1, 4);
+    @data softmax_1x10_ = softmax_1x10();
+  }
+  wires {
+    group invoke0 {
+      data.addr0 = conv2d_1x20x24x24_.data_addr0;
+      data.addr1 = conv2d_1x20x24x24_.data_addr1;
+      data.addr2 = conv2d_1x20x24x24_.data_addr2;
+      data.addr3 = conv2d_1x20x24x24_.data_addr3;
+      data.content_en = conv2d_1x20x24x24_.data_content_en;
+      data.write_en = conv2d_1x20x24x24_.data_write_en;
+      data.write_data = conv2d_1x20x24x24_.data_write_data;
+      conv2d_1x20x24x24_.data_read_data = data.read_data;
+      conv2d_1x20x24x24_.data_done = data.done;
+      x_8.addr0 = conv2d_1x20x24x24_.x_8_addr0;
+      x_8.addr1 = conv2d_1x20x24x24_.x_8_addr1;
+      x_8.addr2 = conv2d_1x20x24x24_.x_8_addr2;
+      x_8.addr3 = conv2d_1x20x24x24_.x_8_addr3;
+      x_8.content_en = conv2d_1x20x24x24_.x_8_content_en;
+      x_8.write_en = conv2d_1x20x24x24_.x_8_write_en;
+      x_8.write_data = conv2d_1x20x24x24_.x_8_write_data;
+      conv2d_1x20x24x24_.x_8_read_data = x_8.read_data;
+      conv2d_1x20x24x24_.x_8_done = x_8.done;
+      x_9.addr0 = conv2d_1x20x24x24_.x_9_addr0;
+      x_9.addr1 = conv2d_1x20x24x24_.x_9_addr1;
+      x_9.addr2 = conv2d_1x20x24x24_.x_9_addr2;
+      x_9.addr3 = conv2d_1x20x24x24_.x_9_addr3;
+      x_9.content_en = conv2d_1x20x24x24_.x_9_content_en;
+      x_9.write_en = conv2d_1x20x24x24_.x_9_write_en;
+      x_9.write_data = conv2d_1x20x24x24_.x_9_write_data;
+      conv2d_1x20x24x24_.x_9_read_data = x_9.read_data;
+      conv2d_1x20x24x24_.x_9_done = x_9.done;
+      conv2d_1x20x24x24_.go = 1'd1;
+      invoke0[done] = conv2d_1x20x24x24_.done;
+    }
+    group invoke1 {
+      x_9.addr0 = bias_add_1x20x24x24_.x_9_addr0;
+      x_9.addr1 = bias_add_1x20x24x24_.x_9_addr1;
+      x_9.addr2 = bias_add_1x20x24x24_.x_9_addr2;
+      x_9.addr3 = bias_add_1x20x24x24_.x_9_addr3;
+      x_9.content_en = bias_add_1x20x24x24_.x_9_content_en;
+      x_9.write_en = bias_add_1x20x24x24_.x_9_write_en;
+      x_9.write_data = bias_add_1x20x24x24_.x_9_write_data;
+      bias_add_1x20x24x24_.x_9_read_data = x_9.read_data;
+      bias_add_1x20x24x24_.x_9_done = x_9.done;
+      x_10.addr0 = bias_add_1x20x24x24_.x_10_addr0;
+      x_10.content_en = bias_add_1x20x24x24_.x_10_content_en;
+      x_10.write_en = bias_add_1x20x24x24_.x_10_write_en;
+      x_10.write_data = bias_add_1x20x24x24_.x_10_write_data;
+      bias_add_1x20x24x24_.x_10_read_data = x_10.read_data;
+      bias_add_1x20x24x24_.x_10_done = x_10.done;
+      x_11.addr0 = bias_add_1x20x24x24_.x_11_addr0;
+      x_11.addr1 = bias_add_1x20x24x24_.x_11_addr1;
+      x_11.addr2 = bias_add_1x20x24x24_.x_11_addr2;
+      x_11.addr3 = bias_add_1x20x24x24_.x_11_addr3;
+      x_11.content_en = bias_add_1x20x24x24_.x_11_content_en;
+      x_11.write_en = bias_add_1x20x24x24_.x_11_write_en;
+      x_11.write_data = bias_add_1x20x24x24_.x_11_write_data;
+      bias_add_1x20x24x24_.x_11_read_data = x_11.read_data;
+      bias_add_1x20x24x24_.x_11_done = x_11.done;
+      bias_add_1x20x24x24_.go = 1'd1;
+      invoke1[done] = bias_add_1x20x24x24_.done;
+    }
+    group invoke2 {
+      x_11.addr0 = max_pool2d_1x20x12x12_.x_11_addr0;
+      x_11.addr1 = max_pool2d_1x20x12x12_.x_11_addr1;
+      x_11.addr2 = max_pool2d_1x20x12x12_.x_11_addr2;
+      x_11.addr3 = max_pool2d_1x20x12x12_.x_11_addr3;
+      x_11.content_en = max_pool2d_1x20x12x12_.x_11_content_en;
+      x_11.write_en = max_pool2d_1x20x12x12_.x_11_write_en;
+      x_11.write_data = max_pool2d_1x20x12x12_.x_11_write_data;
+      max_pool2d_1x20x12x12_.x_11_read_data = x_11.read_data;
+      max_pool2d_1x20x12x12_.x_11_done = x_11.done;
+      x_12.addr0 = max_pool2d_1x20x12x12_.x_12_addr0;
+      x_12.addr1 = max_pool2d_1x20x12x12_.x_12_addr1;
+      x_12.addr2 = max_pool2d_1x20x12x12_.x_12_addr2;
+      x_12.addr3 = max_pool2d_1x20x12x12_.x_12_addr3;
+      x_12.content_en = max_pool2d_1x20x12x12_.x_12_content_en;
+      x_12.write_en = max_pool2d_1x20x12x12_.x_12_write_en;
+      x_12.write_data = max_pool2d_1x20x12x12_.x_12_write_data;
+      max_pool2d_1x20x12x12_.x_12_read_data = x_12.read_data;
+      max_pool2d_1x20x12x12_.x_12_done = x_12.done;
+      max_pool2d_1x20x12x12_.go = 1'd1;
+      invoke2[done] = max_pool2d_1x20x12x12_.done;
+    }
+    group invoke3 {
+      x_12.addr0 = conv2d_1x50x8x8_.x_12_addr0;
+      x_12.addr1 = conv2d_1x50x8x8_.x_12_addr1;
+      x_12.addr2 = conv2d_1x50x8x8_.x_12_addr2;
+      x_12.addr3 = conv2d_1x50x8x8_.x_12_addr3;
+      x_12.content_en = conv2d_1x50x8x8_.x_12_content_en;
+      x_12.write_en = conv2d_1x50x8x8_.x_12_write_en;
+      x_12.write_data = conv2d_1x50x8x8_.x_12_write_data;
+      conv2d_1x50x8x8_.x_12_read_data = x_12.read_data;
+      conv2d_1x50x8x8_.x_12_done = x_12.done;
+      x_13.addr0 = conv2d_1x50x8x8_.x_13_addr0;
+      x_13.addr1 = conv2d_1x50x8x8_.x_13_addr1;
+      x_13.addr2 = conv2d_1x50x8x8_.x_13_addr2;
+      x_13.addr3 = conv2d_1x50x8x8_.x_13_addr3;
+      x_13.content_en = conv2d_1x50x8x8_.x_13_content_en;
+      x_13.write_en = conv2d_1x50x8x8_.x_13_write_en;
+      x_13.write_data = conv2d_1x50x8x8_.x_13_write_data;
+      conv2d_1x50x8x8_.x_13_read_data = x_13.read_data;
+      conv2d_1x50x8x8_.x_13_done = x_13.done;
+      x_14.addr0 = conv2d_1x50x8x8_.x_14_addr0;
+      x_14.addr1 = conv2d_1x50x8x8_.x_14_addr1;
+      x_14.addr2 = conv2d_1x50x8x8_.x_14_addr2;
+      x_14.addr3 = conv2d_1x50x8x8_.x_14_addr3;
+      x_14.content_en = conv2d_1x50x8x8_.x_14_content_en;
+      x_14.write_en = conv2d_1x50x8x8_.x_14_write_en;
+      x_14.write_data = conv2d_1x50x8x8_.x_14_write_data;
+      conv2d_1x50x8x8_.x_14_read_data = x_14.read_data;
+      conv2d_1x50x8x8_.x_14_done = x_14.done;
+      conv2d_1x50x8x8_.go = 1'd1;
+      invoke3[done] = conv2d_1x50x8x8_.done;
+    }
+    group invoke4 {
+      x_14.addr0 = bias_add_1x50x8x8_.x_14_addr0;
+      x_14.addr1 = bias_add_1x50x8x8_.x_14_addr1;
+      x_14.addr2 = bias_add_1x50x8x8_.x_14_addr2;
+      x_14.addr3 = bias_add_1x50x8x8_.x_14_addr3;
+      x_14.content_en = bias_add_1x50x8x8_.x_14_content_en;
+      x_14.write_en = bias_add_1x50x8x8_.x_14_write_en;
+      x_14.write_data = bias_add_1x50x8x8_.x_14_write_data;
+      bias_add_1x50x8x8_.x_14_read_data = x_14.read_data;
+      bias_add_1x50x8x8_.x_14_done = x_14.done;
+      x_15.addr0 = bias_add_1x50x8x8_.x_15_addr0;
+      x_15.content_en = bias_add_1x50x8x8_.x_15_content_en;
+      x_15.write_en = bias_add_1x50x8x8_.x_15_write_en;
+      x_15.write_data = bias_add_1x50x8x8_.x_15_write_data;
+      bias_add_1x50x8x8_.x_15_read_data = x_15.read_data;
+      bias_add_1x50x8x8_.x_15_done = x_15.done;
+      x_16.addr0 = bias_add_1x50x8x8_.x_16_addr0;
+      x_16.addr1 = bias_add_1x50x8x8_.x_16_addr1;
+      x_16.addr2 = bias_add_1x50x8x8_.x_16_addr2;
+      x_16.addr3 = bias_add_1x50x8x8_.x_16_addr3;
+      x_16.content_en = bias_add_1x50x8x8_.x_16_content_en;
+      x_16.write_en = bias_add_1x50x8x8_.x_16_write_en;
+      x_16.write_data = bias_add_1x50x8x8_.x_16_write_data;
+      bias_add_1x50x8x8_.x_16_read_data = x_16.read_data;
+      bias_add_1x50x8x8_.x_16_done = x_16.done;
+      bias_add_1x50x8x8_.go = 1'd1;
+      invoke4[done] = bias_add_1x50x8x8_.done;
+    }
+    group invoke5 {
+      x_16.addr0 = max_pool2d_1x50x4x4_.x_16_addr0;
+      x_16.addr1 = max_pool2d_1x50x4x4_.x_16_addr1;
+      x_16.addr2 = max_pool2d_1x50x4x4_.x_16_addr2;
+      x_16.addr3 = max_pool2d_1x50x4x4_.x_16_addr3;
+      x_16.content_en = max_pool2d_1x50x4x4_.x_16_content_en;
+      x_16.write_en = max_pool2d_1x50x4x4_.x_16_write_en;
+      x_16.write_data = max_pool2d_1x50x4x4_.x_16_write_data;
+      max_pool2d_1x50x4x4_.x_16_read_data = x_16.read_data;
+      max_pool2d_1x50x4x4_.x_16_done = x_16.done;
+      x_17.addr0 = max_pool2d_1x50x4x4_.x_17_addr0;
+      x_17.addr1 = max_pool2d_1x50x4x4_.x_17_addr1;
+      x_17.addr2 = max_pool2d_1x50x4x4_.x_17_addr2;
+      x_17.addr3 = max_pool2d_1x50x4x4_.x_17_addr3;
+      x_17.content_en = max_pool2d_1x50x4x4_.x_17_content_en;
+      x_17.write_en = max_pool2d_1x50x4x4_.x_17_write_en;
+      x_17.write_data = max_pool2d_1x50x4x4_.x_17_write_data;
+      max_pool2d_1x50x4x4_.x_17_read_data = x_17.read_data;
+      max_pool2d_1x50x4x4_.x_17_done = x_17.done;
+      max_pool2d_1x50x4x4_.go = 1'd1;
+      invoke5[done] = max_pool2d_1x50x4x4_.done;
+    }
+    group invoke6 {
+      x_17.addr0 = reshape_1x800_.x_17_addr0;
+      x_17.addr1 = reshape_1x800_.x_17_addr1;
+      x_17.addr2 = reshape_1x800_.x_17_addr2;
+      x_17.addr3 = reshape_1x800_.x_17_addr3;
+      x_17.content_en = reshape_1x800_.x_17_content_en;
+      x_17.write_en = reshape_1x800_.x_17_write_en;
+      x_17.write_data = reshape_1x800_.x_17_write_data;
+      reshape_1x800_.x_17_read_data = x_17.read_data;
+      reshape_1x800_.x_17_done = x_17.done;
+      x_18.addr0 = reshape_1x800_.x_18_addr0;
+      x_18.addr1 = reshape_1x800_.x_18_addr1;
+      x_18.content_en = reshape_1x800_.x_18_content_en;
+      x_18.write_en = reshape_1x800_.x_18_write_en;
+      x_18.write_data = reshape_1x800_.x_18_write_data;
+      reshape_1x800_.x_18_read_data = x_18.read_data;
+      reshape_1x800_.x_18_done = x_18.done;
+      reshape_1x800_.go = 1'd1;
+      invoke6[done] = reshape_1x800_.done;
+    }
+    group invoke7 {
+      x_18.addr0 = dense_1x500_.x_18_addr0;
+      x_18.addr1 = dense_1x500_.x_18_addr1;
+      x_18.content_en = dense_1x500_.x_18_content_en;
+      x_18.write_en = dense_1x500_.x_18_write_en;
+      x_18.write_data = dense_1x500_.x_18_write_data;
+      dense_1x500_.x_18_read_data = x_18.read_data;
+      dense_1x500_.x_18_done = x_18.done;
+      x_19.addr0 = dense_1x500_.x_19_addr0;
+      x_19.addr1 = dense_1x500_.x_19_addr1;
+      x_19.content_en = dense_1x500_.x_19_content_en;
+      x_19.write_en = dense_1x500_.x_19_write_en;
+      x_19.write_data = dense_1x500_.x_19_write_data;
+      dense_1x500_.x_19_read_data = x_19.read_data;
+      dense_1x500_.x_19_done = x_19.done;
+      x_20.addr0 = dense_1x500_.x_20_addr0;
+      x_20.addr1 = dense_1x500_.x_20_addr1;
+      x_20.content_en = dense_1x500_.x_20_content_en;
+      x_20.write_en = dense_1x500_.x_20_write_en;
+      x_20.write_data = dense_1x500_.x_20_write_data;
+      dense_1x500_.x_20_read_data = x_20.read_data;
+      dense_1x500_.x_20_done = x_20.done;
+      dense_1x500_.go = 1'd1;
+      invoke7[done] = dense_1x500_.done;
+    }
+    group invoke8 {
+      x_20.addr0 = add_1x500_.x_20_addr0;
+      x_20.addr1 = add_1x500_.x_20_addr1;
+      x_20.content_en = add_1x500_.x_20_content_en;
+      x_20.write_en = add_1x500_.x_20_write_en;
+      x_20.write_data = add_1x500_.x_20_write_data;
+      add_1x500_.x_20_read_data = x_20.read_data;
+      add_1x500_.x_20_done = x_20.done;
+      x_21.addr0 = add_1x500_.x_21_addr0;
+      x_21.content_en = add_1x500_.x_21_content_en;
+      x_21.write_en = add_1x500_.x_21_write_en;
+      x_21.write_data = add_1x500_.x_21_write_data;
+      add_1x500_.x_21_read_data = x_21.read_data;
+      add_1x500_.x_21_done = x_21.done;
+      x_22.addr0 = add_1x500_.x_22_addr0;
+      x_22.addr1 = add_1x500_.x_22_addr1;
+      x_22.content_en = add_1x500_.x_22_content_en;
+      x_22.write_en = add_1x500_.x_22_write_en;
+      x_22.write_data = add_1x500_.x_22_write_data;
+      add_1x500_.x_22_read_data = x_22.read_data;
+      add_1x500_.x_22_done = x_22.done;
+      add_1x500_.go = 1'd1;
+      invoke8[done] = add_1x500_.done;
+    }
+    group invoke9 {
+      x_22.addr0 = relu_1x500_.x_22_addr0;
+      x_22.addr1 = relu_1x500_.x_22_addr1;
+      x_22.content_en = relu_1x500_.x_22_content_en;
+      x_22.write_en = relu_1x500_.x_22_write_en;
+      x_22.write_data = relu_1x500_.x_22_write_data;
+      relu_1x500_.x_22_read_data = x_22.read_data;
+      relu_1x500_.x_22_done = x_22.done;
+      x_23.addr0 = relu_1x500_.x_23_addr0;
+      x_23.addr1 = relu_1x500_.x_23_addr1;
+      x_23.content_en = relu_1x500_.x_23_content_en;
+      x_23.write_en = relu_1x500_.x_23_write_en;
+      x_23.write_data = relu_1x500_.x_23_write_data;
+      relu_1x500_.x_23_read_data = x_23.read_data;
+      relu_1x500_.x_23_done = x_23.done;
+      relu_1x500_.go = 1'd1;
+      invoke9[done] = relu_1x500_.done;
+    }
+    group invoke10 {
+      x_23.addr0 = dense_1x10_.x_23_addr0;
+      x_23.addr1 = dense_1x10_.x_23_addr1;
+      x_23.content_en = dense_1x10_.x_23_content_en;
+      x_23.write_en = dense_1x10_.x_23_write_en;
+      x_23.write_data = dense_1x10_.x_23_write_data;
+      dense_1x10_.x_23_read_data = x_23.read_data;
+      dense_1x10_.x_23_done = x_23.done;
+      x_24.addr0 = dense_1x10_.x_24_addr0;
+      x_24.addr1 = dense_1x10_.x_24_addr1;
+      x_24.content_en = dense_1x10_.x_24_content_en;
+      x_24.write_en = dense_1x10_.x_24_write_en;
+      x_24.write_data = dense_1x10_.x_24_write_data;
+      dense_1x10_.x_24_read_data = x_24.read_data;
+      dense_1x10_.x_24_done = x_24.done;
+      x_25.addr0 = dense_1x10_.x_25_addr0;
+      x_25.addr1 = dense_1x10_.x_25_addr1;
+      x_25.content_en = dense_1x10_.x_25_content_en;
+      x_25.write_en = dense_1x10_.x_25_write_en;
+      x_25.write_data = dense_1x10_.x_25_write_data;
+      dense_1x10_.x_25_read_data = x_25.read_data;
+      dense_1x10_.x_25_done = x_25.done;
+      dense_1x10_.go = 1'd1;
+      invoke10[done] = dense_1x10_.done;
+    }
+    group invoke11 {
+      x_25.addr0 = add_1x10_.x_25_addr0;
+      x_25.addr1 = add_1x10_.x_25_addr1;
+      x_25.content_en = add_1x10_.x_25_content_en;
+      x_25.write_en = add_1x10_.x_25_write_en;
+      x_25.write_data = add_1x10_.x_25_write_data;
+      add_1x10_.x_25_read_data = x_25.read_data;
+      add_1x10_.x_25_done = x_25.done;
+      x_26.addr0 = add_1x10_.x_26_addr0;
+      x_26.content_en = add_1x10_.x_26_content_en;
+      x_26.write_en = add_1x10_.x_26_write_en;
+      x_26.write_data = add_1x10_.x_26_write_data;
+      add_1x10_.x_26_read_data = x_26.read_data;
+      add_1x10_.x_26_done = x_26.done;
+      x_27.addr0 = add_1x10_.x_27_addr0;
+      x_27.addr1 = add_1x10_.x_27_addr1;
+      x_27.content_en = add_1x10_.x_27_content_en;
+      x_27.write_en = add_1x10_.x_27_write_en;
+      x_27.write_data = add_1x10_.x_27_write_data;
+      add_1x10_.x_27_read_data = x_27.read_data;
+      add_1x10_.x_27_done = x_27.done;
+      add_1x10_.go = 1'd1;
+      invoke11[done] = add_1x10_.done;
+    }
+    group invoke12 {
+      x_27.addr0 = softmax_1x10_.x_27_addr0;
+      x_27.addr1 = softmax_1x10_.x_27_addr1;
+      x_27.content_en = softmax_1x10_.x_27_content_en;
+      x_27.write_en = softmax_1x10_.x_27_write_en;
+      x_27.write_data = softmax_1x10_.x_27_write_data;
+      softmax_1x10_.x_27_read_data = x_27.read_data;
+      softmax_1x10_.x_27_done = x_27.done;
+      x_28.addr0 = softmax_1x10_.x_28_addr0;
+      x_28.addr1 = softmax_1x10_.x_28_addr1;
+      x_28.content_en = softmax_1x10_.x_28_content_en;
+      x_28.write_en = softmax_1x10_.x_28_write_en;
+      x_28.write_data = softmax_1x10_.x_28_write_data;
+      softmax_1x10_.x_28_read_data = x_28.read_data;
+      softmax_1x10_.x_28_done = x_28.done;
+      softmax_1x10_.go = 1'd1;
+      invoke12[done] = softmax_1x10_.done;
+    }
+  }
+  control {
+    seq {
+      invoke0;
+      invoke1;
+      invoke2;
+      invoke3;
+      invoke4;
+      invoke5;
+      invoke6;
+      invoke7;
+      invoke8;
+      invoke9;
+      invoke10;
+      invoke11;
+      invoke12;
+    }
+  }
+}
+component pow<"state_share"=1>(base: 32, exp: 32, @go go: 1, @clk clk: 1, @reset reset: 1) -> (out: 32, @done done: 1) {
+  cells {
+    @data t = std_reg(32);
+    @data count = std_reg(32);
+    @data mul = std_mult_pipe(32);
+    @control lt = std_lt(32);
+    @data incr = std_add(32);
+    @generated comb_reg = std_reg(1);
+    @generated comb_reg0 = std_reg(32);
+  }
+  wires {
+    group init<"promotable"=1> {
+      t.in = 32'd1;
+      t.write_en = 1'd1;
+      count.in = 32'd0;
+      count.write_en = 1'd1;
+      init[done] = t.done & count.done ? 1'd1;
+    }
+    static<1> group cond0 {
+      lt.right = exp;
+      lt.left = count.out;
+      comb_reg.in = lt.out;
+      comb_reg.write_en = 1'd1;
+    }
+    static<3> group invoke00 {
+      mul.go = 1'd1;
+      mul.left = base;
+      mul.right = t.out;
+    }
+    static<1> group invoke10 {
+      t.write_en = 1'd1;
+      t.in = mul.out;
+    }
+    static<1> group invoke20 {
+      count.write_en = 1'd1;
+      count.in = incr.out;
+      incr.left = 32'd1;
+      incr.right = count.out;
+    }
+    out = t.out;
+  }
+  control {
+    seq {
+      @NODE_ID init;
+      cond0;
+      @NODE_ID(2) while comb_reg.out {
+        static<5> seq  {
+          @promotable(4) static<4> par {
+            @promotable(4) static<4> seq  {
+              invoke00;
+              invoke10;
+            }
+            invoke20;
+          }
+          @promotable cond0;
+        }
+      }
+    }
+  }
+}
+metadata #{
+0: let %x_9: Tensor[(1, 20, 24, 24), float32] /* ty=Tensor[(1, 20, 24, 24), float32] */ = nn.conv2d(%data, %x_8, padding=[0, 0, 0, 0], channels=20, kernel_size=[5, 5]) /* ty=Tensor[(1, 20, 24, 24), float32] */;
+1: let %x_11: Tensor[(1, 20, 24, 24), float32] /* ty=Tensor[(1, 20, 24, 24), float32] */ = nn.bias_add(%x_9, %x_10) /* ty=Tensor[(1, 20, 24, 24), float32] */;
+2: let %x_12: Tensor[(1, 20, 12, 12), float32] /* ty=Tensor[(1, 20, 12, 12), float32] */ = nn.max_pool2d(%x_11, pool_size=[2, 2], strides=[2, 2], padding=[0, 0, 1, 1]) /* ty=Tensor[(1, 20, 12, 12), float32] */;
+3: let %x_14: Tensor[(1, 50, 8, 8), float32] /* ty=Tensor[(1, 50, 8, 8), float32] */ = nn.conv2d(%x_12, %x_13, padding=[0, 0, 0, 0], channels=50, kernel_size=[5, 5]) /* ty=Tensor[(1, 50, 8, 8), float32] */;
+4: let %x_16: Tensor[(1, 50, 8, 8), float32] /* ty=Tensor[(1, 50, 8, 8), float32] */ = nn.bias_add(%x_14, %x_15) /* ty=Tensor[(1, 50, 8, 8), float32] */;
+5: let %x_17: Tensor[(1, 50, 4, 4), float32] /* ty=Tensor[(1, 50, 4, 4), float32] */ = nn.max_pool2d(%x_16, pool_size=[2, 2], strides=[2, 2], padding=[0, 0, 1, 1]) /* ty=Tensor[(1, 50, 4, 4), float32] */;
+6: let %x_18: Tensor[(1, 800), float32] /* ty=Tensor[(1, 800), float32] */ = reshape(%x_17, newshape=[-1, 800]) /* ty=Tensor[(1, 800), float32] */;
+7: let %x_20: Tensor[(1, 500), float32] /* ty=Tensor[(1, 500), float32] */ = nn.dense(%x_18, %x_19, units=500) /* ty=Tensor[(1, 500), float32] */;
+8: let %x_22: Tensor[(1, 500), float32] /* ty=Tensor[(1, 500), float32] */ = add(%x_20, %x_21) /* ty=Tensor[(1, 500), float32] */;
+9: let %x_23: Tensor[(1, 500), float32] /* ty=Tensor[(1, 500), float32] */ = nn.relu(%x_22) /* ty=Tensor[(1, 500), float32] */;
+10: let %x_25: Tensor[(1, 10), float32] /* ty=Tensor[(1, 10), float32] */ = nn.dense(%x_23, %x_24, units=10) /* ty=Tensor[(1, 10), float32] */;
+11: let %x_27: Tensor[(1, 10), float32] /* ty=Tensor[(1, 10), float32] */ = add(%x_25, %x_26) /* ty=Tensor[(1, 10), float32] */;
+12: let %x_28: Tensor[(1, 10), float32] /* ty=Tensor[(1, 10), float32] */ = nn.softmax(%x_27, axis=1) /* ty=Tensor[(1, 10), float32] */;
+}#
