@@ -16,6 +16,7 @@ fn setup_calyx(
             "calyx.exe",
             "$calyx-base/target/debug/calyx",
         )?;
+        e.config_var_or("args", "calyx.args", "")?;
         e.rule(
             "calyx",
             "$calyx-exe -l $calyx-base -b $backend $args $in > $out",
