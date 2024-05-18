@@ -87,6 +87,10 @@ build = "src/build.rs"
 name = "calyx"
 path = "src/main.rs"
 
+[[bin]]
+name = "calyx-egg"
+path = "calyx-egg/src/main.rs"
+
 [features]
 default = []
 serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
@@ -96,6 +100,8 @@ yxi = ["serialize", "calyx-backend/yxi", "calyx-ir/yxi"]
 calyx-stdlib = { path = "calyx-stdlib", version = "0.7.1" }
 
 [dependencies]
+egglog = { git = "https://github.com/egraphs-good/egglog", rev = "df8361a1013c9f02a736a6a9463d9d9cb16ef381" }
+egraph-serialize = "0.1.0"
 atty.workspace = true
 itertools.workspace = true
 log.workspace = true

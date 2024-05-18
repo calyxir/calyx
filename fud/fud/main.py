@@ -61,6 +61,13 @@ def register_stages(registry):
     )
     registry.register(
         futil.CalyxStage(
+            "calyx-egg",
+            "-b calyx-egg -p well-formed",
+            "Compile Calyx to Calyx Egg",
+        )
+    )
+    registry.register(
+        futil.CalyxStage(
             "synth-verilog",
             "-b verilog --synthesis -p external --disable-verify",
             "Compile Calyx to synthesizable Verilog",

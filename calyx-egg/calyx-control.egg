@@ -1,0 +1,676 @@
+; -----------------------------------------------------------------------------
+; DATATYPES
+; -----------------------------------------------------------------------------
+
+; Cell
+(datatype _Cell)
+(function Cell (String) _Cell)
+; Set[Cell]
+(sort CellSetBase (Set _Cell))
+(sort _CellSet)
+; Group
+(datatype _Group)
+(function Group (String _CellSet) _Group)
+
+; Attributes
+(sort AttributeMap (Map String i64))
+(datatype _Attributes)
+(function Attributes (AttributeMap) _Attributes)
+
+; List
+(datatype Control)
+(datatype List)
+(function Cons (Control List) List)
+(function Nil () List)
+
+; Control
+(function Enable (_Group _Attributes) Control)
+(function Seq (_Attributes List) Control)
+(function Par (_Attributes List) Control)
+
+(ruleset cell-set)
+(function CellSet (CellSetBase) _CellSet)
+(function cellset-length (_CellSet) i64 :unextractable)
+(rule
+    (
+        (= x (CellSet y))
+    )
+    (
+        (set (cellset-length x) (set-length y))
+    )
+    :ruleset cell-set
+)
+
+; -----------------------------------------------------------------------------
+; STRINGS
+; -----------------------------------------------------------------------------
+(function s-concat (String i64) String)
+
+; -----------------------------------------------------------------------------
+; LISTS
+; -----------------------------------------------------------------------------
+
+(ruleset list)
+(function car (List) Control)
+(rewrite
+    (car (Cons x xs))
+    x
+)
+
+
+(function cdr (List) List)
+(rewrite
+    (cdr (Cons x xs))
+    xs
+)
+(rewrite
+    (cdr (Nil))
+    (Nil)
+)
+
+(function list-length (List) i64)
+; TODO(cgyurgyik): I'm not entirely sure when/why we need demands. I think 
+; part of the issue here is we can't union with Base types, i.e., i64.
+(relation list-length-demand (List))
+(rule
+    (
+        (list-length-demand (Nil))
+    )
+    (
+        (set (list-length (Nil)) 0)
+    )
+    :ruleset list
+)
+
+(rule
+    (
+        (list-length-demand (Cons x xs))
+    )
+    (
+        (list-length-demand xs)
+    )
+    :ruleset list
+)
+
+(rule
+    (
+        (list-length-demand (Cons x xs))
+        (= xs-length (list-length xs))
+    )
+    (
+        (set (list-length (Cons x xs)) (+ xs-length 1))
+    )
+    :ruleset list
+)
+
+(function list-concat (List List) List)
+(rewrite
+    (list-concat (Cons x xs) (Nil))
+    (Cons x xs)
+    :ruleset list
+)
+(rewrite
+    (list-concat (Nil) (Cons x xs))
+    (Cons x xs)
+    :ruleset list
+)
+
+(rewrite
+    (list-concat (Cons x (Nil)) (Cons y ys))
+    (Cons x (Cons y ys))
+    :ruleset list
+)
+
+(rewrite
+    (list-concat (Cons x xs) ys)
+    (Cons x (list-concat xs ys))
+)
+
+
+(function list-reverse (List) List)
+(rewrite
+    (list-reverse (Nil))
+    (Nil)
+    :ruleset list
+)
+(rewrite
+    (list-reverse (Cons x xs))
+    (list-concat (list-reverse xs) (Cons x (Nil)))
+    :ruleset list
+)
+
+(function _sliceB (List i64) List :unextractable) ; [begin, N)
+(rewrite
+    (_sliceB (Cons x xs) 0)
+    (Cons x xs)
+    :ruleset list
+)
+(rewrite
+    (_sliceB (Cons x xs) begin)
+    (_sliceB xs (- begin 1))
+    :when ((> begin 0))
+    :ruleset list
+)
+
+(function _sliceE (List i64) List :unextractable) ; [0, end)
+(rewrite
+    (_sliceE (Cons x xs) 0)
+    (Nil)
+    :ruleset list
+)
+(rewrite
+    (_sliceE (Cons x xs) end)
+    (Cons x (_sliceE xs (- end 1)))
+    :when ((> end 0) (< end (list-length (Cons x xs))))
+    :ruleset list
+)
+(rewrite
+    (_sliceE (Cons x xs) end)
+    (Cons x xs)
+    :when ((= end (list-length (Cons x xs))))
+    :ruleset list
+)
+
+(function list-slice (List i64 i64) List) ; [begin, end)
+(rewrite
+    (list-slice (Cons x xs) begin end)
+    (_sliceE (_sliceB (Cons x xs) begin) (- end begin))
+    :when ((>= end begin))
+    :ruleset list
+)
+
+; (list-find x xs) 
+; Returns the sub-list with x as the head, or nil if x is not found in xs.
+(function list-find (Control List) List)
+(rewrite
+    (list-find y (Cons x xs))
+    (Cons x xs)
+    :when ((= x y))
+    :ruleset list
+)
+(rewrite
+    (list-find y (Cons x xs))
+    (list-find y xs)
+    :when ((!= x y))
+    :ruleset list
+)
+(rewrite
+    (list-find y (Nil))
+    (Nil)
+    :ruleset list
+)
+
+; -----------------------------------------------------------------------------
+; CONSTANTS
+; -----------------------------------------------------------------------------
+(let FAN-OUT 2)
+(let SEQ-TO-PAR 1000)
+(let SPLIT-SEQ 8)
+
+; -----------------------------------------------------------------------------
+; ANALYSIS
+; -----------------------------------------------------------------------------
+
+(ruleset analysis)
+
+; (relation -> (Control Control)) ; edge
+; (relation path (Control Control)) ; path
+; (rule
+;     ((-> x y))
+;     ((path x y))
+;     :ruleset analysis
+; )
+
+; (rule
+;     ((path x y) (-> y z))
+;     ((path x z))
+;     :ruleset analysis
+; )
+
+
+
+
+; (rewrite
+;     (Seq attr (Cons A (Cons B (Nil))))
+;     (Par attr (Cons A (Cons B (Nil))))
+;     :when ((= (exclusive A B) true))
+;     :ruleset control
+; )
+
+(function exclusive (Control Control) bool)
+(rule
+    (
+        (= A (Enable (Group n1 (CellSet s1)) (Attributes m1)))
+        (= B (Enable (Group n2 (CellSet s2)) (Attributes m2)))
+        (> (set-length (set-intersect s1 s2)) 0)
+    )
+    (
+        (set (exclusive A B) false)
+        ; TODO(cgyurgyik): also need to account for memory-ordering.
+    )
+    :ruleset analysis
+)
+
+(rule
+    (
+        (= A (Enable (Group n1 (CellSet s1)) (Attributes m1)))
+        (= B (Enable (Group n2 (CellSet s2)) (Attributes m2)))
+        (= (set-length (set-intersect s1 s2)) 0)
+    )
+    (
+        (set (exclusive A B) true)
+        ; TODO(cgyurgyik): also need to account for memory-ordering.
+    )
+    :ruleset analysis
+)
+
+; TODO(cgyurgyik): define.
+(function exclusive-with-all (Control List) bool)
+(rewrite
+    (exclusive-with-all (Enable g _) (Nil))
+    true
+    :ruleset analysis
+)
+
+(rewrite
+    (exclusive-with-all (Enable g _) (Cons x xs))
+    (and (exclusive (Enable g _) x) (exclusive-with-all (Enable g _) xs))
+    :ruleset analysis
+)
+
+(rewrite
+    (exclusive-with-all (Enable g _) (Cons (Seq a ys) xs))
+    (and (exclusive-with-all (Enable g _) ys) (exclusive-with-all (Enable g _) xs))
+    :ruleset analysis
+)
+
+(rewrite
+    (exclusive-with-all (Enable g _) (Cons (Par a ys) xs))
+    (and (exclusive-with-all (Enable g _) ys) (exclusive-with-all (Enable g _) xs))
+    :ruleset analysis
+)
+
+; TODO(cgyurgyik): define.
+(function nonexclusive-list (Control List) List)
+(rewrite
+    (nonexclusive-list x (Nil))
+    (Nil)
+    :ruleset analysis
+)
+
+(rewrite
+    (nonexclusive-list (Enable g _) (Cons x xs))
+    (Cons x (nonexclusive-list (Enable g _) xs))
+    :when ((exclusive (Enable g _) x))
+    :ruleset analysis
+)
+
+(rewrite
+    (nonexclusive-list (Enable g _) (Cons x xs))
+    (nonexclusive-list (Enable g _) xs)
+    :when ((exclusive (Enable g _) x))
+    :ruleset analysis
+)
+
+(rewrite
+    (nonexclusive-list (Enable g _) (Cons (Seq a ys) xs))
+    (list-concat (nonexclusive-list (Enable g _) ys) (nonexclusive-list (Enable g _) xs))
+    :ruleset analysis
+)
+
+(rewrite
+    (nonexclusive-list (Enable g _) (Cons (Par a ys) xs))
+    (list-concat (nonexclusive-list (Enable g _) ys) (nonexclusive-list (Enable g _) xs))
+    :ruleset analysis
+)
+
+; -----------------------------------------------------------------------------
+; CONTROL
+; -----------------------------------------------------------------------------
+
+; TODO(cgyurgyik): collapse-control rewrite(s).
+(ruleset control)
+; par { A; B; C; D; } => par { par { A; B; } par { C; D; } }
+(rewrite
+    (Par attr xs)
+    (Par attr
+        (Cons (Par (Attributes (map-empty)) (list-slice xs 0 (/ (list-length xs) 2)))
+            (Cons (Par (Attributes (map-empty)) (list-slice xs (/ (list-length xs) 2) (list-length xs)))
+                (Nil))
+        )
+    )
+    :when (
+        (>= (list-length xs) FAN-OUT)
+    )
+    :ruleset control
+)
+
+; TODO(cgyurgyik): Can we ever use logical OR in the :when condition?
+; par { @promotable(1000) A; @promotable(1) B; } =>
+; seq { @promotable(1000) A; @promotable(1) B; }
+(rewrite
+    (Par attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+    (Seq attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+    :when (
+        (map-contains m1 "promotable")
+        (map-contains m2 "promotable")
+        (>= (- (map-get m1 "promotable") (map-get m2 "promotable")) SEQ-TO-PAR)
+    )
+    :ruleset control
+)
+(rewrite
+    (Par attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+    (Seq attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+    :when (
+        (map-contains m1 "promotable")
+        (map-contains m2 "promotable")
+        (>= (- (map-get m2 "promotable") (map-get m1 "promotable")) SEQ-TO-PAR)
+    )
+    :ruleset control
+)
+
+
+
+;  seq { A0; A1; ...; An; } =>
+;  seq {
+;    @new_fsm seq {A0; ...; A(n/2); }
+;    @new_fsm seq {A(n/2); ...; An; }
+;  }
+(rewrite
+    (Seq (Attributes attr) xs)
+    ; TODO(cgyurgyik): (here and elsewhere) This copies *all* attributes... this is probably wrong.
+    (Seq (Attributes (map-empty))
+        (Cons (
+                Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs 0 (/ (list-length xs) 2)))
+            (Cons (
+                    Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs (/ (list-length xs) 2) (list-length xs)))
+                (Nil)))
+    )
+    :when (
+        (map-not-contains attr "new-fsm")
+        (>= (list-length xs) SPLIT-SEQ)
+    )
+    :ruleset control
+)
+
+; (control-before x xs)
+; Returns all control parameters before x in xs.
+; If x is not in xs, returns (Nil).
+(function control-before (Control Control) List)
+(rule
+    (
+        (= e (Enable g m)) ; x
+        (= S (Seq attr s)) ; [A B x C]
+    )
+    (
+        (let rS (list-reverse s)) ; [C x B A]
+        (let xxs (list-find e rS)) ; [x B A]
+        (let xs (cdr xxs)) ; [B A]
+        (let xs-reverse (list-reverse xs)) ; [A B]
+        (union
+            (control-before e S)
+            xs-reverse
+        )
+    )
+    :ruleset analysis
+)
+(rule
+    (
+        (= x (Enable g1 m1))
+        (= S (Seq attr (Nil)))
+    )
+    (
+        (union (control-before x S) (Nil))
+    )
+    :ruleset analysis
+)
+
+(function max-latency (List) i64)
+(relation max-latency-demand (List))
+(rule
+    ((max-latency-demand (Nil)))
+    ((set (max-latency (Nil)) 0))
+    :ruleset analysis
+)
+(rule
+    (
+        (max-latency-demand (Cons x xs))
+    )
+    (
+        (max-latency-demand xs)
+    )
+    :ruleset analysis
+)
+
+(rule
+    (
+        (max-latency-demand (Cons (Enable _ (Attributes m)) xs))
+        (= incumbent (max-latency xs))
+        (map-contains m "promotable")
+        (= current (map-get m "promotable"))
+    )
+    (
+        (set (max-latency (Cons (Enable _ (Attributes m)) xs)) (max current incumbent))
+    )
+    :ruleset analysis
+)
+
+(rule
+    (
+        (max-latency-demand (Cons (Seq (Attributes m) ys) xs))
+        (= incumbent (max-latency xs))
+        (map-contains m "static")
+        (= current (map-get m "static"))
+    )
+    (
+        (set (max-latency (Cons (Seq (Attributes m) ys) xs)) (max current incumbent))
+    )
+    :ruleset analysis
+) ; TODO(cgyurgyik): Maybe try going through `ys` if @static attribute DNE.
+
+(function sum-latency (List) i64)
+(relation sum-latency-demand (List))
+(rule
+    ((sum-latency-demand (Nil)))
+    ((set (sum-latency (Nil)) 0))
+    :ruleset analysis
+)
+
+(rule
+    (
+        (sum-latency-demand (Cons x xs))
+    )
+    (
+        (sum-latency-demand xs)
+    )
+    :ruleset analysis
+)
+
+(rule
+    (
+        (sum-latency-demand (Cons (Enable _ (Attributes m)) xs))
+        (= sum (sum-latency xs))
+        (map-contains m "promotable")
+        (= latency (map-get m "promotable"))
+    )
+    (
+        (set (sum-latency (Cons (Enable _ (Attributes m)) xs)) (+ sum latency))
+    )
+    :ruleset analysis
+)
+
+(rule
+    (
+        (sum-latency-demand (Cons (Seq (Attributes m) ys) xs))
+        (= sum (sum-latency xs))
+        (map-contains m "static")
+        (= latency (map-get m "static"))
+    )
+    (
+        (set (sum-latency (Cons (Seq (Attributes m) ys) xs)) (+ sum latency))
+    )
+    :ruleset analysis
+)
+
+(rule
+    (
+        (sum-latency-demand (Cons (Par (Attributes m) ys) xs))
+        (= sum (sum-latency xs))
+        (map-contains m "static")
+        (= latency (map-get m "static"))
+    )
+    (
+        (set (sum-latency (Cons (Par (Attributes m) ys) xs)) (+ sum latency))
+    )
+    :ruleset analysis
+)
+
+(rule
+    (
+        (sum-latency-demand (Cons (Par (Attributes m) ys) xs))
+        (= sum (sum-latency xs))
+        (map-not-contains m "static")
+        (= latency (max-latency ys))
+    )
+    (
+        (set (sum-latency (Cons (Par (Attributes m) ys) xs)) (+ sum latency))
+    )
+    :ruleset analysis
+)
+
+(sort _Interval)
+(function Interval (i64 i64) _Interval)
+(function interval-of (Control Control) _Interval)
+(rule
+    (
+        (= e (Enable g (Attributes m)))
+        (= S (Seq attr (Cons y ys)))
+        (map-contains m "promotable")
+        (= xs (control-before e S))
+        (= i0 (sum-latency xs))
+        (= i1 (+ (map-get m "promotable") i0))
+    )
+    (
+        (union (interval-of e S) (Interval i0 i1))
+    )
+    :ruleset analysis
+)
+
+; TODO(cgyurgyik): 
+; @static(22) seq { A (1); B (10); C (1); D (10); }
+;       A -> C, D
+;       B -> C
+; @static(11) par {
+;  A;
+;  B;
+;  static seq {del_10; C; }
+;  static seq {del_1;  D; }
+; }
+
+; seq { A; B; C; D; } => seq { par { A; } B; C; D; }
+(rule
+    (
+        (= x (Enable g (Attributes _)))
+        (= S (Seq attr xs))
+        (> (list-length xs) 1) ; We only want to do this if we can eventually compact another group.
+        (= tail (cdr xs))
+        (= head (car xs))
+    )
+    (
+        (let new-head (Par (Attributes (map-empty)) (Cons head (Nil))))
+        (set (Seq attr (Cons x xs)) (Seq attr (Cons new-head tail)))
+    )
+)
+
+; Case 1: A and B are exclusive. 
+; seq { par { A; } B; C; D; } => seq { par { A; B; } C; D; }
+(rule
+    (
+        (= x (Enable g (Attributes _)))
+        (= compact-par (Par a2 ys))
+        (= S (Seq a1 (Cons compact-par (Cons x xs))))
+        (exclusive-with-all x ys)
+        ; TODO(cgyurgyik): Update static attribute(s).
+    )
+    (
+
+        (set
+            (Seq a1 (Cons compact-par (Cons x xs)))
+            (Seq a1 (Cons (Par a2 (Cons x ys)) xs))
+        )
+    )
+)
+
+; Case 2: A is not exclusive with B.
+; seq { par { A; } B; C; D; } => seq { par { A; seq { _delay; B; } } C; D; }
+(rule
+    (
+        (= x (Enable g (Attributes _)))
+        (= compact-par (Par a2 ys))
+        (= S (Seq (Attributes attr-S) (Cons compact-par (Cons x xs))))
+        (not (exclusive-with-all x ys))
+        (= nonexclusives (nonexclusive-list x ys))
+        (= L (max-latency nonexclusives))
+        ; TODO(cgyurgyik): Update static attribute(s).
+    )
+    (
+        (let attr-e (Attributes (map-insert (map-empty) "promotable" L)))
+        (let static-empty (Enable (Group (s-concat "del_" L) (CellSet (set-empty))) attr-e))
+        (let attr-s (Attributes (map-insert (map-empty) "static" L)))
+        (let new-S (Seq attr-s (Cons x (Cons static-empty (Nil)))))
+        (let p-latency (max-latency (Cons new-S ys)))
+        (let attr-p (Attributes (map-insert (map-empty) "static" p-latency)))
+        (let s-latency (+ p-latency (sum-latency xs)))
+        (let new-attr-S (Attributes (map-insert attr-S "static" s-latency)))
+        (set
+            (Seq (Attributes attr-S) (Cons compact-par (Cons x xs)))
+            (Seq new-attr-S (Cons (Par attr-p (Cons new-S ys)) xs)))
+    )
+)
+
+; (sort Pred (Vec Control))
+; (function predecessors-of (Control Control) Pred)
+; (rule
+;     (
+;         (= A (Enable g1 m1))
+;         (= S (Seq attr xs))
+;         (list-contains xs A)
+;     )
+;     (
+
+;     )
+; )
+
+
+; (rule
+;     (
+;         ; (= A (Enable g1 m1))
+;         ; (= B (Enable g2 m2))
+;         ; (= sequence (Seq attr (Cons A (Cons B xs))))
+;         ; (= Ap (predecessors A)) ; probably want predecessors *in* this sequence?
+;         ; (= Bp (predecessors B))
+;         ; (= Am (max-upper-interval Ap)) ; Can this be done via :merge?
+;         ; (= Bm (max-upper-interval Bp))
+;         ; (exclusive A B)
+;     )
+;     (
+;         ; update interval of A
+;         ; update interval of B
+;         ; rewrite to seq { par { seq { _gAm; A; }  seq { _gBm; B; } xs }
+;     )
+; )
+
+; seq { par { A; B; } C; D; } =>
+; seq { par { A; B; C; } D; }
+; (rule
+;     (
+;         ; (= sequence (Seq attr (Cons (Par attr xs) (Cons C ys))))
+;         ; (= C (Enable g1 m1))
+;         ; (= Cp (predecessors C)) ; ... in this sequence
+;         ; (exclusive C xs)
+;     )
+;     (
+;         ; update interval of C
+;         ; rewrite to seq { par { A; B; seq { _gCm; C;} } D; }
+;     )
+; )

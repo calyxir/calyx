@@ -6,8 +6,8 @@ use calyx_backend::SexpBackend;
 use calyx_backend::YxiBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
-    Backend, BackendOpt, FirrtlBackend, MlirBackend, PrimitiveUsesBackend,
-    ResourcesBackend, VerilogBackend,
+    Backend, BackendOpt, CalyxEggBackend, FirrtlBackend, MlirBackend,
+    PrimitiveUsesBackend, ResourcesBackend, VerilogBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
@@ -138,6 +138,10 @@ impl Opts {
         match self.backend {
             BackendOpt::Mlir => {
                 let backend = MlirBackend;
+                backend.run(context, self.output)
+            }
+            BackendOpt::CalyxEgg => {
+                let backend = CalyxEggBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Resources => {

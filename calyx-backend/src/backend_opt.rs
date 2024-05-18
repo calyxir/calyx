@@ -16,6 +16,7 @@ pub enum BackendOpt {
     Yxi,
     Firrtl,
     PrimitiveUses,
+    CalyxEgg,
     None,
 }
 
@@ -23,6 +24,7 @@ pub enum BackendOpt {
 #[inline(always)]
 fn backends() -> Vec<(&'static str, BackendOpt)> {
     vec![
+        ("calyx-egg", BackendOpt::CalyxEgg),
         ("verilog", BackendOpt::Verilog),
         ("xilinx", BackendOpt::Xilinx),
         ("xilinx-xml", BackendOpt::XilinxXml),
@@ -73,6 +75,7 @@ impl ToString for BackendOpt {
             Self::Resources => "resources",
             Self::Sexp => "sexp",
             Self::Verilog => "verilog",
+            Self::CalyxEgg => "calyx-egg",
             Self::Xilinx => "xilinx",
             Self::XilinxXml => "xilinx-xml",
             #[cfg(feature = "yxi")]
