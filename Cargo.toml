@@ -53,6 +53,7 @@ calyx-ir = { path = "calyx-ir", version = "0.7.1" }
 calyx-frontend = { path = "calyx-frontend", version = "0.7.1" }
 calyx-opt = { path = "calyx-opt", version = "0.7.1" }
 calyx-backend = { path = "calyx-backend", version = "0.7.1" }
+calyx-egg = {path = "calyx-egg", version = "0.7.1" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
@@ -87,10 +88,6 @@ build = "src/build.rs"
 name = "calyx"
 path = "src/main.rs"
 
-[[bin]]
-name = "calyx-egg"
-path = "calyx-egg/src/main.rs"
-
 [features]
 default = []
 serialize = ["calyx-ir/serialize", "serde/rc", "calyx-backend/sexp"]
@@ -98,10 +95,9 @@ yxi = ["serialize", "calyx-backend/yxi", "calyx-ir/yxi"]
 
 [build-dependencies]
 calyx-stdlib = { path = "calyx-stdlib", version = "0.7.1" }
+calyx-egg = { path = "calyx-egg" , version = "0.7.1" }
 
 [dependencies]
-egglog = { git = "https://github.com/egraphs-good/egglog", rev = "df8361a1013c9f02a736a6a9463d9d9cb16ef381" }
-egraph-serialize = "0.1.0"
 atty.workspace = true
 itertools.workspace = true
 log.workspace = true
@@ -111,6 +107,7 @@ env_logger.workspace = true
 
 calyx-utils.workspace = true
 calyx-ir.workspace = true
+calyx-egg.workspace = true
 calyx-frontend.workspace = true
 calyx-opt.workspace = true
 

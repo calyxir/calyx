@@ -1,0 +1,25 @@
+[package]
+name = "calyx-egg"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+authors.workspace = true
+license-file.workspace = true
+keywords.workspace = true
+repository.workspace = true
+homepage.workspace = true
+categories.workspace = true
+readme.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+main_error = "0.1.2"
+egglog = { git = "https://github.com/egraphs-good/egglog", rev = "df8361a1013c9f02a736a6a9463d9d9cb16ef381" }
+egraph-serialize = "0.1.0"
+
+calyx-utils.workspace = true
+calyx-frontend.workspace = true
+calyx-backend.workspace = true
+calyx-ir.workspace = true

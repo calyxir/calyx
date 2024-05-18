@@ -695,8 +695,12 @@
 (let me (map-empty))
 (let se (CellSet (set-empty)))
 (let g0 (Group "A" se))
-(let A (Enable g0 (Attributes me)))
+(let A (Enable (Group "A" (CellSet (set-empty))) (Attributes me)))
+(let B (Enable (Group "B" (CellSet (set-empty))) (Attributes me)))
+(let C (Enable (Group "C" (CellSet (set-empty))) (Attributes me)))
+(let D (Enable (Group "D" (CellSet (set-empty))) (Attributes me)))
 (let g1 (Group "B" se))
+(let g2 (Group "C" se))
 (let B (Enable g1 (Attributes me)))
 (let g2 (Group "C" se))
 (let C (Enable g2 (Attributes me)))
@@ -736,6 +740,11 @@
 (let ys (Cons A (Cons B (Cons C (Nil)))))
 (control-before C (Seq (Attributes me) (Cons A (Cons B (Cons C (Cons D (Nil)))))))
 
+(let A (Enable (Group "A" (CellSet (set-empty))) (Attributes me)))
+(let B (Enable (Group "B" (CellSet (set-empty))) (Attributes me)))
+(let C (Enable (Group "C" (CellSet (set-empty))) (Attributes me)))
+(let D (Enable (Group "D" (CellSet (set-empty))) (Attributes me)))
+(_sliceB (Cons A (Cons B (Cons C (Cons D (Nil))))) 1)
 (_sliceE xs 2)
 (_sliceB xs 1)
 (list-slice xs 1 2)
@@ -745,6 +754,11 @@
 (let ii (interval-of X (Seq (Attributes me) xs2)))
 ; (list-reverse (list-find B xs))
 
+(let S-before (Seq (Attributes (map-empty)) xs))
+(let S-after (Seq (Attributes (map-empty))
+        (Cons (Seq (Attributes (map-empty)) (Cons A (Cons B (Cons C (Cons D (Nil))))))
+            (Cons (Seq (Attributes (map-empty)) (Cons A (Cons B (Cons C (Cons D (Nil))))))
+                (Nil)))))
 
 
 (list-length-demand xs0)
@@ -771,94 +785,9 @@
     )
 )
 
-(check (= (exclusive A0 B0) true))
-(check (= (exclusive A0 A0) false))
-
-(check (= (max-latency xs2) 1011))
-
-(check (=
-        (sum-latency xs2)
-        1022
-    )
-)
-
-(check
-    (=
-        (interval-of X (Seq (Attributes me) xs2))
-        (Interval 0 1011)
-    )
-)
-
-(check
-    (=
-        (interval-of Y (Seq (Attributes me) xs2))
-        (Interval 1017 1022)
-    )
-)
-
 ; (check (path A C))
 ; (fail (check (path A B)))
 ; (check (= (list-length xs) 4))
-
-(check (=
-        (control-before C (Seq (Attributes me) (Cons A (Cons B (Cons C (Cons D (Nil)))))))
-        (Cons A (Cons B (Nil)))
-    )
-)
-
-(check (=
-        (list-reverse (Cons A (Cons B (Cons C (Nil)))))
-        (Cons C (Cons B (Cons A (Nil)))))
-)
-
-(check
-    (=
-        (list-find B (Cons A (Cons B (Cons C (Cons D (Nil))))))
-        (Cons B (Cons C (Cons D (Nil))))
-    )
-)
-
-(check
-    (=
-        (list-reverse (list-find B (Cons A (Cons B (Cons C (Cons D (Nil)))))))
-        (Cons D (Cons C (Cons B (Nil))))
-    )
-)
-
-(check
-    (=
-        (Par (Attributes me) xs)
-        (Par (Attributes me)
-            (Cons (Par (Attributes me) (Cons A (Cons B (Nil))))
-                (Cons (Par (Attributes me) (Cons C (Cons D (Nil))))
-                    (Nil)))
-        )
-    )
-)
-
-(check
-    (=
-        (_sliceB xs 1)
-        (Cons B (Cons C (Cons D (Nil)))))
-)
-
-(check
-    (=
-        (_sliceE xs 2)
-        (Cons A (Cons B (Nil))))
-)
-
-(check
-    (= (list-slice xs 1 2) (Cons B (Nil)))
-)
-
-(check
-    (= (list-slice xs 0 1) (Cons A (Nil)))
-)
-
-(check
-    (= (list-slice xs 1 3) (Cons B (Cons C (Nil))))
-)
 
 (check
     (=

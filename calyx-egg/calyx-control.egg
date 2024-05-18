@@ -204,7 +204,7 @@
 ; CONSTANTS
 ; -----------------------------------------------------------------------------
 (let FAN-OUT 2)
-(let SEQ-TO-PAR 1000)
+(let PAR-TO-SEQ 1000)
 (let SPLIT-SEQ 8)
 
 ; -----------------------------------------------------------------------------
@@ -354,7 +354,7 @@
     :when (
         (map-contains m1 "promotable")
         (map-contains m2 "promotable")
-        (>= (- (map-get m1 "promotable") (map-get m2 "promotable")) SEQ-TO-PAR)
+        (>= (- (map-get m1 "promotable") (map-get m2 "promotable")) PAR-TO-SEQ)
     )
     :ruleset control
 )
@@ -364,7 +364,7 @@
     :when (
         (map-contains m1 "promotable")
         (map-contains m2 "promotable")
-        (>= (- (map-get m2 "promotable") (map-get m1 "promotable")) SEQ-TO-PAR)
+        (>= (- (map-get m2 "promotable") (map-get m1 "promotable")) PAR-TO-SEQ)
     )
     :ruleset control
 )

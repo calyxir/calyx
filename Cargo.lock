@@ -374,14 +374,13 @@ dependencies = [
  "argh",
  "atty",
  "calyx-backend",
+ "calyx-egg",
  "calyx-frontend",
  "calyx-ir",
  "calyx-opt",
  "calyx-stdlib",
  "calyx-utils",
  "criterion",
- "egglog",
- "egraph-serialize",
  "env_logger 0.9.3",
  "itertools 0.11.0",
  "log",
@@ -408,6 +407,19 @@ dependencies = [
  "smallvec",
  "string-interner",
  "vast",
+]
+
+[[package]]
+name = "calyx-egg"
+version = "0.7.1"
+dependencies = [
+ "calyx-backend",
+ "calyx-frontend",
+ "calyx-ir",
+ "calyx-utils",
+ "egglog",
+ "egraph-serialize",
+ "main_error",
 ]
 
 [[package]]
@@ -1051,9 +1063,9 @@ checksum = "11157ac094ffbdde99aa67b23417ebdd801842852b500e395a45a9c0aac03e4a"
 
 [[package]]
 name = "ena"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c533630cf40e9caa44bd91aadc88a75d75a4c3a12b4cfde353cbed41daa1e1f1"
+checksum = "3d248bdd43ce613d87415282f69b9bb99d947d290b10962dd6c56233312c2ad5"
 dependencies = [
  "log",
 ]
@@ -1536,9 +1548,9 @@ dependencies = [
 
 [[package]]
 name = "instant"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
+checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
 dependencies = [
  "cfg-if",
 ]
@@ -1760,6 +1772,12 @@ dependencies = [
  "serde_repr",
  "url",
 ]
+
+[[package]]
+name = "main_error"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "155db5e86c6e45ee456bf32fad5a290ee1f7151c2faca27ea27097568da67d1a"
 
 [[package]]
 name = "manifest-dir-macros"
