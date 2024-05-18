@@ -1,0 +1,3 @@
+//! Calyx <=> egglog
+
+mod tests;
