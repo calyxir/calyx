@@ -177,6 +177,13 @@
     :ruleset list
 )
 
+(rewrite
+    (list-length (list-slice xs a b))
+    (- b a)
+    :when ((>= b a))
+    :ruleset list
+)
+
 ; (list-find x xs) 
 ; Returns the sub-list with x as the head, or nil if x is not found in xs.
 (function list-find (Control List) List)
@@ -400,19 +407,20 @@
 ;    @new_fsm seq {A0; ...; A(n/2); }
 ;    @new_fsm seq {A(n/2); ...; An; }
 ;  }
-(rewrite
-    (Seq (Attributes attr) xs)
-    ; TODO(cgyurgyik): (here and elsewhere) This copies *all* attributes... this is probably wrong.
-    (Seq (Attributes (map-empty))
-        (Cons (
-                Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs 0 (/ (list-length xs) 2)))
-            (Cons (
-                    Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs (/ (list-length xs) 2) (list-length xs)))
-                (Nil)))
-    )
-    :when (
+(rule
+    (
+        (= S (Seq (Attributes attr) xs))
         (map-not-contains attr "new-fsm")
         (>= (list-length xs) SPLIT-SEQ)
+    )
+    (
+        (let middle (/ (list-length xs) 2))
+        (let s1 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs 0 middle)))
+        (let s2 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs middle (list-length xs))))
+        (union
+            (Seq (Attributes attr) xs)
+            (Seq (Attributes (map-empty)) (Cons s1 (Cons s2 (Nil))))
+        )
     )
     :ruleset control
 )
@@ -621,7 +629,7 @@
         ; TODO(cgyurgyik): update latency (max-latency-demand (Cons x ys))
         ; (let latency (max-latency (Cons x ys)))
         ; (let new-attr (Attributes (map-insert a2 "promotable" latency)))
-        (set
+        (union
             (Seq attr1 (Cons compaction (Cons x xs)))
             (Seq attr1 (Cons (Par (Attributes a2) (Cons x ys)) xs))
         )
@@ -650,56 +658,9 @@
         (let attr-p (Attributes (map-insert (map-empty) "static" p-latency)))
         (let s-latency (+ p-latency (sum-latency xs)))
         (let new-attr-S (Attributes (map-insert attr-S "static" s-latency)))
-        (set
+        (union
             (Seq (Attributes attr-S) (Cons compact-par (Cons x xs)))
             (Seq new-attr-S (Cons (Par attr-p (Cons new-S ys)) xs)))
     )
     :ruleset control
 )
-
-; (sort Pred (Vec Control))
-; (function predecessors-of (Control Control) Pred)
-; (rule
-;     (
-;         (= A (Enable g1 m1))
-;         (= S (Seq attr xs))
-;         (list-contains xs A)
-;     )
-;     (
-
-;     )
-; )
-
-
-; (rule
-;     (
-;         ; (= A (Enable g1 m1))
-;         ; (= B (Enable g2 m2))
-;         ; (= sequence (Seq attr (Cons A (Cons B xs))))
-;         ; (= Ap (predecessors A)) ; probably want predecessors *in* this sequence?
-;         ; (= Bp (predecessors B))
-;         ; (= Am (max-upper-interval Ap)) ; Can this be done via :merge?
-;         ; (= Bm (max-upper-interval Bp))
-;         ; (exclusive A B)
-;     )
-;     (
-;         ; update interval of A
-;         ; update interval of B
-;         ; rewrite to seq { par { seq { _gAm; A; }  seq { _gBm; B; } xs }
-;     )
-; )
-
-; seq { par { A; B; } C; D; } =>
-; seq { par { A; B; C; } D; }
-; (rule
-;     (
-;         ; (= sequence (Seq attr (Cons (Par attr xs) (Cons C ys))))
-;         ; (= C (Enable g1 m1))
-;         ; (= Cp (predecessors C)) ; ... in this sequence
-;         ; (exclusive C xs)
-;     )
-;     (
-;         ; update interval of C
-;         ; rewrite to seq { par { A; B; seq { _gCm; C;} } D; }
-;     )
-; )

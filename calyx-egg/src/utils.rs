@@ -23,12 +23,13 @@ pub fn run_schedule(
     if !(rules.len() == 1 && rules[0] == RewriteRule::CalyxControl) {
         todo!("unimplemented-rules")
     }
+    // TODO(cgyurgyik): This was chosen with little care.
     String::from_str(
         r#"
 (run-schedule
     (saturate cell-set list analysis)
     (repeat 1024
-        (saturate control)
+        (saturate list control)
         (run)
     )
 )"#,

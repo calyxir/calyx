@@ -48,6 +48,7 @@ mod tests {
     type Result = std::result::Result<(), MainError>;
     use crate::optimize;
 
+    #[ignore = "TODO(cgyurgyik): incomplete"]
     #[test]
     fn test_simple() -> Result {
         // TODO(cgyurgyik): Incomplete.

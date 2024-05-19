@@ -217,9 +217,7 @@ mod tests {
         )
     }
 
-    // TODO(cgyurgyik): Figure out why this is no longer working. Getting an illegal merge failure...
-    // maybe it needs to be rewritten as a rule?
-    #[ignore]
+    #[ignore = "TODO(cgyurgyik): illegal merge failure"]
     #[test]
     fn test_split_seq() -> Result {
         test_egglog(
@@ -230,15 +228,15 @@ mod tests {
             (let D (Enable (Group "D" (CellSet (set-empty))) (Attributes (map-empty))))
             (let xss (Cons A (Cons B (Cons C (Cons D (Cons A (Cons B (Cons C (Cons D (Nil))))))))))
             (let xs (Cons A (Cons B (Cons C (Cons D (Nil))))))
+            (list-length-demand xss)
+            (list-length-demand xs)
+            (list-slice xss 0 4)
+            (list-slice xss 4 8)
             (let S-before (Seq (Attributes (map-empty)) xss))
             (let S-after (Seq (Attributes (map-empty))
                 (Cons (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) xs)
                 (Cons (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) xs)
                     (Nil)))))
-            (list-length-demand xss)
-            (list-length-demand xs)
-            (list-slice xss 0 4)
-            (list-slice xss 4 8)
         "#,
             r#"
             (check (= SPLIT-SEQ 8)) ; ... this test will fail otherwise.
