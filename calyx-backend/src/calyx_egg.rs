@@ -55,14 +55,11 @@ impl Backend for CalyxEggBackend {
 
 impl CalyxEggBackend {
     fn format_attributes(attrs: &ir::Attributes) -> String {
-        if attrs.is_empty() {
-            "(Attributes (map-empty))".to_string()
-        } else {
-            format!(
-                " (Attributes (map-of {}))",
-                attrs.to_string_with(" ", |k, v| { format!("\"{k}\" {v}") })
-            )
+        let mut s: String = format!("(map-empty)");
+        for attribute in attrs.to_vec(|k, v| format!("\"{k}\" {v}")) {
+            s = format!("(map-insert {} {})", s, attribute);
         }
+        format!("(Attributes {})", s)
     }
 
     fn format_demands<F: io::Write>(
@@ -73,7 +70,7 @@ impl CalyxEggBackend {
         writeln!(f)?;
         for demand in demands {
             for list in lists {
-                writeln!(f, "({} {})", demand, list)?;
+                writeln!(f, "({}{})", demand, list)?;
             }
         }
         Ok(())
@@ -141,11 +138,20 @@ impl CalyxEggBackend {
 
         let mut cells: HashSet<String> = HashSet::new();
         for assign in &group.assignments {
-            if let ir::PortParent::Cell(cell) = &assign.dst.borrow().parent {
-                cells.insert(cell.upgrade().borrow().name().id.to_string());
+            // Currently, the set of cells is used to determine whether two groups have "exclusive" cells, i.e.,
+            // the two groups may run in parallel with no semantic changes to the program. In this case, we don't
+            // really care if constants are shared between groups.
+            if !assign.dst.borrow().is_any_constant() {
+                if let ir::PortParent::Cell(cell) = &assign.dst.borrow().parent
+                {
+                    cells.insert(cell.upgrade().borrow().name().id.to_string());
+                }
             }
-            if let ir::PortParent::Cell(cell) = &assign.src.borrow().parent {
-                cells.insert(cell.upgrade().borrow().name().id.to_string());
+            if !assign.src.borrow().is_any_constant() {
+                if let ir::PortParent::Cell(cell) = &assign.src.borrow().parent
+                {
+                    cells.insert(cell.upgrade().borrow().name().id.to_string());
+                }
             }
         }
         if cells.is_empty() {
@@ -187,14 +193,14 @@ impl CalyxEggBackend {
                     ir::Control::Seq(..) => "Seq",
                     _ => panic!("unreachable"),
                 };
-                write!(f, "({} {} ", operator, Self::format_attributes(attr))?;
+                write!(f, "({} {}", operator, Self::format_attributes(attr))?;
                 // We need to keep track of the "list of lists" so we can perform analyses through demands.
                 let mut s = Vec::new();
                 let mut b = io::BufWriter::new(&mut s);
 
                 for stmt in stmts {
-                    write!(b, "(Cons ")?;
-                    write!(f, "(Cons ")?;
+                    write!(b, " (Cons ")?;
+                    write!(f, " (Cons ")?;
                     Self::write_control(stmt, lists, &mut b)?;
                     Self::write_control(stmt, lists, f)?;
                 }

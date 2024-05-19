@@ -129,12 +129,12 @@ impl Attributes {
         self
     }
 
-    pub fn to_string_with<F>(&self, sep: &'static str, fmt: F) -> String
+    pub fn to_vec<F>(&self, fmt: F) -> Vec<String>
     where
         F: Fn(String, u64) -> String,
     {
         if self.is_empty() {
-            return String::default();
+            return Vec::<String>::new();
         }
 
         self.hinfo
@@ -143,7 +143,13 @@ impl Attributes {
             .map(|(k, v)| fmt(k.to_string(), *v))
             .chain(self.inl.iter().map(|k| fmt(k.as_ref().to_string(), 1)))
             .collect::<Vec<_>>()
-            .join(sep)
+    }
+
+    pub fn to_string_with<F>(&self, sep: &'static str, fmt: F) -> String
+    where
+        F: Fn(String, u64) -> String,
+    {
+        self.to_vec(fmt).join(sep)
     }
 }
 

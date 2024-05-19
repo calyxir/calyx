@@ -49,14 +49,12 @@
 ; -----------------------------------------------------------------------------
 ; LISTS
 ; -----------------------------------------------------------------------------
-
 (ruleset list)
 (function car (List) Control)
 (rewrite
     (car (Cons x xs))
     x
 )
-
 
 (function cdr (List) List)
 (rewrite
@@ -266,15 +264,41 @@
 
 ; TODO(cgyurgyik): define.
 (function exclusive-with-all (Control List) bool)
-(rewrite
-    (exclusive-with-all (Enable g _) (Nil))
-    true
+(relation exclusive-with-all-demand (Control List))
+(rule
+    (
+        (= E (Enable g _))
+        (exclusive-with-all-demand E (Nil))
+
+    )
+    (
+        (set (exclusive-with-all E (Nil)) true)
+    )
     :ruleset analysis
 )
 
-(rewrite
-    (exclusive-with-all (Enable g _) (Cons x xs))
-    (and (exclusive (Enable g _) x) (exclusive-with-all (Enable g _) xs))
+(rule
+    (
+        (= E (Enable g _))
+        (exclusive-with-all E (Cons x xs))
+    )
+    (
+        (exclusive-with-all-demand E xs)
+    )
+    :ruleset analysis
+)
+
+(rule
+    (
+        (= E (Enable g a))
+        (= _ (Cons x xs))
+        (= result (exclusive E x))
+        (= xs-exclusive (exclusive-with-all E xs))
+
+    )
+    (
+        (set (exclusive-with-all E (Cons x xs)) (and result xs-exclusive))
+    )
     :ruleset analysis
 )
 
@@ -571,15 +595,15 @@
 (rule
     (
         (= x (Enable g (Attributes _)))
-        (= S (Seq attr xs))
-        (> (list-length xs) 1) ; We only want to do this if we can eventually compact another group.
-        (= tail (cdr xs))
-        (= head (car xs))
+        (= S (Seq attr (Cons x xs)))
+        (> (list-length xs) 0) ; We only want to do this if we can eventually compact another group.
     )
     (
-        (let new-head (Par (Attributes (map-empty)) (Cons head (Nil))))
-        (set (Seq attr (Cons x xs)) (Seq attr (Cons new-head tail)))
+        (let ys (Par (Attributes (map-empty)) (Cons x (Nil))))
+        (union (Seq attr (Cons x xs)) (Seq attr (Cons ys xs)))
+
     )
+    :ruleset control
 )
 
 ; Case 1: A and B are exclusive. 
@@ -587,18 +611,22 @@
 (rule
     (
         (= x (Enable g (Attributes _)))
-        (= compact-par (Par a2 ys))
-        (= S (Seq a1 (Cons compact-par (Cons x xs))))
-        (exclusive-with-all x ys)
-        ; TODO(cgyurgyik): Update static attribute(s).
+        (= compaction (Par (Attributes a2) ys))
+        (= S (Seq attr1 (Cons compaction (Cons x xs))))
+        ; TODO(cgyurgyik): How to on-the-fly demands?
+        ; https://egraphs.zulipchat.com/#narrow/stream/375765-egg.2Fegglog/topic/On-the-fly.20demands.2E
+        ; (exclusive-with-all x ys)
     )
     (
-
+        ; TODO(cgyurgyik): update latency (max-latency-demand (Cons x ys))
+        ; (let latency (max-latency (Cons x ys)))
+        ; (let new-attr (Attributes (map-insert a2 "promotable" latency)))
         (set
-            (Seq a1 (Cons compact-par (Cons x xs)))
-            (Seq a1 (Cons (Par a2 (Cons x ys)) xs))
+            (Seq attr1 (Cons compaction (Cons x xs)))
+            (Seq attr1 (Cons (Par (Attributes a2) (Cons x ys)) xs))
         )
     )
+    :ruleset control
 )
 
 ; Case 2: A is not exclusive with B.
@@ -626,6 +654,7 @@
             (Seq (Attributes attr-S) (Cons compact-par (Cons x xs)))
             (Seq new-attr-S (Cons (Par attr-p (Cons new-S ys)) xs)))
     )
+    :ruleset control
 )
 
 ; (sort Pred (Vec Control))

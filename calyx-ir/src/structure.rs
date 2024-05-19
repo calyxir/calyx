@@ -72,6 +72,18 @@ impl Port {
         unreachable!("This port should have a cell parent")
     }
 
+    /// Checks whether this port is any constant.
+    pub fn is_any_constant(&self) -> bool {
+        if let PortParent::Cell(cell) = &self.parent {
+            match cell.upgrade().borrow().prototype {
+                CellType::Constant { .. } => true,
+                _ => cell.upgrade().borrow().is_primitive(Some("std_const")),
+            }
+        } else {
+            false
+        }
+    }
+
     /// Checks if this port is a constant of value: `val`.
     pub fn is_constant(&self, val: u64, width: u64) -> bool {
         if let PortParent::Cell(cell) = &self.parent {

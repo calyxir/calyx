@@ -1,59 +1,46 @@
-use std::{fmt, fs};
-
-use egglog::EGraph;
-use main_error::MainError;
-
-// Thanks to www.github.com/egraphs-good/eggcc for inspiring this test suite.
-pub type Result = std::result::Result<(), MainError>;
-
-// TODO(cgyurgyik): Currently all the rules are in one location. These should be separated.
-#[derive(Debug, Clone, Copy)]
-enum RewriteRule {
-    CalyxControl,
-}
-
-impl fmt::Display for RewriteRule {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            RewriteRule::CalyxControl => write!(f, "calyx-control.egg"),
-        }
-    }
-}
-
-fn test_egglog(prologue: &str, check: &str, rules: Vec<RewriteRule>) -> Result {
-    let mut s: String = String::new();
-    for rule in rules {
-        s.push_str(fs::read_to_string(rule.to_string()).unwrap().as_str());
-    }
-    s.push_str(prologue);
-    s.push_str(
-        format!(
-            r#"
-        (run-schedule
-            (repeat 1024
-                (saturate cell-set list analysis control)
-                (run)
-            )
-        )"#
-        )
-        .as_str(),
-    );
-    s.push_str(check);
-
-    let result = EGraph::default().parse_and_run_program(&s).map(|lines| {
-        for line in lines {
-            println!("{}", line);
-        }
-    });
-    if result.is_err() {
-        println!("{:?}", result);
-    }
-    Ok(result?)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::utils;
+    use egglog::EGraph;
+    use main_error::MainError;
+    // Thanks to www.github.com/egraphs-good/eggcc for inspiring this test suite.
+    pub type Result = std::result::Result<(), MainError>;
+
+    // fn test_calyx(actual: &str, expected: &str) {}
+
+    /// Tests egglog input with egglog checks, e.g.,
+    ///
+    /// test_egglog(
+    ///     r#"
+    ///     (let A 42)
+    ///     (let B 42)
+    ///     "#,
+    ///     "(check (= A B))",
+    ///     &[utils::RewriteRule::CalyxControl],
+    /// )
+    fn test_egglog(
+        prologue: &str,
+        check: &str,
+        rules: &[utils::RewriteRule],
+    ) -> Result {
+        let mut s: String = String::new();
+        for rule in rules {
+            s.push_str(utils::read_from(*rule)?.as_str());
+        }
+        s.push_str(prologue);
+        s.push_str(utils::run_schedule(&rules)?.as_str());
+        s.push_str(check);
+
+        let result = EGraph::default().parse_and_run_program(&s).map(|lines| {
+            for line in lines {
+                println!("{}", line);
+            }
+        });
+        if result.is_err() {
+            println!("{:?}", result);
+        }
+        Ok(result?)
+    }
 
     #[test]
     fn test_identity() -> Result {
@@ -63,7 +50,7 @@ mod tests {
             (let c2 (CellSet (set-of (Cell "a"))))
             "#,
             r#"(check (= c1 c2))"#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 
@@ -88,7 +75,7 @@ mod tests {
             (check (= (list-length (Cons B (Cons C (Cons D (Nil))))) 3))
             (check (= (list-length (Cons A (Cons B (Cons C (Cons D (Nil)))))) 4))
             "#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 
@@ -112,7 +99,7 @@ mod tests {
             (check (= (list-slice xs 1 3) (Cons B (Cons C (Nil)))))
             (check (= (list-slice xs 0 1) (Cons A (Nil))))
             "#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 
@@ -140,7 +127,7 @@ mod tests {
             (check (= (max-latency xs) 3))
             (check (= (sum-latency xs) 6)) ; 1 + 3 + 2
             "#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 
@@ -161,7 +148,7 @@ mod tests {
             (check (= ys (Cons A (Cons B (Nil)))))
             (check (= zs (Cons A (Nil))))
             "#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 
@@ -178,7 +165,7 @@ mod tests {
             (check (= (exclusive A0 B0) true))
             (check (= (exclusive A0 A0) false))
         "#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 
@@ -203,7 +190,7 @@ mod tests {
                     (Nil)))
             )))
         "#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 
@@ -226,7 +213,7 @@ mod tests {
             (check (= PAR-TO-SEQ 1000)) ; ... this test will fail otherwise.
             (check (= P S))
         "#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 
@@ -257,7 +244,7 @@ mod tests {
             (check (= SPLIT-SEQ 8)) ; ... this test will fail otherwise.
             (check (= S-before S-after))
         "#,
-            vec![RewriteRule::CalyxControl],
+            &[utils::RewriteRule::CalyxControl],
         )
     }
 }

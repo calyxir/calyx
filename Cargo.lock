@@ -420,6 +420,7 @@ dependencies = [
  "egglog",
  "egraph-serialize",
  "main_error",
+ "tempfile",
 ]
 
 [[package]]

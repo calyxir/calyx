@@ -18,6 +18,7 @@ default = []
 main_error = "0.1.2"
 egglog = { git = "https://github.com/egraphs-good/egglog", rev = "df8361a1013c9f02a736a6a9463d9d9cb16ef381" }
 egraph-serialize = "0.1.0"
+tempfile = "3.10.1"
 
 calyx-utils.workspace = true
 calyx-frontend.workspace = true
