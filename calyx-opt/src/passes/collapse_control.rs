@@ -138,7 +138,7 @@ impl Visitor for CollapseControl {
             let attrs = std::mem::take(&mut s.attributes);
             replacement_ctrl
                 .get_mut_attributes()
-                .mirror_attributes(attrs, vec![ir::BoolAttr::OneHot]);
+                .copy_from(attrs, vec![ir::BoolAttr::OneHot]);
 
             return Ok(Action::static_change(replacement_ctrl));
         }
@@ -172,7 +172,7 @@ impl Visitor for CollapseControl {
             let attrs = std::mem::take(&mut s.attributes);
             replacement_ctrl
                 .get_mut_attributes()
-                .mirror_attributes(attrs, vec![ir::BoolAttr::OneHot]);
+                .copy_from(attrs, vec![ir::BoolAttr::OneHot]);
             return Ok(Action::static_change(replacement_ctrl));
         }
         let mut seqs: Vec<ir::StaticControl> = vec![];
