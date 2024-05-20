@@ -104,7 +104,7 @@ impl CalyxEggBackend {
         write!(f, "(let {} ", ename)?;
         let mut lists = Vec::new();
         Self::write_control(&comp.control.borrow(), &mut lists, f)?;
-        writeln!(f)?;
+        writeln!(f, ")")?;
 
         // Make demands.
         Self::format_demands(
