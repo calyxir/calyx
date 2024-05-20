@@ -124,45 +124,41 @@ def generate_writememh(memory_cell_dicts):
           out_str += "end"
      return out_str
 
-def create_memory_cell_dict(line, module_name): # TODO: Use YXI generated data
+def create_memory_cell_dict(memory):
      memory_cell_dict = {}
-     # parse line that contains a ref cell
-     memory_cell_dict["cell-name"] = line.lstrip().split()[1]
-     memory_cell_dict["module-name"] = module_name
-     args = line.split(f"{module_name}(")[1].split(")")[0].split(",")
-     if "d1" in module_name:
-          memory_cell_dict["WIDTH"] = int(args[0])
-          memory_cell_dict["SIZE"] = int(args[1])
-          memory_cell_dict["IDX_SIZE"] = int(args[2])
-     elif "d2" in module_name:
-          memory_cell_dict["WIDTH"] = int(args[0])
-          memory_cell_dict["D0_SIZE"] = int(args[1])
-          memory_cell_dict["D1_SIZE"] = int(args[2])
-          memory_cell_dict["D0_IDX_SIZE"] = int(args[3])
-          memory_cell_dict["D1_IDX_SIZE"] = int(args[4])
+     
+     memory_cell_dict["cell-name"] = memory["name"]
+     dimensions = memory["dimensions"]
+     if memory["memory_type"] == "Sequential":
+          memory_cell_dict["module-name"] = f"seq_mem_d{dimensions}"
+     else:
+          memory_cell_dict["module-name"] = f"comb_mem_d{dimensions}"
+
+     memory_cell_dict["WIDTH"] = memory["data_width"]
+     if dimensions == 1:
+          memory_cell_dict["SIZE"] = memory["dimension_sizes"][0]
+          memory_cell_dict["IDX_SIZE"] = memory["idx_sizes"][0]
+     elif dimensions > 2:
+          print(f"Multidimensional memory yet to be supported found: {memory["name"]}")
+          print("Aborting.")
+          sys.exit(1)
+
+     else:
+          for i in range(dimensions):
+               memory_cell_dict[f"D{i}_SIZE"] = memory["dimension_sizes"][i]
+               memory_cell_dict[f"D{i}_IDX_SIZE"] = memory["idx_sizes"][i]
+
      return memory_cell_dict
 
 def get_memory_cells(yxi_json_filepath):
      memory_cell_dicts = []
      yxi_json = json.load(open(yxi_json_filepath))
-     with open(yxi_json_filepath) as f:
-          for line in f:
-               if not("ref") in line:
-                    continue
-               elif "comb_mem_d1" in line:
-                    memory_cell_dict = create_memory_cell_dict(line, "comb_mem_d1")
-                    memory_cell_dicts.append(memory_cell_dict)
-               elif "seq_mem_d1" in line:
-                    memory_cell_dict = create_memory_cell_dict(line, "seq_mem_d1")
-                    memory_cell_dicts.append(memory_cell_dict)
-               elif "seq_mem_d2" in line:
-                    memory_cell_dict = create_memory_cell_dict(line, "seq_mem_d2")
-                    memory_cell_dicts.append(memory_cell_dict)
-               elif "comb_mem_d" in line or "seq_mem_d" in line:
-                    print(f"Multidimensional memory yet to be supported found: {line}")
-                    print("Aborting.")
-                    sys.exit(1)
+     for memory in yxi_json["memories"]:
+          memory_cell_dict = create_memory_cell_dict(memory)
+          memory_cell_dicts.append(memory_cell_dict)
 
+     print(memory_cell_dicts)
+     sys.exit(0)
      return memory_cell_dicts
 
 
