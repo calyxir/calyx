@@ -222,6 +222,7 @@ struct Schedule<'b, 'a: 'b> {
     pub builder: &'b mut ir::Builder<'a>,
 }
 
+/// Information to be serialized for a single FSM
 #[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 struct FSMInfo {
     pub component: String,
@@ -229,6 +230,7 @@ struct FSMInfo {
     pub states: Vec<FSMStateInfo>,
 }
 
+/// Mapping of FSM state ids to corresponding group names
 #[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 struct FSMStateInfo {
     id: u64,
