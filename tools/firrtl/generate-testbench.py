@@ -126,7 +126,6 @@ def generate_writememh(memory_cell_dicts):
 
 def create_memory_cell_dict(memory):
      memory_cell_dict = {}
-     
      memory_cell_dict["cell-name"] = memory["name"]
      dimensions = memory["dimensions"]
      if memory["memory_type"] == "Sequential":
@@ -139,10 +138,9 @@ def create_memory_cell_dict(memory):
           memory_cell_dict["SIZE"] = memory["dimension_sizes"][0]
           memory_cell_dict["IDX_SIZE"] = memory["idx_sizes"][0]
      elif dimensions > 2:
-          print(f"Multidimensional memory yet to be supported found: {memory["name"]}")
+          print(f"Multidimensional memory yet to be supported found: {memory['name']}")
           print("Aborting.")
           sys.exit(1)
-
      else:
           for i in range(dimensions):
                memory_cell_dict[f"D{i}_SIZE"] = memory["dimension_sizes"][i]
@@ -157,8 +155,6 @@ def get_memory_cells(yxi_json_filepath):
           memory_cell_dict = create_memory_cell_dict(memory)
           memory_cell_dicts.append(memory_cell_dict)
 
-     print(memory_cell_dicts)
-     sys.exit(0)
      return memory_cell_dicts
 
 
@@ -181,7 +177,7 @@ def generate(yxi_json):
 
 def main():
     if len(sys.argv) != 2:
-        args_desc = [                                                                                                                                    
+        args_desc = [                        
             "YXI_JSON"
         ]
         print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")                                                                                                                
