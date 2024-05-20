@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -141,9 +142,10 @@ def create_memory_cell_dict(line, module_name): # TODO: Use YXI generated data
           memory_cell_dict["D1_IDX_SIZE"] = int(args[4])
      return memory_cell_dict
 
-def get_memory_cells(calyx_program):
+def get_memory_cells(yxi_json_filepath):
      memory_cell_dicts = []
-     with open(calyx_program) as f:
+     yxi_json = json.load(open(yxi_json_filepath))
+     with open(yxi_json_filepath) as f:
           for line in f:
                if not("ref") in line:
                     continue
@@ -164,8 +166,8 @@ def get_memory_cells(calyx_program):
      return memory_cell_dicts
 
 
-def generate(calyx_program):
-     memory_cell_dicts = get_memory_cells(calyx_program)
+def generate(yxi_json):
+     memory_cell_dicts = get_memory_cells(yxi_json)
      with open(template_file) as t:
           for line in t:
                if line.strip() == "MEMORY_FIELDS":
@@ -183,10 +185,10 @@ def generate(calyx_program):
 
 def main():
     if len(sys.argv) != 2:
-        args_desc = [                                                                                                                                                                   
-            "CALYX_PROGRAM"
+        args_desc = [                                                                                                                                    
+            "YXI_JSON"
         ]
-        print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")                                                                                                                           
+        print(f"Usage: {sys.argv[0]} {' '.join(args_desc)}")                                                                                                                
         return 1
     generate(sys.argv[1])
 
