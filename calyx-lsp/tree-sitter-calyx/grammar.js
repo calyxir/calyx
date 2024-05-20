@@ -105,8 +105,8 @@ module.exports = grammar({
     wire_assignment: $ => seq(optional($.at_attribute), $.lhs, '=', choice($.switch, $.expr), ';'),
 
     // control
-    control: $ => seq('control', '{', $.control_inner, '}'),
-    control_inner: $ => $.stmt,
+    control: $ => seq('control', '{', optional($.control_inner), '}'),
+    control_inner: $ => repeat1($.stmt),
     enable: $ => seq(repeat($.at_attribute), optional($.ident), ';'),
     invoke_ref_arg: $ => seq($.ident, '=', $.ident),
     invoke_ref_args: $ => seq(
