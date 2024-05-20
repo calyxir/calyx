@@ -4,13 +4,13 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, Printer, RRC};
-use calyx_ir::{build_assignments, guard, structure};
+use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
 use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::rc::Rc;
@@ -223,18 +223,28 @@ struct Schedule<'b, 'a: 'b> {
 }
 
 /// Information to be serialized for a single FSM
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct FSMInfo {
-    pub component: String,
-    pub group: String,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub component: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub group: Id,
     pub states: Vec<FSMStateInfo>,
 }
 
 /// Mapping of FSM state ids to corresponding group names
-#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct FSMStateInfo {
     id: u64,
-    group: String,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    group: Id,
+}
+
+fn id_serialize_passthrough<S>(id: &Id, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    id.to_string().serialize(ser)
 }
 
 impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
@@ -316,8 +326,8 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         // Keep track of groups to FSM state id information for dumping to json
         fsm_groups.insert(FSMInfo {
-            component: self.builder.component.name.to_string(),
-            group: group.borrow().name().to_string(),
+            component: self.builder.component.name,
+            group: group.borrow().name(),
             states: self.groups_to_states.iter().cloned().collect_vec(),
         });
 
@@ -440,7 +450,7 @@ impl Schedule<'_, '_> {
             };
 
             // Add group to mapping for emitting group JSON info
-            self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: String::from(&group.borrow().name().to_string()) });
+            self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
 
             let not_done = !guard!(group["done"]);
             let signal_on = self.builder.add_constant(1, 1);
