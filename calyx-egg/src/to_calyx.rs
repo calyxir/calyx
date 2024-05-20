@@ -3,11 +3,7 @@
 use crate::utils;
 use calyx_backend::CalyxEggBackend;
 use calyx_ir;
-use egglog::{ast::Literal, match_term_app, Term, TermDag};
-use std::io::{self, Write};
-use std::path::Path;
-use std::{collections::HashMap, rc::Rc};
-use tempfile::tempfile;
+use egglog::{match_term_app, Term, TermDag};
 
 pub struct ToCalyx {}
 

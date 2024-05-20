@@ -7,10 +7,8 @@ use main_error::MainError;
 use calyx_ir;
 use egglog::{ast::Literal, match_term_app, Term, TermDag};
 use std::fs;
-use std::io::{self, Write};
+use std::io::Write;
 use std::path::Path;
-use std::{collections::HashMap, rc::Rc};
-use tempfile::tempfile;
 
 type Result = std::result::Result<(), MainError>;
 

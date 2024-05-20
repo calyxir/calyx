@@ -217,6 +217,32 @@ mod tests {
         )
     }
 
+    #[test]
+    fn test_collapse_seq() -> Result {
+        test_egglog(
+            r#"
+            (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let S (Seq (Attributes (map-empty)) (Cons A (Nil))))
+            (let SS (Seq (Attributes (map-empty)) (Cons S (Nil))))
+        "#,
+            r#"(check (= S SS))"#,
+            &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
+    #[test]
+    fn test_collapse_par() -> Result {
+        test_egglog(
+            r#"
+            (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let P (Par (Attributes (map-empty)) (Cons A (Nil))))
+            (let PP (Par (Attributes (map-empty)) (Cons P (Nil))))
+        "#,
+            r#"(check (= P PP))"#,
+            &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
     #[ignore = "TODO(cgyurgyik): illegal merge failure"]
     #[test]
     fn test_split_seq() -> Result {

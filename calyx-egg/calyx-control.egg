@@ -358,9 +358,20 @@
 ; -----------------------------------------------------------------------------
 ; CONTROL
 ; -----------------------------------------------------------------------------
-
-; TODO(cgyurgyik): collapse-control rewrite(s).
 (ruleset control)
+
+; seq { seq { ... } } => seq { ... }
+(rewrite
+    (Seq a1 (Cons (Seq a2 xs) (Nil)))
+    (Seq a2 xs)
+)
+
+; par { par { ... } } => par { ... }
+(rewrite
+    (Par a1 (Cons (Par a2 xs) (Nil)))
+    (Par a2 xs)
+)
+
 ; par { A; B; C; D; } => par { par { A; B; } par { C; D; } }
 (rewrite
     (Par attr xs)

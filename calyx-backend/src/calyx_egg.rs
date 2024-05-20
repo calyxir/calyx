@@ -34,7 +34,7 @@ impl Backend for CalyxEggBackend {
                 Self::write_component(comp, f)?;
                 writeln!(f)
             })?;
-            write!(f, "\n")
+            writeln!(f)
         };
         res.map_err(|err| {
             let std::io::Error { .. } = err;
@@ -104,7 +104,7 @@ impl CalyxEggBackend {
         write!(f, "(let {} ", ename)?;
         let mut lists = Vec::new();
         Self::write_control(&comp.control.borrow(), &mut lists, f)?;
-        write!(f, ")\n")?;
+        writeln!(f)?;
 
         // Make demands.
         Self::format_demands(
