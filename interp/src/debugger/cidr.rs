@@ -3,6 +3,8 @@ use super::{
     context::DebuggingContext,
     interactive_errors::DebuggerError,
     io_utils::Input,
+    new_parser::parse_metadata,
+    source::structures::NewSourceMap,
 };
 use crate::interpreter::{ComponentInterpreter, ConstCell, Interpreter};
 use crate::structures::names::{CompGroupName, ComponentQualifiedInstanceName};
@@ -78,7 +80,10 @@ pub struct Debugger {
 
 impl Debugger {
     /// construct a debugger instance from the target calyx file
-    pub fn from_file(file: &Path, lib_path: &Path) -> InterpreterResult<Self> {
+    pub fn from_file(
+        file: &Path,
+        lib_path: &Path,
+    ) -> InterpreterResult<(Self, NewSourceMap)> {
         // create a workspace using the file and lib_path, run the standard
         // passes (see main.rs). Construct the initial environment then use that
         // to create a new debugger instance with new
@@ -122,7 +127,16 @@ impl Debugger {
             &config,
         )?;
 
-        Debugger::new(&components, main_component, None, env)
+        // Make NewSourceMap, if we can't then we explode
+        let mapping = ctx
+            .metadata
+            .map(|metadata| parse_metadata(&metadata))
+            .unwrap_or_else(|| Err(InterpreterError::MissingMetaData.into()))?;
+
+        Ok((
+            Debugger::new(&components, main_component, None, env).unwrap(),
+            mapping,
+        ))
     }
 
     pub fn new(
@@ -150,8 +164,7 @@ impl Debugger {
         })
     }
 
-    // probably want a different return type
-    // Return InterpreterResult of Program Status, new struct
+    // Go to next step
     pub fn step(&mut self, n: u64) -> InterpreterResult<ProgramStatus> {
         for _ in 0..n {
             self.interpreter.step()?;
@@ -165,10 +178,6 @@ impl Debugger {
         ))
     }
 
-    /// continue the execution until a breakpoint is hit, needs a different
-    /// return type or we need a different "update status" method to communicate
-    /// with the adapter. The latter might be more ergonomic, though potentially
-    /// less efficient
     pub fn cont(&mut self) -> InterpreterResult<()> {
         self.debugging_ctx
             .set_current_time(self.interpreter.currently_executing_group());

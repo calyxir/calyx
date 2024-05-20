@@ -578,6 +578,9 @@ impl<'a> Simulator<'a> {
         // program counter as the size
         let mut leaf_nodes = vec![];
 
+        let mut par_map = std::mem::take(self.env.pc.par_map_mut());
+        let mut new_nodes = vec![];
+
         self.env.pc.vec_mut().retain_mut(|node| {
             // just considering a single node case for the moment
             match &self.env.ctx.primary[node.control_node_idx] {
@@ -590,7 +593,29 @@ impl<'a> Simulator<'a> {
                         node.mutate_into_next(self.env.ctx)
                     }
                 }
-                ControlNode::Par(_par) => todo!("not ready for par yet"),
+                ControlNode::Par(par) => {
+                    if par_map.contains_key(node) {
+                        let count = par_map.get_mut(node).unwrap();
+                        *count -= 1;
+                        if *count == 0 {
+                            par_map.remove(node);
+                            node.mutate_into_next(self.env.ctx)
+                        } else {
+                            false
+                        }
+                    } else {
+                        par_map.insert(
+                            node.clone(),
+                            par.stms().len().try_into().expect(
+                                "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
+                            ),
+                        );
+                        new_nodes.extend(
+                            par.stms().iter().map(|x| node.new_retain_comp(*x)),
+                        );
+                        false
+                    }
+                }
                 ControlNode::If(i) => {
                     if i.cond_group().is_some() {
                         todo!("if statement has a with clause")
@@ -674,6 +699,11 @@ impl<'a> Simulator<'a> {
                 ControlNode::Invoke(_) => todo!("invokes not implemented yet"),
             }
         });
+
+        // insert all the new nodes from the par into the program counter
+        self.env.pc.vec_mut().extend(new_nodes);
+        // return the par map to the program counter
+        *self.env.pc.par_map_mut() = par_map;
 
         self.undef_all_ports();
 

@@ -145,7 +145,7 @@ impl SearchPath {
                         // par's child count should be decremented. The latter
                         // seems more promising but I need to think on it more
 
-                        todo!("need to deal with par")
+                        return Some(*node);
                     }
                     ControlNode::If(_) => {
                         // there is nothing to do when ascending to an if as it
@@ -322,7 +322,7 @@ pub type ChildCount = u16;
 #[derive(Debug, Default)]
 pub(crate) struct ProgramCounter {
     vec: Vec<ControlPoint>,
-    _par_map: HashMap<ControlPoint, ChildCount>,
+    par_map: HashMap<ControlPoint, ChildCount>,
 }
 
 // we need a few things from the program counter
@@ -349,7 +349,7 @@ impl ProgramCounter {
 
         Self {
             vec,
-            _par_map: HashMap::new(),
+            par_map: HashMap::new(),
         }
     }
 
@@ -365,8 +365,16 @@ impl ProgramCounter {
         self.vec.iter_mut()
     }
 
-    pub(crate) fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
+    pub fn vec_mut(&mut self) -> &mut Vec<ControlPoint> {
         &mut self.vec
+    }
+
+    pub fn par_map_mut(&mut self) -> &mut HashMap<ControlPoint, ChildCount> {
+        &mut self.par_map
+    }
+
+    pub fn _par_map(&self) -> &HashMap<ControlPoint, ChildCount> {
+        &self.par_map
     }
 }
 
