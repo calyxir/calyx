@@ -157,13 +157,13 @@ mod tests {
               }
 
               wires {
-                static<2> group A {
+                group A {
                   a.write_en = 1'b1;
                   in.addr0 = 1'b0;
                   a.in = in.read_data;
                 }
                 
-                static<3> group B {
+                group B {
                   b.write_en = 1'b1;
                   b.in = a.out;
                 }
