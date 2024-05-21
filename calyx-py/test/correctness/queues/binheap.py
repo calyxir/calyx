@@ -72,6 +72,13 @@ def insert_binheap(prog, name):
         j.go = add.done
         find_left_child.done = j.done
 
+    valuereg = binheap.reg(32)
+    rankreg = binheap.reg(32)
+    value_store = binheap.reg_store(valuereg, value)
+    rank_store = binheap.reg_store(rankreg, rank)
+
+    _, _ = binheap.tuplify(valuereg, rankreg)
+
     return binheap
 
 

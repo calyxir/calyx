@@ -393,6 +393,16 @@ class ComponentBuilder:
         name = name or self.generate_name("and")
         return self.logic("and", size, name)
 
+    def or_(self, size: int, name: str = None) -> CellBuilder:
+        """Generate a StdOr cell."""
+        name = name or self.generate_name("or")
+        return self.logic("or", size, name)
+
+    def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdPad cell."""
+        name = name or self.generate_name("pad")
+        return self.cell(name, ast.Stdlib.pad(in_width, out_width))
+
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
         name = name or self.generate_name("not")
@@ -600,6 +610,32 @@ class ComponentBuilder:
             reg.in_ = sub_cell.out
             decr_group.done = reg.done
         return decr_group
+
+    def tuplify(self, reg1, reg2):
+        """Inserts wiring into `self` to perform `reg := (reg1, reg2)`.
+        It does so via bit shifting and padding.
+        The resultant register has width `reg1.width + reg2.width`.
+        Returns the group created and the resultant register.
+        """
+        width = reg1.infer_width_reg() + reg2.infer_width_reg()
+        reg = self.reg(width, f"tup_{reg1.name}_{reg2.name}")
+        or_ = self.or_(width)
+        lsh = self.lsh(width)
+        pad1 = self.pad(reg1.infer_width_reg(), width)
+        pad2 = self.pad(reg2.infer_width_reg(), width)
+
+        with self.group(f"{reg.name}_group") as tup_group:
+            pad1.in_ = reg1.out
+            lsh.left = pad1.out
+            lsh.right = const(width, reg2.infer_width_reg())
+            pad2.in_ = reg2.out
+            or_.left = lsh.out
+            or_.right = pad2.out
+            reg.write_en = 1
+            reg.in_ = or_.out
+            tup_group.done = reg.done
+
+        return tup_group, reg
 
     def lsh_use(self, input, ans, val=1):
         """Inserts wiring into `self` to perform `ans := input << val`."""
