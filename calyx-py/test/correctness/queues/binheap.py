@@ -43,13 +43,13 @@ def insert_binheap(prog, name):
 
     add = binheap.add(4)
     sub = binheap.sub(64)
-    mul = binheap.mul_pipe(64)
+    mul = binheap.mult_pipe(64)
     div = binheap.div_pipe(64)
 
-    with binheap.group() as find_parent:
+    with binheap.group("find_parent") as find_parent:
         # Find the parent of the `i`th element and store it in `j`.
         # That is, j := floor((i − 1) / 2)
-        sub.left = i
+        sub.left = i.out
         sub.right = 1
         sub.go = cb.HI
         div.left = sub.out
@@ -59,10 +59,10 @@ def insert_binheap(prog, name):
         j.go = div.done
         find_parent.done = j.done
 
-    with binheap.group() as find_left_child:
+    with binheap.group("find_left_child") as find_left_child:
         # Find the left child of the `i`th element and store it in `j`.
         # That is, j := 2i + 1
-        mul.left = i
+        mul.left = i.out
         mul.right = 2
         mul.go = cb.HI
         add.left = mul.out
@@ -72,20 +72,13 @@ def insert_binheap(prog, name):
         j.go = add.done
         find_left_child.done = j.done
 
-    write_val_to_i = binheap.mem_store_comb_mem_d1(
-        mem, i, value, rank
-    )  # This won't work, I need (value, rank) as a tuple
-
-    # ...
-
     return binheap
 
 
 def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
-    binheap = insert_binheap(prog, "binheap")
-    qc.insert_main(prog, binheap)
+    _ = insert_binheap(prog, "binheap")
     return prog.program
 
 
