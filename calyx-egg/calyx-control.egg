@@ -573,8 +573,21 @@
         (exclusive-with-all x ys)
     )
     (
+        (Cons x ys)
+    )
+    :ruleset control
+)
+
+(rule
+    (
+        (= x (Enable g (Attributes _)))
+        (= compaction (Par (Attributes a2) ys))
+        (= S (Seq attr1 (Cons compaction (Cons x xs))))
+        (exclusive-with-all x ys)
+    )
+    (
         ; TODO(cgyurgyik): update latency ((Cons x ys))
-        ; (let latency (max-latency (Cons x ys)))
+        (let latency (max-latency (Cons x ys)))
         ; (let new-attr (Attributes (map-insert a2 "promotable" latency)))
         (union
             (Seq attr1 (Cons compaction (Cons x xs)))
