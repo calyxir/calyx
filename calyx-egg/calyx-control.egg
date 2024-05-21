@@ -328,15 +328,17 @@
 
 ; seq { seq { ... } } => seq { ... }
 (rewrite
-    (Seq a1 (Cons (Seq a2 xs) (Nil)))
-    (Seq a2 xs)
+    (Seq (Attributes a1) (Cons (Seq (Attributes a2) xs) (Nil)))
+    (Seq (Attributes a2) xs)
+    :when ((map-not-contains a1 "new_fsm") (map-not-contains a2 "new_fsm"))
     :ruleset control
 )
 
 ; par { par { ... } } => par { ... }
 (rewrite
-    (Par a1 (Cons (Par a2 xs) (Nil)))
-    (Par a2 xs)
+    (Par (Attributes a1) (Cons (Par (Attributes a2) xs) (Nil)))
+    (Par (Attributes a2) xs)
+    :when ((map-not-contains a1 "new_fsm") (map-not-contains a2 "new_fsm"))
     :ruleset control
 )
 
@@ -349,13 +351,10 @@
                 (Nil))
         )
     )
-    :when (
-        (>= (list-length xs) FAN-OUT)
-    )
+    :when ((>= (list-length xs) FAN-OUT))
     :ruleset control
 )
 
-; TODO(cgyurgyik): Can we ever use logical OR in the :when condition?
 ; par { @promotable(1000) A; @promotable(1) B; } =>
 ; seq { @promotable(1000) A; @promotable(1) B; }
 (rewrite
@@ -388,17 +387,18 @@
 ;  }
 (rule
     (
-        (= S (Seq (Attributes attr) xs))
+        (= S (Seq (Attributes attr) (Cons y ys)))
         (map-not-contains attr "new-fsm")
-        (>= (list-length xs) SPLIT-SEQ)
+        (>= (list-length (Cons y ys)) SPLIT-SEQ)
     )
     (
+        (let xs (Cons y ys))
         (let middle (/ (list-length xs) 2))
         (let s1 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs 0 middle)))
         (let s2 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs middle (list-length xs))))
-        (union
+        (set
             (Seq (Attributes attr) xs)
-            (Seq (Attributes (map-empty)) (Cons s1 (Cons s2 (Nil))))
+            (Seq (Attributes attr) (Cons s1 (Cons s2 (Nil))))
         )
     )
     :ruleset control

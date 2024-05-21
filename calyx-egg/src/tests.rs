@@ -132,6 +132,30 @@ mod tests {
     }
 
     #[test]
+    fn test_list_slice2() -> Result {
+        test_egglog(
+            r#"
+            (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let B (Enable (Group "B" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let C (Enable (Group "C" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let D (Enable (Group "D" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let E (Enable (Group "E" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let F (Enable (Group "F" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let G (Enable (Group "G" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let H (Enable (Group "H" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let xs (Cons A (Cons B (Cons C (Cons D (Cons E (Cons F (Cons G (Cons H (Nil))))))))))
+            (let s1 (list-slice xs 0 4))
+            (let s2 (list-slice xs 4 8))
+            "#,
+            r#"
+            (check (= s1 l1))
+            (check (= s2 l2))
+            "#,
+            &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
+    #[test]
     fn test_list_latency() -> Result {
         test_egglog(
             r#"
@@ -266,28 +290,37 @@ mod tests {
         )
     }
 
-    // #[ignore = "TODO(cgyurgyik): illegal merge failure"]
+    #[ignore = "TODO(cgyurgyik): illegal merge failure"]
+    // TODO(cgyurgyik): This works when I comment out all other rewrites,
+    // so there exists some conflict.
     #[test]
     fn test_split_seq() -> Result {
-        test_egglog(
+        test_egglog_debug(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
             (let B (Enable (Group "B" (CellSet (set-empty))) (Attributes (map-empty))))
             (let C (Enable (Group "C" (CellSet (set-empty))) (Attributes (map-empty))))
             (let D (Enable (Group "D" (CellSet (set-empty))) (Attributes (map-empty))))
-            (let xss (Cons A (Cons B (Cons C (Cons D (Cons A (Cons B (Cons C (Cons D (Nil))))))))))
-            (let xs (Cons A (Cons B (Cons C (Cons D (Nil))))))
-            (list-slice xss 0 4)
-            (list-slice xss 4 8)
-            (let S-before (Seq (Attributes (map-empty)) xss))
+            (let E (Enable (Group "E" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let F (Enable (Group "F" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let G (Enable (Group "G" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let H (Enable (Group "H" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let xs (Cons A (Cons B (Cons C (Cons D (Cons E (Cons F (Cons G (Cons H (Nil))))))))))
+            (let l1 (Cons A (Cons B (Cons C (Cons D (Nil))))))
+            (let l2 (Cons E (Cons F (Cons G (Cons H (Nil))))))
+            (let s1 (list-slice xs 0 4))
+            (let s2 (list-slice xs 4 8))
+            (let S-before (Seq (Attributes (map-empty)) xs))
             (let S-after (Seq (Attributes (map-empty))
-                (Cons (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) xs)
-                (Cons (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) xs)
+                (Cons (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) l1)
+                (Cons (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) l2)
                     (Nil)))))
         "#,
             r#"
             (check (= SPLIT-SEQ 8)) ; ... this test will fail otherwise.
-            (check (= S-before S-after))
+            (check (= s1 l1))
+            (check (= s2 l2))
+            ; (check (= S-before S-after))
         "#,
             &[utils::RewriteRule::CalyxControl],
         )

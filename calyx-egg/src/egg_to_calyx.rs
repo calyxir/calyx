@@ -14,6 +14,11 @@ use egglog::{ast::Literal, match_term_app, Term, TermDag};
 use std::io::Write;
 use tempfile::{tempfile, NamedTempFile};
 
+// TODO(cgyurgyik): Eentually, we want to emit the entire Calyx program.
+// This will require storing the parsed Calyx program, updating the control
+// schedule à la egglog, and then determining whether the new control schedule
+// introduced any new groups. If so, they should be built and added to the
+// component. Finally, the new component should be emitted.
 pub struct EggToCalyx<'a> {
     termdag: &'a TermDag,
 }
@@ -104,6 +109,13 @@ impl<'a> EggToCalyx<'a> {
             ("Attributes", [mapping]) => {
                 self.emit(f,indent_level, self.termdag.get(*mapping))
             }
+            ("Par", [attributes, list]) => {
+                self.emit(f,indent_level, self.termdag.get(*attributes))?;
+                writeln!(f,"par {{")?;
+                self.emit(f, indent_level + 1, self.termdag.get(*list))?;
+                writeln!(f, "{}}}", " ".repeat(indent_level))?;
+                Ok(())
+            }
             ("Seq", [attributes, list]) => {
                 self.emit(f,indent_level, self.termdag.get(*attributes))?;
                 writeln!(f,"seq {{")?;
@@ -140,6 +152,14 @@ mod tests {
 
     use super::*;
 
+    // String equality without whitespace.
+    fn assert_str_equal(a: &str, b: &str) {
+        assert_eq!(
+            a.split_ascii_whitespace().collect::<Vec<_>>(),
+            b.split_ascii_whitespace().collect::<Vec<_>>()
+        );
+    }
+
     #[test]
     fn test_simple() -> utils::Result {
         // TODO(cgyurgyik): Incomplete.
@@ -170,7 +190,7 @@ mod tests {
               }
 
               control {
-                seq { seq { A; B; } }
+                par { par { A; B; } }
               }
             }
         "#,
@@ -185,12 +205,11 @@ mod tests {
             .eval_expr(&egglog::ast::Expr::Var((), identifier.into()))
             .unwrap();
         let (_, extracted) = egraph.extract(value, &mut termdag, &sort);
-        println!("\n{}\n", termdag.to_string(&extracted));
 
-        let S: String = program_from_egglog(extracted, &termdag)?;
-        println!("{}", S);
-
+        assert_str_equal(
+            &program_from_egglog(extracted, &termdag)?,
+            "par { A; B; }",
+        );
         Ok(())
-        // converter.emit(expr)
     }
 }
