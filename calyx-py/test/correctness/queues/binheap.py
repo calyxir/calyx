@@ -65,7 +65,58 @@ def insert_untuplify(prog, name, w1, w2):
     return comp
 
 
-def insert_binheap(prog, name, tuplify, untuplify):
+def insert_swap(prog, name, width, len, idx_w):
+    """Inserts the component `swap` into the program.
+
+    It takes two `idx_w`-bit inputs `a` and `b` and accepts a memory by reference.
+    The memory is a `len`-element memory of `width`-bit elements.
+    It swaps the values in the memory at addresses `a` and `b`.
+    """
+
+    comp = prog.component(name)
+    a = comp.input("a", idx_w)
+    b = comp.input("b", idx_w)
+    mem = comp.seq_mem_d1("mem", width, len, idx_w, is_ref=True)
+
+    mem_a = comp.reg(width)
+    mem_b = comp.reg(width)
+    temp_val = comp.reg(width)
+
+    read_a_phase_1 = comp.mem_read_seq_d1(mem, a, "read_a_1")
+    read_a_phase_2 = comp.mem_write_seq_d1_to_reg(
+        mem, mem_a, "read_a_2"
+    )  # mem_a := mem[a]
+    read_b_phase_1 = comp.mem_read_seq_d1(mem, b, "read_b_1")
+    read_b_phase_2 = comp.mem_write_seq_d1_to_reg(
+        mem, mem_b, "read_b_2"
+    )  # mem_b := mem[b]
+    write_a = comp.mem_store_seq_d1(mem, a, mem_a.out, "write_a")  # mem[a] := mem_a
+    write_b = comp.mem_store_seq_d1(mem, b, mem_b.out, "write_b")  # mem[b] := mem_b
+
+    with comp.group("swap_group") as swap_group:
+        # Swap the values at registers `a_val` and `b_val`
+        temp_val.in_ = mem_a.out
+        temp_val.go = cb.HI
+        mem_a.in_ = mem_b.out
+        mem_a.go = temp_val.done
+        mem_b.in_ = temp_val.out
+        mem_b.go = mem_a.done
+        swap_group.done = mem_b.done
+
+    comp.control += [
+        read_a_phase_1,
+        read_a_phase_2,
+        read_b_phase_1,
+        read_b_phase_2,
+        swap_group,
+        write_a,
+        write_b,
+    ]
+
+    return comp
+
+
+def insert_binheap(prog, name, tuplify, untuplify, swap):
     """Inserts the component `binheap` into the program.
 
     It is a minimum binary heap, represented as an array.
@@ -94,6 +145,7 @@ def insert_binheap(prog, name, tuplify, untuplify):
 
     tuplify = comp.cell("tuplify", tuplify)
     untuplify = comp.cell("untuplify", untuplify)
+    swap = comp.cell("swap", swap)
 
     mem = comp.seq_mem_d1("mem", 64, 15, 4)
     # The memory to store the heap, represented as an array.
@@ -111,6 +163,7 @@ def insert_binheap(prog, name, tuplify, untuplify):
 
     parent = comp.reg(4)
     leftchild = comp.reg(4)
+    rightchild = comp.reg(4)
 
     with comp.group("find_parent") as find_parent:
         # Find the parent of the `leftchild`th element and store it in `parent`.
@@ -127,7 +180,7 @@ def insert_binheap(prog, name, tuplify, untuplify):
 
     with comp.group("find_left_child") as find_leftchild:
         # Find the left child of the `parent`th element and store it in `leftchild`.
-        # That is, leftchild := 2*`parent` + 1
+        # That is, leftchild := 2*parent + 1
         mul.left = parent.out
         mul.right = 2
         mul.go = cb.HI
@@ -138,6 +191,8 @@ def insert_binheap(prog, name, tuplify, untuplify):
         leftchild.go = add.done
         find_leftchild.done = leftchild.done
 
+    find_rightchild = comp.add_use(leftchild.out, 1)
+
     return comp
 
 
@@ -146,7 +201,8 @@ def build():
     prog = cb.Builder()
     tuplify = insert_tuplify(prog, "tuplify", 32, 32)
     untuplify = insert_untuplify(prog, "untuplify", 32, 32)
-    _ = insert_binheap(prog, "binheap", tuplify, untuplify)
+    swap = insert_swap(prog, "swap", 64, 15, 4)
+    _ = insert_binheap(prog, "binheap", tuplify, untuplify, swap)
     return prog.program
 
 

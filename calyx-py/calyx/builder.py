@@ -613,56 +613,6 @@ class ComponentBuilder:
             decr_group.done = reg.done
         return decr_group
 
-    def tuplify(self, reg, reg1, reg2):
-        """Inserts wiring into `self` to perform `reg := (reg1, reg2)`.
-        It does so via bit shifting and padding.
-        The resultant register is assumed to have width `reg1.width + reg2.width`.
-        Returns the group that does this.
-        """
-        width = reg.infer_width_reg()
-        width1 = reg1.infer_width_reg()
-        width2 = reg2.infer_width_reg()
-        or_ = self.or_(width)
-        lsh = self.lsh(width)
-        pad1 = self.pad(width1, width)
-        pad2 = self.pad(width2, width)
-
-        with self.group(f"{reg.name}_tuplify_group") as tup_group:
-            pad1.in_ = reg1.out
-            lsh.left = pad1.out
-            lsh.right = const(width, width2)
-            pad2.in_ = reg2.out
-            or_.left = lsh.out
-            or_.right = pad2.out
-            reg.write_en = 1
-            reg.in_ = or_.out
-            tup_group.done = reg.done
-
-        return tup_group
-
-    def untuplify(self, reg, reg1, reg2):
-        """Inserts wiring into `self` to perform `(reg1, reg2) := reg`.
-        It does so via slicing.
-        The resultant registers are assumed to have widths that add up to `reg.width`.
-        Returns the group that does this.
-        """
-        width = reg.infer_width_reg()
-        width1 = reg1.infer_width_reg()
-        width2 = reg2.infer_width_reg()
-        slice1 = self.bit_slice(width, width2, width, width1)
-        slice2 = self.slice(width, width2)
-
-        with self.group(f"{reg.name}_untuplify_group") as untup_group:
-            slice1.in_ = reg.out
-            reg1.write_en = 1
-            reg1.in_ = slice1.out
-            slice2.in_ = reg.out
-            reg2.write_en = 1
-            reg2.in_ = slice2.out
-            untup_group.done = reg1.done & reg2.done
-
-        return untup_group
-
     def lsh_use(self, input, ans, val=1):
         """Inserts wiring into `self` to perform `ans := input << val`."""
         width = ans.infer_width_reg()
@@ -696,12 +646,11 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_comb_mem_d1(self, mem, i, reg, groupname=None):
+    def mem_load_comb_mem_d1(self, mem, i, reg, groupname):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
         where `mem` is a comb_mem_d1 memory.
         """
         assert mem.is_comb_mem_d1()
-        groupname = groupname or f"{mem.name()}_load_to_reg"
         with self.group(groupname) as load_grp:
             mem.addr0 = i
             reg.write_en = 1
@@ -709,11 +658,10 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_comb_mem_d1(self, mem, i, val, groupname=None):
+    def mem_store_comb_mem_d1(self, mem, i, val, groupname):
         """Inserts wiring into `self` to perform `mem[i] := val`,
         where `mem` is a comb_mem_d1 memory."""
         assert mem.is_comb_mem_d1()
-        groupname = groupname or f"store_into_{mem.name()}"
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
@@ -721,37 +669,34 @@ class ComponentBuilder:
             store_grp.done = mem.done
         return store_grp
 
-    def mem_read_seq_d1(self, mem, i, groupname=None):
+    def mem_read_seq_d1(self, mem, i, groupname):
         """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
         where `mem` is a seq_d1 memory.
         Note that this does not write the value anywhere.
         """
         assert mem.is_seq_mem_d1()
-        groupname = groupname or f"read_from_{mem.name()}"
         with self.group(groupname) as read_grp:
             mem.addr0 = i
             mem.content_en = 1
             read_grp.done = mem.done
         return read_grp
 
-    def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
+    def mem_write_seq_d1_to_reg(self, mem, reg, groupname):
         """Inserts wiring into `self` to perform reg := <mem_latched_value>,
         where `mem` is a seq_d1 memory that already has some latched value.
         """
         assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_write_to_reg"
         with self.group(groupname) as write_grp:
             reg.write_en = 1
             reg.in_ = mem.read_data
             write_grp.done = reg.done
         return write_grp
 
-    def mem_store_seq_d1(self, mem, i, val, groupname=None):
+    def mem_store_seq_d1(self, mem, i, val, groupname):
         """Inserts wiring into `self` to perform `mem[i] := val`,
         where `mem` is a seq_d1 memory.
         """
         assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_store"
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
@@ -760,12 +705,11 @@ class ComponentBuilder:
             store_grp.done = mem.done
         return store_grp
 
-    def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
+    def mem_load_to_mem(self, mem, i, ans, j, groupname):
         """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
         where `mem` and `ans` are both comb_mem_d1 memories.
         """
         assert mem.is_comb_mem_d1() and ans.is_comb_mem_d1()
-        groupname = groupname or f"{mem.name()}_load_to_mem"
         with self.group(groupname) as load_grp:
             mem.addr0 = i
             ans.write_en = 1
