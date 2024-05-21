@@ -175,7 +175,6 @@ mod tests {
             }
         "#,
         )?;
-        println!("{}", program);
         let mut egraph = egglog::EGraph::default();
         egraph.parse_and_run_program(&program)?;
 

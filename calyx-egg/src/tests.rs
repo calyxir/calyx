@@ -18,10 +18,11 @@ mod tests {
     ///     "(check (= A B))",
     ///     &[utils::RewriteRule::CalyxControl],
     /// )
-    fn test_egglog(
+    fn test_egglog_internal(
         prologue: &str,
         check: &str,
         rules: &[utils::RewriteRule],
+        display: bool,
     ) -> Result {
         let mut s: String = String::new();
         for rule in rules {
@@ -31,15 +32,43 @@ mod tests {
         s.push_str(utils::run_schedule(&rules)?.as_str());
         s.push_str(check);
 
-        let result = EGraph::default().parse_and_run_program(&s).map(|lines| {
+        let mut egraph = EGraph::default();
+        let result = egraph.parse_and_run_program(&s).map(|lines| {
             for line in lines {
                 println!("{}", line);
             }
         });
+
+        if display {
+            let serialized = egraph.serialize_for_graphviz(true);
+            let file = tempfile::NamedTempFile::new()?;
+            let path = file.into_temp_path().with_extension("svg");
+            serialized.to_svg_file(path.clone())?;
+            std::process::Command::new("open")
+                .arg(path.to_str().unwrap())
+                .output()?;
+        }
+
         if result.is_err() {
             println!("{:?}", result);
         }
         Ok(result?)
+    }
+
+    fn test_egglog(
+        prologue: &str,
+        check: &str,
+        rules: &[utils::RewriteRule],
+    ) -> Result {
+        test_egglog_internal(prologue, check, rules, false)
+    }
+
+    fn test_egglog_debug(
+        prologue: &str,
+        check: &str,
+        rules: &[utils::RewriteRule],
+    ) -> Result {
+        test_egglog_internal(prologue, check, rules, true)
     }
 
     #[test]
