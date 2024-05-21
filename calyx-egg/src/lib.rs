@@ -1,6 +1,5 @@
 //! Calyx <=> egglog
 
-mod optimize;
+mod egg_to_calyx;
 mod tests;
-mod to_calyx;
 mod utils;

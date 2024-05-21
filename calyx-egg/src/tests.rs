@@ -62,11 +62,11 @@ mod tests {
             (let B (Enable (Group "B" (CellSet (set-empty))) (Attributes (map-empty))))
             (let C (Enable (Group "C" (CellSet (set-empty))) (Attributes (map-empty))))
             (let D (Enable (Group "D" (CellSet (set-empty))) (Attributes (map-empty))))
-            (list-length-demand (Nil))
-            (list-length-demand (Cons D (Nil)))
-            (list-length-demand (Cons C (Cons D (Nil))))
-            (list-length-demand (Cons B (Cons C (Cons D (Nil)))))
-            (list-length-demand (Cons A (Cons B (Cons C (Cons D (Nil))))))
+            (Nil)
+            (Cons D (Nil))
+            (Cons C (Cons D (Nil)))
+            (Cons B (Cons C (Cons D (Nil))))
+            (Cons A (Cons B (Cons C (Cons D (Nil)))))
             "#,
             r#"
             (check (= (list-length (Nil)) 0))
@@ -88,7 +88,6 @@ mod tests {
             (let C (Enable (Group "C" (CellSet (set-empty))) (Attributes (map-empty))))
             (let D (Enable (Group "D" (CellSet (set-empty))) (Attributes (map-empty))))
             (let xs (Cons A (Cons B (Cons C (Cons D (Nil))))))
-            (list-length-demand xs)
             (_sliceB xs 1) (_sliceE xs 2)
             (list-slice xs 1 2) (list-slice xs 1 3) (list-slice xs 0 1)
             "#,
@@ -118,10 +117,6 @@ mod tests {
             (let X (Enable g1 (Attributes m1)))
             (let Y (Enable g2 (Attributes m2)))
             (let xs (Cons X (Cons S (Cons Y (Nil)))))
-
-            (list-length-demand xs) (list-length-demand ys)
-            (sum-latency-demand xs) (sum-latency-demand ys)
-            (max-latency-demand xs) (max-latency-demand ys)
             "#,
             r#"
             (check (= (max-latency xs) 3))
@@ -178,7 +173,6 @@ mod tests {
             (let C (Enable (Group "C" (CellSet (set-empty))) (Attributes (map-empty))))
             (let D (Enable (Group "D" (CellSet (set-empty))) (Attributes (map-empty))))
             (let xs (Cons A (Cons B (Cons C (Cons D (Nil))))))
-            (list-length-demand xs)
             (let P (Par (Attributes (map-empty)) xs))
         "#,
             r#"
@@ -243,7 +237,7 @@ mod tests {
         )
     }
 
-    #[ignore = "TODO(cgyurgyik): illegal merge failure"]
+    // #[ignore = "TODO(cgyurgyik): illegal merge failure"]
     #[test]
     fn test_split_seq() -> Result {
         test_egglog(
@@ -254,8 +248,6 @@ mod tests {
             (let D (Enable (Group "D" (CellSet (set-empty))) (Attributes (map-empty))))
             (let xss (Cons A (Cons B (Cons C (Cons D (Cons A (Cons B (Cons C (Cons D (Nil))))))))))
             (let xs (Cons A (Cons B (Cons C (Cons D (Nil))))))
-            (list-length-demand xss)
-            (list-length-demand xs)
             (list-slice xss 0 4)
             (list-slice xss 4 8)
             (let S-before (Seq (Attributes (map-empty)) xss))
@@ -269,6 +261,146 @@ mod tests {
             (check (= S-before S-after))
         "#,
             &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
+    #[test]
+    fn test_calyx_to_egg_simple() -> utils::Result {
+        utils::run_calyx_to_egglog(
+            r#"
+            import "primitives/core.futil";
+            import "primitives/memories/comb.futil";
+            
+            component main() -> () {
+              cells {
+                @external(1) in = comb_mem_d1(32, 1, 1);
+                a = std_reg(32);
+                b = std_reg(32);
+              }
+            
+              wires {
+                group A {
+                  a.write_en = 1'b1;
+                  in.addr0 = 1'b0;
+                  a.in = in.read_data;
+                  A[done] = a.done;
+                }
+            
+                group B {
+                  b.write_en = 1'b1;
+                  b.in = a.out;
+                  B[done] = b.done;
+                }
+              }
+            
+              control {
+                seq { @promotable(2) A; @promotable(3) B; }
+              }
+            }
+        "#,
+            r#"
+            (check (=
+                egg-main 
+                (Seq (Attributes (map-empty)) 
+                (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 2))) 
+                (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 3)))
+                    (Nil))))
+            ))"#,
+        )
+    }
+
+    #[test]
+    fn test_calyx_to_egg_compaction() -> utils::Result {
+        utils::run_calyx_to_egglog(
+            r#"
+    import "primitives/core.futil";
+    import "primitives/memories/comb.futil";
+
+    component main () -> () {
+      cells {
+        a_reg = std_reg(32);
+        b_reg = std_reg(32);
+        c_reg = std_reg(32);
+        d_reg = std_reg(32);
+        a = std_add(32);
+        ud = undef(1);
+      }
+
+      wires {
+        group A<"promotable"=1> {
+          a_reg.in = 32'd5;
+          a_reg.write_en = 1'd1;
+          A[done] = a_reg.done;
+        }
+
+        group B<"promotable"=10> {
+            b_reg.in = 32'd10;
+            b_reg.write_en = 1'd1;
+            B[done] = ud.out;
+          }
+
+        group C<"promotable"=1> {
+          a.left = a_reg.out;
+          a.right = b_reg.out;
+          c_reg.in = a.out;
+          c_reg.write_en = 1'd1;
+          C[done] = c_reg.done;
+        }
+
+        group D<"promotable"=10> {
+          d_reg.in = a_reg.out;
+          d_reg.write_en = 1'd1;
+          D[done] = ud.out;
+        }
+      }
+
+      control {
+        @promotable(22) seq {
+          @promotable A;
+          @promotable(10) B;
+          @promotable C;
+          @promotable(10) D;
+        }
+      }
+    }
+            "#,
+            r#"
+                ; seq { A; B; C; D; }
+                (check (=
+                    egg-main
+                    (Seq (Attributes (map-insert (map-empty) "promotable" 22)) 
+                        (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) 
+                        (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10))) 
+                        (Cons (Enable C (Attributes (map-insert (map-empty) "promotable" 1))) 
+                        (Cons (Enable D (Attributes (map-insert (map-empty) "promotable" 10))) 
+                            (Nil))))))))
+                
+                ; seq { par { A; } B; C; D; }
+                (check (=
+                    egg-main
+                    (Seq (Attributes (map-insert (map-empty) "promotable" 22)) 
+                    (Cons (Par (Attributes (map-empty)) 
+                        (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) 
+                            (Nil)
+                        )
+                    )
+                    (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10 ))) 
+                    (Cons (Enable C (Attributes (map-insert (map-empty) "promotable" 1))) 
+                    (Cons (Enable D (Attributes (map-insert (map-empty) "promotable" 10))) 
+                        (Nil))))))))
+                        
+                ; seq { par { A; B; } C; D; }
+                (check (=
+                    egg-main
+                    (Seq (Attributes (map-insert (map-empty) "promotable" 22))
+                    (Cons (Par (Attributes (map-empty))
+                            (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10)))
+                            (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1)))
+                                (Nil))))
+                    (Cons (Enable C (Attributes (map-insert (map-empty) "promotable" 1)))
+                    (Cons (Enable D (Attributes (map-insert (map-empty) "promotable" 10)))
+                        (Nil)))))))
+                    "#,
         )
     }
 }

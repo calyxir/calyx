@@ -1,7 +1,7 @@
 use calyx_frontend::Attribute;
 
 use super::StaticGroup;
-use std::rc::Rc;
+use std::{fmt, rc::Rc};
 
 use super::{Attributes, Cell, CombGroup, GetAttributes, Group, Id, Port, RRC};
 

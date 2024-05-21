@@ -5,9 +5,12 @@
 ; Cell
 (datatype _Cell)
 (function Cell (String) _Cell)
+
 ; Set[Cell]
 (sort CellSetBase (Set _Cell))
 (sort _CellSet)
+(function CellSet (CellSetBase) _CellSet)
+
 ; Group
 (datatype _Group)
 (function Group (String _CellSet) _Group)
@@ -28,8 +31,15 @@
 (function Seq (_Attributes List) Control)
 (function Par (_Attributes List) Control)
 
+(ruleset analysis)
 (ruleset cell-set)
-(function CellSet (CellSetBase) _CellSet)
+(ruleset control)
+(ruleset list)
+
+
+; -----------------------------------------------------------------------------
+; CELLS
+; -----------------------------------------------------------------------------
 (function cellset-length (_CellSet) i64 :unextractable)
 (rule
     (
@@ -49,7 +59,7 @@
 ; -----------------------------------------------------------------------------
 ; LISTS
 ; -----------------------------------------------------------------------------
-(ruleset list)
+
 (function car (List) Control)
 (rewrite
     (car (Cons x xs))
@@ -67,38 +77,13 @@
 )
 
 (function list-length (List) i64)
-; TODO(cgyurgyik): I'm not entirely sure when/why we need demands. I think 
-; part of the issue here is we can't union with Base types, i.e., i64.
-(relation list-length-demand (List))
-(rule
-    (
-        (list-length-demand (Nil))
-    )
-    (
-        (set (list-length (Nil)) 0)
-    )
-    :ruleset list
-)
+
+(set (list-length (Nil)) 0)
 
 (rule
-    (
-        (list-length-demand (Cons x xs))
-    )
-    (
-        (list-length-demand xs)
-    )
-    :ruleset list
-)
-
-(rule
-    (
-        (list-length-demand (Cons x xs))
-        (= xs-length (list-length xs))
-    )
-    (
-        (set (list-length (Cons x xs)) (+ xs-length 1))
-    )
-    :ruleset list
+    ((Cons x xs)
+        (= xs-length (list-length xs)))
+    ((set (list-length (Cons x xs)) (+ xs-length 1)))
 )
 
 (function list-concat (List List) List)
@@ -216,8 +201,6 @@
 ; ANALYSIS
 ; -----------------------------------------------------------------------------
 
-(ruleset analysis)
-
 ; (relation -> (Control Control)) ; edge
 ; (relation path (Control Control)) ; path
 ; (rule
@@ -271,26 +254,10 @@
 
 ; TODO(cgyurgyik): define.
 (function exclusive-with-all (Control List) bool)
-(relation exclusive-with-all-demand (Control List))
 (rule
-    (
-        (= E (Enable g _))
-        (exclusive-with-all-demand E (Nil))
-
-    )
+    ((= E (Enable g _)))
     (
         (set (exclusive-with-all E (Nil)) true)
-    )
-    :ruleset analysis
-)
-
-(rule
-    (
-        (= E (Enable g _))
-        (exclusive-with-all E (Cons x xs))
-    )
-    (
-        (exclusive-with-all-demand E xs)
     )
     :ruleset analysis
 )
@@ -358,18 +325,19 @@
 ; -----------------------------------------------------------------------------
 ; CONTROL
 ; -----------------------------------------------------------------------------
-(ruleset control)
 
 ; seq { seq { ... } } => seq { ... }
 (rewrite
     (Seq a1 (Cons (Seq a2 xs) (Nil)))
     (Seq a2 xs)
+    :ruleset control
 )
 
 ; par { par { ... } } => par { ... }
 (rewrite
     (Par a1 (Cons (Par a2 xs) (Nil)))
     (Par a2 xs)
+    :ruleset control
 )
 
 ; par { A; B; C; D; } => par { par { A; B; } par { C; D; } }
@@ -450,7 +418,7 @@
         (let xxs (list-find e rS)) ; [x B A]
         (let xs (cdr xxs)) ; [B A]
         (let xs-reverse (list-reverse xs)) ; [A B]
-        (union
+        (set
             (control-before e S)
             xs-reverse
         )
@@ -463,44 +431,29 @@
         (= S (Seq attr (Nil)))
     )
     (
-        (union (control-before x S) (Nil))
+        (set (control-before x S) (Nil))
     )
     :ruleset analysis
 )
 
 (function max-latency (List) i64)
-(relation max-latency-demand (List))
-(rule
-    ((max-latency-demand (Nil)))
-    ((set (max-latency (Nil)) 0))
-    :ruleset analysis
-)
+(set (max-latency (Nil)) 0)
 (rule
     (
-        (max-latency-demand (Cons x xs))
-    )
-    (
-        (max-latency-demand xs)
-    )
-    :ruleset analysis
-)
-
-(rule
-    (
-        (max-latency-demand (Cons (Enable _ (Attributes m)) xs))
+        (= E (Cons (Enable _ (Attributes m)) xs))
         (= incumbent (max-latency xs))
         (map-contains m "promotable")
         (= current (map-get m "promotable"))
     )
     (
-        (set (max-latency (Cons (Enable _ (Attributes m)) xs)) (max current incumbent))
+        (set (max-latency E) (max current incumbent))
     )
     :ruleset analysis
 )
 
 (rule
     (
-        (max-latency-demand (Cons (Seq (Attributes m) ys) xs))
+        (= E (Cons (Seq (Attributes m) ys) xs))
         (= incumbent (max-latency xs))
         (map-contains m "static")
         (= current (map-get m "static"))
@@ -512,71 +465,56 @@
 ) ; TODO(cgyurgyik): Maybe try going through `ys` if @static attribute DNE.
 
 (function sum-latency (List) i64)
-(relation sum-latency-demand (List))
-(rule
-    ((sum-latency-demand (Nil)))
-    ((set (sum-latency (Nil)) 0))
-    :ruleset analysis
-)
+(set (sum-latency (Nil)) 0)
 
 (rule
     (
-        (sum-latency-demand (Cons x xs))
-    )
-    (
-        (sum-latency-demand xs)
-    )
-    :ruleset analysis
-)
-
-(rule
-    (
-        (sum-latency-demand (Cons (Enable _ (Attributes m)) xs))
+        (= ys (Cons (Enable _ (Attributes m)) xs))
         (= sum (sum-latency xs))
         (map-contains m "promotable")
         (= latency (map-get m "promotable"))
     )
     (
-        (set (sum-latency (Cons (Enable _ (Attributes m)) xs)) (+ sum latency))
+        (set (sum-latency ys) (+ sum latency))
     )
     :ruleset analysis
 )
 
 (rule
     (
-        (sum-latency-demand (Cons (Seq (Attributes m) ys) xs))
+        (= xss (Cons (Seq (Attributes m) ys) xs))
         (= sum (sum-latency xs))
         (map-contains m "static")
         (= latency (map-get m "static"))
     )
     (
-        (set (sum-latency (Cons (Seq (Attributes m) ys) xs)) (+ sum latency))
+        (set (sum-latency xss) (+ sum latency))
     )
     :ruleset analysis
 )
 
 (rule
     (
-        (sum-latency-demand (Cons (Par (Attributes m) ys) xs))
+        (= xss (Cons (Par (Attributes m) ys) xs))
         (= sum (sum-latency xs))
         (map-contains m "static")
         (= latency (map-get m "static"))
     )
     (
-        (set (sum-latency (Cons (Par (Attributes m) ys) xs)) (+ sum latency))
+        (set (sum-latency xss) (+ sum latency))
     )
     :ruleset analysis
 )
 
 (rule
     (
-        (sum-latency-demand (Cons (Par (Attributes m) ys) xs))
+        (= xss (Cons (Par (Attributes m) ys) xs))
         (= sum (sum-latency xs))
         (map-not-contains m "static")
         (= latency (max-latency ys))
     )
     (
-        (set (sum-latency (Cons (Par (Attributes m) ys) xs)) (+ sum latency))
+        (set (sum-latency xss) (+ sum latency))
     )
     :ruleset analysis
 )
@@ -632,12 +570,10 @@
         (= x (Enable g (Attributes _)))
         (= compaction (Par (Attributes a2) ys))
         (= S (Seq attr1 (Cons compaction (Cons x xs))))
-        ; TODO(cgyurgyik): How to on-the-fly demands?
-        ; https://egraphs.zulipchat.com/#narrow/stream/375765-egg.2Fegglog/topic/On-the-fly.20demands.2E
-        ; (exclusive-with-all x ys)
+        (exclusive-with-all x ys)
     )
     (
-        ; TODO(cgyurgyik): update latency (max-latency-demand (Cons x ys))
+        ; TODO(cgyurgyik): update latency ((Cons x ys))
         ; (let latency (max-latency (Cons x ys)))
         ; (let new-attr (Attributes (map-insert a2 "promotable" latency)))
         (union
