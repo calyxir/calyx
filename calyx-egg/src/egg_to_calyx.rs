@@ -14,7 +14,7 @@ use egglog::{ast::Literal, match_term_app, Term, TermDag};
 use std::io::Write;
 use tempfile::{tempfile, NamedTempFile};
 
-// TODO(cgyurgyik): Eentually, we want to emit the entire Calyx program.
+// TODO(cgyurgyik): Eventually, we want to emit the entire Calyx program.
 // This will require storing the parsed Calyx program, updating the control
 // schedule à la egglog, and then determining whether the new control schedule
 // introduced any new groups. If so, they should be built and added to the
