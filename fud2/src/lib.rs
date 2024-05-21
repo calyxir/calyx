@@ -287,6 +287,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             "cider.exe",
             "$calyx-base/target/debug/cider",
         )?;
+        e.config_var_or(
+            "cider-converter",
+            "cider-converter.exe",
+            "$calyx-base/target/debug/cider-data-converter",
+        )?;
         e.rule(
             "cider",
             "$cider-exe -l $calyx-base --raw --data data.json $in > $out",
@@ -311,6 +316,21 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             &["$sim_data"],
             &["interp-dat.py"],
         )?;
+
+        e.rule(
+            "cider2",
+            "$cider-exe -l $calyx-base --data data.dump $in flat > $out",
+        )?;
+
+        e.rule("dump-to-interp", "$cider-converter --to cider $in > $out")?;
+        e.rule("interp-to-dump", "$cider-converter --to json $in")?;
+        e.build_cmd(
+            &["data.dump"],
+            "dump-to-interp",
+            &["$sim_data"],
+            &["$cider-converter"],
+        )?;
+
         Ok(())
     });
     bld.op(
@@ -326,6 +346,23 @@ pub fn build_driver(bld: &mut DriverBuilder) {
                 "interp-to-dat",
                 &[out_file],
                 &["$sim_data", "interp-dat.py"],
+            )?;
+            Ok(())
+        },
+    );
+    bld.op(
+        "interp-flat",
+        &[sim_setup, calyx_setup, cider_setup],
+        calyx,
+        dat,
+        |e, input, output| {
+            let out_file = "interp_out.dump";
+            e.build_cmd(&[out_file], "cider2", &[input], &["data.dump"])?;
+            e.build_cmd(
+                &[output],
+                "interp-to-dump",
+                &[out_file],
+                &["$sim_data", "$cider-converter"],
             )?;
             Ok(())
         },
