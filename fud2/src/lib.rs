@@ -170,7 +170,10 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     // [Needs YXI backend compiled] Setup for creating a custom testbench (needed for FIRRTL)
     let testbench_refmem_setup = bld.setup("Custom Testbench Setup", |e| {
         // Convert all ref cells to @external (FIXME: YXI should work for both?)
-        e.rule("external-to-ref", "sed 's/ref /@external /g' $in > $out")?;
+        e.rule("ref-to-external", "sed 's/ref /@external /g' $in > $out")?;
+
+        // Convert all @external cells to ref (FIXME: we want to deprecate @external)
+        e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
 
         // Produce a custom testbench that handles memory reading and writing.
         e.var("testbench", "refmem_tb.sv")?;
@@ -239,8 +242,45 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         calyx,
         firrtl,
         |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
+            // Temporary Calyx where all refs are converted into external (FIXME: fix YXI to emit for ref as well?)
+            let only_externals_calyx = "external.futil";
+            // Temporary Calyx where all externals are converted into refs (for FIRRTL backend)
+            let only_refs_calyx = "ref.futil";
+            // JSON with memory information created by YXI
+            let memories_json = "memory-info.json";
+            // testbench creation needs a file to output to
+            let dummy_testbench = "refmem-tb-copy.sv";
+            // Holds contents of file we want to output. Gets cat-ed via final dummy command
+            let tmp_out = "tmp-out.fir";
+            // Convert ref into external to get YXI working (FIXME: fix YXI to emit for ref as well?)
+            e.build_cmd(
+                &[only_externals_calyx],
+                "ref-to-external",
+                &[input],
+                &[],
+            )?;
+            // Convert external to ref to get FIRRTL backend working
+            e.build_cmd(&[only_refs_calyx], "external-to-ref", &[input], &[])?;
+
+            // Get YXI to generate JSON for testbench generation
+            e.build_cmd(
+                &[memories_json],
+                "calyx",
+                &[only_externals_calyx],
+                &[],
+            )?;
+            e.arg("backend", "yxi")?;
+            // generate custom testbench
+            e.build_cmd(
+                &[dummy_testbench],
+                "generate-refmem-testbench",
+                &[memories_json],
+                &[],
+            )?;
+            e.build_cmd(&[tmp_out], "calyx", &[only_refs_calyx], &[])?;
             e.arg("backend", "firrtl")?;
+            // dummy command to make sure custom testbench is created but not emitted as final answer
+            e.build_cmd(&[output], "dummy", &[tmp_out, dummy_testbench], &[])?;
             Ok(())
         },
     );
