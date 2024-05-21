@@ -22,8 +22,8 @@ def insert_binheap(prog, name):
     cmd = comp.input("cmd", 2)
     # If this is 0, we pop. If it is 1, we peek.
     # If it is 2, we push `value` to the queue.
-    value = comp.input("value", 32)  # The value to push to the queue
-    rank = comp.input("rank", 32)  # The rank with which to push the value
+    value_i = comp.input("value", 32)  # The value to push to the queue
+    rank_i = comp.input("rank", 32)  # The rank with which to push the value
 
     ans = comp.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
@@ -72,14 +72,26 @@ def insert_binheap(prog, name):
         j.go = add.done
         find_left_child.done = j.done
 
-    valuereg = comp.reg(32)  # Registers to store `value` and `rank` temporarily.
-    rankreg = comp.reg(32)
-    value_store = comp.reg_store(valuereg, value)
-    rank_store = comp.reg_store(rankreg, rank)
-    tuple = comp.reg(64)
+    value = comp.reg(32)  # Registers to store `value` and `rank` temporarily.
+    rank = comp.reg(32)
+    value_store = comp.reg_store(value, value_i)
+    rank_store = comp.reg_store(rank, rank_i)
+    tup_value_rank = comp.reg(64)
 
-    _ = comp.tuplify(tuple, valuereg, rankreg)  # Store value and rank in a tuple
-    _ = comp.untuplify(tuple, valuereg, rankreg)  # Retrieve value and rank from a tuple
+    tuplify = comp.tuplify(
+        tup_value_rank, value, rank
+    )  # Store value and rank in a tuple
+    untuplify = comp.untuplify(
+        tup_value_rank, value, rank
+    )  # Retrieve value and rank from a tuple
+
+    with comp.group("swap_if_needed") as swap_if_needed:
+        # Swap the `i`th and `j`th elements of `mem` if
+        # mem[i] > mem[j].
+        # Note that mem holds tuples, so we will need to untuplify them:
+        # If mem[i].rank > mem[j].rank, swap the two elements.
+        mem_i = comp.mem_read_d1(mem, i.out)
+        mem_j = comp.mem_read_d1(mem, j.out)
 
     return comp
 
