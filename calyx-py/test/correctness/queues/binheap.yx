@@ -1,0 +1,121 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/memories/seq.futil";
+comb component tuplify(a: 32, b: 32) -> (tup: 64) {
+  cells {
+    or_1 = std_or(64);
+    lsh_2 = std_lsh(64);
+    pad_3 = std_pad(32, 64);
+    pad_4 = std_pad(32, 64);
+  }
+  wires {
+    pad_3.in = a;
+    pad_4.in = b;
+    lsh_2.left = pad_3.out;
+    lsh_2.right = 64'd32;
+    or_1.left = lsh_2.out;
+    or_1.right = pad_4.out;
+    tup = or_1.out;
+  }
+}
+
+component swap(a: 4, b: 4) -> () {
+  cells {
+    ref mem = seq_mem_d1(64, 15, 4);
+    reg_1 = std_reg(64);
+    reg_2 = std_reg(64);
+    reg_3 = std_reg(64);
+  }
+  wires {
+    group read_a_1 {
+      mem.addr0 = a;
+      mem.content_en = 1'd1;
+      read_a_1[done] = mem.done;
+    }
+    group read_a_2 {
+      reg_1.write_en = 1'd1;
+      reg_1.in = mem.read_data;
+      read_a_2[done] = reg_1.done;
+    }
+    group read_b_1 {
+      mem.addr0 = b;
+      mem.content_en = 1'd1;
+      read_b_1[done] = mem.done;
+    }
+    group read_b_2 {
+      reg_2.write_en = 1'd1;
+      reg_2.in = mem.read_data;
+      read_b_2[done] = reg_2.done;
+    }
+    group write_a {
+      mem.addr0 = a;
+      mem.write_en = 1'd1;
+      mem.write_data = reg_1.out;
+      mem.content_en = 1'd1;
+      write_a[done] = mem.done;
+    }
+    group write_b {
+      mem.addr0 = b;
+      mem.write_en = 1'd1;
+      mem.write_data = reg_2.out;
+      mem.content_en = 1'd1;
+      write_b[done] = mem.done;
+    }
+    group swap_group {
+      reg_3.in = reg_1.out;
+      reg_3.write_en = 1'd1;
+      reg_1.in = reg_2.out;
+      reg_1.write_en = reg_3.done;
+      reg_2.in = reg_3.out;
+      reg_2.write_en = reg_1.done;
+      swap_group[done] = reg_2.done;
+    }
+  }
+  control {
+    seq {
+      read_a_1;
+      read_a_2;
+      read_b_1;
+      read_b_2;
+      swap_group;
+      write_a;
+      write_b;
+    }
+  }
+}
+component binheap(value: 32, rank: 32) -> () {
+  cells {
+    tuplify = tuplify();
+    swap = swap();
+    ref mem = seq_mem_d1(64, 15, 4);
+    reg_1 = std_reg(4);
+  }
+  wires {
+    group put_in_mem {
+      mem.addr0 = reg_1.out;
+      mem.write_en = 1'd1;
+      tuplify.a = value;
+      tuplify.b = rank;
+      mem.write_data = tuplify.tup;
+      mem.content_en = 1'd1;
+      put_in_mem[done] = mem.done;
+    }
+  }
+  control {
+    seq {
+      put_in_mem;
+    }
+  }
+}
+component main() -> () {
+  cells {
+    binheap = binheap();
+    @external mem = seq_mem_d1(64, 15, 4);
+  }
+  wires {
+
+  }
+  control {
+    invoke binheap[mem=mem](value=32'd4, rank=32'd5)();
+  }
+}
