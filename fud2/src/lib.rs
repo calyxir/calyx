@@ -150,11 +150,51 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     });
 
+    // Creating custom testbench
+    let verilog_refmem = bld.state("verilog-refmem", &["sv"]);
+    let verilog_refmem_noverify = bld.state("verilog-refmem-noverify", &["sv"]);
+
     // Icarus Verilog.
     let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
         e.rule("icarus-compile", "$iverilog -g2012 -o $out tb.sv $in")?;
+        Ok(())
+    });
+    // [Should be default] Setup for using tb.sv as testbench (and managing memories within the design)
+    let testbench_normal_setup = bld.setup("Normal Testbench Setup", |e| {
+        // The Verilog testbench.
+        e.var("testbench", &format!("{}/tb.sv", e.config_val("rsrc")?))?;
+        Ok(())
+    });
+    // [Needs YXI backend compiled] Setup for creating a custom testbench (needed for FIRRTL)
+    let testbench_refmem_setup = bld.setup("Custom Testbench Setup", |e| {
+        // Convert all ref cells to @external (FIXME: YXI should work for both?)
+        e.rule("external-to-ref", "sed 's/ref /@external /g' $in > $out")?;
+
+        // Produce a custom testbench that handles memory reading and writing.
+        e.var("testbench", "refmem_tb.sv")?;
+        e.var(
+            "gen-testbench-script",
+            "$calyx-base/tools/firrtl/generate-testbench.py",
+        )?;
+        e.var(
+            "additional_input",
+            &format!("{}/memories.sv", e.config_val("rsrc")?),
+        )?;
+
+        e.rule(
+            "generate-refmem-testbench",
+            "python3 $gen-testbench-script $in | tee $testbench $out",
+        )?;
+
+        // dummy rule to force ninja to build the testbench
+        e.var(
+            "dummy-script",
+            &format!("{}/dummy.sh", e.config_val("rsrc")?),
+        )?;
+        e.rule("dummy", "bash $dummy-script $in > $out")?;
+
         Ok(())
     });
     bld.op(
@@ -172,6 +212,16 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "icarus",
+        &[sim_setup, testbench_normal_setup, icarus_setup],
+        verilog_noverify,
+        simulator,
+        |e, input, output| {
+            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
+            Ok(())
+        },
+    );
+    bld.op(
+        "icarus-refmem",
         &[sim_setup, icarus_setup],
         verilog_noverify,
         simulator,
@@ -185,7 +235,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let firrtl = bld.state("firrtl", &["fir"]);
     bld.op(
         "calyx-to-firrtl",
-        &[calyx_setup],
+        &[calyx_setup, testbench_refmem_setup],
         calyx,
         firrtl,
         |e, input, output| {
@@ -223,14 +273,20 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         )?;
         Ok(())
     }
-    bld.op("firrtl", &[firrtl_setup], firrtl, verilog, firrtl_compile);
+    bld.op(
+        "firrtl",
+        &[firrtl_setup],
+        firrtl,
+        verilog_refmem,
+        firrtl_compile,
+    );
     // This is a bit of a hack, but the Icarus-friendly "noverify" state is identical for this path
     // (since FIRRTL compilation doesn't come with verification).
     bld.op(
         "firrtl-noverify",
         &[firrtl_setup],
         firrtl,
-        verilog_noverify,
+        verilog_refmem_noverify,
         firrtl_compile,
     );
 
@@ -261,7 +317,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "verilator",
-        &[sim_setup, verilator_setup],
+        &[sim_setup, testbench_normal_setup, verilator_setup],
         verilog,
         simulator,
         |e, input, output| {
@@ -315,7 +371,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "interp",
-        &[sim_setup, calyx_setup, cider_setup],
+        &[sim_setup, testbench_normal_setup, calyx_setup, cider_setup],
         calyx,
         dat,
         |e, input, output| {
@@ -332,7 +388,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "debug",
-        &[sim_setup, calyx_setup, cider_setup],
+        &[sim_setup, testbench_normal_setup, calyx_setup, cider_setup],
         calyx,
         debug,
         |e, input, output| {
@@ -425,7 +481,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "xrt",
-        &[xilinx_setup, sim_setup, xrt_setup],
+        &[xilinx_setup, sim_setup, testbench_normal_setup, xrt_setup],
         xclbin,
         dat,
         |e, input, output| {
@@ -442,7 +498,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "xrt-trace",
-        &[xilinx_setup, sim_setup, xrt_setup],
+        &[xilinx_setup, sim_setup, testbench_normal_setup, xrt_setup],
         xclbin,
         vcd,
         |e, input, output| {
