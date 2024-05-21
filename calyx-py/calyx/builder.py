@@ -273,16 +273,6 @@ class ComponentBuilder:
         """Generate a StdWire cell."""
         return self.cell(name, ast.Stdlib.wire(size), False, is_ref)
 
-    def slice(
-        self,
-        name: str,
-        in_width: int,
-        out_width: int,
-        is_ref: bool = False,
-    ) -> CellBuilder:
-        """Generate a StdSlice cell."""
-        return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
-
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
         return self.cell(name, ast.Stdlib.constant(width, value))
@@ -402,6 +392,18 @@ class ComponentBuilder:
         """Generate a StdPad cell."""
         name = name or self.generate_name("pad")
         return self.cell(name, ast.Stdlib.pad(in_width, out_width))
+
+    def slice(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdSlice cell."""
+        name = name or self.generate_name("slice")
+        return self.cell(name, ast.Stdlib.slice(in_width, out_width))
+
+    def bit_slice(
+        self, in_width: int, start: int, end: int, out_width: int, name: str = None
+    ) -> CellBuilder:
+        """Generate a StdBitSlice cell."""
+        name = name or self.generate_name("bit_slice")
+        return self.cell(name, ast.Stdlib.bit_slice(in_width, start, end, out_width))
 
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
@@ -611,23 +613,24 @@ class ComponentBuilder:
             decr_group.done = reg.done
         return decr_group
 
-    def tuplify(self, reg1, reg2):
+    def tuplify(self, reg, reg1, reg2):
         """Inserts wiring into `self` to perform `reg := (reg1, reg2)`.
         It does so via bit shifting and padding.
-        The resultant register has width `reg1.width + reg2.width`.
-        Returns the group created and the resultant register.
+        The resultant register is assumed to have width `reg1.width + reg2.width`.
+        Returns the group that does this.
         """
-        width = reg1.infer_width_reg() + reg2.infer_width_reg()
-        reg = self.reg(width, f"tup_{reg1.name}_{reg2.name}")
+        width = reg.infer_width_reg()
+        width1 = reg1.infer_width_reg()
+        width2 = reg2.infer_width_reg()
         or_ = self.or_(width)
         lsh = self.lsh(width)
-        pad1 = self.pad(reg1.infer_width_reg(), width)
-        pad2 = self.pad(reg2.infer_width_reg(), width)
+        pad1 = self.pad(width1, width)
+        pad2 = self.pad(width2, width)
 
-        with self.group(f"{reg.name}_group") as tup_group:
+        with self.group(f"{reg.name}_tuplify_group") as tup_group:
             pad1.in_ = reg1.out
             lsh.left = pad1.out
-            lsh.right = const(width, reg2.infer_width_reg())
+            lsh.right = const(width, width2)
             pad2.in_ = reg2.out
             or_.left = lsh.out
             or_.right = pad2.out
@@ -635,7 +638,30 @@ class ComponentBuilder:
             reg.in_ = or_.out
             tup_group.done = reg.done
 
-        return tup_group, reg
+        return tup_group
+
+    def untuplify(self, reg, reg1, reg2):
+        """Inserts wiring into `self` to perform `(reg1, reg2) := reg`.
+        It does so via slicing.
+        The resultant registers are assumed to have widths that add up to `reg.width`.
+        Returns the group that does this.
+        """
+        width = reg.infer_width_reg()
+        width1 = reg1.infer_width_reg()
+        width2 = reg2.infer_width_reg()
+        slice1 = self.bit_slice(width, width2, width, width1)
+        slice2 = self.slice(width, width2)
+
+        with self.group(f"{reg.name}_untuplify_group") as untup_group:
+            slice1.in_ = reg.out
+            reg1.write_en = 1
+            reg1.in_ = slice1.out
+            slice2.in_ = reg.out
+            reg2.write_en = 1
+            reg2.in_ = slice2.out
+            untup_group.done = reg1.done & reg2.done
+
+        return untup_group
 
     def lsh_use(self, input, ans, val=1):
         """Inserts wiring into `self` to perform `ans := input << val`."""

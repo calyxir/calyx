@@ -74,10 +74,12 @@ def insert_binheap(prog, name):
 
     valuereg = binheap.reg(32)
     rankreg = binheap.reg(32)
+    tuple = binheap.reg(64)
     value_store = binheap.reg_store(valuereg, value)
     rank_store = binheap.reg_store(rankreg, rank)
 
-    _, _ = binheap.tuplify(valuereg, rankreg)
+    _ = binheap.tuplify(tuple, valuereg, rankreg)
+    _ = binheap.untuplify(tuple, valuereg, rankreg)
 
     return binheap
 

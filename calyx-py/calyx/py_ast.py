@@ -45,7 +45,7 @@ class Program(Emittable):
 @dataclass
 class Component:
     name: str
-    attributes : list[Attribute]
+    attributes: list[Attribute]
     inputs: list[PortDef]
     outputs: list[PortDef]
     wires: list[Structure]
@@ -91,7 +91,11 @@ class Component:
         latency_annotation = (
             f"static<{self.latency}> " if self.latency is not None else ""
         )
-        attribute_annotation = f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>" if self.attributes else ""
+        attribute_annotation = (
+            f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
+            if self.attributes
+            else ""
+        )
         signature = f"{latency_annotation}component {self.name}{attribute_annotation}({ins}) -> ({outs})"
         cells = block("cells", [c.doc() for c in self.cells])
         wires = block("wires", [w.doc() for w in self.wires])
@@ -99,10 +103,11 @@ class Component:
         return block(signature, [cells, wires, controls])
 
 
-#Attribute
+# Attribute
 @dataclass
 class Attribute(Emittable):
     pass
+
 
 @dataclass
 class CompAttribute(Attribute):
@@ -110,7 +115,7 @@ class CompAttribute(Attribute):
     value: int
 
     def doc(self) -> str:
-        return f"\"{self.name}\"={self.value}"
+        return f'"{self.name}"={self.value}'
 
 
 # Ports
@@ -534,6 +539,10 @@ class Stdlib:
     @staticmethod
     def slice(in_: int, out: int):
         return CompInst("std_slice", [in_, out])
+
+    @staticmethod
+    def bit_slice(in_: int, start_idx: int, end_idx: int, out: int):
+        return CompInst("std_bit_slice", [in_, start_idx, end_idx, out])
 
     @staticmethod
     def pad(in_: int, out: int):
