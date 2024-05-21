@@ -18,35 +18,35 @@ def insert_binheap(prog, name):
     If an answer is expected, it is written to the `ans` register.
     If an error occurs, the `err` register is set to 1.
     """
-    binheap: cb.ComponentBuilder = prog.component(name)
-    cmd = binheap.input("cmd", 2)
+    comp: cb.ComponentBuilder = prog.component(name)
+    cmd = comp.input("cmd", 2)
     # If this is 0, we pop. If it is 1, we peek.
     # If it is 2, we push `value` to the queue.
-    value = binheap.input("value", 32)  # The value to push to the queue
-    rank = binheap.input("rank", 32)  # The rank with which to push the value
+    value = comp.input("value", 32)  # The value to push to the queue
+    rank = comp.input("rank", 32)  # The rank with which to push the value
 
-    ans = binheap.reg(32, "ans", is_ref=True)
+    ans = comp.reg(32, "ans", is_ref=True)
     # If the user wants to pop, we will write the popped value to `ans`.
-    err = binheap.reg(1, "err", is_ref=True)
+    err = comp.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    mem = binheap.seq_mem_d1("mem", 64, 15, 4)
+    mem = comp.seq_mem_d1("mem", 64, 15, 4)
     # The memory to store the heap, represented as an array.
     # For now it has a hardcoded max length of 15, i.e., a binary heap of height 4.
     # The memory is 64 bits wide:
     # the first 32 bits represent the value,
     # and the next 32 bits represent the rank.
 
-    next_write = binheap.reg(4)  # The next address to write to.
-    i = binheap.reg(4)  # The index of the element we are currently looking at.
-    j = binheap.reg(4)  # Another register work scrach work.
+    next_write = comp.reg(4)  # The next address to write to.
+    i = comp.reg(4)  # The index of the element we are currently looking at.
+    j = comp.reg(4)  # Another register work scrach work.
 
-    add = binheap.add(4)
-    sub = binheap.sub(64)
-    mul = binheap.mult_pipe(64)
-    div = binheap.div_pipe(64)
+    add = comp.add(4)
+    sub = comp.sub(64)
+    mul = comp.mult_pipe(64)
+    div = comp.div_pipe(64)
 
-    with binheap.group("find_parent") as find_parent:
+    with comp.group("find_parent") as find_parent:
         # Find the parent of the `i`th element and store it in `j`.
         # That is, j := floor((i − 1) / 2)
         sub.left = i.out
@@ -59,7 +59,7 @@ def insert_binheap(prog, name):
         j.go = div.done
         find_parent.done = j.done
 
-    with binheap.group("find_left_child") as find_left_child:
+    with comp.group("find_left_child") as find_left_child:
         # Find the left child of the `i`th element and store it in `j`.
         # That is, j := 2i + 1
         mul.left = i.out
@@ -72,16 +72,16 @@ def insert_binheap(prog, name):
         j.go = add.done
         find_left_child.done = j.done
 
-    valuereg = binheap.reg(32)
-    rankreg = binheap.reg(32)
-    tuple = binheap.reg(64)
-    value_store = binheap.reg_store(valuereg, value)
-    rank_store = binheap.reg_store(rankreg, rank)
+    valuereg = comp.reg(32)  # Registers to store `value` and `rank` temporarily.
+    rankreg = comp.reg(32)
+    value_store = comp.reg_store(valuereg, value)
+    rank_store = comp.reg_store(rankreg, rank)
+    tuple = comp.reg(64)
 
-    _ = binheap.tuplify(tuple, valuereg, rankreg)
-    _ = binheap.untuplify(tuple, valuereg, rankreg)
+    _ = comp.tuplify(tuple, valuereg, rankreg)  # Store value and rank in a tuple
+    _ = comp.untuplify(tuple, valuereg, rankreg)  # Retrieve value and rank from a tuple
 
-    return binheap
+    return comp
 
 
 def build():
