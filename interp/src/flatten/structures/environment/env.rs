@@ -158,12 +158,16 @@ impl CellLedger {
     }
 
     #[must_use]
-    pub(crate) fn as_primitive(&self) -> Option<&dyn Primitive> {
-        if let Self::Primitive { cell_dyn } = self {
-            Some(&**cell_dyn)
-        } else {
-            None
+    pub fn as_primitive(&self) -> Option<&dyn Primitive> {
+        match self {
+            Self::Primitive { cell_dyn } => Some(&**cell_dyn),
+            _ => None,
         }
+    }
+
+    pub fn unwrap_primitive(&self) -> &dyn Primitive {
+        self.as_primitive()
+            .expect("Unwrapped cell ledger as primitive but received component")
     }
 }
 
@@ -959,8 +963,7 @@ impl<'a> Simulator<'a> {
                     dims.size(),
                     dims.as_serializing_dim(),
                     self.env.cells[cell_index]
-                        .as_primitive()
-                        .unwrap()
+                        .unwrap_primitive()
                         .dump_memory_state()
                         .unwrap(),
                 )
