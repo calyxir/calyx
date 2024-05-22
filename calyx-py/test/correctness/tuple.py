@@ -97,7 +97,7 @@ def insert_main(prog):
         mem3.write_en = cb.HI
         mem3.write_data = untuplify.snd
         mem3.content_en = cb.HI
-        run_untuplify.done = (mem2.done & mem3.done) @ 1
+        run_untuplify.done = (mem2.done & mem3.done) @ cb.HI
 
     comp.control += cb.par(run_tuplify, run_untuplify)
 
