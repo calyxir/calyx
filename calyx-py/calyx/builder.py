@@ -227,7 +227,7 @@ class ComponentBuilder:
 
     def comb_group(self, name: str) -> GroupBuilder:
         """Create a new combinational group with the given name."""
-        if not isinstance(self.component, ast.CombComponent):
+        if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
                 "Sequential components do not have combinational groups, only wires."
             )
@@ -241,7 +241,7 @@ class ComponentBuilder:
 
     def static_group(self, name: str, latency: int) -> GroupBuilder:
         """Create a new static group with the given name."""
-        if not isinstance(self.component, ast.CombComponent):
+        if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
                 "Sequential components do not have static groups, only wires."
             )
