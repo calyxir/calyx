@@ -2,6 +2,34 @@
 import calyx.builder as cb
 
 
+def insert_cmp(prog, name, width):
+    """Inserts the component `cmp` into the program.
+
+    It takes two `width`-bit inputs `a` and `b` and produces a 1-bit output `lt`.
+    The output `lt` is set to 1 if `a` is less than `b`, and 0 otherwise.
+    """
+
+    comp = prog.component(name)
+    a = comp.input("a", width)
+    b = comp.input("b", width)
+    comp.output("lt", 1)
+
+    less_than = comp.lt_use(a, b)
+    ans = comp.reg(1)
+
+    ans_1 = comp.reg_store(ans, cb.HI)
+
+    comp.control += cb.if_with(
+        less_than,
+        ans_1,
+    )
+
+    with comp.continuous:
+        comp.this().lt = ans.out
+
+    return comp
+
+
 def insert_swap(prog, name, width, len, idx_w):
     """Inserts the component `swap` into the program.
 
@@ -79,6 +107,7 @@ def insert_binheap(prog, name):
     # We'll raise this as a general error flag for overflow and underflow.
 
     swap = comp.cell("swap", insert_swap(prog, "swap", 64, 3, 4))
+    cmp = comp.cell("cmp", insert_cmp(prog, "cmp", 64))
 
     mem = comp.seq_mem_d1("mem", 64, 3, 4, is_ref=True)
     # The memory to store the heap, represented as an array.
@@ -129,6 +158,12 @@ def insert_binheap(prog, name):
     comp.control += [
         put_in_mem,
         incr_size,
+        cb.invoke(
+            swap,
+            in_a=cb.const(4, 0),
+            in_b=cb.const(4, 1),
+            ref_mem=mem,
+        ),
     ]
 
     return comp
