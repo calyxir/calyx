@@ -112,8 +112,8 @@ def insert_binheap(prog, name):
 
     add = comp.add(4)
     sub = comp.sub(4)
-    mul = comp.mult_pipe(4)
-    div = comp.div_pipe(4)
+    lsh = comp.lsh(4)
+    rsh = comp.rsh(4)
 
     parent = comp.reg(4)
     child = comp.reg(4)
@@ -123,11 +123,10 @@ def insert_binheap(prog, name):
         # That is, parent := floor((child − 1) / 2)
         sub.left = child.out
         sub.right = 1
-        div.left = sub.out
-        div.right = 2
-        div.go = cb.HI
-        parent.in_ = div.out_quotient
-        parent.write_en = div.done
+        rsh.left = sub.out
+        rsh.right = cb.const(4, 1)
+        parent.in_ = rsh.out
+        parent.write_en = cb.HI
         find_parent.done = parent.done
 
     # with comp.group("find_left_child") as find_child:
