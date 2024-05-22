@@ -3,29 +3,23 @@ import calyx.builder as cb
 
 
 def insert_cmp(prog, name, width):
-    """Inserts the component `cmp` into the program.
+    """Inserts the combinational component `cmp` into the program.
 
     It takes two `width`-bit inputs `a` and `b` and produces a 1-bit output `lt`.
     The output `lt` is set to 1 if `a` is less than `b`, and 0 otherwise.
     """
 
-    comp = prog.component(name)
+    comp = prog.comb_component(name)
     a = comp.input("a", width)
     b = comp.input("b", width)
     comp.output("lt", 1)
 
-    less_than = comp.lt_use(a, b)
-    ans = comp.reg(1)
-
-    ans_1 = comp.reg_store(ans, cb.HI)
-
-    comp.control += cb.if_with(
-        less_than,
-        ans_1,
-    )
+    lt_cell = comp.lt(width)
 
     with comp.continuous:
-        comp.this().lt = ans.out
+        lt_cell.left = a
+        lt_cell.right = b
+        comp.this().lt = lt_cell.out
 
     return comp
 
@@ -122,13 +116,12 @@ def insert_binheap(prog, name):
     div = comp.div_pipe(4)
 
     parent = comp.reg(4)
-    leftchild = comp.reg(4)
-    rightchild = comp.reg(4)
+    child = comp.reg(4)
 
     # with comp.group("find_parent") as find_parent:
-    #     # Find the parent of the `leftchild`th element and store it in `parent`.
-    #     # That is, parent := floor((leftchild − 1) / 2)
-    #     sub.left = leftchild.out
+    #     # Find the parent of the `child`th element and store it in `parent`.
+    #     # That is, parent := floor((child − 1) / 2)
+    #     sub.left = child.out
     #     sub.right = 1
     #     div.left = sub.out
     #     div.right = 2
@@ -137,19 +130,17 @@ def insert_binheap(prog, name):
     #     parent.write_en = div.done
     #     find_parent.done = parent.done
 
-    # with comp.group("find_left_child") as find_leftchild:
-    #     # Find the left child of the `parent`th element and store it in `leftchild`.
-    #     # That is, leftchild := 2*parent + 1
+    # with comp.group("find_left_child") as find_child:
+    #     # Find the left child of the `parent`th element and store it in `child`.
+    #     # That is, child := 2*parent + 1
     #     mul.left = parent.out
     #     mul.right = 2
     #     mul.go = cb.HI
     #     add.left = mul.out
     #     add.right = 1
-    #     leftchild.in_ = add.out
-    #     leftchild.write_en = cb.HI
-    #     find_leftchild.done = leftchild.done
-
-    # find_rightchild = comp.add_use(leftchild.out, 1)
+    #     child.in_ = add.out
+    #     child.write_en = cb.HI
+    #     find_child.done = child.done
 
     put_in_mem = comp.mem_store_seq_d1(mem, size.out, value, "put_in_mem")
 
