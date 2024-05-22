@@ -158,7 +158,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
-        e.rule("icarus-compile", "$iverilog -g2012 -o $out tb.sv $in")?;
+        e.rule("icarus-compile", "$iverilog -g2012 -o $out $testbench $in")?;
         Ok(())
     });
     // [Should be default] Setup for using tb.sv as testbench (and managing memories within the design)
@@ -219,17 +219,18 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         verilog_noverify,
         simulator,
         |e, input, output| {
-            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
+            e.build_cmd(&[output], "icarus-compile", &[input], &[])?;
             Ok(())
         },
     );
     bld.op(
         "icarus-refmem",
         &[sim_setup, icarus_setup],
-        verilog_noverify,
+        verilog_refmem_noverify,
         simulator,
         |e, input, output| {
-            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
+            // FIXME: remove code clone
+            e.build_cmd(&[output], "icarus-compile", &[input], &[])?;
             Ok(())
         },
     );
@@ -279,6 +280,8 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             )?;
             e.build_cmd(&[tmp_out], "calyx", &[only_refs_calyx], &[])?;
             e.arg("backend", "firrtl")?;
+            e.arg("args", "--emit-primitive-extmodules")?;
+
             // dummy command to make sure custom testbench is created but not emitted as final answer
             e.build_cmd(&[output], "dummy", &[tmp_out, dummy_testbench], &[])?;
             Ok(())
@@ -350,7 +353,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile",
-            "$verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in $testbench --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
@@ -363,12 +366,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         |e, input, output| {
             let out_dir = "verilator-out";
             let sim_bin = format!("{}/VTOP", out_dir);
-            e.build_cmd(
-                &[&sim_bin],
-                "verilator-compile",
-                &[input],
-                &["tb.sv"],
-            )?;
+            e.build_cmd(&[&sim_bin], "verilator-compile", &[input], &[])?;
             e.arg("out-dir", out_dir)?;
             e.build("cp", &sim_bin, output)?;
             Ok(())
