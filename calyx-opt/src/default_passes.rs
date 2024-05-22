@@ -7,9 +7,9 @@ use crate::passes::{
     DiscoverExternal, ExternalToRef, Externalize, GoInsertion, GroupToInvoke,
     GroupToSeq, HoleInliner, InferShare, LowerGuards, MergeAssign, Papercut,
     ParToSeq, RegisterUnsharing, RemoveIds, ResetInsertion,
-    SimplifyStaticGuards, SimplifyWithControl, StaticInference, StaticInliner,
-    StaticPromotion, SynthesisPapercut, TopDownCompileControl, UnrollBounded,
-    WellFormed, WireInliner, WrapMain,
+    SimplifyStaticGuards, SimplifyWithControl, StaticFSMOpts, StaticInference,
+    StaticInliner, StaticPromotion, SynthesisPapercut, TopDownCompileControl,
+    UnrollBounded, WellFormed, WireInliner, WrapMain,
 };
 use crate::traversal::Named;
 use crate::{pass_manager::PassManager, register_alias};
@@ -42,6 +42,7 @@ impl PassManager {
 
         // Compilation passes
         pm.register_pass::<StaticInliner>()?;
+        pm.register_pass::<StaticFSMOpts>()?;
         pm.register_pass::<CompileStatic>()?;
         pm.register_pass::<CompileInvoke>()?;
         pm.register_pass::<CompileRepeat>()?;
@@ -109,6 +110,7 @@ impl PassManager {
                 DeadGroupRemoval, // Static inliner generates lots of dead groups
                 SimplifyStaticGuards,
                 AddGuard,
+                StaticFSMOpts,
                 CompileStatic,
                 DeadGroupRemoval,
                 TopDownCompileControl
