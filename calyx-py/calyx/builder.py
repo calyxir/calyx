@@ -316,8 +316,6 @@ class ComponentBuilder:
         """Generate a StdWire cell."""
         return self.cell(name, ast.Stdlib.wire(size), False, is_ref)
 
-<<<<<<< HEAD
-=======
     def slice(
         self,
         name: str,
@@ -342,7 +340,6 @@ class ComponentBuilder:
             name, ast.Stdlib.bit_slice(in_width, start, end, out_width), False, is_ref
         )
 
->>>>>>> edsl-comb-comp
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
         return self.cell(name, ast.Stdlib.constant(width, value))
@@ -458,26 +455,6 @@ class ComponentBuilder:
         name = name or self.generate_name("or")
         return self.logic("or", size, name)
 
-<<<<<<< HEAD
-    def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
-        """Generate a StdPad cell."""
-        name = name or self.generate_name("pad")
-        return self.cell(name, ast.Stdlib.pad(in_width, out_width))
-
-    def slice(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
-        """Generate a StdSlice cell."""
-        name = name or self.generate_name("slice")
-        return self.cell(name, ast.Stdlib.slice(in_width, out_width))
-
-    def bit_slice(
-        self, in_width: int, start: int, end: int, out_width: int, name: str = None
-    ) -> CellBuilder:
-        """Generate a StdBitSlice cell."""
-        name = name or self.generate_name("bit_slice")
-        return self.cell(name, ast.Stdlib.bit_slice(in_width, start, end, out_width))
-
-=======
->>>>>>> edsl-comb-comp
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
         name = name or self.generate_name("not")
