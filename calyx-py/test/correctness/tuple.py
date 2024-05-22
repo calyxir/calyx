@@ -50,8 +50,8 @@ def insert_untuplify(prog, name, w1, w2):
     comp.output("fst", w1)
     comp.output("snd", w2)
 
-    slice1 = comp.bit_slice(width, w2, width - 1, w1)
-    slice2 = comp.slice(width, w2)
+    slice1 = comp.bit_slice("slice_out_fst", width, w2, width - 1, w1)
+    slice2 = comp.slice("slice_out_snd", width, w2)
 
     with comp.continuous:
         # Directly writing to the wires section.

@@ -326,6 +326,20 @@ class ComponentBuilder:
         """Generate a StdSlice cell."""
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
 
+    def bit_slice(
+        self,
+        name,
+        in_width: int,
+        start: int,
+        end: int,
+        out_width: int,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a StdBitSlice cell."""
+        return self.cell(
+            name, ast.Stdlib.bit_slice(in_width, start, end, out_width), False, is_ref
+        )
+
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
         return self.cell(name, ast.Stdlib.constant(width, value))
@@ -450,18 +464,6 @@ class ComponentBuilder:
         """Generate a StdPad cell."""
         name = name or self.generate_name("pad")
         return self.cell(name, ast.Stdlib.pad(in_width, out_width))
-
-    def slice(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
-        """Generate a StdSlice cell."""
-        name = name or self.generate_name("slice")
-        return self.cell(name, ast.Stdlib.slice(in_width, out_width))
-
-    def bit_slice(
-        self, in_width: int, start: int, end: int, out_width: int, name: str = None
-    ) -> CellBuilder:
-        """Generate a StdBitSlice cell."""
-        name = name or self.generate_name("bit_slice")
-        return self.cell(name, ast.Stdlib.bit_slice(in_width, start, end, out_width))
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
