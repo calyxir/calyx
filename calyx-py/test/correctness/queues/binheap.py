@@ -118,17 +118,17 @@ def insert_binheap(prog, name):
     parent = comp.reg(4)
     child = comp.reg(4)
 
-    # with comp.group("find_parent") as find_parent:
-    #     # Find the parent of the `child`th element and store it in `parent`.
-    #     # That is, parent := floor((child − 1) / 2)
-    #     sub.left = child.out
-    #     sub.right = 1
-    #     div.left = sub.out
-    #     div.right = 2
-    #     div.go = cb.HI
-    #     parent.in_ = div.out_quotient
-    #     parent.write_en = div.done
-    #     find_parent.done = parent.done
+    with comp.group("find_parent") as find_parent:
+        # Find the parent of the `child`th element and store it in `parent`.
+        # That is, parent := floor((child − 1) / 2)
+        sub.left = child.out
+        sub.right = 1
+        div.left = sub.out
+        div.right = 2
+        div.go = cb.HI
+        parent.in_ = div.out_quotient
+        parent.write_en = div.done
+        find_parent.done = parent.done
 
     # with comp.group("find_left_child") as find_child:
     #     # Find the left child of the `parent`th element and store it in `child`.
@@ -142,19 +142,38 @@ def insert_binheap(prog, name):
     #     child.write_en = cb.HI
     #     find_child.done = child.done
 
-    put_in_mem = comp.mem_store_seq_d1(mem, size.out, value, "put_in_mem")
+    set_child = comp.reg_store(child, size.out)
+    put_in_mem = comp.mem_store_seq_d1(mem, child.out, value, "put_in_mem")
+
+    child_neq_0 = comp.neq_use(child.out, 0)
 
     incr_size = comp.incr(size)
+    child_lt_parent = comp.lt_use(child.out, parent.out)
+    make_child_parent = comp.reg_store(child, parent.out, "make_child_parent")
 
     comp.control += [
+        set_child,
         put_in_mem,
         incr_size,
-        # cb.invoke(
-        #     swap,
-        #     in_a=cb.const(4, 0),
-        #     in_b=cb.const(4, 1),
-        #     ref_mem=mem,
-        # ),
+        cb.if_with(
+            child_neq_0,
+            [
+                find_parent,
+                cb.while_with(
+                    child_lt_parent,
+                    [
+                        cb.invoke(
+                            swap,
+                            in_a=parent.out,
+                            in_b=child.out,
+                            ref_mem=mem,
+                        ),
+                        make_child_parent,
+                        find_parent,
+                    ],
+                ),
+            ],
+        ),
     ]
 
     return comp
@@ -172,29 +191,29 @@ def insert_main(prog, binheap):
     ans = comp.reg(64)
     err = comp.reg(1)
 
-    comp.control += cb.invoke(
-        binheap,
-        in_value=cb.const(64, 4),
-        ref_mem=mem,
-        ref_ans=ans,
-        ref_err=err,
-    )
-
-    comp.control += cb.invoke(
-        binheap,
-        in_value=cb.const(64, 5),
-        ref_mem=mem,
-        ref_ans=ans,
-        ref_err=err,
-    )
-
-    comp.control += cb.invoke(
-        binheap,
-        in_value=cb.const(64, 3),
-        ref_mem=mem,
-        ref_ans=ans,
-        ref_err=err,
-    )
+    comp.control += [
+        cb.invoke(
+            binheap,
+            in_value=cb.const(64, 9),
+            ref_mem=mem,
+            ref_ans=ans,
+            ref_err=err,
+        ),
+        cb.invoke(
+            binheap,
+            in_value=cb.const(64, 6),
+            ref_mem=mem,
+            ref_ans=ans,
+            ref_err=err,
+        ),
+        # cb.invoke(
+        #     binheap,
+        #     in_value=cb.const(64, 3),
+        #     ref_mem=mem,
+        #     ref_ans=ans,
+        #     ref_err=err,
+        # ),
+    ]
 
     return comp
 
