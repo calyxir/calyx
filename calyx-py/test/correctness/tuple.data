@@ -1,5 +1,5 @@
 {
-  "mem": {
+  "mem1": {
     "data": [
       0
     ],
@@ -7,6 +7,26 @@
       "is_signed": false,
       "numeric_type": "bitnum",
       "width": 64
+    }
+  },
+  "mem2": {
+    "data": [
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
+    }
+  },
+  "mem3": {
+    "data": [
+      0
+    ],
+    "format": {
+      "is_signed": false,
+      "numeric_type": "bitnum",
+      "width": 32
     }
   }
 }
