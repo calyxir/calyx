@@ -42,6 +42,13 @@ class Builder:
         self._index[name] = comp_builder
         return comp_builder
 
+    def comb_component(self, name: str) -> ComponentBuilder:
+        """Create a new combinational component builder."""
+        comp_builder = ComponentBuilder(self, name, is_comb=True)
+        self.program.components.append(comp_builder.component)
+        self._index[name] = comp_builder
+        return comp_builder
+
     def get_component(self, name: str) -> ComponentBuilder:
         """Retrieve a component builder by name."""
         comp_builder = self._index.get(name)
@@ -67,17 +74,28 @@ class ComponentBuilder:
         prog: Builder,
         name: str,
         latency: Optional[int] = None,
+        is_comb: bool = False,
     ):
         """Contructs a new component in the current program."""
         self.prog = prog
-        self.component: ast.Component = ast.Component(
-            name,
-            attributes=[],
-            inputs=[],
-            outputs=[],
-            structs=list(),
-            controls=ast.Empty(),
-            latency=latency,
+        self.component: Union[ast.Component, ast.CombComponent] = (
+            ast.Component(
+                name,
+                attributes=[],
+                inputs=[],
+                outputs=[],
+                structs=list(),
+                controls=ast.Empty(),
+                latency=latency,
+            )
+            if not is_comb
+            else ast.CombComponent(
+                name,
+                attributes=[],
+                inputs=[],
+                outputs=[],
+                structs=list(),
+            )
         )
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
         self.continuous = GroupBuilder(None, self)
@@ -122,10 +140,18 @@ class ComponentBuilder:
     @property
     def control(self) -> ControlBuilder:
         """Access the component's control program."""
+        if isinstance(self.component, ast.CompComponent):
+            raise AttributeError(
+                "Combinational components do not have control programs"
+            )
         return ControlBuilder(self.component.controls)
 
     @control.setter
     def control(self, builder: Union[ast.Control, ControlBuilder]):
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Combinational components do not have control programs"
+            )
         if isinstance(builder, ControlBuilder):
             self.component.controls = builder.stmt
         else:
@@ -164,6 +190,8 @@ class ComponentBuilder:
 
     def get_group(self, name: str) -> GroupBuilder:
         """Retrieve a group builder by name."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -174,6 +202,8 @@ class ComponentBuilder:
 
     def try_get_group(self, name: str) -> GroupBuilder:
         """Tries to get a group builder by name. If cannot find it, return None"""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -182,6 +212,10 @@ class ComponentBuilder:
 
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Combinational components do not have groups, only wires."
+            )
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -192,6 +226,10 @@ class ComponentBuilder:
 
     def comb_group(self, name: str) -> GroupBuilder:
         """Create a new combinational group with the given name."""
+        if not isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Sequential components do not have combinational groups, only wires."
+            )
         group = ast.CombGroup(ast.CompVar(name), connections=[])
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -201,7 +239,11 @@ class ComponentBuilder:
         return builder
 
     def static_group(self, name: str, latency: int) -> GroupBuilder:
-        """Create a new combinational group with the given name."""
+        """Create a new static group with the given name."""
+        if not isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Sequential components do not have static groups, only wires."
+            )
         group = ast.StaticGroup(ast.CompVar(name), connections=[], latency=latency)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
