@@ -27,7 +27,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated signal_reg = std_reg(1);
   }
   wires {
-    group early_reset_static_seq {
+    group early_reset_static_seq<"one_hot"=1> {
       a.in = bw_0_2.out ? 2'd0;
       a.write_en = bw_0_2.out ? 1'd1;
       b.in = bw_1_2.out ? 2'd1;
@@ -47,7 +47,7 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       fsm.in = bw_9_10.out ? 10'd1;
       early_reset_static_seq[done] = ud.out;
     }
-    group wrapper_early_reset_static_seq {
+    group wrapper_early_reset_static_seq<"one_hot"=1> {
       early_reset_static_seq[go] = 1'd1;
       signal_reg.write_en = bw_0_1.out & !signal_reg.out ? 1'd1;
       signal_reg.in = bw_0_1.out & !signal_reg.out ? 1'd1;

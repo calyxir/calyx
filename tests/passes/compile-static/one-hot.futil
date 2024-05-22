@@ -1,4 +1,4 @@
-// -p well-formed -p compile-static -x compile-static:one-hot-cutoff=11 -p dead-group-removal -p remove-ids
+// -p well-formed -p static-fsm-opts -x static-fsm-opts:one-hot-cutoff=11 -p compile-static -p dead-group-removal -p remove-ids
 
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";

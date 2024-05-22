@@ -1,4 +1,4 @@
-// -p validate -p compile-invoke -p static-inline  -p dead-group-removal -p add-guard -p simplify-static-guards -p compile-static -x compile-static:one-hot-cutoff=11
+// -p validate -p compile-invoke -p static-inline  -p dead-group-removal -p add-guard -p simplify-static-guards -p static-fsm-opts -p static-fsm-opts -x static-fsm-opts:one-hot-cutoff=11 -p compile-static
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
