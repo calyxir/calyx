@@ -158,12 +158,12 @@ def insert_binheap(prog, name):
     comp.control += [
         put_in_mem,
         incr_size,
-        cb.invoke(
-            swap,
-            in_a=cb.const(4, 0),
-            in_b=cb.const(4, 1),
-            ref_mem=mem,
-        ),
+        # cb.invoke(
+        #     swap,
+        #     in_a=cb.const(4, 0),
+        #     in_b=cb.const(4, 1),
+        #     ref_mem=mem,
+        # ),
     ]
 
     return comp
@@ -192,6 +192,14 @@ def insert_main(prog, binheap):
     comp.control += cb.invoke(
         binheap,
         in_value=cb.const(64, 5),
+        ref_mem=mem,
+        ref_ans=ans,
+        ref_err=err,
+    )
+
+    comp.control += cb.invoke(
+        binheap,
+        in_value=cb.const(64, 3),
         ref_mem=mem,
         ref_ans=ans,
         ref_err=err,
