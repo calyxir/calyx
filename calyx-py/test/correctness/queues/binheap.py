@@ -78,11 +78,11 @@ def insert_binheap(prog, name):
     err = comp.reg(1, "err", is_ref=True)
     # We'll raise this as a general error flag for overflow and underflow.
 
-    swap = comp.cell("swap", insert_swap(prog, "swap", 64, 15, 4))
+    swap = comp.cell("swap", insert_swap(prog, "swap", 64, 3, 4))
 
-    mem = comp.seq_mem_d1("mem", 64, 15, 4, is_ref=True)
+    mem = comp.seq_mem_d1("mem", 64, 3, 4, is_ref=True)
     # The memory to store the heap, represented as an array.
-    # For now it has a hardcoded max length of 15, i.e., a binary heap of height 4.
+    # For now it has a hardcoded max length of 3, i.e., a binary heap of height 2.
     # Each cell of the memory is 64 bits wide.
 
     size = comp.reg(4)  # Active size, and also the next address to write to.
@@ -137,12 +137,12 @@ def insert_binheap(prog, name):
 def insert_main(prog, binheap):
     """Inserts the main component into the program.
     Invokes the `binheap` component with 64-bit values 4 and 5,
-    and a 64-bit memory of length 15.
+    and a 64-bit memory of length 3.
     """
     comp = prog.component("main")
     binheap = comp.cell("binheap", binheap)
 
-    mem = comp.seq_mem_d1("mem", 64, 15, 4, is_external=True)
+    mem = comp.seq_mem_d1("mem", 64, 3, 4, is_external=True)
     ans = comp.reg(64)
     err = comp.reg(1)
 
