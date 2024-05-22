@@ -1,10 +1,9 @@
+use crate::utils;
+use egglog::EGraph;
+
 #[cfg(test)]
-mod tests {
-    use crate::utils;
-    use egglog::EGraph;
-    use main_error::MainError;
-    // Thanks to www.github.com/egraphs-good/eggcc for inspiring this test suite.
-    pub type Result = std::result::Result<(), MainError>;
+mod unit_tests {
+    use super::*;
 
     // fn test_calyx(actual: &str, expected: &str) {}
 
@@ -23,7 +22,7 @@ mod tests {
         check: &str,
         rules: &[utils::RewriteRule],
         display: bool,
-    ) -> Result {
+    ) -> utils::Result {
         let mut s: String = String::new();
         for rule in rules {
             s.push_str(utils::read_from(*rule)?.as_str());
@@ -59,7 +58,7 @@ mod tests {
         prologue: &str,
         check: &str,
         rules: &[utils::RewriteRule],
-    ) -> Result {
+    ) -> utils::Result {
         test_egglog_internal(prologue, check, rules, false)
     }
 
@@ -67,12 +66,12 @@ mod tests {
         prologue: &str,
         check: &str,
         rules: &[utils::RewriteRule],
-    ) -> Result {
+    ) -> utils::Result {
         test_egglog_internal(prologue, check, rules, true)
     }
 
     #[test]
-    fn test_identity() -> Result {
+    fn test_identity() -> utils::Result {
         test_egglog(
             r#"
             (let c1 (CellSet (set-of (Cell "a"))))
@@ -84,18 +83,21 @@ mod tests {
     }
 
     #[test]
-    fn test_list_length() -> Result {
+    fn test_list_length() -> utils::Result {
         test_egglog(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
             (let B (Enable (Group "B" (CellSet (set-empty))) (Attributes (map-empty))))
             (let C (Enable (Group "C" (CellSet (set-empty))) (Attributes (map-empty))))
             (let D (Enable (Group "D" (CellSet (set-empty))) (Attributes (map-empty))))
+            (let S (Seq (Attributes (map-empty)) (Cons A (Nil))))
             (Nil)
             (Cons D (Nil))
             (Cons C (Cons D (Nil)))
             (Cons B (Cons C (Cons D (Nil))))
             (Cons A (Cons B (Cons C (Cons D (Nil)))))
+
+            (Cons A (Cons S (Nil)))
             "#,
             r#"
             (check (= (list-length (Nil)) 0))
@@ -103,13 +105,15 @@ mod tests {
             (check (= (list-length (Cons C (Cons D (Nil)))) 2))
             (check (= (list-length (Cons B (Cons C (Cons D (Nil))))) 3))
             (check (= (list-length (Cons A (Cons B (Cons C (Cons D (Nil)))))) 4))
+
+            (check (= (list-length (Cons A (Cons S (Nil)))) 2))
             "#,
             &[utils::RewriteRule::CalyxControl],
         )
     }
 
     #[test]
-    fn test_list_slice() -> Result {
+    fn test_list_slice() -> utils::Result {
         test_egglog(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
@@ -132,7 +136,7 @@ mod tests {
     }
 
     #[test]
-    fn test_list_slice2() -> Result {
+    fn test_list_slice2() -> utils::Result {
         test_egglog(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
@@ -156,7 +160,9 @@ mod tests {
     }
 
     #[test]
-    fn test_list_latency() -> Result {
+    fn test_seq_sum_latency() -> utils::Result {
+        // If a "static" attribute is available, use it when performing latency analysis.
+        // Otherwise, sum the latencies of the construct's groups.
         test_egglog(
             r#"
             (let m1 (map-insert (map-empty) "promotable" 1))
@@ -165,22 +171,145 @@ mod tests {
             (let g2 (Group "B" (CellSet (set-empty))))
 
             (let ys (Cons (Enable g1 (Attributes (map-empty))) (Cons (Enable g2 (Attributes (map-empty))) (Nil))))
-            (let S (Seq (Attributes (map-insert (map-empty) "static" 3)) ys))
-            
+            ; @static(3) seq { ... }
+            (let S1 (Seq (Attributes (map-insert (map-empty) "static" 3)) ys))
             (let X (Enable g1 (Attributes m1)))
             (let Y (Enable g2 (Attributes m2)))
-            (let xs (Cons X (Cons S (Cons Y (Nil)))))
+            ; @promotable(1) A; @static(3) seq { ... }; @promotable(2) B;
+            (let xs (Cons X (Cons S1 (Cons Y (Nil)))))
+            
+            ; @static(10) seq { ... }
+            (let S2 (Seq (Attributes (map-insert (map-empty) "static" 10)) ys))
+            (let xss (Cons S2 xs))
+
+            ; seq { @promotable(1) A; @promotable(2) B; }
+            (let zs (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+            (let S3 (Seq (Attributes (map-empty)) zs))
+            (let xsss (Cons S3 xss))
             "#,
             r#"
-            (check (= (max-latency xs) 3))
             (check (= (sum-latency xs) 6)) ; 1 + 3 + 2
+            (check (= (sum-latency xss) 16)) ; 1 + 3 + 2 + 10
+            (check (= (sum-latency xsss) 19)) ; 1 + 3 + 2 + 10 + 1 + 2
             "#,
             &[utils::RewriteRule::CalyxControl],
         )
     }
 
     #[test]
-    fn test_control_before() -> Result {
+    fn test_seq_max_latency() -> utils::Result {
+        // If a "static" attribute is available, use it when performing latency analysis.
+        // Otherwise, select a maximum from the latencies of the construct's groups.
+        test_egglog(
+            r#"
+            (let m1 (map-insert (map-empty) "promotable" 1))
+            (let m2 (map-insert (map-empty) "promotable" 2))
+            (let g1 (Group "A" (CellSet (set-empty))))
+            (let g2 (Group "B" (CellSet (set-empty))))
+
+            (let ys (Cons (Enable g1 (Attributes (map-empty))) (Cons (Enable g2 (Attributes (map-empty))) (Nil))))
+            ; @static(3) seq { ... }
+            (let S1 (Seq (Attributes (map-insert (map-empty) "static" 3)) ys))
+            (let X (Enable g1 (Attributes m1)))
+            (let Y (Enable g2 (Attributes m2)))
+            ; @promotable(1) A; @static(3) seq { ... }; @promotable(2) B;
+            (let xs (Cons X (Cons S1 (Cons Y (Nil)))))
+            
+            ; @static(10) seq { ... }
+            (let S2 (Seq (Attributes (map-insert (map-empty) "static" 10)) ys))
+            (let xss (Cons S2 xs))
+
+            ; seq { @promotable(1) A; @promotable(2) B; }
+            (let zs (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+            (let S3 (Seq (Attributes (map-empty)) zs))
+            (let xsss (Cons S3 xss))
+            "#,
+            r#"
+            (check (= (max-latency xs) 3)) ; max(1, 3, 2)
+            (check (= (max-latency xss) 10)) ; max(1, 3, 2, 10)
+            (check (= (max-latency xsss) 10)) ; max(1, 3, 2, 10, 3)
+            "#,
+            &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
+    #[test]
+    fn test_par_max_latency() -> utils::Result {
+        // If a "static" attribute is available, use it when performing latency analysis.
+        // Otherwise, select a maximum from the latencies of the construct's groups.
+        test_egglog(
+            r#"
+            (let m1 (map-insert (map-empty) "promotable" 1))
+            (let m2 (map-insert (map-empty) "promotable" 2))
+            (let g1 (Group "A" (CellSet (set-empty))))
+            (let g2 (Group "B" (CellSet (set-empty))))
+
+            (let ys (Cons (Enable g1 (Attributes (map-empty))) (Cons (Enable g2 (Attributes (map-empty))) (Nil))))
+            ; @static(3) par { ... }
+            (let S1 (Par (Attributes (map-insert (map-empty) "static" 3)) ys))
+            (let X (Enable g1 (Attributes m1)))
+            (let Y (Enable g2 (Attributes m2)))
+            ; @promotable(1) A; @static(3) par { ... }; @promotable(2) B;
+            (let xs (Cons X (Cons S1 (Cons Y (Nil)))))
+            
+            ; @static(10) par { ... }
+            (let S2 (Par (Attributes (map-insert (map-empty) "static" 10)) ys))
+            (let xss (Cons S2 xs))
+
+            ; par { @promotable(1) A; @promotable(2) B; }
+            (let zs (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+            (let S3 (Par (Attributes (map-empty)) zs))
+            (let xsss (Cons S3 xss))
+            "#,
+            r#"
+            (check (= (max-latency xs) 3)) ; max(1, 3, 2)
+            (check (= (max-latency xss) 10)) ; max(1, 3, 2, 10)
+            (check (= (max-latency xsss) 10)) ; max(1, 3, 2, 10, 3)
+            "#,
+            &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
+    #[test]
+    fn test_par_sum_latency() -> utils::Result {
+        // If a "static" attribute is available, use it when performing latency analysis.
+        // Otherwise, sum the latencies of the construct's groups.
+        test_egglog(
+            r#"
+            (let m1 (map-insert (map-empty) "promotable" 1))
+            (let m2 (map-insert (map-empty) "promotable" 2))
+            (let g1 (Group "A" (CellSet (set-empty))))
+            (let g2 (Group "B" (CellSet (set-empty))))
+
+            (let ys (Cons (Enable g1 (Attributes (map-empty))) (Cons (Enable g2 (Attributes (map-empty))) (Nil))))
+            ; @static(3) par { ... }
+            (let P1 (Par (Attributes (map-insert (map-empty) "static" 3)) ys))
+            (let X (Enable g1 (Attributes m1)))
+            (let Y (Enable g2 (Attributes m2)))
+            ; @promotable(1) A; @static(3) par { ... }; @promotable(2) B;
+            (let xs (Cons X (Cons P1 (Cons Y (Nil)))))
+            
+            ; @static(10) par { ... }
+            (let P2 (Par (Attributes (map-insert (map-empty) "static" 10)) ys))
+            (let xss (Cons P2 xs))
+
+            ; par { @promotable(1) A; @promotable(2) B; }
+            (let zs (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+            (let S3 (Par (Attributes (map-empty)) zs))
+            (let xsss (Cons S3 xss))
+            "#,
+            r#"
+            (check (= (sum-latency xs) 6)) ; 1 + 3 + 2
+            (check (= (sum-latency xss) 16)) ; 1 + 3 + 2 + 10
+            (check (= (sum-latency xsss) 19)) ; 1 + 3 + 2 + 10 + 1 + 2
+            "#,
+            &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
+    #[ignore = "TODO(cgyurgyik): causing merge failures (necessary?)"]
+    #[test]
+    fn test_control_before() -> utils::Result {
         test_egglog(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
@@ -201,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    fn test_exclusive() -> Result {
+    fn test_exclusive() -> utils::Result {
         test_egglog(
             r#"
             (let CS1 (CellSet (set-of (Cell "a"))))
@@ -218,7 +347,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fan_out() -> Result {
+    fn test_fan_out() -> utils::Result {
         test_egglog(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
@@ -242,7 +371,7 @@ mod tests {
     }
 
     #[test]
-    fn test_par_to_seq() -> Result {
+    fn test_par_to_seq() -> utils::Result {
         test_egglog(
             r#"
             (let g1 (Group "A" (CellSet (set-empty))))
@@ -265,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn test_collapse_seq() -> Result {
+    fn test_collapse_seq() -> utils::Result {
         test_egglog(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
@@ -278,7 +407,7 @@ mod tests {
     }
 
     #[test]
-    fn test_collapse_par() -> Result {
+    fn test_collapse_par() -> utils::Result {
         test_egglog(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
@@ -290,12 +419,9 @@ mod tests {
         )
     }
 
-    #[ignore = "TODO(cgyurgyik): illegal merge failure"]
-    // TODO(cgyurgyik): This works when I comment out all other rewrites,
-    // so there exists some conflict.
     #[test]
-    fn test_split_seq() -> Result {
-        test_egglog_debug(
+    fn test_split_seq() -> utils::Result {
+        test_egglog(
             r#"
             (let A (Enable (Group "A" (CellSet (set-empty))) (Attributes (map-empty))))
             (let B (Enable (Group "B" (CellSet (set-empty))) (Attributes (map-empty))))
@@ -325,6 +451,11 @@ mod tests {
             &[utils::RewriteRule::CalyxControl],
         )
     }
+}
+
+#[cfg(test)]
+mod e2e_tests {
+    use super::*;
 
     #[test]
     fn test_calyx_to_egg_simple() -> utils::Result {
@@ -441,7 +572,7 @@ mod tests {
                 (check (=
                     egg-main
                     (Seq (Attributes (map-insert (map-empty) "promotable" 22)) 
-                    (Cons (Par (Attributes (map-empty)) 
+                    (Cons (Par (Attributes (map-insert (map-empty) "static" 1)) 
                         (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) 
                             (Nil)
                         )
@@ -452,16 +583,6 @@ mod tests {
                         (Nil))))))))
                         
                 ; seq { par { A; B; } C; D; }
-                (check (=
-                    egg-main
-                    (Seq (Attributes (map-insert (map-empty) "promotable" 22))
-                    (Cons (Par (Attributes (map-empty))
-                            (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10)))
-                            (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1)))
-                                (Nil))))
-                    (Cons (Enable C (Attributes (map-insert (map-empty) "promotable" 1)))
-                    (Cons (Enable D (Attributes (map-insert (map-empty) "promotable" 10)))
-                        (Nil)))))))
                     "#,
         )
     }

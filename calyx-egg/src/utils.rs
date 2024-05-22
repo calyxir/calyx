@@ -38,7 +38,7 @@ pub fn run_schedule(
 (run-schedule
     (saturate cell-set list analysis)
     (repeat 1024
-        (saturate control list)
+        (saturate control list analysis)
         (run)
     )
 )"#,

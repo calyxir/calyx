@@ -215,16 +215,6 @@
 ;     :ruleset analysis
 ; )
 
-
-
-
-; (rewrite
-;     (Seq attr (Cons A (Cons B (Nil))))
-;     (Par attr (Cons A (Cons B (Nil))))
-;     :when ((= (exclusive A B) true))
-;     :ruleset control
-; )
-
 (function exclusive (Control Control) bool)
 (rule
     (
@@ -288,7 +278,7 @@
     :ruleset analysis
 )
 
-; TODO(cgyurgyik): define.
+; ; TODO(cgyurgyik): define.
 (function nonexclusive-list (Control List) List)
 (rewrite
     (nonexclusive-list x (Nil))
@@ -379,6 +369,15 @@
 )
 
 
+; seq { A; B; } => par { A; B; }
+; (rewrite
+;     (Seq attr (Cons A (Cons B (Nil))))
+;     (Par attr (Cons A (Cons B (Nil))))
+;     :when ((= (exclusive A B) true))
+;     :ruleset control
+; )
+
+
 
 ;  seq { A0; A1; ...; An; } =>
 ;  seq {
@@ -407,38 +406,39 @@
 ; (control-before x xs)
 ; Returns all control parameters before x in xs.
 ; If x is not in xs, returns (Nil).
-(function control-before (Control Control) List)
-(rule
-    (
-        (= e (Enable g m)) ; x
-        (= S (Seq attr s)) ; [A B x C]
-    )
-    (
-        (let rS (list-reverse s)) ; [C x B A]
-        (let xxs (list-find e rS)) ; [x B A]
-        (let xs (cdr xxs)) ; [B A]
-        (let xs-reverse (list-reverse xs)) ; [A B]
-        (set
-            (control-before e S)
-            xs-reverse
-        )
-    )
-    :ruleset analysis
-)
-(rule
-    (
-        (= x (Enable g1 m1))
-        (= S (Seq attr (Nil)))
-    )
-    (
-        (set (control-before x S) (Nil))
-    )
-    :ruleset analysis
-)
+; (function control-before (Control Control) List)
+; (rule
+;     (
+;         (= e (Enable g m)) ; x
+;         (= S (Seq attr s)) ; [A B x C]
+;     )
+;     (
+;         (let rS (list-reverse s)) ; [C x B A]
+;         (let xxs (list-find e rS)) ; [x B A]
+;         (let xs (cdr xxs)) ; [B A]
+;         (let xs-reverse (list-reverse xs)) ; [A B]
+;         (set
+;             (control-before e S)
+;             xs-reverse
+;         )
+;     )
+;     :ruleset analysis
+; )
+; (rule
+;     (
+;         (= x (Enable g1 m1))
+;         (= S (Seq attr (Nil)))
+;     )
+;     (
+;         (set (control-before x S) (Nil))
+;     )
+;     :ruleset analysis
+; )
 
 (function max-latency (List) i64)
 (set (max-latency (Nil)) 0)
-(rule
+
+(rule ; (max-latency Enable)
     (
         (= E (Cons (Enable _ (Attributes m)) xs))
         (= incumbent (max-latency xs))
@@ -451,7 +451,7 @@
     :ruleset analysis
 )
 
-(rule
+(rule ; (max-latency @static(N) Seq)
     (
         (= E (Cons (Seq (Attributes m) ys) xs))
         (= incumbent (max-latency xs))
@@ -462,12 +462,51 @@
         (set (max-latency (Cons (Seq (Attributes m) ys) xs)) (max current incumbent))
     )
     :ruleset analysis
-) ; TODO(cgyurgyik): Maybe try going through `ys` if @static attribute DNE.
+)
+
+(rule ; (max-latency Seq) - No "static" attribute; go through children.
+    (
+        (= E (Cons (Seq (Attributes m) ys) xs))
+        (= incumbent (max-latency xs))
+        (map-not-contains m "static")
+        (= current (max-latency ys))
+    )
+    (
+        (set (max-latency (Cons (Seq (Attributes m) ys) xs)) (max current incumbent))
+    )
+    :ruleset analysis
+)
+
+(rule ; (max-latency @static(N) Par)
+    (
+        (= E (Cons (Par (Attributes m) ys) xs))
+        (= incumbent (max-latency xs))
+        (map-contains m "static")
+        (= current (map-get m "static"))
+    )
+    (
+        (set (max-latency (Cons (Par (Attributes m) ys) xs)) (max current incumbent))
+    )
+    :ruleset analysis
+)
+
+(rule ; (max-latency Par) - No "static" attribute; go through children.
+    (
+        (= E (Cons (Par (Attributes m) ys) xs))
+        (= incumbent (max-latency xs))
+        (map-not-contains m "static")
+        (= current (max-latency ys))
+    )
+    (
+        (set (max-latency (Cons (Par (Attributes m) ys) xs)) (max current incumbent))
+    )
+    :ruleset analysis
+)
 
 (function sum-latency (List) i64)
 (set (sum-latency (Nil)) 0)
 
-(rule
+(rule ; (sum-latency Enable)
     (
         (= ys (Cons (Enable _ (Attributes m)) xs))
         (= sum (sum-latency xs))
@@ -480,7 +519,7 @@
     :ruleset analysis
 )
 
-(rule
+(rule ; (sum-latency @static(N) Seq)
     (
         (= xss (Cons (Seq (Attributes m) ys) xs))
         (= sum (sum-latency xs))
@@ -493,7 +532,20 @@
     :ruleset analysis
 )
 
-(rule
+(rule ; (sum-latency Seq) - No "static" attribute; Go through children.
+    (
+        (= xss (Cons (Seq (Attributes m) ys) xs))
+        (= sum (sum-latency xs))
+        (map-not-contains m "static")
+        (= latency (sum-latency ys))
+    )
+    (
+        (set (sum-latency xss) (+ sum latency))
+    )
+    :ruleset analysis
+)
+
+(rule ; (sum-latency @static(N) Par)
     (
         (= xss (Cons (Par (Attributes m) ys) xs))
         (= sum (sum-latency xs))
@@ -506,33 +558,15 @@
     :ruleset analysis
 )
 
-(rule
+(rule ; (sum-latency Par)
     (
         (= xss (Cons (Par (Attributes m) ys) xs))
         (= sum (sum-latency xs))
         (map-not-contains m "static")
-        (= latency (max-latency ys))
+        (= latency (sum-latency ys))
     )
     (
         (set (sum-latency xss) (+ sum latency))
-    )
-    :ruleset analysis
-)
-
-(sort _Interval)
-(function Interval (i64 i64) _Interval)
-(function interval-of (Control Control) _Interval)
-(rule
-    (
-        (= e (Enable g (Attributes m)))
-        (= S (Seq attr (Cons y ys)))
-        (map-contains m "promotable")
-        (= xs (control-before e S))
-        (= i0 (sum-latency xs))
-        (= i1 (+ (map-get m "promotable") i0))
-    )
-    (
-        (union (interval-of e S) (Interval i0 i1))
     )
     :ruleset analysis
 )
@@ -551,13 +585,15 @@
 ; seq { A; B; C; D; } => seq { par { A; } B; C; D; }
 (rule
     (
-        (= x (Enable g (Attributes _)))
+        (= x (Enable g (Attributes m-e)))
         (= S (Seq attr (Cons x xs)))
         (> (list-length xs) 0) ; We only want to do this if we can eventually compact another group.
+        (map-contains m-e "promotable")
     )
     (
-        (let ys (Par (Attributes (map-empty)) (Cons x (Nil))))
-        (union (Seq attr (Cons x xs)) (Seq attr (Cons ys xs)))
+        (let latency (map-get m-e "promotable"))
+        (let p (Par (Attributes (map-insert (map-empty) "static" latency)) (Cons x (Nil))))
+        (set (Seq attr (Cons x xs)) (Seq attr (Cons p xs)))
 
     )
     :ruleset control
@@ -578,49 +614,39 @@
     :ruleset control
 )
 
-(rule
-    (
-        (= x (Enable g (Attributes _)))
-        (= compaction (Par (Attributes a2) ys))
-        (= S (Seq attr1 (Cons compaction (Cons x xs))))
-        (exclusive-with-all x ys)
-    )
-    (
-        ; TODO(cgyurgyik): update latency ((Cons x ys))
-        (let latency (max-latency (Cons x ys)))
-        ; (let new-attr (Attributes (map-insert a2 "promotable" latency)))
-        (union
-            (Seq attr1 (Cons compaction (Cons x xs)))
-            (Seq attr1 (Cons (Par (Attributes a2) (Cons x ys)) xs))
-        )
-    )
-    :ruleset control
-)
+; (rule
+;     (
+;         (= x (Enable g (Attributes _)))
+;         (= compaction (Par (Attributes a2) ys))
+;         (= S (Seq attr1 (Cons compaction (Cons x xs))))
+;         (exclusive-with-all x ys)
+;     )
+;     (
+;         ; TODO(cgyurgyik): update latency ((Cons x ys))
+;         (let latency (max-latency (Cons x ys)))
+;         ; (let new-attr (Attributes (map-insert a2 "promotable" latency)))
+;         (union
+;             (Seq attr1 (Cons compaction (Cons x xs)))
+;             (Seq attr1 (Cons (Par (Attributes a2) (Cons x ys)) xs))
+;         )
+;     )
+;     :ruleset control
+; )
 
-; Case 2: A is not exclusive with B.
-; seq { par { A; } B; C; D; } => seq { par { A; seq { _delay; B; } } C; D; }
-(rule
-    (
-        (= x (Enable g (Attributes _)))
-        (= compact-par (Par a2 ys))
-        (= S (Seq (Attributes attr-S) (Cons compact-par (Cons x xs))))
-        (not (exclusive-with-all x ys))
-        (= nonexclusives (nonexclusive-list x ys))
-        (= L (max-latency nonexclusives))
-        ; TODO(cgyurgyik): Update static attribute(s).
-    )
-    (
-        (let attr-e (Attributes (map-insert (map-empty) "promotable" L)))
-        (let static-empty (Enable (Group (s-concat "del_" L) (CellSet (set-empty))) attr-e))
-        (let attr-s (Attributes (map-insert (map-empty) "static" L)))
-        (let new-S (Seq attr-s (Cons x (Cons static-empty (Nil)))))
-        (let p-latency (max-latency (Cons new-S ys)))
-        (let attr-p (Attributes (map-insert (map-empty) "static" p-latency)))
-        (let s-latency (+ p-latency (sum-latency xs)))
-        (let new-attr-S (Attributes (map-insert attr-S "static" s-latency)))
-        (union
-            (Seq (Attributes attr-S) (Cons compact-par (Cons x xs)))
-            (Seq new-attr-S (Cons (Par attr-p (Cons new-S ys)) xs)))
-    )
-    :ruleset control
-)
+; (sort _Interval)
+; (function Interval (i64 i64) _Interval)
+; (function interval-of (Control Control) _Interval)
+; (rule
+;     (
+;         (= e (Enable g (Attributes m)))
+;         (= S (Seq attr (Cons y ys)))
+;         (map-contains m "promotable")
+;         (= xs (control-before e S))
+;         (= i0 (sum-latency xs))
+;         (= i1 (+ (map-get m "promotable") i0))
+;     )
+;     (
+;         (union (interval-of e S) (Interval i0 i1))
+;     )
+;     :ruleset analysis
+; )
