@@ -124,8 +124,11 @@ def insert_binheap(prog, name):
 
     put_in_mem = comp.mem_store_seq_d1(mem, size.out, value, "put_in_mem")
 
+    incr_size = comp.incr(size)
+
     comp.control += [
         put_in_mem,
+        incr_size,
     ]
 
     return comp
@@ -146,6 +149,14 @@ def insert_main(prog, binheap):
     comp.control += cb.invoke(
         binheap,
         in_value=cb.const(64, 4),
+        ref_mem=mem,
+        ref_ans=ans,
+        ref_err=err,
+    )
+
+    comp.control += cb.invoke(
+        binheap,
+        in_value=cb.const(64, 5),
         ref_mem=mem,
         ref_ans=ans,
         ref_err=err,
