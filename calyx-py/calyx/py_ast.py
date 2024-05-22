@@ -597,6 +597,10 @@ class Stdlib:
         return CompInst("std_slice", [in_, out])
 
     @staticmethod
+    def bit_slice(in_: int, start_idx: int, end_idx: int, out: int):
+        return CompInst("std_bit_slice", [in_, start_idx, end_idx, out])
+
+    @staticmethod
     def pad(in_: int, out: int):
         return CompInst("std_pad", [in_, out])
 

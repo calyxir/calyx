@@ -97,6 +97,7 @@ class ComponentBuilder:
                 structs=list(),
             )
         )
+
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
@@ -140,7 +141,7 @@ class ComponentBuilder:
     @property
     def control(self) -> ControlBuilder:
         """Access the component's control program."""
-        if isinstance(self.component, ast.CompComponent):
+        if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
                 "Combinational components do not have control programs"
             )
@@ -435,10 +436,32 @@ class ComponentBuilder:
         name = name or self.generate_name("and")
         return self.logic("and", size, name)
 
+    def or_(self, size: int, name: str = None) -> CellBuilder:
+        """Generate a StdOr cell."""
+        name = name or self.generate_name("or")
+        return self.logic("or", size, name)
+
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
+
+    def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdPad cell."""
+        name = name or self.generate_name("pad")
+        return self.cell(name, ast.Stdlib.pad(in_width, out_width))
+
+    def slice(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdSlice cell."""
+        name = name or self.generate_name("slice")
+        return self.cell(name, ast.Stdlib.slice(in_width, out_width))
+
+    def bit_slice(
+        self, in_width: int, start: int, end: int, out_width: int, name: str = None
+    ) -> CellBuilder:
+        """Generate a StdBitSlice cell."""
+        name = name or self.generate_name("bit_slice")
+        return self.cell(name, ast.Stdlib.bit_slice(in_width, start, end, out_width))
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
