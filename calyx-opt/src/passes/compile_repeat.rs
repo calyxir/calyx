@@ -103,10 +103,10 @@ impl Visitor for CompileRepeat {
                 None,
                 Box::new(while_body),
             );
-            let while_seq = ir::Control::seq(vec![
-                ir::Control::enable(init_group),
-                while_loop,
-            ]);
+            let while_seq = ir::Control::Seq(ir::Seq {
+                stmts: vec![ir::Control::enable(init_group), while_loop],
+                attributes: std::mem::take(&mut s.attributes),
+            });
             Ok(Action::change(while_seq))
         }
     }
