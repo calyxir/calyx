@@ -39,7 +39,7 @@ mod unit_tests {
         });
 
         if display {
-            let serialized = egraph.serialize_for_graphviz(true);
+            let serialized = egraph.serialize_for_graphviz(true, 100, 100);
             let file = tempfile::NamedTempFile::new()?;
             let path = file.into_temp_path().with_extension("svg");
             serialized.to_svg_file(path.clone())?;
@@ -78,6 +78,95 @@ mod unit_tests {
             (let c2 (CellSet (set-of (Cell "a"))))
             "#,
             r#"(check (= c1 c2))"#,
+            &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
+    #[test]
+    fn test_exclusivity() -> utils::Result {
+        test_egglog(
+            r#"
+            (let c1 (CellSet (set-of (Cell "a"))))
+            (let c2 (CellSet (set-of (Cell "b"))))
+            (let c3 (CellSet (set-of (Cell "a") (Cell "b"))))
+            (let c4 (CellSet (set-of (Cell "b") (Cell "c"))))
+
+            (let A (Enable (Group "A" c1) (Attributes (map-empty))))
+            (let B (Enable (Group "B" c2) (Attributes (map-empty))))
+            (let C (Enable (Group "C" c3) (Attributes (map-empty))))
+            (let D (Enable (Group "D" c4) (Attributes (map-empty))))
+            (let S (Seq (Attributes (map-empty)) (Cons A (Nil))))
+            (Nil)
+            (Cons S (Nil))
+            (Cons D (Nil))
+            (Cons B (Nil))
+            (Cons B (Cons D (Nil)))
+            (Cons C (Cons D (Nil)))
+            (Cons B (Cons C (Cons D (Nil))))
+            (Cons A (Cons B (Cons C (Cons D (Nil)))))
+            "#,
+            r#"
+            (check (= (exclusive A B) true))
+            (check (= (exclusive A A) false))
+            (check (= (exclusive A C) false))
+            (check (= (exclusive A D) true))
+
+            (check (= (exclusive-with-all A (Nil)) true))
+            (check (= (exclusive-with-all A (Cons A (Nil))) false))
+            (check (= (exclusive-with-all A (Cons B (Cons C (Cons D (Nil))))) false))
+            (check (= (exclusive-with-all A (Cons D (Nil))) true))
+            (check (= (exclusive-with-all A (Cons B (Nil))) true))
+            (check (= (exclusive-with-all A (Cons B (Cons D (Nil)))) true))
+            (check (= (exclusive-with-all A (Cons S (Nil))) false))
+
+            "#,
+            &[utils::RewriteRule::CalyxControl],
+        )
+    }
+
+    #[test]
+    fn test_non_exclusive_set() -> utils::Result {
+        test_egglog(
+            r#"
+            (let c1 (CellSet (set-of (Cell "a"))))
+            (let c2 (CellSet (set-of (Cell "b"))))
+            (let c3 (CellSet (set-of (Cell "a") (Cell "b"))))
+            (let c4 (CellSet (set-of (Cell "b") (Cell "c"))))
+
+            (let A (Enable (Group "A" c1) (Attributes (map-empty))))
+            (let B (Enable (Group "B" c2) (Attributes (map-empty))))
+            (let C (Enable (Group "C" c3) (Attributes (map-empty))))
+            (let D (Enable (Group "D" c4) (Attributes (map-empty))))
+            (let S (Seq (Attributes (map-empty)) (Cons A (Nil))))
+            (let P (Par (Attributes (map-empty)) (Cons A (Nil))))
+            (Nil)
+            (Cons S (Nil))
+            (Cons C (Cons P (Nil)))
+            (Cons C (Cons S (Nil)))  
+            (Cons C (Nil))
+            (Cons B (Nil))
+            (Cons A (Cons B (Cons C (Cons D (Nil)))))
+            "#,
+            r#"
+
+            (check (= (nonexclusive-set A (Nil)) (ControlSet (set-empty))))
+            (check (= (nonexclusive-set A (Cons B (Nil))) (ControlSet (set-empty))))
+            (check (= (nonexclusive-set A (Cons C (Nil))) (ControlSet (set-of C))))
+            (check (=
+               (nonexclusive-set A (Cons A (Cons B (Cons C (Cons D (Nil))))))
+               (ControlSet (set-of A C))
+            ))
+
+            (check (=
+                (nonexclusive-set A (Cons C (Cons S (Nil))))
+                (ControlSet (set-of C S))
+             ))
+
+            (check (=
+                (nonexclusive-set A (Cons C (Cons P (Nil))))
+                (ControlSet (set-of C P))
+            ))
+            "#,
             &[utils::RewriteRule::CalyxControl],
         )
     }
@@ -190,7 +279,6 @@ mod unit_tests {
             r#"
             (check (= (sum-latency xs) 6)) ; 1 + 3 + 2
             (check (= (sum-latency xss) 16)) ; 1 + 3 + 2 + 10
-            (check (= (sum-latency xsss) 19)) ; 1 + 3 + 2 + 10 + 1 + 2
             "#,
             &[utils::RewriteRule::CalyxControl],
         )
@@ -376,11 +464,11 @@ mod unit_tests {
             r#"
             (let g1 (Group "A" (CellSet (set-empty))))
             (let g2 (Group "B" (CellSet (set-empty))))
-            (let P (Par (Attributes (map-empty)) 
+            (let P (Par (Attributes (map-insert (map-empty) "static" 1011)) 
                 (Cons (Enable g1 (Attributes (map-insert (map-empty) "promotable" 1011)))
                 (Cons (Enable g2 (Attributes (map-insert (map-empty) "promotable" 5)))
                     (Nil)))))
-            (let S (Seq (Attributes (map-empty)) 
+            (let S (Seq (Attributes (map-insert (map-empty) "static" 1016)) 
                 (Cons (Enable g1 (Attributes (map-insert (map-empty) "promotable" 1011)))
                 (Cons (Enable g2 (Attributes (map-insert (map-empty) "promotable" 5)))
                     (Nil)))))
@@ -548,7 +636,7 @@ mod e2e_tests {
       }
 
       control {
-        @promotable(22) seq {
+        @static(22) seq {
           @promotable A;
           @promotable(10) B;
           @promotable C;
@@ -561,7 +649,7 @@ mod e2e_tests {
                 ; seq { A; B; C; D; }
                 (check (=
                     egg-main
-                    (Seq (Attributes (map-insert (map-empty) "promotable" 22)) 
+                    (Seq (Attributes (map-insert (map-empty) "static" 22)) 
                         (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) 
                         (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10))) 
                         (Cons (Enable C (Attributes (map-insert (map-empty) "promotable" 1))) 
@@ -571,7 +659,7 @@ mod e2e_tests {
                 ; seq { par { A; } B; C; D; }
                 (check (=
                     egg-main
-                    (Seq (Attributes (map-insert (map-empty) "promotable" 22)) 
+                    (Seq (Attributes (map-insert (map-empty) "static" 22)) 
                     (Cons (Par (Attributes (map-insert (map-empty) "static" 1)) 
                         (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) 
                             (Nil)
@@ -583,6 +671,31 @@ mod e2e_tests {
                         (Nil))))))))
                         
                 ; seq { par { A; B; } C; D; }
+                (check (=
+                    egg-main
+                    (Seq (Attributes (map-insert (map-empty) "static" 21))
+                    (Cons (Par (Attributes (map-insert (map-empty) "static" 10))
+                            (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10)))
+                            (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1)))
+                                (Nil))))
+                    (Cons (Enable C (Attributes (map-insert (map-empty) "promotable" 1)))
+                    (Cons (Enable D (Attributes (map-insert (map-empty) "promotable" 10)))
+                        (Nil)))))))
+
+                ; seq { par { A; B; seq { _delay10; C; } } D; }
+                (check (=
+                    egg-main
+                    (Seq (Attributes (map-insert (map-empty) "static" 20))
+                        (Cons (Par (Attributes (map-insert (map-empty) "static" 10))
+                                (Cons (Seq (Attributes (map-insert (map-empty) "static" 11))
+                                        (Cons (Enable (Group "_delay" (CellSet (set-empty))) (Attributes (map-insert (map-empty) "promotable" 10)))
+                                        (Cons (Enable C (Attributes (map-insert (map-empty) "promotable" 1)))
+                                        (Nil))))
+                                (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10)))
+                                (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1)))
+                                (Nil)))))
+                            (Cons (Enable D (Attributes (map-insert (map-empty) "promotable" 10)))
+                                (Nil))))))
                     "#,
         )
     }

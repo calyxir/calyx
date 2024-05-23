@@ -36,8 +36,8 @@ pub fn run_schedule(
     String::from_str(
         r#"
 (run-schedule
-    (saturate cell-set list analysis)
-    (repeat 1024
+    (saturate list analysis)
+    (repeat 32
         (saturate control list analysis)
         (run)
     )
@@ -99,7 +99,7 @@ pub fn run_calyx_file_to_egglog(
         }
     });
     if display {
-        let serialized = egraph.serialize_for_graphviz(true);
+        let serialized = egraph.serialize_for_graphviz(true, 100, 100);
         let file = tempfile::NamedTempFile::new()?;
         let path = file.into_temp_path().with_extension("svg");
         serialized.to_svg_file(path.clone())?;
