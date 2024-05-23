@@ -6,8 +6,8 @@ use calyx_backend::SexpBackend;
 use calyx_backend::YxiBackend;
 use calyx_backend::{
     xilinx::{XilinxInterfaceBackend, XilinxXmlBackend},
-    Backend, BackendOpt, CalyxEggBackend, FirrtlBackend, MlirBackend,
-    PrimitiveUsesBackend, ResourcesBackend, VerilogBackend,
+    Backend, BackendOpt, EggBackend, EggOptimizeBackend, FirrtlBackend,
+    MlirBackend, PrimitiveUsesBackend, ResourcesBackend, VerilogBackend,
 };
 use calyx_ir as ir;
 use calyx_utils::{CalyxResult, Error, OutputFile};
@@ -79,6 +79,10 @@ pub struct Opts {
     #[argh(option, short = 'b', default = "BackendOpt::default()")]
     pub backend: BackendOpt,
 
+    /// visualize the egglog program after optimization
+    #[argh(option, long = "display", default = "false")]
+    pub display_egraph: bool,
+
     /// run this pass during execution
     #[argh(option, short = 'p')]
     pub pass: Vec<String>,
@@ -140,8 +144,12 @@ impl Opts {
                 let backend = MlirBackend;
                 backend.run(context, self.output)
             }
-            BackendOpt::CalyxEgg => {
-                let backend = CalyxEggBackend;
+            BackendOpt::EggOptimize => {
+                let backend = EggOptimizeBackend;
+                backend.run(context, self.output)
+            }
+            BackendOpt::Egg => {
+                let backend = EggBackend;
                 backend.run(context, self.output)
             }
             BackendOpt::Resources => {

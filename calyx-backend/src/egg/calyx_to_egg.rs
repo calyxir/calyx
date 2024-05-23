@@ -1,59 +1,22 @@
-//! Generation for the Calyx Egg backend of the Calyx compiler.
-use super::traits::Backend;
+use crate::traits::Backend;
 use calyx_frontend::GetAttributes;
 use calyx_ir::{self as ir};
 use calyx_utils::Error;
+use egglog::{ast::Literal, match_term_app, EGraph, Term, TermDag};
 use itertools::Itertools;
+use main_error::MainError;
 use std::collections::HashSet;
-use std::io;
-use std::io::Write;
+use std::fs::{self, File};
+use std::io::{self, Read, SeekFrom};
+use std::io::{Seek, Write};
+use std::path::Path;
+use std::{fmt, str::FromStr};
+use tempfile::tempfile;
 
 #[derive(Default)]
-pub struct CalyxEggBackend;
+pub struct ToEggPrinter;
 
-impl Backend for CalyxEggBackend {
-    fn name(&self) -> &'static str {
-        "calyx-egg"
-    }
-
-    fn validate(_prog: &ir::Context) -> calyx_utils::CalyxResult<()> {
-        Ok(())
-    }
-
-    fn emit(
-        ctx: &ir::Context,
-        file: &mut calyx_utils::OutputFile,
-    ) -> calyx_utils::CalyxResult<()> {
-        let res = {
-            let f = &mut file.get_write();
-            if ctx.components.len() > 1 {
-                todo!("multiple components not supported in CalyxEgg")
-            }
-
-            ctx.components.iter().try_for_each(|comp| {
-                Self::write_component(comp, f)?;
-                writeln!(f)
-            })?;
-            writeln!(f)
-        };
-        res.map_err(|err| {
-            let std::io::Error { .. } = err;
-            Error::write_error(format!(
-                "File not found: {}",
-                file.as_path_string()
-            ))
-        })
-    }
-
-    fn link_externs(
-        _prog: &ir::Context,
-        _write: &mut calyx_utils::OutputFile,
-    ) -> calyx_utils::CalyxResult<()> {
-        Ok(())
-    }
-}
-
-impl CalyxEggBackend {
+impl ToEggPrinter {
     fn format_attributes(
         attrs: &ir::Attributes,
         latency: Option<u64>,
@@ -97,12 +60,18 @@ impl CalyxEggBackend {
         for group in comp.get_static_groups().iter() {
             Self::write_static_group(&group.borrow(), f)?;
         }
-        for _ in comp.comb_groups.iter() {
-            todo!("`combinational-group` is not supported in CalyxEgg")
+        for group in comp.comb_groups.iter() {
+            todo!(
+                "`combinational-group` is not supported in CalyxEgg: {:?}",
+                group
+            )
         }
         // Write the continuous assignments
-        for _ in &comp.continuous_assignments {
-            todo!("`continuous assignment` is not supported in CalyxEgg")
+        for assignment in &comp.continuous_assignments {
+            todo!(
+                "`continuous assignment` is not supported in CalyxEgg: {:?}",
+                assignment
+            )
         }
 
         // Add the control program

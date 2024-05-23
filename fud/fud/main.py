@@ -39,7 +39,6 @@ def register_stages(registry):
             "Compile Dahlia to Vivado C++",
         )
     )
-
     # Relay
     registry.register(relay.RelayStage())
     # Systolic Array
@@ -61,9 +60,23 @@ def register_stages(registry):
     )
     registry.register(
         futil.CalyxStage(
-            "calyx-egg",
-            "-b calyx-egg -p well-formed",
-            "Compile Calyx to Calyx Egg",
+            "egg",
+            "-b egg -p well-formed",
+            "Compile Calyx to Egglog",
+        )
+    )
+    registry.register(
+        futil.CalyxStage(
+            "egg-optimize",
+            "-b egg-optimize -p well-formed",
+            "Compile Calyx to Egglog, optimize, and go back to Calyx",
+        )
+    )
+    registry.register(
+        futil.CalyxStage(
+            "egg-debug",
+            "-b egg-optimize -p well-formed --display true",
+            "Compile Calyx to Egglog, optimize, and display the e-graph.",
         )
     )
     registry.register(

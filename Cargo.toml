@@ -53,7 +53,6 @@ calyx-ir = { path = "calyx-ir", version = "0.7.1" }
 calyx-frontend = { path = "calyx-frontend", version = "0.7.1" }
 calyx-opt = { path = "calyx-opt", version = "0.7.1" }
 calyx-backend = { path = "calyx-backend", version = "0.7.1" }
-calyx-egg = {path = "calyx-egg", version = "0.7.1" }
 
 [workspace.dependencies.petgraph]
 version = "0.6"
@@ -95,7 +94,6 @@ yxi = ["serialize", "calyx-backend/yxi", "calyx-ir/yxi"]
 
 [build-dependencies]
 calyx-stdlib = { path = "calyx-stdlib", version = "0.7.1" }
-calyx-egg = { path = "calyx-egg" , version = "0.7.1" }
 
 [dependencies]
 atty.workspace = true
@@ -107,7 +105,6 @@ env_logger.workspace = true
 
 calyx-utils.workspace = true
 calyx-ir.workspace = true
-calyx-egg.workspace = true
 calyx-frontend.workspace = true
 calyx-opt.workspace = true
 

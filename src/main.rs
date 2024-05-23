@@ -69,7 +69,14 @@ fn main() -> CalyxResult<()> {
         enable_verification: !opts.disable_verify,
         flat_assign: !opts.nested_assign,
         emit_primitive_extmodules: opts.emit_primitive_extmodules,
+        display_egraph: opts.display_egraph,
     };
+
+    match opts.backend {
+        BackendOpt::EggOptimize | BackendOpt::Egg => (),
+        _ => assert!(!opts.display_egraph),
+    }
+
     // Extra options for the passes
     ctx.extra_opts = opts.extra_opts.drain(..).collect();
 

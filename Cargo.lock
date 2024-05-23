@@ -374,7 +374,6 @@ dependencies = [
  "argh",
  "atty",
  "calyx-backend",
- "calyx-egg",
  "calyx-frontend",
  "calyx-ir",
  "calyx-opt",
@@ -395,9 +394,12 @@ dependencies = [
  "calyx-ir",
  "calyx-utils",
  "csv",
+ "egglog",
+ "egraph-serialize",
  "itertools 0.11.0",
  "linked-hash-map",
  "log",
+ "main_error",
  "petgraph",
  "quick-xml",
  "serde",
@@ -406,21 +408,8 @@ dependencies = [
  "serde_with 3.6.1",
  "smallvec",
  "string-interner",
- "vast",
-]
-
-[[package]]
-name = "calyx-egg"
-version = "0.7.1"
-dependencies = [
- "calyx-backend",
- "calyx-frontend",
- "calyx-ir",
- "calyx-utils",
- "egglog",
- "egraph-serialize",
- "main_error",
  "tempfile",
+ "vast",
 ]
 
 [[package]]

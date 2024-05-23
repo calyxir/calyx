@@ -1,0 +1,38 @@
+// -b egg-optimize
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> () {
+  cells {
+    const0 = std_const(32, 4);
+    const1 = std_const(32, 5);
+    add = std_add(32);
+    mult = std_mult_pipe(32);
+    reg0 = std_reg(32);
+    reg1 = std_reg(32);
+  }
+  wires {
+    group add_constants<"promotable"=1> {
+      add.left = const0.out;
+      add.right = const1.out;
+      reg0.in = add.out;
+      reg0.write_en = 1'd1;
+      add_constants[done] = reg0.done;
+    }
+    group multiply_constants {
+      mult.left = const0.out;
+      mult.right = const1.out;
+      reg1.in = mult.out;
+      mult.go = !mult.done ? 1'd1;
+      reg1.write_en = mult.done;
+      multiply_constants[done] = reg1.done;
+    }
+  }
+  control {
+    seq {
+      add_constants;
+      multiply_constants;
+    }
+  }
+}
