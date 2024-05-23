@@ -120,14 +120,14 @@ Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes
 
 ---
 ### `std_bit_slice<IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH>`
-Extract the bit-string starting at `START_IDX` and ending at `END_IDX - 1` from `in`. 
-This is computed as `in[END_IDX:START_IDX]`.`OUT_WIDTH` must be specified to 
+Extract the bit-string starting at `START_IDX` and ending at `END_IDX - 1` from `in`.
+This is computed as `in[END_IDX:START_IDX]`.`OUT_WIDTH` must be specified to
 be `END_WIDTH - START_WITH` wide when instantiating the module.
 
 
 **Inputs:**
 - `in: IN_WIDTH` - An IN_WIDTH-bit value
-  
+
 **Outputs:**
 
 - `out: OUT_WIDTH` - The value of the bit-string `in[START_IDX:END_IDX]`
@@ -302,9 +302,39 @@ Less than or equal. This component is combinational.
 
 ## Memories
 
+Calyx features two flavors of memories: combinational and sequential.
+Combinational memories promise that they will return `mem[addr]` in the same cycle that `addr` is provided.
+Sequential memories, on the other hand, promise that they will return `mem[addr]` in the next cycle after `addr` is provided.
+We generally encourage the use of sequential memories as they are more realistic.
+Combinational memories are useful when the memory is known to be small, and the application is very performance-sensitive.
+
+### `seq_mem_d1`
+
+A one-dimensional memory with sequential reads.
+
+**Parameters:**
+
+- `WIDTH` - Size of an individual memory slot.
+- `SIZE` - Number of slots in the memory.
+- `IDX_SIZE` - The width of the index given to the memory.
+
+**Inputs:**
+
+- `addr0: IDX_SIZE` - The index to be accessed or updated
+- `write_data: WIDTH` - Data to be written to the selected memory slot
+- `write_en: 1` - One bit write enabled signal, causes the memory to write `write_data` to the slot indexed by `addr0`
+- `content_en: 1` - One bit content enabled signal, causes the memory to latch the value stored at `addr0`
+
+**Outputs:**
+
+- `read_data: WIDTH` - The value stored at `addr0`. This value is available in the next cycle after `done` goes high.
+- `done: 1`: The done signal for the memory. This signal goes high for one cycle after finishing a write or a latch to the memory.
+
+---
+
 ### `comb_mem_d1`
 
-A one-dimensional memory.
+A one-dimensional memory with combinational reads.
 
 **Parameters:**
 
@@ -327,7 +357,7 @@ A one-dimensional memory.
 
 ### `comb_mem_d2`
 
-A two-dimensional memory.
+A two-dimensional memory with combinational reads.
 
 **Parameters:**
 
@@ -353,7 +383,7 @@ A two-dimensional memory.
 
 ### `comb_mem_d3`
 
-A three-dimensional memory.
+A three-dimensional memory with combinational reads.
 
 **Parameters:**
 
@@ -382,7 +412,7 @@ A three-dimensional memory.
 
 ### `comb_mem_d4`
 
-A four-dimensional memory.
+A four-dimensional memory with combinational reads.
 
 **Parameters:**
 
