@@ -634,43 +634,35 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_comb_d1(self, mem, i, reg, groupname):
-        """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a comb_mem_d1 memory.
-        """
-        assert mem.is_comb_mem_d1()
-        with self.group(groupname) as load_grp:
-            mem.addr0 = i
-            reg.write_en = 1
-            reg.in_ = mem.read_data
-            load_grp.done = reg.done
-        return load_grp
-
-    def mem_load_seq_d1(self, mem, i, reg, groupname):
+    def mem_load_d1(self, mem, i, reg, groupname, is_comb=False):
         """Inserts wiring into `self` to perform reg := mem[i],
-        where `mem` is a seq_d1 memory.
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
         """
-        assert mem.is_seq_mem_d1()
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as load_grp:
             mem.addr0 = i
-            mem.content_en = 1
-            reg.write_en = mem.done @ 1
-            reg.in_ = mem.done @ mem.read_data
+            if is_comb:
+                reg.write_en = 1
+                reg.in_ = mem.read_data
+            else:
+                mem.content_en = 1
+                reg.write_en = mem.done @ 1
+                reg.in_ = mem.done @ mem.read_data
             load_grp.done = reg.done
         return load_grp
 
     def mem_store_d1(self, mem, i, val, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a seq_d1 memory.
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
         """
         assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
             mem.write_data = val
+            store_grp.done = mem.done
             if not is_comb:
                 mem.content_en = 1
-            store_grp.done = mem.done
         return store_grp
 
     def mem_load_to_mem(self, mem, i, ans, j, groupname):

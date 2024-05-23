@@ -69,8 +69,8 @@ def insert_runner(prog, queue, name, stats_component=None):
     cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1, meaning cmd is pop or peek
 
     # Wiring to perform `cmd := commands[i]` and `value := values[i]`.
-    write_cmd_to_reg = runner.mem_load_seq_d1(commands, i.out, cmd, "write_cmd")
-    write_value_to_reg = runner.mem_load_seq_d1(values, i.out, value, "write_value")
+    write_cmd_to_reg = runner.mem_load_d1(commands, i.out, cmd, "write_cmd")
+    write_value_to_reg = runner.mem_load_d1(values, i.out, value, "write_value")
 
     # Wiring to raise/lower flags and compute a negation.
     raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")

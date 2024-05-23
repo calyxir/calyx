@@ -57,7 +57,7 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
 
     # Load and store into an arbitary slot in memory
     write_to_mem = fifo.mem_store_d1(mem, write.out, value, "write_payload_to_mem")
-    write_to_ans = fifo.mem_load_seq_d1(mem, read.out, ans, "read_payload_from_mem")
+    write_to_ans = fifo.mem_load_d1(mem, read.out, ans, "read_payload_from_mem")
 
     fifo.control += cb.par(
         # Was it a (pop/peek), or a push? We can do those two cases in parallel.
