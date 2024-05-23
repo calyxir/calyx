@@ -109,7 +109,7 @@ impl CalyxEggBackend {
         if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
             todo!("`empty` control is not supported in CalyxEgg")
         }
-        let ename: String = format!("egg-{}", comp.name);
+        let ename: String = format!("{}", comp.name);
         write!(f, "(let {} ", ename)?;
         let mut lists = Vec::new();
         Self::write_control(&comp.control.borrow(), &mut lists, f)?;

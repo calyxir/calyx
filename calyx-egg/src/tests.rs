@@ -581,7 +581,7 @@ mod e2e_tests {
         "#,
             r#"
             (check (=
-                egg-main 
+                main 
                 (Seq (Attributes (map-empty)) 
                 (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 2))) 
                 (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 3)))
@@ -648,7 +648,7 @@ mod e2e_tests {
             r#"
                 ; seq { A; B; C; D; }
                 (check (=
-                    egg-main
+                    main
                     (Seq (Attributes (map-insert (map-empty) "static" 22)) 
                         (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) 
                         (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10))) 
@@ -658,7 +658,7 @@ mod e2e_tests {
                 
                 ; seq { par { A; } B; C; D; }
                 (check (=
-                    egg-main
+                    main
                     (Seq (Attributes (map-insert (map-empty) "static" 22)) 
                     (Cons (Par (Attributes (map-insert (map-empty) "static" 1)) 
                         (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) 
@@ -672,7 +672,7 @@ mod e2e_tests {
                         
                 ; seq { par { A; B; } C; D; }
                 (check (=
-                    egg-main
+                    main
                     (Seq (Attributes (map-insert (map-empty) "static" 21))
                     (Cons (Par (Attributes (map-insert (map-empty) "static" 10))
                             (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10)))
@@ -684,7 +684,7 @@ mod e2e_tests {
 
                 ; seq { par { A; B; seq { _delay10; C; } } D; }
                 (check (=
-                    egg-main
+                    main
                     (Seq (Attributes (map-insert (map-empty) "static" 20))
                         (Cons (Par (Attributes (map-insert (map-empty) "static" 10))
                                 (Cons (Seq (Attributes (map-insert (map-empty) "static" 11))

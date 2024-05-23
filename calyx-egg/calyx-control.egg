@@ -13,6 +13,8 @@
 
 ; Group
 (datatype _Group)
+; TODO(cgyurgyik): Add static groups to guarantee the "static" attribute.
+; TODO(cgyurgyik): Add combinational groups.
 (function Group (String _CellSet) _Group)
 
 ; Attributes
@@ -209,6 +211,7 @@
 ; ANALYSIS
 ; -----------------------------------------------------------------------------
 
+; TODO(cgyurgyik): also need to account for memory-ordering.
 (function exclusive (Control Control) bool :unextractable)
 
 (rule
@@ -219,7 +222,6 @@
     )
     (
         (set (exclusive A B) false)
-        ; TODO(cgyurgyik): also need to account for memory-ordering.
     )
     :ruleset analysis
 )
@@ -232,12 +234,11 @@
     )
     (
         (set (exclusive A B) true)
-        ; TODO(cgyurgyik): also need to account for memory-ordering.
     )
     :ruleset analysis
 )
 
-; TODO(cgyurgyik): define.
+; Returns whether Control is exclusive with all values in List.
 (function exclusive-with-all (Control List) bool)
 (rule
     (
