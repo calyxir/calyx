@@ -111,6 +111,7 @@ def insert_binheap(prog, name):
     sub = comp.sub(4)
     lsh = comp.lsh(4)
     rsh = comp.rsh(4)
+    eq = comp.eq(4)
 
     parent_idx = comp.reg(4)
     parent_val = comp.reg(64)
@@ -124,12 +125,22 @@ def insert_binheap(prog, name):
 
     with comp.group("find_parent_idx") as find_parent_idx:
         # Find the parent of the `child`th element and store it in `parent`.
-        # That is, parent := floor((child − 1) / 2)
-        sub.left = child_idx.out
-        sub.right = 1
-        rsh.left = sub.out
-        rsh.right = cb.const(4, 1)
-        parent_idx.in_ = rsh.out
+        # If child is 0, parent is 0.
+        # Otherwise, parent := floor((child − 1) / 2)
+
+        # # Case when child = 0: parent := 0
+        # eq.left = child_idx.out
+        # eq.right = 0
+        # parent_idx.in_ = eq.out @ cb.const(4, 0)
+
+        # # Else case: parent := floor((child − 1) / 2)
+        # sub.left = ~eq.out @ child_idx.out
+        # sub.right = ~eq.out @ 1
+        # rsh.left = ~eq.out @ sub.out
+        # rsh.right = ~eq.out @ cb.const(4, 1)
+        # parent_idx.in_ = ~eq.out @ rsh.out
+
+        parent_idx.in_ = cb.const(4, 0)
         parent_idx.write_en = cb.HI
         find_parent_idx.done = parent_idx.done
 
@@ -145,37 +156,37 @@ def insert_binheap(prog, name):
     #     child.write_en = cb.HI
     #     find_child.done = child.done
 
-    set_child_idx = comp.reg_store(child_idx, size.out)
+    # set_child_idx = comp.reg_store(child_idx, size.out)
     put_new_val_in_mem = comp.mem_store_comb_mem_d1(
-        mem, child_idx.out, value, "put_new_val_in_mem"
+        mem, size.out, value, "put_new_val_in_mem"
     )
 
     incr_size = comp.incr(size)
-    child_lt_parent = comp.lt_use(child_val.out, parent_val.out)
-    bubble_child_idx = comp.reg_store(child_idx, parent_idx.out, "bubble_child_idx")
+    # child_lt_parent = comp.lt_use(child_val.out, parent_val.out)
+    # bubble_child_idx = comp.reg_store(child_idx, parent_idx.out, "bubble_child_idx")
 
     comp.control += [
-        set_child_idx,
+        # set_child_idx,
         put_new_val_in_mem,
         incr_size,
-        find_parent_idx,
-        load_parent,
-        load_child,
-        cb.while_with(
-            child_lt_parent,
-            [
-                cb.invoke(
-                    swap,
-                    in_a=parent_idx.out,
-                    in_b=child_idx.out,
-                    ref_mem=mem,
-                ),
-                bubble_child_idx,
-                find_parent_idx,
-                load_parent,
-                load_child,
-            ],
-        ),
+        find_parent_idx,  # Adding this back in caused 9 to be clobbered...
+        # load_parent,
+        # load_child,
+        # cb.while_with(
+        #     child_lt_parent,
+        #     [
+        #         cb.invoke(
+        #             swap,
+        #             in_a=parent_idx.out,
+        #             in_b=child_idx.out,
+        #             ref_mem=mem,
+        #         ),
+        #         bubble_child_idx,
+        #         find_parent_idx,
+        #         load_parent,
+        #         load_child,
+        #     ],
+        # ),
     ]
 
     return comp
@@ -208,13 +219,13 @@ def insert_main(prog, binheap):
             ref_ans=ans,
             ref_err=err,
         ),
-        # cb.invoke(
-        #     binheap,
-        #     in_value=cb.const(64, 3),
-        #     ref_mem=mem,
-        #     ref_ans=ans,
-        #     ref_err=err,
-        # ),
+        cb.invoke(
+            binheap,
+            in_value=cb.const(64, 3),
+            ref_mem=mem,
+            ref_ans=ans,
+            ref_err=err,
+        ),
     ]
 
     return comp
