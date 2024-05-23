@@ -147,7 +147,7 @@ def insert_main(prog, queue, controller=None, stats_component=None):
 
     j = main.reg(32)  # The index on the answer-list we'll write to
     incr_j = main.incr(j)  # j++
-    write_ans = main.mem_store_seq_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
+    write_ans = main.mem_store_d1(ans_mem, j.out, dataplane_ans.out, "write_ans")
     # ans_mem[j] = dataplane_ans
     lower_has_ans = main.reg_store(has_ans, 0, "lower_has_ans")  # has_ans := 0
 

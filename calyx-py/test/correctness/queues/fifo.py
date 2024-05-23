@@ -56,7 +56,7 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
     raise_err = fifo.reg_store(err, 1, "raise_err")  # err := 1
 
     # Load and store into an arbitary slot in memory
-    write_to_mem = fifo.mem_store_seq_d1(mem, write.out, value, "write_payload_to_mem")
+    write_to_mem = fifo.mem_store_d1(mem, write.out, value, "write_payload_to_mem")
     read_from_mem = fifo.mem_latch_seq_d1(mem, read.out, "read_payload_from_mem_phase1")
     write_to_ans = fifo.mem_load_seq_d1(mem, ans, "read_payload_from_mem_phase2")
 

@@ -646,17 +646,6 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_comb_d1(self, mem, i, val, groupname):
-        """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a comb_mem_d1 memory."""
-        assert mem.is_comb_mem_d1()
-        with self.group(groupname) as store_grp:
-            mem.addr0 = i
-            mem.write_en = 1
-            mem.write_data = val
-            store_grp.done = mem.done
-        return store_grp
-
     def mem_latch_seq_d1(self, mem, i, groupname):
         """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
         where `mem` is a seq_d1 memory.
@@ -680,16 +669,17 @@ class ComponentBuilder:
             write_grp.done = reg.done
         return write_grp
 
-    def mem_store_seq_d1(self, mem, i, val, groupname):
+    def mem_store_d1(self, mem, i, val, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `mem[i] := val`,
         where `mem` is a seq_d1 memory.
         """
-        assert mem.is_seq_mem_d1()
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
             mem.write_data = val
-            mem.content_en = 1
+            if not is_comb:
+                mem.content_en = 1
             store_grp.done = mem.done
         return store_grp
 
