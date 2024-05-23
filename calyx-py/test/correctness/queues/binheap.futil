@@ -1,0 +1,29 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+component binheap() -> () {
+  cells {
+    ref mem = seq_mem_d1(32, 3, 4);
+  }
+  wires {
+
+  }
+  control {
+    seq {
+
+    }
+  }
+}
+component main() -> () {
+  cells {
+    binheap = binheap();
+    @external mem = seq_mem_d1(32, 3, 4);
+  }
+  wires {
+
+  }
+  control {
+    seq {
+      invoke binheap[mem=mem]()();
+    }
+  }
+}
