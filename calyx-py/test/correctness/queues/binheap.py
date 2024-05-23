@@ -35,22 +35,21 @@ def insert_swap(prog, name, width, len, idx_w):
     comp = prog.component(name)
     a = comp.input("a", idx_w)
     b = comp.input("b", idx_w)
-    mem = comp.seq_mem_d1("mem", width, len, idx_w, is_ref=True)
+    mem = comp.comb_mem_d1("mem", width, len, idx_w, is_ref=True)
 
     mem_a = comp.reg(width)
     mem_b = comp.reg(width)
     temp_val = comp.reg(width)
 
-    read_a_phase_1 = comp.mem_read_seq_d1(mem, a, "read_a_1")
-    read_a_phase_2 = comp.mem_write_seq_d1_to_reg(
-        mem, mem_a, "read_a_2"
-    )  # mem_a := mem[a]
-    read_b_phase_1 = comp.mem_read_seq_d1(mem, b, "read_b_1")
-    read_b_phase_2 = comp.mem_write_seq_d1_to_reg(
-        mem, mem_b, "read_b_2"
-    )  # mem_b := mem[b]
-    write_a = comp.mem_store_seq_d1(mem, a, mem_a.out, "write_a")  # mem[a] := mem_a
-    write_b = comp.mem_store_seq_d1(mem, b, mem_b.out, "write_b")  # mem[b] := mem_b
+    read_a = comp.mem_load_comb_mem_d1(mem, a, mem_a, "read_a")  # mem_a := mem[a]
+    read_b = comp.mem_load_comb_mem_d1(mem, b, mem_b, "read_b")  # mem_b := mem[b]
+
+    write_a = comp.mem_store_comb_mem_d1(
+        mem, a, mem_a.out, "write_a"
+    )  # mem[a] := mem_a
+    write_b = comp.mem_store_comb_mem_d1(
+        mem, b, mem_b.out, "write_b"
+    )  # mem[b] := mem_b
 
     with comp.group("swap_registers") as swap_registers:
         # Swap the values at registers `a_val` and `b_val`
@@ -63,10 +62,8 @@ def insert_swap(prog, name, width, len, idx_w):
         swap_registers.done = mem_b.done
 
     comp.control += [
-        read_a_phase_1,
-        read_a_phase_2,
-        read_b_phase_1,
-        read_b_phase_2,
+        read_a,
+        read_b,
         swap_registers,
         write_a,
         write_b,
@@ -103,7 +100,7 @@ def insert_binheap(prog, name):
     swap = comp.cell("swap", insert_swap(prog, "swap", 64, 3, 4))
     cmp = comp.cell("cmp", insert_cmp(prog, "cmp", 64))
 
-    mem = comp.seq_mem_d1("mem", 64, 3, 4, is_ref=True)
+    mem = comp.comb_mem_d1("mem", 64, 3, 4, is_ref=True)
     # The memory to store the heap, represented as an array.
     # For now it has a hardcoded max length of 3, i.e., a binary heap of height 2.
     # Each cell of the memory is 64 bits wide.
@@ -116,7 +113,14 @@ def insert_binheap(prog, name):
     rsh = comp.rsh(4)
 
     parent_idx = comp.reg(4)
+    parent_val = comp.reg(64)
     child_idx = comp.reg(4)
+    child_val = comp.reg(64)
+
+    load_parent = comp.mem_load_comb_mem_d1(
+        mem, parent_idx.out, parent_val, "load_parent"
+    )
+    load_child = comp.mem_load_comb_mem_d1(mem, child_idx.out, child_val, "load_child")
 
     with comp.group("find_parent_idx") as find_parent_idx:
         # Find the parent of the `child`th element and store it in `parent`.
@@ -142,12 +146,12 @@ def insert_binheap(prog, name):
     #     find_child.done = child.done
 
     set_child_idx = comp.reg_store(child_idx, size.out)
-    put_in_mem = comp.mem_store_seq_d1(mem, child_idx.out, value, "put_in_mem")
+    put_in_mem = comp.mem_store_comb_mem_d1(mem, child_idx.out, value, "put_in_mem")
 
-    child_neq_0 = comp.neq_use(child_idx.out, 0)
+    child_idx_neq_0 = comp.neq_use(child_idx.out, 0)
 
     incr_size = comp.incr(size)
-    child_lt_parent = comp.lt_use(child_idx.out, parent_idx.out)
+    child_lt_parent = comp.lt_use(child_val.out, parent_val.out)
     bubble_child_idx = comp.reg_store(child_idx, parent_idx.out, "bubble_child_idx")
 
     comp.control += [
@@ -155,9 +159,11 @@ def insert_binheap(prog, name):
         put_in_mem,
         incr_size,
         cb.if_with(
-            child_neq_0,
+            child_idx_neq_0,
             [
                 find_parent_idx,
+                load_parent,
+                load_child,
                 cb.while_with(
                     child_lt_parent,
                     [
@@ -169,6 +175,8 @@ def insert_binheap(prog, name):
                         ),
                         bubble_child_idx,
                         find_parent_idx,
+                        load_parent,
+                        load_child,
                     ],
                 ),
             ],
@@ -186,7 +194,7 @@ def insert_main(prog, binheap):
     comp = prog.component("main")
     binheap = comp.cell("binheap", binheap)
 
-    mem = comp.seq_mem_d1("mem", 64, 3, 4, is_external=True)
+    mem = comp.comb_mem_d1("mem", 64, 3, 4, is_external=True)
     ans = comp.reg(64)
     err = comp.reg(1)
 
