@@ -113,7 +113,7 @@ impl Backend for VerilogBackend {
         ctx: &ir::Context,
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
-        // Debug log
+        // Paths containing dependencies
         let file_strings: Vec<String> = ctx
             .lib
             .extern_paths()
@@ -121,32 +121,29 @@ impl Backend for VerilogBackend {
             .map(|pb| pb.to_string_lossy().into_owned())
             .collect();
 
+        // JSON object to build for Morty
+        let mut json_map = Map::new();
+        let mut include_dirs = Vec::new();
+
+        // Determine if HardFloat is needed
         let contains_float = file_strings.iter().any(|s| s.contains("float"));
+        if contains_float {
+            include_dirs.push(Value::String(
+                "primitives/float/HardFloat-1/source/".to_string(),
+            ));
+            include_dirs.push(Value::String(
+                "primitives/float/HardFloat-1/source/RISCV/".to_string(),
+            ));
+        }
+
+        json_map.insert("include_dirs".to_string(), Value::Array(include_dirs));
 
         let file_paths: Vec<Value> = file_strings
             .into_iter()
             .map(|s| Value::String(s.to_string()))
             .collect();
 
-        let include_dirs_data = vec![
-            "primitives/float/HardFloat-1/source/",
-            "primitives/float/HardFloat-1/source/RISCV/",
-        ];
-
-        let include_dirs: Vec<Value> = include_dirs_data
-            .into_iter()
-            .map(|s| Value::String(s.to_string()))
-            .collect();
-
-        let mut json_map = Map::new();
-        if contains_float {
-            json_map
-                .insert("include_dirs".to_string(), Value::Array(include_dirs));
-        } else {
-            json_map
-                .insert("include_dirs".to_string(), Value::Array(Vec::new()));
-        }
-
+        // Create Morty object
         json_map.insert("defines".to_string(), Value::Object(Map::new()));
         json_map.insert("files".to_string(), Value::Array(file_paths));
         let final_data = Value::Array(vec![Value::Object(json_map)]);
@@ -155,14 +152,15 @@ impl Backend for VerilogBackend {
             .write(true)
             .create(true)
             .truncate(true)
-            .open("test_morty.json")?;
+            .open("target/tmp/morty.json")?;
 
-        writeln!(morty, "{}", final_data.to_string())?;
+        writeln!(morty, "{}", serde_json::to_string_pretty(&final_data)?)?;
         morty.flush()?;
 
+        // Invoke Morty
         let cmd = Command::new("morty")
             .arg("-f")
-            .arg("test_morty.json")
+            .arg("target/tmp/morty.json")
             .output()
             .expect("failed to execute command");
 
