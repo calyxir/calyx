@@ -114,7 +114,7 @@ impl Backend for VerilogBackend {
         file: &mut OutputFile,
     ) -> CalyxResult<()> {
         // Paths containing dependencies
-        let file_strings: Vec<String> = ctx
+        let mut file_strings: Vec<String> = ctx
             .lib
             .extern_paths()
             .into_iter()
@@ -134,6 +134,8 @@ impl Backend for VerilogBackend {
             include_dirs.push(Value::String(
                 "primitives/float/HardFloat-1/source/RISCV/".to_string(),
             ));
+            file_strings.push("primitives/float/HardFloat-1/source/fnToRecFN.v".to_string());
+            file_strings.push("primitives/float/HardFloat-1/source/recFNToFN.v".to_string());
         }
 
         json_map.insert("include_dirs".to_string(), Value::Array(include_dirs));
