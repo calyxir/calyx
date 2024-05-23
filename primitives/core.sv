@@ -50,6 +50,28 @@ module std_pad #(
   `endif
 endmodule
 
+module std_sign_extend #(
+    parameter IN_WIDTH  = 32,
+    parameter OUT_WIDTH = 32
+) (
+   input wire logic [IN_WIDTH-1:0]  in,
+   output logic     [OUT_WIDTH-1:0] out
+);
+   localparam EXTEND = OUT_WIDTH - IN_WIDTH;
+   assign out = { {EXTEND {in[IN_WIDTH-1]}}, in };
+
+  `ifdef VERILATOR
+    always_comb begin
+      if (IN_WIDTH > OUT_WIDTH)
+        $error(
+          "std_sign_extend: Output width less than input width\n",
+          "IN_WIDTH: %0d", IN_WIDTH,
+          "OUT_WIDTH: %0d", OUT_WIDTH
+        );
+    end
+  `endif
+endmodule
+
 module std_cat #(
   parameter LEFT_WIDTH  = 32,
   parameter RIGHT_WIDTH = 32,
@@ -191,6 +213,16 @@ module std_rsh #(
    output logic [WIDTH-1:0] out
 );
   assign out = left >> right;
+endmodule
+
+module std_signed_rsh #(
+    parameter WIDTH = 32
+) (
+   input wire               signed [WIDTH-1:0] left,
+   input wire               logic  [WIDTH-1:0] right,
+   output logic [WIDTH-1:0] out
+);
+  assign out = left >>> right;
 endmodule
 
 /// this primitive is intended to be used
