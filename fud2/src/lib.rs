@@ -358,19 +358,33 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.rule("cp", "cp $in $out")?;
         Ok(())
     });
+    fn verilator_build(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
+        let out_dir = "verilator-out";
+        let sim_bin = format!("{}/VTOP", out_dir);
+        e.build_cmd(&[&sim_bin], "verilator-compile", &[input], &[])?;
+        e.arg("out-dir", out_dir)?;
+        e.build("cp", &sim_bin, output)?;
+        Ok(())
+    }
+
     bld.op(
         "verilator",
         &[sim_setup, testbench_normal_setup, verilator_setup],
         verilog,
         simulator,
-        |e, input, output| {
-            let out_dir = "verilator-out";
-            let sim_bin = format!("{}/VTOP", out_dir);
-            e.build_cmd(&[&sim_bin], "verilator-compile", &[input], &[])?;
-            e.arg("out-dir", out_dir)?;
-            e.build("cp", &sim_bin, output)?;
-            Ok(())
-        },
+        verilator_build,
+    );
+
+    bld.op(
+        "verilator-refmem",
+        &[sim_setup, testbench_refmem_setup, verilator_setup],
+        verilog_refmem,
+        simulator,
+        verilator_build,
     );
 
     // Interpreter.
