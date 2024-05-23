@@ -17,21 +17,6 @@ use std::{
 };
 use tempfile::{tempfile, NamedTempFile};
 
-// TODO(cgyurgyik): Eventually, we want to emit the entire Calyx program.
-// This will require storing the parsed Calyx program, updating the control
-// schedule à la egglog, and then determining whether the new control schedule
-// introduced any new groups. If so, they should be built and added to the
-// component. Finally, the new component should be emitted.
-pub struct CalyxEgg<'a> {
-    component: &'a calyx_ir::Component,
-}
-
-impl<'a> CalyxEgg<'a> {
-    fn new(self, component: &'a calyx_ir::Component) -> CalyxEgg<'a> {
-        CalyxEgg { component }
-    }
-}
-
 pub fn round_trip(
     calyx_component: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
