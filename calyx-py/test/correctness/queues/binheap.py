@@ -146,9 +146,9 @@ def insert_binheap(prog, name):
     #     find_child.done = child.done
 
     set_child_idx = comp.reg_store(child_idx, size.out)
-    put_in_mem = comp.mem_store_comb_mem_d1(mem, child_idx.out, value, "put_in_mem")
-
-    child_idx_neq_0 = comp.neq_use(child_idx.out, 0)
+    put_new_val_in_mem = comp.mem_store_comb_mem_d1(
+        mem, child_idx.out, value, "put_new_val_in_mem"
+    )
 
     incr_size = comp.incr(size)
     child_lt_parent = comp.lt_use(child_val.out, parent_val.out)
@@ -156,29 +156,24 @@ def insert_binheap(prog, name):
 
     comp.control += [
         set_child_idx,
-        put_in_mem,
+        put_new_val_in_mem,
         incr_size,
-        cb.if_with(
-            child_idx_neq_0,
+        find_parent_idx,
+        load_parent,
+        load_child,
+        cb.while_with(
+            child_lt_parent,
             [
+                cb.invoke(
+                    swap,
+                    in_a=parent_idx.out,
+                    in_b=child_idx.out,
+                    ref_mem=mem,
+                ),
+                bubble_child_idx,
                 find_parent_idx,
                 load_parent,
                 load_child,
-                cb.while_with(
-                    child_lt_parent,
-                    [
-                        cb.invoke(
-                            swap,
-                            in_a=parent_idx.out,
-                            in_b=child_idx.out,
-                            ref_mem=mem,
-                        ),
-                        bubble_child_idx,
-                        find_parent_idx,
-                        load_parent,
-                        load_child,
-                    ],
-                ),
             ],
         ),
     ]
@@ -229,7 +224,7 @@ def build():
     """Top-level function to build the program."""
     prog = cb.Builder()
     binheap = insert_binheap(prog, "binheap")
-    main = insert_main(prog, binheap)
+    _ = insert_main(prog, binheap)
     return prog.program
 
 
