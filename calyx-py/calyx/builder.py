@@ -657,37 +657,34 @@ class ComponentBuilder:
             store_grp.done = mem.done
         return store_grp
 
-    def mem_read_seq_d1(self, mem, i, groupname=None):
+    def mem_read_seq_d1(self, mem, i, groupname):
         """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
         where `mem` is a seq_d1 memory.
         Note that this does not write the value anywhere.
         """
         assert mem.is_seq_mem_d1()
-        groupname = groupname or f"read_from_{mem.name()}"
         with self.group(groupname) as read_grp:
             mem.addr0 = i
             mem.content_en = 1
             read_grp.done = mem.done
         return read_grp
 
-    def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
+    def mem_write_seq_d1_to_reg(self, mem, reg, groupname):
         """Inserts wiring into `self` to perform reg := <mem_latched_value>,
         where `mem` is a seq_d1 memory that already has some latched value.
         """
         assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_write_to_reg"
         with self.group(groupname) as write_grp:
             reg.write_en = 1
             reg.in_ = mem.read_data
             write_grp.done = reg.done
         return write_grp
 
-    def mem_store_seq_d1(self, mem, i, val, groupname=None):
+    def mem_store_seq_d1(self, mem, i, val, groupname):
         """Inserts wiring into `self` to perform `mem[i] := val`,
         where `mem` is a seq_d1 memory.
         """
         assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_store"
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
