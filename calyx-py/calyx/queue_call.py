@@ -69,10 +69,8 @@ def insert_runner(prog, queue, name, stats_component=None):
     cmd_le_1 = runner.le_use(cmd.out, 1)  # cmd <= 1, meaning cmd is pop or peek
 
     # Wiring to perform `cmd := commands[i]` and `value := values[i]`.
-    read_cmd = runner.mem_latch_seq_d1(commands, i.out, "read_cmd_phase1")
-    write_cmd_to_reg = runner.mem_load_seq_d1(commands, cmd, "write_cmd_phase2")
-    read_value = runner.mem_latch_seq_d1(values, i.out, "read_value_phase1")
-    write_value_to_reg = runner.mem_load_seq_d1(values, value, "write_value_phase2")
+    write_cmd_to_reg = runner.mem_load_seq_d1(commands, i.out, cmd, "write_cmd")
+    write_value_to_reg = runner.mem_load_seq_d1(values, i.out, value, "write_value")
 
     # Wiring to raise/lower flags and compute a negation.
     raise_has_ans = runner.reg_store(has_ans, 1, "raise_has_ans")
@@ -83,9 +81,7 @@ def insert_runner(prog, queue, name, stats_component=None):
     check_if_out_of_cmds, _ = runner.eq_store_in_reg(i.out, queue_util.MAX_CMDS, err)
 
     runner.control += [
-        read_cmd,
         write_cmd_to_reg,  # `cmd := commands[i]`
-        read_value,
         write_value_to_reg,  # `value := values[i]`
         (
             cb.invoke(  # Invoke the queue.

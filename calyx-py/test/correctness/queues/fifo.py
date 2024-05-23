@@ -57,8 +57,7 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
 
     # Load and store into an arbitary slot in memory
     write_to_mem = fifo.mem_store_d1(mem, write.out, value, "write_payload_to_mem")
-    read_from_mem = fifo.mem_latch_seq_d1(mem, read.out, "read_payload_from_mem_phase1")
-    write_to_ans = fifo.mem_load_seq_d1(mem, ans, "read_payload_from_mem_phase2")
+    write_to_ans = fifo.mem_load_seq_d1(mem, read.out, ans, "read_payload_from_mem")
 
     fifo.control += cb.par(
         # Was it a (pop/peek), or a push? We can do those two cases in parallel.
@@ -71,7 +70,6 @@ def insert_fifo(prog, name, queue_len_factor=QUEUE_LEN_FACTOR):
                 len_eq_0,
                 raise_err,  # The queue is empty: underflow.
                 [  # The queue is not empty. Proceed.
-                    read_from_mem,  # Read from the queue.
                     write_to_ans,  # Write the answer to the answer register.
                     cb.if_with(
                         cmd_eq_0,  # Did the user call pop?

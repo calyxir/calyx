@@ -646,28 +646,18 @@ class ComponentBuilder:
             load_grp.done = reg.done
         return load_grp
 
-    def mem_latch_seq_d1(self, mem, i, groupname):
-        """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
+    def mem_load_seq_d1(self, mem, i, reg, groupname):
+        """Inserts wiring into `self` to perform reg := mem[i],
         where `mem` is a seq_d1 memory.
-        Note that this does not write the value anywhere.
         """
         assert mem.is_seq_mem_d1()
-        with self.group(groupname) as read_grp:
+        with self.group(groupname) as load_grp:
             mem.addr0 = i
             mem.content_en = 1
-            read_grp.done = mem.done
-        return read_grp
-
-    def mem_load_seq_d1(self, mem, reg, groupname):
-        """Inserts wiring into `self` to perform reg := <mem_latched_value>,
-        where `mem` is a seq_d1 memory that already has some latched value.
-        """
-        assert mem.is_seq_mem_d1()
-        with self.group(groupname) as write_grp:
-            reg.write_en = 1
-            reg.in_ = mem.read_data
-            write_grp.done = reg.done
-        return write_grp
+            reg.write_en = mem.done @ 1
+            reg.in_ = mem.done @ mem.read_data
+            load_grp.done = reg.done
+        return load_grp
 
     def mem_store_d1(self, mem, i, val, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `mem[i] := val`,
