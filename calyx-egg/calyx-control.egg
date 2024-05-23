@@ -378,14 +378,14 @@
 
 ; par { A; B; C; D; } => par { par { A; B; } par { C; D; } }
 (rewrite
-    (Par attr xs)
-    (Par attr
+    (Par (Attributes m) xs)
+    (Par (Attributes m)
         (Cons (Par (Attributes (map-empty)) (list-slice xs 0 (/ (list-length xs) 2)))
             (Cons (Par (Attributes (map-empty)) (list-slice xs (/ (list-length xs) 2) (list-length xs)))
                 (Nil))
         )
     )
-    :when ((>= (list-length xs) FAN-OUT))
+    :when ((>= (list-length xs) FAN-OUT) (map-not-contains m "new_fsm") (map-not-contains m "static"))
     :ruleset control
 )
 
