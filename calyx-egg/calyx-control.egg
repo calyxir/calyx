@@ -439,8 +439,8 @@
         (let middle (/ (list-length xs) 2))
         (let s1 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs 0 middle)))
         (let s2 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs middle (list-length xs))))
-        (set
-            (Seq (Attributes attr) xs)
+        (union
+            (Seq (Attributes attr) (Cons y ys))
             (Seq (Attributes attr) (Cons s1 (Cons s2 (Nil))))
         )
     )
@@ -633,7 +633,7 @@
         (= xss (Cons (Par (Attributes m) ys) xs))
         (= sum (sum-latency xs))
         (map-not-contains m "static")
-        (= latency (sum-latency ys))
+        (= latency (max-latency ys))
     )
     (
         (set (sum-latency xss) (+ sum latency))

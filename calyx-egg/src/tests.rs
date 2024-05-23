@@ -389,7 +389,7 @@ mod unit_tests {
             r#"
             (check (= (sum-latency xs) 6)) ; 1 + 3 + 2
             (check (= (sum-latency xss) 16)) ; 1 + 3 + 2 + 10
-            (check (= (sum-latency xsss) 19)) ; 1 + 3 + 2 + 10 + 1 + 2
+            (check (= (sum-latency xsss) 18)) ; 1 + 3 + 2 + 10 + max(1, 2)
             "#,
             &[utils::RewriteRule::CalyxControl],
         )
