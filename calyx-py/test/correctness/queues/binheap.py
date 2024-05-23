@@ -115,19 +115,19 @@ def insert_binheap(prog, name):
     lsh = comp.lsh(4)
     rsh = comp.rsh(4)
 
-    parent = comp.reg(4)
-    child = comp.reg(4)
+    parent_idx = comp.reg(4)
+    child_idx = comp.reg(4)
 
-    with comp.group("find_parent") as find_parent:
+    with comp.group("find_parent_idx") as find_parent_idx:
         # Find the parent of the `child`th element and store it in `parent`.
         # That is, parent := floor((child − 1) / 2)
-        sub.left = child.out
+        sub.left = child_idx.out
         sub.right = 1
         rsh.left = sub.out
         rsh.right = cb.const(4, 1)
-        parent.in_ = rsh.out
-        parent.write_en = cb.HI
-        find_parent.done = parent.done
+        parent_idx.in_ = rsh.out
+        parent_idx.write_en = cb.HI
+        find_parent_idx.done = parent_idx.done
 
     # with comp.group("find_left_child") as find_child:
     #     # Find the left child of the `parent`th element and store it in `child`.
@@ -141,34 +141,34 @@ def insert_binheap(prog, name):
     #     child.write_en = cb.HI
     #     find_child.done = child.done
 
-    set_child = comp.reg_store(child, size.out)
-    put_in_mem = comp.mem_store_seq_d1(mem, child.out, value, "put_in_mem")
+    set_child_idx = comp.reg_store(child_idx, size.out)
+    put_in_mem = comp.mem_store_seq_d1(mem, child_idx.out, value, "put_in_mem")
 
-    child_neq_0 = comp.neq_use(child.out, 0)
+    child_neq_0 = comp.neq_use(child_idx.out, 0)
 
     incr_size = comp.incr(size)
-    child_lt_parent = comp.lt_use(child.out, parent.out)
-    make_child_parent = comp.reg_store(child, parent.out, "make_child_parent")
+    child_lt_parent = comp.lt_use(child_idx.out, parent_idx.out)
+    bubble_child_idx = comp.reg_store(child_idx, parent_idx.out, "bubble_child_idx")
 
     comp.control += [
-        set_child,
+        set_child_idx,
         put_in_mem,
         incr_size,
         cb.if_with(
             child_neq_0,
             [
-                find_parent,
+                find_parent_idx,
                 cb.while_with(
                     child_lt_parent,
                     [
                         cb.invoke(
                             swap,
-                            in_a=parent.out,
-                            in_b=child.out,
+                            in_a=parent_idx.out,
+                            in_b=child_idx.out,
                             ref_mem=mem,
                         ),
-                        make_child_parent,
-                        find_parent,
+                        bubble_child_idx,
+                        find_parent_idx,
                     ],
                 ),
             ],
