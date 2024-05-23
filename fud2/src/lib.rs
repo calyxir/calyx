@@ -158,7 +158,10 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let verilog_noverify = bld.state("verilog-noverify", &["sv"]);
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
-        e.rule("icarus-compile", "$iverilog -g2012 -o $out $testbench $in")?;
+        e.rule(
+            "icarus-compile",
+            "$iverilog -g2012 -o $out $testbench $additional-input $in",
+        )?;
         Ok(())
     });
     // [Should be default] Setup for using tb.sv as testbench (and managing memories within the design)
@@ -182,7 +185,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             "$calyx-base/tools/firrtl/generate-testbench.py",
         )?;
         e.var(
-            "additional_input",
+            "additional-input",
             &format!("{}/memories.sv", e.config_val("rsrc")?),
         )?;
 
@@ -436,7 +439,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile",
-            "$verilator $in $testbench --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in $testbench $additional-input --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
