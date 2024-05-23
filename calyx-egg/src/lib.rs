@@ -1,6 +1,5 @@
 //! Calyx <=> egglog
 
-mod egg_to_calyx;
-mod experiment;
+mod round_trip;
 mod tests;
 mod utils;
