@@ -53,3 +53,6 @@ results.xml
 
 # btor2i ignore
 tools/btor2/btor2i/build/
+
+# egg evaluation
+calyx-backend/src/egg/evaluation/*
