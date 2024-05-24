@@ -601,6 +601,10 @@ class Stdlib:
         return CompInst("std_bit_slice", [in_, start_idx, end_idx, out])
 
     @staticmethod
+    def cat(left_width: int, right_width: int, out_width: int):
+        return CompInst("std_cat", [left_width, right_width, out_width])
+
+    @staticmethod
     def pad(in_: int, out: int):
         return CompInst("std_pad", [in_, out])
 

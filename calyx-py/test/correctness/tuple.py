@@ -9,27 +9,18 @@ def insert_tuplify(prog, name, w1, w2):
     and outputs a tuple (width `w1 + w2`) that contains `fst` and `snd`.
     """
 
-    width = w1 + w2
-
     comp = prog.comb_component(name)
     fst = comp.input("fst", w1)
     snd = comp.input("snd", w2)
-    comp.output("tup", width)
+    comp.output("tup", w1 + w2)
 
-    or_ = comp.or_(width)
-    lsh = comp.lsh(width)
-    pad1 = comp.pad(w1, width)  # Pads `w1`-widthed items to width `width`
-    pad2 = comp.pad(w2, width)  # Pads `w2`-widthed items to width `width`
+    cat = comp.cat(w1, w2)  # Concatenates `a` and `b` into a single tuple
 
     with comp.continuous:
         # Directly writing to the wires section.
-        pad1.in_ = fst  # Pad `a` to the width of the tuple
-        pad2.in_ = snd  # Pad `b` to the width of the tuple
-        lsh.left = pad1.out
-        lsh.right = cb.const(width, w2)  # Shift `a` to the left by `w2` bits
-        or_.left = lsh.out
-        or_.right = pad2.out  # Combine `a` and `b` into a single tuple
-        comp.this().tup = or_.out  # Output the tuple
+        cat.left = fst
+        cat.right = snd
+        comp.this().tup = cat.out
 
     return comp
 

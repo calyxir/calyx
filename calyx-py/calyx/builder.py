@@ -435,6 +435,13 @@ class ComponentBuilder:
         """Generate a StdLsh cell."""
         return self.binary("lsh", size, name, signed)
 
+    def cat(self, left_width: int, right_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdCat cell."""
+        return self.cell(
+            name or self.generate_name("cat"),
+            ast.Stdlib.cat(left_width, right_width, left_width + right_width),
+        )
+
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)
