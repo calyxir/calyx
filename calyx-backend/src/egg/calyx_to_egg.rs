@@ -8,9 +8,10 @@ use std::io::{self};
 pub struct ToEggPrinter;
 
 impl ToEggPrinter {
-    fn write_attributes(
+    fn format_attributes(
         attrs: &ir::Attributes,
         latency: Option<u64>,
+        promotable: Option<u64>,
     ) -> String {
         let mut s: String = "(map-empty)".to_string();
         for attribute in attrs.to_vec(|k, v| format!("\"{k}\" {v}")) {
@@ -18,6 +19,9 @@ impl ToEggPrinter {
         }
         if let Some(i) = latency {
             s = format!(r#"(map-insert {} "static" {})"#, s, i);
+        }
+        if let Some(i) = promotable {
+            s = format!(r#"(map-insert {} "promotable" {})"#, s, i);
         }
         format!("(Attributes {})", s)
     }
@@ -162,7 +166,7 @@ impl ToEggPrinter {
         statements: &Vec<ir::Control>,
         attr: &calyx_ir::Attributes,
     ) -> io::Result<()> {
-        write!(f, "({} {}", name, Self::write_attributes(attr, None))?;
+        write!(f, "({} {}", name, Self::format_attributes(attr, None, None))?;
 
         for stmt in statements {
             write!(f, " (Cons ")?;
@@ -184,7 +188,7 @@ impl ToEggPrinter {
             f,
             "({} {}",
             name,
-            Self::write_attributes(attr, Some(latency))
+            Self::format_attributes(attr, Some(latency), None)
         )?;
 
         for stmt in statements {
@@ -206,7 +210,7 @@ impl ToEggPrinter {
         write!(
             f,
             "(Repeat {} {}",
-            Self::write_attributes(attributes, None),
+            Self::format_attributes(attributes, None, None),
             num_repeats,
         )?;
         Self::write_control(body, f)?;
@@ -221,11 +225,12 @@ impl ToEggPrinter {
         let attr = control.get_attributes();
         match control {
             ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
+                // TODO(cgyurgyik): Add promotable attribute if it exists in the group.
                 write!(
                     f,
                     "(Enable {} {})",
                     group.borrow().name().id,
-                    Self::write_attributes(attr, None),
+                    Self::format_attributes(attr, None, None),
                 )
             }
             ir::StaticControl::Seq(calyx_ir::StaticSeq {
@@ -264,7 +269,14 @@ impl ToEggPrinter {
                     f,
                     "(Enable {} {})",
                     group.borrow().name().id,
-                    Self::write_attributes(attr, None),
+                    Self::format_attributes(
+                        attr,
+                        None,
+                        group
+                            .borrow()
+                            .attributes
+                            .get(calyx_ir::NumAttr::Promotable)
+                    ),
                 )
             }
             ir::Control::Par(ir::Par { stmts, .. }) => {

@@ -30,7 +30,7 @@ component main() -> () {
   }
   control {
     seq {
-      A;
+      @promotable A;
       B;
     }
   }

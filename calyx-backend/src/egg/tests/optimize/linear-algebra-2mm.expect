@@ -525,123 +525,123 @@ component main() -> () {
   }
   control {
     seq {
-      @pos let0;
+      @pos @promotable let0;
       repeat 8 {
         seq {
-          @pos let1;
+          @pos @promotable let1;
           repeat 8 {
             seq {
-              @pos(2) let2;
+              @pos(2) @promotable(2) let2;
               par {
-                @pos(3) upd0;
-                @pos(4) let3;
+                @pos(3) @promotable upd0;
+                @pos(4) @promotable(2) let3;
               }
               par {
-                @pos(5) upd1;
-                @pos(6) let4;
+                @pos(5) @promotable upd1;
+                @pos(6) @promotable(2) let4;
               }
               par {
-                @pos(7) upd2;
-                @pos(8) let5;
+                @pos(7) @promotable upd2;
+                @pos(8) @promotable(2) let5;
               }
               par {
-                @pos(9) upd3;
-                @pos(10) let6;
+                @pos(9) @promotable upd3;
+                @pos(10) @promotable(2) let6;
               }
-              @pos(11) upd4;
-              @pos upd5;
+              @pos(11) @promotable upd4;
+              @pos @promotable upd5;
             }
           }
-          @pos upd6;
+          @pos @promotable upd6;
         }
       }
-      @pos(12) let7;
+      @pos(12) @promotable let7;
       repeat 8 {
         seq {
-          @pos(13) let8;
+          @pos(13) @promotable let8;
           repeat 8 {
             seq {
-              @pos(14) upd7;
-              @pos(15) let9;
+              @pos(14) @promotable upd7;
+              @pos(15) @promotable let9;
               repeat 8 {
                 seq {
                   par {
-                    @pos(16) let10;
-                    @pos(17) upd8;
-                    @pos(18) upd9;
+                    @pos(16) @promotable(2) let10;
+                    @pos(17) @promotable(2) upd8;
+                    @pos(18) @promotable(2) upd9;
                   }
-                  let11;
-                  let12;
-                  let13;
-                  let14;
-                  upd10;
-                  @pos(15) upd11;
+                  @promotable(4) let11;
+                  @promotable(4) let12;
+                  @promotable let13;
+                  @promotable(2) let14;
+                  @promotable upd10;
+                  @pos(15) @promotable upd11;
                 }
               }
-              @pos(13) upd12;
+              @pos(13) @promotable upd12;
             }
           }
-          @pos(12) upd13;
+          @pos(12) @promotable upd13;
         }
       }
-      @pos(19) let15;
+      @pos(19) @promotable let15;
       repeat 8 {
         seq {
-          @pos(20) let16;
+          @pos(20) @promotable let16;
           repeat 8 {
             seq {
-              @pos(21) upd14;
-              @pos(22) let17;
-              let18;
-              upd15;
-              @pos(23) let19;
+              @pos(21) @promotable(2) upd14;
+              @pos(22) @promotable(2) let17;
+              @promotable(4) let18;
+              @promotable upd15;
+              @pos(23) @promotable let19;
               repeat 8 {
                 seq {
                   par {
-                    @pos(24) upd16;
-                    @pos(25) upd17;
+                    @pos(24) @promotable(2) upd16;
+                    @pos(25) @promotable(2) upd17;
                   }
-                  let20;
-                  let21;
-                  let22;
-                  upd18;
-                  @pos(23) upd19;
+                  @promotable(4) let20;
+                  @promotable let21;
+                  @promotable(2) let22;
+                  @promotable upd18;
+                  @pos(23) @promotable upd19;
                 }
               }
-              @pos(20) upd20;
+              @pos(20) @promotable upd20;
             }
           }
-          @pos(19) upd21;
+          @pos(19) @promotable upd21;
         }
       }
-      @pos(26) let23;
+      @pos(26) @promotable let23;
       repeat 8 {
         seq {
-          @pos(27) let24;
+          @pos(27) @promotable let24;
           repeat 8 {
             seq {
-              @pos(28) upd22;
+              @pos(28) @promotable(2) upd22;
               par {
-                @pos(29) upd23;
-                @pos(30) upd24;
+                @pos(29) @promotable upd23;
+                @pos(30) @promotable(2) upd24;
               }
               par {
-                @pos(31) upd25;
-                @pos(32) upd26;
+                @pos(31) @promotable upd25;
+                @pos(32) @promotable(2) upd26;
               }
               par {
-                @pos(33) upd27;
-                @pos(34) upd28;
+                @pos(33) @promotable upd27;
+                @pos(34) @promotable(2) upd28;
               }
               par {
-                @pos(35) upd29;
-                @pos(36) upd30;
+                @pos(35) @promotable upd29;
+                @pos(36) @promotable(2) upd30;
               }
-              @pos(37) upd31;
-              @pos(27) upd32;
+              @pos(37) @promotable upd31;
+              @pos(27) @promotable upd32;
             }
           }
-          @pos(26) upd33;
+          @pos(26) @promotable upd33;
         }
       }
     }

@@ -11,4 +11,4 @@
 (let B (Group "B" (CellSet (set-of c-b_reg c-ud))))
 (let C (Group "C" (CellSet (set-of c-a c-a_reg c-b_reg c-c_reg))))
 (let D (Group "D" (CellSet (set-of c-a_reg c-d_reg c-ud))))
-(let main (Seq (Attributes (map-insert (map-empty) "promotable" 22)) (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) (Cons (Enable B (Attributes (map-insert (map-empty) "promotable" 10))) (Cons (Enable C (Attributes (map-insert (map-empty) "promotable" 1))) (Cons (Enable D (Attributes (map-insert (map-empty) "promotable" 10))) (Nil)))))))
+(let main (Seq (Attributes (map-insert (map-empty) "promotable" 22)) (Cons (Enable A (Attributes (map-insert (map-insert (map-empty) "promotable" 1) "promotable" 1))) (Cons (Enable B (Attributes (map-insert (map-insert (map-empty) "promotable" 10) "promotable" 10))) (Cons (Enable C (Attributes (map-insert (map-insert (map-empty) "promotable" 1) "promotable" 1))) (Cons (Enable D (Attributes (map-insert (map-insert (map-empty) "promotable" 10) "promotable" 10))) (Nil)))))))

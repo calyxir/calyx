@@ -7,4 +7,4 @@
 (let c-_1_1 (Cell "_1_1"))
 (let A (Group "A" (CellSet (set-of c-add c-r0))))
 (let B (Group "B" (CellSet (set-of c-mult c-r1))))
-(let main (Seq (Attributes (map-empty)) (Cons (Enable A (Attributes (map-empty))) (Cons (Enable B (Attributes (map-empty))) (Nil)))))
+(let main (Seq (Attributes (map-empty)) (Cons (Enable A (Attributes (map-insert (map-empty) "promotable" 1))) (Cons (Enable B (Attributes (map-empty))) (Nil)))))
