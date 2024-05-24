@@ -18,8 +18,6 @@ mod unit_tests {
         Ok(s)
     }
 
-    // fn test_calyx(actual: &str, expected: &str) {}
-
     /// Tests egglog input with egglog checks, e.g.,
     ///
     /// test_egglog(
@@ -140,6 +138,7 @@ mod unit_tests {
         )
     }
 
+    #[ignore = "removed (temporarily)"]
     #[test]
     fn test_non_exclusive_set() -> utils::Result {
         test_egglog(

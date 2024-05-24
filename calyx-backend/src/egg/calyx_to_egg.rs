@@ -23,20 +23,6 @@ impl ToEggPrinter {
         format!("(Attributes {})", s)
     }
 
-    fn format_demands<F: io::Write>(
-        demands: Vec<&str>,
-        lists: &Vec<String>,
-        f: &mut F,
-    ) -> io::Result<()> {
-        writeln!(f)?;
-        for demand in demands {
-            for list in lists {
-                writeln!(f, "({}{})", demand, list)?;
-            }
-        }
-        Ok(())
-    }
-
     /// Formats and writes the Component to the formatter.
     pub fn write_component<F: io::Write>(
         comp: &ir::Component,
@@ -120,7 +106,7 @@ impl ToEggPrinter {
                 "(CellSet (set-of {}))",
                 Vec::from_iter(cells)
                     .into_iter()
-                    .sorted_by(|a, b| Ord::cmp(a, b))
+                    .sorted_by(Ord::cmp)
                     .map(|x| format!("c-{}", x))
                     .collect_vec()
                     .join(" ")
@@ -163,7 +149,7 @@ impl ToEggPrinter {
                 "(CellSet (set-of {}))",
                 Vec::from_iter(cells)
                     .into_iter()
-                    .sorted_by(|a, b| Ord::cmp(a, b))
+                    .sorted_by(Ord::cmp)
                     .map(|x| format!("c-{}", x))
                     .collect_vec()
                     .join(" ")
