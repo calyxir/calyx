@@ -200,7 +200,7 @@
 
 
 ; Case 2: A and B are not exclusive. 
-; seq { par { A; } B; C; D; } => seq { par { A; seq { _delay; B; } } C; D; }
+; seq { par { A ; } B; C; D; } => seq { par { A; seq { _delay; B; } } C; D; }
 ; (rule
 ;     (
 ;         (= x (Enable g (Attributes m-e)))

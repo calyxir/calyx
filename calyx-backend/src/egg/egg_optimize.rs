@@ -95,7 +95,7 @@ impl EggOptimizeBackend {
 
     /// Retrieves the schedule for this Calyx-egglog program.
     pub fn egglog_schedule(
-        rules: &[RewriteRule],
+        _rules: &[RewriteRule],
     ) -> calyx_utils::CalyxResult<String> {
         // TODO(cgyurgyik): This was chosen with little care.
         Ok(r#"

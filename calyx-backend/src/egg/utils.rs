@@ -35,9 +35,12 @@ pub fn extract_egglog(
     program: &String,
 ) -> (Term, TermDag) {
     let mut egraph = EGraph::default();
-    egraph.parse_and_run_program(program).unwrap_or_else(|_| {
-        panic!("failed to parse and run e-graph for program: {}", program)
-    });
+    if program.is_empty() {
+        panic!("attempting to parse and run and empty egglog program")
+    }
+    egraph
+        .parse_and_run_program(program)
+        .unwrap_or_else(|_| panic!("failed to parse and run e-graph"));
 
     if display {
         let serialized = egraph.serialize_for_graphviz(true, 100, 100);

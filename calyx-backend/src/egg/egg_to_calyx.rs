@@ -72,18 +72,42 @@ impl<'a> EggToCalyx<'a> {
                 self.emit(f, indent_level, self.termdag.get(*name))
             }
             ("Enable", [group, attributes]) => {
+                write!(f, "{}", " ".repeat(indent_level))?;
                 self.emit(f, indent_level, self.termdag.get(*attributes))?;
-                self.emit(f, indent_level, self.termdag.get(*group))?;
+                self.emit(f, 0, self.termdag.get(*group))?;
                 writeln!(f, ";")?;
                 Ok(())
 
             }
             ("Attributes", [mapping]) => {
-                self.emit(f, indent_level, self.termdag.get(*mapping))
+                let mut mapping = self.termdag.get(*mapping);
+                'outer: loop {
+                    match_term_app!(mapping; {
+                        ("map-insert", [map, k, v]) => {
+                            write!(f,"@")?;
+                            self.emit(f, 0, self.termdag.get(*k))?;
+                            if let Term::Lit(Literal::Int(n)) = self.termdag.get(*v) {
+                                if n > 1 {
+                                    write!(f,"(")?;
+                                    self.emit(f, 0, self.termdag.get(*v))?;
+                                    write!(f,")")?;
+                                }
+                            }
+                            write!(f," ")?;
+                            mapping = self.termdag.get(*map);
+                            continue;
+                        }
+                        ("map-empty", []) => {
+                            break 'outer;
+                        }
+                        (&_, _) => todo!("unexpected: {:?}", expr)
+                    });
+                }
+                Ok(())
             }
             ("Par", [attributes, list]) => {
                 self.emit(f, indent_level, self.termdag.get(*attributes))?;
-                writeln!(f,"{}par {{", " ".repeat(indent_level))?;
+                writeln!(f,"par {{")?;
                 self.emit(f, indent_level + 2, self.termdag.get(*list))?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))?;
                 Ok(())
@@ -99,18 +123,6 @@ impl<'a> EggToCalyx<'a> {
                 self.emit(f,indent_level, self.termdag.get(*x))?;
                 self.emit(f,indent_level, self.termdag.get(*xs))
             }
-            ("map-insert", [map, k, v]) => {
-                // TODO(cgyurgyik): Fix printing; need to collect and then space evenly.
-                write!(f,"@")?;
-                self.emit(f, 0, self.termdag.get(*k))?;
-                write!(f,"(")?;
-                self.emit(f, 0, self.termdag.get(*v))?;
-                write!(f,")")?;
-                write!(f, " ")?;
-                self.emit(f, 0, self.termdag.get(*map))?;
-                Ok(())
-            }
-            ("map-empty", []) |
             ("Nil", []) => {
                 Ok(())
             }

@@ -39,10 +39,10 @@ component main() -> () {
   }
   control {
     @promotable(22) seq {
-@promotable(1)       A;
-@promotable(10)       B;
-@promotable(1)       C;
-@promotable(10)       D;
+      @promotable A;
+      @promotable(10) B;
+      @promotable C;
+      @promotable(10) D;
     }
   }
 }
