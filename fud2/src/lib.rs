@@ -92,9 +92,6 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.rule("hex-data", "$python json-dat.py --from-json $in $out")?;
         e.rule("json-data", "$python json-dat.py --to-json $out $in")?;
 
-        // The Verilog testbench.
-        e.rsrc("tb.sv")?;
-
         // The input data file. `sim.data` is required.
         let data_name = e.config_val("sim.data")?;
         let data_path = e.external_path(data_name.as_ref());
