@@ -323,7 +323,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         )?;
 
         e.rule("dump-to-interp", "$cider-converter --to cider $in > $out")?;
-        e.rule("interp-to-dump", "$cider-converter --to json $in")?;
+        e.rule("interp-to-dump", "$cider-converter --to json $in > $out")?;
         e.build_cmd(
             &["data.dump"],
             "dump-to-interp",
