@@ -2,22 +2,32 @@ use super::egg_to_calyx;
 use egglog::{EGraph, Term, TermDag};
 use main_error::MainError;
 use std::{fmt, io};
+use strum_macros::EnumIter;
 
-// TODO(cgyurgyik): Currently all the rules are in one location. These should probably be separated.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumIter)]
 pub enum RewriteRule {
-    CalyxControl,
+    Analysis = 0,
+    FanOutReduction = 1,
+    CollapseControl = 2,
+    ParToSeq = 3,
+    SplitSeq = 4,
+    StaticCompaction = 5,
 }
-
-pub type Result = std::result::Result<(), MainError>;
 
 impl fmt::Display for RewriteRule {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            RewriteRule::CalyxControl => write!(f, "calyx-control.egg"),
+            RewriteRule::Analysis => write!(f, "analysis"),
+            RewriteRule::FanOutReduction => write!(f, "fan-out"),
+            RewriteRule::CollapseControl => write!(f, "collapse-control"),
+            RewriteRule::ParToSeq => write!(f, "par-to-seq"),
+            RewriteRule::SplitSeq => write!(f, "split-seq"),
+            RewriteRule::StaticCompaction => write!(f, "static-compaction"),
         }
     }
 }
+
+pub type Result = std::result::Result<(), MainError>; // xxx
 
 pub fn extract_egglog(
     display: bool,

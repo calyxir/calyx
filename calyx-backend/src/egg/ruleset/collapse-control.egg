@@ -1,0 +1,17 @@
+(ruleset collapse-control)
+
+; seq { seq { ... } } => seq { ... }
+(rewrite
+    (Seq (Attributes a1) (Cons (Seq (Attributes a2) xs) (Nil)))
+    (Seq (Attributes a2) xs)
+    :when ((map-not-contains a1 "new_fsm") (map-not-contains a2 "new_fsm"))
+    :ruleset collapse-control
+)
+
+; par { par { ... } } => par { ... }
+(rewrite
+    (Par (Attributes a1) (Cons (Par (Attributes a2) xs) (Nil)))
+    (Par (Attributes a2) xs)
+    :when ((map-not-contains a1 "new_fsm") (map-not-contains a2 "new_fsm"))
+    :ruleset collapse-control
+)

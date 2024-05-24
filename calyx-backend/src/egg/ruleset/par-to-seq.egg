@@ -1,0 +1,28 @@
+(ruleset par-to-seq)
+
+(let PAR-TO-SEQ 1000)
+
+
+; par { @promotable(1000) A; @promotable(1) B; } =>
+; seq { @promotable(1000) A; @promotable(1) B; }
+(rewrite
+    (Par attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+    (Seq attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+    :when (
+        (map-contains m1 "promotable")
+        (map-contains m2 "promotable")
+        (>= (- (map-get m1 "promotable") (map-get m2 "promotable")) PAR-TO-SEQ)
+    )
+    :ruleset par-to-seq
+)
+
+(rewrite
+    (Par attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+    (Seq attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
+    :when (
+        (map-contains m1 "promotable")
+        (map-contains m2 "promotable")
+        (>= (- (map-get m2 "promotable") (map-get m1 "promotable")) PAR-TO-SEQ)
+    )
+    :ruleset par-to-seq
+)

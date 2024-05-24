@@ -1,14 +1,16 @@
 //! Calyx => Egglog -> (optimize) => Calyx
 
-use super::utils;
 use super::utils::RewriteRule;
+use super::utils::{self};
 use crate::egg::calyx_to_egg;
 use crate::traits::Backend;
 use calyx_ir::{self as ir};
 use ir::Component;
+use itertools::Itertools;
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 use std::{fs, io};
+use strum::IntoEnumIterator;
 
 #[derive(Default)]
 pub struct EggOptimizeBackend;
@@ -35,13 +37,13 @@ impl Backend for EggOptimizeBackend {
             .unwrap_or_else(|| panic!("no components found"));
 
         // Convert this Calyx program to its egglog equivalent.
-        let rules = &[RewriteRule::CalyxControl];
+        let rules = utils::RewriteRule::iter().collect_vec();
 
         let mut f1 = tempfile::NamedTempFile::new()?;
-        writeln!(f1, "{}", Self::egglog_rules(rules)?)?;
+        writeln!(f1, "{}", Self::egglog_rules(&rules)?)?;
         calyx_to_egg::ToEggPrinter::write_component(component, &mut f1)?;
         writeln!(f1)?;
-        writeln!(f1, "{}", Self::egglog_schedule(rules)?)?;
+        writeln!(f1, "{}", Self::egglog_schedule(&rules)?)?;
 
         let mut buf = String::new();
         f1.flush()?;
@@ -95,14 +97,21 @@ impl EggOptimizeBackend {
     pub fn egglog_schedule(
         rules: &[RewriteRule],
     ) -> calyx_utils::CalyxResult<String> {
-        if !(rules.len() == 1 && rules[0] == RewriteRule::CalyxControl) {
-            todo!("unimplemented-rules")
-        }
         // TODO(cgyurgyik): This was chosen with little care.
         Ok(r#"
         (run-schedule
-            (saturate list analysis)
-            (repeat 32 (saturate control list analysis) (run))
+            (saturate analysis)
+            (repeat 32 
+                (saturate 
+                    fan-out 
+                    par-to-seq
+                    split-seq
+                    static-compaction
+                    analysis
+                    collapse-control
+                ) 
+                (run)
+            )
         )"#
         .to_string())
     }

@@ -1,8 +1,13 @@
 #[cfg(test)]
 mod unit_tests {
-    use crate::egg::{egg_optimize::EggOptimizeBackend, utils};
+    use crate::egg::{
+        egg_optimize::EggOptimizeBackend,
+        utils::{self, RewriteRule},
+    };
     use egglog::EGraph;
+    use itertools::Itertools;
     use std::{fs, path::Path};
+    use strum::IntoEnumIterator;
 
     /// Retrieve the egglog rules for the unit test.
     pub fn egglog_rules(
@@ -26,7 +31,7 @@ mod unit_tests {
     ///     (let B 42)
     ///     "#,
     ///     "(check (= A B))",
-    ///     &[utils::RewriteRule::CalyxControl],
+    ///     &utils::RewriteRule::iter().collect_vec()
     /// )
     fn test_egglog_internal(
         prologue: &str,
@@ -73,7 +78,12 @@ mod unit_tests {
         check: &str,
         rules: &[utils::RewriteRule],
     ) -> utils::Result {
-        test_egglog_internal(prologue, check, rules, false)
+        test_egglog_internal(
+            prologue,
+            check,
+            &utils::RewriteRule::iter().collect_vec(),
+            false,
+        )
     }
 
     fn test_egglog_debug(
@@ -81,7 +91,12 @@ mod unit_tests {
         check: &str,
         rules: &[utils::RewriteRule],
     ) -> utils::Result {
-        test_egglog_internal(prologue, check, rules, true)
+        test_egglog_internal(
+            prologue,
+            check,
+            &utils::RewriteRule::iter().collect_vec(),
+            true,
+        )
     }
 
     #[test]
@@ -92,7 +107,7 @@ mod unit_tests {
             (let c2 (CellSet (set-of (Cell "a"))))
             "#,
             r#"(check (= c1 c2))"#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -134,7 +149,7 @@ mod unit_tests {
             (check (= (exclusive-with-all A (Cons S (Nil))) false))
 
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -182,7 +197,7 @@ mod unit_tests {
                 (ControlSet (set-of C P))
             ))
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -212,7 +227,7 @@ mod unit_tests {
 
             (check (= (list-length (Cons A (Cons S (Nil)))) 2))
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -235,7 +250,7 @@ mod unit_tests {
             (check (= (list-slice xs 1 3) (Cons B (Cons C (Nil)))))
             (check (= (list-slice xs 0 1) (Cons A (Nil))))
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -259,7 +274,7 @@ mod unit_tests {
             (check (= s1 l1))
             (check (= s2 l2))
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -295,7 +310,7 @@ mod unit_tests {
             (check (= (sum-latency xs) 6)) ; 1 + 3 + 2
             (check (= (sum-latency xss) 16)) ; 1 + 3 + 2 + 10
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -332,7 +347,7 @@ mod unit_tests {
             (check (= (max-latency xss) 10)) ; max(1, 3, 2, 10)
             (check (= (max-latency xsss) 10)) ; max(1, 3, 2, 10, 3)
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -369,7 +384,7 @@ mod unit_tests {
             (check (= (max-latency xss) 10)) ; max(1, 3, 2, 10)
             (check (= (max-latency xsss) 10)) ; max(1, 3, 2, 10, 3)
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -406,7 +421,7 @@ mod unit_tests {
             (check (= (sum-latency xss) 16)) ; 1 + 3 + 2 + 10
             (check (= (sum-latency xsss) 18)) ; 1 + 3 + 2 + 10 + max(1, 2)
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -428,7 +443,7 @@ mod unit_tests {
             (check (= ys (Cons A (Cons B (Nil)))))
             (check (= zs (Cons A (Nil))))
             "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -445,7 +460,7 @@ mod unit_tests {
             (check (= (exclusive A0 B0) true))
             (check (= (exclusive A0 A0) false))
         "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -469,7 +484,7 @@ mod unit_tests {
                     (Nil)))
             )))
         "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -492,7 +507,7 @@ mod unit_tests {
             (check (= PAR-TO-SEQ 1000)) ; ... this test will fail otherwise.
             (check (= P S))
         "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -505,7 +520,7 @@ mod unit_tests {
             (let SS (Seq (Attributes (map-empty)) (Cons S (Nil))))
         "#,
             r#"(check (= S SS))"#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -518,7 +533,7 @@ mod unit_tests {
             (let PP (Par (Attributes (map-empty)) (Cons P (Nil))))
         "#,
             r#"(check (= P PP))"#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 
@@ -551,7 +566,7 @@ mod unit_tests {
             (check (= s2 l2))
             ; (check (= S-before S-after))
         "#,
-            &[utils::RewriteRule::CalyxControl],
+            &utils::RewriteRule::iter().collect_vec(),
         )
     }
 }

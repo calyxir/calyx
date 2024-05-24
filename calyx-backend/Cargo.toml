@@ -13,6 +13,8 @@ readme.workspace = true
 
 [dependencies]
 # TODO(cgyurgyik): half-baked; these should be opt-in.
+strum = "0.26" 
+strum_macros = "0.26"
 main_error = "0.1.2"
 egglog = { git = "https://github.com/egraphs-good/egglog", rev = "bcb73752f7bb71296bd9b42f5b2769f9e8f478b1" }
 egraph-serialize = "0.1.0"

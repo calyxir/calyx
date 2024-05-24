@@ -1,0 +1,37 @@
+(ruleset split-seq)
+
+(let SPLIT-SEQ 8)
+
+; seq { A; B; } => par { A; B; }
+; (rewrite
+;     (Seq attr (Cons A (Cons B (Nil))))
+;     (Par attr (Cons A (Cons B (Nil))))
+;     :when ((= (exclusive A B) true))
+;     :ruleset control
+; )
+
+
+
+;  seq { A0; A1; ...; An; } =>
+;  seq {
+;    @new_fsm seq {A0; ...; A(n/2); }
+;    @new_fsm seq {A(n/2); ...; An; }
+;  }
+(rule
+    (
+        (= S (Seq (Attributes attr) (Cons y ys)))
+        (map-not-contains attr "new-fsm")
+        (>= (list-length (Cons y ys)) SPLIT-SEQ)
+    )
+    (
+        (let xs (Cons y ys))
+        (let middle (/ (list-length xs) 2))
+        (let s1 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs 0 middle)))
+        (let s2 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs middle (list-length xs))))
+        (union
+            (Seq (Attributes attr) (Cons y ys))
+            (Seq (Attributes attr) (Cons s1 (Cons s2 (Nil))))
+        )
+    )
+    :ruleset split-seq
+)

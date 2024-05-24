@@ -1,0 +1,124 @@
+(ruleset static-compaction)
+
+; @static(22) seq { A (1); B (10); C (1); D (10); }
+;       A -> C, D
+;       B -> C
+; @static(11) par {
+;  A;
+;  B;
+;  static seq {del_10; C; }
+;  static seq {del_1;  D; }
+; }
+
+; seq { A; B; C; D; } => seq { par { A; } B; C; D; }
+(rule
+    (
+        (= x (Enable g (Attributes m-e)))
+        (= S (Seq attr (Cons x xs)))
+        (> (list-length xs) 0) ; We only want to do this if we can eventually compact another group.
+        (map-contains m-e "promotable")
+    )
+    (
+        (let latency (map-get m-e "promotable"))
+        (let p (Par (Attributes (map-insert (map-empty) "static" latency)) (Cons x (Nil))))
+        (set (Seq attr (Cons x xs)) (Seq attr (Cons p xs)))
+
+    )
+    :ruleset static-compaction
+)
+
+; Case 1: A and B are exclusive. 
+; seq { par { A; } B; C; D; } => seq { par { A; B; } C; D; }
+(rule
+    (
+        (= x (Enable g (Attributes m-e)))
+        (map-contains m-e "promotable")
+        (= compaction (Par (Attributes a2) ys))
+        (= S (Seq (Attributes a1) (Cons compaction (Cons x xs))))
+        (exclusive-with-all x ys)
+    )
+    (
+        (Cons x ys) ; Demand transformation for max-latency.
+    )
+    :ruleset static-compaction
+)
+
+(rule
+    (
+        (= x (Enable g (Attributes m-e)))
+        (map-contains m-e "promotable")
+        (= compaction (Par (Attributes a2) ys))
+        (= S (Seq (Attributes a1) (Cons compaction (Cons x xs))))
+        (exclusive-with-all x ys)
+        (= l1 (max-latency (Cons x ys)))
+        (= l2 (sum-latency xs))
+
+    )
+    (
+        (let l3 (+ l1 l2))
+        (let p-attr (Attributes (map-insert a2 "static" l1)))
+        (let s-attr (Attributes (map-insert a1 "static" l3)))
+        (union
+            (Seq (Attributes a1) (Cons compaction (Cons x xs)))
+            (Seq s-attr (Cons (Par p-attr (Cons x ys)) xs))
+        )
+    )
+    :ruleset static-compaction
+)
+
+
+; Case 2: A and B are not exclusive. 
+; seq { par { A; } B; C; D; } => seq { par { A; seq { _delay; B; } } C; D; }
+; (rule
+;     (
+;         (= x (Enable g (Attributes m-e)))
+;         (map-contains m-e "promotable")
+;         (= compaction (Par (Attributes p-e) ys))
+;         (map-contains p-e "static")
+;         (= S (Seq (Attributes s-e) (Cons compaction (Cons x xs))))
+;         (not (exclusive-with-all x ys))
+
+;         (= CS (nonexclusive-set x ys))
+;     )
+;     (
+;         (max-latency-with-set CS ys) ; demand
+;     )
+;     :ruleset static-compaction
+; )
+
+; (rule
+;     (
+;         (= x (Enable g (Attributes m-e)))
+;         (map-contains m-e "promotable")
+;         (= compaction (Par (Attributes p-e) ys))
+;         (map-contains p-e "static")
+;         (= S (Seq (Attributes s-e) (Cons compaction (Cons x xs))))
+;         (not (exclusive-with-all x ys))
+
+;         ; Need to recalculate latencies for the inner 
+;         ; compaction as well as the outer seq.
+;         (= CS (nonexclusive-set x ys))
+;         (= L (max-latency-with-set CS ys))
+;         (= l0 (+ L (map-get m-e "promotable")))
+;         (= l1 (max l0 (max-latency ys)))
+;         (= l2 (sum-latency xs))
+;     )
+;     (
+;         ; group _delayL { ... }
+;         (let delay-g (Group "_delay" (CellSet (set-empty))))
+;         ; _delayL
+;         (let delay (Enable delay-g (Attributes (map-insert (map-empty) "promotable" L))))
+;         ; seq { _delayL; B; }
+;         (let new-S (Seq
+;                 (Attributes (map-insert (map-empty) "static" l0))
+;                 (Cons delay (Cons x (Nil)))))
+;         (let p-attr (Attributes (map-insert p-e "static" l1)))
+;         (let l3 (+ l1 l2))
+;         (let s-attr (Attributes (map-insert s-e "static" l3)))
+;         (union
+;             (Seq (Attributes s-e) (Cons compaction (Cons x xs)))
+;             (Seq s-attr (Cons (Par p-attr (Cons new-S ys)) xs))
+;         )
+;     )
+;     :ruleset static-compaction
+; )

@@ -39,8 +39,6 @@
 (function ControlSet (ControlSetBase) _ControlSet)
 
 (ruleset analysis)
-(ruleset control)
-(ruleset list)
 
 (function c-union (_ControlSet _ControlSet) _ControlSet)
 (rule
@@ -99,18 +97,18 @@
 (rewrite
     (list-concat (Cons x xs) (Nil))
     (Cons x xs)
-    :ruleset list
+    :ruleset analysis
 )
 (rewrite
     (list-concat (Nil) (Cons x xs))
     (Cons x xs)
-    :ruleset list
+    :ruleset analysis
 )
 
 (rewrite
     (list-concat (Cons x (Nil)) (Cons y ys))
     (Cons x (Cons y ys))
-    :ruleset list
+    :ruleset analysis
 )
 
 (rewrite
@@ -123,44 +121,44 @@
 (rewrite
     (list-reverse (Nil))
     (Nil)
-    :ruleset list
+    :ruleset analysis
 )
 (rewrite
     (list-reverse (Cons x xs))
     (list-concat (list-reverse xs) (Cons x (Nil)))
-    :ruleset list
+    :ruleset analysis
 )
 
 (function _sliceB (List i64) List :unextractable) ; [begin, N)
 (rewrite
     (_sliceB (Cons x xs) 0)
     (Cons x xs)
-    :ruleset list
+    :ruleset analysis
 )
 (rewrite
     (_sliceB (Cons x xs) begin)
     (_sliceB xs (- begin 1))
     :when ((> begin 0))
-    :ruleset list
+    :ruleset analysis
 )
 
 (function _sliceE (List i64) List :unextractable) ; [0, end)
 (rewrite
     (_sliceE (Cons x xs) 0)
     (Nil)
-    :ruleset list
+    :ruleset analysis
 )
 (rewrite
     (_sliceE (Cons x xs) end)
     (Cons x (_sliceE xs (- end 1)))
     :when ((> end 0) (< end (list-length (Cons x xs))))
-    :ruleset list
+    :ruleset analysis
 )
 (rewrite
     (_sliceE (Cons x xs) end)
     (Cons x xs)
     :when ((= end (list-length (Cons x xs))))
-    :ruleset list
+    :ruleset analysis
 )
 
 (function list-slice (List i64 i64) List) ; [begin, end)
@@ -168,14 +166,14 @@
     (list-slice (Cons x xs) begin end)
     (_sliceE (_sliceB (Cons x xs) begin) (- end begin))
     :when ((>= end begin))
-    :ruleset list
+    :ruleset analysis
 )
 
 (rewrite
     (list-length (list-slice xs a b))
     (- b a)
     :when ((>= b a))
-    :ruleset list
+    :ruleset analysis
 )
 
 ; (list-find x xs) 
@@ -185,27 +183,19 @@
     (list-find y (Cons x xs))
     (Cons x xs)
     :when ((= x y))
-    :ruleset list
+    :ruleset analysis
 )
 (rewrite
     (list-find y (Cons x xs))
     (list-find y xs)
     :when ((!= x y))
-    :ruleset list
+    :ruleset analysis
 )
 (rewrite
     (list-find y (Nil))
     (Nil)
-    :ruleset list
+    :ruleset analysis
 )
-
-; -----------------------------------------------------------------------------
-; CONSTANTS
-; -----------------------------------------------------------------------------
-
-(let FAN-OUT 2)
-(let PAR-TO-SEQ 1000)
-(let SPLIT-SEQ 8)
 
 ; -----------------------------------------------------------------------------
 ; ANALYSIS
@@ -356,96 +346,9 @@
 ;     :ruleset analysis
 ; )
 
-; -----------------------------------------------------------------------------
-; CONTROL
-; -----------------------------------------------------------------------------
-
-; seq { seq { ... } } => seq { ... }
-(rewrite
-    (Seq (Attributes a1) (Cons (Seq (Attributes a2) xs) (Nil)))
-    (Seq (Attributes a2) xs)
-    :when ((map-not-contains a1 "new_fsm") (map-not-contains a2 "new_fsm"))
-    :ruleset control
-)
-
-; par { par { ... } } => par { ... }
-(rewrite
-    (Par (Attributes a1) (Cons (Par (Attributes a2) xs) (Nil)))
-    (Par (Attributes a2) xs)
-    :when ((map-not-contains a1 "new_fsm") (map-not-contains a2 "new_fsm"))
-    :ruleset control
-)
-
-; par { A; B; C; D; } => par { par { A; B; } par { C; D; } }
-(rewrite
-    (Par (Attributes m) xs)
-    (Par (Attributes m)
-        (Cons (Par (Attributes (map-empty)) (list-slice xs 0 (/ (list-length xs) 2)))
-            (Cons (Par (Attributes (map-empty)) (list-slice xs (/ (list-length xs) 2) (list-length xs)))
-                (Nil))
-        )
-    )
-    :when ((>= (list-length xs) FAN-OUT) (map-not-contains m "new_fsm") (map-not-contains m "static"))
-    :ruleset control
-)
-
-; par { @promotable(1000) A; @promotable(1) B; } =>
-; seq { @promotable(1000) A; @promotable(1) B; }
-(rewrite
-    (Par attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
-    (Seq attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
-    :when (
-        (map-contains m1 "promotable")
-        (map-contains m2 "promotable")
-        (>= (- (map-get m1 "promotable") (map-get m2 "promotable")) PAR-TO-SEQ)
-    )
-    :ruleset control
-)
-(rewrite
-    (Par attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
-    (Seq attr (Cons (Enable g1 (Attributes m1)) (Cons (Enable g2 (Attributes m2)) (Nil))))
-    :when (
-        (map-contains m1 "promotable")
-        (map-contains m2 "promotable")
-        (>= (- (map-get m2 "promotable") (map-get m1 "promotable")) PAR-TO-SEQ)
-    )
-    :ruleset control
-)
-
-
-; seq { A; B; } => par { A; B; }
-; (rewrite
-;     (Seq attr (Cons A (Cons B (Nil))))
-;     (Par attr (Cons A (Cons B (Nil))))
-;     :when ((= (exclusive A B) true))
-;     :ruleset control
-; )
 
 
 
-;  seq { A0; A1; ...; An; } =>
-;  seq {
-;    @new_fsm seq {A0; ...; A(n/2); }
-;    @new_fsm seq {A(n/2); ...; An; }
-;  }
-(rule
-    (
-        (= S (Seq (Attributes attr) (Cons y ys)))
-        (map-not-contains attr "new-fsm")
-        (>= (list-length (Cons y ys)) SPLIT-SEQ)
-    )
-    (
-        (let xs (Cons y ys))
-        (let middle (/ (list-length xs) 2))
-        (let s1 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs 0 middle)))
-        (let s2 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs middle (list-length xs))))
-        (union
-            (Seq (Attributes attr) (Cons y ys))
-            (Seq (Attributes attr) (Cons s1 (Cons s2 (Nil))))
-        )
-    )
-    :ruleset control
-)
 
 (function max-latency (List) i64 :merge (min old new))
 (set (max-latency (Nil)) 0)
@@ -640,127 +543,3 @@
     )
     :ruleset analysis
 )
-
-; TODO(cgyurgyik): 
-; @static(22) seq { A (1); B (10); C (1); D (10); }
-;       A -> C, D
-;       B -> C
-; @static(11) par {
-;  A;
-;  B;
-;  static seq {del_10; C; }
-;  static seq {del_1;  D; }
-; }
-
-; seq { A; B; C; D; } => seq { par { A; } B; C; D; }
-(rule
-    (
-        (= x (Enable g (Attributes m-e)))
-        (= S (Seq attr (Cons x xs)))
-        (> (list-length xs) 0) ; We only want to do this if we can eventually compact another group.
-        (map-contains m-e "promotable")
-    )
-    (
-        (let latency (map-get m-e "promotable"))
-        (let p (Par (Attributes (map-insert (map-empty) "static" latency)) (Cons x (Nil))))
-        (set (Seq attr (Cons x xs)) (Seq attr (Cons p xs)))
-
-    )
-    :ruleset control
-)
-
-; Case 1: A and B are exclusive. 
-; seq { par { A; } B; C; D; } => seq { par { A; B; } C; D; }
-(rule
-    (
-        (= x (Enable g (Attributes m-e)))
-        (map-contains m-e "promotable")
-        (= compaction (Par (Attributes a2) ys))
-        (= S (Seq (Attributes a1) (Cons compaction (Cons x xs))))
-        (exclusive-with-all x ys)
-    )
-    (
-        (Cons x ys) ; Demand transformation for max-latency.
-    )
-    :ruleset control
-)
-
-(rule
-    (
-        (= x (Enable g (Attributes m-e)))
-        (map-contains m-e "promotable")
-        (= compaction (Par (Attributes a2) ys))
-        (= S (Seq (Attributes a1) (Cons compaction (Cons x xs))))
-        (exclusive-with-all x ys)
-        (= l1 (max-latency (Cons x ys)))
-        (= l2 (sum-latency xs))
-
-    )
-    (
-        (let l3 (+ l1 l2))
-        (let p-attr (Attributes (map-insert a2 "static" l1)))
-        (let s-attr (Attributes (map-insert a1 "static" l3)))
-        (union
-            (Seq (Attributes a1) (Cons compaction (Cons x xs)))
-            (Seq s-attr (Cons (Par p-attr (Cons x ys)) xs))
-        )
-    )
-    :ruleset control
-)
-
-
-; Case 2: A and B are not exclusive. 
-; seq { par { A; } B; C; D; } => seq { par { A; seq { _delay; B; } } C; D; }
-; (rule
-;     (
-;         (= x (Enable g (Attributes m-e)))
-;         (map-contains m-e "promotable")
-;         (= compaction (Par (Attributes p-e) ys))
-;         (map-contains p-e "static")
-;         (= S (Seq (Attributes s-e) (Cons compaction (Cons x xs))))
-;         (not (exclusive-with-all x ys))
-
-;         (= CS (nonexclusive-set x ys))
-;     )
-;     (
-;         (max-latency-with-set CS ys) ; demand
-;     )
-;     :ruleset control
-; )
-
-; (rule
-;     (
-;         (= x (Enable g (Attributes m-e)))
-;         (map-contains m-e "promotable")
-;         (= compaction (Par (Attributes p-e) ys))
-;         (map-contains p-e "static")
-;         (= S (Seq (Attributes s-e) (Cons compaction (Cons x xs))))
-;         (not (exclusive-with-all x ys))
-
-;         ; Need to recalculate latencies for the inner 
-;         ; compaction as well as the outer seq.
-;         (= CS (nonexclusive-set x ys))
-;         (= L (max-latency-with-set CS ys))
-;         (= l0 (+ L (map-get m-e "promotable")))
-;         (= l1 (max l0 (max-latency ys)))
-;         (= l2 (sum-latency xs))
-;     )
-;     (
-;         ; group _delayL { ... }
-;         (let delay-g (Group "_delay" (CellSet (set-empty))))
-;         ; _delayL
-;         (let delay (Enable delay-g (Attributes (map-insert (map-empty) "promotable" L))))
-;         ; seq { _delayL; B; }
-;         (let new-S (Seq
-;                 (Attributes (map-insert (map-empty) "static" l0))
-;                 (Cons delay (Cons x (Nil)))))
-;         (let p-attr (Attributes (map-insert p-e "static" l1)))
-;         (let l3 (+ l1 l2))
-;         (let s-attr (Attributes (map-insert s-e "static" l3)))
-;         (union
-;             (Seq (Attributes s-e) (Cons compaction (Cons x xs)))
-;             (Seq s-attr (Cons (Par p-attr (Cons new-S ys)) xs))
-;         )
-;     )
-;     :ruleset control
-; )
