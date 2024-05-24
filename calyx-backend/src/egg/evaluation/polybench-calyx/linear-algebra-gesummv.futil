@@ -1,0 +1,616 @@
+// git.status = clean, build.date = Fri May 24 10:47:41 PDT 2024, git.hash = 164c2dd
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component main() -> () {
+  cells {
+    A0_0 = seq_mem_d2(32,8,8,4,4);
+    @external(1) A_int = seq_mem_d2(32,8,8,4,4);
+    A_int_read0_0 = std_reg(32);
+    A_read0_0 = std_reg(32);
+    A_sh_read0_0 = std_reg(32);
+    B0_0 = seq_mem_d2(32,8,8,4,4);
+    @external(1) B_int = seq_mem_d2(32,8,8,4,4);
+    B_int_read0_0 = std_reg(32);
+    B_read0_0 = std_reg(32);
+    B_sh_read0_0 = std_reg(32);
+    add0 = std_add(4);
+    add1 = std_add(4);
+    add2 = std_add(32);
+    add3 = std_add(32);
+    add4 = std_add(4);
+    add5 = std_add(32);
+    add6 = std_add(4);
+    add7 = std_add(4);
+    add8 = std_add(4);
+    alpha__0 = std_reg(32);
+    @external(1) alpha_int = seq_mem_d1(32,1,1);
+    beta__0 = std_reg(32);
+    @external(1) beta_int = seq_mem_d1(32,1,1);
+    bin_read0_0 = std_reg(32);
+    bin_read1_0 = std_reg(32);
+    bin_read2_0 = std_reg(32);
+    bin_read3_0 = std_reg(32);
+    const0 = std_const(1,0);
+    const1 = std_const(1,0);
+    const10 = std_const(4,1);
+    const11 = std_const(4,1);
+    const12 = std_const(4,0);
+    const13 = std_const(4,0);
+    const14 = std_const(4,1);
+    const15 = std_const(4,1);
+    const2 = std_const(4,0);
+    const3 = std_const(4,0);
+    const4 = std_const(4,1);
+    const5 = std_const(4,1);
+    const6 = std_const(4,0);
+    const7 = std_const(32,0);
+    const8 = std_const(32,0);
+    const9 = std_const(4,0);
+    i0 = std_reg(4);
+    i00 = std_reg(4);
+    i01 = std_reg(4);
+    j0 = std_reg(4);
+    j00 = std_reg(4);
+    j01 = std_reg(4);
+    mult_pipe0 = std_mult_pipe(32);
+    mult_pipe1 = std_mult_pipe(32);
+    mult_pipe2 = std_mult_pipe(32);
+    mult_pipe3 = std_mult_pipe(32);
+    red_read00 = std_reg(32);
+    red_read10 = std_reg(32);
+    t1_0 = std_reg(32);
+    t2_0 = std_reg(32);
+    tmp0 = seq_mem_d1(32,8,4);
+    @external(1) tmp_int = seq_mem_d1(32,8,4);
+    tmp_int_read0_0 = std_reg(32);
+    tmp_read0_0 = std_reg(32);
+    tmp_sh_read0_0 = std_reg(32);
+    x0 = seq_mem_d1(32,8,4);
+    @external(1) x_int = seq_mem_d1(32,8,4);
+    x_int_read0_0 = std_reg(32);
+    x_read0_0 = std_reg(32);
+    x_read1_0 = std_reg(32);
+    x_sh_read0_0 = std_reg(32);
+    y0 = seq_mem_d1(32,8,4);
+    y_i_0 = std_reg(32);
+    @external(1) y_int = seq_mem_d1(32,8,4);
+    y_int_read0_0 = std_reg(32);
+    y_sh_read0_0 = std_reg(32);
+  }
+  wires {
+    group let0<"promotable"=2> {
+      alpha__0.in = alpha_int.read_data;
+      alpha__0.write_en = alpha_int.done;
+      let0[done] = alpha__0.done;
+      alpha_int.content_en = 1'd1;
+      alpha_int.addr0 = const0.out;
+    }
+    group let1<"promotable"=2> {
+      beta__0.in = beta_int.read_data;
+      beta__0.write_en = beta_int.done;
+      let1[done] = beta__0.done;
+      beta_int.content_en = 1'd1;
+      beta_int.addr0 = const1.out;
+    }
+    group let10<"promotable"=1> {
+      j0.in = const9.out;
+      j0.write_en = 1'd1;
+      let10[done] = j0.done;
+    }
+    group let11<"promotable"=4> {
+      bin_read0_0.in = mult_pipe0.out;
+      bin_read0_0.write_en = mult_pipe0.done;
+      let11[done] = bin_read0_0.done;
+      mult_pipe0.left = A_read0_0.out;
+      mult_pipe0.right = x_read0_0.out;
+      mult_pipe0.go = !mult_pipe0.done ? 1'd1;
+    }
+    group let12<"promotable"=1> {
+      t1_0.in = bin_read0_0.out;
+      t1_0.write_en = 1'd1;
+      let12[done] = t1_0.done;
+    }
+    group let13<"promotable"=4> {
+      bin_read1_0.in = mult_pipe1.out;
+      bin_read1_0.write_en = mult_pipe1.done;
+      let13[done] = bin_read1_0.done;
+      mult_pipe1.left = B_read0_0.out;
+      mult_pipe1.right = x_read1_0.out;
+      mult_pipe1.go = !mult_pipe1.done ? 1'd1;
+    }
+    group let14<"promotable"=1> {
+      t2_0.in = bin_read1_0.out;
+      t2_0.write_en = 1'd1;
+      let14[done] = t2_0.done;
+    }
+    group let15<"promotable"=2> {
+      red_read00.in = tmp0.read_data;
+      red_read00.write_en = tmp0.done;
+      let15[done] = red_read00.done;
+      tmp0.content_en = 1'd1;
+      tmp0.addr0 = i0.out;
+    }
+    group let16<"promotable"=2> {
+      red_read10.in = y0.read_data;
+      red_read10.write_en = y0.done;
+      let16[done] = red_read10.done;
+      y0.content_en = 1'd1;
+      y0.addr0 = i0.out;
+    }
+    group let17<"promotable"=4> {
+      bin_read2_0.in = mult_pipe2.out;
+      bin_read2_0.write_en = mult_pipe2.done;
+      let17[done] = bin_read2_0.done;
+      mult_pipe2.left = alpha__0.out;
+      mult_pipe2.right = tmp_read0_0.out;
+      mult_pipe2.go = !mult_pipe2.done ? 1'd1;
+    }
+    group let18<"promotable"=4> {
+      bin_read3_0.in = mult_pipe3.out;
+      bin_read3_0.write_en = mult_pipe3.done;
+      let18[done] = bin_read3_0.done;
+      mult_pipe3.left = beta__0.out;
+      mult_pipe3.right = y_i_0.out;
+      mult_pipe3.go = !mult_pipe3.done ? 1'd1;
+    }
+    group let19<"promotable"=1> {
+      i01.in = const12.out;
+      i01.write_en = 1'd1;
+      let19[done] = i01.done;
+    }
+    group let2<"promotable"=1> {
+      i00.in = const2.out;
+      i00.write_en = 1'd1;
+      let2[done] = i00.done;
+    }
+    group let20<"promotable"=1> {
+      j01.in = const13.out;
+      j01.write_en = 1'd1;
+      let20[done] = j01.done;
+    }
+    group let3<"promotable"=2> {
+      tmp_int_read0_0.in = tmp_int.read_data;
+      tmp_int_read0_0.write_en = tmp_int.done;
+      let3[done] = tmp_int_read0_0.done;
+      tmp_int.content_en = 1'd1;
+      tmp_int.addr0 = i00.out;
+    }
+    group let4<"promotable"=2> {
+      x_int_read0_0.in = x_int.read_data;
+      x_int_read0_0.write_en = x_int.done;
+      let4[done] = x_int_read0_0.done;
+      x_int.content_en = 1'd1;
+      x_int.addr0 = i00.out;
+    }
+    group let5<"promotable"=2> {
+      y_int_read0_0.in = y_int.read_data;
+      y_int_read0_0.write_en = y_int.done;
+      let5[done] = y_int_read0_0.done;
+      y_int.content_en = 1'd1;
+      y_int.addr0 = i00.out;
+    }
+    group let6<"promotable"=1> {
+      j00.in = const3.out;
+      j00.write_en = 1'd1;
+      let6[done] = j00.done;
+    }
+    group let7<"promotable"=2> {
+      A_int_read0_0.in = A_int.read_data;
+      A_int_read0_0.write_en = A_int.done;
+      let7[done] = A_int_read0_0.done;
+      A_int.content_en = 1'd1;
+      A_int.addr1 = j00.out;
+      A_int.addr0 = i00.out;
+    }
+    group let8<"promotable"=2> {
+      B_int_read0_0.in = B_int.read_data;
+      B_int_read0_0.write_en = B_int.done;
+      let8[done] = B_int_read0_0.done;
+      B_int.content_en = 1'd1;
+      B_int.addr1 = j00.out;
+      B_int.addr0 = i00.out;
+    }
+    group let9<"promotable"=1> {
+      i0.in = const6.out;
+      i0.write_en = 1'd1;
+      let9[done] = i0.done;
+    }
+    group upd0<"promotable"=1> {
+      tmp0.content_en = 1'd1;
+      tmp0.addr0 = i00.out;
+      tmp0.write_en = 1'd1;
+      tmp0.write_data = tmp_int_read0_0.out;
+      upd0[done] = tmp0.done;
+    }
+    group upd1<"promotable"=1> {
+      x0.content_en = 1'd1;
+      x0.addr0 = i00.out;
+      x0.write_en = 1'd1;
+      x0.write_data = x_int_read0_0.out;
+      upd1[done] = x0.done;
+    }
+    group upd10<"promotable"=2> {
+      x_read0_0.write_en = x0.done;
+      x0.content_en = 1'd1;
+      x0.addr0 = j0.out;
+      x_read0_0.in = x0.read_data;
+      upd10[done] = x_read0_0.done;
+    }
+    group upd11<"promotable"=2> {
+      B_read0_0.write_en = B0_0.done;
+      B0_0.content_en = 1'd1;
+      B0_0.addr1 = j0.out;
+      B0_0.addr0 = i0.out;
+      B_read0_0.in = B0_0.read_data;
+      upd11[done] = B_read0_0.done;
+    }
+    group upd12<"promotable"=2> {
+      x_read1_0.write_en = x0.done;
+      x0.content_en = 1'd1;
+      x0.addr0 = j0.out;
+      x_read1_0.in = x0.read_data;
+      upd12[done] = x_read1_0.done;
+    }
+    group upd13<"promotable"=1> {
+      tmp0.content_en = 1'd1;
+      tmp0.addr0 = i0.out;
+      tmp0.write_en = 1'd1;
+      add2.left = red_read00.out;
+      add2.right = t1_0.out;
+      tmp0.write_data = add2.out;
+      upd13[done] = tmp0.done;
+    }
+    group upd14<"promotable"=1> {
+      y0.content_en = 1'd1;
+      y0.addr0 = i0.out;
+      y0.write_en = 1'd1;
+      add3.left = red_read10.out;
+      add3.right = t2_0.out;
+      y0.write_data = add3.out;
+      upd14[done] = y0.done;
+    }
+    group upd15<"promotable"=1> {
+      j0.write_en = 1'd1;
+      add4.left = j0.out;
+      add4.right = const10.out;
+      j0.in = add4.out;
+      upd15[done] = j0.done;
+    }
+    group upd16<"promotable"=2> {
+      y_i_0.write_en = y0.done;
+      y0.content_en = 1'd1;
+      y0.addr0 = i0.out;
+      y_i_0.in = y0.read_data;
+      upd16[done] = y_i_0.done;
+    }
+    group upd17<"promotable"=2> {
+      tmp_read0_0.write_en = tmp0.done;
+      tmp0.content_en = 1'd1;
+      tmp0.addr0 = i0.out;
+      tmp_read0_0.in = tmp0.read_data;
+      upd17[done] = tmp_read0_0.done;
+    }
+    group upd18<"promotable"=1> {
+      y0.content_en = 1'd1;
+      y0.addr0 = i0.out;
+      y0.write_en = 1'd1;
+      add5.left = bin_read2_0.out;
+      add5.right = bin_read3_0.out;
+      y0.write_data = add5.out;
+      upd18[done] = y0.done;
+    }
+    group upd19<"promotable"=1> {
+      i0.write_en = 1'd1;
+      add6.left = i0.out;
+      add6.right = const11.out;
+      i0.in = add6.out;
+      upd19[done] = i0.done;
+    }
+    group upd2<"promotable"=1> {
+      y0.content_en = 1'd1;
+      y0.addr0 = i00.out;
+      y0.write_en = 1'd1;
+      y0.write_data = y_int_read0_0.out;
+      upd2[done] = y0.done;
+    }
+    group upd20<"promotable"=2> {
+      tmp_sh_read0_0.write_en = tmp0.done;
+      tmp0.content_en = 1'd1;
+      tmp0.addr0 = i01.out;
+      tmp_sh_read0_0.in = tmp0.read_data;
+      upd20[done] = tmp_sh_read0_0.done;
+    }
+    group upd21<"promotable"=1> {
+      tmp_int.content_en = 1'd1;
+      tmp_int.addr0 = i01.out;
+      tmp_int.write_en = 1'd1;
+      tmp_int.write_data = tmp_sh_read0_0.out;
+      upd21[done] = tmp_int.done;
+    }
+    group upd22<"promotable"=2> {
+      x_sh_read0_0.write_en = x0.done;
+      x0.content_en = 1'd1;
+      x0.addr0 = i01.out;
+      x_sh_read0_0.in = x0.read_data;
+      upd22[done] = x_sh_read0_0.done;
+    }
+    group upd23<"promotable"=1> {
+      x_int.content_en = 1'd1;
+      x_int.addr0 = i01.out;
+      x_int.write_en = 1'd1;
+      x_int.write_data = x_sh_read0_0.out;
+      upd23[done] = x_int.done;
+    }
+    group upd24<"promotable"=2> {
+      y_sh_read0_0.write_en = y0.done;
+      y0.content_en = 1'd1;
+      y0.addr0 = i01.out;
+      y_sh_read0_0.in = y0.read_data;
+      upd24[done] = y_sh_read0_0.done;
+    }
+    group upd25<"promotable"=1> {
+      y_int.content_en = 1'd1;
+      y_int.addr0 = i01.out;
+      y_int.write_en = 1'd1;
+      y_int.write_data = y_sh_read0_0.out;
+      upd25[done] = y_int.done;
+    }
+    group upd26<"promotable"=2> {
+      A_sh_read0_0.write_en = A0_0.done;
+      A0_0.content_en = 1'd1;
+      A0_0.addr1 = j01.out;
+      A0_0.addr0 = i01.out;
+      A_sh_read0_0.in = A0_0.read_data;
+      upd26[done] = A_sh_read0_0.done;
+    }
+    group upd27<"promotable"=1> {
+      A_int.content_en = 1'd1;
+      A_int.addr1 = j01.out;
+      A_int.addr0 = i01.out;
+      A_int.write_en = 1'd1;
+      A_int.write_data = A_sh_read0_0.out;
+      upd27[done] = A_int.done;
+    }
+    group upd28<"promotable"=2> {
+      B_sh_read0_0.write_en = B0_0.done;
+      B0_0.content_en = 1'd1;
+      B0_0.addr1 = j01.out;
+      B0_0.addr0 = i01.out;
+      B_sh_read0_0.in = B0_0.read_data;
+      upd28[done] = B_sh_read0_0.done;
+    }
+    group upd29<"promotable"=1> {
+      B_int.content_en = 1'd1;
+      B_int.addr1 = j01.out;
+      B_int.addr0 = i01.out;
+      B_int.write_en = 1'd1;
+      B_int.write_data = B_sh_read0_0.out;
+      upd29[done] = B_int.done;
+    }
+    group upd3<"promotable"=1> {
+      A0_0.content_en = 1'd1;
+      A0_0.addr1 = j00.out;
+      A0_0.addr0 = i00.out;
+      A0_0.write_en = 1'd1;
+      A0_0.write_data = A_int_read0_0.out;
+      upd3[done] = A0_0.done;
+    }
+    group upd30<"promotable"=1> {
+      j01.write_en = 1'd1;
+      add7.left = j01.out;
+      add7.right = const14.out;
+      j01.in = add7.out;
+      upd30[done] = j01.done;
+    }
+    group upd31<"promotable"=1> {
+      i01.write_en = 1'd1;
+      add8.left = i01.out;
+      add8.right = const15.out;
+      i01.in = add8.out;
+      upd31[done] = i01.done;
+    }
+    group upd4<"promotable"=1> {
+      B0_0.content_en = 1'd1;
+      B0_0.addr1 = j00.out;
+      B0_0.addr0 = i00.out;
+      B0_0.write_en = 1'd1;
+      B0_0.write_data = B_int_read0_0.out;
+      upd4[done] = B0_0.done;
+    }
+    group upd5<"promotable"=1> {
+      j00.write_en = 1'd1;
+      add0.left = j00.out;
+      add0.right = const4.out;
+      j00.in = add0.out;
+      upd5[done] = j00.done;
+    }
+    group upd6<"promotable"=1> {
+      i00.write_en = 1'd1;
+      add1.left = i00.out;
+      add1.right = const5.out;
+      i00.in = add1.out;
+      upd6[done] = i00.done;
+    }
+    group upd7<"promotable"=1> {
+      tmp0.content_en = 1'd1;
+      tmp0.addr0 = i0.out;
+      tmp0.write_en = 1'd1;
+      tmp0.write_data = const7.out;
+      upd7[done] = tmp0.done;
+    }
+    group upd8<"promotable"=1> {
+      y0.content_en = 1'd1;
+      y0.addr0 = i0.out;
+      y0.write_en = 1'd1;
+      y0.write_data = const8.out;
+      upd8[done] = y0.done;
+    }
+    group upd9<"promotable"=2> {
+      A_read0_0.write_en = A0_0.done;
+      A0_0.content_en = 1'd1;
+      A0_0.addr1 = j0.out;
+      A0_0.addr0 = i0.out;
+      A_read0_0.in = A0_0.read_data;
+      upd9[done] = A_read0_0.done;
+    }
+  }
+  control {
+    seq {
+      par {
+        @pos(0) let0;
+        @pos(1) let1;
+        seq {
+          @pos(2) let2;
+          repeat 8 {
+            seq {
+              @pos(3) let3;
+              par {
+                @pos(4) upd0;
+                @pos(5) let4;
+              }
+              par {
+                @pos(6) upd1;
+                @pos(7) let5;
+              }
+              par {
+                @pos(8) upd2;
+                seq {
+                  @pos(9) let6;
+                  repeat 8 {
+                    seq {
+                      @pos(10) let7;
+                      par {
+                        @pos(11) upd3;
+                        @pos(12) let8;
+                      }
+                      @pos(13) upd4;
+                      @pos(9) upd5;
+                    }
+                  }
+                }
+              }
+              @pos(2) upd6;
+            }
+          }
+        }
+      }
+      @pos(14) let9;
+      repeat 8 {
+        seq {
+          par {
+            @pos(15) upd7;
+            @pos(16) upd8;
+          }
+          @pos(17) let10;
+          repeat 8 {
+            seq {
+              par {
+                @pos(18) upd9;
+                @pos(19) upd10;
+              }
+              par {
+                seq {
+                  let11;
+                  let12;
+                }
+                @pos(20) upd11;
+                @pos(21) upd12;
+              }
+              let13;
+              let14;
+              par {
+                seq {
+                  let15;
+                  upd13;
+                }
+                seq {
+                  let16;
+                  upd14;
+                }
+              }
+              @pos(17) upd15;
+            }
+          }
+          @pos(22) upd16;
+          @pos(23) upd17;
+          let17;
+          let18;
+          upd18;
+          @pos(14) upd19;
+        }
+      }
+      @pos(24) let19;
+      repeat 8 {
+        seq {
+          @pos(25) upd20;
+          par {
+            @pos(26) upd21;
+            @pos(27) upd22;
+          }
+          par {
+            @pos(28) upd23;
+            @pos(29) upd24;
+          }
+          par {
+            @pos(30) upd25;
+            seq {
+              @pos(31) let20;
+              repeat 8 {
+                seq {
+                  @pos(32) upd26;
+                  par {
+                    @pos(33) upd27;
+                    @pos(34) upd28;
+                  }
+                  @pos(35) upd29;
+                  @pos(31) upd30;
+                }
+              }
+            }
+          }
+          @pos(24) upd31;
+        }
+      }
+    }
+  }
+}
+metadata #{
+  0: let alpha_ = alpha_int[0];
+  1: let beta_ = beta_int[0];
+  2: for (let i0: ubit<4> = 0..8) {
+  3:   tmp_sh[i0] := tmp_int[i0];
+  4:   tmp_sh[i0] := tmp_int[i0];
+  5:   x_sh[i0] := x_int[i0];
+  6:   x_sh[i0] := x_int[i0];
+  7:   y_sh[i0] := y_int[i0];
+  8:   y_sh[i0] := y_int[i0];
+  9:   for (let j0: ubit<4> = 0..8) {
+  10:     A_sh[i0][j0] := A_int[i0][j0];
+  11:     A_sh[i0][j0] := A_int[i0][j0];
+  12:     B_sh[i0][j0] := B_int[i0][j0];
+  13:     B_sh[i0][j0] := B_int[i0][j0];
+  14: for (let i: ubit<4> = 0..8) {
+  15:   tmp[i] := 0;
+  16:   y[i] := 0;
+  17:   for (let j: ubit<4> = 0..8) {
+  18:     let t1 = A[i][j] * x[j];
+  19:     let t1 = A[i][j] * x[j];
+  20:     let t2 = B[i][j] * x[j];
+  21:     let t2 = B[i][j] * x[j];
+  22:   let y_i: ubit<32> = y[i];
+  23:   y[i] := alpha_ * tmp[i] + beta_ * y_i;
+  24: for (let i0: ubit<4> = 0..8) {
+  25:   tmp_int[i0] := tmp_sh[i0];
+  26:   tmp_int[i0] := tmp_sh[i0];
+  27:   x_int[i0] := x_sh[i0];
+  28:   x_int[i0] := x_sh[i0];
+  29:   y_int[i0] := y_sh[i0];
+  30:   y_int[i0] := y_sh[i0];
+  31:   for (let j0: ubit<4> = 0..8) {
+  32:     A_int[i0][j0] := A_sh[i0][j0];
+  33:     A_int[i0][j0] := A_sh[i0][j0];
+  34:     B_int[i0][j0] := B_sh[i0][j0];
+  35:     B_int[i0][j0] := B_sh[i0][j0];
+}#
+

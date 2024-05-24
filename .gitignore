@@ -55,4 +55,4 @@ results.xml
 tools/btor2/btor2i/build/
 
 # egg evaluation
-calyx-backend/src/egg/evaluation/*
+# calyx-backend/src/egg/evaluation/*
