@@ -28,6 +28,11 @@ component main() -> () {
     }
   }
   control {
-    seq { seq { A; B; } }
+    seq { 
+        seq { 
+            A; 
+            B; 
+        } 
+    }
   }
 }
