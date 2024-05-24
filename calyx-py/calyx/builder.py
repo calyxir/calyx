@@ -143,7 +143,7 @@ class ComponentBuilder:
         """Access the component's control program."""
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
-                "Combinational components do not have control programs"
+                "Combinational components do not have control programs."
             )
         return ControlBuilder(self.component.controls)
 
@@ -151,7 +151,7 @@ class ComponentBuilder:
     def control(self, builder: Union[ast.Control, ControlBuilder]):
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
-                "Combinational components do not have control programs"
+                "Combinational components do not have control programs."
             )
         if isinstance(builder, ControlBuilder):
             self.component.controls = builder.stmt
@@ -214,9 +214,7 @@ class ComponentBuilder:
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError(
-                "Combinational components do not have groups, only wires."
-            )
+            raise AttributeError("Combinational components do not have groups.")
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -229,7 +227,7 @@ class ComponentBuilder:
         """Create a new combinational group with the given name."""
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
-                "Sequential components do not have combinational groups, only wires."
+                "Combinational components do not have combinational groups."
             )
         group = ast.CombGroup(ast.CompVar(name), connections=[])
         assert group not in self.component.wires, f"group '{name}' already exists"
@@ -242,9 +240,7 @@ class ComponentBuilder:
     def static_group(self, name: str, latency: int) -> GroupBuilder:
         """Create a new static group with the given name."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError(
-                "Sequential components do not have static groups, only wires."
-            )
+            raise AttributeError("Combinational components do not have groups.")
         group = ast.StaticGroup(ast.CompVar(name), connections=[], latency=latency)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -438,6 +434,13 @@ class ComponentBuilder:
     def lsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLsh cell."""
         return self.binary("lsh", size, name, signed)
+
+    def cat(self, left_width: int, right_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdCat cell."""
+        return self.cell(
+            name or self.generate_name("cat"),
+            ast.Stdlib.cat(left_width, right_width, left_width + right_width),
+        )
 
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
