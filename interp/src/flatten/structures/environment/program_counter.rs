@@ -369,12 +369,23 @@ impl ProgramCounter {
         &mut self.vec
     }
 
-    pub fn par_map_mut(&mut self) -> &mut HashMap<ControlPoint, ChildCount> {
+    pub fn _par_map_mut(&mut self) -> &mut HashMap<ControlPoint, ChildCount> {
         &mut self.par_map
     }
 
     pub fn _par_map(&self) -> &HashMap<ControlPoint, ChildCount> {
         &self.par_map
+    }
+
+    /// returns mutable references to both vec and par_map.
+    /// This is useful for when you need to mutate both at the same time.
+    pub fn mut_refs(
+        &mut self,
+    ) -> (
+        &mut Vec<ControlPoint>,
+        &mut HashMap<ControlPoint, ChildCount>,
+    ) {
+        (&mut self.vec, &mut self.par_map)
     }
 }
 
