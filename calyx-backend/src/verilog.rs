@@ -9,8 +9,11 @@ use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
 use serde_json::{Map, Value};
+use std::env;
+use std::fs;
 use std::io;
 use std::io::Write;
+use std::path::Path;
 use std::process::Command;
 use std::{collections::HashMap, rc::Rc};
 use std::{fs::OpenOptions, time::Instant};
@@ -127,15 +130,38 @@ impl Backend for VerilogBackend {
 
         // Determine if HardFloat is needed
         let contains_float = file_strings.iter().any(|s| s.contains("float"));
+        let current_dir =
+            env::current_dir().unwrap().to_str().unwrap().to_string();
         if contains_float {
             include_dirs.push(Value::String(
-                "primitives/float/HardFloat-1/source/".to_string(),
+                current_dir.clone() + "/primitives/float/HardFloat-1/source/",
             ));
             include_dirs.push(Value::String(
-                "primitives/float/HardFloat-1/source/RISCV/".to_string(),
+                current_dir.clone()
+                    + "/primitives/float/HardFloat-1/source/RISCV/",
             ));
-            file_strings.push("primitives/float/HardFloat-1/source/fnToRecFN.v".to_string());
-            file_strings.push("primitives/float/HardFloat-1/source/recFNToFN.v".to_string());
+            let hardfloat_path =
+                Path::new("primitives/float/HardFloat-1/source");
+            for entry in fs::read_dir(hardfloat_path)? {
+                let path = entry?.path();
+                let current_dir =
+                    env::current_dir().unwrap().to_str().unwrap().to_string();
+                if path.is_file()
+                    && !file_strings.contains(
+                        &(current_dir.clone() + "/" + path.to_str().unwrap()),
+                    )
+                {
+                    let extension = path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("");
+                    if extension == "v" || extension == "sv" {
+                        file_strings.push(
+                            current_dir.clone() + "/" + path.to_str().unwrap(),
+                        );
+                    }
+                }
+            }
         }
 
         json_map.insert("include_dirs".to_string(), Value::Array(include_dirs));
