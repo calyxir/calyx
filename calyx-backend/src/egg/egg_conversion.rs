@@ -2,13 +2,10 @@
 use super::calyx_to_egg::ToEggPrinter;
 use crate::egg::utils;
 use crate::traits::Backend;
-use calyx_frontend::GetAttributes;
 use calyx_ir::{self as ir};
 use calyx_utils::Error;
-use itertools::Itertools;
-use std::collections::HashSet;
+use std::io::Read;
 use std::io::Write;
-use std::io::{self, Read};
 
 #[derive(Default)]
 pub struct EggBackend;
@@ -41,12 +38,14 @@ impl Backend for EggBackend {
             writeln!(f)?;
 
             if ctx.bc.display_egraph {
+                // We write to a temporary file since we cannot read the output
+                // file to a string.
                 let mut ntf = tempfile::NamedTempFile::new()?;
                 ToEggPrinter::write_component(component, &mut ntf)?;
 
                 let mut buf = String::new();
                 ntf.read_to_string(&mut buf)?;
-                let (term, termdag) = utils::extract_egglog(
+                utils::extract_egglog(
                     ctx.bc.display_egraph,
                     component.name.id.into(),
                     &buf,

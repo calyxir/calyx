@@ -1,17 +1,9 @@
-use crate::traits::Backend;
 use calyx_frontend::GetAttributes;
 use calyx_ir::{self as ir};
-use calyx_utils::Error;
-use egglog::{ast::Literal, match_term_app, EGraph, Term, TermDag};
 use itertools::Itertools;
-use main_error::MainError;
 use std::collections::HashSet;
-use std::fs::{self, File};
-use std::io::{self, Read, SeekFrom};
-use std::io::{Seek, Write};
-use std::path::Path;
-use std::{fmt, str::FromStr};
-use tempfile::tempfile;
+use std::io::Write;
+use std::io::{self};
 
 #[derive(Default)]
 pub struct ToEggPrinter;
@@ -21,7 +13,7 @@ impl ToEggPrinter {
         attrs: &ir::Attributes,
         latency: Option<u64>,
     ) -> String {
-        let mut s: String = format!("(map-empty)");
+        let mut s: String = "(map-empty)".to_string();
         for attribute in attrs.to_vec(|k, v| format!("\"{k}\" {v}")) {
             s = format!("(map-insert {} {})", s, attribute);
         }
@@ -262,12 +254,7 @@ impl ToEggPrinter {
                 ..
             }) => {
                 Self::write_static_control_list(
-                    f,
-                    "Seq",
-                    &stmts,
-                    attr,
-                    lists,
-                    latency.clone(),
+                    f, "Seq", stmts, attr, lists, *latency,
                 )?;
                 Ok(())
             }
@@ -277,12 +264,7 @@ impl ToEggPrinter {
                 ..
             }) => {
                 Self::write_static_control_list(
-                    f,
-                    "Par",
-                    &stmts,
-                    attr,
-                    lists,
-                    latency.clone(),
+                    f, "Par", stmts, attr, lists, *latency,
                 )?;
                 Ok(())
             }

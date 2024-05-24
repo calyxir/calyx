@@ -1,17 +1,7 @@
-use crate::traits::Backend;
-use calyx_frontend::GetAttributes;
-use calyx_ir::{self as ir};
-use calyx_utils::Error;
-use egglog::{ast::Literal, match_term_app, EGraph, Term, TermDag};
-use itertools::Itertools;
-use main_error::MainError;
-use std::collections::HashSet;
-use std::fs::{self, File};
-use std::io::{self, Read, SeekFrom};
+use egglog::{ast::Literal, match_term_app, Term, TermDag};
+use std::fs::File;
+use std::io::{Read, SeekFrom};
 use std::io::{Seek, Write};
-use std::path::Path;
-use std::{fmt, str::FromStr};
-use tempfile::tempfile;
 
 pub struct EggToCalyx<'a> {
     pub termdag: &'a TermDag,
@@ -24,9 +14,9 @@ impl<'a> EggToCalyx<'a> {
         expr: Term,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let mut temporary_file = tempfile::NamedTempFile::new()?;
-        let mut handler = temporary_file.as_file_mut();
+        let handler = temporary_file.as_file_mut();
 
-        self.emit(&mut handler, indent_level, expr)?;
+        self.emit(handler, indent_level, expr)?;
         let mut buf = " ".repeat(indent_level);
         handler.seek(SeekFrom::Start(0))?;
         handler.read_to_string(&mut buf)?;

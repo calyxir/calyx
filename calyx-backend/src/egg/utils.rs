@@ -1,18 +1,7 @@
 use super::egg_to_calyx;
-use crate::traits::Backend;
-use calyx_frontend::GetAttributes;
-use calyx_ir::{self as ir};
-use calyx_utils::Error;
-use egglog::{ast::Literal, match_term_app, EGraph, Term, TermDag};
-use itertools::Itertools;
+use egglog::{EGraph, Term, TermDag};
 use main_error::MainError;
-use std::collections::HashSet;
-use std::fs;
-use std::io::{self, Read, SeekFrom};
-use std::io::{Seek, Write};
-use std::path::Path;
-use std::{fmt, str::FromStr};
-use tempfile::tempfile;
+use std::{fmt, io};
 
 // TODO(cgyurgyik): Currently all the rules are in one location. These should probably be separated.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -36,7 +25,7 @@ pub fn extract_egglog(
     program: &String,
 ) -> (Term, TermDag) {
     let mut egraph = EGraph::default();
-    egraph.parse_and_run_program(&program).unwrap_or_else(|_| {
+    egraph.parse_and_run_program(program).unwrap_or_else(|_| {
         panic!("failed to parse and run e-graph for program: {}", program)
     });
 
@@ -117,7 +106,7 @@ pub fn convert_component<F: io::Write>(
         )?;
         writeln!(f)?;
     }
-    for wire in component.continuous_assignments.iter() {
+    if let Some(wire) = component.continuous_assignments.first() {
         return Err(format!("wires not supported: {:?}", wire).into());
     }
     writeln!(f, "{}}}", " ".repeat(indent_level))?;

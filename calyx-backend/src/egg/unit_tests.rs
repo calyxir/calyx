@@ -1,10 +1,8 @@
 #[cfg(test)]
 mod unit_tests {
-    use std::{fs, path::Path};
-
-    use super::*;
     use crate::egg::{egg_optimize::EggOptimizeBackend, utils};
     use egglog::EGraph;
+    use std::{fs, path::Path};
 
     /// Retrieve the egglog rules for the unit test.
     pub fn egglog_rules(
