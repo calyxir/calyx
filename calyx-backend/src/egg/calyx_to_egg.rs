@@ -2,14 +2,13 @@ use calyx_frontend::GetAttributes;
 use calyx_ir::{self as ir};
 use itertools::Itertools;
 use std::collections::HashSet;
-use std::io::Write;
 use std::io::{self};
 
 #[derive(Default)]
 pub struct ToEggPrinter;
 
 impl ToEggPrinter {
-    fn format_attributes(
+    fn write_attributes(
         attrs: &ir::Attributes,
         latency: Option<u64>,
     ) -> String {
@@ -57,8 +56,7 @@ impl ToEggPrinter {
             todo!("`empty` control is not supported in CalyxEgg")
         }
         write!(f, "(let {} ", comp.name)?;
-        let mut lists = Vec::new();
-        Self::write_control(&comp.control.borrow(), &mut lists, f)?;
+        Self::write_control(&comp.control.borrow(), f)?;
         write!(f, ")")?;
         Ok(())
     }
@@ -163,24 +161,14 @@ impl ToEggPrinter {
         name: &str,
         statements: &Vec<ir::Control>,
         attr: &calyx_ir::Attributes,
-        lists: &mut Vec<String>,
     ) -> io::Result<()> {
-        write!(f, "({} {}", name, Self::format_attributes(attr, None))?;
-
-        // We need to keep track of the "list of lists" so we can perform analyses through demands.
-        let mut s = Vec::new();
-        let mut b = io::BufWriter::new(&mut s);
+        write!(f, "({} {}", name, Self::write_attributes(attr, None))?;
 
         for stmt in statements {
-            write!(b, " (Cons ")?;
             write!(f, " (Cons ")?;
-            Self::write_control(stmt, lists, &mut b)?;
-            Self::write_control(stmt, lists, f)?;
+            Self::write_control(stmt, f)?;
         }
-        write!(b, " (Nil){}", ")".repeat(statements.len()))?;
         write!(f, " (Nil){}", ")".repeat(statements.len()))?;
-        lists.push(String::from_utf8(b.buffer().to_vec()).unwrap());
-
         write!(f, ")")?;
         Ok(())
     }
@@ -190,37 +178,44 @@ impl ToEggPrinter {
         name: &str,
         statements: &Vec<ir::StaticControl>,
         attr: &calyx_ir::Attributes,
-        lists: &mut Vec<String>,
         latency: u64,
     ) -> io::Result<()> {
         write!(
             f,
             "({} {}",
             name,
-            Self::format_attributes(attr, Some(latency))
+            Self::write_attributes(attr, Some(latency))
         )?;
 
-        // We need to keep track of the "list of lists" so we can perform analyses through demands.
-        let mut s = Vec::new();
-        let mut b = io::BufWriter::new(&mut s);
-
         for stmt in statements {
-            write!(b, " (Cons ")?;
             write!(f, " (Cons ")?;
-            Self::write_static_control(stmt, lists, &mut b)?;
-            Self::write_static_control(stmt, lists, f)?;
+            Self::write_static_control(stmt, f)?;
         }
-        write!(b, " (Nil){}", ")".repeat(statements.len()))?;
         write!(f, " (Nil){}", ")".repeat(statements.len()))?;
-        lists.push(String::from_utf8(b.buffer().to_vec()).unwrap());
 
+        write!(f, ")")?;
+        Ok(())
+    }
+
+    pub fn write_repeat<F: io::Write>(
+        attributes: &calyx_ir::Attributes,
+        body: &Box<calyx_ir::Control>,
+        num_repeats: &u64,
+        f: &mut F,
+    ) -> io::Result<()> {
+        write!(
+            f,
+            "(Repeat {} {}",
+            Self::write_attributes(attributes, None),
+            num_repeats,
+        )?;
+        Self::write_control(body, f)?;
         write!(f, ")")?;
         Ok(())
     }
 
     pub fn write_static_control<F: io::Write>(
         control: &ir::StaticControl,
-        lists: &mut Vec<String>,
         f: &mut F,
     ) -> io::Result<()> {
         let attr = control.get_attributes();
@@ -230,7 +225,7 @@ impl ToEggPrinter {
                     f,
                     "(Enable {} {})",
                     group.borrow().name().id,
-                    Self::format_attributes(attr, None),
+                    Self::write_attributes(attr, None),
                 )
             }
             ir::StaticControl::Seq(calyx_ir::StaticSeq {
@@ -239,7 +234,7 @@ impl ToEggPrinter {
                 ..
             }) => {
                 Self::write_static_control_list(
-                    f, "Seq", stmts, attr, lists, *latency,
+                    f, "Seq", stmts, attr, *latency,
                 )?;
                 Ok(())
             }
@@ -249,7 +244,7 @@ impl ToEggPrinter {
                 ..
             }) => {
                 Self::write_static_control_list(
-                    f, "Par", stmts, attr, lists, *latency,
+                    f, "Par", stmts, attr, *latency,
                 )?;
                 Ok(())
             }
@@ -260,7 +255,6 @@ impl ToEggPrinter {
     /// Format and write a control program
     pub fn write_control<F: io::Write>(
         control: &ir::Control,
-        lists: &mut Vec<String>,
         f: &mut F,
     ) -> io::Result<()> {
         let attr = control.get_attributes();
@@ -270,26 +264,31 @@ impl ToEggPrinter {
                     f,
                     "(Enable {} {})",
                     group.borrow().name().id,
-                    Self::format_attributes(attr, None),
+                    Self::write_attributes(attr, None),
                 )
             }
             ir::Control::Par(ir::Par { stmts, .. }) => {
-                Self::write_control_list(f, "Par", stmts, attr, lists)?;
+                Self::write_control_list(f, "Par", stmts, attr)?;
                 Ok(())
             }
             ir::Control::Seq(ir::Seq { stmts, .. }) => {
-                Self::write_control_list(f, "Seq", stmts, attr, lists)?;
+                Self::write_control_list(f, "Seq", stmts, attr)?;
                 Ok(())
             }
             ir::Control::Static(static_control) => {
-                Self::write_static_control(static_control, lists, f)?;
+                Self::write_static_control(static_control, f)?;
                 Ok(())
             }
             ir::Control::Invoke(ir::Invoke { .. }) => {
                 todo!("`invoke` is not supported in CalyxEgg")
             }
-            ir::Control::Repeat(ir::Repeat { .. }) => {
-                todo!("`repeat` is not supported in CalyxEgg")
+            ir::Control::Repeat(ir::Repeat {
+                attributes,
+                body,
+                num_repeats,
+            }) => {
+                Self::write_repeat(attributes, body, num_repeats, f)?;
+                Ok(())
             }
             ir::Control::If(ir::If { .. }) => {
                 todo!("`if` is not supported in CalyxEgg")

@@ -17,7 +17,7 @@ impl<'a> EggToCalyx<'a> {
         let handler = temporary_file.as_file_mut();
 
         self.emit(handler, indent_level, expr)?;
-        let mut buf = " ".repeat(indent_level);
+        let mut buf = String::new();
         handler.seek(SeekFrom::Start(0))?;
         handler.read_to_string(&mut buf)?;
         Ok(buf)
@@ -106,16 +106,28 @@ impl<'a> EggToCalyx<'a> {
                 Ok(())
             }
             ("Par", [attributes, list]) => {
-                self.emit(f, indent_level, self.termdag.get(*attributes))?;
-                writeln!(f,"par {{")?;
+                write!(f,"{}", " ".repeat(indent_level))?;
+                self.emit(f, 0, self.termdag.get(*attributes))?;
+                writeln!(f,"par {{", )?;
                 self.emit(f, indent_level + 2, self.termdag.get(*list))?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))?;
                 Ok(())
             }
             ("Seq", [attributes, list]) => {
-                self.emit(f, indent_level, self.termdag.get(*attributes))?;
+                write!(f,"{}", " ".repeat(indent_level))?;
+                self.emit(f, 0, self.termdag.get(*attributes))?;
                 writeln!(f,"seq {{")?;
                 self.emit(f, indent_level + 2, self.termdag.get(*list))?;
+                writeln!(f, "{}}}", " ".repeat(indent_level))?;
+                Ok(())
+            }
+            ("Repeat", [attributes, n, body]) => {
+                write!(f,"{}", " ".repeat(indent_level))?;
+                self.emit(f, 0, self.termdag.get(*attributes))?;
+                write!(f, "repeat ")?;
+                self.emit(f, 0, self.termdag.get(*n))?;
+                writeln!(f, " {{")?;
+                self.emit(f, indent_level + 2, self.termdag.get(*body))?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))?;
                 Ok(())
             }

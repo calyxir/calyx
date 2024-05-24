@@ -38,9 +38,9 @@ pub fn extract_egglog(
     if program.is_empty() {
         panic!("attempting to parse and run and empty egglog program")
     }
-    egraph
-        .parse_and_run_program(program)
-        .unwrap_or_else(|_| panic!("failed to parse and run e-graph"));
+    egraph.parse_and_run_program(program).unwrap_or_else(|_| {
+        panic!("failed to parse and run e-graph:\n{}", program)
+    });
 
     if display {
         let serialized = egraph.serialize_for_graphviz(true, 100, 100);
@@ -58,7 +58,7 @@ pub fn extract_egglog(
         .eval_expr(&egglog::ast::Expr::Var((), identifier.into()))
         .unwrap_or_else(|_| {
             panic!(
-                "unexpected failure of e-graph extraction for component: {}. Original egglog program: {}",
+                "unexpected failure of e-graph extraction for component: {}. Original egglog program:\n{}",
                 identifier, program
             )
         });

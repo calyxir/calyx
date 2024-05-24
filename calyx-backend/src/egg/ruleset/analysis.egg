@@ -32,6 +32,7 @@
 (function Enable (_Group _Attributes) Control)
 (function Seq (_Attributes List) Control)
 (function Par (_Attributes List) Control)
+(function Repeat (_Attributes i64 Control) Control)
 
 ; Set[Control]
 (sort ControlSetBase (Set Control))
