@@ -11,7 +11,7 @@ mod unit_tests {
 
     /// Retrieve the egglog rules for the unit test.
     pub fn egglog_rules(
-        rules: &[utils::RewriteRule],
+        rules: &[RewriteRule],
     ) -> calyx_utils::CalyxResult<String> {
         let mut s = String::new();
         let path = Path::new("src/egg/ruleset/");
@@ -78,12 +78,7 @@ mod unit_tests {
         check: &str,
         rules: &[utils::RewriteRule],
     ) -> utils::Result {
-        test_egglog_internal(
-            prologue,
-            check,
-            &utils::RewriteRule::iter().collect_vec(),
-            false,
-        )
+        test_egglog_internal(prologue, check, rules, false)
     }
 
     fn test_egglog_debug(
@@ -91,12 +86,7 @@ mod unit_tests {
         check: &str,
         rules: &[utils::RewriteRule],
     ) -> utils::Result {
-        test_egglog_internal(
-            prologue,
-            check,
-            &utils::RewriteRule::iter().collect_vec(),
-            true,
-        )
+        test_egglog_internal(prologue, check, rules, true)
     }
 
     #[test]

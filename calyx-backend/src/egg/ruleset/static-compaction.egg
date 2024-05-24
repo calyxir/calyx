@@ -1,5 +1,78 @@
 (ruleset static-compaction)
 
+; Returns the set of non-exclusive control constructs.
+; If the list contains a seq or par and its children are non-exclusive
+; with x, then the entire seq/par is appended.
+; (function nonexclusive-set (Control List) _ControlSet)
+; (rule
+;     (
+;         (= E (Enable g a))
+;     )
+;     (
+;         (set (nonexclusive-set E (Nil)) (ControlSet (set-empty)))
+;     )
+;     :ruleset analysis
+; )
+
+; (rule
+;     (
+;         (= E (Enable g a))
+;         (= L (Cons x xs))
+;         (not (exclusive E x))
+;     )
+;     (
+;         (set (nonexclusive-set E L) (c-union (ControlSet (set-of x)) (nonexclusive-set E xs)))
+;     )
+;     :ruleset analysis
+; )
+; (rule
+;     (
+;         (= E (Enable g a))
+;         (= L (Cons x xs))
+;         (exclusive E x)
+;     )
+;     (
+;         (set (nonexclusive-set E L) (nonexclusive-set E xs))
+;     )
+;     :ruleset analysis
+; )
+
+; (rewrite
+;     (nonexclusive-set (Enable g _) (Cons (Seq a ys) xs))
+;     (c-union (ControlSet (set-of (Seq a ys))) (nonexclusive-set (Enable g _) xs))
+;     :when (
+;         (not (exclusive-with-all (Enable g _) ys))
+;     )
+;     :ruleset analysis
+; )
+
+; (rewrite
+;     (nonexclusive-set (Enable g _) (Cons (Seq a ys) xs))
+;     (nonexclusive-set (Enable g _) xs)
+;     :when (
+;         (exclusive-with-all (Enable g _) ys)
+;     )
+;     :ruleset analysis
+; )
+
+; (rewrite
+;     (nonexclusive-set (Enable g _) (Cons (Par a ys) xs))
+;     (c-union (ControlSet (set-of (Par a ys))) (nonexclusive-set (Enable g _) xs))
+;     :when (
+;         (not (exclusive-with-all (Enable g _) ys))
+;     )
+;     :ruleset analysis
+; )
+
+; (rewrite
+;     (nonexclusive-set (Enable g _) (Cons (Par a ys) xs))
+;     (nonexclusive-set (Enable g _) xs)
+;     :when (
+;         (exclusive-with-all (Enable g _) ys)
+;     )
+;     :ruleset analysis
+; )
+
 ; @static(22) seq { A (1); B (10); C (1); D (10); }
 ;       A -> C, D
 ;       B -> C
@@ -9,6 +82,65 @@
 ;  static seq {del_10; C; }
 ;  static seq {del_1;  D; }
 ; }
+
+
+; max latency over the list if the control is in the set.
+; (function max-latency-with-set (_ControlSet List) i64)
+; (rule
+;     (
+;         (= CS (ControlSet cs))
+;     )
+;     (
+;         (set (max-latency-with-set CS (Nil)) 0)
+;     )
+;     :ruleset analysis
+; )
+
+; (rule
+;     (
+;         (= CS (ControlSet cs))
+;         (= x (Enable g (Attributes a)))
+;         (= L (Cons x xs))
+;         (set-contains cs x)
+;         (map-contains a "promotable")
+;         (= latencies (max-latency-with-set CS xs))
+;     )
+;     (
+;         (let latency (map-get a "promotable"))
+;         (set (max-latency-with-set CS L) (max latency latencies))
+;     )
+;     :ruleset analysis
+; )
+
+; (rule
+;     (
+;         (= CS (ControlSet cs))
+;         (= x (Par (Attributes a) ys))
+;         (= L (Cons x xs))
+;         (set-contains cs x)
+;         (map-contains a "static")
+;     )
+;     (
+;         (let latency (map-get a "static"))
+;         (set (max-latency-with-set CS L) (max latency (max-latency-with-set CS xs)))
+;     )
+;     :ruleset analysis
+; )
+
+; (rule
+;     (
+;         (= CS (ControlSet cs))
+;         (= x (Seq (Attributes a) ys))
+;         (= L (Cons x xs))
+;         (set-contains cs x)
+;         (map-contains a "static")
+;     )
+;     (
+;         (let latency (map-get a "static"))
+;         (set (max-latency-with-set CS L) (max latency (max-latency-with-set CS xs)))
+;     )
+;     :ruleset analysis
+; )
 
 ; seq { A; B; C; D; } => seq { par { A; } B; C; D; }
 (rule
