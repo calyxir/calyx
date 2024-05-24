@@ -60,19 +60,11 @@ flags=$(head -n 1 {} | cut -c 3-)
 
 #egg is not part of [core].
 [[tests]]
-name = "egg-optimize backend"
-paths = ["calyx-backend/src/egg/tests/optimize/*.futil"]
-cmd = """
-./target/debug/calyx {} -b egg-optimize -p well-formed
-"""
-
-
-[[tests]]
 name = "egg backend"
-paths = ["calyx-backend/src/egg/tests/conversion/*.futil"]
+paths = ["calyx-backend/src/egg/tests/**/*.futil"]
 cmd = """
 flags=$(head -n 1 {} | cut -c 3-)
-./target/debug/calyx {} -b egg -p well-formed
+./target/debug/calyx {} $flags
 """
 
 #yxi is not part of [core]

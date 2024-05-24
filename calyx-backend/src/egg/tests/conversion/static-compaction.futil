@@ -1,4 +1,4 @@
-// -b egg
+// -b egg -p well-formed
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
