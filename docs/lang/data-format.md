@@ -85,4 +85,4 @@ Often times, it can be useful to automatically generate random values for a larg
 [data-gen]: ../tools/data-gen.md
 [iv]: ../running-calyx/fud/index.md#icarus-verilog
 [verilator]: ../running-calyx/fud/index.md#verilator
-[interpreter]: ../interpreter.md
+[interpreter]: ../running-calyx/interpreter.md
