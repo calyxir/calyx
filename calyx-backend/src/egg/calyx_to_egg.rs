@@ -70,14 +70,11 @@ impl ToEggPrinter {
         if matches!(&*comp.control.borrow(), ir::Control::Empty(..)) {
             todo!("`empty` control is not supported in CalyxEgg")
         }
-        let ename: String = format!("{}", comp.name);
-        write!(f, "(let {} ", ename)?;
+        write!(f, "(let {} ", comp.name)?;
         let mut lists = Vec::new();
         Self::write_control(&comp.control.borrow(), &mut lists, f)?;
-        writeln!(f, ")")?;
-
-        // Make demands.
-        Self::format_demands([].to_vec(), &lists, f)
+        write!(f, ")")?;
+        Ok(())
     }
 
     /// Format and write a cell.
@@ -123,6 +120,7 @@ impl ToEggPrinter {
                 "(CellSet (set-of {}))",
                 Vec::from_iter(cells)
                     .into_iter()
+                    .sorted_by(|a, b| Ord::cmp(a, b))
                     .map(|x| format!("c-{}", x))
                     .collect_vec()
                     .join(" ")
@@ -165,6 +163,7 @@ impl ToEggPrinter {
                 "(CellSet (set-of {}))",
                 Vec::from_iter(cells)
                     .into_iter()
+                    .sorted_by(|a, b| Ord::cmp(a, b))
                     .map(|x| format!("c-{}", x))
                     .collect_vec()
                     .join(" ")

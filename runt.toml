@@ -69,9 +69,10 @@ cmd = """
 
 [[tests]]
 name = "egg backend"
-paths = ["calyx-backend/src/egg/tests/optimize/*.futil"]
+paths = ["calyx-backend/src/egg/tests/conversion/*.futil"]
 cmd = """
-./target/debug/calyx {} -b egg-optimize -p well-formed
+flags=$(head -n 1 {} | cut -c 3-)
+./target/debug/calyx {} -b egg -p well-formed
 """
 
 #yxi is not part of [core]

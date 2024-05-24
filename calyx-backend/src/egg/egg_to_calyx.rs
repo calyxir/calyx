@@ -100,6 +100,7 @@ impl<'a> EggToCalyx<'a> {
                 self.emit(f,indent_level, self.termdag.get(*xs))
             }
             ("map-insert", [map, k, v]) => {
+                // TODO(cgyurgyik): Fix printing; need to collect and then space evenly.
                 write!(f,"@")?;
                 self.emit(f, 0, self.termdag.get(*k))?;
                 write!(f,"(")?;
