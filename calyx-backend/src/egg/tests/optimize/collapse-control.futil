@@ -1,8 +1,7 @@
-import "primitives/binary_operators.futil";
+// -b egg-optimize -p well-formed
 import "primitives/core.futil";
-import "primitives/math.futil";
 import "primitives/memories/comb.futil";
-import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
 
 component main() -> () {
   cells {
@@ -29,9 +28,6 @@ component main() -> () {
     }
   }
   control {
-    seq {
-      A;
-      B;
-    }
+    seq { seq { A; B; } }
   }
 }
