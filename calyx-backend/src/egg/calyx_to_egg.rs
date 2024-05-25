@@ -14,7 +14,12 @@ impl ToEggPrinter {
         promotable: Option<u64>,
     ) -> String {
         let mut s: String = "(map-empty)".to_string();
-        for attribute in attrs.to_vec(|k, v| format!("\"{k}\" {v}")) {
+        for attribute in attrs
+            .to_vec(|k, v| format!("\"{k}\" {v}"))
+            .iter()
+            // Let's avoid promotable attributes for sake of simplicity.
+            .filter(|x| !x.contains("pos"))
+        {
             s = format!("(map-insert {} {})", s, attribute);
         }
         if let Some(i) = latency {

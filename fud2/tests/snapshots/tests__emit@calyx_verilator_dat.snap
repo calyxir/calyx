@@ -33,16 +33,16 @@ cycle-limit = 500000000
 verilator = verilator
 cycle-limit = 500000000
 rule verilator-compile
-  command = $verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+  command = $verilator $in tb.sv --trace --binary --top-module TOPLEVEL -fno-inline -Mdir $out-dir
 rule cp
   command = cp $in $out
 
 # build targets
 build stdin.sv: calyx stdin
   backend = verilog
-build verilator-out/VTOP: verilator-compile stdin.sv | tb.sv
+build verilator-out/VTOPLEVEL: verilator-compile stdin.sv | tb.sv
   out-dir = verilator-out
-build stdin.exe: cp verilator-out/VTOP
+build stdin.exe: cp verilator-out/VTOPLEVEL
 build sim.log: sim-run stdin.exe $datadir
   bin = stdin.exe
   args = +NOTRACE=1

@@ -254,7 +254,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile",
-            "$verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in tb.sv --trace --binary --top-module TOPLEVEL -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
@@ -266,7 +266,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         |e, input, output| {
             let out_dir = "verilator-out";
-            let sim_bin = format!("{}/VTOP", out_dir);
+            let sim_bin = format!("{}/VTOPLEVEL", out_dir);
             e.build_cmd(
                 &[&sim_bin],
                 "verilator-compile",

@@ -58,15 +58,6 @@ flags=$(head -n 1 {} | cut -c 3-)
 ./target/debug/calyx {} $flags -l .
 """
 
-#egg is not part of [core].
-[[tests]]
-name = "egg backend"
-paths = ["calyx-backend/src/egg/tests/**/*.futil"]
-cmd = """
-flags=$(head -n 1 {} | cut -c 3-)
-./target/debug/calyx {} $flags
-"""
-
 #yxi is not part of [core]
 [[tests]]
 name = "yxi backend"
@@ -548,4 +539,40 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   make clean && \
   rm -f results.xml
 
+"""
+
+[[tests]]
+name = "egg backend"
+paths = [
+  "calyx-backend/src/egg/tests/optimize/*.futil", 
+  "calyx-backend/src/egg/tests/conversion/*.futil",
+]
+cmd = """
+flags=$(head -n 1 {} | cut -c 3-)
+./target/debug/calyx {} $flags
+"""
+
+# egg correctness tests (no Calyx optimizations).
+[[tests]]
+name = "egg correctness"
+paths = ["calyx-backend/src/egg/tests/correctness/egg/*.futil"]
+cmd = """
+fud exec --to egg-optimize {} -q | \
+fud exec --from calyx --to jq \
+         --through dat \
+         --through verilog \
+         -s verilog.data {}.data \
+         -s calyx.flags "-p compile-repeat -p no-opt" \
+         {} -q
+"""
+
+[[tests]]
+name = "egg evaluation (calyx correctness)"
+paths = ["calyx-backend/src/egg/tests/correctness/calyx/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through dat \
+         --through verilog \
+         -s verilog.data {}.data \
+         {} -q
 """
