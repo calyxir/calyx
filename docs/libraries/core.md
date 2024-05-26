@@ -74,6 +74,21 @@ A right bit shift. Performs `left >> right`. This component is combinational.
 
 ---
 
+### `std_cat<WIDTH0, WIDTH1>`
+
+Concatenate two values. This component is combinational.
+
+**Inputs:**
+
+- `left: WIDTH0` - A WIDTH0-bit value
+- `right: WIDTH1` - A WIDTH1-bit value
+
+**Outputs:**
+
+- `out: WIDTH0 + WIDTH1` - A WIDTH0 + WIDTH1-bit value equivalent to `(left << WIDTH1) || right`
+
+---
+
 ### `std_add<WIDTH>`
 
 Bitwise addition without a carry flag. Performs `left + right`. This component
@@ -120,14 +135,14 @@ Slice out the lower OUT_WIDTH bits of an IN_WIDTH-bit value. Computes
 
 ---
 ### `std_bit_slice<IN_WIDTH, START_IDX, END_IDX, OUT_WIDTH>`
-Extract the bit-string starting at `START_IDX` and ending at `END_IDX - 1` from `in`. 
-This is computed as `in[END_IDX:START_IDX]`.`OUT_WIDTH` must be specified to 
+Extract the bit-string starting at `START_IDX` and ending at `END_IDX - 1` from `in`.
+This is computed as `in[END_IDX:START_IDX]`.`OUT_WIDTH` must be specified to
 be `END_WIDTH - START_WITH` wide when instantiating the module.
 
 
 **Inputs:**
 - `in: IN_WIDTH` - An IN_WIDTH-bit value
-  
+
 **Outputs:**
 
 - `out: OUT_WIDTH` - The value of the bit-string `in[START_IDX:END_IDX]`
