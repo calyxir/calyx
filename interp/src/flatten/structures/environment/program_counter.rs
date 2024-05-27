@@ -432,6 +432,10 @@ impl ProgramCounter {
     pub(crate) fn continuous_assigns(&self) -> &[ContinuousAssignments] {
         &self.continuous_assigns
     }
+
+    pub(crate) fn with_map(&self) -> &HashMap<ControlPoint, CombGroupIdx> {
+        &self.with_map
+    }
 }
 
 impl<'a> IntoIterator for &'a ProgramCounter {

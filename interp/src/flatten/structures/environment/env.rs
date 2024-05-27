@@ -585,6 +585,10 @@ impl<'a> Simulator<'a> {
                     ScheduledAssignments::new(x.comp, x.assigns, None)
                 }),
             )
+            .chain(self.env.pc.with_map().iter().map(|(ctrl_pt, comb_grp)| {
+                let assigns = self.ctx().primary[*comb_grp].assignments;
+                ScheduledAssignments::new(ctrl_pt.comp, assigns, None)
+            }))
             .collect()
     }
 
