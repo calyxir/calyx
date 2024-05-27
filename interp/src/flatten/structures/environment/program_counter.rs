@@ -5,7 +5,8 @@ use ahash::{HashMap, HashMapExt};
 use super::super::context::Context;
 use crate::flatten::{
     flat_ir::prelude::{
-        AssignmentIdx, ControlIdx, ControlMap, ControlNode, GlobalCellIdx,
+        AssignmentIdx, CombGroupIdx, ControlIdx, ControlMap, ControlNode,
+        GlobalCellIdx,
     },
     structures::index_trait::{impl_index_nonzero, IndexRange, IndexRef},
 };
@@ -332,6 +333,7 @@ pub(crate) struct ProgramCounter {
     vec: Vec<ControlPoint>,
     par_map: HashMap<ControlPoint, ChildCount>,
     continuous_assigns: Vec<ContinuousAssignments>,
+    with_map: HashMap<ControlPoint, CombGroupIdx>,
 }
 
 // we need a few things from the program counter
@@ -360,6 +362,7 @@ impl ProgramCounter {
             vec,
             par_map: HashMap::new(),
             continuous_assigns: Vec::new(),
+            with_map: HashMap::new(),
         }
     }
 
@@ -394,8 +397,9 @@ impl ProgramCounter {
     ) -> (
         &mut Vec<ControlPoint>,
         &mut HashMap<ControlPoint, ChildCount>,
+        &mut HashMap<ControlPoint, CombGroupIdx>,
     ) {
-        (&mut self.vec, &mut self.par_map)
+        (&mut self.vec, &mut self.par_map, &mut self.with_map)
     }
 
     pub(crate) fn push_continuous_assigns(

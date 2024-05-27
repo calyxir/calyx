@@ -598,7 +598,7 @@ impl<'a> Simulator<'a> {
         let mut leaf_nodes = vec![];
 
         let mut new_nodes = vec![];
-        let (vecs, par_map) = self.env.pc.mut_refs();
+        let (vecs, par_map, with_map) = self.env.pc.mut_refs();
 
         vecs.retain_mut(|node| {
             // just considering a single node case for the moment
@@ -745,7 +745,9 @@ impl<'a> Simulator<'a> {
             }
         }
 
-        self.simulate_combinational(&leaf_nodes)?;
+        let assigns_bundle = self.get_assignments(&leaf_nodes);
+
+        self.simulate_combinational(&assigns_bundle)?;
 
         for cell in self.env.cells.values_mut() {
             match cell {
@@ -830,9 +832,8 @@ impl<'a> Simulator<'a> {
 
     fn simulate_combinational(
         &mut self,
-        control_points: &[ControlPoint],
+        assigns_bundle: &[ScheduledAssignments],
     ) -> InterpreterResult<()> {
-        let assigns_bundle = self.get_assignments(control_points);
         let mut has_changed = true;
 
         // TODO griffin: rewrite this so that someone can actually read it
