@@ -704,76 +704,42 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_comb_mem_d1(self, mem, i, reg, groupname=None):
+    def mem_load_d1(self, mem, i, reg, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a comb_mem_d1 memory.
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
         """
-        assert mem.is_comb_mem_d1()
-        groupname = groupname or f"{mem.name()}_load_to_reg"
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as load_grp:
             mem.addr0 = i
-            reg.write_en = 1
-            reg.in_ = mem.read_data
+            if is_comb:
+                reg.write_en = 1
+                reg.in_ = mem.read_data
+            else:
+                mem.content_en = 1
+                reg.write_en = mem.done @ 1
+                reg.in_ = mem.done @ mem.read_data
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_comb_mem_d1(self, mem, i, val, groupname=None):
+    def mem_store_d1(self, mem, i, val, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a comb_mem_d1 memory."""
-        assert mem.is_comb_mem_d1()
-        groupname = groupname or f"store_into_{mem.name()}"
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
+        """
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
             mem.write_data = val
             store_grp.done = mem.done
+            if not is_comb:
+                mem.content_en = 1
         return store_grp
 
-    def mem_read_seq_d1(self, mem, i, groupname=None):
-        """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
-        where `mem` is a seq_d1 memory.
-        Note that this does not write the value anywhere.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"read_from_{mem.name()}"
-        with self.group(groupname) as read_grp:
-            mem.addr0 = i
-            mem.content_en = 1
-            read_grp.done = mem.done
-        return read_grp
-
-    def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
-        """Inserts wiring into `self` to perform reg := <mem_latched_value>,
-        where `mem` is a seq_d1 memory that already has some latched value.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_write_to_reg"
-        with self.group(groupname) as write_grp:
-            reg.write_en = 1
-            reg.in_ = mem.read_data
-            write_grp.done = reg.done
-        return write_grp
-
-    def mem_store_seq_d1(self, mem, i, val, groupname=None):
-        """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a seq_d1 memory.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_store"
-        with self.group(groupname) as store_grp:
-            mem.addr0 = i
-            mem.write_en = 1
-            mem.write_data = val
-            mem.content_en = 1
-            store_grp.done = mem.done
-        return store_grp
-
-    def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
+    def mem_load_to_mem(self, mem, i, ans, j, groupname):
         """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
         where `mem` and `ans` are both comb_mem_d1 memories.
         """
         assert mem.is_comb_mem_d1() and ans.is_comb_mem_d1()
-        groupname = groupname or f"{mem.name()}_load_to_mem"
         with self.group(groupname) as load_grp:
             mem.addr0 = i
             ans.write_en = 1
