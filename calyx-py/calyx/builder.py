@@ -635,7 +635,7 @@ class ComponentBuilder:
         return reg_grp
 
     def mem_load_d1(self, mem, i, reg, groupname, is_comb=False):
-        """Inserts wiring into `self` to perform reg := mem[i],
+        """Inserts wiring into `self` to perform `reg := mem[i]`,
         where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
         """
         assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
