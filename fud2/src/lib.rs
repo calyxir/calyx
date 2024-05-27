@@ -158,14 +158,14 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.var("iverilog", "iverilog")?;
         e.rule(
             "icarus-compile",
-            "$iverilog -g2012 -o $out $testbench $additional-input $in",
+            "$iverilog -g2012 -o $out tb.sv $additional-input $in",
         )?;
         Ok(())
     });
     // [Should be default] Setup for using tb.sv as testbench (and managing memories within the design)
     let testbench_normal_setup = bld.setup("Normal Testbench Setup", |e| {
-        // The Verilog testbench.
-        e.var("testbench", &format!("{}/tb.sv", e.config_val("rsrc")?))?;
+        // Standalone Verilog testbench.
+        e.rsrc("tb.sv")?;
         Ok(())
     });
     // [Needs YXI backend compiled] Setup for creating a custom testbench (needed for FIRRTL)
@@ -176,8 +176,6 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         // Convert all @external cells to ref (FIXME: we want to deprecate @external)
         e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
 
-        // Produce a custom testbench that handles memory reading and writing.
-        e.var("testbench", "refmem_tb.sv")?;
         e.var(
             "gen-testbench-script",
             "$calyx-base/tools/firrtl/generate-testbench.py",
@@ -189,7 +187,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
         e.rule(
             "generate-refmem-testbench",
-            "python3 $gen-testbench-script $in | tee $testbench $out",
+            "python3 $gen-testbench-script $in > $out",
         )?;
 
         // dummy rule to force ninja to build the testbench
@@ -220,7 +218,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         verilog_noverify,
         simulator,
         |e, input, output| {
-            e.build_cmd(&[output], "icarus-compile", &[input], &[])?;
+            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
             Ok(())
         },
     );
@@ -231,7 +229,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         simulator,
         |e, input, output| {
             // FIXME: remove code clone
-            e.build_cmd(&[output], "icarus-compile", &[input], &[])?;
+            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
             Ok(())
         },
     );
@@ -263,8 +261,8 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         let only_refs_calyx = "ref.futil";
         // JSON with memory information created by YXI
         let memories_json = "memory-info.json";
-        // testbench creation needs a file to output to
-        let dummy_testbench = "refmem-tb-copy.sv";
+        // Custom testbench (same name as standalone testbench)
+        let testbench = "tb.sv";
         // Holds contents of file we want to output. Gets cat-ed via final dummy command
         let tmp_out = "tmp-out.fir";
         // Convert ref into external to get YXI working (FIXME: fix YXI to emit for ref as well?)
@@ -277,7 +275,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.arg("backend", "yxi")?;
         // generate custom testbench
         e.build_cmd(
-            &[dummy_testbench],
+            &[testbench],
             "generate-refmem-testbench",
             &[memories_json],
             &[],
@@ -322,7 +320,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         }
 
         // dummy command to make sure custom testbench is created but not emitted as final answer
-        e.build_cmd(&[output], "dummy", &[tmp_out, dummy_testbench], &[])?;
+        e.build_cmd(&[output], "dummy", &[tmp_out, testbench], &[])?;
 
         Ok(())
     }
@@ -437,7 +435,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile",
-            "$verilator $in $testbench $additional-input --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in tb.sv $additional-input --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
@@ -449,7 +447,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     ) -> EmitResult {
         let out_dir = "verilator-out";
         let sim_bin = format!("{}/VTOP", out_dir);
-        e.build_cmd(&[&sim_bin], "verilator-compile", &[input], &[])?;
+        e.build_cmd(&[&sim_bin], "verilator-compile", &[input], &["tb.sv"])?;
         e.arg("out-dir", out_dir)?;
         e.build("cp", &sim_bin, output)?;
         Ok(())
