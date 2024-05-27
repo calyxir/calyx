@@ -158,12 +158,16 @@ impl CellLedger {
     }
 
     #[must_use]
-    pub(crate) fn as_primitive(&self) -> Option<&dyn Primitive> {
-        if let Self::Primitive { cell_dyn } = self {
-            Some(&**cell_dyn)
-        } else {
-            None
+    pub fn as_primitive(&self) -> Option<&dyn Primitive> {
+        match self {
+            Self::Primitive { cell_dyn } => Some(&**cell_dyn),
+            _ => None,
         }
+    }
+
+    pub fn unwrap_primitive(&self) -> &dyn Primitive {
+        self.as_primitive()
+            .expect("Unwrapped cell ledger as primitive but received component")
     }
 }
 
@@ -485,6 +489,10 @@ impl<'a> Simulator<'a> {
         &self.env.ports[port_idx]
     }
 
+    pub(crate) fn get_root_component(&self) -> &ComponentLedger {
+        self.env.cells.first().unwrap().as_comp().unwrap()
+    }
+
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
     fn _get_parent_cell(
@@ -578,10 +586,10 @@ impl<'a> Simulator<'a> {
         // program counter as the size
         let mut leaf_nodes = vec![];
 
-        let mut par_map = std::mem::take(self.env.pc.par_map_mut());
         let mut new_nodes = vec![];
+        let (vecs, par_map) = self.env.pc.mut_refs();
 
-        self.env.pc.vec_mut().retain_mut(|node| {
+        vecs.retain_mut(|node| {
             // just considering a single node case for the moment
             match &self.env.ctx.primary[node.control_node_idx] {
                 ControlNode::Seq(seq) => {
@@ -702,8 +710,6 @@ impl<'a> Simulator<'a> {
 
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
-        // return the par map to the program counter
-        *self.env.pc.par_map_mut() = par_map;
 
         self.undef_all_ports();
 
@@ -939,15 +945,15 @@ impl<'a> Simulator<'a> {
         let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
 
         let mut dump = DataDump::new_empty_with_top_level(
-            ctx.secondary[entrypoint_secondary.name].clone(),
+            ctx.lookup_string(entrypoint_secondary.name).clone(),
         );
 
-        let root = self.env.cells.first().unwrap().as_comp().unwrap();
+        let root = self.get_root_component();
 
         for (offset, idx) in entrypoint_secondary.cell_offset_map.iter() {
             let cell_info = &ctx.secondary[*idx];
             let cell_index = &root.index_bases + offset;
-            let name = ctx.secondary[cell_info.name].clone();
+            let name = ctx.lookup_string(cell_info.name).clone();
             if let CellPrototype::Memory { width, dims, .. } =
                 &cell_info.prototype
             {
@@ -957,8 +963,7 @@ impl<'a> Simulator<'a> {
                     dims.size(),
                     dims.as_serializing_dim(),
                     self.env.cells[cell_index]
-                        .as_primitive()
-                        .unwrap()
+                        .unwrap_primitive()
                         .dump_memory_state()
                         .unwrap(),
                 )

@@ -53,3 +53,7 @@ results.xml
 
 # btor2i ignore
 tools/btor2/btor2i/build/
+
+# vcd-parsing tmp files ignore
+tools/vcd-parsing/tmp/
+tools/vcd-parsing/logs

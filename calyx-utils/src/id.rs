@@ -1,3 +1,5 @@
+// use serde::{Serialize, Serializer};
+
 pub type GSym = symbol_table::GlobalSymbol;
 
 /// Represents an identifier in a Calyx program
