@@ -31,7 +31,7 @@ during each stage of the pipeline. This requires installing PrettyTable:
 
 ## Fud Stage
 
-The NTT pipeline defines an [external fud stage][../running-calyx/fud/external.md] to
+The NTT pipeline defines an [external fud stage](../running-calyx/fud/external.md) to
 transform configuration files into Calyx programs.
 To install, run:
 
