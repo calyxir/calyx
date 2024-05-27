@@ -42,6 +42,13 @@ class Builder:
         self._index[name] = comp_builder
         return comp_builder
 
+    def comb_component(self, name: str) -> ComponentBuilder:
+        """Create a new combinational component builder."""
+        comp_builder = ComponentBuilder(self, name, is_comb=True)
+        self.program.components.append(comp_builder.component)
+        self._index[name] = comp_builder
+        return comp_builder
+
     def get_component(self, name: str) -> ComponentBuilder:
         """Retrieve a component builder by name."""
         comp_builder = self._index.get(name)
@@ -67,18 +74,30 @@ class ComponentBuilder:
         prog: Builder,
         name: str,
         latency: Optional[int] = None,
+        is_comb: bool = False,
     ):
         """Contructs a new component in the current program."""
         self.prog = prog
-        self.component: ast.Component = ast.Component(
-            name,
-            attributes=[],
-            inputs=[],
-            outputs=[],
-            structs=list(),
-            controls=ast.Empty(),
-            latency=latency,
+        self.component: Union[ast.Component, ast.CombComponent] = (
+            ast.Component(
+                name,
+                attributes=[],
+                inputs=[],
+                outputs=[],
+                structs=list(),
+                controls=ast.Empty(),
+                latency=latency,
+            )
+            if not is_comb
+            else ast.CombComponent(
+                name,
+                attributes=[],
+                inputs=[],
+                outputs=[],
+                structs=list(),
+            )
         )
+
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
@@ -122,10 +141,18 @@ class ComponentBuilder:
     @property
     def control(self) -> ControlBuilder:
         """Access the component's control program."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Combinational components do not have control programs."
+            )
         return ControlBuilder(self.component.controls)
 
     @control.setter
     def control(self, builder: Union[ast.Control, ControlBuilder]):
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Combinational components do not have control programs."
+            )
         if isinstance(builder, ControlBuilder):
             self.component.controls = builder.stmt
         else:
@@ -164,6 +191,8 @@ class ComponentBuilder:
 
     def get_group(self, name: str) -> GroupBuilder:
         """Retrieve a group builder by name."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -174,6 +203,8 @@ class ComponentBuilder:
 
     def try_get_group(self, name: str) -> GroupBuilder:
         """Tries to get a group builder by name. If cannot find it, return None"""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -182,6 +213,8 @@ class ComponentBuilder:
 
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -192,6 +225,10 @@ class ComponentBuilder:
 
     def comb_group(self, name: str) -> GroupBuilder:
         """Create a new combinational group with the given name."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Combinational components do not have combinational groups."
+            )
         group = ast.CombGroup(ast.CompVar(name), connections=[])
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -201,7 +238,9 @@ class ComponentBuilder:
         return builder
 
     def static_group(self, name: str, latency: int) -> GroupBuilder:
-        """Create a new combinational group with the given name."""
+        """Create a new static group with the given name."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         group = ast.StaticGroup(ast.CompVar(name), connections=[], latency=latency)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -282,6 +321,20 @@ class ComponentBuilder:
     ) -> CellBuilder:
         """Generate a StdSlice cell."""
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
+
+    def bit_slice(
+        self,
+        name,
+        in_width: int,
+        start: int,
+        end: int,
+        out_width: int,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a StdBitSlice cell."""
+        return self.cell(
+            name, ast.Stdlib.bit_slice(in_width, start, end, out_width), False, is_ref
+        )
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
@@ -382,6 +435,13 @@ class ComponentBuilder:
         """Generate a StdLsh cell."""
         return self.binary("lsh", size, name, signed)
 
+    def cat(self, left_width: int, right_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdCat cell."""
+        return self.cell(
+            name or self.generate_name("cat"),
+            ast.Stdlib.cat(left_width, right_width, left_width + right_width),
+        )
+
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)
@@ -393,10 +453,20 @@ class ComponentBuilder:
         name = name or self.generate_name("and")
         return self.logic("and", size, name)
 
+    def or_(self, size: int, name: str = None) -> CellBuilder:
+        """Generate a StdOr cell."""
+        name = name or self.generate_name("or")
+        return self.logic("or", size, name)
+
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
+
+    def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdPad cell."""
+        name = name or self.generate_name("pad")
+        return self.cell(name, ast.Stdlib.pad(in_width, out_width))
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""

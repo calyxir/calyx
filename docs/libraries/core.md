@@ -74,6 +74,21 @@ A right bit shift. Performs `left >> right`. This component is combinational.
 
 ---
 
+### `std_cat<WIDTH0, WIDTH1>`
+
+Concatenate two values. This component is combinational.
+
+**Inputs:**
+
+- `left: WIDTH0` - A WIDTH0-bit value
+- `right: WIDTH1` - A WIDTH1-bit value
+
+**Outputs:**
+
+- `out: WIDTH0 + WIDTH1` - A WIDTH0 + WIDTH1-bit value equivalent to `(left << WIDTH1) || right`
+
+---
+
 ### `std_add<WIDTH>`
 
 Bitwise addition without a carry flag. Performs `left + right`. This component
