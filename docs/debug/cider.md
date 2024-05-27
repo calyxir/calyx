@@ -279,4 +279,4 @@ Use `help` to see all commands. Use `exit` to exit the debugger.
 
 [fud]: ../running-calyx/fud/index.md
 [gdb]: https://sourceware.org/gdb/
-[interp]: ../interpreter.md
+[interp]: ../running-calyx/interpreter.md

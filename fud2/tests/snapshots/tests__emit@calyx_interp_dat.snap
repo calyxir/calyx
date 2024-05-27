@@ -31,6 +31,7 @@ rule calyx-pass
 
 # Cider interpreter
 cider-exe = $calyx-base/target/debug/cider
+cider-converter = $calyx-base/target/debug/cider-data-converter
 rule cider
   command = $cider-exe -l $calyx-base --raw --data data.json $in > $out
 rule cider-debug
@@ -43,6 +44,13 @@ rule dat-to-interp
 rule interp-to-dat
   command = $python interp-dat.py --from-interp $in $sim_data > $out
 build data.json: dat-to-interp $sim_data | interp-dat.py
+rule cider2
+  command = $cider-exe -l $calyx-base --data data.dump $in flat > $out
+rule dump-to-interp
+  command = $cider-converter --to cider $in > $out
+rule interp-to-dump
+  command = $cider-converter --to json $in > $out
+build data.dump: dump-to-interp $sim_data | $cider-converter
 
 # build targets
 build interp_out.json: cider stdin | data.json
