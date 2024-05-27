@@ -219,10 +219,7 @@ impl<'a> Run<'a> {
         // Run `ninja` in the working directory.
         let mut cmd = Command::new(&self.global_config.ninja);
         cmd.current_dir(dir);
-        if self.plan.stdout && !self.global_config.verbose {
-            // When we're printing to stdout, suppress Ninja's output by default.
-            cmd.stdout(std::process::Stdio::null());
-        }
+        cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
         let status = cmd.status()?;
 
         // Emit stdout, only when Ninja succeeded.
