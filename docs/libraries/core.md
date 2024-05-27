@@ -323,7 +323,7 @@ A one-dimensional memory with sequential reads.
 - `addr0: IDX_SIZE` - The index to be accessed or updated.
 - `write_data: WIDTH` - Data to be written to the selected memory slot.
 - `write_en: 1` - One bit write enabled signal. Used in concert with `content_en`; see below.
-- `content_en: 1` - One bit content enabled signal. When `content_en` is high and `write_en` is low, the memory reads the value stored at `addr0` and latches it. When `write_en` and `content_en` are both high, the memory writes `write_data` to the slot indexed by `addr0` and sets the latched output to `'x`.
+- `content_en: 1` - One bit content enabled signal. When `content_en` is high and `write_en` is low, the memory reads the value stored at `addr0` and latches it. When `write_en` and `content_en` are both high, the memory writes `write_data` to the slot indexed by `addr0` and `read_data` is undefined.
 - `reset: 1` - A reset signal that overrides all other interface signals and sets the latched output of the memory to `0`.
 
 **Outputs:**
