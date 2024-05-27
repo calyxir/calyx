@@ -333,6 +333,90 @@ A one-dimensional memory with sequential reads.
 
 ---
 
+### `seq_mem_d2`
+
+A two-dimensional memory with sequential reads.
+
+**Parameters:**
+- `WIDTH` - Size of an individual memory slot.
+- `D0_SIZE` - Number of memory slots for the first index.
+- `D1_SIZE` - Number of memory slots for the second index.
+- `D0_IDX_SIZE` - The width of the first index.
+- `D1_IDX_SIZE` - The width of the second index.
+
+**Inputs:**
+- `addr0: D0_IDX_SIZE` - The first index into the memory.
+- `addr1: D1_IDX_SIZE` - The second index into the memory.
+- `write_data: WIDTH` - Data to be written to the selected memory slot.
+- `write_en: 1` - One bit write enabled signal. Used in concert with `content_en`; see below.
+- `content_en: 1` - One bit content enabled signal. When `content_en` is high, the memory reads the value stored at `addr0` and `addr1` and latches it. When `write_en` and `content_en` are both high, the memory writes `write_data` to the slot indexed by `addr0` and `addr1` and `read_data` is undefined.
+- `reset: 1` - A reset signal that overrides all other interface signals and sets the latched output of the memory to `0`.
+
+**Outputs:**
+- `read_data: WIDTH` - The value stored at `mem[addr0][addr1]`. This value is available once `done` goes high.
+- `done: 1`: The done signal for the memory. This signal goes high once a read or write operation is complete. In this case, this happens a cycle after the operation is requested.
+
+---
+
+### `seq_mem_d3`
+
+A three-dimensional memory with sequential reads.
+
+**Parameters:**
+- `WIDTH` - Size of an individual memory slot.
+- `D0_SIZE` - Number of memory slots for the first index.
+- `D1_SIZE` - Number of memory slots for the second index.
+- `D2_SIZE` - Number of memory slots for the third index.
+- `D0_IDX_SIZE` - The width of the first index.
+- `D1_IDX_SIZE` - The width of the second index.
+- `D2_IDX_SIZE` - The width of the third index.
+
+**Inputs:**
+- `addr0: D0_IDX_SIZE` - The first index into the memory.
+- `addr1: D1_IDX_SIZE` - The second index into the memory.
+- `addr2: D2_IDX_SIZE` - The third index into the memory.
+- `write_data: WIDTH` - Data to be written to the selected memory slot.
+- `write_en: 1` - One bit write enabled signal. Used in concert with `content_en`; see below.
+- `content_en: 1` - One bit content enabled signal. When `content_en` is high, the memory reads the value stored at `addr0`, `addr1`, and `addr2` and latches it. When `write_en` and `content_en` are both high, the memory writes `write_data` to the slot indexed by `addr0`, `addr1`, and `addr2` and `read_data` is undefined.
+- `reset: 1` - A reset signal that overrides all other interface signals and sets the latched output of the memory to `0`.
+
+**Outputs:**
+- `read_data: WIDTH` - The value stored at `mem[addr0][addr1][addr2]`. This value is available once `done` goes high.
+- `done: 1`: The done signal for the memory. This signal goes high once a read or write operation is complete. In this case, this happens a cycle after the operation is requested.
+
+---
+
+### `seq_mem_d4`
+
+A four-dimensional memory with sequential reads.
+
+**Parameters:**
+- `WIDTH` - Size of an individual memory slot.
+- `D0_SIZE` - Number of memory slots for the first index.
+- `D1_SIZE` - Number of memory slots for the second index.
+- `D2_SIZE` - Number of memory slots for the third index.
+- `D3_SIZE` - Number of memory slots for the fourth index.
+- `D0_IDX_SIZE` - The width of the first index.
+- `D1_IDX_SIZE` - The width of the second index.
+- `D2_IDX_SIZE` - The width of the third index.
+- `D3_IDX_SIZE` - The width of the fourth index.
+
+**Inputs:**
+- `addr0: D0_IDX_SIZE` - The first index into the memory.
+- `addr1: D1_IDX_SIZE` - The second index into the memory.
+- `addr2: D2_IDX_SIZE` - The third index into the memory.
+- `addr3: D3_IDX_SIZE` - The fourth index into the memory.
+- `write_data: WIDTH` - Data to be written to the selected memory slot.
+- `write_en: 1` - One bit write enabled signal. Used in concert with `content_en`; see below.
+- `content_en: 1` - One bit content enabled signal. When `content_en` is high, the memory reads the value stored at `addr0`, `addr1`, `addr2`, and `addr3` and latches it. When `write_en` and `content_en` are both high, the memory writes `write_data` to the slot indexed by `addr0`, `addr1`, `addr2`, and `addr3` and `read_data` is undefined.
+- `reset: 1` - A reset signal that overrides all other interface signals and sets the latched output of the memory to `0`.
+
+**Outputs:**
+- `read_data: WIDTH` - The value stored at `mem[addr0][addr1][addr2][addr3]`. This value is available once `done` goes high.
+- `done: 1`: The done signal for the memory. This signal goes high once a read or write operation is complete. In this case, this happens a cycle after the operation is requested.
+
+---
+
 ### `comb_mem_d1`
 
 A one-dimensional memory with combinational reads.
