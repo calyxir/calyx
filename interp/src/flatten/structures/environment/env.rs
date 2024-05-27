@@ -251,6 +251,12 @@ impl<'a> Environment<'a> {
             .expect("Called layout component with a non-component cell.");
         let comp_aux = &self.ctx.secondary[*comp_id];
 
+        // Insert the component's continuous assignments into the program counter, if non-empty
+        let cont_assigns = self.ctx.primary[*comp_id].continuous_assignments;
+        if !cont_assigns.is_empty() {
+            self.pc.push_continuous_assigns(comp, cont_assigns);
+        }
+
         // first layout the signature
         for sig_port in comp_aux.signature.iter() {
             let idx = self.ports.push(PortValue::new_undef());
@@ -574,6 +580,11 @@ impl<'a> Simulator<'a> {
                     }
                 }
             })
+            .chain(
+                self.env.pc.continuous_assigns().iter().map(|x| {
+                    ScheduledAssignments::new(x.comp, x.assigns, None)
+                }),
+            )
             .collect()
     }
 

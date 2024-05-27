@@ -4,8 +4,10 @@ use ahash::{HashMap, HashMapExt};
 
 use super::super::context::Context;
 use crate::flatten::{
-    flat_ir::prelude::{ControlIdx, ControlMap, ControlNode, GlobalCellIdx},
-    structures::index_trait::{impl_index_nonzero, IndexRef},
+    flat_ir::prelude::{
+        AssignmentIdx, ControlIdx, ControlMap, ControlNode, GlobalCellIdx,
+    },
+    structures::index_trait::{impl_index_nonzero, IndexRange, IndexRef},
 };
 
 use itertools::{FoldWhile, Itertools};
@@ -53,6 +55,12 @@ impl ControlPoint {
             false
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ContinuousAssignments {
+    pub comp: GlobalCellIdx,
+    pub assigns: IndexRange<AssignmentIdx>,
 }
 
 /// An index for searching up and down a tree. This is used to index into
@@ -323,12 +331,13 @@ pub type ChildCount = u16;
 pub(crate) struct ProgramCounter {
     vec: Vec<ControlPoint>,
     par_map: HashMap<ControlPoint, ChildCount>,
+    continuous_assigns: Vec<ContinuousAssignments>,
 }
 
 // we need a few things from the program counter
 
 impl ProgramCounter {
-    pub fn new(ctx: &Context) -> Self {
+    pub(crate) fn new(ctx: &Context) -> Self {
         let root = ctx.entry_point;
         // this relies on the fact that we construct the root cell-ledger
         // as the first possible cell in the program. If that changes this will break.
@@ -350,6 +359,7 @@ impl ProgramCounter {
         Self {
             vec,
             par_map: HashMap::new(),
+            continuous_assigns: Vec::new(),
         }
     }
 
@@ -386,6 +396,19 @@ impl ProgramCounter {
         &mut HashMap<ControlPoint, ChildCount>,
     ) {
         (&mut self.vec, &mut self.par_map)
+    }
+
+    pub(crate) fn push_continuous_assigns(
+        &mut self,
+        comp: GlobalCellIdx,
+        assigns: IndexRange<AssignmentIdx>,
+    ) {
+        let assigns = ContinuousAssignments { comp, assigns };
+        self.continuous_assigns.push(assigns)
+    }
+
+    pub(crate) fn continuous_assigns(&self) -> &[ContinuousAssignments] {
+        &self.continuous_assigns
     }
 }
 
