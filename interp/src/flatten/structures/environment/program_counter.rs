@@ -395,18 +395,6 @@ impl ProgramCounter {
         &self.par_map
     }
 
-    /// returns mutable references to both vec and par_map.
-    /// This is useful for when you need to mutate both at the same time.
-    pub fn mut_refs(
-        &mut self,
-    ) -> (
-        &mut Vec<ControlPoint>,
-        &mut HashMap<ControlPoint, ChildCount>,
-        &mut HashMap<ControlPoint, CombGroupIdx>,
-    ) {
-        (&mut self.vec, &mut self.par_map, &mut self.with_map)
-    }
-
     pub fn take_fields(
         &mut self,
     ) -> (
