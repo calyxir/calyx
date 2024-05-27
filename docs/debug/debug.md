@@ -1,7 +1,7 @@
 # Debugging Compilation Bugs
 
 These tips are directed towards *compilation bugs*. Before trying these, make sure your program
-produces the correct values with the [Calyx Interpreter](../interpreter.md)
+produces the correct values with the [Calyx Interpreter][interp].
 
 ## Disabling Optimizations
 
@@ -172,3 +172,4 @@ the `fsm` register has the value 1 and check to see if the assignments in
 [wavetrace]: https://marketplace.visualstudio.com/items?itemName=wavetrace.wavetrace
 [flag-cmp]: https://github.com/calyxir/calyx/blob/master/tools/flag-compare.sh
 [dgr]: https://docs.rs/calyx-opt/latest/calyx_opt/passes/struct.DeadGroupRemoval.html
+[interp]: ../running-calyx/interpreter.md
