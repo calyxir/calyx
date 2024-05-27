@@ -22,7 +22,6 @@ rule hex-data
   command = $python json-dat.py --from-json $in $out
 rule json-data
   command = $python json-dat.py --to-json $out $in
-build tb.sv: get-rsrc
 sim_data = /test/data.json
 datadir = sim_data
 build $datadir: hex-data $sim_data | json-dat.py
@@ -30,10 +29,13 @@ rule sim-run
   command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
 cycle-limit = 500000000
 
+# Standalone Testbench Setup
+build tb.sv: get-rsrc
+
 # Icarus Verilog
 iverilog = iverilog
 rule icarus-compile
-  command = $iverilog -g2012 -o $out tb.sv $in
+  command = $iverilog -g2012 -o $out tb.sv $additional-input $in
 
 # build targets
 build stdin.sv: calyx stdin

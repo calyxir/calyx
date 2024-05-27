@@ -162,14 +162,15 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         )?;
         Ok(())
     });
-    // [Should be default] Setup for using tb.sv as testbench (and managing memories within the design)
-    let testbench_normal_setup = bld.setup("Normal Testbench Setup", |e| {
-        // Standalone Verilog testbench.
-        e.rsrc("tb.sv")?;
-        Ok(())
-    });
+    // [Should be default] Setup for using rsrc/tb.sv as testbench (and managing memories within the design)
+    let standalone_testbench_setup =
+        bld.setup("Standalone Testbench Setup", |e| {
+            // Standalone Verilog testbench.
+            e.rsrc("tb.sv")?;
+            Ok(())
+        });
     // [Needs YXI backend compiled] Setup for creating a custom testbench (needed for FIRRTL)
-    let testbench_refmem_setup = bld.setup("Custom Testbench Setup", |e| {
+    let custom_testbench_setup = bld.setup("Custom Testbench Setup", |e| {
         // Convert all ref cells to @external (FIXME: YXI should work for both?)
         e.rule("ref-to-external", "sed 's/ref /@external /g' $in > $out")?;
 
@@ -214,7 +215,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "icarus",
-        &[sim_setup, testbench_normal_setup, icarus_setup],
+        &[sim_setup, standalone_testbench_setup, icarus_setup],
         verilog_noverify,
         simulator,
         |e, input, output| {
@@ -331,7 +332,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     bld.op(
         // use Verilog
         "calyx-to-firrtl",
-        &[calyx_setup, testbench_refmem_setup],
+        &[calyx_setup, custom_testbench_setup],
         calyx,
         firrtl,
         |e, input, output| calyx_to_firrtl_helper(e, input, output, false),
@@ -339,7 +340,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
     bld.op(
         "firrtl-with-primitives",
-        &[calyx_setup, firrtl_primitives_setup, testbench_refmem_setup],
+        &[calyx_setup, firrtl_primitives_setup, custom_testbench_setup],
         calyx,
         firrtl_with_primitives,
         |e, input, output| calyx_to_firrtl_helper(e, input, output, true),
@@ -455,7 +456,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
     bld.op(
         "verilator",
-        &[sim_setup, testbench_normal_setup, verilator_setup],
+        &[sim_setup, standalone_testbench_setup, verilator_setup],
         verilog,
         simulator,
         verilator_build,
@@ -463,7 +464,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
     bld.op(
         "verilator-refmem",
-        &[sim_setup, testbench_refmem_setup, verilator_setup],
+        &[sim_setup, custom_testbench_setup, verilator_setup],
         verilog_refmem,
         simulator,
         verilator_build,
@@ -525,7 +526,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "interp",
-        &[sim_setup, testbench_normal_setup, calyx_setup, cider_setup],
+        &[
+            sim_setup,
+            standalone_testbench_setup,
+            calyx_setup,
+            cider_setup,
+        ],
         calyx,
         dat,
         |e, input, output| {
@@ -559,7 +565,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "debug",
-        &[sim_setup, testbench_normal_setup, calyx_setup, cider_setup],
+        &[
+            sim_setup,
+            standalone_testbench_setup,
+            calyx_setup,
+            cider_setup,
+        ],
         calyx,
         debug,
         |e, input, output| {
@@ -652,7 +663,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "xrt",
-        &[xilinx_setup, sim_setup, testbench_normal_setup, xrt_setup],
+        &[
+            xilinx_setup,
+            sim_setup,
+            standalone_testbench_setup,
+            xrt_setup,
+        ],
         xclbin,
         dat,
         |e, input, output| {
@@ -669,7 +685,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "xrt-trace",
-        &[xilinx_setup, sim_setup, testbench_normal_setup, xrt_setup],
+        &[
+            xilinx_setup,
+            sim_setup,
+            standalone_testbench_setup,
+            xrt_setup,
+        ],
         xclbin,
         vcd,
         |e, input, output| {
