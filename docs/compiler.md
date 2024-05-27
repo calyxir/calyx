@@ -10,7 +10,7 @@ executes.
 To get a complete list of all passes, run the following:
 
 ```
-calyx --list-passes
+cargo run -- pass-help
 ```
 
 This generates results of the form:
