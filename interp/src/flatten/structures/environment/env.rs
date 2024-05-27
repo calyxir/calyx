@@ -598,7 +598,7 @@ impl<'a> Simulator<'a> {
         let mut leaf_nodes = vec![];
 
         let mut new_nodes = vec![];
-        let (vecs, par_map, with_map) = self.env.pc.mut_refs();
+        let (mut vecs, mut par_map, mut with_map) = self.env.pc.take_fields();
 
         vecs.retain_mut(|node| {
             // just considering a single node case for the moment
@@ -637,7 +637,22 @@ impl<'a> Simulator<'a> {
                 }
                 ControlNode::If(i) => {
                     if i.cond_group().is_some() {
-                        todo!("if statement has a with clause")
+                        if with_map.contains_key(node) {
+                            with_map.remove(node);
+                            return node.mutate_into_next(self.env.ctx);
+                        } else {
+                            let comb_group = i.cond_group().unwrap();
+                            let comb_assigns = ScheduledAssignments::new(node.comp, self.env.ctx.primary[comb_group].assignments, None);
+
+                            with_map.insert(node.clone(), comb_group);
+
+                            // TODO griffin: Sort out a way to make this error less terrible
+                            // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+                            // HAVE NOT BEEN UNDEFINED YET
+                            self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for if statement");
+
+                            // now we fall through and proceed as normal
+                        }
                     }
 
                     let target = GlobalPortRef::from_local(
@@ -663,7 +678,12 @@ impl<'a> Simulator<'a> {
                 }
                 ControlNode::While(w) => {
                     if w.cond_group().is_some() {
-                        todo!("while statement has a with clause")
+                        let comb_group = with_map.entry(node.clone()).or_insert(w.cond_group().unwrap());
+                        let comb_assigns = ScheduledAssignments::new(node.comp, self.env.ctx.primary[*comb_group].assignments, None);
+
+                         // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+                         // HAVE NOT BEEN UNDEFINED YET
+                        self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for while statement");
                     }
 
                     let target = GlobalPortRef::from_local(
@@ -688,6 +708,9 @@ impl<'a> Simulator<'a> {
                         *node = node.new_retain_comp(w.body());
                         true
                     } else {
+                        if w.cond_group().is_some() {
+                            with_map.remove(node);
+                        }
                         // ascend the tree
                         node.mutate_into_next(self.env.ctx)
                     }
@@ -718,6 +741,8 @@ impl<'a> Simulator<'a> {
                 ControlNode::Invoke(_) => todo!("invokes not implemented yet"),
             }
         });
+
+        self.env.pc.restore_fields(vecs, par_map, with_map);
 
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);

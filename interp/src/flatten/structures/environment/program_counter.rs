@@ -156,7 +156,12 @@ impl SearchPath {
 
                         return Some(*node);
                     }
-                    ControlNode::If(_) => {
+                    ControlNode::If(i) => {
+                        if i.cond_group().is_some() {
+                            // since this has a with, we need to re-visit
+                            // the node to clean-up the with group
+                            return Some(*node);
+                        }
                         // there is nothing to do when ascending to an if as it
                         // is already done once the body is done
                         continue;
@@ -400,6 +405,31 @@ impl ProgramCounter {
         &mut HashMap<ControlPoint, CombGroupIdx>,
     ) {
         (&mut self.vec, &mut self.par_map, &mut self.with_map)
+    }
+
+    pub fn take_fields(
+        &mut self,
+    ) -> (
+        Vec<ControlPoint>,
+        HashMap<ControlPoint, ChildCount>,
+        HashMap<ControlPoint, CombGroupIdx>,
+    ) {
+        (
+            std::mem::take(&mut self.vec),
+            std::mem::take(&mut self.par_map),
+            std::mem::take(&mut self.with_map),
+        )
+    }
+
+    pub fn restore_fields(
+        &mut self,
+        vec: Vec<ControlPoint>,
+        par_map: HashMap<ControlPoint, ChildCount>,
+        with_map: HashMap<ControlPoint, CombGroupIdx>,
+    ) {
+        self.vec = vec;
+        self.par_map = par_map;
+        self.with_map = with_map;
     }
 
     pub(crate) fn push_continuous_assigns(
