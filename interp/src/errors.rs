@@ -70,6 +70,15 @@ pub enum InterpreterError {
         #[from]
         pest_consume::Error<crate::debugger::source::metadata_parser::Rule>,
     ),
+    // Unable to parse metadata
+    #[error(transparent)]
+    NewMetadataParseError(
+        #[from] pest_consume::Error<crate::debugger::new_parser::Rule>,
+    ),
+
+    // Missing metadata
+    #[error("missing metadata")]
+    MissingMetaData,
 
     /// Wrapper for errors coming from the interactive CLI
     #[error(transparent)]
@@ -180,6 +189,11 @@ pub enum InterpreterError {
     // TODO Griffin: Make this more descriptive
     #[error("Attempted to read an undefined memory address")]
     UndefinedReadAddr,
+
+    #[error(transparent)]
+    SerializationError(
+        #[from] crate::serialization::data_dump::SerializationError,
+    ),
 }
 
 impl InterpreterError {

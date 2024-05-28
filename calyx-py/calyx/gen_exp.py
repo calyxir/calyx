@@ -39,8 +39,8 @@ def generate_fp_pow_component(
     comp.output("out", width)
 
     # cells
-    pow = comp.reg("pow", width)
-    count = comp.reg("count", width)
+    pow = comp.reg(width, "pow")
+    count = comp.reg(width, "count")
     mul = comp.cell(
         "mul",
         Stdlib.fixed_point_op(
@@ -84,10 +84,10 @@ def generate_cells(
     frac_width = width - int_width
 
     # Init Cells
-    comp.reg("exponent_value", width)
-    comp.reg("int_x", width)
-    comp.reg("frac_x", width)
-    comp.reg("m", width)
+    comp.reg(width, "exponent_value")
+    comp.reg(width, "int_x")
+    comp.reg(width, "frac_x")
+    comp.reg(width, "m")
 
     comp.and_(width, "and0")
     comp.and_(width, "and1")
@@ -127,14 +127,14 @@ def generate_cells(
 
     # product and pow registers
     for i in range(2, degree + 1):
-        comp.reg(f"product{i}", width)
+        comp.reg(width, f"product{i}")
 
     for i in range(2, degree + 1):
-        comp.reg(f"p{i}", width)
+        comp.reg(width, f"p{i}")
 
     # sum registers and adders
     for i in range(1, (degree // 2) + 1):
-        comp.reg(f"sum{i}", width)
+        comp.reg(width, f"sum{i}")
 
     for i in range(1, (degree // 2) + 1):
         comp.cell(
@@ -583,9 +583,9 @@ def generate_fp_pow_full(
         ),
     )
 
-    new_base_reg = comp.reg("new_base", width)
-    stored_base_reg = comp.reg("stored_base", width)
-    res = comp.reg("res", width)
+    new_base_reg = comp.reg(width, "new_base")
+    stored_base_reg = comp.reg(width, "stored_base")
+    res = comp.reg(width, "res")
 
     if is_signed:
         const_neg_one = comp.const(
@@ -606,7 +606,7 @@ def generate_fp_pow_full(
             width,
         )
 
-    new_exp_val = comp.reg("new_exp_val", width)
+    new_exp_val = comp.reg(width, "new_exp_val")
     e = comp.comp_instance("e", "exp", check_undeclared=False)
     ln = comp.comp_instance("l", "ln", check_undeclared=False)
 
@@ -693,16 +693,16 @@ def build_base_not_e(degree, width, int_width, is_signed) -> Program:
     # main component for testing purposes
 
     main = builder.component("main")
-    base_reg = main.reg("base_reg", width)
-    exp_reg = main.reg("exp_reg", width)
+    base_reg = main.reg(width, "base_reg")
+    exp_reg = main.reg(width, "exp_reg")
     x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
     b = main.comb_mem_d1("b", width, 1, 1, is_external=True)
     ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
     f = main.comp_instance("f", "fp_pow_full")
 
-    read_base = main.mem_load_std_d1(b, 0, base_reg, "read_base")
-    read_exp = main.mem_load_std_d1(x, 0, exp_reg, "read_exp")
-    write_to_memory = main.mem_store_std_d1(ret, 0, f.out, "write_to_memory")
+    read_base = main.mem_load_d1(b, 0, base_reg, "read_base", is_comb=True)
+    read_exp = main.mem_load_d1(x, 0, exp_reg, "read_exp", is_comb=True)
+    write_to_memory = main.mem_store_d1(ret, 0, f.out, "write_to_memory", is_comb=True)
 
     main.control += [
         read_base,
@@ -730,7 +730,7 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
     # Append a `main` component for testing purposes.
     main = builder.component("main")
 
-    t = main.reg("t", width)
+    t = main.reg(width, "t")
     x = main.comb_mem_d1("x", width, 1, 1, is_external=True)
     ret = main.comb_mem_d1("ret", width, 1, 1, is_external=True)
     e = main.comp_instance("e", "exp")
@@ -741,7 +741,7 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
         t.write_en = 1
         init.done = t.done
 
-    write_to_memory = main.mem_store_std_d1(ret, 0, e.out, "write_to_memory")
+    write_to_memory = main.mem_store_d1(ret, 0, e.out, "write_to_memory", is_comb=True)
 
     main.control += [
         init,

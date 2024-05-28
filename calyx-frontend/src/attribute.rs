@@ -58,15 +58,17 @@ pub enum BoolAttr {
     #[strum(serialize = "new_fsm")]
     /// Generate a new FSM for this control node
     NewFSM,
+    #[strum(serialize = "one_hot")]
+    /// Generate a one-hot FSM for this control node. (Not necesarily a
+    /// guarantee: if the control node does not get its own FSM, then this attribute
+    /// won't necesarily be honored.)
+    OneHot,
     #[strum(serialize = "inline")]
     /// Inline this subcomponent
     Inline,
     #[strum(serialize = "promoted")]
     /// denotes a static component or control promoted from dynamic
     Promoted,
-    #[strum(serialize = "externalized")]
-    /// Denotes a port that has been externalized (i.e., dumped into signature)
-    Externalized,
 }
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {

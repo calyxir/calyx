@@ -7,11 +7,10 @@ various passes and backends.
 
 The compiler is organized as a sequence of passes that are run when the compiler
 executes.
-To get a complete list of all passes, run the following from the repository
-root:
+To get a complete list of all passes, run the following:
 
 ```
-cargo run -- --list-passes
+cargo run -- pass-help
 ```
 
 This generates results of the form:

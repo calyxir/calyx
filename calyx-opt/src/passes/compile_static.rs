@@ -1,17 +1,16 @@
-use super::math_utilities::get_bit_width_from;
-use crate::analysis::GraphColoring;
-use crate::traversal::{Action, Named, VisResult, Visitor};
+use crate::analysis::{GraphColoring, StaticFSM, StaticSchedule};
+use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
 use calyx_ir as ir;
 use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
-use ir::{build_assignments, Nothing, StaticTiming, RRC};
+use ir::{build_assignments, RRC};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::ops::Not;
 use std::rc::Rc;
 
-#[derive(Default)]
 /// Compiles Static Islands
+#[derive(Default)]
 pub struct CompileStatic {
     /// maps original static group names to the corresponding group that has an FSM that reset early
     reset_early_map: HashMap<ir::Id, ir::Id>,
@@ -19,10 +18,8 @@ pub struct CompileStatic {
     wrapper_map: HashMap<ir::Id, ir::Id>,
     /// maps fsm names to their corresponding signal_reg
     signal_reg_map: HashMap<ir::Id, ir::Id>,
-    /// maps reset_early_group names to (fsm name, fsm_width)
-    fsm_info_map: HashMap<ir::Id, (ir::Id, u64)>,
-    /// rewrites `static_group[go]` to `dynamic_group[go]`
-    group_rewrite: ir::rewriter::PortRewriteMap,
+    /// maps reset_early_group names to StaticFSM object
+    fsm_info_map: HashMap<ir::Id, ir::RRC<StaticFSM>>,
 }
 
 impl Named for CompileStatic {
@@ -33,245 +30,33 @@ impl Named for CompileStatic {
     fn description() -> &'static str {
         "compiles static sub-programs into a dynamic group"
     }
-}
 
-// Takes in a static guard `guard`, and returns equivalent dynamic guard
-// The only thing that actually changes is the Guard::Info case
-// We need to turn static_timing to dynamic guards using `fsm`.
-// E.g.: %[2:3] gets turned into fsm.out >= 2 & fsm.out < 3
-pub(super) fn make_guard_dyn(
-    guard: ir::Guard<StaticTiming>,
-    fsm: &ir::RRC<ir::Cell>,
-    fsm_size: u64,
-    builder: &mut ir::Builder,
-    is_static_comp: bool,
-    comp_sig: Option<RRC<ir::Cell>>,
-) -> Box<ir::Guard<Nothing>> {
-    match guard {
-        ir::Guard::Or(l, r) => Box::new(ir::Guard::Or(
-            make_guard_dyn(
-                *l,
-                fsm,
-                fsm_size,
-                builder,
-                is_static_comp,
-                comp_sig.clone(),
-            ),
-            make_guard_dyn(
-                *r,
-                fsm,
-                fsm_size,
-                builder,
-                is_static_comp,
-                comp_sig,
-            ),
-        )),
-        ir::Guard::And(l, r) => Box::new(ir::Guard::And(
-            make_guard_dyn(
-                *l,
-                fsm,
-                fsm_size,
-                builder,
-                is_static_comp,
-                comp_sig.clone(),
-            ),
-            make_guard_dyn(
-                *r,
-                fsm,
-                fsm_size,
-                builder,
-                is_static_comp,
-                comp_sig,
-            ),
-        )),
-        ir::Guard::Not(g) => Box::new(ir::Guard::Not(make_guard_dyn(
-            *g,
-            fsm,
-            fsm_size,
-            builder,
-            is_static_comp,
-            comp_sig,
-        ))),
-        ir::Guard::CompOp(op, l, r) => Box::new(ir::Guard::CompOp(op, l, r)),
-        ir::Guard::Port(p) => Box::new(ir::Guard::Port(p)),
-        ir::Guard::True => Box::new(ir::Guard::True),
-        ir::Guard::Info(static_timing) => {
-            let (beg, end) = static_timing.get_interval();
-            if is_static_comp && beg == 0 && end == 1 {
-                let interval_const = builder.add_constant(0, fsm_size);
-                let sig = comp_sig.unwrap();
-                let g1 = guard!(sig["go"]);
-                let g2 = guard!(fsm["out"] == interval_const["out"]);
-                let g = ir::Guard::And(Box::new(g1), Box::new(g2));
-                return Box::new(g);
-            }
-            if beg + 1 == end {
-                // if beg + 1 == end then we only need to check if fsm == beg
-                let interval_const = builder.add_constant(beg, fsm_size);
-                let g = guard!(fsm["out"] == interval_const["out"]);
-                Box::new(g)
-            } else if beg == 0 {
-                // if beg == 0, then we only need to check if fsm < end
-                let end_const = builder.add_constant(end, fsm_size);
-                let lt: ir::Guard<Nothing> =
-                    guard!(fsm["out"] < end_const["out"]);
-                Box::new(lt)
-            } else {
-                // otherwise, check if fsm >= beg & fsm < end
-                let beg_const = builder.add_constant(beg, fsm_size);
-                let end_const = builder.add_constant(end, fsm_size);
-                let beg_guard: ir::Guard<Nothing> =
-                    guard!(fsm["out"] >= beg_const["out"]);
-                let end_guard: ir::Guard<Nothing> =
-                    guard!(fsm["out"] < end_const["out"]);
-                Box::new(ir::Guard::And(
-                    Box::new(beg_guard),
-                    Box::new(end_guard),
-                ))
-            }
-        }
+    fn opts() -> Vec<PassOpt> {
+        vec![PassOpt::new(
+            "one-hot-cutoff",
+            "The upper limit on the number of states the static FSM must have before we pick binary \
+            encoding over one-hot. Defaults to 0 (i.e., always choose binary encoding)",
+            ParseVal::Num(0),
+            PassOpt::parse_num,
+        )]
     }
-}
-
-// Takes in static assignment `assign` and returns a dynamic assignments
-// Mainly transforms the guards such that fsm.out >= 2 & fsm.out <= 3
-pub(super) fn make_assign_dyn(
-    assign: ir::Assignment<StaticTiming>,
-    fsm: &ir::RRC<ir::Cell>,
-    fsm_size: u64,
-    builder: &mut ir::Builder,
-    is_static_comp: bool,
-    comp_sig: Option<RRC<ir::Cell>>,
-) -> ir::Assignment<Nothing> {
-    ir::Assignment {
-        src: assign.src,
-        dst: assign.dst,
-        attributes: assign.attributes,
-        guard: make_guard_dyn(
-            *assign.guard,
-            fsm,
-            fsm_size,
-            builder,
-            is_static_comp,
-            comp_sig,
-        ),
-    }
-}
-
-// Given a list of `static_groups`, find the group named `name`.
-// If there is no such group, then there is an unreachable! error.
-fn find_static_group(
-    name: &ir::Id,
-    static_groups: &[ir::RRC<ir::StaticGroup>],
-) -> ir::RRC<ir::StaticGroup> {
-    Rc::clone(
-        static_groups
-            .iter()
-            .find(|static_group| static_group.borrow().name() == name)
-            .unwrap_or_else(|| {
-                unreachable!("couldn't find static group {name}")
-            }),
-    )
-}
-
-// Given an input static_group `sgroup`, finds the names of all of the groups
-// that it triggers through their go hole.
-// E.g., if `sgroup` has assignments that write to `sgroup1[go]` and `sgroup2[go]`
-// then return `{sgroup1, sgroup2}`
-// NOTE: assumes that static groups will only write the go holes of other static
-// groups, and never dynamic groups
-fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
-    let mut uses = HashSet::new();
-    for asgn in &sgroup.borrow().assignments {
-        let dst = asgn.dst.borrow();
-        if dst.is_hole() && dst.name == "go" {
-            uses.insert(dst.get_parent_name());
-        }
-    }
-    uses
 }
 
 impl CompileStatic {
-    // returns an "early reset" group based on the information given
-    // in the arguments.
-    // sgroup_assigns are the static assignments of the group (they need to be
-    // changed to dynamic by instantiating an fsm, i.e., %[0,2] -> fsm.out < 2)
-    // name of early reset group has prefix "early_reset_{sgroup_name}"
-    fn make_early_reset_group(
-        &mut self,
-        sgroup_assigns: &mut Vec<ir::Assignment<ir::StaticTiming>>,
-        sgroup_name: ir::Id,
-        latency: u64,
-        attributes: ir::Attributes,
-        fsm: ir::RRC<ir::Cell>,
-        builder: &mut ir::Builder,
-    ) -> ir::RRC<ir::Group> {
-        let fsm_name = fsm.borrow().name();
-        let fsm_size = fsm
-            .borrow()
-            .find("out")
-            .unwrap_or_else(|| unreachable!("no `out` port on {fsm_name}"))
-            .borrow()
-            .width;
-        structure!( builder;
-            // done hole will be undefined bc of early reset
-            let ud = prim undef(1);
-            let signal_on = constant(1,1);
-            let adder = prim std_add(fsm_size);
-            let const_one = constant(1, fsm_size);
-            let first_state = constant(0, fsm_size);
-            let penultimate_state = constant(latency-1, fsm_size);
-        );
-        // create the dynamic group we will use to replace the static group
-        let mut early_reset_name = sgroup_name.to_string();
-        early_reset_name.insert_str(0, "early_reset_");
-        let g = builder.add_group(early_reset_name);
-        // converting static assignments to dynamic assignments
-        let mut assigns = sgroup_assigns
-            .drain(..)
-            .map(|assign| {
-                make_assign_dyn(assign, &fsm, fsm_size, builder, false, None)
-            })
-            .collect_vec();
-        // assignments to increment the fsm
-        let not_penultimate_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"] != penultimate_state["out"]);
-        let penultimate_state_guard: ir::Guard<ir::Nothing> =
-            guard!(fsm["out"] == penultimate_state["out"]);
-        let fsm_incr_assigns = build_assignments!(
-          builder;
-          // increments the fsm
-          adder["left"] = ? fsm["out"];
-          adder["right"] = ? const_one["out"];
-          fsm["write_en"] = ? signal_on["out"];
-          fsm["in"] = not_penultimate_state_guard ? adder["out"];
-           // resets the fsm early
-          fsm["in"] = penultimate_state_guard ? first_state["out"];
-          // will never reach this guard since we are resetting when we get to
-          // the penultimate state
-          g["done"] = ? ud["out"];
-        );
-        assigns.extend(fsm_incr_assigns.to_vec());
-        // maps the "early reset" group name to the "fsm name" that it borrows.
-        // this is helpful when we build the "wrapper group"
-        self.fsm_info_map
-            .insert(g.borrow().name(), (fsm.borrow().name(), fsm_size));
-        // adding the assignments to the new dynamic group and creating a
-        // new (dynamic) enable
-        g.borrow_mut().assignments = assigns;
-        g.borrow_mut().attributes = attributes;
-        g
-    }
-
+    /// Builds a wrapper group for group named group_name using fsm and
+    /// and a signal_reg.
+    /// Both the group and FSM (and the signal_reg) should already exist.
+    /// `add_resetting_logic` is a bool; since the same FSM/signal_reg pairing
+    /// may be used for multiple static islands, and we only add resetting logic
+    /// for the signal_reg once.
     fn build_wrapper_group(
-        fsm_name: &ir::Id,
-        fsm_width: u64,
+        fsm_object: ir::RRC<StaticFSM>,
         group_name: &ir::Id,
         signal_reg: ir::RRC<ir::Cell>,
         builder: &mut ir::Builder,
-        add_continuous_assigns: bool,
+        add_reseting_logic: bool,
     ) -> ir::RRC<ir::Group> {
-        // get the groups/fsm necessary to build the wrapper group
+        // Get the group and fsm necessary to build the wrapper group.
         let early_reset_group = builder
             .component
             .get_groups()
@@ -282,31 +67,23 @@ impl CompileStatic {
                     group_name
                 )
             });
-        let early_reset_fsm =
-            builder.component.find_cell(*fsm_name).unwrap_or_else(|| {
-                unreachable!(
-                    "called build_wrapper_group with {}, which is not an fsm",
-                    fsm_name
-                )
-            });
 
+        // fsm.out == 0
+        let first_state =
+            *fsm_object.borrow_mut().query_between(builder, (0, 1));
         structure!( builder;
-            let state_zero = constant(0, fsm_width);
             let signal_on = constant(1, 1);
             let signal_off = constant(0, 1);
         );
-        // make guards
-        // fsm.out == 0 ?
-        let first_state: ir::Guard<ir::Nothing> =
-            guard!(early_reset_fsm["out"] == state_zero["out"]);
-        // signal_reg.out ?
+        // Making the rest of the guards guards:
+        // signal_reg.out
         let signal_reg_guard: ir::Guard<ir::Nothing> =
             guard!(signal_reg["out"]);
-        // !signal_reg.out ?
+        // !signal_reg.out
         let not_signal_reg = signal_reg_guard.clone().not();
-        // fsm.out == 0 & signal_reg.out ?
+        // fsm.out == 0 & signal_reg.out
         let first_state_and_signal = first_state.clone() & signal_reg_guard;
-        // fsm.out == 0 & ! signal_reg.out ?
+        // fsm.out == 0 & ! signal_reg.out
         let first_state_and_not_signal = first_state & not_signal_reg;
         // create the wrapper group for early_reset_group
         let mut wrapper_name = group_name.clone().to_string();
@@ -322,7 +99,7 @@ impl CompileStatic {
           // group[done] = fsm.out == 0 & signal_reg.out ? 1'd1
           g["done"] = first_state_and_signal ? signal_on["out"];
         );
-        if add_continuous_assigns {
+        if add_reseting_logic {
             // continuous assignments to reset signal_reg back to 0 when the wrapper is done
             let continuous_assigns = build_assignments!(
                 builder;
@@ -339,6 +116,94 @@ impl CompileStatic {
         g
     }
 
+    /// compile `while` whose body is `static` control such that at the end of each
+    /// iteration, the checking of condition does not incur an extra cycle of
+    /// latency.
+    /// We do this by wrapping the early reset group of the body with
+    /// another wrapper group, which sets the go signal of the early reset group
+    /// high, and is done when at the 0th cycle of each iteration, the condtion
+    /// port is done.
+    /// Note: this only works if the port for the while condition is `@stable`.
+    fn build_wrapper_group_while(
+        &self,
+        fsm_object: ir::RRC<StaticFSM>,
+        group_name: &ir::Id,
+        port: RRC<ir::Port>,
+        builder: &mut ir::Builder,
+    ) -> RRC<ir::Group> {
+        let reset_early_group = builder
+            .component
+            .find_group(*group_name)
+            .unwrap_or_else(|| {
+                unreachable!(
+                    "called build_wrapper_group with {}, which is not a group",
+                    group_name
+                )
+            });
+
+        let fsm_eq_0 = *fsm_object.borrow_mut().query_between(builder, (0, 1));
+
+        let wrapper_group =
+            builder.add_group(format!("while_wrapper_{}", group_name));
+
+        structure!(
+            builder;
+            let one = constant(1, 1);
+        );
+
+        let port_parent = port.borrow().cell_parent();
+        let port_name = port.borrow().name;
+        let done_guard = guard!(port_parent[port_name]).not() & fsm_eq_0;
+
+        let assignments = build_assignments!(
+            builder;
+            // reset_early_group[go] = 1'd1;
+            // wrapper_group[done] = !port ? 1'd1;
+            reset_early_group["go"] = ? one["out"];
+            wrapper_group["done"] = done_guard ? one["out"];
+        );
+
+        wrapper_group.borrow_mut().assignments.extend(assignments);
+        wrapper_group
+    }
+
+    // Given a `coloring` of static group names, along with the actual `static_groups`,
+    // it builds one StaticSchedule per color.
+    fn build_schedule_objects(
+        coloring: HashMap<ir::Id, ir::Id>,
+        mut static_groups: Vec<ir::RRC<ir::StaticGroup>>,
+        _builder: &mut ir::Builder,
+    ) -> Vec<StaticSchedule> {
+        // "reverse" the coloring to map colors -> static group_names
+        let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
+            HashMap::new();
+        for (group, color) in coloring {
+            color_to_groups.entry(color).or_default().insert(group);
+        }
+        // Need deterministic ordering for testing.
+        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
+            color_to_groups.into_iter().collect();
+        vec_color_to_groups
+            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
+        vec_color_to_groups
+            .into_iter()
+            .map(|(_, group_names)| {
+                // For each color, build a StaticSchedule object.
+                // We first have to figure out out which groups we need to
+                // build the static_schedule object for.
+                let (matching_groups, other_groups) =
+                    static_groups.drain(..).partition(|group| {
+                        group_names.contains(&group.borrow().name())
+                    });
+                let sch = StaticSchedule::from(matching_groups);
+                static_groups = other_groups;
+                sch
+            })
+            .collect()
+    }
+
+    // Get early reset group name from static control (we assume the static control
+    // is an enable).
     fn get_reset_group_name(&self, sc: &mut ir::StaticControl) -> &ir::Id {
         // assume that there are only static enables left.
         // if there are any other type of static control, then error out.
@@ -360,64 +225,41 @@ impl CompileStatic {
 
         early_reset_name
     }
+}
 
-    /// compile `while` whose body is `static` control such that at the end of each
-    /// iteration, the checking of condition does not incur an extra cycle of
-    /// latency.
-    /// We do this by wrapping the early reset group of the body with
-    /// another wrapper group, which sets the go signal of the early reset group
-    /// high, and is done when at the 0th cycle of each iteration, the condtion
-    /// port is done.
-    /// Note: this only works if the port for the while condition is `@stable`.
-    fn build_wrapper_group_while(
-        &self,
-        fsm_name: &ir::Id,
-        fsm_width: u64,
-        group_name: &ir::Id,
-        port: RRC<ir::Port>,
-        builder: &mut ir::Builder,
-    ) -> RRC<ir::Group> {
-        let reset_early_group = builder
-            .component
-            .find_group(*group_name)
-            .unwrap_or_else(|| {
-                unreachable!(
-                    "called build_wrapper_group with {}, which is not a group",
-                    group_name
-                )
-            });
-        let early_reset_fsm =
-            builder.component.find_cell(*fsm_name).unwrap_or_else(|| {
-                unreachable!(
-                    "called build_wrapper_group with {}, which is not an fsm",
-                    fsm_name
-                )
-            });
+// These are the functions used to allocate FSMs to static islands
+impl CompileStatic {
+    // Given a list of `static_groups`, find the group named `name`.
+    // If there is no such group, then there is an unreachable! error.
+    fn find_static_group(
+        name: &ir::Id,
+        static_groups: &[ir::RRC<ir::StaticGroup>],
+    ) -> ir::RRC<ir::StaticGroup> {
+        Rc::clone(
+            static_groups
+                .iter()
+                .find(|static_group| static_group.borrow().name() == name)
+                .unwrap_or_else(|| {
+                    unreachable!("couldn't find static group {name}")
+                }),
+        )
+    }
 
-        let wrapper_group =
-            builder.add_group(format!("while_wrapper_{}", group_name));
-
-        structure!(
-            builder;
-            let one = constant(1, 1);
-            let time_0 = constant(0, fsm_width);
-        );
-
-        let port_parent = port.borrow().cell_parent();
-        let port_name = port.borrow().name;
-        let done_guard = guard!(port_parent[port_name]).not()
-            & guard!(early_reset_fsm["out"] == time_0["out"]);
-
-        let assignments = build_assignments!(
-            builder;
-            // reset_early_group[go] = 1'd1;
-            // wrapper_group[done] = !port ? 1'd1;
-            reset_early_group["go"] = ? one["out"];
-            wrapper_group["done"] = done_guard ? one["out"];
-        );
-
-        wrapper_group.borrow_mut().assignments.extend(assignments);
-        wrapper_group
+    // Given an input static_group `sgroup`, finds the names of all of the groups
+    // that it triggers through their go hole.
+    // E.g., if `sgroup` has assignments that write to `sgroup1[go]` and `sgroup2[go]`
+    // then return `{sgroup1, sgroup2}`
+    // Assumes that static groups will only write the go holes of other static
+    // groups, and never dynamic groups (which seems like a reasonable assumption).
+    fn get_go_writes(sgroup: &ir::RRC<ir::StaticGroup>) -> HashSet<ir::Id> {
+        let mut uses = HashSet::new();
+        for asgn in &sgroup.borrow().assignments {
+            let dst = asgn.dst.borrow();
+            if dst.is_hole() && dst.name == "go" {
+                uses.insert(dst.get_parent_name());
+            }
+        }
+        uses
     }
 
     // Gets all of the triggered static groups within `c`, and adds it to `cur_names`.
@@ -569,45 +411,23 @@ impl CompileStatic {
         }
     }
 
-    // Given a "coloring" of static group names -> their "colors",
-    // instantiate one fsm per color and return a hashmap that maps
-    // fsm names -> groups that it handles
-    fn build_fsm_mapping(
-        coloring: HashMap<ir::Id, ir::Id>,
-        static_groups: &[ir::RRC<ir::StaticGroup>],
-        builder: &mut ir::Builder,
-    ) -> HashMap<ir::Id, HashSet<ir::Id>> {
-        // "reverse" the coloring to map colors -> static group_names
-        let mut color_to_groups: HashMap<ir::Id, HashSet<ir::Id>> =
-            HashMap::new();
-        for (group, color) in coloring {
-            color_to_groups.entry(color).or_default().insert(group);
-        }
-        // Need deterministic ordering for testing.
-        let mut vec_color_to_groups: Vec<(ir::Id, HashSet<ir::Id>)> =
-            color_to_groups.into_iter().collect();
-        vec_color_to_groups
-            .sort_by(|(color1, _), (color2, _)| color1.cmp(color2));
-        vec_color_to_groups.into_iter().map(|(color, group_names)| {
-            // For each color, build an FSM that has the number of bits required
-            // for the largest latency in `group_names`
-            let max_latency = group_names
-                .iter()
-                .map(|g| {
-                    find_static_group(g, static_groups).borrow()
-                        .latency
-                })
-                .max().unwrap_or_else(|| unreachable!("group {color} had no corresponding groups in its coloring map")
+    /// Adds conflicts between static groups that require different encodings.
+    /// For example: if one group is one-hot and another is binary, then
+    /// we insert a conflict between those two groups.
+    fn add_encoding_conflicts(
+        sgroups: &[ir::RRC<ir::StaticGroup>],
+        conflict_graph: &mut GraphColoring<ir::Id>,
+    ) {
+        for (sgroup1, sgroup2) in sgroups.iter().tuple_combinations() {
+            if sgroup1.borrow().attributes.has(ir::BoolAttr::OneHot)
+                != sgroup2.borrow().attributes.has(ir::BoolAttr::OneHot)
+            {
+                conflict_graph.insert_conflict(
+                    &sgroup1.borrow().name(),
+                    &sgroup2.borrow().name(),
                 );
-            let fsm_size = get_bit_width_from(
-                max_latency + 1, /* represent 0..latency */
-            );
-            structure!( builder;
-                let fsm = prim std_reg(fsm_size);
-            );
-            let fsm_name = fsm.borrow().name();
-            (fsm_name, group_names)
-        }).collect()
+            }
+        }
     }
 
     // helper to `build_sgroup_uses_map`
@@ -626,8 +446,10 @@ impl CompileStatic {
         group_names: &mut HashSet<ir::Id>,
         sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
     ) {
-        let group_uses =
-            get_go_writes(&find_static_group(parent_group, sgroups));
+        let group_uses = Self::get_go_writes(&Self::find_static_group(
+            parent_group,
+            sgroups,
+        ));
         for group_use in group_uses {
             for ancestor in full_group_ancestry.iter() {
                 cur_mapping.entry(*ancestor).or_default().insert(group_use);
@@ -670,6 +492,194 @@ impl CompileStatic {
         }
         cur_mapping
     }
+
+    pub fn get_coloring(
+        sgroups: &Vec<ir::RRC<ir::StaticGroup>>,
+        control: &ir::Control,
+    ) -> HashMap<ir::Id, ir::Id> {
+        // `sgroup_uses_map` builds a mapping of static groups -> groups that
+        // it (even indirectly) triggers the `go` port of.
+        let sgroup_uses_map = Self::build_sgroup_uses_map(sgroups);
+        // Build conflict graph and get coloring.
+        let mut conflict_graph: GraphColoring<ir::Id> =
+            GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
+        Self::add_par_conflicts(control, &sgroup_uses_map, &mut conflict_graph);
+        Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
+        Self::add_encoding_conflicts(sgroups, &mut conflict_graph);
+        conflict_graph.color_greedy(None, true)
+    }
+}
+
+// These are the functions used to compile for the static *component* interface
+impl CompileStatic {
+    // Used for guards in a one cycle static component.
+    // Replaces %0 with comp.go.
+    fn make_guard_dyn_one_cycle_static_comp(
+        guard: ir::Guard<ir::StaticTiming>,
+        comp_sig: RRC<ir::Cell>,
+    ) -> ir::Guard<ir::Nothing> {
+        match guard {
+        ir::Guard::Or(l, r) => {
+            let left =
+                Self::make_guard_dyn_one_cycle_static_comp(*l, Rc::clone(&comp_sig));
+            let right = Self::make_guard_dyn_one_cycle_static_comp(*r, Rc::clone(&comp_sig));
+            ir::Guard::or(left, right)
+        }
+        ir::Guard::And(l, r) => {
+            let left = Self::make_guard_dyn_one_cycle_static_comp(*l, Rc::clone(&comp_sig));
+            let right = Self::make_guard_dyn_one_cycle_static_comp(*r, Rc::clone(&comp_sig));
+            ir::Guard::and(left, right)
+        }
+        ir::Guard::Not(g) => {
+            let f = Self::make_guard_dyn_one_cycle_static_comp(*g, Rc::clone(&comp_sig));
+            ir::Guard::Not(Box::new(f))
+        }
+        ir::Guard::Info(t) => {
+            match t.get_interval() {
+                (0, 1) => guard!(comp_sig["go"]),
+                _ => unreachable!("This function is implemented for 1 cycle static components, only %0 can exist as timing guard"),
+
+            }
+        }
+        ir::Guard::CompOp(op, l, r) => ir::Guard::CompOp(op, l, r),
+        ir::Guard::Port(p) => ir::Guard::Port(p),
+        ir::Guard::True => ir::Guard::True,
+    }
+    }
+
+    // Used for assignments in a one cycle static component.
+    // Replaces %0 with comp.go in the assignment's guard.
+    fn make_assign_dyn_one_cycle_static_comp(
+        assign: ir::Assignment<ir::StaticTiming>,
+        comp_sig: RRC<ir::Cell>,
+    ) -> ir::Assignment<ir::Nothing> {
+        ir::Assignment {
+            src: assign.src,
+            dst: assign.dst,
+            attributes: assign.attributes,
+            guard: Box::new(Self::make_guard_dyn_one_cycle_static_comp(
+                *assign.guard,
+                comp_sig,
+            )),
+        }
+    }
+
+    // Makes `done` signal for promoted static<n> component.
+    fn make_done_signal_for_promoted_component(
+        fsm: &mut StaticFSM,
+        builder: &mut ir::Builder,
+        comp_sig: RRC<ir::Cell>,
+    ) -> Vec<ir::Assignment<ir::Nothing>> {
+        let first_state_guard = *fsm.query_between(builder, (0, 1));
+        structure!(builder;
+          let sig_reg = prim std_reg(1);
+          let one = constant(1, 1);
+          let zero = constant(0, 1);
+        );
+        let go_guard = guard!(comp_sig["go"]);
+        let not_go_guard = !guard!(comp_sig["go"]);
+        let comp_done_guard =
+            first_state_guard.clone().and(guard!(sig_reg["out"]));
+        let assigns = build_assignments!(builder;
+          // Only write to sig_reg when fsm == 0
+          sig_reg["write_en"] = first_state_guard ? one["out"];
+          // If fsm == 0 and comp.go is high, it means we are starting an execution,
+          // so we set signal_reg to high. Note that this happens regardless of
+          // whether comp.done is high.
+          sig_reg["in"] = go_guard ? one["out"];
+          // Otherwise, we set `sig_reg` to low.
+          sig_reg["in"] = not_go_guard ? zero["out"];
+          // comp.done is high when FSM == 0 and sig_reg is high,
+          // since that means we have just finished an execution.
+          comp_sig["done"] = comp_done_guard ? one["out"];
+        );
+        assigns.to_vec()
+    }
+
+    // Makes a done signal for a one-cycle static component.
+    // Essentially you just have to use a one-cycle delay register that
+    // takes the `go` signal as input.
+    fn make_done_signal_for_promoted_component_one_cycle(
+        builder: &mut ir::Builder,
+        comp_sig: RRC<ir::Cell>,
+    ) -> Vec<ir::Assignment<ir::Nothing>> {
+        structure!(builder;
+          let sig_reg = prim std_reg(1);
+          let one = constant(1, 1);
+          let zero = constant(0, 1);
+        );
+        let go_guard = guard!(comp_sig["go"]);
+        let not_go = !guard!(comp_sig["go"]);
+        let signal_on_guard = guard!(sig_reg["out"]);
+        let assigns = build_assignments!(builder;
+          // For one cycle components, comp.done is just whatever comp.go
+          // was during the previous cycle.
+          // signal_reg serves as a forwarding register that delays
+          // the `go` signal for one cycle.
+          sig_reg["in"] = go_guard ? one["out"];
+          sig_reg["in"] = not_go ? zero["out"];
+          sig_reg["write_en"] = ? one["out"];
+          comp_sig["done"] = signal_on_guard ? one["out"];
+        );
+        assigns.to_vec()
+    }
+
+    // Compiles `sgroup` according to the static component interface.
+    // The assignments are removed from `sgroup` and placed into
+    // `builder.component`'s continuous assignments.
+    fn compile_static_interface(
+        &self,
+        sgroup: ir::RRC<ir::StaticGroup>,
+        builder: &mut ir::Builder,
+    ) {
+        if sgroup.borrow().get_latency() > 1 {
+            // Build a StaticSchedule object, realize it and add assignments
+            // as continuous assignments.
+            let mut sch = StaticSchedule::from(vec![Rc::clone(&sgroup)]);
+            let (mut assigns, mut fsm) = sch.realize_schedule(builder, true);
+            builder
+                .component
+                .continuous_assignments
+                .extend(assigns.pop_front().unwrap());
+            let comp_sig = Rc::clone(&builder.component.signature);
+            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                // If necessary, add the logic to produce a done signal.
+                let done_assigns =
+                    Self::make_done_signal_for_promoted_component(
+                        &mut fsm, builder, comp_sig,
+                    );
+                builder
+                    .component
+                    .continuous_assignments
+                    .extend(done_assigns);
+            }
+        } else {
+            // Handle components with latency == 1.
+            // In this case, we don't need an FSM; we just guard the assignments
+            // with comp.go.
+            let assignments =
+                std::mem::take(&mut sgroup.borrow_mut().assignments);
+            for assign in assignments {
+                let comp_sig = Rc::clone(&builder.component.signature);
+                builder.component.continuous_assignments.push(
+                    Self::make_assign_dyn_one_cycle_static_comp(
+                        assign, comp_sig,
+                    ),
+                );
+            }
+            if builder.component.attributes.has(ir::BoolAttr::Promoted) {
+                let comp_sig = Rc::clone(&builder.component.signature);
+                let done_assigns =
+                    Self::make_done_signal_for_promoted_component_one_cycle(
+                        builder, comp_sig,
+                    );
+                builder
+                    .component
+                    .continuous_assignments
+                    .extend(done_assigns);
+            }
+        }
+    }
 }
 
 impl Visitor for CompileStatic {
@@ -679,77 +689,137 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        // Static components have a different interface than static groups.
+        // If we have a static component, we have to compile the top-level
+        // island (this island should be a group by now and corresponds
+        // to the the entire control of the component) differently.
+        // This island might invoke other static groups-- these static groups
+        // should still follow the group interface.
+        let top_level_sgroup = if comp.is_static() {
+            let comp_control = comp.control.borrow();
+            match &*comp_control {
+                ir::Control::Static(ir::StaticControl::Enable(sen)) => {
+                    Some(sen.group.borrow().name())
+                }
+                _ => return Err(Error::malformed_control(format!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name()))),
+            }
+        } else {
+            None
+        };
+
+        // Drain static groups of component
         let sgroups: Vec<ir::RRC<ir::StaticGroup>> =
             comp.get_static_groups_mut().drain().collect();
-        // `sgroup_uses_map` builds a mapping of static groups -> groups that
-        // it (even indirectly) triggers the `go` port of.
-        let sgroup_uses_map = Self::build_sgroup_uses_map(&sgroups);
-        // Build conflict graph and get coloring.
-        let mut conflict_graph: GraphColoring<ir::Id> =
-            GraphColoring::from(sgroups.iter().map(|g| g.borrow().name()));
-        Self::add_par_conflicts(
-            &comp.control.borrow(),
-            &sgroup_uses_map,
-            &mut conflict_graph,
-        );
-        Self::add_go_port_conflicts(&sgroup_uses_map, &mut conflict_graph);
-        let coloring = conflict_graph.color_greedy(None, true);
+
+        // The first thing is to assign FSMs -> static islands.
+        // We sometimes assign the same FSM to different static islands
+        // to reduce register usage. We do this by getting greedy coloring.
+        let coloring = Self::get_coloring(&sgroups, &comp.control.borrow());
+
         let mut builder = ir::Builder::new(comp, sigs);
-        // build Mappings of fsm names -> set of groups that it can handle.
-        let fsm_mappings =
-            Self::build_fsm_mapping(coloring, &sgroups, &mut builder);
-        let mut groups_to_fsms = HashMap::new();
-        // "Reverses" fsm_mappings to map group names -> fsm cells
-        for (fsm_name, group_names) in fsm_mappings {
-            let fsm = builder.component.find_guaranteed_cell(fsm_name);
-            for group_name in group_names {
-                groups_to_fsms.insert(group_name, Rc::clone(&fsm));
+        // Build one StaticSchedule object per color
+        let mut schedule_objects =
+            Self::build_schedule_objects(coloring, sgroups, &mut builder);
+
+        // Map so we can rewrite `static_group[go]` to `early_reset_group[go]`
+        let mut group_rewrites = ir::rewriter::PortRewriteMap::default();
+
+        // Realize an fsm for each StaticSchedule object.
+        for sch in &mut schedule_objects {
+            // Check whether we are compiling the top level static island.
+            let static_component_interface = match top_level_sgroup {
+                None => false,
+                // For the top level group, sch.static_groups should really only
+                // have group--the top level group.
+                Some(top_level_group) => sch
+                    .static_groups
+                    .iter()
+                    .any(|g| g.borrow().name() == top_level_group),
+            };
+            // Static component/groups have different interfaces
+            if static_component_interface {
+                // Compile top level static group differently.
+                // We know that the top level static island has its own
+                // unique FSM so we can do `.pop().unwrap()`
+                self.compile_static_interface(
+                    sch.static_groups.pop().unwrap(),
+                    &mut builder,
+                )
+            } else {
+                let (mut static_group_assigns, fsm) = sch
+                    .realize_schedule(&mut builder, static_component_interface);
+                let fsm_ref = ir::rrc(fsm);
+                for static_group in sch.static_groups.iter() {
+                    // Create the dynamic "early reset group" that will replace the static group.
+                    let static_group_name = static_group.borrow().name();
+                    let mut early_reset_name = static_group_name.to_string();
+                    early_reset_name.insert_str(0, "early_reset_");
+                    let early_reset_group = builder.add_group(early_reset_name);
+                    let mut assigns = static_group_assigns.pop_front().unwrap();
+
+                    // Add assignment `group[done] = ud.out`` to the new group.
+                    structure!( builder; let ud = prim undef(1););
+                    let early_reset_done_assign = build_assignments!(
+                      builder;
+                      early_reset_group["done"] = ? ud["out"];
+                    );
+                    assigns.extend(early_reset_done_assign);
+
+                    early_reset_group.borrow_mut().assignments = assigns;
+                    early_reset_group.borrow_mut().attributes =
+                        static_group.borrow().attributes.clone();
+
+                    // Now we have to update the fields with a bunch of information.
+                    // This makes it easier when we have to build wrappers, rewrite ports, etc.
+
+                    // Map the static group name -> early reset group name.
+                    // This is helpful for rewriting control
+                    self.reset_early_map.insert(
+                        static_group_name,
+                        early_reset_group.borrow().name(),
+                    );
+                    // self.group_rewrite_map helps write static_group[go] to early_reset_group[go]
+                    // Technically we could do this w/ early_reset_map but is easier w/
+                    // group_rewrite, which is explicitly of type `PortRewriterMap`
+                    group_rewrites.insert(
+                        ir::Canonical::new(
+                            static_group_name,
+                            ir::Id::from("go"),
+                        ),
+                        early_reset_group.borrow().find("go").unwrap_or_else(
+                            || {
+                                unreachable!(
+                                    "group {} has no go port",
+                                    early_reset_group.borrow().name()
+                                )
+                            },
+                        ),
+                    );
+
+                    self.fsm_info_map.insert(
+                        early_reset_group.borrow().name(),
+                        Rc::clone(&fsm_ref),
+                    );
+                }
             }
         }
 
-        // create "early reset" dynamic groups that never reach set their done hole
-        for sgroup in sgroups.iter() {
-            let mut sgroup_ref = sgroup.borrow_mut();
-            let sgroup_name = sgroup_ref.name();
-            let sgroup_latency = sgroup_ref.get_latency();
-            let sgroup_attributes = sgroup_ref.attributes.clone();
-            let sgroup_assigns = &mut sgroup_ref.assignments;
-            let g = self.make_early_reset_group(
-                sgroup_assigns,
-                sgroup_name,
-                sgroup_latency,
-                sgroup_attributes,
-                Rc::clone(groups_to_fsms.get(&sgroup_name).unwrap_or_else(
-                    || unreachable!("{sgroup_name} has no corresponding fsm"),
-                )),
-                &mut builder,
-            );
-            // map the static group name -> early reset group name
-            // helpful for rewriting control
-            self.reset_early_map.insert(sgroup_name, g.borrow().name());
-            // group_rewrite_map helps write static_group[go] to early_reset_group[go]
-            // technically could do this w/ early_reset_map but is easier w/
-            // group_rewrite, which is explicitly of type `PortRewriterMap`
-            self.group_rewrite.insert(
-                ir::Canonical::new(sgroup_name, ir::Id::from("go")),
-                g.borrow().find("go").unwrap_or_else(|| {
-                    unreachable!("group {} has no go port", g.borrow().name())
-                }),
-            );
-        }
-
-        // rewrite static_group[go] to early_reset_group[go]
+        // Rewrite static_group[go] to early_reset_group[go]
         // don't have to worry about writing static_group[done] b/c static
         // groups don't have done holes.
         comp.for_each_assignment(|assign| {
             assign.for_each_port(|port| {
-                self.group_rewrite
+                group_rewrites
                     .get(&port.borrow().canonical())
                     .map(Rc::clone)
             })
         });
 
-        comp.get_static_groups_mut().append(sgroups.into_iter());
+        // Add the static groups back to the component.
+        for schedule in schedule_objects {
+            comp.get_static_groups_mut()
+                .append(schedule.static_groups.into_iter());
+        }
 
         Ok(Action::Continue)
     }
@@ -762,8 +832,12 @@ impl Visitor for CompileStatic {
         sigs: &ir::LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // assume that there are only static enables left.
-        // if there are any other type of static control, then error out.
+        // No need to build wrapper for static component interface
+        if comp.is_static() {
+            return Ok(Action::Continue);
+        }
+        // Assume that there are only static enables left.
+        // If there are any other type of static control, then error out.
         let ir::StaticControl::Enable(s) = sc else {
             return Err(Error::malformed_control(format!("Non-Enable Static Control should have been compiled away. Run {} to do this", crate::passes::StaticInliner::name())));
         };
@@ -775,7 +849,7 @@ impl Visitor for CompileStatic {
         let early_reset_name =
             self.reset_early_map.get(&sgroup_name).unwrap_or_else(|| {
                 unreachable!(
-                    "group {} early reset has not been created",
+                    "{}'s early reset group has not been created",
                     sgroup_name
                 )
             });
@@ -785,11 +859,12 @@ impl Visitor for CompileStatic {
             None => {
                 // create the builder/cells that we need to create wrapper group
                 let mut builder = ir::Builder::new(comp, sigs);
-                let (fsm_name, fsm_width )= self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
+                let fsm_object = self.fsm_info_map.get(early_reset_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", early_reset_name));
                 // If we've already made a wrapper for a group that uses the same
                 // FSM, we can reuse the signal_reg. Otherwise, we must
                 // instantiate a new signal_reg.
-                let wrapper = match self.signal_reg_map.get(fsm_name) {
+                let fsm_name = fsm_object.borrow().get_unique_id();
+                let wrapper = match self.signal_reg_map.get(&fsm_name) {
                     None => {
                         // Need to build the signal_reg and the continuous
                         // assignment that resets the signal_reg
@@ -797,10 +872,9 @@ impl Visitor for CompileStatic {
                             let signal_reg = prim std_reg(1);
                         );
                         self.signal_reg_map
-                            .insert(*fsm_name, signal_reg.borrow().name());
+                            .insert(fsm_name, signal_reg.borrow().name());
                         Self::build_wrapper_group(
-                            fsm_name,
-                            *fsm_width,
+                            Rc::clone(fsm_object),
                             early_reset_name,
                             signal_reg,
                             &mut builder,
@@ -818,8 +892,7 @@ impl Visitor for CompileStatic {
                                 unreachable!("signal reg {reg_name} found")
                             });
                         Self::build_wrapper_group(
-                            fsm_name,
-                            *fsm_width,
+                            Rc::clone(fsm_object),
                             early_reset_name,
                             signal_reg,
                             &mut builder,
@@ -840,7 +913,7 @@ impl Visitor for CompileStatic {
         Ok(Action::Change(Box::new(e)))
     }
 
-    /// if while body is static, then we want to make sure that the while
+    /// If while body is static, then we want to make sure that the while
     /// body does not take the extra cycle incurred by the done condition
     /// So we replace the while loop with `enable` of a wrapper group
     /// that sets the go signal of the static group in the while loop body high
@@ -891,10 +964,9 @@ impl Visitor for CompileStatic {
                 let reset_group_name = self.get_reset_group_name(sc);
 
                 // Get fsm for reset_group
-                let (fsm, fsm_width) = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
+                let fsm_object = self.fsm_info_map.get(reset_group_name).unwrap_or_else(|| unreachable!("group {} has no correspondoing fsm in self.fsm_map", reset_group_name));
                 let wrapper_group = self.build_wrapper_group_while(
-                    fsm,
-                    *fsm_width,
+                    Rc::clone(fsm_object),
                     reset_group_name,
                     Rc::clone(&s.port),
                     &mut builder,
@@ -917,11 +989,17 @@ impl Visitor for CompileStatic {
         // we should have already drained the assignments in static groups
         for g in comp.get_static_groups() {
             if !g.borrow().assignments.is_empty() {
-                unreachable!("Should have converted all static groups to dynamic. {} still has assignments in it", g.borrow().name());
+                unreachable!("Should have converted all static groups to dynamic. {} still has assignments in it. It's possible that you may need to run {} to remove dead groups and get rid of this error.", g.borrow().name(), crate::passes::DeadGroupRemoval::name());
             }
         }
         // remove all static groups
         comp.get_static_groups_mut().retain(|_| false);
+
+        // Remove control if static component
+        if comp.is_static() {
+            comp.control = ir::rrc(ir::Control::empty())
+        }
+
         Ok(Action::Continue)
     }
 }

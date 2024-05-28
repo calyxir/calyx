@@ -3,7 +3,6 @@
 from prettytable import PrettyTable
 import numpy as np
 import calyx.py_ast as ast
-from calyx.py_ast import CompVar, Cell, Stdlib
 import calyx.builder as cb
 from calyx.utils import bits_needed
 
@@ -28,7 +27,7 @@ def reduce_parallel_control_pass(component: ast.Component, N: int, input_size: i
     ...
     """
     assert (
-        N is not None and 0 < N < input_size and (not (N & (N - 1)))
+        N and 0 < N < input_size and (not (N & (N - 1)))
     ), f"""N: {N} should be a power of two within bounds (0, {input_size})."""
 
     reduced_controls = []
@@ -168,15 +167,12 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
 
     def mul_group(comp: cb.ComponentBuilder, stage, mul_tuple):
         mul_index, k, phi_index = mul_tuple
-
-        mul = comp.get_cell(f"mult_pipe{mul_index}")
-        phi = comp.get_cell(f"phi{phi_index}")
-        reg = comp.get_cell(f"r{k}")
-        with comp.group(f"s{stage}_mul{mul_index}") as g:
-            mul.left = phi.out
-            mul.right = reg.out
-            mul.go = 1
-            g.done = mul.done
+        comp.binary_use_names(
+            f"mult_pipe{mul_index}",
+            f"phi{phi_index}",
+            f"r{k}",
+            f"s{stage}_mul{mul_index}",
+        )
 
     def op_mod_group(comp: cb.ComponentBuilder, stage, row, operations_tuple):
         lhs, op, mul_index = operations_tuple
@@ -201,10 +197,7 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
     def precursor_group(comp: cb.ComponentBuilder, row):
         r = comp.get_cell(f"r{row}")
         A = comp.get_cell(f"A{row}")
-        with comp.group(f"precursor_{row}") as g:
-            r.in_ = A.out
-            r.write_en = 1
-            g.done = r.done
+        comp.reg_store(r, A.out, f"precursor_{row}")
 
     def preamble_group(comp: cb.ComponentBuilder, row):
         reg = comp.get_cell(f"r{row}")
@@ -223,70 +216,24 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
     def epilogue_group(comp: cb.ComponentBuilder, row):
         input = comp.get_cell("a")
         A = comp.get_cell(f"A{row}")
-        with comp.group(f"epilogue_{row}") as epilogue:
-            input.addr0 = row
-            input.write_en = 1
-            input.write_data = A.out
-            epilogue.done = input.done
+        comp.mem_store_d1(input, row, A.out, f"epilogue_{row}", is_comb=True)
 
-    def cells():
-        input = CompVar("a")
-        phis = CompVar("phis")
-        memories = [
-            Cell(
-                input, Stdlib.comb_mem_d1(input_bitwidth, n, bitwidth), is_external=True
-            ),
-            Cell(
-                phis, Stdlib.comb_mem_d1(input_bitwidth, n, bitwidth), is_external=True
-            ),
-        ]
-        r_regs = [
-            Cell(CompVar(f"r{r}"), Stdlib.register(input_bitwidth)) for r in range(n)
-        ]
-        A_regs = [
-            Cell(CompVar(f"A{r}"), Stdlib.register(input_bitwidth)) for r in range(n)
-        ]
-        mul_regs = [
-            Cell(CompVar(f"mul{i}"), Stdlib.register(input_bitwidth))
-            for i in range(n // 2)
-        ]
-        phi_regs = [
-            Cell(CompVar(f"phi{r}"), Stdlib.register(input_bitwidth)) for r in range(n)
-        ]
-        mod_pipes = [
-            Cell(
-                CompVar(f"mod_pipe{r}"),
-                Stdlib.op("div_pipe", input_bitwidth, signed=True),
-            )
-            for r in range(n)
-        ]
-        mult_pipes = [
-            Cell(
-                CompVar(f"mult_pipe{i}"),
-                Stdlib.op("mult_pipe", input_bitwidth, signed=True),
-            )
-            for i in range(n // 2)
-        ]
-        adds = [
-            Cell(CompVar(f"add{i}"), Stdlib.op("add", input_bitwidth, signed=True))
-            for i in range(n // 2)
-        ]
-        subs = [
-            Cell(CompVar(f"sub{i}"), Stdlib.op("sub", input_bitwidth, signed=True))
-            for i in range(n // 2)
-        ]
+    def insert_cells(comp: cb.ComponentBuilder):
+        # memories
+        comp.comb_mem_d1("a", input_bitwidth, n, bitwidth, is_external=True)
+        comp.comb_mem_d1("phis", input_bitwidth, n, bitwidth, is_external=True)
 
-        return (
-            memories
-            + r_regs
-            + A_regs
-            + mul_regs
-            + phi_regs
-            + mod_pipes
-            + mult_pipes
-            + adds
-            + subs
-        )
+        for r in range(n):
+            comp.reg(input_bitwidth, f"r{r}")  # r_regs
+            comp.reg(input_bitwidth, f"A{r}")  # A_regs
+            comp.reg(input_bitwidth, f"phi{r}")  # phi_regs
+            comp.div_pipe(input_bitwidth, f"mod_pipe{r}", signed=True)  # mod_pipes
+
+        for i in range(n // 2):
+            comp.reg(input_bitwidth, f"mult{i}")  # mul_regs
+            comp.mult_pipe(input_bitwidth, f"mult_pipe{i}", signed=True)  # mult_pipes
+            comp.add(input_bitwidth, f"add{i}", signed=True)  # adds
+            comp.sub(input_bitwidth, f"sub{i}", signed=True)  # subs
 
     def wires(main: cb.ComponentBuilder):
         for r in range(n):
@@ -325,9 +272,8 @@ def generate_ntt_pipeline(input_bitwidth: int, n: int, q: int):
 
     pp_table(operations, multiplies, n, num_stages)
     prog = cb.Builder()
-    prog.import_("primitives/binary_operators.futil")
-    prog.import_("primitives/memories/comb.futil")
-    main = prog.component("main", cells())
+    main = prog.component("main")
+    insert_cells(main)
     wires(main)
     main.component.controls = control()
     return prog.program

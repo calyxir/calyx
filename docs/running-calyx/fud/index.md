@@ -15,6 +15,8 @@ The source for fud is [here](https://github.com/calyxir/calyx/tree/master/fud).
 ## Installation
 > Fud requires Python 3.9 or higher to work correctly.
 
+`fud` currently has a dependency on [calyx-py](builder/calyx-py.md), which you need to install first.
+
 You need [Flit](https://flit.readthedocs.io/en/latest/) to install `fud`. Install it with `pip3 install flit`.
 
 You can then install `fud` with

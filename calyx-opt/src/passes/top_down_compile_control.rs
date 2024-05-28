@@ -4,13 +4,14 @@ use crate::traversal::{
     Action, ConstructVisitor, Named, ParseVal, PassOpt, VisResult, Visitor,
 };
 use calyx_ir::{self as ir, GetAttributes, LibrarySignatures, Printer, RRC};
-use calyx_ir::{build_assignments, guard, structure};
-use calyx_utils::CalyxResult;
+use calyx_ir::{build_assignments, guard, structure, Id};
 use calyx_utils::Error;
+use calyx_utils::{CalyxResult, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
 use petgraph::graph::DiGraph;
-use std::collections::HashMap;
+use serde::Serialize;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::rc::Rc;
 
@@ -210,6 +211,8 @@ fn compute_unique_ids(con: &mut ir::Control, cur_state: u64) -> u64 {
 
 /// Represents the dyanmic execution schedule of a control program.
 struct Schedule<'b, 'a: 'b> {
+    /// A mapping from groups to corresponding FSM state ids
+    pub groups_to_states: HashSet<FSMStateInfo>,
     /// Assigments that should be enabled in a given state.
     pub enables: HashMap<u64, Vec<ir::Assignment<Nothing>>>,
     /// Transition from one state to another when the guard is true.
@@ -219,9 +222,35 @@ struct Schedule<'b, 'a: 'b> {
     pub builder: &'b mut ir::Builder<'a>,
 }
 
+/// Information to be serialized for a single FSM
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct FSMInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub component: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub group: Id,
+    pub states: Vec<FSMStateInfo>,
+}
+
+/// Mapping of FSM state ids to corresponding group names
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct FSMStateInfo {
+    id: u64,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    group: Id,
+}
+
+fn id_serialize_passthrough<S>(id: &Id, ser: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    id.to_string().serialize(ser)
+}
+
 impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
     fn from(builder: &'b mut ir::Builder<'a>) -> Self {
         Schedule {
+            groups_to_states: HashSet::new(),
             enables: HashMap::new(),
             transitions: Vec::new(),
             builder,
@@ -279,7 +308,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
     /// Implement a given [Schedule] and return the name of the [ir::Group] that
     /// implements it.
-    fn realize_schedule(self, dump_fsm: bool) -> RRC<ir::Group> {
+    fn realize_schedule(
+        self,
+        dump_fsm: bool,
+        fsm_groups: &mut HashSet<FSMInfo>,
+    ) -> RRC<ir::Group> {
         self.validate();
 
         let group = self.builder.add_group("tdcc");
@@ -290,6 +323,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 group.borrow().name()
             ));
         }
+
+        // Keep track of groups to FSM state id information for dumping to json
+        fsm_groups.insert(FSMInfo {
+            component: self.builder.component.name,
+            group: group.borrow().name(),
+            states: self.groups_to_states.iter().cloned().collect_vec(),
+        });
 
         let final_state = self.last_state();
         let fsm_size = get_bit_width_from(
@@ -397,6 +437,7 @@ impl Schedule<'_, '_> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
+
             let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
@@ -407,6 +448,9 @@ impl Schedule<'_, '_> {
             } else {
                 (cur_state, preds)
             };
+
+            // Add group to mapping for emitting group JSON info
+            self.groups_to_states.insert(FSMStateInfo { id: cur_state, group: group.borrow().name() });
 
             let not_done = !guard!(group["done"]);
             let signal_on = self.builder.add_constant(1, 1);
@@ -770,8 +814,12 @@ impl Schedule<'_, '_> {
 pub struct TopDownCompileControl {
     /// Print out the FSM representation to STDOUT
     dump_fsm: bool,
+    /// Output a JSON FSM representation to file if specified
+    dump_fsm_json: Option<OutputFile>,
     /// Enable early transitions
     early_transitions: bool,
+    /// Bookkeeping for FSM ids for groups across all FSMs in the program
+    fsm_groups: HashSet<FSMInfo>,
 }
 
 impl ConstructVisitor for TopDownCompileControl {
@@ -783,7 +831,9 @@ impl ConstructVisitor for TopDownCompileControl {
 
         Ok(TopDownCompileControl {
             dump_fsm: opts[&"dump-fsm"].bool(),
+            dump_fsm_json: opts[&"dump-fsm-json"].not_null_outstream(),
             early_transitions: opts[&"early-transitions"].bool(),
+            fsm_groups: HashSet::new(),
         })
     }
 
@@ -808,6 +858,12 @@ impl Named for TopDownCompileControl {
                 "Print out the state machine implementing the schedule",
                 ParseVal::Bool(false),
                 PassOpt::parse_bool,
+            ),
+            PassOpt::new(
+                "dump-fsm-json",
+                "Write the state machine implementing the schedule to a JSON file",
+                ParseVal::OutStream(OutputFile::Null),
+                PassOpt::parse_outstream,
             ),
             PassOpt::new(
                 "early-transitions",
@@ -855,7 +911,8 @@ impl Visitor for TopDownCompileControl {
         let mut sch = Schedule::from(&mut builder);
         sch.calculate_states_seq(s, self.early_transitions)?;
         // Compile schedule and return the group.
-        let seq_group = sch.realize_schedule(self.dump_fsm);
+        let seq_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(seq_group);
@@ -881,7 +938,8 @@ impl Visitor for TopDownCompileControl {
 
         // Compile schedule and return the group.
         sch.calculate_states_if(i, self.early_transitions)?;
-        let if_group = sch.realize_schedule(self.dump_fsm);
+        let if_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -907,7 +965,8 @@ impl Visitor for TopDownCompileControl {
         sch.calculate_states_while(w, self.early_transitions)?;
 
         // Compile schedule and return the group.
-        let if_group = sch.realize_schedule(self.dump_fsm);
+        let if_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
 
         // Add NODE_ID to compiled group.
         let mut en = ir::Control::enable(if_group);
@@ -949,7 +1008,7 @@ impl Visitor for TopDownCompileControl {
                 _ => {
                     let mut sch = Schedule::from(&mut builder);
                     sch.calculate_states(con, self.early_transitions)?;
-                    sch.realize_schedule(self.dump_fsm)
+                    sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups)
                 }
             };
 
@@ -1020,8 +1079,14 @@ impl Visitor for TopDownCompileControl {
         let mut sch = Schedule::from(&mut builder);
         // Add assignments for the final states
         sch.calculate_states(&control.borrow(), self.early_transitions)?;
-        let comp_group = sch.realize_schedule(self.dump_fsm);
-
+        let comp_group =
+            sch.realize_schedule(self.dump_fsm, &mut self.fsm_groups);
+        if let Some(json_out_file) = &self.dump_fsm_json {
+            let _ = serde_json::to_writer_pretty(
+                json_out_file.get_write(),
+                &self.fsm_groups,
+            );
+        }
         Ok(Action::change(ir::Control::enable(comp_group)))
     }
 }

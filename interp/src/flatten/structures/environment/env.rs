@@ -12,6 +12,7 @@ use crate::{
     errors::{InterpreterError, InterpreterResult},
     flatten::{
         flat_ir::{
+            cell_prototype::CellPrototype,
             prelude::{
                 AssignedValue, AssignmentIdx, BaseIndices, ComponentIdx,
                 ControlNode, GlobalCellIdx, GlobalPortIdx, GlobalPortRef,
@@ -25,6 +26,7 @@ use crate::{
             environment::program_counter::ControlPoint, index_trait::IndexRef,
         },
     },
+    serialization::data_dump::DataDump,
     values::Value,
 };
 use std::fmt::Debug;
@@ -156,12 +158,16 @@ impl CellLedger {
     }
 
     #[must_use]
-    pub(crate) fn as_primitive(&self) -> Option<&dyn Primitive> {
-        if let Self::Primitive { cell_dyn } = self {
-            Some(&**cell_dyn)
-        } else {
-            None
+    pub fn as_primitive(&self) -> Option<&dyn Primitive> {
+        match self {
+            Self::Primitive { cell_dyn } => Some(&**cell_dyn),
+            _ => None,
         }
+    }
+
+    pub fn unwrap_primitive(&self) -> &dyn Primitive {
+        self.as_primitive()
+            .expect("Unwrapped cell ledger as primitive but received component")
     }
 }
 
@@ -200,7 +206,7 @@ pub struct Environment<'a> {
 }
 
 impl<'a> Environment<'a> {
-    pub fn new(ctx: &'a Context) -> Self {
+    pub fn new(ctx: &'a Context, data_map: Option<DataDump>) -> Self {
         let root = ctx.entry_point;
         let aux = &ctx.secondary[root];
 
@@ -219,7 +225,7 @@ impl<'a> Environment<'a> {
 
         let root_node = CellLedger::new_comp(root, &env);
         let root = env.cells.push(root_node);
-        env.layout_component(root);
+        env.layout_component(root, data_map);
 
         env
     }
@@ -232,7 +238,11 @@ impl<'a> Environment<'a> {
     /// 3. cells + ports, primitive
     /// 4. sub-components
     /// 5. ref-cells & ports
-    fn layout_component(&mut self, comp: GlobalCellIdx) {
+    fn layout_component(
+        &mut self,
+        comp: GlobalCellIdx,
+        data_map: Option<DataDump>,
+    ) {
         let ComponentLedger {
             index_bases,
             comp_id,
@@ -240,6 +250,12 @@ impl<'a> Environment<'a> {
             .as_comp()
             .expect("Called layout component with a non-component cell.");
         let comp_aux = &self.ctx.secondary[*comp_id];
+
+        // Insert the component's continuous assignments into the program counter, if non-empty
+        let cont_assigns = self.ctx.primary[*comp_id].continuous_assignments;
+        if !cont_assigns.is_empty() {
+            self.pc.push_continuous_assigns(comp, cont_assigns);
+        }
 
         // first layout the signature
         for sig_port in comp_aux.signature.iter() {
@@ -284,7 +300,9 @@ impl<'a> Environment<'a> {
                         idx
                     );
                 }
-                let cell_dyn = primitives::build_primitive(info, port_base);
+                let cell_dyn = primitives::build_primitive(
+                    info, port_base, self.ctx, &data_map,
+                );
                 let cell = self.cells.push(CellLedger::Primitive { cell_dyn });
 
                 debug_assert_eq!(
@@ -301,7 +319,8 @@ impl<'a> Environment<'a> {
                     cell
                 );
 
-                self.layout_component(cell);
+                // layout sub-component but don't include the data map
+                self.layout_component(cell, None);
             }
         }
 
@@ -326,13 +345,13 @@ impl<'a> Environment<'a> {
 
 // ===================== Environment print implementations =====================
 impl<'a> Environment<'a> {
-    pub fn print_env(&self) {
+    pub fn _print_env(&self) {
         let root_idx = GlobalCellIdx::new(0);
         let mut hierarchy = Vec::new();
-        self.print_component(root_idx, &mut hierarchy)
+        self._print_component(root_idx, &mut hierarchy)
     }
 
-    fn print_component(
+    fn _print_component(
         &self,
         target: GlobalCellIdx,
         hierarchy: &mut Vec<GlobalCellIdx>,
@@ -387,7 +406,7 @@ impl<'a> Environment<'a> {
             let cell_idx = &info.index_bases + cell_off;
 
             if definition.prototype.is_component() {
-                self.print_component(cell_idx, hierarchy);
+                self._print_component(cell_idx, hierarchy);
             } else if self.cells[cell_idx]
                 .as_primitive()
                 .unwrap()
@@ -417,7 +436,7 @@ impl<'a> Environment<'a> {
         println!("  Ref Ports: {}", self.ref_ports.len());
     }
 
-    pub fn print_pc(&self) {
+    pub fn _print_pc(&self) {
         println!("{:?}", self.pc)
     }
 }
@@ -434,12 +453,17 @@ impl<'a> Simulator<'a> {
         Self { env }
     }
 
-    pub fn print_env(&self) {
-        self.env.print_env()
+    pub fn _print_env(&self) {
+        self.env._print_env()
     }
 
+    #[inline]
     pub fn ctx(&self) -> &Context {
         self.env.ctx
+    }
+
+    pub fn _unpack_env(self) -> Environment<'a> {
+        self.env
     }
 }
 
@@ -469,6 +493,10 @@ impl<'a> Simulator<'a> {
     fn get_value(&self, port: &PortRef, comp: GlobalCellIdx) -> &PortValue {
         let port_idx = self.get_global_idx(port, comp);
         &self.env.ports[port_idx]
+    }
+
+    pub(crate) fn get_root_component(&self) -> &ComponentLedger {
+        self.env.cells.first().unwrap().as_comp().unwrap()
     }
 
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
@@ -552,6 +580,15 @@ impl<'a> Simulator<'a> {
                     }
                 }
             })
+            .chain(
+                self.env.pc.continuous_assigns().iter().map(|x| {
+                    ScheduledAssignments::new(x.comp, x.assigns, None)
+                }),
+            )
+            .chain(self.env.pc.with_map().iter().map(|(ctrl_pt, comb_grp)| {
+                let assigns = self.ctx().primary[*comb_grp].assignments;
+                ScheduledAssignments::new(ctrl_pt.comp, assigns, None)
+            }))
             .collect()
     }
 
@@ -564,7 +601,10 @@ impl<'a> Simulator<'a> {
         // program counter as the size
         let mut leaf_nodes = vec![];
 
-        self.env.pc.vec_mut().retain_mut(|node| {
+        let mut new_nodes = vec![];
+        let (mut vecs, mut par_map, mut with_map) = self.env.pc.take_fields();
+
+        vecs.retain_mut(|node| {
             // just considering a single node case for the moment
             match &self.env.ctx.primary[node.control_node_idx] {
                 ControlNode::Seq(seq) => {
@@ -576,10 +616,47 @@ impl<'a> Simulator<'a> {
                         node.mutate_into_next(self.env.ctx)
                     }
                 }
-                ControlNode::Par(_par) => todo!("not ready for par yet"),
+                ControlNode::Par(par) => {
+                    if par_map.contains_key(node) {
+                        let count = par_map.get_mut(node).unwrap();
+                        *count -= 1;
+                        if *count == 0 {
+                            par_map.remove(node);
+                            node.mutate_into_next(self.env.ctx)
+                        } else {
+                            false
+                        }
+                    } else {
+                        par_map.insert(
+                            node.clone(),
+                            par.stms().len().try_into().expect(
+                                "More than (2^16 - 1 threads) in a par block. Are you sure this is a good idea?",
+                            ),
+                        );
+                        new_nodes.extend(
+                            par.stms().iter().map(|x| node.new_retain_comp(*x)),
+                        );
+                        false
+                    }
+                }
                 ControlNode::If(i) => {
                     if i.cond_group().is_some() {
-                        todo!("if statement has a with clause")
+                        if with_map.contains_key(node) {
+                            with_map.remove(node);
+                            return node.mutate_into_next(self.env.ctx);
+                        } else {
+                            let comb_group = i.cond_group().unwrap();
+                            let comb_assigns = ScheduledAssignments::new(node.comp, self.env.ctx.primary[comb_group].assignments, None);
+
+                            with_map.insert(node.clone(), comb_group);
+
+                            // TODO griffin: Sort out a way to make this error less terrible
+                            // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+                            // HAVE NOT BEEN UNDEFINED YET
+                            self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for if statement");
+
+                            // now we fall through and proceed as normal
+                        }
                     }
 
                     let target = GlobalPortRef::from_local(
@@ -605,7 +682,12 @@ impl<'a> Simulator<'a> {
                 }
                 ControlNode::While(w) => {
                     if w.cond_group().is_some() {
-                        todo!("while statement has a with clause")
+                        let comb_group = with_map.entry(node.clone()).or_insert(w.cond_group().unwrap());
+                        let comb_assigns = ScheduledAssignments::new(node.comp, self.env.ctx.primary[*comb_group].assignments, None);
+
+                         // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+                         // HAVE NOT BEEN UNDEFINED YET
+                        self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for while statement");
                     }
 
                     let target = GlobalPortRef::from_local(
@@ -630,6 +712,9 @@ impl<'a> Simulator<'a> {
                         *node = node.new_retain_comp(w.body());
                         true
                     } else {
+                        if w.cond_group().is_some() {
+                            with_map.remove(node);
+                        }
                         // ascend the tree
                         node.mutate_into_next(self.env.ctx)
                     }
@@ -661,6 +746,11 @@ impl<'a> Simulator<'a> {
             }
         });
 
+        self.env.pc.restore_fields(vecs, par_map, with_map);
+
+        // insert all the new nodes from the par into the program counter
+        self.env.pc.vec_mut().extend(new_nodes);
+
         self.undef_all_ports();
 
         for node in &leaf_nodes {
@@ -684,7 +774,9 @@ impl<'a> Simulator<'a> {
             }
         }
 
-        self.simulate_combinational(&leaf_nodes)?;
+        let assigns_bundle = self.get_assignments(&leaf_nodes);
+
+        self.simulate_combinational(&assigns_bundle)?;
 
         for cell in self.env.cells.values_mut() {
             match cell {
@@ -769,9 +861,8 @@ impl<'a> Simulator<'a> {
 
     fn simulate_combinational(
         &mut self,
-        control_points: &[ControlPoint],
+        assigns_bundle: &[ScheduledAssignments],
     ) -> InterpreterResult<()> {
-        let assigns_bundle = self.get_assignments(control_points);
         let mut has_changed = true;
 
         // TODO griffin: rewrite this so that someone can actually read it
@@ -889,9 +980,37 @@ impl<'a> Simulator<'a> {
         Ok(())
     }
 
-    pub fn _main_test(&mut self) {
-        self.env.print_pc();
-        let _ = self.run_program();
-        self.print_env();
+    /// Dump the current state of the environment as a DataDump
+    pub fn dump_memories(&self) -> DataDump {
+        let ctx = self.ctx();
+        let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
+
+        let mut dump = DataDump::new_empty_with_top_level(
+            ctx.lookup_string(entrypoint_secondary.name).clone(),
+        );
+
+        let root = self.get_root_component();
+
+        for (offset, idx) in entrypoint_secondary.cell_offset_map.iter() {
+            let cell_info = &ctx.secondary[*idx];
+            let cell_index = &root.index_bases + offset;
+            let name = ctx.lookup_string(cell_info.name).clone();
+            if let CellPrototype::Memory { width, dims, .. } =
+                &cell_info.prototype
+            {
+                dump.push_memory(
+                    name,
+                    *width as usize,
+                    dims.size(),
+                    dims.as_serializing_dim(),
+                    self.env.cells[cell_index]
+                        .unwrap_primitive()
+                        .dump_memory_state()
+                        .unwrap(),
+                )
+            }
+        }
+
+        dump
     }
 }
