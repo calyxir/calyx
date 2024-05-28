@@ -118,22 +118,13 @@ class ComponentBuilder:
         self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
         return self.this()[name]
 
+    
     def input_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
         """Declare an input port on the component with attributes.
 
         Returns an expression builder for the port.
         """
-
-        attributes = []
-        for attr in attribute_literals:
-            if isinstance(attr, str):
-                attributes.append(ast.PortAttribute(attr))
-            elif isinstance(attr, tuple):
-                attributes.append(ast.PortAttribute(attr[0], attr[1]))
-            else:
-                raise ValueError(f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple.")
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size, attributes))
-        return self.this()[name]
+        return self._port_with_attributes(name, size, True, attribute_literals)
 
     def output(self, name: str, size: int) -> ExprBuilder:
         """Declare an output port on the component.
@@ -143,9 +134,38 @@ class ComponentBuilder:
         self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
         return self.this()[name]
 
+    def output_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
+        """Declare an output port on the component with attributes.
+
+        Returns an expression builder for the port.
+        """
+        return self._port_with_attributes(name, size, False, attribute_literals)
+
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
+
+    def _port_with_attributes(self, name: str, size: int, is_input: bool, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
+        """Should not be called directly.
+        Declare a port on the component with attributes.
+
+        Returns an expression builder for the port.
+        """
+        
+        attributes = []
+        for attr in attribute_literals:
+            if isinstance(attr, str):
+                attributes.append(ast.PortAttribute(attr))
+            elif isinstance(attr, tuple):
+                attributes.append(ast.PortAttribute(attr[0], attr[1]))
+            else:
+                raise ValueError(f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple.")
+        if is_input:
+            self.component.inputs.append(ast.PortDef(ast.CompVar(name), size, attributes))
+        else:
+            self.component.outputs.append(ast.PortDef(ast.CompVar(name), size, attributes))
+        return self.this()[name]
+
 
     def this(self) -> ThisBuilder:
         """Get a handle to the component's `this` cell.
