@@ -1,4 +1,5 @@
 use egglog::{ast::Literal, match_term_app, Term, TermDag};
+use std::borrow::Borrow;
 use std::fs::File;
 use std::io::{Read, SeekFrom};
 use std::io::{Seek, Write};
@@ -57,6 +58,34 @@ impl<'a> EggToCalyx<'a> {
         }
     }
 
+    fn is_static(&mut self, expr: &Term) -> bool {
+        match_term_app!(expr.clone(); {
+            ("Attributes", [mapping]) => {
+                let mut mapping = self.termdag.get(*mapping);
+                'outer: loop {
+                    match_term_app!(mapping; {
+                        ("map-insert", [map, k, _]) => {
+                            let key = self.termdag.get(*k);
+                            if let Term::Lit(Literal::String(key)) = key {
+                                if key.to_string() == "static" {
+                                    return true;
+                                }
+                            }
+                            mapping = self.termdag.get(*map);
+                            continue;
+                        }
+                        ("map-empty", []) => {
+                            break 'outer;
+                        }
+                        (&_, _) => todo!("unexpected: {:?}", expr)
+                    });
+                }
+                false
+            }
+            _ => false
+        })
+    }
+
     /// For now, this only produces the control schedule.
     fn emit_app(
         &mut self,
@@ -84,6 +113,15 @@ impl<'a> EggToCalyx<'a> {
                 'outer: loop {
                     match_term_app!(mapping; {
                         ("map-insert", [map, k, v]) => {
+                            if let Term::Lit(Literal::String(k)) = self.termdag.get(*k) {
+                                if k.to_string() == "static" {
+                                    // Currently, we list `static` control by adding the static attribute
+                                    // However, this is deprecated so we need not add it here. Do we need
+                                    // to instead have static control, similar to Calyx IR?
+                                    mapping = self.termdag.get(*map);
+                                    continue;
+                                }
+                            }
                             write!(f,"@")?;
                             self.emit(f, 0, self.termdag.get(*k))?;
                             if let Term::Lit(Literal::Int(n)) = self.termdag.get(*v) {
@@ -108,6 +146,9 @@ impl<'a> EggToCalyx<'a> {
             ("Par", [attributes, list]) => {
                 write!(f,"{}", " ".repeat(indent_level))?;
                 self.emit(f, 0, self.termdag.get(*attributes))?;
+                if self.is_static(&self.termdag.get(*attributes)) {
+                    write!(f, "static ")?;
+                }
                 writeln!(f,"par {{", )?;
                 self.emit(f, indent_level + 2, self.termdag.get(*list))?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))?;
@@ -116,6 +157,9 @@ impl<'a> EggToCalyx<'a> {
             ("Seq", [attributes, list]) => {
                 write!(f,"{}", " ".repeat(indent_level))?;
                 self.emit(f, 0, self.termdag.get(*attributes))?;
+                if self.is_static(&self.termdag.get(*attributes)) {
+                    write!(f, "static ")?;
+                }
                 writeln!(f,"seq {{")?;
                 self.emit(f, indent_level + 2, self.termdag.get(*list))?;
                 writeln!(f, "{}}}", " ".repeat(indent_level))?;
@@ -124,6 +168,9 @@ impl<'a> EggToCalyx<'a> {
             ("Repeat", [attributes, n, body]) => {
                 write!(f,"{}", " ".repeat(indent_level))?;
                 self.emit(f, 0, self.termdag.get(*attributes))?;
+                if self.is_static(&self.termdag.get(*attributes)) {
+                    write!(f, "static ")?;
+                }
                 write!(f, "repeat ")?;
                 self.emit(f, 0, self.termdag.get(*n))?;
                 writeln!(f, " {{")?;

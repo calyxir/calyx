@@ -1,0 +1,47 @@
+// -b egg-optimize -p well-formed
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/binary_operators.futil";
+
+component main() -> () {
+  cells {
+    add = std_add(32);
+    mult = std_mult_pipe(32);
+    r0 = std_reg(32);
+    r1 = std_reg(32);
+  }
+  wires {
+    group A<"promotable"=1> {
+      add.left = 32'd1;
+      add.right = 32'd2;
+      r0.in = add.out;
+      r0.write_en = 1'd1;
+      A[done] = r0.done;
+    }
+    group B<"promotable"=1> {
+      add.left = 32'd1;
+      add.right = 32'd2;
+      r0.in = add.out;
+      r0.write_en = 1'd1;
+      B[done] = r0.done;
+    }
+    group C<"promotable"=1> {
+      add.left = 32'd1;
+      add.right = 32'd2;
+      r0.in = add.out;
+      r0.write_en = 1'd1;
+      C[done] = r0.done;
+    }
+    group D<"promotable"=1> {
+      add.left = 32'd1;
+      add.right = 32'd2;
+      r0.in = add.out;
+      r0.write_en = 1'd1;
+      D[done] = r0.done;
+    }
+
+  }
+  control {
+    par { A; B; C; D; }
+  }
+}

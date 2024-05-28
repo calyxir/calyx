@@ -106,10 +106,10 @@ impl EggOptimizeBackend {
                     fan-out 
                     par-to-seq
                     split-seq
-                    static-compaction
                     analysis
                     collapse-control
-                ) 
+                )
+                (repeat 8 analysis static-compaction)
                 (run)
             )
         )"#

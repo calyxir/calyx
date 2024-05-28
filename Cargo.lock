@@ -126,6 +126,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5ad32ce52e4161730f7098c077cd2ed6229b5804ccf99e5366be1ab72a98b4e1"
 
 [[package]]
+name = "archery"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8967cd1cc9e9e1954f644e14fbd6042fe9a37da96c52a67e44a2ac18261f8561"
+dependencies = [
+ "static_assertions",
+ "triomphe",
+]
+
+[[package]]
 name = "argh"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -400,8 +410,10 @@ dependencies = [
  "linked-hash-map",
  "log",
  "main_error",
+ "ordered-float 4.2.0",
  "petgraph",
  "quick-xml",
+ "rpds",
  "serde",
  "serde_json",
  "serde_sexpr",
@@ -1024,7 +1036,7 @@ dependencies = [
  "num-integer",
  "num-rational",
  "num-traits",
- "ordered-float",
+ "ordered-float 3.9.2",
  "regex",
  "rustc-hash",
  "serde_json",
@@ -1042,7 +1054,7 @@ dependencies = [
  "graphviz-rust",
  "indexmap 2.2.4",
  "once_cell",
- "ordered-float",
+ "ordered-float 3.9.2",
  "serde",
  "serde_json",
 ]
@@ -1999,6 +2011,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a76df7075c7d4d01fdcb46c912dd17fba5b60c78ea480b475f2b6ab6f666584e"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2433,6 +2454,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "321e5e41b3b192dab6f1e75b9deacb6688b4b8c5e68906a78e8f43e7c2887bb5"
 dependencies = [
  "dirs",
+]
+
+[[package]]
+name = "rpds"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0e15515d3ce3313324d842629ea4905c25a13f81953eadb88f85516f59290a4"
+dependencies = [
+ "archery",
 ]
 
 [[package]]
@@ -3206,6 +3236,12 @@ dependencies = [
  "cc",
  "regex",
 ]
+
+[[package]]
+name = "triomphe"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "859eb650cfee7434994602c3a68b25d77ad9e68c8a6cd491616ef86661382eb3"
 
 [[package]]
 name = "typed-arena"

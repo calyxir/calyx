@@ -4,7 +4,7 @@
 
 ; Cell
 (datatype _Cell)
-(function Cell (String) _Cell :cost 1)
+(function Cell (String) _Cell)
 
 ; Set[Cell]
 (sort CellSetBase (Set _Cell))
@@ -29,10 +29,10 @@
 (function Nil () List)
 
 ; Control
-(function Enable (_Group _Attributes) Control :cost 1)
-(function Seq (_Attributes List) Control :cost 100)
-(function Par (_Attributes List) Control :cost 10)
-(function Repeat (_Attributes i64 Control) Control :cost 1)
+(function Enable (_Group _Attributes) Control)
+(function Seq (_Attributes List) Control)
+(function Par (_Attributes List) Control)
+(function Repeat (_Attributes i64 Control) Control)
 
 ; Set[Control]
 (sort ControlSetBase (Set Control))
