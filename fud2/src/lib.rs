@@ -195,8 +195,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         )?;
 
         // dummy rule to force ninja to build the testbench
-        e.rsrc("dummy.sh")?;
-        e.rule("dummy", "bash dummy.sh $in > $out")?;
+        e.rule("dummy", "sh -c 'cat $$0' $in > $out")?;
 
         Ok(())
     });
@@ -321,7 +320,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         }
 
         // dummy command to make sure custom testbench is created but not emitted as final answer
-        e.build_cmd(&[output], "dummy", &[tmp_out, testbench], &["dummy.sh"])?;
+        e.build_cmd(&[output], "dummy", &[tmp_out, testbench], &[])?;
 
         Ok(())
     }
