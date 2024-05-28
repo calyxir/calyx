@@ -168,7 +168,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         )?;
         Ok(())
     });
-    // [Should be default] Setup for using rsrc/tb.sv as testbench (and managing memories within the design)
+    // [Default] Setup for using rsrc/tb.sv as testbench (and managing memories within the design)
     let standalone_testbench_setup =
         bld.setup("Standalone Testbench Setup", |e| {
             // Standalone Verilog testbench.
