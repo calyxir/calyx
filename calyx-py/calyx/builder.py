@@ -463,9 +463,10 @@ class ComponentBuilder:
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
 
-    def const_mult(self, size: int, const: int, name: Optional[str] = None):
+    def const_mult(self, size: int, const: int, name: Optional[str] = None) -> CellBuilder:
         """Generate a StdConstMult cell."""
         name = name or self.generate_name("const_mult")
+        self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.const_mult(size, const))
         
     def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
