@@ -170,6 +170,11 @@ jobs:
         cd frontends/mrxl
         FLIT_ROOT_INSTALL=1 flit install --symlink
 
+    - name: Clean
+      uses: actions-rs/cargo@v1
+      with:
+        command: clean
+
     - name: Build
       uses: actions-rs/cargo@v1
       with:
