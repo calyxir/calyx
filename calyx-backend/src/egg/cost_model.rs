@@ -278,6 +278,9 @@ impl<'a> Extractor<'a> {
                 term,
             };
         }
+        if node_cost.unwrap() > 0 {
+            log::warn!("{}: {}", nid.clone(), node_cost.unwrap());
+        }
 
         let mut costs = HashMap::<ClassId, Cost>::new();
         let mut total: i128 = node_cost.unwrap();
