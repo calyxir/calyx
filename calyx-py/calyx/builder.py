@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Dict, Union, Optional, List
+from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
 
@@ -116,6 +116,23 @@ class ComponentBuilder:
         Returns an expression builder for the port.
         """
         self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
+        return self.this()[name]
+
+    def input_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
+        """Declare an input port on the component with attributes.
+
+        Returns an expression builder for the port.
+        """
+
+        attributes = []
+        for attr in attribute_literals:
+            if isinstance(attr, str):
+                attributes.append(ast.PortAttribute(attr))
+            elif isinstance(attr, tuple):
+                attributes.append(ast.PortAttribute(attr[0], attr[1]))
+            else:
+                raise ValueError(f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple.")
+        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size, attributes))
         return self.this()[name]
 
     def output(self, name: str, size: int) -> ExprBuilder:
