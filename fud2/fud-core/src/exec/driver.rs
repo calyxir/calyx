@@ -252,6 +252,13 @@ impl DriverBuilder {
         })
     }
 
+    pub fn find_state(&self, needle: &str) -> Option<StateRef> {
+        self.states
+            .iter()
+            .find(|(_, State { name, .. })| needle == name)
+            .map(|(state_ref, _)| state_ref)
+    }
+
     fn add_op<T: run::EmitBuild + 'static>(
         &mut self,
         name: &str,

@@ -17,6 +17,9 @@ fud-core = { path = "fud-core", version = "0.0.2" }
 anyhow.workspace = true
 manifest-dir-macros = "0.1"
 include_dir = "0.7"
+starlark = "0.12.0"
+allocative = "0.3.3"
+derive_more = "0.99.17"
 
 [lib]
 name = "fud2"
