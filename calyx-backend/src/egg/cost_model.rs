@@ -27,6 +27,24 @@ pub fn get_bit_width_from(states: u64) -> u64 {
 
 type Cost = i128;
 
+fn emit_list(expr: &egglog::Term, termdag: &TermDag) -> Vec<Term> {
+    let mut control = vec![];
+
+    let mut list = expr.clone();
+
+    loop {
+        egglog::match_term_app!(list.clone(); {
+            ("Cons", [x, xs]) => {
+                let head = termdag.get(*x);
+                control.push(head);
+                list = termdag.get(*xs);
+            }
+            ("Nil", []) => return control,
+            _ => panic!("unexpected")
+        });
+    }
+}
+
 fn emit_attribute(
     expr: &egglog::Term,
     termdag: &TermDag,
@@ -69,8 +87,6 @@ fn emit_attribute(
 pub(crate) struct EgraphAnalysis<'a> {
     pub(crate) egraph: &'a EGraph,
     pub(crate) termdag: &'a mut egglog::TermDag,
-    /// Mapping from NodeId to the respective latency for control structure.
-    pub(crate) latencies: HashMap<NodeId, i64>,
 }
 
 impl<'a> EgraphAnalysis<'a> {
@@ -78,13 +94,7 @@ impl<'a> EgraphAnalysis<'a> {
         egraph: &'a EGraph,
         termdag: &'a mut TermDag,
     ) -> EgraphAnalysis<'a> {
-        let latencies = Self::initialize_latencies(egraph, termdag);
-
-        EgraphAnalysis {
-            egraph,
-            termdag,
-            latencies,
-        }
+        EgraphAnalysis { egraph, termdag }
     }
 
     fn update_children(
@@ -104,48 +114,6 @@ impl<'a> EgraphAnalysis<'a> {
             children.push(term);
         }
         id_children.insert(nid.clone(), children);
-    }
-
-    fn initialize_latencies(
-        egraph: &EGraph,
-        termdag: &mut egglog::TermDag,
-    ) -> HashMap<NodeId, i64> {
-        let mut latencies = HashMap::new();
-        let mut id_children = HashMap::new();
-        for (node_id, node) in &egraph.nodes {
-            match node.op.as_str() {
-                "Enable" => {
-                    if let Some(anode_id) = node.children.last() {
-                        let anode = &egraph[anode_id];
-                        let op = &node.op;
-
-                        if !id_children.contains_key(anode_id) {
-                            Self::update_children(
-                                anode,
-                                anode_id,
-                                &egraph,
-                                &mut id_children,
-                                termdag,
-                            );
-                        }
-                        let children = &id_children[anode_id];
-
-                        let term = termdag.app(op.into(), children.to_vec());
-                        let attributes = emit_attribute(&term, termdag);
-                        if let Some(latency) = attributes.get("promotable") {
-                            latencies.insert(node_id.clone(), *latency);
-                        }
-                        if let Some(latency) = attributes.get("static") {
-                            // Both a "promotable" and "static" latency would be odd...
-                            assert!(!latencies.contains_key(node_id));
-                            latencies.insert(node_id.clone(), *latency);
-                        }
-                    }
-                }
-                _ => (),
-            }
-        }
-        latencies
     }
 }
 
@@ -187,16 +155,25 @@ impl<'a> Extractor<'a> {
         parents
     }
 
-    fn cost(&self, nid: &NodeId, children: &Vec<CostPoint>) -> Option<i128> {
+    fn cost(
+        &mut self,
+        nid: &NodeId,
+        children: &Vec<CostPoint>,
+        costs: &mut HashMap<ClassId, CostPoint>,
+    ) -> Option<i128> {
         let node = &self.egraph()[nid];
         let cid = self.egraph().nid_to_cid(nid);
+        let leaves = &node.children;
 
+        let calculate = |rs: Vec<u64>| rs.iter().sum::<u64>() as i128;
+
+        // TODO(cgyurgyik): Take sharing into account...
+        let mut registers = vec![];
         match node.op.as_str() {
             "Seq" => {
                 let attributes = children.first().unwrap();
                 let attributes =
                     emit_attribute(&attributes.term, self.analysis.termdag);
-                let mut registers = vec![];
                 if let Some(latency) = attributes.get("static") {
                     // The register size is equivalent to log2(latency)
                     registers.push(get_bit_width_from(*latency as u64));
@@ -206,23 +183,66 @@ impl<'a> Extractor<'a> {
                     // where N is the number of "states" in the FSM. Additional
                     let length =
                         emit_list(&children.term, self.analysis.termdag).len();
-                    registers.push(get_bit_width_from(length));
+                    registers.push(get_bit_width_from(length as u64));
                 }
-
-                log::warn!("[cost] Seq: {:?}", registers);
-                Some(-1000)
+                Some(calculate(registers))
             }
-            "Par" => Some(10),
-            "Repeat" => Some(10),
-            "Cons" => Some(0),
-            "Enable" => {
-                let point = children.last().unwrap();
+            "Par" => {
+                let attributes = children.first().unwrap();
                 let attributes =
-                    emit_attribute(&point.term, self.analysis.termdag);
-                if let Some(latency) = attributes.get("promotable") {
-                    return Some(*latency as i128);
+                    emit_attribute(&attributes.term, self.analysis.termdag);
+                if let Some(latency) = attributes.get("static") {
+                    // The register size is equivalent to log2(latency)
+                    registers.push(get_bit_width_from(*latency as u64));
+                } else {
+                    let children = children.last().unwrap();
+                    // Every non-enalbe is considered a state.
+                    let list = emit_list(&children.term, self.analysis.termdag);
+                    let mut length = list
+                        .iter()
+                        .filter(|term| {
+                            if let Term::App(op, _) = term {
+                                return op.as_str() != "Enable";
+                            }
+                            true
+                        })
+                        .collect_vec()
+                        .len();
+                    if list.len() != length {
+                        length += 1; // ...for any enables that will be compiled together.
+                    }
+                    registers.push(get_bit_width_from(length as u64));
                 }
-                Some(1)
+                Some(calculate(registers))
+            }
+            "Repeat" => {
+                let attributes = children.first().unwrap();
+                let attributes =
+                    emit_attribute(&attributes.term, self.analysis.termdag);
+                if let Some(latency) = attributes.get("static") {
+                    // The register size is equivalent to log2(latency)
+                    registers.push(get_bit_width_from(*latency as u64));
+                } else {
+                    // A dynamic repeat is compiled into `while { seq { ... } }`.
+                    let child = leaves.last().unwrap();
+                    return Some(
+                        self.calculate_cost_point(child.clone(), costs).total,
+                    );
+                }
+                // let repeat = children.get(1).unwrap();
+                // if let Term::Lit(Literal::Int(N)) = repeat.term {}
+                Some(calculate(registers))
+            }
+            "Cons" => Some(0),
+            "Nil" => Some(0),
+            "Enable" => {
+                // let point = children.last().unwrap();
+                // let attributes =
+                //     emit_attribute(&point.term, self.analysis.termdag);
+                // if let Some(latency) = attributes.get("promotable") {
+                //     return Some(*latency as i128);
+                // }
+                Some(0)
             }
             _ => None,
         }
@@ -260,7 +280,7 @@ impl<'a> Extractor<'a> {
             };
         }
 
-        self.get_node_cost(nid, cid, &child_costs)
+        self.get_node_cost(nid, cid, &child_costs, costs)
     }
 
     fn get_node_cost(
@@ -268,13 +288,14 @@ impl<'a> Extractor<'a> {
         nid: NodeId,
         cid: &ClassId,
         child_costs: &Vec<CostPoint>,
+        costs: &mut HashMap<ClassId, CostPoint>,
     ) -> CostPoint {
         let node = &self.egraph()[&nid];
         let cid = self.egraph().nid_to_cid(&nid);
         let op = &node.op;
 
         let term = self.get_term(op, child_costs);
-        let node_cost = self.cost(&nid, child_costs);
+        let node_cost = self.cost(&nid, child_costs, costs);
         if node_cost.is_none() {
             return CostPoint {
                 total: 0,
@@ -360,7 +381,6 @@ pub fn extract(
     }
 
     while let Some(nid) = worklist.pop() {
-        log::warn!("   <-- {}", nid);
         let cid = extractor.egraph().nid_to_cid(&nid);
         let node = &extractor.egraph()[&nid];
 
@@ -377,11 +397,13 @@ pub fn extract(
             let cost_point =
                 extractor.calculate_cost_point(nid.clone(), &mut costs);
             if cost_point.total < previous_cost {
-                log::warn!(
-                    "cost: {} less than previous: {}",
-                    cost_point.total,
-                    previous_cost
-                );
+                if previous_cost != i128::max_value() {
+                    log::warn!(
+                        "cost: {} less than previous: {}",
+                        cost_point.total,
+                        previous_cost
+                    );
+                }
                 costs.insert(cid.clone(), cost_point);
                 for parent in &parent_index[cid] {
                     worklist.insert(parent.clone());

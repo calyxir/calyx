@@ -1,5 +1,6 @@
 use calyx_frontend::GetAttributes;
 use calyx_ir::{self as ir};
+use core::num;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::io::{self};
@@ -256,6 +257,22 @@ impl ToEggPrinter {
                 Self::write_static_control_list(
                     f, "Par", stmts, attr, *latency,
                 )?;
+                Ok(())
+            }
+            ir::StaticControl::Repeat(calyx_ir::StaticRepeat {
+                body,
+                num_repeats,
+                latency,
+                ..
+            }) => {
+                write!(
+                    f,
+                    "(Repeat {} {} ",
+                    Self::format_attributes(attr, Some(*latency), None),
+                    num_repeats
+                )?;
+                Self::write_static_control(body, f)?;
+                write!(f, ")")?;
                 Ok(())
             }
             _ => todo!("`static control`: {:?} is not implemented", control),

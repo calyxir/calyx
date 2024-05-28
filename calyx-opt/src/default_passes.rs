@@ -147,6 +147,8 @@ impl PassManager {
             ["validate", "pre-opt", "compile", "post-opt", "lower",]
         );
 
+        register_alias!(pm, "egg", ["validate", "pre-opt",]);
+
         // Compilation flow with no optimizations enables
         register_alias!(
             pm,

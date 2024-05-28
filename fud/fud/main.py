@@ -61,21 +61,21 @@ def register_stages(registry):
     registry.register(
         futil.CalyxStage(
             "egg",
-            "-b egg -p well-formed",
+            "-b egg -p egg",
             "Compile Calyx to Egglog",
         )
     )
     registry.register(
         futil.CalyxStage(
             "egg-optimize",
-            "-b egg-optimize -p well-formed",
+            "-b egg-optimize -p egg",
             "Compile Calyx to Egglog, optimize, and go back to Calyx",
         )
     )
     registry.register(
         futil.CalyxStage(
             "egg-debug",
-            "-b egg-optimize -p well-formed --display true",
+            "-b egg-optimize -p egg --display true",
             "Compile Calyx to Egglog, optimize, and display the e-graph.",
         )
     )
