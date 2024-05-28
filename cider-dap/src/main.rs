@@ -3,14 +3,13 @@ mod error;
 
 use adapter::MyAdapter;
 use dap::events::{ExitedEventBody, StoppedEventBody, ThreadEventBody};
+use dap::prelude::*;
 use dap::responses::{
     ContinueResponse, ScopesResponse, SetBreakpointsResponse,
     SetExceptionBreakpointsResponse, StackTraceResponse, ThreadsResponse,
 };
-use error::MyAdapterError;
-
-use dap::prelude::*;
 use error::AdapterResult;
+use error::MyAdapterError;
 use slog::{info, Drain};
 use std::fs::OpenOptions;
 use std::io::{stdin, stdout, BufReader, BufWriter, Read, Write};

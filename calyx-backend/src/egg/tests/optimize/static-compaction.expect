@@ -6,43 +6,42 @@ import "primitives/memories/seq.futil";
 
 component main() -> () {
   cells {
-    a_reg = std_reg(32);
-    b_reg = std_reg(32);
-    c_reg = std_reg(32);
-    d_reg = std_reg(32);
-    a = std_add(32);
-    ud = undef(1);
+    @data a_reg = std_reg(32);
+    @data b_reg = std_reg(32);
+    @data c_reg = std_reg(32);
+    @data a = std_add(32);
+    @control ud = undef(1);
+    @generated comb_reg = std_reg(32);
   }
   wires {
-    group A<"promotable"=1> {
-      a_reg.in = 32'd5;
+    static<9> group no-op {
+    }
+    static<1> group invoke00 {
       a_reg.write_en = 1'd1;
-      A[done] = a_reg.done;
+      a_reg.in = 32'd5;
     }
-    group B<"promotable"=10> {
-      b_reg.in = 32'd10;
-      b_reg.write_en = 1'd1;
-      B[done] = ud.out;
-    }
-    group C<"promotable"=1> {
-      a.left = a_reg.out;
-      a.right = b_reg.out;
-      c_reg.in = a.out;
+    static<1> group invoke10 {
       c_reg.write_en = 1'd1;
-      C[done] = c_reg.done;
+      c_reg.in = a.out;
+      a.right = b_reg.out;
+      a.left = a_reg.out;
     }
-    group D<"promotable"=10> {
-      d_reg.in = a_reg.out;
-      d_reg.write_en = 1'd1;
-      D[done] = ud.out;
+    static<10> group B0 {
+      b_reg.write_en = 1'd1;
+      b_reg.in = 32'd10;
+    }
+    static<10> group D0 {
     }
   }
   control {
-    @promotable(22) seq {
-      @promotable A;
-      @promotable(10) B;
-      @promotable C;
-      @promotable(10) D;
+    @static(11) @promoted static par {
+      @static(11) static seq {
+        invoke00;
+        no-op;
+        invoke10;
+      }
+      @NODE_ID(2) B0;
+      @NODE_ID(4) D0;
     }
   }
 }

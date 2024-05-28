@@ -44,14 +44,14 @@ pub fn extract_egglog(
     });
 
     if display {
-        // let serialized = egraph.serialize_for_graphviz(true, 100, 100);
-        // let file = tempfile::NamedTempFile::new().unwrap();
-        // let path = file.into_temp_path().with_extension("svg");
-        // serialized.to_svg_file(path.clone()).unwrap();
-        // std::process::Command::new("open")
-        //     .arg(path.to_str().unwrap())
-        //     .output()
-        //     .unwrap();
+        let serialized = egraph.serialize_for_graphviz(true, 100, 100);
+        let file = tempfile::NamedTempFile::new().unwrap();
+        let path = file.into_temp_path().with_extension("svg");
+        serialized.to_svg_file(path.clone()).unwrap();
+        std::process::Command::new("open")
+            .arg(path.to_str().unwrap())
+            .output()
+            .unwrap();
     }
 
     let mut termdag = TermDag::default();
@@ -66,13 +66,13 @@ pub fn extract_egglog(
     let (_, extracted) = egraph.extract(value, &mut termdag, &sort);
 
     if display {
-        cost_model::extract(identifier, &mut egraph, &mut termdag);
-        // println!("   -------------RUN REPORT-------------  ");
-        // print!("{}", egraph.get_overall_run_report());
-        // println!("   ------------------------------------   ");
+        println!("   -------------RUN REPORT-------------  ");
+        print!("{}", egraph.get_overall_run_report());
+        println!("   ------------------------------------   ");
     }
 
-    (extracted, termdag)
+    let (term, _) = cost_model::extract(identifier, &mut egraph, &mut termdag);
+    (term, termdag)
 }
 
 pub fn extract_multiple_egglog(

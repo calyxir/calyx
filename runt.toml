@@ -547,12 +547,14 @@ paths = [
   "calyx-backend/src/egg/tests/optimize/*.futil", 
   "calyx-backend/src/egg/tests/conversion/*.futil",
 ]
+# The serialize-egg stage emits a smattering of 
+# wordy warnings, so we redirect STDERR. 
 cmd = """
 flags=$(head -n 1 {} | cut -c 3-)
-./target/debug/calyx {} $flags
+./target/debug/calyx {} $flags 2> /dev/null
 """
 
-# egg correctness tests (no Calyx optimizations).
+# egg correctness tests.
 [[tests]]
 name = "egg correctness"
 paths = ["calyx-backend/src/egg/tests/correctness/egg/*.futil"]
@@ -562,12 +564,11 @@ fud exec --from calyx --to jq \
          --through dat \
          --through verilog \
          -s verilog.data {}.data \
-         -s calyx.flags "-p compile-repeat -p no-opt" \
          {} -q
 """
 
 [[tests]]
-name = "egg evaluation (calyx correctness)"
+name = "egg evaluation (calyx correctness, for comparison)"
 paths = ["calyx-backend/src/egg/tests/correctness/calyx/*.futil"]
 cmd = """
 fud exec --from calyx --to jq \

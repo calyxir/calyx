@@ -77,7 +77,22 @@ impl<'a> EggToCalyx<'a> {
                         ("map-empty", []) => {
                             break 'outer;
                         }
-                        (&_, _) => todo!("unexpected: {:?}", expr)
+                        ("AttributeMap", children) => {
+                            // ["promotable", 1, ...] => [("promotable", 1), ...]
+                            let (ks, _): (Vec<_>, Vec<_>) = children
+                             .into_iter()
+                                .enumerate()
+                                .partition(|(i, _)| { i % 2 == 0});
+
+                            return ks.iter().map(|(_, v)| { v }).any(|k| {
+                                let key = self.termdag.get(**k);
+                                if let Term::Lit(Literal::String(key)) = key {
+                                    return key.to_string() == "static";
+                                }
+                                false
+                            });
+                        }
+                        x => todo!("{:?}", x)
                     });
                 }
                 false
@@ -110,8 +125,35 @@ impl<'a> EggToCalyx<'a> {
             }
             ("Attributes", [mapping]) => {
                 let mut mapping = self.termdag.get(*mapping);
+
                 'outer: loop {
                     match_term_app!(mapping; {
+                        ("Attributes", [map]) => {
+                            mapping = self.termdag.get(*map);
+                            continue;
+                        }
+                        ("AttributeMap", children) => {
+                            // ["promotable", 1, ...] => [("promotable", 1), ...]
+                            let (ks, vs): (Vec<_>, Vec<_>) = children
+                             .into_iter()
+                                .enumerate()
+                                .partition(|(i, _)| { i % 2 == 0});
+                            let ks: Vec<_> = ks.iter().map(|(_, v)| { v }).collect();
+                            let vs: Vec<_> = vs.iter().map(|(_, v)| { v }).collect();
+
+                            // Parse these properly.
+                            for (k, v) in  ks.iter().zip(vs.iter()) {
+                                write!(f,"@")?;
+                                self.emit(f, 0, self.termdag.get(***k))?;
+                                if let Term::Lit(Literal::Int(n)) = self.termdag.get(***v) {
+                                    if n > 1 {
+                                        write!(f,"({})", n)?;
+                                    }
+                                }
+                                write!(f," ")?;
+                            }
+                            break 'outer;
+                        }
                         ("map-insert", [map, k, v]) => {
                             if let Term::Lit(Literal::String(k)) = self.termdag.get(*k) {
                                 if k.to_string() == "static" {
@@ -126,9 +168,7 @@ impl<'a> EggToCalyx<'a> {
                             self.emit(f, 0, self.termdag.get(*k))?;
                             if let Term::Lit(Literal::Int(n)) = self.termdag.get(*v) {
                                 if n > 1 {
-                                    write!(f,"(")?;
-                                    self.emit(f, 0, self.termdag.get(*v))?;
-                                    write!(f,")")?;
+                                    write!(f,"({})", n)?;
                                 }
                             }
                             write!(f," ")?;
@@ -138,7 +178,7 @@ impl<'a> EggToCalyx<'a> {
                         ("map-empty", []) => {
                             break 'outer;
                         }
-                        (&_, _) => todo!("unexpected: {:?}", expr)
+                        x => todo!("{:?}", x.clone())
                     });
                 }
                 Ok(())
@@ -185,7 +225,7 @@ impl<'a> EggToCalyx<'a> {
             ("Nil", []) => {
                 Ok(())
             }
-            (&_, _) => todo!("unexpected: {:?}", expr)
+            (&_, _) => todo!("{:?}", expr)
         })
     }
 }

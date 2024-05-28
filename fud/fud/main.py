@@ -76,7 +76,7 @@ def register_stages(registry):
         futil.CalyxStage(
             "egg-debug",
             "-b egg-optimize -p egg --display true",
-            "Compile Calyx to Egglog, optimize, and display the e-graph.",
+            "Compile Calyx to Egglog, optimize, and display the e-graph and other debug information.",
         )
     )
     registry.register(

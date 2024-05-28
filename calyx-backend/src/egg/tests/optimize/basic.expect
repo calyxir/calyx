@@ -6,32 +6,34 @@ import "primitives/memories/seq.futil";
 
 component main() -> () {
   cells {
-    add = std_add(32);
-    mult = std_mult_pipe(32);
-    r0 = std_reg(32);
-    r1 = std_reg(32);
+    @data add = std_add(32);
+    @data mult = std_mult_pipe(32);
+    @data r0 = std_reg(32);
+    @data r1 = std_reg(32);
+    @generated comb_reg = std_reg(32);
   }
   wires {
-    group A<"promotable"=1> {
-      add.left = 32'd1;
-      add.right = 32'd2;
-      r0.in = add.out;
-      r0.write_en = 1'd1;
-      A[done] = r0.done;
-    }
-    group B {
-      mult.left = 32'd1;
+    static<3> group invoke10 {
+      mult.go = 1'd1;
       mult.right = 32'd2;
-      r1.in = mult.out;
-      mult.go = !mult.done ? 1'd1;
-      r1.write_en = mult.done;
-      B[done] = r1.done;
+      mult.left = 32'd1;
+    }
+    static<1> group invoke20 {
+      r0.write_en = 1'd1;
+      r0.in = mult.out;
+    }
+    static<1> group invoke00 {
+      r0.write_en = 1'd1;
+      r0.in = add.out;
+      add.right = 32'd2;
+      add.left = 32'd1;
     }
   }
   control {
-    seq {
-      @promotable A;
-      B;
+    @static(5) static seq {
+      invoke00;
+      invoke10;
+      invoke20;
     }
   }
 }

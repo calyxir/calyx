@@ -1,4 +1,4 @@
-// -b egg-optimize -p well-formed
+// -b egg-optimize -p egg
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
