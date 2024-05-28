@@ -20,7 +20,7 @@ name_key = "name"
 #This returns an array based on dimensions of memory
 address_width_key = "idx_sizes"
 
-
+#TODO (nathanielnrn): Should we make these comb groups? 
 def add_address_translator(prog, mem):
     address_width = mem[address_width_key][0]
     data_width = mem[width_key]
@@ -34,11 +34,12 @@ def add_address_translator(prog, mem):
     #Cells
     #XRT expects 64 bit address.
     address_mult = address_translator.const_mult(64, width_in_bytes(data_width), f"mul_{name}")
+    pad_input_addr = address_translator.pad(address_width, 64, f"pad_input_addr")
 
 
     #Assignment
     with address_translator.continuous:
-        address_mult._in = address_translator.this()["calyx_mem_addr"]
+        address_mult.in_ = pad_input_addr.out
         address_translator.this()["axi_address"] = address_mult.out
 
 
@@ -105,7 +106,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         xhandshake_occurred.write_en = (~xhandshake_occurred.out) @ 1
 
         # Drive output signals for transfer
-        m_to_s_address_channel.this()[f"{x}ADDR"] = m_to_s_address_channel.this()["axi_addr"]
+        m_to_s_address_channel.this()[f"{x}ADDR"] = m_to_s_address_channel.this()["axi_address"]
         # This is taken from mem size, we assume the databus width is the size
         # of our memory cell and that width is a power of 2
         # TODO(nathanielnrn): convert to binary instead of decimal
@@ -217,6 +218,7 @@ def add_read_channel(prog, mem):
     # Control
     invoke_n_RLAST = invoke(n_RLAST, in_in=1)
     # invoke_bt_reg = invoke(bt_reg, in_in=0)
+    
     # Could arguably get rid of this while loop for the dynamic verison, but this
     # matches nicely with non dynamic version and conforms to spec,
     # and will be easier to exten to variable length dynamic transfers in the future
@@ -432,8 +434,8 @@ def add_write_controller(prog, mem):
     add_comp_params(write_controller, write_controller_inputs, write_controller_outputs)
 
     #Cells
-    simple_aw_channel = write_controller.cell(f"aw_channel_{name}", prog.get_component("m_ar_channel"))
-    simple_write_channel = write_controller.cell(f"write_channel_{name}", prog.get_component("m_read_channel"))
+    simple_aw_channel = write_controller.cell(f"aw_channel_{name}", prog.get_component("m_aw_channel"))
+    simple_write_channel = write_controller.cell(f"write_channel_{name}", prog.get_component("m_write_channel"))
     simple_bresp_channel = write_controller.cell(f"bresp_channel_{name}", prog.get_component("m_bresp_channel"))
     # No groups necesarry
 
@@ -463,7 +465,7 @@ def add_write_controller(prog, mem):
 
     simple_bresp_invoke = invoke(
         simple_bresp_channel,
-        in_BRESP=write_controller.this()["BRESP"],
+        in_BVALID=write_controller.this()["BVALID"],
         out_BREADY=write_controller.this()["BREADY"],
     )
 
@@ -521,8 +523,11 @@ def add_axi_seq_mem(prog, mem):
 
     # Cells
     axi_seq_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
+    axi_seq_mem.cell(f"read_controller_{name}", prog.get_component(f"read_controller_{name}"))
+    axi_seq_mem.cell(f"write_controller_{name}", prog.get_component(f"write_controller_{name}"))
 
-
+    #Control
+    
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
 def add_main_comp(prog, mems):
@@ -756,6 +761,8 @@ def build():
     add_write_channel(prog, mems[0])
     add_bresp_channel(prog, mems[0])
     add_read_controller(prog, mems[0])
+    add_write_controller(prog, mems[0])
+    add_axi_seq_mem(prog, mems[0])
     add_main_comp(prog, mems)
     return prog.program
 
