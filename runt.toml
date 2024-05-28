@@ -534,14 +534,14 @@ python3 yxi/axi-calyx/axi-generator.py {}
 """
 
 [[tests]]
-name = "fud2 axi-wrapper invocation"
+name = "fud2 AXI wrapper invocation"
 paths = ["yxi/tests/fud2/seq-mem-vec-add.futil"]
 cmd = """
 fud2 {} --to calyx --through axi-wrapped
 """
 
 [[tests]]
-name = "fud2 axi-wrapped to verilog"
+name = "fud2 AXI-wrapped to verilog"
 paths = ["yxi/tests/fud2/seq-mem-vec-add-axi-wrapped.futil"]
 cmd = """
 fud2 {} --from calyx --to verilog-noverify 

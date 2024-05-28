@@ -1140,16 +1140,6 @@ module std_le #(
   assign out = left <= right;
 endmodule
 
-module std_lsh #(
-    parameter WIDTH = 32
-) (
-   input wire               logic [WIDTH-1:0] left,
-   input wire               logic [WIDTH-1:0] right,
-   output logic [WIDTH-1:0] out
-);
-  assign out = left << right;
-endmodule
-
 module std_rsh #(
     parameter WIDTH = 32
 ) (
@@ -1234,6 +1224,16 @@ module std_add #(
 assign out = left + right;
 endmodule
 
+module std_lsh #(
+    parameter WIDTH = 32
+) (
+   input wire logic [WIDTH-1:0] left,
+   input wire logic [WIDTH-1:0] right,
+   output logic [WIDTH-1:0] out
+);
+assign out = left << right;
+endmodule
+
 module std_reg #(
     parameter WIDTH = 32
 ) (
@@ -1247,6 +1247,27 @@ module std_reg #(
 always_ff @(posedge clk) begin
     if (reset) begin
        out <= 0;
+       done <= 0;
+    end else if (write_en) begin
+      out <= in;
+      done <= 1'd1;
+    end else done <= 1'd0;
+  end
+endmodule
+
+module init_one_reg #(
+    parameter WIDTH = 32
+) (
+   input wire logic [WIDTH-1:0] in,
+   input wire logic write_en,
+   input wire logic clk,
+   input wire logic reset,
+   output logic [WIDTH-1:0] out,
+   output logic done
+);
+always_ff @(posedge clk) begin
+    if (reset) begin
+       out <= 1;
        done <= 0;
     end else if (write_en) begin
       out <= in;
