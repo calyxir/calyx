@@ -24,9 +24,8 @@ gen-testbench-script = $calyx-base/tools/firrtl/generate-testbench.py
 build memories.sv: get-rsrc
 rule generate-refmem-testbench
   command = python3 $gen-testbench-script $in > $out
-build dummy.sh: get-rsrc
 rule dummy
-  command = bash dummy.sh $in > $out
+  command = sh -c 'cat $$0' $in > $out
 
 # Firrtl to Verilog compiler
 firrtl-exe = /test/bin/firrtl
@@ -45,7 +44,7 @@ build tb.sv: generate-refmem-testbench memory-info.json
 build tmp-out.fir: calyx ref.futil
   backend = firrtl
   args = --emit-primitive-extmodules
-build stdin.fir: dummy tmp-out.fir tb.sv | dummy.sh
+build stdin.fir: dummy tmp-out.fir tb.sv
 build partial.sv: firrtl stdin.fir
 build stdin.sv: add-verilog-primitives partial.sv | primitives-for-firrtl.sv
 
