@@ -212,26 +212,42 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             Ok(())
         },
     );
+    fn icarus_build(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+        standalone_testbench: bool,
+    ) -> EmitResult {
+        if standalone_testbench {
+            e.build_cmd(
+                &["memories.sv"],
+                "create-blank-memories",
+                &[input],
+                &[],
+            )?;
+        }
+        e.build_cmd(
+            &[output],
+            "icarus-compile",
+            &[input],
+            &["tb.sv", "memories.sv"],
+        )?;
+        Ok(())
+    }
+
     bld.op(
         "icarus",
         &[sim_setup, standalone_testbench_setup, icarus_setup],
         verilog_noverify,
         simulator,
-        |e, input, output| {
-            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
-            Ok(())
-        },
+        |e, input, output| icarus_build(e, input, output, true),
     );
     bld.op(
         "icarus-refmem",
         &[sim_setup, icarus_setup],
         verilog_refmem_noverify,
         simulator,
-        |e, input, output| {
-            // FIXME: remove code clone
-            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
-            Ok(())
-        },
+        |e, input, output| icarus_build(e, input, output, false),
     );
 
     // setup for FIRRTL-implemented primitives
