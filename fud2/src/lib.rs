@@ -158,7 +158,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.var("iverilog", "iverilog")?;
         e.rule(
             "icarus-compile",
-            "$iverilog -g2012 -o $out tb.sv $additional-input $in",
+            "$iverilog -g2012 -o $out tb.sv memories.sv $in",
         )?;
         Ok(())
     });
@@ -167,6 +167,10 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         bld.setup("Standalone Testbench Setup", |e| {
             // Standalone Verilog testbench.
             e.rsrc("tb.sv")?;
+
+            // Hacky mechanism to create a blank memories.sv
+            e.rule("create-blank-memories", "touch $out")?;
+
             Ok(())
         });
     // [Needs YXI backend compiled] Setup for creating a custom testbench (needed for FIRRTL)
@@ -181,10 +185,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             "gen-testbench-script",
             "$calyx-base/tools/firrtl/generate-testbench.py",
         )?;
-        e.var(
-            "additional-input",
-            &format!("{}/memories.sv", e.config_val("rsrc")?),
-        )?;
+        e.rsrc("memories.sv")?; // Memory primitives.
 
         e.rule(
             "generate-refmem-testbench",
@@ -192,11 +193,8 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         )?;
 
         // dummy rule to force ninja to build the testbench
-        e.var(
-            "dummy-script",
-            &format!("{}/dummy.sh", e.config_val("rsrc")?),
-        )?;
-        e.rule("dummy", "bash $dummy-script $in > $out")?;
+        e.rsrc("dummy.sh")?;
+        e.rule("dummy", "bash dummy.sh $in > $out")?;
 
         Ok(())
     });
@@ -321,7 +319,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         }
 
         // dummy command to make sure custom testbench is created but not emitted as final answer
-        e.build_cmd(&[output], "dummy", &[tmp_out, testbench], &[])?;
+        e.build_cmd(&[output], "dummy", &[tmp_out, testbench], &["dummy.sh"])?;
 
         Ok(())
     }
@@ -436,7 +434,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
             "verilator-compile",
-            "$verilator $in tb.sv $additional-input --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+            "$verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
@@ -445,10 +443,24 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e: &mut Emitter,
         input: &str,
         output: &str,
+        standalone_testbench: bool,
     ) -> EmitResult {
+        if standalone_testbench {
+            e.build_cmd(
+                &["memories.sv"],
+                "create-blank-memories",
+                &[input],
+                &[],
+            )?;
+        }
         let out_dir = "verilator-out";
         let sim_bin = format!("{}/VTOP", out_dir);
-        e.build_cmd(&[&sim_bin], "verilator-compile", &[input], &["tb.sv"])?;
+        e.build_cmd(
+            &[&sim_bin],
+            "verilator-compile",
+            &[input],
+            &["tb.sv", "memories.sv"],
+        )?;
         e.arg("out-dir", out_dir)?;
         e.build("cp", &sim_bin, output)?;
         Ok(())
@@ -459,7 +471,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[sim_setup, standalone_testbench_setup, verilator_setup],
         verilog,
         simulator,
-        verilator_build,
+        |e, input, output| verilator_build(e, input, output, true),
     );
 
     bld.op(
@@ -467,7 +479,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         &[sim_setup, custom_testbench_setup, verilator_setup],
         verilog_refmem,
         simulator,
-        verilator_build,
+        |e, input, output| verilator_build(e, input, output, false),
     );
 
     // Interpreter.

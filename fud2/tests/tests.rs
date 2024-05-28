@@ -92,7 +92,10 @@ fn calyx_to_verilog() {
 #[test]
 fn calyx_via_firrtl() {
     let driver = test_driver();
-    test_emit(&driver, request(&driver, "calyx", "verilog", &["firrtl"]));
+    test_emit(
+        &driver,
+        request(&driver, "calyx", "verilog-refmem", &["firrtl"]),
+    );
 }
 
 #[test]

@@ -31,11 +31,13 @@ cycle-limit = 500000000
 
 # Standalone Testbench Setup
 build tb.sv: get-rsrc
+rule create-blank-memories
+  command = touch $out
 
 # Icarus Verilog
 iverilog = iverilog
 rule icarus-compile
-  command = $iverilog -g2012 -o $out tb.sv $additional-input $in
+  command = $iverilog -g2012 -o $out tb.sv memories.sv $in
 
 # build targets
 build stdin.sv: calyx stdin
