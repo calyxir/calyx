@@ -80,11 +80,11 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     add_comp_params(m_to_s_address_channel, channel_inputs, channel_outputs)
 
     # Cells
-    xvalid = m_to_s_address_channel.reg(f"{lc_x}valid", 1)
-    xhandshake_occurred = m_to_s_address_channel.reg(f"{lc_x}_handshake_occurred", 1)
+    xvalid = m_to_s_address_channel.reg(1, f"{lc_x}valid")
+    xhandshake_occurred = m_to_s_address_channel.reg(1, f"{lc_x}_handshake_occurred")
 
     # Need to put block_transfer register here to avoid combinational loops
-    bt_reg = m_to_s_address_channel.reg("bt_reg", 1)
+    bt_reg = m_to_s_address_channel.reg(1, "bt_reg")
 
     # Wires
     with m_to_s_address_channel.continuous:
@@ -159,14 +159,14 @@ def add_read_channel(prog, mem):
 
     # We assume idx_size is exactly clog2(len). See comment in #1751
     # https://github.com/calyxir/calyx/issues/1751#issuecomment-1778360566
-    read_reg = read_channel.reg("read_reg", mem[width_key])
+    read_reg = read_channel.reg(mem[width_key], "read_reg")
 
     # according to zipcpu, rready should be registered
-    rready = read_channel.reg("rready", 1)
+    rready = read_channel.reg(1, "rready")
     # Registed because RLAST is high with laster transfer, not after
     # before this we were terminating immediately with
     # last transfer and not servicing it
-    n_RLAST = read_channel.reg("n_RLAST", 1)
+    n_RLAST = read_channel.reg(1, "n_RLAST")
     # Stores data we want to write to our memory at end of block_transfer group
     # read_data_reg = read_channel.reg("read_data_reg", mem[width_key])
 
@@ -253,13 +253,13 @@ def add_write_channel(prog, mem):
     # We assume idx_size is exactly clog2(len). See comment in #1751
 
     # according to zipcpu, rready should be registered
-    wvalid = write_channel.reg("wvalid", 1)
-    w_handshake_occurred = write_channel.reg("w_handshake_occurred", 1)
+    wvalid = write_channel.reg(1, "wvalid")
+    w_handshake_occurred = write_channel.reg(1, "w_handshake_occurred")
 
     # Register because w last is high with last transfer. Before this
     # We were terminating immediately with last transfer and not servicing it.
 
-    bt_reg = write_channel.reg("bt_reg", 1)
+    bt_reg = write_channel.reg(1, "bt_reg")
 
     # Groups
     with write_channel.continuous:
@@ -315,8 +315,8 @@ def add_bresp_channel(prog, mem):
     add_comp_params(bresp_channel, channel_inputs, channel_outputs)
 
     # Cells
-    bready = bresp_channel.reg("bready", 1)
-    bt_reg = bresp_channel.reg("bt_reg", 1)
+    bready = bresp_channel.reg(1, "bready")
+    bt_reg = bresp_channel.reg(1, "bt_reg")
 
     # Groups
     with bresp_channel.continuous:
@@ -583,7 +583,7 @@ def add_main_comp(prog, mems):
             (f"{mem_name}_WLAST", 1),
             (f"{mem_name}_WDATA", mem[width_key]),
             (f"{mem_name}_BREADY", 1),
-            # ID signals are needed for coco compatability, tied low
+            # ID signals are needed for cocotb compatability, tied low
             (f"{mem_name}_ARID", 1),
             (f"{mem_name}_AWID", 1),
             (f"{mem_name}_WID", 1),
@@ -595,9 +595,9 @@ def add_main_comp(prog, mems):
         # Cells
         # Read stuff
         curr_addr_internal_mem = wrapper_comp.reg(
-            f"curr_addr_internal_mem_{mem_name}", clog2_or_1(mem[size_key])
+            clog2_or_1(mem[size_key]), f"curr_addr_internal_mem_{mem_name}"
         )
-        curr_addr_axi = wrapper_comp.reg(f"curr_addr_axi_{mem_name}", 64)
+        curr_addr_axi = wrapper_comp.reg(64, f"curr_addr_axi_{mem_name}")
 
         wrapper_comp.cell(f"ar_channel_{mem_name}", ar_channel)
         wrapper_comp.cell(f"read_channel_{mem_name}", read_channel)
@@ -612,7 +612,7 @@ def add_main_comp(prog, mems):
         )
 
         # Write stuff
-        max_transfers = wrapper_comp.reg(f"max_transfers_{mem_name}", 8)
+        max_transfers = wrapper_comp.reg(8, f"max_transfers_{mem_name}")
         wrapper_comp.cell(f"aw_channel_{mem_name}", aw_channel)
         wrapper_comp.cell(f"write_channel_{mem_name}", write_channel)
         wrapper_comp.cell(f"bresp_channel_{mem_name}", bresp_channel)
