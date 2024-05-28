@@ -6,7 +6,9 @@ use argh::FromArgs;
 use camino::{Utf8Path, Utf8PathBuf};
 use std::fmt::Display;
 use std::str::FromStr;
+use tempdir::TempDir;
 
+#[derive(PartialEq, Eq)]
 enum Mode {
     EmitNinja,
     ShowPlan,
@@ -237,7 +239,23 @@ fn get_resource(driver: &Driver, cmd: GetResource) -> anyhow::Result<()> {
 }
 
 pub fn cli(driver: &Driver) -> anyhow::Result<()> {
-    let args: FakeArgs = argh::from_env();
+    let mut args: FakeArgs = argh::from_env();
+
+    // inv: `None` unless neither `--keep` nor `--dir` were passed AND no
+    // subcommand is passed, in which case it is `Some(temp_dir)`: guaranteed
+    // to be unique and dropped at the end of the process
+    let mut _unique_build_dir = None;
+    if args.keep.is_none() && args.dir.is_none() && args.sub.is_none() {
+        let temp_dir = TempDir::new_in(".", ".fud-")?;
+        args.dir = Some(Utf8PathBuf::from(
+            temp_dir
+                .path()
+                .to_str()
+                .expect("TempDir crate failed to produce correct path")
+                .to_string(),
+        ));
+        _unique_build_dir = Some(temp_dir); // moves out here so drop delayed
+    }
 
     // Configure logging.
     env_logger::Builder::new()

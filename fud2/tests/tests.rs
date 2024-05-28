@@ -129,3 +129,39 @@ fn frontend_tests() {
         test_emit(&driver, request(&driver, frontend, "calyx", &[]));
     }
 }
+
+#[test]
+fn temp_dir_test() {
+    use std::env;
+    use std::fs;
+    use std::process::Command;
+
+    fn check_no_temp() {
+        let dir_contents = fs::read_dir(".")
+            .expect("Failed to read current directory")
+            .filter_map(Result::ok);
+        for item in dir_contents {
+            assert!(
+                !item.file_name().to_string_lossy().starts_with(".fud-"),
+                "The unique temporary directory should exist neither before nor after the fud invocation"
+            );
+        }
+    }
+
+    let cwd = env::current_dir()
+        .expect("Failed to get the current workign directory");
+
+    env::set_current_dir("tests/data").expect("Failed to change directory");
+
+    check_no_temp();
+
+    let _ = Command::new("cargo")
+        .args(&["run", "--", "calyx-example.futil", "--to", "verilog"])
+        .output()
+        .expect("Failed to execute command");
+
+    check_no_temp();
+
+    env::set_current_dir(cwd.as_path())
+        .expect("Failed to restore the current working directory");
+}

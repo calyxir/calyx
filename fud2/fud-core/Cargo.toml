@@ -19,3 +19,4 @@ camino = "1.1.6"
 anyhow.workspace = true
 log.workspace = true
 env_logger.workspace = true
+tempdir = "0.3.7"
