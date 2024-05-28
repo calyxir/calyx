@@ -148,7 +148,9 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     });
 
-    // Creating custom testbench
+    // The "verilog_refmem" states are variants of the other Verilog states that use the external testbench style.
+    // "refmem" refers to the fact that their memories are external, meaning that they need to be linked with
+    // a testbench that will provide those memories.
     let verilog_refmem = bld.state("verilog-refmem", &["sv"]);
     let verilog_refmem_noverify = bld.state("verilog-refmem-noverify", &["sv"]);
 
