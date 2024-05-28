@@ -1,0 +1,45 @@
+// -p validate -p compile-invoke -p static-inline  -p dead-group-removal -p add-guard -p simplify-static-guards -p static-fsm-opts -p static-fsm-opts -x static-fsm-opts:one-hot-cutoff=11 -p compile-static
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+
+static<6> component do_add<"promoted"=1>(left: 32, right: 32) -> () {
+  cells {
+    add = std_add(32);
+    r = std_reg(32);
+  }
+  wires {
+    static<1> group a {
+      add.left = r.out;
+      add.right = right;
+      r.in = add.out;
+      r.write_en = 1'd1;
+    }
+
+    static<1> group b {
+      add.left = left;
+      add.right = right;
+      r.in = add.out;
+      r.write_en = 1'd1;
+    }
+  }
+  control {
+    static seq {
+      b;
+      static repeat 5 {
+        a;
+      }
+    }
+  }
+
+}
+
+component main () -> () {
+  cells {
+    a = do_add();
+  }
+  wires {}
+
+  control {
+    static invoke a(left=32'd5, right = 32'd6)();
+  }
+}

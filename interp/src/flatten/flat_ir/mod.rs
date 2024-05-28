@@ -14,3 +14,5 @@ pub(crate) mod prelude {
     pub use super::identifier::Identifier;
     pub use super::wires::core::*;
 }
+
+pub use control::translator::translate;

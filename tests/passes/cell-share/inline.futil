@@ -1,4 +1,4 @@
-// -p pre-opt -p post-opt
+// -p pre-opt -p post-opt -p remove-ids
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 

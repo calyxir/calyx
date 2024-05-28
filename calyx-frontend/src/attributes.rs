@@ -123,6 +123,28 @@ impl Attributes {
         }
     }
 
+    /// `self` copys (i.e., assigns the same values) the attributes in `other`.
+    /// However, we only copy attributes in `keys` (i.e.. we don't copy
+    /// all attributes in `other`, only the ones that we specify).
+    /// If a `key` is not present in `other`, then we ignore that `key`.
+    /// Example: suppose
+    /// self: A->10, B->5
+    /// other: A->15, C->5
+    /// keys: A, D
+    /// Then self gets: A->15 B->5. (D is ignored since it's not present in other
+    /// and C is ignored since it's not keys.)
+    pub fn copy_from<A>(&mut self, other: Self, keys: Vec<A>)
+    where
+        A: Into<Attribute> + Clone,
+    {
+        for key in keys {
+            match other.get(key.clone()) {
+                None => (),
+                Some(val) => self.insert(key, val),
+            }
+        }
+    }
+
     /// Set the span information
     pub fn add_span(mut self, span: GPosIdx) -> Self {
         self.hinfo.span = span;

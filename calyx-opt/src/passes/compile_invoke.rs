@@ -75,9 +75,12 @@ impl RefPortMap {
     /// Get all of the newly added ports associated with a component that had
     /// ref cells
     fn get_ports(&self, comp_name: &ir::Id) -> Option<Vec<RRC<ir::Port>>> {
-        self.0
-            .get(comp_name)
-            .map(|map| map.values().cloned().collect())
+        self.0.get(comp_name).map(|map| {
+            map.values()
+                .cloned()
+                .sorted_by(|a, b| a.borrow().name.cmp(&b.borrow().name))
+                .collect()
+        })
     }
 }
 
@@ -341,7 +344,7 @@ impl Visitor for CompileInvoke {
 
         let mut en = ir::Enable {
             group: invoke_group,
-            attributes: Attributes::default(),
+            attributes: std::mem::take(&mut s.attributes),
         };
         if let Some(time) = s.attributes.get(ir::NumAttr::Promotable) {
             en.attributes.insert(ir::NumAttr::Promotable, time);
@@ -417,7 +420,7 @@ impl Visitor for CompileInvoke {
 
         let en = ir::StaticEnable {
             group: invoke_group,
-            attributes: Attributes::default(),
+            attributes: std::mem::take(&mut s.attributes),
         };
 
         Ok(Action::StaticChange(Box::new(ir::StaticControl::Enable(

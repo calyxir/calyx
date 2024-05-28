@@ -1,0 +1,32 @@
+// -p well-formed -p static-fsm-opts -x static-fsm-opts:one-hot-cutoff=11 -p compile-static -p dead-group-removal -p remove-ids
+
+import "primitives/core.futil";
+import "primitives/memories/comb.futil";
+import "primitives/pipelined.futil";
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    a = std_reg(2);
+    b = std_reg(2);
+    c = std_reg(2);
+    d = std_reg(2);
+  }
+  wires {
+    static<10> group static_seq {
+      a.in = %[0:2] ? 2'd0;
+      a.write_en = %[0:2] ? 1'd1;
+      b.in = %1 ? 2'd1;
+      b.write_en = %1 ? 1'd1;
+      b.write_en = %[7:10] ? 1'd1;
+      b.in = %[7:10] ? 2'd1;
+      c.write_en = %[6:8] ? 1'd1;
+      c.in = %[6:8] ? 2'd1;
+      d.write_en = %[3:7] ? 1'd1;
+      d.in = %[3:7] ? 2'd1;
+      d.write_en = %0 ? 1'd1;
+      d.in = %0 ? 2'd1;
+    }
+  }
+  control {
+    static_seq;
+  }
+}

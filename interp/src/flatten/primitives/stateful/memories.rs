@@ -386,6 +386,10 @@ impl Primitive for CombMem {
     fn has_serializable_state(&self) -> bool {
         true
     }
+
+    fn dump_memory_state(&self) -> Option<Vec<u8>> {
+        Some(self.dump_data())
+    }
 }
 
 pub struct SeqMem {
@@ -586,6 +590,10 @@ impl Primitive for SeqMem {
 
     fn has_serializable_state(&self) -> bool {
         true
+    }
+
+    fn dump_memory_state(&self) -> Option<Vec<u8>> {
+        Some(self.dump_data())
     }
 }
 // type aliases, this is kinda stupid and should probably be changed. or maybe

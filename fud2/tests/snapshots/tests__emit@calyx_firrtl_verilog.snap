@@ -9,8 +9,11 @@ rule get-rsrc
 # Calyx compiler
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
+args = 
 rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
 
 # Firrtl to Verilog compiler
 firrtl-exe = /test/bin/firrtl

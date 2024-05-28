@@ -4,7 +4,6 @@ import fifo
 import pifo
 import calyx.builder as cb
 from calyx import queue_call
-from calyx import queue_util
 
 
 def insert_stats(prog, name, static=False):
@@ -14,7 +13,7 @@ def insert_stats(prog, name, static=False):
     - One input port, the index of a flow (0 or 1).
     - Two output ports, `count_0` and `count_1`.
 
-    It also maintains two internal registers, `count_0_sto` and `count_1_sto`.
+    It maintains two internal registers, `count_0_sto` and `count_1_sto`.
 
     The component continously outputs the values of the two registers into the
     two output ports.
@@ -33,8 +32,8 @@ def insert_stats(prog, name, static=False):
     stats.output("count_1", 32)
 
     # Two registers to count the number of times we've been invoked with each flow.
-    count_0_sto = stats.reg("count_0_sto", 32)
-    count_1_sto = stats.reg("count_1_sto", 32)
+    count_0_sto = stats.reg(32)
+    count_1_sto = stats.reg(32)
 
     # Wiring to increment the appropriate register.
     count_0_incr = stats.incr(count_0_sto, static=static)
@@ -77,8 +76,8 @@ def insert_controller(prog, name, stats_component):
     controller = prog.component(name)
     stats = controller.cell("stats_controller", stats_component, is_ref=True)
 
-    count_0 = controller.reg("count_0", 32)
-    count_1 = controller.reg("count_1", 32)
+    count_0 = controller.reg(32)
+    count_1 = controller.reg(32)
 
     with controller.group("get_data_locally") as get_data_locally:
         count_0.in_ = stats.count_0
@@ -107,7 +106,13 @@ def build(static=False):
     pifo_red = pifo.insert_pifo(prog, "pifo_red", fifo_purple, fifo_tangerine, 100)
     fifo_blue = fifo.insert_fifo(prog, "fifo_blue")
     pifo_root = pifo.insert_pifo(
-        prog, "pifo_root", pifo_red, fifo_blue, 200, stats_component, static
+        prog,
+        "pifo_root",
+        pifo_red,
+        fifo_blue,
+        200,
+        stats=stats_component,
+        static=static,
     )
     # The root PIFO will take a stats component by reference.
 

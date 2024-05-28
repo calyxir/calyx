@@ -1,4 +1,4 @@
-// -p validate -p compile-invoke -p static-inline -p add-guard -p simplify-static-guards -p compile-static-interface
+// -p validate -p compile-invoke -p static-inline -p dead-group-removal -p add-guard -p simplify-static-guards -p compile-static
 import "primitives/core.futil";
 import "primitives/memories/comb.futil";
 
