@@ -43,7 +43,8 @@ rule icarus-compile
 build stdin.sv: calyx stdin
   backend = verilog
   args = --disable-verify
-build stdin.exe: icarus-compile stdin.sv | tb.sv
+build memories.sv: create-blank-memories stdin.sv
+build stdin.exe: icarus-compile stdin.sv | tb.sv memories.sv
 build sim.log stdin.vcd: sim-run stdin.exe $datadir
   bin = stdin.exe
   args = +NOTRACE=0 +OUT=stdin.vcd
