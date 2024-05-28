@@ -1,5 +1,4 @@
 use egglog::{ast::Literal, match_term_app, Term, TermDag};
-use std::borrow::Borrow;
 use std::fs::File;
 use std::io::{Read, SeekFrom};
 use std::io::{Seek, Write};
@@ -80,7 +79,7 @@ impl<'a> EggToCalyx<'a> {
                         ("AttributeMap", children) => {
                             // ["promotable", 1, ...] => [("promotable", 1), ...]
                             let (ks, _): (Vec<_>, Vec<_>) = children
-                             .into_iter()
+                             .iter()
                                 .enumerate()
                                 .partition(|(i, _)| { i % 2 == 0});
 
@@ -135,7 +134,7 @@ impl<'a> EggToCalyx<'a> {
                         ("AttributeMap", children) => {
                             // ["promotable", 1, ...] => [("promotable", 1), ...]
                             let (ks, vs): (Vec<_>, Vec<_>) = children
-                             .into_iter()
+                             .iter()
                                 .enumerate()
                                 .partition(|(i, _)| { i % 2 == 0});
                             let ks: Vec<_> = ks.iter().map(|(_, v)| { v }).collect();

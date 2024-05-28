@@ -1,6 +1,5 @@
 use calyx_frontend::GetAttributes;
 use calyx_ir::{self as ir};
-use core::num;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::io::{self};
@@ -209,7 +208,7 @@ impl ToEggPrinter {
 
     pub fn write_repeat<F: io::Write>(
         attributes: &calyx_ir::Attributes,
-        body: &Box<calyx_ir::Control>,
+        body: &calyx_ir::Control,
         num_repeats: &u64,
         f: &mut F,
     ) -> io::Result<()> {

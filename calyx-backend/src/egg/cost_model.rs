@@ -1,11 +1,7 @@
 use egglog::{ast::Literal, util::IndexMap, Term, TermDag};
-use egraph_serialize::{ClassId, EGraph, Node, NodeId};
+use egraph_serialize::{ClassId, EGraph, NodeId};
 use itertools::Itertools;
-use rpds::HashTrieMap;
-use std::{
-    collections::{HashMap, HashSet},
-    default, thread,
-};
+use std::collections::{HashMap, HashSet};
 
 pub fn get_bit_width_from(states: u64) -> u64 {
     if states == 0_u64 || states == 1_u64 {
@@ -57,7 +53,7 @@ fn emit_attribute(
             ("AttributeMap", children) => {
                 // ["promotable", 1, ...] => [("promotable", 1), ...]
                 let (ks, vs): (Vec<_>, Vec<_>) = children
-                    .into_iter()
+                    .iter()
                     .enumerate()
                     .partition(|(i, _)| { i % 2 == 0});
                 let ks: Vec<_> = ks.iter().map(|(_, v)| { v }).collect();
@@ -67,7 +63,7 @@ fn emit_attribute(
                 for (k, v) in  ks.iter().zip(vs.iter()) {
                     if let egglog::Term::Lit(egglog::ast::Literal::String(key)) = &termdag.get(***k) {
                         if let egglog::Term::Lit(egglog::ast::Literal::Int(value)) = &termdag.get(***v) {
-                            attributes.insert(key.to_string(), value.clone());
+                            attributes.insert(key.to_string(), *value);
                         }
                     }
                 }
@@ -96,25 +92,6 @@ impl<'a> EgraphAnalysis<'a> {
     ) -> EgraphAnalysis<'a> {
         EgraphAnalysis { egraph, termdag }
     }
-
-    fn update_children(
-        node: &Node,
-        nid: &NodeId,
-        egraph: &EGraph,
-        id_children: &mut HashMap<NodeId, Vec<Term>>,
-        termdag: &mut TermDag,
-    ) {
-        let mut children = Vec::<Term>::default();
-        for cid in &node.children {
-            let c = &egraph[cid];
-            let cop = &c.op;
-            Self::update_children(&c, cid, &egraph, id_children, termdag);
-            let cs = &id_children[cid];
-            let term = termdag.app(cop.into(), cs.to_vec());
-            children.push(term);
-        }
-        id_children.insert(nid.clone(), children);
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -134,7 +111,7 @@ impl<'a> Extractor<'a> {
     }
 
     fn egraph(&self) -> &'a EGraph {
-        return self.analysis.egraph;
+        self.analysis.egraph
     }
 
     fn parent_index(&self) -> IndexMap<ClassId, Vec<NodeId>> {
@@ -158,11 +135,10 @@ impl<'a> Extractor<'a> {
     fn cost(
         &mut self,
         nid: &NodeId,
-        children: &Vec<CostPoint>,
+        children: &[CostPoint],
         costs: &mut HashMap<ClassId, CostPoint>,
     ) -> Option<i128> {
         let node = &self.egraph()[nid];
-        let cid = self.egraph().nid_to_cid(nid);
         let leaves = &node.children;
 
         let calculate = |rs: Vec<u64>| rs.iter().sum::<u64>() as i128;
@@ -280,13 +256,12 @@ impl<'a> Extractor<'a> {
             };
         }
 
-        self.get_node_cost(nid, cid, &child_costs, costs)
+        self.get_node_cost(nid, &child_costs, costs)
     }
 
     fn get_node_cost(
         &mut self,
         nid: NodeId,
-        cid: &ClassId,
         child_costs: &Vec<CostPoint>,
         costs: &mut HashMap<ClassId, CostPoint>,
     ) -> CostPoint {
@@ -347,7 +322,7 @@ pub fn extract(
 ) -> (egglog::Term, Cost) {
     // Serialize the egraph.
     let mut configuration = egglog::SerializeConfig::default();
-    let (sort, value) = egraph
+    let (_, value) = egraph
         .eval_expr(&egglog::ast::Expr::Var((), identifier.into()))
         .unwrap_or_else(|_| {
             panic!(
@@ -456,25 +431,9 @@ where
         }
     }
 
-    pub fn extend<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = T>,
-    {
-        for t in iter.into_iter() {
-            self.insert(t);
-        }
-    }
-
     pub fn pop(&mut self) -> Option<T> {
         let res = self.queue.pop_front();
         res.as_ref().map(|t| self.set.remove(t));
         res
-    }
-
-    #[allow(dead_code)]
-    pub fn is_empty(&self) -> bool {
-        let r = self.queue.is_empty();
-        debug_assert_eq!(r, self.set.is_empty());
-        r
     }
 }

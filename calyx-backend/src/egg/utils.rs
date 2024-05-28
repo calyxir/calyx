@@ -44,52 +44,10 @@ pub fn extract_egglog(
     });
 
     if display {
-        let serialized = egraph.serialize_for_graphviz(true, 100, 100);
-        let file = tempfile::NamedTempFile::new().unwrap();
-        let path = file.into_temp_path().with_extension("svg");
-        serialized.to_svg_file(path.clone()).unwrap();
-        std::process::Command::new("open")
-            .arg(path.to_str().unwrap())
-            .output()
-            .unwrap();
-    }
-
-    let mut termdag = TermDag::default();
-    let (sort, value) = egraph
-        .eval_expr(&egglog::ast::Expr::Var((), identifier.into()))
-        .unwrap_or_else(|_| {
-            panic!(
-                "unexpected failure of e-graph extraction for component: {}. Original egglog program:\n{}",
-                identifier, program
-            )
-        });
-    let (_, extracted) = egraph.extract(value, &mut termdag, &sort);
-
-    if display {
         println!("   -------------RUN REPORT-------------  ");
         print!("{}", egraph.get_overall_run_report());
         println!("   ------------------------------------   ");
-    }
 
-    let (term, _) = cost_model::extract(identifier, &mut egraph, &mut termdag);
-    (term, termdag)
-}
-
-pub fn extract_multiple_egglog(
-    display: bool,
-    identifier: &str,
-    program: &String,
-    n: usize,
-) -> (Vec<Term>, TermDag) {
-    let mut egraph = EGraph::default();
-    if program.is_empty() {
-        panic!("attempting to parse and run and empty egglog program")
-    }
-    egraph.parse_and_run_program(program).unwrap_or_else(|_| {
-        panic!("failed to parse and run e-graph:\n{}", program)
-    });
-
-    if display {
         let serialized = egraph.serialize_for_graphviz(true, 100, 100);
         let file = tempfile::NamedTempFile::new().unwrap();
         let path = file.into_temp_path().with_extension("svg");
@@ -101,22 +59,8 @@ pub fn extract_multiple_egglog(
     }
 
     let mut termdag = TermDag::default();
-    let (_, value) = egraph
-        .eval_expr(&egglog::ast::Expr::Var((), identifier.into()))
-        .unwrap_or_else(|_| {
-            panic!(
-                "unexpected failure of e-graph extraction for component: {}. Original egglog program:\n{}",
-                identifier, program
-            )
-        });
-
-    if display {
-        let report = egraph.get_overall_run_report();
-        print!("Run Report: {}\n", report);
-    }
-
-    let terms = egraph.extract_variants(value, n, &mut termdag);
-    (terms, termdag)
+    let (term, _) = cost_model::extract(identifier, &mut egraph, &mut termdag);
+    (term, termdag)
 }
 
 pub fn convert_component<F: io::Write>(
