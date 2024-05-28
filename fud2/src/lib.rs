@@ -93,9 +93,6 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.rule("hex-data", "$python json-dat.py --from-json $in $out")?;
         e.rule("json-data", "$python json-dat.py --to-json $out $in")?;
 
-        // The Verilog testbench.
-        e.rsrc("tb.sv")?;
-
         // The input data file. `sim.data` is required.
         let data_name = e.config_val("sim.data")?;
         let data_path = e.external_path(data_name.as_ref());
@@ -151,11 +148,56 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     });
 
+    // The "verilog_refmem" states are variants of the other Verilog states that use the external testbench style.
+    // "refmem" refers to the fact that their memories are external, meaning that they need to be linked with
+    // a testbench that will provide those memories.
+    let verilog_refmem = bld.state("verilog-refmem", &["sv"]);
+    let verilog_refmem_noverify = bld.state("verilog-refmem-noverify", &["sv"]);
+
     // Icarus Verilog.
     let verilog_noverify = bld.state("verilog-noverify", &["sv", "v"]);
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
-        e.rule("icarus-compile", "$iverilog -g2012 -o $out tb.sv $in")?;
+        e.rule(
+            "icarus-compile-standalone-tb",
+            "$iverilog -g2012 -o $out tb.sv $in",
+        )?;
+        e.rule(
+            "icarus-compile-custom-tb",
+            "$iverilog -g2012 -o $out tb.sv memories.sv $in",
+        )?;
+        Ok(())
+    });
+    // [Default] Setup for using rsrc/tb.sv as testbench (and managing memories within the design)
+    let standalone_testbench_setup =
+        bld.setup("Standalone Testbench Setup", |e| {
+            // Standalone Verilog testbench.
+            e.rsrc("tb.sv")?;
+
+            Ok(())
+        });
+    // [Needs YXI backend compiled] Setup for creating a custom testbench (needed for FIRRTL)
+    let custom_testbench_setup = bld.setup("Custom Testbench Setup", |e| {
+        // Convert all ref cells to @external (FIXME: YXI should work for both?)
+        e.rule("ref-to-external", "sed 's/ref /@external /g' $in > $out")?;
+
+        // Convert all @external cells to ref (FIXME: we want to deprecate @external)
+        e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
+
+        e.var(
+            "gen-testbench-script",
+            "$calyx-base/tools/firrtl/generate-testbench.py",
+        )?;
+        e.rsrc("memories.sv")?; // Memory primitives.
+
+        e.rule(
+            "generate-refmem-testbench",
+            "python3 $gen-testbench-script $in > $out",
+        )?;
+
+        // dummy rule to force ninja to build the testbench
+        e.rule("dummy", "sh -c 'cat $$0' $in > $out")?;
+
         Ok(())
     });
     bld.op(
@@ -171,29 +213,147 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             Ok(())
         },
     );
+
     bld.op(
         "icarus",
-        &[sim_setup, icarus_setup],
+        &[sim_setup, standalone_testbench_setup, icarus_setup],
         verilog_noverify,
         simulator,
         |e, input, output| {
-            e.build_cmd(&[output], "icarus-compile", &[input], &["tb.sv"])?;
+            e.build_cmd(
+                &[output],
+                "icarus-compile-standalone-tb",
+                &[input],
+                &["tb.sv"],
+            )?;
+            Ok(())
+        },
+    );
+    bld.op(
+        "icarus-refmem",
+        &[sim_setup, icarus_setup],
+        verilog_refmem_noverify,
+        simulator,
+        |e, input, output| {
+            e.build_cmd(
+                &[output],
+                "icarus-compile-custom-tb",
+                &[input],
+                &["tb.sv", "memories.sv"],
+            )?;
             Ok(())
         },
     );
 
+    // setup for FIRRTL-implemented primitives
+    let firrtl_primitives_setup = bld.setup("FIRRTL with primitives", |e| {
+        // Produce FIRRTL with FIRRTL-defined primitives.
+        e.var(
+            "gen-firrtl-primitives-script",
+            "$calyx-base/tools/firrtl/generate-firrtl-with-primitives.py",
+        )?;
+        e.rule(
+            "generate-firrtl-with-primitives",
+            "python3 $gen-firrtl-primitives-script $in > $out",
+        )?;
+
+        Ok(())
+    });
+
+    fn calyx_to_firrtl_helper(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+        firrtl_primitives: bool, // Use FIRRTL primitive implementations?
+    ) -> EmitResult {
+        // Temporary Calyx where all refs are converted into external (FIXME: fix YXI to emit for ref as well?)
+        let only_externals_calyx = "external.futil";
+        // Temporary Calyx where all externals are converted into refs (for FIRRTL backend)
+        let only_refs_calyx = "ref.futil";
+        // JSON with memory information created by YXI
+        let memories_json = "memory-info.json";
+        // Custom testbench (same name as standalone testbench)
+        let testbench = "tb.sv";
+        // Holds contents of file we want to output. Gets cat-ed via final dummy command
+        let tmp_out = "tmp-out.fir";
+        // Convert ref into external to get YXI working (FIXME: fix YXI to emit for ref as well?)
+        e.build_cmd(&[only_externals_calyx], "ref-to-external", &[input], &[])?;
+        // Convert external to ref to get FIRRTL backend working
+        e.build_cmd(&[only_refs_calyx], "external-to-ref", &[input], &[])?;
+
+        // Get YXI to generate JSON for testbench generation
+        e.build_cmd(&[memories_json], "calyx", &[only_externals_calyx], &[])?;
+        e.arg("backend", "yxi")?;
+        // generate custom testbench
+        e.build_cmd(
+            &[testbench],
+            "generate-refmem-testbench",
+            &[memories_json],
+            &[],
+        )?;
+
+        if firrtl_primitives {
+            let core_program_firrtl = "core.fir";
+
+            // Obtain FIRRTL of core program
+            e.build_cmd(
+                &[core_program_firrtl],
+                "calyx",
+                &[only_refs_calyx],
+                &[],
+            )?;
+            e.arg("backend", "firrtl")?;
+            e.arg("args", "--synthesis")?;
+
+            // Obtain primitive uses JSON for metaprogramming
+            let primitive_uses_json = "primitive-uses.json";
+            e.build_cmd(
+                &[primitive_uses_json],
+                "calyx",
+                &[only_refs_calyx],
+                &[],
+            )?;
+            e.arg("backend", "primitive-uses")?;
+            e.arg("args", "--synthesis")?;
+
+            // run metaprogramming script to get FIRRTL with primitives
+            e.build_cmd(
+                &[tmp_out],
+                "generate-firrtl-with-primitives",
+                &[core_program_firrtl, primitive_uses_json],
+                &[],
+            )?;
+        } else {
+            // emit extmodule declarations to use Verilog primitive implementations
+            e.build_cmd(&[tmp_out], "calyx", &[only_refs_calyx], &[])?;
+            e.arg("backend", "firrtl")?;
+            e.arg("args", "--emit-primitive-extmodules")?;
+        }
+
+        // dummy command to make sure custom testbench is created but not emitted as final answer
+        e.build_cmd(&[output], "dummy", &[tmp_out, testbench], &[])?;
+
+        Ok(())
+    }
+
     // Calyx to FIRRTL.
-    let firrtl = bld.state("firrtl", &["fir"]);
+    let firrtl = bld.state("firrtl", &["fir"]); // using Verilog primitives
+    let firrtl_with_primitives = bld.state("firrtl-with-primitives", &["fir"]); // using FIRRTL primitives
     bld.op(
+        // use Verilog
         "calyx-to-firrtl",
-        &[calyx_setup],
+        &[calyx_setup, custom_testbench_setup],
         calyx,
         firrtl,
-        |e, input, output| {
-            e.build_cmd(&[output], "calyx", &[input], &[])?;
-            e.arg("backend", "firrtl")?;
-            Ok(())
-        },
+        |e, input, output| calyx_to_firrtl_helper(e, input, output, false),
+    );
+
+    bld.op(
+        "firrtl-with-primitives",
+        &[calyx_setup, firrtl_primitives_setup, custom_testbench_setup],
+        calyx,
+        firrtl_with_primitives,
+        |e, input, output| calyx_to_firrtl_helper(e, input, output, true),
     );
 
     // The FIRRTL compiler.
@@ -202,37 +362,68 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.rule("firrtl", "$firrtl-exe -i $in -o $out -X sverilog")?;
 
         e.rsrc("primitives-for-firrtl.sv")?;
+        // adding Verilog implementations of primitives to FIRRTL --> Verilog compiled code
         e.rule(
-            "add-firrtl-prims",
+            "add-verilog-primitives",
             "cat primitives-for-firrtl.sv $in > $out",
         )?;
 
         Ok(())
     });
-    fn firrtl_compile(
+
+    fn firrtl_compile_helper(
         e: &mut Emitter,
         input: &str,
         output: &str,
+        firrtl_primitives: bool,
     ) -> EmitResult {
-        let tmp_verilog = "partial.sv";
-        e.build_cmd(&[tmp_verilog], "firrtl", &[input], &[])?;
-        e.build_cmd(
-            &[output],
-            "add-firrtl-prims",
-            &[tmp_verilog],
-            &["primitives-for-firrtl.sv"],
-        )?;
+        if firrtl_primitives {
+            e.build_cmd(&[output], "firrtl", &[input], &[])?;
+        } else {
+            let tmp_verilog = "partial.sv";
+            e.build_cmd(&[tmp_verilog], "firrtl", &[input], &[])?;
+            e.build_cmd(
+                &[output],
+                "add-verilog-primitives",
+                &[tmp_verilog],
+                &["primitives-for-firrtl.sv"],
+            )?;
+        }
         Ok(())
     }
-    bld.op("firrtl", &[firrtl_setup], firrtl, verilog, firrtl_compile);
+    // FIRRTL --> Verilog compilation using Verilog primitive implementations for Verilator
+    bld.op(
+        "firrtl",
+        &[firrtl_setup],
+        firrtl,
+        verilog_refmem,
+        |e, input, output| firrtl_compile_helper(e, input, output, false),
+    );
+    // FIRRTL --> Verilog compilation using Verilog primitive implementations for Icarus
     // This is a bit of a hack, but the Icarus-friendly "noverify" state is identical for this path
     // (since FIRRTL compilation doesn't come with verification).
     bld.op(
         "firrtl-noverify",
         &[firrtl_setup],
         firrtl,
-        verilog_noverify,
-        firrtl_compile,
+        verilog_refmem_noverify,
+        |e, input, output| firrtl_compile_helper(e, input, output, false),
+    );
+    // FIRRTL --> Verilog compilation using FIRRTL primitive implementations for Verilator
+    bld.op(
+        "firrtl-with-primitives",
+        &[firrtl_setup],
+        firrtl_with_primitives,
+        verilog_refmem,
+        |e, input, output| firrtl_compile_helper(e, input, output, true),
+    );
+    // FIRRTL --> Verilog compilation using FIRRTL primitive implementations for Icarus
+    bld.op(
+        "firrtl-with-primitives-noverify",
+        &[firrtl_setup],
+        firrtl_with_primitives,
+        verilog_refmem_noverify,
+        |e, input, output| firrtl_compile_helper(e, input, output, true),
     );
 
     // primitive-uses backend
@@ -254,30 +445,58 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("verilator", "verilator.exe", "verilator")?;
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
-            "verilator-compile",
+            "verilator-compile-standalone-tb",
             "$verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+        )?;
+        e.rule(
+            "verilator-compile-custom-tb",
+            "$verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
         Ok(())
     });
-    bld.op(
-        "verilator",
-        &[sim_setup, verilator_setup],
-        verilog,
-        simulator,
-        |e, input, output| {
-            let out_dir = "verilator-out";
-            let sim_bin = format!("{}/VTOP", out_dir);
+    fn verilator_build(
+        e: &mut Emitter,
+        input: &str,
+        output: &str,
+        standalone_testbench: bool,
+    ) -> EmitResult {
+        let out_dir = "verilator-out";
+        let sim_bin = format!("{}/VTOP", out_dir);
+        if standalone_testbench {
             e.build_cmd(
                 &[&sim_bin],
-                "verilator-compile",
+                "verilator-compile-standalone-tb",
                 &[input],
                 &["tb.sv"],
             )?;
-            e.arg("out-dir", out_dir)?;
-            e.build("cp", &sim_bin, output)?;
-            Ok(())
-        },
+        } else {
+            e.build_cmd(
+                &[&sim_bin],
+                "verilator-compile-custom-tb",
+                &[input],
+                &["tb.sv", "memories.sv"],
+            )?;
+        }
+        e.arg("out-dir", out_dir)?;
+        e.build("cp", &sim_bin, output)?;
+        Ok(())
+    }
+
+    bld.op(
+        "verilator",
+        &[sim_setup, standalone_testbench_setup, verilator_setup],
+        verilog,
+        simulator,
+        |e, input, output| verilator_build(e, input, output, true),
+    );
+
+    bld.op(
+        "verilator-refmem",
+        &[sim_setup, custom_testbench_setup, verilator_setup],
+        verilog_refmem,
+        simulator,
+        |e, input, output| verilator_build(e, input, output, false),
     );
 
     // Interpreter.
@@ -336,7 +555,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "interp",
-        &[sim_setup, calyx_setup, cider_setup],
+        &[
+            sim_setup,
+            standalone_testbench_setup,
+            calyx_setup,
+            cider_setup,
+        ],
         calyx,
         dat,
         |e, input, output| {
@@ -370,7 +594,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "debug",
-        &[sim_setup, calyx_setup, cider_setup],
+        &[
+            sim_setup,
+            standalone_testbench_setup,
+            calyx_setup,
+            cider_setup,
+        ],
         calyx,
         debug,
         |e, input, output| {
@@ -463,7 +692,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
     bld.op(
         "xrt",
-        &[xilinx_setup, sim_setup, xrt_setup],
+        &[
+            xilinx_setup,
+            sim_setup,
+            standalone_testbench_setup,
+            xrt_setup,
+        ],
         xclbin,
         dat,
         |e, input, output| {
@@ -480,7 +714,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     );
     bld.op(
         "xrt-trace",
-        &[xilinx_setup, sim_setup, xrt_setup],
+        &[
+            xilinx_setup,
+            sim_setup,
+            standalone_testbench_setup,
+            xrt_setup,
+        ],
         xclbin,
         vcd,
         |e, input, output| {
