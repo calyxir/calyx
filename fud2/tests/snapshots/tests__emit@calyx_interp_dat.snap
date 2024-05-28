@@ -22,8 +22,6 @@ cycle-limit = 500000000
 
 # Standalone Testbench Setup
 build tb.sv: get-rsrc
-rule create-blank-memories
-  command = touch $out
 
 # Calyx compiler
 calyx-base = /test/calyx

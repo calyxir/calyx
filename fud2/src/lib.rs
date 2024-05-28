@@ -159,7 +159,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     let icarus_setup = bld.setup("Icarus Verilog", |e| {
         e.var("iverilog", "iverilog")?;
         e.rule(
-            "icarus-compile",
+            "icarus-compile-standalone-tb",
+            "$iverilog -g2012 -o $out tb.sv $in",
+        )?;
+        e.rule(
+            "icarus-compile-custom-tb",
             "$iverilog -g2012 -o $out tb.sv memories.sv $in",
         )?;
         Ok(())
@@ -169,9 +173,6 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         bld.setup("Standalone Testbench Setup", |e| {
             // Standalone Verilog testbench.
             e.rsrc("tb.sv")?;
-
-            // Hacky mechanism to create a blank memories.sv
-            e.rule("create-blank-memories", "touch $out")?;
 
             Ok(())
         });
@@ -212,42 +213,36 @@ pub fn build_driver(bld: &mut DriverBuilder) {
             Ok(())
         },
     );
-    fn icarus_build(
-        e: &mut Emitter,
-        input: &str,
-        output: &str,
-        standalone_testbench: bool,
-    ) -> EmitResult {
-        if standalone_testbench {
-            e.build_cmd(
-                &["memories.sv"],
-                "create-blank-memories",
-                &[input],
-                &[],
-            )?;
-        }
-        e.build_cmd(
-            &[output],
-            "icarus-compile",
-            &[input],
-            &["tb.sv", "memories.sv"],
-        )?;
-        Ok(())
-    }
 
     bld.op(
         "icarus",
         &[sim_setup, standalone_testbench_setup, icarus_setup],
         verilog_noverify,
         simulator,
-        |e, input, output| icarus_build(e, input, output, true),
+        |e, input, output| {
+            e.build_cmd(
+                &[output],
+                "icarus-compile-standalone-tb",
+                &[input],
+                &["tb.sv"],
+            )?;
+            Ok(())
+        },
     );
     bld.op(
         "icarus-refmem",
         &[sim_setup, icarus_setup],
         verilog_refmem_noverify,
         simulator,
-        |e, input, output| icarus_build(e, input, output, false),
+        |e, input, output| {
+            e.build_cmd(
+                &[output],
+                "icarus-compile-custom-tb",
+                &[input],
+                &["tb.sv", "memories.sv"],
+            )?;
+            Ok(())
+        },
     );
 
     // setup for FIRRTL-implemented primitives
@@ -450,7 +445,11 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         e.config_var_or("verilator", "verilator.exe", "verilator")?;
         e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000")?;
         e.rule(
-            "verilator-compile",
+            "verilator-compile-standalone-tb",
+            "$verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
+        )?;
+        e.rule(
+            "verilator-compile-custom-tb",
             "$verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir",
         )?;
         e.rule("cp", "cp $in $out")?;
@@ -462,22 +461,23 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         output: &str,
         standalone_testbench: bool,
     ) -> EmitResult {
-        if standalone_testbench {
-            e.build_cmd(
-                &["memories.sv"],
-                "create-blank-memories",
-                &[input],
-                &[],
-            )?;
-        }
         let out_dir = "verilator-out";
         let sim_bin = format!("{}/VTOP", out_dir);
-        e.build_cmd(
-            &[&sim_bin],
-            "verilator-compile",
-            &[input],
-            &["tb.sv", "memories.sv"],
-        )?;
+        if standalone_testbench {
+            e.build_cmd(
+                &[&sim_bin],
+                "verilator-compile-standalone-tb",
+                &[input],
+                &["tb.sv"],
+            )?;
+        } else {
+            e.build_cmd(
+                &[&sim_bin],
+                "verilator-compile-custom-tb",
+                &[input],
+                &["tb.sv", "memories.sv"],
+            )?;
+        }
         e.arg("out-dir", out_dir)?;
         e.build("cp", &sim_bin, output)?;
         Ok(())

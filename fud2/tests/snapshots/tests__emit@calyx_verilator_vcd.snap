@@ -31,13 +31,13 @@ cycle-limit = 500000000
 
 # Standalone Testbench Setup
 build tb.sv: get-rsrc
-rule create-blank-memories
-  command = touch $out
 
 # Verilator
 verilator = verilator
 cycle-limit = 500000000
-rule verilator-compile
+rule verilator-compile-standalone-tb
+  command = $verilator $in tb.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
+rule verilator-compile-custom-tb
   command = $verilator $in tb.sv memories.sv --trace --binary --top-module TOP -fno-inline -Mdir $out-dir
 rule cp
   command = cp $in $out
@@ -45,8 +45,7 @@ rule cp
 # build targets
 build stdin.sv: calyx stdin
   backend = verilog
-build memories.sv: create-blank-memories stdin.sv
-build verilator-out/VTOP: verilator-compile stdin.sv | tb.sv memories.sv
+build verilator-out/VTOP: verilator-compile-standalone-tb stdin.sv | tb.sv
   out-dir = verilator-out
 build stdin.exe: cp verilator-out/VTOP
 build sim.log stdin.vcd: sim-run stdin.exe $datadir
