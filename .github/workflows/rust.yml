@@ -170,17 +170,11 @@ jobs:
         cd frontends/mrxl
         FLIT_ROOT_INSTALL=1 flit install --symlink
 
-    - name: Clean
-      uses: actions-rs/cargo@v1
-      with:
-        command: clean
-        args: --manifest-path /home/calyx/interp/Cargo.toml
-
     - name: Build
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: --all-features --manifest-path /home/calyx/Cargo.toml
+        args: --all --all-features --manifest-path /home/calyx/Cargo.toml
 
 #    - name: Source code doc tests
 #      uses: actions-rs/cargo@v1
