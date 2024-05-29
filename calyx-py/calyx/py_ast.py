@@ -172,6 +172,15 @@ class CompAttribute(Attribute):
         return f'"{self.name}"={self.value}'
 
 
+@dataclass
+class PortAttribute(Attribute):
+    name: str
+    value: Optional[int] = None
+
+    def doc(self) -> str:
+        return f"@{self.name}" if self.value is None else f"@{self.name}({self.value})"
+
+
 # Ports
 @dataclass
 class Port(Emittable):
@@ -231,9 +240,15 @@ class CompVar(Emittable):
 class PortDef(Emittable):
     id: CompVar
     width: int
+    attributes: List[PortAttribute] = field(default_factory=list)
 
     def doc(self) -> str:
-        return f"{self.id.doc()}: {self.width}"
+        attributes = (
+            ""
+            if len(self.attributes) == 0
+            else (" ".join([x.doc() for x in self.attributes]) + " ")
+        )
+        return f"{attributes}{self.id.doc()}: {self.width}"
 
 
 # Structure
@@ -589,6 +604,10 @@ class Stdlib:
     @staticmethod
     def op(op: str, bitwidth: int, signed: bool):
         return CompInst(f'std_{"s" if signed else ""}{op}', [bitwidth])
+
+    @staticmethod
+    def const_mult(bitwidth: int, const: int):
+        return CompInst("std_const_mult", [bitwidth, const])
 
     @staticmethod
     def slice(in_: int, out: int):

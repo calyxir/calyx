@@ -741,7 +741,7 @@ def build_base_is_e(degree, width, int_width, is_signed) -> Program:
         t.write_en = 1
         init.done = t.done
 
-    write_to_memory = main.mem_store_d1(ret, 0, e.out, "write_to_memory", True)
+    write_to_memory = main.mem_store_d1(ret, 0, e.out, "write_to_memory", is_comb=True)
 
     main.control += [
         init,

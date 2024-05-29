@@ -24,6 +24,15 @@ We specify the names and bitwidths of any ports that we want a component to have
 Observe that we have saved handles to the input ports by assigning them to Python variables, but have not done the same with the output port.
 We will show shortly how to create a handle to a port after its definition.
 
+It is also possible to create ports that have [attributes]. Attributes can either
+be described as a string or a (string, value) tuple.
+A string such as `"data"`, which will create an `@data` attribute.
+A (string, value) tuple such as `("done", 1)` will create an `@done(1)` attribute.
+
+```python
+{{#include ../../calyx-py/test/port_attributes.py:port_attributes}}
+```
+
 ## Cells
 
 We add cells to the component as follows.
@@ -443,3 +452,4 @@ comp = prog.component("adder")
 [helloworld]: calyx-py.md
 [walkthrough]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.py
 [walkthrough_expect]: https://github.com/calyxir/calyx/blob/master/calyx-py/test/walkthrough.expect
+[attributes]: https://docs.calyxir.org/lang/attributes.html
