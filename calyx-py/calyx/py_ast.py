@@ -245,9 +245,8 @@ class PortDef(Emittable):
     attributes: Optional[List[PortAttribute]] = None
 
     def doc(self) -> str:
-        attributes = "" if self.attributes is None else " ".join([x.doc() for x in self.attributes])
-        # attributes = " ".join([x.doc() for x in self.attributes])
-        return f"{attributes} {self.id.doc()}: {self.width}"
+        attributes = "" if self.attributes is None else (" ".join([x.doc() for x in self.attributes])+ " ")
+        return f"{attributes}{self.id.doc()}: {self.width}"
 
 
 # Structure
