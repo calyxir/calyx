@@ -11,7 +11,6 @@ TLS = threading.local()
 TLS.groups = []
 
 
-
 class NotFoundError(Exception):
     """Raised when a component or group is not found."""
 
@@ -113,7 +112,10 @@ class ComponentBuilder:
 
     # Attributes are expected to be either just an attribute name or an (attribute name, value) tuple
     RawPortAttr = Union[str, Tuple[str, int]]
-    def input(self, name: str, size: int, attribute_literals : List[RawPortAttr] = []) -> ExprBuilder:
+
+    def input(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an input port on the component.
 
         Returns an expression builder for the port.
@@ -121,7 +123,9 @@ class ComponentBuilder:
 
         return self._port_with_attributes(name, size, True, attribute_literals)
 
-    def output(self, name: str, size: int, attribute_literals : List[RawPortAttr] = []) -> ExprBuilder:
+    def output(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an output port on the component.
 
         Returns an expression builder for the port.
@@ -132,13 +136,19 @@ class ComponentBuilder:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
 
-    def _port_with_attributes(self, name: str, size: int, is_input: bool, attribute_literals: List[RawPortAttr]) -> ExprBuilder:
+    def _port_with_attributes(
+        self,
+        name: str,
+        size: int,
+        is_input: bool,
+        attribute_literals: List[RawPortAttr],
+    ) -> ExprBuilder:
         """Should not be called directly.
         Declare a port on the component with attributes.
 
         Returns an expression builder for the port.
         """
-        
+
         attributes = []
         for attr in attribute_literals:
             if isinstance(attr, str):
@@ -146,13 +156,18 @@ class ComponentBuilder:
             elif isinstance(attr, tuple):
                 attributes.append(ast.PortAttribute(attr[0], attr[1]))
             else:
-                raise ValueError(f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple.")
+                raise ValueError(
+                    f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
+                )
         if is_input:
-            self.component.inputs.append(ast.PortDef(ast.CompVar(name), size, attributes))
+            self.component.inputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
         else:
-            self.component.outputs.append(ast.PortDef(ast.CompVar(name), size, attributes))
+            self.component.outputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
         return self.this()[name]
-
 
     def this(self) -> ThisBuilder:
         """Get a handle to the component's `this` cell.
@@ -487,12 +502,14 @@ class ComponentBuilder:
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
 
-    def const_mult(self, size: int, const: int, name: Optional[str] = None) -> CellBuilder:
+    def const_mult(
+        self, size: int, const: int, name: Optional[str] = None
+    ) -> CellBuilder:
         """Generate a StdConstMult cell."""
         name = name or self.generate_name("const_mult")
         self.prog.import_("primitives/binary_operators.futil")
         return self.cell(name, ast.Stdlib.const_mult(size, const))
-        
+
     def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
         """Generate a StdPad cell."""
         name = name or self.generate_name("pad")
@@ -1508,7 +1525,7 @@ def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List
     or an (input_name, input_width, attributes) triple.
     """
 
-    def normalize_ports(ports : List) :
+    def normalize_ports(ports: List):
         for port in ports:
             if len(port) == 2:
                 yield (port[0], port[1], [])
@@ -1517,7 +1534,7 @@ def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List
 
     for name, width, attributes in normalize_ports(input_ports):
         comp.input(name, width, attributes)
-    for name,width, attributes in normalize_ports(output_ports):
+    for name, width, attributes in normalize_ports(output_ports):
         comp.output(name, width, attributes)
 
 

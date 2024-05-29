@@ -173,6 +173,7 @@ class CompAttribute(Attribute):
     def doc(self) -> str:
         return f'"{self.name}"={self.value}'
 
+
 @dataclass
 class PortAttribute(Attribute):
     name: str
@@ -180,6 +181,8 @@ class PortAttribute(Attribute):
 
     def doc(self) -> str:
         return f"@{self.name}" if self.value is None else f"@{self.name}({self.value})"
+
+
 # Ports
 @dataclass
 class Port(Emittable):
@@ -242,7 +245,11 @@ class PortDef(Emittable):
     attributes: List[PortAttribute] = field(default_factory=list)
 
     def doc(self) -> str:
-        attributes = "" if len(self.attributes) == 0 else (" ".join([x.doc() for x in self.attributes])+" ")
+        attributes = (
+            ""
+            if len(self.attributes) == 0
+            else (" ".join([x.doc() for x in self.attributes]) + " ")
+        )
         return f"{attributes}{self.id.doc()}: {self.width}"
 
 
