@@ -86,6 +86,9 @@ class Component:
         )
 
     def doc(self) -> str:
+        # if(self.name == "axi_seq_mem_A0"):
+        #     for s in self.inputs:
+        #         print(s.doc())
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
         latency_annotation = (
@@ -173,7 +176,13 @@ class CompAttribute(Attribute):
     def doc(self) -> str:
         return f'"{self.name}"={self.value}'
 
+@dataclass
+class PortAttribute(Attribute):
+    name: str
+    value: Optional[int] = None
 
+    def doc(self) -> str:
+        return f"@{self.name}" if self.value is None else f"@{self.name}({self.value})"
 # Ports
 @dataclass
 class Port(Emittable):
@@ -233,9 +242,11 @@ class CompVar(Emittable):
 class PortDef(Emittable):
     id: CompVar
     width: int
+    attributes: Optional[List[PortAttribute]] = None
 
     def doc(self) -> str:
-        return f"{self.id.doc()}: {self.width}"
+        attributes = "" if self.attributes is None else (" ".join([x.doc() for x in self.attributes])+ " ")
+        return f"{attributes}{self.id.doc()}: {self.width}"
 
 
 # Structure

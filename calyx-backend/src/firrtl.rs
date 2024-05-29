@@ -109,7 +109,15 @@ fn emit_component<F: io::Write>(
     // Cells
     for cell in comp.cells.iter() {
         let cell_borrowed = cell.as_ref().borrow();
-        if cell_borrowed.type_name().is_some() {
+        let is_external = cell
+            .borrow()
+            .get_attribute(ir::BoolAttr::External)
+            .is_some();
+        if is_external {
+            // The FIRRTL compiler cannot read/write memories, so we must use ref.
+            panic!("FIRRTL backend only works on ref, not @external!");
+        }
+        if cell_borrowed.type_name().is_some() && !is_external {
             let module_name = match &cell_borrowed.prototype {
                 ir::CellType::Primitive {
                     name,

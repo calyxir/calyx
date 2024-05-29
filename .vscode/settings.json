@@ -1,0 +1,8 @@
+{
+    // Please only make changes to this file if they are useful/necessary for
+    // the whole project. For all other things use your own local settings.
+    "[rust]": {
+        "editor.defaultFormatter": "rust-lang.rust-analyzer",
+        "editor.formatOnSave": true
+    }
+}
