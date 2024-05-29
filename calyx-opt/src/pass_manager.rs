@@ -162,26 +162,23 @@ impl PassManager {
             .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<Vec<_>>();
 
-        match relative_ordering.split_first() {
-            Some((first_rel_ordering, rest_rel_ordering)) => {
-                // If there is a relative ordering, then we look for the first
-                // pass in the relative ordering, and then insert the rest of
-                // the passes in the relative ordering directly after that pass.
-                // e.g.
-                // passes = [A,B,C,D,E,F,G]
-                // rel_ordering = [E,G,B]
-                // results in:
-                // passes = [A,C,D,E,G,B,F]
-                passes.retain(|pass| !rest_rel_ordering.contains(&pass));
-                let insertion_idx = passes
-                    .iter()
-                    .position(|x| x == first_rel_ordering)
-                    .unwrap();
-                passes.splice(insertion_idx..insertion_idx, relative_ordering);
-            }
-            // No need to do any reordering if relative_ordering is empty
-            _ => (),
-        };
+        // Only need to rearrange things if relative_ordering isn't empty.
+        if let Some((first_rel_ordering, rest_rel_ordering)) =
+            relative_ordering.split_first()
+        {
+            // If there is a relative ordering, then we look for the first
+            // pass in the relative ordering, and then insert the rest of
+            // the passes in the relative ordering directly after that pass.
+            // e.g.
+            // passes = [A,B,C,D,E,F,G]
+            // rel_ordering = [E,G,B]
+            // results in:
+            // passes = [A,C,D,E,G,B,F]
+            passes.retain(|pass| !rest_rel_ordering.contains(&pass));
+            let insertion_idx =
+                passes.iter().position(|x| x == first_rel_ordering).unwrap();
+            passes.splice(insertion_idx..insertion_idx, relative_ordering);
+        }
 
         let excl_set = excls
             .iter()
