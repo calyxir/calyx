@@ -7,6 +7,10 @@ def insert_cmp(prog, name, width):
 
     It takes two `width`-bit inputs `a` and `b` and produces a 1-bit output `lt`.
     The output `lt` is set to 1 if `a` is less than `b`, and 0 otherwise.
+
+    This is a little overkill for now, since the component just wraps an `lt` cell.
+    Eventually the inputs will be tuples and doing these
+    comparisons separately may be useful.
     """
 
     comp = prog.comb_component(name)
@@ -37,33 +41,18 @@ def insert_swap(prog, name, width, len, idx_w):
     b = comp.input("b", idx_w)
     mem = comp.seq_mem_d1("mem", width, len, idx_w, is_ref=True)
 
-    mem_a = comp.reg(width)
-    mem_b = comp.reg(width)
-    temp_val = comp.reg(width)
+    val_a = comp.reg(width)
+    val_b = comp.reg(width)
 
-    read_a = comp.mem_load_d1(mem, a, mem_a, "latch_a")  # mem_a := mem[a]"
+    load_a_a = comp.mem_load_d1(mem, a, val_a, "load_a")  # val_a := mem[a]"
+    load_b_b = comp.mem_load_d1(mem, b, val_b, "load_b")  # val_b := mem[b]"
 
-    read_b = comp.mem_load_d1(mem, b, mem_b, "latch_b")  # mem_b := mem[b]"
-
-    write_a = comp.mem_store_d1(mem, a, mem_a.out, "write_a")  # mem[a] := mem_a
-    write_b = comp.mem_store_d1(mem, b, mem_b.out, "write_b")  # mem[b] := mem_b
-
-    with comp.group("swap_registers") as swap_registers:
-        # Swap the values at registers `a_val` and `b_val`
-        temp_val.in_ = mem_a.out
-        temp_val.write_en = cb.HI
-        mem_a.in_ = mem_b.out
-        mem_a.write_en = temp_val.done
-        mem_b.in_ = temp_val.out
-        mem_b.write_en = mem_a.done
-        swap_registers.done = mem_b.done
+    store_a_b = comp.mem_store_d1(mem, a, val_b.out, "store_a")  # mem[a] := val_b
+    store_b_a = comp.mem_store_d1(mem, b, val_a.out, "store_b")  # mem[b] := val_a
 
     comp.control += [
-        read_a,
-        read_b,
-        swap_registers,
-        write_a,
-        write_b,
+        cb.par(load_a_a, load_b_b),
+        cb.par(store_a_b, store_b_a),
     ]
 
     return comp
