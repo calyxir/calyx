@@ -5,6 +5,7 @@ from calyx.builder import (
     while_with,
     par,
     while_,
+    if_
 )
 from typing import Literal
 from math import log2, ceil
@@ -533,19 +534,46 @@ def add_axi_seq_mem(prog, mem):
         address_translator.in_ = this_component["addr0"]
 
     #Control
-    # read_controller_invoke = invoke(
-    #         # main_comp.get_cell(f"ar_channel_{mem_name}"),
-    #         axi_seq_mem.get_cell(f"read_controller_{name}"),
-    #         in_axi_address=this_component[f""]
-    #         in_ARESETn=this_component[f"{mem_name}_ARESETn"],
-    #         in_ARREADY=this_component[f"{mem_name}_ARREADY"],
-    #         out_ARVALID=this_component[f"{mem_name}_ARVALID"],
-    #         out_ARADDR=this_component[f"{mem_name}_ARADDR"],
-    #         out_ARSIZE=this_component[f"{mem_name}_ARSIZE"],
-    #         out_ARLEN=this_component[f"{mem_name}_ARLEN"],
-    #         out_ARBURST=this_component[f"{mem_name}_ARBURST"],
-    #     )
-    # axi_seq_mem.if_(axi_seq_mem.this()["write_en"])
+    read_controller_invoke = invoke(
+            axi_seq_mem.get_cell(f"read_controller_{name}"),
+            in_axi_address=address_translator.out,
+            in_ARESETn=this_component[f"ARESETn"],
+            in_ARREADY=this_component[f"ARREADY"],
+            in_RVALID=this_component[f"RVALID"],
+            in_RLAST=this_component[f"RLAST"],
+            in_RDATA=this_component[f"RDATA"],
+            in_RRESP=this_component[f"RRESP"],
+            out_ARVALID=this_component[f"ARVALID"],
+            out_ARADDR=this_component[f"ARADDR"],
+            out_ARSIZE=this_component[f"ARSIZE"],
+            out_ARLEN=this_component[f"ARLEN"],
+            out_ARBURST=this_component[f"ARBURST"],
+            out_RREADY=this_component[f"RREADY"],
+            out_read_data=this_component[f"read_data"],
+        )
+
+    write_controller_invoke = invoke(
+            axi_seq_mem.get_cell(f"write_controller_{name}"),
+            in_axi_address=address_translator.out,
+            in_write_data=this_component["write_data"],
+            in_ARESETn=this_component["ARESETn"],
+            in_AWREADY=this_component["AWREADY"],
+            in_WREADY=this_component["WREADY"],
+            in_BVALID=this_component["BVALID"],
+            out_AWVALID=this_component["AWVALID"],
+            out_AWADDR=this_component["AWADDR"],
+            out_AWSIZE=this_component["AWSIZE"],
+            out_AWLEN=this_component["AWLEN"],
+            out_AWBURST=this_component["AWBURST"],
+            out_WVALID=this_component["WVALID"],
+            out_WLAST=this_component["WLAST"],
+            out_WDATA=this_component["WDATA"],
+            out_BREADY=this_component["BREADY"],
+    )
+    
+    axi_seq_mem.control += [
+      if_(axi_seq_mem.this()["write_en"], write_controller_invoke, read_controller_invoke)
+    ]
 
     
 
