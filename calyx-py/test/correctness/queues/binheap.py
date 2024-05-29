@@ -44,16 +44,13 @@ def insert_swap(prog, name, width, len, idx_w):
     val_a = comp.reg(width)
     val_b = comp.reg(width)
 
-    load_a_a = comp.mem_load_d1(mem, a, val_a, "load_a")  # val_a := mem[a]"
-    load_b_b = comp.mem_load_d1(mem, b, val_b, "load_b")  # val_b := mem[b]"
+    load_a_a = comp.mem_load_d1(mem, a, val_a, "load_a")  # val_a := mem[a]
+    load_b_b = comp.mem_load_d1(mem, b, val_b, "load_b")  # val_b := mem[b]
 
     store_a_b = comp.mem_store_d1(mem, a, val_b.out, "store_a")  # mem[a] := val_b
     store_b_a = comp.mem_store_d1(mem, b, val_a.out, "store_b")  # mem[b] := val_a
 
-    comp.control += [
-        cb.par(load_a_a, load_b_b),
-        cb.par(store_a_b, store_b_a),
-    ]
+    comp.control += [load_a_a, load_b_b, store_a_b, store_b_a]
 
     return comp
 
@@ -104,71 +101,62 @@ def insert_binheap(prog, name):
     child_idx = comp.reg(4)
     child_val = comp.reg(64)
 
-    read_parent = comp.mem_load_d1(mem, parent_idx.out, parent_val, "latch_parent")
-    read_child = comp.mem_load_d1(mem, child_idx.out, child_val, "latch_child")
+    read_parent = comp.mem_load_d1(mem, parent_idx.out, parent_val, "read_parent")
+    read_child = comp.mem_load_d1(mem, child_idx.out, child_val, "read_child")
 
     with comp.group("find_parent_idx") as find_parent_idx:
         # Find the parent of the `child`th element and store it in `parent`.
         # If child is 0, parent is 0.
         # Otherwise, parent := floor((child − 1) / 2)
 
-        # # Case when child = 0: parent := 0
-        # eq.left = child_idx.out
-        # eq.right = 0
-        # parent_idx.in_ = eq.out @ cb.const(4, 0)
+        # Case when child = 0: parent := 0
+        eq.left = child_idx.out
+        eq.right = 0
+        parent_idx.in_ = eq.out @ cb.const(4, 0)
+        parent_idx.write_en = eq.out @ cb.HI
 
-        # # Else case: parent := floor((child − 1) / 2)
-        # sub.left = ~eq.out @ child_idx.out
-        # sub.right = ~eq.out @ 1
-        # rsh.left = ~eq.out @ sub.out
-        # rsh.right = ~eq.out @ cb.const(4, 1)
-        # parent_idx.in_ = ~eq.out @ rsh.out
+        # Else case: parent := floor((child − 1) / 2)
+        sub.left = ~eq.out @ child_idx.out
+        sub.right = ~eq.out @ 1
+        rsh.left = ~eq.out @ sub.out
+        rsh.right = ~eq.out @ cb.const(4, 1)
+        parent_idx.in_ = ~eq.out @ rsh.out
+        parent_idx.write_en = ~eq.out @ cb.HI
 
-        parent_idx.in_ = cb.const(4, 0)
-        parent_idx.write_en = cb.HI
+        # In either case, we are done when parent_idx is written.
         find_parent_idx.done = parent_idx.done
 
-    # with comp.group("find_left_child") as find_child:
-    #     # Find the left child of the `parent`th element and store it in `child`.
-    #     # That is, child := 2*parent + 1
-    #     mul.left = parent.out
-    #     mul.right = 2
-    #     mul.go = cb.HI
-    #     add.left = mul.out
-    #     add.right = 1
-    #     child.in_ = add.out
-    #     child.write_en = cb.HI
-    #     find_child.done = child.done
-
-    # set_child_idx = comp.reg_store(child_idx, size.out)
-    put_new_val_in_mem = comp.mem_store_d1(mem, size.out, value, "put_new_val_in_mem")
+    set_child_idx = comp.reg_store(child_idx, size.out)  # child_idx := size
+    store_new_val = comp.mem_store_d1(
+        mem, child_idx.out, value, "store_new_val"
+    )  # mem[child_idx] := value
 
     incr_size = comp.incr(size)
-    # child_lt_parent = comp.lt_use(child_val.out, parent_val.out)
-    # bubble_child_idx = comp.reg_store(child_idx, parent_idx.out, "bubble_child_idx")
+    child_lt_parent = comp.lt_use(child_val.out, parent_val.out)
+    bubble_child_idx = comp.reg_store(child_idx, parent_idx.out, "bubble_child_idx")
 
     comp.control += [
-        # set_child_idx,
-        put_new_val_in_mem,
+        set_child_idx,
+        store_new_val,
         incr_size,
-        find_parent_idx,  # Adding this back in caused 9 to be clobbered...
-        # load_parent,
-        # load_child,
-        # cb.while_with(
-        #     child_lt_parent,
-        #     [
-        #         cb.invoke(
-        #             swap,
-        #             in_a=parent_idx.out,
-        #             in_b=child_idx.out,
-        #             ref_mem=mem,
-        #         ),
-        #         bubble_child_idx,
-        #         find_parent_idx,
-        #         load_parent,
-        #         load_child,
-        #     ],
-        # ),
+        find_parent_idx,
+        read_parent,
+        read_child,
+        cb.while_with(
+            child_lt_parent,
+            [
+                cb.invoke(
+                    swap,
+                    in_a=parent_idx.out,
+                    in_b=child_idx.out,
+                    ref_mem=mem,
+                ),
+                bubble_child_idx,
+                find_parent_idx,
+                read_parent,
+                read_child,
+            ],
+        ),
     ]
 
     return comp
