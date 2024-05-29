@@ -1,4 +1,4 @@
-
+// git.status = clean, build.date = Fri May 24 10:47:41 PDT 2024, git.hash = 164c2dd
 import "primitives/core.futil";
 import "primitives/memories/seq.futil";
 import "primitives/binary_operators.futil";
@@ -426,3 +426,4 @@ metadata #{
   19:     C_int[i][j] := C_sh[i][j];
   20:     C_int[i][j] := C_sh[i][j];
 }#
+

@@ -528,14 +528,14 @@ component main() -> () {
   }
   control {
     @static(14532) static seq {
-      @new_fsm @static(14532) static seq {
+      @new_fsm seq {
         invoke00;
         @promotable(784) @static(784) static repeat 8 {
           @promotable(98) @static(98) static seq {
             invoke101;
             @promotable(96) @static(96) static repeat 8 {
               @promotable(12) @static(12) static seq {
-                @new_fsm @promotable(12) @static(12) static seq {
+                @new_fsm seq {
                   @NODE_ID(8) beg_spl_let200;
                   invoke200;
                   @promotable(2) @static(2) static par {
@@ -553,7 +553,7 @@ component main() -> () {
                     }
                   }
                 }
-                @new_fsm @promotable(12) @static(12) static seq {
+                @new_fsm seq {
                   @promotable(2) @static(2) static par {
                     invoke70;
                     @promotable(2) @static(2) static seq {
@@ -625,7 +625,7 @@ component main() -> () {
           }
         }
       }
-      @new_fsm @static(14532) static seq {
+      @new_fsm seq {
         invoke340;
         @promotable(5648) @static(5648) static repeat 8 {
           @promotable(706) @static(706) static seq {
@@ -682,7 +682,7 @@ component main() -> () {
             invoke570;
             @promotable(96) @static(96) static repeat 8 {
               @promotable(12) @static(12) static seq {
-                @new_fsm @promotable(12) @static(12) static seq {
+                @new_fsm seq {
                   invoke580;
                   invoke590;
                   @promotable(2) @static(2) static par {
@@ -700,7 +700,7 @@ component main() -> () {
                     }
                   }
                 }
-                @new_fsm @promotable(12) @static(12) static seq {
+                @new_fsm seq {
                   @promotable(2) @static(2) static par {
                     @NODE_ID(124) upd270;
                     @promotable(2) @static(2) static seq {

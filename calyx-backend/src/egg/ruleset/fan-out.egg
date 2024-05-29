@@ -1,6 +1,6 @@
 (ruleset fan-out)
 
-(let FAN-OUT 2)
+(let FAN-OUT 4)
 
 ; par { A; B; C; D; } => par { par { A; B; } par { C; D; } }
 (rewrite

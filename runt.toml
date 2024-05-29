@@ -87,7 +87,7 @@ cmd = """
 name = "[frontend] NTT pipeline generation"
 paths = ["tests/frontend/ntt-pipeline/*.txt"]
 cmd = """
-fud e --from ntt {} --to calyx -q
+./frontends/ntt-pipeline/gen-ntt-pipeline.py {} --to calyx -q
 """
 
 [[tests]]
@@ -557,7 +557,7 @@ flags=$(head -n 1 {} | cut -c 3-)
 # egg correctness tests.
 [[tests]]
 name = "egg correctness"
-paths = ["calyx-backend/src/egg/tests/correctness/egg/*.futil"]
+paths = ["calyx-backend/src/egg/tests/correctness/egg/*/*.futil"]
 cmd = """
 fud exec --to egg-optimize {} -q | \
 fud exec --from calyx --to jq \
@@ -569,7 +569,7 @@ fud exec --from calyx --to jq \
 
 [[tests]]
 name = "egg evaluation (calyx correctness, for comparison)"
-paths = ["calyx-backend/src/egg/tests/correctness/calyx/*.futil"]
+paths = ["calyx-backend/src/egg/tests/correctness/calyx/*/*.futil"]
 cmd = """
 fud exec --from calyx --to jq \
          --through dat \

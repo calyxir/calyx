@@ -1,0 +1,652 @@
+import "primitives/binary_operators.futil";
+import "primitives/core.futil";
+import "primitives/math.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
+
+component main() -> () {
+  cells {
+    @external @data a = comb_mem_d1(32, 8, 4);
+    @external @data phis = comb_mem_d1(32, 8, 4);
+    @data r0 = std_reg(32);
+    @data r1 = std_reg(32);
+    @data r2 = std_reg(32);
+    @data r3 = std_reg(32);
+    @data r4 = std_reg(32);
+    @data r5 = std_reg(32);
+    @data r6 = std_reg(32);
+    @data r7 = std_reg(32);
+    @data A0 = std_reg(32);
+    @data A1 = std_reg(32);
+    @data A2 = std_reg(32);
+    @data A3 = std_reg(32);
+    @data A4 = std_reg(32);
+    @data A5 = std_reg(32);
+    @data A6 = std_reg(32);
+    @data A7 = std_reg(32);
+    @data phi0 = std_reg(32);
+    @data phi1 = std_reg(32);
+    @data phi2 = std_reg(32);
+    @data phi3 = std_reg(32);
+    @data phi4 = std_reg(32);
+    @data phi5 = std_reg(32);
+    @data phi6 = std_reg(32);
+    @data phi7 = std_reg(32);
+    @data mod_pipe0 = std_sdiv_pipe(32);
+    @data mod_pipe1 = std_sdiv_pipe(32);
+    @data mod_pipe2 = std_sdiv_pipe(32);
+    @data mod_pipe3 = std_sdiv_pipe(32);
+    @data mod_pipe4 = std_sdiv_pipe(32);
+    @data mod_pipe5 = std_sdiv_pipe(32);
+    @data mod_pipe6 = std_sdiv_pipe(32);
+    @data mod_pipe7 = std_sdiv_pipe(32);
+    @data mult_pipe0 = std_smult_pipe(32);
+    @data mult_pipe1 = std_smult_pipe(32);
+    @data mult_pipe2 = std_smult_pipe(32);
+    @data mult_pipe3 = std_smult_pipe(32);
+    @data add0 = std_sadd(32);
+    @data add1 = std_sadd(32);
+    @data add2 = std_sadd(32);
+    @data add3 = std_sadd(32);
+    @data sub0 = std_ssub(32);
+    @data sub1 = std_ssub(32);
+    @data sub2 = std_ssub(32);
+    @data sub3 = std_ssub(32);
+  }
+  wires {
+    group preamble_0 {
+      r1.write_en = 1'd1;
+      r0.write_en = 1'd1;
+      phis.addr0 = 4'd0;
+      r1.in = phis.read_data;
+      a.addr0 = 4'd0;
+      r0.in = a.read_data;
+      preamble_0[done] = r0.done & r1.done ? 1'd1;
+    }
+    group preamble_1 {
+      A0.write_en = 1'd1;
+      r1.write_en = 1'd1;
+      phis.addr0 = 4'd1;
+      A0.in = phis.read_data;
+      a.addr0 = 4'd1;
+      r1.in = a.read_data;
+      preamble_1[done] = r1.done & A0.done ? 1'd1;
+    }
+    group preamble_2 {
+      phi2.write_en = 1'd1;
+      r2.write_en = 1'd1;
+      phis.addr0 = 4'd2;
+      phi2.in = phis.read_data;
+      a.addr0 = 4'd2;
+      r2.in = a.read_data;
+      preamble_2[done] = r2.done & phi2.done ? 1'd1;
+    }
+    group preamble_3 {
+      phi3.write_en = 1'd1;
+      r3.write_en = 1'd1;
+      phis.addr0 = 4'd3;
+      phi3.in = phis.read_data;
+      a.addr0 = 4'd3;
+      r3.in = a.read_data;
+      preamble_3[done] = r3.done & phi3.done ? 1'd1;
+    }
+    group preamble_4 {
+      phi4.write_en = 1'd1;
+      r4.write_en = 1'd1;
+      phis.addr0 = 4'd4;
+      phi4.in = phis.read_data;
+      a.addr0 = 4'd4;
+      r4.in = a.read_data;
+      preamble_4[done] = r4.done & phi4.done ? 1'd1;
+    }
+    group preamble_5 {
+      phi5.write_en = 1'd1;
+      r5.write_en = 1'd1;
+      phis.addr0 = 4'd5;
+      phi5.in = phis.read_data;
+      a.addr0 = 4'd5;
+      r5.in = a.read_data;
+      preamble_5[done] = r5.done & phi5.done ? 1'd1;
+    }
+    group preamble_6 {
+      phi6.write_en = 1'd1;
+      r6.write_en = 1'd1;
+      phis.addr0 = 4'd6;
+      phi6.in = phis.read_data;
+      a.addr0 = 4'd6;
+      r6.in = a.read_data;
+      preamble_6[done] = r6.done & phi6.done ? 1'd1;
+    }
+    group preamble_7 {
+      phi7.write_en = 1'd1;
+      r7.write_en = 1'd1;
+      phis.addr0 = 4'd7;
+      phi7.in = phis.read_data;
+      a.addr0 = 4'd7;
+      r7.in = a.read_data;
+      preamble_7[done] = r7.done & phi7.done ? 1'd1;
+    }
+    group s0_r0_op_mod {
+      A0.write_en = mod_pipe0.done;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      mod_pipe0.right = 32'd97;
+      add0.right = mult_pipe0.out;
+      add0.left = r0.out;
+      mod_pipe0.left = add0.out;
+      A0.in = mod_pipe0.out_remainder;
+      s0_r0_op_mod[done] = A0.done;
+    }
+    group s0_r1_op_mod {
+      A1.write_en = mod_pipe1.done;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      mod_pipe1.right = 32'd97;
+      add1.right = mult_pipe1.out;
+      add1.left = r1.out;
+      mod_pipe1.left = add1.out;
+      A1.in = mod_pipe1.out_remainder;
+      s0_r1_op_mod[done] = A1.done;
+    }
+    group s0_r2_op_mod {
+      A2.write_en = mod_pipe2.done;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      mod_pipe2.right = 32'd97;
+      add2.right = mult_pipe2.out;
+      add2.left = r2.out;
+      mod_pipe2.left = add2.out;
+      A2.in = mod_pipe2.out_remainder;
+      s0_r2_op_mod[done] = A2.done;
+    }
+    group s0_r3_op_mod {
+      A3.write_en = mod_pipe3.done;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      mod_pipe3.right = 32'd97;
+      add3.right = mult_pipe3.out;
+      add3.left = r3.out;
+      mod_pipe3.left = add3.out;
+      A3.in = mod_pipe3.out_remainder;
+      s0_r3_op_mod[done] = A3.done;
+    }
+    group s0_r4_op_mod {
+      A4.write_en = mod_pipe4.done;
+      mod_pipe4.go = !mod_pipe4.done ? 1'd1;
+      mod_pipe4.right = 32'd97;
+      sub0.right = mult_pipe0.out;
+      sub0.left = r0.out;
+      mod_pipe4.left = sub0.out;
+      A4.in = mod_pipe4.out_remainder;
+      s0_r4_op_mod[done] = A4.done;
+    }
+    group s0_r5_op_mod {
+      A5.write_en = mod_pipe5.done;
+      mod_pipe5.go = !mod_pipe5.done ? 1'd1;
+      mod_pipe5.right = 32'd97;
+      sub1.right = mult_pipe1.out;
+      sub1.left = r1.out;
+      mod_pipe5.left = sub1.out;
+      A5.in = mod_pipe5.out_remainder;
+      s0_r5_op_mod[done] = A5.done;
+    }
+    group s0_r6_op_mod {
+      A6.write_en = mod_pipe6.done;
+      mod_pipe6.go = !mod_pipe6.done ? 1'd1;
+      mod_pipe6.right = 32'd97;
+      sub2.right = mult_pipe2.out;
+      sub2.left = r2.out;
+      mod_pipe6.left = sub2.out;
+      A6.in = mod_pipe6.out_remainder;
+      s0_r6_op_mod[done] = A6.done;
+    }
+    group s0_r7_op_mod {
+      A7.write_en = mod_pipe7.done;
+      mod_pipe7.go = !mod_pipe7.done ? 1'd1;
+      mod_pipe7.right = 32'd97;
+      sub3.right = mult_pipe3.out;
+      sub3.left = r3.out;
+      mod_pipe7.left = sub3.out;
+      A7.in = mod_pipe7.out_remainder;
+      s0_r7_op_mod[done] = A7.done;
+    }
+    group s1_r0_op_mod {
+      A0.write_en = mod_pipe0.done;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      mod_pipe0.right = 32'd97;
+      add0.right = mult_pipe0.out;
+      add0.left = r0.out;
+      mod_pipe0.left = add0.out;
+      A0.in = mod_pipe0.out_remainder;
+      s1_r0_op_mod[done] = A0.done;
+    }
+    group s1_r1_op_mod {
+      A1.write_en = mod_pipe1.done;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      mod_pipe1.right = 32'd97;
+      add1.right = mult_pipe1.out;
+      add1.left = r1.out;
+      mod_pipe1.left = add1.out;
+      A1.in = mod_pipe1.out_remainder;
+      s1_r1_op_mod[done] = A1.done;
+    }
+    group s1_r2_op_mod {
+      A2.write_en = mod_pipe2.done;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      mod_pipe2.right = 32'd97;
+      sub0.right = mult_pipe0.out;
+      sub0.left = r0.out;
+      mod_pipe2.left = sub0.out;
+      A2.in = mod_pipe2.out_remainder;
+      s1_r2_op_mod[done] = A2.done;
+    }
+    group s1_r3_op_mod {
+      A3.write_en = mod_pipe3.done;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      mod_pipe3.right = 32'd97;
+      sub1.right = mult_pipe1.out;
+      sub1.left = r1.out;
+      mod_pipe3.left = sub1.out;
+      A3.in = mod_pipe3.out_remainder;
+      s1_r3_op_mod[done] = A3.done;
+    }
+    group s1_r4_op_mod {
+      A4.write_en = mod_pipe4.done;
+      mod_pipe4.go = !mod_pipe4.done ? 1'd1;
+      mod_pipe4.right = 32'd97;
+      add2.right = mult_pipe2.out;
+      add2.left = r4.out;
+      mod_pipe4.left = add2.out;
+      A4.in = mod_pipe4.out_remainder;
+      s1_r4_op_mod[done] = A4.done;
+    }
+    group s1_r5_op_mod {
+      A5.write_en = mod_pipe5.done;
+      mod_pipe5.go = !mod_pipe5.done ? 1'd1;
+      mod_pipe5.right = 32'd97;
+      add3.right = mult_pipe3.out;
+      add3.left = r5.out;
+      mod_pipe5.left = add3.out;
+      A5.in = mod_pipe5.out_remainder;
+      s1_r5_op_mod[done] = A5.done;
+    }
+    group s1_r6_op_mod {
+      A6.write_en = mod_pipe6.done;
+      mod_pipe6.go = !mod_pipe6.done ? 1'd1;
+      mod_pipe6.right = 32'd97;
+      sub2.right = mult_pipe2.out;
+      sub2.left = r4.out;
+      mod_pipe6.left = sub2.out;
+      A6.in = mod_pipe6.out_remainder;
+      s1_r6_op_mod[done] = A6.done;
+    }
+    group s1_r7_op_mod {
+      A7.write_en = mod_pipe7.done;
+      mod_pipe7.go = !mod_pipe7.done ? 1'd1;
+      mod_pipe7.right = 32'd97;
+      sub3.right = mult_pipe3.out;
+      sub3.left = r5.out;
+      mod_pipe7.left = sub3.out;
+      A7.in = mod_pipe7.out_remainder;
+      s1_r7_op_mod[done] = A7.done;
+    }
+    group s2_r0_op_mod {
+      A0.write_en = mod_pipe0.done;
+      mod_pipe0.go = !mod_pipe0.done ? 1'd1;
+      mod_pipe0.right = 32'd97;
+      add0.right = mult_pipe0.out;
+      add0.left = r0.out;
+      mod_pipe0.left = add0.out;
+      A0.in = mod_pipe0.out_remainder;
+      s2_r0_op_mod[done] = A0.done;
+    }
+    group s2_r1_op_mod {
+      A1.write_en = mod_pipe1.done;
+      mod_pipe1.go = !mod_pipe1.done ? 1'd1;
+      mod_pipe1.right = 32'd97;
+      sub0.right = mult_pipe0.out;
+      sub0.left = r0.out;
+      mod_pipe1.left = sub0.out;
+      A1.in = mod_pipe1.out_remainder;
+      s2_r1_op_mod[done] = A1.done;
+    }
+    group s2_r2_op_mod {
+      A2.write_en = mod_pipe2.done;
+      mod_pipe2.go = !mod_pipe2.done ? 1'd1;
+      mod_pipe2.right = 32'd97;
+      add1.right = mult_pipe1.out;
+      add1.left = r2.out;
+      mod_pipe2.left = add1.out;
+      A2.in = mod_pipe2.out_remainder;
+      s2_r2_op_mod[done] = A2.done;
+    }
+    group s2_r3_op_mod {
+      A3.write_en = mod_pipe3.done;
+      mod_pipe3.go = !mod_pipe3.done ? 1'd1;
+      mod_pipe3.right = 32'd97;
+      sub1.right = mult_pipe1.out;
+      sub1.left = r2.out;
+      mod_pipe3.left = sub1.out;
+      A3.in = mod_pipe3.out_remainder;
+      s2_r3_op_mod[done] = A3.done;
+    }
+    group s2_r4_op_mod {
+      A4.write_en = mod_pipe4.done;
+      mod_pipe4.go = !mod_pipe4.done ? 1'd1;
+      mod_pipe4.right = 32'd97;
+      add2.right = mult_pipe2.out;
+      add2.left = r4.out;
+      mod_pipe4.left = add2.out;
+      A4.in = mod_pipe4.out_remainder;
+      s2_r4_op_mod[done] = A4.done;
+    }
+    group s2_r5_op_mod {
+      A5.write_en = mod_pipe5.done;
+      mod_pipe5.go = !mod_pipe5.done ? 1'd1;
+      mod_pipe5.right = 32'd97;
+      sub2.right = mult_pipe2.out;
+      sub2.left = r4.out;
+      mod_pipe5.left = sub2.out;
+      A5.in = mod_pipe5.out_remainder;
+      s2_r5_op_mod[done] = A5.done;
+    }
+    group s2_r6_op_mod {
+      A6.write_en = mod_pipe6.done;
+      mod_pipe6.go = !mod_pipe6.done ? 1'd1;
+      mod_pipe6.right = 32'd97;
+      add3.right = mult_pipe3.out;
+      add3.left = r6.out;
+      mod_pipe6.left = add3.out;
+      A6.in = mod_pipe6.out_remainder;
+      s2_r6_op_mod[done] = A6.done;
+    }
+    group s2_r7_op_mod {
+      A7.write_en = mod_pipe7.done;
+      mod_pipe7.go = !mod_pipe7.done ? 1'd1;
+      mod_pipe7.right = 32'd97;
+      sub3.right = mult_pipe3.out;
+      sub3.left = r6.out;
+      mod_pipe7.left = sub3.out;
+      A7.in = mod_pipe7.out_remainder;
+      s2_r7_op_mod[done] = A7.done;
+    }
+    static<3> group invoke00 {
+      mult_pipe0.go = 1'd1;
+      mult_pipe0.right = r4.out;
+      mult_pipe0.left = A0.out;
+    }
+    static<3> group invoke100 {
+      mult_pipe1.go = 1'd1;
+      mult_pipe1.right = r5.out;
+      mult_pipe1.left = A0.out;
+    }
+    static<3> group invoke200 {
+      mult_pipe2.go = 1'd1;
+      mult_pipe2.right = r6.out;
+      mult_pipe2.left = A0.out;
+    }
+    static<3> group invoke30 {
+      mult_pipe3.go = 1'd1;
+      mult_pipe3.right = r7.out;
+      mult_pipe3.left = A0.out;
+    }
+    static<1> group invoke40 {
+      r0.write_en = 1'd1;
+      r0.in = A0.out;
+    }
+    static<1> group invoke50 {
+      r1.write_en = 1'd1;
+      r1.in = A1.out;
+    }
+    static<1> group invoke60 {
+      r2.write_en = 1'd1;
+      r2.in = A2.out;
+    }
+    static<1> group invoke70 {
+      r3.write_en = 1'd1;
+      r3.in = A3.out;
+    }
+    static<1> group invoke80 {
+      r4.write_en = 1'd1;
+      r4.in = A4.out;
+    }
+    static<1> group invoke90 {
+      r5.write_en = 1'd1;
+      r5.in = A5.out;
+    }
+    static<1> group invoke101 {
+      r6.write_en = 1'd1;
+      r6.in = A6.out;
+    }
+    static<1> group invoke110 {
+      r7.write_en = 1'd1;
+      r7.in = A7.out;
+    }
+    static<3> group invoke120 {
+      mult_pipe0.go = 1'd1;
+      mult_pipe0.right = r2.out;
+      mult_pipe0.left = phi2.out;
+    }
+    static<3> group invoke130 {
+      mult_pipe1.go = 1'd1;
+      mult_pipe1.right = r3.out;
+      mult_pipe1.left = phi2.out;
+    }
+    static<3> group invoke140 {
+      mult_pipe2.go = 1'd1;
+      mult_pipe2.right = r6.out;
+      mult_pipe2.left = phi3.out;
+    }
+    static<3> group invoke150 {
+      mult_pipe3.go = 1'd1;
+      mult_pipe3.right = r7.out;
+      mult_pipe3.left = phi3.out;
+    }
+    static<1> group invoke160 {
+      r0.write_en = 1'd1;
+      r0.in = A0.out;
+    }
+    static<1> group invoke170 {
+      r1.write_en = 1'd1;
+      r1.in = A1.out;
+    }
+    static<1> group invoke180 {
+      r2.write_en = 1'd1;
+      r2.in = A2.out;
+    }
+    static<1> group invoke190 {
+      r3.write_en = 1'd1;
+      r3.in = A3.out;
+    }
+    static<1> group invoke201 {
+      r4.write_en = 1'd1;
+      r4.in = A4.out;
+    }
+    static<1> group invoke210 {
+      r5.write_en = 1'd1;
+      r5.in = A5.out;
+    }
+    static<1> group invoke220 {
+      r6.write_en = 1'd1;
+      r6.in = A6.out;
+    }
+    static<1> group invoke230 {
+      r7.write_en = 1'd1;
+      r7.in = A7.out;
+    }
+    static<3> group invoke240 {
+      mult_pipe0.go = 1'd1;
+      mult_pipe0.right = r1.out;
+      mult_pipe0.left = phi4.out;
+    }
+    static<3> group invoke250 {
+      mult_pipe1.go = 1'd1;
+      mult_pipe1.right = r3.out;
+      mult_pipe1.left = phi5.out;
+    }
+    static<3> group invoke260 {
+      mult_pipe2.go = 1'd1;
+      mult_pipe2.right = r5.out;
+      mult_pipe2.left = phi6.out;
+    }
+    static<3> group invoke270 {
+      mult_pipe3.go = 1'd1;
+      mult_pipe3.right = r7.out;
+      mult_pipe3.left = phi7.out;
+    }
+    static<1> group epilogue_00 {
+      a.write_data = A0.out;
+      a.write_en = 1'd1;
+      a.addr0 = 4'd0;
+    }
+    static<1> group epilogue_10 {
+      a.write_data = A1.out;
+      a.write_en = 1'd1;
+      a.addr0 = 4'd1;
+    }
+    static<1> group epilogue_20 {
+      a.write_data = A2.out;
+      a.write_en = 1'd1;
+      a.addr0 = 4'd2;
+    }
+    static<1> group epilogue_30 {
+      a.write_data = A3.out;
+      a.write_en = 1'd1;
+      a.addr0 = 4'd3;
+    }
+    static<1> group epilogue_40 {
+      a.write_data = A4.out;
+      a.write_en = 1'd1;
+      a.addr0 = 4'd4;
+    }
+    static<1> group epilogue_50 {
+      a.write_data = A5.out;
+      a.write_en = 1'd1;
+      a.addr0 = 4'd5;
+    }
+    static<1> group epilogue_60 {
+      a.write_data = A6.out;
+      a.write_en = 1'd1;
+      a.addr0 = 4'd6;
+    }
+    static<1> group epilogue_70 {
+      a.write_data = A7.out;
+      a.write_en = 1'd1;
+      a.addr0 = 4'd7;
+    }
+  }
+  control {
+    seq {
+      @new_fsm seq {
+        @NODE_ID preamble_0;
+        @NODE_ID(2) preamble_1;
+        @NODE_ID(3) preamble_2;
+        @NODE_ID(4) preamble_3;
+        @NODE_ID(5) preamble_4;
+        @NODE_ID(6) preamble_5;
+        @NODE_ID(7) preamble_6;
+      }
+      @new_fsm seq {
+        @new_fsm seq {
+          @NODE_ID(8) preamble_7;
+          @static(3) static par {
+            invoke00;
+            invoke100;
+            invoke200;
+            invoke30;
+          }
+          par {
+            par {
+              @NODE_ID(15) s0_r0_op_mod;
+              @NODE_ID(16) s0_r1_op_mod;
+              @NODE_ID(17) s0_r2_op_mod;
+              @NODE_ID(18) s0_r3_op_mod;
+            }
+            par {
+              @NODE_ID(19) s0_r4_op_mod;
+              @NODE_ID(20) s0_r5_op_mod;
+              @NODE_ID(21) s0_r6_op_mod;
+              @NODE_ID(22) s0_r7_op_mod;
+            }
+          }
+          @static(4) static seq {
+            @promotable @static static par {
+              invoke40;
+              invoke50;
+              invoke60;
+              invoke70;
+              invoke80;
+              invoke90;
+              invoke101;
+              invoke110;
+            }
+            @promotable(3) @static(3) static par {
+              invoke120;
+              invoke130;
+              invoke140;
+              invoke150;
+            }
+          }
+        }
+        @new_fsm seq {
+          par {
+            par {
+              @NODE_ID(38) s1_r0_op_mod;
+              @NODE_ID(39) s1_r1_op_mod;
+              @NODE_ID(40) s1_r2_op_mod;
+              @NODE_ID(41) s1_r3_op_mod;
+            }
+            par {
+              @NODE_ID(42) s1_r4_op_mod;
+              @NODE_ID(43) s1_r5_op_mod;
+              @NODE_ID(44) s1_r6_op_mod;
+              @NODE_ID(45) s1_r7_op_mod;
+            }
+          }
+          @static(4) static seq {
+            @promotable @static static par {
+              invoke160;
+              invoke170;
+              invoke180;
+              invoke190;
+              invoke201;
+              invoke210;
+              invoke220;
+              invoke230;
+            }
+            @promotable(3) @static(3) static par {
+              invoke240;
+              invoke250;
+              invoke260;
+              invoke270;
+            }
+          }
+          par {
+            par {
+              @NODE_ID(61) s2_r0_op_mod;
+              @NODE_ID(62) s2_r1_op_mod;
+              @NODE_ID(63) s2_r2_op_mod;
+              @NODE_ID(64) s2_r3_op_mod;
+            }
+            par {
+              @NODE_ID(65) s2_r4_op_mod;
+              @NODE_ID(66) s2_r5_op_mod;
+              @NODE_ID(67) s2_r6_op_mod;
+              @NODE_ID(68) s2_r7_op_mod;
+            }
+          }
+          @static(8) static seq {
+            @new_fsm seq {
+              @NODE_ID(69) epilogue_00;
+              @NODE_ID(70) epilogue_10;
+              @NODE_ID(71) epilogue_20;
+              @NODE_ID(72) epilogue_30;
+            }
+            @new_fsm seq {
+              @NODE_ID(73) epilogue_40;
+              @NODE_ID(74) epilogue_50;
+              @NODE_ID(75) epilogue_60;
+              @NODE_ID(76) epilogue_70;
+            }
+          }
+        }
+      }
+    }
+  }
+}

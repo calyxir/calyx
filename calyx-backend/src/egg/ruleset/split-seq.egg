@@ -24,10 +24,11 @@
         (>= (list-length (Cons y ys)) SPLIT-SEQ)
     )
     (
+        ; // TODO(cgyurgyik): If this has static latency, update it in the new 'seq' controls.
         (let xs (Cons y ys))
         (let middle (/ (list-length xs) 2))
-        (let s1 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs 0 middle)))
-        (let s2 (Seq (Attributes (map-insert attr "new_fsm" 1)) (list-slice xs middle (list-length xs))))
+        (let s1 (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) (list-slice xs 0 middle)))
+        (let s2 (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) (list-slice xs middle (list-length xs))))
         (union
             (Seq (Attributes attr) (Cons y ys))
             (Seq (Attributes attr) (Cons s1 (Cons s2 (Nil))))

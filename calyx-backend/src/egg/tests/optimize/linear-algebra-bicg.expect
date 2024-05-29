@@ -1,0 +1,225 @@
+import "primitives/binary_operators.futil";
+import "primitives/core.futil";
+import "primitives/math.futil";
+import "primitives/memories/comb.futil";
+import "primitives/memories/seq.futil";
+
+component main() -> () {
+  cells {
+    @data A_i_j_0 = std_reg(32);
+    @external @data A_int = seq_mem_d2(32, 8, 8, 4, 4);
+    @data add0 = std_add(4);
+    @data add1 = std_add(32);
+    @data add2 = std_add(32);
+    @data add3 = std_add(4);
+    @data add4 = std_add(4);
+    @data bin_read0_0 = std_reg(32);
+    @data bin_read1_0 = std_reg(32);
+    @data const0 = std_const(4, 0);
+    @data const1 = std_const(32, 0);
+    @data const2 = std_const(4, 1);
+    @data const3 = std_const(4, 0);
+    @data const4 = std_const(32, 0);
+    @data const5 = std_const(4, 0);
+    @data const6 = std_const(4, 1);
+    @data const7 = std_const(4, 1);
+    @data i0 = std_reg(4);
+    @data i1 = std_reg(4);
+    @data j0 = std_reg(4);
+    @data mult_pipe0 = std_mult_pipe(32);
+    @data mult_pipe1 = std_mult_pipe(32);
+    @external @data p_int = seq_mem_d1(32, 8, 4);
+    @data p_int_read0_0 = std_reg(32);
+    @data q0_0 = std_reg(32);
+    @external @data q_int = seq_mem_d1(32, 8, 4);
+    @external @data r_int = seq_mem_d1(32, 8, 4);
+    @data r_int_read0_0 = std_reg(32);
+    @data s0_0 = std_reg(32);
+    @external @data s_int = seq_mem_d1(32, 8, 4);
+    @generated comb_reg = std_reg(4);
+    @generated comb_reg0 = std_reg(4);
+    @generated comb_reg1 = std_reg(4);
+  }
+  wires {
+    static<1> group upd00 {
+      s_int.write_data = const1.out;
+      s_int.write_en = 1'd1;
+      s_int.addr0 = i1.out;
+      s_int.content_en = 1'd1;
+    }
+    static<1> group invoke100 {
+      i1.write_en = 1'd1;
+      i1.in = add0.out;
+      add0.right = const2.out;
+      add0.left = i1.out;
+    }
+    static<1> group beg_spl_let30 {
+      s_int.addr0 = j0.out;
+      s_int.content_en = 1'd1;
+    }
+    static<1> group invoke40 {
+      s0_0.write_en = 1'd1;
+      s0_0.in = s_int.read_data;
+    }
+    static<1> group beg_spl_let40 {
+      q_int.addr0 = i1.out;
+      q_int.content_en = 1'd1;
+    }
+    static<1> group invoke50 {
+      q0_0.write_en = 1'd1;
+      q0_0.in = q_int.read_data;
+    }
+    static<1> group beg_spl_let50 {
+      A_int.addr0 = i1.out;
+      A_int.addr1 = j0.out;
+      A_int.content_en = 1'd1;
+    }
+    static<1> group invoke60 {
+      A_i_j_0.write_en = 1'd1;
+      A_i_j_0.in = A_int.read_data;
+    }
+    static<1> group beg_spl_let60 {
+      r_int.addr0 = i1.out;
+      r_int.content_en = 1'd1;
+    }
+    static<1> group invoke70 {
+      bin_read0_0.write_en = 1'd1;
+      bin_read0_0.in = r_int.read_data;
+    }
+    static<3> group invoke80 {
+      mult_pipe0.go = 1'd1;
+      mult_pipe0.right = A_i_j_0.out;
+      mult_pipe0.left = bin_read0_0.out;
+    }
+    static<1> group invoke90 {
+      bin_read0_0.write_en = 1'd1;
+      bin_read0_0.in = mult_pipe0.out;
+    }
+    static<1> group upd30 {
+      add1.right = bin_read0_0.out;
+      add1.left = s0_0.out;
+      s_int.write_data = add1.out;
+      s_int.write_en = 1'd1;
+      s_int.addr0 = j0.out;
+      s_int.content_en = 1'd1;
+    }
+    static<1> group beg_spl_let80 {
+      p_int.addr0 = j0.out;
+      p_int.content_en = 1'd1;
+    }
+    static<1> group invoke101 {
+      p_int_read0_0.write_en = 1'd1;
+      p_int_read0_0.in = p_int.read_data;
+    }
+    static<3> group invoke110 {
+      mult_pipe0.go = 1'd1;
+      mult_pipe0.right = p_int_read0_0.out;
+      mult_pipe0.left = A_i_j_0.out;
+    }
+    static<1> group invoke120 {
+      A_i_j_0.write_en = 1'd1;
+      A_i_j_0.in = mult_pipe0.out;
+    }
+    static<5> group no-op {
+    }
+    static<1> group upd40 {
+      add1.right = A_i_j_0.out;
+      add1.left = q0_0.out;
+      q_int.write_data = add1.out;
+      q_int.write_en = 1'd1;
+      q_int.addr0 = i1.out;
+      q_int.content_en = 1'd1;
+    }
+    static<1> group invoke130 {
+      j0.write_en = 1'd1;
+      j0.in = add0.out;
+      add0.right = const2.out;
+      add0.left = j0.out;
+    }
+    static<1> group upd20 {
+      q_int.write_data = const1.out;
+      q_int.write_en = 1'd1;
+      q_int.addr0 = i1.out;
+      q_int.content_en = 1'd1;
+    }
+    static<1> group invoke140 {
+      i1.write_en = 1'd1;
+      i1.in = add0.out;
+      add0.right = const2.out;
+      add0.left = i1.out;
+    }
+    static<1> group invoke30 {
+      j0.write_en = 1'd1;
+      j0.in = const0.out;
+    }
+    static<1> group invoke00 {
+      i1.write_en = 1'd1;
+      i1.in = const0.out;
+    }
+    static<1> group invoke20 {
+      i1.write_en = 1'd1;
+      i1.in = const0.out;
+    }
+  }
+  control {
+    @static(802) static seq {
+      invoke00;
+      @promotable(16) @static(16) static repeat 8 {
+        @promotable(2) @static(2) static seq {
+          @NODE_ID(4) upd00;
+          invoke100;
+        }
+      }
+      invoke20;
+      @promotable(784) @static(784) static repeat 8 {
+        @promotable(98) @static(98) @promoted static par {
+          @static(98) static seq {
+            @NODE_ID(9) upd20;
+            @promotable(96) @static(96) static repeat 8 {
+              @promotable(12) @static(12) @promoted static par {
+                @static(12) static seq {
+                  @promotable(2) @static(2) static par {
+                    @promotable(2) @static(2) static seq {
+                      @NODE_ID(15) beg_spl_let30;
+                      invoke40;
+                    }
+                    @promotable(2) @static(2) static seq {
+                      @NODE_ID(18) beg_spl_let40;
+                      invoke50;
+                    }
+                    @promotable(2) @static(2) static seq {
+                      @NODE_ID(21) beg_spl_let50;
+                      invoke60;
+                    }
+                  }
+                  @promotable(5) @static(5) static par {
+                    @promotable(5) @static(5) static seq {
+                      invoke80;
+                      invoke90;
+                      @NODE_ID(31) upd30;
+                    }
+                    @promotable(2) @static(2) static seq {
+                      @NODE_ID(33) beg_spl_let80;
+                      invoke101;
+                    }
+                  }
+                  invoke110;
+                  invoke120;
+                  @NODE_ID(38) upd40;
+                }
+                @static(8) static seq {
+                  @NODE_ID(24) beg_spl_let60;
+                  invoke70;
+                  no-op;
+                  invoke130;
+                }
+              }
+            }
+            invoke140;
+          }
+          invoke30;
+        }
+      }
+    }
+  }
+}
