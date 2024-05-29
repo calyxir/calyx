@@ -239,10 +239,10 @@ class CompVar(Emittable):
 class PortDef(Emittable):
     id: CompVar
     width: int
-    attributes: Optional[List[PortAttribute]] = None
+    attributes: List[PortAttribute] = field(default_factory=list)
 
     def doc(self) -> str:
-        attributes = "" if self.attributes is None else (" ".join([x.doc() for x in self.attributes])+ " ")
+        attributes = "" if len(self.attributes) == 0 else (" ".join([x.doc() for x in self.attributes])+" ")
         return f"{attributes}{self.id.doc()}: {self.width}"
 
 
