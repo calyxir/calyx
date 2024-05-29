@@ -11,6 +11,7 @@ TLS = threading.local()
 TLS.groups = []
 
 
+
 class NotFoundError(Exception):
     """Raised when a component or group is not found."""
 
@@ -110,42 +111,44 @@ class ComponentBuilder:
             if name not in self.index:
                 return name
 
-    def input(self, name: str, size: int) -> ExprBuilder:
+    RawPortAttr = Union[str, Tuple[str, int]]
+    def input(self, name: str, size: int, attribute_literals : List[RawPortAttr] = []) -> ExprBuilder:
         """Declare an input port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
 
-    
-    def input_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
-        """Declare an input port on the component with attributes.
-
-        Returns an expression builder for the port.
-        """
         return self._port_with_attributes(name, size, True, attribute_literals)
 
-    def output(self, name: str, size: int) -> ExprBuilder:
+    
+    # def input_with_attributes(self, name: str, size: int, attribute_literals: List[RawPortAttr]) -> ExprBuilder:
+    #     """Declare an input port on the component with attributes.
+
+    #     Returns an expression builder for the port.
+    #     """
+    #     return 
+
+    def output(self, name: str, size: int, attribute_literals : List[RawPortAttr] = []) -> ExprBuilder:
         """Declare an output port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
+        return self._port_with_attributes(name, size, True, attribute_literals)
+        # self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
+        # return self.this()[name]
 
-    def output_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
-        """Declare an output port on the component with attributes.
+    # def output_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
+    #     """Declare an output port on the component with attributes.
 
-        Returns an expression builder for the port.
-        """
-        return self._port_with_attributes(name, size, False, attribute_literals)
+    #     Returns an expression builder for the port.
+    #     """
+    #     return self._port_with_attributes(name, size, False, attribute_literals)
 
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
 
-    def _port_with_attributes(self, name: str, size: int, is_input: bool, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
+    def _port_with_attributes(self, name: str, size: int, is_input: bool, attribute_literals: List[RawPortAttr]) -> ExprBuilder:
         """Should not be called directly.
         Declare a port on the component with attributes.
 
@@ -1528,7 +1531,7 @@ def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List
             comp.input(name, width)
         elif len(input_port) == 3:
             attributes = input_port[2]
-            comp.input_with_attributes(name, width, attributes)
+            comp.input(name, width, attributes)
     for output_port in output_ports:
         name = output_port[0]
         width = output_port[1]
@@ -1536,7 +1539,7 @@ def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List
             comp.output(name, width)
         elif len(output_port) == 3:
             attributes = output_port[2]
-            comp.output_with_attributes(name, width, attributes)
+            comp.output(name, width, attributes)
 
 
 def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
