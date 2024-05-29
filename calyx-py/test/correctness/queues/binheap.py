@@ -34,17 +34,11 @@ def insert_binheap(prog, name):
 
     It is a minimum binary heap, represented as an array.
 
-    It follows the interface of the `pifo` component:
-    It has three inputs:
-    - `cmd`: tells us what operation to execute.
-    The heap supports the operations `pop`, `peek`, and `push`.
-    - `value`: the value to push to the queue.
-
-    If an answer is expected, it is written to the `ans` register.
-    If an error occurs, the `err` register is set to 1.
+    The heap just supports the `push` operation.
+    Its only input is `value`, the value to push to the queue.
     """
     comp: cb.ComponentBuilder = prog.component(name)
-    value = comp.input("value", 64)  # The value to push to the queue
+    value = comp.input("value", 64)  # The value to push to the heap
 
     swap = comp.cell("swap", insert_swap(prog, "swap", 64, 15, 4))
 
