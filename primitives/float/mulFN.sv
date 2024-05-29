@@ -3,7 +3,7 @@
 
 `include "mulRecFN.v"
 
-module mulFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWidth = 32) (
+module std_mulFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWidth = 32) (
     input clk,
     input reset,
     input go,
@@ -37,8 +37,8 @@ module mulFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWid
     // Compute recoded numbers
     mulRecFN #(expWidth, sigWidth) multiplier(
         .control(control),
-        .left(l_recoded),
-        .right(r_recoded),
+        .a(l_recoded),
+        .b(r_recoded),
         .roundingMode(roundingMode),
         .out(res_recoded),
         .exceptionFlags(except_flag)
@@ -52,40 +52,42 @@ module mulFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWid
         .out(res_std)
     );
 
-    // Dummy registers for storing results before output
-    reg [(expWidth + sigWidth - 1):0] out_regs[0:1];
-    reg [4:0] except_flag_regs[0:1];
+    logic done_buf[1:0];
 
+    assign done = done_buf[1];
+
+    // If the done buffer is completely empty and go is high then execution
+    // just started.
+    logic start;
+    assign start = go;
+
+    // Start sending the done signal.
     always_ff @(posedge clk) begin
-        if (reset) begin
-            out_regs[0] <= 0;
-            out_regs[1] <= 0;
-            except_flag_regs[0] <= 0;
-            except_flag_regs[1] <= 0;
+        if (start)
+            done_buf[0] <= 1;
+        else
+            done_buf[0] <= 0;
+    end
+
+    // Push the done signal through the pipeline.
+    always_ff @(posedge clk) begin
+        if (go) begin
+            done_buf[1] <= done_buf[0];
         end else begin
-            // out
-            out_regs[0] <= res_std;
-            out_regs[1] <= out_regs[0];
-            out <= out_regs[1];
-            // exceptionFlags
-            except_flag_regs[0] <= except_flag;
-            except_flag_regs[1] <= except_flag_regs[0];
-            exceptionFlags <= except_flag_regs[1];
+            done_buf[1] <= 0;
         end
     end
 
-    // 4-bit shift register for valid signal
-    reg [3:0] valid_shift_reg = 4'b0000; 
-
-    always @(posedge clk) begin
-    if (reset) begin
-        valid_shift_reg <= 4'b0000;
-    end else begin
-        valid_shift_reg <= {valid_shift_reg[2:0], go};
+    // Compute the output and save it into out
+    always_ff @(posedge clk) begin
+        if (reset) begin
+            out <= 0;
+        end else if (go) begin
+            out <= res_std;
+        end else begin
+            out <= out;
+        end
     end
-    end
-
-    assign done = valid_shift_reg[3];
 
 endmodule
 
