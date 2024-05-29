@@ -13,8 +13,10 @@ def insert_foo_component(prog):
     cb.add_comp_ports(comp, foo_inputs, [])
 
     comp.output("out_1", 1)
+    # ANCHOR: port_attributes
     comp.output("out_2", 1, ["data"])
     comp.output("out_3", 1, ["data", ("done", 1)])
+    # ANCHOR_END: port_attributes
 
 if __name__ == "__main__":
     prog = cb.Builder()
