@@ -53,11 +53,10 @@ def insert_binheap(prog, name):
     # For now it has a hardcoded max length of 15, i.e., a binary heap of height 4.
     # Each cell of the memory is 64 bits wide.
 
-    size = comp.reg(4)  # Active size
-
     sub = comp.sub(4)
     rsh = comp.rsh(4)
 
+    size = comp.reg(4)  # Current size
     parent_idx = comp.reg(4)
     parent_val = comp.reg(64)
     child_idx = comp.reg(4)
