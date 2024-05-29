@@ -1,7 +1,7 @@
 `ifndef __ADDFN_V__
 `define __ADDFN_V__
 
-`include "addRecFN.v"
+`include "HardFloat_consts.vi"
 
 module std_addFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWidth = 32) (
     input clk,
