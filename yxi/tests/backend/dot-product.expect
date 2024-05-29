@@ -3,7 +3,7 @@
   "memories": [
     {
       "name": "A0",
-      "memory_type": "Sequential",
+      "memory_type": "Combinational",
       "data_width": 32,
       "dimensions": 1,
       "dimension_sizes": [
@@ -16,7 +16,7 @@
     },
     {
       "name": "B0",
-      "memory_type": "Sequential",
+      "memory_type": "Combinational",
       "data_width": 32,
       "dimensions": 1,
       "dimension_sizes": [
@@ -29,7 +29,7 @@
     },
     {
       "name": "v0",
-      "memory_type": "Sequential",
+      "memory_type": "Combinational",
       "data_width": 32,
       "dimensions": 1,
       "dimension_sizes": [

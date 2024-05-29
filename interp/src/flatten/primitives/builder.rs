@@ -130,8 +130,8 @@ pub fn build_primitive(
             }
         }
 
-        CellPrototype::Unknown(_, _) => {
-            todo!()
+        CellPrototype::Unknown(s, _) => {
+            todo!("Primitives {s} not yet implemented")
         }
     }
 }

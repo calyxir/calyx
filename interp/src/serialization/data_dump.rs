@@ -149,6 +149,7 @@ impl DataDump {
         write!(writer, "{}", header_str).unwrap();
 
         let written = writer.write(&self.data)?;
+        writer.flush()?;
         assert_eq!(written, self.data.len());
         Ok(())
     }

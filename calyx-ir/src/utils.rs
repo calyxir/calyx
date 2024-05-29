@@ -57,14 +57,14 @@ impl GetMemInfo for Vec<RRC<Cell>> {
                   let mut dimension_sizes: Vec<u64> = Vec::new();
                   let mut idx_sizes: Vec<u64> = Vec::new();
                   let dimensions: u64;
-                  //let mem_cell_type = mem.prototype.get_name().unwrap(); //i.e. "comb_mem_d1"
-                  let mem_type : MemoryType = if mem.is_comb_cell() {
+                  let mem_cell_type = mem.prototype.get_name().unwrap(); //i.e. "comb_mem_d1"
+                  let mem_type : MemoryType = if mem_cell_type.to_string().contains("comb") {
                     MemoryType::Combinational
                   } else {
                     MemoryType::Sequential
                   };
 
-                  match mem.prototype.get_name().unwrap().as_ref() {
+                  match mem_cell_type.as_ref() {
                       "comb_mem_d1" | "seq_mem_d1" => {
                         dimension_sizes.push(mem.get_parameter("SIZE").unwrap());
                         dimensions = 1;
