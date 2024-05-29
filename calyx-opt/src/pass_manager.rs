@@ -174,7 +174,7 @@ impl PassManager {
             // rel_ordering = [E,G,B]
             // results in:
             // passes = [A,C,D,E,G,B,F]
-            passes.retain(|pass| !rest_rel_ordering.contains(&pass));
+            passes.retain(|pass| !rest_rel_ordering.contains(pass));
             let insertion_idx =
                 passes.iter().position(|x| x == first_rel_ordering).unwrap();
             passes.splice(insertion_idx..insertion_idx, relative_ordering);
