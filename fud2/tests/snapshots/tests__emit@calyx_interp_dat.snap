@@ -13,7 +13,6 @@ rule hex-data
   command = $python json-dat.py --from-json $in $out
 rule json-data
   command = $python json-dat.py --to-json $out $in
-build tb.sv: get-rsrc
 sim_data = /test/data.json
 datadir = sim_data
 build $datadir: hex-data $sim_data | json-dat.py
@@ -21,9 +20,13 @@ rule sim-run
   command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
 cycle-limit = 500000000
 
+# Standalone Testbench Setup
+build tb.sv: get-rsrc
+
 # Calyx compiler
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
+args = 
 rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
 rule calyx-pass
@@ -31,6 +34,7 @@ rule calyx-pass
 
 # Cider interpreter
 cider-exe = $calyx-base/target/debug/cider
+cider-converter = $calyx-base/target/debug/cider-data-converter
 rule cider
   command = $cider-exe -l $calyx-base --raw --data data.json $in > $out
 rule cider-debug
@@ -43,6 +47,13 @@ rule dat-to-interp
 rule interp-to-dat
   command = $python interp-dat.py --from-interp $in $sim_data > $out
 build data.json: dat-to-interp $sim_data | interp-dat.py
+rule cider2
+  command = $cider-exe -l $calyx-base --data data.dump $in flat > $out
+rule dump-to-interp
+  command = $cider-converter --to cider $in > $out
+rule interp-to-dump
+  command = $cider-converter --to json $in > $out
+build data.dump: dump-to-interp $sim_data | $cider-converter
 
 # build targets
 build interp_out.json: cider stdin | data.json

@@ -143,7 +143,7 @@ class ComponentBuilder:
         """Access the component's control program."""
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
-                "Combinational components do not have control programs"
+                "Combinational components do not have control programs."
             )
         return ControlBuilder(self.component.controls)
 
@@ -151,7 +151,7 @@ class ComponentBuilder:
     def control(self, builder: Union[ast.Control, ControlBuilder]):
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
-                "Combinational components do not have control programs"
+                "Combinational components do not have control programs."
             )
         if isinstance(builder, ControlBuilder):
             self.component.controls = builder.stmt
@@ -214,9 +214,7 @@ class ComponentBuilder:
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError(
-                "Combinational components do not have groups, only wires."
-            )
+            raise AttributeError("Combinational components do not have groups.")
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -229,7 +227,7 @@ class ComponentBuilder:
         """Create a new combinational group with the given name."""
         if isinstance(self.component, ast.CombComponent):
             raise AttributeError(
-                "Sequential components do not have combinational groups, only wires."
+                "Combinational components do not have combinational groups."
             )
         group = ast.CombGroup(ast.CompVar(name), connections=[])
         assert group not in self.component.wires, f"group '{name}' already exists"
@@ -242,9 +240,7 @@ class ComponentBuilder:
     def static_group(self, name: str, latency: int) -> GroupBuilder:
         """Create a new static group with the given name."""
         if isinstance(self.component, ast.CombComponent):
-            raise AttributeError(
-                "Sequential components do not have static groups, only wires."
-            )
+            raise AttributeError("Combinational components do not have groups.")
         group = ast.StaticGroup(ast.CompVar(name), connections=[], latency=latency)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -438,6 +434,13 @@ class ComponentBuilder:
     def lsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdLsh cell."""
         return self.binary("lsh", size, name, signed)
+
+    def cat(self, left_width: int, right_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdCat cell."""
+        return self.cell(
+            name or self.generate_name("cat"),
+            ast.Stdlib.cat(left_width, right_width, left_width + right_width),
+        )
 
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
@@ -701,63 +704,35 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_comb_mem_d1(self, mem, i, reg, groupname):
+    def mem_load_d1(self, mem, i, reg, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a comb_mem_d1 memory.
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
         """
-        assert mem.is_comb_mem_d1()
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as load_grp:
             mem.addr0 = i
-            reg.write_en = 1
-            reg.in_ = mem.read_data
+            if is_comb:
+                reg.write_en = 1
+                reg.in_ = mem.read_data
+            else:
+                mem.content_en = 1
+                reg.write_en = mem.done @ 1
+                reg.in_ = mem.done @ mem.read_data
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_comb_mem_d1(self, mem, i, val, groupname):
+    def mem_store_d1(self, mem, i, val, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a comb_mem_d1 memory."""
-        assert mem.is_comb_mem_d1()
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
+        """
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
             mem.write_data = val
             store_grp.done = mem.done
-        return store_grp
-
-    def mem_read_seq_d1(self, mem, i, groupname):
-        """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
-        where `mem` is a seq_d1 memory.
-        Note that this does not write the value anywhere.
-        """
-        assert mem.is_seq_mem_d1()
-        with self.group(groupname) as read_grp:
-            mem.addr0 = i
-            mem.content_en = 1
-            read_grp.done = mem.done
-        return read_grp
-
-    def mem_write_seq_d1_to_reg(self, mem, reg, groupname):
-        """Inserts wiring into `self` to perform reg := <mem_latched_value>,
-        where `mem` is a seq_d1 memory that already has some latched value.
-        """
-        assert mem.is_seq_mem_d1()
-        with self.group(groupname) as write_grp:
-            reg.write_en = 1
-            reg.in_ = mem.read_data
-            write_grp.done = reg.done
-        return write_grp
-
-    def mem_store_seq_d1(self, mem, i, val, groupname):
-        """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a seq_d1 memory.
-        """
-        assert mem.is_seq_mem_d1()
-        with self.group(groupname) as store_grp:
-            mem.addr0 = i
-            mem.write_en = 1
-            mem.write_data = val
-            mem.content_en = 1
-            store_grp.done = mem.done
+            if not is_comb:
+                mem.content_en = 1
         return store_grp
 
     def mem_load_to_mem(self, mem, i, ans, j, groupname):

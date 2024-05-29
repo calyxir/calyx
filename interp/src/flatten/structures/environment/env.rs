@@ -158,12 +158,16 @@ impl CellLedger {
     }
 
     #[must_use]
-    pub(crate) fn as_primitive(&self) -> Option<&dyn Primitive> {
-        if let Self::Primitive { cell_dyn } = self {
-            Some(&**cell_dyn)
-        } else {
-            None
+    pub fn as_primitive(&self) -> Option<&dyn Primitive> {
+        match self {
+            Self::Primitive { cell_dyn } => Some(&**cell_dyn),
+            _ => None,
         }
+    }
+
+    pub fn unwrap_primitive(&self) -> &dyn Primitive {
+        self.as_primitive()
+            .expect("Unwrapped cell ledger as primitive but received component")
     }
 }
 
@@ -246,6 +250,12 @@ impl<'a> Environment<'a> {
             .as_comp()
             .expect("Called layout component with a non-component cell.");
         let comp_aux = &self.ctx.secondary[*comp_id];
+
+        // Insert the component's continuous assignments into the program counter, if non-empty
+        let cont_assigns = self.ctx.primary[*comp_id].continuous_assignments;
+        if !cont_assigns.is_empty() {
+            self.pc.push_continuous_assigns(comp, cont_assigns);
+        }
 
         // first layout the signature
         for sig_port in comp_aux.signature.iter() {
@@ -485,6 +495,10 @@ impl<'a> Simulator<'a> {
         &self.env.ports[port_idx]
     }
 
+    pub(crate) fn get_root_component(&self) -> &ComponentLedger {
+        self.env.cells.first().unwrap().as_comp().unwrap()
+    }
+
     /// Attempt to find the parent cell for a port. If no such cell exists (i.e.
     /// it is a hole port, then it returns None)
     fn _get_parent_cell(
@@ -566,6 +580,15 @@ impl<'a> Simulator<'a> {
                     }
                 }
             })
+            .chain(
+                self.env.pc.continuous_assigns().iter().map(|x| {
+                    ScheduledAssignments::new(x.comp, x.assigns, None)
+                }),
+            )
+            .chain(self.env.pc.with_map().iter().map(|(ctrl_pt, comb_grp)| {
+                let assigns = self.ctx().primary[*comb_grp].assignments;
+                ScheduledAssignments::new(ctrl_pt.comp, assigns, None)
+            }))
             .collect()
     }
 
@@ -578,10 +601,10 @@ impl<'a> Simulator<'a> {
         // program counter as the size
         let mut leaf_nodes = vec![];
 
-        let mut par_map = std::mem::take(self.env.pc.par_map_mut());
         let mut new_nodes = vec![];
+        let (mut vecs, mut par_map, mut with_map) = self.env.pc.take_fields();
 
-        self.env.pc.vec_mut().retain_mut(|node| {
+        vecs.retain_mut(|node| {
             // just considering a single node case for the moment
             match &self.env.ctx.primary[node.control_node_idx] {
                 ControlNode::Seq(seq) => {
@@ -618,7 +641,22 @@ impl<'a> Simulator<'a> {
                 }
                 ControlNode::If(i) => {
                     if i.cond_group().is_some() {
-                        todo!("if statement has a with clause")
+                        if with_map.contains_key(node) {
+                            with_map.remove(node);
+                            return node.mutate_into_next(self.env.ctx);
+                        } else {
+                            let comb_group = i.cond_group().unwrap();
+                            let comb_assigns = ScheduledAssignments::new(node.comp, self.env.ctx.primary[comb_group].assignments, None);
+
+                            with_map.insert(node.clone(), comb_group);
+
+                            // TODO griffin: Sort out a way to make this error less terrible
+                            // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+                            // HAVE NOT BEEN UNDEFINED YET
+                            self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for if statement");
+
+                            // now we fall through and proceed as normal
+                        }
                     }
 
                     let target = GlobalPortRef::from_local(
@@ -644,7 +682,12 @@ impl<'a> Simulator<'a> {
                 }
                 ControlNode::While(w) => {
                     if w.cond_group().is_some() {
-                        todo!("while statement has a with clause")
+                        let comb_group = with_map.entry(node.clone()).or_insert(w.cond_group().unwrap());
+                        let comb_assigns = ScheduledAssignments::new(node.comp, self.env.ctx.primary[*comb_group].assignments, None);
+
+                         // NOTE THIS MIGHT INTRODUCE A BUG SINCE THE PORTS
+                         // HAVE NOT BEEN UNDEFINED YET
+                        self.simulate_combinational(&[comb_assigns]).expect("something went wrong in evaluating with clause for while statement");
                     }
 
                     let target = GlobalPortRef::from_local(
@@ -669,6 +712,9 @@ impl<'a> Simulator<'a> {
                         *node = node.new_retain_comp(w.body());
                         true
                     } else {
+                        if w.cond_group().is_some() {
+                            with_map.remove(node);
+                        }
                         // ascend the tree
                         node.mutate_into_next(self.env.ctx)
                     }
@@ -700,10 +746,10 @@ impl<'a> Simulator<'a> {
             }
         });
 
+        self.env.pc.restore_fields(vecs, par_map, with_map);
+
         // insert all the new nodes from the par into the program counter
         self.env.pc.vec_mut().extend(new_nodes);
-        // return the par map to the program counter
-        *self.env.pc.par_map_mut() = par_map;
 
         self.undef_all_ports();
 
@@ -728,7 +774,9 @@ impl<'a> Simulator<'a> {
             }
         }
 
-        self.simulate_combinational(&leaf_nodes)?;
+        let assigns_bundle = self.get_assignments(&leaf_nodes);
+
+        self.simulate_combinational(&assigns_bundle)?;
 
         for cell in self.env.cells.values_mut() {
             match cell {
@@ -813,9 +861,8 @@ impl<'a> Simulator<'a> {
 
     fn simulate_combinational(
         &mut self,
-        control_points: &[ControlPoint],
+        assigns_bundle: &[ScheduledAssignments],
     ) -> InterpreterResult<()> {
-        let assigns_bundle = self.get_assignments(control_points);
         let mut has_changed = true;
 
         // TODO griffin: rewrite this so that someone can actually read it
@@ -939,15 +986,15 @@ impl<'a> Simulator<'a> {
         let entrypoint_secondary = &ctx.secondary[ctx.entry_point];
 
         let mut dump = DataDump::new_empty_with_top_level(
-            ctx.secondary[entrypoint_secondary.name].clone(),
+            ctx.lookup_string(entrypoint_secondary.name).clone(),
         );
 
-        let root = self.env.cells.first().unwrap().as_comp().unwrap();
+        let root = self.get_root_component();
 
         for (offset, idx) in entrypoint_secondary.cell_offset_map.iter() {
             let cell_info = &ctx.secondary[*idx];
             let cell_index = &root.index_bases + offset;
-            let name = ctx.secondary[cell_info.name].clone();
+            let name = ctx.lookup_string(cell_info.name).clone();
             if let CellPrototype::Memory { width, dims, .. } =
                 &cell_info.prototype
             {
@@ -957,8 +1004,7 @@ impl<'a> Simulator<'a> {
                     dims.size(),
                     dims.as_serializing_dim(),
                     self.env.cells[cell_index]
-                        .as_primitive()
-                        .unwrap()
+                        .unwrap_primitive()
                         .dump_memory_state()
                         .unwrap(),
                 )
