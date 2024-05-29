@@ -110,29 +110,27 @@ class ComponentBuilder:
             if name not in self.index:
                 return name
 
-    def input(self, name: str, size: int) -> ExprBuilder:
+    # Attributes are expected to be either just an attribute name or an (attribute name, value) tuple
+    RawPortAttr = Union[str, Tuple[str, int]]
+
+    def input(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an input port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
 
-    
-    def input_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
-        """Declare an input port on the component with attributes.
-
-        Returns an expression builder for the port.
-        """
         return self._port_with_attributes(name, size, True, attribute_literals)
 
-    def output(self, name: str, size: int) -> ExprBuilder:
+    def output(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an output port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
+        return self._port_with_attributes(name, size, False, attribute_literals)
 
     def output_with_attributes(self, name: str, size: int, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
         """Declare an output port on the component with attributes.
@@ -145,13 +143,18 @@ class ComponentBuilder:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
 
-    def _port_with_attributes(self, name: str, size: int, is_input: bool, attribute_literals: List[Union[str, Tuple[str, int]]]) -> ExprBuilder:
+    def _port_with_attributes(
+        self,
+        name: str,
+        size: int,
+        is_input: bool,
+        attribute_literals: List[RawPortAttr],
+    ) -> ExprBuilder:
         """Should not be called directly.
         Declare a port on the component with attributes.
 
         Returns an expression builder for the port.
         """
-        
         attributes = []
         for attr in attribute_literals:
             if isinstance(attr, str):
@@ -159,13 +162,18 @@ class ComponentBuilder:
             elif isinstance(attr, tuple):
                 attributes.append(ast.PortAttribute(attr[0], attr[1]))
             else:
-                raise ValueError(f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple.")
+                raise ValueError(
+                    f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
+                )
         if is_input:
-            self.component.inputs.append(ast.PortDef(ast.CompVar(name), size, attributes))
+            self.component.inputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
         else:
-            self.component.outputs.append(ast.PortDef(ast.CompVar(name), size, attributes))
+            self.component.outputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
         return self.this()[name]
-
 
     def this(self) -> ThisBuilder:
         """Get a handle to the component's `this` cell.
@@ -500,7 +508,9 @@ class ComponentBuilder:
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
 
-    def const_mult(self, size: int, const: int, name: Optional[str] = None) -> CellBuilder:
+    def const_mult(
+        self, size: int, const: int, name: Optional[str] = None
+    ) -> CellBuilder:
         """Generate a StdConstMult cell."""
         name = name or self.generate_name("const_mult")
         self.prog.import_("primitives/binary_operators.futil")
@@ -1515,28 +1525,23 @@ def static_seq(*args) -> ast.StaticSeqComp:
 
 
 def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List):
-    """
-    Adds `input_ports`/`output_ports` as inputs/outputs to comp.
-    `input_ports`/`output_ports` should contain an (input_name, input_width) pair.
-    Or they should contain an (input_name, input_width, attributes) triple.
+    """Adds `input_ports`/`output_ports` as inputs/outputs to comp.
+
+    `input_ports`/`output_ports` should contain either an (input_name, input_width) pair
+    or an (input_name, input_width, attributes) triple.
     """
 
-    for input_port in input_ports:
-        name = input_port[0]
-        width = input_port[1]
-        if len(input_port) == 2:
-            comp.input(name, width)
-        elif len(input_port) == 3:
-            attributes = input_port[2]
-            comp.input_with_attributes(name, width, attributes)
-    for output_port in output_ports:
-        name = output_port[0]
-        width = output_port[1]
-        if len(output_port) == 2:
-            comp.output(name, width)
-        elif len(output_port) == 3:
-            attributes = output_port[2]
-            comp.output_with_attributes(name, width, attributes)
+    def normalize_ports(ports: List):
+        for port in ports:
+            if len(port) == 2:
+                yield (port[0], port[1], [])
+            elif len(port) == 3:
+                yield port[0], port[1], port[2]
+
+    for name, width, attributes in normalize_ports(input_ports):
+        comp.input(name, width, attributes)
+    for name, width, attributes in normalize_ports(output_ports):
+        comp.output(name, width, attributes)
 
 
 def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
