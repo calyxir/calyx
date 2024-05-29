@@ -150,12 +150,38 @@ impl PassManager {
         &self,
         incls: &[String],
         excls: &[String],
+        ords: &[String],
     ) -> CalyxResult<(Vec<String>, HashSet<String>)> {
-        // Incls and excls can both have aliases in them. Resolve them.
-        let passes = incls
+        // Incls, excls, and ord can have aliases in them. Resolve them.
+        let relative_ordering = ords
             .iter()
             .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<Vec<_>>();
+        let mut passes = incls
+            .iter()
+            .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
+            .collect::<Vec<_>>();
+
+        match relative_ordering.split_first() {
+            Some((first_rel_ordering, rest_rel_ordering)) => {
+                // If there is a relative ordering, then we look for the first
+                // pass in the relative ordering, and then insert the rest of
+                // the passes in the relative ordering directly after that pass.
+                // e.g.
+                // passes = [A,B,C,D,E,F,G]
+                // rel_ordering = [E,G,B]
+                // results in:
+                // passes = [A,C,D,E,G,B,F]
+                passes.retain(|pass| !rest_rel_ordering.contains(&pass));
+                let insertion_idx = passes
+                    .iter()
+                    .position(|x| x == first_rel_ordering)
+                    .unwrap();
+                passes.splice(insertion_idx..insertion_idx, relative_ordering);
+            }
+            // No need to do any reordering if relative_ordering is empty
+            _ => (),
+        };
 
         let excl_set = excls
             .iter()
@@ -163,7 +189,7 @@ impl PassManager {
             .collect::<HashSet<String>>();
 
         // Validate that names of passes in incl and excl sets are known
-        passes.iter().chain(excl_set.iter()).try_for_each(|pass| {
+        passes.iter().chain(excl_set.iter().chain(ords)).try_for_each(|pass| {
             if !self.passes.contains_key(pass) {
                 Err(Error::misc(format!(
                     "Unknown pass: {pass}. Run compiler with pass-help subcommand to view registered passes."
@@ -177,14 +203,16 @@ impl PassManager {
     }
 
     /// Executes a given "plan" constructed using the incl and excl lists.
+    /// ord is a relative ordering that should be enforced.
     pub fn execute_plan(
         &self,
         ctx: &mut ir::Context,
         incl: &[String],
         excl: &[String],
+        ord: &[String],
         dump_ir: bool,
     ) -> CalyxResult<()> {
-        let (passes, excl_set) = self.create_plan(incl, excl)?;
+        let (passes, excl_set) = self.create_plan(incl, excl, ord)?;
 
         for name in passes {
             // Pass is known to exist because create_plan validates the
