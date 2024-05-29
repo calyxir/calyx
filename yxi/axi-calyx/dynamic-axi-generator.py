@@ -1,6 +1,6 @@
 from calyx.builder import (
     Builder,
-    add_comp_params,
+    add_comp_ports,
     invoke,
     while_with,
     par,
@@ -29,7 +29,7 @@ def add_address_translator(prog, mem):
     address_translator = prog.component(f"address_translator_{name}")
     translator_inputs = [("calyx_mem_addr", address_width)]
     translator_output = [("axi_address", 64)]
-    add_comp_params(address_translator, translator_inputs, translator_output)
+    add_comp_ports(address_translator, translator_inputs, translator_output)
 
     #Cells
     #XRT expects 64 bit address.
@@ -78,7 +78,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         (f"{x}BURST", 2),  # for XRT should be tied to 2'b01 for WRAP burst
         (f"{x}PROT", 3),  # tied to be priviliged, nonsecure, data access request
     ]
-    add_comp_params(m_to_s_address_channel, channel_inputs, channel_outputs)
+    add_comp_ports(m_to_s_address_channel, channel_inputs, channel_outputs)
 
     # Cells
     xvalid = m_to_s_address_channel.reg(1, f"{lc_x}valid")
@@ -154,7 +154,7 @@ def add_read_channel(prog, mem):
         ("RRESP", 2),
     ]
     channel_outputs = [("RREADY", 1), ("read_data", mem[width_key])]
-    add_comp_params(read_channel, channel_inputs, channel_outputs)
+    add_comp_ports(read_channel, channel_inputs, channel_outputs)
 
     # Cells
 
@@ -249,7 +249,7 @@ def add_write_channel(prog, mem):
         ("WLAST", 1),
         ("WDATA", mem[width_key]),
     ]
-    add_comp_params(write_channel, channel_inputs, channel_outputs)
+    add_comp_ports(write_channel, channel_inputs, channel_outputs)
 
     # Cells
     # We assume idx_size is exactly clog2(len). See comment in #1751
@@ -314,7 +314,7 @@ def add_bresp_channel(prog, mem):
     # No BRESP because it is ignored, i.e we assume it is tied OKAY
     channel_inputs = [("ARESETn", 1), ("BVALID", 1)]
     channel_outputs = [("BREADY", 1)]
-    add_comp_params(bresp_channel, channel_inputs, channel_outputs)
+    add_comp_ports(bresp_channel, channel_inputs, channel_outputs)
 
     # Cells
     bready = bresp_channel.reg(1, "bready")
@@ -368,7 +368,7 @@ def add_read_controller(prog, mem):
         (f"read_data", data_width),
     ]
 
-    add_comp_params(read_controller, read_controller_inputs, read_controller_outputs)
+    add_comp_ports(read_controller, read_controller_inputs, read_controller_outputs)
 
     #Cells
     simple_ar_channel = read_controller.cell(f"ar_channel_{name}", prog.get_component("m_ar_channel"))
@@ -431,7 +431,7 @@ def add_write_controller(prog, mem):
         (f"BREADY", data_width),
     ]
 
-    add_comp_params(write_controller, write_controller_inputs, write_controller_outputs)
+    add_comp_ports(write_controller, write_controller_inputs, write_controller_outputs)
 
     #Cells
     simple_aw_channel = write_controller.cell(f"aw_channel_{name}", prog.get_component("m_aw_channel"))
@@ -483,10 +483,10 @@ def add_axi_seq_mem(prog, mem):
     axi_seq_mem = prog.component(f"axi_seq_mem_{name}")
     # Inputs/Outputs
     seq_mem_inputs =[
-        ("addr0", address_width),
-        ("content_en", 1),
-        ("write_en", 1),
-        ("write_data", data_width),
+        ("addr0", address_width, [("write_together", 1), "data"]),
+        ("content_en", 1, [("write_together", 1), ("interval", 1), ("go", 1)]),
+        ("write_en", 1, [("write_together", 2)]),
+        ("write_data", data_width, [("write_together", 2), "data"]),
         (f"ARESETn", 1),
         (f"ARREADY", 1),
         (f"RVALID", 1),
@@ -501,7 +501,7 @@ def add_axi_seq_mem(prog, mem):
         (f"BRESP", 2),
     ]
     seq_mem_outputs = [
-        ("read_data", data_width),
+        ("read_data", data_width, ["stable"]),
         (f"ARVALID", 1),
         (f"ARADDR", 64),
         (f"ARSIZE", 3),
@@ -519,14 +519,34 @@ def add_axi_seq_mem(prog, mem):
         (f"WDATA", mem[width_key]),
         (f"BREADY", 1),
     ]
-    add_comp_params(axi_seq_mem, seq_mem_inputs, seq_mem_outputs)
+    add_comp_ports(axi_seq_mem, seq_mem_inputs, seq_mem_outputs)
 
     # Cells
-    axi_seq_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
+    address_translator = axi_seq_mem.cell(f"address_translator_{name}", prog.get_component(f"address_translator_{name}"))
     axi_seq_mem.cell(f"read_controller_{name}", prog.get_component(f"read_controller_{name}"))
     axi_seq_mem.cell(f"write_controller_{name}", prog.get_component(f"write_controller_{name}"))
 
+    # Wires
+    this_component = axi_seq_mem.this()
+    #  Continuous assignment
+    with axi_seq_mem.continuous:
+        address_translator.in_ = this_component["addr0"]
+
     #Control
+    # read_controller_invoke = invoke(
+    #         # main_comp.get_cell(f"ar_channel_{mem_name}"),
+    #         axi_seq_mem.get_cell(f"read_controller_{name}"),
+    #         in_axi_address=this_component[f""]
+    #         in_ARESETn=this_component[f"{mem_name}_ARESETn"],
+    #         in_ARREADY=this_component[f"{mem_name}_ARREADY"],
+    #         out_ARVALID=this_component[f"{mem_name}_ARVALID"],
+    #         out_ARADDR=this_component[f"{mem_name}_ARADDR"],
+    #         out_ARSIZE=this_component[f"{mem_name}_ARSIZE"],
+    #         out_ARLEN=this_component[f"{mem_name}_ARLEN"],
+    #         out_ARBURST=this_component[f"{mem_name}_ARBURST"],
+    #     )
+    # axi_seq_mem.if_(axi_seq_mem.this()["write_en"])
+
     
 
 # NOTE: Unlike the channel functions, this can expect multiple mems
@@ -595,7 +615,7 @@ def add_main_comp(prog, mems):
             (f"{mem_name}_BID", 1),
         ]
 
-        add_comp_params(wrapper_comp, wrapper_inputs, wrapper_outputs)
+        add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
 
         # Cells
         # Read stuff
