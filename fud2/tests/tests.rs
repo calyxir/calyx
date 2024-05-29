@@ -149,7 +149,7 @@ fn temp_dir_test() {
     }
 
     let cwd = env::current_dir()
-        .expect("Failed to get the current workign directory");
+        .expect("Failed to get the current working directory");
 
     env::set_current_dir("tests/data").expect("Failed to change directory");
 
