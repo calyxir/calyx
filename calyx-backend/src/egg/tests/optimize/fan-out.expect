@@ -41,10 +41,10 @@ component main() -> () {
   }
   control {
     @static static par {
-      invoke00;
-      invoke10;
-      invoke20;
-      invoke30;
+      @promotable invoke00;
+      @promotable invoke10;
+      @promotable invoke20;
+      @promotable invoke30;
     }
   }
 }

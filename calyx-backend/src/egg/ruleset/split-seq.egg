@@ -21,14 +21,17 @@
     (
         (= S (Seq (Attributes attr) (Cons y ys)))
         (map-not-contains attr "new-fsm")
+        (map-contains attr "static")
         (>= (list-length (Cons y ys)) SPLIT-SEQ)
     )
     (
-        ; // TODO(cgyurgyik): If this has static latency, update it in the new 'seq' controls.
+
         (let xs (Cons y ys))
         (let middle (/ (list-length xs) 2))
-        (let s1 (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) (list-slice xs 0 middle)))
-        (let s2 (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) (list-slice xs middle (list-length xs))))
+        (let l1 (list-slice xs 0 middle))
+        (let l2 (list-slice xs middle (list-length xs)))
+        (let s1 (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) l1))
+        (let s2 (Seq (Attributes (map-insert (map-empty) "new_fsm" 1)) l2))
         (union
             (Seq (Attributes attr) (Cons y ys))
             (Seq (Attributes attr) (Cons s1 (Cons s2 (Nil))))

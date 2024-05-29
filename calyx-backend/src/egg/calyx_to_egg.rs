@@ -230,12 +230,15 @@ impl ToEggPrinter {
         let attr = control.get_attributes();
         match control {
             ir::StaticControl::Enable(ir::StaticEnable { group, .. }) => {
-                // TODO(cgyurgyik): Add promotable attribute if it exists in the group.
                 write!(
                     f,
                     "(Enable {} {})",
                     group.borrow().name().id,
-                    Self::format_attributes(attr, None, None),
+                    Self::format_attributes(
+                        attr,
+                        None,
+                        Some(group.borrow().get_latency())
+                    ),
                 )
             }
             ir::StaticControl::Seq(calyx_ir::StaticSeq {

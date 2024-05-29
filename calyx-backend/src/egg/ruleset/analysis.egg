@@ -39,6 +39,12 @@
 (sort _ControlSet)
 (function ControlSet (ControlSetBase) _ControlSet)
 
+; Optional[Int]
+(sort _OptionalI64)
+(function OptionalI64 (i64) _OptionalI64)
+(function None () _OptionalI64)
+(function is_none (_OptionalI64) bool)
+
 (ruleset analysis)
 
 (function c-union (_ControlSet _ControlSet) _ControlSet)
@@ -339,6 +345,7 @@
 )
 
 
+; TODO(cgyurgyik): This needs to be optional - dynamic Enable cannot have a latency sum.
 (function sum-latency (List) i64 :merge (min old new))
 (set (sum-latency (Nil)) 0)
 

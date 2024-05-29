@@ -36,12 +36,12 @@ component main() -> () {
   control {
     @static(11) @promoted static par {
       @static(11) static seq {
-        invoke00;
-        no-op;
-        invoke10;
+        @promotable invoke00;
+        @promotable(9) no-op;
+        @promotable invoke10;
       }
-      @NODE_ID(2) B0;
-      @NODE_ID(4) D0;
+      @NODE_ID(2) @promotable(10) B0;
+      @NODE_ID(4) @promotable(10) D0;
     }
   }
 }

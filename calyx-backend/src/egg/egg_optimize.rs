@@ -104,10 +104,13 @@ impl EggOptimizeBackend {
             (repeat 32 
                 (saturate 
                     fan-out 
+                    analysis
                     par-to-seq
+                    analysis
                     split-seq
                     analysis
                     collapse-control
+                    analysis
                 )
                 (repeat 8 analysis static-compaction)
                 (run)

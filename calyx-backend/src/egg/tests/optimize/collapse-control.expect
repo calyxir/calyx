@@ -31,9 +31,9 @@ component main() -> () {
   }
   control {
     @static(5) static seq {
-      invoke00;
-      invoke10;
-      invoke20;
+      @promotable invoke00;
+      @promotable(3) invoke10;
+      @promotable invoke20;
     }
   }
 }

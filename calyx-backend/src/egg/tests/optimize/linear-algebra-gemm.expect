@@ -327,110 +327,110 @@ component main() -> () {
     @static(8635) static seq {
       @promotable(529) @static(529) static par {
         @promotable(2) @static(2) static seq {
-          @NODE_ID(3) beg_spl_let00;
-          invoke00;
+          @NODE_ID(3) @promotable beg_spl_let00;
+          @promotable invoke00;
         }
         @promotable(2) @static(2) static seq {
-          @NODE_ID(6) beg_spl_let10;
-          invoke100;
+          @NODE_ID(6) @promotable beg_spl_let10;
+          @promotable invoke100;
         }
         @promotable(529) @static(529) static seq {
-          invoke200;
+          @promotable invoke200;
           @promotable(528) @static(528) static repeat 8 {
             @promotable(66) @static(66) static seq {
-              invoke300;
+              @promotable invoke300;
               @promotable(64) @static(64) static repeat 8 {
                 @promotable(8) @static(8) static seq {
-                  @NODE_ID(16) beg_spl_let40;
-                  invoke400;
+                  @NODE_ID(16) @promotable beg_spl_let40;
+                  @promotable invoke400;
                   @promotable(2) @static(2) static par {
-                    invoke50;
+                    @promotable invoke50;
                     @promotable(2) @static(2) static seq {
-                      @NODE_ID(21) beg_spl_let50;
-                      invoke60;
+                      @NODE_ID(21) @promotable beg_spl_let50;
+                      @promotable invoke60;
                     }
                   }
                   @promotable(2) @static(2) static par {
-                    invoke70;
+                    @promotable invoke70;
                     @promotable(2) @static(2) static seq {
-                      @NODE_ID(26) beg_spl_let60;
-                      invoke80;
+                      @NODE_ID(26) @promotable beg_spl_let60;
+                      @promotable invoke80;
                     }
                   }
-                  invoke90;
-                  invoke101;
+                  @promotable invoke90;
+                  @promotable invoke101;
                 }
               }
-              invoke110;
+              @promotable invoke110;
             }
           }
         }
       }
-      invoke120;
+      @promotable invoke120;
       @promotable(7832) @static(7832) static repeat 8 {
         @promotable(979) @static(979) static seq {
-          invoke130;
+          @promotable invoke130;
           @promotable(64) @static(64) static repeat 8 {
             @promotable(8) @static(8) static seq {
-              invoke140;
-              invoke150;
-              invoke160;
-              invoke170;
-              invoke180;
-              invoke190;
+              @promotable invoke140;
+              @promotable invoke150;
+              @promotable(3) invoke160;
+              @promotable invoke170;
+              @promotable invoke180;
+              @promotable invoke190;
             }
           }
-          invoke201;
+          @promotable invoke201;
           @promotable(912) @static(912) static repeat 8 {
             @promotable(114) @static(114) static seq {
-              invoke210;
+              @promotable invoke210;
               @promotable(112) @static(112) static repeat 8 {
                 @promotable(14) @static(14) @promoted static par {
                   @static(14) static seq {
                     @promotable(2) @static(2) static par {
                       @promotable(2) @static(2) static seq {
-                        invoke220;
-                        invoke230;
+                        @promotable invoke220;
+                        @promotable invoke230;
                       }
                       @promotable(2) @static(2) static seq {
-                        invoke240;
-                        invoke250;
+                        @promotable invoke240;
+                        @promotable invoke250;
                       }
                     }
-                    invoke260;
-                    invoke270;
-                    invoke280;
-                    invoke290;
-                    invoke301;
-                    invoke310;
-                    invoke320;
-                    invoke330;
+                    @promotable(3) invoke260;
+                    @promotable invoke270;
+                    @promotable(3) invoke280;
+                    @promotable invoke290;
+                    @promotable invoke301;
+                    @promotable invoke310;
+                    @promotable invoke320;
+                    @promotable invoke330;
                   }
                   @static(3) static seq {
-                    no-op;
-                    invoke340;
+                    @promotable(2) no-op;
+                    @promotable invoke340;
                   }
                 }
               }
-              invoke350;
+              @promotable invoke350;
             }
           }
-          invoke360;
+          @promotable invoke360;
         }
       }
-      invoke370;
+      @promotable invoke370;
       @promotable(272) @static(272) static repeat 8 {
         @promotable(34) @static(34) static seq {
-          invoke380;
+          @promotable invoke380;
           @promotable(32) @static(32) static repeat 8 {
             @promotable(4) @static(4) static seq {
-              invoke390;
-              invoke401;
-              @NODE_ID(81) upd150;
-              invoke410;
+              @promotable invoke390;
+              @promotable invoke401;
+              @NODE_ID(81) @promotable upd150;
+              @promotable invoke410;
             }
           }
-          invoke420;
+          @promotable invoke420;
         }
       }
     }

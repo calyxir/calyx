@@ -533,118 +533,110 @@ component main() -> () {
   }
   control {
     seq {
-      @new_fsm seq {
-        @NODE_ID preamble_0;
-        @NODE_ID(2) preamble_1;
-        @NODE_ID(3) preamble_2;
-        @NODE_ID(4) preamble_3;
-        @NODE_ID(5) preamble_4;
-        @NODE_ID(6) preamble_5;
-        @NODE_ID(7) preamble_6;
+      @NODE_ID preamble_0;
+      @NODE_ID(2) preamble_1;
+      @NODE_ID(3) preamble_2;
+      @NODE_ID(4) preamble_3;
+      @NODE_ID(5) preamble_4;
+      @NODE_ID(6) preamble_5;
+      @NODE_ID(7) preamble_6;
+      @NODE_ID(8) preamble_7;
+      @static(3) static par {
+        @promotable(3) invoke00;
+        @promotable(3) invoke100;
+        @promotable(3) invoke200;
+        @promotable(3) invoke30;
       }
-      @new_fsm seq {
+      par {
+        par {
+          @NODE_ID(15) s0_r0_op_mod;
+          @NODE_ID(16) s0_r1_op_mod;
+          @NODE_ID(17) s0_r2_op_mod;
+          @NODE_ID(18) s0_r3_op_mod;
+        }
+        par {
+          @NODE_ID(19) s0_r4_op_mod;
+          @NODE_ID(20) s0_r5_op_mod;
+          @NODE_ID(21) s0_r6_op_mod;
+          @NODE_ID(22) s0_r7_op_mod;
+        }
+      }
+      @static(4) static seq {
+        @promotable @static static par {
+          @promotable invoke40;
+          @promotable invoke50;
+          @promotable invoke60;
+          @promotable invoke70;
+          @promotable invoke80;
+          @promotable invoke90;
+          @promotable invoke101;
+          @promotable invoke110;
+        }
+        @promotable(3) @static(3) static par {
+          @promotable(3) invoke120;
+          @promotable(3) invoke130;
+          @promotable(3) invoke140;
+          @promotable(3) invoke150;
+        }
+      }
+      par {
+        par {
+          @NODE_ID(38) s1_r0_op_mod;
+          @NODE_ID(39) s1_r1_op_mod;
+          @NODE_ID(40) s1_r2_op_mod;
+          @NODE_ID(41) s1_r3_op_mod;
+        }
+        par {
+          @NODE_ID(42) s1_r4_op_mod;
+          @NODE_ID(43) s1_r5_op_mod;
+          @NODE_ID(44) s1_r6_op_mod;
+          @NODE_ID(45) s1_r7_op_mod;
+        }
+      }
+      @static(4) static seq {
+        @promotable @static static par {
+          @promotable invoke160;
+          @promotable invoke170;
+          @promotable invoke180;
+          @promotable invoke190;
+          @promotable invoke201;
+          @promotable invoke210;
+          @promotable invoke220;
+          @promotable invoke230;
+        }
+        @promotable(3) @static(3) static par {
+          @promotable(3) invoke240;
+          @promotable(3) invoke250;
+          @promotable(3) invoke260;
+          @promotable(3) invoke270;
+        }
+      }
+      par {
+        par {
+          @NODE_ID(61) s2_r0_op_mod;
+          @NODE_ID(62) s2_r1_op_mod;
+          @NODE_ID(63) s2_r2_op_mod;
+          @NODE_ID(64) s2_r3_op_mod;
+        }
+        par {
+          @NODE_ID(65) s2_r4_op_mod;
+          @NODE_ID(66) s2_r5_op_mod;
+          @NODE_ID(67) s2_r6_op_mod;
+          @NODE_ID(68) s2_r7_op_mod;
+        }
+      }
+      @static(8) static seq {
         @new_fsm seq {
-          @NODE_ID(8) preamble_7;
-          @static(3) static par {
-            invoke00;
-            invoke100;
-            invoke200;
-            invoke30;
-          }
-          par {
-            par {
-              @NODE_ID(15) s0_r0_op_mod;
-              @NODE_ID(16) s0_r1_op_mod;
-              @NODE_ID(17) s0_r2_op_mod;
-              @NODE_ID(18) s0_r3_op_mod;
-            }
-            par {
-              @NODE_ID(19) s0_r4_op_mod;
-              @NODE_ID(20) s0_r5_op_mod;
-              @NODE_ID(21) s0_r6_op_mod;
-              @NODE_ID(22) s0_r7_op_mod;
-            }
-          }
-          @static(4) static seq {
-            @promotable @static static par {
-              invoke40;
-              invoke50;
-              invoke60;
-              invoke70;
-              invoke80;
-              invoke90;
-              invoke101;
-              invoke110;
-            }
-            @promotable(3) @static(3) static par {
-              invoke120;
-              invoke130;
-              invoke140;
-              invoke150;
-            }
-          }
+          @NODE_ID(69) @promotable epilogue_00;
+          @NODE_ID(70) @promotable epilogue_10;
+          @NODE_ID(71) @promotable epilogue_20;
+          @NODE_ID(72) @promotable epilogue_30;
         }
         @new_fsm seq {
-          par {
-            par {
-              @NODE_ID(38) s1_r0_op_mod;
-              @NODE_ID(39) s1_r1_op_mod;
-              @NODE_ID(40) s1_r2_op_mod;
-              @NODE_ID(41) s1_r3_op_mod;
-            }
-            par {
-              @NODE_ID(42) s1_r4_op_mod;
-              @NODE_ID(43) s1_r5_op_mod;
-              @NODE_ID(44) s1_r6_op_mod;
-              @NODE_ID(45) s1_r7_op_mod;
-            }
-          }
-          @static(4) static seq {
-            @promotable @static static par {
-              invoke160;
-              invoke170;
-              invoke180;
-              invoke190;
-              invoke201;
-              invoke210;
-              invoke220;
-              invoke230;
-            }
-            @promotable(3) @static(3) static par {
-              invoke240;
-              invoke250;
-              invoke260;
-              invoke270;
-            }
-          }
-          par {
-            par {
-              @NODE_ID(61) s2_r0_op_mod;
-              @NODE_ID(62) s2_r1_op_mod;
-              @NODE_ID(63) s2_r2_op_mod;
-              @NODE_ID(64) s2_r3_op_mod;
-            }
-            par {
-              @NODE_ID(65) s2_r4_op_mod;
-              @NODE_ID(66) s2_r5_op_mod;
-              @NODE_ID(67) s2_r6_op_mod;
-              @NODE_ID(68) s2_r7_op_mod;
-            }
-          }
-          @static(8) static seq {
-            @new_fsm seq {
-              @NODE_ID(69) epilogue_00;
-              @NODE_ID(70) epilogue_10;
-              @NODE_ID(71) epilogue_20;
-              @NODE_ID(72) epilogue_30;
-            }
-            @new_fsm seq {
-              @NODE_ID(73) epilogue_40;
-              @NODE_ID(74) epilogue_50;
-              @NODE_ID(75) epilogue_60;
-              @NODE_ID(76) epilogue_70;
-            }
-          }
+          @NODE_ID(73) @promotable epilogue_40;
+          @NODE_ID(74) @promotable epilogue_50;
+          @NODE_ID(75) @promotable epilogue_60;
+          @NODE_ID(76) @promotable epilogue_70;
         }
       }
     }

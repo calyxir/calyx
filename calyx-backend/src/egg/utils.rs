@@ -37,11 +37,11 @@ pub fn extract_egglog(
 ) -> (Term, TermDag) {
     let mut egraph = EGraph::default();
     if program.is_empty() {
-        panic!("attempting to parse and run and empty egglog program")
+        panic!("attempting to parse and run empty egglog program")
     }
-    egraph.parse_and_run_program(program).unwrap_or_else(|_| {
-        panic!("failed to parse and run e-graph:\n{}", program)
-    });
+    egraph
+        .parse_and_run_program(program)
+        .unwrap_or_else(|_| panic!("failed to parse and run e-graph"));
 
     if display {
         println!("   -------------RUN REPORT-------------  ");
