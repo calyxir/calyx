@@ -25,7 +25,7 @@ def add_systolic_input_params(comp: cb.ComponentBuilder, row_num, addr_width):
     Add ports "r_{row_num}_valid", "r_{row_num}_value", "r_{row_num}_idx" to comp.
     These ports are meant to read from the systolic array output.
     """
-    cb.add_comp_params(
+    cb.add_comp_ports(
         comp,
         input_ports=[
             (NAME_SCHEME["systolic valid signal"].format(row_num=row_num), 1),
