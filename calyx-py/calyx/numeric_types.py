@@ -175,7 +175,7 @@ class FixedPoint(NumericType):
                 f"width: {width} should be greater than the integer width: {int_width}."
             )
 
-        if self.bit_string_repr is not None or self.hex_string_repr is not None:
+        if self.bit_string_repr or self.hex_string_repr:
             self.__initialize_with_base_string()
         else:
             self.__initialize_with_decimal_repr(value)

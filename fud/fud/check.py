@@ -133,7 +133,7 @@ def check(args, cfg):
 
     # check executables in stages
     for name, stage in cfg["stages"].items():
-        if stages is not None:
+        if stages:
             if name not in stages:
                 continue
             else:
@@ -145,7 +145,7 @@ def check(args, cfg):
             exec_name = colored(stage["exec"], "yellow")
             if stage["exec"].startswith("cargo run"):
                 cprint(" ✔", "green", end=" ")
-            elif exec_path is not None:
+            elif exec_path:
                 cprint(" ✔", "green", end=" ")
                 print(f"{exec_name} installed.")
                 # check if path is absolute or relative

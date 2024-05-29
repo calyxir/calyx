@@ -84,7 +84,7 @@ class MrXLStage(Stage):
         # a computation graph that is executed later on.
         mrxl_data = config.get(["stages", "mrxl", "data"])
 
-        if mrxl_data is not None:
+        if mrxl_data:
             tmpdir = mktmp()
 
             set_mrxl_prog(input)

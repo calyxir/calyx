@@ -269,12 +269,12 @@ class Configuration:
         The path to the external script is stored in the [external] table of
         the configuration.
         """
-        if not args.delete and args.path is not None:
+        if not args.delete and args.path:
             path = Path(args.path)
             if not path.exists() or not path.is_file():
                 raise errors.FudRegisterError(args.name, f"`{path}' is not a file.")
 
-            if self.config.get(["external", args.name]) is not None:
+            if self.config.get(["external", args.name]):
                 raise errors.FudRegisterError(
                     args.name, f"External with name {args.name} already registered."
                 )

@@ -776,13 +776,13 @@ if __name__ == "__main__":
         args.is_signed,
         args.base_is_e,
     ]
-    if all(map(lambda x: x is not None, required_fields)):
+    if all(map(lambda x: x, required_fields)):
         degree = args.degree
         width = args.width
         int_width = args.int_width
         is_signed = args.is_signed
         base_is_e = args.base_is_e
-    elif args.file is not None:
+    elif args.file:
         with open(args.file, "r") as f:
             spec = json.load(f)
             degree = spec["degree"]

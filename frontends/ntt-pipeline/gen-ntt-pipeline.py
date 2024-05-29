@@ -294,12 +294,12 @@ if __name__ == "__main__":
 
     input_bitwidth, input_size, modulus = None, None, None
     required_fields = [args.input_bitwidth, args.input_size, args.modulus]
-    if all(map(lambda x: x is not None, required_fields)):
+    if all(map(lambda x: x, required_fields)):
         input_bitwidth = args.input_bitwidth
         input_size = args.input_size
         modulus = args.modulus
         parallel_reduction = args.parallel_reduction
-    elif args.file is not None:
+    elif args.file:
         with open(args.file, "r") as f:
             spec = json.load(f)
             input_bitwidth = spec["input_bitwidth"]
@@ -313,7 +313,7 @@ if __name__ == "__main__":
 
     program = generate_ntt_pipeline(input_bitwidth, input_size, modulus)
 
-    if parallel_reduction is not None:
+    if parallel_reduction:
         for c in program.components:
             reduce_parallel_control_pass(c, parallel_reduction, input_size)
 

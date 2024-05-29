@@ -38,9 +38,7 @@ class Profiler:
         self._current_time = time.time()
 
     def end(self):
-        assert (
-            self._current_time is not None
-        ), "Attempt to end measurement before it starts"
+        assert self._current_time, "Attempt to end measurement before it starts"
         t = self._current_time
         self._current_time = None
         return time.time() - t
@@ -141,4 +139,4 @@ class ContextExecutor(object):
         self.parent_exec._start_ctx(self.ctx)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.parent_exec._end_ctx(exc_type is not None, self.profiler.end())
+        self.parent_exec._end_ctx(exc_type, self.profiler.end())

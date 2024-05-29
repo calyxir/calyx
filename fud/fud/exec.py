@@ -101,7 +101,7 @@ def get_fud_output(args: RunConf, config: Configuration):
     """
     # check if input_file exists
     input_file = None
-    if args.input_file is not None:
+    if args.input_file:
         input_file = Path(args.input_file)
         if not input_file.exists():
             raise FileNotFoundError(input_file)
@@ -139,7 +139,7 @@ def get_fud_output(args: RunConf, config: Configuration):
     else:
         sp = None
 
-    enable_profile = args.profiled_stages is not None
+    enable_profile = args.profiled_stages
     exec = executor.Executor(sp, log.getLogger().level <= log.INFO, enable_profile)
 
     # construct a source object for the input
@@ -185,7 +185,7 @@ def run_fud(args: RunConf, config: Configuration):
     """
     output = get_fud_output(args, config)
     # output the data or profiling information.
-    if args.output_file is not None:
+    if args.output_file:
         if output.typ == SourceType.Directory:
             shutil.move(output.data.name, args.output_file)
         else:

@@ -24,7 +24,7 @@ class RemoteExecution:
         self.builder = builder
         self.SSHClient = None
         self.SCPClient = None
-        if config["stages", self.stage.name, "remote"] is not None:
+        if config["stages", self.stage.name, "remote"]:
             self.use_ssh = True
             self.ssh_host = config["stages", self.stage.name, "ssh_host"]
             self.ssh_user = config["stages", self.stage.name, "ssh_username"]

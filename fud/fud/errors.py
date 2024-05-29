@@ -112,7 +112,7 @@ class UndefinedState(FudError):
 
     def __init__(self, stage, ctx=None):
         msg = f"No state named {stage}"
-        if ctx is not None:
+        if ctx:
             msg += f". Context: {ctx}"
         super().__init__(msg)
 
@@ -124,7 +124,7 @@ class UndefinedSteps(FudError):
 
     def __init__(self, stage, steps, known_steps):
         msg = f"No step(s): {', '.join(steps)} defined for stage: {stage}"
-        if known_steps is not None:
+        if known_steps:
             msg += f". Known steps: {', '.join(known_steps)}"
         super().__init__(msg)
 

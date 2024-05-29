@@ -153,11 +153,11 @@ class IcarusBaseStage(Stage):
             Convert .dat files back into a json file
             """
             found = re.search(r"reached limit of\s+(\d+) cycles", simulated_output)
-            if found is not None:
+            if found:
                 raise errors.CycleLimitedReached("verilog", found.group(1))
 
             r = re.search(r"Simulated\s+((-)?\d+) cycles", simulated_output)
-            cycle_count = int(r.group(1)) if r is not None else 0
+            cycle_count = int(r.group(1)) if r else 0
             if cycle_count < 0:
                 log.warn("Cycle count is less than 0")
             data = {

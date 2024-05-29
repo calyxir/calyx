@@ -72,7 +72,7 @@ def parse_fp_widths(format):
     def provided(x, y):
         # Returns whether x and y are provided,
         # i.e. they are not None.
-        return x is not None and y is not None
+        return x and y
 
     if provided(width, int_width):
         return width, int_width
@@ -149,7 +149,7 @@ def convert2dat(output_dir, data, extension, round: bool):
             "is_signed": is_signed,
             "width": width,
         }
-        if int_width is not None:
+        if int_width:
             shape[k]["int_width"] = int_width
 
         with path.open("w") as f:

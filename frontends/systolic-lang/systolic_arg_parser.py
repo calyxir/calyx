@@ -48,14 +48,14 @@ class SystolicConfiguration:
         args = parser.parse_args()
 
         fields = [args.top_length, args.top_depth, args.left_length, args.left_depth]
-        if all(map(lambda x: x is not None, fields)):
+        if all(map(lambda x: x, fields)):
             self.top_length = args.top_length
             self.top_depth = args.top_depth
             self.left_length = args.left_length
             self.left_depth = args.left_depth
             self.post_op = args.post_op
             self.static = args.fixed_dim
-        elif args.file is not None:
+        elif args.file:
             with open(args.file, "r") as f:
                 spec = json.load(f)
                 self.top_length = spec["top_length"]

@@ -21,7 +21,7 @@ def find_row(table, colname, key, certain=True):
 
 
 def safe_get(d, key):
-    if d is not None and key in d:
+    if d and key in d:
         return d[key]
     return -1
 

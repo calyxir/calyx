@@ -143,7 +143,7 @@ class Relay2Calyx(ExprFunctor):
         atts_are_same = True
         if (atts1 is None) != (atts2 is None):
             atts_are_same = False
-        if (atts1 is not None) and (atts2 is not None):
+        if atts1 and atts2:
             for key in atts1.keys():
                 attr1 = atts1.get_str(key)
                 attr2 = atts2.get_str(key)
@@ -204,7 +204,7 @@ class Relay2Calyx(ExprFunctor):
             # namespace prepended, e.g. `nn.bias_add`.
             # We want to remove these.
             prefix = func_name.find(".")
-            if prefix is not None:
+            if prefix:
                 func_name = func_name[prefix + 1 :]
 
             # Append arity to Calyx component name.

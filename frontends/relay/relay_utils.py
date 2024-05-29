@@ -109,7 +109,7 @@ def emit_invoke_control(
         assert len(old_args) == len(
             args
         ), "we are reusing a dahlia function but the args are different lengths"
-        assert old_dest is not None, "if using old_args must provide an old_dest too"
+        assert old_dest, "if using old_args must provide an old_dest too"
         for cell1, cell2 in zip(args, old_args):
             add_arg2(cell1, cell2)
         add_arg2(dest, old_dest)

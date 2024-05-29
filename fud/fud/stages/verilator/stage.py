@@ -120,7 +120,9 @@ class VerilatorStage(Stage):
             return TmpDir()
 
         # Step 2a: Dynamically retrieve the value of stages.verilog.data
-        @builder.step(description="Dynamically retrieve the value of stages.verilog.data")
+        @builder.step(
+            description="Dynamically retrieve the value of stages.verilog.data"
+        )
         def get_verilog_data() -> SourceType.Path:
             data_path = config.get(["stages", "verilog", "data"])
             path = Path(data_path) if data_path else None
@@ -221,13 +223,13 @@ class VerilatorStage(Stage):
             """
             # Verify we haven't hit the cycle limit.
             found = re.search(r"reached limit of (\d+) cycles", simulated_output)
-            if found is not None:
+            if found:
                 raise errors.CycleLimitedReached(self.name, found.group(1))
 
             # Look for output like: "Simulated 91 cycles"
             r = re.search(r"Simulated\s+((-)?\d+) cycles", simulated_output)
             data = {
-                "cycles": int(r.group(1)) if r is not None else 0,
+                "cycles": int(r.group(1)) if r else 0,
                 "memories": convert2json(tmpdir.name, "out"),
             }
 

@@ -28,10 +28,7 @@ def is_debug():
 
 
 def unwrap_or(val, default):
-    if val is not None:
-        return val
-
-    return default
+    return val if val else default
 
 
 def logging_setup(args):
@@ -79,7 +76,7 @@ class TmpDir(Directory):
     """A temporary directory that is automatically deleted."""
 
     def __init__(self, tmp_dir_name=None):
-        if tmp_dir_name is not None:
+        if tmp_dir_name:
             self.tmpdir_obj = TemporaryDirectory(dir=tmp_dir_name)
         else:
             self.tmpdir_obj = TemporaryDirectory()
@@ -163,7 +160,9 @@ class Conversions:
         return data.encode("UTF-8")
 
 
-def shell(cmd, stdin=None, stdout_as_debug=False, capture_stdout=True, env=None, cwd=None):
+def shell(
+    cmd, stdin=None, stdout_as_debug=False, capture_stdout=True, env=None, cwd=None
+):
     """Run `cmd` as a shell command.
 
     Return an output stream (or None if stdout is not captured). Raise

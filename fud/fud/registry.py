@@ -89,7 +89,7 @@ class Registry:
                 # Get the cost of the path if there is any
                 #  print(self.config.get(("stages", stage.name, "priority")))
                 cost = self.config.get(("stages", stage.name, "priority"))
-                if cost is not None:
+                if cost:
                     if path_cost is None:
                         path_cost = cost
                     else:
@@ -99,7 +99,7 @@ class Registry:
             if len(through_check) == 0:
                 # If this path has a cost, then stage_paths can only have
                 # one path in it.
-                if path_cost is not None:
+                if path_cost:
                     if min_cost is None or path_cost < min_cost:
                         stage_paths = [stage_path]
                     elif min_cost == path_cost:
@@ -128,7 +128,7 @@ class Registry:
             for _, dst in path:
                 path_str += f" → {dst}"
                 cost = self.config.get(("stages", dst, "priority"))
-                if cost is not None:
+                if cost:
                     path_str += f" (cost: {cost})"
             p.append(path_str)
         return "\n".join(p)

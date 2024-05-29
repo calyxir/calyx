@@ -77,7 +77,7 @@ async def run_kernel_test(toplevel, data_path: str):
     with open(data_path) as f:
         data = json.load(f)
         f.close()
-    assert data is not None
+    assert data
 
     # set up clock of 2ns period, simulator default timestep is 1ps
     cocotb.start_soon(Clock(toplevel.ap_clk, 2, units="ns").start())

@@ -88,9 +88,7 @@ class Component:
     def doc(self) -> str:
         ins = ", ".join([s.doc() for s in self.inputs])
         outs = ", ".join([s.doc() for s in self.outputs])
-        latency_annotation = (
-            f"static<{self.latency}> " if self.latency is not None else ""
-        )
+        latency_annotation = f"static<{self.latency}> " if self.latency else ""
         attribute_annotation = (
             f"<{', '.join([f'{a.doc()}' for a in self.attributes])}>"
             if self.attributes
@@ -459,7 +457,7 @@ class Invoke(Control):
         inv += f"({in_defs})({out_defs})"
 
         # Combinational group if present
-        if self.comb_group is not None:
+        if self.comb_group:
             inv += f" with {self.comb_group.doc()}"
         inv += ";"
 

@@ -366,10 +366,10 @@ if __name__ == "__main__":
 
     width, int_width = None, None
     required_fields = [args.width, args.int_width]
-    if all(map(lambda x: x is not None, required_fields)):
+    if all(map(lambda x: x, required_fields)):
         width = args.width
         int_width = args.int_width
-    elif args.file is not None:
+    elif args.file:
         with open(args.file, "r") as f:
             spec = json.load(f)
             is_signed = spec["is_signed"]

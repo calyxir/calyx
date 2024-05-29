@@ -266,7 +266,7 @@ def convert_to_json(output_dir, data, round_float_to_fixed):
 
 
 def parse_from_json(output_data_str, original_data_file_path):
-    if original_data_file_path is not None:
+    if original_data_file_path:
         with original_data_file_path.open("r") as f:
             orig = sjson.load(f)
     else:
@@ -278,9 +278,7 @@ def parse_from_json(output_data_str, original_data_file_path):
 
     def parse_entry(target, format_details):
         numeric_type, is_signed, (width, int_width, frac_width) = (
-            format_details
-            if format_details is not None
-            else ("bitnum", False, (None, None, None))
+            format_details if format_details else ("bitnum", False, (None, None, None))
         )
 
         if isinstance(target, list):
@@ -323,13 +321,13 @@ def parse_from_json(output_data_str, original_data_file_path):
     for component, inner_dict in output_data.items():
         inner_dict_output = dict()
         for key, target in inner_dict.items():
-            if orig is not None:
+            if orig:
                 if key not in orig:
                     continue
                 width = orig[key]["format"].get("width")
                 width = (
                     width
-                    if width is not None
+                    if width
                     else orig[key]["format"]["frac_width"]
                     + orig[key]["format"]["int_width"]
                 )
@@ -348,7 +346,7 @@ def parse_from_json(output_data_str, original_data_file_path):
                     orig[key]["format"]["is_signed"],
                     (width, int_width, frac_width),
                 )
-                assert format_details[2][0] is not None
+                assert format_details[2][0]
             else:
                 format_details = None
 

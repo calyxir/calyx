@@ -308,11 +308,11 @@ def main():
             )
 
         # update the stages config with arguments provided via cmdline
-        if "stage_dynamic_config" in args and args.stage_dynamic_config is not None:
+        if "stage_dynamic_config" in args and args.stage_dynamic_config:
             for key, value in args.stage_dynamic_config:
                 cfg[["stages"] + key.split(".")] = value
 
-        if "config_file" in args and args.config_file is not None:
+        if "config_file" in args and args.config_file:
             # Parse the TOML file
             override = toml.load(args.config_file)
             for key, value in override.items():
