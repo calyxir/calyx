@@ -380,7 +380,7 @@ name = "[frontend] systolic array mmult dynamic correctness"
 paths = ["tests/correctness/systolic/mmult-inputs/*.data"]
 cmd = """
 fud e --from systolic --to jq \
-      --through verilog
+      --through verilog \
       --through dat \
       -s verilog.data {} \
       -s calyx.exec './target/debug/calyx' \
