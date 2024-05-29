@@ -1,7 +1,7 @@
 `ifndef __MULFN_V__
 `define __MULFN_V__
 
-`include "mulRecFN.v"
+`include "HardFloat_consts.vi"
 
 module std_mulFN #(parameter expWidth = 8, parameter sigWidth = 24, parameter numWidth = 32) (
     input clk,

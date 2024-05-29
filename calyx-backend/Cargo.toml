@@ -29,6 +29,7 @@ calyx-ir.workspace = true
 
 csv = { version = "1.1", optional = true }
 vast = "0.3.1"
+regex = "1.10.4"
 
 [dependencies.quick-xml]
 version = "0.30"

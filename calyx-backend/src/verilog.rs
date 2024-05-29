@@ -8,6 +8,7 @@ use calyx_ir::{self as ir, Control, FlatGuard, Group, Guard, GuardRef, RRC};
 use calyx_utils::{CalyxResult, Error, OutputFile};
 use ir::Nothing;
 use itertools::Itertools;
+use regex::Regex;
 use serde_json::{Map, Value};
 use std::env;
 use std::fs;
@@ -15,7 +16,7 @@ use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, collections::HashSet, rc::Rc};
 use std::{fs::OpenOptions, time::Instant};
 use vast::v17::ast as v;
 
@@ -163,6 +164,59 @@ impl Backend for VerilogBackend {
                 }
             }
         }
+
+        // Extract module names from a file
+        fn extract_modules(file_path: &str) -> HashSet<String> {
+            let mut modules = HashSet::new();
+            if let Ok(content) = fs::read_to_string(file_path) {
+                let re = Regex::new(r"\bmodule\s+(\w+)").unwrap();
+                for cap in re.captures_iter(&content) {
+                    if let Some(module_name) = cap.get(1) {
+                        modules.insert(module_name.as_str().to_string());
+                    }
+                }
+            }
+            modules
+        }
+
+        // Check if any of the given strings exist in the content of a file
+        fn any_string_in_file(
+            file_path: &str,
+            strings_to_search: &HashSet<String>,
+        ) -> bool {
+            if let Ok(content) = fs::read_to_string(file_path) {
+                for string in strings_to_search {
+                    if content.contains(string) {
+                        return true;
+                    }
+                }
+            }
+            false
+        }
+
+        // Filter out files that are not referenced by any other files within the HardFloat directory
+        let mut referenced_files = HashSet::new();
+        for file_path in &file_strings {
+            if file_path.contains("float/HardFloat-1") {
+                let module_names = extract_modules(file_path);
+                for other_file in &file_strings {
+                    if file_path != other_file
+                        && any_string_in_file(other_file, &module_names)
+                    {
+                        referenced_files.insert(file_path.clone());
+                        break;
+                    }
+                }
+            } else {
+                referenced_files.insert(file_path.clone());
+            }
+        }
+
+        // Update file_strings to only include referenced files
+        file_strings = file_strings
+            .into_iter()
+            .filter(|f| referenced_files.contains(f))
+            .collect();
 
         json_map.insert("include_dirs".to_string(), Value::Array(include_dirs));
 
