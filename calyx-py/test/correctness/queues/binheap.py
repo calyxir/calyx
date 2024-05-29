@@ -135,21 +135,10 @@ def insert_main(prog, binheap):
     mem = comp.seq_mem_d1("mem", 64, 15, 4, is_external=True)
 
     comp.control += [
-        cb.invoke(
-            binheap,
-            in_value=cb.const(64, 9),
-            ref_mem=mem,
-        ),
-        cb.invoke(
-            binheap,
-            in_value=cb.const(64, 6),
-            ref_mem=mem,
-        ),
-        cb.invoke(
-            binheap,
-            in_value=cb.const(64, 3),
-            ref_mem=mem,
-        ),
+        cb.invoke(binheap, in_value=cb.const(64, 9), ref_mem=mem),
+        cb.invoke(binheap, in_value=cb.const(64, 12), ref_mem=mem),
+        cb.invoke(binheap, in_value=cb.const(64, 6), ref_mem=mem),
+        cb.invoke(binheap, in_value=cb.const(64, 3), ref_mem=mem),
     ]
 
     return comp
