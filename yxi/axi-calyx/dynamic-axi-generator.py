@@ -531,7 +531,7 @@ def add_axi_seq_mem(prog, mem):
     this_component = axi_seq_mem.this()
     #  Continuous assignment
     with axi_seq_mem.continuous:
-        address_translator.in_ = this_component["addr0"]
+        address_translator.calyx_mem_addr = this_component["addr0"]
 
     #Control
     read_controller_invoke = invoke(
