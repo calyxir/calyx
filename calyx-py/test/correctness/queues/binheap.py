@@ -2,32 +2,6 @@
 import calyx.builder as cb
 
 
-def insert_cmp(prog, name, width):
-    """Inserts the combinational component `cmp` into the program.
-
-    It takes two `width`-bit inputs `a` and `b` and produces a 1-bit output `lt`.
-    The output `lt` is set to 1 if `a` is less than `b`, and 0 otherwise.
-
-    This is a little overkill for now, since the component just wraps an `lt` cell.
-    Eventually the inputs will be tuples and doing these
-    comparisons separately may be useful.
-    """
-
-    comp = prog.comb_component(name)
-    a = comp.input("a", width)
-    b = comp.input("b", width)
-    comp.output("lt", 1)
-
-    lt_cell = comp.lt(width)
-
-    with comp.continuous:
-        lt_cell.left = a
-        lt_cell.right = b
-        comp.this().lt = lt_cell.out
-
-    return comp
-
-
 def insert_swap(prog, name, width, len, idx_w):
     """Inserts the component `swap` into the program.
 
@@ -70,29 +44,18 @@ def insert_binheap(prog, name):
     If an error occurs, the `err` register is set to 1.
     """
     comp: cb.ComponentBuilder = prog.component(name)
-    cmd = comp.input("cmd", 2)
-    # If this is 0, we pop. If it is 1, we peek.
-    # If it is 2, we push `value` to the queue.
     value = comp.input("value", 64)  # The value to push to the queue
 
-    ans = comp.reg(64, "ans", is_ref=True)
-    # If the user wants to pop, we will write the popped value to `ans`.
-    err = comp.reg(1, "err", is_ref=True)
-    # We'll raise this as a general error flag for overflow and underflow.
-
     swap = comp.cell("swap", insert_swap(prog, "swap", 64, 15, 4))
-    cmp = comp.cell("cmp", insert_cmp(prog, "cmp", 64))
 
     mem = comp.seq_mem_d1("mem", 64, 15, 4, is_ref=True)
     # The memory to store the heap, represented as an array.
     # For now it has a hardcoded max length of 15, i.e., a binary heap of height 4.
     # Each cell of the memory is 64 bits wide.
 
-    size = comp.reg(4)  # Active size, and also the next address to write to.
+    size = comp.reg(4)  # Active size
 
-    add = comp.add(4)
     sub = comp.sub(4)
-    lsh = comp.lsh(4)
     rsh = comp.rsh(4)
     eq = comp.eq(4)
 
@@ -123,14 +86,13 @@ def insert_binheap(prog, name):
         parent_idx.in_ = ~eq.out @ rsh.out
         parent_idx.write_en = ~eq.out @ cb.HI
 
-        # In either case, we are done when parent_idx is written.
+        # In either case, we are done when parent_idx is done.
         find_parent_idx.done = parent_idx.done
 
     set_child_idx = comp.reg_store(child_idx, size.out)  # child_idx := size
     store_new_val = comp.mem_store_d1(
         mem, child_idx.out, value, "store_new_val"
     )  # mem[child_idx] := value
-
     incr_size = comp.incr(size)
     child_lt_parent = comp.lt_use(child_val.out, parent_val.out)
     bubble_child_idx = comp.reg_store(child_idx, parent_idx.out, "bubble_child_idx")
@@ -171,30 +133,22 @@ def insert_main(prog, binheap):
     binheap = comp.cell("binheap", binheap)
 
     mem = comp.seq_mem_d1("mem", 64, 15, 4, is_external=True)
-    ans = comp.reg(64)
-    err = comp.reg(1)
 
     comp.control += [
         cb.invoke(
             binheap,
             in_value=cb.const(64, 9),
             ref_mem=mem,
-            ref_ans=ans,
-            ref_err=err,
         ),
         cb.invoke(
             binheap,
             in_value=cb.const(64, 6),
             ref_mem=mem,
-            ref_ans=ans,
-            ref_err=err,
         ),
         cb.invoke(
             binheap,
             in_value=cb.const(64, 3),
             ref_mem=mem,
-            ref_ans=ans,
-            ref_err=err,
         ),
     ]
 
