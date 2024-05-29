@@ -41,14 +41,12 @@ def insert_swap(prog, name, width, len, idx_w):
     mem_b = comp.reg(width)
     temp_val = comp.reg(width)
 
-    read_a_latch = comp.mem_read_seq_d1(mem, a, "latch_a")
-    read_a = comp.mem_write_seq_d1_to_reg(mem, mem_a, "read_a")  # mem_a := mem[a]"
+    read_a = comp.mem_load_d1(mem, a, mem_a, "latch_a")  # mem_a := mem[a]"
 
-    read_b_latch = comp.mem_read_seq_d1(mem, b, "latch_b")
-    read_b = comp.mem_write_seq_d1_to_reg(mem, mem_b, "read_b")  # mem_b := mem[b]"
+    read_b = comp.mem_load_d1(mem, b, mem_b, "latch_b")  # mem_b := mem[b]"
 
-    write_a = comp.mem_store_seq_d1(mem, a, mem_a.out, "write_a")  # mem[a] := mem_a
-    write_b = comp.mem_store_seq_d1(mem, b, mem_b.out, "write_b")  # mem[b] := mem_b
+    write_a = comp.mem_store_d1(mem, a, mem_a.out, "write_a")  # mem[a] := mem_a
+    write_b = comp.mem_store_d1(mem, b, mem_b.out, "write_b")  # mem[b] := mem_b
 
     with comp.group("swap_registers") as swap_registers:
         # Swap the values at registers `a_val` and `b_val`
@@ -61,9 +59,7 @@ def insert_swap(prog, name, width, len, idx_w):
         swap_registers.done = mem_b.done
 
     comp.control += [
-        read_a_latch,
         read_a,
-        read_b_latch,
         read_b,
         swap_registers,
         write_a,
@@ -119,10 +115,8 @@ def insert_binheap(prog, name):
     child_idx = comp.reg(4)
     child_val = comp.reg(64)
 
-    latch_parent = comp.mem_read_seq_d1(mem, parent_idx.out, "latch_parent")
-    read_parent = comp.mem_write_seq_d1_to_reg(mem, parent_val, "read_parent")
-    latch_child = comp.mem_read_seq_d1(mem, child_idx.out, "latch_child")
-    read_child = comp.mem_write_seq_d1_to_reg(mem, child_val, "read_child")
+    read_parent = comp.mem_load_d1(mem, parent_idx.out, parent_val, "latch_parent")
+    read_child = comp.mem_load_d1(mem, child_idx.out, child_val, "latch_child")
 
     with comp.group("find_parent_idx") as find_parent_idx:
         # Find the parent of the `child`th element and store it in `parent`.
@@ -158,9 +152,7 @@ def insert_binheap(prog, name):
     #     find_child.done = child.done
 
     # set_child_idx = comp.reg_store(child_idx, size.out)
-    put_new_val_in_mem = comp.mem_store_seq_d1(
-        mem, size.out, value, "put_new_val_in_mem"
-    )
+    put_new_val_in_mem = comp.mem_store_d1(mem, size.out, value, "put_new_val_in_mem")
 
     incr_size = comp.incr(size)
     # child_lt_parent = comp.lt_use(child_val.out, parent_val.out)
