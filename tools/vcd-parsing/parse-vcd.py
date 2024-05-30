@@ -88,10 +88,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.profiling_info[fsm_curr_value].start_new_segment(self.clock_cycle_acc)
                     self.fsm_curr_value = fsm_curr_value
                 else:
-                    print(f"New FSM value ignored: {self.fsm_curr_value}")
-
-        # FIXME: Switch to updating an internal count?
-        
+                    print(f"New FSM value ignored: {fsm_curr_value}")
 
 def remap_tdcc_json(json_file):
     tdcc_json = json.load(open(json_file))
