@@ -49,7 +49,7 @@ entity_impl!(OpRef, "op");
 /// A Setup runs at configuration time and produces Ninja machinery for Operations.
 pub struct Setup {
     pub name: String,
-    pub emit: Box<dyn run::EmitRcSetup>,
+    pub emit: Box<dyn run::EmitSetup>,
 }
 
 /// A reference to a Setup.

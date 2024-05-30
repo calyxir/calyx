@@ -88,10 +88,6 @@ impl EmitBuild for EmitRuleBuild {
 
 /// Code to emit Ninja code at the setup stage.
 pub trait EmitSetup {
-    fn setup(&self, emitter: &mut Emitter) -> EmitResult;
-}
-
-pub trait EmitRcSetup {
     fn setup_rc(&self, emitter: Rc<RefCell<Emitter>>) -> EmitResult;
 
     fn setup(&self, emitter: Emitter) -> Result<Emitter, RunError> {
@@ -102,20 +98,11 @@ pub trait EmitRcSetup {
     }
 }
 
-impl<T: EmitSetup> EmitRcSetup for T {
-    fn setup_rc(
-        &self,
-        emitter: std::rc::Rc<std::cell::RefCell<Emitter>>,
-    ) -> EmitResult {
-        self.setup(&mut emitter.borrow_mut())
-    }
-}
-
 pub type EmitSetupFn = fn(&mut Emitter) -> EmitResult;
 
 impl EmitSetup for EmitSetupFn {
-    fn setup(&self, emitter: &mut Emitter) -> EmitResult {
-        self(emitter)
+    fn setup_rc(&self, emitter: Rc<RefCell<Emitter>>) -> EmitResult {
+        self(&mut emitter.borrow_mut())
     }
 }
 

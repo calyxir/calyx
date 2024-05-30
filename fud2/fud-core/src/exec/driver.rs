@@ -269,7 +269,7 @@ impl DriverBuilder {
         })
     }
 
-    pub fn add_setup<T: run::EmitRcSetup + 'static>(
+    pub fn add_setup<T: run::EmitSetup + 'static>(
         &mut self,
         name: &str,
         emit: T,

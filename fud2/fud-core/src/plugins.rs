@@ -1,6 +1,6 @@
 use crate::{
     exec::StateRef,
-    run::{EmitRcSetup, EmitResult, Emitter},
+    run::{EmitResult, EmitSetup, Emitter},
     DriverBuilder,
 };
 use std::{cell::RefCell, rc::Rc};
@@ -10,10 +10,9 @@ pub trait LoadPlugins {
 }
 
 fn to_str_slice(arr: &rhai::Array) -> Vec<String> {
-    arr.into_iter()
+    arr.iter()
         .map(|x| x.clone().into_string().unwrap())
         .collect()
-    // v.iter()
 }
 
 type RhaiResult<T> = Result<T, Box<rhai::EvalAltResult>>;
@@ -44,7 +43,7 @@ fn to_rhai_err<E: std::error::Error + 'static>(
 
 impl RhaiEmitter {
     fn config_val(&mut self, key: &str) -> RhaiResult<String> {
-        Ok(self.0.borrow().config_val(key).map_err(to_rhai_err)?)
+        self.0.borrow().config_val(key).map_err(to_rhai_err)
     }
 
     fn config_or(&mut self, key: &str, default: &str) -> String {
@@ -52,11 +51,10 @@ impl RhaiEmitter {
     }
 
     fn config_var(&mut self, name: &str, key: &str) -> RhaiResult<()> {
-        Ok(self
-            .0
+        self.0
             .borrow_mut()
             .config_var(name, key)
-            .map_err(to_rhai_err)?)
+            .map_err(to_rhai_err)
     }
 
     fn config_var_or(
@@ -65,23 +63,18 @@ impl RhaiEmitter {
         key: &str,
         default: &str,
     ) -> RhaiResult<()> {
-        Ok(self
-            .0
+        self.0
             .borrow_mut()
             .config_var_or(name, key, default)
-            .map_err(to_rhai_err)?)
+            .map_err(to_rhai_err)
     }
 
     fn var(&mut self, name: &str, value: &str) -> RhaiResult<()> {
-        Ok(self.0.borrow_mut().var(name, value).map_err(to_rhai_err)?)
+        self.0.borrow_mut().var(name, value).map_err(to_rhai_err)
     }
 
     fn rule(&mut self, name: &str, command: &str) -> RhaiResult<()> {
-        Ok(self
-            .0
-            .borrow_mut()
-            .rule(name, command)
-            .map_err(to_rhai_err)?)
+        self.0.borrow_mut().rule(name, command).map_err(to_rhai_err)
     }
 
     fn build(
@@ -90,27 +83,26 @@ impl RhaiEmitter {
         input: &str,
         output: &str,
     ) -> RhaiResult<()> {
-        Ok(self
-            .0
+        self.0
             .borrow_mut()
             .build(rule, input, output)
-            .map_err(to_rhai_err)?)
+            .map_err(to_rhai_err)
     }
 
     fn comment(&mut self, text: &str) -> RhaiResult<()> {
-        Ok(self.0.borrow_mut().comment(text).map_err(to_rhai_err)?)
+        self.0.borrow_mut().comment(text).map_err(to_rhai_err)
     }
 
     fn arg(&mut self, name: &str, value: &str) -> RhaiResult<()> {
-        Ok(self.0.borrow_mut().arg(name, value).map_err(to_rhai_err)?)
+        self.0.borrow_mut().arg(name, value).map_err(to_rhai_err)
     }
 
     fn rsrc(&mut self, filename: &str) -> RhaiResult<()> {
-        Ok(self.0.borrow_mut().rsrc(filename).map_err(to_rhai_err)?)
+        self.0.borrow_mut().rsrc(filename).map_err(to_rhai_err)
     }
 }
 
-impl EmitRcSetup for RhaiSetupCtx {
+impl EmitSetup for RhaiSetupCtx {
     fn setup_rc(&self, emitter: Rc<RefCell<Emitter>>) -> EmitResult {
         let mut engine = rhai::Engine::new();
         let mut scope = rhai::Scope::new();
