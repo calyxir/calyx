@@ -6,12 +6,33 @@ def remove_size_from_name(name: str) -> str:
     """ changes e.g. "state[2:0]" to "state" """
     return name.split('[')[0]
 
+class ProfilingInfo:
+    def __init__(self, name, fsm_value):
+        self.name = name
+        self.fsm_value = fsm_value
+        self.total_cycles = 0
+        self.segments = [] # Segments will be (start_time, end_time)
+
+    def __repr__ (self):
+        return str({"group-name" : self.name, "group-fsm-value": self.fsm_value, "total-cycles": self.total_cycles, "segments": self.segments})
+
+    def start_new_segment(self, curr_clock_cycle):
+        self.segments.append({"start": curr_clock_cycle, "end": -1})
+
+    def end_current_segment(self, curr_clock_cycle):
+        if len(self.segments) > 0:
+            # Close out previous segment by setting the end time to the current cycle
+            self.segments[-1]["end"] = curr_clock_cycle
+            self.total_cycles = curr_clock_cycle - self.segments[-1]["start"]
+
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
     def __init__(self, fsm_values):
         super().__init__()
         self.fsm_values = fsm_values
-        self.fsm_val_to_num_cycles = {group_name: 0 for group_name in fsm_values.values()}
+        self.profiling_info = {}
+        for (fsm_value, group_name) in fsm_values.items():
+            self.profiling_info[fsm_value] = ProfilingInfo(group_name, fsm_value)
         self.main_go_id = None
         self.main_go_on = False
         self.clock_id = None
@@ -31,7 +52,6 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         clock_name = "TOP.TOP.main.clk"
         if clock_name in names:
             self.clock_id = vcd.references_to_ids[clock_name]
-            print(f"Clock ID: {self.clock_id}")
         else:
             print("Can't find the clock? Exiting...")
             sys.exit(1)
@@ -58,10 +78,19 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         if identifier_code == self.clock_id and value == "0":
             self.clock_cycle_acc += 1
             # Sample FSM values
-            fsm_curr_value = cur_sig_vals[self.fsm_signal_id]
-            self.fsm_curr_value = int(fsm_curr_value, 2)
-            if self.fsm_curr_value in self.fsm_values:
-                self.fsm_val_to_num_cycles[self.fsm_values[self.fsm_curr_value]] += 1
+            fsm_curr_value = int(cur_sig_vals[self.fsm_signal_id], 2)
+            if fsm_curr_value != self.fsm_curr_value:
+                # detect change!
+                # end the previous group if there was one
+                if self.fsm_curr_value != -1:
+                    self.profiling_info[self.fsm_curr_value].end_current_segment(self.clock_cycle_acc)
+                if fsm_curr_value in self.profiling_info: # END should be ignored
+                    self.profiling_info[fsm_curr_value].start_new_segment(self.clock_cycle_acc)
+                    self.fsm_curr_value = fsm_curr_value
+                else:
+                    print(f"New FSM value ignored: {self.fsm_curr_value}")
+
+        # FIXME: Switch to updating an internal count?
         
 
 def remap_tdcc_json(json_file):
@@ -78,7 +107,8 @@ def main(vcd_filename, json_file):
     converter = VCDConverter(fsm_values)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     print(f"Total clock cycles: {converter.clock_cycle_acc}")
-    print(converter.fsm_val_to_num_cycles)
+    for group_info in converter.profiling_info.values():
+        print(group_info)
 
 if __name__ == "__main__":
     if len(sys.argv) > 2:
