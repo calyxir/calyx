@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Dict, Union, Optional, List
+from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
 
@@ -110,25 +110,64 @@ class ComponentBuilder:
             if name not in self.index:
                 return name
 
-    def input(self, name: str, size: int) -> ExprBuilder:
+    # Attributes are expected to be either just an attribute name or an (attribute name, value) tuple
+    RawPortAttr = Union[str, Tuple[str, int]]
+
+    def input(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an input port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
 
-    def output(self, name: str, size: int) -> ExprBuilder:
+        return self._port_with_attributes(name, size, True, attribute_literals)
+
+    def output(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an output port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
+        return self._port_with_attributes(name, size, False, attribute_literals)
 
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
+
+    def _port_with_attributes(
+        self,
+        name: str,
+        size: int,
+        is_input: bool,
+        attribute_literals: List[RawPortAttr],
+    ) -> ExprBuilder:
+        """Should not be called directly.
+        Declare a port on the component with attributes.
+
+        Returns an expression builder for the port.
+        """
+
+        attributes = []
+        for attr in attribute_literals:
+            if isinstance(attr, str):
+                attributes.append(ast.PortAttribute(attr))
+            elif isinstance(attr, tuple):
+                attributes.append(ast.PortAttribute(attr[0], attr[1]))
+            else:
+                raise ValueError(
+                    f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
+                )
+        if is_input:
+            self.component.inputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
+        else:
+            self.component.outputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
+        return self.this()[name]
 
     def this(self) -> ThisBuilder:
         """Get a handle to the component's `this` cell.
@@ -462,6 +501,14 @@ class ComponentBuilder:
         """Generate a StdNot cell."""
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
+
+    def const_mult(
+        self, size: int, const: int, name: Optional[str] = None
+    ) -> CellBuilder:
+        """Generate a StdConstMult cell."""
+        name = name or self.generate_name("const_mult")
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.const_mult(size, const))
 
     def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
         """Generate a StdPad cell."""
@@ -1471,15 +1518,24 @@ def static_seq(*args) -> ast.StaticSeqComp:
     return ast.StaticSeqComp([as_control(x) for x in args])
 
 
-def add_comp_params(comp: ComponentBuilder, input_ports: List, output_ports: List):
+def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List):
+    """Adds `input_ports`/`output_ports` as inputs/outputs to comp.
+
+    `input_ports`/`output_ports` should contain either an (input_name, input_width) pair
+    or an (input_name, input_width, attributes) triple.
     """
-    Adds `input_ports`/`output_ports` as inputs/outputs to comp.
-    `input_ports`/`output_ports` should contain an (input_name, input_width) pair.
-    """
-    for name, width in input_ports:
-        comp.input(name, width)
-    for name, width in output_ports:
-        comp.output(name, width)
+
+    def normalize_ports(ports: List):
+        for port in ports:
+            if len(port) == 2:
+                yield (port[0], port[1], [])
+            elif len(port) == 3:
+                yield port[0], port[1], port[2]
+
+    for name, width, attributes in normalize_ports(input_ports):
+        comp.input(name, width, attributes)
+    for name, width, attributes in normalize_ports(output_ports):
+        comp.output(name, width, attributes)
 
 
 def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
@@ -1487,7 +1543,7 @@ def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
     Add parameters to component `comp` if we want to read from a mem named
     `name` with address width of `addr_width` and data width of `data_width`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_read_data", data_width)],
         output_ports=[(f"{name}_addr0", addr_width)],
@@ -1499,7 +1555,7 @@ def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
     Add arguments to component `comp` if we want to write to a mem named
     `name` with address width of `addr_width` and data width of `data_width`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_done", 1)],
         output_ports=[
@@ -1514,7 +1570,7 @@ def add_register_params(comp: ComponentBuilder, name, width):
     """
     Add params to component `comp` if we want to use a register named `name`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_done", 1), (f"{name}_out", width)],
         output_ports=[
