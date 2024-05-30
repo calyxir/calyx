@@ -1,6 +1,6 @@
 use crate::traversal::{Action, ConstructVisitor, Named, VisResult, Visitor};
 use calyx_ir::{
-    self as ir, CellType, Component, GetAttributes, LibrarySignatures,
+    self as ir, Cell, CellType, Component, GetAttributes, LibrarySignatures,
     RESERVED_NAMES,
 };
 use calyx_utils::{CalyxResult, Error, WithPos};
@@ -80,8 +80,8 @@ pub struct WellFormed {
     used_groups: HashSet<ir::Id>,
     /// Names of combinational groups used in the control.
     used_comb_groups: HashSet<ir::Id>,
-    /// ref cell types of components used in the control.
-    ref_cell_types: HashMap<ir::Id, LinkedHashMap<ir::Id, CellType>>,
+    /// ref cells of components used in the control. Used for typing checks.
+    ref_cells: HashMap<ir::Id, LinkedHashMap<ir::Id, Cell>>,
     /// Stack of currently active combinational groups
     active_comb: ActiveAssignments,
 }
@@ -94,10 +94,10 @@ impl ConstructVisitor for WellFormed {
         let reserved_names =
             RESERVED_NAMES.iter().map(|s| ir::Id::from(*s)).collect();
 
-        let mut ref_cell_types = HashMap::new();
+        let mut ref_cells = HashMap::new();
         for comp in ctx.components.iter() {
             // Non-main components cannot use @external attribute
-            let cellmap: LinkedHashMap<ir::Id, CellType> = comp
+            let cellmap: LinkedHashMap<ir::Id, Cell> = comp
                 .cells
                 .iter()
                 .filter_map(|cr| {
@@ -108,20 +108,20 @@ impl ConstructVisitor for WellFormed {
                     {
                         Some(Err(Error::malformed_structure("Cell cannot be marked `@external` in non-entrypoint component").with_pos(&cell.attributes)))
                     } else if cell.is_reference() {
-                        Some(Ok((cell.name(), cell.prototype.clone())))
+                        Some(Ok((cell.name(), cell.clone())))
                     } else {
                         None
                     }
                 })
                 .collect::<CalyxResult<_>>()?;
-            ref_cell_types.insert(comp.name, cellmap);
+            ref_cells.insert(comp.name, cellmap);
         }
 
         let w_f = WellFormed {
             reserved_names,
             used_groups: HashSet::new(),
             used_comb_groups: HashSet::new(),
-            ref_cell_types,
+            ref_cells,
             active_comb: ActiveAssignments::default(),
         };
 
@@ -201,6 +201,23 @@ fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
     } else {
         Ok(())
     }
+}
+
+/// Returns true if cell_in is a subtype of the output cell.
+fn subtype(cell_out: &Cell, cell_in: &Cell) -> bool {
+    for port in cell_out.ports() {
+        match cell_in.find(port.borrow().name) {
+            Some(port_in) => {
+                if !port.borrow().type_equivalent(&port_in.borrow()) {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 impl Visitor for WellFormed {
@@ -560,14 +577,20 @@ impl Visitor for WellFormed {
         let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = &self.ref_cell_types[id];
+            let cellmap = &self.ref_cells[id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {
-                if let Some(t) = cellmap.get(outcell) {
-                    let proto = incell.borrow().prototype.clone();
-                    same_type(t, &proto)
-                        .map_err(|err| err.with_pos(&s.attributes))?;
-                    mentioned_cells.insert(outcell);
+                if let Some(oc) = cellmap.get(outcell) {
+                    if subtype(oc, &incell.borrow()) {
+                        return Err(Error::malformed_control(format!(
+                            "input cell {} is not a subtype of output cell {}",
+                            incell.borrow().name(),
+                            oc.name()
+                        ))
+                        .with_pos(&s.attributes));
+                    } else {
+                        mentioned_cells.insert(outcell);
+                    }
                 } else {
                     return Err(Error::malformed_control(format!(
                         "{} does not have ref cell named {}",
@@ -600,14 +623,23 @@ impl Visitor for WellFormed {
         let cell = s.comp.borrow();
 
         if let CellType::Component { name: id } = &cell.prototype {
-            let cellmap = &self.ref_cell_types[id];
+            let cellmap = &self.ref_cells[id];
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {
-                if let Some(t) = cellmap.get(outcell) {
-                    let proto = incell.borrow().prototype.clone();
-                    same_type(t, &proto)
-                        .map_err(|err| err.with_pos(&s.attributes))?;
-                    mentioned_cells.insert(outcell);
+                if let Some(oc) = cellmap.get(outcell) {
+                    if subtype(oc, &incell.borrow()) {
+                        return Err(Error::malformed_control(format!(
+                            "input cell {} is not a subtype of output cell {}",
+                            incell.borrow().name(),
+                            oc.name()
+                        ))
+                        .with_pos(&s.attributes));
+                    } else {
+                        // let proto = incell.borrow().prototype.clone();
+                        // same_type(t, &proto)
+                        //     .map_err(|err| err.with_pos(&s.attributes))?;
+                        mentioned_cells.insert(outcell);
+                    }
                 } else {
                     return Err(Error::malformed_control(format!(
                         "{} does not have ref cell named {}",

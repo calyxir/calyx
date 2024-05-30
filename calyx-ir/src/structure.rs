@@ -126,6 +126,15 @@ impl Port {
     {
         self.get_attributes().has(attr)
     }
+
+    /// Returns true if the widths, name, direction, and attributes of 2 ports match.
+    /// This is different than `==` equivalence, which only looks at parent and name.
+    pub fn type_equivalent(&self, other: &Port) -> bool {
+        self.width == other.width
+            && self.direction == other.direction
+            && self.name == other.name
+            && self.attributes == other.attributes
+    }
 }
 
 impl GetAttributes for Port {
@@ -244,7 +253,7 @@ impl CellType {
 }
 
 /// Represents an instantiated cell.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize))]
 pub struct Cell {
     /// Name of this cell.

@@ -199,7 +199,7 @@ impl FromStr for Attribute {
 /// Inline storage for boolean attributes.
 pub(super) struct InlineAttributes {
     /// Boolean attributes stored in a 16-bit number.
-    attrs: u16,
+    pub attrs: u16,
 }
 
 impl InlineAttributes {
