@@ -212,7 +212,11 @@ impl CellShare {
         );
 
         // We know main will only ever execute once
-        let only_runs_once = comp.name == self.main;
+        // If the component is shareable, then we know it completley overwrites
+        // state at each invocation and is therefore fine to treat as if it
+        // runs once (i.e., state doesn't live beyond a single invocation).
+        let only_runs_once = comp.name == self.main
+            || comp.attributes.has(ir::BoolAttr::StateShare);
 
         // TODO(rachit): Pass cont_ref_cells to LiveRangeAnalysis so that it ignores unneccessary
         // cells.
