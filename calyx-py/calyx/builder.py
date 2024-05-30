@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Dict, Union, Optional, List
+from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
 
@@ -110,25 +110,64 @@ class ComponentBuilder:
             if name not in self.index:
                 return name
 
-    def input(self, name: str, size: int) -> ExprBuilder:
+    # Attributes are expected to be either just an attribute name or an (attribute name, value) tuple
+    RawPortAttr = Union[str, Tuple[str, int]]
+
+    def input(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an input port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
 
-    def output(self, name: str, size: int) -> ExprBuilder:
+        return self._port_with_attributes(name, size, True, attribute_literals)
+
+    def output(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an output port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
+        return self._port_with_attributes(name, size, False, attribute_literals)
 
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
+
+    def _port_with_attributes(
+        self,
+        name: str,
+        size: int,
+        is_input: bool,
+        attribute_literals: List[RawPortAttr],
+    ) -> ExprBuilder:
+        """Should not be called directly.
+        Declare a port on the component with attributes.
+
+        Returns an expression builder for the port.
+        """
+
+        attributes = []
+        for attr in attribute_literals:
+            if isinstance(attr, str):
+                attributes.append(ast.PortAttribute(attr))
+            elif isinstance(attr, tuple):
+                attributes.append(ast.PortAttribute(attr[0], attr[1]))
+            else:
+                raise ValueError(
+                    f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
+                )
+        if is_input:
+            self.component.inputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
+        else:
+            self.component.outputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
+        return self.this()[name]
 
     def this(self) -> ThisBuilder:
         """Get a handle to the component's `this` cell.
@@ -463,6 +502,14 @@ class ComponentBuilder:
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
 
+    def const_mult(
+        self, size: int, const: int, name: Optional[str] = None
+    ) -> CellBuilder:
+        """Generate a StdConstMult cell."""
+        name = name or self.generate_name("const_mult")
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.const_mult(size, const))
+
     def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
         """Generate a StdPad cell."""
         name = name or self.generate_name("pad")
@@ -704,76 +751,42 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_comb_mem_d1(self, mem, i, reg, groupname=None):
+    def mem_load_d1(self, mem, i, reg, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a comb_mem_d1 memory.
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
         """
-        assert mem.is_comb_mem_d1()
-        groupname = groupname or f"{mem.name()}_load_to_reg"
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as load_grp:
             mem.addr0 = i
-            reg.write_en = 1
-            reg.in_ = mem.read_data
+            if is_comb:
+                reg.write_en = 1
+                reg.in_ = mem.read_data
+            else:
+                mem.content_en = 1
+                reg.write_en = mem.done @ 1
+                reg.in_ = mem.done @ mem.read_data
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_comb_mem_d1(self, mem, i, val, groupname=None):
+    def mem_store_d1(self, mem, i, val, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a comb_mem_d1 memory."""
-        assert mem.is_comb_mem_d1()
-        groupname = groupname or f"store_into_{mem.name()}"
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
+        """
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
             mem.write_data = val
             store_grp.done = mem.done
+            if not is_comb:
+                mem.content_en = 1
         return store_grp
 
-    def mem_read_seq_d1(self, mem, i, groupname=None):
-        """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
-        where `mem` is a seq_d1 memory.
-        Note that this does not write the value anywhere.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"read_from_{mem.name()}"
-        with self.group(groupname) as read_grp:
-            mem.addr0 = i
-            mem.content_en = 1
-            read_grp.done = mem.done
-        return read_grp
-
-    def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
-        """Inserts wiring into `self` to perform reg := <mem_latched_value>,
-        where `mem` is a seq_d1 memory that already has some latched value.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_write_to_reg"
-        with self.group(groupname) as write_grp:
-            reg.write_en = 1
-            reg.in_ = mem.read_data
-            write_grp.done = reg.done
-        return write_grp
-
-    def mem_store_seq_d1(self, mem, i, val, groupname=None):
-        """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a seq_d1 memory.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_store"
-        with self.group(groupname) as store_grp:
-            mem.addr0 = i
-            mem.write_en = 1
-            mem.write_data = val
-            mem.content_en = 1
-            store_grp.done = mem.done
-        return store_grp
-
-    def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
+    def mem_load_to_mem(self, mem, i, ans, j, groupname):
         """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
         where `mem` and `ans` are both comb_mem_d1 memories.
         """
         assert mem.is_comb_mem_d1() and ans.is_comb_mem_d1()
-        groupname = groupname or f"{mem.name()}_load_to_mem"
         with self.group(groupname) as load_grp:
             mem.addr0 = i
             ans.write_en = 1
@@ -1505,15 +1518,24 @@ def static_seq(*args) -> ast.StaticSeqComp:
     return ast.StaticSeqComp([as_control(x) for x in args])
 
 
-def add_comp_params(comp: ComponentBuilder, input_ports: List, output_ports: List):
+def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List):
+    """Adds `input_ports`/`output_ports` as inputs/outputs to comp.
+
+    `input_ports`/`output_ports` should contain either an (input_name, input_width) pair
+    or an (input_name, input_width, attributes) triple.
     """
-    Adds `input_ports`/`output_ports` as inputs/outputs to comp.
-    `input_ports`/`output_ports` should contain an (input_name, input_width) pair.
-    """
-    for name, width in input_ports:
-        comp.input(name, width)
-    for name, width in output_ports:
-        comp.output(name, width)
+
+    def normalize_ports(ports: List):
+        for port in ports:
+            if len(port) == 2:
+                yield (port[0], port[1], [])
+            elif len(port) == 3:
+                yield port[0], port[1], port[2]
+
+    for name, width, attributes in normalize_ports(input_ports):
+        comp.input(name, width, attributes)
+    for name, width, attributes in normalize_ports(output_ports):
+        comp.output(name, width, attributes)
 
 
 def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
@@ -1521,7 +1543,7 @@ def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
     Add parameters to component `comp` if we want to read from a mem named
     `name` with address width of `addr_width` and data width of `data_width`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_read_data", data_width)],
         output_ports=[(f"{name}_addr0", addr_width)],
@@ -1533,7 +1555,7 @@ def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
     Add arguments to component `comp` if we want to write to a mem named
     `name` with address width of `addr_width` and data width of `data_width`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_done", 1)],
         output_ports=[
@@ -1548,7 +1570,7 @@ def add_register_params(comp: ComponentBuilder, name, width):
     """
     Add params to component `comp` if we want to use a register named `name`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_done", 1), (f"{name}_out", width)],
         output_ports=[
