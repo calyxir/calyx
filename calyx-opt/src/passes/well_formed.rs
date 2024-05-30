@@ -581,11 +581,11 @@ impl Visitor for WellFormed {
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {
                 if let Some(oc) = cellmap.get(outcell) {
-                    if subtype(oc, &incell.borrow()) {
+                    if !subtype(oc, &incell.borrow()) {
                         return Err(Error::malformed_control(format!(
-                            "input cell {} is not a subtype of output cell {}",
-                            incell.borrow().name(),
-                            oc.name()
+                            "The type passed in `{}` is not a subtype of the expected type `{}`.",
+                            incell.borrow().prototype.surface_name().unwrap(),
+                            oc.prototype.surface_name().unwrap()
                         ))
                         .with_pos(&s.attributes));
                     } else {
@@ -627,17 +627,14 @@ impl Visitor for WellFormed {
             let mut mentioned_cells = HashSet::new();
             for (outcell, incell) in s.ref_cells.iter() {
                 if let Some(oc) = cellmap.get(outcell) {
-                    if subtype(oc, &incell.borrow()) {
+                    if !subtype(oc, &incell.borrow()) {
                         return Err(Error::malformed_control(format!(
-                            "input cell {} is not a subtype of output cell {}",
-                            incell.borrow().name(),
-                            oc.name()
+                            "The type passed in `{}` is not a subtype of the expected type `{}`.",
+                            incell.borrow().prototype.surface_name().unwrap(),
+                            oc.prototype.surface_name().unwrap()
                         ))
                         .with_pos(&s.attributes));
                     } else {
-                        // let proto = incell.borrow().prototype.clone();
-                        // same_type(t, &proto)
-                        //     .map_err(|err| err.with_pos(&s.attributes))?;
                         mentioned_cells.insert(outcell);
                     }
                 } else {
