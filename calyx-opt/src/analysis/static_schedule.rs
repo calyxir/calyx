@@ -4,7 +4,7 @@ use calyx_ir::{build_assignments, Nothing};
 use calyx_ir::{guard, structure};
 use ir::Guard;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::ops::Not;
 use std::rc::Rc;
 
@@ -26,38 +26,12 @@ enum FSMImplementationSpec {
 }
 
 #[derive(Debug)]
-// Define an enum called FSMType
-enum FSMImplementation {
-    // Default option: just a single register
-    Single(ir::RRC<ir::Cell>),
-    // Duplicate the register to reduce fanout when querying
-    // (all FSMs in this vec still have all of the states)
-    _Duplicate(Vec<ir::RRC<ir::Cell>>),
-    // Split the FSM to reduce fanout when querying.
-    // (the FSMs partition the states exactly).
-    // Each FSM has fewer bits but I suspect the logic might be more complicated.
-    _Split(Vec<ir::RRC<ir::Cell>>),
-}
-
-impl FSMImplementation {
-    fn get_single_cell(&self) -> ir::RRC<ir::Cell> {
-        match self {
-            FSMImplementation::Single(cell) => Rc::clone(cell),
-            _ => unreachable!(
-                "called `get_single_cell()` on non-single FSM implementation "
-            ),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub struct StaticFSM {
+    fsm_cell: ir::RRC<ir::Cell>,
     encoding: FSMEncoding,
     // The fsm's bitwidth (this redundant information bc  we have `cell`)
     // but makes it easier if we easily have access to this.
     bitwidth: u64,
-    // The actual register(s) used to implement the FSM
-    implementation: FSMImplementation,
     // Mapping of queries from (u64, u64) -> Port
     queries: HashMap<(u64, u64), ir::RRC<ir::Port>>,
 }
@@ -84,12 +58,11 @@ impl StaticFSM {
                 builder.add_primitive("fsm", "init_one_reg", &[fsm_size])
             }
         };
-        let fsm = FSMImplementation::Single(register);
 
         StaticFSM {
             encoding,
+            fsm_cell: register,
             bitwidth: fsm_size,
-            implementation: fsm,
             queries: HashMap::new(),
         }
     }
@@ -111,12 +84,7 @@ impl StaticFSM {
         incr_condition: Option<Guard<Nothing>>,
     ) -> Vec<ir::Assignment<Nothing>> {
         {
-            assert!(matches!(
-                self.implementation,
-                FSMImplementation::Single(_)
-            ));
-            let fsm_cell: Rc<std::cell::RefCell<ir::Cell>> =
-                self.implementation.get_single_cell();
+            let fsm_cell = Rc::clone(&self.fsm_cell);
             // For OHE, the "adder" can just be a shifter.
             // For OHE the first_state = 1 rather than 0.
             // Final state is encoded differently for OHE vs. Binary
@@ -219,17 +187,14 @@ impl StaticFSM {
         builder: &mut ir::Builder,
         query: (u64, u64),
     ) -> Box<ir::Guard<Nothing>> {
-        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
-
         let (beg, end) = query;
+        // Querying OHE is easy, since we already have `self.get_one_hot_query()`
+        let fsm_cell = Rc::clone(&self.fsm_cell);
         if matches!(self.encoding, FSMEncoding::OneHot) {
-            // Querying OHE is easy, since we already have `self.get_one_hot_query()`
-            let fsm_cell = self.implementation.get_single_cell();
             let g = self.get_one_hot_query(fsm_cell, (beg, end), builder);
             return Box::new(g);
         }
 
-        let fsm_cell = self.implementation.get_single_cell();
         if beg + 1 == end {
             // if beg + 1 == end then we only need to check if fsm == beg
             let interval_const = builder.add_constant(beg, self.bitwidth);
@@ -322,13 +287,11 @@ impl StaticFSM {
     // Return a unique id (i.e., get_unique_id for each FSM in the same component
     // will be different).
     pub fn get_unique_id(&self) -> ir::Id {
-        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
-        self.implementation.get_single_cell().borrow().name()
+        self.fsm_cell.borrow().name()
     }
 
     // Return the bitwidth of an FSM object
     pub fn get_bitwidth(&self) -> u64 {
-        assert!(matches!(self.implementation, FSMImplementation::Single(_)));
         self.bitwidth
     }
 }
@@ -340,9 +303,6 @@ pub struct StaticSchedule {
     /// (this is just the latency of the static island-- or that of the largest
     /// static island, if there are multiple islands)
     num_states: u64,
-    /// The queries that the FSM needs to support.
-    /// E.g., `lhs = %[2:3] ? rhs` corresponds to (2,3).
-    queries: HashSet<(u64, u64)>,
     /// Encoding type for the FSM
     encoding: FSMEncoding,
     /// The static groups the FSM will schedule. It is a vec because sometimes
@@ -369,12 +329,6 @@ impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
                 FSMEncoding::Binary
             };
         for static_group in &schedule.static_groups {
-            // Getting self.queries
-            for static_assign in &static_group.borrow().assignments {
-                for query in Self::queries_from_guard(&static_assign.guard) {
-                    schedule.queries.insert(query);
-                }
-            }
             // Getting self.num_states
             schedule.num_states = std::cmp::max(
                 schedule.num_states,
@@ -386,28 +340,6 @@ impl From<Vec<ir::RRC<ir::StaticGroup>>> for StaticSchedule {
 }
 
 impl StaticSchedule {
-    /// Given a guard, returns the queries that the static FSM (i.e., counter)
-    /// will make.
-    fn queries_from_guard(
-        guard: &ir::Guard<ir::StaticTiming>,
-    ) -> Vec<(u64, u64)> {
-        match guard {
-            ir::Guard::Or(l, r) | ir::Guard::And(l, r) => {
-                let mut lvec = Self::queries_from_guard(l);
-                let rvec = Self::queries_from_guard(r);
-                lvec.extend(rvec);
-                lvec
-            }
-            ir::Guard::Not(g) => Self::queries_from_guard(g),
-            ir::Guard::Port(_)
-            | ir::Guard::CompOp(_, _, _)
-            | ir::Guard::True => vec![],
-            ir::Guard::Info(static_timing) => {
-                vec![static_timing.get_interval()]
-            }
-        }
-    }
-
     /// Realizes a StaticSchedule (i.e., instantiates the FSMs)
     /// If `self.static_groups = vec![group1, group2, group3, ...]``
     /// Then `realize_schedule()` returns vecdeque![a1, a2, a3]
@@ -494,7 +426,6 @@ impl StaticSchedule {
     // The only thing that actually changes is the Guard::Info case
     // We need to turn static_timing to dynamic guards using `fsm`.
     // E.g.: %[2:3] gets turned into fsm.out >= 2 & fsm.out < 3
-    // is_static_comp is necessary becasue it ...
     fn make_guard_dyn(
         guard: ir::Guard<ir::StaticTiming>,
         fsm_object: &mut StaticFSM,

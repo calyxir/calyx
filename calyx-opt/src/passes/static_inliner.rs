@@ -179,6 +179,7 @@ impl StaticInliner {
                 latency,
                 attributes,
             }) => {
+                // par_group triggers thread[go] for each thread in the par
                 let par_group =
                     builder.add_static_group("static_par", *latency);
                 let mut par_group_assigns: Vec<
@@ -187,29 +188,38 @@ impl StaticInliner {
                 for stmt in stmts {
                     let stmt_latency = stmt.get_latency();
                     // recursively turn each stmt in the par block into a group g
-                    let g = StaticInliner::inline_static_control(stmt, builder);
+                    let stmt_group =
+                        StaticInliner::inline_static_control(stmt, builder);
                     assert!(
-                        g.borrow().get_latency() == stmt_latency,
+                        stmt_group.borrow().get_latency() == stmt_latency,
                         "static group latency doesn't match static stmt latency"
                     );
-                    // get the assignments from g
-                    // see note on the StaticControl::Seq(..) case abt why we need to clone
-                    let mut g_assigns: Vec<ir::Assignment<ir::StaticTiming>> =
-                        g.borrow_mut().assignments.clone();
-                    // offset = 0 (all start at beginning of par),
-                    // but still should add %[0:stmt_latency] to beginning of group
-                    StaticInliner::update_assignments_timing(
-                        &mut g_assigns,
-                        0,
-                        stmt_latency,
-                        *latency,
+                    structure!( builder;
+                        let signal_on = constant(1,1);
+                    );
+                    let trigger_body = build_assignments!(builder;
+                        stmt_group["go"] = ? signal_on["out"];
                     );
                     // add g_assigns to par_group_assigns
-                    par_group_assigns.extend(g_assigns.into_iter());
+                    par_group_assigns.extend(trigger_body);
                 }
                 par_group.borrow_mut().assignments = par_group_assigns;
                 par_group.borrow_mut().attributes = attributes.clone();
                 par_group
+                    .borrow_mut()
+                    .attributes
+                    .insert(ir::BoolAttr::Par, 1);
+                let par_wrapper =
+                    builder.add_static_group("static_par", *latency);
+                structure!( builder;
+                    let signal_on = constant(1,1);
+                );
+                let trigger_body = build_assignments!(builder;
+                    par_wrapper["go"] = ? signal_on["out"];
+                );
+                // par_wrapper triggers par_group[go]
+                par_wrapper.borrow_mut().assignments.extend(trigger_body);
+                par_wrapper
             }
             ir::StaticControl::If(ir::StaticIf {
                 port,

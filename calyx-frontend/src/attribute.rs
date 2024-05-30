@@ -69,6 +69,9 @@ pub enum BoolAttr {
     #[strum(serialize = "promoted")]
     /// denotes a static component or control promoted from dynamic
     Promoted,
+    #[strum(serialize = "par")]
+    /// denotes a group that was generated from `par` control
+    Par,
 }
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {

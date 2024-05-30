@@ -1,8 +1,9 @@
 use crate::analysis::{GraphColoring, StaticFSM, StaticSchedule};
 use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
-use calyx_ir as ir;
+use calyx_ir::{self as ir, PortParent, StaticTiming};
 use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
+use core::panic;
 use ir::{build_assignments, RRC};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
@@ -510,6 +511,80 @@ impl CompileStatic {
     }
 }
 
+pub enum StaticStruct {
+    Tree(Tree),
+    Par(Par),
+}
+pub struct Tree {
+    latency: u64,
+    root: ir::Id,
+    children: Vec<(StaticStruct, (u64, u64))>,
+}
+pub struct Par {
+    latency: u64,
+    threads: Vec<(StaticStruct, (u64, u64))>,
+}
+
+impl CompileStatic {
+    fn build_static_struct(
+        name: ir::Id,
+        static_groups: &[ir::StaticGroup],
+    ) -> StaticStruct {
+        let target_group = static_groups
+            .iter()
+            .find(|sgroup| sgroup.name() == name)
+            .unwrap();
+        let mut res_vec = vec![];
+        for assign in &target_group.assignments {
+            match &assign.dst.borrow().parent {
+                PortParent::Cell(_) => (),
+                PortParent::Group(_) => panic!(""),
+                PortParent::StaticGroup(sgroup) => match &*assign.guard {
+                    calyx_ir::Guard::Info(static_timing_interval) => {
+                        assert!(assign.src.borrow().is_constant(1, 1));
+                        let sgroup_name = sgroup.upgrade().borrow().name();
+                        res_vec.push((
+                            Self::build_static_struct(
+                                sgroup_name,
+                                static_groups,
+                            ),
+                            static_timing_interval.get_interval(),
+                        ));
+                    }
+                    _ => panic!(""),
+                },
+            }
+        }
+        if target_group.attributes.has(ir::BoolAttr::Par) {
+            StaticStruct::Par(Par {
+                threads: res_vec,
+                latency: target_group.latency,
+            })
+        } else {
+            res_vec.sort_by_key(|(_, interval)| *interval);
+            assert!(Self::are_ranges_non_overlapping(&res_vec));
+            StaticStruct::Tree(Tree {
+                latency: target_group.latency,
+                root: target_group.name(),
+                children: res_vec,
+            })
+        }
+    }
+    fn are_ranges_non_overlapping(
+        ranges: &Vec<(StaticStruct, (u64, u64))>,
+    ) -> bool {
+        for i in 0..ranges.len() - 1 {
+            let (_, (_, end1)) = ranges[i];
+            let (_, (start2, _)) = ranges[i + 1];
+            // Ensure that the current range's end is less than or equal to the next range's start
+            if end1 > start2 {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 // These are the functions used to compile for the static *component* interface
 impl CompileStatic {
     // Used for guards in a one cycle static component.
@@ -730,7 +805,7 @@ impl Visitor for CompileStatic {
             let static_component_interface = match top_level_sgroup {
                 None => false,
                 // For the top level group, sch.static_groups should really only
-                // have group--the top level group.
+                // have one group--the top level group.
                 Some(top_level_group) => sch
                     .static_groups
                     .iter()
