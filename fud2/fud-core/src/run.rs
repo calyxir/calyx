@@ -2,9 +2,11 @@ use crate::config;
 use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
 use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::process::{Command, ExitStatus};
+use std::rc::Rc;
 
 /// An error that arises while emitting the Ninja file or executing Ninja.
 #[derive(Debug)]
@@ -87,6 +89,26 @@ impl EmitBuild for EmitRuleBuild {
 /// Code to emit Ninja code at the setup stage.
 pub trait EmitSetup {
     fn setup(&self, emitter: &mut Emitter) -> EmitResult;
+}
+
+pub trait EmitRcSetup {
+    fn setup_rc(&self, emitter: Rc<RefCell<Emitter>>) -> EmitResult;
+
+    fn setup(&self, emitter: Emitter) -> Result<Emitter, RunError> {
+        let emit_rc = Rc::new(RefCell::new(emitter));
+        self.setup_rc(Rc::clone(&emit_rc))?;
+        let emitter = Rc::into_inner(emit_rc).unwrap().into_inner();
+        Ok(emitter)
+    }
+}
+
+impl<T: EmitSetup> EmitRcSetup for T {
+    fn setup_rc(
+        &self,
+        emitter: std::rc::Rc<std::cell::RefCell<Emitter>>,
+    ) -> EmitResult {
+        self.setup(&mut emitter.borrow_mut())
+    }
 }
 
 pub type EmitSetupFn = fn(&mut Emitter) -> EmitResult;
@@ -244,7 +266,7 @@ impl<'a> Run<'a> {
         }
     }
 
-    pub fn emit<T: Write + 'a>(&self, out: T) -> EmitResult {
+    pub fn emit<T: Write + 'static>(&self, out: T) -> EmitResult {
         let mut emitter = Emitter::new(
             out,
             self.config_data.clone(),
@@ -263,7 +285,7 @@ impl<'a> Run<'a> {
                 if done_setups.insert(*setup) {
                     let setup = &self.driver.setups[*setup];
                     writeln!(emitter.out, "# {}", setup.name)?;
-                    setup.emit.setup(&mut emitter)?;
+                    emitter = setup.emit.setup(emitter)?;
                     writeln!(emitter.out)?;
                 }
             }
@@ -290,14 +312,14 @@ impl<'a> Run<'a> {
     }
 }
 
-pub struct Emitter<'a> {
-    pub out: Box<dyn Write + 'a>,
+pub struct Emitter {
+    pub out: Box<dyn Write + 'static>,
     pub config_data: figment::Figment,
     pub workdir: Utf8PathBuf,
 }
 
-impl<'a> Emitter<'a> {
-    fn new<T: Write + 'a>(
+impl Emitter {
+    fn new<T: Write + 'static>(
         out: T,
         config_data: figment::Figment,
         workdir: Utf8PathBuf,

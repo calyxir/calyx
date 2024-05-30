@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{run, utils};
+use crate::{run, utils, LoadPlugins};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 use std::collections::HashMap;
@@ -225,7 +225,7 @@ impl Driver {
 }
 
 pub struct DriverBuilder {
-    name: String,
+    pub name: String,
     setups: PrimaryMap<SetupRef, Setup>,
     states: PrimaryMap<StateRef, State>,
     ops: PrimaryMap<OpRef, Operation>,
@@ -269,7 +269,7 @@ impl DriverBuilder {
         })
     }
 
-    pub fn add_setup<T: run::EmitSetup + 'static>(
+    pub fn add_setup<T: run::EmitRcSetup + 'static>(
         &mut self,
         name: &str,
         emit: T,
@@ -319,6 +319,10 @@ impl DriverBuilder {
 
     pub fn rsrc_files(&mut self, files: FileData) {
         self.rsrc_files = Some(files);
+    }
+
+    pub fn build_w_plugins(self) -> Driver {
+        self.load_plugins().build()
     }
 
     pub fn build(self) -> Driver {
