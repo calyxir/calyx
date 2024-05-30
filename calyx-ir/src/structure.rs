@@ -224,7 +224,7 @@ pub enum CellType {
 }
 
 impl CellType {
-    /// Return the name associated with this CellType is present
+    /// Return the name associated with this CellType if present
     pub fn get_name(&self) -> Option<Id> {
         match self {
             CellType::Primitive { name, .. } | CellType::Component { name } => {
