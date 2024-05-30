@@ -295,7 +295,7 @@ pub fn cli(driver: &Driver) -> anyhow::Result<()> {
         Mode::ShowPlan => run.show(),
         Mode::ShowDot => run.show_dot(),
         Mode::EmitNinja => run.emit_to_stdout()?,
-        Mode::Generate => run.emit_to_dir(&workdir)?,
+        Mode::Generate => run.emit_to_dir(&workdir)?.keep(),
         Mode::Run => run.emit_and_run(&workdir)?,
     }
 
