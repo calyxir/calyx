@@ -253,12 +253,9 @@ impl<'a> Run<'a> {
         }
     }
 
-    pub fn emit<T: Write + 'static>(&self, out: T) -> EmitResult {
-        let mut emitter = Emitter::new(
-            out,
-            self.config_data.clone(),
-            self.plan.workdir.clone(),
-        );
+    pub fn emit<T: Write + 'a>(&self, mut out: T) -> EmitResult {
+        let mut emitter =
+            Emitter::new(self.config_data.clone(), self.plan.workdir.clone());
 
         // Emit preamble.
         emitter.var("build-tool", &self.global_config.exe)?;
@@ -295,24 +292,22 @@ impl<'a> Run<'a> {
         // Mark the last file as the default target.
         writeln!(emitter.out, "default {}", last_file)?;
 
+        write!(out, "{}", String::from_utf8(emitter.out).unwrap())?;
+
         Ok(())
     }
 }
 
 pub struct Emitter {
-    pub out: Box<dyn Write + 'static>,
+    out: Vec<u8>,
     pub config_data: figment::Figment,
     pub workdir: Utf8PathBuf,
 }
 
 impl Emitter {
-    fn new<T: Write + 'static>(
-        out: T,
-        config_data: figment::Figment,
-        workdir: Utf8PathBuf,
-    ) -> Self {
+    fn new(config_data: figment::Figment, workdir: Utf8PathBuf) -> Self {
         Self {
-            out: Box::new(out),
+            out: vec![],
             config_data,
             workdir,
         }
