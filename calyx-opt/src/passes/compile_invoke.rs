@@ -131,7 +131,7 @@ impl CompileInvoke {
     ///
     /// Since this pass eliminates all ref cells in post order, we expect that
     /// invoked component already had all of its ref cells removed.
-    
+
     //TODO(nathanielnrn): Is this lifetime stuff correct? The compiler complained and I just added this to get it to stop.
     fn ref_cells_to_ports<'a, T>(
         &mut self,
@@ -141,7 +141,6 @@ impl CompileInvoke {
         let inv_comp = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
         for (ref_cell, in_cell) in ref_cells {
-            
             log::debug!(
                 "Removing ref cell `{}` with {} ports",
                 ref_cell.borrow().name(),
@@ -164,7 +163,8 @@ impl CompileInvoke {
                     continue;
                 }
 
-                let canon = ir::Canonical::new(ref_cell.borrow().name(), port.name);
+                let canon =
+                    ir::Canonical::new(ref_cell.borrow().name(), port.name);
                 let Some(comp_port) = comp_ports.get(&canon) else {
                     unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
                         canon,
@@ -283,25 +283,37 @@ impl Visitor for CompileInvoke {
         s: &mut ir::Invoke,
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
-        _comps: &[ir::Component],
+        comps: &[ir::Component],
     ) -> VisResult {
-        
         //Maps from ref_cell type to passed in cell type (aka outcell to incell)
         let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
-            let ref_cell = s.comp.clone();
-            // if ref_cell.is_none() {
-            print!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {}", in_cell.borrow().name(), id, comp.name, comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "));
-            // }
-            (ref_cell, in_cell)
+            let high_comp = comps
+            .iter()
+            .find(|&c| c.name == s.comp.borrow().type_name()
+            .unwrap_or_else(|| unreachable!("Could not find the prototype name for component {}", s.comp.borrow().name())))
+            .unwrap_or_else(|| unreachable!("Could not find the component {} in all components", s.comp.borrow().name()));
+            
+            let ref_cell = high_comp.cells.find(*id);
+            if ref_cell.is_none() {
+                unreachable!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {} and ports: {}",
+                in_cell.borrow().name(),
+                id,
+                high_comp.name,
+                high_comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "),
+                high_comp.signature.borrow().ports.iter().map(|p| p.borrow().name.to_string()).collect::<Vec<String>>().join(", "));
+            }
+            (ref_cell.unwrap(), in_cell)
         }).collect();
 
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_group("invoke");
 
-
         // Assigns representing the ref cell connections
         invoke_group.borrow_mut().assignments.extend(
-            self.ref_cells_to_ports(Rc::clone(&s.comp), ref_cell_map.iter().cloned()), //the clone here is questionable? but lets things type check? Maybe change ref_cells_to_ports to expect a reference?
+            self.ref_cells_to_ports(
+                Rc::clone(&s.comp),
+                ref_cell_map.iter().cloned(),
+            ), //the clone here is questionable? but lets things type check? Maybe change ref_cells_to_ports to expect a reference?
         );
 
         // comp.go = 1'd1;
@@ -394,9 +406,13 @@ impl Visitor for CompileInvoke {
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
 
-        invoke_group.borrow_mut().assignments.extend(
-            self.ref_cells_to_ports(Rc::clone(&s.comp), ref_cell_map.iter().cloned()),
-        );
+        invoke_group
+            .borrow_mut()
+            .assignments
+            .extend(self.ref_cells_to_ports(
+                Rc::clone(&s.comp),
+                ref_cell_map.iter().cloned(),
+            ));
 
         // comp.go = 1'd1;
         structure!(builder;
