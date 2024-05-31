@@ -898,6 +898,25 @@ impl Named for TopDownCompileControl {
     }
 }
 
+/// Helper function to emit profiling information when the control consists of a single group.
+fn emit_single_enable(
+    con: &mut ir::Control,
+    component: Id,
+    json_out_file: &OutputFile,
+) {
+    if let ir::Control::Enable(enable) = con {
+        let mut profiling_info_set: HashSet<ProfilingInfo> = HashSet::new();
+        profiling_info_set.insert(ProfilingInfo::SingleEnable(SingleEnable {
+            component,
+            group: enable.group.borrow().name(),
+        }));
+        let _ = serde_json::to_writer_pretty(
+            json_out_file.get_write(),
+            &profiling_info_set,
+        );
+    }
+}
+
 impl Visitor for TopDownCompileControl {
     fn start(
         &mut self,
@@ -905,15 +924,14 @@ impl Visitor for TopDownCompileControl {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Do not try to compile an enable
-        if matches!(
-            *comp.control.borrow(),
-            ir::Control::Enable(..) | ir::Control::Empty(..)
-        ) {
+        let mut con = comp.control.borrow_mut();
+        if matches!(*con, ir::Control::Empty(..) | ir::Control::Enable(..)) {
+            if let Some(json_out_file) = &self.dump_fsm_json {
+                emit_single_enable(&mut con, comp.name, json_out_file);
+            }
             return Ok(Action::Stop);
         }
 
-        let mut con = comp.control.borrow_mut();
         compute_unique_ids(&mut con, 0);
         // IRPrinter::write_control(&con, 0, &mut std::io::stderr());
         Ok(Action::Continue)
