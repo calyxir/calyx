@@ -288,11 +288,11 @@ impl Visitor for CompileInvoke {
         
         //Maps from ref_cell type to passed in cell type (aka outcell to incell)
         let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
-            let ref_cell = comp.cells.find(*id);
-            if let None = ref_cell {
-                unreachable!("attempting to pass in {} to a ref cell, but said ref cell is not part of the component {}", in_cell.borrow().name(), comp.name)
-            }
-            (ref_cell.unwrap(), in_cell)
+            let ref_cell = s.comp.clone();
+            // if ref_cell.is_none() {
+            print!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {}", in_cell.borrow().name(), id, comp.name, comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "));
+            // }
+            (ref_cell, in_cell)
         }).collect();
 
         let mut builder = ir::Builder::new(comp, ctx);
@@ -376,12 +376,19 @@ impl Visitor for CompileInvoke {
         _comps: &[ir::Component],
     ) -> VisResult {
         //Maps from ref_cell type to passed in cell type (aka outcell to incell)
+        // let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
+        //     let ref_cell = comp.cells.find(*id);
+        //     if ref_cell.is_none() {
+        //         unreachable!("attempting to pass in {} to a ref cell, but said ref cell is not part of the component {}", in_cell.borrow().name(), comp.name)
+        //     }
+        //     (ref_cell.unwrap(), in_cell)
+        // }).collect();
         let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
-            let ref_cell = comp.cells.find(*id);
-            if let None = ref_cell {
-                unreachable!("attempting to pass in {} to a ref cell, but said ref cell is not part of the component {}", in_cell.borrow().name(), comp.name)
-            }
-            (ref_cell.unwrap(), in_cell)
+            let ref_cell = s.comp.clone();
+            // if ref_cell.is_none() {
+            print!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {}", in_cell.borrow().name(), id, comp.name, comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "));
+            // }
+            (ref_cell, in_cell)
         }).collect();
 
         let mut builder = ir::Builder::new(comp, ctx);
