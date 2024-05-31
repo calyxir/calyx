@@ -22,9 +22,10 @@ class ProfilingInfo:
 
     def end_current_segment(self, curr_clock_cycle):
         if len(self.segments) > 0:
-            # Close out previous segment by setting the end time to the current cycle
-            self.segments[-1]["end"] = curr_clock_cycle
-            self.total_cycles = curr_clock_cycle - self.segments[-1]["start"]
+            # Close out previous segment by setting the end time to the current cycle            
+            if (self.segments[-1]["end"] == -1): # ignore cases where done is high forever
+                self.segments[-1]["end"] = curr_clock_cycle
+                self.total_cycles += curr_clock_cycle - self.segments[-1]["start"]
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
@@ -33,17 +34,19 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.fsms = fsms
         self.single_enable_names = single_enable_names
         self.profiling_info = {}
+        self.signal_to_signal_id = {fsm : None for fsm in fsms}
+        self.signal_to_curr_value = {fsm : 0 for fsm in fsms}
+        self.main_go_id = None
+        self.main_go_on = False
+        self.clock_id = None
+        self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
         for group in groups_to_fsms:
             fsm_name, fsm_value = groups_to_fsms[group]
             self.profiling_info[group] = ProfilingInfo(group, fsm_name, fsm_value)
         for single_enable_group in single_enable_names:
             self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
-        self.main_go_id = None
-        self.main_go_on = False
-        self.clock_id = None
-        self.signal_to_signal_id = {fsm : None for fsm in fsms}
-        self.fsm_to_curr_value = {fsm: -1 for fsm in fsms}
-        self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
+            self.signal_to_curr_value[f"{single_enable_group}_go"] = -1
+            self.signal_to_curr_value[f"{single_enable_group}_done"] = -1
         
     def enddefinitions(self, vcd, signals, cur_sig_vals):
         # convert references to list and sort by name
@@ -68,7 +71,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     self.signal_to_signal_id[fsm] = id
             for single_enable_group in self.single_enable_names:
                 if f"{single_enable_group}_go.out[" in name:
-                    self.signal_to_signal_id
+                    self.signal_to_signal_id[f"{single_enable_group}_go"] = id
+                if f"{single_enable_group}_done.out[" in name:
+                    self.signal_to_signal_id[f"{single_enable_group}_done"] = id
+
+        print(self.signal_to_signal_id)
+
     def value(
         self,
         vcd,
@@ -77,7 +85,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         identifier_code,
         cur_sig_vals,
     ):
-        # First need to check if main component is going
+        # Start profiling after main's go is on
         if identifier_code == self.main_go_id and value == "1":
             self.main_go_on = True
         if not(self.main_go_on):
@@ -86,21 +94,37 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         # detect falling edge on clock
         if identifier_code == self.clock_id and value == "0":
             self.clock_cycle_acc += 1
-            # Sample FSM values
-            fsm_curr_value = int(cur_sig_vals[self.fsm_signal_id], 2)
-            if fsm_curr_value != self.fsm_curr_value:
-                # detect change!
-                if self.fsm_curr_value != -1:
-                    # end the previous group if there was one
-                    self.profiling_info[self.fsm_curr_value].end_current_segment(self.clock_cycle_acc)
-                if fsm_curr_value in self.profiling_info: # END should be ignored
-                    # start a new segment for the next group
-                    # FIXME: need to fix this for parallelism
-                    self.profiling_info[fsm_curr_value].start_new_segment(self.clock_cycle_acc)
-                    self.fsm_curr_value = fsm_curr_value
-                else:
-                    # The state id was not in the JSON entry for this FSM. Most likely the value was the last FSM state.
-                    print(f"FSM value ignored: {fsm_curr_value}")
+            # for each signal that we want to check, we need to sample the values
+            for (signal_name, signal_id) in self.signal_to_signal_id.items():
+                signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
+                fsm_curr_value = self.signal_to_curr_value[signal_name]
+                if signal_new_value == fsm_curr_value: # skip values that have not changed
+                    continue
+                if "fsm" not in signal_name:
+                    print(f"clock: {self.clock_cycle_acc} signal_name: {signal_name}, fsm_curr_value: {fsm_curr_value}, signal_new_value: {signal_new_value}")
+                if "_go" in signal_name and signal_new_value == 1:
+                    # start of single enable group
+                    group = "_".join(signal_name.split("_")[0:-1])
+                    self.profiling_info[group].start_new_segment(self.clock_cycle_acc)
+                elif "_done" in signal_name and signal_new_value == 1:
+                    # end? of single enable group
+                    group = "_".join(signal_name.split("_")[0:-1])
+                    self.profiling_info[group].end_current_segment(self.clock_cycle_acc)
+                # else:
+                #     # Sample FSM values
+                #     if signal_new_value != fsm_curr_value: # detect change!
+                #         if fsm_curr_value != -1:
+                #             # end the previous group if there was one
+                #             self.profiling_info[signal_name].end_current_segment(self.clock_cycle_acc)
+                #         if signal_new_value in self.profiling_info: # END should be ignored
+                #             # start a new segment for the next group
+                #             # FIXME: need to fix this for parallelism
+                #             self.profiling_info[signal_name].start_new_segment(self.clock_cycle_acc)
+                #             self.signal_to_curr_value[signal_name] = signal_new_value
+                #         else:
+                #             # The state id was not in the JSON entry for this FSM. Most likely the value was the last FSM state.
+                #             print(f"FSM value ignored: {signal_new_value}")
+                self.signal_to_curr_value[signal_name] = signal_new_value
 
 def remap_tdcc_json(json_file):
     profiling_infos = json.load(open(json_file))
