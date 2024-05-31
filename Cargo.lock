@@ -1150,6 +1150,7 @@ dependencies = [
  "env_logger",
  "figment",
  "log",
+ "once_cell",
  "pathdiff",
  "rhai",
  "serde",

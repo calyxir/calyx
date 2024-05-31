@@ -3,11 +3,8 @@ use crate::{
     run::{EmitResult, EmitSetup, Emitter},
     DriverBuilder,
 };
+use once_cell::unsync::{Lazy, OnceCell};
 use std::{cell::RefCell, rc::Rc};
-
-pub trait LoadPlugins {
-    fn load_plugins(self) -> Self;
-}
 
 fn to_str_slice(arr: &rhai::Array) -> Vec<String> {
     arr.iter()
@@ -102,36 +99,52 @@ impl RhaiEmitter {
     }
 }
 
+thread_local! {
+    /// Construct the engine we will use to evaluate setup functions
+    /// we do this with Lazy, so that we only create the engine once
+    /// this also needs to be thread_local so that we don't need
+    /// `rhai::Engine` to be `Sync`.
+    static EMIT_ENGINE: Lazy<rhai::Engine> =
+        Lazy::new(|| {
+            let mut engine = rhai::Engine::new();
+
+            engine
+                .register_type_with_name::<RhaiEmitter>("RhaiEmitter")
+                .register_fn("config_val", RhaiEmitter::config_val)
+                .register_fn("config_or", RhaiEmitter::config_or)
+                .register_fn("config_var", RhaiEmitter::config_var)
+                .register_fn("config_var_or", RhaiEmitter::config_var_or)
+                .register_fn("var", RhaiEmitter::var)
+                .register_fn("rule", RhaiEmitter::rule)
+                .register_fn("build", RhaiEmitter::build)
+                .register_fn("comment", RhaiEmitter::comment)
+                .register_fn("arg", RhaiEmitter::arg)
+                .register_fn("rsrc", RhaiEmitter::rsrc);
+
+            engine
+    });
+}
+
 impl EmitSetup for RhaiSetupCtx {
     fn setup_rc(&self, emitter: Rc<RefCell<Emitter>>) -> EmitResult {
-        let mut engine = rhai::Engine::new();
         let mut scope = rhai::Scope::new();
 
-        // annoying that I have to do this for every setup function
-        engine
-            .register_type_with_name::<RhaiEmitter>("RhaiEmitter")
-            .register_fn("config_val", RhaiEmitter::config_val)
-            .register_fn("config_or", RhaiEmitter::config_or)
-            .register_fn("config_var", RhaiEmitter::config_var)
-            .register_fn("config_var_or", RhaiEmitter::config_var_or)
-            .register_fn("var", RhaiEmitter::var)
-            .register_fn("rule", RhaiEmitter::rule)
-            .register_fn("build", RhaiEmitter::build)
-            .register_fn("comment", RhaiEmitter::comment)
-            .register_fn("arg", RhaiEmitter::arg)
-            .register_fn("rsrc", RhaiEmitter::rsrc);
-
-        engine
-            .call_fn::<()>(
+        EMIT_ENGINE.with(|e| {
+            e.call_fn::<()>(
                 &mut scope,
                 &self.ast,
                 &self.name,
                 (RhaiEmitter::from(emitter),),
             )
-            .unwrap();
+            .unwrap()
+        });
 
         Ok(())
     }
+}
+
+pub trait LoadPlugins {
+    fn load_plugins(self) -> Self;
 }
 
 impl LoadPlugins for DriverBuilder {

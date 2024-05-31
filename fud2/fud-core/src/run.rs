@@ -292,6 +292,7 @@ impl<'a> Run<'a> {
         // Mark the last file as the default target.
         writeln!(emitter.out, "default {}", last_file)?;
 
+        // write buffered output to the stream we were passed
         write!(out, "{}", String::from_utf8(emitter.out).unwrap())?;
 
         Ok(())

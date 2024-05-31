@@ -20,3 +20,4 @@ anyhow.workspace = true
 log.workspace = true
 env_logger.workspace = true
 rhai = { version = "1.18.0" }
+once_cell = "1.19.0"
