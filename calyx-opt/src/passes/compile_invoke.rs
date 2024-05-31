@@ -131,18 +131,21 @@ impl CompileInvoke {
     ///
     /// Since this pass eliminates all ref cells in post order, we expect that
     /// invoked component already had all of its ref cells removed.
-    fn ref_cells_to_ports<T>(
+    
+    //TODO(nathanielnrn): Is this lifetime stuff correct? The compiler complained and I just added this to get it to stop.
+    fn ref_cells_to_ports<'a, T>(
         &mut self,
         inv_cell: RRC<ir::Cell>,
-        ref_cells: impl Iterator<Item = (ir::Id, ir::RRC<ir::Cell>)>,
+        ref_cells: impl Iterator<Item = (RRC<ir::Cell>, &'a RRC<ir::Cell>)>,
     ) -> Vec<ir::Assignment<T>> {
         let inv_comp = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
-        for (ref_cell_name, cell) in ref_cells {
+        for (ref_cell, in_cell) in ref_cells {
+            
             log::debug!(
                 "Removing ref cell `{}` with {} ports",
-                ref_cell_name,
-                cell.borrow().ports.len()
+                ref_cell.borrow().name(),
+                in_cell.borrow().ports.len()
             );
 
             // Mapping from canonical names of the ports of the ref cell to the
@@ -153,7 +156,7 @@ impl CompileInvoke {
 
             // The type of the cell is the same as the ref cell so we can
             // iterate over its ports and generate bindings for the ref cell.
-            for pr in &cell.borrow().ports {
+            for pr in &ref_cell.borrow().ports {
                 let port = pr.borrow();
                 if port.has_attribute(ir::BoolAttr::Clk)
                     || port.has_attribute(ir::BoolAttr::Reset)
@@ -161,7 +164,7 @@ impl CompileInvoke {
                     continue;
                 }
 
-                let canon = ir::Canonical::new(ref_cell_name, port.name);
+                let canon = ir::Canonical::new(ref_cell.borrow().name(), port.name);
                 let Some(comp_port) = comp_ports.get(&canon) else {
                     unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
                         canon,
@@ -282,11 +285,23 @@ impl Visitor for CompileInvoke {
         ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
+        
+        //Maps from ref_cell type to passed in cell type (aka outcell to incell)
+        let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
+            let ref_cell = comp.cells.find(*id);
+            if let None = ref_cell {
+                unreachable!("attempting to pass in {} to a ref cell, but said ref cell is not part of the component {}", in_cell.borrow().name(), comp.name)
+            }
+            (ref_cell.unwrap(), in_cell)
+        }).collect();
+
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_group("invoke");
+
+
         // Assigns representing the ref cell connections
         invoke_group.borrow_mut().assignments.extend(
-            self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
+            self.ref_cells_to_ports(Rc::clone(&s.comp), ref_cell_map.iter().cloned()), //the clone here is questionable? but lets things type check? Maybe change ref_cells_to_ports to expect a reference?
         );
 
         // comp.go = 1'd1;
@@ -360,12 +375,20 @@ impl Visitor for CompileInvoke {
         ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        let mut builder = ir::Builder::new(comp, ctx);
+        //Maps from ref_cell type to passed in cell type (aka outcell to incell)
+        let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
+            let ref_cell = comp.cells.find(*id);
+            if let None = ref_cell {
+                unreachable!("attempting to pass in {} to a ref cell, but said ref cell is not part of the component {}", in_cell.borrow().name(), comp.name)
+            }
+            (ref_cell.unwrap(), in_cell)
+        }).collect();
 
+        let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
 
         invoke_group.borrow_mut().assignments.extend(
-            self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
+            self.ref_cells_to_ports(Rc::clone(&s.comp), ref_cell_map.iter().cloned()),
         );
 
         // comp.go = 1'd1;
