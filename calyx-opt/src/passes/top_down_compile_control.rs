@@ -351,12 +351,19 @@ impl<'b, 'a> Schedule<'b, 'a> {
             let first_state = constant(0, fsm_size);
         );
 
+        // Add last state to JSON info
+        let mut states = self.groups_to_states.iter().cloned().collect_vec();
+        states.push(FSMStateInfo {
+            id: final_state,
+            group: Id::new(format!("{}_END", fsm.borrow().name())),
+        });
+
         // Keep track of groups to FSM state id information for dumping to json
         fsm_groups.insert(ProfilingInfo::Fsm(FSMInfo {
             component: self.builder.component.name,
             fsm: fsm.borrow().name(),
             group: group.borrow().name(),
-            states: self.groups_to_states.iter().cloned().collect_vec(),
+            states,
         }));
 
         // Enable assignments
