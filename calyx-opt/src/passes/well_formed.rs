@@ -217,7 +217,7 @@ fn subtype(cell_out: &Cell, cell_in: &Cell) -> bool {
             }
         }
     }
-    return true;
+    true
 }
 
 impl Visitor for WellFormed {
@@ -599,7 +599,7 @@ impl Visitor for WellFormed {
                 }
             }
             for id in cellmap.keys() {
-                if mentioned_cells.get(id).is_none() {
+                if !mentioned_cells.contains(id) {
                     return Err(Error::malformed_control(format!(
                         "unmentioned ref cell: {}",
                         id
@@ -645,7 +645,7 @@ impl Visitor for WellFormed {
                 }
             }
             for id in cellmap.keys() {
-                if mentioned_cells.get(id).is_none() {
+                if !mentioned_cells.contains(id) {
                     return Err(Error::malformed_control(format!(
                         "unmentioned ref cell: {}",
                         id
