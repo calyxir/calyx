@@ -3,7 +3,7 @@ use crate::{
     run::{EmitResult, EmitSetup, Emitter},
     DriverBuilder,
 };
-use once_cell::unsync::{Lazy, OnceCell};
+use once_cell::unsync::Lazy;
 use std::{cell::RefCell, rc::Rc};
 
 fn to_str_slice(arr: &rhai::Array) -> Vec<String> {
