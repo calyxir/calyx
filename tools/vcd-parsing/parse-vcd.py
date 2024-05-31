@@ -85,12 +85,13 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     # end the previous group if there was one
                     self.profiling_info[self.fsm_curr_value].end_current_segment(self.clock_cycle_acc)
                 if fsm_curr_value in self.profiling_info: # END should be ignored
-                    # start the next group
+                    # start a new segment for the next group
                     # FIXME: need to fix this for parallelism
                     self.profiling_info[fsm_curr_value].start_new_segment(self.clock_cycle_acc)
                     self.fsm_curr_value = fsm_curr_value
                 else:
-                    print(f"New FSM value ignored: {fsm_curr_value}")
+                    # The state id was not in the JSON entry for this FSM. Most likely the value was the last FSM state.
+                    print(f"FSM value ignored: {fsm_curr_value}")
 
 def remap_tdcc_json(json_file):
     tdcc_json = json.load(open(json_file))
