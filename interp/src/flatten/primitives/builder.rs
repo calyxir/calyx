@@ -61,7 +61,7 @@ pub fn build_primitive(
             PrimType1::SignedLe => Box::new(StdSle::new(base_port)),
             PrimType1::SignedLsh => Box::new(StdSlsh::new(base_port)),
             PrimType1::SignedRsh => Box::new(StdSrsh::new(base_port)),
-            PrimType1::MultPipe => Box::new(DummyPrimitive),
+            PrimType1::MultPipe => todo!(),
             PrimType1::SignedMultPipe => todo!(),
             PrimType1::DivPipe => todo!(),
             PrimType1::SignedDivPipe => todo!(),
