@@ -7,8 +7,9 @@ def remove_size_from_name(name: str) -> str:
     return name.split('[')[0]
 
 class ProfilingInfo:
-    def __init__(self, name, fsm_value):
+    def __init__(self, name, fsm_name=None, fsm_value=None):
         self.name = name
+        self.fsm_name = fsm_name
         self.fsm_value = fsm_value
         self.total_cycles = 0
         self.segments = [] # Segments will be (start_time, end_time)
@@ -27,17 +28,21 @@ class ProfilingInfo:
 
 class VCDConverter(vcdvcd.StreamParserCallbacks):
 
-    def __init__(self, fsm_values):
+    def __init__(self, fsms, single_enable_names, groups_to_fsms):
         super().__init__()
-        self.fsm_values = fsm_values
+        self.fsms = fsms
+        self.single_enable_names = single_enable_names
         self.profiling_info = {}
-        for (fsm_value, group_name) in fsm_values.items():
-            self.profiling_info[fsm_value] = ProfilingInfo(group_name, fsm_value)
+        for group in groups_to_fsms:
+            fsm_name, fsm_value = groups_to_fsms[group]
+            self.profiling_info[group] = ProfilingInfo(group, fsm_name, fsm_value)
+        for single_enable_group in single_enable_names:
+            self.profiling_info[single_enable_group] = ProfilingInfo(single_enable_group)
         self.main_go_id = None
         self.main_go_on = False
         self.clock_id = None
-        self.fsm_signal_id = None
-        self.fsm_curr_value = -1
+        self.signal_to_signal_id = {fsm : None for fsm in fsms}
+        self.fsm_to_curr_value = {fsm: -1 for fsm in fsms}
         self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
         
     def enddefinitions(self, vcd, signals, cur_sig_vals):
@@ -56,10 +61,14 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             print("Can't find the clock? Exiting...")
             sys.exit(1)
 
-        for entry in refs:
-            if "fsm.out" in entry[0]: # FIXME: remove assumption that there's only one FSM
-                self.fsm_signal_id = entry[1]
-
+        for name, id in refs:
+            # FIXME: may want to optimize this...
+            for fsm in self.fsms:
+                if f"{fsm}.out[" in name:
+                    self.signal_to_signal_id[fsm] = id
+            for single_enable_group in self.single_enable_names:
+                if f"{single_enable_group}_go.out[" in name:
+                    self.signal_to_signal_id
     def value(
         self,
         vcd,
@@ -94,17 +103,28 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     print(f"FSM value ignored: {fsm_curr_value}")
 
 def remap_tdcc_json(json_file):
-    tdcc_json = json.load(open(json_file))
-    tdcc_json = tdcc_json[0] # FIXME: we assume that the program yields only one FSM.
-    component_name = tdcc_json["component"]
-    tdcc_remap = {}
-    for state in tdcc_json["states"]:
-        tdcc_remap[state["id"]] = state["group"]
-    return component_name, tdcc_remap
+    profiling_infos = json.load(open(json_file))
+    single_enable_names = set()
+    groups_to_fsms = {}
+    fsms = {} # Remapping of JSON data for easy access
+    for profiling_info in profiling_infos:
+        if "Fsm" in profiling_info:
+            fsm = profiling_info["Fsm"]
+            fsm_name = fsm["fsm"]
+            fsms[fsm_name] = {}
+            for state in fsm["states"]:
+                fsms[fsm_name][state["id"]] = state["group"]
+                groups_to_fsms[state["group"]] = (fsm_name, state["id"])
+        else:
+            group_name = profiling_info["SingleEnable"]["group"]
+            single_enable_names.add(group_name)
+
+    return fsms, single_enable_names, groups_to_fsms
+
 
 def main(vcd_filename, json_file):
-    component_name, fsm_values = remap_tdcc_json(json_file)
-    converter = VCDConverter(fsm_values)
+    fsms, single_enable_names, groups_to_fsms = remap_tdcc_json(json_file)
+    converter = VCDConverter(fsms, single_enable_names, groups_to_fsms)
     vcdvcd.VCDVCD(vcd_filename, callbacks=converter, store_tvs=False)
     print(f"Total clock cycles: {converter.clock_cycle_acc}")
     for group_info in converter.profiling_info.values():
