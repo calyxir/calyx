@@ -132,6 +132,7 @@ impl RhaiEmitter {
         self.0.borrow_mut().comment(text).map_err(to_rhai_err)
     }
 
+    #[allow(unused)]
     fn add_file(&mut self, name: &str, contents: &[u8]) -> RhaiResult<()> {
         todo!()
     }
