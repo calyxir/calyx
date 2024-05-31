@@ -1,7 +1,7 @@
 use crate::traversal::{
     self, Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use calyx_ir::structure;
+use calyx_ir::{structure, Id};
 use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
 use ir::{Assignment, RRC, WRC};
@@ -133,17 +133,17 @@ impl CompileInvoke {
     /// invoked component already had all of its ref cells removed.
 
     //TODO(nathanielnrn): Is this lifetime stuff correct? The compiler complained and I just added this to get it to stop.
-    fn ref_cells_to_ports<'a, T>(
+    fn ref_cells_to_ports<T>(
         &mut self,
         inv_cell: RRC<ir::Cell>,
-        ref_cells: impl Iterator<Item = (RRC<ir::Cell>, &'a RRC<ir::Cell>)>,
+        ref_cells: impl Iterator<Item = (ir::Id, ir::RRC<ir::Cell>)>,
     ) -> Vec<ir::Assignment<T>> {
         let inv_comp = inv_cell.borrow().type_name().unwrap();
         let mut assigns = Vec::new();
-        for (ref_cell, in_cell) in ref_cells {
+        for (ref_cell_name, in_cell) in ref_cells {
             log::debug!(
                 "Removing ref cell `{}` with {} ports",
-                ref_cell.borrow().name(),
+                ref_cell_name,
                 in_cell.borrow().ports.len()
             );
 
@@ -155,7 +155,7 @@ impl CompileInvoke {
 
             // The type of the cell is the same as the ref cell so we can
             // iterate over its ports and generate bindings for the ref cell.
-            for pr in &ref_cell.borrow().ports {
+            for (canon, pr) in comp_ports {
                 let port = pr.borrow();
                 if port.has_attribute(ir::BoolAttr::Clk)
                     || port.has_attribute(ir::BoolAttr::Reset)
@@ -163,8 +163,8 @@ impl CompileInvoke {
                     continue;
                 }
 
-                let canon =
-                    ir::Canonical::new(ref_cell.borrow().name(), port.name);
+                // let canon =
+                //     ir::Canonical::new(ref_cell.borrow().name(), port.name);
                 let Some(comp_port) = comp_ports.get(&canon) else {
                     unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
                         canon,
@@ -283,37 +283,37 @@ impl Visitor for CompileInvoke {
         s: &mut ir::Invoke,
         comp: &mut ir::Component,
         ctx: &LibrarySignatures,
-        comps: &[ir::Component],
+        _comps: &[ir::Component],
     ) -> VisResult {
         //Maps from ref_cell type to passed in cell type (aka outcell to incell)
-        let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
-            let high_comp = comps
-            .iter()
-            .find(|&c| c.name == s.comp.borrow().type_name()
-            .unwrap_or_else(|| unreachable!("Could not find the prototype name for component {}", s.comp.borrow().name())))
-            .unwrap_or_else(|| unreachable!("Could not find the component {} in all components", s.comp.borrow().name()));
+        // let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
+        //     let high_comp = comps
+        //     .iter()
+        //     .find(|&c| c.name == s.comp.borrow().type_name()
+        //     .unwrap_or_else(|| unreachable!("Could not find the prototype name for component {}", s.comp.borrow().name())))
+        //     .unwrap_or_else(|| unreachable!("Could not find the component {} in all components", s.comp.borrow().name()));
             
-            let ref_cell = high_comp.cells.find(*id);
-            if ref_cell.is_none() {
-                unreachable!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {} and ports: {}",
-                in_cell.borrow().name(),
-                id,
-                high_comp.name,
-                high_comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "),
-                high_comp.signature.borrow().ports.iter().map(|p| p.borrow().name.to_string()).collect::<Vec<String>>().join(", "));
-            }
-            (ref_cell.unwrap(), in_cell)
-        }).collect();
+        //     let ref_cell = high_comp.cells.find(*id);
+        //     if ref_cell.is_none() {
+        //         unreachable!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {} and ports: {} \n
+        //         current CompileInvoke is: {}",
+        //         in_cell.borrow().name(),
+        //         id,
+        //         high_comp.name,
+        //         high_comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "),
+        //         high_comp.signature.borrow().ports.iter().map(|p| p.borrow().name.to_string()).collect::<Vec<String>>().join(", "),
+        //         self.port_names.0.iter().map(|(k, v)| format!("{}: {}", k, v.iter().map(|(k, v)| format!("{}: {}", k, v.borrow().name)).collect::<Vec<String>>().join(", "))).collect::<Vec<String>>().join("\n"));
+        //     }
+        //     (ref_cell.unwrap(), in_cell)
+        // }).collect();
 
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_group("invoke");
 
         // Assigns representing the ref cell connections
         invoke_group.borrow_mut().assignments.extend(
-            self.ref_cells_to_ports(
-                Rc::clone(&s.comp),
-                ref_cell_map.iter().cloned(),
-            ), //the clone here is questionable? but lets things type check? Maybe change ref_cells_to_ports to expect a reference?
+            self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
+            // ), //the clone here is questionable? but lets things type check? Maybe change ref_cells_to_ports to expect a reference?
         );
 
         // comp.go = 1'd1;
@@ -395,13 +395,13 @@ impl Visitor for CompileInvoke {
         //     }
         //     (ref_cell.unwrap(), in_cell)
         // }).collect();
-        let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
-            let ref_cell = s.comp.clone();
-            // if ref_cell.is_none() {
-            print!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {}", in_cell.borrow().name(), id, comp.name, comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "));
-            // }
-            (ref_cell, in_cell)
-        }).collect();
+        // let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
+        //     let ref_cell = s.comp.clone();
+        //     // if ref_cell.is_none() {
+        //     print!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {}", in_cell.borrow().name(), id, comp.name, comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "));
+        //     // }
+        //     (ref_cell, in_cell)
+        // }).collect();
 
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
@@ -409,10 +409,8 @@ impl Visitor for CompileInvoke {
         invoke_group
             .borrow_mut()
             .assignments
-            .extend(self.ref_cells_to_ports(
-                Rc::clone(&s.comp),
-                ref_cell_map.iter().cloned(),
-            ));
+            .extend(self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
+            );
 
         // comp.go = 1'd1;
         structure!(builder;
