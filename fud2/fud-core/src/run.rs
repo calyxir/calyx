@@ -47,24 +47,36 @@ pub type EmitResult = std::result::Result<(), RunError>;
 
 /// Code to emit a Ninja `build` command.
 pub trait EmitBuild {
-    fn build(
+    fn build_rc(
         &self,
-        emitter: &mut Emitter,
+        emitter: Rc<RefCell<Emitter>>,
         input: &str,
         output: &str,
     ) -> EmitResult;
+
+    fn build(
+        &self,
+        emitter: Emitter,
+        input: &str,
+        output: &str,
+    ) -> Result<Emitter, RunError> {
+        let build_rc = Rc::new(RefCell::new(emitter));
+        self.build_rc(Rc::clone(&build_rc), input, output)?;
+        let emitter = Rc::into_inner(build_rc).unwrap().into_inner();
+        Ok(emitter)
+    }
 }
 
 pub type EmitBuildFn = fn(&mut Emitter, &str, &str) -> EmitResult;
 
 impl EmitBuild for EmitBuildFn {
-    fn build(
+    fn build_rc(
         &self,
-        emitter: &mut Emitter,
+        emitter: Rc<RefCell<Emitter>>,
         input: &str,
         output: &str,
     ) -> EmitResult {
-        self(emitter, input, output)
+        self(&mut emitter.borrow_mut(), input, output)
     }
 }
 
@@ -75,13 +87,13 @@ pub struct EmitRuleBuild {
 }
 
 impl EmitBuild for EmitRuleBuild {
-    fn build(
+    fn build_rc(
         &self,
-        emitter: &mut Emitter,
+        emitter: Rc<RefCell<Emitter>>,
         input: &str,
         output: &str,
     ) -> EmitResult {
-        emitter.build(&self.rule_name, input, output)?;
+        emitter.borrow_mut().build(&self.rule_name, input, output)?;
         Ok(())
     }
 }
@@ -283,8 +295,8 @@ impl<'a> Run<'a> {
         let mut last_file = &self.plan.start;
         for (op, out_file) in &self.plan.steps {
             let op = &self.driver.ops[*op];
-            op.emit.build(
-                &mut emitter,
+            emitter = op.emit.build(
+                emitter,
                 last_file.as_str(),
                 out_file.as_str(),
             )?;

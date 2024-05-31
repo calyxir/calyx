@@ -236,6 +236,7 @@ pub struct DriverBuilder {
 #[derive(Debug)]
 pub enum DriverError {
     UnknownState(String),
+    UnknownSetup(String),
 }
 
 impl Display for DriverError {
@@ -243,6 +244,9 @@ impl Display for DriverError {
         match self {
             DriverError::UnknownState(state) => {
                 write!(f, "Unknown state: {state}")
+            }
+            DriverError::UnknownSetup(setup) => {
+                write!(f, "Unknown state: {setup}")
             }
         }
     }
@@ -269,23 +273,6 @@ impl DriverBuilder {
         })
     }
 
-    fn add_op<T: run::EmitBuild + 'static>(
-        &mut self,
-        name: &str,
-        setups: &[SetupRef],
-        input: StateRef,
-        output: StateRef,
-        emit: T,
-    ) -> OpRef {
-        self.ops.push(Operation {
-            name: name.into(),
-            setups: setups.into(),
-            input,
-            output,
-            emit: Box::new(emit),
-        })
-    }
-
     pub fn find_state(&self, needle: &str) -> Result<StateRef, DriverError> {
         self.states
             .iter()
@@ -307,6 +294,31 @@ impl DriverBuilder {
 
     pub fn setup(&mut self, name: &str, func: run::EmitSetupFn) -> SetupRef {
         self.add_setup(name, func)
+    }
+
+    pub fn find_setup(&self, needle: &str) -> Result<SetupRef, DriverError> {
+        self.setups
+            .iter()
+            .find(|(_, Setup { name, .. })| needle == name)
+            .map(|(setup_ref, _)| setup_ref)
+            .ok_or_else(|| DriverError::UnknownSetup(needle.to_string()))
+    }
+
+    pub fn add_op<T: run::EmitBuild + 'static>(
+        &mut self,
+        name: &str,
+        setups: &[SetupRef],
+        input: StateRef,
+        output: StateRef,
+        emit: T,
+    ) -> OpRef {
+        self.ops.push(Operation {
+            name: name.into(),
+            setups: setups.into(),
+            input,
+            output,
+            emit: Box::new(emit),
+        })
     }
 
     pub fn op(

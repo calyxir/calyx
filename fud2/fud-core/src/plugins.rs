@@ -1,9 +1,10 @@
 use crate::{
     config,
-    exec::StateRef,
-    run::{EmitResult, EmitSetup, Emitter},
+    exec::{SetupRef, StateRef},
+    run::{EmitBuild, EmitResult, EmitSetup, Emitter},
     DriverBuilder,
 };
+use camino::Utf8PathBuf;
 use once_cell::unsync::Lazy;
 use std::path::PathBuf;
 use std::{cell::RefCell, rc::Rc};
@@ -14,13 +15,28 @@ fn to_str_slice(arr: &rhai::Array) -> Vec<String> {
         .collect()
 }
 
-type RhaiResult<T> = Result<T, Box<rhai::EvalAltResult>>;
-
-#[derive(Clone)]
-struct RhaiSetupCtx {
+fn to_setup_refs(
+    setups: rhai::Array,
     ast: rhai::AST,
-    name: String,
+    this: Rc<RefCell<DriverBuilder>>,
+) -> Vec<SetupRef> {
+    setups
+        .into_iter()
+        .map(|s| match s.clone().try_cast::<rhai::FnPtr>() {
+            Some(fnptr) => this.borrow_mut().add_setup(
+                &format!("{} (plugin)", fnptr.fn_name()),
+                RhaiSetupCtx {
+                    ast: ast.clone(),
+                    name: fnptr.fn_name().to_string(),
+                },
+            ),
+            // if we can't cast as a FnPtr, try casting as a SetupRef directly
+            None => s.try_cast::<SetupRef>().unwrap(),
+        })
+        .collect::<Vec<_>>()
 }
+
+type RhaiResult<T> = Result<T, Box<rhai::EvalAltResult>>;
 
 #[derive(Clone)]
 struct RhaiEmitter(Rc<RefCell<Emitter>>);
@@ -88,8 +104,41 @@ impl RhaiEmitter {
             .map_err(to_rhai_err)
     }
 
+    fn build_cmd(
+        &mut self,
+        targets: rhai::Array,
+        rule: &str,
+        deps: rhai::Array,
+        implicit_deps: rhai::Array,
+    ) -> RhaiResult<()> {
+        self.0
+            .borrow_mut()
+            .build_cmd(
+                &to_str_slice(&targets)
+                    .iter()
+                    .map(|x| &**x)
+                    .collect::<Vec<_>>(),
+                rule,
+                &to_str_slice(&deps).iter().map(|x| &**x).collect::<Vec<_>>(),
+                &to_str_slice(&implicit_deps)
+                    .iter()
+                    .map(|x| &**x)
+                    .collect::<Vec<_>>(),
+            )
+            .map_err(to_rhai_err)
+    }
+
     fn comment(&mut self, text: &str) -> RhaiResult<()> {
         self.0.borrow_mut().comment(text).map_err(to_rhai_err)
+    }
+
+    fn add_file(&mut self, name: &str, contents: &[u8]) -> RhaiResult<()> {
+        todo!()
+    }
+
+    fn external_path(&mut self, path: &str) -> Utf8PathBuf {
+        let utf8_path = Utf8PathBuf::from(path);
+        self.0.borrow().external_path(&utf8_path)
     }
 
     fn arg(&mut self, name: &str, value: &str) -> RhaiResult<()> {
@@ -116,15 +165,24 @@ thread_local! {
                 .register_fn("config_or", RhaiEmitter::config_or)
                 .register_fn("config_var", RhaiEmitter::config_var)
                 .register_fn("config_var_or", RhaiEmitter::config_var_or)
-                .register_fn("var", RhaiEmitter::var)
+                .register_fn("var_", RhaiEmitter::var)
                 .register_fn("rule", RhaiEmitter::rule)
                 .register_fn("build", RhaiEmitter::build)
+                .register_fn("build_cmd", RhaiEmitter::build_cmd)
                 .register_fn("comment", RhaiEmitter::comment)
+                .register_fn("add_file", RhaiEmitter::add_file)
+                .register_fn("external_path", RhaiEmitter::external_path)
                 .register_fn("arg", RhaiEmitter::arg)
                 .register_fn("rsrc", RhaiEmitter::rsrc);
 
             engine
     });
+}
+
+#[derive(Clone)]
+struct RhaiSetupCtx {
+    ast: rhai::AST,
+    name: String,
 }
 
 impl EmitSetup for RhaiSetupCtx {
@@ -137,6 +195,33 @@ impl EmitSetup for RhaiSetupCtx {
                 &self.ast,
                 &self.name,
                 (RhaiEmitter::from(emitter),),
+            )
+            .unwrap()
+        });
+
+        Ok(())
+    }
+}
+
+impl EmitBuild for RhaiSetupCtx {
+    fn build_rc(
+        &self,
+        emitter: Rc<RefCell<Emitter>>,
+        input: &str,
+        output: &str,
+    ) -> EmitResult {
+        let mut scope = rhai::Scope::new();
+
+        EMIT_ENGINE.with(|e| {
+            e.call_fn::<()>(
+                &mut scope,
+                &self.ast,
+                &self.name,
+                (
+                    RhaiEmitter::from(emitter),
+                    input.to_string(),
+                    output.to_string(),
+                ),
             )
             .unwrap()
         });
@@ -176,16 +261,21 @@ impl LoadPlugins for DriverBuilder {
                 },
             );
 
-            let t = this.clone();
+            let t = Rc::clone(&this);
             engine.register_fn("get_state", move |state_name: &str| {
                 t.borrow().find_state(state_name).map_err(to_rhai_err)
+            });
+
+            let t = Rc::clone(&this);
+            engine.register_fn("get_setup", move |setup_name: &str| {
+                t.borrow().find_setup(setup_name).map_err(to_rhai_err)
             });
 
             for path in plugin_files {
                 // compile the file into an Ast
                 let ast = engine.compile_file(path.clone()).unwrap();
 
-                let t = this.clone();
+                let t = Rc::clone(&this);
                 let rule_ast = ast.clone_functions_only();
                 engine.register_fn(
                     "rule",
@@ -193,20 +283,39 @@ impl LoadPlugins for DriverBuilder {
                           input: StateRef,
                           output: StateRef,
                           rule_name: &str| {
-                        let setups = setups
-                            .into_iter()
-                            .map(|s| s.try_cast::<rhai::FnPtr>().unwrap())
-                            .map(|fnptr| {
-                                t.borrow_mut().add_setup(
-                                    &format!("{} setup", fnptr.fn_name()),
-                                    RhaiSetupCtx {
-                                        ast: rule_ast.clone(),
-                                        name: fnptr.fn_name().to_string(),
-                                    },
-                                )
-                            })
-                            .collect::<Vec<_>>();
+                        let setups = to_setup_refs(
+                            setups,
+                            rule_ast.clone(),
+                            Rc::clone(&t),
+                        );
                         t.borrow_mut().rule(&setups, input, output, rule_name)
+                    },
+                );
+
+                let t = Rc::clone(&this);
+                let rule_ast = ast.clone_functions_only();
+                engine.register_fn(
+                    "op",
+                    move |name: &str,
+                          setups: rhai::Array,
+                          input: StateRef,
+                          output: StateRef,
+                          build: rhai::FnPtr| {
+                        let setups = to_setup_refs(
+                            setups,
+                            rule_ast.clone(),
+                            Rc::clone(&t),
+                        );
+                        t.borrow_mut().add_op(
+                            name,
+                            &setups,
+                            input,
+                            output,
+                            RhaiSetupCtx {
+                                ast: rule_ast.clone(),
+                                name: build.fn_name().to_string(),
+                            },
+                        );
                     },
                 );
 
