@@ -81,10 +81,12 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             fsm_curr_value = int(cur_sig_vals[self.fsm_signal_id], 2)
             if fsm_curr_value != self.fsm_curr_value:
                 # detect change!
-                # end the previous group if there was one
                 if self.fsm_curr_value != -1:
+                    # end the previous group if there was one
                     self.profiling_info[self.fsm_curr_value].end_current_segment(self.clock_cycle_acc)
                 if fsm_curr_value in self.profiling_info: # END should be ignored
+                    # start the next group
+                    # FIXME: need to fix this for parallelism
                     self.profiling_info[fsm_curr_value].start_new_segment(self.clock_cycle_acc)
                     self.fsm_curr_value = fsm_curr_value
                 else:
