@@ -1,6 +1,6 @@
 from calyx.builder import (
     Builder,
-    add_comp_params,
+    add_comp_ports,
     invoke,
     while_with,
     par,
@@ -64,7 +64,7 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
         (f"{x}BURST", 2),  # for XRT should be tied to 2'b01 for WRAP burst
         (f"{x}PROT", 3),  # tied to be priviliged, nonsecure, data access request
     ]
-    add_comp_params(m_to_s_address_channel, channel_inputs, channel_outputs)
+    add_comp_ports(m_to_s_address_channel, channel_inputs, channel_outputs)
 
     # Cells
     xvalid = m_to_s_address_channel.reg(1, f"{lc_x}valid")
@@ -165,7 +165,7 @@ def add_read_channel(prog, mem):
         ("RRESP", 2),
     ]
     channel_outputs = [("RREADY", 1)]
-    add_comp_params(read_channel, channel_inputs, channel_outputs)
+    add_comp_ports(read_channel, channel_inputs, channel_outputs)
 
     # Cells
 
@@ -284,7 +284,7 @@ def add_write_channel(prog, mem):
         ("WLAST", 1),
         ("WDATA", mem[width_key]),
     ]
-    add_comp_params(write_channel, channel_inputs, channel_outputs)
+    add_comp_ports(write_channel, channel_inputs, channel_outputs)
 
     # Cells
     # We assume idx_size is exactly clog2(len). See comment in #1751
@@ -406,7 +406,7 @@ def add_bresp_channel(prog, mem):
     # No BRESP because it is ignored, i.e we assume it is tied OKAY
     channel_inputs = [("ARESETn", 1), ("BVALID", 1)]
     channel_outputs = [("BREADY", 1)]
-    add_comp_params(bresp_channel, channel_inputs, channel_outputs)
+    add_comp_ports(bresp_channel, channel_inputs, channel_outputs)
 
     # Cells
     bready = bresp_channel.reg(1, "bready")
@@ -500,7 +500,7 @@ def add_main_comp(prog, mems):
             (f"{mem_name}_BID", 1),
         ]
 
-        add_comp_params(wrapper_comp, wrapper_inputs, wrapper_outputs)
+        add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
 
         # Cells
         # Read stuff
