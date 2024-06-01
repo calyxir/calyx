@@ -4,10 +4,13 @@ use crate::{
     run::{EmitBuild, EmitResult, EmitSetup, Emitter},
     DriverBuilder,
 };
+use ariadne::{Color, ColorGenerator, Fmt, Label, Report, ReportKind, Source};
 use camino::Utf8PathBuf;
 use once_cell::unsync::Lazy;
-use std::path::PathBuf;
-use std::{cell::RefCell, rc::Rc};
+use rhai::{EvalAltResult, FnNamespace};
+use serde::ser::Impossible;
+use std::{cell::RefCell, ops::Range, path::Path, rc::Rc};
+use std::{fs, path::PathBuf};
 
 fn to_str_slice(arr: &rhai::Array) -> Vec<String> {
     arr.iter()
@@ -235,6 +238,56 @@ pub trait LoadPlugins {
     fn load_plugins(self) -> Self;
 }
 
+pub trait ToReport {
+    fn report<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        len: usize,
+        msg: S,
+    );
+}
+
+impl ToReport for rhai::Position {
+    fn report<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        len: usize,
+        msg: S,
+    ) {
+        let source =
+            fs::read_to_string(path.as_ref()).expect("Failed to open file");
+        let name = path.as_ref().to_str().unwrap();
+
+        if let (Some(line), Some(position)) = (self.line(), self.position()) {
+            // translate a line offset into a char offset
+            let line_offset = source
+                .lines()
+                // take all the lines up to pos.line()
+                .take(line - 1)
+                // add one to all the line lengths because `\n` chars are rmeoved with `.lines()`
+                .map(|line| line.len() + 1)
+                .sum::<usize>();
+
+            // add the column offset to get the beginning of the error
+            // we subtract 1, because the positions are 1 indexed
+            let err_offset = line_offset + (position - 1);
+
+            Report::build(ReportKind::Error, name, err_offset)
+                .with_message("Failed to load plugin")
+                .with_label(
+                    Label::new((name, err_offset..err_offset + len))
+                        .with_message(msg.as_ref().fg(Color::Red)),
+                )
+                .finish()
+                .eprint((name, Source::from(source)))
+                .unwrap()
+        } else {
+            eprintln!("Failed to load plugin {name}");
+            eprintln!("  {}", msg.as_ref());
+        }
+    }
+}
+
 impl LoadPlugins for DriverBuilder {
     fn load_plugins(self) -> Self {
         // get list of plugins
@@ -272,6 +325,9 @@ impl LoadPlugins for DriverBuilder {
                 t.borrow().find_setup(setup_name).map_err(to_rhai_err)
             });
 
+            // go through each plugin file, and execute the script which adds a plugin
+            // we need to define the following two functions in the loop because they
+            // need the ast of the current file
             for path in plugin_files {
                 // compile the file into an Ast
                 let ast = engine.compile_file(path.clone()).unwrap();
@@ -321,7 +377,30 @@ impl LoadPlugins for DriverBuilder {
                 );
 
                 // execute a file
-                engine.run_ast(&ast).unwrap();
+                match engine.run_ast(&ast) {
+                    Ok(_) => (),
+                    // format error in a nice way
+                    Err(x) => match *x {
+                        EvalAltResult::ErrorVariableNotFound(variable, pos) => {
+                            pos.report(
+                                &path,
+                                variable.len(),
+                                "Undefined variable",
+                            )
+                        }
+                        EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
+                            let (fn_name, args) = msg.split_once(' ').unwrap();
+                            pos.report(
+                                &path,
+                                fn_name.len(),
+                                format!("{fn_name} {args}"),
+                            )
+                        }
+                        // for errors that we don't have custom processing, just point
+                        // to the beginning of the error, and use the error Display as message
+                        e => e.position().report(&path, 0, format!("{e}")),
+                    },
+                }
             }
         }
 

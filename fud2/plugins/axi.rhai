@@ -7,7 +7,7 @@ fn wrapper_setup(e) {
 
    // Define a simple `combine` rule that just concats any number of files.
    e.rule("combine", "cat $in > $out");
-   e.rule("remove-imports", "sed '1,/component main/{/component main/!d}' $in > $out");
+   e.rule("remove-imports", "sed '1,/component main/{/component main/!d; }' $in > $out");
 }
 
 /// Replace the extension in `path` with `new_ext`
