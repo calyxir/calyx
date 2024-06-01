@@ -4,12 +4,11 @@ use crate::{
     run::{EmitBuild, EmitResult, EmitSetup, Emitter},
     DriverBuilder,
 };
-use ariadne::{Color, ColorGenerator, Fmt, Label, Report, ReportKind, Source};
+use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use camino::Utf8PathBuf;
 use once_cell::unsync::Lazy;
-use rhai::{EvalAltResult, FnNamespace};
-use serde::ser::Impossible;
-use std::{cell::RefCell, ops::Range, path::Path, rc::Rc};
+use rhai::EvalAltResult;
+use std::{cell::RefCell, path::Path, rc::Rc};
 use std::{fs, path::PathBuf};
 
 fn to_str_slice(arr: &rhai::Array) -> Vec<String> {
