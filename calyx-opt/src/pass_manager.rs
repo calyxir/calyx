@@ -150,35 +150,25 @@ impl PassManager {
         &self,
         incls: &[String],
         excls: &[String],
-        ords: &[String],
+        insns: &[String],
     ) -> CalyxResult<(Vec<String>, HashSet<String>)> {
-        // Incls, excls, and ord can have aliases in them. Resolve them.
-        let relative_ordering = ords
+        let mut insertions = insns
             .iter()
-            .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
+            .filter_map(|str| match str.split_once(':') {
+                Some((before, after)) => {
+                    Some((before.to_string(), after.to_string()))
+                }
+                None => {
+                    log::warn!("No ':' in {str}. Ignoring this option.");
+                    None
+                }
+            })
             .collect::<Vec<_>>();
+        // Incls and excls can have aliases in them. Resolve them.
         let mut passes = incls
             .iter()
             .flat_map(|maybe_alias| self.resolve_alias(maybe_alias))
             .collect::<Vec<_>>();
-
-        // Only need to rearrange things if relative_ordering isn't empty.
-        if let Some((first_rel_ordering, rest_rel_ordering)) =
-            relative_ordering.split_first()
-        {
-            // If there is a relative ordering, then we look for the first
-            // pass in the relative ordering, and then insert the rest of
-            // the passes in the relative ordering directly after that pass.
-            // e.g.
-            // passes = [A,B,C,D,E,F,G]
-            // rel_ordering = [E,G,B]
-            // results in:
-            // passes = [A,C,D,E,G,B,F]
-            passes.retain(|pass| !rest_rel_ordering.contains(pass));
-            let insertion_idx =
-                passes.iter().position(|x| x == first_rel_ordering).unwrap();
-            passes.splice(insertion_idx..insertion_idx, relative_ordering);
-        }
 
         let excl_set = excls
             .iter()
@@ -186,7 +176,7 @@ impl PassManager {
             .collect::<HashSet<String>>();
 
         // Validate that names of passes in incl and excl sets are known
-        passes.iter().chain(excl_set.iter().chain(ords)).try_for_each(|pass| {
+        passes.iter().chain(excl_set.iter().chain(insertions.iter().flat_map(|(pass1, pass2)| vec![pass1, pass2]))).try_for_each(|pass| {
             if !self.passes.contains_key(pass) {
                 Err(Error::misc(format!(
                     "Unknown pass: {pass}. Run compiler with pass-help subcommand to view registered passes."
@@ -195,6 +185,36 @@ impl PassManager {
                 Ok(())
             }
         })?;
+
+        // Remove passes from `insertions` that are not slated to run.
+        insertions.retain(|(pass1, pass2)|
+            if !passes.contains(pass1) || excl_set.contains(pass1) {
+                log::warn!("Pass {pass1} is not slated to run. Reordering will have no effect.");
+                false
+            }
+            else if !passes.contains(pass2) || excl_set.contains(pass2) {
+                log::warn!("Pass {pass2} is not slated to run. Reordering will have no effect.");
+                false
+            }
+            else {
+                true
+            }
+        );
+
+        // Perform re-insertion.
+        // Insert `after` right after `before`. If `after` already appears after
+        // before, do nothing.
+        for (before, after) in insertions {
+            let before_idx =
+                passes.iter().position(|pass| *pass == before).unwrap();
+            let after_idx =
+                passes.iter().position(|pass| *pass == after).unwrap();
+            // Only need to perform re-insertion if it is actually out of order.
+            if before_idx > after_idx {
+                passes.insert(before_idx + 1, after);
+                passes.remove(after_idx);
+            }
+        }
 
         Ok((passes, excl_set))
     }
@@ -206,10 +226,10 @@ impl PassManager {
         ctx: &mut ir::Context,
         incl: &[String],
         excl: &[String],
-        ord: &[String],
+        insn: &[String],
         dump_ir: bool,
     ) -> CalyxResult<()> {
-        let (passes, excl_set) = self.create_plan(incl, excl, ord)?;
+        let (passes, excl_set) = self.create_plan(incl, excl, insn)?;
 
         for name in passes {
             // Pass is known to exist because create_plan validates the

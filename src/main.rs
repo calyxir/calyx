@@ -78,7 +78,7 @@ fn main() -> CalyxResult<()> {
         &mut ctx,
         &opts.pass,
         &opts.disable_pass,
-        &opts.relative_ordering,
+        &opts.insertions,
         opts.dump_ir,
     )?;
 

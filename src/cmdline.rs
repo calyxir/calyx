@@ -92,8 +92,8 @@ pub struct Opts {
     pub extra_opts: Vec<String>,
 
     /// establish a relative ordering of passes
-    #[argh(option, short = 'r', long = "relative-ordering")]
-    pub relative_ordering: Vec<String>,
+    #[argh(option, short = 'i', long = "insert")]
+    pub insertions: Vec<String>,
 
     /// enable verbose printing
     #[argh(option, long = "log", default = "log::LevelFilter::Warn")]
