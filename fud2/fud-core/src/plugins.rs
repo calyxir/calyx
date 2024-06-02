@@ -19,6 +19,7 @@ fn to_str_slice(arr: &rhai::Array) -> Vec<String> {
 
 fn to_setup_refs(
     setups: rhai::Array,
+    path: PathBuf,
     ast: rhai::AST,
     this: Rc<RefCell<DriverBuilder>>,
 ) -> Vec<SetupRef> {
@@ -28,6 +29,7 @@ fn to_setup_refs(
             Some(fnptr) => this.borrow_mut().add_setup(
                 &format!("{} (plugin)", fnptr.fn_name()),
                 RhaiSetupCtx {
+                    path: path.clone(),
                     ast: ast.clone(),
                     name: fnptr.fn_name().to_string(),
                 },
@@ -184,6 +186,7 @@ thread_local! {
 
 #[derive(Clone)]
 struct RhaiSetupCtx {
+    path: PathBuf,
     ast: rhai::AST,
     name: String,
 }
@@ -199,7 +202,7 @@ impl EmitSetup for RhaiSetupCtx {
                 &self.name,
                 (RhaiEmitter::from(emitter),),
             )
-            .unwrap()
+            .report(&self.path)
         });
 
         Ok(())
@@ -226,7 +229,7 @@ impl EmitBuild for RhaiSetupCtx {
                     output.to_string(),
                 ),
             )
-            .unwrap()
+            .report(&self.path)
         });
 
         Ok(())
@@ -238,16 +241,20 @@ pub trait LoadPlugins {
 }
 
 pub trait ToReport {
-    fn report<P: AsRef<Path>, S: AsRef<str>>(
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
         &self,
         path: P,
         len: usize,
         msg: S,
     );
+
+    fn report<P: AsRef<Path>>(&self, path: P) {
+        self.report_raw(path, 0, "")
+    }
 }
 
 impl ToReport for rhai::Position {
-    fn report<P: AsRef<Path>, S: AsRef<str>>(
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
         &self,
         path: P,
         len: usize,
@@ -283,6 +290,34 @@ impl ToReport for rhai::Position {
         } else {
             eprintln!("Failed to load plugin {name}");
             eprintln!("  {}", msg.as_ref());
+        }
+    }
+}
+
+impl<T> ToReport for RhaiResult<T> {
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        _len: usize,
+        _msg: S,
+    ) {
+        if let Err(e) = self {
+            match &**e {
+                EvalAltResult::ErrorVariableNotFound(variable, pos) => {
+                    pos.report_raw(&path, variable.len(), "Undefined variable")
+                }
+                EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
+                    let (fn_name, args) = msg.split_once(' ').unwrap();
+                    pos.report_raw(
+                        &path,
+                        fn_name.len(),
+                        format!("{fn_name} {args}"),
+                    )
+                }
+                // for errors that we don't have custom processing, just point
+                // to the beginning of the error, and use the error Display as message
+                e => e.position().report_raw(&path, 0, format!("{e}")),
+            }
         }
     }
 }
@@ -333,6 +368,7 @@ impl LoadPlugins for DriverBuilder {
 
                 let t = Rc::clone(&this);
                 let rule_ast = ast.clone_functions_only();
+                let path_copy = path.clone();
                 engine.register_fn(
                     "rule",
                     move |setups: rhai::Array,
@@ -341,6 +377,7 @@ impl LoadPlugins for DriverBuilder {
                           rule_name: &str| {
                         let setups = to_setup_refs(
                             setups,
+                            path_copy.clone(),
                             rule_ast.clone(),
                             Rc::clone(&t),
                         );
@@ -350,6 +387,7 @@ impl LoadPlugins for DriverBuilder {
 
                 let t = Rc::clone(&this);
                 let rule_ast = ast.clone_functions_only();
+                let path_copy = path.clone();
                 engine.register_fn(
                     "op",
                     move |name: &str,
@@ -359,6 +397,7 @@ impl LoadPlugins for DriverBuilder {
                           build: rhai::FnPtr| {
                         let setups = to_setup_refs(
                             setups,
+                            path_copy.clone(),
                             rule_ast.clone(),
                             Rc::clone(&t),
                         );
@@ -368,6 +407,7 @@ impl LoadPlugins for DriverBuilder {
                             input,
                             output,
                             RhaiSetupCtx {
+                                path: path_copy.clone(),
                                 ast: rule_ast.clone(),
                                 name: build.fn_name().to_string(),
                             },
@@ -375,31 +415,7 @@ impl LoadPlugins for DriverBuilder {
                     },
                 );
 
-                // execute a file
-                match engine.run_ast(&ast) {
-                    Ok(_) => (),
-                    // format error in a nice way
-                    Err(x) => match *x {
-                        EvalAltResult::ErrorVariableNotFound(variable, pos) => {
-                            pos.report(
-                                &path,
-                                variable.len(),
-                                "Undefined variable",
-                            )
-                        }
-                        EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
-                            let (fn_name, args) = msg.split_once(' ').unwrap();
-                            pos.report(
-                                &path,
-                                fn_name.len(),
-                                format!("{fn_name} {args}"),
-                            )
-                        }
-                        // for errors that we don't have custom processing, just point
-                        // to the beginning of the error, and use the error Display as message
-                        e => e.position().report(&path, 0, format!("{e}")),
-                    },
-                }
+                engine.run_ast(&ast).report(&path);
             }
         }
 
