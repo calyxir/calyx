@@ -2,11 +2,9 @@ use crate::config;
 use crate::exec::{Driver, OpRef, Plan, SetupRef, StateRef};
 use crate::utils::relative_path;
 use camino::{Utf8Path, Utf8PathBuf};
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::process::{Command, ExitStatus};
-use std::rc::Rc;
 
 /// An error that arises while emitting the Ninja file or executing Ninja.
 #[derive(Debug)]
@@ -47,36 +45,24 @@ pub type EmitResult = std::result::Result<(), RunError>;
 
 /// Code to emit a Ninja `build` command.
 pub trait EmitBuild {
-    fn build_rc(
+    fn build(
         &self,
-        emitter: Rc<RefCell<Emitter>>,
+        emitter: &mut StreamEmitter,
         input: &str,
         output: &str,
     ) -> EmitResult;
-
-    fn build(
-        &self,
-        emitter: Emitter,
-        input: &str,
-        output: &str,
-    ) -> Result<Emitter, RunError> {
-        let build_rc = Rc::new(RefCell::new(emitter));
-        self.build_rc(Rc::clone(&build_rc), input, output)?;
-        let emitter = Rc::into_inner(build_rc).unwrap().into_inner();
-        Ok(emitter)
-    }
 }
 
-pub type EmitBuildFn = fn(&mut Emitter, &str, &str) -> EmitResult;
+pub type EmitBuildFn = fn(&mut StreamEmitter, &str, &str) -> EmitResult;
 
 impl EmitBuild for EmitBuildFn {
-    fn build_rc(
+    fn build(
         &self,
-        emitter: Rc<RefCell<Emitter>>,
+        emitter: &mut StreamEmitter,
         input: &str,
         output: &str,
     ) -> EmitResult {
-        self(&mut emitter.borrow_mut(), input, output)
+        self(emitter, input, output)
     }
 }
 
@@ -87,34 +73,27 @@ pub struct EmitRuleBuild {
 }
 
 impl EmitBuild for EmitRuleBuild {
-    fn build_rc(
+    fn build(
         &self,
-        emitter: Rc<RefCell<Emitter>>,
+        emitter: &mut StreamEmitter,
         input: &str,
         output: &str,
     ) -> EmitResult {
-        emitter.borrow_mut().build(&self.rule_name, input, output)?;
+        emitter.build(&self.rule_name, input, output)?;
         Ok(())
     }
 }
 
 /// Code to emit Ninja code at the setup stage.
 pub trait EmitSetup {
-    fn setup_rc(&self, emitter: Rc<RefCell<Emitter>>) -> EmitResult;
-
-    fn setup(&self, emitter: Emitter) -> Result<Emitter, RunError> {
-        let emit_rc = Rc::new(RefCell::new(emitter));
-        self.setup_rc(Rc::clone(&emit_rc))?;
-        let emitter = Rc::into_inner(emit_rc).unwrap().into_inner();
-        Ok(emitter)
-    }
+    fn setup(&self, emitter: &mut StreamEmitter) -> EmitResult;
 }
 
-pub type EmitSetupFn = fn(&mut Emitter) -> EmitResult;
+pub type EmitSetupFn = fn(&mut StreamEmitter) -> EmitResult;
 
 impl EmitSetup for EmitSetupFn {
-    fn setup_rc(&self, emitter: Rc<RefCell<Emitter>>) -> EmitResult {
-        self(&mut emitter.borrow_mut())
+    fn setup(&self, emitter: &mut StreamEmitter) -> EmitResult {
+        self(emitter)
     }
 }
 
@@ -268,9 +247,12 @@ impl<'a> Run<'a> {
         }
     }
 
-    pub fn emit<T: Write + 'a>(&self, mut out: T) -> EmitResult {
-        let mut emitter =
-            Emitter::new(self.config_data.clone(), self.plan.workdir.clone());
+    pub fn emit<T: Write + 'a>(&self, out: T) -> EmitResult {
+        let mut emitter = StreamEmitter::new(
+            out,
+            self.config_data.clone(),
+            self.plan.workdir.clone(),
+        );
 
         // Emit preamble.
         emitter.var("build-tool", &self.global_config.exe)?;
@@ -284,7 +266,7 @@ impl<'a> Run<'a> {
                 if done_setups.insert(*setup) {
                     let setup = &self.driver.setups[*setup];
                     writeln!(emitter.out, "# {}", setup.name)?;
-                    emitter = setup.emit.setup(emitter)?;
+                    setup.emit.setup(&mut emitter)?;
                     writeln!(emitter.out)?;
                 }
             }
@@ -295,8 +277,8 @@ impl<'a> Run<'a> {
         let mut last_file = &self.plan.start;
         for (op, out_file) in &self.plan.steps {
             let op = &self.driver.ops[*op];
-            emitter = op.emit.build(
-                emitter,
+            op.emit.build(
+                &mut emitter,
                 last_file.as_str(),
                 out_file.as_str(),
             )?;
@@ -307,28 +289,56 @@ impl<'a> Run<'a> {
         // Mark the last file as the default target.
         writeln!(emitter.out, "default {}", last_file)?;
 
-        // write buffered output to the stream we were passed
-        write!(out, "{}", String::from_utf8(emitter.out).unwrap())?;
-
         Ok(())
     }
 }
 
-pub struct Emitter {
-    out: Vec<u8>,
+/// A context for generating Ninja code.
+///
+/// Callbacks to build functionality that generate Ninja code (setups and ops) use this
+/// to access all the relevant configuration and to write out lines of Ninja code.
+pub struct Emitter<W: Write> {
+    pub out: W,
     pub config_data: figment::Figment,
     pub workdir: Utf8PathBuf,
 }
 
-impl Emitter {
-    fn new(config_data: figment::Figment, workdir: Utf8PathBuf) -> Self {
+/// A generic emitter that outputs to any `Write` stream.
+pub type StreamEmitter<'a> = Emitter<Box<dyn Write + 'a>>;
+
+/// An emitter that buffers the Ninja code in memory.
+pub type BufEmitter = Emitter<Vec<u8>>;
+
+impl<'a> StreamEmitter<'a> {
+    fn new<T: Write + 'a>(
+        out: T,
+        config_data: figment::Figment,
+        workdir: Utf8PathBuf,
+    ) -> Self {
         Self {
-            out: vec![],
+            out: Box::new(out),
             config_data,
             workdir,
         }
     }
 
+    /// Create a new bufferred emitter with the same configuration.
+    pub fn buffer(&self) -> BufEmitter {
+        Emitter {
+            out: Vec::new(),
+            config_data: self.config_data.clone(),
+            workdir: self.workdir.clone(),
+        }
+    }
+
+    /// Flush the output from a bufferred emitter to this emitter.
+    pub fn unbuffer(&mut self, buf: BufEmitter) -> EmitResult {
+        self.out.write_all(&buf.out)?;
+        Ok(())
+    }
+}
+
+impl<W: Write> Emitter<W> {
     /// Fetch a configuration value, or panic if it's missing.
     pub fn config_val(&self, key: &str) -> Result<String, RunError> {
         self.config_data

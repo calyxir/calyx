@@ -1,7 +1,7 @@
 use crate::{
     config,
     exec::{SetupRef, StateRef},
-    run::{EmitBuild, EmitResult, EmitSetup, Emitter},
+    run::{BufEmitter, EmitBuild, EmitResult, EmitSetup, StreamEmitter},
     DriverBuilder,
 };
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
@@ -43,11 +43,11 @@ fn to_setup_refs(
 type RhaiResult<T> = Result<T, Box<rhai::EvalAltResult>>;
 
 #[derive(Clone)]
-struct RhaiEmitter(Rc<RefCell<Emitter>>);
+struct RhaiEmitter(Rc<RefCell<BufEmitter>>);
 
-impl From<Rc<RefCell<Emitter>>> for RhaiEmitter {
-    fn from(value: Rc<RefCell<Emitter>>) -> Self {
-        Self(value)
+impl From<BufEmitter> for RhaiEmitter {
+    fn from(value: BufEmitter) -> Self {
+        Self(Rc::new(RefCell::new(value)))
     }
 }
 
@@ -192,45 +192,51 @@ struct RhaiSetupCtx {
 }
 
 impl EmitSetup for RhaiSetupCtx {
-    fn setup_rc(&self, emitter: Rc<RefCell<Emitter>>) -> EmitResult {
+    fn setup(&self, emitter: &mut StreamEmitter) -> EmitResult {
         let mut scope = rhai::Scope::new();
+
+        let emit_buf = emitter.buffer();
+        let rhai_emit = RhaiEmitter::from(emit_buf);
 
         EMIT_ENGINE.with(|e| {
             e.call_fn::<()>(
                 &mut scope,
                 &self.ast,
                 &self.name,
-                (RhaiEmitter::from(emitter),),
+                (rhai_emit.clone(),),
             )
             .report(&self.path)
         });
+
+        emitter.unbuffer(Rc::into_inner(rhai_emit.0).unwrap().into_inner())?;
 
         Ok(())
     }
 }
 
 impl EmitBuild for RhaiSetupCtx {
-    fn build_rc(
+    fn build(
         &self,
-        emitter: Rc<RefCell<Emitter>>,
+        emitter: &mut StreamEmitter,
         input: &str,
         output: &str,
     ) -> EmitResult {
         let mut scope = rhai::Scope::new();
+
+        let emit_buf = emitter.buffer();
+        let rhai_emit = RhaiEmitter::from(emit_buf);
 
         EMIT_ENGINE.with(|e| {
             e.call_fn::<()>(
                 &mut scope,
                 &self.ast,
                 &self.name,
-                (
-                    RhaiEmitter::from(emitter),
-                    input.to_string(),
-                    output.to_string(),
-                ),
+                (rhai_emit.clone(), input.to_string(), output.to_string()),
             )
             .report(&self.path)
         });
+
+        emitter.unbuffer(Rc::into_inner(rhai_emit.0).unwrap().into_inner())?;
 
         Ok(())
     }
