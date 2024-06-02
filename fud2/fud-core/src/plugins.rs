@@ -45,9 +45,16 @@ type RhaiResult<T> = Result<T, Box<rhai::EvalAltResult>>;
 #[derive(Clone)]
 struct RhaiEmitter(Rc<RefCell<BufEmitter>>);
 
-impl From<BufEmitter> for RhaiEmitter {
-    fn from(value: BufEmitter) -> Self {
-        Self(Rc::new(RefCell::new(value)))
+impl RhaiEmitter {
+    fn with<F>(emitter: &mut StreamEmitter, f: F) -> EmitResult
+    where
+        F: Fn(Self),
+    {
+        let buf_emit = emitter.buffer();
+        let rhai_emit = Self(Rc::new(RefCell::new(buf_emit)));
+        f(rhai_emit.clone());
+        let buf_emit = Rc::into_inner(rhai_emit.0).unwrap().into_inner();
+        emitter.unbuffer(buf_emit)
     }
 }
 
@@ -193,22 +200,17 @@ struct RhaiSetupCtx {
 
 impl EmitSetup for RhaiSetupCtx {
     fn setup(&self, emitter: &mut StreamEmitter) -> EmitResult {
-        let mut scope = rhai::Scope::new();
-
-        let emit_buf = emitter.buffer();
-        let rhai_emit = RhaiEmitter::from(emit_buf);
-
-        EMIT_ENGINE.with(|e| {
-            e.call_fn::<()>(
-                &mut scope,
-                &self.ast,
-                &self.name,
-                (rhai_emit.clone(),),
-            )
-            .report(&self.path)
-        });
-
-        emitter.unbuffer(Rc::into_inner(rhai_emit.0).unwrap().into_inner())?;
+        RhaiEmitter::with(emitter, |rhai_emit| {
+            EMIT_ENGINE.with(|e| {
+                e.call_fn::<()>(
+                    &mut rhai::Scope::new(),
+                    &self.ast,
+                    &self.name,
+                    (rhai_emit.clone(),),
+                )
+                .report(&self.path)
+            });
+        })?;
 
         Ok(())
     }
@@ -221,29 +223,20 @@ impl EmitBuild for RhaiSetupCtx {
         input: &str,
         output: &str,
     ) -> EmitResult {
-        let mut scope = rhai::Scope::new();
-
-        let emit_buf = emitter.buffer();
-        let rhai_emit = RhaiEmitter::from(emit_buf);
-
-        EMIT_ENGINE.with(|e| {
-            e.call_fn::<()>(
-                &mut scope,
-                &self.ast,
-                &self.name,
-                (rhai_emit.clone(), input.to_string(), output.to_string()),
-            )
-            .report(&self.path)
-        });
-
-        emitter.unbuffer(Rc::into_inner(rhai_emit.0).unwrap().into_inner())?;
+        RhaiEmitter::with(emitter, |rhai_emit| {
+            EMIT_ENGINE.with(|e| {
+                e.call_fn::<()>(
+                    &mut rhai::Scope::new(),
+                    &self.ast,
+                    &self.name,
+                    (rhai_emit.clone(), input.to_string(), output.to_string()),
+                )
+                .report(&self.path)
+            });
+        })?;
 
         Ok(())
     }
-}
-
-pub trait LoadPlugins {
-    fn load_plugins(self) -> Self;
 }
 
 pub trait ToReport {
@@ -326,6 +319,10 @@ impl<T> ToReport for RhaiResult<T> {
             }
         }
     }
+}
+
+pub trait LoadPlugins {
+    fn load_plugins(self) -> Self;
 }
 
 impl LoadPlugins for DriverBuilder {
