@@ -1043,7 +1043,6 @@ impl Visitor for TopDownCompileControl {
             let group = match con {
                 // Do not compile enables
                 ir::Control::Enable(ir::Enable { group, .. }) => {
-                    // TODO: When a par arm is a single enable, we need to emit information wrt that.
                     self.fsm_groups.insert(ProfilingInfo::SingleEnable(
                         SingleEnable {
                             group: group.borrow().name(),
