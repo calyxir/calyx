@@ -27,7 +27,7 @@ pub(super) fn to_rhai_err<E: std::error::Error + 'static>(
     e: E,
 ) -> Box<rhai::EvalAltResult> {
     Box::new(rhai::EvalAltResult::ErrorSystem(
-        "Emitter error:".to_string(),
+        "Emitter error".to_string(),
         Box::new(e),
     ))
 }
