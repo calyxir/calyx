@@ -43,6 +43,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         self.signal_to_curr_value = {fsm : 0 for fsm in fsms}
         self.main_go_id = None
         self.main_go_on = False
+        self.main_go_on_time = None
         self.clock_id = None
         self.clock_cycle_acc = -1 # The 0th clock cycle will be 0.
         for group in groups_to_fsms:
@@ -90,18 +91,19 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
     ):
         # Start profiling after main's go is on
         if identifier_code == self.main_go_id and value == "1":
-            self.main_go_on = True
-        if not(self.main_go_on):
+            self.main_go_on_time = time
+        if self.main_go_on_time is None :
             return
 
-        # detect falling edge on clock
-        if identifier_code == self.clock_id and value == "0":
+        # detect rising edge on clock
+        if identifier_code == self.clock_id and value == "1":
             self.clock_cycle_acc += 1
             # for each signal that we want to check, we need to sample the values
             for (signal_name, signal_id) in self.signal_to_signal_id.items():
                 signal_new_value = int(cur_sig_vals[signal_id], 2) # signal value at this point in time
                 fsm_curr_value = self.signal_to_curr_value[signal_name]
-                if signal_new_value == fsm_curr_value: # skip values that have not changed
+                # skip values that have not changed, except for when main[go] just got activated
+                if not(self.main_go_on_time == time) and signal_new_value == fsm_curr_value:
                     continue
                 if "_go" in signal_name and signal_new_value == 1:
                     # start of single enable group
