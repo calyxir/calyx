@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{run, utils, LoadPlugins};
+use crate::{run, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 use std::{collections::HashMap, error::Error, fmt::Display};
@@ -356,10 +356,6 @@ impl DriverBuilder {
 
     pub fn rsrc_files(&mut self, files: FileData) {
         self.rsrc_files = Some(files);
-    }
-
-    pub fn build_w_plugins(self) -> Driver {
-        self.load_plugins().build()
     }
 
     pub fn build(self) -> Driver {
