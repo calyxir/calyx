@@ -1,36 +1,42 @@
 use crate::{
     config,
-    exec::{SetupRef, StateRef},
+    exec::{OpRef, SetupRef, StateRef},
     DriverBuilder,
 };
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 use super::{
-    exec_scripts::{to_rhai_err, to_str_slice, RhaiSetupCtx},
+    error::RhaiSystemError,
+    exec_scripts::{to_rhai_err, to_str_slice, RhaiResult, RhaiSetupCtx},
     report::RhaiReport,
 };
 
 fn to_setup_refs(
+    ctx: &rhai::NativeCallContext,
     setups: rhai::Array,
     path: PathBuf,
     ast: rhai::AST,
     this: Rc<RefCell<DriverBuilder>>,
-) -> Vec<SetupRef> {
+) -> RhaiResult<Vec<SetupRef>> {
     setups
         .into_iter()
         .map(|s| match s.clone().try_cast::<rhai::FnPtr>() {
-            Some(fnptr) => this.borrow_mut().add_setup(
+            Some(fnptr) => Ok(this.borrow_mut().add_setup(
                 &format!("{} (plugin)", fnptr.fn_name()),
                 RhaiSetupCtx {
                     path: path.clone(),
                     ast: ast.clone(),
                     name: fnptr.fn_name().to_string(),
                 },
-            ),
+            )),
             // if we can't cast as a FnPtr, try casting as a SetupRef directly
-            None => s.try_cast::<SetupRef>().unwrap(),
+            None => s.clone().try_cast::<SetupRef>().ok_or_else(move || {
+                RhaiSystemError::setup_ref(s)
+                    .with_pos(ctx.position())
+                    .into()
+            }),
         })
-        .collect::<Vec<_>>()
+        .collect::<RhaiResult<Vec<_>>>()
 }
 
 pub trait LoadPlugins {
@@ -84,39 +90,44 @@ impl LoadPlugins for DriverBuilder {
                 let t = Rc::clone(&this);
                 let rule_ast = ast.clone_functions_only();
                 let path_copy = path.clone();
-                engine.register_fn(
+                engine.register_fn::<_, 4, true, OpRef, true, _>(
                     "rule",
-                    move |setups: rhai::Array,
+                    move |ctx: rhai::NativeCallContext,
+                          setups: rhai::Array,
                           input: StateRef,
                           output: StateRef,
                           rule_name: &str| {
                         let setups = to_setup_refs(
+                            &ctx,
                             setups,
                             path_copy.clone(),
                             rule_ast.clone(),
                             Rc::clone(&t),
-                        );
-                        t.borrow_mut().rule(&setups, input, output, rule_name)
+                        )?;
+                        Ok(t.borrow_mut()
+                            .rule(&setups, input, output, rule_name))
                     },
                 );
 
                 let t = Rc::clone(&this);
                 let rule_ast = ast.clone_functions_only();
                 let path_copy = path.clone();
-                engine.register_fn(
+                engine.register_fn::<_, 5, true, OpRef, true, _>(
                     "op",
-                    move |name: &str,
+                    move |ctx: rhai::NativeCallContext,
+                          name: &str,
                           setups: rhai::Array,
                           input: StateRef,
                           output: StateRef,
                           build: rhai::FnPtr| {
                         let setups = to_setup_refs(
+                            &ctx,
                             setups,
                             path_copy.clone(),
                             rule_ast.clone(),
                             Rc::clone(&t),
-                        );
-                        t.borrow_mut().add_op(
+                        )?;
+                        Ok(t.borrow_mut().add_op(
                             name,
                             &setups,
                             input,
@@ -126,7 +137,7 @@ impl LoadPlugins for DriverBuilder {
                                 ast: rule_ast.clone(),
                                 name: build.fn_name().to_string(),
                             },
-                        );
+                        ))
                     },
                 );
 

@@ -2,7 +2,7 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use rhai::EvalAltResult;
 use std::{fs, path::Path};
 
-use super::exec_scripts::RhaiResult;
+use super::{error::RhaiSystemError, exec_scripts::RhaiResult};
 
 pub(super) trait RhaiReport {
     fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
@@ -28,7 +28,8 @@ impl RhaiReport for rhai::Position {
             fs::read_to_string(path.as_ref()).expect("Failed to open file");
         let name = path.as_ref().to_str().unwrap();
 
-        if let (Some(line), Some(position)) = (self.line(), self.position()) {
+        if let Some(line) = self.line() {
+            let position = self.position().unwrap_or(1);
             // translate a line offset into a char offset
             let line_offset = source
                 .lines()
@@ -71,12 +72,24 @@ impl<T> RhaiReport for RhaiResult<T> {
                     pos.report_raw(&path, variable.len(), "Undefined variable")
                 }
                 EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
-                    let (fn_name, args) = msg.split_once(' ').unwrap();
+                    let (fn_name, args) =
+                        msg.split_once(' ').unwrap_or((msg, ""));
                     pos.report_raw(
                         &path,
                         fn_name.len(),
                         format!("{fn_name} {args}"),
                     )
+                }
+                EvalAltResult::ErrorSystem(msg, err)
+                    if err.is::<RhaiSystemError>() =>
+                {
+                    let e = err.downcast_ref::<RhaiSystemError>().unwrap();
+                    let msg = if msg.is_empty() {
+                        format!("{err}")
+                    } else {
+                        format!("{msg}: {err}")
+                    };
+                    e.position.report_raw(&path, 0, msg)
                 }
                 // for errors that we don't have custom processing, just point
                 // to the beginning of the error, and use the error Display as message
