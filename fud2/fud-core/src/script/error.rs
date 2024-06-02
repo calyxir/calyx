@@ -39,8 +39,8 @@ impl Display for RhaiSystemError {
 
 impl std::error::Error for RhaiSystemError {}
 
-impl Into<Box<EvalAltResult>> for RhaiSystemError {
-    fn into(self) -> Box<EvalAltResult> {
-        Box::new(EvalAltResult::ErrorSystem("".to_string(), Box::new(self)))
+impl From<RhaiSystemError> for Box<EvalAltResult> {
+    fn from(value: RhaiSystemError) -> Self {
+        Box::new(EvalAltResult::ErrorSystem("".to_string(), Box::new(value)))
     }
 }
