@@ -222,14 +222,17 @@ struct Schedule<'b, 'a: 'b> {
     pub builder: &'b mut ir::Builder<'a>,
 }
 
+/// Information to serialize for profiling purposes
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 enum ProfilingInfo {
     Fsm(FSMInfo),
-    SingleEnable(SingleEnable),
+    SingleEnable(SingleEnableInfo),
 }
 
+/// Information to be serialized for a group that isn't managed by a FSM
+/// This can happen if the group is the only group in a control block or a par arm
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
-struct SingleEnable {
+struct SingleEnableInfo {
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub component: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
@@ -906,10 +909,12 @@ fn emit_single_enable(
 ) {
     if let ir::Control::Enable(enable) = con {
         let mut profiling_info_set: HashSet<ProfilingInfo> = HashSet::new();
-        profiling_info_set.insert(ProfilingInfo::SingleEnable(SingleEnable {
-            component,
-            group: enable.group.borrow().name(),
-        }));
+        profiling_info_set.insert(ProfilingInfo::SingleEnable(
+            SingleEnableInfo {
+                component,
+                group: enable.group.borrow().name(),
+            },
+        ));
         let _ = serde_json::to_writer_pretty(
             json_out_file.get_write(),
             &profiling_info_set,
@@ -1044,7 +1049,7 @@ impl Visitor for TopDownCompileControl {
                 // Do not compile enables
                 ir::Control::Enable(ir::Enable { group, .. }) => {
                     self.fsm_groups.insert(ProfilingInfo::SingleEnable(
-                        SingleEnable {
+                        SingleEnableInfo {
                             group: group.borrow().name(),
                             component: builder.component.name,
                         },
