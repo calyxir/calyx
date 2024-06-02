@@ -220,6 +220,13 @@ impl<'a> Run<'a> {
         // Run `ninja` in the working directory.
         let mut cmd = Command::new(&self.global_config.ninja);
         cmd.current_dir(&dir.path);
+
+        if !self.global_config.verbose {
+            cmd.arg("--quiet");
+        } else {
+            cmd.arg("--verbose");
+        }
+
         cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
         let status = cmd.status()?;
 
