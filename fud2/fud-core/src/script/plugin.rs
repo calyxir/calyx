@@ -25,7 +25,7 @@ impl ScriptContext {
     /// Take a Rhai array value that is supposed to contain setups and produce
     /// an array of actual references to setups. The array might contain string names
     /// for the setups, or it might be function references that define those setups.
-    fn to_setup_refs(
+    fn setups_array(
         &mut self,
         ctx: &rhai::NativeCallContext,
         setups: rhai::Array,
@@ -135,7 +135,7 @@ impl ScriptRunner {
                   output: StateRef,
                   rule_name: &str| {
                 let mut sctx = sctx.borrow_mut();
-                let setups = sctx.to_setup_refs(&ctx, setups)?;
+                let setups = sctx.setups_array(&ctx, setups)?;
                 Ok(sctx.builder.rule(&setups, input, output, rule_name))
             },
         );
@@ -152,7 +152,7 @@ impl ScriptRunner {
                   output: StateRef,
                   build: rhai::FnPtr| {
                 let mut sctx = sctx.borrow_mut();
-                let setups = sctx.to_setup_refs(&ctx, setups)?;
+                let setups = sctx.setups_array(&ctx, setups)?;
                 let rctx = RhaiSetupCtx {
                     path: sctx.path.clone(),
                     ast: sctx.ast.clone(),
