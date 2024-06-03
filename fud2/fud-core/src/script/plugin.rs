@@ -174,8 +174,12 @@ impl ScriptRunner {
 
     /// Run the script.
     fn run(&self) {
-        let sctx = self.ctx.borrow(); // TODO seems unnecessary?
-        self.engine.run_ast(&sctx.ast).report(&sctx.path);
+        // TODO this whole dance feels unnecessary...
+        let (ast, path) = {
+            let sctx = self.ctx.borrow();
+            (sctx.ast.clone(), sctx.path.clone())
+        };
+        self.engine.run_ast(&ast).report(path);
     }
 
     /// Execute a script from a file, adding to the builder.
