@@ -156,15 +156,23 @@ impl CompileInvoke {
             // We expect each canonical port in `comp_ports` to exactly match with a port in
             //`in_cell` based on well-formedness subtype checks.
             for canon in comp_ports.keys() {
+                //only interested in ports attached to the ref cell
+                if canon.cell != ref_cell_name {
+                    continue;
+                }
                 let in_cell_borrowed = in_cell.borrow();
+                // The given port of actual, concrete cell passed in
                 let pr = in_cell_borrowed
                     .ports
                     .iter()
-                    .find(|&p| p.borrow().name == canon.port)
+                    .find(|&in_cell_port| {
+                        canon.cell == ref_cell_name
+                            && in_cell_port.borrow().name == canon.port
+                    })
                     .unwrap_or_else(|| {
                         unreachable!(
                             "port `{}` not found in the cell `{}`",
-                            canon.port,
+                            canon,
                             in_cell.borrow().name()
                         )
                     });

@@ -443,7 +443,8 @@ impl Visitor for ComponentInliner {
             .collect::<HashMap<_, _>>();
 
         // Rewrites for the interface ports of inlined cells.
-        let mut interface_rewrites: rewriter::PortRewriteMap = LinkedHashMap::new();
+        let mut interface_rewrites: rewriter::PortRewriteMap =
+            LinkedHashMap::new();
         // Track names of cells that were inlined.
         let mut inlined_cells = HashSet::new();
         let mut builder = ir::Builder::new(comp, sigs);
