@@ -530,7 +530,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
                                         },
                                         Some(slicer) => {
-                                            println!("bruh");
                                             structure!(
                                                 self.builder;
                                                 let end_const = constant(end_constant_value, fsm_size);
