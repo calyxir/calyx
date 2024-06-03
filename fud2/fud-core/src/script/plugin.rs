@@ -177,20 +177,16 @@ impl LoadPlugins for DriverBuilder {
         // Rhai context
         let bld = ScriptBuilder::new(self);
 
-        // scope rhai engine code so that all references to `this`
-        // are dropped before the end of the function
-        {
+        // go through each plugin file, and execute the script which adds a plugin
+        for path in paths {
             let mut engine = rhai::Engine::new();
 
-            // go through each plugin file, and execute the script which adds a plugin
-            for path in paths {
-                // compile the file into an Ast
-                let ast = engine.compile_file(path.clone()).unwrap();
+            // compile the file into an Ast
+            let ast = engine.compile_file(path.clone()).unwrap();
 
-                bld.register(&mut engine, path, &ast);
+            bld.register(&mut engine, path, &ast);
 
-                engine.run_ast(&ast).report(&path);
-            }
+            engine.run_ast(&ast).report(&path);
         }
 
         bld.unwrap()
