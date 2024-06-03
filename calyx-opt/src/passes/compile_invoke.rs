@@ -6,6 +6,7 @@ use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
 use ir::{Assignment, RRC, WRC};
 use itertools::Itertools;
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -54,13 +55,13 @@ fn build_assignments<T>(
 /// Map for storing added ports for each ref cell
 /// level of Hashmap represents:
 /// HashMap<-component name-, Hashmap<(-ref cell name-,-port name-), port>>;
-struct RefPortMap(HashMap<ir::Id, HashMap<ir::Canonical, RRC<ir::Port>>>);
+struct RefPortMap(HashMap<ir::Id, LinkedHashMap<ir::Canonical, RRC<ir::Port>>>);
 
 impl RefPortMap {
     fn insert(
         &mut self,
         comp_name: ir::Id,
-        ports: HashMap<ir::Canonical, RRC<ir::Port>>,
+        ports: LinkedHashMap<ir::Canonical, RRC<ir::Port>>,
     ) {
         self.0.insert(comp_name, ports);
     }
@@ -68,7 +69,7 @@ impl RefPortMap {
     fn get(
         &self,
         comp_name: &ir::Id,
-    ) -> Option<&HashMap<ir::Canonical, RRC<ir::Port>>> {
+    ) -> Option<&LinkedHashMap<ir::Canonical, RRC<ir::Port>>> {
         self.0.get(comp_name)
     }
 
@@ -91,7 +92,7 @@ pub struct CompileInvoke {
     port_names: RefPortMap,
     /// Mapping from the ports of cells that were removed to the new port on the
     /// component signature.
-    removed: HashMap<ir::Canonical, ir::RRC<ir::Port>>,
+    removed: LinkedHashMap<ir::Canonical, ir::RRC<ir::Port>>,
     /// Ref cells in the component. We hold onto these so that our references don't get invalidated
     ref_cells: Vec<ir::RRC<ir::Cell>>,
 }
@@ -103,7 +104,7 @@ impl ConstructVisitor for CompileInvoke {
     {
         Ok(CompileInvoke {
             port_names: RefPortMap::default(),
-            removed: HashMap::new(),
+            removed: LinkedHashMap::new(),
             ref_cells: Vec::new(),
         })
     }
