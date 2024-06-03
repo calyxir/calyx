@@ -191,21 +191,10 @@ where
     Ok(())
 }
 
-fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
-    if proto_out != proto_in {
-        Err(Error::malformed_control(format!(
-            "Unexpected type for ref cell. Expected `{}`, received `{}`",
-            proto_out.surface_name().unwrap(),
-            proto_in.surface_name().unwrap(),
-        )))
-    } else {
-        Ok(())
-    }
-}
-
 /// Returns true if cell_in is a subtype of the output cell.
-/// XXX(nathanielnrn): I think this is incomplete, technically we should also
-/// be checking for ref cells and that they are contravariant?
+// XXX(nathanielnrn): I think this is incomplete, technically we should also
+// be iterating over ref cells of each cell and that they are contravariant?
+// However cells don't have this information so we'd need to extract it from `comps` I guess?
 fn subtype(cell_out: &Cell, cell_in: &Cell) -> bool {
     for port in cell_out.ports() {
         match cell_in.find(port.borrow().name) {

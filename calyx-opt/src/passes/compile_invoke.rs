@@ -1,7 +1,7 @@
 use crate::traversal::{
     self, Action, ConstructVisitor, Named, VisResult, Visitor,
 };
-use calyx_ir::{structure, Id};
+use calyx_ir::structure;
 use calyx_ir::{self as ir, Attributes, LibrarySignatures};
 use calyx_utils::{CalyxResult, Error};
 use ir::{Assignment, RRC, WRC};
@@ -132,7 +132,6 @@ impl CompileInvoke {
     /// Since this pass eliminates all ref cells in post order, we expect that
     /// invoked component already had all of its ref cells removed.
 
-    //TODO(nathanielnrn): Is this lifetime stuff correct? The compiler complained and I just added this to get it to stop.
     fn ref_cells_to_ports<T>(
         &mut self,
         inv_cell: RRC<ir::Cell>,
@@ -167,9 +166,7 @@ impl CompileInvoke {
                     continue;
                 }
 
-                // let canon =
-                //     ir::Canonical::new(ref_cell.borrow().name(), port.name);
-                let Some(comp_port) = comp_ports.get(&canon) else {
+                let Some(comp_port) = comp_ports.get(canon) else {
                     unreachable!("port `{}` not found in the signature of {}. Known ports are: {}",
                         canon,
                         inv_comp,
