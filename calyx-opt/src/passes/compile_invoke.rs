@@ -289,27 +289,6 @@ impl Visitor for CompileInvoke {
         ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        //Maps from ref_cell type to passed in cell type (aka outcell to incell)
-        // let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
-        //     let high_comp = comps
-        //     .iter()
-        //     .find(|&c| c.name == s.comp.borrow().type_name()
-        //     .unwrap_or_else(|| unreachable!("Could not find the prototype name for component {}", s.comp.borrow().name())))
-        //     .unwrap_or_else(|| unreachable!("Could not find the component {} in all components", s.comp.borrow().name()));
-            
-        //     let ref_cell = high_comp.cells.find(*id);
-        //     if ref_cell.is_none() {
-        //         unreachable!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {} and ports: {} \n
-        //         current CompileInvoke is: {}",
-        //         in_cell.borrow().name(),
-        //         id,
-        //         high_comp.name,
-        //         high_comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "),
-        //         high_comp.signature.borrow().ports.iter().map(|p| p.borrow().name.to_string()).collect::<Vec<String>>().join(", "),
-        //         self.port_names.0.iter().map(|(k, v)| format!("{}: {}", k, v.iter().map(|(k, v)| format!("{}: {}", k, v.borrow().name)).collect::<Vec<String>>().join(", "))).collect::<Vec<String>>().join("\n"));
-        //     }
-        //     (ref_cell.unwrap(), in_cell)
-        // }).collect();
 
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_group("invoke");
@@ -391,21 +370,6 @@ impl Visitor for CompileInvoke {
         ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        //Maps from ref_cell type to passed in cell type (aka outcell to incell)
-        // let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
-        //     let ref_cell = comp.cells.find(*id);
-        //     if ref_cell.is_none() {
-        //         unreachable!("attempting to pass in {} to a ref cell, but said ref cell is not part of the component {}", in_cell.borrow().name(), comp.name)
-        //     }
-        //     (ref_cell.unwrap(), in_cell)
-        // }).collect();
-        // let ref_cell_map : Vec<(RRC<ir::Cell>, &RRC<ir::Cell>)>= s.ref_cells.iter().map(|(id, in_cell)| {
-        //     let ref_cell = s.comp.clone();
-        //     // if ref_cell.is_none() {
-        //     print!("attempting to pass in {} to a ref cell {}, but said ref cell is not part of the component {}. Component has cells: {}", in_cell.borrow().name(), id, comp.name, comp.cells.iter().map(|c| c.borrow().name().to_string()).collect::<Vec<String>>().join(", "));
-        //     // }
-        //     (ref_cell, in_cell)
-        // }).collect();
 
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
