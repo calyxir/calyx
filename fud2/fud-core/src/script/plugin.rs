@@ -164,32 +164,36 @@ impl ScriptBuilder {
 }
 
 pub trait LoadPlugins {
+    fn load_script(self, path: &PathBuf) -> Self;
+
     /// Run the scripts in the given paths, adding them to the driver's configuration.
-    fn run_scripts(self, paths: &[PathBuf]) -> Self;
+    fn load_scripts(self, paths: &[PathBuf]) -> Self;
 
     /// Load all the plugins specified in the configuration file.
     fn load_plugins(self) -> Self;
 }
 
 impl LoadPlugins for DriverBuilder {
-    fn run_scripts(self, paths: &[PathBuf]) -> Self {
-        // wrap driver in a ref cell, so that we can call it from a
-        // Rhai context
-        let bld = ScriptBuilder::new(self);
+    fn load_script(self, path: &PathBuf) -> Self {
+        let mut engine = rhai::Engine::new();
+        let ast = engine.compile_file(path.clone()).unwrap(); // Compile script to AST.
 
+        // Register all top-level functions.
+        let bld = ScriptBuilder::new(self);
+        bld.register(&mut engine, path, &ast);
+
+        engine.run_ast(&ast).report(&path); // Run the script.
+
+        std::mem::drop(engine); // Drop references to the context.
+        bld.unwrap()
+    }
+
+    fn load_scripts(mut self, paths: &[PathBuf]) -> Self {
         // go through each plugin file, and execute the script which adds a plugin
         for path in paths {
-            let mut engine = rhai::Engine::new();
-
-            // compile the file into an Ast
-            let ast = engine.compile_file(path.clone()).unwrap();
-
-            bld.register(&mut engine, path, &ast);
-
-            engine.run_ast(&ast).report(&path);
+            self = self.load_script(path);
         }
-
-        bld.unwrap()
+        self
     }
 
     fn load_plugins(self) -> Self {
@@ -206,6 +210,6 @@ impl LoadPlugins for DriverBuilder {
             }
         };
 
-        self.run_scripts(&plugin_files)
+        self.load_scripts(&plugin_files)
     }
 }
