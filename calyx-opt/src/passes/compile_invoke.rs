@@ -152,8 +152,8 @@ impl CompileInvoke {
                 unreachable!("component `{}` invoked but not already visited by the pass", inv_comp)
             };
 
-            // The type of the cell is the same as the ref cell so we can
-            // iterate over its ports and generate bindings for the ref cell.
+            // We expect each canonical port in `comp_ports` to exactly match with a port in
+            //`in_cell` based on well-formedness subtype checks.
             for canon in comp_ports.keys() {
                 let in_cell_borrowed = in_cell.borrow();
                 let pr = in_cell_borrowed
@@ -297,7 +297,6 @@ impl Visitor for CompileInvoke {
     ) -> VisResult {
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_group("invoke");
-
         // Assigns representing the ref cell connections
         invoke_group.borrow_mut().assignments.extend(
             self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),

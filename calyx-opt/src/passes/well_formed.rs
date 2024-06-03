@@ -80,7 +80,7 @@ pub struct WellFormed {
     used_groups: HashSet<ir::Id>,
     /// Names of combinational groups used in the control.
     used_comb_groups: HashSet<ir::Id>,
-    /// ref cells of components used in the control. Used for typing checks.
+    /// ref cells of components used in the control. Used for type checking.
     ref_cells: HashMap<ir::Id, LinkedHashMap<ir::Id, Cell>>,
     /// Stack of currently active combinational groups
     active_comb: ActiveAssignments,
