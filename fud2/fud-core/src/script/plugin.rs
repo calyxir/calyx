@@ -1,5 +1,4 @@
 use crate::{
-    config,
     exec::{OpRef, SetupRef, StateRef},
     DriverBuilder,
 };
@@ -59,7 +58,7 @@ impl ScriptContext {
     }
 }
 
-struct ScriptRunner {
+pub struct ScriptRunner {
     ctx: Rc<RefCell<ScriptContext>>,
     engine: rhai::Engine,
 }
@@ -183,38 +182,10 @@ impl ScriptRunner {
     }
 
     /// Execute a script from a file, adding to the builder.
-    fn run_file(builder: DriverBuilder, path: &Path) -> DriverBuilder {
+    pub fn run_file(builder: DriverBuilder, path: &Path) -> DriverBuilder {
         let mut runner = ScriptRunner::from_file(builder, path);
         runner.register();
         runner.run();
         runner.unwrap_builder()
-    }
-}
-
-pub trait LoadPlugins {
-    /// Load all the plugins specified in the configuration file.
-    fn load_plugins(self) -> Self;
-}
-
-impl LoadPlugins for DriverBuilder {
-    fn load_plugins(self) -> Self {
-        // Get a list of plugins (paths to Rhai scripts) from the config file, if any.
-        // TODO: Let's try to avoid loading/parsing the configuration file here and
-        // somehow reusing it from wherever we do that elsewhere.
-        let config = config::load_config(&self.name);
-        let plugin_files = match config.extract_inner::<Vec<PathBuf>>("plugins")
-        {
-            Ok(v) => v,
-            Err(_) => {
-                // No plugins to load.
-                return self;
-            }
-        };
-
-        let mut bld = self;
-        for path in plugin_files {
-            bld = ScriptRunner::run_file(bld, path.as_path());
-        }
-        bld
     }
 }

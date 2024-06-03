@@ -1,5 +1,5 @@
 use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
-use crate::{run, utils};
+use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 use std::{collections::HashMap, error::Error, fmt::Display};
@@ -356,6 +356,28 @@ impl DriverBuilder {
 
     pub fn rsrc_files(&mut self, files: FileData) {
         self.rsrc_files = Some(files);
+    }
+
+    /// Load any plugin scripts specified in the configuration file.
+    pub fn load_plugins(self) -> Self {
+        // Get a list of plugins (paths to Rhai scripts) from the config file, if any.
+        // TODO: Let's try to avoid loading/parsing the configuration file here and
+        // somehow reusing it from wherever we do that elsewhere.
+        let config = config::load_config(&self.name);
+        let plugin_files =
+            match config.extract_inner::<Vec<std::path::PathBuf>>("plugins") {
+                Ok(v) => v,
+                Err(_) => {
+                    // No plugins to load.
+                    return self;
+                }
+            };
+
+        let mut bld = self;
+        for path in plugin_files {
+            bld = script::ScriptRunner::run_file(bld, path.as_path());
+        }
+        bld
     }
 
     pub fn build(self) -> Driver {

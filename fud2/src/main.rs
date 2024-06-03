@@ -1,5 +1,5 @@
 use fud2::build_driver;
-use fud_core::{cli, DriverBuilder, LoadPlugins};
+use fud_core::{cli, DriverBuilder};
 
 fn main() -> anyhow::Result<()> {
     let mut bld = DriverBuilder::new("fud2");
