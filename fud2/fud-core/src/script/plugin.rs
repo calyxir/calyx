@@ -39,6 +39,34 @@ fn to_setup_refs(
         .collect::<RhaiResult<Vec<_>>>()
 }
 
+struct ScriptBuilder(Rc<RefCell<DriverBuilder>>);
+
+impl ScriptBuilder {
+    fn new(builder: DriverBuilder) -> Self {
+        Self(Rc::new(RefCell::new(builder)))
+    }
+
+    /// Obtain the wrapped `DriverBuilder`. Panic if other references (from the
+    /// script, for example) still exist.
+    fn unwrap(self) -> DriverBuilder {
+        Rc::into_inner(self.0)
+            .expect("script references still live")
+            .into_inner()
+    }
+
+    fn reg_state(&self, engine: &mut rhai::Engine) {
+        let t = self.0.clone();
+        engine.register_fn(
+            "state",
+            move |name: &str, extensions: rhai::Array| {
+                let v = to_str_slice(&extensions);
+                let v = v.iter().map(|x| &**x).collect::<Vec<_>>();
+                t.borrow_mut().state(name, &v)
+            },
+        );
+    }
+}
+
 pub trait LoadPlugins {
     /// Run the scripts in the given paths, adding them to the driver's configuration.
     fn run_scripts(self, paths: &[PathBuf]) -> Self;
@@ -51,7 +79,7 @@ impl LoadPlugins for DriverBuilder {
     fn run_scripts(self, paths: &[PathBuf]) -> Self {
         // wrap driver in a ref cell, so that we can call it from a
         // Rhai context
-        let this = Rc::new(RefCell::new(self));
+        let bld = ScriptBuilder::new(self);
 
         // scope rhai engine code so that all references to `this`
         // are dropped before the end of the function
@@ -59,22 +87,14 @@ impl LoadPlugins for DriverBuilder {
             let mut engine = rhai::Engine::new();
 
             // register AST independent functions
-            let t = this.clone();
-            engine.register_fn(
-                "state",
-                move |name: &str, extensions: rhai::Array| {
-                    let v = to_str_slice(&extensions);
-                    let v = v.iter().map(|x| &**x).collect::<Vec<_>>();
-                    t.borrow_mut().state(name, &v)
-                },
-            );
+            bld.reg_state(&mut engine);
 
-            let t = Rc::clone(&this);
+            let t = Rc::clone(&bld.0);
             engine.register_fn("get_state", move |state_name: &str| {
                 t.borrow().find_state(state_name).map_err(to_rhai_err)
             });
 
-            let t = Rc::clone(&this);
+            let t = Rc::clone(&bld.0);
             engine.register_fn("get_setup", move |setup_name: &str| {
                 t.borrow().find_setup(setup_name).map_err(to_rhai_err)
             });
@@ -86,7 +106,7 @@ impl LoadPlugins for DriverBuilder {
                 // compile the file into an Ast
                 let ast = engine.compile_file(path.clone()).unwrap();
 
-                let t = Rc::clone(&this);
+                let t = Rc::clone(&bld.0);
                 let rule_ast = ast.clone_functions_only();
                 let path_copy = path.clone();
                 engine.register_fn::<_, 4, true, OpRef, true, _>(
@@ -108,7 +128,7 @@ impl LoadPlugins for DriverBuilder {
                     },
                 );
 
-                let t = Rc::clone(&this);
+                let t = Rc::clone(&bld.0);
                 let rule_ast = ast.clone_functions_only();
                 let path_copy = path.clone();
                 engine.register_fn::<_, 5, true, OpRef, true, _>(
@@ -144,7 +164,7 @@ impl LoadPlugins for DriverBuilder {
             }
         }
 
-        Rc::into_inner(this).expect("Back into inner").into_inner()
+        bld.unwrap()
     }
 
     fn load_plugins(self) -> Self {
