@@ -204,6 +204,8 @@ fn same_type(proto_out: &CellType, proto_in: &CellType) -> CalyxResult<()> {
 }
 
 /// Returns true if cell_in is a subtype of the output cell.
+/// XXX(nathanielnrn): I think this is incomplete, technically we should also
+/// be checking for ref cells and that they are contravariant?
 fn subtype(cell_out: &Cell, cell_in: &Cell) -> bool {
     for port in cell_out.ports() {
         match cell_in.find(port.borrow().name) {
