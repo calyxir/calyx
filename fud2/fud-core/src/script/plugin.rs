@@ -177,35 +177,22 @@ impl ScriptRunner {
         let sctx = self.ctx.borrow(); // TODO seems unnecessary?
         self.engine.run_ast(&sctx.ast).report(&sctx.path);
     }
+
+    /// Execute a script from a file, adding to the builder.
+    fn run_file(builder: DriverBuilder, path: &Path) -> DriverBuilder {
+        let mut runner = ScriptRunner::from_file(builder, path);
+        runner.register();
+        runner.run();
+        runner.unwrap_builder()
+    }
 }
 
 pub trait LoadPlugins {
-    fn load_script(self, path: &PathBuf) -> Self;
-
-    /// Run the scripts in the given paths, adding them to the driver's configuration.
-    fn load_scripts(self, paths: &[PathBuf]) -> Self;
-
     /// Load all the plugins specified in the configuration file.
     fn load_plugins(self) -> Self;
 }
 
 impl LoadPlugins for DriverBuilder {
-    fn load_script(self, path: &PathBuf) -> Self {
-        // Register all top-level functions.
-        let mut runner = ScriptRunner::from_file(self, path);
-        runner.register();
-        runner.run();
-        runner.unwrap_builder()
-    }
-
-    fn load_scripts(mut self, paths: &[PathBuf]) -> Self {
-        // go through each plugin file, and execute the script which adds a plugin
-        for path in paths {
-            self = self.load_script(path);
-        }
-        self
-    }
-
     fn load_plugins(self) -> Self {
         // Get a list of plugins (paths to Rhai scripts) from the config file, if any.
         // TODO: Let's try to avoid loading/parsing the configuration file here and
@@ -220,6 +207,10 @@ impl LoadPlugins for DriverBuilder {
             }
         };
 
-        self.load_scripts(&plugin_files)
+        let mut bld = self;
+        for path in plugin_files {
+            bld = ScriptRunner::run_file(bld, path.as_path());
+        }
+        bld
     }
 }
