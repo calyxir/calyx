@@ -156,9 +156,18 @@ impl CompileInvoke {
             // iterate over its ports and generate bindings for the ref cell.
             for canon in comp_ports.keys() {
                 let in_cell_borrowed = in_cell.borrow();
-                let pr = in_cell_borrowed.ports.iter().find(|&p| p.borrow().name == canon.port)
-                .unwrap_or_else(|| {unreachable!("port `{}` not found in the cell `{}`", canon.port, in_cell.borrow().name())});
-                
+                let pr = in_cell_borrowed
+                    .ports
+                    .iter()
+                    .find(|&p| p.borrow().name == canon.port)
+                    .unwrap_or_else(|| {
+                        unreachable!(
+                            "port `{}` not found in the cell `{}`",
+                            canon.port,
+                            in_cell.borrow().name()
+                        )
+                    });
+
                 let port = pr.borrow();
                 if port.has_attribute(ir::BoolAttr::Clk)
                     || port.has_attribute(ir::BoolAttr::Reset)
@@ -286,7 +295,6 @@ impl Visitor for CompileInvoke {
         ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_group("invoke");
 
@@ -367,15 +375,12 @@ impl Visitor for CompileInvoke {
         ctx: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-
         let mut builder = ir::Builder::new(comp, ctx);
         let invoke_group = builder.add_static_group("static_invoke", s.latency);
 
-        invoke_group
-            .borrow_mut()
-            .assignments
-            .extend(self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
-            );
+        invoke_group.borrow_mut().assignments.extend(
+            self.ref_cells_to_ports(Rc::clone(&s.comp), s.ref_cells.drain(..)),
+        );
 
         // comp.go = 1'd1;
         structure!(builder;
