@@ -399,7 +399,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     let fsm = prim std_reg(fsm_size);
                     let signal_on = constant(1, 1);
                     let signal_off = constant(0, fsm_size);
-                    // let last_state = constant(u64::pow(2, (final_state - 1).try_into().expect("failed to convert to u32")), fsm_size);
                 );
 
                 // Enable assignments
@@ -580,7 +579,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
                 group.borrow_mut().assignments.push(done_assign);
 
-                // Add msb slicer as continuous assignment
+                // Add msb slicer as continuous assignment;
                 // Cleanup: Add a transition from last state to the first state.
                 let reset_fsm = build_assignments!(self.builder;
                     slicer["in"] = ? fsm["out"];
