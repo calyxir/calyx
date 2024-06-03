@@ -232,7 +232,6 @@ impl<'b, 'a> From<&'b mut ir::Builder<'a>> for Schedule<'b, 'a> {
             enables: HashMap::new(),
             transitions: Vec::new(),
             builder,
-            // used_slicers: HashMap::new(),
         }
     }
 }
@@ -313,225 +312,322 @@ impl<'b, 'a> Schedule<'b, 'a> {
 
         match encoding {
             // match encoding {
-                Encoding::Binary => {
-                    let fsm_size = get_bit_width_from(
-                        final_state + 1, /* represent 0..final_state */
-                    );
-    
-                    structure!(self.builder;
-                        let fsm = prim std_reg(fsm_size);
-                        let signal_on = constant(1, 1);
-                        let last_state = constant(final_state, fsm_size);
-                        let first_state = constant(0, fsm_size);
-                    );
-                    // Enable assignments
-                    group.borrow_mut().assignments.extend(
-                        self.enables
-                            .into_iter()
-                            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-                            .flat_map(|(state, mut assigns)| {
-                                let state_const =
-                                    self.builder.add_constant(state, fsm_size);
-                                let state_guard =
-                                    guard!(fsm["out"] == state_const["out"]);
+            Encoding::Binary => {
+                let fsm_size = get_bit_width_from(
+                    final_state + 1, /* represent 0..final_state */
+                );
+
+                structure!(self.builder;
+                    let fsm = prim std_reg(fsm_size);
+                    let signal_on = constant(1, 1);
+                    let last_state = constant(final_state, fsm_size);
+                    let first_state = constant(0, fsm_size);
+                );
+                // Enable assignments
+                group.borrow_mut().assignments.extend(
+                    self.enables
+                        .into_iter()
+                        .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+                        .flat_map(|(state, mut assigns)| {
+                            let state_const =
+                                self.builder.add_constant(state, fsm_size);
+                            let state_guard =
+                                guard!(fsm["out"] == state_const["out"]);
+                            assigns.iter_mut().for_each(|asgn| {
+                                asgn.guard
+                                    .update(|g| g.and(state_guard.clone()))
+                            });
+                            assigns
+                        }),
+                );
+
+                // Transition assignments
+                group.borrow_mut().assignments.extend(
+                    self.transitions.into_iter().flat_map(|(s, e, guard)| {
+                        structure!(self.builder;
+                            let end_const = constant(e, fsm_size);
+                            let start_const = constant(s, fsm_size);
+                        );
+                        let ec_borrow = end_const.borrow();
+                        let trans_guard =
+                            guard!((fsm["out"] == start_const["out"]) & guard);
+
+                        vec![
+                            self.builder.build_assignment(
+                                fsm.borrow().get("in"),
+                                ec_borrow.get("out"),
+                                trans_guard.clone(),
+                            ),
+                            self.builder.build_assignment(
+                                fsm.borrow().get("write_en"),
+                                signal_on.borrow().get("out"),
+                                trans_guard,
+                            ),
+                        ]
+                    }),
+                );
+
+                // Done condition for group
+                let last_guard = guard!(fsm["out"] == last_state["out"]);
+                let done_assign = self.builder.build_assignment(
+                    group.borrow().get("done"),
+                    signal_on.borrow().get("out"),
+                    last_guard.clone(),
+                );
+                group.borrow_mut().assignments.push(done_assign);
+
+                // Cleanup: Add a transition from last state to the first state.
+                let reset_fsm = build_assignments!(self.builder;
+                    fsm["in"] = last_guard ? first_state["out"];
+                    fsm["write_en"] = last_guard ? signal_on["out"];
+                );
+                self.builder
+                    .component
+                    .continuous_assignments
+                    .extend(reset_fsm);
+
+                group
+            }
+            Encoding::OneHot => {
+                // data structure to store used slicers, to avoid repeats
+                let used_slicers: HashMap<u64, ir::RRC<ir::Cell>> =
+                    HashMap::new();
+
+                let fsm_size = final_state; /* represent 0..final_state */
+
+                structure!(self.builder;
+                    let fsm = prim std_reg(fsm_size);
+                    let signal_on = constant(1, 1);
+                    let signal_off = constant(0, fsm_size);
+                );
+
+                // Enable assignments
+                group.borrow_mut().assignments.extend(
+                    self.enables
+                        .into_iter()
+                        .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
+                        .flat_map(|(state, mut assigns)| {
+
+                            // initial fsm state is 0, need full bit-by-bit comparison
+                            if state == 0 {
+                                let state_guard = guard!(fsm["out"] == signal_off["out"]);
                                 assigns.iter_mut().for_each(|asgn| {
                                     asgn.guard
                                         .update(|g| g.and(state_guard.clone()))
-                                });
-                                assigns
-                            }),
-                    );
-    
-                    // Transition assignments
-                    group.borrow_mut().assignments.extend(
-                        self.transitions.into_iter().flat_map(|(s, e, guard)| {
-                            structure!(self.builder;
-                                let end_const = constant(e, fsm_size);
-                                let start_const = constant(s, fsm_size);
-                            );
-                            let ec_borrow = end_const.borrow();
-                            let trans_guard =
-                                guard!((fsm["out"] == start_const["out"]) & guard);
-    
-                            vec![
-                                self.builder.build_assignment(
-                                    fsm.borrow().get("in"),
-                                    ec_borrow.get("out"),
-                                    trans_guard.clone(),
-                                ),
-                                self.builder.build_assignment(
-                                    fsm.borrow().get("write_en"),
-                                    signal_on.borrow().get("out"),
-                                    trans_guard,
-                                ),
-                            ]
-                        }),
-                    );
-    
-                    // Done condition for group
-                    let last_guard = guard!(fsm["out"] == last_state["out"]);
-                    let done_assign = self.builder.build_assignment(
-                        group.borrow().get("done"),
-                        signal_on.borrow().get("out"),
-                        last_guard.clone(),
-                    );
-                    group.borrow_mut().assignments.push(done_assign);
-    
-                    // Cleanup: Add a transition from last state to the first state.
-                    let reset_fsm = build_assignments!(self.builder;
-                        fsm["in"] = last_guard ? first_state["out"];
-                        fsm["write_en"] = last_guard ? signal_on["out"];
-                    );
-                    self.builder
-                        .component
-                        .continuous_assignments
-                        .extend(reset_fsm);
-    
-                    group
-                },
-                Encoding::OneHot => {
-                    let fsm_size = final_state; /* represent 0..final_state */
-    
-                    structure!(self.builder;
-                        let fsm = prim std_reg(fsm_size);
-                        let signal_on = constant(1, 1);
-                        let signal_off = constant(0, fsm_size);
-                        let last_state = constant(u64::pow(2, (final_state - 1).try_into().expect("failed to convert to u32")), fsm_size);
-                    );
-    
-                    // Enable assignments
-                    group.borrow_mut().assignments.extend(
-                        self.enables
-                            .into_iter()
-                            .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
-                            .flat_map(|(state, mut assigns)| {
-    
-                                // initial fsm state is 0, need full bit-by-bit comparison
-                                if state == 0 {
-                                    let state_guard = guard!(fsm["out"] == signal_off["out"]);
-                                    assigns.iter_mut().for_each(|asgn| {
-                                        asgn.guard
-                                            .update(|g| g.and(state_guard.clone()))
-                                        });
-                                    assigns
-                                }
-    
-                                // for state != 0, can compare single high bit
-                                else {
-                                    structure!(
-                                        self.builder;
-                                        let slicer = prim std_bit_slice(fsm_size, state - 1, state, 1);
-                                    );
-                                    let fsm_to_slicer = self.builder.build_assignment(
-                                        slicer.borrow().get("in"), 
-                                        fsm.borrow().get("out"), 
-                                        ir::Guard::True
-                                    );
-                                    let state_guard = guard!(slicer["out"] == signal_on["out"]);
-                                    assigns.iter_mut().for_each(|asgn| {
-                                        asgn.guard
-                                        .update(|g| g.and(state_guard.clone()))
                                     });
-                                    assigns.push(fsm_to_slicer);
-                                    assigns
-                                }
-                            }),
-                    );
-    
-                    // Transition assignments
-                    group.borrow_mut().assignments.extend(
-                        self.transitions.into_iter().flat_map(
-                            |(s, e, guard)| {
-                                match s {
-                                    0 => {
-                                        let end_constant_value = match e {
-                                            0 => 0,
-                                            _ => u64::pow(2, (e - 1).try_into().expect("failed to convert to u32"))
-                                        };
-                                        structure!(self.builder;
-                                            let end_const = constant(end_constant_value, fsm_size);
-                                            let start_const = constant(0, fsm_size);
-                                        );
-                                        let ec_borrow = end_const.borrow();
-    
-                                        // if s = 0, need to do full comparison
-                                        let trans_guard = guard!(
-                                            (fsm["out"] == start_const["out"]) & guard
-                                        );
-    
-                                        vec![
-                                            self.builder.build_assignment(
-                                                fsm.borrow().get("in"),
-                                                ec_borrow.get("out"),
-                                                trans_guard.clone(),
-                                            ),
-                                            self.builder.build_assignment(
-                                                fsm.borrow().get("write_en"),
-                                                signal_on.borrow().get("out"),
-                                                trans_guard,
-                                            ),
-                                        ]
-                                    }
-    
-                                    s => {
-                                        let end_constant_value = match e {
-                                            0 => 0,
-                                            _ => u64::pow(2, (e - 1).try_into().expect("failed to convert to u32"))
-                                        };
+                                assigns
+                            }
+
+                            // for state != 0, can compare single high bit
+                            else {
+
+                                match used_slicers.get(&(state - 1)) {
+                                    None => {
                                         structure!(
                                             self.builder;
-                                            let end_const = constant(end_constant_value, fsm_size);
-                                            let slicer = prim std_bit_slice(fsm_size, s - 1, s, 1);
+                                            let slicer = prim std_bit_slice(fsm_size, state - 1, state, 1);
                                         );
-                                        let ec_borrow = end_const.borrow();
-                                        let trans_guard = guard!((slicer["out"] == signal_on["out"]) & guard);
                                         let fsm_to_slicer = self.builder.build_assignment(
-                                            slicer.borrow().get("in"),
+                                            slicer.borrow().get("in"), 
                                             fsm.borrow().get("out"), 
-                                            ir::Guard::True);
-                                        vec![
-                                            fsm_to_slicer,
-                                            self.builder.build_assignment(
-                                                fsm.borrow().get("in"),
-                                                ec_borrow.get("out"),
-                                                trans_guard.clone(),
-                                            ),
-                                            self.builder.build_assignment(
-                                                fsm.borrow().get("write_en"),
-                                                signal_on.borrow().get("out"),
-                                                trans_guard,
-                                            ),
-                                        ]
+                                            ir::Guard::True
+                                        );
+                                        let state_guard = guard!(slicer["out"] == signal_on["out"]);
+                                        assigns.iter_mut().for_each(|asgn| {
+                                            asgn.guard
+                                            .update(|g| g.and(state_guard.clone()))
+                                        });
+                                        assigns.push(fsm_to_slicer);
+                                        assigns
+                                    },
+                                    Some(slicer) => {
+
+                                        let state_guard = guard!(slicer["out"] == signal_on["out"]);
+                                        assigns.iter_mut().for_each(|asgn| {
+                                            asgn.guard
+                                            .update(|g| g.and(state_guard.clone()))
+                                        });
+
+                                        assigns
                                     }
                                 }
                             }
-                        ),
-                    );
-    
-                    // Done condition for group
-                    let last_guard = guard!(fsm["out"] == last_state["out"]);
-                    let done_assign = self.builder.build_assignment(
-                        group.borrow().get("done"),
-                        signal_on.borrow().get("out"),
-                        last_guard.clone(),
-                    );
-                    group.borrow_mut().assignments.push(done_assign);
-    
-                    // Cleanup: Add a transition from last state to the first state.
-                    let reset_fsm = build_assignments!(self.builder;
-                        fsm["in"] = last_guard ? signal_off["out"];
-                        fsm["write_en"] = last_guard ? signal_on["out"];
-                    );
-                    self.builder
-                        .component
-                        .continuous_assignments
-                        .extend(reset_fsm);
-    
-                    group
+                        }
+                    ),
+                );
+
+                // Transition assignments
+                group.borrow_mut().assignments.extend(
+                    self.transitions.into_iter().flat_map(
+                        |(s, e, guard)| {
+                            match s {
+                                0 => {
+                                    let end_constant_value = match e {
+                                        0 => 0,
+                                        _ => u64::pow(2, (e - 1).try_into().expect("failed to convert to u32"))
+                                    };
+                                    structure!(self.builder;
+                                        let end_const = constant(end_constant_value, fsm_size);
+                                        let start_const = constant(0, fsm_size);
+                                    );
+                                    let ec_borrow = end_const.borrow();
+
+                                    // if s = 0, need to do full comparison
+                                    let trans_guard = guard!(
+                                        (fsm["out"] == start_const["out"]) & guard
+                                    );
+
+                                    vec![
+                                        self.builder.build_assignment(
+                                            fsm.borrow().get("in"),
+                                            ec_borrow.get("out"),
+                                            trans_guard.clone(),
+                                        ),
+                                        self.builder.build_assignment(
+                                            fsm.borrow().get("write_en"),
+                                            signal_on.borrow().get("out"),
+                                            trans_guard,
+                                        ),
+                                    ]
+                                },
+
+                                _ => {
+                                    let end_constant_value = match e {
+                                        0 => 0,
+                                        _ => u64::pow(2, (e - 1).try_into().expect("failed to convert to u32"))
+                                    };
+
+                                    match used_slicers.get(&(s - 1)) {
+                                        None => {
+                                            structure!(
+                                                self.builder;
+                                                let end_const = constant(end_constant_value, fsm_size);
+                                                let slicer = prim std_bit_slice(fsm_size, s - 1, s, 1);
+                                            );
+                                            let ec_borrow = end_const.borrow();
+                                            let trans_guard = guard!((slicer["out"] == signal_on["out"]) & guard);
+                                            let fsm_to_slicer = self.builder.build_assignment(
+                                                slicer.borrow().get("in"),
+                                                fsm.borrow().get("out"), 
+                                                ir::Guard::True);
+                                            vec![
+                                                fsm_to_slicer,
+                                                self.builder.build_assignment(
+                                                    fsm.borrow().get("in"),
+                                                    ec_borrow.get("out"),
+                                                    trans_guard.clone(),
+                                                ),
+                                                self.builder.build_assignment(
+                                                    fsm.borrow().get("write_en"),
+                                                    signal_on.borrow().get("out"),
+                                                    trans_guard,
+                                                ),
+                                            ]
+                                        },
+                                        Some(slicer) => {
+                                            structure!(
+                                                self.builder;
+                                                let end_const = constant(end_constant_value, fsm_size);
+                                            );
+                                            let ec_borrow = end_const.borrow();
+                                            let trans_guard = guard!((slicer["out"] == signal_on["out"]) & guard);
+
+                                            vec![
+                                                self.builder.build_assignment(
+                                                    fsm.borrow().get("in"),
+                                                    ec_borrow.get("out"),
+                                                    trans_guard.clone(),
+                                                ),
+                                                self.builder.build_assignment(
+                                                    fsm.borrow().get("write_en"),
+                                                    signal_on.borrow().get("out"),
+                                                    trans_guard,
+                                                ),
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ),
+                );
+
+                // done condition for group
+                match used_slicers.get(&(final_state - 1)) {
+                    None => {
+                        structure!(
+                            self.builder;
+                            let slicer = prim std_bit_slice(fsm_size, final_state - 1, final_state - 1, 1);
+                        );
+                        let fsm_to_slicer_assign =
+                            self.builder.build_assignment(
+                                slicer.borrow().get("in"),
+                                fsm.borrow().get("out"),
+                                ir::Guard::True,
+                            );
+                        let last_guard =
+                            guard!(slicer["out"] == signal_on["out"]);
+                        let done_assign = self.builder.build_assignment(
+                            group.borrow().get("done"),
+                            signal_on.borrow().get("out"),
+                            last_guard.clone(),
+                        );
+                        group
+                            .borrow_mut()
+                            .assignments
+                            .push(fsm_to_slicer_assign);
+                        group.borrow_mut().assignments.push(done_assign);
+
+                        // Cleanup: Add a transition from last state to the first state.
+                        let reset_fsm = build_assignments!(self.builder;
+                            fsm["in"] = last_guard ? signal_off["out"];
+                            fsm["write_en"] = last_guard ? signal_on["out"];
+                        );
+                        self.builder
+                            .component
+                            .continuous_assignments
+                            .extend(reset_fsm);
+
+                        group
+                    }
+
+                    Some(slicer) => {
+                        let fsm_to_slicer_assign =
+                            self.builder.build_assignment(
+                                slicer.borrow().get("in"),
+                                fsm.borrow().get("out"),
+                                ir::Guard::True,
+                            );
+                        let last_guard =
+                            guard!(slicer["out"] == signal_on["out"]);
+                        let done_assign = self.builder.build_assignment(
+                            group.borrow().get("done"),
+                            signal_on.borrow().get("out"),
+                            last_guard.clone(),
+                        );
+                        group
+                            .borrow_mut()
+                            .assignments
+                            .push(fsm_to_slicer_assign);
+                        group.borrow_mut().assignments.push(done_assign);
+
+                        // Cleanup: Add a transition from last state to the first state.
+                        let reset_fsm = build_assignments!(self.builder;
+                            fsm["in"] = last_guard ? signal_off["out"];
+                            fsm["write_en"] = last_guard ? signal_on["out"];
+                        );
+                        self.builder
+                            .component
+                            .continuous_assignments
+                            .extend(reset_fsm);
+
+                        group
+                    }
                 }
             }
         }
     }
+}
 
 /// Represents an edge from a predeccesor to the current control node.
 /// The `u64` represents the FSM state of the predeccesor and the guard needs
