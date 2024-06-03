@@ -2,7 +2,7 @@ use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{run, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error, fmt::Display};
 
 #[derive(PartialEq)]
 enum Destination {
@@ -225,13 +225,34 @@ impl Driver {
 }
 
 pub struct DriverBuilder {
-    name: String,
+    pub name: String,
     setups: PrimaryMap<SetupRef, Setup>,
     states: PrimaryMap<StateRef, State>,
     ops: PrimaryMap<OpRef, Operation>,
     rsrc_dir: Option<Utf8PathBuf>,
     rsrc_files: Option<FileData>,
 }
+
+#[derive(Debug)]
+pub enum DriverError {
+    UnknownState(String),
+    UnknownSetup(String),
+}
+
+impl Display for DriverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DriverError::UnknownState(state) => {
+                write!(f, "Unknown state: {state}")
+            }
+            DriverError::UnknownSetup(setup) => {
+                write!(f, "Unknown state: {setup}")
+            }
+        }
+    }
+}
+
+impl Error for DriverError {}
 
 impl DriverBuilder {
     pub fn new(name: &str) -> Self {
@@ -252,21 +273,12 @@ impl DriverBuilder {
         })
     }
 
-    fn add_op<T: run::EmitBuild + 'static>(
-        &mut self,
-        name: &str,
-        setups: &[SetupRef],
-        input: StateRef,
-        output: StateRef,
-        emit: T,
-    ) -> OpRef {
-        self.ops.push(Operation {
-            name: name.into(),
-            setups: setups.into(),
-            input,
-            output,
-            emit: Box::new(emit),
-        })
+    pub fn find_state(&self, needle: &str) -> Result<StateRef, DriverError> {
+        self.states
+            .iter()
+            .find(|(_, State { name, .. })| needle == name)
+            .map(|(state_ref, _)| state_ref)
+            .ok_or_else(|| DriverError::UnknownState(needle.to_string()))
     }
 
     pub fn add_setup<T: run::EmitSetup + 'static>(
@@ -282,6 +294,31 @@ impl DriverBuilder {
 
     pub fn setup(&mut self, name: &str, func: run::EmitSetupFn) -> SetupRef {
         self.add_setup(name, func)
+    }
+
+    pub fn find_setup(&self, needle: &str) -> Result<SetupRef, DriverError> {
+        self.setups
+            .iter()
+            .find(|(_, Setup { name, .. })| needle == name)
+            .map(|(setup_ref, _)| setup_ref)
+            .ok_or_else(|| DriverError::UnknownSetup(needle.to_string()))
+    }
+
+    pub fn add_op<T: run::EmitBuild + 'static>(
+        &mut self,
+        name: &str,
+        setups: &[SetupRef],
+        input: StateRef,
+        output: StateRef,
+        emit: T,
+    ) -> OpRef {
+        self.ops.push(Operation {
+            name: name.into(),
+            setups: setups.into(),
+            input,
+            output,
+            emit: Box::new(emit),
+        })
     }
 
     pub fn op(

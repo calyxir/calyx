@@ -105,6 +105,9 @@ pub struct CellShare {
     /// to the start of the par) that group is live
     par_timing_map: StaticParTiming,
 
+    //name of main (we know main will only be run once)
+    main: ir::Id,
+
     // ========= Pass Options ============
     /// The number of times a given class of cell can be shared. bounds should be
     /// length 3 to hold the 3 classes: comb cells, registers, and everything else
@@ -170,6 +173,7 @@ impl ConstructVisitor for CellShare {
             state_shareable,
             shareable,
             par_timing_map: StaticParTiming::default(),
+            main: ctx.entrypoint,
             share_freqs: HashMap::new(),
             calyx_2020: opts["calyx-2020"].bool(),
             bounds: opts["bounds"].num_list_exact::<3>(),
@@ -207,12 +211,20 @@ impl CellShare {
                 .map(|cell| cell.borrow().name()),
         );
 
+        // We know main will only ever execute once
+        // If the component is shareable, then we know it completley overwrites
+        // state at each invocation and is therefore fine to treat as if it
+        // runs once (i.e., state doesn't live beyond a single invocation).
+        let only_run_once = comp.name == self.main
+            || comp.attributes.has(ir::BoolAttr::StateShare);
+
         // TODO(rachit): Pass cont_ref_cells to LiveRangeAnalysis so that it ignores unneccessary
         // cells.
         self.live = LiveRangeAnalysis::new(
             &mut comp.control.borrow_mut(),
             self.state_shareable.clone(),
             self.shareable.clone(),
+            only_run_once,
         );
 
         self.par_timing_map = StaticParTiming::new(
