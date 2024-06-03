@@ -7,8 +7,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
   wires {
     group invoke0 {
       value.in = i.value_in;
-      i.value_out = value.out;
       value.write_en = i.value_write_en;
+      i.value_out = value.out;
       i.value_done = value.done;
       i.go = 1'd1;
       invoke0[done] = i.done;
@@ -27,9 +27,9 @@ component incr(@go go: 1, @clk clk: 1, @reset reset: 1, value_out: 32, value_don
   wires {
     group invoke0 {
       value_in = ih.value_in;
-      ih.value_done = value_done;
-      ih.value_out = value_out;
       value_write_en = ih.value_write_en;
+      ih.value_out = value_out;
+      ih.value_done = value_done;
       ih.go = 1'd1;
       invoke0[done] = ih.done;
     }
