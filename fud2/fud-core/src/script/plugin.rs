@@ -40,22 +40,15 @@ fn to_setup_refs(
 }
 
 pub trait LoadPlugins {
+    /// Run the scripts in the given paths, adding them to the driver's configuration.
+    fn run_scripts(self, paths: &[PathBuf]) -> Self;
+
+    /// Load all the plugins specified in the configuration file.
     fn load_plugins(self) -> Self;
 }
 
 impl LoadPlugins for DriverBuilder {
-    fn load_plugins(self) -> Self {
-        // get list of plugins
-        let config = config::load_config(&self.name);
-        let plugin_files = match config.extract_inner::<Vec<PathBuf>>("plugins")
-        {
-            Ok(v) => v,
-            Err(_) => {
-                // No plugins to load.
-                return self;
-            }
-        };
-
+    fn run_scripts(self, paths: &[PathBuf]) -> Self {
         // wrap driver in a ref cell, so that we can call it from a
         // Rhai context
         let this = Rc::new(RefCell::new(self));
@@ -89,7 +82,7 @@ impl LoadPlugins for DriverBuilder {
             // go through each plugin file, and execute the script which adds a plugin
             // we need to define the following two functions in the loop because they
             // need the ast of the current file
-            for path in plugin_files {
+            for path in paths {
                 // compile the file into an Ast
                 let ast = engine.compile_file(path.clone()).unwrap();
 
@@ -152,5 +145,22 @@ impl LoadPlugins for DriverBuilder {
         }
 
         Rc::into_inner(this).expect("Back into inner").into_inner()
+    }
+
+    fn load_plugins(self) -> Self {
+        // Get a list of plugins (paths to Rhai scripts) from the config file, if any.
+        // TODO: Let's try to avoid loading/parsing the configuration file here and
+        // somehow reusing it from wherever we do that elsewhere.
+        let config = config::load_config(&self.name);
+        let plugin_files = match config.extract_inner::<Vec<PathBuf>>("plugins")
+        {
+            Ok(v) => v,
+            Err(_) => {
+                // No plugins to load.
+                return self;
+            }
+        };
+
+        self.run_scripts(&plugin_files)
     }
 }
