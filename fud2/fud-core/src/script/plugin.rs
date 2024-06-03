@@ -147,6 +147,20 @@ impl ScriptBuilder {
             },
         );
     }
+
+    /// Register all the builder functions in the engine.
+    fn register(
+        &self,
+        engine: &mut rhai::Engine,
+        path: &PathBuf,
+        ast: &rhai::AST,
+    ) {
+        self.reg_state(engine);
+        self.reg_get_state(engine);
+        self.reg_get_setup(engine);
+        self.reg_rule(engine, &path, &ast);
+        self.reg_op(engine, &path, &ast);
+    }
 }
 
 pub trait LoadPlugins {
@@ -168,20 +182,12 @@ impl LoadPlugins for DriverBuilder {
         {
             let mut engine = rhai::Engine::new();
 
-            // register AST independent functions
-            bld.reg_state(&mut engine);
-            bld.reg_get_state(&mut engine);
-            bld.reg_get_setup(&mut engine);
-
             // go through each plugin file, and execute the script which adds a plugin
-            // we need to define the following two functions in the loop because they
-            // need the ast of the current file
             for path in paths {
                 // compile the file into an Ast
                 let ast = engine.compile_file(path.clone()).unwrap();
 
-                bld.reg_rule(&mut engine, &path, &ast);
-                bld.reg_op(&mut engine, &path, &ast);
+                bld.register(&mut engine, path, &ast);
 
                 engine.run_ast(&ast).report(&path);
             }
