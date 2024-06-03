@@ -148,14 +148,18 @@ impl CompileInvoke {
             );
 
             // Mapping from canonical names of the ports of the ref cell to the
-            // new port defined on the signature of the component
+            // new port defined on the signature of the component. This has name of ref cell, not arg cell
             let Some(comp_ports) = self.port_names.get(&inv_comp) else {
                 unreachable!("component `{}` invoked but not already visited by the pass", inv_comp)
             };
 
             // The type of the cell is the same as the ref cell so we can
             // iterate over its ports and generate bindings for the ref cell.
-            for (canon, pr) in comp_ports {
+            for canon in comp_ports.keys() {
+                let in_cell_borrowed = in_cell.borrow();
+                let pr = in_cell_borrowed.ports.iter().find(|&p| p.borrow().name == canon.port)
+                .unwrap_or_else(|| {unreachable!("port `{}` not found in the cell `{}`", canon.port, in_cell.borrow().name())});
+                
                 let port = pr.borrow();
                 if port.has_attribute(ir::BoolAttr::Clk)
                     || port.has_attribute(ir::BoolAttr::Reset)
