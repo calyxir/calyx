@@ -124,7 +124,7 @@ impl Driver {
         }
     }
 
-    /// Concot a plan to carry out the requested build.
+    /// Concoct a plan to carry out the requested build.
     ///
     /// This works by searching for a path through the available operations from the input state
     /// to the output state. If no such path exists in the operation graph, we return None.
