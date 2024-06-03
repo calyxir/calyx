@@ -47,8 +47,14 @@ impl LoadPlugins for DriverBuilder {
     fn load_plugins(self) -> Self {
         // get list of plugins
         let config = config::load_config(&self.name);
-        let plugin_files =
-            config.extract_inner::<Vec<PathBuf>>("plugins").unwrap();
+        let plugin_files = match config.extract_inner::<Vec<PathBuf>>("plugins")
+        {
+            Ok(v) => v,
+            Err(_) => {
+                // No plugins to load.
+                return self;
+            }
+        };
 
         // wrap driver in a ref cell, so that we can call it from a
         // Rhai context
