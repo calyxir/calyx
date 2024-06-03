@@ -399,7 +399,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     let fsm = prim std_reg(fsm_size);
                     let signal_on = constant(1, 1);
                     let signal_off = constant(0, fsm_size);
-                    let last_state = constant(u64::pow(2, (final_state - 1).try_into().expect("failed to convert to u32")), fsm_size);
+                    // let last_state = constant(u64::pow(2, (final_state - 1).try_into().expect("failed to convert to u32")), fsm_size);
                 );
 
                 // Enable assignments
@@ -433,16 +433,19 @@ impl<'b, 'a> Schedule<'b, 'a> {
                                             fsm.borrow().get("out"), 
                                             ir::Guard::True
                                         );
+
+                                        // add continuous assignments to slicer
+                                        self.builder.component.continuous_assignments.push(fsm_to_slicer);
+
                                         let state_guard = guard!(slicer["out"] == signal_on["out"]);
                                         assigns.iter_mut().for_each(|asgn| {
                                             asgn.guard
                                             .update(|g| g.and(state_guard.clone()))
                                         });
                                         used_slicers.insert(state - 1, slicer);
-                                        assigns.push(fsm_to_slicer);
                                         assigns
                                     },
-                              
+
                                     Some(slicer) => {
 
                                         let state_guard = guard!(slicer["out"] == signal_on["out"]);
@@ -513,9 +516,14 @@ impl<'b, 'a> Schedule<'b, 'a> {
                                                 slicer.borrow().get("in"),
                                                 fsm.borrow().get("out"), 
                                                 ir::Guard::True);
+
                                             used_slicers.insert(s - 1, slicer);
+
+                                            // add assignments to slicer
+                                            self.builder.component.continuous_assignments.push(fsm_to_slicer);
+
+                                            // return fsm transition and next state assignments
                                             vec![
-                                                fsm_to_slicer,
                                                 self.builder.build_assignment(
                                                     fsm.borrow().get("in"),
                                                     ec_borrow.get("out"),
@@ -558,49 +566,24 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 );
 
                 // Done condition for group
-                // structure!(
-                //     self.builder;
-                //     let slicer = prim std_bit_slice(fsm_size, final_state - 1, final_state - 1, 1);
-                // );
-                // let fsm_to_slicer_assign = self.builder.build_assignment(
-                //     slicer.borrow().get("in"),
-                //     fsm.borrow().get("out"),
-                //     ir::Guard::True,
-                // );
-                // let last_guard = guard!(slicer["out"] == signal_on["out"]);
-                // let done_assign = self.builder.build_assignment(
-                //     group.borrow().get("done"),
-                //     signal_on.borrow().get("out"),
-                //     last_guard.clone(),
-                // );
+                structure!(
+                    self.builder;
+                    let slicer = prim std_bit_slice(fsm_size, final_state - 1, final_state - 1, 1);
+                );
 
-                // group.borrow_mut().assignments.push(fsm_to_slicer_assign);
-                // group.borrow_mut().assignments.push(done_assign);
-
-                // // Cleanup: Add a transition from last state to the first state.
-                // let reset_fsm = build_assignments!(self.builder;
-                //     fsm["in"] = last_guard ? signal_off["out"];
-                //     fsm["write_en"] = last_guard ? signal_on["out"];
-                // );
-                // self.builder
-                //     .component
-                //     .continuous_assignments
-                //     .extend(reset_fsm);
-
-                // group
-
-                // BEGIN ORIGINAL
-
-                let last_guard = guard!(fsm["out"] == last_state["out"]);
+                let last_guard = guard!(slicer["out"] == signal_on["out"]);
                 let done_assign = self.builder.build_assignment(
                     group.borrow().get("done"),
                     signal_on.borrow().get("out"),
                     last_guard.clone(),
                 );
+
                 group.borrow_mut().assignments.push(done_assign);
 
+                // Add msb slicer as continuous assignment
                 // Cleanup: Add a transition from last state to the first state.
                 let reset_fsm = build_assignments!(self.builder;
+                    slicer["in"] = ? fsm["out"];
                     fsm["in"] = last_guard ? signal_off["out"];
                     fsm["write_en"] = last_guard ? signal_on["out"];
                 );
@@ -610,8 +593,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     .extend(reset_fsm);
 
                 group
-
-                // END ORIGINAL
             }
         }
     }
