@@ -390,7 +390,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
             }
             Encoding::OneHot => {
                 // data structure to store used slicers, to avoid repeats
-                let used_slicers: HashMap<u64, ir::RRC<ir::Cell>> =
+                let mut used_slicers: HashMap<u64, ir::RRC<ir::Cell>> =
                     HashMap::new();
 
                 let fsm_size = final_state; /* represent 0..final_state */
@@ -399,6 +399,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     let fsm = prim std_reg(fsm_size);
                     let signal_on = constant(1, 1);
                     let signal_off = constant(0, fsm_size);
+                    let last_state = constant(u64::pow(2, (final_state - 1).try_into().expect("failed to convert to u32")), fsm_size);
                 );
 
                 // Enable assignments
@@ -425,7 +426,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                                     None => {
                                         structure!(
                                             self.builder;
-                                            let slicer = prim std_bit_slice(fsm_size, state - 1, state, 1);
+                                            let slicer = prim std_bit_slice(fsm_size, state - 1, state - 1, 1);
                                         );
                                         let fsm_to_slicer = self.builder.build_assignment(
                                             slicer.borrow().get("in"), 
@@ -437,9 +438,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
                                             asgn.guard
                                             .update(|g| g.and(state_guard.clone()))
                                         });
+                                        used_slicers.insert(state - 1, slicer);
                                         assigns.push(fsm_to_slicer);
                                         assigns
                                     },
+                              
                                     Some(slicer) => {
 
                                         let state_guard = guard!(slicer["out"] == signal_on["out"]);
@@ -502,7 +505,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                                             structure!(
                                                 self.builder;
                                                 let end_const = constant(end_constant_value, fsm_size);
-                                                let slicer = prim std_bit_slice(fsm_size, s - 1, s, 1);
+                                                let slicer = prim std_bit_slice(fsm_size, s - 1, s - 1, 1);
                                             );
                                             let ec_borrow = end_const.borrow();
                                             let trans_guard = guard!((slicer["out"] == signal_on["out"]) & guard);
@@ -510,6 +513,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                                                 slicer.borrow().get("in"),
                                                 fsm.borrow().get("out"), 
                                                 ir::Guard::True);
+                                            used_slicers.insert(s - 1, slicer);
                                             vec![
                                                 fsm_to_slicer,
                                                 self.builder.build_assignment(
@@ -523,8 +527,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
                                                     trans_guard,
                                                 ),
                                             ]
+
                                         },
                                         Some(slicer) => {
+                                            println!("bruh");
                                             structure!(
                                                 self.builder;
                                                 let end_const = constant(end_constant_value, fsm_size);
@@ -552,78 +558,61 @@ impl<'b, 'a> Schedule<'b, 'a> {
                     ),
                 );
 
-                // done condition for group
-                match used_slicers.get(&(final_state - 1)) {
-                    None => {
-                        structure!(
-                            self.builder;
-                            let slicer = prim std_bit_slice(fsm_size, final_state - 1, final_state - 1, 1);
-                        );
-                        let fsm_to_slicer_assign =
-                            self.builder.build_assignment(
-                                slicer.borrow().get("in"),
-                                fsm.borrow().get("out"),
-                                ir::Guard::True,
-                            );
-                        let last_guard =
-                            guard!(slicer["out"] == signal_on["out"]);
-                        let done_assign = self.builder.build_assignment(
-                            group.borrow().get("done"),
-                            signal_on.borrow().get("out"),
-                            last_guard.clone(),
-                        );
-                        group
-                            .borrow_mut()
-                            .assignments
-                            .push(fsm_to_slicer_assign);
-                        group.borrow_mut().assignments.push(done_assign);
+                // Done condition for group
+                // structure!(
+                //     self.builder;
+                //     let slicer = prim std_bit_slice(fsm_size, final_state - 1, final_state - 1, 1);
+                // );
+                // let fsm_to_slicer_assign = self.builder.build_assignment(
+                //     slicer.borrow().get("in"),
+                //     fsm.borrow().get("out"),
+                //     ir::Guard::True,
+                // );
+                // let last_guard = guard!(slicer["out"] == signal_on["out"]);
+                // let done_assign = self.builder.build_assignment(
+                //     group.borrow().get("done"),
+                //     signal_on.borrow().get("out"),
+                //     last_guard.clone(),
+                // );
 
-                        // Cleanup: Add a transition from last state to the first state.
-                        let reset_fsm = build_assignments!(self.builder;
-                            fsm["in"] = last_guard ? signal_off["out"];
-                            fsm["write_en"] = last_guard ? signal_on["out"];
-                        );
-                        self.builder
-                            .component
-                            .continuous_assignments
-                            .extend(reset_fsm);
+                // group.borrow_mut().assignments.push(fsm_to_slicer_assign);
+                // group.borrow_mut().assignments.push(done_assign);
 
-                        group
-                    }
+                // // Cleanup: Add a transition from last state to the first state.
+                // let reset_fsm = build_assignments!(self.builder;
+                //     fsm["in"] = last_guard ? signal_off["out"];
+                //     fsm["write_en"] = last_guard ? signal_on["out"];
+                // );
+                // self.builder
+                //     .component
+                //     .continuous_assignments
+                //     .extend(reset_fsm);
 
-                    Some(slicer) => {
-                        let fsm_to_slicer_assign =
-                            self.builder.build_assignment(
-                                slicer.borrow().get("in"),
-                                fsm.borrow().get("out"),
-                                ir::Guard::True,
-                            );
-                        let last_guard =
-                            guard!(slicer["out"] == signal_on["out"]);
-                        let done_assign = self.builder.build_assignment(
-                            group.borrow().get("done"),
-                            signal_on.borrow().get("out"),
-                            last_guard.clone(),
-                        );
-                        group
-                            .borrow_mut()
-                            .assignments
-                            .push(fsm_to_slicer_assign);
-                        group.borrow_mut().assignments.push(done_assign);
+                // group
 
-                        // Cleanup: Add a transition from last state to the first state.
-                        let reset_fsm = build_assignments!(self.builder;
-                            fsm["in"] = last_guard ? signal_off["out"];
-                            fsm["write_en"] = last_guard ? signal_on["out"];
-                        );
-                        self.builder
-                            .component
-                            .continuous_assignments
-                            .extend(reset_fsm);
+                // BEGIN ORIGINAL
 
-                        group
-                    }
-                }
+                let last_guard = guard!(fsm["out"] == last_state["out"]);
+                let done_assign = self.builder.build_assignment(
+                    group.borrow().get("done"),
+                    signal_on.borrow().get("out"),
+                    last_guard.clone(),
+                );
+                group.borrow_mut().assignments.push(done_assign);
+
+                // Cleanup: Add a transition from last state to the first state.
+                let reset_fsm = build_assignments!(self.builder;
+                    fsm["in"] = last_guard ? signal_off["out"];
+                    fsm["write_en"] = last_guard ? signal_on["out"];
+                );
+                self.builder
+                    .component
+                    .continuous_assignments
+                    .extend(reset_fsm);
+
+                group
+
+                // END ORIGINAL
             }
         }
     }
