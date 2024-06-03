@@ -55,43 +55,47 @@ impl ScriptContext {
     }
 }
 
-struct ScriptContextRef(Rc<RefCell<ScriptContext>>);
+struct ScriptRunner {
+    ctx: Rc<RefCell<ScriptContext>>,
+}
 
-impl ScriptContextRef {
+impl ScriptRunner {
     fn new(builder: DriverBuilder, path: &PathBuf, ast: &rhai::AST) -> Self {
         // TODO: Consider removing the `clone`s here. We can probably just recover the stuff.
-        Self(Rc::new(RefCell::new(ScriptContext {
-            builder,
-            path: path.clone(),
-            ast: ast.clone(),
-        })))
+        Self {
+            ctx: Rc::new(RefCell::new(ScriptContext {
+                builder,
+                path: path.clone(),
+                ast: ast.clone(),
+            })),
+        }
     }
 
     /// Obtain the wrapped `DriverBuilder`. Panic if other references (from the
     /// script, for example) still exist.
-    fn unwrap(self) -> DriverBuilder {
-        Rc::into_inner(self.0)
+    fn unwrap_builder(self) -> DriverBuilder {
+        Rc::into_inner(self.ctx)
             .expect("script references still live")
             .into_inner()
             .builder
     }
 
     fn reg_state(&self, engine: &mut rhai::Engine) {
-        let this = self.0.clone();
+        let sctx = self.ctx.clone();
         engine.register_fn(
             "state",
             move |name: &str, extensions: rhai::Array| {
                 let v = to_str_slice(&extensions);
                 let v = v.iter().map(|x| &**x).collect::<Vec<_>>();
-                this.borrow_mut().builder.state(name, &v)
+                sctx.borrow_mut().builder.state(name, &v)
             },
         );
     }
 
     fn reg_get_state(&self, engine: &mut rhai::Engine) {
-        let this = self.0.clone();
+        let sctx = self.ctx.clone();
         engine.register_fn("get_state", move |state_name: &str| {
-            this.borrow()
+            sctx.borrow()
                 .builder
                 .find_state(state_name)
                 .map_err(to_rhai_err)
@@ -99,9 +103,9 @@ impl ScriptContextRef {
     }
 
     fn reg_get_setup(&self, engine: &mut rhai::Engine) {
-        let this = self.0.clone();
+        let sctx = self.ctx.clone();
         engine.register_fn("get_setup", move |setup_name: &str| {
-            this.borrow()
+            sctx.borrow()
                 .builder
                 .find_setup(setup_name)
                 .map_err(to_rhai_err)
@@ -109,7 +113,7 @@ impl ScriptContextRef {
     }
 
     fn reg_rule(&self, engine: &mut rhai::Engine) {
-        let this = self.0.clone();
+        let sctx = self.ctx.clone();
         engine.register_fn::<_, 4, true, OpRef, true, _>(
             "rule",
             move |ctx: rhai::NativeCallContext,
@@ -117,7 +121,7 @@ impl ScriptContextRef {
                   input: StateRef,
                   output: StateRef,
                   rule_name: &str| {
-                let mut sctx = this.borrow_mut();
+                let mut sctx = sctx.borrow_mut();
                 let setups = sctx.to_setup_refs(&ctx, setups)?;
                 Ok(sctx.builder.rule(&setups, input, output, rule_name))
             },
@@ -125,7 +129,7 @@ impl ScriptContextRef {
     }
 
     fn reg_op(&self, engine: &mut rhai::Engine) {
-        let this = self.0.clone();
+        let sctx = self.ctx.clone();
         engine.register_fn::<_, 5, true, OpRef, true, _>(
             "op",
             move |ctx: rhai::NativeCallContext,
@@ -134,7 +138,7 @@ impl ScriptContextRef {
                   input: StateRef,
                   output: StateRef,
                   build: rhai::FnPtr| {
-                let mut sctx = this.borrow_mut();
+                let mut sctx = sctx.borrow_mut();
                 let setups = sctx.to_setup_refs(&ctx, setups)?;
                 let rctx = RhaiSetupCtx {
                     path: sctx.path.clone(),
@@ -172,13 +176,13 @@ impl LoadPlugins for DriverBuilder {
         let ast = engine.compile_file(path.clone()).unwrap(); // Compile script to AST.
 
         // Register all top-level functions.
-        let bld = ScriptContextRef::new(self, path, &ast);
+        let bld = ScriptRunner::new(self, path, &ast);
         bld.register(&mut engine);
 
         engine.run_ast(&ast).report(&path); // Run the script.
 
         std::mem::drop(engine); // Drop references to the context.
-        bld.unwrap()
+        bld.unwrap_builder()
     }
 
     fn load_scripts(mut self, paths: &[PathBuf]) -> Self {
