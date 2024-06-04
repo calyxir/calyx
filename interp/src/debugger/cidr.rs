@@ -102,7 +102,7 @@ impl Debugger {
         let pm = PassManager::default_passes()?;
 
         // if !opts.skip_verification
-        pm.execute_plan(&mut ctx, &["validate".to_string()], &[], false)?;
+        pm.execute_plan(&mut ctx, &["validate".to_string()], &[], &[], false)?;
 
         let entry_point = ctx.entrypoint;
 
