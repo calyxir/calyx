@@ -222,7 +222,27 @@ impl<'a> Run<'a> {
         cmd.current_dir(&dir.path);
 
         if !self.global_config.verbose {
-            cmd.arg("--quiet");
+            // Get `ninja` version
+            let pass_quiet = {
+                let version_output = Command::new(&self.global_config.ninja)
+                    .arg("--version")
+                    .output()?;
+                if let Ok(version) = String::from_utf8(version_output.stdout) {
+                    let parts: Vec<&str> = version.split('.').collect();
+                    if parts.len() >= 2 {
+                        let major = parts[0].parse::<u32>().unwrap_or(0);
+                        let minor = parts[1].parse::<u32>().unwrap_or(0);
+                        major > 1 || (major == 1 && minor >= 11)
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            };
+            if pass_quiet {
+                cmd.arg("--quiet");
+            }
         } else {
             cmd.arg("--verbose");
         }
