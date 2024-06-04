@@ -83,13 +83,19 @@ tests.
 
 [The Calyx driver](./running-calyx/fud) wraps the various compiler frontends and
 backends to simplify running Calyx programs.
+Start at the root of the repository.
 
 Install [Flit][]:
 ```
 pip3 install flit
 ```
 
-Install `fud` (from the root of the repository):
+Install [`calyx-py`](builder/calyx-py.md):
+```
+cd calyx-py && flit install -s && cd -
+```
+
+Install `fud`:
 ```
 flit -f fud/pyproject.toml install -s --deps production
 ```

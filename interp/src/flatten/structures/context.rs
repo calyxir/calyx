@@ -368,4 +368,8 @@ impl Context {
             },
         }
     }
+
+    pub fn lookup_string(&self, id: Identifier) -> &String {
+        self.secondary.string_table.lookup_string(&id).unwrap()
+    }
 }

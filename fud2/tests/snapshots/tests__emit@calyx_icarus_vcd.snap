@@ -9,8 +9,11 @@ rule get-rsrc
 # Calyx compiler
 calyx-base = /test/calyx
 calyx-exe = $calyx-base/target/debug/calyx
+args = 
 rule calyx
   command = $calyx-exe -l $calyx-base -b $backend $args $in > $out
+rule calyx-pass
+  command = $calyx-exe -l $calyx-base -p $pass $args $in > $out
 
 # RTL simulation
 python = python3
@@ -19,7 +22,6 @@ rule hex-data
   command = $python json-dat.py --from-json $in $out
 rule json-data
   command = $python json-dat.py --to-json $out $in
-build tb.sv: get-rsrc
 sim_data = /test/data.json
 datadir = sim_data
 build $datadir: hex-data $sim_data | json-dat.py
@@ -27,16 +29,21 @@ rule sim-run
   command = ./$bin +DATA=$datadir +CYCLE_LIMIT=$cycle-limit $args > $out
 cycle-limit = 500000000
 
+# Standalone Testbench Setup
+build tb.sv: get-rsrc
+
 # Icarus Verilog
 iverilog = iverilog
-rule icarus-compile
+rule icarus-compile-standalone-tb
   command = $iverilog -g2012 -o $out tb.sv $in
+rule icarus-compile-custom-tb
+  command = $iverilog -g2012 -o $out tb.sv memories.sv $in
 
 # build targets
 build stdin.sv: calyx stdin
   backend = verilog
   args = --disable-verify
-build stdin.exe: icarus-compile stdin.sv | tb.sv
+build stdin.exe: icarus-compile-standalone-tb stdin.sv | tb.sv
 build sim.log stdin.vcd: sim-run stdin.exe $datadir
   bin = stdin.exe
   args = +NOTRACE=0 +OUT=stdin.vcd

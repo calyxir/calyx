@@ -1,0 +1,52 @@
+import "primitives/core.futil";
+import "primitives/memories/seq.futil";
+import "primitives/binary_operators.futil";
+component memsto(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    ref mem = seq_mem_d1(32, 3, 8);
+    i = std_reg(8);
+    j = std_reg(8);
+    i_incr = std_add(8);
+  }
+  wires {
+    group mem_store {
+      mem.addr0 = i.out;
+      mem.write_en = 1'd1;
+      mem.write_data = 32'd4;
+      mem.content_en = 1'd1;
+      mem_store[done] = mem.done;
+    }
+    group i_incr_group {
+      i_incr.left = i.out;
+      i_incr.right = 8'd1;
+      i.write_en = 1'd1;
+      i.in = i_incr.out;
+      i_incr_group[done] = i.done;
+    }
+    group zero_out_j {
+      j.in = 8'd0;
+      j.write_en = 1'd1;
+      zero_out_j[done] = j.done;
+    }
+  }
+  control {
+    seq {
+      mem_store;
+      i_incr_group;
+      zero_out_j;
+    }
+  }
+}
+component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
+  cells {
+    memsto = memsto();
+    @external mem = seq_mem_d1(32, 3, 8);
+  }
+  wires {}
+  control {
+    seq {
+      invoke memsto[mem = mem]()();
+      invoke memsto[mem = mem]()();
+    }
+  }
+}

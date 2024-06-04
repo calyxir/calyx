@@ -148,7 +148,8 @@ where
     // Construct the adapter
     let mut adapter = MyAdapter::new(program_path, std_path)?;
 
-    //Make two threads to make threads visible on call stack, subject to change.
+    // Currently, we need two threads to run the debugger and step through,
+    // not sure why but would be good to look into for the future.
     let thread = &adapter.create_thread(String::from("Main"));
     let thread2 = &adapter.create_thread(String::from("Thread 1"));
 
@@ -199,7 +200,6 @@ fn run_server<R: Read, W: Write>(
                 }
             }
 
-            // TODO: Implement this request fully when adapter becomes functional
             Command::SetExceptionBreakpoints(_) => {
                 let rsp = req.success(ResponseBody::SetExceptionBreakpoints(
                     SetExceptionBreakpointsResponse {
@@ -313,7 +313,6 @@ fn run_server<R: Read, W: Write>(
             }
             Command::Scopes(_) => {
                 let rsp = req.success(ResponseBody::Scopes(ScopesResponse {
-                    // TODO: Understand vectors
                     scopes: vec![],
                 }));
                 server.respond(rsp)?;

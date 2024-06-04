@@ -2,7 +2,6 @@ use crate::error::AdapterResult;
 use dap::types::{Breakpoint, Source, SourceBreakpoint, StackFrame, Thread};
 use interp::debugger::source::structures::NewSourceMap;
 use interp::debugger::Debugger;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub struct MyAdapter {
@@ -18,13 +17,12 @@ pub struct MyAdapter {
     ids: NewSourceMap,
 }
 
-// New metadata in interp/debugger
-
 impl MyAdapter {
     pub fn new(path: &str, std_path: PathBuf) -> AdapterResult<Self> {
+        let (debugger, metadata) =
+            Debugger::from_file(&PathBuf::from(path), &std_path).unwrap();
         Ok(MyAdapter {
-            debugger: Debugger::from_file(&PathBuf::from(path), &std_path)
-                .unwrap(),
+            debugger,
             break_count: Counter::new(),
             thread_count: Counter::new(),
             stack_count: Counter::new(),
@@ -32,7 +30,7 @@ impl MyAdapter {
             stack_frames: Vec::new(),
             threads: Vec::new(),
             source: path.to_string(),
-            ids: create_map(),
+            ids: metadata,
         })
     }
     ///Set breakpoints for adapter
@@ -80,8 +78,8 @@ impl MyAdapter {
     pub fn create_stack(&mut self) -> Vec<StackFrame> {
         let frame = StackFrame {
             id: self.stack_count.increment(),
-            // TODO: edit name field
-            name: String::from("Hi"),
+            // Maybe automate the name in the future?
+            name: String::from("Frame"),
             source: Some(Source {
                 name: None,
                 path: Some(self.source.clone()),
@@ -111,22 +109,25 @@ impl MyAdapter {
     }
 
     pub fn next_line(&mut self, _thread: i64) -> bool {
+        // Step through once
         let status = self.debugger.step(1).unwrap();
 
         // Check if done:
         if status.get_done() {
+            // Give bool to exit the debugger
             true
         } else {
-            let map = status.get_status().clone();
-            // Declare line number beforehand
+            let map = status.get_status();
             let mut line_number = 0;
-            // Return -1 should a lookup not be found. This really shouldn't
-            // happen though
+            // Implemented for loop for when more than 1 group is running,
+            // the code for now goes to the line of the last group running in the map, should deal
+            // with this in the future for when groups run in parallel.
             for id in map {
-                let value = *self.ids.lookup(id.to_string()).unwrap_or(&-1);
+                let value = self.ids.lookup(id.to_string()).unwrap().line;
                 line_number = value;
             }
-            self.stack_frames[0].line = line_number;
+            // Set line of the stack frame and tell debugger we're not finished.
+            self.stack_frames[0].line = line_number as i64;
             false
         }
     }
@@ -172,13 +173,4 @@ pub fn make_breakpoint(
         instruction_reference: None,
         offset: None,
     }
-}
-
-// Hardcode mapping for now, this mapping is for reg_seq.futil
-fn create_map() -> NewSourceMap {
-    let mut hashmap = HashMap::new();
-    // Hardcode
-    hashmap.insert(String::from("wr_reg0"), 10);
-    hashmap.insert(String::from("wr_reg1"), 15);
-    NewSourceMap::from(hashmap)
 }

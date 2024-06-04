@@ -41,13 +41,14 @@
 # Generating Calyx
 
 - [Emitting Calyx from Python](./builder/calyx-py.md)
-  - [`calyx-py` Builder Reference](./builder/ref.md)
+  - [Builder Library Walkthrough](./builder/walkthrough.md)
 - [Frontend Tutorial](./tutorial/frontend-tut.md)
 - [Frontend Compilers](./frontends/index.md)
   - [Dahlia](./frontends/dahlia.md)
   - [Systolic Array Generator](./frontends/systolic-array.md)
   - [TVM Relay](./frontends/tvm-relay.md)
   - [NTT Pipeline Generator](./frontends/ntt.md)
+  - [Queues](./frontends/queues.md)
   - [MrXL](./frontends/mrxl.md)
 
 # Tools

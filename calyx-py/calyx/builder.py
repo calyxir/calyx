@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Dict, Union, Optional, List
+from typing import Dict, Tuple, Union, Optional, List
 from dataclasses import dataclass
 from . import py_ast as ast
 
@@ -35,10 +35,16 @@ class Builder:
         self.import_("primitives/core.futil")
         self._index: Dict[str, ComponentBuilder] = {}
 
-    def component(self, name: str, cells=None, latency=None) -> ComponentBuilder:
+    def component(self, name: str, latency=None) -> ComponentBuilder:
         """Create a new component builder."""
-        cells = cells or []
-        comp_builder = ComponentBuilder(self, name, cells, latency)
+        comp_builder = ComponentBuilder(self, name, latency)
+        self.program.components.append(comp_builder.component)
+        self._index[name] = comp_builder
+        return comp_builder
+
+    def comb_component(self, name: str) -> ComponentBuilder:
+        """Create a new combinational component builder."""
+        comp_builder = ComponentBuilder(self, name, is_comb=True)
         self.program.components.append(comp_builder.component)
         self._index[name] = comp_builder
         return comp_builder
@@ -67,25 +73,32 @@ class ComponentBuilder:
         self,
         prog: Builder,
         name: str,
-        cells: Optional[List[ast.Cell]] = None,
         latency: Optional[int] = None,
+        is_comb: bool = False,
     ):
-        """Contructs a new component in the current program. If `cells` is
-        provided, the component will be initialized with those cells."""
-        cells = cells if cells else list()
+        """Contructs a new component in the current program."""
         self.prog = prog
-        self.component: ast.Component = ast.Component(
-            name,
-            attributes=[],
-            inputs=[],
-            outputs=[],
-            structs=cells,
-            controls=ast.Empty(),
-            latency=latency,
+        self.component: Union[ast.Component, ast.CombComponent] = (
+            ast.Component(
+                name,
+                attributes=[],
+                inputs=[],
+                outputs=[],
+                structs=list(),
+                controls=ast.Empty(),
+                latency=latency,
+            )
+            if not is_comb
+            else ast.CombComponent(
+                name,
+                attributes=[],
+                inputs=[],
+                outputs=[],
+                structs=list(),
+            )
         )
+
         self.index: Dict[str, Union[GroupBuilder, CellBuilder]] = {}
-        for cell in cells:
-            self.index[cell.id.name] = CellBuilder(cell)
         self.continuous = GroupBuilder(None, self)
         self.next_gen_idx = 0
 
@@ -97,25 +110,64 @@ class ComponentBuilder:
             if name not in self.index:
                 return name
 
-    def input(self, name: str, size: int) -> ExprBuilder:
+    # Attributes are expected to be either just an attribute name or an (attribute name, value) tuple
+    RawPortAttr = Union[str, Tuple[str, int]]
+
+    def input(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an input port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.inputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
 
-    def output(self, name: str, size: int) -> ExprBuilder:
+        return self._port_with_attributes(name, size, True, attribute_literals)
+
+    def output(
+        self, name: str, size: int, attribute_literals: List[RawPortAttr] = []
+    ) -> ExprBuilder:
         """Declare an output port on the component.
 
         Returns an expression builder for the port.
         """
-        self.component.outputs.append(ast.PortDef(ast.CompVar(name), size))
-        return self.this()[name]
+        return self._port_with_attributes(name, size, False, attribute_literals)
 
     def attribute(self, name: str, value: int) -> None:
         """Declare an attribute on the component."""
         self.component.attributes.append(ast.CompAttribute(name, value))
+
+    def _port_with_attributes(
+        self,
+        name: str,
+        size: int,
+        is_input: bool,
+        attribute_literals: List[RawPortAttr],
+    ) -> ExprBuilder:
+        """Should not be called directly.
+        Declare a port on the component with attributes.
+
+        Returns an expression builder for the port.
+        """
+
+        attributes = []
+        for attr in attribute_literals:
+            if isinstance(attr, str):
+                attributes.append(ast.PortAttribute(attr))
+            elif isinstance(attr, tuple):
+                attributes.append(ast.PortAttribute(attr[0], attr[1]))
+            else:
+                raise ValueError(
+                    f"Attempted to add invalid attribute {attr} to {name}. `attr` should be either a `str` or (`str`, `int) tuple."
+                )
+        if is_input:
+            self.component.inputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
+        else:
+            self.component.outputs.append(
+                ast.PortDef(ast.CompVar(name), size, attributes)
+            )
+        return self.this()[name]
 
     def this(self) -> ThisBuilder:
         """Get a handle to the component's `this` cell.
@@ -128,10 +180,18 @@ class ComponentBuilder:
     @property
     def control(self) -> ControlBuilder:
         """Access the component's control program."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Combinational components do not have control programs."
+            )
         return ControlBuilder(self.component.controls)
 
     @control.setter
     def control(self, builder: Union[ast.Control, ControlBuilder]):
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Combinational components do not have control programs."
+            )
         if isinstance(builder, ControlBuilder):
             self.component.controls = builder.stmt
         else:
@@ -170,6 +230,8 @@ class ComponentBuilder:
 
     def get_group(self, name: str) -> GroupBuilder:
         """Retrieve a group builder by name."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -180,6 +242,8 @@ class ComponentBuilder:
 
     def try_get_group(self, name: str) -> GroupBuilder:
         """Tries to get a group builder by name. If cannot find it, return None"""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         out = self.index.get(name)
         if out and isinstance(out, GroupBuilder):
             return out
@@ -188,6 +252,8 @@ class ComponentBuilder:
 
     def group(self, name: str, static_delay: Optional[int] = None) -> GroupBuilder:
         """Create a new group with the given name and (optional) static delay."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         group = ast.Group(ast.CompVar(name), connections=[], static_delay=static_delay)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -198,6 +264,10 @@ class ComponentBuilder:
 
     def comb_group(self, name: str) -> GroupBuilder:
         """Create a new combinational group with the given name."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError(
+                "Combinational components do not have combinational groups."
+            )
         group = ast.CombGroup(ast.CompVar(name), connections=[])
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -207,7 +277,9 @@ class ComponentBuilder:
         return builder
 
     def static_group(self, name: str, latency: int) -> GroupBuilder:
-        """Create a new combinational group with the given name."""
+        """Create a new static group with the given name."""
+        if isinstance(self.component, ast.CombComponent):
+            raise AttributeError("Combinational components do not have groups.")
         group = ast.StaticGroup(ast.CompVar(name), connections=[], latency=latency)
         assert group not in self.component.wires, f"group '{name}' already exists"
 
@@ -263,8 +335,16 @@ class ComponentBuilder:
 
         return self.cell(cell_name, ast.CompInst(comp_name, []))
 
-    def reg(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
+    def reg(self, size: int, name: str = None, is_ref: bool = False) -> CellBuilder:
         """Generate a StdReg cell."""
+        assert isinstance(size, int), f"size {size} is not an int"
+        if name:
+            assert isinstance(name, str), f"name {name} is not a string"
+        if is_ref and not name:
+            raise ValueError(
+                "A register that will be passed by reference must have a name."
+            )
+        name = name or self.generate_name("reg")
         return self.cell(name, ast.Stdlib.register(size), False, is_ref)
 
     def wire(self, name: str, size: int, is_ref: bool = False) -> CellBuilder:
@@ -280,6 +360,20 @@ class ComponentBuilder:
     ) -> CellBuilder:
         """Generate a StdSlice cell."""
         return self.cell(name, ast.Stdlib.slice(in_width, out_width), False, is_ref)
+
+    def bit_slice(
+        self,
+        name,
+        in_width: int,
+        start: int,
+        end: int,
+        out_width: int,
+        is_ref: bool = False,
+    ) -> CellBuilder:
+        """Generate a StdBitSlice cell."""
+        return self.cell(
+            name, ast.Stdlib.bit_slice(in_width, start, end, out_width), False, is_ref
+        )
 
     def const(self, name: str, width: int, value: int) -> CellBuilder:
         """Generate a StdConstant cell."""
@@ -336,6 +430,18 @@ class ComponentBuilder:
         """Generate a StdSub cell."""
         return self.binary("sub", size, name, signed)
 
+    def div_pipe(
+        self, size: int, name: str = None, signed: bool = False
+    ) -> CellBuilder:
+        """Generate a Div_Pipe cell."""
+        return self.binary("div_pipe", size, name, signed)
+
+    def mult_pipe(
+        self, size: int, name: str = None, signed: bool = False
+    ) -> CellBuilder:
+        """Generate a Mult_Pipe cell."""
+        return self.binary("mult_pipe", size, name, signed)
+
     def gt(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
         """Generate a StdGt cell."""
         return self.binary("gt", size, name, signed)
@@ -364,6 +470,17 @@ class ComponentBuilder:
         """Generate a StdRsh cell."""
         return self.binary("rsh", size, name, signed)
 
+    def lsh(self, size: int, name: str = None, signed: bool = False) -> CellBuilder:
+        """Generate a StdLsh cell."""
+        return self.binary("lsh", size, name, signed)
+
+    def cat(self, left_width: int, right_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdCat cell."""
+        return self.cell(
+            name or self.generate_name("cat"),
+            ast.Stdlib.cat(left_width, right_width, left_width + right_width),
+        )
+
     def logic(self, operation, size: int, name: str = None) -> CellBuilder:
         """Generate a logical operator cell, of the flavor specified in `operation`."""
         name = name or self.generate_name(operation)
@@ -375,10 +492,28 @@ class ComponentBuilder:
         name = name or self.generate_name("and")
         return self.logic("and", size, name)
 
+    def or_(self, size: int, name: str = None) -> CellBuilder:
+        """Generate a StdOr cell."""
+        name = name or self.generate_name("or")
+        return self.logic("or", size, name)
+
     def not_(self, size: int, name: str = None) -> CellBuilder:
         """Generate a StdNot cell."""
         name = name or self.generate_name("not")
         return self.logic("not", size, name)
+
+    def const_mult(
+        self, size: int, const: int, name: Optional[str] = None
+    ) -> CellBuilder:
+        """Generate a StdConstMult cell."""
+        name = name or self.generate_name("const_mult")
+        self.prog.import_("primitives/binary_operators.futil")
+        return self.cell(name, ast.Stdlib.const_mult(size, const))
+
+    def pad(self, in_width: int, out_width: int, name: str = None) -> CellBuilder:
+        """Generate a StdPad cell."""
+        name = name or self.generate_name("pad")
+        return self.cell(name, ast.Stdlib.pad(in_width, out_width))
 
     def pipelined_mult(self, name: str) -> CellBuilder:
         """Generate a pipelined multiplier."""
@@ -457,6 +592,28 @@ class ComponentBuilder:
             cell.left = left
             cell.right = right
         return CellAndGroup(cell, comb_group)
+
+    def binary_use_names(self, cellname, leftname, rightname, groupname=None):
+        """Accepts the name of a cell that performs some computation on two values.
+        Accepts the names of cells that contain those two values.
+        Creates a group that wires up the cell with those values.
+        Returns the group created.
+
+        group `groupname` {
+            `cellname`.left = `leftname`.out;
+            `cellname`.right = `rightname`.out;
+            `groupname`.go = 1;
+            `groupname`.done = `cellname`.done;
+        }
+        """
+        cell = self.get_cell(cellname)
+        groupname = groupname or f"{cellname}_group"
+        with self.group(groupname) as group:
+            cell.left = self.get_cell(leftname).out
+            cell.right = self.get_cell(rightname).out
+            cell.go = HI
+            group.done = cell.done
+        return group
 
     def try_infer_width(self, width, left, right):
         """If `width` is None, try to infer it from `left` or `right`.
@@ -561,6 +718,30 @@ class ComponentBuilder:
             decr_group.done = reg.done
         return decr_group
 
+    def lsh_use(self, input, ans, val=1):
+        """Inserts wiring into `self` to perform `ans := input << val`."""
+        width = ans.infer_width_reg()
+        cell = self.lsh(width)
+        with self.group(f"{cell.name}_group") as lsh_group:
+            cell.left = input
+            cell.right = const(width, val)
+            ans.write_en = 1
+            ans.in_ = cell.out
+            lsh_group.done = ans.done
+        return lsh_group
+
+    def rsh_use(self, input, ans, val=1):
+        """Inserts wiring into `self` to perform `ans := input >> val`."""
+        width = ans.infer_width_reg()
+        cell = self.rsh(width)
+        with self.group(f"{cell.name}_group") as rsh_group:
+            cell.left = input
+            cell.right = const(width, val)
+            ans.write_en = 1
+            ans.in_ = cell.out
+            rsh_group.done = ans.done
+        return rsh_group
+
     def reg_store(self, reg, val, groupname=None):
         """Inserts wiring into `self` to perform `reg := val`."""
         groupname = groupname or f"{reg.name}_store_to_reg"
@@ -570,76 +751,42 @@ class ComponentBuilder:
             reg_grp.done = reg.done
         return reg_grp
 
-    def mem_load_std_d1(self, mem, i, reg, groupname=None):
+    def mem_load_d1(self, mem, i, reg, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `reg := mem[i]`,
-        where `mem` is a std_d1 memory.
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
         """
-        assert mem.is_comb_mem_d1()
-        groupname = groupname or f"{mem.name()}_load_to_reg"
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as load_grp:
             mem.addr0 = i
-            reg.write_en = 1
-            reg.in_ = mem.read_data
+            if is_comb:
+                reg.write_en = 1
+                reg.in_ = mem.read_data
+            else:
+                mem.content_en = 1
+                reg.write_en = mem.done @ 1
+                reg.in_ = mem.done @ mem.read_data
             load_grp.done = reg.done
         return load_grp
 
-    def mem_store_std_d1(self, mem, i, val, groupname=None):
+    def mem_store_d1(self, mem, i, val, groupname, is_comb=False):
         """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a std_d1 memory."""
-        assert mem.is_comb_mem_d1()
-        groupname = groupname or f"store_into_{mem.name()}"
+        where `mem` is a seq_d1 memory or a comb_mem_d1 memory (if `is_comb` is True)
+        """
+        assert mem.is_seq_mem_d1() if not is_comb else mem.is_comb_mem_d1()
         with self.group(groupname) as store_grp:
             mem.addr0 = i
             mem.write_en = 1
             mem.write_data = val
             store_grp.done = mem.done
+            if not is_comb:
+                mem.content_en = 1
         return store_grp
 
-    def mem_read_seq_d1(self, mem, i, groupname=None):
-        """Inserts wiring into `self` to latch `mem[i]` as the output of `mem`,
-        where `mem` is a seq_d1 memory.
-        Note that this does not write the value anywhere.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"read_from_{mem.name()}"
-        with self.group(groupname) as read_grp:
-            mem.addr0 = i
-            mem.content_en = 1
-            read_grp.done = mem.done
-        return read_grp
-
-    def mem_write_seq_d1_to_reg(self, mem, reg, groupname=None):
-        """Inserts wiring into `self` to perform reg := <mem_latched_value>,
-        where `mem` is a seq_d1 memory that already has some latched value.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_write_to_reg"
-        with self.group(groupname) as write_grp:
-            reg.write_en = 1
-            reg.in_ = mem.read_data
-            write_grp.done = reg.done
-        return write_grp
-
-    def mem_store_seq_d1(self, mem, i, val, groupname=None):
-        """Inserts wiring into `self` to perform `mem[i] := val`,
-        where `mem` is a seq_d1 memory.
-        """
-        assert mem.is_seq_mem_d1()
-        groupname = groupname or f"{mem.name()}_store"
-        with self.group(groupname) as store_grp:
-            mem.addr0 = i
-            mem.write_en = 1
-            mem.write_data = val
-            mem.content_en = 1
-            store_grp.done = mem.done
-        return store_grp
-
-    def mem_load_to_mem(self, mem, i, ans, j, groupname=None):
+    def mem_load_to_mem(self, mem, i, ans, j, groupname):
         """Inserts wiring into `self` to perform `ans[j] := mem[i]`,
-        where `mem` and `ans` are both std_d1 memories.
+        where `mem` and `ans` are both comb_mem_d1 memories.
         """
         assert mem.is_comb_mem_d1() and ans.is_comb_mem_d1()
-        groupname = groupname or f"{mem.name()}_load_to_mem"
         with self.group(groupname) as load_grp:
             mem.addr0 = i
             ans.write_en = 1
@@ -660,7 +807,7 @@ class ComponentBuilder:
         """Inserts wiring into `self` to perform `reg := left op right`,
         where `op_cell`, a Cell that performs some `op`, is provided.
         """
-        ans_reg = ans_reg or self.reg(f"reg_{cellname}", width)
+        ans_reg = ans_reg or self.reg(width, f"reg_{cellname}")
         with self.group(f"{cellname}_group") as op_group:
             op_cell.left = left
             op_cell.right = right
@@ -1371,15 +1518,24 @@ def static_seq(*args) -> ast.StaticSeqComp:
     return ast.StaticSeqComp([as_control(x) for x in args])
 
 
-def add_comp_params(comp: ComponentBuilder, input_ports: List, output_ports: List):
+def add_comp_ports(comp: ComponentBuilder, input_ports: List, output_ports: List):
+    """Adds `input_ports`/`output_ports` as inputs/outputs to comp.
+
+    `input_ports`/`output_ports` should contain either an (input_name, input_width) pair
+    or an (input_name, input_width, attributes) triple.
     """
-    Adds `input_ports`/`output_ports` as inputs/outputs to comp.
-    `input_ports`/`output_ports` should contain an (input_name, input_width) pair.
-    """
-    for name, width in input_ports:
-        comp.input(name, width)
-    for name, width in output_ports:
-        comp.output(name, width)
+
+    def normalize_ports(ports: List):
+        for port in ports:
+            if len(port) == 2:
+                yield (port[0], port[1], [])
+            elif len(port) == 3:
+                yield port[0], port[1], port[2]
+
+    for name, width, attributes in normalize_ports(input_ports):
+        comp.input(name, width, attributes)
+    for name, width, attributes in normalize_ports(output_ports):
+        comp.output(name, width, attributes)
 
 
 def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
@@ -1387,7 +1543,7 @@ def add_read_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
     Add parameters to component `comp` if we want to read from a mem named
     `name` with address width of `addr_width` and data width of `data_width`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_read_data", data_width)],
         output_ports=[(f"{name}_addr0", addr_width)],
@@ -1399,7 +1555,7 @@ def add_write_mem_params(comp: ComponentBuilder, name, data_width, addr_width):
     Add arguments to component `comp` if we want to write to a mem named
     `name` with address width of `addr_width` and data width of `data_width`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_done", 1)],
         output_ports=[
@@ -1414,7 +1570,7 @@ def add_register_params(comp: ComponentBuilder, name, width):
     """
     Add params to component `comp` if we want to use a register named `name`.
     """
-    add_comp_params(
+    add_comp_ports(
         comp,
         input_ports=[(f"{name}_done", 1), (f"{name}_out", width)],
         output_ports=[
