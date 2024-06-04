@@ -6,4 +6,3 @@ pub mod script;
 pub mod utils;
 
 pub use exec::{Driver, DriverBuilder};
-pub use script::LoadPlugins;
