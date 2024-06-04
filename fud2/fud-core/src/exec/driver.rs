@@ -373,11 +373,11 @@ impl DriverBuilder {
                 }
             };
 
-        let mut bld = self;
+        let mut runner = script::ScriptRunner::new(self);
         for path in plugin_files {
-            bld = script::ScriptRunner::run_file(bld, path.as_path());
+            runner.run_file(path.as_path());
         }
-        bld
+        runner.into_builder()
     }
 
     pub fn build(self) -> Driver {

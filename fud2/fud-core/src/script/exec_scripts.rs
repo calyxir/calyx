@@ -162,10 +162,10 @@ thread_local! {
     });
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(super) struct RhaiSetupCtx {
-    pub path: PathBuf,
-    pub ast: rhai::AST,
+    pub path: Rc<PathBuf>,
+    pub ast: Rc<rhai::AST>,
     pub name: String,
 }
 
@@ -179,7 +179,7 @@ impl EmitSetup for RhaiSetupCtx {
                     &self.name,
                     (rhai_emit.clone(),),
                 )
-                .report(&self.path)
+                .report(self.path.as_ref())
             });
         })?;
 
@@ -202,7 +202,7 @@ impl EmitBuild for RhaiSetupCtx {
                     &self.name,
                     (rhai_emit.clone(), input.to_string(), output.to_string()),
                 )
-                .report(&self.path)
+                .report(self.path.as_ref())
             });
         })?;
 
