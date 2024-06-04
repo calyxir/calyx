@@ -60,7 +60,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
         refs = sorted(refs, key=lambda e: e[0])
         names = [remove_size_from_name(e[0]) for e in refs]
 
-        # FIXME: is this ok to hardcode?
+        # FIXME: When we get to profiling multi-component programs, we want to search for each component's go signal
         self.main_go_id = vcd.references_to_ids["TOP.TOP.main.go"]
 
         clock_name = "TOP.TOP.main.clk"
@@ -71,7 +71,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
             sys.exit(1)
 
         for name, id in refs:
-            # FIXME: may want to optimize this...
+            # We may want to optimize these nested for loops
             for fsm in self.fsms:
                 if f"{fsm}.out[" in name:
                     self.signal_to_signal_id[fsm] = id
@@ -122,7 +122,7 @@ class VCDConverter(vcdvcd.StreamParserCallbacks):
                     if signal_new_value in self.fsms[signal_name]: # END should be ignored
                         next_group = self.fsms[signal_name][signal_new_value]
                         # start a new segment for the next group
-                        # FIXME: need to fix this for parallelism
+                        # FIXME: need to fix this for par blocks
                         self.profiling_info[next_group].start_new_segment(self.clock_cycle_acc)
                     else:
                         # The state id was not in the JSON entry for this FSM. Most likely the value was the last FSM state.
