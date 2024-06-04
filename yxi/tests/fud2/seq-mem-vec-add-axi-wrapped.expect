@@ -9117,11 +9117,3 @@ assign A_read0_0_in = A0_read_data;
 assign par0_go_in = _guard332;
 // COMPONENT END: main
 endmodule
----STDERR---
-[1/1] /scratch/nrn25/data/calyx-fpga-new/calyx/target/debug/calyx -l /scratch/nrn25/data/calyx-fpga-new/calyx -b verilog --disable-verify ../yxi/tests/fud2/seq-mem-vec-add-axi-wrapped.futil > seq-mem-vec-add-axi-wrapped.sv
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_opt::passes::wrap_main] Entrypoint component `wrapper' has non-interface port `A0_ARESETn'. Cannot wrap it in `main' component. The component might not simulate with the Calyx test bench or generate results with the synthesis scripts without modification.

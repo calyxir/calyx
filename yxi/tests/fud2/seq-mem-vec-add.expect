@@ -473,19 +473,3 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     }
   }
 }
----STDERR---
-[1/5] /scratch/nrn25/data/calyx-fpga-new/calyx/target/debug/calyx -l /scratch/nrn25/data/calyx-fpga-new/calyx -p external-to-ref  ../yxi/tests/fud2/seq-mem-vec-add.futil > refified_seq-mem-vec-add.futil
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[2/5] sed '1,/component main/{/component main/!d}' refified_seq-mem-vec-add.futil > no_imports_refified_seq-mem-vec-add.futil
-[3/5] /scratch/nrn25/data/calyx-fpga-new/calyx/target/debug/calyx -l /scratch/nrn25/data/calyx-fpga-new/calyx -b yxi  ../yxi/tests/fud2/seq-mem-vec-add.futil > seq-mem-vec-add.yxi
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[WARN  calyx_frontend::attribute] The attribute @static is deprecated and will be ignored by the compiler.
-[4/5] python3 /scratch/nrn25/data/calyx-fpga-new/calyx/yxi/axi-calyx/axi-generator.py seq-mem-vec-add.yxi > axi_wrapper.futil
-[5/5] cat axi_wrapper.futil no_imports_refified_seq-mem-vec-add.futil > seq-mem-vec-add.futil
