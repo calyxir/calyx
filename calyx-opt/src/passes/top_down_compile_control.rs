@@ -222,6 +222,23 @@ struct Schedule<'b, 'a: 'b> {
     pub builder: &'b mut ir::Builder<'a>,
 }
 
+/// Information to serialize for profiling purposes
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+enum ProfilingInfo {
+    Fsm(FSMInfo),
+    SingleEnable(SingleEnableInfo),
+}
+
+/// Information to be serialized for a group that isn't managed by a FSM
+/// This can happen if the group is the only group in a control block or a par arm
+#[derive(PartialEq, Eq, Hash, Clone, Serialize)]
+struct SingleEnableInfo {
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub component: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub group: Id,
+}
+
 /// Information to be serialized for a single FSM
 #[derive(PartialEq, Eq, Hash, Clone, Serialize)]
 struct FSMInfo {
@@ -229,6 +246,8 @@ struct FSMInfo {
     pub component: Id,
     #[serde(serialize_with = "id_serialize_passthrough")]
     pub group: Id,
+    #[serde(serialize_with = "id_serialize_passthrough")]
+    pub fsm: Id,
     pub states: Vec<FSMStateInfo>,
 }
 
@@ -311,7 +330,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
     fn realize_schedule(
         self,
         dump_fsm: bool,
-        fsm_groups: &mut HashSet<FSMInfo>,
+        fsm_groups: &mut HashSet<ProfilingInfo>,
     ) -> RRC<ir::Group> {
         self.validate();
 
@@ -324,13 +343,6 @@ impl<'b, 'a> Schedule<'b, 'a> {
             ));
         }
 
-        // Keep track of groups to FSM state id information for dumping to json
-        fsm_groups.insert(FSMInfo {
-            component: self.builder.component.name,
-            group: group.borrow().name(),
-            states: self.groups_to_states.iter().cloned().collect_vec(),
-        });
-
         let final_state = self.last_state();
         let fsm_size = get_bit_width_from(
             final_state + 1, /* represent 0..final_state */
@@ -341,6 +353,21 @@ impl<'b, 'a> Schedule<'b, 'a> {
             let last_state = constant(final_state, fsm_size);
             let first_state = constant(0, fsm_size);
         );
+
+        // Add last state to JSON info
+        let mut states = self.groups_to_states.iter().cloned().collect_vec();
+        states.push(FSMStateInfo {
+            id: final_state,
+            group: Id::new(format!("{}_END", fsm.borrow().name())),
+        });
+
+        // Keep track of groups to FSM state id information for dumping to json
+        fsm_groups.insert(ProfilingInfo::Fsm(FSMInfo {
+            component: self.builder.component.name,
+            fsm: fsm.borrow().name(),
+            group: group.borrow().name(),
+            states,
+        }));
 
         // Enable assignments
         group.borrow_mut().assignments.extend(
@@ -437,7 +464,6 @@ impl Schedule<'_, '_> {
         match con {
         // See explanation of FSM states generated in [ir::TopDownCompileControl].
         ir::Control::Enable(ir::Enable { group, attributes }) => {
-
             let cur_state = attributes.get(NODE_ID).unwrap_or_else(|| panic!("Group `{}` does not have node_id information", group.borrow().name()));
             // If there is exactly one previous transition state with a `true`
             // guard, then merge this state into previous state.
@@ -819,7 +845,7 @@ pub struct TopDownCompileControl {
     /// Enable early transitions
     early_transitions: bool,
     /// Bookkeeping for FSM ids for groups across all FSMs in the program
-    fsm_groups: HashSet<FSMInfo>,
+    fsm_groups: HashSet<ProfilingInfo>,
 }
 
 impl ConstructVisitor for TopDownCompileControl {
@@ -875,6 +901,27 @@ impl Named for TopDownCompileControl {
     }
 }
 
+/// Helper function to emit profiling information when the control consists of a single group.
+fn emit_single_enable(
+    con: &mut ir::Control,
+    component: Id,
+    json_out_file: &OutputFile,
+) {
+    if let ir::Control::Enable(enable) = con {
+        let mut profiling_info_set: HashSet<ProfilingInfo> = HashSet::new();
+        profiling_info_set.insert(ProfilingInfo::SingleEnable(
+            SingleEnableInfo {
+                component,
+                group: enable.group.borrow().name(),
+            },
+        ));
+        let _ = serde_json::to_writer_pretty(
+            json_out_file.get_write(),
+            &profiling_info_set,
+        );
+    }
+}
+
 impl Visitor for TopDownCompileControl {
     fn start(
         &mut self,
@@ -882,15 +929,14 @@ impl Visitor for TopDownCompileControl {
         _sigs: &LibrarySignatures,
         _comps: &[ir::Component],
     ) -> VisResult {
-        // Do not try to compile an enable
-        if matches!(
-            *comp.control.borrow(),
-            ir::Control::Enable(..) | ir::Control::Empty(..)
-        ) {
+        let mut con = comp.control.borrow_mut();
+        if matches!(*con, ir::Control::Empty(..) | ir::Control::Enable(..)) {
+            if let Some(json_out_file) = &self.dump_fsm_json {
+                emit_single_enable(&mut con, comp.name, json_out_file);
+            }
             return Ok(Action::Stop);
         }
 
-        let mut con = comp.control.borrow_mut();
         compute_unique_ids(&mut con, 0);
         // IRPrinter::write_control(&con, 0, &mut std::io::stderr());
         Ok(Action::Continue)
@@ -1002,6 +1048,12 @@ impl Visitor for TopDownCompileControl {
             let group = match con {
                 // Do not compile enables
                 ir::Control::Enable(ir::Enable { group, .. }) => {
+                    self.fsm_groups.insert(ProfilingInfo::SingleEnable(
+                        SingleEnableInfo {
+                            group: group.borrow().name(),
+                            component: builder.component.name,
+                        },
+                    ));
                     Rc::clone(group)
                 }
                 // Compile complex schedule and return the group.
