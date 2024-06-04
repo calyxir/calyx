@@ -10,19 +10,10 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone, Copy, Default)]
 // Define an FSMEncoding Enum
-enum FSMEncoding {
+pub enum FSMEncoding {
     #[default]
     Binary,
     OneHot,
-}
-
-#[derive(Debug)]
-enum FSMImplementationSpec {
-    Single,
-    // How many duplicates
-    _Duplicate(u64),
-    // How many times to split
-    _Split(u64),
 }
 
 #[derive(Debug)]
@@ -37,10 +28,9 @@ pub struct StaticFSM {
 }
 impl StaticFSM {
     // Builds a static_fsm from: num_states and encoding type.
-    fn from_basic_info(
+    pub fn from_basic_info(
         num_states: u64,
         encoding: FSMEncoding,
-        _implementation: FSMImplementationSpec,
         builder: &mut ir::Builder,
     ) -> Self {
         // Determine number of bits needed in the register.
@@ -65,6 +55,34 @@ impl StaticFSM {
             bitwidth: fsm_size,
             queries: HashMap::new(),
         }
+    }
+
+    pub fn build_incrementer(
+        &self,
+        guard: ir::Guard<Nothing>,
+        builder: &mut ir::Builder,
+    ) -> (Vec<ir::Assignment<Nothing>>, ir::RRC<ir::Cell>) {
+        let fsm_cell = Rc::clone(&self.fsm_cell);
+        // For OHE, the "adder" can just be a shifter.
+        // For OHE the first_state = 1 rather than 0.
+        // Final state is encoded differently for OHE vs. Binary
+        let adder = match self.encoding {
+            FSMEncoding::Binary => {
+                builder.add_primitive("adder", "std_add", &[self.bitwidth])
+            }
+            FSMEncoding::OneHot => {
+                builder.add_primitive("lsh", "std_lsh", &[self.bitwidth])
+            }
+        };
+        let const_one = builder.add_constant(1, self.bitwidth);
+        let incr_assigns = build_assignments!(
+          builder;
+          // increments the fsm
+          adder["left"] = ? fsm_cell["out"];
+          adder["right"] = ? const_one["out"];
+        )
+        .to_vec();
+        (incr_assigns, adder)
     }
 
     // Returns assignments that make the current fsm count to n
@@ -359,12 +377,8 @@ impl StaticSchedule {
         static_component_interface: bool,
     ) -> (VecDeque<Vec<ir::Assignment<Nothing>>>, StaticFSM) {
         // First build the fsm we will use to realize the schedule.
-        let mut fsm_object = StaticFSM::from_basic_info(
-            self.num_states,
-            self.encoding,
-            FSMImplementationSpec::Single,
-            builder,
-        );
+        let mut fsm_object =
+            StaticFSM::from_basic_info(self.num_states, self.encoding, builder);
 
         // Instantiate the vecdeque.
         let mut res = VecDeque::new();

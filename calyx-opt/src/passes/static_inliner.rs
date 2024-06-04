@@ -208,7 +208,7 @@ impl StaticInliner {
                 par_group
                     .borrow_mut()
                     .attributes
-                    .insert(ir::BoolAttr::Par, 1);
+                    .insert(ir::BoolAttr::ParCtrl, 1);
                 let par_wrapper =
                     builder.add_static_group("static_par", *latency);
                 structure!( builder;

@@ -71,7 +71,7 @@ pub enum BoolAttr {
     Promoted,
     #[strum(serialize = "par")]
     /// denotes a group that was generated from `par` control
-    Par,
+    ParCtrl,
 }
 impl From<BoolAttr> for Attribute {
     fn from(attr: BoolAttr) -> Self {

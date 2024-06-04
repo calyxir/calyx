@@ -1,6 +1,6 @@
-use crate::analysis::{GraphColoring, StaticFSM, StaticSchedule};
+use crate::analysis::{FSMEncoding, GraphColoring, StaticFSM, StaticSchedule};
 use crate::traversal::{Action, Named, ParseVal, PassOpt, VisResult, Visitor};
-use calyx_ir::{self as ir, PortParent, StaticTiming};
+use calyx_ir::{self as ir, Nothing, PortParent, StaticTiming};
 use calyx_ir::{guard, structure, GetAttributes};
 use calyx_utils::Error;
 use core::panic;
@@ -515,10 +515,58 @@ pub enum StaticStruct {
     Tree(Tree),
     Par(Par),
 }
+
+impl StaticStruct {
+    fn count_to_n(&self) -> Vec<ir::Assignment<Nothing>> {
+        match self {
+            StaticStruct::Tree(tree_struct) => panic!(""),
+            StaticStruct::Par(par_struct) => panic!(""),
+        }
+        vec![]
+    }
+}
+
 pub struct Tree {
     latency: u64,
     root: ir::Id,
     children: Vec<(StaticStruct, (u64, u64))>,
+}
+impl Tree {
+    fn count_to_n(
+        &self,
+        builder: &mut ir::Builder,
+    ) -> Vec<ir::Assignment<Nothing>> {
+        // offload_states are the fsm_states that last multiple cycles
+        // because they offload computations to children.
+        let mut offload_states = vec![];
+        // Need to calculate offload_states. %[500:600] might not be at fsm=500
+        // if there were previous states that were offloaded.
+        let mut cur_delay = 0;
+        for (_, (beg, end)) in &self.children {
+            offload_states.push(beg - cur_delay);
+            cur_delay += end - beg;
+        }
+        let num_states = self.latency - cur_delay;
+
+        let mut parent_fsm = StaticFSM::from_basic_info(
+            num_states,
+            FSMEncoding::Binary, // XXX(Caleb): change this
+            builder,
+        );
+
+        let mut offload_state_guard: ir::Guard<Nothing> =
+            ir::Guard::Not(Box::new(ir::Guard::True));
+        for offload_state in offload_states {
+            offload_state_guard.update(|g| {
+                g.or(*parent_fsm
+                    .query_between(builder, (offload_state, offload_state + 1)))
+            });
+        }
+
+        let mut not_offload_state = offload_state_guard.not();
+
+        vec![]
+    }
 }
 pub struct Par {
     latency: u64,
@@ -555,7 +603,7 @@ impl CompileStatic {
                 },
             }
         }
-        if target_group.attributes.has(ir::BoolAttr::Par) {
+        if target_group.attributes.has(ir::BoolAttr::ParCtrl) {
             StaticStruct::Par(Par {
                 threads: res_vec,
                 latency: target_group.latency,
