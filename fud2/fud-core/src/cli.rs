@@ -5,6 +5,7 @@ use anyhow::{anyhow, bail};
 use argh::FromArgs;
 use camino::{Utf8Path, Utf8PathBuf};
 use std::fmt::Display;
+use std::path::Path;
 use std::str::FromStr;
 
 enum Mode {
@@ -164,9 +165,14 @@ fn to_state(driver: &Driver, args: &FakeArgs) -> anyhow::Result<StateRef> {
 
 fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
     // The default working directory (if not specified) depends on the mode.
-    let default_workdir = driver.default_workdir();
+    let mut default_workdir = driver.default_workdir();
     let workdir = args.dir.as_deref().unwrap_or_else(|| match args.mode {
-        Mode::Generate | Mode::Run => default_workdir.as_ref(),
+        Mode::Generate | Mode::Run => {
+            while (Path::new(&default_workdir)).exists() {
+                default_workdir = driver.default_workdir();
+            }
+            default_workdir.as_ref()
+        }
         _ => Utf8Path::new("."),
     });
 
