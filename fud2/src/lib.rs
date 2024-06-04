@@ -181,9 +181,6 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         // Convert all ref cells to @external (FIXME: YXI should work for both?)
         e.rule("ref-to-external", "sed 's/ref /@external /g' $in > $out")?;
 
-        // Convert all @external cells to ref (FIXME: we want to deprecate @external)
-        e.rule("external-to-ref", "sed 's/@external([0-9]*)/ref/g' $in | sed 's/@external/ref/g' > $out")?;
-
         e.var(
             "gen-testbench-script",
             "$calyx-base/tools/firrtl/generate-testbench.py",
@@ -279,7 +276,8 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         // Convert ref into external to get YXI working (FIXME: fix YXI to emit for ref as well?)
         e.build_cmd(&[only_externals_calyx], "ref-to-external", &[input], &[])?;
         // Convert external to ref to get FIRRTL backend working
-        e.build_cmd(&[only_refs_calyx], "external-to-ref", &[input], &[])?;
+        e.build_cmd(&[only_refs_calyx], "calyx-pass", &[input], &[])?;
+        e.arg("pass", "external-to-ref")?;
 
         // Get YXI to generate JSON for testbench generation
         e.build_cmd(&[memories_json], "calyx", &[only_externals_calyx], &[])?;
