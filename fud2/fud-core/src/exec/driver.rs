@@ -2,7 +2,9 @@ use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
-use std::{collections::HashMap, error::Error, fmt::Display};
+use std::{
+    collections::HashMap, error::Error, ffi::OsStr, fmt::Display, path::PathBuf,
+};
 
 #[derive(PartialEq)]
 enum Destination {
@@ -231,6 +233,8 @@ pub struct DriverBuilder {
     ops: PrimaryMap<OpRef, Operation>,
     rsrc_dir: Option<Utf8PathBuf>,
     rsrc_files: Option<FileData>,
+    plugin_dir: Option<Utf8PathBuf>,
+    plugin_files: Option<FileData>,
 }
 
 #[derive(Debug)]
@@ -263,6 +267,8 @@ impl DriverBuilder {
             ops: Default::default(),
             rsrc_dir: None,
             rsrc_files: None,
+            plugin_dir: None,
+            plugin_files: None,
         }
     }
 
@@ -358,21 +364,46 @@ impl DriverBuilder {
         self.rsrc_files = Some(files);
     }
 
+    pub fn plugin_dir(&mut self, path: &str) {
+        self.plugin_dir = Some(path.into());
+    }
+
+    pub fn plugin_files(&mut self, files: FileData) {
+        self.plugin_files = Some(files);
+    }
+
     /// Load any plugin scripts specified in the configuration file.
     pub fn load_plugins(self) -> Self {
+        let mut plugin_files: Vec<PathBuf> = vec![];
+
+        // load included plugins first
+        if let Some(plugin_dir) = &self.plugin_dir {
+            let paths = std::fs::read_dir(plugin_dir).unwrap();
+            plugin_files.extend(
+                paths
+                    // filter out invalid paths
+                    .filter_map(|dir_entry| dir_entry.map(|p| p.path()).ok())
+                    // filter out paths that don't have `.rhai` extension
+                    .filter(|p| p.extension() == Some(OsStr::new("rhai"))),
+            );
+        }
+
         // Get a list of plugins (paths to Rhai scripts) from the config file, if any.
         // TODO: Let's try to avoid loading/parsing the configuration file here and
         // somehow reusing it from wherever we do that elsewhere.
         let config = config::load_config(&self.name);
-        let plugin_files =
-            match config.extract_inner::<Vec<std::path::PathBuf>>("plugins") {
-                Ok(v) => v,
-                Err(_) => {
-                    // No plugins to load.
-                    return self;
-                }
-            };
+        plugin_files.extend_from_slice(
+            &config
+                .extract_inner::<Vec<std::path::PathBuf>>("plugins")
+                .unwrap_or_default(),
+        );
 
+        // if we don't have any plugins, return early
+        if plugin_files.is_empty() {
+            return self;
+        }
+
+        // load and run plugins
         let mut runner = script::ScriptRunner::new(self);
         for path in plugin_files {
             runner.run_file(path.as_path());
