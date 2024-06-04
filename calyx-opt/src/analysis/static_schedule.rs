@@ -59,7 +59,6 @@ impl StaticFSM {
 
     pub fn build_incrementer(
         &self,
-        guard: ir::Guard<Nothing>,
         builder: &mut ir::Builder,
     ) -> (Vec<ir::Assignment<Nothing>>, ir::RRC<ir::Cell>) {
         let fsm_cell = Rc::clone(&self.fsm_cell);
@@ -83,6 +82,24 @@ impl StaticFSM {
         )
         .to_vec();
         (incr_assigns, adder)
+    }
+
+    pub fn conditional_increment(
+        &self,
+        guard: ir::Guard<Nothing>,
+        adder: ir::RRC<ir::Cell>,
+        builder: &mut ir::Builder,
+    ) -> Vec<ir::Assignment<Nothing>> {
+        let fsm_cell = Rc::clone(&self.fsm_cell);
+        let signal_on = builder.add_constant(1, 1);
+        let assigns = build_assignments!(
+          builder;
+          // increments the fsm
+          fsm_cell["in"] = guard ? adder["out"];
+          fsm_cell["write_en"] = guard ? signal_on["out"];
+        )
+        .to_vec();
+        assigns
     }
 
     // Returns assignments that make the current fsm count to n
