@@ -577,3 +577,17 @@ make --silent -B TEST_PATH={} COCOTB_LOG_LEVEL=CRITICAL |\
   rm -f results.xml
 
 """
+
+[[tests]]
+name = "Akash's matrix multiplier"
+paths = ["tests/akash/*.futil"]
+cmd = """
+fud exec --from calyx --to jq \
+         --through verilog \
+         --through dat \
+         -s verilog.data {}.data \
+         -s calyx.exec './target/debug/calyx' \
+         -s verilog.cycle_limit 5000 \
+         -s jq.expr ".memories" \
+         {} -q
+"""

@@ -1,0 +1,160 @@
+import "primitives/core.futil";
+import "primitives/binary_operators.futil";
+import "primitives/memories/comb.futil";
+
+// 4x4 matrix multiply
+component main(@go go: 1) -> (@done done: 1) {
+  cells {
+    @external A = comb_mem_d2(32, 4, 4, 3, 3);
+    @external B = comb_mem_d2(32, 4, 4, 3, 3);
+    @external C = comb_mem_d2(32, 4, 4, 3, 3);
+
+    mult = std_mult_pipe(32);
+    add = std_add(32);
+    smalladd = std_add(3);
+    
+    acc = std_reg(32);
+
+    // matrix entries
+    a = std_reg(32);
+    b = std_reg(32);
+
+    // iterators
+    i = std_reg(3);
+    j = std_reg(3);
+    k = std_reg(3);
+
+    // lt's
+    lt_i = std_lt(3);
+    lt_j = std_lt(3);
+    lt_k = std_lt(3);
+  }
+
+  wires {
+
+    group zero_acc {
+      acc.in = 32'd0;
+      acc.write_en = 1'b1;
+      zero_acc[done] = acc.done;
+    }
+
+    group zero_i {
+      i.in = 3'd0;
+      i.write_en = 1'b1;
+      zero_i[done] = i.done;
+    }
+
+    group zero_j {
+      j.in = 3'd0;
+      j.write_en = 1'b1;
+      zero_j[done] = j.done;
+    }
+
+    group zero_k {
+      k.in = 3'd0;
+      k.write_en = 1'b1;
+      zero_k[done] = k.done;
+    }
+
+    comb group cond_i {
+      lt_i.left = i.out;
+      lt_i.right = 3'd4;
+    }
+
+    comb group cond_j {
+      lt_j.left = j.out;
+      lt_j.right = 3'd4;
+    }
+
+    comb group cond_k {
+      lt_k.left = k.out;
+      lt_k.right = 3'd4;
+    }
+
+    group incr_i {
+      smalladd.left = i.out;
+      smalladd.right = 3'd1;
+      i.in = smalladd.out;
+      i.write_en = 1'b1;
+      incr_i[done] = i.done;
+    }
+
+    group incr_j {
+      smalladd.left = j.out;
+      smalladd.right = 3'd1;
+      j.in = smalladd.out;
+      j.write_en = 1'b1;
+      incr_j[done] = j.done;
+    }
+
+    group incr_k {
+      smalladd.left = k.out;
+      smalladd.right = 3'd1;
+      k.in = smalladd.out;
+      k.write_en = 1'b1;
+      incr_k[done] = k.done;
+    }
+
+    group read_A {
+      A.addr0 = i.out;
+      A.addr1 = k.out;
+      a.write_en = 1'b1;
+      a.in = A.read_data;
+      read_A[done] = a.done;
+    }
+
+    group read_B {
+      B.addr0 = k.out;
+      B.addr1 = j.out;
+      b.write_en = 1'b1;
+      b.in = B.read_data;
+      read_B[done] = b.done;
+    }
+
+    static<4> group upd {
+      mult.go = %[0:3] ? 1'b1;
+      mult.left = %[0:3] ? a.out;
+      mult.right = %[0:3] ? b.out;
+
+      add.left = %3 ? mult.out;
+      add.right = %3 ? acc.out;
+      acc.in = %3 ? add.out;
+
+      acc.write_en = %3 ? 1'b1;
+    }
+
+    group write {
+      C.addr0 = i.out;
+      C.addr1 = j.out;
+      C.write_en = 1'b1;
+      C.write_data = acc.out;
+      write[done] = C.done;
+    }
+  }
+
+  control {
+    seq {
+      par{zero_acc; zero_i; zero_j; zero_k;}
+      while lt_i.out with cond_i {
+        seq {
+          while lt_j.out with cond_j {
+            seq {
+              while lt_k.out with cond_k {
+                seq {read_A; read_B; upd; incr_k;}
+              }
+              write;
+              zero_acc;
+              zero_k;
+            }
+            incr_j;
+          }
+          zero_j;
+          incr_i;
+        }
+      }
+    }
+  }
+
+}
+
+
