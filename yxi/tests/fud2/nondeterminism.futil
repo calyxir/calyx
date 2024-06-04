@@ -1,0 +1,31 @@
+import "primitives/core.futil";
+component comp_with_ref() -> () {
+  cells {
+    ref my_ref_reg = std_reg(8);
+  }
+  wires {
+    group some_group {
+      some_group[done] = 1'b0 ? 1'b1; //this allows us to have an "empty" group without the compiler getting mad. Not important to reproduce AFAIK.
+    }
+  }
+  control {
+          some_group;
+  }
+}
+component main() -> () {
+  cells {
+    my_actual_reg = std_reg(8);
+    my_ref_comp = comp_with_ref();
+  }
+  wires {
+  }
+  control {
+    seq {
+      par {
+        seq {
+          invoke my_ref_comp[my_ref_reg=my_actual_reg]()();
+        }
+      }
+    }
+  }
+}
