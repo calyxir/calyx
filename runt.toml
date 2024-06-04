@@ -533,25 +533,26 @@ cmd = """
 python3 yxi/axi-calyx/axi-generator.py {}
 """
 
+#Ignore fud2 stderr for now due to ninja nondeterminism
 [[tests]]
 name = "fud2 AXI wrapper invocation"
 paths = ["yxi/tests/fud2/seq-mem-vec-add.futil"]
 cmd = """
-fud2 {} --to calyx --through axi-wrapped
+fud2 {} --to calyx --through axi-wrapped 2> /dev/null
 """
 
 [[tests]]
 name = "fud2 AXI-wrapped to verilog"
 paths = ["yxi/tests/fud2/seq-mem-vec-add-axi-wrapped.futil"]
 cmd = """
-fud2 {} --from calyx --to verilog-noverify 
+fud2 {} --from calyx --to verilog-noverify 2> /dev/null
 """
 
 [[tests]]
 name = "fud2 cocotb execution"
 paths = ["yxi/tests/fud2/seq-mem-vec-add-verilog.v"]
 cmd = """
-fud2 {} --from verilog-noverify --to cocotb-axi --set sim.data=yxi/tests/fud2/vectorized-add.data
+fud2 {} --from verilog-noverify --to cocotb-axi --set sim.data=yxi/tests/fud2/vectorized-add.data 2> /dev/null
 """
 
 ##### Xilinx Tests ######
