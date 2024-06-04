@@ -1,3 +1,7 @@
+import "calyx.rhai" as c;
+import "rtl_sim.rhai" as sim;
+import "testbench.rhai" as tb;
+
 let xo = state("xo", ["xo"]);
 let xclbin = state("xclbin", ["xclbin"]);
 
@@ -26,13 +30,10 @@ fn xilinx_setup(e) {
     e.arg("pool", "console");
 };
 
-let calyx = get_state("calyx");
-let calyx_setup = get_setup("Calyx compiler");
-
 op(
-    "xo2",
-    [calyx_setup, xilinx_setup],
-    calyx,
+    "xo",
+    [c::calyx_setup, xilinx_setup],
+    c::calyx_state,
     xo,
     |e, input, output| {
         // Emit the Verilog itself in "synthesis mode."
@@ -62,12 +63,9 @@ op(
     },
 );
 
-op("xclbin2", [xilinx_setup], xo, xclbin, |e, input, output| {
+op("xclbin", [xilinx_setup], xo, xclbin, |e, input, output| {
     e.build_cmd([output], "compile-xclbin", [input], []);
 });
-
-let tb_setup = get_setup("Standalone Testbench Setup");
-let sim_setup = get_setup("RTL simulation");
 
 // Xilinx execution.
 // TODO Only does `hw_emu` for now...
@@ -93,15 +91,15 @@ fn xrt_setup(e) {
 };
 
 op(
-    "xrt2",
+    "xrt",
     [
         xilinx_setup,
-        sim_setup,
-        tb_setup,
+        sim::sim_setup,
+        tb::standalone_setup,
         xrt_setup,
     ],
     xclbin,
-    get_state("dat"),
+    sim::dat,
     |e, input, output| {
         e.rsrc("xrt.ini");
         e.build_cmd(
@@ -115,15 +113,15 @@ op(
 );
 
 op(
-    "xrt-trace2",
+    "xrt-trace",
     [
         xilinx_setup,
-        sim_setup,
-        tb_setup,
+        sim::sim_setup,
+        tb::standalone_setup,
         xrt_setup,
     ],
     xclbin,
-    get_state("vcd"),
+    sim::dat,
     |e, input, output| {
         e.rsrc("xrt_trace.ini");
         e.build_cmd(

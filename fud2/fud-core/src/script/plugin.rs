@@ -36,7 +36,7 @@ impl ScriptContext {
                 Some(fnptr) => {
                     let rctx = RhaiSetupCtx {
                         path: Rc::clone(&self.path),
-                        ast: Rc::clone(&self.ast),
+                        ast: Rc::new(self.ast.clone_functions_only()),
                         name: fnptr.fn_name().to_string(),
                     };
                     Ok(self.builder.borrow_mut().add_setup(
@@ -134,11 +134,10 @@ impl ScriptRunner {
                   input: StateRef,
                   output: StateRef,
                   build: rhai::FnPtr| {
-                // let mut sctx = sctx.borrow_mut();
                 let setups = sctx.setups_array(&ctx, setups)?;
                 let rctx = RhaiSetupCtx {
                     path: sctx.path.clone(),
-                    ast: sctx.ast.clone(),
+                    ast: Rc::new(sctx.ast.clone_functions_only()),
                     name: build.fn_name().to_string(),
                 };
                 Ok(bld.borrow_mut().add_op(name, &setups, input, output, rctx))
@@ -146,30 +145,36 @@ impl ScriptRunner {
         );
     }
 
-    fn script_context(&self, path: &Path) -> ScriptContext {
-        let ast = self.engine.compile_file(path.into()).unwrap();
+    fn script_context(&self, path: &Path) -> Option<ScriptContext> {
+        let ast = self.engine.compile_file(path.into());
 
-        ScriptContext {
-            builder: Rc::clone(&self.builder),
-            path: Rc::new(path.to_path_buf()),
-            ast: Rc::new(ast.clone_functions_only()),
+        match ast {
+            Ok(ast) => Some(ScriptContext {
+                builder: Rc::clone(&self.builder),
+                path: Rc::new(path.to_path_buf()),
+                ast: Rc::new(ast),
+            }),
+            Err(_) => {
+                ast.report(path);
+                None
+            }
         }
     }
 
     pub fn run_file(&mut self, path: &Path) {
-        let sctx = self.script_context(path);
+        if let Some(sctx) = self.script_context(path) {
+            self.reg_rule(sctx.clone());
+            self.reg_op(sctx.clone());
 
-        self.reg_rule(sctx.clone());
-        self.reg_op(sctx);
-
-        self.engine
-            .module_resolver()
-            .resolve(
-                &self.engine,
-                None,
-                path.to_str().unwrap(),
-                rhai::Position::NONE,
-            )
-            .report(path);
+            self.engine
+                .module_resolver()
+                .resolve(
+                    &self.engine,
+                    None,
+                    path.to_str().unwrap(),
+                    rhai::Position::NONE,
+                )
+                .report(path);
+        }
     }
 }

@@ -1,3 +1,7 @@
+import "rtl_sim.rhai" as sim;
+import "testbench.rhai" as tb;
+import "calyx.rhai" as c;
+
 fn verilator_setup(e) {
    e.config_var_or("verilator", "verilator.exe", "verilator");
    e.config_var_or("cycle-limit", "sim.cycle_limit", "500000000");
@@ -34,21 +38,18 @@ fn verilator_build(e, input, output, standalone_tb) {
    e.build("cp", sim_bin, output);
 }
 
-let sim_setup = get_setup("RTL simulation");
-let standalone_tb_setup = get_setup("Standalone Testbench Setup");
-
 op(
-   "verilator2",
-   [sim_setup, standalone_tb_setup, verilator_setup],
-   get_state("verilog"),
-   get_state("sim"),
+   "verilator",
+   [sim::sim_setup, tb::standalone_setup, verilator_setup],
+   c::verilog_state,
+   sim::simulator,
    |e, input, output| { verilator_build(e, input, output, true) }
 );
 
 op(
-   "verilator-refmem2",
-   [sim_setup, standalone_tb_setup, verilator_setup],
-   get_state("verilog-refmem"),
-   get_state("sim"),
+   "verilator-refmem",
+   [sim::sim_setup, tb::standalone_setup, verilator_setup],
+   tb::verilog_refmem,
+   sim::simulator,
    |e, input, output| { verilator_build(e, input, output, false) }
 );

@@ -1,3 +1,6 @@
+import "calyx.rhai" as c;
+import "testbench.rhai" as tb;
+
 // setup for FIRRTL-implemented primitives
 fn firrtl_primitives_setup(e) {
     // Produce FIRRTL with FIRRTL-defined primitives.
@@ -84,23 +87,23 @@ fn calyx_to_firrtl_helper(e, input, output, firrtl_primitives) {
 let firrtl = state("firrtl", ["fir"]); // using Verilog primitives
 let firrtl_with_primitives = state("firrtl-with-primitives", ["fir"]); // using FIRRTL primitives
 
-let calyx = get_state("calyx");
-let calyx_setup = get_setup("Calyx compiler");
-let custom_testbench_setup = get_setup("Custom Testbench Setup");
+// let calyx = get_state("calyx");
+// let calyx_setup = get_setup("Calyx compiler");
+// let custom_testbench_setup = get_setup("Custom Testbench Setup");
 
 op(
     // use Verilog
     "calyx-to-firrtl",
-    [calyx_setup, custom_testbench_setup],
-    calyx,
+    [c::calyx_setup, tb::custom_setup],
+    c::calyx_state,
     firrtl,
     |e, input, output| calyx_to_firrtl_helper(e, input, output, false),
 );
 
 op(
     "firrtl-with-primitives",
-    [calyx_setup, firrtl_primitives_setup, custom_testbench_setup],
-    calyx,
+    [c::calyx_setup, firrtl_primitives_setup, tb::custom_setup],
+    c::calyx_state,
     firrtl_with_primitives,
     |e, input, output| calyx_to_firrtl_helper(e, input, output, true),
 );
@@ -138,7 +141,7 @@ op(
     "firrtl",
     [firrtl_setup],
     firrtl,
-    get_state("verilog-refmem"),
+    tb::verilog_refmem,
     |e, input, output| firrtl_compile_helper(e, input, output, false),
 );
 
@@ -149,7 +152,7 @@ op(
     "firrtl-noverify",
     [firrtl_setup],
     firrtl,
-    get_state("verilog-refmem-noverify"),
+    tb::verilog_refmem_noverify,
     |e, input, output| firrtl_compile_helper(e, input, output, false),
 );
 
@@ -158,7 +161,7 @@ op(
     "firrtl-with-primitives",
     [firrtl_setup],
     firrtl_with_primitives,
-    get_state("verilog-refmem"),
+    tb::verilog_refmem,
     |e, input, output| firrtl_compile_helper(e, input, output, true),
 );
 
@@ -167,6 +170,6 @@ op(
     "firrtl-with-primitives-noverify",
     [firrtl_setup],
     firrtl_with_primitives,
-    get_state("verilog-refmem-noverify"),
+    tb::verilog_refmem_noverify,
     |e, input, output| firrtl_compile_helper(e, input, output, true),
 );

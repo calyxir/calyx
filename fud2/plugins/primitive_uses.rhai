@@ -1,9 +1,11 @@
-let primitive_uses_json = state("primitive-uses-json2", ["json"]);
+import "calyx.rhai" as c;
+
+let primitive_uses_json = state("primitive-uses-json", ["json"]);
 
 op(
-    "primitive-uses2",
-    [get_setup("Calyx compiler")],
-    get_state("calyx"),
+    "primitive-uses",
+    [c::calyx_setup],
+    c::calyx_state,
     primitive_uses_json,
     |e, input, output| {
         e.build_cmd([output], "calyx", [input], []);

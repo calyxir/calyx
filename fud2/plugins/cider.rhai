@@ -1,4 +1,8 @@
-let dbg = state("debug2", []);
+import "rtl_sim.rhai" as sim;
+import "testbench.rhai" as tb;
+import "calyx.rhai" as c;
+
+let dbg = state("debug", []);
 
 fn cider_setup(e) {
    e.config_var_or(
@@ -51,20 +55,16 @@ fn cider_setup(e) {
    );
 }
 
-let sim_setup = get_setup("RTL simulation");
-let tb_setup = get_setup("Standalone Testbench Setup");
-let calyx_setup = get_setup("Calyx compiler");
-
 op(
-   "interp2",
+   "interp",
    [
-      sim_setup,
-      tb_setup,
-      calyx_setup,
+      sim::sim_setup,
+      tb::standalone_setup,
+      c::calyx_setup,
       cider_setup,
     ],
-    get_state("calyx"),
-    get_state("dat"),
+    c::calyx_state,
+    sim::dat,
     |e, input, output| {
         let out_file = "interp_out.json";
         e.build_cmd([out_file], "cider", [input], ["data.json"]);
@@ -77,10 +77,10 @@ op(
     },
 );
 op(
-    "interp-flat2",
-    [sim_setup, calyx_setup, cider_setup],
-    get_state("calyx"),
-    get_state("dat"),
+    "interp-flat",
+    [sim::sim_setup, c::calyx_setup, cider_setup],
+    c::calyx_state,
+    sim::dat,
     |e, input, output| {
         let out_file = "interp_out.dump";
         e.build_cmd([out_file], "cider2", [input], ["data.dump"]);
@@ -93,14 +93,14 @@ op(
     },
 );
 op(
-    "debug2",
+    "debug",
     [
-        sim_setup,
-        tb_setup,
-        calyx_setup,
+        sim::sim_setup,
+        tb::standalone_setup,
+        c::calyx_setup,
         cider_setup,
     ],
-    get_state("calyx"),
+    c::calyx_state,
     dbg,
     |e, input, output| {
         e.build_cmd([output], "cider-debug", [input], ["data.json"]);

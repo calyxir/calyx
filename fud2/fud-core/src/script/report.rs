@@ -59,42 +59,53 @@ impl RhaiReport for rhai::Position {
     }
 }
 
-impl<T> RhaiReport for RhaiResult<T> {
+impl RhaiReport for EvalAltResult {
     fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
         &self,
         path: P,
         _len: usize,
         _msg: S,
     ) {
-        if let Err(e) = self {
-            match &**e {
-                EvalAltResult::ErrorVariableNotFound(variable, pos) => {
-                    pos.report_raw(&path, variable.len(), "Undefined variable")
-                }
-                EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
-                    let (fn_name, args) =
-                        msg.split_once(' ').unwrap_or((msg, ""));
-                    pos.report_raw(
-                        &path,
-                        fn_name.len(),
-                        format!("{fn_name} {args}"),
-                    )
-                }
-                EvalAltResult::ErrorSystem(msg, err)
-                    if err.is::<RhaiSystemError>() =>
-                {
-                    let e = err.downcast_ref::<RhaiSystemError>().unwrap();
-                    let msg = if msg.is_empty() {
-                        format!("{err}")
-                    } else {
-                        format!("{msg}: {err}")
-                    };
-                    e.position.report_raw(&path, 0, msg)
-                }
-                // for errors that we don't have custom processing, just point
-                // to the beginning of the error, and use the error Display as message
-                e => e.position().report_raw(&path, 0, format!("{e}")),
+        match &self {
+            EvalAltResult::ErrorVariableNotFound(variable, pos) => {
+                pos.report_raw(&path, variable.len(), "Undefined variable")
             }
+            EvalAltResult::ErrorFunctionNotFound(msg, pos) => {
+                let (fn_name, args) = msg.split_once(' ').unwrap_or((msg, ""));
+                pos.report_raw(
+                    &path,
+                    fn_name.len(),
+                    format!("{fn_name} {args}"),
+                )
+            }
+            EvalAltResult::ErrorSystem(msg, err)
+                if err.is::<RhaiSystemError>() =>
+            {
+                let e = err.downcast_ref::<RhaiSystemError>().unwrap();
+                let msg = if msg.is_empty() {
+                    format!("{err}")
+                } else {
+                    format!("{msg}: {err}")
+                };
+                e.position.report_raw(&path, 0, msg)
+            }
+            EvalAltResult::ErrorInModule(path, err, _) => err.report(path),
+            // for errors that we don't have custom processing, just point
+            // to the beginning of the error, and use the error Display as message
+            e => e.position().report_raw(&path, 0, format!("{e}")),
+        }
+    }
+}
+
+impl<T> RhaiReport for RhaiResult<T> {
+    fn report_raw<P: AsRef<Path>, S: AsRef<str>>(
+        &self,
+        path: P,
+        len: usize,
+        msg: S,
+    ) {
+        if let Err(e) = self {
+            (**e).report_raw(path, len, msg);
         }
     }
 }

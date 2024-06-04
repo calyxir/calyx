@@ -1,3 +1,8 @@
+export const verilog_state = state("verilog", ["sv", "v"]);
+export const verilog_noverify = state("verilog-noverify", ["sv"]);
+export const calyx_state = state("calyx", ["futil"]);
+
+export let calyx_setup = calyx_setup;
 fn calyx_setup(e) {
    e.config_var("calyx-base", "calyx.base");
    e.config_var_or("calyx-exe", "calyx.exe", "$calyx-base/target/debug/calyx");
@@ -7,12 +12,26 @@ fn calyx_setup(e) {
 }
 
 op(
-  "calyx2-to-verilog",
+  "calyx-to-verilog",
   [calyx_setup],
-  get_state("calyx"),
-  get_state("verilog"),
+  calyx_state,
+  verilog_state,
   |e, input, output| {
     e.build_cmd([output], "calyx", [input], []) ;
     e.arg("backend", "verilog");
   }
-)
+);
+
+
+op(
+    "calyx-noverify",
+    [calyx_setup],
+    calyx_state,
+    verilog_noverify,
+    |e, input, output| {
+        // Icarus requires a special --disable-verify version of Calyx code.
+        e.build_cmd([output], "calyx", [input], []);
+        e.arg("backend", "verilog");
+        e.arg("args", "--disable-verify");
+    },
+);
