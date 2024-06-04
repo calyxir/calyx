@@ -1,6 +1,6 @@
 use fud_core::{
     exec::{SetupRef, StateRef},
-    run::{EmitResult, Emitter},
+    run::{EmitResult, StreamEmitter},
     DriverBuilder,
 };
 
@@ -261,7 +261,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
 
     fn calyx_to_firrtl_helper(
-        e: &mut Emitter,
+        e: &mut StreamEmitter,
         input: &str,
         output: &str,
         firrtl_primitives: bool, // Use FIRRTL primitive implementations?
@@ -372,7 +372,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
     });
 
     fn firrtl_compile_helper(
-        e: &mut Emitter,
+        e: &mut StreamEmitter,
         input: &str,
         output: &str,
         firrtl_primitives: bool,
@@ -456,7 +456,7 @@ pub fn build_driver(bld: &mut DriverBuilder) {
         Ok(())
     });
     fn verilator_build(
-        e: &mut Emitter,
+        e: &mut StreamEmitter,
         input: &str,
         output: &str,
         standalone_testbench: bool,

@@ -47,18 +47,18 @@ pub type EmitResult = std::result::Result<(), RunError>;
 pub trait EmitBuild {
     fn build(
         &self,
-        emitter: &mut Emitter,
+        emitter: &mut StreamEmitter,
         input: &str,
         output: &str,
     ) -> EmitResult;
 }
 
-pub type EmitBuildFn = fn(&mut Emitter, &str, &str) -> EmitResult;
+pub type EmitBuildFn = fn(&mut StreamEmitter, &str, &str) -> EmitResult;
 
 impl EmitBuild for EmitBuildFn {
     fn build(
         &self,
-        emitter: &mut Emitter,
+        emitter: &mut StreamEmitter,
         input: &str,
         output: &str,
     ) -> EmitResult {
@@ -75,7 +75,7 @@ pub struct EmitRuleBuild {
 impl EmitBuild for EmitRuleBuild {
     fn build(
         &self,
-        emitter: &mut Emitter,
+        emitter: &mut StreamEmitter,
         input: &str,
         output: &str,
     ) -> EmitResult {
@@ -86,13 +86,13 @@ impl EmitBuild for EmitRuleBuild {
 
 /// Code to emit Ninja code at the setup stage.
 pub trait EmitSetup {
-    fn setup(&self, emitter: &mut Emitter) -> EmitResult;
+    fn setup(&self, emitter: &mut StreamEmitter) -> EmitResult;
 }
 
-pub type EmitSetupFn = fn(&mut Emitter) -> EmitResult;
+pub type EmitSetupFn = fn(&mut StreamEmitter) -> EmitResult;
 
 impl EmitSetup for EmitSetupFn {
-    fn setup(&self, emitter: &mut Emitter) -> EmitResult {
+    fn setup(&self, emitter: &mut StreamEmitter) -> EmitResult {
         self(emitter)
     }
 }
@@ -191,19 +191,20 @@ impl<'a> Run<'a> {
     }
 
     /// Ensure that a directory exists and write `build.ninja` inside it.
-    pub fn emit_to_dir(&self, dir: &Utf8Path) -> EmitResult {
-        std::fs::create_dir_all(dir)?;
-        let ninja_path = dir.join("build.ninja");
-        let ninja_file = std::fs::File::create(ninja_path)?;
+    pub fn emit_to_dir(&self, path: &Utf8Path) -> Result<TempDir, RunError> {
+        let dir = TempDir::new(path, self.global_config.keep_build_dir)?;
 
-        self.emit(ninja_file)
+        let ninja_path = path.join("build.ninja");
+        let ninja_file = std::fs::File::create(ninja_path)?;
+        self.emit(ninja_file)?;
+
+        Ok(dir)
     }
 
     /// Emit `build.ninja` to a temporary directory and then actually execute ninja.
     pub fn emit_and_run(&self, dir: &Utf8Path) -> EmitResult {
         // Emit the Ninja file.
-        let stale_dir = dir.exists();
-        self.emit_to_dir(dir)?;
+        let dir = self.emit_to_dir(dir)?;
 
         // Capture stdin.
         if self.plan.stdin {
@@ -218,7 +219,14 @@ impl<'a> Run<'a> {
 
         // Run `ninja` in the working directory.
         let mut cmd = Command::new(&self.global_config.ninja);
-        cmd.current_dir(dir);
+        cmd.current_dir(&dir.path);
+
+        if !self.global_config.verbose {
+            cmd.arg("--quiet");
+        } else {
+            cmd.arg("--verbose");
+        }
+
         cmd.stdout(std::io::stderr()); // Send Ninja's stdout to our stderr.
         let status = cmd.status()?;
 
@@ -232,11 +240,6 @@ impl<'a> Run<'a> {
             )?;
         }
 
-        // Remove the temporary directory unless it already existed at the start *or* the user specified `--keep`.
-        if !self.global_config.keep_build_dir && !stale_dir {
-            std::fs::remove_dir_all(dir)?;
-        }
-
         if status.success() {
             Ok(())
         } else {
@@ -245,7 +248,7 @@ impl<'a> Run<'a> {
     }
 
     pub fn emit<T: Write + 'a>(&self, out: T) -> EmitResult {
-        let mut emitter = Emitter::new(
+        let mut emitter = StreamEmitter::new(
             out,
             self.config_data.clone(),
             self.plan.workdir.clone(),
@@ -290,13 +293,23 @@ impl<'a> Run<'a> {
     }
 }
 
-pub struct Emitter<'a> {
-    pub out: Box<dyn Write + 'a>,
+/// A context for generating Ninja code.
+///
+/// Callbacks to build functionality that generate Ninja code (setups and ops) use this
+/// to access all the relevant configuration and to write out lines of Ninja code.
+pub struct Emitter<W: Write> {
+    pub out: W,
     pub config_data: figment::Figment,
     pub workdir: Utf8PathBuf,
 }
 
-impl<'a> Emitter<'a> {
+/// A generic emitter that outputs to any `Write` stream.
+pub type StreamEmitter<'a> = Emitter<Box<dyn Write + 'a>>;
+
+/// An emitter that buffers the Ninja code in memory.
+pub type BufEmitter = Emitter<Vec<u8>>;
+
+impl<'a> StreamEmitter<'a> {
     fn new<T: Write + 'a>(
         out: T,
         config_data: figment::Figment,
@@ -309,6 +322,23 @@ impl<'a> Emitter<'a> {
         }
     }
 
+    /// Create a new bufferred emitter with the same configuration.
+    pub fn buffer(&self) -> BufEmitter {
+        Emitter {
+            out: Vec::new(),
+            config_data: self.config_data.clone(),
+            workdir: self.workdir.clone(),
+        }
+    }
+
+    /// Flush the output from a bufferred emitter to this emitter.
+    pub fn unbuffer(&mut self, buf: BufEmitter) -> EmitResult {
+        self.out.write_all(&buf.out)?;
+        Ok(())
+    }
+}
+
+impl<W: Write> Emitter<W> {
     /// Fetch a configuration value, or panic if it's missing.
     pub fn config_val(&self, key: &str) -> Result<String, RunError> {
         self.config_data
@@ -416,5 +446,41 @@ impl<'a> Emitter<'a> {
     /// Add a build command to extract a resource file into the build directory.
     pub fn rsrc(&mut self, filename: &str) -> std::io::Result<()> {
         self.build_cmd(&[filename], "get-rsrc", &[], &[])
+    }
+}
+
+/// A directory that can optionally delete itself when we're done with it.
+pub struct TempDir {
+    path: Utf8PathBuf,
+    delete: bool,
+}
+
+impl TempDir {
+    /// Create a directory *or* use an existing directory.
+    ///
+    /// If the directory already exists, we will not delete it (regardless of `keep`). Otherwise,
+    /// we will create a new one, and we will delete it when this object is dropped, unless
+    /// `keep` is true.
+    pub fn new(path: &Utf8Path, keep: bool) -> std::io::Result<Self> {
+        let delete = !path.exists() && !keep;
+        std::fs::create_dir_all(path)?;
+        Ok(Self {
+            path: path.into(),
+            delete,
+        })
+    }
+
+    /// If this directory would otherwise be deleted, don't.
+    pub fn keep(&mut self) {
+        self.delete = false;
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        if self.delete {
+            // We must ignore errors when attempting to delete.
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
     }
 }

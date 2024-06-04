@@ -350,6 +350,7 @@ impl LiveRangeAnalysis {
         control: &mut ir::Control,
         state_share: ShareSet,
         share: ShareSet,
+        only_run_once: bool,
     ) -> Self {
         let mut ranges = LiveRangeAnalysis {
             state_share,
@@ -360,12 +361,18 @@ impl LiveRangeAnalysis {
         // Give each control statement a unique "NODE_ID" attribute.
         ControlId::compute_unique_ids(control, 0, false);
 
-        ranges.build_live_ranges(
+        let (alive, gens, kills) = ranges.build_live_ranges(
             control,
             Prop::default(),
             Prop::default(),
             Prop::default(),
         );
+        // If the component could run more than once, than we have to feed the
+        // output alive,gens,kills, back into the control and run the algorithm
+        // again.
+        if !only_run_once {
+            ranges.build_live_ranges(control, alive, gens, kills);
+        }
 
         for (node, cells_by_type) in &ranges.invokes_enables_map {
             if let Some(prop) = ranges.live.get_mut(node) {
