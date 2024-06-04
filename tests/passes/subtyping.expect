@@ -79,8 +79,8 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (out_main: 64, @done 
   wires {
     group invoke0 {
       big_cell.in_1 = my_ref_cell.small_ref_cell_in_1;
-      big_cell.go = my_ref_cell.small_ref_cell_go;
       my_ref_cell.small_ref_cell_out_1 = big_cell.out_1;
+      big_cell.go = my_ref_cell.small_ref_cell_go;
       my_ref_cell.small_ref_cell_done = big_cell.done;
       my_ref_cell.go = 1'd1;
       invoke0[done] = my_ref_cell.done;
