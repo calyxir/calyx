@@ -38,9 +38,8 @@ RUN sh autoconf.sh && ./configure && make && make install
 
 # Install ninja
 WORKDIR /home
-# TODO: Should get the latest version dynamically. 1.12.1 as of June 2024
-RUN wget https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip && \
-    unzip ninja-linux.zip && \
+RUN git clone git://github.com/ninja-build/ninja.git && cd ninja && git checkout release
+RUN ./configure.py --bootstrap && \
     mv ninja /usr/local/bin/
 
 # Install TVM
