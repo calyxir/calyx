@@ -5,7 +5,6 @@ use anyhow::{anyhow, bail};
 use argh::FromArgs;
 use camino::Utf8PathBuf;
 use std::fmt::Display;
-use std::path::Path;
 use std::str::FromStr;
 
 enum Mode {

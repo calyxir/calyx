@@ -9,7 +9,7 @@ RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/ap
     echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee /etc/apt/sources.list.d/sbt_old.list && \
     curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | apt-key add && \
     apt-get update -y && \
-    apt-get install -y jq python3.10 python3-pip python3-venv sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk ninja-build build-essential cmake autoconf gperf
+    apt-get install -y jq python3.10 python3-pip python3-venv sbt make autoconf g++ flex bison libfl2 libfl-dev default-jdk build-essential cmake autoconf gperf wget unzip
 
 # Setup python venv to install python dependencies. Python no longer supports installing packages globally into your system
 RUN python3 -m venv /opt/venv
@@ -35,6 +35,13 @@ WORKDIR /home
 RUN git clone --depth 1 --branch v12_0 https://github.com/steveicarus/iverilog
 WORKDIR /home/iverilog
 RUN sh autoconf.sh && ./configure && make && make install
+
+# Install ninja
+WORKDIR /home
+# TODO: Should get the latest version dynamically. 1.12.1 as of June 2024
+RUN wget https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip && \
+    unzip ninja-linux.zip && \
+    mv ninja /usr/local/bin/
 
 # Install TVM
 WORKDIR /home
@@ -75,6 +82,10 @@ RUN FLIT_ROOT_INSTALL=1 flit install --symlink --deps production
 RUN mkdir -p /root/.config
 ENV PATH=$PATH:/root/.local/bin
 ENV PYTHONPATH=/root/.local/lib/python3.9/site-packages:$PYTHONPATH
+
+
+
+
 
 # Link fud2
 WORKDIR /home/calyx
