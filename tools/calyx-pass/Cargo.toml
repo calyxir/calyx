@@ -1,0 +1,17 @@
+[package]
+name = "calyx-pass"
+default-run = "calyx-pass"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "calyx-pass"
+path = "src/main.rs"
+
+# I dislike that two terminal crates (termion and console) are needed
+[dependencies]
+argh = "0.1.12"
+colored = "2.1.0"
+console = "0.15.8"
+similar = "2.5.0"
+tempdir = "0.3.7"
