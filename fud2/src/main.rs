@@ -12,7 +12,7 @@ fn main() -> anyhow::Result<()> {
         bld.rsrc_dir(manifest_dir_macros::directory_path!("rsrc"));
 
         #[cfg(feature = "migrate_to_scripts")]
-        bld.plugin_dir(manifest_dir_macros::directory_path!("plugins"));
+        bld.scripts_dir(manifest_dir_macros::directory_path!("plugins"));
     }
 
     // In release mode, embed resources into the binary.

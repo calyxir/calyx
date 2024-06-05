@@ -231,8 +231,8 @@ pub struct DriverBuilder {
     ops: PrimaryMap<OpRef, Operation>,
     rsrc_dir: Option<Utf8PathBuf>,
     rsrc_files: Option<FileData>,
-    plugin_dir: Option<Utf8PathBuf>,
-    plugin_files: Option<FileData>,
+    scripts_dir: Option<Utf8PathBuf>,
+    scripts_files: Option<FileData>,
 }
 
 #[derive(Debug)]
@@ -265,8 +265,8 @@ impl DriverBuilder {
             ops: Default::default(),
             rsrc_dir: None,
             rsrc_files: None,
-            plugin_dir: None,
-            plugin_files: None,
+            scripts_dir: None,
+            scripts_files: None,
         }
     }
 
@@ -362,20 +362,20 @@ impl DriverBuilder {
         self.rsrc_files = Some(files);
     }
 
-    pub fn plugin_dir(&mut self, path: &str) {
-        self.plugin_dir = Some(path.into());
+    pub fn scripts_dir(&mut self, path: &str) {
+        self.scripts_dir = Some(path.into());
     }
 
-    pub fn plugin_files(&mut self, files: FileData) {
-        self.plugin_files = Some(files);
+    pub fn scripts_files(&mut self, files: FileData) {
+        self.scripts_files = Some(files);
     }
 
     /// Load any plugin scripts specified in the configuration file.
     pub fn load_plugins(self) -> Self {
         // pull out things from self that we need
-        let plugin_dir = self.plugin_dir.clone();
+        let plugin_dir = self.scripts_dir.clone();
         // TODO: find a way around this clone
-        let plugin_files = self.plugin_files.clone();
+        let plugin_files = self.scripts_files.clone();
         // TODO: Let's try to avoid loading/parsing the configuration file here and
         // somehow reusing it from wherever we do that elsewhere.
         let config = config::load_config(&self.name);
