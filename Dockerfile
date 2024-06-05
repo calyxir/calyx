@@ -38,7 +38,7 @@ RUN sh autoconf.sh && ./configure && make && make install
 
 # Install ninja
 WORKDIR /home
-RUN git clone git://github.com/ninja-build/ninja.git && cd ninja && git checkout release
+RUN git clone https://github.com/ninja-build/ninja.git && cd ninja && git checkout release
 RUN ./configure.py --bootstrap && \
     mv ninja /usr/local/bin/
 
