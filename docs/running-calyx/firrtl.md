@@ -6,16 +6,11 @@ Calyx programs can be translated into the [FIRRTL](https://bar.eecs.berkeley.edu
 
 To translate an example program to FIRRTL, try:
 
-    $ cargo run examples/tutorial/language-tutorial-iterate.futil -p external-to-ref > language-tutorial-iterate-ref.futil
-    $ cargo run language-tutorial-iterate-ref.futil -b firrtl
+    $ cargo run examples/tutorial/language-tutorial-iterate.futil -p external-to-ref -p all -b firrtl
 
 ## Running with `fud2`
 
-
-
-<!--
-The FIRRTL backend is best run through [fud2][], which all of our examples will use.
--->
+The FIRRTL backend can also be run through fud2, which we recommend using.
 
 ### Setup
 
@@ -38,4 +33,43 @@ Lastly, build Calyx with the YXI feature by running the following from the Calyx
 
     $ cargo build --features yxi
 
-## 
+### Obtaining FIRRTL
+
+> The FIRRTL backend on fud2 currently requires Calyx with the YXI feature to be built. (Refer to the above)
+
+The FIRRTL backend offers two options based on how Calyx primitives are handled: (1) use Calyx's existing Verilog implementations, and (2) generate FIRRTL implementations.
+
+To generate FIRRTL-version of the Calyx program that will use Verilog primitives, run fud2 with `--to firrtl`:
+```
+fud2 examples/tutorial/language-tutorial-iterate.futil --to firrtl
+```
+
+To generate FIRRTL-version of the Calyx program containing FIRRTL primitives, run fud2 with `--to firrtl-with-primitives`:
+```
+fud2 examples/tutorial/language-tutorial-iterate.futil --to firrtl-with-primitives
+```
+
+### Simulating FIRRTL-translated programs
+
+To simulate a FIRRTL-translated Calyx program using Verilog primitives, run fud2 with `--through firrtl`:
+```
+fud2 examples/tutorial/language-tutorial-iterate.futil --to dat -s sim.data=examples/tutorial/data.json --through firrtl
+```
+
+To simulate a FIRRTL-translated Calyx program using FIRRTL primitives, run fud2 with `--through firrtl-with-primitives`:
+
+```
+fud2 examples/tutorial/language-tutorial-iterate.futil --to dat -s sim.data=examples/tutorial/data.json --through firrtl-with-primitives
+```
+
+Both examples will yield
+```
+{
+  "cycles": 76,
+  "memories": {
+    "mem": [
+      42
+    ]
+  }
+}
+```
