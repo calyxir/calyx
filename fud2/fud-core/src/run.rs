@@ -222,7 +222,9 @@ impl<'a> Run<'a> {
         cmd.current_dir(&dir.path);
 
         if !self.global_config.verbose {
-            cmd.arg("--quiet");
+            if ninja_supports_quiet(&self.global_config.ninja)? {
+                cmd.arg("--quiet");
+            }
         } else {
             cmd.arg("--verbose");
         }
@@ -446,6 +448,23 @@ impl<W: Write> Emitter<W> {
     /// Add a build command to extract a resource file into the build directory.
     pub fn rsrc(&mut self, filename: &str) -> std::io::Result<()> {
         self.build_cmd(&[filename], "get-rsrc", &[], &[])
+    }
+}
+
+/// Check whether a Ninja executable supports the `--quiet` flag.
+fn ninja_supports_quiet(ninja: &str) -> std::io::Result<bool> {
+    let version_output = Command::new(ninja).arg("--version").output()?;
+    if let Ok(version) = String::from_utf8(version_output.stdout) {
+        let parts: Vec<&str> = version.split('.').collect();
+        if parts.len() >= 2 {
+            let major = parts[0].parse::<u32>().unwrap_or(0);
+            let minor = parts[1].parse::<u32>().unwrap_or(0);
+            Ok(major > 1 || (major == 1 && minor >= 11))
+        } else {
+            Ok(false)
+        }
+    } else {
+        Ok(false)
     }
 }
 
