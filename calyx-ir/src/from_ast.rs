@@ -447,7 +447,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             .ok_or_else(|| Error::undefined(component, "cell".to_string()))?
             .borrow()
             .find(port)
-            .ok_or_else(|| Error::undefined(port, "port".to_string())),
+            .ok_or_else(|| Error::undefined(Id::new(format!("{}.{}", component, port)), "port".to_string())),
         ast::Port::This { port } => {
             comp.signature.borrow().find(&port).ok_or_else(|| {
                 Error::undefined(port, "component port".to_string())
@@ -457,7 +457,7 @@ fn get_port_ref(port: ast::Port, comp: &Component) -> CalyxResult<RRC<Port>> {
             Some(g) => g
                 .borrow()
                 .find(port)
-                .ok_or_else(|| Error::undefined(port, "hole".to_string())),
+                .ok_or_else(|| Error::undefined(Id::new(format!("{}.{}", g.borrow().name(), port)), "hole".to_string())),
             None => comp
                 .find_static_group(group)
                 .ok_or_else(|| Error::undefined(group, "group".to_string()))?
