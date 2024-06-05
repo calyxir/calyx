@@ -1,6 +1,12 @@
 import cocotb
 import os
 
+#Idea is to have
+
+#MAKE file -> calls cocotb, runs a single function from here
+#this function looks for datapath
+
+#Makefile sets datapath and verilog interested in testing
 
 @cocotb.test()
 async def run(toplevel):
@@ -16,9 +22,3 @@ async def run(toplevel):
 
 
 
-#Idea is to have
-
-#MAKE file -> calls cocotb, runs a single function from here
-#this function looks for datapath, an
-
-#Makefile needs to set datapath and verilog interested in testing
