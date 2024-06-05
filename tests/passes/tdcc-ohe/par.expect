@@ -8,10 +8,11 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     @generated pd = std_reg(1);
     @generated pd0 = std_reg(1);
     @generated pd1 = std_reg(1);
-    @generated fsm = std_reg(3);
-    @generated slicer = std_bit_slice(3, 0, 0, 1);
-    @generated slicer0 = std_bit_slice(3, 1, 1, 1);
-    @generated slicer1 = std_bit_slice(3, 2, 2, 1);
+    @generated fsm = init_one_reg(4);
+    @generated slicer = std_bit_slice(4, 0, 0, 1);
+    @generated slicer0 = std_bit_slice(4, 1, 1, 1);
+    @generated slicer1 = std_bit_slice(4, 2, 2, 1);
+    @generated slicer2 = std_bit_slice(4, 3, 3, 1);
   }
   wires {
     group A {
@@ -42,16 +43,16 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
       par0[done] = pd.out & pd0.out & pd1.out ? 1'd1;
     }
     group tdcc {
-      A[go] = !A[done] & fsm.out == 3'd0 ? 1'd1;
-      par0[go] = !par0[done] & slicer.out == 1'd1 ? 1'd1;
-      B[go] = !B[done] & slicer0.out == 1'd1 ? 1'd1;
-      fsm.in = fsm.out == 3'd0 & A[done] ? 3'd1;
-      fsm.write_en = fsm.out == 3'd0 & A[done] ? 1'd1;
-      fsm.in = slicer.out == 1'd1 & par0[done] ? 3'd2;
-      fsm.write_en = slicer.out == 1'd1 & par0[done] ? 1'd1;
-      fsm.in = slicer0.out == 1'd1 & B[done] ? 3'd4;
-      fsm.write_en = slicer0.out == 1'd1 & B[done] ? 1'd1;
-      tdcc[done] = slicer1.out == 1'd1 ? 1'd1;
+      A[go] = !A[done] & slicer.out == 1'd1 ? 1'd1;
+      par0[go] = !par0[done] & slicer0.out == 1'd1 ? 1'd1;
+      B[go] = !B[done] & slicer1.out == 1'd1 ? 1'd1;
+      fsm.in = slicer.out == 1'd1 & A[done] ? 4'd2;
+      fsm.write_en = slicer.out == 1'd1 & A[done] ? 1'd1;
+      fsm.in = slicer0.out == 1'd1 & par0[done] ? 4'd4;
+      fsm.write_en = slicer0.out == 1'd1 & par0[done] ? 1'd1;
+      fsm.in = slicer1.out == 1'd1 & B[done] ? 4'd8;
+      fsm.write_en = slicer1.out == 1'd1 & B[done] ? 1'd1;
+      tdcc[done] = slicer2.out == 1'd1 ? 1'd1;
     }
     pd.in = pd.out & pd0.out & pd1.out ? 1'd0;
     pd.write_en = pd.out & pd0.out & pd1.out ? 1'd1;
@@ -62,8 +63,9 @@ component main(@go go: 1, @clk clk: 1, @reset reset: 1) -> (@done done: 1) {
     slicer.in = fsm.out;
     slicer0.in = fsm.out;
     slicer1.in = fsm.out;
-    fsm.in = slicer1.out == 1'd1 ? 3'd0;
-    fsm.write_en = slicer1.out == 1'd1 ? 1'd1;
+    slicer2.in = fsm.out;
+    fsm.in = slicer2.out == 1'd1 ? 4'd1;
+    fsm.write_en = slicer2.out == 1'd1 ? 1'd1;
   }
   control {
     tdcc;

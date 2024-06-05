@@ -327,13 +327,13 @@ impl<'b, 'a> Schedule<'b, 'a> {
             }
             Encoding::OneHot => {
                 let fsm_size = final_state + 1; /* represent 0..final_state */
-            
+
                 let fsm = self.builder.add_primitive(
                     "fsm",
                     "init_one_reg",
                     &[fsm_size],
                 );
-                let first_state = self.builder.add_constant(0, fsm_size);
+                let first_state = self.builder.add_constant(1, fsm_size);
                 (fsm, first_state, None, fsm_size)
             }
         };
@@ -348,13 +348,11 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 .sorted_by(|(k1, _), (k2, _)| k1.cmp(k2))
                 .flat_map(|(state, mut assigns)| match encoding {
                     Encoding::Binary => {
-                        let state_const =
-                            self.builder.add_constant(state, fsm_size);
-                        let state_guard =
-                            guard!(fsm["out"] == state_const["out"]);
-                        assigns.iter_mut().for_each(|asgn| {
-                            asgn.guard.update(|g| g.and(state_guard.clone()))
-                        });
+                        let state_const = self.builder.add_constant(state, fsm_size);
+                        let state_guard = guard!(fsm["out"] == state_const["out"]);
+                        assigns
+                            .iter_mut()
+                            .for_each(|asgn| asgn.guard.update(|g| g.and(state_guard.clone())));
                         assigns
                     }
                     Encoding::OneHot => {
@@ -367,19 +365,22 @@ impl<'b, 'a> Schedule<'b, 'a> {
                                 );
                                 // build wire from fsm to slicer
                                 let fsm_to_slicer = self.builder.build_assignment(
-                                    slicer.borrow().get("in"), 
-                                    fsm.borrow().get("out"), 
-                                    ir::Guard::True
+                                    slicer.borrow().get("in"),
+                                    fsm.borrow().get("out"),
+                                    ir::Guard::True,
                                 );
                                 // add continuous assignments to slicer
-                                self.builder.component.continuous_assignments.push(fsm_to_slicer);
+                                self.builder
+                                    .component
+                                    .continuous_assignments
+                                    .push(fsm_to_slicer);
 
                                 // create a guard representing when to allow next-state transition
                                 let state_guard = guard!(slicer["out"] == signal_on["out"]);
                                 used_slicers.insert(state, slicer);
 
                                 state_guard
-                            },
+                            }
 
                             Some(slicer) => {
                                 let state_guard = guard!(slicer["out"] == signal_on["out"]);
@@ -387,92 +388,91 @@ impl<'b, 'a> Schedule<'b, 'a> {
                             }
                         };
 
-                        assigns.iter_mut().for_each(|asgn| {
-                            asgn.guard
-                            .update(|g| g.and(state_guard.clone()))
-                        });
+                        assigns
+                            .iter_mut()
+                            .for_each(|asgn| asgn.guard.update(|g| g.and(state_guard.clone())));
 
                         assigns
-                    },
-                }
-            ),
+                    }
+                }),
         );
 
         // transition assignments
-        group.borrow_mut().assignments.extend(
-            self.transitions.into_iter().flat_map(
-                |(s, e, guard)| {
-                    let (end_const, trans_guard) = match encoding {
-                        Encoding::Binary => {
-                            structure!(self.builder;
-                                let end_const = constant(e, fsm_size);
-                                let start_const = constant(s, fsm_size);
-                            );
-                            let trans_guard =
-                                guard!((fsm["out"] == start_const["out"]) & guard);
-                            
-                            (end_const, trans_guard)
-                        },
-                        Encoding::OneHot => {
+        group
+            .borrow_mut()
+            .assignments
+            .extend(self.transitions.into_iter().flat_map(|(s, e, guard)| {
+                let (end_const, trans_guard) = match encoding {
+                    Encoding::Binary => {
+                        structure!(self.builder;
+                            let end_const = constant(e, fsm_size);
+                            let start_const = constant(s, fsm_size);
+                        );
+                        let trans_guard = guard!((fsm["out"] == start_const["out"]) & guard);
 
-                            let end_constant_value =  u64::pow(2, e.try_into().expect("failed to convert to u32"));
-                            match used_slicers.get(&s) {
-                                None => {
-                                    structure!(
-                                        self.builder;
-                                        let end_const = constant(end_constant_value, fsm_size);
-                                        let slicer = prim std_bit_slice(fsm_size, s, s, 1);
-                                    );
-                                    let trans_guard = guard!((slicer["out"] == signal_on["out"]) & guard);
-                                    let fsm_to_slicer = self.builder.build_assignment(
-                                        slicer.borrow().get("in"),
-                                        fsm.borrow().get("out"), 
-                                        ir::Guard::True);
+                        (end_const, trans_guard)
+                    }
+                    Encoding::OneHot => {
+                        let end_constant_value =
+                            u64::pow(2, e.try_into().expect("failed to convert to u32"));
+                        match used_slicers.get(&s) {
+                            None => {
+                                structure!(
+                                    self.builder;
+                                    let end_const = constant(end_constant_value, fsm_size);
+                                    let slicer = prim std_bit_slice(fsm_size, s, s, 1);
+                                );
+                                let trans_guard =
+                                    guard!((slicer["out"] == signal_on["out"]) & guard);
+                                let fsm_to_slicer = self.builder.build_assignment(
+                                    slicer.borrow().get("in"),
+                                    fsm.borrow().get("out"),
+                                    ir::Guard::True,
+                                );
 
-                                    used_slicers.insert(s, slicer);
+                                used_slicers.insert(s, slicer);
 
-                                    // add wire from fsm to slicer
-                                    self.builder.component.continuous_assignments.push(fsm_to_slicer);
+                                // add wire from fsm to slicer
+                                self.builder
+                                    .component
+                                    .continuous_assignments
+                                    .push(fsm_to_slicer);
 
-                                    (end_const, trans_guard)
-                                },
-                                Some(slicer) => {
-                                    structure!(
-                                        self.builder;
-                                        let end_const = constant(end_constant_value, fsm_size);
-                                    );
-                                    let trans_guard = guard!((slicer["out"] == signal_on["out"]) & guard);
-
-                                    (end_const, trans_guard)
-
-                                }
+                                (end_const, trans_guard)
                             }
-                        },
-                    };
+                            Some(slicer) => {
+                                structure!(
+                                    self.builder;
+                                    let end_const = constant(end_constant_value, fsm_size);
+                                );
+                                let trans_guard =
+                                    guard!((slicer["out"] == signal_on["out"]) & guard);
 
-                    let ec_borrow = end_const.borrow();
-                    vec![
-                        self.builder.build_assignment(
-                            fsm.borrow().get("in"),
-                            ec_borrow.get("out"),
-                            trans_guard.clone(),
-                        ),
-                        self.builder.build_assignment(
-                            fsm.borrow().get("write_en"),
-                            signal_on.borrow().get("out"),
-                            trans_guard,
-                        ),
-                    ]
-                }
-            ),
-        );
+                                (end_const, trans_guard)
+                            }
+                        }
+                    }
+                };
+
+                let ec_borrow = end_const.borrow();
+                vec![
+                    self.builder.build_assignment(
+                        fsm.borrow().get("in"),
+                        ec_borrow.get("out"),
+                        trans_guard.clone(),
+                    ),
+                    self.builder.build_assignment(
+                        fsm.borrow().get("write_en"),
+                        signal_on.borrow().get("out"),
+                        trans_guard,
+                    ),
+                ]
+            }));
 
         // done condition for group
-        let reset_fsm = 
-        match last_state_opt {
+        let reset_fsm = match last_state_opt {
             // binary branch; only binary needs last state constant
             Some(last_state) => {
-
                 let last_guard = guard!(fsm["out"] == last_state["out"]);
                 let done_assign = self.builder.build_assignment(
                     group.borrow().get("done"),
@@ -488,11 +488,10 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 );
 
                 reset_fsm.to_vec()
-            },
+            }
 
             // ohe branch does not need last state constant
             None => {
-
                 // Done condition for group
                 structure!(
                     self.builder;
@@ -517,8 +516,7 @@ impl<'b, 'a> Schedule<'b, 'a> {
                 );
 
                 reset_fsm.to_vec()
-
-            },
+            }
         };
 
         // extend with conditions to set fsm to initial state
@@ -657,7 +655,11 @@ impl Schedule<'_, '_> {
         early_transitions: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         if if_stmt.cond.is_some() {
-            return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), if_stmt.cond.as_ref().unwrap().borrow().name())));
+            return Err(Error::malformed_structure(format!(
+                "{}: Found group `{}` in with position of if. This should have compiled away.",
+                TopDownCompileControl::name(),
+                if_stmt.cond.as_ref().unwrap().borrow().name()
+            )));
         }
         let port_guard: ir::Guard<Nothing> = Rc::clone(&if_stmt.port).into();
         // Previous states transitioning into true branch need the conditional
@@ -708,7 +710,11 @@ impl Schedule<'_, '_> {
         early_transitions: bool,
     ) -> CalyxResult<Vec<PredEdge>> {
         if while_stmt.cond.is_some() {
-            return Err(Error::malformed_structure(format!("{}: Found group `{}` in with position of if. This should have compiled away.", TopDownCompileControl::name(), while_stmt.cond.as_ref().unwrap().borrow().name())));
+            return Err(Error::malformed_structure(format!(
+                "{}: Found group `{}` in with position of if. This should have compiled away.",
+                TopDownCompileControl::name(),
+                while_stmt.cond.as_ref().unwrap().borrow().name()
+            )));
         }
 
         let port_guard: ir::Guard<Nothing> = Rc::clone(&while_stmt.port).into();
