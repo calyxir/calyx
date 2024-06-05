@@ -38,8 +38,10 @@ RUN sh autoconf.sh && ./configure && make && make install
 
 # Install ninja
 WORKDIR /home
-RUN git clone https://github.com/ninja-build/ninja.git && cd ninja && git checkout release
-RUN ./configure.py --bootstrap && \
+RUN git clone https://github.com/ninja-build/ninja.git && \
+    cd ninja && \
+    git checkout release && \
+    ./configure.py --bootstrap && \
     mv ninja /usr/local/bin/
 
 # Install TVM
