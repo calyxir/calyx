@@ -68,8 +68,9 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
     # `x` stands for the prefix of the channel, i.e. `AW` or `AR`
     lc_x = prefix.lower()
     x = prefix
+    name = mem[name_key]
     # Inputs/outputs
-    m_to_s_address_channel = prog.component(f"m_{lc_x}_channel")
+    m_to_s_address_channel = prog.component(f"m_{lc_x}_channel_{name}")
     channel_inputs = [("ARESETn", 1), (f"{x}READY", 1), ("axi_address", 64)]
     channel_outputs = [
         (f"{x}VALID", 1),
@@ -143,7 +144,8 @@ def _add_m_to_s_address_channel(prog, mem, prefix: Literal["AW", "AR"]):
 
 def add_read_channel(prog, mem):
     # Inputs/Outputs
-    read_channel = prog.component("m_read_channel")
+    name = mem[name_key]
+    read_channel = prog.component(f"m_read_channel_{name}")
     # TODO(nathanielnrn): We currently assume RDATA is the same width as the
     # memory. This limits throughput many AXI data busses are much wider
     # i.e., 512 bits.
@@ -234,9 +236,9 @@ def add_read_channel(prog, mem):
 
 def add_write_channel(prog, mem):
     data_width = mem[width_key]
-    address_width = mem[address_width_key][0]
+    name = mem[name_key]
     # Inputs/Outputs
-    write_channel = prog.component("m_write_channel")
+    write_channel = prog.component(f"m_write_channel_{name}")
     channel_inputs = [
         ("ARESETn", 1),
         ("WREADY", 1),
@@ -310,8 +312,9 @@ def add_write_channel(prog, mem):
 # handling logic. So basically this sets BREADY high then lowers it on
 # handshake.
 def add_bresp_channel(prog, mem):
+    name = mem[name_key]
     # Inputs/Outputs
-    bresp_channel = prog.component("m_bresp_channel")
+    bresp_channel = prog.component(f"m_bresp_channel_{name}")
     # No BRESP because it is ignored, i.e we assume it is tied OKAY
     channel_inputs = [("ARESETn", 1), ("BVALID", 1)]
     channel_outputs = [("BREADY", 1)]
@@ -372,8 +375,8 @@ def add_read_controller(prog, mem):
     add_comp_ports(read_controller, read_controller_inputs, read_controller_outputs)
 
     #Cells
-    simple_ar_channel = read_controller.cell(f"ar_channel_{name}", prog.get_component("m_ar_channel"))
-    simple_read_channel = read_controller.cell(f"read_channel_{name}", prog.get_component("m_read_channel"))
+    simple_ar_channel = read_controller.cell(f"ar_channel_{name}", prog.get_component(f"m_ar_channel_{name}"))
+    simple_read_channel = read_controller.cell(f"read_channel_{name}", prog.get_component(f"m_read_channel_{name}"))
     # No groups necesarry
 
 
@@ -435,9 +438,9 @@ def add_write_controller(prog, mem):
     add_comp_ports(write_controller, write_controller_inputs, write_controller_outputs)
 
     #Cells
-    simple_aw_channel = write_controller.cell(f"aw_channel_{name}", prog.get_component("m_aw_channel"))
-    simple_write_channel = write_controller.cell(f"write_channel_{name}", prog.get_component("m_write_channel"))
-    simple_bresp_channel = write_controller.cell(f"bresp_channel_{name}", prog.get_component("m_bresp_channel"))
+    simple_aw_channel = write_controller.cell(f"aw_channel_{name}", prog.get_component(f"m_aw_channel_{name}"))
+    simple_write_channel = write_controller.cell(f"write_channel_{name}", prog.get_component(f"m_write_channel_{name}"))
+    simple_bresp_channel = write_controller.cell(f"bresp_channel_{name}", prog.get_component(f"m_bresp_channel_{name}"))
     # No groups necesarry
 
 
@@ -582,11 +585,11 @@ def add_main_comp(prog, mems):
     wrapper_comp = prog.component("wrapper")
     wrapper_comp.attribute("toplevel", 1)
     # Get handles to be used later
-    read_channel = prog.get_component("m_read_channel")
-    write_channel = prog.get_component("m_write_channel")
-    ar_channel = prog.get_component("m_ar_channel")
-    aw_channel = prog.get_component("m_aw_channel")
-    bresp_channel = prog.get_component("m_bresp_channel")
+    # read_channel = prog.get_component("m_read_channel")
+    # write_channel = prog.get_component("m_write_channel")
+    # ar_channel = prog.get_component("m_ar_channel")
+    # aw_channel = prog.get_component("m_aw_channel")
+    # bresp_channel = prog.get_component("m_bresp_channel")
 
     curr_addr_axi_par = []
     curr_addr_internal_par = []
@@ -646,116 +649,56 @@ def add_main_comp(prog, mems):
         add_comp_ports(wrapper_comp, wrapper_inputs, wrapper_outputs)
 
         # Cells
-        # Read stuff
-        curr_addr_internal_mem = wrapper_comp.reg(
-            clog2_or_1(mem[size_key]), f"curr_addr_internal_mem_{mem_name}"
-        )
-        curr_addr_axi = wrapper_comp.reg(64, f"curr_addr_axi_{mem_name}")
-
-        wrapper_comp.cell(f"ar_channel_{mem_name}", ar_channel)
-        wrapper_comp.cell(f"read_channel_{mem_name}", read_channel)
 
         # TODO: Don't think these need to be marked external, but we
         # we need to raise them at some point form original calyx program
-        internal_mem = wrapper_comp.seq_mem_d1(
-            name=f"internal_mem_{mem_name}",
-            bitwidth=mem[width_key],
-            len=mem[size_key],
-            idx_size=clog2_or_1(mem[size_key]),
-        )
-
-        # Write stuff
-        max_transfers = wrapper_comp.reg(8, f"max_transfers_{mem_name}")
-        wrapper_comp.cell(f"aw_channel_{mem_name}", aw_channel)
-        wrapper_comp.cell(f"write_channel_{mem_name}", write_channel)
-        wrapper_comp.cell(f"bresp_channel_{mem_name}", bresp_channel)
+        axi_mem = wrapper_comp.cell(f"axi_seq_mem_{mem_name}", prog.get_component(f"axi_seq_mem_{mem_name}"))
 
         # Wires
 
-        # Tie IDs low, needed for cocotb compatability. Not used anywhere
         with wrapper_comp.continuous:
+            # Tie IDs low, needed for cocotb compatability. Not used anywhere
             wrapper_comp.this()[f"{mem_name}_ARID"] = 0
             wrapper_comp.this()[f"{mem_name}_AWID"] = 0
             wrapper_comp.this()[f"{mem_name}_WID"] = 0
             wrapper_comp.this()[f"{mem_name}_BID"] = 0
 
-        # No groups needed!
+            # Connect wrapper ports with axi_seq_mem ports
 
-        # set up internal control blocks
-        # TODO: turn these into parts of a par block
-        this_component = wrapper_comp.this()
+            # Read controller portion inputs
+            wrapper_comp.this()[f"{mem_name}_ARESETn"] = axi_mem["ARESETn"] #note that both styles work
+            wrapper_comp.this()[f"{mem_name}_ARREADY"] = axi_mem.ARREADY
+            wrapper_comp.this()[f"{mem_name}_RVALID"] = axi_mem.RVALID
+            wrapper_comp.this()[f"{mem_name}_RLAST"] = axi_mem.RLAST
+            wrapper_comp.this()[f"{mem_name}_RDATA"] = axi_mem.RDATA
+            wrapper_comp.this()[f"{mem_name}_RRESP"] = axi_mem.RRESP
+            # Read controller outputs
+            wrapper_comp.this()[f"{mem_name}_ARVALID"] = axi_mem.ARVALID
+            wrapper_comp.this()[f"{mem_name}_ARADDR"] = axi_mem.ARADDR
+            wrapper_comp.this()[f"{mem_name}_ARSIZE"] = axi_mem.ARSIZE
+            wrapper_comp.this()[f"{mem_name}_ARLEN"] = axi_mem.ARLEN
+            wrapper_comp.this()[f"{mem_name}_ARBURST"] = axi_mem.ARBURST
+            wrapper_comp.this()[f"{mem_name}_RREADY"] = axi_mem.RREADY
+            wrapper_comp.this()[f"{mem_name}_read_data"] = axi_mem.read_data
+            # Write controller inputs
+            wrapper_comp.this()[f"{mem_name}_AWREADY"] = axi_mem.AWREADY
+            wrapper_comp.this()[f"{mem_name}_WREADY"] = axi_mem.WREADY
+            wrapper_comp.this()[f"{mem_name}_BVALID"] = axi_mem.BVALID
+            # Write controller outputs
+            wrapper_comp.this()[f"{mem_name}_AWVALID"] = axi_mem.AWVALID
+            wrapper_comp.this()[f"{mem_name}_AWADDR"] = axi_mem.AWADDR
+            wrapper_comp.this()[f"{mem_name}_AWSIZE"] = axi_mem.AWSIZE
+            wrapper_comp.this()[f"{mem_name}_AWLEN"] = axi_mem.AWLEN
+            wrapper_comp.this()[f"{mem_name}_AWBURST"] = axi_mem.AWBURST
+            wrapper_comp.this()[f"{mem_name}_AWPROT"] = axi_mem.AWPROT
+            wrapper_comp.this()[f"{mem_name}_WVALID"] = axi_mem.WVALID
+            wrapper_comp.this()[f"{mem_name}_WLAST"] = axi_mem.WLAST
+            wrapper_comp.this()[f"{mem_name}_WDATA"] = axi_mem.WDATA
+            wrapper_comp.this()[f"{mem_name}_BREADY"] = axi_mem.BREADY
 
-        ar_channel_invoke = invoke(
-            # main_comp.get_cell(f"ar_channel_{mem_name}"),
-            wrapper_comp.get_cell(f"ar_channel_{mem_name}"),
-            ref_curr_addr_axi=curr_addr_axi,
-            in_ARESETn=this_component[f"{mem_name}_ARESETn"],
-            in_ARREADY=this_component[f"{mem_name}_ARREADY"],
-            out_ARVALID=this_component[f"{mem_name}_ARVALID"],
-            out_ARADDR=this_component[f"{mem_name}_ARADDR"],
-            out_ARSIZE=this_component[f"{mem_name}_ARSIZE"],
-            out_ARLEN=this_component[f"{mem_name}_ARLEN"],
-            out_ARBURST=this_component[f"{mem_name}_ARBURST"],
-        )
 
-        read_channel_invoke = invoke(
-            wrapper_comp.get_cell(f"read_channel_{mem_name}"),
-            ref_mem_ref=internal_mem,
-            ref_curr_addr_internal_mem=curr_addr_internal_mem,
-            ref_curr_addr_axi=curr_addr_axi,
-            in_ARESETn=this_component[f"{mem_name}_ARESETn"],
-            in_RVALID=this_component[f"{mem_name}_RVALID"],
-            in_RLAST=this_component[f"{mem_name}_RLAST"],
-            in_RDATA=this_component[f"{mem_name}_RDATA"],
-            # TODO: Do we need this? Don't think this goes anywhere
-            in_RRESP=this_component[f"{mem_name}_RRESP"],
-            out_RREADY=this_component[f"{mem_name}_RREADY"],
-        )
-
-        aw_channel_invoke = invoke(
-            wrapper_comp.get_cell(f"aw_channel_{mem_name}"),
-            ref_curr_addr_axi=curr_addr_axi,
-            ref_max_transfers=max_transfers,
-            in_ARESETn=this_component[f"{mem_name}_ARESETn"],
-            in_AWREADY=this_component[f"{mem_name}_AWREADY"],
-            out_AWVALID=this_component[f"{mem_name}_AWVALID"],
-            out_AWADDR=this_component[f"{mem_name}_AWADDR"],
-            out_AWSIZE=this_component[f"{mem_name}_AWSIZE"],
-            out_AWLEN=this_component[f"{mem_name}_AWLEN"],
-            out_AWBURST=this_component[f"{mem_name}_AWBURST"],
-            out_AWPROT=this_component[f"{mem_name}_AWPROT"],
-        )
-
-        write_channel_invoke = invoke(
-            wrapper_comp.get_cell(f"write_channel_{mem_name}"),
-            ref_mem_ref=internal_mem,
-            ref_curr_addr_internal_mem=curr_addr_internal_mem,
-            ref_curr_addr_axi=curr_addr_axi,
-            ref_max_transfers=max_transfers,
-            in_ARESETn=this_component[f"{mem_name}_ARESETn"],
-            in_WREADY=this_component[f"{mem_name}_WREADY"],
-            out_WVALID=this_component[f"{mem_name}_WVALID"],
-            out_WLAST=this_component[f"{mem_name}_WLAST"],
-            out_WDATA=this_component[f"{mem_name}_WDATA"],
-        )
-
-        bresp_channel_invoke = invoke(
-            wrapper_comp.get_cell(f"bresp_channel_{mem_name}"),
-            in_BVALID=this_component[f"{mem_name}_BVALID"],
-            out_BREADY=this_component[f"{mem_name}_BREADY"],
-        )
-
-        curr_addr_axi_invoke = invoke(curr_addr_axi, in_in=0x1000)
-        curr_addr_internal_invoke = invoke(curr_addr_internal_mem, in_in=0x0000)
-
-        curr_addr_axi_par.append(curr_addr_axi_invoke)
-        curr_addr_internal_par.append(curr_addr_internal_invoke)
-        reads_par.append([ar_channel_invoke, read_channel_invoke])
-        writes_par.append(
-            [aw_channel_invoke, write_channel_invoke, bresp_channel_invoke]
-        )
         # Creates `<mem_name> = internal_mem_<mem_name>` as refs in invocation of `main_compute`
-        ref_mem_kwargs[f"ref_{mem_name}"] = internal_mem
+        ref_mem_kwargs[f"ref_{mem_name}"] = axi_mem
 
     # Compute invoke
     # Assumes refs should be of form `<mem_name> = internal_mem_<mem_name>`
@@ -764,14 +707,8 @@ def add_main_comp(prog, mems):
     )
 
     # Compiler should reschedule these 2 seqs to be in parallel right?
-    wrapper_comp.control += par(*curr_addr_axi_par)
-    wrapper_comp.control += par(*curr_addr_internal_par)
-
-    wrapper_comp.control += par(*reads_par)
     wrapper_comp.control += main_compute_invoke
     # Reset axi adress to 0
-    wrapper_comp.control += par(*curr_addr_axi_par)
-    wrapper_comp.control += par(*writes_par)
 
 
 # Helper functions
@@ -801,17 +738,17 @@ def clog2_or_1(x):
 def build():
     prog = Builder()
     check_mems_welformed(mems)
-    for mem in mems:
+    for mem in mems[0:1]:
+        add_arread_channel(prog, mem)
+        add_awwrite_channel(prog, mem)
+        add_read_channel(prog, mem)
+        add_write_channel(prog, mem)
+        add_bresp_channel(prog, mem)
         add_address_translator(prog, mem)
-    add_arread_channel(prog, mems[0])
-    add_awwrite_channel(prog, mems[0])
-    add_read_channel(prog, mems[0])
-    add_write_channel(prog, mems[0])
-    add_bresp_channel(prog, mems[0])
-    add_read_controller(prog, mems[0])
-    add_write_controller(prog, mems[0])
-    add_axi_seq_mem(prog, mems[0])
-    add_main_comp(prog, mems)
+        add_read_controller(prog, mem)
+        add_write_controller(prog, mem)
+        add_axi_seq_mem(prog, mem) #TODO: need one for each mem
+    add_main_comp(prog, mems[0:1])
     return prog.program
 
 
