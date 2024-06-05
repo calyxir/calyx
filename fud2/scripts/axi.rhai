@@ -1,4 +1,17 @@
-let calyx = get_state("calyx");
+import "calyx" as c;
+
+export const yxi = state("yxi", ["yxi"]);
+
+op(
+    "calyx-to-yxi",
+    [c::calyx_setup],
+    c::calyx_state,
+    yxi,
+    |e, input, output| {
+        e.build_cmd([output], "calyx", [input], []);
+        e.arg("backend", "yxi");
+    },
+);
 
 fn wrapper_setup(e) {
    e.config_var_or("axi-generator", "axi.generator", "$calyx-base/yxi/axi-calyx/axi-generator.py");
@@ -41,9 +54,9 @@ fn axi_wrapped_op(e, input, output) {
 }
 
 op(
-  "axi-wrapped2",
-  [get_setup("Calyx compiler"), wrapper_setup],
-  calyx,
-  calyx,
+  "axi-wrapped",
+  [c::calyx_setup, wrapper_setup],
+  c::calyx_state,
+  c::calyx_state,
   axi_wrapped_op
 );
