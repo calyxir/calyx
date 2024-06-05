@@ -12,7 +12,7 @@ fn main() -> anyhow::Result<()> {
         bld.rsrc_dir(manifest_dir_macros::directory_path!("rsrc"));
 
         #[cfg(feature = "migrate_to_scripts")]
-        bld.scripts_dir(manifest_dir_macros::directory_path!("plugins"));
+        bld.scripts_dir(manifest_dir_macros::directory_path!("scripts"));
     }
 
     // In release mode, embed resources into the binary.
@@ -29,7 +29,7 @@ fn main() -> anyhow::Result<()> {
         #[cfg(feature = "migrate_to_scripts")]
         bld.script_files({
             const DIR: include_dir::Dir =
-                include_dir::include_dir!("$CARGO_MANIFEST_DIR/plugins");
+                include_dir::include_dir!("$CARGO_MANIFEST_DIR/scripts");
             DIR.files()
                 .map(|file| (file.path().to_str().unwrap(), file.contents()))
                 .collect()
