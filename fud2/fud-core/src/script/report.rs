@@ -24,7 +24,6 @@ impl RhaiReport for rhai::Position {
         len: usize,
         msg: S,
     ) {
-        println!("path: {:?}", path.as_ref());
         let source = fs::read_to_string(path.as_ref());
         let name = path.as_ref().to_str().unwrap();
 
@@ -54,7 +53,12 @@ impl RhaiReport for rhai::Position {
                 .unwrap()
         } else {
             eprintln!("Failed to load plugin {name}");
-            eprintln!("  {} @ {}", msg.as_ref(), self);
+            let pos_str = if self.is_none() {
+                "".to_string()
+            } else {
+                format!(" @ {self}")
+            };
+            eprintln!("  {}{pos_str}", msg.as_ref());
         }
     }
 }
