@@ -1,0 +1,5 @@
+- [ ] run arbitrary pass via e.g. `r`
+- [ ] skip passes
+- [ ] undo passes
+- [ ] pass breakpoints (`-b`)
+- [ ] if possible, automatically scroll back to the top
