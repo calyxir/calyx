@@ -192,7 +192,7 @@ fn get_request(driver: &Driver, args: &FakeArgs) -> anyhow::Result<Request> {
         end_file: args.output.clone(),
         end_state: to_state(driver, args)?,
         through: through?,
-        workdir: workdir.into(),
+        workdir,
     })
 }
 
