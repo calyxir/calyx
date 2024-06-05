@@ -1164,6 +1164,7 @@ dependencies = [
  "log",
  "once_cell",
  "pathdiff",
+ "rand",
  "rhai",
  "serde",
 ]
