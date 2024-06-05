@@ -35,5 +35,5 @@ pub struct ParseArgs {
     pub component: Option<String>,
 
     #[argh(positional, description = "calyx file")]
-    pub input_file: String,
+    pub input_file: String
 }
