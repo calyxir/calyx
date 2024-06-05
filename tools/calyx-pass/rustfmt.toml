@@ -1,0 +1,9 @@
+brace_style = "PreferSameLine"
+fn_params_layout = "Compressed"
+format_code_in_doc_comments = true
+max_width = 80
+comment_width = 80
+wrap_comments = true
+trailing_comma = "Never"
+match_arm_leading_pipes = "Preserve"
+imports_granularity = "Crate"
