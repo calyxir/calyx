@@ -24,11 +24,11 @@ impl RhaiReport for rhai::Position {
         len: usize,
         msg: S,
     ) {
-        let source =
-            fs::read_to_string(path.as_ref()).expect("Failed to open file");
+        println!("path: {:?}", path.as_ref());
+        let source = fs::read_to_string(path.as_ref());
         let name = path.as_ref().to_str().unwrap();
 
-        if let Some(line) = self.line() {
+        if let (Some(line), Ok(source)) = (self.line(), source) {
             let position = self.position().unwrap_or(1);
             // translate a line offset into a char offset
             let line_offset = source
@@ -54,7 +54,7 @@ impl RhaiReport for rhai::Position {
                 .unwrap()
         } else {
             eprintln!("Failed to load plugin {name}");
-            eprintln!("  {}", msg.as_ref());
+            eprintln!("  {} @ {}", msg.as_ref(), self);
         }
     }
 }

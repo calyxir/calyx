@@ -4,6 +4,7 @@ use crate::{
 };
 use std::{
     cell::RefCell,
+    collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -12,6 +13,7 @@ use super::{
     error::RhaiSystemError,
     exec_scripts::{to_rhai_err, to_str_slice, RhaiResult, RhaiSetupCtx},
     report::RhaiReport,
+    resolver::Resolver,
 };
 
 #[derive(Clone)]
@@ -60,6 +62,7 @@ impl ScriptContext {
 pub struct ScriptRunner {
     builder: Rc<RefCell<DriverBuilder>>,
     engine: rhai::Engine,
+    files: HashMap<PathBuf, rhai::AST>,
 }
 
 impl ScriptRunner {
@@ -67,6 +70,7 @@ impl ScriptRunner {
         let mut this = Self {
             builder: Rc::new(RefCell::new(builder)),
             engine: rhai::Engine::new(),
+            files: HashMap::default(),
         };
         this.reg_state();
         this.reg_get_state();
@@ -74,7 +78,35 @@ impl ScriptRunner {
         this
     }
 
-    pub fn into_builder(self) -> DriverBuilder {
+    pub fn add_files(
+        &mut self,
+        files: impl Iterator<Item = PathBuf>,
+    ) -> &mut Self {
+        self.files.extend(files.map(|f| {
+            (
+                f.file_name().unwrap().into(),
+                self.engine.compile_file(f).unwrap(),
+            )
+        }));
+        self
+    }
+
+    pub fn add_static_files(
+        &mut self,
+        static_files: impl Iterator<Item = (&'static str, &'static [u8])>,
+    ) -> &mut Self {
+        self.files.extend(static_files.map(|(name, data)| {
+            (
+                PathBuf::from(name),
+                self.engine
+                    .compile(String::from_utf8(data.to_vec()).unwrap())
+                    .unwrap(),
+            )
+        }));
+        self
+    }
+
+    fn into_builder(self) -> DriverBuilder {
         std::mem::drop(self.engine); // Drop references to the context.
         Rc::into_inner(self.builder)
             .expect("script references still live")
@@ -145,36 +177,43 @@ impl ScriptRunner {
         );
     }
 
-    fn script_context(&self, path: &Path) -> Option<ScriptContext> {
-        let ast = self.engine.compile_file(path.into());
-
-        match ast {
-            Ok(ast) => Some(ScriptContext {
-                builder: Rc::clone(&self.builder),
-                path: Rc::new(path.to_path_buf()),
-                ast: Rc::new(ast),
-            }),
-            Err(_) => {
-                ast.report(path);
-                None
-            }
+    fn script_context(&self, path: PathBuf, ast: rhai::AST) -> ScriptContext {
+        ScriptContext {
+            builder: Rc::clone(&self.builder),
+            path: Rc::new(path),
+            ast: Rc::new(ast),
         }
     }
 
-    pub fn run_file(&mut self, path: &Path) {
-        if let Some(sctx) = self.script_context(path) {
-            self.reg_rule(sctx.clone());
-            self.reg_op(sctx.clone());
+    fn run_file(&mut self, path: &Path, ast: rhai::AST) {
+        let sctx = self.script_context(path.to_path_buf(), ast);
+        self.reg_rule(sctx.clone());
+        self.reg_op(sctx.clone());
 
-            self.engine
-                .module_resolver()
-                .resolve(
-                    &self.engine,
-                    None,
-                    path.to_str().unwrap(),
-                    rhai::Position::NONE,
-                )
-                .report(path);
+        self.engine
+            .module_resolver()
+            .resolve(
+                &self.engine,
+                None,
+                path.to_str().unwrap(),
+                rhai::Position::NONE,
+            )
+            .report(path);
+    }
+
+    pub fn run(mut self) -> DriverBuilder {
+        self.engine
+            .set_module_resolver(Resolver::new(self.files.clone()));
+
+        let files: Vec<_> = self
+            .files
+            .iter()
+            .map(|(p, a)| (p.clone(), a.clone()))
+            .collect();
+        for (p, ast) in files {
+            self.run_file(p.as_path(), ast);
         }
+
+        self.into_builder()
     }
 }

@@ -2,9 +2,7 @@ use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
-use std::{
-    collections::HashMap, error::Error, ffi::OsStr, fmt::Display, path::PathBuf,
-};
+use std::{collections::HashMap, error::Error, ffi::OsStr, fmt::Display};
 
 #[derive(PartialEq)]
 enum Destination {
@@ -374,13 +372,21 @@ impl DriverBuilder {
 
     /// Load any plugin scripts specified in the configuration file.
     pub fn load_plugins(self) -> Self {
-        let mut plugin_files: Vec<PathBuf> = vec![];
+        // pull out things from self that we need
+        let plugin_dir = self.plugin_dir.clone();
+        // TODO: find a way around this clone
+        let plugin_files = self.plugin_files.clone();
+        // TODO: Let's try to avoid loading/parsing the configuration file here and
+        // somehow reusing it from wherever we do that elsewhere.
+        let config = config::load_config(&self.name);
 
-        // load included plugins first
-        if let Some(plugin_dir) = &self.plugin_dir {
-            let paths = std::fs::read_dir(plugin_dir).unwrap();
-            plugin_files.extend(
-                paths
+        let mut runner = script::ScriptRunner::new(self);
+
+        // add system plugins
+        if let Some(plugin_dir) = plugin_dir {
+            runner.add_files(
+                std::fs::read_dir(plugin_dir)
+                    .unwrap()
                     // filter out invalid paths
                     .filter_map(|dir_entry| dir_entry.map(|p| p.path()).ok())
                     // filter out paths that don't have `.rhai` extension
@@ -388,27 +394,19 @@ impl DriverBuilder {
             );
         }
 
-        // Get a list of plugins (paths to Rhai scripts) from the config file, if any.
-        // TODO: Let's try to avoid loading/parsing the configuration file here and
-        // somehow reusing it from wherever we do that elsewhere.
-        let config = config::load_config(&self.name);
-        plugin_files.extend_from_slice(
-            &config
-                .extract_inner::<Vec<std::path::PathBuf>>("plugins")
-                .unwrap_or_default(),
-        );
-
-        // if we don't have any plugins, return early
-        if plugin_files.is_empty() {
-            return self;
+        // add static plugins (where string is included in binary)
+        if let Some(plugin_files) = plugin_files {
+            runner.add_static_files(plugin_files.into_iter());
         }
 
-        // load and run plugins
-        let mut runner = script::ScriptRunner::new(self);
-        for path in plugin_files {
-            runner.run_file(path.as_path());
+        // add user plugins defined in config
+        if let Ok(plugins) =
+            config.extract_inner::<Vec<std::path::PathBuf>>("plugins")
+        {
+            runner.add_files(plugins.into_iter());
         }
-        runner.into_builder()
+
+        runner.run()
     }
 
     pub fn build(self) -> Driver {
