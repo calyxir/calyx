@@ -1,9 +1,8 @@
-use fud2::build_driver;
 use fud_core::{cli, DriverBuilder};
 
 fn main() -> anyhow::Result<()> {
     let mut bld = DriverBuilder::new("fud2");
-    build_driver(&mut bld);
+    // build_driver(&mut bld);
 
     // In debug mode, get resources from the source directory.
     #[cfg(debug_assertions)]
