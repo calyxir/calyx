@@ -12,6 +12,94 @@ from math import log2, ceil
 import json
 import sys
 
+
+#fixed vec_add main
+vec_add_main = """
+component main() -> () {                                                                                                                                                                                 
+  cells {
+      //Modified to 64 width address because XRT expects 64 bit memory addresses
+      ref A0 = seq_mem_d1(32,8,3);
+      A_read0_0 = std_reg(32);
+      ref B0 = seq_mem_d1(32,8,3);
+      B_read0_0 = std_reg(32);
+      ref Sum0 = seq_mem_d1(32,8,3);
+      add0 = std_add(32);
+      add1 = std_add(4);
+      const0 = std_const(4,0);
+      const1 = std_const(4,7);
+      const2 = std_const(4,1);
+      i0 = std_reg(4);
+      le0 = std_le(4);
+      bit_slice = std_bit_slice(4,0,2,3);
+  }
+  wires {
+    A0.write_en = 1'b0;
+    B0.write_en = 1'b0;
+    
+    bit_slice.in = i0.out;
+    comb group cond0 {
+      le0.left = i0.out;
+      le0.right = const1.out;
+    }
+    group let0 {
+      i0.in = const0.out;
+      i0.write_en = 1'd1;
+      let0[done] = i0.done;
+    }
+    //modified upd0 and upd1 to use seq_mem correctly
+    group upd0 {
+      A_read0_0.write_en = A0.done;
+      A0.addr0 = bit_slice.out;
+      A0.content_en = 1'b1;
+      A_read0_0.in = 1'd1 ? A0.read_data;
+      upd0[done] = A_read0_0.done ? 1'd1;
+    }
+    //see comment for upd0
+    group upd1 {
+      B_read0_0.write_en = B0.done;
+      B0.addr0 = bit_slice.out;
+      B0.content_en = 1'b1;
+      B_read0_0.in = 1'd1 ? B0.read_data;
+      upd1[done] = B_read0_0.done ? 1'd1;
+    }
+    group upd2 {
+      Sum0.addr0 = bit_slice.out;
+      Sum0.content_en = 1'd1;
+      Sum0.write_en = 1'd1;
+      B0.content_en = 1'b1;
+      B0.addr0 = bit_slice.out;
+      A0.addr0 = bit_slice.out;
+      A0.content_en = 1'b1;
+      add0.left = B_read0_0.out;
+      add0.right = A_read0_0.out;
+      Sum0.write_data = 1'd1 ? add0.out;
+      upd2[done] = Sum0.done ? 1'd1;
+    }
+    group upd3 {
+      i0.write_en = 1'd1;
+      add1.left = i0.out;
+      add1.right = const2.out;
+      i0.in = 1'd1 ? add1.out;
+      upd3[done] = i0.done ? 1'd1;
+    }
+  }
+  control {
+    seq {
+      let0;
+      while le0.out with cond0 {
+        seq {
+          par {
+            upd0;
+            upd1;
+          }
+          upd2;
+          upd3;
+        }
+      }                                  
+    }
+  }
+}
+"""
 # In general, ports to the wrapper are uppercase, internal registers are lower case.
 
 # Since yxi is still young, keys and formatting change often.
@@ -539,7 +627,7 @@ def add_axi_seq_mem(prog, mem):
     #Control
     read_controller_invoke = invoke(
             axi_seq_mem.get_cell(f"read_controller_{name}"),
-            in_axi_address=address_translator.out,
+            in_axi_address=address_translator.axi_address,
             in_ARESETn=this_component[f"ARESETn"],
             in_ARREADY=this_component[f"ARREADY"],
             in_RVALID=this_component[f"RVALID"],
@@ -557,7 +645,7 @@ def add_axi_seq_mem(prog, mem):
 
     write_controller_invoke = invoke(
             axi_seq_mem.get_cell(f"write_controller_{name}"),
-            in_axi_address=address_translator.out,
+            in_axi_address=address_translator.axi_address,
             in_write_data=this_component["write_data"],
             in_ARESETn=this_component["ARESETn"],
             in_AWREADY=this_component["AWREADY"],
@@ -666,12 +754,13 @@ def add_main_comp(prog, mems):
             # Connect wrapper ports with axi_seq_mem ports
 
             # Read controller portion inputs
-            wrapper_comp.this()[f"{mem_name}_ARESETn"] = axi_mem["ARESETn"] #note that both styles work
-            wrapper_comp.this()[f"{mem_name}_ARREADY"] = axi_mem.ARREADY
-            wrapper_comp.this()[f"{mem_name}_RVALID"] = axi_mem.RVALID
-            wrapper_comp.this()[f"{mem_name}_RLAST"] = axi_mem.RLAST
-            wrapper_comp.this()[f"{mem_name}_RDATA"] = axi_mem.RDATA
-            wrapper_comp.this()[f"{mem_name}_RRESP"] = axi_mem.RRESP
+            axi_mem["ARESETn"] = wrapper_comp.this()[f"{mem_name}_ARESETn"] #note that both styles work
+            # wrapper_comp.this()[f"{mem_name}_ARESETn"] = axi_mem["ARESETn"] #note that both styles work
+            axi_mem.ARREADY = wrapper_comp.this()[f"{mem_name}_ARREADY"]
+            axi_mem.RVALID = wrapper_comp.this()[f"{mem_name}_RVALID"]
+            axi_mem.RLAST = wrapper_comp.this()[f"{mem_name}_RLAST"]
+            axi_mem.RDATA = wrapper_comp.this()[f"{mem_name}_RDATA"]
+            axi_mem.RRESP = wrapper_comp.this()[f"{mem_name}_RRESP"]
             # Read controller outputs
             wrapper_comp.this()[f"{mem_name}_ARVALID"] = axi_mem.ARVALID
             wrapper_comp.this()[f"{mem_name}_ARADDR"] = axi_mem.ARADDR
@@ -679,11 +768,10 @@ def add_main_comp(prog, mems):
             wrapper_comp.this()[f"{mem_name}_ARLEN"] = axi_mem.ARLEN
             wrapper_comp.this()[f"{mem_name}_ARBURST"] = axi_mem.ARBURST
             wrapper_comp.this()[f"{mem_name}_RREADY"] = axi_mem.RREADY
-            wrapper_comp.this()[f"{mem_name}_read_data"] = axi_mem.read_data
             # Write controller inputs
-            wrapper_comp.this()[f"{mem_name}_AWREADY"] = axi_mem.AWREADY
-            wrapper_comp.this()[f"{mem_name}_WREADY"] = axi_mem.WREADY
-            wrapper_comp.this()[f"{mem_name}_BVALID"] = axi_mem.BVALID
+            axi_mem.AWREADY = wrapper_comp.this()[f"{mem_name}_AWREADY"]
+            axi_mem.WREADY = wrapper_comp.this()[f"{mem_name}_WREADY"]
+            axi_mem.BVALID = wrapper_comp.this()[f"{mem_name}_BVALID"]
             # Write controller outputs
             wrapper_comp.this()[f"{mem_name}_AWVALID"] = axi_mem.AWVALID
             wrapper_comp.this()[f"{mem_name}_AWADDR"] = axi_mem.AWADDR
@@ -780,3 +868,5 @@ if __name__ == "__main__":
         yxi = json.load(yxifile)
         mems = yxi["memories"]
         build().emit()
+
+    print(vec_add_main)
