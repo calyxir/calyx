@@ -356,8 +356,12 @@ pub fn build_driver(bld: &mut DriverBuilder) {
 
     // The FIRRTL compiler.
     let firrtl_setup = bld.setup("Firrtl to Verilog compiler", |e| {
-        e.config_var("firrtl-exe", "firrtl.exe")?;
-        e.rule("firrtl", "$firrtl-exe -i $in -o $out -X sverilog")?;
+        // NOTE: Recommend CIRCT firtool version 1.75.0
+        e.config_var("firrtl-exe", "firrtl.firtool")?;
+        e.rule(
+            "firrtl",
+            "$firrtl-exe $in -o $out --disable-all-randomization",
+        )?;
 
         e.rsrc("primitives-for-firrtl.sv")?;
         // adding Verilog implementations of primitives to FIRRTL --> Verilog compiled code
