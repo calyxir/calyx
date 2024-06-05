@@ -4,7 +4,24 @@ use similar::{ChangeTag, TextDiff};
 use std::{fs, path::PathBuf};
 use tempdir::TempDir;
 
+/// The initial file name to copy the input file to.
 const FIRST_FILE_NAME: &str = "SOURCE.futil";
+
+/// The status of a pass in exploration.
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum PassApplicationStatus {
+    /// The pass has been applied
+    Applied,
+
+    /// The pass has been skipped
+    Skipped,
+
+    /// The pass is staged to be applied
+    Incoming,
+
+    /// The pass will be staged for application later
+    Future
+}
 
 pub struct PassExplorer {
     work_dir: TempDir,
@@ -16,6 +33,8 @@ pub struct PassExplorer {
     inc_file_exists: bool
 }
 
+/// A pass explorer can be used to visualize arbitrary pass transformations on
+/// an original input file.
 impl PassExplorer {
     /// Constructs a new pass explorer for exploring how a given pass alias
     /// `pass_alias` transforms an input file `input_file`.
@@ -53,16 +72,44 @@ impl PassExplorer {
         })
     }
 
+    /// The pass most recently applied, if one exists.
     pub fn last_pass(&self) -> Option<String> {
         self.passes_applied
             .last()
             .map(|index| self.passes[*index].clone())
     }
 
+    /// The pass staged to be applied, if one exists.
     pub fn incoming_pass(&self) -> Option<String> {
         self.passes.get(self.index as usize).cloned()
     }
 
+    /// An association of each pass with its current exploration status.
+    pub fn current_pass_application(
+        &self
+    ) -> Vec<(String, PassApplicationStatus)> {
+        let mut result = vec![];
+        let mut walk_applied = 0;
+        for i in 0..self.passes.len() {
+            let pass = self.passes[i].clone();
+            if walk_applied < self.passes_applied.len()
+                && i == self.passes_applied[walk_applied]
+            {
+                result.push((pass, PassApplicationStatus::Applied));
+                walk_applied += 1;
+            } else if i < (self.index as usize) {
+                result.push((pass, PassApplicationStatus::Skipped));
+            } else if i == (self.index as usize) {
+                result.push((pass, PassApplicationStatus::Incoming));
+            } else {
+                result.push((pass, PassApplicationStatus::Future));
+            }
+        }
+        result
+    }
+
+    /// Produces a printable diff showing how the
+    /// [`PassExplorer::incoming_pass`] will transform the current file state.
     pub fn review(
         &mut self, component: Option<String>
     ) -> std::io::Result<Option<String>> {
@@ -102,12 +149,18 @@ impl PassExplorer {
         Ok(Some(output))
     }
 
-    pub fn accept(&mut self) -> std::io::Result<()> {
+    /// Advances to the next pass (if one exists). If `apply`, the incoming pass
+    /// changes will be made. Otherwise, it will be skipped.
+    pub fn advance(&mut self, apply: bool) -> std::io::Result<()> {
         if self.incoming_pass().is_some() {
-            fs::remove_file(self.last_file())?;
-            self.inc_file_exists = false;
-            self.passes_applied.push(self.index as usize);
+            if apply {
+                fs::remove_file(self.last_file())?;
+                self.passes_applied.push(self.index as usize);
+            } else {
+                fs::remove_file(self.incoming_file().unwrap())?;
+            }
             self.index += 1;
+            self.inc_file_exists = false;
         }
         Ok(())
     }
@@ -155,6 +208,8 @@ impl PassExplorer {
         Ok(())
     }
 
+    /// Extracts a component named `component` from a syntactically-correct and
+    /// complete calyx program represented in `file_content`.
     fn filter_component_lines(
         &self, file_content: &str, component: &str
     ) -> String {
