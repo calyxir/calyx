@@ -1,6 +1,6 @@
-import "calyx.rhai" as c;
-import "rtl_sim.rhai" as sim;
-import "testbench.rhai" as tb;
+import "calyx" as c;
+import "rtl_sim" as sim;
+import "testbench" as tb;
 
 let xo = state("xo", ["xo"]);
 let xclbin = state("xclbin", ["xclbin"]);

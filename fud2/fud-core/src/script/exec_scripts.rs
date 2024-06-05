@@ -119,9 +119,9 @@ impl RhaiEmitter {
         todo!()
     }
 
-    fn external_path(&mut self, path: &str) -> Utf8PathBuf {
+    fn external_path(&mut self, path: &str) -> String {
         let utf8_path = Utf8PathBuf::from(path);
-        self.0.borrow().external_path(&utf8_path)
+        self.0.borrow().external_path(&utf8_path).into_string()
     }
 
     fn arg(&mut self, name: &str, value: &str) -> RhaiResult<()> {

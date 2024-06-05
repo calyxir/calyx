@@ -232,7 +232,7 @@ pub struct DriverBuilder {
     rsrc_dir: Option<Utf8PathBuf>,
     rsrc_files: Option<FileData>,
     scripts_dir: Option<Utf8PathBuf>,
-    scripts_files: Option<FileData>,
+    script_files: Option<FileData>,
 }
 
 #[derive(Debug)]
@@ -266,7 +266,7 @@ impl DriverBuilder {
             rsrc_dir: None,
             rsrc_files: None,
             scripts_dir: None,
-            scripts_files: None,
+            script_files: None,
         }
     }
 
@@ -366,16 +366,16 @@ impl DriverBuilder {
         self.scripts_dir = Some(path.into());
     }
 
-    pub fn scripts_files(&mut self, files: FileData) {
-        self.scripts_files = Some(files);
+    pub fn script_files(&mut self, files: FileData) {
+        self.script_files = Some(files);
     }
 
     /// Load any plugin scripts specified in the configuration file.
-    pub fn load_plugins(self) -> Self {
+    pub fn load_plugins(mut self) -> Self {
         // pull out things from self that we need
-        let plugin_dir = self.scripts_dir.clone();
-        // TODO: find a way around this clone
-        let plugin_files = self.scripts_files.clone();
+        let plugin_dir = self.scripts_dir.take();
+        let plugin_files = self.script_files.take();
+
         // TODO: Let's try to avoid loading/parsing the configuration file here and
         // somehow reusing it from wherever we do that elsewhere.
         let config = config::load_config(&self.name);

@@ -15,8 +15,8 @@ fn sim_setup(e) {
 
     // The input data file. `sim.data` is required.
     let data_name = e.config_val("sim.data");
-    let data_path = e.external_path(data_name.as_ref());
-    e.var_("sim_data", data_path.as_str());
+    let data_path = e.external_path(data_name);
+    e.var_("sim_data", data_path);
 
     // Produce the data directory.
     e.var_("datadir", "sim_data");

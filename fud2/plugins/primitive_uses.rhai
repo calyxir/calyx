@@ -1,4 +1,4 @@
-import "calyx.rhai" as c;
+import "calyx" as c;
 
 let primitive_uses_json = state("primitive-uses-json", ["json"]);
 

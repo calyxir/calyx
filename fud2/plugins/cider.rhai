@@ -1,6 +1,6 @@
-import "rtl_sim.rhai" as sim;
-import "testbench.rhai" as tb;
-import "calyx.rhai" as c;
+import "rtl_sim" as sim;
+import "testbench" as tb;
+import "calyx" as c;
 
 let dbg = state("debug", []);
 

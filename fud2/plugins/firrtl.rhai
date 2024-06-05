@@ -1,5 +1,5 @@
-import "calyx.rhai" as c;
-import "testbench.rhai" as tb;
+import "calyx" as c;
+import "testbench" as tb;
 
 // setup for FIRRTL-implemented primitives
 fn firrtl_primitives_setup(e) {

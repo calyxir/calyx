@@ -7,52 +7,107 @@ use std::{
     rc::Rc,
 };
 
+use itertools::Itertools;
 use rhai::EvalAltResult;
 
 use super::{exec_scripts::RhaiResult, report::RhaiReport};
 
 #[derive(Default)]
 pub(super) struct Resolver {
-    files: HashMap<PathBuf, rhai::AST>,
-    modules: RefCell<HashMap<PathBuf, Rc<rhai::Module>>>,
-    failed: RefCell<HashSet<PathBuf>>,
+    files: Vec<(PathBuf, rhai::AST)>,
+    modules: RefCell<HashMap<String, Rc<rhai::Module>>>,
+    failed: RefCell<HashSet<String>>,
 }
 
 #[derive(Debug)]
 enum ResolverError {
     Failed(String),
+    Unknown(String),
 }
 
 impl Display for ResolverError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ResolverError::Failed(m) => write!(f, "Loading {m} failed."),
+            ResolverError::Failed(m) => write!(f, "Loading `{m}` failed."),
+            ResolverError::Unknown(m) => write!(f, "`{m}` was not found."),
         }
     }
 }
 
 impl Error for ResolverError {}
 
+impl From<ResolverError> for Box<EvalAltResult> {
+    fn from(value: ResolverError) -> Box<EvalAltResult> {
+        Box::new(EvalAltResult::ErrorSystem(String::new(), Box::new(value)))
+    }
+}
+
 impl Resolver {
-    pub(super) fn new(files: HashMap<PathBuf, rhai::AST>) -> Self {
-        Self {
-            files,
-            ..Default::default()
-        }
+    pub fn register_path(
+        &mut self,
+        path: PathBuf,
+        ast: rhai::AST,
+    ) -> rhai::AST {
+        // let stem = path.file_stem().unwrap().into();
+        let functions = ast.clone_functions_only();
+        self.files.push((path, ast));
+
+        functions
     }
 
-    fn get(&self, path: &PathBuf) -> Option<Rc<rhai::Module>> {
-        self.modules.borrow().get(path).map(Rc::clone)
+    pub fn register_data(
+        &mut self,
+        name: &'static str,
+        ast: rhai::AST,
+    ) -> rhai::AST {
+        // TODO: normalize the name somehow
+        self.register_path(PathBuf::from(name), ast)
     }
 
-    fn insert(&self, path: PathBuf, module: rhai::Module) -> Rc<rhai::Module> {
+    pub fn paths(&self) -> Vec<PathBuf> {
+        self.files
+            .iter()
+            .map(|(path, _)| path.clone())
+            .sorted()
+            .collect()
+    }
+
+    fn resolve_name(&self, name: &str) -> Option<&rhai::AST> {
+        self.files
+            .iter()
+            .find(|(path, _)| {
+                // if name is directly equal to registered path
+                // or name is equal to the path stem, then return
+                // that ast
+                Some(name) == path.to_str()
+                    || Some(name) == path.file_stem().and_then(|os| os.to_str())
+            })
+            .map(|(_, ast)| ast)
+    }
+
+    fn normalize_name(&self, name: &str) -> String {
+        PathBuf::from(name)
+            .file_stem()
+            .and_then(|x| x.to_str())
+            .map(ToString::to_string)
+            .unwrap()
+    }
+
+    fn get(&self, path: &str) -> Option<Rc<rhai::Module>> {
+        let name = self.normalize_name(path);
+        self.modules.borrow().get(&name).map(Rc::clone)
+    }
+
+    fn insert(&self, path: &str, module: rhai::Module) -> Rc<rhai::Module> {
         let rc_mod = Rc::new(module);
-        self.modules.borrow_mut().insert(path, Rc::clone(&rc_mod));
+        let name = self.normalize_name(path);
+        self.modules.borrow_mut().insert(name, Rc::clone(&rc_mod));
         rc_mod
     }
 
-    fn did_fail(&self, path: &PathBuf) -> RhaiResult<()> {
-        if self.failed.borrow().contains(path) {
+    fn did_fail(&self, path: &str) -> RhaiResult<()> {
+        let name = self.normalize_name(path);
+        if self.failed.borrow().contains(&name) {
             Err(Box::new(EvalAltResult::ErrorSystem(
                 "Failed module loading".to_string(),
                 Box::new(ResolverError::Failed(format!("{path:?}"))),
@@ -62,8 +117,9 @@ impl Resolver {
         }
     }
 
-    fn add_failed(&self, path: PathBuf) {
-        self.failed.borrow_mut().insert(path);
+    fn add_failed(&self, path: &str) {
+        let name = self.normalize_name(path);
+        self.failed.borrow_mut().insert(name);
     }
 }
 
@@ -72,33 +128,33 @@ impl rhai::ModuleResolver for Resolver {
         &self,
         engine: &rhai::Engine,
         _source: Option<&str>,
-        path: &str,
+        name: &str,
         _pos: rhai::Position,
     ) -> RhaiResult<Rc<rhai::Module>> {
-        let path_buf = PathBuf::from(path);
+        let path_buf = PathBuf::from(name);
 
         // if this path has already failed, don't try loading it again
-        self.did_fail(&path_buf)?;
+        self.did_fail(name)?;
 
         // return the module of a path if we have already loaded it
-        if let Some(module) = self.get(&path_buf) {
+        if let Some(module) = self.get(name) {
             Ok(module)
         } else {
             // otherwise, make a new module, cache it, and return it
-            let new_module = rhai::Module::eval_ast_as_new(
-                rhai::Scope::new(),
-                &self.files[&path_buf],
-                engine,
-            );
-
-            match new_module {
-                Ok(n) => Ok(self.insert(path_buf, n)),
-                Err(e) => {
+            self.resolve_name(name)
+                .ok_or(ResolverError::Unknown(name.to_string()).into())
+                .and_then(|ast| {
+                    rhai::Module::eval_ast_as_new(
+                        rhai::Scope::new(),
+                        ast,
+                        engine,
+                    )
+                })
+                .map(|m| self.insert(name, m))
+                .inspect_err(|e| {
                     e.report(&path_buf);
-                    self.add_failed(path_buf);
-                    Err(e)
-                }
-            }
+                    self.add_failed(name)
+                })
         }
     }
 }

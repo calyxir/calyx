@@ -52,7 +52,7 @@ impl RhaiReport for rhai::Position {
                 .eprint((name, Source::from(source)))
                 .unwrap()
         } else {
-            eprintln!("Failed to load plugin {name}");
+            eprintln!("Failed to load plugin: {name}");
             let pos_str = if self.is_none() {
                 "".to_string()
             } else {

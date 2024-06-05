@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
         });
 
         #[cfg(feature = "migrate_to_scripts")]
-        bld.plugin_files({
+        bld.script_files({
             const DIR: include_dir::Dir =
                 include_dir::include_dir!("$CARGO_MANIFEST_DIR/plugins");
             DIR.files()

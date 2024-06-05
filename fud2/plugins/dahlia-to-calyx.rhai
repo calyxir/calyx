@@ -1,4 +1,4 @@
-import "calyx.rhai" as c;
+import "calyx" as c;
 
 export const dahlia = state("dahlia", ["fuse"]);
 

@@ -1,12 +1,9 @@
-use itertools::Itertools;
-
 use crate::{
     exec::{OpRef, SetupRef, StateRef},
     DriverBuilder,
 };
 use std::{
     cell::RefCell,
-    collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
 };
@@ -64,7 +61,8 @@ impl ScriptContext {
 pub struct ScriptRunner {
     builder: Rc<RefCell<DriverBuilder>>,
     engine: rhai::Engine,
-    files: HashMap<PathBuf, rhai::AST>,
+    rhai_functions: rhai::AST,
+    resolver: Option<Resolver>,
 }
 
 impl ScriptRunner {
@@ -72,7 +70,8 @@ impl ScriptRunner {
         let mut this = Self {
             builder: Rc::new(RefCell::new(builder)),
             engine: rhai::Engine::new(),
-            files: HashMap::default(),
+            rhai_functions: rhai::AST::empty(),
+            resolver: Some(Resolver::default()),
         };
         this.reg_state();
         this.reg_get_state();
@@ -84,12 +83,12 @@ impl ScriptRunner {
         &mut self,
         files: impl Iterator<Item = PathBuf>,
     ) -> &mut Self {
-        self.files.extend(files.map(|f| {
-            (
-                f.file_name().unwrap().into(),
-                self.engine.compile_file(f).unwrap(),
-            )
-        }));
+        for f in files {
+            let ast = self.engine.compile_file(f.clone()).unwrap();
+            let functions =
+                self.resolver.as_mut().unwrap().register_path(f, ast);
+            self.rhai_functions = self.rhai_functions.merge(&functions);
+        }
         self
     }
 
@@ -97,14 +96,15 @@ impl ScriptRunner {
         &mut self,
         static_files: impl Iterator<Item = (&'static str, &'static [u8])>,
     ) -> &mut Self {
-        self.files.extend(static_files.map(|(name, data)| {
-            (
-                PathBuf::from(name),
-                self.engine
-                    .compile(String::from_utf8(data.to_vec()).unwrap())
-                    .unwrap(),
-            )
-        }));
+        for (name, data) in static_files {
+            let ast = self
+                .engine
+                .compile(String::from_utf8(data.to_vec()).unwrap())
+                .unwrap();
+            let functions =
+                self.resolver.as_mut().unwrap().register_data(name, ast);
+            self.rhai_functions = self.rhai_functions.merge(&functions);
+        }
         self
     }
 
@@ -179,16 +179,16 @@ impl ScriptRunner {
         );
     }
 
-    fn script_context(&self, path: PathBuf, ast: rhai::AST) -> ScriptContext {
+    fn script_context(&self, path: PathBuf) -> ScriptContext {
         ScriptContext {
             builder: Rc::clone(&self.builder),
             path: Rc::new(path),
-            ast: Rc::new(ast),
+            ast: Rc::new(self.rhai_functions.clone()),
         }
     }
 
-    fn run_file(&mut self, path: &Path, ast: rhai::AST) {
-        let sctx = self.script_context(path.to_path_buf(), ast);
+    fn run_file(&mut self, path: &Path) {
+        let sctx = self.script_context(path.to_path_buf());
         self.reg_rule(sctx.clone());
         self.reg_op(sctx.clone());
 
@@ -204,19 +204,19 @@ impl ScriptRunner {
     }
 
     pub fn run(mut self) -> DriverBuilder {
-        self.engine
-            .set_module_resolver(Resolver::new(self.files.clone()));
+        // take ownership of the resolver
+        let resolver = self.resolver.take().unwrap();
+        // grab the paths from the resolver
+        let paths = resolver.paths();
+        // set our engine to use this resolver
+        self.engine.set_module_resolver(resolver);
 
-        let files: Vec<_> = self
-            .files
-            .iter()
-            .sorted_by_key(|&(p, _)| p)
-            .map(|(p, a)| (p.clone(), a.clone()))
-            .collect();
-        for (p, ast) in files {
-            self.run_file(p.as_path(), ast);
+        // run all the paths we've registered
+        for p in paths {
+            self.run_file(p.as_path());
         }
 
+        // transform self back into a DriverBuilder
         self.into_builder()
     }
 }
