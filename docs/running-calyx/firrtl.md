@@ -21,9 +21,7 @@ The FIRRTL backend is best run through [fud2][], which all of our examples will 
 
 To run FIRRTL-translated programs, we need to set up [Firtool](https://github.com/llvm/circt) for use by fud2. We recommend using [Firtool version 1.75.0](https://github.com/llvm/circt/releases/tag/firtool-1.75.0).
 
-First, download and extract the Firtool binary.
-
-Then, edit `fud2`'s configuration file:
+First, download and extract the Firtool binary. Then, edit `fud2`'s configuration file:
 
     $ fud2 edit-config
 
