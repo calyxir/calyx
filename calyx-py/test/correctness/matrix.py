@@ -4,12 +4,11 @@ def insert_matmul_component(prog):
     matmul = prog.component("main")
 
     A = matmul.comb_mem_d2("A", 32, 4, 4, 3, 3, is_external=True)
-    B = matmul.comb_mem_d2("B", 32, 4, 4, 3, 3, is_external=True)
-    C = matmul.comb_mem_d2("C", 32, 4, 4, 3, 3, is_external=True)
+    B = matmul.seq_mem_d2("B", 32, 4, 4, 3, 3, is_external=True)
+    C = matmul.seq_mem_d2("C", 32, 4, 4, 3, 3, is_external=True)
 
     mult = matmul.mult_pipe(32)
     add = matmul.add(32)
-    smalladd = matmul.add(3)
 
     acc = matmul.reg(32)
 
@@ -22,11 +21,6 @@ def insert_matmul_component(prog):
     j = matmul.reg(3)
     k = matmul.reg(3)
 
-    # lt's
-    lt_i = matmul.lt(3)
-    lt_j = matmul.lt(3)
-    lt_k = matmul.lt(3)
-    
     zero_acc = matmul.reg_store(acc, 0)
     zero_i = matmul.reg_store(i, 0)
     zero_j = matmul.reg_store(j, 0)
