@@ -2,6 +2,7 @@ use super::{OpRef, Operation, Request, Setup, SetupRef, State, StateRef};
 use crate::{config, run, script, utils};
 use camino::{Utf8Path, Utf8PathBuf};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
+use rand::distributions::{Alphanumeric, DistString};
 use std::{collections::HashMap, error::Error, fmt::Display};
 
 #[derive(PartialEq)]
@@ -195,9 +196,23 @@ impl Driver {
             .map(|(op, _)| op)
     }
 
-    /// The working directory to use when running a build.
-    pub fn default_workdir(&self) -> Utf8PathBuf {
+    /// The default working directory name when we want the same directory on every run.
+    pub fn stable_workdir(&self) -> Utf8PathBuf {
         format!(".{}", &self.name).into()
+    }
+
+    /// A new working directory that does not yet exist on the filesystem, for when we
+    /// want to avoid collisions.
+    pub fn fresh_workdir(&self) -> Utf8PathBuf {
+        loop {
+            let rand_suffix =
+                Alphanumeric.sample_string(&mut rand::thread_rng(), 8);
+            let path: Utf8PathBuf =
+                format!(".{}-{}", &self.name, rand_suffix).into();
+            if !path.exists() {
+                return path;
+            }
+        }
     }
 
     /// Print a list of registered states and operations to stdout.
