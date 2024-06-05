@@ -1,7 +1,6 @@
 # calyx-pass
 
 `calyx-pass` (name TBD) is a work-in-progress pass explorer for calyx.
-It is easy to use and yet very flexible.
 This document is a work-in-progress too.
 
 ## Features
