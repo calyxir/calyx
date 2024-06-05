@@ -25,6 +25,7 @@
 - [fud2: Experimental Driver](./running-calyx/fud2.md)
 - [Interfacing with Calyx RTL](./running-calyx/interfacing.md)
 - [The Calyx Interpreter](./running-calyx/interpreter.md)
+- [FIRRTL Backend](./running-calyx/firrtl.md)
 
 # Compiler Development Guide
 
